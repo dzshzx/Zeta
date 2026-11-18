@@ -229,4 +229,24 @@ class Settings(context: Context) {
     var pinnedSessions: Set<String>
         get() = prefs.getStringSet("pinnedSessions", null)?.toSet().orEmpty()
         set(value) = prefs.edit().putStringSet("pinnedSessions", value).apply()
+
+    /** 外观：强调色。coui 是 COUI 默认蓝，monet 跟随壁纸取色，其余是预设色的名字。 */
+    var accent: String
+        get() = prefs.getString("accent", null) ?: "coui"
+        set(value) = prefs.edit().putString("accent", value).apply()
+
+    /** 外观：深色模式下用纯黑背景。 */
+    var pureBlack: Boolean
+        get() = prefs.getBoolean("pureBlack", false)
+        set(value) = prefs.edit().putBoolean("pureBlack", value).apply()
+
+    /** 外观：界面缩放比例（1 为系统默认大小）。 */
+    var interfaceScale: Float
+        get() = prefs.getFloat("interfaceScale", 1f)
+        set(value) = prefs.edit().putFloat("interfaceScale", value).apply()
+
+    /** 对话进行中、Zeta 在前台时保持屏幕常亮。 */
+    var keepScreenOn: Boolean
+        get() = prefs.getBoolean("keepScreenOn", true)
+        set(value) = prefs.edit().putBoolean("keepScreenOn", value).apply()
 }
