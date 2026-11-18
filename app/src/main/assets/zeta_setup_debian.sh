@@ -7,6 +7,9 @@
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
 #   remove <go|node>（root）、remove python（那个用户）  卸载上面装的可选工具
+#   ssh-setup  <用户名>            （root）装 openssh-server，没有现成配置时写一份只听本机、只认公钥的
+#   ssh-status <用户名>            （root）sshd 实际生效的端口、监听地址，已授权的公钥数
+#   ssh-addkey <用户名> <公钥>      （root）把一条公钥加进那个用户的 authorized_keys
 #
 # 以 "@zeta " 开头的输出行是给应用看的：error <原因>；其余是日志。
 set -u
@@ -258,7 +261,7 @@ remove)
   python)
     [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
     export PATH="$HOME/.local/bin:$PATH"
-    command -v uv >/dev/null 2>&1 || fail "没有找到 uv"
+    [ -x "$HOME/.local/bin/uv" ] || fail "这里的 uv 不是 Zeta 装的，没有动它"
     uv python uninstall --all
     uv cache clean >/dev/null 2>&1
     rm -rf "$(uv python dir 2>/dev/null)" "$(uv tool dir 2>/dev/null)"
@@ -268,6 +271,81 @@ remove)
     ;;
   *) fail "不认识的可选工具：${1:-}" ;;
   esac
+  ;;
+
+ssh-setup)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  name=$1
+  home=$(getent passwd "$name" | cut -d: -f6)
+  [ -d "$home" ] || fail "没有用户 $name"
+  if ! [ -x /usr/sbin/sshd ]; then
+    # 先写好配置，再装包：只在本机监听，只认公钥，只让这个用户登录
+    mkdir -p /etc/ssh/sshd_config.d
+    if [ -z "$(ls /etc/ssh/sshd_config.d/*.conf 2>/dev/null)" ]; then
+      printf '%s\n' '# 由 Zeta 写入：只在本机监听。远程访问经 Tailscale 之类转到这个端口。' \
+        'Port 8022' 'ListenAddress 127.0.0.1' 'PermitRootLogin no' 'PasswordAuthentication no' \
+        'KbdInteractiveAuthentication no' 'PubkeyAuthentication yes' "AllowUsers $name" 'X11Forwarding no' \
+        > /etc/ssh/sshd_config.d/10-zeta.conf
+    fi
+    # 安装脚本会想顺手把服务启动起来；这里没有 init，拦住它，由 Zeta 来启动
+    policy=
+    if ! [ -e /usr/sbin/policy-rc.d ]; then
+      printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d && chmod 0755 /usr/sbin/policy-rc.d && policy=1
+    fi
+    [ -x /usr/local/bin/zeta-apt ] || write_apt_helper || fail "写不了 /usr/local/bin/zeta-apt"
+    /usr/local/bin/zeta-apt install openssh-server
+    code=$?
+    [ -n "$policy" ] && rm -f /usr/sbin/policy-rc.d
+    [ $code = 72 ] && fail "软件包数据库有问题，自动修复没有成功"
+    [ $code = 0 ] || fail "安装 openssh-server 失败，请检查网络后重试"
+  fi
+  ssh-keygen -A >/dev/null || fail "生成不了主机密钥"
+  install -d -m 0700 -o "$name" -g "$name" "$home/.ssh"
+  [ -e "$home/.ssh/authorized_keys" ] || install -m 0600 -o "$name" -g "$name" /dev/null "$home/.ssh/authorized_keys"
+  mkdir -p /run/sshd
+  /usr/sbin/sshd -t || fail "sshd 的配置有问题，见上面的输出"
+  echo "SSH 服务已就绪"
+  ;;
+
+ssh-status)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  [ -x /usr/sbin/sshd ] || { echo "installed=0"; exit 0; }
+  echo "installed=1"
+  mkdir -p /run/sshd
+  /usr/sbin/sshd -T 2>/dev/null | awk '
+    $1 == "port" && !p { print "port=" $2; p = 1 }
+    $1 == "listenaddress" && !l { print "listen=" $2; l = 1 }
+    $1 == "passwordauthentication" { print "password=" $2 }'
+  home=$(getent passwd "$1" | cut -d: -f6)
+  count=$(grep -cE '^[^#[:space:]]' "$home/.ssh/authorized_keys" 2>/dev/null)
+  echo "keys=${count:-0}"
+  ;;
+
+ssh-addkey)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  name=$1
+  key=$2
+  home=$(getent passwd "$name" | cut -d: -f6)
+  [ -d "$home" ] || fail "没有用户 $name"
+  tmp=$(mktemp) || fail "建不了临时文件"
+  printf '%s\n' "$key" > "$tmp"
+  if ! ssh-keygen -l -f "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"
+    fail "这不是一条有效的 SSH 公钥（应该是 ssh-ed25519 AAAA… 这样的一行）"
+  fi
+  rm -f "$tmp"
+  install -d -m 0700 -o "$name" -g "$name" "$home/.ssh"
+  file="$home/.ssh/authorized_keys"
+  [ -e "$file" ] || install -m 0600 -o "$name" -g "$name" /dev/null "$file"
+  body=$(printf '%s\n' "$key" | awk '{print $1 " " $2}')
+  if grep -qF "$body" "$file"; then
+    echo "这条公钥已经在里面了"
+  else
+    # 原文件末尾没有换行的话先补上，免得两条公钥连成一行
+    [ -s "$file" ] && [ -n "$(tail -c 1 "$file")" ] && echo >> "$file"
+    printf '%s\n' "$key" >> "$file"
+    echo "已添加"
+  fi
   ;;
 
 *)

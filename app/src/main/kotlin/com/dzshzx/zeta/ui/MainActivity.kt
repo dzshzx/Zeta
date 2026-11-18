@@ -34,6 +34,7 @@ import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import com.dzshzx.zeta.ui.setup.PhoneScreen
+import com.dzshzx.zeta.ui.setup.SshScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var hub: ConversationHub
@@ -85,7 +86,8 @@ private fun ZetaApp(hub: ConversationHub) {
     var showInstall by rememberSaveable { mutableStateOf(false) }
     var showLogin by rememberSaveable { mutableStateOf(false) }
     var showPhone by rememberSaveable { mutableStateOf(false) }
-    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone
+    var showSsh by rememberSaveable { mutableStateOf(false) }
+    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone || showSsh
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !overlay,
@@ -130,8 +132,15 @@ private fun ZetaApp(hub: ConversationHub) {
     Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }, onOpenPhone = { showPhone = true }) }
     Page(showPhone) { PhoneScreen(hub = hub, onBack = { showPhone = false }) }
     Page(showLinux) {
-        LinuxScreen(hub = hub, onBack = { showLinux = false }, onOpenInstall = { showInstall = true }, onOpenLogin = { showLogin = true })
+        LinuxScreen(
+            hub = hub,
+            onBack = { showLinux = false },
+            onOpenInstall = { showInstall = true },
+            onOpenLogin = { showLogin = true },
+            onOpenSsh = { showSsh = true },
+        )
     }
+    Page(showSsh) { SshScreen(hub = hub, onBack = { showSsh = false }) }
     Page(showInstall) { EnvInstallScreen(hub = hub, onBack = { showInstall = false }, onOpenLogin = { showLogin = true }) }
     Page(showLogin) { LoginScreen(hub = hub, onBack = { showLogin = false }) }
     // 返回键一层一层退：最上面的页面先关
@@ -142,6 +151,7 @@ private fun ZetaApp(hub: ConversationHub) {
                 showLogin = false
             }
             showInstall -> showInstall = false
+            showSsh -> showSsh = false
             showPhone -> showPhone = false
             showLinux -> showLinux = false
             else -> showSettings = false

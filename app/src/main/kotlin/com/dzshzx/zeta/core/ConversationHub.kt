@@ -98,6 +98,13 @@ class ConversationHub(private val app: Application) {
 
     /** 安装 Debian 环境、登录 Claude 账号。 */
     val installer = EnvInstaller(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
+    private val sshService = SshService(installer) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
+
+    /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
+    var ssh by mutableStateOf<SshStatus?>(null)
+        private set
+    var sshWorking by mutableStateOf(false)
+        private set
     val login = LoginFlow(this)
 
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
@@ -291,6 +298,7 @@ class ConversationHub(private val app: Application) {
         env = null
         account = null
         health = null
+        ssh = null
         sessions = emptyList()
         current = blank()
         checkSetup()
@@ -356,6 +364,47 @@ class ConversationHub(private val app: Application) {
     fun installPython() = runMaintenance("安装 Python / uv", asRoot = false, command = installer.optionalCommand("python")) { checkHealth() }
 
     fun installGo() = runMaintenance("安装 Go", asRoot = true, command = installer.optionalCommand("go")) { checkHealth() }
+
+    fun refreshSsh() {
+        val config = settings.env ?: return
+        thread(name = "zeta-ssh", isDaemon = true) {
+            val status = sshService.status(config)
+            main.post { if (settings.env?.rootfs == config.rootfs) ssh = status }
+        }
+    }
+
+    /** 启动、停止、开机自启这类很快的操作；不成功时把原因放进维护卡片。 */
+    private fun sshAction(title: String, action: (LinuxEnvConfig) -> String?) {
+        val config = settings.env ?: return
+        if (sshWorking) return
+        sshWorking = true
+        thread(name = "zeta-ssh", isDaemon = true) {
+            val problem = runCatching { action(config) }.getOrElse { it.message ?: "没有成功" }
+            val status = sshService.status(config)
+            main.post {
+                sshWorking = false
+                ssh = status
+                if (problem != null) maintenance = Maintenance(title, running = false, detail = problem, ok = false)
+            }
+        }
+    }
+
+    fun startSsh() = sshAction("启动 SSH 服务") { sshService.start(it) }
+
+    fun stopSsh() = sshAction("停止 SSH 服务") { sshService.stop(it) }
+
+    fun setSshAutostart(on: Boolean) = sshAction("开机自动启动") { sshService.autostart(it, on) }
+
+    fun setupSsh() {
+        val user = settings.env?.user ?: return
+        runMaintenance("安装 SSH 服务", asRoot = true, command = installer.optionalCommand("ssh-setup") + " " + LinuxEnv.quote(user)) { refreshSsh() }
+    }
+
+    fun addSshKey(key: String) {
+        val user = settings.env?.user ?: return
+        val line = key.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: return
+        runMaintenance("添加公钥", asRoot = true, command = installer.optionalCommand("ssh-addkey") + " " + LinuxEnv.quote(user) + " " + LinuxEnv.quote(line)) { refreshSsh() }
+    }
 
     /** 卸载一样可选工具：go / node / python。 */
     fun removeOptional(name: String) = runMaintenance(

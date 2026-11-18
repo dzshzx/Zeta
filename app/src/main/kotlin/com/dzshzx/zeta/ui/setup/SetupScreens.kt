@@ -57,7 +57,7 @@ private enum class LinuxEdit { Rootfs, Cwd }
 
 /** Linux 环境的管理页：用哪个环境、安装、体检与修复、Claude Code 的版本和账号。 */
 @Composable
-internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall: () -> Unit, onOpenLogin: () -> Unit) {
+internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall: () -> Unit, onOpenLogin: () -> Unit, onOpenSsh: () -> Unit) {
     val env = hub.env
     val ready = hub.setup == SetupState.Ready && env != null
     var editing by remember { mutableStateOf<LinuxEdit?>(null) }
@@ -70,7 +70,10 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     removing?.let { lastRemoving = it }
     val own = hub.ownStatus
     val maintenance = hub.maintenance
-    LaunchedEffect(ready, env?.rootfs) { if (ready && hub.health == null) hub.checkHealth() }
+    LaunchedEffect(ready, env?.rootfs) {
+        if (ready && hub.health == null) hub.checkHealth()
+        if (ready && hub.ssh == null) hub.refreshSsh()
+    }
 
     CouiScaffoldPage(title = "Linux 环境", onBack = onBack) {
         Group(
@@ -188,6 +191,19 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     value = if (health == null) "…" else if (health.node.isBlank()) "安装" else "已安装",
                     enabled = maintenance?.running != true && health != null,
                     onClick = if (health?.node.isNullOrBlank()) hub::installNode else ({ removing = "node" }),
+                )
+            }
+            Group(title = "远程访问") {
+                val ssh = hub.ssh
+                CouiPreference(
+                    title = "SSH 服务",
+                    summary = when {
+                        ssh == null -> "从终端应用或别的设备连进这个环境"
+                        !ssh.installed -> "未安装"
+                        ssh.running -> "运行中 · " + ssh.listen.ifBlank { "端口 " + ssh.port }
+                        else -> "未运行"
+                    },
+                    onClick = onOpenSsh,
                 )
             }
             val account = hub.account
