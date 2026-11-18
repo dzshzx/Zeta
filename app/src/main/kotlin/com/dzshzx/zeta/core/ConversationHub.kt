@@ -6,6 +6,7 @@ import android.app.Application
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -29,6 +30,20 @@ class ConversationHub(private val app: Application) {
 
     var phoneTools by mutableStateOf(settings.phoneTools)
         private set
+
+    /**
+     * 顶部状态胶囊要显示的对话：正在用手机工具的那个（几个都在用时取最近操作的），没有时为 null。
+     * 可观察（随对话、手机工具、界面前后台的状态自动更新），在主线程上读。挑法见 [pickFocus]。
+     */
+    val overlayFocus: com.dzshzx.zeta.phone.OverlayFocus? get() = focusState.value
+
+    private val focusState = derivedStateOf { pickFocus() }
+
+    /** 刚结束一轮、胶囊还停留着显示“已完成”的那个，及那一句。 */
+    private class Linger(val focus: ConversationFocus, val text: String)
+
+    private var linger by mutableStateOf<Linger?>(null)
+    private val endLinger = Runnable { linger = null }
 
     var backgroundScreen by mutableStateOf(settings.backgroundScreen)
         private set
@@ -153,17 +168,28 @@ class ConversationHub(private val app: Application) {
     /** 界面是否在前台；不在前台时一轮结束或需要批准会发通知。 */
     private val startedActivities = HashSet<Activity>()
 
-    /** 界面是否正在显示。按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。 */
-    val foreground: Boolean get() = startedActivities.isNotEmpty()
+    /**
+     * 界面是否正在显示（可观察：胶囊据此避开正显示着同一对话的聊天页）。
+     * 按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。
+     */
+    var foreground by mutableStateOf(false)
+        private set
 
     init {
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
                 startedActivities.add(activity)
+                foreground = true
                 Notifier.clearAlert(app)
             }
-            override fun onActivityStopped(activity: Activity) { startedActivities.remove(activity) }
-            override fun onActivityDestroyed(activity: Activity) { startedActivities.remove(activity) }
+            override fun onActivityStopped(activity: Activity) {
+                startedActivities.remove(activity)
+                foreground = startedActivities.isNotEmpty()
+            }
+            override fun onActivityDestroyed(activity: Activity) {
+                startedActivities.remove(activity)
+                foreground = startedActivities.isNotEmpty()
+            }
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
             override fun onActivityResumed(activity: Activity) = Unit
             override fun onActivityPaused(activity: Activity) = Unit
@@ -171,8 +197,15 @@ class ConversationHub(private val app: Application) {
         })
     }
 
-    /** 切走时还没做完的对话，按 sessionId（没有则按 key）保留到这一轮结束。 */
+    /** 切走时还没做完的对话，按 sessionId（没有则按 key）保留到这一轮结束。改了以后调用 [backgroundChanged]。 */
     private val background = LinkedHashMap<String, Conversation>()
+
+    /** [background] 里的对话的一份可观察副本（胶囊据此挑对话）。 */
+    private var backgroundList by mutableStateOf<List<Conversation>>(emptyList())
+
+    private fun backgroundChanged() {
+        backgroundList = background.values.toList()
+    }
     private val main = Handler(Looper.getMainLooper())
 
     private fun blank() = Conversation(this, settings.env?.defaultCwd ?: "/workspace", sessionId = null, title = "", historyFile = null)
@@ -255,6 +288,7 @@ class ConversationHub(private val app: Application) {
                         background[conversation.sessionId ?: conversation.key] = conversation
                     }
                 }
+                backgroundChanged()
                 onActivityChanged()
             }
         }
@@ -320,6 +354,7 @@ class ConversationHub(private val app: Application) {
         current.shutdown()
         background.values.forEach { it.shutdown() }
         background.clear()
+        backgroundChanged()
         // 换了环境，原来的会话都不再接着用：后台屏幕一并收掉
         synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
         settings.env = null
@@ -470,7 +505,26 @@ class ConversationHub(private val app: Application) {
                 this, summary.cwd.ifBlank { settings.env?.defaultCwd ?: "/workspace" }, summary.id,
                 summary.title.ifBlank { summary.preview.take(40) }, summary.file, external = summary.external,
             )
+        backgroundChanged()
         prunePhones()
+    }
+
+    /**
+     * 胶囊上的“在 Zeta 中打开”：切到会话 [key]（sessionId，新对话用它的 key）。
+     * 还在后台跑的直接接过来；已经收掉的按会话列表重新打开；都找不到就不动。在主线程上调用。
+     */
+    fun openConversation(key: String) {
+        if (current.sessionId == key || current.key == key) return
+        val running = background[key]
+        if (running != null) {
+            leaveCurrent()
+            background.remove(key)
+            current = running
+            backgroundChanged()
+            prunePhones()
+            return
+        }
+        sessions.firstOrNull { it.id == key }?.let(::open)
     }
 
     fun delete(summary: SessionSummary) {
@@ -480,6 +534,7 @@ class ConversationHub(private val app: Application) {
             current = blank()
         }
         background.remove(summary.id)?.shutdown()
+        backgroundChanged()
         synchronized(phones) { phones.remove(summary.id) }?.destroy()
         prunePhones()
         sessions = sessions.filterNot { it.id == summary.id }
@@ -494,6 +549,7 @@ class ConversationHub(private val app: Application) {
         val leaving = current
         if (leaving.busy || leaving.pending != null || leaving.backgroundTasks > 0) {
             background[leaving.sessionId ?: leaving.key] = leaving
+            backgroundChanged()
         } else {
             leaving.shutdown()
         }
@@ -523,6 +579,7 @@ class ConversationHub(private val app: Application) {
         if (background[from] !== conversation) return
         background.remove(from)
         background[to] = conversation
+        backgroundChanged()
     }
 
     /** 丢掉没有后台屏幕、也没有对话在用的那些，免得登记越积越多。在主线程上调用。 */
@@ -551,6 +608,44 @@ class ConversationHub(private val app: Application) {
             .forEach { it.evictBackground() }
     }
 
+    /**
+     * 胶囊显示谁：
+     * - 刚结束一轮的那个先停留 [FINISHED_LINGER_MS]（显示“已完成”），期间它又开始了就照常显示；
+     * - 否则在进行中、这一轮用过手机（看屏或动手）的对话，以及暂停着、用户正接管着的对话里，
+     *   接管着的优先，其余取最近用手机的；
+     * - Zeta 的聊天页正显示着这个对话、它又没有后台屏幕时不显示（聊天页上已经看得到进度，照 Eta）。
+     * 只读可观察的状态，由 [focusState] 缓存。
+     */
+    private fun pickFocus(): ConversationFocus? {
+        val shown = current
+        val chatVisible = foreground
+        fun visible(c: Conversation) = !(chatVisible && c === shown && c.phone.background == null)
+        linger?.focus?.takeIf { !it.conversation.busy && visible(it.conversation) }?.let { return it }
+        return (listOf(shown) + backgroundList).distinct()
+            .filter { c ->
+                val phone = c.phone
+                (phone.userControlling || phone.paused || (c.busy && phone.engagedThisTurn)) && visible(c)
+            }
+            .maxWithOrNull(compareBy<Conversation> { it.phone.userControlling }.thenBy { it.phone.engagedAt })
+            ?.overlay
+    }
+
+    /** [focus] 正停留在“已完成”时的那一句，否则为 null。 */
+    internal fun finishingText(focus: ConversationFocus): String? =
+        linger?.takeIf { it.focus === focus && !focus.conversation.busy }?.text
+
+    /**
+     * 对话的这一轮就要结束（还没清 busy 和手机工具的状态）。正显示在胶囊上的话，先停留一会儿显示 [text]（“已完成”）。
+     * 在主线程上调用。
+     */
+    internal fun onTurnEnding(conversation: Conversation, text: String) {
+        val focus = conversation.overlay
+        if (focusState.value !== focus) return
+        linger = Linger(focus, text)
+        main.removeCallbacks(endLinger)
+        main.postDelayed(endLinger, FINISHED_LINGER_MS)
+    }
+
     /** [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒“已完成”。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
         if (conversation !== current) retireWhenIdle(conversation)
@@ -574,6 +669,7 @@ class ConversationHub(private val app: Application) {
         main.postDelayed({
             if (conversation !== current && !conversation.busy && conversation.backgroundTasks == 0 && conversation.pending == null) {
                 background.values.remove(conversation)
+                backgroundChanged()
                 conversation.shutdown()
                 prunePhones()
             }
@@ -606,6 +702,9 @@ class ConversationHub(private val app: Application) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
         private const val RETIRE_DELAY_MS = 5_000L
+
+        /** 一轮结束后胶囊停留显示“已完成”多久。 */
+        private const val FINISHED_LINGER_MS = 2_000L
 
         /** 全应用最多同时留几块后台屏幕：每块都连着一个 root 辅助进程和屏上开着的应用，太多了内存吃不消。 */
         private const val MAX_SCREENS = 3

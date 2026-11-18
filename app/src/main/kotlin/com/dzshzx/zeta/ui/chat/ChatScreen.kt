@@ -413,7 +413,10 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         ) {
             var viewingScreen by remember { mutableStateOf(false) }
-            BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
+            // 顶部胶囊正显示这个对话时，后台屏幕在胶囊里看和接管，这里不再重复一条
+            if (hub.overlayFocus !== conversation.overlay) {
+                BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
+            }
             if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }
             QueueStrip(
                 queued = conversation.queued,

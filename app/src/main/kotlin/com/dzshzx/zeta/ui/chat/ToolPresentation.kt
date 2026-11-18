@@ -97,3 +97,6 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
 }
 
 internal fun ToolStep.presentation(): ToolPresentation = presentTool(name, input)
+
+/** 一次工具调用的一行标题，和聊天列表里的一样（顶部状态胶囊也用）。 */
+internal fun toolTitle(name: String, input: JsonObject?): String = presentTool(name, input).title

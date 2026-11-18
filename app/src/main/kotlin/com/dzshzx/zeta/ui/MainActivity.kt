@@ -1,10 +1,14 @@
 package com.dzshzx.zeta.ui
 
 import android.Manifest
+import android.app.ActivityOptions
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -25,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
@@ -48,6 +53,8 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         acceptShared(intent)
+        // 界面重建时 intent 还是原来那个，不再切一次
+        if (savedInstanceState == null) acceptConversation(intent)
         setContent {
             val dark = hub.darkTheme ?: isSystemInDarkTheme()
             // 状态栏、导航栏的图标深浅跟着应用自己的主题走，而不是系统的
@@ -63,6 +70,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         acceptShared(intent)
+        acceptConversation(intent)
+    }
+
+    /** 从顶部状态胶囊打开：切到那个对话。 */
+    private fun acceptConversation(intent: Intent?) {
+        val key = intent?.getStringExtra(EXTRA_CONVERSATION) ?: return
+        intent.removeExtra(EXTRA_CONVERSATION)
+        hub.openConversation(key)
     }
 
     /** 别的应用把图片或文件分享过来：交给当前对话的输入栏。 */
@@ -76,6 +91,52 @@ class MainActivity : ComponentActivity() {
         intent.action = Intent.ACTION_MAIN
     }
 
+    companion object {
+        private const val EXTRA_CONVERSATION = "com.dzshzx.zeta.extra.CONVERSATION"
+
+        /** 打开 Zeta 并切到对话 [key]（sessionId，新对话用它的 key）。可以在应用不在前台时调用。 */
+        /**
+         * 打开 Zeta 并切到对话 [key]。从胶囊上调用时 Zeta 在后台，直接 startActivity 会被后台启动限制拦下（不报错，任务就是不上来）：
+         * 照 Eta 用 PendingIntent 发，声明“胶囊这个可见窗口在，就允许”。[displayId] 不是 0 时（调试用的“主屏”）开到那块屏上。
+         */
+        fun openConversation(context: Context, key: String, displayId: Int = 0) {
+            val intent = Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(EXTRA_CONVERSATION, key)
+            val mode = if (Build.VERSION.SDK_INT >= 36) {
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+            } else {
+                @Suppress("DEPRECATION")
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+            val creator = ActivityOptions.makeBasic().apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) pendingIntentCreatorBackgroundActivityStartMode = mode
+            }
+            val sender = ActivityOptions.makeBasic().apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) pendingIntentBackgroundActivityStartMode = mode
+                if (displayId != 0) launchDisplayId = displayId
+            }
+            val pending = PendingIntent.getActivity(
+                context, OPEN_CONVERSATION_REQUEST, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE, creator.toBundle(),
+            )
+            runCatching { pending.send(context, 0, null, null, null, null, sender.toBundle()) }
+                .onFailure { runCatching { context.startActivity(intent, sender.toBundle()) } }
+        }
+
+        /**
+         * 经 root 打开（[openConversation] 被拦下时的兜底）。MIUI 另有一道“后台弹出界面”权限，Zeta 没有时上面那次
+         * 系统照样回“已送达”，界面却不会到前台。root 的 am start 不受这道限制。在后台线程上调用。
+         */
+        fun openConversationAsRoot(context: Context, key: String, displayId: Int = 0) {
+            val display = if (displayId != 0) " --display $displayId" else ""
+            val script = "am start --activity-single-top -n \"\$2\" --es \"\$3\" \"\$4\"$display >/dev/null 2>&1"
+            val component = context.packageName + "/" + MainActivity::class.java.name
+            runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(script, component, EXTRA_CONVERSATION, key), 10_000) }
+        }
+
+        private const val OPEN_CONVERSATION_REQUEST = 7
+    }
 }
 
 @Composable

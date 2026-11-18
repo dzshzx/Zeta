@@ -131,6 +131,9 @@ class Conversation(
      * Claude Code 还有后台任务在跑也算忙：后台屏幕不休眠、不被腾掉。
      */
     val phone = hub.phoneFor(sessionId ?: key).also { it.attach(busy = { busy || backgroundTasks > 0 }, onChanged = { hub.onActivityChanged() }) }
+
+    /** 顶部状态胶囊看到的这个对话。 */
+    internal val overlay = ConversationFocus(hub, this)
     private val drainScheduled = AtomicBoolean(false)
     private var requestSeq = 0
 
@@ -264,6 +267,8 @@ class Conversation(
 
     /** 停止：排队的消息一并撤回放回输入框（和 Claude Code 终端里按 Esc 一样），再打断当前这一轮。 */
     fun interrupt() {
+        // 暂停、接管着的手机操作一并作废，否则放开后它会接着点下去
+        phone.cancelWaiting()
         val process = process ?: return
         if (!busy) return
         for (message in queued) cancelQueued(message.uuid, recall = true)
@@ -278,6 +283,7 @@ class Conversation(
     fun steerNow() {
         val process = process ?: return
         if (!busy || queued.isEmpty() || steering) return
+        phone.cancelWaiting()
         steering = true
         interruptRequested = true
         process.send(controlRequest { put("subtype", "interrupt") })
@@ -482,13 +488,20 @@ class Conversation(
                     status = "请求出错，正在重试" + (event.int("attempt")?.let { "（第 $it 次）" } ?: "")
                 }
             }
-            "stream_event" -> if (!fromSubagent) {
-                event.obj("event")?.let { reducer.applyStream(it, now) }
-                return true
+            "stream_event" -> {
+                // 新回复开始：手机工具的控件编号从这里起换成上一批结果里的那份（子代理的回复也算）
+                event.obj("event")?.takeIf { it.str("type") == "message_start" }?.obj("message")?.str("id")?.let(phone::onReply)
+                if (!fromSubagent) {
+                    event.obj("event")?.let { reducer.applyStream(it, now) }
+                    return true
+                }
             }
-            "assistant" -> if (!fromSubagent) {
-                event.obj("message")?.let(reducer::applyAssistant)
-                return true
+            "assistant" -> {
+                event.obj("message")?.str("id")?.let(phone::onReply)
+                if (!fromSubagent) {
+                    event.obj("message")?.let(reducer::applyAssistant)
+                    return true
+                }
             }
             "user" -> if (!fromSubagent) {
                 event.obj("message")?.let { reducer.applyUser(it, replay = false) }
@@ -535,6 +548,8 @@ class Conversation(
                 // 还有排队的消息就会接着另起一轮
                 val turnOver = if (lifecycleSeen) queued.isEmpty() else turnsInFlight == 0
                 if (turnOver) {
+                    // 先于 busy 和手机工具的状态清掉：胶囊要据此判断结束的是不是正显示着的那个
+                    hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
                     busy = false
                     phone.onTurnEnded()
                     hub.onTurnFinished(this, stopped)
@@ -617,6 +632,7 @@ class Conversation(
         process = null
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
+        if (busy) hub.onTurnEnding(this, "已中断")
         phone.detach()
         val wasBusy = busy
         endTurnState()

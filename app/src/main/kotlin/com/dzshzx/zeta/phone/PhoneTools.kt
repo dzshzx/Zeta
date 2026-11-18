@@ -16,6 +16,7 @@ import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.LinuxEnv
@@ -36,8 +37,17 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
+import kotlin.concurrent.withLock
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -83,8 +93,14 @@ class PhoneTools(
 
     private class Seen(val node: AccessibilityNodeInfo, val bounds: Rect)
 
-    /** 上一次列出来的控件，供按编号操作。 */
-    private var seen: List<Seen> = emptyList()
+    /**
+     * 按编号操作用的控件列表：Claude 这条回复看到的那一份。
+     * 动作之后交回去的新列表，Claude 要到下一条回复才看得到，先放在 [latest]。同一条回复里一起发出的几个动作都照这一份编号，
+     * 不然前一个动作改了界面、编号挪了位，后一个就点错（按 C 之后再点“1”，点到的是“2”）。
+     */
+    @Volatile private var seen: List<Seen> = emptyList()
+    @Volatile private var latest: List<Seen> = emptyList()
+    @Volatile private var replyId: String? = null
     private val lock = Any()
 
     /** 主屏的编号。平时是 0；调试时可以经设置指到别的屏上，免得测试打扰正在用手机的人。 */
@@ -140,6 +156,272 @@ class PhoneTools(
         return null
     }
 
+    // ---- 悬浮层（顶部胶囊、主屏边缘光）用的状态 ----
+
+    /** 一次正在进行的手机工具调用，用人话说是在做什么（“点按「搜索」”）。[toolUseId] 对上聊天里正在跑的那一步时胶囊用它。 */
+    data class CallInfo(val toolUseId: String?, val tool: String, val text: String)
+
+    /** 这一轮看过屏或动过手（screen、tap、open_app 这些，不含 shell、find_apps）。胶囊据此挑对话。一轮结束时清掉。 */
+    var engagedThisTurn by mutableStateOf(false)
+        private set
+
+    /** 最近一次看屏或动手的时间；几个对话都在用手机时，胶囊显示最近的那个。 */
+    var engagedAt by mutableLongStateOf(0L)
+        private set
+
+    /** 这一轮最近一次动手是在主屏上（主屏边缘光据此显示）。 */
+    var actingOnMain by mutableStateOf(false)
+        private set
+
+    /** 最近一次手机工具调用（这一轮内）。 */
+    var currentCall by mutableStateOf<CallInfo?>(null)
+        private set
+
+    /** 用户点了暂停：之后的手机工具调用先等着。只在主线程上改，下同。 */
+    var paused by mutableStateOf(false)
+        private set
+
+    /** 用户在胶囊的展开画面上接管了后台屏幕：Claude 的手机工具调用先等着，直到交还。 */
+    var userControlling by mutableStateOf(false)
+        private set
+
+    private val touchFlow = MutableSharedFlow<TouchMark>(extraBufferCapacity = 16)
+
+    /** Claude 和用户的每次点按、长按、滑动，坐标按所在屏幕归一化。 */
+    val touches: SharedFlow<TouchMark> = touchFlow
+
+    /**
+     * 暂停 / 接管的闸门：工具线程在 [awaitGate] 里等，主线程在 [setControl] 里开关。
+     * 不用 [lock]：等着的时候用户在后台屏幕上的手势要拿 [lock]。
+     */
+    private val gate = ReentrantLock()
+    private val gateChanged = gate.newCondition()
+    private var held = false
+
+    /** 每作废一次加一：在闸门前等着的调用发现变了就不再执行，把 [cancelReason] 交回去。 */
+    private var stopGeneration = 0
+    private var cancelReason = ""
+
+    /** 用户在后台屏幕上动过手：下一次看屏 / 动手时旧的控件编号作废，并告诉 Claude。 */
+    private val touchedByUser = AtomicBoolean(false)
+
+    /** 用户做了 Claude 不知道的事（比如把应用移到了主屏），下一次看屏 / 动手时附在结果前面。 */
+    private val userNotes = ConcurrentLinkedQueue<String>()
+
+    private fun onMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block)
+    }
+
+    /** 在主线程上调用。[cancel]：在闸门前等着的调用作废，这是交给 Claude 的原因。 */
+    private fun setControl(pause: Boolean, control: Boolean, cancel: String? = null) {
+        paused = pause
+        userControlling = control
+        gate.withLock {
+            held = pause || control
+            if (cancel != null) {
+                stopGeneration++
+                cancelReason = cancel
+            }
+            gateChanged.signalAll()
+        }
+    }
+
+    /** 暂停或接管时在这里等（工具线程上，不持 [lock]）。返回不该执行的原因，可以执行时返回 null。 */
+    private fun awaitGate(): String? = gate.withLock {
+        if (!held) return null
+        val generation = stopGeneration
+        var left = TimeUnit.MINUTES.toNanos(GATE_TIMEOUT_MINUTES)
+        while (held && stopGeneration == generation) {
+            if (left <= 0) {
+                return "用户暂停了手机操作，$GATE_TIMEOUT_MINUTES 分钟内没有继续，这次操作没有执行。先别再操作手机，在回复里告诉用户做到哪一步了、还差什么"
+            }
+            left = gateChanged.awaitNanos(left)
+        }
+        if (stopGeneration != generation) cancelReason else null
+    }
+
+    /** 胶囊上的“暂停”：Claude 下一次手机操作起先等着。 */
+    fun pauseByUser() = setControl(pause = true, control = false)
+
+    /** 胶囊上的接管：用户在展开画面上自己操作后台屏幕，Claude 的手机操作先等着。没有后台屏幕时不接管。 */
+    fun takeOverByUser() {
+        if (background == null) return
+        setControl(pause = false, control = true)
+    }
+
+    /** 继续 / 交还给 Claude。 */
+    fun resumeByUser() = setControl(pause = false, control = false)
+
+    /** 停止这一轮（或别的原因 [reason]）：闸门前等着的调用作废，暂停和接管都解除。 */
+    fun cancelWaiting(reason: String = STOPPED) = setControl(pause = false, control = false, cancel = reason)
+
+    /** 用户在展开画面上点按（坐标按画面归一化），作用在后台屏幕上；没在接管就先接管。在主线程上调用。 */
+    fun userTap(x: Float, y: Float, longPress: Boolean) {
+        val screen = background ?: return
+        if (!userControlling) takeOverByUser()
+        val nx = x.coerceIn(0f, 1f)
+        val ny = y.coerceIn(0f, 1f)
+        touchFlow.tryEmit(TouchMark(onBackground = true, x = nx, y = ny, longPress = longPress, byUser = true))
+        touchedByUser.set(true)
+        val px = (nx * (screen.width - 1)).roundToInt()
+        val py = (ny * (screen.height - 1)).roundToInt()
+        val duration = if (longPress) USER_LONG_PRESS_MS else USER_TAP_MS
+        userGestures.execute {
+            dispatchByUser(
+                screen, Path().apply { moveTo(px.toFloat(), py.toFloat()) }, duration,
+                if (longPress) "input -d ${screen.displayId} swipe $px $py $px $py $duration" else "input -d ${screen.displayId} tap $px $py",
+            )
+        }
+    }
+
+    /** 用户在展开画面上滑动。在主线程上调用。 */
+    fun userSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Int) {
+        val screen = background ?: return
+        if (!userControlling) takeOverByUser()
+        val sx = startX.coerceIn(0f, 1f)
+        val sy = startY.coerceIn(0f, 1f)
+        val ex = endX.coerceIn(0f, 1f)
+        val ey = endY.coerceIn(0f, 1f)
+        touchFlow.tryEmit(TouchMark(onBackground = true, x = sx, y = sy, endX = ex, endY = ey, swipe = true, byUser = true))
+        touchedByUser.set(true)
+        val x1 = (sx * (screen.width - 1)).roundToInt()
+        val y1 = (sy * (screen.height - 1)).roundToInt()
+        val x2 = (ex * (screen.width - 1)).roundToInt()
+        val y2 = (ey * (screen.height - 1)).roundToInt()
+        val duration = durationMs.coerceIn(100, 2000).toLong()
+        userGestures.execute {
+            dispatchByUser(
+                screen, Path().apply { moveTo(x1.toFloat(), y1.toFloat()); lineTo(x2.toFloat(), y2.toFloat()) }, duration,
+                "input -d ${screen.displayId} swipe $x1 $y1 $x2 $y2 $duration",
+            )
+        }
+    }
+
+    /** 用户的手势（[userGestures] 的线程上，按先后一个个做）：拿着 [lock]，不和 Claude 正在做的动作交错。 */
+    private fun dispatchByUser(screen: VirtualScreen, path: Path, durationMs: Long, fallback: String) {
+        synchronized(lock) {
+            if (screenRef !== screen || !screen.alive) return
+            if (screen.asleep.value && !screen.wake()) return
+            if (ZetaAccessibilityService.instance?.gesture(screen.displayId, path, durationMs) == true) return
+            root(fallback)
+        }
+    }
+
+    /** 胶囊上的“全屏”：把后台屏幕上的应用移到主屏。用户正在接管的话改为暂停，免得 Claude 接着在主屏上和用户抢。 */
+    fun handoffToMainByUser() {
+        if (userControlling) setControl(pause = true, control = false)
+        moveToMainByUser()
+    }
+
+    /** 一轮结束、进程结束或销毁：清掉这一轮的悬浮层状态，等着的调用作废。 */
+    private fun resetOverlay() = onMain {
+        engagedThisTurn = false
+        actingOnMain = false
+        currentCall = null
+        setControl(pause = false, control = false, cancel = STOPPED)
+    }
+
+    /** 这次调用看屏或动手了（工具线程上）。 */
+    private fun engage() {
+        val now = System.currentTimeMillis()
+        main.post {
+            engagedThisTurn = true
+            engagedAt = now
+        }
+    }
+
+    /** Claude 开始了一条新回复（消息 id 变了）：上一批工具结果它已经看到了，从这里起按其中最新的控件列表编号。 */
+    fun onReply(messageId: String) {
+        if (messageId == replyId) return
+        replyId = messageId
+        seen = latest
+    }
+
+    private fun forget() {
+        seen = emptyList()
+        latest = emptyList()
+    }
+
+    /** 编号对应的控件。没收到过回复的通知（比如子代理里的调用）就退回最新的一份。 */
+    private fun listed(index: Int): Seen? = seen.ifEmpty { latest }.getOrNull(index)
+
+    /** 胶囊上的一句，给还没轮到执行的调用（几个一起发出、排着队的时候）。 */
+    fun describeCall(tool: String, input: JsonObject?): String = callText(tool, input ?: JsonObject(emptyMap()))
+
+    /** 调用开始（工具线程上，持着 [lock]，控件编号还是这次调用要用的那批）：告诉胶囊在做什么、在哪块屏上。 */
+    private fun reportCall(toolUseId: String?, name: String, a: JsonObject) {
+        val call = CallInfo(toolUseId, name, callText(name, a))
+        val onMainScreen = when (name) {
+            "tap", "long_press", "swipe", "type_text" -> !onBackground
+            "press_key" -> !onBackground || a.str("key")?.lowercase() in GLOBAL_KEYS
+            else -> null
+        }
+        main.post {
+            currentCall = call
+            if (onMainScreen != null) actingOnMain = onMainScreen
+        }
+    }
+
+    /** 胶囊上的一句：“点按「搜索」”“在后台操作计算器”“看屏幕”。 */
+    private fun callText(name: String, a: JsonObject): String {
+        val app = if (onBackground) backgroundApp else null
+        val node = a.int("node")?.let { listed(it)?.node }
+        val label = node?.let(::nodeLabel)
+        return when (name) {
+            "screen" -> "看屏幕"
+            "tap" -> label?.let { "点按「$it」" } ?: app?.let { "在后台操作$it" } ?: "点按屏幕"
+            "long_press" -> label?.let { "长按「$it」" } ?: app?.let { "在后台操作$it" } ?: "长按屏幕"
+            "swipe" -> {
+                val dx = (a.int("x2") ?: 0) - (a.int("x1") ?: 0)
+                val dy = (a.int("y2") ?: 0) - (a.int("y1") ?: 0)
+                if (abs(dy) >= abs(dx)) (if (dy < 0) "向上滑动" else "向下滑动") else (if (dx < 0) "向左滑动" else "向右滑动")
+            }
+            // 密码框不把内容显示在胶囊上
+            "type_text" -> if (node?.isPassword == true) "输入密码" else "输入「" + short(a.str("text").orEmpty(), 16) + "」"
+            "press_key" -> KEY_TEXT[a.str("key")?.lowercase()] ?: "按键"
+            "open_app" -> a.str("app")?.trim()?.takeIf { it.isNotEmpty() && '.' !in it }?.let { "打开$it" } ?: "打开应用"
+            "show_to_user" -> "把" + (backgroundApp ?: "应用") + "移到主屏"
+            else -> name
+        }
+    }
+
+    private fun nodeLabel(node: AccessibilityNodeInfo): String? {
+        if (node.isPassword) return null
+        val raw = node.text?.toString()?.takeIf { it.isNotBlank() } ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() } ?: return null
+        return short(raw, 12)
+    }
+
+    private fun short(value: String, limit: Int): String =
+        value.replace(WHITESPACE, " ").trim().let { if (it.length > limit) it.take(limit) + "…" else it }
+
+    /** Claude 的一次触摸（[Screen] 的像素），归一化后交给悬浮层画光效。 */
+    private fun mark(screen: Screen, x: Int, y: Int, endX: Int = x, endY: Int = y, swipe: Boolean = false, longPress: Boolean = false) {
+        val w = screen.width.toFloat().coerceAtLeast(1f)
+        val h = screen.height.toFloat().coerceAtLeast(1f)
+        touchFlow.tryEmit(
+            TouchMark(
+                onBackground = onBackground,
+                x = (x / w).coerceIn(0f, 1f), y = (y / h).coerceIn(0f, 1f),
+                endX = (endX / w).coerceIn(0f, 1f), endY = (endY / h).coerceIn(0f, 1f),
+                swipe = swipe, longPress = longPress,
+            ),
+        )
+    }
+
+    /** 把用户留下的说明放在结果最前面。 */
+    private fun withNotes(result: JsonObject, notes: List<String>): JsonObject {
+        if (notes.isEmpty()) return result
+        val content = result["content"] as? JsonArray ?: return result
+        val head = notes.joinToString("\n")
+        val first = content.firstOrNull() as? JsonObject
+        val merged = if (first?.str("type") == "text") {
+            listOf(JsonObject(first + ("text" to JsonPrimitive(head + "\n" + first.str("text").orEmpty())))) + content.drop(1)
+        } else {
+            listOf(buildJsonObject { put("type", "text"); put("text", head) }) + content
+        }
+        return JsonObject(result + ("content" to JsonArray(merged)))
+    }
+
     // ---- MCP ----
 
     /** 处理一条 MCP 消息，返回要送回去的应答（通知类消息没有应答，返回空对象）。 */
@@ -158,7 +440,13 @@ class PhoneTools(
                 val params = message.obj("params")
                 val name = params?.str("name").orEmpty()
                 val arguments = params?.obj("arguments") ?: JsonObject(emptyMap())
-                runCatching { call(name, arguments) }.getOrElse { failure(it.message ?: it.javaClass.simpleName) }
+                // Claude Code 在 _meta 里带上这次调用对应的 tool_use id，胶囊据此把描述对到聊天里正在跑的那一步
+                val toolUseId = params?.obj("_meta")?.str("claudecode/toolUseId")
+                if (name in ENGAGING) engage()
+                runCatching {
+                    // 用户暂停或接管时先在这里等着
+                    awaitGate()?.let { failure(it) } ?: call(name, arguments, toolUseId)
+                }.getOrElse { failure(it.message ?: it.javaClass.simpleName) }
             }
             "ping" -> JsonObject(emptyMap())
             else -> null
@@ -179,12 +467,26 @@ class PhoneTools(
         put("isError", true)
     }
 
-    private fun call(name: String, a: JsonObject): JsonObject = when (name) {
+    private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = when (name) {
         "shell" -> shell(a)
         "find_apps" -> findApps(a.str("query").orEmpty())
         else -> synchronized(lock) {
             justWoke = false
-            when (name) {
+            // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废
+            val touched = touchedByUser.getAndSet(false)
+            if (touched) forget()
+            // 这次的动作是照着旧画面定的，照做可能点错：不执行，把新画面交回去
+            val skip = touched && onBackground && name in BLIND_ACTIONS
+            val notes = buildList {
+                if (touched) add("用户刚才在后台屏幕上手动操作过，画面可能变了")
+                if (skip) add("所以这次的 $name 没有执行：请按下面的新画面重新决定")
+                while (true) add(userNotes.poll() ?: break)
+            }
+            reportCall(toolUseId, name, a)
+            val result = if (skip) {
+                ready()?.let { failure(it) }
+                    ?: JsonObject(observe(screenshot = a.bool("screenshot") == true, maxNodes = 60) + ("isError" to JsonPrimitive(true)))
+            } else when (name) {
                 "screen" -> {
                     // 切到后台屏幕时也在 ready() 里唤醒
                     val problem = a.str("display")?.let { switchTo(it) } ?: ready()
@@ -200,6 +502,12 @@ class PhoneTools(
                 "show_to_user" -> showToUser(a)
                 else -> failure("没有这个工具：$name")
             }
+            // 开应用、移到主屏之后才知道落在哪块屏上
+            if (name == "open_app" || name == "show_to_user") {
+                val onMainScreen = !onBackground
+                main.post { actingOnMain = onMainScreen }
+            }
+            withNotes(result, notes)
         }
     }
 
@@ -256,7 +564,7 @@ class PhoneTools(
 
     private fun describe(screen: Screen, maxNodes: Int): String {
         val service = service() ?: run {
-            seen = emptyList()
+            forget()
             return stateLine(screen) + "\n无障碍服务没有开启，读不到控件列表（只能靠截图和坐标操作）。请用户到 Zeta 的 设置 → 手机操作 里开启。"
         }
         val found = ArrayList<Seen>()
@@ -307,7 +615,7 @@ class PhoneTools(
             }
         }
         for (root in service.roots(display)) visit(root, 0)
-        seen = found
+        latest = found
         return buildString {
             append(stateLine(screen))
             packageName?.let { append("；前台应用 ").append(it) }
@@ -367,7 +675,7 @@ class PhoneTools(
 
     /** 要点的位置（屏幕像素）：给了控件编号就取它的中心，否则取坐标。 */
     private fun target(screen: Screen, a: JsonObject): Pair<Int, Int>? {
-        a.int("node")?.let { index -> seen.getOrNull(index)?.let { return it.bounds.centerX() to it.bounds.centerY() } ?: return null }
+        a.int("node")?.let { index -> listed(index)?.let { return it.bounds.centerX() to it.bounds.centerY() } ?: return null }
         val x = a.int("x") ?: return null
         val y = a.int("y") ?: return null
         return screen.toScreen(x) to screen.toScreen(y)
@@ -375,14 +683,25 @@ class PhoneTools(
 
     private fun tap(screen: Screen, a: JsonObject, longPressMs: Long?): String? {
         val index = a.int("node")
+        // 悬浮层的光效画在要点的位置上：按控件点和退回到坐标点是同一处，只画一次
+        var marked = false
         if (index != null) {
-            val item = seen.getOrNull(index) ?: return "没有编号 $index 的控件，先用 screen 重新看一下屏幕"
+            val item = listed(index) ?: return "没有编号 $index 的控件，先用 screen 重新看一下屏幕"
             // 控件自己声明可点，就让它自己处理，比模拟触摸可靠
             val nodeAction = if (longPressMs == null) AccessibilityNodeInfo.ACTION_CLICK else AccessibilityNodeInfo.ACTION_LONG_CLICK
             val able = if (longPressMs == null) item.node.isClickable else item.node.isLongClickable
-            if (able && runCatching { item.node.performAction(nodeAction) }.getOrDefault(false)) return null
+            if (able) {
+                mark(screen, item.bounds.centerX(), item.bounds.centerY(), longPress = longPressMs != null)
+                marked = true
+                if (runCatching { item.node.performAction(nodeAction) }.getOrDefault(false)) {
+                    // 控件自己处理的点按不经过手势，主屏上的触点指示在这里补上
+                    ZetaAccessibilityService.instance?.indicateTap(display, item.bounds.centerX(), item.bounds.centerY(), longPressMs ?: 60)
+                    return null
+                }
+            }
         }
         val (x, y) = target(screen, a) ?: return "要给出 node（控件编号），或者 x 和 y"
+        if (!marked) mark(screen, x, y, longPress = longPressMs != null)
         val service = ZetaAccessibilityService.instance
         if (service != null) {
             val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
@@ -399,6 +718,7 @@ class PhoneTools(
         val y2 = a.int("y2") ?: return "缺少 y2"
         val duration = (a.int("duration_ms") ?: 300).coerceIn(50, 5000).toLong()
         val sx1 = screen.toScreen(x1); val sy1 = screen.toScreen(y1); val sx2 = screen.toScreen(x2); val sy2 = screen.toScreen(y2)
+        mark(screen, sx1, sy1, sx2, sy2, swipe = true)
         val service = ZetaAccessibilityService.instance
         if (service != null) {
             val path = Path().apply { moveTo(sx1.toFloat(), sy1.toFloat()); lineTo(sx2.toFloat(), sy2.toFloat()) }
@@ -410,7 +730,7 @@ class PhoneTools(
     private fun typeText(a: JsonObject): String? {
         val value = a.str("text") ?: return "缺少 text"
         val service = ZetaAccessibilityService.instance
-        val node = a.int("node")?.let { index -> seen.getOrNull(index)?.node ?: return "没有编号 $index 的控件，先用 screen 重新看一下屏幕" }
+        val node = a.int("node")?.let { index -> listed(index)?.node ?: return "没有编号 $index 的控件，先用 screen 重新看一下屏幕" }
             ?: service?.roots(display)?.firstNotNullOfOrNull { it.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }
         var done = false
         if (node != null) {
@@ -595,6 +915,8 @@ class PhoneTools(
             if (background === screen) {
                 background = null
                 backgroundApp = null
+                // 屏没了接管不下去：改为暂停，等用户在胶囊上点继续
+                if (userControlling) setControl(pause = true, control = false)
             }
             onChanged()
             onScreenGone()
@@ -630,12 +952,16 @@ class PhoneTools(
         return null
     }
 
-    /** 界面上的“移到主屏”。 */
+    /** 界面上的“移到主屏”（聊天页的按钮、胶囊上的“全屏”）。Claude 下次看屏或动手时告诉它。 */
     fun moveToMainByUser() {
         thread(name = "zeta-phone-ui", isDaemon = true) {
             synchronized(lock) {
                 val screen = screenRef?.takeIf { it.alive } ?: return@thread
-                if (moveTopToMain(screen) == null) onBackground = false
+                val label = backgroundApp
+                if (moveTopToMain(screen) == null) {
+                    onBackground = false
+                    userNotes.add("用户把后台屏幕上的" + (label ?: "应用") + "移到了主屏，之后的操作在主屏上")
+                }
             }
         }
     }
@@ -655,6 +981,8 @@ class PhoneTools(
             if (background === screen) {
                 background = null
                 backgroundApp = null
+                // 屏没了接管不下去：改为暂停，等用户在胶囊上点继续
+                if (userControlling) setControl(pause = true, control = false)
             }
             onChanged()
             onScreenGone()
@@ -677,6 +1005,7 @@ class PhoneTools(
 
     /** 一轮结束：过一阵还没再用就让后台屏幕休眠，省电；应用和页面都留着，下次用时唤醒。 */
     fun onTurnEnded() {
+        resetOverlay()
         if (screenRef == null) return
         main.removeCallbacks(idleCheck)
         main.postDelayed(idleCheck, IDLE_SLEEP_MS)
@@ -710,12 +1039,13 @@ class PhoneTools(
      */
     fun detach() {
         main.removeCallbacks(idleCheck)
+        resetOverlay()
         thread(name = "zeta-phone-detach", isDaemon = true) {
             synchronized(lock) {
                 if (destroyed) return@thread
                 // 已经持着锁，直接睡下（sleepBackground 会另起线程再来拿锁）
                 screenRef?.sleep()
-                seen = emptyList()
+                forget()
             }
         }
     }
@@ -724,11 +1054,12 @@ class PhoneTools(
     fun destroy() {
         destroyed = true
         main.removeCallbacks(idleCheck)
+        resetOverlay()
         thread(name = "zeta-phone-stop", isDaemon = true) {
             synchronized(lock) {
                 releaseBackground()
                 onBackground = false
-                seen = emptyList()
+                forget()
             }
         }
     }
@@ -788,6 +1119,36 @@ class PhoneTools(
         const val SERVER = "phone"
         private const val MAX_EDGE = 1568
         private const val IDLE_SLEEP_MS = 10 * 60_000L
+
+        /** 暂停、接管时工具调用最多等多久。 */
+        private const val GATE_TIMEOUT_MINUTES = 30L
+        private const val STOPPED = "用户停止了这一轮，这次手机操作没有执行"
+
+        /** 暂停、接管时用户补充了一句：等着的调用作废，Claude Code 才会在这个间隙把那句话交给 Claude。 */
+        const val SUPPLEMENTED = "用户暂停时补充了新的要求，这次手机操作没有执行：先看用户的补充，再看清屏幕继续"
+        private const val USER_TAP_MS = 55L
+        private const val USER_LONG_PRESS_MS = 650L
+
+        /** 看屏、动手的工具：用过就算这一轮在用手机（胶囊据此显示）。 */
+        private val ENGAGING = setOf("screen", "tap", "long_press", "swipe", "type_text", "press_key", "open_app", "show_to_user")
+
+        /** 照着画面定下的动作：用户在后台屏幕上动过手之后不能照旧执行。 */
+        private val BLIND_ACTIONS = setOf("tap", "long_press", "swipe", "type_text", "press_key")
+
+        /** 总是作用在主屏上的按键。 */
+        private val GLOBAL_KEYS = setOf("wake", "notifications", "quick_settings")
+
+        private val KEY_TEXT = mapOf(
+            "back" to "按返回键", "home" to "回到桌面", "recents" to "打开最近任务", "enter" to "按回车", "delete" to "按退格",
+            "wake" to "点亮屏幕", "notifications" to "下拉通知栏", "quick_settings" to "下拉控制中心",
+        )
+
+        private val WHITESPACE = Regex("\\s+")
+
+        /** 用户在展开画面上的手势按先后一个个做（全应用同一时间只有一个胶囊）。 */
+        private val userGestures by lazy {
+            Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "zeta-phone-user").apply { isDaemon = true } }
+        }
 
         /** 只在主屏上打开的：桌面、系统界面。 */
         private val MAIN_ONLY = setOf(
