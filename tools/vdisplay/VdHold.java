@@ -19,9 +19,10 @@ import java.nio.ByteBuffer;
  * 全部用反射，编译不需要 android.jar。
  */
 public class VdHold {
-    // DisplayManager.VIRTUAL_DISPLAY_FLAG_*：与 Eta 的 TRUSTED_INTERACTIVE_FLAGS 相同
+    // DisplayManager.VIRTUAL_DISPLAY_FLAG_*：与 Eta 的 TRUSTED_INTERACTIVE_FLAGS 相同，另加 DESTROY_CONTENT_ON_REMOVAL（1 << 8）：
+    // 不带它，屏移除时系统会把屏上的任务挪到主屏最上面，测完一停屏就打扰用户（Zeta 的 VdHelper 同样带着它）。
     // 附加标志位由 webui-vd 传入（默认带 SHOULD_SHOW_SYSTEM_DECORATIONS，让系统画状态栏）：这一项 Eta 的做法里没有
-    static final int FLAGS = (1 << 0) | (1 << 3) | (1 << 6) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 16);
+    static final int FLAGS = (1 << 0) | (1 << 3) | (1 << 6) | (1 << 8) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 16);
     static Object reader, vd, latest, handler;
     static int width, height, extraFlags;
 

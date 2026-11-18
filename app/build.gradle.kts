@@ -25,6 +25,14 @@ android {
         }
     }
 
+    signingConfigs {
+        // 手机上装着的包用这把调试密钥签名；工作站和手机都放在 ~/.android/zeta-debug.keystore，
+        // 签名一致 pm install -r 才能覆盖安装，否则只能卸载重装、丢掉 Zeta 的全部设置。
+        getByName("debug") {
+            storeFile = file("${System.getProperty("user.home")}/.android/zeta-debug.keystore")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

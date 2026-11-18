@@ -72,7 +72,7 @@ def launch(did):
 def start(args):
     if display_id() is not None:
         sys.exit("虚拟屏已经在了（stop 关闭）")
-    if not os.path.exists(DEX):
+    if not os.path.exists(DEX) or os.path.getmtime(DEX) < os.path.getmtime(SRC):
         build()
     if len(args) == 3:
         w, h, dpi = map(int, args)
