@@ -357,6 +357,13 @@ class ConversationHub(private val app: Application) {
 
     fun installGo() = runMaintenance("安装 Go", asRoot = true, command = installer.optionalCommand("go")) { checkHealth() }
 
+    /** 卸载一样可选工具：go / node / python。 */
+    fun removeOptional(name: String) = runMaintenance(
+        title = "卸载 " + when (name) { "go" -> "Go"; "node" -> "Node.js"; else -> "Python / uv" },
+        asRoot = name != "python",
+        command = installer.optionalCommand("remove") + " " + name,
+    ) { checkHealth() }
+
     fun installNode() = runMaintenance("安装 Node.js", asRoot = true, command = installer.optionalCommand("node")) { checkHealth() }
 
     fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }

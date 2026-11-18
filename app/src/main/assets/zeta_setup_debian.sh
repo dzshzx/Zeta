@@ -6,6 +6,7 @@
 #   python         （那个用户）可选：装 uv 和它管理的 Python
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
+#   remove <go|node>（root）、remove python（那个用户）  卸载上面装的可选工具
 #
 # 以 "@zeta " 开头的输出行是给应用看的：error <原因>；其余是日志。
 set -u
@@ -231,6 +232,42 @@ export PATH
 export GOPROXY
 ZETA_GO_EOF
   /usr/local/bin/go version || fail "Go 装上了但运行不起来"
+  ;;
+
+remove)
+  # 只动自己装的那一份：/usr/local/bin 里的命令得是指向我们目录的链接，别处来的不碰
+  ours() { [ "$(readlink "/usr/local/bin/$1" 2>/dev/null)" = "$2/bin/$1" ]; }
+  case "${1:-}" in
+  go)
+    [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+    ours go /usr/local/go || fail "这里的 Go 不是 Zeta 装的，没有动它"
+    rm -f /usr/local/bin/go /usr/local/bin/gofmt /etc/profile.d/zeta-go.sh
+    rm -rf /usr/local/go /usr/local/go.installing
+    echo "Go 已卸载（~/go 里下载过的模块和装过的程序没有动）"
+    ;;
+  node)
+    [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+    ours node /usr/local/node || fail "这里的 Node.js 不是 Zeta 装的，没有动它"
+    for tool in node npm npx corepack; do
+      if ours "$tool" /usr/local/node; then rm -f "/usr/local/bin/$tool"; fi
+    done
+    rm -f /etc/profile.d/zeta-node.sh
+    rm -rf /usr/local/node /usr/local/node.installing
+    echo "Node.js 已卸载（~/.npm-global 里装过的全局包没有动）"
+    ;;
+  python)
+    [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
+    export PATH="$HOME/.local/bin:$PATH"
+    command -v uv >/dev/null 2>&1 || fail "没有找到 uv"
+    uv python uninstall --all
+    uv cache clean >/dev/null 2>&1
+    rm -rf "$(uv python dir 2>/dev/null)" "$(uv tool dir 2>/dev/null)"
+    rm -f "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx"
+    rmdir "$HOME/.local/share/uv" 2>/dev/null
+    echo "uv 和它管理的 Python 已卸载（系统自带的 python3 不受影响）"
+    ;;
+  *) fail "不认识的可选工具：${1:-}" ;;
+  esac
   ;;
 
 *)

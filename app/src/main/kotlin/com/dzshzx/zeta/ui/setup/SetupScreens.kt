@@ -65,6 +65,9 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     var draft by remember { mutableStateOf("") }
     var locationMenu by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf<String?>(null) }
+    var lastRemoving by remember { mutableStateOf("go") }
+    removing?.let { lastRemoving = it }
     val own = hub.ownStatus
     val maintenance = hub.maintenance
     LaunchedEffect(ready, env?.rootfs) { if (ready && hub.health == null) hub.checkHealth() }
@@ -170,21 +173,21 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     summary = if (health?.go.isNullOrBlank()) "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理" else "Go ${health?.go}",
                     value = if (health == null) "…" else if (health.go.isBlank()) "安装" else "已安装",
                     enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.go.isNullOrBlank()) hub::installGo else null,
+                    onClick = if (health?.go.isNullOrBlank()) hub::installGo else ({ removing = "go" }),
                 )
                 CouiPreference(
                     title = "Python / uv",
                     summary = if (health?.uv.isNullOrBlank()) "安装 uv 和它管理的 Python，用来跑脚本、建虚拟环境" else "uv ${health?.uv}",
                     value = if (health == null) "…" else if (health.uv.isBlank()) "安装" else "已安装",
                     enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.uv.isNullOrBlank()) hub::installPython else null,
+                    onClick = if (health?.uv.isNullOrBlank()) hub::installPython else ({ removing = "python" }),
                 )
                 CouiPreference(
                     title = "Node.js",
                     summary = if (health?.node.isNullOrBlank()) "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global" else "Node.js ${health?.node}",
                     value = if (health == null) "…" else if (health.node.isBlank()) "安装" else "已安装",
                     enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.node.isNullOrBlank()) hub::installNode else null,
+                    onClick = if (health?.node.isNullOrBlank()) hub::installNode else ({ removing = "node" }),
                 )
             }
             val account = hub.account
@@ -246,6 +249,18 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
             editing = null
         },
         onDismissRequest = { editing = null },
+    )
+    CouiConfirmDialog(
+        visible = removing != null,
+        title = "卸载 " + when (lastRemoving) { "go" -> "Go"; "node" -> "Node.js"; else -> "Python / uv" } + "？",
+        message = "只卸载工具本身，你的项目、下载过的依赖都不动。以后可以在这里再装回来。",
+        confirmText = "卸载",
+        destructive = true,
+        onConfirm = {
+            removing?.let(hub::removeOptional)
+            removing = null
+        },
+        onDismissRequest = { removing = null },
     )
     CouiConfirmDialog(
         visible = confirmLogout,
