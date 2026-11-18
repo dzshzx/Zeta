@@ -111,6 +111,10 @@ class ConversationHub(private val app: Application) {
     var ownStatus by mutableStateOf<EnvStatus?>(null)
         private set
 
+    /** Eta 装的那份 Debian 还在不在。不在了就不再把它列为可选的位置。 */
+    var etaPresent by mutableStateOf(false)
+        private set
+
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
     var account by mutableStateOf<AccountStatus?>(null)
         private set
@@ -177,10 +181,12 @@ class ConversationHub(private val app: Application) {
                 } ?: SetupState.NoEnvironment
             }
             val own = installer.status()
+            val eta = LinuxEnv.exists(LinuxEnv.ETA_ROOTFS)
             main.post {
                 setup = state
                 env = settings.env
                 ownStatus = own
+                etaPresent = eta
                 if (state == SetupState.Ready) {
                     refreshAccount()
                     if (current.items.isEmpty() && current.sessionId == null) current = blank()
@@ -361,9 +367,6 @@ class ConversationHub(private val app: Application) {
 
     fun updateClaude() = runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") { checkHealth() }
 
-    fun installPython() = runMaintenance("安装 Python / uv", asRoot = false, command = installer.optionalCommand("python")) { checkHealth() }
-
-    fun installGo() = runMaintenance("安装 Go", asRoot = true, command = installer.optionalCommand("go")) { checkHealth() }
 
     fun refreshSsh() {
         val config = settings.env ?: return
@@ -406,14 +409,19 @@ class ConversationHub(private val app: Application) {
         runMaintenance("添加公钥", asRoot = true, command = installer.optionalCommand("ssh-addkey") + " " + LinuxEnv.quote(user) + " " + LinuxEnv.quote(line)) { refreshSsh() }
     }
 
-    /** 卸载一样可选工具：go / node / python。 */
+    /** 安装一样可选工具（go / node / python）；已经是 Zeta 装的则更新到最新版。 */
+    fun installOptional(name: String) = runMaintenance(
+        title = (if (name in health?.zetaOwned.orEmpty()) "更新 " else "安装 ") + optionalName(name),
+        asRoot = name != "python",
+        command = installer.optionalCommand(name),
+    ) { checkHealth() }
+
+    /** 卸载一样 Zeta 装的可选工具。别处装的脚本会拒绝。 */
     fun removeOptional(name: String) = runMaintenance(
-        title = "卸载 " + when (name) { "go" -> "Go"; "node" -> "Node.js"; else -> "Python / uv" },
+        title = "卸载 " + optionalName(name),
         asRoot = name != "python",
         command = installer.optionalCommand("remove") + " " + name,
     ) { checkHealth() }
-
-    fun installNode() = runMaintenance("安装 Node.js", asRoot = true, command = installer.optionalCommand("node")) { checkHealth() }
 
     fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }
 
@@ -496,4 +504,11 @@ class ConversationHub(private val app: Application) {
             instance ?: ConversationHub(app).also { instance = it }
         }
     }
+}
+
+/** 可选工具在界面上的名字。 */
+fun optionalName(name: String): String = when (name) {
+    "go" -> "Go"
+    "node" -> "Node.js"
+    else -> "Python / uv"
 }

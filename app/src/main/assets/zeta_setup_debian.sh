@@ -7,6 +7,11 @@
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
 #   remove <go|node>（root）、remove python（那个用户）  卸载上面装的可选工具
+#   owners         （任何用户）三样可选工具是不是 Zeta 装的：owner_<名字>=zeta|other
+#
+# 可选工具的归属：Zeta 装的时候留一个记号（go、node 在 /var/lib/zeta/tools，python 在用户的
+# ~/.local/state/zeta/tools），而且现在生效的还得是它装的那一份，才算 Zeta 的。
+# 别处来的（Eta、手动、Homebrew…）不会被覆盖、更新或卸载。
 #   ssh-setup  <用户名>            （root）装 openssh-server，没有现成配置时写一份只听本机、只认公钥的
 #   ssh-status <用户名>            （root）sshd 实际生效的端口、监听地址，已授权的公钥数
 #   ssh-addkey <用户名> <公钥>      （root）把一条公钥加进那个用户的 authorized_keys
@@ -72,7 +77,40 @@ ZETA_APT_EOF
   chmod 0755 /usr/local/bin/zeta-apt
 }
 
+MARKS=/var/lib/zeta/tools
+USER_MARKS="$HOME/.local/state/zeta/tools"
+
+owned() {
+  case "$1" in
+    go) [ -f "$MARKS/go" ] && [ "$(readlink /usr/local/bin/go 2>/dev/null)" = /usr/local/go/bin/go ] ;;
+    node) [ -f "$MARKS/node" ] && [ "$(readlink /usr/local/bin/node 2>/dev/null)" = /usr/local/node/bin/node ] ;;
+    python) [ -f "$USER_MARKS/python" ] && [ -x "$HOME/.local/bin/uv" ] ;;
+    *) return 1 ;;
+  esac
+}
+
+# 这些路径上已经有东西，而这样工具不是 Zeta 装的：打印第一个，不动它
+foreign() {
+  tool=$1
+  shift
+  owned "$tool" && return 1
+  for path in "$@"; do
+    { [ -e "$path" ] || [ -L "$path" ]; } && { echo "$path"; return 0; }
+  done
+  return 1
+}
+
+mark() {
+  mkdir -p "$1" && printf '%s\n' "installed=$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$3" > "$1/$2"
+}
+
 case "$cmd" in
+owners)
+  for tool in go node python; do
+    if owned "$tool"; then echo "owner_$tool=zeta"; else echo "owner_$tool=other"; fi
+  done
+  ;;
+
 tools)
   [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
   export DEBIAN_FRONTEND=noninteractive
@@ -124,20 +162,29 @@ claude)
 python)
   [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
   export PATH="$HOME/.local/bin:$PATH"
-  if ! command -v uv >/dev/null 2>&1; then
+  path=$(foreign python "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx") && fail "已经有一份 uv（$path），不是 Zeta 装的，没有动它"
+  other=$(command -v uv 2>/dev/null)
+  [ -n "$other" ] && [ "$other" != "$HOME/.local/bin/uv" ] && fail "已经有一份 uv（$other），不是 Zeta 装的，没有动它"
+  if owned python; then
+    uv self update || echo "uv 自身没有更新成功，继续"
+  else
     curl -LsSf --connect-timeout 20 --retry 2 https://astral.sh/uv/install.sh -o /tmp/zeta-uv-install.sh \
       || fail "下载 uv 安装脚本失败，请检查网络后重试"
-    sh /tmp/zeta-uv-install.sh
+    # ~/.local/bin 本来就在登录 shell 的 PATH 里，不让它去改 .bashrc / .profile
+    UV_NO_MODIFY_PATH=1 sh /tmp/zeta-uv-install.sh
     code=$?
     rm -f /tmp/zeta-uv-install.sh
     [ $code = 0 ] || fail "uv 安装脚本没有成功（退出码 $code）"
   fi
+  mark "$USER_MARKS" python "uv=$HOME/.local/bin/uv"
   uv python install || fail "uv 装上了，但下载 Python 没有成功，请检查网络后重试"
   uv --version
   ;;
 
 node)
   [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  path=$(foreign node /usr/local/node /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack) \
+    && fail "已经有一份 Node.js（$path），不是 Zeta 装的，没有动它"
   case "$(dpkg --print-architecture)" in
     arm64) arch=arm64 ;;
     amd64) arch=x64 ;;
@@ -173,8 +220,9 @@ node)
     rm -f /tmp/zeta-node.tar.xz
   fi
   for tool in node npm npx corepack; do
-    [ -e "/usr/local/node/bin/$tool" ] && ln -sf "/usr/local/node/bin/$tool" "/usr/local/bin/$tool"
+    [ -e "/usr/local/node/bin/$tool" ] && ln -sfn "/usr/local/node/bin/$tool" "/usr/local/bin/$tool"
   done
+  mark "$MARKS" node "version=$version"
   # 官方的二进制在 arm64 上要 libatomic
   if ! /usr/local/bin/node --version >/dev/null 2>&1; then
     [ -x /usr/local/bin/zeta-apt ] || write_apt_helper
@@ -192,6 +240,7 @@ ZETA_NODE_EOF
 
 go)
   [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  path=$(foreign go /usr/local/go /usr/local/bin/go /usr/local/bin/gofmt) && fail "已经有一份 Go（$path），不是 Zeta 装的，没有动它"
   case "$(dpkg --print-architecture)" in
     arm64) arch=arm64 ;;
     amd64) arch=amd64 ;;
@@ -225,8 +274,9 @@ go)
     mv /usr/local/go.installing /usr/local/go
     rm -f /tmp/zeta-go.tar.gz
   fi
-  ln -sf /usr/local/go/bin/go /usr/local/bin/go
-  ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+  ln -sfn /usr/local/go/bin/go /usr/local/bin/go
+  ln -sfn /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+  mark "$MARKS" go "version=$version"
   # go install 装的程序在 ~/go/bin；模块代理默认用国内的（自己设过 GOPROXY 的不受影响）
   cat > /etc/profile.d/zeta-go.sh <<'ZETA_GO_EOF'
 case ":$PATH:" in *":$HOME/go/bin:"*) ;; *) PATH="$PATH:$HOME/go/bin" ;; esac
@@ -238,35 +288,40 @@ ZETA_GO_EOF
   ;;
 
 remove)
-  # 只动自己装的那一份：/usr/local/bin 里的命令得是指向我们目录的链接，别处来的不碰
-  ours() { [ "$(readlink "/usr/local/bin/$1" 2>/dev/null)" = "$2/bin/$1" ]; }
+  # 只动 Zeta 自己装的那一份（见文件开头的“归属”）
   case "${1:-}" in
   go)
     [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
-    ours go /usr/local/go || fail "这里的 Go 不是 Zeta 装的，没有动它"
-    rm -f /usr/local/bin/go /usr/local/bin/gofmt /etc/profile.d/zeta-go.sh
+    owned go || fail "这里的 Go 不是 Zeta 装的，没有动它"
+    for tool in go gofmt; do
+      [ "$(readlink "/usr/local/bin/$tool")" = "/usr/local/go/bin/$tool" ] && rm -f "/usr/local/bin/$tool"
+    done
+    rm -f /etc/profile.d/zeta-go.sh "$MARKS/go"
     rm -rf /usr/local/go /usr/local/go.installing
     echo "Go 已卸载（~/go 里下载过的模块和装过的程序没有动）"
     ;;
   node)
     [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
-    ours node /usr/local/node || fail "这里的 Node.js 不是 Zeta 装的，没有动它"
+    owned node || fail "这里的 Node.js 不是 Zeta 装的，没有动它"
     for tool in node npm npx corepack; do
-      if ours "$tool" /usr/local/node; then rm -f "/usr/local/bin/$tool"; fi
+      [ "$(readlink "/usr/local/bin/$tool")" = "/usr/local/node/bin/$tool" ] && rm -f "/usr/local/bin/$tool"
     done
-    rm -f /etc/profile.d/zeta-node.sh
+    rm -f /etc/profile.d/zeta-node.sh "$MARKS/node"
     rm -rf /usr/local/node /usr/local/node.installing
     echo "Node.js 已卸载（~/.npm-global 里装过的全局包没有动）"
     ;;
   python)
     [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
     export PATH="$HOME/.local/bin:$PATH"
-    [ -x "$HOME/.local/bin/uv" ] || fail "这里的 uv 不是 Zeta 装的，没有动它"
+    owned python || fail "这里的 uv 不是 Zeta 装的，没有动它"
     uv python uninstall --all
+    cache=$(uv cache dir 2>/dev/null)
     uv cache clean >/dev/null 2>&1
     rm -rf "$(uv python dir 2>/dev/null)" "$(uv tool dir 2>/dev/null)"
-    rm -f "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx"
-    rmdir "$HOME/.local/share/uv" 2>/dev/null
+    [ -n "$cache" ] && rm -rf "$cache"
+    rm -f "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx" "$HOME/.config/uv/uv-receipt.json"
+    rmdir "$HOME/.config/uv" "$HOME/.local/share/uv" 2>/dev/null
+    rm -f "$USER_MARKS/python"
     echo "uv 和它管理的 Python 已卸载（系统自带的 python3 不受影响）"
     ;;
   *) fail "不认识的可选工具：${1:-}" ;;

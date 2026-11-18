@@ -163,7 +163,7 @@ class Settings(context: Context) {
         get() {
             val user = prefs.getString("user", null) ?: return null
             return LinuxEnvConfig(
-                rootfs = prefs.getString("rootfs", LinuxEnv.ETA_ROOTFS)!!,
+                rootfs = prefs.getString("rootfs", LinuxEnv.OWN_ROOTFS)!!,
                 user = user,
                 uid = prefs.getInt("uid", 0),
                 gid = prefs.getInt("gid", 0),

@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.optionalName
+import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.InstallStep
 import com.dzshzx.zeta.core.LinuxEnv
@@ -66,6 +68,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     var locationMenu by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<String?>(null) }
+    var toolMenu by remember { mutableStateOf<String?>(null) }
     var lastRemoving by remember { mutableStateOf("go") }
     removing?.let { lastRemoving = it }
     val own = hub.ownStatus
@@ -95,9 +98,10 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 value = locationName(env?.rootfs ?: hub.rootfsHint),
                 expanded = locationMenu,
                 onExpandedChange = { locationMenu = it && hub.canSwitchEnvironment },
-                items = listOf(
+                items = listOfNotNull(
                     CouiMenuItem(value = LinuxEnv.OWN_ROOTFS, text = "Zeta 自带的环境", selected = current == LinuxEnv.OWN_ROOTFS),
-                    CouiMenuItem(value = LinuxEnv.ETA_ROOTFS, text = "Eta 的环境", selected = current == LinuxEnv.ETA_ROOTFS),
+                    CouiMenuItem(value = LinuxEnv.ETA_ROOTFS, text = "Eta 的环境", selected = current == LinuxEnv.ETA_ROOTFS)
+                        .takeIf { hub.etaPresent || current == LinuxEnv.ETA_ROOTFS },
                     CouiMenuItem(value = "", text = "自定义路径…", selected = current !in LinuxEnv.KNOWN_ROOTFS),
                 ),
                 onItemClick = {
@@ -170,28 +174,27 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     onClick = hub::repairEnvironment,
                 )
             }
-            Group(title = "可选工具", footer = "基础环境里已经有 git、ripgrep、python3 这些常用工具。这里是按需再装的。") {
-                CouiPreference(
-                    title = "Go",
-                    summary = if (health?.go.isNullOrBlank()) "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理" else "Go ${health?.go}",
-                    value = if (health == null) "…" else if (health.go.isBlank()) "安装" else "已安装",
-                    enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.go.isNullOrBlank()) hub::installGo else ({ removing = "go" }),
-                )
-                CouiPreference(
-                    title = "Python / uv",
-                    summary = if (health?.uv.isNullOrBlank()) "安装 uv 和它管理的 Python，用来跑脚本、建虚拟环境" else "uv ${health?.uv}",
-                    value = if (health == null) "…" else if (health.uv.isBlank()) "安装" else "已安装",
-                    enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.uv.isNullOrBlank()) hub::installPython else ({ removing = "python" }),
-                )
-                CouiPreference(
-                    title = "Node.js",
-                    summary = if (health?.node.isNullOrBlank()) "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global" else "Node.js ${health?.node}",
-                    value = if (health == null) "…" else if (health.node.isBlank()) "安装" else "已安装",
-                    enabled = maintenance?.running != true && health != null,
-                    onClick = if (health?.node.isNullOrBlank()) hub::installNode else ({ removing = "node" }),
-                )
+            Group(
+                title = "可选工具",
+                footer = "基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。" +
+                    "Zeta 只更新、卸载它自己装的那一份；环境里原来就有的（比如从 Eta 迁过来的）只显示版本，不会去动。",
+            ) {
+                listOf(
+                    "go" to "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理",
+                    "python" to "安装 uv 和它管理的 Python，用来跑脚本、建虚拟环境",
+                    "node" to "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global",
+                ).forEach { (name, pitch) ->
+                    OptionalToolRow(
+                        name = name,
+                        pitch = pitch,
+                        health = health,
+                        enabled = maintenance?.running != true && health != null,
+                        expanded = toolMenu == name,
+                        onExpandedChange = { toolMenu = if (it) name else null },
+                        onInstall = { hub.installOptional(name) },
+                        onRemove = { removing = name },
+                    )
+                }
             }
             Group(title = "远程访问") {
                 val ssh = hub.ssh
@@ -268,8 +271,12 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     )
     CouiConfirmDialog(
         visible = removing != null,
-        title = "卸载 " + when (lastRemoving) { "go" -> "Go"; "node" -> "Node.js"; else -> "Python / uv" } + "？",
-        message = "只卸载工具本身，你的项目、下载过的依赖都不动。以后可以在这里再装回来。",
+        title = "卸载 " + optionalName(lastRemoving) + "？",
+        message = when (lastRemoving) {
+            "go" -> "删除 /usr/local/go 和 Zeta 为它写的配置。~/go 里下载过的模块、装过的程序不动。"
+            "node" -> "删除 /usr/local/node 和 Zeta 为它写的配置。~/.npm-global 里装过的全局包不动，但没有 Node.js 就跑不起来了。"
+            else -> "删除 uv、它管理的各个 Python 版本和用 uv tool 装的命令。项目里的虚拟环境会因为没有了 Python 而用不了；系统自带的 python3 不受影响。"
+        } + "以后可以在这里再装回来。",
         confirmText = "卸载",
         destructive = true,
         onConfirm = {
@@ -492,4 +499,45 @@ private fun Notice(text: String, error: Boolean = false) {
 @Composable
 private fun Buttons(content: @Composable () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { content() }
+}
+
+/**
+ * 一样可选工具的一行。没装：点一下安装。Zeta 装的：弹出菜单，可以更新或卸载。
+ * 别处装的（环境里原来就有，或者手动装的）：只显示版本，不提供任何操作。
+ */
+@Composable
+private fun OptionalToolRow(
+    name: String,
+    pitch: String,
+    health: EnvHealth?,
+    enabled: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onInstall: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val title = optionalName(name)
+    val version = health?.version(name).orEmpty()
+    val label = if (name == "python") "uv $version" else "$title $version"
+    when {
+        health == null -> CouiPreference(title = title, summary = pitch, value = "…", enabled = false)
+        version.isBlank() -> CouiPreference(title = title, summary = pitch, value = "安装", enabled = enabled, onClick = onInstall)
+        name in health.zetaOwned -> CouiPopupPreference(
+            title = title,
+            summary = "$label · Zeta 装的",
+            value = "管理",
+            enabled = enabled,
+            expanded = expanded,
+            onExpandedChange = onExpandedChange,
+            items = listOf(
+                CouiMenuItem(value = "update", text = "更新到最新版"),
+                CouiMenuItem(value = "remove", text = "卸载"),
+            ),
+            onItemClick = {
+                onExpandedChange(false)
+                if (it.value == "update") onInstall() else onRemove()
+            },
+        )
+        else -> CouiPreference(title = title, summary = "$label · 环境里原有的，Zeta 不管理", value = "已安装")
+    }
 }

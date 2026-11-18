@@ -42,7 +42,15 @@ data class EnvHealth(
     val uv: String = "",
     val node: String = "",
     val go: String = "",
+    /** 哪些可选工具是 Zeta 自己装的（只有这些能在 Zeta 里更新、卸载）。 */
+    val zetaOwned: Set<String> = emptySet(),
 ) {
+    /** 可选工具 [name]（go / node / python）的版本，没装是空的。 */
+    fun version(name: String): String = when (name) {
+        "go" -> go
+        "node" -> node
+        else -> uv
+    }
     val ok: Boolean get() = missing.isEmpty() && workspaceWritable && network
 }
 
@@ -235,7 +243,9 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
             echo "go=${'$'}(go env GOVERSION 2>/dev/null | head -n 1)"
         """.trimIndent()
-        val result = runCatching { LinuxEnv.run(config, "bash -c " + LinuxEnv.quote(script) + " zeta-health " + LinuxEnv.quote(config.defaultCwd), timeoutMs = 60_000) }.getOrNull()?.takeIf { it.exitCode == 0 } ?: return null
+        val command = "bash -c " + LinuxEnv.quote(script) + " zeta-health " + LinuxEnv.quote(config.defaultCwd) +
+            "; bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup owners"
+        val result = runCatching { LinuxEnv.run(config, command, timeoutMs = 60_000) }.getOrNull()?.takeIf { it.exitCode == 0 } ?: return null
         val values = result.stdout.lineSequence().filter { '=' in it }.map { it.substringBefore('=') to it.substringAfter('=') }.toList()
         fun value(key: String) = values.firstOrNull { it.first == key }?.second.orEmpty()
         return EnvHealth(
@@ -248,6 +258,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             uv = value("uv").removePrefix("uv ").substringBefore(" ("),
             node = value("node").removePrefix("v"),
             go = value("go").removePrefix("go"),
+            zetaOwned = values.filter { it.first.startsWith("owner_") && it.second == "zeta" }.map { it.first.removePrefix("owner_") }.toSet(),
         )
     }
 
@@ -275,10 +286,10 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         return ok to (reported ?: tail.joinToString("\n"))
     }
 
-    /** “修复”要执行的命令：重新走一遍装工具那一步（会先修 dpkg，再补齐缺的包）。 */
-    /** 装一样可选工具（zeta_setup_debian.sh 里的 python / node / go）。 */
+    /** 装或更新一样可选工具（zeta_setup_debian.sh 里的 python / node / go），以及别的子命令。 */
     fun optionalCommand(name: String): String = "exec bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup " + name
 
+    /** “修复”要执行的命令：重新走一遍装工具那一步（会先修 dpkg，再补齐缺的包）。 */
     val repairCommand: String get() = "exec bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup tools"
 }
 
