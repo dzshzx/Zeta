@@ -224,4 +224,9 @@ class Settings(context: Context) {
     var permissionMode: String?
         get() = prefs.getString("permissionMode", null)
         set(value) = prefs.edit().putString("permissionMode", value).apply()
+
+    /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
+    var pinnedSessions: Set<String>
+        get() = prefs.getStringSet("pinnedSessions", null)?.toSet().orEmpty()
+        set(value) = prefs.edit().putStringSet("pinnedSessions", value).apply()
 }

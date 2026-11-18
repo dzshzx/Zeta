@@ -213,6 +213,10 @@ class ConversationHub(private val app: Application) {
     fun isRunning(sessionId: String): Boolean =
         (current.sessionId == sessionId && current.busy) || background[sessionId]?.busy == true
 
+    /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
+    fun isWaiting(sessionId: String): Boolean =
+        (current.sessionId == sessionId && current.pending != null) || background[sessionId]?.pending != null
+
     fun checkSetup() {
         setup = SetupState.Checking
         thread(name = "zeta-setup", isDaemon = true) {
@@ -323,19 +327,7 @@ class ConversationHub(private val app: Application) {
         val config = settings.env ?: return
         thread(name = "zeta-sessions", isDaemon = true) {
             val result = runCatching { LinuxEnv.run(config, "exec python3 - list", stdin = helperScript, timeoutMs = 60_000) }.getOrNull() ?: return@thread
-            val list = result.stdout.lineSequence().mapNotNull { line ->
-                val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
-                SessionSummary(
-                    id = o.str("id") ?: return@mapNotNull null,
-                    file = o.str("file") ?: return@mapNotNull null,
-                    cwd = o.str("cwd").orEmpty(),
-                    title = o.str("title").orEmpty(),
-                    preview = o.str("preview").orEmpty(),
-                    updated = (o["updated"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
-                    external = o.bool("external") == true,
-                    archived = o.bool("archived") == true,
-                )
-            }.toList()
+            val list = parseSessionSummaries(result.stdout)
             main.post { sessions = list }
         }
     }

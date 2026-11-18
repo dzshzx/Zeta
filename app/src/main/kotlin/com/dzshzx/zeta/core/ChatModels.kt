@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -148,6 +149,23 @@ data class SessionSummary(
     /** 已归档：不在主列表里显示。 */
     val archived: Boolean = false,
 )
+
+private val summaryJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/** zeta_helper.py 的 list / lookup 输出：一行一个会话概要，别的行跳过。 */
+internal fun parseSessionSummaries(stdout: String): List<SessionSummary> = stdout.lineSequence().mapNotNull { line ->
+    val o = runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
+    SessionSummary(
+        id = o.str("id") ?: return@mapNotNull null,
+        file = o.str("file") ?: return@mapNotNull null,
+        cwd = o.str("cwd").orEmpty(),
+        title = o.str("title").orEmpty(),
+        preview = o.str("preview").orEmpty(),
+        updated = (o["updated"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
+        external = o.bool("external") == true,
+        archived = o.bool("archived") == true,
+    )
+}.toList()
 
 internal fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 internal fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject

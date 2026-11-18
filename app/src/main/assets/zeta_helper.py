@@ -8,6 +8,9 @@
   hosts                仍在后台运行的 Claude Code 进程（应用被杀后重新接上用）；顺手清掉已经结束的
   image <文件> <位置>    取回会话记录里的一张图片（位置是 history 给出的“行号.块序号[.内层序号]”）
   file-image <路径>     读取 Linux 环境里的一个图片文件
+  search <关键词>       在会话的对话内容里找关键词，每找到一个会话就输出一行（边找边出），最后一行是汇总
+  lookup <id>...       按 id 取会话概要（形状同 list），找不到的不输出；置顶的会话不在 list 的范围里时用
+  export <文件>         把一个会话导出成 Markdown
 """
 import base64
 import glob
@@ -405,6 +408,238 @@ def cmd_rename(path, title):
     out({"type": "zeta_renamed", "title": title})
 
 
+SEARCH_SECONDS = 10
+SEARCH_LIMIT = 80
+SESSION_ID = re.compile(r"[0-9a-fA-F-]{8,64}")
+
+
+def spoken_text(o):
+    """一条记录里用户或 Claude 亲口说的话，返回 (角色, 文字)；工具调用、工具结果、系统注入的内容返回 (None, None)。"""
+    kind = o.get("type")
+    if o.get("isSidechain") or o.get("isMeta"):
+        return None, None
+    if kind == "attachment":
+        attachment = o.get("attachment") or {}
+        if attachment.get("type") != "queued_command" or not attachment.get("prompt"):
+            return None, None
+        return "user", user_text(attachment["prompt"])
+    content = (o.get("message") or {}).get("content")
+    if kind == "user":
+        if o.get("isCompactSummary") or (isinstance(content, list) and any(
+                isinstance(b, dict) and b.get("type") == "tool_result" for b in content)):
+            return None, None
+        return "user", user_text(content or "")
+    if kind == "assistant" and isinstance(content, list):
+        text = "\n".join(b.get("text") or "" for b in content if isinstance(b, dict) and b.get("type") == "text").strip()
+        return "assistant", text or None
+    return None, None
+
+
+def snippet(text, at, length):
+    """命中处前面留一点、后面多留些，折成一行，侧栏里两行放得下。"""
+    start = max(0, at - 20)
+    end = min(len(text), at + length + 70)
+    body = " ".join(text[start:end].split())
+    return ("…" if start > 0 else "") + body + ("…" if end < len(text) else "")
+
+
+def cmd_search(query):
+    """只看用户和 Claude 说的话。逐行先按子串粗筛（工具结果、请求快照这类大行不解析），每个会话取第一处命中就换下一个；
+    限时限量，免得几百 MB 的记录把手机拖住。"""
+    needle = query.strip().lower()
+    if not needle:
+        sys.exit("empty query")
+    # 记录里的字符串是 JSON 转义过的：粗筛也用转义后的样子去比
+    escaped = json.dumps(needle, ensure_ascii=False)[1:-1]
+    files = glob.glob(os.path.join(ROOT, "*", "*.jsonl"))
+    files.sort(key=os.path.getmtime, reverse=True)
+    files = files[:300]
+    deadline = time.monotonic() + SEARCH_SECONDS
+    scanned = matched = 0
+    complete = True
+    for path in files:
+        if time.monotonic() > deadline or matched >= SEARCH_LIMIT:
+            complete = False
+            break
+        scanned += 1
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if '"type":"user"' in line:
+                        if '"tool_result"' in line:
+                            continue
+                    elif '"type":"assistant"' in line:
+                        if '"type":"text"' not in line:
+                            continue
+                    elif '"queued_command"' not in line:
+                        continue
+                    if escaped not in line.lower():
+                        continue
+                    try:
+                        role, text = spoken_text(json.loads(line))
+                    except ValueError:
+                        continue
+                    if text and "[Attached file: " in text:
+                        # 附件行只留文件名，摘要里不出现一长串路径
+                        text = "\n".join("附件 " + os.path.basename(l[16:].rstrip("]")) if l.startswith("[Attached file: ") else l
+                                         for l in text.split("\n"))
+                    at = text.lower().find(needle) if text else -1
+                    if at < 0:
+                        continue  # 只是命中了路径、id 之类的字段
+                    matched += 1
+                    out({"type": "zeta_match", "id": os.path.basename(path)[:-6], "role": role,
+                         "snippet": snippet(text, at, len(needle))})
+                    sys.stdout.flush()
+                    break
+        except OSError:
+            continue
+    out({"type": "zeta_search_done", "scanned": scanned, "total": len(files), "matched": matched, "complete": complete})
+
+
+def cmd_lookup(ids):
+    external = external_sessions()
+    archived = archived_sessions()
+    for session in ids:
+        for path in glob.glob(os.path.join(ROOT, "*", session + ".jsonl")):
+            try:
+                item = summarize(path)
+            except OSError:
+                continue
+            if item:
+                item["external"] = item["id"] in external
+                item["archived"] = item["id"] in archived
+                out(item)
+                break
+
+
+def one_line(value, limit=120):
+    text = " ".join(str(value or "").split())
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def tool_detail(name, data):
+    """工具调用的一行摘要：命令、路径、关键词之类，照 Eta 导出里的“参数”。"""
+    if not isinstance(data, dict):
+        return ""
+    for key in {"Bash": ("command",), "Read": ("file_path",), "Write": ("file_path",), "Edit": ("file_path",),
+                "MultiEdit": ("file_path",), "NotebookEdit": ("notebook_path",), "Grep": ("pattern",),
+                "Glob": ("pattern",), "WebSearch": ("query",), "WebFetch": ("url",), "Task": ("description", "prompt"),
+                "Agent": ("description", "prompt"), "Skill": ("skill", "command")}.get(name, ()):
+        if data.get(key):
+            # 多行命令只取第一行
+            first = str(data[key]).strip().split("\n")[0]
+            return one_line(first + (" …" if "\n" in str(data[key]).strip() else ""))
+    return one_line(json.dumps(data, ensure_ascii=False, separators=(", ", ": "))) if data else ""
+
+
+def quote_block(lines):
+    return "\n".join("> " + line if line else ">" for line in "\n\n".join(lines).split("\n"))
+
+
+def cmd_export(path):
+    """照 Eta 的会话导出：标题，然后按顺序是用户和助手的话；工具调用只留一行摘要，思考过程折叠起来，图片只记张数。"""
+    summary = summarize(path) or {}
+    title = " ".join((summary.get("title") or (summary.get("preview") or "")[:40] or "对话").split())
+    blocks = []  # (种类, 内容)；工具调用的结果在后面几行，先占位，最后一起写
+    results = {}
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if '"type":"user"' not in line and '"type":"assistant"' not in line and '"queued_command"' not in line \
+                    and '"compact_boundary"' not in line:
+                continue
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            kind = o.get("type")
+            if o.get("isSidechain"):
+                continue
+            if kind == "system":
+                if o.get("subtype") == "compact_boundary":
+                    blocks.append(("notice", "上下文已压缩"))
+                continue
+            content = (o.get("message") or {}).get("content")
+            if kind == "user" and isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+                for b in content:
+                    if isinstance(b, dict) and b.get("type") == "tool_result":
+                        results[b.get("tool_use_id")] = b
+                continue
+            if kind == "user" and not o.get("isMeta") and not o.get("isCompactSummary"):
+                content = content if isinstance(content, (str, list)) else ""
+                raw = user_text(content)
+                if raw is None and '"[Request interrupted' in line:
+                    blocks.append(("notice", "已停止"))
+                    continue
+                images = image_count(content)
+                if raw or images:
+                    blocks.append(("user", (raw or "", images)))
+                continue
+            if kind == "attachment":
+                role, text = spoken_text(o)
+                if text:
+                    blocks.append(("user", (text, image_count((o.get("attachment") or {}).get("prompt")))))
+                continue
+            if kind != "assistant" or not isinstance(content, list):
+                continue
+            for b in content:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "text" and (b.get("text") or "").strip():
+                    blocks.append(("text", b["text"].strip()))
+                elif b.get("type") == "thinking" and (b.get("thinking") or "").strip():
+                    blocks.append(("thinking", b["thinking"].strip()))
+                elif b.get("type") in ("tool_use", "server_tool_use"):
+                    blocks.append(("tool", (b.get("id"), b.get("name") or "工具", tool_detail(b.get("name"), b.get("input")))))
+                elif b.get("tool_use_id") and b.get("type", "").endswith("_tool_result"):
+                    results[b["tool_use_id"]] = {}  # 服务端工具（advisor、网页搜索）的结果跟在同一条消息里
+    parts = ["# " + title]
+    answering = False
+    for kind, value in blocks:
+        if kind == "user":
+            text, images = value
+            lines = text.split("\n")
+            files = [l[16:].rstrip("]") for l in lines if l.startswith("[Attached file: ")]
+            body = "\n".join(l for l in lines if not l.startswith("[Attached file: ")).strip()
+            block = "## 用户"
+            if body:
+                block += "\n\n" + body
+            for name in files:
+                block += "\n\n- " + name
+            if images:
+                # 图片本体太大，只记张数
+                block += "\n\n_图片：%d 张_" % images
+            parts.append(block)
+            answering = False
+            continue
+        if kind == "notice":
+            parts.append(quote_block([value]))
+            answering = False
+            continue
+        # 一轮回答里的文字、思考和工具调用归在同一个“助手”标题下
+        if not answering:
+            parts.append("## 助手")
+            answering = True
+        if kind == "text":
+            parts.append(value)
+        elif kind == "thinking":
+            parts.append("<details>\n<summary>思考过程</summary>\n\n" + value + "\n\n</details>")
+        else:
+            tool_id, name, detail = value
+            result = results.get(tool_id)
+            status = "结果未知" if result is None else "失败" if result.get("is_error") else "已完成"
+            lines = ["工具：%s（%s）" % (name, status)]
+            if detail:
+                lines.append("参数：" + detail)
+            if result is not None and result.get("is_error"):
+                error = result.get("content")
+                if isinstance(error, list):
+                    error = " ".join(b.get("text", "") for b in error if isinstance(b, dict) and b.get("type") == "text")
+                if one_line(error):
+                    lines.append("结果：" + one_line(ANSI.sub("", str(error))))
+            parts.append(quote_block(lines))
+    out({"type": "zeta_export", "title": title, "markdown": "\n\n".join(parts) + "\n"})
+
+
 def inside_root(path):
     real = os.path.realpath(path)
     return real.startswith(os.path.realpath(ROOT) + os.sep) and real.endswith(".jsonl")
@@ -429,8 +664,15 @@ def main():
         cmd_image(args[1], args[2])
     elif args[:1] == ["file-image"] and len(args) == 2:
         cmd_file_image(args[1])
+    elif args[:1] == ["search"] and len(args) == 2:
+        cmd_search(args[1])
+    elif args[:1] == ["lookup"] and all(SESSION_ID.fullmatch(a) for a in args[1:]):
+        cmd_lookup(args[1:])
+    elif args[:1] == ["export"] and len(args) == 2 and inside_root(args[1]):
+        cmd_export(args[1])
     else:
-        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | archive <id> <0|1> | hosts | image <file> <ref> | file-image <path>")
+        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | archive <id> <0|1> | hosts"
+                 " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>")
 
 
 main()
