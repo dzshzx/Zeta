@@ -197,6 +197,19 @@ class Settings(context: Context) {
         get() = if (prefs.contains("dark")) prefs.getBoolean("dark", false) else null
         set(value) = prefs.edit().apply { if (value == null) remove("dark") else putBoolean("dark", value) }.apply()
 
+    /** 把手机工具（读屏、点按、Android 侧命令）交给 Claude。 */
+    var phoneTools: Boolean
+        get() = prefs.getBoolean("phoneTools", true)
+        set(value) = prefs.edit().putBoolean("phoneTools", value).apply()
+
+    /** 手机工具操作哪块屏幕。平时是 0（主屏）；调试时可以指到一块后台虚拟屏上，界面里没有入口。 */
+    val phoneDisplay: Int get() = prefs.getInt("phoneDisplay", 0)
+
+    /** 回答里的网络图片是否不等点击就加载。 */
+    var autoLoadRemoteImages: Boolean
+        get() = prefs.getBoolean("autoLoadRemoteImages", false)
+        set(value) = prefs.edit().putBoolean("autoLoadRemoteImages", value).apply()
+
     /** 新会话的权限模式；null 表示沿用 Claude Code 设置里的默认值。 */
     var permissionMode: String?
         get() = prefs.getString("permissionMode", null)

@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonObject
 object ImageStore {
     /** 显示用的长边上限；原图再大也只解到这么大。 */
     private const val MAX_EDGE = 2048
+    private const val MAX_DOWNLOAD = 12L * 1024 * 1024
 
     private val cache = object : LruCache<String, ImageBitmap>(64 * 1024 * 1024) {
         override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
@@ -26,6 +27,16 @@ object ImageStore {
     private val failed = Collections.synchronizedSet(HashSet<String>())
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** 用户点过“加载”的网络图片。 */
+    private val allowed = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+
+    fun isAllowed(ref: ImageRef): Boolean = allowed[ref.key] == true
+
+    fun allow(ref: ImageRef) {
+        failed.remove(ref.key)
+        allowed[ref.key] = true
+    }
+
     fun cached(ref: ImageRef): ImageBitmap? = cache.get(ref.key)
 
     suspend fun load(hub: ConversationHub, ref: ImageRef): ImageBitmap? {
@@ -33,16 +44,45 @@ object ImageStore {
         if (ref.key in failed) return null
         val bitmap = withContext(Dispatchers.IO) {
             runCatching {
+                if (ref is RemoteImage) return@runCatching download(ref.url)?.let(::decode)
                 val data = when (ref) {
                     is InlineImage -> ref.base64
                     is SessionImage -> fetch(hub, "image " + LinuxEnv.quote(ref.file) + " " + LinuxEnv.quote(ref.ref))
                     is FileImage -> fetch(hub, "file-image " + LinuxEnv.quote(ref.path))
+                    is RemoteImage -> null
                 } ?: return@runCatching null
                 decode(Base64.decode(data, Base64.DEFAULT))
             }.getOrNull()
         }
         if (bitmap == null) failed.add(ref.key) else cache.put(ref.key, bitmap)
         return bitmap
+    }
+
+    /** 下载一张网络图片，太大的不要。 */
+    private fun download(url: String): ByteArray? {
+        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        return try {
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 20_000
+            connection.instanceFollowRedirects = true
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) Zeta")
+            connection.setRequestProperty("Accept", "image/*")
+            if (connection.responseCode !in 200..299) return null
+            if (connection.contentLengthLong > MAX_DOWNLOAD) return null
+            val out = java.io.ByteArrayOutputStream()
+            connection.inputStream.use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    out.write(buffer, 0, n)
+                    if (out.size() > MAX_DOWNLOAD) return null
+                }
+            }
+            out.toByteArray()
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun fetch(hub: ConversationHub, arguments: String): String? {

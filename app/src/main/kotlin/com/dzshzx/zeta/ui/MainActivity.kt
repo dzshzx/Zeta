@@ -33,6 +33,7 @@ import com.dzshzx.zeta.ui.pane.SessionPane
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
+import com.dzshzx.zeta.ui.setup.PhoneScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var hub: ConversationHub
@@ -83,7 +84,8 @@ private fun ZetaApp(hub: ConversationHub) {
     var showLinux by rememberSaveable { mutableStateOf(false) }
     var showInstall by rememberSaveable { mutableStateOf(false) }
     var showLogin by rememberSaveable { mutableStateOf(false) }
-    val overlay = showSettings || showLinux || showInstall || showLogin
+    var showPhone by rememberSaveable { mutableStateOf(false) }
+    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !overlay,
@@ -125,7 +127,8 @@ private fun ZetaApp(hub: ConversationHub) {
             onOpenLogin = { showLogin = true },
         )
     }
-    Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }) }
+    Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }, onOpenPhone = { showPhone = true }) }
+    Page(showPhone) { PhoneScreen(hub = hub, onBack = { showPhone = false }) }
     Page(showLinux) {
         LinuxScreen(hub = hub, onBack = { showLinux = false }, onOpenInstall = { showInstall = true }, onOpenLogin = { showLogin = true })
     }
@@ -139,6 +142,7 @@ private fun ZetaApp(hub: ConversationHub) {
                 showLogin = false
             }
             showInstall -> showInstall = false
+            showPhone -> showPhone = false
             showLinux -> showLinux = false
             else -> showSettings = false
         }

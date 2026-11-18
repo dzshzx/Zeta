@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.core.RemoteImage
+import androidx.compose.material.icons.rounded.Image
 import android.app.Application
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -68,6 +70,36 @@ private fun rememberChatImage(ref: ImageRef): Loaded? {
     }.value
 }
 
+/** 网络图片要不要等用户点一下：访问图片地址会把你的 IP 暴露给对方服务器，默认先问。 */
+@Composable
+private fun waitsForTap(ref: ImageRef): Boolean {
+    if (ref !is RemoteImage) return false
+    val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
+    return !hub.autoLoadRemoteImages && !ImageStore.isAllowed(ref) && ImageStore.cached(ref) == null
+}
+
+@Composable
+private fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .clickable { ImageStore.allow(ref) }
+            .padding(horizontal = 11.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Image, contentDescription = null, modifier = Modifier.size(15.dp), tint = MiuixTheme.colorScheme.primary)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = "加载图片 · " + ref.url.substringAfter("://").substringBefore('/'),
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 /** 固定大小、裁切填满的小图（用户气泡、输入栏里的附件）。点一下看大图。 */
 @Composable
 internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifier) {
@@ -95,6 +127,10 @@ internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifie
 /** 按原比例铺开的图片（回答里、工具结果里）。很高的图限制高度，免得一张图占满几屏。 */
 @Composable
 internal fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
+    if (ref is RemoteImage && waitsForTap(ref)) {
+        RemoteImagePrompt(ref, modifier)
+        return
+    }
     val loaded = rememberChatImage(ref)
     var viewing by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(14.dp)
@@ -220,6 +256,7 @@ internal fun answerImages(text: String, cwd: String, home: String?): AnswerImage
 private fun localImage(target: String, cwd: String, home: String?): ImageRef? = when {
     target.startsWith("data:image/") && target.contains(";base64,") ->
         InlineImage("d:${target.hashCode()}:${target.length}", target.substringAfter(";base64,"))
+    target.startsWith("https://") || target.startsWith("http://") -> RemoteImage(target)
     target.contains("://") && !target.startsWith("file://") -> null
     else -> {
         val raw = target.removePrefix("file://").replace("%20", " ")

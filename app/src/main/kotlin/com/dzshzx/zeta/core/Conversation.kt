@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.phone.PhoneTools
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -27,7 +28,7 @@ import kotlinx.serialization.json.putJsonObject
 private const val ClientHint =
     "The user is reading this conversation in Zeta, a chat app on their Android phone. It renders Markdown. " +
         "To show the user an image file from this machine, include it in your reply as a Markdown image with an absolute path, " +
-        "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote image URLs are not loaded. " +
+        "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user taps them. " +
         "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."
 
 class Conversation(
@@ -251,6 +252,22 @@ class Conversation(
         hub.onActivityChanged()
     }
 
+    /** Claude Code 发给手机工具的一条 MCP 消息：在后台处理（读屏、点按都要时间），再把应答送回去。 */
+    private fun handleMcp(requestId: String, message: JsonObject) {
+        val target = process ?: return
+        thread(name = "zeta-phone", isDaemon = true) {
+            val reply = runCatching { hub.phone.handle(message) }.getOrElse { JsonObject(emptyMap()) }
+            target.send(buildJsonObject {
+                put("type", "control_response")
+                putJsonObject("response") {
+                    put("subtype", "success")
+                    put("request_id", requestId)
+                    putJsonObject("response") { put("mcp_response", reply) }
+                }
+            })
+        }
+    }
+
     /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上）。 */
     fun shutdown() {
         val current = process ?: return
@@ -281,6 +298,8 @@ class Conversation(
             model?.let { add("--model"); add(it) }
             permissionMode?.let { add("--permission-mode"); add(it) }
             add("--append-system-prompt"); add(ClientHint)
+            // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
+            if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
         }
         lateinit var created: ClaudeProcess
         created = try {
@@ -400,6 +419,8 @@ class Conversation(
                         questions = if (request.str("tool_name") == "AskUserQuestion") parseQuestions(input.arr("questions")) else emptyList(),
                     )
                     hub.onAttentionNeeded(this)
+                } else if (request.str("subtype") == "mcp_message") {
+                    request.obj("message")?.let { handleMcp(requestId, it) }
                 }
             }
             "control_cancel_request" -> if (pending?.requestId == event.str("request_id")) pending = null

@@ -46,6 +46,12 @@ data class FileImage(val path: String) : ImageRef {
     override val key: String get() = "f:$path"
 }
 
+/** 回答里引用的网络图片。 */
+@Immutable
+data class RemoteImage(val url: String) : ImageRef {
+    override val key: String get() = "u:$url"
+}
+
 /** Claude Code 报告的一个斜杠命令或技能。 */
 @Immutable
 data class SlashCommand(val name: String, val description: String, val argumentHint: String)

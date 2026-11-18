@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.phone.PhoneTools
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
@@ -24,6 +25,25 @@ class ConversationHub(private val app: Application) {
     val settings = Settings(app)
     val helperScript: String by lazy { app.assets.open("zeta_helper.py").bufferedReader().use { it.readText() } }
     val hostScript: String by lazy { app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() } }
+
+    val phone = PhoneTools(app, settings)
+
+    var phoneTools by mutableStateOf(settings.phoneTools)
+        private set
+
+    /** 开关只影响之后新开的 Claude Code 进程；已经开着的对话下次重启进程时生效。 */
+    fun choosePhoneTools(enabled: Boolean) {
+        phoneTools = enabled
+        settings.phoneTools = enabled
+    }
+
+    var autoLoadRemoteImages by mutableStateOf(settings.autoLoadRemoteImages)
+        private set
+
+    fun chooseAutoLoadRemoteImages(enabled: Boolean) {
+        autoLoadRemoteImages = enabled
+        settings.autoLoadRemoteImages = enabled
+    }
 
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
     var darkTheme by mutableStateOf(settings.darkTheme)

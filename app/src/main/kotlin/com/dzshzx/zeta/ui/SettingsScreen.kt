@@ -13,9 +13,10 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
 import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
+import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
 
 @Composable
-internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit) {
+internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit, onOpenPhone: () -> Unit) {
     val env = hub.env
     var themeMenu by remember { mutableStateOf(false) }
     val themeItems = listOf<Pair<Boolean?, String>>(null to "跟随系统", false to "浅色", true to "深色")
@@ -31,6 +32,16 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
                     themeMenu = false
                     hub.chooseTheme(it.value)
                 },
+            )
+        }
+        Group(title = "聊天", footer = "关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取。") {
+            CouiSwitchPreference(title = "自动加载网络图片", checked = hub.autoLoadRemoteImages, onCheckedChange = hub::chooseAutoLoadRemoteImages)
+        }
+        Group(title = "能力") {
+            CouiPreference(
+                title = "手机操作",
+                summary = if (hub.phoneTools) "Claude 可以读屏、点按、打开应用、执行 Android 命令" else "已关闭",
+                onClick = onOpenPhone,
             )
         }
         Group(title = "环境") {
