@@ -6,16 +6,29 @@
   delete <文件>         删除一个会话记录
   rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
   hosts                仍在后台运行的 Claude Code 进程（应用被杀后重新接上用）；顺手清掉已经结束的
+  image <文件> <位置>    取回会话记录里的一张图片（位置是 history 给出的“行号.块序号[.内层序号]”）
+  file-image <路径>     读取 Linux 环境里的一个图片文件
 """
+import base64
 import glob
 import json
 import os
+import re
 import shutil
 import sys
+import time
 
 ROOT = os.path.expanduser("~/.claude/projects")
 HOSTS = os.path.expanduser("~/.cache/zeta/hosts")
 SESSIONS = os.path.expanduser("~/.claude/sessions")
+UPLOADS = os.path.expanduser("~/.cache/zeta/files")
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+               ".gif": "image/gif", ".bmp": "image/bmp", ".heic": "image/heic", ".avif": "image/avif"}
+MAX_IMAGE_BYTES = 30 * 1024 * 1024
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+COMMAND_NAME = re.compile(r"<command-name>\s*(.*?)\s*</command-name>", re.S)
+COMMAND_ARGS = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.S)
+COMMAND_OUT = re.compile(r"<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>", re.S)
 MAX_TEXT = 6000
 MAX_EVENTS = 800
 
@@ -77,12 +90,19 @@ def external_sessions():
 
 
 def user_text(content):
-    """用户亲手输入的文字；工具结果、斜杠命令回显、系统注入的内容返回 None。"""
+    """用户亲手输入的文字（斜杠命令还原成 /名字 参数）；工具结果、系统注入的内容返回 None。"""
     if isinstance(content, str):
         text = content
     else:
         text = "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
     text = text.strip()
+    if text.startswith("<command-name>"):
+        name = COMMAND_NAME.search(text)
+        args = COMMAND_ARGS.search(text)
+        if not name:
+            return None
+        command = name.group(1) if name.group(1).startswith("/") else "/" + name.group(1)
+        return (command + " " + (args.group(1) if args else "")).strip()
     if not text or text.startswith(("<command-name>", "<local-command", "<system-reminder>", "<task-notification>",
                                     "Caveat:", "[Request interrupted")):
         return None
@@ -90,7 +110,7 @@ def user_text(content):
 
 
 def summarize(path):
-    title = first = cwd = None
+    title = first = prompt = cwd = None
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             # 先按子串筛，绝大多数行（请求快照等）不必解析
@@ -103,7 +123,7 @@ def summarize(path):
                     title = o["customTitle"]
                 elif o.get("type") == "ai-title" and o.get("aiTitle"):
                     title = o["aiTitle"]
-            elif first is None and '"type":"user"' in line:
+            elif prompt is None and '"type":"user"' in line:
                 try:
                     o = json.loads(line)
                 except ValueError:
@@ -114,7 +134,12 @@ def summarize(path):
                 content = (o.get("message") or {}).get("content") or ""
                 text = user_text(content) or ("[图片]" if image_count(content) else None)
                 if text:
-                    first = text
+                    # 附件行不当预览；斜杠命令开头的会话，预览优先用后面第一句真正的话
+                    lines = [l for l in text.split("\n") if not l.startswith("[Attached file: ")]
+                    text = "\n".join(lines).strip() or os.path.basename(text.split("\n")[0][16:].rstrip("]"))
+                    first = first or text
+                    if not text.startswith("/"):
+                        prompt = text
             elif cwd is None and '"cwd"' in line:
                 try:
                     cwd = json.loads(line).get("cwd")
@@ -123,7 +148,7 @@ def summarize(path):
     if first is None:
         return None
     return {"id": os.path.basename(path)[:-6], "file": path, "cwd": cwd or "", "title": title or "",
-            "preview": first[:200], "updated": int(os.path.getmtime(path) * 1000)}
+            "preview": (prompt or first)[:200], "updated": int(os.path.getmtime(path) * 1000)}
 
 
 def cmd_list():
@@ -143,30 +168,39 @@ def cmd_list():
 def cmd_history(path):
     events = []
     with open(path, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            if '"type":"user"' not in line and '"type":"assistant"' not in line:
+        for number, line in enumerate(f):
+            if '"type":"user"' not in line and '"type":"assistant"' not in line and '"local_command"' not in line:
                 continue
             try:
                 o = json.loads(line)
             except ValueError:
                 continue
             kind = o.get("type")
+            if kind == "system" and o.get("subtype") == "local_command":
+                # 斜杠命令的输出（/context、/usage 等），当作一段回答显示
+                text = "\n".join(part.strip() for part in COMMAND_OUT.findall(o.get("content") or ""))
+                text = ANSI.sub("", text).strip()
+                if text:
+                    events.append({"type": "assistant", "message": {"id": o.get("uuid"), "content": [{"type": "text", "text": clip(text)}]}})
+                continue
             if kind not in ("user", "assistant") or o.get("isSidechain") or o.get("isMeta"):
                 continue
             message = o.get("message") or {}
             content = message.get("content")
             if kind == "user":
                 if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+                    # 图片本体不回传（一张就是几百 KB），只给出它在记录里的位置，界面要看时再用 image 命令取
                     blocks = [{"type": "tool_result", "tool_use_id": b.get("tool_use_id"), "is_error": bool(b.get("is_error")),
-                               "content": clip(b.get("content"))}
-                              for b in content if isinstance(b, dict) and b.get("type") == "tool_result"]
+                               "content": result_content(b.get("content"), "%d.%d" % (number, index))}
+                              for index, b in enumerate(content) if isinstance(b, dict) and b.get("type") == "tool_result"]
                     events.append({"type": "user", "message": {"content": blocks}})
                 else:
                     if o.get("isCompactSummary"):
                         continue
                     text = user_text(content or "")
-                    # 图片本体不回传（一张就是几百 KB），只告诉界面有几张
-                    blocks = [{"type": "image"}] * image_count(content)
+                    blocks = [{"type": "image", "ref": "%d.%d" % (number, index)}
+                              for index, b in enumerate(content if isinstance(content, list) else [])
+                              if isinstance(b, dict) and b.get("type") == "image"]
                     if text:
                         blocks.append({"type": "text", "text": text})
                     if blocks:
@@ -181,6 +215,56 @@ def cmd_history(path):
     out({"type": "zeta_history", "skipped": skipped})
     for e in events[skipped:]:
         out(e)
+
+
+def result_content(content, position):
+    if not isinstance(content, list):
+        return clip(content)
+    blocks = []
+    for index, b in enumerate(content):
+        if isinstance(b, dict) and b.get("type") == "image":
+            blocks.append({"type": "image", "ref": "%s.%d" % (position, index)})
+        elif isinstance(b, dict) and b.get("type") == "text":
+            blocks.append({"type": "text", "text": clip(b.get("text") or "")})
+    return blocks
+
+
+def cmd_image(path, position):
+    """按 history 给出的位置取回一张图片。记录只追加不改写，所以行号是稳定的。"""
+    index = [int(part) for part in position.split(".")]
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for number, line in enumerate(f):
+            if number == index[0]:
+                break
+        else:
+            sys.exit("no such line")
+    block = (json.loads(line).get("message") or {}).get("content")[index[1]]
+    if len(index) > 2:
+        block = block["content"][index[2]]
+    source = block.get("source") or {}
+    if block.get("type") != "image" or source.get("type") != "base64":
+        sys.exit("not an image")
+    out({"type": "zeta_image", "media_type": source.get("media_type"), "data": source.get("data")})
+
+
+def cmd_file_image(path):
+    path = os.path.expanduser(path)
+    kind = IMAGE_TYPES.get(os.path.splitext(path)[1].lower())
+    if kind is None or not os.path.isfile(path) or os.path.getsize(path) > MAX_IMAGE_BYTES:
+        sys.exit("not a readable image")
+    with open(path, "rb") as f:
+        out({"type": "zeta_image", "media_type": kind, "data": base64.b64encode(f.read()).decode("ascii")})
+
+
+def prune_uploads():
+    """应用送进来的附件留七天，够会话用完；之后清掉。"""
+    limit = time.time() - 7 * 86400
+    for directory in glob.glob(os.path.join(UPLOADS, "*")):
+        try:
+            if os.path.getmtime(directory) < limit:
+                shutil.rmtree(directory, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def scan_host(directory):
@@ -232,6 +316,7 @@ def read_text(path):
 
 
 def cmd_hosts():
+    prune_uploads()
     for directory in sorted(glob.glob(os.path.join(HOSTS, "*")), key=os.path.getmtime, reverse=True):
         try:
             pid = int(read_text(os.path.join(directory, "pid")))
@@ -248,8 +333,12 @@ def cmd_hosts():
             continue
         session = session or read_text(os.path.join(directory, "session")) or None
         files = glob.glob(os.path.join(ROOT, "*", session + ".jsonl")) if session else []
+        title = read_text(os.path.join(directory, "title"))
+        if not title and files:
+            summary = summarize(files[0]) or {}
+            title = summary.get("title") or (summary.get("preview") or "")[:40]
         out({"key": os.path.basename(directory), "pid": pid, "cwd": read_text(os.path.join(directory, "cwd")),
-             "title": read_text(os.path.join(directory, "title")), "session": session, "file": files[0] if files else None,
+             "title": title, "session": session, "file": files[0] if files else None,
              "lines": lines, "busy": busy, "pending": pending, "mode": mode})
 
 
@@ -284,8 +373,12 @@ def main():
         cmd_rename(args[1], args[2])
     elif args[:1] == ["hosts"]:
         cmd_hosts()
+    elif args[:1] == ["image"] and len(args) == 3 and inside_root(args[1]):
+        cmd_image(args[1], args[2])
+    elif args[:1] == ["file-image"] and len(args) == 2:
+        cmd_file_image(args[1])
     else:
-        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | hosts")
+        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | hosts | image <file> <ref> | file-image <path>")
 
 
 main()

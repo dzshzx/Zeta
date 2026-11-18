@@ -1,4 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小写 ζ：一笔圆头线条，下面垫一层偏移的深蓝做出厚度 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M38,36h32v6.5L48.5,66H70v6H38v-6.5L59.5,42H38z" />
+    <path
+        android:pathData="M43.12,34.92 L63.12,34.92 C51.12,40.92 44.32,48.52 44.32,56.52 C44.32,62.92 49.12,66.12 56.32,66.12 C61.92,66.12 64.72,68.92 63.76,72.2 C62.96,74.92 59.6,76.36 55.44,75.4"
+        android:strokeColor="#4D0B3EA8" android:strokeWidth="5.92" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path
+        android:pathData="M43.12,33.52 L63.12,33.52 C51.12,39.52 44.32,47.12 44.32,55.12 C44.32,61.52 49.12,64.72 56.32,64.72 C61.92,64.72 64.72,67.52 63.76,70.8 C62.96,73.52 59.6,74.96 55.44,74"
+        android:strokeWidth="5.92" android:strokeLineCap="round" android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="54" android:startY="32.72" android:endX="54" android:endY="75.92">
+                <item android:offset="0" android:color="#FFFFFFFF" />
+                <item android:offset="1" android:color="#FFD9E8FF" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

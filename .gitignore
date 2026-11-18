@@ -3,3 +3,5 @@ build/
 local.properties
 *.jks
 .kotlin/
+__pycache__/
+*.pyc

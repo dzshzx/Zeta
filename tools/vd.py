@@ -18,7 +18,7 @@ DEX = os.path.join(OUT, "classes.dex")
 D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
 WORK = "/data/local/tmp/zeta-vd"
 NAME = "zeta-vd"  # VdHold 里写死的虚拟屏名字
-COMPONENT = "io.github.dzshzx.zeta/.ui.MainActivity"
+COMPONENT = os.environ.get("ZETA_COMPONENT", "com.dzshzx.zeta/.ui.MainActivity")
 
 
 def android(cmd, check=True):
@@ -139,7 +139,7 @@ def main():
     elif c == "stop":
         did = display_id()
         if did is not None:
-            android(f"am force-stop io.github.dzshzx.zeta; echo release > {WORK}/ctl", check=False)
+            android(f"am force-stop com.dzshzx.zeta; echo release > {WORK}/ctl", check=False)
         print("stopped")
     else:
         sys.exit(__doc__)
