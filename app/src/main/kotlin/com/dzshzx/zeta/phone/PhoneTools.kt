@@ -26,6 +26,12 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.tools.PhoneToolGroups
+import com.dzshzx.zeta.phone.tools.enumProp
+import com.dzshzx.zeta.phone.tools.prop
+import com.dzshzx.zeta.phone.tools.rootShell
+import com.dzshzx.zeta.phone.tools.schema
+import com.dzshzx.zeta.phone.tools.tool
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -381,7 +387,7 @@ class PhoneTools(
             "press_key" -> KEY_TEXT[a.str("key")?.lowercase()] ?: "按键"
             "open_app" -> a.str("app")?.trim()?.takeIf { it.isNotEmpty() && '.' !in it }?.let { "打开$it" } ?: "打开应用"
             "show_to_user" -> "把" + (backgroundApp ?: "应用") + "移到主屏"
-            else -> name
+            else -> PhoneToolGroups.find(name)?.title(name, a) ?: name
         }
     }
 
@@ -435,7 +441,7 @@ class PhoneTools(
                 putJsonObject("serverInfo") { put("name", SERVER); put("version", "1") }
                 put("instructions", INSTRUCTIONS)
             }
-            "tools/list" -> buildJsonObject { put("tools", TOOLS) }
+            "tools/list" -> buildJsonObject { put("tools", JsonArray(TOOLS + PhoneToolGroups.all.flatMap { it.tools })) }
             "tools/call" -> {
                 val params = message.obj("params")
                 val name = params?.str("name").orEmpty()
@@ -470,7 +476,10 @@ class PhoneTools(
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = when (name) {
         "shell" -> shell(a)
         "find_apps" -> findApps(a.str("query").orEmpty())
-        else -> synchronized(lock) {
+        else -> PhoneToolGroups.find(name)?.let { group ->
+            reportCall(toolUseId, name, a)
+            group.call(context, name, a)
+        } ?: synchronized(lock) {
             justWoke = false
             // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废
             val touched = touchedByUser.getAndSet(false)
@@ -1107,8 +1116,7 @@ class PhoneTools(
         "…（前面省略 ${value.length - OUTPUT_LIMIT} 个字符）\n" + value.takeLast(OUTPUT_LIMIT)
 
     /** 在 Android 侧（全局挂载命名空间）以 root 执行。 */
-    private fun root(command: String, timeoutMs: Long = 15_000) =
-        LinuxEnv.runRoot(LinuxEnv.androidScript("exec /system/bin/sh -c \"\$2\"", command), timeoutMs)
+    private fun root(command: String, timeoutMs: Long = 15_000) = rootShell(command, timeoutMs)
 
     private fun rootError(command: String): String? {
         val result = root(command)
@@ -1241,35 +1249,8 @@ class PhoneTools(
                 "(add --display <id> with the background screen's display id, shown in observations, to open it there). " +
                 "If something needs the user's own hands, bring it to them with `show_to_user` and tell them what to do."
 
-        private fun JsonObjectBuilder.schema(required: List<String> = emptyList(), properties: JsonObjectBuilder.() -> Unit) {
-            putJsonObject("inputSchema") {
-                put("type", "object")
-                putJsonObject("properties", properties)
-                if (required.isNotEmpty()) put("required", JsonArray(required.map { JsonPrimitive(it) }))
-            }
-        }
-
-        private fun JsonObjectBuilder.prop(name: String, type: String, description: String) {
-            putJsonObject(name) { put("type", type); put("description", description) }
-        }
-
-        private fun JsonObjectBuilder.enumProp(name: String, values: List<String>, description: String) {
-            putJsonObject(name) {
-                put("type", "string")
-                put("enum", JsonArray(values.map { JsonPrimitive(it) }))
-                put("description", description)
-            }
-        }
-
         private fun JsonObjectBuilder.after() =
             prop("screenshot", "boolean", "Also return a screenshot taken after the action. Default false.")
-
-        private fun tool(name: String, description: String, readOnly: Boolean = false, build: JsonObjectBuilder.() -> Unit): JsonElement = buildJsonObject {
-            put("name", name)
-            put("description", description)
-            build()
-            if (readOnly) putJsonObject("annotations") { put("readOnlyHint", true) }
-        }
 
         private val TOOLS: JsonArray = buildJsonArray {
             add(tool("screen", "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
