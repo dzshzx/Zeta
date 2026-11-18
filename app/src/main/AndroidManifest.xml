@@ -50,6 +50,13 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/zeta_accessibility" />
         </service>
+        <!-- 把后台屏幕的画面缓冲交给 root 辅助进程；只认 root 和 system 身份的调用 -->
+        <provider
+            android:name=".phone.VdSurfaceProvider"
+            android:authorities="com.dzshzx.zeta.background"
+            android:exported="true"
+            android:grantUriPermissions="false"
+            android:permission="android.permission.MANAGE_ACCESSIBILITY" />
         <service
             android:name=".core.AgentService"
             android:exported="false"

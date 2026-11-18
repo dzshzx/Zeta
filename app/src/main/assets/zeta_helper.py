@@ -304,10 +304,12 @@ def prune_uploads():
 
 
 def scan_host(directory):
-    """读一个后台进程的输出日志：到第几行了、是哪个会话、这一轮是否还在进行、有没有等着用户批准的调用。"""
+    """读一个后台进程的输出日志：到第几行了、是哪个会话、这一轮是否还在进行、有没有等着用户批准的调用、
+    还有几个后台任务在跑。"""
     lines = 0
     session = None
     busy = False
+    tasks = 0
     pending = None
     mode = None
     with open(os.path.join(directory, "out.jsonl"), encoding="utf-8", errors="replace") as f:
@@ -330,14 +332,19 @@ def scan_host(directory):
             elif kind == "system":
                 mode = o.get("permissionMode") or mode
                 # 一轮结束后还会有 task_notification、background_tasks_changed、status 之类的收尾事件，
-                # 只有 init 表示新的一轮开始了
+                # 只有 init 表示新的一轮开始了（后台任务跑完后 Claude Code 自己起的一轮也以 init 开头）
                 if o.get("subtype") == "init":
                     busy = True
+                elif o.get("subtype") == "background_tasks_changed":
+                    # 每次都是完整清单：最后一条就是现在的情况。这一轮结束了它们也照样在跑
+                    tasks = len(o.get("tasks") or [])
             elif kind == "command_lifecycle":
                 if o.get("state") == "started":
                     busy = True
             elif kind in ("assistant", "user"):
-                busy = True
+                # 后台子代理的消息在主对话这一轮结束后还会陆续写进来，不代表这一轮还在进行
+                if not o.get("parent_tool_use_id"):
+                    busy = True
                 if kind == "user" and pending is not None:
                     content = (o.get("message") or {}).get("content")
                     wanted = (pending.get("request") or {}).get("tool_use_id")
@@ -347,7 +354,7 @@ def scan_host(directory):
                 pending = o
             elif kind == "control_cancel_request" and pending is not None and pending.get("request_id") == o.get("request_id"):
                 pending = None
-    return lines, session, busy, pending, mode
+    return lines, session, busy, pending, mode, tasks
 
 
 def read_text(path):
@@ -371,7 +378,7 @@ def cmd_hosts():
             shutil.rmtree(directory, ignore_errors=True)
             continue
         try:
-            lines, session, busy, pending, mode = scan_host(directory)
+            lines, session, busy, pending, mode, tasks = scan_host(directory)
         except OSError:
             continue
         session = session or read_text(os.path.join(directory, "session")) or None
@@ -382,7 +389,7 @@ def cmd_hosts():
             title = summary.get("title") or (summary.get("preview") or "")[:40]
         out({"key": os.path.basename(directory), "pid": pid, "cwd": read_text(os.path.join(directory, "cwd")),
              "title": title, "session": session, "file": files[0] if files else None,
-             "lines": lines, "busy": busy, "pending": pending, "mode": mode})
+             "lines": lines, "busy": busy, "pending": pending, "mode": mode, "tasks": tasks})
 
 
 def cmd_rename(path, title):

@@ -48,8 +48,18 @@ class Conversation(
     /** 界面用的稳定标识；会话还没建立（没有 sessionId）时也要能区分。 */
     val key: String = sessionId ?: "new-" + UUID.randomUUID()
 
-    var sessionId by mutableStateOf(sessionId)
-        private set
+    private var session by mutableStateOf(sessionId)
+
+    var sessionId: String?
+        get() = session
+        private set(value) {
+            val before = session
+            if (value == before) return
+            session = value
+            // 手机工具按会话登记：新对话拿到会话号、/clear 换了新会话时跟着改，之后重新打开才找得回这块后台屏幕
+            hub.rekeyPhone(phone, before ?: key, value ?: key)
+            hub.rekeyBackground(this, before ?: key, value ?: key)
+        }
     var title by mutableStateOf(title)
         internal set
 
@@ -63,6 +73,13 @@ class Conversation(
     var items by mutableStateOf<List<ChatItem>>(emptyList())
         private set
     var busy by mutableStateOf(false)
+        private set
+
+    /**
+     * 还在跑的后台任务数（后台命令、后台子代理、监视器等），以 Claude Code 最近一次 background_tasks_changed 为准。
+     * 这一轮结束后它们照样在跑，跑完时 Claude Code 会自己另起一轮汇报结果，所以进程不能当闲着收掉。
+     */
+    var backgroundTasks by mutableStateOf(0)
         private set
     var loadingHistory by mutableStateOf(historyFile != null)
         private set
@@ -108,6 +125,12 @@ class Conversation(
     private var interruptRequested = false
     private val main = Handler(Looper.getMainLooper())
     private val inbox = ConcurrentLinkedQueue<JsonObject>()
+
+    /**
+     * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。
+     * Claude Code 还有后台任务在跑也算忙：后台屏幕不休眠、不被腾掉。
+     */
+    val phone = hub.phoneFor(sessionId ?: key).also { it.attach(busy = { busy || backgroundTasks > 0 }, onChanged = { hub.onActivityChanged() }) }
     private val drainScheduled = AtomicBoolean(false)
     private var requestSeq = 0
 
@@ -116,6 +139,7 @@ class Conversation(
     init {
         if (attach != null) {
             busy = attach.busy
+            backgroundTasks = attach.tasks
             turnsInFlight = if (attach.busy) 1 else 0
             attach.permissionMode?.let { permissionMode = it }
             lastActivityAt = System.currentTimeMillis()
@@ -322,7 +346,7 @@ class Conversation(
     private fun handleMcp(requestId: String, message: JsonObject) {
         val target = process ?: return
         thread(name = "zeta-phone", isDaemon = true) {
-            val reply = runCatching { hub.phone.handle(message) }.getOrElse { JsonObject(emptyMap()) }
+            val reply = runCatching { phone.handle(message) }.getOrElse { JsonObject(emptyMap()) }
             target.send(buildJsonObject {
                 put("type", "control_response")
                 putJsonObject("response") {
@@ -334,11 +358,12 @@ class Conversation(
         }
     }
 
-    /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上）。 */
+    /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下）。 */
     fun shutdown() {
         val current = process ?: return
         process = null
         current.stop()
+        phone.detach()
         endTurnState()
         hub.onActivityChanged()
     }
@@ -422,6 +447,23 @@ class Conversation(
                         if (hub.settings.permissionMode == null) hub.defaultPermissionMode = mode
                         if (permissionMode == null) permissionMode = mode
                     }
+                    // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
+                    // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
+                    if (!busy) {
+                        busy = true
+                        turnsInFlight++
+                        lastActivityAt = now
+                        hub.onActivityChanged()
+                    }
+                }
+                "background_tasks_changed" -> {
+                    // 每次都是完整的清单（不含前台运行的命令），数一下就是当前还在跑的
+                    val count = event.arr("tasks")?.size ?: 0
+                    if (count != backgroundTasks) {
+                        backgroundTasks = count
+                        if (count == 0 && !busy) hub.onBackgroundTasksDone(this)
+                        hub.onActivityChanged()
+                    }
                 }
                 "status" -> {
                     event.str("permissionMode")?.let { permissionMode = it }
@@ -494,6 +536,7 @@ class Conversation(
                 val turnOver = if (lifecycleSeen) queued.isEmpty() else turnsInFlight == 0
                 if (turnOver) {
                     busy = false
+                    phone.onTurnEnded()
                     hub.onTurnFinished(this, stopped)
                 }
                 hub.onActivityChanged()
@@ -559,6 +602,8 @@ class Conversation(
         recalling.clear()
         steering = false
         busy = false
+        // 进程没了，它的后台任务也跟着没了
+        backgroundTasks = 0
         status = null
         pending = null
         interruptRequested = false
@@ -572,6 +617,7 @@ class Conversation(
         process = null
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
+        phone.detach()
         val wasBusy = busy
         endTurnState()
         if (wasBusy || code != 0) {

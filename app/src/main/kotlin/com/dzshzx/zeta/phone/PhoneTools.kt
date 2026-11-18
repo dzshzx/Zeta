@@ -8,10 +8,16 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
+import android.view.Display
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.arr
@@ -31,6 +37,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.io.ByteArrayOutputStream
+import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -42,8 +49,30 @@ import kotlin.math.roundToInt
  *
  * 坐标一律用“截图坐标”：屏幕按比例缩到长边不超过 [MAX_EDGE] 之后的像素。
  * 这样模型看到的截图、控件列表里的位置、它填的点击位置是同一套数，不用换算。
+ *
+ * 每个会话一份（由 ConversationHub 按会话登记）：应用默认开在这个会话自己的后台屏幕（[VirtualScreen]）上，不占用主屏，
+ * 几个对话同时操作手机也互不干扰。工具作用在“当前屏幕”上：最近一次打开应用的那块。
+ * 对话的进程结束时后台屏幕留着（[detach]，让它休眠），重新打开会话、接着发送时还是那块屏和上面的应用。
+ * 一轮结束后 [IDLE_SLEEP_MS] 没再用也休眠：屏幕关掉，应用停下但任务和页面都在，要用时自动唤醒。
+ * 用户在界面上关掉、全应用屏幕太多被腾掉、或 [destroy] 时才释放。
  */
-class PhoneTools(private val context: Context, private val settings: Settings) {
+class PhoneTools(
+    private val context: Context,
+    private val settings: Settings,
+    /** 要新建后台屏幕之前调用（工具线程上，持着本对象的锁）：全应用的后台屏幕有上限，满了由登记处先腾出一块。 */
+    private val beforeCreate: (PhoneTools) -> Unit = {},
+    /** 后台屏幕没了（在主线程上调用）：登记处据此丢掉没有屏、也没有对话在用的那些。 */
+    private val onScreenGone: () -> Unit = {},
+) {
+    /** 对话是否正在进行（空闲释放、腾地方时要避开）。由正在用它的对话经 [attach] 给出。 */
+    @Volatile private var busy: () -> Boolean = { false }
+
+    /** 后台屏幕有了、没了或换了应用（在主线程上调用）。 */
+    @Volatile private var onChanged: () -> Unit = {}
+
+    /** [destroy] 过了：不再建后台屏幕，免得还没结束的工具调用给已经没人要的会话建出一块没人管的屏。 */
+    @Volatile private var destroyed = false
+
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
         fun toModel(v: Int): Int = (v * scale).roundToInt()
@@ -58,13 +87,65 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
     private var seen: List<Seen> = emptyList()
     private val lock = Any()
 
-    private val display: Int get() = settings.phoneDisplay
+    /** 主屏的编号。平时是 0；调试时可以经设置指到别的屏上，免得测试打扰正在用手机的人。 */
+    private val mainDisplay: Int get() = settings.phoneDisplay
+
+    private val main = Handler(Looper.getMainLooper())
+
+    /** 这个对话的后台屏幕（界面用，只在主线程上改）。 */
+    var background by mutableStateOf<VirtualScreen?>(null)
+        private set
+
+    /** 后台屏幕上最近打开的应用名（界面用）。 */
+    var backgroundApp by mutableStateOf<String?>(null)
+        private set
+
+    /** 工具线程看到的后台屏幕。 */
+    @Volatile private var screenRef: VirtualScreen? = null
+
+    /** 当前操作的是后台屏幕。后台屏幕没了也保持为 true，直到模型换屏，免得它不知情地点到主屏上。 */
+    @Volatile private var onBackground = false
+
+    @Volatile private var lastUse = 0L
+
+    /** 这次调用前刚把休眠的后台屏幕唤醒：在观察结果里提一句（在 [lock] 里用）。 */
+    private var justWoke = false
+
+    /** 为后台运行而禁掉音频焦点的应用，及其原来的设置。 */
+    private val muted = LinkedHashMap<String, String>()
+
+    private val display: Int get() = if (onBackground) screenRef?.displayId ?: Display.INVALID_DISPLAY else mainDisplay
+
+    /** 当前屏幕是后台屏幕但它已经没了：返回给模型的说明。 */
+    private fun lostBackground(): String? =
+        if (onBackground && screenRef?.alive != true) {
+            "后台屏幕已经关掉了（用户在 Zeta 里关的，或者同时开着的后台屏幕太多、这块被腾掉了）。要继续就用 open_app 重新打开应用；要看主屏用 screen 并传 display: main。"
+        } else null
+
+    /** 要操作当前屏幕之前：后台屏幕没了返回说明；在休眠就先唤醒（等到新画面出来）。 */
+    private fun ready(): String? {
+        lostBackground()?.let { return it }
+        if (!onBackground) return null
+        val screen = screenRef ?: return null
+        return wakeIfAsleep(screen)
+    }
+
+    /** 后台屏幕在休眠就唤醒它。返回问题，没有问题返回 null。 */
+    private fun wakeIfAsleep(screen: VirtualScreen): String? {
+        if (!screen.asleep.value) return null
+        if (!screen.wake()) return if (screen.alive) "后台屏幕在休眠，没能唤醒。可以再试一次，或者用 open_app 重新打开应用" else lostBackground()
+        // 第一帧出来了，再稍等让无障碍那边的窗口列表也跟上
+        Thread.sleep(200)
+        justWoke = true
+        return null
+    }
 
     // ---- MCP ----
 
     /** 处理一条 MCP 消息，返回要送回去的应答（通知类消息没有应答，返回空对象）。 */
     fun handle(message: JsonObject): JsonObject {
         val id = message["id"] ?: return JsonObject(emptyMap())
+        lastUse = System.currentTimeMillis()
         val result: JsonObject? = when (message.str("method")) {
             "initialize" -> buildJsonObject {
                 put("protocolVersion", message.obj("params")?.str("protocolVersion") ?: "2025-06-18")
@@ -102,22 +183,43 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
         "shell" -> shell(a)
         "find_apps" -> findApps(a.str("query").orEmpty())
         else -> synchronized(lock) {
+            justWoke = false
             when (name) {
-                "screen" -> observe(screenshot = a.bool("screenshot") == true, maxNodes = (a.int("max_nodes") ?: 80).coerceIn(10, 250))
+                "screen" -> {
+                    // 切到后台屏幕时也在 ready() 里唤醒
+                    val problem = a.str("display")?.let { switchTo(it) } ?: ready()
+                    if (problem != null) failure(problem)
+                    else observe(screenshot = a.bool("screenshot") == true, maxNodes = (a.int("max_nodes") ?: 80).coerceIn(10, 250))
+                }
                 "tap" -> act(a) { screen -> tap(screen, a, longPressMs = null) }
                 "long_press" -> act(a) { screen -> tap(screen, a, longPressMs = (a.int("duration_ms") ?: 700).coerceIn(300, 5000).toLong()) }
                 "swipe" -> act(a) { screen -> swipe(screen, a) }
                 "type_text" -> act(a) { typeText(a) }
                 "press_key" -> act(a) { pressKey(a.str("key").orEmpty()) }
-                "open_app" -> act(a, settleMs = 1500) { openApp(a.str("app").orEmpty()) }
+                "open_app" -> openApp(a)
+                "show_to_user" -> showToUser(a)
                 else -> failure("没有这个工具：$name")
             }
         }
     }
 
+    /** screen 的 display 参数：换到主屏或后台屏幕。返回问题，没有问题返回 null。 */
+    private fun switchTo(target: String): String? = when (target.lowercase()) {
+        "main" -> {
+            onBackground = false
+            null
+        }
+        "background" -> if (screenRef?.alive == true) {
+            onBackground = true
+            null
+        } else "现在没有后台屏幕：用 open_app 打开应用时会自动建一块"
+        else -> "display 只能是 main 或 background"
+    }
+
     // ---- 读屏 ----
 
     private fun screen(): Screen? {
+        if (onBackground) return screenRef?.takeIf { it.alive }?.let { Screen(it.width, it.height) }
         val manager = context.getSystemService(DisplayManager::class.java)
         manager?.getDisplay(display)?.let { d ->
             val metrics = DisplayMetrics()
@@ -140,11 +242,16 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
     private fun stateLine(screen: Screen): String {
         val power = context.getSystemService(PowerManager::class.java)
         val guard = context.getSystemService(KeyguardManager::class.java)
+        val other = screenRef?.takeIf { it.alive }
         val notes = buildList {
-            if (display == 0 && power?.isInteractive == false) add("屏幕是关着的（可以用 shell 执行 input keyevent WAKEUP）")
-            if (display == 0 && guard?.isKeyguardLocked == true) add("手机处于锁屏状态")
+            if (!onBackground && display == 0 && power?.isInteractive == false) add("屏幕是关着的（可以用 shell 执行 input keyevent WAKEUP）")
+            if (!onBackground && display == 0 && guard?.isKeyguardLocked == true) add("手机处于锁屏状态")
+            if (!onBackground && other != null) {
+                add("后台屏幕上还开着" + (backgroundApp?.let { " $it" } ?: "应用") + (if (other.asleep.value) "，在休眠" else "") + "（screen 传 display: background 切过去）")
+            }
         }
-        return "屏幕 ${screen.modelWidth}×${screen.modelHeight}（截图坐标）" + notes.joinToString("") { "；$it" }
+        val where = if (onBackground) "后台屏幕（display $display，用户看不到，除非在 Zeta 里打开查看）" else "主屏"
+        return "$where ${screen.modelWidth}×${screen.modelHeight}（截图坐标）" + notes.joinToString("") { "；$it" }
     }
 
     private fun describe(screen: Screen, maxNodes: Int): String {
@@ -213,9 +320,12 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
 
     private fun clip(value: String): String = value.replace('\n', ' ').let { if (it.length > 80) it.take(80) + "…" else it }
 
-    private fun observe(screenshot: Boolean, maxNodes: Int): JsonObject {
+    private fun observe(screenshot: Boolean, maxNodes: Int, notes: List<String> = emptyList()): JsonObject {
+        val woke = if (justWoke) listOf("后台屏幕刚从休眠中唤醒（应用和页面都还在）") else emptyList()
+        justWoke = false
+        lostBackground()?.let { return failure((woke + notes + it).joinToString("\n")) }
         val screen = screen() ?: return failure("找不到编号为 $display 的屏幕")
-        val tree = describe(screen, maxNodes)
+        val tree = (woke + notes + describe(screen, maxNodes)).joinToString("\n")
         if (!screenshot) return text(tree)
         val image = capture(screen) ?: return text("$tree\n（截图失败）")
         return buildJsonObject {
@@ -228,7 +338,8 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
 
     /** 截图，缩到“截图坐标”的大小，JPEG，base64。 */
     private fun capture(screen: Screen): String? {
-        val raw: Bitmap = ZetaAccessibilityService.instance?.screenshot(display) ?: run {
+        val raw: Bitmap = if (onBackground) screenRef?.capture() ?: return null
+        else ZetaAccessibilityService.instance?.screenshot(display) ?: run {
             // 没有无障碍服务时，主屏可以经 root 截
             if (display != 0) return null
             val process = runCatching { ProcessBuilder("su", "-c", "exec screencap -p").start() }.getOrNull() ?: return null
@@ -246,6 +357,7 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
 
     /** 做一个动作，稍等界面稳定，然后把新的控件列表一并交回去（省得模型每次都再问一遍）。 */
     private fun act(a: JsonObject, settleMs: Long = 500, action: (Screen) -> String?): JsonObject {
+        ready()?.let { return failure(it) }
         val screen = screen() ?: return failure("找不到编号为 $display 的屏幕")
         val error = action(screen)
         if (error != null) return failure(error)
@@ -324,8 +436,11 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
     private fun pressKey(key: String): String? {
         val service = ZetaAccessibilityService.instance
         val name = key.lowercase()
+        if (onBackground && (name == "home" || name == "recents")) {
+            return "后台屏幕没有桌面和最近任务。换应用用 open_app，回上一页用 back"
+        }
         // 全局动作只作用在主屏上；别的屏幕、或者没有无障碍服务时走按键事件
-        if (service != null && display == 0) {
+        if (service != null && !onBackground && display == 0) {
             val action = when (name) {
                 "back" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK
                 "home" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME
@@ -373,17 +488,270 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
         return text(apps.take(200).joinToString("\n") { "${it.label}  ${it.packageName}" })
     }
 
-    private fun openApp(query: String): String? {
-        if (query.isBlank()) return "缺少 app（应用名或包名）"
+    private fun openApp(a: JsonObject): JsonObject {
+        val query = a.str("app").orEmpty()
+        if (query.isBlank()) return failure("缺少 app（应用名或包名）")
         val found = match(query)
-        val app = found.firstOrNull() ?: return "没有找到应用“$query”，可以用 find_apps 查一下"
+        val app = found.firstOrNull() ?: return failure("没有找到应用“$query”，可以用 find_apps 查一下")
         if (found.size > 1 && found.none { it.packageName == query || it.label.equals(query, ignoreCase = true) }) {
-            return "有多个应用匹配“$query”：" + found.take(8).joinToString("、") { "${it.label}（${it.packageName}）" } + "。请用包名指明"
+            return failure("有多个应用匹配“$query”：" + found.take(8).joinToString("、") { "${it.label}（${it.packageName}）" } + "。请用包名指明")
         }
-        return rootError(
-            "am start --user 0 --display $display -a android.intent.action.MAIN -c android.intent.category.LAUNCHER " +
+        val requested = a.str("display")?.lowercase() ?: "auto"
+        if (requested !in setOf("auto", "background", "main")) return failure("display 只能是 auto、background 或 main")
+        val notes = ArrayList<String>()
+        var screen: VirtualScreen? = null
+        if (requested != "main") {
+            val reason = when {
+                !settings.backgroundScreen -> if (requested == "background") "用户在 Zeta 的设置里关掉了后台执行，在主屏上打开" else null
+                app.packageName == context.packageName || app.packageName in MAIN_ONLY -> "${app.label} 只在主屏上打开"
+                // 在后台屏幕上启动会把它从主屏抽走，打断用户正在做的事
+                app.packageName == foregroundOnMain() -> "${app.label} 正开在主屏前台（用户可能正在用），就在主屏上操作，不把它挪走"
+                else -> null
+            }
+            if (reason != null) notes += reason
+            else screen = runCatching { ensureBackground() }.getOrElse {
+                notes += "后台屏幕没能建起来（${it.message ?: it.javaClass.simpleName}），改在主屏上打开"
+                null
+            }
+        }
+        val target = screen?.displayId ?: mainDisplay
+        if (screen != null) mute(app.packageName)
+        rootError(
+            "am start --user 0 --display $target -a android.intent.action.MAIN -c android.intent.category.LAUNCHER " +
                 "-n " + LinuxEnv.quote("${app.packageName}/${app.activity}") + " -f 0x10200000",
+        )?.let { return failure(it) }
+        onBackground = screen != null
+        if (screen != null) {
+            notes += "已在后台屏幕上打开 ${app.label}"
+            main.post { if (background === screen) backgroundApp = app.label; onChanged() }
+        }
+        Thread.sleep(1500)
+        return observe(screenshot = a.bool("screenshot") == true, maxNodes = 60, notes = notes)
+    }
+
+    /** 主屏前台的应用（用户眼前的那个）。 */
+    private fun foregroundOnMain(): String? = rootTasks().firstOrNull { it.displayId == mainDisplay && it.visible }?.packageName
+
+    private class RootTask(val id: Int, val displayId: Int, val packageName: String?, val visible: Boolean)
+
+    /** 系统里的任务栈，最上层的在前（`am stack list`）。 */
+    private fun rootTasks(): List<RootTask> {
+        val out = root("am stack list").stdout
+        val list = ArrayList<RootTask>()
+        var id = -1
+        var displayId = -1
+        var packageName: String? = null
+        var visible = false
+        fun flush() {
+            if (id >= 0) list += RootTask(id, displayId, packageName, visible)
+        }
+        for (line in out.lineSequence()) {
+            val head = ROOT_TASK.find(line)
+            if (head != null) {
+                flush()
+                id = head.groupValues[1].toInt()
+                displayId = head.groupValues[2].toInt()
+                packageName = null
+                visible = false
+                continue
+            }
+            val task = TASK.find(line) ?: continue
+            if (packageName == null) packageName = task.groupValues[1]
+            if (task.groupValues[2] == "true") visible = true
+        }
+        flush()
+        return list
+    }
+
+    /** 这个对话的后台屏幕，没有就建一块（和主屏一样大）；在休眠就唤醒。失败时抛出异常。 */
+    private fun ensureBackground(): VirtualScreen {
+        screenRef?.takeIf { it.alive }?.let { existing ->
+            wakeIfAsleep(existing)?.let { throw IllegalStateException(it) }
+            return existing
+        }
+        check(!destroyed) { "这个会话已经结束" }
+        beforeCreate(this)
+        val metrics = DisplayMetrics()
+        val physical = context.getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
+            ?: throw IllegalStateException("读不到主屏的尺寸")
+        @Suppress("DEPRECATION") physical.getRealMetrics(metrics)
+        val created = VirtualScreen.create(context, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+        created.onGone = { onBackgroundGone(created) }
+        screenRef = created
+        main.post {
+            background = created
+            backgroundApp = null
+            onChanged()
+        }
+        return created
+    }
+
+    /** 辅助进程意外退出：后台屏幕已经没了。 */
+    private fun onBackgroundGone(screen: VirtualScreen) {
+        if (screenRef !== screen) return
+        screenRef = null
+        restoreAll()
+        main.post {
+            if (background === screen) {
+                background = null
+                backgroundApp = null
+            }
+            onChanged()
+            onScreenGone()
+        }
+    }
+
+    private fun showToUser(a: JsonObject): JsonObject {
+        val screen = screenRef?.takeIf { it.alive } ?: return failure(if (onBackground) lostBackground()!! else "现在没有后台屏幕，应用本来就开在主屏上")
+        val label = backgroundApp
+        val error = moveTopToMain(screen) ?: run {
+            onBackground = false
+            null
+        }
+        if (error != null) return failure(error)
+        Thread.sleep(800)
+        val reason = a.str("reason")?.takeIf { it.isNotBlank() }
+        return observe(
+            screenshot = a.bool("screenshot") == true,
+            maxNodes = 60,
+            notes = listOf("已把" + (label?.let { " $it" } ?: "后台屏幕上的应用") + " 移到主屏" + (reason?.let { "（$it）" } ?: "") + "，接下来在主屏上操作"),
         )
+    }
+
+    /** 把后台屏幕最上面的应用移到主屏；屏上没有别的应用了就把后台屏幕收掉。返回问题。 */
+    private fun moveTopToMain(screen: VirtualScreen): String? {
+        // 先唤醒：移过去的应用是醒着的
+        if (screen.asleep.value && !screen.wake() && screen.alive) return "后台屏幕在休眠，没能唤醒"
+        val task = rootTasks().firstOrNull { it.displayId == screen.displayId } ?: return "后台屏幕上没有应用"
+        rootError("am display move-stack ${task.id} $mainDisplay")?.let { return it }
+        task.packageName?.let { unmute(it) }
+        if (rootTasks().none { it.displayId == screen.displayId }) releaseBackground()
+        else main.post { onChanged() }
+        return null
+    }
+
+    /** 界面上的“移到主屏”。 */
+    fun moveToMainByUser() {
+        thread(name = "zeta-phone-ui", isDaemon = true) {
+            synchronized(lock) {
+                val screen = screenRef?.takeIf { it.alive } ?: return@thread
+                if (moveTopToMain(screen) == null) onBackground = false
+            }
+        }
+    }
+
+    /** 界面上的“关闭”。 */
+    fun closeBackgroundByUser() {
+        thread(name = "zeta-phone-ui", isDaemon = true) { synchronized(lock) { releaseBackground() } }
+    }
+
+    /** 释放后台屏幕（屏上的应用随之关闭）。当前屏幕若是它，保持指着它，好让模型下次调用时知道它没了。 */
+    private fun releaseBackground() {
+        val screen = screenRef ?: return
+        screenRef = null
+        screen.release()
+        restoreAll()
+        main.post {
+            if (background === screen) {
+                background = null
+                backgroundApp = null
+            }
+            onChanged()
+            onScreenGone()
+        }
+    }
+
+    /** 全应用的后台屏幕满了，登记处挑中这块腾出来（和闲置释放一样，当前屏幕仍指着它，模型下次调用时会知道它没了）。 */
+    internal fun evictBackground() {
+        thread(name = "zeta-phone-evict", isDaemon = true) { synchronized(lock) { releaseBackground() } }
+    }
+
+    /** 有后台屏幕（醒着或睡着）。登记处据此决定留不留这份、屏幕数有没有到上限。 */
+    internal val hasScreen: Boolean get() = screenRef?.alive == true
+
+    /** 最近一次被 Claude Code 调用的时间，腾地方时先收最久没用的。 */
+    internal val lastUsed: Long get() = lastUse
+
+    /** 正在用它的对话是否在进行。 */
+    internal val isBusy: Boolean get() = busy()
+
+    /** 一轮结束：过一阵还没再用就让后台屏幕休眠，省电；应用和页面都留着，下次用时唤醒。 */
+    fun onTurnEnded() {
+        if (screenRef == null) return
+        main.removeCallbacks(idleCheck)
+        main.postDelayed(idleCheck, IDLE_SLEEP_MS)
+    }
+
+    private val idleCheck = Runnable {
+        if (screenRef != null && !busy() && idle()) {
+            thread(name = "zeta-phone-idle", isDaemon = true) {
+                // 等锁的时候可能又用上了
+                synchronized(lock) { if (idle()) screenRef?.sleep() }
+            }
+        }
+    }
+
+    private fun idle() = System.currentTimeMillis() - lastUse >= IDLE_SLEEP_MS - 1000
+
+    /** 让这个对话的后台屏幕休眠（有的话）：不销毁，屏上的应用和页面都留着，下次用工具时唤醒。可以在任何线程上调用。 */
+    internal fun sleepBackground() {
+        thread(name = "zeta-phone-sleep", isDaemon = true) { synchronized(lock) { screenRef?.sleep() } }
+    }
+
+    /** 换到现在用它的对话（重新打开会话时会新建对话对象）：闲置判断、界面刷新都跟着它走。在主线程上调用。 */
+    fun attach(busy: () -> Boolean, onChanged: () -> Unit) {
+        this.busy = busy
+        this.onChanged = onChanged
+    }
+
+    /**
+     * 对话的进程结束了：后台屏幕和上面的应用留着，只让它睡下，用 --resume 接着的 Claude 还在原来那块屏上。
+     * 控件编号跟着上一个进程作废。马上就睡了，不用再等闲置检查。
+     */
+    fun detach() {
+        main.removeCallbacks(idleCheck)
+        thread(name = "zeta-phone-detach", isDaemon = true) {
+            synchronized(lock) {
+                if (destroyed) return@thread
+                // 已经持着锁，直接睡下（sleepBackground 会另起线程再来拿锁）
+                screenRef?.sleep()
+                seen = emptyList()
+            }
+        }
+    }
+
+    /** 彻底释放（会话删了、换了环境、或已经没人用）：收掉后台屏幕，之后也不再建。 */
+    fun destroy() {
+        destroyed = true
+        main.removeCallbacks(idleCheck)
+        thread(name = "zeta-phone-stop", isDaemon = true) {
+            synchronized(lock) {
+                releaseBackground()
+                onBackground = false
+                seen = emptyList()
+            }
+        }
+    }
+
+    /** 在后台屏幕上运行的应用先禁掉音频焦点：不会突然出声，也不打断用户在听的东西。 */
+    private fun mute(packageName: String) {
+        synchronized(muted) { if (packageName in muted) return }
+        val out = root("cmd appops get --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS").stdout
+        val mode = Regex("TAKE_AUDIO_FOCUS: (\\w+)").find(out)?.groupValues?.get(1) ?: "default"
+        if (mode == "ignore") return
+        if (root("cmd appops set --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS ignore").exitCode != 0) return
+        synchronized(muted) { muted[packageName] = mode }
+        rememberMuted(settings, packageName, mode)
+    }
+
+    private fun unmute(packageName: String) {
+        val mode = synchronized(muted) { muted.remove(packageName) } ?: return
+        root("cmd appops set --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS $mode")
+        forgetMuted(settings, packageName)
+    }
+
+    private fun restoreAll() {
+        synchronized(muted) { muted.keys.toList() }.forEach(::unmute)
     }
 
     // ---- Android 侧命令 ----
@@ -419,6 +787,46 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
     companion object {
         const val SERVER = "phone"
         private const val MAX_EDGE = 1568
+        private const val IDLE_SLEEP_MS = 10 * 60_000L
+
+        /** 只在主屏上打开的：桌面、系统界面。 */
+        private val MAIN_ONLY = setOf(
+            "android", "com.android.systemui", "com.miui.home", "com.android.launcher", "com.android.launcher3",
+            "com.google.android.apps.nexuslauncher", "com.oppo.launcher", "com.bbk.launcher2", "com.huawei.android.launcher",
+            "com.sec.android.app.launcher",
+        )
+
+        private val ROOT_TASK = Regex("^RootTask id=(\\d+) .*displayId=(-?\\d+)")
+        private val TASK = Regex("^\\s+taskId=\\d+: ([^/\\s]+)/\\S* .*visible=(true|false)")
+
+        private val mutedLock = Any()
+
+        private fun rememberMuted(settings: Settings, packageName: String, mode: String) = synchronized(mutedLock) {
+            settings.mutedApps = settings.mutedApps.filterNot { it.substringBefore('=') == packageName }.toSet() + "$packageName=$mode"
+        }
+
+        private fun forgetMuted(settings: Settings, packageName: String) = synchronized(mutedLock) {
+            settings.mutedApps = settings.mutedApps.filterNot { it.substringBefore('=') == packageName }.toSet()
+        }
+
+        /**
+         * 上次 Zeta 没来得及恢复的音频焦点设置（比如被系统杀掉）：后台屏幕随 Zeta 一起没了，这里把设置改回去。
+         * 应用启动时调用一次。
+         */
+        fun restoreMutedApps(settings: Settings) {
+            val left = synchronized(mutedLock) { settings.mutedApps }
+            if (left.isEmpty()) return
+            for (entry in left) {
+                val packageName = entry.substringBefore('=')
+                val mode = entry.substringAfter('=', "default")
+                runCatching {
+                    LinuxEnv.runRoot(
+                        LinuxEnv.androidScript("exec cmd appops set --user 0 \"\$2\" TAKE_AUDIO_FOCUS \"\$3\"", packageName, mode), 10_000,
+                    )
+                }
+            }
+            synchronized(mutedLock) { settings.mutedApps = settings.mutedApps - left }
+        }
         private const val OUTPUT_LIMIT = 30_000
         const val SERVICE = "com.dzshzx.zeta/com.dzshzx.zeta.phone.ZetaAccessibilityService"
 
@@ -460,10 +868,17 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
                 "Prefer acting on a control by its index (`node`), which stays valid until the next observation; use x/y only when the control is not listed. " +
                 "All coordinates are in screenshot pixels, the size reported at the top of every observation. " +
                 "Every action returns a fresh list of controls, so you rarely need to call `screen` again after acting. " +
+                "Apps you open with `open_app` run on a hidden background screen by default, so the user can keep using their phone meanwhile " +
+                "(they can watch it live in Zeta). Every tool acts on the current screen, which is the one you last opened an app on; " +
+                "each observation starts by naming it. The background screen has no home screen or status bar: switch apps with `open_app`, go back with `press_key` back. " +
+                "Call `show_to_user` to move the app from the background screen to the main screen when the user must act themselves " +
+                "(payment, password, captcha, a login or permission prompt meant for them) or when they want to see the result in that app; after it you are on the main screen. " +
+                "Use `display: main` with `open_app` only when the user wants it done in front of them. " +
                 "Ask for `screenshot: true` only when the list is not enough (images, games, canvas-drawn pages); it costs far more than the list. " +
                 "`shell` runs a command as root on the Android side, outside the Linux environment your Bash tool lives in: " +
-                "use it for pm, am, cmd, settings, dumpsys, getprop, logcat, input and the like. Opening a URL: am start -a android.intent.action.VIEW -d <url>. " +
-                "The user sees their phone being operated; if something needs their own hands (unlocking, a payment, a captcha), stop and tell them."
+                "use it for pm, am, cmd, settings, dumpsys, getprop, logcat, input and the like. Opening a URL: am start -a android.intent.action.VIEW -d <url> " +
+                "(add --display <id> with the background screen's display id, shown in observations, to open it there). " +
+                "If something needs the user's own hands, bring it to them with `show_to_user` and tell them what to do."
 
         private fun JsonObjectBuilder.schema(required: List<String> = emptyList(), properties: JsonObjectBuilder.() -> Unit) {
             putJsonObject("inputSchema") {
@@ -477,6 +892,14 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
             putJsonObject(name) { put("type", type); put("description", description) }
         }
 
+        private fun JsonObjectBuilder.enumProp(name: String, values: List<String>, description: String) {
+            putJsonObject(name) {
+                put("type", "string")
+                put("enum", JsonArray(values.map { JsonPrimitive(it) }))
+                put("description", description)
+            }
+        }
+
         private fun JsonObjectBuilder.after() =
             prop("screenshot", "boolean", "Also return a screenshot taken after the action. Default false.")
 
@@ -488,8 +911,9 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
         }
 
         private val TOOLS: JsonArray = buildJsonArray {
-            add(tool("screen", "Read the phone's screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
+            add(tool("screen", "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
                 schema {
+                    enumProp("display", listOf("main", "background"), "Switch to this screen first: main (what the user sees) or background (this conversation's hidden screen). Omit to stay on the current one.")
                     prop("screenshot", "boolean", "Also return a screenshot. Default false; use it when the list of controls is not enough.")
                     prop("max_nodes", "integer", "How many controls to list at most (10-250, default 80).")
                 }
@@ -535,14 +959,26 @@ class PhoneTools(private val context: Context, private val settings: Settings) {
                     putJsonObject("key") {
                         put("type", "string")
                         put("enum", JsonArray(listOf("back", "home", "recents", "enter", "delete", "wake", "notifications", "quick_settings").map { JsonPrimitive(it) }))
-                        put("description", "back, home, recents (app switcher), enter, delete (backspace), wake (turn the screen on), notifications (open the shade), quick_settings.")
+                        put("description", "back, home, recents (app switcher), enter, delete (backspace), wake (turn the screen on), notifications (open the shade), quick_settings. " +
+                            "home and recents do not exist on the background screen; wake, notifications and quick_settings always act on the main screen.")
                     }
                     after()
                 }
             })
-            add(tool("open_app", "Launch an app by its name or package name and bring it to the front.") {
+            add(tool("open_app", "Launch an app by its name or package name and bring it to the front, by default on the hidden background screen. Later tools act on the screen it opened on.") {
                 schema(required = listOf("app")) {
                     prop("app", "string", "App name as shown on the home screen (e.g. 微信) or package name (e.g. com.tencent.mm).")
+                    enumProp(
+                        "display", listOf("auto", "background", "main"),
+                        "auto (default): the background screen, except the home screen, system UI and apps already in front of the user, which stay on the main screen. " +
+                            "background: insist on the background screen. main: open it in front of the user.",
+                    )
+                    after()
+                }
+            })
+            add(tool("show_to_user", "Move the app on the background screen to the main screen, in front of the user, for steps they must do themselves (payment, password, captcha, a login or permission prompt) or to show them the result. Afterwards tools act on the main screen.") {
+                schema {
+                    prop("reason", "string", "Short reason, e.g. 需要你输入支付密码.")
                     after()
                 }
             })

@@ -412,6 +412,9 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         ) {
+            var viewingScreen by remember { mutableStateOf(false) }
+            BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
+            if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }
             QueueStrip(
                 queued = conversation.queued,
                 steering = conversation.steering,

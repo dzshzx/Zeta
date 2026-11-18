@@ -40,6 +40,15 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
             CouiSwitchPreference(title = "让 Claude 操作手机", checked = hub.phoneTools, onCheckedChange = hub::choosePhoneTools)
         }
         Group(
+            title = "后台执行",
+            footer = "Claude 打开的应用放在一块看不见的后台屏幕上运行，不占用你正在用的屏幕；每个对话各用一块。" +
+                "聊天页输入框上方会出现“后台屏幕”条，点开能看实时画面，也可以把应用移到主屏。" +
+                "需要你亲自操作（付款、验证码、登录）时，Claude 会把应用移到主屏交给你。" +
+                "后台屏幕上的应用不会抢音频；后台屏幕关掉时，上面的应用一并关闭。关掉这个开关后，应用都在主屏上打开。",
+        ) {
+            CouiSwitchPreference(title = "在后台屏幕上操作", checked = hub.backgroundScreen, onCheckedChange = hub::chooseBackgroundScreen)
+        }
+        Group(
             title = "无障碍服务",
             footer = "读控件列表、输入中文、做手势都靠它。没有它，Claude 只能靠截图和坐标操作主屏幕。" +
                 "Zeta 只在 Claude 调用手机工具时才用到它；Claude 要用而服务没连上时，Zeta 会经 root 自动把它打开。",

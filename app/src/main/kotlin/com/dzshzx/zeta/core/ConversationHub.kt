@@ -22,14 +22,22 @@ enum class SetupState { Checking, NoRoot, NoEnvironment, Ready }
 
 /** 应用级的单例：设置、历史会话列表、当前对话，以及仍在后台运行的对话。 */
 class ConversationHub(private val app: Application) {
+    val context: Application get() = app
     val settings = Settings(app)
     val helperScript: String by lazy { app.assets.open("zeta_helper.py").bufferedReader().use { it.readText() } }
     val hostScript: String by lazy { app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() } }
 
-    val phone = PhoneTools(app, settings)
-
     var phoneTools by mutableStateOf(settings.phoneTools)
         private set
+
+    var backgroundScreen by mutableStateOf(settings.backgroundScreen)
+        private set
+
+    /** 立即生效：之后打开的应用放到哪块屏上。 */
+    fun chooseBackgroundScreen(enabled: Boolean) {
+        backgroundScreen = enabled
+        settings.backgroundScreen = enabled
+    }
 
     /** 开关只影响之后新开的 Claude Code 进程；已经开着的对话下次重启进程时生效。 */
     fun choosePhoneTools(enabled: Boolean) {
@@ -82,6 +90,15 @@ class ConversationHub(private val app: Application) {
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
         private set
     var models by mutableStateOf<List<ModelOption>>(emptyList())
+
+    /**
+     * 每个会话的手机工具，按 sessionId（新对话还没有时按 key）登记。后台屏幕比 Claude Code 进程活得久：
+     * 进程结束、重新打开会话时新建的对话对象从这里拿回原来那份，屏上的应用还是原来的样子。
+     * 主线程和工具线程（[makeRoom]）都会访问，用它自己当锁；持锁时不调用会去拿 PhoneTools 锁的东西。
+     * 要在 [current] 之前初始化：[blank] 建对话时就会来要。
+     */
+    private val phones = HashMap<String, PhoneTools>()
+
     var current by mutableStateOf(blank())
         private set
 
@@ -220,12 +237,14 @@ class ConversationHub(private val app: Application) {
                     busy = o.bool("busy") == true,
                     pending = o.obj("pending"),
                     permissionMode = o.str("mode"),
+                    tasks = o.int("tasks") ?: 0,
                 )
             }.toList()
-            for (host in hosts.filter { !it.busy && it.pending == null }) {
+            // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
+            val active = hosts.filter { it.busy || it.pending != null || it.tasks > 0 }
+            for (host in hosts - active.toSet()) {
                 runCatching { LinuxEnv.run(config, "exec bash -c " + LinuxEnv.quote(hostScript) + " zeta-host stop " + LinuxEnv.quote(host.key)) }
             }
-            val active = hosts.filter { it.busy || it.pending != null }
             if (active.isEmpty()) return@thread
             main.post {
                 for (host in active) {
@@ -290,16 +309,19 @@ class ConversationHub(private val app: Application) {
     fun startNew(cwd: String? = null) {
         leaveCurrent()
         current = if (cwd == null) blank() else Conversation(this, cwd, sessionId = null, title = "", historyFile = null)
+        prunePhones()
     }
 
     /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户。 */
     fun redetect(rootfs: String) {
         rootfsHint = rootfs
         hintExplicit = true
-        if (current.busy || background.values.any { it.busy }) return
+        if (conversationsWorking) return
         current.shutdown()
         background.values.forEach { it.shutdown() }
         background.clear()
+        // 换了环境，原来的会话都不再接着用：后台屏幕一并收掉
+        synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
         settings.env = null
         env = null
         account = null
@@ -310,8 +332,12 @@ class ConversationHub(private val app: Application) {
         checkSetup()
     }
 
-    /** 有对话正在进行时不能换环境。 */
-    val canSwitchEnvironment: Boolean get() = !current.busy && background.values.none { it.busy } && !installer.running
+    /** 有对话在回答，或还有后台任务在跑（结束进程会把任务一起杀掉）。 */
+    private val conversationsWorking: Boolean
+        get() = (listOf(current) + background.values).any { it.busy || it.backgroundTasks > 0 }
+
+    /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
+    val canSwitchEnvironment: Boolean get() = !conversationsWorking && !installer.running
 
     /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
     internal fun onEnvironmentInstalled() {
@@ -444,6 +470,7 @@ class ConversationHub(private val app: Application) {
                 this, summary.cwd.ifBlank { settings.env?.defaultCwd ?: "/workspace" }, summary.id,
                 summary.title.ifBlank { summary.preview.take(40) }, summary.file, external = summary.external,
             )
+        prunePhones()
     }
 
     fun delete(summary: SessionSummary) {
@@ -453,6 +480,8 @@ class ConversationHub(private val app: Application) {
             current = blank()
         }
         background.remove(summary.id)?.shutdown()
+        synchronized(phones) { phones.remove(summary.id) }?.destroy()
+        prunePhones()
         sessions = sessions.filterNot { it.id == summary.id }
         thread(isDaemon = true) {
             runCatching { LinuxEnv.run(config, "exec python3 - delete " + LinuxEnv.quote(summary.file), stdin = helperScript) }
@@ -460,26 +489,95 @@ class ConversationHub(private val app: Application) {
         }
     }
 
-    /** 离开当前对话：闲着的直接收掉进程省内存，正在跑的留在后台跑完。 */
+    /** 离开当前对话：闲着的直接收掉进程省内存，正在跑的（包括还有后台任务的）留在后台跑完。 */
     private fun leaveCurrent() {
         val leaving = current
-        if (leaving.busy || leaving.pending != null) {
+        if (leaving.busy || leaving.pending != null || leaving.backgroundTasks > 0) {
             background[leaving.sessionId ?: leaving.key] = leaving
         } else {
             leaving.shutdown()
         }
     }
 
+    /** 会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */
+    internal fun phoneFor(key: String): PhoneTools = synchronized(phones) {
+        phones.getOrPut(key) { PhoneTools(app, settings, beforeCreate = ::makeRoom, onScreenGone = ::prunePhones) }
+    }
+
+    /** 对话的会话号变了：登记跟着换。新号下面要是还挂着别的一份（不该有），它已经没人找得到，收掉。 */
+    internal fun rekeyPhone(phone: PhoneTools, from: String, to: String) {
+        val stale = synchronized(phones) {
+            // 已经不在登记里（没人用被丢掉、销毁了）就别再登记回去，否则以后打开这个会话会拿到一份建不了屏的
+            if (phones[from] !== phone) return
+            phones.remove(from)
+            phones.put(to, phone)?.takeIf { it !== phone }
+        }
+        stale?.destroy()
+    }
+
+    /**
+     * 切到后台的对话按会话号（还没有时按 key）存着。会话号后来才到的话跟着改：
+     * 不然从列表打开这个会话时找不到它，会另建一个对话对象，两个对象抢同一份手机工具。在主线程上调用。
+     */
+    internal fun rekeyBackground(conversation: Conversation, from: String, to: String) {
+        if (background[from] !== conversation) return
+        background.remove(from)
+        background[to] = conversation
+    }
+
+    /** 丢掉没有后台屏幕、也没有对话在用的那些，免得登记越积越多。在主线程上调用。 */
+    private fun prunePhones() {
+        val inUse = (listOf(current) + background.values).mapTo(HashSet()) { it.phone }
+        val unused = synchronized(phones) {
+            phones.values.filter { it !in inUse && !it.hasScreen }.also { phones.values.removeAll(it.toSet()) }
+        }
+        // 销毁而不只是丢开：还没结束的工具调用就不会再给它建出一块没人管的屏
+        unused.forEach { it.destroy() }
+    }
+
+    /**
+     * [phone] 要新建一块后台屏幕（工具线程上）。全应用已有 [MAX_SCREENS] 块时先腾出来：
+     * 只挑对话没在进行的，用户正看着的当前对话放最后，其余最久没用的先收；都在忙就照样建。
+     * 收屏另起线程做，这里不会去拿别的 PhoneTools 的锁，两个对话同时建屏也不会互相卡住。
+     */
+    private fun makeRoom(phone: PhoneTools) {
+        val others = synchronized(phones) { phones.values.filter { it !== phone && it.hasScreen } }
+        val excess = others.size - MAX_SCREENS + 1
+        if (excess <= 0) return
+        val watching = current.phone
+        others.filter { !it.isBusy }
+            .sortedWith(compareBy<PhoneTools> { it === watching }.thenBy { it.lastUsed })
+            .take(excess)
+            .forEach { it.evictBackground() }
+    }
+
     /** [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒“已完成”。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
-        if (conversation !== current) {
-            background.values.remove(conversation)
-            conversation.shutdown()
-        }
+        if (conversation !== current) retireWhenIdle(conversation)
         if (!stopped && (!foreground || conversation !== current)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成")
         }
         refreshSessions()
+    }
+
+    /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */
+    internal fun onBackgroundTasksDone(conversation: Conversation) {
+        if (conversation !== current) retireWhenIdle(conversation)
+    }
+
+    /**
+     * 切走的对话没事了（没有进行中的一轮、没有后台任务、没有等确认的调用）就收掉进程。
+     * 稍等一下再看：后台任务跑完后 Claude Code 会紧接着自己另起一轮汇报结果（实测不到 0.2 秒），
+     * 立刻收掉就把这一轮掐掉了；起了新的一轮的话等它结束再说。
+     */
+    private fun retireWhenIdle(conversation: Conversation) {
+        main.postDelayed({
+            if (conversation !== current && !conversation.busy && conversation.backgroundTasks == 0 && conversation.pending == null) {
+                background.values.remove(conversation)
+                conversation.shutdown()
+                prunePhones()
+            }
+        }, RETIRE_DELAY_MS)
     }
 
     internal fun onAttentionNeeded(conversation: Conversation) {
@@ -492,8 +590,11 @@ class ConversationHub(private val app: Application) {
     internal fun onActivityChanged() {
         val working = installer.running || maintenance?.running == true
         val active = working || current.isProcessAlive || background.values.any { it.isProcessAlive }
-        val busy = working || current.busy || background.values.any { it.busy }
-        val running = (listOf(current) + background.values).filter { it.busy }.distinct().map { it.title.ifBlank { "新对话" } }
+        // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起
+        val busy = working || conversationsWorking
+        val running = (listOf(current) + background.values).filter { it.busy }.distinct().map { conversation ->
+            conversation.title.ifBlank { "新对话" } + (conversation.phone.backgroundApp?.let { " · 在后台操作$it" } ?: "")
+        }
         AgentService.update(app, active, busy, running)
     }
 
@@ -504,6 +605,10 @@ class ConversationHub(private val app: Application) {
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        private const val RETIRE_DELAY_MS = 5_000L
+
+        /** 全应用最多同时留几块后台屏幕：每块都连着一个 root 辅助进程和屏上开着的应用，太多了内存吃不消。 */
+        private const val MAX_SCREENS = 3
 
         @Volatile private var instance: ConversationHub? = null
 

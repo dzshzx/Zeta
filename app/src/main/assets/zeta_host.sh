@@ -40,7 +40,7 @@ if [ "$mode" = start ]; then
     P=$!
     echo $P > "$D/pid"
     # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后自行结束，
-    # 免得应用被杀之后它一直占着内存。还在干活或在等用户确认的不动。
+    # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
     (
       n=0
       while [ -d "$D" ] && kill -0 $P 2>/dev/null; do
@@ -52,8 +52,12 @@ if [ "$mode" = start ]; then
         # 找最后一条表示开始或结束的事件，是 result 就算空闲
         # （result 行的键顺序不固定，type 不一定在行首；内容里的引号都转义过，不会误中）
         # （整段在 bash -c 的单引号里，这里只能用双引号）
+        # 后台任务（后台命令、子代理等）在这一轮结束后照样跑，跑完 Claude Code 还会自己另起一轮：
+        # 最后一条 background_tasks_changed 的清单不空就不算空闲
         elif grep -E "\"type\":\"result\"|^[{]\"type\":\"(assistant|user|stream_event)\"|^[{]\"type\":\"system\",\"subtype\":\"init\"|^[{]\"type\":\"command_lifecycle\".*\"state\":\"started\"" "$D/out.jsonl" \
-            | tail -n 1 | grep -q "\"type\":\"result\""; then
+            | tail -n 1 | grep -q "\"type\":\"result\"" \
+          && ! grep "^[{]\"type\":\"system\",\"subtype\":\"background_tasks_changed\"" "$D/out.jsonl" \
+            | tail -n 1 | grep -qF "\"tasks\":[{"; then
           n=$((n + 1))
           [ $n -ge "${ZETA_IDLE_LIMIT:-10}" ] && kill $P
         else

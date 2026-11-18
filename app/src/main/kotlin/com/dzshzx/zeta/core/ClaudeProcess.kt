@@ -20,6 +20,8 @@ class HostInfo(
     val pending: JsonObject?,
     /** 进程当前的权限模式（可能在运行中变过，比如计划获批后）。 */
     val permissionMode: String? = null,
+    /** 还在跑的后台任务数；这一轮已经结束也要接上，任务跑完 Claude Code 还会接着汇报。 */
+    val tasks: Int = 0,
 )
 
 /**

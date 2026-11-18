@@ -184,7 +184,7 @@ private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit
 }
 
 @Composable
-private fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
+internal fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

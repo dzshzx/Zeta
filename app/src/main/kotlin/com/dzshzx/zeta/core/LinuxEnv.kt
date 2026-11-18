@@ -202,8 +202,18 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("phoneTools", true)
         set(value) = prefs.edit().putBoolean("phoneTools", value).apply()
 
-    /** 手机工具操作哪块屏幕。平时是 0（主屏）；调试时可以指到一块后台虚拟屏上，界面里没有入口。 */
+    /** 手机工具当作“主屏”的屏幕编号。平时是 0；调试时可以指到一块虚拟屏上，免得测试打扰用手机的人。界面里没有入口。 */
     val phoneDisplay: Int get() = prefs.getInt("phoneDisplay", 0)
+
+    /** Claude 打开应用时默认放到后台屏幕上，不占用主屏。 */
+    var backgroundScreen: Boolean
+        get() = prefs.getBoolean("backgroundScreen", true)
+        set(value) = prefs.edit().putBoolean("backgroundScreen", value).apply()
+
+    /** 为后台运行禁掉了音频焦点、还没恢复的应用（“包名=原来的设置”）。 */
+    var mutedApps: Set<String>
+        get() = prefs.getStringSet("mutedApps", null)?.toSet().orEmpty()
+        set(value) = prefs.edit().putStringSet("mutedApps", value).apply()
 
     /** 回答里的网络图片是否不等点击就加载。 */
     var autoLoadRemoteImages: Boolean
