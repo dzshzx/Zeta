@@ -1,0 +1,17 @@
+#!/bin/bash
+# 打印本项目用的 JDK 25 所在目录，供 tools/gradle 与 tools/vd.py 使用。
+# 顺序：JAVA_HOME；PATH 里的 java（手机 Debian 的 openjdk-25）；Gradle 下载过的 JDK 25（~/.gradle/jdks，工作站没有全局 java，用的就是这份）。
+set -euo pipefail
+if [ -n "${JAVA_HOME:-}" ]; then
+  echo "$JAVA_HOME"
+elif java=$(command -v java); then
+  java=$(readlink -f "$java")
+  echo "${java%/bin/java}"
+else
+  home=
+  for d in "${GRADLE_USER_HOME:-$HOME/.gradle}"/jdks/*-25-*/; do
+    if [ -x "${d}bin/javac" ]; then home=${d%/}; fi
+  done
+  [ -n "$home" ] || { echo "找不到 JDK 25：设置 JAVA_HOME，或在 ~/.gradle/jdks 下放一份" >&2; exit 1; }
+  echo "$home"
+fi

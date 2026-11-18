@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """后台虚拟屏：在不占用主屏的情况下运行、截图、点按 Zeta。做法取自 Eta 的 VirtualDisplayCommandMain。
 
-用法（在 Debian 里，需要 sudo）：
+在手机 Debian 里直接进 Android 一侧；在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
+
+用法：
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
   vd.py shot 文件.png          截图
@@ -9,7 +11,7 @@
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py status | stop
 """
-import os, re, subprocess, sys, time
+import os, re, shlex, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "vdisplay", "VdHold.java")
@@ -19,14 +21,21 @@ D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
 WORK = "/data/local/tmp/zeta-vd"
 NAME = "zeta-vd"  # VdHold 里写死的虚拟屏名字
 COMPONENT = os.environ.get("ZETA_COMPONENT", "com.dzshzx.zeta/.ui.MainActivity")
+PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
+ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
 
 
-def android(cmd, check=True):
-    r = subprocess.run(["sudo", "nsenter", "-t", "1", "-m", "--", "/system/bin/sh", "-c",
-                        "export PATH=/system/bin:$PATH; " + cmd], capture_output=True, text=True, errors="replace")
+def android(cmd, check=True, data=None, binary=False):
+    """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh 断开后远端进程不会自己停。"""
+    argv = ["sudo", "-n", "timeout", "120", "nsenter", "-t", "1", "-m", "--", "/system/bin/sh", "-c",
+            "export PATH=/system/bin:$PATH; " + cmd]
+    if not ON_PHONE:
+        argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+    io = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
+    r = subprocess.run(argv, capture_output=True, **io)
     if check and r.returncode != 0:
-        sys.exit(f"android 命令失败（{r.returncode}）：{cmd}\n{r.stderr.strip()}")
-    return r.stdout
+        sys.exit(f"android 命令失败（{r.returncode}）：{cmd}\n{r.stderr.decode(errors='replace').strip()}")
+    return r.stdout if binary else r.stdout.decode(errors="replace")
 
 
 def display_id():
@@ -48,9 +57,11 @@ def need_display():
 
 def build():
     os.makedirs(OUT, exist_ok=True)
-    subprocess.run(["javac", "--release", "11", "-Xlint:-options", "-d", OUT, SRC], check=True)
+    jdk = subprocess.run([os.path.join(HERE, "java-home")], capture_output=True, text=True, check=True).stdout.strip()
+    subprocess.run([f"{jdk}/bin/javac", "--release", "11", "-Xlint:-options", "-d", OUT, SRC], check=True)
     classes = [os.path.join(OUT, f) for f in os.listdir(OUT) if f.endswith(".class")]
-    subprocess.run(["java", "-cp", D8, "com.android.tools.r8.D8", "--min-api", "33", "--output", OUT] + classes, check=True)
+    subprocess.run([f"{jdk}/bin/java", "-cp", D8, "com.android.tools.r8.D8", "--min-api", "33", "--output", OUT] + classes,
+                   check=True)
     print("built", DEX)
 
 
@@ -75,10 +86,11 @@ def start(args):
     exports = "; ".join(f"export {k}='{v}'" for k, _, v in (e.partition("=") for e in env) if k in keys and "'" not in v)
     if "BOOTCLASSPATH" not in exports:
         sys.exit("读不到 BOOTCLASSPATH")
-    dex = f"/proc/{os.getpid()}/root{DEX}"
+    with open(DEX, "rb") as f:
+        dex = f.read()
     android(f"mkdir -p {WORK}/out && chmod 755 {WORK} && chown 1000:1000 {WORK}/out && chmod 700 {WORK}/out && "
-            f"cp {dex} {WORK}/vdhold.dex && chmod 644 {WORK}/vdhold.dex && cd {WORK} && rm -f ctl log out/*.png && "
-            f"mkfifo ctl && chmod 600 ctl && : > log")
+            f"cat > {WORK}/vdhold.dex && chmod 644 {WORK}/vdhold.dex && cd {WORK} && rm -f ctl log out/*.png && "
+            f"mkfifo ctl && chmod 600 ctl && : > log", data=dex)
     runner = (f"cd {WORK} && exec 3<>ctl && {exports} && export CLASSPATH={WORK}/vdhold.dex && "
               f"exec app_process / VdHold {w} {h} {dpi} 3600 0 <&3 >>log 2>&1")
     android('nohup sh -c "' + runner.replace('"', '\\"') + '" >/dev/null 2>&1 &')
@@ -100,8 +112,7 @@ def shot(path):
     for _ in range(40):
         tail = android(f"cat {WORK}/log")[before:]
         if "VD_SHOT:" in tail:
-            data = subprocess.run(["sudo", "nsenter", "-t", "1", "-m", "--", "/system/bin/sh", "-c",
-                                   f"cat {WORK}/out/shot.png"], capture_output=True).stdout
+            data = android(f"cat {WORK}/out/shot.png", binary=True)
             with open(path, "wb") as f:
                 f.write(data)
             print(path)

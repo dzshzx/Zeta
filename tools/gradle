@@ -1,0 +1,9 @@
+#!/bin/bash
+# 用本项目的 JDK（见 tools/java-home）和 Android SDK 启动 Gradle wrapper，参数原样传给 gradlew。
+# 工作站和手机 Debian 的 SDK 都在 ~/Android/Sdk；这样任务树里不用放 local.properties。
+set -euo pipefail
+cd "$(dirname "$0")/.."
+JAVA_HOME=$(tools/java-home)
+export JAVA_HOME
+export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
+exec ./gradlew "$@"
