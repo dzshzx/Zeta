@@ -195,7 +195,8 @@ def cmd_history(path):
     events = []
     with open(path, encoding="utf-8", errors="replace") as f:
         for number, line in enumerate(f):
-            if '"type":"user"' not in line and '"type":"assistant"' not in line and '"local_command"' not in line:
+            if '"type":"user"' not in line and '"type":"assistant"' not in line and '"local_command"' not in line \
+                    and '"queued_command"' not in line:
                 continue
             try:
                 o = json.loads(line)
@@ -209,10 +210,17 @@ def cmd_history(path):
                 if text:
                     events.append({"type": "assistant", "message": {"id": o.get("uuid"), "content": [{"type": "text", "text": clip(text)}]}})
                 continue
-            if kind not in ("user", "assistant") or o.get("isSidechain") or o.get("isMeta"):
+            if kind == "attachment":
+                # 回答进行中插进来的消息：记成 queued_command 附件，不是普通的 user 条目
+                attachment = o.get("attachment") or {}
+                if attachment.get("type") != "queued_command" or o.get("isSidechain"):
+                    continue
+                kind, content = "user", attachment.get("prompt")
+            elif kind not in ("user", "assistant") or o.get("isSidechain") or o.get("isMeta"):
                 continue
+            else:
+                content = (o.get("message") or {}).get("content")
             message = o.get("message") or {}
-            content = message.get("content")
             if kind == "user":
                 if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
                     # 图片本体不回传（一张就是几百 KB），只给出它在记录里的位置，界面要看时再用 image 命令取
@@ -264,7 +272,9 @@ def cmd_image(path, position):
                 break
         else:
             sys.exit("no such line")
-    block = (json.loads(line).get("message") or {}).get("content")[index[1]]
+    o = json.loads(line)
+    content = (o.get("message") or {}).get("content") or (o.get("attachment") or {}).get("prompt")
+    block = content[index[1]]
     if len(index) > 2:
         block = block["content"][index[2]]
     source = block.get("source") or {}
@@ -313,14 +323,21 @@ def scan_host(directory):
             except ValueError:
                 continue
             kind = o.get("type")
+            session = o.get("session_id") or session
             if kind == "result":
                 busy = False
                 pending = None
-            elif kind in ("system", "assistant", "user"):
+            elif kind == "system":
+                mode = o.get("permissionMode") or mode
+                # 一轮结束后还会有 task_notification、background_tasks_changed、status 之类的收尾事件，
+                # 只有 init 表示新的一轮开始了
+                if o.get("subtype") == "init":
+                    busy = True
+            elif kind == "command_lifecycle":
+                if o.get("state") == "started":
+                    busy = True
+            elif kind in ("assistant", "user"):
                 busy = True
-                session = o.get("session_id") or session
-                if kind == "system":
-                    mode = o.get("permissionMode") or mode
                 if kind == "user" and pending is not None:
                     content = (o.get("message") or {}).get("content")
                     wanted = (pending.get("request") or {}).get("tool_use_id")

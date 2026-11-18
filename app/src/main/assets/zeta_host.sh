@@ -48,7 +48,12 @@ if [ "$mode" = start ]; then
         A=$(cat "$D/attach" 2>/dev/null)
         if [ -n "$A" ] && kill -0 "$A" 2>/dev/null; then
           n=0
-        elif tail -n 1 "$D/out.jsonl" | grep -q "\"type\":\"result\""; then
+        # 一轮结束后还会写几条收尾事件（command_lifecycle、task_notification 等），不能只看最后一行：
+        # 找最后一条表示开始或结束的事件，是 result 就算空闲
+        # （result 行的键顺序不固定，type 不一定在行首；内容里的引号都转义过，不会误中）
+        # （整段在 bash -c 的单引号里，这里只能用双引号）
+        elif grep -E "\"type\":\"result\"|^[{]\"type\":\"(assistant|user|stream_event)\"|^[{]\"type\":\"system\",\"subtype\":\"init\"|^[{]\"type\":\"command_lifecycle\".*\"state\":\"started\"" "$D/out.jsonl" \
+            | tail -n 1 | grep -q "\"type\":\"result\""; then
           n=$((n + 1))
           [ $n -ge "${ZETA_IDLE_LIMIT:-10}" ] && kill $P
         else

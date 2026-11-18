@@ -88,6 +88,7 @@ import com.itos.coui.topappbar.TopAppBar
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.AnswerItem
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
 import com.dzshzx.zeta.core.FileUpload
@@ -294,6 +295,16 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
             }
         }
     }
+    // 撤回的排队消息（点了它，或按了停止）：放回输入框，接在已有草稿前面
+    LaunchedEffect(conversation.recalled) {
+        val back = conversation.takeRecalled() ?: return@LaunchedEffect
+        val draft = input.text.toString()
+        input.setTextAndPlaceCursorAtEnd(listOf(back.text, draft).filter { it.isNotBlank() }.joinToString("\n"))
+        attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
+        for (path in back.files) {
+            if (uploads.none { it.path == path }) uploads.add(FileUpload(UUID.randomUUID().toString(), path.substringAfterLast('/')).also { it.path = path })
+        }
+    }
     LaunchedEffect(items) {
         markdownCache.discardUnused(items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id })
     }
@@ -396,35 +407,46 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                     .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
             )
-        } else Composer(
-            state = input,
-            busy = conversation.busy,
-            enabled = !conversation.loadingHistory,
-            permissionMode = conversation.permissionMode,
-            onPermissionModeChange = conversation::choosePermissionMode,
-            attachments = attachments,
-            files = uploads,
-            commands = hub.commands,
-            onPickImages = {
-                if (attachments.size < MaxAttachments) {
-                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-            },
-            onPickFiles = { filePicker.launch(arrayOf("*/*")) },
-            onRemoveAttachment = { attachments.remove(it) },
-            onRemoveFile = { uploads.remove(it) },
-            onSlashTyped = conversation::prepare,
-            onSend = { text ->
-                follow = true
-                conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
-                attachments.clear()
-                uploads.clear()
-            },
-            onStop = conversation::interrupt,
+        } else Column(
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
-        )
+        ) {
+            QueueStrip(
+                queued = conversation.queued,
+                steering = conversation.steering,
+                onSteer = conversation::steerNow,
+                onRecall = { conversation.cancelQueued(it.uuid, recall = true) },
+                onRemove = { conversation.cancelQueued(it.uuid, recall = false) },
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            Composer(
+                state = input,
+                busy = conversation.busy,
+                enabled = !conversation.loadingHistory,
+                permissionMode = conversation.permissionMode,
+                onPermissionModeChange = conversation::choosePermissionMode,
+                attachments = attachments,
+                files = uploads,
+                commands = hub.commands,
+                onPickImages = {
+                    if (attachments.size < MaxAttachments) {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                },
+                onPickFiles = { filePicker.launch(arrayOf("*/*")) },
+                onRemoveAttachment = { attachments.remove(it) },
+                onRemoveFile = { uploads.remove(it) },
+                onSlashTyped = conversation::prepare,
+                onSend = { text ->
+                    follow = true
+                    conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
+                    attachments.clear()
+                    uploads.clear()
+                },
+                onStop = conversation::interrupt,
+            )
+        }
     }
 }
 

@@ -20,6 +20,9 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
+/** 回答进行中发出、Claude Code 还没取走的消息。 */
+class QueuedMessage(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>)
+
 /**
  * 一个对话：界面状态 + 背后的 Claude Code 进程。进程在第一次发送时才启动；
  * 历史对话用 `--resume` 接着原来的会话记录继续。状态只在主线程上改。
@@ -72,6 +75,21 @@ class Conversation(
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
         private set
 
+    /**
+     * 排队中的消息。Claude Code 会在下一个工具调用结束时把它并进正在进行的这一轮，
+     * 没有工具调用可等时就在这一轮结束后另起一轮。
+     */
+    var queued by mutableStateOf<List<QueuedMessage>>(emptyList())
+        private set
+
+    /** 用户点了“立即插话”：当前这一轮已叫停，等排队的消息开始。 */
+    var steering by mutableStateOf(false)
+        private set
+
+    /** 撤回的排队消息，等输入框取走（[takeRecalled]）。 */
+    var recalled by mutableStateOf<QueuedMessage?>(null)
+        private set
+
     /** 进行中的临时状态（比如网络出错正在重试），显示在等待指示旁边。 */
     var status by mutableStateOf<String?>(null)
         private set
@@ -82,7 +100,11 @@ class Conversation(
 
     private var reducer = TranscriptReducer()
     private var process: ClaudeProcess? = null
+    /** 只在 Claude Code 不报 command_lifecycle 时（老版本）用来判断一轮是否结束。 */
     private var turnsInFlight = 0
+    private var lifecycleSeen = false
+    /** 撤回时要放回输入框的消息（其余的撤回直接丢弃）。 */
+    private val recalling = HashSet<String>()
     private var interruptRequested = false
     private val main = Handler(Looper.getMainLooper())
     private val inbox = ConcurrentLinkedQueue<JsonObject>()
@@ -179,9 +201,15 @@ class Conversation(
             title = trimmed.lineSequence().first().take(40).ifBlank { if (files.isNotEmpty()) files.first().substringAfterLast('/') else "图片" }
         }
         val process = ensureProcess() ?: return
-        reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files)
+        val uuid = UUID.randomUUID().toString()
+        // 回答进行中发的先排队，等 Claude Code 真正取走（command_lifecycle started）才进聊天记录
+        if (busy && lifecycleSeen) {
+            queued = queued + QueuedMessage(uuid, trimmed, attachments, files)
+        } else {
+            reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files)
+            turnsInFlight++
+        }
         val outgoing = withAttachedFiles(trimmed, files)
-        turnsInFlight++
         busy = true
         interruptRequested = false
         status = null
@@ -189,6 +217,7 @@ class Conversation(
         publish()
         process.send(buildJsonObject {
             put("type", "user")
+            put("uuid", uuid)
             putJsonObject("message") {
                 put("role", "user")
                 putJsonArray("content") {
@@ -209,13 +238,50 @@ class Conversation(
         hub.onActivityChanged()
     }
 
+    /** 停止：排队的消息一并撤回放回输入框（和 Claude Code 终端里按 Esc 一样），再打断当前这一轮。 */
     fun interrupt() {
         val process = process ?: return
         if (!busy) return
+        for (message in queued) cancelQueued(message.uuid, recall = true)
+        steering = false
         interruptRequested = true
         process.send(controlRequest { put("subtype", "interrupt") })
         // 正在等用户批准的调用一并拒绝，否则进程会一直等
         pending?.let { respond(it, allow = false) }
+    }
+
+    /** 立即插话：叫停当前这一轮，排队的消息随即开始，不必等手上的工具跑完。 */
+    fun steerNow() {
+        val process = process ?: return
+        if (!busy || queued.isEmpty() || steering) return
+        steering = true
+        interruptRequested = true
+        process.send(controlRequest { put("subtype", "interrupt") })
+        pending?.let { respond(it, allow = false) }
+    }
+
+    /** 撤回一条排队消息；[recall] 时放回输入框，否则直接丢掉。已被取走的撤不回，会照常出现在记录里。 */
+    fun cancelQueued(uuid: String, recall: Boolean) {
+        val process = process ?: return
+        if (queued.none { it.uuid == uuid }) return
+        if (recall) recalling.add(uuid)
+        process.send(controlRequest {
+            put("subtype", "cancel_async_message")
+            put("message_uuid", uuid)
+        })
+    }
+
+    fun takeRecalled(): QueuedMessage? = recalled.also { recalled = null }
+
+    /** 撤回的消息并进待放回输入框的那份（连续撤回几条时按顺序拼起来）。 */
+    private fun addRecalled(message: QueuedMessage) {
+        val before = recalled
+        recalled = if (before == null) message else QueuedMessage(
+            before.uuid,
+            listOf(before.text, message.text).filter { it.isNotBlank() }.joinToString("\n"),
+            before.attachments + message.attachments,
+            before.files + message.files,
+        )
     }
 
     fun chooseModel(value: String?) {
@@ -386,11 +452,33 @@ class Conversation(
                 event.obj("message")?.let { reducer.applyUser(it, replay = false) }
                 return true
             }
+            "command_lifecycle" -> {
+                lifecycleSeen = true
+                val uuid = event.str("command_uuid") ?: return false
+                when (event.str("state")) {
+                    "started" -> {
+                        busy = true
+                        val message = queued.firstOrNull { it.uuid == uuid } ?: return false
+                        queued = queued - message
+                        recalling.remove(uuid)
+                        if (queued.isEmpty()) steering = false
+                        reducer.addUser(message.text, message.attachments.map { InlineImage("a:${it.id}", it.base64) }, message.files)
+                        return true
+                    }
+                    "cancelled" -> {
+                        val message = queued.firstOrNull { it.uuid == uuid } ?: return false
+                        queued = queued - message
+                        if (recalling.remove(uuid)) addRecalled(message)
+                        if (queued.isEmpty()) steering = false
+                    }
+                }
+            }
             "result" -> {
                 turnsInFlight = (turnsInFlight - 1).coerceAtLeast(0)
                 reducer.finishTurn()
                 val failed = event.bool("is_error") == true || event.str("subtype") != "success"
                 when {
+                    interruptRequested && steering -> reducer.addNotice("已打断，先处理插话", error = false)
                     interruptRequested -> reducer.addNotice("已停止", error = false)
                     failed -> reducer.addNotice(
                         event.str("result")?.takeIf { it.isNotBlank() }
@@ -401,7 +489,10 @@ class Conversation(
                 }
                 val stopped = interruptRequested
                 interruptRequested = false
-                if (turnsInFlight == 0) {
+                // 有 command_lifecycle 时：插话会并进同一轮、只得到一个 result，按条数计会对不上；
+                // 还有排队的消息就会接着另起一轮
+                val turnOver = if (lifecycleSeen) queued.isEmpty() else turnsInFlight == 0
+                if (turnOver) {
                     busy = false
                     hub.onTurnFinished(this, stopped)
                 }
@@ -462,6 +553,11 @@ class Conversation(
 
     private fun endTurnState() {
         turnsInFlight = 0
+        // 进程没了，排队的消息也不会再被处理：放回输入框
+        for (message in queued) addRecalled(message)
+        queued = emptyList()
+        recalling.clear()
+        steering = false
         busy = false
         status = null
         pending = null

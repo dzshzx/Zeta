@@ -239,7 +239,7 @@ internal fun Composer(
         ) {
             if (state.text.isEmpty()) {
                 Text(
-                    text = if (busy) "Claude 正在工作…" else "交给 Claude 去完成",
+                    text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
                     style = textStyle,
                     color = colors.onSurfaceVariantSummary,
                 )
