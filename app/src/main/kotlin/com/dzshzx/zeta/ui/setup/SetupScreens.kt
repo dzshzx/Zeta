@@ -181,7 +181,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
             ) {
                 listOf(
                     "go" to "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理",
-                    "python" to "安装 uv 和它管理的 Python，用来跑脚本、建虚拟环境",
+                    "python" to "安装 uv 和它管理的最新 Python，并设为你的 python3（带 pip）",
                     "node" to "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global",
                 ).forEach { (name, pitch) ->
                     OptionalToolRow(

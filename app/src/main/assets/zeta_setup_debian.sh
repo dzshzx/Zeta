@@ -3,7 +3,7 @@
 #   tools          （root）装 Claude Code 干活要用的常用工具，包清单照 Eta
 #   user <用户名>  （root）建一个普通用户，Claude Code 以它的身份运行
 #   claude         （那个用户）用官方安装脚本装 Claude Code
-#   python         （那个用户）可选：装 uv 和它管理的 Python
+#   python         （那个用户）可选：装 uv 和它管理的最新 Python，并设为这个用户的 python3
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
 #   remove <go|node>（root）、remove python（那个用户）  卸载上面装的可选工具
@@ -177,7 +177,8 @@ python)
     [ $code = 0 ] || fail "uv 安装脚本没有成功（退出码 $code）"
   fi
   mark "$USER_MARKS" python "uv=$HOME/.local/bin/uv"
-  uv python install || fail "uv 装上了，但下载 Python 没有成功，请检查网络后重试"
+  # --default：同时在 ~/.local/bin 放上 python、python3，登录 shell 里的 python3 就是它（带 pip）
+  uv python install --default || fail "uv 装上了，但下载 Python 没有成功，请检查网络后重试"
   uv --version
   ;;
 
