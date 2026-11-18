@@ -38,6 +38,10 @@ data class EnvHealth(
     val freeBytes: Long,
     val debian: String,
     val claude: String,
+    /** 可选工具的版本，没装是空的。 */
+    val uv: String = "",
+    val node: String = "",
+    val go: String = "",
 ) {
     val ok: Boolean get() = missing.isEmpty() && workspaceWritable && network
 }
@@ -227,6 +231,9 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             echo "free=${'$'}(df -k / | awk 'NR==2 {print ${'$'}4}')"
             echo "debian=${'$'}(cat /etc/debian_version 2>/dev/null)"
             echo "claude=${'$'}(claude --version 2>/dev/null | head -n 1)"
+            echo "uv=${'$'}(uv --version 2>/dev/null | head -n 1)"
+            echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
+            echo "go=${'$'}(go env GOVERSION 2>/dev/null | head -n 1)"
         """.trimIndent()
         val result = runCatching { LinuxEnv.run(config, "bash -c " + LinuxEnv.quote(script) + " zeta-health " + LinuxEnv.quote(config.defaultCwd), timeoutMs = 60_000) }.getOrNull()?.takeIf { it.exitCode == 0 } ?: return null
         val values = result.stdout.lineSequence().filter { '=' in it }.map { it.substringBefore('=') to it.substringAfter('=') }.toList()
@@ -238,6 +245,9 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             freeBytes = (value("free").toLongOrNull() ?: 0L) * 1024,
             debian = value("debian"),
             claude = value("claude").substringBefore(" ("),
+            uv = value("uv").removePrefix("uv ").substringBefore(" ("),
+            node = value("node").removePrefix("v"),
+            go = value("go").removePrefix("go"),
         )
     }
 
@@ -266,6 +276,9 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     }
 
     /** “修复”要执行的命令：重新走一遍装工具那一步（会先修 dpkg，再补齐缺的包）。 */
+    /** 装一样可选工具（zeta_setup_debian.sh 里的 python / node / go）。 */
+    fun optionalCommand(name: String): String = "exec bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup " + name
+
     val repairCommand: String get() = "exec bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup tools"
 }
 

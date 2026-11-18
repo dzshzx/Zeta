@@ -3,6 +3,9 @@
 #   tools          （root）装 Claude Code 干活要用的常用工具，包清单照 Eta
 #   user <用户名>  （root）建一个普通用户，Claude Code 以它的身份运行
 #   claude         （那个用户）用官方安装脚本装 Claude Code
+#   python         （那个用户）可选：装 uv 和它管理的 Python
+#   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
+#   go             （root）可选：装官方发布的最新稳定版 Go
 #
 # 以 "@zeta " 开头的输出行是给应用看的：error <原因>；其余是日志。
 set -u
@@ -112,6 +115,122 @@ claude)
     [ $code = 0 ] || fail "Claude Code 安装脚本没有成功（退出码 $code）"
   fi
   "$HOME/.local/bin/claude" --version || fail "Claude Code 装上了但运行不起来"
+  ;;
+
+python)
+  [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
+  export PATH="$HOME/.local/bin:$PATH"
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf --connect-timeout 20 --retry 2 https://astral.sh/uv/install.sh -o /tmp/zeta-uv-install.sh \
+      || fail "下载 uv 安装脚本失败，请检查网络后重试"
+    sh /tmp/zeta-uv-install.sh
+    code=$?
+    rm -f /tmp/zeta-uv-install.sh
+    [ $code = 0 ] || fail "uv 安装脚本没有成功（退出码 $code）"
+  fi
+  uv python install || fail "uv 装上了，但下载 Python 没有成功，请检查网络后重试"
+  uv --version
+  ;;
+
+node)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  case "$(dpkg --print-architecture)" in
+    arm64) arch=arm64 ;;
+    amd64) arch=x64 ;;
+    *) fail "暂不支持这个架构：$(dpkg --print-architecture)" ;;
+  esac
+  # 官方发布的最新 LTS；国内镜像在前
+  version=
+  for base in https://npmmirror.com/mirrors/node https://nodejs.org/dist; do
+    version=$(curl -fsSL --connect-timeout 15 --max-time 40 "$base/index.json" 2>/dev/null | jq -r 'map(select(.lts != false))[0].version' 2>/dev/null)
+    case "$version" in v[0-9]*) break ;; esac
+    version=
+  done
+  [ -n "$version" ] || fail "查不到 Node.js 的最新 LTS 版本，请检查网络后重试"
+  file="node-$version-linux-$arch.tar.xz"
+  if [ "$(/usr/local/node/bin/node --version 2>/dev/null)" != "$version" ]; then
+    got=
+    for base in https://npmmirror.com/mirrors/node https://nodejs.org/dist; do
+      sum=$(curl -fsSL --connect-timeout 15 --max-time 40 "$base/$version/SHASUMS256.txt" 2>/dev/null | awk -v f="$file" '$2 == f {print $1}')
+      [ -n "$sum" ] || continue
+      echo "下载 $base/$version/$file"
+      rm -f /tmp/zeta-node.tar.xz
+      curl -fsSL --connect-timeout 20 --max-time 1200 --retry 1 -o /tmp/zeta-node.tar.xz "$base/$version/$file" || continue
+      if [ "$(sha256sum /tmp/zeta-node.tar.xz | cut -d' ' -f1)" = "$sum" ]; then got=1; break; fi
+      echo "这个地址下到的文件校验不通过"
+    done
+    [ -n "$got" ] || { rm -f /tmp/zeta-node.tar.xz; fail "下载 Node.js 失败，请检查网络后重试"; }
+    echo "解压 Node.js $version"
+    rm -rf /usr/local/node.installing
+    mkdir -p /usr/local/node.installing
+    tar -xJf /tmp/zeta-node.tar.xz -C /usr/local/node.installing --strip-components=1 || { rm -rf /usr/local/node.installing /tmp/zeta-node.tar.xz; fail "解压失败，可能是存储空间不足"; }
+    rm -rf /usr/local/node
+    mv /usr/local/node.installing /usr/local/node
+    rm -f /tmp/zeta-node.tar.xz
+  fi
+  for tool in node npm npx corepack; do
+    [ -e "/usr/local/node/bin/$tool" ] && ln -sf "/usr/local/node/bin/$tool" "/usr/local/bin/$tool"
+  done
+  # 官方的二进制在 arm64 上要 libatomic
+  if ! /usr/local/bin/node --version >/dev/null 2>&1; then
+    [ -x /usr/local/bin/zeta-apt ] || write_apt_helper
+    /usr/local/bin/zeta-apt install libatomic1
+  fi
+  # npm install -g 装到自己的家目录里，不用 sudo
+  cat > /etc/profile.d/zeta-node.sh <<'ZETA_NODE_EOF'
+: "${NPM_CONFIG_PREFIX:=$HOME/.npm-global}"
+export NPM_CONFIG_PREFIX
+case ":$PATH:" in *":$NPM_CONFIG_PREFIX/bin:"*) ;; *) PATH="$PATH:$NPM_CONFIG_PREFIX/bin" ;; esac
+export PATH
+ZETA_NODE_EOF
+  /usr/local/bin/node --version || fail "Node.js 装上了但运行不起来"
+  ;;
+
+go)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  case "$(dpkg --print-architecture)" in
+    arm64) arch=arm64 ;;
+    amd64) arch=amd64 ;;
+    *) fail "暂不支持这个架构：$(dpkg --print-architecture)" ;;
+  esac
+  # 发布清单里有最新稳定版的文件名和校验值；国内镜像在前
+  info=
+  for base in https://golang.google.cn https://go.dev; do
+    info=$(curl -fsSL --connect-timeout 15 --max-time 40 "$base/dl/?mode=json" 2>/dev/null | jq -r --arg a "$arch" \
+      'map(select(.stable))[0] | .version as $v | .files[] | select(.os=="linux" and .arch==$a and .kind=="archive") | "\($v) \(.filename) \(.sha256)"' 2>/dev/null)
+    [ -n "$info" ] && break
+  done
+  [ -n "$info" ] || fail "查不到 Go 的最新版本，请检查网络后重试"
+  set -- $info
+  version=$1; file=$2; sum=$3
+  if [ "$(/usr/local/go/bin/go env GOVERSION 2>/dev/null)" != "$version" ]; then
+    got=
+    for base in https://golang.google.cn/dl https://mirrors.aliyun.com/golang https://go.dev/dl; do
+      echo "下载 $base/$file"
+      rm -f /tmp/zeta-go.tar.gz
+      curl -fsSL --connect-timeout 20 --max-time 1200 --retry 1 -o /tmp/zeta-go.tar.gz "$base/$file" || continue
+      if [ "$(sha256sum /tmp/zeta-go.tar.gz | cut -d' ' -f1)" = "$sum" ]; then got=1; break; fi
+      echo "这个地址下到的文件校验不通过"
+    done
+    [ -n "$got" ] || { rm -f /tmp/zeta-go.tar.gz; fail "下载 Go 失败，请检查网络后重试"; }
+    echo "解压 $version"
+    rm -rf /usr/local/go.installing
+    mkdir -p /usr/local/go.installing
+    tar -xzf /tmp/zeta-go.tar.gz -C /usr/local/go.installing --strip-components=1 || { rm -rf /usr/local/go.installing /tmp/zeta-go.tar.gz; fail "解压失败，可能是存储空间不足"; }
+    rm -rf /usr/local/go
+    mv /usr/local/go.installing /usr/local/go
+    rm -f /tmp/zeta-go.tar.gz
+  fi
+  ln -sf /usr/local/go/bin/go /usr/local/bin/go
+  ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+  # go install 装的程序在 ~/go/bin；模块代理默认用国内的（自己设过 GOPROXY 的不受影响）
+  cat > /etc/profile.d/zeta-go.sh <<'ZETA_GO_EOF'
+case ":$PATH:" in *":$HOME/go/bin:"*) ;; *) PATH="$PATH:$HOME/go/bin" ;; esac
+export PATH
+: "${GOPROXY:=https://goproxy.cn,direct}"
+export GOPROXY
+ZETA_GO_EOF
+  /usr/local/bin/go version || fail "Go 装上了但运行不起来"
   ;;
 
 *)

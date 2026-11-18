@@ -1,5 +1,9 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.int
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.AccountTree
@@ -48,12 +52,47 @@ internal fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "AskUserQuestion" -> ToolPresentation(Icons.Rounded.QuestionAnswer, "向你提问", json)
         "ExitPlanMode" -> ToolPresentation(Icons.Rounded.Checklist, "提交计划", s("plan") ?: json)
         "Skill" -> ToolPresentation(Icons.Rounded.AutoAwesome, "技能 " + (s("skill") ?: s("command")).orEmpty(), json)
-        else -> if (name.startsWith("mcp__")) {
+        else -> if (name.startsWith("mcp__phone__")) {
+            presentPhoneTool(name.removePrefix("mcp__phone__"), input, json)
+        } else if (name.startsWith("mcp__")) {
             val parts = name.removePrefix("mcp__").split("__", limit = 2)
             ToolPresentation(Icons.Rounded.Extension, parts.joinToString(" · "), json)
         } else {
             ToolPresentation(Icons.Rounded.Build, name.ifBlank { "工具" }, json)
         }
+    }
+}
+
+/** 手机工具：用人话说它在手机上做了什么。 */
+private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): ToolPresentation {
+    fun s(key: String) = input?.str(key)
+    fun n(key: String) = input?.int(key)
+    val where = n("node")?.let { "控件 $it" } ?: n("x")?.let { "($it, ${n("y") ?: 0})" }.orEmpty()
+    return when (tool) {
+        "shell" -> ToolPresentation(Icons.Rounded.Terminal, "Android：" + firstLine(s("command")).ifEmpty { "执行命令" }, s("command").orEmpty())
+        "screen" -> ToolPresentation(Icons.Rounded.Smartphone, if (input?.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕", json)
+        "tap" -> ToolPresentation(Icons.Rounded.TouchApp, "点按 $where".trim(), json)
+        "long_press" -> ToolPresentation(Icons.Rounded.TouchApp, "长按 $where".trim(), json)
+        "swipe" -> ToolPresentation(Icons.Rounded.TouchApp, "滑动", json)
+        "type_text" -> ToolPresentation(Icons.Rounded.Smartphone, "输入“" + firstLine(s("text"), 30) + "”", json)
+        "press_key" -> ToolPresentation(
+            Icons.Rounded.Smartphone,
+            "按" + when (s("key")) {
+                "back" -> "返回键"
+                "home" -> "主屏幕键"
+                "recents" -> "最近任务键"
+                "enter" -> "回车"
+                "delete" -> "退格"
+                "wake" -> "亮屏"
+                "notifications" -> "下拉通知栏"
+                "quick_settings" -> "下拉控制中心"
+                else -> s("key").orEmpty()
+            },
+            json,
+        )
+        "open_app" -> ToolPresentation(Icons.Rounded.Smartphone, "打开 " + s("app").orEmpty(), json)
+        "find_apps" -> ToolPresentation(Icons.Rounded.Smartphone, "查找应用 " + s("query").orEmpty(), json)
+        else -> ToolPresentation(Icons.Rounded.Smartphone, "手机 · $tool", json)
     }
 }
 

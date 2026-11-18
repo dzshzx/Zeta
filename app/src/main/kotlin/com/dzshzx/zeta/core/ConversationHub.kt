@@ -353,6 +353,12 @@ class ConversationHub(private val app: Application) {
 
     fun updateClaude() = runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") { checkHealth() }
 
+    fun installPython() = runMaintenance("安装 Python / uv", asRoot = false, command = installer.optionalCommand("python")) { checkHealth() }
+
+    fun installGo() = runMaintenance("安装 Go", asRoot = true, command = installer.optionalCommand("go")) { checkHealth() }
+
+    fun installNode() = runMaintenance("安装 Node.js", asRoot = true, command = installer.optionalCommand("node")) { checkHealth() }
+
     fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }
 
     fun dismissMaintenance() {

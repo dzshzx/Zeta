@@ -164,6 +164,29 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     onClick = hub::repairEnvironment,
                 )
             }
+            Group(title = "可选工具", footer = "基础环境里已经有 git、ripgrep、python3 这些常用工具。这里是按需再装的。") {
+                CouiPreference(
+                    title = "Go",
+                    summary = if (health?.go.isNullOrBlank()) "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理" else "Go ${health?.go}",
+                    value = if (health == null) "…" else if (health.go.isBlank()) "安装" else "已安装",
+                    enabled = maintenance?.running != true && health != null,
+                    onClick = if (health?.go.isNullOrBlank()) hub::installGo else null,
+                )
+                CouiPreference(
+                    title = "Python / uv",
+                    summary = if (health?.uv.isNullOrBlank()) "安装 uv 和它管理的 Python，用来跑脚本、建虚拟环境" else "uv ${health?.uv}",
+                    value = if (health == null) "…" else if (health.uv.isBlank()) "安装" else "已安装",
+                    enabled = maintenance?.running != true && health != null,
+                    onClick = if (health?.uv.isNullOrBlank()) hub::installPython else null,
+                )
+                CouiPreference(
+                    title = "Node.js",
+                    summary = if (health?.node.isNullOrBlank()) "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global" else "Node.js ${health?.node}",
+                    value = if (health == null) "…" else if (health.node.isBlank()) "安装" else "已安装",
+                    enabled = maintenance?.running != true && health != null,
+                    onClick = if (health?.node.isNullOrBlank()) hub::installNode else null,
+                )
+            }
             val account = hub.account
             Group(title = "Claude Code") {
                 CouiPreference(title = "版本", value = health?.claude?.ifBlank { "未安装" } ?: "…")
