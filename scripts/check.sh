@@ -12,7 +12,7 @@ before=$(tracked_state)
 source scripts/gatelib.sh
 gate_python_allowlist
 git ls-files -z -- '*.py' | xargs -0 python3 -I -c 'import ast, sys; [ast.parse(open(f, encoding="utf-8").read(), f) for f in sys.argv[1:]]'
-tools/gradle --console=plain :app:assembleDebug
+tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
 
 if [[ "$(tracked_state)" != "$before" ]]; then
   echo "检查改动了已跟踪文件：" >&2

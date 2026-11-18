@@ -1,0 +1,23 @@
+#!/bin/bash
+# 手机测试的租约。手机只有一台，同一包名同时只能装一个版本，所以并行开发时一次只让一个人装机、用测试屏。
+# tools/install.sh 和 tools/vd.py 在工作站上每次碰手机前都调它：没人占用或占用者是自己就续租，否则报出占用者并失败。
+# 占用者名字取 ZETA_PHONE_OWNER（默认 main，即负责合入的会话）；15 分钟没动静的租约自动作废。
+# 用完释放：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话，不管手机 Debian 里的会话。
+set -euo pipefail
+owner=${ZETA_PHONE_OWNER:-main}
+lease=${XDG_RUNTIME_DIR:-/tmp}/zeta-phone.lease
+ttl=900
+exec 9>"$lease.lock"
+flock 9
+now=$(date +%s)
+holder= since=0
+[[ -f $lease ]] && read -r holder since <"$lease"
+if [[ ${1:-} == --release ]]; then
+  [[ $holder == "$owner" ]] && rm -f "$lease"
+  exit 0
+fi
+if [[ -n $holder && $holder != "$owner" ]] && ((now - since < ttl)); then
+  echo "手机正被 $holder 占用，$(((ttl - now + since + 59) / 60)) 分钟内没动静就自动释放；先做别的，稍后再试" >&2
+  exit 75
+fi
+echo "$owner $now" >"$lease"

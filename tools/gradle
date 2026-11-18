@@ -6,4 +6,19 @@ cd "$(dirname "$0")/.."
 JAVA_HOME=$(tools/java-home)
 export JAVA_HOME
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
+# 并行开发时几棵任务树会同时构建：最多同时跑 ZETA_GRADLE_SLOTS 个（默认 3），其余排队，免得内存撑爆。
+# 锁挂在 gradlew 进程上，它结束就释放；Gradle 守护进程不继承这个文件描述符。
+slots=${ZETA_GRADLE_SLOTS:-3}
+lockdir=${XDG_RUNTIME_DIR:-/tmp}/zeta-gradle
+mkdir -p "$lockdir"
+got=
+for ((i = 1; i <= slots; i++)); do
+  exec 9>"$lockdir/slot$i"
+  if flock -n 9; then got=1; break; fi
+done
+if [[ -z $got ]]; then
+  echo "tools/gradle: 已有 $slots 个构建在跑，排队等待" >&2
+  exec 9>"$lockdir/slot$(($$ % slots + 1))"
+  flock 9
+fi
 exec ./gradlew "$@"

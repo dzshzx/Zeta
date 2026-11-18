@@ -10,7 +10,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商、压缩与标题设置。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x。每次发版只升 patch（0.6.3 → 0.6.4），新功能也一样；不跳 minor，不发 1.0。
-- Eta（GPL-3.0）是参照：照它的设计、尺寸、动画重写，不整段复制。`ui/markdown`、`ui/components/coui`、侧栏骨架和主题是从 Eta 拷来的，所以本仓是 GPL-3.0。Eta 源码在手机的 `/workspace/claude/ref/Eta`（上游 github `Mangi-11/Eta`），COUI 源码解包在 `/workspace/claude/ref/coui-src`。
+- Eta（GPL-3.0）是参照：照它的设计、尺寸、动画重写，不整段复制。`ui/markdown`、`ui/components/coui`、侧栏骨架和主题是从 Eta 拷来的，所以本仓是 GPL-3.0。Eta 源码在工作站的 `~/workspace-external/Eta` 和手机的 `/workspace/claude/ref/Eta`（上游 github `Mangi-11/Eta`，对照前先 `git fetch` 再快进），COUI 源码解包在手机的 `/workspace/claude/ref/coui-src`。
 
 ## 架构
 
@@ -33,7 +33,9 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 构建：`tools/gradle <任务>`，例如 `tools/gradle :app:assembleDebug`；不直接跑 `./gradlew`。它用 `tools/java-home` 找 JDK 25（`JAVA_HOME`，再是 PATH 上的 `java`，最后是 `~/.gradle/jdks` 里 Gradle 下载过的那份），并设 `ANDROID_HOME=~/Android/Sdk`。缺的 SDK 平台和 build-tools 由 AGP 构建时自动下载，两台机器都已接受许可。
 - 手机上为内存和 CPU 架构调的 Gradle 参数写在手机的 `~/.gradle/gradle.properties`，不进仓：不开守护进程、Kotlin 在进程内编译、最多 4 个 worker、aapt2 用 `~/Android/aapt2-x86_64/aapt2`（经 qemu-user 跑官方 x86-64 版，Google 不提供 linux-arm64 版）。这个 aapt2 的版本要和 AGP 一致，升 AGP 时一起换。手机空闲内存常只有几百 MB 到 3 GB，同一时间只跑一个 Gradle。
 - 签名：debug 包用 `~/.android/zeta-debug.keystore` 签名，是手机上已装的 Zeta 用的那把调试密钥。工作站上是一份拷贝（权限 600），手机上是指向 `~/.android/debug.keystore` 的符号链接。签名对不上时 `pm install -r` 会失败，卸载重装会丢掉 Zeta 的全部设置，所以不换这把密钥，也不卸载。
-- 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包。
+- 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包、跑 JVM 单元测试。
+- 单元测试：`tools/gradle :app:testDebugUnitTest`，放在 `app/src/test/kotlin`。不碰 Android 运行时的逻辑（解析、路径、状态归约）都写成单元测试，在工作站上就能验，不用装机。
+- 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一包名同时只能装一个版本：工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`），被别人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放。
 - 装机：`tools/install.sh [--no-build]`。在工作站上经 ssh 装，在手机上直接装。重装会结束 Zeta 的界面，但不结束进行中的对话。用户日常在用 Zeta，装机会打断用户眼前的界面。
 - 测试：用 `python3 tools/vd.py start|launch|shot <png>|tap x y|swipe x1 y1 x2 y2 [毫秒]|text <ASCII>|key <键码>|status|stop` 在后台虚拟屏上驱动 Zeta，不碰用户的真屏。工作站上每条命令走一次 ssh，约 0.4 秒。坐标按整屏 1220×2656 算；截图显示给 Claude 时缩小过，要按显示比例换算回去。`stop` 会关掉屏上的应用（建屏带 DESTROY_CONTENT_ON_REMOVAL），不会把它们挪到真屏上。
   - 冷启动后等约 10 秒再输入，否则字会丢。`vd.py text` 只能输 ASCII，要中文时改用包名之类。
@@ -47,7 +49,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 发版
 
-一个版本一件事。升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh` 装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
+一个版本一件事。功能分支不改版本号，合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh` 装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
 
 ## 边界
 

@@ -16,5 +16,6 @@ root=(sudo -n timeout 300 nsenter -t 1 -m -- /system/bin/sh -c "$cmd")
 if [[ $(uname -r) == *android* ]]; then
   "${root[@]}" <"$APK"
 else
+  tools/phone-lock
   ssh "${ZETA_PHONE_SSH:-xiaomi-17-debian}" "${root[*]@Q}" <"$APK"
 fi

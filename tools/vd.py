@@ -123,11 +123,21 @@ def shot(path):
     sys.exit("截图超时")
 
 
+def lease():
+    """并行开发时一次只让一个人用手机：拿不到租约就退出，见 tools/phone-lock。"""
+    if not ON_PHONE:
+        code = subprocess.run([os.path.join(HERE, "phone-lock")]).returncode
+        if code:
+            sys.exit(code)
+
+
 def main():
     a = sys.argv[1:]
     if not a:
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
+    if c not in ("build", "status"):
+        lease()
     if c == "build":
         build()
     elif c == "start":

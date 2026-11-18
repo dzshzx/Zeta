@@ -12,6 +12,7 @@ materialIcons = "1.7.8"
 kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
 desugarJdkLibs = "2.1.5"
+junit = "4.13.2"
 
 [libraries]
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -27,6 +28,7 @@ material-icons-extended = { group = "androidx.compose.material", name = "materia
 intellij-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "intellijMarkdown" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 
 [plugins]
