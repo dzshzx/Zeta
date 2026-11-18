@@ -1,5 +1,8 @@
 package com.dzshzx.zeta.ui.pane
 
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Unarchive
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +90,7 @@ internal fun SessionPane(
     onOpen: (SessionSummary) -> Unit,
     onDelete: (SessionSummary) -> Unit,
     onRename: (SessionSummary, String) -> Unit,
+    onArchive: (SessionSummary, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -106,8 +110,13 @@ internal fun SessionPane(
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis
     }
-    val today = remember(sessions, todayStart) { sessions.filter { it.updated >= todayStart } }
-    val earlier = remember(sessions, todayStart) { sessions.filter { it.updated < todayStart } }
+    // 归档的会话收在列表最下面的入口里，点进去单独看
+    var showArchived by remember { mutableStateOf(false) }
+    val archived = remember(sessions) { sessions.filter { it.archived } }
+    if (archived.isEmpty()) showArchived = false
+    val visible = remember(sessions, showArchived) { sessions.filter { it.archived == showArchived } }
+    val today = remember(visible, todayStart) { if (showArchived) emptyList() else visible.filter { it.updated >= todayStart } }
+    val earlier = remember(visible, todayStart) { if (showArchived) visible else visible.filter { it.updated < todayStart } }
 
     Column(
         modifier = modifier
@@ -138,7 +147,7 @@ internal fun SessionPane(
         }
 
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 12.dp)) {
-            if (sessions.isEmpty()) {
+            if (visible.isEmpty() && !showArchived) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(vertical = 36.dp), contentAlignment = Alignment.Center) {
                         Text(text = "还没有对话", style = MiuixTheme.textStyles.body2, color = colors.summary)
@@ -148,13 +157,13 @@ internal fun SessionPane(
             if (today.isNotEmpty()) {
                 item(key = "h-today") { SectionHeader("今天", first = true) }
                 items(today, key = { it.id }) { session ->
-                    SessionRow(session, session.id == currentSessionId, isRunning(session.id), { onOpen(session) }, { startRename(session) }, { deleting = session })
+                    SessionRow(session, session.id == currentSessionId, isRunning(session.id), { onOpen(session) }, { startRename(session) }, { deleting = session }, { onArchive(session, true) })
                 }
             }
             if (earlier.isNotEmpty()) {
-                item(key = "h-earlier") { SectionHeader("更早", first = today.isEmpty()) }
+                item(key = "h-earlier") { SectionHeader(if (showArchived) "已归档" else "更早", first = today.isEmpty()) }
                 items(earlier, key = { it.id }) { session ->
-                    SessionRow(session, session.id == currentSessionId, isRunning(session.id), { onOpen(session) }, { startRename(session) }, { deleting = session })
+                    SessionRow(session, session.id == currentSessionId, isRunning(session.id), { onOpen(session) }, { startRename(session) }, { deleting = session }, { onArchive(session, !session.archived) })
                 }
             }
         }
@@ -163,6 +172,11 @@ internal fun SessionPane(
             modifier = Modifier.fillMaxWidth().padding(horizontal = PaneHorizontalPadding, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 归档的入口固定在底部，不用滚到列表尽头去找
+            when {
+                showArchived -> ArchiveEntry(text = "返回全部对话", back = true, onClick = { showArchived = false })
+                archived.isNotEmpty() -> ArchiveEntry(text = "已归档 · ${archived.size}", back = false, onClick = { showArchived = true })
+            }
             Spacer(Modifier.weight(1f))
             PaneCircleButton(icon = Icons.Outlined.Settings, description = "设置", onClick = onOpenSettings, size = 44.dp)
         }
@@ -227,6 +241,30 @@ private fun SectionHeader(label: String, first: Boolean) {
     )
 }
 
+/** 列表底部进出“已归档”的那一行。 */
+@Composable
+private fun ArchiveEntry(text: String, back: Boolean, onClick: () -> Unit) {
+    val colors = CouiPageDefaults.themeColors(CouiTheme.isDark)
+    val shape = remember { CouiShape(14.dp, 2.1f) }
+    Row(
+        modifier = Modifier
+            .heightIn(min = 40.dp)
+            .clip(shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = RowHorizontalPadding, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (back) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Archive,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = colors.summary,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(text = text, style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp), color = colors.summary)
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionRow(
@@ -236,6 +274,7 @@ private fun SessionRow(
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onArchive: () -> Unit,
 ) {
     val dark = CouiTheme.isDark
     val colors = CouiPageDefaults.themeColors(dark)
@@ -244,9 +283,14 @@ private fun SessionRow(
     val anchor = rememberCouiMenuAnchor()
     var showMenu by remember { mutableStateOf(false) }
     val deleteTint = StatusError
-    val menuItems = remember(deleteTint) {
+    val menuItems = remember(deleteTint, session.archived) {
         listOf(
             CouiMenuItem(value = 1, text = "重命名", icon = Icons.Rounded.Edit),
+            CouiMenuItem(
+                value = 2,
+                text = if (session.archived) "取消归档" else "归档",
+                icon = if (session.archived) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
+            ),
             CouiMenuItem(value = 0, text = "删除", icon = Icons.Rounded.DeleteOutline, iconTint = deleteTint),
         )
     }
@@ -299,7 +343,11 @@ private fun SessionRow(
             items = menuItems,
             onItemClick = {
                 showMenu = false
-                if (it.value == 1) onRename() else onDelete()
+                when (it.value) {
+                    1 -> onRename()
+                    2 -> onArchive()
+                    else -> onDelete()
+                }
             },
             anchor = anchor,
         )

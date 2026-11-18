@@ -151,10 +151,35 @@ def summarize(path):
             "preview": (prompt or first)[:200], "updated": int(os.path.getmtime(path) * 1000)}
 
 
+ARCHIVE = os.path.expanduser("~/.config/zeta/archived")
+
+
+def archived_sessions():
+    """归档的会话只是不在列表里显示，记录文件原样留着；这里存的是它们的 id，一行一个。"""
+    try:
+        with open(ARCHIVE, encoding="utf-8") as f:
+            return {line.strip() for line in f if line.strip()}
+    except OSError:
+        return set()
+
+
+def cmd_archive(session, on):
+    ids = archived_sessions()
+    # 顺手清掉记录文件已经不在的
+    alive = {os.path.basename(p)[:-6] for p in glob.glob(os.path.join(ROOT, "*", "*.jsonl"))}
+    ids = (ids & alive) | {session} if on else (ids & alive) - {session}
+    os.makedirs(os.path.dirname(ARCHIVE), exist_ok=True)
+    with open(ARCHIVE + ".tmp", "w", encoding="utf-8") as f:
+        f.write("".join(i + "\n" for i in sorted(ids)))
+    os.replace(ARCHIVE + ".tmp", ARCHIVE)
+    out({"type": "zeta_archived", "id": session, "archived": bool(on)})
+
+
 def cmd_list():
     files = glob.glob(os.path.join(ROOT, "*", "*.jsonl"))
     files.sort(key=os.path.getmtime, reverse=True)
     external = external_sessions()
+    archived = archived_sessions()
     for path in files[:300]:
         try:
             item = summarize(path)
@@ -162,6 +187,7 @@ def cmd_list():
             continue
         if item:
             item["external"] = item["id"] in external
+            item["archived"] = item["id"] in archived
             out(item)
 
 
@@ -371,6 +397,8 @@ def main():
         out({"type": "zeta_deleted"})
     elif args[:1] == ["rename"] and len(args) == 3 and inside_root(args[1]):
         cmd_rename(args[1], args[2])
+    elif args[:1] == ["archive"] and len(args) == 3 and re.fullmatch(r"[0-9a-fA-F-]{8,64}", args[1]):
+        cmd_archive(args[1], args[2] == "1")
     elif args[:1] == ["hosts"]:
         cmd_hosts()
     elif args[:1] == ["image"] and len(args) == 3 and inside_root(args[1]):
@@ -378,7 +406,7 @@ def main():
     elif args[:1] == ["file-image"] and len(args) == 2:
         cmd_file_image(args[1])
     else:
-        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | hosts | image <file> <ref> | file-image <path>")
+        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | archive <id> <0|1> | hosts | image <file> <ref> | file-image <path>")
 
 
 main()

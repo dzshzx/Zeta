@@ -103,6 +103,7 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.ui.components.coui.CouiButton
+import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
@@ -122,7 +123,13 @@ private val FallbackModels = listOf(
 )
 
 @Composable
-internal fun ChatScreen(hub: ConversationHub, onOpenPane: () -> Unit, onOpenSettings: () -> Unit) {
+internal fun ChatScreen(
+    hub: ConversationHub,
+    onOpenPane: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenInstall: () -> Unit,
+    onOpenLogin: () -> Unit,
+) {
     val conversation = hub.current
     val dark = CouiTheme.isDark
     val colors = CouiPageDefaults.themeColors(dark)
@@ -157,7 +164,7 @@ internal fun ChatScreen(hub: ConversationHub, onOpenPane: () -> Unit, onOpenSett
         },
     ) { padding ->
         when (hub.setup) {
-            SetupState.Ready -> key(conversation.key) { ConversationBody(hub, conversation, padding) }
+            SetupState.Ready -> key(conversation.key) { ConversationBody(hub, conversation, padding, onOpenLogin) }
             SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
             SetupState.NoRoot -> SetupMessage(
                 padding,
@@ -166,12 +173,15 @@ internal fun ChatScreen(hub: ConversationHub, onOpenPane: () -> Unit, onOpenSett
             ) { CouiButton(text = "重试", onClick = hub::checkSetup) }
             SetupState.NoEnvironment -> SetupMessage(
                 padding,
-                "没有找到 Linux 环境",
-                "默认位置没有可用的 Debian rootfs。可以在设置里填写 rootfs 路径后重新检测。",
+                "还没有 Linux 环境",
+                "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境。",
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CouiButton(text = "打开设置", onClick = onOpenSettings)
-                    CouiButton(text = "重试", onClick = hub::checkSetup)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CouiButton(text = if (hub.ownStatus?.base == true) "继续安装 Debian 环境" else "安装 Debian 环境", onClick = onOpenInstall, role = CouiButtonRole.Primary)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CouiButton(text = "打开设置", onClick = onOpenSettings)
+                        CouiButton(text = "重试", onClick = hub::checkSetup)
+                    }
                 }
             }
         }
@@ -213,7 +223,7 @@ private fun SetupMessage(padding: PaddingValues, title: String, message: String?
 }
 
 @Composable
-private fun ConversationBody(hub: ConversationHub, conversation: Conversation, padding: PaddingValues) {
+private fun ConversationBody(hub: ConversationHub, conversation: Conversation, padding: PaddingValues, onOpenLogin: () -> Unit) {
     val items = conversation.items
     val listState = remember { LazyListState() }
     val input = remember { TextFieldState() }
@@ -294,6 +304,8 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 conversation.loadingHistory -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { TypingIndicator() }
                 items.isEmpty() -> EmptyState(
                     cwd = conversation.cwd,
+                    needsLogin = hub.account?.loggedIn == false,
+                    onLogin = onOpenLogin,
                     onSuggestion = conversation::send,
                     onChangeCwd = { hub.startNew(it) },
                     modifier = Modifier.padding(padding),
@@ -570,7 +582,14 @@ private val Suggestions = listOf(
 )
 
 @Composable
-private fun EmptyState(cwd: String, onSuggestion: (String) -> Unit, onChangeCwd: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyState(
+    cwd: String,
+    needsLogin: Boolean,
+    onLogin: () -> Unit,
+    onSuggestion: (String) -> Unit,
+    onChangeCwd: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val dark = CouiTheme.isDark
     val colors = MiuixTheme.colorScheme
     var editingCwd by remember { mutableStateOf(false) }
@@ -602,7 +621,16 @@ private fun EmptyState(cwd: String, onSuggestion: (String) -> Unit, onChangeCwd:
                 )
             }
             Spacer(Modifier.height(18.dp))
-            Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 还没登录时发什么都只会报错，先把人领去登录
+            if (needsLogin) {
+                Text(
+                    text = "这个环境里的 Claude Code 还没有登录账号",
+                    style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp),
+                    color = colors.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(14.dp))
+                CouiButton(text = "登录 Claude 账号", onClick = onLogin, role = CouiButtonRole.Primary)
+            } else Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Suggestions.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         row.forEach { item ->

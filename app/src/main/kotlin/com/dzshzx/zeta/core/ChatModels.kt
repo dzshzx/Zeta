@@ -139,6 +139,8 @@ data class SessionSummary(
     val updated: Long,
     /** 正被别的 Claude Code 进程占用（比如终端里开着）。 */
     val external: Boolean = false,
+    /** 已归档：不在主列表里显示。 */
+    val archived: Boolean = false,
 )
 
 internal fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

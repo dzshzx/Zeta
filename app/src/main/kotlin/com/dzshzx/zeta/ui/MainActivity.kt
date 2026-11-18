@@ -30,6 +30,9 @@ import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
+import com.dzshzx.zeta.ui.setup.EnvInstallScreen
+import com.dzshzx.zeta.ui.setup.LinuxScreen
+import com.dzshzx.zeta.ui.setup.LoginScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var hub: ConversationHub
@@ -77,9 +80,13 @@ class MainActivity : ComponentActivity() {
 private fun ZetaApp(hub: ConversationHub) {
     var paneOpen by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showLinux by rememberSaveable { mutableStateOf(false) }
+    var showInstall by rememberSaveable { mutableStateOf(false) }
+    var showLogin by rememberSaveable { mutableStateOf(false) }
+    val overlay = showSettings || showLinux || showInstall || showLogin
     ConversationSidePaneScaffold(
         visible = paneOpen,
-        backHandlerEnabled = !showSettings,
+        backHandlerEnabled = !overlay,
         onOpen = {
             paneOpen = true
             hub.refreshSessions()
@@ -101,6 +108,7 @@ private fun ZetaApp(hub: ConversationHub) {
                 },
                 onDelete = hub::delete,
                 onRename = hub::rename,
+                onArchive = hub::archive,
                 onOpenSettings = { showSettings = true },
                 modifier = modifier,
             )
@@ -113,14 +121,36 @@ private fun ZetaApp(hub: ConversationHub) {
                 hub.refreshSessions()
             },
             onOpenSettings = { showSettings = true },
+            onOpenInstall = { showInstall = true },
+            onOpenLogin = { showLogin = true },
         )
     }
+    Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }) }
+    Page(showLinux) {
+        LinuxScreen(hub = hub, onBack = { showLinux = false }, onOpenInstall = { showInstall = true }, onOpenLogin = { showLogin = true })
+    }
+    Page(showInstall) { EnvInstallScreen(hub = hub, onBack = { showInstall = false }, onOpenLogin = { showLogin = true }) }
+    Page(showLogin) { LoginScreen(hub = hub, onBack = { showLogin = false }) }
+    // 返回键一层一层退：最上面的页面先关
+    BackHandler(enabled = overlay) {
+        when {
+            showLogin -> {
+                hub.login.cancel()
+                showLogin = false
+            }
+            showInstall -> showInstall = false
+            showLinux -> showLinux = false
+            else -> showSettings = false
+        }
+    }
+}
+
+/** 盖在聊天页上面的一层页面，从右侧滑入。 */
+@Composable
+private fun Page(visible: Boolean, content: @Composable () -> Unit) {
     AnimatedVisibility(
-        visible = showSettings,
+        visible = visible,
         enter = slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(200)),
         exit = slideOutHorizontally(tween(220)) { it / 3 } + fadeOut(tween(160)),
-    ) {
-        SettingsScreen(hub = hub, onBack = { showSettings = false })
-    }
-    BackHandler(enabled = showSettings) { showSettings = false }
+    ) { content() }
 }

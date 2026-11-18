@@ -70,7 +70,33 @@ class ConversationHub(private val app: Application) {
         private set
 
     /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
-    var rootfsHint by mutableStateOf(LinuxEnv.DEFAULT_ROOTFS)
+    var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
+        private set
+
+    /** [rootfsHint] 是用户指定的；否则检测时把已知的几个位置都找一遍。 */
+    private var hintExplicit = false
+
+    /** 安装 Debian 环境、登录 Claude 账号。 */
+    val installer = EnvInstaller(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
+    val login = LoginFlow(this)
+
+    /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
+    var ownStatus by mutableStateOf<EnvStatus?>(null)
+        private set
+
+    /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
+    var account by mutableStateOf<AccountStatus?>(null)
+        private set
+
+    var health by mutableStateOf<EnvHealth?>(null)
+        private set
+    var healthChecking by mutableStateOf(false)
+        private set
+
+    /** 正在进行或刚做完的一项维护（修复、更新 Claude Code）。 */
+    data class Maintenance(val title: String, val running: Boolean, val detail: String, val ok: Boolean = true)
+
+    var maintenance by mutableStateOf<Maintenance?>(null)
         private set
 
     /** Claude Code 自己配置的默认权限模式（从第一次会话的 init 里得知，仅本次运行有效）。 */
@@ -109,10 +135,12 @@ class ConversationHub(private val app: Application) {
     fun checkSetup() {
         setup = SetupState.Checking
         thread(name = "zeta-setup", isDaemon = true) {
+            val saved = settings.env
             val state = when {
                 !LinuxEnv.hasRoot() -> SetupState.NoRoot
-                settings.env != null -> SetupState.Ready
-                else -> LinuxEnv.detect(rootfsHint)?.let { detected ->
+                // 环境可能已经不在了（比如装它的应用被卸载），不能只凭存下来的设置就当它可用
+                saved != null -> if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
+                else -> (if (hintExplicit) listOf(rootfsHint) else LinuxEnv.KNOWN_ROOTFS).firstNotNullOfOrNull { LinuxEnv.detect(it) }?.let { detected ->
                     // Eta 的工作区在 /workspace；有 claude 子目录就用它，和终端里的日常目录一致
                     val cwd = runCatching {
                         LinuxEnv.run(detected, "[ -d /workspace/claude ] && echo /workspace/claude || echo /workspace").stdout.trim()
@@ -121,10 +149,13 @@ class ConversationHub(private val app: Application) {
                     SetupState.Ready
                 } ?: SetupState.NoEnvironment
             }
+            val own = installer.status()
             main.post {
                 setup = state
                 env = settings.env
+                ownStatus = own
                 if (state == SetupState.Ready) {
+                    refreshAccount()
                     if (current.items.isEmpty() && current.sessionId == null) current = blank()
                     refreshSessions()
                     if (!hostsChecked) {
@@ -191,6 +222,17 @@ class ConversationHub(private val app: Application) {
         }
     }
 
+    /** 归档或取消归档：只影响列表里显不显示，会话记录不动。 */
+    fun archive(summary: SessionSummary, archived: Boolean) {
+        val config = settings.env ?: return
+        sessions = sessions.map { if (it.id == summary.id) it.copy(archived = archived) else it }
+        thread(isDaemon = true) {
+            runCatching {
+                LinuxEnv.run(config, "exec python3 - archive " + LinuxEnv.quote(summary.id) + if (archived) " 1" else " 0", stdin = helperScript)
+            }
+        }
+    }
+
     fun refreshSessions() {
         val config = settings.env ?: return
         thread(name = "zeta-sessions", isDaemon = true) {
@@ -205,6 +247,7 @@ class ConversationHub(private val app: Application) {
                     preview = o.str("preview").orEmpty(),
                     updated = (o["updated"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
                     external = o.bool("external") == true,
+                    archived = o.bool("archived") == true,
                 )
             }.toList()
             main.post { sessions = list }
@@ -219,9 +262,81 @@ class ConversationHub(private val app: Application) {
     /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户。 */
     fun redetect(rootfs: String) {
         rootfsHint = rootfs
+        hintExplicit = true
+        if (current.busy || background.values.any { it.busy }) return
+        current.shutdown()
+        background.values.forEach { it.shutdown() }
+        background.clear()
         settings.env = null
         env = null
+        account = null
+        health = null
+        sessions = emptyList()
+        current = blank()
         checkSetup()
+    }
+
+    /** 有对话正在进行时不能换环境。 */
+    val canSwitchEnvironment: Boolean get() = !current.busy && background.values.none { it.busy } && !installer.running
+
+    /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
+    internal fun onEnvironmentInstalled() {
+        thread(isDaemon = true) {
+            val own = installer.status()
+            main.post {
+                ownStatus = own
+                if (setup != SetupState.Ready || settings.env?.rootfs == LinuxEnv.OWN_ROOTFS) redetect(LinuxEnv.OWN_ROOTFS)
+            }
+        }
+    }
+
+    fun refreshAccount() {
+        val config = settings.env ?: return
+        thread(name = "zeta-account", isDaemon = true) {
+            val result = runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }.getOrNull() ?: return@thread
+            val o = runCatching { json.parseToJsonElement(result.stdout) as? JsonObject }.getOrNull()
+            val status = if (o == null) null else AccountStatus(o.bool("loggedIn") == true, o.str("email"), o.str("subscriptionType"))
+            main.post { if (settings.env?.rootfs == config.rootfs) account = status }
+        }
+    }
+
+    fun checkHealth() {
+        val config = settings.env ?: return
+        if (healthChecking) return
+        healthChecking = true
+        thread(name = "zeta-health", isDaemon = true) {
+            val result = installer.health(config)
+            main.post {
+                healthChecking = false
+                health = result
+            }
+        }
+    }
+
+    private fun runMaintenance(title: String, asRoot: Boolean, command: String, after: () -> Unit = {}) {
+        val config = settings.env ?: return
+        if (maintenance?.running == true) return
+        maintenance = Maintenance(title, running = true, detail = "")
+        onActivityChanged()
+        thread(name = "zeta-maintain", isDaemon = true) {
+            val (ok, output) = installer.maintain(config, asRoot, command) { line -> main.post { maintenance = Maintenance(title, running = true, detail = line) } }
+            main.post {
+                maintenance = Maintenance(title, running = false, detail = output.lines().takeLast(4).joinToString("\n"), ok = ok)
+                onActivityChanged()
+                after()
+            }
+        }
+    }
+
+    /** 修复软件包并补齐常用工具。 */
+    fun repairEnvironment() = runMaintenance("修复环境", asRoot = true, command = installer.repairCommand) { checkHealth() }
+
+    fun updateClaude() = runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") { checkHealth() }
+
+    fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }
+
+    fun dismissMaintenance() {
+        if (maintenance?.running == false) maintenance = null
     }
 
     fun setDefaultCwd(cwd: String) {
@@ -284,8 +399,9 @@ class ConversationHub(private val app: Application) {
 
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
     internal fun onActivityChanged() {
-        val active = current.isProcessAlive || background.values.any { it.isProcessAlive }
-        val busy = current.busy || background.values.any { it.busy }
+        val working = installer.running || maintenance?.running == true
+        val active = working || current.isProcessAlive || background.values.any { it.isProcessAlive }
+        val busy = working || current.busy || background.values.any { it.busy }
         AgentService.update(app, active, busy)
     }
 

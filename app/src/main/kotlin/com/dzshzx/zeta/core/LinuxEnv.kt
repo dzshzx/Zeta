@@ -1,9 +1,10 @@
 package com.dzshzx.zeta.core
 
+import kotlin.concurrent.thread
 import android.content.Context
 import java.util.concurrent.TimeUnit
 
-/** Eta 的 Debian 环境里，Claude Code 所属的那个 Linux 用户。 */
+/** Debian 环境里，Claude Code 所属的那个 Linux 用户。 */
 data class LinuxEnvConfig(
     val rootfs: String,
     val user: String,
@@ -21,7 +22,21 @@ class CommandResult(val exitCode: Int, val stdout: String, val stderr: String)
  * 进去以后用 setpriv 降到普通用户，Claude Code 的登录状态和配置都在那个用户的家目录里。
  */
 object LinuxEnv {
-    const val DEFAULT_ROOTFS = "/data/user/0/io.github.mangi.eta/files/terminal/debian/rootfs"
+    /** Eta 装的 Debian。在 Eta 的应用数据里，卸载 Eta 或清除它的数据就没了。 */
+    const val ETA_ROOTFS = "/data/user/0/io.github.mangi.eta/files/terminal/debian/rootfs"
+
+    /**
+     * Zeta 自己装的 Debian 放在这里。特意不放进应用数据目录：那里的东西会随卸载、清除数据一起消失，
+     * 而这个环境里有 Claude Code 的全部会话和登录状态。
+     */
+    const val OWN_BASE = "/data/local/zeta/debian"
+    const val OWN_ROOTFS = "$OWN_BASE/rootfs"
+
+    /** 没指定时依次找这几个位置。 */
+    val KNOWN_ROOTFS = listOf(OWN_ROOTFS, ETA_ROOTFS)
+
+    /** 以 root 身份进入 [rootfs]（装环境时用，这时还没有普通用户）。 */
+    fun rootConfig(rootfs: String) = LinuxEnvConfig(rootfs, "root", 0, 0, "/root", "/")
 
     private const val FIND_BUSYBOX = "BB=; for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do " +
         "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; "
@@ -55,13 +70,45 @@ object LinuxEnv {
     fun start(config: LinuxEnvConfig, command: String): Process =
         ProcessBuilder("su", "-c", enterScript(config, command)).start()
 
+    /**
+     * 给 `su -c` 的整段脚本：在 Android 一侧（全局挂载命名空间）用管理器的 BusyBox 执行 [script]。
+     * 脚本收到的 $1 是 BusyBox 的路径，后面是 [arguments]。
+     */
+    fun androidScript(script: String, vararg arguments: String): String =
+        FIND_BUSYBOX + "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" sh -c " + quote(script) + " zeta-setup \"\$BB\"" +
+            arguments.joinToString("") { " " + quote(it) }
+
+    /**
+     * 结束一个经 su 启动的进程，连同它派生的子进程。
+     * 这些进程以 root 或 Debian 里的用户身份运行，应用自己发的信号到不了它们，[Process.destroy] 只是关掉管道，所以要再经 root 去杀。
+     */
+    fun kill(process: Process) {
+        val pid = Regex("pid=(\\d+)").find(process.toString())?.groupValues?.get(1)?.toIntOrNull()
+        val alive = runCatching { process.isAlive }.getOrDefault(true)
+        process.destroy()
+        if (pid == null || !alive) return
+        thread(isDaemon = true) {
+            runCatching {
+                // 这条命令自己超时就算了，不再去杀它（否则会没完没了）
+                capture(
+                    ProcessBuilder("su", "-c", FIND_BUSYBOX + "kt() { for c in \$(\"\$BB\" pgrep -P \"\$1\"); do kt \"\$c\"; done; kill -9 \"\$1\" 2>/dev/null; }; kt $pid").start(),
+                    null,
+                    5_000,
+                    killOnTimeout = false,
+                )
+            }
+        }
+    }
+
+    fun startRoot(script: String): Process = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
+
     /** 以 root 在 Android 侧直接执行一段脚本（不进 Debian）。 */
     fun runRoot(script: String, timeoutMs: Long = 15_000): CommandResult = capture(ProcessBuilder("su", "-c", script).start(), null, timeoutMs)
 
     fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult =
         capture(start(config, command), stdin, timeoutMs)
 
-    private fun capture(process: Process, stdin: String?, timeoutMs: Long): CommandResult {
+    private fun capture(process: Process, stdin: String?, timeoutMs: Long, killOnTimeout: Boolean = true): CommandResult {
         val out = StringBuilder()
         val err = StringBuilder()
         val t1 = Thread { runCatching { out.append(process.inputStream.bufferedReader().readText()) } }.apply { start() }
@@ -70,7 +117,7 @@ object LinuxEnv {
             process.outputStream.use { if (stdin != null) it.write(stdin.toByteArray()) }
         }
         if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
-            process.destroy()
+            if (killOnTimeout) kill(process) else process.destroy()
             return CommandResult(-1, out.toString(), "timeout")
         }
         t1.join(2000)
@@ -81,11 +128,16 @@ object LinuxEnv {
     /** 能否拿到 root。没授权时 `su` 会直接失败或不存在。 */
     fun hasRoot(): Boolean = runCatching { runRoot("id -u", 30_000).let { it.exitCode == 0 && it.stdout.trim() == "0" } }.getOrDefault(false)
 
+    /** [rootfs] 那里是不是真有一个系统。 */
+    fun exists(rootfs: String): Boolean = runCatching {
+        runRoot(FIND_BUSYBOX + "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" test -x " + quote("$rootfs/bin/bash")).exitCode == 0
+    }.getOrDefault(false)
+
     /**
      * 从 rootfs 的 passwd 里找出装了 Claude Code 的普通用户（家目录下有 .claude），找不到就取第一个普通用户。
      * 返回 null 表示 rootfs 不存在或里面没有普通用户。
      */
-    fun detect(rootfs: String = DEFAULT_ROOTFS): LinuxEnvConfig? {
+    fun detect(rootfs: String): LinuxEnvConfig? {
         val script = FIND_BUSYBOX + "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" sh -c " + quote(
             "R=\$1; [ -r \"\$R/etc/passwd\" ] || exit 3; " +
                 "while IFS=: read -r n p u g c h s; do [ \"\$u\" -ge 1000 ] 2>/dev/null && [ \"\$u\" -lt 60000 ] && " +
@@ -111,7 +163,7 @@ class Settings(context: Context) {
         get() {
             val user = prefs.getString("user", null) ?: return null
             return LinuxEnvConfig(
-                rootfs = prefs.getString("rootfs", LinuxEnv.DEFAULT_ROOTFS)!!,
+                rootfs = prefs.getString("rootfs", LinuxEnv.ETA_ROOTFS)!!,
                 user = user,
                 uid = prefs.getInt("uid", 0),
                 gid = prefs.getInt("gid", 0),
