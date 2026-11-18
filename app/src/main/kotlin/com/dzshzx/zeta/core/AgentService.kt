@@ -6,6 +6,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.Application
+import android.graphics.drawable.Icon
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -57,14 +59,34 @@ class AgentService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            ConversationHub.get(application as Application).interruptAll()
+            return START_NOT_STICKY
+        }
         val busy = intent?.getBooleanExtra(EXTRA_BUSY, false) == true
+        val running = intent?.getStringArrayListExtra(EXTRA_RUNNING).orEmpty()
         Notifier.ensureChannels(this)
-        val notification = Notification.Builder(this, Notifier.CHANNEL_STATUS)
+        val builder = Notification.Builder(this, Notifier.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_zeta)
             .setContentTitle(if (busy) "Claude 正在工作" else "Claude 会话保持中")
             .setContentIntent(Notifier.openAppIntent(this))
             .setOngoing(true)
-            .build()
+        when (running.size) {
+            0 -> Unit
+            1 -> builder.setContentText(running.first())
+            else -> builder.setContentText("${running.size} 个对话进行中")
+        }
+        // 只有对话在跑时才给“停止”；安装、维护脚本不从这里打断
+        if (running.isNotEmpty()) {
+            val stop = PendingIntent.getService(
+                this, 1, Intent(this, AgentService::class.java).setAction(ACTION_STOP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(
+                Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stat_zeta), if (running.size > 1) "全部停止" else "停止", stop).build(),
+            )
+        }
+        val notification = builder.build()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         // 只在一轮进行中持有唤醒锁：息屏后设备休眠会把进程一起挂起
         if (busy) {
@@ -90,13 +112,20 @@ class AgentService : Service() {
 
     companion object {
         private const val EXTRA_BUSY = "busy"
-        private var lastState: Pair<Boolean, Boolean>? = null
+        private const val EXTRA_RUNNING = "running"
+        private const val ACTION_STOP = "com.dzshzx.zeta.action.STOP"
 
-        fun update(context: Context, active: Boolean, busy: Boolean) {
-            val state = active to busy
+        private data class State(val active: Boolean, val busy: Boolean, val running: List<String>)
+        private var lastState: State? = null
+
+        /** [running] 是正在回答的对话标题，非空时通知上带“停止”。 */
+        fun update(context: Context, active: Boolean, busy: Boolean, running: List<String>) {
+            val state = State(active, busy, running)
             if (state == lastState) return
             lastState = state
-            val intent = Intent(context, AgentService::class.java).putExtra(EXTRA_BUSY, busy)
+            val intent = Intent(context, AgentService::class.java)
+                .putExtra(EXTRA_BUSY, busy)
+                .putStringArrayListExtra(EXTRA_RUNNING, ArrayList(running))
             if (active) {
                 runCatching { context.startForegroundService(intent) }
             } else {

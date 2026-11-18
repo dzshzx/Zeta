@@ -399,10 +399,11 @@ class Conversation(
                         error = true,
                     )
                 }
+                val stopped = interruptRequested
                 interruptRequested = false
                 if (turnsInFlight == 0) {
                     busy = false
-                    hub.onTurnFinished(this)
+                    hub.onTurnFinished(this, stopped)
                 }
                 hub.onActivityChanged()
                 return true

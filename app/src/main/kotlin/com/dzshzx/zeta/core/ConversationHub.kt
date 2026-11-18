@@ -470,12 +470,13 @@ class ConversationHub(private val app: Application) {
         }
     }
 
-    internal fun onTurnFinished(conversation: Conversation) {
+    /** [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒“已完成”。 */
+    internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
         if (conversation !== current) {
             background.values.remove(conversation)
             conversation.shutdown()
         }
-        if (!foreground || conversation !== current) {
+        if (!stopped && (!foreground || conversation !== current)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成")
         }
         refreshSessions()
@@ -492,7 +493,13 @@ class ConversationHub(private val app: Application) {
         val working = installer.running || maintenance?.running == true
         val active = working || current.isProcessAlive || background.values.any { it.isProcessAlive }
         val busy = working || current.busy || background.values.any { it.busy }
-        AgentService.update(app, active, busy)
+        val running = (listOf(current) + background.values).filter { it.busy }.distinct().map { it.title.ifBlank { "新对话" } }
+        AgentService.update(app, active, busy, running)
+    }
+
+    /** 通知栏的“停止”：打断所有正在回答的对话，和聊天页的停止键一样。 */
+    internal fun interruptAll() {
+        (listOf(current) + background.values).filter { it.busy }.distinct().forEach { it.interrupt() }
     }
 
     companion object {
