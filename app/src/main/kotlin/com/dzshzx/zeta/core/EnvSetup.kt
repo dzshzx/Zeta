@@ -42,6 +42,8 @@ data class EnvHealth(
     val uv: String = "",
     val node: String = "",
     val go: String = "",
+    /** APK 分析工具：Zeta 装的显示各工具版本，别处装的是“版本未知”，没装是空的。 */
+    val apk: String = "",
     /** 哪些可选工具是 Zeta 自己装的（只有这些能在 Zeta 里更新、卸载）。 */
     val zetaOwned: Set<String> = emptySet(),
 ) {
@@ -49,6 +51,7 @@ data class EnvHealth(
     fun version(name: String): String = when (name) {
         "go" -> go
         "node" -> node
+        "apk" -> apk
         else -> uv
     }
     val ok: Boolean get() = missing.isEmpty() && workspaceWritable && network
@@ -242,6 +245,12 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             echo "uv=${'$'}(uv --version 2>/dev/null | head -n 1)"
             echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
             echo "go=${'$'}(go env GOVERSION 2>/dev/null | head -n 1)"
+            m=/var/lib/zeta/tools/apk
+            if [ -f "${'$'}m" ]; then
+              echo "apk=apktool ${'$'}(sed -n 's/^apktool=//p' "${'$'}m") · jadx ${'$'}(sed -n 's/^jadx=//p' "${'$'}m") · smali ${'$'}(sed -n 's/^smali=//p' "${'$'}m")"
+            elif command -v apktool >/dev/null 2>&1 || command -v jadx >/dev/null 2>&1; then
+              echo "apk=版本未知"
+            fi
         """.trimIndent()
         val command = "bash -c " + LinuxEnv.quote(script) + " zeta-health " + LinuxEnv.quote(config.defaultCwd) +
             "; bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup owners"
@@ -258,6 +267,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             uv = value("uv").removePrefix("uv ").substringBefore(" ("),
             node = value("node").removePrefix("v"),
             go = value("go").removePrefix("go"),
+            apk = value("apk"),
             zetaOwned = values.filter { it.first.startsWith("owner_") && it.second == "zeta" }.map { it.first.removePrefix("owner_") }.toSet(),
         )
     }

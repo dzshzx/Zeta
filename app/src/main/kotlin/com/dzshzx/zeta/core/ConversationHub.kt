@@ -510,5 +510,6 @@ class ConversationHub(private val app: Application) {
 fun optionalName(name: String): String = when (name) {
     "go" -> "Go"
     "node" -> "Node.js"
+    "apk" -> "APK 分析"
     else -> "Python / uv"
 }

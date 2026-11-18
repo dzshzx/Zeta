@@ -6,10 +6,11 @@
 #   python         （那个用户）可选：装 uv 和它管理的最新 Python，并设为这个用户的 python3
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
-#   remove <go|node>（root）、remove python（那个用户）  卸载上面装的可选工具
+#   apk            （root）可选：APK 分析工具 jadx、apktool、smali/baksmali；没有 Java 时装 OpenJDK
+#   remove <go|node|apk>（root）、remove python（那个用户）  卸载上面装的可选工具
 #   owners         （任何用户）三样可选工具是不是 Zeta 装的：owner_<名字>=zeta|other
 #
-# 可选工具的归属：Zeta 装的时候留一个记号（go、node 在 /var/lib/zeta/tools，python 在用户的
+# 可选工具的归属：Zeta 装的时候留一个记号（go、node、apk 在 /var/lib/zeta/tools，python 在用户的
 # ~/.local/state/zeta/tools），而且现在生效的还得是它装的那一份，才算 Zeta 的。
 # 别处来的（Eta、手动、Homebrew…）不会被覆盖、更新或卸载。
 #   ssh-setup  <用户名>            （root）装 openssh-server，没有现成配置时写一份只听本机、只认公钥的
@@ -78,6 +79,8 @@ ZETA_APT_EOF
 }
 
 MARKS=/var/lib/zeta/tools
+APK=/opt/zeta/apk-analysis
+APK_COMMANDS="apktool jadx smali baksmali"
 USER_MARKS="$HOME/.local/state/zeta/tools"
 
 owned() {
@@ -85,6 +88,7 @@ owned() {
     go) [ -f "$MARKS/go" ] && [ "$(readlink /usr/local/bin/go 2>/dev/null)" = /usr/local/go/bin/go ] ;;
     node) [ -f "$MARKS/node" ] && [ "$(readlink /usr/local/bin/node 2>/dev/null)" = /usr/local/node/bin/node ] ;;
     python) [ -f "$USER_MARKS/python" ] && [ -x "$HOME/.local/bin/uv" ] ;;
+    apk) [ -f "$MARKS/apk" ] && [ "$(readlink /usr/local/bin/apktool 2>/dev/null)" = "$APK/current/bin/apktool" ] ;;
     *) return 1 ;;
   esac
 }
@@ -106,7 +110,7 @@ mark() {
 
 case "$cmd" in
 owners)
-  for tool in go node python; do
+  for tool in go node python apk; do
     if owned "$tool"; then echo "owner_$tool=zeta"; else echo "owner_$tool=other"; fi
   done
   ;;
@@ -288,6 +292,101 @@ ZETA_GO_EOF
   /usr/local/bin/go version || fail "Go 装上了但运行不起来"
   ;;
 
+apk)
+  [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+  path=$(foreign apk "$APK" /usr/local/bin/apktool /usr/local/bin/jadx /usr/local/bin/smali /usr/local/bin/baksmali) \
+    && fail "已经有一套 APK 分析工具（$path），不是 Zeta 装的，没有动它"
+  # 各工具的最新发布：GitHub 的发布接口给出文件名、下载地址和 sha256。接口用不了时退回下面这组已知的版本。
+  release() {
+    curl -fsSL --connect-timeout 15 --max-time 40 "https://api.github.com/repos/$1/releases/latest" 2>/dev/null | jq -r --arg re "$2" '
+      .tag_name as $tag | [.assets[] | select(.name | test($re)) | select(.digest != null)][0]
+      | if . == null then empty else "\($tag) \(.name) \(.browser_download_url) \(.digest | sub("^sha256:"; ""))" end' 2>/dev/null
+  }
+  pick() {
+    got=$(release "$1" "$2")
+    [ -n "$got" ] && { echo "$got"; return; }
+    echo "$3"
+  }
+  JADX=$(pick skylot/jadx '^jadx-[0-9.]+\.zip$' \
+    'v1.5.6 jadx-1.5.6.zip https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip 545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974')
+  APKTOOL=$(pick iBotPeaches/Apktool '^apktool_[0-9.]+\.jar$' \
+    'v3.0.3 apktool_3.0.3.jar https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423')
+  SMALI=$(pick baksmali/smali '^smali-[0-9.]+-fat-release\.jar$' \
+    '3.0.10 smali-3.0.10-fat-release.jar https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar 32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a')
+  BAKSMALI=$(pick baksmali/smali '^baksmali-[0-9.]+-fat-release\.jar$' \
+    '3.0.10 baksmali-3.0.10-fat-release.jar https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar 37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f')
+  T=/tmp/zeta-apk
+  rm -rf "$T" && mkdir -p "$T" || fail "建不了临时目录"
+  # 先直连 GitHub，不通再走 gh-proxy；下到的文件都要和 sha256 对得上
+  fetch() {
+    set -- $1
+    for url in "$3" "https://gh-proxy.com/$3"; do
+      echo "下载 $url"
+      rm -f "$T/$2"
+      curl -fsSL --connect-timeout 20 --max-time 1200 --retry 1 -o "$T/$2" "$url" || continue
+      [ "$(sha256sum "$T/$2" | cut -d' ' -f1)" = "$4" ] && return 0
+      echo "这个地址下到的文件校验不通过"
+    done
+    return 1
+  }
+  for item in "$JADX" "$APKTOOL" "$SMALI" "$BAKSMALI"; do
+    fetch "$item" || { rm -rf "$T"; fail "下载 $(echo "$item" | cut -d' ' -f2) 失败，请检查网络后重试"; }
+  done
+  # Java：环境里已经有就用它（比如 Android 构建用的那份），没有才装，并记下装了哪些包，卸载时只删这些
+  packages=
+  if ! [ -x /usr/bin/java ]; then
+    [ -x /usr/local/bin/zeta-apt ] || write_apt_helper || fail "写不了 /usr/local/bin/zeta-apt"
+    before=$(dpkg-query -W -f '${Package}\n' | sort)
+    /usr/local/bin/zeta-apt install openjdk-25-jdk-headless || /usr/local/bin/zeta-apt install default-jdk-headless \
+      || { rm -rf "$T"; fail "安装 Java 失败，请检查网络后重试"; }
+    packages=$(dpkg-query -W -f '${Package}\n' | sort | comm -13 <(printf '%s\n' "$before") - | tr '\n' ' ')
+  fi
+  echo "整理文件"
+  N="$APK/current.installing"
+  rm -rf "$N" && mkdir -p "$N/bin" "$N/lib" "$N/jadx" || fail "建不了 $N"
+  unzip -q "$T/$(echo "$JADX" | cut -d' ' -f2)" -d "$N/jadx" || { rm -rf "$N" "$T"; fail "解压 jadx 失败"; }
+  cp "$T/$(echo "$APKTOOL" | cut -d' ' -f2)" "$N/lib/apktool.jar"
+  cp "$T/$(echo "$SMALI" | cut -d' ' -f2)" "$N/lib/smali.jar"
+  cp "$T/$(echo "$BAKSMALI" | cut -d' ' -f2)" "$N/lib/baksmali.jar"
+  rm -rf "$T"
+  # 手机上没有 ARM64 的 aapt2，apktool 回编译要自己用 -a/--aapt 指一个能用的 aapt2；只解码、检查不受影响
+  cat > "$N/bin/apktool" <<'ZETA_APKTOOL_EOF'
+#!/bin/sh
+case "${1:-}" in
+  b|build)
+    case " $* " in
+      *" -a "*|*" --aapt "*|*" --aapt="*) ;;
+      *) echo "apktool：这台手机上没有 ARM64 的 aapt2，回编译（b）要用 -a <aapt2 路径> 指定一个能用的；解码（d）等不受影响。" >&2; exit 64 ;;
+    esac
+    ;;
+esac
+exec java -jar /opt/zeta/apk-analysis/current/lib/apktool.jar "$@"
+ZETA_APKTOOL_EOF
+  printf '%s\n' '#!/bin/sh' 'exec java -jar /opt/zeta/apk-analysis/current/lib/smali.jar "$@"' > "$N/bin/smali"
+  printf '%s\n' '#!/bin/sh' 'exec java -jar /opt/zeta/apk-analysis/current/lib/baksmali.jar "$@"' > "$N/bin/baksmali"
+  ln -s ../jadx/bin/jadx "$N/bin/jadx"
+  chown -R root:root "$N" && chmod -R u=rwX,go=rX "$N" && chmod 0755 "$N/bin/apktool" "$N/bin/smali" "$N/bin/baksmali" "$N/jadx/bin/jadx" "$N/jadx/bin/jadx-gui" 2>/dev/null
+  # 换上新的；验证不过就退回原来那份
+  rm -rf "$APK/previous"
+  [ -d "$APK/current" ] && mv "$APK/current" "$APK/previous"
+  mv "$N" "$APK/current" || fail "放不到 $APK/current"
+  for tool in $APK_COMMANDS; do ln -sfn "$APK/current/bin/$tool" "/usr/local/bin/$tool"; done
+  for tool in apktool jadx smali baksmali; do
+    if ! out=$("/usr/local/bin/$tool" --version 2>&1 | head -n 1); then
+      rm -rf "$APK/current"
+      if [ -d "$APK/previous" ]; then mv "$APK/previous" "$APK/current"; else rm -f $(for t in $APK_COMMANDS; do echo "/usr/local/bin/$t"; done); fi
+      fail "$tool 运行不起来：$out"
+    fi
+    echo "$tool $out"
+  done
+  rm -rf "$APK/previous"
+  [ -f "$MARKS/apk" ] && [ -z "$packages" ] && packages=$(sed -n 's/^packages=//p' "$MARKS/apk")
+  mark "$MARKS" apk "jadx=$(echo "$JADX" | cut -d' ' -f1 | sed 's/^v//')
+apktool=$(echo "$APKTOOL" | cut -d' ' -f1 | sed 's/^v//')
+smali=$(echo "$SMALI" | cut -d' ' -f1 | sed 's/^v//')
+packages=$packages"
+  ;;
+
 remove)
   # 只动 Zeta 自己装的那一份（见文件开头的“归属”）
   case "${1:-}" in
@@ -324,6 +423,23 @@ remove)
     rmdir "$HOME/.config/uv" "$HOME/.local/share/uv" 2>/dev/null
     rm -f "$USER_MARKS/python"
     echo "uv 和它管理的 Python 已卸载（系统自带的 python3 不受影响）"
+    ;;
+  apk)
+    [ "$(id -u)" = 0 ] || fail "这一步要以 root 执行"
+    owned apk || fail "这里的 APK 分析工具不是 Zeta 装的，没有动它"
+    packages=$(sed -n 's/^packages=//p' "$MARKS/apk")
+    for tool in $APK_COMMANDS; do
+      [ "$(readlink "/usr/local/bin/$tool")" = "$APK/current/bin/$tool" ] && rm -f "/usr/local/bin/$tool"
+    done
+    rm -rf "$APK"
+    rmdir /opt/zeta 2>/dev/null
+    if [ -n "$packages" ]; then
+      echo "卸载 Zeta 当初为它装的 Java：$packages"
+      # shellcheck disable=SC2086
+      DEBIAN_FRONTEND=noninteractive apt-get purge -y $packages || echo "Java 没有卸干净，可以稍后用“修复”再处理"
+    fi
+    rm -f "$MARKS/apk"
+    echo "APK 分析工具已卸载"
     ;;
   *) fail "不认识的可选工具：${1:-}" ;;
   esac

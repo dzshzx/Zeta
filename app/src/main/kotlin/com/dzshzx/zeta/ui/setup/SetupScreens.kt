@@ -183,6 +183,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     "go" to "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理",
                     "python" to "安装 uv 和它管理的最新 Python，并设为你的 python3（带 pip）",
                     "node" to "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global",
+                    "apk" to "jadx、apktool、smali/baksmali，用来反编译和检查 APK；环境里没有 Java 时一并装上 OpenJDK",
                 ).forEach { (name, pitch) ->
                     OptionalToolRow(
                         name = name,
@@ -275,6 +276,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
         message = when (lastRemoving) {
             "go" -> "删除 /usr/local/go 和 Zeta 为它写的配置。~/go 里下载过的模块、装过的程序不动。"
             "node" -> "删除 /usr/local/node 和 Zeta 为它写的配置。~/.npm-global 里装过的全局包不动，但没有 Node.js 就跑不起来了。"
+            "apk" -> "删除 /opt/zeta/apk-analysis 里的 jadx、apktool、smali/baksmali。Java 只有当初是 Zeta 为它装的才会一起卸掉，环境里原有的（比如 Android 构建用的）不动。"
             else -> "删除 uv、它管理的各个 Python 版本和用 uv tool 装的命令。项目里的虚拟环境会因为没有了 Python 而用不了；系统自带的 python3 不受影响。"
         } + "以后可以在这里再装回来。",
         confirmText = "卸载",
@@ -518,7 +520,11 @@ private fun OptionalToolRow(
 ) {
     val title = optionalName(name)
     val version = health?.version(name).orEmpty()
-    val label = if (name == "python") "uv $version" else "$title $version"
+    val label = when (name) {
+        "python" -> "uv $version"
+        "apk" -> version
+        else -> "$title $version"
+    }
     when {
         health == null -> CouiPreference(title = title, summary = pitch, value = "…", enabled = false)
         version.isBlank() -> CouiPreference(title = title, summary = pitch, value = "安装", enabled = enabled, onClick = onInstall)
