@@ -11,6 +11,9 @@
   search <关键词>       在会话的对话内容里找关键词，每找到一个会话就输出一行（边找边出），最后一行是汇总
   lookup <id>...       按 id 取会话概要（形状同 list），找不到的不输出；置顶的会话不在 list 的范围里时用
   export <文件>         把一个会话导出成 Markdown
+  ls <目录>             文件浏览：列出一个目录（第一行概要，之后一行一项）
+  read <文件> <字节数>   文件浏览：读一个文本文件的开头，最多这么多字节
+  mounts <名字…>        共享文件夹：/mnt/shared 下各项有没有挂上、当前用户能不能读写
 """
 import base64
 import glob
@@ -18,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import sys
 import time
 
@@ -645,6 +649,129 @@ def inside_root(path):
     return real.startswith(os.path.realpath(ROOT) + os.sep) and real.endswith(".jsonl")
 
 
+MAX_LIST = 2000
+
+
+def display_name(name):
+    """文件名里不是 UTF-8 的字节换成替代字符，免得输出 JSON 时出错（这样的项只能看，进不去）。"""
+    return name.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+
+
+def path_error(error):
+    if isinstance(error, FileNotFoundError):
+        return "missing"
+    if isinstance(error, NotADirectoryError):
+        return "not_dir"
+    if isinstance(error, PermissionError):
+        return "denied"
+    return "error"
+
+
+def cmd_ls(path):
+    """列目录。先只取名字和类型排好序，再给前 MAX_LIST 项取大小和时间：几万个文件的目录也不会输出太多。"""
+    path = os.path.normpath(path)
+    try:
+        with os.scandir(path) as it:
+            items = []
+            for entry in it:
+                try:
+                    directory = entry.is_dir()  # 指向目录的符号链接也算目录，可以点进去
+                except OSError:
+                    directory = False
+                items.append((entry, directory))
+    except OSError as error:
+        out({"type": "zeta_ls", "path": path, "error": path_error(error)})
+        return
+    items.sort(key=lambda item: (not item[1], item[0].name.lower(), item[0].name))
+    out({"type": "zeta_ls", "path": path, "total": len(items), "truncated": len(items) > MAX_LIST})
+    for entry, directory in items[:MAX_LIST]:
+        item = {"name": display_name(entry.name), "dir": directory, "kind": "other", "size": 0, "mtime": 0}
+        try:
+            link = entry.is_symlink()
+            info = entry.stat(follow_symlinks=not link)
+            if link:
+                item["kind"] = "link"
+                item["target"] = display_name(os.readlink(entry.path))
+                try:
+                    info = entry.stat()  # 链接本身的大小没有意义，取它指向的
+                except OSError:
+                    item["broken"] = True
+            elif directory:
+                item["kind"] = "dir"
+            elif entry.is_file(follow_symlinks=False):
+                item["kind"] = "file"
+            item["size"] = info.st_size if stat.S_ISREG(info.st_mode) else 0
+            item["mtime"] = int(info.st_mtime)
+        except OSError:
+            pass
+        out(item)
+
+
+def decode_text(data, truncated):
+    """先按 UTF-8；截断处切开的半个字不算错；不是 UTF-8 再试 GB18030（中文 Windows 那边来的文件多半是这个）。"""
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        if truncated and error.start >= len(data) - 3:
+            try:
+                return data[:error.start].decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+    try:
+        return data.decode("gb18030")
+    except UnicodeDecodeError:
+        return data.decode("utf-8", "replace")
+
+
+def cmd_read(path, limit):
+    limit = max(1, min(int(limit), 4 * 1024 * 1024))
+    try:
+        info = os.stat(path)
+        if not stat.S_ISREG(info.st_mode):
+            out({"type": "zeta_read", "error": "not_file"})
+            return
+        with open(path, "rb") as f:
+            data = f.read(limit + 1)
+    except OSError as error:
+        out({"type": "zeta_read", "error": path_error(error)})
+        return
+    truncated = len(data) > limit
+    data = data[:limit]
+    text = None if b"\0" in data else decode_text(data, truncated)
+    # 没有 NUL 的二进制文件也常见：解出来一堆控制字符或替代字符的，同样当二进制
+    if text:
+        odd = sum(1 for c in text if c == "\ufffd" or (c < " " and c not in "\t\n\r\f\v\b\x1b"))
+        if odd * 20 > len(text):
+            text = None
+    if text is None:
+        out({"type": "zeta_read", "size": info.st_size, "binary": True})
+        return
+    out({"type": "zeta_read", "size": info.st_size, "truncated": truncated, "text": text})
+
+
+def mount_points():
+    """本进程看到的挂载点（mountinfo 第 5 列，空格等字符写成 \\ooo）。
+    共享文件夹和 /workspace 往往在同一个分区上，os.path.ismount 认不出这种绑定挂载，只能查这里。"""
+    points = set()
+    try:
+        with open("/proc/self/mountinfo", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                fields = line.split(" ")
+                if len(fields) > 4:
+                    points.add(re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[4]))
+    except OSError:
+        pass
+    return points
+
+
+def cmd_mounts(names):
+    points = mount_points()
+    for name in names:
+        path = os.path.join("/mnt/shared", name)
+        out({"name": name, "mounted": path in points, "read": os.access(path, os.R_OK | os.X_OK),
+             "write": os.access(path, os.W_OK)})
+
+
 def main():
     args = sys.argv[1:]
     if args[:1] == ["list"]:
@@ -670,9 +797,16 @@ def main():
         cmd_lookup(args[1:])
     elif args[:1] == ["export"] and len(args) == 2 and inside_root(args[1]):
         cmd_export(args[1])
+    elif args[:1] == ["ls"] and len(args) == 2 and args[1].startswith("/"):
+        cmd_ls(args[1])
+    elif args[:1] == ["read"] and len(args) == 3 and args[1].startswith("/") and args[2].isdigit():
+        cmd_read(args[1], args[2])
+    elif args[:1] == ["mounts"]:
+        cmd_mounts([n for n in args[1:] if re.fullmatch(r"[A-Za-z0-9._-]{1,48}", n) and n not in (".", "..")])
     else:
         sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | archive <id> <0|1> | hosts"
-                 " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>")
+                 " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>"
+                 " | ls <dir> | read <file> <bytes> | mounts <name…>")
 
 
 main()

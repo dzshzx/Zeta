@@ -71,6 +71,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     var toolMenu by remember { mutableStateOf<String?>(null) }
     var lastRemoving by remember { mutableStateOf("go") }
     removing?.let { lastRemoving = it }
+    var filesPage by rememberSaveable { mutableStateOf<LinuxFilesPage?>(null) }
     val own = hub.ownStatus
     val maintenance = hub.maintenance
     LaunchedEffect(ready, env?.rootfs) {
@@ -197,6 +198,18 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     )
                 }
             }
+            Group(title = "文件与目录") {
+                CouiPreference(
+                    title = "文件浏览",
+                    summary = "浏览、预览 Linux 环境中的文件，在手机和 Linux 之间导入导出",
+                    onClick = { filesPage = LinuxFilesPage.Browser },
+                )
+                CouiPreference(
+                    title = "共享文件夹",
+                    summary = "把 Android 目录挂载到 Linux 环境的 /mnt/shared/ 下",
+                    onClick = { filesPage = LinuxFilesPage.Shared },
+                )
+            }
             Group(title = "远程访问") {
                 val ssh = hub.ssh
                 CouiPreference(
@@ -298,6 +311,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
         },
         onDismissRequest = { confirmLogout = false },
     )
+    LinuxFilesPages(hub, page = filesPage.takeIf { ready }, onClose = { filesPage = null })
 }
 
 /** 安装向导：列出每一步的状态，失败了可以原地重试（接着没做完的那一步）。 */

@@ -255,6 +255,8 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         val command = "bash -c " + LinuxEnv.quote(script) + " zeta-health " + LinuxEnv.quote(config.defaultCwd) +
             "; bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup owners"
         val result = runCatching { LinuxEnv.run(config, command, timeoutMs = 60_000) }.getOrNull()?.takeIf { it.exitCode == 0 } ?: return null
+        // 换了环境或修复过以后，共享的内部存储目录要的 media_rw 组可能不在了：体检时顺手补上
+        if (SharedFolders.current.any { SharedFolders.isMediaStorage(it.source) }) SharedFolders.ensureMediaGroup(config)
         val values = result.stdout.lineSequence().filter { '=' in it }.map { it.substringBefore('=') to it.substringAfter('=') }.toList()
         fun value(key: String) = values.firstOrNull { it.first == key }?.second.orEmpty()
         return EnvHealth(

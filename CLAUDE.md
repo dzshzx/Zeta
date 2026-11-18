@@ -16,7 +16,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 
 Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有挂载命名空间 → chroot 进 Debian rootfs（`/data/local/zeta/debian/rootfs`）→ `setpriv` 降到 Linux 用户 `dzshzx`（uid 5000）→ `assets/zeta_host.sh`。它用 `setsid` 起 `claude -p --input-format stream-json --output-format stream-json …`，标准输入来自 FIFO，输出追加到 `~/.cache/zeta/hosts/<key>/out.jsonl`。Zeta 只附着在上面，所以 Zeta 被杀时对话照样跑完，下次启动再附着回去。没有中转，不开端口。
 
-- `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`，附件与图片。
+- `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`，文件浏览 `LinuxFiles`，共享文件夹 `SharedFolders`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`，附件与图片。
 - `phone/`：手机工具 `PhoneTools`（SDK 类型的 MCP 服务器 `phone`，每个对话一份），无障碍服务，后台虚拟屏（`VirtualScreen`、root 帮手 `VdHelper`、`VdSurfaceProvider`），悬浮层的接口 `Overlay.kt`。
 - `ui/`：聊天 `ui/chat`、侧栏 `ui/pane`、设置与环境页（`SettingsScreen.kt`、`ui/setup`）、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口）、Markdown 渲染、COUI 组件。
 - `assets/`：`zeta_host.sh` 起 Claude 进程；`zeta_helper.py` 读写 `~/.claude/projects` 下的会话（列表、历史、删除、改名等）；`zeta_setup_*.sh` 安装 Debian 环境与可选工具；`zeta_ssh_android.sh` 管 SSH 服务。
@@ -59,6 +59,8 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 坑
 
+- Linux 里的 `/workspace` 是 Android 的 `/data/local/tmp/eta` 绑过去的，和 Eta 共用；Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。
+- COUI 对话框的 `neutralAction` 一律画成红色的危险按钮，三个按钮还会竖排挤掉内容；不危险的次要操作放菜单，或做成对话框内容里的链接。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - `zeta_host.sh` 的看门狗在 `setsid bash -c '…'` 里面，那一段里不能写单引号。
 - Kotlin：在 `VirtualDisplay.() -> Unit` 这类带接收者的 lambda 里裸写 `surface`，会解析成 `VirtualDisplay.getSurface()`，不是外层的字段。

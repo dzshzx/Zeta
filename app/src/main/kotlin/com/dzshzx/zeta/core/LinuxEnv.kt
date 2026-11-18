@@ -41,7 +41,8 @@ object LinuxEnv {
     private const val FIND_BUSYBOX = "BB=; for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do " +
         "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; "
 
-    // 参数：$1 BusyBox，$2 rootfs，$3 要执行的命令，$4 家目录，$5 用户名，$6 uid，$7 gid
+    // 参数：$1 BusyBox，$2 rootfs，$3 要执行的命令，$4 家目录，$5 用户名，$6 uid，$7 gid，$8 时区，
+    // $9 共享文件夹（每行“名字<Tab>Android 侧目录”，见 SharedFolders.mountSpec）
     private val MOUNT_AND_CHROOT = """
         BB=${'$'}1; R=${'$'}2
         [ -x "${'$'}R/bin/sh" ] || { echo "zeta: rootfs not found: ${'$'}R" >&2; exit 125; }
@@ -53,6 +54,11 @@ object LinuxEnv {
         "${'$'}BB" mkdir -p "${'$'}R/data/local/tmp" /data/local/tmp/eta "${'$'}R/workspace"
         "${'$'}BB" mount -o bind /data/local/tmp "${'$'}R/data/local/tmp"
         "${'$'}BB" mount -o bind /data/local/tmp/eta "${'$'}R/workspace"
+        # 共享文件夹：跟上面一样只绑在这个命名空间里，命令结束就没了；源目录不在的跳过，不影响进入环境
+        [ -n "${'$'}9" ] && printf '%s\n' "${'$'}9" | while IFS="${'$'}(printf '\t')" read -r n s; do
+          [ -n "${'$'}n" ] && [ -d "${'$'}s" ] && "${'$'}BB" mkdir -p "${'$'}R${SharedFolders.LINUX_ROOT}/${'$'}n" &&
+            "${'$'}BB" mount -o bind "${'$'}s" "${'$'}R${SharedFolders.LINUX_ROOT}/${'$'}n"
+        done 2>/dev/null
         exec "${'$'}BB" chroot "${'$'}R" /usr/bin/env -i HOME="${'$'}4" USER="${'$'}5" LOGNAME="${'$'}5" SHELL=/bin/bash \
           LANG=C.UTF-8 TERM=dumb TZ="${'$'}8" /usr/bin/setpriv --reuid="${'$'}6" --regid="${'$'}7" --init-groups /bin/bash -lc "${'$'}3"
     """.trimIndent()
@@ -65,7 +71,7 @@ object LinuxEnv {
             quote(MOUNT_AND_CHROOT) + " zeta \"\$BB\" " + quote(config.rootfs) + " " + quote(command) + " " +
             quote(config.home) + " " + quote(config.user) + " " + config.uid + " " + config.gid + " " +
             // 手机的时区：Debian 那边的系统时区多半是 UTC，不传的话 Claude Code 看到的日期时间会差几个小时
-            quote(java.util.TimeZone.getDefault().id)
+            quote(java.util.TimeZone.getDefault().id) + " " + quote(SharedFolders.mountSpec())
 
     fun start(config: LinuxEnvConfig, command: String): Process =
         ProcessBuilder("su", "-c", enterScript(config, command)).start()
@@ -158,6 +164,19 @@ object LinuxEnv {
 /** 应用设置：Linux 环境、默认工作目录、默认模型。 */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("zeta", Context.MODE_PRIVATE)
+
+    // 进入环境的脚本要用共享文件夹清单，而 LinuxEnv 拿不到 Settings：一创建就把它交过去
+    init {
+        SharedFolders.current = sharedFolders
+    }
+
+    /** 共享文件夹（JSON 数组）。改动对之后进入环境的命令生效，已经在跑的对话看不到新加的。 */
+    var sharedFolders: List<SharedFolder>
+        get() = SharedFolders.decode(prefs.getString("sharedFolders", null))
+        set(value) {
+            prefs.edit().putString("sharedFolders", SharedFolders.encode(value)).apply()
+            SharedFolders.current = value
+        }
 
     var env: LinuxEnvConfig?
         get() {
