@@ -29,7 +29,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 
 /** 定时任务什么时候跑。时刻都是手机的本地时间，精确到分钟。 */
 sealed interface ScheduleRule {
@@ -306,18 +305,30 @@ object Schedules {
         put("newSession", task.newSession)
         task.sessionId?.let { put("sessionId", it) }
         put("created", task.created)
-        task.lastRun?.let { run ->
-            putJsonObject("lastRun") {
-                put("at", run.at)
-                put("outcome", run.outcome.key)
-                run.sessionId?.let { put("session", it) }
-                put("summary", run.summary)
-                if (run.manual) put("manual", true)
-            }
-        }
+        task.lastRun?.let { put("lastRun", encodeRun(it)) }
         if (task.skips > 0) put("skips", task.skips)
         task.lastSkip?.let { put("lastSkip", it) }
     }
+
+    /** 一次运行的记录（定时任务和通知触发的规则共用这个格式）。 */
+    fun encodeRun(run: TaskRun): JsonObject = buildJsonObject {
+        put("at", run.at)
+        put("outcome", run.outcome.key)
+        run.sessionId?.let { put("session", it) }
+        put("summary", run.summary)
+        if (run.manual) put("manual", true)
+    }
+
+    fun decodeRun(o: JsonObject?): TaskRun? {
+        o ?: return null
+        val at = o.long("at") ?: return null
+        val outcome = RunOutcome.of(o.str("outcome")) ?: return null
+        return TaskRun(at, outcome, o.str("session"), o.str("summary").orEmpty(), o.bool("manual") == true)
+    }
+
+    /** Zeta 进程刚起来时：上一个进程里没等到结果的那次运行记成中断。 */
+    fun interrupted(run: TaskRun?): TaskRun? =
+        if (run?.outcome == RunOutcome.Running) run.copy(outcome = RunOutcome.Interrupted, summary = "Zeta 在这次运行结束前被关掉了，结果在对话里") else run
 
     private fun encodeRule(rule: ScheduleRule): JsonObject = buildJsonObject {
         when (rule) {
@@ -357,11 +368,7 @@ object Schedules {
             newSession = o.bool("newSession") ?: true,
             sessionId = o.str("sessionId")?.takeIf { it.isNotBlank() },
             created = o.long("created") ?: 0L,
-            lastRun = o.obj("lastRun")?.let { run ->
-                val at = run.long("at") ?: return@let null
-                val outcome = RunOutcome.of(run.str("outcome")) ?: return@let null
-                TaskRun(at, outcome, run.str("session"), run.str("summary").orEmpty(), run.bool("manual") == true)
-            },
+            lastRun = decodeRun(o.obj("lastRun")),
             skips = (o.int("skips") ?: 0).coerceAtLeast(0),
             lastSkip = o.long("lastSkip"),
         )

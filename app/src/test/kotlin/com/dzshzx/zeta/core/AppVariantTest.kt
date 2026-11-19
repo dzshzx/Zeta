@@ -56,6 +56,14 @@ class AppVariantTest {
     }
 
     @Test
+    fun recognisesBothZetaPackages() {
+        assertTrue(AppVariant.isZetaPackage("com.dzshzx.zeta"))
+        assertTrue(AppVariant.isZetaPackage("com.dzshzx.zeta.dev"))
+        assertFalse(AppVariant.isZetaPackage("com.dzshzx.zetax"))
+        assertFalse(AppVariant.isZetaPackage("com.android.shell"))
+    }
+
+    @Test
     fun unitTestsBuildTheReleasePackage() {
         // testDebugUnitTest 跑的是 debug（正式版）；测试版只多了 applicationIdSuffix
         assertEquals(AppVariant.RELEASE_PACKAGE, AppVariant.current.packageName)

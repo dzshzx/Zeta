@@ -48,5 +48,9 @@ class AppVariant(val packageName: String) {
 
         /** 正在运行的这个包。包名在构建时就定了（build type 的 applicationIdSuffix），不用等 Context。 */
         val current = AppVariant(BuildConfig.APPLICATION_ID)
+
+        /** [packageName] 是不是 Zeta 的某个包（正式版或测试版）。 */
+        fun isZetaPackage(packageName: String): Boolean =
+            packageName == RELEASE_PACKAGE || packageName.startsWith("$RELEASE_PACKAGE.")
     }
 }

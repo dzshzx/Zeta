@@ -21,6 +21,8 @@ import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.PermissionHealth
 import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
+import com.dzshzx.zeta.ui.settings.NotifyTriggerEntry
+import com.dzshzx.zeta.ui.settings.NotifyTriggerScreen
 import com.dzshzx.zeta.ui.settings.ScheduleEntry
 import com.dzshzx.zeta.ui.settings.ScheduleScreen
 import com.dzshzx.zeta.ui.settings.SettingsBackupGroup
@@ -60,6 +62,9 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
         SettingsSubPageHost(subPage == SettingsSubPage.Schedules) {
             // 打开某次运行的对话：设置页整个关掉，回到聊天页
             ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
+        }
+        SettingsSubPageHost(subPage == SettingsSubPage.NotifyTriggers) {
+            NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
         }
     }
     BackHandler(enabled = subPage != null) { subPage = null }
@@ -103,6 +108,7 @@ private fun SettingsHome(
                 onClick = onOpenPhone,
             )
             ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) }
+            NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) }
             CouiPreference(
                 title = "浏览器",
                 summary = "Claude 打开网页用的内置浏览器：看它当前的页面、接管操作、清除数据",

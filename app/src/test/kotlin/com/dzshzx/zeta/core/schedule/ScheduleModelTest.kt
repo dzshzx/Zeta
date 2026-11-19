@@ -174,6 +174,16 @@ class ScheduleModelTest {
     }
 
     @Test
+    fun onlyRunningRunsBecomeInterrupted() {
+        val running = TaskRun(1, RunOutcome.Running, "s", "")
+        assertEquals(RunOutcome.Interrupted, Schedules.interrupted(running)?.outcome)
+        assertEquals("s", Schedules.interrupted(running)?.sessionId)
+        val done = TaskRun(1, RunOutcome.Done, "s", "ok")
+        assertEquals(done, Schedules.interrupted(done))
+        assertNull(Schedules.interrupted(null))
+    }
+
+    @Test
     fun parsesToolArguments() {
         assertEquals(LocalTime.of(8, 0), Schedules.parseTime("08:00"))
         assertEquals(LocalTime.of(7, 5), Schedules.parseTime("7:05"))

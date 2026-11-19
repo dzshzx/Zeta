@@ -27,6 +27,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.phone.PhoneTools
@@ -36,7 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, ExactAlarm, AutoStart }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, NotificationListener, ExactAlarm, AutoStart }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -70,13 +71,16 @@ internal data class PermissionSnapshot(
     val exactAlarms: Boolean = false,
     /** HyperOS / MIUI 的“自启动”；不是小米系统或读不到时是 null。 */
     val autoStart: Boolean? = null,
+    /** 有通知使用权（通知触发的任务用）。 */
+    val notificationListener: Boolean = false,
 )
 
 /**
  * 权限检查与修复。Zeta 默认手机有 root：能经 root 改的就直接改（pm grant、appops、settings、deviceidle），
  * 改不了或没有 root 时再打开对应的系统设置页。
  *
- * Zeta 没有声明通知使用权、使用情况访问、位置，悬浮层用的是无障碍窗口（不要悬浮窗权限），所以这几项不列。
+ * Zeta 没有声明使用情况访问、位置，悬浮层用的是无障碍窗口（不要悬浮窗权限），所以这几项不列。
+ * 通知使用权只有通知触发的任务用，见 [notificationListenerItem]。
  * 通知历史不是 Zeta 的权限，是系统设置里的一个开关：手机工具查已划掉的通知要靠它。
  */
 internal object PermissionHealth {
@@ -108,6 +112,7 @@ internal object PermissionHealth {
             backgroundStart = BackgroundStart.allowed(context),
             exactAlarms = ScheduleAlarms.exact(context),
             autoStart = miuiAutoStart(context),
+            notificationListener = ZetaNotificationListener.granted(context),
         )
     }
 
@@ -208,6 +213,7 @@ internal object PermissionHealth {
                     "未开启", PermissionStatus.Idle, root == true,
                 )
             },
+            notificationListenerItem(snapshot, root),
         ) + scheduleItems(snapshot, root)
     }
 
@@ -302,6 +308,10 @@ internal object PermissionHealth {
                 runScript("appops set --user \"\$3\" \"\$2\" $MIUI_AUTO_START allow", pkg, user)
                 miuiAutoStart(app) == true
             }
+            PermissionId.NotificationListener -> {
+                runScript(ZetaNotificationListener.GRANT_SCRIPT, ZetaNotificationListener.COMPONENT, user)
+                ZetaNotificationListener.granted(app)
+            }
             PermissionId.Root, PermissionId.Linux -> false
         }
     }
@@ -322,6 +332,7 @@ internal object PermissionHealth {
             PermissionId.ExactAlarm -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.fromParts("package", pkg, null))
             // 小米系统的自启动开关在应用详情页里
             PermissionId.AutoStart -> details
+            PermissionId.NotificationListener -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
             PermissionId.Root, PermissionId.Linux -> null
         }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }

@@ -196,7 +196,7 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
     }
 }
 
-private fun outcomeWord(outcome: RunOutcome) = when (outcome) {
+internal fun outcomeWord(outcome: RunOutcome) = when (outcome) {
     RunOutcome.Running -> "正在运行"
     RunOutcome.Done -> "完成"
     RunOutcome.Failed -> "没有完成"
@@ -209,7 +209,7 @@ private enum class RuleKind(val label: String) { Once("单次"), Daily("每天")
 private val Workdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
 
 /** 没从 Claude Code 拿到模型清单时给的几个别名。 */
-private val FallbackModels = listOf("default" to "默认", "fable" to "Fable", "opus" to "Opus", "sonnet" to "Sonnet", "haiku" to "Haiku")
+internal val FallbackModels = listOf("default" to "默认", "fable" to "Fable", "opus" to "Opus", "sonnet" to "Sonnet", "haiku" to "Haiku")
 
 /** 编辑器里开着的那个对话框。 */
 private enum class EditorDialog { Time, Date, Hours, Cwd, Delete }
@@ -439,7 +439,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
 }
 
 @Composable
-private fun LastRunRow(hub: ConversationHub, run: TaskRun, now: Instant, zone: ZoneId, onOpenConversation: () -> Unit) {
+internal fun LastRunRow(hub: ConversationHub, run: TaskRun, now: Instant, zone: ZoneId, onOpenConversation: () -> Unit) {
     val session = run.sessionId
     CouiPreference(
         title = "上次运行 · " + outcomeWord(run.outcome),
@@ -494,7 +494,7 @@ private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Un
 }
 
 @Composable
-private fun TimeDialog(visible: Boolean, initial: LocalTime, onConfirm: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+internal fun TimeDialog(visible: Boolean, initial: LocalTime, onConfirm: (LocalTime) -> Unit, onDismiss: () -> Unit) {
     var hour by remember(visible) { mutableStateOf(initial.hour) }
     var minute by remember(visible) { mutableStateOf(initial.minute) }
     CouiConfirmDialog(
@@ -585,6 +585,6 @@ private fun HoursDialog(visible: Boolean, initial: Int, onConfirm: (Int) -> Unit
 }
 
 @Composable
-private fun FieldBox(content: @Composable () -> Unit) {
+internal fun FieldBox(content: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { content() }
 }
