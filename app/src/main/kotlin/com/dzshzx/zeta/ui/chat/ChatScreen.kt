@@ -580,7 +580,13 @@ private fun ConversationBody(
                 onStop = conversation::interrupt,
                 tools = {
                     PermissionModeChip(mode = conversation.permissionMode, onChange = conversation::choosePermissionMode)
-                    EffortChip(effort = conversation.effort, applied = conversation.usage.appliedEffort, onChange = conversation::chooseEffort)
+                    // 载入历史期间不能改：载完要照会话记录恢复思考强度
+                    EffortChip(
+                        effort = conversation.effort,
+                        applied = conversation.usage.appliedEffort,
+                        enabled = !conversation.loadingHistory,
+                        onChange = conversation::chooseEffort,
+                    )
                 },
                 status = { UsageButtons(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }) },
                 voice = voice,
@@ -667,20 +673,39 @@ private suspend fun LazyListState.scrollToEnd() {
     scrollBy(1_000_000f)
 }
 
-/** 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。 */
+/** 顶栏上模型的名字：选择器里有的用它的显示名，完整 ID 写成「Opus 5.5」，默认模型是「默认」。 */
+internal fun modelLabel(value: String?, models: List<ModelOption>): String = when {
+    value == null || value == Conversation.DEFAULT_MODEL -> "默认"
+    else -> models.firstOrNull { it.value == value }?.displayName?.ifBlank { null } ?: readableModelId(value)
+}
+
+private val ModelId = Regex("claude-([a-z]+)-(\\d+(?:-\\d{1,2})*)(?:-\\d{8})?(\\[1m])?")
+
+/** Claude Code 报的完整模型 ID（claude-opus-5-5、claude-haiku-4-5-20251001、claude-opus-5-5[1m]）写成人看的名字；认不出的原样。 */
+internal fun readableModelId(id: String): String {
+    val match = ModelId.matchEntire(id) ?: return id
+    val (family, version, wide) = match.destructured
+    return family.replaceFirstChar { it.uppercase() } + " " + version.replace('-', '.') + if (wide.isNotEmpty()) " (1M)" else ""
+}
+
+/**
+ * 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。
+ * 显示的是 [Conversation.shownModel]；模型由 Claude Code 照会话记录定时菜单里不勾哪一项。载入历史期间不能点。
+ */
 @Composable
 private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
     val colors = COUITheme.colorScheme
-    val current = conversation.model ?: "default"
-    val modelName = if (current == "default") "默认" else models.firstOrNull { it.value == current }?.displayName?.ifBlank { null } ?: current
+    val selected = conversation.model ?: Conversation.DEFAULT_MODEL.takeUnless { conversation.modelFromSession }
+    val modelName = modelLabel(conversation.shownModel, models)
+    val enabled = !conversation.loadingHistory
     var expanded by remember { mutableStateOf(false) }
     val entries = listOf(
         DropdownEntry(
             items = models.map { model ->
                 DropdownItem(
-                    text = if (model.value == "default") "默认" else model.displayName.ifBlank { model.value },
-                    selected = model.value == current,
-                    onClick = { conversation.chooseModel(model.value.takeIf { it != "default" }) },
+                    text = if (model.value == Conversation.DEFAULT_MODEL) "默认" else model.displayName.ifBlank { model.value },
+                    selected = model.value == selected,
+                    onClick = { conversation.chooseModel(model.value) },
                 )
             },
         ),
@@ -692,7 +717,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .clip(RoundedCornerShape(COUIRoundCorner.M))
-                    .clickable(interactionSource = source, indication = null) { expanded = true }
+                    .clickable(enabled = enabled, interactionSource = source, indication = null) { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
@@ -715,7 +740,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                     .heightIn(min = 34.dp)
                     .clip(CircleShape)
                     .background(colors.container4, CircleShape)
-                    .clickable(interactionSource = source, indication = null) { expanded = true }
+                    .clickable(enabled = enabled, interactionSource = source, indication = null) { expanded = true }
                     .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 Text(

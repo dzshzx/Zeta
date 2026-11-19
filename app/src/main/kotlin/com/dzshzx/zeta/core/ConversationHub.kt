@@ -225,19 +225,9 @@ class ConversationHub(private val app: Application) {
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
         private set
 
-    /** Claude Code 上次报告的模型选项；存一份，应用刚打开还没起进程时，选择器和重新打开旧对话时恢复模型也能用。 */
-    var models by mutableStateOf(loadModels())
-        private set
-
-    internal fun updateModels(list: List<ModelOption>) {
-        if (list == models) return
-        models = list
-        settings.models = SessionChoice.encodeOptions(list)
-    }
-
-    private fun loadModels(): List<ModelOption> = runCatching {
-        SessionChoice.parseOptions(json.parseToJsonElement(settings.models ?: return@runCatching emptyList()) as JsonArray)
-    }.getOrDefault(emptyList())
+    /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，选择器先用几个常用别名。 */
+    var models by mutableStateOf<List<ModelOption>>(emptyList())
+        internal set
 
     /**
      * 每个会话的手机工具，按 sessionId（新对话还没有时按 key）登记。后台屏幕比 Claude Code 进程活得久：
@@ -705,7 +695,7 @@ class ConversationHub(private val app: Application) {
         leaveCurrent()
         current = Conversation(
             this, source.cwd, sessionId = null, title = title, historyFile = null,
-            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.model, source.effort),
+            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.shownModel, source.effort),
         )
         prunePhones()
     }

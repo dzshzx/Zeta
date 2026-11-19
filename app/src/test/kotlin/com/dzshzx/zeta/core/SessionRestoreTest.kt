@@ -5,7 +5,12 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
+import com.dzshzx.zeta.ui.chat.modelLabel
+import com.dzshzx.zeta.ui.chat.readableModelId
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,108 +18,128 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 重新打开旧对话恢复它上次的模型和思考强度，分支接着用原对话的；都不动新对话的默认值。 */
+/**
+ * 接着已有会话时模型交给 Claude Code：不带 --model，它照会话记录恢复（行为由 ClaudeResumeContractTest 钉住），
+ * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。都不动新对话的默认值。
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class SessionRestoreTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-
-    private val options = listOf(
-        ModelOption("default", "Default (recommended)", "", "claude-opus-5-5"),
-        ModelOption("opus", "Opus", "", "claude-opus-5-5"),
-        ModelOption("fable", "Fable", "", "claude-fable-5-2"),
-    )
 
     private fun hub(model: String? = null, effort: String? = null): ConversationHub {
         val hub = Fixtures.readyHub(app)
         hub.settings.model = model
         hub.settings.effort = effort
         hub.reloadSettings()
-        hub.updateModels(options)
         return hub
     }
 
-    /** 已有会话的对话对象；不给记录文件，就不去载入历史，由测试直接喂“载入完”的结果。 */
+    /** 已有会话的对话对象；不给记录文件，就不去载入历史。 */
     private fun reopened(hub: ConversationHub) = Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
 
+    private fun Conversation.modelArgument(): String? = launchArguments().let { args -> args.indexOf("--model").takeIf { it >= 0 }?.let { args[it + 1] } }
+
+    /** 喂一条 Claude Code 的输出事件（和进程送来的一样走 handle）。 */
+    private fun Conversation.receive(event: String) {
+        Conversation::class.java.getDeclaredMethod("handle", JsonObject::class.java, Long::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(this, Json.parseToJsonElement(event) as JsonObject, 0L)
+    }
+
     @Test
-    fun reopenedConversationTakesLastAnswer() {
-        val hub = hub(model = null, effort = "low")
+    fun newConversationUsesTheDefaultForNewConversations() {
+        val hub = hub(model = "opus")
+        val conversation = hub.current
+        assertEquals("opus", conversation.model)
+        assertEquals("opus", conversation.modelArgument())
+        assertFalse(conversation.modelFromSession)
+        // 新对话选默认：不指定，Claude Code 照它自己的设置
+        conversation.chooseModel("default")
+        assertNull(conversation.model)
+        assertNull(conversation.modelArgument())
+        assertNull(hub.settings.model)
+    }
+
+    @Test
+    fun reopenedConversationLeavesTheModelToClaudeCode() {
+        val hub = hub(model = "opus", effort = "low")
         val conversation = reopened(hub)
-        conversation.restoreChoice("claude-fable-5-2", "max")
-        assertEquals("fable", conversation.model)
+        assertNull(conversation.model)
+        assertTrue(conversation.modelFromSession)
+        assertTrue("--resume" in conversation.launchArguments())
+        assertNull(conversation.modelArgument())
+        // Claude Code 起来后报的是它照会话记录恢复的那个
+        conversation.receive("""{"type":"system","subtype":"init","session_id":"s-old","model":"claude-sonnet-5-5"}""")
+        assertEquals("claude-sonnet-5-5", conversation.shownModel)
+        assertEquals("Sonnet 5.5", modelLabel(conversation.shownModel, emptyList()))
+        // 思考强度 Claude Code 不恢复：照会话记录
+        conversation.restoreEffort("max")
+        assertEquals("max", conversation.effort)
+        assertEquals("max", conversation.launchArguments().let { it[it.indexOf("--effort") + 1] })
+        conversation.restoreEffort("ultra")
         assertEquals("max", conversation.effort)
         // 新对话的默认值不动
-        assertNull(hub.settings.model)
+        assertEquals("opus", hub.settings.model)
         assertEquals("low", hub.settings.effort)
-        assertNull(hub.defaultModel)
-        assertTrue(conversation.items.none { it is NoticeItem })
     }
 
+    /** 用户在这个对话里亲手选了（或定时任务、数字助理定了）才指定；选默认也要明说，不然 Claude Code 会恢复原来的。 */
     @Test
-    fun noRecordKeepsDefaults() {
-        val hub = hub(model = "opus", effort = "high")
-        val conversation = reopened(hub)
-        conversation.restoreChoice(null, null)
-        assertEquals("opus", conversation.model)
-        assertEquals("high", conversation.effort)
-    }
-
-    /** 载入期间用户已经选了，或者定时任务、数字助理定了：历史不盖掉。 */
-    @Test
-    fun earlierChoicesWin() {
-        val hub = hub(model = "opus", effort = "high")
+    fun aChoiceInThisConversationIsPassedOn() {
+        val hub = hub(model = "opus")
         val chosen = reopened(hub)
-        chosen.chooseModel("opus")
-        chosen.chooseEffort("medium")
-        chosen.restoreChoice("claude-fable-5-2", "max")
-        assertEquals("opus", chosen.model)
-        assertEquals("medium", chosen.effort)
+        chosen.chooseModel("fable")
+        assertEquals("fable", chosen.modelArgument())
+        assertEquals("fable", chosen.shownModel)
+        assertFalse(chosen.modelFromSession)
+        assertEquals("fable", hub.settings.model)
+        chosen.chooseModel("default")
+        assertEquals("default", chosen.modelArgument())
+        assertEquals("默认", modelLabel(chosen.shownModel, emptyList()))
+        assertNull(hub.settings.model)
 
         val preset = reopened(hub)
-        preset.preset(model = "fable", effort = null, permissionMode = null)
-        preset.restoreChoice("claude-opus-5-5", "low")
-        assertEquals("fable", preset.model)
-        // 定时任务只定了模型，思考强度照记录恢复
-        assertEquals("low", preset.effort)
+        preset.preset(model = "haiku", effort = null, permissionMode = null)
+        assertEquals("haiku", preset.modelArgument())
+        val follow = reopened(hub)
+        follow.preset(model = null, effort = "high", permissionMode = null)
+        assertNull(follow.modelArgument())
     }
 
-    /** 记录里的模型现在选不到：临时用默认模型，对话末尾提示一句，不当成出错。 */
+    /** 分支：--fork-session 复制出的会话同样由 Claude Code 接着用原来的模型；先显示原对话显示的，思考强度接着用原对话的。 */
     @Test
-    fun unavailableModelFallsBackWithNotice() {
-        val hub = hub(model = "fable")
-        val conversation = reopened(hub)
-        conversation.restoreChoice("claude-opus-4-8", "high")
-        assertEquals("fable", conversation.model)
-        assertEquals("high", conversation.effort)
-        val notice = conversation.items.filterIsInstance<NoticeItem>().single()
-        assertEquals(false, notice.error)
-        assertEquals("这个对话上次用的 claude-opus-4-8 现在选不到了，先改用Fable", notice.text)
-    }
-
-    /** 分支出的新对话接着用原对话当时的模型和思考强度，不是新对话的默认值。 */
-    @Test
-    fun branchInheritsSourceChoice() {
+    fun branchLeavesTheModelToClaudeCodeAndKeepsEffort() {
         val hub = hub(model = "opus", effort = "high")
         val source = reopened(hub)
-        source.restoreChoice("claude-fable-5-2", "max")
+        // 原对话显示着 Claude Code 报来的模型（真报来时它在回答，不能分支，这里直接摆上）
+        source.force("reportedModel", "claude-fable-5-2")
+        source.restoreEffort("max")
         hub.force("current", source)
         hub.showChat("旧对话", listOf(UserItem("u1", "你好", uuid = "uuid-1"), AnswerItem("a1", "你好！", streaming = false)))
         hub.branch("a1")
         val branch = hub.current
         assertTrue(branch !== source)
         assertNull(branch.sessionId)
-        assertEquals("fable", branch.model)
+        assertNull(branch.model)
+        assertTrue(branch.modelFromSession)
+        assertNull(branch.modelArgument())
+        assertTrue("--fork-session" in branch.launchArguments())
+        assertEquals("claude-fable-5-2", branch.shownModel)
         assertEquals("max", branch.effort)
         assertEquals("opus", hub.settings.model)
         assertEquals("high", hub.settings.effort)
     }
 
-    /** 模型选项存在设置里：应用重开、还没起进程时就能拿来恢复。 */
     @Test
-    fun modelOptionsSurviveRestart() {
-        hub()
-        val reopened = ConversationHub(app)
-        assertEquals(options, reopened.models)
+    fun modelIdsReadLikeTheirNames() {
+        assertEquals("Opus 5.5", readableModelId("claude-opus-5-5"))
+        assertEquals("Haiku 4.5", readableModelId("claude-haiku-4-5-20251001"))
+        assertEquals("Opus 5.5 (1M)", readableModelId("claude-opus-5-5[1m]"))
+        assertEquals("gpt-6-astra", readableModelId("gpt-6-astra"))
+        val options = listOf(ModelOption("default", "Default (recommended)", ""), ModelOption("fable", "Fable", ""))
+        assertEquals("Fable", modelLabel("fable", options))
+        assertEquals("默认", modelLabel(null, options))
+        assertEquals("默认", modelLabel("default", options))
+        assertEquals("sonnet", modelLabel("sonnet", options))
     }
 }

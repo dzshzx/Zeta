@@ -109,7 +109,8 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - Claude Code 的 stream-json（2.1.327 实测）：
   - 标准输入的每条用户消息可带 `uuid`，它就是这条消息在会话记录里的 uuid；标准输出有 `command_lifecycle`（queued / started / completed / cancelled）。
   - 控制请求 `rewind_conversation` 把会话剪到一条用户消息之前（`target_message_uuid`），会话号不变，第一条也能剪。要带 `last_seen_user_message_uuid`（界面认得的最后一条用户消息），否则目标后面还有轮次时拒绝（`stale_target`）。剪不成也答 success，看 `rewound` 和 `reason`。记录文件只追加一行 `last-prompt`（`explicit`、`rewound`、`cutUuid`），被剪的内容还在文件里，读历史时要照这一行去掉。
-  - `--resume <id> --fork-session` 的新会话在第一条消息时才写出记录，`--name` 给它定标题。隐藏参数 `--resume-session-at <uuid>` 也能截断，但不留剪切记号，按文件顺序读会把旧内容一起读出来，Zeta 不用它。
+  - `--resume <id> --fork-session` 的新会话在第一条消息时才写出记录，`--name` 给它定标题。
+  - 接着旧会话（`--resume`，含 `--fork-session`）不带 `--model` 时用会话记录里的模型，中间新开的会话不受影响；`--model default` 是内置的默认模型（盖过 settings.json 的 model 和会话记录）。思考强度不恢复。记录里的模型下线了也照用，API 拒绝后这一轮以出错结束，set_model 换一个就好（2.1.328，`ClaudeResumeContractTest` 钉住）。所以 Zeta 接旧会话不带 `--model`（除非用户在这个对话里选过），顶栏显示 init 报的模型；思考强度照会话记录自己恢复。隐藏参数 `--resume-session-at <uuid>` 也能截断，但不留剪切记号，按文件顺序读会把旧内容一起读出来，Zeta 不用它。
   - 会话记录的 `parentUuid` 不是一条直链：并行的工具调用各挂各的，从最后一行顺着往回走会漏掉步骤。
   - 一轮进行中发来的消息，会在下一个工具边界并入这一轮，两条消息只出一个 `result`。`interrupt` 的回应会列出 `still_queued`；`cancel_async_message` 能撤回排队中的消息。
   - `result` 行的键序不固定，不一定以 `"type"` 开头；`result` 之后还会有 command_lifecycle、task_notification、background_tasks_changed 行。判断一轮的起止看最后一个开始或结束事件，不看最后一行。

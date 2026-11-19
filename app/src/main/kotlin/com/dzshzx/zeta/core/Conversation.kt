@@ -142,21 +142,38 @@ class Conversation(
     val openKey: String get() = sessionId ?: key
 
     /**
-     * 模型；null 是 Claude Code 的默认模型。新对话用新对话的默认值，分支接着用原对话的；
-     * 旧对话载入历史后照最后一次真实回答恢复（[restoreChoice]）。
+     * Zeta 要 Claude Code 用的模型（启动时的 --model、进程里的 set_model），"default" 是 Claude Code 的默认模型；
+     * null 是不指定。新对话取新对话的默认值。接着已有的会话（打开旧对话、分支）时不指定，由 Claude Code 照会话记录恢复它上次用的模型，
+     * 直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。界面显示的是 [shownModel]。
      */
-    var model by mutableStateOf(if (fork != null) fork.model else hub.settings.model)
+    var model by mutableStateOf(if (sessionId != null || fork != null) null else hub.settings.model)
         private set
+
+    /** 接着已有的会话（打开时有会话号，或是分支）。 */
+    private val resumed = sessionId != null || fork != null
+
+    /** 模型由 Claude Code 照会话记录定：接着已有的会话，用户也没在这个对话里指定过。 */
+    val modelFromSession: Boolean get() = resumed && model == null
+
+    /**
+     * Claude Code 报的、这个对话实际在用的模型（system init 里的完整 ID）。进程起来之前是会话记录里最后一次真实回答用的，
+     * 分支是原对话当时显示的；都没有时是 null。
+     */
+    var reportedModel by mutableStateOf(fork?.shownModel)
+        private set
+
+    /** 顶栏显示的模型：指定了的就是它，没指定时是 Claude Code 报的（或会话记录里的）；都不知道时是 null，即默认模型。 */
+    val shownModel: String? get() = model ?: reportedModel
+
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
         private set
 
-    /** 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。来历同 [model]。 */
+    /**
+     * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。新对话取新对话的默认值，分支接着用原对话的；
+     * Claude Code 接旧会话时不恢复它，所以旧对话载入历史后照最后一次真实回答恢复（[restoreEffort]）。
+     */
     var effort by mutableStateOf(if (fork != null) fork.effort else hub.settings.effort)
         private set
-
-    /** 模型、思考强度已经定过（用户选的，或定时任务、数字助理 [preset] 的）：载入的历史不再盖掉。 */
-    private var modelChosen = false
-    private var effortChosen = false
 
     /** 上下文占用与用量统计，由 [UsageTracker] 从进程输出和会话记录里累计。 */
     var usage by mutableStateOf(ChatUsage())
@@ -298,7 +315,8 @@ class Conversation(
                 if (result == null || result.exitCode != 0) {
                     reducer.addNotice("读取历史记录失败" + result?.stderr?.takeIf { it.isNotBlank() }?.let { "：${it.trim().take(300)}" }.orEmpty(), error = true)
                 } else {
-                    restoreChoice(read.model, read.effort)
+                    if (reportedModel == null) reportedModel = read.model
+                    restoreEffort(read.effort)
                 }
                 publish()
                 // 历史就位之后再接进程，免得实时事件落在即将被替换掉的列表上
@@ -620,11 +638,15 @@ class Conversation(
         )
     }
 
+    /**
+     * 用户选了模型（[value] 是选择器里的值，null 是默认模型），也作为之后新对话的默认值。
+     * 新对话选默认就是不指定（Claude Code 照它自己的设置）；接着已有会话的对话要明说 "default"，否则 Claude Code 会照会话记录恢复原来的模型。
+     */
     fun chooseModel(value: String?) {
-        modelChosen = true
-        model = value
-        hub.rememberDefaultModel(value)
-        process?.send(controlRequest { put("subtype", "set_model"); put("model", value ?: "default") })
+        val chosen = value?.takeIf { it != DEFAULT_MODEL }
+        model = chosen ?: DEFAULT_MODEL.takeIf { resumed }
+        hub.rememberDefaultModel(chosen)
+        process?.send(controlRequest { put("subtype", "set_model"); put("model", chosen ?: DEFAULT_MODEL) })
         process?.let(::queryUsage)
     }
 
@@ -636,7 +658,6 @@ class Conversation(
 
     /** 这个对话的思考强度：进程已经起来就当场改，再要一次生效的设置；没起来时启动参数 --effort 带上。 */
     private fun applyEffort(value: String?) {
-        effortChosen = true
         effort = value
         val process = process ?: return
         process.send(controlRequest {
@@ -647,21 +668,13 @@ class Conversation(
     }
 
     /**
-     * 载入历史以后：模型和思考强度照这个对话主线上最后一次真实回答（[recordedModel]、[recordedEffort]）恢复，
-     * 只改这个对话，不动新对话的默认值。载入期间已经定过的不盖掉；进程已经起来了（定时任务不等历史载完就发出消息）也不改，
-     * 它已经按当时的设置在跑。记录里的模型现在选不到时照旧用默认，在对话末尾提示一句；没发消息的话下次打开还照记录再试。
+     * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。
+     * 不是 Claude Code 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑；
+     * 载入期间用户改不了（顶栏的模型菜单和思考强度胶囊这时不能点）。
      */
-    internal fun restoreChoice(recordedModel: String?, recordedEffort: String?) {
+    internal fun restoreEffort(recorded: String?) {
         if (process != null) return
-        if (!modelChosen) {
-            val restored = SessionChoice.model(recordedModel, hub.models, fallback = model)
-            model = restored.value
-            restored.missing?.let {
-                reducer.addNotice(SessionChoice.missingNotice(it, restored.value, hub.models), error = false)
-                publish()
-            }
-        }
-        if (!effortChosen) SessionChoice.effort(recordedEffort)?.let { effort = it }
+        recorded?.takeIf { value -> EffortLevels.any { it.first == value } }?.let { effort = it }
     }
 
     /** 一键压缩：和在输入框里发 /compact 一样，只是聊天里不留这条命令；进行中显示在等待指示旁，完成后有一条提示。 */
@@ -719,7 +732,6 @@ class Conversation(
     internal fun preset(model: String?, effort: String?, permissionMode: String?, hint: String? = null) {
         launchHint = hint
         model?.let { value ->
-            modelChosen = true
             this.model = value
             process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
         }
@@ -912,18 +924,7 @@ class Conversation(
             publish()
             return null
         }
-        val arguments = buildList {
-            addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                "--include-partial-messages", "--permission-prompt-tool", "stdio"))
-            // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
-            addAll(sessionArguments(sessionId, fork?.source, title))
-            model?.let { add("--model"); add(it) }
-            permissionMode?.let { add("--permission-mode"); add(it) }
-            effort?.let { add("--effort"); add(it) }
-            add("--append-system-prompt"); add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
-            // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
-            if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
-        }
+        val arguments = launchArguments()
         val autoCompact = hub.settings.autoCompact
         val compactPercent = hub.settings.autoCompactPercent
         lateinit var created: ClaudeProcess
@@ -949,6 +950,20 @@ class Conversation(
         queryUsage(created)
         hub.onActivityChanged()
         return created
+    }
+
+    /** 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型。 */
+    internal fun launchArguments(): List<String> = buildList {
+        addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+            "--include-partial-messages", "--permission-prompt-tool", "stdio"))
+        // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
+        addAll(sessionArguments(sessionId, fork?.source, title))
+        model?.let { add("--model"); add(it) }
+        permissionMode?.let { add("--permission-mode"); add(it) }
+        effort?.let { add("--effort"); add(it) }
+        add("--append-system-prompt"); add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
+        // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
+        if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
     }
 
     private fun enqueue(source: ClaudeProcess, event: JsonObject) {
@@ -988,6 +1003,8 @@ class Conversation(
             "system" -> when (event.str("subtype")) {
                 "init" -> {
                     event.str("session_id")?.let { sessionId = it }
+                    // 实际在用的模型：没指定时（接着旧会话）是 Claude Code 照会话记录恢复的那个
+                    event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
                     event.str("permissionMode")?.let { mode ->
                         if (hub.settings.permissionMode == null) hub.defaultPermissionMode = mode
                         if (permissionMode == null) permissionMode = mode
@@ -1132,7 +1149,11 @@ class Conversation(
                     return true
                 }
                 val response = event.obj("response")?.obj("response") ?: return false
-                response.arr("models")?.let { hub.updateModels(SessionChoice.parseOptions(it)) }
+                response.arr("models")?.let { list ->
+                    hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
+                        ModelOption(m.str("value") ?: return@let null, m.str("displayName").orEmpty(), m.str("description").orEmpty())
+                    } }
+                }
                 response.arr("commands")?.let { list ->
                     hub.updateCommands(list.mapNotNull { (it as? JsonObject)?.let { c ->
                         SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
@@ -1206,8 +1227,10 @@ class Conversation(
         hub.onActivityChanged()
     }
 
-    private companion object {
-        const val MAX_SUBAGENT_LOGS = 8
-        const val MAX_SUBAGENT_IDS = 128
+    companion object {
+        /** 选择器里 Claude Code 默认模型那一项的值，也是 set_model、--model 认的写法。 */
+        const val DEFAULT_MODEL = "default"
+        private const val MAX_SUBAGENT_LOGS = 8
+        private const val MAX_SUBAGENT_IDS = 128
     }
 }

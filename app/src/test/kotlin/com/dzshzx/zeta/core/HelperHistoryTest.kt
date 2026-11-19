@@ -229,7 +229,10 @@ class HelperHistoryTest {
         assertEquals(listOf(EarlierHits(0, 1), EarlierHits(3, 2)), HistoryPaging.hits(found.toString()))
     }
 
-    /** 重新打开时恢复的模型和思考强度按整个对话算：最后一次真实回答在没载入的那段里也照样给。 */
+    /**
+     * 重新打开时：思考强度照最后一次真实回答恢复，它的模型在 Claude Code 报来之前先显示。按整个对话算：
+     * 最后一次真实回答在没载入的那段里也照样给。
+     */
     @Test
     fun modelAndEffortComeFromTheWholeConversation() {
         user("u-first", "first")
@@ -243,5 +246,43 @@ class HelperHistoryTest {
         val read = HistoryPaging.read(tail.joinToString("\n"), file.path, TranscriptReducer())
         assertEquals("claude-fable-5-2", read.model)
         assertEquals("max", read.effort)
+    }
+
+    /** 最后一次真实回答：跳过子代理和 Claude Code 合成的回答（出错提示等），照剪切记号去掉被剪的；老记录不带 effort。 */
+    @Test
+    fun lastRealAnswerSkipsSidechainsSyntheticAndCutTurns() {
+        fun header(vararg raw: String): Pair<String?, String?> {
+            lines.clear()
+            lines.addAll(raw)
+            save()
+            val first = helper("history", file.path).header
+            return first.str("model") to first.str("effort")
+        }
+        fun answerLine(uuid: String, model: String, effort: String?, sidechain: Boolean = false) =
+            """{"type":"assistant","uuid":"$uuid",""" + (if (sidechain) """"isSidechain":true,""" else "") +
+                (effort?.let { """"effort":"$it",""" } ?: "") +
+                """"message":{"id":"m-$uuid","model":"$model","content":[{"type":"text","text":"答"}],"usage":{"input_tokens":3,"output_tokens":5}}}"""
+        val u1 = """{"type":"user","uuid":"u1","message":{"role":"user","content":"第一问"}}"""
+        val u2 = """{"type":"user","uuid":"u2","message":{"role":"user","content":"第二问"}}"""
+        assertEquals(
+            "claude-fable-5-2" to "xhigh",
+            header(
+                u1, answerLine("a1", "claude-opus-5-5", "high"), u2, answerLine("a2", "claude-fable-5-2", "xhigh"),
+                answerLine("s1", "claude-haiku-5-5", "low", sidechain = true),
+                """{"type":"assistant","uuid":"a3","isApiErrorMessage":true,"message":{"id":"m-a3","model":"<synthetic>","content":[{"type":"text","text":"API Error"}]}}""",
+            ),
+        )
+        assertEquals(
+            "claude-opus-5-5" to "high",
+            header(
+                u1, answerLine("a1", "claude-opus-5-5", "high"), u2, answerLine("a2", "claude-fable-5-2", "xhigh"),
+                """{"type":"last-prompt","explicit":true,"rewound":true,"cutUuid":"u2","leafUuid":"a1"}""",
+            ),
+        )
+        assertEquals("claude-sonnet-5-5" to null, header(u1, answerLine("a1", "claude-sonnet-5-5", null)))
+        assertEquals(
+            null to null,
+            header(u1, """{"type":"assistant","uuid":"a1","message":{"id":"m","model":"<synthetic>","content":[{"type":"text","text":"Prompt is too long"}]}}"""),
+        )
     }
 }

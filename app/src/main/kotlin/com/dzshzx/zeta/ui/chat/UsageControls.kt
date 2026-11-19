@@ -63,7 +63,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * 实际生效的档位，用中性的灰，指定了用主题色。档位名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
-internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit) {
+internal fun EffortChip(effort: String?, applied: String?, enabled: Boolean = true, onChange: (String?) -> Unit) {
     val choose by rememberUpdatedState(onChange)
     val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
     val entries = remember(defaultText, effort) {
@@ -76,6 +76,7 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
     BarMenuButton(
         description = "思考强度：${effortLabel(effort) ?: defaultText}",
         entries = entries,
+        enabled = enabled,
         colors = if (effort == null) barChipColors(null) else barChipThemeColors(),
     ) {
         Icon(imageVector = EffortGauges[level], contentDescription = null)
