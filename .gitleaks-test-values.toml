@@ -1,0 +1,6 @@
+# 测试语料里的合成 token，按值放行（推送前扫描在测试位置见到登记值时放行，与提交、文件、行号无关）。
+# 写法与放行范围见 ~/.config/git/scan-pushed-secrets.sh 头注释；只登记假数据。
+
+[[values]]
+kind = "MCP 配置脱敏测试的假 token（McpConfigTest）"
+value = "--api-key=SECRET5"

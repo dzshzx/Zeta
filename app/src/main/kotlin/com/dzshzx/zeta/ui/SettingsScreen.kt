@@ -28,6 +28,8 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
 import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
 import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
+import com.dzshzx.zeta.ui.setup.ClaudeConfigGroup
+import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
 
 @Composable
 internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit, onOpenPhone: () -> Unit) {
@@ -47,6 +49,7 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
                 },
             )
         }
+        ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
     }
     BackHandler(enabled = subPage != null) { subPage = null }
 }
@@ -88,6 +91,7 @@ private fun SettingsHome(
                 onClick = onOpenPhone,
             )
         }
+        ClaudeConfigGroup(hub, onOpenSubPage)
         Group(title = "权限", footer = "后台运行（电池优化）、通知、无障碍、root 和 Linux 环境的状态都在这里，有 root 时可以一键授予。") {
             CouiPreference(
                 title = "权限健康",
