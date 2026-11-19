@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
 import android.content.Context
-import android.graphics.ImageDecoder
 import android.util.Base64
 import android.widget.Toast
 import androidx.compose.foundation.layout.Row
@@ -24,7 +23,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.Attachments
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileUpload
@@ -57,9 +56,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import java.nio.ByteBuffer
 import java.util.UUID
-import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -305,7 +302,6 @@ internal fun MessageActionDialogs(actions: MessageActions) {
     )
 }
 
-private const val PreviewEdge = 360
 private val helperJson = Json { ignoreUnknownKeys = true }
 
 /** 把消息里的一张图片还原成能再发出去的附件（编辑、重新生成时用）；取不回来返回 null。耗时，别在主线程调用。 */
@@ -325,14 +321,5 @@ private fun reattach(hub: ConversationHub, ref: ImageRef): Attachment? = runCatc
         }
         else -> return null
     }
-    val bytes = Base64.decode(data, Base64.DEFAULT)
-    val preview = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
-        decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-        val edge = max(info.size.width, info.size.height)
-        if (edge > PreviewEdge) {
-            val scale = PreviewEdge.toFloat() / edge
-            decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
-        }
-    }
-    Attachment(UUID.randomUUID().toString(), preview.asImageBitmap(), mediaType, data)
+    Attachments.restore(UUID.randomUUID().toString(), mediaType, Base64.decode(data, Base64.DEFAULT))
 }.getOrNull()

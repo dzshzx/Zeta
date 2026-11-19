@@ -46,9 +46,9 @@ class IntakeShots : ShotTest() {
     fun composer() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("看看这个报错", chat)
-        // 两种配色各从头组合一遍，输入栏的内容不跨配色保留：每次都送一遍
-        val incoming = { Intake(IntakeSource.Share, text = "页面标题\nhttps://example.com/article", images = listOf(screenshot())) }
-        shoot("intake-composer", prepare = { runOnUiThread { hub.incoming = incoming() } }) {
+        // 输入栏的内容是这个对话的草稿，两种配色各从头组合一遍时还在：只送一次
+        hub.incoming = Intake(IntakeSource.Share, text = "页面标题\nhttps://example.com/article", images = listOf(screenshot()))
+        shoot("intake-composer") {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
         }
     }

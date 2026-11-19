@@ -60,6 +60,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.R
@@ -305,6 +306,8 @@ internal fun SessionPane(
         running = isRunning(session.id),
         // 正看着的对话，确认面板就在眼前，不必再标
         waiting = session.id != currentSessionId && hub.isWaiting(session.id),
+        // 正看着的对话，草稿就在输入框里
+        draft = if (session.id != currentSessionId) hub.drafts.preview(session.id) else null,
         pinned = session.id in pins,
         snippet = snippet,
         highlight = needle,
@@ -562,6 +565,8 @@ private fun SessionRow(
     selected: Boolean,
     running: Boolean,
     waiting: Boolean,
+    /** 没发出的草稿开头的一行；没有草稿时为 null。 */
+    draft: String?,
     pinned: Boolean,
     snippet: String?,
     highlight: String,
@@ -640,6 +645,17 @@ private fun SessionRow(
                             style = subtitleStyle,
                             color = colors.labelSecondary,
                             maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        // 有没发出的草稿：照常见聊天应用，红字的「[草稿]」后面接草稿的开头
+                        draft != null -> Text(
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = colors.error)) { append("[草稿] ") }
+                                append(draft)
+                            },
+                            style = subtitleStyle,
+                            color = colors.labelSecondary,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         else -> Text(

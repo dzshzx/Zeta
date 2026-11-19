@@ -226,6 +226,11 @@ class Settings(context: Context) {
         get() = prefs.getString("models", null)
         set(value) = prefs.edit().putString("models", value).apply()
 
+    /** 各对话没发出的输入草稿（JSON，见 [DraftRecords]）。只在这台手机上，不进设置备份。 */
+    var composerDrafts: String?
+        get() = prefs.getString("composerDrafts", null)
+        set(value) = prefs.edit().apply { if (value == null) remove("composerDrafts") else putString("composerDrafts", value) }.apply()
+
     /** 外观：null 跟随系统。 */
     var darkTheme: Boolean?
         get() = if (prefs.contains("dark")) prefs.getBoolean("dark", false) else null

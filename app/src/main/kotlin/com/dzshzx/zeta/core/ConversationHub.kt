@@ -247,6 +247,9 @@ class ConversationHub(private val app: Application) {
      */
     private val phones = HashMap<String, PhoneTools>()
 
+    /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
+    val drafts = ComposerDrafts(app, settings)
+
     var current by mutableStateOf(blank())
         private set
 
@@ -747,7 +750,7 @@ class ConversationHub(private val app: Application) {
 
     fun delete(summary: SessionSummary) = deleteSessions(listOf(summary))
 
-    /** 删除会话：记录文件，连同 Claude Code 存在同名目录里的工具结果、子代理记录等；置顶标记一并去掉。 */
+    /** 删除会话：记录文件，连同 Claude Code 存在同名目录里的工具结果、子代理记录等；置顶标记、没发出的草稿一并去掉。 */
     fun deleteSessions(summaries: List<SessionSummary>) {
         val config = settings.env ?: return
         val ids = summaries.mapTo(HashSet()) { it.id }
@@ -762,6 +765,7 @@ class ConversationHub(private val app: Application) {
         prunePhones()
         sessions = sessions.filterNot { it.id in ids }
         if (pinnedSessions.any { it in ids }) choosePinned(pinnedSessions - ids)
+        drafts.forget(ids)
         thread(isDaemon = true) {
             helper("delete", summaries.map { it.file }, timeoutMs = 60_000, config = config)
             main.post { refreshSessions() }

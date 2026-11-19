@@ -39,15 +39,14 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -68,7 +67,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
-import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.ComposerDraft
+import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileUpload
@@ -112,6 +112,8 @@ import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /** 还没连上进程、拿不到真实列表时先给的几个常用别名（Claude Code 自己解析）。 */
@@ -309,16 +311,19 @@ private fun ConversationBody(
     // 每一组步骤拿到的是同一个函数，列表里的步骤组不因上层重组而跟着重组
     val latestOpenSubagent by rememberUpdatedState(onOpenSubagent)
     val openSubagent = remember(conversation.key) { { id: String -> latestOpenSubagent(conversation.key, id) } }
-    val input = remember { TextFieldState() }
+    // 输入栏的内容（文字、图片、附带的路径）是这个对话的草稿，由 hub 按对话保管：切走再回来、Zeta 重开后都还在
+    val draft = remember { hub.drafts.of(conversation) }
+    val input = draft.input
     val markdownCache = remember { StreamingMarkdownStateCache() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
-    val attachments = remember { mutableStateListOf<Attachment>() }
-    val uploads = remember { mutableStateListOf<FileUpload>() }
+    val attachments = draft.attachments
+    val uploads = draft.uploads
     // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
     val pathAttach = remember { PathAttach() }
-    // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读
-    val sink = remember { IntakeSink(hub, context, scope, input, attachments, uploads, MaxAttachments) }
+    // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读。
+    // 读图片、复制文件在草稿那边跑，切到别的对话也会做完，落进这份草稿
+    val sink = remember { IntakeSink(hub, context, hub.drafts.scope, input, attachments, uploads, MaxAttachments) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> sink.addImages(uris) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> sink.addFiles(uris) }
     // 从外面送进来、定了放进这个对话的东西（分享、用 Zeta 打开、截屏）
@@ -355,8 +360,8 @@ private fun ConversationBody(
     // 撤回的排队消息（点了它，或按了停止）：放回输入框，接在已有草稿前面
     LaunchedEffect(conversation.recalled) {
         val back = conversation.takeRecalled() ?: return@LaunchedEffect
-        val draft = input.text.toString()
-        input.setTextAndPlaceCursorAtEnd(listOf(back.text, draft).filter { it.isNotBlank() }.joinToString("\n"))
+        val typed = input.text.toString()
+        input.setTextAndPlaceCursorAtEnd(listOf(back.text, typed).filter { it.isNotBlank() }.joinToString("\n"))
         attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
         back.files.forEach(uploads::addPath)
     }
@@ -365,6 +370,7 @@ private fun ConversationBody(
     }
     // 编辑、重新生成、删除一轮、分支
     val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
+    SaveDraft(hub.drafts, draft, actions)
     val prompts = rememberPromptsUi(input)
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
@@ -386,7 +392,11 @@ private fun ConversationBody(
                     cwd = conversation.cwd,
                     needsLogin = hub.account?.loggedIn == false,
                     onLogin = onOpenLogin,
-                    onSuggestion = conversation::send,
+                    onSuggestion = {
+                        conversation.send(it)
+                        // 新对话就此开始：输入框里没发的字归这个对话，下一个新对话从空的开始
+                        hub.drafts.save(draft)
+                    },
                     onChangeCwd = { hub.startNew(it) },
                     modifier = Modifier.padding(padding),
                 )
@@ -540,6 +550,8 @@ private fun ConversationBody(
                     }
                     attachments.clear()
                     uploads.clear()
+                    // 发出去了：存着的那份马上清掉，不等停手存盘
+                    hub.drafts.save(draft)
                 },
                 onStop = conversation::interrupt,
                 tools = {
@@ -567,6 +579,35 @@ private fun ConversationBody(
 }
 
 private const val MaxAttachments = 4
+
+/** 停手这么久后把草稿存盘。 */
+private const val DraftSaveDelayMs = 600L
+
+/**
+ * 输入栏的内容随手存盘（[ComposerDrafts]）：停手 [DraftSaveDelayMs] 后存一次，离开这个对话（切走、界面重建）时马上存。
+ * 编辑旧消息时输入框里是那条消息，不存，存着的仍是编辑前的草稿；离开时先取消编辑，把编辑前的草稿放回来再存。
+ */
+@Composable
+private fun SaveDraft(drafts: ComposerDrafts, draft: ComposerDraft, actions: MessageActions) {
+    LaunchedEffect(draft) {
+        snapshotFlow {
+            if (actions.editing != null) null
+            else listOf(draft.input.text.toString(), draft.input.selection, draft.attachments.map { it.id }, draft.uploads.map { it.path to it.failed })
+        }
+            .drop(1)
+            .collectLatest { shape ->
+                if (shape == null) return@collectLatest
+                delay(DraftSaveDelayMs)
+                drafts.save(draft)
+            }
+    }
+    DisposableEffect(draft) {
+        onDispose {
+            actions.cancelEdit()
+            drafts.save(draft)
+        }
+    }
+}
 
 /** 引用 Linux 里已有的一个路径（不用上传，一开始就是传好的样子）；已经引用过的不再加。 */
 internal fun MutableList<FileUpload>.addPath(path: String) {

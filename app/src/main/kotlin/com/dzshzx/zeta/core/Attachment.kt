@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.nio.ByteBuffer
 import java.util.UUID
 import kotlin.math.max
 
@@ -51,6 +52,22 @@ object Attachments {
             source
         }
         encode(bitmap)
+    }.getOrNull()
+
+    /**
+     * 已经编码好的一张图（草稿里存下的、会话记录里取回的）重新做成附件：内容原样发送，只另解一张界面用的小图。
+     * 解不开返回 null。耗时，别在主线程调用。
+     */
+    fun restore(id: String, mediaType: String, bytes: ByteArray): Attachment? = runCatching {
+        val preview = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val edge = max(info.size.width, info.size.height)
+            if (edge > PREVIEW_EDGE) {
+                val scale = PREVIEW_EDGE.toFloat() / edge
+                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
+            }
+        }
+        Attachment(id, preview.asImageBitmap(), mediaType, Base64.encodeToString(bytes, Base64.NO_WRAP))
     }.getOrNull()
 
     private fun encode(bitmap: Bitmap): Attachment {

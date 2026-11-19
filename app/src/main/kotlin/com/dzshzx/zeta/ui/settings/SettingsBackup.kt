@@ -107,6 +107,7 @@ internal object SettingsBackup {
         "commands" to "Claude Code 斜杠命令的缓存，打开对话时自动更新",
         "models" to "Claude Code 模型选项的缓存，打开对话时自动更新",
         "contextWindows" to "各模型上下文窗口的缓存，Claude Code 会重新报",
+        "composerDrafts" to "各对话没发出的输入草稿，跟着这台手机上的会话走",
     )
 
     val items: List<BackupItem> = listOf(
