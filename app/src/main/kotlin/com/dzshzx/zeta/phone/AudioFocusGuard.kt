@@ -93,7 +93,7 @@ internal class AudioFocusGuard(
     }
 
     /** [packageName] 到了主屏上：不管为哪块后台屏幕改的，都改回去。没改过它就什么也不做。 */
-    fun movedToMain(packageName: String) = synchronized(lock) {
+    fun movedToMain(packageName: String): Unit = synchronized(lock) {
         if (packageName !in records()) return
         owners.remove(packageName)
         restoreLocked(packageName)
