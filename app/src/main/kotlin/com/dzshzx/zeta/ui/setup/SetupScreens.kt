@@ -80,8 +80,8 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
         overlays = {
             TextInputDialog(
                 show = editing != null,
-                title = if (lastEditing == LinuxEdit.Rootfs) "rootfs 路径" else "默认工作目录",
-                summary = if (lastEditing == LinuxEdit.Rootfs) "Android 侧看到的 Debian 根目录" else "新对话默认在这个目录下开始",
+                title = if (lastEditing == LinuxEdit.Rootfs) "自定义路径" else "默认工作目录",
+                summary = if (lastEditing == LinuxEdit.Rootfs) "Debian 根目录在 Android 里的路径" else "新对话默认在这个目录下开始",
                 value = draft,
                 onValueChange = { draft = it },
                 label = if (lastEditing == LinuxEdit.Rootfs) LinuxEnv.OWN_ROOTFS else "/workspace",
@@ -128,11 +128,9 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
             )
         },
     ) {
+        // Zeta 经 root 进入这个 Debian 环境，以其中的普通用户（运行用户）身份运行 Claude Code
         item(key = "env") {
-            PreferenceGroup(
-                title = "环境",
-                footer = "Zeta 经 root 进入这个 Debian 环境，以其中的普通用户身份运行 Claude Code。有对话正在进行时不能切换。",
-            ) {
+            PreferenceGroup(title = "环境", footer = "有对话在进行时不能切换位置。") {
                 item {
                     BasicComponent(
                         title = "状态",
@@ -197,16 +195,14 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                         )
                     }
                 }
-                item { BasicComponent(title = "重新检测", summary = "重新检查 root 权限并识别环境里的用户", onClick = { hub.redetect(current) }) }
+                item { BasicComponent(title = "重新检测", summary = "重新检查 root 和环境里的用户", onClick = { hub.redetect(current) }) }
             }
         }
 
         if (own?.complete != true) {
+            // 装在 LinuxEnv.OWN_BASE，不在任何应用的数据目录里，卸载 Zeta 或别的应用都不会把它删掉
             item(key = "install") {
-                PreferenceGroup(
-                    title = "安装",
-                    footer = "装在 ${LinuxEnv.OWN_BASE}，不在任何应用的数据目录里，卸载 Zeta 或别的应用都不会把它删掉。",
-                ) {
+                PreferenceGroup(footer = "卸载 Zeta 不会删掉这个环境。") {
                     item {
                         ArrowPreference(
                             title = when {
@@ -214,7 +210,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                                 own?.base == true -> "继续安装 Debian 环境"
                                 else -> "安装 Debian 环境"
                             },
-                            summary = "下载 Debian 13，装好常用工具和 Claude Code，约占 1 GB",
+                            summary = "含常用工具和 Claude Code，约占 1 GB",
                             onClick = onOpenInstall,
                         )
                     }
@@ -247,24 +243,23 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     item {
                         BasicComponent(
                             title = "修复",
-                            summary = "修复软件包数据库，补齐缺少的常用工具",
+                            summary = "修好软件包数据库，补齐常用工具",
                             enabled = maintenance?.running != true,
                             onClick = hub::repairEnvironment,
                         )
                     }
                 }
             }
+            // 基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。环境里原来就有的（比如从 Eta 迁过来的）只显示版本。
+            // Go 顺带配好 ~/go/bin；Python 是 uv 管理的最新版，带 pip；Node.js 的全局包装在 ~/.npm-global；
+            // APK 分析包括 jadx、apktool、smali/baksmali，环境里没有 Java 时一并装上 OpenJDK。
             item(key = "optional") {
-                PreferenceGroup(
-                    title = "可选工具",
-                    footer = "基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。" +
-                        "Zeta 只更新、卸载它自己装的那一份；环境里原来就有的（比如从 Eta 迁过来的）只显示版本，不会去动。",
-                ) {
+                PreferenceGroup(title = "可选工具", footer = "Zeta 只更新、卸载自己装的；环境里原有的只显示版本，不会动。") {
                     listOf(
-                        "go" to "安装官方发布的最新稳定版，并配好 ~/go/bin 和国内模块代理",
-                        "python" to "安装 uv 和它管理的最新 Python，并设为你的 python3（带 pip）",
-                        "node" to "安装官方发布的最新 LTS 版，带 npm；全局包装在 ~/.npm-global",
-                        "apk" to "jadx、apktool、smali/baksmali，用来反编译和检查 APK；环境里没有 Java 时一并装上 OpenJDK",
+                        "go" to "官方最新稳定版，配好国内模块代理",
+                        "python" to "uv 和最新的 Python，设为 python3",
+                        "node" to "官方最新 LTS 版，带 npm",
+                        "apk" to "jadx、apktool 等，反编译和检查 APK",
                     ).forEach { (name, pitch) ->
                         item(key = name) {
                             OptionalToolRow(
@@ -280,25 +275,21 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 }
             }
             item(key = "files") {
-                PreferenceGroup(title = "文件与目录") {
+                PreferenceGroup(title = "文件与远程访问") {
                     item {
                         ArrowPreference(
                             title = "文件浏览",
-                            summary = "浏览、预览 Linux 环境中的文件，在手机和 Linux 之间导入导出",
+                            summary = "浏览、预览文件，和手机之间导入导出",
                             onClick = { filesPage = LinuxFilesPage.Browser },
                         )
                     }
                     item {
                         ArrowPreference(
                             title = "共享文件夹",
-                            summary = "把 Android 目录挂载到 Linux 环境的 /mnt/shared/ 下",
+                            summary = "把 Android 目录挂载到 Linux 环境",
                             onClick = { filesPage = LinuxFilesPage.Shared },
                         )
                     }
-                }
-            }
-            item(key = "remote") {
-                PreferenceGroup(title = "远程访问") {
                     item {
                         val ssh = hub.ssh
                         ArrowPreference(
@@ -321,7 +312,8 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     item {
                         BasicComponent(
                             title = "更新",
-                            summary = "运行 claude update 更新到最新版",
+                            // 运行 claude update
+                            summary = "更新到最新版",
                             enabled = maintenance?.running != true,
                             onClick = hub::updateClaude,
                         )
@@ -405,8 +397,8 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
         item(key = "prepare") {
             PreferenceGroup(
                 title = "准备",
-                footer = "下载 Debian 13 的基础系统（约 35 MB），再联网安装常用工具和 Claude Code，装完约占 1 GB。" +
-                    "放在 ${LinuxEnv.OWN_BASE}。整个过程需要几分钟，可以切到后台。",
+                // 装在 LinuxEnv.OWN_BASE
+                footer = "先下载约 35 MB 的基础系统，再联网装常用工具和 Claude Code，装完约占 1 GB。要几分钟，可以切到后台。",
             ) {
                 item {
                     BasicComponent(
@@ -632,6 +624,6 @@ private fun OptionalToolRow(
                 ),
             ),
         )
-        else -> BasicComponent(title = title, summary = "$label · 环境里原有的，Zeta 不管理", endActions = { PreferenceValue("已安装") })
+        else -> BasicComponent(title = title, summary = "$label · 环境里原有的", endActions = { PreferenceValue("已安装") })
     }
 }
