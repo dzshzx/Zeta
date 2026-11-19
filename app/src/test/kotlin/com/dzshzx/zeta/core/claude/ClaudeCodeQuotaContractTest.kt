@@ -28,7 +28,7 @@ import org.junit.Test
 
 /**
  * 额度显示和账号切换依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
- * [Quota]、[QuotaProbe]、assets/zeta_accounts.sh 跟着改。
+ * [Quota]、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是真的 claude-switch（工作站 ~/.local/bin 里有时链进临时 HOME，没有时跳过那几条）。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，用假的 claude.ai 登录（假令牌），连本机一个假的 Messages API：它在响应头里带上
  * anthropic-ratelimit-unified-*，并记下每次请求用的是哪个令牌。代理指到一个不通的端口，claude.ai 那边的接口（取用量、取账号资料）
@@ -46,7 +46,6 @@ class ClaudeCodeQuotaContractTest {
     @Before
     fun setUp() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        assumeTrue("没有 jq", runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }.getOrDefault(false))
         home = java.nio.file.Files.createTempDirectory("zeta-quota").toFile().canonicalFile
         File(home, ".claude").mkdirs()
         File(home, "proj").mkdirs()
@@ -122,21 +121,31 @@ class ClaudeCodeQuotaContractTest {
 
     /** 假的 claude.ai 登录：和 claude auth login 写下的两个文件同样的键。 */
     private fun login(name: String) {
-        val expires = System.currentTimeMillis() + 30L * 86_400_000
-        File(home, ".claude/.credentials.json").writeText(
-            """{"claudeAiOauth":{"accessToken":"fake-token-$name","refreshToken":"fake-refresh-$name","expiresAt":$expires,
-               "scopes":["user:inference","user:profile","user:sessions:claude_code"],"subscriptionType":"max","rateLimitTier":"default_claude_max_20x"}}""",
-        )
-        File(home, ".claude.json").writeText(
-            """{"hasCompletedOnboarding":true,"oauthAccount":{"accountUuid":"acc-$name","emailAddress":"$name@example.com",
-               "organizationUuid":"org-$name","organizationName":"Org $name","displayName":"$name"}}""",
-        )
+        File(home, ".claude/.credentials.json").writeText(credentials(name))
+        File(home, ".claude.json").writeText("""{"hasCompletedOnboarding":true,"oauthAccount":${oauthAccount(name)}}""")
     }
+
+    private fun credentials(name: String): String {
+        val expires = System.currentTimeMillis() + 30L * 86_400_000
+        return """{"claudeAiOauth":{"accessToken":"fake-token-$name","refreshToken":"fake-refresh-$name","expiresAt":$expires,
+               "scopes":["user:inference","user:profile","user:sessions:claude_code"],"subscriptionType":"max","rateLimitTier":"default_claude_max_20x"}}"""
+    }
+
+    private fun oauthAccount(name: String) =
+        """{"accountUuid":"acc-$name","emailAddress":"$name@example.com","organizationUuid":"org-$name","organizationName":"Org $name","displayName":"$name"}"""
 
     private fun configAccount(): String? =
         json.parseToJsonElement(File(home, ".claude.json").readText()).jsonObject["oauthAccount"]?.jsonObject?.get("accountUuid")?.jsonPrimitive?.content
 
-    private fun accounts() = ClaudeAccounts(ClaudeConfigClient { ClaudeAccountsTest.localShell(home, env) }, File("src/main/assets/zeta_accounts.sh").readText(), "zeta-dev")
+    private fun accounts() = ClaudeAccounts(ClaudeConfigClient { ClaudeAccountsTest.localShell(home, env) }, File("src/main/assets/zeta_accounts.sh").readText())
+
+    /** 把工作站上真的 claude-switch 链进临时 HOME（Zeta 认的位置是 ~/.local/bin/claude-switch）；没有时跳过这条测试。 */
+    private fun installSwitch() {
+        val real = path().split(':').map { File(it, "claude-switch") }.firstOrNull { it.canExecute() }
+        assumeTrue("没有 claude-switch", real != null)
+        val bin = File(home, ".local/bin").apply { mkdirs() }
+        java.nio.file.Files.createSymbolicLink(File(bin, "claude-switch").toPath(), real!!.canonicalFile.toPath())
+    }
 
     /** 一个 stream-json 的 claude 进程，参数和 Zeta 起对话时一样。 */
     private inner class Claude : AutoCloseable {
@@ -204,6 +213,8 @@ class ClaudeCodeQuotaContractTest {
 
     @Test
     fun rateLimitEventsAndGetUsageCarryTheWindows() {
+        assumeTrue("没有 jq", runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }.getOrDefault(false))
+        installSwitch()
         login("a")
         Claude().use { claude ->
             claude.turn("hello")
@@ -225,12 +236,12 @@ class ClaudeCodeQuotaContractTest {
             assertEquals("max", parsed.subscription)
             assertEquals(listOf("session" to 0.35, "weekly_all" to 0.4), parsed.windows.map { it.kind to it.used })
 
-            // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），账号脚本据此认出它，不让换
+            // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），账号脚本据此说清是谁挡着；claude-switch 也认出它，不让换
             val procs = accounts().list().processes
             assertEquals(listOf(ClaudeProc(claude.process.pid().toInt(), "", "idle", procs.single().kind)), procs)
-            accounts().save()
-            val outcome = accounts().switch("acc-a")
-            assertTrue(outcome.toString(), outcome is SwitchOutcome.Busy)
+            assertEquals("claude", accounts().save())
+            val outcome = accounts().switch("claude")
+            assertTrue(outcome.toString(), outcome is SwitchOutcome.Busy && outcome.processes == procs)
         }
     }
 
@@ -251,11 +262,16 @@ class ClaudeCodeQuotaContractTest {
 
     @Test
     fun switchedLoginIsWhatTheNextProcessUses() {
+        installSwitch()
         login("a")
-        assertEquals("acc-a", accounts().save())
+        assertEquals("claude", accounts().save())
+        // 添加账号：claude 存档并退出，新登录记成 claude-b
+        assertEquals(SwitchOutcome.Done("claude-b"), accounts().prepareLogin())
+        assertTrue(!accounts().list().loggedIn)
         login("b")
-        assertEquals("acc-b", accounts().save())
-        assertEquals(SwitchOutcome.Done("acc-a"), accounts().switch("acc-a"))
+        assertEquals("claude-b", accounts().save())
+        assertEquals(listOf("claude-b", "claude"), accounts().list().all.map { it.id })
+        assertEquals(SwitchOutcome.Done("claude"), accounts().switch("claude"))
         Claude().use { claude ->
             claude.turn("hello")
             assertEquals("a@example.com", claude.status("Email"))
@@ -267,24 +283,18 @@ class ClaudeCodeQuotaContractTest {
 
     /**
      * 为什么换账号前要等所有 Claude Code 进程退出：开着的进程（哪怕闲着）在凭据文件变了以后，会把它记着的 oauthAccount 写回
-     * ~/.claude.json，下一次请求却已经用新令牌了。哪天这条不成立了，zeta_accounts.sh 的等待和 [ClaudeAccounts.blocker] 可以放宽。
+     * ~/.claude.json，下一次请求却已经用新令牌了。哪天这条不成立了，claude-switch 的进程检查和 [ClaudeAccounts.blocker] 可以放宽。
      */
     @Test
     fun anOpenProcessWritesItsAccountBack() {
         login("a")
-        accounts().save()
-        login("b")
-        accounts().save()
-        File(home, ".claude/.credentials.json").writeText(File(home, ".config/zeta-dev/accounts/acc-a.json").readText())
-        File(home, ".claude.json").writeText("""{"hasCompletedOnboarding":true,"oauthAccount":{"accountUuid":"acc-a","emailAddress":"a@example.com","organizationName":"Org a"}}""")
         Claude().use { claude ->
             claude.turn("hello")
-            // 绕过脚本的检查，直接换成 b（和脚本一样先改 ~/.claude.json 再改凭据）
-            val b = json.parseToJsonElement(File(home, ".config/zeta-dev/accounts/acc-b.json").readText()).jsonObject
+            // 绕过进程检查，直接换成 b（先改 ~/.claude.json 再改凭据）
             val config = json.parseToJsonElement(File(home, ".claude.json").readText()).jsonObject
-            File(home, ".claude.json.tmp").writeText(JsonObject(config + ("oauthAccount" to b["oauthAccount"]!!)).toString())
+            File(home, ".claude.json.tmp").writeText(JsonObject(config + ("oauthAccount" to json.parseToJsonElement(oauthAccount("b")))).toString())
             File(home, ".claude.json.tmp").renameTo(File(home, ".claude.json"))
-            File(home, ".claude/.credentials.json.tmp").writeText(JsonObject(mapOf("claudeAiOauth" to b["claudeAiOauth"]!!)).toString())
+            File(home, ".claude/.credentials.json.tmp").writeText(credentials("b"))
             File(home, ".claude/.credentials.json.tmp").renameTo(File(home, ".claude/.credentials.json"))
             val deadline = System.currentTimeMillis() + 10_000
             while (configAccount() != "acc-a" && System.currentTimeMillis() < deadline) Thread.sleep(100)

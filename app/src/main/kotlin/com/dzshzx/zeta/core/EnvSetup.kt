@@ -335,9 +335,15 @@ class LoginFlow(private val hub: ConversationHub) {
         cancel()
         val mine = ++generation
         state = LoginState.Starting
+        // 登录会换掉凭据：闲着的对话进程先关掉（内容不丢），免得它们拦着下面的存档，或把旧账号写回 ~/.claude.json
+        hub.closeIdleConversations()
         thread(name = "zeta-login", isDaemon = true) {
-            // 登录别的账号会顶掉当前的：先存一份，账号页里还能换回来
-            hub.accounts.saveCurrentBlocking()
+            // 登录别的账号会顶掉当前的：先交给 claude-switch 存档并退出，账号页里还能换回来；存不下就不登录，免得丢了它的令牌
+            hub.accounts.prepareLoginBlocking()?.let {
+                post(mine, LoginState.Failed(it))
+                return@thread
+            }
+            if (mine != generation) return@thread // 存档的这几秒里用户取消了
             val started = runCatching { LinuxEnv.start(config, "exec claude auth login") }.getOrElse {
                 post(mine, LoginState.Failed(it.message ?: "启动不了登录命令"))
                 return@thread
@@ -373,7 +379,7 @@ class LoginFlow(private val hub: ConversationHub) {
             process = null
             if (mine != generation) return@thread
             if (code == 0) {
-                hub.accounts.saveCurrentBlocking()
+                hub.accounts.recordCurrentBlocking()
                 post(mine, LoginState.Done)
                 main.post { hub.accounts.switched() }
             } else {

@@ -2,36 +2,32 @@ package com.dzshzx.zeta.core.claude
 
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * 真的 assets/zeta_accounts.sh，跑在临时 HOME 上，凭据全是一眼能看出是假的值。不碰任何人真实的登录状态。
+ * 真的 assets/zeta_accounts.sh，跑在临时 HOME 上；claude-switch 是一个假的 bash 脚本（~/.local/bin/claude-switch），
+ * 照 ~/fake 下的文件打印 JSON、写标准错误、给退出码，并把每次的参数记进 ~/fake/calls。不碰任何人真实的登录状态。
  */
 class ClaudeAccountsTest {
     private lateinit var home: File
     private lateinit var accounts: ClaudeAccounts
-    private val json = Json { ignoreUnknownKeys = true }
     private val spawned = mutableListOf<Process>()
 
     @Before
     fun setUp() {
-        assumeTrue("要 bash、jq 和 /proc", File("/proc/self/stat").exists() && runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }.getOrDefault(false))
+        assumeTrue("要 bash 和 /proc", File("/proc/self/stat").exists())
         home = Files.createTempDirectory("zeta-accounts").toFile().canonicalFile
         File(home, ".claude").mkdirs()
-        accounts = ClaudeAccounts(ClaudeConfigClient { localShell(home) }, File("src/main/assets/zeta_accounts.sh").readText(), "zeta-dev")
+        accounts = ClaudeAccounts(ClaudeConfigClient { localShell(home) }, File("src/main/assets/zeta_accounts.sh").readText())
     }
 
     @After
@@ -40,110 +36,227 @@ class ClaudeAccountsTest {
         if (::home.isInitialized) home.deleteRecursively()
     }
 
-    private val credentials get() = File(home, ".claude/.credentials.json")
-    private val config get() = File(home, ".claude.json")
+    private val fake get() = File(home, "fake")
 
-    /** 模拟 claude auth login 登进一个账号：写凭据（带一项 MCP 的 OAuth，换账号时不该动它）和 oauthAccount。 */
-    private fun login(name: String, plan: String = "max") {
-        credentials.writeText(
-            """{"claudeAiOauth":{"accessToken":"fake-token-$name","refreshToken":"fake-refresh-$name","expiresAt":1,"scopes":["user:inference","user:profile"],
-               "subscriptionType":"$plan","refreshTokenExpiresAt":1900000000000},"mcpOAuth":{"srv":{"accessToken":"fake-mcp-1"}}}""",
-        )
-        val others = if (config.exists()) json.parseToJsonElement(config.readText()).jsonObject - "oauthAccount" else mapOf("numStartups" to Json.parseToJsonElement("7"))
-        config.writeText(
-            JsonObject(
-                others + ("oauthAccount" to Json.parseToJsonElement(
-                    """{"accountUuid":"acc-$name","emailAddress":"$name@example.com","organizationName":"Org $name","displayName":"$name","planDisplayName":"Plan $name"}""",
-                )),
-            ).toString(),
-        )
+    /** 装上假的 claude-switch：--json 打印 [status]；别的命令按第一个参数（add、remove 或账号名）取 ~/fake/<键>.err、.code。 */
+    private fun installFake(status: String) {
+        fake.mkdirs()
+        File(fake, "json.out").writeText(status)
+        val bin = File(home, ".local/bin").apply { mkdirs() }
+        File(bin, "claude-switch").apply {
+            writeText(
+                """
+                #!/bin/bash
+                d=${'$'}HOME/fake
+                printf '%s\n' "${'$'}*" >>"${'$'}d/calls"
+                k=${'$'}1
+                [ "${'$'}k" = --json ] && k=json
+                [ -f "${'$'}d/${'$'}k.out" ] && cat "${'$'}d/${'$'}k.out"
+                [ -f "${'$'}d/${'$'}k.err" ] && cat "${'$'}d/${'$'}k.err" >&2
+                exit "${'$'}(cat "${'$'}d/${'$'}k.code" 2>/dev/null || echo 0)"
+                """.trimIndent() + "\n",
+            )
+            setExecutable(true)
+        }
     }
 
-    private fun token(): String? = json.parseToJsonElement(credentials.readText()).jsonObject["claudeAiOauth"]?.jsonObject?.get("accessToken")?.jsonPrimitive?.content
-    private fun configAccount(): String? = json.parseToJsonElement(config.readText()).jsonObject["oauthAccount"]?.jsonObject?.get("accountUuid")?.jsonPrimitive?.content
+    /** 让假的 claude-switch 在第一个参数为 [key] 时失败。 */
+    private fun failWith(key: String, code: Int, stderr: String) {
+        File(fake, "$key.code").writeText("$code")
+        File(fake, "$key.err").writeText(stderr)
+    }
+
+    private fun calls(): List<String> = File(fake, "calls").takeIf { it.exists() }?.readLines().orEmpty()
+
+    private fun account(name: String, current: Boolean = false, parked: Boolean = false, email: String? = "$name@example.com") =
+        """{"name":"$name","current":$current,"parked":$parked,"uuid":"fake-uuid-$name"""" +
+            (email?.let { ""","email":"$it","organization":"Org $name","displayName":"$name","subscription":"max","refreshExpiresAt":1900000000000""" } ?: "") + "}"
+
+    private fun status(current: String, live: String?, vararg listed: String) =
+        """{"current":"$current","live":${live ?: "null"},"accounts":[${listed.joinToString(",")}],"pending":false,"cpaKey":false,"running":[]}"""
+
+    /** 两个号：claude 在用，claude-b 有存档。 */
+    private val twoAccounts = status("claude", account("claude", current = true), account("claude", current = true), account("claude-b", parked = true))
+
+    /** 在用的登录没记过：claude-switch 认不出是哪个号（live.name 为空）。claude 记过但没有存档。 */
+    private val unknownLive = status(
+        "claude",
+        """{"name":"","current":false,"parked":false,"uuid":"fake-uuid-x","email":"x@example.com","subscription":"pro"}""",
+        """{"name":"claude","label":"主号","current":false,"parked":false}""",
+    )
+
+    // ---------- 解析 ----------
 
     @Test
-    fun saveSwitchAndRemove() {
-        // 没登录：什么都没有，也存不了
-        accounts.list().let {
-            assertFalse(it.loggedIn)
-            assertNull(it.current)
-            assertTrue(it.saved.isEmpty())
-        }
-        assertNull(accounts.save())
-
-        login("a")
-        accounts.list().current!!.let {
-            assertEquals("acc-a", it.id)
-            assertEquals("a@example.com", it.title)
-            assertEquals("Plan a", it.plan)
+    fun parsesAccountsFromClaudeSwitchJson() {
+        val state = ClaudeAccounts.parse(
+            status(
+                "claude",
+                account("claude", current = true),
+                account("claude", current = true),
+                account("claude-b", parked = true, email = null),
+                // 切换记录里刚 add、还没登录的号：既不在用也没有存档，不列
+                account("claude-c", email = null),
+            ),
+        )
+        assertTrue(state.loggedIn)
+        state.current!!.let {
+            assertEquals("claude", it.id)
+            assertEquals("claude@example.com", it.title)
+            assertEquals("Org claude", it.organization)
+            assertEquals("max", it.subscription)
+            assertEquals("Max", it.plan)
             assertEquals(1_900_000_000_000L, it.refreshExpiresAt)
+            assertNull(it.savedAt)
         }
-        assertEquals("acc-a", accounts.save())
-        val store = File(home, ".config/zeta-dev/accounts")
-        assertEquals("700", mode(store))
-        assertEquals("600", mode(File(store, "acc-a.json")))
-
-        // 登进第二个账号（组织名为空）：两个都列出来，当前的在前
-        login("b", plan = "pro")
-        accounts.save()
-        accounts.list().let { state ->
-            assertEquals("acc-b", state.current!!.id)
-            assertEquals(listOf("acc-b", "acc-a"), state.all.map { it.id })
+        assertEquals(listOf("claude", "claude-b"), state.saved.map { it.id })
+        // 没有可选字段的号：空串和 null，标题退回账号名
+        state.saved[1].let {
+            assertEquals("", it.email)
+            assertEquals("", it.plan)
+            assertNull(it.refreshExpiresAt)
+            assertEquals("claude-b", it.title)
         }
-
-        // 换回 a：凭据和 oauthAccount 都是 a 的，MCP 的 OAuth 和 ~/.claude.json 里别的键照旧；b 刚才的状态存回去了
-        assertEquals(SwitchOutcome.Done("acc-a"), accounts.switch("acc-a"))
-        assertEquals("fake-token-a", token())
-        assertEquals("acc-a", configAccount())
-        assertEquals("600", mode(credentials))
-        val cred = json.parseToJsonElement(credentials.readText()).jsonObject
-        assertEquals("fake-mcp-1", cred["mcpOAuth"]!!.jsonObject["srv"]!!.jsonObject["accessToken"]!!.jsonPrimitive.content)
-        assertEquals("7", json.parseToJsonElement(config.readText()).jsonObject["numStartups"].toString())
-        assertEquals("fake-token-b", json.parseToJsonElement(File(store, "acc-b.json").readText()).jsonObject["claudeAiOauth"]!!.jsonObject["accessToken"]!!.jsonPrimitive.content)
-
-        // Claude Code 刷新过 a 的令牌：换走时存的是新的那份
-        credentials.writeText(credentials.readText().replace("fake-token-a", "fake-token-a2").replace("fake-refresh-a", "fake-refresh-a2"))
-        assertEquals(SwitchOutcome.Done("acc-b"), accounts.switch("acc-b"))
-        assertEquals("fake-token-b", token())
-        assertTrue("fake-refresh-a2" in File(store, "acc-a.json").readText())
-
-        // 输出里没有令牌
-        val raw = run("exec bash -c \"\$(cat '${File("src/main/assets/zeta_accounts.sh").absolutePath}')\" zeta list zeta-dev")
-        assertFalse(raw, "fake-token" in raw || "fake-refresh" in raw)
-
-        assertEquals(SwitchOutcome.Missing, accounts.switch("acc-zzz"))
-        assertEquals(SwitchOutcome.Missing, accounts.switch("../acc-a"))
-        accounts.remove("acc-a")
-        assertEquals(listOf("acc-b"), accounts.list().saved.map { it.id })
-        // 删的只是副本：当前登录不动
-        assertEquals("fake-token-b", token())
+        assertEquals(listOf("claude", "claude-b"), state.all.map { it.id })
     }
 
     @Test
-    fun liveAccountIsRecognisedByItsTokenEvenIfConfigWasRevertedByAnOpenProcess() {
-        login("a")
-        accounts.save()
-        login("b")
-        accounts.save()
-        assertEquals(SwitchOutcome.Done("acc-a"), accounts.switch("acc-a"))
-        // 开着的 Claude Code 把旧账号写回了 ~/.claude.json（见 ClaudeCodeQuotaContractTest）：令牌是 a 的，记录说是 b
-        config.writeText(config.readText().replace("acc-a", "acc-b").replace("a@example.com", "b@example.com"))
+    fun parsesUnknownLoginAndLoggedOut() {
+        val unknown = ClaudeAccounts.parse(unknownLive)
+        assertTrue(unknown.loggedIn)
+        assertEquals("", unknown.current!!.id)
+        assertEquals("x@example.com", unknown.current!!.title)
+        assertEquals("Pro", unknown.current!!.plan)
+        assertTrue(unknown.saved.isEmpty())
+        assertEquals(listOf(""), unknown.all.map { it.id })
+
+        val out = ClaudeAccounts.parse(status("claude-b", null, account("claude", parked = true)))
+        assertFalse(out.loggedIn)
+        assertNull(out.current)
+        assertEquals(listOf("claude"), out.saved.map { it.id })
+
+        assertThrows(ClaudeConfigException::class.java) { ClaudeAccounts.parse("not json") }
+    }
+
+    @Test
+    fun freeNamesGoClaudeThenLetters() {
+        assertEquals("claude", ClaudeAccounts.freeName(emptySet()))
+        assertEquals("claude", ClaudeAccounts.freeName(setOf("claude-b")))
+        assertEquals("claude-c", ClaudeAccounts.freeName(setOf("claude", "claude-b")))
+        val all = setOf("claude") + ('b'..'z').map { "claude-$it" }
+        assertEquals("claude-27", ClaudeAccounts.freeName(all))
+    }
+
+    // ---------- 经脚本跑 ----------
+
+    @Test
+    fun listRunsClaudeSwitch() {
+        installFake(twoAccounts)
         val state = accounts.list()
-        assertEquals("acc-a", state.current!!.id)
-        assertEquals("a@example.com", state.current!!.email)
-        // 换走时存回 a 那一份，不会把 a 的令牌存到 b 名下
-        assertEquals(SwitchOutcome.Done("acc-b"), accounts.switch("acc-b"))
-        assertTrue("fake-token-a" in File(home, ".config/zeta-dev/accounts/acc-a.json").readText())
-        assertTrue("fake-token-b" in File(home, ".config/zeta-dev/accounts/acc-b.json").readText())
-        assertEquals("acc-b", configAccount())
+        assertEquals("claude", state.current!!.id)
+        assertEquals(listOf("claude", "claude-b"), state.saved.map { it.id })
+        assertEquals(listOf("--json"), calls())
     }
 
     @Test
-    fun openClaudeProcessesBlockTheSwitch() {
-        login("a")
-        accounts.save()
-        login("b")
+    fun switchMapsExitCodes() {
+        installFake(twoAccounts)
+        assertEquals(SwitchOutcome.Done("claude-b"), accounts.switch("claude-b"))
+        assertEquals("claude-b", calls().last())
+
+        failWith("claude-b", 1, "claude-switch: 上次换号（换到 claude-b）中途出错，现场留在 pending.json；不自动补做\n")
+        assertEquals(SwitchOutcome.Failed("上次换号（换到 claude-b）中途出错，现场留在 pending.json；不自动补做"), accounts.switch("claude-b"))
+
+        failWith("claude-b", 1, "claude-switch: 还有 Claude Code 进程在跑，先全部退出再换号：\n  123 claude\n")
+        val busy = accounts.switch("claude-b")
+        assertTrue(busy.toString(), busy is SwitchOutcome.Busy && busy.message.startsWith("还有 Claude Code 进程在跑") && "123 claude" in busy.message)
+
+        failWith("claude-z", 2, "claude-switch: 没有叫 claude-z 的账号，未改动；加新账号用 claude-switch add claude-z\n")
+        assertEquals(SwitchOutcome.Missing, accounts.switch("claude-z"))
+
+        failWith("claude-y", 2, "claude-switch: 读写文件出错：disk full\n")
+        assertEquals(SwitchOutcome.Failed("读写文件出错：disk full"), accounts.switch("claude-y"))
+    }
+
+    @Test
+    fun prepareLoginParksTheLiveAccountUnderAFreeName() {
+        installFake(twoAccounts)
+        assertEquals(SwitchOutcome.Done("claude-c"), accounts.prepareLogin())
+        assertEquals(listOf("--json", "add claude-c"), calls())
+    }
+
+    @Test
+    fun prepareLoginUsesAFreeBuiltinNameBySwitchingToIt() {
+        // 只用过主号：第二账号 claude-b 空着，add 不收固定的号，直接换过去就是存档并退出
+        installFake(status("claude", account("claude", current = true), account("claude", current = true)))
+        assertEquals(SwitchOutcome.Done("claude-b"), accounts.prepareLogin())
+        assertEquals(listOf("--json", "claude-b"), calls())
+    }
+
+    @Test
+    fun prepareLoginRecordsAnUnknownLoginFirst() {
+        installFake(unknownLive)
+        assertEquals(SwitchOutcome.Done("claude-b"), accounts.prepareLogin())
+        // 先把认不出的登录 add 成 claude-c（不改登录；add 不收固定的号），再换到空着的 claude-b 把它存档并退出
+        assertEquals(listOf("--json", "add claude-c", "claude-b"), calls())
+    }
+
+    @Test
+    fun prepareLoginStopsWhenTheFirstAddFails() {
+        installFake(unknownLive)
+        failWith("add", 1, "claude-switch: 还有 Claude Code 进程在跑，先全部退出再换号：\n  123 claude\n")
+        assertTrue(accounts.prepareLogin() is SwitchOutcome.Busy)
+        assertEquals(listOf("--json", "add claude-c"), calls())
+    }
+
+    @Test
+    fun prepareLoginDoesNothingWhenLoggedOut() {
+        installFake(status("claude-b", null, account("claude", parked = true)))
+        assertEquals(SwitchOutcome.Done(""), accounts.prepareLogin())
+        assertEquals(listOf("--json"), calls())
+    }
+
+    @Test
+    fun saveNamesOnlyAnUnknownLogin() {
+        installFake(twoAccounts)
+        assertEquals("claude", accounts.save())
+        assertEquals(listOf("--json"), calls())
+
+        installFake(unknownLive)
+        File(fake, "calls").delete()
+        assertEquals("claude-c", accounts.save())
+        assertEquals(listOf("--json", "add claude-c"), calls())
+
+        failWith("add", 2, "claude-switch: 已经有叫 claude-c 的账号，未改动\n")
+        assertEquals("已经有叫 claude-c 的账号，未改动", assertThrows(ClaudeConfigException::class.java) { accounts.save() }.message)
+
+        installFake(status("claude", null))
+        assertNull(accounts.save())
+    }
+
+    @Test
+    fun removeRunsClaudeSwitchRemove() {
+        installFake(twoAccounts)
+        accounts.remove("claude-b")
+        assertEquals("remove claude-b", calls().last())
+        failWith("remove", 1, "claude-switch: claude（主号）是在用的账号，未改动；先换到别的号再删\n")
+        val error = assertThrows(ClaudeConfigException::class.java) { accounts.remove("claude") }
+        assertEquals("claude（主号）是在用的账号，未改动；先换到别的号再删", error.message)
+    }
+
+    @Test
+    fun missingClaudeSwitchIsAClearFailure() {
+        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.list() }.message)
+        assertEquals(SwitchOutcome.Failed(ClaudeAccounts.NOT_INSTALLED), accounts.switch("claude-b"))
+        assertEquals(SwitchOutcome.Failed(ClaudeAccounts.NOT_INSTALLED), accounts.prepareLogin())
+        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.remove("claude-b") }.message)
+        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.save() }.message)
+    }
+
+    @Test
+    fun openClaudeProcessesAreListedAndExplained() {
+        assumeTrue("要 jq", runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }.getOrDefault(false))
+        installFake(twoAccounts)
         // 一个“别处的” Claude Code：~/.claude/sessions 里登记着、进程还活着
         val other = live()
         session(other, status = "idle")
@@ -157,18 +270,21 @@ class ClaudeAccountsTest {
         // 进程已经没了：不算
         File(home, ".claude/sessions/1.json").writeText("""{"pid":2147480000,"sessionId":"s-dead","status":"busy"}""")
 
+        val expected = setOf(ClaudeProc(other.pid().toInt(), "", "idle", "interactive"), ClaudeProc(zeta.pid().toInt(), "zeta", "busy", "interactive"))
         val state = accounts.list()
-        assertEquals(setOf(ClaudeProc(other.pid().toInt(), "", "idle", "interactive"), ClaudeProc(zeta.pid().toInt(), "zeta", "busy", "interactive")), state.processes.toSet())
+        assertEquals(expected, state.processes.toSet())
         val blocker = ClaudeAccounts.blocker(state.processes, "zeta-dev")
         assertNotNull(blocker)
         assertTrue(blocker!!, "另一个 Zeta（正式版）开着 1 个对话，其中 1 个在进行" in blocker && "1 个别处开着的 Claude Code" in blocker)
 
-        val outcome = accounts.switch("acc-a")
-        assertTrue(outcome.toString(), outcome is SwitchOutcome.Busy && outcome.processes.size == 2)
-        // 没换
-        assertEquals("fake-token-b", token())
+        // claude-switch 拒绝时带上脚本列的进程
+        failWith("claude-b", 1, "claude-switch: 还有 Claude Code 进程在跑，先全部退出再换号：\n  1 claude\n")
+        val outcome = accounts.switch("claude-b")
+        assertTrue(outcome.toString(), outcome is SwitchOutcome.Busy && outcome.processes.toSet() == expected)
 
-        // 只剩本包自己的（Zeta 正在关）：不算阻碍；关掉以后就能换
+        // 只剩本包自己的（Zeta 正在关）：不算阻碍；换号前脚本会等它退出（最多约 8 秒）再跑 claude-switch
+        File(fake, "claude-b.code").delete()
+        File(fake, "claude-b.err").delete()
         other.destroyForcibly().waitFor()
         zeta.destroyForcibly().waitFor()
         val mine = live()
@@ -176,10 +292,10 @@ class ClaudeAccountsTest {
         File(home, ".cache/zeta-dev/hosts/k2").mkdirs()
         File(home, ".cache/zeta-dev/hosts/k2/pid").writeText("${mine.pid()}")
         assertNull(ClaudeAccounts.blocker(accounts.list().processes, "zeta-dev"))
-        // 换的脚本会等它退出（最多约 8 秒）
         Thread { Thread.sleep(600); mine.destroyForcibly() }.start()
-        assertEquals(SwitchOutcome.Done("acc-a"), accounts.switch("acc-a"))
-        assertEquals("fake-token-a", token())
+        val started = System.currentTimeMillis()
+        assertEquals(SwitchOutcome.Done("claude-b"), accounts.switch("claude-b"))
+        assertTrue(System.currentTimeMillis() - started >= 500)
     }
 
     // ---------- 工具 ----------
@@ -193,15 +309,6 @@ class ClaudeAccountsTest {
         File(home, ".claude/sessions/${process.pid()}.json").writeText(
             """{"pid":${process.pid()},"procStart":"$start","sessionId":"s-${process.pid()}","kind":"interactive","status":"$status"}""",
         )
-    }
-
-    private fun mode(file: File): String = run("stat -c %a '${file.path}'").trim()
-
-    private fun run(command: String): String {
-        val p = localShell(home).start(command)
-        val out = p.inputStream.bufferedReader().readText()
-        p.waitFor(30, TimeUnit.SECONDS)
-        return out
     }
 
     companion object {

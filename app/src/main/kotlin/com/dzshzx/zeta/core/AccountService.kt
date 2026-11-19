@@ -17,8 +17,9 @@ import kotlin.concurrent.thread
 private const val OwnConversationsBusy = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
 
 /**
- * 账号页背后的状态：存着哪些账号、当前是哪个、正在切换。切换和登录都会改 Linux 用户的 Claude Code 登录状态，
- * 两个 Zeta 包和终端里的 claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做（见 [ClaudeAccounts.blocker]）。
+ * 账号页背后的状态：claude-switch 管着哪些账号、当前是哪个、正在切换。切换和登录都会改 Linux 用户的 Claude Code 登录状态，
+ * 两个 Zeta 包和终端里的 claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做：claude-switch 自己会拒绝，
+ * 这里先看一遍是为了说清是谁挡着（见 [ClaudeAccounts.blocker]）。
  */
 class AccountService(private val hub: ConversationHub) {
     private val main = Handler(Looper.getMainLooper())
@@ -36,7 +37,7 @@ class AccountService(private val hub: ConversationHub) {
         private set
 
     private fun accounts(): ClaudeAccounts? = hub.env?.let { config ->
-        ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script, AppVariant.current.linuxName)
+        ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script)
     }
 
     fun refresh() = refresh {}
@@ -53,8 +54,24 @@ class AccountService(private val hub: ConversationHub) {
         }
     }
 
-    /** 把当前登录存一份（登录新账号之前和之后）。阻塞，别在主线程上调用；没成功就算了。 */
-    internal fun saveCurrentBlocking() {
+    /**
+     * 登录另一个号之前：在用的号交给 claude-switch 存档并退出登录（还没记过的先记下），登录后的新号由它记成新名字。
+     * 没登录时什么都不做。返回没做成的原因，做成了为 null。阻塞，别在主线程上调用。
+     */
+    internal fun prepareLoginBlocking(): String? {
+        val client = accounts() ?: return null
+        val outcome = runCatching { synchronized(hub.quota.probeLock) { client.prepareLogin() } }
+            .getOrElse { SwitchOutcome.Failed(it.message ?: "没有成功") }
+        return when (outcome) {
+            is SwitchOutcome.Done -> null
+            is SwitchOutcome.Busy -> "登录前要先把在用的账号存起来：${busyMessage(outcome)}"
+            SwitchOutcome.Missing -> "登录前没能把在用的账号存起来"
+            is SwitchOutcome.Failed -> "登录前没能把在用的账号存起来：${outcome.message}"
+        }
+    }
+
+    /** 登录成功以后：新登录还没记过（claude-switch 认不出）时给它起个名字记下。阻塞，别在主线程上调用；没成功就算了。 */
+    internal fun recordCurrentBlocking() {
         runCatching { accounts()?.save() }
     }
 
@@ -106,9 +123,8 @@ class AccountService(private val hub: ConversationHub) {
                         after?.let { state = it }
                         when (outcome) {
                             is SwitchOutcome.Done -> switched()
-                            is SwitchOutcome.Busy -> problem = ClaudeAccounts.blocker(outcome.processes)
-                                ?: "这里的对话进程还没退出，过一会儿再试"
-                            SwitchOutcome.Missing -> problem = "存着的这个账号已经不在了"
+                            is SwitchOutcome.Busy -> problem = busyMessage(outcome)
+                            SwitchOutcome.Missing -> problem = "这个账号已经不在了"
                             is SwitchOutcome.Failed -> problem = outcome.message
                         }
                     }
@@ -116,6 +132,11 @@ class AccountService(private val hub: ConversationHub) {
             }
         }
     }
+
+    /** 被开着的 Claude Code 挡住时给用户的话：能认出是谁就说是谁，只剩本包自己的就请稍等，都认不出时用 claude-switch 的原话。 */
+    private fun busyMessage(outcome: SwitchOutcome.Busy): String =
+        ClaudeAccounts.blocker(outcome.processes)
+            ?: if (outcome.processes.isNotEmpty() || outcome.message.isBlank()) "这里的对话进程还没退出，过一会儿再试" else outcome.message
 
     private fun finish(message: String, listed: AccountsState? = null) {
         main.post {
@@ -138,19 +159,23 @@ class AccountService(private val hub: ConversationHub) {
         }
     }
 
-    /** 删掉存着的一份。只删副本：那个账号在别处的登录不受影响。 */
+    /** 删掉一个不在用的号的存档与记录（claude-switch remove）。只删本机这一份：那个账号在服务端仍是登录状态。 */
     fun remove(target: ClaudeAccount) {
         val client = accounts() ?: return
         thread(name = "zeta-accounts", isDaemon = true) {
-            runCatching { client.remove(target.id) }
+            val removed = runCatching { client.remove(target.id) }
             val listed = runCatching { client.list() }.getOrNull()
-            main.post { listed?.let { state = it } }
+            main.post {
+                listed?.let { state = it }
+                removed.onFailure { problem = "没有移除：${it.message}" }
+            }
         }
     }
 
     /**
-     * 添加账号前的检查：和切换一样不能有别的 Claude Code 开着（登录也会改 ~/.claude.json，开着的进程会写回旧账号）。
-     * 能开始时返回 true，并关掉本包闲着的对话进程；不能时把原因放进 [problem]。[onReady] 在主线程上调用。
+     * 添加账号前的检查：和切换一样不能有别的 Claude Code 开着（登录前 claude-switch 要把在用的号存档并退出，开着的进程会拦着它，
+     * 也会把旧账号写回 ~/.claude.json）。能开始时关掉本包闲着的对话进程，再在主线程上调 [onReady]；不能时把原因放进 [problem]。
+     * 真正的存档在用户点开始登录时做（[LoginFlow.start] 经 [prepareLoginBlocking]）。
      */
     fun prepareLogin(onReady: () -> Unit) {
         localBlocker()?.let { problem = it; return }
