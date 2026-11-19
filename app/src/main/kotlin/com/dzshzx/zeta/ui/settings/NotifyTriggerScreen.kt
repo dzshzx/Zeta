@@ -111,13 +111,7 @@ internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
     ArrowPreference(
         title = "通知触发",
         startAction = { SettingsIcon(ZetaIcons.Bell, SettingsHue.Automation) },
-        endActions = {
-            when {
-                rules.isEmpty() -> {}
-                enabled == 0 -> PreferenceValue("都关着")
-                else -> PreferenceValue("$enabled 条开着")
-            }
-        },
+        endActions = { if (rules.isNotEmpty()) PreferenceValue(if (enabled == 0) "都关着" else "$enabled 条开着") },
         onClick = onOpen,
     )
 }
@@ -280,7 +274,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
     ) {
         // 名称是跑完那条通知的标题，也是每次运行那个对话的名字
         item(key = "name") {
-            FieldCard(footer = null) {
+            FieldCard {
                 InputView(value = draft.name, onValueChange = { draft = draft.copy(name = it.take(NotifyRules.MAX_NAME)) }, title = "名称", label = "快递取件提醒")
             }
         }

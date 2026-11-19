@@ -37,9 +37,10 @@ internal fun SettingsIcon(icon: ImageVector, hue: SettingsHue, enabled: Boolean 
         imageVector = icon,
         contentDescription = null,
         modifier = Modifier.size(24.dp),
-        tint = when {
-            !enabled -> colors.disabledNeutral
-            else -> when (hue) {
+        tint = if (!enabled) {
+            colors.disabledNeutral
+        } else {
+            when (hue) {
                 SettingsHue.Claude -> colors.blue
                 SettingsHue.System -> colors.green
                 SettingsHue.Files -> colors.orange

@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.ui.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
@@ -16,8 +17,8 @@ internal fun modelChoices(hub: ConversationHub): List<Pair<String, String>> =
 internal fun modelName(hub: ConversationHub, value: String): String = modelChoices(hub).firstOrNull { it.first == value }?.second ?: value
 
 /**
- * 「跟随当前设置」加 [choices]（值和显示名）的下拉；null 表示跟随。[value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。
- * 定时任务、通知触发、数字助理给对话单独定模型、思考强度、权限模式都用它。
+ * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。
+ * 设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定模型、思考强度、权限模式都用它；[startAction] 是设置首页的行首图标。
  */
 @Composable
 internal fun FollowDropdownPreference(
@@ -25,13 +26,18 @@ internal fun FollowDropdownPreference(
     choices: List<Pair<String, String>>,
     value: String?,
     unknown: (String) -> String = { it },
+    followLabel: String = "跟随当前设置",
+    startAction: (@Composable () -> Unit)? = null,
     onChange: (String?) -> Unit,
 ) {
-    val options = listOf<Pair<String?, String>>(null to "跟随当前设置") + choices +
-        listOfNotNull(value?.takeIf { v -> choices.none { it.first == v } }?.let { it to unknown(it) })
+    val options = remember(choices, value, followLabel) {
+        listOf<Pair<String?, String>>(null to followLabel) + choices +
+            listOfNotNull(value?.takeIf { v -> choices.none { it.first == v } }?.let { it to unknown(it) })
+    }
     OverlayDropdownPreference(
         title = title,
-        items = options.map { it.second },
+        startAction = startAction,
+        items = remember(options) { options.map { it.second } },
         selectedIndex = options.indexOfFirst { it.first == value },
         onSelectedIndexChange = { index -> options.getOrNull(index)?.let { onChange(it.first) } },
     )

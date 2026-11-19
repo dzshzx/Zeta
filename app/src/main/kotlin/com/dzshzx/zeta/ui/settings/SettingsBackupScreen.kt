@@ -48,7 +48,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /** 读完备份文件、比对过当前设置后要给人看的结果。 */
-internal sealed interface ImportReview {
+private sealed interface ImportReview {
     data class Failed(val reason: String) : ImportReview
     data class Ready(val backup: BackupFile.Valid, val plan: ImportPlan) : ImportReview
 }
@@ -58,7 +58,7 @@ internal sealed interface ImportReview {
  * 页面列表里的两行和 overlays 里的对话框（[SettingsBackupDialogs]）共用这一份。
  */
 @Stable
-internal class SettingsBackupState {
+private class SettingsBackupState {
     var busy by mutableStateOf(false)
     var review by mutableStateOf<ImportReview?>(null)
     var export: () -> Unit = {}
@@ -66,7 +66,7 @@ internal class SettingsBackupState {
 }
 
 @Composable
-internal fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
+private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember { SettingsBackupState() }
@@ -122,7 +122,7 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
 
 /** 导入前的核对：读不了、没有要改的、确认导入。放在页面的 overlays 里。 */
 @Composable
-internal fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupState) {
+private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // 关掉的对话框还要播完退场动画，内容取最后一次的

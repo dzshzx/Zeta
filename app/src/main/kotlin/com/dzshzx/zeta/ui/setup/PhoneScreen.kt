@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.ui.setup
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +13,8 @@ import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.settings.PermissionId
+import com.dzshzx.zeta.ui.settings.openPermissionSettings
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
@@ -127,9 +127,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item {
                         ArrowPreference(
                             title = "打开系统的无障碍设置",
-                            onClick = {
-                                runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                            },
+                            onClick = { openPermissionSettings(context, PermissionId.Accessibility) },
                         )
                     }
                 }

@@ -517,14 +517,14 @@ class Conversation(
 
     fun chooseModel(value: String?) {
         model = value
-        hub.settings.model = value
+        hub.rememberDefaultModel(value)
         process?.send(controlRequest { put("subtype", "set_model"); put("model", value ?: "default") })
         process?.let(::queryUsage)
     }
 
     /** 思考强度：这个对话立即生效（apply_flag_settings），也作为之后新对话的默认值。null 回到 Claude Code 自己的设置。 */
     fun chooseEffort(value: String?) {
-        hub.settings.effort = value
+        hub.rememberDefaultEffort(value)
         applyEffort(value)
     }
 

@@ -109,7 +109,7 @@ class PromptsCompactShots : ShotTest() {
     @Test
     fun settingsGroup() {
         val hub = Fixtures.readyHub(app)
-        hub.settings.autoCompactPercent = 70
+        hub.chooseAutoCompactPercent(70)
         shoot("settings-compact", prepare = { onNodeWithText("压缩时机").scrollIntoView() }) {
             SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
         }

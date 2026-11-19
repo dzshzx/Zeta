@@ -106,19 +106,56 @@ class ConversationHub(private val app: Application) {
         settings.autoReadAnswers = enabled
     }
 
-    /**
-     * 设置页改新对话的默认模型。输入栏里选模型也存成这个默认值（[Conversation.chooseModel]），两边读写同一份；
-     * 当前对话还没开始时它也跟着换，回到聊天页看到的和设置页一致。null 是 Claude Code 自己的默认模型。
-     */
-    fun chooseDefaultModel(value: String?) {
-        settings.model = value
-        current.takeIf { it.notStarted }?.chooseModel(value)
+    /** 新对话第一轮回答后请 Claude Code 起标题；每次要起标题时读，关掉后还没起的也不再起。 */
+    var autoTitle by mutableStateOf(settings.autoTitle)
+        private set
+
+    fun chooseAutoTitle(enabled: Boolean) {
+        autoTitle = enabled
+        settings.autoTitle = enabled
     }
 
-    /** 设置页改新对话的默认思考强度，和 [chooseDefaultModel] 一样；null 按 Claude Code 自己的设置。 */
-    fun chooseDefaultEffort(value: String?) {
+    /** Zeta 起的对话要不要自动压缩、用到窗口的百分之几时压缩（null 是快满时）。起进程时带上，已经在跑的对话下次起进程时生效。 */
+    var autoCompact by mutableStateOf(settings.autoCompact)
+        private set
+    var autoCompactPercent by mutableStateOf(settings.autoCompactPercent)
+        private set
+
+    fun chooseAutoCompact(enabled: Boolean) {
+        autoCompact = enabled
+        settings.autoCompact = enabled
+    }
+
+    fun chooseAutoCompactPercent(percent: Int?) {
+        autoCompactPercent = percent
+        settings.autoCompactPercent = percent
+    }
+
+    /** 新对话的默认模型（null 是 Claude Code 自己的默认模型）和思考强度（null 按 Claude Code 的设置）。 */
+    var defaultModel by mutableStateOf(settings.model)
+        private set
+    var defaultEffort by mutableStateOf(settings.effort)
+        private set
+
+    /** 存成新对话的默认模型：输入栏里选模型（[Conversation.chooseModel]）和设置页都走这里。 */
+    internal fun rememberDefaultModel(value: String?) {
+        defaultModel = value
+        settings.model = value
+    }
+
+    internal fun rememberDefaultEffort(value: String?) {
+        defaultEffort = value
         settings.effort = value
-        current.takeIf { it.notStarted }?.chooseEffort(value)
+    }
+
+    /** 设置页改新对话的默认模型：当前对话还没开始时它也跟着换，回到聊天页看到的和设置页一致。 */
+    fun chooseDefaultModel(value: String?) {
+        if (current.notStarted) current.chooseModel(value) else rememberDefaultModel(value)
+    }
+
+    /** 设置页改新对话的默认思考强度，和 [chooseDefaultModel] 一样。 */
+    fun chooseDefaultEffort(value: String?) {
+        if (current.notStarted) current.chooseEffort(value) else rememberDefaultEffort(value)
     }
 
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
@@ -145,6 +182,11 @@ class ConversationHub(private val app: Application) {
         backgroundScreen = settings.backgroundScreen
         autoLoadRemoteImages = settings.autoLoadRemoteImages
         autoReadAnswers = settings.autoReadAnswers
+        autoTitle = settings.autoTitle
+        autoCompact = settings.autoCompact
+        autoCompactPercent = settings.autoCompactPercent
+        defaultModel = settings.model
+        defaultEffort = settings.effort
         darkTheme = settings.darkTheme
         pinnedSessions = settings.pinnedSessions
         SharedFolders.current = settings.sharedFolders

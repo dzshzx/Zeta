@@ -97,13 +97,7 @@ internal fun ScheduleEntry(onOpen: () -> Unit) {
         title = "定时任务",
         summary = next?.let { "下次 " + Schedules.formatWhen(it, now, zone) },
         startAction = { SettingsIcon(ZetaIcons.Clock, SettingsHue.Automation) },
-        endActions = {
-            when {
-                tasks.isEmpty() -> {}
-                enabled.isEmpty() -> PreferenceValue("都关着")
-                else -> PreferenceValue("${enabled.size} 个开着")
-            }
-        },
+        endActions = { if (tasks.isNotEmpty()) PreferenceValue(if (enabled.isEmpty()) "都关着" else "${enabled.size} 个开着") },
         onClick = onOpen,
     )
 }
@@ -139,12 +133,11 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
                     item { BasicComponent(title = "还没有定时任务", summary = "点右上角 + 新建", enabled = false) }
                 }
                 tasks.forEach { task ->
-                    val next = if (task.enabled) Schedules.nextTrigger(task.rule, now, zone) else null
                     val last = task.lastRun
                     // 摘要一行：怎么重复，再加状态。关没关着看开关；下次什么时候在首页入口和编辑页的“时间”下面
                     val state = when {
                         last?.outcome == RunOutcome.Running -> "正在运行"
-                        task.enabled && next == null -> "时间已过"
+                        task.enabled && Schedules.nextTrigger(task.rule, now, zone) == null -> "时间已过"
                         else -> last?.let { "上次" + outcomeWord(it.outcome) }
                     }
                     item(key = task.id) {
@@ -286,12 +279,12 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     ) {
         // 名称是跑完那条通知的标题，也是每次运行那个对话的名字；指令到点时原样发给 Claude，和在输入框里发的一样
         item(key = "name") {
-            FieldCard(footer = null) {
+            FieldCard {
                 InputView(value = name, onValueChange = { name = it.take(Schedules.MAX_NAME) }, title = "名称", label = "每日简报")
             }
         }
         item(key = "prompt") {
-            FieldCard(footer = null) {
+            FieldCard {
                 InputView(
                     value = prompt,
                     onValueChange = { prompt = it },
@@ -481,7 +474,7 @@ internal fun DangerRow(title: String, onClick: () -> Unit) {
  * 左右和设置分组的卡片对齐，和下一张卡片隔 16dp。
  */
 @Composable
-internal fun FieldCard(footer: String?, field: @Composable () -> Unit) {
+internal fun FieldCard(footer: String? = null, field: @Composable () -> Unit) {
     Column {
         Box(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = if (footer == null) 16.dp else 0.dp)) { field() }
         if (footer != null) PagerFooterPreference(summary = footer)
