@@ -15,6 +15,9 @@
   ls <目录>             文件浏览：列出一个目录（第一行概要，之后一行一项）
   read <文件> <字节数>   文件浏览：读一个文本文件的开头，最多这么多字节
   mounts <名字…>        共享文件夹：/mnt/shared 下各项有没有挂上、当前用户能不能读写
+  storage [<id>…]      存储页：各类占多少空间、能清掉多少（<id> 是应用认为正在进行、要保护的会话）
+  storage-sessions <项目目录> [<id>…]  存储页：一个项目里每个会话占的空间
+  clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见“存储”一节）
 """
 import base64
 import datetime
@@ -982,6 +985,624 @@ def cmd_mounts(names):
              "write": os.access(path, os.W_OK)})
 
 
+# ---- 存储：设置里“存储”页的统计和清理 ----
+# 统计只看大小和个数，不读文件内容（只有两处例外：在进行中的会话记录里找它用到的附件目录，在 settings.json 里取 cleanupPeriodDays）。
+# 清理只删各类 plan_* 列出的候选，删之前每一项再照 safe_child 核一遍，规矩同 session_dir：只认预期的那一层、
+# 不跟符号链接、真实路径落在预期目录下。正在进行的对话一律不碰：Claude Code 进程还活着的会话（终端里的、
+# 两个 Zeta 包的都算）加上应用传进来的。会话记录本身（<项目>/<id>.jsonl）不在任何一类里，删会话走 delete。
+
+CLAUDE_HOME = os.path.expanduser("~/.claude")
+ZETA_CACHE = os.path.expanduser("~/.cache/%s" % NAME)
+UUID_TEXT = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+UUID_NAME = re.compile(UUID_TEXT)
+FRESH_SECONDS = 600          # 十分钟内动过的不删：可能正在写
+UPLOAD_KEEP_SECONDS = 3600   # 附件一小时内的不删：可能还在输入框里，没发出去
+TMP_IDLE_SECONDS = 86400     # /tmp 里一天内动过的不删
+TOOL_BUSY_SECONDS = 600      # 十分钟内启动的 npm 进程可能正在往缓存里写
+
+
+def storage_tmp():
+    """Debian 的 /tmp。单元测试经 ZETA_STORAGE_TEST_TMP 换成临时目录：名字必须以 zeta-test-tmp 开头，设错了也落不到别处。"""
+    test = os.environ.get("ZETA_STORAGE_TEST_TMP") or ""
+    if os.path.isabs(test) and os.path.basename(test.rstrip("/")).startswith("zeta-test-tmp"):
+        return test
+    return "/tmp"
+
+
+def children(directory):
+    try:
+        with os.scandir(directory) as it:
+            return sorted(entry.name for entry in it)
+    except OSError:
+        return []
+
+
+def usage(path, seen):
+    """path 占的磁盘空间（不跟符号链接），算法同 du：按块计，硬链接只算一次。
+    返回 (字节, 文件数, 最近一次修改的时刻, 里面有没有套接字、管道之类的特殊文件)。"""
+    total = files = 0
+    newest = 0.0
+    special = False
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            info = os.lstat(current)
+        except OSError:
+            continue
+        mode = info.st_mode
+        if info.st_nlink > 1 and not stat.S_ISDIR(mode):
+            key = (info.st_dev, info.st_ino)
+            if key in seen:
+                continue
+            seen.add(key)
+        total += info.st_blocks * 512
+        newest = max(newest, info.st_mtime)
+        if stat.S_ISDIR(mode):
+            try:
+                with os.scandir(current) as it:
+                    stack.extend(entry.path for entry in it)
+            except OSError:
+                pass
+        elif stat.S_ISREG(mode):
+            files += 1
+        elif not stat.S_ISLNK(mode):
+            special = True
+    return total, files, newest, special
+
+
+def safe_child(root, name, directory):
+    """root 下名叫 name 的一项能不能删，规矩照 session_dir：只认 root 的直接下一层；它自己和 root 都不是符号链接；
+    种类和预期一致（directory 为真要真目录，否则要普通文件）；真实路径就是 root 的真实路径下的 name。
+    能删返回真实路径，否则 None。"""
+    if not name or name in (".", "..") or "/" in name or "\0" in name:
+        return None
+    if os.path.islink(root) or not os.path.isdir(root):
+        return None
+    path = os.path.join(root, name)
+    try:
+        mode = os.lstat(path).st_mode
+    except OSError:
+        return None
+    if stat.S_ISLNK(mode) or not (stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)):
+        return None
+    real = os.path.realpath(path)
+    if real != os.path.join(os.path.realpath(root), name):
+        return None
+    return real
+
+
+def remove_child(root, name, directory, size):
+    """删一个候选，删之前再核一遍。目录用 rmtree：Linux 上它按文件描述符逐层删，不跟进符号链接，
+    删到一半被人换成链接也删不到外面去。返回腾出的字节数；没删成返回 None。"""
+    real = safe_child(root, name, directory)
+    if real is None:
+        return None
+    if directory:
+        if not shutil.rmtree.avoids_symlink_attacks:
+            return None
+        shutil.rmtree(real, ignore_errors=True)
+    else:
+        try:
+            os.unlink(real)
+        except OSError:
+            pass
+    if not os.path.lexists(real):
+        return size
+    return max(0, size - usage(real, set())[0])
+
+
+def read_pid(path):
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def proc_argv(pid):
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            return f.read().split(b"\0")
+    except OSError:
+        return None
+
+
+def proc_started(pid):
+    """进程启动的时刻（秒，Unix 时间）；进程不在了返回 None。"""
+    ticks = proc_start(pid)
+    if ticks is None:
+        return None
+    try:
+        with open("/proc/stat") as f:
+            boot = next(int(line.split()[1]) for line in f if line.startswith("btime "))
+        return boot + int(ticks) / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, StopIteration):
+        return 0.0  # 算不出来就当它很早以前就在了：按时间判断的东西一律不删
+
+
+def host_alive(directory):
+    """Zeta 托管的一个对话还在不在：Claude Code 进程活着，或者应用那头的接入脚本还连着。"""
+    pid = read_pid(os.path.join(directory, "pid"))
+    argv = proc_argv(pid) if pid else None
+    if argv and any(b"claude" in a for a in argv):
+        return True
+    attach = read_pid(os.path.join(directory, "attach"))
+    argv = proc_argv(attach) if attach else None
+    return bool(argv) and b"zeta-host" in argv
+
+
+def host_session(directory, argv):
+    """托管对话的会话 id：命令行里 --resume 的，或者输出开头 init 里的 session_id。"""
+    for flag in (b"--resume", b"--session-id"):
+        if flag in argv[:-1]:
+            value = argv[argv.index(flag) + 1].decode("utf-8", "replace")
+            if UUID_NAME.fullmatch(value):
+                return value
+    try:
+        with open(os.path.join(directory, "out.jsonl"), "rb") as f:
+            m = re.search(rb'"session_id":"(' + UUID_TEXT.encode() + rb')"', f.read(65536))
+            return m.group(1).decode() if m else None
+    except OSError:
+        return None
+
+
+class StorageContext:
+    """一次统计或清理共用的信息：要保护的会话、还有记录的会话、还活着的 Claude Code 进程里最早的启动时刻。"""
+
+    def __init__(self, keep):
+        self.now = time.time()
+        self.seen = set()
+        self.keep = set(keep)
+        self.oldest = None
+        self.transcripts = {os.path.basename(p)[:-6] for p in glob.glob(os.path.join(ROOT, "*", "*.jsonl"))}
+        # Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）
+        for path in glob.glob(os.path.join(SESSIONS, "*.json")):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    info = json.load(f)
+                pid = int(info["pid"])
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            started = proc_start(pid)
+            if started is None or (info.get("procStart") and str(info["procStart"]) != started):
+                continue
+            self.live(pid, info.get("sessionId"))
+        # Zeta 托管的对话，两个包的目录都看：登记文件还没写出来时也认得
+        for directory in glob.glob(os.path.expanduser("~/.cache/zeta*/hosts/*")):
+            pid = read_pid(os.path.join(directory, "pid"))
+            argv = proc_argv(pid) if pid else None
+            if argv and any(b"claude" in a for a in argv):
+                self.live(pid, host_session(directory, argv))
+
+    def live(self, pid, session):
+        if isinstance(session, str) and session:
+            self.keep.add(session)
+        started = proc_started(pid)
+        if started is not None:
+            self.oldest = started if self.oldest is None else min(self.oldest, started)
+
+    def maybe_live(self, moment):
+        """moment 时刻建的东西可能属于还活着的进程（在最早那个进程启动之后），或者是刚写的。"""
+        if self.now - moment < FRESH_SECONDS:
+            return True
+        return self.oldest is not None and moment >= self.oldest - 60
+
+    def uploads_in_use(self):
+        """进行中的会话的记录里提到的附件目录（~/.cache/<NAME>/files/<目录>/…）。"""
+        pattern = re.compile(rb"/\.cache/" + re.escape(NAME.encode()) + rb"/files/([0-9a-f]{8})/")
+        used = set()
+        for session in self.keep:
+            if not UUID_NAME.fullmatch(session):
+                continue
+            for path in glob.glob(os.path.join(ROOT, "*", session + ".jsonl")):
+                try:
+                    with open(path, "rb") as f:
+                        tail = b""
+                        for chunk in iter(lambda: f.read(1 << 20), b""):
+                            data = tail + chunk
+                            used.update(m.decode() for m in pattern.findall(data))
+                            tail = data[-256:]
+                except OSError:
+                    continue
+        return used
+
+
+class Plan:
+    """一类东西：一共占多少，能删的候选（根目录, 名字, 是不是目录, 字节数），按来源分的小计。"""
+
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.bytes = self.files = 0
+        self.items = []
+        self.parts = {}
+        self.busy = None
+        self.prune = []  # 清完以后试着删掉的空目录（根目录, 名字）
+
+    def count(self, path):
+        size, files, newest, special = usage(path, self.ctx.seen)
+        self.bytes += size
+        self.files += files
+        return size, newest, special
+
+    def add(self, root, name, directory, size, part=None):
+        if safe_child(root, name, directory) is None:
+            return
+        self.items.append((root, name, directory, size))
+        if part:
+            total = self.parts.setdefault(part, [0, 0])
+            total[0] += size
+            total[1] += 1
+
+    def report(self, key):
+        return {"type": "zeta_storage", "key": key, "bytes": self.bytes, "files": self.files,
+                "freeable": sum(i[3] for i in self.items), "items": len(self.items), "busy": self.busy,
+                "parts": [{"name": k, "bytes": v[0], "items": v[1]} for k, v in sorted(self.parts.items())]}
+
+
+def is_dir(path):
+    return os.path.isdir(path) and not os.path.islink(path)
+
+
+def plan_zeta_files(ctx):
+    """应用送进来的附件：一小时内的、进行中的对话用到的不删。"""
+    plan = Plan(ctx)
+    root = os.path.join(ZETA_CACHE, "files")
+    used = ctx.uploads_in_use()
+    for name in children(root):
+        size, newest, _ = plan.count(os.path.join(root, name))
+        if re.fullmatch(r"[0-9a-f]{8}", name) and name not in used and ctx.now - newest >= UPLOAD_KEEP_SECONDS:
+            plan.add(root, name, True, size)
+    return plan
+
+
+def plan_zeta_hosts(ctx):
+    """后台对话的输出目录：进程和接入脚本都已经不在的。"""
+    plan = Plan(ctx)
+    root = os.path.join(ZETA_CACHE, "hosts")
+    for name in children(root):
+        path = os.path.join(root, name)
+        size, newest, _ = plan.count(path)
+        if ctx.now - newest >= FRESH_SECONDS and not host_alive(path):
+            plan.add(root, name, True, size)
+    return plan
+
+
+# Claude Code 按会话 id 存的东西：(~/.claude 下的目录, 名字的样子（第一组是会话 id）, 是不是目录)
+RESIDUE_PLACES = (
+    ("file-history", re.compile("(%s)" % UUID_TEXT), True),
+    ("session-env", re.compile("(%s)" % UUID_TEXT), True),
+    ("tasks", re.compile("(%s)" % UUID_TEXT), True),
+    ("uploads", re.compile("(%s)" % UUID_TEXT), True),
+    ("todos", re.compile(r"(%s)(?:-agent-[0-9a-f-]+)?\.json" % UUID_TEXT), False),
+)
+
+
+def plan_residue(ctx):
+    """已经没有会话记录的会话留下的东西。只算残留，不算还有记录的会话的。"""
+    plan = Plan(ctx)
+
+    def consider(root, name, session, directory, part):
+        path = os.path.join(root, name)
+        if session in ctx.transcripts or not os.path.lexists(path):
+            return
+        size, newest, _ = plan.count(path)
+        if session not in ctx.keep and ctx.now - newest >= FRESH_SECONDS:
+            plan.add(root, name, directory, size, part)
+
+    for place, pattern, directory in RESIDUE_PLACES:
+        root = os.path.join(CLAUDE_HOME, place)
+        for name in children(root):
+            m = pattern.fullmatch(name)
+            if m:
+                consider(root, name, m.group(1), directory, place)
+    # 项目目录里记录已经不在的同名目录（工具结果、子代理记录等）
+    for project in children(ROOT):
+        root = os.path.join(ROOT, project)
+        if not is_dir(root):
+            continue
+        for name in children(root):
+            if UUID_NAME.fullmatch(name):
+                consider(root, name, name, True, "projects")
+    return plan
+
+
+def plan_named(ctx, place, pattern, directory, live_by_time=False):
+    """~/.claude/<place> 里名字合 pattern 的项。名字里带会话 id 的（第一组），那个会话在进行就不删；
+    live_by_time 为真时，最早那个活着的进程启动以后建的也不删（看不出属于哪个进程的东西）。"""
+    plan = Plan(ctx)
+    root = os.path.join(CLAUDE_HOME, place)
+    for name in children(root):
+        size, newest, _ = plan.count(os.path.join(root, name))
+        m = pattern.fullmatch(name)
+        if not m:
+            continue
+        if m.groups() and m.group(1) in ctx.keep:
+            continue
+        if ctx.now - newest < FRESH_SECONDS or (live_by_time and ctx.maybe_live(newest)):
+            continue
+        plan.add(root, name, directory, size)
+    return plan
+
+
+SNAPSHOT_NAME = re.compile(r"snapshot-[A-Za-z0-9]+-(\d{10,16})-[A-Za-z0-9]+(?:-[A-Za-z0-9._-]+)?\.sh")
+
+
+def plan_snapshots(ctx):
+    """Shell 快照：每个 Claude Code 进程一份，执行命令前先载入它。不删还活着的进程可能在用的（建于最早那个进程启动之后）。"""
+    plan = Plan(ctx)
+    root = os.path.join(CLAUDE_HOME, "shell-snapshots")
+    for name in children(root):
+        size, newest, _ = plan.count(os.path.join(root, name))
+        m = SNAPSHOT_NAME.fullmatch(name)
+        if m and not ctx.maybe_live(int(m.group(1)) / 1000) and not ctx.maybe_live(newest):
+            plan.add(root, name, False, size)
+    return plan
+
+
+def running_tool(match, max_age=None):
+    """有没有本用户看得见的进程合 match（参数是命令行各段）；max_age 给了时只看这么多秒内启动的。"""
+    for entry in children("/proc"):
+        if not entry.isdigit():
+            continue
+        argv = proc_argv(int(entry))
+        if not argv or not argv[0] or not match([a.decode("utf-8", "replace") for a in argv if a]):
+            continue
+        if max_age is None:
+            return True
+        started = proc_started(int(entry))
+        if started is not None and time.time() - started < max_age:
+            return True
+    return False
+
+
+def command_names(argv):
+    """命令行前两段的文件名（node、python 起的脚本，名字在第二段）；node 改过进程标题时第一段是“npm install …”，取第一个词。"""
+    return [os.path.basename(a.split(" ")[0]) for a in argv[:2]]
+
+
+def is_npm(argv):
+    return any(n in ("npm", "npx", "npm-cli.js", "npx-cli.js") for n in command_names(argv))
+
+
+def is_pip(argv):
+    names = command_names(argv)
+    return any(re.fullmatch(r"pip[0-9.]*", n) for n in names) or ("-m" in argv[1:3] and "pip" in argv[1:4]) \
+        or (names[0] == "uv" and "pip" in argv[1:3])
+
+
+def plan_home_cache(ctx, directory, names, busy_check, busy_name):
+    """家目录下的一个包管理器缓存：directory 下 names 里的项（None 表示全部）能删；包管理器在跑时整类不删。"""
+    plan = Plan(ctx)
+    for name in children(directory):
+        size, _, _ = plan.count(os.path.join(directory, name))
+        if names is None or name in names:
+            plan.add(directory, name, is_dir(os.path.join(directory, name)), size)
+    if plan.items and busy_check():
+        plan.busy = busy_name
+    return plan
+
+
+def plan_npm(ctx):
+    # _cacache 是下载缓存（npm cache clean 删的就是它），_logs 是日志；_npx 里是 npx 装的包，MCP 服务可能正从那里运行，不删
+    return plan_home_cache(ctx, os.path.expanduser("~/.npm"), ("_cacache", "_logs"),
+                           lambda: running_tool(is_npm, TOOL_BUSY_SECONDS), "npm")
+
+
+def plan_pip(ctx):
+    return plan_home_cache(ctx, os.path.expanduser("~/.cache/pip"), None, lambda: running_tool(is_pip), "pip")
+
+
+def plan_apt(ctx):
+    """apt 下载的软件包和包索引缓存（apt-get clean 删的那些）。要 root 删，由应用以 root 执行 apt-get clean，这里只统计。"""
+    plan = Plan(ctx)
+    root = "/var/cache/apt"
+    for name in children(root):
+        path = os.path.join(root, name)
+        size, _, _ = plan.count(path)
+        if name.endswith(".bin") and safe_child(root, name, False):
+            plan.items.append((root, name, False, size))
+    archives = os.path.join(root, "archives")
+    for name in children(archives):
+        if name.endswith(".deb") and safe_child(archives, name, False):
+            plan.items.append((archives, name, False, usage(os.path.join(archives, name), set())[0]))
+    return plan
+
+
+def open_paths(root):
+    """本用户的进程打开着、当作工作目录、或映射进内存的，在 root 下面的路径。"""
+    prefix = os.path.realpath(root).rstrip("/") + "/"
+    paths = set()
+    for entry in children("/proc"):
+        if not entry.isdigit():
+            continue
+        base = "/proc/" + entry
+        links = [base + "/cwd"]
+        try:
+            links += [base + "/fd/" + fd for fd in os.listdir(base + "/fd")]
+        except OSError:
+            continue
+        for link in links:
+            try:
+                target = os.readlink(link)
+            except OSError:
+                continue
+            if target.startswith(prefix):
+                paths.add(target)
+        try:
+            with open(base + "/maps", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    fields = line.rstrip("\n").split(None, 5)
+                    if len(fields) == 6 and fields[5].startswith(prefix):
+                        paths.add(fields[5])
+        except OSError:
+            pass
+    return paths
+
+
+# /tmp 里常驻服务的目录（tmux、ssh-agent 的套接字，运行时目录，Java 进程的性能数据），即使一天没动也不删
+TMP_SERVICE_PREFIXES = (".", "tmux-", "ssh-", "runtime-", "systemd-", "hsperfdata_")
+
+
+def plan_tmp(ctx):
+    """Debian 的 /tmp：本用户的、一天没动过的、没有进程在用（打开、当工作目录、映射）的、里面没有套接字和管道的。
+    Claude Code 自己的 claude-<uid>/<工作目录>/<会话 id> 按会话看：会话在进行就不删。"""
+    plan = Plan(ctx)
+    root = storage_tmp()
+    real_root = os.path.realpath(root)
+    in_use = open_paths(root)
+    uid = os.getuid()
+
+    def removable(parent, name, part):
+        path = os.path.join(parent, name)
+        try:
+            info = os.lstat(path)
+        except OSError:
+            return
+        size, newest, special = plan.count(path)
+        if info.st_uid != uid or special or ctx.now - newest < TMP_IDLE_SECONDS:
+            return
+        real = os.path.join(os.path.realpath(parent), name)
+        if any(p == real or p.startswith(real + "/") for p in in_use):
+            return
+        plan.add(parent, name, stat.S_ISDIR(info.st_mode), size, part)
+
+    mine = "claude-%d" % uid
+    for name in children(root):
+        claude = os.path.join(root, name)
+        if name == mine and is_dir(claude):
+            for project in children(claude):
+                parent = os.path.join(claude, project)
+                if not is_dir(parent):
+                    plan.count(parent)
+                    continue
+                entries = children(parent)
+                before = len(plan.items)
+                for entry in entries:
+                    if entry in ctx.keep:
+                        plan.count(os.path.join(parent, entry))
+                    else:
+                        removable(parent, entry, "claude")
+                # 里面的都要删、自己也一天没变过（目录的修改时刻随增删项变）的工作目录，删完把空目录也去掉
+                try:
+                    info = os.lstat(parent)
+                except OSError:
+                    continue
+                if info.st_uid == uid and ctx.now - info.st_mtime >= TMP_IDLE_SECONDS and len(plan.items) - before == len(entries):
+                    plan.prune.append((claude, project))
+            continue
+        if name.startswith(TMP_SERVICE_PREFIXES):
+            plan.count(claude)
+            continue
+        removable(root, name, "other")
+    if os.path.islink(root) or real_root == "/":
+        plan.items, plan.prune = [], []
+    return plan
+
+
+PLANS = {
+    "zeta-files": plan_zeta_files,
+    "zeta-hosts": plan_zeta_hosts,
+    "claude-residue": plan_residue,
+    "claude-debug": lambda ctx: plan_named(ctx, "debug", re.compile(r"(%s)\.txt" % UUID_TEXT), False),
+    "claude-snapshots": plan_snapshots,
+    "claude-paste": lambda ctx: plan_named(ctx, "paste-cache", re.compile(r"[0-9a-f]{16}\.txt"), False, live_by_time=True),
+    "claude-image-cache": lambda ctx: plan_named(ctx, "image-cache", re.compile("(%s)" % UUID_TEXT), True),
+    "claude-telemetry": lambda ctx: plan_named(ctx, "telemetry", re.compile(r"1p_failed_events\.(%s)\.[0-9a-f-]+\.json" % UUID_TEXT), False),
+    "apt": plan_apt,
+    "npm": plan_npm,
+    "pip": plan_pip,
+    "tmp": plan_tmp,
+}
+CLEANABLE = set(PLANS) - {"apt"}
+
+
+def cleanup_period():
+    """~/.claude/settings.json 里的 cleanupPeriodDays（只取这一项）；没设或读不了是 None。"""
+    try:
+        with open(os.path.join(CLAUDE_HOME, "settings.json"), encoding="utf-8") as f:
+            value = json.load(f).get("cleanupPeriodDays")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def project_cwd(directory, sessions):
+    """项目对应的工作目录：最新那个会话记录开头的 cwd 字段。"""
+    for name in sorted(sessions, key=lambda n: os.path.getmtime(os.path.join(directory, n)), reverse=True)[:3]:
+        try:
+            with open(os.path.join(directory, name), "rb") as f:
+                m = re.search(rb'"cwd":("(?:[^"\\]|\\.)*")', f.read(65536))
+            if m:
+                return json.loads(m.group(1).decode("utf-8", "replace"))
+        except (OSError, ValueError):
+            continue
+    return ""
+
+
+def cmd_storage(keep):
+    ctx = StorageContext(keep)
+    for key, plan_of in PLANS.items():
+        try:
+            out(plan_of(ctx).report(key))
+        except Exception:  # 一类没统计成不影响别的
+            out({"type": "zeta_storage", "key": key, "error": True})
+        sys.stdout.flush()
+    for project in children(ROOT):
+        path = os.path.join(ROOT, project)
+        if not is_dir(path):
+            continue
+        size, files, _, _ = usage(path, ctx.seen)
+        sessions = [n for n in children(path) if n.endswith(".jsonl")]
+        out({"type": "zeta_storage_project", "dir": project, "bytes": size, "files": files, "sessions": len(sessions),
+             "cwd": project_cwd(path, sessions)})
+    out({"type": "zeta_storage_settings", "cleanupPeriodDays": cleanup_period()})
+    out({"type": "zeta_storage_done"})
+
+
+def cmd_storage_sessions(project, keep):
+    """一个项目里每个会话占多少：记录文件加上同名目录。别的（自动记忆等）合成一行 rest。"""
+    directory = safe_child(ROOT, project, True)
+    if directory is None:
+        sys.exit("no such project")
+    ctx = StorageContext(keep)
+    rest = 0
+    names = children(directory)
+    sessions = {n[:-6] for n in names if n.endswith(".jsonl") and UUID_NAME.fullmatch(n[:-6])}
+    for name in names:
+        path = os.path.join(directory, name)
+        if name[:-6] in sessions and name.endswith(".jsonl"):
+            session = name[:-6]
+            size = usage(path, ctx.seen)[0]
+            if session_dir(os.path.join(ROOT, project, name)):
+                size += usage(os.path.join(directory, session), ctx.seen)[0]
+            out({"type": "zeta_storage_session", "id": session, "file": os.path.join(ROOT, project, name), "bytes": size,
+                 "updated": int(os.path.getmtime(path) * 1000), "live": session in ctx.keep})
+        elif name not in sessions:
+            rest += usage(path, ctx.seen)[0]
+    out({"type": "zeta_storage_rest", "bytes": rest})
+
+
+def cmd_clean(key, keep):
+    plan = PLANS[key](StorageContext(keep))
+    freed = removed = failed = 0
+    if plan.busy is None:
+        for root, name, directory, size in plan.items:
+            done = remove_child(root, name, directory, size)
+            if done is None:
+                failed += 1
+            else:
+                freed += done
+                removed += 1
+        for root, name in plan.prune:
+            if safe_child(root, name, True) and not children(os.path.join(root, name)):
+                try:
+                    os.rmdir(os.path.join(root, name))
+                except OSError:
+                    pass
+    out({"type": "zeta_cleaned", "key": key, "freed": freed, "removed": removed, "failed": failed, "busy": plan.busy})
+
+
 def main():
     args = sys.argv[1:]
     if args[:1] == ["list"]:
@@ -1012,10 +1633,17 @@ def main():
         cmd_read(args[1], args[2])
     elif args[:1] == ["mounts"]:
         cmd_mounts([n for n in args[1:] if re.fullmatch(r"[A-Za-z0-9._-]{1,48}", n) and n not in (".", "..")])
+    elif args[:1] == ["storage"] and all(SESSION_ID.fullmatch(a) for a in args[1:]):
+        cmd_storage(args[1:])
+    elif args[:1] == ["storage-sessions"] and len(args) >= 2 and all(SESSION_ID.fullmatch(a) for a in args[2:]):
+        cmd_storage_sessions(args[1], args[2:])
+    elif args[:1] == ["clean"] and len(args) >= 2 and args[1] in CLEANABLE and all(SESSION_ID.fullmatch(a) for a in args[2:]):
+        cmd_clean(args[1], args[2:])
     else:
         sys.exit("usage: list | history <file> | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
                  " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
-                 " | ls <dir> | read <file> <bytes> | mounts <name…>")
+                 " | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]"
+                 " | storage-sessions <project> [<id>…] | clean <kind> [<id>…]")
 
 
 main()

@@ -39,6 +39,15 @@ object ImageStore {
 
     fun cached(ref: ImageRef): ImageBitmap? = cache.get(ref.key)
 
+    /** 内存里缓存的图片一共多少字节（存储页显示）。 */
+    fun memoryBytes(): Long = cache.size().toLong()
+
+    /** 存储页的清理：清空内存里的图片和“取不到”的记录。正在显示的图片不受影响，之后需要时重新取。 */
+    fun clearMemory() {
+        cache.evictAll()
+        failed.clear()
+    }
+
     suspend fun load(hub: ConversationHub, ref: ImageRef): ImageBitmap? {
         cache.get(ref.key)?.let { return it }
         if (ref.key in failed) return null

@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -52,8 +53,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -198,8 +202,11 @@ internal fun SessionPane(
         val gone = missing - found.mapTo(HashSet()) { it.id }
         if (gone.isNotEmpty()) savePins(pins - gone)
     }
-    val all = remember(sessions, farPinned) {
-        if (farPinned.isEmpty()) sessions else (sessions + farPinned.filter { far -> sessions.none { it.id == far.id } }).sortedByDescending { it.updated }
+    // 存储页要定位的会话不在最近 300 个里时，也单独取来放进列表
+    var farRevealed by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
+    val all = remember(sessions, farPinned, farRevealed) {
+        val far = (farPinned + farRevealed).distinctBy { it.id }.filter { extra -> sessions.none { it.id == extra.id } }
+        if (far.isEmpty()) sessions else (sessions + far).sortedByDescending { it.updated }
     }
 
     // 搜索：标题、首句当场比对；对话内容交给助手，换了关键词就把上一次的停掉
@@ -279,10 +286,39 @@ internal fun SessionPane(
     val selectable = if (searching) results else visible
     val chosen = remember(all, selected) { all.filter { it.id in selected } }
 
+    // 存储页请侧栏定位一个会话（见 SessionReveal）：侧栏露出来以后切到它所在的列表，滚过去，高亮一会儿
+    val listState = rememberLazyListState()
+    var flash by remember { mutableStateOf<String?>(null) }
+    val allNow by rememberUpdatedState(all)
+    val groupsNow by rememberUpdatedState(listOf(pinned, today, earlier))
+    LaunchedEffect(revealed) {
+        if (!revealed) return@LaunchedEffect
+        snapshotFlow { SessionReveal.request }.collect { id ->
+            if (id == null) return@collect
+            SessionReveal.request = null
+            val target = allNow.firstOrNull { it.id == id }
+                ?: withContext(Dispatchers.IO) { lookupSessions(hub, listOf(id)) }?.firstOrNull { it.id == id }?.also { farRevealed = farRevealed + it }
+            if (target == null) {
+                Toast.makeText(context, "侧栏里没有这个对话（它没有可显示的内容）", Toast.LENGTH_SHORT).show()
+                return@collect
+            }
+            query = ""
+            exitSelection()
+            showArchived = target.archived
+            flash = id
+            // 等列表按新的分组排好再滚
+            withFrameNanos { }
+            withFrameNanos { }
+            revealIndex(groupsNow, id)?.let { listState.animateScrollToItem(it) }
+            delay(1800)
+            flash = null
+        }
+    }
+
     @Composable
     fun SessionItem(session: SessionSummary, snippet: String? = null) = SessionRow(
         session = session,
-        selected = session.id == currentSessionId,
+        selected = session.id == currentSessionId || session.id == flash,
         running = isRunning(session.id),
         // 正看着的对话，确认面板就在眼前，不必再标
         waiting = session.id != currentSessionId && hub.isWaiting(session.id),
@@ -340,7 +376,7 @@ internal fun SessionPane(
         if (!selecting && !searching) {
             BackgroundEntry(hub, onOpen = onOpenBackground, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 6.dp))
         }
-        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 12.dp)) {
+        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = 12.dp)) {
             if (searching) {
                 if (results.isEmpty()) {
                     item(key = "search-empty") {

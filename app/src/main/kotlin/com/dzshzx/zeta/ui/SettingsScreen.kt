@@ -32,6 +32,8 @@ import com.dzshzx.zeta.ui.settings.ScheduleScreen
 import com.dzshzx.zeta.ui.settings.SettingsBackupGroup
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
+import com.dzshzx.zeta.ui.settings.StorageEntry
+import com.dzshzx.zeta.ui.settings.StorageScreen
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
@@ -44,7 +46,13 @@ import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 
 @Composable
-internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit, onOpenPhone: () -> Unit) {
+internal fun SettingsScreen(
+    hub: ConversationHub,
+    onBack: () -> Unit,
+    onOpenLinux: () -> Unit,
+    onOpenPhone: () -> Unit,
+    onRevealSession: (String) -> Unit = {},
+) {
     // 外观、权限这两页挂在设置页自己身上：盖在设置页上面，返回键先关它们，不用改 MainActivity 的页面栈
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
     Box(Modifier.fillMaxSize()) {
@@ -71,6 +79,10 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
             NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
         }
         SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
+        SettingsSubPageHost(subPage == SettingsSubPage.Storage) {
+            // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
+            StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
+        }
     }
     BackHandler(enabled = subPage != null) { subPage = null }
     // 从通知点进来（比如无障碍被关掉的提醒）：直接打开那一页
@@ -148,6 +160,7 @@ private fun SettingsHome(
                 },
                 onClick = onOpenLinux,
             )
+            StorageEntry { onOpenSubPage(SettingsSubPage.Storage) }
         }
         SettingsBackupGroup(hub)
         Group(title = "诊断") {

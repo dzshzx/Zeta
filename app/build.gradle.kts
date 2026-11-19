@@ -18,8 +18,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 37
-        versionName = "0.6.29"
+        versionCode = 38
+        versionName = "0.6.30"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -84,6 +84,8 @@ val shotsDir = layout.buildDirectory.dir("shots").get().asFile.absolutePath
 val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + providers.environmentVariable("PATH").getOrElse("")
 
 tasks.withType<Test>().configureEach {
+    // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_helper.py、zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
+    inputs.dir("src/main/assets").withPropertyName("assetScripts").withPathSensitivity(PathSensitivity.RELATIVE)
     val androidAll: FileCollection = robolectricRuntime
     inputs.files(androidAll).withPropertyName("robolectricAndroidAll").withNormalizer(ClasspathNormalizer::class.java)
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=" + androidAll.singleFile.parentFile) })

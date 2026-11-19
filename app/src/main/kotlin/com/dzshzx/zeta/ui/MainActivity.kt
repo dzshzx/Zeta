@@ -41,6 +41,7 @@ import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
 import com.dzshzx.zeta.ui.settings.SettingsLink
+import com.dzshzx.zeta.ui.pane.SessionReveal
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -247,7 +248,21 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             onOpenTasks = { tasksScope = it },
         )
     }
-    Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }, onOpenPhone = { showPhone = true }) }
+    Page(showSettings) {
+        SettingsScreen(
+            hub = hub,
+            onBack = { showSettings = false },
+            onOpenLinux = { showLinux = true },
+            onOpenPhone = { showPhone = true },
+            // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
+            onRevealSession = { id ->
+                SessionReveal.request = id
+                showSettings = false
+                paneOpen = true
+                hub.refreshSessions()
+            },
+        )
+    }
     Page(showPhone) { PhoneScreen(hub = hub, onBack = { showPhone = false }) }
     Page(showLinux) {
         LinuxScreen(
