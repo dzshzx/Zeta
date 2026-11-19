@@ -39,6 +39,7 @@ private class PickedZip(val name: String, val bytes: ByteArray)
 /**
  * “Skills”：~/.claude/skills 下每个含 SKILL.md 的文件夹是一个 Skill。
  * 开关写的是 Claude Code 自己的设置：~/.claude/settings.json 的 skillOverrides（关掉是 "off"），和它的 /skills 菜单一样，文件不动。
+ * 账号同步的 Skill 在 ~/.claude/skills/synced，由 Claude Code 从 claude.ai 拉下来，这里只列出；标“已停用”的是 skillOverrides 里关掉了。
  */
 @Composable
 internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -72,7 +73,8 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
                     is SkillImport.Installed -> {
                         notice = ConfigNotice(
                             if (it.replaced) "已替换" else "已安装",
-                            "“${it.name}”" + (if (it.enabled) "已经可以用了，" else "装好了，但 settings.json 里把它设成了停用，打开开关后才能用；") + "之后新开始的对话里 Claude 会按需调用它。",
+                            // 没启用：settings.json 的 skillOverrides 里早就把这个名字关掉了
+                            "“${it.name}”" + if (it.enabled) "装好了，Claude 会按需调用它。" else "装好了，但它被设成停用，打开开关后才能用。",
                         )
                         reload()
                     }
@@ -161,11 +163,11 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
         },
     ) {
         item(key = "install") {
-            PreferenceGroup(title = "安装") {
+            PreferenceGroup {
                 item {
                     BasicComponent(
-                        title = if (importing) "正在检查 Skill 包" else "从 ZIP 导入",
-                        summary = if (importing) "正在验证并安装，请稍候" else "选择包含 SKILL.md 的 Skill 包，装到 ~/.claude/skills",
+                        title = "从 ZIP 导入",
+                        summary = if (importing) "正在检查并安装…" else "选一个含 SKILL.md 的 Skill 包",
                         endActions = if (importing) ({ InfiniteProgressIndicator(size = 20.dp) }) else null,
                         enabled = !operating,
                         onClick = pick,
@@ -178,12 +180,11 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "user") {
             PreferenceGroup(
                 title = "用户安装 · ${skills.size}",
-                footer = "Claude Code 读取 ~/.claude/skills 下的每个文件夹。关掉开关是在 ~/.claude/settings.json 的 skillOverrides 里把它设成 off，" +
-                    "和 Claude Code 里 /skills 关掉的效果一样：文件留着，Claude 不会再用它。改动对之后新开始的对话生效。",
+                footer = "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。",
             ) {
                 when {
                     l == null -> item { ConfigLoadingRow() }
-                    skills.isEmpty() -> item { ConfigEmptyRow("尚未安装任何 Skill", "从 ZIP 导入，或者在对话里让 Claude 帮你写一个") }
+                    skills.isEmpty() -> item { ConfigEmptyRow("还没有 Skill", "从 ZIP 导入，或让 Claude 写一个") }
                     else -> skills.forEach { skill ->
                         item(key = skill.name) {
                             SkillRow(
@@ -204,8 +205,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
             item(key = "synced") {
                 PreferenceGroup(
                     title = "账号同步 · ${synced.size}",
-                    footer = "这些 Skill 由 Claude Code 从你的 Claude 账号同步下来（~/.claude/skills/synced），在 claude.ai 上管理，这里只列出来。" +
-                        "标着“已停用”的是 settings.json 的 skillOverrides 里关掉了。",
+                    footer = "在 claude.ai 上管理，这里只能看。",
                 ) {
                     synced.forEach { skill ->
                         item(key = skill.name) {
