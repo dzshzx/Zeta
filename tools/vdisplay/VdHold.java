@@ -25,6 +25,7 @@ public class VdHold {
     static final int FLAGS = (1 << 0) | (1 << 3) | (1 << 6) | (1 << 8) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 16);
     static Object reader, vd, latest, handler;
     static int width, height, extraFlags;
+    static String name = "zeta-vd";
 
     static Class<?> cls(String n) throws Exception { return Class.forName(n); }
 
@@ -47,6 +48,8 @@ public class VdHold {
         height = Integer.parseInt(a[1]);
         int dpi = Integer.parseInt(a[2]);
         extraFlags = a.length > 4 ? Integer.decode(a[4]) : 0;
+        // 第 6 个参数是虚拟屏的名字：几份测试版各用一块屏，工具按名字找自己那块
+        if (a.length > 5) name = a[5];
         try {
             int id = create(dpi);
             System.out.println("VD_READY:" + id);
@@ -97,7 +100,7 @@ public class VdHold {
         Object surface = call(reader, "getSurface");
 
         Class<?> cb = cls("android.hardware.display.VirtualDisplayConfig$Builder");
-        Object b = cb.getConstructor(String.class, int.class, int.class, int.class).newInstance("zeta-vd", width, height, dpi);
+        Object b = cb.getConstructor(String.class, int.class, int.class, int.class).newInstance(name, width, height, dpi);
         cb.getMethod("setSurface", cls("android.view.Surface")).invoke(b, surface);
         cb.getMethod("setFlags", int.class).invoke(b, FLAGS | extraFlags);
         Object config = call(b, "build");

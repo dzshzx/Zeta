@@ -4,8 +4,9 @@
 在手机 Debian 里直接进 Android 一侧；在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 
 用法：vd.py [--dev] <命令>
-  --dev 操作测试版（com.dzshzx.zeta.dev），不带是正式版（com.dzshzx.zeta）。只有 start、launch、stop、prefs 和包有关；
-  正式版只由负责合入的会话碰，ZETA_PHONE_OWNER 不设或为 main 时这几条才肯对正式版做。
+  --dev 操作测试版，每条命令都要带（build 除外）。测试版有三份（com.dzshzx.zeta.dev、.dev2、.dev3），各有自己的虚拟屏；
+  用哪一份由手机租约定（tools/phone-lock），和 tools/install.sh --dev 刚装的是同一份。
+  不带 --dev 是正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由负责合入的会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
   vd.py shot 文件.png          截图
@@ -22,10 +23,11 @@ SRC = os.path.join(HERE, "vdisplay", "VdHold.java")
 OUT = os.path.join(HERE, "vdisplay", "build")
 DEX = os.path.join(OUT, "classes.dex")
 D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
-WORK = "/data/local/tmp/zeta-vd"
-NAME = "zeta-vd"  # VdHold 里写死的虚拟屏名字
 RELEASE = "com.dzshzx.zeta"
-PACKAGE = RELEASE  # main() 里按 --dev 换成测试版
+# 下面三个由 use() 按租到的那份定：包名、虚拟屏名字（VdHold 的第 6 个参数）、手机上的工作目录
+PACKAGE = RELEASE
+NAME = "zeta-screen-main"
+WORK = "/data/local/tmp/zeta-screen-main"
 ACTIVITY = "com.dzshzx.zeta.ui.MainActivity"  # 类名不随包名变：测试版只加了 applicationIdSuffix
 PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
@@ -44,10 +46,22 @@ def android(cmd, check=True, data=None, binary=False):
     return r.stdout if binary else r.stdout.decode(errors="replace")
 
 
+def use(slot):
+    """切到租到的那份：main 是正式版，1～3 是三份测试版。第一份沿用改成多份以前的名字，和旧版工具互通。"""
+    global PACKAGE, NAME, WORK
+    if slot == "main":
+        PACKAGE, NAME = RELEASE, "zeta-screen-main"
+    elif slot == "1":
+        PACKAGE, NAME = RELEASE + ".dev", "zeta-vd"
+    else:
+        PACKAGE, NAME = RELEASE + ".dev" + slot, "zeta-screen-" + slot
+    WORK = "/data/local/tmp/" + NAME
+
+
 def display_id():
     out = android("cmd display get-displays 2>/dev/null", check=False)
     for line in out.splitlines():
-        if NAME in line:
+        if '{"' + NAME + '"' in line:  # 带引号比整个名字：zeta-vd 不能认成别的屏
             m = re.search(r"Display id (\d+)", line) or re.search(r"displayId[ =](\d+)", line)
             if m:
                 return int(m.group(1))
@@ -105,7 +119,7 @@ def start(args):
             f"cat > {WORK}/vdhold.dex && chmod 644 {WORK}/vdhold.dex && cd {WORK} && rm -f ctl log out/*.png && "
             f"mkfifo ctl && chmod 600 ctl && : > log", data=dex)
     runner = (f"cd {WORK} && exec 3<>ctl && {exports} && export CLASSPATH={WORK}/vdhold.dex && "
-              f"exec app_process / VdHold {w} {h} {dpi} 3600 0 <&3 >>log 2>&1")
+              f"exec app_process / VdHold {w} {h} {dpi} 3600 0 {NAME} <&3 >>log 2>&1")
     android('nohup sh -c "' + runner.replace('"', '\\"') + '" >/dev/null 2>&1 &')
     for _ in range(40):
         m = re.search(r"^VD_READY:(\d+)$", android(f"cat {WORK}/log"), re.M)
@@ -136,28 +150,29 @@ def shot(path):
     sys.exit("截图超时")
 
 
-def lease():
-    """并行开发时一次只让一个人用手机：拿不到租约就退出，见 tools/phone-lock。"""
-    if not ON_PHONE:
-        code = subprocess.run([os.path.join(HERE, "phone-lock")]).returncode
-        if code:
-            sys.exit(code)
+def lease(kind):
+    """并行开发时按包发租约（见 tools/phone-lock），拿不到就退出；返回 main 或测试版的份号。
+    在手机 Debian 里直接跑时不协调，测试版用 ZETA_DEV_SLOT（默认 1）。"""
+    if ON_PHONE:
+        return os.environ.get("ZETA_DEV_SLOT", "1") if kind == "dev" else "main"
+    r = subprocess.run([os.path.join(HERE, "phone-lock"), kind], stdout=subprocess.PIPE, text=True)
+    if r.returncode:
+        sys.exit(r.returncode)
+    return r.stdout.strip() if kind == "dev" else "main"
 
 
 def main():
-    global PACKAGE
     a = sys.argv[1:]
-    if "--dev" in a:
-        PACKAGE = RELEASE + ".dev"
-        a = [x for x in a if x != "--dev"]
+    dev = "--dev" in a
+    a = [x for x in a if x != "--dev"]
     if not a:
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
     owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
-    if PACKAGE == RELEASE and owner != "main" and c in ("start", "launch", "stop", "prefs"):
-        sys.exit(f"正式版只由负责合入的会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版：vd.py --dev {c}")
-    if c not in ("build", "status"):
-        lease()
+    if not dev and owner != "main" and c != "build":
+        sys.exit(f"正式版只由负责合入的会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
+    if c != "build":
+        use(lease("dev" if dev else "main"))
     if c == "build":
         build()
     elif c == "start":

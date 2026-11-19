@@ -1,23 +1,54 @@
 #!/bin/bash
-# 手机测试的租约。手机只有一台，同一包名同时只能装一个版本，所以并行开发时一次只让一个人装机、用测试屏。
-# tools/install.sh 和 tools/vd.py 在工作站上每次碰手机前都调它：没人占用或占用者是自己就续租，否则报出占用者并失败。
-# 占用者名字取 ZETA_PHONE_OWNER（默认 main，即负责合入的会话）；15 分钟没动静的租约自动作废。
-# 用完释放：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话，不管手机 Debian 里的会话。
+# 手机测试的租约。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：
+#   main  正式版（com.dzshzx.zeta），只有负责合入的会话用（tools/install.sh、vd.py 不带 --dev 时）
+#   dev   测试版，有三份（1 是 com.dzshzx.zeta.dev，2、3 是 .dev2、.dev3），谁来就给一份空着的，标准输出打印份号
+# 已经占着一份的再要就续租同一份；都空着时优先给上次用过的那份（包已经装好、权限也给过了）。
+# tools/install.sh 和 tools/vd.py 在工作站上每次碰手机前都调它，拿不到就以退出码 75 失败。
+# 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
+# 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话。
+# 第一份沿用改成多份以前的租约文件，所以还在用旧版工具的任务树和新工具在第一份上照样互斥。
 set -euo pipefail
 owner=${ZETA_PHONE_OWNER:-main}
-lease=${XDG_RUNTIME_DIR:-/tmp}/zeta-phone.lease
+dir=${XDG_RUNTIME_DIR:-/tmp}
 ttl=900
-exec 9>"$lease.lock"
+file() { case $1 in main) echo "$dir/zeta-phone-main.lease" ;; 1) echo "$dir/zeta-phone.lease" ;; *) echo "$dir/zeta-phone-$1.lease" ;; esac; }
+exec 9>"$dir/zeta-phone.lease.lock"
 flock 9
 now=$(date +%s)
-holder= since=0
-[[ -f $lease ]] && read -r holder since <"$lease"
-if [[ ${1:-} == --release ]]; then
-  [[ $holder == "$owner" ]] && rm -f "$lease"
-  exit 0
-fi
-if [[ -n $holder && $holder != "$owner" ]] && ((now - since < ttl)); then
-  echo "手机正被 $holder 占用，$(((ttl - now + since + 59) / 60)) 分钟内没动静就自动释放；先做别的，稍后再试" >&2
-  exit 75
-fi
-echo "$owner $now" >"$lease"
+holder() { # 打印租约 $1 的有效占用者，没有或过期就空
+  local h= s=0
+  [[ -f $(file "$1") ]] && read -r h s <"$(file "$1")"
+  if [[ -n $h ]] && ((now - s < ttl)); then echo "$h"; fi
+}
+take() { echo "$owner $now" >"$(file "$1")"; echo "$owner" >"$(file "$1").last"; }
+
+case ${1:-dev} in
+  --release)
+    for k in main 1 2 3; do [[ $(holder "$k") == "$owner" ]] && rm -f "$(file "$k")"; done
+    exit 0 ;;
+  main)
+    h=$(holder main)
+    if [[ -n $h && $h != "$owner" ]]; then
+      echo "正式版正被 $h 占用；先做别的，稍后再试" >&2
+      exit 75
+    fi
+    take main ;;
+  dev)
+    pick=
+    for k in 1 2 3; do [[ $(holder "$k") == "$owner" ]] && { pick=$k; break; }; done
+    if [[ -z $pick ]]; then
+      for k in 1 2 3; do
+        [[ -z $(holder "$k") && $(cat "$(file "$k").last" 2>/dev/null) == "$owner" ]] && { pick=$k; break; }
+      done
+    fi
+    if [[ -z $pick ]]; then
+      for k in 1 2 3; do [[ -z $(holder "$k") ]] && { pick=$k; break; }; done
+    fi
+    if [[ -z $pick ]]; then
+      echo "三份测试版都有人在用（$(for k in 1 2 3; do printf '%s ' "$(holder "$k")"; done)）；先做别的，稍后再试" >&2
+      exit 75
+    fi
+    take "$pick"
+    echo "$pick" ;;
+  *) echo "用法：tools/phone-lock [dev|main|--release]" >&2; exit 2 ;;
+esac
