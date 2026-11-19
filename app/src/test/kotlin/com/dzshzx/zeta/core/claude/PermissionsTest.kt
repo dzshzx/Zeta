@@ -283,12 +283,11 @@ class PermissionsTest {
         )
         assertEquals(
             "加到拒绝（2 条）：Bash、Read\n从允许里删（1 条）：Bash(git push:*)\n从询问里删（1 条）：Agent\n" +
-                "\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。\n" +
-                "\n写进 ~/.claude/settings.json，对之后新开始的对话生效。",
+                "\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。",
             bulkMessage(change, warnNoTools = true),
         )
         assertEquals(
-            "加到允许（1 条）：mcp__phone\n\n写进 ~/.claude/settings.json，对之后新开始的对话生效。",
+            "加到允许（1 条）：mcp__phone",
             bulkMessage(BulkChange(listOf(PermissionBehavior.Allow to "mcp__phone"), emptyList()), warnNoTools = false),
         )
     }

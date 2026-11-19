@@ -62,14 +62,14 @@ private val ChoiceLabels = listOf("未设置", "允许", "询问", "拒绝")
 /** 页面上改规则时的回调：交给后台线程跑，跑完拿到新规则。 */
 private typealias ApplyRules = (() -> PermissionRules) -> Unit
 
-/** 一行的说明：工具的中文说明，加上它带参数的规则、从服务器继承来的设置。 */
+/**
+ * 一行的摘要，只放一行：有从服务器继承来的设置、带参数的规则时写这些状态，没有时写工具的中文说明。
+ * 带参数的规则本身列在页面下面的“规则”里。
+ */
 private fun toolSummary(label: String?, state: ToolPermission, serverLabel: String = "整个服务器"): String? = listOfNotNull(
-    label?.ifBlank { null },
-    state.behavior?.takeIf { state.inherited }?.let { "$serverLabel 设了${it.label}" },
-    state.specific.takeIf { it.isNotEmpty() }?.let { list ->
-        if (list.size == 1) "另有规则：${list[0].second}（${list[0].first.label}）" else "另有 ${list.size} 条带参数的规则，见下面“规则”"
-    },
-).joinToString(" · ").ifBlank { null }
+    state.behavior?.takeIf { state.inherited }?.let { "跟随$serverLabel：${it.label}" },
+    state.specific.takeIf { it.isNotEmpty() }?.let { "另有 ${it.size} 条带参数的规则" },
+).joinToString(" · ").ifBlank { label?.ifBlank { null } }
 
 /** 一个工具（或整个服务器）一行：右边下拉选 未设置 / 允许 / 询问 / 拒绝。显示的是它自己的规则；继承来的写在说明里。 */
 @Composable
@@ -88,6 +88,8 @@ private fun ToolRow(title: String, summary: String?, own: PermissionBehavior?, e
  * “工具权限”：Claude Code 自己的 permissions 规则（~/.claude/settings.json 的 allow / ask / deny）。
  * 列出内置工具、Zeta 的手机工具、配置里的 MCP 服务器，每个都能整体设成允许、询问、拒绝；带参数的规则和认不出的写法列在“规则”里，
  * 可以改、删、加。每改一处就写回文件，只动那一条规则，别的设置原样保留。
+ * 项目里的 .claude/settings.json 也能写规则，这里不显示。手机工具是 Zeta 自己接给 Claude 的 MCP 服务器 phone，
+ * 规则里写 mcp__phone（整个服务器）或 mcp__phone__工具名；别的 MCP 服务器同样写 mcp__服务器名。
  */
 @Composable
 internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -180,11 +182,10 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     ) {
         item(key = "mode") {
             PreferenceGroup(
-                footer = ClaudePermissions.SEMANTICS + "\n\n这里改的是 ~/.claude/settings.json（所有项目都生效），对之后新开始的对话生效。" +
-                    "项目里的 .claude/settings.json 也能写规则，这里不显示。" +
+                footer = ClaudePermissions.SEMANTICS + "改动对所有项目、之后新开始的对话生效。" +
                     (loadError?.let { "\n\n读取失败：$it" } ?: ""),
             ) {
-                item { BasicComponent(title = "Zeta 当前的权限模式", summary = "在聊天输入栏里切换", endActions = { PreferenceValue(permissionModeLabel(mode)) }) }
+                item { BasicComponent(title = "当前权限模式", summary = "在聊天输入栏里切换", endActions = { PreferenceValue(permissionModeLabel(mode)) }) }
             }
         }
         item(key = "builtin") {
@@ -198,7 +199,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 }
                 if (!showMore) {
                     item(key = "more") {
-                        BasicComponent(title = "更多内置工具", summary = BuiltinTools.other.joinToString("、") { it.name }, onClick = { showMore = true })
+                        BasicComponent(title = "更多内置工具", endActions = { PreferenceValue("${BuiltinTools.other.size} 个") }, onClick = { showMore = true })
                     }
                 }
             }
@@ -216,11 +217,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             }
         }
         item(key = "phone") {
-            PreferenceGroup(
-                title = "手机工具",
-                footer = "Zeta 自己接给 Claude 的 MCP 服务器 ${PhoneTools.SERVER}，规则里的名字是 ${McpNames.server(PhoneTools.SERVER)}__工具名。" +
-                    (if (hub.phoneTools) "" else "手机操作现在是关着的，Claude 拿不到这些工具。"),
-            ) {
+            PreferenceGroup(title = "手机工具", footer = if (hub.phoneTools) null else "手机操作现在关着，Claude 拿不到这些工具。") {
                 val server = PhoneTools.SERVER
                 val group = PermissionGroup.Server(server)
                 item { BulkButtons(current, group, editable) { enable, change -> bulk = BulkRequest("手机工具", group, enable, change) } }
@@ -240,7 +237,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             }
         }
         item(key = "mcp") {
-            PreferenceGroup(title = "MCP 服务器", footer = "点进去可以按工具分别设置。整个服务器的规则写成 mcp__服务器名。") {
+            PreferenceGroup(title = "MCP 服务器") {
                 val list = servers
                 when {
                     list == null -> item { ConfigLoadingRow() }
@@ -250,7 +247,6 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
                             val state = current?.let { ClaudePermissions.server(it, server.name) } ?: ToolPermission(null)
                             ArrowPreference(
                                 title = server.name,
-                                summary = McpNames.server(server.name),
                                 endActions = { PreferenceValue(state.behavior?.label ?: "未设置") },
                                 onClick = { detail = server },
                             )
@@ -261,9 +257,9 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
         item(key = "rules") {
             PreferenceGroup(
+                // 全部规则，按拒绝、询问、允许排；认不出的写法也原样列出、原样保留
                 title = "规则 · ${current?.all?.size ?: 0}",
-                footer = "settings.json 里的全部规则，按拒绝、询问、允许排。带参数的规则（比如 Bash(git push:*)、Read(./.env)、WebFetch(domain:github.com)）" +
-                    "和这里认不出的写法都原样保留，点一下可以改成别的、编辑或删除。",
+                footer = "带参数的规则只在这里改，上面的下拉不动它们。",
             ) {
                 when {
                     current == null && loadError == null -> item { ConfigLoadingRow() }
@@ -414,7 +410,7 @@ private fun McpPermissionDetail(
         overlays = { BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } } },
     ) {
         item(key = "whole") {
-            PreferenceGroup(footer = "整个服务器的设置对它的每个工具都生效；工具自己也设了的，按“拒绝 > 询问 > 允许”取最严的。") {
+            PreferenceGroup(footer = "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。") {
                 val group = PermissionGroup.Server(server.name)
                 item { BulkButtons(rules, group, editable) { enable, change -> bulk = BulkRequest("${server.name} 的工具", group, enable, change) } }
                 item {
@@ -424,7 +420,10 @@ private fun McpPermissionDetail(
             }
         }
         item(key = "tools") {
-            PreferenceGroup(title = tools?.let { "工具 · ${it.size}" } ?: "工具") {
+            PreferenceGroup(
+                title = tools?.let { "工具 · ${it.size}" } ?: "工具",
+                footer = if (server.oauth) "要按工具设置，在上一页的“规则”里手写 ${McpNames.server(server.name)}__工具名。" else null,
+            ) {
                 val list = tools
                 when {
                     loading -> item { ConfigLoadingRow("正在连接…") }
@@ -432,7 +431,7 @@ private fun McpPermissionDetail(
                     list == null -> item {
                         BasicComponent(
                             title = "列出工具",
-                            summary = if (server.oauth) "这个服务器用 OAuth 登录，Zeta 取不到它的工具；可以在“规则”里手写 ${McpNames.server(server.name)}__工具名" else "连接这个服务器，取它的工具清单",
+                            summary = if (server.oauth) "用 OAuth 登录的服务器取不到" else "连上服务器取工具清单",
                             enabled = !server.oauth,
                             onClick = ::load,
                         )
@@ -498,7 +497,7 @@ private fun BulkConfirmDialog(request: BulkRequest?, onDismiss: () -> Unit, onCo
     )
 }
 
-/** 确认框里的说明：按表列出会加、会删的规则。关闭内置工具时另外说清后果。 */
+/** 确认框里的说明：按表列出会加、会删的规则。关闭内置工具时另外说清后果。什么时候生效页面说明里说过，这里不重复。 */
 internal fun bulkMessage(change: BulkChange, warnNoTools: Boolean): String = buildString {
     PermissionBehavior.entries.forEach { b ->
         val rules = change.add.filter { it.first == b }.map { it.second }
@@ -508,7 +507,6 @@ internal fun bulkMessage(change: BulkChange, warnNoTools: Boolean): String = bui
         val rules = change.remove.filter { it.first == b }.map { it.second }
         if (rules.isNotEmpty()) append("从${b.label}里删（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
     }
-    if (warnNoTools) append("\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。\n")
-    append("\n写进 ~/.claude/settings.json，对之后新开始的对话生效。")
-}
+    if (warnNoTools) append("\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。")
+}.trimEnd()
 

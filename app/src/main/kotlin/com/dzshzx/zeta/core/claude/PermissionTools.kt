@@ -1,6 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
-/** 权限页上列出的一个工具：规则里写的名字、一句中文说明、带参数的写法举例。 */
+/** 权限页上列出的一个工具：规则里写的名字、一句中文说明（是那一行的摘要，手机宽度下要一行放得下）、带参数的写法举例。 */
 data class ToolInfo(val name: String, val label: String, val example: String? = null)
 
 /**
@@ -11,15 +11,16 @@ object BuiltinTools {
     val common = listOf(
         ToolInfo("Bash", "运行命令", "Bash(git push:*)"),
         ToolInfo("Read", "读文件，也管按名字找文件和搜内容", "Read(./.env)"),
-        ToolInfo("Edit", "修改文件；带路径的规则对新建、覆盖文件同样生效", "Edit(src/**)"),
+        // 带路径的 Edit 规则对新建、覆盖文件（Write）同样生效
+        ToolInfo("Edit", "修改文件；带路径的规则也管 Write", "Edit(src/**)"),
         ToolInfo("Write", "新建或覆盖文件"),
         ToolInfo("NotebookEdit", "修改 Jupyter 笔记本"),
         ToolInfo("WebFetch", "抓取网页", "WebFetch(domain:github.com)"),
         ToolInfo("WebSearch", "网页搜索"),
         ToolInfo("Agent", "派出 Subagent（旧名 Task）", "Agent(Explore)"),
         ToolInfo("Skill", "调用 Skill", "Skill(pdf)"),
-        ToolInfo("Glob", "按文件名找文件（Bash 被拒绝时才有）"),
-        ToolInfo("Grep", "在文件里搜内容（Bash 被拒绝时才有）"),
+        ToolInfo("Glob", "按文件名找文件（Bash 被拒时才有）"),
+        ToolInfo("Grep", "在文件里搜内容（Bash 被拒时才有）"),
     )
 
     val other = listOf(
@@ -37,7 +38,7 @@ object BuiltinTools {
         ToolInfo("EnterPlanMode", "进入计划模式"),
         ToolInfo("ExitPlanMode", "交出计划、退出计划模式"),
         ToolInfo("AskUserQuestion", "向你提选择题"),
-        ToolInfo("ToolSearch", "按需加载其余工具；拒绝它，延后加载的工具都用不了"),
+        ToolInfo("ToolSearch", "按需加载其余工具，拒绝后都用不了"),
         ToolInfo("ReportFindings", "按格式汇报代码审查的发现"),
         ToolInfo("DesignSync", "读写 Claude Design 里的项目文件"),
     )
@@ -52,33 +53,39 @@ object BuiltinTools {
  */
 object PhoneToolLabels {
     private val labels = mapOf(
-        "screen" to "读屏：前台应用和可点的控件，可带截图",
+        "screen" to "读屏：前台应用、可点的控件和截图",
         "tap" to "点按",
         "long_press" to "长按",
         "swipe" to "滑动",
         "scroll" to "滚动列表",
         "type_text" to "往输入框里输入文字",
         "press_key" to "按系统键（返回、主页等）",
-        "wait" to "等一会儿、等某个控件出现或某个应用到前台，再读屏",
-        "open_app" to "打开应用、链接或设置页，默认在后台屏上",
+        "wait" to "等控件出现或应用到前台，再读屏",
+        // 默认开在后台屏上
+        "open_app" to "打开应用、链接或设置页",
         "show_to_user" to "把后台屏上的应用挪到主屏给你看",
         "find_apps" to "查找已装的应用",
         "shell" to "以 root 在 Android 一侧执行命令",
-        "device_state" to "查看或切换手机开关和档位（WLAN、蓝牙、亮度等）",
-        "media" to "音量、响铃模式、音频输出，控制正在播放的媒体",
+        "device_state" to "查看、切换 WLAN、蓝牙、亮度等",
+        "media" to "音量、响铃、音频输出和媒体播放",
         "clock" to "时钟应用的闹钟和倒计时",
-        "system_setting" to "读写 Android 系统设置（settings 的 system、secure、global 表）",
-        "app_control" to "已装应用的信息、强行停止、冻结与解冻、使用时长",
-        "device_info" to "电池、温度、内存、存储、网络、位置等手机状况",
+        // settings 的 system、secure、global 三张表
+        "system_setting" to "读写 Android 系统设置",
+        // 已装应用的信息、强行停止、冻结与解冻、使用时长
+        "app_control" to "查看、停止、冻结应用和使用时长",
+        // 还有存储、位置
+        "device_info" to "电池、温度、内存、网络等手机状况",
         "logcat" to "读最近的 Android 日志",
-        "search_personal" to "搜索日历、通知、验证码、短信、通话、通讯录、相册、音频与录音、文件、下载记录、便签，汇总健康数据（只读）",
+        // 日历、通知、验证码、短信、通话、通讯录、相册、音频与录音、文件、下载记录、便签，汇总健康数据
+        "search_personal" to "只读搜索日历、短信、相册等",
         "view_media" to "查看照片、截图或视频",
         "edit_calendar" to "新建、修改、删除日程",
         "clipboard" to "读写剪贴板",
-        "create_scheduled_task" to "新建定时任务：到点让 Claude 在后台做一件事",
+        "create_scheduled_task" to "新建定时任务，到点让 Claude 做事",
         "list_scheduled_tasks" to "列出定时任务",
         "delete_scheduled_task" to "删除定时任务",
-        "browser" to "Zeta 内置浏览器：在屏幕外打开网页、点按、输入、读内容",
+        // 在屏幕外打开网页、点按、输入、读内容
+        "browser" to "内置浏览器，在屏幕外操作网页",
     )
 
     fun label(name: String, description: String): String =

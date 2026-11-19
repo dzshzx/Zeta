@@ -54,12 +54,10 @@ data class ToolPermission(
 object ClaudePermissions {
     /**
      * 用临时 HOME 和假的 API 实测出来的语义，页面上照这句话告诉用户：
-     * 拒绝压过询问、询问压过允许，和规则写得细不细无关；完全放行（bypassPermissions）下允许规则没有用处，询问和拒绝照样生效；
-     * 整个工具被拒绝时 Claude 根本拿不到这个工具。
+     * 拒绝压过询问、询问压过允许，和规则写得细不细无关（比如允许 Bash(git push:*) 又对 Bash 设了询问，git push 照样要问）；
+     * 完全放行（bypassPermissions）下允许规则没有用处，询问和拒绝照样生效：设了询问的会弹出确认，整个工具被拒绝时 Claude 根本拿不到这个工具。
      */
-    const val SEMANTICS =
-        "规则按“拒绝 > 询问 > 允许”生效，和写得细不细无关：比如允许 Bash(git push:*) 又对 Bash 设了询问，git push 照样要问。" +
-            "完全放行模式下允许规则用不上，询问和拒绝照样生效：设了询问的会弹出确认，整个拒绝的工具 Claude 根本拿不到。"
+    const val SEMANTICS = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
 
     /** Claude Code 的工具别名（旧名字），规则里写哪个都一样。 */
     private val Aliases = mapOf(
