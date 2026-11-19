@@ -3,14 +3,15 @@
 由应用经标准输入送进 `python3 - <命令> [参数]`，输出一行一个 JSON。
   list                 所有会话的概要，新的在前
   history <文件>        一个会话里要显示的消息，形状与 stream-json 输出一致；用户消息带上它在记录里的 uuid
-  delete <文件>         删除一个会话记录
+  delete <文件>...      删除会话记录，连同 Claude Code 存在同名目录里的东西（工具结果、子代理记录等）
   rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
+  archive <id>... <0|1> 归档或取消归档会话（只是列表里不显示）
   hosts                仍在后台运行的 Claude Code 进程（应用被杀后重新接上用）；顺手清掉已经结束的
   image <文件> <位置>    取回会话记录里的一张图片（位置是 history 给出的“行号.块序号[.内层序号]”）
   file-image <路径>     读取 Linux 环境里的一个图片文件
   search <关键词>       在会话的对话内容里找关键词，每找到一个会话就输出一行（边找边出），最后一行是汇总
   lookup <id>...       按 id 取会话概要（形状同 list），找不到的不输出；置顶的会话不在 list 的范围里时用
-  export <文件>         把一个会话导出成 Markdown
+  export <文件>...      把会话导出成 Markdown，一个会话一行
   ls <目录>             文件浏览：列出一个目录（第一行概要，之后一行一项）
   read <文件> <字节数>   文件浏览：读一个文本文件的开头，最多这么多字节
   mounts <名字…>        共享文件夹：/mnt/shared 下各项有没有挂上、当前用户能不能读写
@@ -202,16 +203,17 @@ def archived_sessions():
         return set()
 
 
-def cmd_archive(session, on):
+def cmd_archive(sessions, on):
     ids = archived_sessions()
     # 顺手清掉记录文件已经不在的
     alive = {os.path.basename(p)[:-6] for p in glob.glob(os.path.join(ROOT, "*", "*.jsonl"))}
-    ids = (ids & alive) | {session} if on else (ids & alive) - {session}
+    ids = (ids & alive) | set(sessions) if on else (ids & alive) - set(sessions)
     os.makedirs(os.path.dirname(ARCHIVE), exist_ok=True)
     with open(ARCHIVE + ".tmp", "w", encoding="utf-8") as f:
         f.write("".join(i + "\n" for i in sorted(ids)))
     os.replace(ARCHIVE + ".tmp", ARCHIVE)
-    out({"type": "zeta_archived", "id": session, "archived": bool(on)})
+    for session in sessions:
+        out({"type": "zeta_archived", "id": session, "archived": bool(on)})
 
 
 def cmd_list():
@@ -755,12 +757,52 @@ def cmd_export(path):
                 if one_line(error):
                     lines.append("结果：" + one_line(ANSI.sub("", str(error))))
             parts.append(quote_block(lines))
-    out({"type": "zeta_export", "title": title, "markdown": "\n\n".join(parts) + "\n"})
+    out({"type": "zeta_export", "file": path, "title": title, "markdown": "\n\n".join(parts) + "\n"})
 
 
 def inside_root(path):
     real = os.path.realpath(path)
     return real.startswith(os.path.realpath(ROOT) + os.sep) and real.endswith(".jsonl")
+
+
+def session_dir(path):
+    """会话记录 <项目>/<会话 id>.jsonl 旁边 Claude Code 自己建的同名目录（tool-results、subagents 等）。
+    只认 ~/.claude/projects/<项目>/<会话 id>/ 这一层、本身不是符号链接的真目录；别的情况返回 None。"""
+    if not path.endswith(".jsonl"):
+        return None
+    root = os.path.realpath(ROOT)
+    base = os.path.abspath(path)[:-len(".jsonl")]
+    if not SESSION_ID.fullmatch(os.path.basename(base)) or os.path.islink(base) or not os.path.isdir(base):
+        return None
+    real = os.path.realpath(base)
+    if os.path.dirname(os.path.dirname(real)) != root or os.path.basename(real) != os.path.basename(base):
+        return None
+    if os.path.dirname(os.path.realpath(path)) != os.path.dirname(real):
+        return None
+    return real
+
+
+def cmd_delete(paths):
+    for path in paths:
+        directory = session_dir(path)
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        # rmtree 删到符号链接只删链接本身，不跟进去
+        cleaned = False
+        if directory:
+            shutil.rmtree(directory, ignore_errors=True)
+            cleaned = not os.path.lexists(directory)
+        out({"type": "zeta_deleted", "file": path, "dir": cleaned})
+
+
+def cmd_export_many(paths):
+    for path in paths:
+        try:
+            cmd_export(path)
+        except Exception:  # 一个会话导不出来不影响别的
+            out({"type": "zeta_export_failed", "file": path})
 
 
 MAX_LIST = 2000
@@ -892,13 +934,12 @@ def main():
         cmd_list()
     elif args[:1] == ["history"] and len(args) == 2 and inside_root(args[1]):
         cmd_history(args[1])
-    elif args[:1] == ["delete"] and len(args) == 2 and inside_root(args[1]):
-        os.remove(args[1])
-        out({"type": "zeta_deleted"})
+    elif args[:1] == ["delete"] and len(args) >= 2 and all(inside_root(a) for a in args[1:]):
+        cmd_delete(args[1:])
     elif args[:1] == ["rename"] and len(args) == 3 and inside_root(args[1]):
         cmd_rename(args[1], args[2])
-    elif args[:1] == ["archive"] and len(args) == 3 and re.fullmatch(r"[0-9a-fA-F-]{8,64}", args[1]):
-        cmd_archive(args[1], args[2] == "1")
+    elif args[:1] == ["archive"] and len(args) >= 3 and args[-1] in ("0", "1") and all(SESSION_ID.fullmatch(a) for a in args[1:-1]):
+        cmd_archive(args[1:-1], args[-1] == "1")
     elif args[:1] == ["hosts"]:
         cmd_hosts()
     elif args[:1] == ["image"] and len(args) == 3 and inside_root(args[1]):
@@ -909,8 +950,8 @@ def main():
         cmd_search(args[1])
     elif args[:1] == ["lookup"] and all(SESSION_ID.fullmatch(a) for a in args[1:]):
         cmd_lookup(args[1:])
-    elif args[:1] == ["export"] and len(args) == 2 and inside_root(args[1]):
-        cmd_export(args[1])
+    elif args[:1] == ["export"] and len(args) >= 2 and all(inside_root(a) for a in args[1:]):
+        cmd_export_many(args[1:])
     elif args[:1] == ["ls"] and len(args) == 2 and args[1].startswith("/"):
         cmd_ls(args[1])
     elif args[:1] == ["read"] and len(args) == 3 and args[1].startswith("/") and args[2].isdigit():
@@ -918,8 +959,8 @@ def main():
     elif args[:1] == ["mounts"]:
         cmd_mounts([n for n in args[1:] if re.fullmatch(r"[A-Za-z0-9._-]{1,48}", n) and n not in (".", "..")])
     else:
-        sys.exit("usage: list | history <file> | delete <file> | rename <file> <title> | archive <id> <0|1> | hosts"
-                 " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>"
+        sys.exit("usage: list | history <file> | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
+                 " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
                  " | ls <dir> | read <file> <bytes> | mounts <name…>")
 
 

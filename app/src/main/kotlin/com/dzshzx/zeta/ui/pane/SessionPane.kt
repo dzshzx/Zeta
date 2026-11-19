@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.ui.pane
 
 import android.app.Application
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material.icons.rounded.Archive
@@ -37,6 +39,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Cancel
+import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
@@ -86,6 +89,8 @@ import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
 import androidx.compose.ui.res.painterResource
 import com.dzshzx.zeta.R
+import com.itos.coui.checkbox.Checkbox
+import com.itos.coui.checkbox.CouiCheckboxDefaults
 import com.itos.coui.shape.CouiShape
 import com.itos.coui.theme.CouiTheme
 import com.dzshzx.zeta.core.ConversationHub
@@ -110,9 +115,11 @@ private val RowHorizontalPadding = 14.dp
 /** 内容搜索进行到哪了。 */
 private enum class SearchProgress { Idle, Running, Done, Partial, Failed }
 
-/** 一行会话长按菜单里的各项操作。 */
+/** 一行会话长按菜单里的各项操作；[toggle] 是多选时点一行。 */
 private class RowActions(
     val open: (SessionSummary) -> Unit,
+    val select: (SessionSummary) -> Unit,
+    val toggle: (SessionSummary) -> Unit,
     val togglePin: (SessionSummary) -> Unit,
     val rename: (SessionSummary) -> Unit,
     val export: (SessionSummary) -> Unit,
@@ -124,6 +131,7 @@ private class RowActions(
 /**
  * 侧栏：品牌头 + 新对话；“置顶 / 今天 / 更早”分组的历史会话；底部搜索框、归档入口和设置。
  * 搜索时列表换成结果：标题当场比对，对话内容交给助手在 Debian 里边找边出。
+ * 长按菜单里的“选择”进入多选（见 SessionSelection.kt），[revealed] 是侧栏是否正露在外面，收起时退出多选。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -131,6 +139,7 @@ internal fun SessionPane(
     width: Dp,
     sessions: List<SessionSummary>,
     currentSessionId: String?,
+    revealed: Boolean,
     isRunning: (String) -> Boolean,
     onNewChat: () -> Unit,
     onOpen: (SessionSummary) -> Unit,
@@ -151,14 +160,26 @@ internal fun SessionPane(
     deleting?.let { lastDeleting[0] = it }
     var renaming by remember { mutableStateOf<SessionSummary?>(null) }
     var renameDraft by remember { mutableStateOf("") }
-    val exporter = rememberSessionExporter(hub)
 
-    // 置顶存在设置里，按会话 id
-    var pins by remember { mutableStateOf(hub.settings.pinnedSessions) }
-    val savePins: (Set<String>) -> Unit = {
-        pins = it
-        hub.settings.pinnedSessions = it
+    // 多选：长按菜单里的“选择”进入；返回键、顶部的叉、侧栏收起或做完一次批量操作时退出
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val exitSelection: () -> Unit = {
+        selecting = false
+        selected = emptySet()
     }
+    var batchDeleting by remember { mutableStateOf<List<SessionSummary>?>(null) }
+    var batchSkipped by remember { mutableStateOf(0) }
+    val lastBatch = remember { arrayOfNulls<List<SessionSummary>>(1) }
+    batchDeleting?.let { lastBatch[0] = it }
+    LaunchedEffect(revealed) { if (!revealed) exitSelection() }
+    BackHandler(enabled = selecting && revealed, onBack = exitSelection)
+
+    val exporter = rememberSessionExporter(hub, onSavedMany = exitSelection)
+
+    // 置顶存在设置里，按会话 id；从备份导入设置时也会变，所以用 hub 上那份可观察的
+    val pins = hub.pinnedSessions
+    val savePins: (Set<String>) -> Unit = hub::choosePinned
     // 置顶的会话不在 list 给的最近 300 个里时单独取来；确实已经不在了（别处删掉的）就把置顶去掉
     var farPinned by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
     LaunchedEffect(sessions, pins) {
@@ -218,6 +239,12 @@ internal fun SessionPane(
             onOpen(session)
             query = ""
         },
+        select = { session ->
+            focusManager.clearFocus()
+            selected = setOf(session.id)
+            selecting = true
+        },
+        toggle = { session -> selected = if (session.id in selected) selected - session.id else selected + session.id },
         togglePin = { session -> savePins(if (session.id in pins) pins - session.id else pins + session.id) },
         rename = { session ->
             renameDraft = session.title.ifBlank { session.preview.take(40) }
@@ -243,6 +270,9 @@ internal fun SessionPane(
     val unpinned = remember(visible, pinned) { if (pinned.isEmpty()) visible else visible - pinned.toSet() }
     val today = remember(unpinned, todayStart) { if (showArchived) emptyList() else unpinned.filter { it.updated >= todayStart } }
     val earlier = remember(unpinned, todayStart) { if (showArchived) unpinned else unpinned.filter { it.updated < todayStart } }
+    // 多选：全选管的是眼前这份列表（搜索结果、归档或主列表）；选中的按列表里的顺序取，已经不在的不算
+    val selectable = if (searching) results else visible
+    val chosen = remember(all, selected) { all.filter { it.id in selected } }
 
     @Composable
     fun SessionItem(session: SessionSummary, snippet: String? = null) = SessionRow(
@@ -254,6 +284,8 @@ internal fun SessionPane(
         pinned = session.id in pins,
         snippet = snippet,
         highlight = needle,
+        selecting = selecting,
+        checked = session.id in selected,
         actions = actions,
     )
 
@@ -270,7 +302,15 @@ internal fun SessionPane(
             .background(conversationPaneContainerColor())
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start)),
     ) {
-        Row(
+        if (selecting) {
+            SelectionHeader(
+                count = chosen.size,
+                allSelected = allSelected(selected, selectable),
+                canSelectAll = selectable.isNotEmpty(),
+                onToggleAll = { selected = toggleAll(selected, selectable) },
+                onExit = exitSelection,
+            )
+        } else Row(
             modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = PaneHorizontalPadding + 4.dp, end = PaneHorizontalPadding - 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -317,7 +357,28 @@ internal fun SessionPane(
             }
         }
 
-        Row(
+        if (selecting) {
+            val archive = archiveAction(chosen)
+            SelectionActions(
+                count = chosen.size,
+                archive = archive,
+                onArchive = {
+                    hub.archiveSessions(chosen.filter { it.archived != archive }, archive)
+                    exitSelection()
+                },
+                onExport = { exporter.saveAll(chosen) },
+                onDelete = {
+                    val removable = deletable(chosen, hub::isActive)
+                    if (removable.isEmpty()) {
+                        Toast.makeText(context, "选中的对话都在进行中，不能删除", Toast.LENGTH_SHORT).show()
+                    } else {
+                        batchSkipped = chosen.size - removable.size
+                        batchDeleting = removable
+                    }
+                },
+                modifier = Modifier.padding(horizontal = PaneHorizontalPadding, vertical = 10.dp),
+            )
+        } else Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = PaneHorizontalPadding, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -340,20 +401,36 @@ internal fun SessionPane(
         }
     }
 
+    // 单条删除和批量删除同一个规矩：正在进行的、别处的 Claude Code 开着的，都不删
+    val deletingBlocked = lastDeleting[0]?.let { deletable(listOf(it), hub::isActive).isEmpty() } == true
     CouiConfirmDialog(
         visible = deleting != null,
-        title = "删除这个对话？",
-        message = lastDeleting[0]?.let { it.title.ifBlank { it.preview }.take(60) + "\n会话记录文件会被一并删除，无法恢复。" },
-        confirmText = "删除",
-        destructive = true,
+        title = if (deletingBlocked) "这个对话正在进行" else "删除这个对话？",
+        message = lastDeleting[0]?.let {
+            it.title.ifBlank { it.preview }.take(60) +
+                if (deletingBlocked) "\n先停止它，或等它结束，再删除。" else "\n会话记录文件会被一并删除，无法恢复。"
+        },
+        confirmText = if (deletingBlocked) "知道了" else "删除",
+        destructive = !deletingBlocked,
         onConfirm = {
-            deleting?.let {
-                if (it.id in pins) savePins(pins - it.id)
-                onDelete(it)
-            }
+            if (!deletingBlocked) deleting?.let(onDelete)
             deleting = null
         },
         onDismissRequest = { deleting = null },
+    )
+    CouiConfirmDialog(
+        visible = batchDeleting != null,
+        title = "删除 ${lastBatch[0]?.size ?: 0} 个对话？",
+        message = "会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。" +
+            if (batchSkipped > 0) "\n另有 $batchSkipped 个正在进行的对话不会删除。" else "",
+        confirmText = "删除",
+        destructive = true,
+        onConfirm = {
+            batchDeleting?.let(hub::deleteSessions)
+            batchDeleting = null
+            exitSelection()
+        },
+        onDismissRequest = { batchDeleting = null },
     )
     CouiInputDialog(
         visible = renaming != null,
@@ -372,7 +449,7 @@ internal fun SessionPane(
 }
 
 @Composable
-private fun PaneCircleButton(icon: ImageVector, description: String, onClick: () -> Unit, size: Dp = 40.dp) {
+internal fun PaneCircleButton(icon: ImageVector, description: String, onClick: () -> Unit, size: Dp = 40.dp) {
     val dark = CouiTheme.isDark
     Box(
         modifier = Modifier
@@ -510,6 +587,8 @@ private fun SessionRow(
     pinned: Boolean,
     snippet: String?,
     highlight: String,
+    selecting: Boolean,
+    checked: Boolean,
     actions: RowActions,
 ) {
     val dark = CouiTheme.isDark
@@ -522,6 +601,7 @@ private fun SessionRow(
     val deleteTint = StatusError
     val menuItems = remember(deleteTint, session.archived, pinned) {
         listOf(
+            CouiMenuItem(value = 6, text = "选择", icon = Icons.Rounded.CheckCircleOutline),
             CouiMenuItem(value = 3, text = if (pinned) "取消置顶" else "置顶对话", icon = Icons.Rounded.PushPin),
             CouiMenuItem(value = 1, text = "重命名", icon = Icons.Rounded.Edit),
             CouiMenuItem(value = 4, text = "导出", icon = Icons.Rounded.Download),
@@ -549,10 +629,10 @@ private fun SessionRow(
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = { actions.open(session) },
+                    onClick = { if (selecting) actions.toggle(session) else actions.open(session) },
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        anchor.open { showMenu = true }
+                        if (selecting) actions.toggle(session) else anchor.open { showMenu = true }
                     },
                 )
                 .padding(horizontal = RowHorizontalPadding, vertical = 10.dp),
@@ -608,7 +688,7 @@ private fun SessionRow(
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.size(6.dp).background(accent, CircleShape))
                 }
-                pinned -> {
+                pinned && !selecting -> {
                     Spacer(Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Rounded.PushPin,
@@ -618,6 +698,16 @@ private fun SessionRow(
                     )
                 }
             }
+            if (selecting) {
+                Spacer(Modifier.width(10.dp))
+                Checkbox(
+                    modifier = Modifier.size(22.dp),
+                    checked = checked,
+                    colors = CouiCheckboxDefaults.colors(colors.accent, dark),
+                    shape = CouiCheckboxDefaults.shape,
+                    borderShape = CouiCheckboxDefaults.borderShape,
+                )
+            }
         }
         Menu(
             expanded = showMenu,
@@ -626,6 +716,7 @@ private fun SessionRow(
             onItemClick = {
                 showMenu = false
                 when (it.value) {
+                    6 -> actions.select(session)
                     3 -> actions.togglePin(session)
                     1 -> actions.rename(session)
                     4 -> actions.export(session)

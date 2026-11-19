@@ -275,6 +275,27 @@ class Settings(context: Context) {
         get() = prefs.getString("effort", null)
         set(value) = prefs.edit().putString("effort", value).apply()
 
+    /** 存下来的全部设置的一份快照（备份导出、导入前比对用）。 */
+    fun snapshot(): Map<String, *> = HashMap(prefs.all)
+
+    /** 备份导入：一次写入这些项，值为 null 的删掉。写完才返回，成功返回 true。 */
+    fun restore(values: Map<String, Any?>): Boolean {
+        val editor = prefs.edit()
+        for ((key, value) in values) {
+            when (value) {
+                null -> editor.remove(key)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is String -> editor.putString(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+                else -> return false
+            }
+        }
+        return editor.commit()
+    }
+
     /** Claude Code 报过的各模型上下文窗口（“模型=窗口”）。旧会话重新打开、还没起进程时拿它算占比。 */
     var contextWindows: Map<String, Long>
         get() = prefs.getStringSet("contextWindows", null).orEmpty().mapNotNull { entry ->

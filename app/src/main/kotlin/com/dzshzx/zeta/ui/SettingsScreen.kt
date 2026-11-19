@@ -21,6 +21,7 @@ import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
 import com.dzshzx.zeta.ui.settings.ScheduleEntry
 import com.dzshzx.zeta.ui.settings.ScheduleScreen
+import com.dzshzx.zeta.ui.settings.SettingsBackupGroup
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
@@ -129,6 +130,7 @@ private fun SettingsHome(
                 onClick = onOpenLinux,
             )
         }
+        SettingsBackupGroup(hub)
         Group(title = "关于", footer = "界面基于 Eta 的 COUI 代码，按 GPL-3.0 授权。") {
             CouiPreference(title = "Zeta · Ζ", value = BuildConfig.VERSION_NAME)
         }

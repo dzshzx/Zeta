@@ -78,6 +78,27 @@ class ConversationHub(private val app: Application) {
         darkTheme = dark
     }
 
+    /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
+    var pinnedSessions by mutableStateOf(settings.pinnedSessions)
+        private set
+
+    fun choosePinned(ids: Set<String>) {
+        pinnedSessions = ids
+        settings.pinnedSessions = ids
+    }
+
+    /** 设置从备份导入后：可观察的几份副本按存下来的值重读一遍，界面马上跟着变。在主线程上调用。 */
+    internal fun reloadSettings() {
+        phoneTools = settings.phoneTools
+        backgroundScreen = settings.backgroundScreen
+        autoLoadRemoteImages = settings.autoLoadRemoteImages
+        darkTheme = settings.darkTheme
+        pinnedSessions = settings.pinnedSessions
+        SharedFolders.current = settings.sharedFolders
+        env = settings.env
+        if (current.items.isEmpty() && current.sessionId == null) current = blank()
+    }
+
     /** 别的应用分享进来、还没放进输入栏的图片和文件。 */
     var incomingShares by mutableStateOf<List<android.net.Uri>>(emptyList())
 
@@ -215,6 +236,12 @@ class ConversationHub(private val app: Application) {
     fun isRunning(sessionId: String): Boolean =
         (current.sessionId == sessionId && current.busy) || background[sessionId]?.busy == true
 
+    /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
+    fun isActive(sessionId: String): Boolean {
+        fun active(c: Conversation) = c.busy || c.pending != null || c.backgroundTasks > 0
+        return (current.sessionId == sessionId && active(current)) || background[sessionId]?.let(::active) == true
+    }
+
     /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
     fun isWaiting(sessionId: String): Boolean =
         (current.sessionId == sessionId && current.pending != null) || background[sessionId]?.pending != null
@@ -320,13 +347,20 @@ class ConversationHub(private val app: Application) {
         }
     }
 
+    fun archive(summary: SessionSummary, archived: Boolean) = archiveSessions(listOf(summary), archived)
+
     /** 归档或取消归档：只影响列表里显不显示，会话记录不动。 */
-    fun archive(summary: SessionSummary, archived: Boolean) {
+    fun archiveSessions(summaries: List<SessionSummary>, archived: Boolean) {
         val config = settings.env ?: return
-        sessions = sessions.map { if (it.id == summary.id) it.copy(archived = archived) else it }
+        val ids = summaries.mapTo(LinkedHashSet()) { it.id }
+        if (ids.isEmpty()) return
+        sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
         thread(isDaemon = true) {
             runCatching {
-                LinuxEnv.run(config, "exec python3 - archive " + LinuxEnv.quote(summary.id) + if (archived) " 1" else " 0", stdin = helperScript)
+                LinuxEnv.run(
+                    config, "exec python3 - archive " + ids.joinToString(" ") { LinuxEnv.quote(it) } + if (archived) " 1" else " 0",
+                    stdin = helperScript,
+                )
             }
         }
     }
@@ -567,19 +601,27 @@ class ConversationHub(private val app: Application) {
         backgroundChanged()
     }
 
-    fun delete(summary: SessionSummary) {
+    fun delete(summary: SessionSummary) = deleteSessions(listOf(summary))
+
+    /** 删除会话：记录文件，连同 Claude Code 存在同名目录里的工具结果、子代理记录等；置顶标记一并去掉。 */
+    fun deleteSessions(summaries: List<SessionSummary>) {
         val config = settings.env ?: return
-        if (current.sessionId == summary.id) {
+        val ids = summaries.mapTo(HashSet()) { it.id }
+        if (ids.isEmpty()) return
+        if (current.sessionId in ids) {
             current.shutdown()
             current = blank()
         }
-        background.remove(summary.id)?.shutdown()
+        for (id in ids) background.remove(id)?.shutdown()
         backgroundChanged()
-        synchronized(phones) { phones.remove(summary.id) }?.destroy()
+        synchronized(phones) { ids.mapNotNull { phones.remove(it) } }.forEach { it.destroy() }
         prunePhones()
-        sessions = sessions.filterNot { it.id == summary.id }
+        sessions = sessions.filterNot { it.id in ids }
+        if (pinnedSessions.any { it in ids }) choosePinned(pinnedSessions - ids)
         thread(isDaemon = true) {
-            runCatching { LinuxEnv.run(config, "exec python3 - delete " + LinuxEnv.quote(summary.file), stdin = helperScript) }
+            runCatching {
+                LinuxEnv.run(config, "exec python3 - delete " + summaries.joinToString(" ") { LinuxEnv.quote(it.file) }, stdin = helperScript, timeoutMs = 60_000)
+            }
             main.post { refreshSessions() }
         }
     }

@@ -162,11 +162,12 @@ private fun ZetaApp(hub: ConversationHub) {
             hub.refreshSessions()
         },
         onDismiss = { paneOpen = false },
-        pane = { width, _, modifier ->
+        pane = { width, revealed, modifier ->
             SessionPane(
                 width = width,
                 sessions = hub.sessions,
                 currentSessionId = hub.current.sessionId,
+                revealed = revealed,
                 isRunning = hub::isRunning,
                 onNewChat = {
                     hub.startNew()

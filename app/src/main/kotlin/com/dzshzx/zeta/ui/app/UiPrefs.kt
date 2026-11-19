@@ -72,6 +72,14 @@ internal class UiPrefs private constructor(private val settings: Settings) {
         settings.keepScreenOn = enabled
     }
 
+    /** 设置从备份导入后按存下来的值重读。 */
+    fun reload() {
+        accent = AccentChoice.from(settings.accent)
+        pureBlack = settings.pureBlack
+        interfaceScale = normalizeInterfaceScale(settings.interfaceScale)
+        keepScreenOn = settings.keepScreenOn
+    }
+
     companion object {
         @Volatile private var instance: UiPrefs? = null
 

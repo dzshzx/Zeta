@@ -100,16 +100,26 @@ internal fun lookupSessions(hub: ConversationHub, ids: Collection<String>): List
     return parseSessionSummaries(result.stdout)
 }
 
-internal class ExportedMarkdown(val title: String, val markdown: String)
+internal class ExportedMarkdown(val file: String, val title: String, val markdown: String)
 
 /** 让助手把会话记录转成 Markdown（照 Eta 的导出格式）。没成返回 null。耗时，别在主线程调用。 */
-internal fun exportMarkdown(hub: ConversationHub, file: String): ExportedMarkdown? {
+internal fun exportMarkdown(hub: ConversationHub, file: String): ExportedMarkdown? = exportMarkdowns(hub, listOf(file))?.firstOrNull()
+
+/**
+ * 一次导出几个会话，按 [files] 的顺序返回导出成了的那些（导不出来的不在里面）；助手没跑成返回 null。
+ * 耗时，别在主线程调用。
+ */
+internal fun exportMarkdowns(hub: ConversationHub, files: List<String>): List<ExportedMarkdown>? {
     val config = hub.settings.env ?: return null
+    if (files.isEmpty()) return emptyList()
+    val timeout = (120_000L + 20_000L * (files.size - 1)).coerceAtMost(600_000L)
     val result = runCatching {
-        LinuxEnv.run(config, "exec python3 - export " + LinuxEnv.quote(file), stdin = hub.helperScript, timeoutMs = 120_000)
+        LinuxEnv.run(config, "exec python3 - export " + files.joinToString(" ") { LinuxEnv.quote(it) }, stdin = hub.helperScript, timeoutMs = timeout)
     }.getOrNull() ?: return null
-    val o = result.stdout.lineSequence().mapNotNull(::parseLine).firstOrNull { it.str("type") == "zeta_export" } ?: return null
-    return ExportedMarkdown(o.str("title").orEmpty(), o.str("markdown") ?: return null)
+    val exported = result.stdout.lineSequence().mapNotNull(::parseLine).filter { it.str("type") == "zeta_export" }.mapNotNull { o ->
+        ExportedMarkdown(o.str("file").orEmpty(), o.str("title").orEmpty(), o.str("markdown") ?: return@mapNotNull null)
+    }.associateBy { it.file }
+    return files.mapNotNull { exported[it] }
 }
 
 private val FileNameUnsafe = Regex("[\\\\/:*?\"<>|\\p{C}]")
