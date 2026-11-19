@@ -9,7 +9,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 - 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式都用它自带的，它没有的才在 `ui/components/coui2` 补，不照抄 Eta 的组件。写法照它自带的指南（工作站 `~/workspace-external/coui` 的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。不接第三方服务，功能从简。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商、压缩与标题设置。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
-- 版本号长期停在 0.x.x。每次发版只升 patch（0.6.3 → 0.6.4），新功能也一样；不跳 minor，不发 1.0。
+- 版本号长期停在 0.x.x，不发 1.0。正式版的版本只在上线时升一次 patch（0.7.0 → 0.7.1），用户说了才升 minor；合入不改版本号，测试版的版本跟着提交自动走（见「发版与上线」）。
 - Eta（GPL-3.0）是功能和交互的参照：照它的设计重写，不整段复制；外观、尺寸、动画以 COUI 2 为准。`ui/markdown`、侧栏骨架和主题最初是从 Eta 拷来的，所以本仓是 GPL-3.0。Eta 源码在工作站的 `~/workspace-external/Eta` 和手机的 `/workspace/claude/ref/Eta`（上游 github `Mangi-11/Eta`，对照前先 `git fetch` 再快进），ColorOS 的 COUI 源码解包在手机的 `/workspace/claude/ref/coui-src`；COUI 2 的源码在工作站的 `~/workspace-external/coui`（上游 github `suqi8/coui`，对照前先 `git pull`）。
 
 ## 架构
@@ -56,7 +56,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 门禁里的单元测试每次都把这些图画一遍，渲染崩溃就失败。不提交基准图、不做像素比对：并行的分支改界面时基准图必然冲突、要反复重录；JVM 渲染和真机本来就不同，工作站和手机 Debian（arm64）画出来的像素也未必一样。
   - 要滚到下面的节点用 `ShotTest` 的 `scrollIntoView()`，不直接用 `performScrollTo`：截图测试的时钟不自动前进，滚动等不到帧，`performScrollTo` 会一直重发滚动、卡住空转直到 OOM（`ShotSourcesTest` 拦着）。测试任务另有 10 分钟超时（`app/build.gradle.kts`），别的原因卡住时也到点失败。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约（测试版、正式版各一把）：工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；被别人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：子代理碰手机只用 `tools/phone-run`（见下面「真机脚本」），不自己拿租约一步步点；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试、截图测试能验的不占手机。
-- 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。两个包同时装在手机上，互不替换。测试版只有一份，真机测试交脚本给 `tools/phone-run` 排队执行。
+- 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。任务分支的提交数可能比手机上刚装的少，`tools/install.sh --dev` 用 `pm install -d` 照装。两个包同时装在手机上，互不替换。测试版只有一份，真机测试交脚本给 `tools/phone-run` 排队执行。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在上线时由主会话装（见「发版与上线」）：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
   - 测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
   - 两个包共用同一个 Debian 和 Linux 用户：Claude Code 的会话、登录状态、配置是同一份，测试版里建的会话也会出现在正式版的列表里，照样测完就删。Zeta 自己在 Linux 里的目录按包分开（正式版 `~/.cache/zeta`、`~/.config/zeta`，测试版 `zeta-dev`，由环境变量 `ZETA_NAME` 告诉脚本，见 `AppVariant`），所以两个包不会接管、结束或清理对方的后台对话和附件；正在被另一个包跑着的会话在这边算作别处占用。设置、定时任务、通知渠道、无障碍服务也各是各的。包名相关的名字（无障碍组件、Provider authority、广播 action）都从 `AppVariant` 取，不写死 `com.dzshzx.zeta`。
@@ -77,9 +77,16 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 发版与上线
 
-一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `wt land` 合入。合入不装正式版。没有 tag，GitHub 上也不发 Release。
+一件事一个提交，合入不改版本号。版本照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（`app/build.gradle.kts`），不手写：
 
-上线指把正式版装成 master 的最新版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才装：`tools/install.sh`（不带 `--dev`），中间的版本直接跳过；装完在正式版的测试屏上验一遍（`vd.py launch`、`vd.py shot`）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
+- versionCode 是 HEAD 的提交数，每合入一次自动加一。同一个提交编出的测试版和正式版相同，设置页「关于」和诊断页的「版本名（versionCode）」一对就知道是哪个提交。
+- 正式版在上线时打的 tag（`v0.7.1`）上，版本名就是 `0.7.1`。
+- 别的提交是下一个版本的预发布：`0.7.2-dev.3+gabc1234` 是 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。按 SemVer 它排在 0.7.1 之后、0.7.2 之前，`+` 后面的构建元数据不参与比大小。测试版装的都是这种。
+- tag 只标正式版的版本，推到 origin 后不改（GitHub 上 tag 不可改写）；GitHub 上不发 Release。
+
+合入：功能分支交回前自己变基到最新的 origin/master、解决冲突、压成一个提交。负责合入的会话先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `wt land` 合入。合入不装正式版。
+
+上线指把正式版装成 master 的最新版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才装：在主 checkout 同步到 origin/master 后跑 `tools/install.sh`（不带 `--dev`；用户说升 minor 时加 `--minor`）。它在 HEAD 上打下一个版本的 tag 并推到 origin，再构建、核对版本名、安装，中间的提交直接跳过；HEAD 已有 tag 就重装这个版本。装完在正式版的测试屏上验一遍（`vd.py launch`、`vd.py shot`）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
 
 ## 边界
 
