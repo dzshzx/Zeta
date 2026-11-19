@@ -258,8 +258,11 @@ class PhoneTools(
     /** 继续 / 交还给 Claude。 */
     fun resumeByUser() = setControl(pause = false, control = false)
 
-    /** 停止这一轮（或别的原因 [reason]）：闸门前等着的调用作废，暂停和接管都解除。 */
-    fun cancelWaiting(reason: String = STOPPED) = setControl(pause = false, control = false, cancel = reason)
+    /** 停止这一轮（或别的原因 [reason]）：闸门前等着的调用作废，暂停和接管都解除。等着用户交还浏览器的调用也一并作废。 */
+    fun cancelWaiting(reason: String = STOPPED) {
+        setControl(pause = false, control = false, cancel = reason)
+        com.dzshzx.zeta.phone.browser.AgentBrowser.cancelWaiting()
+    }
 
     /** 用户在展开画面上点按（坐标按画面归一化），作用在后台屏幕上；没在接管就先接管。在主线程上调用。 */
     fun userTap(x: Float, y: Float, longPress: Boolean) {

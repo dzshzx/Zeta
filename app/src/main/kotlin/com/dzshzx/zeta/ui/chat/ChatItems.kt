@@ -71,6 +71,8 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.phone.tools.BrowserTools
+import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.WorkStep
@@ -390,6 +392,7 @@ private fun WorkStepRow(step: WorkStep) {
                 ToolStatus.Failed -> StatusDot(StatusError, "失败")
                 else -> Unit
             }
+            if (step is ToolStep && step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
             if (detail.isNotBlank() || images.isNotEmpty()) Chevron(expanded)
         }
         AnimatedVisibility(visible = expanded && detail.isNotBlank()) {

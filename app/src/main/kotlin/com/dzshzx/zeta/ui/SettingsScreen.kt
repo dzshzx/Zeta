@@ -32,6 +32,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
 import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
 import com.dzshzx.zeta.ui.setup.ClaudeConfigGroup
 import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
+import com.dzshzx.zeta.ui.browser.BrowserActivity
 
 @Composable
 internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit, onOpenPhone: () -> Unit) {
@@ -97,6 +98,11 @@ private fun SettingsHome(
                 onClick = onOpenPhone,
             )
             ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) }
+            CouiPreference(
+                title = "浏览器",
+                summary = "Claude 打开网页用的内置浏览器：看它当前的页面、接管操作、清除数据",
+                onClick = { BrowserActivity.open(context) },
+            )
         }
         ClaudeConfigGroup(hub, onOpenSubPage)
         Group(title = "权限", footer = "后台运行（电池优化）、通知、无障碍、root 和 Linux 环境的状态都在这里，有 root 时可以一键授予。") {

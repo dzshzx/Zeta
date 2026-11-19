@@ -41,6 +41,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 内置浏览器页：看 Claude 在用的网页、接管、清除数据 -->
+        <activity
+            android:name=".ui.browser.BrowserActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".phone.ZetaAccessibilityService"
             android:exported="true"

@@ -1,7 +1,9 @@
 package com.dzshzx.zeta.ui.chat
 
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.phone.tools.PhoneToolGroups
+import androidx.compose.material.icons.rounded.Public
 import com.dzshzx.zeta.core.int
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Smartphone
@@ -136,6 +138,7 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
             else -> ToolPresentation(Icons.Rounded.Smartphone, "打开 " + s("app").orEmpty(), json)
         }
         "find_apps" -> ToolPresentation(Icons.Rounded.Smartphone, "查找应用 " + s("query").orEmpty(), json)
+        BrowserTools.NAME -> ToolPresentation(Icons.Rounded.Public, BrowserTools.title(tool, input ?: JsonObject(emptyMap())), json)
         else -> ToolPresentation(Icons.Rounded.Smartphone, PhoneToolGroups.find(tool)?.title(tool, input ?: JsonObject(emptyMap())) ?: "手机 · $tool", json)
     }
 }
