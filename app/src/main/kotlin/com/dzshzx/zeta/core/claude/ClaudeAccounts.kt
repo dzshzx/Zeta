@@ -156,7 +156,7 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
             return reasons.takeIf { it.isNotEmpty() }?.joinToString("；")?.plus("。")
         }
 
-        /** Zeta 包在 Linux 里的目录名 → 界面上的叫法：zeta 是正式版，zeta-dev、zeta-dev2… 是测试版的几份。 */
+        /** Zeta 包在 Linux 里的目录名 → 界面上的叫法：zeta 是正式版，zeta-dev 是测试版。 */
         private fun zetaName(owner: String): String = when {
             owner == "zeta" -> "正式版"
             owner.startsWith("zeta-dev") -> "测试版" + owner.removePrefix("zeta-dev")

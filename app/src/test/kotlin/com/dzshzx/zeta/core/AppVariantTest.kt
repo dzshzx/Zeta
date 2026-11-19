@@ -35,17 +35,6 @@ class AppVariantTest {
     }
 
     @Test
-    fun otherDevSlotsGetTheirOwnNames() {
-        // 测试版的第二、三份（-Pzeta.devSlot=2/3）：Linux 目录、组件、action 都和第一份分开
-        val dev2 = AppVariant("com.dzshzx.zeta.dev2")
-        assertTrue(dev2.isDev)
-        assertEquals("zeta-dev2", dev2.linuxName)
-        assertEquals("com.dzshzx.zeta.dev2/$service", dev2.component(service))
-        assertEquals("com.dzshzx.zeta.dev2.action.STOP", dev2.action("STOP"))
-        assertTrue(dev2.linuxName != dev.linuxName && dev2.linuxName != release.linuxName)
-    }
-
-    @Test
     fun namesNeverCollideBetweenPackages() {
         assertTrue(release.linuxName != dev.linuxName)
         assertTrue(release.component(service) != dev.component(service))

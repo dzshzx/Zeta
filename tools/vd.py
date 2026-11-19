@@ -4,8 +4,8 @@
 在手机 Debian 里直接进 Android 一侧；在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 
 用法：vd.py [--dev] <命令>
-  --dev 操作测试版，每条命令都要带（build 除外）。测试版有三份（com.dzshzx.zeta.dev、.dev2、.dev3），各有自己的虚拟屏；
-  用哪一份由手机租约定（tools/phone-lock），和 tools/install.sh --dev 刚装的是同一份。
+  --dev 操作测试版（com.dzshzx.zeta.dev），每条命令都要带（build 除外）。测试版和正式版各有自己的虚拟屏。
+  真机测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py --dev。
   不带 --dev 是正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由负责合入的会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
@@ -24,7 +24,7 @@ OUT = os.path.join(HERE, "vdisplay", "build")
 DEX = os.path.join(OUT, "classes.dex")
 D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
 RELEASE = "com.dzshzx.zeta"
-# 下面三个由 use() 按租到的那份定：包名、虚拟屏名字（VdHold 的第 6 个参数）、手机上的工作目录
+# 下面三个由 use() 按测试版还是正式版定：包名、虚拟屏名字（VdHold 的第 6 个参数）、手机上的工作目录
 PACKAGE = RELEASE
 NAME = "zeta-screen-main"
 WORK = "/data/local/tmp/zeta-screen-main"
@@ -47,14 +47,12 @@ def android(cmd, check=True, data=None, binary=False):
 
 
 def use(slot):
-    """切到租到的那份：main 是正式版，1～3 是三份测试版。第一份沿用改成多份以前的名字，和旧版工具互通。"""
+    """切到测试版（dev）或正式版（main）。"""
     global PACKAGE, NAME, WORK
     if slot == "main":
         PACKAGE, NAME = RELEASE, "zeta-screen-main"
-    elif slot == "1":
-        PACKAGE, NAME = RELEASE + ".dev", "zeta-vd"
     else:
-        PACKAGE, NAME = RELEASE + ".dev" + slot, "zeta-screen-" + slot
+        PACKAGE, NAME = RELEASE + ".dev", "zeta-vd"
     WORK = "/data/local/tmp/" + NAME
 
 
@@ -151,15 +149,12 @@ def shot(path):
 
 
 def lease(kind):
-    """并行开发时按包发租约（见 tools/phone-lock），拿不到就退出；返回 main 或测试版的份号。
-    在手机 Debian 里直接跑时不协调，测试版用 ZETA_DEV_SLOT（默认 1）。"""
-    if ON_PHONE:
-        return os.environ.get("ZETA_DEV_SLOT", "1") if kind == "dev" else "main"
-    r = subprocess.run([os.path.join(HERE, "phone-lock"), kind], stdout=subprocess.PIPE, text=True)
-    if r.returncode:
-        sys.exit(r.returncode)
-    return r.stdout.strip() if kind == "dev" else "main"
-
+    """按包拿租约（见 tools/phone-lock），拿不到就退出；返回 dev 或 main。在手机 Debian 里直接跑时不协调。"""
+    if not ON_PHONE:
+        code = subprocess.run([os.path.join(HERE, "phone-lock"), kind]).returncode
+        if code:
+            sys.exit(code)
+    return kind
 
 def main():
     a = sys.argv[1:]

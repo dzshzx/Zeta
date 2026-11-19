@@ -60,7 +60,7 @@ if ! flock -n 8; then
   echo "排队：前面有别的 phone-run 在跑"
   flock -w "$wait" 8 || { echo "排了 $wait 秒还没轮到" >&2; exit 75; }
 fi
-until slot=$("$root/tools/phone-lock" dev 2>"$OUT/lock.err"); do
+until "$root/tools/phone-lock" dev 2>"$OUT/lock.err"; do
   if ((SECONDS - start >= wait)); then
     echo "排了 $wait 秒还没拿到测试版：$(cat "$OUT/lock.err")" >&2
     exit 75
@@ -70,7 +70,7 @@ until slot=$("$root/tools/phone-lock" dev 2>"$OUT/lock.err"); do
 done
 rm -f "$OUT/lock.err"
 held=$SECONDS
-echo "排队 $((held - start)) 秒，拿到测试版第 $slot 份"
+echo "排队 $((held - start)) 秒，拿到测试版"
 
 pkg='' child=''
 cleanup() {

@@ -38,17 +38,13 @@ android {
             isMinifyEnabled = false
         }
         // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh --dev）。
-        // 代码、签名同 debug；图标在 src/dev/res 里换掉。assembleDebug 照旧只出正式版。
-        // 测试版有三份（.dev、.dev2、.dev3），好让几个任务同时各装各的；装哪一份由 tools/install.sh 按手机租约的空位定，
-        // 经 -Pzeta.devSlot=<1..3> 传进来，不传是第一份。
-        val devSlot = (findProperty("zeta.devSlot") as String?)?.toIntOrNull()?.takeIf { it in 1..3 } ?: 1
-        val devSuffix = if (devSlot == 1) "" else "$devSlot"
+        // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。assembleDebug 照旧只出正式版。
         create("dev") {
             initWith(getByName("debug"))
-            applicationIdSuffix = ".dev$devSuffix"
-            versionNameSuffix = "-dev$devSuffix"
-            resValue("string", "app_name", "Zeta 测试$devSuffix")
-            resValue("string", "capture_tile", "截屏给 Zeta 测试$devSuffix")
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "Zeta 测试")
+            resValue("string", "capture_tile", "截屏给 Zeta 测试")
             matchingFallbacks += listOf("debug")
         }
     }
