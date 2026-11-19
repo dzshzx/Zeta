@@ -56,7 +56,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 要滚到下面的节点用 `ShotTest` 的 `scrollIntoView()`，不直接用 `performScrollTo`：截图测试的时钟不自动前进，滚动等不到帧，`performScrollTo` 会一直重发滚动、卡住空转直到 OOM（`ShotSourcesTest` 拦着）。测试任务另有 10 分钟超时（`app/build.gradle.kts`），别的原因卡住时也到点失败。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约（测试版、正式版各一把）：工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；被别人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：子代理碰手机只用 `tools/phone-run`（见下面「真机脚本」），不自己拿租约一步步点；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试、截图测试能验的不占手机。
 - 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。两个包同时装在手机上，互不替换。测试版只有一份，真机测试交脚本给 `tools/phone-run` 排队执行。
-  - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
+  - 子代理和开发测试一律装测试版、在测试版上测。正式版只在上线时由主会话装（见「发版与上线」）：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
   - 测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
   - 两个包共用同一个 Debian 和 Linux 用户：Claude Code 的会话、登录状态、配置是同一份，测试版里建的会话也会出现在正式版的列表里，照样测完就删。Zeta 自己在 Linux 里的目录按包分开（正式版 `~/.cache/zeta`、`~/.config/zeta`，测试版 `zeta-dev`，由环境变量 `ZETA_NAME` 告诉脚本，见 `AppVariant`），所以两个包不会接管、结束或清理对方的后台对话和附件；正在被另一个包跑着的会话在这边算作别处占用。设置、定时任务、通知渠道、无障碍服务也各是各的。包名相关的名字（无障碍组件、Provider authority、广播 action）都从 `AppVariant` 取，不写死 `com.dzshzx.zeta`。
   - 测试版的通知标题前注明「测试版」，完成与确认提醒不出声；和正式版一样，没有对话在跑时不常驻通知。测完不让它在后台常驻：`vd.py --dev stop` 会 force-stop 它，并撤销它的通知监听、删掉 `phoneDisplay`。
@@ -74,9 +74,11 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 不经文件选择器给 Zeta 喂文件：`am start -n <包名>/com.dzshzx.zeta.ui.MainActivity -a android.intent.action.SEND -t <mime> --eu android.intent.extra.STREAM file:///data/user/0/<包名>/files/<名字>`。通知栏的「停止」可用 root 触发：`am startservice -n <包名>/com.dzshzx.zeta.core.AgentService -a <包名>.action.STOP`。
   - Claude Code 会拦下前台的 `sleep N`，长时间的测试用自己会耗时的脚本。
 
-## 发版
+## 发版与上线
 
-一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
+一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `wt land` 合入。合入不装正式版。没有 tag，GitHub 上也不发 Release。
+
+上线指把正式版装成 master 的最新版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才装：`tools/install.sh`（不带 `--dev`），中间的版本直接跳过；装完在正式版的测试屏上验一遍（`vd.py launch`、`vd.py shot`）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
 
 ## 边界
 

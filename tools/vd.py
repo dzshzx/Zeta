@@ -6,7 +6,7 @@
 用法：vd.py [--dev] <命令>
   --dev 操作测试版（com.dzshzx.zeta.dev），每条命令都要带（build 除外）。测试版和正式版各有自己的虚拟屏。
   真机测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py --dev。
-  不带 --dev 是正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由负责合入的会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
+  不带 --dev 是正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由主会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
   vd.py shot 文件.png          截图
@@ -183,7 +183,7 @@ def main():
     c, rest = a[0], a[1:]
     owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
     if not dev and owner != "main" and c != "build":
-        sys.exit(f"正式版只由负责合入的会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
+        sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
     if c != "build":
         use(lease("dev" if dev else "main"))
     if c == "build":

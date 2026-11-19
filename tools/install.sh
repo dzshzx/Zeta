@@ -2,7 +2,7 @@
 # 构建并装到手机。用法：tools/install.sh [--dev] [--no-build]
 #   --dev  装测试版（com.dzshzx.zeta.dev，桌面名「Zeta 测试」），和用户日常用的正式版并存。开发测试一律用它，
 #          一般经 tools/phone-run 调。
-#   不带   装正式版（com.dzshzx.zeta），只由负责合入的会话在合入后装：ZETA_PHONE_OWNER 不设或为 main 时才肯装。
+#   不带   装正式版（com.dzshzx.zeta），只在用户说上线时由主会话装：ZETA_PHONE_OWNER 不设或为 main 时才肯装。
 # 在手机 Debian 里直接进 Android 一侧安装；在工作站上经 ssh（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 # APK 从标准输入交给 pm install -S，两边走同一条路，不用先拷到手机上。
 set -euo pipefail
@@ -16,7 +16,7 @@ for arg in "$@"; do
   esac
 done
 if [[ $variant == debug && ${ZETA_PHONE_OWNER:-main} != main ]]; then
-  echo "正式版只由负责合入的会话装（现在 ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）；开发测试装测试版：tools/install.sh --dev" >&2
+  echo "正式版只在上线时由主会话装（现在 ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）；开发测试装测试版：tools/install.sh --dev" >&2
   exit 2
 fi
 on_phone=

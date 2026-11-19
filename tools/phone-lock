@@ -1,7 +1,7 @@
 #!/bin/bash
 # 手机测试的租约，按包发：
 #   dev   测试版 com.dzshzx.zeta.dev，同时只给一个人（真机测试走 tools/phone-run 排队，一般不用直接调）
-#   main  正式版 com.dzshzx.zeta，只有负责合入的会话用（tools/install.sh、vd.py 不带 --dev 时）
+#   main  正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd.py 不带 --dev 时）
 # 已经占着的再要就续租。tools/install.sh 和 tools/vd.py 在工作站上每次碰手机前都调它，拿不到就以退出码 75 失败。
 # 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
 # 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话。
