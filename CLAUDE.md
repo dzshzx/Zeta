@@ -1,16 +1,16 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Android 原生客户端：Kotlin、Compose，外观和交互照 Eta 的 COUI 模式。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
+Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Android 原生客户端：Kotlin、Compose，界面用 COUI 2（ColorOS 17 风格）。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
 
 ## 产品取舍
 
 用户定的，改之前先问。
 
-- 外观和工作逻辑照 Eta 的 COUI 模式：组件用 `io.github.itoseo:coui`，文字与配色由 MiuixTheme 承载，不用 Miuix 的界面组件。不提 Miuix 界面或 Web UI 方案。不接第三方服务，功能从简。
+- 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式都用它自带的，它没有的才在 `ui/components/coui2` 补，不照抄 Eta 的组件。写法照它自带的指南（工作站 `~/workspace-external/coui` 的 `.claude/skills/coui-app/`）。从 COUI-Kit 和 Miuix 迁过来的进度和对照表在 `docs/coui2-migration.md`。不提 Web UI 方案。不接第三方服务，功能从简。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商、压缩与标题设置。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x。每次发版只升 patch（0.6.3 → 0.6.4），新功能也一样；不跳 minor，不发 1.0。
-- Eta（GPL-3.0）是参照：照它的设计、尺寸、动画重写，不整段复制。`ui/markdown`、`ui/components/coui`、侧栏骨架和主题是从 Eta 拷来的，所以本仓是 GPL-3.0。Eta 源码在工作站的 `~/workspace-external/Eta` 和手机的 `/workspace/claude/ref/Eta`（上游 github `Mangi-11/Eta`，对照前先 `git fetch` 再快进），COUI 源码解包在手机的 `/workspace/claude/ref/coui-src`。
+- Eta（GPL-3.0）是功能和交互的参照：照它的设计重写，不整段复制；外观、尺寸、动画以 COUI 2 为准。`ui/markdown`、侧栏骨架和主题最初是从 Eta 拷来的，所以本仓是 GPL-3.0。Eta 源码在工作站的 `~/workspace-external/Eta` 和手机的 `/workspace/claude/ref/Eta`（上游 github `Mangi-11/Eta`，对照前先 `git fetch` 再快进），ColorOS 的 COUI 源码解包在手机的 `/workspace/claude/ref/coui-src`；COUI 2 的源码在工作站的 `~/workspace-external/coui`（上游 github `suqi8/coui`，对照前先 `git pull`）。
 
 ## 架构
 
@@ -19,7 +19,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`，文件浏览 `LinuxFiles`，共享文件夹 `SharedFolders`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`，附件与图片。
 - `core/claude/`：设置里“上下文与扩展”读写 Claude Code 自身配置（记忆、Skills、MCP、Subagent）。解析、校验、路径映射是纯函数；读写文件经 `ClaudeScripts` 的小段壳脚本以 Linux 用户身份做，内容和 Token 只走标准输入；MCP 的增删走 `claude mcp`。
 - `phone/`：手机工具 `PhoneTools`（SDK 类型的 MCP 服务器 `phone`，每个对话一份），无障碍服务，后台虚拟屏（`VirtualScreen`、root 帮手 `VdHelper`、`VdSurfaceProvider`），悬浮层的接口 `Overlay.kt`。
-- `ui/`：聊天 `ui/chat`、侧栏 `ui/pane`、设置与环境页（`SettingsScreen.kt`、`ui/setup`）、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口）、Markdown 渲染、COUI 组件。
+- `ui/`：聊天 `ui/chat`、侧栏 `ui/pane`、设置与环境页（`SettingsScreen.kt`、`ui/setup`）、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口）、Markdown 渲染、COUI 2 的补充件 `ui/components/coui2`。
 - `assets/`：`zeta_host.sh` 起 Claude 进程；`zeta_helper.py` 读写 `~/.claude/projects` 下的会话（列表、历史、删除、改名等），也做设置里存储页的统计和清理（`storage`、`clean`，删除规矩见脚本里“存储”一节）；`zeta_setup_*.sh` 安装 Debian 环境与可选工具；`zeta_ssh_android.sh` 管 SSH 服务。
 
 ## 两端开发
@@ -50,7 +50,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
     }
     ```
 
-  - 和真机的差别：字体是 Roboto 和 Noto Sans CJK（手机上是 MiSans），字宽略有出入，换行位置可能不同；动画一律直接放完，转圈停在固定一帧；顶栏的浮动玻璃按钮画不出来（Robolectric 没有它要的网格着色器），退回同样大小的不透明圆底；对话框和菜单不采样背景，是不透明底色（手机上是毛玻璃）。
+  - 和真机的差别：字体是 Roboto 和 Noto Sans CJK（手机上是 MiSans），字宽略有出入，换行位置可能不同；动画一律直接放完，转圈停在固定一帧；毛玻璃是关掉的（`ZetaTheme(windowBackdrop = false)`）：顶栏没有光晕，按钮、对话框和菜单是不透明底色（手机上是毛玻璃）。
   - JVM 上没有 root、无障碍、悬浮窗、虚拟屏和 Claude 进程。单元测试的 PATH 里有个总是失败的 `su`（`app/src/test/no-root`），要 root 才查得到的东西在图上是查不到的样子（比如共享文件夹列不出子目录）。这些仍要上真机：悬浮层真实的窗口行为（位置、触摸、给 Claude 的手势让路、叠在别的应用上）、后台屏幕的画面、权限授予、Claude 真跑一轮，以及最终的字体和毛玻璃效果。
   - 门禁里的单元测试每次都把这些图画一遍，渲染崩溃就失败。不提交基准图、不做像素比对：并行的分支改界面时基准图必然冲突、要反复重录；JVM 渲染和真机本来就不同，工作站和手机 Debian（arm64）画出来的像素也未必一样。
   - 要滚到下面的节点用 `ShotTest` 的 `scrollIntoView()`，不直接用 `performScrollTo`：截图测试的时钟不自动前进，滚动等不到帧，`performScrollTo` 会一直重发滚动、卡住空转直到 OOM（`ShotSourcesTest` 拦着）。测试任务另有 10 分钟超时（`app/build.gradle.kts`），别的原因卡住时也到点失败。
@@ -89,7 +89,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 ## 坑
 
 - Linux 里的 `/workspace` 是 Android 的 `/data/local/tmp/eta` 绑过去的，和 Eta 共用；Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。
-- COUI 对话框的 `neutralAction` 一律画成红色的危险按钮，三个按钮还会竖排挤掉内容；不危险的次要操作放菜单，或做成对话框内容里的链接。
+- COUI 对话框按钮栏的 `neutral` 一律画成红色的危险按钮，三个按钮还会竖排挤掉内容；不危险的次要操作放菜单，或做成对话框内容里的链接。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - `zeta_host.sh` 的看门狗在 `setsid bash -c '…'` 里面，那一段里不能写单引号。
 - Kotlin：在 `VirtualDisplay.() -> Unit` 这类带接收者的 lambda 里裸写 `surface`，会解析成 `VirtualDisplay.getSurface()`，不是外层的字段。

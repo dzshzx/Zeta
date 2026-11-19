@@ -8,8 +8,10 @@ import androidx.compose.ui.unit.dp
 import io.github.suqi8.coui.kmp.basic.Card
 import io.github.suqi8.coui.kmp.basic.CardListGroup
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
+import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.preference.PreferenceCategory
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
  * 设置页的一组：分类标题、圆角卡片里的一组设置行、卡片下面的说明文字。
@@ -31,4 +33,10 @@ internal fun PreferenceGroup(
         }
         if (footer != null) PagerFooterPreference(summary = footer)
     }
+}
+
+/** 设置行右侧显示的当前值，放进行的 endActions：`endActions = { PreferenceValue("跟随系统") }`。 */
+@Composable
+internal fun PreferenceValue(text: String, modifier: Modifier = Modifier) {
+    Text(text = text, modifier = modifier, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.labelTertiary, maxLines = 1)
 }

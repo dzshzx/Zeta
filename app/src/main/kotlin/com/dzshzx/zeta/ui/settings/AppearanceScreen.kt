@@ -17,8 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.overlay.OverlayInputDialog
+import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.SliderPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
@@ -47,16 +46,17 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
         title = "外观与主题",
         onBack = onBack,
         overlays = {
-            OverlayInputDialog(
+            TextInputDialog(
                 show = showScaleDialog,
-                value = scaleInput,
-                onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
                 title = "界面缩放",
                 summary = "请输入 80 至 110 之间的整数",
+                value = scaleInput,
+                onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
                 label = "百分比",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                negative = DialogButtonBarAction("取消") { showScaleDialog = false },
-                positive = DialogButtonBarAction("确定", enabled = parsedScale != null && parsedScale in 80..110, recommended = true) {
+                confirmText = "确定",
+                confirmEnabled = parsedScale != null && parsedScale in 80..110,
+                onConfirm = {
                     parsedScale?.let { commitScale(it.toFloat()) }
                     showScaleDialog = false
                 },
