@@ -22,6 +22,8 @@ class HostInfo(
     val permissionMode: String? = null,
     /** 还在跑的后台任务数；这一轮已经结束也要接上，任务跑完 Claude Code 还会接着汇报。 */
     val tasks: Int = 0,
+    /** 还在跑的后台任务的事件（task_started、最后一条 background_tasks_changed、最近的 task_progress），接上时按序重放给任务清单。 */
+    val taskEvents: List<JsonObject> = emptyList(),
 )
 
 /**

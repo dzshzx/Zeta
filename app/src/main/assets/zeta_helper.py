@@ -17,6 +17,7 @@
   mounts <名字…>        共享文件夹：/mnt/shared 下各项有没有挂上、当前用户能不能读写
 """
 import base64
+import datetime
 import glob
 import json
 import os
@@ -430,15 +431,31 @@ def prune_uploads():
             pass
 
 
+TASK_TOOLS = ("Bash", "Monitor", "Agent", "Task")
+
+
+def epoch_ms(stamp):
+    try:
+        return int(datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() * 1000)
+    except (AttributeError, ValueError):
+        return None
+
+
 def scan_host(directory):
     """读一个后台进程的输出日志：到第几行了、是哪个会话、这一轮是否还在进行、有没有等着用户批准的调用、
-    还有几个后台任务在跑。"""
+    还有几个后台任务在跑，以及这些任务的事件（接上后重放给任务清单）。"""
     lines = 0
     session = None
     busy = False
     tasks = 0
     pending = None
     mode = None
+    # 后台任务：最后一份清单；各任务的 task_started（带上发起它的工具调用和开始时间）和最近一条 task_progress
+    listing = None
+    started = {}
+    progress = {}
+    calls = {}
+    stamp = None
     with open(os.path.join(directory, "out.jsonl"), encoding="utf-8", errors="replace") as f:
         for line in f:
             if not line.endswith("\n"):
@@ -465,13 +482,30 @@ def scan_host(directory):
                 elif o.get("subtype") == "background_tasks_changed":
                     # 每次都是完整清单：最后一条就是现在的情况。这一轮结束了它们也照样在跑
                     tasks = len(o.get("tasks") or [])
+                    listing = o
+                elif o.get("subtype") == "task_started" and o.get("task_id"):
+                    call = calls.get(o.get("tool_use_id"))
+                    if call:
+                        o["zeta_tool"] = call
+                    if stamp:
+                        o["zeta_at"] = stamp
+                    started[o["task_id"]] = o
+                elif o.get("subtype") == "task_progress" and o.get("task_id"):
+                    progress[o["task_id"]] = o
             elif kind == "command_lifecycle":
                 if o.get("state") == "started":
                     busy = True
             elif kind in ("assistant", "user"):
+                stamp = epoch_ms(o.get("timestamp")) or stamp
                 # 后台子代理的消息在主对话这一轮结束后还会陆续写进来，不代表这一轮还在进行
                 if not o.get("parent_tool_use_id"):
                     busy = True
+                    if kind == "assistant":
+                        for block in (o.get("message") or {}).get("content") or []:
+                            if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") in TASK_TOOLS:
+                                calls[block.get("id")] = {"name": block.get("name"), "input": block.get("input")}
+                                if len(calls) > 64:
+                                    calls.pop(next(iter(calls)))
                 if kind == "user" and pending is not None:
                     content = (o.get("message") or {}).get("content")
                     wanted = (pending.get("request") or {}).get("tool_use_id")
@@ -481,7 +515,12 @@ def scan_host(directory):
                 pending = o
             elif kind == "control_cancel_request" and pending is not None and pending.get("request_id") == o.get("request_id"):
                 pending = None
-    return lines, session, busy, pending, mode, tasks
+    # 重放的顺序：各任务的 task_started，再是清单（据此列出），最后是进展
+    events = []
+    if listing is not None:
+        ids = [item.get("task_id") for item in listing.get("tasks") or []]
+        events = [started[t] for t in ids if t in started] + [listing] + [progress[t] for t in ids if t in progress]
+    return lines, session, busy, pending, mode, tasks, events
 
 
 def read_text(path):
@@ -505,7 +544,7 @@ def cmd_hosts():
             shutil.rmtree(directory, ignore_errors=True)
             continue
         try:
-            lines, session, busy, pending, mode, tasks = scan_host(directory)
+            lines, session, busy, pending, mode, tasks, events = scan_host(directory)
         except OSError:
             continue
         session = session or read_text(os.path.join(directory, "session")) or None
@@ -515,7 +554,7 @@ def cmd_hosts():
         title = summary.get("title") or read_text(os.path.join(directory, "title")) or (summary.get("preview") or "")[:40]
         out({"key": os.path.basename(directory), "pid": pid, "cwd": read_text(os.path.join(directory, "cwd")),
              "title": title, "session": session, "file": files[0] if files else None,
-             "lines": lines, "busy": busy, "pending": pending, "mode": mode, "tasks": tasks})
+             "lines": lines, "busy": busy, "pending": pending, "mode": mode, "tasks": tasks, "task_events": events})
 
 
 def cmd_rename(path, title):

@@ -102,6 +102,7 @@ import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
 import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
+import com.dzshzx.zeta.ui.tasks.BackgroundEntry
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -149,6 +150,8 @@ internal fun SessionPane(
     onRename: (SessionSummary, String) -> Unit,
     onArchive: (SessionSummary, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
+    /** 打开后台任务面板（全部对话的）。 */
+    onOpenBackground: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val dark = CouiTheme.isDark
@@ -333,6 +336,10 @@ internal fun SessionPane(
             PaneCircleButton(icon = Icons.Rounded.MapsUgc, description = "新对话", onClick = onNewChat)
         }
 
+        // 有后台对话或后台任务时，列表上方多一个入口
+        if (!selecting && !searching) {
+            BackgroundEntry(hub, onOpen = onOpenBackground, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 6.dp))
+        }
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 12.dp)) {
             if (searching) {
                 if (results.isEmpty()) {

@@ -66,6 +66,12 @@ internal object ScheduleRunner {
 
     fun isRunning(records: RunRecords, id: String): Boolean = key(records, id).let { it in runs || it in starting }
 
+    /** 起了这个对话、还在跑的定时任务或通知触发规则叫什么；不是后台运行起的为 null。 */
+    fun taskName(conversation: Conversation): String? {
+        val run = runs.values.firstOrNull { it.conversation === conversation } ?: return null
+        return run.records.name(run.hub.context, run.id)
+    }
+
     /**
      * Zeta 进程刚起来（ConversationHub 创建时）：上一个进程里没等到结果的运行记成中断；
      * 闹钟重排一遍（应用被强行停止时系统会清掉它的闹钟）。

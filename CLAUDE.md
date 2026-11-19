@@ -100,3 +100,4 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 一轮进行中发来的消息，会在下一个工具边界并入这一轮，两条消息只出一个 `result`。`interrupt` 的回应会列出 `still_queued`；`cancel_async_message` 能撤回排队中的消息。
   - `result` 行的键序不固定，不一定以 `"type"` 开头；`result` 之后还会有 command_lifecycle、task_notification、background_tasks_changed 行。判断一轮的起止看最后一个开始或结束事件，不看最后一行。
   - 后台任务做完时，Claude Code 会自己起一轮：一条 `system init`，前面没有用户消息。Zeta 把空闲时收到的 init 当成新一轮开始。
+  - 后台任务（2.1.328，`ClaudeTaskContractTest` 钉住）：`background_tasks_changed` 是在跑的完整清单，先于 `task_started` 到；结局是 `task_updated`（patch.status）和 `task_notification`。控制请求 `get_task_output` 读后台命令、监视器输出的最后 8 KiB（子代理答 error）；`stop_task` 对不认识的 id 也答 success，停没停看随后的事件。停后台命令不另起一轮，子代理结束（做完或被停）后会。Monitor 的 task_type 也是 `local_bash`，靠发起它的工具调用区分。

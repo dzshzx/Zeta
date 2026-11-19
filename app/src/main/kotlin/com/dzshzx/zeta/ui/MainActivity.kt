@@ -24,8 +24,11 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
@@ -40,9 +43,14 @@ import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import com.dzshzx.zeta.ui.setup.PhoneScreen
 import com.dzshzx.zeta.ui.setup.SshScreen
+import com.dzshzx.zeta.ui.tasks.AllConversations
+import com.dzshzx.zeta.ui.tasks.BackgroundTasksScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var hub: ConversationHub
+
+    /** 从外面（胶囊、通知）要求切到某个对话的次数：每来一次，界面关掉盖在聊天页上的页面，露出那个对话。 */
+    private var conversationRequests by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +71,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            ZetaTheme(darkTheme = hub.darkTheme) { ZetaApp(hub) }
+            ZetaTheme(darkTheme = hub.darkTheme) { ZetaApp(hub, conversationRequests) }
         }
     }
 
@@ -78,6 +86,7 @@ class MainActivity : ComponentActivity() {
         val key = intent?.getStringExtra(EXTRA_CONVERSATION) ?: return
         intent.removeExtra(EXTRA_CONVERSATION)
         hub.openConversation(key)
+        conversationRequests++
     }
 
     /** 别的应用把图片或文件分享过来：交给当前对话的输入栏。 */
@@ -144,8 +153,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** [conversationRequests] 变了：外面要求切到某个对话（对话已经切好），关掉盖在聊天页上的页面和侧栏。 */
 @Composable
-private fun ZetaApp(hub: ConversationHub) {
+private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     var paneOpen by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showLinux by rememberSaveable { mutableStateOf(false) }
@@ -153,7 +163,21 @@ private fun ZetaApp(hub: ConversationHub) {
     var showLogin by rememberSaveable { mutableStateOf(false) }
     var showPhone by rememberSaveable { mutableStateOf(false) }
     var showSsh by rememberSaveable { mutableStateOf(false) }
-    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone || showSsh
+    // 后台任务面板：对话的 key（只看它的），或 AllConversations
+    var tasksScope by rememberSaveable { mutableStateOf<String?>(null) }
+    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone || showSsh || tasksScope != null
+    fun showChat() {
+        if (showLogin) hub.login.cancel()
+        showSettings = false
+        showLinux = false
+        showInstall = false
+        showLogin = false
+        showPhone = false
+        showSsh = false
+        tasksScope = null
+        paneOpen = false
+    }
+    LaunchedEffect(conversationRequests) { if (conversationRequests > 0) showChat() }
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !overlay,
@@ -181,6 +205,10 @@ private fun ZetaApp(hub: ConversationHub) {
                 onRename = hub::rename,
                 onArchive = hub::archive,
                 onOpenSettings = { showSettings = true },
+                onOpenBackground = {
+                    tasksScope = AllConversations
+                    paneOpen = false
+                },
                 modifier = modifier,
             )
         },
@@ -194,6 +222,7 @@ private fun ZetaApp(hub: ConversationHub) {
             onOpenSettings = { showSettings = true },
             onOpenInstall = { showInstall = true },
             onOpenLogin = { showLogin = true },
+            onOpenTasks = { tasksScope = it },
         )
     }
     Page(showSettings) { SettingsScreen(hub = hub, onBack = { showSettings = false }, onOpenLinux = { showLinux = true }, onOpenPhone = { showPhone = true }) }
@@ -210,6 +239,20 @@ private fun ZetaApp(hub: ConversationHub) {
     Page(showSsh) { SshScreen(hub = hub, onBack = { showSsh = false }) }
     Page(showInstall) { EnvInstallScreen(hub = hub, onBack = { showInstall = false }, onOpenLogin = { showLogin = true }) }
     Page(showLogin) { LoginScreen(hub = hub, onBack = { showLogin = false }) }
+    // 退场动画期间 tasksScope 已经是 null，用最后一个值画完
+    val lastScope = remember { arrayOfNulls<String>(1) }
+    tasksScope?.let { lastScope[0] = it }
+    Page(tasksScope != null) {
+        BackgroundTasksScreen(
+            hub = hub,
+            scope = lastScope[0] ?: AllConversations,
+            onBack = { tasksScope = null },
+            onOpenConversation = { key ->
+                hub.openConversation(key)
+                showChat()
+            },
+        )
+    }
     // 返回键一层一层退：最上面的页面先关
     BackHandler(enabled = overlay) {
         when {
@@ -218,6 +261,7 @@ private fun ZetaApp(hub: ConversationHub) {
                 showLogin = false
             }
             showInstall -> showInstall = false
+            tasksScope != null -> tasksScope = null
             showSsh -> showSsh = false
             showPhone -> showPhone = false
             showLinux -> showLinux = false

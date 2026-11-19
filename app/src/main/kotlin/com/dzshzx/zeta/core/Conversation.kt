@@ -83,6 +83,9 @@ class Conversation(
      */
     var backgroundTasks by mutableStateOf(0)
         private set
+
+    /** 后台任务的清单和输出，给后台任务面板看。 */
+    val tasks = BackgroundTasks()
     var loadingHistory by mutableStateOf(historyFile != null)
         private set
     var skippedHistory by mutableStateOf(0)
@@ -176,6 +179,8 @@ class Conversation(
         if (attach != null) {
             busy = attach.busy
             backgroundTasks = attach.tasks
+            // 接回时还在跑的后台任务：助手脚本从输出日志里摘出来的那几条事件
+            attach.taskEvents.forEach { tasks.observe(it, System.currentTimeMillis()) }
             turnsInFlight = if (attach.busy) 1 else 0
             attach.permissionMode?.let { permissionMode = it }
             lastActivityAt = System.currentTimeMillis()
@@ -613,6 +618,22 @@ class Conversation(
         }
     }
 
+    /** 停掉后台任务 [id]。结果看随后的 task_updated / task_notification。 */
+    fun stopTask(id: String) {
+        val process = process ?: return
+        val request = controlRequest { put("subtype", "stop_task"); put("task_id", id) }
+        tasks.stopRequested(request.str("request_id").orEmpty(), id)
+        process.send(request)
+    }
+
+    /** 读后台命令、监视器 [id] 输出的最后 8 KiB，应答进 [BackgroundTasks.outputs]。进程不在时什么也不做。 */
+    fun readTaskOutput(id: String) {
+        val process = process ?: return
+        val request = controlRequest { put("subtype", "get_task_output"); put("task_id", id) }
+        tasks.outputRequested(request.str("request_id").orEmpty(), id)
+        process.send(request)
+    }
+
     /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下）。 */
     fun shutdown() {
         val current = process ?: return
@@ -704,6 +725,7 @@ class Conversation(
     private fun handle(event: JsonObject, now: Long): Boolean {
         // 子代理内部的消息不进主列表，只显示发起它的那一步
         val fromSubagent = event["parent_tool_use_id"]?.let { it !is kotlinx.serialization.json.JsonNull } == true
+        tasks.observe(event, now)
         when (event.str("type")) {
             "system" -> when (event.str("subtype")) {
                 "init" -> {
@@ -844,6 +866,7 @@ class Conversation(
                 return true
             }
             "control_response" -> {
+                if (tasks.onResponse(event.obj("response"))) return false
                 if (autoTitle.onResponse(event.obj("response"), title) { title = it; hub.refreshSessions() }) return false
                 if (rewind != null && event.obj("response")?.str("request_id") == rewind?.requestId) {
                     finishRewind(rewindFailure(event.obj("response")))
@@ -891,6 +914,7 @@ class Conversation(
         busy = false
         // 进程没了，它的后台任务也跟着没了
         backgroundTasks = 0
+        tasks.processEnded(System.currentTimeMillis())
         status = null
         pending = null
         interruptRequested = false

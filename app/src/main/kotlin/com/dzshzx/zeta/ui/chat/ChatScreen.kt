@@ -112,6 +112,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
+import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -135,6 +136,8 @@ internal fun ChatScreen(
     onOpenSettings: () -> Unit,
     onOpenInstall: () -> Unit,
     onOpenLogin: () -> Unit,
+    /** 打开后台任务面板，参数是对话的 key。 */
+    onOpenTasks: (String) -> Unit = {},
 ) {
     val conversation = hub.current
     val dark = CouiTheme.isDark
@@ -176,7 +179,7 @@ internal fun ChatScreen(
     ) { padding ->
         when (hub.setup) {
             SetupState.Ready -> key(conversation.key) {
-                CompositionLocalProvider(LocalTextFinder provides find) { ConversationBody(hub, conversation, padding, onOpenLogin, find) }
+                CompositionLocalProvider(LocalTextFinder provides find) { ConversationBody(hub, conversation, padding, onOpenLogin, find, onOpenTasks) }
             }
             SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
             SetupState.NoRoot -> SetupMessage(
@@ -236,7 +239,14 @@ private fun SetupMessage(padding: PaddingValues, title: String, message: String?
 }
 
 @Composable
-private fun ConversationBody(hub: ConversationHub, conversation: Conversation, padding: PaddingValues, onOpenLogin: () -> Unit, find: ChatFindState) {
+private fun ConversationBody(
+    hub: ConversationHub,
+    conversation: Conversation,
+    padding: PaddingValues,
+    onOpenLogin: () -> Unit,
+    find: ChatFindState,
+    onOpenTasks: (String) -> Unit,
+) {
     val items = conversation.items
     val listState = remember { LazyListState() }
     val input = remember { TextFieldState() }
@@ -470,6 +480,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
             }
             if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }
+            BackgroundTaskStrip(conversation, onOpen = { onOpenTasks(conversation.key) }, modifier = Modifier.padding(bottom = 6.dp))
             TodoStrip(conversation.items, conversation.todoSeed, conversation.busy, Modifier.padding(bottom = 6.dp))
             actions.editing?.let { EditStrip(it, onCancel = actions::cancelEdit, modifier = Modifier.padding(bottom = 6.dp)) }
             QueueStrip(

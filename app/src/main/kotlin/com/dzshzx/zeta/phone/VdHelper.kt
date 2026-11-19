@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Process
 import android.system.Os
+import android.util.Log
 import android.view.Surface
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -24,7 +25,7 @@ import kotlin.system.exitProcess
  * 1. 以 root 身份经 Zeta 的 [VdSurfaceProvider] 取回 Zeta 进程里 ImageReader 的 Surface（凭一次性 token）；
  * 2. 降到 system 身份，建一块受信任的虚拟屏，画面直接进那个 Surface：
  *    有自己的焦点、不抢主屏焦点、锁屏时照常可用、不弹输入法（也不退到主屏弹）；
- * 3. 打出 `VD_READY:<displayId>`，然后一直持有它，直到标准输入关闭或收到 `release`。
+ * 3. 把它固定成竖屏（见 [lockPortrait]），打出 `VD_READY:<displayId>`，然后一直持有它，直到标准输入关闭或收到 `release`。
  *
  * 其间标准输入可以发 `sleep` / `wake`：摘下 / 装回 Surface。摘下后虚拟屏的状态变成 OFF，窗口管理给它加上
  * “Display-off”睡眠令牌，屏上的应用像熄屏一样停到 STOPPED，不再绘制；任务和页面都留在这块屏上。
@@ -58,6 +59,7 @@ object VdHelper {
     private const val REQUIRED_DISPLAY_FLAGS = (1 shl 7) or (1 shl 11) or (1 shl 12)
 
     private const val IME_POLICY_HIDE = 2
+    private const val FIXED_TO_USER_ROTATION_ENABLED = 2
 
     // 静态强引用：防止等待期间被回收而提前销毁虚拟屏；Surface 休眠时也留着，唤醒时装回去
     @Volatile private var display: VirtualDisplay? = null
@@ -92,6 +94,7 @@ object VdHelper {
                 release()
                 fail(problem)
             }
+            lockPortrait(id)
             println(READY + id)
             System.out.flush()
         } catch (t: Throwable) {
@@ -184,12 +187,41 @@ object VdHelper {
         return method.invoke(global, *arguments) as? VirtualDisplay ?: fail("createVirtualDisplay returned null")
     }
 
+    private fun windowManager(): Any? {
+        val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, "window") as? IBinder
+            ?: return null
+        return Class.forName("android.view.IWindowManager\$Stub").getMethod("asInterface", IBinder::class.java).invoke(null, binder)
+    }
+
+    /**
+     * 固定竖屏：不跟着应用要的方向转。不固定的话，只能横屏的应用（游戏、Steam Link 之类）一打开，这块屏就转成横的，
+     * 画面却还是竖的 Surface，截图里整个应用横躺着。固定以后这类应用按系统的兼容方式在竖屏里留边显示。
+     * 做法同 `cmd window fixed-to-user-rotation -d <屏> enabled` 加 `cmd window user-rotation -d <屏> lock 0`。
+     * 做不成不算建屏失败，只记一条日志。
+     */
+    private fun lockPortrait(displayId: Int) {
+        val failure = runCatching {
+            val wms = windowManager() ?: fail("no window manager")
+            val methods = wms.javaClass.methods
+            // IWindowManager.FIXED_TO_USER_ROTATION_ENABLED = 2：只按“用户方向”转，不理会应用要的方向
+            (methods.firstOrNull { it.name == "setFixedToUserRotation" && it.parameterCount == 2 } ?: fail("no setFixedToUserRotation"))
+                .invoke(wms, displayId, FIXED_TO_USER_ROTATION_ENABLED)
+            // 用户方向锁在 0（竖屏）。Android 15 起多一个 caller 参数
+            val freeze = methods.firstOrNull { it.name == "freezeDisplayRotation" && it.parameterCount == 3 }
+            if (freeze != null) {
+                freeze.invoke(wms, displayId, Surface.ROTATION_0, NAME)
+            } else {
+                (methods.firstOrNull { it.name == "freezeDisplayRotation" && it.parameterCount == 2 } ?: fail("no freezeDisplayRotation"))
+                    .invoke(wms, displayId, Surface.ROTATION_0)
+            }
+        }.exceptionOrNull() ?: return
+        val cause = (failure as? java.lang.reflect.InvocationTargetException)?.cause ?: failure
+        Log.w(NAME, "display $displayId: could not lock portrait: $cause")
+    }
+
     /** 这块屏上不弹输入法，也不退到主屏去弹。刚建好的屏在窗口管理那边可能还没就绪，稍等重试几次。返回失败原因。 */
     private fun hideIme(displayId: Int): String? {
-        val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, "window") as? IBinder
-            ?: return "no window service"
-        val wms = Class.forName("android.view.IWindowManager\$Stub").getMethod("asInterface", IBinder::class.java).invoke(null, binder)
-            ?: return "no window manager"
+        val wms = windowManager() ?: return "no window manager"
         val set = wms.javaClass.methods.firstOrNull { it.name == "setDisplayImePolicy" && it.parameterCount == 2 } ?: return "no setDisplayImePolicy"
         val get = wms.javaClass.methods.firstOrNull { it.name == "getDisplayImePolicy" && it.parameterCount == 1 } ?: return "no getDisplayImePolicy"
         var actual: Any? = null

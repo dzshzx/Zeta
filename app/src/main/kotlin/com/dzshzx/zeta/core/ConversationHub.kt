@@ -235,6 +235,12 @@ class ConversationHub(private val app: Application) {
     private fun backgroundChanged() {
         backgroundList = background.values.toList()
     }
+
+    /** 后台任务面板用：当前对话和还在后台的对话，当前的在前（可观察）。 */
+    val liveConversations: List<Conversation> get() = (listOf(current) + backgroundList).distinct()
+
+    /** 切到后台还在跑的对话（定时任务起的也在这里），不含当前对话（可观察）。 */
+    val backgroundConversations: List<Conversation> get() = backgroundList.filter { it !== current }
     private val main = Handler(Looper.getMainLooper())
 
     private fun blank() = Conversation(this, settings.env?.defaultCwd ?: "/workspace", sessionId = null, title = "", historyFile = null)
@@ -310,6 +316,7 @@ class ConversationHub(private val app: Application) {
                     pending = o.obj("pending"),
                     permissionMode = o.str("mode"),
                     tasks = o.int("tasks") ?: 0,
+                    taskEvents = o.arr("task_events").orEmpty().filterIsInstance<JsonObject>(),
                 )
             }.toList()
             main.post {

@@ -1,0 +1,392 @@
+package com.dzshzx.zeta.core.claude
+
+import com.dzshzx.zeta.core.TaskBoard
+import com.dzshzx.zeta.core.TaskKind
+import com.dzshzx.zeta.core.TaskState
+import com.sun.net.httpserver.HttpExchange
+import com.sun.net.httpserver.HttpServer
+import java.io.File
+import java.net.InetSocketAddress
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * 后台任务面板依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
+ * [TaskBoard] 和面板跟着改。收到的真实事件也喂给 [TaskBoard]，看它归约出的样子。
+ *
+ * - 后台任务进出都有 system 事件：background_tasks_changed（完整清单，先于 task_started）、task_started、
+ *   task_progress（子代理）、task_updated（patch.status）、task_notification（completed / failed / stopped）。
+ * - 控制请求 get_task_output 读后台命令和监视器输出的最后 8 KiB（子代理答 error）；stop_task 停一个任务，
+ *   对不认识的 id 也答 success，所以停没停要看随后的事件。停后台命令不另起一轮；子代理结束（做完或被停）后 Claude Code 自己起一轮。
+ * - 监视器（Monitor）的 task_type 也是 local_bash，靠发起它的工具调用区分。
+ *
+ * 和 ClaudeCodeContractTest 一样：真的 claude 命令行跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱）。
+ */
+class ClaudeTaskContractTest {
+    private lateinit var home: File
+    private lateinit var server: HttpServer
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** 主对话要依次调用的工具（名字、参数）。 */
+    @Volatile private var script: List<Pair<String, JsonObject>> = emptyList()
+
+    /** 子代理的请求等它放行才答（停子代理的测试要它一直在跑）。 */
+    private val subagentGate = CountDownLatch(1)
+    @Volatile private var subagentWaits = false
+
+    @Before
+    fun setUp() {
+        home = java.nio.file.Files.createTempDirectory("zeta-task-contract").toFile().canonicalFile
+        File(home, ".claude").mkdirs()
+        File(home, "proj").mkdirs()
+        File(home, ".claude/settings.json").writeText("{}")
+        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        // 子代理和主对话的请求会同时来：每个请求一个线程
+        server.executor = Executors.newCachedThreadPool { r -> Thread(r).apply { isDaemon = true } }
+        server.createContext("/") { ex -> runCatching { serve(ex) }.onFailure { runCatching { ex.sendResponseHeaders(500, -1); ex.close() } } }
+        server.start()
+    }
+
+    @After
+    fun tearDown() {
+        subagentGate.countDown()
+        if (::server.isInitialized) server.stop(0)
+        if (::home.isInitialized) home.deleteRecursively()
+    }
+
+    private fun claudeAvailable(): Boolean {
+        val path = listOfNotNull(System.getProperty("user.home")?.let { "$it/.local/bin" }, System.getenv("PATH")).joinToString(":")
+        return path.split(':').any { File(it, "claude").canExecute() }
+    }
+
+    private fun serve(ex: HttpExchange) {
+        if (ex.requestMethod != "POST" || !ex.requestURI.path.startsWith("/v1/messages") || ex.requestURI.path.contains("count_tokens")) {
+            ex.sendResponseHeaders(404, -1)
+            ex.close()
+            return
+        }
+        val body = json.parseToJsonElement(ex.requestBody.readBytes().toString(Charsets.UTF_8)).jsonObject
+        val messages = body["messages"] as? JsonArray ?: JsonArray(emptyList())
+        val tools = (body["tools"] as? JsonArray).orEmpty()
+        val results = messages.sumOf { m ->
+            ((m as JsonObject)["content"] as? JsonArray).orEmpty().count { (it as? JsonObject)?.get("type")?.jsonPrimitive?.content == "tool_result" }
+        }
+        val first = (messages.firstOrNull() as? JsonObject)?.get("content")
+        val firstText = when (first) {
+            is JsonPrimitive -> first.content
+            is JsonArray -> first.joinToString(" ") { (it as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }
+            else -> ""
+        }
+        val reply: List<JsonObject>
+        val stop: String
+        when {
+            tools.isEmpty() -> {
+                reply = listOf(text("ok"))
+                stop = "end_turn"
+            }
+            // 子代理：先调一次 Bash，再交回报告
+            SUBAGENT in firstText -> {
+                if (subagentWaits) subagentGate.await(60, TimeUnit.SECONDS) else Thread.sleep(1500)
+                if (results == 0) {
+                    reply = listOf(toolUse("toolu_s0", "Bash", buildJsonObject { put("command", "echo from-sub"); put("description", "sub step") }))
+                    stop = "tool_use"
+                } else {
+                    reply = listOf(text("REPORT: all good"))
+                    stop = "end_turn"
+                }
+            }
+            else -> {
+                val next = script.getOrNull(results)
+                if (next != null) {
+                    reply = listOf(toolUse("toolu_$results", next.first, next.second))
+                    stop = "tool_use"
+                } else {
+                    reply = listOf(text("done"))
+                    stop = "end_turn"
+                }
+            }
+        }
+        val stream = body["stream"]?.jsonPrimitive?.content == "true"
+        val bytes = (if (stream) sse(reply, stop) else message(reply, stop).toString()).toByteArray()
+        ex.responseHeaders.add("Content-Type", if (stream) "text/event-stream" else "application/json")
+        ex.sendResponseHeaders(200, bytes.size.toLong())
+        ex.responseBody.use { it.write(bytes) }
+    }
+
+    private fun text(value: String) = buildJsonObject { put("type", "text"); put("text", value) }
+
+    private fun toolUse(id: String, name: String, input: JsonObject) = buildJsonObject { put("type", "tool_use"); put("id", id); put("name", name); put("input", input) }
+
+    private fun message(content: List<JsonObject>, stop: String) = buildJsonObject {
+        put("id", "msg_fake"); put("type", "message"); put("role", "assistant"); put("model", "claude-fake")
+        put("content", JsonArray(content)); put("stop_reason", stop)
+        putJsonObject("usage") { put("input_tokens", 10); put("output_tokens", 5) }
+    }
+
+    private fun sse(content: List<JsonObject>, stop: String): String = buildString {
+        fun event(data: JsonObject) = append("event: ").append(data["type"]!!.jsonPrimitive.content).append("\ndata: ").append(data).append("\n\n")
+        event(buildJsonObject { put("type", "message_start"); put("message", JsonObject(message(emptyList(), stop) + ("stop_reason" to JsonNull))) })
+        content.forEachIndexed { i, block ->
+            val isTool = block["type"]!!.jsonPrimitive.content == "tool_use"
+            event(buildJsonObject {
+                put("type", "content_block_start"); put("index", i)
+                put("content_block", if (isTool) JsonObject(block + ("input" to JsonObject(emptyMap()))) else text(""))
+            })
+            event(buildJsonObject {
+                put("type", "content_block_delta"); put("index", i)
+                putJsonObject("delta") {
+                    if (isTool) { put("type", "input_json_delta"); put("partial_json", block["input"].toString()) } else { put("type", "text_delta"); put("text", block["text"]!!) }
+                }
+            })
+            event(buildJsonObject { put("type", "content_block_stop"); put("index", i) })
+        }
+        event(buildJsonObject { put("type", "message_delta"); putJsonObject("delta") { put("stop_reason", stop) }; putJsonObject("usage") { put("output_tokens", 5) } })
+        event(buildJsonObject { put("type", "message_stop") })
+    }
+
+    /** 一个 stream-json 的 claude 进程，和 Zeta 起的一样。收到的每条事件按顺序记在 [events]。 */
+    private inner class Claude : AutoCloseable {
+        private val process: Process
+        private val lines = LinkedBlockingQueue<String>()
+        val events = mutableListOf<JsonObject>()
+        private var seq = 0
+
+        init {
+            val builder = ProcessBuilder(
+                "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+                "--permission-prompt-tool", "stdio", "--permission-mode", "bypassPermissions",
+            ).directory(File(home, "proj"))
+            val env = builder.environment()
+            val path = listOfNotNull(System.getProperty("user.home")?.let { "$it/.local/bin" }, System.getenv("PATH")).joinToString(":")
+            env.clear()
+            env["HOME"] = home.path
+            env["PATH"] = path
+            env["LANG"] = "C.UTF-8"
+            env["ANTHROPIC_API_KEY"] = "fake-key-1"
+            env["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:${server.address.port}"
+            env["NO_PROXY"] = "127.0.0.1,localhost"
+            env["DISABLE_TELEMETRY"] = "1"
+            env["DISABLE_ERROR_REPORTING"] = "1"
+            env["DISABLE_AUTOUPDATER"] = "1"
+            builder.redirectError(File("/dev/null"))
+            process = builder.start()
+            Thread { process.inputStream.bufferedReader().forEachLine { lines.put(it) } }.apply { isDaemon = true; start() }
+            control(buildJsonObject { put("subtype", "initialize") })
+        }
+
+        fun send(o: JsonObject) {
+            process.outputStream.write((o.toString() + "\n").toByteArray())
+            process.outputStream.flush()
+        }
+
+        fun turn(prompt: String) {
+            send(buildJsonObject { put("type", "user"); putJsonObject("message") { put("role", "user"); put("content", prompt) } })
+            until { it.str("type") == "result" }
+        }
+
+        /** 发一个控制请求，等到它的应答（control_response 里的 response）。 */
+        fun control(request: JsonObject): JsonObject {
+            val id = "c${++seq}"
+            send(buildJsonObject { put("type", "control_request"); put("request_id", id); put("request", request) })
+            return until { it.str("type") == "control_response" && it.obj("response")?.str("request_id") == id }.obj("response")!!
+        }
+
+        fun taskOutput(id: String) = control(buildJsonObject { put("subtype", "get_task_output"); put("task_id", id) })
+
+        /** 读输出直到里面有 [text]（命令是异步写的）。 */
+        fun awaitOutput(id: String, text: String): JsonObject {
+            val deadline = System.currentTimeMillis() + 20_000
+            while (true) {
+                val response = taskOutput(id)
+                if (text in response.obj("response")?.str("output").orEmpty()) return response
+                assertTrue("输出里一直没有 $text：$response", System.currentTimeMillis() < deadline)
+                Thread.sleep(200)
+            }
+        }
+
+        /** 读事件直到 [done]，返回那一条。[seconds] 秒内没等到就失败。 */
+        fun until(seconds: Long = 60, done: (JsonObject) -> Boolean): JsonObject = poll(seconds, done) ?: throw AssertionError("claude 没有按时回应")
+
+        /** 读事件直到 [done] 或者 [seconds] 秒过去（返回 null）。 */
+        fun poll(seconds: Long, done: (JsonObject) -> Boolean): JsonObject? {
+            val deadline = System.currentTimeMillis() + seconds * 1000
+            while (true) {
+                val left = deadline - System.currentTimeMillis()
+                if (left <= 0) return null
+                val line = lines.poll(left, TimeUnit.MILLISECONDS) ?: continue
+                val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
+                events += o
+                if (done(o)) return o
+            }
+        }
+
+        /** 从第 [from] 条起，某个 system 事件的 subtype 序列（看先后）。 */
+        fun systemSince(from: Int): List<String> = events.drop(from).filter { it.str("type") == "system" }.mapNotNull { it.str("subtype") }
+
+        override fun close() {
+            runCatching { process.outputStream.close() }
+            if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly()
+        }
+    }
+
+    private fun JsonObject.str(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull
+    private fun JsonObject.obj(key: String) = this[key] as? JsonObject
+    private fun JsonObject.arr(key: String) = this[key] as? JsonArray
+
+    private fun List<JsonObject>.system(subtype: String) = filter { it.str("type") == "system" && it.str("subtype") == subtype }
+
+    private fun board(events: List<JsonObject>): TaskBoard = TaskBoard().also { board -> events.forEachIndexed { i, e -> board.observe(e, i.toLong()) } }
+
+    @Test
+    fun backgroundCommandOutputAndStop() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        val command = "echo hello-bg; sleep 0.3; echo second-line; sleep 300"
+        script = listOf("Bash" to buildJsonObject { put("command", command); put("description", "ticker in background"); put("run_in_background", true) })
+        Claude().use { claude ->
+            claude.turn("go")
+            val listed = claude.events.system("background_tasks_changed").first().arr("tasks")!!.single().jsonObject
+            assertEquals("local_bash", listed.str("task_type"))
+            assertEquals("ticker in background", listed.str("description"))
+            val id = listed.str("task_id")!!
+            // 清单先到，task_started 随后，带着发起它的 tool_use id
+            val order = claude.systemSince(0)
+            assertTrue(order.toString(), order.indexOf("background_tasks_changed") < order.indexOf("task_started"))
+            val started = claude.events.system("task_started").single()
+            assertEquals(id, started.str("task_id"))
+            assertEquals("toolu_0", started.str("tool_use_id"))
+            assertEquals("true", started.str("is_backgrounded"))
+
+            val output = claude.awaitOutput(id, "second-line")
+            assertEquals("success", output.str("subtype"))
+            assertEquals("hello-bg\nsecond-line\n", output.obj("response")!!.str("output"))
+            assertEquals("21", output.obj("response")!!.str("total_bytes"))
+            assertEquals("false", output.obj("response")!!.str("truncated"))
+
+            val before = claude.events.size
+            val stopped = claude.control(buildJsonObject { put("subtype", "stop_task"); put("task_id", id) })
+            assertEquals("success", stopped.str("subtype"))
+            // 应答之前事件已经到齐：task_updated（killed）、task_notification（stopped）、空清单
+            assertEquals(listOf("task_updated", "task_notification", "background_tasks_changed"), claude.systemSince(before))
+            val since = claude.events.drop(before)
+            assertEquals("killed", since.system("task_updated").single().obj("patch")!!.str("status"))
+            assertEquals("stopped", since.system("task_notification").single().str("status"))
+            assertEquals(0, since.system("background_tasks_changed").single().arr("tasks")!!.size)
+            // 停后台命令不另起一轮
+            assertNull(claude.poll(3) { it.str("type") == "system" && it.str("subtype") == "init" })
+            // 停了以后输出还读得到，末尾标着 [killed]
+            assertTrue(claude.taskOutput(id).obj("response")!!.str("output")!!.endsWith("[killed]\n"))
+            // 不认识的任务也答 success
+            assertEquals("success", claude.control(buildJsonObject { put("subtype", "stop_task"); put("task_id", "bnotexist1") }).str("subtype"))
+
+            val task = board(claude.events).tasks.single()
+            assertEquals(TaskKind.Command, task.kind)
+            assertEquals(TaskState.Stopped, task.state)
+            assertEquals(command, task.command)
+            assertEquals("ticker in background", task.description)
+        }
+    }
+
+    @Test
+    fun backgroundSubagentReportsAndStartsATurn() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        script = listOf("Agent" to agentInput())
+        Claude().use { claude ->
+            claude.turn("go")
+            val id = claude.events.system("task_started").single().str("task_id")!!
+            val started = claude.events.system("task_started").single()
+            assertEquals("local_agent", started.str("task_type"))
+            assertEquals("general-purpose", started.str("subagent_type"))
+            assertEquals("$SUBAGENT look around", started.str("prompt"))
+            // 子代理没有可读的输出
+            val output = claude.taskOutput(id)
+            assertEquals("error", output.str("subtype"))
+
+            // 做完：进展、结局，然后 Claude Code 自己起一轮（init，前面没有用户消息）
+            claude.until { it.str("type") == "system" && it.str("subtype") == "task_notification" }
+            claude.until { it.str("type") == "system" && it.str("subtype") == "init" }
+            claude.until { it.str("type") == "result" }
+            val progress = claude.events.system("task_progress").first()
+            assertEquals("Bash", progress.str("last_tool_name"))
+            val done = claude.events.system("task_notification").single()
+            assertEquals("completed", done.str("status"))
+            assertEquals("REPORT: all good", done.str("summary"))
+
+            val task = board(claude.events).tasks.single()
+            assertEquals(TaskKind.Agent, task.kind)
+            assertEquals(TaskState.Completed, task.state)
+            assertEquals("REPORT: all good", task.summary)
+            assertEquals("$SUBAGENT look around", task.command)
+            assertNotNull(task.progress)
+        }
+    }
+
+    @Test
+    fun stoppedSubagentStartsATurn() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        subagentWaits = true
+        script = listOf("Agent" to agentInput())
+        Claude().use { claude ->
+            claude.turn("go")
+            val id = claude.events.system("task_started").single().str("task_id")!!
+            val before = claude.events.size
+            claude.control(buildJsonObject { put("subtype", "stop_task"); put("task_id", id) })
+            assertEquals(listOf("task_updated", "task_notification", "background_tasks_changed"), claude.systemSince(before))
+            assertEquals("stopped", claude.events.system("task_notification").single().str("status"))
+            // 和后台命令不同：子代理停下后 Claude Code 另起一轮处理这个结局
+            assertNotNull(claude.poll(30) { it.str("type") == "system" && it.str("subtype") == "init" })
+            assertEquals(TaskState.Stopped, board(claude.events).tasks.single().state)
+        }
+    }
+
+    @Test
+    fun monitorIsALocalBashTaskWithOutput() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        val command = "for i in 1 2 3; do echo evt-\$i; sleep 0.3; done; sleep 300"
+        script = listOf(
+            "ToolSearch" to buildJsonObject { put("query", "select:Monitor"); put("max_results", 1) },
+            "Monitor" to buildJsonObject { put("description", "watch events"); put("timeout_ms", 60000); put("command", command) },
+        )
+        Claude().use { claude ->
+            claude.turn("go")
+            val listed = claude.events.system("background_tasks_changed").first().arr("tasks")!!.single().jsonObject
+            assertEquals("local_bash", listed.str("task_type"))
+            val id = listed.str("task_id")!!
+            assertEquals("evt-1\nevt-2\nevt-3\n", claude.awaitOutput(id, "evt-3").obj("response")!!.str("output"))
+            claude.control(buildJsonObject { put("subtype", "stop_task"); put("task_id", id) })
+            val task = board(claude.events).tasks.single()
+            assertEquals(TaskKind.Monitor, task.kind)
+            assertEquals(command, task.command)
+            assertEquals(TaskState.Stopped, task.state)
+        }
+    }
+
+    private fun agentInput() = buildJsonObject {
+        put("description", "look around"); put("prompt", "$SUBAGENT look around"); put("subagent_type", "general-purpose"); put("run_in_background", true)
+    }
+
+    private companion object {
+        /** 子代理的指令里带这个记号，假模型据此认出子代理的请求。 */
+        const val SUBAGENT = "SUBAGENT-PROMPT"
+    }
+}
