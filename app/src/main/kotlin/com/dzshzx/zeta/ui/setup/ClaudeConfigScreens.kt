@@ -44,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -58,6 +57,7 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -68,7 +68,6 @@ import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Card
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.SegmentButton
 import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
@@ -163,18 +162,6 @@ internal fun sizeText(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"
     bytes < 1024 * 1024 -> "%.1f KiB".format(bytes / 1024.0)
     else -> "%.2f MiB".format(bytes / (1024.0 * 1024.0))
-}
-
-/** 顶栏右边的一个图标按钮。COUI 2 的 IconButton 灰掉时图标颜色不变，这里自己换成禁用色。 */
-@Composable
-internal fun TopBarIcon(icon: ImageVector, contentDescription: String, onClick: () -> Unit, enabled: Boolean = true) {
-    IconButton(onClick = onClick, enabled = enabled) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (enabled) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.disabledNeutral,
-        )
-    }
 }
 
 /** 列表里的一行空状态：没有可点的东西时也让分组有内容。放在 PreferenceGroup 的 item 里。 */
@@ -309,7 +296,7 @@ internal fun ConfigDocumentEditor(
         onBack = leave,
         topBarStyle = CouiTopBarStyle.Small,
         actions = {
-            if (onDelete != null) TopBarIcon(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
+            if (onDelete != null) TopBarIconButton(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
         },
     ) { scope ->
         val layoutDirection = LocalLayoutDirection.current

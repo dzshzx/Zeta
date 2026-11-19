@@ -30,6 +30,7 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
@@ -221,7 +222,7 @@ internal fun StoragePage(
         title = "存储",
         onBack = onBack,
         actions = {
-            TopBarIconAction(COUIIcons.Refresh, "重新统计", enabled = !view.scanning && view.cleaning == null, onClick = onRefresh)
+            TopBarIconButton(COUIIcons.Refresh, "重新统计", enabled = !view.scanning && view.cleaning == null, onClick = onRefresh)
         },
         overlays = {
             ConfirmDialog(

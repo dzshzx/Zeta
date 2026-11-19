@@ -42,6 +42,7 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
@@ -115,7 +116,7 @@ internal fun DiagnosticsScreen(
     CouiPage(
         title = "诊断",
         onBack = onBack,
-        actions = { TopBarIconAction(COUIIcons.Refresh, "重新查询", enabled = !probing) { reloads++ } },
+        actions = { TopBarIconButton(COUIIcons.Refresh, "重新查询", enabled = !probing) { reloads++ } },
     ) {
         item(key = "log") {
             PreferenceGroup(
@@ -246,7 +247,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
     CouiPage(
         title = "运行日志",
         onBack = onBack,
-        actions = { TopBarIconAction(COUIIcons.Delete, "清空", enabled = entries.isNotEmpty()) { confirmClear = true } },
+        actions = { TopBarIconButton(COUIIcons.Delete, "清空", enabled = entries.isNotEmpty()) { confirmClear = true } },
         overlays = {
             ConfirmDialog(
                 show = confirmClear,

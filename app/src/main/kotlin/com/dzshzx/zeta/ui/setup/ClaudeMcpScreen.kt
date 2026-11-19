@@ -29,6 +29,7 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
@@ -149,8 +150,8 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
         title = "MCP 服务器",
         onBack = onBack,
         actions = {
-            TopBarIcon(COUIIcons.Refresh, "重新检查", enabled = status != null || statusError != null, onClick = reload)
-            TopBarIcon(COUIIcons.Add, "添加服务器", onClick = { showAdd = true })
+            TopBarIconButton(COUIIcons.Refresh, "重新检查", enabled = status != null || statusError != null, onClick = reload)
+            TopBarIconButton(COUIIcons.Add, "添加服务器", onClick = { showAdd = true })
         },
         overlays = {
             ConfigNoticeDialog(notice) { notice = null }
@@ -390,7 +391,7 @@ private fun McpServerDetail(
     CouiPage(
         title = server.name,
         onBack = onBack,
-        actions = { TopBarIcon(COUIIcons.Refresh, "刷新工具", enabled = !loadingTools, onClick = ::loadTools) },
+        actions = { TopBarIconButton(COUIIcons.Refresh, "刷新工具", enabled = !loadingTools, onClick = ::loadTools) },
         overlays = {
             ConfigNoticeDialog(notice) { notice = null }
             ConfirmDialog(

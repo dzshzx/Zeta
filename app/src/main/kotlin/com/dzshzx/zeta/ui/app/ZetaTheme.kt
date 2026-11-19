@@ -18,30 +18,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
-import com.itos.coui.effect.LocalCouiContourGlowEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.theme.ColorSchemeMode as Coui2SchemeMode
-import io.github.suqi8.coui.kmp.theme.ThemeController as Coui2ThemeController
-import com.itos.coui.menu.ProvideCouiMenuBackdrop
-import com.itos.coui.theme.CouiTheme
-import com.itos.coui.theme.LocalCouiDarkTheme
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
-import top.yukonga.miuix.kmp.theme.LocalContentColor
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemeController
+import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
+import io.github.suqi8.coui.kmp.theme.ThemeController
+import io.github.suqi8.coui.kmp.theme.darkColorScheme
 
 /** 不受界面缩放影响的系统密度：判断宽屏布局时用它，免得缩放一改布局就跳。 */
 internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 
 /**
- * 与 Eta 的 COUI 模式同构：MiuixTheme 只承载文字样式与配色令牌，颜色全部覆盖为 COUI 预设，
- * 界面组件一律用 COUI。
+ * Zeta 的主题：COUI 2（ColorOS 17）的配色和文字样式。
  *
- * 外观设置（强调色、纯黑背景、界面缩放）从 [UiPrefs] 读，改了立即生效。
+ * 外观设置（强调色、纯黑背景、界面缩放）从 [UiPrefs] 读，改了立即生效。强调色映射到 COUI 的主题色族（[accentThemeColor]）；
+ * 纯黑背景让深色下侧栏这类抬高的底面也变成纯黑（COUI 深色的页面底色本来就是纯黑），对话框、菜单不变，免得和背景分不开。
  * 界面缩放和屏幕常亮只作用于 Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
  *
- * [windowBackdrop] 为 false 时菜单和对话框不采样窗口背景，退回不透明底色：只给 JVM 截图测试用，
- * 那里对话框窗口的屏幕位置不对，透过毛玻璃看到的背景会错位，每帧的模糊又很慢。
+ * [windowBackdrop] 为 false 时关掉毛玻璃，弹出的东西用不透明底色：只给 JVM 截图测试用，那里模糊既慢又会错位。
  */
 @Composable
 fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, content: @Composable () -> Unit) {
@@ -56,7 +48,6 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
     val monet = remember(context, configuration, isDark, accent) {
         if (accent == AccentChoice.System) runCatching { systemAccent(context, isDark) }.getOrNull() else null
     }
-    val coui = remember(isDark, accent, monet) { couiScheme(isDark, accent, monet) }
 
     // —— 界面缩放（照 Eta）：以 densityDpi / 160 为 100% 基准，乘上缩放比例 ——
     val initialDensity = remember(context) { context.resources.displayMetrics.density }
@@ -83,67 +74,22 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
         if (scaled) Density(context) else platformDensity
     }
 
-    val coui2 = remember(isDark, accent, monet) {
-        Coui2ThemeController(
-            colorSchemeMode = if (isDark) Coui2SchemeMode.Dark else Coui2SchemeMode.Light,
+    val controller = remember(isDark, accent, monet, pureBlack) {
+        ThemeController(
+            colorSchemeMode = if (isDark) ColorSchemeMode.Dark else ColorSchemeMode.Light,
+            darkColors = if (pureBlack) {
+                darkColorScheme().copy(backgroundElevated = Color.Black, backgroundElevatedWithCard = Color.Black)
+            } else {
+                darkColorScheme()
+            },
             isDark = isDark,
-            themeColor = coui2ThemeColor(accent, monet),
+            themeColor = accentThemeColor(accent, monet),
         )
     }
-    val controller = remember(isDark) {
-        ThemeController(colorSchemeMode = if (isDark) ColorSchemeMode.Dark else ColorSchemeMode.Light, isDark = isDark)
-    }
     CompositionLocalProvider(LocalPlatformDensity provides platformDensity, LocalDensity provides appDensity) {
-        MiuixTheme(controller = controller) {
-            val base = MiuixTheme.colorScheme
-            val colors = remember(base, isDark, coui, pureBlack) {
-                val accentContainer = coui.accent.copy(alpha = if (isDark) 0.22f else 0.12f)
-                base.copy(
-                    primary = coui.accent,
-                    onPrimary = coui.onAccent,
-                    primaryContainer = accentContainer,
-                    onPrimaryContainer = coui.accent,
-                    secondaryContainer = if (isDark) Color(0xFF282A2E) else Color(0xFFECEEF1),
-                    onSecondaryContainer = coui.onSurface,
-                    tertiaryContainer = accentContainer,
-                    onTertiaryContainer = coui.accent,
-                    background = coui.background,
-                    // 纯黑：聊天页等用 surface 铺底的页面也换成纯黑（COUI 深色的页面底色本来就是黑的）
-                    surface = if (pureBlack) Color.Black else if (isDark) Color(0xFF121214) else Color.White,
-                    surfaceContainer = if (isDark) Color(0xFF1E2024) else Color(0xFFF4F5F7),
-                    surfaceContainerHigh = if (isDark) Color(0xFF282A2E) else Color(0xFFEBECEE),
-                    surfaceContainerHighest = if (isDark) Color(0xFF32353A) else Color(0xFFE2E4E8),
-                    onBackground = coui.onSurface,
-                    onSurface = coui.onSurface,
-                    onSurfaceContainer = coui.onSurface,
-                    onSurfaceVariantSummary = coui.onSurfaceVariant,
-                    onSurfaceVariantActions = coui.onSurfaceVariant,
-                    outline = if (isDark) Color(0xFF3A3C42) else Color(0xFFDCDFE4),
-                    dividerLine = coui.outlineVariant,
-                )
-            }
-            MiuixTheme(colors = colors) {
-                CompositionLocalProvider(
-                    LocalContentColor provides colors.onBackground,
-                    LocalCouiDarkTheme provides isDark,
-                    LocalCouiContourGlowEnabled provides true,
-                ) {
-                    CouiTheme(darkTheme = isDark, colorScheme = coui) {
-                        // COUI 2 放在最里层：它提供的点按反馈、越界回弹、选中文字颜色也作用到还没迁移的页面上
-                        COUITheme(controller = coui2) {
-                            CompositionLocalProvider(LocalCouiBlurEnabled provides windowBackdrop) {
-                                // minSdk 33：RuntimeShader 恒可用，菜单与对话框直接采样窗口背景。
-                                if (windowBackdrop) {
-                                    ProvideCouiMenuBackdrop(isolateContent = false) { windowSource ->
-                                        Box(Modifier.fillMaxSize().then(windowSource)) { content() }
-                                    }
-                                } else {
-                                    Box(Modifier.fillMaxSize()) { content() }
-                                }
-                            }
-                        }
-                    }
-                }
+        COUITheme(controller = controller) {
+            CompositionLocalProvider(LocalCouiBlurEnabled provides windowBackdrop) {
+                Box(Modifier.fillMaxSize()) { content() }
             }
         }
     }

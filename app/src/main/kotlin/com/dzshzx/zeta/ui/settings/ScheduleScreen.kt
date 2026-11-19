@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.ui.settings
 
 import android.app.Application
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
@@ -44,14 +43,13 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.CalendarPicker
 import io.github.suqi8.coui.kmp.basic.DateValue
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InputView
 import io.github.suqi8.coui.kmp.basic.NumberPicker
 import io.github.suqi8.coui.kmp.basic.SegmentButton
@@ -100,18 +98,6 @@ internal fun ScheduleEntry(onOpen: () -> Unit) {
     )
 }
 
-/** 顶栏右边的图标按钮（新建、刷新、清空）；不能点时图标变灰。 */
-@Composable
-internal fun TopBarIconAction(icon: ImageVector, description: String, enabled: Boolean = true, onClick: () -> Unit) {
-    IconButton(onClick = onClick, enabled = enabled) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            tint = if (enabled) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.disabledNeutral,
-        )
-    }
-}
-
 /** 正在编辑哪个任务；[id] 为 null 是新建。 */
 private class EditTarget(val id: String?)
 
@@ -130,7 +116,7 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
     CouiPage(
         title = "定时任务",
         onBack = onBack,
-        actions = { TopBarIconAction(COUIIcons.Add, "新建定时任务", enabled = tasks.size < Schedules.MAX_TASKS) { editing = EditTarget(null) } },
+        actions = { TopBarIconButton(COUIIcons.Add, "新建定时任务", enabled = tasks.size < Schedules.MAX_TASKS) { editing = EditTarget(null) } },
     ) {
         if (snapshot != null && !snapshot.exactAlarms) {
             item(key = "alarm") {

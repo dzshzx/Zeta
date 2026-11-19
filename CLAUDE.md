@@ -6,7 +6,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 
 用户定的，改之前先问。
 
-- 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式都用它自带的，它没有的才在 `ui/components/coui2` 补，不照抄 Eta 的组件。写法照它自带的指南（工作站 `~/workspace-external/coui` 的 `.claude/skills/coui-app/`）。从 COUI-Kit 和 Miuix 迁过来的进度和对照表在 `docs/coui2-migration.md`。不提 Web UI 方案。不接第三方服务，功能从简。
+- 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式都用它自带的，它没有的才在 `ui/components/coui2` 补，不照抄 Eta 的组件。写法照它自带的指南（工作站 `~/workspace-external/coui` 的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。不接第三方服务，功能从简。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商、压缩与标题设置。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x。每次发版只升 patch（0.6.3 → 0.6.4），新功能也一样；不跳 minor，不发 1.0。

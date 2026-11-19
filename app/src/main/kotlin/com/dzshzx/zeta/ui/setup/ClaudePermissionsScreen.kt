@@ -38,6 +38,7 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -132,8 +133,8 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
         title = "工具权限",
         onBack = onBack,
         actions = {
-            TopBarIcon(COUIIcons.Refresh, "重新读取", enabled = !working, onClick = { reloads++ })
-            TopBarIcon(COUIIcons.Add, "添加规则", enabled = editable, onClick = { editor = RuleDraft(null, PermissionBehavior.Ask, "") })
+            TopBarIconButton(COUIIcons.Refresh, "重新读取", enabled = !working, onClick = { reloads++ })
+            TopBarIconButton(COUIIcons.Add, "添加规则", enabled = editable, onClick = { editor = RuleDraft(null, PermissionBehavior.Ask, "") })
         },
         overlays = {
             ConfigNoticeDialog(notice) { notice = null }
@@ -407,7 +408,7 @@ private fun McpPermissionDetail(
     CouiPage(
         title = server.name,
         onBack = onBack,
-        actions = { TopBarIcon(COUIIcons.Refresh, "刷新工具", enabled = !loading, onClick = ::load) },
+        actions = { TopBarIconButton(COUIIcons.Refresh, "刷新工具", enabled = !loading, onClick = ::load) },
         overlays = { BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } } },
     ) {
         item(key = "whole") {

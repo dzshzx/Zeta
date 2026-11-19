@@ -6,13 +6,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.dzshzx.zeta.core.Settings
 import io.github.suqi8.coui.kmp.theme.COUIThemeColor
 import io.github.suqi8.coui.kmp.theme.COUIThemeColors
-import androidx.compose.ui.graphics.lerp
-import com.dzshzx.zeta.core.Settings
-import com.itos.coui.theme.CouiColor
-import com.itos.coui.theme.CouiColorScheme
-import com.itos.coui.theme.CouiPresets
 
 internal const val MIN_INTERFACE_SCALE = 0.8f
 internal const val MAX_INTERFACE_SCALE = 1.1f
@@ -20,7 +16,7 @@ internal const val MAX_INTERFACE_SCALE = 1.1f
 internal fun normalizeInterfaceScale(value: Float): Float = if (value.isFinite()) value.coerceIn(MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE) else 1f
 
 /**
- * 强调色。默认是 COUI 自己的蓝；“系统取色”用壁纸生成的 Monet 色；其余是固定的预设色（日间 / 夜间各一档）。
+ * 强调色。默认是 COUI 自己的蓝；“系统取色”用壁纸生成的 Monet 色；红、橙、绿用 ColorOS 官方色族，其余是固定的预设色（日间 / 夜间各一档）。
  * 预设里没有黄色：COUI 按钮上是白字，黄底白字看不清。
  */
 internal enum class AccentChoice(val key: String, val label: String, val day: Color?, val night: Color?) {
@@ -28,9 +24,9 @@ internal enum class AccentChoice(val key: String, val label: String, val day: Co
     System("monet", "系统取色", null, null),
     Purple("purple", "紫色", Color(0xFF7C4DFF), Color(0xFF9475FF)),
     Pink("pink", "粉色", Color(0xFFE91E63), Color(0xFFEE4C83)),
-    Red("red", "红色", CouiColor.Day.RED, CouiColor.Night.RED),
-    Orange("orange", "橙色", CouiColor.Day.ORANGE, CouiColor.Night.ORANGE),
-    Green("green", "绿色", CouiColor.Day.GREEN, CouiColor.Night.GREEN),
+    Red("red", "红色", null, null),
+    Orange("orange", "橙色", null, null),
+    Green("green", "绿色", null, null),
     Teal("teal", "青色", Color(0xFF00A3B5), Color(0xFF14B3C4)),
     ;
 
@@ -91,41 +87,17 @@ internal class UiPrefs private constructor(private val settings: Settings) {
     }
 }
 
-/**
- * 系统的 Monet 强调色（随壁纸变）。取 COUI 那样偏鲜亮的中间色阶：日间 500，夜间 400；
- * 夜间写在深色表面上的文字再亮一档（300），对应 COUI 预设里的 accentOnSurface。
- */
-internal fun systemAccent(context: Context, dark: Boolean): Pair<Color, Color> {
-    fun color(id: Int) = Color(context.getColor(id))
-    return if (dark) {
-        color(android.R.color.system_accent1_400) to color(android.R.color.system_accent1_300)
-    } else {
-        color(android.R.color.system_accent1_500).let { it to it }
-    }
-}
-
-/** 在 COUI 预设上换掉强调色；[monet] 是 [systemAccent] 的结果，只在选了系统取色时用。 */
-internal fun couiScheme(dark: Boolean, accent: AccentChoice, monet: Pair<Color, Color>?): CouiColorScheme {
-    val base = if (dark) CouiPresets.Dark else CouiPresets.Light
-    val (fill, onSurface) = when {
-        accent == AccentChoice.System && monet != null -> monet
-        accent.day != null && accent.night != null -> {
-            val c = if (dark) accent.night else accent.day
-            // 夜间文字用的那档提亮一些，和 COUI 蓝在深色下的做法一样
-            c to if (dark) lerp(c, Color.White, 0.25f) else c
-        }
-        else -> return base
-    }
-    return base.copy(accent = fill, accentOnSurface = onSurface, checkboxAccent = fill, menuCheckboxAccent = onSurface)
-}
+/** 系统的 Monet 强调色（随壁纸变）。取 COUI 那样偏鲜亮的中间色阶：日间 500，夜间 400。 */
+internal fun systemAccent(context: Context, dark: Boolean): Color =
+    Color(context.getColor(if (dark) android.R.color.system_accent1_400 else android.R.color.system_accent1_500))
 
 /**
- * COUI 2 的主题色族：红、橙、绿用 ColorOS 官方色族，紫、粉、青从各自的日间 / 夜间色推出，
+ * 强调色对应的 COUI 主题色族：红、橙、绿用 ColorOS 官方色族，紫、粉、青从各自的日间 / 夜间色推出，
  * 系统取色用 [monet]（[systemAccent] 的结果，已按当前深浅色取好）。null 是 COUI 默认的蓝。
  */
-internal fun coui2ThemeColor(accent: AccentChoice, monet: Pair<Color, Color>?): COUIThemeColor? = when (accent) {
+internal fun accentThemeColor(accent: AccentChoice, monet: Color?): COUIThemeColor? = when (accent) {
     AccentChoice.Coui -> null
-    AccentChoice.System -> monet?.let { COUIThemeColor.fromColor(it.first, it.first) }
+    AccentChoice.System -> monet?.let { COUIThemeColor.fromColor(it, it) }
     AccentChoice.Red -> COUIThemeColors.Red
     AccentChoice.Orange -> COUIThemeColors.Orange
     AccentChoice.Green -> COUIThemeColors.Green

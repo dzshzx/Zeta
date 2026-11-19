@@ -20,8 +20,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 45
-        versionName = "0.6.37"
+        versionCode = 46
+        versionName = "0.6.38"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -111,8 +111,6 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-    implementation(libs.coui)
-    implementation(libs.coui.icons)
     implementation(libs.coui2.ui)
     implementation(libs.coui2.preference)
     implementation(libs.coui2.icons)
@@ -124,7 +122,6 @@ dependencies {
     implementation(libs.intellij.markdown)
     implementation(libs.ratex.android)
     // Eta 的 COUI 模式同样以 MiuixTheme 承载文字与配色；这里只用它的基础件，不用 Miuix 的界面组件。
-    implementation(libs.miuix.ui)
     implementation(libs.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
@@ -133,5 +130,7 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.androidx.test.espresso.core)
+    testImplementation(libs.androidx.test.core)
     robolectricRuntime(libs.robolectric.android.all)
 }

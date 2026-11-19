@@ -65,7 +65,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
@@ -78,30 +77,25 @@ import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.RowDividerStartWithIcon
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.CardDefaults
-import io.github.suqi8.coui.kmp.basic.CardListPosition
-import io.github.suqi8.coui.kmp.basic.DividerDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.cardListPositionOf
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.squircle.squircleSurface
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.time.Instant
 import java.time.ZoneId
@@ -309,12 +303,11 @@ private fun LazyListScope.browserItems(
     val count = offset + entries.size
     if (parent != null) {
         item(key = "..") {
-            LazyCardRow(index = 0, count = count, dividerStart = RowDividerStartWithIcon) { position ->
+            CardListSegment(index = 0, count = count, dividerStart = RowDividerStartWithIcon) {
                 ArrowPreference(
                     title = "上级目录",
                     summary = parent,
                     startAction = { RowIcon(Icons.Rounded.FolderOpen, COUITheme.colorScheme.primary) },
-                    cardListPosition = position,
                     onClick = { onNavigate(parent) },
                 )
             }
@@ -328,11 +321,10 @@ private fun LazyListScope.browserItems(
             // 名字里有非 UTF-8 字节的会被替换成同样的字符，可能重名，键里带上序号
             itemsIndexed(entries, key = { index, entry -> "e$index:" + entry.name }) { index, entry ->
                 val target = LinuxFiles.child(path, entry.name)
-                LazyCardRow(index = offset + index, count = count, dividerStart = RowDividerStartWithIcon) { position ->
+                CardListSegment(index = offset + index, count = count, dividerStart = RowDividerStartWithIcon) {
                     EntryRow(
                         entry = entry,
                         summary = entrySummary(context, entry),
-                        position = position,
                         onOpen = { onOpen(target, entry) },
                         onCopyPath = { copyLinuxPath(context, target) },
                         onExport = if (entry.regular) ({ onExport(target, entry) }) else null,
@@ -380,7 +372,7 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
             if (parts.isEmpty()) item(key = "blank") { Hint("空文件") }
             itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
                 // 几段连成一张卡片，中间不画分隔线
-                LazyCardRow(index = index, count = parts.size, dividerStart = null) {
+                CardListSegment(index = index, count = parts.size, dividerStart = null) {
                     TextSlice(part, isFirst = index == 0, isLast = index == parts.lastIndex)
                 }
             }
@@ -404,38 +396,6 @@ private fun TextSlice(text: String, isFirst: Boolean, isLast: Boolean) {
                 color = COUITheme.colorScheme.labelPrimary,
             )
         }
-    }
-}
-
-/** 分隔线从标题开始，和 CardListGroup 画的一样：行的左内边距 16dp、行首图标 24dp、图标和标题的间距。 */
-private val RowDividerStartWithIcon: Dp = 16.dp + 24.dp + BasicComponentDefaults.StartActionSpacing
-
-/**
- * 一张卡片里的一行，卡片跨好几个列表项：CardListGroup 只能放在一个列表项里，几百项的目录要逐项放进列表，
- * 卡片的圆角、行在卡片里的位置和行间分隔线就按序号自己算（照 COUI 示例 PullToRefreshDemo 的写法）。
- * [dividerStart] 为 null 时不画分隔线。
- */
-@Composable
-private fun LazyCardRow(index: Int, count: Int, dividerStart: Dp?, content: @Composable (CardListPosition) -> Unit) {
-    val isFirst = index == 0
-    val isLast = index == count - 1
-    val radius = CardDefaults.CornerRadius
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = if (isLast) 16.dp else 0.dp)
-            .squircleSurface(
-                color = COUITheme.colorScheme.cardBackground,
-                topStart = if (isFirst) radius else 0.dp,
-                topEnd = if (isFirst) radius else 0.dp,
-                bottomEnd = if (isLast) radius else 0.dp,
-                bottomStart = if (isLast) radius else 0.dp,
-                weight = COUIRoundCorner.Normal.Weight,
-            ),
-    ) {
-        content(cardListPositionOf(index, count))
-        if (dividerStart != null && !isLast) HorizontalDivider(Modifier.padding(start = dividerStart, end = DividerDefaults.CardInset))
     }
 }
 
@@ -481,7 +441,6 @@ private fun RowIcon(icon: ImageVector, tint: Color) {
 private fun EntryRow(
     entry: LinuxEntry,
     summary: String,
-    position: CardListPosition,
     onOpen: () -> Unit,
     onCopyPath: () -> Unit,
     onExport: (() -> Unit)?,
@@ -502,9 +461,9 @@ private fun EntryRow(
     OverlayContextMenu(entries = listOf(DropdownEntry(items = actions.map { it.item() }))) {
         // 目录点进去是下一层，带箭头；文件点开是预览
         if (entry.directory) {
-            ArrowPreference(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, cardListPosition = position, onClick = onOpen)
+            ArrowPreference(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, onClick = onOpen)
         } else {
-            BasicComponent(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, cardListPosition = position, onClick = onOpen)
+            BasicComponent(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, onClick = onOpen)
         }
     }
 }
