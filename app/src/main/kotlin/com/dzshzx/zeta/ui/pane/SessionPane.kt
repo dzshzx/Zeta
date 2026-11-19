@@ -88,6 +88,7 @@ import com.itos.coui.menu.Menu
 import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.dzshzx.zeta.R
 import com.itos.coui.checkbox.Checkbox
 import com.itos.coui.checkbox.CouiCheckboxDefaults
@@ -323,7 +324,7 @@ internal fun SessionPane(
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "Zeta",
+                text = stringResource(R.string.app_name),
                 style = MiuixTheme.textStyles.title3.copy(fontWeight = FontWeight.SemiBold),
                 color = colors.title,
                 modifier = Modifier.weight(1f),

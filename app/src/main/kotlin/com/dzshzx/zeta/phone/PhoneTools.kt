@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.arr
@@ -1427,7 +1428,8 @@ class PhoneTools(
             synchronized(mutedLock) { settings.mutedApps = settings.mutedApps - left }
         }
         private const val OUTPUT_LIMIT = 30_000
-        const val SERVICE = "com.dzshzx.zeta/com.dzshzx.zeta.phone.ZetaAccessibilityService"
+        /** 本包的无障碍服务组件名。正式版和测试版各是各的，启用、停用都只动自己这一项。 */
+        val SERVICE = AppVariant.current.component(ZetaAccessibilityService::class.java.name)
 
         /** 传给 `claude --mcp-config` 的声明。 */
         val MCP_CONFIG: String = buildJsonObject {

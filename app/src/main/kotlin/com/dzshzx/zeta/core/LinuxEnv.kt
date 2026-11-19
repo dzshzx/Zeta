@@ -42,7 +42,8 @@ object LinuxEnv {
         "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; "
 
     // 参数：$1 BusyBox，$2 rootfs，$3 要执行的命令，$4 家目录，$5 用户名，$6 uid，$7 gid，$8 时区，
-    // $9 共享文件夹（每行“名字<Tab>Android 侧目录”，见 SharedFolders.mountSpec）
+    // $9 共享文件夹（每行“名字<Tab>Android 侧目录”，见 SharedFolders.mountSpec）。
+    // 环境变量 ZETA_NAME 告诉 Debian 里的脚本 Zeta 自己的目录叫什么（正式版 zeta，测试版 zeta-dev，见 AppVariant）。
     private val MOUNT_AND_CHROOT = """
         BB=${'$'}1; R=${'$'}2
         [ -x "${'$'}R/bin/sh" ] || { echo "zeta: rootfs not found: ${'$'}R" >&2; exit 125; }
@@ -60,7 +61,7 @@ object LinuxEnv {
             "${'$'}BB" mount -o bind "${'$'}s" "${'$'}R${SharedFolders.LINUX_ROOT}/${'$'}n"
         done 2>/dev/null
         exec "${'$'}BB" chroot "${'$'}R" /usr/bin/env -i HOME="${'$'}4" USER="${'$'}5" LOGNAME="${'$'}5" SHELL=/bin/bash \
-          LANG=C.UTF-8 TERM=dumb TZ="${'$'}8" /usr/bin/setpriv --reuid="${'$'}6" --regid="${'$'}7" --init-groups /bin/bash -lc "${'$'}3"
+          LANG=C.UTF-8 TERM=dumb TZ="${'$'}8" ${AppVariant.LINUX_NAME_ENV}=${quote(AppVariant.current.linuxName)} /usr/bin/setpriv --reuid="${'$'}6" --regid="${'$'}7" --init-groups /bin/bash -lc "${'$'}3"
     """.trimIndent()
 
     fun quote(s: String): String = "'" + s.replace("'", "'\\''") + "'"

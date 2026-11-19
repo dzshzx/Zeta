@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.ui.MainActivity
 import java.time.Instant
 import java.time.ZoneId
@@ -18,7 +19,7 @@ import java.time.ZoneId
  * 没有精确闹钟权限时退回 setAndAllowWhileIdle（可能推迟），权限健康页里会提示去授予。
  */
 internal object ScheduleAlarms {
-    const val ACTION_FIRE = "com.dzshzx.zeta.action.SCHEDULE_FIRE"
+    val ACTION_FIRE = AppVariant.current.action("SCHEDULE_FIRE")
     const val EXTRA_TASK = "task"
 
     /** 这个闹钟排的是哪个时刻（毫秒）：算下一次时从它往后算，不受送达早晚影响。 */

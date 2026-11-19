@@ -71,11 +71,12 @@ object Uploads {
     }
 
     /**
-     * 把文件复制进 Linux 环境的 ~/.cache/zeta/files/<随机>/<文件名>，返回那里的路径；失败返回 null。
+     * 把文件复制进 Linux 环境的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见 [AppVariant]），
+     * 返回那里的路径；失败返回 null。
      * 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。耗时，别在主线程调用。
      */
     fun copy(context: Context, config: LinuxEnvConfig, uri: Uri, name: String): String? = runCatching {
-        val directory = "${config.home}/.cache/zeta/files/${UUID.randomUUID().toString().take(8)}"
+        val directory = "${AppVariant.current.cacheDir(config.home)}/files/${UUID.randomUUID().toString().take(8)}"
         val target = "$directory/$name"
         val process = LinuxEnv.start(config, "mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
         val input = context.contentResolver.openInputStream(uri) ?: run { process.destroy(); return@runCatching null }

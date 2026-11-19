@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Process
 import android.os.SystemClock
 import android.view.Surface
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Settings
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -44,7 +45,8 @@ class VdSurfaceProvider : ContentProvider() {
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
     companion object {
-        const val AUTHORITY = "com.dzshzx.zeta.background"
+        /** 和 Manifest 里的 `${applicationId}.background` 一致：正式版和测试版的 authority 不能相同，否则装不上。 */
+        val AUTHORITY = AppVariant.current.authority("background")
         const val METHOD = "surface"
         const val EXTRA_SURFACE = "surface"
         private const val TTL_MS = 15_000L

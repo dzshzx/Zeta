@@ -3,13 +3,17 @@
 
 在手机 Debian 里直接进 Android 一侧；在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 
-用法：
+用法：vd.py [--dev] <命令>
+  --dev 操作测试版（com.dzshzx.zeta.dev），不带是正式版（com.dzshzx.zeta）。只有 start、launch、stop、prefs 和包有关；
+  正式版只由负责合入的会话碰，ZETA_PHONE_OWNER 不设或为 main 时这几条才肯对正式版做。
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
   vd.py shot 文件.png          截图
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
-  vd.py status | stop
+  vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
+  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，不在后台常驻。
+                              force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做
 """
 import os, re, shlex, subprocess, sys, time
 
@@ -20,7 +24,9 @@ DEX = os.path.join(OUT, "classes.dex")
 D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
 WORK = "/data/local/tmp/zeta-vd"
 NAME = "zeta-vd"  # VdHold 里写死的虚拟屏名字
-COMPONENT = os.environ.get("ZETA_COMPONENT", "com.dzshzx.zeta/.ui.MainActivity")
+RELEASE = "com.dzshzx.zeta"
+PACKAGE = RELEASE  # main() 里按 --dev 换成测试版
+ACTIVITY = "com.dzshzx.zeta.ui.MainActivity"  # 类名不随包名变：测试版只加了 applicationIdSuffix
 PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
 
@@ -66,7 +72,14 @@ def build():
 
 
 def launch(did):
-    android(f"am start --user 0 --display {did} -n '{COMPONENT}' -f 0x18000000 >/dev/null 2>&1")
+    android(f"am start --user 0 --display {did} -n '{PACKAGE}/{ACTIVITY}' -f 0x18000000 >/dev/null 2>&1")
+
+
+def prefs(keys):
+    if not keys or not all(re.fullmatch(r"[A-Za-z0-9_]+", k) for k in keys):
+        sys.exit("用法：vd.py [--dev] prefs 键名…（键名只含字母、数字、下划线）")
+    pattern = "|".join(keys)
+    print(android(f"grep -E 'name=\"({pattern})\"' /data/user/0/{PACKAGE}/shared_prefs/zeta.xml", check=False), end="")
 
 
 def start(args):
@@ -132,10 +145,17 @@ def lease():
 
 
 def main():
+    global PACKAGE
     a = sys.argv[1:]
+    if "--dev" in a:
+        PACKAGE = RELEASE + ".dev"
+        a = [x for x in a if x != "--dev"]
     if not a:
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
+    owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
+    if PACKAGE == RELEASE and owner != "main" and c in ("start", "launch", "stop", "prefs"):
+        sys.exit(f"正式版只由负责合入的会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版：vd.py --dev {c}")
     if c not in ("build", "status"):
         lease()
     if c == "build":
@@ -146,6 +166,8 @@ def main():
         shot(rest[0])
     elif c == "launch":
         launch(need_display())
+    elif c == "prefs":
+        prefs(rest)
     elif c == "tap":
         android(f"input -d {need_display()} tap {int(rest[0])} {int(rest[1])}")
     elif c == "swipe":
@@ -160,7 +182,10 @@ def main():
     elif c == "stop":
         did = display_id()
         if did is not None:
-            android(f"am force-stop com.dzshzx.zeta; echo release > {WORK}/ctl", check=False)
+            # force-stop 会让系统把这个包的无障碍服务从启用列表里拿掉（AOSP onPackagesForceStoppedLocked）：
+            # 只对测试版做，顺带让它不在后台常驻；用户的正式版不碰
+            kill = f"am force-stop {PACKAGE}; " if PACKAGE != RELEASE else ""
+            android(f"{kill}echo release > {WORK}/ctl", check=False)
         print("stopped")
     else:
         sys.exit(__doc__)

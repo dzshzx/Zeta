@@ -7,9 +7,12 @@
 #   start  <标识> <工作目录> <标题> <claude 参数…>   启动并接上
 #   attach <标识> <从第几行开始读>                    接上一个已在运行的
 #   stop   <标识>                                     结束并清理
+#
+# 目录按包分开：ZETA_NAME 是 Zeta 自己的目录名（正式版 zeta，测试版 zeta-dev），由应用进环境时传进来。
+# 两个包看不到对方的后台进程，也就不会接管或结束对方的对话。
 set -u
 mode=$1
-D="$HOME/.cache/zeta/hosts/$2"
+D="$HOME/.cache/${ZETA_NAME:-zeta}/hosts/$2"
 
 if [ "$mode" = stop ]; then
   if [ -s "$D/pid" ]; then

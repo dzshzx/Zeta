@@ -27,9 +27,11 @@ import sys
 import time
 
 ROOT = os.path.expanduser("~/.claude/projects")
-HOSTS = os.path.expanduser("~/.cache/zeta/hosts")
+# Zeta 自己的目录按包分开（正式版 zeta，测试版 zeta-dev，由应用经 ZETA_NAME 传进来）；Claude Code 的会话两个包共用
+NAME = os.environ.get("ZETA_NAME") or "zeta"
+HOSTS = os.path.expanduser("~/.cache/%s/hosts" % NAME)
 SESSIONS = os.path.expanduser("~/.claude/sessions")
-UPLOADS = os.path.expanduser("~/.cache/zeta/files")
+UPLOADS = os.path.expanduser("~/.cache/%s/files" % NAME)
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
                ".gif": "image/gif", ".bmp": "image/bmp", ".heic": "image/heic", ".avif": "image/avif"}
 MAX_IMAGE_BYTES = 30 * 1024 * 1024
@@ -206,7 +208,7 @@ def summarize(path):
             "preview": (prompt or first)[:200], "updated": int(os.path.getmtime(path) * 1000)}
 
 
-ARCHIVE = os.path.expanduser("~/.config/zeta/archived")
+ARCHIVE = os.path.expanduser("~/.config/%s/archived" % NAME)
 
 
 def archived_sessions():

@@ -1,0 +1,4 @@
+<resources>
+    <!-- 测试版的桌面名称、无障碍服务名称，和正式版区分开 -->
+    <string name="app_name">Zeta 测试</string>
+</resources>

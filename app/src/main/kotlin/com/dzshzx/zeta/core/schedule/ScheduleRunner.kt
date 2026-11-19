@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import com.dzshzx.zeta.R
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
@@ -257,7 +258,7 @@ internal object ScheduleRunner {
         }
         val notification = Notification.Builder(app, Notifier.CHANNEL_ALERT)
             .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(title)
+            .setContentTitle(AppVariant.current.notificationTitle(title))
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(open)

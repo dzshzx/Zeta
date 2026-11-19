@@ -25,7 +25,9 @@ internal object Notifier {
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL_STATUS, "运行状态", NotificationManager.IMPORTANCE_LOW))
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", NotificationManager.IMPORTANCE_DEFAULT))
+        // 测试版的提醒不出声：测试时对话跑完、等确认，不该打扰正在用手机的人
+        val alert = if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_DEFAULT
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
     }
 
     fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
@@ -43,7 +45,7 @@ internal object Notifier {
         ensureChannels(context)
         val notification = Notification.Builder(context, CHANNEL_ALERT)
             .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(title)
+            .setContentTitle(AppVariant.current.notificationTitle(title))
             .setContentText(text)
             .setContentIntent(openAppIntent(context))
             .setAutoCancel(true)
@@ -68,7 +70,7 @@ class AgentService : Service() {
         Notifier.ensureChannels(this)
         val builder = Notification.Builder(this, Notifier.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(if (busy) "Claude 正在工作" else "Claude 会话保持中")
+            .setContentTitle(AppVariant.current.notificationTitle(if (busy) "Claude 正在工作" else "Claude 会话保持中"))
             .setContentIntent(Notifier.openAppIntent(this))
             .setOngoing(true)
         when (running.size) {
@@ -113,7 +115,7 @@ class AgentService : Service() {
     companion object {
         private const val EXTRA_BUSY = "busy"
         private const val EXTRA_RUNNING = "running"
-        private const val ACTION_STOP = "com.dzshzx.zeta.action.STOP"
+        private val ACTION_STOP = AppVariant.current.action("STOP")
 
         private data class State(val active: Boolean, val busy: Boolean, val running: List<String>)
         private var lastState: State? = null

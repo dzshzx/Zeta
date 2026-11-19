@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.AppVariant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -13,7 +14,7 @@ internal object DeviceApps {
 
     /** 停掉或冻结了会让手机或 Zeta 自己用不了的包。 */
     val PROTECTED = setOf(
-        "com.dzshzx.zeta", "android", "com.android.systemui", "com.android.phone", "com.miui.home",
+        AppVariant.RELEASE_PACKAGE, AppVariant.current.packageName, "android", "com.android.systemui", "com.android.phone", "com.miui.home",
         "com.android.providers.settings", "me.weishu.kernelsu", "com.sukisu.ultra", "com.rifsxd.ksunext",
     )
 

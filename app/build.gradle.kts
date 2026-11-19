@@ -18,8 +18,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 28
-        versionName = "0.6.20"
+        versionCode = 29
+        versionName = "0.6.21"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -36,6 +36,14 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+        // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh --dev）。
+        // 代码、签名同 debug；名称和图标在 src/dev/res 里换掉。assembleDebug 照旧只出正式版。
+        create("dev") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            matchingFallbacks += listOf("debug")
         }
     }
 

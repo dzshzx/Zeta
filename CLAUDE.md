@@ -1,6 +1,6 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Android 原生客户端：Kotlin、Compose，外观和交互照 Eta 的 COUI 模式。包名 `com.dzshzx.zeta`，默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
+Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Android 原生客户端：Kotlin、Compose，外观和交互照 Eta 的 COUI 模式。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
 
 ## 产品取舍
 
@@ -14,7 +14,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 
 ## 架构
 
-Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有挂载命名空间 → chroot 进 Debian rootfs（`/data/local/zeta/debian/rootfs`）→ `setpriv` 降到 Linux 用户 `dzshzx`（uid 5000）→ `assets/zeta_host.sh`。它用 `setsid` 起 `claude -p --input-format stream-json --output-format stream-json …`，标准输入来自 FIFO，输出追加到 `~/.cache/zeta/hosts/<key>/out.jsonl`。Zeta 只附着在上面，所以 Zeta 被杀时对话照样跑完，下次启动再附着回去。没有中转，不开端口。
+Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有挂载命名空间 → chroot 进 Debian rootfs（`/data/local/zeta/debian/rootfs`）→ `setpriv` 降到 Linux 用户 `dzshzx`（uid 5000）→ `assets/zeta_host.sh`。它用 `setsid` 起 `claude -p --input-format stream-json --output-format stream-json …`，标准输入来自 FIFO，输出追加到 `~/.cache/zeta/hosts/<key>/out.jsonl`（测试版是 `~/.cache/zeta-dev`）。Zeta 只附着在上面，所以 Zeta 被杀时对话照样跑完，下次启动再附着回去。没有中转，不开端口。
 
 - `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`，文件浏览 `LinuxFiles`，共享文件夹 `SharedFolders`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`，附件与图片。
 - `core/claude/`：设置里“上下文与扩展”读写 Claude Code 自身配置（记忆、Skills、MCP、Subagent）。解析、校验、路径映射是纯函数；读写文件经 `ClaudeScripts` 的小段壳脚本以 Linux 用户身份做，内容和 Token 只走标准输入；MCP 的增删走 `claude mcp`。
@@ -37,20 +37,27 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包、跑 JVM 单元测试。
 - 单元测试：`tools/gradle :app:testDebugUnitTest`，放在 `app/src/test/kotlin`。不碰 Android 运行时的逻辑（解析、路径、状态归约）都写成单元测试，在工作站上就能验，不用装机。`ClaudeConfigClientTest` 在临时 HOME 上端到端跑 `core/claude` 的脚本和 `claude` 命令行；加 `ZETA_TEST_SSH=xiaomi-17-debian`（和 `--rerun`）时经 ssh 在手机 Debian 里用临时 HOME 再跑一遍。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一包名同时只能装一个版本：工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`），被别人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放。
-- 装机：`tools/install.sh [--no-build]`。在工作站上经 ssh 装，在手机上直接装。重装会结束 Zeta 的界面，但不结束进行中的对话。用户日常在用 Zeta，装机会打断用户眼前的界面。
-- 测试：用 `python3 tools/vd.py start|launch|shot <png>|tap x y|swipe x1 y1 x2 y2 [毫秒]|text <ASCII>|key <键码>|status|stop` 在后台虚拟屏上驱动 Zeta，不碰用户的真屏。工作站上每条命令走一次 ssh，约 0.4 秒。坐标按整屏 1220×2656 算；截图显示给 Claude 时缩小过，要按显示比例换算回去。`stop` 会关掉屏上的应用（建屏带 DESTROY_CONTENT_ON_REMOVAL），不会把它们挪到真屏上。
+- 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。两个包同时装在手机上，互不替换。
+  - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
+  - 测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
+  - 两个包共用同一个 Debian 和 Linux 用户：Claude Code 的会话、登录状态、配置是同一份，测试版里建的会话也会出现在正式版的列表里，照样测完就删。Zeta 自己在 Linux 里的目录按包分开（正式版 `~/.cache/zeta`、`~/.config/zeta`，测试版 `zeta-dev`，由环境变量 `ZETA_NAME` 告诉脚本，见 `AppVariant`），所以两个包不会接管、结束或清理对方的后台对话和附件；正在被另一个包跑着的会话在这边算作别处占用。设置、定时任务、通知渠道、无障碍服务也各是各的。包名相关的名字（无障碍组件、Provider authority、广播 action）都从 `AppVariant` 取，不写死 `com.dzshzx.zeta`。
+  - 测试版的通知标题前注明「测试版」，完成与确认提醒不出声；和正式版一样，没有对话在跑时不常驻通知。测完不让它在后台常驻：`vd.py --dev stop` 会 force-stop 它。
+  - `am force-stop <包名>` 会让系统把那个包的无障碍服务从启用列表里拿掉（AOSP `onPackagesForceStoppedLocked`），所以不对正式版 force-stop，`vd.py stop` 对正式版也只关屏。测试版被 force-stop 后，下次用手机工具时有 root 就自己加回去，也可以在权限健康页一键授予。
+- 装机：`tools/install.sh --dev [--no-build]` 装测试版，不带 `--dev` 装正式版。在工作站上经 ssh 装，在手机上直接装。重装会结束这个包的界面，但不结束进行中的对话。
+- 测试：用 `python3 tools/vd.py --dev start|launch|shot <png>|tap x y|swipe x1 y1 x2 y2 [毫秒]|text <ASCII>|key <键码>|prefs <键名…>|status|stop` 在后台虚拟屏上驱动测试版，不碰用户的真屏。`--dev` 只影响 start、launch、stop、prefs，不带就是正式版。工作站上每条命令走一次 ssh，约 0.4 秒。坐标按整屏 1220×2656 算；截图显示给 Claude 时缩小过，要按显示比例换算回去。`stop` 会关掉屏上的应用（建屏带 DESTROY_CONTENT_ON_REMOVAL），不会把它们挪到真屏上；测试版还会被 force-stop。
   - 冷启动后等约 10 秒再输入，否则字会丢。`vd.py text` 只能输 ASCII，要中文时改用包名之类。
   - 要把 Zeta 放到后台，就在虚拟屏上开另一个 activity，例如 `am start --display <屏号> -n com.android.traceur/.MainActivity`。Claude 在虚拟屏上开了别的应用、Zeta 被压到后面时，用 `vd.py launch` 拉回来。
   - 截图一片白时，先查 `dumpsys activity activities`，不要先当成崩溃。多半是两种情况：用户自己打开了 Zeta，任务挪到了主屏，这时等用户，不要抢回来；或者 MIUI 的 GreezeManager 冻结了 Zeta（`reason=tobg`），`vd.py launch` 能解冻。用户的「一键清理」也会杀掉虚拟屏上的 Zeta，先查事件日志。
-  - 测手机工具和悬浮层时不碰真屏：Zeta 的「主屏」可以指到测试屏上。先 force-stop Zeta，往 `/data/user/0/com.dzshzx.zeta/shared_prefs/zeta.xml` 里加 `<int name="phoneDisplay" value="<屏号>" />`，再 `vd.py launch`；测完删掉这一项。
+  - 下面的路径和组件名写的是 `<包名>`：测试版是 `com.dzshzx.zeta.dev`，正式版是 `com.dzshzx.zeta`。类名不随包名变，组件要写全，例如 `com.dzshzx.zeta.dev/com.dzshzx.zeta.ui.MainActivity`。
+  - 测手机工具和悬浮层时不碰真屏：Zeta 的「主屏」可以指到测试屏上。先 force-stop Zeta，往 `/data/user/0/<包名>/shared_prefs/zeta.xml` 里加 `<int name="phoneDisplay" value="<屏号>" />`，再 `vd.py launch`；测完删掉这一项。
   - 测试会改 Zeta 的设置（cwd、model、permissionMode、dark），测完恢复；用户的 cwd 是 `/workspace/claude`。只删测试时建的会话，`/workspace/claude` 下的会话是用户的。
-  - Zeta 的设置用 root 直接读 `/data/user/0/com.dzshzx.zeta/shared_prefs/zeta.xml`（`run-as` 不可用）。只 grep 键名，不要整份 cat，`commands` 一项很大。
-  - 不经文件选择器给 Zeta 喂文件：`am start -a android.intent.action.SEND -t <mime> --eu android.intent.extra.STREAM file:///data/user/0/com.dzshzx.zeta/files/<名字>`。通知栏的「停止」可用 root 触发：`am startservice -n com.dzshzx.zeta/.core.AgentService -a com.dzshzx.zeta.action.STOP`。
+  - Zeta 的设置用 `vd.py --dev prefs <键名…>` 读，或用 root 直接读 `/data/user/0/<包名>/shared_prefs/zeta.xml`（`run-as` 不可用）。只 grep 键名，不要整份 cat，`commands` 一项很大。
+  - 不经文件选择器给 Zeta 喂文件：`am start -n <包名>/com.dzshzx.zeta.ui.MainActivity -a android.intent.action.SEND -t <mime> --eu android.intent.extra.STREAM file:///data/user/0/<包名>/files/<名字>`。通知栏的「停止」可用 root 触发：`am startservice -n <包名>/com.dzshzx.zeta.core.AgentService -a <包名>.action.STOP`。
   - Claude Code 会拦下前台的 `sleep N`，长时间的测试用自己会耗时的脚本。
 
 ## 发版
 
-一个版本一件事。功能分支不改版本号，合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh` 装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
+一个版本一件事。功能分支不改版本号，合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
 
 ## 边界
 
