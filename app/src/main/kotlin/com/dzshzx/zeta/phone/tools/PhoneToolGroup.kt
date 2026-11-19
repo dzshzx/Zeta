@@ -32,7 +32,9 @@ internal interface PhoneToolGroup {
 
 internal object PhoneToolGroups {
     /** 所有工具组。新的一组在这里加一行。 */
-    val all: List<PhoneToolGroup> = listOf()
+    val all: List<PhoneToolGroup> = listOf(
+        PersonalTools,
+    )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {
         all.flatMap { group -> group.tools.map { (it as JsonObject)["name"].toString().trim('"') to group } }.toMap()

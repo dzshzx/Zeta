@@ -77,7 +77,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
         }
         Group(
             footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，授予通知权限，" +
-                "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留）。没改成的那一项，点它会打开对应的系统设置。",
+                "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史。没改成的那一项，点它会打开对应的系统设置。",
         ) {
             CouiPreference(
                 title = "一键授予",

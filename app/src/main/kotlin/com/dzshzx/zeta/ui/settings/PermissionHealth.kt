@@ -26,12 +26,13 @@ import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.phone.tools.PersonalTools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, Notifications }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, Notifications, NotificationHistory }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -57,6 +58,8 @@ internal data class PermissionSnapshot(
     val backgroundRestricted: Boolean,
     val notificationsGranted: Boolean,
     val blockedChannels: List<String>,
+    /** 系统的通知历史开没开；读不到时是 null。 */
+    val notificationHistory: Boolean? = null,
 )
 
 /**
@@ -64,6 +67,7 @@ internal data class PermissionSnapshot(
  * 改不了或没有 root 时再打开对应的系统设置页。
  *
  * Zeta 没有声明通知使用权、使用情况访问、位置，悬浮层用的是无障碍窗口（不要悬浮窗权限），所以这几项不列。
+ * 通知历史不是 Zeta 的权限，是系统设置里的一个开关：手机工具查已划掉的通知要靠它。
  */
 internal object PermissionHealth {
     fun snapshot(context: Context): PermissionSnapshot {
@@ -90,6 +94,7 @@ internal object PermissionHealth {
             backgroundRestricted = activity?.isBackgroundRestricted == true,
             notificationsGranted = granted,
             blockedChannels = blocked,
+            notificationHistory = PersonalTools.notificationHistoryEnabled(context),
         )
     }
 
@@ -168,6 +173,17 @@ internal object PermissionHealth {
                 )
                 else -> PermissionItem(PermissionId.Notifications, "通知", "运行状态，以及回答完成、需要你确认时的提醒", "已允许", PermissionStatus.Ready, false)
             },
+            // 系统自带的功能：开了以后系统保留 24 小时内的通知，Claude 才查得到已经划掉的通知（比如找验证码）
+            when {
+                checking -> PermissionItem(PermissionId.NotificationHistory, "通知历史", null, "检查中", PermissionStatus.Checking, false)
+                snapshot.notificationHistory == true -> PermissionItem(
+                    PermissionId.NotificationHistory, "通知历史", "系统保留 24 小时内的通知，Claude 能查已经划掉的通知", "已开启", PermissionStatus.Ready, false,
+                )
+                else -> PermissionItem(
+                    PermissionId.NotificationHistory, "通知历史", "开启系统的通知历史（保留 24 小时）后，Claude 能查已经划掉的通知，比如找验证码",
+                    "未开启", PermissionStatus.Idle, root == true,
+                )
+            },
         )
     }
 
@@ -206,6 +222,10 @@ internal object PermissionHealth {
                 )
                 snapshot(app).notificationsGranted
             }
+            PermissionId.NotificationHistory -> {
+                runScript("settings put --user \"\$3\" secure \"\$2\" 1", PersonalTools.NOTIFICATION_HISTORY_KEY, user)
+                PersonalTools.notificationHistoryEnabledOrRoot(app)
+            }
             PermissionId.Root, PermissionId.Linux -> false
         }
     }
@@ -220,6 +240,7 @@ internal object PermissionHealth {
             PermissionId.Battery -> details
             // 权限没给和某类通知被关，都在应用的通知设置页里改
             PermissionId.Notifications -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
+            PermissionId.NotificationHistory -> Intent("android.settings.NOTIFICATION_HISTORY")
             PermissionId.Root, PermissionId.Linux -> null
         }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
