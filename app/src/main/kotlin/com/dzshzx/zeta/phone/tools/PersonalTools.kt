@@ -19,7 +19,7 @@ import kotlinx.serialization.json.putJsonObject
 import java.time.ZoneId
 
 /**
- * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频、音频与录音、文件、下载记录、健康数据。
+ * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频、音频与录音、文件、下载记录、小米便签、健康数据。
  * 除健康数据外都经 root 辅助进程 [ProviderHelper] 读系统的 ContentProvider 和通知服务，Zeta 不申请这些权限；
  * 健康数据经健康连接的公开接口读（[HealthReader]），权限由权限健康页经 root 授予。
  * 除日程外只读；不发短信、不打电话。结果有条数和字数上限，不写日志，读到的内容不在 Zeta 里留存。
@@ -37,7 +37,8 @@ internal object PersonalTools : PhoneToolGroup {
             "Search the user's personal data on this phone (read-only). Sources: calendar (events in a window, default next 7 days), " +
                 "calendars (ids, writable or not), notifications (current plus recently dismissed), codes (verification codes from SMS and " +
                 "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, audio (music and voice/call " +
-                "recordings), files (any file in shared storage, by name or folder), downloads (with source URL), " +
+                "recordings), files (any file in shared storage, by name or folder), downloads (with source URL), notes (Xiaomi Notes: " +
+                "title, text and voice-note transcript; id for the full note), " +
                 "health (summary of steps, sleep, exercise, heart rate, weight, SpO2 from Health Connect; default last 7 days). " +
                 "Newest first, except calendar.",
             readOnly = true,
@@ -47,7 +48,7 @@ internal object PersonalTools : PhoneToolGroup {
                 prop("query", "string", "Keyword in title, text, name, number or file path (e.g. Screenshots, sound_recorder).")
                 prop("start", "string", "From this time, inclusive. $TIME_FORMAT")
                 prop("end", "string", "Before this time.")
-                prop("id", "integer", "Fetch just this item (event, message, call, contact, calendar, media or file id) with full text.")
+                prop("id", "integer", "Fetch just this item (event, message, call, contact, calendar, media, file or note id) with full text.")
                 prop("limit", "integer", "1-50, default 20.")
                 prop("offset", "integer", "Skip this many, for the next page.")
             }
@@ -152,6 +153,7 @@ internal object PersonalTools : PhoneToolGroup {
             }
             PersonalSource.Health -> health(context, request, zone, now)
             PersonalSource.Audio -> audio(context, request, zone, now)
+            PersonalSource.Notes -> notes(context, request, zone, now)
             PersonalSource.Calendar -> if (request.id != null) {
                 val (event, reminders) = readEvent(context, request.id) ?: return "没有编号为 ${request.id} 的日程。"
                 PersonalQueries.formatEvent(event, reminders, zone)
@@ -199,6 +201,14 @@ internal object PersonalTools : PhoneToolGroup {
         }
     } catch (e: Exception) {
         "录音机的摘要和转写没读到：" + (e.message ?: e.javaClass.simpleName)
+    }
+
+    /** 小米便签：列表，或按 id 读一条的全文。它的 Provider 只认系统身份的调用方。 */
+    private fun notes(context: Context, request: SearchRequest, zone: ZoneId, now: Long): String {
+        val result = RootProvider.one(context, MiuiNotes.searchOp(request), system = true)
+        val rows = RootProvider.rows(result)
+        val id = request.id ?: return MiuiNotes.formatList(rows, more(result), request, zone, now)
+        return rows.firstOrNull()?.let { MiuiNotes.formatNote(it, zone) } ?: "没有编号为 $id 的便签（或在回收站、私密便签里）。"
     }
 
     /** 健康连接里 [request] 窗口内的汇总；没有健康连接、一项权限都没有时说明怎么办。 */

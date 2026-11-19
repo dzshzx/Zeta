@@ -1,5 +1,5 @@
 #!/bin/bash
-# 真机：search_personal 的音频、文件、下载记录、健康数据。测试版里真跑一轮对话，让 Claude 逐个调用，只回条数、首行的标题和字段名，
+# 真机：search_personal 的音频、文件、下载记录、便签、健康数据。测试版里真跑一轮对话，让 Claude 逐个调用，只回条数、首行的标题和字段名，
 # 不回内容；产物里只有这段汇总（summary.txt）。健康权限用权限健康页一键授予的同一条命令授予。
 # 测完删掉这次建的会话和测试版的对话目录，permissionMode 恢复原样。用法：tools/phone-run tools/phone-tests/personal-sources.sh
 set -uo pipefail
@@ -42,12 +42,13 @@ setmode bypassPermissions
 vd launch
 sleep 12
 
-prompt="$mark Test of the phone tool search_personal. Call it with limit 3 for each source: audio, files, downloads, health. \
-Then for audio call it again with the id of the first item that is a recording (marked luyin), if any. Never show me any content from the results. \
+prompt="$mark Test of the phone tool search_personal. Call it with limit 3 for each source: audio, files, downloads, notes, health. \
+Then call it again with an id: for audio the first item that is a recording (marked luyin), for notes the first item, if any. Never show me any content from the results. \
 Reply only with one line per call: source, list or id, number of lines in the result, the first line of the result cut before the first \
 parenthesis, isError yes or no. For health also list the words before the first full-width colon on each later line, joined by slashes. \
-For the id call instead list which of these Chinese labels appear at the start of a line, written in pinyin: luyinji beizhu, \
-luyinji zhaiyao, luyinji zhuanxie (voice recorder note, summary, transcript), or the line saying they could not be read, nothing else."
+For the two id calls instead list which of these Chinese labels appear at the start of a line, written in pinyin: luyinji beizhu, \
+luyinji zhaiyao, luyinji zhuanxie (voice recorder note, summary, transcript), biaoti, xinjian, xiugai, zhengwen, zhuanxie \
+(title, created, modified, body, transcript), or the line saying they could not be read, nothing else."
 vd tap 319 2413
 sleep 1
 vd text "${prompt// /%s}"

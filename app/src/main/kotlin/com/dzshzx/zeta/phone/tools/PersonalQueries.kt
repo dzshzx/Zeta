@@ -36,6 +36,7 @@ internal enum class PersonalSource(val key: String, val label: String) {
     Audio("audio", "音频"),
     Files("files", "文件"),
     Downloads("downloads", "下载记录"),
+    Notes("notes", "便签"),
     Health("health", "健康数据"),
     ;
 
@@ -331,6 +332,7 @@ internal object PersonalQueries {
                     ),
                 )
             }
+            PersonalSource.Notes -> listOf(MiuiNotes.searchOp(request))
             PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
         }
     }

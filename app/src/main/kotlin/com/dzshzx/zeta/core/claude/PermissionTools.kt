@@ -71,7 +71,7 @@ object PhoneToolLabels {
         "app_control" to "已装应用的信息、强行停止、冻结与解冻、使用时长",
         "device_info" to "电池、温度、内存、存储、网络、位置等手机状况",
         "logcat" to "读最近的 Android 日志",
-        "search_personal" to "搜索日历、通知、验证码、短信、通话、通讯录、相册、音频与录音、文件、下载记录，汇总健康数据（只读）",
+        "search_personal" to "搜索日历、通知、验证码、短信、通话、通讯录、相册、音频与录音、文件、下载记录、便签，汇总健康数据（只读）",
         "view_media" to "查看照片、截图或视频",
         "edit_calendar" to "新建、修改、删除日程",
         "clipboard" to "读写剪贴板",

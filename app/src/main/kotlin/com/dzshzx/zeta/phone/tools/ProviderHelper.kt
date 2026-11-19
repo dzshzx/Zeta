@@ -51,7 +51,7 @@ import kotlin.system.exitProcess
  * CLASSPATH 指向 Zeta 自己的 APK，做法同 [com.dzshzx.zeta.phone.VdHelper]。以 root 身份经 ActivityManager 拿到 Provider
  * 的接口直接调用（和系统的 `content` 命令同一条路），所以 Zeta 不用申请日历、短信、通讯录、相册这些权限；
  * 比 `content` 命令多的是：绑定参数、行数上限对 MediaStore 也有效、带类型的结果、插入后拿得到新行的 URI、能取缩略图。
- * 有的系统应用（比如小米录音机）的 Provider 只认系统身份，这时以 system（uid 1000）起它，见 [RootProvider.run]。
+ * 有的系统应用（小米录音机、便签）的 Provider 只认系统身份，这时以 system（uid 1000）起它，见 [RootProvider.run]。
  *
  * 参数是一个 JSON 请求：`{"user":0,"ops":[…]}`，每一项按 `op` 执行，结果按顺序放进 `results`，最后打出一行 [MARK] + JSON。
  * - query：uri、projection、selection、args、sort、limit、offset、maxChars → columns、rows、more
@@ -379,7 +379,7 @@ object ProviderHelper {
 internal object RootProvider {
     /**
      * 执行 [ops]，返回与之一一对应的结果；整个调用失败时抛出异常，message 是给人看的原因。
-     * [system]：以 system（uid 1000）身份起辅助进程。小米录音机这类系统应用的 Provider 只认系统身份的调用方，
+     * [system]：以 system（uid 1000）身份起辅助进程。小米录音机、便签这类系统应用的 Provider 只认系统身份的调用方，
      * 对 root 一律返回空。uid 要在进程启动前换好（Binder 在 app_process 起来时就按当时的身份打开了），用 BusyBox nsenter 的 -S、-G。
      */
     fun run(context: Context, ops: List<JsonObject>, timeoutMs: Long = 30_000, system: Boolean = false): List<JsonObject> {
