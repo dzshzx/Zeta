@@ -174,4 +174,16 @@ class AssistantShots : ShotTest() {
             }
         }
     }
+
+    /** 诊断页那一组出问题的样子：默认助理是 Zeta 但系统语音识别不是（开机保不住），模块还没有任何记录。 */
+    @Test
+    fun diagnosticsTrouble() {
+        val owner = AssistantOwner(self = true, packageName = "com.dzshzx.zeta", label = "Zeta", recognizerPackage = "com.xiaomi.mibrain.speech")
+        val status = PowerKeyStatus(installed = null, installNote = null, recent = emptyList())
+        shoot("assistant-diagnostics-trouble") {
+            CouiPage(title = "诊断", onBack = {}) {
+                item { AssistantDiagnosticsGroup(reloads = 0, owner = owner, status = status) }
+            }
+        }
+    }
 }

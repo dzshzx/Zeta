@@ -18,7 +18,6 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.assistant.PowerKeyStatus
-import com.dzshzx.zeta.xposed.PowerKeyPolicy
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
@@ -78,17 +77,20 @@ internal fun AssistantSettingsScreen(hub: ConversationHub, onBack: () -> Unit, o
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
     CouiPage(title = "数字助理", onBack = onBack) {
+        // HyperOS 的长按电源键默认直接拉起小爱，要靠 Zeta 自带的 LSPosed 模块交给 Zeta；模块装没装上、最近的记录在诊断页（AssistantDiagnosticsGroup）
         item(key = "owner") {
-            PreferenceGroup(footer = "设为默认数字助理后，系统的助理入口（HyperOS 上长按电源键要配合 LSPosed 模块，见 诊断 › 数字助理）唤起 Zeta 浮窗，带上当前屏幕问 Claude。") {
+            PreferenceGroup(
+                footer = "设为默认后，系统的助理入口会唤起 Zeta 浮窗，带上当前屏幕问 Claude。HyperOS 上长按电源键还要启用 LSPosed 模块，见诊断页。",
+            ) {
                 item { DefaultAssistantPreference(current) }
             }
         }
         item(key = "conversation") {
             PreferenceGroup(
                 title = "数字助理的对话",
-                footer = "数字助理新开的对话用这里的模型和思考强度。跟随当前设置时和新对话一样（现在是 " +
-                    "${hub.settings.model?.let { modelName(hub, it) } ?: "Claude Code 的默认模型"}、思考强度${effortLabel(hub.settings.effort) ?: "按 Claude Code 的设置"}）；" +
-                    "单独选的只用在数字助理开的对话上，不改新对话的设置。",
+                footer = "选「跟随当前设置」时和新对话一样，现在是 " +
+                    "${hub.settings.model?.let { modelName(hub, it) } ?: "Claude Code 的默认模型"}、思考强度${effortLabel(hub.settings.effort) ?: "按 Claude Code 的设置"}。" +
+                    "单独选的不影响新对话。",
             ) {
                 item {
                     ModelPreference(hub, model) { value ->
@@ -145,25 +147,30 @@ internal fun AssistantDiagnosticsGroup(
         reading = false
     }.value
     val recent = log?.recent.orEmpty()
+    // HyperOS 长按电源键默认直接拉起小爱，要交给本包得在 LSPosed 里启用本包的模块（作用域「系统框架」）并重启；
+    // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 PowerKeyPolicy.LOG_TAG
     PreferenceGroup(
         title = "数字助理",
         footer = when {
             reading && log == null -> null
             log == null -> "读不到模块日志（没有 root）。"
-            recent.isEmpty() -> "HyperOS 长按电源键直接拉起小爱，要交给本包还得在 LSPosed 里启用本包（${AppVariant.current.packageName}）的模块" +
-                "（作用域「系统框架」）并重启；正式版、测试版的模块各管各的。现在 LSPosed 和 logcat 里都没有本包模块的记录：没启用，或者启用后还没重启。"
-            else -> "最近的记录（LSPosed 模块日志，标签 ${PowerKeyPolicy.LOG_TAG}）：\n" + recent.takeLast(8).joinToString("\n")
+            recent.isEmpty() -> "要让长按电源键唤起 Zeta，在 LSPosed 里启用本包（${AppVariant.current.packageName}）的模块，作用域选「系统框架」，再重启手机。" +
+                "现在还没有记录：没启用，或还没重启。"
+            else -> "模块最近的记录：\n" + recent.takeLast(8).joinToString("\n")
         },
     ) {
         item { DefaultAssistantPreference(current) }
         item {
+            // 默认助理是 Zeta 时，系统默认语音识别也要是本包自己的识别服务（测试版就要是测试版的），开机时系统才不会把默认助理换掉
+            // （docs/assistant.md「开机保持默认助理」）。别家的识别服务显示的是包名，太长，出问题时右边只写「不是 Zeta」
+            val broken = current?.keepsOnBoot == false
             BasicComponent(
                 title = "系统语音识别",
-                summary = "默认助理是 Zeta 时要是 Zeta 自己的，开机时系统才不会把默认助理换掉".takeIf { current?.keepsOnBoot == false },
+                summary = "开机后默认助理会被换掉".takeIf { broken },
                 endActions = {
                     PreferenceValue(
-                        text = current?.recognizerSummary ?: "查询中",
-                        color = if (current?.keepsOnBoot == false) COUITheme.colorScheme.error else Color.Unspecified,
+                        text = if (broken) "不是 Zeta" else current?.recognizerSummary ?: "查询中",
+                        color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
                     )
                 },
             )
