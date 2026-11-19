@@ -5,6 +5,8 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.phone.ZetaAccessibilityService
+import com.dzshzx.zeta.ui.overlay.ScreenLock
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
@@ -57,6 +59,19 @@ class ConversationHub(private val app: Application) {
 
     private var linger by mutableStateOf<Linger?>(null)
     private val endLinger = Runnable { linger = null }
+
+    /**
+     * 屏幕底部的结果卡片要显示的那一轮；没有时为 null。一轮结束时按 [ResultCardPolicy.shows] 建，
+     * 悬浮层在 [keepsResultCard] 不成立或用户关掉时 [dismissResultCard]。可观察，在主线程上读写。
+     */
+    var resultCard by mutableStateOf<TurnResult?>(null)
+        private set
+
+    /** 正在结束的这一轮用过手机工具的那个对话（[onTurnEnding] 记下，紧接着的 [onTurnFinished] 取走：那时手机工具的状态已经清了）。 */
+    private var endingWithPhone: Conversation? = null
+
+    /** 最近一次结束时弹了结果卡片的对话：完成提醒据此不响铃（ScheduleRunner 的也是）。 */
+    private var carded: Conversation? = null
 
     var backgroundScreen by mutableStateOf(settings.backgroundScreen)
         private set
@@ -767,6 +782,7 @@ class ConversationHub(private val app: Application) {
      * 在主线程上调用。
      */
     internal fun onTurnEnding(conversation: Conversation, text: String) {
+        endingWithPhone = conversation.takeIf { it.phone.engagedThisTurn }
         val focus = conversation.overlay
         if (focusState.value !== focus) return
         linger = Linger(focus, text)
@@ -777,12 +793,50 @@ class ConversationHub(private val app: Application) {
     /** [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒“已完成”。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
         if (conversation !== current) retireWhenIdle(conversation)
+        val showed = offerResultCard(conversation, usedPhone = endingWithPhone === conversation, stopped = stopped)
+        endingWithPhone = null
         // 定时任务起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
         if (!stopped && (!foreground || conversation !== current) && !ScheduleRunner.owns(conversation)) {
-            Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成")
+            // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
+            Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成", silent = showed)
         }
         refreshSessions()
     }
+
+    /** 一轮结束时要不要弹结果卡片（见 [ResultCardPolicy.shows]），要的话换上这一轮的。返回弹了没有。 */
+    private fun offerResultCard(conversation: Conversation, usedPhone: Boolean, stopped: Boolean): Boolean {
+        val others = liveConversations.filter { it !== conversation }
+        val show = ResultCardPolicy.shows(
+            usedPhone = usedPhone,
+            stopped = stopped,
+            zetaForeground = foreground,
+            locked = ScreenLock.hides(settings.phoneDisplay),
+            overlayReady = ZetaAccessibilityService.instance != null,
+            phoneInUse = others.any { it.busy && it.phone.engagedThisTurn },
+        )
+        carded = conversation.takeIf { show }
+        if (show) resultCard = TurnResult(conversation, others.filterTo(HashSet()) { it.busy })
+        return show
+    }
+
+    /** 显示着的结果卡片还留不留（见 [ResultCardPolicy.keeps]）。只读可观察的状态，悬浮层据此收起；[locked] 是锁屏或息屏。 */
+    internal fun keepsResultCard(card: TurnResult, locked: Boolean): Boolean {
+        val others = liveConversations.filter { it !== card.conversation }
+        return ResultCardPolicy.keeps(
+            zetaForeground = foreground,
+            locked = locked,
+            newTurn = card.conversation.busy || others.any { it.busy && it !in card.busyBefore },
+            phoneInUse = others.any { it.busy && it.phone.engagedThisTurn },
+        )
+    }
+
+    /** 收起结果卡片（用户关掉、超时，或不再留）。在主线程上调用。 */
+    fun dismissResultCard(card: TurnResult) {
+        if (resultCard === card) resultCard = null
+    }
+
+    /** [conversation] 最近一次结束时弹了结果卡片：它的完成提醒不必再响铃。 */
+    internal fun showedResultCard(conversation: Conversation): Boolean = carded === conversation
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */
     internal fun onBackgroundTasksDone(conversation: Conversation) {

@@ -238,9 +238,12 @@ internal object ScheduleRunner {
             // 不记结果摘要：那是对话内容
             "后台任务（${run.records.kind}）$name 结束：" + outcome.label,
         )
-        // 用户叫停的不提醒；用户正看着这个对话也不必提醒
+        // 用户叫停的不提醒；用户正看着这个对话也不必提醒；屏幕底部弹了结果卡片的不响铃
         if (outcome != RunOutcome.Stopped && !watching(hub, conversation)) {
-            notify(app, run.key, if (outcome == RunOutcome.Done) name else "$name · 没有完成", summary.ifBlank { "已完成" }, session ?: conversation.key)
+            notify(
+                app, run.key, if (outcome == RunOutcome.Done) name else "$name · 没有完成", summary.ifBlank { "已完成" }, session ?: conversation.key,
+                silent = hub.showedResultCard(conversation),
+            )
         }
         if (run.freshSession && session != null && current != null) {
             rename(hub, session, if (run.newSession) name + " · " + STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault())) else name)
@@ -251,8 +254,8 @@ internal object ScheduleRunner {
 
     // ---- 通知 ----
 
-    /** 每一项一条（新的替换旧的），tag 是“来源:id”。[key] 是要打开的对话，null 时只打开 Zeta。 */
-    private fun notify(app: Application, tag: String, title: String, text: String, key: String?) {
+    /** 每一项一条（新的替换旧的），tag 是“来源:id”。[key] 是要打开的对话，null 时只打开 Zeta。[silent] 见 [Notifier.post]。 */
+    private fun notify(app: Application, tag: String, title: String, text: String, key: String?, silent: Boolean = false) {
         val open = if (key == null) {
             Notifier.openAppIntent(app)
         } else {
@@ -261,7 +264,7 @@ internal object ScheduleRunner {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         }
-        Notifier.post(app, tag, Notifier.ID_SCHEDULE, title, text, open, bigText = true)
+        Notifier.post(app, tag, Notifier.ID_SCHEDULE, title, text, open, bigText = true, silent = silent)
     }
 
     /** 任务删掉时，它留下的通知一并收掉。 */

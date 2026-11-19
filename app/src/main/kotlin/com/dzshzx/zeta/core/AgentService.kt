@@ -33,6 +33,9 @@ internal object Notifier {
     const val ID_SCHEDULE = 3
     const val ID_ACCESSIBILITY = 4
 
+    /** 不提醒的那几条通知归的组，见 [post] 的 silent。 */
+    private const val SILENT_GROUP = "silent"
+
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL_STATUS, "运行状态", NotificationManager.IMPORTANCE_LOW))
@@ -51,14 +54,16 @@ internal object Notifier {
         context.getSystemService(NotificationManager::class.java).cancel(ID_ALERT)
     }
 
-    /** 对话跑完、等确认的提醒，点开回到 Zeta。 */
-    fun alert(context: Context, title: String, text: String) = post(context, null, ID_ALERT, title, text, openAppIntent(context))
+    /** 对话跑完、等确认的提醒，点开回到 Zeta。[silent] 见 [post]。 */
+    fun alert(context: Context, title: String, text: String, silent: Boolean = false) =
+        post(context, null, ID_ALERT, title, text, openAppIntent(context), silent = silent)
 
     /**
      * 发一条提醒（渠道“完成与确认提醒”，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。
      * [tag] 和 [id] 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。
+     * [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
      */
-    fun post(context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent, bigText: Boolean = false) {
+    fun post(context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent, bigText: Boolean = false, silent: Boolean = false) {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         ensureChannels(context)
         val notification = Notification.Builder(context, CHANNEL_ALERT)
@@ -66,6 +71,8 @@ internal object Notifier {
             .setContentTitle(AppVariant.current.notificationTitle(title))
             .setContentText(text)
             .apply { if (bigText) setStyle(Notification.BigTextStyle().bigText(text)) }
+            // 框架的 Notification.Builder 没有 setSilent：照 NotificationCompat 的做法，当成组里的一条、只让（不存在的）摘要提醒
+            .apply { if (silent) setGroup(SILENT_GROUP).setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY) }
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()

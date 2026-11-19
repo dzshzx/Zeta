@@ -26,6 +26,7 @@ import com.dzshzx.zeta.ui.overlay.GestureIndicator
 import com.dzshzx.zeta.ui.overlay.OverlayDisplays
 import com.dzshzx.zeta.ui.overlay.OverlayHost
 import com.dzshzx.zeta.ui.overlay.OverlayWindow
+import com.dzshzx.zeta.ui.overlay.ResultCardHost
 import com.dzshzx.zeta.ui.overlay.ScreenLock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -51,6 +52,7 @@ class ZetaAccessibilityService : AccessibilityService() {
         ScreenLock.attach(this)
         OverlayHost.attach(this)
         EdgeGlowHost.attach(this)
+        ResultCardHost.attach(this)
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -69,6 +71,7 @@ class ZetaAccessibilityService : AccessibilityService() {
         instance = null
         OverlayHost.detach()
         EdgeGlowHost.detach()
+        ResultCardHost.detach()
         GestureIndicator.release()
         OverlayDisplays.release()
         ScreenLock.detach()
