@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.phone.AccessibilityGuard
+import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.ZetaAccessibilityService
 import com.dzshzx.zeta.ui.overlay.ScreenLock
@@ -906,8 +907,9 @@ class ConversationHub(private val app: Application) {
     private val liveTick = Runnable { onActivityChanged() }
 
     /**
-     * 实时通知上显示什么（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算）或系统不允许提升时为 null，
-     * 通知照旧。在主线程上调用。
+     * 实时通知上显示什么（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算）、系统不允许提升，
+     * 或顶部胶囊正显示着（[OverlayBridge.capsuleShown]，照 Eta：不让顶部同时出现两个胶囊）时为 null，通知照旧。
+     * 胶囊显示着也照样每秒再看一次，胶囊一退场（比如锁屏）下一秒就提升。在主线程上调用。
      */
     private fun liveStatus(answering: List<Conversation>): LiveStatus? {
         val now = System.currentTimeMillis()
@@ -916,6 +918,7 @@ class ConversationHub(private val app: Application) {
         main.removeCallbacks(liveTick)
         if (answering.isEmpty() || !AgentService.canPromote(app)) return null
         main.postDelayed(liveTick, LIVE_TICK_MS)
+        if (OverlayBridge.capsuleShown) return null
         val focusKey = (overlayFocus as? ConversationFocus)?.conversation?.openKey
         val candidates = answering.map { conversation ->
             val phone = conversation.phone

@@ -150,7 +150,7 @@ object OverlayHost {
         materializeFocus = null
         removeCapsule()
         state.focus = null
-        state.shown = false
+        setShown(false)
         state.materializing = false
         state.yielded = false
         service = null
@@ -159,7 +159,7 @@ object OverlayHost {
     private fun onFocus(next: OverlayFocus?) {
         if (next == null) {
             // 先放退场动画，放完（onExitSettled）再移除窗口
-            state.shown = false
+            setShown(false)
             state.expanded = false
             applyWindow()
             if (capsule == null) state.focus = null
@@ -168,8 +168,14 @@ object OverlayHost {
         // 换了一个对话：收起来，从头看
         if (state.focus !== next) state.expanded = false
         state.focus = next
-        state.shown = true
+        setShown(true)
         if (capsule == null) createCapsule() else applyWindow()
+    }
+
+    /** 胶囊进场、退场：同时告诉 ConversationHub（它据此决定常驻通知要不要提升为实时通知）。 */
+    private fun setShown(shown: Boolean) {
+        state.shown = shown
+        OverlayBridge.capsuleShown = shown
     }
 
     private fun createCapsule() {
@@ -180,6 +186,8 @@ object OverlayHost {
             // 窗口原点就是屏幕原点，y 才正好是状态栏下沿
             fitInsetsTypes = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            // dumpsys window 里按这个名字认（真机脚本 tools/phone-tests/capsule-live.sh）
+            title = "ZetaCapsule"
         }
         val window = OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { StatusCapsule(state, controls) }
         measureScreen(window)
