@@ -1,5 +1,13 @@
 package com.dzshzx.zeta.shots
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.RectF
+import android.media.ImageReader
+import android.os.Handler
+import android.os.HandlerThread
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,15 +25,18 @@ import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.ui.overlay.CapsuleControls
 import com.dzshzx.zeta.ui.overlay.CapsuleState
 import com.dzshzx.zeta.ui.overlay.StatusCapsule
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import org.junit.Test
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.InputStream
+import java.io.OutputStream
 
 class CapsuleShots : ShotTest() {
     /**
      * 顶部状态胶囊：上面是收起的（运行中，带思考尾句），下面是展开的（暂停，补充 / 继续 / 停止）。
-     * 后台屏幕要 root 和虚拟屏，这里没有，所以不画右侧的微缩画面和展开后的画面。
+     * 没有后台屏幕，所以没有右侧的微缩画面和展开后的画面（那些见 [backgroundStage]）。
      */
     @Test
     fun statusCapsule() {
@@ -39,23 +50,113 @@ class CapsuleShots : ShotTest() {
             shown = true
             this.expanded = true
         }
-        shoot("status-capsule", target = hasTestTag("capsules")) {
+        shootCapsules("status-capsule", collapsed, expanded)
+    }
+
+    /**
+     * 后台屏幕在用时：收起的胶囊右侧镶微缩画面（运行中），展开的是画廊式的画面加下面那一行（接管中：紫色描边、“继续”高亮）。
+     * 后台屏幕要 root 和虚拟屏，这里用一块不接进程的假屏，画面是手画的一帧。
+     */
+    @Test
+    fun backgroundStage() {
+        Fixtures.readyHub(app)
+        val screen = fakeScreen()
+        val collapsed = CapsuleState().apply {
+            focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹", screen = screen)
+            shown = true
+        }
+        val expanded = CapsuleState().apply {
+            focus = FakeFocus(OverlayPhase.CONTROLLING, step = "你在接管", thought = "", screen = screen)
+            shown = true
+            this.expanded = true
+        }
+        shootCapsules("status-capsule-stage", collapsed, expanded)
+    }
+
+    /** 展开后点了“补充”：输入框和取消 / 发送。 */
+    @Test
+    fun supplementInput() {
+        Fixtures.readyHub(app)
+        val input = CapsuleState().apply {
+            focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹")
+            shown = true
+            expanded = true
+            inputMode = true
+        }
+        shootCapsules("status-capsule-input", input)
+    }
+
+    private fun shootCapsules(name: String, vararg states: CapsuleState) {
+        shoot(name, target = hasTestTag("capsules")) {
             Column(
-                modifier = Modifier.testTag("capsules").fillMaxWidth().background(MiuixTheme.colorScheme.background).padding(vertical = 16.dp),
+                modifier = Modifier.testTag("capsules").fillMaxWidth().background(COUITheme.colorScheme.backgroundWithCard).padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                StatusCapsule(collapsed, NoControls)
-                StatusCapsule(expanded, NoControls)
+                for (state in states) StatusCapsule(state, NoControls)
             }
         }
     }
 
-    private class FakeFocus(override val phase: OverlayPhase, override val step: String, override val thought: String) : OverlayFocus {
+    /**
+     * 不接 root 辅助进程的后台屏幕。画面放在“休眠前那一帧”里：没人看时屏幕会清掉 [VirtualScreen.frames]，
+     * 每次有人登记观看（换配色重新组合时）它都会把这一帧再推出来。
+     */
+    private fun fakeScreen(): VirtualScreen {
+        val width = 1220
+        val height = 2656
+        val constructor = VirtualScreen::class.java.declaredConstructors.single { it.parameterCount == 7 }
+        constructor.isAccessible = true
+        val worker = HandlerThread("fake-screen").apply { start() }
+        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        val screen = constructor.newInstance(0, width, height, reader, worker, Handler(worker.looper), IdleProcess()) as VirtualScreen
+        val frame = VirtualScreen.Frame(fakeApp(width, height), width, height, 1)
+        VirtualScreen::class.java.getDeclaredField("snapshot").apply { isAccessible = true }.set(screen, frame)
+        val frames = VirtualScreen::class.java.getDeclaredField("_frames").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        (frames.get(screen) as MutableStateFlow<VirtualScreen.Frame?>).value = frame
+        return screen
+    }
+
+    /** 一帧像相册应用的画面：顶栏和几行缩略图。 */
+    private fun fakeApp(width: Int, height: Int): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        canvas.drawColor(0xFFF2F3F5.toInt())
+        paint.color = 0xFF2F6FED.toInt()
+        canvas.drawRect(0f, 0f, width.toFloat(), 420f, paint)
+        val tiles = intArrayOf(0xFFFFB74D.toInt(), 0xFF81C784.toInt(), 0xFF64B5F6.toInt(), 0xFFE57373.toInt(), 0xFFBA68C8.toInt(), 0xFF4DB6AC.toInt())
+        val size = (width - 80f) / 3f
+        for (i in 0 until 12) {
+            val col = i % 3
+            val row = i / 3
+            paint.color = tiles[i % tiles.size]
+            val left = 20f + col * (size + 20f)
+            val top = 480f + row * (size + 20f)
+            canvas.drawRoundRect(RectF(left, top, left + size, top + size), 36f, 36f, paint)
+        }
+        return bitmap
+    }
+
+    private class IdleProcess : Process() {
+        override fun getOutputStream(): OutputStream = OutputStream.nullOutputStream()
+        override fun getInputStream(): InputStream = InputStream.nullInputStream()
+        override fun getErrorStream(): InputStream = InputStream.nullInputStream()
+        override fun waitFor(): Int = 0
+        override fun exitValue(): Int = 0
+        override fun destroy() = Unit
+    }
+
+    private class FakeFocus(
+        override val phase: OverlayPhase,
+        override val step: String,
+        override val thought: String,
+        override val screen: VirtualScreen? = null,
+    ) : OverlayFocus {
         override val title = "整理相册里的截图"
-        override val screen: VirtualScreen? = null
         override val appName = "相册"
         override val actingOnMain = false
-        override val userControlling = false
+        override val userControlling = phase == OverlayPhase.CONTROLLING
         override val touches: SharedFlow<TouchMark> = MutableSharedFlow()
         override fun takeOver() = Unit
         override fun resumeAuto() = Unit

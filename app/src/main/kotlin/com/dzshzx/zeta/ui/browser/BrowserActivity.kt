@@ -45,15 +45,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,8 +60,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -78,24 +74,32 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Scaffold
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.blur.layerBackdrop
+import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Back
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.icon.extended.Refresh
+import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
  * 浏览器页：显示 Claude 在用的那个页面（[AgentBrowser] 的 WebView 挂过来），有地址栏、前进后退、刷新和清除数据。
@@ -138,9 +142,9 @@ private class TakeOverFrame(context: Context) : FrameLayout(context) {
 }
 
 @Composable
-private fun BrowserScreen(onExit: () -> Unit) {
+internal fun BrowserScreen(onExit: () -> Unit) {
     val context = LocalContext.current
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     var address by remember { mutableStateOf(TextFieldValue("")) }
@@ -171,94 +175,115 @@ private fun BrowserScreen(onExit: () -> Unit) {
         address = TextFieldValue(BrowserUrls.host(AgentBrowser.url).ifEmpty { input })
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.surface)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .imePadding()
-            .navigationBarsPadding(),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    BrowserScaffold {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .imePadding()
+                .navigationBarsPadding(),
         ) {
-            AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
-                Row {
-                    BarIcon(
-                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        description = if (AgentBrowser.canGoBack) "后退" else "关闭浏览器",
-                        onClick = { if (AgentBrowser.canGoBack) AgentBrowser.backByUser() else onExit() },
-                    )
-                    BarIcon(Icons.AutoMirrored.Rounded.ArrowForward, "前进", enabled = AgentBrowser.canGoForward) { AgentBrowser.forwardByUser() }
+            Row(
+                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
+                    Row {
+                        BarIcon(
+                            icon = COUIIcons.Back,
+                            description = if (AgentBrowser.canGoBack) "后退" else "关闭浏览器",
+                            onClick = { if (AgentBrowser.canGoBack) AgentBrowser.backByUser() else onExit() },
+                        )
+                        // COUI 没有“前进”箭头，用后退箭头左右翻过来，两个箭头一个样式
+                        BarIcon(COUIIcons.Back, "前进", iconModifier = Modifier.graphicsLayer { scaleX = -1f }, enabled = AgentBrowser.canGoForward) {
+                            AgentBrowser.forwardByUser()
+                        }
+                    }
                 }
-            }
-            AddressField(
-                value = address,
-                onValueChange = { address = it },
-                secure = url.startsWith("https://"),
-                onFocusChange = { editing = it },
-                onGo = ::go,
-                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-            )
-            AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
-                BarIcon(
-                    icon = if (AgentBrowser.loading) Icons.Rounded.Close else Icons.Rounded.Refresh,
-                    description = if (AgentBrowser.loading) "停止加载" else "刷新",
-                    enabled = AgentBrowser.hasPage(),
-                ) { AgentBrowser.reloadOrStopByUser() }
-            }
-            MoreMenu(onClear = { confirmClear = true })
-        }
-        LoadingLine(visible = AgentBrowser.loading, progress = AgentBrowser.progress)
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            AndroidView(
-                factory = { ctx -> TakeOverFrame(ctx).also { AgentBrowser.attach(it, ctx) } },
-                onRelease = { AgentBrowser.detach(it) },
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (!AgentBrowser.hasPage() && !AgentBrowser.loading) {
-                Text(
-                    text = "还没有打开网页\nClaude 用浏览器时，页面会显示在这里；也可以在上面输入网址",
-                    style = MiuixTheme.textStyles.body2,
-                    color = colors.onSurfaceVariantSummary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                AddressField(
+                    value = address,
+                    onValueChange = { address = it },
+                    secure = url.startsWith("https://"),
+                    onFocusChange = { editing = it },
+                    onGo = ::go,
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                 )
+                AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
+                    BarIcon(
+                        icon = if (AgentBrowser.loading) COUIIcons.Close else COUIIcons.Refresh,
+                        description = if (AgentBrowser.loading) "停止加载" else "刷新",
+                        enabled = AgentBrowser.hasPage(),
+                    ) { AgentBrowser.reloadOrStopByUser() }
+                }
+                MoreMenu(onClear = { confirmClear = true })
             }
-            // 浮在页面上，不挤占 WebView 的高度（挤占会让网页的视口忽大忽小、重新排版）
-            StatusPill(Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp))
+            LoadingLine(visible = AgentBrowser.loading, progress = AgentBrowser.progress)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(
+                    factory = { ctx -> TakeOverFrame(ctx).also { AgentBrowser.attach(it, ctx) } },
+                    onRelease = { AgentBrowser.detach(it) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (!AgentBrowser.hasPage() && !AgentBrowser.loading) {
+                    Text(
+                        text = "还没有打开网页\nClaude 用浏览器时，页面会显示在这里；也可以在上面输入网址",
+                        style = COUITheme.textStyles.bodyM,
+                        color = colors.labelSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                    )
+                }
+                // 浮在页面上，不挤占 WebView 的高度（挤占会让网页的视口忽大忽小、重新排版）
+                StatusPill(Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp))
+            }
+        }
+        ConfirmDialog(
+            show = confirmClear,
+            title = "清除浏览数据",
+            summary = "Cookie、登录状态、网站存储和缓存都会删掉，当前页面也会关闭。在这个浏览器里登录过的网站都要重新登录。",
+            confirmText = "清除",
+            destructive = true,
+            onConfirm = {
+                confirmClear = false
+                AgentBrowser.clearDataByUser(context) { Toast.makeText(context, "已清除浏览数据", Toast.LENGTH_SHORT).show() }
+            },
+            onDismissRequest = { confirmClear = false },
+        )
+    }
+}
+
+/**
+ * 浏览器页的 COUI 骨架：菜单和对话框画在 Scaffold 的弹窗层里，没有它就弹不出来。
+ * 工具栏是自己的，不用 [com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold] 的顶栏；
+ * 照它把页面录成背景图（[LocalPageBackdrop]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
+ */
+@Composable
+private fun BrowserScaffold(content: @Composable () -> Unit) {
+    val backdrop = rememberPageBackdrop()
+    val popupBlur = rememberPopupMaterialBlur(backdrop)
+    Scaffold(containerColor = COUITheme.colorScheme.background, contentWindowInsets = WindowInsets(0)) {
+        Box(Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)) {
+            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) { content() }
         }
     }
-    CouiConfirmDialog(
-        visible = confirmClear,
-        title = "清除浏览数据",
-        message = "Cookie、登录状态、网站存储和缓存都会删掉，当前页面也会关闭。在这个浏览器里登录过的网站都要重新登录。",
-        confirmText = "清除",
-        destructive = true,
-        onConfirm = {
-            confirmClear = false
-            AgentBrowser.clearDataByUser(context) { Toast.makeText(context, "已清除浏览数据", Toast.LENGTH_SHORT).show() }
-        },
-        onDismissRequest = { confirmClear = false },
-    )
 }
 
 /** 浮在页面底部的提示：接管时说 Claude 在等并带“交还”，Claude 操作时说它在做什么。 */
 @Composable
 private fun StatusPill(modifier: Modifier = Modifier) {
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
+    val colors = COUITheme.colorScheme
     val controlling = AgentBrowser.userControlling
     val action = AgentBrowser.agentAction
     if (!controlling && action == null) return
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(8.dp, CouiCapsuleShape, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
-            .clip(CouiCapsuleShape)
-            .background(if (dark) Color(0xFF2A2C30) else Color.White)
-            .border(0.5.dp, if (dark) Color(0x24FFFFFF) else Color(0x14000000), CouiCapsuleShape)
+            .shadow(8.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
+            .clip(CircleShape)
+            // 和 COUI 的 Snackbar 一样：最上层浮层的底色，按钮字用浮层上的主题色
+            .background(colors.backgroundTop)
+            .border(0.5.dp, colors.labelQuaternary, CircleShape)
             .padding(start = 16.dp, end = 6.dp)
             .heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -267,8 +292,8 @@ private fun StatusPill(modifier: Modifier = Modifier) {
         Spacer(Modifier.width(8.dp))
         Text(
             text = if (controlling) "你在操作，Claude 先等着" else "Claude 正在操作：$action",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp),
-            color = colors.onSurface,
+            style = COUITheme.textStyles.bodyS,
+            color = colors.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
@@ -276,10 +301,10 @@ private fun StatusPill(modifier: Modifier = Modifier) {
         if (controlling) {
             Text(
                 text = "交还 Claude",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                color = colors.primary,
+                style = COUITheme.textStyles.bodyS.copy(fontWeight = FontWeight.Medium),
+                color = colors.primaryTextOnPopup,
                 modifier = Modifier
-                    .clip(CouiCapsuleShape)
+                    .clip(CircleShape)
                     .clickable { AgentBrowser.handBackByUser() }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             )
@@ -295,7 +320,7 @@ private fun LoadingLine(visible: Boolean, progress: Int) {
                 Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(progress.coerceIn(5, 100) / 100f)
-                    .background(MiuixTheme.colorScheme.primary),
+                    .background(COUITheme.colorScheme.primary),
             )
         }
     }
@@ -310,12 +335,12 @@ private fun AddressField(
     onGo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     Row(
         modifier = modifier
             .height(40.dp)
-            .clip(CouiCapsuleShape)
-            .background(colors.surfaceContainerHigh)
+            .clip(CircleShape)
+            .background(colors.fillSolid)
             .padding(start = 12.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -323,18 +348,18 @@ private fun AddressField(
             imageVector = if (secure) Icons.Rounded.Lock else Icons.Rounded.Public,
             contentDescription = null,
             modifier = Modifier.size(15.dp),
-            tint = colors.onSurfaceVariantSummary,
+            tint = colors.labelSecondary,
         )
         Spacer(Modifier.width(8.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.text.isEmpty()) {
-                Text("搜索或输入网址", style = MiuixTheme.textStyles.body2, color = colors.onSurfaceVariantSummary, maxLines = 1)
+                Text("搜索或输入网址", style = COUITheme.textStyles.bodyM, color = colors.labelSecondary, maxLines = 1)
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = MiuixTheme.textStyles.body2.copy(color = colors.onSurface),
+                textStyle = COUITheme.textStyles.bodyM.copy(color = colors.labelPrimary),
                 cursorBrush = SolidColor(colors.primary),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { onGo() }),
@@ -344,22 +369,12 @@ private fun AddressField(
     }
 }
 
+/** 工具栏右边的“更多”：COUI 的图标下拉菜单，按钮和菜单是一体的。 */
 @Composable
 private fun MoreMenu(onClear: () -> Unit) {
-    val anchor = rememberCouiMenuAnchor()
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        BarIcon(Icons.Rounded.MoreVert, "更多", modifier = Modifier.couiMenuAnchor(anchor)) { anchor.open { expanded = true } }
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = listOf(CouiMenuItem(value = 0, text = "清除浏览数据")),
-            onItemClick = {
-                expanded = false
-                onClear()
-            },
-            anchor = anchor,
-        )
+    val entry = remember(onClear) { DropdownEntry(items = listOf(DropdownItem(text = "清除浏览数据", onClick = onClear))) }
+    OverlayIconDropdownMenu(entry = entry) {
+        Icon(imageVector = COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
     }
 }
 
@@ -368,20 +383,17 @@ private fun BarIcon(
     icon: ImageVector,
     description: String,
     modifier: Modifier = Modifier,
+    iconModifier: Modifier = Modifier,
     enabled: Boolean = true,
-    size: Dp = 40.dp,
     onClick: () -> Unit,
 ) {
-    val colors = MiuixTheme.colorScheme
-    Box(
-        modifier = modifier.size(size).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    val colors = COUITheme.colorScheme
+    IconButton(onClick = onClick, modifier = modifier, enabled = enabled) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            modifier = Modifier.size(20.dp),
-            tint = if (enabled) colors.onSurface else colors.onSurface.copy(alpha = 0.3f),
+            modifier = iconModifier,
+            tint = if (enabled) colors.labelPrimary else colors.disabledNeutral,
         )
     }
 }
@@ -398,7 +410,7 @@ internal fun BrowserStepButton() {
             imageVector = Icons.Rounded.OpenInBrowser,
             contentDescription = "在浏览器里查看",
             modifier = Modifier.size(16.dp),
-            tint = MiuixTheme.colorScheme.primary,
+            tint = COUITheme.colorScheme.primary,
         )
     }
 }

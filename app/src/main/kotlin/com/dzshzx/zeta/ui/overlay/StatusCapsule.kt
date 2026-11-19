@@ -28,13 +28,14 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +46,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -89,7 +91,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -97,19 +98,16 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.motion.couiPressMotion
-import com.itos.coui.motion.rememberCouiPressMotion
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import io.github.suqi8.coui.kmp.utils.SinkFeedback
+import io.github.suqi8.coui.kmp.utils.pressable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 顶部状态胶囊（照 Eta 的 COUI 样式）：收起时一句当前步骤 + 思考尾句，后台屏幕在用时右侧镶一块 18×32dp 的实时微缩画面；
@@ -199,10 +197,10 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
         enter = slideInVertically(spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)) { -it } + fadeIn(tween(160)),
         exit = slideOutVertically(tween(160)) { -it } + fadeOut(tween(140)),
     ) {
-        val dark = CouiTheme.isDark
-        val colors = MiuixTheme.colorScheme
-        val shape = CouiShape(capsuleCorner, 2.5f)
-        val headerPress = rememberCouiPressMotion()
+        val colors = COUITheme.colorScheme
+        val dark = colors.isDark
+        val shape = SquircleShape(capsuleCorner)
+        val headerSource = remember { MutableInteractionSource() }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -215,9 +213,11 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .width(capsuleWidth)
+                    // 收起时点按标题行，整个胶囊轻轻下沉；展开后点标题行只是收起
+                    .then(if (!expanded) Modifier.indication(headerSource, CapsulePressFeedback) else Modifier)
                     .graphicsLayer {
-                        // 点按时轻轻回弹、展开后保持原尺寸；让路时上移收小淡出
-                        val press = (1f - 0.03f * (1f - expansion) * expansion * 4f) * if (!expanded) headerPress.scale.value else 1f
+                        // 展开、收起途中轻轻回弹，到头保持原尺寸；让路时上移收小淡出
+                        val press = 1f - 0.03f * (1f - expansion) * expansion * 4f
                         val shrink = 1f - 0.08f * clearance
                         scaleX = press * shrink
                         scaleY = press * shrink
@@ -232,14 +232,14 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
                         spotColor = Color.Black.copy(alpha = if (dark) 0.55f else 0.22f),
                     )
                     .clip(shape)
-                    .background(if (dark) Color(0xF520232B) else Color(0xFCFFFFFF), shape)
-                    .border(0.6.dp, if (dark) Color(0x22FFFFFF) else Color(0x12000000), shape),
+                    // 浮层面板底色，留一点点透明；描边用最淡的一档中性色
+                    .background(colors.surface.copy(alpha = if (dark) 0.96f else 0.99f), shape)
+                    .border(0.6.dp, colors.labelQuaternary, shape),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(if (!expanded) Modifier.couiPressMotion(headerPress) else Modifier)
-                        .clickable(remember { MutableInteractionSource() }, indication = null, onClick = controls::toggle)
+                        .clickable(headerSource, indication = null, onClick = controls::toggle)
                         .semantics { contentDescription = if (expanded) "$step，点按收起" else "$step，点按展开控制" }
                         .padding(start = 13.dp, end = if (screen != null && !expanded) 10.dp else 16.dp, top = 9.5.dp, bottom = 9.5.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -258,8 +258,8 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
                         ) { text ->
                             Text(
                                 text = text,
-                                color = colors.onSurface,
-                                fontSize = 13.sp,
+                                color = colors.labelPrimary,
+                                style = COUITheme.textStyles.bodyS,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -332,11 +332,11 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
 
 @Composable
 private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: () -> Unit) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
-        CapsuleAction(Icons.Rounded.Edit, "补充", colors.onSurface, onSupplement)
+        CapsuleAction(Icons.Rounded.Edit, "补充", colors.labelPrimary, onSupplement)
         when (phase) {
-            OverlayPhase.RUNNING -> CapsuleAction(Icons.Rounded.Pause, "暂停", colors.onSurface) { focus.pause() }
+            OverlayPhase.RUNNING -> CapsuleAction(Icons.Rounded.Pause, "暂停", colors.labelPrimary) { focus.pause() }
             // 点了暂停的就继续；接管着的交还给 Claude
             OverlayPhase.PAUSED -> CapsuleAction(Icons.Rounded.PlayArrow, "继续", colors.primary) { focus.resume() }
             OverlayPhase.CONTROLLING -> CapsuleAction(Icons.Rounded.PlayArrow, "交还给 Claude 继续", colors.primary) { focus.resumeAuto() }
@@ -407,7 +407,7 @@ private fun ThoughtLine(thought: String) {
     if (shown) last = thought
     Text(
         text = last,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        color = COUITheme.colorScheme.labelSecondary,
         fontSize = 11.sp,
         lineHeight = 14.sp,
         maxLines = 1,
@@ -421,50 +421,41 @@ private fun ThoughtLine(thought: String) {
 /** 展开时右上角的对话标题：Zeta 可以同时开好几个对话，点它回到 Zeta 的这个对话。 */
 @Composable
 private fun TitlePill(title: String, onClick: () -> Unit) {
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
-    val source = remember { MutableInteractionSource() }
+    val colors = COUITheme.colorScheme
     Row(
         modifier = Modifier
             .height(24.dp)
             .widthIn(max = TitlePillMaxWidth)
-            .clip(CouiCapsuleShape)
-            .background(colors.surfaceContainerHigh)
-            .couiButtonFeedback(dark, source, enabled = true)
-            .clickable(source, indication = null, role = Role.Button, onClickLabel = "在 Zeta 中打开", onClick = onClick)
+            .clip(CircleShape)
+            .background(colors.secondaryButton)
+            .clickable(role = Role.Button, onClickLabel = "在 Zeta 中打开", onClick = onClick)
             .padding(start = 9.dp, end = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title.ifBlank { "新对话" },
-            color = colors.onSurfaceVariantSummary,
+            color = colors.labelSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.onSurfaceVariantSummary)
+        Icon(Icons.Rounded.ChevronRight, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
     }
 }
 
 @Composable
 private fun CapsuleAction(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
-    val dark = CouiTheme.isDark
     val source = remember { MutableInteractionSource() }
-    val press = rememberCouiPressMotion()
     Box(
         modifier = Modifier
             .size(width = 42.dp, height = 34.dp)
-            .graphicsLayer {
-                scaleX = press.scale.value
-                scaleY = press.scale.value
-            }
-            .couiPressMotion(press)
-            .clip(CouiCapsuleShape)
-            .background(if (dark) Color(0x1FFFFFFF) else Color(0x0F11141A), CouiCapsuleShape)
-            .couiButtonFeedback(dark, source, enabled = true)
-            .clickable(source, indication = null, role = Role.Button, onClick = onClick),
+            // 按下时整个按钮下沉，再叠 COUI 的按压色
+            .pressable(source, SinkFeedback(), delay = null)
+            .clip(CircleShape)
+            .background(COUITheme.colorScheme.secondaryButton, CircleShape)
+            .clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(imageVector = icon, contentDescription = label, modifier = Modifier.size(17.dp), tint = tint)
@@ -478,7 +469,7 @@ private fun CapsuleAction(icon: ImageVector, label: String, tint: Color, onClick
 private fun SupplementInput(value: String, onValueChange: (String) -> Unit, onCancel: () -> Unit, onSend: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val cancel by rememberUpdatedState(onCancel)
 
     LaunchedEffect(Unit) {
@@ -508,17 +499,13 @@ private fun SupplementInput(value: String, onValueChange: (String) -> Unit, onCa
                 .fillMaxWidth()
                 .heightIn(min = 44.dp, max = 112.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(colors.surfaceContainer)
+                .background(colors.fillThin)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             contentAlignment = Alignment.TopStart,
         ) {
+            val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 18.sp)
             if (value.isEmpty()) {
-                Text(
-                    text = "补充指令，Claude 会继续当前任务",
-                    color = colors.onSurface.copy(alpha = 0.45f),
-                    fontSize = 14.sp,
-                    lineHeight = 18.sp,
-                )
+                Text(text = "补充指令，Claude 会继续当前任务", color = colors.hintNeutral, style = textStyle)
             }
             BasicTextField(
                 value = value,
@@ -526,27 +513,32 @@ private fun SupplementInput(value: String, onValueChange: (String) -> Unit, onCa
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                textStyle = TextStyle(color = colors.onSurface, fontSize = 14.sp, lineHeight = 18.sp),
+                textStyle = textStyle.copy(color = colors.labelPrimary),
                 keyboardOptions = KeyboardOptions.Default,
                 cursorBrush = SolidColor(colors.primary),
                 maxLines = 4,
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            CouiButton(
+            // COUI 的小号按钮，高度放到 32dp，悬浮层上好点
+            TextButton(
                 text = "取消",
                 onClick = onCancel,
+                minWidth = ButtonDefaults.MinWidthSmall,
                 minHeight = 32.dp,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                insideMargin = ButtonDefaults.InsideMarginSmall,
+                textStyle = ButtonDefaults.textStyleSmall(),
             )
             Spacer(Modifier.width(8.dp))
-            CouiButton(
+            TextButton(
                 text = "发送",
                 onClick = onSend,
                 enabled = value.isNotBlank(),
-                role = CouiButtonRole.Primary,
+                minWidth = ButtonDefaults.MinWidthSmall,
                 minHeight = 32.dp,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                insideMargin = ButtonDefaults.InsideMarginSmall,
+                textStyle = ButtonDefaults.textStyleSmall(),
             )
         }
     }
@@ -561,3 +553,6 @@ private val CapsuleWidth = 248.dp
 private val LensCapsuleWidth = 264.dp
 private val StageCapsuleWidth = 296.dp
 private val TitlePillMaxWidth = 112.dp
+
+/** 收起的胶囊被点按时下沉的幅度：面积大，比小按钮（SinkFeedback 默认 0.94）沉得少。 */
+private val CapsulePressFeedback = SinkFeedback(sinkAmount = 0.97f)

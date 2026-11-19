@@ -14,7 +14,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -75,14 +75,11 @@ import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
 import com.dzshzx.zeta.phone.VirtualScreen
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.theme.CouiTheme
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -107,7 +104,8 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
         pulse.snapTo(1f)
         pulse.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
     }
-    val idleBorder = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+    val colors = COUITheme.colorScheme
+    val idleBorder = colors.labelPrimary.copy(alpha = 0.14f)
     val shape = RoundedCornerShape(LensCorner)
     Box(
         modifier = Modifier
@@ -132,7 +130,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
                 }
             }
             .clip(shape)
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .background(colors.fillSolid)
             .drawBehind {
                 val p = pulse.value
                 val current = frame.value
@@ -175,7 +173,7 @@ internal fun BackgroundStage(
     LiveFrames(screen, StageIntervalMs, keepAwake = true)
     val frame = screen.frames.collectAsState()
     val hasFrame by remember { derivedStateOf { frame.value != null } }
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val phase = focus.phase
     // 暂停（橙）和接管（紫）都描边、都显示“继续”，颜色和文字跟着阶段走，分得开
     val held = phase.held
@@ -198,8 +196,8 @@ internal fun BackgroundStage(
                 .size(canvas.width.dp, canvas.height.dp)
                 .onGloballyPositioned { placement[0] = it }
                 .clip(shape)
-                .background(colors.surfaceContainerHigh)
-                .border(if (held) 1.dp else 0.75.dp, if (held) accent.copy(alpha = 0.55f) else colors.onSurface.copy(alpha = 0.08f), shape)
+                .background(colors.fillSolid)
+                .border(if (held) 1.dp else 0.75.dp, if (held) accent.copy(alpha = 0.55f) else colors.labelPrimary.copy(alpha = 0.08f), shape)
                 .pointerInput(screen) {
                     val slop = viewConfiguration.touchSlop
                     val longPressMs = viewConfiguration.longPressTimeoutMillis
@@ -244,7 +242,7 @@ internal fun BackgroundStage(
             contentAlignment = Alignment.Center,
         ) {
             if (!hasFrame) {
-                Text(text = idleLabel, color = colors.onSurfaceVariantSummary.copy(alpha = 0.6f), fontSize = 12.sp)
+                Text(text = idleLabel, color = colors.labelSecondary.copy(alpha = 0.6f), style = COUITheme.textStyles.bodyXS)
             }
             TouchEffect(touch, accent)
         }
@@ -261,7 +259,7 @@ internal fun BackgroundStage(
             val app = focus.appName
             Text(
                 text = if (!app.isNullOrBlank()) "$app · $mode" else mode,
-                color = if (held) accent else colors.onSurfaceVariantSummary,
+                color = if (held) accent else colors.labelSecondary,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -288,21 +286,19 @@ internal fun BackgroundStage(
 
 @Composable
 private fun StagePill(label: String, highlighted: Boolean, accent: Color, onClick: () -> Unit) {
-    val colors = MiuixTheme.colorScheme
-    val source = remember { MutableInteractionSource() }
+    val colors = COUITheme.colorScheme
     Box(
         modifier = Modifier
             .height(27.dp)
-            .clip(CouiCapsuleShape)
-            .background(if (highlighted) accent.copy(alpha = 0.16f) else colors.surfaceContainerHigh)
-            .couiButtonFeedback(CouiTheme.isDark, source, enabled = true)
-            .clickable(source, indication = null, role = Role.Button, onClick = onClick)
+            .clip(CircleShape)
+            .background(if (highlighted) accent.copy(alpha = 0.16f) else colors.secondaryButton)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 11.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
-            color = if (highlighted) accent else colors.onSurface,
+            color = if (highlighted) accent else colors.labelPrimary,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,

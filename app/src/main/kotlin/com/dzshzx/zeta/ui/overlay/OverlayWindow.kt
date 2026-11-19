@@ -18,7 +18,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.ui.app.ZetaTheme
-import com.itos.coui.effect.LocalCouiContourGlowEnabled
+import io.github.suqi8.coui.kmp.effect.LocalCOUIMaterialEffectEnabled
 
 /**
  * 挂在 Zeta 无障碍服务上的一个悬浮窗口（TYPE_ACCESSIBILITY_OVERLAY），内容用 Compose 画。
@@ -53,8 +53,9 @@ internal class OverlayWindow(
         setContent {
             val hub = ConversationHub.get(service.application)
             ZetaTheme(darkTheme = hub.darkTheme) {
-                // 部分 ROM 给悬浮层分配软件 Canvas，COUI 的轮廓光用 RuntimeShader，在这里关掉
-                CompositionLocalProvider(LocalCouiContourGlowEnabled provides false) { content() }
+                // 部分 ROM 给悬浮层分配软件 Canvas，COUI 17 的材质效果（边缘光、内阴影、触摸光斑）用 RuntimeShader，在这里关掉。
+                // 悬浮窗不在 COUI 的 Scaffold 里，也没有页面背景图：Overlay* 弹窗在这里不显示，要弹东西用 Window* 版本，不给毛玻璃
+                CompositionLocalProvider(LocalCOUIMaterialEffectEnabled provides false) { content() }
             }
         }
     }

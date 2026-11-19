@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.ui.overlay
 
 import com.dzshzx.zeta.phone.OverlayPhase
+import io.github.suqi8.coui.kmp.theme.darkColorScheme
+import io.github.suqi8.coui.kmp.theme.lightColorScheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,7 +28,10 @@ class OverlayLogicTest {
         assertEquals("已暂停，等你继续", stageModeLabel(OverlayPhase.PAUSED))
         assertEquals("手动接管中", stageModeLabel(OverlayPhase.CONTROLLING))
         assertEquals("后台画布", stageModeLabel(OverlayPhase.RUNNING))
-        assertTrue(PausedAccent != ControllingAccent)
+        for (colors in listOf(lightColorScheme(), darkColorScheme())) {
+            val accents = OverlayPhase.entries.map { phaseAccent(it, colors) }
+            assertEquals("四个阶段的颜色各不相同", accents.size, accents.toSet().size)
+        }
     }
 
     @Test
