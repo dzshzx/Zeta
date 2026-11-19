@@ -464,13 +464,13 @@ class ClaudeTaskContractTest {
 
             reportGate.countDown()
             claude.until { it.str("type") == "system" && it.str("subtype") == "task_notification" }
-            // 结局先到：这时 meta 已经记着做完了，最后那句报告却可能还没写进记录（实测晚两百毫秒上下）
+            // task_notification 到的时候，meta 的结局和最后那句报告都可能还没写进文件，先后也不一定
+            // （多数时候 meta 先、报告晚两百毫秒上下，机器忙时 meta 也会晚）。所以结束后要读到 meta 记着做完、
+            // 记录又停下来（settled）才停止读；接着上次的位置读，只读新写的，报告接在后面
             transcript.applyRead(subagentRead(transcript, id, session))
-            assertTrue(transcript.meta!!.finished)
-            // 所以结束后要等记录停下来（settled）再停止读；接着上次的位置读，只读新写的，报告接在后面
             val until = System.currentTimeMillis() + 20_000
-            while (!transcript.settled) {
-                assertTrue(System.currentTimeMillis() < until)
+            while (transcript.meta?.finished != true || !transcript.settled) {
+                assertTrue("meta.finished=${transcript.meta?.finished} settled=${transcript.settled}", System.currentTimeMillis() < until)
                 Thread.sleep(300)
                 transcript.applyRead(subagentRead(transcript, id, session))
             }
