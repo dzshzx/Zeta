@@ -6,7 +6,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
@@ -88,7 +87,7 @@ class PromptsCompactShots : ShotTest() {
     fun settingsGroup() {
         val hub = Fixtures.readyHub(app)
         hub.settings.autoCompactPercent = 70
-        shoot("settings-compact", prepare = { onNodeWithText("压缩时机").performScrollTo() }) {
+        shoot("settings-compact", prepare = { onNodeWithText("压缩时机").scrollIntoView() }) {
             SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
         }
     }

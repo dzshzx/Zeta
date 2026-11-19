@@ -15,6 +15,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.dzshzx.zeta.ui.app.ZetaTheme
@@ -114,6 +115,21 @@ abstract class ShotTest {
             compose.mainClock.advanceTimeByFrame()
         }
         compose.waitForIdle()
+    }
+
+    /**
+     * 把节点滚进屏幕，在 [shoot] 的 prepare 里用，代替 performScrollTo。performScrollTo 每轮发一次滚动、再看节点进没进屏，
+     * 直到不用再滚；滚动要等动画帧才动，而这里的时钟不自动前进，帧不来，它就一直重发（协程和内存不停涨，最后 OOM）。
+     * 所以只在滚动这一下让时钟自动走，滚完再停住；页面上有转圈这类无限动画也照样滚得完。
+     */
+    fun SemanticsNodeInteraction.scrollIntoView(): SemanticsNodeInteraction {
+        compose.mainClock.autoAdvance = true
+        try {
+            performScrollTo()
+        } finally {
+            compose.mainClock.autoAdvance = false
+        }
+        return this
     }
 
     private object NoMotion : MotionDurationScale {
