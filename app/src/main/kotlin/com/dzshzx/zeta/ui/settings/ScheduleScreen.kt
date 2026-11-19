@@ -76,8 +76,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val ListFooter = "到点时 Zeta 在后台开一个对话发出指令，不打断你正在看的对话；跑完发一条通知（任务名和回答的开头），点通知打开那次的对话。" +
-    "Zeta 没在运行时会被拉起来。同一个任务上一次还没跑完时，跳过这一次。也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
+/**
+ * 列表页的说明。没写进去的：后台对话不打断正在看的对话；跑完的通知是任务名加回答的开头，点它打开那次的对话；
+ * 同一个任务上一次还没跑完时跳过这一次（编辑页的“跳过了 N 次”会列出来）。
+ */
+private const val ListFooter = "到点时在后台开一个对话运行，跑完发通知；Zeta 没开着也照常运行。" +
+    "也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
 
 /** 设置首页的入口：开着几个、下一次什么时候。 */
 @Composable
@@ -137,16 +141,16 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
                 tasks.forEach { task ->
                     val next = if (task.enabled) Schedules.nextTrigger(task.rule, now, zone) else null
                     val last = task.lastRun
+                    // 摘要一行：怎么重复，再加状态。关没关着看开关；下次什么时候在首页入口和编辑页的“时间”下面
                     val state = when {
                         last?.outcome == RunOutcome.Running -> "正在运行"
-                        !task.enabled -> "已关闭"
-                        next == null -> "时间已过，不会再运行"
-                        else -> "下次 " + Schedules.formatWhen(next, now, zone)
-                    } + (last?.takeIf { it.outcome != RunOutcome.Running }?.let { " · 上次" + outcomeWord(it.outcome) } ?: "")
+                        task.enabled && next == null -> "时间已过"
+                        else -> last?.let { "上次" + outcomeWord(it.outcome) }
+                    }
                     item(key = task.id) {
                         SwitchWithDividerPreference(
                             title = task.name,
-                            summary = Schedules.describe(task.rule) + "\n" + state,
+                            summary = listOfNotNull(Schedules.describe(task.rule), state).joinToString(" · "),
                             checked = task.enabled,
                             onCheckedChange = { on -> ScheduleStore.updateTask(app, task.id) { it.copy(enabled = on) } },
                             onClick = { editing = EditTarget(task.id) },
@@ -280,13 +284,14 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
             )
         },
     ) {
+        // 名称是跑完那条通知的标题，也是每次运行那个对话的名字；指令到点时原样发给 Claude，和在输入框里发的一样
         item(key = "name") {
-            FieldCard(footer = "通知的标题，也是每次运行那个对话的名字。") {
+            FieldCard(footer = null) {
                 InputView(value = name, onValueChange = { name = it.take(Schedules.MAX_NAME) }, title = "名称", label = "每日简报")
             }
         }
         item(key = "prompt") {
-            FieldCard(footer = "到点时原样发给 Claude，就像你在输入框里发的一样。写清楚要它做什么、结果怎么写。") {
+            FieldCard(footer = null) {
                 InputView(
                     value = prompt,
                     onValueChange = { prompt = it },
@@ -333,8 +338,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
         item(key = "run") {
             PreferenceGroup(
                 title = "运行方式",
-                footer = "后台运行时没人点确认。要用到需要确认的工具（执行命令、改文件等），把权限模式设成“自动接受编辑”或“完全放行”；" +
-                    "否则这一轮会停下来等你，到时会发通知。",
+                footer = "后台运行时没人确认。要改文件、执行命令，权限模式得放宽，否则这一轮会停下来，发通知等你。",
             ) {
                 item { BasicComponent(title = "工作目录", summary = cwd.ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = EditorDialog.Cwd }) }
                 item { ModelPreference(hub, model) { model = it } }
@@ -342,7 +346,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
                 item {
                     SwitchPreference(
                         title = "每次开新对话",
-                        summary = if (newSession) "每次都是新的对话，互不影响" else "接着同一个对话，Claude 记得前几次的内容",
+                        summary = if (newSession) "几次运行互不相干" else "接着同一个对话，记得之前的内容",
                         checked = newSession,
                         onCheckedChange = { newSession = it },
                     )
@@ -354,13 +358,13 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
                 PreferenceGroup(title = "运行记录") {
                     original.lastRun?.let { run -> item(key = "last") { LastRunRow(hub, run, now, zone, onOpenConversation) } }
                     if (original.skips > 0) {
-                        item(key = "skips") { SkipsRow(original.skips, original.lastSkip, "到点时上一次还没跑完", now, zone) }
+                        item(key = "skips") { SkipsRow(original.skips, original.lastSkip, "上一次还没跑完", now, zone) }
                     }
                     item(key = "now") {
                         val running = original.lastRun?.outcome == RunOutcome.Running || ScheduleRunner.isRunning(original.id)
                         BasicComponent(
                             title = "立即运行一次",
-                            summary = if (running) "正在运行，跑完会发通知" else runMessage ?: "照已保存的设置马上跑一次，不影响以后的时间",
+                            summary = if (running) "正在运行，跑完会发通知" else runMessage ?: "照已保存的设置跑一次，不影响定时",
                             titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.primary),
                             enabled = !running,
                             onClick = {
@@ -420,23 +424,26 @@ internal fun CwdDialog(visible: Boolean, cwd: String, defaultCwd: String, onConf
     )
 }
 
-/** 运行记录里的“跳过了 N 次”（没跳过时不显示）。[reason] 是为什么跳过。 */
+/** 运行记录里的“跳过了 N 次”（没跳过时不显示）。[reason] 是为什么跳过，后面接最近一次跳过的时间。 */
 @Composable
 internal fun SkipsRow(skips: Int, lastSkip: Long?, reason: String, now: Instant, zone: ZoneId) {
     if (skips <= 0) return
     BasicComponent(
         title = "跳过了 $skips 次",
-        summary = reason + (lastSkip?.let { "，最近一次在" + Schedules.formatWhen(Instant.ofEpochMilli(it), now, zone) } ?: ""),
+        summary = reason + (lastSkip?.let { " · " + Schedules.formatWhen(Instant.ofEpochMilli(it), now, zone) } ?: ""),
     )
 }
 
-/** 运行记录里的“上次运行”：有那次的对话时点了打开它。 */
+/**
+ * 运行记录里的“上次运行”：有那次的对话时点了打开它。
+ * 摘要只写什么时候跑的：回答的开头在跑完的通知里，点进对话看全文；没有对话可开（没跑起来）时，才在后面接上原因。
+ */
 @Composable
 internal fun LastRunRow(hub: ConversationHub, run: TaskRun, now: Instant, zone: ZoneId, onOpenConversation: () -> Unit) {
     val session = run.sessionId
     val title = "上次运行 · " + outcomeWord(run.outcome)
     val summary = Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) + (if (run.manual) "（手动）" else "") +
-        run.summary.takeIf { it.isNotBlank() }?.let { "\n" + it }.orEmpty()
+        run.summary.takeIf { session == null && it.isNotBlank() }?.let { " · " + it }.orEmpty()
     val summaryColor = if (run.outcome == RunOutcome.Failed) {
         BasicComponentDefaults.summaryColor(color = COUITheme.colorScheme.error)
     } else {
