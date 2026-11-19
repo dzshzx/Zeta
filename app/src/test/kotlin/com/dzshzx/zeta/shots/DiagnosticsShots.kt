@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performSemanticsAction
@@ -65,8 +67,16 @@ class DiagnosticsShots : ShotTest() {
     @Test
     fun stderrTail() {
         val hub = Fixtures.readyHub(app)
-        // 那一行在屏幕下面：不滚动（顶栏会跟着折叠），直接触发点击
-        shoot("diagnostics-tail", prepare = { onNodeWithText("整理下载目录").performSemanticsAction(SemanticsActions.OnClick) }) {
+        // 那一行在屏幕下面，列表是懒加载的：先把那一组（第 4 项）直接跳进屏幕（不动画、顶栏不折叠），再触发点击
+        shoot(
+            "diagnostics-tail",
+            prepare = {
+                onNode(hasScrollToIndexAction()).performScrollToIndex(3)
+                mainClock.advanceTimeBy(100)
+                waitForIdle()
+                onNodeWithText("整理下载目录").performSemanticsAction(SemanticsActions.OnClick)
+            },
+        ) {
             DiagnosticsScreen(hub = hub, onBack = {}, probeLoader = { probe }, tailLoader = { tail })
         }
     }

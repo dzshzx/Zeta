@@ -10,16 +10,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui.CouiPageBottomSpacer
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.itos.coui.layout.Group
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,56 +58,69 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
     }
 
     val fixable = items.filter { it.rootFixable }
-    CouiScaffoldPage(title = "权限健康", onBack = onBack) {
-        Group(
-            title = "权限与状态",
-            footer = "对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行，加进电池优化的白名单后，长时间息屏也不容易被系统限制。" +
-                "在最近任务里“全部清理”会把 Zeta 一起关掉，正在进行的对话不受影响，重新打开会接上。",
-        ) {
-            items.forEach { item ->
-                val busy = item.id in working
-                val clickable = !busy && !granting && isActionable(item, hub)
-                CouiPreference(
-                    title = item.title,
-                    summary = item.summary,
-                    value = if (busy) "正在处理…" else item.value,
-                    valueColor = if (busy) Color.Unspecified else statusColor(item.status),
-                    onClick = if (clickable) ({ onItemClick(item) }) else null,
-                )
+    CouiPage(title = "权限健康", onBack = onBack) {
+        item(key = "items") {
+            PreferenceGroup(
+                title = "权限与状态",
+                footer = "对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行，加进电池优化的白名单后，长时间息屏也不容易被系统限制。" +
+                    "在最近任务里“全部清理”会把 Zeta 一起关掉，正在进行的对话不受影响，重新打开会接上。",
+            ) {
+                items.forEach { entry ->
+                    item(key = entry.id) {
+                        val busy = entry.id in working
+                        val clickable = !busy && !granting && isActionable(entry, hub)
+                        val value: @Composable () -> Unit = {
+                            StatusValue(if (busy) "正在处理…" else entry.value, if (busy) Color.Unspecified else statusColor(entry.status))
+                        }
+                        // 点了打开别的页面（Linux 环境页、系统设置）的带箭头；就地经 root 处理的不带
+                        if (clickable && opensPage(entry)) {
+                            ArrowPreference(title = entry.title, summary = entry.summary, endActions = { value() }, onClick = { onItemClick(entry) })
+                        } else {
+                            BasicComponent(
+                                title = entry.title,
+                                summary = entry.summary,
+                                endActions = { value() },
+                                onClick = if (clickable) ({ onItemClick(entry) }) else null,
+                            )
+                        }
+                    }
+                }
             }
         }
-        Group(
-            footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，允许 MIUI 的后台弹出界面，授予通知权限，" +
-                "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史，允许精确闹钟和自启动（定时任务用），" +
-                "有通知触发的任务时给 Zeta 通知使用权。" +
-                "没改成的那一项，点它会打开对应的系统设置。",
-        ) {
-            CouiPreference(
-                title = "一键授予",
-                summary = when {
-                    granting -> "正在授予…"
-                    result != null -> result
-                    hub.setup == SetupState.NoRoot -> "需要 root 权限"
-                    hub.setup == SetupState.Checking -> "正在检查 root 权限"
-                    fixable.isEmpty() -> "没有需要补上的权限"
-                    else -> fixable.joinToString("、") { it.title }
-                },
-                enabled = fixable.isNotEmpty() && !granting && working.isEmpty(),
-                showChevron = false,
-                onClick = {
-                    granting = true
-                    result = null
-                    scope.launch {
-                        val failed = withContext(Dispatchers.IO) {
-                            fixable.filterNot { item -> runCatching { PermissionHealth.fixWithRoot(context, item.id) }.getOrDefault(false) }
-                        }
-                        granting = false
-                        result = if (failed.isEmpty()) "已全部授予" else "没有改成：" + failed.joinToString("、") { it.title } + "，点它到系统设置里处理"
-                    }
-                },
-            )
+        item(key = "grant") {
+            PreferenceGroup(
+                footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，允许 MIUI 的后台弹出界面，授予通知权限，" +
+                    "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史，允许精确闹钟和自启动（定时任务用），" +
+                    "有通知触发的任务时给 Zeta 通知使用权。" +
+                    "没改成的那一项，点它会打开对应的系统设置。",
+            ) {
+                item {
+                    BasicComponent(
+                        title = "一键授予",
+                        summary = when {
+                            granting -> "正在授予…"
+                            result != null -> result
+                            hub.setup == SetupState.NoRoot -> "需要 root 权限"
+                            hub.setup == SetupState.Checking -> "正在检查 root 权限"
+                            fixable.isEmpty() -> "没有需要补上的权限"
+                            else -> fixable.joinToString("、") { it.title }
+                        },
+                        enabled = fixable.isNotEmpty() && !granting && working.isEmpty(),
+                        onClick = {
+                            granting = true
+                            result = null
+                            scope.launch {
+                                val failed = withContext(Dispatchers.IO) {
+                                    fixable.filterNot { entry -> runCatching { PermissionHealth.fixWithRoot(context, entry.id) }.getOrDefault(false) }
+                                }
+                                granting = false
+                                result = if (failed.isEmpty()) "已全部授予" else "没有改成：" + failed.joinToString("、") { it.title } + "，点它到系统设置里处理"
+                            }
+                        },
+                    )
+                }
+            }
         }
-        CouiPageBottomSpacer()
     }
 }
 
@@ -131,9 +147,32 @@ private fun isActionable(item: PermissionItem, hub: ConversationHub): Boolean = 
         (item.rootFixable || item.status != PermissionStatus.Idle)
 }
 
+/** 点这一项是打开别的页面（Linux 环境页、系统设置），而不是就地经 root 处理（重新检查 root、一键改好）。 */
+private fun opensPage(item: PermissionItem): Boolean = when (item.id) {
+    PermissionId.Linux -> true
+    PermissionId.Root -> false
+    else -> !item.rootFixable
+}
+
+/** 状态的颜色：缺了是错误色，要注意是警告色，其余 Unspecified（用设置行值的默认颜色）。 */
 @Composable
 internal fun statusColor(status: PermissionStatus): Color = when (status) {
-    PermissionStatus.Missing -> StatusError
+    PermissionStatus.Missing -> COUITheme.colorScheme.error
     PermissionStatus.Attention -> StatusWarning
     else -> Color.Unspecified
+}
+
+/**
+ * 设置行右侧带状态色的值（[com.dzshzx.zeta.ui.components.coui2.PreferenceValue] 的有色版本），放进 endActions；
+ * [color] 为 Unspecified 时和 PreferenceValue 一样。
+ */
+@Composable
+internal fun StatusValue(text: String, color: Color, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = COUITheme.textStyles.bodyM,
+        color = color.takeOrElse { COUITheme.colorScheme.labelTertiary },
+        maxLines = 1,
+    )
 }

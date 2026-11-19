@@ -18,29 +18,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.Subagent
 import com.dzshzx.zeta.core.claude.SubagentDraft
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.dzshzx.zeta.ui.components.coui.CouiCheckboxPreference
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPopupPreference
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
-import com.dzshzx.zeta.ui.components.coui.CouiTextField
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarTextButton
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.Group
-import com.itos.coui.menu.CouiMenuItem
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.InputViewDefaults
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.basic.TextField
+import io.github.suqi8.coui.kmp.basic.TextFieldMode
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
+import io.github.suqi8.coui.kmp.preference.CheckboxPreference
+import io.github.suqi8.coui.kmp.preference.InputPreference
+import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
+import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import io.github.suqi8.coui.kmp.squircle.squircleBackground
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** frontmatter 里 model 可写的别名；不写时 Claude Code 让 Subagent 跟随主对话的模型（除非设了 CLAUDE_CODE_SUBAGENT_MODEL）。 */
 private val ModelOptions = listOf(
@@ -91,75 +95,79 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
     val reload: () -> Unit = { reloads++ }
 
-    CouiScaffoldPage(
+    val shownAgent = rememberRetained(inspected)
+    val shownDeleting = rememberRetained(deleting)
+    CouiPage(
         title = "Subagent",
         onBack = onBack,
-        actions = {
-            CouiTopAppBarIconButton(icon = CouiIcons.Outlined.Add, contentDescription = "新建 Subagent", onClick = { editor = EditorTarget(null) })
-        },
-    ) {
-        val list = agents
-        Group(
-            title = "自定义 Subagent · ${list?.size ?: 0}",
-            footer = "保存在 ~/.claude/agents，所有项目都能用。Claude 根据每个 Subagent 的“什么时候用”自己决定交给谁，" +
-                "你也可以在对话里点名让它用某一个。Claude Code 还自带 general-purpose、Explore、Plan 等几个，这里不列出。",
-        ) {
-            when {
-                list == null -> ConfigLoadingRow()
-                list.isEmpty() -> ConfigEmptyRow("暂无自定义 Subagent", "可以在对话里让 Claude 帮你写一个（保存在 ~/.claude/agents/<名字>.md），或点右上角 + 新建")
-                else -> list.forEach { agent ->
-                    CouiPreference(
-                        title = agent.name.ifBlank { agent.file },
-                        summary = brief(agent.description).ifBlank { null },
-                        value = modelLabel(agent.model).ifBlank { null },
-                        onClick = { inspected = agent },
+        actions = { TopBarIcon(COUIIcons.Add, "新建 Subagent", onClick = { editor = EditorTarget(null) }) },
+        overlays = {
+            ConfigNoticeDialog(notice) { notice = null }
+            NoticeDialog(
+                show = inspected != null,
+                title = shownAgent?.name,
+                summary = null,
+                closeText = "关闭",
+                onDismissRequest = { inspected = null },
+            ) {
+                shownAgent?.let { agent ->
+                    AgentDetail(
+                        agent = agent,
+                        onEdit = {
+                            inspected = null
+                            editor = EditorTarget(agent)
+                        },
+                        onDelete = {
+                            inspected = null
+                            deleting = agent
+                        },
                     )
                 }
             }
-        }
-    }
-
-    ConfigNoticeDialog(notice) { notice = null }
-    val shownAgent = rememberRetained(inspected)
-    CouiNoticeDialog(
-        visible = inspected != null,
-        title = shownAgent?.name,
-        message = null,
-        confirmText = "关闭",
-        onDismissRequest = { inspected = null },
-    ) {
-        shownAgent?.let { agent ->
-            AgentDetail(
-                agent = agent,
-                onEdit = {
-                    inspected = null
-                    editor = EditorTarget(agent)
+            ConfirmDialog(
+                show = deleting != null,
+                title = "删除 Subagent",
+                summary = shownDeleting?.let { "删除“${it.name}”（~/.claude/agents/${it.file}）？此操作无法撤销。" },
+                confirmText = "删除",
+                destructive = true,
+                onConfirm = {
+                    deleting?.let { agent ->
+                        scope.runConfig({ client.deleteAgent(agent.file) }) { result ->
+                            result.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                            reload()
+                        }
+                    }
+                    deleting = null
                 },
-                onDelete = {
-                    inspected = null
-                    deleting = agent
-                },
+                onDismissRequest = { deleting = null },
             )
-        }
-    }
-    val shownDeleting = rememberRetained(deleting)
-    CouiConfirmDialog(
-        visible = deleting != null,
-        title = "删除 Subagent",
-        message = shownDeleting?.let { "删除“${it.name}”（~/.claude/agents/${it.file}）？此操作无法撤销。" },
-        confirmText = "删除",
-        destructive = true,
-        onConfirm = {
-            deleting?.let { agent ->
-                scope.runConfig({ client.deleteAgent(agent.file) }) { result ->
-                    result.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
-                    reload()
+        },
+    ) {
+        val list = agents
+        item(key = "agents") {
+            PreferenceGroup(
+                title = "自定义 Subagent · ${list?.size ?: 0}",
+                footer = "保存在 ~/.claude/agents，所有项目都能用。Claude 根据每个 Subagent 的“什么时候用”自己决定交给谁，" +
+                    "你也可以在对话里点名让它用某一个。Claude Code 还自带 general-purpose、Explore、Plan 等几个，这里不列出。",
+            ) {
+                when {
+                    list == null -> item { ConfigLoadingRow() }
+                    list.isEmpty() -> item { ConfigEmptyRow("暂无自定义 Subagent", "可以在对话里让 Claude 帮你写一个（保存在 ~/.claude/agents/<名字>.md），或点右上角 + 新建") }
+                    else -> list.forEach { agent ->
+                        item(key = agent.file) {
+                            // 点开是详情对话框，不是另一页：不带箭头
+                            BasicComponent(
+                                title = agent.name.ifBlank { agent.file },
+                                summary = brief(agent.description).ifBlank { null },
+                                endActions = { modelLabel(agent.model).takeIf { it.isNotBlank() }?.let { PreferenceValue(it) } },
+                                onClick = { inspected = agent },
+                            )
+                        }
+                    }
                 }
             }
-            deleting = null
-        },
-        onDismissRequest = { deleting = null },
-    )
+        }
+    }
 
     val shownEditor = rememberRetained(editor)
     ConfigSubPage(visible = editor != null, onBack = { editor = null }) {
@@ -182,46 +190,42 @@ private class EditorTarget(val agent: Subagent?)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val colors = COUITheme.colorScheme
+    val styles = COUITheme.textStyles
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(text = brief(agent.description, 400).ifBlank { "没有写什么时候用" }, style = MiuixTheme.textStyles.body1, fontWeight = FontWeight.Medium, color = MiuixTheme.colorScheme.onSurface)
+        Text(text = brief(agent.description, 400).ifBlank { "没有写什么时候用" }, style = styles.bodyXL, fontWeight = FontWeight.Medium, color = colors.labelPrimary)
         if (agent.prompt.isNotBlank()) {
-            Text(text = brief(agent.prompt, 240), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Text(text = brief(agent.prompt, 240), style = styles.bodyM, color = colors.labelSecondary)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = "模型：" + modelLabel(agent.model) + " · 工具",
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+            Text(text = "模型：" + modelLabel(agent.model) + " · 工具", style = styles.bodyS, color = colors.labelSecondary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 (agent.tools?.ifEmpty { listOf("（没有工具）") } ?: listOf("全部工具")).forEach { tool ->
                     Box(
                         modifier = Modifier
-                            .squircleSurface(color = MiuixTheme.colorScheme.surfaceContainer, cornerRadius = 8.dp)
+                            .squircleBackground(color = colors.container8, cornerRadius = 8.dp)
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                     ) {
-                        Text(
-                            text = tool,
-                            style = MiuixTheme.textStyles.footnote2.copy(fontFamily = FontFamily.Monospace),
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
+                        Text(text = tool, style = styles.bodyXS.copy(fontFamily = FontFamily.Monospace), color = colors.labelSecondary)
                     }
                 }
             }
         }
         if (agent.extraKeys.isNotEmpty()) {
-            Text(
-                text = "另外还设了 " + agent.extraKeys.joinToString("、") + "，编辑时原样保留。",
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+            Text(text = "另外还设了 " + agent.extraKeys.joinToString("、") + "，编辑时原样保留。", style = styles.bodyS, color = colors.labelSecondary)
         }
         Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            CouiButton(text = "删除", onClick = onDelete, role = CouiButtonRole.Destructive, modifier = Modifier.weight(1f))
-            CouiButton(text = "编辑", onClick = onEdit, role = CouiButtonRole.Primary, modifier = Modifier.weight(1f))
+            TextButton(
+                text = "删除",
+                onClick = onDelete,
+                modifier = Modifier.weight(1f),
+                minWidth = 0.dp,
+                colors = ButtonDefaults.textButtonColors(textColor = colors.error),
+            )
+            TextButton(text = "编辑", onClick = onEdit, modifier = Modifier.weight(1f), minWidth = 0.dp, colors = ButtonDefaults.textButtonColorsPrimary())
         }
     }
 }
@@ -241,7 +245,6 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
     var checked by remember { mutableStateOf(original?.tools.orEmpty().filter { it in commonNames }.toSet()) }
     var others by remember { mutableStateOf(original?.tools.orEmpty().filter { it !in commonNames }.joinToString(", ")) }
     var prompt by remember { mutableStateOf(original?.prompt.orEmpty()) }
-    var modelMenu by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val valid = AgentName.matches(name.trim()) && description.isNotBlank()
@@ -258,104 +261,131 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
         }
     }
 
-    CouiScaffoldPage(
+    CouiPage(
         title = if (original == null) "新建 Subagent" else "编辑 Subagent",
         onBack = onBack,
         actions = {
-            CouiTopAppBarTextButton(text = if (saving) "保存中" else "保存", enabled = valid && !saving, onClick = ::save)
+            TextButton(
+                text = if (saving) "保存中" else "保存",
+                onClick = ::save,
+                enabled = valid && !saving,
+                minWidth = 0.dp,
+                colors = ButtonDefaults.textButtonColorsBorderless(),
+            )
         },
     ) {
-        Group(title = "名称", footer = "小写字母、数字和连字符，比如 code-reviewer。保存为 ~/.claude/agents/<名称>.md。") {
-            FieldBox { CouiTextField(value = name, onValueChange = { name = it }, placeholder = "code-reviewer", enabled = !saving) }
-        }
-        Group(title = "什么时候用", footer = "写清楚它擅长什么、什么情况下该交给它。Claude 靠这段话决定要不要用它。") {
-            FieldBox {
-                CouiTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    placeholder = "比如：改完代码后用它审查改动，找出 bug 和不清楚的地方",
-                    singleLine = false,
-                    minLines = 2,
-                    maxLines = 6,
-                    enabled = !saving,
-                )
+        item(key = "name") {
+            PreferenceGroup(title = "名称", footer = "小写字母、数字和连字符，比如 code-reviewer。保存为 ~/.claude/agents/<名称>.md。") {
+                item { InputPreference(value = name, onValueChange = { name = it }, hint = "code-reviewer", enabled = !saving) }
             }
         }
-        Group(
-            title = "模型",
-            footer = "“跟随主对话”用当前对话正在用的模型。“默认”是不写 model：Claude Code 同样让它跟随主对话，" +
-                "只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型。",
-        ) {
-            val options = if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions else ModelOptions + (model to model)
-            CouiPopupPreference(
-                title = "模型",
-                value = modelLabel(model),
-                expanded = modelMenu,
-                onExpandedChange = { modelMenu = it && !saving },
-                items = options.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first.equals(model, ignoreCase = true)) },
-                onItemClick = {
-                    modelMenu = false
-                    model = it.value
-                },
-            )
-        }
-        Group(
-            title = "工具",
-            footer = "关掉“全部工具”后，它只能用勾选的这些。别的工具（比如 MCP 的 mcp__服务器名__工具名，Zeta 的手机工具是 mcp__phone__ 开头的）写进“其他工具”，用逗号分开。",
-        ) {
-            CouiSwitchPreference(
-                title = "全部工具",
-                summary = "和主对话一样，包括 MCP 工具",
-                checked = allTools,
-                enabled = !saving,
-                onCheckedChange = { allTools = it },
-            )
-            if (!allTools) {
-                CommonTools.forEach { (tool, label) ->
-                    CouiCheckboxPreference(
-                        title = tool,
-                        summary = label,
-                        checked = tool in checked,
+        item(key = "description") {
+            PreferenceGroup(title = "什么时候用", footer = "写清楚它擅长什么、什么情况下该交给它。Claude 靠这段话决定要不要用它。") {
+                item {
+                    MultiLineField(
+                        value = description,
+                        onValueChange = { description = it },
+                        hint = "比如：改完代码后用它审查改动，找出 bug 和不清楚的地方",
+                        minLines = 2,
+                        maxLines = 6,
                         enabled = !saving,
-                        onCheckedChange = { on -> checked = if (on) checked + tool else checked - tool },
                     )
                 }
-                FieldBox { CouiTextField(value = others, onValueChange = { others = it }, label = "其他工具", placeholder = "mcp__github", enabled = !saving) }
             }
         }
-        Group(title = "系统提示词", footer = "它的角色和做事方式。Subagent 看不到主对话的内容，只看到这段话和交给它的任务。") {
-            FieldBox {
-                CouiTextField(
-                    value = prompt,
-                    onValueChange = { prompt = it },
-                    placeholder = "你是一名代码审查员……",
-                    singleLine = false,
-                    minLines = 8,
-                    enabled = !saving,
-                )
+        item(key = "model") {
+            PreferenceGroup(
+                title = "模型",
+                footer = "“跟随主对话”用当前对话正在用的模型。“默认”是不写 model：Claude Code 同样让它跟随主对话，" +
+                    "只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型。",
+            ) {
+                item {
+                    val options = if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions else ModelOptions + (model to model)
+                    OverlayDropdownPreference(
+                        items = options.map { it.second },
+                        selectedIndex = options.indexOfFirst { it.first.equals(model, ignoreCase = true) },
+                        title = "模型",
+                        enabled = !saving,
+                        onSelectedIndexChange = { index -> options.getOrNull(index)?.let { model = it.first } },
+                    )
+                }
             }
         }
-        error?.let {
-            Text(
-                text = it,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
-            )
+        item(key = "tools") {
+            PreferenceGroup(
+                title = "工具",
+                footer = "关掉“全部工具”后，它只能用勾选的这些。别的工具（比如 MCP 的 mcp__服务器名__工具名，Zeta 的手机工具是 mcp__phone__ 开头的）写进“其他工具”，用逗号分开。",
+            ) {
+                item {
+                    SwitchPreference(
+                        checked = allTools,
+                        onCheckedChange = { allTools = it },
+                        title = "全部工具",
+                        summary = "和主对话一样，包括 MCP 工具",
+                        enabled = !saving,
+                    )
+                }
+                if (!allTools) {
+                    CommonTools.forEach { (tool, label) ->
+                        item(key = tool) {
+                            CheckboxPreference(
+                                title = tool,
+                                checked = tool in checked,
+                                onCheckedChange = { on -> checked = if (on) checked + tool else checked - tool },
+                                summary = label,
+                                enabled = !saving,
+                            )
+                        }
+                    }
+                    item(key = "others") {
+                        InputPreference(value = others, onValueChange = { others = it }, title = "其他工具", hint = "mcp__github", enabled = !saving)
+                    }
+                }
+            }
         }
+        item(key = "prompt") {
+            PreferenceGroup(title = "系统提示词", footer = "它的角色和做事方式。Subagent 看不到主对话的内容，只看到这段话和交给它的任务。") {
+                item {
+                    MultiLineField(
+                        value = prompt,
+                        onValueChange = { prompt = it },
+                        hint = "你是一名代码审查员……",
+                        minLines = 8,
+                        enabled = !saving,
+                    )
+                }
+            }
+        }
+        error?.let { item(key = "error") { PagerFooterPreference(summary = it, summaryColor = COUITheme.colorScheme.error) } }
         // 保存按钮灰着的时候说一下缺什么
         if (!valid && (name.isNotEmpty() || description.isNotEmpty())) {
-            Text(
-                text = if (!AgentName.matches(name.trim())) "名称只能用小写字母、数字和连字符，并以字母或数字开头" else "写上什么时候用它才能保存",
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
-            )
+            item(key = "missing") {
+                PagerFooterPreference(
+                    summary = if (!AgentName.matches(name.trim())) "名称只能用小写字母、数字和连字符，并以字母或数字开头" else "写上什么时候用它才能保存",
+                )
+            }
         }
     }
 }
 
+/**
+ * 卡片里的多行输入，随内容变高。COUI 2 的 InputPreference 只有单行，InputView 的多行固定 152dp 高，
+ * 系统提示词这种长文本要能整段看到，所以用无边框的 TextField，字号、提示色和留白照 InputPreference。
+ */
 @Composable
-private fun FieldBox(content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { content() }
+private fun MultiLineField(value: String, onValueChange: (String) -> Unit, hint: String, minLines: Int, enabled: Boolean, maxLines: Int = Int.MAX_VALUE) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        backgroundMode = TextFieldMode.None,
+        insideMargin = DpSize(0.dp, 13.dp),
+        minHeight = 0.dp,
+        colors = InputViewDefaults.textFieldColors(),
+        label = hint,
+        enabled = enabled,
+        textStyle = InputViewDefaults.textStyle(),
+        minLines = minLines,
+        maxLines = maxLines,
+    )
 }

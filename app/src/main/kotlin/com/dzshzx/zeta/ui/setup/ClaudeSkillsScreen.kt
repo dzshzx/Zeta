@@ -4,11 +4,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,38 +12,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dzshzx.zeta.core.claude.ClaudeConfigException
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.claude.ClaudeConfigException
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiIcon
-import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.dialog.CouiDialogDefaults
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Group
-import com.itos.coui.layout.Item
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.switch.CouiSwitchDefaults
-import com.itos.coui.switch.Switch
-import com.itos.coui.text.CouiTextKind
-import com.itos.coui.text.Text
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.DropdownDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
+import io.github.suqi8.coui.kmp.preference.SwitchLoadingPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** ZIP 读进内存再交给 Debian 那边；Skill 包一般很小，太大的多半选错了文件。 */
 private const val MAX_ZIP_BYTES = 50 * 1024 * 1024
@@ -129,101 +118,116 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    CouiScaffoldPage(title = "Skills", onBack = onBack) {
-        Group(title = "安装") {
-            CouiPreference(
-                title = if (importing) "正在检查 Skill 包" else "从 ZIP 导入",
-                summary = if (importing) "正在验证并安装，请稍候" else "选择包含 SKILL.md 的 Skill 包，装到 ~/.claude/skills",
-                trailing = if (importing) ({ InfiniteProgressIndicator(size = 20.dp) }) else null,
-                enabled = !operating,
-                onClick = pick,
+    val shownDescription = rememberRetained(describing)
+    val shownPending = rememberRetained(pending)
+    val shownDeleting = rememberRetained(deleting)
+    CouiPage(
+        title = "Skills",
+        onBack = onBack,
+        overlays = {
+            ConfigNoticeDialog(notice) { notice = null }
+            NoticeDialog(
+                show = describing != null,
+                title = shownDescription?.first,
+                summary = shownDescription?.second,
+                closeText = "知道了",
+                onDismissRequest = { describing = null },
             )
+            ConfirmDialog(
+                show = pending != null,
+                title = "替换 Skill？",
+                summary = shownPending?.let { "已经有一个叫“${it.second.name}”的 Skill。替换会覆盖它当前的全部文件。" },
+                confirmText = "替换",
+                confirmEnabled = !operating,
+                onConfirm = {
+                    pending?.let { install(it.first, replace = true) }
+                    pending = null
+                },
+                onDismissRequest = { pending = null },
+            )
+            ConfirmDialog(
+                show = deleting != null,
+                title = "删除 Skill",
+                summary = shownDeleting?.let { "删除“${it.name}”的整个文件夹，之后需要重新导入才能恢复。" },
+                confirmText = "删除",
+                confirmEnabled = !operating,
+                destructive = true,
+                onConfirm = {
+                    deleting?.let { skill ->
+                        busy = skill.name
+                        scope.runConfig({ client.deleteSkill(skill.name) }) { result ->
+                            busy = null
+                            result.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                            reload()
+                        }
+                    }
+                    deleting = null
+                },
+                onDismissRequest = { deleting = null },
+            )
+        },
+    ) {
+        item(key = "install") {
+            PreferenceGroup(title = "安装") {
+                item {
+                    BasicComponent(
+                        title = if (importing) "正在检查 Skill 包" else "从 ZIP 导入",
+                        summary = if (importing) "正在验证并安装，请稍候" else "选择包含 SKILL.md 的 Skill 包，装到 ~/.claude/skills",
+                        endActions = if (importing) ({ InfiniteProgressIndicator(size = 20.dp) }) else null,
+                        enabled = !operating,
+                        onClick = pick,
+                    )
+                }
+            }
         }
         val l = list
         val skills = l?.skills.orEmpty()
-        Group(
-            title = "用户安装 · ${skills.size}",
-            footer = "Claude Code 读取 ~/.claude/skills 下的每个文件夹。关掉开关是在 ~/.claude/settings.json 的 skillOverrides 里把它设成 off，" +
-                "和 Claude Code 里 /skills 关掉的效果一样：文件留着，Claude 不会再用它。改动对之后新开始的对话生效。",
-        ) {
-            when {
-                l == null -> ConfigLoadingRow()
-                skills.isEmpty() -> ConfigEmptyRow("尚未安装任何 Skill", "从 ZIP 导入，或者在对话里让 Claude 帮你写一个")
-                else -> skills.forEach { skill ->
-                    SkillRow(
-                        skill = skill,
-                        enabled = !operating,
-                        working = busy == skill.name,
-                        onToggle = { toggle(skill, it) },
-                        onDescribe = { describing = skill.name to skill.description.ifBlank { if (skill.valid) "无描述" else "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。" } },
-                        onDelete = { deleting = skill },
-                    )
+        item(key = "user") {
+            PreferenceGroup(
+                title = "用户安装 · ${skills.size}",
+                footer = "Claude Code 读取 ~/.claude/skills 下的每个文件夹。关掉开关是在 ~/.claude/settings.json 的 skillOverrides 里把它设成 off，" +
+                    "和 Claude Code 里 /skills 关掉的效果一样：文件留着，Claude 不会再用它。改动对之后新开始的对话生效。",
+            ) {
+                when {
+                    l == null -> item { ConfigLoadingRow() }
+                    skills.isEmpty() -> item { ConfigEmptyRow("尚未安装任何 Skill", "从 ZIP 导入，或者在对话里让 Claude 帮你写一个") }
+                    else -> skills.forEach { skill ->
+                        item(key = skill.name) {
+                            SkillRow(
+                                skill = skill,
+                                enabled = !operating,
+                                working = busy == skill.name,
+                                onToggle = { toggle(skill, it) },
+                                onDescribe = { describing = skill.name to skill.description.ifBlank { if (skill.valid) "无描述" else "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。" } },
+                                onDelete = { deleting = skill },
+                            )
+                        }
+                    }
                 }
             }
         }
         val synced = l?.synced.orEmpty()
         if (synced.isNotEmpty()) {
-            Group(
-                title = "账号同步 · ${synced.size}",
-                footer = "这些 Skill 由 Claude Code 从你的 Claude 账号同步下来（~/.claude/skills/synced），在 claude.ai 上管理，这里只列出来。" +
-                    "标着“已停用”的是 settings.json 的 skillOverrides 里关掉了。",
-            ) {
-                synced.forEach { skill ->
-                    CouiPreference(
-                        title = skill.name,
-                        summary = brief(skill.description).ifBlank { null },
-                        value = if (skill.enabled) null else "已停用",
-                        showChevron = false,
-                        onClick = { describing = skill.name to skill.description.ifBlank { "无描述" } },
-                    )
+            item(key = "synced") {
+                PreferenceGroup(
+                    title = "账号同步 · ${synced.size}",
+                    footer = "这些 Skill 由 Claude Code 从你的 Claude 账号同步下来（~/.claude/skills/synced），在 claude.ai 上管理，这里只列出来。" +
+                        "标着“已停用”的是 settings.json 的 skillOverrides 里关掉了。",
+                ) {
+                    synced.forEach { skill ->
+                        item(key = skill.name) {
+                            BasicComponent(
+                                title = skill.name,
+                                summary = brief(skill.description).ifBlank { null },
+                                endActions = if (skill.enabled) null else ({ PreferenceValue("已停用") }),
+                                onClick = { describing = skill.name to skill.description.ifBlank { "无描述" } },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
-
-    ConfigNoticeDialog(notice) { notice = null }
-    val shownDescription = rememberRetained(describing)
-    CouiNoticeDialog(
-        visible = describing != null,
-        title = shownDescription?.first,
-        message = shownDescription?.second,
-        confirmText = "知道了",
-        onDismissRequest = { describing = null },
-    )
-    val shownPending = rememberRetained(pending)
-    CouiConfirmDialog(
-        visible = pending != null,
-        title = "替换 Skill？",
-        message = shownPending?.let { "已经有一个叫“${it.second.name}”的 Skill。替换会覆盖它当前的全部文件。" },
-        confirmText = "替换",
-        confirmEnabled = !operating,
-        onConfirm = {
-            pending?.let { install(it.first, replace = true) }
-            pending = null
-        },
-        onDismissRequest = { pending = null },
-    )
-    val shownDeleting = rememberRetained(deleting)
-    CouiConfirmDialog(
-        visible = deleting != null,
-        title = "删除 Skill",
-        message = shownDeleting?.let { "删除“${it.name}”的整个文件夹，之后需要重新导入才能恢复。" },
-        confirmText = "删除",
-        confirmEnabled = !operating,
-        destructive = true,
-        onConfirm = {
-            deleting?.let { skill ->
-                busy = skill.name
-                scope.runConfig({ client.deleteSkill(skill.name) }) { result ->
-                    busy = null
-                    result.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
-                    reload()
-                }
-            }
-            deleting = null
-        },
-        onDismissRequest = { deleting = null },
-    )
 }
 
 /** 一个 Skill：点整行或开关启用/停用，“更多”里看说明、删除。照 Eta 的 SkillSwitchRow。 */
@@ -236,73 +240,41 @@ private fun SkillRow(
     onDescribe: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
-    val destructive = CouiDialogDefaults.themeColors(dark).destructive
     var showMenu by remember { mutableStateOf(false) }
-    val anchor = rememberCouiMenuAnchor()
     val canToggle = enabled && skill.valid
     val description = when {
         !skill.valid -> "缺少 SKILL.md"
         skill.description.isBlank() -> "无描述"
-        else -> skill.description
+        // 说明往往是一大段，列表里只放开头
+        else -> brief(skill.description)
     }
-    Item(
+    SwitchLoadingPreference(
+        checked = skill.enabled,
+        onCheckedChange = onToggle,
+        title = skill.title.takeIf { it.isNotBlank() && it != skill.name }?.let { "$it（${skill.name}）" } ?: skill.name,
+        summary = description,
+        isLoading = working,
         enabled = canToggle,
-        onClick = { onToggle(!skill.enabled) },
-        title = {
-            Text(
-                text = skill.title.takeIf { it.isNotBlank() && it != skill.name }?.let { "$it（${skill.name}）" } ?: skill.name,
-                kind = CouiTextKind.ItemTitle,
-                color = if (enabled) colors.title else colors.disabled,
-            )
-        },
-        summary = {
-            Text(
-                text = description,
-                kind = CouiTextKind.ItemSummary,
-                color = if (enabled) colors.summary else colors.disabled,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        trailing = {
+        endActions = {
+            // 不用 OverlayIconDropdownMenu：它的图标按钮带顶栏那种材质底，放在列表行里是个实心圆
             Box {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .couiMenuAnchor(anchor)
-                        .clickable(role = Role.Button) { anchor.open { showMenu = true } },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CouiIcon(imageVector = CouiIcons.Outlined.More, contentDescription = "更多：" + skill.name, modifier = Modifier.size(20.dp), tint = colors.summary)
+                IconButton(onClick = { showMenu = true }, material = false, holdDownState = showMenu) {
+                    Icon(imageVector = COUIIcons.More, contentDescription = "更多：" + skill.name, tint = COUITheme.colorScheme.labelSecondary)
                 }
-                Menu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    items = listOf(
-                        CouiMenuItem(value = 0, text = "查看说明"),
-                        CouiMenuItem(value = 1, text = "删除", enabled = enabled, iconTint = destructive, dividerBefore = true),
+                OverlayDropdownPopup(
+                    entries = listOf(
+                        DropdownEntry(items = listOf(DropdownItem(text = "查看说明", onClick = onDescribe))),
+                        DropdownEntry(items = listOf(DropdownItem(text = "删除", enabled = enabled, alert = true, onClick = { if (enabled) onDelete() }))),
                     ),
-                    onItemClick = { item ->
-                        showMenu = false
-                        when (item.value) {
-                            0 -> onDescribe()
-                            1 -> if (enabled) onDelete()
-                        }
-                    },
-                    anchor = anchor,
+                    show = showMenu,
+                    onDismiss = { showMenu = false },
+                    onDismissFinished = {},
+                    maxHeight = null,
+                    dropdownColors = DropdownDefaults.dropdownColors(),
+                    renderInRootScaffold = true,
+                    collapseOnSelection = true,
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Switch(
-                checked = skill.enabled,
-                onCheckedChange = onToggle,
-                dark = dark,
-                colors = CouiSwitchDefaults.colors(colors.accent, dark),
-                enabled = canToggle,
-                loading = working,
-            )
         },
     )
 }

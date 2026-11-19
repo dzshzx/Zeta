@@ -1,6 +1,9 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -66,5 +69,43 @@ class NotifyTriggerShots : ShotTest() {
         ) {
             NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
         }
+    }
+
+    /** 选应用的页面（JVM 上没有可列的应用，只有“手动输入包名”）。 */
+    @Test
+    fun appPicker() {
+        val hub = Fixtures.readyHub(app)
+        seed()
+        shoot("notify-trigger-apps", prepare = { openPicker() }) {
+            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+        }
+    }
+
+    /** 选应用时在顶栏下的搜索框里输入：标题让位，换成搜索结果。 */
+    @Test
+    fun appPickerSearch() {
+        val hub = Fixtures.readyHub(app)
+        seed()
+        shoot(
+            "notify-trigger-apps-search",
+            prepare = {
+                openPicker()
+                onNodeWithText("搜索应用名或包名").performClick()
+                mainClock.advanceTimeBy(600)
+                waitForIdle()
+                onNode(hasSetTextAction() and hasText("搜索应用名或包名")).performTextInput("com.example")
+            },
+        ) {
+            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+        }
+    }
+
+    private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.openPicker() {
+        onNodeWithText("快递取件提醒").performClick()
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
+        onNodeWithText("应用").performClick()
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
     }
 }

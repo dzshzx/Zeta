@@ -2,6 +2,7 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ConversationHub
@@ -40,22 +41,42 @@ class AccountsShots : ShotTest() {
     private fun account(name: String, plan: String, org: String = "") =
         ClaudeAccount("acc-$name", "$name@example.invalid", org, name, plan, "max", null, now - 86_400_000)
 
+    /** 存着两个账号，当前是其中一个（还没存过这次的登录）。 */
+    private fun accountsState() = AccountsState(
+        loggedIn = true,
+        current = account("shots", "Max").copy(savedAt = null),
+        saved = listOf(account("shots", "Max"), account("work", "Team", org = "Example Co")),
+        processes = emptyList(),
+    )
+
     @Test
     fun accountsPage() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
-        val state = AccountsState(
-            loggedIn = true,
-            current = account("shots", "Max").copy(savedAt = null),
-            saved = listOf(account("shots", "Max"), account("work", "Team", org = "Example Co")),
-            processes = emptyList(),
-        )
+        val state = accountsState()
         shoot(
             "accounts",
             prepare = {
                 // 打开页面时会去 Linux 环境里读账号，JVM 上读不到：换成摆好的数据
                 hub.accounts.force("state", state)
                 hub.accounts.force("problem", null)
+            },
+        ) { AccountsScreen(hub = hub, onBack = {}) }
+    }
+
+    /** 点另一个账号弹出的菜单：切换、移除。 */
+    @Test
+    fun accountsMenu() {
+        val hub = Fixtures.readyHub(app)
+        hub.fakeQuota()
+        val state = accountsState()
+        shoot(
+            "accounts-menu",
+            prepare = {
+                hub.accounts.force("state", state)
+                hub.accounts.force("problem", null)
+                settle()
+                onNodeWithText("work@example.invalid").performClick()
             },
         ) { AccountsScreen(hub = hub, onBack = {}) }
     }

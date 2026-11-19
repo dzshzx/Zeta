@@ -2,7 +2,13 @@ package com.dzshzx.zeta.ui.settings
 
 import android.app.Application
 import android.content.Context
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.notify.NotifyRecords
@@ -29,26 +34,35 @@ import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.phone.InstalledApps
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPopupPreference
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
-import com.dzshzx.zeta.ui.components.coui.CouiTextField
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarTextButton
-import com.dzshzx.zeta.ui.setup.ConfigSubPage
+import com.dzshzx.zeta.ui.components.coui2.CardListSegment
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.couiPageScroll
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Group
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.switch.CouiSwitchDefaults
-import com.itos.coui.switch.Switch
-import com.itos.coui.theme.CouiTheme
+import com.dzshzx.zeta.ui.setup.ConfigSubPage
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
+import io.github.suqi8.coui.kmp.basic.InputView
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
+import io.github.suqi8.coui.kmp.basic.TopAppBarSearchBar
+import io.github.suqi8.coui.kmp.basic.rememberTopAppBarSearchState
+import io.github.suqi8.coui.kmp.basic.topAppBarSearchContent
+import io.github.suqi8.coui.kmp.basic.topAppBarSearchResults
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
+import io.github.suqi8.coui.kmp.preference.PreferenceCategory
+import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import io.github.suqi8.coui.kmp.preference.SwitchWithDividerPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.text.Collator
 import java.time.Instant
 import java.time.LocalTime
@@ -56,8 +70,6 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val ListFooter = "某个应用的通知到了（可以再限定关键词和时段），Zeta 就在后台开一个对话，让 Claude 跑你写的指令；" +
     "跑完发一条通知（规则名和回答的开头），点通知打开那次的对话。Zeta 自己的通知不会触发。" +
@@ -87,7 +99,7 @@ internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NotifyRuleStore.load(context) } }
     val rules = NotifyRuleStore.observed
     val enabled = rules.count { it.enabled }
-    CouiPreference(
+    ArrowPreference(
         title = "通知触发",
         summary = when {
             rules.isEmpty() -> "某个应用来通知时，让 Claude 在后台做一件事"
@@ -111,56 +123,48 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
     var editing by remember { mutableStateOf<RuleTarget?>(null) }
     val now = System.currentTimeMillis()
     val zone = ZoneId.systemDefault()
-    val accent = CouiPageDefaults.themeColors().accent
 
-    CouiScaffoldPage(
+    CouiPage(
         title = "通知触发",
         onBack = onBack,
-        actions = {
-            CouiTopAppBarIconButton(
-                icon = CouiIcons.Outlined.Add,
-                contentDescription = "新建规则",
-                enabled = rules.size < NotifyRules.MAX_RULES,
-                onClick = { editing = RuleTarget(null) },
-            )
-        },
+        actions = { TopBarIconAction(COUIIcons.Add, "新建规则", enabled = rules.size < NotifyRules.MAX_RULES) { editing = RuleTarget(null) } },
     ) {
         if (snapshot != null && !snapshot.notificationListener) {
-            Group {
-                PermissionFixRow(
-                    hub, PermissionId.NotificationListener, "还没有通知使用权", "没有它收不到通知，规则不会触发。",
-                    if (rules.any { it.enabled }) StatusError else StatusWarning,
-                )
+            item(key = "listener") {
+                PreferenceGroup {
+                    item {
+                        PermissionFixRow(
+                            hub, PermissionId.NotificationListener, "还没有通知使用权", "没有它收不到通知，规则不会触发。",
+                            if (rules.any { it.enabled }) COUITheme.colorScheme.error else StatusWarning,
+                        )
+                    }
+                }
             }
         }
-        Group(title = "规则 · ${rules.size}", footer = ListFooter) {
-            if (rules.isEmpty()) {
-                CouiPreference(title = "还没有规则", summary = "点右上角 + 新建", enabled = false, showChevron = false)
-            }
-            rules.forEach { rule ->
-                val last = rule.lastRun
-                val fired = NotifyRules.firedToday(rule, now, zone)
-                val state = when {
-                    last?.outcome == RunOutcome.Running -> "正在运行"
-                    !rule.enabled -> "已关闭"
-                    fired > 0 -> "今天触发 $fired 次"
-                    else -> "今天还没触发"
-                } + (last?.takeIf { it.outcome != RunOutcome.Running }?.let { " · 上次" + outcomeWord(it.outcome) } ?: "")
-                CouiPreference(
-                    title = rule.name,
-                    summary = NotifyRules.describe(rule) + "\n" + state,
-                    onClick = { editing = RuleTarget(rule.id) },
-                    showChevron = false,
-                    trailing = {
-                        Switch(
-                            modifier = Modifier.padding(start = 16.dp),
+        item(key = "rules") {
+            PreferenceGroup(title = "规则 · ${rules.size}", footer = ListFooter) {
+                if (rules.isEmpty()) {
+                    item { BasicComponent(title = "还没有规则", summary = "点右上角 + 新建", enabled = false) }
+                }
+                rules.forEach { rule ->
+                    val last = rule.lastRun
+                    val fired = NotifyRules.firedToday(rule, now, zone)
+                    val state = when {
+                        last?.outcome == RunOutcome.Running -> "正在运行"
+                        !rule.enabled -> "已关闭"
+                        fired > 0 -> "今天触发 $fired 次"
+                        else -> "今天还没触发"
+                    } + (last?.takeIf { it.outcome != RunOutcome.Running }?.let { " · 上次" + outcomeWord(it.outcome) } ?: "")
+                    item(key = rule.id) {
+                        SwitchWithDividerPreference(
+                            title = rule.name,
+                            summary = NotifyRules.describe(rule) + "\n" + state,
                             checked = rule.enabled,
                             onCheckedChange = { on -> NotifyRuleStore.updateRule(app, rule.id) { it.copy(enabled = on) } },
-                            dark = CouiTheme.isDark,
-                            colors = CouiSwitchDefaults.colors(accent, CouiTheme.isDark),
+                            onClick = { editing = RuleTarget(rule.id) },
                         )
-                    },
-                )
+                    }
+                }
             }
         }
     }
@@ -198,9 +202,6 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
     }
     var dialog by remember { mutableStateOf<RuleDialog?>(null) }
     var picking by remember { mutableStateOf(false) }
-    var modeMenu by remember { mutableStateOf(false) }
-    var cooldownMenu by remember { mutableStateOf(false) }
-    var limitMenu by remember { mutableStateOf(false) }
     val nonce = remember { NotifyRules.nonce() }
 
     val problem = NotifyRules.problem(draft)
@@ -217,152 +218,217 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         onBack()
     }
 
-    CouiScaffoldPage(
+    val times = window ?: lastWindow
+    var keywordsInput by remember(dialog) { mutableStateOf(draft.keywords) }
+    CouiPage(
         title = if (original == null) "新建通知规则" else "编辑通知规则",
         onBack = onBack,
-        actions = { CouiTopAppBarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
-    ) {
-        Group(title = "名称", footer = "跑完那条通知的标题，也是每次运行那个对话的名字。") {
-            FieldBox { CouiTextField(value = draft.name, onValueChange = { draft = draft.copy(name = it.take(NotifyRules.MAX_NAME)) }, placeholder = "快递取件提醒") }
-        }
-        Group(
-            title = "触发条件",
-            footer = problem?.takeIf { draft.name.isNotBlank() || draft.prompt.isNotBlank() || original != null }
-                ?: "关键词不分大小写，标题或正文里含其中任一个就触发；几个关键词用逗号隔开。时段的结束早于开始时跨午夜。",
-        ) {
-            CouiPreference(
-                title = "应用",
-                summary = draft.packageName.takeIf { it.isNotBlank() && it != draft.appLabel },
-                value = draft.appLabel.ifBlank { draft.packageName }.ifBlank { "选择" },
-                onClick = { picking = true },
-            )
-            CouiPreference(
+        actions = { ToolbarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
+        overlays = {
+            TimeDialog(visible = dialog == RuleDialog.Start, initial = times.start, onConfirm = { setWindow(times.copy(start = it)); dialog = null }, onDismiss = { dialog = null })
+            TimeDialog(visible = dialog == RuleDialog.End, initial = times.end, onConfirm = { setWindow(times.copy(end = it)); dialog = null }, onDismiss = { dialog = null })
+            TextInputDialog(
+                show = dialog == RuleDialog.Keywords,
                 title = "关键词",
-                summary = NotifyRules.parseKeywords(draft.keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限：这个应用的每条通知都触发",
-                onClick = { dialog = RuleDialog.Keywords },
+                summary = "标题或正文里含其中任一个才触发，不分大小写。几个关键词用逗号隔开，留空表示不限。",
+                value = keywordsInput,
+                onValueChange = { keywordsInput = it },
+                label = "取件码，快递",
+                confirmText = "确定",
+                onConfirm = {
+                    draft = draft.copy(keywords = keywordsInput.trim())
+                    dialog = null
+                },
+                onDismissRequest = { dialog = null },
             )
-            CouiSwitchPreference(
-                title = "只在某个时段触发",
-                summary = window?.let(NotifyRules::windowText) ?: "全天",
-                checked = window != null,
-                onCheckedChange = { draft = draft.copy(window = if (it) lastWindow else null) },
+            CwdDialog(
+                visible = dialog == RuleDialog.Cwd,
+                cwd = draft.cwd.orEmpty(),
+                defaultCwd = defaultCwd,
+                onConfirm = { draft = draft.copy(cwd = it); dialog = null },
+                onDismiss = { dialog = null },
             )
-            if (window != null) {
-                CouiPreference(title = "从", value = "%02d:%02d".format(window.start.hour, window.start.minute), onClick = { dialog = RuleDialog.Start })
-                CouiPreference(title = "到", value = "%02d:%02d".format(window.end.hour, window.end.minute), onClick = { dialog = RuleDialog.End })
+            ConfirmDialog(
+                show = dialog == RuleDialog.Delete,
+                title = "删除规则",
+                summary = original?.let { "删除“${it.name}”？以后这个应用的通知不再触发它。之前运行留下的对话还在。" },
+                confirmText = "删除",
+                destructive = true,
+                onConfirm = {
+                    dialog = null
+                    original?.let { rule ->
+                        NotifyRuleStore.update(app) { list -> list.filterNot { it.id == rule.id } }
+                        ScheduleRunner.clearNotification(app, NotifyRecords, rule.id)
+                    }
+                    onBack()
+                },
+                onDismissRequest = { dialog = null },
+            )
+        },
+    ) {
+        item(key = "name") {
+            FieldCard(footer = "跑完那条通知的标题，也是每次运行那个对话的名字。") {
+                InputView(value = draft.name, onValueChange = { draft = draft.copy(name = it.take(NotifyRules.MAX_NAME)) }, title = "名称", label = "快递取件提醒")
             }
         }
-        Group(title = "指令", footer = PromptFooter) {
-            FieldBox {
-                CouiTextField(
-                    value = draft.prompt,
-                    onValueChange = { draft = draft.copy(prompt = it) },
-                    placeholder = "比如：看看这条快递通知 {text}，把取件码和地址记进今天的待办",
-                    singleLine = false,
-                    minLines = 3,
-                    maxLines = 10,
-                )
+        item(key = "trigger") {
+            PreferenceGroup(
+                title = "触发条件",
+                footer = problem?.takeIf { draft.name.isNotBlank() || draft.prompt.isNotBlank() || original != null }
+                    ?: "关键词不分大小写，标题或正文里含其中任一个就触发；几个关键词用逗号隔开。时段的结束早于开始时跨午夜。",
+            ) {
+                item(key = "app") {
+                    ArrowPreference(
+                        title = "应用",
+                        summary = draft.packageName.takeIf { it.isNotBlank() && it != draft.appLabel },
+                        endActions = { PreferenceValue(draft.appLabel.ifBlank { draft.packageName }.ifBlank { "选择" }) },
+                        onClick = { picking = true },
+                    )
+                }
+                item(key = "keywords") {
+                    BasicComponent(
+                        title = "关键词",
+                        summary = NotifyRules.parseKeywords(draft.keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限：这个应用的每条通知都触发",
+                        onClick = { dialog = RuleDialog.Keywords },
+                    )
+                }
+                item(key = "window") {
+                    SwitchPreference(
+                        title = "只在某个时段触发",
+                        summary = window?.let(NotifyRules::windowText) ?: "全天",
+                        checked = window != null,
+                        onCheckedChange = { draft = draft.copy(window = if (it) lastWindow else null) },
+                    )
+                }
+                if (window != null) {
+                    item(key = "start") { ValueRow("从", "%02d:%02d".format(window.start.hour, window.start.minute)) { dialog = RuleDialog.Start } }
+                    item(key = "end") { ValueRow("到", "%02d:%02d".format(window.end.hour, window.end.minute)) { dialog = RuleDialog.End } }
+                }
             }
-            if (NotifyRules.usesPlaceholders(draft.prompt)) {
-                CouiPreference(
-                    title = "验证码等内容也会交给 Claude",
-                    summary = "用了 {title}、{text} 时，验证码、银行和支付通知的内容也会原样发给 Claude，并留在对话记录里。不想交出去的应用，不要给它设规则。",
-                    titleColor = StatusWarning,
-                    showChevron = false,
-                )
+        }
+        item(key = "prompt") {
+            val risky = NotifyRules.usesPlaceholders(draft.prompt)
+            Column {
+                FieldCard(footer = if (risky) null else PromptFooter) {
+                    InputView(
+                        value = draft.prompt,
+                        onValueChange = { draft = draft.copy(prompt = it) },
+                        title = "指令",
+                        label = "比如：看看这条快递通知 {text}，把取件码和地址记进今天的待办",
+                        singleLine = false,
+                        maxLines = 10,
+                    )
+                }
+                if (risky) {
+                    PreferenceGroup(footer = PromptFooter) {
+                        item {
+                            BasicComponent(
+                                title = "验证码等内容也会交给 Claude",
+                                summary = "用了 {title}、{text} 时，验证码、银行和支付通知的内容也会原样发给 Claude，并留在对话记录里。不想交出去的应用，不要给它设规则。",
+                                titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
+                            )
+                        }
+                    }
+                }
             }
         }
         if (draft.prompt.isNotBlank()) {
-            val sample = PostedNotification(key = "", postTime = now, packageName = draft.packageName, title = "示例标题", text = "示例正文")
-            Group(title = "发给 Claude 的样子", footer = "用一条示例通知预览；每次运行时分隔符里的随机串都不一样，通知里的文字仿造不出来。") {
-                FieldBox {
-                    Text(
-                        text = NotifyRules.render(draft.prompt, sample, draft.appLabel.ifBlank { "示例应用" }, nonce),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            item(key = "preview") {
+                val sample = PostedNotification(key = "", postTime = now, packageName = draft.packageName, title = "示例标题", text = "示例正文")
+                PreferenceGroup(title = "发给 Claude 的样子", footer = "用一条示例通知预览；每次运行时分隔符里的随机串都不一样，通知里的文字仿造不出来。") {
+                    item {
+                        FieldBox {
+                            Text(
+                                text = NotifyRules.render(draft.prompt, sample, draft.appLabel.ifBlank { "示例应用" }, nonce),
+                                style = COUITheme.textStyles.bodyM,
+                                color = COUITheme.colorScheme.labelSecondary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "limits") {
+            PreferenceGroup(
+                title = "防止失控",
+                footer = "触发一次后，冷却时间内这条规则不再触发；一天里触发到上限也不再触发，第二天重新计数。" +
+                    "同一条通知只触发一次；常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
+            ) {
+                val cooldown = draft.cooldownMinutes
+                val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
+                item(key = "cooldown") {
+                    OverlayDropdownPreference(
+                        title = "冷却时间",
+                        items = cooldowns.map(NotifyRules::cooldownText),
+                        selectedIndex = cooldowns.indexOf(cooldown),
+                        onSelectedIndexChange = { index -> cooldowns.getOrNull(index)?.let { draft = draft.copy(cooldownMinutes = it) } },
+                    )
+                }
+                val dailyLimit = draft.dailyLimit
+                val limits = (NotifyRules.DAILY_LIMIT_CHOICES + dailyLimit).distinct().sorted()
+                item(key = "limit") {
+                    OverlayDropdownPreference(
+                        title = "每天最多",
+                        items = limits.map { "$it 次" },
+                        selectedIndex = limits.indexOf(dailyLimit),
+                        onSelectedIndexChange = { index -> limits.getOrNull(index)?.let { draft = draft.copy(dailyLimit = it) } },
                     )
                 }
             }
         }
-        Group(
-            title = "防止失控",
-            footer = "触发一次后，冷却时间内这条规则不再触发；一天里触发到上限也不再触发，第二天重新计数。" +
-                "同一条通知只触发一次；常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
-        ) {
-            val cooldown = draft.cooldownMinutes
-            val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
-            CouiPopupPreference(
-                title = "冷却时间",
-                value = NotifyRules.cooldownText(cooldown),
-                expanded = cooldownMenu,
-                onExpandedChange = { cooldownMenu = it },
-                items = cooldowns.map { CouiMenuItem(value = it, text = NotifyRules.cooldownText(it), selected = it == cooldown) },
-                onItemClick = {
-                    cooldownMenu = false
-                    draft = draft.copy(cooldownMinutes = it.value)
-                },
-            )
-            val dailyLimit = draft.dailyLimit
-            val limits = (NotifyRules.DAILY_LIMIT_CHOICES + dailyLimit).distinct().sorted()
-            CouiPopupPreference(
-                title = "每天最多",
-                value = "$dailyLimit 次",
-                expanded = limitMenu,
-                onExpandedChange = { limitMenu = it },
-                items = limits.map { CouiMenuItem(value = it, text = "$it 次", selected = it == dailyLimit) },
-                onItemClick = {
-                    limitMenu = false
-                    draft = draft.copy(dailyLimit = it.value)
-                },
-            )
-        }
-        Group(
-            title = "运行方式",
-            footer = "通知是别的应用发来的，可能有人借它的内容诱导 Claude。新规则默认“逐项确认”：要执行命令、改文件时这一轮停下来等你，并发通知让你处理。" +
-                "每次触发都开一个新对话。",
-        ) {
-            CouiPreference(title = "工作目录", summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd })
-            ModelPreference(hub, draft.model) { draft = draft.copy(model = it) }
-            // 不提供“跟随当前设置”：当前设置可能是完全放行，通知触发的对话要明确选一个
-            val mode = draft.permissionMode
-            CouiPopupPreference(
-                title = "权限模式",
-                value = permissionModeLabel(mode),
-                expanded = modeMenu,
-                onExpandedChange = { modeMenu = it },
-                items = PermissionModes.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == mode) },
-                onItemClick = {
-                    modeMenu = false
-                    draft = draft.copy(permissionMode = it.value)
-                },
-            )
-            if (mode !in NotifyRules.SAFE_MODES) {
-                CouiPreference(
-                    title = "“${permissionModeLabel(mode)}”有风险",
-                    summary = when (mode) {
-                        "acceptEdits" -> "这个模式自动放行改文件。通知里如果有诱导文字，Claude 可能不经你确认就改文件。"
-                        "bypassPermissions" -> "这个模式放行所有操作。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
-                        else -> "这个模式由 Claude Code 判断哪些操作自动放行。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
-                    } + "只给你信得过的应用这样设。",
-                    titleColor = StatusWarning,
-                    showChevron = false,
-                )
+        item(key = "run") {
+            PreferenceGroup(
+                title = "运行方式",
+                footer = "通知是别的应用发来的，可能有人借它的内容诱导 Claude。新规则默认“逐项确认”：要执行命令、改文件时这一轮停下来等你，并发通知让你处理。" +
+                    "每次触发都开一个新对话。",
+            ) {
+                item(key = "cwd") { BasicComponent(title = "工作目录", summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd }) }
+                item(key = "model") { ModelPreference(hub, draft.model) { draft = draft.copy(model = it) } }
+                // 不提供“跟随当前设置”：当前设置可能是完全放行，通知触发的对话要明确选一个
+                val mode = draft.permissionMode
+                val modes = PermissionModes + listOfNotNull(mode.takeIf { value -> PermissionModes.none { it.first == value } }?.let { it to permissionModeLabel(it) })
+                item(key = "mode") {
+                    OverlayDropdownPreference(
+                        title = "权限模式",
+                        items = modes.map { it.second },
+                        selectedIndex = modes.indexOfFirst { it.first == mode },
+                        onSelectedIndexChange = { index -> modes.getOrNull(index)?.let { draft = draft.copy(permissionMode = it.first) } },
+                    )
+                }
+                if (mode !in NotifyRules.SAFE_MODES) {
+                    item(key = "risk") {
+                        BasicComponent(
+                            title = "“${permissionModeLabel(mode)}”有风险",
+                            summary = when (mode) {
+                                "acceptEdits" -> "这个模式自动放行改文件。通知里如果有诱导文字，Claude 可能不经你确认就改文件。"
+                                "bypassPermissions" -> "这个模式放行所有操作。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
+                                else -> "这个模式由 Claude Code 判断哪些操作自动放行。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
+                            } + "只给你信得过的应用这样设。",
+                            titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
+                        )
+                    }
+                }
             }
         }
         if (original != null) {
-            Group(title = "运行记录") {
-                original.lastRun?.let { run -> LastRunRow(hub, run, Instant.ofEpochMilli(now), zone, onOpenConversation) }
-                val fired = NotifyRules.firedToday(original, now, zone)
-                val until = NotifyRules.cooldownUntil(original, now)
-                CouiPreference(
-                    title = "今天触发 $fired 次",
-                    summary = "上限 ${original.dailyLimit} 次" + (until?.let { " · 冷却到 " + Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone) } ?: ""),
-                    showChevron = false,
-                )
-                SkipsRow(original.skips, original.lastSkip, "触发时上一次还没跑完", Instant.ofEpochMilli(now), zone)
+            item(key = "record") {
+                PreferenceGroup(title = "运行记录") {
+                    original.lastRun?.let { run -> item(key = "last") { LastRunRow(hub, run, Instant.ofEpochMilli(now), zone, onOpenConversation) } }
+                    item(key = "today") {
+                        val fired = NotifyRules.firedToday(original, now, zone)
+                        val until = NotifyRules.cooldownUntil(original, now)
+                        BasicComponent(
+                            title = "今天触发 $fired 次",
+                            summary = "上限 ${original.dailyLimit} 次" + (until?.let { " · 冷却到 " + Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone) } ?: ""),
+                        )
+                    }
+                    if (original.skips > 0) {
+                        item(key = "skips") { SkipsRow(original.skips, original.lastSkip, "触发时上一次还没跑完", Instant.ofEpochMilli(now), zone) }
+                    }
+                }
             }
-            Group {
-                CouiPreference(title = "删除规则", titleColor = StatusError, showChevron = false, onClick = { dialog = RuleDialog.Delete })
+            item(key = "delete") {
+                PreferenceGroup { item { DangerRow("删除规则") { dialog = RuleDialog.Delete } } }
             }
         }
     }
@@ -380,48 +446,6 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
             )
         }
     }
-
-    val times = window ?: lastWindow
-    TimeDialog(visible = dialog == RuleDialog.Start, initial = times.start, onConfirm = { setWindow(times.copy(start = it)); dialog = null }, onDismiss = { dialog = null })
-    TimeDialog(visible = dialog == RuleDialog.End, initial = times.end, onConfirm = { setWindow(times.copy(end = it)); dialog = null }, onDismiss = { dialog = null })
-    var keywordsInput by remember(dialog) { mutableStateOf(draft.keywords) }
-    CouiInputDialog(
-        visible = dialog == RuleDialog.Keywords,
-        title = "关键词",
-        message = "标题或正文里含其中任一个才触发，不分大小写。几个关键词用逗号隔开，留空表示不限。",
-        value = keywordsInput,
-        onValueChange = { keywordsInput = it },
-        placeholder = "取件码，快递",
-        confirmText = "确定",
-        onConfirm = {
-            draft = draft.copy(keywords = keywordsInput.trim())
-            dialog = null
-        },
-        onDismissRequest = { dialog = null },
-    )
-    CwdDialog(
-        visible = dialog == RuleDialog.Cwd,
-        cwd = draft.cwd.orEmpty(),
-        defaultCwd = defaultCwd,
-        onConfirm = { draft = draft.copy(cwd = it); dialog = null },
-        onDismiss = { dialog = null },
-    )
-    CouiConfirmDialog(
-        visible = dialog == RuleDialog.Delete,
-        title = "删除规则",
-        message = original?.let { "删除“${it.name}”？以后这个应用的通知不再触发它。之前运行留下的对话还在。" },
-        confirmText = "删除",
-        destructive = true,
-        onConfirm = {
-            dialog = null
-            original?.let { rule ->
-                NotifyRuleStore.update(app) { list -> list.filterNot { it.id == rule.id } }
-                ScheduleRunner.clearNotification(app, NotifyRecords, rule.id)
-            }
-            onBack()
-        },
-        onDismissRequest = { dialog = null },
-    )
 }
 
 /** 选应用时列出的一个。 */
@@ -437,7 +461,10 @@ private fun launcherApps(context: Context): List<AppEntry> {
         .sortedWith { a, b -> collator.compare(a.label, b.label) }
 }
 
-/** 选应用：通知栏里现在有通知的排前面，下面是全部有桌面图标的应用；别的可以手动输入包名。 */
+/**
+ * 选应用：通知栏里现在有通知的排前面，下面是全部有桌面图标的应用；别的可以手动输入包名。
+ * 顶栏下的搜索框和顶栏联动（COUI 设置首页那样）：点进去后列表换成搜索结果，取消或返回回到列表。
+ */
 @Composable
 private fun AppPicker(current: String, onPick: (packageName: String, label: String) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -453,52 +480,113 @@ private fun AppPicker(current: String, onPick: (packageName: String, label: Stri
         apps = all
     }
     var query by remember { mutableStateOf("") }
+    var searching by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf(false) }
-    fun matches(entry: AppEntry) = query.isBlank() || entry.label.contains(query.trim(), ignoreCase = true) || entry.packageName.contains(query.trim(), ignoreCase = true)
+    val searchState = rememberTopAppBarSearchState(active = searching)
+    // 列表的滚动位置提出来：搜索时列表淡出，回来时还在原处
+    val listState = rememberLazyListState()
+    fun matches(entry: AppEntry) = entry.label.contains(query.trim(), ignoreCase = true) || entry.packageName.contains(query.trim(), ignoreCase = true)
 
     @Composable
     fun AppRow(entry: AppEntry) {
-        CouiPreference(
+        BasicComponent(
             title = entry.label,
             summary = entry.packageName.takeIf { it != entry.label },
-            value = if (entry.packageName == current) "当前" else null,
+            endActions = if (entry.packageName == current) ({ PreferenceValue("当前") }) else null,
             onClick = { onPick(entry.packageName, entry.label) },
-            showChevron = false,
         )
     }
 
-    CouiScaffoldPage(title = "选择应用", onBack = onBack) {
-        FieldBox { CouiTextField(value = query, onValueChange = { query = it }, placeholder = "搜索应用名或包名") }
-        val all = apps
-        if (all == null) {
-            Group { CouiPreference(title = "正在读取应用列表…", enabled = false, showChevron = false) }
-        } else {
-            val recent = active.filter(::matches)
-            if (recent.isNotEmpty()) {
-                Group(title = "通知栏里现在有通知的") { recent.forEach { AppRow(it) } }
-            }
-            Group(title = "全部应用", footer = "只列有桌面图标的应用。没有图标的（比如系统组件）用“手动输入包名”。") {
-                CouiPreference(title = "手动输入包名", onClick = { manual = true })
-                all.filter(::matches).take(400).forEach { AppRow(it) }
-            }
+    /** 一张卡片里的一串应用，逐行放进列表（全部应用可能有几百个）。[head] 是卡片里排在应用前面的行。 */
+    fun LazyListScope.appCard(
+        key: String,
+        title: String?,
+        entries: List<AppEntry>,
+        footer: String? = null,
+        head: (@Composable () -> Unit)? = null,
+    ) {
+        val offset = if (head != null) 1 else 0
+        val count = entries.size + offset
+        if (title != null) item(key = "$key:title") { PreferenceCategory(title = title) }
+        if (head != null) item(key = "$key:head") { CardListSegment(0, count, footerBelow = footer != null) { head() } }
+        itemsIndexed(entries, key = { _, entry -> "$key:${entry.packageName}" }) { index, entry ->
+            CardListSegment(index + offset, count, footerBelow = footer != null) { AppRow(entry) }
         }
+        if (footer != null) item(key = "$key:footer") { PagerFooterPreference(summary = footer) }
     }
 
-    var input by remember(manual) { mutableStateOf("") }
-    CouiInputDialog(
-        visible = manual,
-        title = "应用的包名",
-        message = "比如 com.tencent.mm。",
-        value = input,
-        onValueChange = { input = it.trim() },
-        placeholder = "com.example.app",
-        confirmText = "确定",
-        confirmEnabled = input.isNotBlank(),
-        onConfirm = {
-            manual = false
-            val pkg = input.trim()
-            onPick(pkg, apps?.firstOrNull { it.packageName == pkg }?.label ?: InstalledApps.label(context, pkg))
+    val manualRow: @Composable () -> Unit = { BasicComponent(title = "手动输入包名", onClick = { manual = true }) }
+    CouiPageScaffold(
+        title = "选择应用",
+        onBack = onBack,
+        topBarBottomContent = {
+            TopAppBarSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                expanded = searching,
+                onExpandedChange = {
+                    searching = it
+                    if (!it) query = ""
+                },
+                cancelText = "取消",
+                label = "搜索应用名或包名",
+            )
         },
-        onDismissRequest = { manual = false },
-    )
+        topBarSearchState = searchState,
+    ) { scope ->
+        Box(Modifier.fillMaxSize()) {
+            if (searchState.isContentVisible) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.couiPageScroll(scope).topAppBarSearchContent(searchState),
+                    contentPadding = scope.contentPadding,
+                ) {
+                    val all = apps
+                    if (all == null) {
+                        item(key = "loading") { PreferenceGroup { item { BasicComponent(title = "正在读取应用列表…", enabled = false) } } }
+                    } else {
+                        if (active.isNotEmpty()) appCard("recent", "通知栏里现在有通知的", active)
+                        appCard(
+                            key = "all",
+                            title = "全部应用",
+                            entries = all.take(400),
+                            footer = "只列有桌面图标的应用。没有图标的（比如系统组件）用“手动输入包名”。",
+                            head = manualRow,
+                        )
+                    }
+                }
+            }
+            if (searchState.isResultsVisible) {
+                LazyColumn(
+                    modifier = Modifier.couiPageScroll(scope).topAppBarSearchResults(searchState),
+                    contentPadding = scope.contentPadding,
+                ) {
+                    val all = apps.orEmpty()
+                    if (query.isNotBlank()) {
+                        val recent = active.filter(::matches)
+                        val rest = all.filter { entry -> matches(entry) && recent.none { it.packageName == entry.packageName } }.take(400)
+                        if (recent.isNotEmpty()) appCard("found-recent", "通知栏里现在有通知的", recent)
+                        appCard("found-all", "全部应用", rest, head = manualRow)
+                    }
+                }
+            }
+            var input by remember(manual) { mutableStateOf("") }
+            TextInputDialog(
+                show = manual,
+                title = "应用的包名",
+                summary = "比如 com.tencent.mm。",
+                value = input,
+                onValueChange = { input = it.trim() },
+                label = "com.example.app",
+                confirmText = "确定",
+                confirmEnabled = input.isNotBlank(),
+                onConfirm = {
+                    manual = false
+                    val pkg = input.trim()
+                    onPick(pkg, apps?.firstOrNull { it.packageName == pkg }?.label ?: InstalledApps.label(context, pkg))
+                },
+                onDismissRequest = { manual = false },
+            )
+        }
+    }
 }

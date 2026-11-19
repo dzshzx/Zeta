@@ -2,10 +2,19 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.ui.setup.SharedFoldersScreen
 import org.junit.Test
 
 class SharedFolderShots : ShotTest() {
+    /** 已经加了一个共享文件夹：它能不能读写要 root 才查得到，这里停在“未知”。 */
+    @Test
+    fun list() {
+        val hub = Fixtures.readyHub(app)
+        hub.settings.sharedFolders = listOf(SharedFolder("Download", "/sdcard/Download"))
+        shoot("shared-folder") { SharedFoldersScreen(hub = hub, onBack = {}) }
+    }
+
     /** COUI 对话框：共享文件夹页点“添加共享文件夹”弹出的那个。列子目录要 root，这里显示成“无法打开该目录”。 */
     @Test
     fun addDialog() {

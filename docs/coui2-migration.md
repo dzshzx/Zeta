@@ -29,13 +29,13 @@
 | `floatingAction` | `floatingActionButton = { FloatingActionButton(onClick) { Icon(…) } }` |
 | `CouiBackButton` | 骨架的 `onBack` |
 | `CouiTopAppBarIconButton(icon, desc, onClick)` | `actions` 里 `IconButton(onClick) { Icon(icon, desc) }` |
-| `CouiTopAppBarTextButton` | `actions` 里 `TextButton(text, onClick, colors = ButtonDefaults.textButtonColorsBorderless())` |
+| `CouiTopAppBarTextButton` | `actions` 里 `ToolbarTextButton`（COUI 2 顶栏的文字按钮，如「保存」「清除已结束」） |
 | `CouiPageBottomSpacer`、`rememberCouiSystemToolbarStyle`、`CouiPageDefaults`、`CouiPageColors` | 删掉，骨架自带 |
 | `couiVerticalScroll`、`rememberCouiOverscrollEffect`、`CouiOverscrollEffect` | `Modifier.verticalScroll(state).overScrollVertical()`，页面列表用 `couiPageScroll` |
 
 ### 设置分组和设置行
 
-每一行写在 `PreferenceGroup { item { … } }` 里。分隔线、行在卡片里的上下位置由 `CardListGroup` 管，不画 `HorizontalDivider`，不设 `cardListPosition`。行首图标放 `startAction`，`Modifier.size(24.dp)`，不加内边距。
+每一行写在 `PreferenceGroup { item { … } }` 里。`PreferenceGroup` 的花括号里不是 composable，`remember`、`stringResource` 这类调用要写进 `item { }` 里面。分隔线、行在卡片里的上下位置由 `CardListGroup` 管，不画 `HorizontalDivider`，不设 `cardListPosition`。行首图标放 `startAction`，`Modifier.size(24.dp)`，不加内边距。
 
 | 旧 | COUI 2 |
 | --- | --- |

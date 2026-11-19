@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,18 +25,21 @@ import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusSuccess
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiSegmentedTabs
-import com.dzshzx.zeta.ui.components.coui.CouiTextField
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.dialog.CouiDialogDefaults
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.Group
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
+import io.github.suqi8.coui.kmp.basic.SegmentButton
+import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
+import io.github.suqi8.coui.kmp.icon.extended.Refresh
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private fun stateLabel(state: McpState?): String = when (state?.state) {
     null -> "检查中…"
@@ -144,67 +145,73 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
     val reload: () -> Unit = { reloads++ }
 
-    CouiScaffoldPage(
+    CouiPage(
         title = "MCP 服务器",
         onBack = onBack,
         actions = {
-            CouiTopAppBarIconButton(icon = Icons.Rounded.Refresh, contentDescription = "重新检查", enabled = status != null || statusError != null, onClick = reload)
-            CouiTopAppBarIconButton(icon = CouiIcons.Outlined.Add, contentDescription = "添加服务器", onClick = { showAdd = true })
+            TopBarIcon(COUIIcons.Refresh, "重新检查", enabled = status != null || statusError != null, onClick = reload)
+            TopBarIcon(COUIIcons.Add, "添加服务器", onClick = { showAdd = true })
+        },
+        overlays = {
+            ConfigNoticeDialog(notice) { notice = null }
+            AddServerDialog(
+                visible = showAdd,
+                onDismiss = { showAdd = false },
+                onAdd = { draft, done ->
+                    scope.runConfig({
+                        when (draft.type) {
+                            "stdio" -> client.addStdioServer(draft.name, draft.command, draft.args, draft.env)
+                            else -> client.addHttpServer(draft.name, draft.type, draft.url, draft.token)
+                        }
+                    }) { result ->
+                        done(result.exceptionOrNull()?.problem())
+                        if (result.isSuccess) {
+                            showAdd = false
+                            reload()
+                        }
+                    }
+                },
+            )
         },
     ) {
         val list = servers
-        Group(
-            title = "服务器 · ${list?.size ?: 0}",
-            footer = "这是 Claude Code 自己的 MCP 配置（和终端里 claude mcp 看到的一样），对之后新开始的对话生效。" +
-                "新加的服务器放在用户配置里，所有项目都能用。状态来自 claude mcp list，它会把命令行启动的服务器都起一遍检查。" +
-                "Zeta 给 Claude 的手机工具是运行时另外接上的，不在这里。" +
-                (statusError?.let { "\n\n检查状态没有成功：$it" } ?: ""),
-        ) {
-            when {
-                list == null -> ConfigLoadingRow()
-                list.isEmpty() -> ConfigEmptyRow("还没有 MCP 服务器", "点右上角的 + 添加")
-                else -> list.forEach { server ->
-                    val state = status.of(server, statusError != null)
-                    CouiPreference(
-                        title = server.name,
-                        summary = typeLabel(server.type) + " · " + brief(server.target(), 60) + (if (server.scope != "user") " · " + scopeLabel(server.scope) else "") +
-                            (server.shadowedBy?.let { " · 被" + scopeLabel(it) + "里的同名服务器盖住" } ?: ""),
-                        value = stateLabel(state),
-                        valueColor = stateColor(state),
-                        onClick = { detail = server },
-                    )
+        item(key = "servers") {
+            PreferenceGroup(
+                title = "服务器 · ${list?.size ?: 0}",
+                footer = "这是 Claude Code 自己的 MCP 配置（和终端里 claude mcp 看到的一样），对之后新开始的对话生效。" +
+                    "新加的服务器放在用户配置里，所有项目都能用。状态来自 claude mcp list，它会把命令行启动的服务器都起一遍检查。" +
+                    "Zeta 给 Claude 的手机工具是运行时另外接上的，不在这里。" +
+                    (statusError?.let { "\n\n检查状态没有成功：$it" } ?: ""),
+            ) {
+                when {
+                    list == null -> item { ConfigLoadingRow() }
+                    list.isEmpty() -> item { ConfigEmptyRow("还没有 MCP 服务器", "点右上角的 + 添加") }
+                    else -> list.forEach { server ->
+                        item(key = server.scope + "/" + server.name) {
+                            val state = status.of(server, statusError != null)
+                            ArrowPreference(
+                                title = server.name,
+                                summary = typeLabel(server.type) + " · " + brief(server.target(), 60) + (if (server.scope != "user") " · " + scopeLabel(server.scope) else "") +
+                                    (server.shadowedBy?.let { " · 被" + scopeLabel(it) + "里的同名服务器盖住" } ?: ""),
+                                endActions = { StateValue(state) },
+                                onClick = { detail = server },
+                            )
+                        }
+                    }
                 }
             }
         }
         val connectors = status?.connectors.orEmpty()
         if (connectors.isNotEmpty()) {
-            Group(title = "Claude 账号的连接器", footer = "在 claude.ai 的连接器设置里管理，这里只显示状态。") {
-                connectors.forEach {
-                    CouiPreference(title = it.name.removePrefix("claude.ai "), value = stateLabel(it.state), valueColor = stateColor(it.state))
+            item(key = "connectors") {
+                PreferenceGroup(title = "Claude 账号的连接器", footer = "在 claude.ai 的连接器设置里管理，这里只显示状态。") {
+                    connectors.forEach {
+                        item(key = it.name) { BasicComponent(title = it.name.removePrefix("claude.ai "), endActions = { StateValue(it.state) }) }
+                    }
                 }
             }
         }
     }
-
-    ConfigNoticeDialog(notice) { notice = null }
-    AddServerDialog(
-        visible = showAdd,
-        onDismiss = { showAdd = false },
-        onAdd = { draft, done ->
-            scope.runConfig({
-                when (draft.type) {
-                    "stdio" -> client.addStdioServer(draft.name, draft.command, draft.args, draft.env)
-                    else -> client.addHttpServer(draft.name, draft.type, draft.url, draft.token)
-                }
-            }) { result ->
-                done(result.exceptionOrNull()?.problem())
-                if (result.isSuccess) {
-                    showAdd = false
-                    reload()
-                }
-            }
-        },
-    )
 
     val shown = rememberRetained(detail)
     ConfigSubPage(visible = detail != null, onBack = { detail = null }) {
@@ -277,58 +284,72 @@ private fun AddServerDialog(visible: Boolean, onDismiss: () -> Unit, onAdd: (Ser
             }
         }
     }
-    CouiConfirmDialog(
-        visible = visible,
+    val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to "命令")
+    ConfirmDialog(
+        show = visible,
         title = "添加服务器",
-        message = null,
+        summary = null,
         confirmText = if (working) "正在添加…" else "添加",
         confirmEnabled = !working,
-        cancelEnabled = !working,
         onConfirm = confirm,
         onDismissRequest = { if (!working) onDismiss() },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            CouiSegmentedTabs(
-                items = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to "命令"),
-                selectedKey = type,
-                onSelectedKeyChange = { type = it },
+            SegmentButton(
+                items = types.map { it.second },
+                selectedIndex = types.indexOfFirst { it.first == type }.coerceAtLeast(0),
+                onSelectedIndexChange = { index -> types.getOrNull(index)?.let { type = it.first } },
+                modifier = Modifier.fillMaxWidth(),
                 enabled = !working,
-                small = true,
+                height = SegmentButtonDefaults.HeightSmall,
+                padding = SegmentButtonDefaults.PaddingSmall,
             )
-            CouiTextField(value = name, onValueChange = { name = it }, label = "名称", placeholder = "比如 github", enabled = !working)
+            DialogTextField(value = name, onValueChange = { name = it }, title = "名称", hint = "比如 github", enabled = !working)
             if (type == "stdio") {
-                CouiTextField(value = command, onValueChange = { command = it }, label = "命令", placeholder = "比如 npx", enabled = !working)
-                CouiTextField(value = args, onValueChange = { args = it }, label = "参数（可选，空格分开）", placeholder = "-y @modelcontextprotocol/server-everything", enabled = !working)
-                CouiTextField(
+                DialogTextField(value = command, onValueChange = { command = it }, title = "命令", hint = "比如 npx", enabled = !working)
+                DialogTextField(value = args, onValueChange = { args = it }, title = "参数（可选，空格分开）", hint = "-y @modelcontextprotocol/server-everything", enabled = !working)
+                DialogTextField(
                     value = env,
                     onValueChange = { env = it },
-                    label = "环境变量（可选，每行一个 KEY=VALUE）",
+                    title = "环境变量（可选，每行一个 KEY=VALUE）",
                     singleLine = false,
                     minLines = 2,
                     maxLines = 4,
                     enabled = !working,
                 )
             } else {
-                CouiTextField(
+                DialogTextField(
                     value = url,
                     onValueChange = { url = it },
-                    label = "服务器地址",
-                    placeholder = "https://",
+                    title = "服务器地址",
+                    hint = "https://",
                     enabled = !working,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
-                CouiTextField(
+                DialogTextField(
                     value = token,
                     onValueChange = { token = it },
-                    label = "Bearer Token（可选）",
+                    title = "Bearer Token（可选）",
                     enabled = !working,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 )
             }
-            error?.let { Text(text = it, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.error) }
+            error?.let { Text(text = it, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.error) }
         }
     }
+}
+
+/** 服务器状态：放在设置行右边，连上、连不上、要登录各有颜色。 */
+@Composable
+private fun StateValue(state: McpState?) {
+    val color = stateColor(state)
+    Text(
+        text = stateLabel(state),
+        style = COUITheme.textStyles.bodyM,
+        color = if (color == Color.Unspecified) COUITheme.colorScheme.labelTertiary else color,
+        maxLines = 1,
+    )
 }
 
 /** 一个服务器的详情：配置（秘密都只显示“有没有”）、身份认证、工具清单、删除。 */
@@ -344,7 +365,6 @@ private fun McpServerDetail(
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
     val cwd = hub.env?.defaultCwd ?: "/"
-    val destructive = CouiDialogDefaults.themeColors().destructive
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loadingTools by remember(server) { mutableStateOf(false) }
@@ -367,120 +387,136 @@ private fun McpServerDetail(
     // 项目里的 .mcp.json 可能来自别人的仓库，不自动替它启动命令；要看工具时手动点
     LaunchedEffect(server) { if (server.scope != "project" && !server.oauth) loadTools() }
 
-    CouiScaffoldPage(
+    CouiPage(
         title = server.name,
         onBack = onBack,
-        actions = {
-            CouiTopAppBarIconButton(icon = Icons.Rounded.Refresh, contentDescription = "刷新工具", enabled = !loadingTools, onClick = ::loadTools)
+        actions = { TopBarIcon(COUIIcons.Refresh, "刷新工具", enabled = !loadingTools, onClick = ::loadTools) },
+        overlays = {
+            ConfigNoticeDialog(notice) { notice = null }
+            ConfirmDialog(
+                show = showToken,
+                title = "身份认证",
+                summary = "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。",
+                confirmText = "保存",
+                onConfirm = {
+                    showToken = false
+                    working = true
+                    val value = token
+                    token = ""
+                    scope.runConfig({ client.setMcpToken(server, cwd, value) }) { result ->
+                        working = false
+                        result.onSuccess {
+                            auth = value.isNotBlank() to value.isNotBlank()
+                            onChanged()
+                            loadTools()
+                        }.onFailure { notice = ConfigNotice("没有改成", it.problem()) }
+                    }
+                },
+                onDismissRequest = {
+                    token = ""
+                    showToken = false
+                },
+            ) {
+                DialogTextField(
+                    value = token,
+                    onValueChange = { token = it },
+                    hint = "Bearer Token",
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+            }
+            ConfirmDialog(
+                show = confirmDelete,
+                title = "删除服务器",
+                summary = "删除 ${server.name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。",
+                confirmText = "删除",
+                destructive = true,
+                onConfirm = {
+                    confirmDelete = false
+                    working = true
+                    scope.runConfig({ client.removeMcp(server, cwd) }) { result ->
+                        working = false
+                        result.onSuccess { onRemoved() }.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                    }
+                },
+                onDismissRequest = { confirmDelete = false },
+            )
         },
     ) {
-        Group(title = "服务器") {
-            CouiPreference(title = "状态", summary = state?.issue?.ifBlank { null }, value = stateLabel(state), valueColor = stateColor(state))
-            CouiPreference(title = "范围", value = scopeLabel(server.scope))
-            CouiPreference(title = "类型", value = typeLabel(server.type))
-            if (server.type == "stdio") {
-                CouiPreference(title = "命令", summary = server.target())
-                if (server.envKeys.isNotEmpty()) CouiPreference(title = "环境变量", summary = server.envKeys.joinToString("、"), value = "值已隐藏")
-            } else {
-                CouiPreference(title = "地址", summary = server.url)
-                if (server.headerKeys.isNotEmpty()) CouiPreference(title = "其他请求头", summary = server.headerKeys.joinToString("、"), value = "值已隐藏")
+        item(key = "server") {
+            PreferenceGroup(title = "服务器") {
+                item { BasicComponent(title = "状态", summary = state?.issue?.ifBlank { null }, endActions = { StateValue(state) }) }
+                item { BasicComponent(title = "范围", endActions = { PreferenceValue(scopeLabel(server.scope)) }) }
+                item { BasicComponent(title = "类型", endActions = { PreferenceValue(typeLabel(server.type)) }) }
+                if (server.type == "stdio") {
+                    item { BasicComponent(title = "命令", summary = server.target()) }
+                    if (server.envKeys.isNotEmpty()) {
+                        item { BasicComponent(title = "环境变量", summary = server.envKeys.joinToString("、"), endActions = { PreferenceValue("值已隐藏") }) }
+                    }
+                } else {
+                    item { BasicComponent(title = "地址", summary = server.url) }
+                    if (server.headerKeys.isNotEmpty()) {
+                        item { BasicComponent(title = "其他请求头", summary = server.headerKeys.joinToString("、"), endActions = { PreferenceValue("值已隐藏") }) }
+                    }
+                }
             }
         }
         if (server.type != "stdio") {
-            Group(title = "身份认证") {
-                CouiPreference(
-                    title = "Bearer Token",
-                    summary = when {
-                        auth.first -> "已配置 Bearer Token"
-                        auth.second -> "已配置 Authorization 请求头"
-                        server.oauth -> "用 OAuth 登录：在终端里运行 claude，用 /mcp 登录"
-                        else -> "未配置身份认证"
-                    } + if (tokenEditable) "" else "（这个范围的配置请在项目里修改）",
-                    enabled = tokenEditable && !working,
-                    onClick = if (tokenEditable) ({
-                        token = ""
-                        showToken = true
-                    }) else null,
-                )
+            item(key = "auth") {
+                PreferenceGroup(title = "身份认证") {
+                    item {
+                        BasicComponent(
+                            title = "Bearer Token",
+                            summary = when {
+                                auth.first -> "已配置 Bearer Token"
+                                auth.second -> "已配置 Authorization 请求头"
+                                server.oauth -> "用 OAuth 登录：在终端里运行 claude，用 /mcp 登录"
+                                else -> "未配置身份认证"
+                            } + if (tokenEditable) "" else "（这个范围的配置请在项目里修改）",
+                            enabled = tokenEditable && !working,
+                            onClick = if (tokenEditable) ({
+                                token = ""
+                                showToken = true
+                            }) else null,
+                        )
+                    }
+                }
             }
         }
-        Group(
-            title = tools?.let { "工具 · ${it.size}" } ?: "工具",
-            footer = "Zeta 直接按 MCP 协议连上去取工具清单，和 Claude Code 自己连接时看到的一样。需要 OAuth 登录的服务器这里取不到。",
-        ) {
-            val list = tools
-            when {
-                loadingTools -> ConfigLoadingRow("正在连接…")
-                toolsError != null -> CouiPreference(title = "取不到工具清单", summary = toolsError, showChevron = false, onClick = ::loadTools)
-                list == null -> CouiPreference(
-                    title = "列出工具",
-                    summary = if (server.oauth) "这个服务器用 OAuth 登录，Zeta 取不到它的工具" else "连接这个服务器，看看它提供哪些工具",
-                    enabled = !server.oauth,
-                    onClick = ::loadTools,
-                )
-                list.isEmpty() -> ConfigEmptyRow("没有工具")
-                else -> list.forEach { CouiPreference(title = it.name, summary = brief(it.description).ifBlank { null }) }
+        item(key = "tools") {
+            PreferenceGroup(
+                title = tools?.let { "工具 · ${it.size}" } ?: "工具",
+                footer = "Zeta 直接按 MCP 协议连上去取工具清单，和 Claude Code 自己连接时看到的一样。需要 OAuth 登录的服务器这里取不到。",
+            ) {
+                val list = tools
+                when {
+                    loadingTools -> item { ConfigLoadingRow("正在连接…") }
+                    toolsError != null -> item { BasicComponent(title = "取不到工具清单", summary = toolsError, onClick = ::loadTools) }
+                    list == null -> item {
+                        BasicComponent(
+                            title = "列出工具",
+                            summary = if (server.oauth) "这个服务器用 OAuth 登录，Zeta 取不到它的工具" else "连接这个服务器，看看它提供哪些工具",
+                            enabled = !server.oauth,
+                            onClick = ::loadTools,
+                        )
+                    }
+                    list.isEmpty() -> item { ConfigEmptyRow("没有工具") }
+                    else -> list.forEach { tool -> item(key = tool.name) { BasicComponent(title = tool.name, summary = brief(tool.description).ifBlank { null }) } }
+                }
             }
         }
-        Group {
-            CouiPreference(
-                title = "删除服务器",
-                titleColor = destructive,
-                summary = "从 Claude Code 的配置里移除（claude mcp remove）",
-                enabled = !working,
-                showChevron = false,
-                onClick = { confirmDelete = true },
-            )
+        item(key = "delete") {
+            PreferenceGroup {
+                item {
+                    BasicComponent(
+                        title = "删除服务器",
+                        titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                        summary = "从 Claude Code 的配置里移除（claude mcp remove）",
+                        enabled = !working,
+                        onClick = { confirmDelete = true },
+                    )
+                }
+            }
         }
     }
-
-    ConfigNoticeDialog(notice) { notice = null }
-    CouiConfirmDialog(
-        visible = showToken,
-        title = "身份认证",
-        message = "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。",
-        confirmText = "保存",
-        onConfirm = {
-            showToken = false
-            working = true
-            val value = token
-            token = ""
-            scope.runConfig({ client.setMcpToken(server, cwd, value) }) { result ->
-                working = false
-                result.onSuccess {
-                    auth = value.isNotBlank() to value.isNotBlank()
-                    onChanged()
-                    loadTools()
-                }.onFailure { notice = ConfigNotice("没有改成", it.problem()) }
-            }
-        },
-        onDismissRequest = {
-            token = ""
-            showToken = false
-        },
-    ) {
-        CouiTextField(
-            value = token,
-            onValueChange = { token = it },
-            label = "Bearer Token",
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        )
-    }
-    CouiConfirmDialog(
-        visible = confirmDelete,
-        title = "删除服务器",
-        message = "删除 ${server.name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。",
-        confirmText = "删除",
-        destructive = true,
-        onConfirm = {
-            confirmDelete = false
-            working = true
-            scope.runConfig({ client.removeMcp(server, cwd) }) { result ->
-                working = false
-                result.onSuccess { onRemoved() }.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
-            }
-        },
-        onDismissRequest = { confirmDelete = false },
-    )
 }

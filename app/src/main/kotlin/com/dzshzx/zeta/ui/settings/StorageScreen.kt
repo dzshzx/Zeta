@@ -3,8 +3,6 @@ package com.dzshzx.zeta.ui.settings
 import android.content.Context
 import android.webkit.WebView
 import android.widget.Toast
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,16 +26,20 @@ import com.dzshzx.zeta.core.StorageGroup
 import com.dzshzx.zeta.core.StorageKind
 import com.dzshzx.zeta.core.StorageReport
 import com.dzshzx.zeta.core.StorageUsage
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.layout.Group
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Refresh
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,16 +48,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 
 /** 设置页“环境”分组里的入口：顺带显示手机剩余空间。 */
 @Composable
 internal fun StorageEntry(onClick: () -> Unit) {
     val free = remember { Storage.phoneSpace().first }
-    CouiPreference(
+    ArrowPreference(
         title = "存储",
         summary = "各项占用的空间，清理缓存和已删会话的残留",
-        value = if (free > 0) "剩余 " + Storage.size(free) else null,
+        endActions = { if (free > 0) PreferenceValue("剩余 " + Storage.size(free)) },
         onClick = onClick,
     )
 }
@@ -166,8 +167,8 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
         },
         onDismiss = { view = view.copy(confirming = null) },
         onOpenProject = { project = it },
+        overlays = { ConfigNoticeDialog(notice) { notice = null } },
     )
-    ConfigNoticeDialog(notice) { notice = null }
 
     val shownProject = rememberRetained(project)
     ConfigSubPage(visible = project != null, onBack = { project = null }) {
@@ -184,7 +185,7 @@ private suspend fun scanAppCache(context: Context): StorageUsage = withContext(D
     StorageUsage(total, freeable + web, if (freeable + web > 0) 1 else 0)
 }
 
-/** 存储页本身（不取数据，截图测试直接给它数据）。 */
+/** 存储页本身（不取数据，截图测试直接给它数据）。[overlays] 是页面上另外的对话框。 */
 @Composable
 internal fun StoragePage(
     view: StorageView,
@@ -194,99 +195,121 @@ internal fun StoragePage(
     onConfirm: (StorageKind) -> Unit,
     onDismiss: () -> Unit,
     onOpenProject: (ProjectUsage) -> Unit,
+    overlays: @Composable () -> Unit = {},
 ) {
     @Composable
     fun KindRow(kind: StorageKind) {
         val usage = view.usageOf(kind)
         val unavailable = kind.inLinux && !view.ready
-        CouiPreference(
+        val value = usage?.takeUnless { it.failed }?.let { Storage.size(it.bytes) }
+        BasicComponent(
             title = kind.title,
             summary = if (unavailable) "Linux 环境准备好以后才能看" else Storage.summary(kind, usage),
-            value = usage?.takeUnless { it.failed }?.let { Storage.size(it.bytes) },
+            endActions = {
+                if (view.cleaning == kind) InfiniteProgressIndicator(size = 20.dp)
+                if (value != null) PreferenceValue(value)
+            },
             enabled = !unavailable && usage != null && view.cleaning == null,
-            trailing = if (view.cleaning == kind) ({ InfiniteProgressIndicator(size = 20.dp) }) else null,
-            showChevron = false,
             onClick = { onAsk(kind) },
         )
     }
 
     val linuxName = AppVariant.current.linuxName
     val report = view.report
-    CouiScaffoldPage(
+    val shown = rememberRetained(view.confirming)
+    CouiPage(
         title = "存储",
         onBack = onBack,
         actions = {
-            CouiTopAppBarIconButton(icon = Icons.Rounded.Refresh, contentDescription = "重新统计", enabled = !view.scanning && view.cleaning == null, onClick = onRefresh)
+            TopBarIconAction(COUIIcons.Refresh, "重新统计", enabled = !view.scanning && view.cleaning == null, onClick = onRefresh)
+        },
+        overlays = {
+            ConfirmDialog(
+                show = view.confirming != null,
+                title = shown?.let { "清理${it.title}？" },
+                summary = shown?.let { kind -> view.usageOf(kind)?.let { Storage.confirmMessage(kind, it) } },
+                confirmText = "清理",
+                destructive = true,
+                onConfirm = { view.confirming?.let(onConfirm) },
+                onDismissRequest = onDismiss,
+            )
+            overlays()
         },
     ) {
-        Group(title = "Zeta", footer = "附件和后台对话的输出在 Linux 环境的 ~/.cache/$linuxName 下，只管这一个包自己的目录。") {
-            StorageGroup.Zeta.kinds().forEach { KindRow(it) }
+        item(key = "zeta") {
+            PreferenceGroup(title = "Zeta", footer = "附件和后台对话的输出在 Linux 环境的 ~/.cache/$linuxName 下，只管这一个包自己的目录。") {
+                StorageGroup.Zeta.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
+            }
         }
-        Group(
-            title = "会话记录" + (report?.let { " · " + Storage.size(it.projectBytes) } ?: ""),
-            footer = "~/.claude/projects，按项目分。点进项目看各会话的占用，点一个会话会回到侧栏并定位到它；删会话在侧栏里照常删（长按或多选）。",
-        ) {
-            when {
-                !view.ready -> CouiPreference(title = "Linux 环境准备好以后才能看", enabled = false, showChevron = false)
-                report == null -> CouiPreference(
-                    title = if (view.scanFailed) "没统计成" else "正在统计…",
-                    showChevron = false,
-                    trailing = if (view.scanFailed) null else ({ InfiniteProgressIndicator(size = 20.dp) }),
-                )
-                report.projects.isEmpty() -> CouiPreference(title = "还没有会话记录", enabled = false, showChevron = false)
-                else -> report.projects.forEach { item ->
-                    CouiPreference(
-                        title = item.label,
-                        summary = "${item.sessions} 个会话",
-                        value = Storage.size(item.bytes),
-                        onClick = { onOpenProject(item) },
+        item(key = "projects") {
+            PreferenceGroup(
+                title = "会话记录" + (report?.let { " · " + Storage.size(it.projectBytes) } ?: ""),
+                footer = "~/.claude/projects，按项目分。点进项目看各会话的占用，点一个会话会回到侧栏并定位到它；删会话在侧栏里照常删（长按或多选）。",
+            ) {
+                when {
+                    !view.ready -> item { BasicComponent(title = "Linux 环境准备好以后才能看", enabled = false) }
+                    report == null -> item {
+                        BasicComponent(
+                            title = if (view.scanFailed) "没统计成" else "正在统计…",
+                            endActions = if (view.scanFailed) null else ({ InfiniteProgressIndicator(size = 20.dp) }),
+                        )
+                    }
+                    report.projects.isEmpty() -> item { BasicComponent(title = "还没有会话记录", enabled = false) }
+                    else -> report.projects.forEach { entry ->
+                        item(key = entry.dir) {
+                            ArrowPreference(
+                                title = entry.label,
+                                summary = "${entry.sessions} 个会话",
+                                endActions = { PreferenceValue(Storage.size(entry.bytes)) },
+                                onClick = { onOpenProject(entry) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "claude") {
+            PreferenceGroup(
+                title = "Claude Code",
+                footer = "Claude Code 自己也会在启动时删掉超过“自动清理期限”没动过的会话记录和上面这些文件（~/.claude/settings.json 的 cleanupPeriodDays）。",
+            ) {
+                StorageGroup.Claude.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
+                item(key = "cleanup") {
+                    val value = if (view.ready && report != null) Storage.cleanupText(report.cleanupPeriodDays) else null
+                    BasicComponent(title = "自动清理期限", summary = "cleanupPeriodDays", endActions = { if (value != null) PreferenceValue(value) })
+                }
+            }
+        }
+        item(key = "debian") {
+            PreferenceGroup(title = "Debian") {
+                StorageGroup.Debian.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
+                item(key = "rootfs") {
+                    BasicComponent(
+                        title = "Debian 环境",
+                        summary = "整个 rootfs 占的空间",
+                        endActions = {
+                            PreferenceValue(
+                                when {
+                                    view.rootfs != null -> Storage.size(view.rootfs)
+                                    !view.ready || view.rootfsDone -> "—"
+                                    else -> "统计中"
+                                },
+                            )
+                        },
+                    )
+                }
+                item(key = "phone") {
+                    BasicComponent(
+                        title = "手机剩余空间",
+                        summary = "内部存储（Debian 环境也在这里）",
+                        endActions = {
+                            PreferenceValue(if (view.phone.second > 0) Storage.size(view.phone.first) + " / " + Storage.size(view.phone.second) else "—")
+                        },
                     )
                 }
             }
         }
-        Group(
-            title = "Claude Code",
-            footer = "Claude Code 自己也会在启动时删掉超过“自动清理期限”没动过的会话记录和上面这些文件（~/.claude/settings.json 的 cleanupPeriodDays）。",
-        ) {
-            StorageGroup.Claude.kinds().forEach { KindRow(it) }
-            CouiPreference(
-                title = "自动清理期限",
-                summary = "cleanupPeriodDays",
-                value = if (view.ready && report != null) Storage.cleanupText(report.cleanupPeriodDays) else null,
-                showChevron = false,
-            )
-        }
-        Group(title = "Debian") {
-            StorageGroup.Debian.kinds().forEach { KindRow(it) }
-            CouiPreference(
-                title = "Debian 环境",
-                summary = "整个 rootfs 占的空间",
-                value = when {
-                    view.rootfs != null -> Storage.size(view.rootfs)
-                    !view.ready || view.rootfsDone -> "—"
-                    else -> "统计中"
-                },
-                showChevron = false,
-            )
-            CouiPreference(
-                title = "手机剩余空间",
-                summary = "内部存储（Debian 环境也在这里）",
-                value = if (view.phone.second > 0) Storage.size(view.phone.first) + " / " + Storage.size(view.phone.second) else "—",
-                showChevron = false,
-            )
-        }
     }
-
-    val shown = rememberRetained(view.confirming)
-    CouiConfirmDialog(
-        visible = view.confirming != null,
-        title = shown?.let { "清理${it.title}？" },
-        message = shown?.let { kind -> view.usageOf(kind)?.let { Storage.confirmMessage(kind, it) } },
-        confirmText = "清理",
-        destructive = true,
-        onConfirm = { view.confirming?.let(onConfirm) },
-        onDismissRequest = onDismiss,
-    )
 }
 
 private fun StorageGroup.kinds(): List<StorageKind> = StorageKind.entries.filter { it.group == this }
@@ -350,35 +373,42 @@ internal fun ProjectSessionsPage(
     val dateFormat = remember { SimpleDateFormat("M月d日 HH:mm", Locale.CHINA) }
     // 大标题放不下整条路径：标题用最后一段，整条路径写在分组标题里
     val path = project.label
-    CouiScaffoldPage(title = path.trimEnd('/').substringAfterLast('/').ifBlank { path }, onBack = onBack) {
-        Group(
-            title = "$path · ${project.sessions} 个会话 · ${Storage.size(project.bytes)}",
-            footer = "大小包括会话记录和它的同名目录（工具结果、子代理记录等）。点一个会话回到侧栏并定位到它，要删就在侧栏里长按它，或用多选批量删除；进行中的会话删不了。",
-        ) {
-            when {
-                failed -> CouiPreference(title = "没统计成", enabled = false, showChevron = false)
-                sessions == null -> CouiPreference(title = "正在统计…", showChevron = false, trailing = { InfiniteProgressIndicator(size = 20.dp) })
-                sessions.isEmpty() -> CouiPreference(title = "这个项目里没有会话记录", enabled = false, showChevron = false)
-                else -> sessions.forEach { usage ->
-                    val summary = summaries[usage.id]
-                    CouiPreference(
-                        title = summary?.let { it.title.ifBlank { it.preview.take(40) } } ?: "（没有对话内容）",
-                        summary = listOfNotNull(
+    CouiPage(title = path.trimEnd('/').substringAfterLast('/').ifBlank { path }, onBack = onBack) {
+        item(key = "sessions") {
+            PreferenceGroup(
+                title = "$path · ${project.sessions} 个会话 · ${Storage.size(project.bytes)}",
+                footer = "大小包括会话记录和它的同名目录（工具结果、子代理记录等）。点一个会话回到侧栏并定位到它，要删就在侧栏里长按它，或用多选批量删除；进行中的会话删不了。",
+            ) {
+                when {
+                    failed -> item { BasicComponent(title = "没统计成", enabled = false) }
+                    sessions == null -> item { BasicComponent(title = "正在统计…", endActions = { InfiniteProgressIndicator(size = 20.dp) }) }
+                    sessions.isEmpty() -> item { BasicComponent(title = "这个项目里没有会话记录", enabled = false) }
+                    else -> sessions.forEach { usage ->
+                        val summary = summaries[usage.id]
+                        val title = summary?.let { it.title.ifBlank { it.preview.take(40) } } ?: "（没有对话内容）"
+                        val detail = listOfNotNull(
                             dateFormat.format(Date(usage.updated)),
                             if (usage.live || summary?.external == true) "进行中" else null,
                             if (summary?.archived == true) "已归档" else null,
                             if (summary == null) usage.id.take(8) else null,
-                        ).joinToString(" · "),
-                        value = Storage.size(usage.bytes),
-                        showChevron = summary != null,
-                        onClick = { onOpen(usage) },
-                    )
+                        ).joinToString(" · ")
+                        item(key = usage.id) {
+                            // 侧栏里有的会话点了定位过去（带箭头）；没有的点了只提示一句
+                            if (summary != null) {
+                                ArrowPreference(title = title, summary = detail, endActions = { PreferenceValue(Storage.size(usage.bytes)) }, onClick = { onOpen(usage) })
+                            } else {
+                                BasicComponent(title = title, summary = detail, endActions = { PreferenceValue(Storage.size(usage.bytes)) }, onClick = { onOpen(usage) })
+                            }
+                        }
+                    }
                 }
             }
         }
         if (rest > 0) {
-            Group(footer = "项目目录里不属于某个会话的东西，比如自动记忆、已删会话留下的同名目录。") {
-                CouiPreference(title = "其他", value = Storage.size(rest), showChevron = false)
+            item(key = "rest") {
+                PreferenceGroup(footer = "项目目录里不属于某个会话的东西，比如自动记忆、已删会话留下的同名目录。") {
+                    item { BasicComponent(title = "其他", endActions = { PreferenceValue(Storage.size(rest)) }) }
+                }
             }
         }
     }

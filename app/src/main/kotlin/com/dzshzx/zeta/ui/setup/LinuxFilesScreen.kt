@@ -18,24 +18,21 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
@@ -65,10 +62,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
@@ -81,32 +78,36 @@ import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.coui.CouiHint
-import com.dzshzx.zeta.ui.components.coui.CouiGroupItem
-import com.dzshzx.zeta.ui.components.coui.CouiLazyScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiSettingsIcon
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.CouiPageColors
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Group
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.theme.CouiTheme
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
+import io.github.suqi8.coui.kmp.basic.CardDefaults
+import io.github.suqi8.coui.kmp.basic.CardListPosition
+import io.github.suqi8.coui.kmp.basic.DividerDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.HorizontalDivider
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.cardListPositionOf
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
+import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
+import io.github.suqi8.coui.kmp.squircle.squircleSurface
+import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Linux 环境页下面的两个子页。 */
 internal enum class LinuxFilesPage { Browser, Shared }
@@ -183,7 +184,6 @@ private fun chunks(text: String): List<String> {
 private class Previewing(val path: String, val entry: LinuxEntry)
 
 /** Linux 文件（只读）：从默认工作目录开始浏览，预览文本和图片；长按一项可以复制路径、导出到手机，右上角可以从手机导入。 */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -240,43 +240,38 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val shown = preview
-    CouiLazyScaffoldPage(
+    // 列表和预览共用一个页面骨架（顶栏标题随之变），列表状态分开记，从预览回来还在原来的位置
+    CouiPage(
         title = shown?.entry?.name ?: "Linux 文件",
         onBack = { if (preview != null) preview = null else onBack() },
         listState = if (shown != null) previewState else listState,
         actions = {
             if (shown == null) {
                 TopMenu(
-                    items = listOf(
-                        CouiMenuItem(value = 0, text = "导入文件到这里", icon = Icons.Rounded.UploadFile, enabled = !LinuxTransfers.running),
-                        CouiMenuItem(value = 1, text = "刷新", icon = Icons.Rounded.Refresh),
-                        CouiMenuItem(value = 2, text = "工作目录", icon = Icons.Rounded.FolderSpecial, dividerBefore = true),
-                        CouiMenuItem(value = 3, text = "主目录", icon = Icons.Rounded.Home),
-                        CouiMenuItem(value = 4, text = "/workspace", icon = Icons.Rounded.Workspaces),
-                        CouiMenuItem(value = 5, text = "根目录", icon = Icons.Rounded.Storage),
-                        CouiMenuItem(value = 6, text = "复制当前路径", icon = Icons.Rounded.ContentCopy, dividerBefore = true),
+                    listOf(
+                        listOf(
+                            MenuAction("导入文件到这里", Icons.Rounded.UploadFile, enabled = !LinuxTransfers.running) { runCatching { importLauncher.launch(arrayOf("*/*")) } },
+                            MenuAction("刷新", Icons.Rounded.Refresh) { reload++ },
+                        ),
+                        listOf(
+                            MenuAction("工作目录", Icons.Rounded.FolderSpecial) { path = start },
+                            MenuAction("主目录", Icons.Rounded.Home) { path = LinuxFiles.normalize(env?.home ?: "/root") },
+                            MenuAction("/workspace", Icons.Rounded.Workspaces) { path = "/workspace" },
+                            MenuAction("根目录", Icons.Rounded.Storage) { path = "/" },
+                        ),
+                        listOf(MenuAction("复制当前路径", Icons.Rounded.ContentCopy) { copyLinuxPath(context, path) }),
                     ),
-                ) {
-                    when (it) {
-                        0 -> runCatching { importLauncher.launch(arrayOf("*/*")) }
-                        1 -> reload++
-                        2 -> path = start
-                        3 -> path = LinuxFiles.normalize(env?.home ?: "/root")
-                        4 -> path = "/workspace"
-                        5 -> path = "/"
-                        else -> copyLinuxPath(context, path)
-                    }
-                }
+                )
             } else {
                 TopMenu(
-                    items = listOfNotNull(
-                        CouiMenuItem(value = 0, text = "导出到手机", icon = Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running)
-                            .takeIf { shown.entry.regular },
-                        CouiMenuItem(value = 1, text = "复制路径", icon = Icons.Rounded.ContentCopy),
+                    listOf(
+                        listOfNotNull(
+                            MenuAction("导出到手机", Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running) { export(shown.path, shown.entry) }
+                                .takeIf { shown.entry.regular },
+                            MenuAction("复制路径", Icons.Rounded.ContentCopy) { copyLinuxPath(context, shown.path) },
+                        ),
                     ),
-                ) {
-                    if (it == 0) export(shown.path, shown.entry) else copyLinuxPath(context, shown.path)
-                }
+                )
             }
         },
     ) {
@@ -309,13 +304,17 @@ private fun LazyListScope.browserItems(
 ) {
     val parent = LinuxFiles.parent(path)
     val entries = (listing as? LinuxListing.Entries)?.entries.orEmpty()
+    // 上级目录和各项连成一张卡片；项目可能很多，所以逐项放进列表，不用 CardListGroup
+    val offset = if (parent != null) 1 else 0
+    val count = offset + entries.size
     if (parent != null) {
         item(key = "..") {
-            CouiGroupItem(isFirst = true, isLast = entries.isEmpty(), hasLeadingIcon = true) {
-                CouiPreference(
+            LazyCardRow(index = 0, count = count, dividerStart = RowDividerStartWithIcon) { position ->
+                ArrowPreference(
                     title = "上级目录",
                     summary = parent,
-                    icon = { CouiSettingsIcon(Icons.Rounded.FolderOpen, CouiPageDefaults.themeColors().accent) },
+                    startAction = { RowIcon(Icons.Rounded.FolderOpen, COUITheme.colorScheme.primary) },
+                    cardListPosition = position,
                     onClick = { onNavigate(parent) },
                 )
             }
@@ -323,23 +322,24 @@ private fun LazyListScope.browserItems(
     }
     when (listing) {
         null -> item(key = "loading") { Loading() }
-        is LinuxListing.Failed -> item(key = "error") { CouiHint(listing.message, error = true) }
+        is LinuxListing.Failed -> item(key = "error") { Hint(listing.message, error = true) }
         is LinuxListing.Entries -> {
-            if (entries.isEmpty()) item(key = "empty") { CouiHint("该目录为空") }
+            if (entries.isEmpty()) item(key = "empty") { Hint("该目录为空") }
             // 名字里有非 UTF-8 字节的会被替换成同样的字符，可能重名，键里带上序号
             itemsIndexed(entries, key = { index, entry -> "e$index:" + entry.name }) { index, entry ->
                 val target = LinuxFiles.child(path, entry.name)
-                EntryRow(
-                    entry = entry,
-                    summary = entrySummary(context, entry),
-                    isFirst = index == 0 && parent == null,
-                    isLast = index == entries.lastIndex,
-                    onOpen = { onOpen(target, entry) },
-                    onCopyPath = { copyLinuxPath(context, target) },
-                    onExport = if (entry.regular) ({ onExport(target, entry) }) else null,
-                )
+                LazyCardRow(index = offset + index, count = count, dividerStart = RowDividerStartWithIcon) { position ->
+                    EntryRow(
+                        entry = entry,
+                        summary = entrySummary(context, entry),
+                        position = position,
+                        onOpen = { onOpen(target, entry) },
+                        onCopyPath = { copyLinuxPath(context, target) },
+                        onExport = if (entry.regular) ({ onExport(target, entry) }) else null,
+                    )
+                }
             }
-            if (listing.truncated) item(key = "truncated") { CouiHint("只列出了前 ${entries.size} 项（共 ${listing.total} 项）") }
+            if (listing.truncated) item(key = "truncated") { Hint("只列出了前 ${entries.size} 项（共 ${listing.total} 项）") }
         }
     }
 }
@@ -349,20 +349,20 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(top = 4.dp, bottom = 10.dp)) {
             Text(
                 text = shown.path,
-                style = MiuixTheme.textStyles.footnote1.copy(fontFamily = EtaMonospace),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace),
+                color = COUITheme.colorScheme.labelSecondary,
             )
             Text(
                 text = entrySummary(context, shown.entry),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyS,
+                color = COUITheme.colorScheme.labelSecondary,
             )
         }
     }
     if (LinuxFiles.isImage(shown.entry.name)) {
         item(key = "image") {
             if (shown.entry.size > LinuxFiles.MAX_PREVIEW_IMAGE) {
-                CouiHint("图片太大，无法预览，可以导出到手机查看")
+                Hint("图片太大，无法预览，可以导出到手机查看")
             } else {
                 // 与聊天里的图片同一套载入和缓存，点一下全屏查看
                 ChatImage(FileImage(shown.path), modifier = Modifier.padding(horizontal = 16.dp))
@@ -372,52 +372,76 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
     }
     when (content) {
         null -> item(key = "loading") { Loading() }
-        is LinuxPreview.Failed -> item(key = "error") { CouiHint(content.message, error = true) }
-        is LinuxPreview.Binary -> item(key = "binary") { CouiHint("二进制文件，无法预览，可以导出到手机查看") }
+        is LinuxPreview.Failed -> item(key = "error") { Hint(content.message, error = true) }
+        is LinuxPreview.Binary -> item(key = "binary") { Hint("二进制文件，无法预览，可以导出到手机查看") }
         is LinuxPreview.Text -> {
-            if (content.truncated) item(key = "truncated") { CouiHint("内容较大，只显示开头 ${LinuxFiles.PREVIEW_BYTES / 1024} KB") }
+            if (content.truncated) item(key = "truncated") { Hint("内容较大，只显示开头 ${LinuxFiles.PREVIEW_BYTES / 1024} KB") }
             val parts = chunks(content.text)
-            if (parts.isEmpty()) item(key = "blank") { CouiHint("空文件") }
+            if (parts.isEmpty()) item(key = "blank") { Hint("空文件") }
             itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
-                TextSlice(part, isFirst = index == 0, isLast = index == parts.lastIndex)
+                // 几段连成一张卡片，中间不画分隔线
+                LazyCardRow(index = index, count = parts.size, dividerStart = null) {
+                    TextSlice(part, isFirst = index == 0, isLast = index == parts.lastIndex)
+                }
             }
         }
     }
 }
 
-/** 预览文本的一段。几段连成一张卡片，中间不画分隔线。 */
+/** 预览文本的一段。 */
 @Composable
 private fun TextSlice(text: String, isFirst: Boolean, isLast: Boolean) {
-    val shape = when {
-        isFirst && isLast -> RoundedCornerShape(24.dp)
-        isFirst -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-        isLast -> RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
-        else -> RoundedCornerShape(0.dp)
-    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CouiPageDefaults.horizontalMargin)
-            .padding(bottom = if (isLast) CouiPageDefaults.groupSpacing else 0.dp)
-            .clip(shape)
-            .background(CouiPageDefaults.themeColors().card)
             .padding(horizontal = 16.dp)
             .padding(top = if (isFirst) 14.dp else 0.dp, bottom = if (isLast) 14.dp else 0.dp),
     ) {
         SelectionContainer {
             Text(
                 text = text,
-                style = MiuixTheme.textStyles.footnote1.copy(fontFamily = EtaMonospace, fontSize = 12.sp, lineHeight = 17.sp),
-                color = MiuixTheme.colorScheme.onSurface,
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 12.sp, lineHeight = 17.sp),
+                color = COUITheme.colorScheme.labelPrimary,
             )
         }
+    }
+}
+
+/** 分隔线从标题开始，和 CardListGroup 画的一样：行的左内边距 16dp、行首图标 24dp、图标和标题的间距。 */
+private val RowDividerStartWithIcon: Dp = 16.dp + 24.dp + BasicComponentDefaults.StartActionSpacing
+
+/**
+ * 一张卡片里的一行，卡片跨好几个列表项：CardListGroup 只能放在一个列表项里，几百项的目录要逐项放进列表，
+ * 卡片的圆角、行在卡片里的位置和行间分隔线就按序号自己算（照 COUI 示例 PullToRefreshDemo 的写法）。
+ * [dividerStart] 为 null 时不画分隔线。
+ */
+@Composable
+private fun LazyCardRow(index: Int, count: Int, dividerStart: Dp?, content: @Composable (CardListPosition) -> Unit) {
+    val isFirst = index == 0
+    val isLast = index == count - 1
+    val radius = CardDefaults.CornerRadius
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = if (isLast) 16.dp else 0.dp)
+            .squircleSurface(
+                color = COUITheme.colorScheme.cardBackground,
+                topStart = if (isFirst) radius else 0.dp,
+                topEnd = if (isFirst) radius else 0.dp,
+                bottomEnd = if (isLast) radius else 0.dp,
+                bottomStart = if (isLast) radius else 0.dp,
+                weight = COUIRoundCorner.Normal.Weight,
+            ),
+    ) {
+        content(cardListPositionOf(index, count))
+        if (dividerStart != null && !isLast) HorizontalDivider(Modifier.padding(start = dividerStart, end = DividerDefaults.CardInset))
     }
 }
 
 /** 当前路径，一段一段可以点回去。 */
 @Composable
 private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
-    val colors = CouiPageDefaults.themeColors()
     val scroll = rememberScrollState()
     // 路径很长时让最后一段露出来
     LaunchedEffect(path, scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
@@ -426,44 +450,43 @@ private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().horizontalScroll(scroll).padding(horizontal = 24.dp).padding(bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Crumb("/", current = segments.isEmpty(), color = colors) { onNavigate("/") }
+        Crumb("/", current = segments.isEmpty()) { onNavigate("/") }
         segments.forEachIndexed { index, segment ->
-            if (index > 0) Text("/", style = MiuixTheme.textStyles.body2.copy(fontFamily = EtaMonospace), color = colors.summary)
+            if (index > 0) Text("/", style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace), color = COUITheme.colorScheme.labelSecondary)
             val target = "/" + segments.take(index + 1).joinToString("/")
-            Crumb(segment, current = index == segments.lastIndex, color = colors) { onNavigate(target) }
+            Crumb(segment, current = index == segments.lastIndex) { onNavigate(target) }
         }
     }
 }
 
 @Composable
-private fun Crumb(label: String, current: Boolean, color: CouiPageColors, onClick: () -> Unit) {
+private fun Crumb(label: String, current: Boolean, onClick: () -> Unit) {
     Text(
         text = label,
-        style = MiuixTheme.textStyles.body2.copy(fontFamily = EtaMonospace),
-        color = if (current) color.title else color.accent,
+        style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),
+        color = if (current) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.primary,
         maxLines = 1,
-        modifier = Modifier.clip(CouiCapsuleShape).clickable(enabled = !current, onClick = onClick).padding(horizontal = 6.dp, vertical = 4.dp),
+        modifier = Modifier.clip(CircleShape).clickable(enabled = !current, onClick = onClick).padding(horizontal = 6.dp, vertical = 4.dp),
     )
 }
 
+/** 行首的图标。 */
+@Composable
+private fun RowIcon(icon: ImageVector, tint: Color) {
+    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+}
+
 /** 一项文件或目录：点一下打开，长按弹出菜单。 */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EntryRow(
     entry: LinuxEntry,
     summary: String,
-    isFirst: Boolean,
-    isLast: Boolean,
+    position: CardListPosition,
     onOpen: () -> Unit,
     onCopyPath: () -> Unit,
     onExport: (() -> Unit)?,
 ) {
-    val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
-    val anchor = rememberCouiMenuAnchor()
-    val haptic = LocalHapticFeedback.current
-    val source = remember { MutableInteractionSource() }
-    var menu by remember { mutableStateOf(false) }
+    val colors = COUITheme.colorScheme
     val icon = when {
         entry.directory -> Icons.Rounded.Folder
         entry.broken -> Icons.Rounded.LinkOff
@@ -471,69 +494,39 @@ private fun EntryRow(
         LinuxFiles.isImage(entry.name) -> Icons.Rounded.Image
         else -> Icons.AutoMirrored.Rounded.InsertDriveFile
     }
-    val items = listOfNotNull(
-        CouiMenuItem(value = 0, text = "复制路径", icon = Icons.Rounded.ContentCopy),
-        onExport?.let { CouiMenuItem(value = 1, text = "导出到手机", icon = Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running) },
+    val actions = listOfNotNull(
+        MenuAction("复制路径", Icons.Rounded.ContentCopy, onClick = onCopyPath),
+        onExport?.let { MenuAction("导出到手机", Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running, onClick = it) },
     )
-    CouiGroupItem(isFirst = isFirst, isLast = isLast, hasLeadingIcon = true) {
-        Box {
-            CouiPreference(
-                modifier = Modifier
-                    .couiMenuAnchor(anchor)
-                    .couiButtonFeedback(dark, source, true, list = true, hoverLocked = menu)
-                    .combinedClickable(
-                        interactionSource = source,
-                        indication = null,
-                        onClick = onOpen,
-                        onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            anchor.open { menu = true }
-                        },
-                    ),
-                title = entry.name,
-                summary = summary.ifEmpty { null },
-                icon = { CouiSettingsIcon(icon, if (entry.directory) colors.accent else colors.summary) },
-                showChevron = entry.directory,
-            )
-            Menu(
-                expanded = menu,
-                onDismissRequest = { menu = false },
-                items = items,
-                onItemClick = {
-                    menu = false
-                    if (it.value == 0) onCopyPath() else onExport?.invoke()
-                },
-                anchor = anchor,
-            )
+    val startAction: @Composable () -> Unit = { RowIcon(icon, if (entry.directory) colors.primary else colors.labelSecondary) }
+    OverlayContextMenu(entries = listOf(DropdownEntry(items = actions.map { it.item() }))) {
+        // 目录点进去是下一层，带箭头；文件点开是预览
+        if (entry.directory) {
+            ArrowPreference(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, cardListPosition = position, onClick = onOpen)
+        } else {
+            BasicComponent(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, cardListPosition = position, onClick = onOpen)
         }
     }
 }
 
-/** 顶栏右边的“更多”菜单。 */
+/** 菜单里的一项：图标、文字、点了做什么。 */
+private class MenuAction(val text: String, val icon: ImageVector, val enabled: Boolean = true, val onClick: () -> Unit) {
+    fun item(): DropdownItem = DropdownItem(
+        text = text,
+        enabled = enabled,
+        onClick = onClick,
+        icon = { modifier -> Icon(imageVector = icon, contentDescription = null, modifier = modifier, tint = COUITheme.colorScheme.labelPrimary) },
+    )
+}
+
+/** 顶栏右边的“更多”菜单，[groups] 每组之间有分隔线。 */
 @Composable
-private fun TopMenu(items: List<CouiMenuItem<Int>>, onSelect: (Int) -> Unit) {
-    val dark = CouiTheme.isDark
-    val anchor = rememberCouiMenuAnchor()
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        CouiTopAppBarIconButton(
-            icon = CouiIcons.Outlined.More,
-            contentDescription = "更多",
-            modifier = Modifier.couiMenuAnchor(anchor),
-            dark = dark,
-            colors = CouiPageDefaults.themeColors(dark),
-            onClick = { anchor.open { expanded = true } },
-        )
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = items,
-            onItemClick = {
-                expanded = false
-                onSelect(it.value)
-            },
-            anchor = anchor,
-        )
+private fun TopMenu(groups: List<List<MenuAction>>) {
+    OverlayIconDropdownMenu(
+        entries = groups.filter { it.isNotEmpty() }.map { group -> DropdownEntry(items = group.map { it.item() }) },
+        collapseOnSelection = true,
+    ) {
+        Icon(imageVector = COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
     }
 }
 
@@ -541,28 +534,37 @@ private fun TopMenu(items: List<CouiMenuItem<Int>>, onSelect: (Int) -> Unit) {
 @Composable
 private fun TransferGroup(state: TransferState) {
     val context = LocalContext.current
-    Group(title = if (state.export) "导出到手机" else "从手机导入") {
+    PreferenceGroup(title = if (state.export) "导出到手机" else "从手机导入") {
         if (state.running) {
-            val fraction = state.total?.takeIf { it > 0 }?.let { (state.done.toFloat() / it).coerceIn(0f, 1f) }
-            CouiPreference(
-                title = (if (state.export) "正在导出 " else "正在导入 ") + state.name.ifEmpty { "…" } +
-                    if (state.count > 1) "（${state.index}/${state.count}）" else "",
-                summary = Formatter.formatShortFileSize(context, state.done) +
-                    (state.total?.let { " / " + Formatter.formatShortFileSize(context, it) } ?: ""),
-                value = fraction?.let { "${(it * 100).toInt()}%" },
-            )
-            LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp))
-            CouiPreference(title = "取消", showChevron = false, onClick = LinuxTransfers::cancel)
+            item {
+                val fraction = state.total?.takeIf { it > 0 }?.let { (state.done.toFloat() / it).coerceIn(0f, 1f) }
+                BasicComponent(
+                    title = (if (state.export) "正在导出 " else "正在导入 ") + state.name.ifEmpty { "…" } +
+                        if (state.count > 1) "（${state.index}/${state.count}）" else "",
+                    summary = Formatter.formatShortFileSize(context, state.done) +
+                        (state.total?.let { " / " + Formatter.formatShortFileSize(context, it) } ?: ""),
+                    endActions = fraction?.let { f -> { PreferenceValue("${(f * 100).toInt()}%") } },
+                    bottomAction = { LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth()) },
+                )
+            }
+            item { BasicComponent(title = "取消", onClick = LinuxTransfers::cancel) }
         } else {
-            CouiPreference(
-                title = state.message.orEmpty(),
-                titleColor = if (state.ok) Color.Unspecified else MiuixTheme.colorScheme.error,
-                summary = "点按收起",
-                showChevron = false,
-                onClick = LinuxTransfers::dismiss,
-            )
+            item {
+                BasicComponent(
+                    title = state.message.orEmpty(),
+                    titleColor = if (state.ok) BasicComponentDefaults.titleColor() else BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                    summary = "点按收起",
+                    onClick = LinuxTransfers::dismiss,
+                )
+            }
         }
     }
+}
+
+/** 卡片之间的一句说明或报错。 */
+@Composable
+private fun Hint(text: String, error: Boolean = false) {
+    if (error) PagerFooterPreference(summary = text, summaryColor = COUITheme.colorScheme.error) else PagerFooterPreference(summary = text)
 }
 
 @Composable

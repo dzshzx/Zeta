@@ -3,8 +3,6 @@ package com.dzshzx.zeta.ui.setup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,10 +15,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,10 +27,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,49 +41,55 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiIcon
-import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPreference
-import com.dzshzx.zeta.ui.components.coui.CouiScaffold
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
-import com.dzshzx.zeta.ui.layout.horizontalCutoutPadding
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
+import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
+import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
-import com.dzshzx.zeta.ui.components.rememberRetained
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Divider
-import com.itos.coui.layout.Group
-import com.itos.coui.scroll.rememberCouiOverscrollEffect
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Card
+import io.github.suqi8.coui.kmp.basic.HorizontalDivider
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.basic.SegmentButton
+import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.basic.TextField
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Delete
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 设置页上“上下文与扩展”的入口分组。这几个页面管的都是 Linux 环境里 Claude Code 自己的配置，不是 Zeta 的。 */
 @Composable
 internal fun ClaudeConfigGroup(hub: ConversationHub, onOpen: (SettingsSubPage) -> Unit) {
     val ready = hub.setup == SetupState.Ready && hub.env != null
-    Group(
+    PreferenceGroup(
         title = "上下文与扩展",
         footer = if (ready) {
             "这里改的是 Linux 环境里 Claude Code 自己的配置（~/.claude），在终端里用 claude 时同样生效。改动对之后新开始的对话生效。"
@@ -91,11 +97,11 @@ internal fun ClaudeConfigGroup(hub: ConversationHub, onOpen: (SettingsSubPage) -
             "Linux 环境准备好以后才能管理这些。"
         },
     ) {
-        CouiPreference(title = "记忆", summary = "CLAUDE.md 与自动记忆", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMemory) })
-        CouiPreference(title = "Skills", summary = "~/.claude/skills", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeSkills) })
-        CouiPreference(title = "MCP 服务器", summary = "claude mcp 管理的服务器", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMcp) })
-        CouiPreference(title = "Subagent", summary = "~/.claude/agents", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeAgents) })
-        CouiPreference(title = "工具权限", summary = "按工具设允许、询问、拒绝", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudePermissions) })
+        item { ArrowPreference(title = "记忆", summary = "CLAUDE.md 与自动记忆", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMemory) }) }
+        item { ArrowPreference(title = "Skills", summary = "~/.claude/skills", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeSkills) }) }
+        item { ArrowPreference(title = "MCP 服务器", summary = "claude mcp 管理的服务器", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMcp) }) }
+        item { ArrowPreference(title = "Subagent", summary = "~/.claude/agents", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeAgents) }) }
+        item { ArrowPreference(title = "工具权限", summary = "按工具设允许、询问、拒绝", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudePermissions) }) }
     }
 }
 
@@ -134,14 +140,15 @@ internal fun Throwable.problem(): String = message?.takeIf { it.isNotBlank() } ?
 
 internal data class ConfigNotice(val title: String, val message: String)
 
+/** 读写配置出错时的告知框；要放在页面的 overlays 里（CouiPage）或页面骨架的内容里（CouiPageScaffold）。 */
 @Composable
 internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
     val shown = rememberRetained(notice)
-    CouiNoticeDialog(
-        visible = notice != null,
+    NoticeDialog(
+        show = notice != null,
         title = shown?.title,
-        message = shown?.message,
-        confirmText = "知道了",
+        summary = shown?.message,
+        closeText = "知道了",
         onDismissRequest = onDismiss,
     )
 }
@@ -158,15 +165,64 @@ internal fun sizeText(bytes: Long): String = when {
     else -> "%.2f MiB".format(bytes / (1024.0 * 1024.0))
 }
 
-/** 列表里的一行空状态：没有可点的东西时也让分组有内容。 */
+/** 顶栏右边的一个图标按钮。COUI 2 的 IconButton 灰掉时图标颜色不变，这里自己换成禁用色。 */
 @Composable
-internal fun ConfigEmptyRow(title: String, summary: String? = null) {
-    CouiPreference(title = title, summary = summary, enabled = false, showChevron = false)
+internal fun TopBarIcon(icon: ImageVector, contentDescription: String, onClick: () -> Unit, enabled: Boolean = true) {
+    IconButton(onClick = onClick, enabled = enabled) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (enabled) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.disabledNeutral,
+        )
+    }
 }
 
+/** 列表里的一行空状态：没有可点的东西时也让分组有内容。放在 PreferenceGroup 的 item 里。 */
+@Composable
+internal fun ConfigEmptyRow(title: String, summary: String? = null) {
+    BasicComponent(title = title, summary = summary, enabled = false)
+}
+
+/** 列表里的一行“正在读取”，右边转圈。放在 PreferenceGroup 的 item 里。 */
 @Composable
 internal fun ConfigLoadingRow(text: String = "正在读取…") {
-    CouiPreference(title = text, showChevron = false, trailing = { InfiniteProgressIndicator(size = 20.dp) })
+    BasicComponent(title = text, endActions = { InfiniteProgressIndicator(size = 20.dp) })
+}
+
+/**
+ * 对话框里的一个输入框：上面一行小字说明填什么（[title]），框里是占位提示（[hint]，不给就用 [title]）。
+ * COUI 2 的 TextField 只有框里的提示，这几个对话框（添加 MCP 服务器、规则、共享文件夹）要同时说清字段和举例，所以上面另放一行。
+ */
+@Composable
+internal fun DialogTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+    hint: String? = null,
+    enabled: Boolean = true,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    Column(modifier.fillMaxWidth()) {
+        if (title != null) Text(text = title, style = COUITheme.textStyles.bodyS, color = COUITheme.colorScheme.labelSecondary)
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = hint ?: title.orEmpty(),
+            enabled = enabled,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            visualTransformation = visualTransformation,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+        )
+    }
 }
 
 /** 正文前面的 --- 前言块：预览时不显示（Markdown 会把它渲染成标题线）。 */
@@ -248,29 +304,24 @@ internal fun ConfigDocumentEditor(
     BackHandler(enabled = dirty) { confirmLeave = true }
     val leave = { if (dirty) confirmLeave = true else onBack() }
 
-    CouiScaffold(
+    CouiPageScaffold(
         title = title,
         onBack = leave,
-        compactTitle = true,
+        topBarStyle = CouiTopBarStyle.Small,
         actions = {
-            if (onDelete != null) {
-                CouiTopAppBarIconButton(
-                    icon = Icons.Rounded.DeleteOutline,
-                    contentDescription = deleteTitle,
-                    enabled = !loading && !saving,
-                    onClick = { confirmDelete = true },
-                )
-            }
+            if (onDelete != null) TopBarIcon(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
         },
-    ) { contentPadding, _, nestedScrollConnection, sidePadding ->
+    ) { scope ->
+        val layoutDirection = LocalLayoutDirection.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .horizontalCutoutPadding()
-                .padding(top = contentPadding.calculateTopPadding())
-                .padding(horizontal = sidePadding)
-                .then(if (nestedScrollConnection != null) Modifier.nestedScroll(nestedScrollConnection) else Modifier)
-                .imePadding()
+                .padding(
+                    start = scope.contentPadding.calculateStartPadding(layoutDirection),
+                    top = scope.contentPadding.calculateTopPadding(),
+                    end = scope.contentPadding.calculateEndPadding(layoutDirection),
+                )
+                // 骨架已经给键盘让了位（会消费掉键盘那部分），这里只补键盘收起时的导航栏
                 .navigationBarsPadding(),
         ) {
             DocumentCard(
@@ -286,8 +337,7 @@ internal fun ConfigDocumentEditor(
                 onContentChange = { draft = it },
                 modifier = Modifier
                     .weight(1f)
-                    .padding(top = CouiPageDefaults.groupSpacing)
-                    .padding(horizontal = CouiPageDefaults.horizontalMargin),
+                    .padding(horizontal = 16.dp),
             )
             SaveBar(
                 visible = dirty || saving,
@@ -298,46 +348,46 @@ internal fun ConfigDocumentEditor(
             )
             Spacer(Modifier.height(12.dp))
         }
-    }
 
-    ConfigNoticeDialog(notice) { notice = null }
-    CouiConfirmDialog(
-        visible = conflict,
-        title = "文件已经变了",
-        message = "你编辑的时候，这个文件被改过了（多半是 Claude 在对话里更新了它）。保存会用你的版本覆盖它。",
-        confirmText = "仍然保存",
-        destructive = true,
-        onConfirm = {
-            conflict = false
-            save(force = true)
-        },
-        onDismissRequest = { conflict = false },
-    )
-    CouiConfirmDialog(
-        visible = confirmLeave,
-        title = "放弃未保存的更改？",
-        message = null,
-        confirmText = "放弃",
-        destructive = true,
-        onConfirm = {
-            confirmLeave = false
-            onBack()
-        },
-        onDismissRequest = { confirmLeave = false },
-    )
-    if (onDelete != null) {
-        CouiConfirmDialog(
-            visible = confirmDelete,
-            title = deleteTitle,
-            message = deleteMessage,
-            confirmText = "删除",
+        ConfigNoticeDialog(notice) { notice = null }
+        ConfirmDialog(
+            show = conflict,
+            title = "文件已经变了",
+            summary = "你编辑的时候，这个文件被改过了（多半是 Claude 在对话里更新了它）。保存会用你的版本覆盖它。",
+            confirmText = "仍然保存",
             destructive = true,
             onConfirm = {
-                confirmDelete = false
-                onDelete()
+                conflict = false
+                save(force = true)
             },
-            onDismissRequest = { confirmDelete = false },
+            onDismissRequest = { conflict = false },
         )
+        ConfirmDialog(
+            show = confirmLeave,
+            title = "放弃未保存的更改？",
+            summary = null,
+            confirmText = "放弃",
+            destructive = true,
+            onConfirm = {
+                confirmLeave = false
+                onBack()
+            },
+            onDismissRequest = { confirmLeave = false },
+        )
+        if (onDelete != null) {
+            ConfirmDialog(
+                show = confirmDelete,
+                title = deleteTitle,
+                summary = deleteMessage,
+                confirmText = "删除",
+                destructive = true,
+                onConfirm = {
+                    confirmDelete = false
+                    onDelete()
+                },
+                onDismissRequest = { confirmDelete = false },
+            )
+        }
     }
 }
 
@@ -355,31 +405,32 @@ private fun DocumentCard(
     onContentChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MiuixTheme.colorScheme
-    val pageColors = CouiPageDefaults.themeColors()
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(CouiPageDefaults.shape)
-            .background(pageColors.card),
-    ) {
+    val colors = COUITheme.colorScheme
+    Card(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = CouiPageDefaults.rowPadding, top = 12.dp, bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CouiIcon(imageVector = Icons.AutoMirrored.Rounded.Notes, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.primary)
+            Icon(imageVector = Icons.AutoMirrored.Rounded.Notes, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.primary)
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = fileLabel, style = MiuixTheme.textStyles.body2, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 1)
+                Text(text = fileLabel, style = COUITheme.textStyles.bodyM, fontWeight = FontWeight.Medium, color = colors.labelPrimary, maxLines = 1)
                 Text(
                     text = if (overLimit) "$sizeLine · 超过上限" else sizeLine,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = if (overLimit) colors.error else colors.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyXS,
+                    color = if (overLimit) colors.error else colors.labelSecondary,
                 )
             }
-            ModeSwitch(mode = mode, enabled = !loading, onModeChange = onModeChange)
+            SegmentButton(
+                items = listOf("预览", "编辑"),
+                selectedIndex = DocumentMode.entries.indexOf(mode),
+                onSelectedIndexChange = { index -> DocumentMode.entries.getOrNull(index)?.let(onModeChange) },
+                enabled = !loading,
+                height = SegmentButtonDefaults.HeightSmall,
+                padding = SegmentButtonDefaults.PaddingSmall,
+            )
         }
-        Divider()
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             when {
                 loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InfiniteProgressIndicator(size = 24.dp) }
@@ -403,39 +454,39 @@ private fun DocumentPreview(content: String, placeholder: String, onStartEditing
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(text = "还没有内容", style = MiuixTheme.textStyles.body1, fontWeight = FontWeight.Medium, color = MiuixTheme.colorScheme.onSurface)
+            Text(text = "还没有内容", style = COUITheme.textStyles.bodyXL, fontWeight = FontWeight.Medium, color = COUITheme.colorScheme.labelPrimary)
             Spacer(Modifier.height(6.dp))
-            Text(text = placeholder, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Text(text = placeholder, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.labelSecondary)
         }
         return
     }
     LazyStaticMarkdown(
         content = body,
         tone = MarkdownTone.Answer,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().overScrollVertical(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        overscrollEffect = rememberCouiOverscrollEffect(),
     )
 }
 
 @Composable
 private fun DocumentEditor(value: String, placeholder: String, enabled: Boolean, onValueChange: (String) -> Unit) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val focusRequester = remember { FocusRequester() }
-    val textStyle = MiuixTheme.textStyles.body2.copy(lineHeight = 22.sp)
+    val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 22.sp)
     Box(
         modifier = Modifier
             .fillMaxSize()
             .clickable(interactionSource = null, indication = null) { focusRequester.requestFocus() }
+            .overScrollVertical()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        if (value.isEmpty()) Text(text = placeholder, style = textStyle, color = colors.onSurfaceVariantSummary)
+        if (value.isEmpty()) Text(text = placeholder, style = textStyle, color = colors.labelSecondary)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             enabled = enabled,
-            textStyle = textStyle.copy(color = colors.onSurface),
+            textStyle = textStyle.copy(color = colors.labelPrimary),
             cursorBrush = SolidColor(colors.primary),
             modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         )
@@ -443,39 +494,15 @@ private fun DocumentEditor(value: String, placeholder: String, enabled: Boolean,
 }
 
 @Composable
-private fun ModeSwitch(mode: DocumentMode, enabled: Boolean, onModeChange: (DocumentMode) -> Unit) {
-    val colors = MiuixTheme.colorScheme
-    Row(modifier = Modifier.squircleSurface(color = colors.surfaceContainerHigh, cornerRadius = 12.dp).padding(3.dp)) {
-        DocumentMode.entries.forEach { option ->
-            val selected = option == mode
-            val background by animateColorAsState(if (selected) colors.surface else colors.surfaceContainerHigh, label = "document_mode_tab")
-            Box(
-                modifier = Modifier
-                    .squircleSurface(color = background, cornerRadius = 9.dp)
-                    .clickable(enabled = enabled && !selected) { onModeChange(option) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (option == DocumentMode.Preview) "预览" else "编辑",
-                    style = MiuixTheme.textStyles.footnote1,
-                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    color = if (selected) colors.onSurface else colors.onSurfaceVariantSummary,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun SaveBar(visible: Boolean, overLimit: Boolean, saving: Boolean, onDiscard: () -> Unit, onSave: () -> Unit) {
+    val colors = COUITheme.colorScheme
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
         exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = CouiPageDefaults.horizontalMargin).padding(top = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -483,24 +510,34 @@ private fun SaveBar(visible: Boolean, overLimit: Boolean, saving: Boolean, onDis
                 Box(
                     modifier = Modifier
                         .size(6.dp)
-                        .background(if (overLimit) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.primary, CircleShape),
+                        .background(if (overLimit) colors.error else colors.primary, CircleShape),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = if (overLimit) "已超过 1 MiB 上限，请删减" else "未保存的更改",
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = if (overLimit) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyS,
+                    color = if (overLimit) colors.error else colors.labelSecondary,
                     maxLines = 2,
                 )
             }
-            CouiButton(text = "放弃", enabled = !saving, onClick = onDiscard, minHeight = 36.dp)
-            CouiButton(
-                text = if (saving) "保存中" else "保存",
-                enabled = !saving && !overLimit,
-                onClick = onSave,
-                role = CouiButtonRole.Primary,
-                minHeight = 36.dp,
-            )
+            CompactButton(text = "放弃", enabled = !saving, onClick = onDiscard)
+            CompactButton(text = if (saving) "保存中" else "保存", enabled = !saving && !overLimit, onClick = onSave, primary = true)
         }
     }
+}
+
+/** 一行里和文字并排的小按钮：COUI 2 的 TextButton 默认至少 132dp 宽，这里收窄、压低。 */
+@Composable
+internal fun CompactButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, primary: Boolean = false) {
+    TextButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        minWidth = ButtonDefaults.MinWidthSmall,
+        minHeight = 36.dp,
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        textStyle = COUITheme.textStyles.buttonM,
+        colors = if (primary) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
+    )
 }
