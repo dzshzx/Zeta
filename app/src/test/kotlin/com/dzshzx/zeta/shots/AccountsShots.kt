@@ -38,14 +38,26 @@ class AccountsShots : ShotTest() {
         )
     }
 
-    private fun account(name: String, plan: String, org: String = "") =
-        ClaudeAccount("acc-$name", "$name@example.invalid", org, name, plan, "max", null, now - 86_400_000)
+    /** claude-switch 给的样子：id 是账号名，没有存档时间、套餐显示名。 */
+    private fun account(id: String, email: String, org: String = "", subscription: String = "max") =
+        ClaudeAccount(id, email, org, "", "", subscription, null, null)
 
-    /** 存着两个账号，当前是其中一个（还没存过这次的登录）。 */
-    private fun accountsState() = AccountsState(
+    /** 在用的是 claude，另外存着 claude-b（团队号）。 */
+    private fun accountsState(): AccountsState {
+        val current = account("claude", "shots@example.invalid")
+        return AccountsState(
+            loggedIn = true,
+            current = current,
+            saved = listOf(current, account("claude-b", "work@example.invalid", org = "Example Co", subscription = "team")),
+            processes = emptyList(),
+        )
+    }
+
+    /** 在用的登录 claude-switch 还没记过：没有名字，列成当前账号，提示添加账号时会记下。 */
+    private fun unrecordedState() = AccountsState(
         loggedIn = true,
-        current = account("shots", "Max").copy(savedAt = null),
-        saved = listOf(account("shots", "Max"), account("work", "Team", org = "Example Co")),
+        current = account("", "new@example.invalid"),
+        saved = listOf(account("claude", "shots@example.invalid")),
         processes = emptyList(),
     )
 
@@ -58,6 +70,20 @@ class AccountsShots : ShotTest() {
             "accounts",
             prepare = {
                 // 打开页面时会去 Linux 环境里读账号，JVM 上读不到：换成摆好的数据
+                hub.accounts.force("state", state)
+                hub.accounts.force("problem", null)
+            },
+        ) { AccountsScreen(hub = hub, onBack = {}) }
+    }
+
+    @Test
+    fun accountsUnrecorded() {
+        val hub = Fixtures.readyHub(app)
+        hub.fakeQuota()
+        val state = unrecordedState()
+        shoot(
+            "accounts-unrecorded",
+            prepare = {
                 hub.accounts.force("state", state)
                 hub.accounts.force("problem", null)
             },

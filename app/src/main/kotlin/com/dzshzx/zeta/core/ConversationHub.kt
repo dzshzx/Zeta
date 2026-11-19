@@ -179,7 +179,7 @@ class ConversationHub(private val app: Application) {
     /** 当前账号的订阅额度（所有对话共用）。 */
     val quota = QuotaService(this)
 
-    /** Zeta 存着的 Claude 账号，和切换账号。 */
+    /** claude-switch 管着的 Claude 账号，和切换账号。 */
     val accounts = AccountService(this)
 
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
