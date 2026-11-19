@@ -1,23 +1,11 @@
 #!/bin/bash
-# 在手机上跑一段真机测试脚本。子代理碰手机只用它，不再自己拿租约一步步点。
+# 在手机上跑一段真机测试脚本，子代理碰手机只用它。用法、脚本里能用什么见 CLAUDE.md「真机脚本」。
 # 用法：ZETA_PHONE_OWNER=<任务名> tools/phone-run [--no-build] <脚本>
-#
-# 先在排队之外构建测试版；再排队，一次只跑一个 phone-run；拿到测试版的租约后：装包，在后台虚拟屏上冷启动 Zeta，
-# 等 10 秒，限时跑脚本（ZETA_PHONE_RUN_TIMEOUT，默认 600 秒），然后收尾：截一张 final.png、取这段时间里本包的崩溃日志、
-# 关屏并 force-stop 测试版、撤销测试版的通知监听、删掉指向测试屏的 phoneDisplay、释放租约。
-# 想下一步时不占手机：看完产物再改脚本，重新跑一次。
-#
-# 脚本按 bash 执行，当前目录是这次的产物目录（build/phone-run/<时间>），截图写相对路径即可。可用：
-#   vd <命令…>        即 tools/vd.py --dev，例如 vd tap 600 1300、vd shot 1.png、vd text hello、vd prefs model
-#   android '<命令>'  在手机 Android 一侧以 root 跑一条 shell 命令，例如 android "dumpsys activity activities | grep -m3 $PKG"
-#   $PKG $DISPLAY_ID $OUT   测试版包名、虚拟屏号、产物目录
-# 坐标按整屏 1220×2656 算。脚本自己建的会话自己删（各个包共用同一份 Claude Code 会话）。
-#
-# 退出码：脚本自己的退出码；124 超时；75 排队超过 ZETA_PHONE_RUN_WAIT（默认 2700 秒）还没轮到。
+# 退出码：脚本自己的；124 超时（ZETA_PHONE_RUN_TIMEOUT，默认 600 秒）；75 排队超过 ZETA_PHONE_RUN_WAIT（默认 2700 秒）。
 # 每次占用手机的秒数追加到 $XDG_RUNTIME_DIR/zeta-phone-run.log，用来量手机还是不是瓶颈。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-root=$PWD
+export ZETA_ROOT=$PWD
 build=1
 if [[ ${1:-} == --no-build ]]; then build=; shift; fi
 if [[ $# != 1 || ! -f $1 ]]; then
@@ -32,47 +20,33 @@ script=$(realpath "$1")
 export ZETA_PHONE_OWNER=${ZETA_PHONE_OWNER:-main}
 limit=${ZETA_PHONE_RUN_TIMEOUT:-600}
 wait=${ZETA_PHONE_RUN_WAIT:-2700}
-dir=${XDG_RUNTIME_DIR:-/tmp}
-OUT=$root/build/phone-run/$(date +%Y%m%d-%H%M%S)-$$
-export OUT
+OUT=$ZETA_ROOT/build/phone-run/$(date +%Y%m%d-%H%M%S)-$$
+export OUT PKG=com.dzshzx.zeta.dev
 mkdir -p "$OUT"
 exec > >(tee -a "$OUT/run.log") 2>&1
 echo "产物目录：$OUT"
 
 vd() { python3 "$ZETA_ROOT/tools/vd.py" --dev "$@"; }
-android() {
-  local argv=(sudo -n timeout 120 nsenter -t 1 -m -- /system/bin/sh -c "export PATH=/system/bin:\$PATH; $1")
-  # shellcheck disable=SC2029 # 本地加好引号，整条交给远端
-  ssh "${ZETA_PHONE_SSH:-xiaomi-17-debian}" "${argv[*]@Q}"
-}
-export ZETA_ROOT=$root
+android() { vd sh "$1"; }
 export -f vd android
 
-if [[ -n $build ]]; then
-  "$root/tools/gradle" --console=plain :app:assembleDev 2>&1 \
-    | grep -E '^e: |^w: .*\.kt|BUILD|FAILED|What went wrong|error:' -A3 | cut -c1-400
-fi
+# 构建在拿租约之前，构建的时间不占手机
+[[ -z $build ]] || "$ZETA_ROOT/tools/gradle" -q --console=plain :app:assembleDev
 
-# 排队：phone-run 之间靠这把锁一个接一个；还在手动用 vd.py 的人靠 phone-lock 的租约协调
-exec 8>"$dir/zeta-phone-run.lock"
 start=$SECONDS
-if ! flock -n 8; then
-  echo "排队：前面有别的 phone-run 在跑"
-  flock -w "$wait" 8 || { echo "排了 $wait 秒还没轮到" >&2; exit 75; }
-fi
-until "$root/tools/phone-lock" dev 2>"$OUT/lock.err"; do
+until "$ZETA_ROOT/tools/phone-lock" dev 2>"$OUT/lock.err"; do
   if ((SECONDS - start >= wait)); then
     echo "排了 $wait 秒还没拿到测试版：$(cat "$OUT/lock.err")" >&2
     exit 75
   fi
   [[ -n ${said:-} ]] || { said=1; echo "等测试版：$(cat "$OUT/lock.err")"; }
-  sleep 15
+  sleep 2
 done
 rm -f "$OUT/lock.err"
 held=$SECONDS
 echo "排队 $((held - start)) 秒，拿到测试版"
 
-pkg='' child=''
+child='' t0=''
 cleanup() {
   local rc=$?
   set +e
@@ -82,33 +56,19 @@ cleanup() {
     kill "$child" # timeout 把信号转给脚本
     wait "$child"
   fi
-  if [[ $pkg == com.dzshzx.zeta.dev* ]]; then
+  if [[ -n $t0 ]]; then
     vd shot "$OUT/final.png" >/dev/null 2>&1
-    if [[ -n ${t0:-} ]]; then
-      # 崩溃缓冲区是全机的：只留本包进程的行
-      local crashes
-      crashes=$(android "logcat -d -b crash -t '$t0.000'" 2>/dev/null)
-      awk -v p="Process: $pkg," 'NR == FNR { if (index($0, p)) pids[$3] = 1; next } $3 in pids' \
-        <(printf '%s\n' "$crashes") <(printf '%s\n' "$crashes") >"$OUT/crash.txt"
-      [[ -s $OUT/crash.txt ]] || rm -f "$OUT/crash.txt"
-    fi
-    vd stop >/dev/null 2>&1
-    # 通知监听不会随 force-stop 撤掉；phoneDisplay 指着刚关掉的屏。改设置文件时原地写回，不换文件（属主和 SELinux 标签不变）
-    local f=/data/user/0/$pkg/shared_prefs/zeta.xml
-    android "am force-stop $pkg
-      for c in \$(settings get secure enabled_notification_listeners | tr ':' ' '); do
-        case \$c in $pkg/*) cmd notification disallow_listener \$c && echo \"撤销了通知监听 \$c\" ;; esac
-      done
-      if grep -q 'name=\"phoneDisplay\"' $f 2>/dev/null; then
-        grep -v 'name=\"phoneDisplay\"' $f > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $f
-        rm -f /data/local/tmp/zeta-prefs.tmp
-        echo '删掉了 phoneDisplay'
-      fi
-      case \$(settings get secure enabled_accessibility_services) in *$pkg/*) echo '注意：测试版的无障碍服务还在启用列表里' ;; esac"
+    # 崩溃缓冲区是全机的：只留本包进程的行
+    local crashes
+    crashes=$(android "logcat -d -b crash -t '$t0.000'" 2>/dev/null)
+    awk -v p="Process: $PKG," 'NR == FNR { if (index($0, p)) pids[$3] = 1; next } $3 in pids' \
+      <(printf '%s\n' "$crashes") <(printf '%s\n' "$crashes") >"$OUT/crash.txt"
+    [[ -s $OUT/crash.txt ]] || rm -f "$OUT/crash.txt"
   fi
-  "$root/tools/phone-lock" --release
+  vd stop # 关屏、force-stop 测试版、撤销它的通知监听、删掉 phoneDisplay
+  "$ZETA_ROOT/tools/phone-lock" --release
   local used=$((SECONDS - held))
-  echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc" >>"$dir/zeta-phone-run.log"
+  echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc" >>"${XDG_RUNTIME_DIR:-/tmp}/zeta-phone-run.log"
   case $rc in
     0) echo "通过，占用手机 $used 秒" ;;
     124) echo "超时（${limit} 秒），占用手机 $used 秒" ;;
@@ -122,16 +82,14 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cd "$OUT"
-"$root/tools/install.sh" --dev
-apk=$root/app/build/outputs/apk/dev/app-dev.apk
-pkg=$("$(ls -d "${ANDROID_HOME:-$HOME/Android/Sdk}"/build-tools/*/aapt2 | tail -n 1)" dump packagename "$apk")
+"$ZETA_ROOT/tools/install.sh" --dev --no-build
 t0=$(android 'date +%s')
 vd stop >/dev/null # 上次没关的屏
 for _ in 1 2 3 4 5 6 7 8 9 10; do [[ $(vd status) == 虚拟屏不在 ]] && break; sleep 0.5; done
 out=$(vd start)
 echo "$out"
 DISPLAY_ID=$(grep -oE '^虚拟屏 [0-9]+' <<<"$out" | grep -oE '[0-9]+')
-export PKG=$pkg DISPLAY_ID
+export DISPLAY_ID
 sleep 10 # 冷启动后马上输入会丢字
 echo "跑 $script（限时 $limit 秒）"
 # 放到后台再 wait：收到 TERM 时马上收尾，不用等脚本跑完

@@ -98,9 +98,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("zeta.shots.dir", shotsDir)
     // Zeta 经 su 执行的命令在单元测试里一律失败，碰不到开发机或手机 Debian 自己的 su
     environment("PATH", noRootPath)
-    // 测试结果不进构建缓存（编译结果照常进）：截图写在 Gradle 不知道的 app/build/shots，从缓存取回时图不会出来；
-    // 契约测试跑的是本机装的 claude 命令行，它升级了缓存也认不出来
-    outputs.cacheIf("截图在声明之外，契约测试依赖本机的 claude") { false }
+    // 测试结果不进构建缓存（编译结果照常进）
+    outputs.cacheIf("截图写在没声明的 app/build/shots，取回缓存时图不会出来；契约测试依赖本机的 claude 命令行") { false }
 }
 
 dependencies {

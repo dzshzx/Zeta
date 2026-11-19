@@ -13,7 +13,8 @@
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
-  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，不在后台常驻。
+  vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
+  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、删掉 phoneDisplay。
                               force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做
 """
 import os, re, shlex, subprocess, sys, time
@@ -33,14 +34,31 @@ PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
 
 
-def android(cmd, check=True, data=None, binary=False):
+# 测试版停屏时的收尾。force-stop 会让系统把它的无障碍服务从启用列表里拿掉（AOSP onPackagesForceStoppedLocked），
+# 通知监听不会，要自己撤；phoneDisplay 指着刚关掉的屏，删掉。设置文件原地写回，不换文件（属主和 SELinux 标签不变）
+DEV_CLEANUP = r"""
+for c in $(settings get secure enabled_notification_listeners | tr ':' ' '); do
+  case $c in @PKG@/*) cmd notification disallow_listener $c && echo "撤销了通知监听 $c" ;; esac
+done
+f=/data/user/0/@PKG@/shared_prefs/zeta.xml
+if grep -q 'name="phoneDisplay"' $f 2>/dev/null; then
+  grep -v 'name="phoneDisplay"' $f > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $f
+  rm -f /data/local/tmp/zeta-prefs.tmp
+  echo "删掉了 phoneDisplay"
+fi"""
+
+def run(cmd, data=None):
     """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh 断开后远端进程不会自己停。"""
     argv = ["sudo", "-n", "timeout", "120", "nsenter", "-t", "1", "-m", "--", "/system/bin/sh", "-c",
             "export PATH=/system/bin:$PATH; " + cmd]
     if not ON_PHONE:
         argv = ["ssh", PHONE_SSH, shlex.join(argv)]
     io = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
-    r = subprocess.run(argv, capture_output=True, **io)
+    return subprocess.run(argv, capture_output=True, **io)
+
+
+def android(cmd, check=True, data=None, binary=False):
+    r = run(cmd, data)
     if check and r.returncode != 0:
         sys.exit(f"android 命令失败（{r.returncode}）：{cmd}\n{r.stderr.decode(errors='replace').strip()}")
     return r.stdout if binary else r.stdout.decode(errors="replace")
@@ -189,13 +207,19 @@ def main():
     elif c == "status":
         did = display_id()
         print("虚拟屏不在" if did is None else f"虚拟屏 {did}")
+    elif c == "sh":
+        r = run(rest[0])
+        sys.stdout.buffer.write(r.stdout)
+        sys.stderr.buffer.write(r.stderr)
+        sys.exit(r.returncode)
     elif c == "stop":
-        did = display_id()
-        if did is not None:
-            # force-stop 会让系统把这个包的无障碍服务从启用列表里拿掉（AOSP onPackagesForceStoppedLocked）：
-            # 只对测试版做，顺带让它不在后台常驻；用户的正式版不碰
-            kill = f"am force-stop {PACKAGE}; " if PACKAGE != RELEASE else ""
-            android(f"{kill}echo release > {WORK}/ctl", check=False)
+        cmds = [f"echo release > {WORK}/ctl"] if display_id() is not None else []
+        if PACKAGE != RELEASE:
+            # 测试版另外收拾干净；用户的正式版只关屏，不碰（force-stop 会让系统拿掉它的无障碍服务）。
+            # force-stop 放在关屏之后：先 force-stop 再关屏，测试版会被重新拉起来
+            cmds = cmds + [f"am force-stop {PACKAGE}", DEV_CLEANUP.replace("@PKG@", PACKAGE)]
+        if cmds:
+            print(android("\n".join(cmds), check=False), end="")
         print("stopped")
     else:
         sys.exit(__doc__)
