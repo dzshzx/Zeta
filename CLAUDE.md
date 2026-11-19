@@ -21,7 +21,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - `core/voice/`：语音，只用手机自带的服务：`SpeechInput` 是和界面无关的识别（系统 `SpeechRecognizer`，HyperOS 上显式指定小米的识别服务，识别期间前台绑定它的进程才录得了音），输入栏的按住说话（`ui/chat/HoldToTalk.kt`）用它；`ReadAloud` 用系统默认的朗读引擎念回答（`SpeechText` 把 Markdown 换成念得顺的文字），出声期间开媒体播放类前台服务。
 - `phone/`：手机工具 `PhoneTools`（SDK 类型的 MCP 服务器 `phone`，每个对话一份），无障碍服务，后台虚拟屏（`VirtualScreen`、root 帮手 `VdHelper`、`VdSurfaceProvider`，屏上应用不抢音频焦点的 `AudioFocusGuard`），悬浮层的接口 `Overlay.kt`。
 - `ui/`：聊天 `ui/chat`、侧栏 `ui/pane`、设置与环境页（`SettingsScreen.kt`、`ui/setup`）、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示、一轮结束后屏幕底部的结果卡片，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口；结果卡片弹不弹、何时收起见 `core/ResultCard.kt`）、Markdown 渲染、COUI 2 的补充件 `ui/components/coui2`。
-- `assets/`：`zeta_host.sh` 起 Claude 进程；`zeta_helper.py` 读写 `~/.claude/projects` 下的会话（列表、历史、删除、改名等），也做设置里存储页的统计和清理（`storage`、`clean`，删除规矩见脚本里“存储”一节）；`zeta_setup_*.sh` 安装 Debian 环境与可选工具；`zeta_ssh_android.sh` 管 SSH 服务。
+- `assets/`：`zeta_host.sh` 起 Claude 进程；`zeta_helper.py` 读写 `~/.claude/projects` 下的会话（列表、历史、删除、改名等），也做设置里存储页的统计和清理（`storage`、`clean`，删除规矩见脚本里“存储”一节）、子代理查看页的增量读取（`subagent`）；`zeta_setup_*.sh` 安装 Debian 环境与可选工具；`zeta_ssh_android.sh` 管 SSH 服务。
 
 ## 两端开发
 
@@ -105,3 +105,4 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - `result` 行的键序不固定，不一定以 `"type"` 开头；`result` 之后还会有 command_lifecycle、task_notification、background_tasks_changed 行。判断一轮的起止看最后一个开始或结束事件，不看最后一行。
   - 后台任务做完时，Claude Code 会自己起一轮：一条 `system init`，前面没有用户消息。Zeta 把空闲时收到的 init 当成新一轮开始。
   - 后台任务（2.1.328，`ClaudeTaskContractTest` 钉住）：`background_tasks_changed` 是在跑的完整清单，先于 `task_started` 到；结局是 `task_updated`（patch.status）和 `task_notification`。控制请求 `get_task_output` 读后台命令、监视器输出的最后 8 KiB（子代理答 error）；`stop_task` 对不认识的 id 也答 success，停没停看随后的事件。停后台命令不另起一轮，子代理结束（做完或被停）后会。Monitor 的 task_type 也是 `local_bash`，靠发起它的工具调用区分。
+  - 子代理（2.1.328，同一个测试钉住）：Agent 默认放后台，前台要 `run_in_background: false`。记录在 `<项目>/<会话 id>/subagents/agent-<id>.jsonl`，id 就是 `task_started` 的 task_id，也在 Agent 结果的 `tool_use_result.agentId` 里；旁边的 `agent-<id>.meta.json` 记着发起它的调用（`toolUseId`），做完加 `finished`，被停加 `stoppedByUser`。输出流里子代理内部的事件带 `parent_tool_use_id`，但前台子代理只送工具调用和结果、不送它说的话，所以子代理查看页以记录为准（`zeta_helper.py subagent` 按偏移增量读）。结局（`finished`、`task_notification`）可能比最后一句报告先写下，结束后要等记录停下来再停止读。

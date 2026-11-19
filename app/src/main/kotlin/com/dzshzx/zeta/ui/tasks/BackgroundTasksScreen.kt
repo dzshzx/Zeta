@@ -42,6 +42,7 @@ import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.plainTerminalText
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -91,6 +92,8 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
     val all = scope == AllConversations
     val shown = if (all) live else live.filter { it.key == scope }
     var viewing by remember { mutableStateOf<TaskRef?>(null) }
+    // 子代理的步骤：对话的 key 和发起它的那一步（tool_use id）
+    var steps by remember { mutableStateOf<TaskRef?>(null) }
     val finished = shown.any { c -> c.tasks.list.any { !it.running } }
 
     CouiPage(
@@ -155,8 +158,19 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
                 item(key = "gone") { PreferenceGroup { item { BasicComponent(title = "这个任务已经不在了", enabled = false) } } }
             }
         } else {
-            TaskDetail(conversation, task, onBack = { viewing = null }, onOpenConversation = { onOpenConversation(conversation.openKey) })
+            TaskDetail(
+                conversation,
+                task,
+                onBack = { viewing = null },
+                onOpenConversation = { onOpenConversation(conversation.openKey) },
+                onOpenSteps = { use -> steps = TaskRef(conversation.key, use) },
+            )
         }
+    }
+
+    val shownSteps = rememberRetained(steps)
+    ConfigSubPage(visible = steps != null, onBack = { steps = null }) {
+        shownSteps?.let { ref -> SubagentScreen(hub, ref.conversation, ref.task, onBack = { steps = null }) }
     }
 }
 
@@ -189,9 +203,16 @@ private fun ElapsedRow(task: BackgroundTask) {
     BasicComponent(title = if (task.running) "已运行" else "用时", endActions = { PreferenceValue(formatElapsed(task.elapsedMs(elapsedNow(task)))) })
 }
 
-/** 一个任务：说明、状态、命令、输出（或子代理的进展和报告），运行中可以停掉。 */
+/** 一个任务：说明、状态、命令、输出（或子代理的进展和报告，点进去看它的步骤），运行中可以停掉。 */
 @Composable
-private fun TaskDetail(conversation: Conversation, task: BackgroundTask, onBack: () -> Unit, onOpenConversation: () -> Unit) {
+private fun TaskDetail(
+    conversation: Conversation,
+    task: BackgroundTask,
+    onBack: () -> Unit,
+    onOpenConversation: () -> Unit,
+    /** 打开子代理查看页，参数是发起它的那一步（tool_use id）。 */
+    onOpenSteps: (String) -> Unit,
+) {
     var confirmStop by remember { mutableStateOf(false) }
     // 运行中每两秒读一次输出；结束时（running 变了，重新启动）再读最后一次
     LaunchedEffect(conversation, task.id, task.running) {
@@ -240,6 +261,7 @@ private fun TaskDetail(conversation: Conversation, task: BackgroundTask, onBack:
                     task.agentType?.let { type -> item(key = "agent") { BasicComponent(title = "子代理类型", endActions = { PreferenceValue(type) }) } }
                     task.toolUses?.let { uses -> item(key = "tools") { BasicComponent(title = "工具调用", endActions = { PreferenceValue("$uses 次") }) } }
                     if (task.running) task.progress?.let { progress -> item(key = "progress") { BasicComponent(title = "正在做", summary = progress) } }
+                    task.toolUseId?.let { use -> item(key = "steps") { ArrowPreference(title = "查看它的步骤", onClick = { onOpenSteps(use) }) } }
                 }
                 item(key = "conversation") {
                     ArrowPreference(title = "所属对话", endActions = { PreferenceValue(conversation.label()) }, onClick = onOpenConversation)

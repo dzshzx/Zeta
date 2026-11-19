@@ -7,7 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayPagesTest {
-    private fun allOpen() = OverlayPages(settings = true, linux = true, install = true, login = true, phone = true, ssh = true, tasksScope = "k")
+    private fun allOpen() =
+        OverlayPages(settings = true, linux = true, install = true, login = true, phone = true, ssh = true, tasksScope = "k", subagent = SubagentPageRef("k", "toolu_1"))
 
     @Test
     fun closeAllKeepsSetupWhenAsked() {
@@ -17,6 +18,7 @@ class OverlayPagesTest {
         assertTrue(pages.login)
         assertFalse(pages.settings || pages.linux || pages.phone || pages.ssh)
         assertNull(pages.tasksScope)
+        assertNull(pages.subagent)
 
         pages.closeAll(keepSetup = false)
         assertFalse(pages.any)
@@ -27,11 +29,11 @@ class OverlayPagesTest {
         val pages = allOpen()
         val order = mutableListOf<String>()
         while (pages.any) {
-            val before = listOf(pages.login, pages.install, pages.tasksScope != null, pages.ssh, pages.phone, pages.linux, pages.settings)
+            val before = listOf(pages.subagent != null, pages.login, pages.install, pages.tasksScope != null, pages.ssh, pages.phone, pages.linux, pages.settings)
             pages.closeTop()
-            val after = listOf(pages.login, pages.install, pages.tasksScope != null, pages.ssh, pages.phone, pages.linux, pages.settings)
-            order += listOf("login", "install", "tasks", "ssh", "phone", "linux", "settings")[before.indices.single { before[it] != after[it] }]
+            val after = listOf(pages.subagent != null, pages.login, pages.install, pages.tasksScope != null, pages.ssh, pages.phone, pages.linux, pages.settings)
+            order += listOf("subagent", "login", "install", "tasks", "ssh", "phone", "linux", "settings")[before.indices.single { before[it] != after[it] }]
         }
-        assertEquals(listOf("login", "install", "tasks", "ssh", "phone", "linux", "settings"), order)
+        assertEquals(listOf("subagent", "login", "install", "tasks", "ssh", "phone", "linux", "settings"), order)
     }
 }

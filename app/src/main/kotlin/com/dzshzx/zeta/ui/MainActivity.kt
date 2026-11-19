@@ -38,6 +38,7 @@ import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.IntakeChooser
+import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
 import com.dzshzx.zeta.ui.settings.SettingsLink
@@ -225,6 +226,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             onOpenInstall = { pages.install = true },
             onOpenLogin = { pages.login = true },
             onOpenTasks = { pages.tasksScope = it },
+            onOpenSubagent = { conversation, use -> pages.subagent = SubagentPageRef(conversation, use) },
         )
     }
     Page(pages.settings) {
@@ -268,6 +270,10 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 showChat()
             },
         )
+    }
+    val lastSubagent = rememberRetained(pages.subagent)
+    Page(pages.subagent != null) {
+        lastSubagent?.let { ref -> SubagentScreen(hub = hub, conversationKey = ref.conversation, toolUseId = ref.toolUse, onBack = { pages.subagent = null }) }
     }
     IntakeChooser(hub)
     // 返回键一层一层退：最上面的页面先关

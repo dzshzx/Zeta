@@ -60,6 +60,7 @@ import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -76,6 +77,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Copy
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
+import io.github.suqi8.coui.kmp.icon.extended.Forward
 import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -266,10 +268,18 @@ private fun rememberWorkInk(): WorkInk {
     }
 }
 
-/** 一组连续的思考与工具调用：默认折叠成一行摘要，点开是逐步的时间线。 */
+/**
+ * 一组连续的思考与工具调用：默认折叠成一行摘要，点开是逐步的时间线（[expandedByDefault] 时一开始就展开）。
+ * 给了 [onOpenSubagent] 时，发起子代理的那一步点了进子代理查看页（参数是那一步的 tool_use id）。
+ */
 @Composable
-internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
-    var expanded by rememberSaveable(item.id) { mutableStateOf(false) }
+internal fun WorkGroup(
+    item: WorkItem,
+    modifier: Modifier = Modifier,
+    expandedByDefault: Boolean = false,
+    onOpenSubagent: ((String) -> Unit)? = null,
+) {
+    var expanded by rememberSaveable(item.id) { mutableStateOf(expandedByDefault) }
     val colors = COUITheme.colorScheme
     val ink = rememberWorkInk()
     val running = item.steps.lastOrNull { it.running }
@@ -316,17 +326,22 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
         AnimatedVisibility(visible = expanded) {
             Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp)) {
                 Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).height(0.5.dp).background(ink.border))
-                item.steps.forEach { step -> WorkStepRow(step) }
+                item.steps.forEach { step -> WorkStepRow(step, onOpenSubagent) }
             }
         }
     }
 }
 
+/** 发起子代理的工具。Task 是 Agent 的旧名。 */
+private val SubagentTools = setOf("Agent", "Task")
+
 @Composable
-private fun WorkStepRow(step: WorkStep) {
+private fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
     // 改文件的一步直接画成红绿对比
     val change = (step as? ToolStep)?.let { rememberFileChange(it) }
     if (change != null) return FileEditStepRow(step, change)
+    // 发起子代理的一步：点了看它在做什么，不在这里展开
+    val subagent = if (step is ToolStep && step.name in SubagentTools) onOpenSubagent else null
     var expanded by rememberSaveable(step.id) { mutableStateOf(false) }
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
@@ -366,7 +381,10 @@ private fun WorkStepRow(step: WorkStep) {
                 .fillMaxWidth()
                 .heightIn(min = 34.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(enabled = detail.isNotBlank() || images.isNotEmpty()) { expanded = !expanded },
+                .clickable(
+                    enabled = subagent != null || detail.isNotBlank() || images.isNotEmpty(),
+                    onClickLabel = if (subagent != null) "查看子代理的步骤" else null,
+                ) { if (subagent != null) subagent(step.id) else expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (step.running) colors.primary else ink.icon)
@@ -378,7 +396,18 @@ private fun WorkStepRow(step: WorkStep) {
                 else -> Unit
             }
             if (step is ToolStep && step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
-            if (detail.isNotBlank() || images.isNotEmpty()) Chevron(expanded)
+            // 进子代理查看页的钮，和“在浏览器里查看”一个样子，和原地展开的折角分开
+            when {
+                subagent != null -> FlatIconButton(
+                    icon = COUIIcons.Forward,
+                    contentDescription = "查看子代理的步骤",
+                    size = 26.dp,
+                    iconSize = 16.dp,
+                    modifier = Modifier.padding(start = 6.dp),
+                    tint = colors.primary,
+                ) { subagent(step.id) }
+                detail.isNotBlank() || images.isNotEmpty() -> Chevron(expanded)
+            }
         }
         AnimatedVisibility(visible = expanded && detail.isNotBlank()) {
             SelectionContainer {

@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -136,6 +137,8 @@ internal fun ChatScreen(
     onOpenLogin: () -> Unit,
     /** 打开后台任务面板，参数是对话的 key。 */
     onOpenTasks: (String) -> Unit = {},
+    /** 打开子代理查看页：对话的 key、发起子代理的那一步（tool_use id）。 */
+    onOpenSubagent: (String, String) -> Unit = { _, _ -> },
 ) {
     val conversation = hub.current
     val colors = COUITheme.colorScheme
@@ -173,7 +176,7 @@ internal fun ChatScreen(
                 when (hub.setup) {
                     SetupState.Ready -> key(conversation.key) {
                         CompositionLocalProvider(LocalTextFinder provides find) {
-                            ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks)
+                            ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks, onOpenSubagent)
                         }
                     }
                     SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
@@ -300,8 +303,12 @@ private fun ConversationBody(
     onOpenLogin: () -> Unit,
     find: ChatFindState,
     onOpenTasks: (String) -> Unit,
+    onOpenSubagent: (String, String) -> Unit,
 ) {
     val items = conversation.items
+    // 每一组步骤拿到的是同一个函数，列表里的步骤组不因上层重组而跟着重组
+    val latestOpenSubagent by rememberUpdatedState(onOpenSubagent)
+    val openSubagent = remember(conversation.key) { { id: String -> latestOpenSubagent(conversation.key, id) } }
     val input = remember { TextFieldState() }
     val markdownCache = remember { StreamingMarkdownStateCache() }
     val scope = rememberCoroutineScope()
@@ -421,7 +428,7 @@ private fun ConversationBody(
                                     TurnActionButtons(item.id, turns, conversation, actions)
                                 })
                                 is WorkItem -> Column {
-                                    WorkGroup(item)
+                                    WorkGroup(item, onOpenSubagent = openSubagent)
                                     TurnActionRow(item.id, turns, conversation, actions)
                                 }
                                 is NoticeItem -> Column {

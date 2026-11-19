@@ -18,6 +18,8 @@
   storage [<id>…]      存储页：各类占多少空间、能清掉多少（<id> 是应用认为正在进行、要保护的会话）
   storage-sessions <项目目录> [<id>…]  存储页：一个项目里每个会话占的空间
   clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见“存储”一节）
+  subagent <字节> <行> <tool_use id> <agent id|-> <会话 id>…
+                       子代理查看页：发起它的 Agent 调用对应的记录，从这个位置起增量读（见“子代理”一节）
 """
 import base64
 import datetime
@@ -900,6 +902,146 @@ def cmd_export_many(paths):
             out({"type": "zeta_export_failed", "file": path})
 
 
+# ---- 子代理 ----
+# Claude Code 把每个子代理的记录写在 <项目>/<会话 id>/subagents/agent-<id>.jsonl，旁边的 agent-<id>.meta.json 记着
+# 发起它的 Agent 调用（toolUseId）、类型、说明、模型，做完时加 finished，被停时加 stoppedByUser（2.1.328，ClaudeSubagentContractTest 钉住）。
+
+SUBAGENT_ARG = re.compile(r"[A-Za-z0-9_-]{1,128}")
+SUBAGENT_CHUNK = 4 * 1024 * 1024  # 一次最多读这么多字节，余下的下次接着读
+SUBAGENT_META_KEYS = ("agentType", "description", "model", "finished", "stoppedByUser", "requestShape")
+
+
+def read_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            value = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def subagent_dirs(sessions):
+    """这些会话的 subagents 目录（真实路径在 ~/.claude/projects 里的）。"""
+    root = os.path.realpath(ROOT) + os.sep
+    for session in sessions:
+        for directory in glob.glob(os.path.join(ROOT, "*", session, "subagents")):
+            real = os.path.realpath(directory)
+            if real.startswith(root) and os.path.isdir(real):
+                yield real
+
+
+def find_subagent(tool_use, hint, sessions):
+    """发起子代理的 Agent 调用 tool_use 对应的记录，返回 (agent id, 记录文件, meta)；找不到返回 None。
+    hint 是已经知道的 agent id（task_started 的 task_id），有它就不用逐个翻 meta。"""
+    for directory in subagent_dirs(sessions):
+        if hint:
+            path = os.path.join(directory, "agent-%s.jsonl" % hint)
+            meta = read_json(path[:-len(".jsonl")] + ".meta.json") or {}
+            if os.path.isfile(path) and meta.get("toolUseId") in (None, tool_use):
+                return hint, path, meta
+        for name in sorted(os.listdir(directory)):
+            if not (name.startswith("agent-") and name.endswith(".meta.json")):
+                continue
+            meta = read_json(os.path.join(directory, name))
+            if meta and meta.get("toolUseId") == tool_use:
+                agent = name[len("agent-"):-len(".meta.json")]
+                path = os.path.join(directory, "agent-%s.jsonl" % agent)
+                if os.path.isfile(path):
+                    return agent, path, meta
+    return None
+
+
+def subagent_event(o, number):
+    """子代理记录里的一行，转成和 history 一样形状的事件；不显示的行返回 None。number 是行号（图片的位置要用）。"""
+    kind = o.get("type")
+    if kind not in ("user", "assistant") or o.get("isMeta"):
+        return None
+    message = o.get("message") or {}
+    content = message.get("content")
+    if kind == "assistant":
+        blocks = [clip(b) for b in (content or []) if isinstance(b, dict) and b.get("type") in ("text", "thinking", "tool_use")]
+        for b in blocks:
+            b.pop("signature", None)
+        return {"type": "assistant", "message": {"id": message.get("id"), "content": blocks}} if blocks else None
+    if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+        blocks = [{"type": "tool_result", "tool_use_id": b.get("tool_use_id"), "is_error": bool(b.get("is_error")),
+                   "content": result_content(b.get("content"), "%d.%d" % (number, index))}
+                  for index, b in enumerate(content) if isinstance(b, dict) and b.get("type") == "tool_result"]
+        event = {"type": "user", "message": {"content": blocks}}
+        patch = edit_patch(o.get("toolUseResult"))
+        if patch:
+            event["tool_use_result"] = patch
+        return event
+    # 交给它的指令（第一行），以及之后续派给它的消息
+    text = user_text(content or "")
+    blocks = [{"type": "image", "ref": "%d.%d" % (number, index)}
+              for index, b in enumerate(content if isinstance(content, list) else [])
+              if isinstance(b, dict) and b.get("type") == "image"]
+    if text:
+        blocks.append({"type": "text", "text": clip(text)})
+    if not blocks:
+        return None
+    event = {"type": "user", "message": {"content": blocks}}
+    if number == 0:
+        event["prompt"] = True
+    return event
+
+
+def cmd_subagent(offset, line, tool_use, hint, sessions):
+    """子代理查看页：从字节 offset（第 line 行）起读一段记录。第一行是概要（记录文件、meta、读到哪了、这次读满了没有、多久没写了），
+    之后一行一个事件，形状同 history，交给它的指令带 prompt。只交出写完了的整行，半行留给下次。找不到记录时只有一行 missing。"""
+    found = find_subagent(tool_use, None if hint == "-" else hint, sessions)
+    if found is None:
+        out({"type": "zeta_subagent", "missing": True})
+        return
+    agent, path, meta = found
+    reset = offset > os.path.getsize(path)  # 记录只追加，变短了就是换了文件：从头读
+    if reset:
+        offset, line = 0, 0
+    with open(path, "rb") as f:
+        f.seek(offset)
+        data = f.read(SUBAGENT_CHUNK)
+        full = len(data) == SUBAGENT_CHUNK
+        end = data.rfind(b"\n") + 1
+        if end == 0 and full:
+            # 一行比一次能读的还长（大块工具结果）：跳过这一行，下次从它后面接着读
+            skip = len(data)
+            while True:
+                piece = f.read(SUBAGENT_CHUNK)
+                if not piece:
+                    skip = 0  # 这一行还没写完
+                    break
+                if b"\n" in piece:
+                    skip += piece.index(b"\n") + 1
+                    break
+                skip += len(piece)
+            if skip:
+                offset, line = offset + skip, line + 1
+            data, end = b"", 0
+    events = []
+    for raw in data[:end].split(b"\n")[:-1]:
+        number, line = line, line + 1
+        if b'"type":"user"' not in raw and b'"type":"assistant"' not in raw:
+            continue
+        try:
+            o = json.loads(raw.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        event = subagent_event(o, number) if isinstance(o, dict) else None
+        if event:
+            events.append(event)
+    offset += end
+    skipped = max(0, len(events) - MAX_EVENTS)
+    # 结局（meta 的 finished、输出流的 task_notification）可能先于最后几行写下：记录和 meta 多久都没动了，
+    # 界面据此判断收齐了没有（子代理等一个很久的回答时记录早就不动了，结束时 meta 才刚写）
+    stamps = [os.path.getmtime(p) for p in (path, path[:-len(".jsonl")] + ".meta.json") if os.path.exists(p)]
+    idle = max(0, int((time.time() - max(stamps)) * 1000))
+    out({"type": "zeta_subagent", "file": path, "agent_id": agent, "meta": {k: meta[k] for k in SUBAGENT_META_KEYS if k in meta},
+         "offset": offset, "line": line, "more": full, "skipped": skipped, "reset": reset, "idle_ms": idle})
+    for e in events[skipped:]:
+        out(e)
+
+
 MAX_LIST = 2000
 
 
@@ -1648,11 +1790,15 @@ def main():
         cmd_storage_sessions(args[1], args[2:])
     elif args[:1] == ["clean"] and len(args) >= 2 and args[1] in CLEANABLE and all(SESSION_ID.fullmatch(a) for a in args[2:]):
         cmd_clean(args[1], args[2:])
+    elif args[:1] == ["subagent"] and len(args) >= 6 and args[1].isdigit() and args[2].isdigit() \
+            and all(SUBAGENT_ARG.fullmatch(a) for a in args[3:5]) and all(SESSION_ID.fullmatch(a) for a in args[5:]):
+        cmd_subagent(int(args[1]), int(args[2]), args[3], args[4], args[5:])
     else:
         sys.exit("usage: list | history <file> | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
                  " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
                  " | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]"
-                 " | storage-sessions <project> [<id>…] | clean <kind> [<id>…]")
+                 " | storage-sessions <project> [<id>…] | clean <kind> [<id>…]"
+                 " | subagent <offset> <line> <tool_use> <agent|-> <session>…")
 
 
 main()

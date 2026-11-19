@@ -10,6 +10,8 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -86,6 +88,20 @@ class Conversation(
 
     /** 后台任务的清单和输出，给后台任务面板看。 */
     val tasks = BackgroundTasks()
+
+    /** 子代理查看页看过的子代理，按发起它的 Agent 调用；只留最近几个。 */
+    private val subagentLogs = object : LinkedHashMap<String, SubagentLog>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SubagentLog>?) = size > MAX_SUBAGENT_LOGS
+    }
+
+    /** Agent 调用 → 子代理 id（task_started 的 task_id、工具结果里的 agentId）：读记录时不用逐个翻 meta。 */
+    private val subagentIds = LinkedHashMap<String, String>()
+
+    /** 输出流里报了结局的子代理：子代理 id → 结局。 */
+    private val subagentOutcomes = LinkedHashMap<String, TaskState>()
+
+    /** /clear 之前用过的会话号：那之前的子代理记录在那些会话的目录里。 */
+    private val pastSessions = ArrayList<String>()
     var loadingHistory by mutableStateOf(historyFile != null)
         private set
     var skippedHistory by mutableStateOf(0)
@@ -639,6 +655,103 @@ class Conversation(
         process.send(request)
     }
 
+    /** 子代理查看页要看的那个子代理：[toolUseId] 是发起它的 Agent 调用。记录由 [refreshSubagent] 读。 */
+    fun subagent(toolUseId: String): SubagentLog = subagentLogs.getOrPut(toolUseId) { SubagentLog(toolUseId) }
+
+    /** 查看页开着（[watching]）的子代理才收输出流里它的事件。 */
+    fun watchSubagent(log: SubagentLog, watching: Boolean) {
+        log.watchers = (log.watchers + if (watching) 1 else -1).coerceAtLeast(0)
+    }
+
+    /**
+     * 增量读一次子代理 [log] 的记录（Linux 一侧的助手脚本从上次读到的地方接着读），再更新它的状态。
+     * 在主线程上调用，阻塞的部分在 IO 线程。正在读的不重复读。
+     */
+    suspend fun refreshSubagent(log: SubagentLog) {
+        if (log.reading) return
+        val config = hub.settings.env
+        val sessions = (listOfNotNull(sessionId, fork?.source) + pastSessions).distinct()
+        if (config == null || sessions.isEmpty()) {
+            publishSubagent(log)
+            return
+        }
+        val transcript = log.transcript
+        val arguments = listOf(
+            transcript.offset.toString(), transcript.line.toString(), log.toolUseId,
+            transcript.meta?.agentId?.takeIf { it.isNotEmpty() } ?: subagentIds[log.toolUseId] ?: "-",
+        ) + sessions
+        log.reading = true
+        val result = try {
+            withContext(Dispatchers.IO) { hub.helper("subagent", arguments, timeoutMs = 30_000, config = config) }
+        } finally {
+            log.reading = false
+        }
+        if (result == null || result.exitCode != 0) {
+            log.failure = result?.stderr?.trim()?.takeLast(300)?.ifEmpty { null } ?: "没有读到子代理的记录"
+        } else {
+            log.failure = null
+            log.transcript.applyRead(result.stdout)
+        }
+        publishSubagent(log)
+    }
+
+    /** 记录上次只读了一段，后面还有：接着读不用等。 */
+    fun subagentHasMore(log: SubagentLog): Boolean = log.transcript.more
+
+    /** 子代理 [log] 不用再读了：不在跑，记录也收齐了（读不了时也算）。 */
+    fun subagentSettled(log: SubagentLog): Boolean = !log.running && (!log.transcript.loaded || log.transcript.settled || log.failure != null)
+
+    private fun publishSubagent(log: SubagentLog) {
+        val meta = log.transcript.meta
+        val id = meta?.agentId?.takeIf { it.isNotEmpty() } ?: subagentIds[log.toolUseId]
+        val outcome = id?.let(subagentOutcomes::get) ?: when {
+            meta?.stopped == true -> TaskState.Stopped
+            meta?.finished == true -> TaskState.Completed
+            else -> null
+        }
+        // 子代理在跑的话，这个对话不是在回答（前台的）就是有后台任务（后台的）
+        val running = outcome == null && process != null && (busy || backgroundTasks > 0)
+        log.publish(running, outcome)
+    }
+
+    /** 子代理相关的事件：记下 Agent 调用和子代理 id 的对应、子代理的结局；子代理内部的事件交给开着的查看页。 */
+    private fun observeSubagents(event: JsonObject, parent: String?) {
+        when (event.str("type")) {
+            "system" -> when (event.str("subtype")) {
+                "task_started" -> if (event.str("task_type") == "local_agent") {
+                    val use = event.str("tool_use_id") ?: return
+                    putRecent(subagentIds, use, event.str("task_id") ?: return)
+                }
+                "task_notification" -> {
+                    val id = event.str("task_id") ?: return
+                    val state = when (event.str("status")) {
+                        "completed" -> TaskState.Completed
+                        "failed" -> TaskState.Failed
+                        "stopped" -> TaskState.Stopped
+                        else -> return
+                    }
+                    putRecent(subagentOutcomes, id, state)
+                    subagentLogs.values.filter { it.watchers > 0 && (it.transcript.meta?.agentId == id || subagentIds[it.toolUseId] == id) }.forEach(::publishSubagent)
+                }
+            }
+            "assistant", "user" -> if (parent != null) {
+                val log = subagentLogs[parent]?.takeIf { it.watchers > 0 } ?: return
+                if (log.transcript.observeLive(event)) publishSubagent(log)
+            } else if (event.str("type") == "user") {
+                // Agent 调用的结果里带着子代理 id（前台的做完时、后台的一起来就有）
+                val agent = event.obj("tool_use_result")?.str("agentId") ?: return
+                val use = event.obj("message")?.arr("content")?.firstNotNullOfOrNull { (it as? JsonObject)?.str("tool_use_id") } ?: return
+                putRecent(subagentIds, use, agent)
+            }
+        }
+    }
+
+    private fun <V> putRecent(map: LinkedHashMap<String, V>, key: String, value: V) {
+        map.remove(key)
+        map[key] = value
+        while (map.size > MAX_SUBAGENT_IDS) map.remove(map.keys.first())
+    }
+
     /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下）。 */
     fun shutdown() {
         val current = process ?: return
@@ -730,9 +843,11 @@ class Conversation(
 
     /** 返回聊天列表是否有变化。 */
     private fun handle(event: JsonObject, now: Long): Boolean {
-        // 子代理内部的消息不进主列表，只显示发起它的那一步
-        val fromSubagent = event["parent_tool_use_id"]?.let { it !is kotlinx.serialization.json.JsonNull } == true
+        // 子代理内部的消息不进主列表，只显示发起它的那一步；点开那一步看（子代理查看页）
+        val parent = (event["parent_tool_use_id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val fromSubagent = parent != null
         tasks.observe(event, now)
+        observeSubagents(event, parent)
         when (event.str("type")) {
             "system" -> when (event.str("subtype")) {
                 "init" -> {
@@ -867,6 +982,7 @@ class Conversation(
             "control_cancel_request" -> if (pending?.requestId == event.str("request_id")) pending = null
             // /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
             "conversation_reset" -> {
+                sessionId?.let(pastSessions::add)
                 event.str("new_conversation_id")?.let { sessionId = it }
                 title = ""
                 reducer.addNotice("上下文已清空，下面是新的会话", error = false)
@@ -922,6 +1038,7 @@ class Conversation(
         // 进程没了，它的后台任务也跟着没了
         backgroundTasks = 0
         tasks.processEnded(System.currentTimeMillis())
+        subagentLogs.values.filter { it.watchers > 0 }.forEach(::publishSubagent)
         status = null
         pending = null
         interruptRequested = false
@@ -959,5 +1076,7 @@ class Conversation(
 
     private companion object {
         val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        const val MAX_SUBAGENT_LOGS = 8
+        const val MAX_SUBAGENT_IDS = 128
     }
 }

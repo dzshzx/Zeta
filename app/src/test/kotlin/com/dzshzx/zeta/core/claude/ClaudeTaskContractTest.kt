@@ -1,8 +1,13 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.ChatItem
+import com.dzshzx.zeta.core.SubagentTranscript
 import com.dzshzx.zeta.core.TaskBoard
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.core.WorkItem
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -24,6 +29,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -40,6 +46,10 @@ import org.junit.Test
  * - 控制请求 get_task_output 读后台命令和监视器输出的最后 8 KiB（子代理答 error）；stop_task 停一个任务，
  *   对不认识的 id 也答 success，所以停没停要看随后的事件。停后台命令不另起一轮；子代理结束（做完或被停）后 Claude Code 自己起一轮。
  * - 监视器（Monitor）的 task_type 也是 local_bash，靠发起它的工具调用区分。
+ * - 子代理的记录（子代理查看页读的）：`<项目>/<会话 id>/subagents/agent-<id>.jsonl`，id 就是 task_started 的 task_id，
+ *   也在 Agent 调用的结果（tool_use_result.agentId）里；旁边的 agent-<id>.meta.json 记着发起它的 Agent 调用（toolUseId）、
+ *   前台还是后台（requestShape），做完加 finished，被停加 stoppedByUser。输出流里子代理内部的事件带 parent_tool_use_id，
+ *   但前台子代理只送工具调用和结果、不送它说的话，所以以记录为准。Agent 默认放后台，前台要 run_in_background: false。
  *
  * 和 ClaudeCodeContractTest 一样：真的 claude 命令行跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱）。
  */
@@ -54,6 +64,10 @@ class ClaudeTaskContractTest {
     /** 子代理的请求等它放行才答（停子代理的测试要它一直在跑）。 */
     private val subagentGate = CountDownLatch(1)
     @Volatile private var subagentWaits = false
+
+    /** 子代理做完第一步、交报告之前等它放行（在它跑着的时候读记录）。 */
+    private val reportGate = CountDownLatch(1)
+    @Volatile private var pauseBeforeReport = false
 
     @Before
     fun setUp() {
@@ -71,6 +85,7 @@ class ClaudeTaskContractTest {
     @After
     fun tearDown() {
         subagentGate.countDown()
+        reportGate.countDown()
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) home.deleteRecursively()
     }
@@ -105,11 +120,12 @@ class ClaudeTaskContractTest {
                 reply = listOf(text("ok"))
                 stop = "end_turn"
             }
-            // 子代理：先调一次 Bash，再交回报告
+            // 子代理：先说一句、调一次 Bash，再交回报告
             SUBAGENT in firstText -> {
                 if (subagentWaits) subagentGate.await(60, TimeUnit.SECONDS) else Thread.sleep(1500)
+                if (pauseBeforeReport && results > 0) reportGate.await(60, TimeUnit.SECONDS)
                 if (results == 0) {
-                    reply = listOf(toolUse("toolu_s0", "Bash", buildJsonObject { put("command", "echo from-sub"); put("description", "sub step") }))
+                    reply = listOf(text("checking first"), toolUse("toolu_s0", "Bash", buildJsonObject { put("command", "echo from-sub"); put("description", "sub step") }))
                     stop = "tool_use"
                 } else {
                     reply = listOf(text("REPORT: all good"))
@@ -356,6 +372,10 @@ class ClaudeTaskContractTest {
             // 和后台命令不同：子代理停下后 Claude Code 另起一轮处理这个结局
             assertNotNull(claude.poll(30) { it.str("type") == "system" && it.str("subtype") == "init" })
             assertEquals(TaskState.Stopped, board(claude.events).tasks.single().state)
+            // 记录的 meta 记着是被停下的，没有 finished
+            val meta = subagentMeta(claude.sessionId(), id)
+            assertEquals("true", meta.str("stoppedByUser"))
+            assertNull(meta["finished"])
         }
     }
 
@@ -381,8 +401,113 @@ class ClaudeTaskContractTest {
         }
     }
 
-    private fun agentInput() = buildJsonObject {
-        put("description", "look around"); put("prompt", "$SUBAGENT look around"); put("subagent_type", "general-purpose"); put("run_in_background", true)
+    @Test
+    fun foregroundSubagentIsRecordedAndOnlyPartlyStreamed() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        assumeTrue("要有 python3", pythonAvailable())
+        script = listOf("Agent" to agentInput(background = false))
+        Claude().use { claude ->
+            claude.turn("go")
+            val started = claude.events.system("task_started").single()
+            assertEquals("false", started.str("is_backgrounded"))
+            val id = started.str("task_id")!!
+            // Agent 调用做完时，它的结果里也有子代理 id
+            val result = claude.events.single { it.str("type") == "user" && it["parent_tool_use_id"] is JsonNull && it.obj("tool_use_result") != null }
+            assertEquals(id, result.obj("tool_use_result")!!.str("agentId"))
+            // 子代理内部的事件带 parent_tool_use_id 和 agent_id，但前台子代理不送它说的话
+            val inner = claude.events.filter { it.str("parent_tool_use_id") == "toolu_0" }
+            assertTrue(inner.all { it.str("agent_id") == id })
+            val innerBlocks = inner.filter { it.str("type") == "assistant" }.flatMap { it.obj("message")!!.arr("content").orEmpty().map { b -> b.jsonObject } }
+            assertEquals(listOf("toolu_s0"), innerBlocks.filter { it.str("type") == "tool_use" }.map { it.str("id") })
+            assertTrue(innerBlocks.none { it.str("type") == "text" })
+
+            val session = claude.sessionId()
+            val meta = subagentMeta(session, id)
+            assertEquals("toolu_0", meta.str("toolUseId"))
+            assertEquals("foreground", meta.str("requestShape"))
+            assertEquals("true", meta.str("finished"))
+            // 助手脚本照 Agent 调用找到记录：它说的话、它的步骤和报告都在；输出流里送来的已经都在记录里
+            val transcript = SubagentTranscript("toolu_0")
+            assertTrue(transcript.applyRead(subagentRead(transcript, "-", session)))
+            assertEquals("$SUBAGENT look around", transcript.prompt)
+            assertEquals(id, transcript.meta!!.agentId)
+            assertEquals(false, transcript.meta!!.background)
+            assertEquals(listOf("checking first", "Bash:Success", "REPORT: all good"), transcript.items(running = false).map(::label))
+            inner.forEach { assertFalse(it.toString(), transcript.observeLive(it)) }
+        }
+    }
+
+    @Test
+    fun backgroundSubagentRecordIsReadWhileItRuns() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        assumeTrue("要有 python3", pythonAvailable())
+        pauseBeforeReport = true
+        script = listOf("Agent" to agentInput())
+        Claude().use { claude ->
+            claude.turn("go")
+            val id = claude.events.system("task_started").single().str("task_id")!!
+            val session = claude.sessionId()
+            // 后台子代理内部的事件在这一轮结束后陆续送来
+            claude.until { it.str("type") == "user" && it.str("parent_tool_use_id") == "toolu_0" && "tool_result" in it.toString() }
+            // 第一步做完、还没交报告：记录里已经有它说的话和这一步，meta 还没结束
+            val transcript = SubagentTranscript("toolu_0")
+            val deadline = System.currentTimeMillis() + 20_000
+            while (true) {
+                transcript.applyRead(subagentRead(transcript, id, session))
+                if (transcript.items(running = true).map(::label) == listOf("checking first", "Bash:Success")) break
+                assertTrue(transcript.items(running = true).map(::label).toString(), System.currentTimeMillis() < deadline)
+                Thread.sleep(200)
+            }
+            assertFalse(transcript.meta!!.ended)
+            assertEquals(true, transcript.meta!!.background)
+            val offset = transcript.offset
+
+            reportGate.countDown()
+            claude.until { it.str("type") == "system" && it.str("subtype") == "task_notification" }
+            // 结局先到：这时 meta 已经记着做完了，最后那句报告却可能还没写进记录（实测晚两百毫秒上下）
+            transcript.applyRead(subagentRead(transcript, id, session))
+            assertTrue(transcript.meta!!.finished)
+            // 所以结束后要等记录停下来（settled）再停止读；接着上次的位置读，只读新写的，报告接在后面
+            val until = System.currentTimeMillis() + 20_000
+            while (!transcript.settled) {
+                assertTrue(System.currentTimeMillis() < until)
+                Thread.sleep(300)
+                transcript.applyRead(subagentRead(transcript, id, session))
+            }
+            assertTrue(transcript.offset > offset)
+            assertEquals(listOf("checking first", "Bash:Success", "REPORT: all good"), transcript.items(running = false).map(::label))
+        }
+    }
+
+    private fun label(item: ChatItem): String = when (item) {
+        is AnswerItem -> item.text
+        is WorkItem -> item.steps.joinToString { step -> (step as ToolStep).let { it.name + ":" + it.status } }
+        else -> item.toString()
+    }
+
+    private fun Claude.sessionId(): String = events.first { it.str("type") == "result" }.str("session_id")!!
+
+    private fun subagentMeta(session: String, id: String): JsonObject {
+        val project = File(home, ".claude/projects").listFiles()!!.single()
+        return json.parseToJsonElement(File(project, "$session/subagents/agent-$id.meta.json").readText()).jsonObject
+    }
+
+    private fun pythonAvailable() = runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false)
+
+    /** zeta_helper.py subagent：从 [transcript] 上次读到的地方接着读，和 Zeta 在手机上做的一样（这里在临时 HOME 上）。 */
+    private fun subagentRead(transcript: SubagentTranscript, hint: String, session: String): String {
+        val args = listOf("subagent", transcript.offset.toString(), transcript.line.toString(), transcript.toolUseId, hint, session)
+        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply { environment()["HOME"] = home.path }.start()
+        process.outputStream.use { it.write(File("src/main/assets/zeta_helper.py").readBytes()) }
+        val out = process.inputStream.bufferedReader().readText()
+        process.errorStream.readBytes()
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+        assertEquals(out, 0, process.exitValue())
+        return out
+    }
+
+    private fun agentInput(background: Boolean = true) = buildJsonObject {
+        put("description", "look around"); put("prompt", "$SUBAGENT look around"); put("subagent_type", "general-purpose"); put("run_in_background", background)
     }
 
     private companion object {
