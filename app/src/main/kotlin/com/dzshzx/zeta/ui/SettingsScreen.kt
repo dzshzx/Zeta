@@ -19,6 +19,8 @@ import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.PermissionHealth
 import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
+import com.dzshzx.zeta.ui.settings.ScheduleEntry
+import com.dzshzx.zeta.ui.settings.ScheduleScreen
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
@@ -50,6 +52,10 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
             )
         }
         ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
+        SettingsSubPageHost(subPage == SettingsSubPage.Schedules) {
+            // 打开某次运行的对话：设置页整个关掉，回到聊天页
+            ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
+        }
     }
     BackHandler(enabled = subPage != null) { subPage = null }
 }
@@ -90,6 +96,7 @@ private fun SettingsHome(
                 summary = if (hub.phoneTools) "Claude 可以读屏、点按、打开应用、执行 Android 命令" else "已关闭",
                 onClick = onOpenPhone,
             )
+            ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) }
         }
         ClaudeConfigGroup(hub, onOpenSubPage)
         Group(title = "权限", footer = "后台运行（电池优化）、通知、无障碍、root 和 Linux 环境的状态都在这里，有 root 时可以一键授予。") {

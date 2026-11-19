@@ -36,6 +36,7 @@ internal object PhoneToolGroups {
         PersonalTools,
         ClipboardTools,
         DeviceTools,
+        ScheduleTools,
     )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {

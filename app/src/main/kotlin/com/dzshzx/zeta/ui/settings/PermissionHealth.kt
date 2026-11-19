@@ -2,6 +2,7 @@ package com.dzshzx.zeta.ui.settings
 
 import android.Manifest
 import android.app.ActivityManager
+import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
@@ -26,6 +27,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.schedule.ScheduleAlarms
+import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.tools.PersonalTools
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, ExactAlarm, AutoStart }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -63,6 +66,10 @@ internal data class PermissionSnapshot(
     val notificationHistory: Boolean? = null,
     /** MIUI 的“后台弹出界面”给没给；不是 MIUI、读不到时是 null（不列这一项）。 */
     val backgroundStart: Boolean? = null,
+    /** 能排精确闹钟（定时任务到点准时）。 */
+    val exactAlarms: Boolean = false,
+    /** HyperOS / MIUI 的“自启动”；不是小米系统或读不到时是 null。 */
+    val autoStart: Boolean? = null,
 )
 
 /**
@@ -99,8 +106,20 @@ internal object PermissionHealth {
             blockedChannels = blocked,
             notificationHistory = PersonalTools.notificationHistoryEnabled(context),
             backgroundStart = BackgroundStart.allowed(context),
+            exactAlarms = ScheduleAlarms.exact(context),
+            autoStart = miuiAutoStart(context),
         )
     }
+
+    /** HyperOS / MIUI 自启动的 appop。没有它时开机广播和闹钟都拉不起没在运行的 Zeta。 */
+    private const val MIUI_AUTO_START = 10008
+
+    /** 读小米系统自己的那项 appop（隐藏接口，经反射）；别的系统上这一项不存在，返回 null。 */
+    private fun miuiAutoStart(context: Context): Boolean? = runCatching {
+        val ops = context.getSystemService(AppOpsManager::class.java)
+        val check = AppOpsManager::class.java.getMethod("checkOpNoThrow", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java)
+        check.invoke(ops, MIUI_AUTO_START, Process.myUid(), context.packageName) as Int == AppOpsManager.MODE_ALLOWED
+    }.getOrNull()
 
     fun items(snapshot: PermissionSnapshot?, hub: ConversationHub): List<PermissionItem> {
         val setup = hub.setup
@@ -189,7 +208,31 @@ internal object PermissionHealth {
                     "未开启", PermissionStatus.Idle, root == true,
                 )
             },
-        )
+        ) + scheduleItems(snapshot, root)
+    }
+
+    /** 定时任务要用的两项：有开着的任务时缺了算问题，没有任务时只是提示。 */
+    private fun scheduleItems(snapshot: PermissionSnapshot?, root: Boolean?): List<PermissionItem> {
+        val needed = ScheduleStore.observed.any { it.enabled }
+        val missing = if (needed) PermissionStatus.Missing else PermissionStatus.Idle
+        if (snapshot == null) return listOf(PermissionItem(PermissionId.ExactAlarm, "精确闹钟", null, "检查中", PermissionStatus.Checking, false))
+        val exact = if (snapshot.exactAlarms) {
+            PermissionItem(PermissionId.ExactAlarm, "精确闹钟", "定时任务到点准时开始", "已允许", PermissionStatus.Ready, false)
+        } else {
+            PermissionItem(
+                PermissionId.ExactAlarm, "精确闹钟", "定时任务要到点准时开始靠它；没有时系统可能推迟几分钟到更久",
+                "未允许", missing, root == true,
+            )
+        }
+        val autoStart = when (snapshot.autoStart) {
+            null -> null
+            true -> PermissionItem(PermissionId.AutoStart, "自启动", "开机后重新排好定时任务，Zeta 没在运行时到点也能被拉起", "已允许", PermissionStatus.Ready, false)
+            false -> PermissionItem(
+                PermissionId.AutoStart, "自启动", "系统的“自启动”关着：开机后定时任务不会重新排上，Zeta 没在运行时到点也拉不起来",
+                "未允许", missing, root == true,
+            )
+        }
+        return listOfNotNull(exact, autoStart)
     }
 
     /** MIUI 的“后台弹出界面”：从胶囊点对话标题回到 Zeta 时要用它。不是 MIUI（读不到）就不列。 */
@@ -250,6 +293,15 @@ internal object PermissionHealth {
                 runScript("settings put --user \"\$3\" secure \"\$2\" 1", PersonalTools.NOTIFICATION_HISTORY_KEY, user)
                 PersonalTools.notificationHistoryEnabledOrRoot(app)
             }
+            PermissionId.ExactAlarm -> {
+                runScript("cmd appops set --user \"\$3\" \"\$2\" SCHEDULE_EXACT_ALARM allow", pkg, user)
+                // 系统给了权限会发广播让应用重排；这里也直接重排一次，不等广播
+                ScheduleAlarms.exact(app).also { if (it) ScheduleAlarms.sync(app, ScheduleStore.load(app)) }
+            }
+            PermissionId.AutoStart -> {
+                runScript("appops set --user \"\$3\" \"\$2\" $MIUI_AUTO_START allow", pkg, user)
+                miuiAutoStart(app) == true
+            }
             PermissionId.Root, PermissionId.Linux -> false
         }
     }
@@ -267,6 +319,9 @@ internal object PermissionHealth {
             // 权限没给和某类通知被关，都在应用的通知设置页里改
             PermissionId.Notifications -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
             PermissionId.NotificationHistory -> Intent("android.settings.NOTIFICATION_HISTORY")
+            PermissionId.ExactAlarm -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.fromParts("package", pkg, null))
+            // 小米系统的自启动开关在应用详情页里
+            PermissionId.AutoStart -> details
             PermissionId.Root, PermissionId.Linux -> null
         }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }

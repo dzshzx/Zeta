@@ -166,6 +166,9 @@ class Conversation(
 
     val isProcessAlive: Boolean get() = process != null
 
+    /** 背后那个托管进程的标识（zeta_host.sh 的 key）；没有进程时为 null。 */
+    internal val hostKey: String? get() = process?.hostKey
+
     init {
         if (attach != null) {
             busy = attach.busy
@@ -532,6 +535,25 @@ class Conversation(
         usage = meter.snapshot(hub.settings.contextWindows)
     }
 
+    /** 之后启动进程时追加给 Claude Code 的说明（定时任务告诉它这是后台自动发的）。 */
+    private var launchHint: String? = null
+
+    /**
+     * 定时任务指定的模型和权限模式：只改这个对话，不动全局设置；null 的那项照旧。
+     * [hint] 追加进系统提示，进程已经起来的话下次重启进程才生效。
+     */
+    internal fun preset(model: String?, permissionMode: String?, hint: String? = null) {
+        launchHint = hint
+        model?.let { value ->
+            this.model = value
+            process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
+        }
+        permissionMode?.let { value ->
+            this.permissionMode = value
+            process?.send(controlRequest { put("subtype", "set_permission_mode"); put("mode", value) })
+        }
+    }
+
     fun choosePermissionMode(value: String) {
         permissionMode = value
         hub.settings.permissionMode = value
@@ -609,7 +631,7 @@ class Conversation(
             model?.let { add("--model"); add(it) }
             permissionMode?.let { add("--permission-mode"); add(it) }
             effort?.let { add("--effort"); add(it) }
-            add("--append-system-prompt"); add(ClientHint)
+            add("--append-system-prompt"); add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
             // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
             if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
         }

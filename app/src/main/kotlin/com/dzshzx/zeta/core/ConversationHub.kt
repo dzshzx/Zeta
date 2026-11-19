@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.phone.PhoneTools
 import android.app.Activity
 import android.app.Application
@@ -195,6 +196,7 @@ class ConversationHub(private val app: Application) {
             override fun onActivityPaused(activity: Activity) = Unit
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
         })
+        ScheduleRunner.onAppStart(app)
     }
 
     /** 切走时还没做完的对话，按 sessionId（没有则按 key）保留到这一轮结束。改了以后调用 [backgroundChanged]。 */
@@ -277,13 +279,19 @@ class ConversationHub(private val app: Application) {
                     tasks = o.int("tasks") ?: 0,
                 )
             }.toList()
-            // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
-            val active = hosts.filter { it.busy || it.pending != null || it.tasks > 0 }
-            for (host in hosts - active.toSet()) {
-                runCatching { LinuxEnv.run(config, "exec bash -c " + LinuxEnv.quote(hostScript) + " zeta-host stop " + LinuxEnv.quote(host.key)) }
-            }
-            if (active.isEmpty()) return@thread
             main.post {
+                // 这个进程里已经接着的（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
+                val known = (listOf(current) + background.values).mapNotNullTo(HashSet()) { it.hostKey }
+                val others = hosts.filter { it.key !in known }
+                // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
+                val active = others.filter { it.busy || it.pending != null || it.tasks > 0 }
+                val idle = others - active.toSet()
+                if (idle.isNotEmpty()) thread(name = "zeta-hosts", isDaemon = true) {
+                    for (host in idle) {
+                        runCatching { LinuxEnv.run(config, "exec bash -c " + LinuxEnv.quote(hostScript) + " zeta-host stop " + LinuxEnv.quote(host.key)) }
+                    }
+                }
+                if (active.isEmpty()) return@post
                 for (host in active) {
                     val conversation = Conversation(this, host.cwd, host.sessionId, host.title, host.historyFile, attach = host)
                     if (current.items.isEmpty() && current.sessionId == null && !current.isProcessAlive) {
@@ -534,7 +542,29 @@ class ConversationHub(private val app: Application) {
             prunePhones()
             return
         }
-        sessions.firstOrNull { it.id == key }?.let(::open)
+        sessions.firstOrNull { it.id == key }?.let(::open) ?: openUnlisted(key)
+    }
+
+    /** 会话列表里还没有（比如点通知冷启动，列表还没读出来）：按 id 查一次再打开。 */
+    private fun openUnlisted(id: String) {
+        val config = settings.env ?: return
+        thread(name = "zeta-sessions", isDaemon = true) {
+            val result = runCatching {
+                LinuxEnv.run(config, "exec python3 - lookup " + LinuxEnv.quote(id), stdin = helperScript, timeoutMs = 60_000)
+            }.getOrNull() ?: return@thread
+            val summary = parseSessionSummaries(result.stdout).firstOrNull { it.id == id } ?: return@thread
+            main.post { open(summary) }
+        }
+    }
+
+    /** 会话 [key]（sessionId，新对话用它的 key）当前或在后台的那个对话对象；没有就是 null。 */
+    internal fun findConversation(key: String): Conversation? =
+        if (current.sessionId == key || current.key == key) current else background[key]
+
+    /** 定时任务在后台起的对话：不切换界面上的当前对话，跑完照常收掉。在主线程上调用。 */
+    internal fun adoptBackground(conversation: Conversation) {
+        background[conversation.sessionId ?: conversation.key] = conversation
+        backgroundChanged()
     }
 
     fun delete(summary: SessionSummary) {
@@ -659,7 +689,8 @@ class ConversationHub(private val app: Application) {
     /** [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒“已完成”。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
         if (conversation !== current) retireWhenIdle(conversation)
-        if (!stopped && (!foreground || conversation !== current)) {
+        // 定时任务起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
+        if (!stopped && (!foreground || conversation !== current) && !ScheduleRunner.owns(conversation)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成")
         }
         refreshSessions()
@@ -687,7 +718,7 @@ class ConversationHub(private val app: Application) {
     }
 
     internal fun onAttentionNeeded(conversation: Conversation) {
-        if (!foreground || conversation !== current) {
+        if ((!foreground || conversation !== current) && !ScheduleRunner.owns(conversation)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
         }
     }

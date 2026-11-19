@@ -94,6 +94,11 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_CONVERSATION = "com.dzshzx.zeta.extra.CONVERSATION"
 
+        /** 点了打开 Zeta 并切到对话 [key] 的 Intent（通知用，点通知时系统允许从后台打开界面）。 */
+        fun conversationIntent(context: Context, key: String): Intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_CONVERSATION, key)
+
         /** 打开 Zeta 并切到对话 [key]（sessionId，新对话用它的 key）。可以在应用不在前台时调用。 */
         /**
          * 打开 Zeta 并切到对话 [key]。从胶囊上调用时 Zeta 在后台，直接 startActivity 会被后台启动限制拦下（不报错，任务就是不上来）：

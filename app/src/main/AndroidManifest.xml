@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 定时任务：到点准时（setAlarmClock 要它），开机后重排闹钟 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- 按名字找应用、打开应用：只需要能看到有桌面图标的那些 -->
     <queries>
@@ -57,6 +60,18 @@
             android:exported="true"
             android:grantUriPermissions="false"
             android:permission="android.permission.MANAGE_ACCESSIBILITY" />
+        <!-- 定时任务的闹钟，以及要重排闹钟的系统广播（都由系统发，不必导出） -->
+        <receiver
+            android:name=".core.schedule.ScheduleReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".core.AgentService"
             android:exported="false"
