@@ -261,6 +261,82 @@ abstract class ClaudeConfigClientTest {
         }
     }
 
+    @Test
+    fun permissionsEditOnlyTheirRules() {
+        val settings = "\$HOME/.claude/settings.json"
+        assertEquals(PermissionRules.Empty, client.permissions())
+        // 不存在时加一条：建出 permissions
+        client.setToolPermission("WebSearch", PermissionBehavior.Ask)
+        assertEquals("{\n  \"permissions\": {\n    \"ask\": [\n      \"WebSearch\"\n    ]\n  }\n}\n", run("cat \"$settings\""))
+        run(
+            """
+            printf '%s\n' '{"model":"opus","permissions":{"defaultMode":"bypassPermissions","allow":["Bash(git status:*)",5,"Bash"],"deny":["Bash(rm:*"]},"env":{"A":"1"}}' > "$settings"
+            """.trimIndent(),
+        )
+        val before = client.permissions()
+        assertEquals(PermissionRules(listOf("Bash(git status:*)", "Bash"), emptyList(), listOf("Bash(rm:*")), before)
+
+        // 整个 Bash 设成拒绝：允许里的 Bash 去掉，带参数的、认不出的、非字符串的、defaultMode 和别的键都不动
+        val denied = client.setToolPermission("Bash", PermissionBehavior.Deny)
+        assertEquals(PermissionBehavior.Deny, ClaudePermissions.tool(denied, "Bash").behavior)
+        assertEquals(
+            """
+            {
+              "model": "opus",
+              "permissions": {
+                "defaultMode": "bypassPermissions",
+                "allow": [
+                  "Bash(git status:*)",
+                  5
+                ],
+                "deny": [
+                  "Bash(rm:*",
+                  "Bash"
+                ]
+              },
+              "env": {
+                "A": "1"
+              }
+            }
+
+            """.trimIndent(),
+            run("cat \"$settings\""),
+        )
+
+        client.addPermissionRule(PermissionBehavior.Ask, "mcp__phone__shell")
+        val moved = client.replacePermissionRule(PermissionBehavior.Allow, "Bash(git status:*)", PermissionBehavior.Ask, "Bash(git status:*)")
+        assertEquals(PermissionRules(emptyList(), listOf("mcp__phone__shell", "Bash(git status:*)"), listOf("Bash(rm:*", "Bash")), moved)
+        assertEquals(moved, client.permissions())
+
+        // 别人在中间改了文件：改的是新内容，别人加的留着
+        run("jq -c '.permissions.deny += [\"Read(./.env)\"] | .theme = \"dark\"' \"$settings\" > \"$settings.new\" && mv \"$settings.new\" \"$settings\"")
+        val removed = client.removePermissionRule(PermissionBehavior.Deny, "Bash(rm:*")
+        assertEquals(listOf("Bash", "Read(./.env)"), removed.deny)
+        assertTrue(run("cat \"$settings\"").contains("\"theme\": \"dark\""))
+        // 要改的那条已经被别人删了
+        try {
+            client.replacePermissionRule(PermissionBehavior.Deny, "Bash(rm:*", PermissionBehavior.Ask, "Bash(rm:*)")
+            fail()
+        } catch (expected: ClaudeConfigException) {
+        }
+        try {
+            client.addPermissionRule(PermissionBehavior.Ask, "Bash(ls")
+            fail()
+        } catch (expected: ClaudeConfigException) {
+        }
+
+        // 文件坏了：读、改都报错，不碰它
+        run("printf '{oops' > \"$settings\"")
+        for (action in listOf({ client.permissions() }, { client.setToolPermission("Bash", null) })) {
+            try {
+                action()
+                fail()
+            } catch (expected: ClaudeConfigException) {
+            }
+        }
+        assertEquals("{oops", run("cat \"$settings\""))
+    }
+
     /** 需要 claude 命令行：没有就跳过。 */
     protected fun assumeClaude() {
         assumeTrue("没有 claude 命令", run("command -v claude >/dev/null && echo yes || echo no").trim() == "yes")

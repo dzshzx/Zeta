@@ -1434,6 +1434,13 @@ class PhoneTools(
             putJsonObject("mcpServers") { putJsonObject(SERVER) { put("type", "sdk"); put("name", SERVER) } }
         }.toString()
 
+        /** 全部手机工具的名字和英文说明（设置里的工具权限页用）。 */
+        val catalog: List<Pair<String, String>>
+            get() = (TOOLS + PhoneToolGroups.all.flatMap { it.tools }).mapNotNull { tool ->
+                val o = tool as? JsonObject ?: return@mapNotNull null
+                (o.str("name") ?: return@mapNotNull null) to o.str("description").orEmpty()
+            }
+
         /** 无障碍服务是否连着。 */
         val accessibilityConnected: Boolean get() = ZetaAccessibilityService.instance != null
 

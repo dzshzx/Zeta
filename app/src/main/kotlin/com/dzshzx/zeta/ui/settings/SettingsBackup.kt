@@ -130,6 +130,7 @@ internal object SettingsBackup {
         ),
         boolItem("keepScreenOn", "对话进行中保持屏幕常亮", default = true),
         boolItem("autoLoadRemoteImages", "自动加载网络图片", default = false),
+        boolItem("autoTitle", "自动生成对话标题", default = true),
         boolItem("phoneTools", "手机操作", default = true),
         boolItem("backgroundScreen", "在后台屏幕上操作", default = true),
         optionalItem("model", "新对话的模型", unset = "Claude Code 的默认模型", check = { v ->

@@ -106,6 +106,9 @@ class Conversation(
         private set
     private val meter = UsageTracker()
 
+    /** 新对话第一轮结束后请 Claude Code 起标题。 */
+    private val autoTitle = AutoTitle()
+
     /**
      * 排队中的消息。Claude Code 会在下一个工具调用结束时把它并进正在进行的这一轮，
      * 没有工具调用可等时就在这一轮结束后另起一轮。
@@ -277,6 +280,7 @@ class Conversation(
         if (rewinding) return
         if (title.isBlank()) {
             title = trimmed.lineSequence().first().take(40).ifBlank { if (files.isNotEmpty()) files.first().substringAfterLast('/') else "图片" }
+            autoTitle.arm(title)
         }
         val process = ensureProcess() ?: return
         val message = stage(trimmed, attachments, files)
@@ -797,6 +801,7 @@ class Conversation(
                     hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
                     busy = false
                     phone.onTurnEnded()
+                    if (!stopped && !failed) requestTitle()
                     hub.onTurnFinished(this, stopped)
                 }
                 hub.onActivityChanged()
@@ -827,6 +832,7 @@ class Conversation(
                 return true
             }
             "control_response" -> {
+                if (autoTitle.onResponse(event.obj("response"), title) { title = it; hub.refreshSessions() }) return false
                 if (rewind != null && event.obj("response")?.str("request_id") == rewind?.requestId) {
                     finishRewind(rewindFailure(event.obj("response")))
                     return true
@@ -846,6 +852,11 @@ class Conversation(
             }
         }
         return false
+    }
+
+    private fun requestTitle() {
+        val target = process ?: return
+        autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList(), "zeta-title-${++requestSeq}")?.let(target::send)
     }
 
     private fun parseQuestions(list: JsonArray?): List<Question> = list.orEmpty().mapNotNull { element ->

@@ -91,6 +91,7 @@ private fun SettingsHome(
         }
         Group(title = "聊天", footer = "关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取。") {
             CouiSwitchPreference(title = "自动加载网络图片", checked = hub.autoLoadRemoteImages, onCheckedChange = hub::chooseAutoLoadRemoteImages)
+            AutoTitleSwitch(hub)
         }
         Group(title = "能力") {
             CouiPreference(
@@ -135,4 +136,19 @@ private fun SettingsHome(
             CouiPreference(title = "Zeta · Ζ", value = BuildConfig.VERSION_NAME)
         }
     }
+}
+
+/** 自动标题的开关：在每次要起标题时读，关掉后还没起的也不再起。 */
+@Composable
+private fun AutoTitleSwitch(hub: ConversationHub) {
+    var on by remember { mutableStateOf(hub.settings.autoTitle) }
+    CouiSwitchPreference(
+        title = "自动生成对话标题",
+        summary = "新对话第一轮回答后，由 Claude Code 用它的快速模型（Haiku）起个简短标题；改过名的不动",
+        checked = on,
+        onCheckedChange = {
+            on = it
+            hub.settings.autoTitle = it
+        },
+    )
 }

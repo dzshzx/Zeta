@@ -240,6 +240,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("autoLoadRemoteImages", false)
         set(value) = prefs.edit().putBoolean("autoLoadRemoteImages", value).apply()
 
+    /** 新对话第一轮结束后请 Claude Code 起一个简短标题，代替第一句话。 */
+    var autoTitle: Boolean
+        get() = prefs.getBoolean("autoTitle", true)
+        set(value) = prefs.edit().putBoolean("autoTitle", value).apply()
+
     /** 新会话的权限模式；null 表示沿用 Claude Code 设置里的默认值。 */
     var permissionMode: String?
         get() = prefs.getString("permissionMode", null)

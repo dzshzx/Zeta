@@ -147,7 +147,7 @@ def cut_at(owners, cut, leaf):
 
 
 def summarize(path):
-    title = first = prompt = cwd = None
+    custom = ai = first = prompt = cwd = None
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             # 先按子串筛，绝大多数行（请求快照等）不必解析
@@ -156,10 +156,12 @@ def summarize(path):
                     o = json.loads(line)
                 except ValueError:
                     continue
+                # 和 Claude Code 一样：改过的名字（custom-title）压过自动起的（ai-title），不看先后；
+                # Claude Code 补写元数据时会把两行按 custom、ai 的顺序再追加一遍
                 if o.get("type") == "custom-title" and o.get("customTitle"):
-                    title = o["customTitle"]
+                    custom = o["customTitle"]
                 elif o.get("type") == "ai-title" and o.get("aiTitle"):
-                    title = o["aiTitle"]
+                    ai = o["aiTitle"]
             elif '"leafUuid":null' in line and rewind_cut(line) is not None:
                 # 剪到了第一条消息之前：之前的提问不算了，预览改用之后的第一句
                 first = prompt = None
@@ -187,7 +189,7 @@ def summarize(path):
                     pass
     if first is None:
         return None
-    return {"id": os.path.basename(path)[:-6], "file": path, "cwd": cwd or "", "title": title or "",
+    return {"id": os.path.basename(path)[:-6], "file": path, "cwd": cwd or "", "title": custom or ai or "",
             "preview": (prompt or first)[:200], "updated": int(os.path.getmtime(path) * 1000)}
 
 
@@ -493,10 +495,9 @@ def cmd_hosts():
             continue
         session = session or read_text(os.path.join(directory, "session")) or None
         files = glob.glob(os.path.join(ROOT, "*", session + ".jsonl")) if session else []
-        title = read_text(os.path.join(directory, "title"))
-        if not title and files:
-            summary = summarize(files[0]) or {}
-            title = summary.get("title") or (summary.get("preview") or "")[:40]
+        # 会话记录里的标题（改过的名字、自动起的标题）比启动时记下的新
+        summary = (summarize(files[0]) or {}) if files else {}
+        title = summary.get("title") or read_text(os.path.join(directory, "title")) or (summary.get("preview") or "")[:40]
         out({"key": os.path.basename(directory), "pid": pid, "cwd": read_text(os.path.join(directory, "cwd")),
              "title": title, "session": session, "file": files[0] if files else None,
              "lines": lines, "busy": busy, "pending": pending, "mode": mode, "tasks": tasks})

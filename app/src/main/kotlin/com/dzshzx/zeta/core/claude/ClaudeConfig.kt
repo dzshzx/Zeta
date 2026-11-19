@@ -162,19 +162,27 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
         return result.firstOrNull { it.tag == "OK" }?.get(1) ?: throw ClaudeConfigException("没有写成")
     }
 
-    /** 改 settings.json：读出来、改一个键、按读到时的校验值写回去；中途被别人改了就重来。 */
-    private fun updateSettings(transform: (JsonObject) -> JsonObject) {
+    /** 读 settings.json；不存在时是空对象，不是有效的 JSON 时报错。 */
+    internal fun readSettings(): JsonObject = parseSettings(load(ClaudePaths.settings(shell().home)))
+
+    private fun parseSettings(loaded: Loaded): JsonObject = try {
+        ClaudeSettings.parse(loaded.text.takeIf { loaded.exists })
+    } catch (error: ClaudeSettings.Invalid) {
+        throw ClaudeConfigException(error.message!!)
+    }
+
+    /**
+     * 改 settings.json：读出来、改要改的键、按读到时的校验值写回去；中途被别人改了就在新内容上重做一遍。
+     * 返回写回去的（没变化时是读到的）内容。
+     */
+    internal fun updateSettings(transform: (JsonObject) -> JsonObject): JsonObject {
         val path = ClaudePaths.settings(shell().home)
         repeat(3) {
             val loaded = load(path)
-            val current = try {
-                ClaudeSettings.parse(loaded.text.takeIf { loaded.exists })
-            } catch (error: ClaudeSettings.Invalid) {
-                throw ClaudeConfigException(error.message!!)
-            }
+            val current = parseSettings(loaded)
             val updated = transform(current)
-            if (updated == current) return
-            if (store(path, ClaudeSettings.render(updated).toByteArray(), loaded.sha) != null) return
+            if (updated == current) return current
+            if (store(path, ClaudeSettings.render(updated).toByteArray(), loaded.sha) != null) return updated
         }
         throw ClaudeConfigException("settings.json 一直在被改动，稍后再试")
     }
@@ -279,7 +287,9 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
         }
     }
 
-    fun setAutoMemory(on: Boolean) = updateSettings { ClaudeSettings.withAutoMemory(it, on) }
+    fun setAutoMemory(on: Boolean) {
+        updateSettings { ClaudeSettings.withAutoMemory(it, on) }
+    }
 
     // ---------- Skill ----------
 

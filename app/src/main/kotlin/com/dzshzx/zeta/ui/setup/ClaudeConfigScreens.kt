@@ -78,7 +78,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 设置页上“上下文与扩展”的入口分组。四个页面管的都是 Linux 环境里 Claude Code 自己的配置，不是 Zeta 的。 */
+/** 设置页上“上下文与扩展”的入口分组。这几个页面管的都是 Linux 环境里 Claude Code 自己的配置，不是 Zeta 的。 */
 @Composable
 internal fun ClaudeConfigGroup(hub: ConversationHub, onOpen: (SettingsSubPage) -> Unit) {
     val ready = hub.setup == SetupState.Ready && hub.env != null
@@ -94,16 +94,18 @@ internal fun ClaudeConfigGroup(hub: ConversationHub, onOpen: (SettingsSubPage) -
         CouiPreference(title = "Skills", summary = "~/.claude/skills", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeSkills) })
         CouiPreference(title = "MCP 服务器", summary = "claude mcp 管理的服务器", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMcp) })
         CouiPreference(title = "Subagent", summary = "~/.claude/agents", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeAgents) })
+        CouiPreference(title = "工具权限", summary = "按工具设允许、询问、拒绝", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudePermissions) })
     }
 }
 
-/** 四个页面挂在设置页的子页面宿主上；返回键由设置页统一处理（关掉当前子页面）。 */
+/** 这几个页面挂在设置页的子页面宿主上；返回键由设置页统一处理（关掉当前子页面）。 */
 @Composable
 internal fun ClaudeConfigPages(hub: ConversationHub, page: SettingsSubPage?, onClose: () -> Unit) {
     SettingsSubPageHost(page == SettingsSubPage.ClaudeMemory) { ClaudeMemoryScreen(hub = hub, onBack = onClose) }
     SettingsSubPageHost(page == SettingsSubPage.ClaudeSkills) { ClaudeSkillsScreen(hub = hub, onBack = onClose) }
     SettingsSubPageHost(page == SettingsSubPage.ClaudeMcp) { ClaudeMcpScreen(hub = hub, onBack = onClose) }
     SettingsSubPageHost(page == SettingsSubPage.ClaudeAgents) { ClaudeAgentsScreen(hub = hub, onBack = onClose) }
+    SettingsSubPageHost(page == SettingsSubPage.ClaudePermissions) { ClaudePermissionsScreen(hub = hub, onBack = onClose) }
 }
 
 /**
