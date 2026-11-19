@@ -1,6 +1,7 @@
 #!/bin/bash
 # 数字助理：服务、元数据和 ASSIST 入口注册上了；ASSIST 在测试屏上打开浮窗（预填问题），发出去新开对话、等到回答；
 # 上推浮窗打开 Zeta 接着这个对话。会真跑一轮 Claude；测试建的会话收尾时删掉，接着它的后台进程一起结束。
+# 数字助理单独定的模型和思考等级：测试时临时设成 haiku、low，从这个对话的 Claude Code 进程的命令行核对，收尾恢复。
 # 用法：ZETA_PHONE_OWNER=<任务名> ZETA_PHONE_RUN_TIMEOUT=300 tools/phone-run tools/phone-tests/assistant.sh（vd、android、$PKG、$DISPLAY_ID 由 phone-run 提供）。
 # 点按坐标按测试屏（1220×2656，没有系统栏）上浮窗的布局算，见 AssistantShots 的 assistant-entry 图。
 #
@@ -10,6 +11,8 @@ set -euo pipefail
 ROOTFS=/data/local/zeta/debian/rootfs
 MARK=/data/local/tmp/zeta-assistant-test.mark
 QUESTION='Reply with the single word OK. Do not use any tools.'
+PREFS=/data/user/0/$PKG/shared_prefs/zeta.xml
+PREFS_BAK=/data/local/tmp/zeta-assistant-test.prefs
 
 # 删掉标记 $1 之后新建、带屏幕内容的测试会话，并结束接着它的后台进程（后台进程的输出开头记着会话 ID）。
 # 只删会话文件不够：进程还在等确认或还在跑的话，测试版下次冷启动会把它接回来，别人的测试就停在这个对话上。
@@ -31,9 +34,15 @@ cleanup() {
   set +e
   reap "$MARK" ""
   android "rm -f $MARK"
+  # 数字助理的模型、思考等级改回测试前的样子（原地改写，属主和 SELinux 标签不变）
+  android "[ -f $PREFS_BAK ] && am force-stop $PKG && cat $PREFS_BAK > $PREFS && rm -f $PREFS_BAK && echo 数字助理的模型、思考等级已恢复"
 }
 trap cleanup EXIT
 
+# 这次测试起的 Claude Code 进程的命令行（进程还活着时才读得到，所以在等回答时就读）
+claude_args() {
+  android "for o in \$(find $ROOTFS/home/*/.cache/zeta-dev/hosts -name out.jsonl -newer $MARK 2>/dev/null); do p=\$(cat \${o%/out.jsonl}/pid 2>/dev/null); [ -n \"\$p\" ] && for c in \$(pgrep -P \$p) \$p; do tr '\\0' ' ' < /proc/\$c/cmdline 2>/dev/null; echo; done; done" | grep -- '--input-format' | head -n 1 || true
+}
 resumed() { android "dumpsys activity activities | grep -E 'ResumedActivity|topResumedActivity'" | grep -o "$PKG/[A-Za-z0-9_.]*" | head -1; }
 
 echo "== 注册"
@@ -44,6 +53,9 @@ android "dumpsys package $PKG" > package.txt
 grep -q 'android.permission.BIND_VOICE_INTERACTION' package.txt
 echo "服务、识别服务、ASSIST 入口都在"
 
+echo "== 数字助理单独定模型和思考等级：临时设成 haiku、low"
+android "am force-stop $PKG; cat $PREFS > $PREFS_BAK && grep -v -E 'name=\"assistant(Model|Effort)\"' $PREFS | sed 's#</map>#    <string name=\"assistantModel\">haiku</string>\n    <string name=\"assistantEffort\">low</string>\n</map>#' > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $PREFS; rm -f /data/local/tmp/zeta-prefs.tmp"
+vd prefs assistantModel assistantEffort
 echo "== ASSIST 打开浮窗，预填问题（测试屏 $DISPLAY_ID，不进最近任务）"
 android "am start --display $DISPLAY_ID -f 0x18800000 -a android.intent.action.ASSIST -n $PKG/com.dzshzx.zeta.assistant.AssistantActivity --es android.intent.extra.ASSIST_PACKAGE com.android.settings --es query '$QUESTION' >/dev/null"
 sleep 3
@@ -52,8 +64,10 @@ vd shot panel.png
 
 echo "== 点发送键"
 vd tap 1062 2504
+args=''
 for i in $(seq 40); do
   sleep 3
+  [[ -n $args ]] || args=$(claude_args)
   if android "find $ROOTFS/home/*/.cache/zeta-dev/hosts -name out.jsonl -newer $MARK 2>/dev/null | xargs cat 2>/dev/null" | grep -q '"type":"result"'; then
     echo "等了 $((i * 3)) 秒，这一轮结束了"
     break
@@ -62,8 +76,13 @@ for i in $(seq 40); do
 done
 sleep 2
 vd shot reply.png
+# 这一轮是出错结束的（比如网络被拦、额度用完）：先报出来，不往下核对
+error=$(android "find $ROOTFS/home/*/.cache/zeta-dev/hosts -name out.jsonl -newer $MARK 2>/dev/null | xargs grep -h '\"type\":\"result\"' 2>/dev/null" | grep '"is_error":true' | head -n 1 || true)
+[[ -z $error ]] || { echo "Claude 这一轮出错了，不是数字助理的问题：$(jq -r '.result // .subtype' <<<"$error" | head -c 200)"; exit 1; }
 android "find $ROOTFS/home/*/.claude/projects -name '*.jsonl' -newer $MARK | xargs grep -l '<screen_context>'" | grep -q jsonl || { echo "没找到带屏幕内容的新会话"; exit 1; }
 echo "新会话的第一条消息带着屏幕内容"
+echo "启动参数：$(grep -oE -- '--(model|effort) [^ ]+' <<<"$args" | tr '\n' ' ')"
+[[ $args == *"--model haiku"* && $args == *"--effort low"* ]] || { echo "数字助理的对话没用上单独定的模型和思考等级（命令行：${args:-没读到}）"; exit 1; }
 
 echo "== 上推浮窗，打开 Zeta 接着这个对话"
 vd swipe 610 2600 610 1600 400 # 从面板底边的空白处往上拖，不压在发送键上

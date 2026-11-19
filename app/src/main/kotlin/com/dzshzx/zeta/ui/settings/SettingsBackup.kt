@@ -142,6 +142,11 @@ internal object SettingsBackup {
             if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")
         }),
         optionalItem("effort", "新对话的思考强度", unset = "Claude Code 的设置", labels = EffortLevels.toMap()),
+        optionalItem("assistantModel", "数字助理的模型", unset = "跟随新对话的设置", check = { v ->
+            val text = v.text()
+            if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")
+        }),
+        optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随新对话的设置", labels = EffortLevels.toMap()),
         optionalItem("permissionMode", "新对话的权限模式", unset = "Claude Code 的设置", labels = PermissionModes.toMap()),
         boolItem("autoCompact", "自动压缩上下文", default = true),
         BackupItem(

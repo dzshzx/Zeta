@@ -583,11 +583,19 @@ class Conversation(
      * 定时任务指定的模型和权限模式：只改这个对话，不动全局设置；null 的那项照旧。
      * [hint] 追加进系统提示，进程已经起来的话下次重启进程才生效。
      */
-    internal fun preset(model: String?, permissionMode: String?, hint: String? = null) {
+    internal fun preset(model: String?, permissionMode: String?, hint: String? = null, effort: String? = null) {
         launchHint = hint
         model?.let { value ->
             this.model = value
             process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
+        }
+        // 只给这个对话定思考强度，不改新对话的默认（和 [chooseEffort] 不同）
+        effort?.let { value ->
+            this.effort = value
+            process?.send(controlRequest {
+                put("subtype", "apply_flag_settings")
+                putJsonObject("settings") { put("effortLevel", value) }
+            })
         }
         permissionMode?.let { value ->
             this.permissionMode = value

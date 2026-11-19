@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.assistant.AssistantOwner
 import com.dzshzx.zeta.assistant.AssistantScreen
 import com.dzshzx.zeta.assistant.AssistantSuggestions
@@ -23,6 +24,7 @@ import com.dzshzx.zeta.assistant.ScreenChip
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.settings.AssistantDiagnosticsGroup
+import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
 import com.dzshzx.zeta.ui.settings.AssistantEntry
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
@@ -143,6 +145,17 @@ class AssistantShots : ShotTest() {
     }
 
     @Test
+    fun assistantPage() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val hub = Fixtures.readyHub(app)
+        hub.settings.model = "opus"
+        hub.settings.assistantModel = "sonnet"
+        hub.settings.assistantEffort = "low"
+        val owner = AssistantOwner(self = true, packageName = "com.dzshzx.zeta", label = "Zeta", recognizerPackage = "com.dzshzx.zeta")
+        shoot("assistant-page") { AssistantSettingsScreen(hub = hub, onBack = {}, owner = owner) }
+    }
+
+    @Test
     fun settingsAndDiagnostics() {
         val status = PowerKeyStatus(
             installed = true,
@@ -156,7 +169,7 @@ class AssistantShots : ShotTest() {
         val owner = AssistantOwner(self = false, packageName = "com.miui.voiceassist", label = "超级小爱")
         shoot("assistant-settings") {
             CouiPage(title = "数字助理", onBack = {}) {
-                item { PreferenceGroup(title = "能力") { item { AssistantEntry(owner) } } }
+                item { PreferenceGroup(title = "能力") { item { AssistantEntry(owner) {} } } }
                 item { AssistantDiagnosticsGroup(reloads = 0, owner = owner, status = status) }
             }
         }

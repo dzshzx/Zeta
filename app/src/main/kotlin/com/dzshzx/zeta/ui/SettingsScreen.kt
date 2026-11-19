@@ -27,6 +27,7 @@ import com.dzshzx.zeta.ui.settings.AccountsScreen
 import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.AutoCompactGroup
 import com.dzshzx.zeta.ui.settings.AssistantEntry
+import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
 import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
 import com.dzshzx.zeta.ui.settings.NotifyTriggerEntry
 import com.dzshzx.zeta.ui.settings.NotifyTriggerScreen
@@ -87,6 +88,7 @@ internal fun SettingsScreen(
             NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
         }
         SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
+        SettingsSubPageHost(subPage == SettingsSubPage.Assistant) { AssistantSettingsScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Storage) {
             // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
             StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
@@ -168,7 +170,7 @@ private fun SettingsHome(
                 }
                 item { ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) } }
                 item { NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) } }
-                item { AssistantEntry() }
+                item { AssistantEntry { onOpenSubPage(SettingsSubPage.Assistant) } }
                 item {
                     ArrowPreference(
                         title = "浏览器",
