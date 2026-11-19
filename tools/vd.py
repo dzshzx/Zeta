@@ -14,7 +14,8 @@
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
   vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
-  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、删掉 phoneDisplay。
+  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、删掉 phoneDisplay，
+                              并把它留在用户「最近任务」里的记录全部清掉。
                               force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做
 """
 import os, re, shlex, subprocess, sys, time
@@ -45,7 +46,14 @@ if grep -q 'name="phoneDisplay"' $f 2>/dev/null; then
   grep -v 'name="phoneDisplay"' $f > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $f
   rm -f /data/local/tmp/zeta-prefs.tmp
   echo "删掉了 phoneDisplay"
-fi"""
+fi
+# 屏随着关掉、包也 force-stop 了，任务记录却还留在用户的「最近任务」里（HyperOS 实测），一条条移除
+n=0
+for id in $(dumpsys activity recents | grep -oE 'Task\{[0-9a-f]+ #[0-9]+ [^}]* A=[0-9]+:@PKG@\}' | grep -oE ' #[0-9]+ ' | tr -d ' #'); do
+  am stack remove $id && n=$((n+1))
+done
+[ $n -gt 0 ] && echo "从最近任务里清掉了 $n 条记录"
+true"""
 
 def run(cmd, data=None):
     """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh 断开后远端进程不会自己停。"""
@@ -102,7 +110,9 @@ def build():
 
 
 def launch(did):
-    android(f"am start --user 0 --display {did} -n '{PACKAGE}/{ACTIVITY}' -f 0x18000000 >/dev/null 2>&1")
+    # NEW_TASK | MULTIPLE_TASK：在虚拟屏上另起一个任务，不把主屏上的那份挪过来；
+    # EXCLUDE_FROM_RECENTS：每次冷启动都是新任务，不加的话屏关掉后它们一条条留在用户的「最近任务」里
+    android(f"am start --user 0 --display {did} -n '{PACKAGE}/{ACTIVITY}' -f 0x18800000 >/dev/null 2>&1")
 
 
 def prefs(keys):

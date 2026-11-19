@@ -65,13 +65,13 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 真机脚本：`ZETA_PHONE_OWNER=<任务名> tools/phone-run [--no-build] <脚本>`，放到后台跑（可能要排队）。它在排队之外构建测试版；轮到后装包，在后台虚拟屏上冷启动 Zeta 并等 10 秒，限时跑脚本（`ZETA_PHONE_RUN_TIMEOUT`，默认 600 秒）；收尾时截 `final.png`，取本包的崩溃日志 `crash.txt`，用 `vd.py --dev stop` 收拾测试版，释放租约。脚本按 bash 跑，当前目录是产物目录 `build/phone-run/<时间>`，里面能用 `vd <命令>`（即下一条的 `vd.py --dev`）、`android '<命令>'`（即 `vd.py --dev sh`，在 Android 一侧以 root 跑）和 `$PKG`、`$DISPLAY_ID`。看完产物再改脚本重跑，想下一步的时候不占手机。退出码：脚本自己的，124 是超时，75 是排队超时。要留作回归的脚本放 `tools/phone-tests/`，样例是 `smoke.sh`。
 - 测试：用 `python3 tools/vd.py --dev start|launch|shot <png>|tap x y|swipe x1 y1 x2 y2 [毫秒]|text <ASCII>|key <键码>|prefs <键名…>|status|stop` 在后台虚拟屏上驱动测试版，不碰用户的真屏。测试版和正式版各有自己的虚拟屏，所以每条命令都要带 `--dev`（build 除外）；不带就是正式版那块屏，`ZETA_PHONE_OWNER` 不是 `main` 时会被拒绝。工作站上每条命令走一次 ssh，约 0.4 秒。坐标按整屏 1220×2656 算；截图显示给 Claude 时缩小过，要按显示比例换算回去。`stop` 会关掉屏上的应用（建屏带 DESTROY_CONTENT_ON_REMOVAL），不会把它们挪到真屏上；测试版还会被 force-stop。
   - 冷启动后等约 10 秒再输入，否则字会丢。`vd.py text` 只能输 ASCII，要中文时改用包名之类。
-  - 要把 Zeta 放到后台，就在虚拟屏上开另一个 activity，例如 `am start --display <屏号> -n com.android.traceur/.MainActivity`。Claude 在虚拟屏上开了别的应用、Zeta 被压到后面时，用 `vd.py launch` 拉回来。
+  - 要把 Zeta 放到后台，就在虚拟屏上开另一个 activity，例如 `am start --display <屏号> -n com.android.traceur/.MainActivity`。Claude 在虚拟屏上开了别的应用、Zeta 被压到后面时，用 `vd.py launch` 拉回来。自己用 `am start` 开 Zeta 或别的页面时一律带 `--display <屏号>`，不带就开在用户的主屏上；测试留下的任务记录由 `vd.py --dev stop` 从用户的「最近任务」里清掉。
   - 截图一片白时，先查 `dumpsys activity activities`，不要先当成崩溃。多半是两种情况：用户自己打开了 Zeta，任务挪到了主屏，这时等用户，不要抢回来；或者 MIUI 的 GreezeManager 冻结了 Zeta（`reason=tobg`），`vd.py launch` 能解冻。用户的「一键清理」也会杀掉虚拟屏上的 Zeta，先查事件日志。
   - 下面的路径和组件名写的是 `<包名>`：测试版是 `com.dzshzx.zeta.dev`，正式版是 `com.dzshzx.zeta`。类名不随包名变，组件要写全，例如 `com.dzshzx.zeta.dev/com.dzshzx.zeta.ui.MainActivity`。
   - 测手机工具和悬浮层时不碰真屏：Zeta 的「主屏」可以指到测试屏上。先 force-stop Zeta，往 `/data/user/0/<包名>/shared_prefs/zeta.xml` 里加 `<int name="phoneDisplay" value="<屏号>" />`，再 `vd.py launch`；`vd.py --dev stop` 会删掉这一项。
   - 测试会改 Zeta 的设置（cwd、model、permissionMode、dark），测完恢复；用户的 cwd 是 `/workspace/claude`。只删测试时建的会话，`/workspace/claude` 下的会话是用户的。
   - Zeta 的设置用 `vd.py --dev prefs <键名…>` 读，或用 root 直接读 `/data/user/0/<包名>/shared_prefs/zeta.xml`（`run-as` 不可用）。只 grep 键名，不要整份 cat，`commands` 一项很大。
-  - 不经文件选择器给 Zeta 喂文件：`am start -n <包名>/com.dzshzx.zeta.ui.MainActivity -a android.intent.action.SEND -t <mime> --eu android.intent.extra.STREAM file:///data/user/0/<包名>/files/<名字>`。通知栏的「停止」可用 root 触发：`am startservice -n <包名>/com.dzshzx.zeta.core.AgentService -a <包名>.action.STOP`。
+  - 不经文件选择器给 Zeta 喂文件：`am start --display <屏号> -n <包名>/com.dzshzx.zeta.ui.MainActivity -a android.intent.action.SEND -t <mime> --eu android.intent.extra.STREAM file:///data/user/0/<包名>/files/<名字>`。通知栏的「停止」可用 root 触发：`am startservice -n <包名>/com.dzshzx.zeta.core.AgentService -a <包名>.action.STOP`。
   - Claude Code 会拦下前台的 `sleep N`，长时间的测试用自己会耗时的脚本。
 
 ## 发版与上线
