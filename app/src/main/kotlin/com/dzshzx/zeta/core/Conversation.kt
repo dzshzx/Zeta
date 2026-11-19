@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -106,8 +105,26 @@ class Conversation(
     private val pastSessions = ArrayList<String>()
     var loadingHistory by mutableStateOf(historyFile != null)
         private set
-    var skippedHistory by mutableStateOf(0)
+
+    /** 会话记录里还没载入的更早部分；全载入了（或是新对话）为 null。往上翻时用 [loadEarlier] 一页页接到前面。 */
+    var earlier by mutableStateOf<EarlierHistory?>(fork?.earlier)
         private set
+
+    /** 还没载入的更早记录条数。 */
+    val skippedHistory: Int get() = earlier?.skipped ?: 0
+
+    var earlierState by mutableStateOf<EarlierState>(EarlierState.Idle)
+        private set
+
+    /** 每次要更早的一页记一个号，回来时号不是最新的就丢掉。 */
+    private var earlierTicket = 0
+
+    /** 剪会话的应答回来之前读回来的一页：等剪完再接上（剪不成要恢复成剪之前的列表，不能夹在中间）。 */
+    private var deferredEarlier: (() -> Unit)? = null
+
+    /** 往前载入的各页里第几条消息变成了哪一项（用户消息和回答），查找跳到更早的命中时据此找到它。 */
+    private val earlierItems = HashMap<Int, String>()
+
     /** 没载入的更早历史里的清单工具调用，任务清单面板据此接上更早建的清单。 */
     var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
         private set
@@ -224,7 +241,6 @@ class Conversation(
         if (fork != null) {
             reducer.items.addAll(fork.items)
             reducer.addNotice("从这里分支出的新对话，原对话不变。发出消息后保存", error = false)
-            skippedHistory = fork.skipped
             publish()
         }
         when {
@@ -265,48 +281,90 @@ class Conversation(
         val config = hub.settings.env ?: run { loadingHistory = false; return }
         thread(name = "zeta-history", isDaemon = true) {
             val loaded = TranscriptReducer("h")
-            val loadedUsage = UsageTracker()
-            var skipped = 0
-            var seed = emptyList<ToolStep>()
-            var lastModel: String? = null
-            var lastEffort: String? = null
             val result = hub.helper("history", listOf(file), timeoutMs = 60_000, config = config)
-            result?.stdout?.lineSequence()?.forEach { line ->
-                val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@forEach
-                loadedUsage.observeHistory(event)
-                when (event.str("type")) {
-                    "zeta_history" -> {
-                        skipped = event.int("skipped") ?: 0
-                        seed = TodoBoard.seedSteps(event.arr("todo_seed"))
-                        lastModel = event.str("model")
-                        lastEffort = event.str("effort")
-                    }
-                    "system" -> if (event.str("subtype") == "compact_boundary") loaded.addNotice(compactNotice(event), error = false)
-                    "assistant" -> event.obj("message")?.let { loaded.applyAssistant(it, history = true) }
-                    "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid"), toolUseResult = event.obj("tool_use_result")) }
-                }
-            }
-            loaded.finishTurn(keepRunningTools = attach?.busy == true)
-            loadedUsage.finishHistory()
+            val read = HistoryPaging.read(result?.stdout.orEmpty(), file, loaded, keepRunningTools = attach?.busy == true)
             main.post {
                 // 载入期间用户已经发了新消息的话，新内容接在历史后面
                 loaded.items.addAll(reducer.items)
                 reducer = loaded
-                meter.prependHistory(loadedUsage)
+                meter.prependHistory(read.usage)
                 publishUsage()
-                skippedHistory = skipped
-                todoSeed = seed
+                earlier = read.earlier
+                todoSeed = read.todoSeed
                 loadingHistory = false
                 if (result == null || result.exitCode != 0) {
                     reducer.addNotice("读取历史记录失败" + result?.stderr?.takeIf { it.isNotBlank() }?.let { "：${it.trim().take(300)}" }.orEmpty(), error = true)
                 } else {
-                    restoreChoice(lastModel, lastEffort)
+                    restoreChoice(read.model, read.effort)
                 }
                 publish()
                 // 历史就位之后再接进程，免得实时事件落在即将被替换掉的列表上
                 if (attach != null) startAttached(attach)
             }
         }
+    }
+
+    /**
+     * 载入更早的一页，接到列表前面。[through] 是这一页至少要载到的那条（查找跳到更早的命中时用）。
+     * 已经在读、或没有更早的了就不动。在主线程上调用，读在后台；读回来时这次请求作废了（号不是最新的）
+     * 或要的那段已经不是现在没载入的那段，就丢掉。新到的实时内容只接在列表末尾，和往前接的这页不相干。
+     */
+    fun loadEarlier(through: Int? = null) {
+        val window = earlier ?: return
+        if (earlierState == EarlierState.Loading || loadingHistory) return
+        val config = hub.settings.env ?: return
+        val ticket = ++earlierTicket
+        earlierState = EarlierState.Loading
+        thread(name = "zeta-history-page", isDaemon = true) {
+            val page = TranscriptReducer("p$ticket-")
+            val result = hub.helper("history", HistoryPaging.pageArguments(window, through), timeoutMs = 60_000, config = config)
+            val read = result?.takeIf { it.exitCode == 0 }?.let { HistoryPaging.read(it.stdout, window.file, page) }
+            val failure = when {
+                read == null -> "没有读到更早的记录" + result?.stderr?.trim()?.takeIf { it.isNotEmpty() }?.let { "：${it.takeLast(200)}" }.orEmpty()
+                else -> null
+            }
+            main.post { applyEarlier(ticket, window, page.items, read, failure) }
+        }
+    }
+
+    private fun applyEarlier(ticket: Int, window: EarlierHistory, items: List<ChatItem>, read: HistoryRead?, failure: String?) {
+        if (!HistoryPaging.accepts(ticket, earlierTicket, window, earlier)) return
+        if (rewinding) {
+            deferredEarlier = { applyEarlier(ticket, window, items, read, failure) }
+            return
+        }
+        when {
+            read == null -> earlierState = EarlierState.Failed(failure ?: "没有读到更早的记录", retry = true)
+            read.stale -> earlierState = EarlierState.Failed("会话记录在别处改过，重新打开这个对话再看更早的内容", retry = false)
+            else -> {
+                // 只接在最前面：正看着的那条由列表按 key 保持在原处（见 ui/chat/EarlierHistory.kt）
+                reducer.items.addAll(0, items)
+                earlierItems.putAll(read.itemAt)
+                earlier = read.earlier
+                todoSeed = read.todoSeed
+                earlierState = EarlierState.Idle
+                meter.prependHistory(read.usage)
+                publishUsage()
+                publish()
+            }
+        }
+    }
+
+    /** 往前载入的那几页里第 [event] 条消息变成的那一项（用户消息或回答）。 */
+    fun itemForEvent(event: Int): String? = earlierItems[event]
+
+    /**
+     * 在还没载入的更早部分里查 [query]：哪几条消息有、各有几处，按先后。没有更早的部分时是空的；读不到时是 null。
+     * 在主线程上调用，读在 IO 线程。
+     */
+    suspend fun findEarlier(query: String): List<EarlierHits>? {
+        val window = earlier ?: return emptyList()
+        val config = hub.settings.env ?: return null
+        val result = withContext(Dispatchers.IO) {
+            hub.helper("history-find", HistoryPaging.findArguments(window, query), timeoutMs = 60_000, config = config)
+        }
+        if (result == null || result.exitCode != 0) return null
+        return HistoryPaging.hits(result.stdout)?.filter { it.event < skippedHistory }
     }
 
     private fun publish() {
@@ -453,6 +511,8 @@ class Conversation(
         rewinding = false
         if (failure == null) request.onDone() else request.onFailed(failure)
         publish()
+        // 剪的期间读回来的更早一页：列表已经是剪完（或恢复）的样子，现在接上
+        deferredEarlier?.also { deferredEarlier = null }?.invoke()
         hub.onActivityChanged()
     }
 
@@ -1118,7 +1178,6 @@ class Conversation(
     }
 
     private companion object {
-        val json = Json { ignoreUnknownKeys = true; isLenient = true }
         const val MAX_SUBAGENT_LOGS = 8
         const val MAX_SUBAGENT_IDS = 128
     }

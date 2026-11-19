@@ -705,7 +705,7 @@ class ConversationHub(private val app: Application) {
         leaveCurrent()
         current = Conversation(
             this, source.cwd, sessionId = null, title = title, historyFile = null,
-            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.skippedHistory, source.model, source.effort),
+            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.model, source.effort),
         )
         prunePhones()
     }

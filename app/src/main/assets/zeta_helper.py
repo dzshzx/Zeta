@@ -2,7 +2,11 @@
 
 由应用经标准输入送进 `python3 - <命令> [参数]`，输出一行一个 JSON。
   list                 所有会话的概要，新的在前
-  history <文件>        一个会话里要显示的消息，形状与 stream-json 输出一致；用户消息带上它在记录里的 uuid
+  history <文件> [<到哪条为止> <核对用的 uuid|-> [<至少载到哪条>]]
+                       一个会话里要显示的消息，形状与 stream-json 输出一致；用户消息带上它在记录里的 uuid。
+                       只给文件时是最近的一段，带上位置时是那之前的一页（见“历史”一节）
+  history-find <文件> <到哪条为止> <核对用的 uuid|-> <关键词>
+                       对话内查找：还没载入的那部分里哪几条消息有这个词、各有几处
   delete <文件>...      删除会话记录，连同 Claude Code 存在同名目录里的东西（工具结果、子代理记录等）
   rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
   archive <id>... <0|1> 归档或取消归档会话（只是列表里不显示）
@@ -46,7 +50,8 @@ COMMAND_NAME = re.compile(r"<command-name>\s*(.*?)\s*</command-name>", re.S)
 COMMAND_ARGS = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.S)
 COMMAND_OUT = re.compile(r"<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>", re.S)
 MAX_TEXT = 6000
-MAX_EVENTS = 800
+MAX_EVENTS = 800  # 打开对话时先载入最近这么多条（子代理查看页也是）
+HISTORY_PAGE = 400  # 往上翻时一次再载入这么多条
 MAX_PATCH_LINES = 2000  # 改文件结果里的对比超过这么多行就不带，界面改用参数里的新旧内容自己比
 TODO_TOOLS = ("TodoWrite", "TaskCreate", "TaskUpdate")
 
@@ -279,7 +284,16 @@ def cmd_list():
 USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
 
 
-def cmd_history(path):
+# ---- 历史 ----
+# 打开对话时先载入最近的一段（MAX_EVENTS 条），往上翻到顶附近时界面再要前面的一页（HISTORY_PAGE 条）。
+# 每次都从头读整份记录：剪切记号可能在后面任何地方，要照它去掉被剪的部分，才知道当前这条线上第几条是什么。
+# 剪切只去掉某条用户消息之后的内容，新内容只接在后面，所以已经交给界面的那段之前的部分不会变；
+# 界面要前一页时报上它手里最前面那段从第几条开始、前一条是哪一行（uuid），对不上（比如在终端里剪到了更早的地方）就不给。
+# 一页的开头尽量落在一轮的开头（用户亲手发的消息或压缩提示），不能把工具调用和它的结果分到两页：结果要回填到调用那一步上。
+
+
+def read_events(path):
+    """当前这条线上要显示的消息（形状同 stream-json），和每一项出自哪一行（uuid）。"""
     events = []
     owners = []  # 每一项出自哪一行（uuid），遇到剪切记号时据此去掉被剪的部分
     compacted = False
@@ -374,11 +388,78 @@ def cmd_history(path):
                         event["effort"] = o["effort"]
                     events.append(event)
                     owners.append(row)
-    skipped = max(0, len(events) - MAX_EVENTS)
-    header = {"type": "zeta_history", "skipped": skipped, "todo_seed": todo_seed(events[:skipped])}
+    return events, owners
+
+
+def page_starts(events):
+    """每个位置能不能当一页的开头，返回 (一轮的开头, 不拆开工具调用)：前者是用户亲手发的消息或压缩提示，
+    且也不拆开工具调用；后者是那里切开后，没有哪次工具调用在前一页、结果在后一页。第 0 条两样都算。"""
+    calls = {}
+    spans = [0] * (len(events) + 1)  # 差分：从这里切开会拆开几对
+    turn = []
+    for i, e in enumerate(events):
+        content = [b for b in (e.get("message") or {}).get("content") or [] if isinstance(b, dict)]
+        results = [b for b in content if b.get("type") == "tool_result"]
+        if e["type"] == "assistant":
+            calls.update((b.get("id"), i) for b in content if b.get("type") == "tool_use" and b.get("id"))
+        for b in results:
+            start = calls.pop(b.get("tool_use_id"), None)
+            if start is not None:
+                spans[start + 1] += 1
+                spans[i + 1] -= 1
+        turn.append(e["type"] == "system" or (e["type"] == "user" and not results))
+    safe, depth = [], 0
+    for i in range(len(events)):
+        depth += spans[i]
+        safe.append(i == 0 or depth == 0)
+    return [i == 0 or (t and s) for i, (t, s) in enumerate(zip(turn, safe))], safe
+
+
+def page_start(starts, end, size, through=None):
+    """[end] 之前的一页从哪开始：载入 size 条左右，开头取离那里最近的一轮的开头，没有就取不拆开工具调用的地方。
+    剩下的不到半页时一起载完。给了 through 时这一页至少要从它所在那一轮的开头开始，查找跳到更早的命中时用。"""
+    turn, safe = starts
+    target = end - size
+    if target <= size // 2:
+        start = 0
+    else:
+        start = target
+        lo, hi = target - size // 2, min(end - 1, target + size // 2)
+        for good in (turn, safe):
+            near = [i for i in range(lo, hi + 1) if good[i]]
+            if near:
+                start = min(near, key=lambda i: (abs(i - target), i))
+                break
+    if through is not None and through < start:
+        start = next((i for i in range(through, -1, -1) if turn[i]), 0)
+    return start
+
+
+HISTORY_ANCHOR = re.compile(r"-|[A-Za-z0-9_-]{1,128}")
+
+
+def history_window(events, owners, end, anchor):
+    """界面手里那段从第 end 条开始、前一条出自 anchor 这一行（"-" 表示不核对）：对得上返回 True。"""
+    return 0 < end <= len(events) and (anchor == "-" or owners[end - 1] == anchor)
+
+
+def cmd_history(path, end=None, anchor=None, through=None):
+    events, owners = read_events(path)
+    if end is None:
+        end = len(events)
+        start = page_start(page_starts(events), end, MAX_EVENTS)
+    elif not history_window(events, owners, end, anchor):
+        # 记录在界面载入的那段之前被改过：这一页给不出来，界面要重新打开对话
+        out({"type": "zeta_history", "stale": True})
+        return
+    else:
+        start = page_start(page_starts(events), end, HISTORY_PAGE, min(through, end - 1) if through is not None else None)
+    header = {"type": "zeta_history", "skipped": start, "anchor": owners[start - 1] if start > 0 else None,
+              "todo_seed": todo_seed(events[:start])}
+    # 模型和思考强度按整个对话（剪切之后的全部消息）算，不只是这一页
     header.update(last_answer(events))
     out(header)
-    for e in events[skipped:]:
+    for e in events[start:end]:
         out(e)
 
 
@@ -390,6 +471,49 @@ def last_answer(events):
         if model and not model.startswith("<"):
             return {"model": model, "effort": e.get("effort")}
     return {}
+
+
+MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+MD_LINK = re.compile(r"\[([^\]]*)\]\([^)\s]*(?:\s+\"[^\"]*\")?\)")
+MD_MARKS = re.compile(r"\*\*|__|~~|`")
+MD_LINE = re.compile(r"^[ \t]*(?:#{1,6}[ \t]+|(?:>[ \t]?)+|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+|```.*$|\|?(?:[ \t]*:?-+:?[ \t]*\|)+.*$)", re.M)
+
+
+def plain_text(markdown):
+    """回答排版后大致的文字：去掉图片、链接地址、强调记号、行首的标题、引用、列表记号和代码块的围栏。
+    界面查的是排版后的文字，这里只用来估算还没载入的部分有几处，载入后以界面算的为准。"""
+    text = MD_IMAGE.sub("", markdown)
+    text = MD_LINK.sub(r"\1", text)
+    text = MD_LINE.sub("", text)
+    return MD_MARKS.sub("", text)
+
+
+def findable_text(e):
+    """一条消息里查找查的文字：用户亲手输入的（不含附件行）和回答；工具调用、工具结果和思考不查（界面上也不查）。"""
+    content = [b for b in (e.get("message") or {}).get("content") or [] if isinstance(b, dict)]
+    texts = [b.get("text") or "" for b in content if b.get("type") == "text"]
+    if e["type"] == "user":
+        lines = "\n".join(texts).split("\n")
+        while lines and attached_name(lines[0]) is not None:
+            lines.pop(0)
+        return "\n".join(lines).strip()
+    return "\n".join(plain_text(t) for t in texts)
+
+
+def cmd_history_find(path, end, anchor, query):
+    """还没载入的第 0 到 end 条里，哪几条消息有这个词（不分大小写）、各有几处：[[第几条, 几处], …]。"""
+    events, owners = read_events(path)
+    if not history_window(events, owners, end, anchor):
+        out({"type": "zeta_history_find", "stale": True})
+        return
+    needle = query.strip().lower()
+    matches = []
+    if needle:
+        for i, e in enumerate(events[:end]):
+            count = findable_text(e).lower().count(needle)
+            if count:
+                matches.append([i, count])
+    out({"type": "zeta_history_find", "matches": matches})
 
 
 def edit_patch(result):
@@ -1775,6 +1899,12 @@ def main():
         cmd_list()
     elif args[:1] == ["history"] and len(args) == 2 and inside_root(args[1]):
         cmd_history(args[1])
+    elif args[:1] == ["history"] and len(args) in (4, 5) and inside_root(args[1]) and args[2].isdigit() \
+            and HISTORY_ANCHOR.fullmatch(args[3]) and all(a.isdigit() for a in args[4:]):
+        cmd_history(args[1], int(args[2]), args[3], int(args[4]) if len(args) == 5 else None)
+    elif args[:1] == ["history-find"] and len(args) == 5 and inside_root(args[1]) and args[2].isdigit() \
+            and HISTORY_ANCHOR.fullmatch(args[3]):
+        cmd_history_find(args[1], int(args[2]), args[3], args[4])
     elif args[:1] == ["delete"] and len(args) >= 2 and all(inside_root(a) for a in args[1:]):
         cmd_delete(args[1:])
     elif args[:1] == ["rename"] and len(args) == 3 and inside_root(args[1]):
@@ -1809,7 +1939,8 @@ def main():
             and all(SUBAGENT_ARG.fullmatch(a) for a in args[3:5]) and all(SESSION_ID.fullmatch(a) for a in args[5:]):
         cmd_subagent(int(args[1]), int(args[2]), args[3], args[4], args[5:])
     else:
-        sys.exit("usage: list | history <file> | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
+        sys.exit("usage: list | history <file> [<end> <anchor|-> [<through>]] | history-find <file> <end> <anchor|-> <query>"
+                 " | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
                  " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
                  " | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]"
                  " | storage-sessions <project> [<id>…] | clean <kind> [<id>…]"

@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +72,7 @@ import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
@@ -374,14 +376,23 @@ private fun ConversationBody(
     val prompts = rememberPromptsUi(input)
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
+    // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的
+    val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = { follow = false })
+    // 有过更早的记录就一直给“更早的记录”那行留着地方：全载入后这行没了，留白不收，正看着的内容不跟着往上跳
+    val earlierRoom = remember(conversation) { BooleanArray(1) }
+    if (conversation.earlier != null) earlierRoom[0] = true
     ChatFindDriver(
         find = find,
         items = shown,
         answerText = { imagesOf(it).text },
         listState = listState,
-        leading = if (conversation.skippedHistory > 0) 1 else 0,
         topInset = padding.calculateTopPadding(),
         onJump = { follow = false },
+        earlier = conversation.skippedHistory,
+        earlierIdle = conversation.earlierState != EarlierState.Loading,
+        itemOf = conversation::itemForEvent,
+        findEarlier = conversation::findEarlier,
+        loadEarlier = conversation::loadEarlier,
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -415,12 +426,12 @@ private fun ConversationBody(
                         (statusText != null || !((last is AnswerItem && last.streaming) || (last is WorkItem && last.running)))
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = 16.dp),
+                        modifier = Modifier.fillMaxSize().nestedScroll(earlierPaging),
+                        contentPadding = PaddingValues(
+                            top = padding.calculateTopPadding() + 4.dp + if (earlierRoom[0]) EarlierRowHeight else 0.dp,
+                            bottom = 16.dp,
+                        ),
                     ) {
-                        if (conversation.skippedHistory > 0) {
-                            item(key = "skipped") { NoticeRow(NoticeItem("skipped", "更早的 ${conversation.skippedHistory} 条记录未载入", error = false)) }
-                        }
                         items(shown, key = { it.id }, contentType = { it::class }) { item ->
                             when (item) {
                                 is UserItem -> {
@@ -466,6 +477,18 @@ private fun ConversationBody(
                             }
                         }
                     }
+                    // “更早的记录”那行画在列表外面、贴在第 0 项上方（为什么见 EarlierHistory.kt）
+                    conversation.earlier?.let { earlier ->
+                        EarlierHistoryRow(
+                            skipped = earlier.skipped,
+                            state = conversation.earlierState,
+                            onLoad = {
+                                follow = false
+                                conversation.loadEarlier()
+                            },
+                            modifier = Modifier.aboveFirstItem(listState),
+                        )
+                    }
                 }
             }
             androidx.compose.animation.AnimatedVisibility(
@@ -484,7 +507,8 @@ private fun ConversationBody(
         if (find.active) {
             ChatFindBar(
                 find = find,
-                skippedHistory = conversation.skippedHistory,
+                loadingEarlier = conversation.earlierState == EarlierState.Loading,
+                earlierProblem = (conversation.earlierState as? EarlierState.Failed)?.message,
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                     .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),

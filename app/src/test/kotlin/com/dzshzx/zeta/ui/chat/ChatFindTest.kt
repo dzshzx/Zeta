@@ -1,10 +1,12 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.core.EarlierHits
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.StreamingGfmParserSession
 import com.dzshzx.zeta.ui.markdown.findOccurrences
 import com.dzshzx.zeta.ui.markdown.findSegments
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -95,5 +97,87 @@ class ChatFindTest {
         val offsets = document.findSegments().map { it.first }
         assertEquals(offsets.size, offsets.toSet().size)
         assertEquals(3, ChatFind.matches(document.findSegments().map { FindSegment("a", it.first, it.second) }, "zeta").size)
+    }
+
+    @Test
+    fun earlierHitsExpandInOrder() {
+        assertEquals(
+            listOf(EarlierMatch(3, 0), EarlierMatch(3, 1), EarlierMatch(9, 0)),
+            ChatFind.expand(listOf(EarlierHits(9, 1), EarlierHits(3, 2))),
+        )
+    }
+
+    /** 更早那段刚载入：换成那条消息里对应的那处；助手估的处数多了取这一项的最后一处，这一项里没有就取它之后最近的一处。 */
+    @Test
+    fun aLoadedEarlierHitResolvesToItsItem() {
+        val order = mapOf("p-u" to 0, "p-a" to 1, "h-u" to 2)
+        val matches = listOf(FindMatch("p-a", 0, 0, 2), FindMatch("p-a", 5, 1, 3), FindMatch("h-u", 0, 0, 2))
+        assertEquals(1, ChatFind.resolveLoaded(EarlierMatch(41, 1), "p-a", matches, order))
+        assertEquals(1, ChatFind.resolveLoaded(EarlierMatch(41, 4), "p-a", matches, order))
+        assertEquals(0, ChatFind.resolveLoaded(EarlierMatch(40, 0), "p-u", matches, order))
+        assertEquals(2, ChatFind.resolveLoaded(EarlierMatch(40, 0), null, matches, order))
+        assertEquals(-1, ChatFind.resolveLoaded(EarlierMatch(40, 0), "p-u", emptyList(), order))
+    }
+
+    /**
+     * 命中分两段：更早的在前、列表里的在后。查完更早那段时停在列表里的那处不动；往上走进更早那段时要跳（界面先载入），
+     * 载入后那一处换成列表里对应的那处，再跳一次。
+     */
+    @Test
+    fun stateWalksIntoEarlierHitsAndBackOutWhenTheyLoad() {
+        val state = ChatFindState()
+        val order = mapOf("u1" to 0, "a1" to 1)
+        val matches = listOf(FindMatch("u1", 0, 0, 2), FindMatch("a1", 0, 3, 5))
+        state.update("ab", matches, order, skipped = 100)
+        assertEquals(1, state.index)
+        assertEquals(1, state.jumps)
+        state.earlierSearch("ab")
+        assertTrue(state.searchingEarlier)
+        state.earlierFound("ab", listOf(EarlierHits(10, 1), EarlierHits(60, 2)), skipped = 100)
+        assertEquals(false, state.searchingEarlier)
+        assertEquals(5, state.count)
+        // 还停在列表里的同一处，只是下标往后挪：不跳
+        assertEquals(4, state.index)
+        assertEquals(FindMatch("a1", 0, 3, 5), state.current)
+        assertEquals(1, state.jumps)
+        state.previous()
+        state.previous()
+        assertEquals(EarlierMatch(60, 1), state.currentEarlier)
+        assertNull(state.current)
+        assertEquals(3, state.jumps)
+        // 第 50 条起的那页接上了：第 60 条那两处变成列表里的，停到第 60 条（p-a）里的第二处
+        val longerOrder = mapOf("p-u" to 0, "p-a" to 1, "u1" to 2, "a1" to 3)
+        val longer = listOf(FindMatch("p-a", 0, 0, 2), FindMatch("p-a", 0, 7, 9)) + matches
+        state.update("ab", longer, longerOrder, skipped = 50) { if (it == 60) "p-a" else null }
+        assertEquals(listOf(EarlierMatch(10, 0)), state.earlier)
+        assertEquals(FindMatch("p-a", 0, 7, 9), state.current)
+        assertEquals(2, state.index)
+        assertEquals(4, state.jumps)
+        // 往上绕回更早那段剩下的那处，再往上绕到最后一处
+        state.previous()
+        state.previous()
+        assertEquals(EarlierMatch(10, 0), state.currentEarlier)
+        state.previous()
+        assertEquals(FindMatch("a1", 0, 3, 5), state.current)
+    }
+
+    /** 列表里一处都没有、只在更早的记录里有：停到最近的那处，跳过去（界面去载入）。查找词一变，更早那段清空重查。 */
+    @Test
+    fun onlyEarlierHitsSelectTheNewestOne() {
+        val state = ChatFindState()
+        state.update("zz", emptyList(), emptyMap(), skipped = 100)
+        assertEquals(-1, state.index)
+        val before = state.jumps
+        state.earlierFound("zz", listOf(EarlierHits(10, 1), EarlierHits(60, 1)), skipped = 100)
+        assertEquals(EarlierMatch(60, 0), state.currentEarlier)
+        assertEquals(before + 1, state.jumps)
+        // 查找词的结果过时了：不理
+        state.earlierFound("old", listOf(EarlierHits(1, 1)), skipped = 100)
+        assertEquals(2, state.count)
+        state.update("zzz", emptyList(), emptyMap(), skipped = 100)
+        assertEquals(0, state.count)
+        assertEquals(-1, state.index)
+        state.earlierFound("zzz", null, skipped = 100)
+        assertEquals("更早的记录没查成", state.earlierProblem)
     }
 }

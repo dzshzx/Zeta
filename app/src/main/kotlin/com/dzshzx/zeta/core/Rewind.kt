@@ -73,7 +73,7 @@ internal class BranchPlan(val items: List<ChatItem>, val cut: String?, val lastS
 
 /**
  * 一个还没发过消息的分支：新进程从会话 [source] 复制，发第一条消息前先剪掉 [cut]（null 表示整个复制）。
- * [items] 是先显示出来的内容，[skipped] 是原对话没载入的更早记录条数。
+ * [items] 是先显示出来的内容，[earlier] 是原对话还没载入的更早部分（分支里往上翻时照样从原会话的记录里载入）。
  * [model]、[effort] 是原对话分支时用的模型和思考强度，新对话接着用（null 同样是 Claude Code 的默认）。
  */
 class Fork(
@@ -81,7 +81,7 @@ class Fork(
     val cut: String?,
     val lastSeen: String?,
     val items: List<ChatItem>,
-    val skipped: Int,
+    val earlier: EarlierHistory?,
     val model: String?,
     val effort: String?,
 )
