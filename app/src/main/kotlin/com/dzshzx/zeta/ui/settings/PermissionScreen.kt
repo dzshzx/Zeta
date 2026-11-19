@@ -58,11 +58,8 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
     val fixable = items.filter { it.rootFixable }
     CouiPage(title = "权限健康", onBack = onBack) {
         item(key = "items") {
-            PreferenceGroup(
-                title = "权限与状态",
-                footer = "对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行，加进电池优化的白名单后，长时间息屏也不容易被系统限制。" +
-                    "在最近任务里“全部清理”会把 Zeta 一起关掉，正在进行的对话不受影响，重新打开会接上。",
-            ) {
+            // 对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行；对话本身跑在 Linux 环境里，Zeta 被关掉也照样跑完
+            PreferenceGroup(title = "权限与状态", footer = "清理最近任务会关掉 Zeta，进行中的对话不受影响，重新打开会接上。") {
                 items.forEach { entry ->
                     item(key = entry.id) {
                         val busy = entry.id in working
@@ -86,12 +83,10 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
             }
         }
         item(key = "grant") {
-            PreferenceGroup(
-                footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，允许 MIUI 的后台弹出界面，授予通知权限，" +
-                    "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史，允许精确闹钟和自启动（定时任务用），" +
-                    "有通知触发的任务时给 Zeta 通知使用权，授予麦克风权限（按住说话用）和健康连接的读权限（步数、睡眠等，只读）。" +
-                    "没改成的那一项，点它会打开对应的系统设置。",
-            ) {
+            // 一键授予经 root 逐项改系统设置（做法见 PermissionHealth.fixWithRoot）：电池白名单并解除后台限制、MIUI 后台弹出界面、
+            // 通知、无障碍（只在系统列表末尾加上 Zeta，别的服务原样保留）、通知历史、精确闹钟、自启动、通知使用权（有开着的通知触发规则时）、
+            // 麦克风、健康连接的读权限。摘要只写几项，是哪几项看上面各行的状态
+            PreferenceGroup(footer = "经 root 直接改系统设置。没改成的那一项，点它会打开对应的系统设置。") {
                 item {
                     BasicComponent(
                         title = "一键授予",
@@ -101,7 +96,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
                             hub.setup == SetupState.NoRoot -> "需要 root 权限"
                             hub.setup == SetupState.Checking -> "正在检查 root 权限"
                             fixable.isEmpty() -> "没有需要补上的权限"
-                            else -> fixable.joinToString("、") { it.title }
+                            else -> "有 ${fixable.size} 项可以补上"
                         },
                         enabled = fixable.isNotEmpty() && !granting && working.isEmpty(),
                         onClick = {
@@ -112,7 +107,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
                                     fixable.filterNot { entry -> runCatching { PermissionHealth.fixWithRoot(context, entry.id) }.getOrDefault(false) }
                                 }
                                 granting = false
-                                result = if (failed.isEmpty()) "已全部授予" else "没有改成：" + failed.joinToString("、") { it.title } + "，点它到系统设置里处理"
+                                result = if (failed.isEmpty()) "已全部授予" else "有 ${failed.size} 项没改成"
                             }
                         },
                     )

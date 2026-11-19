@@ -134,6 +134,11 @@ internal object PermissionHealth {
         check.invoke(ops, MIUI_AUTO_START, Process.myUid(), context.packageName) as Int == AppOpsManager.MODE_ALLOWED
     }.getOrNull()
 
+    /**
+     * 页面上的各项，顺序是先常用后少用：root 和 Linux 环境、手机操作与后台、通知、按住说话，
+     * 再是 Claude 查通知历史和健康数据用的，最后是定时任务、通知触发才用的。
+     * 摘要只写一行：这一项管什么或现在怎样；为什么需要、怎么修写在下面的注释里。
+     */
     fun items(snapshot: PermissionSnapshot?, hub: ConversationHub): List<PermissionItem> {
         val setup = hub.setup
         val root: Boolean? = when (setup) {
@@ -143,91 +148,81 @@ internal object PermissionHealth {
         }
         val checking = snapshot == null
         return listOfNotNull(
+            // 进 Linux 环境、经 root 执行命令、一键授予都靠 root。没授权时到 KernelSU、Magisk 或 APatch 里允许，点这一项重新检查
             when (root) {
                 null -> PermissionItem(PermissionId.Root, "Root 权限", null, "检查中", PermissionStatus.Checking, false)
-                true -> PermissionItem(PermissionId.Root, "Root 权限", "进入 Linux 环境、经 root 执行命令和授予下面这些权限都靠它", "已授权", PermissionStatus.Ready, false)
-                false -> PermissionItem(
-                    PermissionId.Root, "Root 权限", "在 KernelSU、Magisk 或 APatch 里允许 Zeta 使用 root，然后点这里重新检查",
-                    "未授权", PermissionStatus.Missing, false,
-                )
+                true -> PermissionItem(PermissionId.Root, "Root 权限", "Linux 环境和一键授予都靠它", "已授权", PermissionStatus.Ready, false)
+                false -> PermissionItem(PermissionId.Root, "Root 权限", "在 root 管理器里授权后点这里", "未授权", PermissionStatus.Missing, false)
             },
+            // Claude Code 运行在 Debian 环境里；安装和登录都在 Linux 环境页
             when (setup) {
                 SetupState.Checking -> PermissionItem(PermissionId.Linux, "Linux 环境", null, "检查中", PermissionStatus.Checking, false)
                 SetupState.NoRoot -> PermissionItem(PermissionId.Linux, "Linux 环境", "需要先有 root 权限", "不可用", PermissionStatus.Idle, false)
-                SetupState.NoEnvironment -> PermissionItem(
-                    PermissionId.Linux, "Linux 环境", "Claude Code 运行在 Debian 环境里，点这里去安装", "未安装", PermissionStatus.Missing, false,
-                )
+                SetupState.NoEnvironment -> PermissionItem(PermissionId.Linux, "Linux 环境", "点这里去安装", "未安装", PermissionStatus.Missing, false)
                 SetupState.Ready -> {
                     val account = hub.account
                     val user = hub.env?.user
                     if (account != null && !account.loggedIn) {
-                        PermissionItem(PermissionId.Linux, "Linux 环境", listOfNotNull(user, "还没登录 Claude 账号，点这里去登录").joinToString(" · "), "未登录", PermissionStatus.Attention, false)
+                        PermissionItem(PermissionId.Linux, "Linux 环境", "点这里登录 Claude 账号", "未登录", PermissionStatus.Attention, false)
                     } else {
                         PermissionItem(PermissionId.Linux, "Linux 环境", listOfNotNull(user, account?.email).joinToString(" · ").ifBlank { null }, "已就绪", PermissionStatus.Ready, false)
                     }
                 }
             },
+            // 读控件列表、点按、输入中文、做手势都靠无障碍服务。
+            // 有 root 时 Claude 用到手机工具会自动打开它，没开不算问题；系统里开着却没连上时，点这一项经 root 拿掉再加回，让系统重新绑定
             when {
                 checking -> PermissionItem(PermissionId.Accessibility, "无障碍服务", null, "检查中", PermissionStatus.Checking, false)
-                snapshot.accessibilityConnected -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "读屏、点按、输入中文、做手势都靠它", "已连接", PermissionStatus.Ready, false)
-                !hub.phoneTools -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "手机操作已关闭，现在用不到它", "未开启", PermissionStatus.Idle, false)
+                snapshot.accessibilityConnected -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "Claude 读屏、点按都靠它", "已连接", PermissionStatus.Ready, false)
+                !hub.phoneTools -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "手机操作已关闭，现在用不到", "未开启", PermissionStatus.Idle, false)
                 snapshot.accessibilityListed -> PermissionItem(
-                    PermissionId.Accessibility, "无障碍服务", "系统里已开启，但服务没有连上。点这里经 root 重新开一次",
-                    "未连上", PermissionStatus.Attention, root == true,
+                    PermissionId.Accessibility, "无障碍服务", "已开启但没连上，点这里重开", "未连上", PermissionStatus.Attention, root == true,
                 )
-                // 有 root 时 Claude 用到手机工具会自动打开它，没开不算问题
-                root == true -> PermissionItem(
-                    PermissionId.Accessibility, "无障碍服务", "Claude 用到手机工具时会经 root 自动打开；也可以点这里现在就打开",
-                    "未开启", PermissionStatus.Idle, true,
-                )
-                else -> PermissionItem(
-                    PermissionId.Accessibility, "无障碍服务", "读屏、点按、输入中文都靠它。没有 root 时要到系统设置里手动开启",
-                    "未开启", PermissionStatus.Missing, false,
-                )
+                root == true -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "Claude 要用时会自动打开", "未开启", PermissionStatus.Idle, true)
+                else -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "没有 root，要到系统设置里开", "未开启", PermissionStatus.Missing, false)
             },
+            // 电池优化白名单：长时间息屏时前台服务不容易被系统限制。电池设置里的“限制后台”另算，经 root 一起放开
             when {
                 checking -> PermissionItem(PermissionId.Battery, "后台运行", null, "检查中", PermissionStatus.Checking, false)
                 !snapshot.ignoringBatteryOptimizations -> PermissionItem(
-                    PermissionId.Battery, "后台运行", "加进电池优化的白名单，长时间息屏时对话也不容易被系统限制",
-                    "未允许", PermissionStatus.Missing, root == true,
+                    PermissionId.Battery, "后台运行", "长时间息屏时不被系统限制", "未允许", PermissionStatus.Missing, root == true,
                 )
                 snapshot.backgroundRestricted -> PermissionItem(
-                    PermissionId.Battery, "后台运行", "电池设置里把 Zeta 设成了“限制后台”，切到后台后对话可能被停掉",
-                    "受限制", PermissionStatus.Attention, root == true,
+                    PermissionId.Battery, "后台运行", "电池设置里限制了后台", "受限制", PermissionStatus.Attention, root == true,
                 )
-                else -> PermissionItem(PermissionId.Battery, "后台运行", "已加入电池优化白名单", "已允许", PermissionStatus.Ready, false)
+                else -> PermissionItem(PermissionId.Battery, "后台运行", "长时间息屏时不被系统限制", "已允许", PermissionStatus.Ready, false)
             },
             backgroundStartItem(snapshot, root),
+            // 两类通知就是两个渠道的名字（AgentService）：运行状态、完成与确认提醒。权限没给和某类被关，都到应用的通知设置里改
             when {
                 checking -> PermissionItem(PermissionId.Notifications, "通知", null, "检查中", PermissionStatus.Checking, false)
                 !snapshot.notificationsGranted -> PermissionItem(
-                    PermissionId.Notifications, "通知", "通知栏里的运行状态，以及回答完成、需要你确认时的提醒",
-                    "未允许", PermissionStatus.Missing, root == true,
+                    PermissionId.Notifications, "通知", "运行状态、完成与确认提醒", "未允许", PermissionStatus.Missing, root == true,
                 )
                 snapshot.blockedChannels.isNotEmpty() -> PermissionItem(
-                    PermissionId.Notifications, "通知", "这几类通知被关掉了：" + snapshot.blockedChannels.joinToString("、") + "。点这里到系统设置里打开",
-                    "部分关闭", PermissionStatus.Attention, false,
+                    PermissionId.Notifications, "通知", "已关掉：" + snapshot.blockedChannels.joinToString("、"), "部分关闭", PermissionStatus.Attention, false,
                 )
-                else -> PermissionItem(PermissionId.Notifications, "通知", "运行状态，以及回答完成、需要你确认时的提醒", "已允许", PermissionStatus.Ready, false)
+                else -> PermissionItem(PermissionId.Notifications, "通知", "运行状态、完成与确认提醒", "已允许", PermissionStatus.Ready, false)
             },
+            microphoneItem(snapshot, root),
             // 系统自带的功能：开了以后系统保留 24 小时内的通知，Claude 才查得到已经划掉的通知（比如找验证码）
             when {
                 checking -> PermissionItem(PermissionId.NotificationHistory, "通知历史", null, "检查中", PermissionStatus.Checking, false)
                 snapshot.notificationHistory == true -> PermissionItem(
-                    PermissionId.NotificationHistory, "通知历史", "系统保留 24 小时内的通知，Claude 能查已经划掉的通知", "已开启", PermissionStatus.Ready, false,
+                    PermissionId.NotificationHistory, "通知历史", "Claude 能查已划掉的通知", "已开启", PermissionStatus.Ready, false,
                 )
                 else -> PermissionItem(
-                    PermissionId.NotificationHistory, "通知历史", "开启系统的通知历史（保留 24 小时）后，Claude 能查已经划掉的通知，比如找验证码",
-                    "未开启", PermissionStatus.Idle, root == true,
+                    PermissionId.NotificationHistory, "通知历史", "开启后 Claude 能查已划掉的通知", "未开启", PermissionStatus.Idle, root == true,
                 )
             },
-            notificationListenerItem(snapshot, root),
-            microphoneItem(snapshot, root),
             healthItem(snapshot, root),
-        ) + scheduleItems(snapshot, root)
+        ) + scheduleItems(snapshot, root) + notificationListenerItem(snapshot, root)
     }
 
-    /** 定时任务要用的两项：有开着的任务时缺了算问题，没有任务时只是提示。 */
+    /**
+     * 定时任务要用的两项：有开着的任务时缺了算问题，没有任务时只是提示。
+     * 没有精确闹钟时系统可能把到点推迟几分钟到更久；没有自启动时开机后定时任务不会重新排上，Zeta 没在运行时到点也拉不起来。
+     */
     private fun scheduleItems(snapshot: PermissionSnapshot?, root: Boolean?): List<PermissionItem> {
         val needed = ScheduleStore.observed.any { it.enabled }
         val missing = if (needed) PermissionStatus.Missing else PermissionStatus.Idle
@@ -235,52 +230,45 @@ internal object PermissionHealth {
         val exact = if (snapshot.exactAlarms) {
             PermissionItem(PermissionId.ExactAlarm, "精确闹钟", "定时任务到点准时开始", "已允许", PermissionStatus.Ready, false)
         } else {
-            PermissionItem(
-                PermissionId.ExactAlarm, "精确闹钟", "定时任务要到点准时开始靠它；没有时系统可能推迟几分钟到更久",
-                "未允许", missing, root == true,
-            )
+            PermissionItem(PermissionId.ExactAlarm, "精确闹钟", "没有它定时任务可能推迟", "未允许", missing, root == true)
         }
         val autoStart = when (snapshot.autoStart) {
             null -> null
-            true -> PermissionItem(PermissionId.AutoStart, "自启动", "开机后重新排好定时任务，Zeta 没在运行时到点也能被拉起", "已允许", PermissionStatus.Ready, false)
-            false -> PermissionItem(
-                PermissionId.AutoStart, "自启动", "系统的“自启动”关着：开机后定时任务不会重新排上，Zeta 没在运行时到点也拉不起来",
-                "未允许", missing, root == true,
-            )
+            true -> PermissionItem(PermissionId.AutoStart, "自启动", "Zeta 没开着时定时任务也能跑", "已允许", PermissionStatus.Ready, false)
+            false -> PermissionItem(PermissionId.AutoStart, "自启动", "Zeta 没开着时定时任务跑不了", "未允许", missing, root == true)
         }
         return listOfNotNull(exact, autoStart)
     }
 
-    /** 麦克风：只有按住说话用，没给时不算问题。 */
+    /** 麦克风：只有按住说话用（输入框空着时按住发送键），系统的语音识别服务替 Zeta 录音；没给时不算问题。 */
     private fun microphoneItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem = when {
         snapshot == null -> PermissionItem(PermissionId.Microphone, "麦克风", null, "检查中", PermissionStatus.Checking, false)
-        snapshot.microphone -> PermissionItem(PermissionId.Microphone, "麦克风", "按住发送键说话时，系统的语音识别替 Zeta 录音", "已允许", PermissionStatus.Ready, false)
-        else -> PermissionItem(
-            PermissionId.Microphone, "麦克风", "输入框空着时按住发送键说话要用它；系统的语音识别服务替 Zeta 录音",
-            "未允许", PermissionStatus.Idle, root == true,
-        )
+        snapshot.microphone -> PermissionItem(PermissionId.Microphone, "麦克风", "按住发送键说话时用", "已允许", PermissionStatus.Ready, false)
+        else -> PermissionItem(PermissionId.Microphone, "麦克风", "按住发送键说话时用", "未允许", PermissionStatus.Idle, root == true)
     }
 
-    /** 健康连接的读权限：Claude 查步数、睡眠、心率等时用，没给只是查不到，不算问题。没有健康连接时不列。 */
+    /**
+     * 健康连接的读权限：Claude 查步数、睡眠、运动、心率、体重、血氧时用（小米运动健康同步进去的，只读），
+     * 没给只是查不到，不算问题。没有健康连接时不列。
+     */
     private fun healthItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem? = when (snapshot?.health) {
         null -> if (snapshot == null) PermissionItem(PermissionId.Health, "健康数据", null, "检查中", PermissionStatus.Checking, false) else null
-        true -> PermissionItem(PermissionId.Health, "健康数据", "Claude 能读健康连接里的步数、睡眠、运动、心率、体重和血氧（只读）", "已授权", PermissionStatus.Ready, false)
-        false -> PermissionItem(
-            PermissionId.Health, "健康数据", "授权后 Claude 能读健康连接里的步数、睡眠、心率等（小米运动健康同步进去的，只读）",
-            "未授权", PermissionStatus.Idle, root == true,
-        )
+        true -> PermissionItem(PermissionId.Health, "健康数据", "Claude 能读步数、睡眠等（只读）", "已授权", PermissionStatus.Ready, false)
+        false -> PermissionItem(PermissionId.Health, "健康数据", "授权后 Claude 能读步数、睡眠等", "未授权", PermissionStatus.Idle, root == true)
     }
 
-    /** MIUI 的“后台弹出界面”：从胶囊点对话标题回到 Zeta 时要用它。不是 MIUI（读不到）就不列。 */
+    /**
+     * MIUI 的“后台弹出界面”：从胶囊点对话标题回到 Zeta 时要用它。不是 MIUI（读不到）就不列。
+     * 没给时 MIUI 拦下 Zeta 在后台打开自己的界面：有 root 时绕道 root 拉起，慢一些；没有 root 就回不去。
+     */
     private fun backgroundStartItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem? {
         val title = "后台弹出界面"
         return when (snapshot?.backgroundStart) {
             null -> if (snapshot == null) PermissionItem(PermissionId.BackgroundStart, title, null, "检查中", PermissionStatus.Checking, false) else null
-            true -> PermissionItem(PermissionId.BackgroundStart, title, "从胶囊上点对话标题时直接回到 Zeta", "已允许", PermissionStatus.Ready, false)
+            true -> PermissionItem(PermissionId.BackgroundStart, title, "从胶囊点对话标题回到 Zeta", "已允许", PermissionStatus.Ready, false)
             false -> PermissionItem(
                 PermissionId.BackgroundStart, title,
-                if (root == true) "MIUI 会拦下 Zeta 在后台打开自己的界面，从胶囊回到 Zeta 只能绕道 root，慢一些"
-                else "MIUI 会拦下 Zeta 在后台打开自己的界面，从胶囊点对话标题回不到 Zeta",
+                if (root == true) "从胶囊回到 Zeta 会慢一些" else "从胶囊点对话标题回不到 Zeta",
                 "未允许", if (root == true) PermissionStatus.Attention else PermissionStatus.Missing, root == true,
             )
         }
