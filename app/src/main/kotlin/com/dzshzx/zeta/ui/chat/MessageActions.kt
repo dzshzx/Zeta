@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
@@ -137,7 +138,7 @@ internal class MessageActions(
         input.setTextAndPlaceCursorAtEnd(turn.user.text)
         attachments.clear()
         uploads.clear()
-        for (path in turn.user.files) uploads.add(FileUpload(UUID.randomUUID().toString(), path.substringAfterLast('/')).also { it.path = path })
+        for (path in turn.user.files) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(path)).also { it.path = path })
         val images = turn.user.images
         if (images.isNotEmpty()) scope.launch {
             val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, it) } }

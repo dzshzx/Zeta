@@ -66,6 +66,7 @@ import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
 import com.itos.coui.theme.CouiTheme
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
@@ -80,6 +81,7 @@ import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusSuccess
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
+import com.dzshzx.zeta.ui.markdown.FindableText
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
@@ -119,7 +121,7 @@ internal fun UserBubble(
             }
         }
         item.files.forEach { path ->
-            FileChip(name = path.substringAfterLast('/'), modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 280.dp))
+            FileChip(name = AttachedPaths.label(path), folder = AttachedPaths.isFolder(path), modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 280.dp))
         }
         if (item.text.isNotEmpty()) Box {
             Column(
@@ -140,8 +142,10 @@ internal fun UserBubble(
                     )
                     .padding(horizontal = 16.dp, vertical = 10.5.dp),
             ) {
-                Text(
+                FindableText(
                     text = item.text,
+                    block = 0,
+                    itemId = item.id,
                     style = MiuixTheme.textStyles.body1.copy(lineHeight = 23.sp, lineHeightStyle = EditorialLineHeightStyle),
                     color = MiuixTheme.colorScheme.onSurface,
                 )
@@ -190,7 +194,7 @@ internal fun AnswerBlock(
                 modifier = Modifier.fillMaxWidth(),
             )
             else -> SelectionContainer {
-                StaticMarkdown(content = parts.text, tone = MarkdownTone.Answer, modifier = Modifier.fillMaxWidth())
+                StaticMarkdown(content = parts.text, tone = MarkdownTone.Answer, modifier = Modifier.fillMaxWidth(), findItem = item.id)
             }
         }
         parts.images.forEach { image -> ChatImage(image, modifier = Modifier.padding(top = 10.dp)) }

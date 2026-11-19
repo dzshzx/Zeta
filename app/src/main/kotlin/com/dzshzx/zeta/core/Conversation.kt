@@ -136,6 +136,9 @@ class Conversation(
     private var reducer = TranscriptReducer(if (fork != null) "b" + UUID.randomUUID().toString().take(8) + "-" else "")
     private var process: ClaudeProcess? = null
 
+    /** 正在跑的 Claude Code 进程的托管标识（zeta_host.sh 的 key）：看它的挂载命名空间、认领后台进程都用它；没有进程时为 null。 */
+    val hostKey: String? get() = process?.hostKey
+
     /** 等 Claude Code 剪会话（rewind_conversation）的那个请求；答应了做 onDone，没答应做 onFailed。 */
     private class PendingRewind(val requestId: String, val onDone: () -> Unit, val onFailed: (String) -> Unit)
 
@@ -168,9 +171,6 @@ class Conversation(
     private var requestSeq = 0
 
     val isProcessAlive: Boolean get() = process != null
-
-    /** 背后那个托管进程的标识（zeta_host.sh 的 key）；没有进程时为 null。 */
-    internal val hostKey: String? get() = process?.hostKey
 
     init {
         if (attach != null) {

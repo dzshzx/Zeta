@@ -51,7 +51,9 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Merge
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -88,6 +90,7 @@ import com.itos.coui.topappbar.TopAppBar
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.AttachedPaths
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
@@ -108,6 +111,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiButton
 import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
+import com.dzshzx.zeta.ui.markdown.LocalTextFinder
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -135,6 +139,7 @@ internal fun ChatScreen(
     val conversation = hub.current
     val dark = CouiTheme.isDark
     val colors = CouiPageDefaults.themeColors(dark)
+    val find = remember(conversation.key) { ChatFindState() }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MiuixTheme.colorScheme.surface,
@@ -157,7 +162,11 @@ internal fun ChatScreen(
                 },
                 actions = {
                     TopAppBarButtonGroup {
-                        OverflowMenu(onNewChat = hub::startNew, onOpenSettings = onOpenSettings)
+                        OverflowMenu(
+                            onNewChat = hub::startNew,
+                            onOpenSettings = onOpenSettings,
+                            onFind = find::open.takeIf { hub.setup == SetupState.Ready && conversation.items.isNotEmpty() },
+                        )
                     }
                 },
                 dark = dark,
@@ -166,7 +175,9 @@ internal fun ChatScreen(
         },
     ) { padding ->
         when (hub.setup) {
-            SetupState.Ready -> key(conversation.key) { ConversationBody(hub, conversation, padding, onOpenLogin) }
+            SetupState.Ready -> key(conversation.key) {
+                CompositionLocalProvider(LocalTextFinder provides find) { ConversationBody(hub, conversation, padding, onOpenLogin, find) }
+            }
             SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
             SetupState.NoRoot -> SetupMessage(
                 padding,
@@ -225,7 +236,7 @@ private fun SetupMessage(padding: PaddingValues, title: String, message: String?
 }
 
 @Composable
-private fun ConversationBody(hub: ConversationHub, conversation: Conversation, padding: PaddingValues, onOpenLogin: () -> Unit) {
+private fun ConversationBody(hub: ConversationHub, conversation: Conversation, padding: PaddingValues, onOpenLogin: () -> Unit, find: ChatFindState) {
     val items = conversation.items
     val listState = remember { LazyListState() }
     val input = remember { TextFieldState() }
@@ -243,6 +254,8 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
         }
     }
     val uploads = remember { mutableStateListOf<FileUpload>() }
+    // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
+    val pathAttach = remember { PathAttach() }
     // 图片当作图片发给模型看；别的文件复制进 Linux 环境，让 Claude 用工具去读
     fun addShared(uris: List<Uri>) {
         scope.launch {
@@ -303,7 +316,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
         input.setTextAndPlaceCursorAtEnd(listOf(back.text, draft).filter { it.isNotBlank() }.joinToString("\n"))
         attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
         for (path in back.files) {
-            if (uploads.none { it.path == path }) uploads.add(FileUpload(UUID.randomUUID().toString(), path.substringAfterLast('/')).also { it.path = path })
+            if (uploads.none { it.path == path }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(path)).also { it.path = path })
         }
     }
     LaunchedEffect(items) {
@@ -313,9 +326,18 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
     val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
+    ChatFindDriver(
+        find = find,
+        items = shown,
+        answerText = { imagesOf(it).text },
+        listState = listState,
+        leading = if (conversation.skippedHistory > 0) 1 else 0,
+        topInset = padding.calculateTopPadding(),
+        onJump = { follow = false },
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().findViewport(find)) {
             when {
                 conversation.loadingHistory -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { TypingIndicator() }
                 items.isEmpty() -> EmptyState(
@@ -421,7 +443,15 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 }
             }
         }
-        if (conversation.blockedByExternal) {
+        if (find.active) {
+            ChatFindBar(
+                find = find,
+                skippedHistory = conversation.skippedHistory,
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                    .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
+            )
+        } else if (conversation.blockedByExternal) {
             ExternalSessionNotice(
                 onTakeOver = conversation::takeOver,
                 modifier = Modifier
@@ -465,6 +495,8 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                     }
                 },
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
+                onPickFolder = pathAttach::openFolder,
+                onEnterPath = pathAttach::openPath,
                 onRemoveAttachment = { attachments.remove(it) },
                 onRemoveFile = { uploads.remove(it) },
                 onSlashTyped = conversation::prepare,
@@ -504,6 +536,9 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
         }
     }
     MessageActionDialogs(actions)
+    AttachPathDialogs(pathAttach, hub, conversation) { entry ->
+        if (uploads.none { it.path == entry }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(entry)).also { it.path = entry })
+    }
 }
 
 private const val MaxAttachments = 4
@@ -618,13 +653,15 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
 }
 
 @Composable
-private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit) {
+private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
     val dark = CouiTheme.isDark
     val anchor = rememberCouiMenuAnchor()
     var expanded by remember { mutableStateOf(false) }
-    val menuItems = remember {
+    val findEnabled = onFind != null
+    val menuItems = remember(findEnabled) {
         listOf(
             CouiMenuItem(value = 0, text = "新对话", icon = Icons.Rounded.MapsUgc),
+            CouiMenuItem(value = 2, text = "在对话中查找", icon = Icons.Rounded.Search, enabled = findEnabled),
             CouiMenuItem(value = 1, text = "设置", icon = Icons.Outlined.Settings),
         )
     }
@@ -643,7 +680,11 @@ private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit) {
             items = menuItems,
             onItemClick = {
                 expanded = false
-                if (it.value == 0) onNewChat() else onOpenSettings()
+                when (it.value) {
+                    0 -> onNewChat()
+                    2 -> onFind?.invoke()
+                    else -> onOpenSettings()
+                }
             },
             anchor = anchor,
         )

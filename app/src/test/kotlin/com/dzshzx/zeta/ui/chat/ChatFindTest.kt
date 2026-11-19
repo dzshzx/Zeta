@@ -1,0 +1,99 @@
+package com.dzshzx.zeta.ui.chat
+
+import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
+import com.dzshzx.zeta.ui.markdown.StreamingGfmParserSession
+import com.dzshzx.zeta.ui.markdown.findOccurrences
+import com.dzshzx.zeta.ui.markdown.findSegments
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ChatFindTest {
+    @Test
+    fun occurrencesIgnoreCaseAndDoNotOverlap() {
+        assertEquals(listOf(0..4, 6..10, 12..16), findOccurrences("Hello hello HELLO", "hello"))
+        assertEquals(listOf(0..1, 2..3), findOccurrences("aaaaa", "aa"))
+        assertEquals(listOf(1..1, 2..2), findOccurrences("今天天气", "天"))
+        assertEquals(emptyList<IntRange>(), findOccurrences("abc", ""))
+        assertEquals(emptyList<IntRange>(), findOccurrences("ab", "abc"))
+    }
+
+    @Test
+    fun matchesFollowSegmentOrder() {
+        val segments = listOf(
+            FindSegment("u1", 0, "查一下 Zeta 的日志"),
+            FindSegment("a1", 0, "zeta 的日志在这里"),
+            FindSegment("a1", 12, "没有别的 ZETA"),
+        )
+        assertEquals(
+            listOf(FindMatch("u1", 0, 4, 8), FindMatch("a1", 0, 0, 4), FindMatch("a1", 12, 5, 9)),
+            ChatFind.matches(segments, ChatFind.normalize("  zeta ")),
+        )
+        assertEquals(emptyList<FindMatch>(), ChatFind.matches(segments, ""))
+    }
+
+    @Test
+    fun stepWrapsAround() {
+        assertEquals(0, ChatFind.step(2, 3, 1))
+        assertEquals(2, ChatFind.step(0, 3, -1))
+        assertEquals(1, ChatFind.step(0, 3, 1))
+        assertEquals(-1, ChatFind.step(0, 0, 1))
+    }
+
+    @Test
+    fun reselectKeepsPlace() {
+        val order = mapOf("u1" to 0, "a1" to 1, "u2" to 2, "a2" to 3)
+        val matches = listOf(FindMatch("u1", 0, 0, 2), FindMatch("a1", 5, 3, 5), FindMatch("a2", 0, 1, 3))
+        // 第一次从最后一处（最新的）开始
+        assertEquals(2, ChatFind.reselect(null, matches, order))
+        // 原来那处还在：停在它上面
+        assertEquals(1, ChatFind.reselect(FindMatch("a1", 5, 3, 5), matches, order))
+        // 多打了一个字，区间变长了：还停在同一个起点
+        val longer = listOf(FindMatch("u1", 0, 0, 3), FindMatch("a1", 5, 3, 6))
+        assertEquals(1, ChatFind.reselect(FindMatch("a1", 5, 3, 5), longer, order))
+        // 原来那处没了：停在它后面最近的一处
+        assertEquals(2, ChatFind.reselect(FindMatch("u2", 0, 0, 2), matches, order))
+        // 后面没有了：停在最后一处
+        assertEquals(1, ChatFind.reselect(FindMatch("a2", 0, 9, 11), longer, order))
+        // 原来那条消息被删了
+        assertEquals(2, ChatFind.reselect(FindMatch("gone", 0, 0, 2), matches, order))
+        assertEquals(-1, ChatFind.reselect(FindMatch("u1", 0, 0, 2), emptyList(), order))
+    }
+
+    @Test
+    fun stateMovesAndCountsJumps() {
+        val state = ChatFindState()
+        val order = mapOf("u1" to 0, "a1" to 1)
+        val matches = listOf(FindMatch("u1", 0, 0, 2), FindMatch("a1", 0, 3, 5))
+        state.update("ab", matches, order)
+        assertEquals(1, state.index)
+        assertEquals(1, state.jumps)
+        assertTrue(state.isCurrent("a1", 0, 3))
+        // 只是刷新（来了新消息），当前那处没变：不跳
+        state.update("ab", matches + FindMatch("a1", 9, 0, 2), order)
+        assertEquals(1, state.index)
+        assertEquals(1, state.jumps)
+        state.next()
+        assertEquals(2, state.index)
+        state.next()
+        assertEquals(0, state.index)
+        state.previous()
+        assertEquals(2, state.index)
+        assertEquals(4, state.jumps)
+        state.close()
+        assertEquals(-1, state.index)
+        assertEquals("", state.query)
+    }
+
+    /** 查的是排版后的文字：Markdown 记号、链接地址不算，各块按画出来的顺序。 */
+    @Test
+    fun markdownSegmentsAreRenderedText() {
+        val source = "# 标题\n\n**粗体** 和 [链接](https://example.com/zeta) 文字\n\n- 第一项\n- 第二项\n\n> 引用 zeta\n\n```\ncode zeta\n```\n\n| a | b |\n|---|---|\n| 1 | zeta |\n"
+        val document = StreamingGfmParserSession().parse(source, isComplete = true, style = MarkdownInlineStyle.Default).document
+        val texts = document.findSegments().map { it.second }
+        assertEquals(listOf("标题", "粗体 和 链接 文字", "第一项", "第二项", "引用 zeta", "code zeta", "a", "b", "1", "zeta"), texts)
+        val offsets = document.findSegments().map { it.first }
+        assertEquals(offsets.size, offsets.toSet().size)
+        assertEquals(3, ChatFind.matches(document.findSegments().map { FindSegment("a", it.first, it.second) }, "zeta").size)
+    }
+}

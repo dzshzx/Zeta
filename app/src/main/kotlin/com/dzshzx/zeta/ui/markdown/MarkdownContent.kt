@@ -253,8 +253,10 @@ private fun MarkdownText(
     val reveal = scope.reveal
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
     if (reveal == null || block.text.isEmpty()) {
-        Text(
+        // 静态排版的文字能被页面内查找高亮，没在查找时就是普通的 Text
+        FindableText(
             text = block.text,
+            block = block.offset,
             style = style,
             softWrap = softWrap,
             inlineContent = inlineContent,

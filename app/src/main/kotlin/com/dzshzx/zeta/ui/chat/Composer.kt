@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.layout.ContentScale
+import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
@@ -26,6 +27,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +106,10 @@ internal fun Composer(
     commands: List<SlashCommand>,
     onPickImages: () -> Unit,
     onPickFiles: () -> Unit,
+    /** 引用 Linux 里的文件夹（从手机这边选）。 */
+    onPickFolder: () -> Unit,
+    /** 直接输入 Linux 里的路径。 */
+    onEnterPath: () -> Unit,
     onRemoveAttachment: (Attachment) -> Unit,
     onRemoveFile: (FileUpload) -> Unit,
     /** 用户开始输入斜杠命令：趁这时把进程起好，拿到最新的命令清单。 */
@@ -204,6 +211,7 @@ internal fun Composer(
                             else -> file.name
                         },
                         modifier = Modifier.widthIn(max = 220.dp),
+                        folder = AttachedPaths.isFolder(file.path.orEmpty()),
                     ) {
                         Icon(
                             Icons.Rounded.Close,
@@ -265,6 +273,8 @@ internal fun Composer(
                 listOf(
                     CouiMenuItem(value = 0, text = "图片", icon = Icons.Rounded.Image),
                     CouiMenuItem(value = 1, text = "文件", icon = Icons.Rounded.AttachFile),
+                    CouiMenuItem(value = 2, text = "文件夹", icon = Icons.Rounded.Folder),
+                    CouiMenuItem(value = 3, text = "输入路径", icon = Icons.Rounded.Edit),
                 )
             }
             Box {
@@ -277,7 +287,7 @@ internal fun Composer(
                         .clickable(enabled = enabled) { attachAnchor.open { attachMenu = true } },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "添加图片或文件", modifier = Modifier.size(18.dp), tint = colors.onSurface.copy(alpha = 0.72f))
+                    Icon(Icons.Rounded.Add, contentDescription = "添加附件", modifier = Modifier.size(18.dp), tint = colors.onSurface.copy(alpha = 0.72f))
                 }
                 Menu(
                     expanded = attachMenu,
@@ -285,7 +295,12 @@ internal fun Composer(
                     items = attachItems,
                     onItemClick = {
                         attachMenu = false
-                        if (it.value == 0) onPickImages() else onPickFiles()
+                        when (it.value) {
+                            0 -> onPickImages()
+                            1 -> onPickFiles()
+                            2 -> onPickFolder()
+                            else -> onEnterPath()
+                        }
                     },
                     anchor = attachAnchor,
                 )

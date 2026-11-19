@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -202,7 +203,7 @@ private fun ImageViewer(bitmap: ImageBitmap, onDismiss: () -> Unit) {
 
 /** 附件文件的小标签：图标加文件名。 */
 @Composable
-internal fun FileChip(name: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+internal fun FileChip(name: String, modifier: Modifier = Modifier, folder: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     val dark = CouiTheme.isDark
     val colors = MiuixTheme.colorScheme
     Row(
@@ -213,7 +214,7 @@ internal fun FileChip(name: String, modifier: Modifier = Modifier, trailing: (@C
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.InsertDriveFile, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
+        Icon(if (folder) Icons.Rounded.Folder else Icons.AutoMirrored.Rounded.InsertDriveFile, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
         Text(
             text = name,
             style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp),

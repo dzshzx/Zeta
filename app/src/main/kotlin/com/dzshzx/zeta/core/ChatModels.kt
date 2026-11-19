@@ -58,20 +58,18 @@ data class RemoteImage(val url: String) : ImageRef {
 @Immutable
 data class SlashCommand(val name: String, val description: String, val argumentHint: String)
 
-private const val AttachedPrefix = "[Attached file: "
-
-/** 发送时把附件路径写成消息开头的几行，Claude 据此用工具去读。 */
+/** 发送时把附件（见 [AttachedPaths]）写成消息开头的几行，Claude 据此去读。 */
 internal fun withAttachedFiles(text: String, files: List<String>): String =
-    if (files.isEmpty()) text else files.joinToString("\n") { "$AttachedPrefix$it]" } + if (text.isEmpty()) "" else "\n\n$text"
+    if (files.isEmpty()) text else files.joinToString("\n") { AttachedPaths.header(it) } + if (text.isEmpty()) "" else "\n\n$text"
 
-/** [withAttachedFiles] 的逆操作：从历史消息里拆出附件路径和正文。 */
+/** [withAttachedFiles] 的逆操作：从历史消息里拆出附件和正文。 */
 internal fun splitAttachedFiles(text: String): Pair<List<String>, String> {
-    if (!text.startsWith(AttachedPrefix)) return emptyList<String>() to text
+    if (!text.startsWith("[Attached ")) return emptyList<String>() to text
     val files = ArrayList<String>()
     val lines = text.lines()
     var index = 0
-    while (index < lines.size && lines[index].startsWith(AttachedPrefix) && lines[index].endsWith("]")) {
-        files.add(lines[index].substring(AttachedPrefix.length, lines[index].length - 1))
+    while (index < lines.size) {
+        files.add(AttachedPaths.parseHeader(lines[index]) ?: break)
         index++
     }
     return files to lines.drop(index).joinToString("\n").trim()

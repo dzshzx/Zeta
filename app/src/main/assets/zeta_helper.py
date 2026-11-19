@@ -99,6 +99,19 @@ def external_sessions():
     return busy
 
 
+# 消息开头的附件行（见 Kotlin 的 AttachedPaths）：复制进来的文件 [Attached file: 路径]，
+# 引用的路径 [Attached file: @"路径"] 和 [Attached folder: @"路径"]
+ATTACHED = re.compile(r'^\[Attached (?:file|folder): (?:@"(.+)"|(.+))\]$')
+
+
+def attached_name(line):
+    """附件行里路径的最后一段；不是附件行返回 None。"""
+    m = ATTACHED.match(line)
+    if not m:
+        return None
+    return os.path.basename((m.group(1) or m.group(2)).rstrip("/")) or "/"
+
+
 def user_text(content):
     """用户亲手输入的文字（斜杠命令还原成 /名字 参数）；工具结果、系统注入的内容返回 None。"""
     if isinstance(content, str):
@@ -177,8 +190,8 @@ def summarize(path):
                 text = user_text(content) or ("[图片]" if image_count(content) else None)
                 if text:
                     # 附件行不当预览；斜杠命令开头的会话，预览优先用后面第一句真正的话
-                    lines = [l for l in text.split("\n") if not l.startswith("[Attached file: ")]
-                    text = "\n".join(lines).strip() or os.path.basename(text.split("\n")[0][16:].rstrip("]"))
+                    lines = [l for l in text.split("\n") if attached_name(l) is None]
+                    text = "\n".join(lines).strip() or attached_name(text.split("\n")[0]) or text
                     first = first or text
                     if not text.startswith("/"):
                         prompt = text
@@ -587,10 +600,9 @@ def cmd_search(query):
                         role, text = spoken_text(json.loads(line))
                     except ValueError:
                         continue
-                    if text and "[Attached file: " in text:
+                    if text and "[Attached " in text:
                         # 附件行只留文件名，摘要里不出现一长串路径
-                        text = "\n".join("附件 " + os.path.basename(l[16:].rstrip("]")) if l.startswith("[Attached file: ") else l
-                                         for l in text.split("\n"))
+                        text = "\n".join("附件 " + attached_name(l) if attached_name(l) else l for l in text.split("\n"))
                     at = text.lower().find(needle) if text else -1
                     if at < 0:
                         continue  # 只是命中了路径、id 之类的字段
@@ -719,8 +731,8 @@ def cmd_export(path):
         if kind == "user":
             text, images = value
             lines = text.split("\n")
-            files = [l[16:].rstrip("]") for l in lines if l.startswith("[Attached file: ")]
-            body = "\n".join(l for l in lines if not l.startswith("[Attached file: ")).strip()
+            files = [m.group(1) or m.group(2) for m in map(ATTACHED.match, lines) if m]
+            body = "\n".join(l for l in lines if not ATTACHED.match(l)).strip()
             block = "## 用户"
             if body:
                 block += "\n\n" + body
