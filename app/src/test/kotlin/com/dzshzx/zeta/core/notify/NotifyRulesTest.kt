@@ -277,8 +277,8 @@ class NotifyRulesTest {
 
     @Test
     fun describesRules() {
-        val r = rule(keywords = listOf("取件码", "快递"), window = TimeWindow(LocalTime.of(22, 0), LocalTime.of(7, 0)))
-        assertEquals("快递助手 · 含“取件码”或“快递” · 22:00–07:00（跨午夜）", NotifyRules.describe(r))
+        assertEquals("22:00–07:00（跨午夜）", NotifyRules.windowText(TimeWindow(LocalTime.of(22, 0), LocalTime.of(7, 0))))
+        assertEquals("08:00–22:00", NotifyRules.windowText(TimeWindow(LocalTime.of(8, 0), LocalTime.of(22, 0))))
         assertEquals("5 分钟", NotifyRules.cooldownText(5))
         assertEquals("3 小时", NotifyRules.cooldownText(180))
         assertEquals("1 天", NotifyRules.cooldownText(1440))

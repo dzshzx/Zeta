@@ -54,6 +54,26 @@ class NotifyTriggerShots : ShotTest() {
         }
     }
 
+    /** 编辑页中段：指令用了 {text} 时的提醒、发给 Claude 的样子、防止失控。 */
+    @Test
+    fun editorMiddle() {
+        val hub = Fixtures.readyHub(app)
+        seed()
+        shoot(
+            "notify-trigger-editor-middle",
+            prepare = {
+                onNodeWithText("快递取件提醒").performClick()
+                // 等编辑页滑进来再划，不然这一下落在动画里划不动；要的几行在 LazyColumn 里还没组合，不能 scrollIntoView。
+                // 慢慢划半屏，不带惯性，停在中段
+                mainClock.advanceTimeBy(600)
+                waitForIdle()
+                onRoot().performTouchInput { swipeUp(startY = bottom * 0.85f, endY = bottom * 0.3f, durationMillis = 2000) }
+            },
+        ) {
+            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+        }
+    }
+
     /** 编辑页下半：预览、防止失控、运行方式（完全放行时的风险提示）。 */
     @Test
     fun editorRisk() {

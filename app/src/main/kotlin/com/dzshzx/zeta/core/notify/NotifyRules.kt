@@ -307,13 +307,6 @@ object NotifyRules {
     fun windowText(window: TimeWindow): String =
         window.start.format(HM) + "–" + window.end.format(HM) + if (window.start > window.end) "（跨午夜）" else ""
 
-    /** “微信 · 含“取件码” · 08:00–22:00”。 */
-    fun describe(rule: NotifyRule): String = listOfNotNull(
-        rule.appLabel.ifBlank { rule.packageName },
-        rule.keywords.takeIf { it.isNotEmpty() }?.let { "含“" + it.joinToString("”或“") + "”" },
-        rule.window?.let(::windowText),
-    ).joinToString(" · ")
-
     fun cooldownText(minutes: Int): String = when {
         minutes % 1440 == 0 -> "${minutes / 1440} 天"
         minutes % 60 == 0 -> "${minutes / 60} 小时"

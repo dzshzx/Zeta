@@ -75,12 +75,17 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val ListFooter = "某个应用的通知到了（可以再限定关键词和时段），Zeta 就在后台开一个对话，让 Claude 跑你写的指令；" +
-    "跑完发一条通知（规则名和回答的开头），点通知打开那次的对话。Zeta 自己的通知不会触发。" +
-    "每条规则触发后有一段冷却时间，每天也有次数上限；上一次还没跑完时跳过这一次。"
+/**
+ * 列表页的说明。没写进去的：跑完的通知是规则名加回答的开头，点它打开那次的对话；
+ * 冷却、每天上限、不触发的通知在编辑页“防止失控”下面；上一次还没跑完时跳过这一次（编辑页的“跳过了 N 次”会列出来）。
+ */
+private const val ListFooter = "选定的应用来了通知，就在后台开一个对话运行指令，跑完发通知。"
 
-private const val PromptFooter = "通知到了时发给 Claude。可以用 {title}（通知标题）、{text}（正文）、{app}（应用名）引用这条通知：" +
-    "填进去的内容会标成「通知内容（外部数据）」并用分隔符包住，提醒 Claude 只把它当数据。不用这几个占位符时，通知内容不会交给 Claude。"
+/**
+ * 指令下面的说明。占位符填进去的内容会标成「通知内容（外部数据）」并用分隔符包住，提醒 Claude 只把它当数据
+ * （[NotifyRules.render]，分隔符里的随机串每次运行都不一样，通知里的文字仿造不出来）。
+ */
+private const val PromptFooter = "可以用 {title}、{text}、{app} 引用通知的标题、正文和应用名；不用时，通知内容不会交给 Claude。"
 
 /** 权限健康页上的“通知使用权”：有开着的规则时缺了算问题，没有规则时只是提示。 */
 internal fun notificationListenerItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem {
@@ -141,7 +146,7 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
                 PreferenceGroup {
                     item {
                         PermissionFixRow(
-                            hub, PermissionId.NotificationListener, "还没有通知使用权", "没有它收不到通知，规则不会触发。",
+                            hub, PermissionId.NotificationListener, "还没有通知使用权", "规则不会触发。",
                             if (rules.any { it.enabled }) COUITheme.colorScheme.error else StatusWarning,
                         )
                     }
@@ -156,16 +161,16 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
                 rules.forEach { rule ->
                     val last = rule.lastRun
                     val fired = NotifyRules.firedToday(rule, now, zone)
-                    val state = when {
-                        last?.outcome == RunOutcome.Running -> "正在运行"
-                        !rule.enabled -> "已关闭"
-                        fired > 0 -> "今天触发 $fired 次"
-                        else -> "今天还没触发"
-                    } + (last?.takeIf { it.outcome != RunOutcome.Running }?.let { " · 上次" + outcomeWord(it.outcome) } ?: "")
+                    // 摘要一行：哪个应用，再加今天触发几次、上次的结果。关键词和时段在编辑页里看，关没关着看开关
+                    val state = if (last?.outcome == RunOutcome.Running) {
+                        listOf("正在运行")
+                    } else {
+                        listOfNotNull(if (fired > 0) "今天触发 $fired 次" else null, last?.let { "上次" + outcomeWord(it.outcome) })
+                    }
                     item(key = rule.id) {
                         SwitchWithDividerPreference(
                             title = rule.name,
-                            summary = NotifyRules.describe(rule) + "\n" + state,
+                            summary = (listOf(rule.appLabel.ifBlank { rule.packageName }) + state).joinToString(" · "),
                             checked = rule.enabled,
                             onCheckedChange = { on -> NotifyRuleStore.updateRule(app, rule.id) { it.copy(enabled = on) } },
                             onClick = { editing = RuleTarget(rule.id) },
@@ -273,16 +278,17 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
             )
         },
     ) {
+        // 名称是跑完那条通知的标题，也是每次运行那个对话的名字
         item(key = "name") {
-            FieldCard(footer = "跑完那条通知的标题，也是每次运行那个对话的名字。") {
+            FieldCard(footer = null) {
                 InputView(value = draft.name, onValueChange = { draft = draft.copy(name = it.take(NotifyRules.MAX_NAME)) }, title = "名称", label = "快递取件提醒")
             }
         }
         item(key = "trigger") {
             PreferenceGroup(
                 title = "触发条件",
-                footer = problem?.takeIf { draft.name.isNotBlank() || draft.prompt.isNotBlank() || original != null }
-                    ?: "关键词不分大小写，标题或正文里含其中任一个就触发；几个关键词用逗号隔开。时段的结束早于开始时跨午夜。",
+                // 关键词怎么匹配写在关键词对话框里；时段结束早于开始时跨午夜，时段的文字里会注明
+                footer = problem?.takeIf { draft.name.isNotBlank() || draft.prompt.isNotBlank() || original != null },
             ) {
                 item(key = "app") {
                     ArrowPreference(
@@ -295,7 +301,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 item(key = "keywords") {
                     BasicComponent(
                         title = "关键词",
-                        summary = NotifyRules.parseKeywords(draft.keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限：这个应用的每条通知都触发",
+                        summary = NotifyRules.parseKeywords(draft.keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限，每条通知都触发",
                         onClick = { dialog = RuleDialog.Keywords },
                     )
                 }
@@ -329,9 +335,10 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 if (risky) {
                     PreferenceGroup(footer = PromptFooter) {
                         item {
+                            // 用了 {title}、{text} 时，验证码、银行和支付通知也原样发出去；不想交出去的应用，不要给它设规则
                             BasicComponent(
                                 title = "验证码等内容也会交给 Claude",
-                                summary = "用了 {title}、{text} 时，验证码、银行和支付通知的内容也会原样发给 Claude，并留在对话记录里。不想交出去的应用，不要给它设规则。",
+                                summary = "原样发出，并留在对话记录里",
                                 titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
                             )
                         }
@@ -342,7 +349,8 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         if (draft.prompt.isNotBlank()) {
             item(key = "preview") {
                 val sample = PostedNotification(key = "", postTime = now, packageName = draft.packageName, title = "示例标题", text = "示例正文")
-                PreferenceGroup(title = "发给 Claude 的样子", footer = "用一条示例通知预览；每次运行时分隔符里的随机串都不一样，通知里的文字仿造不出来。") {
+                // 用一条示例通知预览；分隔符里的随机串每次运行都不一样
+                PreferenceGroup(title = "发给 Claude 的样子") {
                     item {
                         FieldBox {
                             Text(
@@ -358,8 +366,8 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         item(key = "limits") {
             PreferenceGroup(
                 title = "防止失控",
-                footer = "触发一次后，冷却时间内这条规则不再触发；一天里触发到上限也不再触发，第二天重新计数。" +
-                    "同一条通知只触发一次；常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
+                // 每天的次数第二天重新计数；同一条通知只触发一次
+                footer = "冷却时间内、或今天已到上限时不再触发。常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
             ) {
                 val cooldown = draft.cooldownMinutes
                 val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
@@ -386,8 +394,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         item(key = "run") {
             PreferenceGroup(
                 title = "运行方式",
-                footer = "通知是别的应用发来的，可能有人借它的内容诱导 Claude。新规则默认“逐项确认”：要执行命令、改文件时这一轮停下来等你，并发通知让你处理。" +
-                    "每次触发都开一个新对话。",
+                footer = "通知可能被人用来诱导 Claude，所以默认逐项确认：要改文件、执行命令时停下来，发通知等你。每次触发都开一个新对话。",
             ) {
                 item(key = "cwd") { BasicComponent(title = "工作目录", summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd }) }
                 item(key = "model") { ModelPreference(hub, draft.model) { draft = draft.copy(model = it) } }
@@ -403,14 +410,11 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                     )
                 }
                 if (mode !in NotifyRules.SAFE_MODES) {
+                    // 自动接受编辑只放行改文件；完全放行放行所有操作；自动判断由 Claude Code 决定放行哪些。只给信得过的应用这样设
                     item(key = "risk") {
                         BasicComponent(
                             title = "“${permissionModeLabel(mode)}”有风险",
-                            summary = when (mode) {
-                                "acceptEdits" -> "这个模式自动放行改文件。通知里如果有诱导文字，Claude 可能不经你确认就改文件。"
-                                "bypassPermissions" -> "这个模式放行所有操作。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
-                                else -> "这个模式由 Claude Code 判断哪些操作自动放行。通知里如果有诱导文字，Claude 可能不经你确认就改文件、执行命令。"
-                            } + "只给你信得过的应用这样设。",
+                            summary = if (mode == "acceptEdits") "可能不经确认就改文件" else "可能不经确认就改文件、执行命令",
                             titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
                         )
                     }
@@ -430,7 +434,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                         )
                     }
                     if (original.skips > 0) {
-                        item(key = "skips") { SkipsRow(original.skips, original.lastSkip, "触发时上一次还没跑完", Instant.ofEpochMilli(now), zone) }
+                        item(key = "skips") { SkipsRow(original.skips, original.lastSkip, "上一次还没跑完", Instant.ofEpochMilli(now), zone) }
                     }
                 }
             }
@@ -557,7 +561,7 @@ private fun AppPicker(current: String, onPick: (packageName: String, label: Stri
                             key = "all",
                             title = "全部应用",
                             entries = all.take(400),
-                            footer = "只列有桌面图标的应用。没有图标的（比如系统组件）用“手动输入包名”。",
+                            footer = "只列有桌面图标的应用，别的用“手动输入包名”。",
                             head = manualRow,
                         )
                     }
