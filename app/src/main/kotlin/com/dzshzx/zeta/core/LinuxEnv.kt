@@ -108,8 +108,9 @@ object LinuxEnv {
 
     fun startRoot(script: String): Process = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
 
-    /** 以 root 在 Android 侧直接执行一段脚本（不进 Debian）。 */
-    fun runRoot(script: String, timeoutMs: Long = 15_000): CommandResult = capture(ProcessBuilder("su", "-c", script).start(), null, timeoutMs)
+    /** 以 root 在 Android 侧直接执行一段脚本（不进 Debian）。[stdin] 不进命令行，别的进程从进程列表里看不到。 */
+    fun runRoot(script: String, timeoutMs: Long = 15_000, stdin: String? = null): CommandResult =
+        capture(ProcessBuilder("su", "-c", script).start(), stdin, timeoutMs)
 
     fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult =
         capture(start(config, command), stdin, timeoutMs)

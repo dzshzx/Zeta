@@ -11,11 +11,15 @@ import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.HourglassEmpty
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.QuestionAnswer
+import androidx.compose.material.icons.rounded.SwipeVertical
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dzshzx.zeta.core.ToolStep
@@ -68,14 +72,48 @@ internal fun presentTool(name: String, input: JsonObject?): ToolPresentation {
 private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): ToolPresentation {
     fun s(key: String) = input?.str(key)
     fun n(key: String) = input?.int(key)
-    val where = n("node")?.let { "控件 $it" } ?: n("x")?.let { "($it, ${n("y") ?: 0})" }.orEmpty()
+    // 按文字、id 找的控件显示要找的文字或 id
+    val where = n("node")?.let { "控件 $it" } ?: s("match")?.let { "「" + firstLine(it, 20) + "」" } ?: s("id")?.let { "id=$it" }
+        ?: n("x")?.let { "($it, ${n("y") ?: 0})" }.orEmpty()
     return when (tool) {
         "shell" -> ToolPresentation(Icons.Rounded.Terminal, "Android：" + firstLine(s("command")).ifEmpty { "执行命令" }, s("command").orEmpty())
         "screen" -> ToolPresentation(Icons.Rounded.Smartphone, if (input?.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕", json)
         "tap" -> ToolPresentation(Icons.Rounded.TouchApp, "点按 $where".trim(), json)
         "long_press" -> ToolPresentation(Icons.Rounded.TouchApp, "长按 $where".trim(), json)
         "swipe" -> ToolPresentation(Icons.Rounded.TouchApp, "滑动", json)
-        "type_text" -> ToolPresentation(Icons.Rounded.Smartphone, "输入“" + firstLine(s("text"), 30) + "”", json)
+        "scroll" -> ToolPresentation(
+            Icons.Rounded.SwipeVertical,
+            when (s("direction")) {
+                "up" -> "向上滚动"
+                "left" -> "向左滚动"
+                "right" -> "向右滚动"
+                else -> "向下滚动"
+            } + (if (where.isNotEmpty()) " $where" else ""),
+            json,
+        )
+        "wait" -> ToolPresentation(
+            Icons.Rounded.HourglassEmpty,
+            when {
+                s("match") != null || s("id") != null -> "等 $where" + if (input?.bool("gone") == true) "消失" else "出现"
+                s("app") != null -> "等 " + s("app") + " 打开"
+                else -> "等待 " + "%.1f".format((n("duration_ms") ?: 1000) / 1000.0).removeSuffix(".0") + " 秒"
+            },
+            json,
+        )
+        "clipboard" -> ToolPresentation(
+            Icons.Rounded.ContentPaste,
+            when (s("text")) {
+                null -> "读取剪贴板"
+                "" -> "清空剪贴板"
+                else -> "写入剪贴板“" + firstLine(s("text"), 30) + "”"
+            },
+            json,
+        )
+        "type_text" -> ToolPresentation(
+            Icons.Rounded.Smartphone,
+            if (s("text").isNullOrEmpty()) "清空输入框" else "输入“" + firstLine(s("text"), 30) + "”",
+            json,
+        )
         "press_key" -> ToolPresentation(
             Icons.Rounded.Smartphone,
             "按" + when (s("key")) {
@@ -84,6 +122,7 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
                 "recents" -> "最近任务键"
                 "enter" -> "回车"
                 "delete" -> "退格"
+                "paste" -> "粘贴"
                 "wake" -> "亮屏"
                 "notifications" -> "下拉通知栏"
                 "quick_settings" -> "下拉控制中心"
@@ -91,7 +130,11 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
             },
             json,
         )
-        "open_app" -> ToolPresentation(Icons.Rounded.Smartphone, "打开 " + s("app").orEmpty(), json)
+        "open_app" -> when {
+            s("uri") != null -> ToolPresentation(Icons.Rounded.Link, "打开 " + firstLine(s("uri"), 50), json)
+            s("action") != null -> ToolPresentation(Icons.Rounded.Smartphone, "打开 " + s("action").orEmpty().substringAfterLast('.'), json)
+            else -> ToolPresentation(Icons.Rounded.Smartphone, "打开 " + s("app").orEmpty(), json)
+        }
         "find_apps" -> ToolPresentation(Icons.Rounded.Smartphone, "查找应用 " + s("query").orEmpty(), json)
         else -> ToolPresentation(Icons.Rounded.Smartphone, PhoneToolGroups.find(tool)?.title(tool, input ?: JsonObject(emptyMap())) ?: "手机 · $tool", json)
     }

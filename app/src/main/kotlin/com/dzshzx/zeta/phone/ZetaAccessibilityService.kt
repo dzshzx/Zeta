@@ -87,6 +87,25 @@ class ZetaAccessibilityService : AccessibilityService() {
         return readRoots(displayId).also { if (it.isNotEmpty()) Log.i("ZetaPhone", "display $displayId: stale window cache cleared") }
     }
 
+    /**
+     * 丢掉本地的控件缓存，下次读的都是应用那边的最新状态。页面切换、返回的动画只挪窗口，不发内容变化的事件，
+     * 缓存里的位置会一直停在动画半路上（实测返回后整列控件偏出屏幕）。Android 14 以下没有这个接口，什么也不做。
+     */
+    fun dropCache() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) runCatching { clearCache() }
+    }
+
+    /** 某块屏幕最上层的应用窗口属于哪个包（状态栏、输入法这些系统窗口不算）。读不到返回 null。 */
+    fun topApp(displayId: Int): String? {
+        val windows = runCatching { windowsOnAllDisplays.get(displayId) }.getOrNull().orEmpty()
+        val top = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer } ?: return null
+        return runCatching { top.root?.packageName?.toString() }.getOrNull()
+    }
+
+    /** 某块屏幕上输入法键盘开着没有。 */
+    fun imeShown(displayId: Int): Boolean =
+        runCatching { windowsOnAllDisplays.get(displayId) }.getOrNull().orEmpty().any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+
     private fun readRoots(displayId: Int): List<AccessibilityNodeInfo> {
         val windows = runCatching { windowsOnAllDisplays.get(displayId) }.getOrNull().orEmpty()
         return windows.sortedByDescending { it.layer }.mapNotNull { window ->
@@ -97,15 +116,21 @@ class ZetaAccessibilityService : AccessibilityService() {
 
     // ---- 手势 ----
 
-    /** 沿 [path] 做一次手势，等它做完。返回是否完成。 */
-    fun gesture(displayId: Int, path: Path, durationMs: Long): Boolean {
+    /**
+     * 沿 [path] 做一次手势，等它做完。返回是否完成。
+     * [holdMs] 大于 0 时，走到终点后按住不动这么久再抬起：列表就不会按抬手时的速度甩出惯性，滚动的距离和手指走的一样。
+     */
+    fun gesture(displayId: Int, path: Path, durationMs: Long, holdMs: Long = 0): Boolean {
         val duration = durationMs.coerceAtLeast(1)
         // 路径越界、时长超限时系统直接抛异常：当作没做成，调用方会改用 input 命令
+        val stroke = runCatching { GestureDescription.StrokeDescription(path, 0, duration, holdMs > 0) }.getOrElse { return false }
         val description = runCatching {
-            GestureDescription.Builder()
-                .setDisplayId(displayId)
-                .addStroke(GestureDescription.StrokeDescription(path, 0, duration))
-                .build()
+            GestureDescription.Builder().setDisplayId(displayId).addStroke(stroke).build()
+        }.getOrElse { return false }
+        val hold = if (holdMs <= 0) null else runCatching {
+            val end = FloatArray(2).also { PathMeasure(path, false).run { getPosTan(length, it, null) } }
+            val still = Path().apply { moveTo(end[0], end[1]) }
+            GestureDescription.Builder().setDisplayId(displayId).addStroke(stroke.continueStroke(still, 0, holdMs, false)).build()
         }.getOrElse { return false }
         val onMain = displayId == OverlayWindow.mainDisplay(this)
         // 胶囊窗口接收触摸，经过它的手势会被它截走：先请它让开（上移淡出、不接收触摸），等动画走完再注入
@@ -114,28 +139,34 @@ class ZetaAccessibilityService : AccessibilityService() {
         try {
             if (wait > 0) Thread.sleep(wait)
             if (onMain) GestureIndicator.show(this, displayId, path, duration)
-            val done = CountDownLatch(1)
-            var completed = false
-            val accepted = runCatching {
-                dispatchGesture(
-                    description,
-                    object : GestureResultCallback() {
-                        override fun onCompleted(gestureDescription: GestureDescription?) {
-                            completed = true
-                            done.countDown()
-                        }
-
-                        override fun onCancelled(gestureDescription: GestureDescription?) = done.countDown()
-                    },
-                    main,
-                )
-            }.getOrDefault(false)
-            if (!accepted) return false
-            done.await(duration + 3000, TimeUnit.MILLISECONDS)
-            return completed
+            if (!dispatchAndWait(description, duration)) return false
+            return hold == null || dispatchAndWait(hold, holdMs)
         } finally {
             if (clear) releaseCapsule(RESTORE_AFTER_GESTURE_MS)
         }
+    }
+
+    /** 派发一段手势并等它做完。返回是否完成。 */
+    private fun dispatchAndWait(description: GestureDescription, durationMs: Long): Boolean {
+        val done = CountDownLatch(1)
+        var completed = false
+        val accepted = runCatching {
+            dispatchGesture(
+                description,
+                object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        completed = true
+                        done.countDown()
+                    }
+
+                    override fun onCancelled(gestureDescription: GestureDescription?) = done.countDown()
+                },
+                main,
+            )
+        }.getOrDefault(false)
+        if (!accepted) return false
+        done.await(durationMs + 3000, TimeUnit.MILLISECONDS)
+        return completed
     }
 
     /**

@@ -34,6 +34,7 @@ internal object PhoneToolGroups {
     /** 所有工具组。新的一组在这里加一行。 */
     val all: List<PhoneToolGroup> = listOf(
         PersonalTools,
+        ClipboardTools,
     )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {
