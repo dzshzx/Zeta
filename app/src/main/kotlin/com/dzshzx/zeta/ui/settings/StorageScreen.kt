@@ -13,7 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AndroidCache
-import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.CleanOutcome
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ImageStore
@@ -218,7 +217,6 @@ internal fun StoragePage(
         )
     }
 
-    val linuxName = AppVariant.current.linuxName
     val report = view.report
     val shown = rememberRetained(view.confirming)
     CouiPage(
@@ -240,15 +238,45 @@ internal fun StoragePage(
             overlays()
         },
     ) {
+        item(key = "space") {
+            PreferenceGroup {
+                item(key = "phone") {
+                    // 内部存储，Debian 环境也在这里
+                    BasicComponent(
+                        title = "手机剩余空间",
+                        endActions = {
+                            PreferenceValue(if (view.phone.second > 0) Storage.size(view.phone.first) + " / " + Storage.size(view.phone.second) else "—")
+                        },
+                    )
+                }
+                item(key = "rootfs") {
+                    // 整个 rootfs 占的空间
+                    BasicComponent(
+                        title = "Debian 环境",
+                        endActions = {
+                            PreferenceValue(
+                                when {
+                                    view.rootfs != null -> Storage.size(view.rootfs)
+                                    !view.ready || view.rootfsDone -> "—"
+                                    else -> "统计中"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        // 附件和后台对话的输出在 Linux 环境的 ~/.cache/<AppVariant.linuxName> 下，只管这一个包自己的目录
         item(key = "zeta") {
-            PreferenceGroup(title = "Zeta", footer = "附件和后台对话的输出在 Linux 环境的 ~/.cache/$linuxName 下，只管这一个包自己的目录。") {
+            PreferenceGroup(title = "Zeta") {
                 StorageGroup.Zeta.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
             }
         }
         item(key = "projects") {
             PreferenceGroup(
                 title = "会话记录" + (report?.let { " · " + Storage.size(it.projectBytes) } ?: ""),
-                footer = "~/.claude/projects，按项目分。点进项目看各会话的占用，点一个会话会回到侧栏并定位到它；删会话在侧栏里照常删（长按或多选）。",
+                // ~/.claude/projects，按项目分。点进项目看各会话的占用，点一个会话会回到侧栏并定位到它
+                footer = "删会话到侧栏里长按或多选。",
             ) {
                 when {
                     !view.ready -> item { BasicComponent(title = "Linux 环境准备好以后才能看", enabled = false) }
@@ -275,42 +303,19 @@ internal fun StoragePage(
         item(key = "claude") {
             PreferenceGroup(
                 title = "Claude Code",
-                footer = "Claude Code 自己也会在启动时删掉超过“自动清理期限”没动过的会话记录和上面这些文件（~/.claude/settings.json 的 cleanupPeriodDays）。",
+                // 自动清理期限是 ~/.claude/settings.json 的 cleanupPeriodDays
+                footer = "Claude Code 启动时会删掉超过自动清理期限没动过的会话记录和上面这些文件。",
             ) {
                 StorageGroup.Claude.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
                 item(key = "cleanup") {
                     val value = if (view.ready && report != null) Storage.cleanupText(report.cleanupPeriodDays) else null
-                    BasicComponent(title = "自动清理期限", summary = "cleanupPeriodDays", endActions = { if (value != null) PreferenceValue(value) })
+                    BasicComponent(title = "自动清理期限", endActions = { if (value != null) PreferenceValue(value) })
                 }
             }
         }
         item(key = "debian") {
             PreferenceGroup(title = "Debian") {
                 StorageGroup.Debian.kinds().forEach { kind -> item(key = kind) { KindRow(kind) } }
-                item(key = "rootfs") {
-                    BasicComponent(
-                        title = "Debian 环境",
-                        summary = "整个 rootfs 占的空间",
-                        endActions = {
-                            PreferenceValue(
-                                when {
-                                    view.rootfs != null -> Storage.size(view.rootfs)
-                                    !view.ready || view.rootfsDone -> "—"
-                                    else -> "统计中"
-                                },
-                            )
-                        },
-                    )
-                }
-                item(key = "phone") {
-                    BasicComponent(
-                        title = "手机剩余空间",
-                        summary = "内部存储（Debian 环境也在这里）",
-                        endActions = {
-                            PreferenceValue(if (view.phone.second > 0) Storage.size(view.phone.first) + " / " + Storage.size(view.phone.second) else "—")
-                        },
-                    )
-                }
             }
         }
     }
@@ -381,7 +386,8 @@ internal fun ProjectSessionsPage(
         item(key = "sessions") {
             PreferenceGroup(
                 title = "$path · ${project.sessions} 个会话 · ${Storage.size(project.bytes)}",
-                footer = "大小包括会话记录和它的同名目录（工具结果、子代理记录等）。点一个会话回到侧栏并定位到它，要删就在侧栏里长按它，或用多选批量删除；进行中的会话删不了。",
+                // 同名目录里是工具结果、子代理记录等。点一个会话回到侧栏并定位到它
+                footer = "大小含会话记录和它的同名目录。要删会话，到侧栏里长按或多选；进行中的删不了。",
             ) {
                 when {
                     failed -> item { BasicComponent(title = "没统计成", enabled = false) }
