@@ -53,7 +53,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 和真机的差别：字体是 Roboto 和 Noto Sans CJK（手机上是 MiSans），字宽略有出入，换行位置可能不同；动画一律直接放完，转圈停在固定一帧；顶栏的浮动玻璃按钮画不出来（Robolectric 没有它要的网格着色器），退回同样大小的不透明圆底；对话框和菜单不采样背景，是不透明底色（手机上是毛玻璃）。
   - JVM 上没有 root、无障碍、悬浮窗、虚拟屏和 Claude 进程。单元测试的 PATH 里有个总是失败的 `su`（`app/src/test/no-root`），要 root 才查得到的东西在图上是查不到的样子（比如共享文件夹列不出子目录）。这些仍要上真机：悬浮层真实的窗口行为（位置、触摸、给 Claude 的手势让路、叠在别的应用上）、后台屏幕的画面、权限授予、Claude 真跑一轮，以及最终的字体和毛玻璃效果。
   - 门禁里的单元测试每次都把这些图画一遍，渲染崩溃就失败。不提交基准图、不做像素比对：并行的分支改界面时基准图必然冲突、要反复重录；JVM 渲染和真机本来就不同，工作站和手机 Debian（arm64）画出来的像素也未必一样。
-- 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：测试版有三份，三个任务可以同时各用一份（见下一条）。工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；三份都有人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：拿租约前先把要做的步骤写好（命令清单或小脚本），拿到后只执行，一次占用不超过 10 分钟，测完立刻释放；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试能验的不占手机。
+- 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：测试版有三份，三个任务可以同时各用一份（见下一条）。工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；三份都有人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：子代理碰手机只用 `tools/phone-run`（见下面「真机脚本」），不自己拿租约一步步点；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试、截图测试能验的不占手机。
 - 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：build type `dev`，橙色图标，代码和签名同 debug（`assembleDebug` 照旧只出正式版）。测试版有三份，好让三个任务同时测：`com.dzshzx.zeta.dev`（「Zeta 测试」）、`.dev2`（「Zeta 测试2」）、`.dev3`（「Zeta 测试3」），由 `-Pzeta.devSlot=<1..3>` 选，不传是第一份。`tools/install.sh --dev` 先向 `tools/phone-lock dev` 要一份空着的（优先给你上次用过的那份），按它构建、安装，打印装的是哪一份；之后的 `vd.py --dev` 自动用同一份。各份和正式版同时装在手机上，互不替换。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
   - 测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」「Zeta 测试2」「Zeta 测试3」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
@@ -61,6 +61,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 测试版的通知标题前注明「测试版」，完成与确认提醒不出声；和正式版一样，没有对话在跑时不常驻通知。测完不让它在后台常驻：`vd.py --dev stop` 会 force-stop 它。
   - `am force-stop <包名>` 会让系统把那个包的无障碍服务从启用列表里拿掉（AOSP `onPackagesForceStoppedLocked`），所以不对正式版 force-stop，`vd.py stop` 对正式版也只关屏。测试版被 force-stop 后，下次用手机工具时有 root 就自己加回去，也可以在权限健康页一键授予。
 - 装机：`tools/install.sh --dev [--no-build]` 装测试版，不带 `--dev` 装正式版。在工作站上经 ssh 装，在手机上直接装。重装会结束这个包的界面，但不结束进行中的对话。
+- 真机脚本：`ZETA_PHONE_OWNER=<任务名> tools/phone-run [--no-build] <脚本>`，放到后台跑（可能要排队）。它在排队之外构建测试版；轮到后装包，在后台虚拟屏上冷启动 Zeta 并等 10 秒，限时跑脚本（`ZETA_PHONE_RUN_TIMEOUT`，默认 600 秒）；收尾时截 `final.png`，取本包的崩溃日志 `crash.txt`，关屏并 force-stop 测试版，撤销它的通知监听，删掉 `phoneDisplay`，释放租约。脚本按 bash 跑，当前目录是产物目录 `build/phone-run/<时间>`，里面能用 `vd <命令>`（即下一条的 `vd.py --dev`）、`android '<命令>'`（在 Android 一侧以 root 跑）和 `$PKG`、`$DISPLAY_ID`。看完产物再改脚本重跑，想下一步的时候不占手机。退出码：脚本自己的，124 是超时，75 是排队超时。要留作回归的脚本放 `tools/phone-tests/`，样例是 `smoke.sh`。
 - 测试：用 `python3 tools/vd.py --dev start|launch|shot <png>|tap x y|swipe x1 y1 x2 y2 [毫秒]|text <ASCII>|key <键码>|prefs <键名…>|status|stop` 在后台虚拟屏上驱动测试版，不碰用户的真屏。每份测试版和正式版各有自己的虚拟屏，所以每条命令都要带 `--dev`（build 除外）；不带就是正式版那块屏，`ZETA_PHONE_OWNER` 不是 `main` 时会被拒绝。工作站上每条命令走一次 ssh，约 0.4 秒。坐标按整屏 1220×2656 算；截图显示给 Claude 时缩小过，要按显示比例换算回去。`stop` 会关掉屏上的应用（建屏带 DESTROY_CONTENT_ON_REMOVAL），不会把它们挪到真屏上；测试版还会被 force-stop。
   - 冷启动后等约 10 秒再输入，否则字会丢。`vd.py text` 只能输 ASCII，要中文时改用包名之类。
   - 要把 Zeta 放到后台，就在虚拟屏上开另一个 activity，例如 `am start --display <屏号> -n com.android.traceur/.MainActivity`。Claude 在虚拟屏上开了别的应用、Zeta 被压到后面时，用 `vd.py launch` 拉回来。
@@ -74,7 +75,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 发版
 
-一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
+一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
 
 ## 边界
 
