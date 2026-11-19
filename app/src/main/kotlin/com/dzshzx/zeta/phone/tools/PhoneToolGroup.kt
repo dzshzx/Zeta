@@ -35,6 +35,7 @@ internal object PhoneToolGroups {
     val all: List<PhoneToolGroup> = listOf(
         PersonalTools,
         ClipboardTools,
+        DeviceTools,
     )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {
