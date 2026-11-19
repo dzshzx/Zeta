@@ -13,8 +13,8 @@
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
-  vd.py --dev prefs-set 键[:类型]=值…
-                              改测试版的设置（类型 string（默认）、int、long、boolean、float）：force-stop 后原地改写；
+  vd.py --dev prefs-set 键[:int]=值…
+                              改测试版的设置（默认是字符串，:int 是整数）：force-stop 后原地改写；
                               每个键第一次改时记下原值，stop 时改回去（phoneDisplay 一律删掉）
   vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
   vd.py --dev fake 剧本.jsonl  测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
@@ -191,8 +191,8 @@ def write_prefs(text):
 def prefs_set(assignments):
     if PACKAGE == RELEASE:
         sys.exit("prefs-set 只改测试版：vd.py --dev prefs-set …")
-    usage = "用法：vd.py --dev prefs-set 键[:string|int|long|boolean|float]=值…"
-    parsed = [re.fullmatch(r"([A-Za-z0-9_]+)(?::(string|int|long|boolean|float))?=(.*)", a, re.S) for a in assignments]
+    usage = "用法：vd.py --dev prefs-set 键[:int]=值…"
+    parsed = [re.fullmatch(r"([A-Za-z0-9_]+)(?::(int))?=(.*)", a, re.S) for a in assignments]
     if not assignments or not all(parsed):
         sys.exit(usage)
     path = prefs_file()
@@ -204,11 +204,10 @@ def prefs_set(assignments):
         if key not in orig:
             found = pref_pattern(key).search(text)
             orig[key] = found.group(0) if found else None
-        kind = kind or "string"
-        if kind == "string":
-            element = f'<string name="{key}">' + value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</string>"
+        if kind == "int":
+            element = f'<int name="{key}" value="{int(value)}" />'
         else:
-            element = f'<{kind} name="{key}" value="{value}" />'
+            element = f'<string name="{key}">' + value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</string>"
         text = pref_put(text, key, element)
     write_prefs(text)
     write_root(prefs_orig_file(), json.dumps(orig, ensure_ascii=False))
