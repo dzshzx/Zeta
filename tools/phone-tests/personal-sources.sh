@@ -7,7 +7,6 @@ mark="ZPROBE$(date +%s)"
 home=/data/local/zeta/debian/rootfs/home/dzshzx
 hosts=$home/.cache/zeta-dev/hosts
 ref=/data/local/tmp/zeta-personal-sources.ref
-prefs=/data/user/0/$PKG/shared_prefs/zeta.xml
 user=$(android 'am get-current-user' | tr -d '\r')
 
 perms="READ_STEPS READ_SLEEP READ_EXERCISE READ_HEART_RATE READ_RESTING_HEART_RATE READ_WEIGHT READ_OXYGEN_SATURATION READ_HEALTH_DATA_IN_BACKGROUND READ_HEALTH_DATA_HISTORY"
@@ -15,14 +14,6 @@ android "for p in $perms; do pm grant --user $user $PKG android.permission.healt
 granted=$(android "dumpsys package $PKG | grep -c 'android.permission.health.*granted=true'" | tr -d '\r')
 echo "健康权限已授予 $granted 项（应为 9）"
 
-# 不让工具调用停在批准上：这一轮用 bypassPermissions，收尾时改回去。设置文件原地写回，属主和 SELinux 标签不变
-old=$(vd prefs permissionMode | sed -n 's/.*<string name="permissionMode">\(.*\)<\/string>.*/\1/p')
-setmode() {
-  local add=''
-  [[ -n $1 ]] && add="sed -i 's#</map>#<string name=\"permissionMode\">$1</string></map>#' /data/local/tmp/zeta-prefs.tmp;"
-  android "am force-stop $PKG; grep -v 'name=\"permissionMode\"' $prefs > /data/local/tmp/zeta-prefs.tmp; $add \
-    cat /data/local/tmp/zeta-prefs.tmp > $prefs; rm -f /data/local/tmp/zeta-prefs.tmp"
-}
 # 这一轮的对话目录：测试版里在 ref 之后建的（测试版的租约在手，别人不会同时在测试版里开对话）
 mine="find $hosts -mindepth 1 -maxdepth 1 -type d -newer $ref"
 cleanup() {
@@ -32,13 +23,12 @@ cleanup() {
   android "for d in \$($mine); do sid=\$(grep -o '\"session_id\":\"[^\"]*\"' \$d/out.jsonl | head -1 | cut -d'\"' -f4); \
     for f in $home/.claude/projects/*/\$sid.jsonl; do [ -n \"\$sid\" ] && grep -qs '$mark' \$f && rm -rf \$f \${f%.jsonl} $home/.claude/todos/\$sid* && echo 删了会话; done; \
     rm -rf \$d && echo 删了对话目录; done; rm -f $ref"
-  setmode "$old"
-  echo "permissionMode 已恢复为 ${old:-（未设置）}"
 }
 trap cleanup EXIT
 trap 'exit 143' TERM INT # 超时被结束时也收尾（phone-run 先发 TERM，10 秒后才 KILL）
 android "touch $ref"
-setmode bypassPermissions
+# 不让工具调用停在批准上：这一轮用 bypassPermissions（phone-run 收尾的 vd stop 改回去）
+vd prefs-set permissionMode=bypassPermissions
 vd launch
 sleep 12
 

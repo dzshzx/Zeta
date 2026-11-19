@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.service.voice.VoiceInteractionSession
 import android.util.Log
 import com.dzshzx.zeta.assistant.ZetaVoiceInteractionSession
+import com.dzshzx.zeta.core.AppVariant
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -68,7 +69,7 @@ internal object PowerKeyHook {
             contextField.isAccessible = true
             module.hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .setId("${PowerKeyPolicy.SELF}.power-key")
+                .setId("${AppVariant.current.packageName}.power-key")
                 .intercept { chain -> intercept(chain, contextField, log) }
             log.info("装上了：${PowerKeySignature.CLASS.substringAfterLast('.')}.${PowerKeySignature.describe(method)}")
         } catch (e: Exception) {
@@ -89,7 +90,7 @@ internal object PowerKeyHook {
         val assistant = secureString(context.contentResolver, "voice_interaction_service")
         val locked = runCatching { context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true }.getOrDefault(false)
         val route = PowerKeyPolicy.route(function, source, assistant, locked, gate.duplicate(now))
-        val who = assistant?.substringBefore('/') ?: "没有"
+        val who = PowerKeyPolicy.packageOf(assistant) ?: "没有"
         return when (route) {
             PowerKeyRoute.NotOurs -> chain.proceed()
             PowerKeyRoute.Duplicate -> {

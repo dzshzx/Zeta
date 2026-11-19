@@ -16,7 +16,6 @@ import com.dzshzx.zeta.assistant.AssistantRole
 import com.dzshzx.zeta.assistant.PowerKeyLog
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.xposed.PowerKeyPolicy
@@ -25,7 +24,6 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,7 +41,7 @@ private fun rememberAssistantOwner(load: (android.content.Context) -> AssistantO
 }
 
 /**
- * 设置 › 能力 里的「数字助理」：Zeta 是不是默认数字助理，点开是 [AssistantSettingsScreen]（默认助理、模型、思考等级）。
+ * 设置 › 能力 里的「数字助理」：Zeta 是不是默认数字助理，点开是 [AssistantSettingsScreen]（默认助理、模型、思考强度）。
  * [owner] 给了就不查（截图测试用）。
  */
 @Composable
@@ -67,40 +65,25 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
 }
 
 /**
- * 数字助理页：默认数字助理是谁（点了打开系统的默认助理设置，让用户自己选），以及数字助理新开的对话用的模型和思考等级
- * （跟随新对话的设置，或单独定一个；只影响数字助理开的对话）。[owner] 给了就不查（截图测试用）。
+ * 数字助理页：默认数字助理是谁，以及数字助理新开的对话用的模型和思考强度（跟随当前设置，或单独定一个；
+ * 只影响数字助理开的对话）。[owner] 给了就不查（截图测试用）。
  */
 @Composable
 internal fun AssistantSettingsScreen(hub: ConversationHub, onBack: () -> Unit, owner: AssistantOwner? = null) {
-    val context = LocalContext.current
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
     CouiPage(title = "数字助理", onBack = onBack) {
         item(key = "owner") {
             PreferenceGroup(footer = "设为默认数字助理后，系统的助理入口（HyperOS 上长按电源键要配合 LSPosed 模块，见 诊断 › 数字助理）唤起 Zeta 浮窗，带上当前屏幕问 Claude。") {
-                item {
-                    ArrowPreference(
-                        title = "默认数字助理",
-                        summary = "在系统设置里选",
-                        endActions = {
-                            PreferenceValue(
-                                text = current?.summary ?: "查询中",
-                                color = if (current?.self == true) Color.Unspecified else COUITheme.colorScheme.labelTertiary,
-                            )
-                        },
-                        onClick = {
-                            if (!AssistantRole.openSettings(context)) Toast.makeText(context, "打不开系统的默认助理设置", Toast.LENGTH_SHORT).show()
-                        },
-                    )
-                }
+                item { DefaultAssistantPreference(current) }
             }
         }
         item(key = "conversation") {
             PreferenceGroup(
                 title = "数字助理的对话",
-                footer = "数字助理新开的对话用这里的模型和思考等级。跟随当前设置时和新对话一样（现在是 " +
-                    "${modelLabel(hub, hub.settings.model) ?: "Claude Code 的默认模型"}、思考等级${effortLabel(hub.settings.effort) ?: "按 Claude Code 的设置"}）；" +
+                footer = "数字助理新开的对话用这里的模型和思考强度。跟随当前设置时和新对话一样（现在是 " +
+                    "${hub.settings.model?.let { modelName(hub, it) } ?: "Claude Code 的默认模型"}、思考强度${effortLabel(hub.settings.effort) ?: "按 Claude Code 的设置"}）；" +
                     "单独选的只用在数字助理开的对话上，不改新对话的设置。",
             ) {
                 item {
@@ -120,23 +103,22 @@ internal fun AssistantSettingsScreen(hub: ConversationHub, onBack: () -> Unit, o
     }
 }
 
-/** 模型的显示名：Claude Code 给的清单里有就用它的名字，没有用常用别名的名字，再没有就是原值。 */
-private fun modelLabel(hub: ConversationHub, model: String?): String? = model?.let { value ->
-    hub.models.firstOrNull { it.value == value }?.displayName?.ifBlank { null }
-        ?: FallbackModels.firstOrNull { it.first == value }?.second
-        ?: value
-}
-
-/** “思考等级”：跟随当前设置，或 Claude Code 的几档之一。 */
+/** 「默认数字助理」：现在是谁，点了打开系统的默认助理设置让用户自己选（不替用户换）。设置页和诊断页共用。 */
 @Composable
-internal fun EffortPreference(effort: String?, onChange: (String?) -> Unit) {
-    val options = listOf<Pair<String?, String>>(null to "跟随当前设置") + EffortLevels +
-        if (effort == null || EffortLevels.any { it.first == effort }) emptyList() else listOf(effort to effort)
-    OverlayDropdownPreference(
-        title = "思考等级",
-        items = options.map { it.second },
-        selectedIndex = options.indexOfFirst { it.first == effort },
-        onSelectedIndexChange = { index -> options.getOrNull(index)?.let { onChange(it.first) } },
+private fun DefaultAssistantPreference(current: AssistantOwner?) {
+    val context = LocalContext.current
+    ArrowPreference(
+        title = "默认数字助理",
+        summary = "在系统设置里选",
+        endActions = {
+            PreferenceValue(
+                text = current?.summary ?: "查询中",
+                color = if (current?.self == true) Color.Unspecified else COUITheme.colorScheme.labelTertiary,
+            )
+        },
+        onClick = {
+            if (!AssistantRole.openSettings(context)) Toast.makeText(context, "打不开系统的默认助理设置", Toast.LENGTH_SHORT).show()
+        },
     )
 }
 
@@ -151,7 +133,6 @@ internal fun AssistantDiagnosticsGroup(
     status: PowerKeyStatus? = null,
     loaded: Boolean = status != null,
 ) {
-    val context = LocalContext.current
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     var reading by remember { mutableStateOf(!loaded) }
     val log = status ?: produceState<PowerKeyStatus?>(null, reloads) {
@@ -170,13 +151,7 @@ internal fun AssistantDiagnosticsGroup(
             else -> "最近的记录（LSPosed 模块日志，标签 ${PowerKeyPolicy.LOG_TAG}）：\n" + recent.takeLast(8).joinToString("\n")
         },
     ) {
-        item {
-            BasicComponent(
-                title = "默认数字助理",
-                endActions = { PreferenceValue(current?.summary ?: "查询中", color = if (current?.self == false) COUITheme.colorScheme.labelTertiary else Color.Unspecified) },
-                onClick = { AssistantRole.openSettings(context) },
-            )
-        }
+        item { DefaultAssistantPreference(current) }
         item {
             BasicComponent(
                 title = "系统语音识别",

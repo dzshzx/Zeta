@@ -13,10 +13,13 @@
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
+  vd.py --dev prefs-set 键[:类型]=值…
+                              改测试版的设置（类型 string（默认）、int、long、boolean、float）：force-stop 后原地改写；
+                              每个键第一次改时记下原值，stop 时改回去（phoneDisplay 一律删掉）
   vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
   vd.py --dev fake 剧本.jsonl  测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
                               ~/.config/zeta-dev/fake-claude/，进度从第一轮算起；fake --off 或 stop 删掉，回到真的 claude
-  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、删掉 phoneDisplay，
+  vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、改回 prefs-set 改过的设置，
                               并把它留在用户「最近任务」里的记录全部清掉，假 Claude 的剧本也删掉。
                               force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做
 """
@@ -41,17 +44,11 @@ ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 And
 
 
 # 测试版停屏时的收尾。force-stop 会让系统把它的无障碍服务从启用列表里拿掉（AOSP onPackagesForceStoppedLocked），
-# 通知监听不会，要自己撤；phoneDisplay 指着刚关掉的屏，删掉。设置文件原地写回，不换文件（属主和 SELinux 标签不变）
+# 通知监听不会，要自己撤。prefs-set 改过的设置另由 prefs_restore 改回去
 DEV_CLEANUP = r"""
 for c in $(settings get secure enabled_notification_listeners | tr ':' ' '); do
   case $c in @PKG@/*) cmd notification disallow_listener $c && echo "撤销了通知监听 $c" ;; esac
 done
-f=/data/user/0/@PKG@/shared_prefs/zeta.xml
-if grep -q 'name="phoneDisplay"' $f 2>/dev/null; then
-  grep -v 'name="phoneDisplay"' $f > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $f
-  rm -f /data/local/tmp/zeta-prefs.tmp
-  echo "删掉了 phoneDisplay"
-fi
 # 屏随着关掉、包也 force-stop 了，任务记录却还留在用户的「最近任务」里（HyperOS 实测），一条条移除
 n=0
 for id in $(dumpsys activity recents | grep -oE 'Task\{[0-9a-f]+ #[0-9]+ [^}]* A=[0-9]+:@PKG@\}' | grep -oE ' #[0-9]+ ' | tr -d ' #'); do
@@ -159,6 +156,81 @@ def launch(did):
     android(f"am start --user 0 --display {did} -n '{PACKAGE}/{ACTIVITY}' -f 0x18800000 >/dev/null 2>&1")
 
 
+def prefs_file():
+    return f"/data/user/0/{PACKAGE}/shared_prefs/zeta.xml"
+
+
+def prefs_orig_file():
+    """prefs-set 记下的原值：{键: 原来那一项的 XML，没有这一项时为 null}。"""
+    return f"/data/local/tmp/{PACKAGE}-prefs-orig.json"
+
+
+def pref_pattern(key):
+    """设置文件里键 key 那一项（含前面的缩进和后面的换行；值可以跨行）。"""
+    k = re.escape(key)
+    return re.compile(rf'[ \t]*<(\w+) name="{k}"(?:[^>]*/>|>.*?</\1>)\n?', re.S)
+
+
+def pref_put(text, key, element):
+    """去掉键 key 原来的那一项；element 不为 None 时放到 </map> 前。"""
+    text = pref_pattern(key).sub("", text)
+    return text if element is None else text.replace("</map>", f"    {element.strip()}\n</map>", 1)
+
+
+def write_root(path, text):
+    """以 root 原地写回（不换文件：属主和 SELinux 标签不变）。"""
+    android(f"cat > {path}", data=text.encode())
+
+
+def write_prefs(text):
+    """写回测试版的设置文件。测试版被 force-stop 后会马上被系统拉起来（通知监听重新绑定），拉起来的进程要是先读了旧设置，
+    之后自己保存时会把这次写的冲掉；所以停、写、再停放在同一条命令里，下次启动读到的一定是新文件。"""
+    android(f"am force-stop {PACKAGE}; cat > {prefs_file()}; am force-stop {PACKAGE}", data=text.encode())
+
+
+def prefs_set(assignments):
+    if PACKAGE == RELEASE:
+        sys.exit("prefs-set 只改测试版：vd.py --dev prefs-set …")
+    usage = "用法：vd.py --dev prefs-set 键[:string|int|long|boolean|float]=值…"
+    parsed = [re.fullmatch(r"([A-Za-z0-9_]+)(?::(string|int|long|boolean|float))?=(.*)", a, re.S) for a in assignments]
+    if not assignments or not all(parsed):
+        sys.exit(usage)
+    path = prefs_file()
+    text = android(f"cat {path}")
+    if "</map>" not in text:
+        sys.exit(f"设置文件不完整：{path}")
+    orig = json.loads(android(f"cat {prefs_orig_file()} 2>/dev/null", check=False) or "{}")
+    for key, kind, value in (m.groups() for m in parsed):
+        if key not in orig:
+            found = pref_pattern(key).search(text)
+            orig[key] = found.group(0) if found else None
+        kind = kind or "string"
+        if kind == "string":
+            element = f'<string name="{key}">' + value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</string>"
+        else:
+            element = f'<{kind} name="{key}" value="{value}" />'
+        text = pref_put(text, key, element)
+    write_prefs(text)
+    write_root(prefs_orig_file(), json.dumps(orig, ensure_ascii=False))
+    print("改了 " + "、".join(m.group(1) for m in parsed))
+
+
+def prefs_restore():
+    """改回 prefs-set 改过的键；phoneDisplay 指着刚关掉的屏，一律删掉。在 force-stop 之后调。"""
+    path, orig_path = prefs_file(), prefs_orig_file()
+    orig = json.loads(android(f"cat {orig_path} 2>/dev/null", check=False) or "{}")
+    text = android(f"cat {path} 2>/dev/null", check=False)
+    if "</map>" in text:
+        changed = text
+        for key, element in orig.items():
+            changed = pref_put(changed, key, element)
+        changed = pref_put(changed, "phoneDisplay", None)
+        if changed != text:
+            write_prefs(changed)
+            print("设置改回测试前：" + "、".join(sorted(set(orig) | {"phoneDisplay"})))
+    android(f"rm -f {orig_path}", check=False)
+
+
 def prefs(keys):
     if not keys or not all(re.fullmatch(r"[A-Za-z0-9_]+", k) for k in keys):
         sys.exit("用法：vd.py [--dev] prefs 键名…（键名只含字母、数字、下划线）")
@@ -252,6 +324,8 @@ def main():
         launch(need_display())
     elif c == "prefs":
         prefs(rest)
+    elif c == "prefs-set":
+        prefs_set(rest)
     elif c == "tap":
         android(f"input -d {need_display()} tap {int(rest[0])} {int(rest[1])}")
     elif c == "swipe":
@@ -281,6 +355,7 @@ def main():
         if cmds:
             print(android("\n".join(cmds), check=False), end="")
         if PACKAGE != RELEASE:
+            prefs_restore()
             # 假 Claude 撤下：之后测试版起的都是真的 claude，闲着的假 Claude 看到剧本没了自己退出
             print(debian(f"if [ -d {FAKE_DIR} ]; then rm -rf {FAKE_DIR} && echo 删掉了假 Claude 的剧本; fi"), end="")
         print("stopped")

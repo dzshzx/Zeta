@@ -148,12 +148,4 @@ class ScreenDigestTest {
         assertEquals("这一轮没有回答", AssistantReplies.view(asked, busy = false, pendingTool = null).status)
     }
 
-    @Test
-    fun recognitionGoesToXiaomiFirstAndNeverToZeta() {
-        val claude = "com.anthropic.claude/com.anthropic.claude.bell.assist.ClaudeRecognitionService"
-        val zeta = "com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaRecognitionService"
-        assertEquals(ZetaRecognitionService.PREFERRED, ZetaRecognitionService.pickDelegate(listOf(zeta, claude, ZetaRecognitionService.PREFERRED)))
-        assertEquals(claude, ZetaRecognitionService.pickDelegate(listOf(zeta, claude)))
-        assertNull(ZetaRecognitionService.pickDelegate(listOf(zeta)))
-    }
 }

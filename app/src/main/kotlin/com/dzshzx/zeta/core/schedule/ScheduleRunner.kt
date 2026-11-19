@@ -143,7 +143,7 @@ internal object ScheduleRunner {
 
     private fun launch(hub: ConversationHub, records: RunRecords, spec: RunSpec, manual: Boolean, now: Long, conversation: Conversation, fresh: Boolean) {
         val app = hub.context
-        conversation.preset(spec.model, spec.permissionMode, spec.hint)
+        conversation.preset(model = spec.model, effort = null, permissionMode = spec.permissionMode, hint = spec.hint)
         DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
         val run = Run(hub, records, spec.id, conversation, spec.prompt.trim(), now, manual, spec.newSession, fresh)
         runs[run.key] = run

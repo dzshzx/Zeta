@@ -97,14 +97,11 @@ interface OverlayFocus {
 
 /** 悬浮窗口和无障碍服务共用的状态。 */
 object OverlayBridge {
-    /** 胶囊此刻在主屏上占的位置（屏幕像素）；没显示时为 null。由胶囊窗口更新。 */
-    @Volatile var capsuleBounds: Rect? = null
-
     /**
-     * 顶部胶囊此刻在主屏上（进场之后、开始退场之前；锁屏、息屏时退场）。由胶囊窗口在主线程上更新。
-     * 显示着时常驻通知不提升为实时通知（照 Eta），免得顶部同时出现两个说同一件事的胶囊。
+     * 胶囊此刻在主屏上占的位置（屏幕像素）；没显示时为 null（锁屏、息屏时退场，放大成全屏的动画期间也是 null）。
+     * 由胶囊窗口更新。无障碍服务按它让开触摸，ConversationHub 按它决定常驻通知要不要提升为实时通知。
      */
-    @Volatile var capsuleShown: Boolean = false
+    @Volatile var capsuleBounds: Rect? = null
 
     /** 为 Claude 在主屏上的手势让路：为 true 时胶囊上移淡出、不接收触摸。由无障碍服务在手势前后设置。 */
     val yielded = MutableStateFlow(false)

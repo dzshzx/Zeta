@@ -11,13 +11,12 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognitionService
 import android.speech.SpeechRecognizer
-import com.dzshzx.zeta.core.AppVariant
+import com.dzshzx.zeta.core.voice.SpeechBackend
 
 /**
- * 数字助理必须带一个识别服务才能被选上。选上时系统只改默认助理，不改默认语音识别（secure 设置 voice_recognition_service），
- * 由 [ZetaVoiceInteractionService.onReady] 用 root 换成本服务：开机时系统认不到有效的默认识别服务，会把默认助理重选掉。
- * Zeta 自己不做识别：转给手机上原有的识别服务（小米的 com.xiaomi.mibrain.speech/.asr.AsrService，没有时取别的），
- * 这样换了默认助理，别的应用经系统默认识别器的语音输入照常能用。回调原样转回去。
+ * 数字助理必须带一个识别服务才能被选上；它也是系统默认识别服务，开机后默认助理才保得住（见 docs/assistant.md「开机保持默认助理」）。
+ * Zeta 自己不做识别：转给手机上原有的识别服务（[SpeechBackend.choose] 挑，先小米的），别的应用经系统默认识别器的语音输入照常能用。
+ * 回调原样转回去。
  *
  * 转发要 Zeta 有麦克风权限（RECORD_AUDIO）：下游识别服务按调用方核对。没有时下游报权限错误，原样转给调用方。
  */
@@ -109,21 +108,12 @@ class ZetaRecognitionService : RecognitionService() {
     }
 
     companion object {
-        /** 先找小米的识别服务。 */
-        const val PREFERRED = "com.xiaomi.mibrain.speech/com.xiaomi.mibrain.speech.asr.AsrService"
-
         /** 转给谁：手机上别的识别服务里优先小米的；Zeta 自己的（正式版、测试版）不算。 */
         fun delegateTarget(context: Context): ComponentName? {
             val services = runCatching {
                 context.packageManager.queryIntentServices(Intent(SERVICE_INTERFACE), PackageManager.ResolveInfoFlags.of(0))
             }.getOrNull().orEmpty().mapNotNull { info -> info.serviceInfo?.let { it.packageName + "/" + it.name } }
-            return pickDelegate(services)?.let(ComponentName::unflattenFromString)
-        }
-
-        /** [services] 是“包名/完整类名”。纯函数，单元测试覆盖。 */
-        fun pickDelegate(services: List<String>): String? {
-            val others = services.filterNot { AppVariant.isZetaPackage(it.substringBefore('/')) }
-            return others.firstOrNull { it == PREFERRED } ?: others.firstOrNull()
+            return SpeechBackend.choose(services, configured = null)?.let(ComponentName::unflattenFromString)
         }
     }
 }

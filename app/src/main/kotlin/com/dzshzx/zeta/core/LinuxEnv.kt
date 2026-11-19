@@ -294,12 +294,12 @@ class Settings(context: Context) {
         get() = prefs.getString("effort", null)
         set(value) = prefs.edit().putString("effort", value).apply()
 
-    /** 数字助理新开的对话用的模型；null 表示跟随新对话的设置（[model]）。只影响数字助理开的对话。 */
+    /** 数字助理新开的对话用的模型；null 表示跟随当前设置（新对话的 [model]）。只影响数字助理开的对话。 */
     var assistantModel: String?
         get() = prefs.getString("assistantModel", null)
         set(value) = prefs.edit().putString("assistantModel", value).apply()
 
-    /** 数字助理新开的对话用的思考强度；null 表示跟随新对话的设置（[effort]）。只影响数字助理开的对话。 */
+    /** 数字助理新开的对话用的思考强度；null 表示跟随当前设置（新对话的 [effort]）。只影响数字助理开的对话。 */
     var assistantEffort: String?
         get() = prefs.getString("assistantEffort", null)
         set(value) = prefs.edit().putString("assistantEffort", value).apply()

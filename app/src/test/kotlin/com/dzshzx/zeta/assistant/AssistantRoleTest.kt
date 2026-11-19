@@ -34,7 +34,8 @@ class AssistantRoleTest {
         assertFalse(AssistantOwner(self = false, packageName = "com.dzshzx.zeta", label = null, recognizerPackage = dev).keepsOnBoot)
         // 默认助理不是 Zeta：不归 Zeta 管
         assertTrue(AssistantOwner(self = false, packageName = "com.miui.voiceassist", label = null, recognizerPackage = null).keepsOnBoot)
-        assertEquals("没有设置（重启后默认助理会被换掉）", AssistantOwner(true, dev, null, null).recognizerSummary)
+        assertEquals("没有设置", AssistantOwner(true, dev, null, null).recognizerSummary)
         assertEquals("是 Zeta 测试版", AssistantOwner(true, dev, null, dev).recognizerSummary)
+        assertEquals("是 Zeta 正式版", AssistantOwner(false, "com.dzshzx.zeta", null, null).summary)
     }
 }

@@ -7,16 +7,11 @@
 # 假 Claude 不写会话记录，没有要删的测试会话；phone-run 收尾的 vd stop 删掉剧本，测试版回到真的 claude。
 set -euo pipefail
 HERE=$ZETA_ROOT/tools/phone-tests
-PREFS=/data/user/0/$PKG/shared_prefs/zeta.xml
 HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
 # 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
 INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
 
-# 悬浮层的“主屏”指到测试屏，胶囊、卡片都画在测试屏上，不碰真屏（vd stop 会删掉这一项）
-android "am force-stop $PKG"
-android "grep -v 'name=\"phoneDisplay\"' $PREFS | sed 's#</map>#    <int name=\"phoneDisplay\" value=\"$DISPLAY_ID\" />\n</map>#' > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $PREFS && rm -f /data/local/tmp/zeta-prefs.tmp"
-vd launch
-sleep 10
+# 悬浮层的“主屏”phone-run 已经指到测试屏（phoneDisplay），胶囊、卡片都画在测试屏上，不碰真屏
 
 send() {
   vd tap $INPUT_X $INPUT_Y

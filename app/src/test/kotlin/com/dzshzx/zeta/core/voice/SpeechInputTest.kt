@@ -57,4 +57,16 @@ class SpeechInputTest {
         assertEquals(other, SpeechBackend.choose(listOf(other), configured = null))
         assertNull(SpeechBackend.choose(emptyList(), configured = other))
     }
+
+    @Test
+    fun neverPicksZetasOwnProxy() {
+        // 数字助理是 Zeta 时系统默认识别是 Zeta 的代理：按住说话和代理转给谁都跳过它，正式版、测试版不互相转
+        val dev = "com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaRecognitionService"
+        val release = "com.dzshzx.zeta/com.dzshzx.zeta.assistant.ZetaRecognitionService"
+        val claude = "com.anthropic.claude/com.anthropic.claude.bell.assist.ClaudeRecognitionService"
+        val xiaomi = SpeechBackend.XIAOMI_NAME
+        assertEquals(xiaomi, SpeechBackend.choose(listOf(dev, release, claude, xiaomi), configured = dev))
+        assertEquals(claude, SpeechBackend.choose(listOf(dev, release, claude), configured = release))
+        assertNull(SpeechBackend.choose(listOf(dev, release), configured = dev))
+    }
 }

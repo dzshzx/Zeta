@@ -74,7 +74,7 @@ cleanup() {
       <(printf '%s\n' "$crashes") <(printf '%s\n' "$crashes") >"$OUT/crash.txt"
     [[ -s $OUT/crash.txt ]] || rm -f "$OUT/crash.txt"
   fi
-  vd stop # 关屏、force-stop 测试版、撤销它的通知监听、删掉 phoneDisplay
+  vd stop # 关屏、force-stop 测试版、撤销它的通知监听、改回 vd prefs-set 改过的设置
   "$ZETA_ROOT/tools/phone-lock" --release
   local used=$((SECONDS - held))
   echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc waited=$((held - start))s" >>"${XDG_RUNTIME_DIR:-/tmp}/zeta-phone-run.log"
@@ -100,14 +100,14 @@ echo "$out"
 DISPLAY_ID=$(grep -oE '^虚拟屏 [0-9]+' <<<"$out" | grep -oE '[0-9]+')
 export DISPLAY_ID
 # 测试版的「主屏」一律指到测试屏：手机工具、悬浮层、截屏都落在测试屏上，测试里的 Claude 碰不到用户的主屏。
-# 设置原地改写（不换文件：属主和 SELinux 标签不变），改完重启测试版才生效；收尾的 vd stop 会删掉这一项。
+# vd prefs-set 先 force-stop 再原地改写，改完重启测试版才生效；收尾的 vd stop 会删掉这一项。
 prefs=/data/user/0/$PKG/shared_prefs/zeta.xml
 for _ in $(seq 1 20); do android "[ -f $prefs ]" >/dev/null 2>&1 && break; sleep 0.5; done
 if ! android "[ -f $prefs ]" >/dev/null 2>&1; then
   echo "测试版还没有设置文件，没法把它的主屏指到测试屏；不跑，免得测试碰到用户的主屏" >&2
   exit 1
 fi
-android "am force-stop $PKG; grep -v 'name=\"phoneDisplay\"' $prefs | sed 's#</map>#    <int name=\"phoneDisplay\" value=\"$DISPLAY_ID\" />\n</map>#' > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $prefs; rm -f /data/local/tmp/zeta-prefs.tmp"
+vd prefs-set "phoneDisplay:int=$DISPLAY_ID" >/dev/null
 [[ $(vd prefs phoneDisplay) == *"value=\"$DISPLAY_ID\""* ]] || { echo "phoneDisplay 没写上，不跑" >&2; exit 1; }
 vd launch
 sleep 10 # 冷启动后马上输入会丢字

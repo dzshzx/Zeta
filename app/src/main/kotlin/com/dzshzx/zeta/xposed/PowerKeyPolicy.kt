@@ -30,16 +30,8 @@ enum class PowerKeyRoute(val label: String) {
  * 只管 `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
  */
 object PowerKeyPolicy {
-    /** 本包（正式版或测试版；模块和应用在同一个 APK 里，编译时定）。 */
-    val SELF: String = AppVariant.current.packageName
-
-    /**
-     * 模块日志（LSPosed 模块日志和 logcat）的标签；本包的诊断页按它找本包模块的记录。
-     * 正式版、测试版分开，两个名字互不包含，按子串找时也不会串。
-     */
-    val LOG_TAG: String = logTag(SELF)
-
-    fun logTag(packageName: String): String = if (packageName == AppVariant.RELEASE_PACKAGE) "ZetaPowerKey" else "ZetaDevPowerKey"
+    /** 模块日志（LSPosed 模块日志和 logcat）的标签，见 [AppVariant.powerKeyTag]。 */
+    val LOG_TAG: String = AppVariant.current.powerKeyTag
 
     const val FUNCTION = "launch_voice_assistant"
 
@@ -55,14 +47,14 @@ object PowerKeyPolicy {
     fun packageOf(component: String?): String? =
         component?.trim()?.substringBefore('/', missingDelimiterValue = "")?.takeIf { it.isNotEmpty() }
 
-    /** [self] 是这个模块所在的包：只有默认助理就是它时才接管。 */
+    /** [self] 是这个模块所在的包（模块和应用在同一个 APK 里）：只有默认助理就是它时才接管。 */
     fun route(
         function: String?,
         source: String?,
         assistant: String?,
         locked: Boolean,
         duplicate: Boolean,
-        self: String = SELF,
+        self: String = AppVariant.current.packageName,
     ): PowerKeyRoute = when {
         !matches(function, source) -> PowerKeyRoute.NotOurs
         packageOf(assistant) != self -> PowerKeyRoute.NotMine

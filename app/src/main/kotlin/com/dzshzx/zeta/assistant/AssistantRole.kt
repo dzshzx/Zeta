@@ -10,6 +10,7 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.voice.SpeechBackend
 import com.dzshzx.zeta.phone.tools.rootShell
 import com.dzshzx.zeta.xposed.PowerKeyPolicy
 
@@ -23,30 +24,23 @@ data class AssistantOwner(
     /** 系统默认语音识别服务（secure `voice_recognition_service`）的包名；没有设置时为 null。 */
     val recognizerPackage: String? = null,
 ) {
-    /**
-     * 开机时默认助理保得住：系统开机时认不到有效的默认识别服务，会把默认助理重选成它找到的第一个。
-     * 默认助理是 Zeta 时，要它自己的识别服务是系统默认（[AssistantRole.claimRecognizer] 做这件事）。
-     */
+    /** 开机时默认助理保得住：默认助理是 Zeta 时，系统默认识别要是它自己的识别服务（见 docs/assistant.md「开机保持默认助理」）。 */
     val keepsOnBoot: Boolean
         get() = packageName == null || !AppVariant.isZetaPackage(packageName) || recognizerPackage == packageName
 
-    /** 诊断页「系统语音识别」那一行。 */
+    /** 诊断页「系统语音识别」那一行：是谁。保不住默认助理的提醒在那一行的副标题上。 */
     val recognizerSummary: String
-        get() = when {
-            recognizerPackage == null -> "没有设置" + if (keepsOnBoot) "" else "（重启后默认助理会被换掉）"
-            AppVariant.isZetaPackage(recognizerPackage) ->
-                (if (recognizerPackage == AppVariant.RELEASE_PACKAGE) "是 Zeta 正式版" else "是 Zeta 测试版") +
-                    if (keepsOnBoot) "" else "（和默认助理不是同一个包）"
-            else -> recognizerPackage + if (keepsOnBoot) "" else "（重启后默认助理会被换掉）"
-        }
+        get() = name(recognizerPackage, recognizerPackage)
+
     /** 设置页、诊断页上的一句。 */
     val summary: String
-        get() = when {
-            self -> "是 Zeta" + if (AppVariant.current.isDev) "（本测试版）" else ""
-            packageName == null -> "没有设置"
-            AppVariant.isZetaPackage(packageName) -> if (packageName == AppVariant.RELEASE_PACKAGE) "是 Zeta 正式版" else "是 Zeta 测试版"
-            else -> "是 " + (label ?: packageName)
-        }
+        get() = if (self) "是 Zeta" + if (AppVariant.current.isDev) "（本测试版）" else "" else name(packageName, label)
+
+    private fun name(pkg: String?, label: String?): String = when {
+        pkg == null -> "没有设置"
+        AppVariant.isZetaPackage(pkg) -> "是 " + AppVariant(pkg).label
+        else -> "是 " + (label ?: pkg)
+    }
 }
 
 /**
@@ -59,23 +53,19 @@ object AssistantRole {
         val component = listOf("assistant", "voice_interaction_service").firstNotNullOfOrNull { key ->
             runCatching { Settings.Secure.getString(context.contentResolver, key) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
         }
-        val pkg = component?.substringBefore('/')?.takeIf { it.isNotEmpty() } ?: if (self) context.packageName else null
-        val recognizer = runCatching { Settings.Secure.getString(context.contentResolver, RECOGNIZER_KEY) }.getOrNull()
-            ?.substringBefore('/')?.trim()?.takeIf { it.isNotEmpty() }
+        val pkg = PowerKeyPolicy.packageOf(component) ?: if (self) context.packageName else null
+        val recognizer = PowerKeyPolicy.packageOf(runCatching { Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING) }.getOrNull())
         return AssistantOwner(self, pkg, pkg?.let { AssistCaptures.appLabel(context, it) }, recognizer)
     }
 
-    private const val RECOGNIZER_KEY = "voice_recognition_service"
-
     /**
-     * 把系统默认语音识别服务换成本包的 [ZetaRecognitionService]（它转给手机原有的识别服务，别的应用的语音输入照常）。
-     * 选默认助理时系统不改这一项；开机时它为空或不可用，系统会把默认助理重选成找到的第一个（Android 16 的
-     * VoiceInteractionManagerService.initForUser）。普通应用写不了 secure 设置，用 root。已经是本服务就不动。
-     * 在 [ZetaVoiceInteractionService.onReady] 里调（不在主线程）。
+     * 把系统默认语音识别服务换成本包的 [ZetaRecognitionService]（它转给手机原有的识别服务），开机后默认助理才保得住；
+     * 为什么、为什么不直接写小米的，见 docs/assistant.md「开机保持默认助理」。普通应用写不了 secure 设置，用 root；
+     * 已经是本服务就不动。在 [ZetaVoiceInteractionService.onReady] 里调（不在主线程）。
      */
     fun claimRecognizer(context: Context) {
         val ours = ComponentName(context, ZetaRecognitionService::class.java).flattenToShortString()
-        val current = runCatching { Settings.Secure.getString(context.contentResolver, RECOGNIZER_KEY) }.getOrNull()
+        val current = runCatching { Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING) }.getOrNull()
         val command = recognizerCommand(current, ours) ?: return
         val result = rootShell(command)
         if (result.exitCode == 0) {
@@ -88,7 +78,7 @@ object AssistantRole {
     /** 要换时的命令；[current] 已经是 [ours] 时为 null。 */
     internal fun recognizerCommand(current: String?, ours: String): String? {
         val same = current?.let(ComponentName::unflattenFromString)?.let { it == ComponentName.unflattenFromString(ours) } ?: false
-        return if (same) null else "settings put secure $RECOGNIZER_KEY '$ours'"
+        return if (same) null else "settings put secure ${SpeechBackend.SETTING} '$ours'"
     }
 
     /** 系统的默认数字助理设置；HyperOS 上没有这一页时退到默认应用设置。 */

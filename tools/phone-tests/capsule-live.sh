@@ -10,28 +10,29 @@ HERE=$ZETA_ROOT/tools/phone-tests
 INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
 PROMOTED=$((0x40000))
 
-# 本包常驻通知是否提升：flags 取记录自己那一行（dumpsys 按名字列，也可能是十六进制）
-promoted() {
-  local flags
-  flags=$(android "dumpsys notification --noredact" | awk -v p="pkg=$PKG " '
-    /NotificationRecord\(/ { keep = index($0, p) > 0; ind = match($0, /[^ ]/); next }
-    keep { if (match($0, /[^ ]/) <= ind) keep = 0; else if ($1 ~ /^flags=/) { sub(/^flags=/, "", $1); print $1; exit } }')
-  [[ -n $flags ]] || { echo 无通知; return; }
-  if [[ $flags == *PROMOTED_ONGOING* ]] || { [[ $flags == 0x* ]] && ((flags & PROMOTED)); }; then echo 是; else echo 否; fi
+# 看一眼：本包常驻通知提没提升、测试屏上有没有胶囊（窗口标题 ZetaCapsule）。一次 ssh，手机上先滤成通知记录的头和
+# flags 行、胶囊窗口数，不把整份 dump 拉回来。flags 取本包记录头之后的第一行 flags（按名字列，也可能是十六进制）
+look() {
+  local out flags count
+  out=$(android "dumpsys notification --noredact | grep -E 'NotificationRecord\\(|^ +flags='; echo @@; dumpsys window windows | grep -c ZetaCapsule; true")
+  flags=$(sed '/^@@$/,$d' <<<"$out" | awk -v p="pkg=$PKG " '/NotificationRecord\(/ { keep = index($0, p) > 0; next } keep && $1 ~ /^flags=/ { sub(/^flags=/, "", $1); print $1; exit }')
+  count=$(sed -n '/^@@$/{n;p;}' <<<"$out")
+  local p=无通知
+  if [[ -n $flags ]]; then
+    p=否
+    if [[ $flags == *PROMOTED_ONGOING* ]] || { [[ $flags == 0x* ]] && ((flags & PROMOTED)); }; then p=是; fi
+  fi
+  echo "$p $(((${count:-0} > 0)) && echo 有 || echo 无)"
 }
-# 测试屏上有没有胶囊窗口（窗口标题 ZetaCapsule，挂在 phoneDisplay 指到的测试屏上）
-capsule() {
-  if android "dumpsys window windows" | grep -q "ZetaCapsule"; then echo 有; else echo 无; fi
-}
-# 一段停顿里每秒看一次，直到两样都是想要的值或 8 秒到了；记下最后看到的
+# 一段停顿里每秒看一次，直到两样都是想要的值或 8 次到了；记下最后看到的
 sample() {
-  local want_p=$1 want_c=$2 p c
+  local want=$1 seen
   for _ in $(seq 8); do
-    p=$(promoted) c=$(capsule)
-    [[ $p == "$want_p" && $c == "$want_c" ]] && break
+    seen=$(look)
+    [[ $seen == "$want" ]] && break
     sleep 1
   done
-  echo "$p $c"
+  echo "$seen"
 }
 
 canpost=$(android "dumpsys package $PKG" | grep -c 'POST_PROMOTED_NOTIFICATIONS: granted=true' || true)
@@ -44,11 +45,11 @@ vd text "capsule-live"
 sleep 0.5
 vd tap $SEND_X $SEND_Y
 
-read -r p1 c1 < <(sample 是 无)
+read -r p1 c1 < <(sample "是 无")
 vd shot before-phone.png >/dev/null
 echo "调手机工具前：通知提升=$p1，胶囊=$c1"
 # 手机工具调完、胶囊进场：等到胶囊出来再看通知
-read -r p2 c2 < <(sample 否 有)
+read -r p2 c2 < <(sample "否 有")
 vd shot capsule.png >/dev/null
 echo "胶囊显示着：通知提升=$p2，胶囊=$c2"
 

@@ -7,14 +7,15 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.IBinder
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognitionService
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import java.util.Locale
@@ -354,23 +355,32 @@ sealed interface SpeechBackend {
         val XIAOMI = ComponentName("com.xiaomi.mibrain.speech", "com.xiaomi.mibrain.speech.asr.AsrService")
         const val XIAOMI_NAME = "com.xiaomi.mibrain.speech/com.xiaomi.mibrain.speech.asr.AsrService"
 
+        /** 系统默认语音识别服务的 secure 设置键。 */
+        const val SETTING = "voice_recognition_service"
+
         fun pick(context: Context): SpeechBackend? {
             val configured = runCatching {
-                Settings.Secure.getString(context.contentResolver, "voice_recognition_service")
+                Settings.Secure.getString(context.contentResolver, SETTING)
             }.getOrNull()?.let(ComponentName::unflattenFromString)?.flattenToString()
             val installed = runCatching {
                 context.packageManager.queryIntentServices(Intent(RecognitionService.SERVICE_INTERFACE), PackageManager.ResolveInfoFlags.of(0))
                     .mapNotNull { it.serviceInfo }
-                    .filter { it.exported && it.packageName != context.packageName }
+                    .filter { it.exported }
                     .map { ComponentName(it.packageName, it.name).flattenToString() }
             }.getOrDefault(emptyList())
             choose(installed, configured)?.let(ComponentName::unflattenFromString)?.let { return Service(it) }
             return OnDevice.takeIf { runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }.getOrDefault(false) }
         }
 
-        /** 在装着的识别服务（完整的“包名/类名”）里挑：系统设置里指定的优先，其次小米的，再其次第一个。纯函数。 */
-        fun choose(installed: List<String>, configured: String?): String? =
-            configured?.takeIf { it in installed } ?: XIAOMI_NAME.takeIf { it in installed } ?: installed.firstOrNull()
+        /**
+         * 在装着的识别服务（完整的“包名/类名”）里挑真正干活的那个：系统设置里指定的优先，其次小米的，再其次第一个。
+         * Zeta 自己的（正式版、测试版）只是转给别人的代理，不算：数字助理是 Zeta 时系统默认识别会是它（见 AssistantRole.claimRecognizer），
+         * 要是挑上它，一个版本的语音输入就要经另一个版本转一道。按住说话和代理服务转给谁都用它。纯函数。
+         */
+        fun choose(installed: List<String>, configured: String?): String? {
+            val others = installed.filterNot { AppVariant.isZetaPackage(it.substringBefore('/')) }
+            return configured?.takeIf { it in others } ?: XIAOMI_NAME.takeIf { it in others } ?: others.firstOrNull()
+        }
     }
 }
 

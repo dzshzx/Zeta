@@ -20,7 +20,7 @@ Zeta 可以被选为系统的默认数字助理。唤起后在当前应用上弹
 - 浮窗开着时再唤起一次，屏幕就是浮窗自己，不再采集，浮窗保持原样。
 - 语音输入的接入点是 `AssistantScreen` 的 `voice`：语音识别模块接好后在 `AssistantActivity` 里给出，面板上就有话筒键。
 
-数字助理新开的对话用 设置 › 能力 › 数字助理 里单独定的模型和思考等级（`assistantModel`、`assistantEffort`，经 `Conversation.preset`）；没定时跟随新对话的设置。只用在这个对话上，不改新对话的默认。
+数字助理新开的对话用 设置 › 能力 › 数字助理 里单独定的模型和思考强度（`assistantModel`、`assistantEffort`，经 `Conversation.preset`）；没定时跟随当前设置（和新对话一样）。只用在这个对话上，不改新对话的默认。
 
 屏幕内容的整理是纯函数（`ScreenDigest`）：按界面顺序收文字，去重，跳过不可见、密码框和应用声明不给助理看的部分，一个应用最多 150 行、3000 字。消息里放在 `<screen_context>` 块里。
 
@@ -41,6 +41,8 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 用户在系统设置里选默认助理时，系统只改 `assistant` 和 `voice_interaction_service`，不改默认语音识别 `voice_recognition_service`。开机时（Android 16 的 VoiceInteractionManagerService.initForUser）系统先看默认识别服务：为空、找不到或不是 `selectableAsDefault` 的，就把默认助理重选成它找到的第一个可用助理（装着 Eta 时就是 Eta，所以重启后默认助理被换掉）。
 
 所以 Zeta 的识别服务声明成可以当默认（`res/xml/zeta_recognition_service.xml`），并在系统连上 Zeta 的助理服务时（`ZetaVoiceInteractionService.onReady`：选上之后、每次开机后）用 root 把 `voice_recognition_service` 换成本包的 `ZetaRecognitionService`，已经是就不动。它转给手机原有的识别服务，别的应用的语音输入照常。诊断页「系统语音识别」显示这一项，默认助理是 Zeta 而识别服务不是本包时标红。
+
+不直接写手机原有的小米识别服务（`com.xiaomi.mibrain.speech/.asr.AsrService`）：它的清单里没有 `android.speech` 元数据，系统不认它可选为默认，开机时照样会重选默认助理。代价是经系统默认识别器的语音输入都多转一道 Zeta。Zeta 自己的按住说话和这个代理挑下游时都跳过 Zeta 的两个包（`SpeechBackend.choose`），正式版、测试版不会互相转。
 
 ## 用户要做的
 

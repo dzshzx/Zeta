@@ -89,6 +89,12 @@ internal object SettingsBackup {
     private const val MAX_PINNED = 1000
     private val ModelPattern = Regex("[A-Za-z0-9][A-Za-z0-9._:/@\\[\\]-]{0,127}")
 
+    /** 模型名：Claude Code 认的别名或完整 ID。 */
+    private fun modelName(v: JsonElement): Checked {
+        val text = v.text()
+        return if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")
+    }
+
     /** 存储里有、但不导出的键：都和这台手机绑在一起，搬到别处没有意义或者会出错。 */
     val machineKeys: Map<String, String> = mapOf(
         "rootfs" to "Linux 环境装在这台手机的哪个位置，换手机或重装后由 Zeta 重新检测",
@@ -137,16 +143,10 @@ internal object SettingsBackup {
         boolItem("phoneTools", "手机操作", default = true),
         boolItem("backgroundScreen", "在后台屏幕上操作", default = true),
         boolItem("accessibilityGuard", "无障碍服务被系统关掉后自动打开", default = true),
-        optionalItem("model", "新对话的模型", unset = "Claude Code 的默认模型", check = { v ->
-            val text = v.text()
-            if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")
-        }),
+        optionalItem("model", "新对话的模型", unset = "Claude Code 的默认模型", check = ::modelName),
         optionalItem("effort", "新对话的思考强度", unset = "Claude Code 的设置", labels = EffortLevels.toMap()),
-        optionalItem("assistantModel", "数字助理的模型", unset = "跟随新对话的设置", check = { v ->
-            val text = v.text()
-            if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")
-        }),
-        optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随新对话的设置", labels = EffortLevels.toMap()),
+        optionalItem("assistantModel", "数字助理的模型", unset = "跟随当前设置", check = ::modelName),
+        optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随当前设置", labels = EffortLevels.toMap()),
         optionalItem("permissionMode", "新对话的权限模式", unset = "Claude Code 的设置", labels = PermissionModes.toMap()),
         boolItem("autoCompact", "自动压缩上下文", default = true),
         BackupItem(

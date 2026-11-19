@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 数字助理单独定的模型和思考等级只用在它开的对话上，不改新对话的设置。 */
+/** 数字助理单独定的模型和思考强度只用在它开的对话上，不改新对话的设置。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class AssistantPresetTest {
@@ -23,7 +23,7 @@ class AssistantPresetTest {
         hub.settings.model = "opus"
         hub.settings.effort = "high"
         val conversation = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
-        conversation.preset(model = "sonnet", permissionMode = null, effort = "low")
+        conversation.preset(model = "sonnet", effort = "low", permissionMode = null)
         assertEquals("sonnet", conversation.model)
         assertEquals("low", conversation.effort)
         assertEquals("opus", hub.settings.model)

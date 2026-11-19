@@ -9,7 +9,6 @@ set -euo pipefail
 
 MARK="zeta-result-card-test-$(date +%s)"
 CLOSE=${CLOSE:-open}
-PREFS=/data/user/0/$PKG/shared_prefs/zeta.xml
 CLAUDE_HOME=/data/local/zeta/debian/rootfs/home/dzshzx/.claude
 
 cleanup() {
@@ -20,12 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 悬浮层的“主屏”指到测试屏（设置原地改写，不换文件：属主和 SELinux 标签不变；phone-run 收尾的 vd stop 会删掉这一项）
-android "am force-stop $PKG"
-android "grep -v 'name=\"phoneDisplay\"' $PREFS | sed 's#</map>#    <int name=\"phoneDisplay\" value=\"$DISPLAY_ID\" />\n</map>#' > /data/local/tmp/zeta-prefs.tmp && cat /data/local/tmp/zeta-prefs.tmp > $PREFS && rm -f /data/local/tmp/zeta-prefs.tmp"
-vd prefs phoneDisplay
-vd launch
-sleep 10
+# 悬浮层的“主屏”phone-run 已经指到测试屏（phoneDisplay）
 
 W=1220
 H=2656
@@ -36,8 +30,8 @@ SEND_X=1091
 SEND_Y=2548
 
 card_frame() {
-  # 卡片窗口的范围：l t r b（没有就空）
-  android "dumpsys window windows" | awk '/Window\{.*ZetaResultCard/ { found = 1 } found && /frame=\[/ { match($0, /frame=\[[-0-9]+,[-0-9]+\]\[[-0-9]+,[-0-9]+\]/); f = substr($0, RSTART + 6, RLENGTH - 6); gsub(/[\[\]]/, " ", f); gsub(/,/, " ", f); print f; exit }'
+  # 卡片窗口的范围：l t r b（没有就空）。awk 读完全部输入再退出：提前 exit 会写断 vd 的管道（退出码 120）
+  android "dumpsys window windows" | awk '/Window\{.*ZetaResultCard/ { found = 1 } found && !done && /frame=\[/ { match($0, /frame=\[[-0-9]+,[-0-9]+\]\[[-0-9]+,[-0-9]+\]/); f = substr($0, RSTART + 6, RLENGTH - 6); gsub(/[\[\]]/, " ", f); gsub(/,/, " ", f); print f; done = 1 }'
 }
 
 send_turn() {

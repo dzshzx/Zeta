@@ -60,7 +60,6 @@ import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Add
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.preference.SwitchWithDividerPreference
@@ -172,9 +171,6 @@ internal fun outcomeWord(outcome: RunOutcome) = outcome.label
 private enum class RuleKind(val label: String) { Once("单次"), Daily("每天"), Weekly("每周"), Interval("间隔") }
 
 private val Workdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
-
-/** 没从 Claude Code 拿到模型清单时给的几个别名。 */
-internal val FallbackModels = listOf("default" to "默认", "fable" to "Fable", "opus" to "Opus", "sonnet" to "Sonnet", "haiku" to "Haiku")
 
 /** 编辑器里开着的那个对话框。 */
 private enum class EditorDialog { Time, Date, Hours, Cwd, Delete }
@@ -335,16 +331,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
             ) {
                 item { BasicComponent(title = "工作目录", summary = cwd.ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = EditorDialog.Cwd }) }
                 item { ModelPreference(hub, model) { model = it } }
-                item {
-                    val modeOptions = listOf<Pair<String?, String>>(null to "跟随当前设置") + PermissionModes +
-                        listOfNotNull(mode?.takeIf { value -> PermissionModes.none { it.first == value } }?.let { it to permissionModeLabel(it) })
-                    OverlayDropdownPreference(
-                        title = "权限模式",
-                        items = modeOptions.map { it.second },
-                        selectedIndex = modeOptions.indexOfFirst { it.first == mode },
-                        onSelectedIndexChange = { index -> modeOptions.getOrNull(index)?.let { mode = it.first } },
-                    )
-                }
+                item { FollowDropdownPreference("权限模式", PermissionModes, mode, unknown = ::permissionModeLabel) { mode = it } }
                 item {
                     SwitchPreference(
                         title = "每次开新对话",
@@ -406,20 +393,6 @@ internal fun PermissionFixRow(hub: ConversationHub, id: PermissionId, title: Str
                 granting = false
             }
         },
-    )
-}
-
-/** 编辑器里的“模型”：跟随当前设置，或 Claude Code 给的模型清单里的一个（拿不到清单时用几个别名）。 */
-@Composable
-internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (String?) -> Unit) {
-    val models = hub.models.map { it.value to (if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }) }.ifEmpty { FallbackModels }
-    val options = listOf<Pair<String?, String>>(null to "跟随当前设置") +
-        if (model == null || models.any { it.first == model }) models else models + (model to model)
-    OverlayDropdownPreference(
-        title = "模型",
-        items = options.map { it.second },
-        selectedIndex = options.indexOfFirst { it.first == model },
-        onSelectedIndexChange = { index -> options.getOrNull(index)?.let { onChange(it.first) } },
     )
 }
 

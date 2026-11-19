@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.assistant
 
 import android.os.Bundle
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.xposed.PowerKeyGate
 import com.dzshzx.zeta.xposed.PowerKeyPolicy
 import com.dzshzx.zeta.xposed.PowerKeyRoute
@@ -70,8 +71,8 @@ class PowerKeyTest {
 
     @Test
     fun logTagsDoNotOverlap() {
-        val release = PowerKeyPolicy.logTag("com.dzshzx.zeta")
-        val dev = PowerKeyPolicy.logTag("com.dzshzx.zeta.dev")
+        val release = AppVariant("com.dzshzx.zeta").powerKeyTag
+        val dev = AppVariant("com.dzshzx.zeta.dev").powerKeyTag
         assertFalse(release.contains(dev) || dev.contains(release))
         val output = "[ 2026-11-20T10:00:00.000 1000: 1650: 1650 I/$dev ] long_press_power_key：已显示 com.dzshzx.zeta.dev 的助理会话，消费这次动作\n" +
             PowerKeyLog.SPLIT + "\n"

@@ -521,8 +521,13 @@ class Conversation(
 
     /** 思考强度：这个对话立即生效（apply_flag_settings），也作为之后新对话的默认值。null 回到 Claude Code 自己的设置。 */
     fun chooseEffort(value: String?) {
-        effort = value
         hub.settings.effort = value
+        applyEffort(value)
+    }
+
+    /** 这个对话的思考强度：进程已经起来就当场改，再要一次生效的设置；没起来时启动参数 --effort 带上。 */
+    private fun applyEffort(value: String?) {
+        effort = value
         val process = process ?: return
         process.send(controlRequest {
             put("subtype", "apply_flag_settings")
@@ -580,23 +585,16 @@ class Conversation(
     private var launchHint: String? = null
 
     /**
-     * 定时任务指定的模型和权限模式：只改这个对话，不动全局设置；null 的那项照旧。
+     * 定时任务、数字助理给这个对话定的模型、思考强度和权限模式：只改这个对话，不动全局设置；null 的那项照旧。
      * [hint] 追加进系统提示，进程已经起来的话下次重启进程才生效。
      */
-    internal fun preset(model: String?, permissionMode: String?, hint: String? = null, effort: String? = null) {
+    internal fun preset(model: String?, effort: String?, permissionMode: String?, hint: String? = null) {
         launchHint = hint
         model?.let { value ->
             this.model = value
             process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
         }
-        // 只给这个对话定思考强度，不改新对话的默认（和 [chooseEffort] 不同）
-        effort?.let { value ->
-            this.effort = value
-            process?.send(controlRequest {
-                put("subtype", "apply_flag_settings")
-                putJsonObject("settings") { put("effortLevel", value) }
-            })
-        }
+        effort?.let(::applyEffort)
         permissionMode?.let { value ->
             this.permissionMode = value
             process?.send(controlRequest { put("subtype", "set_permission_mode"); put("mode", value) })

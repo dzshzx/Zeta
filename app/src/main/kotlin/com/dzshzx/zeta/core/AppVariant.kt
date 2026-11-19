@@ -37,6 +37,15 @@ class AppVariant(val packageName: String) {
     /** 本包的 Intent action。 */
     fun action(name: String): String = "$packageName.action.$name"
 
+    /** 给人看的名字：「Zeta 正式版」或「Zeta 测试版」。 */
+    val label: String get() = if (isDev) "Zeta 测试版" else "Zeta 正式版"
+
+    /**
+     * 电源键接管模块（xposed/PowerKeyModule.kt）写日志用的标签；本包的诊断页按它找本包模块的记录。
+     * 正式版、测试版分开，两个名字互不包含，按子串找时也不会串。
+     */
+    val powerKeyTag: String get() = if (isDev) "ZetaDevPowerKey" else "ZetaPowerKey"
+
     /** 通知标题：测试版前面注明，免得和正式版的通知混在一起。 */
     fun notificationTitle(title: String): String = if (isDev) "测试版 · $title" else title
 
