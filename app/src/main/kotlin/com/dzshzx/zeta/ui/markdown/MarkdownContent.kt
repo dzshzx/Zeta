@@ -20,16 +20,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CheckBox
-import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Feedback
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.Report
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -70,9 +60,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Community
+import io.github.suqi8.coui.kmp.icon.extended.Copy
+import io.github.suqi8.coui.kmp.icon.extended.Info
+import io.github.suqi8.coui.kmp.icon.extended.Ok
+import io.github.suqi8.coui.kmp.icon.extended.Report
+import io.github.suqi8.coui.kmp.icon.extended.Tasks
 import io.github.suqi8.coui.kmp.squircle.squircleBorder
 import io.github.suqi8.coui.kmp.squircle.squircleClip
 import io.github.suqi8.coui.kmp.squircle.squircleSurface
@@ -357,7 +355,7 @@ private fun CopyButton(text: String, tint: Color) {
         minHeight = 32.dp,
     ) {
         Icon(
-            imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+            imageVector = if (copied) COUIIcons.Ok else COUIIcons.Copy,
             contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_code),
             modifier = Modifier.size(14.dp),
             tint = if (copied) COUITheme.colorScheme.primary else tint,
@@ -453,11 +451,11 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
 
 private val MarkdownAlertKind.icon: ImageVector
     get() = when (this) {
-        MarkdownAlertKind.Note -> Icons.Rounded.Info
-        MarkdownAlertKind.Tip -> Icons.Rounded.Lightbulb
-        MarkdownAlertKind.Important -> Icons.Rounded.Feedback
-        MarkdownAlertKind.Warning -> Icons.Rounded.Warning
-        MarkdownAlertKind.Caution -> Icons.Rounded.Report
+        MarkdownAlertKind.Note -> COUIIcons.Info
+        MarkdownAlertKind.Tip -> ZetaIcons.Lightbulb
+        MarkdownAlertKind.Important -> COUIIcons.Community
+        MarkdownAlertKind.Warning -> ZetaIcons.Warning
+        MarkdownAlertKind.Caution -> COUIIcons.Report
     }
 
 private val MarkdownAlertKind.label: Int
@@ -589,7 +587,7 @@ private fun RowScope.ListMarker(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Icon(
-                    imageVector = if (item.checked) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                    imageVector = if (item.checked) COUIIcons.Tasks else ZetaIcons.CheckboxBlank,
                     contentDescription = null,
                     modifier = Modifier.size(17.dp),
                     tint = if (item.checked) COUITheme.colorScheme.primary else style.markerColor,

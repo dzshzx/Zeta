@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
@@ -29,12 +28,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +61,8 @@ import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.StatusSuccess
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.FindableText
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -82,6 +77,8 @@ import io.github.suqi8.coui.kmp.icon.extended.Copy
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
+import io.github.suqi8.coui.kmp.icon.extended.Ok
+import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
@@ -236,7 +233,7 @@ private fun CopyAction(text: String, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+            imageVector = if (copied) COUIIcons.Ok else COUIIcons.Copy,
             contentDescription = if (copied) "已复制" else "复制",
             modifier = Modifier.size(15.dp),
             tint = COUITheme.colorScheme.labelSecondary,
@@ -330,8 +327,8 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
             Icon(
                 imageVector = when (running) {
                     is ToolStep -> running.presentation().icon
-                    is ThinkingStep -> Icons.Rounded.Lightbulb
-                    else -> Icons.Rounded.Checklist
+                    is ThinkingStep -> ZetaIcons.Lightbulb
+                    else -> COUIIcons.SelectAll
                 },
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
@@ -372,7 +369,7 @@ private fun WorkStepRow(step: WorkStep) {
     var status: ToolStatus? = null
     when (step) {
         is ThinkingStep -> {
-            icon = Icons.Rounded.Lightbulb
+            icon = ZetaIcons.Lightbulb
             title = when {
                 step.running -> "正在思考"
                 step.seconds != null -> "思考已完成 · 用时 ${step.seconds} 秒"
@@ -457,7 +454,7 @@ private fun StatusDot(color: Color, label: String) {
 internal fun Chevron(expanded: Boolean) {
     val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
     Icon(
-        imageVector = Icons.Rounded.KeyboardArrowDown,
+        imageVector = ZetaIcons.ChevronDown,
         contentDescription = if (expanded) "收起" else "展开",
         modifier = Modifier.padding(start = 6.dp).size(17.dp).rotate(rotation),
         tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.7f),

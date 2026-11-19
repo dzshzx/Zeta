@@ -1,26 +1,18 @@
 package com.dzshzx.zeta.ui.chat
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import io.github.suqi8.coui.kmp.basic.ChipDefaults
+import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +27,8 @@ import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Timer
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 @Composable
@@ -45,39 +39,26 @@ private fun severityColor(severity: QuotaSeverity, normal: Color): Color = when 
 }
 
 /**
- * 用量按钮的额度样子（见 [UsageButton]）：快到上限（服务器说要注意，或用了八成以上）时是测速图标加百分比，
- * 已经被拒时是“已达上限”，按严重程度着色。是哪个窗口只放在读屏说明里，比如“本周额度已用 95%”。
+ * 用量按钮的额度样子（见 [UsageButton]）：快到上限（服务器说要注意，或用了八成以上）或已经被拒时是一个沙漏，
+ * 按严重程度着色。用了多少、是哪个窗口只放在读屏说明里（比如“本周额度已用 95%”），点开的用量弹窗里有全部窗口。
  * [current] 是按 [now] 折算过的额度，[window] 是它的 [QuotaSnapshot.alarming]。
  */
 @Composable
 internal fun QuotaAlarm(current: QuotaSnapshot, window: QuotaWindow, now: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val severity = if (current.blocked) QuotaSeverity.Critical else maxOf(window.severity, Quota.severityOf(window.used))
     val color = severityColor(severity, StatusWarning)
-    val text = if (current.blocked) "已达上限" else "${window.percent}%"
-    Row(
-        modifier = modifier
-            .heightIn(min = 30.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.12f), CircleShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp)
-            .semantics {
-                contentDescription = if (current.blocked) {
-                    "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
-                } else {
-                    "${window.spokenName}额度已用 ${window.percent}%"
-                }
-            },
-        verticalAlignment = Alignment.CenterVertically,
+    IconChip(
+        onClick = onClick,
+        modifier = modifier.semantics {
+            contentDescription = if (current.blocked) {
+                "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
+            } else {
+                "${window.spokenName}额度已用 ${window.percent}%"
+            }
+        },
+        colors = ChipDefaults.chipColors(containerColor = color.copy(alpha = if (COUITheme.colorScheme.isDark) 0.25f else 0.15f), contentColor = color),
     ) {
-        Icon(imageVector = Icons.Rounded.Speed, contentDescription = null, modifier = Modifier.size(14.dp), tint = color)
-        Spacer(Modifier.width(3.dp))
-        Text(
-            text = text,
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
-            color = color,
-            maxLines = 1,
-        )
+        Icon(imageVector = COUIIcons.Timer, contentDescription = null)
     }
 }
 

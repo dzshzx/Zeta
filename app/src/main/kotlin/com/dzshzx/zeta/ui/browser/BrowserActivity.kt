@@ -44,10 +44,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.OpenInBrowser
-import androidx.compose.material.icons.rounded.Public
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -63,6 +59,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -74,7 +71,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.dzshzx.zeta.core.ConversationHub
@@ -83,6 +79,7 @@ import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -96,6 +93,8 @@ import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
 import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.Forward
+import io.github.suqi8.coui.kmp.icon.extended.Lock
 import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
@@ -345,7 +344,7 @@ private fun AddressField(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (secure) Icons.Rounded.Lock else Icons.Rounded.Public,
+            imageVector = if (secure) COUIIcons.Lock else ZetaIcons.Globe,
             contentDescription = null,
             modifier = Modifier.size(15.dp),
             tint = colors.labelSecondary,
@@ -407,7 +406,7 @@ internal fun BrowserStepButton() {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Rounded.OpenInBrowser,
+            imageVector = COUIIcons.Forward,
             contentDescription = "在浏览器里查看",
             modifier = Modifier.size(16.dp),
             tint = COUITheme.colorScheme.primary,

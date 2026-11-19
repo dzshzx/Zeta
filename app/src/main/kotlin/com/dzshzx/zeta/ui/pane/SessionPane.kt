@@ -30,10 +30,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.Unarchive
-import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,6 +70,7 @@ import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.tasks.BackgroundEntry
 import io.github.suqi8.coui.kmp.basic.Checkbox
@@ -355,7 +352,7 @@ internal fun SessionPane(
                 color = colors.labelPrimary,
                 modifier = Modifier.weight(1f),
             )
-            PaneCircleButton(icon = Icons.Rounded.MapsUgc, description = "新对话", onClick = onNewChat)
+            PaneCircleButton(icon = ZetaIcons.NewChat, description = "新对话", onClick = onNewChat)
         }
 
         // 有后台对话或后台任务时，列表上方多一个入口
@@ -423,7 +420,7 @@ internal fun SessionPane(
                     }
                     archived.isNotEmpty() -> {
                         Spacer(Modifier.width(8.dp))
-                        PaneCircleButton(icon = Icons.Outlined.Archive, description = "已归档 · ${archived.size}", onClick = { showArchived = true })
+                        PaneCircleButton(icon = ZetaIcons.Archive, description = "已归档 · ${archived.size}", onClick = { showArchived = true })
                     }
                 }
             }
@@ -604,7 +601,7 @@ private fun SessionRow(
                     DropdownItem(
                         text = if (session.archived) "取消归档" else "归档",
                         onClick = { currentActions.archive(session) },
-                        icon = menuIcon(if (session.archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, iconTint),
+                        icon = menuIcon(if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive, iconTint),
                     ),
                 ),
             ),

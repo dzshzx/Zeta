@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.findSegments
@@ -37,6 +34,8 @@ import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InputField
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -142,9 +141,9 @@ internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Mod
                     modifier = Modifier.padding(start = 8.dp, end = 2.dp),
                 )
             }
-            BarButton(Icons.Rounded.KeyboardArrowUp, "上一个", enabled = count > 0, onClick = find::previous)
-            BarButton(Icons.Rounded.KeyboardArrowDown, "下一个", enabled = count > 0, onClick = find::next)
-            BarButton(Icons.Rounded.Close, "关闭查找", enabled = true, onClick = find::close)
+            BarButton(ZetaIcons.ChevronUp, "上一个", enabled = count > 0, onClick = find::previous)
+            BarButton(ZetaIcons.ChevronDown, "下一个", enabled = count > 0, onClick = find::next)
+            BarButton(COUIIcons.Close, "关闭查找", enabled = true, onClick = find::close)
         }
         Text(
             text = "只查已载入的提问和回答，不含工具步骤和思考" + if (skippedHistory > 0) "；更早的 $skippedHistory 条记录未载入，不在范围内" else "",

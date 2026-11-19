@@ -20,8 +20,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 50
-        versionName = "0.6.42"
+        versionCode = 51
+        versionName = "0.6.43"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -121,8 +121,6 @@ dependencies {
     implementation(libs.androidx.navigationevent)
     implementation(libs.intellij.markdown)
     implementation(libs.ratex.android)
-    // Eta 的 COUI 模式同样以 MiuixTheme 承载文字与配色；这里只用它的基础件，不用 Miuix 的界面组件。
-    implementation(libs.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)

@@ -21,9 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +45,9 @@ import com.dzshzx.zeta.phone.VirtualScreen
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.ExpandMore
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -104,8 +104,8 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ActionIcon(Icons.Rounded.OpenInFull, "移到主屏", colors.primary) { phone.moveToMainByUser() }
-        ActionIcon(Icons.Rounded.Close, "关闭后台屏幕", colors.labelSecondary) { phone.closeBackgroundByUser() }
+        ActionIcon(COUIIcons.ExpandMore, "移到主屏", colors.primary) { phone.moveToMainByUser() }
+        ActionIcon(COUIIcons.Close, "关闭后台屏幕", colors.labelSecondary) { phone.closeBackgroundByUser() }
     }
 }
 
@@ -138,7 +138,7 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                ActionIcon(Icons.Rounded.Close, "关闭查看", Color.White, onDismiss)
+                ActionIcon(COUIIcons.Close, "关闭查看", Color.White, onDismiss)
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                 LiveScreen(

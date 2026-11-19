@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -52,6 +50,8 @@ import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -330,7 +330,7 @@ private fun PickerRow(label: String, onClick: () -> Unit) {
             .padding(vertical = 10.dp, horizontal = 6.dp),
     ) {
         Icon(
-            imageVector = Icons.Rounded.Folder,
+            imageVector = COUIIcons.Folder,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
             tint = COUITheme.colorScheme.primary,

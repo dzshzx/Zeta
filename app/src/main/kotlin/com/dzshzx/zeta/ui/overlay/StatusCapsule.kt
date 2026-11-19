@@ -27,8 +27,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -50,12 +50,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -98,10 +92,16 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.ChevronForward
+import io.github.suqi8.coui.kmp.icon.extended.Edit
+import io.github.suqi8.coui.kmp.icon.extended.Pause
+import io.github.suqi8.coui.kmp.icon.extended.Play
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.utils.SinkFeedback
@@ -334,15 +334,15 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
 private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: () -> Unit) {
     val colors = COUITheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
-        CapsuleAction(Icons.Rounded.Edit, "补充", colors.labelPrimary, onSupplement)
+        CapsuleAction(COUIIcons.Edit, "补充", colors.labelPrimary, onSupplement)
         when (phase) {
-            OverlayPhase.RUNNING -> CapsuleAction(Icons.Rounded.Pause, "暂停", colors.labelPrimary) { focus.pause() }
+            OverlayPhase.RUNNING -> CapsuleAction(COUIIcons.Pause, "暂停", colors.labelPrimary) { focus.pause() }
             // 点了暂停的就继续；接管着的交还给 Claude
-            OverlayPhase.PAUSED -> CapsuleAction(Icons.Rounded.PlayArrow, "继续", colors.primary) { focus.resume() }
-            OverlayPhase.CONTROLLING -> CapsuleAction(Icons.Rounded.PlayArrow, "交还给 Claude 继续", colors.primary) { focus.resumeAuto() }
+            OverlayPhase.PAUSED -> CapsuleAction(COUIIcons.Play, "继续", colors.primary) { focus.resume() }
+            OverlayPhase.CONTROLLING -> CapsuleAction(COUIIcons.Play, "交还给 Claude 继续", colors.primary) { focus.resumeAuto() }
             OverlayPhase.FINISHED -> Unit
         }
-        CapsuleAction(Icons.Rounded.Stop, "停止", colors.error) { focus.stop() }
+        CapsuleAction(ZetaIcons.Stop, "停止", colors.error) { focus.stop() }
     }
 }
 
@@ -441,7 +441,7 @@ private fun TitlePill(title: String, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
+        Icon(COUIIcons.ChevronForward, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
     }
 }
 

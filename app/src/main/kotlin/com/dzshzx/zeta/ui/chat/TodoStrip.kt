@@ -24,10 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,9 +50,13 @@ import com.dzshzx.zeta.core.TodoEntry
 import com.dzshzx.zeta.core.TodoStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.Ok
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.serialization.json.JsonArray
@@ -112,12 +112,12 @@ internal fun TodoStrip(items: List<ChatItem>, seed: List<ToolStep>, busy: Boolea
                 modifier = Modifier.weight(1f).padding(vertical = 5.dp),
             )
             Icon(
-                Icons.Rounded.ExpandMore,
+                ZetaIcons.ChevronDown,
                 contentDescription = null,
                 modifier = Modifier.padding(start = 4.dp).size(16.dp).rotate(chevron),
                 tint = colors.labelSecondary,
             )
-            ActionIcon(Icons.Rounded.Close, "收掉这份任务清单", colors.labelSecondary) { dismissed = signature }
+            ActionIcon(COUIIcons.Close, "收掉这份任务清单", colors.labelSecondary) { dismissed = signature }
         }
         AnimatedVisibility(
             visible = expanded,
@@ -163,7 +163,7 @@ private fun StatusMark(status: TodoStatus) {
     val colors = COUITheme.colorScheme
     when (status) {
         TodoStatus.Completed -> Box(Modifier.size(15.dp).clip(CircleShape).background(colors.success), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Check, contentDescription = "已完成", modifier = Modifier.size(11.dp), tint = colors.labelOnColor)
+            Icon(COUIIcons.Ok, contentDescription = "已完成", modifier = Modifier.size(11.dp), tint = colors.labelOnColor)
         }
         TodoStatus.InProgress -> Box(Modifier.size(15.dp).border(1.5.dp, colors.primary, CircleShape), contentAlignment = Alignment.Center) {
             Box(Modifier.size(6.dp).clip(CircleShape).background(colors.primary))
@@ -177,7 +177,7 @@ private fun StatusMark(status: TodoStatus) {
 private fun ProgressRing(done: Int, total: Int, allDone: Boolean) {
     if (allDone) {
         Box(Modifier.size(16.dp).clip(CircleShape).background(COUITheme.colorScheme.success), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(11.dp), tint = COUITheme.colorScheme.labelOnColor)
+            Icon(COUIIcons.Ok, contentDescription = null, modifier = Modifier.size(11.dp), tint = COUITheme.colorScheme.labelOnColor)
         }
         return
     }

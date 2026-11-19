@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallSplit
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
@@ -45,10 +39,16 @@ import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.Delete
+import io.github.suqi8.coui.kmp.icon.extended.Edit
+import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.nio.ByteBuffer
@@ -201,11 +201,11 @@ internal fun TurnActionButtons(itemId: String, turns: TurnIndex, conversation: C
     if (turn === turns.last && (conversation.busy || conversation.rewinding)) return
     val enabled = conversation.canRewind && actions.editing == null
     if (turn.rewindable) {
-        ActionButton(Icons.Rounded.Refresh, "重新生成", enabled) { actions.askRegenerate(turn) }
-        ActionButton(Icons.Rounded.DeleteOutline, "删除这一轮", enabled) { actions.askDelete(turn) }
+        ActionButton(COUIIcons.Refresh, "重新生成", enabled) { actions.askRegenerate(turn) }
+        ActionButton(COUIIcons.Delete, "删除这一轮", enabled) { actions.askDelete(turn) }
     }
     if (turn.branchable && conversation.sessionId != null) {
-        ActionButton(Icons.AutoMirrored.Rounded.CallSplit, "从这里分支到新对话", enabled) { actions.branch(turn) }
+        ActionButton(ZetaIcons.Branch, "从这里分支到新对话", enabled) { actions.branch(turn) }
     }
 }
 
@@ -244,7 +244,7 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
             .padding(start = 14.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.primary)
+        Icon(COUIIcons.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.primary)
         Spacer(Modifier.width(6.dp))
         Text(
             text = "编辑消息",
@@ -261,7 +261,7 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        ActionIcon(Icons.Rounded.Close, "取消编辑", colors.labelSecondary, onCancel)
+        ActionIcon(COUIIcons.Close, "取消编辑", colors.labelSecondary, onCancel)
     }
 }
 

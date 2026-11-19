@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -47,18 +45,20 @@ import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.LinkText
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextField
 import io.github.suqi8.coui.kmp.basic.appendLink
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.theme.COUITheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 附件菜单里“文件夹”“输入路径”两项各自的对话框开没开。每次打开都从头来（[opens] 加一）。 */
 @Stable
@@ -452,7 +452,7 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 6.dp),
     ) {
-        Icon(imageVector = Icons.Rounded.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = COUITheme.colorScheme.primary)
+        Icon(imageVector = COUIIcons.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = COUITheme.colorScheme.primary)
         Text(
             text = label,
             style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),

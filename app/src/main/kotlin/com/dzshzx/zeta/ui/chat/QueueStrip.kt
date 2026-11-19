@@ -22,10 +22,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,10 +39,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.QueuedMessage
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
@@ -99,7 +98,7 @@ internal fun QueueStrip(
                 )
                 if (multiple) {
                     Spacer(Modifier.width(2.dp))
-                    Icon(Icons.Rounded.ExpandMore, contentDescription = if (expanded) "收起" else "展开", modifier = Modifier.size(14.dp).rotate(chevron), tint = colors.primary)
+                    Icon(ZetaIcons.ChevronDown, contentDescription = if (expanded) "收起" else "展开", modifier = Modifier.size(14.dp).rotate(chevron), tint = colors.primary)
                 }
             }
             if (!expanded) {
@@ -109,7 +108,7 @@ internal fun QueueStrip(
             } else {
                 Spacer(Modifier.weight(1f))
                 // 插话会让排队的消息依次开始，所以只放在标题行上，不分条
-                if (!steering) ActionIcon(Icons.Rounded.Bolt, "立即插话", colors.primary, onSteer)
+                if (!steering) ActionIcon(ZetaIcons.Bolt, "立即插话", colors.primary, onSteer)
             }
         }
         AnimatedVisibility(
@@ -132,7 +131,7 @@ internal fun QueueStrip(
                         )
                         Spacer(Modifier.width(8.dp))
                         Preview(message, onClick = { onRecall(message) }, modifier = Modifier.weight(1f))
-                        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", colors.labelSecondary) { onRemove(message) }
+                        ActionIcon(COUIIcons.Close, "删除这条排队消息", colors.labelSecondary) { onRemove(message) }
                     }
                 }
             }
@@ -171,8 +170,8 @@ private fun Preview(message: QueuedMessage, onClick: () -> Unit, modifier: Modif
 @Composable
 private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (!steering) ActionIcon(Icons.Rounded.Bolt, "立即插话", COUITheme.colorScheme.primary, onSteer)
-        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", COUITheme.colorScheme.labelSecondary, onRemove)
+        if (!steering) ActionIcon(ZetaIcons.Bolt, "立即插话", COUITheme.colorScheme.primary, onSteer)
+        ActionIcon(COUIIcons.Close, "删除这条排队消息", COUITheme.colorScheme.labelSecondary, onRemove)
     }
 }
 

@@ -1,11 +1,11 @@
 package com.dzshzx.zeta.ui.chat
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import io.github.suqi8.coui.kmp.basic.ChipDefaults
+import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,11 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,25 +53,21 @@ import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.rememberNow
-import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 思考强度胶囊，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
- * 所以这里列的是它的档位。没指定时显示 Claude Code 实际生效的档位，颜色淡一些。
- * 点开是 COUI 的下拉菜单，要在 COUI 2 的 Scaffold 里才显示。
+ * 思考强度按钮，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
+ * 所以这里列的是它的档位。按钮上只有一个刻度图标（[ZetaIcons.effort]），亮几格是第几档；没指定时画 Claude Code 实际生效的档位，
+ * 用中性的灰，指定了用主题色。档位名在读屏说明和点开的单选菜单里。
  */
 @Composable
 internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
-    val dark = colors.isDark
     var expanded by remember { mutableStateOf(false) }
-    val active = effort != null
     val choose by rememberUpdatedState(onChange)
     val entries = remember(effort, applied) {
         val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
@@ -82,45 +75,22 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
             EffortLevels.map { (value, label) -> DropdownItem(text = label, selected = value == effort, onClick = { choose(value) }) }
         listOf(DropdownEntry(items = items))
     }
-    val ink = colors.labelPrimary
-    val content by animateColorAsState(if (active) colors.primary else ink.copy(alpha = if (dark) 0.62f else 0.58f), tween(160), label = "effort-ink")
-    val fill by animateColorAsState(
-        if (active) colors.primary.copy(alpha = 0.10f) else ink.copy(alpha = if (dark) 0.07f else 0.045f),
-        tween(160),
-        label = "effort-fill",
-    )
-    // 胶囊和菜单在同一个 Box 里：菜单以它为锚
+    // 第几档，从 1 数；不知道是哪档时为 0
+    val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1
+    val spoken = effortLabel(effort) ?: effortLabel(applied)?.let { "默认（$it）" } ?: "默认"
+    // 按钮和菜单在同一个 Box 里：菜单以它为锚
     Box(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .heightIn(min = 30.dp)
-                .clip(CircleShape)
-                .background(fill, CircleShape)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { expanded = true }
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-                .semantics { contentDescription = "思考强度：" + (effortLabel(effort) ?: "默认") },
-            verticalAlignment = Alignment.CenterVertically,
+        IconChip(
+            onClick = { expanded = true },
+            colors = if (effort == null) {
+                ChipDefaults.chipColors(contentColor = colors.labelSecondary)
+            } else {
+                ChipDefaults.chipColors(containerColor = colors.primary.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = colors.primary)
+            },
         ) {
-            Icon(imageVector = Icons.Rounded.Psychology, contentDescription = null, modifier = Modifier.size(15.dp), tint = content)
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = effortLabel(effort) ?: effortLabel(applied) ?: "思考",
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
-                color = content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Icon(imageVector = ZetaIcons.effort(level), contentDescription = "思考强度：$spoken")
         }
-        OverlayDropdownPopup(
-            entries = entries,
-            show = expanded,
-            onDismiss = { expanded = false },
-            onDismissFinished = {},
-            maxHeight = null,
-            dropdownColors = DropdownDefaults.dropdownColors(),
-            renderInRootScaffold = true,
-            collapseOnSelection = true,
-        )
+        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
 }
 
@@ -146,26 +116,22 @@ internal fun UsageButton(quota: QuotaSnapshot?, usage: ChatUsage, onClick: () ->
     }
 }
 
-/** 上下文圆环；快满时变色并显示百分比。 */
+/** 上下文圆环，快满时变色、底色跟着变；百分比在读屏说明和用量弹窗里。 */
 @Composable
 private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val dark = COUITheme.colorScheme.isDark
-    val ink = COUITheme.colorScheme.labelPrimary
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
+    val ink = colors.labelPrimary
     val level = usage.level
     val color = levelColor(level, ink.copy(alpha = if (dark) 0.52f else 0.46f))
     val percent = usage.fraction?.let { (it * 100).toInt() }
     val loud = level != ContextLevel.Normal && percent != null
-    Row(
-        modifier = modifier
-            .heightIn(min = 30.dp)
-            .clip(CircleShape)
-            .background(if (loud) color.copy(alpha = 0.12f) else Color.Transparent, CircleShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = if (loud) 8.dp else 7.dp)
-            .semantics {
-                contentDescription = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: "")
-            },
-        verticalAlignment = Alignment.CenterVertically,
+    IconChip(
+        onClick = onClick,
+        modifier = modifier.semantics {
+            contentDescription = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: "")
+        },
+        colors = if (loud) ChipDefaults.chipColors(containerColor = color.copy(alpha = if (dark) 0.25f else 0.15f)) else ChipDefaults.chipColors(),
     ) {
         ContextRing(
             fraction = usage.fraction ?: 0f,
@@ -174,15 +140,6 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifi
             mark = usage.compactFraction,
             markColor = ink.copy(alpha = if (dark) 0.62f else 0.5f),
         )
-        if (loud) {
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "$percent%",
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
-                color = color,
-                maxLines = 1,
-            )
-        }
     }
 }
 

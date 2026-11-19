@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
-import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,17 +41,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ShortText
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MapsUgc
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.Merge
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -90,8 +77,11 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.turnActions
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
@@ -111,7 +101,11 @@ import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
 import io.github.suqi8.coui.kmp.blur.layerBackdrop
 import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Merge
 import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.icon.extended.Search
+import io.github.suqi8.coui.kmp.icon.extended.Settings
+import io.github.suqi8.coui.kmp.icon.extended.Sidebar
 import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
@@ -258,7 +252,7 @@ private fun ChatTopBar(
             glow = glow,
             navigationIcon = {
                 IconButton(onClick = onOpenPane) {
-                    Icon(Icons.AutoMirrored.Outlined.ShortText, contentDescription = "历史对话", tint = colors.labelPrimary)
+                    Icon(COUIIcons.Sidebar, contentDescription = "历史对话", tint = colors.labelPrimary)
                 }
             },
             actions = { OverflowMenu(onNewChat = onNewChat, onOpenSettings = onOpenSettings, onFind = onFind) },
@@ -475,7 +469,7 @@ private fun ConversationBody(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.ArrowDownward,
+                        imageVector = ZetaIcons.ArrowDown,
                         contentDescription = "回到底部",
                         modifier = Modifier.size(18.dp),
                         tint = COUITheme.colorScheme.labelPrimary,
@@ -658,7 +652,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = modelName, style = COUITheme.textStyles.bodyXS, color = colors.labelSecondary, maxLines = 1)
-                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelTertiary)
+                    Icon(ZetaIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelTertiary)
                 }
             }
         } else {
@@ -678,7 +672,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "切换模型", modifier = Modifier.padding(start = 2.dp).size(16.dp), tint = colors.labelSecondary)
+                Icon(ZetaIcons.ChevronDown, contentDescription = "切换模型", modifier = Modifier.padding(start = 2.dp).size(16.dp), tint = colors.labelSecondary)
             }
         }
         AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
@@ -690,9 +684,9 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
 private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
     val entry = DropdownEntry(
         items = listOf(
-            menuItem("新对话", Icons.Rounded.MapsUgc, onNewChat),
-            menuItem("在对话中查找", Icons.Rounded.Search, { onFind?.invoke() }, enabled = onFind != null),
-            menuItem("设置", Icons.Outlined.Settings, onOpenSettings),
+            menuItem("新对话", ZetaIcons.NewChat, onNewChat),
+            menuItem("在对话中查找", COUIIcons.Search, { onFind?.invoke() }, enabled = onFind != null),
+            menuItem("设置", COUIIcons.Settings, onOpenSettings),
         ),
     )
     OverlayIconDropdownMenu(entry = entry) {
@@ -703,10 +697,10 @@ private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFi
 private class Suggestion(val title: String, val icon: ImageVector, val prompt: String)
 
 private val Suggestions = listOf(
-    Suggestion("看看这个项目", Icons.Rounded.FolderOpen, "先浏览当前目录，概括这个项目是做什么的、结构如何。"),
-    Suggestion("检查 Git 状态", Icons.Rounded.Merge, "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。"),
-    Suggestion("接着上次做", Icons.Rounded.History, "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。"),
-    Suggestion("设备状况", Icons.Rounded.Memory, "检查这台设备的内存、存储和负载情况，有异常就指出来。"),
+    Suggestion("看看这个项目", ZetaIcons.FolderOpen, "先浏览当前目录，概括这个项目是做什么的、结构如何。"),
+    Suggestion("检查 Git 状态", COUIIcons.Merge, "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。"),
+    Suggestion("接着上次做", ZetaIcons.History, "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。"),
+    Suggestion("设备状况", ZetaIcons.Chip, "检查这台设备的内存、存储和负载情况，有异常就指出来。"),
 )
 
 @Composable
@@ -732,7 +726,7 @@ private fun EmptyState(
                     editingCwd = true
                 }.padding(horizontal = 10.dp, vertical = 4.dp),
             ) {
-                Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
+                Icon(ZetaIcons.FolderOpen, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
                 Spacer(Modifier.width(5.dp))
                 Text(
                     text = cwd,

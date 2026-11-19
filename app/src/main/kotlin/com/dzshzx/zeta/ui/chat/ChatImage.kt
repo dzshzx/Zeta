@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.core.RemoteImage
-import androidx.compose.material.icons.rounded.Image
 import android.app.Application
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -9,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,10 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BrokenImage
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -55,8 +48,14 @@ import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
+import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.File
+import io.github.suqi8.coui.kmp.icon.extended.Folder
+import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 图片的载入结果：null 表示还在取。 */
@@ -88,7 +87,7 @@ private fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
             .padding(horizontal = 11.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Rounded.Image, contentDescription = null, modifier = Modifier.size(15.dp), tint = COUITheme.colorScheme.primary)
+        Icon(COUIIcons.Image, contentDescription = null, modifier = Modifier.size(15.dp), tint = COUITheme.colorScheme.primary)
         Spacer(Modifier.width(6.dp))
         Text(
             text = "加载图片 · " + ref.url.substringAfter("://").substringBefore('/'),
@@ -118,7 +117,7 @@ internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifie
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().clickable { viewing = true },
             )
-            loaded != null -> Icon(Icons.Rounded.BrokenImage, contentDescription = "图片无法显示", modifier = Modifier.size(22.dp), tint = COUITheme.colorScheme.labelSecondary)
+            loaded != null -> Icon(ZetaIcons.ImageOff, contentDescription = "图片无法显示", modifier = Modifier.size(22.dp), tint = COUITheme.colorScheme.labelSecondary)
         }
     }
     if (viewing) loaded?.bitmap?.let { ImageViewer(it) { viewing = false } }
@@ -153,7 +152,7 @@ internal fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
             modifier = modifier.clip(CircleShape).background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)).padding(horizontal = 11.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.BrokenImage, contentDescription = null, modifier = Modifier.size(14.dp), tint = COUITheme.colorScheme.labelSecondary)
+            Icon(ZetaIcons.ImageOff, contentDescription = null, modifier = Modifier.size(14.dp), tint = COUITheme.colorScheme.labelSecondary)
             Spacer(Modifier.width(5.dp))
             Text(
                 text = "图片无法显示" + ((ref as? FileImage)?.let { "：${it.path.substringAfterLast('/')}" } ?: ""),
@@ -213,7 +212,7 @@ internal fun FileChip(name: String, modifier: Modifier = Modifier, folder: Boole
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(if (folder) Icons.Rounded.Folder else Icons.AutoMirrored.Rounded.InsertDriveFile, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
+        Icon(if (folder) COUIIcons.Folder else COUIIcons.File, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
         Text(
             text = name,
             style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp),

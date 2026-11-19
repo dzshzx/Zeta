@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.menuItem
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -17,9 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -40,6 +36,8 @@ import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -230,8 +228,8 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
             DropdownEntry(
                 items = listOf(
                     menuItem("编辑", COUIIcons.Edit, { ui.startEdit(current) }),
-                    menuItem("上移", Icons.Rounded.ArrowUpward, { ui.move(current, -1) }, enabled = !first),
-                    menuItem("下移", Icons.Rounded.ArrowDownward, { ui.move(current, 1) }, enabled = !last),
+                    menuItem("上移", ZetaIcons.ArrowUp, { ui.move(current, -1) }, enabled = !first),
+                    menuItem("下移", ZetaIcons.ArrowDown, { ui.move(current, 1) }, enabled = !last),
                 ),
             ),
             DropdownEntry(

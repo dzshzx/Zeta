@@ -34,21 +34,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.FolderSpecial
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LinkOff
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.SaveAlt
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.UploadFile
-import androidx.compose.material.icons.rounded.Workspaces
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -82,6 +67,7 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.RowDividerStartWithIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -91,7 +77,16 @@ import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Copy
+import io.github.suqi8.coui.kmp.icon.extended.Download
+import io.github.suqi8.coui.kmp.icon.extended.File
+import io.github.suqi8.coui.kmp.icon.extended.Folder
+import io.github.suqi8.coui.kmp.icon.extended.GridView
+import io.github.suqi8.coui.kmp.icon.extended.Image
+import io.github.suqi8.coui.kmp.icon.extended.Import
+import io.github.suqi8.coui.kmp.icon.extended.Link
 import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
@@ -244,25 +239,25 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
                 TopMenu(
                     listOf(
                         listOf(
-                            MenuAction("导入文件到这里", Icons.Rounded.UploadFile, enabled = !LinuxTransfers.running) { runCatching { importLauncher.launch(arrayOf("*/*")) } },
-                            MenuAction("刷新", Icons.Rounded.Refresh) { reload++ },
+                            MenuAction("导入文件到这里", COUIIcons.Import, enabled = !LinuxTransfers.running) { runCatching { importLauncher.launch(arrayOf("*/*")) } },
+                            MenuAction("刷新", COUIIcons.Refresh) { reload++ },
                         ),
                         listOf(
-                            MenuAction("工作目录", Icons.Rounded.FolderSpecial) { path = start },
-                            MenuAction("主目录", Icons.Rounded.Home) { path = LinuxFiles.normalize(env?.home ?: "/root") },
-                            MenuAction("/workspace", Icons.Rounded.Workspaces) { path = "/workspace" },
-                            MenuAction("根目录", Icons.Rounded.Storage) { path = "/" },
+                            MenuAction("工作目录", ZetaIcons.FolderStar) { path = start },
+                            MenuAction("主目录", ZetaIcons.Home) { path = LinuxFiles.normalize(env?.home ?: "/root") },
+                            MenuAction("/workspace", COUIIcons.GridView) { path = "/workspace" },
+                            MenuAction("根目录", ZetaIcons.Storage) { path = "/" },
                         ),
-                        listOf(MenuAction("复制当前路径", Icons.Rounded.ContentCopy) { copyLinuxPath(context, path) }),
+                        listOf(MenuAction("复制当前路径", COUIIcons.Copy) { copyLinuxPath(context, path) }),
                     ),
                 )
             } else {
                 TopMenu(
                     listOf(
                         listOfNotNull(
-                            MenuAction("导出到手机", Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running) { export(shown.path, shown.entry) }
+                            MenuAction("导出到手机", COUIIcons.Download, enabled = !LinuxTransfers.running) { export(shown.path, shown.entry) }
                                 .takeIf { shown.entry.regular },
-                            MenuAction("复制路径", Icons.Rounded.ContentCopy) { copyLinuxPath(context, shown.path) },
+                            MenuAction("复制路径", COUIIcons.Copy) { copyLinuxPath(context, shown.path) },
                         ),
                     ),
                 )
@@ -307,7 +302,7 @@ private fun LazyListScope.browserItems(
                 ArrowPreference(
                     title = "上级目录",
                     summary = parent,
-                    startAction = { RowIcon(Icons.Rounded.FolderOpen, COUITheme.colorScheme.primary) },
+                    startAction = { RowIcon(ZetaIcons.FolderOpen, COUITheme.colorScheme.primary) },
                     onClick = { onNavigate(parent) },
                 )
             }
@@ -447,15 +442,15 @@ private fun EntryRow(
 ) {
     val colors = COUITheme.colorScheme
     val icon = when {
-        entry.directory -> Icons.Rounded.Folder
-        entry.broken -> Icons.Rounded.LinkOff
-        entry.link != null && !entry.regular -> Icons.Rounded.Link
-        LinuxFiles.isImage(entry.name) -> Icons.Rounded.Image
-        else -> Icons.AutoMirrored.Rounded.InsertDriveFile
+        entry.directory -> COUIIcons.Folder
+        entry.broken -> ZetaIcons.LinkOff
+        entry.link != null && !entry.regular -> COUIIcons.Link
+        LinuxFiles.isImage(entry.name) -> COUIIcons.Image
+        else -> COUIIcons.File
     }
     val actions = listOfNotNull(
-        MenuAction("复制路径", Icons.Rounded.ContentCopy, onClick = onCopyPath),
-        onExport?.let { MenuAction("导出到手机", Icons.Rounded.SaveAlt, enabled = !LinuxTransfers.running, onClick = it) },
+        MenuAction("复制路径", COUIIcons.Copy, onClick = onCopyPath),
+        onExport?.let { MenuAction("导出到手机", COUIIcons.Download, enabled = !LinuxTransfers.running, onClick = it) },
     )
     val startAction: @Composable () -> Unit = { RowIcon(icon, if (entry.directory) colors.primary else colors.labelSecondary) }
     OverlayContextMenu(entries = listOf(DropdownEntry(items = actions.map { it.item() }))) {

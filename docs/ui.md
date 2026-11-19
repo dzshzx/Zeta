@@ -19,6 +19,13 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `TopBarIconButton`：顶栏右边的图标按钮，不能点时图标变灰（COUI 2 的 `IconButton` 不会）。
 - `menuItem`、`AnchoredMenu`（`Menus.kt`）：带图标的菜单项，图标颜色跟着文字（COUI 2 的菜单行不给图标上色）；挂在胶囊、按钮、标题上的下拉菜单。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`：带页面毛玻璃的对话框。
+- `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.effort(档位)` 是思考强度的刻度。
+
+## 图标
+
+- 先用 COUI 2 自带的（`COUIIcons.*`，全部样子见 `~/workspace-external/coui/docs/components/icon.md` 或源码 `coui-icons`），按意思选，不按名字：COUI 的 `ExpandMore` 是全屏的四个角，向下的折角用 `ZetaIcons.ChevronDown`。不用 Material 图标，依赖里已经没有它。
+- COUI 没有、或者它的是实心而旁边都是线条的，在 `ui/components/coui2/ZetaIcons.kt` 里画：24×24 画布，图形在 2–22 之内，线宽 1.7，圆头圆角，圆角矩形的圆角 2.5–3.5，路径用 SVG 写法。画完看 `tools/shots Icons` 出的 `zeta-icons` 总览图，和开头几个 COUI 图标比粗细、大小。
+- 输入栏底栏只放图标按钮（COUI 的 `IconChip`，28dp），宽度固定，窄屏也不挤；档位、百分比这类文字放读屏说明、菜单和用量弹窗里，不放到底栏上。
 
 ## 常见的选法
 

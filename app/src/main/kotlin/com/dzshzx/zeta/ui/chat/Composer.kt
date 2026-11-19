@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
-import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -39,17 +37,6 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.AttachFile
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,6 +61,9 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import io.github.suqi8.coui.kmp.basic.ChipDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -82,6 +72,13 @@ import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconChip
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.icon.extended.Edit
+import io.github.suqi8.coui.kmp.icon.extended.Favorites
+import io.github.suqi8.coui.kmp.icon.extended.Folder
+import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -144,9 +141,9 @@ internal fun Composer(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 权限模式按钮后面的胶囊（思考强度）：分到剩下的宽度，放不下时由它截断。 */
+    /** 权限模式按钮后面的图标按钮（思考强度）。 */
     extraChips: @Composable () -> Unit = {},
-    /** 发送键左边的小部件（用量按钮），按自己的尺寸量，不被挤小。 */
+    /** 发送键左边的图标按钮（用量）。 */
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = COUITheme.colorScheme
@@ -239,7 +236,7 @@ internal fun Composer(
                         folder = AttachedPaths.isFolder(file.path.orEmpty()),
                     ) {
                         Icon(
-                            Icons.Rounded.Close,
+                            COUIIcons.Close,
                             contentDescription = "移除",
                             modifier = Modifier.size(22.dp).clip(CircleShape).clickable { onRemoveFile(file) }.padding(4.dp),
                             tint = colors.labelSecondary,
@@ -264,7 +261,7 @@ internal fun Composer(
                                 .clickable { onRemoveAttachment(attachment) },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "移除", modifier = Modifier.size(13.dp), tint = colors.labelOnColor)
+                            Icon(COUIIcons.Close, contentDescription = "移除", modifier = Modifier.size(13.dp), tint = colors.labelOnColor)
                         }
                     }
                 }
@@ -295,27 +292,26 @@ internal fun Composer(
             var attachMenu by remember { mutableStateOf(false) }
             Box {
                 IconChip(onClick = { attachMenu = true }, enabled = enabled) {
-                    Icon(Icons.Rounded.Add, contentDescription = "添加附件")
+                    Icon(COUIIcons.Add, contentDescription = "添加附件")
                 }
                 val attachEntries = listOf(
                     DropdownEntry(
                         items = listOf(
-                            menuItem("图片", Icons.Rounded.Image, onPickImages),
-                            menuItem("文件", Icons.Rounded.AttachFile, onPickFiles),
-                            menuItem("文件夹", Icons.Rounded.Folder, onPickFolder),
-                            menuItem("输入路径", Icons.Rounded.Edit, onEnterPath),
+                            menuItem("图片", COUIIcons.Image, onPickImages),
+                            menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
+                            menuItem("文件夹", COUIIcons.Folder, onPickFolder),
+                            menuItem("输入路径", COUIIcons.Edit, onEnterPath),
                         ),
                     ),
-                    DropdownEntry(items = listOf(menuItem("常用指令", Icons.Rounded.BookmarkBorder, onOpenPrompts))),
+                    DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
                 )
                 AnchoredMenu(show = attachMenu, entries = attachEntries, onDismiss = { attachMenu = false })
             }
             Spacer(Modifier.width(8.dp))
             PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
-            // 思考胶囊分到的是别的都量完后剩下的宽度，窄屏放不下时截断的是它；右边的用量按钮和发送键先量，不会被挤小
-            Row(modifier = Modifier.weight(1f).padding(end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                extraChips()
-            }
+            // 底栏只放图标按钮，宽度固定，窄屏也不会挤；空出来的地方在中间
+            extraChips()
+            Spacer(Modifier.weight(1f).widthIn(min = 8.dp))
             trailing()
             val showStop = busy && !canSend
             val buttonColor by animateColorAsState(
@@ -352,7 +348,7 @@ internal fun Composer(
                         label = "send-stop",
                     ) { stop ->
                         Icon(
-                            imageVector = if (stop) Icons.Rounded.Stop else Icons.Rounded.ArrowUpward,
+                            imageVector = if (stop) ZetaIcons.Stop else ZetaIcons.ArrowUp,
                             contentDescription = if (stop) "停止" else "发送",
                             modifier = Modifier.size(if (stop) 12.dp else 17.dp),
                             tint = when {
@@ -392,7 +388,7 @@ internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
                 ChipDefaults.chipColors(containerColor = tint.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = tint)
             },
         ) {
-            Icon(imageVector = Icons.Rounded.Shield, contentDescription = "权限模式：${permissionModeLabel(mode)}")
+            Icon(imageVector = ZetaIcons.Shield, contentDescription = "权限模式：${permissionModeLabel(mode)}")
         }
         val entries = listOf(
             DropdownEntry(

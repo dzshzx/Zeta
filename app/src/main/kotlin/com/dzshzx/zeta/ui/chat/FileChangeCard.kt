@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -55,10 +52,13 @@ import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.StatusSuccess
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.LinkText
-import io.github.suqi8.coui.kmp.basic.appendLink
 import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.appendLink
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 折叠时先露出的对比行数。 */
@@ -175,7 +175,7 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = if (change.kind == FileChange.Kind.Create) Icons.AutoMirrored.Rounded.NoteAdd else Icons.Rounded.EditNote,
+                    imageVector = if (change.kind == FileChange.Kind.Create) ZetaIcons.FileAdd else COUIIcons.Edit,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                     tint = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f),
