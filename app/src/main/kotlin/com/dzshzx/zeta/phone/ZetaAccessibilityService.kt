@@ -82,7 +82,11 @@ class ZetaAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // 为后台屏幕禁了音频焦点的应用出现在主屏上（用户自己打开的）：改回去
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        AudioFocusGuard.current?.onWindowShown(event.packageName?.toString(), event.displayId) { OverlayWindow.mainDisplay(this) }
+    }
 
     override fun onInterrupt() = Unit
 

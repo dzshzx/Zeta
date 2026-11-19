@@ -134,8 +134,8 @@ class PhoneTools(
     /** 这次调用前刚把休眠的后台屏幕唤醒：在观察结果里提一句（在 [lock] 里用）。 */
     private var justWoke = false
 
-    /** 为后台运行而禁掉音频焦点的应用，及其原来的设置。 */
-    private val muted = LinkedHashMap<String, String>()
+    /** 后台屏幕上的应用不抢音频焦点（全进程一份）。 */
+    private val audio by lazy { AudioFocusGuard.of(context) }
 
     private val display: Int get() = if (onBackground) screenRef?.displayId ?: Display.INVALID_DISPLAY else mainDisplay
 
@@ -1072,7 +1072,8 @@ class PhoneTools(
             }
         }
         val target = screen?.displayId ?: mainDisplay
-        if (screen != null && handler != null) mute(handler)
+        // 在后台屏幕上运行的应用先禁掉音频焦点：不会突然出声，也不打断用户在听的东西
+        if (screen != null && handler != null) audio.mute(handler, screen.displayId, ::foregroundOnMain)
         val command = if (request.isIntent) {
             "am start --user 0 --display $target -a " + LinuxEnv.quote(request.intentAction) +
                 (request.uri?.let { " -d " + LinuxEnv.quote(it) } ?: "") + (appPackage?.let { " -p " + LinuxEnv.quote(it) } ?: "") +
@@ -1083,6 +1084,8 @@ class PhoneTools(
                 "-n " + LinuxEnv.quote("${launcher.packageName}/${launcher.activity}") + " -f 0x10200000"
         }
         rootError(command)?.let { return failure(it) }
+        // 开到了主屏上：之前为后台屏幕禁掉的音频焦点改回去
+        if (screen == null && handler != null) audio.movedToMain(handler)
         onBackground = screen != null
         val opened = if (request.isIntent) (request.uri ?: request.action) + "（由 $label 处理）" else label
         if (screen != null) {
@@ -1113,6 +1116,7 @@ class PhoneTools(
         }
         check(!destroyed) { "这个会话已经结束" }
         beforeCreate(this)
+        audio.restoreLeftovers()
         val metrics = DisplayMetrics()
         val physical = context.getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
             ?: throw IllegalStateException("读不到主屏的尺寸")
@@ -1132,7 +1136,7 @@ class PhoneTools(
     private fun onBackgroundGone(screen: VirtualScreen) {
         if (screenRef !== screen) return
         screenRef = null
-        restoreAll()
+        audio.screenGone(screen.displayId)
         main.post {
             if (background === screen) {
                 background = null
@@ -1168,7 +1172,7 @@ class PhoneTools(
         if (screen.asleep.value && !screen.wake() && screen.alive) return "后台屏幕在休眠，没能唤醒"
         val task = rootTasks().firstOrNull { it.displayId == screen.displayId } ?: return "后台屏幕上没有应用"
         rootError("am display move-stack ${task.id} $mainDisplay")?.let { return it }
-        task.packageName?.let { unmute(it) }
+        task.packageName?.let { audio.movedToMain(it) }
         if (rootTasks().none { it.displayId == screen.displayId }) releaseBackground()
         else main.post { onChanged() }
         return null
@@ -1198,7 +1202,7 @@ class PhoneTools(
         val screen = screenRef ?: return
         screenRef = null
         screen.release()
-        restoreAll()
+        audio.screenGone(screen.displayId)
         main.post {
             if (background === screen) {
                 background = null
@@ -1286,27 +1290,6 @@ class PhoneTools(
         }
     }
 
-    /** 在后台屏幕上运行的应用先禁掉音频焦点：不会突然出声，也不打断用户在听的东西。 */
-    private fun mute(packageName: String) {
-        synchronized(muted) { if (packageName in muted) return }
-        val out = root("cmd appops get --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS").stdout
-        val mode = Regex("TAKE_AUDIO_FOCUS: (\\w+)").find(out)?.groupValues?.get(1) ?: "default"
-        if (mode == "ignore") return
-        if (root("cmd appops set --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS ignore").exitCode != 0) return
-        synchronized(muted) { muted[packageName] = mode }
-        rememberMuted(settings, packageName, mode)
-    }
-
-    private fun unmute(packageName: String) {
-        val mode = synchronized(muted) { muted.remove(packageName) } ?: return
-        root("cmd appops set --user 0 ${LinuxEnv.quote(packageName)} TAKE_AUDIO_FOCUS $mode")
-        forgetMuted(settings, packageName)
-    }
-
-    private fun restoreAll() {
-        synchronized(muted) { muted.keys.toList() }.forEach(::unmute)
-    }
-
     // ---- Android 侧命令 ----
 
     private fun shell(a: JsonObject): JsonObject {
@@ -1387,35 +1370,6 @@ class PhoneTools(
             "com.sec.android.app.launcher",
         )
 
-
-        private val mutedLock = Any()
-
-        private fun rememberMuted(settings: Settings, packageName: String, mode: String) = synchronized(mutedLock) {
-            settings.mutedApps = settings.mutedApps.filterNot { it.substringBefore('=') == packageName }.toSet() + "$packageName=$mode"
-        }
-
-        private fun forgetMuted(settings: Settings, packageName: String) = synchronized(mutedLock) {
-            settings.mutedApps = settings.mutedApps.filterNot { it.substringBefore('=') == packageName }.toSet()
-        }
-
-        /**
-         * 上次 Zeta 没来得及恢复的音频焦点设置（比如被系统杀掉）：后台屏幕随 Zeta 一起没了，这里把设置改回去。
-         * 应用启动时调用一次。
-         */
-        fun restoreMutedApps(settings: Settings) {
-            val left = synchronized(mutedLock) { settings.mutedApps }
-            if (left.isEmpty()) return
-            for (entry in left) {
-                val packageName = entry.substringBefore('=')
-                val mode = entry.substringAfter('=', "default")
-                runCatching {
-                    LinuxEnv.runRoot(
-                        LinuxEnv.androidScript("exec cmd appops set --user 0 \"\$2\" TAKE_AUDIO_FOCUS \"\$3\"", packageName, mode), 10_000,
-                    )
-                }
-            }
-            synchronized(mutedLock) { settings.mutedApps = settings.mutedApps - left }
-        }
         private const val OUTPUT_LIMIT = 30_000
         /** 本包的无障碍服务组件名。正式版和测试版各是各的，启用、停用都只动自己这一项。 */
         val SERVICE = AppVariant.current.component(ZetaAccessibilityService::class.java.name)

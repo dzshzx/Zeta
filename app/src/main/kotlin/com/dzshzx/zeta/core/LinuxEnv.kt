@@ -239,10 +239,15 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("backgroundScreen", true)
         set(value) = prefs.edit().putBoolean("backgroundScreen", value).apply()
 
-    /** 为后台运行禁掉了音频焦点、还没恢复的应用（“包名=原来的设置”）。 */
+    /**
+     * 为后台运行禁掉了音频焦点、还没恢复的应用（“包名=原来的设置”，见 AudioFocusGuard）。
+     * 同步写盘：先记下再改，改完马上被杀，下次启动也知道要改回什么。不要在界面线程上写。
+     */
     var mutedApps: Set<String>
         get() = prefs.getStringSet("mutedApps", null)?.toSet().orEmpty()
-        set(value) = prefs.edit().putStringSet("mutedApps", value).apply()
+        set(value) {
+            prefs.edit().putStringSet("mutedApps", value).commit()
+        }
 
     /** 回答里的网络图片是否不等点击就加载。 */
     var autoLoadRemoteImages: Boolean

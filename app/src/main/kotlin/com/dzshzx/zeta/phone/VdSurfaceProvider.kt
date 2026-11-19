@@ -10,7 +10,6 @@ import android.os.Process
 import android.os.SystemClock
 import android.view.Surface
 import com.dzshzx.zeta.core.AppVariant
-import com.dzshzx.zeta.core.Settings
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
@@ -26,7 +25,7 @@ class VdSurfaceProvider : ContentProvider() {
      */
     override fun onCreate(): Boolean {
         val context = context ?: return true
-        thread(name = "zeta-unmute", isDaemon = true) { PhoneTools.restoreMutedApps(Settings(context)) }
+        thread(name = "zeta-audio-focus", isDaemon = true) { AudioFocusGuard.of(context).restoreLeftovers() }
         return true
     }
 
