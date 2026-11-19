@@ -14,11 +14,13 @@
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
   vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
+  vd.py --dev fake 剧本.jsonl  测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
+                              ~/.config/zeta-dev/fake-claude/，进度从第一轮算起；fake --off 或 stop 删掉，回到真的 claude
   vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、删掉 phoneDisplay，
-                              并把它留在用户「最近任务」里的记录全部清掉。
+                              并把它留在用户「最近任务」里的记录全部清掉，假 Claude 的剧本也删掉。
                               force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做
 """
-import os, re, shlex, subprocess, sys, time
+import io, json, os, re, shlex, subprocess, sys, tarfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "vdisplay", "VdHold.java")
@@ -32,6 +34,9 @@ NAME = "zeta-screen-main"
 WORK = "/data/local/tmp/zeta-screen-main"
 ACTIVITY = "com.dzshzx.zeta.ui.MainActivity"  # 类名不随包名变：测试版只加了 applicationIdSuffix
 PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
+# 假 Claude：测试版的 zeta_host.sh 看到这里有 scenario.jsonl 就起它（Debian 里 Linux 用户的家目录下）
+FAKE_DIR = "~/.config/zeta-dev/fake-claude"
+FAKE_SCRIPT = os.path.join(HERE, "fake-claude", "fake-claude.sh")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
 
 
@@ -63,6 +68,45 @@ def run(cmd, data=None):
         argv = ["ssh", PHONE_SSH, shlex.join(argv)]
     io = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
     return subprocess.run(argv, capture_output=True, **io)
+
+
+def debian(cmd, data=None):
+    """在手机 Debian 里以 Linux 用户（Zeta 起 Claude Code 用的那个）跑 cmd；工作站上经 ssh。远端加 timeout。"""
+    argv = ["timeout", "60", "sh", "-c", cmd]
+    if not ON_PHONE:
+        argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+    io_ = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
+    r = subprocess.run(argv, capture_output=True, **io_)
+    if r.returncode != 0:
+        sys.exit(f"Debian 里的命令失败（{r.returncode}）：{cmd}\n{r.stderr.decode(errors='replace').strip()}")
+    return r.stdout.decode(errors="replace")
+
+
+def fake(path):
+    """放上假 Claude 和剧本（先在本地核一遍：每行一个带 steps 数组的 JSON）；--off 删掉。"""
+    if path == "--off":
+        print(debian(f"rm -rf {FAKE_DIR} && echo 假 Claude 已撤下"), end="")
+        return
+    with open(path, encoding="utf-8") as f:
+        lines = [line for line in f.read().splitlines() if line.strip()]
+    for i, line in enumerate(lines, 1):
+        try:
+            turn = json.loads(line)
+        except ValueError as e:
+            sys.exit(f"{path} 第 {i} 行不是 JSON：{e}")
+        if not isinstance(turn, dict) or not isinstance(turn.get("steps"), list):
+            sys.exit(f"{path} 第 {i} 行没有 steps 数组")
+    archive = io.BytesIO()
+    with tarfile.open(fileobj=archive, mode="w") as tar:
+        # 脚本先于剧本落地：zeta_host.sh 看到剧本时脚本已经在了
+        for name, data, mode in (("fake-claude.sh", open(FAKE_SCRIPT, "rb").read(), 0o755),
+                                 ("scenario.jsonl", ("\n".join(lines) + "\n").encode(), 0o644)):
+            info = tarfile.TarInfo(name)
+            info.size, info.mode, info.mtime = len(data), mode, int(time.time())
+            tar.addfile(info, io.BytesIO(data))
+    debian(f"mkdir -p {FAKE_DIR} && rm -f {FAKE_DIR}/scenario.jsonl.turn && tar -xf - -C {FAKE_DIR} --no-same-owner",
+           data=archive.getvalue())
+    print(f"假 Claude 已就位：剧本 {os.path.basename(path)}，{len(lines)} 轮；之后测试版起的对话都用它")
 
 
 def android(cmd, check=True, data=None, binary=False):
@@ -192,6 +236,8 @@ def main():
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
     owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
+    if c == "fake" and not dev:
+        sys.exit("假 Claude 只给测试版用：vd.py --dev fake <剧本>")
     if not dev and owner != "main" and c != "build":
         sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
     if c != "build":
@@ -214,6 +260,10 @@ def main():
         android(f"input -d {need_display()} text '" + rest[0].replace("'", "'\\''") + "'")
     elif c == "key":
         android(f"input -d {need_display()} keyevent {rest[0]}")
+    elif c == "fake":
+        if len(rest) != 1:
+            sys.exit("用法：vd.py --dev fake <剧本.jsonl> | --off")
+        fake(rest[0])
     elif c == "status":
         did = display_id()
         print("虚拟屏不在" if did is None else f"虚拟屏 {did}")
@@ -230,6 +280,9 @@ def main():
             cmds = cmds + [f"am force-stop {PACKAGE}", DEV_CLEANUP.replace("@PKG@", PACKAGE)]
         if cmds:
             print(android("\n".join(cmds), check=False), end="")
+        if PACKAGE != RELEASE:
+            # 假 Claude 撤下：之后测试版起的都是真的 claude，闲着的假 Claude 看到剧本没了自己退出
+            print(debian(f"if [ -d {FAKE_DIR} ]; then rm -rf {FAKE_DIR} && echo 删掉了假 Claude 的剧本; fi"), end="")
         print("stopped")
     else:
         sys.exit(__doc__)

@@ -38,11 +38,17 @@ if [ "$mode" = start ]; then
   # Claude Code 对新模型默认不开任务清单工具（TaskCreate、TaskUpdate 等），聊天页的任务清单面板靠它们，这里打开。
   # 环境变量或 settings.json 的 env 里明确设过的照那边的。
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
+  # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude。
+  # 只有测试版在真机测试放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd.py --dev fake 放进来，vd.py --dev stop 删掉）。
+  run=claude
+  if [ "${ZETA_NAME:-zeta}" = zeta-dev ] && [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
+    run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
+  fi
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。
   setsid bash -c '
-    D=$1; shift
+    D=$1; R=$2; shift 2
     exec 3<>"$D/in"
-    claude "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
+    "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
     P=$!
     echo $P > "$D/pid"
     # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后自行结束，
@@ -84,7 +90,7 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -d "$D" ] && echo $code > "$D/exit"
-  ' zeta-run "$D" "$@" </dev/null >/dev/null 2>&1 &
+  ' zeta-run "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else

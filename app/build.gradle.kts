@@ -111,6 +111,8 @@ val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + pr
 tasks.withType<Test>().configureEach {
     // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_helper.py、zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
     inputs.dir("src/main/assets").withPropertyName("assetScripts").withPathSensitivity(PathSensitivity.RELATIVE)
+    // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
+    inputs.dir("../tools/fake-claude").withPropertyName("fakeClaude").withPathSensitivity(PathSensitivity.RELATIVE)
     val androidAll: FileCollection = robolectricRuntime
     inputs.files(androidAll).withPropertyName("robolectricAndroidAll").withNormalizer(ClasspathNormalizer::class.java)
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=" + androidAll.singleFile.parentFile) })

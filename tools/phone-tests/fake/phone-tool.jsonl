@@ -1,0 +1,1 @@
+{"title":"假 Claude · 手机工具","steps":[{"text":"我在后台屏幕上打开计算器。","chunk":6,"delay":30},{"phone":"open_app","input":{"app":"com.miui.calculator","display":"background"}},{"text":"打开了，计算器在后台屏幕上。","chunk":6,"delay":30}]}
