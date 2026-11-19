@@ -93,11 +93,11 @@ internal fun notificationListenerItem(snapshot: PermissionSnapshot?, root: Boole
     val title = "通知使用权"
     return when {
         snapshot == null -> PermissionItem(id, title, null, "检查中", PermissionStatus.Checking, false)
-        snapshot.notificationListener -> PermissionItem(id, title, "通知触发的任务靠它实时收到别的应用的通知", "已允许", PermissionStatus.Ready, false)
+        snapshot.notificationListener -> PermissionItem(id, title, "通知触发的任务靠它收通知", "已允许", PermissionStatus.Ready, false)
         NotifyRuleStore.observed.any { it.enabled } -> PermissionItem(
-            id, title, "有开着的通知触发规则：没有它收不到通知，规则不会触发", "未允许", PermissionStatus.Missing, root == true,
+            id, title, "有开着的规则，没它不会触发", "未允许", PermissionStatus.Missing, root == true,
         )
-        else -> PermissionItem(id, title, "通知触发的任务要用；现在没有开着的规则，用不到", "未允许", PermissionStatus.Idle, false)
+        else -> PermissionItem(id, title, "通知触发要用，现在用不到", "未允许", PermissionStatus.Idle, false)
     }
 }
 

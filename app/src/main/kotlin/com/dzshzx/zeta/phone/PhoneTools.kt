@@ -1059,7 +1059,7 @@ class PhoneTools(
         var screen: VirtualScreen? = null
         if (requested != "main") {
             val reason = when {
-                !settings.backgroundScreen -> if (requested == "background") "用户在 Zeta 的设置里关掉了后台执行，在主屏上打开" else null
+                !settings.backgroundScreen -> if (requested == "background") "用户在 Zeta 的设置里关掉了「在后台屏幕上操作」，在主屏上打开" else null
                 handler != null && (handler == context.packageName || handler in MAIN_ONLY) -> "$label 只在主屏上打开"
                 // 在后台屏幕上启动会把它从主屏抽走，打断用户正在做的事
                 handler != null && handler == foregroundOnMain() -> "$label 正开在主屏前台（用户可能正在用），就在主屏上操作，不把它挪走"
