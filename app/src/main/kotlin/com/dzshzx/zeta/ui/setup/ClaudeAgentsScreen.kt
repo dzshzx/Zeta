@@ -76,6 +76,7 @@ private val CommonTools = listOf(
 /**
  * “Subagent”：~/.claude/agents 下的每个 .md 是一个自定义 Subagent（前言写 name、description、model、tools，正文是系统提示词）。
  * 照 Eta：列表点开先看详情，再编辑或删除。Eta 的“Subagent 模型”是全局的一项，Claude Code 里每个 Subagent 自己写 model。
+ * Claude Code 自带的 general-purpose、Explore、Plan 等不在这个目录里，这里不列出。
  */
 @Composable
 internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -128,7 +129,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
             ConfirmDialog(
                 show = deleting != null,
                 title = "删除 Subagent",
-                summary = shownDeleting?.let { "删除“${it.name}”（~/.claude/agents/${it.file}）？此操作无法撤销。" },
+                summary = shownDeleting?.let { "删除“${it.name}”？删了就找不回来。" },
                 confirmText = "删除",
                 destructive = true,
                 onConfirm = {
@@ -148,12 +149,11 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "agents") {
             PreferenceGroup(
                 title = "自定义 Subagent · ${list?.size ?: 0}",
-                footer = "保存在 ~/.claude/agents，所有项目都能用。Claude 根据每个 Subagent 的“什么时候用”自己决定交给谁，" +
-                    "你也可以在对话里点名让它用某一个。Claude Code 还自带 general-purpose、Explore、Plan 等几个，这里不列出。",
+                footer = "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。",
             ) {
                 when {
                     list == null -> item { ConfigLoadingRow() }
-                    list.isEmpty() -> item { ConfigEmptyRow("暂无自定义 Subagent", "可以在对话里让 Claude 帮你写一个（保存在 ~/.claude/agents/<名字>.md），或点右上角 + 新建") }
+                    list.isEmpty() -> item { ConfigEmptyRow("还没有自定义 Subagent", "让 Claude 写一个，或点右上角 + 新建") }
                     else -> list.forEach { agent ->
                         item(key = agent.file) {
                             // 点开是详情对话框，不是另一页：不带箭头
@@ -276,12 +276,13 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
         },
     ) {
         item(key = "name") {
-            PreferenceGroup(title = "名称", footer = "小写字母、数字和连字符，比如 code-reviewer。保存为 ~/.claude/agents/<名称>.md。") {
+            // 保存为 ~/.claude/agents/<名称>.md
+            PreferenceGroup(title = "名称", footer = "小写字母、数字和连字符，比如 code-reviewer。") {
                 item { InputPreference(value = name, onValueChange = { name = it }, hint = "code-reviewer", enabled = !saving) }
             }
         }
         item(key = "description") {
-            PreferenceGroup(title = "什么时候用", footer = "写清楚它擅长什么、什么情况下该交给它。Claude 靠这段话决定要不要用它。") {
+            PreferenceGroup(title = "什么时候用", footer = "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。") {
                 item {
                     MultiLineField(
                         value = description,
@@ -295,11 +296,8 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
             }
         }
         item(key = "model") {
-            PreferenceGroup(
-                title = "模型",
-                footer = "“跟随主对话”用当前对话正在用的模型。“默认”是不写 model：Claude Code 同样让它跟随主对话，" +
-                    "只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型。",
-            ) {
+            // “默认”是不写 model：Claude Code 同样让它跟随主对话，只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型
+            PreferenceGroup(footer = "“默认”一般和“跟随主对话”一样，用当前对话的模型。") {
                 item {
                     val options = if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions else ModelOptions + (model to model)
                     OverlayDropdownPreference(
@@ -313,10 +311,8 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
             }
         }
         item(key = "tools") {
-            PreferenceGroup(
-                title = "工具",
-                footer = "关掉“全部工具”后，它只能用勾选的这些。别的工具（比如 MCP 的 mcp__服务器名__工具名，Zeta 的手机工具是 mcp__phone__ 开头的）写进“其他工具”，用逗号分开。",
-            ) {
+            // “其他工具”写 MCP 工具：mcp__服务器名（整个服务器）或 mcp__服务器名__工具名；Zeta 的手机工具是 mcp__phone__ 开头的
+            PreferenceGroup(title = "工具", footer = "关掉“全部工具”后，它只能用勾选的和“其他工具”里写的，多个用逗号分开。") {
                 item {
                     SwitchPreference(
                         checked = allTools,
@@ -345,7 +341,7 @@ private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () ->
             }
         }
         item(key = "prompt") {
-            PreferenceGroup(title = "系统提示词", footer = "它的角色和做事方式。Subagent 看不到主对话的内容，只看到这段话和交给它的任务。") {
+            PreferenceGroup(title = "系统提示词", footer = "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。") {
                 item {
                     MultiLineField(
                         value = prompt,
