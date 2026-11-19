@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -42,7 +43,6 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
@@ -229,14 +229,14 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
         listOf(
             DropdownEntry(
                 items = listOf(
-                    DropdownItem(text = "编辑", onClick = { ui.startEdit(current) }, icon = menuRowIcon(COUIIcons.Edit)),
-                    DropdownItem(text = "上移", enabled = !first, onClick = { ui.move(current, -1) }, icon = menuRowIcon(Icons.Rounded.ArrowUpward, enabled = !first)),
-                    DropdownItem(text = "下移", enabled = !last, onClick = { ui.move(current, 1) }, icon = menuRowIcon(Icons.Rounded.ArrowDownward, enabled = !last)),
+                    menuItem("编辑", COUIIcons.Edit, { ui.startEdit(current) }),
+                    menuItem("上移", Icons.Rounded.ArrowUpward, { ui.move(current, -1) }, enabled = !first),
+                    menuItem("下移", Icons.Rounded.ArrowDownward, { ui.move(current, 1) }, enabled = !last),
                 ),
             ),
             DropdownEntry(
                 items = listOf(
-                    DropdownItem(text = "删除", alert = true, onClick = { ui.askDelete(current) }, icon = menuRowIcon(COUIIcons.Delete, alert = true)),
+                    menuItem("删除", COUIIcons.Delete, { ui.askDelete(current) }, alert = true),
                 ),
             ),
         )

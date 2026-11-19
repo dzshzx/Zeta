@@ -17,6 +17,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时分隔线从 `RowDividerStartWithIcon` 开始。
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
 - `TopBarIconButton`：顶栏右边的图标按钮，不能点时图标变灰（COUI 2 的 `IconButton` 不会）。
+- `menuItem`、`AnchoredMenu`（`Menus.kt`）：带图标的菜单项，图标颜色跟着文字（COUI 2 的菜单行不给图标上色）；挂在胶囊、按钮、标题上的下拉菜单。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`：带页面毛玻璃的对话框。
 
 ## 常见的选法
@@ -36,7 +37,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
 | 图标按钮弹菜单 | `OverlayIconDropdownMenu`；列表行里的「更多」用 `IconButton(material = false)` 加 `OverlayDropdownPopup`（材质按钮的阴影在列表里会被裁掉） |
 | 长按菜单 | `OverlayContextMenu` |
-| 挂在别的元素上的菜单 | `Box { 元素; OverlayDropdownPopup(…) }`，元素和菜单同在一个 `Box` 里 |
+| 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
 
 ## 坑
 

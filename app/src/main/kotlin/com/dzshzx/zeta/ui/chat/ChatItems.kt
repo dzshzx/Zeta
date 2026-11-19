@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
@@ -74,7 +75,6 @@ import com.dzshzx.zeta.ui.markdown.StaticMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -163,31 +163,16 @@ private fun userMenuEntries(
     onDelete: (() -> Unit)?,
 ): List<DropdownEntry> {
     val main = buildList {
-        add(DropdownItem(text = "复制", onClick = onCopy, icon = menuRowIcon(COUIIcons.Copy)))
-        if (onSave != null) add(DropdownItem(text = "收藏为常用指令", onClick = onSave, icon = menuRowIcon(COUIIcons.Favorites)))
-        if (onEdit != null) add(DropdownItem(text = "编辑", onClick = onEdit, icon = menuRowIcon(COUIIcons.Edit)))
+        add(menuItem("复制", COUIIcons.Copy, onCopy))
+        if (onSave != null) add(menuItem("收藏为常用指令", COUIIcons.Favorites, onSave))
+        if (onEdit != null) add(menuItem("编辑", COUIIcons.Edit, onEdit))
     }
     val danger = if (onDelete != null) {
-        listOf(DropdownItem(text = "删除", onClick = onDelete, icon = menuRowIcon(COUIIcons.Delete, alert = true), alert = true))
+        listOf(menuItem("删除", COUIIcons.Delete, onDelete, alert = true))
     } else {
         emptyList()
     }
     return listOf(DropdownEntry(items = main), DropdownEntry(items = danger))
-}
-
-/** COUI 菜单（DropdownItem）行首的图标，颜色跟着文字：[alert] 的（删除）是红色，不可用的变灰。 */
-internal fun menuRowIcon(imageVector: ImageVector, alert: Boolean = false, enabled: Boolean = true): @Composable (Modifier) -> Unit = { modifier ->
-    val colors = COUITheme.colorScheme
-    Icon(
-        imageVector = imageVector,
-        contentDescription = null,
-        modifier = modifier,
-        tint = when {
-            !enabled -> colors.disabledNeutral
-            alert -> colors.error
-            else -> colors.labelPrimary
-        },
-    )
 }
 
 @Composable

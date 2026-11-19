@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -679,7 +681,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                 Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "切换模型", modifier = Modifier.padding(start = 2.dp).size(16.dp), tint = colors.labelSecondary)
             }
         }
-        ChatMenuPopup(show = expanded, entries = entries, onDismiss = { expanded = false })
+        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
 }
 

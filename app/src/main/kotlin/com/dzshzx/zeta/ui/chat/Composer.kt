@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -63,7 +65,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.shadow.Shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,14 +76,12 @@ import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import io.github.suqi8.coui.kmp.basic.ChipDefaults
-import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconChip
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -309,7 +308,7 @@ internal fun Composer(
                     ),
                     DropdownEntry(items = listOf(menuItem("常用指令", Icons.Rounded.BookmarkBorder, onOpenPrompts))),
                 )
-                ChatMenuPopup(show = attachMenu, entries = attachEntries, onDismiss = { attachMenu = false })
+                AnchoredMenu(show = attachMenu, entries = attachEntries, onDismiss = { attachMenu = false })
             }
             Spacer(Modifier.width(8.dp))
             PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
@@ -402,28 +401,7 @@ internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
                 },
             ),
         )
-        ChatMenuPopup(show = expanded, entries = entries, onDismiss = { expanded = false })
+        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
 }
 
-/** 菜单里带图标的一项。 */
-internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true, alert: Boolean = false): DropdownItem =
-    DropdownItem(text = text, enabled = enabled, onClick = onClick, alert = alert, icon = { modifier -> Icon(icon, contentDescription = null, modifier = modifier) })
-
-/**
- * 挂在旁边元素（胶囊、按钮、标题）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
- * `Box { 元素; ChatMenuPopup(show, entries, onDismiss) }`。
- */
-@Composable
-internal fun ChatMenuPopup(show: Boolean, entries: List<DropdownEntry>, onDismiss: () -> Unit) {
-    OverlayDropdownPopup(
-        entries = entries,
-        show = show,
-        onDismiss = onDismiss,
-        onDismissFinished = {},
-        maxHeight = null,
-        dropdownColors = DropdownDefaults.dropdownColors(),
-        renderInRootScaffold = true,
-        collapseOnSelection = true,
-    )
-}
