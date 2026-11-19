@@ -34,8 +34,10 @@ import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
+import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton

@@ -20,10 +20,9 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.SliderPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import kotlin.math.roundToInt
 
-/** 外观与主题：深浅色、强调色、纯黑背景、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
+/** 外观与主题：深浅色、强调色、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
 @Composable
 internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -81,14 +80,6 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                         items = accents.map { it.label },
                         selectedIndex = accents.indexOf(prefs.accent),
                         onSelectedIndexChange = { index -> accents.getOrNull(index)?.let(prefs::chooseAccent) },
-                    )
-                }
-                item {
-                    SwitchPreference(
-                        title = "纯黑背景",
-                        summary = "深色模式下使用纯黑背景",
-                        checked = prefs.pureBlack,
-                        onCheckedChange = prefs::choosePureBlack,
                     )
                 }
             }

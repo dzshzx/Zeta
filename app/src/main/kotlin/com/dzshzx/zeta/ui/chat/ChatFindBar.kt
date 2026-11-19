@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.UserItem
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -155,16 +154,5 @@ internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Mod
 
 /** 查找栏的小按钮：36dp 的平按钮，20dp 图标。 */
 @Composable
-private fun BarButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    IconActionButton(
-        icon,
-        description,
-        enabled = enabled,
-        material = false,
-        minWidth = 36.dp,
-        minHeight = 36.dp,
-        cornerRadius = 18.dp,
-        iconModifier = Modifier.size(20.dp),
-        onClick = onClick,
-    )
-}
+private fun BarButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) =
+    FlatIconButton(icon, description, size = 36.dp, iconSize = 20.dp, enabled = enabled, onClick = onClick)

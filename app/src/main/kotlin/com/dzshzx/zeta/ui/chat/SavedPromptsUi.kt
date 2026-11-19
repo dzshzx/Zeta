@@ -4,7 +4,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,20 +34,17 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.RowMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextField
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
 
@@ -221,7 +217,6 @@ private fun PromptListDialog(ui: PromptsUi) {
 private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: PromptsUi) {
     val colors = COUITheme.colorScheme
     val current by rememberUpdatedState(prompt)
-    var menuOpen by remember { mutableStateOf(false) }
     val entries = remember(first, last, ui) {
         listOf(
             DropdownEntry(
@@ -266,18 +261,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                 )
             }
         }
-        // 不用 OverlayIconDropdownMenu：它的按钮是顶栏那种带阴影的材质圆钮，放在对话框的列表里会被裁掉一截。
-        // 平的图标按钮加同一个下拉菜单，两者在同一个 Box 里，菜单以按钮为锚
-        Box {
-            IconButton(onClick = { menuOpen = true }, material = false, holdDownState = menuOpen) {
-                Icon(COUIIcons.More, contentDescription = "更多操作", modifier = Modifier.size(20.dp), tint = colors.labelSecondary)
-            }
-            AnchoredMenu(
-                show = menuOpen,
-                entries = entries,
-                onDismiss = { menuOpen = false },
-            )
-        }
+        RowMoreMenu("更多操作", entries, iconSize = 20.dp)
     }
 }
 

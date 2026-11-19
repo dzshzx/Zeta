@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +59,7 @@ import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -76,11 +76,9 @@ import io.github.suqi8.coui.kmp.icon.extended.Copy
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
-import io.github.suqi8.coui.kmp.icon.extended.Ok
 import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.coroutines.delay
 
 private val UserBubbleShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
 private val WorkCardShape = RoundedCornerShape(16.dp)
@@ -203,40 +201,10 @@ internal fun AnswerBlock(
         parts.images.forEach { image -> ChatImage(image, modifier = Modifier.padding(top = 10.dp)) }
         if (!item.streaming && item.text.isNotBlank()) {
             Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                CopyAction(text = item.text)
+                CopyIconButton(text = item.text, size = 30.dp, iconSize = 15.dp, tint = COUITheme.colorScheme.labelSecondary)
                 actions?.invoke()
             }
         }
-    }
-}
-
-@Composable
-private fun CopyAction(text: String, modifier: Modifier = Modifier) {
-    @Suppress("DEPRECATION")
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(1500)
-            copied = false
-        }
-    }
-    Box(
-        modifier = modifier
-            .size(30.dp)
-            .clip(CircleShape)
-            .clickable {
-                clipboard.setText(AnnotatedString(text))
-                copied = true
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = if (copied) COUIIcons.Ok else COUIIcons.Copy,
-            contentDescription = if (copied) "已复制" else "复制",
-            modifier = Modifier.size(15.dp),
-            tint = COUITheme.colorScheme.labelSecondary,
-        )
     }
 }
 

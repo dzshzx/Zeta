@@ -78,8 +78,10 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
@@ -91,7 +93,6 @@ import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
 import io.github.suqi8.coui.kmp.basic.Text
@@ -102,11 +103,9 @@ import io.github.suqi8.coui.kmp.blur.layerBackdrop
 import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Merge
-import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.icon.extended.Search
 import io.github.suqi8.coui.kmp.icon.extended.Settings
 import io.github.suqi8.coui.kmp.icon.extended.Sidebar
-import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -250,11 +249,7 @@ private fun ChatTopBar(
             title = "",
             color = if (backdrop != null) Color.Transparent else colors.background,
             glow = glow,
-            navigationIcon = {
-                IconButton(onClick = onOpenPane) {
-                    Icon(COUIIcons.Sidebar, contentDescription = "历史对话", tint = colors.labelPrimary)
-                }
-            },
+            navigationIcon = { IconActionButton(COUIIcons.Sidebar, "历史对话", onClick = onOpenPane) },
             actions = { OverflowMenu(onNewChat = onNewChat, onOpenSettings = onOpenSettings, onFind = onFind) },
         )
         // 标题位置：两边让出图标按钮，竖直方向和顶栏的 52dp 工具栏对齐
@@ -462,18 +457,9 @@ private fun ConversationBody(
                 exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
             ) {
                 // COUI 17 的浮动圆形按钮（顶栏按钮那种材质：阴影、边缘光、按压回弹）
-                IconButton(
-                    onClick = {
-                        follow = true
-                        scope.launch { listState.scrollToEnd() }
-                    },
-                ) {
-                    Icon(
-                        imageVector = ZetaIcons.ArrowDown,
-                        contentDescription = "回到底部",
-                        modifier = Modifier.size(18.dp),
-                        tint = COUITheme.colorScheme.labelPrimary,
-                    )
+                IconActionButton(ZetaIcons.ArrowDown, "回到底部", iconModifier = Modifier.size(18.dp)) {
+                    follow = true
+                    scope.launch { listState.scrollToEnd() }
                 }
             }
         }
@@ -519,8 +505,6 @@ private fun ConversationBody(
                 state = input,
                 busy = conversation.busy,
                 enabled = !conversation.loadingHistory && !conversation.rewinding,
-                permissionMode = conversation.permissionMode,
-                onPermissionModeChange = conversation::choosePermissionMode,
                 attachments = attachments,
                 files = uploads,
                 commands = hub.commands,
@@ -549,17 +533,11 @@ private fun ConversationBody(
                     uploads.clear()
                 },
                 onStop = conversation::interrupt,
-                extraChips = {
-                    EffortChip(
-                        effort = conversation.effort,
-                        applied = conversation.usage.appliedEffort,
-                        onChange = conversation::chooseEffort,
-                        modifier = Modifier.padding(start = 6.dp),
-                    )
+                tools = {
+                    PermissionModeChip(mode = conversation.permissionMode, onChange = conversation::choosePermissionMode)
+                    EffortChip(effort = conversation.effort, applied = conversation.usage.appliedEffort, onChange = conversation::chooseEffort)
                 },
-                trailing = {
-                    UsageButton(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
-                },
+                status = { UsageButtons(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }) },
             )
             UsageDialog(
                 visible = viewingUsage,
@@ -682,16 +660,17 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
 /** 顶栏右边的“更多”：新对话、在对话中查找、设置。 */
 @Composable
 private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
-    val entry = DropdownEntry(
-        items = listOf(
-            menuItem("新对话", ZetaIcons.NewChat, onNewChat),
-            menuItem("在对话中查找", COUIIcons.Search, { onFind?.invoke() }, enabled = onFind != null),
-            menuItem("设置", COUIIcons.Settings, onOpenSettings),
+    TopBarMoreMenu(
+        listOf(
+            DropdownEntry(
+                items = listOf(
+                    menuItem("新对话", ZetaIcons.NewChat, onNewChat),
+                    menuItem("在对话中查找", COUIIcons.Search, { onFind?.invoke() }, enabled = onFind != null),
+                    menuItem("设置", COUIIcons.Settings, onOpenSettings),
+                ),
+            ),
         ),
     )
-    OverlayIconDropdownMenu(entry = entry) {
-        Icon(COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
-    }
 }
 
 private class Suggestion(val title: String, val icon: ImageVector, val prompt: String)

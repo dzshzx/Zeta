@@ -131,7 +131,7 @@ internal fun DiagnosticsScreen(
                             "共 ${entries.size} 条" + (if (warnings > 0) "，$warnings 条警告" else "") +
                                 "\n最近：" + brief(entries.last().message.lineSequence().first(), 40)
                         },
-                        endActions = { if (errors > 0) StatusValue("$errors 条出错", COUITheme.colorScheme.error) },
+                        endActions = { if (errors > 0) PreferenceValue("$errors 条出错", color = COUITheme.colorScheme.error) },
                         onClick = { page = DiagPage.Log },
                     )
                 }
@@ -154,7 +154,7 @@ internal fun DiagnosticsScreen(
         item(key = "permissions") {
             PreferenceGroup(title = "权限", footer = "和权限健康页是同一份检查；要修的到那里点一下，或一键授予。") {
                 PermissionHealth.items(snapshot, hub).forEach { entry ->
-                    item(key = entry.id) { BasicComponent(title = entry.title, endActions = { StatusValue(entry.value, statusColor(entry.status)) }) }
+                    item(key = entry.id) { BasicComponent(title = entry.title, endActions = { PreferenceValue(entry.value, color = statusColor(entry.status)) }) }
                 }
             }
         }

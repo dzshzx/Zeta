@@ -10,17 +10,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +68,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
                         val busy = entry.id in working
                         val clickable = !busy && !granting && isActionable(entry, hub)
                         val value: @Composable () -> Unit = {
-                            StatusValue(if (busy) "正在处理…" else entry.value, if (busy) Color.Unspecified else statusColor(entry.status))
+                            PreferenceValue(if (busy) "正在处理…" else entry.value, color = if (busy) Color.Unspecified else statusColor(entry.status))
                         }
                         // 点了打开别的页面（Linux 环境页、系统设置）的带箭头；就地经 root 处理的不带
                         if (clickable && opensPage(entry)) {
@@ -160,19 +158,4 @@ internal fun statusColor(status: PermissionStatus): Color = when (status) {
     PermissionStatus.Missing -> COUITheme.colorScheme.error
     PermissionStatus.Attention -> StatusWarning
     else -> Color.Unspecified
-}
-
-/**
- * 设置行右侧带状态色的值（[com.dzshzx.zeta.ui.components.coui2.PreferenceValue] 的有色版本），放进 endActions；
- * [color] 为 Unspecified 时和 PreferenceValue 一样。
- */
-@Composable
-internal fun StatusValue(text: String, color: Color, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        modifier = modifier,
-        style = COUITheme.textStyles.bodyM,
-        color = color.takeOrElse { COUITheme.colorScheme.labelTertiary },
-        maxLines = 1,
-    )
 }

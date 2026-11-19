@@ -107,7 +107,6 @@ class ClaudeAccountsTest {
             assertEquals("max", it.subscription)
             assertEquals("Max", it.plan)
             assertEquals(1_900_000_000_000L, it.refreshExpiresAt)
-            assertNull(it.savedAt)
         }
         assertEquals(listOf("claude", "claude-b"), state.saved.map { it.id })
         // 没有可选字段的号：空串和 null，标题退回账号名

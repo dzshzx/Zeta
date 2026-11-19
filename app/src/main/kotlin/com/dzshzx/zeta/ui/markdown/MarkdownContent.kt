@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -43,12 +42,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,22 +57,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Community
-import io.github.suqi8.coui.kmp.icon.extended.Copy
 import io.github.suqi8.coui.kmp.icon.extended.Info
-import io.github.suqi8.coui.kmp.icon.extended.Ok
 import io.github.suqi8.coui.kmp.icon.extended.Report
 import io.github.suqi8.coui.kmp.icon.extended.Tasks
 import io.github.suqi8.coui.kmp.squircle.squircleBorder
 import io.github.suqi8.coui.kmp.squircle.squircleClip
 import io.github.suqi8.coui.kmp.squircle.squircleSurface
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.coroutines.delay
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -311,7 +305,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            CopyButton(text = block.text.text, tint = style.secondaryColor)
+            CopyIconButton(text = block.text.text, size = 32.dp, iconSize = 14.dp, tint = style.secondaryColor, contentDescription = "复制代码")
         }
         Box(
             modifier = Modifier
@@ -328,38 +322,6 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
         ) {
             MarkdownText(block, style.code, scope, softWrap = false)
         }
-    }
-}
-
-@Composable
-private fun CopyButton(text: String, tint: Color) {
-    @Suppress("DEPRECATION")
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(1_400)
-            copied = false
-        }
-    }
-    // 代码块标题栏里的小按钮：不要顶栏按钮那层材质，平的，按下有 COUI 的点按反馈
-    IconButton(
-        onClick = {
-            @Suppress("DEPRECATION")
-            clipboard.setText(AnnotatedString(text))
-            copied = true
-        },
-        material = false,
-        cornerRadius = 16.dp,
-        minWidth = 32.dp,
-        minHeight = 32.dp,
-    ) {
-        Icon(
-            imageVector = if (copied) COUIIcons.Ok else COUIIcons.Copy,
-            contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_code),
-            modifier = Modifier.size(14.dp),
-            tint = if (copied) COUITheme.colorScheme.primary else tint,
-        )
     }
 }
 

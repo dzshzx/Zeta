@@ -49,7 +49,6 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.settings.StatusValue
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
@@ -234,7 +233,7 @@ private fun TaskDetail(conversation: Conversation, task: BackgroundTask, onBack:
                         TaskState.Failed -> COUITheme.colorScheme.error
                         else -> Color.Unspecified
                     }
-                    BasicComponent(title = "状态", endActions = { StatusValue(TaskLabels.state(task), color) })
+                    BasicComponent(title = "状态", endActions = { PreferenceValue(TaskLabels.state(task), color = color) })
                 }
                 item(key = "elapsed") { ElapsedRow(task) }
                 if (task.kind == TaskKind.Agent) {

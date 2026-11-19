@@ -123,7 +123,6 @@ internal object SettingsBackup {
             write = { v -> v.text() },
             show = { v -> AccentChoice.entries.firstOrNull { it.key == v.text() }?.label ?: v.text().orEmpty() },
         ),
-        boolItem("pureBlack", "深色模式用纯黑背景", default = false),
         BackupItem(
             key = "interfaceScale", label = "界面缩放",
             read = { prefs -> JsonPrimitive(normalizeInterfaceScale((prefs["interfaceScale"] as? Float) ?: 1f)) },

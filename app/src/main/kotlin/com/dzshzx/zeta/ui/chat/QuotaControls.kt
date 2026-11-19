@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,8 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,32 +27,31 @@ import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Timer
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
+/** 额度严重程度的颜色：严重红色，警告是 [StatusWarning]，平时用 [normal]。额度提醒、额度窗口、设置首页的账号摘要共用。 */
 @Composable
-private fun severityColor(severity: QuotaSeverity, normal: Color): Color = when (severity) {
+internal fun severityColor(severity: QuotaSeverity, normal: Color): Color = when (severity) {
     QuotaSeverity.Critical -> COUITheme.colorScheme.error
     QuotaSeverity.Warning -> StatusWarning
     QuotaSeverity.Normal -> normal
 }
 
 /**
- * 用量按钮的额度样子（见 [UsageButton]）：快到上限（服务器说要注意，或用了八成以上）或已经被拒时是一个沙漏，
- * 按严重程度着色。用了多少、是哪个窗口只放在读屏说明里（比如“本周额度已用 95%”），点开的用量弹窗里有全部窗口。
- * [current] 是按 [now] 折算过的额度，[window] 是它的 [QuotaSnapshot.alarming]。
+ * 额度提醒（见 [UsageButtons]）：快到上限（服务器说要注意，或用了八成以上）或已经被拒时是一个沙漏，按严重程度着色；
+ * 没到这一步时不占地方。用了多少、是哪个窗口写在读屏说明和长按提示里，点开的用量弹窗里有全部窗口。
+ * [current] 是按 [now] 折算过的额度（[QuotaSnapshot.current]）。
  */
 @Composable
-internal fun QuotaAlarm(current: QuotaSnapshot, window: QuotaWindow, now: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun QuotaAlarm(current: QuotaSnapshot, now: Long, onClick: () -> Unit) {
+    val window = current.alarming ?: return
     val severity = if (current.blocked) QuotaSeverity.Critical else maxOf(window.severity, Quota.severityOf(window.used))
-    val color = severityColor(severity, StatusWarning)
-    IconChip(
-        onClick = onClick,
-        modifier = modifier.semantics {
-            contentDescription = if (current.blocked) {
-                "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
-            } else {
-                "${window.spokenName}额度已用 ${window.percent}%"
-            }
+    BarButton(
+        description = if (current.blocked) {
+            "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
+        } else {
+            "订阅额度（${window.label}）已用 ${window.percent}%"
         },
-        colors = barChipColors(color),
+        onClick = onClick,
+        colors = barChipColors(severityColor(severity, StatusWarning)),
     ) {
         Icon(imageVector = COUIIcons.Timer, contentDescription = null)
     }

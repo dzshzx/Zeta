@@ -9,7 +9,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.CardDefaults
 import io.github.suqi8.coui.kmp.basic.CardListPosition
 import io.github.suqi8.coui.kmp.basic.DividerDefaults
@@ -26,7 +25,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * 末一行画下面两个圆角并和下一张卡片隔 16dp，行间画 COUI 的分隔线。
  * 行里的 BasicComponent 照 CardListGroup 里一样拿到自己的位置（头尾多 2dp）。
  * 卡片下面紧跟说明文字（PagerFooterPreference）时传 [footerBelow]，末一行不再留 16dp。
- * [dividerStart] 是分隔线左端离卡片边的距离：行首有图标时传 [RowDividerStartWithIcon]，让线从标题开始；null 不画分隔线。
+ * [dividerStart] 是分隔线左端离卡片边的距离：行首有图标时传行的左内边距、图标宽和图标与标题的间距之和，让线从标题开始；null 不画分隔线。
  */
 @Composable
 internal fun CardListSegment(
@@ -52,6 +51,3 @@ internal fun CardListSegment(
         if (!last && dividerStart != null) HorizontalDivider(Modifier.padding(start = dividerStart, end = DividerDefaults.CardInset))
     }
 }
-
-/** 行首有 24dp 图标时分隔线的起点，和 CardListGroup 画的一样从标题开始：行的左内边距、图标、图标和标题的间距。 */
-internal val RowDividerStartWithIcon: Dp = 16.dp + 24.dp + BasicComponentDefaults.StartActionSpacing

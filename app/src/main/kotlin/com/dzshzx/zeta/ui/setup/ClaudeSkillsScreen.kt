@@ -4,7 +4,6 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,23 +18,18 @@ import com.dzshzx.zeta.core.claude.ClaudeConfigException
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.RowMoreMenu
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.preference.SwitchLoadingPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** ZIP 读进内存再交给 Debian 那边；Skill 包一般很小，太大的多半选错了文件。 */
 private const val MAX_ZIP_BYTES = 50 * 1024 * 1024
@@ -239,7 +233,6 @@ private fun SkillRow(
     onDescribe: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
     val canToggle = enabled && skill.valid
     val description = when {
         !skill.valid -> "缺少 SKILL.md"
@@ -255,20 +248,13 @@ private fun SkillRow(
         isLoading = working,
         enabled = canToggle,
         endActions = {
-            // 不用 OverlayIconDropdownMenu：它的图标按钮带顶栏那种材质底，放在列表行里是个实心圆
-            Box {
-                IconButton(onClick = { showMenu = true }, material = false, holdDownState = showMenu) {
-                    Icon(imageVector = COUIIcons.More, contentDescription = "更多：" + skill.name, tint = COUITheme.colorScheme.labelSecondary)
-                }
-                AnchoredMenu(
-                    show = showMenu,
-                    entries = listOf(
-                        DropdownEntry(items = listOf(DropdownItem(text = "查看说明", onClick = onDescribe))),
-                        DropdownEntry(items = listOf(DropdownItem(text = "删除", enabled = enabled, alert = true, onClick = { if (enabled) onDelete() }))),
-                    ),
-                    onDismiss = { showMenu = false },
-                )
-            }
+            RowMoreMenu(
+                contentDescription = "更多：" + skill.name,
+                entries = listOf(
+                    DropdownEntry(items = listOf(DropdownItem(text = "查看说明", onClick = onDescribe))),
+                    DropdownEntry(items = listOf(DropdownItem(text = "删除", enabled = enabled, alert = true, onClick = { if (enabled) onDelete() }))),
+                ),
+            )
         },
     )
 }

@@ -39,7 +39,6 @@ import com.dzshzx.zeta.ui.settings.SettingsBackupGroup
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
-import com.dzshzx.zeta.ui.settings.StatusValue
 import com.dzshzx.zeta.ui.settings.StorageEntry
 import com.dzshzx.zeta.ui.settings.StorageScreen
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
@@ -177,7 +176,7 @@ private fun SettingsHome(
                     ArrowPreference(
                         title = "权限健康",
                         endActions = {
-                            StatusValue(
+                            PreferenceValue(
                                 text = when {
                                     permissionIssues > 0 -> "$permissionIssues 项需关注"
                                     permissionChecking -> "检查中"

@@ -40,14 +40,6 @@ data class QuotaWindow(
             else -> scope ?: kind
         }
 
-    /** 读屏说明里的窗口名，后面直接接“额度”：5 小时、本周、本周 Fable、Fable。 */
-    val spokenName: String
-        get() = when {
-            kind == "session" || (group == "session" && scope == null) -> "5 小时"
-            group == "weekly" || kind.startsWith("weekly") -> if (scope != null) "本周 $scope " else "本周"
-            else -> scope?.let { "$it " } ?: kind
-        }
-
     val percent: Int get() = (used * 100).toInt().coerceAtLeast(0)
 }
 

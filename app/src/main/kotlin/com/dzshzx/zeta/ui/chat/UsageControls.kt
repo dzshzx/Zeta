@@ -1,8 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,13 +59,11 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
  * 思考强度按钮，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
- * 所以这里列的是它的档位。按钮上只有一个刻度图标（[ZetaIcons.effort]），亮几格是第几档；没指定时画 Claude Code 实际生效的档位，
- * 用中性的灰，指定了用主题色。档位名在读屏说明和点开的单选菜单里。
+ * 所以这里列的是它的档位。按钮上只有一个刻度表（[ZetaIcons.gauge]，格数就是档位数），亮几格是第几档；没指定时画 Claude Code
+ * 实际生效的档位，用中性的灰，指定了用主题色。档位名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
-internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit, modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
-    var expanded by remember { mutableStateOf(false) }
+internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit) {
     val choose by rememberUpdatedState(onChange)
     val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
     val entries = remember(defaultText, effort) {
@@ -76,18 +73,17 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
     }
     // 第几档，从 1 数；不知道是哪档时为 0
     val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1
-    val spoken = effortLabel(effort) ?: defaultText
-    // 按钮和菜单在同一个 Box 里：菜单以它为锚
-    Box(modifier = modifier) {
-        IconChip(
-            onClick = { expanded = true },
-            colors = if (effort == null) barChipColors(null) else barChipThemeColors(),
-        ) {
-            Icon(imageVector = ZetaIcons.effort(level), contentDescription = "思考强度：$spoken")
-        }
-        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
+    BarMenuButton(
+        description = "思考强度：${effortLabel(effort) ?: defaultText}",
+        entries = entries,
+        colors = if (effort == null) barChipColors(null) else barChipThemeColors(),
+    ) {
+        Icon(imageVector = EffortGauges[level], contentDescription = null)
     }
 }
+
+/** 思考强度的刻度表，第 i 个亮 i 格（0 是不知道档位）。 */
+internal val EffortGauges: List<ImageVector> by lazy { (0..EffortLevels.size).map { ZetaIcons.gauge(it, EffortLevels.size) } }
 
 @Composable
 private fun levelColor(level: ContextLevel, normal: Color): Color = when (level) {
@@ -97,23 +93,19 @@ private fun levelColor(level: ContextLevel, normal: Color): Color = when (level)
 }
 
 /**
- * 发送键左边的用量按钮，点开是用量弹窗（订阅额度、上下文、累计）。订阅额度快到上限或已被拒时显示额度提醒（[QuotaAlarm]），
- * 否则显示上下文圆环；额度没事、上下文也还不知道时不占地方。
+ * 发送键左边的用量按钮，点开都是用量弹窗（订阅额度、上下文、累计）：订阅额度快到上限或已被拒时有额度提醒（[QuotaAlarm]），
+ * 上下文用量知道了就有上下文圆环。两样各占一个按钮，额度报警时上下文快满也看得见；都没有时不占地方。
  */
 @Composable
-internal fun UsageButton(quota: QuotaSnapshot?, usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun UsageButtons(quota: QuotaSnapshot?, usage: ChatUsage, onClick: () -> Unit) {
     val now = rememberNow()
-    val current = quota?.current(now)
-    val alarming = current?.alarming
-    when {
-        current != null && alarming != null -> QuotaAlarm(current, alarming, now, onClick, modifier)
-        usage.known -> ContextMeter(usage, onClick, modifier)
-    }
+    quota?.current(now)?.let { QuotaAlarm(it, now, onClick) }
+    if (usage.known) ContextMeter(usage, onClick)
 }
 
 /** 上下文圆环，快满时变色、底色跟着变；百分比在读屏说明和用量弹窗里。 */
 @Composable
-private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val ink = colors.labelPrimary
@@ -121,11 +113,9 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifi
     val color = levelColor(level, ink.copy(alpha = if (dark) 0.52f else 0.46f))
     val percent = usage.fraction?.let { (it * 100).toInt() }
     val loud = level != ContextLevel.Normal && percent != null
-    IconChip(
+    BarButton(
+        description = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: ""),
         onClick = onClick,
-        modifier = modifier.semantics {
-            contentDescription = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: "")
-        },
         colors = barChipColors(if (loud) color else null),
     ) {
         ContextRing(

@@ -83,7 +83,7 @@ class SettingsBackupTest {
         assertEquals(JsonNull, settings["dark"])
         assertEquals(JsonNull, settings["model"])
         assertEquals(JsonPrimitive(true), settings["phoneTools"])
-        assertEquals(JsonPrimitive(false), settings["pureBlack"])
+        assertEquals(JsonPrimitive(false), settings["autoLoadRemoteImages"])
         assertEquals(JsonPrimitive("coui"), settings["accent"])
         assertEquals(JsonPrimitive(1f), settings["interfaceScale"])
         assertEquals(JsonPrimitive(true), settings["autoCompact"])
@@ -164,6 +164,8 @@ class SettingsBackupTest {
             file(
                 buildJsonObject {
                     put("phoneTools", "yes")
+                    put("autoLoadRemoteImages", true)
+                    // 删掉的设置项（旧版的纯黑背景开关）：当成不认识的跳过，不报错
                     put("pureBlack", true)
                     put("accent", "yellow")
                     put("interfaceScale", 5.0)
@@ -188,24 +190,25 @@ class SettingsBackupTest {
                 },
             ),
         )
-        assertEquals(mapOf("pureBlack" to JsonPrimitive(true), "effort" to JsonPrimitive("xhigh")), backup.values)
+        assertEquals(mapOf("autoLoadRemoteImages" to JsonPrimitive(true), "effort" to JsonPrimitive("xhigh")), backup.values)
         val skipped = backup.skipped.associateBy { it.key }
         assertEquals(
             setOf(
                 "phoneTools", "accent", "interfaceScale", "model", "permissionMode", "cwd", "keepScreenOn",
-                "pinnedSessions", "sharedFolders", "uid", "rootfs", "somethingNew",
+                "pinnedSessions", "sharedFolders", "uid", "rootfs", "somethingNew", "pureBlack",
                 "autoCompact", "autoCompactPercent", "savedPrompts",
             ),
             skipped.keys,
         )
         assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
         assertTrue(skipped.getValue("somethingNew").reason.startsWith("不认识的设置项"))
+        assertTrue(skipped.getValue("pureBlack").reason.startsWith("不认识的设置项"))
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))
         assertEquals("第 1 条：内容不能为空", skipped.getValue("savedPrompts").reason)
         // 跳过的项原样带进确认清单
         val plan = SettingsBackup.plan(backup, emptyMap<String, Any?>())
         assertEquals(backup.skipped, plan.skipped)
-        assertEquals(setOf("pureBlack", "effort"), plan.changes.map { it.key }.toSet())
+        assertEquals(setOf("autoLoadRemoteImages", "effort"), plan.changes.map { it.key }.toSet())
     }
 
     @Test

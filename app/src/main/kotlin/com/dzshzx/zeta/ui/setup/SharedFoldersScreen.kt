@@ -41,6 +41,7 @@ import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import io.github.suqi8.coui.kmp.basic.BasicComponent

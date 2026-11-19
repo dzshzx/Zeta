@@ -27,8 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,12 +42,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
@@ -62,7 +60,6 @@ import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Card
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -70,8 +67,6 @@ import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.SegmentButton
 import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.basic.TextField
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Notes
@@ -173,42 +168,6 @@ internal fun ConfigEmptyRow(title: String, summary: String? = null) {
 @Composable
 internal fun ConfigLoadingRow(text: String = "正在读取…") {
     BasicComponent(title = text, endActions = { InfiniteProgressIndicator(size = 20.dp) })
-}
-
-/**
- * 对话框里的一个输入框：上面一行小字说明填什么（[title]），框里是占位提示（[hint]，不给就用 [title]）。
- * COUI 2 的 TextField 只有框里的提示，这几个对话框（添加 MCP 服务器、规则、共享文件夹）要同时说清字段和举例，所以上面另放一行。
- */
-@Composable
-internal fun DialogTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    title: String? = null,
-    hint: String? = null,
-    enabled: Boolean = true,
-    singleLine: Boolean = true,
-    minLines: Int = 1,
-    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-) {
-    Column(modifier.fillMaxWidth()) {
-        if (title != null) Text(text = title, style = COUITheme.textStyles.bodyS, color = COUITheme.colorScheme.labelSecondary)
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = hint ?: title.orEmpty(),
-            enabled = enabled,
-            singleLine = singleLine,
-            minLines = minLines,
-            maxLines = maxLines,
-            visualTransformation = visualTransformation,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
-        )
-    }
 }
 
 /** 正文前面的 --- 前言块：预览时不显示（Markdown 会把它渲染成标题线）。 */
@@ -510,20 +469,4 @@ private fun SaveBar(visible: Boolean, overLimit: Boolean, saving: Boolean, onDis
             CompactButton(text = if (saving) "保存中" else "保存", enabled = !saving && !overLimit, onClick = onSave, primary = true)
         }
     }
-}
-
-/** 一行里和文字并排的小按钮：COUI 2 的 TextButton 默认至少 132dp 宽，这里收窄、压低。 */
-@Composable
-internal fun CompactButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, primary: Boolean = false) {
-    TextButton(
-        text = text,
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
-        minWidth = ButtonDefaults.MinWidthSmall,
-        minHeight = 36.dp,
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-        textStyle = COUITheme.textStyles.buttonM,
-        colors = if (primary) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-    )
 }

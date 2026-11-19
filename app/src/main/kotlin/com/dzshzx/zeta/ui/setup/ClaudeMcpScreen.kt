@@ -25,6 +25,7 @@ import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -54,6 +55,7 @@ private fun stateLabel(state: McpState?): String = when (state?.state) {
     else -> "未知"
 }
 
+/** 服务器状态在设置行右边的颜色：连上、连不上、要登录各有颜色，其余是普通值的颜色。 */
 @Composable
 private fun stateColor(state: McpState?): Color = when (state?.state) {
     "connected" -> COUITheme.colorScheme.success
@@ -192,7 +194,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
                                 title = server.name,
                                 summary = typeLabel(server.type) + " · " + brief(server.target(), 60) + (if (server.scope != "user") " · " + scopeLabel(server.scope) else "") +
                                     (server.shadowedBy?.let { " · 被" + scopeLabel(it) + "里的同名服务器盖住" } ?: ""),
-                                endActions = { StateValue(state) },
+                                endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) },
                                 onClick = { detail = server },
                             )
                         }
@@ -205,7 +207,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
             item(key = "connectors") {
                 PreferenceGroup(title = "Claude 账号的连接器", footer = "在 claude.ai 的连接器设置里管理，这里只显示状态。") {
                     connectors.forEach {
-                        item(key = it.name) { BasicComponent(title = it.name.removePrefix("claude.ai "), endActions = { StateValue(it.state) }) }
+                        item(key = it.name) { BasicComponent(title = it.name.removePrefix("claude.ai "), endActions = { PreferenceValue(stateLabel(it.state), color = stateColor(it.state)) }) }
                     }
                 }
             }
@@ -339,18 +341,6 @@ private fun AddServerDialog(visible: Boolean, onDismiss: () -> Unit, onAdd: (Ser
     }
 }
 
-/** 服务器状态：放在设置行右边，连上、连不上、要登录各有颜色。 */
-@Composable
-private fun StateValue(state: McpState?) {
-    val color = stateColor(state)
-    Text(
-        text = stateLabel(state),
-        style = COUITheme.textStyles.bodyM,
-        color = if (color == Color.Unspecified) COUITheme.colorScheme.labelTertiary else color,
-        maxLines = 1,
-    )
-}
-
 /** 一个服务器的详情：配置（秘密都只显示“有没有”）、身份认证、工具清单、删除。 */
 @Composable
 private fun McpServerDetail(
@@ -444,7 +434,7 @@ private fun McpServerDetail(
     ) {
         item(key = "server") {
             PreferenceGroup(title = "服务器") {
-                item { BasicComponent(title = "状态", summary = state?.issue?.ifBlank { null }, endActions = { StateValue(state) }) }
+                item { BasicComponent(title = "状态", summary = state?.issue?.ifBlank { null }, endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) }) }
                 item { BasicComponent(title = "范围", endActions = { PreferenceValue(scopeLabel(server.scope)) }) }
                 item { BasicComponent(title = "类型", endActions = { PreferenceValue(typeLabel(server.type)) }) }
                 if (server.type == "stdio") {

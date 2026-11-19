@@ -42,8 +42,6 @@ import com.dzshzx.zeta.ui.layout.WidePageContent
 import com.dzshzx.zeta.ui.layout.rememberIsWideScreen
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
 import io.github.suqi8.coui.kmp.basic.FabPosition
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.ScrollBehavior
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
@@ -252,11 +250,7 @@ internal fun CouiPageTopBar(
     }
     val backDescription = stringResource(R.string.action_back)
     val navigationIcon: @Composable () -> Unit = {
-        if (onBack != null) {
-            IconButton(onClick = onBack) {
-                Icon(imageVector = COUIIcons.Back, contentDescription = backDescription, tint = colors.labelPrimary)
-            }
-        }
+        if (onBack != null) IconActionButton(COUIIcons.Back, backDescription, onClick = onBack)
     }
     val wide = rememberIsWideScreen()
     if (style == CouiTopBarStyle.Small || (wide && style == CouiTopBarStyle.Large)) {

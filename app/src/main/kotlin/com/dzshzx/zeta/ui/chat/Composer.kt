@@ -40,9 +40,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,7 +59,6 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -69,7 +66,6 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconChip
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Add
@@ -112,16 +108,14 @@ internal fun Modifier.chatPanel(shape: Shape): Modifier {
 }
 
 /**
- * 输入卡片：圆角面板里是输入框，下面一行左边是附件键、权限模式按钮、思考强度按钮，右边是用量按钮和圆形发送键，
- * 全是定宽的图标按钮，空出来的地方在中间。
+ * 输入卡片：圆角面板里是输入框，下面是底栏：左边附件键和 [tools]，右边 [status] 和圆形发送键，空出来的地方在中间。
+ * 底栏只放定宽的图标按钮（[BarButton]、[BarMenuButton]），间距在这里统一给，窄屏也不会挤。
  */
 @Composable
 internal fun Composer(
     state: TextFieldState,
     busy: Boolean,
     enabled: Boolean,
-    permissionMode: String?,
-    onPermissionModeChange: (String) -> Unit,
     attachments: List<Attachment>,
     files: List<FileUpload>,
     commands: List<SlashCommand>,
@@ -140,10 +134,10 @@ internal fun Composer(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 权限模式按钮后面的图标按钮（思考强度）。 */
-    extraChips: @Composable () -> Unit = {},
-    /** 发送键左边的图标按钮（用量）。 */
-    trailing: @Composable () -> Unit = {},
+    /** 附件键后面的底栏按钮（权限模式、思考强度）。 */
+    tools: @Composable () -> Unit = {},
+    /** 发送键左边的底栏按钮（额度提醒、上下文圆环）。 */
+    status: @Composable () -> Unit = {},
 ) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
@@ -287,31 +281,28 @@ internal fun Composer(
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),
             )
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            var attachMenu by remember { mutableStateOf(false) }
-            Box {
-                IconChip(onClick = { attachMenu = true }, enabled = enabled) {
-                    Icon(COUIIcons.Add, contentDescription = "添加附件")
-                }
-                val attachEntries = listOf(
-                    DropdownEntry(
-                        items = listOf(
-                            menuItem("图片", COUIIcons.Image, onPickImages),
-                            menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
-                            menuItem("文件夹", COUIIcons.Folder, onPickFolder),
-                            menuItem("输入路径", COUIIcons.Edit, onEnterPath),
-                        ),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val attachEntries = listOf(
+                DropdownEntry(
+                    items = listOf(
+                        menuItem("图片", COUIIcons.Image, onPickImages),
+                        menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
+                        menuItem("文件夹", COUIIcons.Folder, onPickFolder),
+                        menuItem("输入路径", COUIIcons.Edit, onEnterPath),
                     ),
-                    DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
-                )
-                AnchoredMenu(show = attachMenu, entries = attachEntries, onDismiss = { attachMenu = false })
+                ),
+                DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
+            )
+            BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
+                Icon(COUIIcons.Add, contentDescription = null)
             }
-            Spacer(Modifier.width(8.dp))
-            PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
-            // 底栏只放图标按钮，宽度固定，窄屏也不会挤；空出来的地方在中间
-            extraChips()
-            Spacer(Modifier.weight(1f).widthIn(min = 8.dp))
-            trailing()
+            tools()
+            Spacer(Modifier.weight(1f))
+            status()
             val showStop = busy && !canSend
             val buttonColor by animateColorAsState(
                 targetValue = when {
@@ -364,32 +355,28 @@ internal fun Composer(
 }
 
 /**
- * 权限模式按钮：只有一面盾牌，颜色看模式（放得越开越醒目），模式名在读屏说明和点开的单选菜单里。
- * 逐项确认和没指定时是中性的灰，计划模式青色，自动接受编辑紫色，自动判断主题蓝，完全放行红色。
+ * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定、不跟强调色变（选红色强调色时也分得清「完全放行」）。
+ * 逐项确认和没指定时是灰色的 M，计划模式青色的 P，自动接受编辑紫色的 E，自动判断蓝色的 A，完全放行红色的感叹号。
+ * 模式名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
 internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
     val colors = COUITheme.colorScheme
-    var expanded by remember { mutableStateOf(false) }
-    val chipColors = when (mode) {
-        "plan" -> barChipColors(colors.cyan)
-        "acceptEdits" -> barChipColors(colors.purple)
-        "auto" -> barChipThemeColors()
-        "bypassPermissions" -> barChipColors(colors.error)
-        else -> barChipColors(null)
+    val (icon, tone) = when (mode) {
+        "auto" -> ZetaIcons.ShieldA to colors.blue
+        "plan" -> ZetaIcons.ShieldP to colors.cyan
+        "acceptEdits" -> ZetaIcons.ShieldE to colors.purple
+        "bypassPermissions" -> ZetaIcons.ShieldAlert to colors.error
+        else -> ZetaIcons.ShieldM to null
     }
-    Box {
-        IconChip(onClick = { expanded = true }, colors = chipColors) {
-            Icon(imageVector = ZetaIcons.Shield, contentDescription = "权限模式：${permissionModeLabel(mode)}")
-        }
-        val entries = listOf(
-            DropdownEntry(
-                items = PermissionModes.map { (value, label) ->
-                    DropdownItem(text = label, selected = value == mode, onClick = { onChange(value) })
-                },
-            ),
-        )
-        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
+    val entries = listOf(
+        DropdownEntry(
+            items = PermissionModes.map { (value, label) ->
+                DropdownItem(text = label, selected = value == mode, onClick = { onChange(value) })
+            },
+        ),
+    )
+    BarMenuButton(description = "权限模式：${permissionModeLabel(mode)}", entries = entries, colors = barChipColors(tone)) {
+        Icon(imageVector = icon, contentDescription = null)
     }
 }
-

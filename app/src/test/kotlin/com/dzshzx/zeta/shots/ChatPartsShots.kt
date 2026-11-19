@@ -53,7 +53,7 @@ import com.dzshzx.zeta.ui.chat.PermissionModeChip
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.QuotaDialogSection
 import com.dzshzx.zeta.ui.chat.TypingIndicator
-import com.dzshzx.zeta.ui.chat.UsageButton
+import com.dzshzx.zeta.ui.chat.UsageButtons
 import com.dzshzx.zeta.ui.chat.UsageDialog
 import com.dzshzx.zeta.ui.chat.UserBubble
 import com.dzshzx.zeta.ui.chat.WorkGroup
@@ -165,8 +165,8 @@ class ChatPartsShots : ShotTest() {
     }
 
     /**
-     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的颜色）；思考强度（默认、指定）；
-     * 用量按钮的额度提醒（快满、已达上限）和上下文圆环（平时、快满）。
+     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）；
+     * 用量按钮：额度快满和已达上限时额度提醒和上下文圆环并排，额度没事时只有圆环（平时、快满）。
      */
     @Test
     fun usageChips() {
@@ -177,15 +177,15 @@ class ChatPartsShots : ShotTest() {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (listOf(null) + PermissionModes.map { it.first }).forEach { PermissionModeChip(mode = it, onChange = {}) }
                 }
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     EffortChip(effort = null, applied = "high", onChange = {})
-                    EffortChip(effort = "max", applied = "max", onChange = {}, modifier = Modifier.padding(start = 6.dp))
+                    EffortChip(effort = "max", applied = "max", onChange = {})
                 }
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    UsageButton(hub.quota.snapshot, usage, onClick = {})
-                    UsageButton(blocked, usage, onClick = {})
-                    UsageButton(null, usage.copy(contextTokens = 120_000), onClick = {})
-                    UsageButton(null, usage.copy(contextTokens = 380_000), onClick = {})
+                    UsageButtons(hub.quota.snapshot, usage, onClick = {})
+                    UsageButtons(blocked, usage, onClick = {})
+                    UsageButtons(null, usage.copy(contextTokens = 120_000), onClick = {})
+                    UsageButtons(null, usage.copy(contextTokens = 380_000), onClick = {})
                 }
             }
         }

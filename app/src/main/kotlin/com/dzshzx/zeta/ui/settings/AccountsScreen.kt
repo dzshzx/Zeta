@@ -21,7 +21,7 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
-import com.dzshzx.zeta.ui.components.StatusWarning
+import com.dzshzx.zeta.ui.chat.severityColor
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -44,11 +44,7 @@ internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
     val now = rememberNow()
     val account = hub.account
     val headline = hub.quota.snapshot?.current(now)?.headline
-    val warnColor = when (headline?.severity) {
-        QuotaSeverity.Critical -> COUITheme.colorScheme.error
-        QuotaSeverity.Warning -> StatusWarning
-        else -> null
-    }
+    val summaryColor = severityColor(headline?.severity ?: QuotaSeverity.Normal, COUITheme.colorScheme.labelSecondary)
     PreferenceGroup(title = "Claude 账号") {
         item {
             ArrowPreference(
@@ -59,7 +55,7 @@ internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
                     !account.loggedIn -> "未登录"
                     else -> listOfNotNull(account.email, headline?.let { "${it.label}已用 ${it.percent}%" }).joinToString(" · ").ifBlank { "已登录" }
                 },
-                summaryColor = if (warnColor != null) BasicComponentDefaults.summaryColor(color = warnColor) else BasicComponentDefaults.summaryColor(),
+                summaryColor = BasicComponentDefaults.summaryColor(color = summaryColor),
                 enabled = ready,
                 onClick = onOpen,
             )

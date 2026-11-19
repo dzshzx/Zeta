@@ -3,8 +3,6 @@
     <string name="capture_tile">截屏给 Claude</string>
     <string name="accessibility_description">让 Claude 在你交代任务时读取屏幕上的内容，并代你点按、滑动和输入文字。Zeta 只在 Claude 调用手机工具时才使用它。</string>
     <string name="markdown_code_block">代码</string>
-    <string name="copy_copied">已复制</string>
-    <string name="copy_code">复制代码</string>
     <string name="markdown_alert_note">注意</string>
     <string name="markdown_alert_tip">提示</string>
     <string name="markdown_alert_important">重要</string>

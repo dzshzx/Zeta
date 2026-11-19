@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
@@ -66,13 +67,12 @@ import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.RowDividerStartWithIcon
+import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
@@ -86,10 +86,8 @@ import io.github.suqi8.coui.kmp.icon.extended.GridView
 import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.icon.extended.Import
 import io.github.suqi8.coui.kmp.icon.extended.Link
-import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
-import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -237,28 +235,34 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
         listState = if (shown != null) previewState else listState,
         actions = {
             if (shown == null) {
-                TopMenu(
+                TopBarMoreMenu(
                     listOf(
-                        listOf(
-                            MenuAction("导入文件到这里", COUIIcons.Import, enabled = !LinuxTransfers.running) { runCatching { importLauncher.launch(arrayOf("*/*")) } },
-                            MenuAction("刷新", COUIIcons.Refresh) { reload++ },
+                        DropdownEntry(
+                            items = listOf(
+                                menuItem("导入文件到这里", COUIIcons.Import, { runCatching { importLauncher.launch(arrayOf("*/*")) } }, enabled = !LinuxTransfers.running),
+                                menuItem("刷新", COUIIcons.Refresh, { reload++ }),
+                            ),
                         ),
-                        listOf(
-                            MenuAction("工作目录", ZetaIcons.FolderStar) { path = start },
-                            MenuAction("主目录", ZetaIcons.Home) { path = LinuxFiles.normalize(env?.home ?: "/root") },
-                            MenuAction("/workspace", COUIIcons.GridView) { path = "/workspace" },
-                            MenuAction("根目录", ZetaIcons.Storage) { path = "/" },
+                        DropdownEntry(
+                            items = listOf(
+                                menuItem("工作目录", ZetaIcons.FolderStar, { path = start }),
+                                menuItem("主目录", ZetaIcons.Home, { path = LinuxFiles.normalize(env?.home ?: "/root") }),
+                                menuItem("/workspace", COUIIcons.GridView, { path = "/workspace" }),
+                                menuItem("根目录", ZetaIcons.Storage, { path = "/" }),
+                            ),
                         ),
-                        listOf(MenuAction("复制当前路径", COUIIcons.Copy) { copyLinuxPath(context, path) }),
+                        DropdownEntry(items = listOf(menuItem("复制当前路径", COUIIcons.Copy, { copyLinuxPath(context, path) }))),
                     ),
                 )
             } else {
-                TopMenu(
+                TopBarMoreMenu(
                     listOf(
-                        listOfNotNull(
-                            MenuAction("导出到手机", COUIIcons.Download, enabled = !LinuxTransfers.running) { export(shown.path, shown.entry) }
-                                .takeIf { shown.entry.regular },
-                            MenuAction("复制路径", COUIIcons.Copy) { copyLinuxPath(context, shown.path) },
+                        DropdownEntry(
+                            items = listOfNotNull(
+                                menuItem("导出到手机", COUIIcons.Download, { export(shown.path, shown.entry) }, enabled = !LinuxTransfers.running)
+                                    .takeIf { shown.entry.regular },
+                                menuItem("复制路径", COUIIcons.Copy, { copyLinuxPath(context, shown.path) }),
+                            ),
                         ),
                     ),
                 )
@@ -426,10 +430,16 @@ private fun Crumb(label: String, current: Boolean, onClick: () -> Unit) {
     )
 }
 
+/** 行首图标的大小。 */
+private val RowIconSize = 24.dp
+
+/** 行首有图标时分隔线的起点，和 CardListGroup 画的一样从标题开始：行的左内边距、图标、图标和标题的间距。 */
+private val RowDividerStartWithIcon: Dp = 16.dp + RowIconSize + BasicComponentDefaults.StartActionSpacing
+
 /** 行首的图标。 */
 @Composable
 private fun RowIcon(icon: ImageVector, tint: Color) {
-    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(RowIconSize), tint = tint)
 }
 
 /** 一项文件或目录：点一下打开，长按弹出菜单。 */
@@ -450,33 +460,17 @@ private fun EntryRow(
         else -> COUIIcons.File
     }
     val actions = listOfNotNull(
-        MenuAction("复制路径", COUIIcons.Copy, onClick = onCopyPath),
-        onExport?.let { MenuAction("导出到手机", COUIIcons.Download, enabled = !LinuxTransfers.running, onClick = it) },
+        menuItem("复制路径", COUIIcons.Copy, onCopyPath),
+        onExport?.let { menuItem("导出到手机", COUIIcons.Download, it, enabled = !LinuxTransfers.running) },
     )
     val startAction: @Composable () -> Unit = { RowIcon(icon, if (entry.directory) colors.primary else colors.labelSecondary) }
-    OverlayContextMenu(entries = listOf(DropdownEntry(items = actions.map { it.item() }))) {
+    OverlayContextMenu(entries = listOf(DropdownEntry(items = actions))) {
         // 目录点进去是下一层，带箭头；文件点开是预览
         if (entry.directory) {
             ArrowPreference(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, onClick = onOpen)
         } else {
             BasicComponent(title = entry.name, summary = summary.ifEmpty { null }, startAction = startAction, onClick = onOpen)
         }
-    }
-}
-
-/** 菜单里的一项：图标、文字、点了做什么。 */
-private class MenuAction(val text: String, val icon: ImageVector, val enabled: Boolean = true, val onClick: () -> Unit) {
-    fun item(): DropdownItem = menuItem(text, icon, onClick, enabled)
-}
-
-/** 顶栏右边的“更多”菜单，[groups] 每组之间有分隔线。 */
-@Composable
-private fun TopMenu(groups: List<List<MenuAction>>) {
-    OverlayIconDropdownMenu(
-        entries = groups.filter { it.isNotEmpty() }.map { group -> DropdownEntry(items = group.map { it.item() }) },
-        collapseOnSelection = true,
-    ) {
-        Icon(imageVector = COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
     }
 }
 

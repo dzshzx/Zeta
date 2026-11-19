@@ -13,19 +13,28 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 - `CouiPage`（列表页）、`CouiPageScaffold`（内容随意）：页面骨架。顶栏带 COUI 17 光晕，页面录进背景图给弹出的东西做毛玻璃，宽屏时内容居中、顶栏变小，键盘弹出时让位。
 - `CouiBlur.kt`：毛玻璃接线。`LocalCouiBlurEnabled`（截图测试里关掉）、`LocalPageBackdrop`、`panelBlur(...)`。
-- `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值。
-- `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时分隔线从 `RowDividerStartWithIcon` 开始。
+- `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。
+- `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时自己给 `dividerStart`。
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
-- `IconActionButton`：只放一个图标的按钮（顶栏的新建、刷新，查找栏、消息下方的小按钮），不能点时图标变灰（COUI 2 的 `IconButton` 不会）；参数照 COUI 的 `IconButton`。
-- `menuItem`、`AnchoredMenu`（`Menus.kt`）：带图标的菜单项，图标颜色跟着文字（COUI 2 的菜单行不给图标上色）；挂在胶囊、按钮、标题上的下拉菜单。
-- `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`：带页面毛玻璃的对话框。
-- `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.effort(档位)` 是思考强度的刻度。
+- `IconActionButton`、`FlatIconButton`、`CopyIconButton`（`IconActionButton.kt`）：只放一个图标的按钮。`IconActionButton` 参数照 COUI 的 `IconButton`（顶栏的新建、刷新、返回）；`FlatIconButton(size, iconSize)` 是平的小圆钮（查找栏、消息下方、排队条）；`CopyIconButton` 是点了复制、短暂显示对勾的复制键。图标按钮都从这三个建，不直接用 COUI 的 `IconButton`。
+- `menuItem`、`AnchoredMenu`、`TopBarMoreMenu`、`RowMoreMenu`（`Menus.kt`）：带图标的菜单项；挂在胶囊、按钮、标题上的下拉菜单；顶栏和列表行里的「更多」。
+- `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`、`DialogTextField`（`Dialogs.kt`）：带页面毛玻璃的对话框，对话框里带标题的输入框。
+- `CompactButton`：卡片里、列表行里的小号文字按钮（COUI 的 `TextButton` 最小宽 132dp，放不下时用它）。
+- `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.gauge(档位, 格数)` 是刻度表。
+
+聊天页输入栏的底栏另有 `BarButton`、`BarMenuButton`（`ui/chat/BarButtons.kt`）：只放图标的定宽按钮，一句说明同时当读屏说明和长按提示，配色取 `barChipColors`。底栏不写字，档位、百分比都在这句说明、菜单和用量弹窗里；新按钮放进 `Composer` 的 `tools` 或 `status`，间距由 `Composer` 统一给。
+
+## 补上游缺口
+
+下面两处是 COUI 2.0.0 的缺口，Zeta 在本地补着。`CouiGapsTest` 断言缺口还在：升级 COUI 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
+
+- 图标按钮不能点时不变灰，也没有按钮角色（`IconButtonContainer` 不给内容提供 `LocalContentColor`，禁用时不加 `clickable`）。补在 `IconActionButton`：自己换 tint，补上按钮角色和「已停用」。
+- 菜单行给文字上色却不给图标上色（图标槽没有 `LocalContentColor`）。补在 `menuItem`：图标颜色照 `DropdownColors` 按可用、警示状态取。
 
 ## 图标
 
 - 先用 COUI 2 自带的（`COUIIcons.*`，全部样子见 `~/workspace-external/coui/docs/components/icon.md` 或源码 `coui-icons`），按意思选，不按名字：COUI 的 `ExpandMore` 是全屏的四个角，向下的折角用 `ZetaIcons.ChevronDown`。不用 Material 图标，依赖里已经没有它。
-- COUI 没有、或者它的是实心而旁边都是线条的，在 `ui/components/coui2/ZetaIcons.kt` 里画：24×24 画布，图形在 2–22 之内，线宽 1.7，圆头圆角，圆角矩形的圆角 2.5–3.5，路径用 SVG 写法。画完看 `tools/shots Icons` 出的 `zeta-icons` 总览图，和开头几个 COUI 图标比粗细、大小。
-- 输入栏底栏只放图标按钮（COUI 的 `IconChip`，28dp），宽度固定，窄屏也不挤；档位、百分比这类文字放读屏说明、菜单和用量弹窗里，不放到底栏上。
+- COUI 没有、或者它的是实心而旁边都是线条的，在 `ui/components/coui2/ZetaIcons.kt` 里画，规格写在那个文件开头。画完看 `tools/shots Icons` 出的 `zeta-icons` 总览图，和开头几个 COUI 图标比粗细、大小；图形出界由同一个测试拦下。
 
 ## 常见的选法
 
@@ -37,12 +46,12 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 | 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`OverlayDropdownPreference`、`SliderPreference` |
 | 列表行带开关、点行进编辑页 | `SwitchWithDividerPreference` |
 | 分组标题、一行小字、页面底部说明 | `PreferenceCategory`、`SmallTitle`、`PagerFooterPreference` |
-| 图标按钮、顶栏的文字按钮 | `IconActionButton`、`ToolbarTextButton` |
-| 按钮 | `TextButton(text, onClick)`；主操作 `colors = ButtonDefaults.textButtonColorsPrimary()` |
-| 输入框 | 卡片里带标题的 `InputView`，其他 `TextField` |
+| 图标按钮、顶栏的文字按钮 | `IconActionButton`（平的小圆钮 `FlatIconButton`，复制键 `CopyIconButton`）、`ToolbarTextButton` |
+| 按钮 | `TextButton(text, onClick)`；主操作 `colors = ButtonDefaults.textButtonColorsPrimary()`；放不下 132dp 宽时 `CompactButton` |
+| 输入框 | 卡片里带标题的 `InputView`，对话框里带标题的 `DialogTextField`，其他 `TextField` |
 | 确认、告知、单行输入 | `ConfirmDialog`（危险操作 `destructive = true`，COUI 画成红字；要区分「拒绝」和「随手关掉」给 `onCancel`）、`NoticeDialog`、`TextInputDialog` |
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
-| 图标按钮弹菜单 | `OverlayIconDropdownMenu`；列表行里的「更多」用 `IconButton(material = false)` 加 `AnchoredMenu`（材质按钮的阴影在列表里会被裁掉） |
+| 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
 | 长按菜单 | `OverlayContextMenu` |
 | 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态，带图标的菜单项都从它建）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
 
@@ -53,5 +62,5 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `PreferenceGroup` 的花括号里不是 composable，`remember`、`stringResource` 这类调用要写进 `item { }`。
 - 浮层（对话框、胶囊、弹窗这类白底面板）上不用卡片配色：浅色下 `cardBackground` 是纯白，深色下 `cardPressed` 是半透明白会发亮。按钮底用 `secondaryButton`，输入框底 `fillThin`，实心占位 `fillSolid`，提示字 `hintNeutral`，描边 `labelQuaternary`。
 - 换主题时 COUI 就地改同一个配色对象，`remember(colorScheme)` 会拿到旧颜色；要按具体的颜色值做键。
-- COUI 2 的 `TextField` 只有一个 label（占位提示和浮动标题二选一），要标题在框上方就用 `InputView` 或自己加一行小字；`InputView` 的多行形态固定 152dp 高。`TextButton` 最小宽 132dp，两个并排放不下时自己给 `minWidth`。
+- COUI 2 的 `TextField` 只有一个 label（占位提示和浮动标题二选一），要标题在框上方就用 `InputView` 或 `DialogTextField`；`InputView` 的多行形态固定 152dp 高。
 - 截图测试画不出：平滑圆角（着色器裁剪，块会整块空白，截图里可以临时关掉 `LocalSquircleEnabled`）、毛玻璃和顶栏光晕、公式。这些上真机看。`ScheduleStore`、`NotifyRuleStore` 是进程级单例，同一个 JVM 里前面测试留下的数据会串到后面，用到的测试先清空。

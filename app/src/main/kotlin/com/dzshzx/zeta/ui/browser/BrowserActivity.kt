@@ -77,8 +77,10 @@ import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
@@ -94,9 +96,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Back
 import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.icon.extended.Forward
 import io.github.suqi8.coui.kmp.icon.extended.Lock
-import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
@@ -214,7 +214,7 @@ internal fun BrowserScreen(onExit: () -> Unit) {
                         enabled = AgentBrowser.hasPage(),
                     ) { AgentBrowser.reloadOrStopByUser() }
                 }
-                MoreMenu(onClear = { confirmClear = true })
+                TopBarMoreMenu(listOf(DropdownEntry(items = listOf(DropdownItem(text = "清除浏览数据", onClick = { confirmClear = true })))))
             }
             LoadingLine(visible = AgentBrowser.loading, progress = AgentBrowser.progress)
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -367,28 +367,16 @@ private fun AddressField(
     }
 }
 
-/** 工具栏右边的“更多”：COUI 的图标下拉菜单，按钮和菜单是一体的。 */
-@Composable
-private fun MoreMenu(onClear: () -> Unit) {
-    val entry = remember(onClear) { DropdownEntry(items = listOf(DropdownItem(text = "清除浏览数据", onClick = onClear))) }
-    OverlayIconDropdownMenu(entry = entry) {
-        Icon(imageVector = COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
-    }
-}
-
 /** 聊天里浏览器工具那一步右边的小按钮：打开浏览器页看 Claude 的页面。 */
 @Composable
 internal fun BrowserStepButton() {
     val context = LocalContext.current
-    Box(
-        modifier = Modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).clickable { BrowserActivity.open(context) },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = COUIIcons.Forward,
-            contentDescription = "在浏览器里查看",
-            modifier = Modifier.size(16.dp),
-            tint = COUITheme.colorScheme.primary,
-        )
-    }
+    FlatIconButton(
+        icon = COUIIcons.Forward,
+        contentDescription = "在浏览器里查看",
+        size = 26.dp,
+        iconSize = 16.dp,
+        modifier = Modifier.padding(start = 6.dp),
+        tint = COUITheme.colorScheme.primary,
+    ) { BrowserActivity.open(context) }
 }

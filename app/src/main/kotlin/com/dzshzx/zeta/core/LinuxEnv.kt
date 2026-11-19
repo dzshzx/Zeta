@@ -269,11 +269,6 @@ class Settings(context: Context) {
         get() = prefs.getString("accent", null) ?: "coui"
         set(value) = prefs.edit().putString("accent", value).apply()
 
-    /** 外观：深色模式下用纯黑背景。 */
-    var pureBlack: Boolean
-        get() = prefs.getBoolean("pureBlack", false)
-        set(value) = prefs.edit().putBoolean("pureBlack", value).apply()
-
     /** 外观：界面缩放比例（1 为系统默认大小）。 */
     var interfaceScale: Float
         get() = prefs.getFloat("interfaceScale", 1f)

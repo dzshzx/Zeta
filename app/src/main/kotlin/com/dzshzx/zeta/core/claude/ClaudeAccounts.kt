@@ -19,27 +19,22 @@ data class ClaudeAccount(
     val email: String,
     val organization: String,
     val displayName: String,
-    /** 套餐的显示名；claude-switch 不给，为空时 [plan] 按订阅类型推。 */
-    val planName: String,
     /** 订阅类型（pro、max、team…）。 */
     val subscription: String,
     /** 刷新令牌的到期时刻（毫秒）；过了就只能重新登录。 */
     val refreshExpiresAt: Long?,
-    /** 这一份是什么时候存下的（毫秒）；claude-switch 不给，为 null。 */
-    val savedAt: Long?,
 ) {
     val title: String get() = email.ifBlank { displayName.ifBlank { id } }
 
+    /** 套餐的显示名，按订阅类型推（claude-switch 不给显示名）。 */
     val plan: String
-        get() = planName.ifBlank {
-            when (subscription) {
-                "" -> ""
-                "pro" -> "Pro"
-                "max" -> "Max"
-                "team" -> "Team"
-                "enterprise" -> "Enterprise"
-                else -> subscription.replaceFirstChar { it.uppercase() }
-            }
+        get() = when (subscription) {
+            "" -> ""
+            "pro" -> "Pro"
+            "max" -> "Max"
+            "team" -> "Team"
+            "enterprise" -> "Enterprise"
+            else -> subscription.replaceFirstChar { it.uppercase() }
         }
 
     fun expired(now: Long): Boolean = refreshExpiresAt != null && refreshExpiresAt <= now
@@ -53,13 +48,14 @@ data class ClaudeProc(val pid: Int, val owner: String, val status: String, val k
 
 @Immutable
 data class AccountsState(
-    val loggedIn: Boolean,
     /** 在用的登录；未登录时为 null。认不出是哪个号（claude-switch 没记过）时照样有，id 为空串。 */
     val current: ClaudeAccount?,
     /** claude-switch 管着的账号：有存档的，加上在用的那个（如果记过）。 */
     val saved: List<ClaudeAccount>,
     val processes: List<ClaudeProc>,
 ) {
+    val loggedIn: Boolean get() = current != null
+
     /** 界面列的账号：当前的在前，再是存着的其他账号。 */
     val all: List<ClaudeAccount>
         get() = listOfNotNull(current) + saved.filter { it.id != current?.id }.sortedBy { it.title.lowercase() }
@@ -183,7 +179,6 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
             val names = (listed.map { it.str("name") } + root.str("current")).filter { it.isNotEmpty() }.toSet()
             return Status(
                 AccountsState(
-                    loggedIn = live != null,
                     current = live,
                     saved = listed.filter { (it.bool("parked") || it.bool("current")) && it.str("name").isNotEmpty() }.map(::account),
                     processes = processes,
@@ -197,10 +192,8 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
             email = o.str("email"),
             organization = o.str("organization"),
             displayName = o.str("displayName"),
-            planName = "",
             subscription = o.str("subscription"),
             refreshExpiresAt = (o["refreshExpiresAt"] as? JsonPrimitive)?.longOrNull,
-            savedAt = null,
         )
 
         private fun JsonObject.str(key: String): String = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull.orEmpty()

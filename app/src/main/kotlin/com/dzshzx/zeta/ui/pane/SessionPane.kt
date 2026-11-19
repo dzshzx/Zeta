@@ -68,6 +68,7 @@ import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -77,7 +78,6 @@ import com.dzshzx.zeta.ui.tasks.BackgroundEntry
 import io.github.suqi8.coui.kmp.basic.Checkbox
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InputField
 import io.github.suqi8.coui.kmp.basic.SmallTitle
 import io.github.suqi8.coui.kmp.basic.Text
@@ -488,11 +488,8 @@ internal fun SessionPane(
 
 /** 侧栏里的圆形图标按钮：COUI 17 顶栏按钮的样子（材质底、阴影、按下缩放）。 */
 @Composable
-internal fun PaneCircleButton(icon: ImageVector, description: String, onClick: () -> Unit, size: Dp = 40.dp) {
-    IconButton(onClick = onClick, cornerRadius = size / 2, minWidth = size, minHeight = size) {
-        Icon(imageVector = icon, contentDescription = description, modifier = Modifier.size(22.dp), tint = COUITheme.colorScheme.labelPrimary)
-    }
-}
+internal fun PaneCircleButton(icon: ImageVector, description: String, onClick: () -> Unit, size: Dp = 40.dp) =
+    IconActionButton(icon, description, minWidth = size, minHeight = size, cornerRadius = size / 2, iconModifier = Modifier.size(22.dp), onClick = onClick)
 
 /** 底部的搜索框：COUI 的搜索胶囊，自带搜索图标和清空键。键盘上的“搜索”只收起键盘，结果随打字出来。 */
 @Composable

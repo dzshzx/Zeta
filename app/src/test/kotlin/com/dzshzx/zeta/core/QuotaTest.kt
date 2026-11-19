@@ -47,7 +47,7 @@ class QuotaTest {
         // 服务器挑的那一行是头条；86% 是“要注意”
         assertEquals("weekly_all", s.headline!!.kind)
         assertEquals("weekly_all", s.alarming!!.kind)
-        assertEquals("本周", s.headline!!.spokenName)
+        assertEquals("每周 · 全部模型", s.headline!!.label)
     }
 
     @Test

@@ -43,8 +43,6 @@ internal enum class AccentChoice(val key: String, val label: String, val family:
 internal class UiPrefs private constructor(private val settings: Settings) {
     var accent by mutableStateOf(AccentChoice.from(settings.accent))
         private set
-    var pureBlack by mutableStateOf(settings.pureBlack)
-        private set
     var interfaceScale by mutableFloatStateOf(normalizeInterfaceScale(settings.interfaceScale))
         private set
     var keepScreenOn by mutableStateOf(settings.keepScreenOn)
@@ -53,11 +51,6 @@ internal class UiPrefs private constructor(private val settings: Settings) {
     fun chooseAccent(value: AccentChoice) {
         accent = value
         settings.accent = value.key
-    }
-
-    fun choosePureBlack(enabled: Boolean) {
-        pureBlack = enabled
-        settings.pureBlack = enabled
     }
 
     fun chooseInterfaceScale(value: Float) {
@@ -74,7 +67,6 @@ internal class UiPrefs private constructor(private val settings: Settings) {
     /** 设置从备份导入后按存下来的值重读。 */
     fun reload() {
         accent = AccentChoice.from(settings.accent)
-        pureBlack = settings.pureBlack
         interfaceScale = normalizeInterfaceScale(settings.interfaceScale)
         keepScreenOn = settings.keepScreenOn
     }

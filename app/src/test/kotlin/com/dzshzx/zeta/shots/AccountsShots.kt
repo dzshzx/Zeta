@@ -39,15 +39,14 @@ class AccountsShots : ShotTest() {
         )
     }
 
-    /** claude-switch 给的样子：id 是账号名，没有存档时间、套餐显示名。 */
+    /** claude-switch 给的样子：id 是账号名。 */
     private fun account(id: String, email: String, org: String = "", subscription: String = "max") =
-        ClaudeAccount(id, email, org, "", "", subscription, null, null)
+        ClaudeAccount(id, email, org, "", subscription, null)
 
     /** 在用的是 claude，另外存着 claude-b（团队号）。 */
     private fun accountsState(): AccountsState {
         val current = account("claude", "shots@example.invalid")
         return AccountsState(
-            loggedIn = true,
             current = current,
             saved = listOf(current, account("claude-b", "work@example.invalid", org = "Example Co", subscription = "team")),
             processes = emptyList(),
@@ -56,7 +55,6 @@ class AccountsShots : ShotTest() {
 
     /** 在用的登录 claude-switch 还没记过：没有名字，列成当前账号，提示添加账号时会记下。 */
     private fun unrecordedState() = AccountsState(
-        loggedIn = true,
         current = account("", "new@example.invalid"),
         saved = listOf(account("claude", "shots@example.invalid")),
         processes = emptyList(),
@@ -103,7 +101,7 @@ class AccountsShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
         hub.showChat("额度", listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)))
-        shoot("chat-quota", prepare = { onAllNodes(hasContentDescription("额度已用", substring = true)).onFirst().performClick() }) {
+        shoot("chat-quota", prepare = { onAllNodes(hasContentDescription("订阅额度", substring = true)).onFirst().performClick() }) {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
         }
     }

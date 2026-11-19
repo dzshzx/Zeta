@@ -39,10 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.QueuedMessage
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Close
@@ -175,10 +175,7 @@ private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit
     }
 }
 
-/** 条上的小图标键：32dp 的平面 COUI 图标按钮（不带顶栏按钮的材质）。 */
+/** 条上的小图标键：32dp 的平按钮，16dp 图标。 */
 @Composable
-internal fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
-    IconButton(onClick = onClick, material = false, minWidth = 32.dp, minHeight = 32.dp, cornerRadius = 16.dp) {
-        Icon(icon, contentDescription = description, modifier = Modifier.size(16.dp), tint = tint)
-    }
-}
+internal fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) =
+    FlatIconButton(icon, description, size = 32.dp, iconSize = 16.dp, tint = tint, onClick = onClick)
