@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import io.github.suqi8.coui.kmp.theme.COUIThemeColor
+import io.github.suqi8.coui.kmp.theme.COUIThemeColors
 import androidx.compose.ui.graphics.lerp
 import com.dzshzx.zeta.core.Settings
 import com.itos.coui.theme.CouiColor
@@ -115,4 +117,17 @@ internal fun couiScheme(dark: Boolean, accent: AccentChoice, monet: Pair<Color, 
         else -> return base
     }
     return base.copy(accent = fill, accentOnSurface = onSurface, checkboxAccent = fill, menuCheckboxAccent = onSurface)
+}
+
+/**
+ * COUI 2 的主题色族：红、橙、绿用 ColorOS 官方色族，紫、粉、青从各自的日间 / 夜间色推出，
+ * 系统取色用 [monet]（[systemAccent] 的结果，已按当前深浅色取好）。null 是 COUI 默认的蓝。
+ */
+internal fun coui2ThemeColor(accent: AccentChoice, monet: Pair<Color, Color>?): COUIThemeColor? = when (accent) {
+    AccentChoice.Coui -> null
+    AccentChoice.System -> monet?.let { COUIThemeColor.fromColor(it.first, it.first) }
+    AccentChoice.Red -> COUIThemeColors.Red
+    AccentChoice.Orange -> COUIThemeColors.Orange
+    AccentChoice.Green -> COUIThemeColors.Green
+    AccentChoice.Purple, AccentChoice.Pink, AccentChoice.Teal -> COUIThemeColor.fromColor(accent.day!!, accent.night!!)
 }

@@ -17,7 +17,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
 import com.itos.coui.effect.LocalCouiContourGlowEnabled
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import io.github.suqi8.coui.kmp.theme.ColorSchemeMode as Coui2SchemeMode
+import io.github.suqi8.coui.kmp.theme.ThemeController as Coui2ThemeController
 import com.itos.coui.menu.ProvideCouiMenuBackdrop
 import com.itos.coui.theme.CouiTheme
 import com.itos.coui.theme.LocalCouiDarkTheme
@@ -79,6 +83,13 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
         if (scaled) Density(context) else platformDensity
     }
 
+    val coui2 = remember(isDark, accent, monet) {
+        Coui2ThemeController(
+            colorSchemeMode = if (isDark) Coui2SchemeMode.Dark else Coui2SchemeMode.Light,
+            isDark = isDark,
+            themeColor = coui2ThemeColor(accent, monet),
+        )
+    }
     val controller = remember(isDark) {
         ThemeController(colorSchemeMode = if (isDark) ColorSchemeMode.Dark else ColorSchemeMode.Light, isDark = isDark)
     }
@@ -118,13 +129,18 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
                     LocalCouiContourGlowEnabled provides true,
                 ) {
                     CouiTheme(darkTheme = isDark, colorScheme = coui) {
-                        // minSdk 33：RuntimeShader 恒可用，菜单与对话框直接采样窗口背景。
-                        if (windowBackdrop) {
-                            ProvideCouiMenuBackdrop(isolateContent = false) { windowSource ->
-                                Box(Modifier.fillMaxSize().then(windowSource)) { content() }
+                        // COUI 2 放在最里层：它提供的点按反馈、越界回弹、选中文字颜色也作用到还没迁移的页面上
+                        COUITheme(controller = coui2) {
+                            CompositionLocalProvider(LocalCouiBlurEnabled provides windowBackdrop) {
+                                // minSdk 33：RuntimeShader 恒可用，菜单与对话框直接采样窗口背景。
+                                if (windowBackdrop) {
+                                    ProvideCouiMenuBackdrop(isolateContent = false) { windowSource ->
+                                        Box(Modifier.fillMaxSize().then(windowSource)) { content() }
+                                    }
+                                } else {
+                                    Box(Modifier.fillMaxSize()) { content() }
+                                }
                             }
-                        } else {
-                            Box(Modifier.fillMaxSize()) { content() }
                         }
                     }
                 }

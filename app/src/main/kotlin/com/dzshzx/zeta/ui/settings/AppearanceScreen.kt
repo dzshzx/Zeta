@@ -13,13 +13,15 @@ import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
-import com.dzshzx.zeta.ui.components.coui.CouiDropdownPreference
-import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
-import com.dzshzx.zeta.ui.components.coui.CouiPageBottomSpacer
-import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
-import com.dzshzx.zeta.ui.components.coui.CouiSliderPreference
-import com.dzshzx.zeta.ui.components.coui.CouiSwitchPreference
-import com.itos.coui.layout.Group
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
+import io.github.suqi8.coui.kmp.overlay.OverlayInputDialog
+import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import io.github.suqi8.coui.kmp.preference.SliderPreference
+import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import kotlin.math.roundToInt
 
 /** 外观与主题：深浅色、强调色、纯黑背景、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
@@ -41,60 +43,75 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
 
     val themeModes = listOf<Boolean?>(null, false, true)
     val accents = AccentChoice.entries
-    CouiScaffoldPage(title = "外观与主题", onBack = onBack) {
-        Group(title = "颜色与主题") {
-            CouiDropdownPreference(
-                title = "主题模式",
-                items = listOf("跟随系统", "浅色", "深色"),
-                selectedIndex = themeModes.indexOf(hub.darkTheme),
-                onSelectedIndexChange = { index -> if (index in themeModes.indices) hub.chooseTheme(themeModes[index]) },
-            )
-            CouiDropdownPreference(
-                title = "强调色",
-                summary = if (prefs.accent == AccentChoice.System) "跟随壁纸的系统动态取色（Monet）" else null,
-                items = accents.map { it.label },
-                selectedIndex = accents.indexOf(prefs.accent),
-                onSelectedIndexChange = { index -> accents.getOrNull(index)?.let(prefs::chooseAccent) },
-            )
-            CouiSwitchPreference(
-                title = "纯黑背景",
-                summary = "深色模式下使用纯黑背景",
-                checked = prefs.pureBlack,
-                onCheckedChange = prefs::choosePureBlack,
-            )
-        }
-        Group(title = "界面", footer = "界面缩放只影响 Zeta 自己的页面，不改系统的显示大小；悬浮在其他应用上的提示保持原样。") {
-            CouiSliderPreference(
+    CouiPage(
+        title = "外观与主题",
+        onBack = onBack,
+        overlays = {
+            OverlayInputDialog(
+                show = showScaleDialog,
+                value = scaleInput,
+                onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
                 title = "界面缩放",
-                summary = "调整全局显示比例（80%–110%）",
-                value = scaleDraft.coerceIn(MIN_INTERFACE_SCALE * 100f, MAX_INTERFACE_SCALE * 100f),
-                onValueChange = { scaleDraft = it },
-                valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
-                steps = 5,
-                showTickMarks = true,
-                onValueChangeFinished = { commitScale(scaleDraft) },
-                valueText = "${scaleDraft.roundToInt()}%",
-                onClick = {
-                    scaleInput = scaleDraft.roundToInt().toString()
-                    showScaleDialog = true
+                summary = "请输入 80 至 110 之间的整数",
+                label = "百分比",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                negative = DialogButtonBarAction("取消") { showScaleDialog = false },
+                positive = DialogButtonBarAction("确定", enabled = parsedScale != null && parsedScale in 80..110, recommended = true) {
+                    parsedScale?.let { commitScale(it.toFloat()) }
+                    showScaleDialog = false
                 },
+                onDismissRequest = { showScaleDialog = false },
             )
-        }
-        CouiPageBottomSpacer()
-    }
-    CouiInputDialog(
-        visible = showScaleDialog,
-        title = "界面缩放",
-        message = "请输入 80 至 110 之间的整数",
-        value = scaleInput,
-        onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
-        placeholder = "百分比",
-        confirmText = "确定",
-        confirmEnabled = parsedScale != null && parsedScale in 80..110,
-        onConfirm = {
-            parsedScale?.let { commitScale(it.toFloat()) }
-            showScaleDialog = false
         },
-        onDismissRequest = { showScaleDialog = false },
-    )
+    ) {
+        item(key = "theme") {
+            PreferenceGroup(title = "颜色与主题") {
+                item {
+                    OverlayDropdownPreference(
+                        title = "主题模式",
+                        items = listOf("跟随系统", "浅色", "深色"),
+                        selectedIndex = themeModes.indexOf(hub.darkTheme),
+                        onSelectedIndexChange = { index -> if (index in themeModes.indices) hub.chooseTheme(themeModes[index]) },
+                    )
+                }
+                item {
+                    OverlayDropdownPreference(
+                        title = "强调色",
+                        summary = if (prefs.accent == AccentChoice.System) "跟随壁纸的系统动态取色（Monet）" else null,
+                        items = accents.map { it.label },
+                        selectedIndex = accents.indexOf(prefs.accent),
+                        onSelectedIndexChange = { index -> accents.getOrNull(index)?.let(prefs::chooseAccent) },
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = "纯黑背景",
+                        summary = "深色模式下使用纯黑背景",
+                        checked = prefs.pureBlack,
+                        onCheckedChange = prefs::choosePureBlack,
+                    )
+                }
+            }
+        }
+        item(key = "interface") {
+            PreferenceGroup(title = "界面", footer = "界面缩放只影响 Zeta 自己的页面，不改系统的显示大小；悬浮在其他应用上的提示保持原样。") {
+                item {
+                    SliderPreference(
+                        title = "界面缩放",
+                        summary = "调整全局显示比例（80%–110%）",
+                        value = scaleDraft.coerceIn(MIN_INTERFACE_SCALE * 100f, MAX_INTERFACE_SCALE * 100f),
+                        onValueChange = { scaleDraft = it },
+                        valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
+                        steps = 5,
+                        onValueChangeFinished = { commitScale(scaleDraft) },
+                        valueText = "${scaleDraft.roundToInt()}%",
+                        onClick = {
+                            scaleInput = scaleDraft.roundToInt().toString()
+                            showScaleDialog = true
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
