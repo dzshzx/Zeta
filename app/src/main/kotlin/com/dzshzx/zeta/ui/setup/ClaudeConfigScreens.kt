@@ -302,7 +302,7 @@ internal fun ConfigDocumentEditor(
         ConfirmDialog(
             show = conflict,
             title = "文件已经变了",
-            summary = "你编辑的时候，这个文件被改过了（多半是 Claude 在对话里更新了它）。保存会用你的版本覆盖它。",
+            summary = "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
             confirmText = "仍然保存",
             destructive = true,
             onConfirm = {

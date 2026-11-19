@@ -39,8 +39,10 @@ private fun shortPath(path: String, home: String?): String =
 
 /**
  * “记忆”：Claude Code 有两种长期记忆。一是用户写给它的指令 ~/.claude/CLAUDE.md，每次对话都载入；
- * 二是它自己记的自动记忆，每个项目一个目录（~/.claude/projects/<项目>/memory），MEMORY.md 是索引。
- * Eta 只有一份 MEMORY.md，这里按 Claude Code 的样子分成两块。
+ * 二是它自己记的自动记忆，每个项目一个目录（~/.claude/projects/<项目>/memory），每条一个文件，MEMORY.md 是索引：
+ * 索引每次对话开始时载入，具体内容 Claude 按需再读。
+ * Eta 只有一份 MEMORY.md，这里按 Claude Code 的样子分成两块。项目自己的 CLAUDE.md 放在项目目录里，这页不管。
+ * 自动记忆的开关写在 ~/.claude/settings.json（autoMemoryEnabled），对所有项目生效。
  */
 @Composable
 internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -67,7 +69,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "instructions") {
             PreferenceGroup(
                 title = "用户指令",
-                footer = "~/.claude/CLAUDE.md：你写给 Claude 的长期指令和偏好，每次对话开始时都会载入，所有项目通用。项目自己的 CLAUDE.md 放在项目目录里，不在这里管。",
+                footer = "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。",
             ) {
                 item {
                     ArrowPreference(
@@ -91,8 +93,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "auto") {
             PreferenceGroup(
                 title = "自动记忆",
-                footer = "Claude 在对话中会自己记下值得长期保留的东西：你的偏好、给它的纠正、项目的背景。每条一个文件，" +
-                    "MEMORY.md 是它们的索引，每次对话开始时载入，具体内容按需再读。开关写在 ~/.claude/settings.json，对所有项目生效；关掉后不再读写，已有的记忆保留。",
+                footer = "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。",
             ) {
                 if (o == null) {
                     item { ConfigLoadingRow() }
@@ -109,12 +110,14 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
                                 }
                             },
                             title = "启用自动记忆",
-                            summary = if (o.forcedOff) "settings.json 的 env 里设了 CLAUDE_CODE_DISABLE_AUTO_MEMORY，这个开关不起作用" else null,
+                            // forcedOff：settings.json 的 env 里设了 CLAUDE_CODE_DISABLE_AUTO_MEMORY，它压过开关
+                            summary = if (o.forcedOff) "被环境变量关掉了，这里改不了" else null,
                             enabled = !o.forcedOff && !working,
                         )
                     }
                     if (o.customDir != null) {
-                        item { BasicComponent(title = "记忆目录", summary = shortPath(o.customDir, env?.home) + "（settings.json 里的 autoMemoryDirectory，所有项目共用）") }
+                        // settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
+                        item { BasicComponent(title = "记忆目录", summary = shortPath(o.customDir, env?.home), endActions = { PreferenceValue("所有项目共用") }) }
                     } else if (o.projects.isNotEmpty()) {
                         item {
                             val current = o.projects.firstOrNull { it.key == o.selected }
@@ -141,7 +144,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
                         item {
                             ArrowPreference(
                                 title = "MEMORY.md",
-                                summary = "记忆的索引，每次对话开始时载入" + if (index.exists) "" else "；还没有",
+                                summary = if (index.exists) "记忆的索引" else "记忆的索引，还没有",
                                 endActions = { if (index.exists) PreferenceValue(sizeText(index.size)) },
                                 onClick = { editing = MemoryTarget(index.path, "MEMORY.md", "MEMORY.md", "一行一条记忆：- [标题](文件名.md) — 一句话说明") },
                             )
@@ -155,7 +158,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
             item(key = "files") {
                 PreferenceGroup(title = "记忆 · ${o.files.size}") {
                     if (o.files.isEmpty()) {
-                        item { ConfigEmptyRow("这个项目还没有记忆", "对话里让 Claude“记住”什么，它就会记在这里") }
+                        item { ConfigEmptyRow("这个项目还没有记忆", "让 Claude 记住的东西会出现在这里") }
                     }
                     o.files.forEach { entry ->
                         item(key = entry.file) {
@@ -186,7 +189,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
                 onBack = { editing = null },
                 onSaved = reload,
                 deleteTitle = "删除这条记忆",
-                deleteMessage = "删除 ${t.fileLabel}，并从 MEMORY.md 的索引里去掉指向它的那一行。删了就找不回来。",
+                deleteMessage = "删除 ${t.fileLabel}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
                 onDelete = if (t.entry != null) {
                     {
                         scope.runConfig({ client.deleteMemory(t.path) }) { result ->
