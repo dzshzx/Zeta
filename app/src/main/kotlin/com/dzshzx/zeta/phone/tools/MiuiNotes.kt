@@ -4,7 +4,8 @@ import kotlinx.serialization.json.JsonObject
 import java.time.ZoneId
 
 /**
- * 小米便签（com.miui.notes）的纯逻辑：拼查询、整理正文、排版。只读，不写入。真正的读在 [PersonalTools] 经 [RootProvider] 做。
+ * 小米便签（com.miui.notes）的纯逻辑：拼查询、整理正文、排版。真正的读在 [PersonalTools] 经 [RootProvider] 做；
+ * 新建、修改、删除（edit_note）走另一条路，见 [MiuiNoteWrites]。
  *
  * 读的是便签开给系统智能体的 AgenticNoteProvider（authority `com.miui.notes.AgenticNoteProvider`）：`note` 就是便签应用
  * 自己的 documents 表，能带条件和排序。它只认平台签名的调用方，所以和录音机一样以 system 身份读。旧的 `notes` Provider
@@ -48,6 +49,9 @@ internal object MiuiNotes {
     private val RULE = Regex("<hr\\b[^>]*>", RegexOption.IGNORE_CASE)
     private val TAG = Regex("</?[A-Za-z][A-Za-z0-9-]*(\\s[^<>]*)?/?>")
     private val BLANK_LINES = Regex("\n{3,}")
+
+    /** 正文是旧版富文本：[plainText] 读出来的已经和原文不一样（勾选框、图片、录音、格式变了样）。 */
+    fun rich(content: String?): Boolean = RICH.containsMatchIn(content.orEmpty())
 
     /**
      * 正文变成纯文字。旧版富文本：勾选框写成 [x] / [ ]，图片、录音写成 [图片] / [录音]，分隔线写成 ---，

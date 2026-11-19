@@ -41,6 +41,7 @@ internal object PhoneToolGroups {
     /** 所有工具组。新的一组在这里加一行。 */
     val all: List<PhoneToolGroup> = listOf(
         PersonalTools,
+        NoteTools,
         ClipboardTools,
         DeviceTools,
         ScheduleTools,

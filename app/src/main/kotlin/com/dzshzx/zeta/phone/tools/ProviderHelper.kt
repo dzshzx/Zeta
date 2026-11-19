@@ -58,6 +58,7 @@ import kotlin.system.exitProcess
  * - batch：authority、ops（type=insert/update/delete，uri、values、refs、selection、args）→ 事务里执行，返回各项的 uri 或 count
  * - image：uri、edge、video → 最长边不超过 edge 的 JPEG（base64）和宽高
  * - notifications：archive（最近移除的条数）、history、since → 当前通知；开了系统通知历史时还有最近移除的和 24 小时内的通知
+ * - appTool：component、request → response（系统应用开给系统智能体的工具服务，Zeta 先绑定，见 [AppToolCall]）
  *
  * 不写日志、不落盘，结果只经标准输出交回 Zeta。
  */
@@ -104,6 +105,7 @@ object ProviderHelper {
         "batch" -> batch(op, user)
         "image" -> image(op, user)
         "notifications" -> notifications(op)
+        "appTool" -> AppToolCall.handle(op)
         else -> throw IllegalArgumentException("unknown op ${op.str("op")}")
     }
 

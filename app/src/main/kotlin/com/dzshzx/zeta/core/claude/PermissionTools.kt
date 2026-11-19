@@ -80,6 +80,7 @@ object PhoneToolLabels {
         "search_personal" to "只读搜索日历、短信、相册等",
         "view_media" to "查看照片、截图、视频或聊天图片",
         "edit_calendar" to "新建、修改、删除日程",
+        "edit_note" to "新建、修改小米便签",
         "clipboard" to "读写剪贴板",
         "create_scheduled_task" to "新建定时任务，到点让 Claude 做事",
         "list_scheduled_tasks" to "列出定时任务",
