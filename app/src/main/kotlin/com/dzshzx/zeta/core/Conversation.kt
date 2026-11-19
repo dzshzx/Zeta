@@ -117,9 +117,6 @@ class Conversation(
     var earlierState by mutableStateOf<EarlierState>(EarlierState.Idle)
         private set
 
-    /** 每次要更早的一页记一个号，回来时号不是最新的就丢掉。 */
-    private var earlierTicket = 0
-
     /** 剪会话的应答回来之前读回来的一页：等剪完再接上（剪不成要恢复成剪之前的列表，不能夹在中间）。 */
     private var deferredEarlier: (() -> Unit)? = null
 
@@ -324,31 +321,30 @@ class Conversation(
 
     /**
      * 载入更早的一页，接到列表前面（往上翻到顶附近时；对话内查找时一页页载完）。
-     * 已经在读、或没有更早的了就不动。在主线程上调用，读在后台；读回来时这次请求作废了（号不是最新的）
-     * 或要的那段已经不是现在没载入的那段，就丢掉。新到的实时内容只接在列表末尾，和往前接的这页不相干。
+     * 已经在读、或没有更早的了就不动，所以同一时间只有一个请求，读回来的就是现在没载入的那段（别的地方不改 [earlier]）。
+     * 在主线程上调用，读在后台。新到的实时内容只接在列表末尾，和往前接的这页不相干。
      */
     fun loadEarlier() {
         val window = earlier ?: return
         if (earlierState == EarlierState.Loading || loadingHistory) return
         val config = hub.settings.env ?: return
-        val ticket = ++earlierTicket
         earlierState = EarlierState.Loading
         thread(name = "zeta-history-page", isDaemon = true) {
-            val page = TranscriptReducer("p$ticket-")
+            // 各页的条目编号按页的位置错开（每页的位置都不同）
+            val page = TranscriptReducer("p${window.skipped}-")
             val result = hub.helper("history", HistoryPaging.pageArguments(window), timeoutMs = 60_000, config = config)
             val read = result?.takeIf { it.exitCode == 0 }?.let { HistoryPaging.read(it.stdout, window.file, page) }
             val failure = when {
                 read == null -> "没有读到更早的记录" + result?.stderr?.trim()?.takeIf { it.isNotEmpty() }?.let { "：${it.takeLast(200)}" }.orEmpty()
                 else -> null
             }
-            main.post { applyEarlier(ticket, window, page.items, read, failure) }
+            main.post { applyEarlier(page.items, read, failure) }
         }
     }
 
-    private fun applyEarlier(ticket: Int, window: EarlierHistory, items: List<ChatItem>, read: HistoryRead?, failure: String?) {
-        if (!HistoryPaging.accepts(ticket, earlierTicket, window, earlier)) return
+    private fun applyEarlier(items: List<ChatItem>, read: HistoryRead?, failure: String?) {
         if (rewinding) {
-            deferredEarlier = { applyEarlier(ticket, window, items, read, failure) }
+            deferredEarlier = { applyEarlier(items, read, failure) }
             return
         }
         when {

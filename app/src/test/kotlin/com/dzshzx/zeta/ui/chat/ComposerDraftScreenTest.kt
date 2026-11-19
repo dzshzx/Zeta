@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
+import android.content.Context
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
@@ -13,8 +14,8 @@ import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.DraftRecords
-import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
@@ -37,7 +38,9 @@ class ComposerDraftScreenTest : ShotTest() {
         openConversation(id)
     }
 
-    private fun storedText(key: String): String? = DraftRecords.decode(Settings(app).composerDrafts).firstOrNull { it.key == key }?.text
+    private fun storedText(key: String): String? = DraftRecords.decode(
+        app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE).getString(ComposerDrafts.KEY, null),
+    ).firstOrNull { it.key == key }?.text
 
     private fun show(hub: ConversationHub) = compose.setContent {
         ZetaTheme(windowBackdrop = false) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }

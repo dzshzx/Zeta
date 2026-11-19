@@ -12,18 +12,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,15 +36,17 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /*
- * 长对话往上翻：打开时只载入最近的一段，往上翻到顶附近时自动接上更早的一页。
+ * 长对话往上翻：打开时只载入最近的一段，往上翻到顶附近时自动接上更早的一页。“更早的记录”那一行是列表的第一项。
  *
- * 新的一页插在列表前面时，LazyColumn 自己按第一项的 key 保持位置，正看着的那条不动。所以“更早的记录”那一行不放进列表项：
- * 它要是第一项，用户翻到最顶上时它就是那个被保持的第一项，插进来的内容会把正看着的那条往下推。
- * 这一行画在列表外面，位置跟着列表的第 0 项走（紧贴在它上方，列表的顶部留白里给它让出了地方），第 0 项不在屏上时不画。
+ * 新的一页插在列表前面时由 [KeepReadingPosition] 让正看着的那条留在原处。LazyColumn 自己也按第一项的 key 保持位置，
+ * 但只在第一项附近（约 130 项）里找那个 key，一页有上千条时找不到，视野会跳；翻到最顶上时第一项又是“更早的记录”那行，
+ * 它留在原处的话插进来的内容会把正看着的那条往下推。
  */
 
-/** “更早的记录”那一行的高度，列表顶部为它多留这么多。 */
-internal val EarlierRowHeight = 44.dp
+/** 列表里“更早的记录”那一行的 key。 */
+internal const val EarlierRowKey = "earlier"
+
+private val EarlierRowHeight = 44.dp
 
 /** 往上翻到离顶这么多项以内时载入更早的一页。 */
 private const val LoadAhead = 3
@@ -85,22 +86,27 @@ internal fun EarlierHistoryRow(skipped: Int, state: EarlierState, onLoad: () -> 
     }
 }
 
-/** 把这一行摆在 [listState] 的第 0 项正上方（和列表在同一个坐标里）；第 0 项不在屏上时不摆，也就不画、点不到。 */
-internal fun Modifier.aboveFirstItem(listState: LazyListState): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    layout(placeable.width, placeable.height) {
-        val info = listState.layoutInfo
-        val first = info.visibleItemsInfo.firstOrNull()?.takeIf { it.index == 0 } ?: return@layout
-        placeable.place(0, info.beforeContentPadding + first.offset - placeable.height)
-    }
+/** 上次排版时列表里第一条消息的 key；只在排版前比一下，不用触发重组。 */
+private class SeenFirstKey {
+    var key: Any? = null
 }
 
 /**
- * 用户真往上翻过才载入：数据插进来、重新排版、程序滚动（查找跳转、贴底跟随）都不算（照 Eta）。每载入一次用掉一次。
- * 记下是对哪段没载入的部分翻的：一页刚接上时列表还没按新内容排版，第一项的位置是旧的，不能拿载入前的那次翻动再载一页。
+ * 往前接上一页（列表前面多了内容）时，让上次排版时屏上第一条消息停在原来的位置：在新列表排版之前（同一帧）找到它的新下标，
+ * requestScrollToItem 到那里、偏移照旧。“更早的记录”那行不算（翻到最顶上时它是第一项）。[firstKey] 是列表里第一条消息的 key，
+ * 它变了才找；[indexOf] 给出 key 在新列表里的下标（找不到是 -1，比如开头那几轮被删了，这时照 LazyColumn 自己的）。
  */
-private class ScrollDemand {
-    var window by mutableStateOf<EarlierHistory?>(null)
+@Composable
+internal fun KeepReadingPosition(listState: LazyListState, firstKey: Any?, indexOf: (Any) -> Int) {
+    val seen = remember(listState) { SeenFirstKey() }
+    SideEffect {
+        val before = seen.key
+        seen.key = firstKey
+        if (before == null || before == firstKey) return@SideEffect
+        val anchor = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != EarlierRowKey } ?: return@SideEffect
+        val index = indexOf(anchor.key)
+        if (index >= 0 && index != anchor.index) listState.requestScrollToItem(index, -anchor.offset)
+    }
 }
 
 /**
@@ -109,13 +115,15 @@ private class ScrollDemand {
  */
 @Composable
 internal fun rememberEarlierPaging(conversation: Conversation, listState: LazyListState, onLoad: () -> Unit): NestedScrollConnection {
-    val demand = remember(conversation) { ScrollDemand() }
+    // 用户真往上翻过才载入：数据插进来、重新排版、程序滚动（查找跳转、贴底跟随）都不算（照 Eta）。每载入一次用掉一次。
+    // 记下是对哪段没载入的部分翻的：一页刚接上时，不能拿载入前的那次翻动再载一页
+    val demand = remember(conversation) { mutableStateOf<EarlierHistory?>(null) }
     val latestOnLoad by rememberUpdatedState(onLoad)
     val connection = remember(demand) {
         object : NestedScrollConnection {
             fun scrolled(y: Float) {
                 // 手指往下拖（内容往上翻）时 y 为正
-                if (y != 0f) demand.window = if (y > 0f) conversation.earlier else null
+                if (y != 0f) demand.value = if (y > 0f) conversation.earlier else null
             }
 
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -133,11 +141,11 @@ internal fun rememberEarlierPaging(conversation: Conversation, listState: LazyLi
     LaunchedEffect(conversation, listState) {
         snapshotFlow {
             val earlier = conversation.earlier
-            earlier != null && demand.window == earlier && conversation.earlierState == EarlierState.Idle &&
+            earlier != null && demand.value == earlier && conversation.earlierState == EarlierState.Idle &&
                 listState.layoutInfo.totalItemsCount > 0 && listState.firstVisibleItemIndex <= LoadAhead
         }.distinctUntilChanged().collect { ready ->
             if (ready) {
-                demand.window = null
+                demand.value = null
                 latestOnLoad()
                 conversation.loadEarlier()
             }

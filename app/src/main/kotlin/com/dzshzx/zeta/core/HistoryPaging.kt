@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonObject
  * 新内容只接在后面，所以还没载入的那段不会变。要页时报上 [EarlierHistory.anchor] 给助手核对，对不上（比如在终端里剪到了更早的地方）
  * 它就不给（stale），界面让用户重新打开对话。对话内查找时界面把剩下的一页页载完，只在载入的内容里查。
  *
- * 这里是不碰 Android 的部分：读助手的输出、一页能不能接上去。
+ * 这里是不碰 Android 的部分：读助手的输出、要页时给的参数。
  */
 
 /** 会话记录 [file] 里还没载入的前 [skipped] 条。[anchor] 是第 skipped-1 条出自记录里的哪一行（uuid），要下一页时给助手核对。 */
@@ -81,11 +81,4 @@ internal object HistoryPaging {
 
     /** 要 [window] 之前的一页时给助手的参数。 */
     fun pageArguments(window: EarlierHistory): List<String> = listOf(window.file, window.skipped.toString(), window.anchor ?: "-")
-
-    /**
-     * 一页读回来时能不能接到列表前面：发出请求后没有作废过（[ticket] 还是最新的），要的那段也还是现在没载入的那段。
-     * 照 Eta 修过的竞态：作废了的旧请求回来时不能再覆盖列表。
-     */
-    fun accepts(ticket: Int, latestTicket: Int, requested: EarlierHistory, current: EarlierHistory?): Boolean =
-        ticket == latestTicket && requested == current
 }

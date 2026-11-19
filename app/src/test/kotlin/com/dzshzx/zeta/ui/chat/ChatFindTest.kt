@@ -1,10 +1,15 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.StreamingGfmParserSession
 import com.dzshzx.zeta.ui.markdown.findOccurrences
 import com.dzshzx.zeta.ui.markdown.findSegments
+import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -115,5 +120,22 @@ class ChatFindTest {
         state.previous()
         state.previous()
         assertEquals(FindMatch("p-a", 0, 7, 9), state.current)
+    }
+
+    /** 查找的可查文字按消息记下：同一段回答不重解析，也不进回答显示共用的缓存；改了的重算，不在列表里的丢掉。 */
+    @Test
+    fun answerSegmentsAreKeptPerMessage() {
+        val segments = FindSegments(MarkdownInlineStyle.Default)
+        val answer = AnswerItem("a1", "**粗体** findme 段落", streaming = false)
+        val items = listOf(UserItem("u1", "问 findme"), answer, AnswerItem("a2", "还在写 findme", streaming = true))
+        val first = segments.of(items) { it }
+        assertEquals(listOf("u1", "a1"), first.map { it.itemId })
+        assertEquals("粗体 findme 段落", first[1].text)
+        assertNull(staticMarkdownDocumentCache.get(answer.text, MarkdownInlineStyle.Default))
+        // 再算一遍：同一段回答拿的是记下的那份
+        assertSame(first[1], segments.of(items) { it }[1])
+        // 改了的（编辑后同一项换了内容）重算
+        val edited = listOf(items[0], answer.copy(text = "换了 findme"))
+        assertEquals("换了 findme", segments.of(edited) { it }[1].text)
     }
 }

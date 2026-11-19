@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.os.Looper
 import android.util.Base64
@@ -46,7 +47,9 @@ class ComposerDraftsTest {
         Conversation::class.java.getDeclaredMethod("setSessionId", String::class.java).apply { isAccessible = true }.invoke(this, id)
     }
 
-    private fun stored(): List<DraftRecord> = DraftRecords.decode(Settings(app).composerDrafts)
+    private val prefs get() = app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE)
+
+    private fun stored(): List<DraftRecord> = DraftRecords.decode(prefs.getString(ComposerDrafts.KEY, null))
 
     @Test
     fun eachConversationKeepsItsOwn() {
@@ -146,7 +149,7 @@ class ComposerDraftsTest {
         draft.type("")
         draft.uploads.clear()
         hub.drafts.save(draft)
-        assertNull(Settings(app).composerDrafts)
+        assertFalse(prefs.contains(ComposerDrafts.KEY))
         assertNull(hub.drafts.preview("s-a"))
     }
 
@@ -177,6 +180,19 @@ class ComposerDraftsTest {
         // 界面离开时再存一次已经删掉的那份：不会写回去
         hub.drafts.save(draft)
         assertEquals(listOf("s-kept"), stored().map { it.key })
+    }
+
+    /** 草稿以前存在主设置文件里：升级后第一次读时搬到自己的设置文件，主设置文件里的删掉。 */
+    @Test
+    fun draftsMoveOutOfTheMainSettingsOnce() {
+        val old = DraftRecord("s-old", "升级前写的", 0, 0, emptyList(), emptyList(), at = 1)
+        Settings(app).composerDrafts = DraftRecords.encode(listOf(old))
+        val hub = Fixtures.readyHub(app)
+        assertEquals("升级前写的", hub.drafts.preview("s-old"))
+        assertNull(Settings(app).composerDrafts)
+        assertEquals(listOf("s-old"), stored().map { it.key })
+        // 再开一次：读的是自己的设置文件
+        assertEquals("升级前写的", Fixtures.readyHub(app).drafts.of(hub.session("s-old")).input.text.toString())
     }
 
     @Test

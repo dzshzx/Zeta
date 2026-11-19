@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 往上翻载入更早记录的纯逻辑：读助手的输出、一页能不能接上、接上时和正在流式输出的新内容互不覆盖。 */
+/** 往上翻载入更早记录的纯逻辑：读助手的输出、要页的参数、接上时和正在流式输出的新内容互不覆盖。 */
 class HistoryPagingTest {
     private fun json(text: String) = Json.parseToJsonElement(text) as JsonObject
 
@@ -61,17 +61,6 @@ class HistoryPagingTest {
         val window = EarlierHistory(file, 120, null)
         assertEquals(listOf(file, "120", "-"), HistoryPaging.pageArguments(window))
         assertEquals(listOf(file, "120", "row119"), HistoryPaging.pageArguments(window.copy(anchor = "row119")))
-    }
-
-    @Test
-    fun onlyTheLatestRequestForTheCurrentWindowIsApplied() {
-        val window = EarlierHistory(file, 120, "row119")
-        assertTrue(HistoryPaging.accepts(3, 3, window, window))
-        // 期间又发过一次（或作废过）：旧的不能覆盖
-        assertFalse(HistoryPaging.accepts(2, 3, window, window))
-        // 要的那段已经不是现在没载入的那段（别的页先接上了，或换了对话）
-        assertFalse(HistoryPaging.accepts(3, 3, window, window.copy(skipped = 80, anchor = "row79")))
-        assertFalse(HistoryPaging.accepts(3, 3, window, null))
     }
 
     /**

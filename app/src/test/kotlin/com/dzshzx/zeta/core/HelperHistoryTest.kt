@@ -126,28 +126,33 @@ class HelperHistoryTest {
 
     @Test
     fun opensWithRecentTurnsAndPagesBackWithoutGapsOrRepeats() {
-        turns(0 until 500)
+        turns(0 until 1000)
         save()
         val tail = helper("history", file.path)
-        // 2000 条里先给最近的 800 条，从一轮的开头开始
-        assertEquals(1200, tail.header.skipped())
-        assertEquals("b299", tail.header.anchor())
-        assertEquals("question 300", tail.events.first().text())
+        // 4000 条里先给最近的 800 条，从一轮的开头开始
+        assertEquals(3200, tail.header.skipped())
+        assertEquals("b799", tail.header.anchor())
+        assertEquals("question 800", tail.events.first().text())
         assertEquals(800, tail.events.size)
-        val page = helper("history", file.path, "1200", "b299")
-        assertEquals(800, page.header.skipped())
-        assertEquals("question 200", page.events.first().text())
-        assertEquals("answer 299", page.events.last().text())
+        // 往前一页 1500 条，也从一轮的开头开始
+        val page = helper("history", file.path, "3200", "b799")
+        assertEquals(1700, page.header.skipped())
+        assertEquals("question 425", page.events.first().text())
+        assertEquals("answer 799", page.events.last().text())
+        // 剩下的不到半页多一点：最后一页一起载完
+        val last = helper("history", file.path, "1700", page.header.anchor())
+        assertEquals(0, last.header.skipped())
+        assertEquals(1700, last.events.size)
         // 一页页翻到头：每一轮各出现一次，先后不乱
         val questions = readAll().mapNotNull { it.text()?.takeIf { text -> text.startsWith("question") } }
-        assertEquals((0 until 500).map { "question $it" }, questions)
+        assertEquals((0 until 1000).map { "question $it" }, questions)
     }
 
     @Test
     fun pagesNeverSplitAToolCallFromItsResult() {
-        // 一轮里一口气调了 600 次工具：找不到一轮的开头，只能在两次调用之间切
+        // 一轮里一口气调了 2000 次工具：找不到一轮的开头，只能在两次调用之间切
         user("u0", "do a lot")
-        for (i in 0 until 600) {
+        for (i in 0 until 2000) {
             toolUse("a$i", "tool$i")
             toolResult("r$i", "tool$i")
         }
@@ -163,7 +168,7 @@ class HelperHistoryTest {
             if (page.header.skipped() == 0) break
             page = helper("history", file.path, page.header.skipped().toString(), page.header.anchor())
         }
-        assertEquals(600, seen.size)
+        assertEquals(2000, seen.size)
     }
 
     private fun contentOf(event: JsonObject): List<JsonObject> =
@@ -192,7 +197,9 @@ class HelperHistoryTest {
         rewind("u450", "b449")
         user("x1", "after rewind")
         save()
-        assertEquals(800, helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor()).header.skipped())
+        val earlier = helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor())
+        assertNull(earlier.header["stale"])
+        assertEquals(1200, earlier.events.size)
         // 在别处剪到了还没载入的地方：对不上，不给
         rewind("u250", "b249")
         save()

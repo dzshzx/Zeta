@@ -26,7 +26,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 长对话往上翻：列表顶上“更早的记录”那一行的几种样子，以及更早的一页接上来时正看着的那条不动。 */
+/** 长对话往上翻：列表顶上“更早的记录”那一行的几种样子，更早的一页接上来时正看着的那条不动，查找时把剩下的载完。 */
 class EarlierHistoryShots : ShotTest() {
     private val file = "/home/dzshzx/.claude/projects/-workspace-claude/s.jsonl"
 
@@ -88,17 +88,18 @@ class EarlierHistoryShots : ShotTest() {
     }
 
     /**
-     * 翻到最顶上（“更早的记录”那行露出来）时接上一页：最前面那条提问停在原处，不被新内容往下推。
-     * 再往下翻一点（那行不在屏上了）时接上一页：屏上那条也不动。页走 Conversation 自己接上的那条路（作废检查、接到列表前面）。
+     * 翻到最顶上（“更早的记录”那行露出来）时接上几百项：最前面那条提问停在原处，不被新内容往下推。
+     * 再往下翻一点（那行不在屏上了）时接上一千多项（最后一页，那行跟着没了）：屏上那条也不动。
+     * LazyColumn 自己只在第一项附近约 130 项里找 key，插这么多它找不到，靠 KeepReadingPosition 定位。页走 Conversation 自己接上的那条路。
      */
     @Test
     fun readingPositionStaysWhenAPageLands() {
         val hub = Fixtures.readyHub(app)
         val conversation = hub.current
-        val shown = turns("h", 40 until 60)
+        val shown = turns("h", 1000 until 1020)
         hub.showChat("长对话", shown)
         reducerOf(conversation).items.addAll(shown)
-        conversation.force("earlier", EarlierHistory(file, 160, "row159"))
+        conversation.force("earlier", EarlierHistory(file, 4000, "row3999"))
         // 标成正在载入：往上翻时不自己去读（单元测试里没有 Linux 环境），页由下面直接交给它
         conversation.force("earlierState", EarlierState.Loading)
         compose.mainClock.autoAdvance = false
@@ -113,26 +114,42 @@ class EarlierHistoryShots : ShotTest() {
         // 顶上拉过头的回弹放完再量
         settle(3_000)
         compose.onNodeWithText("正在载入更早的记录").assertExistsCompat()
-        val first = compose.onNodeWithText("第 40 轮的提问")
+        val first = compose.onNodeWithText("第 1000 轮的提问")
         val before = first.getBoundsInRoot().top
-        deliver(conversation, EarlierHistory(file, 160, "row159"), turns("p1", 20 until 40), EarlierHistory(file, 80, "row79"))
-        settle()
+        // 300 轮，600 项
+        deliver(conversation, turns("p1", 700 until 1000), EarlierHistory(file, 2800, "row2799"))
+        landed("第 999 轮的回答")
         assertEquals(before.value, first.getBoundsInRoot().top.value, 1f)
-        compose.onNodeWithText("第 39 轮的回答", substring = true).assertExistsCompat()
+        compose.onNodeWithText("第 999 轮的回答", substring = true).assertExistsCompat()
 
-        // 往下翻一点，再接一页：屏上那条照样不动
+        // 往下翻一点，再接最后一页：700 轮，1400 项，“更早的记录”那行没了
         conversation.force("earlierState", EarlierState.Loading)
         compose.mainClock.autoAdvance = true
         list.performTouchInput { swipeUp(startY = centerY, endY = centerY - 200.dp.toPx()) }
         compose.mainClock.autoAdvance = false
         settle()
-        val anchor = compose.onNodeWithText("第 42 轮的提问")
+        val anchor = compose.onNodeWithText("第 1001 轮的提问")
         val top = anchor.getBoundsInRoot().top
-        deliver(conversation, EarlierHistory(file, 80, "row79"), turns("p2", 0 until 20), null)
+        deliver(conversation, turns("p2", 0 until 700), null)
+        // 这时正看着的那条就是屏上第一项：上面的回答解析完、高度变了也不挪，等排版都停下再量
         settle()
         assertEquals(top.value, anchor.getBoundsInRoot().top.value, 1f)
         assertEquals(null, conversation.earlier)
-        assertEquals(60 * 2, conversation.items.size)
+        assertEquals(1020 * 2, conversation.items.size)
+    }
+
+    /**
+     * 一帧一帧走，直到新接上的那页排版出来（[text] 是页里最后那条回答）。在这一帧量位置：没缓存过的回答先用原文占位，
+     * 解析完高度会差一点，翻到最顶上时正看着的那条上面紧挨着的就是这样一条，再过一帧会跟着它挪几个 dp
+     * （往上翻进没解析过的回答时也一样），那不是接页造成的。
+     */
+    private fun landed(text: String) {
+        repeat(10) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+            if (runCatching { compose.onNodeWithText(text, substring = true).fetchSemanticsNode() }.isSuccess) return
+        }
+        throw AssertionError("接上的那页一直没排版出来")
     }
 
     private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertExistsCompat() {
@@ -150,11 +167,10 @@ class EarlierHistoryShots : ShotTest() {
     private fun reducerOf(conversation: Conversation): TranscriptReducer =
         Conversation::class.java.getDeclaredField("reducer").apply { isAccessible = true }.get(conversation) as TranscriptReducer
 
-    /** 把读回来的一页交给对话（它自己读回来时走的就是这里）。 */
-    private fun deliver(conversation: Conversation, window: EarlierHistory, items: List<ChatItem>, left: EarlierHistory?) {
-        val apply = Conversation::class.java.getDeclaredMethod(
-            "applyEarlier", Int::class.javaPrimitiveType, EarlierHistory::class.java, List::class.java, HistoryRead::class.java, String::class.java,
-        ).apply { isAccessible = true }
-        compose.runOnUiThread { apply.invoke(conversation, 0, window, items, HistoryRead(left, emptyList(), UsageTracker(), stale = false), null) }
+    /** 把读回来的一页交给对话（它自己读回来时走的就是这里）。[left] 是这页之前还剩的。 */
+    private fun deliver(conversation: Conversation, items: List<ChatItem>, left: EarlierHistory?) {
+        val apply = Conversation::class.java.getDeclaredMethod("applyEarlier", List::class.java, HistoryRead::class.java, String::class.java)
+            .apply { isAccessible = true }
+        compose.runOnUiThread { apply.invoke(conversation, items, HistoryRead(left, emptyList(), UsageTracker(), stale = false), null) }
     }
 }

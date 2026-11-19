@@ -27,6 +27,7 @@ import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
+import com.dzshzx.zeta.ui.markdown.StreamingGfmParserSession
 import com.dzshzx.zeta.ui.markdown.findSegments
 import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
@@ -48,25 +49,40 @@ internal fun Modifier.findViewport(find: ChatFindState): Modifier = onGloballyPo
 
 /**
  * 能查的段：提问的正文，和已经写完的回答排版后的文字（[answerText] 先去掉单独显示的图片，和回答块画的是同一份）。
- * 工具步骤和思考折叠着，不查。回答的解析结果和回答块共用缓存，这里先解析好，跳过去时就不用再等。
+ * 工具步骤和思考折叠着，不查。写完的回答不再变，它的段按消息记下来，重算时只解析新来的（或改过的）回答。
+ * 解析结果不放进回答显示共用的缓存：那里只放得下几十份，整个对话解析一遍会把屏上回答的挤掉，滚动时又要重新解析。
+ * 只在一个线程上用（查找的那个协程）。
  */
-private fun segmentsOf(items: List<ChatItem>, answerText: (String) -> String, inline: MarkdownInlineStyle): List<FindSegment> {
-    val segments = ArrayList<FindSegment>()
-    for (item in items) {
-        if (item is UserItem && item.text.isNotEmpty()) segments += FindSegment(item.id, 0, item.text)
-        if (item is AnswerItem && !item.streaming) {
-            val text = answerText(item.text)
-            if (text.isBlank()) continue
-            val document = staticMarkdownDocumentCache.get(text, inline) ?: staticMarkdownDocumentCache.parse(text, inline)
-            for ((block, content) in document.findSegments()) segments += FindSegment(item.id, block, content)
+internal class FindSegments(private val inline: MarkdownInlineStyle) {
+    /** 回答 id → 算段时的原文和段。 */
+    private var answers = HashMap<String, Pair<String, List<FindSegment>>>()
+
+    fun of(items: List<ChatItem>, answerText: (String) -> String): List<FindSegment> {
+        val kept = HashMap<String, Pair<String, List<FindSegment>>>()
+        val segments = ArrayList<FindSegment>()
+        for (item in items) {
+            if (item is UserItem && item.text.isNotEmpty()) segments += FindSegment(item.id, 0, item.text)
+            if (item is AnswerItem && !item.streaming) {
+                val entry = answers[item.id]?.takeIf { it.first == item.text } ?: (item.text to parse(item.id, answerText(item.text)))
+                kept[item.id] = entry
+                segments += entry.second
+            }
         }
+        // 不在列表里的（删掉、剪掉的）跟着丢掉
+        answers = kept
+        return segments
     }
-    return segments
+
+    private fun parse(id: String, text: String): List<FindSegment> {
+        if (text.isBlank()) return emptyList()
+        val document = staticMarkdownDocumentCache.get(text, inline) ?: StreamingGfmParserSession().parse(text, isComplete = true, style = inline).document
+        return document.findSegments().map { (block, content) -> FindSegment(id, block, content) }
+    }
 }
 
 /**
  * 查找在聊天列表这边要做的事：内容或查找词变了就重算命中，跳到一处时把它滚进视野。
- * [leading] 是列表里排在消息前面的项数（“更早的记录未载入”那行），[topInset] 是盖在列表上面的顶栏高度。
+ * [leading] 是列表里排在消息前面的项数（“更早的记录”那行），[topInset] 是盖在列表上面的顶栏高度。
  * 跳转前调 [onJump]（停掉贴底跟随，不然新内容一来又被拽回底部）。
  */
 @Composable
@@ -82,11 +98,13 @@ internal fun ChatFindDriver(
     val inline = rememberMarkdownStyle(MarkdownTone.Answer).inline
     val latestItems by rememberUpdatedState(items)
     val latestText by rememberUpdatedState(answerText)
+    val latestLeading by rememberUpdatedState(leading)
     // 打字和流式输出时节流而不是防抖：一直有新内容时也能定时算一遍
     LaunchedEffect(find, find.active, inline) {
         if (!find.active) return@LaunchedEffect
+        val segments = FindSegments(inline)
         snapshotFlow { ChatFind.normalize(find.input) to latestItems }.conflate().collect { (query, list) ->
-            val found = if (query.isEmpty()) emptyList() else withContext(Dispatchers.Default) { ChatFind.matches(segmentsOf(list, latestText, inline), query) }
+            val found = if (query.isEmpty()) emptyList() else withContext(Dispatchers.Default) { ChatFind.matches(segments.of(list, latestText), query) }
             find.update(query, found, list.withIndex().associate { it.value.id to it.index })
             delay(120)
         }
@@ -99,7 +117,7 @@ internal fun ChatFindDriver(
         val position = latestItems.indexOfFirst { it.id == match.itemId }
         if (position < 0) return@LaunchedEffect
         latestOnJump()
-        val index = position + leading
+        val index = position + latestLeading
         // 不在屏上的先滚到那条消息，等它排好版报上位置，再把命中处挪到视野上部三分之一处
         if (listState.layoutInfo.visibleItemsInfo.none { it.index == index }) listState.scrollToItem(index)
         val bounds = withTimeoutOrNull(1_000) { snapshotFlow { find.placedFor(match) }.filterNotNull().first() } ?: return@LaunchedEffect

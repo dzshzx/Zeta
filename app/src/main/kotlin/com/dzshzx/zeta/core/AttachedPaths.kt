@@ -108,42 +108,55 @@ enum class PathKind {
 
 object PathCheck {
     /**
-     * 参数：$1 路径，$2 对话的托管标识（可以为空）。有在跑的 Claude Code 进程时经 /proc/<pid>/root 看它那个挂载命名空间：
+     * 参数：$1 对话的托管标识（可以为空），之后是要查的路径；每个路径输出一行 `zeta_path <种类>`，顺序同参数。
+     * 有在跑的 Claude Code 进程时经 /proc/<pid>/root 看它那个挂载命名空间：
      * 共享文件夹按进入环境时的清单绑定，进程启动后加的它看不到。挂载点目录留在 rootfs 里，进程那边看到的是同名的空目录，
      * 所以按设备号和 inode 比两边是不是同一个东西，只看存在与否会把它当成已经看得到。
      */
     val Script = """
         r=
-        if [ -n "${'$'}2" ]; then
-          p=${'$'}(cat "${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}/hosts/${'$'}2/pid" 2>/dev/null)
+        if [ -n "${'$'}1" ]; then
+          p=${'$'}(cat "${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}/hosts/${'$'}1/pid" 2>/dev/null)
           [ -n "${'$'}p" ] && [ -d "/proc/${'$'}p/root/" ] && r=/proc/${'$'}p/root
         fi
-        t=${'$'}r${'$'}1
-        if [ -n "${'$'}r" ] && [ -e "${'$'}1" ] && { [ ! -e "${'$'}t" ] || [ "${'$'}(stat -L -c %d:%i "${'$'}1" 2>/dev/null)" != "${'$'}(stat -L -c %d:%i "${'$'}t" 2>/dev/null)" ]; }; then
-          if [ -d "${'$'}1" ]; then k=hidden-folder; else k=hidden-file; fi
-        elif [ -d "${'$'}t" ]; then k=folder; [ -r "${'$'}t" ] && [ -x "${'$'}t" ] || k=denied
-        elif [ -e "${'$'}t" ]; then k=file; [ -r "${'$'}t" ] || k=denied
-        else k=missing
-        fi
-        echo "zeta_path ${'$'}k"
+        shift
+        for a; do
+          t=${'$'}r${'$'}a
+          if [ -n "${'$'}r" ] && [ -e "${'$'}a" ] && { [ ! -e "${'$'}t" ] || [ "${'$'}(stat -L -c %d:%i "${'$'}a" 2>/dev/null)" != "${'$'}(stat -L -c %d:%i "${'$'}t" 2>/dev/null)" ]; }; then
+            if [ -d "${'$'}a" ]; then k=hidden-folder; else k=hidden-file; fi
+          elif [ -d "${'$'}t" ]; then k=folder; [ -r "${'$'}t" ] && [ -x "${'$'}t" ] || k=denied
+          elif [ -e "${'$'}t" ]; then k=file; [ -r "${'$'}t" ] || k=denied
+          else k=missing
+          fi
+          echo "zeta_path ${'$'}k"
+        done
     """.trimIndent()
 
     /** 在 Linux 环境里执行的整条命令。 */
-    fun command(path: String, hostKey: String?): String =
-        "sh -c " + LinuxEnv.quote(Script) + " zeta-path " + LinuxEnv.quote(path) + " " + LinuxEnv.quote(hostKey.orEmpty())
+    fun command(paths: List<String>, hostKey: String?): String =
+        "sh -c " + LinuxEnv.quote(Script) + " zeta-path " + LinuxEnv.quote(hostKey.orEmpty()) + paths.joinToString("") { " " + LinuxEnv.quote(it) }
 
-    fun parse(stdout: String): PathKind = when (stdout.lineSequence().firstOrNull { it.startsWith("zeta_path ") }?.removePrefix("zeta_path ")?.trim()) {
-        "folder" -> PathKind.Folder
-        "file" -> PathKind.File
-        "missing" -> PathKind.Missing
-        "denied" -> PathKind.Denied
-        "hidden-folder" -> PathKind.FolderNotInProcess
-        "hidden-file" -> PathKind.FileNotInProcess
-        else -> PathKind.Unknown
+    /** 脚本的输出，按路径的顺序（登录提示之类的别的行跳过）。 */
+    fun parse(stdout: String): List<PathKind> = stdout.lineSequence().filter { it.startsWith("zeta_path ") }.map { line ->
+        when (line.removePrefix("zeta_path ").trim()) {
+            "folder" -> PathKind.Folder
+            "file" -> PathKind.File
+            "missing" -> PathKind.Missing
+            "denied" -> PathKind.Denied
+            "hidden-folder" -> PathKind.FolderNotInProcess
+            "hidden-file" -> PathKind.FileNotInProcess
+            else -> PathKind.Unknown
+        }
+    }.toList()
+
+    /** 以 Linux 用户的身份一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。 */
+    fun checkAll(config: LinuxEnvConfig, paths: List<String>, hostKey: String?): List<PathKind> {
+        if (paths.isEmpty()) return emptyList()
+        val kinds = runCatching { LinuxEnv.run(config, command(paths, hostKey), timeoutMs = 20_000) }.getOrNull()
+            ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) }
+        return kinds?.takeIf { it.size == paths.size } ?: paths.map { PathKind.Unknown }
     }
 
     /** 以 Linux 用户的身份查 [path]。耗时，别在主线程调用。 */
-    fun check(config: LinuxEnvConfig, path: String, hostKey: String?): PathKind =
-        runCatching { LinuxEnv.run(config, command(path, hostKey), timeoutMs = 20_000) }.getOrNull()
-            ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) } ?: PathKind.Unknown
+    fun check(config: LinuxEnvConfig, path: String, hostKey: String?): PathKind = checkAll(config, listOf(path), hostKey).single()
 }

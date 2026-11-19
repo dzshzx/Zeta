@@ -49,20 +49,25 @@ class ComposerDraft internal constructor(text: String = "", selection: TextRange
 }
 
 /**
- * 各对话没发出的输入（[ComposerDraft]），按会话号保管；随手存进设置（[Settings.composerDrafts]，图片另存成文件），
+ * 各对话没发出的输入（[ComposerDraft]），按会话号保管；随手存进单独的设置文件 [PREFS]（图片另存成文件），
  * Zeta 被杀、重开后接着用。界面停手一会儿、离开对话、发出消息时调 [save]。在主线程上用。
+ * 不放进主设置文件：那里有很大的斜杠命令缓存，每次存都要整份重写，Activity 停下时系统还会在主线程上等它写完。
  *
  * - 还没开始的新对话（没有会话号、也没有内容）共用一份草稿，存在 [NEW] 下：切走再点「新对话」，没发出的字还在。
  *   这一份跟着最近显示它的那个新对话走；那个对话拿到会话号时（发出第一条消息后）改记到会话号下，下一个新对话从空的开始。
- * - 已经有内容、还没有会话号的对话（分支、刚发出第一条的）先按对话的 key 放在内存里，拿到会话号后改记过去再存盘。
+ * - 已经有内容、还没有会话号的对话（分支、刚发出第一条的）的草稿只放在内存里（[unsaved]），拿到会话号后改记过去再存盘。
  * - 删除会话时连同草稿一起删（[forget]）。
  * - 存盘有上限（[DraftRecords.fit]）：草稿数、文字总长、图片总大小，超了先丢最久没动的。
  */
 class ComposerDrafts(context: Context, private val settings: Settings) {
     private val imageDir = File(context.applicationContext.filesDir, "drafts")
+    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** 内存里的草稿，按会话号（还没有时按对话的 key）。 */
+    /** 内存里的草稿，按会话号；存盘的都在这里。 */
     private val live = HashMap<String, ComposerDraft>()
+
+    /** 已经开始、还没有会话号的对话的草稿，按对话的 key：重开 Zeta 后找不回这个对话，不存盘。 */
+    private val unsaved = HashMap<String, ComposerDraft>()
 
     /** 还没开始的新对话那一份，和正显示着它的那个对话。 */
     private var fresh: ComposerDraft? = null
@@ -84,7 +89,12 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
     private val disk = Dispatchers.IO.limitedParallelism(1)
 
     init {
-        for (record in DraftRecords.decode(settings.composerDrafts)) {
+        // 以前存在主设置文件里：读一次搬过来，再从那里删掉
+        settings.composerDrafts?.let { old ->
+            if (!prefs.contains(KEY)) prefs.edit().putString(KEY, old).apply()
+            settings.composerDrafts = null
+        }
+        for (record in DraftRecords.decode(prefs.getString(KEY, null))) {
             records[record.key] = record
             if (record.key != NEW) previews[record.key] = DraftRecords.preview(record)
         }
@@ -98,8 +108,8 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
             freshOwner = conversation
             return draft
         }
-        val key = conversation.openKey
-        return live.getOrPut(key) { records[key]?.let(::restore) ?: ComposerDraft() }
+        val id = conversation.sessionId ?: return unsaved.getOrPut(conversation.key) { ComposerDraft() }
+        return live.getOrPut(id) { records[id]?.let(::restore) ?: ComposerDraft() }
     }
 
     /** 侧栏用：会话 [sessionId] 有没发出的草稿时，草稿开头的一行（可观察）。 */
@@ -116,8 +126,14 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
             fresh = null
             freshOwner = null
             drop(NEW)
-            live[owner.openKey] = draft
-            return store(owner.openKey, draft, force = true)
+            val id = owner.sessionId
+            if (id == null) {
+                // 刚发出第一条、会话号还没来：先放在内存里，存着的新对话那份已经去掉
+                unsaved[owner.key] = draft
+                return write()
+            }
+            live[id] = draft
+            return store(id, draft, force = true)
         }
         val key = live.entries.firstOrNull { it.value === draft }?.key ?: return
         store(key, draft)
@@ -133,7 +149,7 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
                 drop(NEW)
             }
         } else {
-            live.remove(from).also { drop(from) }
+            live.remove(from)?.also { drop(from) } ?: unsaved.remove(from)
         } ?: return
         live[to] = draft
         store(to, draft, force = true)
@@ -156,11 +172,6 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
 
     /** 存 [key] 下的那份；[force] 是改记了地方，存着的那份已经去掉，没东西可存也要写一次盘。 */
     private fun store(key: String, draft: ComposerDraft, force: Boolean = false) {
-        // 还没有会话号的（分支、刚发出第一条的）重开 Zeta 后找不回来，不存盘
-        if (key.startsWith("$NEW-")) {
-            if (force) write()
-            return
-        }
         val record = draft.record(key, System.currentTimeMillis())
         if (record == null) {
             if (!drop(key) && !force) return
@@ -170,7 +181,7 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
         write(draft.attachments.associate { it.id to it.base64 })
     }
 
-    /** 按上限裁好、写进设置；图片文件补上新的、删掉不再用的。[images] 是刚存的那份草稿里的图片内容（id → base64）。 */
+    /** 按上限裁好、写进 [PREFS]；图片文件补上新的、删掉不再用的。[images] 是刚存的那份草稿里的图片内容（id → base64）。 */
     private fun write(images: Map<String, String> = emptyMap()) {
         val kept = DraftRecords.fit(records.values.toList())
         records.clear()
@@ -178,7 +189,7 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
         val shown = kept.filter { it.key != NEW }.associate { it.key to DraftRecords.preview(it) }
         (previews.keys - shown.keys).forEach(previews::remove)
         for ((key, line) in shown) if (previews[key] != line) previews[key] = line
-        settings.composerDrafts = if (kept.isEmpty()) null else DraftRecords.encode(kept)
+        prefs.edit().apply { if (kept.isEmpty()) remove(KEY) else putString(KEY, DraftRecords.encode(kept)) }.apply()
         val wanted = kept.flatMap { it.images }.mapNotNullTo(HashSet()) { imageName(it.id) }
         val toWrite = images.filterKeys { imageName(it) in wanted }
         scope.launch(disk) {
@@ -208,8 +219,11 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
             }
             draft.attachments.addAll(0, images.filter { image -> draft.attachments.none { it.id == image.id } })
             val config = settings.env
-            val missing = if (config == null || copied.isEmpty()) null else withContext(Dispatchers.IO) { DraftFiles.missing(config, copied) }
-            if (!missing.isNullOrEmpty()) draft.uploads.removeAll { it.path in missing }
+            val missing = if (config == null || copied.isEmpty()) emptySet() else withContext(Dispatchers.IO) {
+                // 查不成（进不了环境）时当作都还在
+                copied.zip(PathCheck.checkAll(config, copied.map(AttachedPaths::path), hostKey = null)).filter { it.second == PathKind.Missing }.map { it.first }.toSet()
+            }
+            if (missing.isNotEmpty()) draft.uploads.removeAll { it.path in missing }
             // 读不回来的图片、已经不在的文件，存着的那份也去掉；读回来之前存过一次的，把图片补回去
             save(draft)
         }
@@ -217,8 +231,12 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
     }
 
     companion object {
-        /** 还没开始的新对话那一份草稿存在这个 key 下（新对话的 key 都以它开头，见 [Conversation.key]）。 */
+        /** 还没开始的新对话那一份草稿存在这个 key 下。 */
         const val NEW = "new"
+
+        /** 草稿存在这个设置文件的 [KEY] 下。 */
+        const val PREFS = "zeta_drafts"
+        const val KEY = "drafts"
 
         private val ImageName = Regex("[A-Za-z0-9-]{1,64}")
 
@@ -354,19 +372,4 @@ object DraftRecords {
         if (end > 0 && this[end - 1].isHighSurrogate()) end--
         return substring(0, end)
     }
-}
-
-/** 恢复草稿时看复制进 Linux 的文件还在不在（助手脚本会清掉七天前的，存储页也能清）。 */
-object DraftFiles {
-    /** 参数是一串路径，打印其中不存在的，一行一个。 */
-    const val SCRIPT = "for p; do [ -e \"\$p\" ] || printf '%s\\n' \"\$p\"; done"
-
-    fun command(paths: List<String>): String = "sh -c " + LinuxEnv.quote(SCRIPT) + " zeta-draft" + paths.joinToString("") { " " + LinuxEnv.quote(it) }
-
-    fun parse(stdout: String): Set<String> = stdout.lineSequence().filter { it.isNotEmpty() }.toSet()
-
-    /** [paths] 里已经不在的；查不成（进不了环境）时为 null，当作都还在。耗时，别在主线程调用。 */
-    fun missing(config: LinuxEnvConfig, paths: List<String>): Set<String>? =
-        runCatching { LinuxEnv.run(config, command(paths), timeoutMs = 20_000) }.getOrNull()
-            ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) }
 }

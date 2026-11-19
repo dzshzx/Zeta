@@ -376,18 +376,16 @@ private fun ConversationBody(
     val prompts = rememberPromptsUi(input)
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
-    // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的
+    // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = { follow = false })
-    // 有过更早的记录就一直给“更早的记录”那行留着地方：全载入后这行没了，留白不收，正看着的内容不跟着往上跳
-    val earlierRoom = remember(conversation) { BooleanArray(1) }
-    if (conversation.earlier != null) earlierRoom[0] = true
+    val leading = if (conversation.earlier != null) 1 else 0
+    KeepReadingPosition(listState, shown.firstOrNull()?.id) { key -> shown.indexOfFirst { it.id == key }.let { if (it < 0) -1 else it + leading } }
     ChatFindDriver(
         find = find,
         items = shown,
         answerText = { imagesOf(it).text },
         listState = listState,
-        // “更早的记录”那行画在列表外面，不占列表项
-        leading = 0,
+        leading = leading,
         topInset = padding.calculateTopPadding(),
         onJump = { follow = false },
     )
@@ -431,11 +429,20 @@ private fun ConversationBody(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize().nestedScroll(earlierPaging),
-                        contentPadding = PaddingValues(
-                            top = padding.calculateTopPadding() + 4.dp + if (earlierRoom[0]) EarlierRowHeight else 0.dp,
-                            bottom = 16.dp,
-                        ),
+                        contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = 16.dp),
                     ) {
+                        conversation.earlier?.let { earlier ->
+                            item(key = EarlierRowKey, contentType = EarlierRowKey) {
+                                EarlierHistoryRow(
+                                    skipped = earlier.skipped,
+                                    state = conversation.earlierState,
+                                    onLoad = {
+                                        follow = false
+                                        conversation.loadEarlier()
+                                    },
+                                )
+                            }
+                        }
                         items(shown, key = { it.id }, contentType = { it::class }) { item ->
                             when (item) {
                                 is UserItem -> {
@@ -480,18 +487,6 @@ private fun ConversationBody(
                                 }
                             }
                         }
-                    }
-                    // “更早的记录”那行画在列表外面、贴在第 0 项上方（为什么见 EarlierHistory.kt）
-                    conversation.earlier?.let { earlier ->
-                        EarlierHistoryRow(
-                            skipped = earlier.skipped,
-                            state = conversation.earlierState,
-                            onLoad = {
-                                follow = false
-                                conversation.loadEarlier()
-                            },
-                            modifier = Modifier.aboveFirstItem(listState),
-                        )
                     }
                 }
             }
@@ -618,7 +613,7 @@ private const val MaxAttachments = 4
 private const val DraftSaveDelayMs = 600L
 
 /**
- * 输入栏的内容随手存盘（[ComposerDrafts]）：停手 [DraftSaveDelayMs] 后存一次，离开这个对话（切走、界面重建）时马上存。
+ * 输入栏的内容随手存盘（[ComposerDrafts]）：内容变了、停手 [DraftSaveDelayMs] 后存一次（只挪光标不算），离开这个对话（切走、界面重建）时马上存。
  * 编辑旧消息时输入框里是那条消息，不存，存着的仍是编辑前的草稿；离开时先取消编辑，把编辑前的草稿放回来再存。
  */
 @Composable
@@ -626,7 +621,7 @@ private fun SaveDraft(drafts: ComposerDrafts, draft: ComposerDraft, actions: Mes
     LaunchedEffect(draft) {
         snapshotFlow {
             if (actions.editing != null) null
-            else listOf(draft.input.text.toString(), draft.input.selection, draft.attachments.map { it.id }, draft.uploads.map { it.path to it.failed })
+            else listOf(draft.input.text.toString(), draft.attachments.map { it.id }, draft.uploads.map { it.path to it.failed })
         }
             .drop(1)
             .collectLatest { shape ->

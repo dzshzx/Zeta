@@ -49,7 +49,7 @@ COMMAND_ARGS = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.S)
 COMMAND_OUT = re.compile(r"<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>", re.S)
 MAX_TEXT = 6000
 MAX_EVENTS = 800  # 打开对话时先载入最近这么多条（子代理查看页也是）
-HISTORY_PAGE = 400  # 往上翻时一次再载入这么多条
+HISTORY_PAGE = 1500  # 往上翻时一次再载入这么多条（每次都要从头读整份记录，页大几乎不多花时间）
 MAX_PATCH_LINES = 2000  # 改文件结果里的对比超过这么多行就不带，界面改用参数里的新旧内容自己比
 TODO_TOOLS = ("TodoWrite", "TaskCreate", "TaskUpdate")
 

@@ -110,17 +110,18 @@ class DraftRecordsTest {
         assertEquals(60, DraftRecords.preview(record("s", "长".repeat(100))).length)
     }
 
-    /** 那段脚本在本机 sh 里跑一遍：只报不在的，路径里有空格、引号也不出错。 */
+    /** 恢复草稿时查复制进去的文件还在不在（[PathCheck] 一次查几个）：整条命令在本机 sh 里跑一遍，路径里有空格、引号也不出错。 */
     @Test
-    fun missingFilesScript() {
+    fun missingFilesCheck() {
         val dir = Files.createTempDirectory("zeta-drafts").toFile()
         try {
             val there = File(dir, "有 空格 的'文件'.txt").apply { writeText("x") }
             val gone = File(dir, "已经清掉了.pdf").path
-            val process = ProcessBuilder("sh", "-c", DraftFiles.command(listOf(there.path, gone))).redirectErrorStream(true).start()
+            val process = ProcessBuilder("sh", "-c", PathCheck.command(listOf(there.path, gone), null))
+                .apply { environment()["HOME"] = dir.path }.redirectErrorStream(true).start()
             val out = process.inputStream.bufferedReader().readText()
             assertEquals(0, process.waitFor())
-            assertEquals(setOf(gone), DraftFiles.parse(out))
+            assertEquals(listOf(PathKind.File, PathKind.Missing), PathCheck.parse(out))
         } finally {
             dir.deleteRecursively()
         }

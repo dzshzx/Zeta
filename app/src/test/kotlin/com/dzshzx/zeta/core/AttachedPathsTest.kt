@@ -96,14 +96,14 @@ class AttachedPathsTest {
 
     @Test
     fun pathCheckParsesScriptOutput() {
-        assertEquals(PathKind.Folder, PathCheck.parse("motd line\nzeta_path folder\n"))
-        assertEquals(PathKind.File, PathCheck.parse("zeta_path file"))
-        assertEquals(PathKind.Missing, PathCheck.parse("zeta_path missing"))
-        assertEquals(PathKind.Denied, PathCheck.parse("zeta_path denied"))
-        assertEquals(PathKind.FolderNotInProcess, PathCheck.parse("zeta_path hidden-folder"))
-        assertEquals(PathKind.FileNotInProcess, PathCheck.parse("zeta_path hidden-file"))
-        assertEquals(PathKind.Unknown, PathCheck.parse(""))
-        assertTrue(PathCheck.command("/a b/it's", null).endsWith(" zeta-path '/a b/it'\\''s' ''"))
+        assertEquals(listOf(PathKind.Folder), PathCheck.parse("motd line\nzeta_path folder\n"))
+        assertEquals(
+            listOf(PathKind.File, PathKind.Missing, PathKind.Denied, PathKind.FolderNotInProcess, PathKind.FileNotInProcess, PathKind.Unknown),
+            PathCheck.parse("zeta_path file\nzeta_path missing\nzeta_path denied\nzeta_path hidden-folder\nzeta_path hidden-file\nzeta_path ???"),
+        )
+        assertEquals(emptyList<PathKind>(), PathCheck.parse(""))
+        assertTrue(PathCheck.command(listOf("/a b/it's"), null).endsWith(" zeta-path '' '/a b/it'\\''s'"))
+        assertTrue(PathCheck.command(listOf("/x", "/y"), "host-1").endsWith(" zeta-path 'host-1' '/x' '/y'"))
     }
 
     /** 托管目录按包分开（测试版是 zeta-dev），脚本里不能写死正式版的目录。 */
@@ -123,16 +123,19 @@ class AttachedPathsTest {
             val file = File(dir, "it's.txt").apply { writeText("x") }
             val key = "host-1"
             File(home, ".cache/zeta/hosts/$key").apply { mkdirs() }.resolve("pid").writeText(ProcessHandle.current().pid().toString())
-            fun run(path: String, hostKey: String?): PathKind {
-                val process = ProcessBuilder("sh", "-c", PathCheck.Script, "zeta-path", path, hostKey.orEmpty())
+            fun runAll(paths: List<String>, hostKey: String?): List<PathKind> {
+                val process = ProcessBuilder(listOf("sh", "-c", PathCheck.Script, "zeta-path", hostKey.orEmpty()) + paths)
                     .apply { environment()["HOME"] = home.path; environment().remove("ZETA_NAME") }.redirectErrorStream(true).start()
                 return PathCheck.parse(process.inputStream.bufferedReader().readText().also { process.waitFor() })
             }
+            fun run(path: String, hostKey: String?): PathKind = runAll(listOf(path), hostKey).single()
             assertEquals(PathKind.Folder, run(dir.path, null))
             assertEquals(PathKind.Folder, run(dir.path, key))
             assertEquals(PathKind.File, run(file.path, key))
             assertEquals(PathKind.Missing, run(dir.path + "/nope", key))
             assertEquals(PathKind.Folder, run(dir.path, "no-such-host"))
+            // 一次查几个：顺序同参数（恢复草稿时看复制进去的文件还在不在）
+            assertEquals(listOf(PathKind.File, PathKind.Missing, PathKind.Folder), runAll(listOf(file.path, dir.path + "/gone", dir.path), null))
             if (System.getProperty("user.name") != "root" && file.setReadable(false, false)) {
                 assertEquals(PathKind.Denied, run(file.path, key))
             }
