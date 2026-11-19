@@ -254,6 +254,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("autoLoadRemoteImages", false)
         set(value) = prefs.edit().putBoolean("autoLoadRemoteImages", value).apply()
 
+    /** 一轮回答完了自动朗读（见 core/voice/ReadAloud.kt）。 */
+    var autoReadAnswers: Boolean
+        get() = prefs.getBoolean("autoReadAnswers", false)
+        set(value) = prefs.edit().putBoolean("autoReadAnswers", value).apply()
+
     /** 新对话第一轮结束后请 Claude Code 起一个简短标题，代替第一句话。 */
     var autoTitle: Boolean
         get() = prefs.getBoolean("autoTitle", true)

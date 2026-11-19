@@ -145,6 +145,14 @@ private fun SettingsHome(
                     SwitchPreference(title = "自动加载网络图片", checked = hub.autoLoadRemoteImages, onCheckedChange = hub::chooseAutoLoadRemoteImages)
                 }
                 item { AutoTitleSwitch(hub) }
+                item {
+                    SwitchPreference(
+                        title = "回答自动朗读",
+                        summary = "一轮回答完了用系统的朗读引擎念出来，锁屏也接着读",
+                        checked = hub.autoReadAnswers,
+                        onCheckedChange = hub::chooseAutoReadAnswers,
+                    )
+                }
             }
         }
         item(key = "compact") { AutoCompactGroup(hub) }

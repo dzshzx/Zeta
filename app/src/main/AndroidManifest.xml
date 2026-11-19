@@ -11,12 +11,22 @@
     <!-- 定时任务：到点准时（setAlarmClock 要它），开机后重排闹钟 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 按住说话：系统的语音识别服务替 Zeta 录音，要 Zeta 自己有麦克风权限；朗读回答时退到后台继续读 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- 按名字找应用、打开应用：只需要能看到有桌面图标的那些 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- 系统自带的语音识别和朗读引擎（小米的在 com.xiaomi.mibrain.speech） -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
     <application
@@ -124,6 +134,11 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <!-- 朗读回答时的前台服务：退到后台、锁屏后接着读 -->
+        <service
+            android:name=".core.voice.ReadAloudService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <service
             android:name=".core.AgentService"
             android:exported="false"

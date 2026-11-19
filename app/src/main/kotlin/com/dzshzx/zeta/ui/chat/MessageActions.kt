@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,11 +23,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
@@ -38,6 +42,7 @@ import com.dzshzx.zeta.core.SessionImage
 import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -49,6 +54,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
+import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.nio.ByteBuffer
@@ -64,7 +70,7 @@ import kotlinx.serialization.json.JsonObject
 /*
  * 聊天页的消息操作，交互照 Eta：
  * - 用户消息长按：复制、收藏为常用指令（见 SavedPromptsUi.kt）、编辑、删除。编辑时原文放回输入框，被编辑的消息描边，它之后的内容先藏起来，发出后替换；
- * - 每一轮最后一段回答下方：复制之后是重新生成、删除这一轮、分支。
+ * - 每段回答下方：复制、朗读；一轮的最后一段回答还有重新生成、删除这一轮、分支。
  * 改写和删除都在原会话上剪（会话号不变），分支另开新会话；做法见 core/Rewind.kt。
  */
 
@@ -207,6 +213,25 @@ internal fun TurnActionButtons(itemId: String, turns: TurnIndex, conversation: C
     if (turn.branchable && conversation.sessionId != null) {
         ActionButton(ZetaIcons.Branch, "从这里分支到新对话", enabled) { actions.branch(turn) }
     }
+}
+
+/**
+ * 回答下方复制键后面的朗读键：点了用系统的朗读引擎念这段回答（Markdown 换成念得顺的文字，见 core/voice），
+ * 正在念时换成主题色的停止键，再点停下。退到后台、锁屏后接着念，通知上也能停。
+ */
+@Composable
+internal fun ReadAloudButton(answer: AnswerItem) {
+    val context = LocalContext.current
+    val reading by ReadAloud.state.collectAsState()
+    val active = reading.id == answer.id
+    FlatIconButton(
+        icon = if (active) ZetaIcons.Stop else COUIIcons.VolumeUp,
+        contentDescription = if (active) "停止朗读" else "朗读",
+        size = 30.dp,
+        iconSize = if (active) 11.dp else 15.dp,
+        backgroundColor = if (active) COUITheme.colorScheme.containerThemeHalftone else Color.Unspecified,
+        tint = if (active) COUITheme.colorScheme.primaryText else COUITheme.colorScheme.labelSecondary,
+    ) { ReadAloud.toggle(context, answer.id, answer.text) }
 }
 
 /** 不以回答结尾的一轮（停在工具步骤或出错提示上），操作键单独占一行，和回答下方的对齐。 */

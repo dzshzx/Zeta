@@ -417,6 +417,7 @@ private fun ConversationBody(
                                     )
                                 }
                                 is AnswerItem -> AnswerBlock(item, markdownCache, imagesOf = imagesOf, actions = {
+                                    ReadAloudButton(item)
                                     TurnActionButtons(item.id, turns, conversation, actions)
                                 })
                                 is WorkItem -> Column {
@@ -501,6 +502,7 @@ private fun ConversationBody(
                 onRemove = { conversation.cancelQueued(it.uuid, recall = false) },
                 modifier = Modifier.padding(bottom = 6.dp),
             )
+            val voice = rememberHoldToTalk()
             Composer(
                 state = input,
                 busy = conversation.busy,
@@ -538,6 +540,7 @@ private fun ConversationBody(
                     EffortChip(effort = conversation.effort, applied = conversation.usage.appliedEffort, onChange = conversation::chooseEffort)
                 },
                 status = { UsageButtons(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }) },
+                voice = voice,
             )
             UsageDialog(
                 visible = viewingUsage,

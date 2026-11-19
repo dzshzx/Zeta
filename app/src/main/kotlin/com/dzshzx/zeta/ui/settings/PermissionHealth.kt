@@ -37,7 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, NotificationListener, ExactAlarm, AutoStart }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, NotificationListener, ExactAlarm, AutoStart, Microphone }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -73,6 +73,8 @@ internal data class PermissionSnapshot(
     val autoStart: Boolean? = null,
     /** 有通知使用权（通知触发的任务用）。 */
     val notificationListener: Boolean = false,
+    /** 有麦克风权限（按住说话用）。 */
+    val microphone: Boolean = false,
 )
 
 /**
@@ -113,6 +115,7 @@ internal object PermissionHealth {
             exactAlarms = ScheduleAlarms.exact(context),
             autoStart = miuiAutoStart(context),
             notificationListener = ZetaNotificationListener.granted(context),
+            microphone = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
         )
     }
 
@@ -214,6 +217,7 @@ internal object PermissionHealth {
                 )
             },
             notificationListenerItem(snapshot, root),
+            microphoneItem(snapshot, root),
         ) + scheduleItems(snapshot, root)
     }
 
@@ -239,6 +243,16 @@ internal object PermissionHealth {
             )
         }
         return listOfNotNull(exact, autoStart)
+    }
+
+    /** 麦克风：只有按住说话用，没给时不算问题。 */
+    private fun microphoneItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem = when {
+        snapshot == null -> PermissionItem(PermissionId.Microphone, "麦克风", null, "检查中", PermissionStatus.Checking, false)
+        snapshot.microphone -> PermissionItem(PermissionId.Microphone, "麦克风", "按住发送键说话时，系统的语音识别替 Zeta 录音", "已允许", PermissionStatus.Ready, false)
+        else -> PermissionItem(
+            PermissionId.Microphone, "麦克风", "输入框空着时按住发送键说话要用它；系统的语音识别服务替 Zeta 录音",
+            "未允许", PermissionStatus.Idle, root == true,
+        )
     }
 
     /** MIUI 的“后台弹出界面”：从胶囊点对话标题回到 Zeta 时要用它。不是 MIUI（读不到）就不列。 */
@@ -312,6 +326,14 @@ internal object PermissionHealth {
                 runScript(ZetaNotificationListener.GRANT_SCRIPT, ZetaNotificationListener.COMPONENT, user)
                 ZetaNotificationListener.granted(app)
             }
+            PermissionId.Microphone -> {
+                runScript(
+                    "pm grant --user \"\$3\" \"\$2\" android.permission.RECORD_AUDIO && " +
+                        "pm clear-permission-flags --user \"\$3\" \"\$2\" android.permission.RECORD_AUDIO user-fixed",
+                    pkg, user,
+                )
+                snapshot(app).microphone
+            }
             PermissionId.Root, PermissionId.Linux -> false
         }
     }
@@ -333,6 +355,8 @@ internal object PermissionHealth {
             // 小米系统的自启动开关在应用详情页里
             PermissionId.AutoStart -> details
             PermissionId.NotificationListener -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            // 运行时权限在应用详情页的“权限”里
+            PermissionId.Microphone -> details
             PermissionId.Root, PermissionId.Linux -> null
         }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }

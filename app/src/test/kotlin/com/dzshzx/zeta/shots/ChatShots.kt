@@ -12,8 +12,10 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Test
@@ -26,6 +28,23 @@ class ChatShots : ShotTest() {
         hub.showChat("改 README 的构建命令", oneTurn)
         shoot("chat", prepare = { onNodeWithText("已完成 3 个步骤").performClick() }) {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        }
+    }
+
+    /** 正在朗读这段回答：回答下方的朗读键换成主题色的停止键。 */
+    @Test
+    fun readingAloud() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("改 README 的构建命令", oneTurn)
+        @Suppress("UNCHECKED_CAST")
+        val state = ReadAloud::class.java.getDeclaredField("mutableState").apply { isAccessible = true }.get(ReadAloud) as MutableStateFlow<ReadAloud.State>
+        state.value = ReadAloud.State(id = "a1")
+        try {
+            shoot("chat-reading-aloud") {
+                ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+            }
+        } finally {
+            state.value = ReadAloud.State()
         }
     }
 

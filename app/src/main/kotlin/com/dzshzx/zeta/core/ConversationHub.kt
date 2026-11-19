@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.ZetaAccessibilityService
@@ -96,6 +97,14 @@ class ConversationHub(private val app: Application) {
         settings.autoLoadRemoteImages = enabled
     }
 
+    var autoReadAnswers by mutableStateOf(settings.autoReadAnswers)
+        private set
+
+    fun chooseAutoReadAnswers(enabled: Boolean) {
+        autoReadAnswers = enabled
+        settings.autoReadAnswers = enabled
+    }
+
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
     var darkTheme by mutableStateOf(settings.darkTheme)
         private set
@@ -119,6 +128,7 @@ class ConversationHub(private val app: Application) {
         phoneTools = settings.phoneTools
         backgroundScreen = settings.backgroundScreen
         autoLoadRemoteImages = settings.autoLoadRemoteImages
+        autoReadAnswers = settings.autoReadAnswers
         darkTheme = settings.darkTheme
         pinnedSessions = settings.pinnedSessions
         SharedFolders.current = settings.sharedFolders
@@ -800,6 +810,7 @@ class ConversationHub(private val app: Application) {
             // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成", silent = showed)
         }
+        if (!stopped) autoRead(conversation)
         refreshSessions()
     }
 
@@ -837,6 +848,16 @@ class ConversationHub(private val app: Application) {
 
     /** [conversation] 最近一次结束时弹了结果卡片：它的完成提醒不必再响铃。 */
     internal fun showedResultCard(conversation: Conversation): Boolean = carded === conversation
+
+    /**
+     * 开了“回答自动朗读”时，正显示着的对话这一轮以回答收尾就念出来（出错、停在工具步骤上的不念）。
+     * 定时任务起的对话不念：用户多半不在跟前。
+     */
+    private fun autoRead(conversation: Conversation) {
+        if (!autoReadAnswers || conversation !== current || ScheduleRunner.owns(conversation)) return
+        val answer = conversation.items.lastOrNull() as? AnswerItem ?: return
+        if (answer.text.isNotBlank()) ReadAloud.speak(app, answer.id, answer.text)
+    }
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */
     internal fun onBackgroundTasksDone(conversation: Conversation) {

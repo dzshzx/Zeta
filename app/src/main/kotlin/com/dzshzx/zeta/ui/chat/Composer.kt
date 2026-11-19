@@ -2,6 +2,7 @@ package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -39,6 +40,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -49,8 +51,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,6 +65,7 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
+import com.dzshzx.zeta.core.voice.SpeechInput
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -74,9 +81,12 @@ import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
 import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.icon.extended.Image
+import io.github.suqi8.coui.kmp.icon.extended.Mic
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 internal val PermissionModes = listOf(
     "default" to "逐项确认",
@@ -138,12 +148,27 @@ internal fun Composer(
     tools: @Composable () -> Unit = {},
     /** 发送键左边的底栏按钮（额度提醒、上下文圆环）。 */
     status: @Composable () -> Unit = {},
+    /** 按住说话（见 HoldToTalk.kt）；手机上没有识别服务时为 null。 */
+    voice: HoldToTalk? = null,
 ) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val shape = remember { SquircleShape(ChatPanelCorner) }
     val canSend = enabled && files.none { it.uploading } &&
         (state.text.isNotBlank() || attachments.isNotEmpty() || files.any { it.path != null })
+    val talk by (voice?.input?.state ?: IdleTalk).collectAsState()
+    val talking = talk.active
+    val cancelling = talking && voice?.cancelling == true
+    // 说话时输入卡片描一圈主题色，滑进取消区换成红色
+    val talkBorder by animateColorAsState(
+        targetValue = when {
+            cancelling -> colors.error.copy(alpha = 0.6f)
+            talking -> colors.primary.copy(alpha = 0.5f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(160),
+        label = "talk-border",
+    )
     // 只打了“/名字”还没打空格时，提示可用的斜杠命令
     val typed = state.text.toString()
     val slash = if (typed.startsWith("/") && typed.none { it.isWhitespace() }) typed.drop(1).lowercase() else null
@@ -167,6 +192,7 @@ internal fun Composer(
             .fillMaxWidth()
             .dropShadow(shape = shape, shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = if (dark) 0.22f else 0.045f))
             .chatPanel(shape)
+            .border(1.dp, talkBorder, shape)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         if (suggestions.isNotEmpty()) {
@@ -264,8 +290,16 @@ internal fun Composer(
             modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 36.dp).padding(horizontal = 6.dp, vertical = 5.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            if (state.text.isEmpty()) {
-                Text(
+            when {
+                // 说话时输入框是空的：识别出的字实时显示在这里，松手后整段发出去
+                talking -> Text(
+                    text = talk.text.ifEmpty { if (talk.phase == SpeechInput.Phase.Finishing) "正在识别…" else "正在听…" },
+                    style = textStyle,
+                    color = if (talk.text.isEmpty()) colors.primaryText else colors.labelPrimary,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                state.text.isEmpty() -> Text(
                     text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
                     style = textStyle,
                     color = colors.hintNeutral,
@@ -297,15 +331,34 @@ internal fun Composer(
                 ),
                 DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
             )
-            BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
-                Icon(COUIIcons.Add, contentDescription = null)
+            if (talking) {
+                // 说话时底栏只留提示和麦克风键
+                Text(
+                    text = when {
+                        talk.phase == SpeechInput.Phase.Finishing -> "松开了，正在识别"
+                        cancelling -> "松开取消"
+                        else -> "松开发送，上滑取消"
+                    },
+                    style = COUITheme.textStyles.bodyS,
+                    color = if (cancelling) colors.error else colors.labelSecondary,
+                    modifier = Modifier.weight(1f).padding(start = 6.dp),
+                    maxLines = 1,
+                )
+            } else {
+                BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
+                    Icon(COUIIcons.Add, contentDescription = null)
+                }
+                tools()
+                Spacer(Modifier.weight(1f))
+                status()
             }
-            tools()
-            Spacer(Modifier.weight(1f))
-            status()
             val showStop = busy && !canSend
+            // 没东西可发、也没在跑时（或正说着话），发送键换成按住说话的麦克风
+            val mic = voice != null && enabled && (talking || (!showStop && !canSend))
             val buttonColor by animateColorAsState(
                 targetValue = when {
+                    cancelling -> colors.error
+                    talking -> colors.primary
                     showStop -> colors.labelPrimary
                     canSend -> colors.primary
                     else -> colors.container8
@@ -313,36 +366,79 @@ internal fun Composer(
                 animationSpec = tween(160),
                 label = "send-color",
             )
+            val haptics = LocalHapticFeedback.current
+            val level by animateFloatAsState(if (talk.phase == SpeechInput.Phase.Listening) talk.level else 0f, tween(90), label = "talk-level")
+            val grow by animateFloatAsState(if (talking) 1.12f else 1f, tween(160), label = "talk-grow")
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(CircleShape)
-                    .clickable(enabled = showStop || canSend) {
-                        if (showStop) {
-                            onStop()
+                    .then(
+                        if (mic && voice != null) {
+                            Modifier
+                                .semantics { contentDescription = "按住说话" }
+                                .holdToTalk(voice, haptics) { text -> onSend(text) }
                         } else {
-                            val text = state.text.toString()
-                            state.clearText()
-                            onSend(text)
-                        }
-                    },
+                            Modifier.clip(CircleShape).clickable(enabled = showStop || canSend) {
+                                if (showStop) {
+                                    onStop()
+                                } else {
+                                    val text = state.text.toString()
+                                    state.clearText()
+                                    onSend(text)
+                                }
+                            }
+                        },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(buttonColor), contentAlignment = Alignment.Center) {
+                // 说话时按钮后面一圈随音量放大的光晕
+                if (talking) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .graphicsLayer {
+                                val scale = 1f + 0.45f * level
+                                scaleX = scale
+                                scaleY = scale
+                            }
+                            .background(buttonColor.copy(alpha = 0.22f), CircleShape),
+                    )
+                }
+                Box(
+                    modifier = Modifier.size(32.dp).graphicsLayer { scaleX = grow; scaleY = grow }.clip(CircleShape).background(buttonColor),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val face = when {
+                        mic -> SendFace.Mic
+                        showStop -> SendFace.Stop
+                        else -> SendFace.Send
+                    }
                     AnimatedContent(
-                        targetState = showStop,
+                        targetState = face,
                         transitionSpec = {
                             (fadeIn(tween(130)) + scaleIn(tween(160), initialScale = 0.72f))
                                 .togetherWith(fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.72f))
                         },
                         label = "send-stop",
-                    ) { stop ->
+                    ) { shown ->
                         Icon(
-                            imageVector = if (stop) ZetaIcons.Stop else ZetaIcons.ArrowUp,
-                            contentDescription = if (stop) "停止" else "发送",
-                            modifier = Modifier.size(if (stop) 12.dp else 17.dp),
+                            imageVector = when (shown) {
+                                SendFace.Mic -> COUIIcons.Mic
+                                SendFace.Stop -> ZetaIcons.Stop
+                                SendFace.Send -> ZetaIcons.ArrowUp
+                            },
+                            contentDescription = if (shown == SendFace.Mic) null else if (shown == SendFace.Stop) "停止" else "发送",
+                            modifier = Modifier.size(
+                                when (shown) {
+                                    SendFace.Mic -> 17.dp
+                                    SendFace.Stop -> 12.dp
+                                    SendFace.Send -> 17.dp
+                                },
+                            ),
                             tint = when {
-                                stop -> colors.background
+                                shown == SendFace.Mic && talking -> colors.onPrimary
+                                shown == SendFace.Mic -> colors.labelSecondary
+                                shown == SendFace.Stop -> colors.background
                                 canSend -> colors.onPrimary
                                 else -> colors.labelTertiary
                             },
@@ -353,6 +449,12 @@ internal fun Composer(
         }
     }
 }
+
+/** 发送键上显示什么。 */
+private enum class SendFace { Send, Stop, Mic }
+
+/** 没有按住说话时的识别状态（一直空闲）。 */
+private val IdleTalk: StateFlow<SpeechInput.State> = MutableStateFlow(SpeechInput.State())
 
 /**
  * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定、不跟强调色变（选红色强调色时也分得清「完全放行」）。
