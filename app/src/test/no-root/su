@@ -1,0 +1,5 @@
+#!/bin/sh
+# 单元测试（含截图测试）的 PATH 里排在最前的 su：总是失败。
+# Zeta 经 su 执行的命令在 JVM 上一律当作“没有 root”，不会调到开发机或手机 Debian 自己的 su。
+echo "zeta unit test: no root" >&2
+exit 1

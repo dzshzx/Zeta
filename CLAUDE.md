@@ -34,8 +34,25 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 构建：`tools/gradle <任务>`，例如 `tools/gradle :app:assembleDebug`；不直接跑 `./gradlew`。它用 `tools/java-home` 找 JDK 25（`JAVA_HOME`，再是 PATH 上的 `java`，最后是 `~/.gradle/jdks` 里 Gradle 下载过的那份），并设 `ANDROID_HOME=~/Android/Sdk`。缺的 SDK 平台和 build-tools 由 AGP 构建时自动下载，两台机器都已接受许可。
 - 手机上为内存和 CPU 架构调的 Gradle 参数写在手机的 `~/.gradle/gradle.properties`，不进仓：不开守护进程、Kotlin 在进程内编译、最多 4 个 worker、aapt2 用 `~/Android/aapt2-x86_64/aapt2`（经 qemu-user 跑官方 x86-64 版，Google 不提供 linux-arm64 版）。这个 aapt2 的版本要和 AGP 一致，升 AGP 时一起换。手机空闲内存常只有几百 MB 到 3 GB，同一时间只跑一个 Gradle。
 - 签名：debug 包用 `~/.android/zeta-debug.keystore` 签名，是手机上已装的 Zeta 用的那把调试密钥。工作站上是一份拷贝（权限 600），手机上是指向 `~/.android/debug.keystore` 的符号链接。签名对不上时 `pm install -r` 会失败，卸载重装会丢掉 Zeta 的全部设置，所以不换这把密钥，也不卸载。
-- 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包、跑 JVM 单元测试。
+- 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包、跑 JVM 单元测试（含截图测试）。
 - 单元测试：`tools/gradle :app:testDebugUnitTest`，放在 `app/src/test/kotlin`。不碰 Android 运行时的逻辑（解析、路径、状态归约）都写成单元测试，在工作站上就能验，不用装机。`ClaudeConfigClientTest` 在临时 HOME 上端到端跑 `core/claude` 的脚本和 `claude` 命令行；加 `ZETA_TEST_SSH=xiaomi-17-debian`（和 `--rerun`）时经 ssh 在手机 Debian 里用临时 HOME 再跑一遍。
+- 截图测试（看界面不用装机）：`tools/shots [过滤]` 在 JVM 上（Robolectric 原生图形 + Roborazzi）把界面画成 PNG，写到 `app/build/shots/<名字>-light.png` 和 `-dark.png`，尺寸、密度和手机一样（约 1220×2656，520 dpi），可以和真机截图并排看。过滤是测试类名的一部分（`tools/shots Settings`），不给就全跑。和上一次画的不一样时旁边多一张 `<名字>-<配色>_compare.png`（左旧、中差异、右新）：改界面前跑一次，改完再跑，看对照图。
+  - 测试在 `app/src/test/kotlin/com/dzshzx/zeta/shots`，继承 `ShotTest`。界面要 `ConversationHub` 时用 `Fixtures.readyHub(app)`（环境就绪、已登录的真 hub，不起进程），聊天内容用 `hub.showChat(标题, 条目)` 摆上去。新界面加一张图：
+
+    ```kotlin
+    class MyScreenShots : ShotTest() {
+        @Test
+        fun main() {
+            val hub = Fixtures.readyHub(app)
+            // prepare 在浅色、深色下各做一遍，比如点开对话框；不需要就不写
+            shoot("my-screen", prepare = { onNodeWithText("打开").performClick() }) { MyScreen(hub = hub, onBack = {}) }
+        }
+    }
+    ```
+
+  - 和真机的差别：字体是 Roboto 和 Noto Sans CJK（手机上是 MiSans），字宽略有出入，换行位置可能不同；动画一律直接放完，转圈停在固定一帧；顶栏的浮动玻璃按钮画不出来（Robolectric 没有它要的网格着色器），退回同样大小的不透明圆底；对话框和菜单不采样背景，是不透明底色（手机上是毛玻璃）。
+  - JVM 上没有 root、无障碍、悬浮窗、虚拟屏和 Claude 进程。单元测试的 PATH 里有个总是失败的 `su`（`app/src/test/no-root`），要 root 才查得到的东西在图上是查不到的样子（比如共享文件夹列不出子目录）。这些仍要上真机：悬浮层真实的窗口行为（位置、触摸、给 Claude 的手势让路、叠在别的应用上）、后台屏幕的画面、权限授予、Claude 真跑一轮，以及最终的字体和毛玻璃效果。
+  - 门禁里的单元测试每次都把这些图画一遍，渲染崩溃就失败。不提交基准图、不做像素比对：并行的分支改界面时基准图必然冲突、要反复重录；JVM 渲染和真机本来就不同，工作站和手机 Debian（arm64）画出来的像素也未必一样。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：测试版有三份，三个任务可以同时各用一份（见下一条）。工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；三份都有人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：拿租约前先把要做的步骤写好（命令清单或小脚本），拿到后只执行，一次占用不超过 10 分钟，测完立刻释放；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试能验的不占手机。
 - 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：build type `dev`，橙色图标，代码和签名同 debug（`assembleDebug` 照旧只出正式版）。测试版有三份，好让三个任务同时测：`com.dzshzx.zeta.dev`（「Zeta 测试」）、`.dev2`（「Zeta 测试2」）、`.dev3`（「Zeta 测试3」），由 `-Pzeta.devSlot=<1..3>` 选，不传是第一份。`tools/install.sh --dev` 先向 `tools/phone-lock dev` 要一份空着的（优先给你上次用过的那份），按它构建、安装，打印装的是哪一份；之后的 `vd.py --dev` 自动用同一份。各份和正式版同时装在手机上，互不替换。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。

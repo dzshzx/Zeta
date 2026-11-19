@@ -72,10 +72,35 @@ android {
         checkReleaseBuilds = false
     }
 
-    // JVM 单元测试里碰到 android.* 的调用返回默认值，不抛 “not mocked”；要真 Android 行为的放到手机上测
+    // JVM 单元测试里碰到 android.* 的调用返回默认值，不抛 “not mocked”；要真 Android 行为的放到手机上测。
+    // 截图测试（app/src/test/kotlin/com/dzshzx/zeta/shots）跑在 Robolectric 里，要用到应用的资源（字体、字符串）。
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
     }
+}
+
+// Robolectric 的 Android 系统镜像（android-all，约 250 MB）交给 Gradle 下载，测试进程直接从 Gradle 缓存里离线取用：
+// 测试进程不走 Gradle 的代理和镜像设置，自己去 Maven Central 下载在本机和手机上都不可靠。
+val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
+val shotsDir = layout.buildDirectory.dir("shots").get().asFile.absolutePath
+val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + providers.environmentVariable("PATH").getOrElse("")
+
+tasks.withType<Test>().configureEach {
+    val androidAll: FileCollection = robolectricRuntime
+    inputs.files(androidAll).withPropertyName("robolectricAndroidAll").withNormalizer(ClasspathNormalizer::class.java)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=" + androidAll.singleFile.parentFile) })
+    systemProperty("robolectric.offline", "true")
+    // Robolectric 的原生图形库经 System.load 载入，JDK 25 不加这一项会在每次测试时打一段警告
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    // 截图测试（app/src/test/kotlin/com/dzshzx/zeta/shots）每次都把图写到 app/build/shots（不进 Git），门禁因此也真的画一遍，
+    // 渲染崩溃会让测试失败。同时和上一次的同名图比：变了就在旁边多写一张 <名字>_compare.png
+    systemProperty("roborazzi.test.record", "true")
+    systemProperty("roborazzi.test.compare", "true")
+    systemProperty("roborazzi.compare.output.dir", shotsDir)
+    systemProperty("zeta.shots.dir", shotsDir)
+    // Zeta 经 su 执行的命令在单元测试里一律失败，碰不到开发机或手机 Debian 自己的 su
+    environment("PATH", noRootPath)
 }
 
 dependencies {
@@ -94,4 +119,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.compose.ui.test.junit4)
+    robolectricRuntime(libs.robolectric.android.all)
 }

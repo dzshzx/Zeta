@@ -2,6 +2,8 @@ package com.dzshzx.zeta.ui.components.coui
 
 import android.os.Build
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -25,14 +27,17 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -56,7 +61,6 @@ import com.itos.coui.scroll.CouiOverscrollEffect
 import com.itos.coui.scroll.couiVerticalScroll
 import com.itos.coui.scroll.rememberCouiOverscrollEffect
 import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.shape.CouiShape
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.rememberCouiTextStyle
 import com.itos.coui.theme.CouiTheme
@@ -148,13 +152,13 @@ internal fun CouiTopAppBarIconButton(
             )
         }
     } else {
+        // 没有浮动玻璃渲染器（SDK 34 以下；JVM 截图测试里也画不了它用的网格着色器）：在玻璃按钮的位置画一个
+        // 同样大小的不透明圆底。手机上走的是上面的玻璃按钮，不受影响
         val source = remember { MutableInteractionSource() }
         val resolvedTint = tint.takeOrElse { if (enabled) colors.title else colors.disabled }
         Box(
             modifier = modifier
                 .size(48.dp)
-                .clip(CouiShape(24.dp, 2f))
-                .couiButtonFeedback(dark, source, enabled)
                 .clickable(source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
                 .then(
                     if (contentDescription != null) {
@@ -165,12 +169,23 @@ internal fun CouiTopAppBarIconButton(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            CouiIcon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(iconSize),
-                tint = resolvedTint,
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .dropShadow(CircleShape, Shadow(radius = 8.dp, color = Color.Black, alpha = if (dark) 0.24f else 0.08f))
+                    .background(if (dark) Color(0xFF24262B) else Color.White, CircleShape)
+                    .border(0.5.dp, if (dark) Color(0x22FFFFFF) else Color(0x10000000), CircleShape)
+                    .clip(CircleShape)
+                    .couiButtonFeedback(dark, source, enabled),
+                contentAlignment = Alignment.Center,
+            ) {
+                CouiIcon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(iconSize),
+                    tint = resolvedTint,
+                )
+            }
         }
     }
 }

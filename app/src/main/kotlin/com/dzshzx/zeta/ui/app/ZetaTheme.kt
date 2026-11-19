@@ -35,9 +35,12 @@ internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
  *
  * 外观设置（强调色、纯黑背景、界面缩放）从 [UiPrefs] 读，改了立即生效。
  * 界面缩放和屏幕常亮只作用于 Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
+ *
+ * [windowBackdrop] 为 false 时菜单和对话框不采样窗口背景，退回不透明底色：只给 JVM 截图测试用，
+ * 那里对话框窗口的屏幕位置不对，透过毛玻璃看到的背景会错位，每帧的模糊又很慢。
  */
 @Composable
-fun ZetaTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
+fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val prefs = remember(context) { UiPrefs.get(context) }
@@ -116,8 +119,12 @@ fun ZetaTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
                 ) {
                     CouiTheme(darkTheme = isDark, colorScheme = coui) {
                         // minSdk 33：RuntimeShader 恒可用，菜单与对话框直接采样窗口背景。
-                        ProvideCouiMenuBackdrop(isolateContent = false) { windowSource ->
-                            Box(Modifier.fillMaxSize().then(windowSource)) { content() }
+                        if (windowBackdrop) {
+                            ProvideCouiMenuBackdrop(isolateContent = false) { windowSource ->
+                                Box(Modifier.fillMaxSize().then(windowSource)) { content() }
+                            }
+                        } else {
+                            Box(Modifier.fillMaxSize()) { content() }
                         }
                     }
                 }

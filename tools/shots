@@ -1,0 +1,18 @@
+#!/bin/bash
+# 在工作站上把界面画成 PNG，不用手机：跑 app/src/test/kotlin/com/dzshzx/zeta/shots 下的截图测试（Robolectric + Roborazzi）。
+# 图在 app/build/shots/：每个画面一张 <名字>-light.png、一张 <名字>-dark.png，和真机截图一样是 1220×2656 左右。
+# 和上一次画的不一样时，旁边多一张 <名字>-<配色>_compare.png（左旧、中差异、右新）：改界面前先跑一次，改完再跑，看对照图。
+#
+# 用法：tools/shots [过滤]
+#   过滤是测试类名的一部分，可带 *：tools/shots Settings、tools/shots 'Chat*'。不给就全跑。
+set -euo pipefail
+cd "$(dirname "$0")/.."
+tools/gradle --console=plain -q :app:testDebugUnitTest --tests "com.dzshzx.zeta.shots.*${1:-}*" --rerun
+cd app/build/shots
+echo "图在 $PWD："
+ls -1 -- *.png | grep -v '_compare\.png$' || true
+changed=$(ls -1 -- *_compare.png 2>/dev/null || true)
+if [[ -n $changed ]]; then
+  echo "和上一次不一样的（对照图）："
+  echo "$changed"
+fi
