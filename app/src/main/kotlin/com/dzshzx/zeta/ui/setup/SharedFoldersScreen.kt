@@ -58,9 +58,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val Footer = "共享文件夹在每次进入 Linux 环境时挂载到 /mnt/shared/ 下，改动对之后的命令和新开的对话生效，" +
-    "已经在进行的对话看不到新加的。内部存储里的目录实际绑定的是底层的 /data/media，Zeta 会把 Linux 用户加入 media_rw 组以便读写；" +
-    "在 Linux 里新建的文件属于这个用户，图库等应用要等系统重新扫描后才看得到。经 SSH 连进来的会话不挂载共享文件夹。"
+/*
+ * 共享文件夹在每次进入 Linux 环境时挂载，所以改动对之后的命令和新开的对话生效，已经在进行的对话看不到新加的。
+ * 内部存储里的目录实际绑定的是底层的 /data/media，Zeta 会把 Linux 用户加入 media_rw 组以便读写；
+ * 在 Linux 里新建的文件属于这个用户，图库等应用要等系统重新扫描后才看得到。
+ */
+private const val Footer = "挂载到 Linux 的 /mnt/shared/<挂载名>。改动对新开的对话生效，进行中的对话看不到新加的；经 SSH 连进来的会话不挂载。"
 
 /** 添加共享文件夹时的选择状态：照 Eta，用 root 列出 Android 侧的子文件夹一层层点进去，也可以直接输入路径或用系统选择器。 */
 @Stable
@@ -217,13 +220,14 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "folders") {
             PreferenceGroup(footer = Footer) {
                 if (folders.isEmpty()) {
-                    item { BasicComponent(title = "还没有共享文件夹", summary = "把 Android 目录挂载到 Linux 环境的 /mnt/shared/ 下") }
+                    item { BasicComponent(title = "还没有共享文件夹") }
                 }
                 folders.forEach { folder ->
                     item(key = folder.name) {
                         DropdownValuePreference(
                             title = folder.name,
-                            summary = folder.source + "\n挂载点：" + folder.mountPoint,
+                            // 挂载点是 /mnt/shared/<名字>，说明里写了，菜单里也能复制
+                            summary = folder.source,
                             value = when {
                                 present[folder.name] == false -> "源目录不存在"
                                 access[folder.name] == SharedAccess.ReadWrite -> "可读写"
