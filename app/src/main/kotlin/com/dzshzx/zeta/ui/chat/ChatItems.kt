@@ -102,6 +102,8 @@ internal fun UserBubble(
     editing: Boolean = false,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** 收藏为常用指令。 */
+    onSave: (() -> Unit)? = null,
 ) {
     val dark = CouiTheme.isDark
     @Suppress("DEPRECATION")
@@ -110,7 +112,9 @@ internal fun UserBubble(
     val anchor = rememberCouiMenuAnchor()
     var showMenu by remember { mutableStateOf(false) }
     val deleteTint = StatusError
-    val menuItems = remember(onEdit != null, onDelete != null, deleteTint) { userMenuItems(onEdit != null, onDelete != null, deleteTint) }
+    val menuItems = remember(onEdit != null, onDelete != null, onSave != null, deleteTint) {
+        userMenuItems(onEdit != null, onDelete != null, deleteTint, canSave = onSave != null)
+    }
     Column(
         modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.End,
@@ -159,6 +163,7 @@ internal fun UserBubble(
                     when (it.value) {
                         UserMenuEdit -> onEdit?.invoke()
                         UserMenuDelete -> onDelete?.invoke()
+                        UserMenuSave -> onSave?.invoke()
                         else -> clipboard.setText(AnnotatedString(item.text))
                     }
                 },

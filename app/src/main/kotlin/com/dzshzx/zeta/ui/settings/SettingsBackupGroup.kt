@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
@@ -217,6 +218,7 @@ private suspend fun applyBackup(context: Context, hub: ConversationHub, ready: I
     if (!withContext(Dispatchers.IO) { hub.settings.restore(writes) }) return null
     hub.reloadSettings()
     UiPrefs.get(context).reload()
+    PromptStore.reload(context)
     // 共享了内部存储的目录时，Linux 用户要在 media_rw 组里才能读写，和在共享文件夹页添加时一样补上
     val config = hub.settings.env
     if ("sharedFolders" in writes && config != null && hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }) {

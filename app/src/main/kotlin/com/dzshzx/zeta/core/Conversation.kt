@@ -218,7 +218,8 @@ class Conversation(
         }
         process = created
         created.send(controlRequest { put("subtype", "initialize") })
-        meter.processStarted(fresh = false)
+        // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
+        meter.processStarted(fresh = false, compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact })
         queryUsage(created)
         host.pending?.let { handle(it, System.currentTimeMillis()) }
         hub.onActivityChanged()
@@ -671,13 +672,15 @@ class Conversation(
             // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
             if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
         }
+        val autoCompact = hub.settings.autoCompact
+        val compactPercent = hub.settings.autoCompactPercent
         lateinit var created: ClaudeProcess
         created = try {
             ClaudeProcess(
                 config = config,
                 hostScript = hub.hostScript,
                 hostKey = UUID.randomUUID().toString(),
-                launch = ClaudeProcess.Launch.Start(cwd, title, arguments),
+                launch = ClaudeProcess.Launch.Start(cwd, title, arguments, AutoCompact.env(autoCompact, compactPercent)),
                 onEvent = { event -> enqueue(created, event) },
                 onExit = { code, stderr -> main.post { onProcessExit(created, code, stderr) } },
             )
@@ -689,7 +692,7 @@ class Conversation(
         process = created
         forkCut = false
         created.send(controlRequest { put("subtype", "initialize") })
-        meter.processStarted(fresh = sessionId == null)
+        meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
         queryUsage(created)
         hub.onActivityChanged()
         return created

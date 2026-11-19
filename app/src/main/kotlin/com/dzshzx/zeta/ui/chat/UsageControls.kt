@@ -150,7 +150,13 @@ internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modif
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ContextRing(fraction = usage.fraction ?: 0f, color = color, track = ink.copy(alpha = if (dark) 0.14f else 0.09f))
+        ContextRing(
+            fraction = usage.fraction ?: 0f,
+            color = color,
+            track = ink.copy(alpha = if (dark) 0.14f else 0.09f),
+            mark = usage.compactFraction,
+            markColor = ink.copy(alpha = if (dark) 0.62f else 0.5f),
+        )
         if (loud) {
             Spacer(Modifier.width(4.dp))
             Text(
@@ -163,8 +169,9 @@ internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modif
     }
 }
 
+/** [mark] 是自动压缩点在圆环上的位置（0..1），画一道短刻度；快到窗口尽头的不画，和起点挤在一起看不清。 */
 @Composable
-private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier) {
+private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier, mark: Float? = null, markColor: Color = track) {
     Canvas(modifier = modifier.size(16.dp)) {
         val stroke = 2.dp.toPx()
         val inset = stroke / 2
@@ -179,6 +186,20 @@ private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: M
                 topLeft = Offset(inset, inset),
                 size = arcSize,
                 style = Stroke(stroke, cap = StrokeCap.Round),
+            )
+        }
+        // 刻度画在最上面，用量越过它时也看得见
+        if (mark != null && mark in 0.02f..0.97f) {
+            val angle = Math.toRadians((-90.0 + 360.0 * mark))
+            val radius = (size.width - stroke) / 2
+            val center = Offset(size.width / 2, size.height / 2)
+            val direction = Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
+            drawLine(
+                markColor,
+                start = center + direction * (radius - stroke * 1.1f),
+                end = center + direction * (radius + stroke * 0.5f),
+                strokeWidth = 1.2.dp.toPx(),
+                cap = StrokeCap.Round,
             )
         }
     }
@@ -257,6 +278,37 @@ private fun ContextSection(usage: ChatUsage) {
     )
     usage.fraction?.let { fraction ->
         val color = levelColor(usage.level, colors.primary)
+        ContextBar(fraction, color, usage.compactFraction)
+        Spacer(Modifier.height(8.dp))
+    }
+    val compactAt = usage.compactAt
+    val detail = buildList {
+        add(
+            when {
+                tokens == null -> "发出第一条消息后显示。"
+                usage.autoCompact == false && usage.level == ContextLevel.Critical -> "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。"
+                usage.autoCompact == false -> "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。"
+                usage.level == ContextLevel.Critical -> "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。"
+                usage.contextEstimated -> "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"
+                else -> "按上一轮实测；快到上限时 Claude Code 会自动压缩。"
+            },
+        )
+        if (compactAt != null && usage.autoCompact != false) {
+            add("自动压缩点：${formatTokens(compactAt)}" + (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%，条上的刻度）" } ?: "") + "。")
+        }
+        if (usage.compactions > 0) add("已压缩 ${usage.compactions} 次。")
+        val meta = listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" }).joinToString(" · ")
+        if (meta.isNotEmpty()) add(meta)
+    }
+    Note(detail.joinToString("\n"))
+}
+
+/** 用量条；[mark] 处画一道竖线，是自动压缩点。 */
+@Composable
+private fun ContextBar(fraction: Float, color: Color, mark: Float?) {
+    val colors = MiuixTheme.colorScheme
+    val markColor = colors.onSurface.copy(alpha = if (CouiTheme.isDark) 0.6f else 0.5f)
+    Box(modifier = Modifier.fillMaxWidth().height(12.dp), contentAlignment = Alignment.CenterStart) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,22 +318,13 @@ private fun ContextSection(usage: ChatUsage) {
         ) {
             Box(Modifier.fillMaxWidth(fraction.coerceAtLeast(0.01f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
         }
-        Spacer(Modifier.height(8.dp))
+        if (mark != null) {
+            Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+                val x = (size.width * mark).coerceIn(1.dp.toPx(), size.width - 1.dp.toPx())
+                drawLine(markColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+            }
+        }
     }
-    val detail = buildList {
-        add(
-            when {
-                tokens == null -> "发出第一条消息后显示。"
-                usage.level == ContextLevel.Critical -> "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。"
-                usage.contextEstimated -> "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"
-                else -> "按上一轮实测；快到上限时 Claude Code 会自动压缩。"
-            },
-        )
-        if (usage.compactions > 0) add("已压缩 ${usage.compactions} 次。")
-        val meta = listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" }).joinToString(" · ")
-        if (meta.isNotEmpty()) add(meta)
-    }
-    Note(detail.joinToString("\n"))
 }
 
 @Composable

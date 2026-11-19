@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.ui.settings
 
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.SavedPrompt
+import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.app.AccentChoice
@@ -8,6 +10,7 @@ import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
 import com.dzshzx.zeta.ui.chat.PermissionModes
+import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -139,6 +142,21 @@ internal object SettingsBackup {
         }),
         optionalItem("effort", "新对话的思考强度", unset = "Claude Code 的设置", labels = EffortLevels.toMap()),
         optionalItem("permissionMode", "新对话的权限模式", unset = "Claude Code 的设置", labels = PermissionModes.toMap()),
+        boolItem("autoCompact", "自动压缩上下文", default = true),
+        BackupItem(
+            key = "autoCompactPercent", label = "压缩时机", nullable = true,
+            read = { prefs -> (prefs["autoCompactPercent"] as? Int)?.takeIf { it in 1..100 }?.let(::JsonPrimitive) ?: JsonNull },
+            check = { v ->
+                val n = (v as? JsonPrimitive)?.takeUnless { it.isString }?.intOrNull
+                when {
+                    v is JsonNull -> Checked.Ok(JsonNull)
+                    n != null && n in 1..100 -> Checked.Ok(JsonPrimitive(n))
+                    else -> Checked.Bad("应为 1 到 100 的整数")
+                }
+            },
+            write = { v -> (v as? JsonPrimitive)?.intOrNull },
+            show = { v -> compactPercentLabel((v as? JsonPrimitive)?.intOrNull) },
+        ),
         BackupItem(
             key = "cwd", label = "默认工作目录",
             read = { prefs -> (prefs["cwd"] as? String)?.let(::JsonPrimitive) ?: JsonNull },
@@ -165,6 +183,14 @@ internal object SettingsBackup {
             check = ::folders,
             write = { v -> SharedFolders.encode(foldersOf(v)) },
             show = { v -> foldersOf(v).joinToString("、") { it.name }.ifEmpty { "无" } },
+        ),
+        // 只带名字和内容；id 是这台手机上的，导入时重新生成
+        BackupItem(
+            key = SavedPrompts.KEY, label = "常用指令",
+            read = { prefs -> promptsJson(SavedPrompts.decode(prefs[SavedPrompts.KEY] as? String)) },
+            check = ::prompts,
+            write = { v -> SavedPrompts.encode(promptsOf(v).map { it.copy(id = UUID.randomUUID().toString()) }) },
+            show = { v -> (v as? JsonArray)?.size?.takeIf { it > 0 }?.let { "$it 条" } ?: "无" },
         ),
     )
 
@@ -315,6 +341,30 @@ internal object SettingsBackup {
             list += SharedFolder(name, normalized)
         }
         return Checked.Ok(foldersJson(list))
+    }
+
+    private fun prompts(v: JsonElement): Checked {
+        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
+        if (array.size > SavedPrompts.MAX) return Checked.Bad("最多 ${SavedPrompts.MAX} 条")
+        val list = ArrayList<SavedPrompt>()
+        for ((index, element) in array.withIndex()) {
+            val item = element as? JsonObject
+            val name = item?.get("name")?.let { if (it is JsonNull) "" else it.text() }
+            val text = item?.get("text")?.text()
+            if (name == null || text == null) return Checked.Bad("第 ${index + 1} 条缺少名字或内容")
+            SavedPrompts.problem(emptyList(), name, text)?.let { return Checked.Bad("第 ${index + 1} 条：$it") }
+            list += SavedPrompt("", name.trim(), text)
+        }
+        return Checked.Ok(promptsJson(list))
+    }
+
+    private fun promptsJson(list: List<SavedPrompt>): JsonArray = buildJsonArray {
+        list.forEach { add(buildJsonObject { put("name", it.name); put("text", it.text) }) }
+    }
+
+    private fun promptsOf(v: JsonElement): List<SavedPrompt> = (v as? JsonArray).orEmpty().mapNotNull { element ->
+        val item = element as? JsonObject ?: return@mapNotNull null
+        SavedPrompt("", item["name"]?.text().orEmpty(), item["text"]?.text() ?: return@mapNotNull null)
     }
 
     private fun foldersJson(list: List<SharedFolder>): JsonArray = buildJsonArray {

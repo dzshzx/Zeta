@@ -10,6 +10,7 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import com.dzshzx.zeta.core.SavedPrompts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -37,6 +38,9 @@ class SettingsBackupTest {
         "pinnedSessions" to setOf("0a1b2c3d-0000-4000-8000-000000000001"),
         "sharedFolders" to "[{\"name\":\"Download\",\"source\":\"/storage/emulated/0/Download\"}]",
         "keepScreenOn" to false,
+        "autoCompact" to false,
+        "autoCompactPercent" to 70,
+        "savedPrompts" to "[{\"id\":\"a\",\"name\":\"\",\"text\":\"检查 Git 状态\"},{\"id\":\"b\",\"name\":\"简报\",\"text\":\"汇总今天的日程\\n三行说完\"}]",
         // 万一以后有人往这里存了凭据，也不能被导出去
         "apiToken" to "fake-token-1",
     )
@@ -66,6 +70,9 @@ class SettingsBackupTest {
         for (machine in SettingsBackup.machineKeys.keys) assertFalse("$machine 不该导出", machine in keys)
         assertFalse("apiToken" in keys)
         assertFalse(export(phone).contains("fake-token-1"))
+        // 常用指令导出时不带这台手机上的 id
+        val prompts = root["settings"]!!.jsonObject["savedPrompts"]!!.toString()
+        assertEquals("""[{"name":"","text":"检查 Git 状态"},{"name":"简报","text":"汇总今天的日程\n三行说完"}]""", prompts)
     }
 
     @Test
@@ -77,6 +84,9 @@ class SettingsBackupTest {
         assertEquals(JsonPrimitive(false), settings["pureBlack"])
         assertEquals(JsonPrimitive("coui"), settings["accent"])
         assertEquals(JsonPrimitive(1f), settings["interfaceScale"])
+        assertEquals(JsonPrimitive(true), settings["autoCompact"])
+        assertEquals(JsonNull, settings["autoCompactPercent"])
+        assertEquals("[]", settings["savedPrompts"].toString())
         assertFalse("没有环境时没有工作目录", "cwd" in settings)
     }
 
@@ -107,6 +117,12 @@ class SettingsBackupTest {
         assertEquals("teal", writes["accent"])
         assertEquals(0.9f, writes["interfaceScale"])
         assertEquals(false, writes["keepScreenOn"])
+        assertEquals(false, writes["autoCompact"])
+        assertEquals(70, writes["autoCompactPercent"])
+        // 常用指令只带名字和内容，顺序不变，id 在这台手机上重新生成
+        val prompts = SavedPrompts.decode(writes["savedPrompts"] as String)
+        assertEquals(listOf("" to "检查 Git 状态", "简报" to "汇总今天的日程\n三行说完"), prompts.map { it.name to it.text })
+        assertTrue(prompts.none { it.id == "a" || it.id == "b" })
         assertEquals("opus", writes["model"])
         assertEquals("/workspace/claude", writes["cwd"])
         assertEquals(setOf("0a1b2c3d-0000-4000-8000-000000000001"), writes["pinnedSessions"])
@@ -160,6 +176,9 @@ class SettingsBackupTest {
                             add(buildJsonObject { put("name", "sys"); put("source", "/system/etc") })
                         },
                     )
+                    put("autoCompact", "off")
+                    put("autoCompactPercent", 150)
+                    put("savedPrompts", buildJsonArray { add(buildJsonObject { put("name", "空的"); put("text", " ") }) })
                     put("uid", 0)
                     put("rootfs", "/")
                     put("somethingNew", 1)
@@ -172,12 +191,14 @@ class SettingsBackupTest {
             setOf(
                 "phoneTools", "accent", "interfaceScale", "model", "permissionMode", "cwd", "keepScreenOn",
                 "pinnedSessions", "sharedFolders", "uid", "rootfs", "somethingNew",
+                "autoCompact", "autoCompactPercent", "savedPrompts",
             ),
             skipped.keys,
         )
         assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
         assertTrue(skipped.getValue("somethingNew").reason.startsWith("不认识的设置项"))
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))
+        assertEquals("第 1 条：内容不能为空", skipped.getValue("savedPrompts").reason)
         // 跳过的项原样带进确认清单
         val plan = SettingsBackup.plan(backup, emptyMap<String, Any?>())
         assertEquals(backup.skipped, plan.skipped)

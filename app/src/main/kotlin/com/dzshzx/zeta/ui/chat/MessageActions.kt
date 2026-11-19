@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -73,16 +74,18 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 聊天页的消息操作，交互照 Eta：
- * - 用户消息长按：复制、编辑、删除。编辑时原文放回输入框，被编辑的消息描边，它之后的内容先藏起来，发出后替换；
+ * - 用户消息长按：复制、收藏为常用指令（见 SavedPromptsUi.kt）、编辑、删除。编辑时原文放回输入框，被编辑的消息描边，它之后的内容先藏起来，发出后替换；
  * - 每一轮最后一段回答下方：复制之后是重新生成、删除这一轮、分支。
  * 改写和删除都在原会话上剪（会话号不变），分支另开新会话；做法见 core/Rewind.kt。
  */
 
 internal const val UserMenuEdit = 1
 internal const val UserMenuDelete = 2
+internal const val UserMenuSave = 3
 
-internal fun userMenuItems(canEdit: Boolean, canDelete: Boolean, deleteTint: Color): List<CouiMenuItem<Int>> = buildList {
+internal fun userMenuItems(canEdit: Boolean, canDelete: Boolean, deleteTint: Color, canSave: Boolean = false): List<CouiMenuItem<Int>> = buildList {
     add(CouiMenuItem(value = 0, text = "复制", icon = Icons.Rounded.ContentCopy))
+    if (canSave) add(CouiMenuItem(value = UserMenuSave, text = "收藏为常用指令", icon = Icons.Rounded.BookmarkBorder))
     if (canEdit) add(CouiMenuItem(value = UserMenuEdit, text = "编辑", icon = Icons.Rounded.Edit))
     if (canDelete) {
         add(CouiMenuItem(value = UserMenuDelete, text = "删除", icon = Icons.Rounded.DeleteOutline, iconTint = deleteTint, dividerBefore = true))

@@ -5,6 +5,7 @@ import java.util.Locale
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
@@ -76,6 +77,10 @@ data class ChatUsage(
     val compactions: Int = 0,
     /** Claude Code 报告的、当前实际生效的思考强度。 */
     val appliedEffort: String? = null,
+    /** 这个进程开没开自动压缩（get_context_usage 的 isAutoCompactEnabled）；还没问到是 null。 */
+    val autoCompact: Boolean? = null,
+    /** 自动压缩会在上下文到多少 token 时触发（已算上 Zeta 给的百分比，见 [AutoCompact.threshold]）；关着或还不知道时是 null。 */
+    val compactAt: Long? = null,
 ) {
     val total: TokenCounts get() = turns.fold(TokenCounts.Zero) { sum, turn -> sum + turn.tokens }
 
@@ -92,13 +97,26 @@ data class ChatUsage(
             return (used.toDouble() / window).toFloat().coerceIn(0f, 1f)
         }
 
-    /** 快满时提醒：Claude Code 在窗口减去约 3.3 万的缓冲处自动压缩，92% 左右就到了。 */
+    /** 压缩点在窗口里的位置（0..1）；不知道压缩点时是 null。 */
+    val compactFraction: Float?
+        get() {
+            val at = compactAt?.takeIf { it > 0 } ?: return null
+            val window = contextWindow?.takeIf { it > 0 } ?: return null
+            return (at.toDouble() / window).toFloat().coerceIn(0f, 1f)
+        }
+
+    /**
+     * 快满时提醒。知道压缩点时按离压缩点多近算（到 95% 就是马上要压缩了）；
+     * 不知道时按窗口算：Claude Code 默认在窗口减去约 3.3 万处压缩，92% 左右就到了；自动压缩关着时窗口满了就发不出去。
+     */
     val level: ContextLevel
         get() {
-            val f = fraction ?: return ContextLevel.Normal
+            val used = contextTokens ?: return ContextLevel.Normal
+            val at = compactAt?.takeIf { it > 0 }
+            val f = if (at != null) (used.toDouble() / at).toFloat() else fraction ?: return ContextLevel.Normal
             return when {
-                f >= 0.92f -> ContextLevel.Critical
-                f >= 0.75f -> ContextLevel.Warning
+                f >= (if (at != null) 0.95f else 0.92f) -> ContextLevel.Critical
+                f >= (if (at != null) 0.80f else 0.75f) -> ContextLevel.Warning
                 else -> ContextLevel.Normal
             }
         }
@@ -128,6 +146,9 @@ class UsageTracker {
     private val turns = ArrayList<TurnUsage>()
     private var compactions = 0
     private var appliedEffort: String? = null
+    private var autoCompact: Boolean? = null
+    private var reportedThreshold: Long? = null
+    private var compactPercent: Int? = null
     private var baseTokens: TokenCounts? = null
     private var baseCost: Double? = null
 
@@ -147,10 +168,17 @@ class UsageTracker {
         return true
     }
 
-    /** 起了一个新进程。[fresh] 表示全新会话（没带 --resume），它的累计从零开始。 */
-    fun processStarted(fresh: Boolean) {
+    /**
+     * 起了一个新进程。[fresh] 表示全新会话（没带 --resume），它的累计从零开始。
+     * [compactPercent] 是给这个进程的自动压缩百分比（[AutoCompact.PERCENT_ENV]），Claude Code 报的压缩点不含它，算压缩点要用。
+     */
+    fun processStarted(fresh: Boolean, compactPercent: Int? = null) {
         baseTokens = if (fresh) TokenCounts.Zero else null
         baseCost = if (fresh) 0.0 else null
+        this.compactPercent = compactPercent
+        // 新进程的开关和压缩点要等它自己报
+        autoCompact = null
+        reportedThreshold = null
     }
 
     /** 一条实时事件；返回用量有没有变化。 */
@@ -241,6 +269,11 @@ class UsageTracker {
             }
             // 还没有实测数时（刚起的新会话、刚压缩完）用 Claude Code 的估算，它含系统提示、工具定义这些固定开销
             if (estimated) response.long("totalTokens")?.takeIf { it > 0 }?.let { contextTokens = it }
+            // 自动压缩关着时没有 autoCompactThreshold
+            (response["isAutoCompactEnabled"] as? JsonPrimitive)?.booleanOrNull?.let { enabled ->
+                autoCompact = enabled
+                reportedThreshold = if (enabled) response.long("autoCompactThreshold")?.takeIf { it > 0 } else null
+            }
             any = true
         }
         response.obj("applied")?.let { applied ->
@@ -311,6 +344,8 @@ class UsageTracker {
         turns = turns.toList(),
         compactions = compactions,
         appliedEffort = appliedEffort,
+        autoCompact = autoCompact,
+        compactAt = AutoCompact.threshold(reportedThreshold, compactPercent),
     )
 }
 

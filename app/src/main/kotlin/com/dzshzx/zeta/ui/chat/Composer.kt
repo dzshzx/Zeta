@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Image
@@ -110,6 +111,8 @@ internal fun Composer(
     onPickFolder: () -> Unit,
     /** 直接输入 Linux 里的路径。 */
     onEnterPath: () -> Unit,
+    /** 打开常用指令（存下来的提问），点一条填进输入框。 */
+    onOpenPrompts: () -> Unit,
     onRemoveAttachment: (Attachment) -> Unit,
     onRemoveFile: (FileUpload) -> Unit,
     /** 用户开始输入斜杠命令：趁这时把进程起好，拿到最新的命令清单。 */
@@ -275,6 +278,7 @@ internal fun Composer(
                     CouiMenuItem(value = 1, text = "文件", icon = Icons.Rounded.AttachFile),
                     CouiMenuItem(value = 2, text = "文件夹", icon = Icons.Rounded.Folder),
                     CouiMenuItem(value = 3, text = "输入路径", icon = Icons.Rounded.Edit),
+                    CouiMenuItem(value = 4, text = "常用指令", icon = Icons.Rounded.BookmarkBorder, dividerBefore = true),
                 )
             }
             Box {
@@ -299,6 +303,7 @@ internal fun Composer(
                             0 -> onPickImages()
                             1 -> onPickFiles()
                             2 -> onPickFolder()
+                            4 -> onOpenPrompts()
                             else -> onEnterPath()
                         }
                     },

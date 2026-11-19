@@ -41,18 +41,17 @@ class ClaudeProcess(
     private val onExit: (exitCode: Int, stderrTail: String) -> Unit,
 ) {
     sealed interface Launch {
-        class Start(val cwd: String, val title: String, val arguments: List<String>) : Launch
+        /** [env] 是只给这个 Claude Code 进程的环境变量（比如自动压缩的设置），进程脱离出去后也一直带着。 */
+        class Start(val cwd: String, val title: String, val arguments: List<String>, val env: Map<String, String> = emptyMap()) : Launch
         class Attach(val fromLine: Int) : Launch
     }
 
     private val process: Process = LinuxEnv.start(
         config,
-        hostCommand(
-            when (launch) {
-                is Launch.Start -> listOf("start", hostKey, launch.cwd, launch.title) + launch.arguments
-                is Launch.Attach -> listOf("attach", hostKey, launch.fromLine.toString())
-            },
-        ),
+        when (launch) {
+            is Launch.Start -> hostCommand(listOf("start", hostKey, launch.cwd, launch.title) + launch.arguments, launch.env)
+            is Launch.Attach -> hostCommand(listOf("attach", hostKey, launch.fromLine.toString()))
+        },
     )
     private val outbox = LinkedBlockingQueue<String>()
     private val stderrTail = StringBuilder()
@@ -105,8 +104,7 @@ class ClaudeProcess(
         }
     }
 
-    private fun hostCommand(arguments: List<String>): String =
-        "exec bash -c " + LinuxEnv.quote(hostScript) + " zeta-host " + arguments.joinToString(" ") { LinuxEnv.quote(it) }
+    private fun hostCommand(arguments: List<String>, env: Map<String, String> = emptyMap()): String = hostCommandLine(hostScript, arguments, env)
 
     fun send(message: JsonObject) {
         if (!closed) outbox.offer(message.toString())
@@ -123,4 +121,16 @@ class ClaudeProcess(
         val POISON = String(charArrayOf('\u0000'))
         val json = Json { ignoreUnknownKeys = true; isLenient = true }
     }
+}
+
+private val EnvName = Regex("[A-Za-z_][A-Za-z0-9_]*")
+
+/**
+ * 在 Debian 里执行 zeta_host.sh 的那行命令。[env] 经 `env` 加在最前面，zeta_host.sh 和它起的 Claude Code 都继承；
+ * 名字不像环境变量的丢掉，值都加引号。
+ */
+internal fun hostCommandLine(hostScript: String, arguments: List<String>, env: Map<String, String> = emptyMap()): String {
+    val assignments = env.filterKeys { EnvName.matches(it) }.map { (name, value) -> "$name=" + LinuxEnv.quote(value) }
+    val prefix = if (assignments.isEmpty()) "" else "env " + assignments.joinToString(" ") + " "
+    return "exec " + prefix + "bash -c " + LinuxEnv.quote(hostScript) + " zeta-host " + arguments.joinToString(" ") { LinuxEnv.quote(it) }
 }

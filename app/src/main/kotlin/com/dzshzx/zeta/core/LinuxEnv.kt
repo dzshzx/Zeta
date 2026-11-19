@@ -281,6 +281,16 @@ class Settings(context: Context) {
         get() = prefs.getString("effort", null)
         set(value) = prefs.edit().putString("effort", value).apply()
 
+    /** Zeta 起的对话是否让 Claude Code 自动压缩上下文（见 [AutoCompact]）。 */
+    var autoCompact: Boolean
+        get() = prefs.getBoolean("autoCompact", true)
+        set(value) = prefs.edit().putBoolean("autoCompact", value).apply()
+
+    /** 自动压缩的触发点（有效窗口的百分比）；null 用 Claude Code 自己的。 */
+    var autoCompactPercent: Int?
+        get() = if (prefs.contains("autoCompactPercent")) prefs.getInt("autoCompactPercent", 0).takeIf { it in 1..100 } else null
+        set(value) = prefs.edit().apply { if (value == null) remove("autoCompactPercent") else putInt("autoCompactPercent", value) }.apply()
+
     /** 存下来的全部设置的一份快照（备份导出、导入前比对用）。 */
     fun snapshot(): Map<String, *> = HashMap(prefs.all)
 

@@ -18,6 +18,7 @@ import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.settings.AccountsEntry
 import com.dzshzx.zeta.ui.settings.AccountsScreen
 import com.dzshzx.zeta.ui.settings.AppearanceScreen
+import com.dzshzx.zeta.ui.settings.AutoCompactGroup
 import com.dzshzx.zeta.ui.settings.PermissionHealth
 import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
@@ -101,6 +102,7 @@ private fun SettingsHome(
             CouiSwitchPreference(title = "自动加载网络图片", checked = hub.autoLoadRemoteImages, onCheckedChange = hub::chooseAutoLoadRemoteImages)
             AutoTitleSwitch(hub)
         }
+        AutoCompactGroup(hub)
         Group(title = "能力") {
             CouiPreference(
                 title = "手机操作",

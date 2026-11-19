@@ -302,6 +302,7 @@ private fun ConversationBody(
     }
     // 编辑、重新生成、删除一轮、分支
     val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
+    val prompts = rememberPromptsUi(input)
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
     ChatFindDriver(
@@ -356,6 +357,7 @@ private fun ConversationBody(
                                         editing = actions.editing?.user?.id == item.id,
                                         onEdit = turn?.let { { actions.beginEdit(it) } },
                                         onDelete = turn?.let { { actions.askDelete(it) } },
+                                        onSave = { prompts.saveMessage(item.text) },
                                     )
                                 }
                                 is AnswerItem -> AnswerBlock(item, markdownCache, imagesOf = imagesOf, actions = {
@@ -476,6 +478,7 @@ private fun ConversationBody(
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
                 onPickFolder = pathAttach::openFolder,
                 onEnterPath = pathAttach::openPath,
+                onOpenPrompts = prompts::open,
                 onRemoveAttachment = { attachments.remove(it) },
                 onRemoveFile = { uploads.remove(it) },
                 onSlashTyped = conversation::prepare,
@@ -518,6 +521,7 @@ private fun ConversationBody(
     }
     MessageActionDialogs(actions)
     IntakeProblemsDialog(sink)
+    SavedPromptsDialogs(prompts)
     AttachPathDialogs(pathAttach, hub, conversation) { entry ->
         if (uploads.none { it.path == entry }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(entry)).also { it.path = entry })
     }
