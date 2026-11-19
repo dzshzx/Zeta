@@ -19,8 +19,10 @@ import kotlinx.serialization.json.putJsonObject
 import java.time.ZoneId
 
 /**
- * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频、音频与录音、文件、下载记录、小米便签、健康数据。
- * 除健康数据外都经 root 辅助进程 [ProviderHelper] 读系统的 ContentProvider 和通知服务，Zeta 不申请这些权限；
+ * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频、音频与录音、文件、下载记录、小米便签、健康数据，
+ * 输入法的剪贴板历史（[ClipboardHistory]），微信、QQ 的聊天图片缓存（[ChatImages]）。
+ * 除健康数据、剪贴板历史和聊天图片外都经 root 辅助进程 [ProviderHelper] 读系统的 ContentProvider 和通知服务，Zeta 不申请这些权限；
+ * 剪贴板历史和聊天图片以 root 直接读那几个应用私有目录里的文件（[RootFiles]）；
  * 健康数据经健康连接的公开接口读（[HealthReader]），权限由权限健康页经 root 授予。
  * 除日程外只读；不发短信、不打电话。结果有条数和字数上限，不写日志，读到的内容不在 Zeta 里留存。
  */
@@ -41,7 +43,9 @@ internal object PersonalTools : PhoneToolGroup {
                 "only photos the phone has already analyzed), audio (music and voice/call " +
                 "recordings), files (any file in shared storage, by name or folder), downloads (with source URL), notes (Xiaomi Notes: " +
                 "title, text and voice-note transcript; id for the full note), " +
-                "health (summary of steps, sleep, exercise, heart rate, weight, SpO2 from Health Connect; default last 7 days). " +
+                "health (summary of steps, sleep, exercise, heart rate, weight, SpO2 from Health Connect; default last 7 days), " +
+                "clipboard (copy history kept by the keyboards; id for full text), wechat_images / qq_images (images cached from " +
+                "WeChat / QQ chats, by time only; chat unknown). " +
                 "Newest first, except calendar.",
             readOnly = true,
         ) {
@@ -55,10 +59,10 @@ internal object PersonalTools : PhoneToolGroup {
                 prop("offset", "integer", "Skip this many, for the next page.")
             }
         },
-        tool(VIEW, "Look at a photo, screenshot or video (its preview frame) found by search_personal.", readOnly = true) {
+        tool(VIEW, "Look at a photo, screenshot, video (its preview frame) or chat image found by search_personal.", readOnly = true) {
             schema(required = listOf("id")) {
-                prop("id", "integer", "Photo or video id.")
-                enumProp("kind", listOf("photo", "video"), "Default photo.")
+                prop("id", "integer", "Photo, video or chat image id.")
+                enumProp("kind", listOf("photo", "video") + ChatImages.KINDS, "Default photo; wechat or qq for chat images.")
                 prop("max_edge", "integer", "Longest side in pixels, 128-1568, default 1024. Larger to read small text.")
             }
         },
@@ -112,7 +116,7 @@ internal object PersonalTools : PhoneToolGroup {
                 else -> "查看${source.label}"
             }
         }
-        VIEW -> if (input.str("kind") == "video") "看视频画面" else "看照片"
+        VIEW -> ChatImages.viewTitle(input.str("kind")) ?: if (input.str("kind") == "video") "看视频画面" else "看照片"
         EDIT -> when (input.str("action")) {
             "create" -> input.str("title")?.trim()?.takeIf { it.isNotEmpty() }?.let { "新建日程「" + (if (it.length > 12) it.take(12) + "…" else it) + "」" } ?: "新建日程"
             "update" -> "修改日程"
@@ -157,6 +161,8 @@ internal object PersonalTools : PhoneToolGroup {
             PersonalSource.Audio -> audio(context, request, zone, now)
             PersonalSource.Notes -> notes(context, request, zone, now)
             PersonalSource.PhotoContent -> PhotoContent.search(context, request, zone, now)
+            PersonalSource.Clipboard -> ClipboardHistory.search(context, request, zone, now)
+            PersonalSource.WechatImages, PersonalSource.QqImages -> ChatImages.search(request, zone, now)
             PersonalSource.Calendar -> if (request.id != null) {
                 val (event, reminders) = readEvent(context, request.id) ?: return "没有编号为 ${request.id} 的日程。"
                 PersonalQueries.formatEvent(event, reminders, zone)
@@ -238,6 +244,7 @@ internal object PersonalTools : PhoneToolGroup {
         val id = (input["id"] as? JsonPrimitive)?.longOrNull ?: throw BadInput("需要 id（search_personal 查到的照片或视频编号）")
         val video = input.str("kind") == "video"
         val edge = (input.int("max_edge") ?: 1024).coerceIn(128, 1568)
+        input.str("kind")?.takeIf { it in ChatImages.KINDS }?.let { return ChatImages.view(it, id, edge, ZoneId.systemDefault()) }
         val uri = (if (video) PersonalQueries.VIDEOS else PersonalQueries.IMAGES) + "/" + id
         val request = SearchRequest(if (video) PersonalSource.Videos else PersonalSource.Photos, null, null, null, id, 1, 0)
         val (meta, image) = RootProvider.run(

@@ -78,7 +78,7 @@ object PhoneToolLabels {
         "logcat" to "读最近的 Android 日志",
         // 日历、通知、验证码、短信、通话、通讯录、相册、音频与录音、文件、下载记录、便签，汇总健康数据
         "search_personal" to "只读搜索日历、短信、相册等",
-        "view_media" to "查看照片、截图或视频",
+        "view_media" to "查看照片、截图、视频或聊天图片",
         "edit_calendar" to "新建、修改、删除日程",
         "clipboard" to "读写剪贴板",
         "create_scheduled_task" to "新建定时任务，到点让 Claude 做事",

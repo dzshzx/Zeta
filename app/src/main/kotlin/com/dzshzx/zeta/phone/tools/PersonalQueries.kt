@@ -39,6 +39,9 @@ internal enum class PersonalSource(val key: String, val label: String) {
     Downloads("downloads", "下载记录"),
     Notes("notes", "便签"),
     Health("health", "健康数据"),
+    Clipboard("clipboard", "剪贴板历史"),
+    WechatImages("wechat_images", "微信图片"),
+    QqImages("qq_images", "QQ 图片"),
     ;
 
     companion object {
@@ -335,7 +338,9 @@ internal object PersonalQueries {
             }
             PersonalSource.Notes -> listOf(MiuiNotes.searchOp(request))
             PersonalSource.PhotoContent -> PhotoContent.searchOps(request)
-            PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
+            PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health,
+            PersonalSource.Clipboard, PersonalSource.WechatImages, PersonalSource.QqImages,
+            -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
         }
     }
 
