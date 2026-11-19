@@ -114,6 +114,8 @@ data class ToolStep(
     val result: String?,
     /** 工具结果里带的图片（读图片文件、截图类工具）。 */
     val images: List<ImageRef> = emptyList(),
+    /** 改文件工具的结果里 Claude Code 给出的改动（带真实行号）。 */
+    val patch: EditPatch? = null,
 ) : WorkStep {
     override val running: Boolean get() = status == ToolStatus.Running
 }

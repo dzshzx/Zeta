@@ -440,6 +440,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
             }
             if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }
+            TodoStrip(conversation.items, conversation.todoSeed, conversation.busy, Modifier.padding(bottom = 6.dp))
             actions.editing?.let { EditStrip(it, onCancel = actions::cancelEdit, modifier = Modifier.padding(bottom = 6.dp)) }
             QueueStrip(
                 queued = conversation.queued,

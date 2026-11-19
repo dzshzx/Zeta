@@ -323,6 +323,8 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
             )
             Chevron(expanded)
         }
+        // 折叠着也直接露出改了哪些文件
+        if (!expanded) CollapsedFileChanges(item.steps, onShowAll = { expanded = true })
         AnimatedVisibility(visible = expanded) {
             Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp)) {
                 Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).height(0.5.dp).background(border))
@@ -334,6 +336,9 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
 
 @Composable
 private fun WorkStepRow(step: WorkStep) {
+    // 改文件的一步直接画成红绿对比
+    val change = (step as? ToolStep)?.let { rememberFileChange(it) }
+    if (change != null) return FileEditStepRow(step, change)
     var expanded by rememberSaveable(step.id) { mutableStateOf(false) }
     val colors = MiuixTheme.colorScheme
     val dark = CouiTheme.isDark
@@ -426,7 +431,7 @@ private fun StatusDot(color: Color, label: String) {
 }
 
 @Composable
-private fun Chevron(expanded: Boolean) {
+internal fun Chevron(expanded: Boolean) {
     val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
     Icon(
         imageVector = Icons.Rounded.KeyboardArrowDown,
@@ -438,7 +443,7 @@ private fun Chevron(expanded: Boolean) {
 
 /** 进行中的那一行轻微呼吸，提示还在跑。 */
 @Composable
-private fun PulsingText(text: String, active: Boolean, color: Color, modifier: Modifier = Modifier) {
+internal fun PulsingText(text: String, active: Boolean, color: Color, modifier: Modifier = Modifier) {
     val alpha = if (active) {
         val transition = rememberInfiniteTransition(label = "pulse")
         transition.animateFloat(0.45f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "pulse-alpha").value

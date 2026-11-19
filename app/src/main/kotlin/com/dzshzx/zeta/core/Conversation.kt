@@ -87,6 +87,9 @@ class Conversation(
         private set
     var skippedHistory by mutableStateOf(0)
         private set
+    /** 没载入的更早历史里的清单工具调用，任务清单面板据此接上更早建的清单。 */
+    var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
+        private set
     var pending by mutableStateOf<PermissionRequest?>(null)
         private set
     var model by mutableStateOf(hub.settings.model)
@@ -216,6 +219,7 @@ class Conversation(
             val loaded = TranscriptReducer("h")
             val loadedUsage = UsageTracker()
             var skipped = 0
+            var seed = emptyList<ToolStep>()
             val result = runCatching {
                 LinuxEnv.run(config, "exec python3 - history " + LinuxEnv.quote(file), stdin = hub.helperScript, timeoutMs = 60_000)
             }.getOrNull()
@@ -223,10 +227,13 @@ class Conversation(
                 val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@forEach
                 loadedUsage.observeHistory(event)
                 when (event.str("type")) {
-                    "zeta_history" -> skipped = event.int("skipped") ?: 0
+                    "zeta_history" -> {
+                        skipped = event.int("skipped") ?: 0
+                        seed = TodoBoard.seedSteps(event.arr("todo_seed"))
+                    }
                     "system" -> if (event.str("subtype") == "compact_boundary") loaded.addNotice(compactNotice(event), error = false)
                     "assistant" -> event.obj("message")?.let { loaded.applyAssistant(it, history = true) }
-                    "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid")) }
+                    "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid"), toolUseResult = event.obj("tool_use_result")) }
                 }
             }
             loaded.finishTurn(keepRunningTools = attach?.busy == true)
@@ -238,6 +245,7 @@ class Conversation(
                 meter.prependHistory(loadedUsage)
                 publishUsage()
                 skippedHistory = skipped
+                todoSeed = seed
                 loadingHistory = false
                 if (result == null || result.exitCode != 0) {
                     reducer.addNotice("读取历史记录失败" + result?.stderr?.takeIf { it.isNotBlank() }?.let { "：${it.trim().take(300)}" }.orEmpty(), error = true)
@@ -719,7 +727,7 @@ class Conversation(
                 }
             }
             "user" -> if (!fromSubagent) {
-                event.obj("message")?.let { reducer.applyUser(it, replay = false) }
+                event.obj("message")?.let { reducer.applyUser(it, replay = false, toolUseResult = event.obj("tool_use_result")) }
                 return true
             }
             "command_lifecycle" -> {

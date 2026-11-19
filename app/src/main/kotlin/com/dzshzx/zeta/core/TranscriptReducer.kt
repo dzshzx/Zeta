@@ -143,9 +143,14 @@ class TranscriptReducer(private val idPrefix: String = "") {
     }
 
     /** user 消息：工具结果回填到对应步骤；[replay] 时文字内容是用户当时的输入。 */
-    /** [sessionFile] 是这条消息所在的会话记录；历史里的图片只带位置，要靠它去取。[uuid] 是它在记录里的 uuid。 */
-    fun applyUser(message: JsonObject, replay: Boolean, sessionFile: String? = null, uuid: String? = null) {
+    /**
+     * [sessionFile] 是这条消息所在的会话记录；历史里的图片只带位置，要靠它去取。[uuid] 是它在记录里的 uuid。
+     * [toolUseResult] 是事件上的 `tool_use_result`（工具的结构化结果，改文件的工具带 structuredPatch）。
+     */
+    fun applyUser(message: JsonObject, replay: Boolean, sessionFile: String? = null, uuid: String? = null, toolUseResult: JsonObject? = null) {
         val blocks = message.arr("content").orEmpty()
+        // 结构化结果是整条消息的；只有一个工具结果时才知道它属于谁
+        val patch = EditPatch.parse(toolUseResult)?.takeIf { blocks.count { (it as? JsonObject)?.str("type") == "tool_result" } == 1 }
         if (replay) {
             val images = blocks.mapNotNull { imageRef(it as? JsonObject, sessionFile, "") }
             val raw = blocks.mapNotNull { (it as? JsonObject)?.takeIf { b -> b.str("type") == "text" }?.str("text") }.joinToString("\n").trim()
@@ -162,7 +167,7 @@ class TranscriptReducer(private val idPrefix: String = "") {
                     val images = (block["content"] as? JsonArray).orEmpty()
                         .mapIndexedNotNull { index, inner -> imageRef(inner as? JsonObject, sessionFile, "$toolUseId:$index") }
                     updateToolStep(toolUseId) {
-                        it.copy(status = if (failed) ToolStatus.Failed else ToolStatus.Success, result = result, images = images)
+                        it.copy(status = if (failed) ToolStatus.Failed else ToolStatus.Success, result = result, images = images, patch = patch)
                     }
                 }
             }

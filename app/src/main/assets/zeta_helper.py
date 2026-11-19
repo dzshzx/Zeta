@@ -38,6 +38,8 @@ COMMAND_ARGS = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.S)
 COMMAND_OUT = re.compile(r"<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>", re.S)
 MAX_TEXT = 6000
 MAX_EVENTS = 800
+MAX_PATCH_LINES = 2000  # 改文件结果里的对比超过这么多行就不带，界面改用参数里的新旧内容自己比
+TODO_TOOLS = ("TodoWrite", "TaskCreate", "TaskUpdate")
 
 
 def out(obj):
@@ -285,7 +287,11 @@ def cmd_history(path):
                     blocks = [{"type": "tool_result", "tool_use_id": b.get("tool_use_id"), "is_error": bool(b.get("is_error")),
                                "content": result_content(b.get("content"), "%d.%d" % (number, index))}
                               for index, b in enumerate(content) if isinstance(b, dict) and b.get("type") == "tool_result"]
-                    events.append({"type": "user", "message": {"content": blocks}})
+                    event = {"type": "user", "message": {"content": blocks}}
+                    patch = edit_patch(o.get("toolUseResult"))
+                    if patch:
+                        event["tool_use_result"] = patch
+                    events.append(event)
                     owners.append(row)
                 else:
                     if o.get("isCompactSummary"):
@@ -320,9 +326,37 @@ def cmd_history(path):
                                                                     "usage": usage, "content": blocks}})
                     owners.append(row)
     skipped = max(0, len(events) - MAX_EVENTS)
-    out({"type": "zeta_history", "skipped": skipped})
+    out({"type": "zeta_history", "skipped": skipped, "todo_seed": todo_seed(events[:skipped])})
     for e in events[skipped:]:
         out(e)
+
+
+def edit_patch(result):
+    """改文件工具（Edit、Write）的结构化结果里界面要用的部分：带真实行号的对比，以及是不是新建。"""
+    if not isinstance(result, dict) or not isinstance(result.get("structuredPatch"), list):
+        return None
+    patch = result["structuredPatch"]
+    if sum(len(h.get("lines") or []) for h in patch if isinstance(h, dict)) > MAX_PATCH_LINES:
+        return None
+    return {"type": result.get("type"), "structuredPatch": clip(patch)}
+
+
+def todo_seed(skipped):
+    """没载入的那部分历史里的清单工具调用和它们的结果，界面据此接上更早建的任务清单。"""
+    seed, ids = [], set()
+    for e in skipped:
+        message = e.get("message") or {}
+        content = [b for b in message.get("content") or [] if isinstance(b, dict)]
+        if e["type"] == "assistant":
+            uses = [b for b in content if b.get("type") == "tool_use" and b.get("name") in TODO_TOOLS]
+            ids.update(b.get("id") for b in uses)
+            if uses:
+                seed.append({"type": "assistant", "message": {"id": message.get("id"), "content": uses}})
+        elif e["type"] == "user":
+            results = [b for b in content if b.get("type") == "tool_result" and b.get("tool_use_id") in ids]
+            if results:
+                seed.append({"type": "user", "message": {"content": results}})
+    return seed
 
 
 def result_content(content, position):

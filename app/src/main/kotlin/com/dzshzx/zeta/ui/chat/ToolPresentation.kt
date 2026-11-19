@@ -53,7 +53,7 @@ internal fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "WebSearch" -> ToolPresentation(Icons.Rounded.Language, "搜索网页：" + firstLine(s("query"), 50), s("query").orEmpty())
         "WebFetch" -> ToolPresentation(Icons.Rounded.Language, "读取网页 " + s("url").orEmpty().substringAfter("://").substringBefore('/'), s("url").orEmpty() + "\n\n" + s("prompt").orEmpty())
         "Task", "Agent" -> ToolPresentation(Icons.Rounded.AccountTree, "子代理：" + firstLine(s("description") ?: s("prompt"), 50), s("prompt").orEmpty())
-        "TodoWrite", "TaskCreate", "TaskUpdate" -> ToolPresentation(Icons.Rounded.Checklist, "更新待办", json)
+        "TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet" -> ToolPresentation(Icons.Rounded.Checklist, todoToolTitle(name, input), json)
         "AskUserQuestion" -> ToolPresentation(Icons.Rounded.QuestionAnswer, "向你提问", json)
         "ExitPlanMode" -> ToolPresentation(Icons.Rounded.Checklist, "提交计划", s("plan") ?: json)
         "Skill" -> ToolPresentation(Icons.Rounded.AutoAwesome, "技能 " + (s("skill") ?: s("command")).orEmpty(), json)

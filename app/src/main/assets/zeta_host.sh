@@ -32,6 +32,9 @@ if [ "$mode" = start ]; then
   : > "$D/out.jsonl"
   printf '%s' "$cwd" > "$D/cwd"
   printf '%s' "$title" > "$D/title"
+  # Claude Code 对新模型默认不开任务清单工具（TaskCreate、TaskUpdate 等），聊天页的任务清单面板靠它们，这里打开。
+  # 环境变量或 settings.json 的 env 里明确设过的照那边的。
+  export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。
   setsid bash -c '
     D=$1; shift
