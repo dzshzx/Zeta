@@ -275,7 +275,7 @@ internal object ZetaIcons {
             val (x0, y0) = polar(cx, cy, radius, start)
             val (x1, y1) = polar(cx, cy, radius, end)
             val arc = PathBuilder().moveTo(x0, y0).arcTo(radius, radius, 0f, isMoreThanHalf = false, isPositiveArc = true, x1, y1).nodes
-            line(arc, alpha = if (i < level) 1f else 0.28f)
+            line(arc, alpha = if (i < level) 1f else 0.4f)
         }
         val angle = if (level == 0) 270f else 180f + (level - 0.5f) * step
         val (nx, ny) = polar(cx, cy, 5f, angle)
