@@ -47,7 +47,6 @@ import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
-import com.dzshzx.zeta.ui.setup.brief
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -118,19 +117,14 @@ internal fun DiagnosticsScreen(
         onBack = onBack,
         actions = { IconActionButton(COUIIcons.Refresh, "重新查询", enabled = !probing) { reloads++ } },
     ) {
+        // 运行日志是 Zeta 自己记下的关键事件：进 Linux 环境、起停 Claude 进程和退出码、helper 出错、手机工具失败、
+        // 无障碍服务被关或加回、定时任务触发。存在应用数据里，Zeta 被关掉后还在
         item(key = "log") {
-            PreferenceGroup(
-                title = "运行日志",
-                footer = "Zeta 自己记下的关键事件：进 Linux 环境、起停 Claude 进程和退出码、helper 出错、手机工具失败、" +
-                    "无障碍服务被关或加回、定时任务触发。只留最近 ${DiagLog.CAPACITY} 条，存在应用数据里，Zeta 被关掉后还在。",
-            ) {
+            PreferenceGroup(title = "运行日志", footer = "只留最近 ${DiagLog.CAPACITY} 条。") {
                 item {
                     ArrowPreference(
                         title = "查看运行日志",
-                        summary = if (entries.isEmpty()) "还没有记录" else {
-                            "共 ${entries.size} 条" + (if (warnings > 0) "，$warnings 条警告" else "") +
-                                "\n最近：" + brief(entries.last().message.lineSequence().first(), 40)
-                        },
+                        summary = if (entries.isEmpty()) "还没有记录" else "共 ${entries.size} 条" + (if (warnings > 0) "，$warnings 条警告" else ""),
                         endActions = { if (errors > 0) PreferenceValue("$errors 条出错", color = COUITheme.colorScheme.error) },
                         onClick = { page = DiagPage.Log },
                     )
@@ -152,18 +146,17 @@ internal fun DiagnosticsScreen(
             }
         }
         item(key = "permissions") {
-            PreferenceGroup(title = "权限", footer = "和权限健康页是同一份检查；要修的到那里点一下，或一键授予。") {
+            // 和权限健康页是同一份检查
+            PreferenceGroup(title = "权限", footer = "要修的到权限健康页里修。") {
                 PermissionHealth.items(snapshot, hub).forEach { entry ->
                     item(key = entry.id) { BasicComponent(title = entry.title, endActions = { PreferenceValue(entry.value, color = statusColor(entry.status)) }) }
                 }
             }
         }
         item(key = "assistant") { AssistantDiagnosticsGroup(reloads) }
+        // Claude Code 进程写到标准错误的内容；结束的对话列的是结束时留下的那份。点开只看最后 64 KB（页上写着）
         item(key = "stderr") {
-            PreferenceGroup(
-                title = "对话进程的错误输出",
-                footer = "Claude Code 进程写到标准错误的内容：正在跑的对话，和最近结束的 ${DiagScripts.FINISHED_LIMIT} 个（结束时留下的那份）。点开看最后 64 KB。",
-            ) {
+            PreferenceGroup(title = "对话进程的错误输出", footer = "正在进行的对话和最近结束的 ${DiagScripts.FINISHED_LIMIT} 个。") {
                 val files = current?.files?.filter { it.kind != LogKind.Debug }.orEmpty()
                 when {
                     current == null && probing -> item { ConfigLoadingRow() }
@@ -173,11 +166,9 @@ internal fun DiagnosticsScreen(
                 }
             }
         }
+        // ~/.claude/debug 下的文件
         item(key = "debug") {
-            PreferenceGroup(
-                title = "Claude Code 调试日志",
-                footer = "~/.claude/debug 下最近的 ${DiagScripts.DEBUG_LIMIT} 个文件，Claude Code 开着调试时才写。点开看最后 64 KB。",
-            ) {
+            PreferenceGroup(title = "Claude Code 调试日志", footer = "Claude Code 开着调试时才写，只列最近 ${DiagScripts.DEBUG_LIMIT} 个。") {
                 val files = current?.files(LogKind.Debug).orEmpty()
                 when {
                     current == null && probing -> item { ConfigLoadingRow() }
@@ -187,11 +178,9 @@ internal fun DiagnosticsScreen(
                 }
             }
         }
+        // 用系统的“保存到”存下；两种日志文件各取最后 64 KB。打码的是 token、key、password、cookie、Authorization 这类值（见 Redact）
         item(key = "export") {
-            PreferenceGroup(
-                footer = "打成一个 zip，用系统的“保存到”存下：运行日志、环境与权限、本应用的 logcat、对话进程的错误输出和调试日志（各取最后 64 KB）。" +
-                    "导出前给 token、key、password、cookie、Authorization 这类值打码。",
-            ) {
+            PreferenceGroup(footer = "把上面这些和本应用的 logcat 打成一个 zip。token、密码这类值会先打码。") {
                 item {
                     BasicComponent(
                         title = "导出诊断包",

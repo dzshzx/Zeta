@@ -93,10 +93,11 @@ internal object Diagnostics {
             InfoLine("Debian 版本", probe?.debian?.ifEmpty { "查不到" } ?: pending),
             InfoLine("Claude Code", probe?.claude?.ifEmpty { "没有安装" } ?: pending),
             InfoLine("Node", probe?.node?.ifEmpty { "没有安装" } ?: pending),
+            // 不自动打开：服务被系统拿掉时只记一笔。在守：服务开过；没在守：服务没开过，或在 Zeta 里关了
             InfoLine(
                 "无障碍守护",
-                (if (AccessibilityGuard.autoRestore(context)) "自动打开" else "只记录，不自动打开") + " · " +
-                    if (AccessibilityGuard.armed(context)) "在守（服务开过）" else "没在守（服务没开过，或在 Zeta 里关了）",
+                (if (AccessibilityGuard.autoRestore(context)) "自动打开" else "不自动打开") + " · " +
+                    if (AccessibilityGuard.armed(context)) "在守" else "没在守",
             ),
         )
     }
