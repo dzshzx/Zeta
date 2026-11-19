@@ -434,6 +434,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         ) {
             var viewingScreen by remember { mutableStateOf(false) }
+            var viewingUsage by remember { mutableStateOf(false) }
             // 顶部胶囊正显示这个对话时，后台屏幕在胶囊里看和接管，这里不再重复一条
             if (hub.overlayFocus !== conversation.overlay) {
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
@@ -479,6 +480,25 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                     uploads.clear()
                 },
                 onStop = conversation::interrupt,
+                extraChips = {
+                    EffortChip(
+                        effort = conversation.effort,
+                        applied = conversation.usage.appliedEffort,
+                        onChange = conversation::chooseEffort,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                },
+                trailing = {
+                    if (conversation.usage.known) ContextMeter(conversation.usage, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
+                },
+            )
+            UsageDialog(
+                visible = viewingUsage,
+                usage = conversation.usage,
+                skippedHistory = conversation.skippedHistory,
+                canCompact = !conversation.busy && !conversation.loadingHistory && conversation.items.isNotEmpty(),
+                onCompact = conversation::compact,
+                onDismissRequest = { viewingUsage = false },
             )
         }
     }

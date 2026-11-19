@@ -269,4 +269,17 @@ class Settings(context: Context) {
     var keepScreenOn: Boolean
         get() = prefs.getBoolean("keepScreenOn", true)
         set(value) = prefs.edit().putBoolean("keepScreenOn", value).apply()
+
+    /** 新会话的思考强度（Claude Code 的 --effort）；null 表示沿用 Claude Code 设置里的默认值。 */
+    var effort: String?
+        get() = prefs.getString("effort", null)
+        set(value) = prefs.edit().putString("effort", value).apply()
+
+    /** Claude Code 报过的各模型上下文窗口（“模型=窗口”）。旧会话重新打开、还没起进程时拿它算占比。 */
+    var contextWindows: Map<String, Long>
+        get() = prefs.getStringSet("contextWindows", null).orEmpty().mapNotNull { entry ->
+            val parts = entry.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+            parts[1].toLongOrNull()?.let { parts[0] to it }
+        }.toMap()
+        set(value) = prefs.edit().putStringSet("contextWindows", value.map { "${it.key}=${it.value}" }.toSet()).apply()
 }

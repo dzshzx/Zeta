@@ -94,6 +94,15 @@ class Conversation(
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
         private set
 
+    /** 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。 */
+    var effort by mutableStateOf(hub.settings.effort)
+        private set
+
+    /** 上下文占用与用量统计，由 [UsageTracker] 从进程输出和会话记录里累计。 */
+    var usage by mutableStateOf(ChatUsage())
+        private set
+    private val meter = UsageTracker()
+
     /**
      * 排队中的消息。Claude Code 会在下一个工具调用结束时把它并进正在进行的这一轮，
      * 没有工具调用可等时就在这一轮结束后另起一轮。
@@ -195,6 +204,8 @@ class Conversation(
         }
         process = created
         created.send(controlRequest { put("subtype", "initialize") })
+        meter.processStarted(fresh = false)
+        queryUsage(created)
         host.pending?.let { handle(it, System.currentTimeMillis()) }
         hub.onActivityChanged()
     }
@@ -203,23 +214,29 @@ class Conversation(
         val config = hub.settings.env ?: run { loadingHistory = false; return }
         thread(name = "zeta-history", isDaemon = true) {
             val loaded = TranscriptReducer("h")
+            val loadedUsage = UsageTracker()
             var skipped = 0
             val result = runCatching {
                 LinuxEnv.run(config, "exec python3 - history " + LinuxEnv.quote(file), stdin = hub.helperScript, timeoutMs = 60_000)
             }.getOrNull()
             result?.stdout?.lineSequence()?.forEach { line ->
                 val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@forEach
+                loadedUsage.observeHistory(event)
                 when (event.str("type")) {
                     "zeta_history" -> skipped = event.int("skipped") ?: 0
+                    "system" -> if (event.str("subtype") == "compact_boundary") loaded.addNotice(compactNotice(event), error = false)
                     "assistant" -> event.obj("message")?.let { loaded.applyAssistant(it, history = true) }
                     "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid")) }
                 }
             }
             loaded.finishTurn(keepRunningTools = attach?.busy == true)
+            loadedUsage.finishHistory()
             main.post {
                 // 载入期间用户已经发了新消息的话，新内容接在历史后面
                 loaded.items.addAll(reducer.items)
                 reducer = loaded
+                meter.prependHistory(loadedUsage)
+                publishUsage()
                 skippedHistory = skipped
                 loadingHistory = false
                 if (result == null || result.exitCode != 0) {
@@ -458,6 +475,53 @@ class Conversation(
         model = value
         hub.settings.model = value
         process?.send(controlRequest { put("subtype", "set_model"); put("model", value ?: "default") })
+        process?.let(::queryUsage)
+    }
+
+    /** 思考强度：这个对话立即生效（apply_flag_settings），也作为之后新对话的默认值。null 回到 Claude Code 自己的设置。 */
+    fun chooseEffort(value: String?) {
+        effort = value
+        hub.settings.effort = value
+        val process = process ?: return
+        process.send(controlRequest {
+            put("subtype", "apply_flag_settings")
+            putJsonObject("settings") { put("effortLevel", value) }
+        })
+        process.send(controlRequest { put("subtype", "get_settings") })
+    }
+
+    /** 一键压缩：和在输入框里发 /compact 一样，只是聊天里不留这条命令；进行中显示在等待指示旁，完成后有一条提示。 */
+    fun compact() {
+        if (busy || blockedByExternal || loadingHistory || items.isEmpty()) return
+        val process = ensureProcess() ?: return
+        turnsInFlight++
+        busy = true
+        interruptRequested = false
+        status = "正在压缩上下文"
+        lastActivityAt = System.currentTimeMillis()
+        process.send(buildJsonObject {
+            put("type", "user")
+            put("uuid", UUID.randomUUID().toString())
+            putJsonObject("message") {
+                put("role", "user")
+                putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", "/compact") }) }
+            }
+        })
+        hub.onActivityChanged()
+    }
+
+    /** 问 Claude Code 上下文窗口和实际生效的思考强度（应答由 [UsageTracker] 接住）。 */
+    private fun queryUsage(target: ClaudeProcess) {
+        target.send(controlRequest { put("subtype", "get_context_usage") })
+        target.send(controlRequest { put("subtype", "get_settings") })
+    }
+
+    private fun publishUsage() {
+        meter.learnedWindow?.let { (name, window) ->
+            val known = hub.settings.contextWindows
+            if (known[name] != window) hub.settings.contextWindows = known + (name to window)
+        }
+        usage = meter.snapshot(hub.settings.contextWindows)
     }
 
     fun choosePermissionMode(value: String) {
@@ -536,6 +600,7 @@ class Conversation(
             addAll(sessionArguments(sessionId, fork?.source, title))
             model?.let { add("--model"); add(it) }
             permissionMode?.let { add("--permission-mode"); add(it) }
+            effort?.let { add("--effort"); add(it) }
             add("--append-system-prompt"); add(ClientHint)
             // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
             if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
@@ -558,6 +623,8 @@ class Conversation(
         process = created
         forkCut = false
         created.send(controlRequest { put("subtype", "initialize") })
+        meter.processStarted(fresh = sessionId == null)
+        queryUsage(created)
         hub.onActivityChanged()
         return created
     }
@@ -573,10 +640,13 @@ class Conversation(
         drainScheduled.set(false)
         var changed = false
         val now = System.currentTimeMillis()
+        val usageBefore = meter.version
         while (true) {
             val event = inbox.poll() ?: break
+            meter.observe(event)
             changed = handle(event, now) || changed
         }
+        if (meter.version != usageBefore) publishUsage()
         if (changed) {
             status = null
             lastActivityAt = now
@@ -622,7 +692,9 @@ class Conversation(
                     }
                 }
                 "compact_boundary" -> {
-                    reducer.addNotice("上下文已压缩", error = false)
+                    reducer.addNotice(compactNotice(event), error = false)
+                    // 压缩后的 post_tokens 不含系统提示和工具，问 Claude Code 要含这些的估算
+                    process?.let(::queryUsage)
                     return true
                 }
                 "session_title_changed" -> event.str("title")?.takeIf { it.isNotBlank() }?.let { title = it }

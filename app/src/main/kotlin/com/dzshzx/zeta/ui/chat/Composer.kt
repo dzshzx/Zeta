@@ -110,6 +110,10 @@ internal fun Composer(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 权限胶囊后面的胶囊（思考强度）。 */
+    extraChips: @Composable () -> Unit = {},
+    /** 发送键左边的小部件（上下文用量）。 */
+    trailing: @Composable () -> Unit = {},
 ) {
     val dark = CouiTheme.isDark
     val colors = MiuixTheme.colorScheme
@@ -288,7 +292,9 @@ internal fun Composer(
             }
             Spacer(Modifier.width(8.dp))
             PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
+            extraChips()
             Spacer(Modifier.weight(1f))
+            trailing()
             val showStop = busy && !canSend
             val ink = colors.onSurface
             val buttonColor by animateColorAsState(

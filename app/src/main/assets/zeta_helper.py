@@ -228,13 +228,18 @@ def cmd_list():
             out(item)
 
 
+USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+
+
 def cmd_history(path):
     events = []
     owners = []  # 每一项出自哪一行（uuid），遇到剪切记号时据此去掉被剪的部分
+    compacted = False
     with open(path, encoding="utf-8", errors="replace") as f:
         for number, line in enumerate(f):
             if '"type":"user"' not in line and '"type":"assistant"' not in line and '"local_command"' not in line \
-                    and '"queued_command"' not in line and '"rewound":true' not in line:
+                    and '"queued_command"' not in line and '"rewound":true' not in line \
+                    and '"compact_boundary"' not in line:
                 continue
             cut = rewind_cut(line)
             if cut is not None:
@@ -247,6 +252,14 @@ def cmd_history(path):
                 continue
             kind = o.get("type")
             row = o.get("uuid")
+            if kind == "system" and o.get("subtype") == "compact_boundary":
+                # 压缩：界面显示一条提示，用量统计据此把上下文占用换成压缩后的大小
+                meta = o.get("compactMetadata") or {}
+                events.append({"type": "system", "subtype": "compact_boundary", "compact_metadata": {
+                    "trigger": meta.get("trigger"), "pre_tokens": meta.get("preTokens"), "post_tokens": meta.get("postTokens")}})
+                owners.append(row)
+                compacted = True
+                continue
             if kind == "system" and o.get("subtype") == "local_command":
                 # 斜杠命令的输出（/context、/usage 等），当作一段回答显示
                 text = "\n".join(part.strip() for part in COMMAND_OUT.findall(o.get("content") or ""))
@@ -278,6 +291,12 @@ def cmd_history(path):
                     if o.get("isCompactSummary"):
                         continue
                     text = user_text(content or "")
+                    # 记录里 /compact 命令写在压缩提示之后，那条提示已经说明了，不再显示一遍命令
+                    if compacted and text and text.split(" ")[0] == "/compact":
+                        compacted = False
+                        continue
+                    if text:
+                        compacted = False
                     blocks = [{"type": "image", "ref": "%d.%d" % (number, index)}
                               for index, b in enumerate(content if isinstance(content, list) else [])
                               if isinstance(b, dict) and b.get("type") == "image"]
@@ -294,8 +313,11 @@ def cmd_history(path):
                 blocks = [clip(b) for b in (content or []) if isinstance(b, dict) and b.get("type") in ("text", "thinking", "tool_use")]
                 for b in blocks:
                     b.pop("signature", None)
-                if blocks:
-                    events.append({"type": "assistant", "message": {"id": message.get("id"), "content": blocks}})
+                usage = message.get("usage")
+                usage = {k: usage[k] for k in USAGE_KEYS if isinstance(usage, dict) and k in usage} or None
+                if blocks or usage:
+                    events.append({"type": "assistant", "message": {"id": message.get("id"), "model": message.get("model"),
+                                                                    "usage": usage, "content": blocks}})
                     owners.append(row)
     skipped = max(0, len(events) - MAX_EVENTS)
     out({"type": "zeta_history", "skipped": skipped})

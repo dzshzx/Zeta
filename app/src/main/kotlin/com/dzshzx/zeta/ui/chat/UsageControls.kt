@@ -1,0 +1,364 @@
+package com.dzshzx.zeta.ui.chat
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.ChatUsage
+import com.dzshzx.zeta.core.ContextLevel
+import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.TurnUsage
+import com.dzshzx.zeta.core.effortLabel
+import com.dzshzx.zeta.core.formatCost
+import com.dzshzx.zeta.core.formatExactTokens
+import com.dzshzx.zeta.core.formatTokens
+import com.dzshzx.zeta.ui.components.StatusError
+import com.dzshzx.zeta.ui.components.StatusWarning
+import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
+import com.itos.coui.menu.CouiMenuItem
+import com.itos.coui.menu.Menu
+import com.itos.coui.menu.couiMenuAnchor
+import com.itos.coui.menu.rememberCouiMenuAnchor
+import com.itos.coui.theme.CouiTheme
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/** 菜单里“默认”一项的值（CouiMenuItem 的值不用 null）。 */
+private const val DefaultEffort = ""
+
+/**
+ * 思考强度胶囊，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
+ * 所以这里列的是它的档位。没指定时显示 Claude Code 实际生效的档位，颜色淡一些。
+ */
+@Composable
+internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit, modifier: Modifier = Modifier) {
+    val colors = MiuixTheme.colorScheme
+    val dark = CouiTheme.isDark
+    val anchor = rememberCouiMenuAnchor()
+    var expanded by remember { mutableStateOf(false) }
+    val active = effort != null
+    val items = remember(effort, applied) {
+        val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
+        listOf(CouiMenuItem(value = DefaultEffort, text = defaultText, selected = effort == null)) +
+            EffortLevels.map { (value, label) -> CouiMenuItem(value = value, text = label, selected = value == effort) }
+    }
+    val ink = colors.onSurface
+    val content by animateColorAsState(if (active) colors.primary else ink.copy(alpha = if (dark) 0.62f else 0.58f), tween(160), label = "effort-ink")
+    val fill by animateColorAsState(
+        if (active) colors.primary.copy(alpha = 0.10f) else ink.copy(alpha = if (dark) 0.07f else 0.045f),
+        tween(160),
+        label = "effort-fill",
+    )
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .couiMenuAnchor(anchor)
+                .heightIn(min = 30.dp)
+                .clip(CircleShape)
+                .background(fill, CircleShape)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { anchor.open { expanded = true } }
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+                .semantics { contentDescription = "思考强度：" + (effortLabel(effort) ?: "默认") },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(imageVector = Icons.Rounded.Psychology, contentDescription = null, modifier = Modifier.size(15.dp), tint = content)
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = effortLabel(effort) ?: effortLabel(applied) ?: "思考",
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+                color = content,
+                maxLines = 1,
+            )
+        }
+        Menu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            items = items,
+            onItemClick = {
+                expanded = false
+                onChange(it.value.ifEmpty { null })
+            },
+            anchor = anchor,
+        )
+    }
+}
+
+@Composable
+private fun levelColor(level: ContextLevel, normal: Color): Color = when (level) {
+    ContextLevel.Critical -> StatusError
+    ContextLevel.Warning -> StatusWarning
+    ContextLevel.Normal -> normal
+}
+
+/** 发送键左边的上下文圆环；快满时变色并显示百分比。点开是用量统计。 */
+@Composable
+internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val dark = CouiTheme.isDark
+    val ink = MiuixTheme.colorScheme.onSurface
+    val level = usage.level
+    val color = levelColor(level, ink.copy(alpha = if (dark) 0.52f else 0.46f))
+    val percent = usage.fraction?.let { (it * 100).toInt() }
+    val loud = level != ContextLevel.Normal && percent != null
+    Row(
+        modifier = modifier
+            .heightIn(min = 30.dp)
+            .clip(CircleShape)
+            .background(if (loud) color.copy(alpha = 0.12f) else Color.Transparent, CircleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = if (loud) 8.dp else 7.dp)
+            .semantics {
+                contentDescription = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: "")
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ContextRing(fraction = usage.fraction ?: 0f, color = color, track = ink.copy(alpha = if (dark) 0.14f else 0.09f))
+        if (loud) {
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "$percent%",
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                color = color,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val stroke = 2.dp.toPx()
+        val inset = stroke / 2
+        val arcSize = Size(size.width - stroke, size.height - stroke)
+        drawArc(track, 0f, 360f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
+        if (fraction > 0f) {
+            drawArc(
+                color,
+                -90f,
+                360f * fraction.coerceAtLeast(0.03f),
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = Stroke(stroke, cap = StrokeCap.Round),
+            )
+        }
+    }
+}
+
+/** 用量统计：上下文占用、本对话累计、各轮明细，底部是一键压缩。 */
+@Composable
+internal fun UsageDialog(
+    visible: Boolean,
+    usage: ChatUsage,
+    skippedHistory: Int,
+    canCompact: Boolean,
+    onCompact: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    CouiConfirmDialog(
+        visible = visible,
+        title = "用量",
+        message = null,
+        confirmText = "压缩上下文",
+        confirmEnabled = canCompact,
+        cancelText = "关闭",
+        onConfirm = {
+            onDismissRequest()
+            onCompact()
+        },
+        onDismissRequest = onDismissRequest,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+            ContextSection(usage)
+            Spacer(Modifier.height(18.dp))
+            val total = usage.total
+            SectionHeader("本对话累计", if (usage.turns.isEmpty()) null else "${usage.turns.size} 轮")
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatRow("输入（未走缓存）", "${formatExactTokens(total.input)} tok")
+                StatRow("缓存读取", "${formatExactTokens(total.cacheRead)} tok")
+                StatRow("缓存写入", "${formatExactTokens(total.cacheWrite)} tok")
+                StatRow("输出", "${formatExactTokens(total.output)} tok")
+                StatRow("费用（按 API 标价）", usage.totalCost?.let(::formatCost) ?: "—")
+            }
+            val notes = buildList {
+                if (usage.costPartial) add("会话记录里没有费用，从记录恢复的轮次只计 token。")
+                if (skippedHistory > 0) add("更早的记录没有载入，也没有计入。")
+            }
+            if (notes.isNotEmpty()) Note(notes.joinToString(""), Modifier.padding(top = 8.dp))
+            if (usage.turns.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                SectionHeader("各轮", null)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 新的在上；太长的对话只列最近 50 轮
+                    usage.turns.withIndex().reversed().take(50).forEach { (index, turn) -> TurnRow(index + 1, turn) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContextSection(usage: ChatUsage) {
+    val colors = MiuixTheme.colorScheme
+    val tokens = usage.contextTokens
+    val window = usage.contextWindow
+    val percent = usage.fraction?.let { String.format(java.util.Locale.US, "%.1f%%", it * 100) }
+    SectionHeader(
+        "上下文",
+        when {
+            tokens == null -> null
+            window == null -> "${formatTokens(tokens)} tokens"
+            else -> "${formatTokens(tokens)} / ${formatTokens(window)} · $percent"
+        },
+    )
+    usage.fraction?.let { fraction ->
+        val color = levelColor(usage.level, colors.primary)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(colors.onSurface.copy(alpha = if (CouiTheme.isDark) 0.12f else 0.07f)),
+        ) {
+            Box(Modifier.fillMaxWidth(fraction.coerceAtLeast(0.01f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+    val detail = buildList {
+        add(
+            when {
+                tokens == null -> "发出第一条消息后显示。"
+                usage.level == ContextLevel.Critical -> "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。"
+                usage.contextEstimated -> "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"
+                else -> "按上一轮实测；快到上限时 Claude Code 会自动压缩。"
+            },
+        )
+        if (usage.compactions > 0) add("已压缩 ${usage.compactions} 次。")
+        val meta = listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" }).joinToString(" · ")
+        if (meta.isNotEmpty()) add(meta)
+    }
+    Note(detail.joinToString("\n"))
+}
+
+@Composable
+private fun SectionHeader(title: String, value: String?) {
+    val ink = MiuixTheme.colorScheme.onSurface
+    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            color = ink,
+            modifier = Modifier.weight(1f),
+        )
+        if (value != null) {
+            Text(
+                text = value,
+                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                color = ink,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String) {
+    val colors = MiuixTheme.colorScheme
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+            color = colors.onSurfaceVariantSummary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+            color = colors.onSurface.copy(alpha = 0.84f),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun TurnRow(number: Int, turn: TurnUsage) {
+    val colors = MiuixTheme.colorScheme
+    val t = turn.tokens
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "第 $number 轮" + (turn.durationMs?.let { " · ${formatSeconds(it)}" } ?: ""),
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+                color = colors.onSurface.copy(alpha = 0.84f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = turn.costUsd?.let(::formatCost) ?: "—",
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+                color = colors.onSurface.copy(alpha = 0.84f),
+            )
+        }
+        Text(
+            text = "输入 ${formatTokens(t.input)} · 缓存读 ${formatTokens(t.cacheRead)} · 缓存写 ${formatTokens(t.cacheWrite)} · 输出 ${formatTokens(t.output)}",
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.5.sp, lineHeight = 16.sp, fontFeatureSettings = "tnum"),
+            color = colors.onSurfaceVariantSummary,
+        )
+    }
+}
+
+@Composable
+private fun Note(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 17.sp),
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        modifier = modifier,
+    )
+}
+
+private fun formatSeconds(ms: Long): String {
+    val seconds = ms / 1000.0
+    return if (seconds < 60) String.format(java.util.Locale.US, "%.1f 秒", seconds) else "${(ms / 60_000)} 分 ${(ms / 1000) % 60} 秒"
+}
