@@ -23,6 +23,7 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.arr
+import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
@@ -452,6 +453,8 @@ class PhoneTools(
         lastUse = System.currentTimeMillis()
         val result: JsonObject? = when (message.str("method")) {
             "initialize" -> buildJsonObject {
+                // 对话开始用手机工具：无障碍服务要是被系统关了，趁这时加回去
+                AccessibilityGuard.checkSoon("对话开始用手机工具")
                 put("protocolVersion", message.obj("params")?.str("protocolVersion") ?: "2025-06-18")
                 putJsonObject("capabilities") { putJsonObject("tools") {} }
                 putJsonObject("serverInfo") { put("name", SERVER); put("version", "1") }
@@ -468,7 +471,7 @@ class PhoneTools(
                 runCatching {
                     // 用户暂停或接管时先在这里等着
                     awaitGate()?.let { failure(it) } ?: call(name, arguments, toolUseId)
-                }.getOrElse { failure(it.message ?: it.javaClass.simpleName) }
+                }.getOrElse { failure(it.message ?: it.javaClass.simpleName) }.also { DiagEvents.phoneTool(name, it) }
             }
             "ping" -> JsonObject(emptyMap())
             else -> null
@@ -1446,14 +1449,13 @@ class PhoneTools(
         /** 无障碍服务是否连着。 */
         val accessibilityConnected: Boolean get() = ZetaAccessibilityService.instance != null
 
-        /** 用 root 把 Zeta 的无障碍服务加进系统的启用列表，等它连上。返回是否连上了。 */
-        fun enableAccessibility(context: Context): Boolean {
+        /**
+         * 用 root 把 Zeta 的无障碍服务加进系统的启用列表，等它连上。返回是否连上了。
+         * 只在末尾追加本包这一项，读写之间列表被改过就重读再做（见 [AccessibilityGuard.append]）。
+         */
+        fun enableAccessibility(context: Context, why: String = "要用手机工具"): Boolean {
             if (accessibilityConnected) return true
-            val script = "s=$SERVICE; cur=\$(settings get secure enabled_accessibility_services); " +
-                "case \":\$cur:\" in *\":\$s:\"*) ;; *) " +
-                "if [ -z \"\$cur\" ] || [ \"\$cur\" = null ]; then new=\$s; else new=\"\$cur:\$s\"; fi; " +
-                "settings put secure enabled_accessibility_services \"\$new\" ;; esac; settings put secure accessibility_enabled 1"
-            runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(script), 10_000) }
+            AccessibilityGuard.append(context, why)
             repeat(25) {
                 if (accessibilityConnected) return true
                 Thread.sleep(200)
@@ -1461,13 +1463,9 @@ class PhoneTools(
             return false
         }
 
-        /** 用 root 把 Zeta 的无障碍服务从启用列表里拿掉。 */
-        fun disableAccessibility() {
-            val script = "s=$SERVICE; cur=\$(settings get secure enabled_accessibility_services); new=; IFS=:; " +
-                "for i in \$cur; do [ \"\$i\" = \"\$s\" ] || [ \"\$i\" = null ] || new=\"\${new:+\$new:}\$i\"; done; unset IFS; " +
-                "if [ -n \"\$new\" ]; then settings put secure enabled_accessibility_services \"\$new\"; " +
-                "else settings delete secure enabled_accessibility_services; fi"
-            runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(script), 10_000) }
+        /** 用 root 把 Zeta 的无障碍服务从启用列表里拿掉；无障碍守护随之不再把它加回，直到它下次被打开。 */
+        fun disableAccessibility(context: Context? = null, why: String = "在 Zeta 里关闭") {
+            AccessibilityGuard.remove(context, why)
         }
 
         private const val INSTRUCTIONS =

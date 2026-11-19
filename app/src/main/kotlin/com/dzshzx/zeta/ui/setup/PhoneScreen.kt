@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
 import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
@@ -25,6 +26,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
     var connected by remember { mutableStateOf(PhoneTools.accessibilityConnected) }
     var working by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var autoRestore by remember { mutableStateOf(AccessibilityGuard.autoRestore(context)) }
     LaunchedEffect(Unit) {
         while (true) {
             connected = PhoneTools.accessibilityConnected
@@ -51,7 +53,9 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
         Group(
             title = "无障碍服务",
             footer = "读控件列表、输入中文、做手势都靠它。没有它，Claude 只能靠截图和坐标操作主屏幕。" +
-                "Zeta 只在 Claude 调用手机工具时才用到它；Claude 要用而服务没连上时，Zeta 会经 root 自动把它打开。",
+                "Zeta 只在 Claude 调用手机工具时才用到它；Claude 要用而服务没连上时，Zeta 会经 root 自动把它打开。" +
+                "Zeta 被强行停止等情况下系统会停用它：Zeta 启动、对话开始用手机工具、系统设置变化时会检查，" +
+                "被关了就只把 Zeta 这一项加回启用列表，别的服务原样保留。在这里关掉的不会被加回。",
         ) {
             CouiPreference(
                 title = "状态",
@@ -65,7 +69,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
             if (connected) {
                 CouiPreference(
                     title = "关闭无障碍服务",
-                    onClick = { thread(isDaemon = true) { PhoneTools.disableAccessibility() } },
+                    onClick = { thread(isDaemon = true) { PhoneTools.disableAccessibility(context.applicationContext, "手机操作页") } },
                     showChevron = false,
                 )
             } else {
@@ -78,7 +82,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                         working = true
                         failed = false
                         thread(isDaemon = true) {
-                            val ok = PhoneTools.enableAccessibility(context.applicationContext)
+                            val ok = PhoneTools.enableAccessibility(context.applicationContext, "手机操作页")
                             failed = !ok
                             working = false
                         }
@@ -91,6 +95,15 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     },
                 )
             }
+            CouiSwitchPreference(
+                title = "被系统关掉后自动打开",
+                summary = "有 root 时自动加回，没有时发通知提醒",
+                checked = autoRestore,
+                onCheckedChange = {
+                    autoRestore = it
+                    AccessibilityGuard.setAutoRestore(context.applicationContext, it)
+                },
+            )
         }
     }
 }

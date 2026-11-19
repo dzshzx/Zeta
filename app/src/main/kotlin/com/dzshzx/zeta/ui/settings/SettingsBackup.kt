@@ -136,6 +136,7 @@ internal object SettingsBackup {
         boolItem("autoTitle", "自动生成对话标题", default = true),
         boolItem("phoneTools", "手机操作", default = true),
         boolItem("backgroundScreen", "在后台屏幕上操作", default = true),
+        boolItem("accessibilityGuard", "无障碍服务被系统关掉后自动打开", default = true),
         optionalItem("model", "新对话的模型", unset = "Claude Code 的默认模型", check = { v ->
             val text = v.text()
             if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text)) else Checked.Bad("不是有效的模型名")

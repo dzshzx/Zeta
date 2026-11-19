@@ -4,3 +4,47 @@
 [[values]]
 kind = "MCP 配置脱敏测试的假 token（McpConfigTest）"
 value = "--api-key=SECRET5"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-key-1"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-key-2"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-key-3"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-pass-1"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-pass-4"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-secret-1"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-token-12"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-token-5"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-token-7"
+
+[[values]]
+kind = "诊断包打码测试的假值（RedactTest）"
+value = "fake-token-9"
+
+[[values]]
+kind = "诊断包打码测试的假值（DiagScriptsTest）"
+value = "fake-token-1"

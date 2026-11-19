@@ -40,6 +40,7 @@ import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
+import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
         acceptShared(intent)
         // 界面重建时 intent 还是原来那个，不再切一次
         if (savedInstanceState == null) acceptConversation(intent)
+        SettingsLink.accept(intent)
         setContent {
             val dark = hub.darkTheme ?: isSystemInDarkTheme()
             // 状态栏、导航栏的图标深浅跟着应用自己的主题走，而不是系统的
@@ -83,6 +85,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         acceptShared(intent)
         acceptConversation(intent)
+        SettingsLink.accept(intent)
     }
 
     /** 从顶部状态胶囊打开：切到那个对话。 */
@@ -195,6 +198,8 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
         showSsh = false
         tasksScope = null
     }
+    // 通知要打开设置里的某一页：先把设置页打开，那一页由设置页自己切过去
+    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) showSettings = true }
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !overlay,

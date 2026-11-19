@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.diag.DiagEvents
 import java.io.OutputStream
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
@@ -59,6 +60,10 @@ class ClaudeProcess(
     @Volatile private var closed = false
 
     init {
+        when (launch) {
+            is Launch.Start -> DiagEvents.claudeLaunched(hostKey, attach = false, cwd = launch.cwd, arguments = launch.arguments)
+            is Launch.Attach -> DiagEvents.claudeLaunched(hostKey, attach = true, cwd = null, arguments = emptyList())
+        }
         thread(name = "claude-stdout", isDaemon = true) {
             var hostExit: JsonObject? = null
             runCatching {
@@ -69,15 +74,19 @@ class ClaudeProcess(
                 }
             }
             val code = runCatching { process.waitFor() }.getOrDefault(-1)
+            // 是这边 stop() 关的，还是那头自己断的
+            val stopped = closed
             closed = true
             outbox.offer(POISON)
             val exit = hostExit
-            if (exit != null) {
-                onExit(exit.int("code") ?: 1, exit.str("stderr").orEmpty())
+            val (exitCode, stderr) = if (exit != null) {
+                (exit.int("code") ?: 1) to exit.str("stderr").orEmpty()
             } else {
                 // 连接这一头自己断了（没拿到 root、脚本出错等）；进程也许还在，由调用方决定是否清理
-                onExit(if (code == 0) -1 else code, synchronized(stderrTail) { stderrTail.toString() })
+                (if (code == 0) -1 else code) to synchronized(stderrTail) { stderrTail.toString() }
             }
+            DiagEvents.claudeExited(hostKey, exitCode, stderr, stopped && exit == null)
+            onExit(exitCode, stderr)
         }
         thread(name = "claude-stderr", isDaemon = true) {
             runCatching {

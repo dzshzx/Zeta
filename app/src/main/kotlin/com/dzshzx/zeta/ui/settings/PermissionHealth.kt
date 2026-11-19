@@ -270,10 +270,10 @@ internal object PermissionHealth {
                 runScript("cmd appops set --user \"\$3\" \"\$2\" ACCESS_RESTRICTED_SETTINGS allow", pkg, user)
                 if (snapshot(app).accessibilityListed && !PhoneTools.accessibilityConnected) {
                     // 列表里有但没连上：把 Zeta 自己这一项拿掉再加回去，让系统重新绑定
-                    PhoneTools.disableAccessibility()
+                    PhoneTools.disableAccessibility(app, "权限健康页重新绑定")
                     Thread.sleep(400)
                 }
-                PhoneTools.enableAccessibility(app)
+                PhoneTools.enableAccessibility(app, "权限健康页")
             }
             PermissionId.Battery -> {
                 runScript(

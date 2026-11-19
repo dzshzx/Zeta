@@ -1,0 +1,107 @@
+package com.dzshzx.zeta.core
+
+import java.io.File
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * zeta_host.sh 在 Claude 进程结束时把标准错误输出留一份到 `~/.cache/<ZETA_NAME>/stderr/`，诊断页从那里读。
+ * 真脚本跑在临时 HOME 上，用一个假的 claude。
+ */
+class HostStderrTest {
+    private lateinit var home: File
+    private val host = File("src/main/assets/zeta_host.sh").absoluteFile
+    private val name = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
+
+    @Before
+    fun setUp() {
+        assumeTrue("要 Linux 的 bash", File("/proc/self/cmdline").exists())
+        home = Files.createTempDirectory("zeta-stderr").toFile().canonicalFile
+    }
+
+    @After
+    fun tearDown() {
+        if (::home.isInitialized) home.deleteRecursively()
+    }
+
+    private fun fakeClaude(script: String) {
+        File(home, "bin/claude").apply {
+            parentFile!!.mkdirs()
+            writeText("#!/bin/bash\n$script\n")
+            setExecutable(true)
+        }
+    }
+
+    /** 起一个对话进程，标准输入立即关掉（应用这头马上断开，进程自己跑完）。 */
+    private fun start(key: String) {
+        val builder = ProcessBuilder("bash", host.path, "start", key, home.path, "t", "-p").directory(home).redirectErrorStream(true)
+        builder.environment().apply {
+            clear()
+            put("HOME", home.path)
+            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
+            put("LANG", "C.UTF-8")
+            put("ZETA_IDLE_STEP", "1")
+            put(AppVariant.LINUX_NAME_ENV, name)
+        }
+        val process = builder.start()
+        process.outputStream.close()
+        process.inputStream.bufferedReader().readText()
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+    }
+
+    private val kept: File get() = File(home, ".cache/$name/stderr")
+
+    private fun keptFor(key: String): File? {
+        repeat(100) {
+            kept.listFiles()?.firstOrNull { it.name.endsWith("-$key.log") }?.let { return it }
+            Thread.sleep(100)
+        }
+        return null
+    }
+
+    @Test
+    fun stderrIsKeptWithTheExitCode() {
+        fakeClaude("echo 'fatal: something broke' >&2; exit 3")
+        start("k-err")
+        val file = keptFor("k-err")
+        assertTrue("应留下标准错误输出", file != null)
+        val text = file!!.readText()
+        assertTrue(text, text.startsWith("# zeta: claude 退出码 3，"))
+        assertTrue(text, text.contains("fatal: something broke"))
+        // 托管目录照常由下一次接上或 hosts 清理，这里只核对它不在 hosts 下面
+        assertTrue(file.parentFile!!.path.endsWith("/.cache/$name/stderr"))
+    }
+
+    @Test
+    fun emptyStderrLeavesNothing() {
+        fakeClaude("exit 0")
+        start("k-quiet")
+        // 再跑一个有输出的：它的那份出现时，前一个早就结束了
+        fakeClaude("echo 'boom' >&2; exit 1")
+        start("k-loud")
+        assertTrue(keptFor("k-loud") != null)
+        assertEquals(listOf("k-loud"), kept.listFiles().orEmpty().map { it.name.substringAfterLast("-k-").removeSuffix(".log").let { k -> "k-$k" } })
+    }
+
+    @Test
+    fun onlyTheLatestTwentyAreKept() {
+        kept.mkdirs()
+        val old = System.currentTimeMillis() - 3_600_000
+        repeat(25) { i -> File(kept, "20000101-0000%02d-old$i.log".format(i)).apply { writeText("x"); setLastModified(old + i * 1000L) } }
+        fakeClaude("echo 'boom' >&2; exit 1")
+        start("k-new")
+        assertTrue(keptFor("k-new") != null)
+        repeat(50) { if ((kept.listFiles()?.size ?: 0) <= 20) return@repeat; Thread.sleep(100) }
+        val names = kept.listFiles().orEmpty().map { it.name }
+        assertEquals(20, names.size)
+        assertTrue(names.any { it.endsWith("-k-new.log") })
+        // 最旧的几份删掉了
+        assertTrue(names.none { it.endsWith("-old0.log") || it.endsWith("-old5.log") })
+    }
+}

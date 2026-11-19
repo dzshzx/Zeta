@@ -1,6 +1,9 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.diag.DiagEvents
+import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneTools
 import android.app.Activity
 import android.app.Application
@@ -207,6 +210,7 @@ class ConversationHub(private val app: Application) {
         private set
 
     init {
+        DiagLog.init(app)
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
                 startedActivities.add(activity)
@@ -227,6 +231,7 @@ class ConversationHub(private val app: Application) {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
         })
         ScheduleRunner.onAppStart(app)
+        AccessibilityGuard.start(app)
     }
 
     /** 切走时还没做完的对话，按 sessionId（没有则按 key）保留到这一轮结束。改了以后调用 [backgroundChanged]。 */
@@ -280,6 +285,7 @@ class ConversationHub(private val app: Application) {
             }
             val own = installer.status()
             val eta = LinuxEnv.exists(LinuxEnv.ETA_ROOTFS)
+            DiagEvents.setupChecked(state.name, settings.env?.rootfs ?: saved?.rootfs, settings.env?.user)
             main.post {
                 setup = state
                 env = settings.env

@@ -18,6 +18,9 @@ import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
+import com.dzshzx.zeta.core.diag.DiagLevel
+import com.dzshzx.zeta.core.diag.DiagLog
+import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.parseSessionSummaries
 import com.dzshzx.zeta.ui.MainActivity
 import java.time.Instant
@@ -91,6 +94,7 @@ internal object ScheduleRunner {
             if (task == null) ScheduleAlarms.cancel(app, id)
             return
         }
+        DiagLog.info(DiagTopic.Schedule, "定时任务到点：${task.name}")
         if (task.rule is ScheduleRule.Once) {
             ScheduleStore.updateTask(app, id) { it.copy(enabled = false) }
         } else {
@@ -147,6 +151,7 @@ internal object ScheduleRunner {
     private fun launch(hub: ConversationHub, records: RunRecords, spec: RunSpec, manual: Boolean, now: Long, conversation: Conversation, fresh: Boolean) {
         val app = hub.context
         conversation.preset(spec.model, spec.permissionMode, spec.hint)
+        DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
         val run = Run(hub, records, spec.id, conversation, spec.prompt.trim(), now, manual, spec.newSession, fresh)
         runs[run.key] = run
         val adopt = hub.findConversation(conversation.sessionId ?: conversation.key) == null
@@ -167,10 +172,12 @@ internal object ScheduleRunner {
 
     private fun skip(app: Application, records: RunRecords, id: String, reason: String): String {
         records.update(app, id) { it.copy(skips = it.skips + 1, lastSkip = System.currentTimeMillis()) }
+        DiagLog.warn(DiagTopic.Schedule, "后台任务（${records.kind}）${records.name(app, id) ?: id} 跳过：$reason")
         return reason
     }
 
     private fun fail(app: Application, records: RunRecords, spec: RunSpec, manual: Boolean, now: Long, reason: String): String {
+        DiagLog.error(DiagTopic.Schedule, "后台任务（${records.kind}）${spec.name} 没有运行：$reason")
         records.update(app, spec.id) { it.copy(lastRun = TaskRun(now, RunOutcome.Failed, null, reason, manual)) }
         notify(app, key(records, spec.id), spec.name + " · 没有运行", reason, key = null)
         return reason
@@ -232,6 +239,18 @@ internal object ScheduleRunner {
         }
         val current = run.records.name(app, run.id)
         val name = current ?: conversation.title.ifBlank { "定时任务" }
+        DiagLog.log(
+            if (outcome == RunOutcome.Done || outcome == RunOutcome.Stopped) DiagLevel.Info else DiagLevel.Warn,
+            DiagTopic.Schedule,
+            // 不记结果摘要：那是对话内容
+            "后台任务（${run.records.kind}）$name 结束：" + when (outcome) {
+                RunOutcome.Done -> "完成"
+                RunOutcome.Failed -> "没有完成"
+                RunOutcome.Stopped -> "被叫停"
+                RunOutcome.Interrupted -> "中断"
+                RunOutcome.Running -> "还在跑"
+            },
+        )
         // 用户叫停的不提醒；用户正看着这个对话也不必提醒
         if (outcome != RunOutcome.Stopped && !watching(hub, conversation)) {
             notify(app, run.key, if (outcome == RunOutcome.Done) name else "$name · 没有完成", summary.ifBlank { "已完成" }, session ?: conversation.key)

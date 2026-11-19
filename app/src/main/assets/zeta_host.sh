@@ -75,6 +75,14 @@ if [ "$mode" = start ]; then
     wait $P
     code=$?
     kill $W 2>/dev/null
+    # 标准错误输出留一份给 Zeta 的诊断页：托管目录随后会被删掉。只留最近 20 份，每份最后 64 KB
+    if [ -s "$D/err.log" ]; then
+      L="${D%/hosts/*}/stderr"
+      T="$L/.${D##*/}.part"
+      mkdir -p "$L" && { echo "# zeta: claude 退出码 $code，$(date "+%F %T %z")"; tail -c 65536 "$D/err.log"; } > "$T" &&
+        mv -f "$T" "$L/$(date +%Y%m%d-%H%M%S)-${D##*/}.log"
+      ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
+    fi
     [ -d "$D" ] && echo $code > "$D/exit"
   ' zeta-run "$D" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done

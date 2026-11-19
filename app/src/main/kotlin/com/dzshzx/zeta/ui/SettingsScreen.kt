@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +20,8 @@ import com.dzshzx.zeta.ui.settings.AccountsEntry
 import com.dzshzx.zeta.ui.settings.AccountsScreen
 import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.AutoCompactGroup
+import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
+import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.PermissionHealth
 import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
@@ -67,8 +70,11 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
         SettingsSubPageHost(subPage == SettingsSubPage.NotifyTriggers) {
             NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
         }
+        SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
     }
     BackHandler(enabled = subPage != null) { subPage = null }
+    // 从通知点进来（比如无障碍被关掉的提醒）：直接打开那一页
+    LaunchedEffect(SettingsLink.pending) { SettingsLink.pending?.let { subPage = it; SettingsLink.pending = null } }
 }
 
 @Composable
@@ -144,6 +150,13 @@ private fun SettingsHome(
             )
         }
         SettingsBackupGroup(hub)
+        Group(title = "诊断") {
+            CouiPreference(
+                title = "诊断与日志",
+                summary = "Zeta 的运行日志、环境信息、Claude Code 的错误输出；可以导出打过码的诊断包",
+                onClick = { onOpenSubPage(SettingsSubPage.Diagnostics) },
+            )
+        }
         Group(title = "关于", footer = "界面基于 Eta 的 COUI 代码，按 GPL-3.0 授权。") {
             CouiPreference(title = "Zeta · Ζ", value = BuildConfig.VERSION_NAME)
         }

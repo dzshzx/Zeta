@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.settings
 
+import com.dzshzx.zeta.phone.AccessibilityGuard
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -41,6 +42,7 @@ class SettingsBackupTest {
         "autoCompact" to false,
         "autoCompactPercent" to 70,
         "savedPrompts" to "[{\"id\":\"a\",\"name\":\"\",\"text\":\"检查 Git 状态\"},{\"id\":\"b\",\"name\":\"简报\",\"text\":\"汇总今天的日程\\n三行说完\"}]",
+        "accessibilityGuard" to false,
         // 万一以后有人往这里存了凭据，也不能被导出去
         "apiToken" to "fake-token-1",
     )
@@ -123,6 +125,7 @@ class SettingsBackupTest {
         val prompts = SavedPrompts.decode(writes["savedPrompts"] as String)
         assertEquals(listOf("" to "检查 Git 状态", "简报" to "汇总今天的日程\n三行说完"), prompts.map { it.name to it.text })
         assertTrue(prompts.none { it.id == "a" || it.id == "b" })
+        assertEquals(false, writes["accessibilityGuard"])
         assertEquals("opus", writes["model"])
         assertEquals("/workspace/claude", writes["cwd"])
         assertEquals(setOf("0a1b2c3d-0000-4000-8000-000000000001"), writes["pinnedSessions"])
@@ -242,6 +245,14 @@ class SettingsBackupTest {
         assertNull(plan.changes.firstOrNull { it.key == "cwd" })
         assertEquals("这台手机的 Linux 环境里没有这个目录", plan.skipped.single { it.key == "cwd" }.reason)
         assertFalse("cwd" in SettingsBackup.writes(backup, plan))
+    }
+
+    @Test
+    fun accessibilityGuardSwitchIsBackedUpUnderItsOwnKey() {
+        // 守护读写的就是这个键；改名时两边要一起改
+        assertTrue(SettingsBackup.items.any { it.key == AccessibilityGuard.PREF_AUTO_RESTORE })
+        val settings = Json.parseToJsonElement(export(emptyMap<String, Any?>())).jsonObject["settings"]!!.jsonObject
+        assertEquals("默认开着", JsonPrimitive(true), settings[AccessibilityGuard.PREF_AUTO_RESTORE])
     }
 
     @Test

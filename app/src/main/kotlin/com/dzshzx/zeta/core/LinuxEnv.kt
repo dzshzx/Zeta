@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import kotlin.concurrent.thread
 import android.content.Context
+import com.dzshzx.zeta.core.diag.DiagEvents
 import java.util.concurrent.TimeUnit
 
 /** Debian 环境里，Claude Code 所属的那个 Linux 用户。 */
@@ -114,7 +115,7 @@ object LinuxEnv {
         capture(ProcessBuilder("su", "-c", script).start(), stdin, timeoutMs)
 
     fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult =
-        capture(start(config, command), stdin, timeoutMs)
+        capture(start(config, command), stdin, timeoutMs).also { DiagEvents.linuxRun(command, it) }
 
     private fun capture(process: Process, stdin: String?, timeoutMs: Long, killOnTimeout: Boolean = true): CommandResult {
         val out = StringBuilder()
