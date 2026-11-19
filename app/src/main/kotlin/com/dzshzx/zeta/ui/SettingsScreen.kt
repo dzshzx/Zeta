@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import com.itos.coui.layout.Group
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.components.StatusError
+import com.dzshzx.zeta.ui.settings.AccountsEntry
+import com.dzshzx.zeta.ui.settings.AccountsScreen
 import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.PermissionHealth
 import com.dzshzx.zeta.ui.settings.PermissionScreen
@@ -54,6 +56,7 @@ internal fun SettingsScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
             )
         }
         ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
+        SettingsSubPageHost(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Schedules) {
             // 打开某次运行的对话：设置页整个关掉，回到聊天页
             ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
@@ -106,6 +109,7 @@ private fun SettingsHome(
                 onClick = { BrowserActivity.open(context) },
             )
         }
+        AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) }
         ClaudeConfigGroup(hub, onOpenSubPage)
         Group(title = "权限", footer = "后台运行（电池优化）、通知、无障碍、root 和 Linux 环境的状态都在这里，有 root 时可以一键授予。") {
             CouiPreference(

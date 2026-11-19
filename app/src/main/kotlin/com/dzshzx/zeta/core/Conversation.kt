@@ -529,7 +529,18 @@ class Conversation(
     private fun queryUsage(target: ClaudeProcess) {
         target.send(controlRequest { put("subtype", "get_context_usage") })
         target.send(controlRequest { put("subtype", "get_settings") })
+        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次
+        if (hub.quota.claimAutoQuery()) target.send(quotaRequest())
     }
+
+    /** 借这个对话开着的进程问一次订阅额度，应答由 QuotaService 接住；没有进程时返回 false。 */
+    internal fun queryQuota(): Boolean {
+        val target = process ?: return false
+        target.send(quotaRequest())
+        return true
+    }
+
+    private fun quotaRequest() = controlRequest { put("subtype", "get_usage"); put("skip_behaviors", true) }
 
     private fun publishUsage() {
         meter.learnedWindow?.let { (name, window) ->
@@ -678,6 +689,7 @@ class Conversation(
         while (true) {
             val event = inbox.poll() ?: break
             meter.observe(event)
+            hub.quota.observe(event)
             changed = handle(event, now) || changed
         }
         if (meter.version != usageBefore) publishUsage()

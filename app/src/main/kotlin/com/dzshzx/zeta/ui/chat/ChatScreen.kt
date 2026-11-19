@@ -522,6 +522,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                     )
                 },
                 trailing = {
+                    QuotaChip(hub.quota.snapshot, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
                     if (conversation.usage.known) ContextMeter(conversation.usage, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
                 },
             )
@@ -532,6 +533,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 canCompact = !conversation.busy && !conversation.loadingHistory && conversation.items.isNotEmpty(),
                 onCompact = conversation::compact,
                 onDismissRequest = { viewingUsage = false },
+                quota = { QuotaDialogSection(hub, visible = viewingUsage) },
             )
         }
     }

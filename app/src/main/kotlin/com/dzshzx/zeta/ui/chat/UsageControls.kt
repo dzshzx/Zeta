@@ -184,7 +184,7 @@ private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: M
     }
 }
 
-/** 用量统计：上下文占用、本对话累计、各轮明细，底部是一键压缩。 */
+/** 用量统计：订阅额度（[quota]）、上下文占用、本对话累计、各轮明细，底部是一键压缩。 */
 @Composable
 internal fun UsageDialog(
     visible: Boolean,
@@ -193,6 +193,7 @@ internal fun UsageDialog(
     canCompact: Boolean,
     onCompact: () -> Unit,
     onDismissRequest: () -> Unit,
+    quota: (@Composable () -> Unit)? = null,
 ) {
     CouiConfirmDialog(
         visible = visible,
@@ -208,6 +209,10 @@ internal fun UsageDialog(
         onDismissRequest = onDismissRequest,
     ) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+            if (quota != null) {
+                quota()
+                Spacer(Modifier.height(18.dp))
+            }
             ContextSection(usage)
             Spacer(Modifier.height(18.dp))
             val total = usage.total

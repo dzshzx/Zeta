@@ -336,6 +336,8 @@ class LoginFlow(private val hub: ConversationHub) {
         val mine = ++generation
         state = LoginState.Starting
         thread(name = "zeta-login", isDaemon = true) {
+            // 登录别的账号会顶掉当前的：先存一份，账号页里还能换回来
+            hub.accounts.saveCurrentBlocking()
             val started = runCatching { LinuxEnv.start(config, "exec claude auth login") }.getOrElse {
                 post(mine, LoginState.Failed(it.message ?: "启动不了登录命令"))
                 return@thread
@@ -371,8 +373,9 @@ class LoginFlow(private val hub: ConversationHub) {
             process = null
             if (mine != generation) return@thread
             if (code == 0) {
+                hub.accounts.saveCurrentBlocking()
                 post(mine, LoginState.Done)
-                hub.refreshAccount()
+                main.post { hub.accounts.switched() }
             } else {
                 val message = explain(cleanLine(synchronized(errors) { errors.toString() }.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty()))
                     .ifBlank { cleanLine(seen.toString().lineSequence().lastOrNull { it.isNotBlank() && "https://" !in it }.orEmpty()) }

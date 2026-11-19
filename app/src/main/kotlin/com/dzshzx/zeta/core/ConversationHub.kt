@@ -161,6 +161,12 @@ class ConversationHub(private val app: Application) {
         private set
     val login = LoginFlow(this)
 
+    /** 当前账号的订阅额度（所有对话共用）。 */
+    val quota = QuotaService(this)
+
+    /** Zeta 存着的 Claude 账号，和切换账号。 */
+    val accounts = AccountService(this)
+
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
     var ownStatus by mutableStateOf<EnvStatus?>(null)
         private set
@@ -407,6 +413,20 @@ class ConversationHub(private val app: Application) {
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
     val canSwitchEnvironment: Boolean get() = !conversationsWorking && !installer.running
+
+    /**
+     * 换 Claude 账号前：关掉闲着的对话背后的 Claude Code 进程（内容不丢，下次发消息时用 --resume 接上）。
+     * 有对话在进行时什么都不做，返回 false。在主线程上调用。
+     */
+    internal fun closeIdleConversations(): Boolean {
+        if (!canSwitchEnvironment) return false
+        current.shutdown()
+        background.values.toList().forEach { it.shutdown() }
+        background.clear()
+        backgroundChanged()
+        prunePhones()
+        return true
+    }
 
     /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
     internal fun onEnvironmentInstalled() {

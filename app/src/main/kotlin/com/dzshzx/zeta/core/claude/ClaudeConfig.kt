@@ -135,6 +135,9 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
         }
     }
 
+    /** 跑一个 [ClaudeScripts.script] 写的脚本，返回它的记录（账号页这类别处的脚本也走这里）。 */
+    internal fun runScript(script: String, args: List<String>, timeoutMs: Long = 60_000): List<ShellRecord> = records(script, args, null, timeoutMs)
+
     private fun failure(output: Output): String =
         output.stderr.lines().lastOrNull { it.isNotBlank() }?.trim()?.take(300)
             ?: when (output.code) {
