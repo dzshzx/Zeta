@@ -44,6 +44,8 @@ class Conversation(
     attach: HostInfo? = null,
     /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）。 */
     external: Boolean = false,
+    /** 从别的会话分支出来、还没发过消息的新对话。 */
+    private val fork: Fork? = null,
 ) {
     /** 界面用的稳定标识；会话还没建立（没有 sessionId）时也要能区分。 */
     val key: String = sessionId ?: "new-" + UUID.randomUUID()
@@ -115,8 +117,21 @@ class Conversation(
     var lastActivityAt by mutableStateOf(0L)
         private set
 
-    private var reducer = TranscriptReducer()
+    // 分支先显示原对话的内容，新内容的编号要和那些错开
+    private var reducer = TranscriptReducer(if (fork != null) "b" + UUID.randomUUID().toString().take(8) + "-" else "")
     private var process: ClaudeProcess? = null
+
+    /** 等 Claude Code 剪会话（rewind_conversation）的那个请求；答应了做 onDone，没答应做 onFailed。 */
+    private class PendingRewind(val requestId: String, val onDone: () -> Unit, val onFailed: (String) -> Unit)
+
+    private var rewind: PendingRewind? = null
+
+    /** 正在等 Claude Code 剪会话：这期间不收新消息。 */
+    var rewinding by mutableStateOf(false)
+        private set
+
+    /** 分支在这个进程里已经剪过了（换了进程要重新剪）。 */
+    private var forkCut = false
     /** 只在 Claude Code 不报 command_lifecycle 时（老版本）用来判断一轮是否结束。 */
     private var turnsInFlight = 0
     private var lifecycleSeen = false
@@ -146,6 +161,12 @@ class Conversation(
             turnsInFlight = if (attach.busy) 1 else 0
             attach.permissionMode?.let { permissionMode = it }
             lastActivityAt = System.currentTimeMillis()
+        }
+        if (fork != null) {
+            reducer.items.addAll(fork.items)
+            reducer.addNotice("从这里分支出的新对话，原对话不变。发出消息后保存", error = false)
+            skippedHistory = fork.skipped
+            publish()
         }
         when {
             historyFile != null -> loadHistory(historyFile, attach)
@@ -191,7 +212,7 @@ class Conversation(
                 when (event.str("type")) {
                     "zeta_history" -> skipped = event.int("skipped") ?: 0
                     "assistant" -> event.obj("message")?.let { loaded.applyAssistant(it, history = true) }
-                    "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file) }
+                    "user" -> event.obj("message")?.let { loaded.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid")) }
                 }
             }
             loaded.finishTurn(keepRunningTools = attach?.busy == true)
@@ -224,27 +245,146 @@ class Conversation(
     fun send(text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() && attachments.isEmpty() && files.isEmpty()) return
+        // 剪会话的应答回来之前不收：这时发出的消息可能被 Claude Code 算在剪之前
+        if (rewinding) return
         if (title.isBlank()) {
             title = trimmed.lineSequence().first().take(40).ifBlank { if (files.isNotEmpty()) files.first().substringAfterLast('/') else "图片" }
         }
         val process = ensureProcess() ?: return
+        val message = stage(trimmed, attachments, files)
+        val cut = fork?.cut?.takeIf { sessionId == null && !forkCut }
+        if (cut == null) {
+            transmit(process, message)
+        } else {
+            // 分支的第一条消息：先在新进程里剪掉原会话的后几轮，再发
+            requestRewind(process, cut, fork.lastSeen,
+                onDone = {
+                    forkCut = true
+                    transmit(process, message)
+                },
+                onFailed = { reason ->
+                    reducer.items.removeAll { it.id == message.itemId }
+                    abandon(message, "分支没有建成：$reason")
+                },
+            )
+        }
+        hub.onActivityChanged()
+    }
+
+    /**
+     * 编辑或重新生成：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。会话号不变。
+     * 先请 Claude Code 剪会话，它答应了才把消息交出去；没答应就恢复原样，新消息放回输入框。
+     */
+    fun rewrite(target: UserItem, text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) {
+        val uuid = target.uuid ?: return
+        if (!canRewind || (text.isBlank() && attachments.isEmpty() && files.isEmpty())) return
+        val process = ensureProcess() ?: return
+        val before = reducer.items.toList()
+        if (!truncateBefore(reducer.items, target.id)) return
+        val message = stage(text.trim(), attachments, files)
+        requestRewind(process, uuid, lastSeen(before),
+            onDone = {
+                // 在还没发过消息的分支里改写：这一刀已经把分支要剪的部分一起剪掉了
+                forkCut = true
+                transmit(process, message)
+            },
+            onFailed = { reason ->
+                restore(before)
+                abandon(message, reason)
+            },
+        )
+    }
+
+    /** 删除 [target] 开始的这一轮和之后的内容（只剪不发）。 */
+    fun dropFrom(target: UserItem) {
+        val uuid = target.uuid ?: return
+        if (!canRewind) return
+        val process = ensureProcess() ?: return
+        val before = reducer.items.toList()
+        if (!truncateBefore(reducer.items, target.id)) return
+        publish()
+        requestRewind(process, uuid, lastSeen(before),
+            onDone = {
+                forkCut = true
+                hub.refreshSessions()
+            },
+            onFailed = { reason ->
+                restore(before)
+                reducer.addNotice("没有删除：$reason", error = true)
+            },
+        )
+    }
+
+    /** 剪的时候报给 Claude Code 的最后一条用户消息。还没剪过的分支，进程里是原会话的全部内容，要报原会话的。 */
+    private fun lastSeen(items: List<ChatItem>): String? =
+        if (fork != null && sessionId == null && !forkCut) fork.lastSeen else lastSeenUser(items)
+
+    /** 现在能不能编辑、重新生成、删除一轮或分支：这一轮已经结束，也没有别的事在等。 */
+    val canRewind: Boolean
+        get() = !busy && pending == null && !rewinding && !loadingHistory && !blockedByExternal && queued.isEmpty()
+
+    /** 一条要发的消息：先进列表（或排队），能发了再交给进程。[itemId] 是它在列表里的那一项（排队的没有）。 */
+    private class Outgoing(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>, val itemId: String?)
+
+    private fun stage(trimmed: String, attachments: List<Attachment>, files: List<String>): Outgoing {
         val uuid = UUID.randomUUID().toString()
+        var itemId: String? = null
         // 回答进行中发的先排队，等 Claude Code 真正取走（command_lifecycle started）才进聊天记录
         if (busy && lifecycleSeen) {
             queued = queued + QueuedMessage(uuid, trimmed, attachments, files)
         } else {
-            reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files)
+            itemId = reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files, uuid)
             turnsInFlight++
         }
-        val outgoing = withAttachedFiles(trimmed, files)
         busy = true
         interruptRequested = false
         status = null
         lastActivityAt = System.currentTimeMillis()
         publish()
+        return Outgoing(uuid, trimmed, attachments, files, itemId)
+    }
+
+    /** 没能发出的消息：这一轮作罢，文字和附件放回输入框。 */
+    private fun abandon(message: Outgoing, reason: String) {
+        turnsInFlight = 0
+        busy = false
+        addRecalled(QueuedMessage(message.uuid, message.text, message.attachments, message.files))
+        reducer.addNotice("没有发出：$reason", error = true)
+        publish()
+        hub.onActivityChanged()
+    }
+
+    private fun restore(items: List<ChatItem>) {
+        reducer.items.clear()
+        reducer.items.addAll(items)
+        publish()
+    }
+
+    /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。应答在 [handle] 里收。 */
+    private fun requestRewind(process: ClaudeProcess, target: String, lastSeen: String?, onDone: () -> Unit, onFailed: (String) -> Unit) {
+        val request = controlRequest { for ((key, value) in rewindRequest(target, lastSeen)) put(key, value) }
+        rewind = PendingRewind(request.str("request_id").orEmpty(), onDone, onFailed)
+        rewinding = true
+        process.send(request)
+        hub.onActivityChanged()
+    }
+
+    private fun finishRewind(failure: String?) {
+        val request = rewind ?: return
+        rewind = null
+        rewinding = false
+        if (failure == null) request.onDone() else request.onFailed(failure)
+        publish()
+        hub.onActivityChanged()
+    }
+
+    private fun transmit(process: ClaudeProcess, message: Outgoing) {
+        if (process !== this.process) return
+        val attachments = message.attachments
+        val outgoing = withAttachedFiles(message.text, message.files)
         process.send(buildJsonObject {
             put("type", "user")
-            put("uuid", uuid)
+            put("uuid", message.uuid)
             putJsonObject("message") {
                 put("role", "user")
                 putJsonArray("content") {
@@ -262,7 +402,6 @@ class Conversation(
                 }
             }
         })
-        hub.onActivityChanged()
     }
 
     /** 停止：排队的消息一并撤回放回输入框（和 Claude Code 终端里按 Esc 一样），再打断当前这一轮。 */
@@ -270,7 +409,8 @@ class Conversation(
         // 暂停、接管着的手机操作一并作废，否则放开后它会接着点下去
         phone.cancelWaiting()
         val process = process ?: return
-        if (!busy) return
+        // 改写的消息还在等 Claude Code 剪会话，没有交出去，这时没有可打断的
+        if (!busy || rewinding) return
         for (message in queued) cancelQueued(message.uuid, recall = true)
         steering = false
         interruptRequested = true
@@ -368,6 +508,7 @@ class Conversation(
     fun shutdown() {
         val current = process ?: return
         process = null
+        finishRewind("对话已关闭")
         current.stop()
         phone.detach()
         endTurnState()
@@ -391,7 +532,8 @@ class Conversation(
         val arguments = buildList {
             addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                 "--include-partial-messages", "--permission-prompt-tool", "stdio"))
-            sessionId?.let { add("--resume"); add(it) }
+            // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
+            addAll(sessionArguments(sessionId, fork?.source, title))
             model?.let { add("--model"); add(it) }
             permissionMode?.let { add("--permission-mode"); add(it) }
             add("--append-system-prompt"); add(ClientHint)
@@ -414,6 +556,7 @@ class Conversation(
             return null
         }
         process = created
+        forkCut = false
         created.send(controlRequest { put("subtype", "initialize") })
         hub.onActivityChanged()
         return created
@@ -517,7 +660,7 @@ class Conversation(
                         queued = queued - message
                         recalling.remove(uuid)
                         if (queued.isEmpty()) steering = false
-                        reducer.addUser(message.text, message.attachments.map { InlineImage("a:${it.id}", it.base64) }, message.files)
+                        reducer.addUser(message.text, message.attachments.map { InlineImage("a:${it.id}", it.base64) }, message.files, message.uuid)
                         return true
                     }
                     "cancelled" -> {
@@ -582,6 +725,10 @@ class Conversation(
                 return true
             }
             "control_response" -> {
+                if (rewind != null && event.obj("response")?.str("request_id") == rewind?.requestId) {
+                    finishRewind(rewindFailure(event.obj("response")))
+                    return true
+                }
                 val response = event.obj("response")?.obj("response") ?: return false
                 response.arr("models")?.let { list ->
                     hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
@@ -630,6 +777,7 @@ class Conversation(
         if (source !== process) return
         drain()
         process = null
+        finishRewind("Claude Code 进程退出了")
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
         if (busy) hub.onTurnEnding(this, "已中断")

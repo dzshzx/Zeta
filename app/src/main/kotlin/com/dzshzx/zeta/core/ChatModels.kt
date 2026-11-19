@@ -16,13 +16,14 @@ sealed interface ChatItem {
     val id: String
 }
 
-/** [files] 是随消息送进 Linux 环境的附件路径。 */
+/** [files] 是随消息送进 Linux 环境的附件路径。[uuid] 是这条消息在会话记录里的 uuid，改写和分支时用；不知道时为 null。 */
 @Immutable
 data class UserItem(
     override val id: String,
     val text: String,
     val images: List<ImageRef> = emptyList(),
     val files: List<String> = emptyList(),
+    val uuid: String? = null,
 ) : ChatItem
 
 /** 聊天里的一张图片，显示时才载入；[key] 兼作缓存键。 */

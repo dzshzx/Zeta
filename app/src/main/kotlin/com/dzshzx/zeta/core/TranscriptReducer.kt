@@ -26,9 +26,9 @@ class TranscriptReducer(private val idPrefix: String = "") {
 
     private fun nextId(prefix: String) = "$idPrefix$prefix-${++localSeq}"
 
-    fun addUser(text: String, images: List<ImageRef> = emptyList(), files: List<String> = emptyList()): String {
+    fun addUser(text: String, images: List<ImageRef> = emptyList(), files: List<String> = emptyList(), uuid: String? = null): String {
         val id = nextId("u")
-        items.add(UserItem(id, text, images, files))
+        items.add(UserItem(id, text, images, files, uuid))
         return id
     }
 
@@ -143,14 +143,14 @@ class TranscriptReducer(private val idPrefix: String = "") {
     }
 
     /** user 消息：工具结果回填到对应步骤；[replay] 时文字内容是用户当时的输入。 */
-    /** [sessionFile] 是这条消息所在的会话记录；历史里的图片只带位置，要靠它去取。 */
-    fun applyUser(message: JsonObject, replay: Boolean, sessionFile: String? = null) {
+    /** [sessionFile] 是这条消息所在的会话记录；历史里的图片只带位置，要靠它去取。[uuid] 是它在记录里的 uuid。 */
+    fun applyUser(message: JsonObject, replay: Boolean, sessionFile: String? = null, uuid: String? = null) {
         val blocks = message.arr("content").orEmpty()
         if (replay) {
             val images = blocks.mapNotNull { imageRef(it as? JsonObject, sessionFile, "") }
             val raw = blocks.mapNotNull { (it as? JsonObject)?.takeIf { b -> b.str("type") == "text" }?.str("text") }.joinToString("\n").trim()
             val (files, text) = splitAttachedFiles(raw)
-            if (images.isNotEmpty() || files.isNotEmpty() || text.isNotEmpty()) addUser(text, images, files)
+            if (images.isNotEmpty() || files.isNotEmpty() || text.isNotEmpty()) addUser(text, images, files, uuid)
         }
         for (element in blocks) {
             val block = element as? JsonObject ?: continue

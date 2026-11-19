@@ -103,6 +103,7 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui.CouiButton
 import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
@@ -308,6 +309,10 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
     LaunchedEffect(items) {
         markdownCache.discardUnused(items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id })
     }
+    // 编辑、重新生成、删除一轮、分支
+    val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
+    val turns = remember(items) { TurnIndex(turnActions(items)) }
+    val shown = actions.visible(items)
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -342,12 +347,28 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                         if (conversation.skippedHistory > 0) {
                             item(key = "skipped") { NoticeRow(NoticeItem("skipped", "更早的 ${conversation.skippedHistory} 条记录未载入", error = false)) }
                         }
-                        items(items, key = { it.id }, contentType = { it::class }) { item ->
+                        items(shown, key = { it.id }, contentType = { it::class }) { item ->
                             when (item) {
-                                is UserItem -> UserBubble(item)
-                                is AnswerItem -> AnswerBlock(item, markdownCache, imagesOf = imagesOf)
-                                is WorkItem -> WorkGroup(item)
-                                is NoticeItem -> NoticeRow(item)
+                                is UserItem -> {
+                                    val turn = turns.byUser[item.id]?.takeIf { it.rewindable && conversation.canRewind && actions.editing == null }
+                                    UserBubble(
+                                        item,
+                                        editing = actions.editing?.user?.id == item.id,
+                                        onEdit = turn?.let { { actions.beginEdit(it) } },
+                                        onDelete = turn?.let { { actions.askDelete(it) } },
+                                    )
+                                }
+                                is AnswerItem -> AnswerBlock(item, markdownCache, imagesOf = imagesOf, actions = {
+                                    TurnActionButtons(item.id, turns, conversation, actions)
+                                })
+                                is WorkItem -> Column {
+                                    WorkGroup(item)
+                                    TurnActionRow(item.id, turns, conversation, actions)
+                                }
+                                is NoticeItem -> Column {
+                                    NoticeRow(item)
+                                    TurnActionRow(item.id, turns, conversation, actions)
+                                }
                             }
                         }
                         if (waiting) {
@@ -418,6 +439,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
             }
             if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }
+            actions.editing?.let { EditStrip(it, onCancel = actions::cancelEdit, modifier = Modifier.padding(bottom = 6.dp)) }
             QueueStrip(
                 queued = conversation.queued,
                 steering = conversation.steering,
@@ -429,7 +451,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
             Composer(
                 state = input,
                 busy = conversation.busy,
-                enabled = !conversation.loadingHistory,
+                enabled = !conversation.loadingHistory && !conversation.rewinding,
                 permissionMode = conversation.permissionMode,
                 onPermissionModeChange = conversation::choosePermissionMode,
                 attachments = attachments,
@@ -446,7 +468,13 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
                 onSlashTyped = conversation::prepare,
                 onSend = { text ->
                     follow = true
-                    conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
+                    if (actions.editing == null) {
+                        conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
+                    } else if (!actions.submitEdit(text, attachments.toList(), uploads.mapNotNull { it.path })) {
+                        // 还不能改写：内容留在输入框里
+                        input.setTextAndPlaceCursorAtEnd(text)
+                        return@Composer
+                    }
                     attachments.clear()
                     uploads.clear()
                 },
@@ -454,6 +482,7 @@ private fun ConversationBody(hub: ConversationHub, conversation: Conversation, p
             )
         }
     }
+    MessageActionDialogs(actions)
 }
 
 private const val MaxAttachments = 4

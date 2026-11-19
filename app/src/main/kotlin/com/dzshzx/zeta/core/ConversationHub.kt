@@ -502,6 +502,24 @@ class ConversationHub(private val app: Application) {
     }
 
     /**
+     * 从当前对话 [lastItemId] 所在那一轮之后分支：切到一个新对话，先显示到那一轮为止的内容，原对话不动。
+     * 新会话由 Claude Code 从原会话复制（--fork-session），发出第一条消息后才写出记录、出现在侧栏里。
+     */
+    fun branch(lastItemId: String) {
+        val source = current
+        val sourceId = source.sessionId ?: return
+        if (!source.canRewind) return
+        val plan = branchPlan(source.items, lastItemId) ?: return
+        val title = branchTitle(source.title, sessions.map { it.title })
+        leaveCurrent()
+        current = Conversation(
+            this, source.cwd, sessionId = null, title = title, historyFile = null,
+            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.skippedHistory),
+        )
+        prunePhones()
+    }
+
+    /**
      * 胶囊上的“在 Zeta 中打开”：切到会话 [key]（sessionId，新对话用它的 key）。
      * 还在后台跑的直接接过来；已经收掉的按会话列表重新打开；都找不到就不动。在主线程上调用。
      */

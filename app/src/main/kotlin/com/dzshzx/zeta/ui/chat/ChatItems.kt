@@ -90,15 +90,23 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 private val UserBubbleShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
 private val WorkCardShape = RoundedCornerShape(16.dp)
 
+/** 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。 */
 @Composable
-internal fun UserBubble(item: UserItem, modifier: Modifier = Modifier) {
+internal fun UserBubble(
+    item: UserItem,
+    modifier: Modifier = Modifier,
+    editing: Boolean = false,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
     val dark = CouiTheme.isDark
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
     val anchor = rememberCouiMenuAnchor()
     var showMenu by remember { mutableStateOf(false) }
-    val menuItems = remember { listOf(CouiMenuItem(value = 0, text = "复制", icon = Icons.Rounded.ContentCopy)) }
+    val deleteTint = StatusError
+    val menuItems = remember(onEdit != null, onDelete != null, deleteTint) { userMenuItems(onEdit != null, onDelete != null, deleteTint) }
     Column(
         modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.End,
@@ -118,6 +126,7 @@ internal fun UserBubble(item: UserItem, modifier: Modifier = Modifier) {
                     .widthIn(max = 316.dp)
                     .clip(UserBubbleShape)
                     .background(if (dark) Color(0xFF202634) else Color(0xFFEEF2FA), UserBubbleShape)
+                    .then(if (editing) Modifier.border(1.dp, MiuixTheme.colorScheme.primary, UserBubbleShape) else Modifier)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -141,7 +150,11 @@ internal fun UserBubble(item: UserItem, modifier: Modifier = Modifier) {
                 items = menuItems,
                 onItemClick = {
                     showMenu = false
-                    clipboard.setText(AnnotatedString(item.text))
+                    when (it.value) {
+                        UserMenuEdit -> onEdit?.invoke()
+                        UserMenuDelete -> onDelete?.invoke()
+                        else -> clipboard.setText(AnnotatedString(item.text))
+                    }
                 },
                 anchor = anchor,
             )
@@ -156,6 +169,8 @@ internal fun AnswerBlock(
     modifier: Modifier = Modifier,
     /** 把回答正文里要直接显示的图片分出来。 */
     imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
+    /** 复制键后面的操作（这一轮的最后一段回答才有：重新生成、删除、分支）。 */
+    actions: (@Composable () -> Unit)? = null,
 ) {
     val parts = remember(item.text) { imagesOf(item.text) }
     // 流式状态跟着消息走：结束后等逐字显现收尾，再换成可选中文本的静态排版。
@@ -178,7 +193,10 @@ internal fun AnswerBlock(
         }
         parts.images.forEach { image -> ChatImage(image, modifier = Modifier.padding(top = 10.dp)) }
         if (!item.streaming && item.text.isNotBlank()) {
-            CopyAction(text = item.text, modifier = Modifier.padding(top = 6.dp))
+            Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                CopyAction(text = item.text)
+                actions?.invoke()
+            }
         }
     }
 }

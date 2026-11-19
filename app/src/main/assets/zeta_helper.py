@@ -2,7 +2,7 @@
 
 由应用经标准输入送进 `python3 - <命令> [参数]`，输出一行一个 JSON。
   list                 所有会话的概要，新的在前
-  history <文件>        一个会话里要显示的消息，形状与 stream-json 输出一致
+  history <文件>        一个会话里要显示的消息，形状与 stream-json 输出一致；用户消息带上它在记录里的 uuid
   delete <文件>         删除一个会话记录
   rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
   hosts                仍在后台运行的 Claude Code 进程（应用被杀后重新接上用）；顺手清掉已经结束的
@@ -116,6 +116,33 @@ def user_text(content):
     return text
 
 
+def rewind_cut(line):
+    """Claude Code 剪会话（改写、删除之前的消息，stream-json 的 rewind_conversation 或终端里的 /rewind）时追加的记号：
+    一行 last-prompt，explicit 且 rewound。被剪掉的内容还留在文件里，只是不在当前这条线上了。
+    返回 (被剪掉的第一条消息的 uuid, 剪完后最后一条消息的 uuid，剪光了是 None)；不是这种行返回 None。"""
+    if '"rewound":true' not in line or '"last-prompt"' not in line:
+        return None
+    try:
+        o = json.loads(line)
+    except ValueError:
+        return None
+    if o.get("type") != "last-prompt" or o.get("explicit") is not True or o.get("rewound") is not True:
+        return None
+    return o.get("cutUuid"), o.get("leafUuid")
+
+
+def cut_at(owners, cut, leaf):
+    """照剪切记号算出前面保留几项（owners 是每一项出自哪一行的 uuid）：从被剪的那条消息起都去掉；
+    找不到它时保留到剪完后的最后一条消息；剪光了一项不留。"""
+    if cut in owners:
+        return owners.index(cut)
+    if leaf is None:
+        return 0
+    if leaf in owners:
+        return len(owners) - owners[::-1].index(leaf)
+    return len(owners)
+
+
 def summarize(path):
     title = first = prompt = cwd = None
     with open(path, encoding="utf-8", errors="replace") as f:
@@ -130,6 +157,9 @@ def summarize(path):
                     title = o["customTitle"]
                 elif o.get("type") == "ai-title" and o.get("aiTitle"):
                     title = o["aiTitle"]
+            elif '"leafUuid":null' in line and rewind_cut(line) is not None:
+                # 剪到了第一条消息之前：之前的提问不算了，预览改用之后的第一句
+                first = prompt = None
             elif prompt is None and '"type":"user"' in line:
                 try:
                     o = json.loads(line)
@@ -200,22 +230,30 @@ def cmd_list():
 
 def cmd_history(path):
     events = []
+    owners = []  # 每一项出自哪一行（uuid），遇到剪切记号时据此去掉被剪的部分
     with open(path, encoding="utf-8", errors="replace") as f:
         for number, line in enumerate(f):
             if '"type":"user"' not in line and '"type":"assistant"' not in line and '"local_command"' not in line \
-                    and '"queued_command"' not in line:
+                    and '"queued_command"' not in line and '"rewound":true' not in line:
+                continue
+            cut = rewind_cut(line)
+            if cut is not None:
+                keep = cut_at(owners, *cut)
+                del events[keep:], owners[keep:]
                 continue
             try:
                 o = json.loads(line)
             except ValueError:
                 continue
             kind = o.get("type")
+            row = o.get("uuid")
             if kind == "system" and o.get("subtype") == "local_command":
                 # 斜杠命令的输出（/context、/usage 等），当作一段回答显示
                 text = "\n".join(part.strip() for part in COMMAND_OUT.findall(o.get("content") or ""))
                 text = ANSI.sub("", text).strip()
                 if text:
                     events.append({"type": "assistant", "message": {"id": o.get("uuid"), "content": [{"type": "text", "text": clip(text)}]}})
+                    owners.append(row)
                 continue
             if kind == "attachment":
                 # 回答进行中插进来的消息：记成 queued_command 附件，不是普通的 user 条目
@@ -235,6 +273,7 @@ def cmd_history(path):
                                "content": result_content(b.get("content"), "%d.%d" % (number, index))}
                               for index, b in enumerate(content) if isinstance(b, dict) and b.get("type") == "tool_result"]
                     events.append({"type": "user", "message": {"content": blocks}})
+                    owners.append(row)
                 else:
                     if o.get("isCompactSummary"):
                         continue
@@ -245,13 +284,19 @@ def cmd_history(path):
                     if text:
                         blocks.append({"type": "text", "text": text})
                     if blocks:
-                        events.append({"type": "user", "message": {"content": blocks}})
+                        event = {"type": "user", "message": {"content": blocks}}
+                        # 改写、分支时要用它告诉 Claude Code 剪哪条（插话并进来的附件行不算一轮的开头，不给）
+                        if o.get("type") == "user" and row:
+                            event["uuid"] = row
+                        events.append(event)
+                        owners.append(row)
             else:
                 blocks = [clip(b) for b in (content or []) if isinstance(b, dict) and b.get("type") in ("text", "thinking", "tool_use")]
                 for b in blocks:
                     b.pop("signature", None)
                 if blocks:
                     events.append({"type": "assistant", "message": {"id": message.get("id"), "content": blocks}})
+                    owners.append(row)
     skipped = max(0, len(events) - MAX_EVENTS)
     out({"type": "zeta_history", "skipped": skipped})
     for e in events[skipped:]:
@@ -545,22 +590,35 @@ def cmd_export(path):
     summary = summarize(path) or {}
     title = " ".join((summary.get("title") or (summary.get("preview") or "")[:40] or "对话").split())
     blocks = []  # (种类, 内容)；工具调用的结果在后面几行，先占位，最后一起写
+    owners = []  # 每一块出自哪一行（uuid），遇到剪切记号时据此去掉被剪的部分
     results = {}
+    row = None
+
+    def add(block):
+        blocks.append(block)
+        owners.append(row)
+
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             if '"type":"user"' not in line and '"type":"assistant"' not in line and '"queued_command"' not in line \
-                    and '"compact_boundary"' not in line:
+                    and '"compact_boundary"' not in line and '"rewound":true' not in line:
+                continue
+            cut = rewind_cut(line)
+            if cut is not None:
+                keep = cut_at(owners, *cut)
+                del blocks[keep:], owners[keep:]
                 continue
             try:
                 o = json.loads(line)
             except ValueError:
                 continue
             kind = o.get("type")
+            row = o.get("uuid")
             if o.get("isSidechain"):
                 continue
             if kind == "system":
                 if o.get("subtype") == "compact_boundary":
-                    blocks.append(("notice", "上下文已压缩"))
+                    add(("notice", "上下文已压缩"))
                 continue
             content = (o.get("message") or {}).get("content")
             if kind == "user" and isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
@@ -572,16 +630,16 @@ def cmd_export(path):
                 content = content if isinstance(content, (str, list)) else ""
                 raw = user_text(content)
                 if raw is None and '"[Request interrupted' in line:
-                    blocks.append(("notice", "已停止"))
+                    add(("notice", "已停止"))
                     continue
                 images = image_count(content)
                 if raw or images:
-                    blocks.append(("user", (raw or "", images)))
+                    add(("user", (raw or "", images)))
                 continue
             if kind == "attachment":
                 role, text = spoken_text(o)
                 if text:
-                    blocks.append(("user", (text, image_count((o.get("attachment") or {}).get("prompt")))))
+                    add(("user", (text, image_count((o.get("attachment") or {}).get("prompt")))))
                 continue
             if kind != "assistant" or not isinstance(content, list):
                 continue
@@ -589,11 +647,11 @@ def cmd_export(path):
                 if not isinstance(b, dict):
                     continue
                 if b.get("type") == "text" and (b.get("text") or "").strip():
-                    blocks.append(("text", b["text"].strip()))
+                    add(("text", b["text"].strip()))
                 elif b.get("type") == "thinking" and (b.get("thinking") or "").strip():
-                    blocks.append(("thinking", b["thinking"].strip()))
+                    add(("thinking", b["thinking"].strip()))
                 elif b.get("type") in ("tool_use", "server_tool_use"):
-                    blocks.append(("tool", (b.get("id"), b.get("name") or "工具", tool_detail(b.get("name"), b.get("input")))))
+                    add(("tool", (b.get("id"), b.get("name") or "工具", tool_detail(b.get("name"), b.get("input")))))
                 elif b.get("tool_use_id") and b.get("type", "").endswith("_tool_result"):
                     results[b["tool_use_id"]] = {}  # 服务端工具（advisor、网页搜索）的结果跟在同一条消息里
     parts = ["# " + title]
