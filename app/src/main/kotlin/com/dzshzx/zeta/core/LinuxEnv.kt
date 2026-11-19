@@ -248,11 +248,6 @@ class Settings(context: Context) {
         get() = prefs.getString("commands", null)
         set(value) = prefs.edit().putString("commands", value).apply()
 
-    /** Claude Code 报的模型选项的缓存（JSON 数组，见 [SessionChoice.parseOptions]）。 */
-    var models: String?
-        get() = prefs.getString("models", null)
-        set(value) = prefs.edit().putString("models", value).apply()
-
     /** 各对话没发出的输入草稿（JSON，见 [DraftRecords]）。只在这台手机上，不进设置备份。 */
     var composerDrafts: String?
         get() = prefs.getString("composerDrafts", null)

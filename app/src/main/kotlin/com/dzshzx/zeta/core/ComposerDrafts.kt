@@ -291,7 +291,7 @@ object DraftRecords {
         val kept = ArrayList<DraftRecord>()
         for (record in records.filterNot { it.isEmpty }.sortedByDescending { it.at }) {
             if (kept.size >= MAX_DRAFTS) break
-            val text = record.text.clip(minOf(MAX_TEXT, textLeft))
+            val text = record.text.clipChars(minOf(MAX_TEXT, textLeft))
             textLeft -= text.length
             val images = ArrayList<DraftImage>()
             for (image in record.images) {
@@ -314,7 +314,7 @@ object DraftRecords {
     fun preview(record: DraftRecord): String {
         val line = record.text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }?.replace(Spaces, " ")
         return when {
-            line != null -> line.clip(PREVIEW_CHARS)
+            line != null -> line.clipChars(PREVIEW_CHARS)
             record.images.isNotEmpty() -> "${record.images.size} 张图片"
             record.files.size > 1 -> "${record.files.first().label} 等 ${record.files.size} 个文件"
             else -> record.files.firstOrNull()?.label.orEmpty()
@@ -364,12 +364,4 @@ object DraftRecords {
     }
 
     private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> = this ?: emptyList()
-
-    /** 最多 [max] 个字符，不把一个表情切成两半。 */
-    private fun String.clip(max: Int): String {
-        if (length <= max) return this
-        var end = max.coerceAtLeast(0)
-        if (end > 0 && this[end - 1].isHighSurrogate()) end--
-        return substring(0, end)
-    }
 }
