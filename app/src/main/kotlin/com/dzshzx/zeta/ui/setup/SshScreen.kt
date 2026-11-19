@@ -46,11 +46,9 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
             )
         },
     ) {
+        // sshd 跑在 Debian 环境里，和 Zeta 开没开着无关
         item(key = "service") {
-            PreferenceGroup(
-                title = "服务",
-                footer = "sshd 跑在 Debian 环境里，和 Zeta 开没开着无关。停止只是不再接受新的连接，已经连上的会话不受影响。",
-            ) {
+            PreferenceGroup(title = "服务", footer = "停止后不再接受新连接，已连上的会话不受影响。") {
                 item {
                     BasicComponent(
                         title = "状态",
@@ -70,7 +68,8 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item {
                         BasicComponent(
                             title = "安装并配置",
-                            summary = "安装 openssh-server；只在本机的 8022 端口监听，只认公钥",
+                            // 安装 openssh-server
+                            summary = "只在本机 8022 端口监听，只认公钥",
                             enabled = !busy,
                             onClick = hub::setupSsh,
                         )
@@ -99,15 +98,16 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
             item(key = "login") {
                 PreferenceGroup(
                     title = "登录",
-                    footer = "在这台手机的终端应用里连接：ssh -p ${status.port.ifBlank { "8022" }} ${env?.user ?: "用户名"}@127.0.0.1。" +
-                        "从别的设备连接时，经 Tailscale 之类把流量转到这个端口。" +
-                        if (status.passwordLogin) "注意：当前的配置允许用密码登录。" else "密码登录是关着的，只认公钥。",
+                    footer = "本机用 ssh -p ${status.port.ifBlank { "8022" }} ${env?.user ?: "用户名"}@127.0.0.1 连接，" +
+                        (if (status.passwordLogin) "注意当前配置允许密码登录。" else "只认公钥。") +
+                        "别的设备要经 Tailscale 之类转到这个端口。",
                 ) {
                     item { BasicComponent(title = "已授权的公钥", endActions = { PreferenceValue("${status.keys} 条") }) }
                     item {
                         BasicComponent(
                             title = "添加公钥",
-                            summary = "粘贴一条公钥，加进 ~/.ssh/authorized_keys",
+                            // 加进 ~/.ssh/authorized_keys
+                            summary = "粘贴一条公钥",
                             enabled = !busy,
                             onClick = {
                                 keyDraft = ""
