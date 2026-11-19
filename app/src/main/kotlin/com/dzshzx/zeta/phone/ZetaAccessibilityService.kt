@@ -282,6 +282,23 @@ class ZetaAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * 整屏截图（截屏发给 Claude 用 root screencap）之前：胶囊让开，边缘光和触摸指示藏起来，[block] 做完再放回来。
+     * 在后台线程上调用。
+     */
+    fun <T> withOverlaysHidden(block: () -> T): T {
+        val wait = holdCapsule()
+        EdgeGlowHost.hideForCapture(true)
+        GestureIndicator.dismiss()
+        try {
+            Thread.sleep(maxOf(wait, ASIDE_SETTLE_MS))
+            return block()
+        } finally {
+            EdgeGlowHost.hideForCapture(false)
+            releaseCapsule(0L)
+        }
+    }
+
     /** 这块屏上此刻有没有 Zeta 自己的悬浮层。 */
     private fun overlaysShown(displayId: Int, windows: List<AccessibilityWindowInfo>): Boolean {
         // 触摸穿透的窗口（边缘光、触摸指示）不一定出现在无障碍窗口列表里，所以也问一下它们自己

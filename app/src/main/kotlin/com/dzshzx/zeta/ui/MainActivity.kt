@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,10 +31,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
+import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
@@ -45,6 +47,7 @@ import com.dzshzx.zeta.ui.setup.PhoneScreen
 import com.dzshzx.zeta.ui.setup.SshScreen
 import com.dzshzx.zeta.ui.tasks.AllConversations
 import com.dzshzx.zeta.ui.tasks.BackgroundTasksScreen
+import java.lang.ref.WeakReference
 
 class MainActivity : ComponentActivity() {
     private lateinit var hub: ConversationHub
@@ -56,6 +59,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         hub = ConversationHub.get(application)
+        live = WeakReference(this)
         if (hub.setup != SetupState.Ready) hub.checkSetup()
         if (savedInstanceState == null && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
@@ -89,19 +93,21 @@ class MainActivity : ComponentActivity() {
         conversationRequests++
     }
 
-    /** 别的应用把图片或文件分享过来：交给当前对话的输入栏。 */
+    /** 别的应用分享过来（文字、图片、文件），或者用 Zeta 打开一个文件：先问放进哪个对话，再交给它的输入栏。 */
     private fun acceptShared(intent: Intent?) {
-        val uris = when (intent?.action) {
-            Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java))
-            Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
-            else -> return
-        }
-        if (uris.isNotEmpty()) hub.incomingShares = hub.incomingShares + uris
-        intent.action = Intent.ACTION_MAIN
+        val intake = Intake.fromIntent(intent) ?: return
+        hub.offerIntake(intake)
+        // 界面重建时 intent 还是这个，不再收一次
+        intent?.action = Intent.ACTION_MAIN
     }
 
     companion object {
         private const val EXTRA_CONVERSATION = "com.dzshzx.zeta.extra.CONVERSATION"
+
+        private var live = WeakReference<MainActivity>(null)
+
+        /** 界面还开着（没被销毁）时它所在的屏幕；截屏后把 Zeta 打开到这块屏上。 */
+        val liveDisplay: Int? get() = live.get()?.takeUnless { it.isDestroyed }?.display?.displayId
 
         /** 点了打开 Zeta 并切到对话 [key] 的 Intent（通知用，点通知时系统允许从后台打开界面）。 */
         fun conversationIntent(context: Context, key: String): Intent = Intent(context, MainActivity::class.java)
@@ -178,6 +184,17 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
         paneOpen = false
     }
     LaunchedEffect(conversationRequests) { if (conversationRequests > 0) showChat() }
+    // 从外面送进来的东西要放进输入栏：侧栏和盖在聊天页上的设置页都收起来（安装、登录在进行时不打断）
+    val incoming = hub.incoming
+    LaunchedEffect(incoming) {
+        if (incoming == null) return@LaunchedEffect
+        paneOpen = false
+        showSettings = false
+        showPhone = false
+        showLinux = false
+        showSsh = false
+        tasksScope = null
+    }
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !overlay,
@@ -253,6 +270,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             },
         )
     }
+    IntakeChooser(hub)
     // 返回键一层一层退：最上面的页面先关
     BackHandler(enabled = overlay) {
         when {

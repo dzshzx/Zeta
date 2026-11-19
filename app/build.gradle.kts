@@ -18,8 +18,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 34
-        versionName = "0.6.26"
+        versionCode = 35
+        versionName = "0.6.27"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -48,6 +48,7 @@ android {
             applicationIdSuffix = ".dev$devSuffix"
             versionNameSuffix = "-dev$devSuffix"
             resValue("string", "app_name", "Zeta 测试$devSuffix")
+            resValue("string", "capture_tile", "截屏给 Zeta 测试$devSuffix")
             matchingFallbacks += listOf("debug")
         }
     }

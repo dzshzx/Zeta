@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -93,12 +92,8 @@ import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.dzshzx.zeta.core.Attachment
-import com.dzshzx.zeta.core.Attachments
 import com.dzshzx.zeta.core.FileUpload
-import com.dzshzx.zeta.core.Uploads
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ModelOption
@@ -254,46 +249,19 @@ private fun ConversationBody(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
     val attachments = remember { mutableStateListOf<Attachment>() }
-    var imageFailure by remember { mutableStateOf(false) }
-    fun addImages(uris: List<Uri>) {
-        scope.launch {
-            for (uri in uris.take(MaxAttachments - attachments.size)) {
-                val loaded = withContext(Dispatchers.IO) { Attachments.load(context, uri) }
-                if (loaded != null) attachments.add(loaded) else imageFailure = true
-            }
-        }
-    }
     val uploads = remember { mutableStateListOf<FileUpload>() }
     // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
     val pathAttach = remember { PathAttach() }
-    // 图片当作图片发给模型看；别的文件复制进 Linux 环境，让 Claude 用工具去读
-    fun addShared(uris: List<Uri>) {
-        scope.launch {
-            for (uri in uris) {
-                val (name, type) = withContext(Dispatchers.IO) { Uploads.describe(context, uri) }
-                if (type?.startsWith("image/") == true && type != "image/svg+xml") {
-                    addImages(listOf(uri))
-                    continue
-                }
-                val config = hub.settings.env ?: continue
-                val upload = FileUpload(UUID.randomUUID().toString(), name)
-                uploads.add(upload)
-                launch {
-                    val path = withContext(Dispatchers.IO) { Uploads.copy(context, config, uri, name) }
-                    if (path != null) upload.path = path else upload.failed = true
-                }
-            }
-        }
-    }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> addImages(uris) }
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> addShared(uris) }
-    // 从别的应用分享进来的图片和文件
-    LaunchedEffect(hub.incomingShares) {
-        val incoming = hub.incomingShares
-        if (incoming.isNotEmpty()) {
-            hub.incomingShares = emptyList()
-            addShared(incoming)
-        }
+    // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读
+    val sink = remember { IntakeSink(hub, context, scope, input, attachments, uploads, MaxAttachments) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> sink.addImages(uris) }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> sink.addFiles(uris) }
+    // 从外面送进来、定了放进这个对话的东西（分享、用 Zeta 打开、截屏）
+    val incoming = hub.incoming
+    LaunchedEffect(incoming) {
+        if (incoming == null) return@LaunchedEffect
+        hub.incoming = null
+        sink.accept(incoming)
     }
     val home = hub.settings.env?.home
     val imagesOf = remember(conversation.cwd, home) { { text: String -> answerImages(text, conversation.cwd, home) } }
@@ -549,6 +517,7 @@ private fun ConversationBody(
         }
     }
     MessageActionDialogs(actions)
+    IntakeProblemsDialog(sink)
     AttachPathDialogs(pathAttach, hub, conversation) { entry ->
         if (uploads.none { it.path == entry }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(entry)).also { it.path = entry })
     }

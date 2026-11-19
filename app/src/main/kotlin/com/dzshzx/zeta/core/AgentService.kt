@@ -15,6 +15,7 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.os.PowerManager
 import com.dzshzx.zeta.R
+import com.dzshzx.zeta.phone.ScreenCapture
 import com.dzshzx.zeta.ui.MainActivity
 
 internal object Notifier {
@@ -65,6 +66,12 @@ class AgentService : Service() {
             ConversationHub.get(application as Application).interruptAll()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_CAPTURE) {
+            ScreenCapture.start(this)
+            // 没有对话进程时（只是被这个按钮叫起来）不留着
+            if (lastState?.active != true) stopSelf(startId)
+            return START_NOT_STICKY
+        }
         val busy = intent?.getBooleanExtra(EXTRA_BUSY, false) == true
         val running = intent?.getStringArrayListExtra(EXTRA_RUNNING).orEmpty()
         Notifier.ensureChannels(this)
@@ -88,6 +95,12 @@ class AgentService : Service() {
                 Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stat_zeta), if (running.size > 1) "全部停止" else "停止", stop).build(),
             )
         }
+        // 截下当前屏幕放进 Zeta 对话的输入框（和快速设置里的磁贴一样）
+        val capture = PendingIntent.getService(
+            this, 2, Intent(this, AgentService::class.java).setAction(ACTION_CAPTURE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        builder.addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_tile_capture), "截屏", capture).build())
         val notification = builder.build()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         // 只在一轮进行中持有唤醒锁：息屏后设备休眠会把进程一起挂起
@@ -116,6 +129,7 @@ class AgentService : Service() {
         private const val EXTRA_BUSY = "busy"
         private const val EXTRA_RUNNING = "running"
         private val ACTION_STOP = AppVariant.current.action("STOP")
+        private val ACTION_CAPTURE = AppVariant.current.action("CAPTURE")
 
         private data class State(val active: Boolean, val busy: Boolean, val running: List<String>)
         private var lastState: State? = null

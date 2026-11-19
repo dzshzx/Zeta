@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
 import java.util.UUID
 import kotlin.math.max
 
@@ -36,6 +38,22 @@ object Attachments {
                 decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
             }
         }
+        encode(bitmap)
+    }.getOrNull()
+
+    /** 已经在内存里的一张图（截屏）：缩小、编码成附件。耗时，别在主线程调用。 */
+    fun fromBitmap(source: Bitmap): Attachment? = runCatching {
+        val edge = max(source.width, source.height)
+        val bitmap = if (edge > MAX_EDGE) {
+            val scale = MAX_EDGE.toFloat() / edge
+            Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1), (source.height * scale).toInt().coerceAtLeast(1), true)
+        } else {
+            source
+        }
+        encode(bitmap)
+    }.getOrNull()
+
+    private fun encode(bitmap: Bitmap): Attachment {
         val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
         val edge = max(bitmap.width, bitmap.height)
         val preview = if (edge > PREVIEW_EDGE) {
@@ -44,8 +62,8 @@ object Attachments {
         } else {
             bitmap
         }
-        Attachment(UUID.randomUUID().toString(), preview.asImageBitmap(), "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
-    }.getOrNull()
+        return Attachment(UUID.randomUUID().toString(), preview.asImageBitmap(), "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
+    }
 }
 
 /** 要随消息送进 Linux 环境的一个文件。复制完成后 [path] 才有值。 */
@@ -70,17 +88,59 @@ object Uploads {
         return clean to type
     }
 
+    /** 文件有多大；问不到（有的应用不给）时为 null。 */
+    fun size(context: Context, uri: Uri): Long? = runCatching {
+        if (uri.scheme == "file") {
+            return@runCatching uri.path?.let(::File)?.takeIf { it.isFile && it.canRead() }?.length()
+        }
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+        }
+    }.getOrNull()?.takeIf { it >= 0 }
+
+    /** 复制的结果：成功时 [path] 是 Linux 里的路径；[tooLarge] 是读到一半超过了上限，复制了一半的已经删掉。 */
+    class Copied(val path: String?, val tooLarge: Boolean = false)
+
     /**
-     * 把文件复制进 Linux 环境的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见 [AppVariant]），
-     * 返回那里的路径；失败返回 null。
-     * 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。耗时，别在主线程调用。
+     * 把文件复制进 Linux 环境的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见 [AppVariant]）。
+     * 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。
+     * 超过 [limit] 字节就停下（事先问不到大小的文件只能边读边数）。耗时，别在主线程调用。
      */
-    fun copy(context: Context, config: LinuxEnvConfig, uri: Uri, name: String): String? = runCatching {
+    fun copy(context: Context, config: LinuxEnvConfig, uri: Uri, name: String, limit: Long = Long.MAX_VALUE): Copied =
+        copyFrom(config, name, limit) { context.contentResolver.openInputStream(uri) }
+
+    /** 把内存里的一段内容（太长的文字、放不下的截屏）当作文件复制进 Linux，返回路径；失败返回 null。 */
+    fun copyBytes(config: LinuxEnvConfig, name: String, bytes: ByteArray): String? =
+        copyFrom(config, name, Long.MAX_VALUE) { bytes.inputStream() }.path
+
+    private fun copyFrom(config: LinuxEnvConfig, name: String, limit: Long, open: () -> InputStream?): Copied = runCatching {
+        val input = open() ?: return@runCatching Copied(null)
         val directory = "${AppVariant.current.cacheDir(config.home)}/files/${UUID.randomUUID().toString().take(8)}"
         val target = "$directory/$name"
         val process = LinuxEnv.start(config, "mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
-        val input = context.contentResolver.openInputStream(uri) ?: run { process.destroy(); return@runCatching null }
-        input.use { source -> process.outputStream.use { source.copyTo(it, 64 * 1024) } }
-        if (process.waitFor() == 0) target else null
-    }.getOrNull()
+        var over = false
+        input.use { source ->
+            process.outputStream.use { sink ->
+                val buffer = ByteArray(64 * 1024)
+                var total = 0L
+                while (true) {
+                    val n = source.read(buffer)
+                    if (n < 0) break
+                    total += n
+                    if (total > limit) {
+                        over = true
+                        break
+                    }
+                    sink.write(buffer, 0, n)
+                }
+            }
+        }
+        // 关掉标准输入 cat 就会结束（app 给不了 su 的子进程发信号，只能这样让它停）
+        val ok = process.waitFor() == 0
+        if (over) {
+            runCatching { LinuxEnv.run(config, "rm -rf " + LinuxEnv.quote(directory)) }
+            return@runCatching Copied(null, tooLarge = true)
+        }
+        Copied(if (ok) target else null)
+    }.getOrElse { Copied(null) }
 }

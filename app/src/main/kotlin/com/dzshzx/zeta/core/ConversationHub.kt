@@ -99,8 +99,11 @@ class ConversationHub(private val app: Application) {
         if (current.items.isEmpty() && current.sessionId == null) current = blank()
     }
 
-    /** 别的应用分享进来、还没放进输入栏的图片和文件。 */
-    var incomingShares by mutableStateOf<List<android.net.Uri>>(emptyList())
+    /** 从外面送进来（分享、打开、截屏）、还等用户选放进哪个对话的东西，见 [offerIntake]。 */
+    var pendingIntake by mutableStateOf<Intake?>(null)
+
+    /** 已经定了放进当前对话、等它的输入栏取走的东西。 */
+    var incoming by mutableStateOf<Intake?>(null)
 
     private var hostsChecked = false
 
