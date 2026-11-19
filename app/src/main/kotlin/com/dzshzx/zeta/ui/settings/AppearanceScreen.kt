@@ -63,8 +63,9 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
             )
         },
     ) {
-        item(key = "theme") {
-            PreferenceGroup(title = "颜色与主题") {
+        // 三行都管外观，一组就够，不分类
+        item(key = "appearance") {
+            PreferenceGroup {
                 item {
                     OverlayDropdownPreference(
                         title = "主题模式",
@@ -74,22 +75,20 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                     )
                 }
                 item {
+                    // 「系统取色」是跟随壁纸的系统动态取色（Monet）
                     OverlayDropdownPreference(
                         title = "强调色",
-                        summary = if (prefs.accent == AccentChoice.System) "跟随壁纸的系统动态取色（Monet）" else null,
+                        summary = if (prefs.accent == AccentChoice.System) "跟随壁纸取色" else null,
                         items = accents.map { it.label },
                         selectedIndex = accents.indexOf(prefs.accent),
                         onSelectedIndexChange = { index -> accents.getOrNull(index)?.let(prefs::chooseAccent) },
                     )
                 }
-            }
-        }
-        item(key = "interface") {
-            PreferenceGroup(title = "界面", footer = "界面缩放只影响 Zeta 自己的页面，不改系统的显示大小；悬浮在其他应用上的提示保持原样。") {
                 item {
+                    // 只缩放 Zeta 自己的页面，不改系统的显示大小；悬浮在其他应用上的提示（胶囊、结果卡片）保持原样。范围 80%–110%，点开输入框时有提示
                     SliderPreference(
                         title = "界面缩放",
-                        summary = "调整全局显示比例（80%–110%）",
+                        summary = "只缩放 Zeta 自己的页面",
                         value = scaleDraft.coerceIn(MIN_INTERFACE_SCALE * 100f, MAX_INTERFACE_SCALE * 100f),
                         onValueChange = { scaleDraft = it },
                         valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
