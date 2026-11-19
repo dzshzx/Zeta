@@ -14,7 +14,7 @@ enum class PermissionBehavior(val key: String, val label: String) {
 
 /** 一条规则按 Claude Code 的写法拆开：`工具` 或 `工具(参数)`；括号不配对时 [malformed]，Claude Code 也不认。 */
 data class ParsedRule(val tool: String, val content: String?, val malformed: Boolean = false) {
-    /** `工具`、`工具()`、`工具(*)` 都是整个工具，Claude Code 一视同仁。 */
+    /** `工具`、`工具()`、`工具(*)` 都是整个工具（读写文件那几个工具在允许表里例外，见 [ClaudePermissions.wholeTool]）。 */
     val wholeTool: Boolean get() = !malformed && (content == null || content == "" || content == "*")
 }
 
@@ -135,20 +135,31 @@ object ClaudePermissions {
         else -> null
     }
 
-    private fun matchesWhole(rule: String, names: Set<String>): Boolean = parse(rule).let { it.wholeTool && it.tool in names }
+    /**
+     * 允许表里这几个读写文件的工具写成 `工具(*)` 或 `工具()` 时，Claude Code 只在工作目录里放行，不算整个工具；
+     * 拒绝、询问表里照样是整个工具。
+     */
+    private val WorkingDirStar = setOf("Read", "Edit", "Write", "NotebookEdit", "Glob", "Grep", "LSP", "SendUserFile")
+
+    /** 这条规则在 [behavior] 表里是不是管整个工具。 */
+    fun wholeTool(behavior: PermissionBehavior, parsed: ParsedRule): Boolean =
+        parsed.wholeTool && !(behavior == PermissionBehavior.Allow && parsed.content != null && parsed.tool in WorkingDirStar)
+
+    private fun matchesWhole(behavior: PermissionBehavior, rule: String, names: Set<String>): Boolean =
+        parse(rule).let { wholeTool(behavior, it) && it.tool in names }
 
     /** 一个内置工具（或手机工具 mcp__phone__xxx、一个 MCP 服务器 mcp__xxx）整体的规则和它带参数的规则。 */
     fun tool(rules: PermissionRules, tool: String): ToolPermission {
         val names = setOf(canonicalTool(tool))
-        val whole = rules.all.filter { matchesWhole(it.second, names) }.map { it.first }
-        val specific = rules.all.filter { (_, rule) -> parse(rule).let { !it.wholeTool && !it.malformed && it.tool in names } }
+        val whole = rules.all.filter { (b, rule) -> matchesWhole(b, rule, names) }.map { it.first }
+        val specific = rules.all.filter { (b, rule) -> parse(rule).let { !it.malformed && !wholeTool(b, it) && it.tool in names } }
         return ToolPermission(strongest(whole), specific = specific)
     }
 
     /** MCP 服务器整体：`mcp__服务器` 和 `mcp__服务器__*` 是一回事。 */
     fun server(rules: PermissionRules, server: String): ToolPermission {
         val names = serverNames(server)
-        return ToolPermission(strongest(rules.all.filter { matchesWhole(it.second, names) }.map { it.first }))
+        return ToolPermission(strongest(rules.all.filter { (b, rule) -> matchesWhole(b, rule, names) }.map { it.first }))
     }
 
     /** MCP 的一个工具：它自己的规则和整个服务器的规则一起算，取最严的。 */
@@ -195,7 +206,7 @@ object ClaudePermissions {
         val names = if (tool.startsWith("mcp__") && tool.indexOf("__", 5) < 0) setOf(tool, "${tool}__*") else setOf(canonicalTool(tool))
         val name = canonicalTool(tool)
         return edit(settings) { b, list ->
-            val kept = list.filterNot { e -> e.rule()?.let { matchesWhole(it, names) } == true }
+            val kept = list.filterNot { e -> e.rule()?.let { matchesWhole(b, it, names) } == true }
             if (b == behavior) kept + JsonPrimitive(name) else kept
         }
     }
@@ -238,6 +249,61 @@ object ClaudePermissions {
         }
         return withRule(withoutRule(settings, behavior, rule), newBehavior, newRule)
     }
+
+    // ---------- 一键开启、关闭 ----------
+
+    private fun inGroup(rule: String, group: PermissionGroup): Boolean {
+        val parsed = parse(rule)
+        if (parsed.malformed) return false
+        return when (group) {
+            is PermissionGroup.Tools -> parsed.tool in group.names.map(::canonicalTool)
+            is PermissionGroup.Server -> McpNames.server(group.server).let { parsed.tool == it || parsed.tool.startsWith(it + "__") }
+        }
+    }
+
+    /**
+     * 整组开启（[enable]，设为允许）或关闭（设为拒绝）要加、要删的规则。
+     * 加：内置工具没有通配写法，每个工具一条；MCP 服务器（手机工具是 phone）一条整个服务器的规则。已经有了的不加。
+     * 删：组里每个工具上和目标相反的规则，带参数的也算（开启删拒绝和询问，关闭删允许和询问），不然它们按“拒绝 > 询问 > 允许”会盖住整组的设置。
+     * 认不出的写法不动。返回空的说明已经全是那个状态。
+     */
+    fun bulk(rules: PermissionRules, group: PermissionGroup, enable: Boolean): BulkChange {
+        val target = if (enable) PermissionBehavior.Allow else PermissionBehavior.Deny
+        val opposite = if (enable) setOf(PermissionBehavior.Deny, PermissionBehavior.Ask) else setOf(PermissionBehavior.Allow, PermissionBehavior.Ask)
+        val remove = rules.all.filter { (b, rule) -> b in opposite && inGroup(rule, group) }.distinct()
+        val present = rules.of(target)
+        val add = when (group) {
+            is PermissionGroup.Tools -> group.names.map(::canonicalTool).distinct()
+                .filterNot { name -> present.any { matchesWhole(target, it, setOf(name)) } }
+            is PermissionGroup.Server -> listOf(McpNames.server(group.server))
+                .filterNot { present.any { rule -> matchesWhole(target, rule, serverNames(group.server)) } }
+        }
+        return BulkChange(add.map { target to it }, remove)
+    }
+
+    /** 按 [bulk] 改：删掉要删的（同一条在表里出现几次都删），要加的放在表末尾。 */
+    fun withBulk(settings: JsonObject, group: PermissionGroup, enable: Boolean): JsonObject {
+        val change = bulk(rules(settings), group, enable)
+        if (change.isEmpty) return settings
+        return edit(settings) { b, list ->
+            val drop = change.remove.filter { it.first == b }.map { it.second }.toSet()
+            list.filterNot { it.rule() in drop } + change.add.filter { it.first == b }.map { JsonPrimitive(it.second) }
+        }
+    }
+}
+
+/** 一键开启、关闭的一组工具。 */
+sealed interface PermissionGroup {
+    /** 内置工具：逐个写规则。 */
+    data class Tools(val names: List<String>) : PermissionGroup
+
+    /** 一个 MCP 服务器（手机工具是 phone）：写整个服务器的规则 mcp__服务器。 */
+    data class Server(val server: String) : PermissionGroup
+}
+
+/** 一键开启、关闭要加、要删的规则（哪张表、哪条）。 */
+data class BulkChange(val add: List<Pair<PermissionBehavior, String>>, val remove: List<Pair<PermissionBehavior, String>>) {
+    val isEmpty: Boolean get() = add.isEmpty() && remove.isEmpty()
 }
 
 /** Claude Code 给 MCP 工具起的名字：`mcp__服务器__工具`，服务器名里字母、数字、_、- 以外的字符换成 _。 */

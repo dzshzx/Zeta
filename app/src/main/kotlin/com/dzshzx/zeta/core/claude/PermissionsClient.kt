@@ -51,3 +51,7 @@ fun ClaudeConfigClient.replacePermissionRule(
             ?: throw ClaudeConfigException("这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取")
     }
 }
+
+/** 一键开启或关闭一组工具，见 [ClaudePermissions.bulk]；按文件里最新的内容算要加、要删的。 */
+fun ClaudeConfigClient.setGroupPermission(group: PermissionGroup, enable: Boolean): PermissionRules =
+    editPermissions { ClaudePermissions.withBulk(it, group, enable) }

@@ -41,6 +41,9 @@ object BuiltinTools {
         ToolInfo("ReportFindings", "按格式汇报代码审查的发现"),
         ToolInfo("DesignSync", "读写 Claude Design 里的项目文件"),
     )
+
+    /** 一键开启、关闭时的“内置工具”一组：常用的加上收起来的。 */
+    val group: PermissionGroup get() = PermissionGroup.Tools((common + other).map { it.name })
 }
 
 /** Zeta 手机工具（MCP 服务器 phone）的中文说明；没写到的显示英文说明的第一句。 */

@@ -2,7 +2,9 @@ package com.dzshzx.zeta.ui.setup
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
@@ -16,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.BuiltinTools
+import com.dzshzx.zeta.core.claude.BulkChange
 import com.dzshzx.zeta.core.claude.ClaudePermissions
 import com.dzshzx.zeta.core.claude.McpNames
 import com.dzshzx.zeta.core.claude.McpServer
 import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.core.claude.PermissionBehavior
+import com.dzshzx.zeta.core.claude.PermissionGroup
 import com.dzshzx.zeta.core.claude.PermissionRules
 import com.dzshzx.zeta.core.claude.PhoneToolLabels
 import com.dzshzx.zeta.core.claude.ToolPermission
@@ -28,9 +32,11 @@ import com.dzshzx.zeta.core.claude.addPermissionRule
 import com.dzshzx.zeta.core.claude.permissions
 import com.dzshzx.zeta.core.claude.removePermissionRule
 import com.dzshzx.zeta.core.claude.replacePermissionRule
+import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
+import com.dzshzx.zeta.ui.components.coui.CouiButton
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiDropdownPreference
 import com.dzshzx.zeta.ui.components.coui.CouiPopupPreference
@@ -94,6 +100,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     var editor by remember { mutableStateOf<RuleDraft?>(null) }
     var deleting by remember { mutableStateOf<Pair<PermissionBehavior, String>?>(null) }
     var detail by remember { mutableStateOf<McpServer?>(null) }
+    var bulk by remember { mutableStateOf<BulkRequest?>(null) }
     val phoneTools = remember { PhoneTools.catalog }
 
     LaunchedEffect(reloads) {
@@ -135,6 +142,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             CouiPreference(title = "Zeta 当前的权限模式", value = permissionModeLabel(mode), summary = "在聊天输入栏里切换")
         }
         Group(title = "内置工具") {
+            BulkButtons(current, BuiltinTools.group, editable) { enable, change -> bulk = BulkRequest("内置工具", BuiltinTools.group, enable, change) }
             BuiltinTools.common.forEach { tool ->
                 val state = current?.let { ClaudePermissions.tool(it, tool.name) } ?: ToolPermission(null)
                 ToolRow(tool.name, toolSummary(tool.label, state), state.behavior, editable) { b -> apply { client.setToolPermission(tool.name, b) } }
@@ -156,6 +164,8 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
         ) {
             val server = PhoneTools.SERVER
             val whole = current?.let { ClaudePermissions.server(it, server) } ?: ToolPermission(null)
+            val group = PermissionGroup.Server(server)
+            BulkButtons(current, group, editable) { enable, change -> bulk = BulkRequest("手机工具", group, enable, change) }
             ToolRow("全部手机工具", McpNames.server(server), whole.behavior, editable) { b -> apply { client.setToolPermission(McpNames.server(server), b) } }
             phoneTools.forEach { (name, description) ->
                 val state = current?.let { ClaudePermissions.mcpTool(it, server, name) } ?: ToolPermission(null)
@@ -202,6 +212,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     ConfigNoticeDialog(notice) { notice = null }
+    BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } }
     RuleEditorDialog(
         draft = editor,
         onDismiss = { editor = null },
@@ -364,6 +375,7 @@ private fun McpPermissionDetail(
     }
     // 和 MCP 页一样：项目里的 .mcp.json 可能来自别人的仓库，不自动替它启动命令
     LaunchedEffect(server) { if (server.scope != "project" && !server.oauth) load() }
+    var bulk by remember { mutableStateOf<BulkRequest?>(null) }
 
     CouiScaffoldPage(
         title = server.name,
@@ -372,6 +384,8 @@ private fun McpPermissionDetail(
     ) {
         Group(footer = "整个服务器的设置对它的每个工具都生效；工具自己也设了的，按“拒绝 > 询问 > 允许”取最严的。") {
             val whole = rules?.let { ClaudePermissions.server(it, server.name) } ?: ToolPermission(null)
+            val group = PermissionGroup.Server(server.name)
+            BulkButtons(rules, group, editable) { enable, change -> bulk = BulkRequest("${server.name} 的工具", group, enable, change) }
             ToolRow("整个服务器", McpNames.server(server.name), whole.behavior, editable) { b -> apply { client.setToolPermission(McpNames.server(server.name), b) } }
         }
         Group(title = tools?.let { "工具 · ${it.size}" } ?: "工具") {
@@ -396,4 +410,67 @@ private fun McpPermissionDetail(
             }
         }
     }
+    BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } }
 }
+
+/** 点了“全部开启 / 全部关闭”、等确认的那一组。[change] 是按页面上的规则算的，确认后按文件里最新的内容重算再写。 */
+internal data class BulkRequest(val label: String, val group: PermissionGroup, val enable: Boolean, val change: BulkChange)
+
+/** 一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。 */
+@Composable
+private fun BulkButtons(rules: PermissionRules?, group: PermissionGroup, editable: Boolean, onRequest: (Boolean, BulkChange) -> Unit) {
+    val on = remember(rules, group) { rules?.let { ClaudePermissions.bulk(it, group, enable = true) } }
+    val off = remember(rules, group) { rules?.let { ClaudePermissions.bulk(it, group, enable = false) } }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CouiButton(
+            text = "全部开启",
+            onClick = { on?.let { onRequest(true, it) } },
+            enabled = editable && on?.isEmpty == false,
+            minHeight = 36.dp,
+            modifier = Modifier.weight(1f),
+        )
+        CouiButton(
+            text = "全部关闭",
+            onClick = { off?.let { onRequest(false, it) } },
+            enabled = editable && off?.isEmpty == false,
+            minHeight = 36.dp,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun BulkConfirmDialog(request: BulkRequest?, onDismiss: () -> Unit, onConfirm: (BulkRequest) -> Unit) {
+    val shown = rememberRetained(request)
+    CouiConfirmDialog(
+        visible = request != null,
+        title = shown?.let { (if (it.enable) "全部开启" else "全部关闭") + it.label + "？" },
+        message = shown?.let { bulkMessage(it.change, warnNoTools = !it.enable && it.group == BuiltinTools.group) },
+        confirmText = if (shown?.enable == false) "全部关闭" else "全部开启",
+        destructive = shown?.enable == false,
+        onConfirm = {
+            val target = request
+            onDismiss()
+            if (target != null) onConfirm(target)
+        },
+        onDismissRequest = onDismiss,
+    )
+}
+
+/** 确认框里的说明：按表列出会加、会删的规则。关闭内置工具时另外说清后果。 */
+internal fun bulkMessage(change: BulkChange, warnNoTools: Boolean): String = buildString {
+    PermissionBehavior.entries.forEach { b ->
+        val rules = change.add.filter { it.first == b }.map { it.second }
+        if (rules.isNotEmpty()) append("加到${b.label}（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
+    }
+    PermissionBehavior.entries.forEach { b ->
+        val rules = change.remove.filter { it.first == b }.map { it.second }
+        if (rules.isNotEmpty()) append("从${b.label}里删（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
+    }
+    if (warnNoTools) append("\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。\n")
+    append("\n写进 ~/.claude/settings.json，对之后新开始的对话生效。")
+}
+

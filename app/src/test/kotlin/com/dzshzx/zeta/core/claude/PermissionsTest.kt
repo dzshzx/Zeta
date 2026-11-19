@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.ui.setup.bulkMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -181,5 +182,113 @@ class PermissionsTest {
         names.forEach { assertEquals(it, ClaudePermissions.canonicalTool(it)) }
         assertEquals("读写剪贴板", PhoneToolLabels.label("clipboard", "x"))
         assertEquals("Do a thing", PhoneToolLabels.label("new_tool", "Do a thing. More detail."))
+    }
+
+    @Test
+    fun fileToolsWithStarInAllowOnlyCoverWorkingDirs() {
+        // 允许表里 Edit(*) 只在工作目录放行，不算整个工具；拒绝表里的 Edit(*) 还是整个工具
+        val rules = PermissionRules(allow = listOf("Edit(*)", "Bash(*)"), ask = emptyList(), deny = listOf("Write(*)"))
+        val edit = ClaudePermissions.tool(rules, "Edit")
+        assertNull(edit.behavior)
+        assertEquals(listOf(PermissionBehavior.Allow to "Edit(*)"), edit.specific)
+        assertEquals(PermissionBehavior.Allow, ClaudePermissions.tool(rules, "Bash").behavior)
+        assertEquals(PermissionBehavior.Deny, ClaudePermissions.tool(rules, "Write").behavior)
+        // 设 Edit 为未设置时不动只管工作目录的那条
+        val settings = obj("""{"permissions":{"allow":["Edit(*)","Edit"]}}""")
+        assertEquals(listOf("Edit(*)"), ClaudePermissions.rules(ClaudePermissions.withTool(settings, "Edit", null)).allow)
+    }
+
+    private val builtins = PermissionGroup.Tools(listOf("Bash", "Read", "Edit", "Agent"))
+
+    @Test
+    fun bulkEnableBuiltinsWritesEachToolAndDropsBlockers() {
+        val settings = obj(
+            """{"permissions":{"defaultMode":"plan","allow":["Read","Bash(git push:*)","Edit(*)"],"ask":["Bash","WebFetch(domain:x.com)","Task(Explore)"],"deny":["Bash(rm:*)","Bash(ls",9,"mcp__phone__shell"]}}""",
+        )
+        val change = ClaudePermissions.bulk(ClaudePermissions.rules(settings), builtins, enable = true)
+        // Read 已经整体允许，不再加；Edit(*) 只管工作目录，要补 Edit
+        assertEquals(listOf("Bash", "Edit", "Agent").map { PermissionBehavior.Allow to it }, change.add)
+        // 组里工具上的拒绝和询问都删（带参数的、别名写的也算），认不出的、别组的、组外工具的不动
+        assertEquals(
+            listOf(PermissionBehavior.Deny to "Bash(rm:*)", PermissionBehavior.Ask to "Bash", PermissionBehavior.Ask to "Task(Explore)"),
+            change.remove,
+        )
+        val after = ClaudePermissions.withBulk(settings, builtins, enable = true)
+        assertEquals(
+            """{"permissions":{"defaultMode":"plan","allow":["Read","Bash(git push:*)","Edit(*)","Bash","Edit","Agent"],""" +
+                """"ask":["WebFetch(domain:x.com)"],"deny":["Bash(ls",9,"mcp__phone__shell"]}}""",
+            after.toString(),
+        )
+        val rules = ClaudePermissions.rules(after)
+        listOf("Bash", "Read", "Edit", "Agent").forEach { assertEquals(it, PermissionBehavior.Allow, ClaudePermissions.tool(rules, it).behavior) }
+        // 再点一次：已经全开了
+        assertTrue(ClaudePermissions.bulk(rules, builtins, enable = true).isEmpty)
+        assertSame(after, ClaudePermissions.withBulk(after, builtins, enable = true))
+    }
+
+    @Test
+    fun bulkDisableBuiltinsDropsAllowAndAsk() {
+        val settings = obj("""{"permissions":{"allow":["Read","Bash(git push:*)","Edit(*)"],"ask":["Agent"],"deny":["Bash(*)","Bash(rm:*)"]}}""")
+        val change = ClaudePermissions.bulk(ClaudePermissions.rules(settings), builtins, enable = false)
+        // Bash(*) 在拒绝表里就是整个 Bash，不再加；带参数的拒绝留着
+        assertEquals(listOf("Read", "Edit", "Agent").map { PermissionBehavior.Deny to it }, change.add)
+        assertEquals(
+            listOf(PermissionBehavior.Ask to "Agent", PermissionBehavior.Allow to "Read", PermissionBehavior.Allow to "Bash(git push:*)", PermissionBehavior.Allow to "Edit(*)"),
+            change.remove,
+        )
+        val after = ClaudePermissions.withBulk(settings, builtins, enable = false)
+        assertEquals(PermissionRules(emptyList(), emptyList(), listOf("Bash(*)", "Bash(rm:*)", "Read", "Edit", "Agent")), ClaudePermissions.rules(after))
+        assertTrue(ClaudePermissions.bulk(ClaudePermissions.rules(after), builtins, enable = false).isEmpty)
+        // 没有 permissions 的文件：建出来
+        assertEquals(
+            """{"permissions":{"deny":["Bash","Read","Edit","Agent"]}}""",
+            ClaudePermissions.withBulk(obj("{}"), builtins, enable = false).toString(),
+        )
+    }
+
+    @Test
+    fun bulkServerUsesOneRule() {
+        val phone = PermissionGroup.Server("phone")
+        val settings = obj(
+            """{"permissions":{"allow":["mcp__phone__screen","mcp__phoney__x"],"ask":["mcp__phone__tap"],"deny":["mcp__phone__shell","mcp__phone__*","mcp__github"]}}""",
+        )
+        val on = ClaudePermissions.bulk(ClaudePermissions.rules(settings), phone, enable = true)
+        assertEquals(listOf(PermissionBehavior.Allow to "mcp__phone"), on.add)
+        // 名字只是前缀相同的服务器（phoney）不算
+        assertEquals(
+            listOf(PermissionBehavior.Deny to "mcp__phone__shell", PermissionBehavior.Deny to "mcp__phone__*", PermissionBehavior.Ask to "mcp__phone__tap"),
+            on.remove,
+        )
+        val enabled = ClaudePermissions.withBulk(settings, phone, enable = true)
+        assertEquals(
+            PermissionRules(listOf("mcp__phone__screen", "mcp__phoney__x", "mcp__phone"), emptyList(), listOf("mcp__github")),
+            ClaudePermissions.rules(enabled),
+        )
+        assertEquals(PermissionBehavior.Allow, ClaudePermissions.mcpTool(ClaudePermissions.rules(enabled), "phone", "shell").behavior)
+        // mcp__phone__* 在拒绝表里已经是整个服务器：关闭时不再加 mcp__phone，只删允许和询问
+        val off = ClaudePermissions.bulk(ClaudePermissions.rules(settings), phone, enable = false)
+        assertEquals(emptyList<Pair<PermissionBehavior, String>>(), off.add)
+        assertEquals(listOf(PermissionBehavior.Ask to "mcp__phone__tap", PermissionBehavior.Allow to "mcp__phone__screen"), off.remove)
+        // 别的服务器按规整后的名字算
+        val github = ClaudePermissions.bulk(ClaudePermissions.rules(settings), PermissionGroup.Server("github"), enable = false)
+        assertTrue(github.isEmpty)
+    }
+
+    @Test
+    fun bulkMessageListsEveryRule() {
+        val change = BulkChange(
+            add = listOf(PermissionBehavior.Deny to "Bash", PermissionBehavior.Deny to "Read"),
+            remove = listOf(PermissionBehavior.Ask to "Agent", PermissionBehavior.Allow to "Bash(git push:*)"),
+        )
+        assertEquals(
+            "加到拒绝（2 条）：Bash、Read\n从允许里删（1 条）：Bash(git push:*)\n从询问里删（1 条）：Agent\n" +
+                "\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。\n" +
+                "\n写进 ~/.claude/settings.json，对之后新开始的对话生效。",
+            bulkMessage(change, warnNoTools = true),
+        )
+        assertEquals(
+            "加到允许（1 条）：mcp__phone\n\n写进 ~/.claude/settings.json，对之后新开始的对话生效。",
+            bulkMessage(BulkChange(listOf(PermissionBehavior.Allow to "mcp__phone"), emptyList()), warnNoTools = false),
+        )
     }
 }

@@ -337,6 +337,50 @@ abstract class ClaudeConfigClientTest {
         assertEquals("{oops", run("cat \"$settings\""))
     }
 
+    @Test
+    fun bulkPermissionsRewriteTheGroup() {
+        val settings = "\$HOME/.claude/settings.json"
+        run(
+            """
+            mkdir -p "${'$'}HOME/.claude"
+            printf '%s\n' '{"model":"opus","permissions":{"defaultMode":"bypassPermissions","allow":["mcp__phone__screen","Read"],"ask":["Bash(git push:*)","mcp__phone__shell"],"deny":["Bash(rm:*","WebFetch"]}}' > "$settings"
+            """.trimIndent(),
+        )
+        // 关掉手机工具：一条整个服务器的拒绝，手机工具上的允许、询问去掉
+        val off = client.setGroupPermission(PermissionGroup.Server("phone"), enable = false)
+        assertEquals(PermissionRules(listOf("Read"), listOf("Bash(git push:*)"), listOf("Bash(rm:*", "WebFetch", "mcp__phone")), off)
+        // 开启内置工具：逐个写允许，内置工具上的拒绝、询问去掉，认不出的 Bash(rm:* 留着
+        val tools = listOf("Bash", "Read", "WebFetch")
+        val on = client.setGroupPermission(PermissionGroup.Tools(tools), enable = true)
+        assertEquals(PermissionRules(listOf("Read", "Bash", "WebFetch"), emptyList(), listOf("Bash(rm:*", "mcp__phone")), on)
+        assertEquals(
+            """
+            {
+              "model": "opus",
+              "permissions": {
+                "defaultMode": "bypassPermissions",
+                "allow": [
+                  "Read",
+                  "Bash",
+                  "WebFetch"
+                ],
+                "ask": [],
+                "deny": [
+                  "Bash(rm:*",
+                  "mcp__phone"
+                ]
+              }
+            }
+
+            """.trimIndent(),
+            run("cat \"$settings\""),
+        )
+        // 已经全开：不写文件
+        run("touch -d '2001-01-01' \"$settings\"")
+        assertEquals(on, client.setGroupPermission(PermissionGroup.Tools(tools), enable = true))
+        assertEquals("2001", run("date -r \"$settings\" +%Y").trim())
+    }
+
     /** 需要 claude 命令行：没有就跳过。 */
     protected fun assumeClaude() {
         assumeTrue("没有 claude 命令", run("command -v claude >/dev/null && echo yes || echo no").trim() == "yes")
