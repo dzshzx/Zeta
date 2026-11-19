@@ -13,6 +13,7 @@ import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.WindowMetrics
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import com.dzshzx.zeta.phone.VirtualScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
@@ -50,6 +52,9 @@ internal class CapsuleState {
 
     /** “全屏”放大动画进行中：胶囊先退场，画面由全屏窗口接着画。 */
     var materializing by mutableStateOf(false)
+
+    /** 展开画面里画布的尺寸：按屏幕剩下的高度和后台屏幕的比例算（横屏时收小），见 [CapsuleLayout]。 */
+    var stageCanvas by mutableStateOf(CapsuleLayout.stageCanvas(CapsuleLayout.DEFAULT_RATIO, Float.MAX_VALUE, 0f))
 }
 
 /** 胶囊界面调回窗口这边的动作。 */
@@ -66,6 +71,9 @@ internal interface CapsuleControls {
 
     /** 内容的实际高度（像素），窗口按档位放不下时兜底撑大。 */
     fun reportContentHeight(px: Int)
+
+    /** 窗口的配置变了（转屏、屏幕尺寸变了）：重新量状态栏下沿和屏幕高。 */
+    fun onScreenChanged()
     fun takeOver()
 
     /** “全屏”：[stage] 是画面此刻在屏幕上的位置（像素），[frame] 是此刻的那一帧。 */
@@ -92,6 +100,8 @@ object OverlayHost {
     /** 窗口当前是不是展开档（展开前先撑大，收起放完才缩回，所以和 [CapsuleState.expanded] 不总一致）。 */
     private var windowExpanded = false
     private var contentHeightPx = 0
+    /** 胶囊所在屏幕的高（像素），转屏时跟着更新。 */
+    private var screenHeightPx = 0
 
     private var materialize: OverlayWindow? = null
     /** 正在“全屏”的那个对话（动画放到整屏时把它的应用移到主屏，只移一次）。 */
@@ -111,7 +121,12 @@ object OverlayHost {
             }
         }
         scope = MainScope().apply {
-            launch { snapshotFlow { hub.overlayFocus }.collect(::onFocus) }
+            // 锁屏、息屏时当作没有焦点：胶囊退场，解锁后再出来（见 ScreenLock）
+            launch {
+                combine(snapshotFlow { hub.overlayFocus }, ScreenLock.locked) { focus, _ ->
+                    focus.takeUnless { ScreenLock.hides(OverlayWindow.mainDisplay(service)) }
+                }.collect(::onFocus)
+            }
             // 后台屏幕出现、消失时换窗口宽度档（有缩略画面时宽一点）
             launch { snapshotFlow { state.focus?.screen != null }.collect { applyWindow() } }
             launch {
@@ -167,7 +182,7 @@ object OverlayHost {
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         }
         val window = OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { StatusCapsule(state, controls) }
-        params.y = statusBarHeight(window)
+        measureScreen(window)
         window.view.setOnTouchListener(outsideListener)
         window.view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> publishBounds() }
         capsule = window
@@ -200,7 +215,13 @@ object OverlayHost {
         val lp = window.params
         val density = window.context.resources.displayMetrics.density
         fun px(dp: Int) = (dp * density).roundToInt()
-        val background = state.focus?.screen != null
+        val screen = state.focus?.screen
+        val background = screen != null
+        if (screen != null) {
+            val ratio = if (screen.height > 0) screen.width / screen.height.toFloat() else CapsuleLayout.DEFAULT_RATIO
+            val canvas = CapsuleLayout.stageCanvas(ratio, screenHeightPx / density, lp.y / density)
+            if (state.stageCanvas != canvas) state.stageCanvas = canvas
+        }
         val widthDp = when {
             windowExpanded -> StageWindowWidthDp
             background -> LensWindowWidthDp
@@ -209,7 +230,7 @@ object OverlayHost {
         val heightDp = when {
             !windowExpanded -> CollapsedHeightDp
             state.inputMode -> InputHeightDp
-            background -> StageHeightDp
+            background -> CapsuleLayout.stageWindowHeight(state.stageCanvas).roundToInt()
             else -> ControlsHeightDp
         }
         val width = px(widthDp)
@@ -290,6 +311,17 @@ object OverlayHost {
             // 这是在布局过程中回调的，窗口参数到下一轮再改
             main.removeCallbacks(applyLater)
             main.post(applyLater)
+        }
+
+        override fun onScreenChanged() {
+            val window = capsule ?: return
+            val y = window.params.y
+            val height = screenHeightPx
+            measureScreen(window)
+            if (window.params.y == y && screenHeightPx == height) return
+            if (window.params.y != y) window.update()
+            // 画布高度跟着屏幕剩下的高度变
+            applyWindow()
         }
 
         override fun takeOver() {
@@ -380,12 +412,18 @@ object OverlayHost {
         applyWindow()
     }
 
+    /** 量胶囊所在屏幕：窗口上沿放在状态栏下沿，记下屏幕高。建窗口和转屏时调用（要走一次 IPC，不放在 applyWindow 里）。 */
+    private fun measureScreen(window: OverlayWindow) {
+        val metrics = runCatching { window.context.getSystemService(WindowManager::class.java).currentWindowMetrics }.getOrNull()
+        screenHeightPx = metrics?.bounds?.height()?.takeIf { it > 0 } ?: window.context.resources.displayMetrics.heightPixels
+        window.params.y = statusBarHeight(window, metrics)
+    }
+
     /** 状态栏下沿（含挖孔）。 */
-    private fun statusBarHeight(window: OverlayWindow): Int {
+    private fun statusBarHeight(window: OverlayWindow, metrics: WindowMetrics?): Int {
         val context = window.context
         val insets = runCatching {
-            context.getSystemService(WindowManager::class.java).currentWindowMetrics.windowInsets
-                .getInsetsIgnoringVisibility(WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
+            metrics!!.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
         }.getOrDefault(0)
         if (insets > 0) return insets
         @Suppress("DiscouragedApi", "InternalInsetResource")
@@ -400,7 +438,6 @@ object OverlayHost {
     private const val StageWindowWidthDp = 324
     private const val CollapsedHeightDp = 68
     private const val ControlsHeightDp = 124
-    private const val StageHeightDp = 524
     private const val InputHeightDp = 260
     private const val ContentMarginDp = 4
     private const val FallbackScreenCornerDp = 28

@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -140,6 +141,9 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
     LaunchedEffect(expanded) {
         if (!expanded && state.inputMode) leaveInput()
     }
+    // 转屏以后窗口拿到新配置时，状态栏下沿和屏幕高都要重新量（横屏时展开画面跟着收小）
+    val configuration = LocalConfiguration.current
+    LaunchedEffect(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) { controls.onScreenChanged() }
 
     // 只关心后台屏幕上的触摸（主屏上的由边缘流光表现）；刚出现时不补放旧的
     var touch by remember(focus) { mutableStateOf<TouchMark?>(null) }
@@ -298,6 +302,7 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
                             BackgroundStage(
                                 focus = focus,
                                 screen = screen,
+                                canvas = state.stageCanvas,
                                 touch = touch,
                                 accent = accent,
                                 onTakeOver = controls::takeOver,
@@ -332,17 +337,19 @@ private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: ()
         CapsuleAction(Icons.Rounded.Edit, "补充", colors.onSurface, onSupplement)
         when (phase) {
             OverlayPhase.RUNNING -> CapsuleAction(Icons.Rounded.Pause, "暂停", colors.onSurface) { focus.pause() }
-            // 接管造成的暂停交还给 Claude；点了暂停的就继续
-            OverlayPhase.PAUSED -> CapsuleAction(Icons.Rounded.PlayArrow, "继续", colors.primary) {
-                if (focus.userControlling) focus.resumeAuto() else focus.resume()
-            }
+            // 点了暂停的就继续；接管着的交还给 Claude
+            OverlayPhase.PAUSED -> CapsuleAction(Icons.Rounded.PlayArrow, "继续", colors.primary) { focus.resume() }
+            OverlayPhase.CONTROLLING -> CapsuleAction(Icons.Rounded.PlayArrow, "交还给 Claude 继续", colors.primary) { focus.resumeAuto() }
             OverlayPhase.FINISHED -> Unit
         }
         CapsuleAction(Icons.Rounded.Stop, "停止", colors.error) { focus.stop() }
     }
 }
 
-/** 运行中是转动的弧形光点，暂停是静止的空心环，结束是实心点；只在运行时持有帧动画。 */
+/**
+ * 运行中是转动的弧形光点，暂停是静止的空心环（等你），接管是带光晕的触点（你在点），结束是实心点；
+ * 只在运行时持有帧动画。
+ */
 @Composable
 private fun PhaseIndicator(phase: OverlayPhase, accent: Color) {
     val size = 14.dp
@@ -352,10 +359,14 @@ private fun PhaseIndicator(phase: OverlayPhase, accent: Color) {
                 .size(size)
                 .drawBehind {
                     val radius = this.size.minDimension / 2f
-                    if (phase == OverlayPhase.PAUSED) {
-                        drawCircle(accent, radius * 0.78f, style = Stroke(radius * 0.32f))
-                    } else {
-                        drawCircle(accent, radius * 0.6f)
+                    when (phase) {
+                        OverlayPhase.PAUSED -> drawCircle(accent, radius * 0.78f, style = Stroke(radius * 0.32f))
+                        OverlayPhase.CONTROLLING -> {
+                            drawCircle(accent.copy(alpha = 0.22f), radius)
+                            drawCircle(accent, radius * 0.86f, style = Stroke(radius * 0.14f))
+                            drawCircle(accent, radius * 0.42f)
+                        }
+                        else -> drawCircle(accent, radius * 0.6f)
                     }
                 },
         )
@@ -539,19 +550,6 @@ private fun SupplementInput(value: String, onValueChange: (String) -> Unit, onCa
             )
         }
     }
-}
-
-@Composable
-private fun phaseAccent(phase: OverlayPhase): Color = when (phase) {
-    OverlayPhase.RUNNING -> MiuixTheme.colorScheme.primary
-    OverlayPhase.PAUSED -> Color(0xFFFF9F0A)
-    OverlayPhase.FINISHED -> Color(0xFF34C759)
-}
-
-private fun phaseLabel(phase: OverlayPhase) = when (phase) {
-    OverlayPhase.RUNNING -> "运行中"
-    OverlayPhase.PAUSED -> "已暂停"
-    OverlayPhase.FINISHED -> "已完成"
 }
 
 /** 订阅前就发生的触摸不补放。 */

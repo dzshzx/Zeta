@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.dzshzx.zeta.core.BackgroundStart
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
@@ -32,7 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, Notifications, NotificationHistory }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -60,6 +61,8 @@ internal data class PermissionSnapshot(
     val blockedChannels: List<String>,
     /** 系统的通知历史开没开；读不到时是 null。 */
     val notificationHistory: Boolean? = null,
+    /** MIUI 的“后台弹出界面”给没给；不是 MIUI、读不到时是 null（不列这一项）。 */
+    val backgroundStart: Boolean? = null,
 )
 
 /**
@@ -95,6 +98,7 @@ internal object PermissionHealth {
             notificationsGranted = granted,
             blockedChannels = blocked,
             notificationHistory = PersonalTools.notificationHistoryEnabled(context),
+            backgroundStart = BackgroundStart.allowed(context),
         )
     }
 
@@ -106,7 +110,7 @@ internal object PermissionHealth {
             else -> true
         }
         val checking = snapshot == null
-        return listOf(
+        return listOfNotNull(
             when (root) {
                 null -> PermissionItem(PermissionId.Root, "Root 权限", null, "检查中", PermissionStatus.Checking, false)
                 true -> PermissionItem(PermissionId.Root, "Root 权限", "进入 Linux 环境、经 root 执行命令和授予下面这些权限都靠它", "已授权", PermissionStatus.Ready, false)
@@ -161,6 +165,7 @@ internal object PermissionHealth {
                 )
                 else -> PermissionItem(PermissionId.Battery, "后台运行", "已加入电池优化白名单", "已允许", PermissionStatus.Ready, false)
             },
+            backgroundStartItem(snapshot, root),
             when {
                 checking -> PermissionItem(PermissionId.Notifications, "通知", null, "检查中", PermissionStatus.Checking, false)
                 !snapshot.notificationsGranted -> PermissionItem(
@@ -185,6 +190,21 @@ internal object PermissionHealth {
                 )
             },
         )
+    }
+
+    /** MIUI 的“后台弹出界面”：从胶囊点对话标题回到 Zeta 时要用它。不是 MIUI（读不到）就不列。 */
+    private fun backgroundStartItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem? {
+        val title = "后台弹出界面"
+        return when (snapshot?.backgroundStart) {
+            null -> if (snapshot == null) PermissionItem(PermissionId.BackgroundStart, title, null, "检查中", PermissionStatus.Checking, false) else null
+            true -> PermissionItem(PermissionId.BackgroundStart, title, "从胶囊上点对话标题时直接回到 Zeta", "已允许", PermissionStatus.Ready, false)
+            false -> PermissionItem(
+                PermissionId.BackgroundStart, title,
+                if (root == true) "MIUI 会拦下 Zeta 在后台打开自己的界面，从胶囊回到 Zeta 只能绕道 root，慢一些"
+                else "MIUI 会拦下 Zeta 在后台打开自己的界面，从胶囊点对话标题回不到 Zeta",
+                "未允许", if (root == true) PermissionStatus.Attention else PermissionStatus.Missing, root == true,
+            )
+        }
     }
 
     /**
@@ -213,6 +233,10 @@ internal object PermissionHealth {
                 )
                 snapshot(app).let { it.ignoringBatteryOptimizations && !it.backgroundRestricted }
             }
+            PermissionId.BackgroundStart -> {
+                runScript(BackgroundStart.GRANT_SCRIPT, pkg, user)
+                BackgroundStart.allowed(app) == true
+            }
             PermissionId.Notifications -> {
                 runScript(
                     "pm grant --user \"\$3\" \"\$2\" android.permission.POST_NOTIFICATIONS && " +
@@ -238,6 +262,8 @@ internal object PermissionHealth {
             PermissionId.Accessibility -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             // 系统的“电池优化”列表在各家 ROM 上入口不一，应用详情页里都能改
             PermissionId.Battery -> details
+            // MIUI 安全中心的“其他权限”页，里面有“后台弹出界面”；打不开时 PermissionScreen 退回应用详情页
+            PermissionId.BackgroundStart -> Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", pkg)
             // 权限没给和某类通知被关，都在应用的通知设置页里改
             PermissionId.Notifications -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
             PermissionId.NotificationHistory -> Intent("android.settings.NOTIFICATION_HISTORY")

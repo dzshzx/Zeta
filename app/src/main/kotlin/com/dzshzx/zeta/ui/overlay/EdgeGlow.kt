@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import com.dzshzx.zeta.phone.OverlayPhase
 import top.yukonga.miuix.kmp.squircle.addSquircleRect
 
@@ -35,16 +36,14 @@ private val EdgeLightColors = intArrayOf(
     0xFF7AB8FF.toInt(),
 )
 
-/** 暂停时的静止描边色（和 Eta 胶囊的“暂停”同色）。 */
-private const val PausedAccent = 0xFFFF9F0A.toInt()
-
 internal const val EdgeGlowFadeInMs = 420
 internal const val EdgeGlowFadeOutMs = 240
 
 /**
  * 主屏边缘光（照 Eta 的 AgentOverlayGlow）：
  * - RUNNING：沿屏幕圆角流动的细光带，外面一层柔光，告诉用户手机正被 Claude 操作；
- * - PAUSED：静止的淡色描边，任务还在、控制权暂回用户；
+ * - PAUSED：静止的橙色淡描边，任务还在、Claude 停下等你；
+ * - CONTROLLING：静止的紫色淡描边，你在接管（和胶囊上接管的颜色一样）；
  * - 其他阶段不画（窗口由 [EdgeGlowHost] 收起）。
  *
  * [visible] 控制淡入淡出；[hidden] 为截图兜底时立刻不画。[cornerRadius] 是屏幕的物理圆角半径（像素）。
@@ -102,7 +101,7 @@ internal fun EdgeGlow(phase: OverlayPhase, visible: Boolean, hidden: Boolean, co
             val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = 3f * density
-                color = PausedAccent
+                color = (if (phase == OverlayPhase.CONTROLLING) ControllingAccent else PausedAccent).toArgb()
             }
             onDrawBehind {
                 val alpha = if (hidden) 0f else reveal.value

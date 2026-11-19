@@ -1,5 +1,8 @@
 package com.dzshzx.zeta.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +35,12 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
     var result by remember { mutableStateOf<String?>(null) }
 
     fun openSettings(id: PermissionId) {
-        PermissionHealth.settingsIntent(context, id)?.let { runCatching { context.startActivity(it) } }
+        val intent = PermissionHealth.settingsIntent(context, id) ?: return
+        runCatching { context.startActivity(intent) }.onFailure {
+            // ROM 自带的设置页打不开（比如 MIUI 的权限页）：退回应用详情页
+            val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            runCatching { context.startActivity(details.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
     }
 
     fun onItemClick(item: PermissionItem) {
@@ -76,7 +84,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
             }
         }
         Group(
-            footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，授予通知权限，" +
+            footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，允许 MIUI 的后台弹出界面，授予通知权限，" +
                 "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史。没改成的那一项，点它会打开对应的系统设置。",
         ) {
             CouiPreference(

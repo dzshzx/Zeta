@@ -20,13 +20,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
  * Claude 在主屏上操作时沿屏幕边缘流动的光带（照 Eta）：全屏、触摸穿透，挂在 Zeta 的无障碍服务上。
  * 服务连上时 [attach]，断开时 [detach]。都在主线程上调用。
  *
- * 只在 `hub.overlayFocus` 最近一次操作在主屏、阶段是运行或暂停时挂上窗口；其余时候窗口整个移除，
+ * 只在 `hub.overlayFocus` 最近一次操作在主屏、阶段是运行、暂停或接管时挂上窗口；其余时候窗口整个移除，
  * 不占合成层，动画也随组合一起停掉。
  */
 object EdgeGlowHost {
@@ -70,10 +71,14 @@ object EdgeGlowHost {
         }
         scope = MainScope().also { scope ->
             scope.launch {
-                snapshotFlow {
+                val target = snapshotFlow {
                     val focus = hub.overlayFocus
                     if (focus == null || !focus.actingOnMain) null
-                    else focus.phase.takeIf { it == OverlayPhase.RUNNING || it == OverlayPhase.PAUSED }
+                    else focus.phase.takeIf { it == OverlayPhase.RUNNING || it.held }
+                }
+                // 锁屏、息屏时也收起（见 ScreenLock）
+                combine(target, ScreenLock.locked) { phase, _ ->
+                    phase.takeUnless { ScreenLock.hides(OverlayWindow.mainDisplay(service)) }
                 }.collect(::update)
             }
         }

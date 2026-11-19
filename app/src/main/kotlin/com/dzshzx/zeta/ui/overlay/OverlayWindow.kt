@@ -3,7 +3,6 @@ package com.dzshzx.zeta.ui.overlay
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.PixelFormat
-import android.hardware.display.DisplayManager
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
@@ -40,8 +39,8 @@ internal class OverlayWindow(
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
 
-    /** 窗口所在屏幕的 Context（宽高、密度、圆角都按这块屏算）。 */
-    val context: Context = displayContext(service, displayId) ?: service
+    /** 窗口所在屏幕的 Context（宽高、密度、圆角都按这块屏算）；同一块屏上的悬浮窗口共用一个，见 [OverlayDisplays]。 */
+    val context: Context = OverlayDisplays.context(service, displayId) ?: service
 
     // 找不到指定的屏（调试用的虚拟屏没了）就不显示，免得退到真屏上
     private val available = displayId == 0 || context !== service
@@ -104,13 +103,5 @@ internal class OverlayWindow(
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or flags,
                 PixelFormat.TRANSLUCENT,
             ).apply { this.gravity = gravity }
-
-        private fun displayContext(service: AccessibilityService, displayId: Int): Context? {
-            if (displayId == 0) return service
-            val display = service.getSystemService(DisplayManager::class.java)?.getDisplay(displayId) ?: return null
-            // 别的屏上要用 WindowContext 才能加无障碍浮层
-            return service.createDisplayContext(display)
-                .createWindowContext(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
-        }
     }
 }

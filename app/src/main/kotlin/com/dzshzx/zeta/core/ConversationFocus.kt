@@ -26,11 +26,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     override val title: String get() = conversation.title
 
     override val phase: OverlayPhase
-        get() = when {
-            finishing != null -> OverlayPhase.FINISHED
-            phone.userControlling || phone.paused -> OverlayPhase.PAUSED
-            else -> OverlayPhase.RUNNING
-        }
+        get() = OverlayPhase.of(finishing = finishing != null, controlling = phone.userControlling, paused = phone.paused)
 
     // 聊天记录在回答时每秒变二十几次，这两句只在结果真的变了时才让胶囊重组
     private val stepState = derivedStateOf { currentStep() }
@@ -70,14 +66,23 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
 
     override fun handoffToMain() = phone.handoffToMainByUser()
 
+    /**
+     * 有 MIUI 的“后台弹出界面”权限（或 Zeta 本来就在前台）就直接用 PendingIntent；确定没有就直接经 root 打开，
+     * 不先试一次、等它被悄悄拦下；读不到这项权限时才先试 PendingIntent，等一会儿还没到前台再经 root。
+     */
     override fun openInZeta() {
         val key = conversation.sessionId ?: conversation.key
         val display = hub.settings.phoneDisplay
-        MainActivity.openConversation(hub.context, key, display)
-        // 没有 MIUI 的“后台弹出界面”权限时上面那次会被悄悄拦下：等一会儿还没到前台，就经 root 拉起
+        val context = hub.context
+        val route = OpenRoute.choose(hub.foreground, BackgroundStart.allowed(context), root = hub.setup != SetupState.NoRoot)
+        if (route != OpenRoute.Root) MainActivity.openConversation(context, key, display)
+        if (route == OpenRoute.PendingIntent) return
         thread(name = "zeta-open", isDaemon = true) {
-            Thread.sleep(OPEN_FALLBACK_MS)
-            if (!hub.foreground) MainActivity.openConversationAsRoot(hub.context, key, display)
+            if (route == OpenRoute.PendingIntentThenRoot) {
+                Thread.sleep(OPEN_FALLBACK_MS)
+                if (hub.foreground) return@thread
+            }
+            MainActivity.openConversationAsRoot(context, key, display)
         }
     }
 

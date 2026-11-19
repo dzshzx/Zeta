@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -159,7 +158,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
 }
 
 /**
- * 画廊装裱式的展开画面：外框 28dp + 10dp 留白 + 内画框 18dp 的同心圆角。
+ * 画廊装裱式的展开画面：外框 28dp + 10dp 留白 + 内画框 18dp 的同心圆角；画布尺寸 [canvas] 由窗口那边算好。
  * 手指直接在画面上点按、滑动就是接管（Claude 的手机操作先等着），坐标按画面归一化后作用到后台屏幕；
  * 下面一行是应用名和模式，“接管 / 继续”与“全屏”。
  */
@@ -167,6 +166,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
 internal fun BackgroundStage(
     focus: OverlayFocus,
     screen: VirtualScreen,
+    canvas: StageSize,
     touch: TouchMark?,
     accent: Color,
     onTakeOver: () -> Unit,
@@ -176,9 +176,10 @@ internal fun BackgroundStage(
     val frame = screen.frames.collectAsState()
     val hasFrame by remember { derivedStateOf { frame.value != null } }
     val colors = MiuixTheme.colorScheme
-    val controlling = focus.userControlling || focus.phase == OverlayPhase.PAUSED
+    val phase = focus.phase
+    // 暂停（橙）和接管（紫）都描边、都显示“继续”，颜色和文字跟着阶段走，分得开
+    val held = phase.held
     val shape = RoundedCornerShape(StageCanvasCorner)
-    val ratio = if (screen.width > 0 && screen.height > 0) (screen.width / screen.height.toFloat()).coerceIn(0.38f, 0.75f) else 9f / 19.5f
     val view = LocalView.current
     val placement = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val currentFocus by rememberUpdatedState(focus)
@@ -193,12 +194,12 @@ internal fun BackgroundStage(
     ) {
         Box(
             modifier = Modifier
-                .height(StageCanvasHeight)
-                .aspectRatio(ratio, matchHeightConstraintsFirst = true)
+                // 尺寸按后台屏幕的比例和屏幕剩下的高度算好（横屏时收小），画面不变形
+                .size(canvas.width.dp, canvas.height.dp)
                 .onGloballyPositioned { placement[0] = it }
                 .clip(shape)
                 .background(colors.surfaceContainerHigh)
-                .border(0.75.dp, if (controlling) accent.copy(alpha = 0.42f) else colors.onSurface.copy(alpha = 0.08f), shape)
+                .border(if (held) 1.dp else 0.75.dp, if (held) accent.copy(alpha = 0.55f) else colors.onSurface.copy(alpha = 0.08f), shape)
                 .pointerInput(screen) {
                     val slop = viewConfiguration.touchSlop
                     val longPressMs = viewConfiguration.longPressTimeoutMillis
@@ -256,11 +257,11 @@ internal fun BackgroundStage(
                 .padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val mode = if (controlling) "手动接管中" else "后台画布"
+            val mode = stageModeLabel(phase)
             val app = focus.appName
             Text(
                 text = if (!app.isNullOrBlank()) "$app · $mode" else mode,
-                color = colors.onSurfaceVariantSummary,
+                color = if (held) accent else colors.onSurfaceVariantSummary,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -268,10 +269,10 @@ internal fun BackgroundStage(
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(8.dp))
-            StagePill(label = if (controlling) "继续" else "接管", highlighted = controlling, accent = accent) {
-                when {
-                    focus.userControlling -> focus.resumeAuto()
-                    focus.phase == OverlayPhase.PAUSED -> focus.resume()
+            StagePill(label = if (held) "继续" else "接管", highlighted = held, accent = accent) {
+                when (phase) {
+                    OverlayPhase.CONTROLLING -> focus.resumeAuto()
+                    OverlayPhase.PAUSED -> focus.resume()
                     else -> onTakeOver()
                 }
             }
@@ -451,4 +452,3 @@ private const val HandoffHoldMs = 450L
 
 private val LensCorner = 6.dp
 private val StageCanvasCorner = 18.dp
-private val StageCanvasHeight = 336.dp

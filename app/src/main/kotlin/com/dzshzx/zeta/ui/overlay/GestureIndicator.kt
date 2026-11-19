@@ -12,7 +12,6 @@ import android.graphics.Path
 import android.graphics.PathMeasure
 import android.graphics.PixelFormat
 import android.graphics.RectF
-import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -35,8 +34,6 @@ internal object GestureIndicator {
     private val main = Handler(Looper.getMainLooper())
     /** 主线程上用：正在放的那个指示。新手势来了先收掉旧的。 */
     private var active: Active? = null
-    /** 非 0 号屏上加无障碍浮层要用 WindowContext；同一块屏复用一个（主线程上用）。 */
-    private var displayContext: Pair<Int, Context>? = null
 
     /** 指示预计放完的时刻；截图据此判断要不要把悬浮层排除掉。 */
     @Volatile
@@ -59,7 +56,7 @@ internal object GestureIndicator {
         val totalMs = if (swipe) durationMs.coerceAtLeast(MIN_SWIPE_MS) + SWIPE_FADE_MS else POP_IN_MS + holdMs + FADE_OUT_MS
         visibleUntil = maxOf(visibleUntil, SystemClock.uptimeMillis() + totalMs + 200)
         main.post {
-            val context = contextFor(service, displayId) ?: return@post
+            val context = OverlayDisplays.context(service, displayId) ?: return@post
             val windowManager = context.getSystemService(WindowManager::class.java) ?: return@post
             if (swipe) {
                 attach(windowManager, SwipeIndicatorView(context, copy, durationMs), params(WindowManager.LayoutParams.MATCH_PARENT, 0, 0))
@@ -80,23 +77,10 @@ internal object GestureIndicator {
         main.post { active?.let(::finish) }
     }
 
-    /** 服务断开：收掉指示，放掉缓存的 WindowContext。在主线程上调用。 */
+    /** 服务断开：收掉指示。在主线程上调用。 */
     fun release() {
         visibleUntil = 0L
         active?.let(::finish)
-        displayContext = null
-    }
-
-    private fun contextFor(service: AccessibilityService, displayId: Int): Context? {
-        if (displayId == 0) return service
-        displayContext?.takeIf { it.first == displayId }?.let { return it.second }
-        val display = service.getSystemService(DisplayManager::class.java)?.getDisplay(displayId) ?: return null
-        val context = runCatching {
-            service.createDisplayContext(display)
-                .createWindowContext(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
-        }.getOrNull() ?: return null
-        displayContext = displayId to context
-        return context
     }
 
     private fun params(size: Int, x: Int, y: Int) = WindowManager.LayoutParams(

@@ -23,8 +23,10 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.dzshzx.zeta.ui.overlay.EdgeGlowHost
 import com.dzshzx.zeta.ui.overlay.GestureIndicator
+import com.dzshzx.zeta.ui.overlay.OverlayDisplays
 import com.dzshzx.zeta.ui.overlay.OverlayHost
 import com.dzshzx.zeta.ui.overlay.OverlayWindow
+import com.dzshzx.zeta.ui.overlay.ScreenLock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -45,7 +47,8 @@ class ZetaAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
-        // 顶部状态胶囊和主屏边缘光都挂在这个服务上
+        // 顶部状态胶囊和主屏边缘光都挂在这个服务上；锁屏时收起，先把锁屏状态备好
+        ScreenLock.attach(this)
         OverlayHost.attach(this)
         EdgeGlowHost.attach(this)
     }
@@ -67,6 +70,8 @@ class ZetaAccessibilityService : AccessibilityService() {
         OverlayHost.detach()
         EdgeGlowHost.detach()
         GestureIndicator.release()
+        OverlayDisplays.release()
+        ScreenLock.detach()
         synchronized(yieldLock) {
             yieldHolds = 0
             main.removeCallbacks(restoreCapsule)
