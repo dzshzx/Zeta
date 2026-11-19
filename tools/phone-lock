@@ -1,34 +1,72 @@
 #!/bin/bash
 # 手机测试的租约，按包发：
-#   dev   测试版 com.dzshzx.zeta.dev，同时只给一个人（真机测试走 tools/phone-run 排队，一般不用直接调）
+#   dev   测试版 com.dzshzx.zeta.dev，同时只给一个 phone-run（真机测试走 tools/phone-run 排队，一般不用直接调）
 #   main  正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd.py 不带 --dev 时）
 # 已经占着的再要就续租。tools/install.sh 和 tools/vd.py 在工作站上每次碰手机前都调它，拿不到就以退出码 75 失败。
 # 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
+# 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
+# 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。
 # 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话。
 set -euo pipefail
 owner=${ZETA_PHONE_OWNER:-main}
+ticket=${ZETA_PHONE_TICKET:-}
 dir=${XDG_RUNTIME_DIR:-/tmp}
 ttl=900
+queue=$dir/zeta-phone.queue
 file() { case $1 in main) echo "$dir/zeta-phone-main.lease" ;; *) echo "$dir/zeta-phone.lease" ;; esac; }
 exec 9>"$dir/zeta-phone.lease.lock"
 flock 9
 now=$(date +%s)
-holder() { # 打印租约 $1 的有效占用者，没有或过期就空
-  local h= s=0
-  [[ -f $(file "$1") ]] && read -r h s <"$(file "$1")"
-  if [[ -n $h ]] && ((now - s < ttl)); then echo "$h"; fi
+h='' hpid=''
+read_holder() { # 租约 $1 的有效占用者 h 和拿到它的 phone-run 进程号 hpid，没有或过期就空
+  local s=0
+  h='' hpid=''
+  [[ -f $(file "$1") ]] && read -r h s hpid <"$(file "$1")"
+  ((now - s < ttl)) || h='' hpid=''
+  # 拿着它的 phone-run 已经不在了（被强行结束、没来得及释放）：马上作废，不等 15 分钟
+  if [[ -n $hpid ]] && ! alive "$hpid"; then h='' hpid=''; fi
 }
+alive() { [[ -n $1 ]] && kill -0 "$1" 2>/dev/null; }
+# 租约在同一个占用者的另一个还活着的 phone-run 手里
+other_run() { [[ -n $hpid && $hpid != "$ticket" ]] && alive "$hpid"; }
 
 case ${1:-dev} in
   --release)
-    for k in main dev; do [[ $(holder "$k") == "$owner" ]] && rm -f "$(file "$k")"; done
+    for k in main dev; do
+      read_holder "$k"
+      if [[ $h == "$owner" ]] && ! other_run; then rm -f "$(file "$k")"; fi
+    done
     exit 0 ;;
   main | dev)
-    h=$(holder "$1")
-    if [[ -n $h && $h != "$owner" ]]; then
-      echo "$([[ $1 == main ]] && echo 正式版 || echo 测试版)正被 $h 占用；先做别的，稍后再试" >&2
+    read_holder "$1"
+    name=$([[ $1 == main ]] && echo 正式版 || echo 测试版)
+    if [[ $h == "$owner" ]] && ! other_run; then # 自己占着：续租
+      echo "$owner $now ${hpid:-$ticket}" >"$(file "$1")"
+      exit 0
+    fi
+    first_pid='' first_owner='' ahead=0
+    if [[ $1 == dev ]]; then
+      # 先领号再看轮没轮到：手机被占着时来的也按到达顺序排
+      touch "$queue"
+      while read -r p o t; do if alive "$p"; then echo "$p $o $t"; fi; done <"$queue" >"$queue.tmp"
+      mv "$queue.tmp" "$queue"
+      if [[ -n $ticket ]] && ! grep -q "^$ticket " "$queue"; then echo "$ticket $owner $now" >>"$queue"; fi
+      read -r first_pid first_owner _ <"$queue" || true
+      ahead=$(awk -v t="$ticket" '$1 == t { print NR - 1; f = 1 } END { if (!f) print NR }' "$queue")
+    fi
+    if [[ -n $h ]]; then
+      who=$([[ $h == "$owner" ]] && echo "你（$owner）的另一个 phone-run" || echo "$h")
+      echo "${name}正被${who}占用$([[ $1 == dev ]] && echo "，你前面还有 $ahead 个在排队")；先做别的，稍后再试" >&2
       exit 75
     fi
-    echo "$owner $now" >"$(file "$1")" ;;
+    if [[ -n $first_pid && $first_pid != "$ticket" ]]; then
+      echo "测试版在排队：你前面还有 $ahead 个，最前面是 $first_owner" >&2
+      exit 75
+    fi
+    if [[ -n $ticket && $1 == dev ]]; then
+      grep -v "^$ticket " "$queue" >"$queue.tmp" || true
+      mv "$queue.tmp" "$queue"
+    fi
+    echo "$owner $now $ticket" >"$(file "$1")" ;;
   *) echo "用法：tools/phone-lock [dev|main|--release]" >&2; exit 2 ;;
 esac
