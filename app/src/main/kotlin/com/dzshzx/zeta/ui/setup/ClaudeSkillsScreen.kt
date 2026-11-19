@@ -32,6 +32,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiIcon
 import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
 import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults

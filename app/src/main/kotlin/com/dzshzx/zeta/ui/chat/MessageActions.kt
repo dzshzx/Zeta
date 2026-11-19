@@ -43,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
@@ -55,6 +54,7 @@ import com.dzshzx.zeta.core.SessionImage
 import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.itos.coui.menu.CouiMenuItem
 import com.itos.coui.shape.CouiShape
@@ -141,7 +141,7 @@ internal class MessageActions(
         input.setTextAndPlaceCursorAtEnd(turn.user.text)
         attachments.clear()
         uploads.clear()
-        for (path in turn.user.files) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(path)).also { it.path = path })
+        turn.user.files.forEach(uploads::addPath)
         val images = turn.user.images
         if (images.isNotEmpty()) scope.launch {
             val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, it) } }
@@ -298,9 +298,7 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
 internal fun MessageActionDialogs(actions: MessageActions) {
     val pending = actions.confirm
     // 对话框收起的动画里还要显示原来的文字
-    val shown = remember { arrayOfNulls<PendingConfirm>(1) }
-    if (pending != null) shown[0] = pending
-    val last = shown[0]
+    val last = rememberRetained(pending)
     val later = last?.turn?.laterTurns ?: 0
     CouiConfirmDialog(
         visible = pending != null,

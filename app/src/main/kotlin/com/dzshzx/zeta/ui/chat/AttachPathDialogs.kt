@@ -50,6 +50,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiIcon
 import com.dzshzx.zeta.ui.components.coui.CouiTextField
 import com.itos.coui.layout.CouiPageDefaults
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -173,16 +174,17 @@ private fun FolderAttachDialog(
         val path = SharedFolders.fromTreeUri(uri)
         if (path == null) browser.error = "只支持内部存储里的文件夹，其他位置请输入路径" else browser.navigate(path)
     }
-    // 换了目录：列子文件夹，再看它在 Linux 里叫什么、对话的 Claude Code 看不看得到
+    // 换了目录：列子文件夹，同时看它在 Linux 里叫什么、对话的 Claude Code 看不看得到（两件事各起一个 root shell，互不相干）
     LaunchedEffect(visible, browser, browser.path) {
         if (!visible) return@LaunchedEffect
         browser.entries = null
         browser.resolution = Resolution.Checking
         val path = browser.path
+        val resolving = async(Dispatchers.IO) { resolveFolder(hub, conversation, path) }
         val found = withContext(Dispatchers.IO) { SharedFolders.subfolders(path) }
         browser.entries = found.orEmpty()
         browser.browseError = if (found == null) "无法打开该目录" else null
-        browser.resolution = withContext(Dispatchers.IO) { resolveFolder(hub, conversation, path) }
+        browser.resolution = resolving.await()
     }
     val resolution = browser.resolution
     val idle = conversation.canRestart()

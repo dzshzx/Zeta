@@ -24,9 +24,6 @@ import com.dzshzx.zeta.ui.components.coui.CouiButton
 import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.theme.CouiTheme
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -75,10 +72,6 @@ internal fun confirmedDeletion(prompt: DeletePrompt?, isActive: (String) -> Bool
 /** 几个会话导出到一个 Markdown 文件：各自的导出照原样，中间用分隔线隔开。 */
 internal fun combineExports(parts: List<ExportedMarkdown>): String =
     parts.joinToString("\n---\n\n") { it.markdown.trimEnd() + "\n" }
-
-/** 多个会话一起导出时的文件名：Zeta-N个对话-年月日-时分.md。 */
-internal fun batchExportFileName(count: Int, now: Long = System.currentTimeMillis()): String =
-    "Zeta-${count}个对话-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(now)) + ".md"
 
 /** 多选时的顶部：退出多选、已选几个、全选 / 全不选。 */
 @Composable

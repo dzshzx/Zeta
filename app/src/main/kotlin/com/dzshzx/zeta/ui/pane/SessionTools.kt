@@ -125,8 +125,11 @@ internal fun exportMarkdowns(hub: ConversationHub, files: List<String>): List<Ex
 private val FileNameUnsafe = Regex("[\\\\/:*?\"<>|\\p{C}]")
 private val Whitespace = Regex("\\s+")
 
-/** 导出文件的默认名字，照 Eta：Zeta-标题-年月日-时分.md。 */
-internal fun exportFileName(title: String, now: Long = System.currentTimeMillis()): String {
+/**
+ * 导出文件的默认名字，照 Eta：Zeta-标题-年月日-时分.md。几个会话一起导出时标题写“N个对话”，
+ * 设置备份写“设置”、扩展名 json。
+ */
+internal fun exportFileName(title: String, now: Long = System.currentTimeMillis(), extension: String = "md"): String {
     val clean = title.replace(Whitespace, " ").replace(FileNameUnsafe, "").trim().take(40).trim().ifBlank { "对话" }
-    return "Zeta-$clean-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(now)) + ".md"
+    return "Zeta-$clean-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(now)) + "." + extension
 }

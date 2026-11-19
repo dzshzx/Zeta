@@ -81,6 +81,7 @@ import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.coui.CouiHint
 import com.dzshzx.zeta.ui.components.coui.CouiGroupItem
 import com.dzshzx.zeta.ui.components.coui.CouiLazyScaffoldPage
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
@@ -322,9 +323,9 @@ private fun LazyListScope.browserItems(
     }
     when (listing) {
         null -> item(key = "loading") { Loading() }
-        is LinuxListing.Failed -> item(key = "error") { Hint(listing.message, error = true) }
+        is LinuxListing.Failed -> item(key = "error") { CouiHint(listing.message, error = true) }
         is LinuxListing.Entries -> {
-            if (entries.isEmpty()) item(key = "empty") { Hint("该目录为空") }
+            if (entries.isEmpty()) item(key = "empty") { CouiHint("该目录为空") }
             // 名字里有非 UTF-8 字节的会被替换成同样的字符，可能重名，键里带上序号
             itemsIndexed(entries, key = { index, entry -> "e$index:" + entry.name }) { index, entry ->
                 val target = LinuxFiles.child(path, entry.name)
@@ -338,7 +339,7 @@ private fun LazyListScope.browserItems(
                     onExport = if (entry.regular) ({ onExport(target, entry) }) else null,
                 )
             }
-            if (listing.truncated) item(key = "truncated") { Hint("只列出了前 ${entries.size} 项（共 ${listing.total} 项）") }
+            if (listing.truncated) item(key = "truncated") { CouiHint("只列出了前 ${entries.size} 项（共 ${listing.total} 项）") }
         }
     }
 }
@@ -361,7 +362,7 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
     if (LinuxFiles.isImage(shown.entry.name)) {
         item(key = "image") {
             if (shown.entry.size > LinuxFiles.MAX_PREVIEW_IMAGE) {
-                Hint("图片太大，无法预览，可以导出到手机查看")
+                CouiHint("图片太大，无法预览，可以导出到手机查看")
             } else {
                 // 与聊天里的图片同一套载入和缓存，点一下全屏查看
                 ChatImage(FileImage(shown.path), modifier = Modifier.padding(horizontal = 16.dp))
@@ -371,12 +372,12 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
     }
     when (content) {
         null -> item(key = "loading") { Loading() }
-        is LinuxPreview.Failed -> item(key = "error") { Hint(content.message, error = true) }
-        is LinuxPreview.Binary -> item(key = "binary") { Hint("二进制文件，无法预览，可以导出到手机查看") }
+        is LinuxPreview.Failed -> item(key = "error") { CouiHint(content.message, error = true) }
+        is LinuxPreview.Binary -> item(key = "binary") { CouiHint("二进制文件，无法预览，可以导出到手机查看") }
         is LinuxPreview.Text -> {
-            if (content.truncated) item(key = "truncated") { Hint("内容较大，只显示开头 ${LinuxFiles.PREVIEW_BYTES / 1024} KB") }
+            if (content.truncated) item(key = "truncated") { CouiHint("内容较大，只显示开头 ${LinuxFiles.PREVIEW_BYTES / 1024} KB") }
             val parts = chunks(content.text)
-            if (parts.isEmpty()) item(key = "blank") { Hint("空文件") }
+            if (parts.isEmpty()) item(key = "blank") { CouiHint("空文件") }
             itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
                 TextSlice(part, isFirst = index == 0, isLast = index == parts.lastIndex)
             }
@@ -569,14 +570,4 @@ private fun Loading() {
     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
         InfiniteProgressIndicator(size = 24.dp)
     }
-}
-
-@Composable
-private fun Hint(text: String, error: Boolean = false) {
-    Text(
-        text = text,
-        style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp, lineHeight = 19.sp),
-        color = if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 12.dp),
-    )
 }

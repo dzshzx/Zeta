@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +42,7 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.plainTerminalText
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.ui.components.EtaMonospace
@@ -53,7 +53,8 @@ import com.dzshzx.zeta.ui.components.coui.CouiPreference
 import com.dzshzx.zeta.ui.components.coui.CouiScaffoldPage
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarTextButton
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
-import com.dzshzx.zeta.ui.setup.rememberRetained
+import com.dzshzx.zeta.ui.components.rememberNow
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.layout.Group
 import com.itos.coui.shape.CouiShape
 import com.itos.coui.theme.CouiTheme
@@ -88,12 +89,6 @@ private data class TaskRef(val conversation: String, val task: String)
  */
 @Composable
 internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: () -> Unit, onOpenConversation: (String) -> Unit) {
-    val now by produceState(System.currentTimeMillis()) {
-        while (true) {
-            delay(1000)
-            value = System.currentTimeMillis()
-        }
-    }
     val live = hub.liveConversations
     val all = scope == AllConversations
     val shown = if (all) live else live.filter { it.key == scope }
@@ -137,18 +132,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
                 title = if (all) c.label() + if (current) "（当前对话）" else "" else c.label(),
                 footer = if (index == withTasks.lastIndex) ListFooter else null,
             ) {
-                c.tasks.list.forEach { task ->
-                    CouiPreference(
-                        title = TaskLabels.title(task),
-                        summary = TaskLabels.summary(task, now),
-                        summaryColor = when {
-                            task.state == TaskState.Failed -> StatusError
-                            task.running -> MiuixTheme.colorScheme.primary
-                            else -> Color.Unspecified
-                        },
-                        onClick = { viewing = TaskRef(c.key, task.id) },
-                    )
-                }
+                c.tasks.list.forEach { task -> TaskRow(task, onClick = { viewing = TaskRef(c.key, task.id) }) }
             }
         }
     }
@@ -164,14 +148,42 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
                 Group { CouiPreference(title = "这个任务已经不在了", enabled = false, showChevron = false) }
             }
         } else {
-            TaskDetail(conversation, task, now, onBack = { viewing = null }, onOpenConversation = { onOpenConversation(conversation.openKey()) })
+            TaskDetail(conversation, task, onBack = { viewing = null }, onOpenConversation = { onOpenConversation(conversation.openKey()) })
         }
     }
 }
 
+/**
+ * 算“已运行”用的现在：没结束的任务每秒走一次，结束了的用不到（用时按结束时刻算）。
+ * 只在显示用时的那一行里调用，免得整页每秒重组。
+ */
+@Composable
+private fun elapsedNow(task: BackgroundTask): Long = task.endedAt ?: rememberNow(1_000)
+
+/** 列表里的一个任务。 */
+@Composable
+private fun TaskRow(task: BackgroundTask, onClick: () -> Unit) {
+    CouiPreference(
+        title = TaskLabels.title(task),
+        summary = TaskLabels.summary(task, elapsedNow(task)),
+        summaryColor = when {
+            task.state == TaskState.Failed -> StatusError
+            task.running -> MiuixTheme.colorScheme.primary
+            else -> Color.Unspecified
+        },
+        onClick = onClick,
+    )
+}
+
+/** 详情里的“已运行”或“用时”。 */
+@Composable
+private fun ElapsedRow(task: BackgroundTask) {
+    CouiPreference(title = if (task.running) "已运行" else "用时", value = formatElapsed(task.elapsedMs(elapsedNow(task))), showChevron = false)
+}
+
 /** 一个任务：说明、状态、命令、输出（或子代理的进展和报告），运行中可以停掉。 */
 @Composable
-private fun TaskDetail(conversation: Conversation, task: BackgroundTask, now: Long, onBack: () -> Unit, onOpenConversation: () -> Unit) {
+private fun TaskDetail(conversation: Conversation, task: BackgroundTask, onBack: () -> Unit, onOpenConversation: () -> Unit) {
     var confirmStop by remember { mutableStateOf(false) }
     // 运行中每两秒读一次输出；结束时（running 变了，重新启动）再读最后一次
     LaunchedEffect(conversation, task.id, task.running) {
@@ -197,7 +209,7 @@ private fun TaskDetail(conversation: Conversation, task: BackgroundTask, now: Lo
                 },
                 showChevron = false,
             )
-            CouiPreference(title = if (task.running) "已运行" else "用时", value = com.dzshzx.zeta.core.formatElapsed(task.elapsedMs(now)), showChevron = false)
+            ElapsedRow(task)
             if (task.kind == TaskKind.Agent) {
                 task.agentType?.let { CouiPreference(title = "子代理类型", value = it, showChevron = false) }
                 task.toolUses?.let { CouiPreference(title = "工具调用", value = "$it 次", showChevron = false) }
@@ -219,7 +231,8 @@ private fun TaskDetail(conversation: Conversation, task: BackgroundTask, now: Lo
         task.command?.let { TextBlock(title = if (task.kind == TaskKind.Agent) "交给它的指令" else "命令", text = it, mono = task.kind != TaskKind.Agent) }
         task.summary?.let { TextBlock(title = if (task.kind == TaskKind.Agent) "报告" else "结果", text = it) }
         if (task.readable) {
-            val text = output?.let { plainTerminalText(it.text).trimEnd() }
+            // 输出最多 8 KiB，去控制符只在它变了时做，不随别的重组重做
+            val text = remember(output?.text) { output?.let { plainTerminalText(it.text).trimEnd() } }
             TextBlock(
                 title = output?.takeIf { it.error == null }?.let { TaskLabels.outputHeader(it.totalBytes, it.truncated) } ?: "输出",
                 text = when {

@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.settings
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -34,15 +35,6 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
     var granting by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<String?>(null) }
 
-    fun openSettings(id: PermissionId) {
-        val intent = PermissionHealth.settingsIntent(context, id) ?: return
-        runCatching { context.startActivity(intent) }.onFailure {
-            // ROM 自带的设置页打不开（比如 MIUI 的权限页）：退回应用详情页
-            val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-            runCatching { context.startActivity(details.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        }
-    }
-
     fun onItemClick(item: PermissionItem) {
         when (item.id) {
             // 重新检查时会再调一次 su，没授权过的话 root 管理器会在这时弹出询问
@@ -53,13 +45,11 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
                 item.rootFixable -> {
                     working = working + item.id
                     scope.launch {
-                        val ok = withContext(Dispatchers.IO) { runCatching { PermissionHealth.fixWithRoot(context, item.id) }.getOrDefault(false) }
+                        fixPermission(context, item.id, tryRoot = true)
                         working = working - item.id
-                        // root 也没改成：退回到系统设置页，让用户自己开
-                        if (!ok) openSettings(item.id)
                     }
                 }
-                else -> openSettings(item.id)
+                else -> openPermissionSettings(context, item.id)
             }
         }
     }
@@ -116,6 +106,21 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
         }
         CouiPageBottomSpacer()
     }
+}
+
+/** 打开系统设置里管 [id] 的那一页；ROM 自带的设置页打不开（比如 MIUI 的权限页）时退回应用详情页。 */
+internal fun openPermissionSettings(context: Context, id: PermissionId) {
+    val intent = PermissionHealth.settingsIntent(context, id) ?: return
+    runCatching { context.startActivity(intent) }.onFailure {
+        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        runCatching { context.startActivity(details.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+}
+
+/** 修一项权限：[tryRoot] 时先经 root 直接改，没改成（或不试 root）就打开系统设置让用户自己开。 */
+internal suspend fun fixPermission(context: Context, id: PermissionId, tryRoot: Boolean) {
+    val ok = tryRoot && withContext(Dispatchers.IO) { runCatching { PermissionHealth.fixWithRoot(context, id) }.getOrDefault(false) }
+    if (!ok) openPermissionSettings(context, id)
 }
 
 /** 这一项点了有没有事可做。 */

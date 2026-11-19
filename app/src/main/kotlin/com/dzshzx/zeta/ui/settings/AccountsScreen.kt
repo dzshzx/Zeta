@@ -23,7 +23,7 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
-import com.dzshzx.zeta.ui.chat.rememberNow
+import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog

@@ -21,6 +21,9 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /** 诊断页上的一行：名字和值。 */
 internal data class InfoLine(val label: String, val value: String)
@@ -105,10 +108,12 @@ internal object Diagnostics {
     /**
      * 导出诊断包：环境与权限、运行日志、本应用的 logcat、Claude Code 那边的错误输出和调试日志（各取最后 64 KB），
      * 打码后打成一个 zip 写进 [uri]（系统“保存到”给的位置）。返回包里有几个文件；失败抛异常。
+     * [known] 是诊断页上已经查到的环境信息，有就不再进环境查一遍。logcat 和进 Linux 环境的几次查询同时跑。
      */
-    fun export(context: Context, hub: ConversationHub, uri: Uri): Int {
+    suspend fun export(context: Context, hub: ConversationHub, uri: Uri, known: LinuxProbe? = null): Int = coroutineScope {
+        val logcat = async(Dispatchers.IO) { logcat() }
         val zone = ZoneId.systemDefault()
-        val probe = probe(hub)
+        val probe = known ?: probe(hub)
         val snapshot = runCatching { PermissionHealth.snapshot(context.applicationContext) }.getOrNull()
         val info = buildString {
             append("Zeta 诊断包\n导出时间：").append(DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(ZonedDateTime.now(zone))).append("\n\n")
@@ -121,7 +126,7 @@ internal object Diagnostics {
         }
         val log = DiagLog.entries().joinToString("\n") { DiagEntries.format(it, zone) }
         val tails = probe?.let { tails(hub, it.files) }.orEmpty()
-        val files = DiagBundle.files(info, log, logcat(), tails)
+        val files = DiagBundle.files(info, log, logcat.await(), tails)
         val stream = context.contentResolver.openOutputStream(uri, "wt") ?: error("打不开要保存的文件")
         ZipOutputStream(stream.buffered()).use { zip ->
             for ((name, text) in files) {
@@ -130,7 +135,7 @@ internal object Diagnostics {
                 zip.closeEntry()
             }
         }
-        return files.size
+        files.size
     }
 
     /** 一次进环境把这些文件的尾部都取回来。 */

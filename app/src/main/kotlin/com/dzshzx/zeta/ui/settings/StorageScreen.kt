@@ -36,7 +36,7 @@ import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
-import com.dzshzx.zeta.ui.setup.rememberRetained
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.layout.Group
 import java.io.File
 import java.text.SimpleDateFormat
@@ -102,12 +102,7 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
     LaunchedEffect(reloads) {
         view = view.copy(ready = ready, scanning = true, phone = Storage.phoneSpace(), imageMemory = ImageStore.memoryBytes())
         val keep = Storage.keepIds(hub)
-        val cache = withContext(Dispatchers.IO) {
-            val (total, freeable) = AndroidCache.scan(context.cacheDir)
-            val web = AndroidCache.measure(File(context.cacheDir, AndroidCache.WEBVIEW).toPath()).bytes
-            StorageUsage(total, freeable + web, if (freeable + web > 0) 1 else 0)
-        }
-        view = view.copy(appCache = cache)
+        view = view.copy(appCache = scanAppCache(context))
         if (ready) {
             val result = withContext(Dispatchers.IO) { Storage.scan(hub, keep) }
             view = view.copy(report = result ?: view.report, scanFailed = result == null)
@@ -143,7 +138,12 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
             view = view.copy(cleaning = null)
             val text = Storage.outcomeText(kind, outcome)
             if (outcome.error != null) notice = ConfigNotice("没有清理成", text) else Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-            reloads++
+            // Android 一侧的两类只重算这两行；Linux 一侧的清完整个重扫
+            if (kind.inLinux) {
+                reloads++
+            } else {
+                view = view.copy(appCache = scanAppCache(context), imageMemory = ImageStore.memoryBytes(), phone = Storage.phoneSpace())
+            }
         }
     }
 
@@ -175,6 +175,13 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
             ProjectSessionsScreen(hub = hub, project = item, onBack = { project = null }, onRevealSession = onRevealSession)
         }
     }
+}
+
+/** 应用缓存目录（含内置浏览器的网页缓存）占多少、能清掉多少。 */
+private suspend fun scanAppCache(context: Context): StorageUsage = withContext(Dispatchers.IO) {
+    val (total, freeable) = AndroidCache.scan(context.cacheDir)
+    val web = AndroidCache.measure(File(context.cacheDir, AndroidCache.WEBVIEW).toPath()).bytes
+    StorageUsage(total, freeable + web, if (freeable + web > 0) 1 else 0)
 }
 
 /** 存储页本身（不取数据，截图测试直接给它数据）。 */

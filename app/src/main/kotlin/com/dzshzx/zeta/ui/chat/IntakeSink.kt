@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.dzshzx.zeta.core.Attachment
@@ -23,6 +22,7 @@ import com.dzshzx.zeta.core.Uploads
 import com.dzshzx.zeta.core.dropIntake
 import com.dzshzx.zeta.core.intakeTarget
 import com.dzshzx.zeta.core.placeIntake
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
 import java.time.LocalDateTime
@@ -161,10 +161,11 @@ internal class IntakeSink(
 internal fun IntakeProblemsDialog(sink: IntakeSink) {
     val problems = sink.problems
     // 关闭的动画里内容已经清空：留着上一次的说明
-    val stash = remember { arrayOfNulls<String>(1) }
-    val message = problems.takeIf { it.isNotEmpty() }?.let { list ->
-        list.joinToString("\n") { "$it。" } + if (sink.rejectedLarge) "\n\n$TooLargeAdvice" else ""
-    }?.also { stash[0] = it } ?: stash[0]
+    val message = rememberRetained(
+        problems.takeIf { it.isNotEmpty() }?.let { list ->
+            list.joinToString("\n") { "$it。" } + if (sink.rejectedLarge) "\n\n$TooLargeAdvice" else ""
+        },
+    )
     CouiNoticeDialog(
         visible = problems.isNotEmpty(),
         title = "有些内容没有加进来",
@@ -183,13 +184,14 @@ private const val TooLargeAdvice = "太大的文件复制进 Linux 要多占一�
 @Composable
 internal fun IntakeChooser(hub: ConversationHub) {
     val pending = hub.pendingIntake
-    val stash = remember { arrayOfNulls<String>(1) }
-    val message = pending?.let {
-        val summary = it.summary
-        val title = hub.intakeTarget()?.title?.trim()?.ifBlank { null }
-        "收到" + (if (summary.first().isDigit()) " " else "") + summary + "。" +
-            (if (title != null) "接着「$title」，还是开一个新对话？" else "接着刚才的对话，还是开一个新对话？")
-    }?.also { stash[0] = it } ?: stash[0]
+    val message = rememberRetained(
+        pending?.let {
+            val summary = it.summary
+            val title = hub.intakeTarget()?.title?.trim()?.ifBlank { null }
+            "收到" + (if (summary.first().isDigit()) " " else "") + summary + "。" +
+                (if (title != null) "接着「$title」，还是开一个新对话？" else "接着刚才的对话，还是开一个新对话？")
+        },
+    )
     CouiConfirmDialog(
         visible = pending != null,
         title = "放进哪个对话",

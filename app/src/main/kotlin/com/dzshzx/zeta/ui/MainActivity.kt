@@ -27,7 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import com.dzshzx.zeta.ui.components.rememberRetained
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
@@ -167,43 +167,22 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     var paneOpen by rememberSaveable { mutableStateOf(false) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
-    var showLinux by rememberSaveable { mutableStateOf(false) }
-    var showInstall by rememberSaveable { mutableStateOf(false) }
-    var showLogin by rememberSaveable { mutableStateOf(false) }
-    var showPhone by rememberSaveable { mutableStateOf(false) }
-    var showSsh by rememberSaveable { mutableStateOf(false) }
-    // 后台任务面板：对话的 key（只看它的），或 AllConversations
-    var tasksScope by rememberSaveable { mutableStateOf<String?>(null) }
-    val overlay = showSettings || showLinux || showInstall || showLogin || showPhone || showSsh || tasksScope != null
-    fun showChat() {
-        if (showLogin) hub.login.cancel()
-        showSettings = false
-        showLinux = false
-        showInstall = false
-        showLogin = false
-        showPhone = false
-        showSsh = false
-        tasksScope = null
+    val pages = rememberOverlayPages()
+    /** 回到聊天页：收起侧栏和盖在上面的页面。[keepSetup] 时进行中的安装、登录不打断。 */
+    fun showChat(keepSetup: Boolean = false) {
+        if (!keepSetup && pages.login) hub.login.cancel()
+        pages.closeAll(keepSetup)
         paneOpen = false
     }
     LaunchedEffect(conversationRequests) { if (conversationRequests > 0) showChat() }
     // 从外面送进来的东西要放进输入栏：侧栏和盖在聊天页上的设置页都收起来（安装、登录在进行时不打断）
     val incoming = hub.incoming
-    LaunchedEffect(incoming) {
-        if (incoming == null) return@LaunchedEffect
-        paneOpen = false
-        showSettings = false
-        showPhone = false
-        showLinux = false
-        showSsh = false
-        tasksScope = null
-    }
+    LaunchedEffect(incoming) { if (incoming != null) showChat(keepSetup = true) }
     // 通知要打开设置里的某一页：先把设置页打开，那一页由设置页自己切过去
-    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) showSettings = true }
+    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) pages.settings = true }
     ConversationSidePaneScaffold(
         visible = paneOpen,
-        backHandlerEnabled = !overlay,
+        backHandlerEnabled = !pages.any,
         onOpen = {
             paneOpen = true
             hub.refreshSessions()
@@ -227,9 +206,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 onDelete = hub::delete,
                 onRename = hub::rename,
                 onArchive = hub::archive,
-                onOpenSettings = { showSettings = true },
+                onOpenSettings = { pages.settings = true },
                 onOpenBackground = {
-                    tasksScope = AllConversations
+                    pages.tasksScope = AllConversations
                     paneOpen = false
                 },
                 modifier = modifier,
@@ -242,48 +221,48 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 paneOpen = true
                 hub.refreshSessions()
             },
-            onOpenSettings = { showSettings = true },
-            onOpenInstall = { showInstall = true },
-            onOpenLogin = { showLogin = true },
-            onOpenTasks = { tasksScope = it },
+            onOpenSettings = { pages.settings = true },
+            onOpenInstall = { pages.install = true },
+            onOpenLogin = { pages.login = true },
+            onOpenTasks = { pages.tasksScope = it },
         )
     }
-    Page(showSettings) {
+    Page(pages.settings) {
         SettingsScreen(
             hub = hub,
-            onBack = { showSettings = false },
-            onOpenLinux = { showLinux = true },
-            onOpenPhone = { showPhone = true },
+            onBack = { pages.settings = false },
+            onOpenLinux = { pages.linux = true },
+            onOpenPhone = { pages.phone = true },
             // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
             onRevealSession = { id ->
                 SessionReveal.request = id
-                showSettings = false
+                pages.settings = false
                 paneOpen = true
                 hub.refreshSessions()
             },
+            onShowChat = { showChat() },
         )
     }
-    Page(showPhone) { PhoneScreen(hub = hub, onBack = { showPhone = false }) }
-    Page(showLinux) {
+    Page(pages.phone) { PhoneScreen(hub = hub, onBack = { pages.phone = false }) }
+    Page(pages.linux) {
         LinuxScreen(
             hub = hub,
-            onBack = { showLinux = false },
-            onOpenInstall = { showInstall = true },
-            onOpenLogin = { showLogin = true },
-            onOpenSsh = { showSsh = true },
+            onBack = { pages.linux = false },
+            onOpenInstall = { pages.install = true },
+            onOpenLogin = { pages.login = true },
+            onOpenSsh = { pages.ssh = true },
         )
     }
-    Page(showSsh) { SshScreen(hub = hub, onBack = { showSsh = false }) }
-    Page(showInstall) { EnvInstallScreen(hub = hub, onBack = { showInstall = false }, onOpenLogin = { showLogin = true }) }
-    Page(showLogin) { LoginScreen(hub = hub, onBack = { showLogin = false }) }
+    Page(pages.ssh) { SshScreen(hub = hub, onBack = { pages.ssh = false }) }
+    Page(pages.install) { EnvInstallScreen(hub = hub, onBack = { pages.install = false }, onOpenLogin = { pages.login = true }) }
+    Page(pages.login) { LoginScreen(hub = hub, onBack = { pages.login = false }) }
     // 退场动画期间 tasksScope 已经是 null，用最后一个值画完
-    val lastScope = remember { arrayOfNulls<String>(1) }
-    tasksScope?.let { lastScope[0] = it }
-    Page(tasksScope != null) {
+    val lastScope = rememberRetained(pages.tasksScope)
+    Page(pages.tasksScope != null) {
         BackgroundTasksScreen(
             hub = hub,
-            scope = lastScope[0] ?: AllConversations,
-            onBack = { tasksScope = null },
+            scope = lastScope ?: AllConversations,
+            onBack = { pages.tasksScope = null },
             onOpenConversation = { key ->
                 hub.openConversation(key)
                 showChat()
@@ -292,19 +271,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     }
     IntakeChooser(hub)
     // 返回键一层一层退：最上面的页面先关
-    BackHandler(enabled = overlay) {
-        when {
-            showLogin -> {
-                hub.login.cancel()
-                showLogin = false
-            }
-            showInstall -> showInstall = false
-            tasksScope != null -> tasksScope = null
-            showSsh -> showSsh = false
-            showPhone -> showPhone = false
-            showLinux -> showLinux = false
-            else -> showSettings = false
-        }
+    BackHandler(enabled = pages.any) {
+        if (pages.login) hub.login.cancel()
+        pages.closeTop()
     }
 }
 

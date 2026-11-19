@@ -52,7 +52,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiTextField
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarTextButton
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
-import com.dzshzx.zeta.ui.setup.rememberRetained
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Group
@@ -106,12 +106,10 @@ private class EditTarget(val id: String?)
 internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConversation: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
-    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { ScheduleStore.load(app) } }
     val tasks = ScheduleStore.observed
     val snapshot = rememberPermissionSnapshot()
     var editing by remember { mutableStateOf<EditTarget?>(null) }
-    var granting by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
     val now = Instant.now()
     val accent = CouiPageDefaults.themeColors().accent
@@ -129,24 +127,7 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
         },
     ) {
         if (snapshot != null && !snapshot.exactAlarms) {
-            Group {
-                CouiPreference(
-                    title = "精确闹钟未允许",
-                    summary = if (granting) "正在授予…" else "到点可能被系统推迟。点这里" + if (hub.setup == SetupState.NoRoot) "到系统设置里允许" else "经 root 允许",
-                    titleColor = StatusWarning,
-                    enabled = !granting,
-                    onClick = {
-                        granting = true
-                        scope.launch {
-                            val ok = withContext(Dispatchers.IO) {
-                                hub.setup != SetupState.NoRoot && runCatching { PermissionHealth.fixWithRoot(app, PermissionId.ExactAlarm) }.getOrDefault(false)
-                            }
-                            granting = false
-                            if (!ok) PermissionHealth.settingsIntent(app, PermissionId.ExactAlarm)?.let { runCatching { context.startActivity(it) } }
-                        }
-                    },
-                )
-            }
+            Group { PermissionFixRow(hub, PermissionId.ExactAlarm, "精确闹钟未允许", "到点可能被系统推迟。", StatusWarning) }
         }
         Group(title = "定时任务 · ${tasks.size}", footer = ListFooter) {
             if (tasks.isEmpty()) {
@@ -259,7 +240,6 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     var mode by remember { mutableStateOf(original?.permissionMode) }
     var newSession by remember { mutableStateOf(original?.newSession ?: true) }
     var dialog by remember { mutableStateOf<EditorDialog?>(null) }
-    var modelMenu by remember { mutableStateOf(false) }
     var modeMenu by remember { mutableStateOf(false) }
     var runMessage by remember { mutableStateOf<String?>(null) }
 
@@ -339,21 +319,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
                 "否则这一轮会停下来等你，到时会发通知。",
         ) {
             CouiPreference(title = "工作目录", summary = cwd.ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = EditorDialog.Cwd })
-            val models = hub.models.map { it.value to (if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }) }.ifEmpty { FallbackModels }
-            val chosen = model
-            val modelOptions = listOf<Pair<String?, String>>(null to "跟随当前设置") +
-                if (chosen == null || models.any { it.first == chosen }) models else models + (chosen to chosen)
-            CouiPopupPreference(
-                title = "模型",
-                value = modelOptions.firstOrNull { it.first == model }?.second ?: model.orEmpty(),
-                expanded = modelMenu,
-                onExpandedChange = { modelMenu = it },
-                items = modelOptions.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == model) },
-                onItemClick = {
-                    modelMenu = false
-                    model = it.value
-                },
-            )
+            ModelPreference(hub, model) { model = it }
             val modeOptions = listOf<Pair<String?, String>>(null to "跟随当前设置") + PermissionModes
             CouiPopupPreference(
                 title = "权限模式",
@@ -376,13 +342,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
         if (original != null) {
             Group(title = "运行记录") {
                 original.lastRun?.let { run -> LastRunRow(hub, run, now, zone, onOpenConversation) }
-                if (original.skips > 0) {
-                    CouiPreference(
-                        title = "跳过了 ${original.skips} 次",
-                        summary = "到点时上一次还没跑完" + (original.lastSkip?.let { "，最近一次在" + Schedules.formatWhen(Instant.ofEpochMilli(it), now, zone) } ?: ""),
-                        showChevron = false,
-                    )
-                }
+                SkipsRow(original.skips, original.lastSkip, "到点时上一次还没跑完", now, zone)
                 val running = original.lastRun?.outcome == RunOutcome.Running || ScheduleRunner.isRunning(original.id)
                 CouiPreference(
                     title = "立即运行一次",
@@ -405,21 +365,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     TimeDialog(visible = dialog == EditorDialog.Time, initial = time, onConfirm = { time = it; dialog = null }, onDismiss = { dialog = null })
     DateDialog(visible = dialog == EditorDialog.Date, initial = date, onConfirm = { date = it; dialog = null }, onDismiss = { dialog = null })
     HoursDialog(visible = dialog == EditorDialog.Hours, initial = hours, onConfirm = { hours = it; dialog = null }, onDismiss = { dialog = null })
-    var cwdInput by remember(dialog) { mutableStateOf(cwd) }
-    CouiInputDialog(
-        visible = dialog == EditorDialog.Cwd,
-        title = "工作目录",
-        message = "Linux 环境里的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
-        value = cwdInput,
-        onValueChange = { cwdInput = it },
-        placeholder = defaultCwd,
-        confirmText = "确定",
-        onConfirm = {
-            cwd = cwdInput.trim()
-            dialog = null
-        },
-        onDismissRequest = { dialog = null },
-    )
+    CwdDialog(visible = dialog == EditorDialog.Cwd, cwd = cwd, defaultCwd = defaultCwd, onConfirm = { cwd = it; dialog = null }, onDismiss = { dialog = null })
     CouiConfirmDialog(
         visible = dialog == EditorDialog.Delete,
         title = "删除定时任务",
@@ -435,6 +381,79 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
             onBack()
         },
         onDismissRequest = { dialog = null },
+    )
+}
+
+/**
+ * 一项权限没给时列表顶上的那一行：点了先试 root，没 root 或没改成就打开系统设置。
+ * [reason] 是缺了它的后果，后面接“点这里…”。
+ */
+@Composable
+internal fun PermissionFixRow(hub: ConversationHub, id: PermissionId, title: String, reason: String, titleColor: Color) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var granting by remember { mutableStateOf(false) }
+    val root = hub.setup != SetupState.NoRoot
+    CouiPreference(
+        title = title,
+        summary = if (granting) "正在授予…" else reason + "点这里" + if (root) "经 root 允许" else "到系统设置里允许",
+        titleColor = titleColor,
+        enabled = !granting,
+        onClick = {
+            granting = true
+            scope.launch {
+                fixPermission(context, id, tryRoot = root)
+                granting = false
+            }
+        },
+    )
+}
+
+/** 编辑器里的“模型”：跟随当前设置，或 Claude Code 给的模型清单里的一个（拿不到清单时用几个别名）。 */
+@Composable
+internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (String?) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val models = hub.models.map { it.value to (if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }) }.ifEmpty { FallbackModels }
+    val options = listOf<Pair<String?, String>>(null to "跟随当前设置") +
+        if (model == null || models.any { it.first == model }) models else models + (model to model)
+    CouiPopupPreference(
+        title = "模型",
+        value = options.firstOrNull { it.first == model }?.second ?: model.orEmpty(),
+        expanded = menu,
+        onExpandedChange = { menu = it },
+        items = options.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == model) },
+        onItemClick = {
+            menu = false
+            onChange(it.value)
+        },
+    )
+}
+
+/** 编辑器里改工作目录的对话框；确定时交出去的是去掉首尾空白的输入，空的表示用默认。 */
+@Composable
+internal fun CwdDialog(visible: Boolean, cwd: String, defaultCwd: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var input by remember(visible) { mutableStateOf(cwd) }
+    CouiInputDialog(
+        visible = visible,
+        title = "工作目录",
+        message = "Linux 环境里的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
+        value = input,
+        onValueChange = { input = it },
+        placeholder = defaultCwd,
+        confirmText = "确定",
+        onConfirm = { onConfirm(input.trim()) },
+        onDismissRequest = onDismiss,
+    )
+}
+
+/** 运行记录里的“跳过了 N 次”（没跳过时不显示）。[reason] 是为什么跳过。 */
+@Composable
+internal fun SkipsRow(skips: Int, lastSkip: Long?, reason: String, now: Instant, zone: ZoneId) {
+    if (skips <= 0) return
+    CouiPreference(
+        title = "跳过了 $skips 次",
+        summary = reason + (lastSkip?.let { "，最近一次在" + Schedules.formatWhen(Instant.ofEpochMilli(it), now, zone) } ?: ""),
+        showChevron = false,
     )
 }
 

@@ -65,6 +65,7 @@ import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Divider
 import com.itos.coui.layout.Group
@@ -116,14 +117,6 @@ internal fun ClaudeConfigPages(hub: ConversationHub, page: SettingsSubPage?, onC
 internal fun ConfigSubPage(visible: Boolean, onBack: () -> Unit, content: @Composable () -> Unit) {
     SettingsSubPageHost(visible, content)
     BackHandler(enabled = visible, onBack = onBack)
-}
-
-/** 记住最后一个非空值：对话框、页面退场动画期间内容还在，不会先变空再消失。 */
-@Composable
-internal fun <T> rememberRetained(value: T?): T? {
-    var last by remember { mutableStateOf(value) }
-    if (value != null) last = value
-    return last
 }
 
 @Composable

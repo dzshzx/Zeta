@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiTextField
@@ -176,12 +177,11 @@ internal fun SavedPromptsDialogs(ui: PromptsUi) {
     PromptListDialog(ui)
     PromptEditorDialog(ui)
     val deleting = ui.deleting
-    val shown = remember { arrayOfNulls<SavedPrompt>(1) }
-    if (deleting != null) shown[0] = deleting
+    val shown = rememberRetained(deleting)
     CouiConfirmDialog(
         visible = deleting != null,
         title = "删除这条常用指令？",
-        message = shown[0]?.let { "“${SavedPrompts.displayName(it)}”删除后找不回来。" },
+        message = shown?.let { "“${SavedPrompts.displayName(it)}”删除后找不回来。" },
         confirmText = "删除",
         destructive = true,
         onConfirm = ui::confirmDelete,
@@ -302,9 +302,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
 private fun PromptEditorDialog(ui: PromptsUi) {
     val draft = ui.editing
     // 对话框收起的动画里还要显示原来的内容
-    val shown = remember { arrayOfNulls<PromptDraft>(1) }
-    if (draft != null) shown[0] = draft
-    val current = shown[0]
+    val current = rememberRetained(draft)
     var name by remember(current) { mutableStateOf(current?.name.orEmpty()) }
     var text by remember(current) { mutableStateOf(current?.text.orEmpty()) }
     val problem = ui.problem(name, text)

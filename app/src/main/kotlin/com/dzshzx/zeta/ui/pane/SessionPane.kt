@@ -100,6 +100,7 @@ import com.itos.coui.shape.CouiShape
 import com.itos.coui.theme.CouiTheme
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
@@ -165,8 +166,7 @@ internal fun SessionPane(
     val hub = remember(context) { ConversationHub.get(context.applicationContext as Application) }
     val focusManager = LocalFocusManager.current
     var deleting by remember { mutableStateOf<DeletePrompt?>(null) }
-    val lastDeleting = remember { arrayOfNulls<DeletePrompt>(1) }
-    deleting?.let { lastDeleting[0] = it }
+    val lastDeleting = rememberRetained(deleting)
     var renaming by remember { mutableStateOf<SessionSummary?>(null) }
     var renameDraft by remember { mutableStateOf("") }
 
@@ -179,8 +179,7 @@ internal fun SessionPane(
     }
     var batchDeleting by remember { mutableStateOf<List<SessionSummary>?>(null) }
     var batchSkipped by remember { mutableStateOf(0) }
-    val lastBatch = remember { arrayOfNulls<List<SessionSummary>>(1) }
-    batchDeleting?.let { lastBatch[0] = it }
+    val lastBatch = rememberRetained(batchDeleting)
     LaunchedEffect(revealed) { if (!revealed) exitSelection() }
     BackHandler(enabled = selecting && revealed, onBack = exitSelection)
 
@@ -448,7 +447,7 @@ internal fun SessionPane(
 
     // 单条删除和批量删除同一个规矩：正在进行的、别处的 Claude Code 开着的，都不删。
     // 只提示还是确认删除在打开时定下（DeletePrompt），框开着时对话结束了也不会把“知道了”换成“删除”
-    val deletingName = lastDeleting[0]?.session?.let { it.title.ifBlank { it.preview }.take(60) }
+    val deletingName = lastDeleting?.session?.let { it.title.ifBlank { it.preview }.take(60) }
     CouiNoticeDialog(
         visible = deleting is DeletePrompt.Blocked,
         title = "这个对话正在进行",
@@ -473,7 +472,7 @@ internal fun SessionPane(
     )
     CouiConfirmDialog(
         visible = batchDeleting != null,
-        title = "删除 ${lastBatch[0]?.size ?: 0} 个对话？",
+        title = "删除 ${lastBatch?.size ?: 0} 个对话？",
         message = "会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。" +
             if (batchSkipped > 0) "\n另有 $batchSkipped 个正在进行的对话不会删除。" else "",
         confirmText = "删除",

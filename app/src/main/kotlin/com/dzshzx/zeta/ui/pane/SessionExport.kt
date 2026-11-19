@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +19,8 @@ import com.dzshzx.zeta.core.SessionSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.dzshzx.zeta.ui.app.writeText
+import com.dzshzx.zeta.ui.app.discardDocument
 
 /** 分享走 Intent 传文字，太长会超出系统一次跨进程传输的上限（约 1 MB，按 UTF-16 算），留足余量。 */
 private const val MaxShareChars = 200_000
@@ -67,7 +68,7 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
         val name = if (sessions.size == 1) {
             exportFileName(sessions[0].title.ifBlank { sessions[0].preview.take(40) }.ifBlank { "未命名对话" })
         } else {
-            batchExportFileName(sessions.size)
+            exportFileName("${sessions.size}个对话")
         }
         runCatching { saveLauncher.launch(name) }.onFailure { savingFiles = null }
     }
@@ -81,13 +82,13 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
 /** 导出 [files] 写进 [uri]，返回导出成的会话数；一个都没成（或没写进文件）返回 0。 */
 private fun saveExport(context: Context, hub: ConversationHub, files: List<String>, uri: Uri): Int {
     val exported = exportMarkdowns(hub, files).orEmpty()
-    val written = exported.isNotEmpty() && runCatching {
-        val text = if (exported.size == 1) exported[0].markdown else combineExports(exported)
-        context.contentResolver.openOutputStream(uri, "w")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
-    }.getOrDefault(false)
-    // 没写成的话，系统已经建好的那个空文件也删掉，免得留下一个空的 .md
-    if (!written) runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
-    return if (written) exported.size else 0
+    if (exported.isEmpty()) {
+        // 一个都没导出来：系统已经建好的那个空文件也删掉，免得留下一个空的 .md
+        context.discardDocument(uri)
+        return 0
+    }
+    val text = if (exported.size == 1) exported[0].markdown else combineExports(exported)
+    return if (context.writeText(uri, text)) exported.size else 0
 }
 
 private suspend fun shareExport(context: Context, hub: ConversationHub, session: SessionSummary) {

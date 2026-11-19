@@ -2,7 +2,6 @@ package com.dzshzx.zeta.ui.settings
 
 import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,10 +22,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.app.UiPrefs
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
 import com.dzshzx.zeta.ui.components.coui.CouiPreference
@@ -42,6 +41,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.dzshzx.zeta.ui.app.writeText
+import com.dzshzx.zeta.ui.pane.exportFileName
+import com.dzshzx.zeta.core.PathCheck
+import com.dzshzx.zeta.core.PathKind
 
 /** 读完备份文件、比对过当前设置后要给人看的结果。 */
 private sealed interface ImportReview {
@@ -87,7 +90,7 @@ internal fun SettingsBackupGroup(hub: ConversationHub) {
             title = "导出设置",
             summary = "保存成 JSON 文件",
             enabled = !busy,
-            onClick = { runCatching { exportLauncher.launch(backupFileName()) } },
+            onClick = { runCatching { exportLauncher.launch(exportFileName("设置", extension = "json")) } },
         )
         CouiPreference(
             title = "导入设置",
@@ -99,10 +102,9 @@ internal fun SettingsBackupGroup(hub: ConversationHub) {
 
     // 关掉的对话框还要播完退场动画，内容取最后一次的
     val shown = review
-    val last = remember { arrayOfNulls<ImportReview>(1) }
-    shown?.let { last[0] = it }
-    val failed = last[0] as? ImportReview.Failed
-    val ready = last[0] as? ImportReview.Ready
+    val last = rememberRetained(shown)
+    val failed = last as? ImportReview.Failed
+    val ready = last as? ImportReview.Ready
     CouiNoticeDialog(
         visible = shown is ImportReview.Failed,
         title = "没法导入",
@@ -168,19 +170,9 @@ private fun PlanDetails(plan: ImportPlan) {
     }
 }
 
-/** 默认文件名：Zeta-设置-年月日-时分.json。 */
-private fun backupFileName(now: Long = System.currentTimeMillis()): String =
-    "Zeta-设置-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(now)) + ".json"
-
 private fun writeBackup(context: Context, hub: ConversationHub, uri: Uri): Boolean {
     val exportedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
-    val text = SettingsBackup.export(hub.settings.snapshot(), BuildConfig.VERSION_NAME, exportedAt)
-    val written = runCatching {
-        context.contentResolver.openOutputStream(uri, "w")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
-    }.getOrDefault(false)
-    // 没写成的话，系统已经建好的那个空文件也删掉
-    if (!written) runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
-    return written
+    return context.writeText(uri, SettingsBackup.export(hub.settings.snapshot(), BuildConfig.VERSION_NAME, exportedAt))
 }
 
 /** 读文件、校验、和当前设置比对。耗时（读文件，查工作目录在不在），别在主线程调用。 */
@@ -204,11 +196,12 @@ private fun readBackup(context: Context, hub: ConversationHub, uri: Uri): Import
 private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
     val config = hub.settings.env ?: return "还没有 Linux 环境，装好以后再导入这一项"
     if (config.defaultCwd == cwd) return null
-    val result = runCatching { LinuxEnv.run(config, "test -d " + LinuxEnv.quote(cwd), timeoutMs = 30_000) }.getOrNull()
-    return when {
-        result == null || result.exitCode < 0 -> "查不了这个目录在不在"
-        result.exitCode != 0 -> "这台手机的 Linux 环境里没有这个目录"
-        else -> null
+    return when (PathCheck.check(config, cwd, null)) {
+        PathKind.Folder -> null
+        PathKind.Missing -> "这台手机的 Linux 环境里没有这个目录"
+        PathKind.File -> "这台手机的 Linux 环境里这是个文件，不是目录"
+        PathKind.Denied -> "Linux 用户没有权限进这个目录"
+        else -> "查不了这个目录在不在"
     }
 }
 

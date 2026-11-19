@@ -52,6 +52,8 @@ internal fun SettingsScreen(
     onOpenLinux: () -> Unit,
     onOpenPhone: () -> Unit,
     onRevealSession: (String) -> Unit = {},
+    /** 回到聊天页：设置页、侧栏和别的盖在聊天页上的页面一起收起（由 MainActivity 做）。 */
+    onShowChat: () -> Unit = onBack,
 ) {
     // 外观、权限这两页挂在设置页自己身上：盖在设置页上面，返回键先关它们，不用改 MainActivity 的页面栈
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
@@ -73,10 +75,10 @@ internal fun SettingsScreen(
         SettingsSubPageHost(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Schedules) {
             // 打开某次运行的对话：设置页整个关掉，回到聊天页
-            ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
+            ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
         }
         SettingsSubPageHost(subPage == SettingsSubPage.NotifyTriggers) {
-            NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onBack() })
+            NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
         }
         SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Storage) {

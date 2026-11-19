@@ -14,15 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,24 +33,10 @@ import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.itos.coui.theme.CouiTheme
-import kotlinx.coroutines.delay
+import com.dzshzx.zeta.ui.components.rememberNow
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-/** 每半分钟走一次的“现在”，界面上的“几分钟后重置”、过了重置时刻的窗口跟着变。 */
-@Composable
-internal fun rememberNow(): Long {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(30_000)
-            now = System.currentTimeMillis()
-        }
-    }
-    return now
-}
 
 @Composable
 private fun severityColor(severity: QuotaSeverity, normal: Color): Color = when (severity) {
@@ -148,21 +129,7 @@ private fun QuotaLine(label: String, value: String, fraction: Double?, severity:
         }
         if (fraction != null) {
             Spacer(Modifier.height(5.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(ink.copy(alpha = if (CouiTheme.isDark) 0.12f else 0.07f)),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(fraction.toFloat().coerceIn(0.01f, 1f))
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(severityColor(severity, colors.primary)),
-                )
-            }
+            UsageBar(fraction.toFloat(), severityColor(severity, colors.primary))
         }
         if (detail != null) {
             Spacer(Modifier.height(3.dp))

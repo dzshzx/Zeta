@@ -44,6 +44,7 @@ import com.dzshzx.zeta.core.diag.Redact
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
+import com.dzshzx.zeta.ui.components.coui.CouiHint
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiDropdownPreference
 import com.dzshzx.zeta.ui.components.coui.CouiGroupItem
@@ -56,7 +57,7 @@ import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import com.dzshzx.zeta.ui.setup.brief
-import com.dzshzx.zeta.ui.setup.rememberRetained
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Group
 import java.time.LocalDateTime
@@ -105,8 +106,9 @@ internal fun DiagnosticsScreen(
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         exporting = true
+        val known = probe
         scope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { Diagnostics.export(context.applicationContext, hub, uri) } }
+            val result = withContext(Dispatchers.IO) { runCatching { Diagnostics.export(context.applicationContext, hub, uri, known) } }
             exporting = false
             val message = result.fold({ "诊断包已导出（$it 个文件，已打码）" }, { "导出失败：${it.message ?: it.javaClass.simpleName}" })
             Toast.makeText(context, message, if (result.isSuccess) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
@@ -257,7 +259,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
             }
         }
         if (shown.isEmpty()) {
-            item(key = "empty") { Hint(if (entries.isEmpty()) "还没有记录" else "没有符合条件的记录") }
+            item(key = "empty") { CouiHint(if (entries.isEmpty()) "还没有记录" else "没有符合条件的记录") }
         }
         itemsIndexed(shown, key = { index, entry -> "${entry.at}:$index" }) { index, entry ->
             CouiGroupItem(isFirst = index == 0, isLast = index == shown.lastIndex) { EntryRow(entry, zone) }
@@ -331,9 +333,9 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
         }
         val loaded = text
         when {
-            failed -> item(key = "error") { Hint("读不出这个文件（可能已经被删掉了）", error = true) }
+            failed -> item(key = "error") { CouiHint("读不出这个文件（可能已经被删掉了）", error = true) }
             loaded == null -> item(key = "loading") { Group { ConfigLoadingRow() } }
-            loaded.isBlank() -> item(key = "blank") { Hint("空文件") }
+            loaded.isBlank() -> item(key = "blank") { CouiHint("空文件") }
             else -> {
                 val parts = chunks(loaded)
                 itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
@@ -364,14 +366,4 @@ private fun chunks(text: String, size: Int = 4000): List<String> {
         start = end
     }
     return out
-}
-
-@Composable
-private fun Hint(text: String, error: Boolean = false) {
-    Text(
-        text = text,
-        style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp, lineHeight = 19.sp),
-        color = if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 12.dp),
-    )
 }

@@ -10,14 +10,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.notify.NotifyRecords
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
@@ -43,7 +41,7 @@ import com.dzshzx.zeta.ui.components.coui.CouiTextField
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
 import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarTextButton
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
-import com.dzshzx.zeta.ui.setup.rememberRetained
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Group
@@ -57,7 +55,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -107,14 +104,11 @@ private class RuleTarget(val id: String?)
 /** “通知触发”：列出规则、开关；点一条进去编辑、删除。 */
 @Composable
 internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConversation: () -> Unit) {
-    val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val scope = rememberCoroutineScope()
+    val app = LocalContext.current.applicationContext as Application
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NotifyRuleStore.load(app) } }
     val rules = NotifyRuleStore.observed
     val snapshot = rememberPermissionSnapshot()
     var editing by remember { mutableStateOf<RuleTarget?>(null) }
-    var granting by remember { mutableStateOf(false) }
     val now = System.currentTimeMillis()
     val zone = ZoneId.systemDefault()
     val accent = CouiPageDefaults.themeColors().accent
@@ -133,22 +127,9 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
     ) {
         if (snapshot != null && !snapshot.notificationListener) {
             Group {
-                CouiPreference(
-                    title = "还没有通知使用权",
-                    summary = if (granting) "正在授予…" else "没有它收不到通知，规则不会触发。点这里" + if (hub.setup == SetupState.NoRoot) "到系统设置里允许" else "经 root 允许",
-                    titleColor = if (rules.any { it.enabled }) StatusError else StatusWarning,
-                    enabled = !granting,
-                    onClick = {
-                        granting = true
-                        scope.launch {
-                            val ok = withContext(Dispatchers.IO) {
-                                hub.setup != SetupState.NoRoot &&
-                                    runCatching { PermissionHealth.fixWithRoot(app, PermissionId.NotificationListener) }.getOrDefault(false)
-                            }
-                            granting = false
-                            if (!ok) PermissionHealth.settingsIntent(app, PermissionId.NotificationListener)?.let { runCatching { context.startActivity(it) } }
-                        }
-                    },
+                PermissionFixRow(
+                    hub, PermissionId.NotificationListener, "还没有通知使用权", "没有它收不到通知，规则不会触发。",
+                    if (rules.any { it.enabled }) StatusError else StatusWarning,
                 )
             }
         }
@@ -207,29 +188,21 @@ private enum class RuleDialog { Keywords, Start, End, Cwd, Delete }
 private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -> Unit, onOpenConversation: () -> Unit) {
     val app = LocalContext.current.applicationContext as Application
     val zone = ZoneId.systemDefault()
-    var name by remember { mutableStateOf(original?.name.orEmpty()) }
-    var packageName by remember { mutableStateOf(original?.packageName.orEmpty()) }
-    var appLabel by remember { mutableStateOf(original?.appLabel.orEmpty()) }
-    var keywords by remember { mutableStateOf(original?.keywords?.let(NotifyRules::keywordsText).orEmpty()) }
-    var windowOn by remember { mutableStateOf(original?.window != null) }
-    var start by remember { mutableStateOf(original?.window?.start ?: LocalTime.of(8, 0)) }
-    var end by remember { mutableStateOf(original?.window?.end ?: LocalTime.of(22, 0)) }
-    var prompt by remember { mutableStateOf(original?.prompt.orEmpty()) }
-    var cwd by remember { mutableStateOf(original?.cwd.orEmpty()) }
-    var model by remember { mutableStateOf(original?.model) }
-    var mode by remember { mutableStateOf(original?.permissionMode ?: NotifyRules.DEFAULT_MODE) }
-    var cooldown by remember { mutableStateOf(original?.cooldownMinutes ?: NotifyRules.DEFAULT_COOLDOWN) }
-    var dailyLimit by remember { mutableStateOf(original?.dailyLimit ?: NotifyRules.DEFAULT_DAILY_LIMIT) }
+    var draft by remember { mutableStateOf(original?.let(NotifyRules::draftOf) ?: RuleDraft("", "", "", "", null, "")) }
+    // 关掉“只在某个时段触发”时 draft 里没有时段：记着上次的，再打开时还是它
+    var lastWindow by remember { mutableStateOf(original?.window ?: TimeWindow(LocalTime.of(8, 0), LocalTime.of(22, 0))) }
+    val window = draft.window
+    fun setWindow(value: TimeWindow) {
+        lastWindow = value
+        draft = draft.copy(window = value)
+    }
     var dialog by remember { mutableStateOf<RuleDialog?>(null) }
     var picking by remember { mutableStateOf(false) }
-    var modelMenu by remember { mutableStateOf(false) }
     var modeMenu by remember { mutableStateOf(false) }
     var cooldownMenu by remember { mutableStateOf(false) }
     var limitMenu by remember { mutableStateOf(false) }
     val nonce = remember { NotifyRules.nonce() }
 
-    val window = if (windowOn) TimeWindow(start, end) else null
-    val draft = RuleDraft(name, packageName, appLabel, keywords, window, prompt, cwd, model, mode, cooldown, dailyLimit, original?.enabled ?: true)
     val problem = NotifyRules.problem(draft)
     val defaultCwd = hub.env?.defaultCwd ?: "/workspace"
     val now = System.currentTimeMillis()
@@ -250,47 +223,47 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         actions = { CouiTopAppBarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
     ) {
         Group(title = "名称", footer = "跑完那条通知的标题，也是每次运行那个对话的名字。") {
-            FieldBox { CouiTextField(value = name, onValueChange = { name = it.take(NotifyRules.MAX_NAME) }, placeholder = "快递取件提醒") }
+            FieldBox { CouiTextField(value = draft.name, onValueChange = { draft = draft.copy(name = it.take(NotifyRules.MAX_NAME)) }, placeholder = "快递取件提醒") }
         }
         Group(
             title = "触发条件",
-            footer = problem?.takeIf { name.isNotBlank() || prompt.isNotBlank() || original != null }
+            footer = problem?.takeIf { draft.name.isNotBlank() || draft.prompt.isNotBlank() || original != null }
                 ?: "关键词不分大小写，标题或正文里含其中任一个就触发；几个关键词用逗号隔开。时段的结束早于开始时跨午夜。",
         ) {
             CouiPreference(
                 title = "应用",
-                summary = packageName.takeIf { it.isNotBlank() && it != appLabel },
-                value = appLabel.ifBlank { packageName }.ifBlank { "选择" },
+                summary = draft.packageName.takeIf { it.isNotBlank() && it != draft.appLabel },
+                value = draft.appLabel.ifBlank { draft.packageName }.ifBlank { "选择" },
                 onClick = { picking = true },
             )
             CouiPreference(
                 title = "关键词",
-                summary = NotifyRules.parseKeywords(keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限：这个应用的每条通知都触发",
+                summary = NotifyRules.parseKeywords(draft.keywords).takeIf { it.isNotEmpty() }?.joinToString("，") ?: "不限：这个应用的每条通知都触发",
                 onClick = { dialog = RuleDialog.Keywords },
             )
             CouiSwitchPreference(
                 title = "只在某个时段触发",
-                summary = if (windowOn) NotifyRules.windowText(TimeWindow(start, end)) else "全天",
-                checked = windowOn,
-                onCheckedChange = { windowOn = it },
+                summary = window?.let(NotifyRules::windowText) ?: "全天",
+                checked = window != null,
+                onCheckedChange = { draft = draft.copy(window = if (it) lastWindow else null) },
             )
-            if (windowOn) {
-                CouiPreference(title = "从", value = "%02d:%02d".format(start.hour, start.minute), onClick = { dialog = RuleDialog.Start })
-                CouiPreference(title = "到", value = "%02d:%02d".format(end.hour, end.minute), onClick = { dialog = RuleDialog.End })
+            if (window != null) {
+                CouiPreference(title = "从", value = "%02d:%02d".format(window.start.hour, window.start.minute), onClick = { dialog = RuleDialog.Start })
+                CouiPreference(title = "到", value = "%02d:%02d".format(window.end.hour, window.end.minute), onClick = { dialog = RuleDialog.End })
             }
         }
         Group(title = "指令", footer = PromptFooter) {
             FieldBox {
                 CouiTextField(
-                    value = prompt,
-                    onValueChange = { prompt = it },
+                    value = draft.prompt,
+                    onValueChange = { draft = draft.copy(prompt = it) },
                     placeholder = "比如：看看这条快递通知 {text}，把取件码和地址记进今天的待办",
                     singleLine = false,
                     minLines = 3,
                     maxLines = 10,
                 )
             }
-            if (NotifyRules.usesPlaceholders(prompt)) {
+            if (NotifyRules.usesPlaceholders(draft.prompt)) {
                 CouiPreference(
                     title = "验证码等内容也会交给 Claude",
                     summary = "用了 {title}、{text} 时，验证码、银行和支付通知的内容也会原样发给 Claude，并留在对话记录里。不想交出去的应用，不要给它设规则。",
@@ -299,12 +272,12 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 )
             }
         }
-        if (prompt.isNotBlank()) {
-            val sample = PostedNotification(key = "", postTime = now, packageName = packageName, title = "示例标题", text = "示例正文")
+        if (draft.prompt.isNotBlank()) {
+            val sample = PostedNotification(key = "", postTime = now, packageName = draft.packageName, title = "示例标题", text = "示例正文")
             Group(title = "发给 Claude 的样子", footer = "用一条示例通知预览；每次运行时分隔符里的随机串都不一样，通知里的文字仿造不出来。") {
                 FieldBox {
                     Text(
-                        text = NotifyRules.render(prompt, sample, appLabel.ifBlank { "示例应用" }, nonce),
+                        text = NotifyRules.render(draft.prompt, sample, draft.appLabel.ifBlank { "示例应用" }, nonce),
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
@@ -316,6 +289,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
             footer = "触发一次后，冷却时间内这条规则不再触发；一天里触发到上限也不再触发，第二天重新计数。" +
                 "同一条通知只触发一次；常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
         ) {
+            val cooldown = draft.cooldownMinutes
             val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
             CouiPopupPreference(
                 title = "冷却时间",
@@ -325,9 +299,10 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 items = cooldowns.map { CouiMenuItem(value = it, text = NotifyRules.cooldownText(it), selected = it == cooldown) },
                 onItemClick = {
                     cooldownMenu = false
-                    cooldown = it.value
+                    draft = draft.copy(cooldownMinutes = it.value)
                 },
             )
+            val dailyLimit = draft.dailyLimit
             val limits = (NotifyRules.DAILY_LIMIT_CHOICES + dailyLimit).distinct().sorted()
             CouiPopupPreference(
                 title = "每天最多",
@@ -337,7 +312,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 items = limits.map { CouiMenuItem(value = it, text = "$it 次", selected = it == dailyLimit) },
                 onItemClick = {
                     limitMenu = false
-                    dailyLimit = it.value
+                    draft = draft.copy(dailyLimit = it.value)
                 },
             )
         }
@@ -346,23 +321,10 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
             footer = "通知是别的应用发来的，可能有人借它的内容诱导 Claude。新规则默认“逐项确认”：要执行命令、改文件时这一轮停下来等你，并发通知让你处理。" +
                 "每次触发都开一个新对话。",
         ) {
-            CouiPreference(title = "工作目录", summary = cwd.ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd })
-            val models = hub.models.map { it.value to (if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }) }.ifEmpty { FallbackModels }
-            val chosen = model
-            val modelOptions = listOf<Pair<String?, String>>(null to "跟随当前设置") +
-                if (chosen == null || models.any { it.first == chosen }) models else models + (chosen to chosen)
-            CouiPopupPreference(
-                title = "模型",
-                value = modelOptions.firstOrNull { it.first == model }?.second ?: model.orEmpty(),
-                expanded = modelMenu,
-                onExpandedChange = { modelMenu = it },
-                items = modelOptions.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == model) },
-                onItemClick = {
-                    modelMenu = false
-                    model = it.value
-                },
-            )
+            CouiPreference(title = "工作目录", summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd })
+            ModelPreference(hub, draft.model) { draft = draft.copy(model = it) }
             // 不提供“跟随当前设置”：当前设置可能是完全放行，通知触发的对话要明确选一个
+            val mode = draft.permissionMode
             CouiPopupPreference(
                 title = "权限模式",
                 value = permissionModeLabel(mode),
@@ -371,7 +333,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 items = PermissionModes.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == mode) },
                 onItemClick = {
                     modeMenu = false
-                    mode = it.value
+                    draft = draft.copy(permissionMode = it.value)
                 },
             )
             if (mode !in NotifyRules.SAFE_MODES) {
@@ -397,13 +359,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                     summary = "上限 ${original.dailyLimit} 次" + (until?.let { " · 冷却到 " + Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone) } ?: ""),
                     showChevron = false,
                 )
-                if (original.skips > 0) {
-                    CouiPreference(
-                        title = "跳过了 ${original.skips} 次",
-                        summary = "触发时上一次还没跑完" + (original.lastSkip?.let { "，最近一次在" + Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone) } ?: ""),
-                        showChevron = false,
-                    )
-                }
+                SkipsRow(original.skips, original.lastSkip, "触发时上一次还没跑完", Instant.ofEpochMilli(now), zone)
             }
             Group {
                 CouiPreference(title = "删除规则", titleColor = StatusError, showChevron = false, onClick = { dialog = RuleDialog.Delete })
@@ -415,10 +371,9 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
     ConfigSubPage(visible = picking, onBack = { picking = false }) {
         if (pickerShown != null) {
             AppPicker(
-                current = packageName,
+                current = draft.packageName,
                 onPick = { pkg, label ->
-                    packageName = pkg
-                    appLabel = label
+                    draft = draft.copy(packageName = pkg, appLabel = label)
                     picking = false
                 },
                 onBack = { picking = false },
@@ -426,9 +381,10 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         }
     }
 
-    TimeDialog(visible = dialog == RuleDialog.Start, initial = start, onConfirm = { start = it; dialog = null }, onDismiss = { dialog = null })
-    TimeDialog(visible = dialog == RuleDialog.End, initial = end, onConfirm = { end = it; dialog = null }, onDismiss = { dialog = null })
-    var keywordsInput by remember(dialog) { mutableStateOf(keywords) }
+    val times = window ?: lastWindow
+    TimeDialog(visible = dialog == RuleDialog.Start, initial = times.start, onConfirm = { setWindow(times.copy(start = it)); dialog = null }, onDismiss = { dialog = null })
+    TimeDialog(visible = dialog == RuleDialog.End, initial = times.end, onConfirm = { setWindow(times.copy(end = it)); dialog = null }, onDismiss = { dialog = null })
+    var keywordsInput by remember(dialog) { mutableStateOf(draft.keywords) }
     CouiInputDialog(
         visible = dialog == RuleDialog.Keywords,
         title = "关键词",
@@ -438,25 +394,17 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         placeholder = "取件码，快递",
         confirmText = "确定",
         onConfirm = {
-            keywords = keywordsInput.trim()
+            draft = draft.copy(keywords = keywordsInput.trim())
             dialog = null
         },
         onDismissRequest = { dialog = null },
     )
-    var cwdInput by remember(dialog) { mutableStateOf(cwd) }
-    CouiInputDialog(
+    CwdDialog(
         visible = dialog == RuleDialog.Cwd,
-        title = "工作目录",
-        message = "Linux 环境里的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
-        value = cwdInput,
-        onValueChange = { cwdInput = it },
-        placeholder = defaultCwd,
-        confirmText = "确定",
-        onConfirm = {
-            cwd = cwdInput.trim()
-            dialog = null
-        },
-        onDismissRequest = { dialog = null },
+        cwd = draft.cwd.orEmpty(),
+        defaultCwd = defaultCwd,
+        onConfirm = { draft = draft.copy(cwd = it); dialog = null },
+        onDismiss = { dialog = null },
     )
     CouiConfirmDialog(
         visible = dialog == RuleDialog.Delete,

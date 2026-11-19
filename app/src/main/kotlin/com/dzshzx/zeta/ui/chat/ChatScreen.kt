@@ -293,9 +293,7 @@ private fun ConversationBody(
         val draft = input.text.toString()
         input.setTextAndPlaceCursorAtEnd(listOf(back.text, draft).filter { it.isNotBlank() }.joinToString("\n"))
         attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
-        for (path in back.files) {
-            if (uploads.none { it.path == path }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(path)).also { it.path = path })
-        }
+        back.files.forEach(uploads::addPath)
     }
     LaunchedEffect(items) {
         markdownCache.discardUnused(items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id })
@@ -522,12 +520,15 @@ private fun ConversationBody(
     MessageActionDialogs(actions)
     IntakeProblemsDialog(sink)
     SavedPromptsDialogs(prompts)
-    AttachPathDialogs(pathAttach, hub, conversation) { entry ->
-        if (uploads.none { it.path == entry }) uploads.add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(entry)).also { it.path = entry })
-    }
+    AttachPathDialogs(pathAttach, hub, conversation, onAttach = uploads::addPath)
 }
 
 private const val MaxAttachments = 4
+
+/** 引用 Linux 里已有的一个路径（不用上传，一开始就是传好的样子）；已经引用过的不再加。 */
+internal fun MutableList<FileUpload>.addPath(path: String) {
+    if (none { it.path == path }) add(FileUpload(UUID.randomUUID().toString(), AttachedPaths.label(path)).also { it.path = path })
+}
 
 /** 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡。 */
 @Composable

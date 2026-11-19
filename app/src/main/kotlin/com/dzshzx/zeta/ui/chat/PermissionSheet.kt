@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.itos.coui.theme.CouiTheme
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.EtaMonospace
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -37,9 +38,7 @@ internal fun PermissionSheet(
     onDeny: (PermissionRequest) -> Unit,
 ) {
     // 关闭动画期间仍要显示上一条请求的内容
-    val shown = remember { arrayOfNulls<PermissionRequest>(1) }
-    if (request != null) shown[0] = request
-    val current = shown[0] ?: return
+    val current = rememberRetained(request) ?: return
     if (current.questions.isNotEmpty()) {
         QuestionSheet(visible = request != null, request = current, onAllow = onAllow, onDeny = onDeny)
     } else {

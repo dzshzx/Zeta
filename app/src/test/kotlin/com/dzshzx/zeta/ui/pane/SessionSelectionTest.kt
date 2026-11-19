@@ -70,6 +70,7 @@ class SessionSelectionTest {
 
     @Test
     fun batchFileNameCountsSessions() {
-        assertTrue(Regex("Zeta-3个对话-\\d{8}-\\d{4}\\.md").matches(batchExportFileName(3, now = 0L)))
+        assertTrue(Regex("Zeta-3个对话-\\d{8}-\\d{4}\\.md").matches(exportFileName("3个对话", now = 0L)))
+        assertTrue(Regex("Zeta-设置-\\d{8}-\\d{4}\\.json").matches(exportFileName("设置", now = 0L, extension = "json")))
     }
 }

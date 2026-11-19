@@ -48,6 +48,7 @@ import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.core.formatCost
+import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.ui.components.StatusError
@@ -278,7 +279,8 @@ private fun ContextSection(usage: ChatUsage) {
     )
     usage.fraction?.let { fraction ->
         val color = levelColor(usage.level, colors.primary)
-        ContextBar(fraction, color, usage.compactFraction)
+        // 上下各留 3dp，给压缩点的刻度伸出去
+        UsageBar(fraction, color, Modifier.padding(vertical = 3.dp), mark = usage.compactFraction)
         Spacer(Modifier.height(8.dp))
     }
     val compactAt = usage.compactAt
@@ -303,25 +305,29 @@ private fun ContextSection(usage: ChatUsage) {
     Note(detail.joinToString("\n"))
 }
 
-/** 用量条；[mark] 处画一道竖线，是自动压缩点。 */
+/**
+ * 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。[mark] 处画一道竖线（比如自动压缩点），
+ * 上下各伸出条外 3dp，要的话调用方自己留出这点空。上下文和订阅额度共用。
+ */
 @Composable
-private fun ContextBar(fraction: Float, color: Color, mark: Float?) {
-    val colors = MiuixTheme.colorScheme
-    val markColor = colors.onSurface.copy(alpha = if (CouiTheme.isDark) 0.6f else 0.5f)
-    Box(modifier = Modifier.fillMaxWidth().height(12.dp), contentAlignment = Alignment.CenterStart) {
+internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier, mark: Float? = null) {
+    val ink = MiuixTheme.colorScheme.onSurface
+    val dark = CouiTheme.isDark
+    Box(modifier = modifier.fillMaxWidth().height(6.dp)) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
+                .matchParentSize()
                 .clip(RoundedCornerShape(3.dp))
-                .background(colors.onSurface.copy(alpha = if (CouiTheme.isDark) 0.12f else 0.07f)),
+                .background(ink.copy(alpha = if (dark) 0.12f else 0.07f)),
         ) {
-            Box(Modifier.fillMaxWidth(fraction.coerceAtLeast(0.01f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
+            Box(Modifier.fillMaxWidth(fraction.coerceIn(0.01f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
         }
         if (mark != null) {
-            Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+            val markColor = ink.copy(alpha = if (dark) 0.6f else 0.5f)
+            Canvas(Modifier.matchParentSize()) {
                 val x = (size.width * mark).coerceIn(1.dp.toPx(), size.width - 1.dp.toPx())
-                drawLine(markColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+                val reach = 3.dp.toPx()
+                drawLine(markColor, Offset(x, -reach), Offset(x, size.height + reach), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             }
         }
     }
@@ -377,7 +383,7 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "第 $number 轮" + (turn.durationMs?.let { " · ${formatSeconds(it)}" } ?: ""),
+                text = "第 $number 轮" + (turn.durationMs?.let { " · ${formatElapsed(it)}" } ?: ""),
                 style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
                 color = colors.onSurface.copy(alpha = 0.84f),
                 modifier = Modifier.weight(1f),
@@ -404,9 +410,4 @@ private fun Note(text: String, modifier: Modifier = Modifier) {
         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         modifier = modifier,
     )
-}
-
-private fun formatSeconds(ms: Long): String {
-    val seconds = ms / 1000.0
-    return if (seconds < 60) String.format(java.util.Locale.US, "%.1f 秒", seconds) else "${(ms / 60_000)} 分 ${(ms / 1000) % 60} 秒"
 }
