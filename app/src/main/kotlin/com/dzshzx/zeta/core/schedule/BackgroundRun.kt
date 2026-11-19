@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.schedule
 
 import android.content.Context
+import com.dzshzx.zeta.phone.tools.ScheduleTools
 
 /** 一项后台运行的运行记录：上次运行、跳过次数，以及接着同一个对话时用的会话。 */
 internal data class RunRecord(
@@ -56,10 +57,17 @@ class UnattendedRun(val onlyOnChange: Boolean) {
     @Volatile var report: RunReport? = null
 }
 
-/** 只在有变化时提醒的运行，加在系统提示词后面的那段：怎么上报。手机工具关着时没有上报的工具，照常提醒。 */
-internal const val ONLY_ON_CHANGE_HINT =
+/**
+ * 后台运行加在系统提示词后面的说明（接着开着的进程时附在指令后面）：[intro] 说这一轮是怎么来的，接着说结果先看通知里那一段；
+ * 只在有变化时提醒的再说怎么上报（手机工具关着时没有上报的工具，照常提醒）。定时任务和通知触发共用。
+ */
+internal fun unattendedHint(intro: String, onlyOnChange: Boolean): String =
+    "$intro The user first sees the opening of your final reply (about ${Schedules.MAX_SUMMARY} characters) in a phone notification, " +
+        "so lead with the result." + if (onlyOnChange) " $ONLY_ON_CHANGE_HINT" else ""
+
+private const val ONLY_ON_CHANGE_HINT =
     "This automation notifies the user only when there is something worth telling them. Before ending each automatic run, " +
-        "call the phone tool report_scheduled_run: outcome \"no_change\" when nothing is worth telling the user " +
+        "call the phone tool ${ScheduleTools.REPORT}: outcome \"no_change\" when nothing is worth telling the user " +
         "(for example nothing new since the last run); no notification is sent and the run is only logged. " +
         "Otherwise outcome \"deliver\" with a one- or two-sentence summary, which becomes the notification text. " +
         "If you do not report, the user is notified as usual. Messages the user types themselves need no report."
@@ -87,9 +95,10 @@ internal object ScheduleRecords : RunRecords {
         permissionMode = task.permissionMode,
         newSession = task.newSession,
         sessionId = task.sessionId,
-        hint = "Messages in this conversation may be sent automatically by the user's scheduled task \"${task.name}\" while nobody is watching. " +
-            "The user first sees the opening of your final reply (about 200 characters) in a phone notification, so lead with the result." +
-            if (task.onlyOnChange) " $ONLY_ON_CHANGE_HINT" else "",
+        hint = unattendedHint(
+            "Messages in this conversation may be sent automatically by the user's scheduled task \"${task.name}\" while nobody is watching.",
+            task.onlyOnChange,
+        ),
         onlyOnChange = task.onlyOnChange,
     )
 }

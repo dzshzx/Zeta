@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.schedule.RuleKind
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
@@ -172,8 +173,6 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
 
 internal fun outcomeWord(outcome: RunOutcome) = outcome.label
 
-private enum class RuleKind(val label: String) { Once("单次"), Daily("每天"), Weekly("每周"), Interval("间隔") }
-
 private val Workdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
 
 /** 编辑器里开着的那个对话框。 */
@@ -187,33 +186,14 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     val rule = original?.rule
     var name by remember { mutableStateOf(original?.name.orEmpty()) }
     var prompt by remember { mutableStateOf(original?.prompt.orEmpty()) }
-    var kind by remember {
-        mutableStateOf(
-            when (rule) {
-                is ScheduleRule.Once -> RuleKind.Once
-                is ScheduleRule.Weekly -> RuleKind.Weekly
-                is ScheduleRule.Interval -> RuleKind.Interval
-                else -> RuleKind.Daily
-            },
-        )
-    }
-    var time by remember {
-        mutableStateOf(
-            when (rule) {
-                is ScheduleRule.Once -> rule.at.toLocalTime()
-                is ScheduleRule.Daily -> rule.time
-                is ScheduleRule.Weekly -> rule.time
-                is ScheduleRule.Interval -> rule.start.toLocalTime()
-                null -> LocalTime.of(8, 0)
-            },
-        )
-    }
+    var kind by remember { mutableStateOf(rule?.kind ?: RuleKind.Daily) }
+    var time by remember { mutableStateOf(rule?.time ?: LocalTime.of(8, 0)) }
     var date by remember {
         mutableStateOf(
             when (rule) {
                 is ScheduleRule.Once -> rule.at.toLocalDate()
                 is ScheduleRule.Interval -> rule.start.toLocalDate()
-                else -> LocalDate.now()
+                is ScheduleRule.Daily, is ScheduleRule.Weekly, null -> LocalDate.now()
             },
         )
     }
@@ -233,20 +213,23 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
         RuleKind.Weekly -> ScheduleRule.Weekly(days, time)
         RuleKind.Interval -> ScheduleRule.Interval(hours, date.atTime(time))
     }
-    // 关着的任务只改文字时保持关着；改了时间就当用户要它重新开始
-    val enabled = original == null || original.enabled || draftRule != original.rule
-    val draft = TaskDraft(name, prompt, draftRule, cwd, model, mode, newSession, enabled, onlyOnChange)
     val now = Instant.now()
-    val problem = Schedules.problem(draft, now, zone)
+    // 开关和校验照 Schedules.edit：改了时间就重新打开；关着的只改文字时保持关着，也不看时间
+    val edited = Schedules.edit(
+        original,
+        TaskDraft(name, prompt, draftRule, cwd, model, mode, newSession, onlyOnChange = onlyOnChange),
+        enabled = null, now, zone,
+    )
+    val problem = edited.problem
     val next = Schedules.nextTrigger(draftRule, now, zone)
     val defaultCwd = hub.env?.defaultCwd ?: "/workspace"
 
     fun save() {
         if (problem != null) return
         if (original == null) {
-            ScheduleStore.update(app) { it + Schedules.toTask(draft, now.toEpochMilli()) }
+            ScheduleStore.update(app) { it + Schedules.toTask(edited.draft, now.toEpochMilli()) }
         } else {
-            ScheduleStore.updateTask(app, original.id) { Schedules.applyDraft(it, draft) }
+            ScheduleStore.updateTask(app, original.id) { Schedules.applyDraft(it, edited.draft) }
         }
         onBack()
     }

@@ -29,18 +29,46 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
+/** 定时任务怎么重复：[key] 是存储和手机工具参数里的写法，[label] 是编辑页上的叫法。 */
+enum class RuleKind(val key: String, val label: String) {
+    Once("once", "单次"),
+    Daily("daily", "每天"),
+    Weekly("weekly", "每周"),
+    Interval("interval", "间隔"),
+    ;
+
+    companion object {
+        fun of(key: String?): RuleKind? = entries.firstOrNull { it.key == key }
+    }
+}
+
 /** 定时任务什么时候跑。时刻都是手机的本地时间，精确到分钟。 */
 sealed interface ScheduleRule {
-    /** 到点跑一次，跑过就自动关掉。 */
-    data class Once(val at: LocalDateTime) : ScheduleRule
+    val kind: RuleKind
 
-    data class Daily(val time: LocalTime) : ScheduleRule
+    /** 几点跑：单次是到点的那一刻，间隔是第一次的时刻。 */
+    val time: LocalTime
+
+    /** 到点跑一次，跑过就自动关掉。 */
+    data class Once(val at: LocalDateTime) : ScheduleRule {
+        override val kind get() = RuleKind.Once
+        override val time: LocalTime get() = at.toLocalTime()
+    }
+
+    data class Daily(override val time: LocalTime) : ScheduleRule {
+        override val kind get() = RuleKind.Daily
+    }
 
     /** 每周的这几天。 */
-    data class Weekly(val days: Set<DayOfWeek>, val time: LocalTime) : ScheduleRule
+    data class Weekly(val days: Set<DayOfWeek>, override val time: LocalTime) : ScheduleRule {
+        override val kind get() = RuleKind.Weekly
+    }
 
     /** 从 [start] 起每隔 [hours] 小时（按绝对时间算，跨日照常往后排）。 */
-    data class Interval(val hours: Int, val start: LocalDateTime) : ScheduleRule
+    data class Interval(val hours: Int, val start: LocalDateTime) : ScheduleRule {
+        override val kind get() = RuleKind.Interval
+        override val time: LocalTime get() = start.toLocalTime()
+    }
 
     companion object {
         const val MAX_INTERVAL_HOURS = 168
@@ -124,10 +152,16 @@ data class RunReport(
 /** 一次运行跑完以后记成什么、摘要写什么、发不发完成通知（见 [Schedules.settle]）。 */
 data class Settled(val outcome: RunOutcome, val summary: String, val notify: Boolean)
 
+/** 编辑的结果（见 [Schedules.edit]）：[draft] 是要存的样子，开关已经定好；[problem] 是不能保存的原因。 */
+data class Edited(val draft: TaskDraft, val problem: String?)
+
 object Schedules {
     const val MAX_TASKS = 50
     const val MAX_NAME = 40
     const val MAX_PROMPT = 8000
+
+    /** 通知里那段摘要（回答的开头、Claude 上报的结论）最多多少字。 */
+    const val MAX_SUMMARY = 200
 
     private val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val WEEKDAY = listOf("一", "二", "三", "四", "五", "六", "日")
@@ -157,8 +191,20 @@ object Schedules {
     )
 
     /**
+     * 新建或编辑一个任务（设置页的编辑器、手机工具 update_scheduled_task 共用）：[draft] 是改完的样子（它的 enabled 不看），
+     * [enabled] 是这次明确给的开关，没给为 null。改了时间就当用户要它重新开始：关着的打开，除非明确给了开关；
+     * 没改时间、改完还关着的不看时间，跑过、被自动关掉的单次任务也能改名、改指令。新建时 [original] 为 null。
+     */
+    fun edit(original: ScheduledTask?, draft: TaskDraft, enabled: Boolean?, now: Instant, zone: ZoneId): Edited {
+        val ruleChanged = original == null || draft.rule != original.rule
+        val on = enabled ?: (original == null || original.enabled || ruleChanged)
+        val result = draft.copy(enabled = on)
+        return Edited(result, problem(result, now, zone, checkRule = ruleChanged || on))
+    }
+
+    /**
      * 不能保存的原因；能保存时为 null。[now] 用来判断单次任务的时间是不是已经过了。
-     * [checkRule] 为 false 时不看时间（只改了别的、任务关着：跑过的单次任务也能改名）。
+     * [checkRule] 为 false 时不看时间（见 [edit]）。
      */
     fun problem(draft: TaskDraft, now: Instant, zone: ZoneId, checkRule: Boolean = true): String? {
         val name = draft.name.trim()
@@ -244,7 +290,7 @@ object Schedules {
     }
 
     /** 回答的开头，给通知和列表用：去掉 Markdown 的标记、合并空白，太长截断。 */
-    fun preview(text: String, limit: Int = 200): String {
+    fun preview(text: String, limit: Int = MAX_SUMMARY): String {
         val plain = text.lineSequence()
             .map { line ->
                 line.trim()
@@ -259,7 +305,15 @@ object Schedules {
             .replace(Regex("(\\*\\*|__|`)"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
-        return if (plain.length > limit) plain.take(limit).trimEnd() + "…" else plain
+        return clip(plain, limit)
+    }
+
+    /** 超过 [limit] 个字就截断、加上“…”。不从一对代理字符中间切开，表情不会剩半个。 */
+    fun clip(text: String, limit: Int): String {
+        if (text.length <= limit) return text
+        var end = limit
+        if (end > 0 && text[end - 1].isHighSurrogate()) end--
+        return text.substring(0, end).trimEnd() + "…"
     }
 
     /** 这一轮的结果：看这次发出的那条消息之后的内容。回答取最后一段（前面多是“我先看看”），出错取提示。 */
@@ -370,15 +424,15 @@ object Schedules {
         if (run?.outcome == RunOutcome.Running) run.copy(outcome = RunOutcome.Interrupted, summary = "Zeta 在这次运行结束前被关掉了，结果在对话里") else run
 
     private fun encodeRule(rule: ScheduleRule): JsonObject = buildJsonObject {
+        put("kind", rule.kind.key)
         when (rule) {
-            is ScheduleRule.Once -> { put("kind", "once"); put("at", rule.at.toString()) }
-            is ScheduleRule.Daily -> { put("kind", "daily"); put("time", rule.time.format(HM)) }
+            is ScheduleRule.Once -> put("at", rule.at.toString())
+            is ScheduleRule.Daily -> put("time", rule.time.format(HM))
             is ScheduleRule.Weekly -> {
-                put("kind", "weekly")
                 putJsonArray("days") { rule.days.sorted().forEach { add(JsonPrimitive(it.value)) } }
                 put("time", rule.time.format(HM))
             }
-            is ScheduleRule.Interval -> { put("kind", "interval"); put("hours", rule.hours); put("start", rule.start.toString()) }
+            is ScheduleRule.Interval -> { put("hours", rule.hours); put("start", rule.start.toString()) }
         }
     }
 
@@ -416,19 +470,19 @@ object Schedules {
 
     private fun decodeRule(o: JsonObject?): ScheduleRule? {
         o ?: return null
-        return when (o.str("kind")) {
-            "once" -> parseDateTime(o.str("at"))?.let { ScheduleRule.Once(it) }
-            "daily" -> parseTime(o.str("time"))?.let { ScheduleRule.Daily(it) }
-            "weekly" -> {
+        return when (RuleKind.of(o.str("kind"))) {
+            RuleKind.Once -> parseDateTime(o.str("at"))?.let { ScheduleRule.Once(it) }
+            RuleKind.Daily -> parseTime(o.str("time"))?.let { ScheduleRule.Daily(it) }
+            RuleKind.Weekly -> {
                 val time = parseTime(o.str("time")) ?: return null
                 val days = o.arr("days").orEmpty().mapNotNull { (it as? JsonPrimitive)?.content?.let(::parseDay) }.toSet()
                 if (days.isEmpty()) null else ScheduleRule.Weekly(days, time)
             }
-            "interval" -> {
+            RuleKind.Interval -> {
                 val hours = o.int("hours")?.takeIf { it in 1..ScheduleRule.MAX_INTERVAL_HOURS } ?: return null
                 parseDateTime(o.str("start"))?.let { ScheduleRule.Interval(hours, it) }
             }
-            else -> null
+            null -> null
         }
     }
 }

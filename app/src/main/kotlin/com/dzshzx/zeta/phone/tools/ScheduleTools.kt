@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.claude.McpNames
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.schedule.RuleKind
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleRule
@@ -21,7 +22,6 @@ import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.PhoneTools
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.Callable
@@ -69,13 +69,10 @@ internal object ScheduleTools : PhoneToolGroup {
     }
 
     private val MODES = listOf("default", "acceptEdits", "plan", "auto", "bypassPermissions")
-    private val REPEATS = listOf("once", "daily", "weekly", "interval")
+    private val REPEATS = RuleKind.entries.map { it.key }
 
     /** 改时间时看的参数：传了其中任一个才重算规则。 */
     private val SCHEDULE_KEYS = listOf("repeat", "time", "at", "days", "every_hours")
-
-    /** 上报的摘要最多多少字（通知里显示的那段）。 */
-    const val MAX_SUMMARY = 300
 
     override val tools: List<JsonElement> = listOf(
         tool(
@@ -125,7 +122,7 @@ internal object ScheduleTools : PhoneToolGroup {
         ) {
             schema(required = listOf("outcome", "summary")) {
                 enumProp("outcome", listOf("deliver", "no_change"), "deliver to notify the user, no_change to stay quiet.")
-                prop("summary", "string", "One or two sentences, at most $MAX_SUMMARY characters: the notification text, or what was checked when nothing changed.")
+                prop("summary", "string", "One or two sentences, at most ${Schedules.MAX_SUMMARY} characters: the notification text, or what was checked when nothing changed.")
             }
         },
     )
@@ -236,25 +233,22 @@ internal object ScheduleTools : PhoneToolGroup {
 
     /**
      * 按 update_scheduled_task 的参数改 [task]：只改传了的，运行记录照旧（见 [Schedules.applyDraft]）。参数不对时抛 [BadInput]。
-     * 改了时间就当用户要它重新开始：关着的打开，除非同时给了 enabled（和设置页的编辑一样）。
+     * 开关和校验照 [Schedules.edit]，和设置页的编辑一样。
      */
     fun updated(task: ScheduledTask, input: JsonObject, now: Instant, zone: ZoneId): ScheduledTask {
-        val rule = rule(input, task.rule, now, zone) ?: task.rule
-        val ruleChanged = rule != task.rule
         val draft = TaskDraft(
             name = input.str("name") ?: task.name,
             prompt = input.str("prompt") ?: task.prompt,
-            rule = rule,
+            rule = rule(input, task.rule, now, zone) ?: task.rule,
             cwd = if (given(input, "cwd")) input.str("cwd") else task.cwd,
             model = if (given(input, "model")) input.str("model")?.trim()?.takeIf { it.isNotEmpty() } else task.model,
             permissionMode = if (given(input, "permission_mode")) mode(input) else task.permissionMode,
             newSession = input.bool("new_session") ?: task.newSession,
-            enabled = input.bool("enabled") ?: (task.enabled || ruleChanged),
             onlyOnChange = input.bool("only_on_change") ?: task.onlyOnChange,
         )
-        // 没动时间、改完关着：跑过的单次任务也能改名、改指令
-        Schedules.problem(draft, now, zone, checkRule = ruleChanged || draft.enabled)?.let { throw BadInput(it + localNote(now, zone)) }
-        return Schedules.applyDraft(task, draft)
+        val edited = Schedules.edit(task, draft, input.bool("enabled"), now, zone)
+        edited.problem?.let { throw BadInput(it + localNote(now, zone)) }
+        return Schedules.applyDraft(task, edited.draft)
     }
 
     private fun given(input: JsonObject, key: String) = input[key].let { it != null && it !is JsonNull }
@@ -271,17 +265,19 @@ internal object ScheduleTools : PhoneToolGroup {
      */
     fun rule(input: JsonObject, base: ScheduleRule?, now: Instant, zone: ZoneId): ScheduleRule? {
         if (base != null && SCHEDULE_KEYS.none { given(input, it) }) return null
-        val repeat = input.str("repeat")?.takeIf { it.isNotBlank() } ?: base?.let(::repeatOf)
+        val repeat = input.str("repeat")?.takeIf { it.isNotBlank() }
+        val kind = (if (repeat != null) RuleKind.of(repeat) else base?.kind)
+            ?: throw BadInput("repeat 只能是 " + REPEATS.joinToString("、") + "，收到的是 $repeat")
         val time = input.str("time")?.let { Schedules.parseTime(it) ?: throw BadInput("time 要写成 08:00 这样") }
         val at = input.str("at")?.let { Schedules.parseDateTime(it) ?: throw BadInput("at 要写成 2026-11-20T08:00 这样") }
-        val sameTime = time ?: base?.let(::timeOf)
-        return when (repeat) {
-            "once" -> ScheduleRule.Once(
+        val sameTime = time ?: base?.time
+        return when (kind) {
+            RuleKind.Once -> ScheduleRule.Once(
                 at ?: (base as? ScheduleRule.Once)?.at?.let { old -> time?.let { old.toLocalDate().atTime(it) } ?: old }
                     ?: throw BadInput("once 要给 at，比如 2026-11-20T08:00"),
             )
-            "daily" -> ScheduleRule.Daily(sameTime ?: throw BadInput("daily 要给 time，比如 08:00"))
-            "weekly" -> {
+            RuleKind.Daily -> ScheduleRule.Daily(sameTime ?: throw BadInput("daily 要给 time，比如 08:00"))
+            RuleKind.Weekly -> {
                 val days = if (given(input, "days")) {
                     input.arr("days").orEmpty().map { element ->
                         (element as? JsonPrimitive)?.content?.let(Schedules::parseDay) ?: throw BadInput("days 里的 $element 不是星期几（mon…sun）")
@@ -292,28 +288,13 @@ internal object ScheduleTools : PhoneToolGroup {
                 if (days.isEmpty()) throw BadInput("weekly 要给 days，比如 [\"mon\",\"wed\"]")
                 ScheduleRule.Weekly(days, sameTime ?: throw BadInput("weekly 要给 time，比如 08:00"))
             }
-            "interval" -> {
+            RuleKind.Interval -> {
                 val hours = input.int("every_hours") ?: (base as? ScheduleRule.Interval)?.hours ?: throw BadInput("interval 要给 every_hours")
                 // 不给第一次的时间：从现在起算，第一次在 every_hours 小时后
                 val start = at ?: (base as? ScheduleRule.Interval)?.start ?: LocalDateTime.ofInstant(now, zone).truncatedTo(ChronoUnit.MINUTES)
                 ScheduleRule.Interval(hours, start)
             }
-            else -> throw BadInput("repeat 只能是 " + REPEATS.joinToString("、") + "，收到的是 $repeat")
         }
-    }
-
-    private fun repeatOf(rule: ScheduleRule): String = when (rule) {
-        is ScheduleRule.Once -> "once"
-        is ScheduleRule.Daily -> "daily"
-        is ScheduleRule.Weekly -> "weekly"
-        is ScheduleRule.Interval -> "interval"
-    }
-
-    private fun timeOf(rule: ScheduleRule): LocalTime = when (rule) {
-        is ScheduleRule.Once -> rule.at.toLocalTime()
-        is ScheduleRule.Daily -> rule.time
-        is ScheduleRule.Weekly -> rule.time
-        is ScheduleRule.Interval -> rule.start.toLocalTime()
     }
 
     private fun localNote(now: Instant, zone: ZoneId) =
@@ -388,7 +369,7 @@ internal object ScheduleTools : PhoneToolGroup {
             "no_change" -> false
             else -> return toolFailure("outcome 只能是 deliver 或 no_change")
         }
-        val summary = input.str("summary")?.trim().orEmpty().let { if (it.length > MAX_SUMMARY) it.take(MAX_SUMMARY) + "…" else it }
+        val summary = Schedules.clip(input.str("summary")?.trim().orEmpty(), Schedules.MAX_SUMMARY)
         if (changed && summary.isEmpty()) return toolFailure("deliver 要给 summary：通知里显示的一两句话")
         run.report = RunReport(changed, summary)
         return toolText(if (changed) "已记下：这一轮跑完会发通知，正文是这段摘要。" else "已记下：这次没有变化，跑完不发通知，只记进运行记录。")

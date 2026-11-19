@@ -167,6 +167,44 @@ class ScheduleModelTest {
         assertNotNull(Schedules.problem(past.copy(name = ""), now, shanghai, checkRule = false))
     }
 
+    /** 设置页的编辑器和 update_scheduled_task 共用的开关与校验规则。 */
+    @Test
+    fun editTurnsOnWhenTheScheduleChanges() {
+        val now = local("2026-11-19T10:00")
+        val daily = ScheduledTask(id = "a", name = "简报", prompt = "汇总通知", rule = ScheduleRule.Daily(LocalTime.of(8, 0)))
+        fun edit(task: ScheduledTask?, draft: TaskDraft, enabled: Boolean? = null) = Schedules.edit(task, draft, enabled, now, shanghai)
+        // 新建：总是打开、总要看时间（draft 自己的 enabled 不看）
+        val fresh = TaskDraft("简报", "汇总通知", ScheduleRule.Once(LocalDateTime.parse("2026-11-19T09:00")), enabled = false)
+        assertEquals(Edited(fresh.copy(enabled = true), "这个时间已经过了"), edit(null, fresh))
+        // 关着的任务：只改文字保持关着；改了时间就打开，除非明确给了开关
+        val off = daily.copy(enabled = false)
+        assertEquals(false, edit(off, Schedules.draftOf(off).copy(name = "晨报")).draft.enabled)
+        val moved = Schedules.draftOf(off).copy(rule = ScheduleRule.Daily(LocalTime.of(9, 0)))
+        assertEquals(true, edit(off, moved).draft.enabled)
+        assertEquals(false, edit(off, moved, enabled = false).draft.enabled)
+        assertEquals(false, edit(daily, Schedules.draftOf(daily), enabled = false).draft.enabled)
+        // 跑过、被自动关掉的单次任务：改名不看时间；改了时间、或要打开它，就要看
+        val ran = daily.copy(rule = ScheduleRule.Once(LocalDateTime.parse("2026-11-18T08:00")), enabled = false)
+        assertNull(edit(ran, Schedules.draftOf(ran).copy(name = "旧提醒")).problem)
+        assertEquals("这个时间已经过了", edit(ran, Schedules.draftOf(ran), enabled = true).problem)
+        assertEquals("这个时间已经过了", edit(ran, Schedules.draftOf(ran).copy(rule = ScheduleRule.Once(LocalDateTime.parse("2026-11-19T09:00")))).problem)
+        assertEquals("写一个名字", edit(ran, Schedules.draftOf(ran).copy(name = " ")).problem)
+    }
+
+    @Test
+    fun rulesKnowTheirKindAndTime() {
+        val at = LocalDateTime.parse("2026-11-20T07:45")
+        val rules = listOf(
+            ScheduleRule.Once(at), ScheduleRule.Daily(LocalTime.of(7, 45)),
+            ScheduleRule.Weekly(setOf(DayOfWeek.MONDAY), LocalTime.of(7, 45)), ScheduleRule.Interval(3, at),
+        )
+        assertEquals(RuleKind.entries.toList(), rules.map { it.kind })
+        assertEquals(List(4) { LocalTime.of(7, 45) }, rules.map { it.time })
+        assertEquals(listOf("once", "daily", "weekly", "interval"), RuleKind.entries.map { it.key })
+        assertEquals(RuleKind.Weekly, RuleKind.of("weekly"))
+        assertNull(RuleKind.of("monthly"))
+    }
+
     @Test
     fun editingKeepsHistoryButDropsSessionWhenModeChanges() {
         val task = ScheduledTask(
@@ -262,5 +300,10 @@ class ScheduleModelTest {
         """.trimIndent()
         assertEquals("今日简报 日程：10:00 周会 通知：3 条 code", Schedules.preview(answer))
         assertEquals("abcde…", Schedules.preview("abcdefgh", limit = 5))
+        // 摘要默认的上限；截断不从表情中间切开
+        assertEquals(Schedules.MAX_SUMMARY + 1, Schedules.preview("长".repeat(300)).length)
+        assertEquals("ab…", Schedules.clip("ab\uD83D\uDE00cd", 3))
+        assertEquals("ab\uD83D\uDE00…", Schedules.clip("ab\uD83D\uDE00cd", 4))
+        assertEquals("ab\uD83D\uDE00", Schedules.clip("ab\uD83D\uDE00", 4))
     }
 }
