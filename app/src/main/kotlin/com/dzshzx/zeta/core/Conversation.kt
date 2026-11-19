@@ -115,6 +115,9 @@ class Conversation(
     /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
     val active: Boolean get() = busy || pending != null || backgroundTasks > 0
 
+    /** 还没开始的新对话：没有会话号、没有内容、没在跑。设置页改新对话的默认值时它跟着换。 */
+    val notStarted: Boolean get() = sessionId == null && items.isEmpty() && !active
+
     /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
     val openKey: String get() = sessionId ?: key
     var model by mutableStateOf(hub.settings.model)

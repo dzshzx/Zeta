@@ -22,7 +22,11 @@ import com.dzshzx.zeta.xposed.PowerKeyPolicy
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Mic
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +45,7 @@ private fun rememberAssistantOwner(load: (android.content.Context) -> AssistantO
 }
 
 /**
- * 设置 › 能力 里的「数字助理」：Zeta 是不是默认数字助理，点开是 [AssistantSettingsScreen]（默认助理、模型、思考强度）。
+ * 设置首页的「数字助理」：Zeta 是不是默认数字助理，点开是 [AssistantSettingsScreen]（默认助理、模型、思考强度）。
  * [owner] 给了就不查（截图测试用）。
  */
 @Composable
@@ -49,7 +53,7 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     ArrowPreference(
         title = "数字助理",
-        summary = "设为默认后，系统的助理入口唤起 Zeta 浮窗，带上当前屏幕问 Claude",
+        startAction = { SettingsIcon(COUIIcons.Mic, SettingsHue.System) },
         endActions = {
             PreferenceValue(
                 text = when {

@@ -106,6 +106,21 @@ class ConversationHub(private val app: Application) {
         settings.autoReadAnswers = enabled
     }
 
+    /**
+     * 设置页改新对话的默认模型。输入栏里选模型也存成这个默认值（[Conversation.chooseModel]），两边读写同一份；
+     * 当前对话还没开始时它也跟着换，回到聊天页看到的和设置页一致。null 是 Claude Code 自己的默认模型。
+     */
+    fun chooseDefaultModel(value: String?) {
+        settings.model = value
+        current.takeIf { it.notStarted }?.chooseModel(value)
+    }
+
+    /** 设置页改新对话的默认思考强度，和 [chooseDefaultModel] 一样；null 按 Claude Code 自己的设置。 */
+    fun chooseDefaultEffort(value: String?) {
+        settings.effort = value
+        current.takeIf { it.notStarted }?.chooseEffort(value)
+    }
+
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
     var darkTheme by mutableStateOf(settings.darkTheme)
         private set

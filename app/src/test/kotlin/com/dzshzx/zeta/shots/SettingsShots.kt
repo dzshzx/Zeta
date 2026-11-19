@@ -6,6 +6,7 @@ import androidx.compose.ui.test.swipeUp
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.ui.SettingsScreen
+import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
 import org.junit.Test
 
 class SettingsShots : ShotTest() {
@@ -15,7 +16,7 @@ class SettingsShots : ShotTest() {
         shoot("settings") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {}) }
     }
 
-    /** 设置首页慢慢往下滑一段（不带惯性）：顶栏折叠，能力、账号、上下文与扩展。 */
+    /** 设置首页慢慢往下滑一段（不带惯性）：顶栏折叠，上下文与扩展、手机与工具。 */
     @Test
     fun settingsMiddle() {
         val hub = Fixtures.readyHub(app)
@@ -27,12 +28,19 @@ class SettingsShots : ShotTest() {
         }
     }
 
-    /** 设置首页最下面：环境、备份与恢复、诊断、关于。 */
+    /** 设置首页最下面：通用、权限、关于。 */
     @Test
     fun settingsBottom() {
         val hub = Fixtures.readyHub(app)
         shoot("settings-bottom", prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } }) {
             SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
         }
+    }
+
+    /** 设置 › 备份与恢复。 */
+    @Test
+    fun backup() {
+        val hub = Fixtures.readyHub(app)
+        shoot("settings-backup") { SettingsBackupScreen(hub = hub, onBack = {}) }
     }
 }

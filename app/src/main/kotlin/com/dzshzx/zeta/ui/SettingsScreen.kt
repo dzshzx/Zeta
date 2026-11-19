@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.browser.BrowserActivity
@@ -22,12 +23,16 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.settings.AccountsEntry
 import com.dzshzx.zeta.ui.settings.AccountsScreen
 import com.dzshzx.zeta.ui.settings.AppearanceScreen
-import com.dzshzx.zeta.ui.settings.AutoCompactGroup
 import com.dzshzx.zeta.ui.settings.AssistantEntry
 import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
+import com.dzshzx.zeta.ui.settings.AutoCompactSwitch
+import com.dzshzx.zeta.ui.settings.CompactTimingPreference
 import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
 import com.dzshzx.zeta.ui.settings.NotifyTriggerEntry
 import com.dzshzx.zeta.ui.settings.NotifyTriggerScreen
@@ -36,19 +41,25 @@ import com.dzshzx.zeta.ui.settings.PermissionScreen
 import com.dzshzx.zeta.ui.settings.PermissionStatus
 import com.dzshzx.zeta.ui.settings.ScheduleEntry
 import com.dzshzx.zeta.ui.settings.ScheduleScreen
-import com.dzshzx.zeta.ui.settings.SettingsBackupDialogs
-import com.dzshzx.zeta.ui.settings.SettingsBackupGroup
+import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import com.dzshzx.zeta.ui.settings.StorageEntry
 import com.dzshzx.zeta.ui.settings.StorageScreen
+import com.dzshzx.zeta.ui.settings.modelChoices
+import com.dzshzx.zeta.ui.settings.rememberAutoCompact
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
-import com.dzshzx.zeta.ui.settings.rememberSettingsBackup
-import com.dzshzx.zeta.ui.setup.ClaudeConfigGroup
 import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
+import com.dzshzx.zeta.ui.setup.claudeConfigItems
 import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Image
+import io.github.suqi8.coui.kmp.icon.extended.Info
+import io.github.suqi8.coui.kmp.icon.extended.Theme
+import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
@@ -62,7 +73,7 @@ internal fun SettingsScreen(
     /** 回到聊天页：设置页、侧栏和别的盖在聊天页上的页面一起收起（由 MainActivity 做）。 */
     onShowChat: () -> Unit = onBack,
 ) {
-    // 外观、权限这两页挂在设置页自己身上：盖在设置页上面，返回键先关它们，不用改 MainActivity 的页面栈
+    // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们，不用改 MainActivity 的页面栈
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
     Box(Modifier.fillMaxSize()) {
         SettingsHome(hub, onBack, onOpenLinux, onOpenPhone, onOpenSubPage = { subPage = it })
@@ -89,6 +100,7 @@ internal fun SettingsScreen(
         }
         SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Assistant) { AssistantSettingsScreen(hub = hub, onBack = { subPage = null }) }
+        SettingsSubPageHost(subPage == SettingsSubPage.Backup) { SettingsBackupScreen(hub = hub, onBack = { subPage = null }) }
         SettingsSubPageHost(subPage == SettingsSubPage.Storage) {
             // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
             StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
@@ -107,24 +119,55 @@ private fun SettingsHome(
     onOpenPhone: () -> Unit,
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
-    val env = hub.env
     val context = LocalContext.current
     val prefs = remember(context) { UiPrefs.get(context) }
-    val permissionItems = PermissionHealth.items(rememberPermissionSnapshot(), hub)
-    val permissionIssues = permissionItems.count { it.needsAttention }
-    val permissionChecking = permissionItems.any { it.status == PermissionStatus.Checking }
-    val backup = rememberSettingsBackup(hub)
-    CouiPage(
-        title = "设置",
-        onBack = onBack,
-        topBarStyle = CouiTopBarStyle.SettingsHome,
-        overlays = { SettingsBackupDialogs(hub, backup) },
-    ) {
+    val ready = hub.setup == SetupState.Ready && hub.env != null
+    val compact = rememberAutoCompact(hub)
+    CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
+        item(key = "claude") {
+            PreferenceGroup(title = "Claude") {
+                item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
+                item { DefaultModelPreference(hub) }
+                item { DefaultEffortPreference(hub) }
+            }
+        }
+        item(key = "context") {
+            PreferenceGroup(title = "上下文与扩展") {
+                item { AutoCompactSwitch(compact) }
+                item { CompactTimingPreference(compact) }
+                item { AutoTitleSwitch(hub) }
+                claudeConfigItems(ready, onOpenSubPage)
+                item { ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) } }
+                item { NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) } }
+            }
+        }
+        item(key = "phone") {
+            PreferenceGroup(title = "手机与工具") {
+                item {
+                    ArrowPreference(
+                        title = "手机操作",
+                        startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
+                        endActions = { PreferenceValue(if (hub.phoneTools) "已开启" else "已关闭") },
+                        onClick = onOpenPhone,
+                    )
+                }
+                item { AssistantEntry { onOpenSubPage(SettingsSubPage.Assistant) } }
+                item {
+                    ArrowPreference(
+                        title = "浏览器",
+                        startAction = { SettingsIcon(ZetaIcons.Globe, SettingsHue.System) },
+                        onClick = { BrowserActivity.open(context) },
+                    )
+                }
+                item { LinuxEntry(hub, onOpenLinux) }
+            }
+        }
         item(key = "general") {
-            PreferenceGroup(title = "通用", footer = "屏幕常亮只在 Zeta 显示在前台时起作用；切到别的应用或回到桌面，屏幕照常按系统设置熄灭。") {
+            PreferenceGroup(title = "通用") {
                 item {
                     ArrowPreference(
                         title = "外观与主题",
+                        startAction = { SettingsIcon(COUIIcons.Theme, SettingsHue.System) },
                         endActions = {
                             PreferenceValue(
                                 when (hub.darkTheme) {
@@ -138,114 +181,157 @@ private fun SettingsHome(
                     )
                 }
                 item {
-                    SwitchPreference(title = "对话进行中保持屏幕常亮", checked = prefs.keepScreenOn, onCheckedChange = prefs::chooseKeepScreenOn)
+                    // 只在 Zeta 显示在前台时起作用；切到别的应用或回到桌面，屏幕照常按系统设置熄灭
+                    SwitchPreference(
+                        title = "对话中保持屏幕常亮",
+                        startAction = { SettingsIcon(ZetaIcons.Sun, SettingsHue.System) },
+                        checked = prefs.keepScreenOn,
+                        onCheckedChange = prefs::chooseKeepScreenOn,
+                    )
                 }
-            }
-        }
-        item(key = "chat") {
-            PreferenceGroup(title = "聊天", footer = "关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取。") {
                 item {
-                    SwitchPreference(title = "自动加载网络图片", checked = hub.autoLoadRemoteImages, onCheckedChange = hub::chooseAutoLoadRemoteImages)
+                    // 关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取
+                    SwitchPreference(
+                        title = "自动加载网络图片",
+                        startAction = { SettingsIcon(COUIIcons.Image, SettingsHue.Claude) },
+                        checked = hub.autoLoadRemoteImages,
+                        onCheckedChange = hub::chooseAutoLoadRemoteImages,
+                    )
                 }
-                item { AutoTitleSwitch(hub) }
                 item {
+                    // 一轮回答完了用系统的朗读引擎念出来，锁屏也接着读
                     SwitchPreference(
                         title = "回答自动朗读",
-                        summary = "一轮回答完了用系统的朗读引擎念出来，锁屏也接着读",
+                        startAction = { SettingsIcon(COUIIcons.VolumeUp, SettingsHue.Claude) },
                         checked = hub.autoReadAnswers,
                         onCheckedChange = hub::chooseAutoReadAnswers,
                     )
                 }
-            }
-        }
-        item(key = "compact") { AutoCompactGroup(hub) }
-        item(key = "abilities") {
-            PreferenceGroup(title = "能力") {
-                item {
-                    ArrowPreference(
-                        title = "手机操作",
-                        summary = if (hub.phoneTools) "Claude 可以读屏、点按、打开应用、执行 Android 命令" else "已关闭",
-                        onClick = onOpenPhone,
-                    )
-                }
-                item { ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) } }
-                item { NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) } }
-                item { AssistantEntry { onOpenSubPage(SettingsSubPage.Assistant) } }
-                item {
-                    ArrowPreference(
-                        title = "浏览器",
-                        summary = "Claude 打开网页用的内置浏览器：看它当前的页面、接管操作、清除数据",
-                        onClick = { BrowserActivity.open(context) },
-                    )
-                }
-            }
-        }
-        item(key = "account") { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
-        item(key = "claude") { ClaudeConfigGroup(hub, onOpenSubPage) }
-        item(key = "permissions") {
-            PreferenceGroup(title = "权限", footer = "后台运行（电池优化）、通知、无障碍、root 和 Linux 环境的状态都在这里，有 root 时可以一键授予。") {
-                item {
-                    ArrowPreference(
-                        title = "权限健康",
-                        endActions = {
-                            PreferenceValue(
-                                text = when {
-                                    permissionIssues > 0 -> "$permissionIssues 项需关注"
-                                    permissionChecking -> "检查中"
-                                    else -> "正常"
-                                },
-                                color = if (permissionIssues == 0) Color.Unspecified else COUITheme.colorScheme.error,
-                            )
-                        },
-                        onClick = { onOpenSubPage(SettingsSubPage.Permissions) },
-                    )
-                }
-            }
-        }
-        item(key = "environment") {
-            PreferenceGroup(title = "环境") {
-                item {
-                    ArrowPreference(
-                        title = "Linux 环境",
-                        summary = when (hub.setup) {
-                            SetupState.Checking -> "检查中"
-                            SetupState.NoRoot -> "没有 root 权限"
-                            SetupState.NoEnvironment -> "未找到环境，可以在这里安装"
-                            SetupState.Ready -> listOfNotNull(env?.user, hub.account?.let { if (it.loggedIn) "已登录" else "未登录 Claude 账号" }).joinToString(" · ")
-                        },
-                        onClick = onOpenLinux,
-                    )
-                }
                 item { StorageEntry { onOpenSubPage(SettingsSubPage.Storage) } }
+                item {
+                    ArrowPreference(
+                        title = "备份与恢复",
+                        startAction = { SettingsIcon(ZetaIcons.Archive, SettingsHue.Files) },
+                        onClick = { onOpenSubPage(SettingsSubPage.Backup) },
+                    )
+                }
             }
         }
-        item(key = "backup") { SettingsBackupGroup(backup) }
-        item(key = "diagnostics") {
-            PreferenceGroup(title = "诊断") {
+        item(key = "permissions") {
+            PreferenceGroup(title = "权限") {
+                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.Permissions) } }
+            }
+        }
+        item(key = "about") {
+            PreferenceGroup(title = "关于", footer = "界面基于 Eta 的 COUI 代码，按 GPL-3.0 授权。") {
+                item {
+                    BasicComponent(
+                        title = "版本",
+                        summary = BuildConfig.VERSION_NAME,
+                        startAction = { SettingsIcon(COUIIcons.Info, SettingsHue.System) },
+                    )
+                }
                 item {
                     ArrowPreference(
                         title = "诊断与日志",
-                        summary = "Zeta 的运行日志、环境信息、Claude Code 的错误输出；可以导出打过码的诊断包",
+                        startAction = { SettingsIcon(ZetaIcons.Pulse, SettingsHue.Files) },
                         onClick = { onOpenSubPage(SettingsSubPage.Diagnostics) },
                     )
                 }
             }
         }
-        item(key = "about") {
-            PreferenceGroup(title = "关于", footer = "界面基于 Eta 的 COUI 代码，按 GPL-3.0 授权。") {
-                item { BasicComponent(title = "Zeta · Ζ", endActions = { PreferenceValue(BuildConfig.VERSION_NAME) }) }
-            }
-        }
     }
+}
+
+/** 「新对话的模型」：输入栏里选的模型也存成这个默认值，两边读写同一份（[ConversationHub.chooseDefaultModel]）。 */
+@Composable
+private fun DefaultModelPreference(hub: ConversationHub) {
+    var model by remember { mutableStateOf(hub.settings.model) }
+    val follow = "default" to "跟随 Claude Code"
+    val listed = modelChoices(hub).filter { it.first != "default" }
+    val options = listOf(follow) + listed + listOfNotNull(model?.takeIf { v -> listed.none { it.first == v } }?.let { it to it })
+    OverlayDropdownPreference(
+        title = "新对话的模型",
+        startAction = { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) },
+        items = options.map { it.second },
+        selectedIndex = options.indexOfFirst { it.first == (model ?: "default") },
+        onSelectedIndexChange = { index ->
+            options.getOrNull(index)?.let { (value, _) ->
+                model = value.takeIf { it != "default" }
+                hub.chooseDefaultModel(model)
+            }
+        },
+    )
+}
+
+/** 「新对话的思考强度」：和输入栏的思考强度按钮读写同一份默认值（[ConversationHub.chooseDefaultEffort]）。 */
+@Composable
+private fun DefaultEffortPreference(hub: ConversationHub) {
+    var effort by remember { mutableStateOf(hub.settings.effort) }
+    val options = listOf<Pair<String?, String>>(null to "跟随 Claude Code") + EffortLevels +
+        listOfNotNull(effort?.takeIf { v -> EffortLevels.none { it.first == v } }?.let { it to it })
+    OverlayDropdownPreference(
+        title = "新对话的思考强度",
+        startAction = { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) },
+        items = options.map { it.second },
+        selectedIndex = options.indexOfFirst { it.first == effort },
+        onSelectedIndexChange = { index ->
+            options.getOrNull(index)?.let { (value, _) ->
+                effort = value
+                hub.chooseDefaultEffort(value)
+            }
+        },
+    )
+}
+
+/** 「Linux 环境」：右边是 Linux 用户名，没 root、没装环境时红字。 */
+@Composable
+private fun LinuxEntry(hub: ConversationHub, onOpen: () -> Unit) {
+    val (value, bad) = when (hub.setup) {
+        SetupState.Checking -> "检查中" to false
+        SetupState.NoRoot -> "没有 root" to true
+        SetupState.NoEnvironment -> "未安装" to true
+        SetupState.Ready -> (hub.env?.user ?: "已就绪") to false
+    }
+    ArrowPreference(
+        title = "Linux 环境",
+        startAction = { SettingsIcon(ZetaIcons.Terminal, SettingsHue.Files) },
+        endActions = { PreferenceValue(value, color = if (bad) COUITheme.colorScheme.error else Color.Unspecified) },
+        onClick = onOpen,
+    )
+}
+
+/** 「权限健康」：有几项要处理，有 root 时进去可以一键授予。 */
+@Composable
+private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
+    val items = PermissionHealth.items(rememberPermissionSnapshot(), hub)
+    val issues = items.count { it.needsAttention }
+    val checking = items.any { it.status == PermissionStatus.Checking }
+    ArrowPreference(
+        title = "权限健康",
+        startAction = { SettingsIcon(ZetaIcons.ShieldCheck, SettingsHue.System) },
+        endActions = {
+            PreferenceValue(
+                text = when {
+                    issues > 0 -> "$issues 项需关注"
+                    checking -> "检查中"
+                    else -> "正常"
+                },
+                color = if (issues == 0) Color.Unspecified else COUITheme.colorScheme.error,
+            )
+        },
+        onClick = onOpen,
+    )
 }
 
 /** 自动标题的开关：在每次要起标题时读，关掉后还没起的也不再起。 */
 @Composable
 private fun AutoTitleSwitch(hub: ConversationHub) {
+    // 新对话第一轮回答后，由 Claude Code 用它的快速模型（Haiku）起个简短标题；改过名的不动
     var on by remember { mutableStateOf(hub.settings.autoTitle) }
     SwitchPreference(
         title = "自动生成对话标题",
-        summary = "新对话第一轮回答后，由 Claude Code 用它的快速模型（Haiku）起个简短标题；改过名的不动",
+        startAction = { SettingsIcon(ZetaIcons.Sparkle, SettingsHue.Claude) },
         checked = on,
         onCheckedChange = {
             on = it

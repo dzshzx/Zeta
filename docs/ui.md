@@ -14,6 +14,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `CouiPage`（列表页）、`CouiPageScaffold`（内容随意）：页面骨架。顶栏带 COUI 17 光晕，页面录进背景图给弹出的东西做毛玻璃，宽屏时内容居中、顶栏变小，键盘弹出时让位。
 - `CouiBlur.kt`：毛玻璃接线。`LocalCouiBlurEnabled`（截图测试里关掉）、`LocalPageBackdrop`、`panelBlur(...)`。
 - `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。
+- `SettingsIcon(图标, SettingsHue.*)`：设置首页行首的彩色图标，放进行的 `startAction`；颜色按这一行管的东西分四类，见下面「设置页」。
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时自己给 `dividerStart`。
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
 - `IconActionButton`、`FlatIconButton`、`CopyIconButton`（`IconActionButton.kt`）：只放一个图标的按钮。`IconActionButton` 参数照 COUI 的 `IconButton`（顶栏的新建、刷新、返回）；`FlatIconButton(size, iconSize)` 是平的小圆钮（查找栏、消息下方、排队条）；`CopyIconButton` 是点了复制、短暂显示对勾的复制键。图标按钮都从这三个建，不直接用 COUI 的 `IconButton`。
@@ -23,6 +24,16 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.gauge(档位, 格数)` 是刻度表。
 
 聊天页输入栏的底栏另有 `BarButton`、`BarMenuButton`（`ui/chat/BarButtons.kt`）：只放图标的定宽按钮，一句说明同时当读屏说明和长按提示，配色取 `barChipColors`。底栏不写字，档位、百分比都在这句说明、菜单和用量弹窗里；新按钮放进 `Composer` 的 `tools` 或 `status`，间距由 `Composer` 统一给。
+
+## 设置页
+
+照 Eta 的设置页：首页是一张按「管什么」分组的入口清单，说明文字放进子页。
+
+- 首页的组和顺序：Claude（账号、新对话的模型和思考强度）→ 上下文与扩展（压缩、标题、Claude Code 自身配置、定时与通知触发）→ 手机与工具 → 通用 → 权限 → 关于。新入口按管什么归进这几组，不为一两行另开一组。
+- 首页每行行首一个 `SettingsIcon`，颜色只有四类：蓝 `Claude`（Claude 与对话）、绿 `System`（手机、系统与 Zeta 本身）、橙 `Files`（文件与环境）、黄 `Automation`（自动触发与规则）。行不能用时图标跟着 `enabled = false` 变灰。
+- 首页的行只写当前状态：右侧值（`PreferenceValue`，出问题时红字）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」留一行授权声明。
+- 子页的行不放图标。摘要最多一行，说这一项是什么或当前状态；要讲清楚的放组下说明（`PreferenceGroup(footer = …)`），一段两三句。
+- 首页上的开关、下拉直接改；要配几项的东西做成子页（`SettingsSubPage` 加一项，在 `SettingsScreen` 里挂 `SettingsSubPageHost`），首页只留一个带状态的入口。
 
 ## 补上游缺口
 
@@ -40,7 +51,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 | 要做的 | 用 |
 | --- | --- |
-| 设置页 | `CouiPage(title, onBack, overlays = { 对话框 }) { item { PreferenceGroup(title, footer) { item { 行 } } } }` |
+| 设置页 | `CouiPage(title, onBack, overlays = { 对话框 }) { item { PreferenceGroup(title, footer) { item { 行 } } } }`，首页和子页的分别见上面「设置页」 |
 | 点了进别的页 | `ArrowPreference` |
 | 点了执行操作、开对话框 | `BasicComponent(onClick = …)`（不带箭头），右侧值 `endActions = { PreferenceValue(…) }` |
 | 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`OverlayDropdownPreference`、`SliderPreference` |

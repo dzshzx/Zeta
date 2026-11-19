@@ -30,6 +30,7 @@ import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.app.writeText
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -53,8 +54,8 @@ internal sealed interface ImportReview {
 }
 
 /**
- * 设置页“备份与恢复”的状态：正在读写文件、导入前的核对结果，以及打开系统“保存到”“打开”的两个入口。
- * 分组（[SettingsBackupGroup]）放在页面列表里，对话框（[SettingsBackupDialogs]）放在页面的 overlays 里，两边共用这一份。
+ * “备份与恢复”页的状态：正在读写文件、导入前的核对结果，以及打开系统“保存到”“打开”的两个入口。
+ * 页面列表里的两行和 overlays 里的对话框（[SettingsBackupDialogs]）共用这一份。
  */
 @Stable
 internal class SettingsBackupState {
@@ -92,31 +93,35 @@ internal fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
 }
 
 /**
- * 设置页的“备份与恢复”：把 Zeta 自己的设置存成一个 JSON 文件（系统的“保存到”），或从文件导入（系统的“打开”）。
+ * 设置 › 备份与恢复：把 Zeta 自己的设置存成一个 JSON 文件（系统的“保存到”），或从文件导入（系统的“打开”）。
  * 导入前列出会改哪几项、跳过哪几项，确认后才写。转换和校验在 [SettingsBackup]。
  */
 @Composable
-internal fun SettingsBackupGroup(state: SettingsBackupState) {
-    PreferenceGroup(
-        title = "备份与恢复",
-        footer = "备份里是 Zeta 自己的设置：外观、聊天、手机操作、新对话的默认值、置顶和共享文件夹。" +
-            "不含 Claude Code 的配置、对话和登录状态；Linux 环境的位置和用户、调试用的屏幕编号和各种缓存只属于这台手机，也不导出。",
-    ) {
-        item {
-            BasicComponent(title = "导出设置", summary = "保存成 JSON 文件", enabled = !state.busy, onClick = state.export)
-        }
-        item {
-            BasicComponent(
-                title = "导入设置",
-                summary = if (state.busy) "处理中…" else "从备份文件恢复，导入前会列出要改的项",
-                enabled = !state.busy,
-                onClick = state.import,
-            )
+internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
+    val state = rememberSettingsBackup(hub)
+    CouiPage(title = "备份与恢复", onBack = onBack, overlays = { SettingsBackupDialogs(hub, state) }) {
+        item(key = "backup") {
+            PreferenceGroup(
+                footer = "备份里是 Zeta 自己的设置：外观、聊天、手机操作、新对话的默认值、置顶和共享文件夹。" +
+                    "不含 Claude Code 的配置、对话和登录状态；Linux 环境的位置和用户、调试用的屏幕编号和各种缓存只属于这台手机，也不导出。",
+            ) {
+                item {
+                    BasicComponent(title = "导出设置", summary = "保存成 JSON 文件", enabled = !state.busy, onClick = state.export)
+                }
+                item {
+                    BasicComponent(
+                        title = "导入设置",
+                        summary = if (state.busy) "处理中…" else "导入前会列出要改的项",
+                        enabled = !state.busy,
+                        onClick = state.import,
+                    )
+                }
+            }
         }
     }
 }
 
-/** 导入前的核对：读不了、没有要改的、确认导入。放在设置页的 overlays 里。 */
+/** 导入前的核对：读不了、没有要改的、确认导入。放在页面的 overlays 里。 */
 @Composable
 internal fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupState) {
     val context = LocalContext.current

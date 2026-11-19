@@ -26,12 +26,16 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.ContactsBook
 import io.github.suqi8.coui.kmp.menu.OverlayDropdownMenu
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
@@ -45,22 +49,19 @@ internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
     val account = hub.account
     val headline = hub.quota.snapshot?.current(now)?.headline
     val summaryColor = severityColor(headline?.severity ?: QuotaSeverity.Normal, COUITheme.colorScheme.labelSecondary)
-    PreferenceGroup(title = "Claude 账号") {
-        item {
-            ArrowPreference(
-                title = "账号与额度",
-                summary = when {
-                    !ready -> "Linux 环境准备好以后才能用"
-                    account == null -> "正在查询…"
-                    !account.loggedIn -> "未登录"
-                    else -> listOfNotNull(account.email, headline?.let { "${it.label}已用 ${it.percent}%" }).joinToString(" · ").ifBlank { "已登录" }
-                },
-                summaryColor = BasicComponentDefaults.summaryColor(color = summaryColor),
-                enabled = ready,
-                onClick = onOpen,
-            )
-        }
-    }
+    ArrowPreference(
+        title = "账号与额度",
+        summary = when {
+            !ready -> "Linux 环境未就绪"
+            account == null -> "查询中"
+            !account.loggedIn -> "未登录"
+            else -> listOfNotNull(account.email, headline?.let { "${it.label}已用 ${it.percent}%" }).joinToString(" · ").ifBlank { "已登录" }
+        },
+        summaryColor = BasicComponentDefaults.summaryColor(color = summaryColor),
+        startAction = { SettingsIcon(COUIIcons.ContactsBook, SettingsHue.Claude, enabled = ready) },
+        enabled = ready,
+        onClick = onOpen,
+    )
 }
 
 /**

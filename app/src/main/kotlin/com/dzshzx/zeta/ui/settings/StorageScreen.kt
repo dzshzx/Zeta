@@ -30,6 +30,9 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
@@ -50,13 +53,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 设置页“环境”分组里的入口：顺带显示手机剩余空间。 */
+/** 设置首页的入口：顺带显示手机剩余空间。 */
 @Composable
 internal fun StorageEntry(onClick: () -> Unit) {
     val free = remember { Storage.phoneSpace().first }
     ArrowPreference(
         title = "存储",
-        summary = "各项占用的空间，清理缓存和已删会话的残留",
+        startAction = { SettingsIcon(ZetaIcons.Storage, SettingsHue.Files) },
         endActions = { if (free > 0) PreferenceValue("剩余 " + Storage.size(free)) },
         onClick = onClick,
     )

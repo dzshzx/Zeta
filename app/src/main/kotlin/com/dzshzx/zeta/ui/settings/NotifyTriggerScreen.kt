@@ -41,6 +41,9 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.couiPageScroll
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -93,7 +96,7 @@ internal fun notificationListenerItem(snapshot: PermissionSnapshot?, root: Boole
     }
 }
 
-/** 设置页“能力”里的入口：几条规则开着。 */
+/** 设置首页的入口：几条规则开着。 */
 @Composable
 internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
     val context = LocalContext.current
@@ -102,10 +105,13 @@ internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
     val enabled = rules.count { it.enabled }
     ArrowPreference(
         title = "通知触发",
-        summary = when {
-            rules.isEmpty() -> "某个应用来通知时，让 Claude 在后台做一件事"
-            enabled == 0 -> "${rules.size} 条规则，都关着"
-            else -> "$enabled 条规则开着"
+        startAction = { SettingsIcon(ZetaIcons.Bell, SettingsHue.Automation) },
+        endActions = {
+            when {
+                rules.isEmpty() -> {}
+                enabled == 0 -> PreferenceValue("都关着")
+                else -> PreferenceValue("$enabled 条开着")
+            }
         },
         onClick = onOpen,
     )

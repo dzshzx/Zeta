@@ -40,20 +40,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -61,6 +63,7 @@ import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Card
+import io.github.suqi8.coui.kmp.basic.CardListGroupScope
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
@@ -69,6 +72,7 @@ import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Delete
+import io.github.suqi8.coui.kmp.icon.extended.Lock
 import io.github.suqi8.coui.kmp.icon.extended.Notes
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -78,24 +82,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 设置页上“上下文与扩展”的入口分组。这几个页面管的都是 Linux 环境里 Claude Code 自己的配置，不是 Zeta 的。 */
-@Composable
-internal fun ClaudeConfigGroup(hub: ConversationHub, onOpen: (SettingsSubPage) -> Unit) {
-    val ready = hub.setup == SetupState.Ready && hub.env != null
-    PreferenceGroup(
-        title = "上下文与扩展",
-        footer = if (ready) {
-            "这里改的是 Linux 环境里 Claude Code 自己的配置（~/.claude），在终端里用 claude 时同样生效。改动对之后新开始的对话生效。"
-        } else {
-            "Linux 环境准备好以后才能管理这些。"
-        },
-    ) {
-        item { ArrowPreference(title = "记忆", summary = "CLAUDE.md 与自动记忆", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMemory) }) }
-        item { ArrowPreference(title = "Skills", summary = "~/.claude/skills", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeSkills) }) }
-        item { ArrowPreference(title = "MCP 服务器", summary = "claude mcp 管理的服务器", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeMcp) }) }
-        item { ArrowPreference(title = "Subagent", summary = "~/.claude/agents", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudeAgents) }) }
-        item { ArrowPreference(title = "工具权限", summary = "按工具设允许、询问、拒绝", enabled = ready, onClick = { onOpen(SettingsSubPage.ClaudePermissions) }) }
+/**
+ * 设置首页“上下文与扩展”里管 Claude Code 自身配置的几行。这几页改的是 Linux 环境里 Claude Code 自己的配置（~/.claude），
+ * 不是 Zeta 的，终端里的 claude 同样生效；Linux 环境没就绪（[ready] 为 false）时不能点。
+ */
+internal fun CardListGroupScope.claudeConfigItems(ready: Boolean, onOpen: (SettingsSubPage) -> Unit) {
+    fun entry(title: String, icon: ImageVector, hue: SettingsHue, page: SettingsSubPage) = item {
+        ArrowPreference(
+            title = title,
+            startAction = { SettingsIcon(icon, hue, enabled = ready) },
+            enabled = ready,
+            onClick = { onOpen(page) },
+        )
     }
+    entry("记忆", COUIIcons.Notes, SettingsHue.Files, SettingsSubPage.ClaudeMemory)
+    entry("Skills", ZetaIcons.Book, SettingsHue.Files, SettingsSubPage.ClaudeSkills)
+    entry("MCP 服务器", ZetaIcons.Puzzle, SettingsHue.Claude, SettingsSubPage.ClaudeMcp)
+    entry("Subagent", ZetaIcons.Branch, SettingsHue.Claude, SettingsSubPage.ClaudeAgents)
+    entry("工具权限", COUIIcons.Lock, SettingsHue.Automation, SettingsSubPage.ClaudePermissions)
 }
 
 /** 这几个页面挂在设置页的子页面宿主上；返回键由设置页统一处理（关掉当前子页面）。 */

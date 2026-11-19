@@ -42,6 +42,9 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.SettingsHue
+import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -76,7 +79,7 @@ import kotlinx.coroutines.withContext
 private const val ListFooter = "到点时 Zeta 在后台开一个对话发出指令，不打断你正在看的对话；跑完发一条通知（任务名和回答的开头），点通知打开那次的对话。" +
     "Zeta 没在运行时会被拉起来。同一个任务上一次还没跑完时，跳过这一次。也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
 
-/** 设置页“能力”里的入口：开着几个、下一次什么时候。 */
+/** 设置首页的入口：开着几个、下一次什么时候。 */
 @Composable
 internal fun ScheduleEntry(onOpen: () -> Unit) {
     val context = LocalContext.current
@@ -88,10 +91,14 @@ internal fun ScheduleEntry(onOpen: () -> Unit) {
     val next = enabled.mapNotNull { Schedules.nextTrigger(it.rule, now, zone) }.minOrNull()
     ArrowPreference(
         title = "定时任务",
-        summary = when {
-            tasks.isEmpty() -> "到点或按周期让 Claude 在后台做一件事"
-            enabled.isEmpty() -> "${tasks.size} 个，都关着"
-            else -> "${enabled.size} 个开着" + (next?.let { " · 下次 " + Schedules.formatWhen(it, now, zone) } ?: "")
+        summary = next?.let { "下次 " + Schedules.formatWhen(it, now, zone) },
+        startAction = { SettingsIcon(ZetaIcons.Clock, SettingsHue.Automation) },
+        endActions = {
+            when {
+                tasks.isEmpty() -> {}
+                enabled.isEmpty() -> PreferenceValue("都关着")
+                else -> PreferenceValue("${enabled.size} 个开着")
+            }
         },
         onClick = onOpen,
     )

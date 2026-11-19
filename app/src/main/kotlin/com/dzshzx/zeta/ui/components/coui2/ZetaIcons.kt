@@ -203,6 +203,9 @@ internal object ZetaIcons {
     /** 盾牌里一个感叹号：权限模式「完全放行」。 */
     val ShieldAlert: ImageVector by lazy { shield("M12 7.4v5M12 15v.01") }
 
+    /** 盾牌里一个对勾：权限健康。 */
+    val ShieldCheck: ImageVector by lazy { shield("M8.7 11.9l2.3 2.3 4.3-4.5") }
+
     private fun shield(mark: String): ImageVector = icon {
         line("M12 2.85 4.1 6.1c-.2 2.2-.2 4.3 0 6.1.5 4.4 3.6 7.4 7.9 8.95 4.3-1.55 7.4-4.55 7.9-8.95.2-1.8.2-3.9 0-6.1Z")
         line(mark)
@@ -265,6 +268,44 @@ internal object ZetaIcons {
     val Home: ImageVector by lazy {
         icon {
             line("M2.85 10.9 10.3 4.5a2.6 2.6 0 0 1 3.4 0l7.45 6.4M4.6 9.4v8.95a2.8 2.8 0 0 0 2.8 2.8h9.2a2.8 2.8 0 0 0 2.8-2.8V9.4M9.6 21.15v-4.4a2.4 2.4 0 0 1 4.8 0v4.4")
+        }
+    }
+
+    /** 打开的书：Skills。 */
+    val Book: ImageVector by lazy {
+        icon {
+            line("M12 6.3C10.1 4.65 7.3 3.95 2.85 4.15v14.2c4.45-.2 7.25.5 9.15 2.15 1.9-1.65 4.7-2.35 9.15-2.15V4.15C16.7 3.95 13.9 4.65 12 6.3ZM12 6.3v14.2")
+        }
+    }
+
+    /** 钟面：定时任务。 */
+    val Clock: ImageVector by lazy {
+        icon {
+            line("M12 2.85a9.15 9.15 0 1 0 0 18.3 9.15 9.15 0 1 0 0-18.3ZM12 7v5l3.3 2.2")
+        }
+    }
+
+    /** 铃铛：通知。 */
+    val Bell: ImageVector by lazy {
+        icon {
+            line("M12 3.15a5.9 5.9 0 0 0-5.9 5.9v4.6L4.35 16.9h15.3l-1.75-3.25v-4.6A5.9 5.9 0 0 0 12 3.15ZM9.9 19.4q2.1 2.6 4.2 0")
+        }
+    }
+
+    /** 太阳：屏幕常亮、亮度。 */
+    val Sun: ImageVector by lazy {
+        icon {
+            line(
+                "M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 1 0 0-7.2ZM12 2.85v2.85M12 18.3v2.85M2.85 12h2.85M18.3 12h2.85" +
+                    "M5.53 5.53l2.01 2.01M16.46 16.46l2.01 2.01M5.53 18.47l2.01-2.01M16.46 7.54l2.01-2.01",
+            )
+        }
+    }
+
+    /** 心电线：诊断。 */
+    val Pulse: ImageVector by lazy {
+        icon {
+            line("M2.85 12.6h3.6l2.4-6.6 4.4 12.4 2.6-5.8h5.3")
         }
     }
 
