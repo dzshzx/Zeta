@@ -4,14 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 正文与思考共用同一套渲染器，只在字号、墨色浓度与留白节奏上区分层级。 */
 internal enum class MarkdownTone { Answer, Thinking }
@@ -75,40 +74,19 @@ internal class MarkdownStyle(
 
 @Composable
 internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
-    val colors = MiuixTheme.colorScheme
-    val textStyles = MiuixTheme.textStyles
-    return remember(tone, colors, textStyles) {
+    val colors = COUITheme.colorScheme
+    val textStyles = COUITheme.textStyles
+    // COUITheme 换主题时就地改同一个配色对象的字段，所以按会变的那几个值记忆，不按对象记忆
+    return remember(tone, colors.isDark, colors.primary, colors.labelPrimary, textStyles.bodyXL, textStyles.bodyM) {
         val answer = tone == MarkdownTone.Answer
-        val isDark = colors.surface.luminance() < 0.5f
-        // COUI 与 Miuix 的 onSurface 自带不同基础 alpha；统一归一为纯墨色基色后再按层级分配浓度，
-        // 避免两套主题下细线、引用与正文的视觉重量发生漂移。
-        val ink = colors.onSurface.copy(alpha = 1f)
-        val strongColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.96f else 0.95f)
-        } else {
-            ink.copy(alpha = if (isDark) 0.78f else 0.74f)
-        }
-        val textColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.88f else 0.86f)
-        } else {
-            ink.copy(alpha = if (isDark) 0.60f else 0.56f)
-        }
-        val quoteTextColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.80f else 0.76f)
-        } else {
-            ink.copy(alpha = if (isDark) 0.56f else 0.52f)
-        }
-        val secondaryColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.56f else 0.52f)
-        } else {
-            ink.copy(alpha = if (isDark) 0.48f else 0.44f)
-        }
-        val markerColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.50f else 0.44f)
-        } else {
-            ink.copy(alpha = if (isDark) 0.44f else 0.40f)
-        }
-        val body = (if (answer) textStyles.body1 else textStyles.body2).copy(
+        val isDark = colors.isDark
+        // 墨色按层级取 COUI 的文字配色：正文 labelPrimary，重点再实一档；思考整体降一级。
+        val strongColor = if (answer) colors.labelPrimary.copy(alpha = 1f) else colors.labelPrimaryVariant
+        val textColor = if (answer) colors.labelPrimary else colors.labelSecondary
+        val quoteTextColor = if (answer) colors.labelPrimaryVariant else colors.labelSecondary
+        val secondaryColor = if (answer) colors.labelSecondary else colors.labelSecondaryVariant
+        val markerColor = colors.labelSecondaryVariant
+        val body = (if (answer) textStyles.bodyXL else textStyles.bodyM).copy(
             fontSize = if (answer) 16.sp else 13.5.sp,
             lineHeight = if (answer) ANSWER_LINE_HEIGHT_SP.sp else THINKING_LINE_HEIGHT_SP.sp,
             letterSpacing = if (answer) 0.1.sp else 0.sp,
@@ -155,16 +133,7 @@ internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
                 ),
             )
         }
-        val codeSurface = if (isDark && colors.surfaceContainer.luminance() < 0.005f) {
-            Color(0xFF16171A)
-        } else {
-            colors.surfaceContainer
-        }
-        val inlineCodeColor = if (answer) {
-            ink.copy(alpha = if (isDark) 0.93f else 0.90f)
-        } else {
-            strongColor
-        }
+        val inlineCodeColor = if (answer) colors.labelPrimary else strongColor
         MarkdownStyle(
             tone = tone,
             isDark = isDark,
@@ -186,16 +155,17 @@ internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
             quoteTextColor = quoteTextColor,
             secondaryColor = secondaryColor,
             markerColor = markerColor,
-            subtleBorderColor = ink.copy(alpha = if (isDark) 0.11f else 0.075f),
-            ruleColor = ink.copy(alpha = if (isDark) 0.09f else 0.065f),
-            quoteBackground = ink.copy(alpha = if (isDark) 0.055f else 0.034f),
-            quoteBarColor = ink.copy(alpha = if (isDark) 0.24f else 0.18f),
-            codeBackground = codeSurface,
-            codeHeaderBackground = ink.copy(alpha = if (isDark) 0.04f else 0.025f),
-            tableHeaderBackground = ink.copy(alpha = if (isDark) 0.065f else 0.038f),
+            // 底色、描边都是半透明的 COUI 容器色，铺在聊天页的白底、黑底或卡片底上都有层次
+            subtleBorderColor = colors.container8,
+            ruleColor = colors.divider,
+            quoteBackground = colors.fillThin,
+            quoteBarColor = colors.container16,
+            codeBackground = colors.container4,
+            codeHeaderBackground = colors.fillThin,
+            tableHeaderBackground = colors.fillThin,
             inline = MarkdownInlineStyle(
                 linkColor = colors.primary,
-                codeBackground = ink.copy(alpha = if (isDark) 0.11f else 0.06f),
+                codeBackground = colors.container8,
                 strongColor = strongColor,
                 codeColor = inlineCodeColor,
             ),

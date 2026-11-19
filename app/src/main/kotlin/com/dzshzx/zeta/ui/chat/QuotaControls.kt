@@ -31,16 +31,15 @@ import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberNow
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 @Composable
 private fun severityColor(severity: QuotaSeverity, normal: Color): Color = when (severity) {
-    QuotaSeverity.Critical -> StatusError
+    QuotaSeverity.Critical -> COUITheme.colorScheme.error
     QuotaSeverity.Warning -> StatusWarning
     QuotaSeverity.Normal -> normal
 }
@@ -77,7 +76,7 @@ internal fun QuotaChip(snapshot: QuotaSnapshot?, onClick: () -> Unit, modifier: 
         Spacer(Modifier.width(3.dp))
         Text(
             text = text,
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
             color = color,
             maxLines = 1,
         )
@@ -92,7 +91,7 @@ internal fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier
         if (current.blocked) {
             QuotaNote(
                 "已达上限，暂时发不出请求" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "") + "。",
-                color = StatusError,
+                color = COUITheme.colorScheme.error,
             )
         }
         current.windows.forEach { QuotaRow(it, now) }
@@ -111,19 +110,19 @@ private fun QuotaRow(window: QuotaWindow, now: Long) {
 
 @Composable
 private fun QuotaLine(label: String, value: String, fraction: Double?, severity: QuotaSeverity, detail: String?) {
-    val colors = MiuixTheme.colorScheme
-    val ink = colors.onSurface
+    val colors = COUITheme.colorScheme
+    val ink = colors.labelPrimary
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = label,
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp, lineHeight = 18.sp),
                 color = ink.copy(alpha = 0.88f),
                 modifier = Modifier.weight(1f),
             )
             Text(
                 text = value,
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                 color = severityColor(severity, ink.copy(alpha = 0.88f)),
             )
         }
@@ -142,8 +141,8 @@ private fun QuotaLine(label: String, value: String, fraction: Double?, severity:
 internal fun QuotaNote(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
     Text(
         text = text,
-        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 17.sp),
-        color = if (color == Color.Unspecified) MiuixTheme.colorScheme.onSurfaceVariantSummary else color,
+        style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, lineHeight = 17.sp),
+        color = if (color == Color.Unspecified) COUITheme.colorScheme.labelSecondary else color,
         modifier = modifier,
     )
 }
@@ -169,15 +168,15 @@ internal fun QuotaDialogSection(hub: com.dzshzx.zeta.core.ConversationHub, visib
     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = "订阅额度",
-            style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-            color = MiuixTheme.colorScheme.onSurface,
+            style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            color = COUITheme.colorScheme.labelPrimary,
             modifier = Modifier.weight(1f),
         )
         quota.snapshot?.subscription?.let { sub ->
             Text(
                 text = sub.replaceFirstChar { it.uppercase() },
-                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                color = COUITheme.colorScheme.labelSecondary,
             )
         }
     }

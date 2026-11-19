@@ -52,7 +52,7 @@ import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
-import top.yukonga.miuix.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.Text
 
 @Immutable
 internal data class InlineMathBoxMetrics(

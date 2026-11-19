@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,19 +46,19 @@ import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusError
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiIcon
-import com.dzshzx.zeta.ui.components.coui.CouiTextField
-import com.itos.coui.layout.CouiPageDefaults
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
+import io.github.suqi8.coui.kmp.basic.LinkText
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextField
+import io.github.suqi8.coui.kmp.basic.appendLink
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 附件菜单里“文件夹”“输入路径”两项各自的对话框开没开。每次打开都从头来（[opens] 加一）。 */
 @Stable
@@ -87,6 +89,7 @@ internal class PathAttach {
 /**
  * 引用 Linux 里的文件夹或路径。选好后交给 [onAttach] 一条附件说明（见 [AttachedPaths]），随消息发出时 Claude Code 直接读到它。
  * 这里查“看不看得到”都以对话的 Claude Code 进程为准：它启动之后才加的共享文件夹，它看不到，要重启一次。
+ * 两个都是 COUI 2 的对话框，要在它的 Scaffold 里才显示。
  */
 @Composable
 internal fun AttachPathDialogs(state: PathAttach, hub: ConversationHub, conversation: Conversation, onAttach: (String) -> Unit) {
@@ -188,10 +191,10 @@ private fun FolderAttachDialog(
     }
     val resolution = browser.resolution
     val idle = conversation.canRestart()
-    CouiConfirmDialog(
-        visible = visible,
+    ConfirmDialog(
+        show = visible,
         title = "引用文件夹",
-        message = null,
+        summary = null,
         confirmText = when (resolution) {
             is Resolution.NeedsShare -> "加为共享文件夹并引用"
             is Resolution.NeedsRestart -> "重启 Claude 并引用"
@@ -208,7 +211,7 @@ private fun FolderAttachDialog(
             val typed = SharedFolders.normalize(browser.input)
             if (typed != null && typed != browser.path) {
                 browser.navigate(typed)
-                return@CouiConfirmDialog
+                return@ConfirmDialog
             }
             when (resolution) {
                 is Resolution.Ready -> {
@@ -243,66 +246,69 @@ private fun FolderAttachDialog(
         },
         onDismissRequest = onDismiss,
     ) {
-        CouiTextField(
-            value = browser.input,
-            onValueChange = {
-                browser.input = it
-                browser.error = null
-            },
-            label = "手机上的文件夹",
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { browser.navigate(browser.input) }),
-        )
-        // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作
-        Text(
-            text = "用系统文件选择器选择",
-            style = MiuixTheme.textStyles.footnote1,
-            color = CouiPageDefaults.themeColors().accent,
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { runCatching { treeLauncher.launch(treeStart(browser.path)) } }
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-        )
-        browser.browseError?.let { Note(it, error = true) }
-        LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 4.dp)) {
-            if (browser.path != "/") {
-                item(key = "..") { FolderRow("../") { browser.navigate(browser.path.substringBeforeLast('/').ifEmpty { "/" }) } }
-            }
-            val entries = browser.entries
-            when {
-                entries == null -> item(key = "loading") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-                        InfiniteProgressIndicator(size = 20.dp)
-                    }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            TextField(
+                value = browser.input,
+                onValueChange = {
+                    browser.input = it
+                    browser.error = null
+                },
+                label = "手机上的文件夹",
+                // 框里一开始就有路径：标题浮在上面，不当占位提示
+                useLabelAsPlaceholder = false,
+                singleLine = true,
+                showClearButton = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { browser.navigate(browser.input) }),
+            )
+            // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作
+            LinkText(
+                text = buildAnnotatedString {
+                    appendLink("用系统文件选择器选择", onClick = { runCatching { treeLauncher.launch(treeStart(browser.path)) } })
+                },
+                style = COUITheme.textStyles.bodyS,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            browser.browseError?.let { Note(it, error = true) }
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 4.dp)) {
+                if (browser.path != "/") {
+                    item(key = "..") { FolderRow("../") { browser.navigate(browser.path.substringBeforeLast('/').ifEmpty { "/" }) } }
                 }
-                entries.isEmpty() && browser.browseError == null -> item(key = "empty") { Note("此处没有子文件夹") }
-                else -> items(entries, key = { it }) { entry -> FolderRow(entry) { browser.navigate(browser.path.trimEnd('/') + "/" + entry) } }
+                val entries = browser.entries
+                when {
+                    entries == null -> item(key = "loading") {
+                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                            InfiniteProgressIndicator(size = 20.dp)
+                        }
+                    }
+                    entries.isEmpty() && browser.browseError == null -> item(key = "empty") { Note("此处没有子文件夹") }
+                    else -> items(entries, key = { it }) { entry -> FolderRow(entry) { browser.navigate(browser.path.trimEnd('/') + "/" + entry) } }
+                }
             }
+            val status = when (resolution) {
+                Resolution.Checking -> "正在查看 Linux 里能不能看到它…" to false
+                is Resolution.Ready -> "在 Linux 里是 ${resolution.linuxPath}" to false
+                is Resolution.NeedsRestart -> "在 Linux 里是 ${resolution.linuxPath}，但这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" +
+                    (if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到") to !idle
+                is Resolution.NeedsShare -> (
+                    resolution.problem?.let { "Linux 里看不到这个文件夹，也不能共享：$it" }
+                        ?: ("Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 ${SharedFolders.LINUX_ROOT}/${resolution.name} 读到它" +
+                            when {
+                                conversation.hostKey == null -> "。"
+                                idle -> "；这个对话的 Claude Code 会重启一次（对话内容不变）。"
+                                else -> "；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。"
+                            })
+                    ) to (resolution.problem != null || (conversation.hostKey != null && !idle))
+                is Resolution.Problem -> resolution.message to true
+            }
+            Text(
+                text = status.first,
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = if (resolution is Resolution.Ready) EtaMonospace else null),
+                color = if (status.second) COUITheme.colorScheme.error else COUITheme.colorScheme.labelSecondary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            browser.error?.let { Note(it, error = true) }
         }
-        val status = when (resolution) {
-            Resolution.Checking -> "正在查看 Linux 里能不能看到它…" to false
-            is Resolution.Ready -> "在 Linux 里是 ${resolution.linuxPath}" to false
-            is Resolution.NeedsRestart -> "在 Linux 里是 ${resolution.linuxPath}，但这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" +
-                (if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到") to !idle
-            is Resolution.NeedsShare -> (
-                resolution.problem?.let { "Linux 里看不到这个文件夹，也不能共享：$it" }
-                    ?: ("Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 ${SharedFolders.LINUX_ROOT}/${resolution.name} 读到它" +
-                        when {
-                            conversation.hostKey == null -> "。"
-                            idle -> "；这个对话的 Claude Code 会重启一次（对话内容不变）。"
-                            else -> "；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。"
-                        })
-                ) to (resolution.problem != null || (conversation.hostKey != null && !idle))
-            is Resolution.Problem -> resolution.message to true
-        }
-        Text(
-            text = status.first,
-            style = MiuixTheme.textStyles.footnote1.copy(fontFamily = if (resolution is Resolution.Ready) EtaMonospace else null),
-            color = if (status.second) StatusError else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
-        )
-        browser.error?.let { Note(it, error = true) }
     }
 }
 
@@ -354,10 +360,10 @@ private fun PathAttachDialog(
     }
     val current = resolution
     val idle = conversation.canRestart()
-    CouiConfirmDialog(
-        visible = visible,
+    ConfirmDialog(
+        show = visible,
         title = "引用 Linux 路径",
-        message = "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
+        summary = "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
         confirmText = if (current is Resolution.NeedsRestart) "重启 Claude 并引用" else "引用",
         confirmEnabled = current is Resolution.Ready || (current is Resolution.NeedsRestart && idle),
         onConfirm = {
@@ -367,36 +373,54 @@ private fun PathAttachDialog(
                     conversation.shutdown()
                     onAttach(AttachedPaths.reference(current.linuxPath, current.folder))
                 }
-                else -> return@CouiConfirmDialog
+                else -> return@ConfirmDialog
             }
             onDismiss()
         },
         onDismissRequest = onDismiss,
     ) {
-        CouiTextField(
-            value = input,
-            onValueChange = { input = it },
-            label = "路径",
-            rightLabel = when (current) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            val kind = when (current) {
                 is Resolution.Ready -> if (current.folder) "文件夹" else "文件"
                 is Resolution.NeedsRestart -> "进程还看不到"
                 is Resolution.Problem -> "不可用"
                 Resolution.Checking -> "正在查…"
                 else -> null
-            },
-            rightLabelColor = if (current is Resolution.Ready) CouiPageDefaults.themeColors().accent else if (current == Resolution.Checking) MiuixTheme.colorScheme.onSurfaceVariantSummary else StatusError,
-            placeholder = conversation.cwd.trimEnd('/') + "/…",
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-        )
-        val note = when (current) {
-            is Resolution.Ready -> if (current.linuxPath != AttachedPaths.normalize(input, home)) "手机上的路径，引用 Linux 里的 ${current.linuxPath}" else null
-            is Resolution.NeedsRestart -> "这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" +
-                if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到"
-            is Resolution.Problem -> current.message
-            else -> null
+            }
+            val colors = COUITheme.colorScheme
+            TextField(
+                value = input,
+                onValueChange = { input = it },
+                // 占位提示是当前工作目录；查到的结果（文件、文件夹、不可用）跟在输入框末尾
+                label = conversation.cwd.trimEnd('/') + "/…",
+                singleLine = true,
+                showClearButton = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                trailingIcon = kind?.let { text ->
+                    {
+                        Text(
+                            text = text,
+                            style = COUITheme.textStyles.bodyS,
+                            color = when (current) {
+                                is Resolution.Ready -> colors.primary
+                                Resolution.Checking -> colors.labelSecondary
+                                else -> colors.error
+                            },
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                },
+            )
+            val note = when (current) {
+                is Resolution.Ready -> if (current.linuxPath != AttachedPaths.normalize(input, home)) "手机上的路径，引用 Linux 里的 ${current.linuxPath}" else null
+                is Resolution.NeedsRestart -> "这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" +
+                    if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到"
+                is Resolution.Problem -> current.message
+                else -> null
+            }
+            note?.let { Note(it, error = current !is Resolution.Ready) }
         }
-        note?.let { Note(it, error = current !is Resolution.Ready) }
     }
 }
 
@@ -416,6 +440,7 @@ private fun resolvePath(hub: ConversationHub, conversation: Conversation, input:
     return direct
 }
 
+/** 目录列表的一行：文件夹图标加名字，点了进去。对话框里的列表，COUI 没有现成的行，自己排。 */
 @Composable
 private fun FolderRow(label: String, onClick: () -> Unit) {
     Row(
@@ -427,8 +452,14 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 6.dp),
     ) {
-        CouiIcon(imageVector = Icons.Rounded.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = CouiPageDefaults.themeColors().accent)
-        Text(text = label, style = MiuixTheme.textStyles.body2.copy(fontFamily = EtaMonospace), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(imageVector = Icons.Rounded.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = COUITheme.colorScheme.primary)
+        Text(
+            text = label,
+            style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),
+            color = COUITheme.colorScheme.labelPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -436,8 +467,8 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
 private fun Note(text: String, error: Boolean = false) {
     Text(
         text = text,
-        style = MiuixTheme.textStyles.footnote1,
-        color = if (error) StatusError else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+        style = COUITheme.textStyles.bodyS,
+        color = if (error) COUITheme.colorScheme.error else COUITheme.colorScheme.labelSecondary,
+        modifier = Modifier.padding(vertical = 8.dp),
     )
 }

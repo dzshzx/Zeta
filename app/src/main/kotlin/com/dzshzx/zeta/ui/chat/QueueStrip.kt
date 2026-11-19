@@ -8,14 +8,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,13 +42,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.QueuedMessage
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.HorizontalDivider
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private val Whitespace = Regex("\\s+")
 
@@ -68,21 +66,14 @@ internal fun QueueStrip(
     modifier: Modifier = Modifier,
 ) {
     if (queued.isEmpty()) return
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
-    val shape = remember { CouiShape(18.dp, 2.3f) }
+    val colors = COUITheme.colorScheme
+    val shape = remember { SquircleShape(ChatStripCorner) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val multiple = queued.size > 1
     LaunchedEffect(multiple) { if (!multiple) expanded = false }
     val chevron by animateFloatAsState(if (expanded) 180f else 0f, tween(180), label = "queue-chevron")
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-            .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape),
-    ) {
+    Column(modifier = modifier.fillMaxWidth().chatPanel(shape)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -102,7 +93,8 @@ internal fun QueueStrip(
                         multiple -> "排队中 · ${queued.size}"
                         else -> "排队中"
                     },
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+                    style = COUITheme.textStyles.bodyS,
+                    fontWeight = FontWeight.Medium,
                     color = colors.primary,
                 )
                 if (multiple) {
@@ -127,19 +119,20 @@ internal fun QueueStrip(
         ) {
             Column(Modifier.fillMaxWidth().heightIn(max = 148.dp).verticalScroll(rememberScrollState()).padding(bottom = 3.dp)) {
                 queued.forEachIndexed { index, message ->
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(0.5.dp).background(colors.onSurface.copy(alpha = 0.08f)))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp), color = colors.divider)
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = "${index + 1}",
-                            style = MiuixTheme.textStyles.footnote2.copy(fontWeight = FontWeight.Medium),
-                            color = colors.onSurfaceVariantSummary,
+                            style = COUITheme.textStyles.bodyXS,
+                            fontWeight = FontWeight.Medium,
+                            color = colors.labelSecondary,
                         )
                         Spacer(Modifier.width(8.dp))
                         Preview(message, onClick = { onRecall(message) }, modifier = Modifier.weight(1f))
-                        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", colors.onSurfaceVariantSummary) { onRemove(message) }
+                        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", colors.labelSecondary) { onRemove(message) }
                     }
                 }
             }
@@ -162,15 +155,15 @@ private fun Preview(message: QueuedMessage, onClick: () -> Unit, modifier: Modif
     ) {
         Text(
             text = text,
-            style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp),
-            color = MiuixTheme.colorScheme.onSurface,
+            style = COUITheme.textStyles.bodyM,
+            color = COUITheme.colorScheme.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
         if (line.isNotEmpty() && extra > 0) {
             Spacer(Modifier.width(4.dp))
-            Text("+$extra", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Text("+$extra", style = COUITheme.textStyles.bodyXS, color = COUITheme.colorScheme.labelSecondary)
         }
     }
 }
@@ -178,17 +171,15 @@ private fun Preview(message: QueuedMessage, onClick: () -> Unit, modifier: Modif
 @Composable
 private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (!steering) ActionIcon(Icons.Rounded.Bolt, "立即插话", MiuixTheme.colorScheme.primary, onSteer)
-        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", MiuixTheme.colorScheme.onSurfaceVariantSummary, onRemove)
+        if (!steering) ActionIcon(Icons.Rounded.Bolt, "立即插话", COUITheme.colorScheme.primary, onSteer)
+        ActionIcon(Icons.Rounded.Close, "删除这条排队消息", COUITheme.colorScheme.labelSecondary, onRemove)
     }
 }
 
+/** 条上的小图标键：32dp 的平面 COUI 图标按钮（不带顶栏按钮的材质）。 */
 @Composable
 internal fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    IconButton(onClick = onClick, material = false, minWidth = 32.dp, minHeight = 32.dp, cornerRadius = 16.dp) {
         Icon(icon, contentDescription = description, modifier = Modifier.size(16.dp), tint = tint)
     }
 }

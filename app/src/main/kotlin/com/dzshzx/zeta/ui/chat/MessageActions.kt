@@ -4,24 +4,17 @@ import android.content.Context
 import android.graphics.ImageDecoder
 import android.util.Base64
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
-import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Refresh
@@ -35,14 +28,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
@@ -54,11 +44,13 @@ import com.dzshzx.zeta.core.SessionImage
 import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.nio.ByteBuffer
 import java.util.UUID
 import kotlin.math.max
@@ -68,9 +60,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 聊天页的消息操作，交互照 Eta：
@@ -78,19 +67,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * - 每一轮最后一段回答下方：复制之后是重新生成、删除这一轮、分支。
  * 改写和删除都在原会话上剪（会话号不变），分支另开新会话；做法见 core/Rewind.kt。
  */
-
-internal const val UserMenuEdit = 1
-internal const val UserMenuDelete = 2
-internal const val UserMenuSave = 3
-
-internal fun userMenuItems(canEdit: Boolean, canDelete: Boolean, deleteTint: Color, canSave: Boolean = false): List<CouiMenuItem<Int>> = buildList {
-    add(CouiMenuItem(value = 0, text = "复制", icon = Icons.Rounded.ContentCopy))
-    if (canSave) add(CouiMenuItem(value = UserMenuSave, text = "收藏为常用指令", icon = Icons.Rounded.BookmarkBorder))
-    if (canEdit) add(CouiMenuItem(value = UserMenuEdit, text = "编辑", icon = Icons.Rounded.Edit))
-    if (canDelete) {
-        add(CouiMenuItem(value = UserMenuDelete, text = "删除", icon = Icons.Rounded.DeleteOutline, iconTint = deleteTint, dividerBefore = true))
-    }
-}
 
 /** 各轮的操作，按用户消息和操作行所在的那一项查。 */
 @Immutable
@@ -245,15 +221,13 @@ internal fun TurnActionRow(itemId: String, turns: TurnIndex, conversation: Conve
 /** 和回答下方的复制键一个样子。 */
 @Composable
 private fun ActionButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.size(30.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    val colors = COUITheme.colorScheme
+    IconButton(onClick = onClick, enabled = enabled, material = false, minWidth = 30.dp, minHeight = 30.dp, cornerRadius = 15.dp) {
         Icon(
             imageVector = icon,
             contentDescription = description,
             modifier = Modifier.size(15.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = if (enabled) 1f else 0.38f),
+            tint = if (enabled) colors.labelSecondary else colors.disabledNeutral,
         )
     }
 }
@@ -261,15 +235,12 @@ private fun ActionButton(icon: ImageVector, description: String, enabled: Boolea
 /** 输入卡片上方的编辑提示条（样子同排队条）：说明发出后会替换什么，× 取消编辑。 */
 @Composable
 internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifier = Modifier) {
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
-    val shape = remember { CouiShape(18.dp, 2.3f) }
+    val colors = COUITheme.colorScheme
+    val shape = remember { SquircleShape(ChatStripCorner) }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-            .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape)
+            .chatPanel(shape)
             .padding(start = 14.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -277,19 +248,20 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
         Spacer(Modifier.width(6.dp))
         Text(
             text = "编辑消息",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+            style = COUITheme.textStyles.bodyS,
+            fontWeight = FontWeight.Medium,
             color = colors.primary,
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = if (turn.laterTurns > 0) "发送后将替换这条消息及之后的内容" else "发送后将替换这条消息和它的回复",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-            color = colors.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyS,
+            color = colors.labelSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        ActionIcon(Icons.Rounded.Close, "取消编辑", colors.onSurfaceVariantSummary, onCancel)
+        ActionIcon(Icons.Rounded.Close, "取消编辑", colors.labelSecondary, onCancel)
     }
 }
 
@@ -300,10 +272,10 @@ internal fun MessageActionDialogs(actions: MessageActions) {
     // 对话框收起的动画里还要显示原来的文字
     val last = rememberRetained(pending)
     val later = last?.turn?.laterTurns ?: 0
-    CouiConfirmDialog(
-        visible = pending != null,
+    ConfirmDialog(
+        show = pending != null,
         title = if (last?.regenerate != false) "重新生成回复？" else "删除这一轮对话？",
-        message = when {
+        summary = when {
             last == null -> null
             last.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
             last.regenerate -> "这一轮的回复将换成新生成的。"

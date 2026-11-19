@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -20,14 +19,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,18 +38,22 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.components.StatusError
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiTextField
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
+import io.github.suqi8.coui.kmp.basic.DropdownDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextField
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Delete
+import io.github.suqi8.coui.kmp.icon.extended.Edit
+import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 常用指令：用户存下来的提问，点一下填进输入框，改一改再发。入口在输入框的“+”菜单里；
@@ -171,17 +172,17 @@ internal fun insertPrompt(input: TextFieldState, text: String) {
     }
 }
 
-/** 常用指令的列表、编辑和删除确认。 */
+/** 常用指令的列表、编辑和删除确认。COUI 2 的对话框，要在它的 Scaffold 里才显示。 */
 @Composable
 internal fun SavedPromptsDialogs(ui: PromptsUi) {
     PromptListDialog(ui)
     PromptEditorDialog(ui)
     val deleting = ui.deleting
     val shown = rememberRetained(deleting)
-    CouiConfirmDialog(
-        visible = deleting != null,
+    ConfirmDialog(
+        show = deleting != null,
         title = "删除这条常用指令？",
-        message = shown?.let { "“${SavedPrompts.displayName(it)}”删除后找不回来。" },
+        summary = shown?.let { "“${SavedPrompts.displayName(it)}”删除后找不回来。" },
         confirmText = "删除",
         destructive = true,
         onConfirm = ui::confirmDelete,
@@ -192,52 +193,52 @@ internal fun SavedPromptsDialogs(ui: PromptsUi) {
 @Composable
 private fun PromptListDialog(ui: PromptsUi) {
     val prompts = ui.prompts
-    CouiConfirmDialog(
-        visible = ui.listOpen,
+    // 没有的时候说明放在标题下面，有的时候列表放在说明的位置
+    ConfirmDialog(
+        show = ui.listOpen,
         title = "常用指令",
-        message = null,
+        summary = if (prompts.isEmpty()) "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。" else null,
         confirmText = "新建",
         confirmEnabled = prompts.size < SavedPrompts.MAX,
         cancelText = "关闭",
         onConfirm = ui::startNew,
         onDismissRequest = ui::close,
-    ) {
-        if (prompts.isEmpty()) {
-            Text(
-                text = "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, lineHeight = 19.sp),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+        content = if (prompts.isEmpty()) {
+            null
         } else {
-            Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                prompts.forEachIndexed { index, prompt ->
-                    PromptRow(prompt, first = index == 0, last = index == prompts.lastIndex, ui = ui)
+            {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    prompts.forEachIndexed { index, prompt ->
+                        PromptRow(prompt, first = index == 0, last = index == prompts.lastIndex, ui = ui)
+                    }
                 }
             }
-        }
-    }
+        },
+    )
 }
-
-private const val MenuEdit = 0
-private const val MenuUp = 1
-private const val MenuDown = 2
-private const val MenuDelete = 3
 
 @Composable
 private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: PromptsUi) {
-    val colors = MiuixTheme.colorScheme
-    val anchor = rememberCouiMenuAnchor()
-    var menu by remember { mutableStateOf(false) }
-    val deleteTint = StatusError
-    val items = remember(first, last, deleteTint) {
+    val colors = COUITheme.colorScheme
+    val current by rememberUpdatedState(prompt)
+    var menuOpen by remember { mutableStateOf(false) }
+    val entries = remember(first, last, ui) {
         listOf(
-            CouiMenuItem(value = MenuEdit, text = "编辑", icon = Icons.Rounded.Edit),
-            CouiMenuItem(value = MenuUp, text = "上移", icon = Icons.Rounded.ArrowUpward, enabled = !first),
-            CouiMenuItem(value = MenuDown, text = "下移", icon = Icons.Rounded.ArrowDownward, enabled = !last),
-            CouiMenuItem(value = MenuDelete, text = "删除", icon = Icons.Rounded.DeleteOutline, iconTint = deleteTint, dividerBefore = true),
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(text = "编辑", onClick = { ui.startEdit(current) }, icon = menuRowIcon(COUIIcons.Edit)),
+                    DropdownItem(text = "上移", enabled = !first, onClick = { ui.move(current, -1) }, icon = menuRowIcon(Icons.Rounded.ArrowUpward, enabled = !first)),
+                    DropdownItem(text = "下移", enabled = !last, onClick = { ui.move(current, 1) }, icon = menuRowIcon(Icons.Rounded.ArrowDownward, enabled = !last)),
+                ),
+            ),
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(text = "删除", alert = true, onClick = { ui.askDelete(current) }, icon = menuRowIcon(COUIIcons.Delete, alert = true)),
+                ),
+            ),
         )
     }
     Row(
@@ -253,46 +254,36 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (named) prompt.name.trim() else prompt.text.trim(),
-                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.5.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-                color = colors.onSurface,
+                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.5.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+                color = colors.labelPrimary,
                 maxLines = if (named) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (named) {
                 Text(
                     text = prompt.text.trim(),
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
-                    color = colors.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
+                    color = colors.labelSecondary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
+        // 不用 OverlayIconDropdownMenu：它的按钮是顶栏那种带阴影的材质圆钮，放在对话框的列表里会被裁掉一截。
+        // 平的图标按钮加同一个下拉菜单，两者在同一个 Box 里，菜单以按钮为锚
         Box {
-            Box(
-                modifier = Modifier
-                    .couiMenuAnchor(anchor)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .clickable { anchor.open { menu = true } },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "更多操作", modifier = Modifier.size(18.dp), tint = colors.onSurfaceVariantSummary)
+            IconButton(onClick = { menuOpen = true }, material = false, holdDownState = menuOpen) {
+                Icon(COUIIcons.More, contentDescription = "更多操作", modifier = Modifier.size(20.dp), tint = colors.labelSecondary)
             }
-            Menu(
-                expanded = menu,
-                onDismissRequest = { menu = false },
-                items = items,
-                onItemClick = {
-                    menu = false
-                    when (it.value) {
-                        MenuEdit -> ui.startEdit(prompt)
-                        MenuUp -> ui.move(prompt, -1)
-                        MenuDown -> ui.move(prompt, 1)
-                        else -> ui.askDelete(prompt)
-                    }
-                },
-                anchor = anchor,
+            OverlayDropdownPopup(
+                entries = entries,
+                show = menuOpen,
+                onDismiss = { menuOpen = false },
+                onDismissFinished = {},
+                maxHeight = null,
+                dropdownColors = DropdownDefaults.dropdownColors(),
+                renderInRootScaffold = true,
+                collapseOnSelection = true,
             )
         }
     }
@@ -306,34 +297,36 @@ private fun PromptEditorDialog(ui: PromptsUi) {
     var name by remember(current) { mutableStateOf(current?.name.orEmpty()) }
     var text by remember(current) { mutableStateOf(current?.text.orEmpty()) }
     val problem = ui.problem(name, text)
-    CouiConfirmDialog(
-        visible = draft != null,
+    ConfirmDialog(
+        show = draft != null,
         title = if (current?.id == null) "新建常用指令" else "编辑常用指令",
-        message = null,
+        summary = null,
         confirmText = "保存",
         confirmEnabled = problem == null,
         onConfirm = { ui.save(name, text) },
         onDismissRequest = ui::cancelEdit,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            CouiTextField(
+        // COUI 的输入框只有一个提示文字：用作浮动标题（框里有字或在输入时浮到上面）
+        Column(modifier = Modifier.fillMaxWidth()) {
+            TextField(
                 value = name,
                 onValueChange = { name = it.take(SavedPrompts.MAX_NAME) },
                 label = "名字（可不填）",
-                placeholder = SavedPrompts.defaultName(text).ifEmpty { "不填就用内容的开头" },
+                useLabelAsPlaceholder = false,
+                singleLine = true,
+                showClearButton = true,
             )
-            CouiTextField(
+            TextField(
                 value = text,
                 onValueChange = { text = it },
                 label = "内容",
-                placeholder = "点一下这条，就把这里的文字填进输入框",
-                singleLine = false,
+                useLabelAsPlaceholder = false,
                 minLines = 3,
                 maxLines = 8,
             )
             // 空着时不报错，“保存”变灰就够了
             if (problem != null && text.isNotEmpty()) {
-                Text(text = problem, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.error)
+                Text(text = problem, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }

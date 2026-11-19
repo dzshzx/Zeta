@@ -81,7 +81,7 @@
 | `CouiConfirmDialog(visible, title, message, confirmText, onConfirm, onDismissRequest, destructive)` | `ConfirmDialog(show, title, summary, confirmText, onConfirm, onDismissRequest, destructive = …)` |
 | `CouiNoticeDialog` | `NoticeDialog` |
 | `CouiInputDialog`、COUI-Kit `InputDialog` | `TextInputDialog`（`placeholder` → `label`，字数计数用 `maxCount`） |
-| 其他自定义对话框 | `PageDialog { …; DialogButtonBar(negative, positive, neutral) }`，内容左右留 `DialogContentPadding` |
+| 其他自定义对话框 | `PageDialog(customContent = { 自己的内容，左右留 DialogContentPadding }) { DialogButtonBar(negative, positive, neutral) }`。自己的内容不放进按钮栏那一格：放在 `customContent`，只有标题时不多空白，面板不够高时它自己滚动 |
 | `neutralAction` | COUI 2 的 `neutral` 一样画成红色的危险按钮，只给危险操作；主操作 `DialogButtonBarAction(…, recommended = true)` |
 | 底部面板 | `OverlayBottomSheet`，毛玻璃照 `PageDialog` 的写法用 `panelBlur(MaterialBlurDefaults::bottomSheet)` |
 | `Menu` + `couiMenuAnchor`，挂在图标按钮上 | `OverlayIconDropdownMenu(entries = listOf(DropdownEntry(items = listOf(DropdownItem(text, onClick = …, icon = …))))) { Icon(…) }`，它自己就是那个图标按钮 |
@@ -97,7 +97,7 @@
 | `MiuixTheme.colorScheme.onSurfaceVariantSummary`、`onSurfaceVariant` | `labelSecondary`（设置行摘要的颜色）；更淡的值文字用 `labelTertiary` |
 | `MiuixTheme.colorScheme.primary`、`CouiTheme.colorScheme.accent` | `primary` |
 | `MiuixTheme.colorScheme.error` | `error` |
-| `surfaceContainer`、`surfaceContainerHigh` | `cardBackground`、`cardPressed` |
+| `surfaceContainer`、`surfaceContainerHigh` | 页面上的卡片用 `cardBackground`、`cardPressed`。浮层（对话框、胶囊、弹窗这类白底面板）上不能用它们：浅色下 `cardBackground` 是纯白，深色下 `cardPressed` 是半透明白会发亮。浮层上按用途选：按钮底 `secondaryButton`，输入框底 `fillThin`，实心占位底 `fillSolid`，提示字 `hintNeutral`，描边 `labelQuaternary` |
 | 页面底色（`surface`、`background`） | 有卡片的页面 `backgroundWithCard`（骨架默认），整页内容（聊天）`background`；浮层面板 `surface` |
 | 其他配色名 | 查 COUI 指南 `references/migration.md` 的配色表 |
 | `CouiTheme.isDark` | `COUITheme.colorScheme.isDark` |

@@ -1,51 +1,30 @@
 package com.dzshzx.zeta.ui.chat
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.UserItem
@@ -54,8 +33,11 @@ import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.findSegments
 import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.InputField
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
@@ -63,9 +45,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 聊天列表在根坐标里的范围，查找跳转时据此判断命中处在不在视野里。 */
 internal fun Modifier.findViewport(find: ChatFindState): Modifier = onGloballyPositioned { find.viewport = it.boundsInRoot() }
@@ -135,50 +114,32 @@ internal fun ChatFindDriver(
     }
 }
 
-/** 查找栏：查找时顶替输入栏，样子和输入栏一致。下面一行说明查的范围。 */
+/** 查找栏：查找时顶替输入栏。COUI 的搜索输入胶囊，后面是命中计数和上一个、下一个、关闭；下面一行说明查的范围。 */
 @Composable
 internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Modifier = Modifier) {
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
-    val shape = remember { CouiShape(24.dp, 2.3f) }
-    val focus = remember { FocusRequester() }
+    val colors = COUITheme.colorScheme
     BackHandler(onBack = find::close)
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    val textStyle = MiuixTheme.textStyles.body1.copy(color = colors.onSurface, fontSize = 15.sp, lineHeight = 21.sp)
     val count = find.matches.size
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .dropShadow(shape = shape, shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = if (dark) 0.22f else 0.045f))
-                .clip(shape)
-                .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-                .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape)
-                .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.onSurfaceVariantSummary)
-            Spacer(Modifier.width(8.dp))
-            Box(modifier = Modifier.weight(1f).padding(vertical = 6.dp), contentAlignment = Alignment.CenterStart) {
-                if (find.input.isEmpty()) Text(text = "在对话中查找", style = textStyle, color = colors.onSurfaceVariantSummary, maxLines = 1)
-                BasicTextField(
-                    value = find.input,
-                    onValueChange = { find.input = it },
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    textStyle = textStyle,
-                    singleLine = true,
-                    cursorBrush = SolidColor(colors.primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { find.next() }),
-                )
-            }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // 一直是展开（编辑）状态：出现时就拿到焦点，搜索键跳到下一个
+            InputField(
+                query = find.input,
+                onQueryChange = { find.input = it },
+                onSearch = { find.next() },
+                expanded = true,
+                onExpandedChange = {},
+                modifier = Modifier.weight(1f),
+                label = "在对话中查找",
+                material = false,
+            )
             if (find.query.isNotEmpty()) {
                 Text(
                     text = if (count == 0) "无结果" else "${find.index + 1}/$count",
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp),
-                    color = if (count == 0) colors.onSurfaceVariantSummary.copy(alpha = 0.8f) else colors.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyS,
+                    color = if (count == 0) colors.labelTertiary else colors.labelSecondary,
                     maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 6.dp),
+                    modifier = Modifier.padding(start = 8.dp, end = 2.dp),
                 )
             }
             BarButton(Icons.Rounded.KeyboardArrowUp, "上一个", enabled = count > 0, onClick = find::previous)
@@ -187,8 +148,8 @@ internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Mod
         }
         Text(
             text = "只查已载入的提问和回答，不含工具步骤和思考" + if (skippedHistory > 0) "；更早的 $skippedHistory 条记录未载入，不在范围内" else "",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.5.sp, lineHeight = 15.sp),
-            color = colors.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyXS,
+            color = colors.labelSecondary,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp),
         )
     }
@@ -196,11 +157,8 @@ internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Mod
 
 @Composable
 private fun BarButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    val ink = MiuixTheme.colorScheme.onSurface
-    Box(
-        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = description, modifier = Modifier.size(20.dp), tint = ink.copy(alpha = if (enabled) 0.72f else 0.26f))
+    val colors = COUITheme.colorScheme
+    IconButton(onClick = onClick, enabled = enabled, material = false, minWidth = 36.dp, minHeight = 36.dp, cornerRadius = 18.dp) {
+        Icon(icon, contentDescription = description, modifier = Modifier.size(20.dp), tint = if (enabled) colors.labelPrimary else colors.disabledNeutral)
     }
 }

@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.pane
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,23 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionSummary
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Close
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 // 侧栏的多选：选几条会话，一起归档或取消归档、导出、删除。做法照 Eta 模型列表的多选：
 // 顶部换成“已选 N 个”和全选，底部换成操作按钮，返回键退出多选。
@@ -76,28 +70,28 @@ internal fun combineExports(parts: List<ExportedMarkdown>): String =
 /** 多选时的顶部：退出多选、已选几个、全选 / 全不选。 */
 @Composable
 internal fun SelectionHeader(count: Int, allSelected: Boolean, canSelectAll: Boolean, onToggleAll: () -> Unit, onExit: () -> Unit) {
-    val colors = CouiPageDefaults.themeColors(CouiTheme.isDark)
     Row(
-        modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = 12.dp, end = 12.dp),
+        modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PaneCircleButton(icon = Icons.Rounded.Close, description = "退出多选", onClick = onExit)
+        PaneCircleButton(icon = COUIIcons.Close, description = "退出多选", onClick = onExit)
         Spacer(Modifier.width(10.dp))
         Text(
             text = if (count > 0) "已选 $count 个" else "选择对话",
-            style = MiuixTheme.textStyles.title4.copy(fontWeight = FontWeight.SemiBold),
-            color = colors.title,
+            style = COUITheme.textStyles.headlineS.copy(fontWeight = FontWeight.SemiBold),
+            color = COUITheme.colorScheme.labelPrimary,
+            maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        Text(
+        // 顶栏上的文字按钮：主题色，无底色
+        TextButton(
             text = if (allSelected) "全不选" else "全选",
-            style = MiuixTheme.textStyles.subtitle,
-            color = if (canSelectAll) CouiTheme.colorScheme.accent else colors.summary.copy(alpha = 0.5f),
-            maxLines = 1,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(enabled = canSelectAll, role = Role.Button, onClick = onToggleAll)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+            onClick = onToggleAll,
+            enabled = canSelectAll,
+            minWidth = 0.dp,
+            minHeight = 40.dp,
+            colors = ButtonDefaults.textButtonColorsBorderless(),
+            textStyle = COUITheme.textStyles.buttonM,
         )
     }
 }
@@ -113,17 +107,19 @@ internal fun SelectionActions(
     modifier: Modifier = Modifier,
 ) {
     val enabled = count > 0
-    // 侧栏窄，三个按钮并排时“取消归档”要放得下
+    // 侧栏窄，三个按钮并排时“取消归档”要放得下：不要 COUI 按钮默认的 132dp 最小宽度，左右留白也收窄
     val padding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+    val error = COUITheme.colorScheme.error
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        CouiButton(text = if (archive) "归档" else "取消归档", onClick = onArchive, enabled = enabled, contentPadding = padding, modifier = Modifier.weight(1f))
-        CouiButton(text = "导出", onClick = onExport, enabled = enabled, contentPadding = padding, modifier = Modifier.weight(1f))
-        CouiButton(
+        TextButton(text = if (archive) "归档" else "取消归档", onClick = onArchive, enabled = enabled, minWidth = 0.dp, insideMargin = padding, modifier = Modifier.weight(1f))
+        TextButton(text = "导出", onClick = onExport, enabled = enabled, minWidth = 0.dp, insideMargin = padding, modifier = Modifier.weight(1f))
+        TextButton(
             text = "删除",
             onClick = onDelete,
             enabled = enabled,
-            role = CouiButtonRole.DestructiveFilled,
-            contentPadding = padding,
+            minWidth = 0.dp,
+            insideMargin = padding,
+            colors = ButtonDefaults.textButtonColorsPrimary(color = error, disabledColor = COUITheme.colorScheme.errorDisabled),
             modifier = Modifier.weight(1f),
         )
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
@@ -20,6 +21,7 @@ import com.dzshzx.zeta.ui.SettingsScreen
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
 import com.dzshzx.zeta.ui.chat.SavedPromptsDialogs
+import io.github.suqi8.coui.kmp.basic.Scaffold
 import org.junit.Test
 
 /** 常用指令（列表、编辑）和自动压缩（设置页一组、用量弹窗里的压缩点）。 */
@@ -54,15 +56,18 @@ class PromptsCompactShots : ShotTest() {
         return hub
     }
 
+    /** 外面包一层 COUI 2 的 Scaffold：常用指令和用量的对话框、菜单要在它里面才显示。 */
     private fun chat(hub: ConversationHub) = @Composable {
-        ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        Scaffold { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
     }
 
-    /** COUI 的菜单画不进截图（“+”菜单、长按菜单），对话框由测试直接打开。 */
+    /** “+”菜单和长按菜单不在这里点，对话框由测试直接打开。 */
     private fun withPrompts(hub: ConversationHub, open: PromptsUi.() -> Unit) = @Composable {
         val ui = remember { PromptsUi(app, TextFieldState()).apply(open) }
-        ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
-        SavedPromptsDialogs(ui)
+        Scaffold {
+            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+            SavedPromptsDialogs(ui)
+        }
     }
 
     @Test
@@ -73,6 +78,24 @@ class PromptsCompactShots : ShotTest() {
     @Test
     fun promptEditor() {
         shoot("prompts-editor", content = withPrompts(hub()) { open(); startEdit(prompts[1]) })
+    }
+
+    /** 列表里一条的“更多”菜单：编辑、上移、下移、删除。 */
+    @Test
+    fun promptMenu() {
+        shoot("prompts-menu", prepare = { onAllNodes(hasContentDescription("更多操作")).onFirst().performClick() }, content = withPrompts(hub()) { open() })
+    }
+
+    @Test
+    fun promptDelete() {
+        shoot("prompts-delete", content = withPrompts(hub()) { askDelete(prompts[1]) })
+    }
+
+    @Test
+    fun promptListEmpty() {
+        val hub = hub()
+        PromptStore.update(app) { emptyList() }
+        shoot("prompts-empty", content = withPrompts(hub) { open() })
     }
 
     @Test

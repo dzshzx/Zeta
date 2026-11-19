@@ -10,54 +10,46 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.ui.layout.ContentScale
-import com.dzshzx.zeta.core.AttachedPaths
-import com.dzshzx.zeta.core.Attachment
-import com.dzshzx.zeta.core.FileUpload
-import com.dzshzx.zeta.core.SlashCommand
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.rounded.AttachFile
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,21 +59,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
+import com.dzshzx.zeta.core.AttachedPaths
+import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.FileUpload
+import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.ChipDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.HorizontalDivider
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconChip
+import io.github.suqi8.coui.kmp.basic.SuggestionChip
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 internal val PermissionModes = listOf(
     "default" to "逐项确认",
@@ -94,7 +99,25 @@ internal val PermissionModes = listOf(
 internal fun permissionModeLabel(mode: String?): String =
     PermissionModes.firstOrNull { it.first == mode }?.second ?: mode ?: "默认权限"
 
-/** 输入卡片：样式与 Eta 的 COUI 输入栏一致（24dp 平滑圆角、浅灰底、细边框、右下角圆形发送键）。 */
+/** 输入栏一带的面板（输入卡片、它上方的几种条、说明卡）的圆角。 */
+internal val ChatPanelCorner = COUIRoundCorner.XXL
+
+/** 输入栏上方几种条的圆角。 */
+internal val ChatStripCorner = COUIRoundCorner.XL
+
+/**
+ * 输入栏一带的面板：页面底色上一层浅灰（COUI container4 叠在页面底色上，不透明，阴影不会透出来），同色细边，平滑圆角。
+ * 输入卡片、查找栏旁的条、排队条、任务清单、编辑提示条、后台屏幕条、“会话在别处运行”的说明卡都用它。
+ */
+@Composable
+internal fun Modifier.chatPanel(shape: Shape): Modifier {
+    val colors = COUITheme.colorScheme
+    return clip(shape)
+        .background(colors.container4.compositeOver(colors.background), shape)
+        .border(0.5.dp, colors.container4, shape)
+}
+
+/** 输入卡片：圆角面板里是输入框，下面一行附件键、权限胶囊和思考胶囊，右下角圆形发送键。 */
 @Composable
 internal fun Composer(
     state: TextFieldState,
@@ -125,9 +148,9 @@ internal fun Composer(
     /** 发送键左边的小部件（上下文用量）。 */
     trailing: @Composable () -> Unit = {},
 ) {
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
-    val shape = remember { CouiShape(24.dp, 2.3f) }
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
+    val shape = remember { SquircleShape(ChatPanelCorner) }
     val canSend = enabled && files.none { it.uploading } &&
         (state.text.isNotBlank() || attachments.isNotEmpty() || files.any { it.path != null })
     // 只打了“/名字”还没打空格时，提示可用的斜杠命令
@@ -143,8 +166,8 @@ internal fun Composer(
         }
     }
     LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
-    val textStyle = MiuixTheme.textStyles.body1.copy(
-        color = colors.onSurface,
+    val textStyle = COUITheme.textStyles.bodyXL.copy(
+        color = colors.labelPrimary,
         lineHeight = 22.sp,
         lineHeightStyle = EditorialLineHeightStyle,
     )
@@ -152,9 +175,7 @@ internal fun Composer(
         modifier = modifier
             .fillMaxWidth()
             .dropShadow(shape = shape, shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = if (dark) 0.22f else 0.045f))
-            .clip(shape)
-            .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-            .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape)
+            .chatPanel(shape)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         if (suggestions.isNotEmpty()) {
@@ -163,14 +184,14 @@ internal fun Composer(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(COUIRoundCorner.M))
                             .clickable { state.setTextAndPlaceCursorAtEnd("/${command.name} ") }
                             .padding(horizontal = 8.dp, vertical = 7.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "/${command.name}",
-                                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                                style = COUITheme.textStyles.buttonM,
                                 color = colors.primary,
                                 maxLines = 1,
                             )
@@ -178,8 +199,8 @@ internal fun Composer(
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = command.argumentHint,
-                                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
-                                    color = colors.onSurfaceVariantSummary,
+                                    style = COUITheme.textStyles.bodyXS,
+                                    color = colors.labelSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -188,8 +209,8 @@ internal fun Composer(
                         if (command.description.isNotBlank()) {
                             Text(
                                 text = command.description,
-                                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                                color = colors.onSurfaceVariantSummary,
+                                style = COUITheme.textStyles.bodyXS,
+                                color = colors.labelSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -197,7 +218,7 @@ internal fun Composer(
                     }
                 }
             }
-            Box(Modifier.fillMaxWidth().padding(horizontal = 6.dp).height(0.5.dp).background(colors.onSurface.copy(alpha = 0.08f)))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 6.dp), color = colors.divider)
             Spacer(Modifier.height(4.dp))
         }
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
@@ -220,7 +241,7 @@ internal fun Composer(
                             Icons.Rounded.Close,
                             contentDescription = "移除",
                             modifier = Modifier.size(22.dp).clip(CircleShape).clickable { onRemoveFile(file) }.padding(4.dp),
-                            tint = colors.onSurfaceVariantSummary,
+                            tint = colors.labelSecondary,
                         )
                     }
                 }
@@ -230,7 +251,7 @@ internal fun Composer(
                             bitmap = attachment.preview,
                             contentDescription = "图片附件",
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)),
+                            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M)),
                         )
                         Box(
                             modifier = Modifier
@@ -238,11 +259,11 @@ internal fun Composer(
                                 .padding(3.dp)
                                 .size(20.dp)
                                 .clip(CircleShape)
-                                .background(Color(0x99000000))
+                                .background(colors.mask)
                                 .clickable { onRemoveAttachment(attachment) },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "移除", modifier = Modifier.size(13.dp), tint = Color.White)
+                            Icon(Icons.Rounded.Close, contentDescription = "移除", modifier = Modifier.size(13.dp), tint = colors.labelOnColor)
                         }
                     }
                 }
@@ -256,7 +277,7 @@ internal fun Composer(
                 Text(
                     text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
                     style = textStyle,
-                    color = colors.onSurfaceVariantSummary,
+                    color = colors.hintNeutral,
                 )
             }
             BasicTextField(
@@ -270,45 +291,23 @@ internal fun Composer(
             )
         }
         Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            val attachAnchor = rememberCouiMenuAnchor()
             var attachMenu by remember { mutableStateOf(false) }
-            val attachItems = remember {
-                listOf(
-                    CouiMenuItem(value = 0, text = "图片", icon = Icons.Rounded.Image),
-                    CouiMenuItem(value = 1, text = "文件", icon = Icons.Rounded.AttachFile),
-                    CouiMenuItem(value = 2, text = "文件夹", icon = Icons.Rounded.Folder),
-                    CouiMenuItem(value = 3, text = "输入路径", icon = Icons.Rounded.Edit),
-                    CouiMenuItem(value = 4, text = "常用指令", icon = Icons.Rounded.BookmarkBorder, dividerBefore = true),
-                )
-            }
             Box {
-                Box(
-                    modifier = Modifier
-                        .couiMenuAnchor(attachAnchor)
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(colors.onSurface.copy(alpha = if (dark) 0.08f else 0.05f), CircleShape)
-                        .clickable(enabled = enabled) { attachAnchor.open { attachMenu = true } },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "添加附件", modifier = Modifier.size(18.dp), tint = colors.onSurface.copy(alpha = 0.72f))
+                IconChip(onClick = { attachMenu = true }, enabled = enabled) {
+                    Icon(Icons.Rounded.Add, contentDescription = "添加附件")
                 }
-                Menu(
-                    expanded = attachMenu,
-                    onDismissRequest = { attachMenu = false },
-                    items = attachItems,
-                    onItemClick = {
-                        attachMenu = false
-                        when (it.value) {
-                            0 -> onPickImages()
-                            1 -> onPickFiles()
-                            2 -> onPickFolder()
-                            4 -> onOpenPrompts()
-                            else -> onEnterPath()
-                        }
-                    },
-                    anchor = attachAnchor,
+                val attachEntries = listOf(
+                    DropdownEntry(
+                        items = listOf(
+                            menuItem("图片", Icons.Rounded.Image, onPickImages),
+                            menuItem("文件", Icons.Rounded.AttachFile, onPickFiles),
+                            menuItem("文件夹", Icons.Rounded.Folder, onPickFolder),
+                            menuItem("输入路径", Icons.Rounded.Edit, onEnterPath),
+                        ),
+                    ),
+                    DropdownEntry(items = listOf(menuItem("常用指令", Icons.Rounded.BookmarkBorder, onOpenPrompts))),
                 )
+                ChatMenuPopup(show = attachMenu, entries = attachEntries, onDismiss = { attachMenu = false })
             }
             Spacer(Modifier.width(8.dp))
             PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
@@ -316,12 +315,11 @@ internal fun Composer(
             Spacer(Modifier.weight(1f))
             trailing()
             val showStop = busy && !canSend
-            val ink = colors.onSurface
             val buttonColor by animateColorAsState(
                 targetValue = when {
-                    showStop -> colors.onSurface
+                    showStop -> colors.labelPrimary
                     canSend -> colors.primary
-                    else -> ink.copy(alpha = if (dark) 0.08f else 0.06f)
+                    else -> colors.container8
                 },
                 animationSpec = tween(160),
                 label = "send-color",
@@ -355,9 +353,9 @@ internal fun Composer(
                             contentDescription = if (stop) "停止" else "发送",
                             modifier = Modifier.size(if (stop) 12.dp else 17.dp),
                             tint = when {
-                                stop -> colors.surface
+                                stop -> colors.background
                                 canSend -> colors.onPrimary
-                                else -> ink.copy(alpha = if (dark) 0.28f else 0.24f)
+                                else -> colors.labelTertiary
                             },
                         )
                     }
@@ -367,37 +365,47 @@ internal fun Composer(
     }
 }
 
-/** 权限模式胶囊，位置和样式对应 Eta 输入栏里的“思考”胶囊。 */
+/** 权限模式胶囊：点开是五种模式的单选菜单。 */
 @Composable
 private fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
-    val colors = MiuixTheme.colorScheme
-    val anchor = rememberCouiMenuAnchor()
+    val colors = COUITheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
-    val items = remember(mode) { PermissionModes.map { CouiMenuItem(value = it.first, text = it.second, selected = it.first == mode) } }
     Box {
-        Row(
-            modifier = Modifier
-                .couiMenuAnchor(anchor)
-                .heightIn(min = 30.dp)
-                .clip(CircleShape)
-                .background(colors.primary.copy(alpha = 0.10f), CircleShape)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { anchor.open { expanded = true } }
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(imageVector = Icons.Rounded.Shield, contentDescription = null, modifier = Modifier.size(14.5.dp), tint = colors.primary)
-            Spacer(Modifier.width(5.dp))
-            Text(text = permissionModeLabel(mode), style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp), color = colors.primary)
-        }
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = items,
-            onItemClick = {
-                expanded = false
-                onChange(it.value)
-            },
-            anchor = anchor,
+        SuggestionChip(
+            onClick = { expanded = true },
+            label = permissionModeLabel(mode),
+            icon = { Icon(imageVector = Icons.Rounded.Shield, contentDescription = null) },
+            colors = ChipDefaults.chipColors(containerColor = colors.containerThemeHalftone, contentColor = colors.primaryText),
         )
+        val entries = listOf(
+            DropdownEntry(
+                items = PermissionModes.map { (value, label) ->
+                    DropdownItem(text = label, selected = value == mode, onClick = { onChange(value) })
+                },
+            ),
+        )
+        ChatMenuPopup(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
+}
+
+/** 菜单里带图标的一项。 */
+internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true, alert: Boolean = false): DropdownItem =
+    DropdownItem(text = text, enabled = enabled, onClick = onClick, alert = alert, icon = { modifier -> Icon(icon, contentDescription = null, modifier = modifier) })
+
+/**
+ * 挂在旁边元素（胶囊、按钮、标题）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
+ * `Box { 元素; ChatMenuPopup(show, entries, onDismiss) }`。
+ */
+@Composable
+internal fun ChatMenuPopup(show: Boolean, entries: List<DropdownEntry>, onDismiss: () -> Unit) {
+    OverlayDropdownPopup(
+        entries = entries,
+        show = show,
+        onDismiss = onDismiss,
+        onDismissFinished = {},
+        maxHeight = null,
+        dropdownColors = DropdownDefaults.dropdownColors(),
+        renderInRootScaffold = true,
+        collapseOnSelection = true,
+    )
 }

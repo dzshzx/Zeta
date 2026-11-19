@@ -3,20 +3,19 @@ package com.dzshzx.zeta.ui.chat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,6 +30,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -40,6 +40,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ShortText
 import androidx.compose.material.icons.outlined.Settings
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -66,54 +68,55 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Scaffold
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
-import com.itos.coui.topappbar.CouiTopAppBarDefaults
-import com.itos.coui.topappbar.TopAppBar
-import com.itos.coui.topappbar.TopAppBarButtonGroup
-import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.dzshzx.zeta.core.Attachment
-import com.dzshzx.zeta.core.FileUpload
-import java.util.UUID
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.turnActions
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
-import com.dzshzx.zeta.ui.components.coui.CouiTopAppBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
-import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Scaffold
+import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.blur.LayerBackdrop
+import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
+import io.github.suqi8.coui.kmp.blur.layerBackdrop
+import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.More
+import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 还没连上进程、拿不到真实列表时先给的几个常用别名（Claude Code 自己解析）。 */
 private val FallbackModels = listOf(
@@ -124,6 +127,11 @@ private val FallbackModels = listOf(
     ModelOption("haiku", "Haiku", ""),
 )
 
+/**
+ * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
+ * 内容录进页面背景（[LocalPageBackdrop]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 CouiPageScaffold，
+ * 只是聊天页铺整页底色（background），输入栏在内容里跟着键盘走。
+ */
 @Composable
 internal fun ChatScreen(
     hub: ConversationHub,
@@ -135,90 +143,149 @@ internal fun ChatScreen(
     onOpenTasks: (String) -> Unit = {},
 ) {
     val conversation = hub.current
-    val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
+    val colors = COUITheme.colorScheme
     val find = remember(conversation.key) { ChatFindState() }
+    val listState = remember(conversation.key) { LazyListState() }
+    val backdrop = rememberPageBackdrop()
+    val popupBlur = rememberPopupMaterialBlur(backdrop)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.surface,
-        windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        containerColor = colors.background,
+        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
-                title = {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        ChatHeader(conversation = conversation, models = hub.models.ifEmpty { FallbackModels })
-                    }
-                },
-                navigationIcon = {
-                    CouiTopAppBarIconButton(
-                        icon = Icons.AutoMirrored.Outlined.ShortText,
-                        contentDescription = "历史对话",
-                        onClick = onOpenPane,
-                        dark = dark,
-                        colors = colors,
-                    )
-                },
-                actions = {
-                    TopAppBarButtonGroup {
-                        OverflowMenu(
-                            onNewChat = hub::startNew,
-                            onOpenSettings = onOpenSettings,
-                            onFind = find::open.takeIf { hub.setup == SetupState.Ready && conversation.items.isNotEmpty() },
-                        )
-                    }
-                },
-                dark = dark,
-                colors = CouiTopAppBarDefaults.colors(backgroundColor = MiuixTheme.colorScheme.surface, titleColor = colors.title, dark = dark),
-            )
+            // 顶栏在页面录制范围之外：它的菜单可以模糊页面
+            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+                ChatTopBar(
+                    conversation = conversation,
+                    models = hub.models.ifEmpty { FallbackModels },
+                    backdrop = backdrop,
+                    listState = listState.takeIf { hub.setup == SetupState.Ready },
+                    onOpenPane = onOpenPane,
+                    onNewChat = hub::startNew,
+                    onOpenSettings = onOpenSettings,
+                    onFind = find::open.takeIf { hub.setup == SetupState.Ready && conversation.items.isNotEmpty() },
+                )
+            }
         },
     ) { padding ->
-        when (hub.setup) {
-            SetupState.Ready -> key(conversation.key) {
-                CompositionLocalProvider(LocalTextFinder provides find) { ConversationBody(hub, conversation, padding, onOpenLogin, find, onOpenTasks) }
-            }
-            SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
-            SetupState.NoRoot -> SetupMessage(
-                padding,
-                "需要 root 权限",
-                "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试。",
-            ) { CouiButton(text = "重试", onClick = hub::checkSetup) }
-            SetupState.NoEnvironment -> SetupMessage(
-                padding,
-                "还没有 Linux 环境",
-                "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境。",
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CouiButton(text = if (hub.ownStatus?.base == true) "继续安装 Debian 环境" else "安装 Debian 环境", onClick = onOpenInstall, role = CouiButtonRole.Primary)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CouiButton(text = "打开设置", onClick = onOpenSettings)
-                        CouiButton(text = "重试", onClick = hub::checkSetup)
+        Box(
+            Modifier
+                .fillMaxSize()
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .background(colors.background),
+        ) {
+            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+                when (hub.setup) {
+                    SetupState.Ready -> key(conversation.key) {
+                        CompositionLocalProvider(LocalTextFinder provides find) {
+                            ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks)
+                        }
+                    }
+                    SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
+                    SetupState.NoRoot -> SetupMessage(
+                        padding,
+                        "需要 root 权限",
+                        "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试。",
+                    ) { TextButton(text = "重试", onClick = hub::checkSetup) }
+                    SetupState.NoEnvironment -> SetupMessage(
+                        padding,
+                        "还没有 Linux 环境",
+                        "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境。",
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TextButton(
+                                text = if (hub.ownStatus?.base == true) "继续安装 Debian 环境" else "安装 Debian 环境",
+                                onClick = onOpenInstall,
+                                colors = ButtonDefaults.textButtonColorsPrimary(),
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                TextButton(text = "打开设置", onClick = onOpenSettings)
+                                TextButton(text = "重试", onClick = hub::checkSetup)
+                            }
+                        }
                     }
                 }
+                PermissionSheet(
+                    request = conversation.pending,
+                    onAllow = { request, answers -> conversation.respond(request, allow = true, answers = answers) },
+                    onDeny = { request -> conversation.respond(request, allow = false) },
+                )
             }
         }
     }
-    PermissionSheet(
-        request = conversation.pending,
-        onAllow = { request, answers -> conversation.respond(request, allow = true, answers = answers) },
-        onDeny = { request -> conversation.respond(request, allow = false) },
-    )
+}
+
+/** 顶栏光晕在内容往上滚过这么多之后全部显出（COUI 17 是 30dp）。 */
+private val GlowRevealDistance = 30.dp
+
+/**
+ * 聊天页顶栏：COUI 小顶栏（左边历史对话，右边“更多”菜单），标题位置换成 [ChatHeader]。
+ * 页面录进了 [backdrop] 时顶栏透明、带 COUI 17 光晕；光晕随聊天列表离开顶部的距离显出（[listState] 为 null 时不显）。
+ */
+@Composable
+private fun ChatTopBar(
+    conversation: Conversation,
+    models: List<ModelOption>,
+    backdrop: LayerBackdrop?,
+    listState: LazyListState?,
+    onOpenPane: () -> Unit,
+    onNewChat: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onFind: (() -> Unit)?,
+) {
+    val colors = COUITheme.colorScheme
+    val revealPx = with(LocalDensity.current) { GlowRevealDistance.toPx() }
+    val scrolled by remember(listState, revealPx) {
+        derivedStateOf {
+            when {
+                listState == null -> 0f
+                listState.firstVisibleItemIndex > 0 -> revealPx
+                else -> listState.firstVisibleItemScrollOffset.toFloat().coerceAtMost(revealPx)
+            }
+        }
+    }
+    val glow: (@Composable BoxScope.() -> Unit)? = if (backdrop != null) {
+        { TopAppBarGlow(backdrop = backdrop, scrollOffsetPx = scrolled, isDark = colors.isDark, baseColor = colors.background, enabled = true) }
+    } else {
+        null
+    }
+    Box {
+        SmallTopAppBar(
+            title = "",
+            color = if (backdrop != null) Color.Transparent else colors.background,
+            glow = glow,
+            navigationIcon = {
+                IconButton(onClick = onOpenPane) {
+                    Icon(Icons.AutoMirrored.Outlined.ShortText, contentDescription = "历史对话", tint = colors.labelPrimary)
+                }
+            },
+            actions = { OverflowMenu(onNewChat = onNewChat, onOpenSettings = onOpenSettings, onFind = onFind) },
+        )
+        // 标题位置：两边让出图标按钮，竖直方向和顶栏的 52dp 工具栏对齐
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                .padding(horizontal = 72.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            ChatHeader(conversation = conversation, models = models)
+        }
+    }
 }
 
 @Composable
 private fun SetupMessage(padding: PaddingValues, title: String, message: String?, actions: (@Composable () -> Unit)? = null) {
+    val colors = COUITheme.colorScheme
     Box(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = 56.dp)) {
-            Text(
-                text = title,
-                style = MiuixTheme.textStyles.title2.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
-                color = MiuixTheme.colorScheme.onSurface,
-            )
+            Text(text = title, style = COUITheme.textStyles.headlineM, color = colors.labelPrimary)
             if (message != null) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = message,
-                    style = MiuixTheme.textStyles.body2.copy(lineHeight = 21.sp),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyM,
+                    color = colors.labelSecondary,
                     textAlign = TextAlign.Center,
                 )
             } else {
@@ -238,12 +305,12 @@ private fun ConversationBody(
     hub: ConversationHub,
     conversation: Conversation,
     padding: PaddingValues,
+    listState: LazyListState,
     onOpenLogin: () -> Unit,
     find: ChatFindState,
     onOpenTasks: (String) -> Unit,
 ) {
     val items = conversation.items
-    val listState = remember { LazyListState() }
     val input = remember { TextFieldState() }
     val markdownCache = remember { StreamingMarkdownStateCache() }
     val scope = rememberCoroutineScope()
@@ -382,8 +449,8 @@ private fun ConversationBody(
                                         Spacer(Modifier.width(10.dp))
                                         Text(
                                             text = statusText,
-                                            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                            style = COUITheme.textStyles.bodyS,
+                                            color = COUITheme.colorScheme.labelSecondary,
                                         )
                                     }
                                 }
@@ -398,25 +465,18 @@ private fun ConversationBody(
                 enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
                 exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
             ) {
-                val dark = CouiTheme.isDark
-                Box(
-                    modifier = Modifier
-                        .dropShadow(shape = CircleShape, shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = if (dark) 0.24f else 0.08f))
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(if (dark) Color(0xFF24262B) else Color.White, CircleShape)
-                        .border(0.5.dp, if (dark) Color(0x22FFFFFF) else Color(0x10000000), CircleShape)
-                        .clickable {
-                            follow = true
-                            scope.launch { listState.scrollToEnd() }
-                        },
-                    contentAlignment = Alignment.Center,
+                // COUI 17 的浮动圆形按钮（顶栏按钮那种材质：阴影、边缘光、按压回弹）
+                IconButton(
+                    onClick = {
+                        follow = true
+                        scope.launch { listState.scrollToEnd() }
+                    },
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.ArrowDownward,
                         contentDescription = "回到底部",
-                        modifier = Modifier.size(16.dp),
-                        tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                        modifier = Modifier.size(18.dp),
+                        tint = COUITheme.colorScheme.labelPrimary,
                     )
                 }
             }
@@ -533,29 +593,23 @@ internal fun MutableList<FileUpload>.addPath(path: String) {
 /** 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡。 */
 @Composable
 private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = Modifier) {
-    val dark = CouiTheme.isDark
-    val shape = remember { CouiShape(24.dp, 2.3f) }
+    val colors = COUITheme.colorScheme
+    val shape = remember { SquircleShape(ChatPanelCorner) }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-            .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape)
+            .chatPanel(shape)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(
-            text = "这个会话正在别处运行",
-            style = MiuixTheme.textStyles.body1.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-            color = MiuixTheme.colorScheme.onSurface,
-        )
+        Text(text = "这个会话正在别处运行", style = COUITheme.textStyles.headlineXS, color = colors.labelPrimary)
         Spacer(Modifier.height(4.dp))
         Text(
             text = "另一个 Claude Code 进程（比如终端里的）还开着它。在这里续聊会让两边同时写同一份记录，内容可能错乱。",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, lineHeight = 19.sp),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyS,
+            color = colors.labelSecondary,
         )
         Spacer(Modifier.height(12.dp))
-        CouiButton(text = "仍要在这里继续", onClick = onTakeOver)
+        TextButton(text = "仍要在这里继续", onClick = onTakeOver)
     }
 }
 
@@ -565,116 +619,83 @@ private suspend fun LazyListState.scrollToEnd() {
     scrollBy(1_000_000f)
 }
 
-/** 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击切换模型。 */
+/** 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。 */
 @Composable
 private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
-    val dark = CouiTheme.isDark
-    val ink = MiuixTheme.colorScheme.onSurface
+    val colors = COUITheme.colorScheme
     val current = conversation.model ?: "default"
     val modelName = if (current == "default") "默认" else models.firstOrNull { it.value == current }?.displayName?.ifBlank { null } ?: current
-    val anchor = rememberCouiMenuAnchor()
     var expanded by remember { mutableStateOf(false) }
-    val menuItems = remember(models, current) { models.map { CouiMenuItem(value = it.value, text = if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }, selected = it.value == current) } }
+    val entries = listOf(
+        DropdownEntry(
+            items = models.map { model ->
+                DropdownItem(
+                    text = if (model.value == "default") "默认" else model.displayName.ifBlank { model.value },
+                    selected = model.value == current,
+                    onClick = { conversation.chooseModel(model.value.takeIf { it != "default" }) },
+                )
+            },
+        ),
+    )
     val source = remember { MutableInteractionSource() }
-    val subtitleColor = ink.copy(alpha = if (dark) 0.56f else 0.52f)
     Box {
         if (conversation.title.isNotBlank()) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .couiMenuAnchor(anchor)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(interactionSource = source, indication = null) { anchor.open { expanded = true } }
+                    .clip(RoundedCornerShape(COUIRoundCorner.M))
+                    .clickable(interactionSource = source, indication = null) { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
                     text = conversation.title,
-                    style = MiuixTheme.textStyles.body1.copy(fontSize = 15.5.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold),
-                    color = ink,
+                    style = COUITheme.textStyles.headlineXS,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = modelName,
-                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.5.sp, lineHeight = 14.sp),
-                        color = subtitleColor,
-                        maxLines = 1,
-                    )
-                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(13.dp), tint = ink.copy(alpha = if (dark) 0.46f else 0.42f))
+                    Text(text = modelName, style = COUITheme.textStyles.bodyXS, color = colors.labelSecondary, maxLines = 1)
+                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelTertiary)
                 }
             }
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .couiMenuAnchor(anchor)
                     .heightIn(min = 34.dp)
                     .clip(CircleShape)
-                    .background(ink.copy(alpha = if (dark) 0.08f else 0.042f), CircleShape)
-                    .border(0.5.dp, ink.copy(alpha = if (dark) 0.12f else 0.07f), CircleShape)
-                    .clickable(interactionSource = source, indication = null) { anchor.open { expanded = true } }
+                    .background(colors.container4, CircleShape)
+                    .clickable(interactionSource = source, indication = null) { expanded = true }
                     .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 Text(
                     text = "Claude · $modelName",
-                    style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-                    color = ink,
+                    style = COUITheme.textStyles.buttonM,
+                    color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "切换模型", modifier = Modifier.padding(start = 2.dp).size(16.dp), tint = subtitleColor)
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "切换模型", modifier = Modifier.padding(start = 2.dp).size(16.dp), tint = colors.labelSecondary)
             }
         }
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = menuItems,
-            onItemClick = {
-                expanded = false
-                conversation.chooseModel(it.value.takeIf { value -> value != "default" })
-            },
-            anchor = anchor,
-        )
+        ChatMenuPopup(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
 }
 
+/** 顶栏右边的“更多”：新对话、在对话中查找、设置。 */
 @Composable
 private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
-    val dark = CouiTheme.isDark
-    val anchor = rememberCouiMenuAnchor()
-    var expanded by remember { mutableStateOf(false) }
-    val findEnabled = onFind != null
-    val menuItems = remember(findEnabled) {
-        listOf(
-            CouiMenuItem(value = 0, text = "新对话", icon = Icons.Rounded.MapsUgc),
-            CouiMenuItem(value = 2, text = "在对话中查找", icon = Icons.Rounded.Search, enabled = findEnabled),
-            CouiMenuItem(value = 1, text = "设置", icon = Icons.Outlined.Settings),
-        )
-    }
-    Box {
-        CouiTopAppBarIconButton(
-            icon = CouiIcons.Outlined.More,
-            contentDescription = "更多",
-            modifier = Modifier.couiMenuAnchor(anchor),
-            dark = dark,
-            colors = CouiPageDefaults.themeColors(dark),
-            onClick = { anchor.open { expanded = true } },
-        )
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = menuItems,
-            onItemClick = {
-                expanded = false
-                when (it.value) {
-                    0 -> onNewChat()
-                    2 -> onFind?.invoke()
-                    else -> onOpenSettings()
-                }
-            },
-            anchor = anchor,
-        )
+    val entry = DropdownEntry(
+        items = listOf(
+            menuItem("新对话", Icons.Rounded.MapsUgc, onNewChat),
+            menuItem("在对话中查找", Icons.Rounded.Search, { onFind?.invoke() }, enabled = onFind != null),
+            menuItem("设置", Icons.Outlined.Settings, onOpenSettings),
+        ),
+    )
+    OverlayIconDropdownMenu(entry = entry) {
+        Icon(COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
     }
 }
 
@@ -696,17 +717,12 @@ private fun EmptyState(
     onChangeCwd: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.align(Alignment.Center).padding(bottom = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "有什么可以帮你？",
-                style = MiuixTheme.textStyles.title2.copy(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-                color = colors.onSurface,
-            )
+            Text(text = "有什么可以帮你？", style = COUITheme.textStyles.displayXS, color = colors.labelPrimary)
             Spacer(Modifier.height(8.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -715,12 +731,12 @@ private fun EmptyState(
                     editingCwd = true
                 }.padding(horizontal = 10.dp, vertical = 4.dp),
             ) {
-                Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.onSurfaceVariantSummary)
+                Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelSecondary)
                 Spacer(Modifier.width(5.dp))
                 Text(
                     text = cwd,
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-                    color = colors.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyS,
+                    color = colors.labelSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.StartEllipsis,
                     modifier = Modifier.widthIn(max = 260.dp),
@@ -729,30 +745,25 @@ private fun EmptyState(
             Spacer(Modifier.height(18.dp))
             // 还没登录时发什么都只会报错，先把人领去登录
             if (needsLogin) {
-                Text(
-                    text = "这个环境里的 Claude Code 还没有登录账号",
-                    style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp),
-                    color = colors.onSurfaceVariantSummary,
-                )
+                Text(text = "这个环境里的 Claude Code 还没有登录账号", style = COUITheme.textStyles.bodyM, color = colors.labelSecondary)
                 Spacer(Modifier.height(14.dp))
-                CouiButton(text = "登录 Claude 账号", onClick = onLogin, role = CouiButtonRole.Primary)
+                TextButton(text = "登录 Claude 账号", onClick = onLogin, colors = ButtonDefaults.textButtonColorsPrimary())
             } else Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Suggestions.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         row.forEach { item ->
-                            val shape = remember { CouiShape(15.dp, 2.2f) }
+                            val shape = remember { SquircleShape(COUIRoundCorner.L) }
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(shape)
-                                    .background(colors.onSurface.copy(alpha = if (dark) 0.055f else 0.028f), shape)
-                                    .border(0.5.dp, colors.onSurface.copy(alpha = if (dark) 0.10f else 0.065f), shape)
+                                    .background(colors.container4, shape)
                                     .clickable { onSuggestion(item.prompt) }
                                     .padding(horizontal = 12.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    modifier = Modifier.size(28.dp).clip(CircleShape).background(colors.primary.copy(alpha = if (dark) 0.16f else 0.10f)),
+                                    modifier = Modifier.size(28.dp).clip(CircleShape).background(colors.containerThemeHalftone),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(imageVector = item.icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
@@ -760,8 +771,8 @@ private fun EmptyState(
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = item.title,
-                                    style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp, fontWeight = FontWeight.Medium),
-                                    color = colors.onSurface.copy(alpha = 0.88f),
+                                    style = COUITheme.textStyles.buttonM,
+                                    color = colors.labelPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -772,13 +783,13 @@ private fun EmptyState(
             }
         }
     }
-    CouiInputDialog(
-        visible = editingCwd,
+    TextInputDialog(
+        show = editingCwd,
         title = "工作目录",
-        message = "这个对话在 Debian 里的哪个目录下进行",
+        summary = "这个对话在 Debian 里的哪个目录下进行",
         value = cwdDraft,
         onValueChange = { cwdDraft = it },
-        placeholder = "/workspace",
+        label = "/workspace",
         confirmText = "确定",
         confirmEnabled = cwdDraft.trim().startsWith("/"),
         onConfirm = {

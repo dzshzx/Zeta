@@ -22,9 +22,11 @@ import com.dzshzx.zeta.core.Uploads
 import com.dzshzx.zeta.core.dropIntake
 import com.dzshzx.zeta.core.intakeTarget
 import com.dzshzx.zeta.core.placeIntake
+import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
+import io.github.suqi8.coui.kmp.layout.DialogButtonBar
+import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
+import io.github.suqi8.coui.kmp.window.WindowDialog
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -156,7 +158,7 @@ internal class IntakeSink(
     private fun screenshotName(): String = "截屏-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".jpg"
 }
 
-/** 告诉用户哪些没有加进来、为什么。 */
+/** 告诉用户哪些没有加进来、为什么。放在聊天页（COUI 的 Scaffold）里。 */
 @Composable
 internal fun IntakeProblemsDialog(sink: IntakeSink) {
     val problems = sink.problems
@@ -166,10 +168,10 @@ internal fun IntakeProblemsDialog(sink: IntakeSink) {
             list.joinToString("\n") { "$it。" } + if (sink.rejectedLarge) "\n\n$TooLargeAdvice" else ""
         },
     )
-    CouiNoticeDialog(
-        visible = problems.isNotEmpty(),
+    NoticeDialog(
+        show = problems.isNotEmpty(),
         title = "有些内容没有加进来",
-        message = message,
+        summary = message,
         onDismissRequest = sink::dismissProblems,
     )
 }
@@ -180,6 +182,8 @@ private const val TooLargeAdvice = "太大的文件复制进 Linux 要多占一�
 /**
  * 「放进哪个对话」：外面送来的东西（分享、打开、截屏）放进新对话，还是接着最近那个对话。
  * 只有当前对话有内容、或者后台还有对话在进行时才会问（见 [com.dzshzx.zeta.core.offerIntake]）。点外面或返回就不要了。
+ *
+ * 它在应用最外层、盖在所有页面上面，不在任何 COUI 的 Scaffold 里，所以用窗口版的对话框（没有页面毛玻璃）。
  */
 @Composable
 internal fun IntakeChooser(hub: ConversationHub) {
@@ -192,14 +196,10 @@ internal fun IntakeChooser(hub: ConversationHub) {
                 (if (title != null) "接着「$title」，还是开一个新对话？" else "接着刚才的对话，还是开一个新对话？")
         },
     )
-    CouiConfirmDialog(
-        visible = pending != null,
-        title = "放进哪个对话",
-        message = message,
-        confirmText = "接着这个对话",
-        cancelText = "新对话",
-        onConfirm = { hub.placeIntake(intoNew = false) },
-        onCancel = { hub.placeIntake(intoNew = true) },
-        onDismissRequest = hub::dropIntake,
-    )
+    WindowDialog(show = pending != null, title = "放进哪个对话", summary = message, onDismissRequest = hub::dropIntake) {
+        DialogButtonBar(
+            negative = DialogButtonBarAction("新对话", onClick = { hub.placeIntake(intoNew = true) }),
+            positive = DialogButtonBarAction("接着这个对话", recommended = true, onClick = { hub.placeIntake(intoNew = false) }),
+        )
+    }
 }

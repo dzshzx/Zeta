@@ -70,16 +70,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusSuccess
-import com.dzshzx.zeta.ui.components.StatusWarning
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.squircle.squircleBorder
+import io.github.suqi8.coui.kmp.squircle.squircleClip
+import io.github.suqi8.coui.kmp.squircle.squircleSurface
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -305,7 +303,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
         ) {
             Text(
                 text = block.language ?: stringResource(R.string.markdown_code_block),
-                style = MiuixTheme.textStyles.footnote2.copy(
+                style = COUITheme.textStyles.bodyXS.copy(
                     fontFamily = if (block.language != null) EtaMonospace else null,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Medium,
@@ -346,12 +344,15 @@ private fun CopyButton(text: String, tint: Color) {
             copied = false
         }
     }
+    // 代码块标题栏里的小按钮：不要顶栏按钮那层材质，平的，按下有 COUI 的点按反馈
     IconButton(
         onClick = {
             @Suppress("DEPRECATION")
             clipboard.setText(AnnotatedString(text))
             copied = true
         },
+        material = false,
+        cornerRadius = 16.dp,
         minWidth = 32.dp,
         minHeight = 32.dp,
     ) {
@@ -359,7 +360,7 @@ private fun CopyButton(text: String, tint: Color) {
             imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
             contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_code),
             modifier = Modifier.size(14.dp),
-            tint = if (copied) MiuixTheme.colorScheme.primary else tint,
+            tint = if (copied) COUITheme.colorScheme.primary else tint,
         )
     }
 }
@@ -436,7 +437,7 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
             Spacer(Modifier.width(6.dp))
             Text(
                 text = stringResource(block.kind.label),
-                style = MiuixTheme.textStyles.body2.copy(
+                style = COUITheme.textStyles.bodyM.copy(
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                 ),
@@ -469,15 +470,16 @@ private val MarkdownAlertKind.label: Int
     }
 
 @Composable
-private fun MarkdownAlertKind.accentColor(): Color = when (this) {
-    MarkdownAlertKind.Note -> MiuixTheme.colorScheme.primary
-    MarkdownAlertKind.Tip -> StatusSuccess
-    MarkdownAlertKind.Important -> AlertImportantColor
-    MarkdownAlertKind.Warning -> StatusWarning
-    MarkdownAlertKind.Caution -> MiuixTheme.colorScheme.error
+private fun MarkdownAlertKind.accentColor(): Color {
+    val colors = COUITheme.colorScheme
+    return when (this) {
+        MarkdownAlertKind.Note -> colors.primary
+        MarkdownAlertKind.Tip -> colors.success
+        MarkdownAlertKind.Important -> colors.purple
+        MarkdownAlertKind.Warning -> colors.orange
+        MarkdownAlertKind.Caution -> colors.error
+    }
 }
-
-private val AlertImportantColor = Color(0xFF8B5CF6)
 
 // ── 列表 ────────────────────────────────────────────────────────────────
 
@@ -590,7 +592,7 @@ private fun RowScope.ListMarker(
                     imageVector = if (item.checked) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
                     contentDescription = null,
                     modifier = Modifier.size(17.dp),
-                    tint = if (item.checked) MiuixTheme.colorScheme.primary else style.markerColor,
+                    tint = if (item.checked) COUITheme.colorScheme.primary else style.markerColor,
                 )
             }
         }

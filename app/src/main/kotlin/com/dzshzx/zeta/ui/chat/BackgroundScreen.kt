@@ -41,17 +41,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.VirtualScreen
-import com.dzshzx.zeta.ui.components.coui.CouiButton
-import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.squircle.SquircleShape
+import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
 
 /** 缩略图的刷新间隔：看个大概就行，省电。 */
@@ -68,15 +67,12 @@ private const val ViewerIntervalMs = 50L
 internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val screen = phone.background ?: return
     val asleep by screen.asleep.collectAsState()
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
-    val shape = remember { CouiShape(18.dp, 2.3f) }
+    val colors = COUITheme.colorScheme
+    val shape = remember { SquircleShape(ChatStripCorner) }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(if (dark) Color(0xFF1C1E22) else Color(0xFFF6F7F9), shape)
-            .border(0.5.dp, if (dark) Color(0x20FFFFFF) else Color(0x0E000000), shape)
+            .chatPanel(shape)
             .clickable(onClickLabel = "查看后台屏幕", onClick = onOpen)
             .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -85,34 +81,38 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
             screen = screen,
             intervalMs = ThumbnailIntervalMs,
             dim = asleep,
-            modifier = Modifier.height(40.dp).aspectRatio(screen.width / screen.height.toFloat()).clip(RoundedCornerShape(4.dp)),
+            modifier = Modifier.height(40.dp).aspectRatio(screen.width / screen.height.toFloat()).clip(RoundedCornerShape(COUIRoundCorner.XS)),
         )
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val accent = if (asleep) colors.onSurfaceVariantSummary else colors.primary
+                val accent = if (asleep) colors.labelSecondary else colors.primary
                 Box(Modifier.size(6.dp).clip(CircleShape).background(accent))
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = if (asleep) "后台屏幕 · 休眠中" else "后台屏幕",
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+                    style = COUITheme.textStyles.bodyS,
+                    fontWeight = FontWeight.Medium,
                     color = accent,
                 )
             }
             Text(
                 text = phone.backgroundApp ?: "还没有打开应用",
-                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp),
-                color = colors.onSurface,
+                style = COUITheme.textStyles.bodyM,
+                color = colors.labelPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         ActionIcon(Icons.Rounded.OpenInFull, "移到主屏", colors.primary) { phone.moveToMainByUser() }
-        ActionIcon(Icons.Rounded.Close, "关闭后台屏幕", colors.onSurfaceVariantSummary) { phone.closeBackgroundByUser() }
+        ActionIcon(Icons.Rounded.Close, "关闭后台屏幕", colors.labelSecondary) { phone.closeBackgroundByUser() }
     }
 }
 
-/** 全屏查看后台屏幕的实时画面（只能看）。开着时后台屏幕保持醒着（在休眠就唤醒，关掉后睡回去）。后台屏幕没了自动关闭。 */
+/**
+ * 全屏查看后台屏幕的实时画面（只能看）。开着时后台屏幕保持醒着（在休眠就唤醒，关掉后睡回去）。后台屏幕没了自动关闭。
+ * 是一个全屏的黑底窗口，像看图那样，不随深浅色变；COUI 没有这种全屏查看器，窗口照旧用 Compose 的 Dialog。
+ */
 @Composable
 internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
     val screen = phone.background
@@ -129,10 +129,10 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("后台屏幕", style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp), color = Color(0xB3FFFFFF))
+                    Text("后台屏幕", style = COUITheme.textStyles.bodyS, color = Color.White.copy(alpha = 0.7f))
                     Text(
                         text = phone.backgroundApp ?: "还没有打开应用",
-                        style = MiuixTheme.textStyles.body1.copy(fontWeight = FontWeight.Medium),
+                        style = COUITheme.textStyles.headlineXS,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -147,28 +147,28 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                     keepAwake = true,
                     modifier = Modifier
                         .aspectRatio(screen.width / screen.height.toFloat())
-                        .clip(RoundedCornerShape(14.dp))
-                        .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp)),
+                        .clip(RoundedCornerShape(COUIRoundCorner.L))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(COUIRoundCorner.L)),
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CouiButton(
+                TextButton(
                     text = "关闭后台屏幕",
                     onClick = {
                         phone.closeBackgroundByUser()
                         onDismiss()
                     },
-                    role = CouiButtonRole.Destructive,
                     modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColors(textColor = COUITheme.colorScheme.error),
                 )
-                CouiButton(
+                TextButton(
                     text = "移到主屏",
                     onClick = {
                         phone.moveToMainByUser()
                         onDismiss()
                     },
-                    role = CouiButtonRole.Primary,
                     modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
             }
         }

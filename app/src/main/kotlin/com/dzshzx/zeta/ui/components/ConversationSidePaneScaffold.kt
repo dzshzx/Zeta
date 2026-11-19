@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -50,10 +51,16 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.dzshzx.zeta.R
 import androidx.compose.ui.unit.Dp
+import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
+import io.github.suqi8.coui.kmp.basic.Scaffold
+import io.github.suqi8.coui.kmp.blur.layerBackdrop
+import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private object ConversationPaneMetrics {
     val PaneMaxWidth = 340.dp
@@ -65,6 +72,13 @@ private object ConversationPaneMetrics {
     const val SettlePositionThresholdFraction = 0.5f
 }
 
+/**
+ * 聊天页和左侧会话栏的推移容器：两边并排，由同一个位移推着走。
+ *
+ * 外面包一层 COUI 2 的 [Scaffold]，当整个窗口的弹窗宿主：侧栏里的对话框、长按菜单（COUI 的 Overlay 组件）要在
+ * Scaffold 里才显示，而且要盖住整个屏幕，不能只在侧栏那一条里。聊天页里的 COUI 页面若再套 Scaffold，会把弹窗交给这一层。
+ * 侧栏和聊天页一起录进一张背景图，交给侧栏里弹出的对话框、菜单做毛玻璃（弹窗宿主在录制范围之外）。
+ */
 @Composable
 fun ConversationSidePaneScaffold(
     visible: Boolean,
@@ -77,8 +91,11 @@ fun ConversationSidePaneScaffold(
 ) {
     val sceneLifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val navigationEventState = rememberNavigationEventState(NavigationEventInfo.None)
-    run {
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    val backdrop = rememberPageBackdrop()
+    val popupBlur = rememberPopupMaterialBlur(backdrop)
+    // 两个槽位各自处理系统栏留白，这一层不给内容加留白
+    Scaffold(modifier = modifier.fillMaxSize(), containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0)) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val density = LocalDensity.current
         val paneWidth = minOf(maxWidth * ConversationPaneMetrics.PaneWidthFraction, ConversationPaneMetrics.PaneMaxWidth)
         val paneWidthPx = with(density) { paneWidth.toPx() }
@@ -206,16 +223,18 @@ fun ConversationSidePaneScaffold(
             // 两个槽位并排测量和放置，由同一位移推移；不在聊天内容下面叠放侧栏。
             // 侧栏保留组合，避免每次起手重新创建列表和搜索框。
             Layout(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
                 content = {
-                    pane(
-                        paneWidth,
-                        isRevealed,
-                        Modifier
-                            .focusProperties { onEnter = { if (!isRevealed) cancelFocusChange() } }
-                            .focusGroup()
-                            .then(if (!isRevealed) Modifier.clearAndSetSemantics {} else Modifier),
-                    )
+                    CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+                        pane(
+                            paneWidth,
+                            isRevealed,
+                            Modifier
+                                .focusProperties { onEnter = { if (!isRevealed) cancelFocusChange() } }
+                                .focusGroup()
+                                .then(if (!isRevealed) Modifier.clearAndSetSemantics {} else Modifier),
+                        )
+                    }
                     Box(
                         modifier = Modifier.fillMaxSize()
                             .drawWithContent {
@@ -223,7 +242,7 @@ fun ConversationSidePaneScaffold(
                                 val progress = conversationPaneMotion(paneDragState.offset, paneWidthPx).progress
                                 drawRect(Color.Black, alpha = ConversationPaneMetrics.ChatScrimAlpha * progress)
                             }
-                            .background(MiuixTheme.colorScheme.background),
+                            .background(COUITheme.colorScheme.background),
                     ) {
                         Box(
                             modifier = Modifier
@@ -267,7 +286,6 @@ fun ConversationSidePaneScaffold(
     }
 }
 
-/** 侧栏与外层推移容器共用的背景色（与 Eta 的 COUI 分支一致）。 */
+/** 侧栏与外层推移容器共用的背景色：COUI 带卡片的抬高底色，深色下和纯黑的聊天页分得开。 */
 @Composable
-internal fun conversationPaneContainerColor(): Color =
-    if (com.itos.coui.theme.CouiTheme.isDark) Color(0xFF16171B) else com.itos.coui.layout.CouiPageDefaults.themeColors(false).background
+internal fun conversationPaneContainerColor(): Color = COUITheme.colorScheme.backgroundElevatedWithCard

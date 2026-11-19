@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,52 +52,49 @@ import com.dzshzx.zeta.core.formatCost
 import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-/** 菜单里“默认”一项的值（CouiMenuItem 的值不用 null）。 */
-private const val DefaultEffort = ""
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import io.github.suqi8.coui.kmp.basic.DropdownDefaults
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
  * 思考强度胶囊，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
  * 所以这里列的是它的档位。没指定时显示 Claude Code 实际生效的档位，颜色淡一些。
+ * 点开是 COUI 的下拉菜单，要在 COUI 2 的 Scaffold 里才显示。
  */
 @Composable
 internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -> Unit, modifier: Modifier = Modifier) {
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
-    val anchor = rememberCouiMenuAnchor()
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
     var expanded by remember { mutableStateOf(false) }
     val active = effort != null
-    val items = remember(effort, applied) {
+    val choose by rememberUpdatedState(onChange)
+    val entries = remember(effort, applied) {
         val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
-        listOf(CouiMenuItem(value = DefaultEffort, text = defaultText, selected = effort == null)) +
-            EffortLevels.map { (value, label) -> CouiMenuItem(value = value, text = label, selected = value == effort) }
+        val items = listOf(DropdownItem(text = defaultText, selected = effort == null, onClick = { choose(null) })) +
+            EffortLevels.map { (value, label) -> DropdownItem(text = label, selected = value == effort, onClick = { choose(value) }) }
+        listOf(DropdownEntry(items = items))
     }
-    val ink = colors.onSurface
+    val ink = colors.labelPrimary
     val content by animateColorAsState(if (active) colors.primary else ink.copy(alpha = if (dark) 0.62f else 0.58f), tween(160), label = "effort-ink")
     val fill by animateColorAsState(
         if (active) colors.primary.copy(alpha = 0.10f) else ink.copy(alpha = if (dark) 0.07f else 0.045f),
         tween(160),
         label = "effort-fill",
     )
+    // 胶囊和菜单在同一个 Box 里：菜单以它为锚
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
-                .couiMenuAnchor(anchor)
                 .heightIn(min = 30.dp)
                 .clip(CircleShape)
                 .background(fill, CircleShape)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { anchor.open { expanded = true } }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { expanded = true }
                 .padding(horizontal = 10.dp, vertical = 5.dp)
                 .semantics { contentDescription = "思考强度：" + (effortLabel(effort) ?: "默认") },
             verticalAlignment = Alignment.CenterVertically,
@@ -105,27 +103,27 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
             Spacer(Modifier.width(4.dp))
             Text(
                 text = effortLabel(effort) ?: effortLabel(applied) ?: "思考",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
                 color = content,
                 maxLines = 1,
             )
         }
-        Menu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            items = items,
-            onItemClick = {
-                expanded = false
-                onChange(it.value.ifEmpty { null })
-            },
-            anchor = anchor,
+        OverlayDropdownPopup(
+            entries = entries,
+            show = expanded,
+            onDismiss = { expanded = false },
+            onDismissFinished = {},
+            maxHeight = null,
+            dropdownColors = DropdownDefaults.dropdownColors(),
+            renderInRootScaffold = true,
+            collapseOnSelection = true,
         )
     }
 }
 
 @Composable
 private fun levelColor(level: ContextLevel, normal: Color): Color = when (level) {
-    ContextLevel.Critical -> StatusError
+    ContextLevel.Critical -> COUITheme.colorScheme.error
     ContextLevel.Warning -> StatusWarning
     ContextLevel.Normal -> normal
 }
@@ -133,8 +131,8 @@ private fun levelColor(level: ContextLevel, normal: Color): Color = when (level)
 /** 发送键左边的上下文圆环；快满时变色并显示百分比。点开是用量统计。 */
 @Composable
 internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val dark = CouiTheme.isDark
-    val ink = MiuixTheme.colorScheme.onSurface
+    val dark = COUITheme.colorScheme.isDark
+    val ink = COUITheme.colorScheme.labelPrimary
     val level = usage.level
     val color = levelColor(level, ink.copy(alpha = if (dark) 0.52f else 0.46f))
     val percent = usage.fraction?.let { (it * 100).toInt() }
@@ -162,7 +160,7 @@ internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modif
             Spacer(Modifier.width(4.dp))
             Text(
                 text = "$percent%",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                 color = color,
                 maxLines = 1,
             )
@@ -206,7 +204,7 @@ private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: M
     }
 }
 
-/** 用量统计：订阅额度（[quota]）、上下文占用、本对话累计、各轮明细，底部是一键压缩。 */
+/** 用量统计：订阅额度（[quota]）、上下文占用、本对话累计、各轮明细，底部是一键压缩。COUI 2 的对话框，要在它的 Scaffold 里才显示。 */
 @Composable
 internal fun UsageDialog(
     visible: Boolean,
@@ -217,10 +215,10 @@ internal fun UsageDialog(
     onDismissRequest: () -> Unit,
     quota: (@Composable () -> Unit)? = null,
 ) {
-    CouiConfirmDialog(
-        visible = visible,
+    ConfirmDialog(
+        show = visible,
         title = "用量",
-        message = null,
+        summary = null,
         confirmText = "压缩上下文",
         confirmEnabled = canCompact,
         cancelText = "关闭",
@@ -265,7 +263,7 @@ internal fun UsageDialog(
 
 @Composable
 private fun ContextSection(usage: ChatUsage) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val tokens = usage.contextTokens
     val window = usage.contextWindow
     val percent = usage.fraction?.let { String.format(java.util.Locale.US, "%.1f%%", it * 100) }
@@ -311,8 +309,8 @@ private fun ContextSection(usage: ChatUsage) {
  */
 @Composable
 internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier, mark: Float? = null) {
-    val ink = MiuixTheme.colorScheme.onSurface
-    val dark = CouiTheme.isDark
+    val ink = COUITheme.colorScheme.labelPrimary
+    val dark = COUITheme.colorScheme.isDark
     Box(modifier = modifier.fillMaxWidth().height(6.dp)) {
         Box(
             modifier = Modifier
@@ -335,18 +333,18 @@ internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifi
 
 @Composable
 private fun SectionHeader(title: String, value: String?) {
-    val ink = MiuixTheme.colorScheme.onSurface
+    val ink = COUITheme.colorScheme.labelPrimary
     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
-            style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
             color = ink,
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
             Text(
                 text = value,
-                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                 color = ink,
                 maxLines = 1,
             )
@@ -356,12 +354,12 @@ private fun SectionHeader(title: String, value: String?) {
 
 @Composable
 private fun StatRow(label: String, value: String) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
-            color = colors.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+            color = colors.labelSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -369,8 +367,8 @@ private fun StatRow(label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Text(
             text = value,
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
-            color = colors.onSurface.copy(alpha = 0.84f),
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+            color = colors.labelPrimary.copy(alpha = 0.84f),
             maxLines = 1,
         )
     }
@@ -378,26 +376,26 @@ private fun StatRow(label: String, value: String) {
 
 @Composable
 private fun TurnRow(number: Int, turn: TurnUsage) {
-    val colors = MiuixTheme.colorScheme
+    val colors = COUITheme.colorScheme
     val t = turn.tokens
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "第 $number 轮" + (turn.durationMs?.let { " · ${formatElapsed(it)}" } ?: ""),
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
-                color = colors.onSurface.copy(alpha = 0.84f),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+                color = colors.labelPrimary.copy(alpha = 0.84f),
                 modifier = Modifier.weight(1f),
             )
             Text(
                 text = turn.costUsd?.let(::formatCost) ?: "—",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
-                color = colors.onSurface.copy(alpha = 0.84f),
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+                color = colors.labelPrimary.copy(alpha = 0.84f),
             )
         }
         Text(
             text = "输入 ${formatTokens(t.input)} · 缓存读 ${formatTokens(t.cacheRead)} · 缓存写 ${formatTokens(t.cacheWrite)} · 输出 ${formatTokens(t.output)}",
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.5.sp, lineHeight = 16.sp, fontFeatureSettings = "tnum"),
-            color = colors.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 11.5.sp, lineHeight = 16.sp, fontFeatureSettings = "tnum"),
+            color = colors.labelSecondary,
         )
     }
 }
@@ -406,8 +404,8 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
 private fun Note(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 17.sp),
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, lineHeight = 17.sp),
+        color = COUITheme.colorScheme.labelSecondary,
         modifier = modifier,
     )
 }

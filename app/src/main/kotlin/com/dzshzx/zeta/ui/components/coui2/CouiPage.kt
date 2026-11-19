@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -120,7 +122,10 @@ internal fun CouiPageScaffold(
     val scrollBehavior = COUIScrollBehavior()
     val materialBackdrop = rememberMaterialBackdropProvider(backdrop)
     val popupBlur = rememberPopupMaterialBlur(backdrop)
-    val imePadding = if (LocalWindowInfo.current.isWindowFocused) Modifier.imePadding() else Modifier
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    val imePadding = if (windowFocused) Modifier.imePadding() else Modifier
+    // 键盘弹出时页面已经让到键盘上面，导航栏在键盘后面，底部不再留导航栏的高度
+    val imeShown = windowFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0
     Scaffold(
         modifier = modifier.fillMaxSize().then(imePadding),
         topBar = {
@@ -151,7 +156,7 @@ internal fun CouiPageScaffold(
         Box(Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)) {
             WidePageContent { sidePadding ->
                 val top = innerPadding.calculateTopPadding() + 12.dp
-                val bottom = max(innerPadding.calculateBottomPadding(), navBottom)
+                val bottom = if (imeShown) 0.dp else max(innerPadding.calculateBottomPadding(), navBottom)
                 val start = innerPadding.calculateStartPadding(layoutDirection) + sidePadding
                 val end = innerPadding.calculateEndPadding(layoutDirection) + sidePadding
                 val scope = remember(top, bottom, start, end, scrollBehavior, backdrop) {

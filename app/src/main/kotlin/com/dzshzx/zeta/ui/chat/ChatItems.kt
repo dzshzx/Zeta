@@ -8,15 +8,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,32 +49,23 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.theme.CouiTheme
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
-import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
-import com.dzshzx.zeta.phone.tools.BrowserTools
-import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.WorkStep
+import com.dzshzx.zeta.phone.tools.BrowserTools
+import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusSuccess
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.FindableText
@@ -86,15 +73,26 @@ import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import io.github.suqi8.coui.kmp.basic.DropdownEntry
+import io.github.suqi8.coui.kmp.basic.DropdownItem
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Copy
+import io.github.suqi8.coui.kmp.icon.extended.Delete
+import io.github.suqi8.coui.kmp.icon.extended.Edit
+import io.github.suqi8.coui.kmp.icon.extended.Favorites
+import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val UserBubbleShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
 private val WorkCardShape = RoundedCornerShape(16.dp)
 
-/** 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。 */
+/**
+ * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。
+ * 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2 的 Scaffold 里才显示。
+ */
 @Composable
 internal fun UserBubble(
     item: UserItem,
@@ -105,15 +103,21 @@ internal fun UserBubble(
     /** 收藏为常用指令。 */
     onSave: (() -> Unit)? = null,
 ) {
-    val dark = CouiTheme.isDark
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
-    val haptic = LocalHapticFeedback.current
-    val anchor = rememberCouiMenuAnchor()
-    var showMenu by remember { mutableStateOf(false) }
-    val deleteTint = StatusError
-    val menuItems = remember(onEdit != null, onDelete != null, onSave != null, deleteTint) {
-        userMenuItems(onEdit != null, onDelete != null, deleteTint, canSave = onSave != null)
+    val text by rememberUpdatedState(item.text)
+    val edit by rememberUpdatedState(onEdit)
+    val delete by rememberUpdatedState(onDelete)
+    val save by rememberUpdatedState(onSave)
+    val menu = remember(onEdit != null, onDelete != null, onSave != null, clipboard) {
+        userMenuEntries(
+            onCopy = { clipboard.setText(AnnotatedString(text)) },
+            onSave = if (onSave != null) ({ save?.invoke() }) else null,
+            onEdit = if (onEdit != null) ({ edit?.invoke() }) else null,
+            onDelete = if (onDelete != null) ({ delete?.invoke() }) else null,
+        )
     }
     Column(
         modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
@@ -127,50 +131,63 @@ internal fun UserBubble(
         item.files.forEach { path ->
             FileChip(name = AttachedPaths.label(path), folder = AttachedPaths.isFolder(path), modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 280.dp))
         }
-        if (item.text.isNotEmpty()) Box {
-            Column(
-                modifier = Modifier
-                    .couiMenuAnchor(anchor)
-                    .widthIn(max = 316.dp)
-                    .clip(UserBubbleShape)
-                    .background(if (dark) Color(0xFF202634) else Color(0xFFEEF2FA), UserBubbleShape)
-                    .then(if (editing) Modifier.border(1.dp, MiuixTheme.colorScheme.primary, UserBubbleShape) else Modifier)
-                    .combinedClickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                        onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            anchor.open { showMenu = true }
-                        },
+        if (item.text.isNotEmpty()) {
+            OverlayContextMenu(entries = menu) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 316.dp)
+                        .clip(UserBubbleShape)
+                        // 气泡是聊天页自己画的，COUI 没有对应的配色：浅淡的蓝灰，和回答的白底分开
+                        .background(if (dark) Color(0xFF202634) else Color(0xFFEEF2FA), UserBubbleShape)
+                        .then(if (editing) Modifier.border(1.dp, colors.primary, UserBubbleShape) else Modifier)
+                        .padding(horizontal = 16.dp, vertical = 10.5.dp),
+                ) {
+                    FindableText(
+                        text = item.text,
+                        block = 0,
+                        itemId = item.id,
+                        style = COUITheme.textStyles.bodyXL.copy(lineHeight = 23.sp, lineHeightStyle = EditorialLineHeightStyle),
+                        color = colors.labelPrimary,
                     )
-                    .padding(horizontal = 16.dp, vertical = 10.5.dp),
-            ) {
-                FindableText(
-                    text = item.text,
-                    block = 0,
-                    itemId = item.id,
-                    style = MiuixTheme.textStyles.body1.copy(lineHeight = 23.sp, lineHeightStyle = EditorialLineHeightStyle),
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
+                }
             }
-            Menu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                items = menuItems,
-                onItemClick = {
-                    showMenu = false
-                    when (it.value) {
-                        UserMenuEdit -> onEdit?.invoke()
-                        UserMenuDelete -> onDelete?.invoke()
-                        UserMenuSave -> onSave?.invoke()
-                        else -> clipboard.setText(AnnotatedString(item.text))
-                    }
-                },
-                anchor = anchor,
-            )
         }
     }
+}
+
+/** 用户消息的长按菜单：复制、收藏、编辑一组，删除单独一组、标成红色。 */
+private fun userMenuEntries(
+    onCopy: () -> Unit,
+    onSave: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+): List<DropdownEntry> {
+    val main = buildList {
+        add(DropdownItem(text = "复制", onClick = onCopy, icon = menuRowIcon(COUIIcons.Copy)))
+        if (onSave != null) add(DropdownItem(text = "收藏为常用指令", onClick = onSave, icon = menuRowIcon(COUIIcons.Favorites)))
+        if (onEdit != null) add(DropdownItem(text = "编辑", onClick = onEdit, icon = menuRowIcon(COUIIcons.Edit)))
+    }
+    val danger = if (onDelete != null) {
+        listOf(DropdownItem(text = "删除", onClick = onDelete, icon = menuRowIcon(COUIIcons.Delete, alert = true), alert = true))
+    } else {
+        emptyList()
+    }
+    return listOf(DropdownEntry(items = main), DropdownEntry(items = danger))
+}
+
+/** COUI 菜单（DropdownItem）行首的图标，颜色跟着文字：[alert] 的（删除）是红色，不可用的变灰。 */
+internal fun menuRowIcon(imageVector: ImageVector, alert: Boolean = false, enabled: Boolean = true): @Composable (Modifier) -> Unit = { modifier ->
+    val colors = COUITheme.colorScheme
+    Icon(
+        imageVector = imageVector,
+        contentDescription = null,
+        modifier = modifier,
+        tint = when {
+            !enabled -> colors.disabledNeutral
+            alert -> colors.error
+            else -> colors.labelPrimary
+        },
+    )
 }
 
 @Composable
@@ -237,7 +254,7 @@ private fun CopyAction(text: String, modifier: Modifier = Modifier) {
             imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
             contentDescription = if (copied) "已复制" else "复制",
             modifier = Modifier.size(15.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            tint = COUITheme.colorScheme.labelSecondary,
         )
     }
 }
@@ -245,6 +262,7 @@ private fun CopyAction(text: String, modifier: Modifier = Modifier) {
 @Composable
 internal fun TypingIndicator(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "typing")
+    val dot = COUITheme.colorScheme.labelSecondary
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { index ->
             val alpha by transition.animateFloat(
@@ -253,37 +271,49 @@ internal fun TypingIndicator(modifier: Modifier = Modifier) {
                 animationSpec = infiniteRepeatable(animation = tween(600, delayMillis = index * 150), repeatMode = RepeatMode.Reverse),
                 label = "alpha",
             )
-            Box(
-                Modifier.size(6.dp).graphicsLayer(alpha = alpha).background(MiuixTheme.colorScheme.onSurfaceVariantSummary, CircleShape),
-            )
+            Box(Modifier.size(6.dp).graphicsLayer(alpha = alpha).background(dot, CircleShape))
         }
     }
 }
 
 @Composable
 internal fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
+    val colors = COUITheme.colorScheme
     if (item.error) {
         val shape = RoundedCornerShape(14.dp)
         SelectionContainer(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
             Text(
                 text = item.text,
-                style = MiuixTheme.textStyles.body2.copy(fontSize = 13.sp, lineHeight = 19.sp),
-                color = StatusError,
+                style = COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, lineHeight = 19.sp),
+                color = colors.error,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(shape)
-                    .background(StatusError.copy(alpha = 0.08f), shape)
+                    .background(colors.error.copy(alpha = 0.08f), shape)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
     } else {
         Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            Text(
-                text = item.text,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+            Text(text = item.text, style = COUITheme.textStyles.bodyS, color = colors.labelSecondary)
         }
+    }
+}
+
+/** 时间线里弱化的文字和图标的颜色：主文字色调淡。 */
+private class WorkInk(val border: Color, val muted: Color, val icon: Color)
+
+@Composable
+private fun rememberWorkInk(): WorkInk {
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
+    val ink = colors.labelPrimary
+    return remember(ink, dark) {
+        WorkInk(
+            border = ink.copy(alpha = if (dark) 0.10f else 0.065f),
+            muted = ink.copy(alpha = if (dark) 0.56f else 0.52f),
+            icon = ink.copy(alpha = if (dark) 0.50f else 0.45f),
+        )
     }
 }
 
@@ -291,11 +321,8 @@ internal fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
 @Composable
 internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable(item.id) { mutableStateOf(false) }
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
-    val border = colors.onSurface.copy(alpha = if (dark) 0.10f else 0.065f)
-    val mutedInk = colors.onSurface.copy(alpha = if (dark) 0.56f else 0.52f)
-    val iconInk = colors.onSurface.copy(alpha = if (dark) 0.50f else 0.45f)
+    val colors = COUITheme.colorScheme
+    val ink = rememberWorkInk()
     val running = item.steps.lastOrNull { it.running }
     val toolCount = item.steps.count { it is ToolStep }
     val headerText = when (running) {
@@ -308,7 +335,7 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
             .clip(WorkCardShape)
-            .border(0.5.dp, border, WorkCardShape)
+            .border(0.5.dp, ink.border, WorkCardShape)
             .animateContentSize(),
     ) {
         Row(
@@ -323,13 +350,13 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
                 },
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = if (running != null) colors.primary else iconInk,
+                tint = if (running != null) colors.primary else ink.icon,
             )
             Spacer(Modifier.width(10.dp))
             PulsingText(
                 text = headerText,
                 active = running != null,
-                color = mutedInk,
+                color = ink.muted,
                 modifier = Modifier.weight(1f),
             )
             Chevron(expanded)
@@ -338,7 +365,7 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
         if (!expanded) CollapsedFileChanges(item.steps, onShowAll = { expanded = true })
         AnimatedVisibility(visible = expanded) {
             Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp)) {
-                Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).height(0.5.dp).background(border))
+                Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).height(0.5.dp).background(ink.border))
                 item.steps.forEach { step -> WorkStepRow(step) }
             }
         }
@@ -351,10 +378,9 @@ private fun WorkStepRow(step: WorkStep) {
     val change = (step as? ToolStep)?.let { rememberFileChange(it) }
     if (change != null) return FileEditStepRow(step, change)
     var expanded by rememberSaveable(step.id) { mutableStateOf(false) }
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
-    val mutedInk = colors.onSurface.copy(alpha = if (dark) 0.56f else 0.52f)
-    val iconInk = colors.onSurface.copy(alpha = if (dark) 0.50f else 0.45f)
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
+    val ink = rememberWorkInk()
     val icon: ImageVector
     val title: String
     val detail: String
@@ -393,12 +419,12 @@ private fun WorkStepRow(step: WorkStep) {
                 .clickable(enabled = detail.isNotBlank() || images.isNotEmpty()) { expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (step.running) colors.primary else iconInk)
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (step.running) colors.primary else ink.icon)
             Spacer(Modifier.width(10.dp))
-            PulsingText(text = title, active = step.running, color = mutedInk, modifier = Modifier.weight(1f))
+            PulsingText(text = title, active = step.running, color = ink.muted, modifier = Modifier.weight(1f))
             when (status) {
                 ToolStatus.Success -> StatusDot(StatusSuccess, "已完成")
-                ToolStatus.Failed -> StatusDot(StatusError, "失败")
+                ToolStatus.Failed -> StatusDot(colors.error, "失败")
                 else -> Unit
             }
             if (step is ToolStep && step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
@@ -412,13 +438,13 @@ private fun WorkStepRow(step: WorkStep) {
                     val shape = RoundedCornerShape(10.dp)
                     Text(
                         text = detail,
-                        style = MiuixTheme.textStyles.footnote1.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, lineHeight = 16.sp),
-                        color = colors.onSurface.copy(alpha = 0.78f),
+                        style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, lineHeight = 16.sp),
+                        color = colors.labelPrimary.copy(alpha = 0.78f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 25.dp, bottom = 8.dp)
                             .clip(shape)
-                            .background(colors.onSurface.copy(alpha = if (dark) 0.06f else 0.035f), shape)
+                            .background(colors.labelPrimary.copy(alpha = if (dark) 0.06f else 0.035f), shape)
                             .horizontalScroll(rememberScrollState())
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     )
@@ -438,7 +464,7 @@ private fun StatusDot(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
         Box(Modifier.size(6.dp).background(color, CircleShape))
         Spacer(Modifier.width(5.dp))
-        Text(text = label, style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp), color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Text(text = label, style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp), color = COUITheme.colorScheme.labelPrimary.copy(alpha = 0.7f))
     }
 }
 
@@ -449,7 +475,7 @@ internal fun Chevron(expanded: Boolean) {
         imageVector = Icons.Rounded.KeyboardArrowDown,
         contentDescription = if (expanded) "收起" else "展开",
         modifier = Modifier.padding(start = 6.dp).size(17.dp).rotate(rotation),
-        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
+        tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.7f),
     )
 }
 
@@ -464,7 +490,7 @@ internal fun PulsingText(text: String, active: Boolean, color: Color, modifier: 
     }
     Text(
         text = text,
-        style = MiuixTheme.textStyles.body2.copy(fontSize = 13.5.sp),
+        style = COUITheme.textStyles.bodyM.copy(fontSize = 13.5.sp),
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,

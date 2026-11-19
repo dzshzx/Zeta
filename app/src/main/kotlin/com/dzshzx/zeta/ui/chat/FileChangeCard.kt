@@ -54,12 +54,12 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusError
 import com.dzshzx.zeta.ui.components.StatusSuccess
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.LinkText
+import io.github.suqi8.coui.kmp.basic.appendLink
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 折叠时先露出的对比行数。 */
 private const val PreviewLines = 12
@@ -84,10 +84,10 @@ internal fun rememberFileChange(step: ToolStep): FileChange? =
 @Composable
 internal fun FileEditStepRow(step: ToolStep, change: FileChange) {
     var open by rememberSaveable(step.id) { mutableStateOf(true) }
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
-    val mutedInk = colors.onSurface.copy(alpha = if (dark) 0.56f else 0.52f)
-    val iconInk = colors.onSurface.copy(alpha = if (dark) 0.50f else 0.45f)
+    val colors = COUITheme.colorScheme
+    val dark = COUITheme.colorScheme.isDark
+    val mutedInk = colors.labelPrimary.copy(alpha = if (dark) 0.56f else 0.52f)
+    val iconInk = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f)
     val presentation = step.presentation()
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -126,11 +126,10 @@ internal fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) 
     ) {
         changes.take(CollapsedCards).forEach { change -> FileChangeCard(change, header = true) }
         if (changes.size > CollapsedCards) {
-            Text(
-                text = "还有 ${changes.size - CollapsedCards} 处改动，展开查看",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onShowAll).padding(horizontal = 4.dp, vertical = 4.dp),
+            LinkText(
+                text = buildAnnotatedString { appendLink("还有 ${changes.size - CollapsedCards} 处改动，展开查看", onClick = onShowAll) },
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             )
         }
     }
@@ -140,7 +139,7 @@ internal fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) 
 @Composable
 private fun ChangeCounts(change: FileChange) {
     val palette = rememberDiffPalette()
-    val style = MiuixTheme.textStyles.footnote1.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+    val style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (change.added > 0 || change.removed == 0) Text("+${change.added}", style = style, color = palette.added)
         if (change.added > 0 && change.removed > 0) Spacer(Modifier.width(5.dp))
@@ -154,8 +153,8 @@ private fun ChangeCounts(change: FileChange) {
  */
 @Composable
 internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Modifier) {
-    val colors = MiuixTheme.colorScheme
-    val dark = CouiTheme.isDark
+    val colors = COUITheme.colorScheme
+    val dark = COUITheme.colorScheme.isDark
     val palette = rememberDiffPalette()
     val shape = RoundedCornerShape(10.dp)
     var expanded by rememberSaveable(change.path, change.lineCount, change.added) { mutableStateOf(false) }
@@ -167,8 +166,8 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(colors.onSurface.copy(alpha = if (dark) 0.05f else 0.028f), shape)
-            .border(0.5.dp, colors.onSurface.copy(alpha = if (dark) 0.10f else 0.07f), shape),
+            .background(colors.labelPrimary.copy(alpha = if (dark) 0.05f else 0.028f), shape)
+            .border(0.5.dp, colors.labelPrimary.copy(alpha = if (dark) 0.10f else 0.07f), shape),
     ) {
         if (header) {
             Row(
@@ -179,33 +178,33 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
                     imageVector = if (change.kind == FileChange.Kind.Create) Icons.AutoMirrored.Rounded.NoteAdd else Icons.Rounded.EditNote,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = colors.onSurface.copy(alpha = if (dark) 0.50f else 0.45f),
+                    tint = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f),
                 )
                 Spacer(Modifier.width(7.dp))
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = change.path.substringAfterLast('/'),
-                        style = MiuixTheme.textStyles.body2.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                        color = colors.onSurface.copy(alpha = 0.86f),
+                        style = COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        color = colors.labelPrimary.copy(alpha = 0.86f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     kindLabel(change)?.let { label ->
                         Spacer(Modifier.width(6.dp))
-                        Text(label, style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp), color = colors.onSurfaceVariantSummary, maxLines = 1)
+                        Text(label, style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp), color = colors.labelSecondary, maxLines = 1)
                     }
                 }
                 Spacer(Modifier.width(8.dp))
                 ChangeCounts(change)
             }
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(colors.onSurface.copy(alpha = if (dark) 0.10f else 0.07f)))
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(colors.labelPrimary.copy(alpha = if (dark) 0.10f else 0.07f)))
         } else {
             kindLabel(change)?.let { label ->
                 Text(
                     text = label,
-                    style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
-                    color = colors.onSurfaceVariantSummary,
+                    style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
+                    color = colors.labelSecondary,
                     modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 2.dp),
                 )
             }
@@ -213,8 +212,8 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
         if (change.hunks.isEmpty()) {
             Text(
                 text = if (change.kind == FileChange.Kind.Create) "空文件" else "没有改动",
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
-                color = colors.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp),
+                color = colors.labelSecondary,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             )
         }
@@ -239,7 +238,7 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
                         hidden > 0 -> "收起 · 还有 $hidden 行太长未显示"
                         else -> "收起"
                     },
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                    style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
                     color = colors.primary,
                     modifier = Modifier.weight(1f),
                 )
@@ -249,8 +248,8 @@ internal fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modif
         if (change.truncated) {
             Text(
                 text = "内容太长，记录里只留了前一部分，对比到截断处为止",
-                style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
-                color = colors.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
+                color = colors.labelSecondary,
                 modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
             )
         }
@@ -273,7 +272,7 @@ private fun HunkGap(palette: DiffPalette) {
     ) {
         Text(
             text = "⋯",
-            style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp, lineHeight = 14.sp),
+            style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp, lineHeight = 14.sp),
             color = palette.number,
             modifier = Modifier.padding(start = 10.dp),
         )
@@ -370,9 +369,9 @@ private class DiffPalette(
 
 @Composable
 private fun rememberDiffPalette(): DiffPalette {
-    val dark = CouiTheme.isDark
-    val ink = MiuixTheme.colorScheme.onSurface
-    val error = StatusError
+    val dark = COUITheme.colorScheme.isDark
+    val ink = COUITheme.colorScheme.labelPrimary
+    val error = COUITheme.colorScheme.error
     return remember(dark, ink, error) {
         DiffPalette(
             added = if (dark) Color(0xFF5BC27A) else Color(0xFF1E8E3E),

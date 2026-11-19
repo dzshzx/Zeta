@@ -55,10 +55,9 @@ import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
-import com.itos.coui.theme.CouiTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 图片的载入结果：null 表示还在取。 */
 private class Loaded(val bitmap: ImageBitmap?)
@@ -84,17 +83,17 @@ private fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .clip(CircleShape)
-            .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f))
             .clickable { ImageStore.allow(ref) }
             .padding(horizontal = 11.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Rounded.Image, contentDescription = null, modifier = Modifier.size(15.dp), tint = MiuixTheme.colorScheme.primary)
+        Icon(Icons.Rounded.Image, contentDescription = null, modifier = Modifier.size(15.dp), tint = COUITheme.colorScheme.primary)
         Spacer(Modifier.width(6.dp))
         Text(
             text = "加载图片 · " + ref.url.substringAfter("://").substringBefore('/'),
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
+            color = COUITheme.colorScheme.labelSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -108,7 +107,7 @@ internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifie
     var viewing by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(14.dp)
     Box(
-        modifier = modifier.size(size).clip(shape).background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+        modifier = modifier.size(size).clip(shape).background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.06f)),
         contentAlignment = Alignment.Center,
     ) {
         val bitmap = loaded?.bitmap
@@ -119,7 +118,7 @@ internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifie
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().clickable { viewing = true },
             )
-            loaded != null -> Icon(Icons.Rounded.BrokenImage, contentDescription = "图片无法显示", modifier = Modifier.size(22.dp), tint = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            loaded != null -> Icon(Icons.Rounded.BrokenImage, contentDescription = "图片无法显示", modifier = Modifier.size(22.dp), tint = COUITheme.colorScheme.labelSecondary)
         }
     }
     if (viewing) loaded?.bitmap?.let { ImageViewer(it) { viewing = false } }
@@ -149,17 +148,17 @@ internal fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
                     .clickable { viewing = true },
             )
         }
-        loaded == null -> Box(modifier.fillMaxWidth().height(120.dp).clip(shape).background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.05f)))
+        loaded == null -> Box(modifier.fillMaxWidth().height(120.dp).clip(shape).background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)))
         else -> Row(
-            modifier = modifier.clip(CircleShape).background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.05f)).padding(horizontal = 11.dp, vertical = 6.dp),
+            modifier = modifier.clip(CircleShape).background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)).padding(horizontal = 11.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.BrokenImage, contentDescription = null, modifier = Modifier.size(14.dp), tint = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Icon(Icons.Rounded.BrokenImage, contentDescription = null, modifier = Modifier.size(14.dp), tint = COUITheme.colorScheme.labelSecondary)
             Spacer(Modifier.width(5.dp))
             Text(
                 text = "图片无法显示" + ((ref as? FileImage)?.let { "：${it.path.substringAfterLast('/')}" } ?: ""),
-                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
+                color = COUITheme.colorScheme.labelSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -204,12 +203,12 @@ private fun ImageViewer(bitmap: ImageBitmap, onDismiss: () -> Unit) {
 /** 附件文件的小标签：图标加文件名。 */
 @Composable
 internal fun FileChip(name: String, modifier: Modifier = Modifier, folder: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
-    val dark = CouiTheme.isDark
-    val colors = MiuixTheme.colorScheme
+    val dark = COUITheme.colorScheme.isDark
+    val colors = COUITheme.colorScheme
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(colors.onSurface.copy(alpha = if (dark) 0.08f else 0.05f))
+            .background(colors.labelPrimary.copy(alpha = if (dark) 0.08f else 0.05f))
             .padding(start = 10.dp, end = if (trailing == null) 12.dp else 6.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -217,8 +216,8 @@ internal fun FileChip(name: String, modifier: Modifier = Modifier, folder: Boole
         Icon(if (folder) Icons.Rounded.Folder else Icons.AutoMirrored.Rounded.InsertDriveFile, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.primary)
         Text(
             text = name,
-            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp),
-            color = colors.onSurface,
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp),
+            color = colors.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
             modifier = Modifier.weight(1f, fill = false),
