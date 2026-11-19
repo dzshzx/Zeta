@@ -36,7 +36,9 @@ internal object PersonalTools : PhoneToolGroup {
             SEARCH,
             "Search the user's personal data on this phone (read-only). Sources: calendar (events in a window, default next 7 days), " +
                 "calendars (ids, writable or not), notifications (current plus recently dismissed), codes (verification codes from SMS and " +
-                "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, audio (music and voice/call " +
+                "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, photo_content (photos and " +
+                "videos by what is in them: text recognized in the image, scene tags like cat or document, or place taken; needs query; " +
+                "only photos the phone has already analyzed), audio (music and voice/call " +
                 "recordings), files (any file in shared storage, by name or folder), downloads (with source URL), notes (Xiaomi Notes: " +
                 "title, text and voice-note transcript; id for the full note), " +
                 "health (summary of steps, sleep, exercise, heart rate, weight, SpO2 from Health Connect; default last 7 days). " +
@@ -154,6 +156,7 @@ internal object PersonalTools : PhoneToolGroup {
             PersonalSource.Health -> health(context, request, zone, now)
             PersonalSource.Audio -> audio(context, request, zone, now)
             PersonalSource.Notes -> notes(context, request, zone, now)
+            PersonalSource.PhotoContent -> PhotoContent.search(context, request, zone, now)
             PersonalSource.Calendar -> if (request.id != null) {
                 val (event, reminders) = readEvent(context, request.id) ?: return "没有编号为 ${request.id} 的日程。"
                 PersonalQueries.formatEvent(event, reminders, zone)

@@ -33,6 +33,7 @@ internal enum class PersonalSource(val key: String, val label: String) {
     Contacts("contacts", "联系人"),
     Photos("photos", "照片"),
     Videos("videos", "视频"),
+    PhotoContent("photo_content", "照片内容"),
     Audio("audio", "音频"),
     Files("files", "文件"),
     Downloads("downloads", "下载记录"),
@@ -162,7 +163,7 @@ internal object PersonalQueries {
     fun searchRequest(input: JsonObject, now: Long, zone: ZoneId): SearchRequest {
         val source = PersonalSource.of(input.str("source")) ?: throw BadInput("source 必须是其中之一：" + PersonalSource.keys.joinToString(", "))
         val id = (input["id"] as? JsonPrimitive)?.let { it.longOrNull ?: throw BadInput("id 必须是整数") }
-        if (id != null && source in setOf(PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health)) throw BadInput("${source.key} 不支持 id")
+        if (id != null && source in setOf(PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health, PersonalSource.PhotoContent)) throw BadInput("${source.key} 不支持 id")
         val query = input.str("query")?.trim()?.takeIf { it.isNotEmpty() }?.also {
             if (it.length > 200) throw BadInput("query 最多 200 字")
         }
@@ -333,6 +334,7 @@ internal object PersonalQueries {
                 )
             }
             PersonalSource.Notes -> listOf(MiuiNotes.searchOp(request))
+            PersonalSource.PhotoContent -> PhotoContent.searchOps(request)
             PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
         }
     }
