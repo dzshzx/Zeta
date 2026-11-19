@@ -53,6 +53,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 和真机的差别：字体是 Roboto 和 Noto Sans CJK（手机上是 MiSans），字宽略有出入，换行位置可能不同；动画一律直接放完，转圈停在固定一帧；顶栏的浮动玻璃按钮画不出来（Robolectric 没有它要的网格着色器），退回同样大小的不透明圆底；对话框和菜单不采样背景，是不透明底色（手机上是毛玻璃）。
   - JVM 上没有 root、无障碍、悬浮窗、虚拟屏和 Claude 进程。单元测试的 PATH 里有个总是失败的 `su`（`app/src/test/no-root`），要 root 才查得到的东西在图上是查不到的样子（比如共享文件夹列不出子目录）。这些仍要上真机：悬浮层真实的窗口行为（位置、触摸、给 Claude 的手势让路、叠在别的应用上）、后台屏幕的画面、权限授予、Claude 真跑一轮，以及最终的字体和毛玻璃效果。
   - 门禁里的单元测试每次都把这些图画一遍，渲染崩溃就失败。不提交基准图、不做像素比对：并行的分支改界面时基准图必然冲突、要反复重录；JVM 渲染和真机本来就不同，工作站和手机 Debian（arm64）画出来的像素也未必一样。
+  - 不用 `performScrollTo`：在长页面上它会让测试卡住空转、不报错。要截的部分直接画，要点的节点直接点。测试任务设了 10 分钟超时（`app/build.gradle.kts`），卡住时到点失败。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约（测试版、正式版各一把）：工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；被别人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：子代理碰手机只用 `tools/phone-run`（见下面「真机脚本」），不自己拿租约一步步点；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试、截图测试能验的不占手机。
 - 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。两个包同时装在手机上，互不替换。测试版只有一份，真机测试交脚本给 `tools/phone-run` 排队执行。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。

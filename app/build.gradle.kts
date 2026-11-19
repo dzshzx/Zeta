@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -102,6 +104,9 @@ tasks.withType<Test>().configureEach {
     environment("PATH", noRootPath)
     // 测试结果不进构建缓存（编译结果照常进）
     outputs.cacheIf("截图写在没声明的 app/build/shots，取回缓存时图不会出来；契约测试依赖本机的 claude 命令行") { false }
+    // 卡死的测试（比如截图测试里在长页面上 performScrollTo）到点就失败，不把门禁和构建名额一直挂着。
+    // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
+    timeout.set(Duration.ofMinutes(10))
 }
 
 dependencies {
