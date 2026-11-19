@@ -68,6 +68,7 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.RowDividerStartWithIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -465,12 +466,7 @@ private fun EntryRow(
 
 /** 菜单里的一项：图标、文字、点了做什么。 */
 private class MenuAction(val text: String, val icon: ImageVector, val enabled: Boolean = true, val onClick: () -> Unit) {
-    fun item(): DropdownItem = DropdownItem(
-        text = text,
-        enabled = enabled,
-        onClick = onClick,
-        icon = { modifier -> Icon(imageVector = icon, contentDescription = null, modifier = modifier, tint = COUITheme.colorScheme.labelPrimary) },
-    )
+    fun item(): DropdownItem = menuItem(text, icon, onClick, enabled)
 }
 
 /** 顶栏右边的“更多”菜单，[groups] 每组之间有分隔线。 */

@@ -43,7 +43,7 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.couiPageScroll
-import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -128,7 +128,7 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
     CouiPage(
         title = "通知触发",
         onBack = onBack,
-        actions = { TopBarIconButton(COUIIcons.Add, "新建规则", enabled = rules.size < NotifyRules.MAX_RULES) { editing = RuleTarget(null) } },
+        actions = { IconActionButton(COUIIcons.Add, "新建规则", enabled = rules.size < NotifyRules.MAX_RULES) { editing = RuleTarget(null) } },
     ) {
         if (snapshot != null && !snapshot.notificationListener) {
             item(key = "listener") {

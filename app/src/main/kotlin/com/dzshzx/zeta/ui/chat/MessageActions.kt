@@ -39,10 +39,10 @@ import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Close
@@ -218,18 +218,21 @@ internal fun TurnActionRow(itemId: String, turns: TurnIndex, conversation: Conve
     }
 }
 
-/** 和回答下方的复制键一个样子。 */
+/** 和回答下方的复制键一个样子：30dp 的平按钮，15dp 的次要色图标。 */
 @Composable
 private fun ActionButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
-    IconButton(onClick = onClick, enabled = enabled, material = false, minWidth = 30.dp, minHeight = 30.dp, cornerRadius = 15.dp) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            modifier = Modifier.size(15.dp),
-            tint = if (enabled) colors.labelSecondary else colors.disabledNeutral,
-        )
-    }
+    IconActionButton(
+        icon,
+        description,
+        enabled = enabled,
+        material = false,
+        minWidth = 30.dp,
+        minHeight = 30.dp,
+        cornerRadius = 15.dp,
+        iconModifier = Modifier.size(15.dp),
+        tint = COUITheme.colorScheme.labelSecondary,
+        onClick = onClick,
+    )
 }
 
 /** 输入卡片上方的编辑提示条（样子同排队条）：说明发出后会替换什么，× 取消编辑。 */

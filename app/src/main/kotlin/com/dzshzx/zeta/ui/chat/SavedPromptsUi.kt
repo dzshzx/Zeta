@@ -35,11 +35,11 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
@@ -49,7 +49,6 @@ import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.More
-import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
 
@@ -273,15 +272,10 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
             IconButton(onClick = { menuOpen = true }, material = false, holdDownState = menuOpen) {
                 Icon(COUIIcons.More, contentDescription = "更多操作", modifier = Modifier.size(20.dp), tint = colors.labelSecondary)
             }
-            OverlayDropdownPopup(
-                entries = entries,
+            AnchoredMenu(
                 show = menuOpen,
+                entries = entries,
                 onDismiss = { menuOpen = false },
-                onDismissFinished = {},
-                maxHeight = null,
-                dropdownColors = DropdownDefaults.dropdownColors(),
-                renderInRootScaffold = true,
-                collapseOnSelection = true,
             )
         }
     }

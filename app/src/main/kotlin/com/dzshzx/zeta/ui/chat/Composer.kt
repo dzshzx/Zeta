@@ -65,7 +65,6 @@ import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
-import io.github.suqi8.coui.kmp.basic.ChipDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
@@ -113,8 +112,8 @@ internal fun Modifier.chatPanel(shape: Shape): Modifier {
 }
 
 /**
- * 输入卡片：圆角面板里是输入框，下面一行是附件键、权限模式按钮、思考胶囊，右边是用量按钮和圆形发送键。
- * 发送键和用量按钮尺寸固定，窄屏放不下时截断的是思考胶囊。
+ * 输入卡片：圆角面板里是输入框，下面一行左边是附件键、权限模式按钮、思考强度按钮，右边是用量按钮和圆形发送键，
+ * 全是定宽的图标按钮，空出来的地方在中间。
  */
 @Composable
 internal fun Composer(
@@ -372,22 +371,15 @@ internal fun Composer(
 internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
     val colors = COUITheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
-    val tint = when (mode) {
-        "plan" -> colors.cyan
-        "acceptEdits" -> colors.purple
-        "auto" -> colors.primaryText
-        "bypassPermissions" -> colors.error
-        else -> null
+    val chipColors = when (mode) {
+        "plan" -> barChipColors(colors.cyan)
+        "acceptEdits" -> barChipColors(colors.purple)
+        "auto" -> barChipThemeColors()
+        "bypassPermissions" -> barChipColors(colors.error)
+        else -> barChipColors(null)
     }
     Box {
-        IconChip(
-            onClick = { expanded = true },
-            colors = if (tint == null) {
-                ChipDefaults.chipColors(contentColor = colors.labelSecondary)
-            } else {
-                ChipDefaults.chipColors(containerColor = tint.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = tint)
-            },
-        ) {
+        IconChip(onClick = { expanded = true }, colors = chipColors) {
             Icon(imageVector = ZetaIcons.Shield, contentDescription = "权限模式：${permissionModeLabel(mode)}")
         }
         val entries = listOf(

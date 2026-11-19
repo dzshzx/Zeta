@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
@@ -40,7 +41,7 @@ class IconsShots : ShotTest() {
     @Test
     fun icons() {
         val reference = listOf("COUI 复制" to COUIIcons.Copy, "COUI 文件" to COUIIcons.File, "COUI 文件夹" to COUIIcons.Folder, "COUI 搜索" to COUIIcons.Search)
-        val efforts = (0..5).map { "强度 $it" to ZetaIcons.effort(it) }
+        val efforts = (0..EffortLevels.size).map { "强度 $it" to ZetaIcons.effort(it) }
         val all = reference + drawn() + efforts
         shoot("zeta-icons") {
             Column(

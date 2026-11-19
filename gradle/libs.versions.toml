@@ -13,12 +13,12 @@ kotlinx-coroutines = "1.11.0"
 desugarJdkLibs = "2.1.5"
 junit = "4.13.2"
 # 截图测试：Robolectric 在 JVM 上跑 Android（原生图形），Roborazzi 把 Compose 界面存成 PNG。
-# compose-ui-test 要和应用实际解析到的 Compose 一致（COUI 2 带进来的，tools/gradle :app:dependencies 看 androidx.compose.ui:ui）；android-all 是 Robolectric 4.18 对 SDK 37 用的那份系统镜像。
+# compose-ui-test 不能写得比应用的 Compose 高（会把测试里的 Compose 一起抬高）；写低了 Gradle 按 Compose 的原子组约束自动抬到应用的版本。android-all 是 Robolectric 4.18 对 SDK 37 用的那份系统镜像。
 robolectric = "4.18.1"
 robolectric-android-all = "17-robolectric-16653203-i7"
 roborazzi = "1.79.0"
 compose-ui-test = "1.11.2"
-# ui-test 1.11 自带的 Espresso 3.5 调 InputManager.getInstance()，SDK 37 的镜像里已经没有这个方法，测试一跑就崩；显式用新版。
+# ui-test 1.11 带进来的 Espresso 3.5 调 InputManager.getInstance()，SDK 37 的镜像里已经没有这个方法，测试一跑就崩：app 里用版本约束抬到 3.7。
 androidx-test-espresso = "3.7.0"
 androidx-test-core = "1.7.0"
 

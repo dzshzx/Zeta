@@ -19,6 +19,7 @@ import com.dzshzx.zeta.core.claude.ClaudeConfigException
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
+import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
@@ -26,7 +27,6 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -34,7 +34,6 @@ import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.More
-import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.preference.SwitchLoadingPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
@@ -261,18 +260,13 @@ private fun SkillRow(
                 IconButton(onClick = { showMenu = true }, material = false, holdDownState = showMenu) {
                     Icon(imageVector = COUIIcons.More, contentDescription = "更多：" + skill.name, tint = COUITheme.colorScheme.labelSecondary)
                 }
-                OverlayDropdownPopup(
+                AnchoredMenu(
+                    show = showMenu,
                     entries = listOf(
                         DropdownEntry(items = listOf(DropdownItem(text = "查看说明", onClick = onDescribe))),
                         DropdownEntry(items = listOf(DropdownItem(text = "删除", enabled = enabled, alert = true, onClick = { if (enabled) onDelete() }))),
                     ),
-                    show = showMenu,
                     onDismiss = { showMenu = false },
-                    onDismissFinished = {},
-                    maxHeight = null,
-                    dropdownColors = DropdownDefaults.dropdownColors(),
-                    renderInRootScaffold = true,
-                    collapseOnSelection = true,
                 )
             }
         },

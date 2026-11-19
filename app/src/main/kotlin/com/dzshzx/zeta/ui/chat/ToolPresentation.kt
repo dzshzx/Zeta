@@ -32,7 +32,8 @@ private fun firstLine(text: String?, limit: Int = 80): String =
 /** 一次工具调用在列表里怎么显示：图标、一行标题、展开后的细节。 */
 internal fun presentTool(name: String, input: JsonObject?): ToolPresentation {
     fun s(key: String) = input?.str(key)
-    val json = input?.let { runCatching { pretty.encodeToString(JsonObject.serializer(), it) }.getOrNull() }.orEmpty()
+    // 只有一部分工具的细节是整份输入；写文件这类的输入里带着整个文件，用不到就不格式化
+    val json by lazy { input?.let { runCatching { pretty.encodeToString(JsonObject.serializer(), it) }.getOrNull() }.orEmpty() }
     return when (name) {
         "Bash" -> ToolPresentation(ZetaIcons.Terminal, s("description")?.takeIf { it.isNotBlank() } ?: firstLine(s("command")).ifEmpty { "执行命令" }, s("command").orEmpty())
         "Read" -> ToolPresentation(COUIIcons.File, "读取 " + baseName(s("file_path")), s("file_path").orEmpty())

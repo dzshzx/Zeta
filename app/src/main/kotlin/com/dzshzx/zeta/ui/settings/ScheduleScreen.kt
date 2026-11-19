@@ -43,7 +43,7 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -116,7 +116,7 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
     CouiPage(
         title = "定时任务",
         onBack = onBack,
-        actions = { TopBarIconButton(COUIIcons.Add, "新建定时任务", enabled = tasks.size < Schedules.MAX_TASKS) { editing = EditTarget(null) } },
+        actions = { IconActionButton(COUIIcons.Add, "新建定时任务", enabled = tasks.size < Schedules.MAX_TASKS) { editing = EditTarget(null) } },
     ) {
         if (snapshot != null && !snapshot.exactAlarms) {
             item(key = "alarm") {

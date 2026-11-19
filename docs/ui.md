@@ -16,7 +16,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值。
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时分隔线从 `RowDividerStartWithIcon` 开始。
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
-- `TopBarIconButton`：顶栏右边的图标按钮，不能点时图标变灰（COUI 2 的 `IconButton` 不会）。
+- `IconActionButton`：只放一个图标的按钮（顶栏的新建、刷新，查找栏、消息下方的小按钮），不能点时图标变灰（COUI 2 的 `IconButton` 不会）；参数照 COUI 的 `IconButton`。
 - `menuItem`、`AnchoredMenu`（`Menus.kt`）：带图标的菜单项，图标颜色跟着文字（COUI 2 的菜单行不给图标上色）；挂在胶囊、按钮、标题上的下拉菜单。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`：带页面毛玻璃的对话框。
 - `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.effort(档位)` 是思考强度的刻度。
@@ -37,14 +37,14 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 | 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`OverlayDropdownPreference`、`SliderPreference` |
 | 列表行带开关、点行进编辑页 | `SwitchWithDividerPreference` |
 | 分组标题、一行小字、页面底部说明 | `PreferenceCategory`、`SmallTitle`、`PagerFooterPreference` |
-| 顶栏的图标、文字按钮 | `TopBarIconButton`、`ToolbarTextButton` |
+| 图标按钮、顶栏的文字按钮 | `IconActionButton`、`ToolbarTextButton` |
 | 按钮 | `TextButton(text, onClick)`；主操作 `colors = ButtonDefaults.textButtonColorsPrimary()` |
 | 输入框 | 卡片里带标题的 `InputView`，其他 `TextField` |
 | 确认、告知、单行输入 | `ConfirmDialog`（危险操作 `destructive = true`，COUI 画成红字；要区分「拒绝」和「随手关掉」给 `onCancel`）、`NoticeDialog`、`TextInputDialog` |
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
-| 图标按钮弹菜单 | `OverlayIconDropdownMenu`；列表行里的「更多」用 `IconButton(material = false)` 加 `OverlayDropdownPopup`（材质按钮的阴影在列表里会被裁掉） |
+| 图标按钮弹菜单 | `OverlayIconDropdownMenu`；列表行里的「更多」用 `IconButton(material = false)` 加 `AnchoredMenu`（材质按钮的阴影在列表里会被裁掉） |
 | 长按菜单 | `OverlayContextMenu` |
-| 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
+| 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态，带图标的菜单项都从它建）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
 
 ## 坑
 

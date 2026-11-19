@@ -55,7 +55,7 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.TopBarIconButton
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -295,7 +295,7 @@ internal fun ConfigDocumentEditor(
         onBack = leave,
         topBarStyle = CouiTopBarStyle.Small,
         actions = {
-            if (onDelete != null) TopBarIconButton(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
+            if (onDelete != null) IconActionButton(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
         },
     ) { scope ->
         val layoutDirection = LocalLayoutDirection.current

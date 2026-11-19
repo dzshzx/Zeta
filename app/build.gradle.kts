@@ -20,8 +20,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 52
-        versionName = "0.6.44"
+        versionCode = 53
+        versionName = "0.6.45"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -128,7 +128,12 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.compose.ui.test.junit4)
-    testImplementation(libs.androidx.test.espresso.core)
     testImplementation(libs.androidx.test.core)
     robolectricRuntime(libs.robolectric.android.all)
+    constraints {
+        // 测试代码不直接用 Espresso，ui-test 把它带进来时才抬版本；它自己带上新版以后这条就不起作用了
+        testImplementation(libs.androidx.test.espresso.core) {
+            because("Espresso 3.5 调的 InputManager.getInstance() 在 SDK 37 的 Robolectric 镜像里没有")
+        }
+    }
 }

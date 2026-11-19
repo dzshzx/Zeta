@@ -51,7 +51,6 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusSuccess
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.LinkText
@@ -372,7 +371,7 @@ private fun rememberDiffPalette(): DiffPalette {
     val dark = COUITheme.colorScheme.isDark
     val ink = COUITheme.colorScheme.labelPrimary
     val error = COUITheme.colorScheme.error
-    val success = StatusSuccess
+    val success = COUITheme.colorScheme.success
     return remember(dark, ink, error, success) {
         DiffPalette(
             added = if (dark) Color(0xFF5BC27A) else Color(0xFF1E8E3E),

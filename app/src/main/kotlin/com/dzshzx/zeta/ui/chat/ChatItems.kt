@@ -60,7 +60,6 @@ import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
 import com.dzshzx.zeta.ui.components.EtaMonospace
-import com.dzshzx.zeta.ui.components.StatusSuccess
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -307,9 +306,10 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
     val ink = rememberWorkInk()
     val running = item.steps.lastOrNull { it.running }
     val toolCount = item.steps.count { it is ToolStep }
-    val headerText = when (running) {
-        is ToolStep -> "正在处理第 $toolCount 步 · " + running.presentation().title
-        is ThinkingStep -> "正在思考"
+    val runningTool = (running as? ToolStep)?.presentation()
+    val headerText = when {
+        runningTool != null -> "正在处理第 $toolCount 步 · " + runningTool.title
+        running is ThinkingStep -> "正在思考"
         else -> if (toolCount > 0) "已完成 $toolCount 个步骤" else "思考已完成"
     }
     Column(
@@ -325,9 +325,9 @@ internal fun WorkGroup(item: WorkItem, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = when (running) {
-                    is ToolStep -> running.presentation().icon
-                    is ThinkingStep -> ZetaIcons.Lightbulb
+                imageVector = when {
+                    runningTool != null -> runningTool.icon
+                    running is ThinkingStep -> ZetaIcons.Lightbulb
                     else -> COUIIcons.SelectAll
                 },
                 contentDescription = null,
@@ -405,7 +405,7 @@ private fun WorkStepRow(step: WorkStep) {
             Spacer(Modifier.width(10.dp))
             PulsingText(text = title, active = step.running, color = ink.muted, modifier = Modifier.weight(1f))
             when (status) {
-                ToolStatus.Success -> StatusDot(StatusSuccess, "已完成")
+                ToolStatus.Success -> StatusDot(COUITheme.colorScheme.success, "已完成")
                 ToolStatus.Failed -> StatusDot(colors.error, "失败")
                 else -> Unit
             }

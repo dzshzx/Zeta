@@ -2,7 +2,6 @@ package com.dzshzx.zeta.ui.chat
 
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.ChipDefaults
 import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -69,24 +68,20 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
     val colors = COUITheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
     val choose by rememberUpdatedState(onChange)
-    val entries = remember(effort, applied) {
-        val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
+    val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
+    val entries = remember(defaultText, effort) {
         val items = listOf(DropdownItem(text = defaultText, selected = effort == null, onClick = { choose(null) })) +
             EffortLevels.map { (value, label) -> DropdownItem(text = label, selected = value == effort, onClick = { choose(value) }) }
         listOf(DropdownEntry(items = items))
     }
     // 第几档，从 1 数；不知道是哪档时为 0
     val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1
-    val spoken = effortLabel(effort) ?: effortLabel(applied)?.let { "默认（$it）" } ?: "默认"
+    val spoken = effortLabel(effort) ?: defaultText
     // 按钮和菜单在同一个 Box 里：菜单以它为锚
     Box(modifier = modifier) {
         IconChip(
             onClick = { expanded = true },
-            colors = if (effort == null) {
-                ChipDefaults.chipColors(contentColor = colors.labelSecondary)
-            } else {
-                ChipDefaults.chipColors(containerColor = colors.primary.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = colors.primary)
-            },
+            colors = if (effort == null) barChipColors(null) else barChipThemeColors(),
         ) {
             Icon(imageVector = ZetaIcons.effort(level), contentDescription = "思考强度：$spoken")
         }
@@ -131,7 +126,7 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifi
         modifier = modifier.semantics {
             contentDescription = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: "")
         },
-        colors = if (loud) ChipDefaults.chipColors(containerColor = color.copy(alpha = if (dark) 0.25f else 0.15f)) else ChipDefaults.chipColors(),
+        colors = barChipColors(if (loud) color else null),
     ) {
         ContextRing(
             fraction = usage.fraction ?: 0f,

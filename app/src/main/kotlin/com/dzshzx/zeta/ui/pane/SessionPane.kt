@@ -71,11 +71,11 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.tasks.BackgroundEntry
 import io.github.suqi8.coui.kmp.basic.Checkbox
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InputField
@@ -558,11 +558,6 @@ private fun highlighted(text: String, needle: String, color: Color): AnnotatedSt
     }
 }
 
-/** 长按菜单里一项的图标。 */
-private fun menuIcon(icon: ImageVector, tint: Color): @Composable (Modifier) -> Unit = { modifier ->
-    Icon(imageVector = icon, contentDescription = null, modifier = modifier, tint = tint)
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionRow(
@@ -583,30 +578,20 @@ private fun SessionRow(
     val haptic = LocalHapticFeedback.current
     // 菜单项的点击读最新的那组操作（RowActions 每次重组都是新的，不拿它当记忆的键）
     val currentActions by rememberUpdatedState(actions)
-    val iconTint = colors.labelPrimary
-    val deleteTint = colors.error
-    val menu = remember(session, pinned, iconTint, deleteTint) {
+    val menu = remember(session, pinned) {
         listOf(
             DropdownEntry(
                 items = listOf(
-                    DropdownItem(text = "选择", onClick = { currentActions.select(session) }, icon = menuIcon(COUIIcons.SelectAll, iconTint)),
-                    DropdownItem(
-                        text = if (pinned) "取消置顶" else "置顶对话",
-                        onClick = { currentActions.togglePin(session) },
-                        icon = menuIcon(if (pinned) COUIIcons.Unpin else COUIIcons.Pin, iconTint),
-                    ),
-                    DropdownItem(text = "重命名", onClick = { currentActions.rename(session) }, icon = menuIcon(COUIIcons.Rename, iconTint)),
-                    DropdownItem(text = "导出", onClick = { currentActions.export(session) }, icon = menuIcon(COUIIcons.Download, iconTint)),
-                    DropdownItem(text = "分享", onClick = { currentActions.share(session) }, icon = menuIcon(COUIIcons.Share, iconTint)),
-                    DropdownItem(
-                        text = if (session.archived) "取消归档" else "归档",
-                        onClick = { currentActions.archive(session) },
-                        icon = menuIcon(if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive, iconTint),
-                    ),
+                    menuItem("选择", COUIIcons.SelectAll, { currentActions.select(session) }),
+                    menuItem(if (pinned) "取消置顶" else "置顶对话", if (pinned) COUIIcons.Unpin else COUIIcons.Pin, { currentActions.togglePin(session) }),
+                    menuItem("重命名", COUIIcons.Rename, { currentActions.rename(session) }),
+                    menuItem("导出", COUIIcons.Download, { currentActions.export(session) }),
+                    menuItem("分享", COUIIcons.Share, { currentActions.share(session) }),
+                    menuItem(if (session.archived) "取消归档" else "归档", if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive, { currentActions.archive(session) }),
                 ),
             ),
             DropdownEntry(
-                items = listOf(DropdownItem(text = "删除", onClick = { currentActions.delete(session) }, icon = menuIcon(COUIIcons.Delete, deleteTint), alert = true)),
+                items = listOf(menuItem("删除", COUIIcons.Delete, { currentActions.delete(session) }, alert = true)),
             ),
         )
     }

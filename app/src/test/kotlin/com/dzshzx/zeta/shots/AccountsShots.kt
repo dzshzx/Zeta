@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -61,50 +62,31 @@ class AccountsShots : ShotTest() {
         processes = emptyList(),
     )
 
-    @Test
-    fun accountsPage() {
+    /** 账号页：打开页面时会去 Linux 环境里读账号，JVM 上读不到，换成摆好的 [state]；[then] 是摆好以后要做的操作。 */
+    private fun shootAccounts(name: String, state: AccountsState, then: AndroidComposeTestRule<*, *>.() -> Unit = {}) {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
-        val state = accountsState()
         shoot(
-            "accounts",
+            name,
             prepare = {
-                // 打开页面时会去 Linux 环境里读账号，JVM 上读不到：换成摆好的数据
                 hub.accounts.force("state", state)
                 hub.accounts.force("problem", null)
+                then()
             },
         ) { AccountsScreen(hub = hub, onBack = {}) }
     }
 
     @Test
-    fun accountsUnrecorded() {
-        val hub = Fixtures.readyHub(app)
-        hub.fakeQuota()
-        val state = unrecordedState()
-        shoot(
-            "accounts-unrecorded",
-            prepare = {
-                hub.accounts.force("state", state)
-                hub.accounts.force("problem", null)
-            },
-        ) { AccountsScreen(hub = hub, onBack = {}) }
-    }
+    fun accountsPage() = shootAccounts("accounts", accountsState())
+
+    @Test
+    fun accountsUnrecorded() = shootAccounts("accounts-unrecorded", unrecordedState())
 
     /** 点另一个账号弹出的菜单：切换、移除。 */
     @Test
-    fun accountsMenu() {
-        val hub = Fixtures.readyHub(app)
-        hub.fakeQuota()
-        val state = accountsState()
-        shoot(
-            "accounts-menu",
-            prepare = {
-                hub.accounts.force("state", state)
-                hub.accounts.force("problem", null)
-                settle()
-                onNodeWithText("work@example.invalid").performClick()
-            },
-        ) { AccountsScreen(hub = hub, onBack = {}) }
+    fun accountsMenu() = shootAccounts("accounts-menu", accountsState()) {
+        settle()
+        onNodeWithText("work@example.invalid").performClick()
     }
 
     /** 输入栏右边的用量按钮在额度快到上限时换成额度提醒。 */

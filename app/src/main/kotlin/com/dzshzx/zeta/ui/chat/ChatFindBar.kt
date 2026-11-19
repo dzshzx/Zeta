@@ -24,14 +24,13 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.findSegments
 import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.InputField
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -154,10 +153,18 @@ internal fun ChatFindBar(find: ChatFindState, skippedHistory: Int, modifier: Mod
     }
 }
 
+/** 查找栏的小按钮：36dp 的平按钮，20dp 图标。 */
 @Composable
 private fun BarButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
-    IconButton(onClick = onClick, enabled = enabled, material = false, minWidth = 36.dp, minHeight = 36.dp, cornerRadius = 18.dp) {
-        Icon(icon, contentDescription = description, modifier = Modifier.size(20.dp), tint = if (enabled) colors.labelPrimary else colors.disabledNeutral)
-    }
+    IconActionButton(
+        icon,
+        description,
+        enabled = enabled,
+        material = false,
+        minWidth = 36.dp,
+        minHeight = 36.dp,
+        cornerRadius = 18.dp,
+        iconModifier = Modifier.size(20.dp),
+        onClick = onClick,
+    )
 }

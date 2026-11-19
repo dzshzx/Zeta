@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import io.github.suqi8.coui.kmp.basic.ChipDefaults
 import io.github.suqi8.coui.kmp.basic.IconChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,19 +55,11 @@ internal fun QuotaAlarm(current: QuotaSnapshot, window: QuotaWindow, now: Long, 
                 "${window.spokenName}额度已用 ${window.percent}%"
             }
         },
-        colors = ChipDefaults.chipColors(containerColor = color.copy(alpha = if (COUITheme.colorScheme.isDark) 0.25f else 0.15f), contentColor = color),
+        colors = barChipColors(color),
     ) {
         Icon(imageVector = COUIIcons.Timer, contentDescription = null)
     }
 }
-
-/** 读屏说明里的窗口名，后面接“额度”：本周、5 小时、本周 Fable。 */
-private val QuotaWindow.spokenName: String
-    get() = when {
-        scope == null || shortLabel != scope -> shortLabel
-        group == "weekly" || kind.startsWith("weekly") -> "本周 $scope "
-        else -> "$scope "
-    }
 
 /** 各个额度窗口：名字、已用比例、进度条、什么时候重置。用量弹窗和设置里的账号页共用。 */
 @Composable

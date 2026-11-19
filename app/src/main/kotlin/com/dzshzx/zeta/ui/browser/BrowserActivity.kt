@@ -60,7 +60,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -78,6 +77,7 @@ import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
@@ -85,7 +85,6 @@ import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.blur.layerBackdrop
@@ -189,13 +188,13 @@ internal fun BrowserScreen(onExit: () -> Unit) {
             ) {
                 AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
                     Row {
-                        BarIcon(
+                        IconActionButton(
                             icon = COUIIcons.Back,
-                            description = if (AgentBrowser.canGoBack) "后退" else "关闭浏览器",
+                            contentDescription = if (AgentBrowser.canGoBack) "后退" else "关闭浏览器",
                             onClick = { if (AgentBrowser.canGoBack) AgentBrowser.backByUser() else onExit() },
                         )
                         // COUI 没有“前进”箭头，用后退箭头左右翻过来，两个箭头一个样式
-                        BarIcon(COUIIcons.Back, "前进", iconModifier = Modifier.graphicsLayer { scaleX = -1f }, enabled = AgentBrowser.canGoForward) {
+                        IconActionButton(COUIIcons.Back, "前进", iconModifier = Modifier.graphicsLayer { scaleX = -1f }, enabled = AgentBrowser.canGoForward) {
                             AgentBrowser.forwardByUser()
                         }
                     }
@@ -209,9 +208,9 @@ internal fun BrowserScreen(onExit: () -> Unit) {
                     modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                 )
                 AnimatedVisibility(visible = !editing, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
-                    BarIcon(
+                    IconActionButton(
                         icon = if (AgentBrowser.loading) COUIIcons.Close else COUIIcons.Refresh,
-                        description = if (AgentBrowser.loading) "停止加载" else "刷新",
+                        contentDescription = if (AgentBrowser.loading) "停止加载" else "刷新",
                         enabled = AgentBrowser.hasPage(),
                     ) { AgentBrowser.reloadOrStopByUser() }
                 }
@@ -374,26 +373,6 @@ private fun MoreMenu(onClear: () -> Unit) {
     val entry = remember(onClear) { DropdownEntry(items = listOf(DropdownItem(text = "清除浏览数据", onClick = onClear))) }
     OverlayIconDropdownMenu(entry = entry) {
         Icon(imageVector = COUIIcons.More, contentDescription = "更多", tint = COUITheme.colorScheme.labelPrimary)
-    }
-}
-
-@Composable
-private fun BarIcon(
-    icon: ImageVector,
-    description: String,
-    modifier: Modifier = Modifier,
-    iconModifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    val colors = COUITheme.colorScheme
-    IconButton(onClick = onClick, modifier = modifier, enabled = enabled) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            modifier = iconModifier,
-            tint = if (enabled) colors.labelPrimary else colors.disabledNeutral,
-        )
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.PathNode
 import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -98,8 +99,11 @@ internal object ZetaIcons {
 
     /** 扳手：没有专门图标的工具。 */
     val Wrench: ImageVector by lazy {
-        icon("Wrench", rotate = 45f) {
-            line("M9.9 12.69V19.9A2.1 2.1 0 0 0 14.1 19.9V12.69A5.6 5.6 0 0 0 13.7 2.16V5.7A1.7 1.7 0 0 1 10.3 5.7V2.16A5.6 5.6 0 0 0 9.9 12.69Z")
+        icon("Wrench") {
+            // 先竖着画（头朝上、开口朝上），再转 45° 让头朝右上
+            group(rotate = 45f, pivotX = 12f, pivotY = 12f) {
+                line("M9.9 12.69V19.9A2.1 2.1 0 0 0 14.1 19.9V12.69A5.6 5.6 0 0 0 13.7 2.16V5.7A1.7 1.7 0 0 1 10.3 5.7V2.16A5.6 5.6 0 0 0 9.9 12.69Z")
+            }
         }
     }
 
@@ -288,41 +292,29 @@ internal object ZetaIcons {
         return (cx + r * cos(rad)).toFloat() to (cy + r * sin(rad)).toFloat()
     }
 
-    private class IconScope(private val builder: ImageVector.Builder) {
-        /** 描边：线宽 1.7，圆头圆角。 */
-        fun line(d: String) = line(addPathNodes(d))
-
-        fun line(nodes: List<PathNode>, alpha: Float = 1f) {
-            builder.addPath(
-                nodes,
-                stroke = SolidColor(Color.Black),
-                strokeAlpha = alpha,
-                strokeLineWidth = STROKE,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            )
-        }
-
-        /** 填充：实心的部分（停止键的方块、圆点）。 */
-        fun solid(d: String) {
-            builder.addPath(addPathNodes(d), fill = SolidColor(Color.Black))
-        }
-    }
-
     private const val STROKE = 1.7f
 
-    /** [rotate] 是整体绕中心转的角度：先按竖直方向画好再转（扳手）。 */
-    private fun icon(name: String, rotate: Float = 0f, block: IconScope.() -> Unit): ImageVector {
-        val builder = ImageVector.Builder(
-            name = "Zeta.$name",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f,
+    /** 描边：线宽 1.7，圆头圆角。 */
+    private fun ImageVector.Builder.line(d: String) = line(addPathNodes(d))
+
+    private fun ImageVector.Builder.line(nodes: List<PathNode>, alpha: Float = 1f) {
+        addPath(
+            nodes,
+            stroke = SolidColor(Color.Black),
+            strokeAlpha = alpha,
+            strokeLineWidth = STROKE,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
         )
-        if (rotate != 0f) builder.addGroup(rotate = rotate, pivotX = 12f, pivotY = 12f)
-        IconScope(builder).block()
-        if (rotate != 0f) builder.clearGroup()
-        return builder.build()
     }
+
+    /** 填充：实心的部分（停止键的方块、圆点）。 */
+    private fun ImageVector.Builder.solid(d: String) {
+        addPath(addPathNodes(d), fill = SolidColor(Color.Black))
+    }
+
+    private fun icon(name: String, block: ImageVector.Builder.() -> Unit): ImageVector =
+        ImageVector.Builder(name = "Zeta.$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f)
+            .apply(block)
+            .build()
 }

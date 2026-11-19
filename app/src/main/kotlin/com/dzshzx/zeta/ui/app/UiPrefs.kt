@@ -16,18 +16,19 @@ internal const val MAX_INTERFACE_SCALE = 1.1f
 internal fun normalizeInterfaceScale(value: Float): Float = if (value.isFinite()) value.coerceIn(MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE) else 1f
 
 /**
- * 强调色。默认是 COUI 自己的蓝；“系统取色”用壁纸生成的 Monet 色；红、橙、绿用 ColorOS 官方色族，其余是固定的预设色（日间 / 夜间各一档）。
+ * 强调色和它的 COUI 主题色族（[family]）。默认是 COUI 自己的蓝（null）；“系统取色”用壁纸生成的 Monet 色，运行时才知道，
+ * 由 [accentThemeColor] 现取；红、橙、绿用 ColorOS 官方色族；紫、粉、青从日间 / 夜间各一档的预设色推出。
  * 预设里没有黄色：COUI 按钮上是白字，黄底白字看不清。
  */
-internal enum class AccentChoice(val key: String, val label: String, val day: Color?, val night: Color?) {
-    Coui("coui", "蓝色（默认）", null, null),
-    System("monet", "系统取色", null, null),
-    Purple("purple", "紫色", Color(0xFF7C4DFF), Color(0xFF9475FF)),
-    Pink("pink", "粉色", Color(0xFFE91E63), Color(0xFFEE4C83)),
-    Red("red", "红色", null, null),
-    Orange("orange", "橙色", null, null),
-    Green("green", "绿色", null, null),
-    Teal("teal", "青色", Color(0xFF00A3B5), Color(0xFF14B3C4)),
+internal enum class AccentChoice(val key: String, val label: String, val family: COUIThemeColor?) {
+    Coui("coui", "蓝色（默认）", null),
+    System("monet", "系统取色", null),
+    Purple("purple", "紫色", COUIThemeColor.fromColor(Color(0xFF7C4DFF), Color(0xFF9475FF))),
+    Pink("pink", "粉色", COUIThemeColor.fromColor(Color(0xFFE91E63), Color(0xFFEE4C83))),
+    Red("red", "红色", COUIThemeColors.Red),
+    Orange("orange", "橙色", COUIThemeColors.Orange),
+    Green("green", "绿色", COUIThemeColors.Green),
+    Teal("teal", "青色", COUIThemeColor.fromColor(Color(0xFF00A3B5), Color(0xFF14B3C4))),
     ;
 
     companion object {
@@ -91,15 +92,6 @@ internal class UiPrefs private constructor(private val settings: Settings) {
 internal fun systemAccent(context: Context, dark: Boolean): Color =
     Color(context.getColor(if (dark) android.R.color.system_accent1_400 else android.R.color.system_accent1_500))
 
-/**
- * 强调色对应的 COUI 主题色族：红、橙、绿用 ColorOS 官方色族，紫、粉、青从各自的日间 / 夜间色推出，
- * 系统取色用 [monet]（[systemAccent] 的结果，已按当前深浅色取好）。null 是 COUI 默认的蓝。
- */
-internal fun accentThemeColor(accent: AccentChoice, monet: Color?): COUIThemeColor? = when (accent) {
-    AccentChoice.Coui -> null
-    AccentChoice.System -> monet?.let { COUIThemeColor.fromColor(it, it) }
-    AccentChoice.Red -> COUIThemeColors.Red
-    AccentChoice.Orange -> COUIThemeColors.Orange
-    AccentChoice.Green -> COUIThemeColors.Green
-    AccentChoice.Purple, AccentChoice.Pink, AccentChoice.Teal -> COUIThemeColor.fromColor(accent.day!!, accent.night!!)
-}
+/** 强调色对应的 COUI 主题色族；系统取色用 [monet]（[systemAccent] 的结果，已按当前深浅色取好）。null 是 COUI 默认的蓝。 */
+internal fun accentThemeColor(accent: AccentChoice, monet: Color?): COUIThemeColor? =
+    if (accent == AccentChoice.System) monet?.let { COUIThemeColor.fromColor(it) } else accent.family

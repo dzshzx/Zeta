@@ -77,12 +77,8 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
     val controller = remember(isDark, accent, monet, pureBlack) {
         ThemeController(
             colorSchemeMode = if (isDark) ColorSchemeMode.Dark else ColorSchemeMode.Light,
-            darkColors = if (pureBlack) {
-                darkColorScheme().copy(backgroundElevated = Color.Black, backgroundElevatedWithCard = Color.Black)
-            } else {
-                darkColorScheme()
-            },
-            isDark = isDark,
+            // 纯黑背景：侧栏的抬高底色（只有侧栏用它）也换成纯黑
+            darkColors = darkColorScheme().let { if (pureBlack) it.copy(backgroundElevatedWithCard = Color.Black) else it },
             themeColor = accentThemeColor(accent, monet),
         )
     }

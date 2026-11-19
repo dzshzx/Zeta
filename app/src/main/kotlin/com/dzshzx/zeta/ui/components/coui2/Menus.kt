@@ -7,10 +7,10 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
-import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 菜单里带图标的一项。COUI 2 的菜单行不给图标上色，这里让图标颜色跟着文字：[alert] 的（删除）是红色，不可用的变灰。
+ * 菜单里带图标的一项。COUI 2 的菜单行给文字上色却不给图标上色，这里让图标取和文字同一份颜色
+ * （[DropdownDefaults.dropdownColors]）：[alert] 的（删除）是红色，不可用的变灰。带图标的菜单项都从这里建。
  */
 internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true, alert: Boolean = false): DropdownItem =
     DropdownItem(
@@ -19,15 +19,15 @@ internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enab
         onClick = onClick,
         alert = alert,
         icon = { modifier ->
-            val colors = COUITheme.colorScheme
+            val colors = DropdownDefaults.dropdownColors()
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = modifier,
                 tint = when {
-                    !enabled -> colors.disabledNeutral
-                    alert -> colors.error
-                    else -> colors.labelPrimary
+                    !enabled -> colors.disabledContentColor
+                    alert -> colors.alertContentColor
+                    else -> colors.contentColor
                 },
             )
         },
