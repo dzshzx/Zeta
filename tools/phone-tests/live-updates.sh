@@ -5,6 +5,7 @@
 # （也删以前被打断的几次留下的），不碰别的会话。超级岛、锁屏上的样子要人看。
 # 用法：ZETA_PHONE_OWNER=<任务名> ZETA_PHONE_RUN_TIMEOUT=300 tools/phone-run tools/phone-tests/live-updates.sh
 set -euo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 MARK=$(printf 'zlive%05d%05d' $RANDOM $RANDOM)
 # 认测试会话的记号：提示里的“Tag: zlive”加至少四位数字（脚本自己的源码对不上这个式子）
 MARKED='Tag: zlive[0-9]{4,}'
@@ -56,13 +57,8 @@ android "dumpsys package $PKG" | grep -E 'POST_PROMOTED_NOTIFICATIONS|POST_NOTIF
 ours >notif-before.txt
 echo "发消息前：$(summary notif-before.txt)"
 
-# 输入框和发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
-vd tap 319 2412
-sleep 1
 # 用任务清单工具（不要权限确认）分三项写，通知上能看到进度条；不用别的工具
-vd text "Use your task list tools to create 3 tasks, then do them one at a time and mark each completed. Each task: write one short sentence about a lighthouse. Use no other tools. Tag: $MARK"
-sleep 1
-vd tap 1089 2544
+send "Use your task list tools to create 3 tasks, then do them one at a time and mark each completed. Each task: write one short sentence about a lighthouse. Use no other tools. Tag: $MARK" 1
 
 seen=0 progress=0 ended=0 i=0
 start=$SECONDS

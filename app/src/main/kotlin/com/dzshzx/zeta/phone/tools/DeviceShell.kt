@@ -7,8 +7,8 @@ internal fun interface Shell {
     fun run(command: String, timeoutMs: Long): CommandResult
 }
 
-/** 交给 Claude 的失败原因（中文，一句话）。 */
-internal class ToolError(message: String) : Exception(message)
+/** 交给 Claude 的失败原因（中文，一句话）：[toolCall] 把 message 原样交出去。参数不对的是 [BadInput]。 */
+internal open class ToolError(message: String) : Exception(message)
 
 internal val RootShell = Shell { command, timeoutMs -> rootShell(command, timeoutMs) }
 

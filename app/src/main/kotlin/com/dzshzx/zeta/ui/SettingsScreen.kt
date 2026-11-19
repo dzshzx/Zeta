@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
+import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.SetupState
@@ -246,9 +247,9 @@ private fun SettingsHome(
 private fun DefaultModelPreference(hub: ConversationHub) {
     FollowDropdownPreference(
         title = "新对话的模型",
-        // "default" 就是跟随 Claude Code 的默认模型，和「跟随」那一项合成一项
-        choices = modelChoices(hub).filter { it.first != "default" },
-        value = hub.defaultModel?.takeIf { it != "default" },
+        // 默认模型就是跟随 Claude Code 的设置，和「跟随」那一项合成一项
+        choices = modelChoices(hub).filter { it.first != Conversation.DEFAULT_MODEL },
+        value = hub.defaultModel?.takeIf { it != Conversation.DEFAULT_MODEL },
         followLabel = FollowClaudeCode,
         startAction = { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) },
         onChange = hub::chooseDefaultModel,

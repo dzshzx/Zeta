@@ -38,6 +38,8 @@ class PhoneToolGroupsTest {
         val bad = toolCall { throw BadInput("limit 在 1 到 50 之间") }
         assertEquals("limit 在 1 到 50 之间", text(bad))
         assertTrue(isError(bad))
+        // 设备命令报的失败原因同样原话交出，不再叠一层「执行失败：」
+        assertEquals("执行失败：权限不够", text(toolCall { throw ToolError("执行失败：权限不够") }))
         val failed = toolCall { throw IllegalStateException("读取超时（30 秒）") }
         assertEquals("执行失败：读取超时（30 秒）", text(failed))
         assertTrue(isError(failed))

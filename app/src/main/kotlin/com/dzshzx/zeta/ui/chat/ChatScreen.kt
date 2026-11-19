@@ -79,6 +79,7 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -118,15 +119,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
-/** 还没连上进程、拿不到真实列表时先给的几个常用别名（Claude Code 自己解析）。 */
-private val FallbackModels = listOf(
-    ModelOption("default", "默认", ""),
-    ModelOption("fable", "Fable", ""),
-    ModelOption("opus", "Opus", ""),
-    ModelOption("sonnet", "Sonnet", ""),
-    ModelOption("haiku", "Haiku", ""),
-)
-
 /**
  * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
  * 内容录进页面背景（[LocalPageBackdrop]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 CouiPageScaffold，
@@ -159,7 +151,7 @@ internal fun ChatScreen(
             CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
                 ChatTopBar(
                     conversation = conversation,
-                    models = hub.models.ifEmpty { FallbackModels },
+                    models = hub.modelOptions,
                     backdrop = backdrop,
                     listState = listState.takeIf { hub.setup == SetupState.Ready },
                     onOpenPane = onOpenPane,
@@ -389,12 +381,12 @@ private fun ConversationBody(
         topInset = padding.calculateTopPadding(),
         onJump = { follow = false },
     )
-    // 查找查整个对话：打开查找栏时把还没载入的更早记录一页页载完（每页照往上翻的大小），之后只在载入的内容里查。
+    // 查找查整个对话：打开查找栏时把还没载入的更早记录一次载完（整份记录只读一遍），之后只在载入的内容里查。
     // 没读成就停下，查找栏里说明；点“更早的记录”那行重试成功后接着载
     LaunchedEffect(conversation, find.active) {
         if (!find.active) return@LaunchedEffect
         snapshotFlow { conversation.earlier.takeIf { conversation.earlierState == EarlierState.Idle && !conversation.loadingHistory } }
-            .collect { if (it != null) conversation.loadEarlier() }
+            .collect { if (it != null) conversation.loadEarlier(rest = true) }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -672,37 +664,21 @@ private suspend fun LazyListState.scrollToEnd() {
     scrollBy(1_000_000f)
 }
 
-/** 顶栏上模型的名字：选择器里有的用它的显示名，完整 ID 写成「Opus 5.5」，默认模型是「默认」。 */
-internal fun modelLabel(value: String?, models: List<ModelOption>): String = when {
-    value == null || value == Conversation.DEFAULT_MODEL -> "默认"
-    else -> models.firstOrNull { it.value == value }?.displayName?.ifBlank { null } ?: readableModelId(value)
-}
-
-private val ModelId = Regex("claude-([a-z]+)-(\\d+(?:-\\d{1,2})*)(?:-\\d{8})?(\\[1m])?")
-
-/** Claude Code 报的完整模型 ID（claude-opus-5-5、claude-haiku-4-5-20251001、claude-opus-5-5[1m]）写成人看的名字；认不出的原样。 */
-internal fun readableModelId(id: String): String {
-    val match = ModelId.matchEntire(id) ?: return id
-    val (family, version, wide) = match.destructured
-    return family.replaceFirstChar { it.uppercase() } + " " + version.replace('-', '.') + if (wide.isNotEmpty()) " (1M)" else ""
-}
-
 /**
  * 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。
- * 显示的是 [Conversation.shownModel]；模型由 Claude Code 照会话记录定时菜单里不勾哪一项。载入历史期间不能点。
+ * 显示的是 [Conversation.shownModel]；模型由 Claude Code 照会话记录定时菜单里不勾哪一项。
  */
 @Composable
 private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
     val colors = COUITheme.colorScheme
     val selected = conversation.model ?: Conversation.DEFAULT_MODEL.takeUnless { conversation.modelFromSession }
     val modelName = modelLabel(conversation.shownModel, models)
-    val enabled = !conversation.loadingHistory
     var expanded by remember { mutableStateOf(false) }
     val entries = listOf(
         DropdownEntry(
             items = models.map { model ->
                 DropdownItem(
-                    text = if (model.value == Conversation.DEFAULT_MODEL) "默认" else model.displayName.ifBlank { model.value },
+                    text = modelLabel(model.value, models),
                     selected = model.value == selected,
                     onClick = { conversation.chooseModel(model.value) },
                 )
@@ -716,7 +692,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .clip(RoundedCornerShape(COUIRoundCorner.M))
-                    .clickable(enabled = enabled, interactionSource = source, indication = null) { expanded = true }
+                    .clickable(interactionSource = source, indication = null) { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
@@ -739,7 +715,7 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                     .heightIn(min = 34.dp)
                     .clip(CircleShape)
                     .background(colors.container4, CircleShape)
-                    .clickable(enabled = enabled, interactionSource = source, indication = null) { expanded = true }
+                    .clickable(interactionSource = source, indication = null) { expanded = true }
                     .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 Text(

@@ -6,10 +6,10 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
-import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.core.str
 import java.time.DayOfWeek
 import java.time.Instant
@@ -306,12 +306,8 @@ object Schedules {
             .replace(Regex("(\\*\\*|__|`)"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
-        return clip(plain, limit)
+        return plain.clipChars(limit, "…")
     }
-
-    /** 超过 [limit] 个字就截断、加上“…”。不从一对代理字符中间切开，表情不会剩半个。 */
-    fun clip(text: String, limit: Int): String =
-        if (text.length <= limit) text else text.substring(0, safeCut(text, limit.coerceAtLeast(0))).trimEnd() + "…"
 
     /** 这一轮的结果：看这次发出的那条消息之后的内容。回答取最后一段（前面多是“我先看看”），出错取提示。 */
     fun outcomeOf(items: List<ChatItem>, prompt: String): Pair<RunOutcome, String> {
@@ -448,7 +444,7 @@ object Schedules {
         val rule = decodeRule(o.obj("rule")) ?: return null
         return ScheduledTask(
             id = id,
-            name = o.str("name")?.takeIf { it.isNotBlank() } ?: prompt.lineSequence().first().take(MAX_NAME),
+            name = o.str("name")?.takeIf { it.isNotBlank() } ?: prompt.lineSequence().first().clipChars(MAX_NAME),
             prompt = prompt,
             rule = rule,
             enabled = o.bool("enabled") ?: true,

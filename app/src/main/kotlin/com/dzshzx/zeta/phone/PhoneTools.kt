@@ -36,6 +36,8 @@ import com.dzshzx.zeta.phone.tools.prop
 import com.dzshzx.zeta.phone.tools.rootShell
 import com.dzshzx.zeta.phone.tools.schema
 import com.dzshzx.zeta.phone.tools.tool
+import com.dzshzx.zeta.phone.tools.toolFailure
+import com.dzshzx.zeta.phone.tools.toolText
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -221,7 +223,8 @@ class PhoneTools(
     /** 用户做了 Claude 不知道的事（比如把应用移到了主屏），下一次看屏 / 动手时附在结果前面。 */
     private val userNotes = ConcurrentLinkedQueue<String>()
 
-    private fun onMain(block: () -> Unit) {
+    /** 在主线程上执行：已经在主线程就当场做，否则投递过去、不等它做完（和等结果的 core 的 onMain 不同）。 */
+    private fun onMainAsync(block: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block)
     }
 
@@ -330,7 +333,7 @@ class PhoneTools(
     }
 
     /** 一轮结束、进程结束或销毁：清掉这一轮的悬浮层状态，等着的调用作废。 */
-    private fun resetOverlay() = onMain {
+    private fun resetOverlay() = onMainAsync {
         engagedThisTurn = false
         actingOnMain = false
         currentCall = null
@@ -475,8 +478,8 @@ class PhoneTools(
                 if (name in ENGAGING) engage()
                 runCatching {
                     // 用户暂停或接管时先在这里等着
-                    awaitGate()?.let { failure(it) } ?: call(name, arguments, toolUseId)
-                }.getOrElse { failure(it.message ?: it.javaClass.simpleName) }.also { DiagEvents.phoneTool(name, it) }
+                    awaitGate()?.let { toolFailure(it) } ?: call(name, arguments, toolUseId)
+                }.getOrElse { toolFailure(it.message ?: it.javaClass.simpleName) }.also { DiagEvents.phoneTool(name, it) }
             }
             "ping" -> JsonObject(emptyMap())
             else -> null
@@ -488,15 +491,6 @@ class PhoneTools(
         }
     }
 
-    private fun text(value: String): JsonObject = buildJsonObject {
-        putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", value) }) }
-    }
-
-    private fun failure(value: String): JsonObject = buildJsonObject {
-        putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", value) }) }
-        put("isError", true)
-    }
-
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = when (name) {
         "shell" -> shell(a)
         "find_apps" -> findApps(a.str("query").orEmpty())
@@ -506,7 +500,7 @@ class PhoneTools(
         }
         else -> PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
-            group.call(context, name, a)
+            ScheduleTools.refusal(name, unattended) ?: group.call(context, name, a)
         } ?: synchronized(lock) {
             justWoke = false
             // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废
@@ -521,13 +515,13 @@ class PhoneTools(
             }
             reportCall(toolUseId, name, a)
             val result = if (skip) {
-                ready()?.let { failure(it) }
+                ready()?.let { toolFailure(it) }
                     ?: JsonObject(observe(screenshot = a.bool("screenshot") == true, maxNodes = 60) + ("isError" to JsonPrimitive(true)))
             } else when (name) {
                 "screen" -> {
                     // 切到后台屏幕时也在 ready() 里唤醒
                     val problem = a.str("display")?.let { switchTo(it) } ?: ready()
-                    if (problem != null) failure(problem)
+                    if (problem != null) toolFailure(problem)
                     else observe(screenshot = a.bool("screenshot") == true, maxNodes = (a.int("max_nodes") ?: 80).coerceIn(10, 250), detail = true)
                 }
                 "tap" -> act(a) { screen, notes -> tap(screen, a, longPressMs = null, notes) }
@@ -540,7 +534,7 @@ class PhoneTools(
                 "wait" -> waitFor(a)
                 "open_app" -> openApp(a)
                 "show_to_user" -> showToUser(a)
-                else -> failure("没有这个工具：$name")
+                else -> toolFailure("没有这个工具：$name")
             }
             // 开应用、移到主屏之后才知道落在哪块屏上
             if (name == "open_app" || name == "show_to_user") {
@@ -684,11 +678,11 @@ class PhoneTools(
     private fun observe(screenshot: Boolean, maxNodes: Int, notes: List<String> = emptyList(), detail: Boolean = false): JsonObject {
         val woke = if (justWoke) listOf("后台屏幕刚从休眠中唤醒（应用和页面都还在）") else emptyList()
         justWoke = false
-        lostBackground()?.let { return failure((woke + notes + it).joinToString("\n")) }
-        val screen = screen() ?: return failure("找不到编号为 $display 的屏幕")
+        lostBackground()?.let { return toolFailure((woke + notes + it).joinToString("\n")) }
+        val screen = screen() ?: return toolFailure("找不到编号为 $display 的屏幕")
         val tree = (woke + notes + describe(screen, maxNodes, detail)).joinToString("\n")
-        if (!screenshot) return text(tree)
-        val image = capture(screen) ?: return text("$tree\n（截图失败）")
+        if (!screenshot) return toolText(tree)
+        val image = capture(screen) ?: return toolText("$tree\n（截图失败）")
         return buildJsonObject {
             putJsonArray("content") {
                 add(buildJsonObject { put("type", "text"); put("text", tree) })
@@ -721,8 +715,8 @@ class PhoneTools(
      * 动作可以往 notes 里加几句，放在新画面前面。
      */
     private fun act(a: JsonObject, settleMs: Long = 500, action: (Screen, MutableList<String>) -> String?): JsonObject {
-        ready()?.let { return failure(it) }
-        val screen = screen() ?: return failure("找不到编号为 $display 的屏幕")
+        ready()?.let { return toolFailure(it) }
+        val screen = screen() ?: return toolFailure("找不到编号为 $display 的屏幕")
         val notes = ArrayList<String>()
         val error = try {
             action(screen, notes)
@@ -730,7 +724,7 @@ class PhoneTools(
             val seen = observe(screenshot = a.bool("screenshot") == true, maxNodes = 60, notes = notes + missing.message.orEmpty())
             return JsonObject(seen + ("isError" to JsonPrimitive(true)))
         }
-        if (error != null) return failure(error)
+        if (error != null) return toolFailure(error)
         if (settleMs > 0) {
             Thread.sleep(settleMs)
             // 页面切换的动画还在走时，读到的位置是半路上的：再等它停下来
@@ -862,10 +856,10 @@ class PhoneTools(
      * 用户在等的时候暂停、接管或在后台屏幕上动了手，就不再等。
      */
     private fun waitFor(a: JsonObject): JsonObject {
-        val request = WaitRequest.parse(a).let { it.value ?: return failure(it.problem.orEmpty()) }
-        ready()?.let { return failure(it) }
-        val packageName = (request as? WaitRequest.App)?.let { resolvePackage(it.app) ?: return failure("没有找到应用“${it.app}”，可以用 find_apps 查一下") }
-        val service = if (request !is WaitRequest.Control) null else service() ?: return failure("无障碍服务没有开启，等不了屏幕上的变化")
+        val request = WaitRequest.parse(a).let { it.value ?: return toolFailure(it.problem.orEmpty()) }
+        ready()?.let { return toolFailure(it) }
+        val packageName = (request as? WaitRequest.App)?.let { resolvePackage(it.app) ?: return toolFailure("没有找到应用“${it.app}”，可以用 find_apps 查一下") }
+        val service = if (request !is WaitRequest.Control) null else service() ?: return toolFailure("无障碍服务没有开启，等不了屏幕上的变化")
         val limit = when (request) {
             is WaitRequest.Time -> request.ms
             is WaitRequest.Control -> request.timeoutMs
@@ -892,7 +886,7 @@ class PhoneTools(
                 break
             }
             pause(minOf(WAIT_POLL_MS, limit - elapsed))
-            lostBackground()?.let { return failure(it) }
+            lostBackground()?.let { return toolFailure(it) }
         }
         val seconds = "%.1f".format((System.currentTimeMillis() - start) / 1000.0)
         val summary = when (request) {
@@ -1026,8 +1020,8 @@ class PhoneTools(
 
     private fun findApps(query: String): JsonObject {
         val apps = (if (query.isBlank()) launchable() else match(query)).sortedBy { it.label }
-        if (apps.isEmpty()) return text("没有找到匹配“$query”的应用")
-        return text(apps.take(200).joinToString("\n") { "${it.label}  ${it.packageName}" })
+        if (apps.isEmpty()) return toolText("没有找到匹配“$query”的应用")
+        return toolText(apps.take(200).joinToString("\n") { "${it.label}  ${it.packageName}" })
     }
 
     /**
@@ -1035,7 +1029,7 @@ class PhoneTools(
      * 给了 app 又给了 uri / action 时，限定由这个应用处理。
      */
     private fun openApp(a: JsonObject): JsonObject {
-        val request = OpenRequest.parse(a).let { it.value ?: return failure(it.problem.orEmpty()) }
+        val request = OpenRequest.parse(a).let { it.value ?: return toolFailure(it.problem.orEmpty()) }
         var app: InstalledApps.Launcher? = null
         var appPackage: String? = null
         request.app?.let { query ->
@@ -1043,11 +1037,11 @@ class PhoneTools(
             val exact = found.firstOrNull { it.packageName == query || it.label.equals(query, ignoreCase = true) }
             app = exact ?: found.singleOrNull()
             if (app == null && found.size > 1) {
-                return failure("有多个应用匹配“$query”：" + found.take(8).joinToString("、") { "${it.label}（${it.packageName}）" } + "。请用包名指明")
+                return toolFailure("有多个应用匹配“$query”：" + found.take(8).joinToString("、") { "${it.label}（${it.packageName}）" } + "。请用包名指明")
             }
             // 只处理链接、没有桌面图标的应用：按包名原样用
             appPackage = app?.packageName ?: query.takeIf { request.isIntent && '.' in it && ' ' !in it }
-                ?: return failure("没有找到应用“$query”，可以用 find_apps 查一下")
+                ?: return toolFailure("没有找到应用“$query”，可以用 find_apps 查一下")
         }
         // 谁来处理：从桌面图标启动就是这个应用；intent 先问系统会交给谁（几个应用都能处理时是系统的选择界面）
         val handler: String?
@@ -1056,7 +1050,7 @@ class PhoneTools(
             val resolve = "cmd package resolve-activity --brief --user 0 -a " + LinuxEnv.quote(request.intentAction) +
                 (request.uri?.let { " -d " + LinuxEnv.quote(it) } ?: "") + (appPackage?.let { " -p " + LinuxEnv.quote(it) } ?: "")
             val component = SystemOutput.resolvedComponent(root(resolve).stdout)
-                ?: return failure("没有应用能打开 " + (request.uri ?: request.action) + (appPackage?.let { "（限定在 $it）" } ?: ""))
+                ?: return toolFailure("没有应用能打开 " + (request.uri ?: request.action) + (appPackage?.let { "（限定在 $it）" } ?: ""))
             handler = component.substringBefore('/').takeUnless { SystemOutput.isChooser(component) }
             label = if (handler == null) "选择打开方式的界面" else app?.label ?: appLabel(handler)
         } else {
@@ -1064,7 +1058,7 @@ class PhoneTools(
             label = app!!.label
         }
         val requested = a.str("display")?.lowercase() ?: "auto"
-        if (requested !in setOf("auto", "background", "main")) return failure("display 只能是 auto、background 或 main")
+        if (requested !in setOf("auto", "background", "main")) return toolFailure("display 只能是 auto、background 或 main")
         val notes = ArrayList<String>()
         var screen: VirtualScreen? = null
         if (requested != "main") {
@@ -1093,7 +1087,7 @@ class PhoneTools(
             "am start --user 0 --display $target -a android.intent.action.MAIN -c android.intent.category.LAUNCHER " +
                 "-n " + LinuxEnv.quote("${launcher.packageName}/${launcher.activity}") + " -f 0x10200000"
         }
-        rootError(command)?.let { return failure(it) }
+        rootError(command)?.let { return toolFailure(it) }
         // 开到了主屏上：之前为后台屏幕禁掉的音频焦点改回去
         if (screen == null && handler != null) audio.movedToMain(handler)
         onBackground = screen != null
@@ -1160,13 +1154,13 @@ class PhoneTools(
     }
 
     private fun showToUser(a: JsonObject): JsonObject {
-        val screen = screenRef?.takeIf { it.alive } ?: return failure(if (onBackground) lostBackground()!! else "现在没有后台屏幕，应用本来就开在主屏上")
+        val screen = screenRef?.takeIf { it.alive } ?: return toolFailure(if (onBackground) lostBackground()!! else "现在没有后台屏幕，应用本来就开在主屏上")
         val label = backgroundApp
         val error = moveTopToMain(screen) ?: run {
             onBackground = false
             null
         }
-        if (error != null) return failure(error)
+        if (error != null) return toolFailure(error)
         Thread.sleep(800)
         val reason = a.str("reason")?.takeIf { it.isNotBlank() }
         return observe(
@@ -1303,7 +1297,7 @@ class PhoneTools(
     // ---- Android 侧命令 ----
 
     private fun shell(a: JsonObject): JsonObject {
-        val command = a.str("command")?.takeIf { it.isNotBlank() } ?: return failure("缺少 command")
+        val command = a.str("command")?.takeIf { it.isNotBlank() } ?: return toolFailure("缺少 command")
         val timeout = (a.int("timeout_seconds") ?: 30).coerceIn(1, 600)
         val result = root(command, timeout * 1000L)
         val body = buildString {
@@ -1315,7 +1309,7 @@ class PhoneTools(
             if (isNotEmpty() && !endsWith('\n')) append('\n')
             append(if (result.timedOut) "[超过 $timeout 秒，已中止]" else "[退出码 ${result.exitCode}]")
         }
-        return if (result.exitCode == 0) text(body) else failure(body)
+        return if (result.exitCode == 0) toolText(body) else toolFailure(body)
     }
 
     private fun tail(value: String): String = if (value.length <= OUTPUT_LIMIT) value else

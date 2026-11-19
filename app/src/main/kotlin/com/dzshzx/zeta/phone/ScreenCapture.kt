@@ -17,8 +17,6 @@ import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.ui.MainActivity
-import java.io.File
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -87,17 +85,11 @@ object ScreenCapture {
      */
     internal fun rootScreencap(before: String? = null): Bitmap? {
         val script = (before?.let { "$it; " } ?: "") + "exec screencap -p"
-        val process = runCatching {
-            ProcessBuilder("su", "-c", script).redirectError(ProcessBuilder.Redirect.to(File("/dev/null"))).start()
-        }.getOrNull() ?: return null
-        return try {
-            val bytes = process.inputStream.use { it.readBytes() }
-            process.waitFor(10, TimeUnit.SECONDS)
-            bytes.takeIf { it.isNotEmpty() }?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-        } catch (e: Exception) {
-            Log.w(TAG, "screencap failed", e)
-            null
-        }
+        // 限时：卡住时经 root 结束它，不让截屏磁贴和手机工具一直等着
+        val result = runCatching { LinuxEnv.runRootBytes(script, timeoutMs = 10_000) }
+            .onFailure { Log.w(TAG, "screencap failed", it) }.getOrNull() ?: return null
+        if (result.timedOut) Log.w(TAG, "screencap timed out")
+        return result.stdout.takeIf { !result.timedOut && it.isNotEmpty() }?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
     }
 
     /**

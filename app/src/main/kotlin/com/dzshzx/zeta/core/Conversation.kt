@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -281,8 +282,6 @@ class Conversation(
             return
         }
         process = created
-        // 接上的进程可能正跑着后台运行，加着它的权限规则：用户自己发消息前撤一次（没加过时撤了也无妨）
-        restricted = true
         created.send(controlRequest { put("subtype", "initialize") })
         // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
         meter.processStarted(fresh = false, compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact })
@@ -320,11 +319,11 @@ class Conversation(
     }
 
     /**
-     * 载入更早的一页，接到列表前面（往上翻到顶附近时；对话内查找时一页页载完）。
+     * 载入更早的一页，接到列表前面（往上翻到顶附近时）；[rest] 时一次载完剩下的全部（对话内查找时）。
      * 已经在读、或没有更早的了就不动，所以同一时间只有一个请求，读回来的就是现在没载入的那段（别的地方不改 [earlier]）。
      * 在主线程上调用，读在后台。新到的实时内容只接在列表末尾，和往前接的这页不相干。
      */
-    fun loadEarlier() {
+    fun loadEarlier(rest: Boolean = false) {
         val window = earlier ?: return
         if (earlierState == EarlierState.Loading || loadingHistory) return
         val config = hub.settings.env ?: return
@@ -332,7 +331,7 @@ class Conversation(
         thread(name = "zeta-history-page", isDaemon = true) {
             // 各页的条目编号按页的位置错开（每页的位置都不同）
             val page = TranscriptReducer("p${window.skipped}-")
-            val result = hub.helper("history", HistoryPaging.pageArguments(window), timeoutMs = 60_000, config = config)
+            val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, config = config)
             val read = result?.takeIf { it.exitCode == 0 }?.let { HistoryPaging.read(it.stdout, window.file, page) }
             val failure = when {
                 read == null -> "没有读到更早的记录" + result?.stderr?.trim()?.takeIf { it.isNotEmpty() }?.let { "：${it.takeLast(200)}" }.orEmpty()
@@ -499,23 +498,17 @@ class Conversation(
         publish()
     }
 
-    /** 这个进程上还有后台运行加的权限规则（见 [restrict]）。 */
-    private var restricted = false
-
     /**
-     * 后台运行的权限规则：[rules] 不为 null 时加上（后台运行发指令前），为 null 时撤掉已经加了的（用户自己发消息前）。
-     * 走 apply_flag_settings 的 permissions，是单独的一层：和用户 settings.json 里的规则叠加，撤时发 null 只撤这一层，
-     * 思考强度（同一个请求的 effortLevel）不受影响。控制请求按顺序处理，新起的进程紧跟在 initialize 后面发，
-     * 第一条消息就生效。这些都由 UnattendedRulesContractTest 钉住。
+     * 后台运行的权限规则：后台运行发指令前加上 [rules]，用户自己发消息、改写前撤掉（null）。用户发的每条都撤一次，不记加没加过：
+     * 没加过时撤了什么都不变，进程是新起的、重新接上的还是一直开着的都一样。走 apply_flag_settings 的 permissions，
+     * 是单独的一层：和用户 settings.json 里的规则叠加，撤时只撤这一层，思考强度（同一层的 effortLevel）不受影响。
+     * 控制请求按顺序处理，新起的进程紧跟在 initialize 后面发，第一条消息就生效。这些都由 UnattendedRulesContractTest 钉住。
      */
-    private fun restrict(process: ClaudeProcess, rules: JsonObject?) {
-        if (rules == null && !restricted) return
-        restricted = rules != null
-        process.send(controlRequest {
-            put("subtype", "apply_flag_settings")
-            putJsonObject("settings") { put("permissions", rules ?: JsonNull) }
-        })
-    }
+    private fun restrict(process: ClaudeProcess, rules: JsonObject?) = applyFlags(process) { put("permissions", rules ?: JsonNull) }
+
+    /** Claude Code 的 apply_flag_settings：只改这个进程、叠在 settings.json 上的一层（思考强度、后台运行的权限规则）。 */
+    private fun applyFlags(process: ClaudeProcess, settings: JsonObjectBuilder.() -> Unit) =
+        process.send(controlRequest { put("subtype", "apply_flag_settings"); putJsonObject("settings", settings) })
 
     /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。应答在 [handle] 里收。 */
     private fun requestRewind(process: ClaudeProcess, target: String, lastSeen: String?, onDone: () -> Unit, onFailed: (String) -> Unit) {
@@ -620,6 +613,8 @@ class Conversation(
     fun chooseModel(value: String?) {
         val chosen = value?.takeIf { it != DEFAULT_MODEL }
         model = chosen ?: DEFAULT_MODEL.takeIf { resumed }
+        // 上次 init 报的模型作废：新对话选回默认时顶栏写「默认」，下一轮的 init 再报实际用的
+        reportedModel = null
         hub.rememberDefaultModel(chosen)
         process?.send(controlRequest { put("subtype", "set_model"); put("model", chosen ?: DEFAULT_MODEL) })
         process?.let(::queryUsage)
@@ -635,17 +630,14 @@ class Conversation(
     private fun applyEffort(value: String?) {
         effort = value
         val process = process ?: return
-        process.send(controlRequest {
-            put("subtype", "apply_flag_settings")
-            putJsonObject("settings") { put("effortLevel", value) }
-        })
+        applyFlags(process) { put("effortLevel", value) }
         process.send(controlRequest { put("subtype", "get_settings") })
     }
 
     /**
      * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。
      * 不是 Claude Code 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑；
-     * 载入期间用户改不了（顶栏的模型菜单和思考强度胶囊这时不能点）。
+     * 载入期间用户改不了（思考强度胶囊这时不能点）。
      */
     internal fun restoreEffort(recorded: String?) {
         if (process != null) return
@@ -885,7 +877,7 @@ class Conversation(
         hub.onActivityChanged()
     }
 
-    private fun controlRequest(build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject {
+    private fun controlRequest(build: JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject {
         put("type", "control_request")
         put("request_id", "zeta-${++requestSeq}")
         putJsonObject("request", build)
@@ -919,7 +911,6 @@ class Conversation(
         }
         process = created
         forkCut = false
-        restricted = false
         created.send(controlRequest { put("subtype", "initialize") })
         meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
         queryUsage(created)

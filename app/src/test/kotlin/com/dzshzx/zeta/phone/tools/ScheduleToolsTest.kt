@@ -70,6 +70,11 @@ class ScheduleToolsTest {
                 """"mcp__phone__delete_scheduled_task","mcp__phone__run_scheduled_task"],"allow":["mcp__phone__report_scheduled_run"]}""",
             ScheduleTools.unattendedRules.toString(),
         )
+        // 规则之外 Zeta 自己也拦：后台运行期间调到了管理工具不执行；上报、平常的对话照常
+        val run = UnattendedRun(onlyOnChange = true)
+        assertTrue(failed(ScheduleTools.refusal("run_scheduled_task", run)!!))
+        assertNull(ScheduleTools.refusal("report_scheduled_run", run))
+        assertNull(ScheduleTools.refusal("run_scheduled_task", null))
     }
 
     @Test

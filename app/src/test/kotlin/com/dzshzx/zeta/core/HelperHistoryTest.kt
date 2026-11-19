@@ -146,6 +146,11 @@ class HelperHistoryTest {
         // 一页页翻到头：每一轮各出现一次，先后不乱
         val questions = readAll().mapNotNull { it.text()?.takeIf { text -> text.startsWith("question") } }
         assertEquals((0 until 1000).map { "question $it" }, questions)
+        // 查找时一次要走剩下的全部：和一页页翻的一样，同样核对窗口
+        val rest = helper("history", file.path, "3200", "b799", "all")
+        assertEquals(0, rest.header.skipped())
+        assertEquals(last.events + page.events, rest.events)
+        assertEquals(JsonPrimitive(true), helper("history", file.path, "3200", "nope", "all").header["stale"])
     }
 
     @Test

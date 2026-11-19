@@ -182,19 +182,6 @@ class ComposerDraftsTest {
         assertEquals(listOf("s-kept"), stored().map { it.key })
     }
 
-    /** 草稿以前存在主设置文件里：升级后第一次读时搬到自己的设置文件，主设置文件里的删掉。 */
-    @Test
-    fun draftsMoveOutOfTheMainSettingsOnce() {
-        val old = DraftRecord("s-old", "升级前写的", 0, 0, emptyList(), emptyList(), at = 1)
-        Settings(app).composerDrafts = DraftRecords.encode(listOf(old))
-        val hub = Fixtures.readyHub(app)
-        assertEquals("升级前写的", hub.drafts.preview("s-old"))
-        assertNull(Settings(app).composerDrafts)
-        assertEquals(listOf("s-old"), stored().map { it.key })
-        // 再开一次：读的是自己的设置文件
-        assertEquals("升级前写的", Fixtures.readyHub(app).drafts.of(hub.session("s-old")).input.text.toString())
-    }
-
     @Test
     fun restoredAfterRestart() {
         val before = Fixtures.readyHub(app)

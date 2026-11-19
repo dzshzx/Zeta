@@ -3,6 +3,7 @@ package com.dzshzx.zeta.phone.tools
 import android.app.KeyguardManager
 import android.content.Context
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.str
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -37,7 +38,7 @@ internal object ClipboardTools : PhoneToolGroup {
                 val value = runCatching { String(Base64.getDecoder().decode(line.removePrefix(ClipboardHelper.TEXT)), Charsets.UTF_8) }
                     .getOrElse { return toolFailure("剪贴板内容解不开：${it.message}") }
                 if (value.length <= MAX_READ) toolText(value)
-                else toolText(value.take(MAX_READ) + "\n…（剪贴板共 ${value.length} 个字符，只给了前 $MAX_READ 个）")
+                else toolText(value.clipChars(MAX_READ) + "\n…（剪贴板共 ${value.length} 个字符，只给了前 $MAX_READ 个）")
             }
             else -> toolFailure("读写剪贴板失败：" + line.removePrefix(ClipboardHelper.ERROR))
         }

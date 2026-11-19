@@ -283,7 +283,8 @@ USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache
 
 
 # ---- 历史 ----
-# 打开对话时先载入最近的一段（MAX_EVENTS 条），往上翻到顶附近时界面再要前面的一页（HISTORY_PAGE 条）。
+# 打开对话时先载入最近的一段（MAX_EVENTS 条），往上翻到顶附近时界面再要前面的一页（HISTORY_PAGE 条）；
+# 对话内查找时一次要走剩下的全部（all），整份记录只读一遍。
 # 每次都从头读整份记录：剪切记号可能在后面任何地方，要照它去掉被剪的部分，才知道当前这条线上第几条是什么。
 # 剪切只去掉某条用户消息之后的内容，新内容只接在后面，所以已经交给界面的那段之前的部分不会变；
 # 界面要前一页时报上它手里最前面那段从第几条开始、前一条是哪一行（uuid），对不上（比如在终端里剪到了更早的地方）就不给。
@@ -439,7 +440,7 @@ def history_window(events, owners, end, anchor):
     return 0 < end <= len(events) and (anchor == "-" or owners[end - 1] == anchor)
 
 
-def cmd_history(path, end=None, anchor=None):
+def cmd_history(path, end=None, anchor=None, rest=False):
     events, owners = read_events(path)
     if end is None:
         end = len(events)
@@ -449,7 +450,7 @@ def cmd_history(path, end=None, anchor=None):
         out({"type": "zeta_history", "stale": True})
         return
     else:
-        start = page_start(page_starts(events), end, HISTORY_PAGE)
+        start = 0 if rest else page_start(page_starts(events), end, HISTORY_PAGE)
     header = {"type": "zeta_history", "skipped": start, "anchor": owners[start - 1] if start > 0 else None,
               "todo_seed": todo_seed(events[:start])}
     # 模型和思考强度按整个对话（剪切之后的全部消息）算，不只是这一页
@@ -1853,9 +1854,9 @@ def main():
         cmd_list()
     elif args[:1] == ["history"] and len(args) == 2 and inside_root(args[1]):
         cmd_history(args[1])
-    elif args[:1] == ["history"] and len(args) == 4 and inside_root(args[1]) and args[2].isdigit() \
-            and HISTORY_ANCHOR.fullmatch(args[3]):
-        cmd_history(args[1], int(args[2]), args[3])
+    elif args[:1] == ["history"] and len(args) in (4, 5) and inside_root(args[1]) and args[2].isdigit() \
+            and HISTORY_ANCHOR.fullmatch(args[3]) and args[4:] in ([], ["all"]):
+        cmd_history(args[1], int(args[2]), args[3], rest=args[4:] == ["all"])
     elif args[:1] == ["delete"] and len(args) >= 2 and all(inside_root(a) for a in args[1:]):
         cmd_delete(args[1:])
     elif args[:1] == ["rename"] and len(args) == 3 and inside_root(args[1]):
@@ -1890,7 +1891,7 @@ def main():
             and all(SUBAGENT_ARG.fullmatch(a) for a in args[3:5]) and all(SESSION_ID.fullmatch(a) for a in args[5:]):
         cmd_subagent(int(args[1]), int(args[2]), args[3], args[4], args[5:])
     else:
-        sys.exit("usage: list | history <file> [<end> <anchor|->]"
+        sys.exit("usage: list | history <file> [<end> <anchor|-> [all]]"
                  " | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
                  " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
                  " | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]"

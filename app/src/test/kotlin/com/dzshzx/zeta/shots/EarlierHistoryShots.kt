@@ -48,7 +48,7 @@ class EarlierHistoryShots : ShotTest() {
         shoot("chat-earlier-loading") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
     }
 
-    /** 查找栏打开时把剩下的一页页载完：下面那行说还剩几条在载。 */
+    /** 查找栏打开时把剩下的一次载完：下面那行说还剩几条在载。 */
     @Test
     fun findLoadingTheRest() {
         val hub = Fixtures.readyHub(app)

@@ -225,9 +225,12 @@ class ConversationHub(private val app: Application) {
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
         private set
 
-    /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，选择器先用几个常用别名。 */
+    /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，见 [modelOptions]。 */
     var models by mutableStateOf<List<ModelOption>>(emptyList())
         internal set
+
+    /** 选择器里的模型：Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
+    val modelOptions: List<ModelOption> get() = models.ifEmpty { FallbackModels }
 
     /**
      * 每个会话的手机工具，按 sessionId（新对话还没有时按 key）登记。后台屏幕比 Claude Code 进程活得久：

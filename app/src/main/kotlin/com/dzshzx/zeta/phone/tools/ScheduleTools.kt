@@ -39,10 +39,11 @@ import kotlinx.serialization.json.putJsonObject
  * 定时任务：让用户在对话里说“每天早上 8 点帮我……”“改成 9 点”“现在先跑一次”。新建、列出、修改、删除、立即运行一次；
  * 任务清单和闹钟由 [ScheduleStore]、[ScheduleAlarms] 管（清单一改闹钟就重排），这里只是把参数翻译过去。
  *
- * 无人值守的后台运行里（定时任务、通知触发跑起来的那一轮，见 [UnattendedRun]）管理定时任务的工具都用不了，靠 Claude Code
- * 自己的权限规则拦（[unattendedRules]）：一次运行常读网页、通知这类外来的文字，要是能新建、改、删、跑别的任务，
- * 里面冒充指令的文字就能让自己反复跑下去，或者把别的任务改成不经确认、照它的意思跑。上报结论的 [REPORT] 一直列着，
- * 由 PhoneTools 带上这个对话正在跑的运行交给 [report]。
+ * 无人值守的后台运行里（定时任务、通知触发跑起来的那一轮，见 [UnattendedRun]）管理定时任务的工具都用不了：一次运行常读网页、
+ * 通知这类外来的文字，要是能新建、改、删、跑别的任务，里面冒充指令的文字就能让自己反复跑下去，或者把别的任务改成不经确认、
+ * 照它的意思跑。Claude Code 自己的权限规则（[unattendedRules]）让模型看不到它们；调用还是到了 Zeta 时（规则没生效，或者
+ * 用户插话撤了规则而这一轮还在跑），[refusal] 照样不执行。上报结论的 [REPORT] 一直列着，由 PhoneTools 带上这个对话正在跑的
+ * 运行交给 [report]。
  */
 internal object ScheduleTools : PhoneToolGroup {
     private const val CREATE = "create_scheduled_task"
@@ -64,6 +65,14 @@ internal object ScheduleTools : PhoneToolGroup {
         putJsonArray("deny") { MANAGE.forEach { add(McpNames.tool(PhoneTools.SERVER, it)) } }
         putJsonArray("allow") { add(McpNames.tool(PhoneTools.SERVER, REPORT)) }
     }
+
+    /** [run] 是这个对话正在跑的后台运行：这时调管理定时任务的工具，不执行，回这句。别的情况是 null，照常执行。 */
+    fun refusal(name: String, run: UnattendedRun?): JsonObject? =
+        if (run != null && name in MANAGE) {
+            toolFailure("这是定时任务或通知触发在后台自动跑的一轮，这时不能新建、修改、删除、运行或列出定时任务。需要的话在回答里请用户自己来。")
+        } else {
+            null
+        }
 
     private val MODES = listOf("default", "acceptEdits", "plan", "auto", "bypassPermissions")
     private val REPEATS = RuleKind.entries.map { it.key }
@@ -323,7 +332,7 @@ internal object ScheduleTools : PhoneToolGroup {
         if (options.isNotEmpty()) append("\n  " + options.joinToString("，"))
         task.lastRun?.let { run ->
             append("\n  上次 " + Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) + "：" + run.outcome.label)
-            if (run.summary.isNotBlank()) append("，" + run.summary.take(80))
+            if (run.summary.isNotBlank()) append("，" + run.summary.clipChars(80, "…"))
         }
         if (task.skips > 0) append("\n  因上一次没跑完跳过 ${task.skips} 次")
     }
@@ -360,7 +369,7 @@ internal object ScheduleTools : PhoneToolGroup {
             "no_change" -> false
             else -> return toolFailure("outcome 只能是 deliver 或 no_change")
         }
-        val summary = Schedules.clip(input.str("summary")?.trim().orEmpty(), Schedules.MAX_SUMMARY)
+        val summary = input.str("summary")?.trim().orEmpty().clipChars(Schedules.MAX_SUMMARY, "…")
         if (changed && summary.isEmpty()) return toolFailure("deliver 要给 summary：通知里显示的一两句话")
         run.report = RunReport(changed, summary)
         return toolText(if (changed) "已记下：这一轮跑完会发通知，正文是这段摘要。" else "已记下：这次没有变化，跑完不发通知，只记进运行记录。")

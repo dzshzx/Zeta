@@ -20,8 +20,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-/** 调用参数不对：message 原样交给 Claude。 */
-internal class BadInput(message: String) : IllegalArgumentException(message)
+/** 调用参数不对：message 原样交给 Claude（见 [ToolError]）。 */
+internal class BadInput(message: String) : ToolError(message)
 
 /** search_personal 的数据来源。 */
 internal enum class PersonalSource(val key: String, val label: String) {

@@ -5,8 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
-import com.dzshzx.zeta.ui.chat.modelLabel
-import com.dzshzx.zeta.ui.chat.readableModelId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -54,10 +52,13 @@ class SessionRestoreTest {
         assertEquals("opus", conversation.modelArgument())
         assertFalse(conversation.modelFromSession)
         // 新对话选默认：不指定，Claude Code 照它自己的设置
+        conversation.receive("""{"type":"system","subtype":"init","session_id":"s-new","model":"claude-opus-5-5"}""")
         conversation.chooseModel("default")
         assertNull(conversation.model)
         assertNull(conversation.modelArgument())
         assertNull(hub.settings.model)
+        // 顶栏写「默认」，不留上一轮 init 报的模型
+        assertEquals("默认", modelLabel(conversation.shownModel, hub.modelOptions))
     }
 
     @Test

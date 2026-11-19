@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.notify
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
@@ -240,7 +241,7 @@ object NotifyRules {
     /** 去掉控制字符（换行、制表符留着），去掉分隔符里的随机串，太长截断。 */
     private fun clean(value: String, limit: Int, nonce: String): String {
         val plain = value.replace(nonce, "").filter { it == '\n' || it == '\t' || !it.isISOControl() }.trim()
-        return if (plain.length > limit) plain.take(limit).trimEnd() + "…" else plain
+        return plain.clipChars(limit, "…")
     }
 
     /** 加在系统提示词后面：这一轮是怎么来的、通知内容不可信，其余见 [unattendedHint]。 */

@@ -105,7 +105,7 @@ internal object DeviceTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = try {
+    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
         toolText(
             when (name) {
                 "device_state" -> deviceState(context, input)
@@ -118,8 +118,6 @@ internal object DeviceTools : PhoneToolGroup {
                 else -> throw ToolError("没有这个工具：$name")
             },
         )
-    } catch (error: ToolError) {
-        toolFailure(error.message.orEmpty())
     }
 
     // ---- device_state ----

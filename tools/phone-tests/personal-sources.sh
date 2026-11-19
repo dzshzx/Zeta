@@ -3,9 +3,10 @@
 # 不回内容；产物里只有这段汇总（summary.txt）。健康权限用权限健康页一键授予的同一条命令授予。
 # 测完删掉这次建的会话和测试版的对话目录，permissionMode 恢复原样。用法：tools/phone-run tools/phone-tests/personal-sources.sh
 set -uo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 mark="ZPROBE$(date +%s)"
 home=/data/local/zeta/debian/rootfs/home/dzshzx
-hosts=$home/.cache/zeta-dev/hosts
+hosts=$HOSTS
 ref=/data/local/tmp/zeta-personal-sources.ref
 user=$(android 'am get-current-user' | tr -d '\r')
 
@@ -39,11 +40,7 @@ parenthesis, isError yes or no. For health also list the words before the first 
 For the two id calls instead list which of these Chinese labels appear at the start of a line, written in pinyin: luyinji beizhu, \
 luyinji zhaiyao, luyinji zhuanxie (voice recorder note, summary, transcript), biaoti, xinjian, xiugai, zhengwen, zhuanxie \
 (title, created, modified, body, transcript), or the line saying they could not be read, nothing else."
-vd tap 319 2413
-sleep 1
-vd text "${prompt// /%s}"
-sleep 1
-vd tap 1089 2543
+send "${prompt// /%s}" 1
 
 # 等这一轮的 result（最多 200 秒，整个脚本要在 phone-run 的 300 秒内跑完），只取最后那段回答
 out=''

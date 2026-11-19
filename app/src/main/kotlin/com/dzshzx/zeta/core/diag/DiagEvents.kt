@@ -31,7 +31,7 @@ object DiagEvents {
             else -> {
                 val helper = helperCommand(command) ?: return
                 if (result.exitCode == 0) return
-                val what = if (result.exitCode == -1) "超时" else "出错（退出码 ${result.exitCode}）"
+                val what = if (result.timedOut) "超时" else "出错（退出码 ${result.exitCode}）"
                 DiagLog.error(DiagTopic.Helper, "helper $helper $what" + if (stderr.isEmpty()) "" else "：$stderr")
             }
         }

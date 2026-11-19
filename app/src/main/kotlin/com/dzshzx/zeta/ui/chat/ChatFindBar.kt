@@ -104,8 +104,12 @@ internal fun ChatFindDriver(
         if (!find.active) return@LaunchedEffect
         val segments = FindSegments(inline)
         snapshotFlow { ChatFind.normalize(find.input) to latestItems }.conflate().collect { (query, list) ->
-            val found = if (query.isEmpty()) emptyList() else withContext(Dispatchers.Default) { ChatFind.matches(segments.of(list, latestText), query) }
-            find.update(query, found, list.withIndex().associate { it.value.id to it.index })
+            // 命中和条目的先后（换选中哪个时用）都在后台算，主线程只收结果
+            val (found, order) = withContext(Dispatchers.Default) {
+                val found = if (query.isEmpty()) emptyList() else ChatFind.matches(segments.of(list, latestText), query)
+                found to if (found.isEmpty()) emptyMap() else list.withIndex().associate { it.value.id to it.index }
+            }
+            find.update(query, found, order)
             delay(120)
         }
     }
@@ -131,7 +135,7 @@ internal fun ChatFindDriver(
 
 /**
  * 查找栏：查找时顶替输入栏。COUI 的搜索输入胶囊，后面是命中计数和上一个、下一个、关闭；下面一行说明查的范围。
- * 查的是整个对话：打开查找栏时界面把还没载入的更早记录一页页载完，[earlierLeft] 是还剩几条没载入，
+ * 查的是整个对话：打开查找栏时界面把还没载入的更早记录一次载完，[earlierLeft] 是还剩几条没载入，
  * [earlierProblem] 是载不下去时的说明（这时只查载入了的）。
  */
 @Composable

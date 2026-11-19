@@ -239,7 +239,7 @@ internal object BrowserPage {
         if (text.isNotEmpty()) {
             append("\n视口里的文字：\n")
             if (text.length > BrowserLimits.VIEW_TEXT) {
-                append(text.take(BrowserLimits.VIEW_TEXT)).append("…\n（只给了前 ").append(BrowserLimits.VIEW_TEXT).append(" 字；read 读全文）")
+                append(text.clipChars(BrowserLimits.VIEW_TEXT)).append("…\n（只给了前 ").append(BrowserLimits.VIEW_TEXT).append(" 字；read 读全文）")
             } else {
                 append(text)
                 if (page.textCut) append("\n…（文字太多，没取完；read 读全文）")

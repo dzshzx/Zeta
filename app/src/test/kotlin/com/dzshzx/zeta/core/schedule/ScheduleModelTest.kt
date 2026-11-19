@@ -302,8 +302,5 @@ class ScheduleModelTest {
         assertEquals("abcde…", Schedules.preview("abcdefgh", limit = 5))
         // 摘要默认的上限；截断不从表情中间切开
         assertEquals(Schedules.MAX_SUMMARY + 1, Schedules.preview("长".repeat(300)).length)
-        assertEquals("ab…", Schedules.clip("ab\uD83D\uDE00cd", 3))
-        assertEquals("ab\uD83D\uDE00…", Schedules.clip("ab\uD83D\uDE00cd", 4))
-        assertEquals("ab\uD83D\uDE00", Schedules.clip("ab\uD83D\uDE00", 4))
     }
 }

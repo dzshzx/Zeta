@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
  * 长对话往上翻时载入更早的记录。打开对话时 zeta_helper.py history 只给最近的一段，往上翻到顶附近时再要那之前的一页，接到列表前面。
  * 助手每次都从头读整份记录（照剪切记号去掉被剪的部分），按条数切页；剪切只去掉界面已经载入的某条用户消息之后的内容，
  * 新内容只接在后面，所以还没载入的那段不会变。要页时报上 [EarlierHistory.anchor] 给助手核对，对不上（比如在终端里剪到了更早的地方）
- * 它就不给（stale），界面让用户重新打开对话。对话内查找时界面把剩下的一页页载完，只在载入的内容里查。
+ * 它就不给（stale），界面让用户重新打开对话。对话内查找时界面一次要走剩下的全部（all），只在载入的内容里查。
  *
  * 这里是不碰 Android 的部分：读助手的输出、要页时给的参数。
  */
@@ -80,5 +80,6 @@ internal object HistoryPaging {
     }
 
     /** 要 [window] 之前的一页时给助手的参数。 */
-    fun pageArguments(window: EarlierHistory): List<String> = listOf(window.file, window.skipped.toString(), window.anchor ?: "-")
+    fun pageArguments(window: EarlierHistory, rest: Boolean = false): List<String> =
+        listOf(window.file, window.skipped.toString(), window.anchor ?: "-") + if (rest) listOf("all") else emptyList()
 }

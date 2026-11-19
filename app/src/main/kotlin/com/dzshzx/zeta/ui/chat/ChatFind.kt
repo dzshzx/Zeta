@@ -105,7 +105,7 @@ internal class ChatFindState : TextFinder {
         matches = found
         index = ChatFind.reselect(before, found, order)
         val after = current
-        if (after != null && (queryChanged || after.itemId != before?.itemId || after.block != before.block || after.start != before.start)) jumps++
+        if (after != null && (queryChanged || after != before)) jumps++
     }
 
     fun next() = move(1)

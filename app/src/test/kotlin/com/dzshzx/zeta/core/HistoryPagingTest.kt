@@ -61,6 +61,7 @@ class HistoryPagingTest {
         val window = EarlierHistory(file, 120, null)
         assertEquals(listOf(file, "120", "-"), HistoryPaging.pageArguments(window))
         assertEquals(listOf(file, "120", "row119"), HistoryPaging.pageArguments(window.copy(anchor = "row119")))
+        assertEquals(listOf(file, "120", "-", "all"), HistoryPaging.pageArguments(window, rest = true))
     }
 
     /**

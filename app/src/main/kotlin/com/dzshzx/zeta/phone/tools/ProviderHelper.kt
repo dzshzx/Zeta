@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.Images
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
@@ -210,7 +211,7 @@ object ProviderHelper {
                     Cursor.FIELD_TYPE_INTEGER -> JsonPrimitive(c.getLong(i))
                     Cursor.FIELD_TYPE_FLOAT -> JsonPrimitive(c.getDouble(i))
                     Cursor.FIELD_TYPE_BLOB -> JsonNull
-                    else -> JsonPrimitive(c.getString(i)?.take(maxChars))
+                    else -> JsonPrimitive(c.getString(i)?.clipChars(maxChars))
                 },
             )
         }
@@ -336,15 +337,15 @@ object ProviderHelper {
             put("pkg", get("getPackage")?.toString().orEmpty())
             put("time", time)
             put("state", "history")
-            get("getTitle")?.toString()?.let { put("title", it.take(maxChars)) }
-            get("getText")?.toString()?.let { put("text", it.take(maxChars)) }
+            get("getTitle")?.toString()?.let { put("title", it.clipChars(maxChars)) }
+            get("getText")?.toString()?.let { put("text", it.clipChars(maxChars)) }
         }
     }
 
     private fun notification(sbn: StatusBarNotification, state: String, maxChars: Int): JsonObject {
         val n = sbn.notification
         val extras = n.extras
-        fun text(key: String) = extras.getCharSequence(key)?.toString()?.take(maxChars)
+        fun text(key: String) = extras.getCharSequence(key)?.toString()?.clipChars(maxChars)
         val lines = extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)?.joinToString("\n")
         val messages = runCatching {
             extras.getParcelableArray(android.app.Notification.EXTRA_MESSAGES, android.os.Parcelable::class.java)?.mapNotNull { message ->
@@ -365,7 +366,7 @@ object ProviderHelper {
             text(android.app.Notification.EXTRA_TEXT)?.let { put("text", it) }
             text(android.app.Notification.EXTRA_BIG_TEXT)?.let { put("big", it) }
             text(android.app.Notification.EXTRA_SUB_TEXT)?.let { put("sub", it) }
-            (messages ?: lines)?.let { put("lines", it.take(maxChars)) }
+            (messages ?: lines)?.let { put("lines", it.clipChars(maxChars)) }
         }
     }
 }

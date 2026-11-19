@@ -11,16 +11,17 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DraftImage
 import com.dzshzx.zeta.core.DraftRecord
 import com.dzshzx.zeta.core.DraftRecords
 import com.dzshzx.zeta.core.SessionSummary
-import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
 import java.util.Calendar
 import org.junit.Test
+import android.content.Context
 
 /** 侧栏（会话列表）：分组列表（含草稿标记）、长按菜单、多选、删除确认、重命名、搜索。侧栏放在聊天页的推移容器里，展开着。 */
 class SessionPaneShots : ShotTest() {
@@ -43,13 +44,14 @@ class SessionPaneShots : ShotTest() {
 
     /** s4、s6 有没发出的草稿（一份是文字，一份只有图片）；正看着的 s2 也有，但不标。 */
     private fun hub(): ConversationHub {
-        Settings(app).composerDrafts = DraftRecords.encode(
+        val drafts = DraftRecords.encode(
             listOf(
                 DraftRecord("s4", "先看 df -h 的输出，再决定删哪些日志", 0, 0, emptyList(), emptyList(), at = 3),
                 DraftRecord("s6", "", 0, 0, listOf(DraftImage("i1", "image/jpeg", 1), DraftImage("i2", "image/jpeg", 1)), emptyList(), at = 2),
                 DraftRecord("s2", "正看着的对话不标", 0, 0, emptyList(), emptyList(), at = 1),
             ),
         )
+        app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE).edit().putString(ComposerDrafts.KEY, drafts).commit()
         return Fixtures.readyHub(app).also { it.choosePinned(setOf("s4")) }
     }
 

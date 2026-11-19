@@ -89,11 +89,6 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
     private val disk = Dispatchers.IO.limitedParallelism(1)
 
     init {
-        // 以前存在主设置文件里：读一次搬过来，再从那里删掉
-        settings.composerDrafts?.let { old ->
-            if (!prefs.contains(KEY)) prefs.edit().putString(KEY, old).apply()
-            settings.composerDrafts = null
-        }
         for (record in DraftRecords.decode(prefs.getString(KEY, null))) {
             records[record.key] = record
             if (record.key != NEW) previews[record.key] = DraftRecords.preview(record)

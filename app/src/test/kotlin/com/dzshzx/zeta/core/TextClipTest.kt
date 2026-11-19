@@ -16,6 +16,9 @@ class TextClipTest {
         assertEquals("ab", "ab${smile}c".clipChars(3))
         assertEquals("…", "abc".clipChars(0, "…"))
         assertEquals("便签标题十二个字整整十二…", "便签标题十二个字整整十二个字".clipChars(12, "…"))
+        // 接省略号前去掉末尾空白；只截不接时原样
+        assertEquals("ab…", "ab  cd".clipChars(4, "…"))
+        assertEquals("ab  ", "ab  cd".clipChars(4))
     }
 
     @Test

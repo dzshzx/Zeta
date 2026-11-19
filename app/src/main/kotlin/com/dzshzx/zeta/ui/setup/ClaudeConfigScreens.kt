@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
@@ -153,7 +154,7 @@ internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
 /** 一段说明文字只取开头，列表里两行放得下。 */
 internal fun brief(text: String, limit: Int = 90): String {
     val flat = text.replace(Regex("\\s+"), " ").trim()
-    return if (flat.length <= limit) flat else flat.take(limit).trimEnd() + "…"
+    return flat.clipChars(limit, "…")
 }
 
 internal fun sizeText(bytes: Long): String = when {

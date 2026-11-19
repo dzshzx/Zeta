@@ -4,17 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.modelLabel
+import com.dzshzx.zeta.core.readableModelId
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 
-/** 没从 Claude Code 拿到模型清单时给的几个别名。 */
-internal val FallbackModels = listOf("default" to "默认", "fable" to "Fable", "opus" to "Opus", "sonnet" to "Sonnet", "haiku" to "Haiku")
-
-/** 可选的模型（值和显示名）：Claude Code 给的清单，拿不到时用几个别名。 */
+/** 可选的模型（值和显示名）：Claude Code 给的清单，拿不到时用几个别名（[ConversationHub.modelOptions]）。 */
 internal fun modelChoices(hub: ConversationHub): List<Pair<String, String>> =
-    hub.models.map { it.value to (if (it.value == "default") "默认" else it.displayName.ifBlank { it.value }) }.ifEmpty { FallbackModels }
+    hub.modelOptions.let { models -> models.map { it.value to modelLabel(it.value, models) } }
 
-/** 模型 [value] 的显示名；清单里没有就是原值。 */
-internal fun modelName(hub: ConversationHub, value: String): String = modelChoices(hub).firstOrNull { it.first == value }?.second ?: value
+/** 模型 [value] 的显示名（[modelLabel]）。 */
+internal fun modelName(hub: ConversationHub, value: String): String = modelLabel(value, hub.modelOptions)
 
 /**
  * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。
@@ -46,7 +45,7 @@ internal fun FollowDropdownPreference(
 /** 「模型」：跟随当前设置，或 [modelChoices] 里的一个。 */
 @Composable
 internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (String?) -> Unit) =
-    FollowDropdownPreference("模型", modelChoices(hub), model, onChange = onChange)
+    FollowDropdownPreference("模型", modelChoices(hub), model, unknown = ::readableModelId, onChange = onChange)
 
 /** 「思考强度」：跟随当前设置，或 Claude Code 的几档之一。 */
 @Composable

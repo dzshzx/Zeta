@@ -39,6 +39,8 @@ import org.junit.Test
  * - 之后单独改 effortLevel 不动这一层。permissions: null 只撤这一层：settings.json 里的规则、effortLevel 照旧，
  *   被拒过的工具照常要确认、照常调得到。
  * - 已经开着的进程再加上规则、紧接着发消息，这一轮就生效。
+ * - 没加过规则的进程收到 permissions: null 什么都不变，发给模型的工具名单和系统提示词也不变（Zeta 在用户每条消息前
+ *   都撤一次，不记加没加过）。
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
  */
 class UnattendedRulesContractTest {
@@ -54,6 +56,9 @@ class UnattendedRulesContractTest {
 
     /** 看到的工具结果：工具短名、内容、是否出错，按顺序。 */
     private val results = mutableListOf<Triple<String, String, Boolean>>()
+
+    /** 主对话每次请求发给模型的工具名单和系统提示词，按顺序：看规则变了有没有动它们（动了提示缓存就作废）。 */
+    private val prompts = mutableListOf<Pair<List<String>, String>>()
     private var seq = 0
 
     @Before
@@ -98,7 +103,10 @@ class UnattendedRulesContractTest {
         val reply = if ("naming a coding session" in system || (body["tools"] as? JsonArray).isNullOrEmpty()) {
             text("""{"title":"t"}""") to "end_turn"
         } else {
-            synchronized(results) { next(body["messages"] as? JsonArray ?: JsonArray(emptyList())) }
+            synchronized(results) {
+                prompts += (body["tools"] as JsonArray).map { (it as JsonObject).str("name").orEmpty() } to system
+                next(body["messages"] as? JsonArray ?: JsonArray(emptyList()))
+            }
         }
         val stream = body["stream"]?.jsonPrimitive?.content == "true"
         val bytes = (if (stream) sse(reply.first, reply.second) else message(listOf(reply.first), reply.second).toString()).toByteArray()
@@ -366,6 +374,33 @@ class UnattendedRulesContractTest {
 
             // 规则怎么变，工具清单都只在起进程时取一次
             assertEquals(1, claude.toolLists)
+        }
+    }
+
+    @Test
+    fun revokingWithoutRulesChangesNothing() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        Claude().use { claude ->
+            claude.response(claude.request { put("subtype", "initialize") })
+            claude.response(claude.request { put("subtype", "apply_flag_settings"); putJsonObject("settings") { put("effortLevel", "low") } })
+            turn(claude, "plain", "create_scheduled_task")
+            val seen = synchronized(results) { prompts.size }
+            // 用户的下一条：先撤规则（这个进程从没加过），紧接着发，和 Zeta 一样不等应答
+            val revoked = applyRules(claude, JsonNull)
+            script.addAll(listOf("create_scheduled_task", "run_scheduled_task"))
+            claude.user("by hand")
+            assertEquals("success", claude.response(revoked).str("subtype"))
+            claude.result()
+            val lifted = synchronized(results) { results.drop(1) }
+            // 发给模型的工具名单和系统提示词没变；settings.json 的规则、思考强度照旧；工具照常要确认（用户允许过的不用）、照常调到
+            synchronized(results) { assertEquals(prompts[0], prompts[seen]) }
+            val after = claude.effective()
+            assertEquals("low", after.str("effortLevel"))
+            assertEquals(listOf("WebSearch"), names(after.obj("permissions")?.get("deny")))
+            assertEquals(listOf("mcp__phone__run_scheduled_task"), names(after.obj("permissions")?.get("allow")))
+            assertEquals(listOf(false, false), lifted.map { it.third })
+            assertEquals(listOf("create_scheduled_task", "create_scheduled_task"), claude.asks)
+            assertEquals(listOf("create_scheduled_task", "create_scheduled_task", "run_scheduled_task"), claude.calls)
         }
     }
 }

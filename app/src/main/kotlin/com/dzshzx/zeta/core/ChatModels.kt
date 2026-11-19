@@ -139,6 +139,33 @@ data class PermissionRequest(
 @Immutable
 data class ModelOption(val value: String, val displayName: String, val description: String)
 
+/** 还没连上进程、拿不到 Claude Code 的清单时先给的几个常用别名（Claude Code 自己解析）。 */
+val FallbackModels = listOf(
+    ModelOption(Conversation.DEFAULT_MODEL, "默认", ""),
+    ModelOption("fable", "Fable", ""),
+    ModelOption("opus", "Opus", ""),
+    ModelOption("sonnet", "Sonnet", ""),
+    ModelOption("haiku", "Haiku", ""),
+)
+
+/**
+ * 模型 [value] 给人看的名字，顶栏、模型菜单、设置页都用它：默认模型（null 或 "default"）是「默认」，
+ * 清单 [models] 里有显示名的用它，完整 ID 写成「Opus 5.5」，别的原样。
+ */
+fun modelLabel(value: String?, models: List<ModelOption>): String = when {
+    value == null || value == Conversation.DEFAULT_MODEL -> "默认"
+    else -> models.firstOrNull { it.value == value }?.displayName?.ifBlank { null } ?: readableModelId(value)
+}
+
+private val ModelId = Regex("claude-([a-z]+)-(\\d+(?:-\\d{1,2})*)(?:-\\d{8})?(\\[1m])?")
+
+/** Claude Code 报的完整模型 ID（claude-opus-5-5、claude-haiku-4-5-20251001、claude-opus-5-5[1m]）写成人看的名字；认不出的原样。 */
+fun readableModelId(id: String): String {
+    val match = ModelId.matchEntire(id) ?: return id
+    val (family, version, wide) = match.destructured
+    return family.replaceFirstChar { it.uppercase() } + " " + version.replace('-', '.') + if (wide.isNotEmpty()) " (1M)" else ""
+}
+
 /** 历史会话的概要（来自 ~/.claude/projects 下的记录文件）。 */
 @Immutable
 data class SessionSummary(
