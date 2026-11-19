@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zeta 作为数字助理：会话服务、识别服务（转给手机原有的）、要截图和应用内容（含屏幕文字）。不支持锁屏上唤起。 -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.dzshzx.zeta.assistant.ZetaVoiceInteractionSessionService"
+    android:recognitionService="com.dzshzx.zeta.assistant.ZetaRecognitionService"
+    android:settingsActivity="com.dzshzx.zeta.ui.MainActivity"
+    android:supportsAssist="true"
+    android:usesAssistData="true"
+    android:usesAssistScreenshots="true"
+    android:usesAssistStructureScreenContent="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false"
+    android:supportsLocalInteraction="false" />

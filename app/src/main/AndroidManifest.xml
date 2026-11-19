@@ -11,7 +11,7 @@
     <!-- 定时任务：到点准时（setAlarmClock 要它），开机后重排闹钟 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- 按住说话：系统的语音识别服务替 Zeta 录音，要 Zeta 自己有麦克风权限；朗读回答时退到后台继续读 -->
+    <!-- 按住说话、数字助理的识别服务转给手机原有的识别服务：系统的识别服务替 Zeta 录音，按调用方核对麦克风权限；朗读回答时退到后台继续读 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- 健康连接（search_personal 的 health，只读）：由权限健康页经 root 授予，和 HealthSummary.PERMISSIONS 一致 -->
@@ -31,7 +31,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <!-- 系统自带的语音识别和朗读引擎（小米的在 com.xiaomi.mibrain.speech） -->
+        <!-- 系统自带的语音识别和朗读引擎（小米的在 com.xiaomi.mibrain.speech）；数字助理的识别服务也靠它找到小米的转过去 -->
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -41,6 +41,7 @@
     </queries>
     <application
         android:allowBackup="false"
+        android:description="@string/xposed_description"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -161,6 +162,45 @@
             android:name=".core.voice.ReadAloudService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- 数字助理：系统助理会话和 ASSIST 打开的浮窗（盖在当前应用上，不进最近任务） -->
+        <activity
+            android:name=".assistant.AssistantActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.assistant"
+            android:theme="@style/Theme.Zeta.Assistant"
+            android:windowSoftInputMode="adjustResize|stateHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name=".assistant.ZetaVoiceInteractionService"
+            android:exported="true"
+            android:label="@string/assistant_label"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/zeta_voice_interaction" />
+        </service>
+        <service
+            android:name=".assistant.ZetaVoiceInteractionSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <service
+            android:name=".assistant.ZetaRecognitionService"
+            android:exported="true"
+            android:label="@string/recognition_label">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+        </service>
         <service
             android:name=".core.AgentService"
             android:exported="false"

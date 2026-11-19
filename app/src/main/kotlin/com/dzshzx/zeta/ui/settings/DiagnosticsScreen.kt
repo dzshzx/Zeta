@@ -158,6 +158,7 @@ internal fun DiagnosticsScreen(
                 }
             }
         }
+        item(key = "assistant") { AssistantDiagnosticsGroup(reloads) }
         item(key = "stderr") {
             PreferenceGroup(
                 title = "对话进程的错误输出",

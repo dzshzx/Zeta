@@ -147,6 +147,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.health.connect.client)
+    // 长按电源键交给 Zeta 的 LSPosed 模块（xposed/）：接口由 LSPosed 在 system_server 里提供
+    compileOnly(libs.libxposed.api)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)

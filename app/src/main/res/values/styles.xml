@@ -6,4 +6,13 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>
+
+    <!-- 数字助理浮窗：透明、盖在当前应用上，没有进出场动画（面板自己滑入滑出） -->
+    <style name="Theme.Zeta.Assistant" parent="Theme.Zeta">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
