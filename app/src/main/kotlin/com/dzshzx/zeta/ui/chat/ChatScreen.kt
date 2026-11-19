@@ -562,8 +562,7 @@ private fun ConversationBody(
                     )
                 },
                 trailing = {
-                    QuotaChip(hub.quota.snapshot, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
-                    if (conversation.usage.known) ContextMeter(conversation.usage, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
+                    UsageButton(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }, modifier = Modifier.padding(end = 4.dp))
                 },
             )
             UsageDialog(

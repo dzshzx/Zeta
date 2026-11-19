@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.core.formatCost
@@ -54,6 +55,7 @@ import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -106,6 +108,7 @@ internal fun EffortChip(effort: String?, applied: String?, onChange: (String?) -
                 style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
                 color = content,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         OverlayDropdownPopup(
@@ -128,9 +131,24 @@ private fun levelColor(level: ContextLevel, normal: Color): Color = when (level)
     ContextLevel.Normal -> normal
 }
 
-/** 发送键左边的上下文圆环；快满时变色并显示百分比。点开是用量统计。 */
+/**
+ * 发送键左边的用量按钮，点开是用量弹窗（订阅额度、上下文、累计）。订阅额度快到上限或已被拒时显示额度提醒（[QuotaAlarm]），
+ * 否则显示上下文圆环；额度没事、上下文也还不知道时不占地方。
+ */
 @Composable
-internal fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun UsageButton(quota: QuotaSnapshot?, usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val now = rememberNow()
+    val current = quota?.current(now)
+    val alarming = current?.alarming
+    when {
+        current != null && alarming != null -> QuotaAlarm(current, alarming, now, onClick, modifier)
+        usage.known -> ContextMeter(usage, onClick, modifier)
+    }
+}
+
+/** 上下文圆环；快满时变色并显示百分比。 */
+@Composable
+private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val dark = COUITheme.colorScheme.isDark
     val ink = COUITheme.colorScheme.labelPrimary
     val level = usage.level

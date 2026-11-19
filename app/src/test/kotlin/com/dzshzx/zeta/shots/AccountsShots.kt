@@ -81,7 +81,7 @@ class AccountsShots : ShotTest() {
         ) { AccountsScreen(hub = hub, onBack = {}) }
     }
 
-    /** 输入栏右边的额度提醒（快到上限时才出现）。 */
+    /** 输入栏右边的用量按钮在额度快到上限时换成额度提醒。 */
     @Test
     fun chatQuotaChip() {
         val hub = Fixtures.readyHub(app)
@@ -95,7 +95,7 @@ class AccountsShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
         hub.showChat("额度", listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)))
-        shoot("chat-quota", prepare = { onAllNodes(hasContentDescription("订阅额度", substring = true)).onFirst().performClick() }) {
+        shoot("chat-quota", prepare = { onAllNodes(hasContentDescription("额度已用", substring = true)).onFirst().performClick() }) {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
         }
     }

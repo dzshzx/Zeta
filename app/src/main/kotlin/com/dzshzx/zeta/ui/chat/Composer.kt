@@ -81,7 +81,6 @@ import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconChip
-import io.github.suqi8.coui.kmp.basic.SuggestionChip
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
@@ -117,7 +116,10 @@ internal fun Modifier.chatPanel(shape: Shape): Modifier {
         .border(0.5.dp, colors.container4, shape)
 }
 
-/** 输入卡片：圆角面板里是输入框，下面一行附件键、权限胶囊和思考胶囊，右下角圆形发送键。 */
+/**
+ * 输入卡片：圆角面板里是输入框，下面一行是附件键、权限模式按钮、思考胶囊，右边是用量按钮和圆形发送键。
+ * 发送键和用量按钮尺寸固定，窄屏放不下时截断的是思考胶囊。
+ */
 @Composable
 internal fun Composer(
     state: TextFieldState,
@@ -143,9 +145,9 @@ internal fun Composer(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 权限胶囊后面的胶囊（思考强度）。 */
+    /** 权限模式按钮后面的胶囊（思考强度）：分到剩下的宽度，放不下时由它截断。 */
     extraChips: @Composable () -> Unit = {},
-    /** 发送键左边的小部件（上下文用量）。 */
+    /** 发送键左边的小部件（用量按钮），按自己的尺寸量，不被挤小。 */
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = COUITheme.colorScheme
@@ -311,8 +313,10 @@ internal fun Composer(
             }
             Spacer(Modifier.width(8.dp))
             PermissionModeChip(mode = permissionMode, onChange = onPermissionModeChange)
-            extraChips()
-            Spacer(Modifier.weight(1f))
+            // 思考胶囊分到的是别的都量完后剩下的宽度，窄屏放不下时截断的是它；右边的用量按钮和发送键先量，不会被挤小
+            Row(modifier = Modifier.weight(1f).padding(end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                extraChips()
+            }
             trailing()
             val showStop = busy && !canSend
             val buttonColor by animateColorAsState(
@@ -365,18 +369,32 @@ internal fun Composer(
     }
 }
 
-/** 权限模式胶囊：点开是五种模式的单选菜单。 */
+/**
+ * 权限模式按钮：只有一面盾牌，颜色看模式（放得越开越醒目），模式名在读屏说明和点开的单选菜单里。
+ * 逐项确认和没指定时是中性的灰，计划模式青色，自动接受编辑紫色，自动判断主题蓝，完全放行红色。
+ */
 @Composable
-private fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
+internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
     val colors = COUITheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
+    val tint = when (mode) {
+        "plan" -> colors.cyan
+        "acceptEdits" -> colors.purple
+        "auto" -> colors.primaryText
+        "bypassPermissions" -> colors.error
+        else -> null
+    }
     Box {
-        SuggestionChip(
+        IconChip(
             onClick = { expanded = true },
-            label = permissionModeLabel(mode),
-            icon = { Icon(imageVector = Icons.Rounded.Shield, contentDescription = null) },
-            colors = ChipDefaults.chipColors(containerColor = colors.containerThemeHalftone, contentColor = colors.primaryText),
-        )
+            colors = if (tint == null) {
+                ChipDefaults.chipColors(contentColor = colors.labelSecondary)
+            } else {
+                ChipDefaults.chipColors(containerColor = tint.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = tint)
+            },
+        ) {
+            Icon(imageVector = Icons.Rounded.Shield, contentDescription = "权限模式：${permissionModeLabel(mode)}")
+        }
         val entries = listOf(
             DropdownEntry(
                 items = PermissionModes.map { (value, label) ->

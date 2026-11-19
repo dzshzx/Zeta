@@ -45,17 +45,15 @@ private fun severityColor(severity: QuotaSeverity, normal: Color): Color = when 
 }
 
 /**
- * 发送键左边、上下文圆环旁的额度提醒：快到上限（服务器说要注意，或用了八成以上）或已经被拒时才出现，
- * 平时不占地方。点开是用量弹窗，里面有各个窗口的详情。
+ * 用量按钮的额度样子（见 [UsageButton]）：快到上限（服务器说要注意，或用了八成以上）时是测速图标加百分比，
+ * 已经被拒时是“已达上限”，按严重程度着色。是哪个窗口只放在读屏说明里，比如“本周额度已用 95%”。
+ * [current] 是按 [now] 折算过的额度，[window] 是它的 [QuotaSnapshot.alarming]。
  */
 @Composable
-internal fun QuotaChip(snapshot: QuotaSnapshot?, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val now = rememberNow()
-    val current = snapshot?.current(now) ?: return
-    val window = current.alarming ?: return
+internal fun QuotaAlarm(current: QuotaSnapshot, window: QuotaWindow, now: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val severity = if (current.blocked) QuotaSeverity.Critical else maxOf(window.severity, Quota.severityOf(window.used))
     val color = severityColor(severity, StatusWarning)
-    val text = if (current.blocked) "已达上限" else "${window.shortLabel} ${window.percent}%"
+    val text = if (current.blocked) "已达上限" else "${window.percent}%"
     Row(
         modifier = modifier
             .heightIn(min = 30.dp)
@@ -67,7 +65,7 @@ internal fun QuotaChip(snapshot: QuotaSnapshot?, onClick: () -> Unit, modifier: 
                 contentDescription = if (current.blocked) {
                     "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
                 } else {
-                    "订阅额度：${window.label}已用 ${window.percent}%"
+                    "${window.spokenName}额度已用 ${window.percent}%"
                 }
             },
         verticalAlignment = Alignment.CenterVertically,
@@ -82,6 +80,14 @@ internal fun QuotaChip(snapshot: QuotaSnapshot?, onClick: () -> Unit, modifier: 
         )
     }
 }
+
+/** 读屏说明里的窗口名，后面接“额度”：本周、5 小时、本周 Fable。 */
+private val QuotaWindow.spokenName: String
+    get() = when {
+        scope == null || shortLabel != scope -> shortLabel
+        group == "weekly" || kind.startsWith("weekly") -> "本周 $scope "
+        else -> "$scope "
+    }
 
 /** 各个额度窗口：名字、已用比例、进度条、什么时候重置。用量弹窗和设置里的账号页共用。 */
 @Composable

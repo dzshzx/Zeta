@@ -4,18 +4,26 @@ import android.graphics.PixelFormat
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.QueuedMessage
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.QuestionOption
+import com.dzshzx.zeta.core.QuotaSeverity
+import com.dzshzx.zeta.core.QuotaSnapshot
+import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
@@ -30,6 +38,7 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 聊天页上的零件：顶栏和输入栏的菜单、查找栏、输入栏上方的几种条、确认与提问、空对话、环境没就绪、会话在别处运行。 */
@@ -55,7 +64,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun permissionModeMenu() {
         val hub = chatHub()
-        shoot("chat-permission-menu", prepare = { onNodeWithText("默认权限").performClick() }) { Chat(hub) }
+        shoot("chat-permission-menu", prepare = { onNodeWithContentDescription("权限模式：默认权限").performClick() }) { Chat(hub) }
     }
 
     /** 在对话中查找：查找栏顶替输入栏，命中处高亮。 */
@@ -96,6 +105,42 @@ class ChatScreenPartsShots : ShotTest() {
                 onNode(hasContentDescription("任务清单，", substring = true)).performClick()
             },
         ) { Chat(hub) }
+    }
+
+    /**
+     * 窄屏（约 375dp）上输入栏底栏最挤的时候：本周额度用了 95%、对话正在运行（发送键换成停止）、上下文用量已知，
+     * 权限是“自动判断”、思考是“超高”。停止键要按原尺寸整个露在屏内，放不下时收缩的是左边的胶囊。
+     */
+    @Test
+    fun crowdedComposerBar() {
+        val hub = chatHub()
+        val now = System.currentTimeMillis()
+        hub.quota.force(
+            "snapshot",
+            QuotaSnapshot(
+                windows = listOf(
+                    QuotaWindow("session", "session", null, 0.31, now + 3 * 3_600_000, QuotaSeverity.Normal),
+                    QuotaWindow("weekly_all", "weekly", null, 0.95, now + 2 * 86_400_000, QuotaSeverity.Critical, active = true),
+                ),
+                subscription = "max",
+                // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
+                updatedAt = now - 60_000,
+            ),
+        )
+        val conversation = hub.current
+        conversation.force("busy", true)
+        conversation.force("lastActivityAt", now)
+        conversation.force("permissionMode", "auto")
+        conversation.force("effort", "xhigh")
+        conversation.force("usage", ChatUsage(contextTokens = 214_300, contextWindow = 400_000, autoCompact = true, compactAt = 266_000))
+        shoot("chat-composer-crowded") { Chat(hub) }
+
+        val screen = compose.onRoot().getBoundsInRoot()
+        val stop = compose.onNodeWithContentDescription("停止").getBoundsInRoot()
+        assertTrue("停止键被挤小了：宽 ${stop.width}", stop.width >= 35.5.dp)
+        assertTrue("停止键露出了屏幕：$stop，屏幕 $screen", stop.left >= screen.left && stop.right <= screen.right)
+        compose.onNodeWithContentDescription("本周额度已用 95%").assertExists()
+        compose.onNodeWithContentDescription("权限模式：自动判断").assertExists()
     }
 
     /** 这个对话开着后台屏幕：输入栏上方的缩略图条。 */

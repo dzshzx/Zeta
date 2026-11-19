@@ -45,14 +45,15 @@ import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.AttachPathDialogs
 import com.dzshzx.zeta.ui.chat.ChatImage
-import com.dzshzx.zeta.ui.chat.ContextMeter
 import com.dzshzx.zeta.ui.chat.EffortChip
 import com.dzshzx.zeta.ui.chat.FileChip
 import com.dzshzx.zeta.ui.chat.NoticeRow
 import com.dzshzx.zeta.ui.chat.PathAttach
-import com.dzshzx.zeta.ui.chat.QuotaChip
+import com.dzshzx.zeta.ui.chat.PermissionModeChip
+import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.QuotaDialogSection
 import com.dzshzx.zeta.ui.chat.TypingIndicator
+import com.dzshzx.zeta.ui.chat.UsageButton
 import com.dzshzx.zeta.ui.chat.UsageDialog
 import com.dzshzx.zeta.ui.chat.UserBubble
 import com.dzshzx.zeta.ui.chat.WorkGroup
@@ -90,6 +91,14 @@ class ChatPartsShots : ShotTest() {
             ),
         )
     }
+
+    /** 已经被拒：到上限了，两小时后解除。 */
+    private val blocked = QuotaSnapshot(
+        windows = listOf(QuotaWindow("session", "session", null, 1.0, now + 2 * 3_600_000, QuotaSeverity.Critical, active = true)),
+        blocked = true,
+        blockedUntil = now + 2 * 3_600_000,
+        updatedAt = now - 60_000,
+    )
 
     private val usage = ChatUsage(
         contextTokens = 214_300,
@@ -155,21 +164,28 @@ class ChatPartsShots : ShotTest() {
         }
     }
 
-    /** 输入栏右边的控件：思考强度（默认、指定）、额度提醒、上下文圆环（平时、快满）。 */
+    /**
+     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的颜色）；思考强度（默认、指定）；
+     * 用量按钮的额度提醒（快满、已达上限）和上下文圆环（平时、快满）。
+     */
     @Test
     fun usageChips() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
         shoot("chat-parts-chips") {
             Host {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (listOf(null) + PermissionModes.map { it.first }).forEach { PermissionModeChip(mode = it, onChange = {}) }
+                }
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     EffortChip(effort = null, applied = "high", onChange = {})
                     EffortChip(effort = "max", applied = "max", onChange = {}, modifier = Modifier.padding(start = 6.dp))
                 }
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    QuotaChip(hub.quota.snapshot, onClick = {})
-                    ContextMeter(usage.copy(contextTokens = 120_000), onClick = {})
-                    ContextMeter(usage.copy(contextTokens = 380_000), onClick = {})
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    UsageButton(hub.quota.snapshot, usage, onClick = {})
+                    UsageButton(blocked, usage, onClick = {})
+                    UsageButton(null, usage.copy(contextTokens = 120_000), onClick = {})
+                    UsageButton(null, usage.copy(contextTokens = 380_000), onClick = {})
                 }
             }
         }
