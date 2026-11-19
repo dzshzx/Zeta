@@ -36,7 +36,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 签名：debug 包用 `~/.android/zeta-debug.keystore` 签名，是手机上已装的 Zeta 用的那把调试密钥。工作站上是一份拷贝（权限 600），手机上是指向 `~/.android/debug.keystore` 的符号链接。签名对不上时 `pm install -r` 会失败，卸载重装会丢掉 Zeta 的全部设置，所以不换这把密钥，也不卸载。
 - 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，再构建 debug 包、跑 JVM 单元测试。
 - 单元测试：`tools/gradle :app:testDebugUnitTest`，放在 `app/src/test/kotlin`。不碰 Android 运行时的逻辑（解析、路径、状态归约）都写成单元测试，在工作站上就能验，不用装机。`ClaudeConfigClientTest` 在临时 HOME 上端到端跑 `core/claude` 的脚本和 `claude` 命令行；加 `ZETA_TEST_SSH=xiaomi-17-debian`（和 `--rerun`）时经 ssh 在手机 Debian 里用临时 HOME 再跑一遍。
-- 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：测试版有三份，三个任务可以同时各用一份（见下一条）。工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；三份都有人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。
+- 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。手机只有一台，同一个包同时只能装一个版本，所以按包发租约：测试版有三份，三个任务可以同时各用一份（见下一条）。工作站上的 `tools/install.sh` 和 `tools/vd.py` 每次碰手机前先经 `tools/phone-lock` 拿租约，占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`）；三份都有人占着就失败（退出码 75），15 分钟没动静自动作废；测完用 `tools/phone-lock --release` 释放手上的全部租约。手机是并行开发的瓶颈：拿租约前先把要做的步骤写好（命令清单或小脚本），拿到后只执行，一次占用不超过 10 分钟，测完立刻释放；只在真机上验必须真机才能验的部分，单元测试、临时 HOME、契约测试能验的不占手机。
 - 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：build type `dev`，橙色图标，代码和签名同 debug（`assembleDebug` 照旧只出正式版）。测试版有三份，好让三个任务同时测：`com.dzshzx.zeta.dev`（「Zeta 测试」）、`.dev2`（「Zeta 测试2」）、`.dev3`（「Zeta 测试3」），由 `-Pzeta.devSlot=<1..3>` 选，不传是第一份。`tools/install.sh --dev` 先向 `tools/phone-lock dev` 要一份空着的（优先给你上次用过的那份），按它构建、安装，打印装的是哪一份；之后的 `vd.py --dev` 自动用同一份。各份和正式版同时装在手机上，互不替换。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在合入后由负责合入的会话装：`ZETA_PHONE_OWNER` 不是 `main` 时，`tools/install.sh` 和 `tools/vd.py` 的 start、launch、stop、prefs 不肯碰正式版。
   - 测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」「Zeta 测试2」「Zeta 测试3」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
@@ -57,7 +57,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 发版
 
-一个版本一件事。功能分支不改版本号，合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
+一个版本一件事。功能分支不改版本号，交回前自己变基到最新的 origin/master、解决冲突、压成一个提交；合入前由负责合入的会话升 `app/build.gradle.kts` 的 `versionName`（只升 patch）和 `versionCode`（加 1），免得并行的分支在这里必然冲突。提交标题里带上版本号，用 `wt land` 合入，再用 `tools/install.sh`（不带 `--dev`，即正式版）装到手机，在测试屏上验一遍。没有 tag，GitHub 上也不发 Release。
 
 ## 边界
 
