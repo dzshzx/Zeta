@@ -29,6 +29,7 @@ import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.phone.tools.PhoneToolGroups
+import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.dzshzx.zeta.phone.tools.enumProp
 import com.dzshzx.zeta.phone.tools.prop
 import com.dzshzx.zeta.phone.tools.rootShell
@@ -91,12 +92,8 @@ class PhoneTools(
     /** [destroy] 过了：不再建后台屏幕，免得还没结束的工具调用给已经没人要的会话建出一块没人管的屏。 */
     @Volatile private var destroyed = false
 
-    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），由 ScheduleRunner 挂上、跑完摘掉。工具组据此收起或放出一些工具。 */
+    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），由 ScheduleRunner 挂上、跑完摘掉。Claude 的上报记在它上面。 */
     @Volatile var unattended: UnattendedRun? = null
-
-    /** 最近一次交给 Claude Code 的工具清单是按后台运行给的：这个进程看不到管理定时任务的工具。 */
-    @Volatile var listedUnattended = false
-        private set
 
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
@@ -467,11 +464,7 @@ class PhoneTools(
                 putJsonObject("serverInfo") { put("name", SERVER); put("version", "1") }
                 put("instructions", INSTRUCTIONS)
             }
-            "tools/list" -> {
-                val run = unattended
-                listedUnattended = run != null
-                buildJsonObject { put("tools", JsonArray(TOOLS + PhoneToolGroups.all.flatMap { it.tools(run) })) }
-            }
+            "tools/list" -> buildJsonObject { put("tools", JsonArray(TOOLS + PhoneToolGroups.all.flatMap { it.tools })) }
             "tools/call" -> {
                 val params = message.obj("params")
                 val name = params?.str("name").orEmpty()
@@ -506,9 +499,13 @@ class PhoneTools(
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = when (name) {
         "shell" -> shell(a)
         "find_apps" -> findApps(a.str("query").orEmpty())
+        ScheduleTools.REPORT -> {
+            reportCall(toolUseId, name, a)
+            ScheduleTools.report(a, unattended)
+        }
         else -> PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
-            group.call(context, name, a, unattended)
+            group.call(context, name, a)
         } ?: synchronized(lock) {
             justWoke = false
             // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废

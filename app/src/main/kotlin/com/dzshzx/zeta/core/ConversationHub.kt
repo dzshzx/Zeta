@@ -957,8 +957,6 @@ class ConversationHub(private val app: Application) {
     }
 
     internal fun onAttentionNeeded(conversation: Conversation) {
-        // 后台运行里 Claude 上报结论不用问，ScheduleRunner 直接放行
-        if (ScheduleRunner.onAttention(conversation)) return
         if ((!foreground || conversation !== current) && !ScheduleRunner.owns(conversation)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
         }

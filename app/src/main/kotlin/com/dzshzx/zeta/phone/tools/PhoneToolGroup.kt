@@ -3,7 +3,6 @@ package com.dzshzx.zeta.phone.tools
 import android.content.Context
 import com.dzshzx.zeta.core.CommandResult
 import com.dzshzx.zeta.core.LinuxEnv
-import com.dzshzx.zeta.core.schedule.UnattendedRun
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -29,12 +28,6 @@ internal interface PhoneToolGroup {
 
     /** 聊天里和胶囊上显示的一句中文，比如「打开 Wi-Fi」「查看今天的日程」。 */
     fun title(name: String, input: JsonObject): String
-
-    /** 交给 Claude Code 的工具清单：[run] 是这个对话正在跑的无人值守后台运行（没有时为 null）。默认就是 [tools]。 */
-    fun tools(run: UnattendedRun?): List<JsonElement> = tools
-
-    /** 带上这个对话正在跑的后台运行执行一次调用（见 [tools]）；默认不看它。 */
-    fun call(context: Context, name: String, input: JsonObject, run: UnattendedRun?): JsonObject = call(context, name, input)
 }
 
 internal object PhoneToolGroups {

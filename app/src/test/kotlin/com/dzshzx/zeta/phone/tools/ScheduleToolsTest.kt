@@ -29,7 +29,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 定时任务的手机工具：修改只动传了的字段、时间参数怎么并进原来的规则；后台运行里只给上报、管理定时任务的调了也不执行；
+ * 定时任务的手机工具：修改只动传了的字段、时间参数怎么并进原来的规则；后台运行时加给 Claude Code 的权限规则；
  * 上报记进这次运行。经 [ScheduleStore] 读写的那几样在 Robolectric 上真走一遍。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -53,45 +53,40 @@ class ScheduleToolsTest {
 
     private fun update(task: ScheduledTask, json: String) = ScheduleTools.updated(task, args(json), now, shanghai)
 
-    private fun names(run: UnattendedRun?) = ScheduleTools.tools(run).map { (it as JsonObject).str("name") }
-
     @Before
     fun clear() {
         ScheduleStore.update(app) { emptyList() }
     }
 
     @Test
-    fun unattendedRunsOnlySeeTheReport() {
+    fun unattendedRulesDenyOnlyZetasManagingTools() {
+        // 工具清单不随后台运行变：上报一直列着
         assertEquals(
-            listOf("create_scheduled_task", "list_scheduled_tasks", "update_scheduled_task", "delete_scheduled_task", "run_scheduled_task"),
-            names(null),
+            listOf("create_scheduled_task", "list_scheduled_tasks", "update_scheduled_task", "delete_scheduled_task", "run_scheduled_task", "report_scheduled_run"),
+            ScheduleTools.tools.map { (it as JsonObject).str("name") },
         )
-        assertEquals(listOf("report_scheduled_run"), names(UnattendedRun(onlyOnChange = true)))
-        assertEquals(emptyList<String>(), names(UnattendedRun(onlyOnChange = false)))
-        // 清单里没有的也调不成（Claude Code 的工具清单是进程起来时取的，可能是旧的）
-        ScheduleStore.update(app) { listOf(daily) }
-        val run = UnattendedRun(onlyOnChange = true)
-        for (name in listOf("create_scheduled_task", "update_scheduled_task", "delete_scheduled_task", "run_scheduled_task", "list_scheduled_tasks")) {
-            val result = ScheduleTools.call(app, name, args("""{"id":"t1","name":"x","prompt":"y","repeat":"daily","time":"09:00"}"""), run)
-            assertTrue(name, failed(result))
-        }
-        assertEquals(listOf(daily), ScheduleStore.load(app))
+        assertEquals(
+            """{"deny":["mcp__phone__create_scheduled_task","mcp__phone__list_scheduled_tasks","mcp__phone__update_scheduled_task",""" +
+                """"mcp__phone__delete_scheduled_task","mcp__phone__run_scheduled_task"],"allow":["mcp__phone__report_scheduled_run"]}""",
+            ScheduleTools.unattendedRules.toString(),
+        )
     }
 
     @Test
     fun reportIsRecordedOnTheRun() {
         val run = UnattendedRun(onlyOnChange = true)
-        val quiet = ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"no_change","summary":"价格还是 2999"}"""), run)
+        val quiet = ScheduleTools.report(args("""{"outcome":"no_change","summary":"价格还是 2999"}"""), run)
         assertFalse(failed(quiet))
         assertEquals(RunReport(changed = false, summary = "价格还是 2999"), run.report)
-        assertTrue(failed(ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"deliver","summary":" "}"""), run)))
-        assertTrue(failed(ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"maybe","summary":"x"}"""), run)))
-        ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"deliver","summary":"降到 2799 了"}"""), run)
+        assertTrue(failed(ScheduleTools.report(args("""{"outcome":"deliver","summary":" "}"""), run)))
+        assertTrue(failed(ScheduleTools.report(args("""{"outcome":"maybe","summary":"x"}"""), run)))
+        ScheduleTools.report(args("""{"outcome":"deliver","summary":"降到 2799 了"}"""), run)
         assertEquals(RunReport(changed = true, summary = "降到 2799 了"), run.report)
-        // 平常的对话、不是只在有变化时提醒的运行：不收
-        assertTrue(failed(ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"no_change","summary":"x"}"""))))
+        // 平常的对话、不是只在有变化时提醒的运行：回一句不用上报，不算出错
+        val idle = ScheduleTools.report(args("""{"outcome":"no_change","summary":"x"}"""), null)
+        assertTrue(!failed(idle) && "不用上报" in text(idle))
         val always = UnattendedRun(onlyOnChange = false)
-        assertTrue(failed(ScheduleTools.call(app, "report_scheduled_run", args("""{"outcome":"no_change","summary":"x"}"""), always)))
+        assertTrue("不用上报" in text(ScheduleTools.report(args("""{"outcome":"no_change","summary":"x"}"""), always)))
         assertNull(always.report)
     }
 

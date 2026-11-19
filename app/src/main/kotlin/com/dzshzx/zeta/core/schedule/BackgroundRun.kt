@@ -49,8 +49,8 @@ internal data class RunSpec(
 
 /**
  * 一次无人值守的后台运行，挂在跑它的对话的手机工具上（PhoneTools.unattended），从开始到跑完。
- * 这期间手机工具里管理定时任务的那几个收起来、调了也不执行（免得一次运行再建出、改掉、跑起别的任务），
- * 只在有变化时提醒的运行另给上报结论的工具，结论记在 [report]（工具线程写，主线程跑完时读）。
+ * 只在有变化时提醒的运行里 Claude 上报的结论记在 [report]（工具线程写，主线程跑完时读）。
+ * 管理定时任务的工具不看它，由 Claude Code 的权限规则拦（见 ScheduleTools.unattendedRules）。
  */
 class UnattendedRun(val onlyOnChange: Boolean) {
     @Volatile var report: RunReport? = null

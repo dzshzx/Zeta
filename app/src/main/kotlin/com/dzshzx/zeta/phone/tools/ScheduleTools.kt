@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.claude.McpNames
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
@@ -17,6 +18,7 @@ import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskDraft
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.PhoneTools
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -30,6 +32,8 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -38,9 +42,10 @@ import kotlinx.serialization.json.putJsonObject
  * 定时任务：让用户在对话里说“每天早上 8 点帮我……”“改成 9 点”“现在先跑一次”。新建、列出、修改、删除、立即运行一次；
  * 任务清单和闹钟由 [ScheduleStore]、[ScheduleAlarms] 管（清单一改闹钟就重排），这里只是把参数翻译过去。
  *
- * 无人值守的后台运行里（定时任务、通知触发跑起来的那一轮，见 [UnattendedRun]）管理定时任务的工具都收起来、调了也不执行：
- * 一次运行常读网页、通知这类外来的文字，要是能新建、改、删、跑别的任务，里面冒充指令的文字就能让自己反复跑下去，
- * 或者把别的任务改成不经确认、照它的意思跑。那一轮只给上报结论的 [REPORT]（只在有变化时提醒的任务才有）。
+ * 无人值守的后台运行里（定时任务、通知触发跑起来的那一轮，见 [UnattendedRun]）管理定时任务的工具都用不了，靠 Claude Code
+ * 自己的权限规则拦（[unattendedRules]）：一次运行常读网页、通知这类外来的文字，要是能新建、改、删、跑别的任务，
+ * 里面冒充指令的文字就能让自己反复跑下去，或者把别的任务改成不经确认、照它的意思跑。上报结论的 [REPORT] 一直列着，
+ * 由 PhoneTools 带上这个对话正在跑的运行交给 [report]。
  */
 internal object ScheduleTools : PhoneToolGroup {
     private const val CREATE = "create_scheduled_task"
@@ -52,6 +57,16 @@ internal object ScheduleTools : PhoneToolGroup {
 
     /** 管理定时任务的工具：后台运行里不给。 */
     private val MANAGE = setOf(CREATE, LIST, UPDATE, DELETE, RUN)
+
+    /**
+     * 后台运行期间加给 Claude Code 的权限规则（apply_flag_settings 的 permissions 一层，见 Conversation.sendUnattended）：
+     * 管理定时任务的工具拒绝，模型看不到，硬调 Claude Code 直接答没有这个工具，到不了 Zeta；上报结论的不用问。
+     * 只拦 Zeta 自己的工具，Claude Code 自带的 CronCreate、ScheduleWakeup 不管。UnattendedRulesContractTest 钉住这些行为。
+     */
+    val unattendedRules: JsonObject = buildJsonObject {
+        putJsonArray("deny") { MANAGE.forEach { add(McpNames.tool(PhoneTools.SERVER, it)) } }
+        putJsonArray("allow") { add(McpNames.tool(PhoneTools.SERVER, REPORT)) }
+    }
 
     private val MODES = listOf("default", "acceptEdits", "plan", "auto", "bypassPermissions")
     private val REPEATS = listOf("once", "daily", "weekly", "interval")
@@ -141,22 +156,8 @@ internal object ScheduleTools : PhoneToolGroup {
         )
     }
 
-    /** 平常的对话：管理定时任务的五个。后台运行里：只在有变化时提醒的才有上报，别的都没有。 */
-    override fun tools(run: UnattendedRun?): List<JsonElement> = tools.filter { visible(nameOf(it), run) }
-
-    fun visible(name: String, run: UnattendedRun?): Boolean = when {
-        run == null -> name != REPORT
-        else -> name == REPORT && run.onlyOnChange
-    }
-
-    private fun nameOf(tool: JsonElement): String = (tool as JsonObject).str("name").orEmpty()
-
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = call(context, name, input, run = null)
-
-    override fun call(context: Context, name: String, input: JsonObject, run: UnattendedRun?): JsonObject {
-        if (run != null && name in MANAGE) {
-            return toolFailure("这是定时任务或通知触发在后台自动跑的一轮，这时不能新建、修改、删除、运行或列出定时任务。需要的话在回答里请用户自己来。")
-        }
+    /** [REPORT] 不经这里：PhoneTools 带上这个对话正在跑的运行直接调 [report]。 */
+    override fun call(context: Context, name: String, input: JsonObject): JsonObject {
         return try {
             when (name) {
                 CREATE -> create(context, input)
@@ -164,7 +165,6 @@ internal object ScheduleTools : PhoneToolGroup {
                 UPDATE -> update(context, input)
                 DELETE -> delete(context, input)
                 RUN -> runNow(context, input)
-                REPORT -> report(input, run)
                 else -> toolFailure("没有这个工具：$name")
             }
         } catch (e: BadInput) {
@@ -377,15 +377,19 @@ internal object ScheduleTools : PhoneToolGroup {
         )
     }
 
-    private fun report(input: JsonObject, run: UnattendedRun?): JsonObject {
-        if (run == null || !run.onlyOnChange) return toolFailure("这不是只在有变化时提醒的后台运行，不用上报，直接回答就好。")
+    /**
+     * 上报这次运行的结论，记在 [run] 上（这个对话正在跑的后台运行，PhoneTools 给）。不在后台运行里、
+     * 或者这次运行不是只在有变化时提醒的，回一句不用上报。
+     */
+    fun report(input: JsonObject, run: UnattendedRun?): JsonObject {
+        if (run == null || !run.onlyOnChange) return toolText("这不是只在有变化时提醒的后台运行，不用上报，直接回答就好。")
         val changed = when (input.str("outcome")) {
             "deliver" -> true
             "no_change" -> false
-            else -> throw BadInput("outcome 只能是 deliver 或 no_change")
+            else -> return toolFailure("outcome 只能是 deliver 或 no_change")
         }
         val summary = input.str("summary")?.trim().orEmpty().let { if (it.length > MAX_SUMMARY) it.take(MAX_SUMMARY) + "…" else it }
-        if (changed && summary.isEmpty()) throw BadInput("deliver 要给 summary：通知里显示的一两句话")
+        if (changed && summary.isEmpty()) return toolFailure("deliver 要给 summary：通知里显示的一两句话")
         run.report = RunReport(changed, summary)
         return toolText(if (changed) "已记下：这一轮跑完会发通知，正文是这段摘要。" else "已记下：这次没有变化，跑完不发通知，只记进运行记录。")
     }

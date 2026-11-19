@@ -1,9 +1,10 @@
 #!/bin/bash
 # 定时任务“只在有变化时提醒”：测试版换用假 Claude（剧本 fake/schedule-only-on-change.jsonl），先 prefs-set 放一个关着的、
 # 只在有变化时提醒的定时任务（关着就不排闹钟），再在聊天里让 Claude 经手机工具 run_scheduled_task 立即运行它两次：
-#   第 1 次后台运行上报 no_change：运行记录记成 no_change，不发通知（也没有“需要你确认”：上报工具由 Zeta 自动放行）；
+#   第 1 次后台运行上报 no_change：运行记录记成 no_change，不发通知（也没有“需要你确认”）；
 #   第 2 次上报 deliver：记成 done，发通知，正文是上报的摘要。
-# 顺带核对工具清单：后台运行的进程只看到 report_scheduled_run，看不到新建等管理定时任务的工具；平常的对话相反。
+# 顺带核对后台运行的进程收到了权限规则（apply_flag_settings）并且正常应答。假 Claude 不实现 Claude Code 的权限系统：
+# 剧本里上报不弹确认，是照真 Claude Code 在规则下的样子写的；规则拦不拦得住由 UnattendedRulesContractTest 在工作站上验。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/schedule-only-on-change.sh
 # 假 Claude 不写会话记录，没有要删的测试会话；任务由收尾的 vd stop 随 prefs-set 改回去，通知随 force-stop 收掉。
 set -euo pipefail
@@ -98,21 +99,20 @@ n2=$(notes 2)
 echo "第 2 次的通知：${n2:-没有}"
 [[ $n2 == *"降到 2799"* ]] || { echo "有结果应发通知，正文是上报的摘要"; exit 1; }
 
-# 工具清单：这次测试起的假 Claude 进程（抄下来的日志），按 init 里的手机工具分两类
+# 权限规则：这次测试起的假 Claude 进程（抄下来的日志）里，后台运行的（回答里说到价格的）两个都答过 apply_flag_settings
+# （假 Claude 只有这个应答是不带内容的 success），也没有答过别的错（不查额度那条除外）
 kill "$SNAP" 2>/dev/null || true
 SNAP=''
 logs=$(android "ls $COPIES/*.jsonl 2>/dev/null" || true)
-runs=0 chats=0
+runs=0
 for log in $logs; do
-  tools=$(android "grep -m 1 '\"subtype\":\"init\"' $log" |
-    jq -c '[.tools[] | select(startswith("mcp__phone__")) | ltrimstr("mcp__phone__") | select(test("schedul"))]' || true)
-  [[ -n $tools ]] || continue # 起了进程还没有一轮的
-  echo "$(basename "$log" .jsonl)：$tools"
-  if [[ $tools == '["report_scheduled_run"]' ]]; then
-    runs=$((runs + 1))
-  elif [[ $tools == *create_scheduled_task*run_scheduled_task* && $tools != *report_scheduled_run* ]]; then
-    chats=$((chats + 1))
-  fi
+  android "cat $log" >run.jsonl
+  grep -q '看了一下价格' run.jsonl || continue
+  applied=$(jq -c 'select(.type == "control_response" and .response.subtype == "success" and (.response | has("response") | not))' run.jsonl | wc -l)
+  errors=$(jq -c 'select(.type == "control_response" and .response.subtype == "error" and .response.error != "假 Claude 不查订阅额度") | .response.error' run.jsonl)
+  echo "$(basename "$log" .jsonl)：apply_flag_settings 应答 $applied 次${errors:+，出错：$errors}"
+  ((applied >= 1)) && [[ -z $errors ]] && runs=$((runs + 1))
 done
-((runs == 2 && chats >= 1)) || { echo "工具清单不对：后台运行 $runs 个（应为 2）、平常对话 $chats 个（应至少 1）"; exit 1; }
-echo "没有变化不通知、有结果通知，工具清单也对"
+rm -f run.jsonl
+((runs == 2)) || { echo "后台运行的进程应有 2 个答过权限规则，实际 $runs 个"; exit 1; }
+echo "没有变化不通知、有结果通知，后台运行的进程都收到了权限规则"

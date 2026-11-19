@@ -13,6 +13,7 @@ import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -269,6 +270,8 @@ class Conversation(
             return
         }
         process = created
+        // 接上的进程可能正跑着后台运行，加着它的权限规则：用户自己发消息前撤一次（没加过时撤了也无妨）
+        restricted = true
         created.send(controlRequest { put("subtype", "initialize") })
         // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
         meter.processStarted(fresh = false, compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact })
@@ -376,8 +379,13 @@ class Conversation(
         if (!blockedByExternal && !loadingHistory) ensureProcess()
     }
 
-    /** [files] 是已经复制进 Linux 环境的附件路径。 */
-    fun send(text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) {
+    /** 用户自己发的消息。[files] 是已经复制进 Linux 环境的附件路径。 */
+    fun send(text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) = send(text, attachments, files, rules = null)
+
+    /** 后台运行（定时任务、通知触发）发指令：先给进程加上 [rules]，再发。规则留到用户自己发下一条消息时才撤，见 [restrict]。 */
+    internal fun sendUnattended(text: String, rules: JsonObject) = send(text, emptyList(), emptyList(), rules)
+
+    private fun send(text: String, attachments: List<Attachment>, files: List<String>, rules: JsonObject?) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() && attachments.isEmpty() && files.isEmpty()) return
         // 剪会话的应答回来之前不收：这时发出的消息可能被 Claude Code 算在剪之前
@@ -387,6 +395,7 @@ class Conversation(
             autoTitle.arm(title)
         }
         val process = ensureProcess() ?: return
+        restrict(process, rules)
         val message = stage(trimmed, attachments, files)
         val cut = fork?.cut?.takeIf { sessionId == null && !forkCut }
         if (cut == null) {
@@ -417,6 +426,7 @@ class Conversation(
         val process = ensureProcess() ?: return
         val before = reducer.items.toList()
         if (!truncateBefore(reducer.items, target.id)) return
+        restrict(process, null)
         val message = stage(text.trim(), attachments, files)
         requestRewind(process, uuid, lastSeen(before),
             onDone = {
@@ -494,6 +504,24 @@ class Conversation(
         reducer.items.clear()
         reducer.items.addAll(items)
         publish()
+    }
+
+    /** 这个进程上还有后台运行加的权限规则（见 [restrict]）。 */
+    private var restricted = false
+
+    /**
+     * 后台运行的权限规则：[rules] 不为 null 时加上（后台运行发指令前），为 null 时撤掉已经加了的（用户自己发消息前）。
+     * 走 apply_flag_settings 的 permissions，是单独的一层：和用户 settings.json 里的规则叠加，撤时发 null 只撤这一层，
+     * 思考强度（同一个请求的 effortLevel）不受影响。控制请求按顺序处理，新起的进程紧跟在 initialize 后面发，
+     * 第一条消息就生效。这些都由 UnattendedRulesContractTest 钉住。
+     */
+    private fun restrict(process: ClaudeProcess, rules: JsonObject?) {
+        if (rules == null && !restricted) return
+        restricted = rules != null
+        process.send(controlRequest {
+            put("subtype", "apply_flag_settings")
+            putJsonObject("settings") { put("permissions", rules ?: JsonNull) }
+        })
     }
 
     /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。应答在 [handle] 里收。 */
@@ -915,6 +943,7 @@ class Conversation(
         }
         process = created
         forkCut = false
+        restricted = false
         created.send(controlRequest { put("subtype", "initialize") })
         meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
         queryUsage(created)

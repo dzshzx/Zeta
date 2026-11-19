@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -422,6 +423,9 @@ class FakeClaudeContractTest {
                     obj("subtype" to "set_model", "model" to "sonnet"),
                     obj("subtype" to "set_permission_mode", "mode" to "acceptEdits"),
                     obj("subtype" to "apply_flag_settings", "settings" to obj("effortLevel" to "high")),
+                    // 后台运行加上、用户发消息前撤掉的权限规则（见 UnattendedRulesContractTest）
+                    obj("subtype" to "apply_flag_settings", "settings" to obj("permissions" to ScheduleTools.unattendedRules)),
+                    obj("subtype" to "apply_flag_settings", "settings" to obj("permissions" to null)),
                     obj("subtype" to "get_settings"),
                     obj("subtype" to "cancel_async_message", "message_uuid" to "00000000-0000-4000-8000-000000000000"),
                     obj("subtype" to "interrupt"),

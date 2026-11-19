@@ -1,4 +1,4 @@
 {"title":"假 Claude · 立即运行","steps":[{"text":"我让定时任务在后台跑一次。","chunk":6,"delay":30},{"phone":"run_scheduled_task","input":{"id":"ztoocheck"}},{"text":"已经开始了，结果看它自己的通知。","chunk":6,"delay":30}]}
-{"title":"假降价监控","steps":[{"text":"看了一下价格。","chunk":6,"delay":30},{"phone":"report_scheduled_run","input":{"outcome":"no_change","summary":"还是 2999，没有降价"},"ask":true},{"text":"没有变化：还是 2999。","chunk":6,"delay":30}]}
+{"title":"假降价监控","steps":[{"text":"看了一下价格。","chunk":6,"delay":30},{"phone":"report_scheduled_run","input":{"outcome":"no_change","summary":"还是 2999，没有降价"},"ask":false},{"text":"没有变化：还是 2999。","chunk":6,"delay":30}]}
 {"title":"假 Claude · 立即运行","steps":[{"text":"再跑一次。","chunk":6,"delay":30},{"phone":"run_scheduled_task","input":{"id":"ztoocheck"}},{"text":"已经开始了。","chunk":6,"delay":30}]}
-{"title":"假降价监控","steps":[{"text":"又看了一下价格。","chunk":6,"delay":30},{"phone":"report_scheduled_run","input":{"outcome":"deliver","summary":"降到 2799 了，比上次便宜 200"},"ask":true},{"text":"降价了：2799。","chunk":6,"delay":30}]}
+{"title":"假降价监控","steps":[{"text":"又看了一下价格。","chunk":6,"delay":30},{"phone":"report_scheduled_run","input":{"outcome":"deliver","summary":"降到 2799 了，比上次便宜 200"},"ask":false},{"text":"降价了：2799。","chunk":6,"delay":30}]}
