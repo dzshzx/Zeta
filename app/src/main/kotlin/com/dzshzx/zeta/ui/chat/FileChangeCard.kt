@@ -372,11 +372,12 @@ private fun rememberDiffPalette(): DiffPalette {
     val dark = COUITheme.colorScheme.isDark
     val ink = COUITheme.colorScheme.labelPrimary
     val error = COUITheme.colorScheme.error
-    return remember(dark, ink, error) {
+    val success = StatusSuccess
+    return remember(dark, ink, error, success) {
         DiffPalette(
             added = if (dark) Color(0xFF5BC27A) else Color(0xFF1E8E3E),
             removed = if (dark) error.copy(alpha = 0.95f) else error,
-            addedBackground = StatusSuccess.copy(alpha = if (dark) 0.17f else 0.12f),
+            addedBackground = success.copy(alpha = if (dark) 0.17f else 0.12f),
             removedBackground = error.copy(alpha = if (dark) 0.18f else 0.10f),
             number = ink.copy(alpha = if (dark) 0.38f else 0.36f),
             text = ink.copy(alpha = if (dark) 0.88f else 0.84f),
