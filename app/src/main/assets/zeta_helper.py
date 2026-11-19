@@ -2,11 +2,9 @@
 
 由应用经标准输入送进 `python3 - <命令> [参数]`，输出一行一个 JSON。
   list                 所有会话的概要，新的在前
-  history <文件> [<到哪条为止> <核对用的 uuid|-> [<至少载到哪条>]]
+  history <文件> [<到哪条为止> <核对用的 uuid|->]
                        一个会话里要显示的消息，形状与 stream-json 输出一致；用户消息带上它在记录里的 uuid。
                        只给文件时是最近的一段，带上位置时是那之前的一页（见“历史”一节）
-  history-find <文件> <到哪条为止> <核对用的 uuid|-> <关键词>
-                       对话内查找：还没载入的那部分里哪几条消息有这个词、各有几处
   delete <文件>...      删除会话记录，连同 Claude Code 存在同名目录里的东西（工具结果、子代理记录等）
   rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
   archive <id>... <0|1> 归档或取消归档会话（只是列表里不显示）
@@ -415,9 +413,9 @@ def page_starts(events):
     return [i == 0 or (t and s) for i, (t, s) in enumerate(zip(turn, safe))], safe
 
 
-def page_start(starts, end, size, through=None):
+def page_start(starts, end, size):
     """[end] 之前的一页从哪开始：载入 size 条左右，开头取离那里最近的一轮的开头，没有就取不拆开工具调用的地方。
-    剩下的不到半页时一起载完。给了 through 时这一页至少要从它所在那一轮的开头开始，查找跳到更早的命中时用。"""
+    剩下的不到半页时一起载完。"""
     turn, safe = starts
     target = end - size
     if target <= size // 2:
@@ -430,8 +428,6 @@ def page_start(starts, end, size, through=None):
             if near:
                 start = min(near, key=lambda i: (abs(i - target), i))
                 break
-    if through is not None and through < start:
-        start = next((i for i in range(through, -1, -1) if turn[i]), 0)
     return start
 
 
@@ -443,7 +439,7 @@ def history_window(events, owners, end, anchor):
     return 0 < end <= len(events) and (anchor == "-" or owners[end - 1] == anchor)
 
 
-def cmd_history(path, end=None, anchor=None, through=None):
+def cmd_history(path, end=None, anchor=None):
     events, owners = read_events(path)
     if end is None:
         end = len(events)
@@ -453,7 +449,7 @@ def cmd_history(path, end=None, anchor=None, through=None):
         out({"type": "zeta_history", "stale": True})
         return
     else:
-        start = page_start(page_starts(events), end, HISTORY_PAGE, min(through, end - 1) if through is not None else None)
+        start = page_start(page_starts(events), end, HISTORY_PAGE)
     header = {"type": "zeta_history", "skipped": start, "anchor": owners[start - 1] if start > 0 else None,
               "todo_seed": todo_seed(events[:start])}
     # 模型和思考强度按整个对话（剪切之后的全部消息）算，不只是这一页
@@ -464,56 +460,14 @@ def cmd_history(path, end=None, anchor=None, through=None):
 
 
 def last_answer(events):
-    """主线上（剪切之后、不含子代理）最后一次真实回答用的模型和思考强度，重新打开对话时照它恢复。
+    """主线上（剪切之后、不含子代理）最后一次真实回答用的模型和思考强度：重新打开对话时思考强度照它恢复，
+    模型在 Claude Code 报来之前先显示它。
     斜杠命令的输出没有模型；Claude Code 合成的回答（出错提示等）模型是 <synthetic>，都跳过。"""
     for e in reversed(events):
         model = e["message"].get("model") if e["type"] == "assistant" else None
         if model and not model.startswith("<"):
             return {"model": model, "effort": e.get("effort")}
     return {}
-
-
-MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-MD_LINK = re.compile(r"\[([^\]]*)\]\([^)\s]*(?:\s+\"[^\"]*\")?\)")
-MD_MARKS = re.compile(r"\*\*|__|~~|`")
-MD_LINE = re.compile(r"^[ \t]*(?:#{1,6}[ \t]+|(?:>[ \t]?)+|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+|```.*$|\|?(?:[ \t]*:?-+:?[ \t]*\|)+.*$)", re.M)
-
-
-def plain_text(markdown):
-    """回答排版后大致的文字：去掉图片、链接地址、强调记号、行首的标题、引用、列表记号和代码块的围栏。
-    界面查的是排版后的文字，这里只用来估算还没载入的部分有几处，载入后以界面算的为准。"""
-    text = MD_IMAGE.sub("", markdown)
-    text = MD_LINK.sub(r"\1", text)
-    text = MD_LINE.sub("", text)
-    return MD_MARKS.sub("", text)
-
-
-def findable_text(e):
-    """一条消息里查找查的文字：用户亲手输入的（不含附件行）和回答；工具调用、工具结果和思考不查（界面上也不查）。"""
-    content = [b for b in (e.get("message") or {}).get("content") or [] if isinstance(b, dict)]
-    texts = [b.get("text") or "" for b in content if b.get("type") == "text"]
-    if e["type"] == "user":
-        lines = "\n".join(texts).split("\n")
-        while lines and attached_name(lines[0]) is not None:
-            lines.pop(0)
-        return "\n".join(lines).strip()
-    return "\n".join(plain_text(t) for t in texts)
-
-
-def cmd_history_find(path, end, anchor, query):
-    """还没载入的第 0 到 end 条里，哪几条消息有这个词（不分大小写）、各有几处：[[第几条, 几处], …]。"""
-    events, owners = read_events(path)
-    if not history_window(events, owners, end, anchor):
-        out({"type": "zeta_history_find", "stale": True})
-        return
-    needle = query.strip().lower()
-    matches = []
-    if needle:
-        for i, e in enumerate(events[:end]):
-            count = findable_text(e).lower().count(needle)
-            if count:
-                matches.append([i, count])
-    out({"type": "zeta_history_find", "matches": matches})
 
 
 def edit_patch(result):
@@ -1899,12 +1853,9 @@ def main():
         cmd_list()
     elif args[:1] == ["history"] and len(args) == 2 and inside_root(args[1]):
         cmd_history(args[1])
-    elif args[:1] == ["history"] and len(args) in (4, 5) and inside_root(args[1]) and args[2].isdigit() \
-            and HISTORY_ANCHOR.fullmatch(args[3]) and all(a.isdigit() for a in args[4:]):
-        cmd_history(args[1], int(args[2]), args[3], int(args[4]) if len(args) == 5 else None)
-    elif args[:1] == ["history-find"] and len(args) == 5 and inside_root(args[1]) and args[2].isdigit() \
+    elif args[:1] == ["history"] and len(args) == 4 and inside_root(args[1]) and args[2].isdigit() \
             and HISTORY_ANCHOR.fullmatch(args[3]):
-        cmd_history_find(args[1], int(args[2]), args[3], args[4])
+        cmd_history(args[1], int(args[2]), args[3])
     elif args[:1] == ["delete"] and len(args) >= 2 and all(inside_root(a) for a in args[1:]):
         cmd_delete(args[1:])
     elif args[:1] == ["rename"] and len(args) == 3 and inside_root(args[1]):
@@ -1939,7 +1890,7 @@ def main():
             and all(SUBAGENT_ARG.fullmatch(a) for a in args[3:5]) and all(SESSION_ID.fullmatch(a) for a in args[5:]):
         cmd_subagent(int(args[1]), int(args[2]), args[3], args[4], args[5:])
     else:
-        sys.exit("usage: list | history <file> [<end> <anchor|-> [<through>]] | history-find <file> <end> <anchor|-> <query>"
+        sys.exit("usage: list | history <file> [<end> <anchor|->]"
                  " | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts"
                  " | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..."
                  " | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]"

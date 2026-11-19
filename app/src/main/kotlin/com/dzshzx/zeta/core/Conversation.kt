@@ -123,9 +123,6 @@ class Conversation(
     /** 剪会话的应答回来之前读回来的一页：等剪完再接上（剪不成要恢复成剪之前的列表，不能夹在中间）。 */
     private var deferredEarlier: (() -> Unit)? = null
 
-    /** 往前载入的各页里第几条消息变成了哪一项（用户消息和回答），查找跳到更早的命中时据此找到它。 */
-    private val earlierItems = HashMap<Int, String>()
-
     /** 没载入的更早历史里的清单工具调用，任务清单面板据此接上更早建的清单。 */
     var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
         private set
@@ -326,11 +323,11 @@ class Conversation(
     }
 
     /**
-     * 载入更早的一页，接到列表前面。[through] 是这一页至少要载到的那条（查找跳到更早的命中时用）。
+     * 载入更早的一页，接到列表前面（往上翻到顶附近时；对话内查找时一页页载完）。
      * 已经在读、或没有更早的了就不动。在主线程上调用，读在后台；读回来时这次请求作废了（号不是最新的）
      * 或要的那段已经不是现在没载入的那段，就丢掉。新到的实时内容只接在列表末尾，和往前接的这页不相干。
      */
-    fun loadEarlier(through: Int? = null) {
+    fun loadEarlier() {
         val window = earlier ?: return
         if (earlierState == EarlierState.Loading || loadingHistory) return
         val config = hub.settings.env ?: return
@@ -338,7 +335,7 @@ class Conversation(
         earlierState = EarlierState.Loading
         thread(name = "zeta-history-page", isDaemon = true) {
             val page = TranscriptReducer("p$ticket-")
-            val result = hub.helper("history", HistoryPaging.pageArguments(window, through), timeoutMs = 60_000, config = config)
+            val result = hub.helper("history", HistoryPaging.pageArguments(window), timeoutMs = 60_000, config = config)
             val read = result?.takeIf { it.exitCode == 0 }?.let { HistoryPaging.read(it.stdout, window.file, page) }
             val failure = when {
                 read == null -> "没有读到更早的记录" + result?.stderr?.trim()?.takeIf { it.isNotEmpty() }?.let { "：${it.takeLast(200)}" }.orEmpty()
@@ -360,7 +357,6 @@ class Conversation(
             else -> {
                 // 只接在最前面：正看着的那条由列表按 key 保持在原处（见 ui/chat/EarlierHistory.kt）
                 reducer.items.addAll(0, items)
-                earlierItems.putAll(read.itemAt)
                 earlier = read.earlier
                 todoSeed = read.todoSeed
                 earlierState = EarlierState.Idle
@@ -369,23 +365,6 @@ class Conversation(
                 publish()
             }
         }
-    }
-
-    /** 往前载入的那几页里第 [event] 条消息变成的那一项（用户消息或回答）。 */
-    fun itemForEvent(event: Int): String? = earlierItems[event]
-
-    /**
-     * 在还没载入的更早部分里查 [query]：哪几条消息有、各有几处，按先后。没有更早的部分时是空的；读不到时是 null。
-     * 在主线程上调用，读在 IO 线程。
-     */
-    suspend fun findEarlier(query: String): List<EarlierHits>? {
-        val window = earlier ?: return emptyList()
-        val config = hub.settings.env ?: return null
-        val result = withContext(Dispatchers.IO) {
-            hub.helper("history-find", HistoryPaging.findArguments(window, query), timeoutMs = 60_000, config = config)
-        }
-        if (result == null || result.exitCode != 0) return null
-        return HistoryPaging.hits(result.stdout)?.filter { it.event < skippedHistory }
     }
 
     private fun publish() {

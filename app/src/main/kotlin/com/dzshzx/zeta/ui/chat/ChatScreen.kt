@@ -386,14 +386,18 @@ private fun ConversationBody(
         items = shown,
         answerText = { imagesOf(it).text },
         listState = listState,
+        // “更早的记录”那行画在列表外面，不占列表项
+        leading = 0,
         topInset = padding.calculateTopPadding(),
         onJump = { follow = false },
-        earlier = conversation.skippedHistory,
-        earlierIdle = conversation.earlierState != EarlierState.Loading,
-        itemOf = conversation::itemForEvent,
-        findEarlier = conversation::findEarlier,
-        loadEarlier = conversation::loadEarlier,
     )
+    // 查找查整个对话：打开查找栏时把还没载入的更早记录一页页载完（每页照往上翻的大小），之后只在载入的内容里查。
+    // 没读成就停下，查找栏里说明；点“更早的记录”那行重试成功后接着载
+    LaunchedEffect(conversation, find.active) {
+        if (!find.active) return@LaunchedEffect
+        snapshotFlow { conversation.earlier.takeIf { conversation.earlierState == EarlierState.Idle && !conversation.loadingHistory } }
+            .collect { if (it != null) conversation.loadEarlier() }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().findViewport(find)) {
@@ -507,7 +511,7 @@ private fun ConversationBody(
         if (find.active) {
             ChatFindBar(
                 find = find,
-                loadingEarlier = conversation.earlierState == EarlierState.Loading,
+                earlierLeft = conversation.skippedHistory,
                 earlierProblem = (conversation.earlierState as? EarlierState.Failed)?.message,
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))

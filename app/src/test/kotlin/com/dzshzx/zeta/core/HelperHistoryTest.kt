@@ -20,7 +20,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_helper.py 的 history（分页）和 history-find：在临时 HOME 上真跑 python3，不碰任何人真实的 ~/.claude。
+ * zeta_helper.py 的 history（分页）：在临时 HOME 上真跑 python3，不碰任何人真实的 ~/.claude。
  * 记录照 Claude Code 的样子写（紧凑 JSON，一行一条；一轮是用户消息、工具调用、工具结果、回答）。
  */
 class HelperHistoryTest {
@@ -144,17 +144,6 @@ class HelperHistoryTest {
     }
 
     @Test
-    fun throughLoadsDownToTheTurnHoldingThatMessage() {
-        turns(0 until 500)
-        save()
-        // 第 102 条是第 25 轮的工具结果：这一页从第 25 轮的开头（第 100 条）开始
-        val page = helper("history", file.path, "1200", "b299", "102")
-        assertEquals(100, page.header.skipped())
-        assertEquals("question 25", page.events.first().text())
-        assertEquals(1100, page.events.size)
-    }
-
-    @Test
     fun pagesNeverSplitAToolCallFromItsResult() {
         // 一轮里一口气调了 600 次工具：找不到一轮的开头，只能在两次调用之间切
         user("u0", "do a lot")
@@ -208,25 +197,8 @@ class HelperHistoryTest {
         rewind("u250", "b249")
         save()
         assertEquals(JsonPrimitive(true), helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor()).header["stale"])
-        assertEquals(JsonPrimitive(true), helper("history-find", file.path, tail.header.skipped().toString(), tail.header.anchor(), "question").header["stale"])
         // 核对用的那一行不对也不给
         assertEquals(JsonPrimitive(true), helper("history", file.path, "1000", "nope").header["stale"])
-    }
-
-    @Test
-    fun findCountsSpokenTextBeforeTheLoadedPart() {
-        user("u0", "[Attached file: /tmp/needle.txt]\nlook at this needle")
-        toolUse("a0", "needle-tool")
-        toolResult("r0", "needle-tool")
-        answer("b0", "the **needle** is [here](https://needle.example) and needle again")
-        user("u1", "no match")
-        answer("b1", "nothing")
-        user("u2", "needle in the loaded part")
-        save()
-        val found = helper("history-find", file.path, "6", "b1", "NEEDLE").header
-        // 附件行、工具调用和结果、链接地址不算；不分大小写
-        assertEquals("[[0,1],[3,2]]", found["matches"].toString())
-        assertEquals(listOf(EarlierHits(0, 1), EarlierHits(3, 2)), HistoryPaging.hits(found.toString()))
     }
 
     /**

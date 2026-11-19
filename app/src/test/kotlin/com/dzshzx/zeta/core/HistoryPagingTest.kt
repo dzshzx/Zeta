@@ -38,8 +38,6 @@ class HistoryPagingTest {
         // 工具结果回填到了同一页里的调用上
         assertEquals(ToolStatus.Success, ((items[1] as WorkItem).steps.single() as ToolStep).status)
         assertEquals("更早的回答", (items[2] as AnswerItem).text)
-        // 第几条消息变成了哪一项：只记用户消息和回答
-        assertEquals(mapOf(40 to user.id, 43 to items[2].id), read.itemAt)
         assertTrue(items.all { it.id.startsWith("p1-") || it.id.startsWith("w:") })
         assertEquals(1, read.usage.snapshot().turns.size)
     }
@@ -62,10 +60,7 @@ class HistoryPagingTest {
     fun argumentsCarryTheWindowToCheck() {
         val window = EarlierHistory(file, 120, null)
         assertEquals(listOf(file, "120", "-"), HistoryPaging.pageArguments(window))
-        assertEquals(listOf(file, "120", "-", "7"), HistoryPaging.pageArguments(window, through = 7))
-        // 已经载入的那条不用再要
-        assertEquals(listOf(file, "120", "-"), HistoryPaging.pageArguments(window, through = 120))
-        assertEquals(listOf(file, "120", "row", "a b"), HistoryPaging.findArguments(window.copy(anchor = "row"), "a b"))
+        assertEquals(listOf(file, "120", "row119"), HistoryPaging.pageArguments(window.copy(anchor = "row119")))
     }
 
     @Test
@@ -77,13 +72,6 @@ class HistoryPagingTest {
         // 要的那段已经不是现在没载入的那段（别的页先接上了，或换了对话）
         assertFalse(HistoryPaging.accepts(3, 3, window, window.copy(skipped = 80, anchor = "row79")))
         assertFalse(HistoryPaging.accepts(3, 3, window, null))
-    }
-
-    @Test
-    fun hitsIgnoreStaleOrBrokenOutput() {
-        assertEquals(listOf(EarlierHits(3, 2)), HistoryPaging.hits("""{"type":"zeta_history_find","matches":[[3,2],[4,0],["x",1]]}"""))
-        assertNull(HistoryPaging.hits("""{"type":"zeta_history_find","stale":true}"""))
-        assertNull(HistoryPaging.hits(""))
     }
 
     /**

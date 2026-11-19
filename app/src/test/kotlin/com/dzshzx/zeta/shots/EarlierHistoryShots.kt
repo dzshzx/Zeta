@@ -2,7 +2,9 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
@@ -44,6 +46,45 @@ class EarlierHistoryShots : ShotTest() {
         hub.current.force("earlier", EarlierHistory(file, 120, "row119"))
         hub.current.force("earlierState", EarlierState.Loading)
         shoot("chat-earlier-loading") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+    }
+
+    /** 查找栏打开时把剩下的一页页载完：下面那行说还剩几条在载。 */
+    @Test
+    fun findLoadingTheRest() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("长对话", turns("h", 0 until 2))
+        hub.current.force("earlier", EarlierHistory(file, 120, "row119"))
+        // 标成正在载入：不真去读（单元测试里没有 Linux 环境）
+        hub.current.force("earlierState", EarlierState.Loading)
+        shoot("chat-find-earlier", prepare = { openFind() }) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+    }
+
+    /** 打开查找栏就去载更早的记录；读不成时停下，查找栏里说明没查到的部分。 */
+    @Test
+    fun openingFindLoadsTheRest() {
+        val hub = Fixtures.readyHub(app)
+        val conversation = hub.current
+        hub.showChat("长对话", turns("h", 0 until 2))
+        conversation.force("earlier", EarlierHistory(file, 120, "row119"))
+        compose.setContent { ZetaTheme(darkTheme = false, windowBackdrop = false) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) } }
+        settle()
+        assertEquals(EarlierState.Idle, conversation.earlierState)
+        compose.openFind()
+        // 单元测试里的 su 总是失败：读不成，状态从 Idle 变成可以重试的失败
+        compose.waitUntil(20_000) { conversation.earlierState is EarlierState.Failed }
+        assertTrue((conversation.earlierState as EarlierState.Failed).retry)
+        settle()
+        compose.onNodeWithText("更早的 120 条没查", substring = true).assertExistsCompat()
+    }
+
+    private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.openFind() {
+        // 截图时时钟不自己走：菜单弹出、收起的动画要推一把
+        onNodeWithContentDescription("更多").performClick()
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
+        onNodeWithText("在对话中查找").performClick()
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
     }
 
     /**
@@ -114,6 +155,6 @@ class EarlierHistoryShots : ShotTest() {
         val apply = Conversation::class.java.getDeclaredMethod(
             "applyEarlier", Int::class.javaPrimitiveType, EarlierHistory::class.java, List::class.java, HistoryRead::class.java, String::class.java,
         ).apply { isAccessible = true }
-        compose.runOnUiThread { apply.invoke(conversation, 0, window, items, HistoryRead(left, emptyList(), UsageTracker(), emptyMap(), stale = false), null) }
+        compose.runOnUiThread { apply.invoke(conversation, 0, window, items, HistoryRead(left, emptyList(), UsageTracker(), stale = false), null) }
     }
 }
