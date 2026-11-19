@@ -51,6 +51,7 @@ import kotlin.system.exitProcess
  * CLASSPATH 指向 Zeta 自己的 APK，做法同 [com.dzshzx.zeta.phone.VdHelper]。以 root 身份经 ActivityManager 拿到 Provider
  * 的接口直接调用（和系统的 `content` 命令同一条路），所以 Zeta 不用申请日历、短信、通讯录、相册这些权限；
  * 比 `content` 命令多的是：绑定参数、行数上限对 MediaStore 也有效、带类型的结果、插入后拿得到新行的 URI、能取缩略图。
+ * 有的系统应用（比如小米录音机）的 Provider 只认系统身份，这时以 system（uid 1000）起它，见 [RootProvider.run]。
  *
  * 参数是一个 JSON 请求：`{"user":0,"ops":[…]}`，每一项按 `op` 执行，结果按顺序放进 `results`，最后打出一行 [MARK] + JSON。
  * - query：uri、projection、selection、args、sort、limit、offset、maxChars → columns、rows、more
@@ -108,7 +109,11 @@ object ProviderHelper {
 
     // ---- Provider ----
 
-    private val attribution: AttributionSource by lazy { AttributionSource.Builder(Process.myUid()).setPackageName("root").build() }
+    /** 调用方身份：包名要和 uid 对得上（root 是 “root”，system 是 “android”）。 */
+    private val attribution: AttributionSource by lazy {
+        val uid = Process.myUid()
+        AttributionSource.Builder(uid).setPackageName(if (uid == Process.SYSTEM_UID) "android" else "root").build()
+    }
     private val activityManager: Any by lazy { Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null)!! }
     private val iActivityManager: Class<*> by lazy { Class.forName("android.app.IActivityManager") }
     private val iContentProvider: Class<*> by lazy { Class.forName("android.content.IContentProvider") }
@@ -372,16 +377,21 @@ object ProviderHelper {
  * 结果只在内存里交给调用方，不写日志、不缓存。
  */
 internal object RootProvider {
-    /** 执行 [ops]，返回与之一一对应的结果；整个调用失败时抛出异常，message 是给人看的原因。 */
-    fun run(context: Context, ops: List<JsonObject>, timeoutMs: Long = 30_000): List<JsonObject> {
+    /**
+     * 执行 [ops]，返回与之一一对应的结果；整个调用失败时抛出异常，message 是给人看的原因。
+     * [system]：以 system（uid 1000）身份起辅助进程。小米录音机这类系统应用的 Provider 只认系统身份的调用方，
+     * 对 root 一律返回空。uid 要在进程启动前换好（Binder 在 app_process 起来时就按当时的身份打开了），用 BusyBox nsenter 的 -S、-G。
+     */
+    fun run(context: Context, ops: List<JsonObject>, timeoutMs: Long = 30_000, system: Boolean = false): List<JsonObject> {
         val request = buildJsonObject {
             put("user", Process.myUid() / 100_000)
             put("ops", JsonArray(ops))
         }.toString()
+        val launch = if (system) "exec \"\$1\" nsenter -t 1 -m -S ${Process.SYSTEM_UID} -G ${Process.SYSTEM_UID} -- app_process" else "exec app_process"
         // app_process 要和系统一样的启动类路径；经 su 进来时环境变量不一定带着，从 system_server 那里抄一份
         val script = "for kv in \$(\"\$1\" tr '\\000' ' ' < /proc/\$(pidof system_server)/environ); do " +
             "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
-            "CLASSPATH=\"\$2\" exec app_process /system/bin ${ProviderHelper::class.java.name} \"\$3\""
+            "CLASSPATH=\"\$2\" $launch /system/bin ${ProviderHelper::class.java.name} \"\$3\""
         val result = LinuxEnv.runRoot(LinuxEnv.androidScript(script, context.applicationInfo.sourceDir, request), timeoutMs)
         if (result.exitCode == -1 && result.stderr == "timeout") throw IllegalStateException("读取超时（${timeoutMs / 1000} 秒）")
         val line = result.stdout.lineSequence().lastOrNull { it.startsWith(ProviderHelper.MARK) }
@@ -392,8 +402,8 @@ internal object RootProvider {
     }
 
     /** 只执行一项，失败时抛出异常。 */
-    fun one(context: Context, op: JsonObject, timeoutMs: Long = 30_000): JsonObject {
-        val result = run(context, listOf(op), timeoutMs).single()
+    fun one(context: Context, op: JsonObject, timeoutMs: Long = 30_000, system: Boolean = false): JsonObject {
+        val result = run(context, listOf(op), timeoutMs, system).single()
         if (result.bool("ok") != true) throw IllegalStateException(result.str("error") ?: "失败")
         return result
     }

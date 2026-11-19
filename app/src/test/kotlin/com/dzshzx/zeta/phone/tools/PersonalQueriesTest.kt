@@ -109,7 +109,7 @@ class PersonalQueriesTest {
         )
         val op = PersonalQueries.ops(request).single()
         assertEquals(PersonalQueries.SMS, op.str("uri"))
-        assertEquals("(address LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\') AND (date >= ?)", op.str("selection"))
+        assertEquals("(address LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\') AND (date >= CAST(? AS INTEGER))", op.str("selection"))
         assertEquals(listOf("%it's 50\\%%", "%it's 50\\%%", ms("2026-11-18").toString()), op.arr("args")!!.map { it.jsonPrimitive.content })
         assertEquals("date DESC", op.str("sort"))
         assertEquals(5, op.int("limit"))
@@ -149,7 +149,7 @@ class PersonalQueriesTest {
         val op = PersonalQueries.ops(request).single()
         assertEquals(PersonalQueries.IMAGES, op.str("uri"))
         assertEquals(
-            "(_display_name LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\') AND (COALESCE(datetaken, date_added * 1000) >= ?)",
+            "(_display_name LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\') AND (COALESCE(datetaken, date_added * 1000) >= CAST(? AS INTEGER))",
             op.str("selection"),
         )
         assertEquals("COALESCE(datetaken, date_added * 1000) DESC", op.str("sort"))
@@ -291,6 +291,84 @@ class PersonalQueriesTest {
         val lines = PersonalQueries.formatMedia(rows, false, request, zone, now).lines()
         assertEquals("#11 2026-11-19 09:00 DCIM/Screenshots/Screenshot_1.png 1220x2656 717KB", lines[1])
         assertEquals("#10 2026-11-18 09:00 Pictures/a.jpg 2.4MB", lines[2])
+    }
+
+    @Test
+    fun audioFilesAndDownloadsQueryTheMediaStore() {
+        val audio = PersonalQueries.ops(PersonalQueries.searchRequest(input("source" to "audio", "query" to "会议", "start" to "2026-11-18"), now, zone)).single()
+        // 录音机的目录有 .nomedia，录音只在 files 表里，按类型认作音频
+        assertEquals(PersonalQueries.FILES, audio.str("uri"))
+        assertEquals(
+            "(media_type = 2 OR mime_type LIKE 'audio/%') AND " +
+                "(_display_name LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\') AND " +
+                "(COALESCE(NULLIF(date_modified, 0), date_added) >= CAST(? AS INTEGER))",
+            audio.str("selection"),
+        )
+        // 文件的时间是秒
+        assertEquals(List(4) { "%会议%" } + (ms("2026-11-18") / 1000).toString(), audio.arr("args")!!.map { it.jsonPrimitive.content })
+        assertEquals("COALESCE(NULLIF(date_modified, 0), date_added) DESC, _id DESC", audio.str("sort"))
+        assertTrue("duration" in audio.arr("projection")!!.map { it.jsonPrimitive.content })
+
+        val files = PersonalQueries.ops(PersonalQueries.searchRequest(input("source" to "files", "query" to ".pdf"), now, zone)).single()
+        assertEquals(PersonalQueries.FILES, files.str("uri"))
+        assertTrue(files.str("selection")!!.startsWith("(format IS NULL OR format != 12289) AND (_display_name LIKE ?"))
+
+        val downloads = PersonalQueries.ops(PersonalQueries.searchRequest(input("source" to "downloads", "id" to 9), now, zone)).single()
+        assertEquals(PersonalQueries.DOWNLOADS, downloads.str("uri"))
+        assertEquals("(_id = ?)", downloads.str("selection"))
+        assertTrue("download_uri" in downloads.arr("projection")!!.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun formatsAudioFilesAndDownloads() {
+        val audioRequest = PersonalQueries.searchRequest(input("source" to "audio"), now, zone)
+        val audio = PersonalQueries.formatFiles(
+            listOf(
+                row(
+                    "_id" to 31, "date_modified" to ms("2026-11-19T09:00") / 1000, "date_added" to 0, "_size" to 1_258_291,
+                    "mime_type" to "audio/mpeg", "relative_path" to "MIUI/sound_recorder/", "_display_name" to "录音 001.mp3", "duration" to 205_000,
+                    "artist" to "<unknown>",
+                ),
+                row(
+                    "_id" to 30, "date_modified" to 0, "date_added" to ms("2026-11-18T20:00") / 1000, "_size" to 64_000,
+                    "mime_type" to "audio/aac", "relative_path" to "MIUI/sound_recorder/call_rec/", "_display_name" to "10086(10086)_20261118200000.aac",
+                    "duration" to null,
+                ),
+                row(
+                    "_id" to 29, "date_modified" to ms("2026-11-01T08:00") / 1000, "_size" to 4_000_000, "mime_type" to "audio/flac",
+                    "relative_path" to "Music/", "_display_name" to "song.flac", "duration" to 240_000, "artist" to "某乐队",
+                ),
+            ),
+            true, audioRequest, zone, now,
+        ).lines()
+        assertEquals("音频 3 条（按修改时间新的在前；录音用 id 看录音机里的摘要和转写，时间为 UTC+08:00）；还有更多，用 offset=3 继续", audio[0])
+        assertEquals("#31 2026-11-19 09:00 MIUI/sound_recorder/录音 001.mp3 1.2MB 3m25s [录音]", audio[1])
+        assertEquals("#30 2026-11-18 20:00 MIUI/sound_recorder/call_rec/10086(10086)_20261118200000.aac 63KB [通话录音]", audio[2])
+        assertEquals("#29 2026-11-01 08:00 Music/song.flac 3.8MB 4m00s · 某乐队", audio[3])
+
+        val files = PersonalQueries.formatFiles(
+            listOf(row("_id" to 5, "date_modified" to ms("2026-11-19T10:00") / 1000, "_size" to 2048, "mime_type" to "application/pdf", "relative_path" to "Documents/", "_display_name" to "a.pdf")),
+            false, PersonalQueries.searchRequest(input("source" to "files"), now, zone), zone, now,
+        ).lines()
+        assertTrue(files[0].contains("view_media"))
+        assertEquals("#5 2026-11-19 10:00 Documents/a.pdf 2KB application/pdf", files[1])
+
+        val downloads = PersonalQueries.formatFiles(
+            listOf(row("_id" to 7, "date_modified" to ms("2026-11-19T10:00") / 1000, "_size" to 300, "relative_path" to "Download/", "_display_name" to "x.apk", "download_uri" to "https://example.com/x.apk")),
+            false, PersonalQueries.searchRequest(input("source" to "downloads"), now, zone), zone, now,
+        ).lines()
+        assertEquals("#7 2026-11-19 10:00 Download/x.apk 300B 来自 https://example.com/x.apk", downloads[1])
+        assertEquals("没有符合条件的下载记录。", PersonalQueries.formatFiles(emptyList(), false, PersonalQueries.searchRequest(input("source" to "downloads"), now, zone), zone, now))
+    }
+
+    @Test
+    fun healthTakesAWindowButNoIdOrPaging() {
+        val request = PersonalQueries.searchRequest(input("source" to "health", "start" to "2026-11-01", "end" to "2026-11-08"), now, zone)
+        assertEquals(ms("2026-11-01"), request.start)
+        assertEquals(ms("2026-11-08"), request.end)
+        assertThrows(BadInput::class.java) { PersonalQueries.searchRequest(input("source" to "health", "id" to 1), now, zone) }
+        assertThrows(BadInput::class.java) { PersonalQueries.searchRequest(input("source" to "health", "start" to "2024-01-01"), now, zone) }
+        assertThrows(IllegalArgumentException::class.java) { PersonalQueries.ops(request) }
     }
 
     @Test

@@ -31,13 +31,15 @@ import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.phone.tools.HealthReader
+import com.dzshzx.zeta.phone.tools.HealthSummary
 import com.dzshzx.zeta.phone.tools.PersonalTools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** 权限页上的一项。 */
-internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, NotificationListener, ExactAlarm, AutoStart, Microphone }
+internal enum class PermissionId { Root, Linux, Accessibility, Battery, BackgroundStart, Notifications, NotificationHistory, NotificationListener, ExactAlarm, AutoStart, Microphone, Health }
 
 /** Ready 正常；Attention 能用但有问题；Missing 缺了会影响使用；Idle 没开但现在用不到；Checking 还在检查。 */
 internal enum class PermissionStatus { Ready, Attention, Missing, Idle, Checking }
@@ -75,6 +77,8 @@ internal data class PermissionSnapshot(
     val notificationListener: Boolean = false,
     /** 有麦克风权限（按住说话用）。 */
     val microphone: Boolean = false,
+    /** 健康连接的读权限都给了；这台手机没有健康连接时是 null（不列这一项）。 */
+    val health: Boolean? = null,
 )
 
 /**
@@ -116,6 +120,7 @@ internal object PermissionHealth {
             autoStart = miuiAutoStart(context),
             notificationListener = ZetaNotificationListener.granted(context),
             microphone = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+            health = if (HealthReader.available(context)) HealthReader.granted(context).containsAll(HealthSummary.PERMISSIONS) else null,
         )
     }
 
@@ -218,6 +223,7 @@ internal object PermissionHealth {
             },
             notificationListenerItem(snapshot, root),
             microphoneItem(snapshot, root),
+            healthItem(snapshot, root),
         ) + scheduleItems(snapshot, root)
     }
 
@@ -252,6 +258,16 @@ internal object PermissionHealth {
         else -> PermissionItem(
             PermissionId.Microphone, "麦克风", "输入框空着时按住发送键说话要用它；系统的语音识别服务替 Zeta 录音",
             "未允许", PermissionStatus.Idle, root == true,
+        )
+    }
+
+    /** 健康连接的读权限：Claude 查步数、睡眠、心率等时用，没给只是查不到，不算问题。没有健康连接时不列。 */
+    private fun healthItem(snapshot: PermissionSnapshot?, root: Boolean?): PermissionItem? = when (snapshot?.health) {
+        null -> if (snapshot == null) PermissionItem(PermissionId.Health, "健康数据", null, "检查中", PermissionStatus.Checking, false) else null
+        true -> PermissionItem(PermissionId.Health, "健康数据", "Claude 能读健康连接里的步数、睡眠、运动、心率、体重和血氧（只读）", "已授权", PermissionStatus.Ready, false)
+        false -> PermissionItem(
+            PermissionId.Health, "健康数据", "授权后 Claude 能读健康连接里的步数、睡眠、心率等（小米运动健康同步进去的，只读）",
+            "未授权", PermissionStatus.Idle, root == true,
         )
     }
 
@@ -334,6 +350,10 @@ internal object PermissionHealth {
                 )
                 snapshot(app).microphone
             }
+            PermissionId.Health -> {
+                runScript("for p in \$4; do pm grant --user \"\$3\" \"\$2\" \"\$p\"; done", pkg, user, HealthSummary.PERMISSIONS.joinToString(" "))
+                HealthReader.granted(app).containsAll(HealthSummary.PERMISSIONS)
+            }
             PermissionId.Root, PermissionId.Linux -> false
         }
     }
@@ -357,6 +377,8 @@ internal object PermissionHealth {
             PermissionId.NotificationListener -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
             // 运行时权限在应用详情页的“权限”里
             PermissionId.Microphone -> details
+            // 健康连接里 Zeta 自己的权限页
+            PermissionId.Health -> Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS").putExtra(Intent.EXTRA_PACKAGE_NAME, pkg)
             PermissionId.Root, PermissionId.Linux -> null
         }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }

@@ -89,7 +89,7 @@ internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLi
             PreferenceGroup(
                 footer = "经 root 直接改系统设置：把 Zeta 加进电池优化白名单并解除后台限制，允许 MIUI 的后台弹出界面，授予通知权限，" +
                     "在系统的无障碍服务列表末尾加上 Zeta（列表里别的服务原样保留），开启系统的通知历史，允许精确闹钟和自启动（定时任务用），" +
-                    "有通知触发的任务时给 Zeta 通知使用权，授予麦克风权限（按住说话用）。" +
+                    "有通知触发的任务时给 Zeta 通知使用权，授予麦克风权限（按住说话用）和健康连接的读权限（步数、睡眠等，只读）。" +
                     "没改成的那一项，点它会打开对应的系统设置。",
             ) {
                 item {

@@ -10,6 +10,8 @@ intellijMarkdown = "0.7.18"
 ratex = "0.1.16"
 kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
+# 健康连接的公开接口：search_personal 读步数、睡眠、心率等的汇总
+healthConnect = "1.1.0"
 desugarJdkLibs = "2.1.5"
 junit = "4.13.2"
 # 截图测试：Robolectric 在 JVM 上跑 Android（原生图形），Roborazzi 把 Compose 界面存成 PNG。
@@ -36,6 +38,7 @@ ratex-android = { group = "io.github.erweixin", name = "ratex-android", version.
 intellij-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "intellijMarkdown" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 robolectric-android-all = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectric-android-all" }

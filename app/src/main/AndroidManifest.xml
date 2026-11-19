@@ -14,6 +14,16 @@
     <!-- 按住说话：系统的语音识别服务替 Zeta 录音，要 Zeta 自己有麦克风权限；朗读回答时退到后台继续读 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 健康连接（search_personal 的 health，只读）：由权限健康页经 root 授予，和 HealthSummary.PERMISSIONS 一致 -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
 
     <!-- 按名字找应用、打开应用：只需要能看到有桌面图标的那些 -->
     <queries>
@@ -74,6 +84,18 @@
                 <data android:mimeType="application/x-subrip" />
             </intent-filter>
         </activity>
+
+        <!-- 健康连接要求要健康权限的应用声明“权限用途”入口（系统健康连接设置里的隐私说明），点了打开 Zeta -->
+        <activity-alias
+            android:name=".HealthPermissionUsage"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- 内置浏览器页：看 Claude 在用的网页、接管、清除数据 -->
         <activity

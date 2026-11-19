@@ -33,6 +33,10 @@ internal enum class PersonalSource(val key: String, val label: String) {
     Contacts("contacts", "联系人"),
     Photos("photos", "照片"),
     Videos("videos", "视频"),
+    Audio("audio", "音频"),
+    Files("files", "文件"),
+    Downloads("downloads", "下载记录"),
+    Health("health", "健康数据"),
     ;
 
     companion object {
@@ -95,6 +99,10 @@ internal object PersonalQueries {
     const val IMAGES = "content://media/external/images/media"
     const val VIDEOS = "content://media/external/video/media"
 
+    /** 媒体库的全部文件：audio 也查这张表，小米录音机的目录有 .nomedia，录音不在 audio 那张表里。 */
+    const val FILES = "content://media/external/file"
+    const val DOWNLOADS = "content://media/external/downloads"
+
     private const val MIME_NAME = "vnd.android.cursor.item/name"
     private const val MIME_PHONE = "vnd.android.cursor.item/phone_v2"
     private const val MIME_EMAIL = "vnd.android.cursor.item/email_v2"
@@ -153,7 +161,7 @@ internal object PersonalQueries {
     fun searchRequest(input: JsonObject, now: Long, zone: ZoneId): SearchRequest {
         val source = PersonalSource.of(input.str("source")) ?: throw BadInput("source 必须是其中之一：" + PersonalSource.keys.joinToString(", "))
         val id = (input["id"] as? JsonPrimitive)?.let { it.longOrNull ?: throw BadInput("id 必须是整数") }
-        if (id != null && source in setOf(PersonalSource.Notifications, PersonalSource.Codes)) throw BadInput("${source.key} 不支持 id")
+        if (id != null && source in setOf(PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health)) throw BadInput("${source.key} 不支持 id")
         val query = input.str("query")?.trim()?.takeIf { it.isNotEmpty() }?.also {
             if (it.length > 200) throw BadInput("query 最多 200 字")
         }
@@ -168,6 +176,12 @@ internal object PersonalQueries {
                 if (end - start > MAX_WINDOW_DAYS * DAY) throw BadInput("日程的时间范围最多 $MAX_WINDOW_DAYS 天")
             }
             PersonalSource.Codes -> if (start == null) start = now - CODE_WINDOW
+            PersonalSource.Health -> {
+                // 汇总总在一个窗口里算：默认最近 7 天（含今天）
+                if (end == null) end = now
+                if (start == null) start = HealthSummary.defaultStart(end, zone)
+                if (end - start > MAX_WINDOW_DAYS * DAY) throw BadInput("健康数据的时间范围最多 $MAX_WINDOW_DAYS 天")
+            }
             else -> {}
         }
         if (start != null && end != null && end <= start) throw BadInput("end 必须晚于 start")
@@ -210,13 +224,29 @@ internal object PersonalQueries {
         return columns.joinToString(" OR ") { "$it LIKE ? ESCAPE '\\'" } to columns.map { pattern }
     }
 
+    /**
+     * 时间窗口。参数经 Provider 总是按文字绑定：和列比较时 SQLite 会按列的类型转成数，但 [column] 是 COALESCE 这类表达式时没有类型，
+     * 数和文字比较永远是数小，窗口就失效了，所以参数一律 CAST 成整数。
+     */
     private fun window(column: String, request: SearchRequest, scale: Long = 1): List<Pair<String, List<String>>> = listOfNotNull(
-        request.start?.let { "$column >= ?" to listOf((it / scale).toString()) },
-        request.end?.let { "$column < ?" to listOf((it / scale).toString()) },
+        request.start?.let { "$column >= CAST(? AS INTEGER)" to listOf((it / scale).toString()) },
+        request.end?.let { "$column < CAST(? AS INTEGER)" to listOf((it / scale).toString()) },
     )
 
     /** 照片、视频的时间：拍摄时间，没有的话用入库时间（秒）。 */
     private const val MEDIA_TIME = "COALESCE(datetaken, date_added * 1000)"
+
+    /** 音频、文件、下载的时间：修改时间，没有的话用入库时间（都是秒）。 */
+    private const val FILE_TIME = "COALESCE(NULLIF(date_modified, 0), date_added)"
+
+    /** 音频：媒体库认作音频的，加上 .nomedia 目录里（比如小米录音机的）按类型是音频的。 */
+    private const val IS_AUDIO = "media_type = 2 OR mime_type LIKE 'audio/%'"
+
+    /** 媒体库里的目录本身（MTP 的 association 格式）不算文件。 */
+    private const val NOT_DIRECTORY = "format IS NULL OR format != 12289"
+
+    /** 音频、文件、下载各查哪张表、哪些列，[kind] 是额外的筛选，[searched] 是关键词匹配的列。 */
+    private class FileQuery(val uri: String, val columns: List<String>, val kind: String?, val searched: List<String>)
 
     /** [request] 对应的 Provider 查询（通知、验证码不走这里）。 */
     fun ops(request: SearchRequest): List<JsonObject> {
@@ -283,7 +313,25 @@ internal object PersonalQueries {
                     "$MEDIA_TIME DESC", request.limit, request.offset, 300,
                 ),
             )
-            PersonalSource.Notifications, PersonalSource.Codes -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
+            PersonalSource.Audio, PersonalSource.Files, PersonalSource.Downloads -> {
+                val files = when (request.source) {
+                    PersonalSource.Audio -> FileQuery(FILES, AUDIO_COLUMNS, IS_AUDIO, listOf("_display_name", "relative_path", "title", "artist"))
+                    PersonalSource.Files -> FileQuery(FILES, FILE_COLUMNS, NOT_DIRECTORY, listOf("_display_name", "relative_path"))
+                    else -> FileQuery(DOWNLOADS, DOWNLOAD_COLUMNS, null, listOf("_display_name", "relative_path", "download_uri"))
+                }
+                listOf(
+                    queryOp(
+                        files.uri, files.columns,
+                        listOfNotNull(
+                            files.kind?.let { it to emptyList() },
+                            id?.let { "_id = ?" to listOf(it.toString()) },
+                            q?.let { anyLike(files.searched, it) },
+                        ) + window(FILE_TIME, request, 1000),
+                        "$FILE_TIME DESC, _id DESC", request.limit, request.offset, 400,
+                    ),
+                )
+            }
+            PersonalSource.Notifications, PersonalSource.Codes, PersonalSource.Health -> throw IllegalArgumentException("${request.source.key} 不走 Provider 查询")
         }
     }
 
@@ -317,6 +365,9 @@ internal object PersonalQueries {
     val CALENDAR_COLUMNS = listOf("_id", "calendar_displayName", "account_type", "calendar_access_level", "visible", "isPrimary")
     val PHOTO_COLUMNS = listOf("_id", "datetaken", "date_added", "width", "height", "_size", "mime_type", "relative_path", "_display_name")
     val VIDEO_COLUMNS = PHOTO_COLUMNS + "duration"
+    val FILE_COLUMNS = listOf("_id", "date_modified", "date_added", "_size", "mime_type", "media_type", "relative_path", "_display_name")
+    val AUDIO_COLUMNS = FILE_COLUMNS + listOf("duration", "title", "artist")
+    val DOWNLOAD_COLUMNS = listOf("_id", "date_modified", "date_added", "_size", "mime_type", "relative_path", "_display_name", "download_uri")
 
     // ---- 排版 ----
 
@@ -332,7 +383,7 @@ internal object PersonalQueries {
         return if (text.length <= cap) text else text.take(cap) + "…（共 ${text.length} 字）"
     }
 
-    private fun zoneLabel(zone: ZoneId, now: Long): String = "UTC" + zone.rules.getOffset(Instant.ofEpochMilli(now)).id.let { if (it == "Z") "+00:00" else it }
+    fun zoneLabel(zone: ZoneId, now: Long): String = "UTC" + zone.rules.getOffset(Instant.ofEpochMilli(now)).id.let { if (it == "Z") "+00:00" else it }
 
     /** 结果的第一行：多少条、怎么排、时间是哪个时区、还有没有下一页。 */
     fun header(source: PersonalSource, count: Int, more: Boolean, request: SearchRequest, zone: ZoneId, now: Long, order: String?): String = buildString {
@@ -510,6 +561,42 @@ internal object PersonalQueries {
             header(request.source, rows.size, more, request, zone, now, "新的在前；用 view_media 看画面"), lines,
             "没有符合条件的" + request.source.label + "。",
         )
+    }
+
+    /** 音频、文件、下载：路径、大小；音频带时长、歌手并标出录音，文件带类型，下载带来源网址。时间是秒。 */
+    fun formatFiles(rows: List<Row>, more: Boolean, request: SearchRequest, zone: ZoneId, now: Long): String {
+        val lines = rows.map { r ->
+            val time = r.long("date_modified")?.takeIf { it > 0 } ?: r.long("date_added")
+            val path = r.text("relative_path").orEmpty()
+            buildString {
+                append('#').append(r.long("_id")).append(' ').append(time?.let { formatTime(it * 1000, zone) } ?: "?").append(' ')
+                append(path).append(r.text("_display_name").orEmpty())
+                r.long("_size")?.let { append(' ').append(size(it)) }
+                when (request.source) {
+                    PersonalSource.Audio -> {
+                        r.long("duration")?.takeIf { it > 0 }?.let { append(' ').append(duration(it / 1000)) }
+                        r.text("artist")?.takeIf { it.isNotBlank() && it != "<unknown>" }?.let { append(" · ").append(clip(it, 60)) }
+                        recordingKind(path)?.let { append(" [").append(it).append(']') }
+                    }
+                    PersonalSource.Downloads -> r.text("download_uri")?.takeIf { it.isNotBlank() }?.let { append(" 来自 ").append(clip(it, 200)) }
+                    else -> r.text("mime_type")?.let { append(' ').append(it) }
+                }
+            }
+        }
+        val order = when {
+            request.source == PersonalSource.Files -> "按修改时间新的在前；图片可用 view_media 看，视频加 kind: video"
+            request.source == PersonalSource.Audio && request.id == null && rows.any { recordingKind(it.text("relative_path").orEmpty()) != null } ->
+                "按修改时间新的在前；录音用 id 看录音机里的摘要和转写"
+            else -> "按修改时间新的在前"
+        }
+        return assemble(header(request.source, rows.size, more, request, zone, now, order), lines, "没有符合条件的" + request.source.label + "。")
+    }
+
+    /** 录音机存的文件：通话录音、普通录音；别的音频返回 null。 */
+    fun recordingKind(relativePath: String): String? = when {
+        relativePath.startsWith("MIUI/sound_recorder/call_rec", ignoreCase = true) -> "通话录音"
+        relativePath.startsWith("MIUI/sound_recorder", ignoreCase = true) || relativePath.startsWith("Recordings/", ignoreCase = true) -> "录音"
+        else -> null
     }
 
     fun size(bytes: Long): String = when {

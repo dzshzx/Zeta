@@ -19,8 +19,9 @@ import kotlinx.serialization.json.putJsonObject
 import java.time.ZoneId
 
 /**
- * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频。
- * 都经 root 辅助进程 [ProviderHelper] 读系统的 ContentProvider 和通知服务，Zeta 不申请这些权限。
+ * 个人数据：日程（含增、改、删）、通知、验证码、短信、通话记录、联系人、照片和视频、音频与录音、文件、下载记录、健康数据。
+ * 除健康数据外都经 root 辅助进程 [ProviderHelper] 读系统的 ContentProvider 和通知服务，Zeta 不申请这些权限；
+ * 健康数据经健康连接的公开接口读（[HealthReader]），权限由权限健康页经 root 授予。
  * 除日程外只读；不发短信、不打电话。结果有条数和字数上限，不写日志，读到的内容不在 Zeta 里留存。
  */
 internal object PersonalTools : PhoneToolGroup {
@@ -35,15 +36,18 @@ internal object PersonalTools : PhoneToolGroup {
             SEARCH,
             "Search the user's personal data on this phone (read-only). Sources: calendar (events in a window, default next 7 days), " +
                 "calendars (ids, writable or not), notifications (current plus recently dismissed), codes (verification codes from SMS and " +
-                "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos. Newest first, except calendar.",
+                "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, audio (music and voice/call " +
+                "recordings), files (any file in shared storage, by name or folder), downloads (with source URL), " +
+                "health (summary of steps, sleep, exercise, heart rate, weight, SpO2 from Health Connect; default last 7 days). " +
+                "Newest first, except calendar.",
             readOnly = true,
         ) {
             schema(required = listOf("source")) {
                 enumProp("source", PersonalSource.keys, "Where to search.")
-                prop("query", "string", "Keyword in title, text, name, number or file path (e.g. Screenshots).")
+                prop("query", "string", "Keyword in title, text, name, number or file path (e.g. Screenshots, sound_recorder).")
                 prop("start", "string", "From this time, inclusive. $TIME_FORMAT")
                 prop("end", "string", "Before this time.")
-                prop("id", "integer", "Fetch just this item (event, message, call, contact, calendar, photo or video id) with full text.")
+                prop("id", "integer", "Fetch just this item (event, message, call, contact, calendar, media or file id) with full text.")
                 prop("limit", "integer", "1-50, default 20.")
                 prop("offset", "integer", "Skip this many, for the next page.")
             }
@@ -146,6 +150,8 @@ internal object PersonalTools : PhoneToolGroup {
                 val partial = if (!notificationHistoryEnabledOrRoot(context)) "（通知只看了当前通知栏里的，系统的通知历史没有开启）" else null
                 (problems + PersonalQueries.formatCodes(found, request, zone, now) + listOfNotNull(partial)).joinToString("\n")
             }
+            PersonalSource.Health -> health(context, request, zone, now)
+            PersonalSource.Audio -> audio(context, request, zone, now)
             PersonalSource.Calendar -> if (request.id != null) {
                 val (event, reminders) = readEvent(context, request.id) ?: return "没有编号为 ${request.id} 的日程。"
                 PersonalQueries.formatEvent(event, reminders, zone)
@@ -161,6 +167,7 @@ internal object PersonalTools : PhoneToolGroup {
                     PersonalSource.Calls -> PersonalQueries.formatCalls(rows, more(result), request, zone, now)
                     PersonalSource.Contacts -> PersonalQueries.formatContacts(rows, more(result), request, zone, now)
                     PersonalSource.Calendars -> PersonalQueries.formatCalendars(rows, more(result), request, zone, now)
+                    PersonalSource.Files, PersonalSource.Downloads -> PersonalQueries.formatFiles(rows, more(result), request, zone, now)
                     else -> PersonalQueries.formatMedia(rows, more(result), request, zone, now)
                 }
             }
@@ -168,6 +175,41 @@ internal object PersonalTools : PhoneToolGroup {
     }
 
     private fun more(result: JsonObject): Boolean = result.bool("more") == true
+
+    /** 音频列表；按 id 看一条录音时，附上录音机里它的备注、摘要和转写。 */
+    private fun audio(context: Context, request: SearchRequest, zone: ZoneId, now: Long): String {
+        val result = RootProvider.one(context, PersonalQueries.ops(request).single())
+        val rows = RootProvider.rows(result)
+        val text = PersonalQueries.formatFiles(rows, more(result), request, zone, now)
+        val row = rows.singleOrNull()?.takeIf { request.id != null } ?: return text
+        val name = row.text("_display_name")?.takeIf { PersonalQueries.recordingKind(row.text("relative_path").orEmpty()) != null } ?: return text
+        return text + "\n" + recorderTexts(context, name)
+    }
+
+    /** 录音机里这条录音的备注、摘要和转写；录音机读不到时说一句，不当成整次调用失败。 */
+    private fun recorderTexts(context: Context, fileName: String): String = try {
+        val record = RootProvider.rows(RootProvider.one(context, SoundRecorder.recordOp(fileName), system = true)).firstOrNull()
+        val sha1 = record?.text("sha1")?.takeIf { it.isNotBlank() }
+        if (record == null || sha1 == null) {
+            "录音机里没有这条录音的记录。"
+        } else {
+            val (summary, sentences, transcripts) = RootProvider.run(context, SoundRecorder.textOps(sha1), system = true)
+            fun ok(r: JsonObject) = if (r.bool("ok") == true) RootProvider.rows(r) else emptyList()
+            SoundRecorder.format(record, ok(summary), ok(sentences), ok(transcripts))
+        }
+    } catch (e: Exception) {
+        "录音机的摘要和转写没读到：" + (e.message ?: e.javaClass.simpleName)
+    }
+
+    /** 健康连接里 [request] 窗口内的汇总；没有健康连接、一项权限都没有时说明怎么办。 */
+    private fun health(context: Context, request: SearchRequest, zone: ZoneId, now: Long): String {
+        if (!HealthReader.available(context)) return HealthSummary.UNAVAILABLE
+        val start = request.start ?: HealthSummary.defaultStart(now, zone)
+        val end = request.end ?: now
+        val data = HealthReader.read(context, start, end, zone)
+        if (data.denied.size == HealthKind.entries.size) return HealthSummary.NO_PERMISSION
+        return HealthSummary.format(data, start, end, zone, now)
+    }
 
     /** 一条日程和它的提醒；没有（或已删除）返回 null。 */
     private fun readEvent(context: Context, id: Long): Pair<Row, List<Row>>? {

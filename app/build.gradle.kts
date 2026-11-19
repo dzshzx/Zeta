@@ -146,6 +146,7 @@ dependencies {
     implementation(libs.ratex.android)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.health.connect.client)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)
