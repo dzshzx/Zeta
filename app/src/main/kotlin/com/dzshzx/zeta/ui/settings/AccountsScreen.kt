@@ -67,6 +67,11 @@ internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
 /**
  * 账号与额度：当前账号的订阅额度（Claude Code 给的，和 /usage 同一份），claude-switch 管着的几个 Claude 账号，切换、添加、移除。
  * 切换改的是 Linux 用户的 Claude Code 登录状态：两个 Zeta 和终端里的 claude 用的都是这一份。
+ *
+ * 账号和终端里的 claude-switch 是同一份：存在 Linux 环境的 ~/.local/state/claude-switch 里，每个账号一份登录令牌。
+ * 切换前关掉本包闲着的对话进程（内容不丢，下次发消息时接着用新账号）；另一个 Zeta 或终端里开着 Claude Code 时 claude-switch 不让换。
+ * 添加账号：先把在用的号存档并退出，再走 Claude Code 的登录（claude auth login），新号的名字自动起成 claude-b、claude-c 这样。
+ * 移除只删这台手机上的存档和记录，服务器上的登录还在。
  */
 @Composable
 internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -132,10 +137,8 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 val working = service.working
                 PreferenceGroup(
                     title = "账号",
-                    footer = "切换前 Zeta 会先关掉这里闲着的对话进程，对话内容不丢，下次发消息时接着用新账号。" +
-                        "两个 Zeta 和终端里的 claude 共用同一份登录：有对话在进行，或另一个 Zeta、终端里还开着 Claude Code 时不能换。" +
-                        "账号由 claude-switch 管，和终端里的 claude-switch 是同一份：存在这台手机 Linux 环境的 ~/.local/state/claude-switch 里，" +
-                        "每个账号一份登录令牌。移除只删这里的存档和记录，服务器上的登录还在。",
+                    footer = "两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。" +
+                        "添加账号会先退出当前账号，中途取消的话，在这里切回去。",
                 ) {
                     when {
                         state == null -> item { BasicComponent(title = "正在读取…") }
@@ -143,13 +146,13 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
                     }
                     state?.all?.forEach { account ->
                         val isCurrent = account.id == state.current?.id
-                        // 名字和终端里 claude-switch 列的一样（claude、claude-b…）；在用的登录还没记过时没有名字
+                        // 名字和终端里 claude-switch 列的一样（claude、claude-b…）；在用的登录还没记过时没有名字，添加账号时会自动记下
                         val summary = listOfNotNull(
                             account.id.ifBlank { null },
                             account.organization.ifBlank { null },
                             account.plan.ifBlank { null },
                             if (account.expired(now)) "登录已过期" else null,
-                            if (account.id.isBlank()) "还没记下名字，添加账号时会自动记下" else null,
+                            if (account.id.isBlank()) "还没记下名字" else null,
                         ).joinToString(" · ").ifBlank { null }
                         item(key = account.id) {
                             if (isCurrent) {
@@ -173,8 +176,6 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item(key = "add") {
                         ArrowPreference(
                             title = "添加账号",
-                            summary = "先把当前账号存档并退出登录，再用 Claude Code 的登录（claude auth login）登新账号，名字自动起成 claude-b、claude-c 这样；" +
-                                "中途取消的话，回这里切回原来的账号。",
                             enabled = working == null,
                             onClick = { service.prepareLogin { adding = true } },
                         )
