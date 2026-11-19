@@ -16,7 +16,7 @@ Zeta（Ζ）是手机（Xiaomi 17，root，KernelSU）上 Claude Code 的 Androi
 
 Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有挂载命名空间 → chroot 进 Debian rootfs（`/data/local/zeta/debian/rootfs`）→ `setpriv` 降到 Linux 用户 `dzshzx`（uid 5000）→ `assets/zeta_host.sh`。它用 `setsid` 起 `claude -p --input-format stream-json --output-format stream-json …`，标准输入来自 FIFO，输出追加到 `~/.cache/zeta/hosts/<key>/out.jsonl`（测试版是 `~/.cache/zeta-dev`）。Zeta 只附着在上面，所以 Zeta 被杀时对话照样跑完，下次启动再附着回去。没有中转，不开端口。
 
-- `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`，文件浏览 `LinuxFiles`，共享文件夹 `SharedFolders`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`，附件与图片。
+- `core/`：Linux 环境（`LinuxEnv`、`EnvSetup`、`SshService`，文件浏览 `LinuxFiles`，共享文件夹 `SharedFolders`），Claude 进程与对话状态（`ClaudeProcess`、`Conversation`、`ConversationHub`、`TranscriptReducer`），顶部胶囊要显示的对话（`ConversationFocus`），前台服务 `AgentService`（有对话在回答时常驻通知提升为实时通知；挑哪个对话、写什么字、节流在 `LiveUpdate`），附件与图片。
 - `core/claude/`：设置里“上下文与扩展”读写 Claude Code 自身配置（记忆、Skills、MCP、Subagent）。解析、校验、路径映射是纯函数；读写文件经 `ClaudeScripts` 的小段壳脚本以 Linux 用户身份做，内容和 Token 只走标准输入；MCP 的增删走 `claude mcp`。
 - `phone/`：手机工具 `PhoneTools`（SDK 类型的 MCP 服务器 `phone`，每个对话一份），无障碍服务，后台虚拟屏（`VirtualScreen`、root 帮手 `VdHelper`、`VdSurfaceProvider`），悬浮层的接口 `Overlay.kt`。
 - `ui/`：聊天 `ui/chat`、侧栏 `ui/pane`、设置与环境页（`SettingsScreen.kt`、`ui/setup`）、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口）、Markdown 渲染、COUI 2 的补充件 `ui/components/coui2`。

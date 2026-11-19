@@ -32,7 +32,10 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     private val stepState = derivedStateOf { currentStep() }
     private val thoughtState = derivedStateOf { currentThought() }
 
-    override val step: String get() = stepState.value
+    override val step: String get() = stepState.value.text
+
+    /** [step] 和它的类别（实时通知的状态栏小胶囊据此写一个词）。 */
+    val stepInfo: Step get() = stepState.value
     override val thought: String get() = thoughtState.value
     override val screen: VirtualScreen? get() = phone.background
     override val appName: String? get() = phone.backgroundApp
@@ -87,14 +90,16 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     }
 
     /** 胶囊上的一句当前步骤。优先级：结束 > 接管 / 暂停 > 等确认 > 重试、压缩 > 聊天记录里正在进行的那一步。 */
-    private fun currentStep(): String {
-        finishing?.let { return it }
-        if (phone.userControlling) return "你在接管"
-        if (phone.paused) return "已暂停"
-        conversation.pending?.let { return if (it.toolName == "AskUserQuestion") "需要你回答" else "需要你确认" }
-        conversation.status?.let { return it }
+    private fun currentStep(): Step {
+        finishing?.let { return Step(it, StepKind.FINISHED) }
+        if (phone.userControlling) return Step("你在接管", StepKind.CONTROLLING)
+        if (phone.paused) return Step("已暂停", StepKind.PAUSED)
+        conversation.pending?.let {
+            return if (it.toolName == "AskUserQuestion") Step("需要你回答", StepKind.ASKING) else Step("需要你确认", StepKind.CONFIRMING)
+        }
+        conversation.status?.let { return Step(it, StepKind.STATUS) }
         return when (val last = conversation.items.lastOrNull()) {
-            is AnswerItem -> if (last.streaming) "正在回答" else THINKING
+            is AnswerItem -> if (last.streaming) Step("正在回答", StepKind.ANSWERING) else THINKING
             is WorkItem -> {
                 // 一起发出的几个手机操作排着队一个个做：说正在做的那一个，而不是排在最后的
                 val running = last.steps.filter { it.running }
@@ -108,13 +113,13 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     }
 
     /** 正在跑的工具：手机工具优先用 PhoneTools 给的说法（能说出点的是哪个控件），对不上就用聊天里的标题。 */
-    private fun toolStep(step: ToolStep): String {
+    private fun toolStep(step: ToolStep): Step {
         if (step.name.startsWith(PHONE_PREFIX)) {
             val call = phone.currentCall
-            if (call != null && isCurrent(step, call)) return call.text
-            return phone.describeCall(step.name.removePrefix(PHONE_PREFIX), step.input)
+            if (call != null && isCurrent(step, call)) return Step(call.text, StepKind.PHONE)
+            return Step(phone.describeCall(step.name.removePrefix(PHONE_PREFIX), step.input), StepKind.PHONE)
         }
-        return toolTitle(step.name, step.input)
+        return Step(toolTitle(step.name, step.input), StepKind.TOOL)
     }
 
     private fun isCurrent(step: ToolStep, call: PhoneTools.CallInfo): Boolean =
@@ -134,7 +139,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     }
 
     private companion object {
-        const val THINKING = "正在思考"
+        val THINKING = Step("正在思考", StepKind.THINKING)
         const val OPEN_FALLBACK_MS = 400L
         const val THOUGHT_CHARS = 40
         val PHONE_PREFIX = "mcp__${PhoneTools.SERVER}__"

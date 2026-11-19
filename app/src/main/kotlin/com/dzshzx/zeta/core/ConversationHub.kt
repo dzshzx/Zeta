@@ -817,10 +817,47 @@ class ConversationHub(private val app: Application) {
         val active = working || current.isProcessAlive || background.values.any { it.isProcessAlive }
         // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起
         val busy = working || conversationsWorking
-        val running = (listOf(current) + background.values).filter { it.busy }.distinct().map { conversation ->
+        val answering = (listOf(current) + background.values).filter { it.busy }.distinct()
+        val running = answering.map { conversation ->
             conversation.title.ifBlank { "新对话" } + (conversation.phone.backgroundApp?.let { " · 在后台操作$it" } ?: "")
         }
-        AgentService.update(app, active, busy, running)
+        AgentService.update(app, active, busy, running, liveStatus(answering))
+    }
+
+    /** 正在回答的对话这一轮从什么时候开始（墙上时钟），实时通知上走秒用。只在主线程上碰。 */
+    private val turnStarts = HashMap<Conversation, Long>()
+
+    /** 有对话在回答、系统允许实时通知时每秒看一次当前步骤：步骤变了不会调 [onActivityChanged]。 */
+    private val liveTick = Runnable { onActivityChanged() }
+
+    /**
+     * 实时通知上显示什么（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算）或系统不允许提升时为 null，
+     * 通知照旧。在主线程上调用。
+     */
+    private fun liveStatus(answering: List<Conversation>): LiveStatus? {
+        val now = System.currentTimeMillis()
+        turnStarts.keys.retainAll(answering.toSet())
+        answering.forEach { turnStarts.getOrPut(it) { now } }
+        main.removeCallbacks(liveTick)
+        if (answering.isEmpty() || !AgentService.canPromote(app)) return null
+        main.postDelayed(liveTick, LIVE_TICK_MS)
+        val focusKey = (overlayFocus as? ConversationFocus)?.conversation?.openKey
+        val candidates = answering.map { conversation ->
+            val phone = conversation.phone
+            conversation to LiveCandidate(
+                key = conversation.openKey,
+                title = conversation.title,
+                step = conversation.overlay.stepInfo,
+                controlling = phone.userControlling,
+                engaged = phone.userControlling || phone.paused || phone.engagedThisTurn,
+                engagedAt = phone.engagedAt,
+                current = conversation === current,
+                startedAt = turnStarts.getValue(conversation),
+            )
+        }
+        val chosen = LiveUpdate.pick(candidates.map { it.second }, focusKey) ?: return null
+        val conversation = candidates.first { it.second === chosen }.first
+        return LiveUpdate.status(chosen, answering.size, TodoBoard.from(conversation.items, conversation.todoSeed))
     }
 
     /** 通知栏的“停止”：打断所有正在回答的对话，和聊天页的停止键一样。 */
@@ -831,6 +868,9 @@ class ConversationHub(private val app: Application) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
         private const val RETIRE_DELAY_MS = 5_000L
+
+        /** 对话在回答时多久看一次当前步骤（发不发通知另由 AgentService 节流）。 */
+        private const val LIVE_TICK_MS = 1_000L
 
         /** 一轮结束后胶囊停留显示“已完成”多久。 */
         private const val FINISHED_LINGER_MS = 2_000L
