@@ -101,10 +101,9 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
     CouiPage(title = "备份与恢复", onBack = onBack, overlays = { SettingsBackupDialogs(hub, state) }) {
         item(key = "backup") {
-            PreferenceGroup(
-                footer = "备份里是 Zeta 自己的设置：外观、聊天、手机操作、新对话的默认值、置顶和共享文件夹。" +
-                    "不含 Claude Code 的配置、对话和登录状态；Linux 环境的位置和用户、调试用的屏幕编号和各种缓存只属于这台手机，也不导出。",
-            ) {
+            // 备份里是外观、聊天、手机操作、新对话的默认值、置顶和共享文件夹（[SettingsBackup.items]）；
+            // 只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存）不导出，见 [SettingsBackup.machineKeys]
+            PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态。") {
                 item {
                     BasicComponent(title = "导出设置", summary = "保存成 JSON 文件", enabled = !state.busy, onClick = state.export)
                 }
