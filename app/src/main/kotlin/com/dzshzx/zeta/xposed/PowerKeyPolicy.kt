@@ -12,8 +12,11 @@ enum class PowerKeyRoute(val label: String) {
     /** 同一次按键刚显示过 Zeta 的会话，又派发来一次（imperceptible 和 long_press 两路）：吞掉。 */
     Duplicate("同一次按键的重复派发，已吞掉"),
 
-    /** 默认数字助理不是 Zeta：走原逻辑（小爱）。 */
-    NotZeta("默认助理不是 Zeta，走原逻辑"),
+    /**
+     * 默认数字助理不是本包：放行给下一个钩子或原逻辑。正式版、测试版各带一个模块，可以同时启用，
+     * 各自只接管默认助理是自己的那一次，互不干扰；都不是时到小爱。
+     */
+    NotMine("默认助理不是本包，放行"),
 
     /** 锁屏中：走原逻辑，Zeta 不在锁屏上弹出对话。 */
     Locked("锁屏中，走原逻辑"),
@@ -27,8 +30,16 @@ enum class PowerKeyRoute(val label: String) {
  * 只管 `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
  */
 object PowerKeyPolicy {
-    /** 模块日志（LSPosed 模块日志和 logcat）的标签；Zeta 的诊断页按它找记录。 */
-    const val LOG_TAG = "ZetaPowerKey"
+    /** 本包（正式版或测试版；模块和应用在同一个 APK 里，编译时定）。 */
+    val SELF: String = AppVariant.current.packageName
+
+    /**
+     * 模块日志（LSPosed 模块日志和 logcat）的标签；本包的诊断页按它找本包模块的记录。
+     * 正式版、测试版分开，两个名字互不包含，按子串找时也不会串。
+     */
+    val LOG_TAG: String = logTag(SELF)
+
+    fun logTag(packageName: String): String = if (packageName == AppVariant.RELEASE_PACKAGE) "ZetaPowerKey" else "ZetaDevPowerKey"
 
     const val FUNCTION = "launch_voice_assistant"
 
@@ -40,18 +51,21 @@ object PowerKeyPolicy {
 
     fun matches(function: String?, source: String?): Boolean = function == FUNCTION && source in SOURCES
 
-    /**
-     * secure 设置 voice_interaction_service 里的组件（“包名/类名”，类名可以是 .开头的短写）属于 Zeta 的哪个包；
-     * 不是 Zeta（正式版或测试版）返回 null。
-     */
-    fun zetaPackage(component: String?): String? {
-        val pkg = component?.trim()?.substringBefore('/', missingDelimiterValue = "")?.takeIf { it.isNotEmpty() } ?: return null
-        return pkg.takeIf { AppVariant.isZetaPackage(it) }
-    }
+    /** secure 设置 voice_interaction_service 里的组件（“包名/类名”，类名可以是 .开头的短写）的包名；没有时为 null。 */
+    fun packageOf(component: String?): String? =
+        component?.trim()?.substringBefore('/', missingDelimiterValue = "")?.takeIf { it.isNotEmpty() }
 
-    fun route(function: String?, source: String?, assistant: String?, locked: Boolean, duplicate: Boolean): PowerKeyRoute = when {
+    /** [self] 是这个模块所在的包：只有默认助理就是它时才接管。 */
+    fun route(
+        function: String?,
+        source: String?,
+        assistant: String?,
+        locked: Boolean,
+        duplicate: Boolean,
+        self: String = SELF,
+    ): PowerKeyRoute = when {
         !matches(function, source) -> PowerKeyRoute.NotOurs
-        zetaPackage(assistant) == null -> PowerKeyRoute.NotZeta
+        packageOf(assistant) != self -> PowerKeyRoute.NotMine
         duplicate -> PowerKeyRoute.Duplicate
         locked -> PowerKeyRoute.Locked
         else -> PowerKeyRoute.Show

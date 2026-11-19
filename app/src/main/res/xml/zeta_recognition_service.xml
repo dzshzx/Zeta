@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 可以当系统默认的语音识别服务：开机时系统只认 selectableAsDefault 的识别服务，认不到就把默认数字助理重选掉（见 docs/assistant.md）。 -->
+<recognition-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:selectableAsDefault="true" />

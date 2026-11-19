@@ -14,7 +14,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.dzshzx.zeta.assistant.AssistantOwner
 import com.dzshzx.zeta.assistant.AssistantRole
 import com.dzshzx.zeta.assistant.PowerKeyLog
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.assistant.PowerKeyStatus
+import com.dzshzx.zeta.xposed.PowerKeyPolicy
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -87,9 +89,9 @@ internal fun AssistantDiagnosticsGroup(
         footer = when {
             reading && log == null -> null
             log == null -> "读不到模块日志（没有 root）。"
-            recent.isEmpty() -> "HyperOS 长按电源键直接拉起小爱，要交给 Zeta 还得在 LSPosed 里启用 Zeta 模块（作用域「系统框架」）并重启。" +
-                "现在 LSPosed 和 logcat 里都没有这个模块的记录：没启用，或者启用后还没重启。"
-            else -> "最近的记录（LSPosed 模块日志，标签 ZetaPowerKey）：\n" + recent.takeLast(8).joinToString("\n")
+            recent.isEmpty() -> "HyperOS 长按电源键直接拉起小爱，要交给本包还得在 LSPosed 里启用本包（${AppVariant.current.packageName}）的模块" +
+                "（作用域「系统框架」）并重启；正式版、测试版的模块各管各的。现在 LSPosed 和 logcat 里都没有本包模块的记录：没启用，或者启用后还没重启。"
+            else -> "最近的记录（LSPosed 模块日志，标签 ${PowerKeyPolicy.LOG_TAG}）：\n" + recent.takeLast(8).joinToString("\n")
         },
     ) {
         item {
@@ -97,6 +99,18 @@ internal fun AssistantDiagnosticsGroup(
                 title = "默认数字助理",
                 endActions = { PreferenceValue(current?.summary ?: "查询中", color = if (current?.self == false) COUITheme.colorScheme.labelTertiary else Color.Unspecified) },
                 onClick = { AssistantRole.openSettings(context) },
+            )
+        }
+        item {
+            BasicComponent(
+                title = "系统语音识别",
+                summary = "默认助理是 Zeta 时要是 Zeta 自己的，开机时系统才不会把默认助理换掉".takeIf { current?.keepsOnBoot == false },
+                endActions = {
+                    PreferenceValue(
+                        text = current?.recognizerSummary ?: "查询中",
+                        color = if (current?.keepsOnBoot == false) COUITheme.colorScheme.error else Color.Unspecified,
+                    )
+                },
             )
         }
         item {

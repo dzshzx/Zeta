@@ -27,21 +27,27 @@ Zeta 可以被选为系统的默认数字助理。唤起后在当前应用上弹
 HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字助理是谁。Zeta 自带一个 LSPosed 模块（`xposed/`，libxposed API 102，入口登记在 `resources/META-INF/xposed/`，依赖只 compileOnly），作用域只有系统框架：
 
 - 拦 `com.miui.server.input.util.ShortCutActionsUtils.triggerFunction`。HyperOS 4（OS4.0.6）上有四参数和五参数两个重载，四参数的直接转调五参数的，所以有五参数的就只拦它；返回类型不是 boolean、两个都对不上时不装，并在日志里写出系统里有的签名。
-- 只处理功能 `launch_voice_assistant`、来源 `long_press_power_key` 或 `imperceptible_press_power_key` 的那几次。默认数字助理（secure `voice_interaction_service`）是 Zeta 的正式版或测试版、没锁屏时，请系统显示当前默认助理的会话（`showSessionForActiveService`，和 SystemUI 唤起助理同一个入口）；成功才消费这次动作，同一次按键 1 秒内的重复派发直接吞掉；失败、锁屏、默认助理不是 Zeta 都走原逻辑（小爱）。别的按键和动作原样放行。
-- 诊断：装没装上、每次电源键走了哪条路，写进 LSPosed 的模块日志和 logcat，标签 `ZetaPowerKey`。Zeta 的 设置 › 诊断 › 数字助理 读这两处（要 root），显示默认助理是谁、模块装没装上和最近的记录。命令行：`logcat -d -s ZetaPowerKey`。
+- 只处理功能 `launch_voice_assistant`、来源 `long_press_power_key` 或 `imperceptible_press_power_key` 的那几次。默认数字助理（secure `voice_interaction_service`）是本包、没锁屏时，请系统显示当前默认助理的会话（`showSessionForActiveService`，和 SystemUI 唤起助理同一个入口）；成功才消费这次动作，同一次按键 1 秒内的重复派发直接吞掉；失败、锁屏、默认助理不是本包都放行（给另一个包的模块，都不接管时到小爱）。别的按键和动作原样放行。
+- 诊断：装没装上、每次电源键走了哪条路，写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaPowerKey`、测试版 `ZetaDevPowerKey`。Zeta 的 设置 › 诊断 › 数字助理 读这两处里本包的标签（要 root），显示默认助理是谁、系统语音识别是谁、本包模块装没装上和最近的记录。命令行：`logcat -d -s ZetaPowerKey ZetaDevPowerKey`。
 
-两个包都带这个模块，在 LSPosed 里启用一个就够，它对两个包的默认助理都起作用。
+正式版、测试版各带一个模块，在 LSPosed 里各自启用，互不干扰：每个只在默认助理是自己时接管，否则放行；钩子 id、日志标签、去重状态都按包分开。只启用一个时，默认助理是另一个包的话长按电源键到小爱。
+
+模块代码在 system_server 里，开机时从 LSPosed 记下的 APK 路径加载。重装会换 APK 路径，LSPosed 有时到下次开机才改过来（实测：重装后第一次开机按旧路径加载失败，开机后才更新），所以重装后的第一次重启可能装不上，诊断页「长按电源键接管」不是「已装上」时再重启一次。模块代码改了也要重启才生效。
+
+## 开机保持默认助理
+
+用户在系统设置里选默认助理时，系统只改 `assistant` 和 `voice_interaction_service`，不改默认语音识别 `voice_recognition_service`。开机时（Android 16 的 VoiceInteractionManagerService.initForUser）系统先看默认识别服务：为空、找不到或不是 `selectableAsDefault` 的，就把默认助理重选成它找到的第一个可用助理（装着 Eta 时就是 Eta，所以重启后默认助理被换掉）。
+
+所以 Zeta 的识别服务声明成可以当默认（`res/xml/zeta_recognition_service.xml`），并在系统连上 Zeta 的助理服务时（`ZetaVoiceInteractionService.onReady`：选上之后、每次开机后）用 root 把 `voice_recognition_service` 换成本包的 `ZetaRecognitionService`，已经是就不动。它转给手机原有的识别服务，别的应用的语音输入照常。诊断页「系统语音识别」显示这一项，默认助理是 Zeta 而识别服务不是本包时标红。
 
 ## 用户要做的
 
-代理不替用户换默认助理、不在 LSPosed 里启用模块、不重启手机。
+代理不替用户换默认助理、不在 LSPosed 里启用模块、不重启手机。正式版、测试版各做各的，下面以要用的那个包为准（测试版在系统设置和 LSPosed 里叫「Zeta 测试」）。
 
-1. 系统设置 › 默认应用 › 数字助理（Zeta 设置 › 能力 › 数字助理 能跳过去），选「Zeta」（`com.dzshzx.zeta`）。测试版在这里叫「Zeta 测试」。
-2. LSPosed 管理器 › 模块，启用「Zeta」（`com.dzshzx.zeta`），作用域勾「系统框架」。
+1. 系统设置 › 默认应用 › 数字助理（Zeta 设置 › 能力 › 数字助理 能跳过去），选这个包。
+2. LSPosed 管理器 › 模块，启用这个包的模块，作用域勾「系统框架」。
 3. 重启手机。
-4. 验：Zeta 设置 › 诊断 › 数字助理，「长按电源键接管」应为「已装上」。打开任意应用长按电源键，应弹出 Zeta 浮窗而不是小爱；诊断页的记录里多一条「已显示 com.dzshzx.zeta 的助理会话」。
-
-Eta 的模块也拦同一个方法：它的电源键目标留在「系统默认」，两边才不打架。
+4. 验：这个包的 设置 › 诊断 › 数字助理：「系统语音识别」是这个包，「长按电源键接管」是「已装上」（重装过这个包后第一次重启可能还不是，再重启一次）。打开任意应用长按电源键，应弹出它的浮窗而不是小爱；记录里多一条「已显示 <包名> 的助理会话」。
 
 ## 真机回归
 

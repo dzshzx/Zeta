@@ -22,7 +22,8 @@ import java.lang.reflect.Method
 /**
  * Zeta 自带的 LSPosed 模块（libxposed API 102，入口登记在 resources/META-INF/xposed/java_init.list），
  * 作用域只有 system（system_server）。做一件事：HyperOS 长按电源键时系统直接拉起小爱，不看默认数字助理是谁；
- * 默认助理是 Zeta（正式版或测试版）时改为显示它的助理会话，见 [PowerKeyHook]。
+ * 默认助理是本包时改为显示它的助理会话，见 [PowerKeyHook]。正式版、测试版各带一个，在 LSPosed 里各自启用，
+ * 互不干扰：每个只认自己，默认助理不是自己就放行。
  */
 class PowerKeyModule : XposedModule() {
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -36,7 +37,7 @@ class PowerKeyModule : XposedModule() {
 
 /**
  * 拦 `ShortCutActionsUtils.triggerFunction`（签名见 [PowerKeySignature]）。只处理功能 launch_voice_assistant、
- * 来源是电源键的那几次（[PowerKeyPolicy]）：默认助理是 Zeta、没锁屏时请系统显示当前默认助理的会话
+ * 来源是电源键的那几次（[PowerKeyPolicy]）：默认助理是本包、没锁屏时请系统显示当前默认助理的会话
  * （`IVoiceInteractionManagerService.showSessionForActiveService`，和 SystemUI 唤起助理同一个入口），
  * 成功才消费这次动作，失败走原逻辑。别的按键和动作原样放行。
  *
@@ -67,7 +68,7 @@ internal object PowerKeyHook {
             contextField.isAccessible = true
             module.hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .setId("zeta.power-key")
+                .setId("${PowerKeyPolicy.SELF}.power-key")
                 .intercept { chain -> intercept(chain, contextField, log) }
             log.info("装上了：${PowerKeySignature.CLASS.substringAfterLast('.')}.${PowerKeySignature.describe(method)}")
         } catch (e: Exception) {
@@ -95,7 +96,7 @@ internal object PowerKeyHook {
                 log.info("$source：${route.label}")
                 true
             }
-            PowerKeyRoute.NotZeta, PowerKeyRoute.Locked -> {
+            PowerKeyRoute.NotMine, PowerKeyRoute.Locked -> {
                 log.info("$source：${route.label}（默认助理 $who）")
                 chain.proceed()
             }

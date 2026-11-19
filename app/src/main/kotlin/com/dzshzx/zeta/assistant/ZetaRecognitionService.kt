@@ -14,7 +14,8 @@ import android.speech.SpeechRecognizer
 import com.dzshzx.zeta.core.AppVariant
 
 /**
- * 数字助理必须带一个识别服务才能被选上，选上后系统的默认语音识别也跟着换成它（secure 设置 voice_recognition_service）。
+ * 数字助理必须带一个识别服务才能被选上。选上时系统只改默认助理，不改默认语音识别（secure 设置 voice_recognition_service），
+ * 由 [ZetaVoiceInteractionService.onReady] 用 root 换成本服务：开机时系统认不到有效的默认识别服务，会把默认助理重选掉。
  * Zeta 自己不做识别：转给手机上原有的识别服务（小米的 com.xiaomi.mibrain.speech/.asr.AsrService，没有时取别的），
  * 这样换了默认助理，别的应用经系统默认识别器的语音输入照常能用。回调原样转回去。
  *

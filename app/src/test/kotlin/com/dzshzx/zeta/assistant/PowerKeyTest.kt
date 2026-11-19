@@ -26,14 +26,14 @@ class PowerKeyTest {
     }
 
     @Test
-    fun bothZetaPackagesCount() {
-        assertEquals("com.dzshzx.zeta", PowerKeyPolicy.zetaPackage(zeta))
-        assertEquals("com.dzshzx.zeta.dev", PowerKeyPolicy.zetaPackage("com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"))
-        assertEquals("com.dzshzx.zeta", PowerKeyPolicy.zetaPackage("com.dzshzx.zeta/.assistant.ZetaVoiceInteractionService"))
-        assertNull(PowerKeyPolicy.zetaPackage(xiaoai))
-        assertNull(PowerKeyPolicy.zetaPackage("com.dzshzx.zetaclone/x.Y"))
-        assertNull(PowerKeyPolicy.zetaPackage(""))
-        assertNull(PowerKeyPolicy.zetaPackage(null))
+    fun packageOfComponent() {
+        assertEquals("com.dzshzx.zeta", PowerKeyPolicy.packageOf(zeta))
+        assertEquals("com.dzshzx.zeta.dev", PowerKeyPolicy.packageOf("com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"))
+        assertEquals("com.dzshzx.zeta", PowerKeyPolicy.packageOf("com.dzshzx.zeta/.assistant.ZetaVoiceInteractionService"))
+        assertEquals("com.miui.voiceassist", PowerKeyPolicy.packageOf(xiaoai))
+        assertNull(PowerKeyPolicy.packageOf(""))
+        assertNull(PowerKeyPolicy.packageOf("com.dzshzx.zeta"))
+        assertNull(PowerKeyPolicy.packageOf(null))
     }
 
     @Test
@@ -43,12 +43,40 @@ class PowerKeyTest {
         assertEquals(PowerKeyRoute.Show, route())
         assertEquals(PowerKeyRoute.NotOurs, route(function = "launch_camera"))
         assertEquals(PowerKeyRoute.NotOurs, route(source = "long_press_home_key"))
-        assertEquals(PowerKeyRoute.NotZeta, route(assistant = xiaoai))
-        assertEquals(PowerKeyRoute.NotZeta, route(assistant = null))
+        assertEquals(PowerKeyRoute.NotMine, route(assistant = xiaoai))
+        assertEquals(PowerKeyRoute.NotMine, route(assistant = null))
         assertEquals(PowerKeyRoute.Locked, route(locked = true))
         assertEquals(PowerKeyRoute.Duplicate, route(duplicate = true))
         // 默认助理不是 Zeta 时不吞任何一次，照样交给小爱
-        assertEquals(PowerKeyRoute.NotZeta, route(assistant = xiaoai, duplicate = true))
+        assertEquals(PowerKeyRoute.NotMine, route(assistant = xiaoai, duplicate = true))
+    }
+
+    @Test
+    fun releaseAndDevModulesEachClaimOnlyTheirOwn() {
+        val release = "com.dzshzx.zeta"
+        val dev = "com.dzshzx.zeta.dev"
+        val devAssistant = "$dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"
+        fun route(self: String, assistant: String?) =
+            PowerKeyPolicy.route("launch_voice_assistant", "long_press_power_key", assistant, locked = false, duplicate = false, self = self)
+        // 两个模块都启用：默认助理是谁，就只有谁的模块接管，另一个放行
+        assertEquals(PowerKeyRoute.Show, route(release, zeta))
+        assertEquals(PowerKeyRoute.NotMine, route(dev, zeta))
+        assertEquals(PowerKeyRoute.Show, route(dev, devAssistant))
+        assertEquals(PowerKeyRoute.NotMine, route(release, devAssistant))
+        // 都不是：两个都放行，到小爱
+        assertEquals(PowerKeyRoute.NotMine, route(release, xiaoai))
+        assertEquals(PowerKeyRoute.NotMine, route(dev, xiaoai))
+    }
+
+    @Test
+    fun logTagsDoNotOverlap() {
+        val release = PowerKeyPolicy.logTag("com.dzshzx.zeta")
+        val dev = PowerKeyPolicy.logTag("com.dzshzx.zeta.dev")
+        assertFalse(release.contains(dev) || dev.contains(release))
+        val output = "[ 2026-11-20T10:00:00.000 1000: 1650: 1650 I/$dev ] long_press_power_key：已显示 com.dzshzx.zeta.dev 的助理会话，消费这次动作\n" +
+            PowerKeyLog.SPLIT + "\n"
+        assertEquals(1, PowerKeyLog.parse(output, dev).recent.size)
+        assertTrue(PowerKeyLog.parse(output, release).recent.isEmpty())
     }
 
     @Test

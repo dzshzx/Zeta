@@ -17,9 +17,12 @@ import java.lang.ref.WeakReference
  * 元数据在 res/xml/zeta_voice_interaction.xml；识别服务见 [ZetaRecognitionService]。
  */
 class ZetaVoiceInteractionService : VoiceInteractionService() {
+    /** 系统连上了当前的数字助理服务：选上 Zeta 之后、开机后都会来一次。 */
     override fun onReady() {
         super.onReady()
         DiagLog.info(DiagTopic.App, "数字助理服务就绪（Zeta 是默认数字助理）")
+        val context = applicationContext
+        Thread { AssistantRole.claimRecognizer(context) }.start()
     }
 }
 

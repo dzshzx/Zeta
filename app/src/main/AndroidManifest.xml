@@ -200,6 +200,9 @@
             <intent-filter>
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/zeta_recognition_service" />
         </service>
         <service
             android:name=".core.AgentService"
