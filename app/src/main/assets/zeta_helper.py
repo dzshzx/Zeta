@@ -76,33 +76,54 @@ def proc_start(pid):
         return None
 
 
-def host_pids():
-    pids = set()
-    for path in glob.glob(os.path.join(HOSTS, "*", "pid")):
+def read_pid(path):
+    """托管目录里记的进程号（pid、attach 文件）；读不到返回 None。"""
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def proc_argv(pid):
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            return f.read().split(b"\0")
+    except OSError:
+        return None
+
+
+def claude_argv(pid):
+    """进程 pid 是活着的 Claude Code 时返回它的命令行，否则（没有 pid、进程不在了、pid 被别的进程复用）返回 None。"""
+    argv = proc_argv(pid) if pid else None
+    return argv if argv and any(b"claude" in a for a in argv) else None
+
+
+def registered_sessions():
+    """Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
+    逐个给出进程还活着的 (pid, 会话 id)；pid 被别的进程复用了（启动时刻对不上）的不算。"""
+    for path in glob.glob(os.path.join(SESSIONS, "*.json")):
         try:
-            pids.add(int(open(path).read().strip()))
-        except (OSError, ValueError):
-            pass
-    return pids
+            with open(path, encoding="utf-8") as f:
+                info = json.load(f)
+            pid = int(info["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        started = proc_start(pid)
+        if started is None or (info.get("procStart") and str(info["procStart"]) != started):
+            continue
+        yield pid, info.get("sessionId")
+
+
+def host_pids():
+    pids = (read_pid(path) for path in glob.glob(os.path.join(HOSTS, "*", "pid")))
+    return {pid for pid in pids if pid is not None}
 
 
 def external_sessions():
     """正被别的 Claude Code 进程（比如终端里的）占用的会话 id。"""
     mine = host_pids()
-    busy = set()
-    for path in glob.glob(os.path.join(SESSIONS, "*.json")):
-        try:
-            info = json.load(open(path))
-            pid = int(info["pid"])
-        except (OSError, ValueError, KeyError, TypeError):
-            continue
-        if pid in mine:
-            continue
-        started = proc_start(pid)
-        if started is None or (info.get("procStart") and str(info["procStart"]) != started):
-            continue
-        busy.add(info.get("sessionId"))
-    return busy
+    return {session for pid, session in registered_sessions() if pid not in mine}
 
 
 # 消息开头的附件行（见 Kotlin 的 AttachedPaths）：复制进来的文件 [Attached file: 路径]，
@@ -534,16 +555,33 @@ def read_text(path):
         return ""
 
 
+def session_title(path):
+    """会话记录里的标题，规矩同 summarize：改过的名字（custom-title）压过自动起的（ai-title），不看先后。
+    只看这两种行（按字节筛，不解码别的行），没有标题返回 None。"""
+    custom = ai = None
+    try:
+        with open(path, "rb") as f:
+            for line in f:
+                if b'-title"' not in line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    continue
+                if o.get("type") == "custom-title" and o.get("customTitle"):
+                    custom = o["customTitle"]
+                elif o.get("type") == "ai-title" and o.get("aiTitle"):
+                    ai = o["aiTitle"]
+    except OSError:
+        return None
+    return custom or ai
+
+
 def cmd_hosts():
     prune_uploads()
     for directory in sorted(glob.glob(os.path.join(HOSTS, "*")), key=os.path.getmtime, reverse=True):
-        try:
-            pid = int(read_text(os.path.join(directory, "pid")))
-            with open("/proc/%d/cmdline" % pid, "rb") as f:
-                alive = b"claude" in f.read()
-        except (OSError, ValueError):
-            alive = False
-        if not alive or os.path.exists(os.path.join(directory, "exit")):
+        pid = read_pid(os.path.join(directory, "pid"))
+        if claude_argv(pid) is None or os.path.exists(os.path.join(directory, "exit")):
             shutil.rmtree(directory, ignore_errors=True)
             continue
         try:
@@ -552,9 +590,10 @@ def cmd_hosts():
             continue
         session = session or read_text(os.path.join(directory, "session")) or None
         files = glob.glob(os.path.join(ROOT, "*", session + ".jsonl")) if session else []
-        # 会话记录里的标题（改过的名字、自动起的标题）比启动时记下的新
-        summary = (summarize(files[0]) or {}) if files else {}
-        title = summary.get("title") or read_text(os.path.join(directory, "title")) or (summary.get("preview") or "")[:40]
+        # 会话记录里的标题（改过的名字、自动起的标题）比启动时记下的新；都没有时才整份读一遍取开头那句
+        title = (session_title(files[0]) if files else None) or read_text(os.path.join(directory, "title"))
+        if not title and files:
+            title = ((summarize(files[0]) or {}).get("preview") or "")[:40]
         out({"key": os.path.basename(directory), "pid": pid, "cwd": read_text(os.path.join(directory, "cwd")),
              "title": title, "session": session, "file": files[0] if files else None,
              "lines": lines, "busy": busy, "pending": pending, "mode": mode, "tasks": tasks, "task_events": events})
@@ -824,17 +863,16 @@ def inside_root(path):
 
 def session_dir(path):
     """会话记录 <项目>/<会话 id>.jsonl 旁边 Claude Code 自己建的同名目录（tool-results、subagents 等）。
-    只认 ~/.claude/projects/<项目>/<会话 id>/ 这一层、本身不是符号链接的真目录；别的情况返回 None。"""
+    只认 ~/.claude/projects/<项目>/<会话 id>/ 这一层，项目目录和它都按 safe_child 核（不是符号链接的真目录，
+    真实路径就在那一层），记录文件本身也得真在这个项目目录里；别的情况返回 None。"""
     if not path.endswith(".jsonl"):
         return None
-    root = os.path.realpath(ROOT)
-    base = os.path.abspath(path)[:-len(".jsonl")]
-    if not SESSION_ID.fullmatch(os.path.basename(base)) or os.path.islink(base) or not os.path.isdir(base):
+    project = os.path.dirname(os.path.abspath(path))
+    name = os.path.basename(path)[:-len(".jsonl")]
+    if not SESSION_ID.fullmatch(name) or os.path.dirname(os.path.realpath(project)) != os.path.realpath(ROOT):
         return None
-    real = os.path.realpath(base)
-    if os.path.dirname(os.path.dirname(real)) != root or os.path.basename(real) != os.path.basename(base):
-        return None
-    if os.path.dirname(os.path.realpath(path)) != os.path.dirname(real):
+    real = safe_child(project, name, True)
+    if real is None or os.path.dirname(os.path.realpath(path)) != os.path.dirname(real):
         return None
     return real
 
@@ -992,7 +1030,6 @@ def cmd_mounts(names):
 # 两个 Zeta 包的都算）加上应用传进来的。会话记录本身（<项目>/<id>.jsonl）不在任何一类里，删会话走 delete。
 
 CLAUDE_HOME = os.path.expanduser("~/.claude")
-ZETA_CACHE = os.path.expanduser("~/.cache/%s" % NAME)
 UUID_TEXT = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 UUID_NAME = re.compile(UUID_TEXT)
 FRESH_SECONDS = 600          # 十分钟内动过的不删：可能正在写
@@ -1092,22 +1129,6 @@ def remove_child(root, name, directory, size):
     return max(0, size - usage(real, set())[0])
 
 
-def read_pid(path):
-    try:
-        with open(path) as f:
-            return int(f.read().strip())
-    except (OSError, ValueError):
-        return None
-
-
-def proc_argv(pid):
-    try:
-        with open("/proc/%d/cmdline" % pid, "rb") as f:
-            return f.read().split(b"\0")
-    except OSError:
-        return None
-
-
 def proc_started(pid):
     """进程启动的时刻（秒，Unix 时间）；进程不在了返回 None。"""
     ticks = proc_start(pid)
@@ -1123,9 +1144,7 @@ def proc_started(pid):
 
 def host_alive(directory):
     """Zeta 托管的一个对话还在不在：Claude Code 进程活着，或者应用那头的接入脚本还连着。"""
-    pid = read_pid(os.path.join(directory, "pid"))
-    argv = proc_argv(pid) if pid else None
-    if argv and any(b"claude" in a for a in argv):
+    if claude_argv(read_pid(os.path.join(directory, "pid"))):
         return True
     attach = read_pid(os.path.join(directory, "attach"))
     argv = proc_argv(attach) if attach else None
@@ -1156,23 +1175,13 @@ class StorageContext:
         self.keep = set(keep)
         self.oldest = None
         self.transcripts = {os.path.basename(p)[:-6] for p in glob.glob(os.path.join(ROOT, "*", "*.jsonl"))}
-        # Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）
-        for path in glob.glob(os.path.join(SESSIONS, "*.json")):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    info = json.load(f)
-                pid = int(info["pid"])
-            except (OSError, ValueError, KeyError, TypeError):
-                continue
-            started = proc_start(pid)
-            if started is None or (info.get("procStart") and str(info["procStart"]) != started):
-                continue
-            self.live(pid, info.get("sessionId"))
+        for pid, session in registered_sessions():
+            self.live(pid, session)
         # Zeta 托管的对话，两个包的目录都看：登记文件还没写出来时也认得
         for directory in glob.glob(os.path.expanduser("~/.cache/zeta*/hosts/*")):
             pid = read_pid(os.path.join(directory, "pid"))
-            argv = proc_argv(pid) if pid else None
-            if argv and any(b"claude" in a for a in argv):
+            argv = claude_argv(pid)
+            if argv:
                 self.live(pid, host_session(directory, argv))
 
     def live(self, pid, session):
@@ -1247,7 +1256,7 @@ def is_dir(path):
 def plan_zeta_files(ctx):
     """应用送进来的附件：一小时内的、进行中的对话用到的不删。"""
     plan = Plan(ctx)
-    root = os.path.join(ZETA_CACHE, "files")
+    root = UPLOADS
     used = ctx.uploads_in_use()
     for name in children(root):
         size, newest, _ = plan.count(os.path.join(root, name))
@@ -1259,7 +1268,7 @@ def plan_zeta_files(ctx):
 def plan_zeta_hosts(ctx):
     """后台对话的输出目录：进程和接入脚本都已经不在的。"""
     plan = Plan(ctx)
-    root = os.path.join(ZETA_CACHE, "hosts")
+    root = HOSTS
     for name in children(root):
         path = os.path.join(root, name)
         size, newest, _ = plan.count(path)

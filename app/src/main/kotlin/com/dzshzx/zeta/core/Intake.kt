@@ -109,10 +109,10 @@ object IntakeParser {
 /** 送进来的文件多大算大、多大不收。 */
 object FileLimits {
     /** 超过它，附件上注明大小。 */
-    const val NOTE_BYTES = 10L * 1024 * 1024
+    const val NOTE_BYTES = 10_000_000L
 
     /** 超过它不复制：复制进 Linux 要多占一份同样大的空间，Claude 也读不完这么大的文件。 */
-    const val MAX_BYTES = 200L * 1024 * 1024
+    const val MAX_BYTES = 200_000_000L
 
     /** 一次最多收几个文件。 */
     const val MAX_FILES = 20
@@ -120,30 +120,11 @@ object FileLimits {
     fun tooLarge(size: Long?): Boolean = size != null && size > MAX_BYTES
 
     /** 附件上显示的名字：大文件后面注明大小。 */
-    fun label(name: String, size: Long?): String = if (size != null && size >= NOTE_BYTES) "$name · ${formatSize(size)}" else name
+    fun label(name: String, size: Long?): String = if (size != null && size >= NOTE_BYTES) "$name · ${formatBytes(size)}" else name
 
     /** 没收某个文件的原因（[size] 不知道时是读到一半才发现超过上限）。 */
     fun tooLargeReason(name: String, size: Long?): String =
-        "「$name」" + (if (size != null) "有 ${formatSize(size)}，" else "") + "超过 ${formatSize(MAX_BYTES)} 的上限，没有复制"
-
-    fun formatSize(bytes: Long): String {
-        val kb = 1024.0
-        return when {
-            bytes < 1024 -> "$bytes B"
-            bytes < 1024 * 1024 -> "${(bytes / kb).toInt().coerceAtLeast(1)} KB"
-            bytes < 1024L * 1024 * 1024 -> oneDecimal(bytes / kb / kb) + " MB"
-            else -> oneDecimal(bytes / kb / kb / kb) + " GB"
-        }
-    }
-
-    /** 十以下留一位小数（1.5 MB），以上取整（35 MB）。 */
-    private fun oneDecimal(value: Double): String =
-        if (value < 10) {
-            val tenths = Math.round(value * 10)
-            if (tenths % 10 == 0L) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
-        } else {
-            Math.round(value).toString()
-        }
+        "「$name」" + (if (size != null) "有 ${formatBytes(size)}，" else "") + "超过 ${formatBytes(MAX_BYTES)} 的上限，没有复制"
 }
 
 /** 「放进哪个对话」的一个候选：[blank] 是还什么都没有的新对话，[active] 是还在进行（在跑、等确认、后台任务没完）。 */
@@ -160,16 +141,16 @@ object IntakeRouting {
 }
 
 private fun Conversation.candidate() = IntakeCandidate(
-    key = sessionId ?: key,
+    key = openKey,
     blank = items.isEmpty() && sessionId == null && !busy,
-    active = busy || pending != null || backgroundTasks > 0,
+    active = active,
 )
 
 /** 能接着放进去的那个对话（见 [IntakeRouting.pick]）；没有时为 null。在主线程上调用。 */
 fun ConversationHub.intakeTarget(): Conversation? {
-    val others = backgroundConversations.filter { it !== current }
+    val others = backgroundConversations
     val picked = IntakeRouting.pick(current.candidate(), others.map { it.candidate() }) ?: return null
-    return if (picked.key == (current.sessionId ?: current.key)) current else others.firstOrNull { (it.sessionId ?: it.key) == picked.key }
+    return if (picked.key == current.openKey) current else others.firstOrNull { it.openKey == picked.key }
 }
 
 /**
@@ -192,7 +173,7 @@ fun ConversationHub.placeIntake(intoNew: Boolean) {
     if (intoNew) {
         startNew()
     } else {
-        intakeTarget()?.takeIf { it !== current }?.let { openConversation(it.sessionId ?: it.key) }
+        intakeTarget()?.takeIf { it !== current }?.let { openConversation(it.openKey) }
     }
     deliverIntake(intake)
 }

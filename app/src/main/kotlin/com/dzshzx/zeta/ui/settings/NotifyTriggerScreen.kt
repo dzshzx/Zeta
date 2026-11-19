@@ -2,7 +2,6 @@ package com.dzshzx.zeta.ui.settings
 
 import android.app.Application
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +26,7 @@ import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.Schedules
+import com.dzshzx.zeta.phone.InstalledApps
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.StatusError
@@ -429,19 +429,13 @@ private class AppEntry(val packageName: String, val label: String)
 
 /** 有桌面图标的应用（Zeta 自己除外），按名字排序。 */
 private fun launcherApps(context: Context): List<AppEntry> {
-    val manager = context.packageManager
-    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     val collator = Collator.getInstance(Locale.CHINA)
-    return manager.queryIntentActivities(intent, 0)
-        .map { AppEntry(it.activityInfo.packageName, it.loadLabel(manager).toString()) }
+    return InstalledApps.launchable(context)
+        .map { AppEntry(it.packageName, it.label) }
         .filterNot { AppVariant.isZetaPackage(it.packageName) }
         .distinctBy { it.packageName }
         .sortedWith { a, b -> collator.compare(a.label, b.label) }
 }
-
-private fun appLabel(context: Context, packageName: String): String = runCatching {
-    context.packageManager.run { getApplicationLabel(getApplicationInfo(packageName, 0)).toString() }
-}.getOrNull()?.takeIf { it.isNotBlank() } ?: packageName
 
 /** 选应用：通知栏里现在有通知的排前面，下面是全部有桌面图标的应用；别的可以手动输入包名。 */
 @Composable
@@ -453,7 +447,7 @@ private fun AppPicker(current: String, onPick: (packageName: String, label: Stri
         val (all, recent) = withContext(Dispatchers.IO) {
             val all = launcherApps(context)
             val labels = all.associate { it.packageName to it.label }
-            all to ZetaNotificationListener.activePackages().map { AppEntry(it, labels[it] ?: appLabel(context, it)) }
+            all to ZetaNotificationListener.activePackages().map { AppEntry(it, labels[it] ?: InstalledApps.label(context, it)) }
         }
         active = recent
         apps = all
@@ -503,7 +497,7 @@ private fun AppPicker(current: String, onPick: (packageName: String, label: Stri
         onConfirm = {
             manual = false
             val pkg = input.trim()
-            onPick(pkg, apps?.firstOrNull { it.packageName == pkg }?.label ?: appLabel(context, pkg))
+            onPick(pkg, apps?.firstOrNull { it.packageName == pkg }?.label ?: InstalledApps.label(context, pkg))
         },
         onDismissRequest = { manual = false },
     )

@@ -4,7 +4,6 @@ import android.content.Context
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
-import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
@@ -177,18 +176,10 @@ internal object ScheduleTools : PhoneToolGroup {
         )
         if (options.isNotEmpty()) append("\n  " + options.joinToString("，"))
         task.lastRun?.let { run ->
-            append("\n  上次 " + Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) + "：" + outcomeText(run.outcome))
+            append("\n  上次 " + Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) + "：" + run.outcome.label)
             if (run.summary.isNotBlank()) append("，" + run.summary.take(80))
         }
         if (task.skips > 0) append("\n  因上一次没跑完跳过 ${task.skips} 次")
-    }
-
-    private fun outcomeText(outcome: RunOutcome) = when (outcome) {
-        RunOutcome.Running -> "进行中"
-        RunOutcome.Done -> "完成"
-        RunOutcome.Failed -> "出错"
-        RunOutcome.Stopped -> "被停止"
-        RunOutcome.Interrupted -> "Zeta 中途被关掉"
     }
 
     private fun delete(context: Context, input: JsonObject): JsonObject {

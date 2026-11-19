@@ -35,7 +35,7 @@ class TaskLabelsTest {
     @Test
     fun outputHeader() {
         assertEquals("输出", TaskLabels.outputHeader(0, false))
-        assertEquals("输出 · 21 字节", TaskLabels.outputHeader(21, false))
-        assertEquals("输出 · 共 1.5 MB，只显示最后 8 KB", TaskLabels.outputHeader(1_572_864, true))
+        assertEquals("输出 · 21 B", TaskLabels.outputHeader(21, false))
+        assertEquals("输出 · 共 1.5 MB，只显示最后 8 KB", TaskLabels.outputHeader(1_500_000, true))
     }
 }

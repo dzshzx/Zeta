@@ -109,26 +109,14 @@ class IntakeTest {
     }
 
     @Test
-    fun fileSizes() {
-        assertEquals("512 B", FileLimits.formatSize(512))
-        assertEquals("1 KB", FileLimits.formatSize(1024))
-        assertEquals("300 KB", FileLimits.formatSize(300 * 1024))
-        assertEquals("1.5 MB", FileLimits.formatSize(1536L * 1024))
-        assertEquals("2 MB", FileLimits.formatSize(2L * 1024 * 1024))
-        assertEquals("35 MB", FileLimits.formatSize(35L * 1024 * 1024 + 300 * 1024))
-        assertEquals("200 MB", FileLimits.formatSize(FileLimits.MAX_BYTES))
-        assertEquals("1.2 GB", FileLimits.formatSize(1288490189L))
-    }
-
-    @Test
     fun largeFilesShowSizeAndTooLargeOnesAreRefused() {
         assertEquals("a.pdf", FileLimits.label("a.pdf", null))
-        assertEquals("a.pdf", FileLimits.label("a.pdf", 3L * 1024 * 1024))
-        assertEquals("a.pdf · 35 MB", FileLimits.label("a.pdf", 35L * 1024 * 1024))
+        assertEquals("a.pdf", FileLimits.label("a.pdf", 3_000_000L))
+        assertEquals("a.pdf · 35 MB", FileLimits.label("a.pdf", 35_000_000L))
         assertFalse(FileLimits.tooLarge(null))
         assertFalse(FileLimits.tooLarge(FileLimits.MAX_BYTES))
         assertTrue(FileLimits.tooLarge(FileLimits.MAX_BYTES + 1))
-        assertEquals("「v.mp4」有 1.2 GB，超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", 1288490189L))
+        assertEquals("「v.mp4」有 1.29 GB，超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", 1288490189L))
         assertEquals("「v.mp4」超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", null))
     }
 

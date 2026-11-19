@@ -159,7 +159,7 @@ class ClaudeAccountsTest {
 
         val state = accounts.list()
         assertEquals(setOf(ClaudeProc(other.pid().toInt(), "", "idle", "interactive"), ClaudeProc(zeta.pid().toInt(), "zeta", "busy", "interactive")), state.processes.toSet())
-        val blocker = ClaudeAccounts.blocker(state.processes, "zeta-dev", ownWorking = false)
+        val blocker = ClaudeAccounts.blocker(state.processes, "zeta-dev")
         assertNotNull(blocker)
         assertTrue(blocker!!, "另一个 Zeta（正式版）开着 1 个对话，其中 1 个在进行" in blocker && "1 个别处开着的 Claude Code" in blocker)
 
@@ -175,8 +175,7 @@ class ClaudeAccountsTest {
         session(mine, status = "idle")
         File(home, ".cache/zeta-dev/hosts/k2").mkdirs()
         File(home, ".cache/zeta-dev/hosts/k2/pid").writeText("${mine.pid()}")
-        assertNull(ClaudeAccounts.blocker(accounts.list().processes, "zeta-dev", ownWorking = false))
-        assertNotNull(ClaudeAccounts.blocker(emptyList(), "zeta-dev", ownWorking = true))
+        assertNull(ClaudeAccounts.blocker(accounts.list().processes, "zeta-dev"))
         // 换的脚本会等它退出（最多约 8 秒）
         Thread { Thread.sleep(600); mine.destroyForcibly() }.start()
         assertEquals(SwitchOutcome.Done("acc-a"), accounts.switch("acc-a"))

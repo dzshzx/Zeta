@@ -19,8 +19,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.longOrNull
 
 /** 文件浏览里的一项。 */
 @Immutable
@@ -127,8 +125,6 @@ object LinuxFiles {
     }
 
     private fun parse(line: String): JsonObject? = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull()
-
-    private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
 }
 
 /** 一次导入或导出的进度；[message] 不为空表示已经结束。 */

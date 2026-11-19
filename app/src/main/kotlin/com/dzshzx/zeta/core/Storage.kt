@@ -12,8 +12,31 @@ import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Locale
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.longOrNull
+
+/**
+ * 字节数给人看，和系统设置里一样用十进制单位（1 KB = 1000 B），保留三位有效数字：1.5 KB、12.3 MB、9.65 GB。
+ * 界面上各处的文件大小、剩余空间都用它。
+ */
+fun formatBytes(bytes: Long): String {
+    if (bytes < 1000) return "$bytes B"
+    val units = listOf("KB", "MB", "GB", "TB")
+    var value = bytes / 1000.0
+    var unit = 0
+    // 999.6 KB 显示出来会是 1000 KB，这时进到下一个单位
+    while (value >= 999.5 && unit < units.lastIndex) {
+        value /= 1000
+        unit++
+    }
+    val text = when {
+        value >= 100 -> "%.0f".format(Locale.US, value)
+        value >= 10 -> "%.1f".format(Locale.US, value)
+        else -> "%.2f".format(Locale.US, value)
+    }
+    return (if ('.' in text) text.trimEnd('0').trimEnd('.') else text) + " " + units[unit]
+}
+
+/** 像 Claude Code 会话 id 的字符串（zeta_helper.py 那边同样校验）：存储清理要保护的会话、设置备份里的置顶会话都按它收。 */
+internal val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
 
 /** 存储页的三组。 */
 enum class StorageGroup { Zeta, Claude, Debian }
@@ -147,7 +170,7 @@ object Storage {
         .filter { it.startsWith("{") }
         .mapNotNull { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
 
-    private fun JsonObject.long(key: String): Long = (this[key] as? JsonPrimitive)?.longOrNull ?: 0L
+    private fun JsonObject.count(key: String): Long = long(key) ?: 0L
 
     fun parseReport(stdout: String): StorageReport {
         val linux = LinkedHashMap<String, StorageUsage>()
@@ -159,12 +182,12 @@ object Storage {
                 "zeta_storage" -> {
                     val key = o.str("key") ?: continue
                     linux[key] = if (o.bool("error") == true) StorageUsage(0, failed = true) else StorageUsage(
-                        bytes = o.long("bytes"),
-                        freeable = o.long("freeable"),
-                        items = o.long("items").toInt(),
+                        bytes = o.count("bytes"),
+                        freeable = o.count("freeable"),
+                        items = o.count("items").toInt(),
                         parts = o.arr("parts").orEmpty().mapNotNull { part ->
                             val p = part as? JsonObject ?: return@mapNotNull null
-                            StoragePart(p.str("name") ?: return@mapNotNull null, p.long("bytes"), p.long("items").toInt())
+                            StoragePart(p.str("name") ?: return@mapNotNull null, p.count("bytes"), p.count("items").toInt())
                         },
                         busy = o.str("busy"),
                     )
@@ -172,8 +195,8 @@ object Storage {
                 "zeta_storage_project" -> projects += ProjectUsage(
                     dir = o.str("dir") ?: continue,
                     cwd = o.str("cwd").orEmpty(),
-                    bytes = o.long("bytes"),
-                    sessions = o.long("sessions").toInt(),
+                    bytes = o.count("bytes"),
+                    sessions = o.count("sessions").toInt(),
                 )
                 "zeta_storage_settings" -> days = o.int("cleanupPeriodDays")
                 "zeta_storage_done" -> complete = true
@@ -191,43 +214,25 @@ object Storage {
                 "zeta_storage_session" -> sessions += SessionUsage(
                     id = o.str("id") ?: continue,
                     file = o.str("file") ?: continue,
-                    bytes = o.long("bytes"),
-                    updated = o.long("updated"),
+                    bytes = o.count("bytes"),
+                    updated = o.count("updated"),
                     live = o.bool("live") == true,
                 )
-                "zeta_storage_rest" -> rest = o.long("bytes")
+                "zeta_storage_rest" -> rest = o.count("bytes")
             }
         }
         return sessions.sortedWith(compareByDescending<SessionUsage> { it.bytes }.thenByDescending { it.updated }) to rest
     }
 
     fun parseCleaned(stdout: String): CleanOutcome? = lines(stdout).firstOrNull { it.str("type") == "zeta_cleaned" }?.let {
-        CleanOutcome(it.long("freed"), it.long("removed").toInt(), it.long("failed").toInt(), it.str("busy"))
+        CleanOutcome(it.count("freed"), it.count("removed").toInt(), it.count("failed").toInt(), it.str("busy"))
     }
 
     /** 给助手的“要保护的会话”参数：只要像会话 id 的（助手那边同样校验，不合的整条命令拒绝）。 */
     fun keepArguments(ids: Collection<String>): List<String> = ids.filter { SessionIdPattern.matches(it) }.distinct().sorted()
 
-    private val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
-
-    /** 和系统设置里一样用十进制单位：1 KB = 1000 B。 */
-    fun size(bytes: Long): String {
-        if (bytes < 1000) return "$bytes B"
-        val units = listOf("KB", "MB", "GB", "TB")
-        var value = bytes / 1000.0
-        var unit = 0
-        // 999.6 KB 显示出来会是 1000 KB，这时进到下一个单位
-        while (value >= 999.5 && unit < units.lastIndex) {
-            value /= 1000
-            unit++
-        }
-        val text = when {
-            value >= 100 -> "%.0f".format(Locale.US, value)
-            value >= 10 -> "%.1f".format(Locale.US, value)
-            else -> "%.2f".format(Locale.US, value)
-        }
-        return (if ('.' in text) text.trimEnd('0').trimEnd('.') else text) + " " + units[unit]
-    }
+    /** 字节数给人看（见 [formatBytes]）。 */
+    fun size(bytes: Long): String = formatBytes(bytes)
 
     /** 小计的来源名：残留按 ~/.claude 下的目录，/tmp 分 Claude Code 的和别的。 */
     fun partName(name: String): String = when (name) {
@@ -283,30 +288,23 @@ object Storage {
         listOfNotNull(hub.current.sessionId) + hub.sessions.filter { it.external || hub.isActive(it.id) }.map { it.id },
     )
 
-    private fun helper(hub: ConversationHub, arguments: List<String>, timeoutMs: Long): CommandResult? {
-        val config = hub.settings.env ?: return null
-        return runCatching {
-            LinuxEnv.run(config, "exec python3 - " + arguments.joinToString(" ") { LinuxEnv.quote(it) }, stdin = hub.helperScript, timeoutMs = timeoutMs)
-        }.getOrNull()
-    }
-
     /** 统计 Linux 一侧的各类。耗时，别在主线程调用。 */
     fun scan(hub: ConversationHub, keep: List<String>): StorageReport? {
-        val result = helper(hub, listOf("storage") + keep, 180_000) ?: return null
+        val result = hub.helper("storage", keep, 180_000) ?: return null
         if (result.exitCode != 0) return null
         return parseReport(result.stdout)
     }
 
     /** 一个项目里各会话的占用。耗时，别在主线程调用。 */
     fun sessions(hub: ConversationHub, project: String, keep: List<String>): Pair<List<SessionUsage>, Long>? {
-        val result = helper(hub, listOf("storage-sessions", project) + keep, 120_000) ?: return null
+        val result = hub.helper("storage-sessions", listOf(project) + keep, 120_000) ?: return null
         if (result.exitCode != 0) return null
         return parseSessions(result.stdout)
     }
 
     /** 由助手清掉一类。耗时，别在主线程调用。 */
     fun clean(hub: ConversationHub, kind: StorageKind, keep: List<String>): CleanOutcome {
-        val result = helper(hub, listOf("clean", kind.key) + keep, 300_000) ?: return CleanOutcome(0, 0, error = "Linux 环境没有响应")
+        val result = hub.helper("clean", listOf(kind.key) + keep, 300_000) ?: return CleanOutcome(0, 0, error = "Linux 环境没有响应")
         return parseCleaned(result.stdout) ?: CleanOutcome(0, 0, error = "没清理成（退出码 ${result.exitCode}）")
     }
 

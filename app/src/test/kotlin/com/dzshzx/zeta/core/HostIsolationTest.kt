@@ -110,4 +110,29 @@ class HostIsolationTest {
         run(release, "bash", host.path, "stop", "k-release")
         assertTrue(gone(releasePid))
     }
+
+    /** 接回后台对话时的标题：会话记录里改过的名字压过自动起的，都没有用启动时记下的，再没有用开头那句。 */
+    @Test
+    fun hostTitleComesFromTranscript() {
+        start(release, "k-release")
+        val session = "0a1b2c3d-0000-4000-8000-000000000001"
+        File(home, ".cache/$release/hosts/k-release/session").writeText(session)
+        val transcript = File(home, ".claude/projects/-p/$session.jsonl").apply { parentFile!!.mkdirs() }
+        val user = """{"type":"user","message":{"role":"user","content":"第一句话"},"cwd":"/p"}"""
+        fun title(): String = run(release, "python3", "-I", helper.path, "hosts").lineSequence()
+            .filter { it.startsWith("{") }
+            .map { Json.parseToJsonElement(it).jsonObject["title"]!!.jsonPrimitive.content }
+            .single()
+
+        transcript.writeText(
+            user + "\n" + """{"type":"custom-title","customTitle":"改过的"}""" + "\n" + """{"type":"ai-title","aiTitle":"自动的"}""" + "\n",
+        )
+        assertEquals("改过的", title())
+        transcript.writeText(user + "\n" + """{"type":"ai-title","aiTitle":"自动的"}""" + "\n")
+        assertEquals("自动的", title())
+        transcript.writeText(user + "\n")
+        assertEquals("t", title())
+        File(home, ".cache/$release/hosts/k-release/title").writeText("")
+        assertEquals("第一句话", title())
+    }
 }

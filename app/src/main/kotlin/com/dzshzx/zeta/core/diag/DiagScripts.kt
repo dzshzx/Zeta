@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
+import com.dzshzx.zeta.core.formatBytes
 import java.util.Base64
 
 /** 诊断页“Claude Code”一节列出的日志文件从哪来。 */
@@ -109,12 +110,8 @@ object DiagScripts {
         return result
     }
 
-    /** 文件大小给人看：B、KB、MB。 */
-    fun size(bytes: Long): String = when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0).replace(".0 ", " ")
-        else -> "%.1f MB".format(bytes / 1024.0 / 1024.0).replace(".0 ", " ")
-    }
+    /** 文件大小给人看（见 [formatBytes]）。 */
+    fun size(bytes: Long): String = formatBytes(bytes)
 }
 
 /** 诊断包里的文件：名字 → 内容。全部打过码。纯函数。 */

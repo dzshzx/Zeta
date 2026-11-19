@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.tasks
 import com.dzshzx.zeta.core.BackgroundTask
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.core.formatElapsed
 
 /** 后台任务面板上的说法。纯函数，单元测试在 TaskLabelsTest。 */
@@ -56,13 +57,7 @@ internal object TaskLabels {
     /** 输出区上方的一句：读到多少、是不是只显示了最后一段。 */
     fun outputHeader(totalBytes: Long, truncated: Boolean): String = when {
         totalBytes <= 0 -> "输出"
-        truncated -> "输出 · 共 ${size(totalBytes)}，只显示最后 8 KB"
-        else -> "输出 · ${size(totalBytes)}"
-    }
-
-    private fun size(bytes: Long): String = when {
-        bytes < 1024 -> "$bytes 字节"
-        bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
-        else -> "%.1f MB".format(bytes / 1024.0 / 1024.0)
+        truncated -> "输出 · 共 ${formatBytes(totalBytes)}，只显示最后 8 KB"
+        else -> "输出 · ${formatBytes(totalBytes)}"
     }
 }

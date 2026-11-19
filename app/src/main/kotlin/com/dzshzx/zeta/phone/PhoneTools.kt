@@ -2,7 +2,6 @@ package com.dzshzx.zeta.phone
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
@@ -694,10 +693,7 @@ class PhoneTools(
         else ZetaAccessibilityService.instance?.screenshot(display) ?: run {
             // 没有无障碍服务时，主屏可以经 root 截
             if (display != 0) return null
-            val process = runCatching { ProcessBuilder("su", "-c", "exec screencap -p").start() }.getOrNull() ?: return null
-            val bytes = runCatching { process.inputStream.readBytes() }.getOrNull()
-            process.waitFor()
-            bytes?.takeIf { it.isNotEmpty() }?.let { android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size) } ?: return null
+            ScreenCapture.rootScreencap() ?: return null
         }
         val scaled = if (screen.scale < 1f) Bitmap.createScaledBitmap(raw, screen.modelWidth, screen.modelHeight, true) else raw
         val out = ByteArrayOutputStream()
@@ -1009,17 +1005,9 @@ class PhoneTools(
         return rootError(command)
     }
 
-    private class App(val label: String, val packageName: String, val activity: String)
+    private fun launchable(): List<InstalledApps.Launcher> = InstalledApps.launchable(context)
 
-    private fun launchable(): List<App> {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val manager = context.packageManager
-        return manager.queryIntentActivities(intent, 0).map {
-            App(it.loadLabel(manager).toString(), it.activityInfo.packageName, it.activityInfo.name)
-        }
-    }
-
-    private fun match(query: String): List<App> {
+    private fun match(query: String): List<InstalledApps.Launcher> {
         val q = query.trim()
         val apps = launchable()
         apps.filter { it.packageName == q || it.label.equals(q, ignoreCase = true) }.takeIf { it.isNotEmpty() }?.let { return it }
@@ -1038,7 +1026,7 @@ class PhoneTools(
      */
     private fun openApp(a: JsonObject): JsonObject {
         val request = OpenRequest.parse(a).let { it.value ?: return failure(it.problem.orEmpty()) }
-        var app: App? = null
+        var app: InstalledApps.Launcher? = null
         var appPackage: String? = null
         request.app?.let { query ->
             val found = match(query)
@@ -1109,9 +1097,7 @@ class PhoneTools(
 
     /** 应用的名字；看不到（没有桌面图标、不在可见范围里）时用包名。 */
     private fun appLabel(packageName: String): String =
-        launchable().firstOrNull { it.packageName == packageName }?.label
-            ?: runCatching { context.packageManager.run { getApplicationLabel(getApplicationInfo(packageName, 0)).toString() } }.getOrNull()
-            ?: packageName
+        launchable().firstOrNull { it.packageName == packageName }?.label ?: InstalledApps.label(context, packageName)
 
     /** 主屏前台的应用（用户眼前的那个）。 */
     private fun foregroundOnMain(): String? = rootTasks().firstOrNull { it.displayId == mainDisplay && it.visible }?.packageName

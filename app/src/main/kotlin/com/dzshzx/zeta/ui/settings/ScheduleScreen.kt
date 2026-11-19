@@ -177,13 +177,7 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
     }
 }
 
-internal fun outcomeWord(outcome: RunOutcome) = when (outcome) {
-    RunOutcome.Running -> "正在运行"
-    RunOutcome.Done -> "完成"
-    RunOutcome.Failed -> "没有完成"
-    RunOutcome.Stopped -> "被停止"
-    RunOutcome.Interrupted -> "中途被关掉"
-}
+internal fun outcomeWord(outcome: RunOutcome) = outcome.label
 
 private enum class RuleKind(val label: String) { Once("单次"), Daily("每天"), Weekly("每周"), Interval("间隔") }
 

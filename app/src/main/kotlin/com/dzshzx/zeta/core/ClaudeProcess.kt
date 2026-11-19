@@ -25,7 +25,10 @@ class HostInfo(
     val tasks: Int = 0,
     /** 还在跑的后台任务的事件（task_started、最后一条 background_tasks_changed、最近的 task_progress），接上时按序重放给任务清单。 */
     val taskEvents: List<JsonObject> = emptyList(),
-)
+) {
+    /** 和 [Conversation.active] 同一口径：在回答、等确认或有后台任务。 */
+    val active: Boolean get() = busy || pending != null || tasks > 0
+}
 
 /**
  * 与 Debian 里一个 `claude -p` 进程的连接，一行一个 JSON（stream-json）。

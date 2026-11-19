@@ -87,14 +87,14 @@ class StorageTest {
 
     @Test
     fun formatsSizesLikeSystemSettings() {
-        assertEquals("0 B", Storage.size(0))
-        assertEquals("999 B", Storage.size(999))
-        assertEquals("1 KB", Storage.size(1000))
-        assertEquals("1.5 KB", Storage.size(1500))
-        assertEquals("12.3 MB", Storage.size(12_340_000))
-        assertEquals("100 MB", Storage.size(100_000_000))
-        assertEquals("1 MB", Storage.size(999_600))
-        assertEquals("9.65 GB", Storage.size(9_654_209_000))
+        assertEquals("0 B", formatBytes(0))
+        assertEquals("999 B", formatBytes(999))
+        assertEquals("1 KB", formatBytes(1000))
+        assertEquals("1.5 KB", formatBytes(1500))
+        assertEquals("12.3 MB", formatBytes(12_340_000))
+        assertEquals("100 MB", formatBytes(100_000_000))
+        assertEquals("1 MB", formatBytes(999_600))
+        assertEquals("9.65 GB", formatBytes(9_654_209_000))
     }
 
     @Test

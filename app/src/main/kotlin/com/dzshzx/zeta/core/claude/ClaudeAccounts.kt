@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.core.AppVariant
 
 /** 一个 Claude 账号（Claude Code 的 oauthAccount 加上套餐信息）。令牌不在这里：它们只在 Debian 里的文件之间搬。 */
 @Immutable
@@ -132,15 +133,15 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
             records.filter { it.tag == "P" }.mapNotNull { r -> r[1].toIntOrNull()?.let { ClaudeProc(it, r[2], r[3], r[4]) } }
 
         /**
-         * 换账号前，为什么还不能换；能换时为 null。[mine] 是本包的目录名，[ownWorking] 是本包有对话在回答、等确认或有后台任务。
-         * 本包闲着的对话 Zeta 自己会先关掉，不算阻碍；别的 Claude Code 进程哪怕闲着也不行：它们会把旧账号写回 ~/.claude.json。
+         * 别的 Claude Code 进程挡着换账号的原因；能换时为 null。[mine] 是本包的目录名。本包自己的对话由调用方先看
+         * （[com.dzshzx.zeta.core.AccountService]），闲着的 Zeta 自己会关掉，不算阻碍；别的 Claude Code 进程哪怕闲着也不行：
+         * 它们会把旧账号写回 ~/.claude.json。
          */
-        fun blocker(processes: List<ClaudeProc>, mine: String, ownWorking: Boolean): String? {
+        fun blocker(processes: List<ClaudeProc>, mine: String = AppVariant.current.linuxName): String? {
             val others = processes.filter { it.owner != mine }
             val otherZeta = others.filter { it.owner.isNotEmpty() }
             val elsewhere = others.filter { it.owner.isEmpty() }
             val reasons = buildList {
-                if (ownWorking) add("这里还有对话在进行（在回答、等你确认或有后台任务），等它结束")
                 if (otherZeta.isNotEmpty()) {
                     val busy = otherZeta.count { it.busy }
                     add(

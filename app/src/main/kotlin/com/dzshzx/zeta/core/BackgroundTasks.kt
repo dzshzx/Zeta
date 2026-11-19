@@ -291,8 +291,6 @@ class TaskBoard(private val keepFinished: Int = 20) {
             "killed" -> TaskState.Stopped
             else -> TaskState.Running // pending、running、paused
         }
-
-        private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
     }
 }
 

@@ -95,6 +95,12 @@ class Conversation(
         private set
     var pending by mutableStateOf<PermissionRequest?>(null)
         private set
+
+    /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
+    val active: Boolean get() = busy || pending != null || backgroundTasks > 0
+
+    /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
+    val openKey: String get() = sessionId ?: key
     var model by mutableStateOf(hub.settings.model)
         private set
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
@@ -166,7 +172,7 @@ class Conversation(
      * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。
      * Claude Code 还有后台任务在跑也算忙：后台屏幕不休眠、不被腾掉。
      */
-    val phone = hub.phoneFor(sessionId ?: key).also { it.attach(busy = { busy || backgroundTasks > 0 }, onChanged = { hub.onActivityChanged() }) }
+    val phone = hub.phoneFor(openKey).also { it.attach(busy = { busy || backgroundTasks > 0 }, onChanged = { hub.onActivityChanged() }) }
 
     /** 顶部状态胶囊看到的这个对话。 */
     internal val overlay = ConversationFocus(hub, this)
@@ -232,9 +238,7 @@ class Conversation(
             val loadedUsage = UsageTracker()
             var skipped = 0
             var seed = emptyList<ToolStep>()
-            val result = runCatching {
-                LinuxEnv.run(config, "exec python3 - history " + LinuxEnv.quote(file), stdin = hub.helperScript, timeoutMs = 60_000)
-            }.getOrNull()
+            val result = hub.helper("history", listOf(file), timeoutMs = 60_000, config = config)
             result?.stdout?.lineSequence()?.forEach { line ->
                 val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@forEach
                 loadedUsage.observeHistory(event)
@@ -870,7 +874,7 @@ class Conversation(
             }
             "control_response" -> {
                 if (tasks.onResponse(event.obj("response"))) return false
-                if (autoTitle.onResponse(event.obj("response"), title) { title = it; hub.refreshSessions() }) return false
+                if (autoTitle.onResponse(event.obj("response"), title) { title = it; sessionId?.let { id -> hub.titled(id, it) } }) return false
                 if (rewind != null && event.obj("response")?.str("request_id") == rewind?.requestId) {
                     finishRewind(rewindFailure(event.obj("response")))
                     return true

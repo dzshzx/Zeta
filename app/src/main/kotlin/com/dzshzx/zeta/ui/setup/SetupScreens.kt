@@ -30,6 +30,7 @@ import com.dzshzx.zeta.core.InstallStep
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.ui.components.coui.CouiButton
 import com.dzshzx.zeta.ui.components.coui.CouiButtonRole
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
@@ -42,11 +43,6 @@ import com.itos.coui.layout.Group
 import com.itos.coui.menu.CouiMenuItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-private fun bytesText(bytes: Long): String = when {
-    bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1L shl 30).toDouble())
-    else -> "%d MB".format(bytes shr 20)
-}
 
 private fun locationName(rootfs: String?): String = when (rootfs) {
     null -> "未选择"
@@ -163,7 +159,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                             if (!health.network) add("解析不了域名，可能没有网络")
                             if (isEmpty()) add("环境正常")
                             if (health.debian.isNotBlank()) add("Debian ${health.debian}")
-                            add("剩余 ${bytesText(health.freeBytes)}")
+                            add("剩余 ${formatBytes(health.freeBytes)}")
                         }.joinToString(" · ")
                     },
                     onClick = hub::checkHealth,

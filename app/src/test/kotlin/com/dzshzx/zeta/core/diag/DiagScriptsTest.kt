@@ -70,14 +70,6 @@ class DiagScriptsTest {
     }
 
     @Test
-    fun sizes() {
-        assertEquals("512 B", DiagScripts.size(512))
-        assertEquals("2 KB", DiagScripts.size(2048))
-        assertEquals("1.5 KB", DiagScripts.size(1536))
-        assertEquals("3 MB", DiagScripts.size(3L * 1024 * 1024))
-    }
-
-    @Test
     fun bundleIsRedactedAndNamed() {
         val running = LogFile(LogKind.Running, "$home/.cache/zeta-dev/hosts/k1/err.log", 10, 0, "标题")
         val finished = LogFile(LogKind.Finished, "$home/.cache/zeta-dev/stderr/20261119-k0.log", 100_000, 0)
@@ -93,7 +85,7 @@ class DiagScriptsTest {
             files.keys.toList(),
         )
         for ((name, text) in files) assertFalse("$name 里有没打码的", text.contains("fake-token"))
-        assertTrue(files.getValue("claude-stderr/20261119-k0.log").startsWith("# 原文件 97.7 KB，这里只有最后 64 KB"))
+        assertTrue(files.getValue("claude-stderr/20261119-k0.log").startsWith("# 原文件 100 KB，这里只有最后 64 KB"))
         assertTrue(files.getValue("claude-debug/a_b.txt").startsWith("# $home/.claude/debug/a b.txt\n"))
     }
 

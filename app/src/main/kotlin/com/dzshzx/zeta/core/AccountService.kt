@@ -13,6 +13,9 @@ import com.dzshzx.zeta.core.claude.EnvShell
 import com.dzshzx.zeta.core.claude.SwitchOutcome
 import kotlin.concurrent.thread
 
+/** 本包还有对话在进行，不能动登录状态。 */
+private const val OwnConversationsBusy = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
+
 /**
  * 账号页背后的状态：存着哪些账号、当前是哪个、正在切换。切换和登录都会改 Linux 用户的 Claude Code 登录状态，
  * 两个 Zeta 包和终端里的 claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做（见 [ClaudeAccounts.blocker]）。
@@ -36,12 +39,16 @@ class AccountService(private val hub: ConversationHub) {
         ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script, AppVariant.current.linuxName)
     }
 
-    fun refresh() {
-        val client = accounts() ?: return
+    fun refresh() = refresh {}
+
+    /** 读一遍账号；读完（读不成时是 null）在主线程上做 [then]。 */
+    private fun refresh(then: (AccountsState?) -> Unit) {
+        val client = accounts() ?: return then(null)
         thread(name = "zeta-accounts", isDaemon = true) {
             val listed = runCatching { client.list() }
             main.post {
                 listed.onSuccess { state = it }.onFailure { if (working == null) problem = "读不了账号：${it.message}" }
+                then(listed.getOrNull())
             }
         }
     }
@@ -58,7 +65,7 @@ class AccountService(private val hub: ConversationHub) {
     /** 现在能不能动登录状态（切换或添加账号）；不能时给出原因。在主线程上调用。 */
     private fun localBlocker(): String? = when {
         working != null -> "上一件事还没做完"
-        !hub.canSwitchEnvironment -> "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
+        !hub.canSwitchEnvironment -> OwnConversationsBusy
         hub.login.state.let { it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed } -> "正在登录，先完成或取消登录"
         else -> null
     }
@@ -77,7 +84,7 @@ class AccountService(private val hub: ConversationHub) {
                 finish("读不了账号：${error.message}")
                 return@thread
             }
-            val blocker = ClaudeAccounts.blocker(listed.processes, AppVariant.current.linuxName, ownWorking = false)
+            val blocker = ClaudeAccounts.blocker(listed.processes)
             if (blocker != null) {
                 finish(blocker, listed)
                 return@thread
@@ -86,19 +93,20 @@ class AccountService(private val hub: ConversationHub) {
                 // 这一刻再看一次：查进程的这会儿可能有对话开始了
                 if (!hub.closeIdleConversations()) {
                     working = null
-                    problem = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
+                    problem = OwnConversationsBusy
                     return@post
                 }
                 thread(name = "zeta-accounts", isDaemon = true) {
                     val outcome = runCatching { synchronized(hub.quota.probeLock) { client.switch(target.id) } }
                         .getOrElse { SwitchOutcome.Failed(it.message ?: "没有成功") }
-                    val after = runCatching { client.list() }.getOrNull()
+                    // 换成了的话 switched() 会重读一遍账号，这里不用读
+                    val after = if (outcome is SwitchOutcome.Done) null else runCatching { client.list() }.getOrNull()
                     main.post {
                         working = null
                         after?.let { state = it }
                         when (outcome) {
                             is SwitchOutcome.Done -> switched()
-                            is SwitchOutcome.Busy -> problem = ClaudeAccounts.blocker(outcome.processes, AppVariant.current.linuxName, ownWorking = false)
+                            is SwitchOutcome.Busy -> problem = ClaudeAccounts.blocker(outcome.processes)
                                 ?: "这里的对话进程还没退出，过一会儿再试"
                             SwitchOutcome.Missing -> problem = "存着的这个账号已经不在了"
                             is SwitchOutcome.Failed -> problem = outcome.message
@@ -117,12 +125,17 @@ class AccountService(private val hub: ConversationHub) {
         }
     }
 
-    /** 登录状态换了（切换或新登录了一个账号）：账号、额度跟着刷新。在主线程上调用。 */
+    /**
+     * 登录状态换了（切换或新登录了一个账号）：账号、额度跟着刷新。账号记录里有邮箱和订阅类型时直接拿来当顶部的账号状态，
+     * 不再为 claude auth status 起一次 Claude Code；缺了才去问它。在主线程上调用。
+     */
     internal fun switched() {
-        hub.refreshAccount()
         hub.quota.forget()
         hub.quota.refresh(force = true)
-        refresh()
+        refresh { listed ->
+            val current = listed?.current?.takeIf { listed.loggedIn && it.email.isNotBlank() && it.subscription.isNotBlank() }
+            if (current != null) hub.account = AccountStatus(loggedIn = true, email = current.email, plan = current.subscription) else hub.refreshAccount()
+        }
     }
 
     /** 删掉存着的一份。只删副本：那个账号在别处的登录不受影响。 */
@@ -146,13 +159,13 @@ class AccountService(private val hub: ConversationHub) {
         working = "正在检查"
         thread(name = "zeta-accounts", isDaemon = true) {
             val listed = runCatching { client.list() }.getOrNull()
-            val blocker = listed?.let { ClaudeAccounts.blocker(it.processes, AppVariant.current.linuxName, ownWorking = false) }
+            val blocker = listed?.let { ClaudeAccounts.blocker(it.processes) }
             main.post {
                 working = null
                 listed?.let { state = it }
                 when {
                     blocker != null -> problem = blocker
-                    !hub.closeIdleConversations() -> problem = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
+                    !hub.closeIdleConversations() -> problem = OwnConversationsBusy
                     else -> onReady()
                 }
             }

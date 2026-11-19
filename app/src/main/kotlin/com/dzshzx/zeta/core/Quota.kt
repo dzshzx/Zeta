@@ -6,15 +6,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 enum class QuotaSeverity { Normal, Warning, Critical }
@@ -201,7 +195,7 @@ object Quota {
                     "allowed_warning" -> maxOf(QuotaSeverity.Warning, severityOf(used))
                     else -> severityOf(used)
                 }
-                val updated = QuotaWindow(kind, group, null, used, w.long("resetsAt")?.let { it * 1000 }, severity)
+                val updated = QuotaWindow(kind, group, null, used, w.lenientLong("resetsAt")?.let { it * 1000 }, severity)
                 val index = windows.indexOfFirst { it.kind == kind && it.scope == null }
                 windows = if (index >= 0) {
                     windows.toMutableList().also { it[index] = updated.copy(active = windows[index].active) }
@@ -218,7 +212,7 @@ object Quota {
         return base.copy(
             windows = windows,
             blocked = blocked,
-            blockedUntil = if (blocked) info.long("resetsAt")?.let { it * 1000 } else null,
+            blockedUntil = if (blocked) info.lenientLong("resetsAt")?.let { it * 1000 } else null,
             updatedAt = now,
         )
     }
@@ -303,7 +297,7 @@ object Quota {
                     group = w.str("group").orEmpty(),
                     scope = w.str("scope"),
                     used = w.double("used") ?: return@mapNotNull null,
-                    resetsAt = w.long("resetsAt"),
+                    resetsAt = w.lenientLong("resetsAt"),
                     severity = runCatching { QuotaSeverity.valueOf(w.str("severity").orEmpty()) }.getOrDefault(QuotaSeverity.Normal),
                     active = w.bool("active") == true,
                 )
@@ -312,15 +306,11 @@ object Quota {
             subscription = o.str("subscription"),
             available = o.bool("available") != false,
             blocked = o.bool("blocked") == true,
-            blockedUntil = o.long("blockedUntil"),
-            updatedAt = o.long("updatedAt") ?: return null,
+            blockedUntil = o.lenientLong("blockedUntil"),
+            updatedAt = o.lenientLong("updatedAt") ?: return null,
         )
     }.getOrNull()
 
-    private fun JsonObject.prim(key: String): JsonPrimitive? = (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }
-    private fun JsonObject.str(key: String): String? = prim(key)?.contentOrNull
-    private fun JsonObject.double(key: String): Double? = prim(key)?.doubleOrNull
-    private fun JsonObject.long(key: String): Long? = prim(key)?.let { it.longOrNull ?: it.doubleOrNull?.toLong() }
-    private fun JsonObject.bool(key: String): Boolean? = prim(key)?.booleanOrNull
-    private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+    /** 时刻：整数，或者带小数的秒数。 */
+    private fun JsonObject.lenientLong(key: String): Long? = long(key) ?: double(key)?.toLong()
 }

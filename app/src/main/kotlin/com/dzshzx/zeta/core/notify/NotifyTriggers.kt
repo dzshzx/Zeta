@@ -20,12 +20,13 @@ import java.time.ZoneId
 /** 通知触发的规则的运行记录写在规则清单里。每次都开新对话，没有接着用的会话。 */
 internal object NotifyRecords : RunRecords {
     override val kind = "notify"
+    override val fallbackName = "通知触发"
 
     override fun name(context: Context, id: String): String? = NotifyRuleStore.find(context, id)?.name
 
     override fun update(context: Context, id: String, change: (RunRecord) -> RunRecord) {
         NotifyRuleStore.updateRule(context, id) { rule ->
-            val next = change(RunRecord(rule.lastRun, rule.skips, rule.lastSkip, newSession = true, sessionId = null))
+            val next = change(RunRecord(rule.lastRun, rule.skips, rule.lastSkip, sessionId = null))
             rule.copy(lastRun = next.lastRun, skips = next.skips, lastSkip = next.lastSkip)
         }
     }
@@ -38,11 +39,13 @@ internal object NotifyRecords : RunRecords {
 internal object NotifyTriggers {
     private val seen = SeenNotifications()
 
+    /** 这个包的通知有开着的规则要看。绝大多数通知和哪条规则都无关：先按包名筛掉，不去读通知内容。 */
+    fun wanted(app: Application, packageName: String): Boolean =
+        !AppVariant.isZetaPackage(packageName) && NotifyRuleStore.load(app).any { it.enabled && it.packageName == packageName }
+
     fun onPosted(app: Application, n: PostedNotification) {
-        if (AppVariant.isZetaPackage(n.packageName)) return
+        if (!wanted(app, n.packageName)) return
         val rules = NotifyRuleStore.load(app)
-        // 绝大多数通知和哪条规则都无关：先按包名筛掉，不碰别的
-        if (rules.none { it.enabled && it.packageName == n.packageName }) return
         if (!seen.firstTime(n.key, n.postTime)) return
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
@@ -114,7 +117,7 @@ class ZetaNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         // 一条通知出错不能让监听停掉，别的通知照常处理
-        runCatching { NotifyTriggers.onPosted(application, NotifyTriggers.read(sbn)) }
+        runCatching { if (NotifyTriggers.wanted(application, sbn.packageName)) NotifyTriggers.onPosted(application, NotifyTriggers.read(sbn)) }
             .onFailure { Log.w("ZetaNotify", "notification ${sbn.packageName}: ${it.javaClass.simpleName}") }
     }
 

@@ -13,9 +13,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
@@ -56,7 +54,7 @@ class QuotaService(private val hub: ConversationHub) {
     /** 对话进程的一条事件（主线程上）。只看 rate_limit_event 和 get_usage 的应答。 */
     fun observe(event: JsonObject) {
         val now = System.currentTimeMillis()
-        when ((event["type"] as? JsonPrimitive)?.contentOrNull) {
+        when (event.str("type")) {
             "rate_limit_event" -> Quota.applyEvent(snapshot, event["rate_limit_info"] as? JsonObject, now)?.let { if (it != snapshot) publish(it) }
             "control_response" -> {
                 val body = ((event["response"] as? JsonObject)?.get("response") as? JsonObject) ?: return
@@ -105,8 +103,8 @@ class QuotaService(private val hub: ConversationHub) {
         refreshing = true
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
-        // 借开着的对话进程问，应答从 observe 进来
-        if (hub.current.queryQuota()) return
+        // 借开着的对话进程问（当前的优先，再是后台的），应答从 observe 进来；都没有进程才单起一个
+        if ((listOf(hub.current) + hub.backgroundConversations).any { it.queryQuota() }) return
         thread(name = "zeta-quota", isDaemon = true) {
             val body = runCatching { synchronized(probeLock) { QuotaProbe.query(EnvShell(config), config.defaultCwd) } }
             main.post {
@@ -184,11 +182,11 @@ object QuotaProbe {
                     continue
                 }
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
-                if ((o["type"] as? JsonPrimitive)?.contentOrNull != "control_response") continue
+                if (o.str("type") != "control_response") continue
                 val response = o["response"] as? JsonObject ?: continue
-                if ((response["request_id"] as? JsonPrimitive)?.contentOrNull != "usage") continue
-                if ((response["subtype"] as? JsonPrimitive)?.contentOrNull != "success") {
-                    throw IllegalStateException((response["error"] as? JsonPrimitive)?.contentOrNull ?: "Claude Code 没有给出额度")
+                if (response.str("request_id") != "usage") continue
+                if (response.str("subtype") != "success") {
+                    throw IllegalStateException(response.str("error") ?: "Claude Code 没有给出额度")
                 }
                 return response["response"] as? JsonObject ?: throw IllegalStateException("Claude Code 没有给出额度")
             }

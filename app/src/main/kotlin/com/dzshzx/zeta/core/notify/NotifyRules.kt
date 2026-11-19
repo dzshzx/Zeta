@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskRun
@@ -22,7 +23,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -392,6 +392,4 @@ object NotifyRules {
             firedCount = (o.int("firedCount") ?: 0).coerceAtLeast(0),
         )
     }
-
-    private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
 }

@@ -76,9 +76,6 @@ private const val ConversationsFooter = "切到别的对话时还在回答、等
 
 private fun Conversation.label(): String = title.ifBlank { "新对话" }
 
-/** 打开这个对话用的键（和 ConversationHub.openConversation 一致）。 */
-private fun Conversation.openKey(): String = sessionId ?: key
-
 /** 正在看哪个对话的哪个任务。 */
 private data class TaskRef(val conversation: String, val task: String)
 
@@ -110,7 +107,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
                     CouiPreference(
                         title = c.label(),
                         summary = TaskLabels.conversation(c.busy, c.pending != null, c.backgroundTasks, ScheduleRunner.taskName(c)),
-                        onClick = { onOpenConversation(c.openKey()) },
+                        onClick = { onOpenConversation(c.openKey) },
                     )
                 }
             }
@@ -148,7 +145,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
                 Group { CouiPreference(title = "这个任务已经不在了", enabled = false, showChevron = false) }
             }
         } else {
-            TaskDetail(conversation, task, onBack = { viewing = null }, onOpenConversation = { onOpenConversation(conversation.openKey()) })
+            TaskDetail(conversation, task, onBack = { viewing = null }, onOpenConversation = { onOpenConversation(conversation.openKey) })
         }
     }
 }

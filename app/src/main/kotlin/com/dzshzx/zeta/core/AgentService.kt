@@ -21,7 +21,12 @@ import com.dzshzx.zeta.ui.MainActivity
 internal object Notifier {
     const val CHANNEL_STATUS = "status"
     const val CHANNEL_ALERT = "alert"
-    private const val ALERT_ID = 2
+
+    /** 通知 id：各类各一个，同一类里靠 tag 区分（定时任务、通知触发按“来源:id”各一条）。 */
+    const val ID_STATUS = 1
+    const val ID_ALERT = 2
+    const val ID_SCHEDULE = 3
+    const val ID_ACCESSIBILITY = 4
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -38,20 +43,32 @@ internal object Notifier {
 
     /** 用户回到应用里了，提醒就不必留着。 */
     fun clearAlert(context: Context) {
-        context.getSystemService(NotificationManager::class.java).cancel(ALERT_ID)
+        context.getSystemService(NotificationManager::class.java).cancel(ID_ALERT)
     }
 
-    fun alert(context: Context, title: String, text: String) {
+    /** 对话跑完、等确认的提醒，点开回到 Zeta。 */
+    fun alert(context: Context, title: String, text: String) = post(context, null, ID_ALERT, title, text, openAppIntent(context))
+
+    /**
+     * 发一条提醒（渠道“完成与确认提醒”，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。
+     * [tag] 和 [id] 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。
+     */
+    fun post(context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent, bigText: Boolean = false) {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         ensureChannels(context)
         val notification = Notification.Builder(context, CHANNEL_ALERT)
             .setSmallIcon(R.drawable.ic_stat_zeta)
             .setContentTitle(AppVariant.current.notificationTitle(title))
             .setContentText(text)
-            .setContentIntent(openAppIntent(context))
+            .apply { if (bigText) setStyle(Notification.BigTextStyle().bigText(text)) }
+            .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        context.getSystemService(NotificationManager::class.java).notify(ALERT_ID, notification)
+        context.getSystemService(NotificationManager::class.java).notify(tag, id, notification)
+    }
+
+    fun cancel(context: Context, tag: String?, id: Int) {
+        context.getSystemService(NotificationManager::class.java).cancel(tag, id)
     }
 }
 
@@ -102,7 +119,7 @@ class AgentService : Service() {
         )
         builder.addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_tile_capture), "截屏", capture).build())
         val notification = builder.build()
-        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        startForeground(Notifier.ID_STATUS, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         // 只在一轮进行中持有唤醒锁：息屏后设备休眠会把进程一起挂起
         if (busy) {
             if (wakeLock == null) {

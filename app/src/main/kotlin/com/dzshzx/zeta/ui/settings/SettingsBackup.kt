@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.settings
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
+import com.dzshzx.zeta.core.SessionIdPattern
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.ui.app.AccentChoice
@@ -87,7 +88,6 @@ internal object SettingsBackup {
 
     private const val MAX_PINNED = 1000
     private val ModelPattern = Regex("[A-Za-z0-9][A-Za-z0-9._:/@\\[\\]-]{0,127}")
-    private val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
 
     /** 存储里有、但不导出的键：都和这台手机绑在一起，搬到别处没有意义或者会出错。 */
     val machineKeys: Map<String, String> = mapOf(

@@ -1,20 +1,13 @@
 package com.dzshzx.zeta.core.schedule
 
-import android.Manifest
 import android.app.Application
-import android.app.Notification
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import com.dzshzx.zeta.R
-import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
@@ -154,7 +147,7 @@ internal object ScheduleRunner {
         DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
         val run = Run(hub, records, spec.id, conversation, spec.prompt.trim(), now, manual, spec.newSession, fresh)
         runs[run.key] = run
-        val adopt = hub.findConversation(conversation.sessionId ?: conversation.key) == null
+        val adopt = hub.findConversation(conversation.openKey) == null
         conversation.send(spec.prompt)
         if (!conversation.busy) {
             // 没发出去（进程起不来之类），原因在对话里的提示上；这个对话不留在后台
@@ -207,7 +200,7 @@ internal object ScheduleRunner {
             run.records.update(app, run.id) { record ->
                 record.copy(
                     lastRun = record.lastRun?.takeIf { it.at == run.startedAt }?.copy(sessionId = session) ?: record.lastRun,
-                    sessionId = if (record.newSession) record.sessionId else session,
+                    sessionId = if (run.newSession) record.sessionId else session,
                 )
             }
         }
@@ -216,7 +209,7 @@ internal object ScheduleRunner {
             run.notifiedRequest = pending.requestId
             val name = run.records.name(app, run.id) ?: conversation.title
             if (!watching(hub, conversation)) {
-                notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.sessionId ?: conversation.key)
+                notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.openKey)
             }
         }
         if (idle(conversation)) finish(run)
@@ -234,22 +227,16 @@ internal object ScheduleRunner {
         run.records.update(app, run.id) { record ->
             record.copy(
                 lastRun = TaskRun(run.startedAt, outcome, session ?: record.lastRun?.takeIf { it.at == run.startedAt }?.sessionId, summary, run.manual),
-                sessionId = if (!record.newSession && session != null) session else record.sessionId,
+                sessionId = if (!run.newSession && session != null) session else record.sessionId,
             )
         }
         val current = run.records.name(app, run.id)
-        val name = current ?: conversation.title.ifBlank { "定时任务" }
+        val name = current ?: conversation.title.ifBlank { run.records.fallbackName }
         DiagLog.log(
             if (outcome == RunOutcome.Done || outcome == RunOutcome.Stopped) DiagLevel.Info else DiagLevel.Warn,
             DiagTopic.Schedule,
             // 不记结果摘要：那是对话内容
-            "后台任务（${run.records.kind}）$name 结束：" + when (outcome) {
-                RunOutcome.Done -> "完成"
-                RunOutcome.Failed -> "没有完成"
-                RunOutcome.Stopped -> "被叫停"
-                RunOutcome.Interrupted -> "中断"
-                RunOutcome.Running -> "还在跑"
-            },
+            "后台任务（${run.records.kind}）$name 结束：" + outcome.label,
         )
         // 用户叫停的不提醒；用户正看着这个对话也不必提醒
         if (outcome != RunOutcome.Stopped && !watching(hub, conversation)) {
@@ -264,12 +251,8 @@ internal object ScheduleRunner {
 
     // ---- 通知 ----
 
-    private const val NOTIFY_ID = 3
-
     /** 每一项一条（新的替换旧的），tag 是“来源:id”。[key] 是要打开的对话，null 时只打开 Zeta。 */
     private fun notify(app: Application, tag: String, title: String, text: String, key: String?) {
-        if (app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        Notifier.ensureChannels(app)
         val open = if (key == null) {
             Notifier.openAppIntent(app)
         } else {
@@ -278,22 +261,14 @@ internal object ScheduleRunner {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         }
-        val notification = Notification.Builder(app, Notifier.CHANNEL_ALERT)
-            .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(AppVariant.current.notificationTitle(title))
-            .setContentText(text)
-            .setStyle(Notification.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .build()
-        app.getSystemService(NotificationManager::class.java).notify(tag, NOTIFY_ID, notification)
+        Notifier.post(app, tag, Notifier.ID_SCHEDULE, title, text, open, bigText = true)
     }
 
     /** 任务删掉时，它留下的通知一并收掉。 */
     fun clearNotification(context: Context, taskId: String) = clearNotification(context, ScheduleRecords, taskId)
 
     fun clearNotification(context: Context, records: RunRecords, id: String) {
-        context.getSystemService(NotificationManager::class.java).cancel(key(records, id), NOTIFY_ID)
+        Notifier.cancel(context, key(records, id), Notifier.ID_SCHEDULE)
     }
 
     // ---- 小工具 ----
@@ -308,10 +283,7 @@ internal object ScheduleRunner {
     }
 
     private fun lookup(hub: ConversationHub, id: String): SessionSummary? {
-        val config = hub.settings.env ?: return null
-        val result = runCatching {
-            LinuxEnv.run(config, "exec python3 - lookup " + LinuxEnv.quote(id), stdin = hub.helperScript, timeoutMs = 60_000)
-        }.getOrNull() ?: return null
+        val result = hub.helper("lookup", listOf(id), timeoutMs = 60_000) ?: return null
         return parseSessionSummaries(result.stdout).firstOrNull { it.id == id }
     }
 

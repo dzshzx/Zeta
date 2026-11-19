@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
 import java.time.DayOfWeek
@@ -21,12 +22,10 @@ import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
@@ -48,14 +47,14 @@ sealed interface ScheduleRule {
     }
 }
 
-enum class RunOutcome(val key: String) {
-    Running("running"),
-    Done("done"),
-    Failed("failed"),
-    Stopped("stopped"),
+enum class RunOutcome(val key: String, val label: String) {
+    Running("running", "正在运行"),
+    Done("done", "完成"),
+    Failed("failed", "没有完成"),
+    Stopped("stopped", "被停止"),
 
     /** Zeta 在这一轮结束前被关掉了，没等到结果（Claude Code 可能已经在后台跑完）。 */
-    Interrupted("interrupted"),
+    Interrupted("interrupted", "中途被关掉"),
     ;
 
     companion object {
@@ -391,6 +390,4 @@ object Schedules {
             else -> null
         }
     }
-
-    private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.longOrNull
 }

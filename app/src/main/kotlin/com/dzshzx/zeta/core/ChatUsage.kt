@@ -6,8 +6,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 
 /** 一次或几次模型请求的 token 数。 */
 @Immutable
@@ -392,5 +390,3 @@ internal fun formatCost(usd: Double): String = when {
     else -> "$" + String.format(Locale.US, "%.2f", usd)
 }
 
-private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
-private fun JsonObject.double(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull

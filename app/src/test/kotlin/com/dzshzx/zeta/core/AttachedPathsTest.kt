@@ -106,6 +106,13 @@ class AttachedPathsTest {
         assertTrue(PathCheck.command("/a b/it's", null).endsWith(" zeta-path '/a b/it'\\''s' ''"))
     }
 
+    /** 托管目录按包分开（测试版是 zeta-dev），脚本里不能写死正式版的目录。 */
+    @Test
+    fun pathCheckScriptFollowsZetaName() {
+        assertFalse(PathCheck.Script.contains(".cache/zeta/"))
+        assertTrue(PathCheck.Script.contains("\${ZETA_NAME:-zeta}"))
+    }
+
     /** 在本机的 sh 里真跑一遍查路径的脚本（用 JVM 自己当“对话进程”，它看到的和新开的环境一样）。 */
     @Test
     fun pathCheckScriptRunsInShell() {
@@ -118,7 +125,7 @@ class AttachedPathsTest {
             File(home, ".cache/zeta/hosts/$key").apply { mkdirs() }.resolve("pid").writeText(ProcessHandle.current().pid().toString())
             fun run(path: String, hostKey: String?): PathKind {
                 val process = ProcessBuilder("sh", "-c", PathCheck.Script, "zeta-path", path, hostKey.orEmpty())
-                    .apply { environment()["HOME"] = home.path }.redirectErrorStream(true).start()
+                    .apply { environment()["HOME"] = home.path; environment().remove("ZETA_NAME") }.redirectErrorStream(true).start()
                 return PathCheck.parse(process.inputStream.bufferedReader().readText().also { process.waitFor() })
             }
             assertEquals(PathKind.Folder, run(dir.path, null))

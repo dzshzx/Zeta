@@ -2,15 +2,11 @@ package com.dzshzx.zeta.core.schedule
 
 import android.content.Context
 
-/**
- * 一项后台运行的运行记录：上次运行、跳过次数，以及接着同一个对话时用的会话。
- * [newSession] 只读，改了也不存。
- */
+/** 一项后台运行的运行记录：上次运行、跳过次数，以及接着同一个对话时用的会话。 */
 internal data class RunRecord(
     val lastRun: TaskRun?,
     val skips: Int,
     val lastSkip: Long?,
-    val newSession: Boolean,
     val sessionId: String?,
 )
 
@@ -20,6 +16,9 @@ internal data class RunRecord(
 internal interface RunRecords {
     /** 来源的名字。进行中运行的键、通知的 tag 都是“[kind]:<id>”，两种来源的 id 撞不上。 */
     val kind: String
+
+    /** 这一项已经删掉、对话也还没有标题时，通知和日志里用的名字。 */
+    val fallbackName: String
 
     /** 这一项现在的名字；已经删掉时为 null。 */
     fun name(context: Context, id: String): String?
@@ -49,12 +48,13 @@ internal data class RunSpec(
 /** 定时任务的运行记录写在任务清单里。 */
 internal object ScheduleRecords : RunRecords {
     override val kind = "schedule"
+    override val fallbackName = "定时任务"
 
     override fun name(context: Context, id: String): String? = ScheduleStore.find(context, id)?.name
 
     override fun update(context: Context, id: String, change: (RunRecord) -> RunRecord) {
         ScheduleStore.updateTask(context, id) { task ->
-            val next = change(RunRecord(task.lastRun, task.skips, task.lastSkip, task.newSession, task.sessionId))
+            val next = change(RunRecord(task.lastRun, task.skips, task.lastSkip, task.sessionId))
             task.copy(lastRun = next.lastRun, skips = next.skips, lastSkip = next.lastSkip, sessionId = next.sessionId)
         }
     }

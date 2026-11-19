@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
+import com.dzshzx.zeta.core.LinuxEnv
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -16,6 +17,9 @@ class DiagEventsTest {
         assertEquals("hosts", DiagEvents.helperCommand("python3 - hosts"))
         assertNull(DiagEvents.helperCommand("exec bash -c 'x' zeta-host stop k"))
         assertNull(DiagEvents.helperCommand("exec python3 -c 'print(1)'"))
+        // 应用里拼 helper 命令行的那一处，诊断日志要认得出子命令
+        assertEquals("storage", DiagEvents.helperCommand(LinuxEnv.helperCommand("storage", listOf("it's", "1"))))
+        assertEquals("list", DiagEvents.helperCommand(LinuxEnv.helperCommand("list")))
     }
 
     @Test

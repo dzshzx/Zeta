@@ -1,20 +1,15 @@
 package com.dzshzx.zeta.phone
 
-import android.Manifest
-import android.app.Notification
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
-import com.dzshzx.zeta.R
-import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
+import com.dzshzx.zeta.core.Settings as ZetaSettings
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.ui.MainActivity
@@ -118,7 +113,6 @@ object AccessibilityGuard {
     private const val STATE = "zeta_guard"
     private const val KEY_ARMED = "armed"
 
-    private const val NOTIFICATION_ID = 3
     private const val ATTEMPTS = 5
 
     private val lock = Any()
@@ -198,7 +192,7 @@ object AccessibilityGuard {
             }
             val now = System.currentTimeMillis()
             restores.removeAll { now - it >= GuardPolicy.WINDOW_MS }
-            val action = GuardPolicy.decide(false, armed(context), phoneTools(context), autoRestore(context), restores, now)
+            val action = GuardPolicy.decide(false, armed(context), ZetaSettings(context).phoneTools, autoRestore(context), restores, now)
             // 同一次被关只报一次：上次已经知道不在列表里的，这次只在要加回时再试
             val fresh = was != false
             when (action) {
@@ -336,8 +330,6 @@ object AccessibilityGuard {
     private fun read(context: Context): String? =
         runCatching { Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) }.getOrNull()
 
-    private fun phoneTools(context: Context): Boolean = prefs(context).getBoolean("phoneTools", true)
-
     private fun prefs(context: Context) = context.getSharedPreferences("zeta", Context.MODE_PRIVATE)
 
     private fun state(context: Context) = context.getSharedPreferences(STATE, Context.MODE_PRIVATE)
@@ -348,25 +340,16 @@ object AccessibilityGuard {
 
     /** 通知点开到权限健康页。 */
     private fun notice(context: Context, title: String, text: String) {
-        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         runCatching {
-            Notifier.ensureChannels(context)
             val open = Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(SettingsLink.EXTRA, SettingsSubPage.Permissions.name)
-            val pending = PendingIntent.getActivity(context, NOTIFICATION_ID, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            val notification = Notification.Builder(context, Notifier.CHANNEL_ALERT)
-                .setSmallIcon(R.drawable.ic_stat_zeta)
-                .setContentTitle(AppVariant.current.notificationTitle(title))
-                .setContentText(text)
-                .setContentIntent(pending)
-                .setAutoCancel(true)
-                .build()
-            context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+            val pending = PendingIntent.getActivity(context, Notifier.ID_ACCESSIBILITY, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            Notifier.post(context, null, Notifier.ID_ACCESSIBILITY, title, text, pending)
         }
     }
 
     private fun cancelNotice(context: Context) {
-        runCatching { context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID) }
+        runCatching { Notifier.cancel(context, null, Notifier.ID_ACCESSIBILITY) }
     }
 }

@@ -71,7 +71,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
      * 不先试一次、等它被悄悄拦下；读不到这项权限时才先试 PendingIntent，等一会儿还没到前台再经 root。
      */
     override fun openInZeta() {
-        val key = conversation.sessionId ?: conversation.key
+        val key = conversation.openKey
         val display = hub.settings.phoneDisplay
         val context = hub.context
         val route = OpenRoute.choose(hub.foreground, BackgroundStart.allowed(context), root = hub.setup != SetupState.NoRoot)

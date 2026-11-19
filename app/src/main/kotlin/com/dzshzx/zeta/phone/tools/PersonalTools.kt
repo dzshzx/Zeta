@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.InstalledApps
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -122,7 +123,7 @@ internal object PersonalTools : PhoneToolGroup {
         val request = PersonalQueries.searchRequest(input, now, zone)
         return when (request.source) {
             PersonalSource.Notifications -> {
-                val labels = AppLabels(context)
+                val labels = InstalledApps.Labels(context)
                 val op = PersonalQueries.notificationsOp(1_000, request.start)
                 val items = RootProvider.one(context, op).arr("items").orEmpty().map { it.jsonObject }
                 // Zeta 自己的前台服务通知不算
@@ -131,7 +132,7 @@ internal object PersonalTools : PhoneToolGroup {
                 PersonalQueries.formatNotices(matched, request, zone, now, notificationHistoryEnabledOrRoot(context), labels::of)
             }
             PersonalSource.Codes -> {
-                val labels = AppLabels(context)
+                val labels = InstalledApps.Labels(context)
                 val (sms, notices) = RootProvider.run(context, listOf(PersonalQueries.codeSmsOp(request), PersonalQueries.notificationsOp(1_000, request.start)))
                 val problems = listOfNotNull(
                     sms.takeIf { it.bool("ok") != true }?.let { "短信没读到：" + it.str("error") },
@@ -262,14 +263,4 @@ internal object PersonalTools : PhoneToolGroup {
     /** 应用自己读不到这个设置时经 root 读（会阻塞几百毫秒）。 */
     fun notificationHistoryEnabledOrRoot(context: Context): Boolean = notificationHistoryEnabled(context)
         ?: (rootShell("settings get secure $NOTIFICATION_HISTORY_KEY", 10_000).stdout.trim() == "1")
-
-    /** 包名换成应用名；看不到的包（不在 Zeta 的可见范围里）就用包名。 */
-    private class AppLabels(context: Context) {
-        private val packages = context.packageManager
-        private val cache = HashMap<String, String>()
-
-        fun of(pkg: String): String = cache.getOrPut(pkg) {
-            runCatching { packages.getApplicationLabel(packages.getApplicationInfo(pkg, 0)).toString() }.getOrNull()?.takeIf { it.isNotBlank() } ?: pkg
-        }
-    }
 }

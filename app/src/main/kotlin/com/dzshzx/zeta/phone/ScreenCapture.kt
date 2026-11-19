@@ -46,8 +46,6 @@ object ScreenCapture {
             try {
                 val hub = ConversationHub.get(app)
                 val display = hub.settings.phoneDisplay
-                runCatching { LinuxEnv.runRoot("cmd statusbar collapse", 5_000) }
-                Thread.sleep(PANEL_SETTLE_MS)
                 val shot = capture(display)
                 val attachment = shot?.let(Attachments::fromBitmap)
                 Log.i(TAG, "display=$display shot=${shot?.width}x${shot?.height} attached=${attachment != null}")
@@ -64,19 +62,33 @@ object ScreenCapture {
         }
     }
 
-    /** 0 号屏经 root screencap，截之前藏起 Zeta 的悬浮层；截不到时（或调试用的测试屏）走无障碍截图，它自己会跳过 Zeta 的悬浮层。 */
+    /** 收起通知栏和控制中心，等动画放完。 */
+    private val COLLAPSE_PANELS = "cmd statusbar collapse >/dev/null 2>&1; sleep ${PANEL_SETTLE_MS / 1000.0}"
+
+    /**
+     * 先收起面板。0 号屏经 root screencap（收面板和截屏在同一次 root 调用里），截之前藏起 Zeta 的悬浮层；
+     * 截不到时（或调试用的测试屏）走无障碍截图，它自己会跳过 Zeta 的悬浮层。
+     */
     private fun capture(display: Int): Bitmap? {
         if (display == 0) {
             val service = ZetaAccessibilityService.instance
-            val shot = if (service != null) service.withOverlaysHidden(::screencap) else screencap()
+            val shoot = { rootScreencap(before = COLLAPSE_PANELS) }
+            val shot = if (service != null) service.withOverlaysHidden(shoot) else shoot()
             if (shot != null) return shot
+        } else {
+            runCatching { LinuxEnv.runRoot(COLLAPSE_PANELS, 5_000) }
         }
         return ZetaAccessibilityService.instance?.screenshot(display)
     }
 
-    private fun screencap(): Bitmap? {
+    /**
+     * 经 root `screencap -p` 截 0 号屏并解码；[before] 是在同一次 root 调用里先跑的命令。没有 root、没截到时为 null。
+     * 手机工具在没有无障碍服务时也用它截主屏。
+     */
+    internal fun rootScreencap(before: String? = null): Bitmap? {
+        val script = (before?.let { "$it; " } ?: "") + "exec screencap -p"
         val process = runCatching {
-            ProcessBuilder("su", "-c", "exec screencap -p").redirectError(ProcessBuilder.Redirect.to(File("/dev/null"))).start()
+            ProcessBuilder("su", "-c", script).redirectError(ProcessBuilder.Redirect.to(File("/dev/null"))).start()
         }.getOrNull() ?: return null
         return try {
             val bytes = process.inputStream.use { it.readBytes() }

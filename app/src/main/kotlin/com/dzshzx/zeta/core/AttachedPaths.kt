@@ -115,7 +115,7 @@ object PathCheck {
     val Script = """
         r=
         if [ -n "${'$'}2" ]; then
-          p=${'$'}(cat "${'$'}HOME/.cache/zeta/hosts/${'$'}2/pid" 2>/dev/null)
+          p=${'$'}(cat "${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}/hosts/${'$'}2/pid" 2>/dev/null)
           [ -n "${'$'}p" ] && [ -d "/proc/${'$'}p/root/" ] && r=/proc/${'$'}p/root
         fi
         t=${'$'}r${'$'}1

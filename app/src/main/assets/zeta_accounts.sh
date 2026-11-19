@@ -26,6 +26,16 @@ S=$HOME/.config/$N/accounts
 CRED=$HOME/.claude/.credentials.json
 CFG=$HOME/.claude.json
 
+# ~/.claude.json 很大（各项目的历史都在里面）：一次命令里只解析一遍，取出 oauthAccount（一行 JSON）和它的 uuid。
+# 在要用的那一刻调（switch 等进程退出的那几秒里，它们可能把这个文件写回去）
+CFG_ID=
+CFG_ACCT=
+load_cfg() {
+  CFG_ID=
+  CFG_ACCT=
+  { IFS= read -r CFG_ID; IFS= read -r CFG_ACCT; } < <(jq -r '(.oauthAccount.accountUuid // "" | tostring), (.oauthAccount | tojson)' "$CFG" 2>/dev/null)
+}
+
 valid_id() { case $1 in '' | *[!A-Za-z0-9-]*) return 1 ;; esac; }
 
 logged_in() { [ -f "$CRED" ] && jq -e '.claudeAiOauth.accessToken | strings' "$CRED" >/dev/null 2>&1; }
@@ -38,7 +48,7 @@ fp() {
 }
 
 # 当前登录是哪个账号。刷新令牌和存着的某一份一样就是那个（~/.claude.json 里的 oauthAccount 可能被开着的进程写回了旧的）；
-# 令牌刷新过、对不上时看 ~/.claude.json
+# 令牌刷新过、对不上时看 ~/.claude.json（先 load_cfg）
 live_id() {
   logged_in || return 0
   local lf r
@@ -52,15 +62,13 @@ live_id() {
       fi
     done
   fi
-  jq -r '.oauthAccount.accountUuid // empty' "$CFG" 2>/dev/null
+  [ -n "$CFG_ID" ] && printf '%s\n' "$CFG_ID"
 }
 
-# 账号 $1 的 oauthAccount（一行 JSON）：~/.claude.json 里记的正是它就用那份（最新），否则用存着的
+# 账号 $1 的 oauthAccount（一行 JSON）：~/.claude.json 里记的正是它就用那份（最新），否则用存着的（先 load_cfg）
 account_of() {
-  local cfg_id
-  cfg_id=$(jq -r '.oauthAccount.accountUuid // empty' "$CFG" 2>/dev/null)
-  if [ -n "$1" ] && [ "$cfg_id" = "$1" ]; then
-    jq -c '.oauthAccount' "$CFG"
+  if [ -n "$1" ] && [ "$CFG_ID" = "$1" ]; then
+    printf '%s\n' "$CFG_ACCT"
   elif [ -n "$1" ] && [ -f "$S/$1.json" ]; then
     jq -c '.oauthAccount' "$S/$1.json"
   fi
@@ -83,14 +91,15 @@ emit() {
 
 # 还活着的 Claude Code 进程：pid、归属（哪个 Zeta 包的后台对话，别处的为空）、状态（idle、busy…）、种类
 procs() {
-  local f pid want have owner h
+  local f pid want status kind have owner h
   for f in "$HOME"/.claude/sessions/*.json; do
     [ -f "$f" ] || continue
-    pid=$(jq -r '.pid // empty' "$f" 2>/dev/null)
+    # 一个文件只跑一次 jq：pid、启动时刻、状态、种类，用 \x1f 分开（同 fields）
+    IFS=$'\x1f' read -r pid want status kind < <(jq -r '[(.pid // ""), (.procStart // ""), (.status // ""), (.kind // "")]
+      | map(tostring | gsub("[\n\r\u001f]"; " ")) | join("\u001f")' "$f" 2>/dev/null) || continue
     case $pid in '' | *[!0-9]*) continue ;; esac
     [ -r "/proc/$pid/stat" ] || continue
     # pid 被别的进程复用了：启动时刻对不上
-    want=$(jq -r '.procStart // empty | tostring' "$f" 2>/dev/null)
     have=$(sed 's/^.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)
     [ -n "$want" ] && [ "$want" != "$have" ] && continue
     owner=
@@ -102,7 +111,7 @@ procs() {
         break
       fi
     done
-    z P "$pid" "$owner" "$(jq -r '.status // ""' "$f" 2>/dev/null)" "$(jq -r '.kind // ""' "$f" 2>/dev/null)"
+    z P "$pid" "$owner" "$status" "$kind"
   done
 }
 
@@ -110,6 +119,7 @@ procs() {
 save_live() {
   logged_in || return 1
   local id acct tmp
+  load_cfg
   id=$(live_id)
   valid_id "$id" || return 2
   acct=$(account_of "$id")
@@ -144,6 +154,7 @@ write_json() {
 case $cmd in
   list)
     if logged_in; then
+      load_cfg
       id=$(live_id)
       acct=$(account_of "$id")
       jq -n --slurpfile c "$CRED" --argjson a "${acct:-null}" \

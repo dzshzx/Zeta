@@ -67,6 +67,13 @@ object LinuxEnv {
 
     fun quote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
+    /**
+     * 跑 zeta_helper.py 一个子命令的命令行（脚本本身从标准输入喂）。子命令是脚本里固定的名字，原样放；参数逐个加引号。
+     * 诊断日志靠 [com.dzshzx.zeta.core.diag.DiagEvents.helperCommand] 从这一行认出子命令。
+     */
+    fun helperCommand(subcommand: String, arguments: List<String> = emptyList()): String =
+        "exec python3 - $subcommand" + arguments.joinToString("") { " " + quote(it) }
+
     /** 给 `su -c` 的整段脚本：在 Debian 里以 [config] 的用户身份、登录 shell 的环境执行 [command]。 */
     fun enterScript(config: LinuxEnvConfig, command: String): String =
         FIND_BUSYBOX + "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" unshare -m --propagation private \"\$BB\" sh -c " +

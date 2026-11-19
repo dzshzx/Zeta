@@ -95,7 +95,7 @@ internal fun AttachPathDialogs(state: PathAttach, hub: ConversationHub, conversa
 }
 
 /** 进程能不能停下来重启：这一轮没在跑、没有等确认、没有后台任务。重启后下次发送用 --resume 接上，对话内容不变。 */
-private fun Conversation.canRestart(): Boolean = !busy && pending == null && backgroundTasks == 0
+private fun Conversation.canRestart(): Boolean = !active
 
 private sealed interface Resolution {
     data object Checking : Resolution

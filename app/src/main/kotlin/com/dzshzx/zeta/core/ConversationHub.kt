@@ -32,6 +32,15 @@ class ConversationHub(private val app: Application) {
     val helperScript: String by lazy { app.assets.open("zeta_helper.py").bufferedReader().use { it.readText() } }
     val hostScript: String by lazy { app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() } }
 
+    /**
+     * 在 Linux 环境（默认是当前设置的那个）里跑 zeta_helper.py 的子命令 [subcommand]，参数逐个加引号。
+     * 环境没准备好、起不来时返回 null。阻塞，别在主线程上调用。
+     */
+    fun helper(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): CommandResult? {
+        config ?: return null
+        return runCatching { LinuxEnv.run(config, LinuxEnv.helperCommand(subcommand, arguments), stdin = helperScript, timeoutMs = timeoutMs) }.getOrNull()
+    }
+
     var phoneTools by mutableStateOf(settings.phoneTools)
         private set
 
@@ -183,7 +192,7 @@ class ConversationHub(private val app: Application) {
 
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
     var account by mutableStateOf<AccountStatus?>(null)
-        private set
+        internal set
 
     var health by mutableStateOf<EnvHealth?>(null)
         private set
@@ -258,8 +267,7 @@ class ConversationHub(private val app: Application) {
 
     /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
     fun isActive(sessionId: String): Boolean {
-        fun active(c: Conversation) = c.busy || c.pending != null || c.backgroundTasks > 0
-        return (current.sessionId == sessionId && active(current)) || background[sessionId]?.let(::active) == true
+        return (current.sessionId == sessionId && current.active) || background[sessionId]?.active == true
     }
 
     /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
@@ -311,7 +319,7 @@ class ConversationHub(private val app: Application) {
     private fun reattachHosts() {
         val config = settings.env ?: return
         thread(name = "zeta-hosts", isDaemon = true) {
-            val result = runCatching { LinuxEnv.run(config, "exec python3 - hosts", stdin = helperScript, timeoutMs = 60_000) }.getOrNull() ?: return@thread
+            val result = helper("hosts", timeoutMs = 60_000, config = config) ?: return@thread
             val hosts = result.stdout.lineSequence().mapNotNull { line ->
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
                 HostInfo(
@@ -333,7 +341,7 @@ class ConversationHub(private val app: Application) {
                 val known = (listOf(current) + background.values).mapNotNullTo(HashSet()) { it.hostKey }
                 val others = hosts.filter { it.key !in known }
                 // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
-                val active = others.filter { it.busy || it.pending != null || it.tasks > 0 }
+                val active = others.filter { it.active }
                 val idle = others - active.toSet()
                 if (idle.isNotEmpty()) thread(name = "zeta-hosts", isDaemon = true) {
                     for (host in idle) {
@@ -346,7 +354,7 @@ class ConversationHub(private val app: Application) {
                     if (current.items.isEmpty() && current.sessionId == null && !current.isProcessAlive) {
                         current = conversation
                     } else {
-                        background[conversation.sessionId ?: conversation.key] = conversation
+                        background[conversation.openKey] = conversation
                     }
                 }
                 backgroundChanged()
@@ -359,14 +367,11 @@ class ConversationHub(private val app: Application) {
         val config = settings.env ?: return
         val clean = title.trim().replace(Regex("\\s+"), " ").take(200)
         if (clean.isEmpty()) return
+        freshTitles.remove(summary.id)
         sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
         if (current.sessionId == summary.id) current.title = clean
         background[summary.id]?.title = clean
-        thread(isDaemon = true) {
-            runCatching {
-                LinuxEnv.run(config, "exec python3 - rename " + LinuxEnv.quote(summary.file) + " " + LinuxEnv.quote(clean), stdin = helperScript)
-            }
-        }
+        thread(isDaemon = true) { helper("rename", listOf(summary.file, clean), config = config) }
     }
 
     fun archive(summary: SessionSummary, archived: Boolean) = archiveSessions(listOf(summary), archived)
@@ -377,23 +382,32 @@ class ConversationHub(private val app: Application) {
         val ids = summaries.mapTo(LinkedHashSet()) { it.id }
         if (ids.isEmpty()) return
         sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
-        thread(isDaemon = true) {
-            runCatching {
-                LinuxEnv.run(
-                    config, "exec python3 - archive " + ids.joinToString(" ") { LinuxEnv.quote(it) } + if (archived) " 1" else " 0",
-                    stdin = helperScript,
-                )
-            }
-        }
+        thread(isDaemon = true) { helper("archive", ids.toList() + if (archived) "1" else "0", config = config) }
     }
 
     fun refreshSessions() {
         val config = settings.env ?: return
         thread(name = "zeta-sessions", isDaemon = true) {
-            val result = runCatching { LinuxEnv.run(config, "exec python3 - list", stdin = helperScript, timeoutMs = 60_000) }.getOrNull() ?: return@thread
+            val result = helper("list", timeoutMs = 60_000, config = config) ?: return@thread
             val list = parseSessionSummaries(result.stdout)
-            main.post { sessions = list }
+            main.post {
+                // 自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的
+                sessions = list.map { s ->
+                    val fresh = freshTitles[s.id] ?: return@map s
+                    if (s.title == fresh) freshTitles.remove(s.id)
+                    s.copy(title = fresh)
+                }
+            }
         }
+    }
+
+    /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
+    private val freshTitles = HashMap<String, String>()
+
+    /** Claude Code 给会话 [sessionId] 起好了标题（已经写进会话记录）：列表里只改这一项，不整份重读。在主线程上调用。 */
+    internal fun titled(sessionId: String, title: String) {
+        freshTitles[sessionId] = title
+        sessions = sessions.map { if (it.id == sessionId) it.copy(title = title) else it }
     }
 
     fun startNew(cwd: String? = null) {
@@ -423,9 +437,9 @@ class ConversationHub(private val app: Application) {
         checkSetup()
     }
 
-    /** 有对话在回答，或还有后台任务在跑（结束进程会把任务一起杀掉）。 */
+    /** 有对话在进行：在回答、等你确认，或还有后台任务在跑（结束进程会把任务一起杀掉）。 */
     private val conversationsWorking: Boolean
-        get() = (listOf(current) + background.values).any { it.busy || it.backgroundTasks > 0 }
+        get() = (listOf(current) + background.values).any { it.active }
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
     val canSwitchEnvironment: Boolean get() = !conversationsWorking && !installer.running
@@ -619,9 +633,7 @@ class ConversationHub(private val app: Application) {
     private fun openUnlisted(id: String) {
         val config = settings.env ?: return
         thread(name = "zeta-sessions", isDaemon = true) {
-            val result = runCatching {
-                LinuxEnv.run(config, "exec python3 - lookup " + LinuxEnv.quote(id), stdin = helperScript, timeoutMs = 60_000)
-            }.getOrNull() ?: return@thread
+            val result = helper("lookup", listOf(id), timeoutMs = 60_000, config = config) ?: return@thread
             val summary = parseSessionSummaries(result.stdout).firstOrNull { it.id == id } ?: return@thread
             main.post { open(summary) }
         }
@@ -633,7 +645,7 @@ class ConversationHub(private val app: Application) {
 
     /** 定时任务在后台起的对话：不切换界面上的当前对话，跑完照常收掉。在主线程上调用。 */
     internal fun adoptBackground(conversation: Conversation) {
-        background[conversation.sessionId ?: conversation.key] = conversation
+        background[conversation.openKey] = conversation
         backgroundChanged()
     }
 
@@ -655,9 +667,7 @@ class ConversationHub(private val app: Application) {
         sessions = sessions.filterNot { it.id in ids }
         if (pinnedSessions.any { it in ids }) choosePinned(pinnedSessions - ids)
         thread(isDaemon = true) {
-            runCatching {
-                LinuxEnv.run(config, "exec python3 - delete " + summaries.joinToString(" ") { LinuxEnv.quote(it.file) }, stdin = helperScript, timeoutMs = 60_000)
-            }
+            helper("delete", summaries.map { it.file }, timeoutMs = 60_000, config = config)
             main.post { refreshSessions() }
         }
     }
@@ -665,8 +675,8 @@ class ConversationHub(private val app: Application) {
     /** 离开当前对话：闲着的直接收掉进程省内存，正在跑的（包括还有后台任务的）留在后台跑完。 */
     private fun leaveCurrent() {
         val leaving = current
-        if (leaving.busy || leaving.pending != null || leaving.backgroundTasks > 0) {
-            background[leaving.sessionId ?: leaving.key] = leaving
+        if (leaving.active) {
+            background[leaving.openKey] = leaving
             backgroundChanged()
         } else {
             leaving.shutdown()
@@ -786,7 +796,7 @@ class ConversationHub(private val app: Application) {
      */
     private fun retireWhenIdle(conversation: Conversation) {
         main.postDelayed({
-            if (conversation !== current && !conversation.busy && conversation.backgroundTasks == 0 && conversation.pending == null) {
+            if (conversation !== current && !conversation.active) {
                 background.values.remove(conversation)
                 backgroundChanged()
                 conversation.shutdown()
