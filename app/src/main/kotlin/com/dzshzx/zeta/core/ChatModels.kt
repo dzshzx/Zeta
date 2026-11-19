@@ -135,8 +135,9 @@ data class PermissionRequest(
     val questions: List<Question>,
 )
 
+/** 模型选择器里的一项（Claude Code 报的）。[resolved] 是 [value] 现在对应的完整模型 ID（resolvedModel），拿会话记录里的模型找选项时用。 */
 @Immutable
-data class ModelOption(val value: String, val displayName: String, val description: String)
+data class ModelOption(val value: String, val displayName: String, val description: String, val resolved: String? = null)
 
 /** 历史会话的概要（来自 ~/.claude/projects 下的记录文件）。 */
 @Immutable

@@ -30,6 +30,7 @@ class SettingsBackupTest {
         "model" to "opus",
         "permissionMode" to "acceptEdits",
         "commands" to "[{\"name\":\"compact\"}]",
+        "models" to "[{\"value\":\"opus\",\"displayName\":\"Opus\",\"description\":\"\",\"resolvedModel\":\"claude-opus-5-5\"}]",
         "contextWindows" to setOf("opus=200000"),
         "mutedApps" to setOf("com.example.music=allow"),
         "phoneDisplay" to 7,

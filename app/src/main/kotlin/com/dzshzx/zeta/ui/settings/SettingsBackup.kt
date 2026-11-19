@@ -105,6 +105,7 @@ internal object SettingsBackup {
         "phoneDisplay" to "调试用的屏幕编号，只对当时那块虚拟屏有效",
         "mutedApps" to "为后台运行临时静音、还没恢复的应用，是这台手机当下的状态",
         "commands" to "Claude Code 斜杠命令的缓存，打开对话时自动更新",
+        "models" to "Claude Code 模型选项的缓存，打开对话时自动更新",
         "contextWindows" to "各模型上下文窗口的缓存，Claude Code 会重新报",
     )
 

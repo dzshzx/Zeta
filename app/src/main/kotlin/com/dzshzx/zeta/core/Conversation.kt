@@ -120,14 +120,23 @@ class Conversation(
 
     /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
     val openKey: String get() = sessionId ?: key
-    var model by mutableStateOf(hub.settings.model)
+
+    /**
+     * 模型；null 是 Claude Code 的默认模型。新对话用新对话的默认值，分支接着用原对话的；
+     * 旧对话载入历史后照最后一次真实回答恢复（[restoreChoice]）。
+     */
+    var model by mutableStateOf(if (fork != null) fork.model else hub.settings.model)
         private set
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
         private set
 
-    /** 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。 */
-    var effort by mutableStateOf(hub.settings.effort)
+    /** 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。来历同 [model]。 */
+    var effort by mutableStateOf(if (fork != null) fork.effort else hub.settings.effort)
         private set
+
+    /** 模型、思考强度已经定过（用户选的，或定时任务、数字助理 [preset] 的）：载入的历史不再盖掉。 */
+    private var modelChosen = false
+    private var effortChosen = false
 
     /** 上下文占用与用量统计，由 [UsageTracker] 从进程输出和会话记录里累计。 */
     var usage by mutableStateOf(ChatUsage())
@@ -257,6 +266,8 @@ class Conversation(
             val loadedUsage = UsageTracker()
             var skipped = 0
             var seed = emptyList<ToolStep>()
+            var lastModel: String? = null
+            var lastEffort: String? = null
             val result = hub.helper("history", listOf(file), timeoutMs = 60_000, config = config)
             result?.stdout?.lineSequence()?.forEach { line ->
                 val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@forEach
@@ -265,6 +276,8 @@ class Conversation(
                     "zeta_history" -> {
                         skipped = event.int("skipped") ?: 0
                         seed = TodoBoard.seedSteps(event.arr("todo_seed"))
+                        lastModel = event.str("model")
+                        lastEffort = event.str("effort")
                     }
                     "system" -> if (event.str("subtype") == "compact_boundary") loaded.addNotice(compactNotice(event), error = false)
                     "assistant" -> event.obj("message")?.let { loaded.applyAssistant(it, history = true) }
@@ -284,6 +297,8 @@ class Conversation(
                 loadingHistory = false
                 if (result == null || result.exitCode != 0) {
                     reducer.addNotice("读取历史记录失败" + result?.stderr?.takeIf { it.isNotBlank() }?.let { "：${it.trim().take(300)}" }.orEmpty(), error = true)
+                } else {
+                    restoreChoice(lastModel, lastEffort)
                 }
                 publish()
                 // 历史就位之后再接进程，免得实时事件落在即将被替换掉的列表上
@@ -516,6 +531,7 @@ class Conversation(
     }
 
     fun chooseModel(value: String?) {
+        modelChosen = true
         model = value
         hub.rememberDefaultModel(value)
         process?.send(controlRequest { put("subtype", "set_model"); put("model", value ?: "default") })
@@ -530,6 +546,7 @@ class Conversation(
 
     /** 这个对话的思考强度：进程已经起来就当场改，再要一次生效的设置；没起来时启动参数 --effort 带上。 */
     private fun applyEffort(value: String?) {
+        effortChosen = true
         effort = value
         val process = process ?: return
         process.send(controlRequest {
@@ -537,6 +554,24 @@ class Conversation(
             putJsonObject("settings") { put("effortLevel", value) }
         })
         process.send(controlRequest { put("subtype", "get_settings") })
+    }
+
+    /**
+     * 载入历史以后：模型和思考强度照这个对话主线上最后一次真实回答（[recordedModel]、[recordedEffort]）恢复，
+     * 只改这个对话，不动新对话的默认值。载入期间已经定过的不盖掉；进程已经起来了（定时任务不等历史载完就发出消息）也不改，
+     * 它已经按当时的设置在跑。记录里的模型现在选不到时照旧用默认，在对话末尾提示一句；没发消息的话下次打开还照记录再试。
+     */
+    internal fun restoreChoice(recordedModel: String?, recordedEffort: String?) {
+        if (process != null) return
+        if (!modelChosen) {
+            val restored = SessionChoice.model(recordedModel, hub.models, fallback = model)
+            model = restored.value
+            restored.missing?.let {
+                reducer.addNotice(SessionChoice.missingNotice(it, restored.value, hub.models), error = false)
+                publish()
+            }
+        }
+        if (!effortChosen) SessionChoice.effort(recordedEffort)?.let { effort = it }
     }
 
     /** 一键压缩：和在输入框里发 /compact 一样，只是聊天里不留这条命令；进行中显示在等待指示旁，完成后有一条提示。 */
@@ -594,6 +629,7 @@ class Conversation(
     internal fun preset(model: String?, effort: String?, permissionMode: String?, hint: String? = null) {
         launchHint = hint
         model?.let { value ->
+            modelChosen = true
             this.model = value
             process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
         }
@@ -1005,11 +1041,7 @@ class Conversation(
                     return true
                 }
                 val response = event.obj("response")?.obj("response") ?: return false
-                response.arr("models")?.let { list ->
-                    hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
-                        ModelOption(m.str("value") ?: return@let null, m.str("displayName").orEmpty(), m.str("description").orEmpty())
-                    } }
-                }
+                response.arr("models")?.let { hub.updateModels(SessionChoice.parseOptions(it)) }
                 response.arr("commands")?.let { list ->
                     hub.updateCommands(list.mapNotNull { (it as? JsonObject)?.let { c ->
                         SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())

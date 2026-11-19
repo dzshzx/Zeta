@@ -368,13 +368,28 @@ def cmd_history(path):
                 usage = message.get("usage")
                 usage = {k: usage[k] for k in USAGE_KEYS if isinstance(usage, dict) and k in usage} or None
                 if blocks or usage:
-                    events.append({"type": "assistant", "message": {"id": message.get("id"), "model": message.get("model"),
-                                                                    "usage": usage, "content": blocks}})
+                    event = {"type": "assistant", "message": {"id": message.get("id"), "model": message.get("model"),
+                                                              "usage": usage, "content": blocks}}
+                    if o.get("effort"):
+                        event["effort"] = o["effort"]
+                    events.append(event)
                     owners.append(row)
     skipped = max(0, len(events) - MAX_EVENTS)
-    out({"type": "zeta_history", "skipped": skipped, "todo_seed": todo_seed(events[:skipped])})
+    header = {"type": "zeta_history", "skipped": skipped, "todo_seed": todo_seed(events[:skipped])}
+    header.update(last_answer(events))
+    out(header)
     for e in events[skipped:]:
         out(e)
+
+
+def last_answer(events):
+    """主线上（剪切之后、不含子代理）最后一次真实回答用的模型和思考强度，重新打开对话时照它恢复。
+    斜杠命令的输出没有模型；Claude Code 合成的回答（出错提示等）模型是 <synthetic>，都跳过。"""
+    for e in reversed(events):
+        model = e["message"].get("model") if e["type"] == "assistant" else None
+        if model and not model.startswith("<"):
+            return {"model": model, "effort": e.get("effort")}
+    return {}
 
 
 def edit_patch(result):
