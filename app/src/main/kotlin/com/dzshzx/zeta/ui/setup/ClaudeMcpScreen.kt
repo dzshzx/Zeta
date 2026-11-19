@@ -72,9 +72,10 @@ private fun typeLabel(type: String): String = when (type) {
     else -> type
 }
 
+/** 配置的范围：user 是用户配置，local 是默认工作目录的本地配置（claude mcp add --scope 的叫法）。 */
 private fun scopeLabel(scope: String): String = when (scope) {
-    "user" -> "所有项目（用户配置）"
-    "local" -> "只在默认工作目录（本地配置）"
+    "user" -> "所有项目"
+    "local" -> "只在默认工作目录"
     "project" -> "项目的 .mcp.json"
     else -> scope
 }
@@ -83,7 +84,7 @@ private fun McpServer.target(): String = if (type == "stdio") (listOf(command) +
 
 /** 列表和详情里显示的状态：被同名服务器盖住的不会被用到，不看健康检查的结果。 */
 private fun McpStatus?.of(server: McpServer, failed: Boolean): McpState? = when {
-    server.shadowedBy != null -> McpState("shadowed", "")
+    server.shadowedBy != null -> McpState("shadowed", "被“${scopeLabel(server.shadowedBy)}”里的同名服务器盖住")
     else -> this?.statuses?.get(McpConfig.statusKey(server.scope, server.name)) ?: if (failed || this != null) McpState("unknown", "") else null
 }
 
@@ -117,7 +118,9 @@ private val ServerName = Regex("[A-Za-z0-9_-]{1,64}")
 private val EnvLine = Regex("([A-Za-z_][A-Za-z0-9_]*)=(.*)")
 
 /**
- * “MCP 服务器”：Claude Code 自己的 MCP 配置，经 `claude mcp` 增删。列出用户配置，加上默认工作目录的本地配置和 .mcp.json。
+ * “MCP 服务器”：Claude Code 自己的 MCP 配置，经 `claude mcp` 增删，和终端里 claude mcp 看到的一样。
+ * 列出用户配置，加上默认工作目录的本地配置和 .mcp.json；新加的放在用户配置里。
+ * 状态来自 claude mcp list，它会把命令行启动的服务器都起一遍来检查，所以慢，和读配置分两步。
  * Zeta 运行时另外塞给 Claude 的手机工具（SDK 类型的 phone 服务器）不在配置里，这里不显示。
  */
 @Composable
@@ -179,9 +182,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "servers") {
             PreferenceGroup(
                 title = "服务器 · ${list?.size ?: 0}",
-                footer = "这是 Claude Code 自己的 MCP 配置（和终端里 claude mcp 看到的一样），对之后新开始的对话生效。" +
-                    "新加的服务器放在用户配置里，所有项目都能用。状态来自 claude mcp list，它会把命令行启动的服务器都起一遍检查。" +
-                    "Zeta 给 Claude 的手机工具是运行时另外接上的，不在这里。" +
+                footer = "新加的服务器所有项目都能用，改动对之后新开始的对话生效。" +
                     (statusError?.let { "\n\n检查状态没有成功：$it" } ?: ""),
             ) {
                 when {
@@ -190,10 +191,10 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
                     else -> list.forEach { server ->
                         item(key = server.scope + "/" + server.name) {
                             val state = status.of(server, statusError != null)
+                            // 摘要只放地址或命令；类型和被谁盖住在详情里看
                             ArrowPreference(
                                 title = server.name,
-                                summary = typeLabel(server.type) + " · " + brief(server.target(), 60) + (if (server.scope != "user") " · " + scopeLabel(server.scope) else "") +
-                                    (server.shadowedBy?.let { " · 被" + scopeLabel(it) + "里的同名服务器盖住" } ?: ""),
+                                summary = (if (server.scope != "user") scopeLabel(server.scope) + " · " else "") + brief(server.target(), 36),
                                 endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) },
                                 onClick = { detail = server },
                             )
@@ -205,7 +206,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
         val connectors = status?.connectors.orEmpty()
         if (connectors.isNotEmpty()) {
             item(key = "connectors") {
-                PreferenceGroup(title = "Claude 账号的连接器", footer = "在 claude.ai 的连接器设置里管理，这里只显示状态。") {
+                PreferenceGroup(title = "Claude 账号的连接器", footer = "在 claude.ai 上管理，这里只能看。") {
                     connectors.forEach {
                         item(key = it.name) { BasicComponent(title = it.name.removePrefix("claude.ai "), endActions = { PreferenceValue(stateLabel(it.state), color = stateColor(it.state)) }) }
                     }
@@ -447,21 +448,16 @@ private fun McpServerDetail(
                     if (server.headerKeys.isNotEmpty()) {
                         item { BasicComponent(title = "其他请求头", summary = server.headerKeys.joinToString("、"), endActions = { PreferenceValue("值已隐藏") }) }
                     }
-                }
-            }
-        }
-        if (server.type != "stdio") {
-            item(key = "auth") {
-                PreferenceGroup(title = "身份认证") {
+                    // 照 Eta：身份认证是“服务器”组里的一行。项目的 .mcp.json 可能来自别人的仓库，不替它改
                     item {
                         BasicComponent(
-                            title = "Bearer Token",
+                            title = "身份认证",
                             summary = when {
-                                auth.first -> "已配置 Bearer Token"
-                                auth.second -> "已配置 Authorization 请求头"
-                                server.oauth -> "用 OAuth 登录：在终端里运行 claude，用 /mcp 登录"
-                                else -> "未配置身份认证"
-                            } + if (tokenEditable) "" else "（这个范围的配置请在项目里修改）",
+                                auth.first -> "Bearer Token"
+                                auth.second -> "Authorization 请求头"
+                                server.oauth -> "OAuth：在终端用 claude 的 /mcp 登录"
+                                else -> "未配置"
+                            } + if (tokenEditable) "" else " · 在项目里改",
                             enabled = tokenEditable && !working,
                             onClick = if (tokenEditable) ({
                                 token = ""
@@ -473,10 +469,8 @@ private fun McpServerDetail(
             }
         }
         item(key = "tools") {
-            PreferenceGroup(
-                title = tools?.let { "工具 · ${it.size}" } ?: "工具",
-                footer = "Zeta 直接按 MCP 协议连上去取工具清单，和 Claude Code 自己连接时看到的一样。需要 OAuth 登录的服务器这里取不到。",
-            ) {
+            // Zeta 自己按 MCP 协议连上去取工具清单，和 Claude Code 连接时看到的一样；要 OAuth 登录的取不到
+            PreferenceGroup(title = tools?.let { "工具 · ${it.size}" } ?: "工具") {
                 val list = tools
                 when {
                     loadingTools -> item { ConfigLoadingRow("正在连接…") }
@@ -484,7 +478,7 @@ private fun McpServerDetail(
                     list == null -> item {
                         BasicComponent(
                             title = "列出工具",
-                            summary = if (server.oauth) "这个服务器用 OAuth 登录，Zeta 取不到它的工具" else "连接这个服务器，看看它提供哪些工具",
+                            summary = if (server.oauth) "用 OAuth 登录的服务器取不到" else "连上服务器取工具清单",
                             enabled = !server.oauth,
                             onClick = ::loadTools,
                         )
@@ -499,8 +493,8 @@ private fun McpServerDetail(
                 item {
                     BasicComponent(
                         title = "删除服务器",
+                        // 经 claude mcp remove 从配置里移除
                         titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
-                        summary = "从 Claude Code 的配置里移除（claude mcp remove）",
                         enabled = !working,
                         onClick = { confirmDelete = true },
                     )
