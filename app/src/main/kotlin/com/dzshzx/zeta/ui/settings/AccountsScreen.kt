@@ -14,9 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.ui.chat.QuotaWindows
@@ -31,7 +31,6 @@ import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -48,17 +47,21 @@ internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
     val now = rememberNow()
     val account = hub.account
     val headline = hub.quota.snapshot?.current(now)?.headline
-    val summaryColor = severityColor(headline?.severity ?: QuotaSeverity.Normal, COUITheme.colorScheme.labelSecondary)
+    // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
         title = "账号与额度",
         summary = when {
             !ready -> "Linux 环境未就绪"
             account == null -> "查询中"
             !account.loggedIn -> "未登录"
-            else -> listOfNotNull(account.email, headline?.let { "${it.label}已用 ${it.percent}%" }).joinToString(" · ").ifBlank { "已登录" }
+            else -> account.email ?: "已登录"
         },
-        summaryColor = BasicComponentDefaults.summaryColor(color = summaryColor),
         startAction = { SettingsIcon(COUIIcons.ContactsBook, SettingsHue.Claude, enabled = ready) },
+        endActions = {
+            if (ready && account?.loggedIn == true && headline != null) {
+                PreferenceValue("已用 ${headline.percent}%", color = severityColor(headline.severity, Color.Unspecified))
+            }
+        },
         enabled = ready,
         onClick = onOpen,
     )
