@@ -83,7 +83,11 @@ object PhoneToolLabels {
         "clipboard" to "读写剪贴板",
         "create_scheduled_task" to "新建定时任务，到点让 Claude 做事",
         "list_scheduled_tasks" to "列出定时任务",
+        "update_scheduled_task" to "修改定时任务的时间、指令、开关等",
         "delete_scheduled_task" to "删除定时任务",
+        "run_scheduled_task" to "立即在后台运行一次定时任务",
+        // 只在“只在有变化时提醒”的后台运行里出现
+        "report_scheduled_run" to "后台运行上报这次有没有变化",
         // 在屏幕外打开网页、点按、输入、读内容
         "browser" to "内置浏览器，在屏幕外操作网页",
     )

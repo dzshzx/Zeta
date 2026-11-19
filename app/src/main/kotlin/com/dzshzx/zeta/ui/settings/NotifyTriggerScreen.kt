@@ -415,6 +415,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
                 }
             }
         }
+        item(key = "alert") { OnlyOnChangeGroup(hub, draft.onlyOnChange) { draft = draft.copy(onlyOnChange = it) } }
         if (original != null) {
             item(key = "record") {
                 PreferenceGroup(title = "运行记录") {

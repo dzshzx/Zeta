@@ -43,7 +43,26 @@ internal data class RunSpec(
     val sessionId: String?,
     /** 加在系统提示词后面：告诉 Claude 这一轮是怎么来的、没人看着。 */
     val hint: String,
+    /** 只在有变化时提醒（见 [Schedules.settle]）。 */
+    val onlyOnChange: Boolean = false,
 )
+
+/**
+ * 一次无人值守的后台运行，挂在跑它的对话的手机工具上（PhoneTools.unattended），从开始到跑完。
+ * 这期间手机工具里管理定时任务的那几个收起来、调了也不执行（免得一次运行再建出、改掉、跑起别的任务），
+ * 只在有变化时提醒的运行另给上报结论的工具，结论记在 [report]（工具线程写，主线程跑完时读）。
+ */
+class UnattendedRun(val onlyOnChange: Boolean) {
+    @Volatile var report: RunReport? = null
+}
+
+/** 只在有变化时提醒的运行，加在系统提示词后面的那段：怎么上报。手机工具关着时没有上报的工具，照常提醒。 */
+internal const val ONLY_ON_CHANGE_HINT =
+    "This automation notifies the user only when there is something worth telling them. Before ending each automatic run, " +
+        "call the phone tool report_scheduled_run: outcome \"no_change\" when nothing is worth telling the user " +
+        "(for example nothing new since the last run); no notification is sent and the run is only logged. " +
+        "Otherwise outcome \"deliver\" with a one- or two-sentence summary, which becomes the notification text. " +
+        "If you do not report, the user is notified as usual. Messages the user types themselves need no report."
 
 /** 定时任务的运行记录写在任务清单里。 */
 internal object ScheduleRecords : RunRecords {
@@ -69,6 +88,8 @@ internal object ScheduleRecords : RunRecords {
         newSession = task.newSession,
         sessionId = task.sessionId,
         hint = "Messages in this conversation may be sent automatically by the user's scheduled task \"${task.name}\" while nobody is watching. " +
-            "The user first sees the opening of your final reply (about 200 characters) in a phone notification, so lead with the result.",
+            "The user first sees the opening of your final reply (about 200 characters) in a phone notification, so lead with the result." +
+            if (task.onlyOnChange) " $ONLY_ON_CHANGE_HINT" else "",
+        onlyOnChange = task.onlyOnChange,
     )
 }

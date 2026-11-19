@@ -24,7 +24,11 @@ import kotlin.concurrent.thread
 /**
  * 在后台跑一条指令：定时任务到点（或“立即运行一次”）、通知触发的规则命中时，开一个对话发出指令，
  * 不切换界面上正显示的对话；跑完记下结果，发一条通知（标题是任务名，内容是回答的开头），点通知打开那个对话。
+ * 只在有变化时提醒的，Claude 上报没有变化就不发（见 [Schedules.settle]）。
  * 同一项上一次还没跑完就跳过这一次，记一笔。运行记录经 [RunRecords] 写回各自的清单。状态只在主线程上改。
+ *
+ * 跑的期间对话的手机工具挂着这次运行（[UnattendedRun]）：Claude Code 起进程时取工具清单，所以进程要在挂上之后起，
+ * 接着已经开着的对话时先把闲着的进程收掉重起；跑完按这次清单起的进程闲下来也收掉，下次发送时照平常的清单重起。
  */
 internal object ScheduleRunner {
     private val main = Handler(Looper.getMainLooper())
@@ -40,10 +44,17 @@ internal object ScheduleRunner {
         val newSession: Boolean,
         /** 会话是这次新开的：跑完按任务名给它改名。 */
         val freshSession: Boolean,
+        val onlyOnChange: Boolean,
     ) {
         val key = key(records, id)
         var savedSession: String? = null
         var notifiedRequest: String? = null
+
+        /** 挂在对话手机工具上的这次运行，Claude 的上报记在里面。 */
+        val scope = UnattendedRun(onlyOnChange)
+
+        /** 这次停下来等过用户确认（上报结论的自动放行不算）：跑完照常提醒。 */
+        var asked = false
     }
 
     private fun key(records: RunRecords, id: String) = records.kind + ":" + id
@@ -143,10 +154,13 @@ internal object ScheduleRunner {
 
     private fun launch(hub: ConversationHub, records: RunRecords, spec: RunSpec, manual: Boolean, now: Long, conversation: Conversation, fresh: Boolean) {
         val app = hub.context
+        // 接着开着的对话、进程闲着：收掉重起，这次的系统提示和工具清单才用得上（还有后台任务在跑的不动，管理定时任务的工具照样调不成）
+        if (conversation.isProcessAlive && !conversation.active) conversation.shutdown()
         conversation.preset(model = spec.model, effort = null, permissionMode = spec.permissionMode, hint = spec.hint)
         DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
-        val run = Run(hub, records, spec.id, conversation, spec.prompt.trim(), now, manual, spec.newSession, fresh)
+        val run = Run(hub, records, spec.id, conversation, spec.prompt.trim(), now, manual, spec.newSession, fresh, spec.onlyOnChange)
         runs[run.key] = run
+        conversation.phone.unattended = run.scope
         val adopt = hub.findConversation(conversation.openKey) == null
         conversation.send(spec.prompt)
         if (!conversation.busy) {
@@ -207,6 +221,7 @@ internal object ScheduleRunner {
         val pending = conversation.pending
         if (pending != null && pending.requestId != run.notifiedRequest) {
             run.notifiedRequest = pending.requestId
+            run.asked = true
             val name = run.records.name(app, run.id) ?: conversation.title
             if (!watching(hub, conversation)) {
                 notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.openKey)
@@ -217,12 +232,37 @@ internal object ScheduleRunner {
 
     private fun idle(conversation: Conversation) = !conversation.busy && conversation.pending == null && !conversation.rewinding
 
+    private fun runOf(conversation: Conversation): Run? = runs.values.firstOrNull { it.conversation === conversation }
+
+    /**
+     * 对话 [conversation] 停下来要用户确认（Conversation 收到 can_use_tool 时经 hub 调）。后台运行里 Claude 上报结论不用问：
+     * 这里直接放行，返回 true；别的确认记下来，这次跑完照常提醒。不是后台运行起的对话返回 false。
+     */
+    fun onAttention(conversation: Conversation): Boolean {
+        val run = runOf(conversation) ?: return false
+        val pending = conversation.pending ?: return false
+        if (pending.toolName == REPORT_TOOL && conversation.phone.unattended === run.scope) {
+            conversation.respond(pending, allow = true)
+            return true
+        }
+        run.asked = true
+        return false
+    }
+
+    /** 这一轮是后台运行、Claude 上报了没有变化、跑完不提醒：屏幕底部也不弹结果卡片。 */
+    fun quiet(conversation: Conversation): Boolean {
+        val run = runOf(conversation) ?: return false
+        return !Schedules.settle(RunOutcome.Done, "", run.onlyOnChange, run.scope.report, run.asked).notify
+    }
+
     private fun finish(run: Run) {
         val hub = run.hub
         runs.remove(run.key)
         val app = hub.context
         val conversation = run.conversation
-        val (outcome, summary) = Schedules.outcomeOf(conversation.items, run.prompt)
+        if (conversation.phone.unattended === run.scope) conversation.phone.unattended = null
+        val (raw, answer) = Schedules.outcomeOf(conversation.items, run.prompt)
+        val (outcome, summary, alert) = Schedules.settle(raw, answer, run.onlyOnChange, run.scope.report, run.asked)
         val session = conversation.sessionId
         run.records.update(app, run.id) { record ->
             record.copy(
@@ -233,24 +273,39 @@ internal object ScheduleRunner {
         val current = run.records.name(app, run.id)
         val name = current ?: conversation.title.ifBlank { run.records.fallbackName }
         DiagLog.log(
-            if (outcome == RunOutcome.Done || outcome == RunOutcome.Stopped) DiagLevel.Info else DiagLevel.Warn,
+            if (outcome == RunOutcome.Done || outcome == RunOutcome.NoChange || outcome == RunOutcome.Stopped) DiagLevel.Info else DiagLevel.Warn,
             DiagTopic.Schedule,
             // 不记结果摘要：那是对话内容
             "后台任务（${run.records.kind}）$name 结束：" + outcome.label,
         )
-        // 用户叫停的不提醒；用户正看着这个对话也不必提醒；屏幕底部弹了结果卡片的不响铃
-        if (outcome != RunOutcome.Stopped && !watching(hub, conversation)) {
+        // 用户叫停的、没有变化的不提醒；用户正看着这个对话也不必提醒；屏幕底部弹了结果卡片的不响铃
+        if (alert && !watching(hub, conversation)) {
             notify(
-                app, run.key, if (outcome == RunOutcome.Done) name else "$name · 没有完成", summary.ifBlank { "已完成" }, session ?: conversation.key,
+                app, run.key, if (outcome == RunOutcome.Done || outcome == RunOutcome.NoChange) name else "$name · 没有完成",
+                summary.ifBlank { "已完成" }, session ?: conversation.key,
                 silent = hub.showedResultCard(conversation),
             )
         }
+        // 没有变化时上一次的结果通知留着：用户可能还没看到
+        if (conversation.phone.listedUnattended) retireScoped(hub, conversation)
         if (run.freshSession && session != null && current != null) {
             rename(hub, session, if (run.newSession) name + " · " + STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault())) else name)
         }
     }
 
     private fun watching(hub: ConversationHub, conversation: Conversation) = hub.foreground && hub.current === conversation
+
+    /**
+     * 进程是按后台运行的工具清单起的（没有管理定时任务的工具）：闲下来就收掉，用户接着在这个对话里说话时照平常的清单重起。
+     * 切到后台的对话 hub 自己会收；这里管的是正显示着的那个。稍等一下再看，理由同 hub 收后台对话：后台任务刚结束时 Claude Code 会自己另起一轮。
+     */
+    private fun retireScoped(hub: ConversationHub, conversation: Conversation) {
+        main.postDelayed({
+            if (hub.current === conversation && !conversation.active && runOf(conversation) == null && conversation.phone.listedUnattended) {
+                conversation.shutdown()
+            }
+        }, RETIRE_MS)
+    }
 
     // ---- 通知 ----
 
@@ -299,5 +354,9 @@ internal object ScheduleRunner {
     }
 
     private const val POLL_MS = 2_000L
+    private const val RETIRE_MS = 5_000L
+
+    /** Claude Code 里上报结论的那个手机工具的名字。 */
+    private const val REPORT_TOOL = "mcp__phone__report_scheduled_run"
     private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")
 }

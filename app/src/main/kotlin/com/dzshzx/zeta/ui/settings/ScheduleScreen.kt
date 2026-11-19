@@ -223,6 +223,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     var model by remember { mutableStateOf(original?.model) }
     var mode by remember { mutableStateOf(original?.permissionMode) }
     var newSession by remember { mutableStateOf(original?.newSession ?: true) }
+    var onlyOnChange by remember { mutableStateOf(original?.onlyOnChange ?: false) }
     var dialog by remember { mutableStateOf<EditorDialog?>(null) }
     var runMessage by remember { mutableStateOf<String?>(null) }
 
@@ -234,7 +235,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     }
     // 关着的任务只改文字时保持关着；改了时间就当用户要它重新开始
     val enabled = original == null || original.enabled || draftRule != original.rule
-    val draft = TaskDraft(name, prompt, draftRule, cwd, model, mode, newSession, enabled)
+    val draft = TaskDraft(name, prompt, draftRule, cwd, model, mode, newSession, enabled, onlyOnChange)
     val now = Instant.now()
     val problem = Schedules.problem(draft, now, zone)
     val next = Schedules.nextTrigger(draftRule, now, zone)
@@ -346,6 +347,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
                 }
             }
         }
+        item(key = "alert") { OnlyOnChangeGroup(hub, onlyOnChange) { onlyOnChange = it } }
         if (original != null) {
             item(key = "record") {
                 PreferenceGroup(title = "运行记录") {
@@ -357,7 +359,10 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
                         val running = original.lastRun?.outcome == RunOutcome.Running || ScheduleRunner.isRunning(original.id)
                         BasicComponent(
                             title = "立即运行一次",
-                            summary = if (running) "正在运行，跑完会发通知" else runMessage ?: "照已保存的设置跑一次，不影响定时",
+                            summary = when {
+                                running -> if (original.onlyOnChange) "正在运行，有变化才发通知" else "正在运行，跑完会发通知"
+                                else -> runMessage ?: "照已保存的设置跑一次，不影响定时"
+                            },
                             titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.primary),
                             enabled = !running,
                             onClick = {
@@ -428,15 +433,40 @@ internal fun SkipsRow(skips: Int, lastSkip: Long?, reason: String, now: Instant,
 }
 
 /**
+ * 编辑页的“提醒”一组：只在有变化时提醒（定时任务和通知触发的规则共用）。
+ * 手机工具关着时 Claude 没有上报的工具，开了也每次照常提醒，摘要里说一声。
+ */
+@Composable
+internal fun OnlyOnChangeGroup(hub: ConversationHub, checked: Boolean, onChange: (Boolean) -> Unit) {
+    PreferenceGroup(title = "提醒", footer = OnlyOnChangeFooter) {
+        item {
+            SwitchPreference(
+                title = "只在有变化时提醒",
+                summary = when {
+                    checked && !hub.phoneTools -> "手机工具关着，Claude 没法上报，照常提醒"
+                    checked -> "没有变化只记进运行记录，不发通知"
+                    else -> "每次跑完都发通知"
+                },
+                checked = checked,
+                onCheckedChange = onChange,
+            )
+        }
+    }
+}
+
+private const val OnlyOnChangeFooter = "打开后，Claude 每次跑完判断有没有值得告诉你的，没有就不发通知。" +
+    "出了错、停下来等你确认、Claude 没给结论时照常提醒。"
+
+/**
  * 运行记录里的“上次运行”：有那次的对话时点了打开它。
- * 摘要只写什么时候跑的：回答的开头在跑完的通知里，点进对话看全文；没有对话可开（没跑起来）时，才在后面接上原因。
+ * 摘要只写什么时候跑的：回答的开头在跑完的通知里，点进对话看全文；没有对话可开（没跑起来）、或没有变化（没发通知）时，才在后面接上原因或 Claude 的说明。
  */
 @Composable
 internal fun LastRunRow(hub: ConversationHub, run: TaskRun, now: Instant, zone: ZoneId, onOpenConversation: () -> Unit) {
     val session = run.sessionId
     val title = "上次运行 · " + outcomeWord(run.outcome)
     val summary = Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) + (if (run.manual) "（手动）" else "") +
-        run.summary.takeIf { session == null && it.isNotBlank() }?.let { " · " + it }.orEmpty()
+        run.summary.takeIf { (session == null || run.outcome == RunOutcome.NoChange) && it.isNotBlank() }?.let { " · " + it }.orEmpty()
     val summaryColor = if (run.outcome == RunOutcome.Failed) {
         BasicComponentDefaults.summaryColor(color = COUITheme.colorScheme.error)
     } else {

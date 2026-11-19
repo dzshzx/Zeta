@@ -247,8 +247,20 @@ class NotifyRulesTest {
             NotifyRules.recordFire(rule(keywords = listOf("取件码"), window = TimeWindow(LocalTime.of(22, 0), LocalTime.of(7, 30))), at("2026-11-19T23:00"), shanghai)
                 .copy(cwd = "/workspace/claude", model = "sonnet", permissionMode = "plan", created = 9, lastRun = TaskRun(10, RunOutcome.Failed, null, "没有环境", manual = true), skips = 2, lastSkip = 8),
             NotifyRule(id = "b", name = "微信", packageName = "com.tencent.mm", appLabel = "微信", prompt = "hi", enabled = false),
+            NotifyRule(
+                id = "c", name = "找我的消息", packageName = "com.tencent.mm", appLabel = "微信", prompt = "有人找我才说", onlyOnChange = true,
+                lastRun = TaskRun(11, RunOutcome.NoChange, "s-2", "只是群里闲聊"),
+            ),
         )
         assertEquals(rules, NotifyRules.decode(NotifyRules.encode(rules)))
+    }
+
+    @Test
+    fun onlyOnChangeRulesAreToldToReport() {
+        val rule = rule().copy(onlyOnChange = true)
+        assertTrue(NotifyRules.applyDraft(rule(), NotifyRules.draftOf(rule)).onlyOnChange)
+        assertTrue("report_scheduled_run" in NotifyRules.hint("快递", onlyOnChange = true))
+        assertTrue("report_scheduled_run" !in NotifyRules.hint("快递"))
     }
 
     @Test

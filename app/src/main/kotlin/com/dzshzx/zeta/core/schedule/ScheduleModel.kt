@@ -50,6 +50,9 @@ sealed interface ScheduleRule {
 enum class RunOutcome(val key: String, val label: String) {
     Running("running", "正在运行"),
     Done("done", "完成"),
+
+    /** 只在有变化时提醒的任务：Claude 上报这次没有值得说的，没发通知。 */
+    NoChange("no_change", "没有变化"),
     Failed("failed", "没有完成"),
     Stopped("stopped", "被停止"),
 
@@ -88,6 +91,8 @@ data class ScheduledTask(
     val newSession: Boolean = true,
     /** 接着同一个对话时用的会话（第一次运行后才有）。 */
     val sessionId: String? = null,
+    /** 只在有变化时提醒：Claude 上报“没有变化”时不发通知，只记进运行记录。 */
+    val onlyOnChange: Boolean = false,
     val created: Long = 0L,
     val lastRun: TaskRun? = null,
     /** 到点时上一次还没跑完、跳过了几次，以及最近一次跳过的时间。 */
@@ -105,7 +110,19 @@ data class TaskDraft(
     val permissionMode: String? = null,
     val newSession: Boolean = true,
     val enabled: Boolean = true,
+    val onlyOnChange: Boolean = false,
 )
+
+/** Claude 在只在有变化时提醒的运行里上报的结论（手机工具 report_scheduled_run）。 */
+data class RunReport(
+    /** true：有结果要告诉用户；false：没有变化。 */
+    val changed: Boolean,
+    /** 一两句话：有结果时是通知的正文，没有变化时只记进运行记录。 */
+    val summary: String,
+)
+
+/** 一次运行跑完以后记成什么、摘要写什么、发不发完成通知（见 [Schedules.settle]）。 */
+data class Settled(val outcome: RunOutcome, val summary: String, val notify: Boolean)
 
 object Schedules {
     const val MAX_TASKS = 50
@@ -117,7 +134,8 @@ object Schedules {
 
     fun newId(): String = UUID.randomUUID().toString().replace("-", "").take(8)
 
-    fun draftOf(task: ScheduledTask) = TaskDraft(task.name, task.prompt, task.rule, task.cwd, task.model, task.permissionMode, task.newSession, task.enabled)
+    fun draftOf(task: ScheduledTask) =
+        TaskDraft(task.name, task.prompt, task.rule, task.cwd, task.model, task.permissionMode, task.newSession, task.enabled, task.onlyOnChange)
 
     /** 编辑保存：规则以外的运行记录照旧；换了“开新对话”的方式就不再接着原来那个会话。 */
     fun applyDraft(task: ScheduledTask, draft: TaskDraft) = task.copy(
@@ -129,6 +147,7 @@ object Schedules {
         permissionMode = draft.permissionMode,
         newSession = draft.newSession,
         enabled = draft.enabled,
+        onlyOnChange = draft.onlyOnChange,
         sessionId = if (draft.newSession != task.newSession) null else task.sessionId,
     )
 
@@ -137,8 +156,11 @@ object Schedules {
         draft,
     )
 
-    /** 不能保存的原因；能保存时为 null。[now] 用来判断单次任务的时间是不是已经过了。 */
-    fun problem(draft: TaskDraft, now: Instant, zone: ZoneId): String? {
+    /**
+     * 不能保存的原因；能保存时为 null。[now] 用来判断单次任务的时间是不是已经过了。
+     * [checkRule] 为 false 时不看时间（只改了别的、任务关着：跑过的单次任务也能改名）。
+     */
+    fun problem(draft: TaskDraft, now: Instant, zone: ZoneId, checkRule: Boolean = true): String? {
         val name = draft.name.trim()
         val cwd = draft.cwd?.trim().orEmpty()
         return when {
@@ -147,7 +169,8 @@ object Schedules {
             draft.prompt.isBlank() -> "写上要让 Claude 做什么"
             draft.prompt.length > MAX_PROMPT -> "指令最多 $MAX_PROMPT 个字"
             cwd.isNotEmpty() && (!cwd.startsWith("/") || '\n' in cwd) -> "工作目录要写 Linux 环境里的绝对路径"
-            else -> ruleProblem(draft.rule, now, zone)
+            checkRule -> ruleProblem(draft.rule, now, zone)
+            else -> null
         }
     }
 
@@ -254,6 +277,22 @@ object Schedules {
         }
     }
 
+    /**
+     * 一次运行跑完：[outcome]、[answer] 是 [outcomeOf] 看对话得出的，[report] 是 Claude 上报的结论（没上报为 null），
+     * [asked] 是这次停下来等过用户确认。只在有变化时提醒的任务，Claude 上报了“没有变化”才不发通知，记成 [RunOutcome.NoChange]；
+     * 没上报、出了错、等过确认的照常提醒（宁可多提醒一次，不漏）。上报了有结果的，通知用它的摘要。用户叫停的不提醒。
+     * 不是只在有变化时提醒的任务不看上报。
+     */
+    fun settle(outcome: RunOutcome, answer: String, onlyOnChange: Boolean, report: RunReport?, asked: Boolean): Settled {
+        if (outcome != RunOutcome.Done || !onlyOnChange || report == null) return Settled(outcome, answer, notify = outcome != RunOutcome.Stopped)
+        val summary = preview(report.summary)
+        return if (report.changed) {
+            Settled(RunOutcome.Done, summary.ifBlank { answer }, notify = true)
+        } else {
+            Settled(RunOutcome.NoChange, summary.ifBlank { RunOutcome.NoChange.label }, notify = asked)
+        }
+    }
+
     // ---- 文字形式的时间（手机工具的参数） ----
 
     /** “08:00”“8:00”“0800”。 */
@@ -303,6 +342,7 @@ object Schedules {
         task.permissionMode?.let { put("permissionMode", it) }
         put("newSession", task.newSession)
         task.sessionId?.let { put("sessionId", it) }
+        if (task.onlyOnChange) put("onlyOnChange", true)
         put("created", task.created)
         task.lastRun?.let { put("lastRun", encodeRun(it)) }
         if (task.skips > 0) put("skips", task.skips)
@@ -366,6 +406,7 @@ object Schedules {
             permissionMode = o.str("permissionMode")?.takeIf { it.isNotBlank() },
             newSession = o.bool("newSession") ?: true,
             sessionId = o.str("sessionId")?.takeIf { it.isNotBlank() },
+            onlyOnChange = o.bool("onlyOnChange") == true,
             created = o.long("created") ?: 0L,
             lastRun = decodeRun(o.obj("lastRun")),
             skips = (o.int("skips") ?: 0).coerceAtLeast(0),

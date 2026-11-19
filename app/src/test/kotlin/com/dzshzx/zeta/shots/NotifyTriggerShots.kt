@@ -91,6 +91,25 @@ class NotifyTriggerShots : ShotTest() {
         }
     }
 
+    /** 编辑页最下面：只在有变化时提醒开着，上次运行没有变化（摘要是 Claude 的说明）。 */
+    @Test
+    fun editorOnlyOnChange() {
+        val hub = Fixtures.readyHub(app)
+        seed()
+        NotifyRuleStore.updateRule(app, "r1") {
+            it.copy(onlyOnChange = true, lastRun = TaskRun(System.currentTimeMillis() - 60_000, RunOutcome.NoChange, "s-1", "不是取件通知，是广告"))
+        }
+        shoot(
+            "notify-trigger-only-on-change",
+            prepare = {
+                onNodeWithText("快递取件提醒").performClick()
+                repeat(4) { onRoot().performTouchInput { swipeUp() } }
+            },
+        ) {
+            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+        }
+    }
+
     /** 选应用的页面（JVM 上没有可列的应用，只有“手动输入包名”）。 */
     @Test
     fun appPicker() {

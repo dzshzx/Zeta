@@ -107,7 +107,10 @@ class ScheduleModelTest {
                 lastRun = TaskRun(10, RunOutcome.Done, "s-1", "今天有 3 个日程", manual = true), skips = 2, lastSkip = 9,
             ),
             ScheduledTask(id = "b2", name = "提醒", prompt = "say hi", rule = ScheduleRule.Once(LocalDateTime.parse("2026-11-20T08:00")), enabled = false),
-            ScheduledTask(id = "c3", name = "巡检", prompt = "check", rule = ScheduleRule.Interval(6, LocalDateTime.parse("2026-11-19T00:00"))),
+            ScheduledTask(
+                id = "c3", name = "巡检", prompt = "check", rule = ScheduleRule.Interval(6, LocalDateTime.parse("2026-11-19T00:00")),
+                onlyOnChange = true, lastRun = TaskRun(20, RunOutcome.NoChange, "s-2", "价格还是 2999"),
+            ),
             ScheduledTask(id = "d4", name = "早安", prompt = "hi", rule = ScheduleRule.Daily(LocalTime.of(7, 5))),
         )
         assertEquals(tasks, Schedules.decode(Schedules.encode(tasks)))
@@ -157,6 +160,11 @@ class ScheduleModelTest {
         assertNull(Schedules.problem(ok.copy(rule = ScheduleRule.Once(LocalDateTime.parse("2026-11-19T10:01"))), now, shanghai))
         assertNotNull(Schedules.problem(ok.copy(rule = ScheduleRule.Weekly(emptySet(), LocalTime.NOON)), now, shanghai))
         assertNotNull(Schedules.problem(ok.copy(rule = ScheduleRule.Interval(0, LocalDateTime.parse("2026-11-19T08:00"))), now, shanghai))
+        // 不看时间：跑过的单次任务关着时也能改名
+        val past = ok.copy(rule = ScheduleRule.Once(LocalDateTime.parse("2026-11-18T08:00")), enabled = false)
+        assertNotNull(Schedules.problem(past, now, shanghai))
+        assertNull(Schedules.problem(past, now, shanghai, checkRule = false))
+        assertNotNull(Schedules.problem(past.copy(name = ""), now, shanghai, checkRule = false))
     }
 
     @Test
@@ -171,6 +179,28 @@ class ScheduleModelTest {
         assertEquals("s", same.sessionId)
         assertEquals(task.lastRun, same.lastRun)
         assertNull(Schedules.applyDraft(task, Schedules.draftOf(task).copy(newSession = true)).sessionId)
+        val quiet = Schedules.applyDraft(task, Schedules.draftOf(task).copy(onlyOnChange = true))
+        assertTrue(quiet.onlyOnChange)
+        assertEquals(quiet, Schedules.applyDraft(quiet, Schedules.draftOf(quiet)))
+    }
+
+    /** 跑完怎么记、发不发通知：只有“只在有变化时提醒”、正常跑完、上报了没有变化、也没等过确认的才不发。 */
+    @Test
+    fun onlyQuietRunsSkipTheNotification() {
+        val noChange = RunReport(changed = false, summary = "价格还是 **2999**")
+        val deliver = RunReport(changed = true, summary = "降到 2799 了")
+        assertEquals(Settled(RunOutcome.NoChange, "价格还是 2999", notify = false), Schedules.settle(RunOutcome.Done, "回答", true, noChange, asked = false))
+        // 等过确认、没上报、出错、被叫停：照常
+        assertEquals(Settled(RunOutcome.NoChange, "价格还是 2999", notify = true), Schedules.settle(RunOutcome.Done, "回答", true, noChange, asked = true))
+        assertEquals(Settled(RunOutcome.Done, "回答", notify = true), Schedules.settle(RunOutcome.Done, "回答", true, null, asked = false))
+        assertEquals(Settled(RunOutcome.Failed, "进程退出", notify = true), Schedules.settle(RunOutcome.Failed, "进程退出", true, noChange, asked = false))
+        assertEquals(Settled(RunOutcome.Stopped, "已停止", notify = false), Schedules.settle(RunOutcome.Stopped, "已停止", true, noChange, asked = false))
+        // 有结果：通知用上报的摘要，没写摘要时用回答
+        assertEquals(Settled(RunOutcome.Done, "降到 2799 了", notify = true), Schedules.settle(RunOutcome.Done, "回答", true, deliver, asked = false))
+        assertEquals(Settled(RunOutcome.Done, "回答", notify = true), Schedules.settle(RunOutcome.Done, "回答", true, deliver.copy(summary = " "), asked = false))
+        assertEquals("没有变化", Schedules.settle(RunOutcome.Done, "回答", true, noChange.copy(summary = ""), asked = false).summary)
+        // 不是只在有变化时提醒的任务不看上报
+        assertEquals(Settled(RunOutcome.Done, "回答", notify = true), Schedules.settle(RunOutcome.Done, "回答", false, noChange, asked = false))
     }
 
     @Test

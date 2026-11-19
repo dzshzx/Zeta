@@ -888,7 +888,8 @@ class ConversationHub(private val app: Application) {
     /** 一轮结束时要不要弹结果卡片（见 [ResultCardPolicy.shows]），要的话换上这一轮的。返回弹了没有。 */
     private fun offerResultCard(conversation: Conversation, usedPhone: Boolean, stopped: Boolean): Boolean {
         val others = liveConversations.filter { it !== conversation }
-        val show = ResultCardPolicy.shows(
+        // 后台运行上报了没有变化：跑完不提醒，卡片也不弹
+        val show = !ScheduleRunner.quiet(conversation) && ResultCardPolicy.shows(
             usedPhone = usedPhone,
             stopped = stopped,
             zetaForeground = foreground,
@@ -952,6 +953,8 @@ class ConversationHub(private val app: Application) {
     }
 
     internal fun onAttentionNeeded(conversation: Conversation) {
+        // 后台运行里 Claude 上报结论不用问，ScheduleRunner 直接放行
+        if (ScheduleRunner.onAttention(conversation)) return
         if ((!foreground || conversation !== current) && !ScheduleRunner.owns(conversation)) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
         }
