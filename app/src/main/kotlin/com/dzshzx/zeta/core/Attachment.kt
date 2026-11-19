@@ -13,12 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
-import java.nio.ByteBuffer
 import java.util.UUID
-import kotlin.math.max
 
 /** 要随消息发出的一张图片：已缩小并编码好，另带一张界面用的小图。 */
 @Immutable
@@ -31,54 +28,24 @@ object Attachments {
 
     /** 读取并压缩一张图片；读不了返回 null。耗时，别在主线程调用。 */
     fun load(context: Context, uri: Uri): Attachment? = runCatching {
-        val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            val edge = max(info.size.width, info.size.height)
-            if (edge > MAX_EDGE) {
-                val scale = MAX_EDGE.toFloat() / edge
-                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
-            }
-        }
-        encode(bitmap)
+        encode(Images.decodeWithin(ImageDecoder.createSource(context.contentResolver, uri), MAX_EDGE).bitmap)
     }.getOrNull()
 
     /** 已经在内存里的一张图（截屏）：缩小、编码成附件。耗时，别在主线程调用。 */
-    fun fromBitmap(source: Bitmap): Attachment? = runCatching {
-        val edge = max(source.width, source.height)
-        val bitmap = if (edge > MAX_EDGE) {
-            val scale = MAX_EDGE.toFloat() / edge
-            Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1), (source.height * scale).toInt().coerceAtLeast(1), true)
-        } else {
-            source
-        }
-        encode(bitmap)
-    }.getOrNull()
+    fun fromBitmap(source: Bitmap): Attachment? = runCatching { encode(Images.scaleWithin(source, MAX_EDGE)) }.getOrNull()
 
     /**
      * 已经编码好的一张图（草稿里存下的、会话记录里取回的）重新做成附件：内容原样发送，只另解一张界面用的小图。
      * 解不开返回 null。耗时，别在主线程调用。
      */
     fun restore(id: String, mediaType: String, bytes: ByteArray): Attachment? = runCatching {
-        val preview = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            val edge = max(info.size.width, info.size.height)
-            if (edge > PREVIEW_EDGE) {
-                val scale = PREVIEW_EDGE.toFloat() / edge
-                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
-            }
-        }
+        val preview = Images.decodeWithin(bytes, PREVIEW_EDGE).bitmap
         Attachment(id, preview.asImageBitmap(), mediaType, Base64.encodeToString(bytes, Base64.NO_WRAP))
     }.getOrNull()
 
     private fun encode(bitmap: Bitmap): Attachment {
-        val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
-        val edge = max(bitmap.width, bitmap.height)
-        val preview = if (edge > PREVIEW_EDGE) {
-            val scale = PREVIEW_EDGE.toFloat() / edge
-            Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true)
-        } else {
-            bitmap
-        }
+        val bytes = Images.jpeg(bitmap, 85)
+        val preview = Images.scaleWithin(bitmap, PREVIEW_EDGE)
         return Attachment(UUID.randomUUID().toString(), preview.asImageBitmap(), "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
     }
 }

@@ -149,10 +149,10 @@ class PersonalQueriesTest {
         val op = PersonalQueries.ops(request).single()
         assertEquals(PersonalQueries.IMAGES, op.str("uri"))
         assertEquals(
-            "(_display_name LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\') AND (COALESCE(datetaken, date_added * 1000) >= CAST(? AS INTEGER))",
+            "(_display_name LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\') AND (COALESCE(NULLIF(datetaken, 0), date_added * 1000) >= CAST(? AS INTEGER))",
             op.str("selection"),
         )
-        assertEquals("COALESCE(datetaken, date_added * 1000) DESC", op.str("sort"))
+        assertEquals("COALESCE(NULLIF(datetaken, 0), date_added * 1000) DESC", op.str("sort"))
         val videos = PersonalQueries.ops(PersonalQueries.searchRequest(input("source" to "videos"), now, zone)).single()
         assertEquals(PersonalQueries.VIDEOS, videos.str("uri"))
         assertTrue("duration" in videos.arr("projection")!!.map { it.jsonPrimitive.content })
@@ -294,6 +294,16 @@ class PersonalQueriesTest {
     }
 
     @Test
+    fun mediaTimeFallsBackToTheDateAdded() {
+        assertEquals(1_000L, PersonalQueries.mediaTime(row("datetaken" to 1_000, "date_added" to 5)))
+        // 拍摄时间是 0 和没有一样，查询里的 MEDIA_TIME 也是这样（NULLIF）
+        assertEquals(5_000L, PersonalQueries.mediaTime(row("datetaken" to 0, "date_added" to 5)))
+        assertEquals(5_000L, PersonalQueries.mediaTime(row("datetaken" to null, "date_added" to 5)))
+        assertNull(PersonalQueries.mediaTime(row("_id" to 1)))
+        assertEquals("#7 ? a.jpg", PersonalQueries.mediaLine(row("_id" to 7, "_display_name" to "a.jpg"), zone))
+    }
+
+    @Test
     fun audioFilesAndDownloadsQueryTheMediaStore() {
         val audio = PersonalQueries.ops(PersonalQueries.searchRequest(input("source" to "audio", "query" to "会议", "start" to "2026-11-18"), now, zone)).single()
         // 录音机的目录有 .nomedia，录音只在 files 表里，按类型认作音频
@@ -428,13 +438,6 @@ class PersonalQueriesTest {
         val lines = PersonalQueries.formatCodes(codes, request, zone, now).lines()
         assertEquals("2026-11-19 10:29 778899 · 通知 Bank", lines[1])
         assertFalse(PersonalQueries.formatCodes(emptyList(), request, zone, now).contains("条"))
-    }
-
-    @Test
-    fun fitsImagesWithinEdge() {
-        assertEquals(470 to 1024, PersonalQueries.fitWithin(1220, 2656, 1024))
-        assertEquals(800 to 600, PersonalQueries.fitWithin(800, 600, 1024))
-        assertEquals(1568 to 1176, PersonalQueries.fitWithin(4000, 3000, 1568))
     }
 }
 

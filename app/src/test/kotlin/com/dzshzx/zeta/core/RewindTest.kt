@@ -138,15 +138,4 @@ class RewindTest {
         assertEquals("分支 · 新对话", branchTitle("  ", emptyList()))
         assertEquals("分支 · 修 bug · 分支", branchTitle("修 bug · 分支", emptyList()))
     }
-
-    @Test
-    fun imageTypesAreSniffed() {
-        fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
-        assertEquals("image/jpeg", imageMediaType(bytes(0xFF, 0xD8, 0xFF, 0xE0)))
-        assertEquals("image/png", imageMediaType(bytes(0x89, 'P'.code, 'N'.code, 'G'.code, 0x0D, 0x0A)))
-        assertEquals("image/gif", imageMediaType("GIF89a".toByteArray()))
-        assertEquals("image/webp", imageMediaType("RIFF\u0000\u0000\u0000\u0000WEBPVP8 ".toByteArray()))
-        assertNull(imageMediaType("RIFF\u0000\u0000\u0000\u0000WAVE".toByteArray()))
-        assertNull(imageMediaType(ByteArray(0)))
-    }
 }

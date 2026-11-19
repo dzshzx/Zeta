@@ -1,7 +1,9 @@
 package com.dzshzx.zeta.phone.browser
 
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.core.str
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -270,9 +272,7 @@ internal object BrowserPage {
         if (all.isEmpty()) return "页面上没有文字"
         val start = offset.coerceIn(0, all.length)
         if (start >= all.length) return "已经读完了：全文共 ${all.length} 字，offset $offset 超出了末尾"
-        var end = min(all.length, start + limit)
-        // 不在代理对中间切开
-        if (end < all.length && end > start && Character.isHighSurrogate(all[end - 1])) end--
+        val end = safeCut(all, min(all.length, start + limit), start)
         return buildString {
             append(all, start, end)
             append("\n\n（第 ").append(start).append('–').append(end).append(" 字，全文共 ").append(all.length).append(" 字")
@@ -281,13 +281,7 @@ internal object BrowserPage {
         }
     }
 
-    fun clip(value: String, limit: Int): String {
-        val flat = value.replace(SPACES, " ").trim()
-        if (flat.length <= limit) return flat
-        var end = limit
-        if (Character.isHighSurrogate(flat[end - 1])) end--
-        return flat.take(end) + "…"
-    }
+    fun clip(value: String, limit: Int): String = value.replace(SPACES, " ").trim().clipChars(limit, "…")
 
     private val SPACES = Regex("[\\s\\u00a0]+")
 }

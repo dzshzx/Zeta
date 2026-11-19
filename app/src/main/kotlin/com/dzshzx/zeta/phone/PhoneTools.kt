@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.arr
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
@@ -419,7 +420,7 @@ class PhoneTools(
     }
 
     private fun short(value: String, limit: Int): String =
-        value.replace(WHITESPACE, " ").trim().let { if (it.length > limit) it.take(limit) + "…" else it }
+        value.replace(WHITESPACE, " ").trim().clipChars(limit, "…")
 
     /** Claude 的一次触摸（[Screen] 的像素），归一化后交给悬浮层画光效。 */
     private fun mark(screen: Screen, x: Int, y: Int, endX: Int = x, endY: Int = y, swipe: Boolean = false, longPress: Boolean = false) {
@@ -678,7 +679,7 @@ class PhoneTools(
         }
     }
 
-    private fun clip(value: String): String = value.replace('\n', ' ').let { if (it.length > 80) it.take(80) + "…" else it }
+    private fun clip(value: String): String = value.replace('\n', ' ').clipChars(80, "…")
 
     private fun observe(screenshot: Boolean, maxNodes: Int, notes: List<String> = emptyList(), detail: Boolean = false): JsonObject {
         val woke = if (justWoke) listOf("后台屏幕刚从休眠中唤醒（应用和页面都还在）") else emptyList()
@@ -1312,7 +1313,7 @@ class PhoneTools(
                 append("[stderr]\n").append(tail(result.stderr))
             }
             if (isNotEmpty() && !endsWith('\n')) append('\n')
-            append(if (result.exitCode == -1 && result.stderr == "timeout") "[超过 $timeout 秒，已中止]" else "[退出码 ${result.exitCode}]")
+            append(if (result.timedOut) "[超过 $timeout 秒，已中止]" else "[退出码 ${result.exitCode}]")
         }
         return if (result.exitCode == 0) text(body) else failure(body)
     }

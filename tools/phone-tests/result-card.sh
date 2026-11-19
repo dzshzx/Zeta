@@ -6,6 +6,7 @@
 # 截图（sent.png、card.png、after-*.png、back.png）在产物目录里，看卡片的位置、样子和回到的是不是这个对话。
 # 测试建的会话按标记找出来，收尾时删掉。手机工具要已在 Claude Code 的设置里放行，否则这一轮会停在“需要你确认”上。
 set -euo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 MARK="zeta-result-card-test-$(date +%s)"
 CLOSE=${CLOSE:-open}
@@ -23,11 +24,6 @@ trap cleanup EXIT
 
 W=1220
 H=2656
-# 聊天页的输入框、发送键（整屏坐标，探路截图量的）
-INPUT_X=320
-INPUT_Y=2418
-SEND_X=1091
-SEND_Y=2548
 
 card_frame() {
   # 卡片窗口的范围：l t r b（没有就空）。awk 读完全部输入再退出：提前 exit 会写断 vd 的管道（退出码 120）
@@ -35,11 +31,7 @@ card_frame() {
 }
 
 send_turn() {
-  vd tap "$INPUT_X" "$INPUT_Y"
-  sleep 1
-  vd text "$1"
-  sleep 1
-  vd tap "$SEND_X" "$SEND_Y"
+  send "$1" 1
   sleep 2
   vd shot sent.png
   # Zeta 退到后台：测试屏上开另一个应用压在上面（NEW_TASK | EXCLUDE_FROM_RECENTS：不在用户的「最近任务」里留记录）

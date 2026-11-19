@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.long
@@ -57,7 +58,7 @@ internal object ClipboardHistory {
     // ---- 读 ----
 
     fun search(context: Context, request: SearchRequest, zone: ZoneId, now: Long): String {
-        val user = RootFiles.user
+        val user = LinuxEnv.androidUser
         val problems = mutableListOf<String>()
         val miui = runCatching { parseMiui(RootFiles.read(miuiPrefs(user), MAX_PREFS).toString(Charsets.UTF_8)) }
             .getOrElse { problems += "系统键盘的剪贴板没读到：" + reason(it); null }
@@ -117,13 +118,11 @@ internal object ClipboardHistory {
 
     // ---- 解析 ----
 
-    private val CIPHER_LIST = Regex("<string name=\"clipboard_cipher_list\">([^<]*)</string>")
     private val TAG = Regex("<[^>]*>")
-    private val ENTITY = Regex("&(#\\d+|#x[0-9a-fA-F]+|amp|lt|gt|quot|apos);")
 
     /** 系统键盘的 sp_name_clip_board.xml → 记录（文件里的顺序）。没有这一项时是空的；内容坏了抛出异常。 */
     fun parseMiui(xml: String): List<ClipEntry> {
-        val encoded = CIPHER_LIST.find(xml)?.groupValues?.get(1)?.let(::unescape)?.trim().orEmpty()
+        val encoded = XmlText.string(xml, "clipboard_cipher_list")?.trim().orEmpty()
         if (encoded.isEmpty()) return emptyList()
         val json = Base64.getMimeDecoder().decode(encoded).toString(Charsets.UTF_8)
         val list = Json.parseToJsonElement(json) as? JsonArray ?: throw IllegalStateException("clipboard_cipher_list 解开后不是 JSON 数组")
@@ -138,7 +137,7 @@ internal object ClipboardHistory {
                 ClipEntry(time, parts.mapNotNull { it.str("uriFileName")?.takeIf(String::isNotBlank) }.joinToString(", "), "文件或图片", device)
             } else {
                 val text = parts.mapNotNull { part ->
-                    part.str("text")?.takeIf(String::isNotEmpty) ?: part.str("htmlText")?.let { unescape(it.replace(TAG, "")) }?.takeIf(String::isNotEmpty)
+                    part.str("text")?.takeIf(String::isNotEmpty) ?: part.str("htmlText")?.let { XmlText.unescape(it.replace(TAG, "")) }?.takeIf(String::isNotEmpty)
                 }
                 ClipEntry(time, text.joinToString("\n"), null, device)
             }
@@ -148,18 +147,6 @@ internal object ClipboardHistory {
     /** 微信输入法 clipboard_record 的一行。 */
     fun wetypeEntry(time: Long, type: Long, content: String?, path: String?): ClipEntry =
         if (type == WETYPE_IMAGE) ClipEntry(time, path.orEmpty(), "图片") else ClipEntry(time, content.orEmpty())
-
-    private fun unescape(text: String): String = text.replace(ENTITY) { m ->
-        when (val name = m.groupValues[1]) {
-            "amp" -> "&"
-            "lt" -> "<"
-            "gt" -> ">"
-            "quot" -> "\""
-            "apos" -> "'"
-            else -> (if (name.startsWith("#x")) name.drop(2).toIntOrNull(16) else name.drop(1).toIntOrNull())
-                ?.let { String(Character.toChars(it)) } ?: m.value
-        }
-    }
 
     // ---- 合并、筛选、排版 ----
 

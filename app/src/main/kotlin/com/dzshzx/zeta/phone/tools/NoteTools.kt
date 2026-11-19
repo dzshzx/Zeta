@@ -32,12 +32,8 @@ internal object NoteTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = try {
+    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
         if (name == EDIT) toolText(edit(context, input)) else toolFailure("没有这个工具：$name")
-    } catch (e: BadInput) {
-        toolFailure(e.message ?: "参数不对")
-    } catch (e: Exception) {
-        toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
     }
 
     override fun title(name: String, input: JsonObject): String = MiuiNoteWrites.chatTitle(input)
@@ -48,21 +44,20 @@ internal object NoteTools : PhoneToolGroup {
         return when (input.str("action")) {
             "create" -> {
                 val args = MiuiNoteWrites.createArgs(input)
-                wake(context)
                 val result = AppToolCall.bind(context, MiuiNoteWrites.SERVICE).use { call(context, MiuiNoteWrites.createOp(args)) }
                 val created = MiuiNoteWrites.createdId(result)
                     ?: throw IllegalStateException("便签没交回新便签的编号，先用 search_personal 查一下，不要重复新建")
-                val note = read(context, created)
+                val note = MiuiNotes.read(context, created)
                     ?: throw IllegalStateException("新建的便签 #$created 读不回来，先用 search_personal 查一下，不要重复新建")
                 MiuiNoteWrites.saved("新建", note, args, zone)
             }
             "update" -> {
                 val noteId = id ?: throw BadInput("update 需要 note_id")
-                val existing = read(context, noteId) ?: throw BadInput(missing(noteId))
+                val existing = MiuiNotes.read(context, noteId) ?: throw BadInput(MiuiNotes.missing(noteId))
                 val args = MiuiNoteWrites.updateArgs(noteId, input, existing)
                 // 改和读回放在同一次辅助进程里
                 val (update, readBack) = AppToolCall.bind(context, MiuiNoteWrites.SERVICE).use {
-                    RootProvider.run(context, listOf(MiuiNoteWrites.updateOp(args), MiuiNoteWrites.readOp(noteId)), system = true)
+                    RootProvider.run(context, listOf(MiuiNoteWrites.updateOp(args), MiuiNotes.readOp(noteId)), system = true)
                 }
                 MiuiNoteWrites.result(AppToolCall.reply(update))
                 if (readBack.str("error") != null) throw IllegalStateException("改完读不回便签 #$noteId：" + readBack.str("error"))
@@ -73,22 +68,7 @@ internal object NoteTools : PhoneToolGroup {
         }
     }
 
-    private fun missing(id: Long) = "没有编号为 $id 的便签（或在回收站、私密便签里）"
-
-    /**
-     * 先以 system 身份碰一下便签的 Provider，把便签的进程拉起来。HyperOS 的「关联启动」管控（WakePathChecker）不许 Zeta
-     * 绑定没在跑的便签（日志 `MIUILOG-AutoStart, Service/Provider/Broadcast Reject`，bindService 返回 false）；system 不受它管。
-     * 修改前本来就要读一遍，只有新建要单独做。
-     */
-    private fun wake(context: Context) {
-        RootProvider.one(context, MiuiNoteWrites.readOp(0), system = true)
-    }
-
     /** 调一次工具服务（要先 [AppToolCall.bind]），交回它答的 JSON。 */
     private fun call(context: Context, op: JsonObject): JsonObject =
         MiuiNoteWrites.result(AppToolCall.reply(RootProvider.run(context, listOf(op), system = true).single()))
-
-    /** 一条看得到的便签；没有（或在回收站、私密、子文档）返回 null。 */
-    private fun read(context: Context, id: Long): Row? =
-        RootProvider.rows(RootProvider.one(context, MiuiNoteWrites.readOp(id), system = true)).firstOrNull()
 }

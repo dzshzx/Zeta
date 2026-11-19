@@ -1,13 +1,10 @@
 package com.dzshzx.zeta.core
 
-import android.graphics.ImageDecoder
 import android.util.Base64
 import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import java.nio.ByteBuffer
 import java.util.Collections
-import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -102,13 +99,5 @@ object ImageStore {
         return (json.parseToJsonElement(line) as? JsonObject)?.str("data")
     }
 
-    private fun decode(bytes: ByteArray): ImageBitmap =
-        ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            val edge = max(info.size.width, info.size.height)
-            if (edge > MAX_EDGE) {
-                val scale = MAX_EDGE.toFloat() / edge
-                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
-            }
-        }.asImageBitmap()
+    private fun decode(bytes: ByteArray): ImageBitmap = Images.decodeWithin(bytes, MAX_EDGE).bitmap.asImageBitmap()
 }

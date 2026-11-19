@@ -16,7 +16,7 @@ internal val RootShell = Shell { command, timeoutMs -> rootShell(command, timeou
 internal fun Shell.out(command: String, timeoutMs: Long = 15_000): String {
     val result = run(command, timeoutMs)
     if (result.exitCode == 0) return result.stdout
-    if (result.exitCode == -1 && result.stderr == "timeout") throw ToolError("命令超时：${command.take(80)}")
+    if (result.timedOut) throw ToolError("命令超时：${command.take(80)}")
     val detail = result.stderr.ifBlank { result.stdout }.trim().take(300).ifBlank { "退出码 ${result.exitCode}" }
     throw ToolError("执行失败：$detail")
 }

@@ -8,14 +8,11 @@
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/schedule-only-on-change.sh
 # 假 Claude 不写会话记录，没有要删的测试会话；任务由收尾的 vd stop 随 prefs-set 改回去，通知随 force-stop 收掉。
 set -euo pipefail
-HERE=$ZETA_ROOT/tools/phone-tests
-HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 MARK=/data/local/tmp/zeta-schedule-only-on-change.mark
 # 后台运行的对话跑完几秒就被收掉，托管日志随之删掉：测试期间每秒把这次起的日志抄一份到这里
 COPIES=/data/local/tmp/zeta-schedule-only-on-change.logs
 ID=ztoocheck
-# 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
-INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
 
 SNAP=''
 finish() {
@@ -23,14 +20,6 @@ finish() {
   android "rm -rf $MARK $COPIES" >/dev/null 2>&1 || true
 }
 trap finish EXIT
-
-send() {
-  vd tap $INPUT_X $INPUT_Y
-  sleep 1
-  vd text "$1"
-  sleep 0.5
-  vd tap $SEND_X $SEND_Y
-}
 
 # 测试任务现在的样子（设置里那份 JSON 里 id 为 $ID 的一项）
 task() {

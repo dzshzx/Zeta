@@ -116,10 +116,19 @@ class DeviceInfoTest {
             <int name="SecurityType" value="4" />
             </WifiConfiguration>
             </Network>
+            <Network>
+            <WifiConfiguration>
+            <string name="SSID">&quot;家&#128512;&quot;</string>
+            <string name="PreSharedKey">&quot;&#x1F431;cat&#39;s&quot;</string>
+            <int name="SecurityType" value="2" />
+            </WifiConfiguration>
+            </Network>
             </NetworkList>
         """.trimIndent()
         val nets = DeviceInfo.parseWifiStore(xml)
-        assertEquals(listOf("Cafe & Bar", "Open Net", "中文"), nets.map { it.ssid })
+        assertEquals(listOf("Cafe & Bar", "Open Net", "中文", "家\uD83D\uDE00"), nets.map { it.ssid })
+        // 字符引用按码位还原：表情不会变成半个代理对
+        assertEquals("\uD83D\uDC31cat's", nets[3].password)
         assertEquals("p<ss word", nets[0].password)
         assertEquals("WPA/WPA2", nets[0].security)
         assertNull(nets[1].password)

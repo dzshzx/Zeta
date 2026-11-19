@@ -191,8 +191,8 @@ internal object DeviceInfo {
     /** 从 WifiConfigStore.xml 里取出每个网络的名字和密码（明文口令带引号，64 位十六进制的是原始 PSK）。 */
     fun parseWifiStore(xml: String): List<SavedWifi> = NETWORK.findAll(xml).mapNotNull { block ->
         val body = block.groupValues[1]
-        val ssid = xmlString("SSID").find(body)?.groupValues?.get(1)?.let(::decodeXml)?.let(::ssidText) ?: return@mapNotNull null
-        val psk = xmlString("PreSharedKey").find(body)?.groupValues?.get(1)?.let(::decodeXml)
+        val ssid = XmlText.string(body, "SSID")?.let(::ssidText) ?: return@mapNotNull null
+        val psk = XmlText.string(body, "PreSharedKey")
         val password = psk?.let { if (it.length >= 2 && it.startsWith('"') && it.endsWith('"')) it.substring(1, it.length - 1) else it }
         val security = Regex("<int name=\"SecurityType\" value=\"(\\d+)\"").find(body)?.groupValues?.get(1)?.toIntOrNull()
         SavedWifi(ssid, password, SECURITY[security] ?: if (password != null) "WPA/WPA2" else "open")
@@ -205,14 +205,8 @@ internal object DeviceInfo {
             String(value.chunked(2).map { it.toInt(16).toByte() }.toByteArray(), Charsets.UTF_8)
         } else value
 
-    private fun decodeXml(value: String): String = value
-        .replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">")
-        .replace(Regex("&#(\\d+);")) { it.groupValues[1].toInt().toChar().toString() }
-        .replace("&amp;", "&")
-
     private val TEMPERATURE = Regex("Temperature\\{mValue=([-0-9.]+), mType=(-?\\d+), mName=([^,]+),")
     private val LOCATION = Regex("Location\\[(\\w+) (-?[0-9.]+),(-?[0-9.]+)(?: hAcc=([0-9.]+))? et=(\\+[0-9dhms]+)")
     private val NETWORK = Regex("<Network>(.*?)</Network>", RegexOption.DOT_MATCHES_ALL)
-    private fun xmlString(name: String) = Regex("<string name=\"$name\">(.*?)</string>", RegexOption.DOT_MATCHES_ALL)
     private val SECURITY = mapOf(0 to "open", 1 to "WEP", 2 to "WPA/WPA2", 3 to "802.1X", 4 to "WPA3", 5 to "WPA3 enterprise", 6 to "OWE", 9 to "WPA3 enterprise 192-bit")
 }

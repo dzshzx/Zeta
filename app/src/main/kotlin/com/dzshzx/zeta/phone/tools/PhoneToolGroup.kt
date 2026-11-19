@@ -61,6 +61,15 @@ internal fun toolFailure(value: String): JsonObject = buildJsonObject {
     put("isError", true)
 }
 
+/** 执行一次调用：参数不对（[BadInput]）照原话交给 Claude，别的异常报「执行失败」加原因。 */
+internal inline fun toolCall(block: () -> JsonObject): JsonObject = try {
+    block()
+} catch (e: BadInput) {
+    toolFailure(e.message ?: "参数不对")
+} catch (e: Exception) {
+    toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
+}
+
 internal fun tool(name: String, description: String, readOnly: Boolean = false, build: JsonObjectBuilder.() -> Unit): JsonElement = buildJsonObject {
     put("name", name)
     put("description", description)

@@ -1,17 +1,14 @@
 package com.dzshzx.zeta.phone.tools
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.ImageDecoder
 import android.util.Base64
+import com.dzshzx.zeta.core.Images
+import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.imageMediaType
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.time.ZoneId
 
@@ -71,45 +68,110 @@ internal object ChatImages {
     /**
      * 列文件：每行「修改时间（秒，带小数） 大小 路径」，新的在前，最多 $5 行；$3、$4 是时间窗口（秒，可空），$6 接在根目录后面
      * （回查时是子目录）。根目录一个都不在时打出 [NO_CACHE]。
+     *
+     * $7 是 0 时整个扫一遍（微信十几万个文件，要好几秒）。大于 0 时先只列根目录下第 [depth] 层子目录（微信 `image2/<aa>/<bb>`、
+     * QQ `chatraw/<xxx>` 这三处）的修改时间：新建文件会更新所在目录的修改时间，所以最新的文件在最新的那些目录里。
+     * 只在选上的目录里列文件：修改时间不早于窗口结束（$4）的全选上（里面可能有更早的文件），再往前取最新的 $7 个；
+     * 有窗口开始时只看修改时间不早于 $8 的。没选上的目录里最新的修改时间打成一行 [NEXT]，够不够、要不要加倍再列由 [newest] 判断。
+     * 选上的目录超过 [MAX_DIRS] 个（传给 find 的参数太长）时也整个扫一遍。
      */
-    private fun listScript(roots: String, names: String) =
-        "u=\$2 s=\$3 e=\$4 n=\$5 sub=\$6; set -- $roots; dirs=; for d in \"\$@\"; do [ -d \"\$d\" ] && dirs=\"\$dirs \$d\"; done; " +
-            "if [ -z \"\$dirs\" ]; then echo $NO_CACHE; else " +
-            "/system/bin/find \$dirs -name .ref -prune -o -type f \\( $names \\) -printf '%T@ %s %p\\n' 2>/dev/null | " +
+    private fun listScript(roots: String, depth: Int, names: String) =
+        "u=\$2 s=\$3 e=\$4 n=\$5 sub=\$6 k=\$7 ds=\$8; " +
+            "list() { /system/bin/find \"\$@\" -type f \\( $names \\) -printf '%T@ %s %p\\n' 2>/dev/null | " +
             "/system/bin/awk -v s=\"\$s\" -v e=\"\$e\" '(s == \"\" || \$1 >= s + 0) && (e == \"\" || \$1 < e + 0)' | " +
-            "/system/bin/sort -rn | /system/bin/head -n \"\$n\"; fi"
+            "/system/bin/sort -rn | /system/bin/head -n \"\$n\"; }; " +
+            "set -- $roots; dirs=; for d in \"\$@\"; do [ -d \"\$d\" ] && dirs=\"\$dirs \$d\"; done; " +
+            "if [ -z \"\$dirs\" ]; then echo $NO_CACHE; elif [ \"\$k\" -gt 0 ]; then " +
+            "sel=\$(/system/bin/find \$dirs -mindepth $depth -maxdepth $depth -type d ! -path '*/.ref/*' -printf '%T@ %p\\n' 2>/dev/null | " +
+            "/system/bin/awk -v s=\"\$ds\" 's == \"\" || \$1 >= s + 0' | /system/bin/sort -rn | " +
+            "/system/bin/awk -v k=\"\$k\" -v e=\"\$e\" 'e != \"\" && \$1 >= e + 0 || ++c <= k { print substr(\$0, index(\$0, \" \") + 1); next } " +
+            "{ print \"$NEXT \" \$1; exit }'); " +
+            "set -- \$(echo \"\$sel\" | /system/bin/grep -v '^$NEXT '); " +
+            "if [ \$# -gt $MAX_DIRS ]; then list \$dirs -name .ref -prune -o; " +
+            "else echo \"\$sel\" | /system/bin/grep '^$NEXT '; [ \$# -eq 0 ] || list \"\$@\" -maxdepth 1; fi; " +
+            "else list \$dirs -name .ref -prune -o; fi"
 
     private val WECHAT_SCRIPT = listScript(
         "/data/user/\$u/com.tencent.mm/MicroMsg/*/image2\$sub /data/media/\$u/Android/data/com.tencent.mm/MicroMsg/*/image2\$sub",
+        2,
         "-name 'th_*' -o -name '*.jpg' -o -name '*.png' -o -name '*.gif' -o -name '*.webp'",
     )
     private val QQ_SCRIPT = run {
         val base = "/data/media/\$u/Android/data/com.tencent.mobileqq/Tencent/MobileQQ/chatpic"
-        listScript("$base/chatraw\$sub $base/chatimg\$sub $base/chatthumb\$sub", "-name 'Cache_*'")
+        listScript("$base/chatraw\$sub $base/chatimg\$sub $base/chatthumb\$sub", 1, "-name 'Cache_*'")
     }
 
     private const val NO_CACHE = "ZETA_NO_CACHE"
+    private const val NEXT = "ZETA_NEXT"
 
-    /** 列出缓存里的文件（新的在前）；缓存目录不在时返回 null。 */
+    /**
+     * 文件的修改时间可能比所在目录的晚一点（建好文件再写完），实测最多 1 秒。判断「没选上的目录里不会有更新的文件」、
+     * 按时间窗口挑目录时都留这么多余量。
+     */
+    const val SLACK_MS = 60_000L
+
+    /** 先列最新的这么多个目录（至少；要的文件多时取它的两倍）。 */
+    const val FIRST_DIRS = 64
+
+    /** 目录数加倍到超过这么多就改成整个扫一遍：目录太多时传给 find 的参数也太长。 */
+    const val MAX_DIRS = 4_096
+
+    /** 一次按目录列的结果：[lines] 是 [parseLine] 过的文件，新的在前；[next] 是没选上的目录里最新的修改时间（毫秒），都选上了是 null。 */
+    class Listing(val lines: List<Triple<Long, Long, String>>, val next: Long?) {
+        /** 前 [max] 条已经是全部目录里最新的 [max] 条：没选上的目录里的文件，修改时间不会晚于第 [max] 条。 */
+        fun covers(max: Int): Boolean = next == null || (lines.size >= max && lines[max - 1].first > next + SLACK_MS)
+    }
+
+    /**
+     * 最新的 [max] 个文件：[pass] 按给的目录数列一次（0 是整个扫一遍），交回 [Listing]；缓存目录不在时交回 null，这里也是 null。
+     * 从最新的几个目录列起，不够（[Listing.covers]）就把目录数加倍再列，超过 [MAX_DIRS] 时整个扫一遍。
+     */
+    fun newest(max: Int, pass: (dirs: Int) -> Listing?): List<Triple<Long, Long, String>>? {
+        var dirs = (max * 2).coerceAtLeast(FIRST_DIRS)
+        while (true) {
+            if (dirs > MAX_DIRS) return pass(0)?.lines
+            val listing = pass(dirs) ?: return null
+            if (listing.covers(max)) return listing.lines.take(max)
+            dirs *= 2
+        }
+    }
+
+    /** 列出缓存里的文件（新的在前，最多 [max] 个）；缓存目录不在时返回 null。[sub] 给了时只整个扫那个子目录。 */
     private fun list(kind: String, start: Long?, end: Long?, max: Int, sub: String = ""): List<ChatFile>? {
+        val lines = if (sub.isNotEmpty()) pass(kind, start, end, max, 0, sub)?.lines else newest(max) { dirs -> pass(kind, start, end, max, dirs, sub) }
+        return lines?.mapNotNull { (time, size, path) -> file(kind, path, time, size) }
+    }
+
+    /** 以 root 跑一次 [listScript]。 */
+    private fun pass(kind: String, start: Long?, end: Long?, max: Int, dirs: Int, sub: String): Listing? {
         val lines = RootFiles.lines(
             if (kind == WECHAT) WECHAT_SCRIPT else QQ_SCRIPT,
-            listOf(RootFiles.user.toString(), start?.let(::seconds).orEmpty(), end?.let(::seconds).orEmpty(), max.toString(), sub),
+            listOf(
+                LinuxEnv.androidUser.toString(), start?.let(::seconds).orEmpty(), end?.let(::seconds).orEmpty(), max.toString(), sub,
+                dirs.toString(), start?.let { seconds((it - SLACK_MS).coerceAtLeast(0)) }.orEmpty(),
+            ),
         )
         if (lines.any { it.trim() == NO_CACHE }) return null
-        return lines.mapNotNull { line -> parseLine(line)?.let { (time, size, path) -> file(kind, path, time, size) } }
+        val next = lines.firstOrNull { it.startsWith("$NEXT ") }?.let { parseSeconds(it.removePrefix("$NEXT ").trim()) }
+        return Listing(lines.mapNotNull(::parseLine), next)
     }
 
     private fun seconds(ms: Long): String = "%d.%03d".format(ms / 1000, ms % 1000)
+
+    /** `1795102062.290211999`（秒，带小数）→ 毫秒。 */
+    fun parseSeconds(text: String): Long? {
+        val whole = text.substringBefore('.').toLongOrNull() ?: return null
+        val fraction = text.substringAfter('.', "").padEnd(3, '0').take(3).toLongOrNull() ?: 0
+        return whole * 1000 + fraction
+    }
 
     /** `1795102062.290211999 8639 /路径` → 毫秒、大小、路径。 */
     fun parseLine(line: String): Triple<Long, Long, String>? {
         val parts = line.trim().split(' ', limit = 3)
         if (parts.size != 3) return null
-        val whole = parts[0].substringBefore('.').toLongOrNull() ?: return null
-        val fraction = parts[0].substringAfter('.', "").padEnd(3, '0').take(3).toLongOrNull() ?: 0
+        val time = parseSeconds(parts[0]) ?: return null
         val size = parts[1].toLongOrNull() ?: return null
-        return Triple(whole * 1000 + fraction, size, parts[2])
+        return Triple(time, size, parts[2])
     }
 
     // ---- 认文件、归组、编号 ----
@@ -259,36 +321,13 @@ internal object ChatImages {
     class Decoded(val jpeg: ByteArray, val width: Int, val height: Int, val sourceWidth: Int, val sourceHeight: Int, val format: String)
 
     /** 文件头认格式：jpeg、png、gif、webp、wxgf；认不出是 null。 */
-    fun sniff(bytes: ByteArray): String? {
-        fun at(i: Int, vararg b: Int) = bytes.size >= i + b.size && b.indices.all { bytes[i + it] == b[it].toByte() }
-        return when {
-            at(0, 0xff, 0xd8, 0xff) -> "jpeg"
-            at(0, 0x89, 0x50, 0x4e, 0x47) -> "png"
-            at(0, 0x47, 0x49, 0x46, 0x38) -> "gif"
-            at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50) -> "webp"
-            Wxgf.isWxgf(bytes) -> "wxgf"
-            else -> null
-        }
-    }
+    fun sniff(bytes: ByteArray): String? = imageMediaType(bytes)?.removePrefix("image/") ?: if (Wxgf.isWxgf(bytes)) "wxgf" else null
 
     /** 文件内容缩到最长边不超过 [edge] 的 JPEG。wxgf 先转成 JPEG；透明的地方垫白底；动图取第一帧。 */
     private fun decode(bytes: ByteArray, edge: Int): Decoded {
         val format = sniff(bytes) ?: throw IllegalStateException("认不出的格式（文件头 " + bytes.take(4).joinToString(" ") { "%02x".format(it) } + "）")
-        val plain = if (format == "wxgf") Wxgf.toJpeg(bytes) else bytes
-        var source = 0 to 0
-        val decoded = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(plain))) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            source = info.size.width to info.size.height
-            val (w, h) = PersonalQueries.fitWithin(info.size.width, info.size.height, edge)
-            decoder.setTargetSize(w, h)
-        }
-        val bitmap = if (!decoded.hasAlpha()) decoded else {
-            Bitmap.createBitmap(decoded.width, decoded.height, Bitmap.Config.ARGB_8888).also {
-                Canvas(it).apply { drawColor(Color.WHITE); drawBitmap(decoded, 0f, 0f, null) }
-            }
-        }
-        val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
-        return Decoded(out.toByteArray(), bitmap.width, bitmap.height, source.first, source.second, format)
+        val decoded = Images.decodeWithin(if (format == "wxgf") Wxgf.toJpeg(bytes) else bytes, edge)
+        val bitmap = decoded.bitmap
+        return Decoded(Images.jpeg(bitmap, 80), bitmap.width, bitmap.height, decoded.sourceWidth, decoded.sourceHeight, format)
     }
 }

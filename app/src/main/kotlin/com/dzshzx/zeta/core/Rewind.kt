@@ -150,16 +150,3 @@ internal fun branchTitle(title: String, taken: Collection<String>): String {
         .map { if (it == 1) "分支 · $base" else "分支 $it · $base" }
         .first { it !in taken }
 }
-
-/** 从图片数据的开头认出类型；认不出返回 null。 */
-internal fun imageMediaType(bytes: ByteArray): String? {
-    fun at(index: Int) = bytes.getOrNull(index)?.toInt()?.and(0xFF)
-    fun ascii(index: Int, text: String) = text.indices.all { at(index + it) == text[it].code }
-    return when {
-        at(0) == 0xFF && at(1) == 0xD8 && at(2) == 0xFF -> "image/jpeg"
-        at(0) == 0x89 && ascii(1, "PNG") -> "image/png"
-        ascii(0, "GIF8") -> "image/gif"
-        ascii(0, "RIFF") && ascii(8, "WEBP") -> "image/webp"
-        else -> null
-    }
-}

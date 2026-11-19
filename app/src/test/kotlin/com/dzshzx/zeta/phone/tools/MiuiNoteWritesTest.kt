@@ -104,7 +104,7 @@ class MiuiNoteWritesTest {
         assertEquals(input("noteId" to 7, "title" to "新"), update["arguments"])
 
         // 读回：和 search_personal 按 id 读的同一个查询（只读得到列表里看得到的便签）
-        assertEquals(MiuiNotes.searchOp(SearchRequest(PersonalSource.Notes, null, null, null, 7, 1, 0)), MiuiNoteWrites.readOp(7))
+        assertEquals(MiuiNotes.searchOp(SearchRequest(PersonalSource.Notes, null, null, null, 7, 1, 0)), MiuiNotes.readOp(7))
     }
 
     @Test

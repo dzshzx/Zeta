@@ -6,8 +6,7 @@
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/capsule-live.sh
 # 假 Claude 不写会话记录，没有要删的测试会话；phone-run 收尾的 vd stop 删掉剧本。
 set -euo pipefail
-HERE=$ZETA_ROOT/tools/phone-tests
-INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 PROMOTED=$((0x40000))
 
 # 看一眼：本包常驻通知提没提升、测试屏上有没有胶囊（窗口标题 ZetaCapsule）。一次 ssh，手机上先滤成通知记录的头和
@@ -39,11 +38,7 @@ canpost=$(android "dumpsys package $PKG" | grep -c 'POST_PROMOTED_NOTIFICATIONS:
 ((canpost > 0)) || { echo "测试版没有 POST_PROMOTED_NOTIFICATIONS，测不了"; exit 1; }
 
 vd fake "$HERE/fake/capsule-live.jsonl"
-vd tap $INPUT_X $INPUT_Y
-sleep 1
-vd text "capsule-live"
-sleep 0.5
-vd tap $SEND_X $SEND_Y
+send capsule-live
 
 read -r p1 c1 < <(sample "是 无")
 vd shot before-phone.png >/dev/null

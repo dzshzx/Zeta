@@ -136,8 +136,8 @@ class PhotoContentTest {
         val text = PhotoContent.format(gallery, true, tags, media, false, r, zone, now)
         val lines = text.lines()
         assertEquals(
-            "照片内容 3 条（文字、标签、地点里找「猫」，按拍摄时间新的在前，时间为 UTC+08:00；用 view_media 看画面，视频加 kind: video）" +
-                "；另有 1 张在索引里但照片已删除，没有列出；还有更多，用 offset=12 继续",
+            "照片内容 3 条（文字、标签、地点里找「猫」，按拍摄时间新的在前；用 view_media 看画面，视频加 kind: video，时间为 UTC+08:00）" +
+                "；还有更多，用 offset=12 继续；另有 1 张在索引里但照片已删除，没有列出",
             lines[0],
         )
         assertEquals("#41 2026-11-03 14:22 DCIM/Camera/a.jpg — 标签 猫", lines[1])
@@ -165,7 +165,7 @@ class PhotoContentTest {
             listOf(row("long_id" to "gallery_9", "timestamp" to day, "file_path" to "/x.jpg", "ocr" to "发票")), true, emptyList(), emptyList(), false,
             request("query" to "发票", "limit" to 1), zone, now,
         )
-        assertTrue(gone, gone.startsWith("照片内容 0 条") && gone.contains("另有 1 张在索引里但照片已删除") && gone.endsWith("用 offset=1 继续"))
+        assertTrue(gone, gone.startsWith("照片内容 0 条") && gone.contains("另有 1 张在索引里但照片已删除") && gone.contains("用 offset=1 继续"))
     }
 
     @Test

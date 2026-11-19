@@ -7,23 +7,9 @@
 # 界面步骤读到的屏幕里有别的便签的摘要：只打印核对用的行，存屏幕的文件用完就删，不留在产物里。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/notes-write.sh
 set -uo pipefail
-HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
-# 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
-INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 mark="Zeta 测试 $(date +%m%d-%H%M%S)"
-id='' title='' turns=0 log='' TEXT='' FAILED=''
-
-send() {
-  vd tap $INPUT_X $INPUT_Y
-  sleep 1
-  vd text "$1"
-  sleep 0.5
-  vd tap $SEND_X $SEND_Y
-}
-
-find_log() {
-  log=$(android "ls -t \$(grep -l '\"fake_claude\":true' $HOSTS/*/out.jsonl 2>/dev/null) 2>/dev/null | head -n 1" || true)
-}
+id='' title='' turns=0 TEXT='' FAILED=''
 
 # 工具结果的文字：出错时 content 是一段文字，成功时是 [{type: text, text}]
 TEXT_OF='.message.content[0].content | if type == "string" then . else ([.[]? | .text // empty] | join("\n")) end'
@@ -31,20 +17,14 @@ TEXT_OF='.message.content[0].content | if type == "string" then . else ([.[]? | 
 # turn <名字> <手机工具步骤的 JSON 数组> <存到哪>：跑一轮假 Claude，这一轮各次工具结果的文字依次存进文件；
 # TEXT、FAILED 是最后一次的文字和是否出错
 turn() {
-  local name=$1 steps=$2 file=$3 count=0 before=0 results start=$SECONDS
+  local name=$1 steps=$2 file=$3 before=0 results start=$SECONDS
   jq -nc --argjson steps "$steps" '{title: "便签写入测试", steps: ($steps + [{text: "好了。"}])}' >"turn-$name.jsonl"
   vd fake "$PWD/turn-$name.jsonl" >/dev/null
   [[ -n $log ]] && before=$(android "grep -c '\"type\":\"tool_result\"' $log" || true)
   turns=$((turns + 1))
   send "notes-$name"
-  for _ in $(seq 120); do
-    [[ -n $log ]] || find_log
-    [[ -n $log ]] && count=$(android "grep -c '\"type\":\"result\"' $log" || true)
-    ((${count:-0} >= turns)) && break
-    sleep 0.5
-  done
-  if ((${count:-0} < turns)); then
-    echo "$name：60 秒没等到这一轮结束（日志：${log:-没有}）"
+  if ! wait_result $turns 60; then
+    echo "$name 这一轮没跑完"
     TEXT='' FAILED=true
     return 1
   fi

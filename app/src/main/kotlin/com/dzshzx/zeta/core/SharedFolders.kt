@@ -48,9 +48,6 @@ object SharedFolders {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** 本应用所在的 Android 用户（多用户时内部存储是 /data/media/<它>）。 */
-    private val androidUser: Int get() = android.os.Process.myUid() / 100_000
-
     /** 给 LinuxEnv 的挂载清单：每行“名字<Tab>Android 侧实际绑定的目录”。 */
     fun mountSpec(): String = current.joinToString("\n") { it.name + "\t" + bindSource(it.source) }
 
@@ -75,7 +72,7 @@ object SharedFolders {
      */
     fun bindSource(source: String): String {
         Regex("/storage/emulated/(\\d+)(/.*)?").matchEntire(source)?.let { return "/data/media/" + it.groupValues[1] + it.groupValues[2] }
-        val primary = "/data/media/$androidUser"
+        val primary = "/data/media/${LinuxEnv.androidUser}"
         for (alias in listOf("/sdcard", "/storage/self/primary", "/mnt/sdcard")) {
             if (source == alias) return primary
             if (source.startsWith("$alias/")) return primary + source.removePrefix(alias)
@@ -94,7 +91,7 @@ object SharedFolders {
         val id = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull() ?: return null
         if (!id.startsWith("primary:")) return null
         val rest = id.removePrefix("primary:").trim('/')
-        return normalize("/storage/emulated/$androidUser/$rest")
+        return normalize("/storage/emulated/${LinuxEnv.androidUser}/$rest")
     }
 
     /** 源目录不能用的原因；能用返回 null。 */
@@ -117,7 +114,7 @@ object SharedFolders {
     /** 从源目录的最后一段推一个挂载名；整个内部存储叫 sdcard，剔掉非 ASCII 后为空就叫 share，重名的加序号。 */
     fun defaultName(source: String, existing: List<SharedFolder>): String {
         val bind = bindSource(source)
-        val base = if (bind == "/data/media/$androidUser") "sdcard" else source.trimEnd('/').substringAfterLast('/')
+        val base = if (bind == "/data/media/${LinuxEnv.androidUser}") "sdcard" else source.trimEnd('/').substringAfterLast('/')
         val candidate = base.filter { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '.' || it == '_' || it == '-' }
             .trim('.').take(44).ifBlank { "share" }
         if (existing.none { it.name == candidate }) return candidate

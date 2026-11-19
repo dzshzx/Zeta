@@ -169,10 +169,8 @@ internal object PhotoContent {
         var gone = 0
         val lines = gallery.mapNotNull { row ->
             val file = byPath[row.text("file_path")] ?: run { gone++; return@mapNotNull null }
-            val time = file.long("datetaken")?.takeIf { it > 0 } ?: file.long("date_added")?.let { it * 1000 } ?: row.long("timestamp")
             buildString {
-                append('#').append(file.long("_id")).append(' ').append(time?.let { PersonalQueries.formatTime(it, zone) } ?: "?").append(' ')
-                append(file.text("relative_path").orEmpty()).append(file.text("_display_name").orEmpty())
+                append(PersonalQueries.mediaLine(file, zone, PersonalQueries.mediaTime(file) ?: row.long("timestamp")))
                 if (file.long("media_type") == MEDIA_VIDEO) {
                     append(" [视频")
                     file.long("duration")?.takeIf { it > 0 }?.let { append(' ').append(PersonalQueries.duration(it / 1000)) }
@@ -181,13 +179,12 @@ internal object PhotoContent {
                 append(" — ").append(hits(row, query, matched, width))
             }
         }
-        val header = buildString {
-            append(PersonalSource.PhotoContent.label).append(' ').append(lines.size).append(" 条")
-            append("（文字、标签、地点里找「").append(query).append("」，按拍摄时间新的在前，时间为 ").append(PersonalQueries.zoneLabel(zone, now))
-            append("；用 view_media 看画面，视频加 kind: video）")
-            if (gone > 0) append("；另有 ").append(gone).append(" 张在索引里但照片已删除，没有列出")
-            if (more) append("；还有更多，用 offset=").append(request.offset + gallery.size).append(" 继续")
-        }
+        // 下一页从索引里这一页之后接着取：已删除没列出的也算进去
+        val header = PersonalQueries.header(
+            PersonalSource.PhotoContent, lines.size, more, request, zone, now,
+            "文字、标签、地点里找「$query」，按拍摄时间新的在前；用 view_media 看画面，视频加 kind: video",
+            next = request.offset + gallery.size,
+        ) + if (gone > 0) "；另有 $gone 张在索引里但照片已删除，没有列出" else ""
         return PersonalQueries.assemble(header, lines, header)
     }
 }

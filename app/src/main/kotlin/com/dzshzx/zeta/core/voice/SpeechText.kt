@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.voice
 
+import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.ui.markdown.ChatGfmFlavourDescriptor
 import com.dzshzx.zeta.ui.markdown.TexMathDelimiters
 import org.intellij.markdown.IElementType
@@ -56,7 +57,7 @@ object SpeechText {
         while (rest.length > limit) {
             var end = rest.take(limit).indexOfLast { it in SENTENCE_ENDS } + 1
             if (end < limit / 2) end = limit
-            if (rest[end - 1].isHighSurrogate()) end--
+            end = safeCut(rest, end)
             result += rest.substring(0, end).trim()
             rest = rest.substring(end).trim()
         }

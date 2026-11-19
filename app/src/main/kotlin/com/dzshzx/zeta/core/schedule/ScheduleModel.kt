@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
+import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.core.str
 import java.time.DayOfWeek
 import java.time.Instant
@@ -309,12 +310,8 @@ object Schedules {
     }
 
     /** 超过 [limit] 个字就截断、加上“…”。不从一对代理字符中间切开，表情不会剩半个。 */
-    fun clip(text: String, limit: Int): String {
-        if (text.length <= limit) return text
-        var end = limit
-        if (end > 0 && text[end - 1].isHighSurrogate()) end--
-        return text.substring(0, end).trimEnd() + "…"
-    }
+    fun clip(text: String, limit: Int): String =
+        if (text.length <= limit) text else text.substring(0, safeCut(text, limit.coerceAtLeast(0))).trimEnd() + "…"
 
     /** 这一轮的结果：看这次发出的那条消息之后的内容。回答取最后一段（前面多是“我先看看”），出错取提示。 */
     fun outcomeOf(items: List<ChatItem>, prompt: String): Pair<RunOutcome, String> {

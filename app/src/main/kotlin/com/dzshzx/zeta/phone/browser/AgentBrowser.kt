@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.MainThreadTimeout
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
@@ -51,7 +52,6 @@ import kotlinx.serialization.json.putJsonArray
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -858,24 +858,11 @@ internal object AgentBrowser {
 
     // ---- 线程 ----
 
-    /** 在主线程上执行并等结果（工具线程上调用）。 */
-    private fun <T> onMain(block: () -> T): T {
-        if (Looper.myLooper() == Looper.getMainLooper()) return block()
-        val future = CompletableFuture<T>()
-        main.post {
-            try {
-                future.complete(block())
-            } catch (failure: Throwable) {
-                future.completeExceptionally(failure)
-            }
-        }
-        return try {
-            future.get(MAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        } catch (_: TimeoutException) {
-            throw BrowserFailure("Zeta 的界面线程没有响应，稍后再试")
-        } catch (failure: ExecutionException) {
-            throw failure.cause ?: failure
-        }
+    /** 在主线程上执行并等结果（工具线程上调用）；主线程没响应时报 [BrowserFailure]，原话交给 Claude。 */
+    private fun <T> onMain(block: () -> T): T = try {
+        com.dzshzx.zeta.core.onMain(MAIN_TIMEOUT_MS, block)
+    } catch (_: MainThreadTimeout) {
+        throw BrowserFailure("Zeta 的界面线程没有响应，稍后再试")
     }
 
     private class BrowserFailure(message: String) : RuntimeException(message)

@@ -281,7 +281,7 @@ internal object PermissionHealth {
     fun fixWithRoot(context: Context, id: PermissionId): Boolean {
         val app = context.applicationContext
         val pkg = app.packageName
-        val user = (Process.myUid() / 100_000).toString()
+        val user = LinuxEnv.androidUser.toString()
         return when (id) {
             PermissionId.Accessibility -> {
                 // 先放开“受限设置”：侧载的应用不放开的话，用户在系统设置里也开不了它的无障碍服务

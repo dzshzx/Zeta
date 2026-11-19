@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.str
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -238,8 +239,14 @@ internal object PersonalQueries {
         request.end?.let { "$column < CAST(? AS INTEGER)" to listOf((it / scale).toString()) },
     )
 
-    /** 照片、视频的时间：拍摄时间，没有的话用入库时间（秒）。 */
-    private const val MEDIA_TIME = "COALESCE(datetaken, date_added * 1000)"
+    /**
+     * 照片、视频的时间（毫秒）：拍摄时间，没有（空或 0）的话用入库时间（秒）。查询里排序、筛时间窗口用这个表达式，
+     * 排版用 [mediaTime]，两处同一个规则。
+     */
+    private const val MEDIA_TIME = "COALESCE(NULLIF(datetaken, 0), date_added * 1000)"
+
+    /** 一行照片、视频（带 datetaken、date_added 列）的时间，规则同 [MEDIA_TIME]；两列都没有时是 null。 */
+    fun mediaTime(row: Row): Long? = row.long("datetaken")?.takeIf { it > 0 } ?: row.long("date_added")?.let { it * 1000 }
 
     /** 音频、文件、下载的时间：修改时间，没有的话用入库时间（都是秒）。 */
     private const val FILE_TIME = "COALESCE(NULLIF(date_modified, 0), date_added)"
@@ -389,17 +396,29 @@ internal object PersonalQueries {
     /** 一行里放得下的正文：空白并成一个空格，超长截断。完整内容（[full]）保留换行。 */
     fun clip(value: String?, cap: Int, full: Boolean = false): String {
         val text = if (full) value.orEmpty().trim() else value.orEmpty().replace(WHITESPACE, " ").trim()
-        return if (text.length <= cap) text else text.take(cap) + "…（共 ${text.length} 字）"
+        return text.clipChars(cap, "…（共 ${text.length} 字）")
     }
 
     fun zoneLabel(zone: ZoneId, now: Long): String = "UTC" + zone.rules.getOffset(Instant.ofEpochMilli(now)).id.let { if (it == "Z") "+00:00" else it }
 
-    /** 结果的第一行：多少条、怎么排、时间是哪个时区、还有没有下一页。 */
-    fun header(source: PersonalSource, count: Int, more: Boolean, request: SearchRequest, zone: ZoneId, now: Long, order: String?): String = buildString {
+    /**
+     * 结果的第一行：多少条、怎么排、时间是哪个时区、还有没有下一页。[next] 是下一页的 offset：默认接着这一页列出的条数，
+     * 列出的和数据源里取到的条数不一样时（比如有的被跳过）由调用方给。
+     */
+    fun header(
+        source: PersonalSource,
+        count: Int,
+        more: Boolean,
+        request: SearchRequest,
+        zone: ZoneId,
+        now: Long,
+        order: String?,
+        next: Int = request.offset + count,
+    ): String = buildString {
         append(source.label).append(' ').append(count).append(" 条")
         val notes = listOfNotNull(order, "时间为 " + zoneLabel(zone, now))
         append("（").append(notes.joinToString("，")).append("）")
-        if (more) append("；还有更多，用 offset=").append(request.offset + count).append(" 继续")
+        if (more) append("；还有更多，用 offset=").append(next).append(" 继续")
     }
 
     /** 把行排成文字，总长不超过 [OUTPUT_BUDGET]；超出的部分说明省略了几条。 */
@@ -555,21 +574,22 @@ internal object PersonalQueries {
     fun formatMedia(rows: List<Row>, more: Boolean, request: SearchRequest, zone: ZoneId, now: Long): String {
         val video = request.source == PersonalSource.Videos
         val lines = rows.map { r ->
-            val time = r.long("datetaken")?.takeIf { it > 0 } ?: r.long("date_added")?.let { it * 1000 }
-            buildString {
-                append('#').append(r.long("_id")).append(' ').append(time?.let { formatTime(it, zone) } ?: "?").append(' ')
-                append(r.text("relative_path").orEmpty()).append(r.text("_display_name").orEmpty())
-                val w = r.long("width")
-                val h = r.long("height")
-                if (w != null && h != null && w > 0 && h > 0) append(' ').append(w).append('x').append(h)
-                r.long("_size")?.let { append(' ').append(size(it)) }
-                if (video) r.long("duration")?.let { append(' ').append(duration(it / 1000)) }
-            }
+            mediaLine(r, zone) + if (video) r.long("duration")?.let { " " + duration(it / 1000) }.orEmpty() else ""
         }
         return assemble(
             header(request.source, rows.size, more, request, zone, now, "新的在前；用 view_media 看画面"), lines,
             "没有符合条件的" + request.source.label + "。",
         )
+    }
+
+    /** 照片、视频的一行：编号、时间（默认 [mediaTime]）、路径，行里有宽高、大小时带上。 */
+    fun mediaLine(row: Row, zone: ZoneId, time: Long? = mediaTime(row)): String = buildString {
+        append('#').append(row.long("_id")).append(' ').append(time?.let { formatTime(it, zone) } ?: "?").append(' ')
+        append(row.text("relative_path").orEmpty()).append(row.text("_display_name").orEmpty())
+        val w = row.long("width")
+        val h = row.long("height")
+        if (w != null && h != null && w > 0 && h > 0) append(' ').append(w).append('x').append(h)
+        row.long("_size")?.let { append(' ').append(size(it)) }
     }
 
     /** 音频、文件、下载：路径、大小；音频带时长、歌手并标出录音，文件带类型，下载带来源网址。时间是秒。 */
@@ -739,16 +759,6 @@ internal object PersonalQueries {
             header(PersonalSource.Codes, page.size, codes.size > request.offset + request.limit, request, zone, now, "$since 以来，新的在前"), lines,
             "$since 以来的短信和通知里没有认出验证码。",
         )
-    }
-
-    // ---- 图片 ----
-
-    /** 把 [width]×[height] 等比缩到最长边不超过 [edge]，不放大。 */
-    fun fitWithin(width: Int, height: Int, edge: Int): Pair<Int, Int> {
-        val longest = maxOf(width, height)
-        if (longest <= edge || longest <= 0) return width to height
-        val scale = edge.toDouble() / longest
-        return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
     }
 
     private val SMS_TYPES = mapOf(1 to "received", 2 to "sent", 3 to "draft", 4 to "outbox", 5 to "failed", 6 to "queued")

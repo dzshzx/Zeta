@@ -5,9 +5,9 @@
 # 剪贴板和图片的内容不进产物（summary.txt），也不截图。测完删掉这次的对话目录（托管日志里有工具结果）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/clipboard-chat-images.sh
 set -uo pipefail
-HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 ref=/data/local/tmp/zeta-clipboard-chat-images.ref
-INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
+NEWER=$ref
 user=$(android 'am get-current-user' | tr -d '\r')
 
 mine="find $HOSTS -mindepth 1 -maxdepth 1 -type d -newer $ref"
@@ -53,24 +53,8 @@ printf '{"title":"剪贴板与聊天图片","steps":%s}\n' "$steps" > scenario.j
 calls=$(grep -o '"phone":' scenario.jsonl | wc -l)
 
 vd fake "$PWD/scenario.jsonl"
-vd tap $INPUT_X $INPUT_Y
-sleep 1
-vd text "fake-clipboard-chat-images"
-sleep 0.5
-vd tap $SEND_X $SEND_Y
-
-log=''
-result=''
-for _ in $(seq 60); do
-  sleep 2
-  [[ -n $log ]] || log=$(android "ls -t \$(grep -l '\"fake_claude\":true' \$($mine | sed 's#\$#/out.jsonl#') 2>/dev/null) 2>/dev/null | head -n 1" | tr -d '\r')
-  [[ -n $log ]] && result=$(android "grep '\"type\":\"result\"' $log | tail -n 1")
-  [[ -n $result ]] && break
-done
-if [[ -z $result ]]; then
-  echo "120 秒内没等到这一轮结束（日志：${log:-没有}）"
-  exit 1
-fi
+send "fake-clipboard-chat-images"
+wait_result 1 120 || exit 1
 
 # 每次调用一行：出错与否、文字的行数、第一行；看图的再加全部文字（只有编号、尺寸、格式）和图片的类型、base64 长度
 android "grep '\"tool_result\"' $log" | jq -r '
@@ -83,7 +67,7 @@ android "grep '\"tool_result\"' $log" | jq -r '
         + (if $img != "" then " | " + ($t[1:] | join(" / ")) + " | 图片 " + $img else "" end)
     end' > summary.txt
 cat summary.txt
-echo "这一轮：$(jq -r '"subtype=\(.subtype) is_error=\(.is_error)"' <<<"$result")"
+echo "这一轮：$(jq -r '"subtype=\(.subtype) is_error=\(.is_error)"' <<<"$RESULT")"
 
 fail=0
 [[ $(wc -l < summary.txt) -eq $calls ]] || { echo "调用 $calls 次，结果 $(wc -l < summary.txt) 条"; fail=1; }

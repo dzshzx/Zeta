@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.Parcel
 import com.dzshzx.zeta.core.arr
@@ -84,10 +85,39 @@ internal object AppToolCall {
         }
     }
 
-    /** 绑定服务 [component]（`包名/类名`），等到连上。会阻塞，在后台线程用。 */
+    /**
+     * 绑定服务 [component]（`包名/类名`），等到连上。会阻塞，在后台线程用。
+     * HyperOS 的「关联启动」管控（WakePathChecker）不许 Zeta 绑定没在跑的应用（日志 `MIUILOG-AutoStart, Service/Provider/Broadcast Reject`，
+     * bindService 返回 false）；system 不受它管。所以绑不上时先以 system 身份取一下这个应用同一进程里的 Provider，把进程拉起来再绑一次。
+     */
     fun bind(context: Context, component: String): Binding {
         val name = ComponentName.unflattenFromString(component) ?: throw IllegalArgumentException("bad component $component")
-        val app = context.applicationContext
+        tryBind(context.applicationContext, name)?.let { return it }
+        val authority = wakeAuthority(context, name)
+        val woke = authority?.let { runCatching { RootProvider.one(context, buildJsonObject { put("op", "wake"); put("authority", it) }, system = true) } }
+        return tryBind(context.applicationContext, name) ?: throw IllegalStateException(
+            "绑定不了 ${name.packageName} 的工具服务（应用没装、版本不对或服务被停用）" + when {
+                authority == null -> "，也没找到能拉起它的 Provider"
+                woke?.isFailure == true -> "，以 system 拉起它也失败：" + woke.exceptionOrNull()?.message
+                else -> ""
+            },
+        )
+    }
+
+    /** 和服务 [name] 在同一个进程里的一个 Provider 的 authority（取它就会拉起这个进程）；没有时是 null。 */
+    private fun wakeAuthority(context: Context, name: ComponentName): String? = runCatching {
+        val pm = context.packageManager
+        val process = pm.getServiceInfo(name, PackageManager.ComponentInfoFlags.of(0)).processName
+        val providers = pm.getPackageInfo(name.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PROVIDERS.toLong())).providers
+        pickAuthority(process, providers.orEmpty().map { it.authority to it.processName })
+    }.getOrNull()
+
+    /** [providers]（authority、进程名）里第一个在进程 [process] 里的；一个 Provider 有几个 authority 时用分号隔开，取第一个。 */
+    fun pickAuthority(process: String?, providers: List<Pair<String?, String?>>): String? =
+        providers.firstOrNull { (authority, owner) -> !authority.isNullOrEmpty() && owner == process }?.first?.substringBefore(';')
+
+    /** 绑一次：bindService 返回 false（关联启动被拦、没有这个服务）时是 null；连上了交回绑定，没连上或被拒绝抛出异常。 */
+    private fun tryBind(app: Context, name: ComponentName): Binding? {
         val connected = CountDownLatch(1)
         var refused = false
         val connection = object : ServiceConnection {
@@ -105,7 +135,9 @@ internal object AppToolCall {
         val binding = Binding(app, connection)
         try {
             if (!app.bindService(Intent().setComponent(name), connection, Context.BIND_AUTO_CREATE)) {
-                throw IllegalStateException("绑定不了 ${name.packageName} 的工具服务（应用没装、版本不对或服务被停用）")
+                // 返回 false 也要解绑，系统才会放掉这次的连接记录
+                binding.close()
+                return null
             }
             if (!connected.await(BIND_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
                 throw IllegalStateException("${BIND_TIMEOUT_MS / 1000} 秒内没连上 ${name.packageName} 的工具服务")
@@ -124,10 +156,9 @@ internal object AppToolCall {
     fun handle(op: JsonObject): JsonObject {
         val component = op.str("component")?.let(ComponentName::unflattenFromString) ?: throw IllegalArgumentException("no component")
         val request = op.str("request") ?: throw IllegalArgumentException("no request")
-        val activityManager = Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null)
-        val binder = Class.forName("android.app.IActivityManager")
+        val binder = ProviderHelper.iActivityManager
             .getMethod("peekService", Intent::class.java, String::class.java, String::class.java)
-            .invoke(activityManager, Intent().setComponent(component), null, "android") as? IBinder
+            .invoke(ProviderHelper.activityManager, Intent().setComponent(component), null, "android") as? IBinder
             ?: throw IllegalStateException("service not bound: " + component.flattenToShortString())
         val data = Parcel.obtain()
         val answer = Parcel.obtain()

@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.clipChars
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -56,7 +57,7 @@ internal object DeviceLogcat {
 
     /** 截掉过长的行，总长超出时丢掉前面较旧的行。 */
     fun trim(output: String): String {
-        val lines = output.lines().filter { it.isNotEmpty() }.map { if (it.length > MAX_LINE) it.take(MAX_LINE) + "…" else it }
+        val lines = output.lines().filter { it.isNotEmpty() }.map { it.clipChars(MAX_LINE, "…") }
         val kept = ArrayDeque<String>()
         var total = 0
         for (line in lines.asReversed()) {

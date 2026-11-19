@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.assistant
 
+import com.dzshzx.zeta.core.clipChars
+
 /**
  * 唤起助理时前台的一个应用：系统给的 AssistStructure、AssistContent 里读出来的东西，
  * 或者 ASSIST intent 里带的包名（那时没有界面文字）。
@@ -86,7 +88,7 @@ object ScreenDigest {
 
     private fun clean(value: String?): String? {
         val text = value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return if (text.length > MAX_LINE) text.take(MAX_LINE) + "…" else text
+        return text.clipChars(MAX_LINE, "…")
     }
 
     /**

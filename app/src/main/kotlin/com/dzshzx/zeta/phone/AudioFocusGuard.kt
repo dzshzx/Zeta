@@ -151,9 +151,6 @@ internal class AudioFocusGuard(
 
         private const val ROOT_TIMEOUT_MS = 10_000L
 
-        /** 一个 Android 用户占的 uid 段（UserHandle.PER_USER_RANGE）。 */
-        private const val PER_USER_RANGE = 100_000
-
         private val OP_LINE = Regex("^$OP: (\\w+)")
         private val PACKAGE = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
@@ -170,7 +167,7 @@ internal class AudioFocusGuard(
             shared ?: AudioFocusGuard(
                 shell = { rootShell(it, ROOT_TIMEOUT_MS) },
                 store = SettingsStore(Settings(context.applicationContext)),
-                user = android.os.Process.myUid() / PER_USER_RANGE,
+                user = LinuxEnv.androidUser,
             ).also { shared = it }
         }
 

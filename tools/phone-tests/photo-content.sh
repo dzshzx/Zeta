@@ -5,24 +5,11 @@
 # 结果首行去掉括号里的说明，不输出内容；测完删掉这次对话的托管日志（里面有工具结果）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/photo-content.sh
 set -euo pipefail
-HERE=$ZETA_ROOT/tools/phone-tests
-HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
-INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
-
-send() {
-  vd tap $INPUT_X $INPUT_Y
-  sleep 1
-  vd text "$1"
-  sleep 0.5
-  vd tap $SEND_X $SEND_Y
-}
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 # 这次对话的托管日志：起的是假 Claude、在 ref 之后建的（别的测试留下的假 Claude 日志不算）
 ref=/data/local/tmp/zeta-photo-content.ref
-log=''
-find_log() {
-  log=$(android "for f in \$(find $HOSTS -mindepth 2 -maxdepth 2 -name out.jsonl -newer $ref); do grep -l '\"fake_claude\":true' \$f; done | head -n 1" || true)
-}
+NEWER=$ref
 cleanup() {
   # 这次对话的托管目录：里面的工具结果有照片里的文字
   if [[ $log == "$HOSTS"/*/out.jsonl ]]; then
@@ -33,19 +20,6 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 143' TERM INT
-
-# 等到日志里有第 $1 个 result；90 秒没等到就失败（一次按内容搜要起两次 root 辅助进程）
-wait_result() {
-  local n=$1 count=0
-  for _ in $(seq 180); do
-    [[ -n $log ]] || find_log
-    [[ -n $log ]] && count=$(android "grep -c '\"type\":\"result\"' $log" || true)
-    ((${count:-0} >= n)) && return
-    sleep 0.5
-  done
-  echo "第 $n 轮 90 秒没等到 result（日志：${log:-还没有假 Claude 的日志}）"
-  exit 1
-}
 
 # 第 $1 个工具结果（从 1 数）：错误标记和拼起来的文字
 result() { android "grep '\"type\":\"tool_result\"' $log | sed -n '$1p'" | jq -c '.message.content[0]'; }
@@ -67,7 +41,8 @@ android "touch $ref"
 vd fake "$HERE/fake/photo-content.jsonl"
 start=$SECONDS
 send "photo-content-1"
-wait_result 1
+# 一次按内容搜要起两次 root 辅助进程，多等一会
+wait_result 1 90 || exit 1
 echo "第 1 轮：$((SECONDS - start)) 秒"
 
 fail=0
@@ -90,7 +65,7 @@ if [[ -n $first ]]; then
   jq -cn --argjson id "$first" '{title: "假 Claude · 看照片", steps: [{phone: "view_media", input: {id: $id, max_edge: 256}}, {text: "看完了。"}]}' >view-media.jsonl
   vd fake "$PWD/view-media.jsonl"
   send "photo-content-2"
-  wait_result 2
+  wait_result 2 90 || exit 1
   r=$(result 6)
   echo "view_media 第一页第一个编号：出错=$(jq -r '.is_error // false' <<<"$r")，图片 $(jq '[.content[]? | select(.type == "image")] | length' <<<"$r") 张，$(text_of "$r" | grep -oE '^画面 [0-9]+x[0-9]+' || echo 没有画面行)"
   [[ $(jq -r '.is_error // false' <<<"$r") == false && $(jq '[.content[]? | select(.type == "image")] | length' <<<"$r") == 1 ]] || fail=1

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.phone.tools
 import android.content.Context
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.InstalledApps
@@ -91,23 +92,19 @@ internal object PersonalTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = try {
+    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
         when (name) {
             SEARCH -> toolText(search(context, input))
             VIEW -> view(context, input)
             EDIT -> toolText(edit(context, input))
             else -> toolFailure("没有这个工具：$name")
         }
-    } catch (e: BadInput) {
-        toolFailure(e.message ?: "参数不对")
-    } catch (e: Exception) {
-        toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
     }
 
     override fun title(name: String, input: JsonObject): String = when (name) {
         SEARCH -> {
             val source = PersonalSource.of(input.str("source"))
-            val query = input.str("query")?.trim()?.takeIf { it.isNotEmpty() }?.let { if (it.length > 12) it.take(12) + "…" else it }
+            val query = input.str("query")?.trim()?.takeIf { it.isNotEmpty() }?.clipChars(12, "…")
             when {
                 source == PersonalSource.Codes -> "找验证码"
                 source == null -> "查个人数据"
@@ -118,7 +115,7 @@ internal object PersonalTools : PhoneToolGroup {
         }
         VIEW -> ChatImages.viewTitle(input.str("kind")) ?: if (input.str("kind") == "video") "看视频画面" else "看照片"
         EDIT -> when (input.str("action")) {
-            "create" -> input.str("title")?.trim()?.takeIf { it.isNotEmpty() }?.let { "新建日程「" + (if (it.length > 12) it.take(12) + "…" else it) + "」" } ?: "新建日程"
+            "create" -> input.str("title")?.trim()?.takeIf { it.isNotEmpty() }?.let { "新建日程「" + it.clipChars(12, "…") + "」" } ?: "新建日程"
             "update" -> "修改日程"
             "delete" -> "删除日程"
             else -> "改日程"
@@ -214,10 +211,9 @@ internal object PersonalTools : PhoneToolGroup {
 
     /** 小米便签：列表，或按 id 读一条的全文。它的 Provider 只认系统身份的调用方。 */
     private fun notes(context: Context, request: SearchRequest, zone: ZoneId, now: Long): String {
+        request.id?.let { id -> return MiuiNotes.read(context, id)?.let { MiuiNotes.formatNote(it, zone) } ?: (MiuiNotes.missing(id) + "。") }
         val result = RootProvider.one(context, MiuiNotes.searchOp(request), system = true)
-        val rows = RootProvider.rows(result)
-        val id = request.id ?: return MiuiNotes.formatList(rows, more(result), request, zone, now)
-        return rows.firstOrNull()?.let { MiuiNotes.formatNote(it, zone) } ?: "没有编号为 $id 的便签（或在回收站、私密便签里）。"
+        return MiuiNotes.formatList(RootProvider.rows(result), more(result), request, zone, now)
     }
 
     /** 健康连接里 [request] 窗口内的汇总；没有健康连接、一项权限都没有时说明怎么办。 */

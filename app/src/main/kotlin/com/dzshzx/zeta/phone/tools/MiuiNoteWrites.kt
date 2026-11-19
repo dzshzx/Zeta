@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.phone.tools
 
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.str
 import kotlinx.serialization.json.Json
@@ -77,9 +78,6 @@ internal object MiuiNoteWrites {
 
     fun updateOp(args: JsonObject): JsonObject = AppToolCall.op(SERVICE, "note_update", args)
 
-    /** 读一条看得到的便签（和 search_personal 按 id 读的一样）。 */
-    fun readOp(id: Long): JsonObject = MiuiNotes.searchOp(SearchRequest(PersonalSource.Notes, null, null, null, id, 1, 0))
-
     // ---- 回答 ----
 
     /** 工具服务答的 JSON；工具报错或答 success: false 时抛出它的原话。 */
@@ -118,7 +116,7 @@ internal object MiuiNoteWrites {
 
     /** 聊天里的一句话。 */
     fun chatTitle(input: JsonObject): String = when (input.str("action")) {
-        "create" -> input.str("title")?.trim()?.takeIf { it.isNotEmpty() }?.let { "新建便签「" + (if (it.length > 12) it.take(12) + "…" else it) + "」" } ?: "新建便签"
+        "create" -> input.str("title")?.trim()?.takeIf { it.isNotEmpty() }?.let { "新建便签「" + it.clipChars(12, "…") + "」" } ?: "新建便签"
         "update" -> "修改便签"
         else -> "改便签"
     }

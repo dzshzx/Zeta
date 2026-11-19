@@ -3,6 +3,7 @@ package com.dzshzx.zeta.phone.tools
 import android.content.Context
 import android.content.pm.PackageManager
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import kotlinx.serialization.json.JsonElement
@@ -299,7 +300,7 @@ internal object DeviceTools : PhoneToolGroup {
                 val filter = a.str("filter")?.trim().orEmpty()
                 val rows = sh.out("settings list $namespace", 20_000).lineSequence()
                     .filter { it.isNotBlank() && (filter.isEmpty() || it.substringBefore('=').contains(filter, ignoreCase = true)) }
-                    .map { if (it.length > 300) it.take(300) + "…" else it }
+                    .map { it.clipChars(300, "…") }
                     .toList()
                 if (rows.isEmpty()) "no settings" + if (filter.isNotEmpty()) " matching \"$filter\"" else ""
                 else rows.take(300).joinToString("\n") + if (rows.size > 300) "\n…(${rows.size - 300} more; use filter)" else ""

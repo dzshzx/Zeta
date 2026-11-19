@@ -2,12 +2,12 @@ package com.dzshzx.zeta.phone.tools
 
 import android.app.Application
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
+import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.claude.McpNames
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.onMain
 import com.dzshzx.zeta.core.schedule.RuleKind
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
@@ -24,9 +24,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.Callable
-import java.util.concurrent.FutureTask
-import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -154,20 +151,14 @@ internal object ScheduleTools : PhoneToolGroup {
     }
 
     /** [REPORT] 不经这里：PhoneTools 带上这个对话正在跑的运行直接调 [report]。 */
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject {
-        return try {
-            when (name) {
-                CREATE -> create(context, input)
-                LIST -> toolText(list(context))
-                UPDATE -> update(context, input)
-                DELETE -> delete(context, input)
-                RUN -> runNow(context, input)
-                else -> toolFailure("没有这个工具：$name")
-            }
-        } catch (e: BadInput) {
-            toolFailure(e.message ?: "参数不对")
-        } catch (e: Exception) {
-            toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
+    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
+        when (name) {
+            CREATE -> create(context, input)
+            LIST -> toolText(list(context))
+            UPDATE -> update(context, input)
+            DELETE -> delete(context, input)
+            RUN -> runNow(context, input)
+            else -> toolFailure("没有这个工具：$name")
         }
     }
 
@@ -181,7 +172,7 @@ internal object ScheduleTools : PhoneToolGroup {
         else -> name
     }
 
-    private fun short(text: String) = if (text.length > 12) text.take(12) + "…" else text
+    private fun short(text: String) = text.clipChars(12, "…")
 
     private fun create(context: Context, input: JsonObject): JsonObject {
         val zone = ZoneId.systemDefault()
@@ -321,7 +312,7 @@ internal object ScheduleTools : PhoneToolGroup {
                 else -> "，下次 " + Schedules.formatWhen(next, now, zone)
             },
         )
-        append("\n  指令：" + task.prompt.replace(Regex("\\s+"), " ").let { if (it.length > 120) it.take(120) + "…" else it })
+        append("\n  指令：" + task.prompt.replace(Regex("\\s+"), " ").clipChars(120, "…"))
         val options = listOfNotNull(
             task.cwd?.let { "工作目录 $it" },
             task.model?.let { "模型 $it" },
@@ -373,13 +364,5 @@ internal object ScheduleTools : PhoneToolGroup {
         if (changed && summary.isEmpty()) return toolFailure("deliver 要给 summary：通知里显示的一两句话")
         run.report = RunReport(changed, summary)
         return toolText(if (changed) "已记下：这一轮跑完会发通知，正文是这段摘要。" else "已记下：这次没有变化，跑完不发通知，只记进运行记录。")
-    }
-
-    /** 在主线程上做完 [block] 再返回（ScheduleRunner 的状态只在主线程上改）。工具线程上调用。 */
-    private fun <T> onMain(block: () -> T): T {
-        if (Looper.myLooper() == Looper.getMainLooper()) return block()
-        val task = FutureTask(Callable { block() })
-        Handler(Looper.getMainLooper()).post(task)
-        return task.get(15, TimeUnit.SECONDS)
     }
 }

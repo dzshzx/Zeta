@@ -1,11 +1,12 @@
 package com.dzshzx.zeta.phone.tools
 
+import android.content.Context
 import kotlinx.serialization.json.JsonObject
 import java.time.ZoneId
 
 /**
- * 小米便签（com.miui.notes）的纯逻辑：拼查询、整理正文、排版。真正的读在 [PersonalTools] 经 [RootProvider] 做；
- * 新建、修改、删除（edit_note）走另一条路，见 [MiuiNoteWrites]。
+ * 小米便签（com.miui.notes）的读：拼查询、整理正文、排版是纯逻辑；列表在 [PersonalTools]、按编号读一条在 [read]，都经 [RootProvider]。
+ * 新建、修改（edit_note）走另一条路，见 [MiuiNoteWrites]。
  *
  * 读的是便签开给系统智能体的 AgenticNoteProvider（authority `com.miui.notes.AgenticNoteProvider`）：`note` 就是便签应用
  * 自己的 documents 表，能带条件和排序。它只认平台签名的调用方，所以和录音机一样以 system 身份读。旧的 `notes` Provider
@@ -40,6 +41,15 @@ internal object MiuiNotes {
         }
     }
 
+    /** 按编号读一条看得到的便签（和 search_personal 按 id 读的一样）。 */
+    fun readOp(id: Long): JsonObject = searchOp(SearchRequest(PersonalSource.Notes, null, null, null, id, 1, 0))
+
+    /** 一条看得到的便签（[NOTE_COLUMNS]）；没有（或在回收站、私密、子文档）返回 null。以 system 身份读。 */
+    fun read(context: Context, id: Long): Row? = RootProvider.rows(RootProvider.one(context, readOp(id), system = true)).firstOrNull()
+
+    /** 按编号读不到时的话。 */
+    fun missing(id: Long): String = "没有编号为 $id 的便签（或在回收站、私密便签里）"
+
     /** 旧版便签的富文本标签（迁移过来的便签可能还是这种写法）；没有它们时正文就是纯文字。 */
     private val RICH = Regex("<(?:text|bullet|size|mid-size|h3-size|quote|order|new-format|splitline|b|input|hr)[ >/]|<(?:img|sound) fileid=|☺")
     private val CHECKBOX = Regex("<input\\b[^>]*type=\"checkbox\"[^>]*>", RegexOption.IGNORE_CASE)
@@ -67,7 +77,7 @@ internal object MiuiNotes {
                 .replace(SOUND, "[录音]")
                 .replace(RULE, "---")
                 .replace(TAG, "")
-                .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ").replace("&amp;", "&")
+                .let(XmlText::unescape)
         }
         return plain.replace(BLANK_LINES, "\n\n").trim()
     }

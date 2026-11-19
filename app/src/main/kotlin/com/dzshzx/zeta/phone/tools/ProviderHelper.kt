@@ -8,7 +8,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.database.Cursor
-import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.graphics.Point
 import android.net.Uri
@@ -19,6 +18,7 @@ import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.service.notification.StatusBarNotification
 import android.util.Base64
+import com.dzshzx.zeta.core.Images
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
@@ -42,7 +42,6 @@ import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import java.io.ByteArrayOutputStream
 import java.lang.reflect.InvocationTargetException
 import kotlin.system.exitProcess
 
@@ -59,6 +58,7 @@ import kotlin.system.exitProcess
  * - image：uri、edge、video → 最长边不超过 edge 的 JPEG（base64）和宽高
  * - notifications：archive（最近移除的条数）、history、since → 当前通知；开了系统通知历史时还有最近移除的和 24 小时内的通知
  * - appTool：component、request → response（系统应用开给系统智能体的工具服务，Zeta 先绑定，见 [AppToolCall]）
+ * - wake：authority → 取一下这个 Provider 再还掉，把它所在的进程拉起来（以 system 起时不受 HyperOS 关联启动管控，见 [AppToolCall.bind]）
  *
  * 不写日志、不落盘，结果只经标准输出交回 Zeta。
  */
@@ -106,6 +106,10 @@ object ProviderHelper {
         "image" -> image(op, user)
         "notifications" -> notifications(op)
         "appTool" -> AppToolCall.handle(op)
+        "wake" -> {
+            Lease(op.str("authority") ?: throw IllegalArgumentException("no authority"), user).close()
+            buildJsonObject { put("ok", true) }
+        }
         else -> throw IllegalArgumentException("unknown op ${op.str("op")}")
     }
 
@@ -116,8 +120,9 @@ object ProviderHelper {
         val uid = Process.myUid()
         AttributionSource.Builder(uid).setPackageName(if (uid == Process.SYSTEM_UID) "android" else "root").build()
     }
-    private val activityManager: Any by lazy { Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null)!! }
-    private val iActivityManager: Class<*> by lazy { Class.forName("android.app.IActivityManager") }
+    /** 系统的 IActivityManager（隐藏接口，经反射调）；[AppToolCall.handle] 也用。 */
+    val activityManager: Any by lazy { Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null)!! }
+    val iActivityManager: Class<*> by lazy { Class.forName("android.app.IActivityManager") }
     private val iContentProvider: Class<*> by lazy { Class.forName("android.content.IContentProvider") }
 
     /** 一次 Provider 引用：用完要还，不然系统一直替这个进程留着它。 */
@@ -276,24 +281,15 @@ object ProviderHelper {
                 val fd = lease.call("openFile", uri, "r", null) as? ParcelFileDescriptor ?: throw IllegalStateException("cannot open")
                 AssetFileDescriptor(fd, 0, AssetFileDescriptor.UNKNOWN_LENGTH)
             }
-            var source = 0 to 0
-            val bitmap = file.use {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(java.util.concurrent.Callable { file })) { decoder, info, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                    source = info.size.width to info.size.height
-                    val (w, h) = PersonalQueries.fitWithin(info.size.width, info.size.height, edge)
-                    decoder.setTargetSize(w, h)
-                }
-            }
-            val out = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            val decoded = file.use { Images.decodeWithin(ImageDecoder.createSource(java.util.concurrent.Callable { file }), edge) }
+            val bitmap = decoded.bitmap
             return buildJsonObject {
                 put("ok", true)
                 put("width", bitmap.width)
                 put("height", bitmap.height)
-                put("sourceWidth", source.first)
-                put("sourceHeight", source.second)
-                put("jpeg", Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
+                put("sourceWidth", decoded.sourceWidth)
+                put("sourceHeight", decoded.sourceHeight)
+                put("jpeg", Base64.encodeToString(Images.jpeg(bitmap, 80), Base64.NO_WRAP))
             }
         }
     }
@@ -386,7 +382,7 @@ internal object RootProvider {
      */
     fun run(context: Context, ops: List<JsonObject>, timeoutMs: Long = 30_000, system: Boolean = false): List<JsonObject> {
         val request = buildJsonObject {
-            put("user", Process.myUid() / 100_000)
+            put("user", LinuxEnv.androidUser)
             put("ops", JsonArray(ops))
         }.toString()
         val launch = if (system) "exec \"\$1\" nsenter -t 1 -m -S ${Process.SYSTEM_UID} -G ${Process.SYSTEM_UID} -- app_process" else "exec app_process"
@@ -395,7 +391,7 @@ internal object RootProvider {
             "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
             "CLASSPATH=\"\$2\" $launch /system/bin ${ProviderHelper::class.java.name} \"\$3\""
         val result = LinuxEnv.runRoot(LinuxEnv.androidScript(script, context.applicationInfo.sourceDir, request), timeoutMs)
-        if (result.exitCode == -1 && result.stderr == "timeout") throw IllegalStateException("读取超时（${timeoutMs / 1000} 秒）")
+        if (result.timedOut) throw IllegalStateException("读取超时（${timeoutMs / 1000} 秒）")
         val line = result.stdout.lineSequence().lastOrNull { it.startsWith(ProviderHelper.MARK) }
             ?: throw IllegalStateException("root 辅助进程没有结果（退出码 ${result.exitCode}）" + result.stderr.trim().take(200).let { if (it.isEmpty()) "" else "：$it" })
         val reply = Json.parseToJsonElement(line.removePrefix(ProviderHelper.MARK)).jsonObject
