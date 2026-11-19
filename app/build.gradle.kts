@@ -18,8 +18,8 @@ android {
         applicationId = "com.dzshzx.zeta"
         minSdk = 33
         targetSdk = 37
-        versionCode = 30
-        versionName = "0.6.22"
+        versionCode = 31
+        versionName = "0.6.23"
         ndk {
             abiFilters += "arm64-v8a"
         }

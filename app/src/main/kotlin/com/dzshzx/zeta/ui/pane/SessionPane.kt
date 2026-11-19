@@ -101,6 +101,7 @@ import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
 import com.dzshzx.zeta.ui.components.coui.CouiConfirmDialog
 import com.dzshzx.zeta.ui.components.coui.CouiInputDialog
+import com.dzshzx.zeta.ui.components.coui.CouiNoticeDialog
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -156,8 +157,8 @@ internal fun SessionPane(
     val context = LocalContext.current
     val hub = remember(context) { ConversationHub.get(context.applicationContext as Application) }
     val focusManager = LocalFocusManager.current
-    var deleting by remember { mutableStateOf<SessionSummary?>(null) }
-    val lastDeleting = remember { arrayOfNulls<SessionSummary>(1) }
+    var deleting by remember { mutableStateOf<DeletePrompt?>(null) }
+    val lastDeleting = remember { arrayOfNulls<DeletePrompt>(1) }
     deleting?.let { lastDeleting[0] = it }
     var renaming by remember { mutableStateOf<SessionSummary?>(null) }
     var renameDraft by remember { mutableStateOf("") }
@@ -254,7 +255,7 @@ internal fun SessionPane(
         export = exporter.save,
         share = exporter.share,
         archive = { session -> onArchive(session, !session.archived) },
-        delete = { session -> deleting = session },
+        delete = { session -> deleting = deletePrompt(session, hub::isActive) },
     )
     val todayStart = remember(sessions) {
         Calendar.getInstance().apply {
@@ -402,19 +403,27 @@ internal fun SessionPane(
         }
     }
 
-    // 单条删除和批量删除同一个规矩：正在进行的、别处的 Claude Code 开着的，都不删
-    val deletingBlocked = lastDeleting[0]?.let { deletable(listOf(it), hub::isActive).isEmpty() } == true
+    // 单条删除和批量删除同一个规矩：正在进行的、别处的 Claude Code 开着的，都不删。
+    // 只提示还是确认删除在打开时定下（DeletePrompt），框开着时对话结束了也不会把“知道了”换成“删除”
+    val deletingName = lastDeleting[0]?.session?.let { it.title.ifBlank { it.preview }.take(60) }
+    CouiNoticeDialog(
+        visible = deleting is DeletePrompt.Blocked,
+        title = "这个对话正在进行",
+        message = deletingName?.let { "$it\n先停止它，或等它结束，再删除。" },
+        confirmText = "知道了",
+        onDismissRequest = { deleting = null },
+    )
     CouiConfirmDialog(
-        visible = deleting != null,
-        title = if (deletingBlocked) "这个对话正在进行" else "删除这个对话？",
-        message = lastDeleting[0]?.let {
-            it.title.ifBlank { it.preview }.take(60) +
-                if (deletingBlocked) "\n先停止它，或等它结束，再删除。" else "\n会话记录文件会被一并删除，无法恢复。"
-        },
-        confirmText = if (deletingBlocked) "知道了" else "删除",
-        destructive = !deletingBlocked,
+        visible = deleting is DeletePrompt.Confirm,
+        title = "删除这个对话？",
+        message = deletingName?.let { "$it\n会话记录文件会被一并删除，无法恢复。" },
+        confirmText = "删除",
+        destructive = true,
         onConfirm = {
-            if (!deletingBlocked) deleting?.let(onDelete)
+            val prompt = deleting
+            val target = confirmedDeletion(prompt, hub::isActive)
+            if (target != null) onDelete(target)
+            else if (prompt != null) Toast.makeText(context, "这个对话正在进行，没有删除", Toast.LENGTH_SHORT).show()
             deleting = null
         },
         onDismissRequest = { deleting = null },
@@ -427,7 +436,8 @@ internal fun SessionPane(
         confirmText = "删除",
         destructive = true,
         onConfirm = {
-            batchDeleting?.let(hub::deleteSessions)
+            // 确认框开着时才开始进行的也不删：删除会结束它的对话进程
+            batchDeleting?.let { hub.deleteSessions(deletable(it, hub::isActive)) }
             batchDeleting = null
             exitSelection()
         },

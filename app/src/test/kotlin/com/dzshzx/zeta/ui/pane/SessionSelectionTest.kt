@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.pane
 import com.dzshzx.zeta.core.SessionSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -37,6 +38,28 @@ class SessionSelectionTest {
         val external = session("d", external = true)
         val removable = deletable(listOf(a, b, c, external)) { it == "b" }
         assertEquals(listOf(a, c), removable)
+    }
+
+    @Test
+    fun deletePromptIsFixedWhenOpened() {
+        // 打开时正在进行：只提示。之后对话结束了，点那个按钮也不删
+        var running = true
+        val blocked = deletePrompt(a) { running && it == "a" }
+        assertEquals(DeletePrompt.Blocked(a), blocked)
+        running = false
+        assertNull(confirmedDeletion(blocked) { running && it == "a" })
+        // 别处的 Claude Code 开着的同样只提示
+        assertTrue(deletePrompt(session("d", external = true)) { false } is DeletePrompt.Blocked)
+    }
+
+    @Test
+    fun confirmedDeletionRechecksActivity() {
+        val prompt = deletePrompt(a) { false }
+        assertEquals(DeletePrompt.Confirm(a), prompt)
+        assertEquals(a, confirmedDeletion(prompt) { false })
+        // 确认框开着时它开始进行了（定时任务、通知触发）：不删
+        assertNull(confirmedDeletion(prompt) { it == "a" })
+        assertNull(confirmedDeletion(null) { false })
     }
 
     @Test

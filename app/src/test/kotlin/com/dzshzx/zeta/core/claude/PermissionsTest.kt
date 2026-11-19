@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.ui.setup.bulkMessage
+import com.dzshzx.zeta.phone.PhoneTools
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -290,5 +291,13 @@ class PermissionsTest {
             "加到允许（1 条）：mcp__phone\n\n写进 ~/.claude/settings.json，对之后新开始的对话生效。",
             bulkMessage(BulkChange(listOf(PermissionBehavior.Allow to "mcp__phone"), emptyList()), warnNoTools = false),
         )
+    }
+
+    /** 权限页上每个手机工具都有中文说明；没有时会退回英文说明的开头，在半个词处截断。 */
+    @Test
+    fun everyPhoneToolHasAChineseLabel() {
+        val names = PhoneTools.catalog.map { it.first }
+        assertTrue(names.size > 10)
+        assertEquals(emptyList<String>(), names.filter { PhoneToolLabels.label(it, "").isEmpty() })
     }
 }

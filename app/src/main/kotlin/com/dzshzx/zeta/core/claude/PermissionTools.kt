@@ -46,7 +46,10 @@ object BuiltinTools {
     val group: PermissionGroup get() = PermissionGroup.Tools((common + other).map { it.name })
 }
 
-/** Zeta 手机工具（MCP 服务器 phone）的中文说明；没写到的显示英文说明的第一句。 */
+/**
+ * Zeta 手机工具（MCP 服务器 phone）的中文说明；没写到的显示英文说明的第一句。
+ * 加了新的手机工具就在这里补一行，PermissionsTest 核对 PhoneTools.catalog 里每个工具都有。
+ */
 object PhoneToolLabels {
     private val labels = mapOf(
         "screen" to "读屏：前台应用和可点的控件，可带截图",
@@ -56,13 +59,26 @@ object PhoneToolLabels {
         "scroll" to "滚动列表",
         "type_text" to "往输入框里输入文字",
         "press_key" to "按系统键（返回、主页等）",
+        "wait" to "等一会儿、等某个控件出现或某个应用到前台，再读屏",
+        "open_app" to "打开应用、链接或设置页，默认在后台屏上",
         "show_to_user" to "把后台屏上的应用挪到主屏给你看",
         "find_apps" to "查找已装的应用",
         "shell" to "以 root 在 Android 一侧执行命令",
+        "device_state" to "查看或切换手机开关和档位（WLAN、蓝牙、亮度等）",
+        "media" to "音量、响铃模式、音频输出，控制正在播放的媒体",
+        "clock" to "时钟应用的闹钟和倒计时",
+        "system_setting" to "读写 Android 系统设置（settings 的 system、secure、global 表）",
+        "app_control" to "已装应用的信息、强行停止、冻结与解冻、使用时长",
+        "device_info" to "电池、温度、内存、存储、网络、位置等手机状况",
+        "logcat" to "读最近的 Android 日志",
         "search_personal" to "搜索日历、通知、验证码、短信、通话、通讯录、相册（只读）",
         "view_media" to "查看照片、截图或视频",
         "edit_calendar" to "新建、修改、删除日程",
         "clipboard" to "读写剪贴板",
+        "create_scheduled_task" to "新建定时任务：到点让 Claude 在后台做一件事",
+        "list_scheduled_tasks" to "列出定时任务",
+        "delete_scheduled_task" to "删除定时任务",
+        "browser" to "Zeta 内置浏览器：在屏幕外打开网页、点按、输入、读内容",
     )
 
     fun label(name: String, description: String): String =

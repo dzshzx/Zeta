@@ -50,6 +50,28 @@ internal fun archiveAction(chosen: List<SessionSummary>): Boolean = chosen.isEmp
 internal fun deletable(chosen: List<SessionSummary>, isActive: (String) -> Boolean): List<SessionSummary> =
     chosen.filterNot { it.external || isActive(it.id) }
 
+/**
+ * 单条删除的确认框。打开那一刻就定下是只提示（[Blocked]：正在进行，只有“知道了”）还是确认删除（[Confirm]），开着的时候不再变：
+ * 否则对话恰好在框开着时结束，“知道了”会在手指下面变成同一位置的“删除”，一点就删掉了。
+ */
+internal sealed interface DeletePrompt {
+    val session: SessionSummary
+
+    data class Blocked(override val session: SessionSummary) : DeletePrompt
+
+    data class Confirm(override val session: SessionSummary) : DeletePrompt
+}
+
+internal fun deletePrompt(session: SessionSummary, isActive: (String) -> Boolean): DeletePrompt =
+    if (deletable(listOf(session), isActive).isEmpty()) DeletePrompt.Blocked(session) else DeletePrompt.Confirm(session)
+
+/**
+ * 在确认框里点了“删除”以后真正删的那个：只提示的框不删；框开着时才开始进行的（定时任务、通知触发、别处的 Claude Code 接上了它）也不删，
+ * 因为删除会结束它的对话进程。批量删除在点“删除”时同样用 [deletable] 再筛一遍。
+ */
+internal fun confirmedDeletion(prompt: DeletePrompt?, isActive: (String) -> Boolean): SessionSummary? =
+    (prompt as? DeletePrompt.Confirm)?.session?.takeIf { deletable(listOf(it), isActive).isNotEmpty() }
+
 /** 几个会话导出到一个 Markdown 文件：各自的导出照原样，中间用分隔线隔开。 */
 internal fun combineExports(parts: List<ExportedMarkdown>): String =
     parts.joinToString("\n---\n\n") { it.markdown.trimEnd() + "\n" }
