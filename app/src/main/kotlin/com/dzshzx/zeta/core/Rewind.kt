@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core
 
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /*
@@ -108,8 +107,7 @@ internal fun truncateBefore(items: MutableList<ChatItem>, itemId: String): Boole
 }
 
 /** rewind_conversation 控制请求的正文（request 一项）。 */
-internal fun rewindRequest(target: String, lastSeen: String?): JsonObject = buildJsonObject {
-    put("subtype", "rewind_conversation")
+internal fun rewindRequest(target: String, lastSeen: String?): JsonObject = controlBody("rewind_conversation") {
     put("target_message_uuid", target)
     if (lastSeen != null) put("last_seen_user_message_uuid", lastSeen)
 }
