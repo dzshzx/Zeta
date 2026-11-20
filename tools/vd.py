@@ -4,21 +4,21 @@
 设备：测试版默认在本机的模拟器上（经 adb，没开就由 tools/emu 开机），ZETA_DEVICE=phone 时在手机上；正式版只在手机上。
 在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）；在手机 Debian 里跑时就是这台手机。
 
-用法：vd.py [--dev] <命令>
-  --dev 操作测试版（com.dzshzx.zeta.dev），每条命令都要带（build 除外）。测试版和正式版各有自己的虚拟屏。
-  设备上的测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py --dev。
-  不带 --dev 是手机上的正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由主会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
+用法：vd.py [--release] <命令>
+  默认操作测试版（com.dzshzx.zeta.dev）。设备上的测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py。
+  --release 操作手机上的正式版（com.dzshzx.zeta），只由主会话在上线后验证时用：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
+  测试版和正式版各有自己的虚拟屏。
   vd.py build                 编译 VdHold.java 为 dex
   vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（手机上默认取主屏尺寸，模拟器上默认和手机一样大）
   vd.py shot 文件.png          截图
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
   vd.py prefs 键名…            读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出
-  vd.py --dev prefs-set 键[:int]=值…
+  vd.py prefs-set 键[:int]=值…
                               改测试版的设置（默认是字符串，:int 是整数）：force-stop 后原地改写；
                               每个键第一次改时记下原值，stop 时改回去（phoneDisplay 一律删掉）
   vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
-  vd.py --dev fake 剧本.jsonl  测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
+  vd.py fake 剧本.jsonl       测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
                               ~/.config/zeta-dev/fake-claude/，进度从第一轮算起；fake --off 或 stop 删掉，回到真的 claude
   vd.py status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、改回 prefs-set 改过的设置，
                               并把它留在用户「最近任务」里的记录全部清掉，假 Claude 的剧本也删掉。
@@ -212,8 +212,8 @@ def write_prefs(text):
 
 def prefs_set(assignments):
     if PACKAGE == RELEASE:
-        sys.exit("prefs-set 只改测试版：vd.py --dev prefs-set …")
-    usage = "用法：vd.py --dev prefs-set 键[:int]=值…"
+        sys.exit("prefs-set 只改测试版：去掉 --release")
+    usage = "用法：vd.py prefs-set 键[:int]=值…"
     parsed = [re.fullmatch(r"([A-Za-z0-9_]+)(?::(int))?=(.*)", a, re.S) for a in assignments]
     if not assignments or not all(parsed):
         sys.exit(usage)
@@ -254,7 +254,7 @@ def prefs_restore():
 
 def prefs(keys):
     if not keys or not all(re.fullmatch(r"[A-Za-z0-9_]+", k) for k in keys):
-        sys.exit("用法：vd.py [--dev] prefs 键名…（键名只含字母、数字、下划线）")
+        sys.exit("用法：vd.py [--release] prefs 键名…（键名只含字母、数字、下划线）")
     pattern = "|".join(keys)
     print(android(f"grep -E 'name=\"({pattern})\"' /data/user/0/{PACKAGE}/shared_prefs/zeta.xml", check=False), end="")
 
@@ -339,19 +339,23 @@ def pick_device(dev):
     return want
 
 
+COMMANDS = {"build", "start", "shot", "launch", "prefs", "prefs-set", "tap", "swipe", "text", "key", "fake", "status", "sh", "stop"}
+
+
 def main():
     global DEVICE
     a = sys.argv[1:]
-    dev = "--dev" in a
-    a = [x for x in a if x != "--dev"]
-    if not a:
+    dev = "--release" not in a
+    a = [x for x in a if x != "--release"]
+    # 先认命令再碰设备：认不出的（比如多余的参数）不拿租约、不开模拟器
+    if not a or a[0] not in COMMANDS:
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
     owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
     if c == "fake" and not dev:
-        sys.exit("假 Claude 只给测试版用：vd.py --dev fake <剧本>")
+        sys.exit("假 Claude 只给测试版用：去掉 --release")
     if not dev and owner != "main" and c != "build":
-        sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
+        sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版：去掉 --release")
     if c != "build":
         DEVICE = pick_device(dev)
         lease(dev)
@@ -378,7 +382,7 @@ def main():
         android(f"input -d {need_display()} keyevent {rest[0]}")
     elif c == "fake":
         if len(rest) != 1:
-            sys.exit("用法：vd.py --dev fake <剧本.jsonl> | --off")
+            sys.exit("用法：vd.py fake <剧本.jsonl> | --off")
         fake(rest[0])
     elif c == "status":
         did = display_id()

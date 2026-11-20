@@ -15,7 +15,7 @@ if [[ $# != 1 || ! -f $1 ]]; then
   exit 2
 fi
 if [[ $(uname -r) == *android* ]]; then
-  echo "tools/phone-run 在工作站上用；手机 Debian 里直接用 tools/vd.py --dev" >&2
+  echo "tools/phone-run 在工作站上用；手机 Debian 里直接用 tools/vd.py" >&2
   exit 2
 fi
 script=$(realpath "$1")
@@ -39,7 +39,7 @@ mkdir -p "$OUT"
 exec > >(tee -a "$OUT/run.log") 2>&1
 echo "产物目录：$OUT（设备：$where）"
 
-vd() { python3 "$ZETA_ROOT/tools/vd.py" --dev "$@"; }
+vd() { python3 "$ZETA_ROOT/tools/vd.py" "$@"; }
 android() { vd sh "$1"; }
 export -f vd android
 
@@ -99,7 +99,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cd "$OUT"
-"$ZETA_ROOT/tools/install.sh" --dev --no-build
+"$ZETA_ROOT/tools/install.sh" --no-build
 t0=$(android 'date +%s')
 vd stop >/dev/null # 上次没关的屏
 for _ in 1 2 3 4 5 6 7 8 9 10; do [[ $(vd status) == 虚拟屏不在 ]] && break; sleep 0.5; done

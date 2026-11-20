@@ -4,7 +4,7 @@
 # 连假 Messages API 录下来的写，FakeClaudeContractTest 拿同一段对话的真输出和本脚本的输出逐条比对。
 #
 # 怎么接进来：测试版（ZETA_NAME=zeta-dev）的 zeta_host.sh 看到 ~/.config/zeta-dev/fake-claude/scenario.jsonl 就起本脚本，
-# 正式版永远起真的 claude。剧本由 `vd.py --dev fake <剧本>` 连同本脚本放进去，`vd.py --dev stop` 删掉；
+# 正式版永远起真的 claude。剧本由 `vd.py fake <剧本>` 连同本脚本放进去，`vd.py stop` 删掉；
 # 剧本删掉后，闲着或在等 Zeta 应答的假 Claude 一秒内自己退出。
 #
 # 剧本（scenario.jsonl）一行一轮，按收到用户消息的先后依次取用；同时开着的几个对话共用一份进度（记在 scenario.jsonl.turn）：
@@ -589,7 +589,7 @@ while :; do
     exit 0
   else
     poll 1000
-    # 剧本删了（vd.py --dev stop）：闲着的假 Claude 自己退出，之后再起的就是真的 claude
+    # 剧本删了（vd.py stop）：闲着的假 Claude 自己退出，之后再起的就是真的 claude
     [ -f "$SCENARIO" ] || [ ${#QUEUE[@]} -gt 0 ] || exit 0
   fi
 done

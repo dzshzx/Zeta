@@ -61,7 +61,7 @@ android {
 
     buildTypes {
         // 正式版就是 debug 包，release 变体在下面的 androidComponents 里关掉。
-        // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh --dev）。
+        // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
         // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。assembleDebug 照旧只出正式版。
         create("dev") {
             initWith(getByName("debug"))

@@ -1,30 +1,30 @@
 #!/bin/bash
-# 构建并安装。用法：tools/install.sh [--dev] [--no-build] [--minor]
-#   --dev    装测试版（com.dzshzx.zeta.dev，桌面名「Zeta 测试」），默认装到本机的模拟器（没开就由 tools/emu 开机），
-#            ZETA_DEVICE=phone 时装到手机，和用户日常用的正式版并存。开发测试一律用它，一般经 tools/phone-run 调。
-#            版本号跟着提交走，比设备上的旧也照装（任务分支可能比别人的旧）。
-#   不带     上线：装正式版（com.dzshzx.zeta），只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。
-#            要在 master 的最新提交上、工作区干净；HEAD 还没有上线 tag 就在本地打下一个版本（升 patch，第一次是 0.7.0），
-#            构建、核对、装好后才推到 origin，中途失败就删掉这个本地 tag（推上去的 tag 不能改）。HEAD 已有 tag 就重装这个版本。
-#   --minor  上线时升 minor（0.7.3 → 0.8.0），用户说了才用。
+# 构建并安装。用法：tools/install.sh [--release [--minor]] [--no-build]
+#   不带      装测试版（com.dzshzx.zeta.dev，桌面名「Zeta 测试」），默认装到本机的模拟器（没开就由 tools/emu 开机），
+#             ZETA_DEVICE=phone 时装到手机，和用户日常用的正式版并存。开发测试一律用它，一般经 tools/phone-run 调。
+#             版本号跟着提交走，比设备上的旧也照装（任务分支可能比别人的旧）。
+#   --release 上线：装正式版（com.dzshzx.zeta），只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。
+#             要在 master 的最新提交上、工作区干净；HEAD 还没有上线 tag 就在本地打下一个版本（升 patch），
+#             构建、核对、装好后才推到 origin，中途失败就删掉这个本地 tag（推上去的 tag 不能改）。HEAD 已有 tag 就重装这个版本。
+#   --minor   上线时升 minor（0.7.3 → 0.8.0），用户说了才用。
 # 正式版只装在手机上：在手机 Debian 里直接进 Android 一侧安装，在工作站上经 ssh（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 # APK 从标准输入交给 pm install -S，手机、模拟器都走这一条路，不用先拷到设备上。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-variant=debug build=1 minor= created=
+variant=dev build=1 minor= created=
 for arg in "$@"; do
   case $arg in
-    --dev) variant=dev ;;
+    --release) variant=debug ;;
     --no-build) build= ;;
     --minor) minor=1 ;;
-    *) echo "用法：tools/install.sh [--dev] [--no-build] [--minor]" >&2; exit 2 ;;
+    *) echo "用法：tools/install.sh [--release [--minor]] [--no-build]" >&2; exit 2 ;;
   esac
 done
 if [[ $variant == debug && ${ZETA_PHONE_OWNER:-main} != main ]]; then
-  echo "正式版只在上线时由主会话装（现在 ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）；开发测试装测试版：tools/install.sh --dev" >&2
+  echo "正式版只在上线时由主会话装（现在 ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）；开发测试装测试版：去掉 --release" >&2
   exit 2
 fi
-if [[ -n $minor && $variant == dev ]]; then echo "--minor 只用于上线（不带 --dev）" >&2; exit 2; fi
+if [[ -n $minor && $variant == dev ]]; then echo "--minor 只用于上线（和 --release 一起用）" >&2; exit 2; fi
 on_phone=
 [[ $(uname -r) == *android* ]] && on_phone=1
 device=${ZETA_DEVICE:-emu}
