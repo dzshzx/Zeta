@@ -71,7 +71,7 @@ class EarlierHistoryShots : ShotTest() {
         assertEquals(EarlierState.Idle, conversation.earlierState)
         compose.openFind()
         // 单元测试里的 su 总是失败：读不成，状态从 Idle 变成可以重试的失败
-        compose.waitUntil(20_000) { conversation.earlierState is EarlierState.Failed }
+        awaitMain { conversation.earlierState is EarlierState.Failed }
         assertTrue((conversation.earlierState as EarlierState.Failed).retry)
         settle()
         compose.onNodeWithText("更早的 120 条没查", substring = true).assertExistsCompat()
