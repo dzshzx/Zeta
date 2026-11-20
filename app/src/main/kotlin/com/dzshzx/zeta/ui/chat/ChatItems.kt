@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +70,7 @@ import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
@@ -188,14 +190,25 @@ internal fun AnswerBlock(
     Column(modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 6.dp)) {
         when {
             item.text.isBlank() && item.streaming -> TypingIndicator(Modifier.padding(top = 4.dp))
-            streamingState != null && (item.streaming || !revealComplete) -> StreamingMarkdown(
-                state = streamingState,
-                content = parts.text,
-                isStreaming = item.streaming,
-                tone = MarkdownTone.Answer,
-                onRevealCompleteChange = { revealComplete = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            streamingState != null && (item.streaming || !revealComplete) -> {
+                // 显示流式排版期间占着这份状态：回答结束时列表不删它，换成静态排版或滚出列表时才放开
+                DisposableEffect(streamingState) {
+                    streamingState.attachContent()
+                    onDispose { streamingState.detachContent() }
+                }
+                StreamingMarkdown(
+                    state = streamingState,
+                    content = parts.text,
+                    isStreaming = item.streaming,
+                    tone = MarkdownTone.Answer,
+                    onRevealCompleteChange = { complete ->
+                        // 先把终态排版交给静态缓存，换过去的第一帧就是最终排版，不经过原文占位
+                        if (complete) streamingState.snapshot?.let(staticMarkdownDocumentCache::put)
+                        revealComplete = complete
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             else -> SelectionContainer {
                 StaticMarkdown(content = parts.text, tone = MarkdownTone.Answer, modifier = Modifier.fillMaxWidth(), findItem = item.id)
             }

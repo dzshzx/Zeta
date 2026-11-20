@@ -13,7 +13,6 @@ import kotlinx.coroutines.withContext
 internal class StreamingMarkdownState {
     private var attachedContentCount by mutableIntStateOf(0)
     val isAttachedToContent: Boolean get() = attachedContentCount > 0
-    var revealedContent by mutableStateOf<String?>(null)
     private val parserSession = StreamingGfmParserSession()
     val revealCoordinator = SmoothTextRevealCoordinator().apply { pauseAnimationsAndCatchUp() }
     val restoreState = StreamingMarkdownRestoreState()

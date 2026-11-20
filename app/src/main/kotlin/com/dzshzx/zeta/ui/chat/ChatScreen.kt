@@ -359,9 +359,8 @@ private fun ConversationBody(
         attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
         back.files.forEach(uploads::addPath)
     }
-    LaunchedEffect(items) {
-        markdownCache.discardUnused(items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id })
-    }
+    val streamingAnswers = remember(items) { items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id } }
+    LaunchedEffect(streamingAnswers) { markdownCache.discardWhenUnused(streamingAnswers) }
     // 编辑、重新生成、删除一轮、分支
     val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
     SaveDraft(hub.drafts, draft, actions)
