@@ -130,7 +130,7 @@ class ChatScreenPartsShots : ShotTest() {
         val conversation = hub.current
         conversation.force("busy", true)
         conversation.force("lastActivityAt", now)
-        conversation.force("permissionMode", "auto")
+        conversation.choosePermissionMode("auto")
         conversation.force("effort", "xhigh")
         conversation.force("usage", ChatUsage(contextTokens = 214_300, contextWindow = 400_000, autoCompact = true, compactAt = 266_000))
         shoot("chat-composer-crowded") { Chat(hub) }
