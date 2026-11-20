@@ -32,7 +32,7 @@ OUT = os.path.join(HERE, "vdisplay", "build")
 DEX = os.path.join(OUT, "classes.dex")
 D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
 RELEASE = "com.dzshzx.zeta"
-# 下面三个由 use() 按测试版还是正式版定：包名、虚拟屏名字（VdHold 的第 6 个参数）、手机上的工作目录
+# 下面三个由 use() 按测试版还是正式版定：包名、虚拟屏名字（VdHold 的第 5 个参数）、手机上的工作目录
 PACKAGE = RELEASE
 NAME = "zeta-screen-main"
 WORK = "/data/local/tmp/zeta-screen-main"
@@ -135,13 +135,13 @@ def android(cmd, check=True, data=None, binary=False):
     return r.stdout if binary else r.stdout.decode(errors="replace")
 
 
-def use(slot):
-    """切到测试版（dev）或正式版（main）。"""
+def use(dev):
+    """切到测试版或正式版。"""
     global PACKAGE, NAME, WORK
-    if slot == "main":
-        PACKAGE, NAME = RELEASE, "zeta-screen-main"
-    else:
+    if dev:
         PACKAGE, NAME = RELEASE + ".dev", "zeta-vd"
+    else:
+        PACKAGE, NAME = RELEASE, "zeta-screen-main"
     WORK = "/data/local/tmp/" + NAME
 
 
@@ -284,7 +284,7 @@ def start(args):
             f"cat > {WORK}/vdhold.dex && chmod 644 {WORK}/vdhold.dex && cd {WORK} && rm -f ctl log out/*.png && "
             f"mkfifo ctl && chmod 600 ctl && : > log", data=dex)
     runner = (f"cd {WORK} && exec 3<>ctl && {exports} && export CLASSPATH={WORK}/vdhold.dex && "
-              f"exec app_process / VdHold {w} {h} {dpi} 3600 0 {NAME} <&3 >>log 2>&1")
+              f"exec app_process / VdHold {w} {h} {dpi} 3600 {NAME} <&3 >>log 2>&1")
     android('nohup sh -c "' + runner.replace('"', '\\"') + '" >/dev/null 2>&1 &')
     for _ in range(40):
         m = re.search(r"^VD_READY:(\d+)$", android(f"cat {WORK}/log"), re.M)
@@ -323,7 +323,6 @@ def lease(dev):
         code = subprocess.run([os.path.join(HERE, "phone-lock"), kind]).returncode
         if code:
             sys.exit(code)
-    return "dev" if dev else "main"
 
 
 def pick_device(dev):
@@ -355,7 +354,8 @@ def main():
         sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
     if c != "build":
         DEVICE = pick_device(dev)
-        use(lease(dev))
+        lease(dev)
+        use(dev)
     if c == "build":
         build()
     elif c == "start":

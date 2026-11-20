@@ -10,8 +10,8 @@ import java.nio.ByteBuffer;
  * 后台虚拟屏（做法照 Eta 的 VirtualDisplayCommandMain）：以 root 启动，降到 system 身份后建一块受信任、
  * 自带焦点、不抢主屏焦点的虚拟屏，画面进本进程的 ImageReader。
  *
- * 由 xtctool webui-vd 构建、推送与启动，不单独使用。
- * 用法：app_process / VdHold 宽 高 密度 [最长存活秒数，默认 1800] [附加的虚拟屏标志位，默认 0]
+ * 由 tools/vd.py 构建、推送与启动，不单独使用。
+ * 用法：app_process / VdHold 宽 高 密度 [最长存活秒数，默认 1800] [虚拟屏名字，默认 zeta-vd]
  * 标准输出：VD_READY:<displayId>；标准输入逐行命令：
  *   shot <png 路径>   把最近一帧存成 PNG，回 VD_SHOT:<路径> 或 VD_ERR:<原因>
  *   release           释放虚拟屏并退出（标准输入关闭也一样）
@@ -21,10 +21,9 @@ import java.nio.ByteBuffer;
 public class VdHold {
     // DisplayManager.VIRTUAL_DISPLAY_FLAG_*：与 Eta 的 TRUSTED_INTERACTIVE_FLAGS 相同，另加 DESTROY_CONTENT_ON_REMOVAL（1 << 8）：
     // 不带它，屏移除时系统会把屏上的任务挪到主屏最上面，测完一停屏就打扰用户（Zeta 的 VdHelper 同样带着它）。
-    // 附加标志位由 webui-vd 传入（默认带 SHOULD_SHOW_SYSTEM_DECORATIONS，让系统画状态栏）：这一项 Eta 的做法里没有
     static final int FLAGS = (1 << 0) | (1 << 3) | (1 << 6) | (1 << 8) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 16);
     static Object reader, vd, latest, handler;
-    static int width, height, extraFlags;
+    static int width, height;
     static String name = "zeta-vd";
 
     static Class<?> cls(String n) throws Exception { return Class.forName(n); }
@@ -47,9 +46,8 @@ public class VdHold {
         width = Integer.parseInt(a[0]);
         height = Integer.parseInt(a[1]);
         int dpi = Integer.parseInt(a[2]);
-        extraFlags = a.length > 4 ? Integer.decode(a[4]) : 0;
-        // 第 6 个参数是虚拟屏的名字：几份测试版各用一块屏，工具按名字找自己那块
-        if (a.length > 5) name = a[5];
+        // 第 5 个参数是虚拟屏的名字：测试版和正式版各用一块屏，工具按名字找自己那块
+        if (a.length > 4) name = a[4];
         try {
             int id = create(dpi);
             System.out.println("VD_READY:" + id);
@@ -102,7 +100,7 @@ public class VdHold {
         Class<?> cb = cls("android.hardware.display.VirtualDisplayConfig$Builder");
         Object b = cb.getConstructor(String.class, int.class, int.class, int.class).newInstance(name, width, height, dpi);
         cb.getMethod("setSurface", cls("android.view.Surface")).invoke(b, surface);
-        cb.getMethod("setFlags", int.class).invoke(b, FLAGS | extraFlags);
+        cb.getMethod("setFlags", int.class).invoke(b, FLAGS);
         Object config = call(b, "build");
 
         Class<?> dmgC = cls("android.hardware.display.DisplayManagerGlobal");

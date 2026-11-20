@@ -31,7 +31,7 @@ alive() { [[ -n $1 ]] && kill -0 "$1" 2>/dev/null; }
 # 租约在同一个占用者的另一个还活着的 phone-run 手里
 other_run() { [[ -n $hpid && $hpid != "$ticket" ]] && alive "$hpid"; }
 
-case ${1:-dev} in
+case ${1-} in
   --release)
     for k in main dev emu; do
       read_holder "$k"

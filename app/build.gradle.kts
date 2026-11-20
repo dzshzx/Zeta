@@ -60,9 +60,7 @@ android {
     }
 
     buildTypes {
-        release {
-            isMinifyEnabled = false
-        }
+        // 正式版就是 debug 包，release 变体在下面的 androidComponents 里关掉。
         // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh --dev）。
         // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。assembleDebug 照旧只出正式版。
         create("dev") {
@@ -82,16 +80,12 @@ android {
 
     buildFeatures {
         buildConfig = true
-        resValues = true  // 测试版各份的桌面名用 resValue 给
+        resValues = true  // 测试版的桌面名用 resValue 给
         compose = true
     }
 
     androidResources {
         localeFilters += listOf("en", "b+zh+Hans")
-    }
-
-    lint {
-        checkReleaseBuilds = false
     }
 
     // JVM 单元测试里碰到 android.* 的调用返回默认值，不抛 “not mocked”；要真 Android 行为的放到手机上测。
@@ -132,6 +126,10 @@ tasks.withType<Test>().configureEach {
     // 卡死的测试（比如截图测试里在长页面上 performScrollTo）到点就失败，不把门禁和构建名额一直挂着。
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
     timeout.set(Duration.ofMinutes(10))
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { it.enable = false }
 }
 
 dependencies {
