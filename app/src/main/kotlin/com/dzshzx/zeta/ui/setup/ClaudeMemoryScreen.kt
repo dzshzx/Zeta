@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.MemoryEntry
 import com.dzshzx.zeta.core.claude.MemoryOverview
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
@@ -164,7 +165,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
                         item(key = entry.file) {
                             ArrowPreference(
                                 title = entry.name.ifBlank { entry.fileName },
-                                summary = entry.description.ifBlank { entry.fileName }.let { brief(it) },
+                                summary = entry.description.ifBlank { entry.fileName }.clipLine(90),
                                 endActions = { typeLabel(entry.type).takeIf { it.isNotBlank() }?.let { PreferenceValue(it) } },
                                 onClick = {
                                     editing = MemoryTarget(entry.file, entry.name.ifBlank { entry.fileName }, entry.fileName, "", entry)

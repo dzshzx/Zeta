@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.claude.ClaudeConfigException
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
@@ -211,7 +212,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
                         item(key = skill.name) {
                             BasicComponent(
                                 title = skill.name,
-                                summary = brief(skill.description).ifBlank { null },
+                                summary = skill.description.clipLine(90).ifBlank { null },
                                 endActions = if (skill.enabled) null else ({ PreferenceValue("已停用") }),
                                 onClick = { describing = skill.name to skill.description.ifBlank { "无描述" } },
                             )
@@ -238,7 +239,7 @@ private fun SkillRow(
         !skill.valid -> "缺少 SKILL.md"
         skill.description.isBlank() -> "无描述"
         // 说明往往是一大段，列表里只放开头
-        else -> brief(skill.description)
+        else -> skill.description.clipLine(90)
     }
     SwitchLoadingPreference(
         checked = skill.enabled,

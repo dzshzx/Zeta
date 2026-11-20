@@ -31,6 +31,7 @@ import com.dzshzx.zeta.core.claude.removePermissionRule
 import com.dzshzx.zeta.core.claude.replacePermissionRule
 import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -437,7 +438,7 @@ private fun McpPermissionDetail(
                         item(key = tool.name) {
                             val state = rules?.let { ClaudePermissions.mcpTool(it, server.name, tool.name) } ?: ToolPermission(null)
                             val own = rules?.let { ClaudePermissions.tool(it, McpNames.tool(server.name, tool.name)).behavior }
-                            ToolRow(tool.name, toolSummary(brief(tool.description, 60), state), own, editable) { b ->
+                            ToolRow(tool.name, toolSummary(tool.description.clipLine(60), state), own, editable) { b ->
                                 apply { client.setToolPermission(McpNames.tool(server.name, tool.name), b) }
                             }
                         }

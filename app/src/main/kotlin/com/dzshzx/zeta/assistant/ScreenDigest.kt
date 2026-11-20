@@ -1,6 +1,6 @@
 package com.dzshzx.zeta.assistant
 
-import com.dzshzx.zeta.core.clipChars
+import com.dzshzx.zeta.core.clipLine
 
 /**
  * 唤起助理时前台的一个应用：系统给的 AssistStructure、AssistContent 里读出来的东西，
@@ -86,10 +86,7 @@ object ScreenDigest {
         return seen.toList() to truncated
     }
 
-    private fun clean(value: String?): String? {
-        val text = value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return text.clipChars(MAX_LINE, "…")
-    }
+    private fun clean(value: String?): String? = value?.clipLine(MAX_LINE)?.takeIf { it.isNotEmpty() }
 
     /**
      * 屏幕内容那一段。[apps] 为空且没有截图时为 null（什么都没带）。有焦点的应用排前面。

@@ -74,9 +74,9 @@ internal class PageStack(pages: List<AppPage> = emptyList()) {
 
     companion object {
         /** 整个栈存成一段 JSON；读不出来（比如存的是旧格式）就当没有开着的页。 */
-        val Saver: Saver<PageStack, Any> = Saver(
+        val Saver: Saver<PageStack, String> = Saver(
             save = { stack -> Json.encodeToString(stack.pages) },
-            restore = { saved -> PageStack(runCatching { Json.decodeFromString<List<AppPage>>(saved as String) }.getOrDefault(emptyList())) },
+            restore = { saved -> PageStack(runCatching { Json.decodeFromString<List<AppPage>>(saved) }.getOrDefault(emptyList())) },
         )
     }
 }

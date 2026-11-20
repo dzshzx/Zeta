@@ -6,6 +6,7 @@ import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.claude.McpNames
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.onMain
 import com.dzshzx.zeta.core.schedule.RuleKind
@@ -328,7 +329,7 @@ internal object ScheduleTools : PhoneToolGroup {
                 else -> "，下次 " + Schedules.formatWhen(next, now, zone)
             },
         )
-        append("\n  指令：" + task.prompt.replace(Regex("\\s+"), " ").clipChars(120, "…"))
+        append("\n  指令：" + task.prompt.clipLine(120))
         val options = listOfNotNull(
             task.cwd?.let { "工作目录 $it" },
             task.model?.let { "模型 $it" },

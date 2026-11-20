@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.Subagent
 import com.dzshzx.zeta.core.claude.SubagentDraft
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -160,7 +161,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
                             // 点开是详情对话框，不是另一页：不带箭头
                             BasicComponent(
                                 title = agent.name.ifBlank { agent.file },
-                                summary = brief(agent.description).ifBlank { null },
+                                summary = agent.description.clipLine(90).ifBlank { null },
                                 endActions = { modelLabel(agent.model).takeIf { it.isNotBlank() }?.let { PreferenceValue(it) } },
                                 onClick = { inspected = agent },
                             )
@@ -195,9 +196,9 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(text = brief(agent.description, 400).ifBlank { "没有写什么时候用" }, style = styles.bodyXL, fontWeight = FontWeight.Medium, color = colors.labelPrimary)
+        Text(text = agent.description.clipLine(400).ifBlank { "没有写什么时候用" }, style = styles.bodyXL, fontWeight = FontWeight.Medium, color = colors.labelPrimary)
         if (agent.prompt.isNotBlank()) {
-            Text(text = brief(agent.prompt, 240), style = styles.bodyM, color = colors.labelSecondary)
+            Text(text = agent.prompt.clipLine(240), style = styles.bodyM, color = colors.labelSecondary)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(text = "模型：" + modelLabel(agent.model) + " · 工具", style = styles.bodyS, color = colors.labelSecondary)

@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.claude.McpServer
 import com.dzshzx.zeta.core.claude.McpState
 import com.dzshzx.zeta.core.claude.McpStatus
 import com.dzshzx.zeta.core.claude.McpTool
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -194,7 +195,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
                             // 摘要只放地址或命令；类型和被谁盖住在详情里看
                             ArrowPreference(
                                 title = server.name,
-                                summary = (if (server.scope != "user") scopeLabel(server.scope) + " · " else "") + brief(server.target(), 36),
+                                summary = (if (server.scope != "user") scopeLabel(server.scope) + " · " else "") + server.target().clipLine(36),
                                 endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) },
                                 onClick = { detail = server },
                             )
@@ -481,7 +482,7 @@ private fun McpServerDetail(
                         )
                     }
                     list.isEmpty() -> item { ConfigEmptyRow("没有工具") }
-                    else -> list.forEach { tool -> item(key = tool.name) { BasicComponent(title = tool.name, summary = brief(tool.description).ifBlank { null }) } }
+                    else -> list.forEach { tool -> item(key = tool.name) { BasicComponent(title = tool.name, summary = tool.description.clipLine(90).ifBlank { null }) } }
                 }
             }
         }
