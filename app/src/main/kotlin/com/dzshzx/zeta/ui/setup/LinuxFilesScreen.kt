@@ -99,10 +99,8 @@ internal enum class LinuxFilesPage { Browser, Shared }
  */
 @Composable
 internal fun LinuxFilesPages(hub: ConversationHub, page: LinuxFilesPage?, onClose: () -> Unit) {
-    var last by remember { mutableStateOf(page ?: LinuxFilesPage.Browser) }
-    page?.let { last = it }
-    SlideInPage(visible = page != null) {
-        when (last) {
+    SlideInPage(page) { shown ->
+        when (shown) {
             LinuxFilesPage.Browser -> LinuxFilesScreen(hub, onBack = onClose)
             LinuxFilesPage.Shared -> SharedFoldersScreen(hub, onBack = onClose)
         }

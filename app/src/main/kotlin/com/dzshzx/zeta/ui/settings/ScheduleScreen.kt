@@ -47,7 +47,6 @@ import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.CalendarPicker
@@ -153,18 +152,15 @@ internal fun ScheduleScreen(hub: ConversationHub, onBack: () -> Unit, onOpenConv
         }
     }
 
-    val shown = rememberRetained(editing)
-    SlideInPage(visible = editing != null, onBack = { editing = null }) {
-        shown?.let { target ->
-            // 每打开一次是新的编辑状态，不沿用上一个任务填到一半的内容
-            key(target) {
-                TaskEditor(
-                    hub = hub,
-                    original = target.id?.let { id -> tasks.firstOrNull { it.id == id } },
-                    onBack = { editing = null },
-                    onOpenConversation = onOpenConversation,
-                )
-            }
+    SlideInPage(editing, onBack = { editing = null }) { target ->
+        // 每打开一次是新的编辑状态，不沿用上一个任务填到一半的内容
+        key(target) {
+            TaskEditor(
+                hub = hub,
+                original = target.id?.let { id -> tasks.firstOrNull { it.id == id } },
+                onBack = { editing = null },
+                onOpenConversation = onOpenConversation,
+            )
         }
     }
 }

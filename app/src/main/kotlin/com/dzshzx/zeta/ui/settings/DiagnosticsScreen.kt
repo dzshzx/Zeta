@@ -44,7 +44,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -196,12 +195,11 @@ internal fun DiagnosticsScreen(
         }
     }
 
-    val shown = rememberRetained(page)
-    SlideInPage(visible = page == DiagPage.Log, onBack = { page = null }) {
-        DiagLogPage(entries = entries, onBack = { page = null })
-    }
-    SlideInPage(visible = page is DiagPage.File, onBack = { page = null }) {
-        (shown as? DiagPage.File)?.let { LogTailPage(it.file, tailLoader, onBack = { page = null }) }
+    SlideInPage(page, onBack = { page = null }) { shown ->
+        when (shown) {
+            DiagPage.Log -> DiagLogPage(entries = entries, onBack = { page = null })
+            is DiagPage.File -> LogTailPage(shown.file, tailLoader, onBack = { page = null })
+        }
     }
 }
 

@@ -1,13 +1,11 @@
 package com.dzshzx.zeta.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,7 +23,11 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
+import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
+import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
+import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
+import com.dzshzx.zeta.ui.setup.ClaudeSkillsScreen
+import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import com.dzshzx.zeta.ui.setup.claudeConfigItems
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -46,29 +48,32 @@ internal fun SettingsScreen(
     /** 回到聊天页：设置页、侧栏和别的盖在聊天页上的页面一起收起（由 MainActivity 做）。 */
     onShowChat: () -> Unit = onBack,
 ) {
-    // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们。处理器在子页之前注册，子页里再往下的一层先收到返回键
+    // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们（子页里再往下的一层先收到返回键）。
+    // 只有一层子页：从通知深链在子页之间直接切换时，内容原地换掉，不放滑入滑出动画
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
-    BackHandler(enabled = subPage != null) { subPage = null }
+    val close = { subPage = null }
     Box(Modifier.fillMaxSize()) {
         SettingsHome(hub, onBack, onOpenLinux, onOpenSubPage = { subPage = it })
-        SlideInPage(subPage == SettingsSubPage.Appearance) { AppearanceScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.PermissionHealth) { PermissionHealthScreen(hub = hub, onBack = { subPage = null }, onOpenLinux = onOpenLinux) }
-        SlideInPage(subPage == SettingsSubPage.Phone) { PhoneScreen(hub = hub, onBack = { subPage = null }) }
-        ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
-        SlideInPage(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Schedules) {
-            // 打开某次运行的对话：设置页整个关掉，回到聊天页
-            ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
-        }
-        SlideInPage(subPage == SettingsSubPage.NotifyTriggers) {
-            NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
-        }
-        SlideInPage(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Assistant) { AssistantSettingsScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Backup) { SettingsBackupScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Storage) {
-            // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
-            StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
+        SlideInPage(subPage, onBack = close) { page ->
+            when (page) {
+                SettingsSubPage.Appearance -> AppearanceScreen(hub = hub, onBack = close)
+                SettingsSubPage.PermissionHealth -> PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
+                SettingsSubPage.Phone -> PhoneScreen(hub = hub, onBack = close)
+                SettingsSubPage.ClaudeMemory -> ClaudeMemoryScreen(hub = hub, onBack = close)
+                SettingsSubPage.ClaudeSkills -> ClaudeSkillsScreen(hub = hub, onBack = close)
+                SettingsSubPage.ClaudeMcp -> ClaudeMcpScreen(hub = hub, onBack = close)
+                SettingsSubPage.ClaudeAgents -> ClaudeAgentsScreen(hub = hub, onBack = close)
+                SettingsSubPage.ToolPermissions -> ToolPermissionsScreen(hub = hub, onBack = close)
+                SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
+                // 打开某次运行的对话：设置页整个关掉，回到聊天页
+                SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
+                SettingsSubPage.NotifyTriggers -> NotifyTriggerScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
+                SettingsSubPage.Diagnostics -> DiagnosticsScreen(hub = hub, onBack = close)
+                SettingsSubPage.Assistant -> AssistantSettingsScreen(hub = hub, onBack = close)
+                SettingsSubPage.Backup -> SettingsBackupScreen(hub = hub, onBack = close)
+                // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
+                SettingsSubPage.Storage -> StorageScreen(hub = hub, onBack = close, onRevealSession = { subPage = null; onRevealSession(it) })
+            }
         }
     }
     // 从通知点进来（比如无障碍被关掉的提醒）：直接打开那一页

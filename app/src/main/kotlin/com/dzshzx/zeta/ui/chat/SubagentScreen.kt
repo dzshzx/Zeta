@@ -39,7 +39,6 @@ import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
@@ -102,10 +101,7 @@ internal fun SubagentScreen(hub: ConversationHub, conversationKey: String, toolU
     val imagesOf = remember(conversation.cwd, home) { { text: String -> answerImages(text, conversation.cwd, home) } }
     SubagentPage(log, conversation.agentCall(toolUseId), onBack, imagesOf, onOpenSubagent = { nested = it })
     // 它自己又派的子代理：记录在同一个会话的目录里，照样看
-    val shown = rememberRetained(nested)
-    SlideInPage(visible = nested != null, onBack = { nested = null }) {
-        shown?.let { SubagentScreen(hub, conversationKey, it, onBack = { nested = null }) }
-    }
+    SlideInPage(nested, onBack = { nested = null }) { SubagentScreen(hub, conversationKey, it, onBack = { nested = null }) }
 }
 
 /** 页面本身：概要、交给它的指令、它的步骤（和聊天里一样的条目），运行中最后一行在动。 */

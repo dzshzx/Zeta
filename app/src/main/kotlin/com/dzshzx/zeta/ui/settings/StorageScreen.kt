@@ -173,11 +173,8 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
         dialogs = { ConfigNoticeDialog(notice) { notice = null } },
     )
 
-    val shownProject = rememberRetained(project)
-    SlideInPage(visible = project != null, onBack = { project = null }) {
-        shownProject?.let { item ->
-            ProjectSessionsScreen(hub = hub, project = item, onBack = { project = null }, onRevealSession = onRevealSession)
-        }
+    SlideInPage(project, onBack = { project = null }) { item ->
+        ProjectSessionsScreen(hub = hub, project = item, onBack = { project = null }, onRevealSession = onRevealSession)
     }
 }
 

@@ -30,7 +30,6 @@ import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.SegmentButton
@@ -216,21 +215,18 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    val shown = rememberRetained(detail)
-    SlideInPage(visible = detail != null, onBack = { detail = null }) {
-        shown?.let { server ->
-            McpServerDetail(
-                hub = hub,
-                server = server,
-                state = status.of(server, statusError != null),
-                onBack = { detail = null },
-                onChanged = reload,
-                onRemoved = {
-                    detail = null
-                    reload()
-                },
-            )
-        }
+    SlideInPage(detail, onBack = { detail = null }) { server ->
+        McpServerDetail(
+            hub = hub,
+            server = server,
+            state = status.of(server, statusError != null),
+            onBack = { detail = null },
+            onChanged = reload,
+            onRemoved = {
+                detail = null
+                reload()
+            },
+        )
     }
 }
 

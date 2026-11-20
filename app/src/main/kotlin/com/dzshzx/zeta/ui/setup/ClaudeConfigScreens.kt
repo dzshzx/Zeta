@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.clipChars
-import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
@@ -101,16 +100,6 @@ internal fun CardListGroupScope.claudeConfigItems(ready: Boolean, onOpen: (Setti
     entry("MCP 服务器", ZetaIcons.Puzzle, SettingsHue.Claude, SettingsSubPage.ClaudeMcp)
     entry("Subagent", ZetaIcons.Branch, SettingsHue.Claude, SettingsSubPage.ClaudeAgents)
     entry("工具权限", COUIIcons.Lock, SettingsHue.Automation, SettingsSubPage.ToolPermissions)
-}
-
-/** 这几个页面挂在设置页的子页面宿主上；返回键由设置页统一处理（关掉当前子页面）。 */
-@Composable
-internal fun ClaudeConfigPages(hub: ConversationHub, page: SettingsSubPage?, onClose: () -> Unit) {
-    SlideInPage(page == SettingsSubPage.ClaudeMemory) { ClaudeMemoryScreen(hub = hub, onBack = onClose) }
-    SlideInPage(page == SettingsSubPage.ClaudeSkills) { ClaudeSkillsScreen(hub = hub, onBack = onClose) }
-    SlideInPage(page == SettingsSubPage.ClaudeMcp) { ClaudeMcpScreen(hub = hub, onBack = onClose) }
-    SlideInPage(page == SettingsSubPage.ClaudeAgents) { ClaudeAgentsScreen(hub = hub, onBack = onClose) }
-    SlideInPage(page == SettingsSubPage.ToolPermissions) { ToolPermissionsScreen(hub = hub, onBack = onClose) }
 }
 
 @Composable

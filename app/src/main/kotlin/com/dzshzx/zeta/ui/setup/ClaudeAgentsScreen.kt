@@ -171,19 +171,16 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    val shownEditor = rememberRetained(editor)
-    SlideInPage(visible = editor != null, onBack = { editor = null }) {
-        shownEditor?.let { target ->
-            AgentEditor(
-                hub = hub,
-                original = target.agent,
-                onBack = { editor = null },
-                onSaved = {
-                    editor = null
-                    reload()
-                },
-            )
-        }
+    SlideInPage(editor, onBack = { editor = null }) { target ->
+        AgentEditor(
+            hub = hub,
+            original = target.agent,
+            onBack = { editor = null },
+            onSaved = {
+                editor = null
+                reload()
+            },
+        )
     }
 }
 

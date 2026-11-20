@@ -16,7 +16,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -178,30 +177,27 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    val target = rememberRetained(editing)
-    SlideInPage(visible = editing != null, onBack = { editing = null }) {
-        target?.let { t ->
-            ConfigDocumentEditor(
-                client = client,
-                path = t.path,
-                title = t.title,
-                fileLabel = t.fileLabel,
-                placeholder = t.placeholder,
-                onBack = { editing = null },
-                onSaved = reload,
-                deleteTitle = "删除这条记忆",
-                deleteMessage = "删除 ${t.fileLabel}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
-                onDelete = if (t.entry != null) {
-                    {
-                        scope.runConfig({ client.deleteMemory(t.path) }) { result ->
-                            result.onSuccess { editing = null }.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
-                            reload()
-                        }
+    SlideInPage(editing, onBack = { editing = null }) { t ->
+        ConfigDocumentEditor(
+            client = client,
+            path = t.path,
+            title = t.title,
+            fileLabel = t.fileLabel,
+            placeholder = t.placeholder,
+            onBack = { editing = null },
+            onSaved = reload,
+            deleteTitle = "删除这条记忆",
+            deleteMessage = "删除 ${t.fileLabel}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
+            onDelete = if (t.entry != null) {
+                {
+                    scope.runConfig({ client.deleteMemory(t.path) }) { result ->
+                        result.onSuccess { editing = null }.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                        reload()
                     }
-                } else {
-                    null
-                },
-            )
-        }
+                }
+            } else {
+                null
+            },
+        )
     }
 }

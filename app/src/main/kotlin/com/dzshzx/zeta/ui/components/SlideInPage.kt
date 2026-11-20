@@ -29,6 +29,16 @@ internal fun SlideInPage(visible: Boolean, onBack: (() -> Unit)? = null, content
     SlideInPage(state, onBack, content)
 }
 
+/**
+ * 带值的 [SlideInPage]：[value] 不为空时打开，内容拿到这个值。关掉（[value] 变空）后退场动画期间仍用最后一个非空值画，
+ * 页面不会先变空再滑走。[value] 从一个值直接换成另一个值时页面不重放动画，内容原地换成新值的。
+ */
+@Composable
+internal fun <T : Any> SlideInPage(value: T?, onBack: (() -> Unit)? = null, content: @Composable (T) -> Unit) {
+    val shown = rememberRetained(value)
+    SlideInPage(visible = value != null, onBack = onBack) { shown?.let { content(it) } }
+}
+
 /** 由 [state] 管显示和动画的 [SlideInPage]：要知道退场动画什么时候放完时用。 */
 @Composable
 internal fun SlideInPage(state: MutableTransitionState<Boolean>, onBack: (() -> Unit)? = null, content: @Composable () -> Unit) {

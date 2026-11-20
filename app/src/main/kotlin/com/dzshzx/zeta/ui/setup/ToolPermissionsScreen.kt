@@ -281,11 +281,8 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    val shownServer = rememberRetained(detail)
-    SlideInPage(visible = detail != null, onBack = { detail = null }) {
-        shownServer?.let { server ->
-            McpPermissionDetail(hub = hub, server = server, rules = current, editable = editable, apply = apply, onBack = { detail = null })
-        }
+    SlideInPage(detail, onBack = { detail = null }) { server ->
+        McpPermissionDetail(hub = hub, server = server, rules = current, editable = editable, apply = apply, onBack = { detail = null })
     }
 }
 

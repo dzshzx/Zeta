@@ -50,7 +50,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberNow
-import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -147,9 +146,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
         }
     }
 
-    val retained = rememberRetained(viewing)
-    SlideInPage(visible = viewing != null, onBack = { viewing = null }) {
-        val ref = retained ?: return@SlideInPage
+    SlideInPage(viewing, onBack = { viewing = null }) { ref ->
         val conversation = live.firstOrNull { it.key == ref.conversation }
         val task = conversation?.tasks?.list?.firstOrNull { it.id == ref.task }
         if (conversation == null || task == null) {
@@ -168,10 +165,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
         }
     }
 
-    val shownSteps = rememberRetained(steps)
-    SlideInPage(visible = steps != null, onBack = { steps = null }) {
-        shownSteps?.let { ref -> SubagentScreen(hub, ref.conversation, ref.task, onBack = { steps = null }) }
-    }
+    SlideInPage(steps, onBack = { steps = null }) { ref -> SubagentScreen(hub, ref.conversation, ref.task, onBack = { steps = null }) }
 }
 
 /**
