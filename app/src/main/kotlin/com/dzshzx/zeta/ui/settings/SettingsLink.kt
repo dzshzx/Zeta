@@ -17,13 +17,11 @@ internal object SettingsLink {
 
     /** 从 Intent 里取出要打开的页，取完把 extra 去掉，界面重建时不再跳一次。 */
     fun accept(intent: Intent?) {
-        val name = intent?.getStringExtra(EXTRA) ?: return
+        val link = intent?.getStringExtra(EXTRA) ?: return
         intent.removeExtra(EXTRA)
-        pending = page(name) ?: return
+        pending = page(link) ?: return
     }
 
-    fun page(name: String): SettingsSubPage? = SettingsSubPage.entries.firstOrNull { it.name == name } ?: formerNames[name]
-
-    /** 改名前的页名：改名前发出、还挂在通知栏里的通知带的是它们。 */
-    private val formerNames = mapOf("Permissions" to SettingsSubPage.PermissionHealth)
+    /** 按 [SettingsSubPage.link] 找页。 */
+    fun page(link: String): SettingsSubPage? = SettingsSubPage.entries.firstOrNull { it.link == link }
 }

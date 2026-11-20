@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 通知深链：页名是协议，改名前发出的通知还要打开到对的页。 */
+/** 通知深链：页名（[SettingsSubPage.link]）是协议，已经发出的通知还要打开到对的页。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class SettingsLinkTest {
@@ -22,15 +22,25 @@ class SettingsLinkTest {
     private fun link(name: String) = Intent().putExtra(SettingsLink.EXTRA, name)
 
     @Test
-    fun currentNameOpensThatPage() {
-        val intent = link(SettingsSubPage.PermissionHealth.name)
-        SettingsLink.accept(intent)
-        assertEquals(SettingsSubPage.PermissionHealth, SettingsLink.pending)
-        assertFalse(intent.hasExtra(SettingsLink.EXTRA))
+    fun linksAreDistinct() {
+        val links = SettingsSubPage.entries.map { it.link }
+        assertEquals(links.size, links.toSet().size)
     }
 
     @Test
-    fun nameFromBeforeTheRenameStillOpensPermissionHealth() {
+    fun eachLinkOpensItsPage() {
+        for (page in SettingsSubPage.entries) {
+            val intent = link(page.link)
+            SettingsLink.accept(intent)
+            assertEquals(page, SettingsLink.pending)
+            assertFalse(intent.hasExtra(SettingsLink.EXTRA))
+            SettingsLink.pending = null
+        }
+    }
+
+    /** 0.7.0 发出的无障碍提醒带的是 Permissions。 */
+    @Test
+    fun permissionsOpensPermissionHealth() {
         SettingsLink.accept(link("Permissions"))
         assertEquals(SettingsSubPage.PermissionHealth, SettingsLink.pending)
     }
