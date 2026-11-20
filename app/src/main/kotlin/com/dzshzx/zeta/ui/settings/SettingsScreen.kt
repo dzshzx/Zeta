@@ -1,4 +1,4 @@
-package com.dzshzx.zeta.ui
+package com.dzshzx.zeta.ui.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
@@ -26,31 +26,6 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.settings.AccountsEntry
-import com.dzshzx.zeta.ui.settings.AccountsScreen
-import com.dzshzx.zeta.ui.settings.AppearanceScreen
-import com.dzshzx.zeta.ui.settings.AssistantEntry
-import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
-import com.dzshzx.zeta.ui.settings.AutoCompactSwitch
-import com.dzshzx.zeta.ui.settings.ClaudeDefaultsFooter
-import com.dzshzx.zeta.ui.settings.CompactTimingPreference
-import com.dzshzx.zeta.ui.settings.DefaultEffortSummary
-import com.dzshzx.zeta.ui.settings.DefaultModelPreference
-import com.dzshzx.zeta.ui.settings.DefaultPermissionModePreference
-import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
-import com.dzshzx.zeta.ui.settings.NotifyTriggerEntry
-import com.dzshzx.zeta.ui.settings.NotifyTriggerScreen
-import com.dzshzx.zeta.ui.settings.PermissionHealth
-import com.dzshzx.zeta.ui.settings.PermissionScreen
-import com.dzshzx.zeta.ui.settings.PermissionStatus
-import com.dzshzx.zeta.ui.settings.ScheduleEntry
-import com.dzshzx.zeta.ui.settings.ScheduleScreen
-import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
-import com.dzshzx.zeta.ui.settings.SettingsLink
-import com.dzshzx.zeta.ui.settings.SettingsSubPage
-import com.dzshzx.zeta.ui.settings.StorageEntry
-import com.dzshzx.zeta.ui.settings.StorageScreen
-import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
 import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
 import com.dzshzx.zeta.ui.setup.claudeConfigItems
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -68,27 +43,18 @@ internal fun SettingsScreen(
     hub: ConversationHub,
     onBack: () -> Unit,
     onOpenLinux: () -> Unit,
-    onOpenPhone: () -> Unit,
     onRevealSession: (String) -> Unit = {},
     /** 回到聊天页：设置页、侧栏和别的盖在聊天页上的页面一起收起（由 MainActivity 做）。 */
     onShowChat: () -> Unit = onBack,
 ) {
-    // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们，不用改 MainActivity 的页面栈
+    // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们。处理器在子页之前注册，子页里再往下的一层先收到返回键
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
+    BackHandler(enabled = subPage != null) { subPage = null }
     Box(Modifier.fillMaxSize()) {
-        SettingsHome(hub, onBack, onOpenLinux, onOpenPhone, onOpenSubPage = { subPage = it })
+        SettingsHome(hub, onBack, onOpenLinux, onOpenSubPage = { subPage = it })
         SlideInPage(subPage == SettingsSubPage.Appearance) { AppearanceScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Permissions) {
-            PermissionScreen(
-                hub = hub,
-                onBack = { subPage = null },
-                // Linux 环境页由 MainActivity 管，先关掉本页，返回键的顺序才对得上
-                onOpenLinux = {
-                    subPage = null
-                    onOpenLinux()
-                },
-            )
-        }
+        SlideInPage(subPage == SettingsSubPage.Permissions) { PermissionScreen(hub = hub, onBack = { subPage = null }, onOpenLinux = onOpenLinux) }
+        SlideInPage(subPage == SettingsSubPage.Phone) { PhoneScreen(hub = hub, onBack = { subPage = null }) }
         ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
         SlideInPage(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
         SlideInPage(subPage == SettingsSubPage.Schedules) {
@@ -106,7 +72,6 @@ internal fun SettingsScreen(
             StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
         }
     }
-    BackHandler(enabled = subPage != null) { subPage = null }
     // 从通知点进来（比如无障碍被关掉的提醒）：直接打开那一页
     LaunchedEffect(SettingsLink.pending) { SettingsLink.pending?.let { subPage = it; SettingsLink.pending = null } }
 }
@@ -116,7 +81,6 @@ private fun SettingsHome(
     hub: ConversationHub,
     onBack: () -> Unit,
     onOpenLinux: () -> Unit,
-    onOpenPhone: () -> Unit,
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
@@ -150,7 +114,7 @@ private fun SettingsHome(
                         title = "手机操作",
                         startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
                         endActions = { PreferenceValue(if (hub.phoneTools) "已开启" else "已关闭") },
-                        onClick = onOpenPhone,
+                        onClick = { onOpenSubPage(SettingsSubPage.Phone) },
                     )
                 }
                 item { AssistantEntry { onOpenSubPage(SettingsSubPage.Assistant) } }

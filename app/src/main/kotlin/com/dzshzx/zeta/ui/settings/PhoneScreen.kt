@@ -1,4 +1,4 @@
-package com.dzshzx.zeta.ui.setup
+package com.dzshzx.zeta.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,8 +13,6 @@ import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.settings.PermissionId
-import com.dzshzx.zeta.ui.settings.openPermissionSettings
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference

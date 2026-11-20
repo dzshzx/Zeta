@@ -20,7 +20,6 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 /** 盖在聊天页上的一页。同一种页面在栈里只有一页。 */
 internal sealed interface AppPage {
     data object Settings : AppPage
-    data object Phone : AppPage
     data object Linux : AppPage
     data object Ssh : AppPage
     data object Install : AppPage
@@ -75,7 +74,6 @@ internal class PageStack(pages: List<AppPage> = emptyList()) {
 
         private fun AppPage.encode(): List<String> = when (this) {
             AppPage.Settings -> listOf("settings")
-            AppPage.Phone -> listOf("phone")
             AppPage.Linux -> listOf("linux")
             AppPage.Ssh -> listOf("ssh")
             AppPage.Install -> listOf("install")
@@ -86,7 +84,6 @@ internal class PageStack(pages: List<AppPage> = emptyList()) {
 
         private fun decode(parts: List<String>): AppPage? = when (parts.firstOrNull()) {
             "settings" -> AppPage.Settings
-            "phone" -> AppPage.Phone
             "linux" -> AppPage.Linux
             "ssh" -> AppPage.Ssh
             "install" -> AppPage.Install

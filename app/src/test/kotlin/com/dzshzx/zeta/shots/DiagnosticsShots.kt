@@ -12,7 +12,7 @@ import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
 import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
-import com.dzshzx.zeta.ui.setup.PhoneScreen
+import com.dzshzx.zeta.ui.settings.PhoneScreen
 import org.junit.Test
 
 class DiagnosticsShots : ShotTest() {

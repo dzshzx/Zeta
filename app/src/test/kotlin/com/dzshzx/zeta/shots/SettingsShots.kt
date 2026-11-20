@@ -6,7 +6,7 @@ import androidx.compose.ui.test.swipeUp
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
-import com.dzshzx.zeta.ui.SettingsScreen
+import com.dzshzx.zeta.ui.settings.SettingsScreen
 import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
 import org.junit.Test
 
@@ -15,7 +15,7 @@ class SettingsShots : ShotTest() {
     fun settingsHome() {
         val hub = Fixtures.readyHub(app)
         hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = "auto", efforts = mapOf("claude-opus-5-5" to "xhigh"), effort = null))
-        shoot("settings") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {}) }
+        shoot("settings") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
     }
 
     /** 设置首页慢慢往下滑一段（不带惯性）：顶栏折叠，上下文与扩展、手机与工具。 */
@@ -26,7 +26,7 @@ class SettingsShots : ShotTest() {
         ScheduleStore.update(app) { emptyList() }
         NotifyRuleStore.update(app) { emptyList() }
         shoot("settings-middle", prepare = { onRoot().performTouchInput { swipeUp(durationMillis = 1500) } }) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }
 
@@ -35,7 +35,7 @@ class SettingsShots : ShotTest() {
     fun settingsBottom() {
         val hub = Fixtures.readyHub(app)
         shoot("settings-bottom", prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } }) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }
 

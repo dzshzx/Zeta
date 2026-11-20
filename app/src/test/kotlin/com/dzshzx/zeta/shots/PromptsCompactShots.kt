@@ -17,7 +17,7 @@ import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
-import com.dzshzx.zeta.ui.SettingsScreen
+import com.dzshzx.zeta.ui.settings.SettingsScreen
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
 import com.dzshzx.zeta.ui.chat.SavedPromptsDialogs
@@ -111,7 +111,7 @@ class PromptsCompactShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.chooseAutoCompactPercent(70)
         shoot("settings-compact", prepare = { onNodeWithText("压缩时机").scrollIntoView() }) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {})
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }
 }
