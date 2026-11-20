@@ -322,10 +322,6 @@ class ClaudeCodeContractTest {
         assertEquals(listOf("custom-title:我起的名字"), transcriptTitles())
     }
 
-    /**
-     * 一轮进行中发来的消息（Zeta 的排队条）：它有自己的 command_lifecycle started，在工具边界并进这一轮，两条消息只出一个 result。
-     * Conversation 据此在 started 时把排队的消息放进聊天记录，在 result 时只要没有还在排队的就算这一轮结束。
-     */
     /** settings.json：SessionEnd hook 把 Claude Code 交给它的输入（一行 JSON，带 reason）追加进 [log]。 */
     private fun sessionEndHook(log: File) =
         """{"hooks":{"SessionEnd":[{"hooks":[{"type":"command","command":"cat >> ${log.path}; echo >> ${log.path}"}]}]}}"""
@@ -374,6 +370,10 @@ class ClaudeCodeContractTest {
         }
     }
 
+    /**
+     * 一轮进行中发来的消息（Zeta 的排队条）：它有自己的 command_lifecycle started，在工具边界并进这一轮，两条消息只出一个 result。
+     * Conversation 据此在 started 时把排队的消息放进聊天记录，在 result 时只要没有还在排队的就算这一轮结束。
+     */
     @Test
     fun followUpJoinsTheRunningTurn() {
         assumeTrue("没有 claude 命令", claudeAvailable())

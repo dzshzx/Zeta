@@ -71,7 +71,7 @@ case $SESSION in '' | *[!0-9a-fA-F-]*) SESSION='' ;; esac
 
 declare -A AWAIT=() RESP=()
 QUEUE=()
-BUF='' EOF='' BUSY='' INTERRUPTED='' ENDING='' END_REPLY='' TITLE=''
+BUF='' EOF='' BUSY='' INTERRUPTED='' END_REPLY='' TITLE=''
 
 # 读一行标准输入并处理，最多等 $1 毫秒
 poll() {
@@ -125,6 +125,10 @@ handle() {
 reply() {
   jq -nc --arg id "$1" --argjson r "$2" '{type: "control_response", response: {subtype: "success", request_id: $id, response: $r}}'
 }
+# 没有 response 一项的 success 应答
+ok() {
+  jq -nc --arg id "$1" '{type: "control_response", response: {subtype: "success", request_id: $id}}'
+}
 refuse() {
   jq -nc --arg id "$1" --arg e "$2" --arg code "${3:-}" \
     '{type: "control_response", response: ({subtype: "error", request_id: $id, error: $e} + if $code == "" then {} else {error_code: $code} end)}'
@@ -167,7 +171,7 @@ control() {
     apply_flag_settings)
       value=$(jq -r '.request.settings.effortLevel // empty' <<<"$line")
       case $value in *[!A-Za-z]*) ;; ?*) EFFORT=$value ;; esac
-      out "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":$(jq -nc --arg id "$rid" '$id')}}"
+      out "$(ok "$rid")"
       ;;
     generate_session_title) out "$(reply "$rid" "$(jq -nc --arg t "${TITLE:-假 Claude 对话}" '{title: $t}')")" ;;
     interrupt)
@@ -199,12 +203,11 @@ control() {
       ;;
     stop_task) out "$(reply "$rid" '{}')" ;;
     end_session)
-      # 结束会话（Zeta 结束对话都先发它，等价于终端里的 /exit）：答 success（没有 response 一项），闲着的退出码 0；
-      # 这一轮进行中的照打断收尾，应答放在打断时答 interrupt 的位置（手机工具调用中先发 notifications/cancelled），收完退出码 1
-      value="{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":$(jq -nc --arg id "$rid" '$id')}}"
-      [ -n "$BUSY" ] || { out "$value"; exit 0; }
-      ENDING=1
-      if [ -n "$INTERRUPTED" ]; then out "$value"; else INTERRUPTED=end_session END_REPLY=$value; fi
+      # 结束会话（zeta_host.sh 的 end_claude 发的）：闲着的答 success 后退出码 0；这一轮进行中的照打断收尾，
+      # 应答放在打断时答 interrupt 的位置（手机工具调用中先发 notifications/cancelled），收完退出码 1
+      [ -n "$BUSY" ] || { out "$(ok "$rid")"; exit 0; }
+      END_REPLY=$(ok "$rid")
+      if [ -n "$INTERRUPTED" ]; then out "$END_REPLY"; else INTERRUPTED=end_session; fi
       ;;
     get_task_output) out "$(refuse "$rid" "get_task_output: no shell or Monitor task with that task_id in this session")" ;;
     *) out "$(refuse "$rid" "Unsupported control request subtype: $sub" unsupported_request)" ;;
@@ -472,7 +475,7 @@ interrupted() {
   case $PHASE in
     ask | tool)
       if [ "$PHASE" = ask ]; then
-        [ -z "$answer" ] || out "$answer"
+        out "$answer"
         out "{\"type\":\"control_cancel_request\",\"request_id\":\"$ASKED\"}"
         close_message '"tool_use"'
       else
@@ -480,14 +483,14 @@ interrupted() {
           uuid
           out "{\"type\":\"control_request\",\"request_id\":\"$U\",\"request\":{\"subtype\":\"mcp_message\",\"server_name\":\"phone\",\"message\":{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":$MCP_CALL,\"reason\":\"AbortError: remote-cancel\"}}}}"
         fi
-        [ -z "$answer" ] || out "$answer"
+        out "$answer"
       fi
       user "[{\"type\":\"tool_result\",\"content\":$tool_text,\"is_error\":true,\"tool_use_id\":\"$TOOL_ID\"}]"
       user '[{"type":"text","text":"[Request interrupted by user for tool use]"}]'
       result error_during_execution true '"tool_use"' aborted_tools ',"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use"]'
       ;;
     *)
-      [ -z "$answer" ] || out "$answer"
+      out "$answer"
       if [ -n "$STREAMING" ] && [ ${#PARTIAL[@]} -gt 0 ]; then
         local partial
         partial=$(printf '%s\n' "${PARTIAL[@]}" | jq -sc 'add')
@@ -578,7 +581,7 @@ turn() {
     lifecycle "$CMD" completed
   fi
   BUSY='' INTERRUPTED=''
-  [ -z "$ENDING" ] || exit 1
+  [ -z "$END_REPLY" ] || exit 1
 }
 
 # ---- 启动：和真 Claude Code 一样先跟 Zeta 的 phone 服务器握手、取工具清单 ----

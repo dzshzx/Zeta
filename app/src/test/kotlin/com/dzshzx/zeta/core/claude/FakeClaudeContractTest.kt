@@ -49,7 +49,7 @@ class FakeClaudeContractTest {
     private class Case(val mode: String, val scenario: List<String>, val permissionMode: String? = null)
 
     private val cases = listOf(
-        // 纯文字，接着是 Zeta 会发的各种控制请求，再来一轮
+        // 纯文字，接着是 Zeta 会发的各种控制请求，再来一轮，最后闲着时结束会话（end_session）
         Case("text", listOf("""{"steps":[$hello]}""", """{"steps":[$hello]}""")),
         // 手机工具：先问批准，批了再经控制通道调用；拒了的；不用问、结果是出错的；调用中被打断的
         Case("tool", listOf("""{"steps":[{"text":"Opening it."},$openApp,"ask":true},$hello]}""")),
@@ -63,8 +63,7 @@ class FakeClaudeContractTest {
         // 流到一半被打断；排队的消息撤回一条、打断后另一条接着跑
         Case("slow", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""")),
         Case("queue", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""", """{"steps":[$hello]}""")),
-        // 结束会话（end_session，Zeta 结束对话都先发它）：闲着时；流到一半；手机工具调用中
-        Case("end", listOf("""{"steps":[$hello]}""")),
+        // 一轮进行中结束会话（end_session）：流到一半；手机工具调用中
         Case("endslow", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""")),
         Case("endtool", listOf("""{"steps":[{"text":"Opening it."},$openApp},$hello]}"""), "bypassPermissions"),
     )
@@ -312,7 +311,10 @@ class FakeClaudeContractTest {
         private val delayed = Executors.newSingleThreadScheduledExecutor { r -> Thread(r).apply { isDaemon = true } }
 
         init {
-            Thread { runCatching { process.inputStream.bufferedReader().forEachLine { lines.put(it) } } }.apply { isDaemon = true; start() }
+            Thread {
+                runCatching { process.inputStream.bufferedReader().forEachLine { lines.put(it) } }
+                lines.put(EOF)
+            }.apply { isDaemon = true; start() }
         }
 
         @Synchronized
@@ -376,6 +378,7 @@ class FakeClaudeContractTest {
                 val left = deadline - System.currentTimeMillis()
                 if (left <= 0) return null
                 val line = lines.poll(left, TimeUnit.MILLISECONDS) ?: continue
+                if (line == EOF) return null
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
                 events += o
                 handle(o)
@@ -384,6 +387,12 @@ class FakeClaudeContractTest {
         }
 
         private fun settle(millis: Long) = until(millis) { false }
+
+        /** 收完它退出前的输出（输入管道一直开着，它自己退出），返回退出码；15 秒内没退出是 -1。 */
+        private fun exitCode(): Int {
+            settle(15_000)
+            return if (process.waitFor(5, TimeUnit.SECONDS)) process.exitValue() else -1
+        }
 
         private fun response(id: String): (JsonObject) -> Boolean = { it.str("type") == "control_response" && it.obj("response")?.str("request_id") == id }
 
@@ -431,16 +440,8 @@ class FakeClaudeContractTest {
                 }
             }
             until(60_000, result())
+            if (mode.startsWith("end")) return Run(events.toList(), requests.toMap(), exitCode())
             settle(1500)
-            if (mode == "end") {
-                until(20_000, response(control(obj("subtype" to "end_session"))))
-                settle(1500)
-            }
-            if (mode.startsWith("end")) {
-                // 输入管道一直开着，它自己退出
-                val exit = if (process.waitFor(15, TimeUnit.SECONDS)) process.exitValue() else null
-                return Run(events.toList(), requests.toMap(), exit ?: -1)
-            }
             if (mode == "text") {
                 for (request in listOf(
                     obj("subtype" to "generate_session_title", "description" to "User said hi and the assistant greeted back.", "persist" to JsonPrimitive(true)),
@@ -461,6 +462,8 @@ class FakeClaudeContractTest {
                 user("21111111-2222-4333-8444-555555555555", "again")
                 until(60_000, result())
                 settle(1500)
+                control(obj("subtype" to "end_session"))
+                return Run(events.toList(), requests.toMap(), exitCode())
             }
             return Run(events.toList(), requests.toMap())
         }
@@ -477,6 +480,9 @@ class FakeClaudeContractTest {
     private fun JsonObject.bool(key: String) = (this[key] as? JsonPrimitive)?.booleanOrNull == true
 
     private companion object {
+        /** 读输出的线程读到头（进程退出）时放进队列的记号。 */
+        const val EOF = "\u0000eof"
+
         /** 假 Claude 故意多出的字段：一眼看得出是假的。 */
         val ALLOWED_EXTRA = setOf("fake_claude", "response.response.fake_claude")
     }

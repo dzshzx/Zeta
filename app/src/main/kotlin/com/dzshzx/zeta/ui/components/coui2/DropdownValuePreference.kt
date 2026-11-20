@@ -26,7 +26,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * OverlayDropdownMenu 右边什么都不显示；这一行要显示的是别的东西时用它，比如共享文件夹这一行显示“可读写”，点开是“复制挂载点路径 / 移除”。
  *
  * 外观和点按照 OverlayDropdownPreference：值是 13sp 的次要文字，后面跟下拉箭头，菜单从手指按下的地方弹出；选了一项就收起（多组菜单也是）。
- * 项可以带二级菜单（children），这时菜单从行尾弹出（[MenuPopup]）。
+ * 项可以带二级菜单（children），这时菜单从行尾弹出（[AnchoredMenu]）。
  * 菜单是 Overlay 弹窗，要在 COUI 的 Scaffold 里（CouiPage、CouiPageScaffold 都是）。
  */
 @Composable
@@ -67,9 +67,9 @@ internal fun DropdownValuePreference(
             }
             DropdownArrowEndAction(actionColor = if (actualEnabled) colors.labelTertiary else colors.disabledNeutral)
             if (nonEmpty.isNotEmpty()) {
-                MenuPopup(
-                    entries = nonEmpty,
+                AnchoredMenu(
                     show = expanded,
+                    entries = nonEmpty,
                     onDismiss = { expanded = false },
                     onDismissFinished = { holdDown = false },
                     preciseClickState = preciseClickState,

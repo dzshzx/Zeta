@@ -1593,17 +1593,17 @@ def proc_home(pid):
     return None
 
 
-def running_tool(match, max_age=None, home=None):
-    """有没有本用户看得见的进程合 match（参数是命令行各段）；max_age 给了时只看这么多秒内启动的，
-    home 给了时只看 HOME 是它的（包管理器的缓存在 HOME 下，别的 HOME 的进程用不到这一份）。"""
-    home = os.path.realpath(home) if home else None
+def running_tool(match, max_age=None):
+    """有没有 HOME 和本进程相同的进程合 match（参数是命令行各段）：包管理器的缓存在 HOME 下，别的 HOME 的进程用不到这一份。
+    max_age 给了时只看这么多秒内启动的。"""
+    home = os.path.realpath(os.path.expanduser("~"))
     for entry in children("/proc"):
         if not entry.isdigit():
             continue
         argv = proc_argv(int(entry))
         if not argv or not argv[0] or not match([a.decode("utf-8", "replace") for a in argv if a]):
             continue
-        if home is not None and proc_home(int(entry)) != home:
+        if proc_home(int(entry)) != home:
             continue
         if max_age is None:
             return True
@@ -1643,12 +1643,11 @@ def plan_home_cache(ctx, directory, names, busy_check, busy_name):
 def plan_npm(ctx):
     # _cacache 是下载缓存（npm cache clean 删的就是它），_logs 是日志；_npx 里是 npx 装的包，MCP 服务可能正从那里运行，不删
     return plan_home_cache(ctx, os.path.expanduser("~/.npm"), ("_cacache", "_logs"),
-                           lambda: running_tool(is_npm, TOOL_BUSY_SECONDS, home=os.path.expanduser("~")), "npm")
+                           lambda: running_tool(is_npm, TOOL_BUSY_SECONDS), "npm")
 
 
 def plan_pip(ctx):
-    return plan_home_cache(ctx, os.path.expanduser("~/.cache/pip"), None,
-                           lambda: running_tool(is_pip, home=os.path.expanduser("~")), "pip")
+    return plan_home_cache(ctx, os.path.expanduser("~/.cache/pip"), None, lambda: running_tool(is_pip), "pip")
 
 
 def plan_apt(ctx):

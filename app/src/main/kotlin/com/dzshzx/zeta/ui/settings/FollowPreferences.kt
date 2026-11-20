@@ -6,6 +6,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.ModelMenu
+import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.core.readableModelId
@@ -16,13 +18,20 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 
-/** 可选的模型（值和显示名）：[latest] 直接列出，[older] 收进「更多模型」（[modelMenu]）。 */
-internal class ModelChoices(val latest: List<Pair<String, String>>, val older: List<Pair<String, String>>)
+/** [models]（一般是 [ConversationHub.modelOptions]）里可选的模型，值和显示名，按 [modelMenu] 分两层。 */
+internal fun modelChoices(models: List<ModelOption>): ModelMenu<Pair<String, String>> =
+    modelMenu(models).map { it.value to modelLabel(it.value, models) }
 
-/** 可选的模型：Claude Code 给的清单，拿不到时用几个别名（[ConversationHub.modelOptions]），按 [modelMenu] 分两层。 */
-internal fun modelChoices(hub: ConversationHub): ModelChoices = hub.modelOptions.let { models ->
-    val menu = modelMenu(models)
-    ModelChoices(menu.latest.map { it.value to modelLabel(it.value, models) }, menu.older.map { it.value to modelLabel(it.value, models) })
+/**
+ * 两层的选择菜单：[top] 直接列出；[more] 不空时最后一项「更多模型」，点开是 [more] 的二级菜单，选中的在那一项下面写着。
+ * 顶栏的模型菜单和设置里的模型下拉都用它。
+ */
+internal fun <V> choiceEntries(top: List<Pair<V, String>>, more: List<Pair<V, String>>, selected: V?, onPick: (V) -> Unit): List<DropdownEntry> {
+    fun item(choice: Pair<V, String>) = DropdownItem(text = choice.second, selected = choice.first == selected, onClick = { onPick(choice.first) })
+    val older = more.takeIf { it.isNotEmpty() }?.let { choices ->
+        DropdownItem(text = "更多模型", summary = choices.firstOrNull { it.first == selected }?.second, children = choices.map(::item))
+    }
+    return listOf(DropdownEntry(items = top.map(::item) + listOfNotNull(older)))
 }
 
 /**
@@ -49,23 +58,11 @@ internal fun FollowDropdownPreference(
             listOfNotNull(value?.takeIf { v -> choices.none { it.first == v } && more.none { it.first == v } }?.let { it to unknown(it) })
     }
     if (more.isNotEmpty()) {
+        // 普通的下拉不认二级菜单，换成能弹二级菜单的那种设置行
         val currentOnChange by rememberUpdatedState(onChange)
-        val entries = remember(options, more, value) {
-            fun item(option: Pair<String?, String>) = DropdownItem(
-                text = option.second,
-                selected = option.first == value,
-                onClick = { currentOnChange(option.first) },
-            )
-            val older = DropdownItem(
-                text = "更多模型",
-                summary = more.firstOrNull { it.first == value }?.second,
-                children = more.map(::item),
-            )
-            listOf(DropdownEntry(items = options.map(::item) + older))
-        }
         DropdownValuePreference(
             title = title,
-            entries = entries,
+            entries = remember(options, more, value) { choiceEntries(options, more, value) { currentOnChange(it) } },
             summary = summary,
             value = (options + more).firstOrNull { it.first == value }?.second,
             enabled = enabled,
@@ -87,7 +84,7 @@ internal fun FollowDropdownPreference(
 /** 「模型」：跟随 Claude Code 的默认，或 [modelChoices] 里的一个（旧版本在「更多模型」里）。 */
 @Composable
 internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (String?) -> Unit) {
-    val choices = modelChoices(hub)
+    val choices = modelChoices(hub.modelOptions)
     FollowDropdownPreference("模型", choices.latest, model, unknown = ::readableModelId, more = choices.older, onChange = onChange)
 }
 

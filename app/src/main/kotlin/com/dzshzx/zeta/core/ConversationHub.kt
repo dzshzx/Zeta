@@ -272,24 +272,14 @@ class ConversationHub(private val app: Application) {
         }
     }
 
-    fun startNew(cwd: String? = null) {
-        leaveCurrent()
-        current = if (cwd == null) blank() else Conversation(this, cwd, sessionId = null, title = "", historyFile = null)
-        prunePhones()
-    }
+    fun startNew(cwd: String? = null) =
+        replaceCurrent(if (cwd == null) blank() else Conversation(this, cwd, sessionId = null, title = "", historyFile = null))
 
     /**
-     * 结束当前对话，和终端里的 /exit 一样（[Conversation.shutdown]）：在回答的这一轮、等确认的调用和后台任务一并停下，
-     * 会话记录留着，从会话列表打开还能接着聊。界面换成空的新对话。
-     * 和 [startNew] 的差别只在对话还在进行时：这里停掉，那边留在后台跑完。在主线程上调用。
+     * 结束当前对话（[Conversation.shutdown]），界面换成空的新对话。和 [startNew] 的差别只在对话还在进行时：
+     * 这里一并停掉，那边留在后台跑完。在主线程上调用。
      */
-    fun endCurrent() {
-        val ending = current
-        parked.remove(ending)
-        ending.shutdown()
-        current = blank()
-        prunePhones()
-    }
+    fun endCurrent() = replaceCurrent(blank(), end = true)
 
     /** 换了环境（[EnvController.redetect]）：原来的会话都不再接着用，进程和后台屏幕一并收掉，换上一个空的新对话。在主线程上调用。 */
     internal fun dropConversations() {
@@ -320,13 +310,12 @@ class ConversationHub(private val app: Application) {
 
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return
-        leaveCurrent()
-        current = parkedFor(summary.id)?.also { parked.remove(it) }
-            ?: Conversation(
+        replaceCurrent(
+            parkedFor(summary.id) ?: Conversation(
                 this, summary.cwd.ifBlank { settings.env?.defaultCwd ?: "/workspace" }, summary.id,
                 summary.title.ifBlank { summary.preview.take(40) }, summary.file, external = summary.external,
-            )
-        prunePhones()
+            ),
+        )
     }
 
     /**
@@ -339,12 +328,12 @@ class ConversationHub(private val app: Application) {
         if (!source.canRewind) return
         val plan = branchPlan(source.items, lastItemId) ?: return
         val title = branchTitle(source.title, sessionList.sessions.map { it.title })
-        leaveCurrent()
-        current = Conversation(
-            this, source.cwd, sessionId = null, title = title, historyFile = null,
-            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.shownModel, source.effort, source.permissionMode),
+        replaceCurrent(
+            Conversation(
+                this, source.cwd, sessionId = null, title = title, historyFile = null,
+                fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.shownModel, source.effort, source.permissionMode),
+            ),
         )
-        prunePhones()
     }
 
     /**
@@ -354,13 +343,7 @@ class ConversationHub(private val app: Application) {
     fun openConversation(key: String) {
         val running = findConversation(key)
         if (running === current) return
-        if (running != null) {
-            leaveCurrent()
-            parked.remove(running)
-            current = running
-            prunePhones()
-            return
-        }
+        if (running != null) return replaceCurrent(running)
         sessionList.sessions.firstOrNull { it.id == key }?.let(::open) ?: sessionList.lookup(key, ::open)
     }
 
@@ -375,10 +358,7 @@ class ConversationHub(private val app: Application) {
 
     /** 会话 [ids] 要删了（[SessionList.delete]）：开着的对话收掉，后台屏幕一并收掉。在主线程上调用。 */
     internal fun closeSessions(ids: Set<String>) {
-        if (current.sessionId in ids) {
-            current.shutdown()
-            current = blank()
-        }
+        if (current.sessionId in ids) replaceCurrent(blank(), end = true)
         for (conversation in parked.filter { it.openKey in ids }) {
             parked.remove(conversation)
             conversation.shutdown()
@@ -387,14 +367,21 @@ class ConversationHub(private val app: Application) {
         prunePhones()
     }
 
-    /** 离开当前对话：闲着的直接收掉进程省内存，正在跑的（包括还有后台任务的）留在后台跑完。 */
-    private fun leaveCurrent() {
+    /**
+     * 换上 [next] 作当前对话。原来那个：[end] 时或闲着时收掉进程（省内存），还在进行的（包括有后台任务的）留在后台跑完。
+     * 在主线程上调用。
+     */
+    private fun replaceCurrent(next: Conversation, end: Boolean = false) {
         val leaving = current
-        if (leaving.active) {
-            park(leaving)
-        } else {
+        if (end || !leaving.active) {
+            parked.remove(leaving)
             leaving.shutdown()
+        } else {
+            park(leaving)
         }
+        parked.remove(next)
+        current = next
+        prunePhones()
     }
 
     /** 会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */

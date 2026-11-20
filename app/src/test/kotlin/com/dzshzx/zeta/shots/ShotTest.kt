@@ -14,7 +14,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
@@ -130,6 +132,16 @@ abstract class ShotTest {
             compose.mainClock.autoAdvance = false
         }
         return this
+    }
+
+    /** 点文字是 [text] 的节点，再让时钟走过菜单、弹窗展开的动画；在 [shoot] 的 prepare 里或直接对 [compose] 用。 */
+    fun AndroidComposeTestRule<*, *>.tap(text: String) = tapNode(onNodeWithText(text))
+
+    /** 同 [tap]，点的是给定的节点（比如按描述找的图标按钮）。 */
+    fun AndroidComposeTestRule<*, *>.tapNode(node: SemanticsNodeInteraction) {
+        node.performClick()
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
     }
 
     private object NoMotion : MotionDurationScale {

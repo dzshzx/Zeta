@@ -5,27 +5,22 @@ import com.dzshzx.zeta.ui.settings.effortRows
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/** Claude Code 2.1.329 的 initialize 实际报的模型清单（顺序照原样）；截图（ModelMenuShots）也用它。 */
+internal val ReportedModels: List<ModelOption> = listOf(
+    "default" to "claude-opus-5-5", "opus" to "claude-opus-5-5", "fable" to "claude-fable-5-2",
+    "sonnet" to "claude-sonnet-5-5", "haiku" to "claude-haiku-5-5",
+).map { (alias, resolved) ->
+    ModelOption(alias, if (alias == Conversation.DEFAULT_MODEL) "Default (recommended)" else readableModelId(resolved), "", resolved, EffortLevels.map { it.first })
+} + listOf(
+    "claude-fable-5-1", "claude-haiku-4-5-20251001", "claude-sonnet-5", "claude-opus-5", "claude-fable-5",
+    "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6",
+).map { ModelOption(it, readableModelId(it), "", it, EffortLevels.map { level -> level.first }) }
+
 /** 模型菜单只直接列各系列最新的，旧版本收进「更多模型」（[modelMenu]）。 */
 class ModelMenuTest {
     private fun option(value: String, resolved: String? = value) = ModelOption(value, readableModelId(value), "", resolved, EffortLevels.map { it.first })
 
-    /** Claude Code 2.1.329 的 initialize 实际报的清单（顺序照原样）。 */
-    private val reported = listOf(
-        option("default", "claude-opus-5-5"),
-        option("opus", "claude-opus-5-5"),
-        option("fable", "claude-fable-5-2"),
-        option("sonnet", "claude-sonnet-5-5"),
-        option("haiku", "claude-haiku-5-5"),
-        option("claude-fable-5-1"),
-        option("claude-haiku-4-5-20251001"),
-        option("claude-sonnet-5"),
-        option("claude-opus-5"),
-        option("claude-fable-5"),
-        option("claude-opus-4-8"),
-        option("claude-opus-4-7"),
-        option("claude-opus-4-6"),
-        option("claude-sonnet-4-6"),
-    )
+    private val reported = ReportedModels
 
     @Test
     fun aliasesOnTopOlderVersionsByFamilyNewestFirst() {

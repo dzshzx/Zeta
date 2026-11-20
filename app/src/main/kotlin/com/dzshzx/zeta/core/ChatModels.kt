@@ -211,34 +211,32 @@ private val VersionOrder = Comparator<List<Int>> { a, b ->
 
 /** 模型菜单的两层：[latest] 直接列出，[older] 收进「更多模型」。 */
 @Immutable
-data class ModelMenu(val latest: List<ModelOption>, val older: List<ModelOption>)
+data class ModelMenu<T>(val latest: List<T>, val older: List<T>) {
+    fun <R> map(transform: (T) -> R): ModelMenu<R> = ModelMenu(latest.map(transform), older.map(transform))
+}
 
 /**
  * 模型菜单怎么分层，和 Claude 应用一样只直接列各系列最新的：「默认」和 Claude Code 报的别名（opus、fable、sonnet、haiku 等，
  * 总是指向那个系列最新的）照它给的顺序放上层；钉死版本的完整 ID（claude-opus-4-6）是旧版本，收进 [ModelMenu.older]，
  * 按系列（上层的顺序）、版本从新到旧排。没有别名的系列，最新的那个完整 ID 也放上层；和别名指向同一个模型的完整 ID 不重复列。
  */
-fun modelMenu(models: List<ModelOption>): ModelMenu {
-    val aliases = models.filter { modelSeries(it.value) == null }
-    val pinned = models.filter { modelSeries(it.value) != null }
+fun modelMenu(models: List<ModelOption>): ModelMenu<ModelOption> {
+    val parsed = models.associateWith { modelSeries(it.value) }
+    val (pinned, aliases) = models.partition { parsed[it] != null }
     val aliasTargets = aliases.mapNotNullTo(HashSet()) { it.resolvedModel }
-    // 别名管着的系列：看它指向的完整 ID，没报就按别名本身（opus 就是 opus 系列）
-    fun seriesOf(option: ModelOption): String? = modelSeries(option.value)?.first
+    // 系列：完整 ID 看它自己；别名看它指向的完整 ID，没报就按别名本身（opus 就是 opus 系列）
+    fun seriesOf(option: ModelOption): String? = parsed[option]?.first
         ?: option.resolvedModel?.let(::modelSeries)?.first
         ?: option.value.takeIf { it != Conversation.DEFAULT_MODEL }
+    fun version(option: ModelOption): List<Int> = parsed.getValue(option)!!.second
     val covered = aliases.mapNotNullTo(HashSet(), ::seriesOf)
-    val newestUncovered = pinned.filter { seriesOf(it) !in covered }
-        .groupBy { seriesOf(it) }
-        .values.map { group -> group.maxWith(compareBy(VersionOrder) { modelSeries(it.value)!!.second }) }
-        .toSet()
+    val newestUncovered = pinned.filter { seriesOf(it) !in covered }.groupBy(::seriesOf)
+        .values.mapTo(HashSet()) { group -> group.maxWith(compareBy(VersionOrder, ::version)) }
     val latest = models.filter { it in aliases || it in newestUncovered }
+    // 旧版本的系列都在上层出现过：有别名，或者那个系列最新的在上层
     val order = latest.mapNotNull(::seriesOf).distinct()
     val older = pinned.filter { it !in newestUncovered && it.value !in aliasTargets }
-        .sortedWith(
-            compareBy<ModelOption> { order.indexOf(seriesOf(it)).let { i -> if (i < 0) order.size else i } }
-                .thenBy { seriesOf(it) }
-                .thenByDescending(VersionOrder) { modelSeries(it.value)!!.second },
-        )
+        .sortedWith(compareBy<ModelOption> { order.indexOf(seriesOf(it)) }.thenByDescending(VersionOrder, ::version))
     return ModelMenu(latest, older)
 }
 

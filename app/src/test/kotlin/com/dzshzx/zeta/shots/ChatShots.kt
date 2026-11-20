@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.shots
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,13 +49,7 @@ class ChatShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("改 README 的构建命令", oneTurn)
         hub.current.force("busy", true)
-        val prepare: AndroidComposeTestRule<*, *>.() -> Unit = {
-            onNodeWithContentDescription("更多").performClick()
-            mainClock.advanceTimeBy(500)
-            waitForIdle()
-            onNodeWithText("结束对话").performClick()
-        }
-        shoot("chat-end-confirm", prepare = prepare) {
+        shoot("chat-end-confirm", prepare = { tapNode(onNodeWithContentDescription("更多")); tap("结束对话") }) {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
         }
     }

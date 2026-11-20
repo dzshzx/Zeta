@@ -1,12 +1,9 @@
 package com.dzshzx.zeta.shots
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.EffortLevels
-import com.dzshzx.zeta.core.ModelOption
+import com.dzshzx.zeta.core.ReportedModels
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
@@ -18,32 +15,7 @@ import org.junit.Test
 
 /** 模型菜单只直接列各系列最新的，旧版本在「更多模型」二级菜单里；清单是 Claude Code 2.1.329 实际报的那 14 项。 */
 class ModelMenuShots : ShotTest() {
-    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { hub ->
-        val all = EffortLevels.map { it.first }
-        fun option(value: String, name: String, resolved: String = value) = ModelOption(value, name, "", resolved, all)
-        hub.models = listOf(
-            option("default", "Default (recommended)", "claude-opus-5-5"),
-            option("opus", "Opus 5.5", "claude-opus-5-5"),
-            option("fable", "Fable 5.2", "claude-fable-5-2"),
-            option("sonnet", "Sonnet 5.5", "claude-sonnet-5-5"),
-            option("haiku", "Haiku 5.5", "claude-haiku-5-5"),
-            option("claude-fable-5-1", "Fable 5.1"),
-            option("claude-haiku-4-5-20251001", "Haiku 4.5"),
-            option("claude-sonnet-5", "Sonnet 5"),
-            option("claude-opus-5", "Opus 5"),
-            option("claude-fable-5", "Fable 5"),
-            option("claude-opus-4-8", "Opus 4.8"),
-            option("claude-opus-4-7", "Opus 4.7"),
-            option("claude-opus-4-6", "Opus 4.6"),
-            option("claude-sonnet-4-6", "Sonnet 4.6"),
-        )
-    }
-
-    private fun AndroidComposeTestRule<*, *>.tap(text: String) {
-        onNodeWithText(text).performClick()
-        mainClock.advanceTimeBy(600)
-        waitForIdle()
-    }
+    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.models = ReportedModels }
 
     /** 顶栏的模型菜单：默认和四个系列最新的，最后是「更多模型」。 */
     @Test

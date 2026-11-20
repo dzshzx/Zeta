@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.HostTesting.alive
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
@@ -29,13 +30,7 @@ class HostIsolationTest {
     fun setUp() {
         assumeTrue("要 Linux 的 /proc 和 bash、python3", File("/proc/self/cmdline").exists())
         home = Files.createTempDirectory("zeta-hosts").toFile().canonicalFile
-        // 假的 claude：一直读标准输入（宿主脚本的 FIFO），命令行里带 claude，助手脚本才认它是活的；
-        // 和真 Claude Code 一样，收到 end_session（zeta_host.sh stop 发的）就退出
-        File(home, "bin/claude").apply {
-            parentFile!!.mkdirs()
-            writeText("#!/bin/bash\nwhile read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done\n")
-            setExecutable(true)
-        }
+        HostTesting.writeClaudeStandIn(home)
     }
 
     @After
@@ -73,8 +68,6 @@ class HostIsolationTest {
         .toList()
 
     private fun pid(name: String, key: String): Int = File(home, ".cache/$name/hosts/$key/pid").readText().trim().toInt()
-
-    private fun alive(pid: Int) = File("/proc/$pid").exists()
 
     private fun gone(pid: Int): Boolean {
         repeat(50) {

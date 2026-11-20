@@ -11,6 +11,20 @@ HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
 # 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
 INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
 
+# 顶栏右边的“更多”和它弹出的菜单：第一项“新对话”，第二项“结束对话”
+MORE_X=1102 MORE_Y=84 NEW_X=863 NEW_Y=268 END_X=863 END_Y=398
+# menu_item <x> <y>：打开“更多”，点菜单里的一项
+menu_item() {
+  vd tap $MORE_X $MORE_Y >/dev/null
+  sleep 1
+  vd tap "$1" "$2" >/dev/null
+}
+# 冷启动可能停在别的对话上（还可能正在跑）：开一个空的新对话
+new_chat() {
+  menu_item $NEW_X $NEW_Y
+  sleep 1.5
+}
+
 # 输入栏的权限模式按钮（第二个圆钮）和它往上弹的菜单；choose_mode <模式> 只改当前这个对话
 MODE_X=228 MODE_Y=2542
 choose_mode() {

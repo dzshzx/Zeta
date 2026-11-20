@@ -78,7 +78,6 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.modelLabel
-import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -91,11 +90,12 @@ import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
+import com.dzshzx.zeta.ui.settings.choiceEntries
+import com.dzshzx.zeta.ui.settings.modelChoices
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
@@ -650,7 +650,7 @@ private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = M
 /**
  * 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。
  * 显示的是 [Conversation.shownModel]。接旧会话又没在这个对话里选过模型时，模型由 Claude Code 照会话记录定，菜单不勾任何一项。
- * 菜单只直接列各系列最新的，旧版本收进「更多模型」二级菜单（[modelMenu]）；选的是旧版本时那一项下面写着它。
+ * 菜单只直接列各系列最新的，旧版本收进「更多模型」二级菜单（[choiceEntries]）；选的是旧版本时那一项下面写着它。
  */
 @Composable
 private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
@@ -659,20 +659,8 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
     val modelName = modelLabel(conversation.shownModel, models)
     var expanded by remember { mutableStateOf(false) }
     val entries = remember(models, selected, conversation) {
-        fun item(model: ModelOption) = DropdownItem(
-            text = modelLabel(model.value, models),
-            selected = model.value == selected,
-            onClick = { conversation.chooseModel(model.value) },
-        )
-        val menu = modelMenu(models)
-        val more = menu.older.takeIf { it.isNotEmpty() }?.let { older ->
-            DropdownItem(
-                text = "更多模型",
-                summary = older.firstOrNull { it.value == selected }?.let { modelLabel(it.value, models) },
-                children = older.map(::item),
-            )
-        }
-        listOf(DropdownEntry(items = menu.latest.map(::item) + listOfNotNull(more)))
+        val choices = modelChoices(models)
+        choiceEntries(choices.latest, choices.older, selected) { conversation.chooseModel(it) }
     }
     val source = remember { MutableInteractionSource() }
     Box {

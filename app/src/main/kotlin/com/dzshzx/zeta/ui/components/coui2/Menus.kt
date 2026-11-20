@@ -49,21 +49,15 @@ internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enab
     )
 
 /**
- * 挂在旁边元素（胶囊、按钮、标题）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
- * `Box { 元素; AnchoredMenu(show, entries, onDismiss) }`。项可以带二级菜单（children），见 [MenuPopup]。
+ * 挂在旁边元素（胶囊、按钮、标题、设置行）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
+ * `Box { 元素; AnchoredMenu(show, entries, onDismiss) }`；给了 [preciseClickState] 时从手指按下的地方弹出。
+ * 有项带二级菜单（DropdownItem 的 children）时用 COUI 的级联弹层，点那一项在旁边弹出下一层（普通弹层不认 children）；
+ * 级联弹层不支持从手指按下的地方弹出，那时从锚点弹出。
  */
 @Composable
-internal fun AnchoredMenu(show: Boolean, entries: List<DropdownEntry>, onDismiss: () -> Unit) =
-    MenuPopup(entries = entries, show = show, onDismiss = onDismiss)
-
-/**
- * 弹出 [entries] 的 COUI 菜单，选了一项就收起。有项带二级菜单（DropdownItem 的 children）时用 COUI 的级联弹层：
- * 点那一项在旁边弹出下一层（普通弹层不认 children）。级联弹层不支持从手指按下的地方弹出，那时 [preciseClickState] 不起作用，从锚点弹出。
- */
-@Composable
-internal fun MenuPopup(
-    entries: List<DropdownEntry>,
+internal fun AnchoredMenu(
     show: Boolean,
+    entries: List<DropdownEntry>,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
     preciseClickState: PreciseClickState? = null,

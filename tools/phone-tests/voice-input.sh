@@ -4,12 +4,10 @@
 # 正常的结局是“结束，0 字”和“没有听到说话”的提示；识别出字的那一半要人亲口试。
 # 用法：ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/voice-input.sh（vd、android、$PKG 由 phone-run 提供）
 set -euo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 android "pm grant $PKG android.permission.RECORD_AUDIO"
-# 冷启动可能停在别的对话上（还可能正在跑，发送键是停止键）：先开新对话。坐标按整屏 1220×2656
-vd tap 1102 84 # 顶栏右边的“更多”
-sleep 1
-vd tap 863 268 # 菜单第一项“新对话”
-sleep 1.5
+# 冷启动可能停在别的对话上（正在跑时发送键是停止键）：先开新对话
+new_chat
 vd shot before.png >/dev/null
 t=$(android 'date +%s')
 vd swipe 1088 2546 1088 2546 6000 # 输入卡片右下角的麦克风，按住 6 秒

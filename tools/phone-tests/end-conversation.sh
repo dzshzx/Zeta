@@ -6,16 +6,7 @@
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
-MORE_X=1102 MORE_Y=84         # 顶栏右边的“更多”
-NEW_X=863 NEW_Y=268           # 菜单第一项“新对话”
-END_X=863 END_Y=398           # 菜单第二项“结束对话”
 CONFIRM_X=866 CONFIRM_Y=2430  # 确认框右边的“结束”
-
-end_conversation() {
-  vd tap $MORE_X $MORE_Y >/dev/null
-  sleep 1
-  vd tap $END_X $END_Y >/dev/null
-}
 
 # gone <托管目录>：10 秒内目录没了（zeta_host.sh stop 收掉进程后删掉它）
 gone() {
@@ -27,11 +18,7 @@ gone() {
   return 1
 }
 
-# 冷启动可能停在别的对话上：先开新对话
-vd tap $MORE_X $MORE_Y >/dev/null
-sleep 1
-vd tap $NEW_X $NEW_Y >/dev/null
-sleep 1.5
+new_chat
 
 NEWER=/data/local/tmp/zeta-end-conversation.mark
 android "touch $NEWER"
@@ -42,7 +29,7 @@ send end-idle
 wait_result 1 20 || { vd shot idle-timeout.png >/dev/null; exit 1; }
 host=${log%/out.jsonl}
 sleep 1
-end_conversation
+menu_item $END_X $END_Y
 gone "$host" || { vd shot idle-not-ended.png >/dev/null; exit 1; }
 sleep 1
 vd shot idle-ended.png >/dev/null
@@ -62,7 +49,7 @@ done
 [[ -n $log ]] || { echo "进行中的那一轮没起来"; vd shot running-timeout.png >/dev/null; exit 1; }
 host=${log%/out.jsonl}
 sleep 1
-end_conversation
+menu_item $END_X $END_Y
 sleep 1.5
 vd shot confirm.png >/dev/null
 android "[ -d $host ]" || { echo "还没确认，进程就被收掉了"; exit 1; }

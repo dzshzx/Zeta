@@ -51,6 +51,21 @@ tasks_running() {
   grep '^[{]"type":"system","subtype":"background_tasks_changed"' "$1" | tail -n 1 | grep -qF '"tasks":[{'
 }
 
+# 结束 Claude Code（托管目录 $1、进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
+# 由它自己停下进行中的这一轮、跑 SessionEnd hook、退出，会话记录留着（ClaudeCodeContractTest 钉住）。
+# 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL。stop 和看门狗都用它。
+end_claude() {
+  local d=$1 p=$2 i
+  kill -0 "$p" 2>/dev/null || return 0
+  # 管道由起进程的那段以读写方式一直开着，写不会卡住；那段刚好不在了时由 timeout 兜底
+  timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
+    '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$d/in" 2>/dev/null
+  for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do kill -0 "$p" 2>/dev/null || return 0; sleep 0.2; done
+  kill "$p" 2>/dev/null
+  for ((i = 0; i < 25; i++)); do kill -0 "$p" 2>/dev/null || return 0; sleep 0.2; done
+  kill -9 "$p" 2>/dev/null
+}
+
 if [ "$mode" = state ]; then
   turn_running "$D/out.jsonl" && t=1 || t=0
   tasks_running "$D/out.jsonl" && b=1 || b=0
@@ -58,30 +73,17 @@ if [ "$mode" = state ]; then
   exit 0
 fi
 
-# 结束会话：往输入管道写控制请求 end_session，由 Claude Code 自己结束，等价于终端里的 /exit（-p 模式不认 /exit）：
-# 进行中的这一轮停下，SessionEnd hook 照跑，会话记录留着（ClaudeCodeContractTest 钉住）。等它退出最多 10 秒，
-# 不退（卡住了）再 SIGTERM，还不退就 SIGKILL，然后删托管目录。等待和清理放在单独的会话（setsid）里，本命令写完请求就返回，
-# Zeta 这时被杀也照样做完。
+# 结束会话（end_claude）并删托管目录。整个放在单独的会话（setsid）里，本命令立即返回，Zeta 这时被杀也照样做完。
 if [ "$mode" = stop ]; then
-  P=$(cat "$D/pid" 2>/dev/null)
-  if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then
-    # 管道由起进程的那段以读写方式一直开着，写不会卡住；那段刚好不在了时由 timeout 兜底
-    timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
-      '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$D/in" 2>/dev/null
-  fi
   setsid bash -c '
-    D=$1 P=$2
+    eval "$1"; D=$2; P=$3
     if [ -n "$P" ]; then
-      for _ in $(seq 50); do kill -0 "$P" 2>/dev/null || break; sleep 0.2; done
-      if kill "$P" 2>/dev/null; then
-        for _ in $(seq 25); do kill -0 "$P" 2>/dev/null || break; sleep 0.2; done
-        kill -9 "$P" 2>/dev/null
-      fi
+      end_claude "$D" "$P"
       # 等起进程的那段留下退出码和标准错误输出的副本（诊断页看）
       for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
     fi
     rm -rf "$D"
-  ' zeta-stop "$D" "$P" </dev/null >/dev/null 2>&1 &
+  ' zeta-stop "$(declare -f end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 
@@ -105,14 +107,14 @@ if [ "$mode" = start ]; then
     run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
   fi
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。
-  # 看门狗的两个判定函数写在上面，经第一个参数带进去（这一段在单引号里）
+  # 看门狗的两个判定函数和结束用的 end_claude 写在上面，经第一个参数带进去（这一段在单引号里）
   setsid bash -c '
     eval "$1"; D=$2; R=$3; shift 3
     exec 3<>"$D/in"
     "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
     P=$!
     echo $P > "$D/pid"
-    # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后自行结束，
+    # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
     # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
     (
       n=0
@@ -124,7 +126,7 @@ if [ "$mode" = start ]; then
         # 这一轮结束了、也没有后台任务在跑才算闲着（在等用户确认时这一轮还没结束）
         elif ! turn_running "$D/out.jsonl" && ! tasks_running "$D/out.jsonl"; then
           n=$((n + 1))
-          [ $n -ge "${ZETA_IDLE_LIMIT:-10}" ] && kill $P
+          [ $n -ge "${ZETA_IDLE_LIMIT:-10}" ] && end_claude "$D" $P
         else
           n=0
         fi
@@ -143,7 +145,7 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -d "$D" ] && echo $code > "$D/exit"
-  ' zeta-run "$(declare -f turn_running tasks_running)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
+  ' zeta-run "$(declare -f turn_running tasks_running end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else

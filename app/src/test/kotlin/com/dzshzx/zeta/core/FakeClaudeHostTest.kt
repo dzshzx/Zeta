@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.HostTesting.waitUntil
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
@@ -27,12 +28,8 @@ class FakeClaudeHostTest {
     fun setUp() {
         assumeTrue("要 Linux 的 /proc 和 bash、jq", File("/proc/self/cmdline").exists() && onPath("jq"))
         home = Files.createTempDirectory("zeta-fake").toFile().canonicalFile
-        // 真的 claude 用一个一直读标准输入的替身代替，和真的一样收到 end_session（stop 发的）就退出
-        File(home, "bin/claude").apply {
-            parentFile!!.mkdirs()
-            writeText("#!/bin/bash\nwhile read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done\n")
-            setExecutable(true)
-        }
+        // 真的 claude 用替身代替
+        HostTesting.writeClaudeStandIn(home)
     }
 
     @After
@@ -77,14 +74,6 @@ class FakeClaudeHostTest {
     private fun pid(name: String?, key: String): Int = File(hostDir(name, key), "pid").readText().trim().toInt()
 
     private fun commandLine(pid: Int): String = File("/proc/$pid/cmdline").readText().replace('\u0000', ' ')
-
-    private fun waitUntil(seconds: Int, condition: () -> Boolean): Boolean {
-        repeat(seconds * 10) {
-            if (condition()) return true
-            Thread.sleep(100)
-        }
-        return false
-    }
 
     @Test
     fun devRunsTheFakeWhileAScenarioIsInPlace() {

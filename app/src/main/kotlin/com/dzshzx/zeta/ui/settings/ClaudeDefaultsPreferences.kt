@@ -61,7 +61,7 @@ private fun rememberDefaultsWriter(hub: ConversationHub): (ClaudeConfigClient.()
 @Composable
 internal fun DefaultModelPreference(hub: ConversationHub, startAction: (@Composable () -> Unit)? = null) {
     val write = rememberDefaultsWriter(hub)
-    val choices = modelChoices(hub)
+    val choices = modelChoices(hub.modelOptions)
     FollowDropdownPreference(
         title = "默认模型",
         // 「默认」就是不设，和跟随那一项合成一项
@@ -126,9 +126,8 @@ internal fun DefaultEffortScreen(hub: ConversationHub, onBack: () -> Unit) {
                 if (defaults == null) {
                     item { ArrowPreference(title = NotRead, enabled = false) }
                 } else {
-                    val rows = effortRows(hub.models, defaults)
-                    val folded = if (showOlder) emptyList() else rows.filter { it.older }
-                    (rows - folded.toSet()).forEach { row ->
+                    val (shown, folded) = effortRows(hub.models, defaults).partition { showOlder || !it.older }
+                    shown.forEach { row ->
                         item {
                             FollowDropdownPreference(
                                 title = row.title,
