@@ -30,7 +30,7 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleStore
-import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.tools.HealthReader
 import com.dzshzx.zeta.phone.tools.HealthSummary
 import com.dzshzx.zeta.phone.tools.PersonalTools
@@ -95,7 +95,7 @@ internal object PermissionHealth {
         val power = context.getSystemService(PowerManager::class.java)
         val activity = context.getSystemService(ActivityManager::class.java)
         val notifications = context.getSystemService(NotificationManager::class.java)
-        val service = ComponentName.unflattenFromString(PhoneTools.SERVICE)
+        val service = ComponentName.unflattenFromString(AccessibilityGuard.SERVICE)
         // 列表里可能是完整类名，也可能是“包名/.类名”的简写，统一成 ComponentName 再比
         val listed = runCatching {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
@@ -109,7 +109,7 @@ internal object PermissionHealth {
         }
         return PermissionSnapshot(
             accessibilityListed = listed,
-            accessibilityConnected = PhoneTools.accessibilityConnected,
+            accessibilityConnected = AccessibilityGuard.connected,
             ignoringBatteryOptimizations = power?.isIgnoringBatteryOptimizations(packageName) == true,
             backgroundRestricted = activity?.isBackgroundRestricted == true,
             notificationsGranted = granted,
@@ -286,12 +286,12 @@ internal object PermissionHealth {
             PermissionId.Accessibility -> {
                 // 先放开“受限设置”：侧载的应用不放开的话，用户在系统设置里也开不了它的无障碍服务
                 runScript("cmd appops set --user \"\$3\" \"\$2\" ACCESS_RESTRICTED_SETTINGS allow", pkg, user)
-                if (snapshot(app).accessibilityListed && !PhoneTools.accessibilityConnected) {
+                if (snapshot(app).accessibilityListed && !AccessibilityGuard.connected) {
                     // 列表里有但没连上：把 Zeta 自己这一项拿掉再加回去，让系统重新绑定
-                    PhoneTools.disableAccessibility(app, "权限健康页重新绑定")
+                    AccessibilityGuard.remove(app, "权限健康页重新绑定")
                     Thread.sleep(400)
                 }
-                PhoneTools.enableAccessibility(app, "权限健康页")
+                AccessibilityGuard.enable(app, "权限健康页")
             }
             PermissionId.Battery -> {
                 runScript(

@@ -7,6 +7,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.Settings as ZetaSettings
@@ -127,7 +128,11 @@ object AccessibilityGuard {
     /** 这次被关以后加回失败过（没有 root 等）：只因设置变化触发的检查不再重试，也不再重复提醒。 */
     private var failed = false
 
-    private val service: String get() = PhoneTools.SERVICE
+    /** 本包的无障碍服务组件名。正式版和测试版各是各的，启用、停用都只动自己这一项。 */
+    val SERVICE: String = AppVariant.current.component(ZetaAccessibilityService::class.java.name)
+
+    /** 无障碍服务是否连着。 */
+    val connected: Boolean get() = ZetaAccessibilityService.instance != null
 
     /** 应用启动时调用一次（ConversationHub 创建时）：开始盯系统设置，并马上查一次。 */
     fun start(context: Context) {
@@ -180,7 +185,7 @@ object AccessibilityGuard {
     fun check(context: Context, reason: String) {
         synchronized(lock) {
             val raw = read(context)
-            val listed = AccessibilityList.contains(raw, service)
+            val listed = AccessibilityList.contains(raw, SERVICE)
             val was = lastListed
             lastListed = listed
             if (listed) {
@@ -246,6 +251,19 @@ object AccessibilityGuard {
     }
 
     /**
+     * 用 root 把 Zeta 的无障碍服务加进系统的启用列表（[append]），等它连上。返回是否连上了。在后台线程调用。
+     */
+    fun enable(context: Context, why: String = "要用手机工具"): Boolean {
+        if (connected) return true
+        append(context, why)
+        repeat(25) {
+            if (connected) return true
+            Thread.sleep(200)
+        }
+        return false
+    }
+
+    /**
      * 经 root 把本包的服务追加到启用列表末尾，并打开总开关 `accessibility_enabled`。
      * 比较后写入：脚本里先读当前值，和这边算新值时依据的不一样（中间被别人改过）就不写、把新值报回来，
      * 这边按新值重算再试。写完再读一遍，核对别的服务都还在。在后台线程调用。
@@ -254,20 +272,20 @@ object AccessibilityGuard {
         var expected = AccessibilityList.normalize(read(context))
         var retries = 0
         repeat(ATTEMPTS) {
-            if (AccessibilityList.contains(expected, service)) {
+            if (AccessibilityList.contains(expected, SERVICE)) {
                 // 列表里有：总开关也要开着，系统才会去绑定
                 runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript("settings put secure accessibility_enabled 1"), 10_000) }
                 setArmed(context, true)
                 return AppendResult.Present
             }
-            val next = AccessibilityList.withAdded(expected, service)
+            val next = AccessibilityList.withAdded(expected, SERVICE)
             val result = runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(COMPARE_AND_SET, expected, next, "1"), 10_000) }.getOrNull()
             val out = result?.stdout.orEmpty().trim()
             when {
                 out == "ok" -> {
                     setArmed(context, true)
                     val after = read(context)
-                    val lost = AccessibilityList.lost(expected, after, except = service)
+                    val lost = AccessibilityList.lost(expected, after, except = SERVICE)
                     if (lost.isNotEmpty()) {
                         DiagLog.error(DiagTopic.Accessibility, "写入后别的无障碍服务不见了：${lost.joinToString()}")
                     }
@@ -296,8 +314,8 @@ object AccessibilityGuard {
         lastListed = false
         var expected = AccessibilityList.normalize(target?.let(::read))
         repeat(ATTEMPTS) {
-            if (!AccessibilityList.contains(expected, service)) return@synchronized
-            val next = AccessibilityList.withRemoved(expected, service)
+            if (!AccessibilityList.contains(expected, SERVICE)) return@synchronized
+            val next = AccessibilityList.withRemoved(expected, SERVICE)
             val result = runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(COMPARE_AND_SET, expected, next, "0"), 10_000) }.getOrNull()
             val out = result?.stdout.orEmpty().trim()
             when {

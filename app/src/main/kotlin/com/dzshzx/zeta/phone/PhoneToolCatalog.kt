@@ -11,7 +11,7 @@ import kotlinx.serialization.json.JsonObject
  * 调用按名字分派，重名的只有一个调得到，所以名字不能重复（PhoneToolGroupsTest 核对）。
  */
 internal object PhoneToolCatalog {
-    val tools: List<PhoneTool> get() = PhoneTools.SCREEN_TOOLS + PhoneToolGroups.all.flatMap { it.tools }
+    val tools: List<PhoneTool> get() = ScreenToolDefs.tools + PhoneToolGroups.all.flatMap { it.tools }
 
     val definitions: List<JsonElement> get() = tools.map { it.definition }
 
@@ -23,7 +23,31 @@ internal object PhoneToolCatalog {
      * 聊天里没有，传 null。不认识的名字返回 null。
      */
     fun title(name: String, input: JsonObject, scene: CallScene? = null): String? =
-        PhoneTools.screenTitle(name, input, scene) ?: PhoneToolGroups.find(name)?.title(name, input)
+        ScreenToolDefs.title(name, input, scene) ?: PhoneToolGroups.find(name)?.title(name, input)
+
+    /** MCP initialize 交给 Claude 的说明：怎么用这一整套手机工具。 */
+    const val INSTRUCTIONS =
+        "These tools operate the Android phone this conversation runs on. " +
+            "Use `screen` to read what is on the display: it lists the visible controls, each with an index and its centre. " +
+            "Prefer acting on a control by its index (`node`), which stays valid until the next observation; " +
+            "when you already know a control's text or resource id, `match` / `id` find it on the live screen without calling `screen` first; " +
+            "use x/y only when the control is not listed. " +
+            "All coordinates are in screenshot pixels, the size reported at the top of every observation. " +
+            "Every action returns a fresh list of controls, so you rarely need to call `screen` again after acting. " +
+            "Use `scroll` to page through lists: it reports whether the content actually moved and whether the end was reached. " +
+            "Use `wait` after something slow (loading, a new page, an app starting) instead of polling with `screen`. " +
+            "Apps you open with `open_app` run on a hidden background screen by default, so the user can keep using their phone meanwhile " +
+            "(they can watch it live in Zeta); `open_app` also opens links, deep links and settings pages (`uri`, `action`). " +
+            "Every tool acts on the current screen, which is the one you last opened an app on; " +
+            "each observation starts by naming it. The background screen has no home screen or status bar: switch apps with `open_app`, go back with `press_key` back. " +
+            "Call `show_to_user` to move the app from the background screen to the main screen when the user must act themselves " +
+            "(payment, password, captcha, a login or permission prompt meant for them) or when they want to see the result in that app; after it you are on the main screen. " +
+            "Use `display: main` with `open_app` only when the user wants it done in front of them. " +
+            "Ask for `screenshot: true` only when the list is not enough (images, games, canvas-drawn pages); it costs far more than the list. " +
+            "Many system apps can do things themselves when asked: check `app_tools` before driving a system app's screen. " +
+            "`shell` runs a command as root on the Android side, outside the Linux environment your Bash tool lives in: " +
+            "use it for pm, am, cmd, settings, dumpsys, getprop, logcat and the like. " +
+            "If something needs the user's own hands, bring it to them with `show_to_user` and tell them what to do."
 }
 
 /**

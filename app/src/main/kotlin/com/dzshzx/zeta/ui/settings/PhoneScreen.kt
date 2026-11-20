@@ -9,7 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.phone.AccessibilityGuard
-import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
@@ -23,13 +22,13 @@ import kotlin.concurrent.thread
 @Composable
 internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
-    var connected by remember { mutableStateOf(PhoneTools.accessibilityConnected) }
+    var connected by remember { mutableStateOf(AccessibilityGuard.connected) }
     var working by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     var autoRestore by remember { mutableStateOf(AccessibilityGuard.autoRestore(context)) }
     LaunchedEffect(Unit) {
         while (true) {
-            connected = PhoneTools.accessibilityConnected
+            connected = AccessibilityGuard.connected
             delay(700)
         }
     }
@@ -61,7 +60,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                 }
             }
         }
-        // Zeta 只在 Claude 调用手机工具时才用到无障碍服务，要用而没连上时经 root 自动打开（PhoneTools.enableAccessibility），
+        // Zeta 只在 Claude 调用手机工具时才用到无障碍服务，要用而没连上时经 root 自动打开（AccessibilityGuard.enable），
         // 在这里关掉的也一样。「被系统关掉后自动打开」是另一回事（AccessibilityGuard）：Zeta 被强行停止等情况下系统会停用它，
         // Zeta 启动、对话开始用手机工具、系统设置变化时检查，被关了就只把 Zeta 这一项加回启用列表，别的服务原样保留；
         // 没有 root 时只发通知提醒。在这里关掉的，守护不会加回
@@ -89,7 +88,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item {
                         BasicComponent(
                             title = "关闭无障碍服务",
-                            onClick = { thread(isDaemon = true) { PhoneTools.disableAccessibility(context.applicationContext, "手机操作页") } },
+                            onClick = { thread(isDaemon = true) { AccessibilityGuard.remove(context.applicationContext, "手机操作页") } },
                         )
                     }
                 } else {
@@ -102,7 +101,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                                 working = true
                                 failed = false
                                 thread(isDaemon = true) {
-                                    val ok = PhoneTools.enableAccessibility(context.applicationContext, "手机操作页")
+                                    val ok = AccessibilityGuard.enable(context.applicationContext, "手机操作页")
                                     failed = !ok
                                     working = false
                                 }

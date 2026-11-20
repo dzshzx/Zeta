@@ -150,8 +150,8 @@ class ChatScreenPartsShots : ShotTest() {
     fun backgroundScreen() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.force("background", fakeScreen())
-        phone.force("backgroundApp", "设置")
+        phone.slot.force("background", fakeScreen())
+        phone.slot.force("backgroundApp", "设置")
         shoot("chat-background-screen") { Chat(hub) }
     }
 
@@ -160,8 +160,8 @@ class ChatScreenPartsShots : ShotTest() {
     fun backgroundViewer() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.force("background", fakeScreen())
-        phone.force("backgroundApp", "设置")
+        phone.slot.force("background", fakeScreen())
+        phone.slot.force("backgroundApp", "设置")
         shoot("chat-background-viewer", target = isDialog(), prepare = { onNodeWithText("后台屏幕").performClick() }) { Chat(hub) }
     }
 
