@@ -704,9 +704,7 @@ class Conversation(
     private fun initialize(target: ClaudeProcess) = target.request(controlBody("initialize")) { answer ->
         val response = answer.obj("response") ?: return@request
         response.arr("models")?.let { list ->
-            hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
-                ModelOption(m.str("value") ?: return@let null, m.str("displayName").orEmpty(), m.str("description").orEmpty())
-            } }
+            hub.models = list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
         }
         response.arr("commands")?.let { list ->
             val commands = parseSlashCommands(list)

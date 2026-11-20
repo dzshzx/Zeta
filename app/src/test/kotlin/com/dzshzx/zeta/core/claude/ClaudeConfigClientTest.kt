@@ -315,6 +315,59 @@ abstract class ClaudeConfigClientTest {
         assertEquals("{\n  \"permissions\": {\n    \"defaultMode\": \"plan\"\n  }\n}\n", run("cat \"$settings\""))
     }
 
+    /**
+     * 默认思考强度：按模型改 modelSettings.<完整 ID>.effortLevel，和 /effort 存为默认是同一个位置；同一模型下别的键、别的模型不动，
+     * 删空了连这个模型一起删。不带模型时改顶层的 effortLevel。
+     */
+    @Test
+    fun defaultEffortEditsOneModel() {
+        val settings = "\$HOME/.claude/settings.json"
+        run(
+            """
+            mkdir -p "${'$'}HOME/.claude"
+            printf '%s\n' '{"model":"opus","modelSettings":{"claude-opus-5-5":{"effortLevel":"xhigh"},"claude-fable-5-2":{"effortLevel":"high","maxEffortLevel":"max"}}}' > "$settings"
+            """.trimIndent(),
+        )
+        val sonnet = client.setDefaultEffort("claude-sonnet-5-5", "low")
+        assertEquals(mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high", "claude-sonnet-5-5" to "low"), sonnet.efforts)
+        assertEquals("medium", client.setDefaultEffort("claude-fable-5-2", "medium").efforts["claude-fable-5-2"])
+        // 跟随 Claude Code：删掉这个模型的 effortLevel；opus 下没别的键了，整项删掉
+        assertNull(client.setDefaultEffort("claude-opus-5-5", null).efforts["claude-opus-5-5"])
+        assertEquals("high", client.setDefaultEffort(null, "high").effort)
+        assertEquals(
+            """
+            {
+              "model": "opus",
+              "modelSettings": {
+                "claude-fable-5-2": {
+                  "effortLevel": "medium",
+                  "maxEffortLevel": "max"
+                },
+                "claude-sonnet-5-5": {
+                  "effortLevel": "low"
+                }
+              },
+              "effortLevel": "high"
+            }
+            """.trimIndent() + "\n",
+            run("cat \"$settings\""),
+        )
+        // 只剩别的键的模型留着，删空了的模型和空的 modelSettings 都不留
+        client.setDefaultEffort("claude-fable-5-2", null)
+        client.setDefaultEffort("claude-sonnet-5-5", null)
+        assertEquals(
+            "{\n  \"model\": \"opus\",\n  \"modelSettings\": {\n    \"claude-fable-5-2\": {\n      \"maxEffortLevel\": \"max\"\n    }\n  },\n  \"effortLevel\": \"high\"\n}\n",
+            run("cat \"$settings\""),
+        )
+        run("printf '{\"modelSettings\":{\"claude-opus-5-5\":{\"effortLevel\":\"low\"}}}' > \"$settings\"")
+        client.setDefaultEffort("claude-opus-5-5", null)
+        assertEquals("{}\n", run("cat \"$settings\""))
+        // modelSettings 不是对象：不写，报原因
+        run("printf '{\"modelSettings\":3}' > \"$settings\"")
+        assertTrue(runCatching { client.setDefaultEffort("claude-opus-5-5", "low") }.exceptionOrNull() is ClaudeConfigException)
+        assertEquals("{\"modelSettings\":3}", run("cat \"$settings\""))
+    }
+
     @Test
     fun permissionsEditOnlyTheirRules() {
         val settings = "\$HOME/.claude/settings.json"

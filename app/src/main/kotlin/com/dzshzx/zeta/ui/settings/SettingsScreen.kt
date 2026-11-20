@@ -65,6 +65,7 @@ internal fun SettingsScreen(
                 SettingsSubPage.ClaudeAgents -> ClaudeAgentsScreen(hub = hub, onBack = close)
                 SettingsSubPage.ToolPermissions -> ToolPermissionsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
+                SettingsSubPage.DefaultEffort -> DefaultEffortScreen(hub = hub, onBack = close)
                 // 打开某次运行的对话：设置页整个关掉，回到聊天页
                 SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
                 SettingsSubPage.NotifyTriggers -> NotifyTriggerScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
@@ -97,7 +98,7 @@ private fun SettingsHome(
                 item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
                 item { DefaultModelPreference(hub) { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) } }
                 item { DefaultPermissionModePreference(hub) { SettingsIcon(ZetaIcons.ShieldA, SettingsHue.Claude) } }
-                item { DefaultEffortSummary(hub) { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) } }
+                item { DefaultEffortEntry(hub, onOpen = { onOpenSubPage(SettingsSubPage.DefaultEffort) }) { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) } }
             }
         }
         item(key = "context") {

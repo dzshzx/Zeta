@@ -21,4 +21,5 @@ internal enum class SettingsSubPage(val link: String) {
     Storage("Storage"),
     Assistant("Assistant"),
     Backup("Backup"),
+    DefaultEffort("DefaultEffort"),
 }

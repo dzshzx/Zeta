@@ -151,7 +151,25 @@ data class PermissionRequest(
 
 /** 模型选择器里的一项（Claude Code 报的）。 */
 @Immutable
-data class ModelOption(val value: String, val displayName: String, val description: String)
+data class ModelOption(
+    val value: String,
+    val displayName: String,
+    val description: String,
+    /** 这一项现在对应的完整模型 ID（initialize 的 resolvedModel）；按模型存的默认思考强度以它为键。没报时为 null。 */
+    val resolvedModel: String? = null,
+    /** 能选的思考强度（supportedEffortLevels，不支持时是空的）；没报时为 null，按 [EffortLevels] 全部几档算。 */
+    val effortLevels: List<String>? = null,
+)
+
+/** initialize 应答 models 里的一项；没有 value 的不算。supportsEffort 为 false 时能选的思考强度是空的。 */
+internal fun modelOption(m: JsonObject): ModelOption? = ModelOption(
+    value = m.str("value") ?: return null,
+    displayName = m.str("displayName").orEmpty(),
+    description = m.str("description").orEmpty(),
+    resolvedModel = m.str("resolvedModel")?.takeIf { it.isNotBlank() },
+    effortLevels = if (m.bool("supportsEffort") == false) emptyList()
+    else m.arr("supportedEffortLevels")?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
+)
 
 /** 还没连上进程、拿不到 Claude Code 的清单时先给的几个常用别名（Claude Code 自己解析）。 */
 val FallbackModels = listOf(

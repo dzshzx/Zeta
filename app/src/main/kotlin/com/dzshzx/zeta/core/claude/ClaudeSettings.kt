@@ -85,13 +85,28 @@ object ClaudeSettings {
     fun withModel(settings: JsonObject, value: String?): JsonObject = with(settings, "model", value?.let(::JsonPrimitive))
 
     /** 默认权限模式（permissions.defaultMode）；permissions 里别的键原样留着。permissions 不是对象时抛 [Invalid]。 */
-    fun withDefaultMode(settings: JsonObject, mode: String): JsonObject {
-        val permissions = when (val p = settings["permissions"]) {
-            null -> JsonObject(emptyMap())
-            is JsonObject -> p
-            else -> throw Invalid()
-        }
-        return with(settings, "permissions", with(permissions, "defaultMode", JsonPrimitive(mode)))
+    fun withDefaultMode(settings: JsonObject, mode: String): JsonObject =
+        with(settings, "permissions", with(objectAt(settings, "permissions"), "defaultMode", JsonPrimitive(mode)))
+
+    /**
+     * 默认思考强度（[level]，null 是删掉）。[model] 是完整模型 ID 时改 modelSettings.<model>.effortLevel，和 /effort 存为默认一样，
+     * 这个模型下别的键（maxEffortLevel 等）原样留着，删空了连这个模型一起删，modelSettings 空了也删；
+     * [model] 为 null 时改顶层的 effortLevel（没单独设的模型用它）。modelSettings 或其中这一项不是对象时抛 [Invalid]。
+     */
+    fun withEffort(settings: JsonObject, model: String?, level: String?): JsonObject {
+        val value = level?.let(::JsonPrimitive)
+        if (model == null) return with(settings, "effortLevel", value)
+        val all = objectAt(settings, "modelSettings")
+        val entry = with(objectAt(all, model), "effortLevel", value)
+        val updated = with(all, model, entry.takeIf { it.isNotEmpty() })
+        return with(settings, "modelSettings", updated.takeIf { it.isNotEmpty() })
+    }
+
+    /** [key] 处的对象，没有时是空对象，不是对象时抛 [Invalid]。 */
+    private fun objectAt(parent: JsonObject, key: String): JsonObject = when (val value = parent[key]) {
+        null -> JsonObject(emptyMap())
+        is JsonObject -> value
+        else -> throw Invalid()
     }
 
     /**

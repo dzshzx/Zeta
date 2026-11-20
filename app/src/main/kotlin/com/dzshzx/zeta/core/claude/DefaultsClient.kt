@@ -1,7 +1,8 @@
 package com.dzshzx.zeta.core.claude
 
 /*
- * 设置页的「默认模型」「默认权限模式」：读写 ~/.claude/settings.json，和 Claude Code 的 /model 存为默认一样（用户级设置，所有项目生效）。
+ * 设置页的「默认模型」「默认权限模式」「默认思考强度」：读写 ~/.claude/settings.json，和 Claude Code 的 /model、/effort 存为默认一样
+ * （用户级设置，所有项目生效）。
  * 改法同 PermissionsClient：读最新内容 → 只改这一个键 → 按读到时的校验值写回；返回写完以后的默认值。
  */
 
@@ -23,5 +24,16 @@ fun ClaudeConfigClient.setDefaultPermissionMode(mode: String): ClaudeDefaults {
         },
     )
 }
+
+/** 默认思考强度：[model] 是完整模型 ID 时只改这个模型的，null 时改没单独设的模型用的那一档；[level] 为 null 是删掉。 */
+fun ClaudeConfigClient.setDefaultEffort(model: String?, level: String?): ClaudeDefaults = ClaudeSettings.defaults(
+    updateSettings {
+        try {
+            ClaudeSettings.withEffort(it, model, level)
+        } catch (error: ClaudeSettings.Invalid) {
+            throw ClaudeConfigException("settings.json 里的 modelSettings 不是对象，先在终端里修好它")
+        }
+    },
+)
 
 private const val BYPASS = "bypassPermissions"
