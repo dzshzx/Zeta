@@ -354,7 +354,7 @@ internal object PermissionHealth {
             PermissionId.Accessibility -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             // 系统的“电池优化”列表在各家 ROM 上入口不一，应用详情页里都能改
             PermissionId.Battery -> details
-            // MIUI 安全中心的“其他权限”页，里面有“后台弹出界面”；打不开时 PermissionScreen 退回应用详情页
+            // MIUI 安全中心的“其他权限”页，里面有“后台弹出界面”；打不开时 PermissionHealthScreen 退回应用详情页
             PermissionId.BackgroundStart -> Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", pkg)
             // 权限没给和某类通知被关，都在应用的通知设置页里改
             PermissionId.Notifications -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)

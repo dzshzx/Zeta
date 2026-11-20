@@ -343,7 +343,7 @@ object AccessibilityGuard {
         runCatching {
             val open = Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(SettingsLink.EXTRA, SettingsSubPage.Permissions.name)
+                .putExtra(SettingsLink.EXTRA, SettingsSubPage.PermissionHealth.name)
             val pending = PendingIntent.getActivity(context, Notifier.ID_ACCESSIBILITY, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             Notifier.post(context, null, Notifier.ID_ACCESSIBILITY, title, text, pending)
         }

@@ -27,7 +27,7 @@ import kotlinx.coroutines.withContext
 
 /** “权限健康”：Zeta 需要或能用到的权限和状态，每项点一下就去修；有 root 时可以一键授予。 */
 @Composable
-internal fun PermissionScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit) {
+internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snapshot = rememberPermissionSnapshot()

@@ -53,7 +53,7 @@ internal fun SettingsScreen(
     Box(Modifier.fillMaxSize()) {
         SettingsHome(hub, onBack, onOpenLinux, onOpenSubPage = { subPage = it })
         SlideInPage(subPage == SettingsSubPage.Appearance) { AppearanceScreen(hub = hub, onBack = { subPage = null }) }
-        SlideInPage(subPage == SettingsSubPage.Permissions) { PermissionScreen(hub = hub, onBack = { subPage = null }, onOpenLinux = onOpenLinux) }
+        SlideInPage(subPage == SettingsSubPage.PermissionHealth) { PermissionHealthScreen(hub = hub, onBack = { subPage = null }, onOpenLinux = onOpenLinux) }
         SlideInPage(subPage == SettingsSubPage.Phone) { PhoneScreen(hub = hub, onBack = { subPage = null }) }
         ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
         SlideInPage(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
@@ -185,7 +185,7 @@ private fun SettingsHome(
         }
         item(key = "permissions") {
             PreferenceGroup(title = "权限") {
-                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.Permissions) } }
+                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.PermissionHealth) } }
             }
         }
         item(key = "about") {

@@ -11,7 +11,7 @@ import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ConfigDocumentEditor
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
-import com.dzshzx.zeta.ui.setup.ClaudePermissionsScreen
+import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeSkillsScreen
 import org.junit.Test
 
@@ -105,6 +105,6 @@ class SetupClaudeShots : ShotTest() {
     @Test
     fun permissions() {
         val hub = Fixtures.readyHub(app)
-        shoot("claude-permissions") { ClaudePermissionsScreen(hub = hub, onBack = {}) }
+        shoot("claude-permissions") { ToolPermissionsScreen(hub = hub, onBack = {}) }
     }
 }

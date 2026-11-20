@@ -19,6 +19,11 @@ internal object SettingsLink {
     fun accept(intent: Intent?) {
         val name = intent?.getStringExtra(EXTRA) ?: return
         intent.removeExtra(EXTRA)
-        pending = SettingsSubPage.entries.firstOrNull { it.name == name } ?: return
+        pending = page(name) ?: return
     }
+
+    fun page(name: String): SettingsSubPage? = SettingsSubPage.entries.firstOrNull { it.name == name } ?: formerNames[name]
+
+    /** 改名前的页名：改名前发出、还挂在通知栏里的通知带的是它们。 */
+    private val formerNames = mapOf("Permissions" to SettingsSubPage.PermissionHealth)
 }

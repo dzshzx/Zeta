@@ -93,7 +93,7 @@ private fun ToolRow(title: String, summary: String?, own: PermissionBehavior?, e
  * 规则里写 mcp__phone（整个服务器）或 mcp__phone__工具名；别的 MCP 服务器同样写 mcp__服务器名。
  */
 @Composable
-internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
+internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
     val cwd = hub.env?.defaultCwd ?: "/"
