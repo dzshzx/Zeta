@@ -50,12 +50,9 @@ internal object ClipboardTools : PhoneToolGroup {
         else -> text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.let { "写入剪贴板「" + it.clipChars(16, "…") + "」" } ?: "写入剪贴板"
     }
 
-    /** 以 root 起辅助进程。app_process 要和系统一样的启动类路径，经 su 进来时不一定带着，从 system_server 那里抄一份（同后台屏幕的辅助进程）。 */
+    /** 以 root 起辅助进程，返回它的标准输出和标准错误（结果和失败原因都打在标准输出上）。 */
     private fun run(context: Context, mode: String, stdin: String?): String {
-        val script = "for kv in \$(\"\$1\" tr '\\000' ' ' < /proc/\$(pidof system_server)/environ); do " +
-            "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
-            "CLASSPATH=\"\$2\" exec app_process /system/bin $HELPER \"\$3\" 2>&1"
-        val result = LinuxEnv.runRoot(LinuxEnv.androidScript(script, context.applicationInfo.sourceDir, mode), 15_000, stdin ?: "")
+        val result = LinuxEnv.runRoot(appProcess(context.applicationInfo.sourceDir, HELPER, listOf(mode)), 15_000, stdin ?: "")
         return result.stdout + result.stderr
     }
 

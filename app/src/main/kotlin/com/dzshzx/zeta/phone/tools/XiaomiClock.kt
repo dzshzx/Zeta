@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.LinuxEnv
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -83,7 +84,7 @@ internal object XiaomiClock {
     }
 
     /** content 的 --bind 值里冒号要转义。 */
-    private fun bind(column: String, type: Char, value: String): String = "--bind " + shQuote("$column:$type:" + value.replace(":", "\\:"))
+    private fun bind(column: String, type: Char, value: String): String = "--bind " + LinuxEnv.quote("$column:$type:" + value.replace(":", "\\:"))
 
     fun addCommand(hour: Int, minute: Int, days: Int, label: String, vibrate: Boolean): String =
         SYSTEM_ENV + "content insert --uri $ALARMS/alarmassist " + listOf(

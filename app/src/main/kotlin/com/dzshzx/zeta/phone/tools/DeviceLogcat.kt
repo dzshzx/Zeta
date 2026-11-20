@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.clipChars
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -27,7 +28,7 @@ internal object DeviceLogcat {
     )
 
     /** 包名 → uid 的命令，输出形如 `package:com.x uid:10282`。 */
-    fun uidCommand(packageName: String): String = "pm list packages -U ${shQuote(packageName)}"
+    fun uidCommand(packageName: String): String = "pm list packages -U ${LinuxEnv.quote(packageName)}"
 
     fun parseUid(output: String, packageName: String): Int? = output.lineSequence()
         .firstOrNull { it.trim().startsWith("package:$packageName uid:") }
@@ -44,11 +45,11 @@ internal object DeviceLogcat {
         append("logcat -d -v threadtime")
         q.buffer?.let { append(" -b ").append(it) }
         q.uid?.let { append(" --uid=").append(it) }
-        q.since?.let { append(" -T ").append(shQuote(it.format(SINCE))) }
-        q.grep?.let { append(" -e ").append(shQuote(it)) }
+        q.since?.let { append(" -T ").append(LinuxEnv.quote(it.format(SINCE))) }
+        q.grep?.let { append(" -e ").append(LinuxEnv.quote(it)) }
         if (q.tags.isEmpty()) append(" '*:").append(q.level).append("'")
         else {
-            for (tag in q.tags) append(' ').append(shQuote("$tag:${q.level}"))
+            for (tag in q.tags) append(' ').append(LinuxEnv.quote("$tag:${q.level}"))
             append(" '*:S'")
         }
         // 先在手机上截掉多余的行，不把整个缓冲区搬过来

@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.phone.tools
 
 import com.dzshzx.zeta.core.AppVariant
+import com.dzshzx.zeta.core.LinuxEnv
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -19,7 +20,7 @@ internal object DeviceApps {
     )
 
     fun infoCommand(packageName: String): String =
-        "dumpsys package ${shQuote(packageName)} | sed -n '/^Packages:/,\$p'; echo '##pids'; pidof ${shQuote(packageName)} || true"
+        "dumpsys package ${LinuxEnv.quote(packageName)} | sed -n '/^Packages:/,\$p'; echo '##pids'; pidof ${LinuxEnv.quote(packageName)} || true"
 
     /** 应用详情：从 `dumpsys package <包名>` 的 Packages: 一节里挑要紧的。没装返回 null。 */
     fun parseInfo(packageName: String, output: String, label: String?): String? {
@@ -85,7 +86,7 @@ internal object DeviceApps {
     }
 
     /** 读冻结 / 停止状态，用来核对：返回 User 0 一行里的 enabled 和 stopped。 */
-    fun stateCommand(packageName: String): String = "dumpsys package ${shQuote(packageName)} | grep -m1 -E '^ +User 0: '"
+    fun stateCommand(packageName: String): String = "dumpsys package ${LinuxEnv.quote(packageName)} | grep -m1 -E '^ +User 0: '"
 
     fun userState(output: String): Pair<String?, Boolean?> {
         val enabled = Regex("\\benabled=(\\d)").find(output)?.groupValues?.get(1)

@@ -13,6 +13,7 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.phone.tools.appProcess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.ConcurrentHashMap
@@ -338,14 +339,8 @@ class VirtualScreen private constructor(
             val token = VdSurfaceProvider.register(reader.surface)
             var process: Process? = null
             try {
-                // app_process 要和系统一样的启动类路径；经 su 进来时环境变量不一定带着，从 system_server 那里抄一份
-                val script = "for kv in \$(\"\$1\" tr '\\000' ' ' < /proc/\$(pidof system_server)/environ); do " +
-                    "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
-                    "CLASSPATH=\"\$2\" exec app_process /system/bin $HELPER \"\$3\" \"\$4\" \"\$5\" \"\$6\" \"\$7\""
-                val started = ProcessBuilder(
-                    "su", "-c",
-                    LinuxEnv.androidScript(script, context.applicationInfo.sourceDir, VdSurfaceProvider.AUTHORITY, token, "$width", "$height", "$dpi"),
-                ).redirectErrorStream(true).start()
+                val script = appProcess(context.applicationInfo.sourceDir, HELPER, listOf(VdSurfaceProvider.AUTHORITY, token, "$width", "$height", "$dpi"))
+                val started = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
                 process = started
                 val ready = CountDownLatch(1)
                 var displayId: Int? = null

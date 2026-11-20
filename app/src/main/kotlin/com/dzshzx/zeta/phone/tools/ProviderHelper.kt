@@ -379,19 +379,15 @@ internal object RootProvider {
     /**
      * 执行 [ops]，返回与之一一对应的结果；整个调用失败时抛出异常，message 是给人看的原因。
      * [system]：以 system（uid 1000）身份起辅助进程。小米录音机、便签这类系统应用的 Provider 只认系统身份的调用方，
-     * 对 root 一律返回空。uid 要在进程启动前换好（Binder 在 app_process 起来时就按当时的身份打开了），用 BusyBox nsenter 的 -S、-G。
+     * 对 root 一律返回空。uid 要在进程启动前换好，见 [appProcess]。
      */
     fun run(context: Context, ops: List<JsonObject>, timeoutMs: Long = 30_000, system: Boolean = false): List<JsonObject> {
         val request = buildJsonObject {
             put("user", LinuxEnv.androidUser)
             put("ops", JsonArray(ops))
         }.toString()
-        val launch = if (system) "exec \"\$1\" nsenter -t 1 -m -S ${Process.SYSTEM_UID} -G ${Process.SYSTEM_UID} -- app_process" else "exec app_process"
-        // app_process 要和系统一样的启动类路径；经 su 进来时环境变量不一定带着，从 system_server 那里抄一份
-        val script = "for kv in \$(\"\$1\" tr '\\000' ' ' < /proc/\$(pidof system_server)/environ); do " +
-            "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
-            "CLASSPATH=\"\$2\" $launch /system/bin ${ProviderHelper::class.java.name} \"\$3\""
-        val result = LinuxEnv.runRoot(LinuxEnv.androidScript(script, context.applicationInfo.sourceDir, request), timeoutMs)
+        val script = appProcess(context.applicationInfo.sourceDir, ProviderHelper::class.java.name, listOf(request), if (system) Process.SYSTEM_UID else null)
+        val result = LinuxEnv.runRoot(script, timeoutMs)
         if (result.timedOut) throw IllegalStateException("读取超时（${timeoutMs / 1000} 秒）")
         val line = result.stdout.lineSequence().lastOrNull { it.startsWith(ProviderHelper.MARK) }
             ?: throw IllegalStateException("root 辅助进程没有结果（退出码 ${result.exitCode}）" + result.stderr.trim().take(200).let { if (it.isEmpty()) "" else "：$it" })

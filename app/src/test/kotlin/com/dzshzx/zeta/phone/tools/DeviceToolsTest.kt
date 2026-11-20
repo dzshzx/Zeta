@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.core.LinuxEnv
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -107,7 +108,7 @@ class DeviceShellTest {
 
     @Test
     fun formats() {
-        assertEquals("'it'\\''s'", shQuote("it's"))
+        assertEquals("'it'\\''s'", LinuxEnv.quote("it's"))
         assertEquals("45s", spoken(45_000))
         assertEquals("5m30s", spoken(330_000))
         assertEquals("25m", spoken(1_500_000))

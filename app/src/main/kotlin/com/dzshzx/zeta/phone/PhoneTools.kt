@@ -1252,11 +1252,6 @@ class PhoneTools(
 
     private fun idle() = System.currentTimeMillis() - lastUse >= IDLE_SLEEP_MS - 1000
 
-    /** 让这个对话的后台屏幕休眠（有的话）：不销毁，屏上的应用和页面都留着，下次用工具时唤醒。可以在任何线程上调用。 */
-    internal fun sleepBackground() {
-        thread(name = "zeta-phone-sleep", isDaemon = true) { synchronized(lock) { screenRef?.sleep() } }
-    }
-
     /** 换到现在用它的对话（重新打开会话时会新建对话对象）：闲置判断、界面刷新都跟着它走。在主线程上调用。 */
     fun attach(busy: () -> Boolean, onChanged: () -> Unit) {
         this.busy = busy
@@ -1273,7 +1268,6 @@ class PhoneTools(
         thread(name = "zeta-phone-detach", isDaemon = true) {
             synchronized(lock) {
                 if (destroyed) return@thread
-                // 已经持着锁，直接睡下（sleepBackground 会另起线程再来拿锁）
                 screenRef?.sleep()
                 forget()
             }

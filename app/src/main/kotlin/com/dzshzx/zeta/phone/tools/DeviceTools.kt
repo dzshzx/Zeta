@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
@@ -278,20 +279,20 @@ internal object DeviceTools : PhoneToolGroup {
     private fun systemSetting(a: JsonObject): String {
         val namespace = a.str("namespace")?.takeIf { it in setOf("system", "secure", "global") } ?: throw ToolError("namespace 只能是 system、secure 或 global")
         fun key() = a.str("key")?.trim()?.takeIf { it.isNotEmpty() && it.none { c -> c.isWhitespace() } } ?: throw ToolError("要给 key（不含空白）")
-        fun get(key: String) = sh.out("settings get $namespace ${shQuote(key)}").removeSuffix("\n").let { if (it == "null") "(not set)" else it }
+        fun get(key: String) = sh.out("settings get $namespace ${LinuxEnv.quote(key)}").removeSuffix("\n").let { if (it == "null") "(not set)" else it }
         return when (val action = a.str("action")) {
             "get" -> key().let { "$namespace/$it = " + get(it) }
             "put" -> {
                 val key = key()
                 val value = anyString(a, "value") ?: throw ToolError("put 要给 value")
                 val before = get(key)
-                sh.out("settings put $namespace ${shQuote(key)} ${shQuote(value)}")
+                sh.out("settings put $namespace ${LinuxEnv.quote(key)} ${LinuxEnv.quote(value)}")
                 "$namespace/$key = " + get(key) + " (was $before)"
             }
             "delete" -> {
                 val key = key()
                 val before = get(key)
-                sh.out("settings delete $namespace ${shQuote(key)}")
+                sh.out("settings delete $namespace ${LinuxEnv.quote(key)}")
                 "$namespace/$key deleted (was $before)"
             }
             "list" -> {
@@ -331,20 +332,20 @@ internal object DeviceTools : PhoneToolGroup {
             "force_stop" -> {
                 val p = required().also(::guard)
                 if (state(p).first == null) throw ToolError("没有安装 $p")
-                sh.out("am force-stop --user 0 ${shQuote(p)}")
+                sh.out("am force-stop --user 0 ${LinuxEnv.quote(p)}")
                 "force-stopped ${named(context, p)}" + if (state(p).second == true) "" else "（读回来还不是 stopped 状态）"
             }
             "freeze" -> {
                 val p = required().also(::guard)
                 if (state(p).first == null) throw ToolError("没有安装 $p")
-                sh.out("pm disable-user --user 0 ${shQuote(p)}")
+                sh.out("pm disable-user --user 0 ${LinuxEnv.quote(p)}")
                 val after = state(p).first
                 "${named(context, p)}: " + if (after == "3" || after == "2") "frozen" else "state enabled=$after（没冻上）"
             }
             "unfreeze" -> {
                 val p = required()
                 if (state(p).first == null) throw ToolError("没有安装 $p")
-                sh.out("pm enable --user 0 ${shQuote(p)}")
+                sh.out("pm enable --user 0 ${LinuxEnv.quote(p)}")
                 val after = state(p).first
                 "${named(context, p)}: " + if (after == "0" || after == "1") "enabled" else "state enabled=$after（没解冻）"
             }

@@ -97,10 +97,7 @@ object HotspotHelper {
 
     /** Zeta 进程里调用：经 su 起辅助进程，返回问题，成功返回 null。 */
     fun run(context: Context, on: Boolean): String? {
-        val script = "for kv in \$(tr '\\000' ' ' < /proc/\$(pidof system_server)/environ); do " +
-            "case \"\$kv\" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export \"\$kv\";; esac; done; " +
-            "CLASSPATH=${shQuote(context.applicationInfo.sourceDir)} exec app_process /system/bin ${HotspotHelper::class.java.name} " + if (on) "on" else "off"
-        val result = rootShell(script, 20_000)
+        val result = rootShell(appProcessCommand(context.applicationInfo.sourceDir, HotspotHelper::class.java.name, if (on) "on" else "off"), 20_000)
         val line = result.stdout.lineSequence().firstOrNull { it.startsWith(MARKER) }?.removePrefix(MARKER)
             ?: return "热点辅助进程没有回应：" + (result.stderr.ifBlank { result.stdout }.trim().takeLast(300).ifBlank { "退出码 ${result.exitCode}" })
         return if (line == "ok") null else line.removePrefix("error ")
