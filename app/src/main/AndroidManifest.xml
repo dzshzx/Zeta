@@ -31,6 +31,11 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- 系统默认的桌面：手机工具只在主屏上打开它（PhoneTools.homePackage） -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
         <!-- 系统自带的语音识别和朗读引擎（小米的在 com.xiaomi.mibrain.speech）；数字助理的识别服务也靠它找到小米的转过去 -->
         <intent>
             <action android:name="android.speech.RecognitionService" />

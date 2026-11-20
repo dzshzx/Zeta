@@ -2,6 +2,8 @@ package com.dzshzx.zeta.phone
 
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
@@ -1064,7 +1066,7 @@ class PhoneTools(
         if (requested != "main") {
             val reason = when {
                 !settings.backgroundScreen -> if (requested == "background") "用户在 Zeta 的设置里关掉了「在后台屏幕上操作」，在主屏上打开" else null
-                handler != null && (handler == context.packageName || handler in MAIN_ONLY) -> "$label 只在主屏上打开"
+                handler != null && handler in OpenRequest.mainOnly(homePackage(), context.packageName) -> "$label 只在主屏上打开"
                 // 在后台屏幕上启动会把它从主屏抽走，打断用户正在做的事
                 handler != null && handler == foregroundOnMain() -> "$label 正开在主屏前台（用户可能正在用），就在主屏上操作，不把它挪走"
                 else -> null
@@ -1101,6 +1103,15 @@ class PhoneTools(
         Thread.sleep(1500)
         return observe(screenshot = a.bool("screenshot") == true, maxNodes = 60, notes = notes)
     }
+
+    /**
+     * 系统默认的桌面的包名，问不到时为 null。每次现问（本进程里一次 PackageManager 查询），用户换了桌面也跟得上；
+     * 要看得到桌面，清单的 queries 里登记了 HOME。几个桌面都没设默认时问到的是选择界面，包名是 android。
+     */
+    private fun homePackage(): String? = runCatching {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        context.packageManager.resolveActivity(home, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))?.activityInfo?.packageName
+    }.getOrNull()
 
     /** 应用的名字；看不到（没有桌面图标、不在可见范围里）时用包名。 */
     private fun appLabel(packageName: String): String =
@@ -1360,13 +1371,6 @@ class PhoneTools(
         private val userGestures by lazy {
             Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "zeta-phone-user").apply { isDaemon = true } }
         }
-
-        /** 只在主屏上打开的：桌面、系统界面。 */
-        private val MAIN_ONLY = setOf(
-            "android", "com.android.systemui", "com.miui.home", "com.android.launcher", "com.android.launcher3",
-            "com.google.android.apps.nexuslauncher", "com.oppo.launcher", "com.bbk.launcher2", "com.huawei.android.launcher",
-            "com.sec.android.app.launcher",
-        )
 
         private const val OUTPUT_LIMIT = 30_000
         /** 本包的无障碍服务组件名。正式版和测试版各是各的，启用、停用都只动自己这一项。 */

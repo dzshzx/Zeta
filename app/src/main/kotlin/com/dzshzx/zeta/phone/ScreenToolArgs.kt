@@ -94,6 +94,12 @@ internal class OpenRequest(val app: String?, val uri: String?, val action: Strin
             if (action != null && !ACTION.matches(action)) return Checked.bad("action 要是完整的 intent 动作名，比如 android.settings.WIFI_SETTINGS")
             return Checked.ok(OpenRequest(app, uri, action))
         }
+
+        /**
+         * 只在主屏上打开、不放到后台屏幕的包：系统默认的桌面 [home]（问不到时为 null）、Zeta 自己（[self]）、系统界面，
+         * 和系统本身（选择打开方式的界面也在里面）。
+         */
+        fun mainOnly(home: String?, self: String): Set<String> = setOfNotNull("android", "com.android.systemui", self, home)
     }
 }
 

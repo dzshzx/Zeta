@@ -65,6 +65,22 @@ class ScreenToolArgsTest {
     }
 
     @Test
+    fun mainOnlyFollowsTheDefaultHome() {
+        val self = "com.dzshzx.zeta.dev"
+        // 手机：HyperOS 的桌面
+        val phone = OpenRequest.mainOnly("com.miui.home", self)
+        assertEquals(setOf("android", "com.android.systemui", self, "com.miui.home"), phone)
+        // 不是默认桌面的那些照常放到后台屏幕上
+        assertFalse("com.android.launcher3" in phone)
+        assertFalse("com.android.settings" in phone)
+        // 模拟器
+        assertTrue("com.google.android.apps.nexuslauncher" in OpenRequest.mainOnly("com.google.android.apps.nexuslauncher", self))
+        // 问不到默认桌面时只剩固定的几个；没设默认时问到的是系统的选择界面
+        assertEquals(setOf("android", "com.android.systemui", self), OpenRequest.mainOnly(null, self))
+        assertEquals(setOf("android", "com.android.systemui", self), OpenRequest.mainOnly("android", self))
+    }
+
+    @Test
     fun parsesRootTasksWithTopActivity() {
         val out = """
             RootTask id=1 bounds=[0,0][1220,2656] displayId=0 userId=0
