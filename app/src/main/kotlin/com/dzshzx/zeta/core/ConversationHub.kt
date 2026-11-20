@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
@@ -192,38 +193,35 @@ class ConversationHub(private val app: Application) {
     }
 
     /**
-     * 切走的对话（parked）：不在前台显示、进程还留着的对话。切走时还没做完的，按 sessionId（没有则按 key）保留到这一轮结束。
-     * 改了以后调用 [parkedChanged]。
+     * 切走的对话（parked）：不在前台显示、进程还留着的对话，按切走的先后排，最后一个是最近的（[IntakeRouting.pick] 要它）。
+     * 切走时还没做完的保留到这一轮结束。可观察，只在主线程上改。按 [Conversation.openKey] 找（[parkedFor]），
+     * 会话号后来才到也找得到，从列表打开这个会话时不会另建一个对话对象、和它抢同一份手机工具。
      */
-    private val parked = LinkedHashMap<String, Conversation>()
+    private val parked = mutableStateListOf<Conversation>()
 
-    /** [parked] 里的对话的一份可观察副本（胶囊据此挑对话）。 */
-    private var parkedList by mutableStateOf<List<Conversation>>(emptyList())
-
-    private fun parkedChanged() {
-        parkedList = parked.values.toList()
-    }
+    /** 切走的对话里会话号（新对话是 key）为 [key] 的那个。 */
+    private fun parkedFor(key: String): Conversation? = parked.firstOrNull { it.openKey == key }
 
     /** Zeta 手上的全部对话：当前对话和切到后台还在跑的，当前的在前（可观察）。后台任务面板、胶囊、通知都按它挑。 */
-    val liveConversations: List<Conversation> get() = (listOf(current) + parkedList).distinct()
+    val liveConversations: List<Conversation> get() = listOf(current) + parkedConversations
 
-    /** 切到后台还在跑的对话（定时任务起的也在这里），不含当前对话（可观察）。 */
-    val parkedConversations: List<Conversation> get() = parkedList.filter { it !== current }
+    /** 切到后台还在跑的对话（定时任务起的也在这里），不含当前对话，按切走的先后排（可观察）。 */
+    val parkedConversations: List<Conversation> get() = parked.filter { it !== current }
     private val main = Handler(Looper.getMainLooper())
 
     private fun blank() = Conversation(this, settings.env?.defaultCwd ?: "/workspace", sessionId = null, title = "", historyFile = null)
 
     fun isRunning(sessionId: String): Boolean =
-        (current.sessionId == sessionId && current.busy) || parked[sessionId]?.busy == true
+        (current.sessionId == sessionId && current.busy) || parkedFor(sessionId)?.busy == true
 
     /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
     fun isActive(sessionId: String): Boolean {
-        return (current.sessionId == sessionId && current.active) || parked[sessionId]?.active == true
+        return (current.sessionId == sessionId && current.active) || parkedFor(sessionId)?.active == true
     }
 
     /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
     fun isWaiting(sessionId: String): Boolean =
-        (current.sessionId == sessionId && current.pending != null) || parked[sessionId]?.pending != null
+        (current.sessionId == sessionId && current.pending != null) || parkedFor(sessionId)?.pending != null
 
     /** 环境检查完、就绪了（[EnvController.checkSetup]）：读会话列表和 Claude Code 的默认值，第一次就绪时接回还在跑的进程。在主线程上调用。 */
     internal fun onEnvironmentReady() {
@@ -283,10 +281,9 @@ class ConversationHub(private val app: Application) {
                     if (current.items.isEmpty() && current.sessionId == null && !current.isProcessAlive) {
                         current = conversation
                     } else {
-                        parked[conversation.openKey] = conversation
+                        park(conversation)
                     }
                 }
-                parkedChanged()
                 onActivityChanged()
             }
         }
@@ -301,9 +298,8 @@ class ConversationHub(private val app: Application) {
     /** 换了环境（[EnvController.redetect]）：原来的会话都不再接着用，进程和后台屏幕一并收掉，换上一个空的新对话。在主线程上调用。 */
     internal fun dropConversations() {
         current.shutdown()
-        parked.values.forEach { it.shutdown() }
+        parked.toList().forEach { it.shutdown() }
         parked.clear()
-        parkedChanged()
         synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
         sessionList.clear()
         current = blank()
@@ -320,9 +316,8 @@ class ConversationHub(private val app: Application) {
     internal fun closeIdleConversations(): Boolean {
         if (!environment.canSwitchEnvironment) return false
         current.shutdown()
-        parked.values.toList().forEach { it.shutdown() }
+        parked.toList().forEach { it.shutdown() }
         parked.clear()
-        parkedChanged()
         prunePhones()
         return true
     }
@@ -330,12 +325,11 @@ class ConversationHub(private val app: Application) {
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return
         leaveCurrent()
-        current = parked.remove(summary.id)
+        current = parkedFor(summary.id)?.also { parked.remove(it) }
             ?: Conversation(
                 this, summary.cwd.ifBlank { settings.env?.defaultCwd ?: "/workspace" }, summary.id,
                 summary.title.ifBlank { summary.preview.take(40) }, summary.file, external = summary.external,
             )
-        parkedChanged()
         prunePhones()
     }
 
@@ -363,12 +357,11 @@ class ConversationHub(private val app: Application) {
      */
     fun openConversation(key: String) {
         if (current.sessionId == key || current.key == key) return
-        val running = parked[key]
+        val running = parkedFor(key)
         if (running != null) {
             leaveCurrent()
-            parked.remove(key)
+            parked.remove(running)
             current = running
-            parkedChanged()
             prunePhones()
             return
         }
@@ -377,12 +370,11 @@ class ConversationHub(private val app: Application) {
 
     /** 会话 [key]（sessionId，新对话用它的 key）当前或在后台的那个对话对象；没有就是 null。 */
     internal fun findConversation(key: String): Conversation? =
-        if (current.sessionId == key || current.key == key) current else parked[key]
+        if (current.sessionId == key || current.key == key) current else parkedFor(key)
 
-    /** 定时任务在后台起的对话：不切换界面上的当前对话，跑完照常收掉。在主线程上调用。 */
+    /** 放进切走的对话（定时任务在后台起的、切走时还在进行的）：不切换界面上的当前对话，跑完照常收掉。在主线程上调用。 */
     internal fun park(conversation: Conversation) {
-        parked[conversation.openKey] = conversation
-        parkedChanged()
+        if (conversation !in parked) parked += conversation
     }
 
     /** 会话 [ids] 要删了（[SessionList.delete]）：开着的对话收掉，后台屏幕一并收掉。在主线程上调用。 */
@@ -391,8 +383,10 @@ class ConversationHub(private val app: Application) {
             current.shutdown()
             current = blank()
         }
-        for (id in ids) parked.remove(id)?.shutdown()
-        parkedChanged()
+        for (conversation in parked.filter { it.openKey in ids }) {
+            parked.remove(conversation)
+            conversation.shutdown()
+        }
         synchronized(phones) { ids.mapNotNull { phones.remove(it) } }.forEach { it.destroy() }
         prunePhones()
     }
@@ -401,8 +395,7 @@ class ConversationHub(private val app: Application) {
     private fun leaveCurrent() {
         val leaving = current
         if (leaving.active) {
-            parked[leaving.openKey] = leaving
-            parkedChanged()
+            park(leaving)
         } else {
             leaving.shutdown()
         }
@@ -415,12 +408,11 @@ class ConversationHub(private val app: Application) {
 
     /**
      * 对话 [conversation] 的会话号从 [from] 换成了 [to]（新对话拿到会话号、/clear 换了新会话；还没有会话号时用对话的 key）。
-     * 按会话登记的都在这里换键：手机工具（之后重新打开才找得回那块后台屏幕）、切到后台的对话、输入栏草稿。
+     * 按会话登记的都在这里换键：手机工具（之后重新打开才找得回那块后台屏幕）、输入栏草稿；切走的对话按 openKey 找，不用换。
      * 新加按会话登记的东西也在这里跟着换（SessionRekeyTest 核对）。在主线程上调用。
      */
     internal fun sessionChanged(conversation: Conversation, from: String, to: String) {
         rekeyPhone(conversation.phone, from, to)
-        rekeyParked(conversation, from, to)
         drafts.rekey(conversation, from, to)
     }
 
@@ -433,17 +425,6 @@ class ConversationHub(private val app: Application) {
             phones.put(to, phone)?.takeIf { it !== phone }
         }
         stale?.destroy()
-    }
-
-    /**
-     * 切到后台的对话按会话号（还没有时按 key）存着。会话号后来才到的话跟着改：
-     * 不然从列表打开这个会话时找不到它，会另建一个对话对象，两个对象抢同一份手机工具。在主线程上调用。
-     */
-    private fun rekeyParked(conversation: Conversation, from: String, to: String) {
-        if (parked[from] !== conversation) return
-        parked.remove(from)
-        parked[to] = conversation
-        parkedChanged()
     }
 
     /** 丢掉没有后台屏幕、也没有对话在用的那些，免得登记越积越多。在主线程上调用。 */
@@ -495,8 +476,7 @@ class ConversationHub(private val app: Application) {
     private fun retireWhenIdle(conversation: Conversation) {
         main.postDelayed({
             if (conversation !== current && !conversation.active) {
-                parked.values.remove(conversation)
-                parkedChanged()
+                parked.remove(conversation)
                 conversation.shutdown()
                 prunePhones()
             }
