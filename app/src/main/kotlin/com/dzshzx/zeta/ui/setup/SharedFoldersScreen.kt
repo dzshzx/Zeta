@@ -178,7 +178,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                         return@ConfirmDialog
                     }
                     val name = current.name.trim()
-                    val problem = SharedFolders.sourceProblem(current.path, folders, hub.env?.rootfs)
+                    val problem = SharedFolders.sourceProblem(current.path, folders, hub.settings.env?.rootfs)
                         ?: SharedFolders.nameProblem(name, folders)
                         ?: current.browseError
                     if (problem != null) {
@@ -209,7 +209,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                     hub.settings.sharedFolders = updated
                     folders = updated
                     scope.launch {
-                        withContext(Dispatchers.IO) { hub.env?.rootfs?.let { SharedFolders.removeMountPoint(it, target.name) } }
+                        withContext(Dispatchers.IO) { hub.settings.env?.rootfs?.let { SharedFolders.removeMountPoint(it, target.name) } }
                         refresh(updated)
                     }
                 },

@@ -73,7 +73,7 @@ internal object Diagnostics {
 
     /** 环境信息。[probe] 还没查完时是 null，[probing] 表示正在查。 */
     fun environment(context: Context, hub: ConversationHub, probe: LinuxProbe?, probing: Boolean): List<InfoLine> {
-        val env = hub.env
+        val env = hub.settings.env
         val pending = if (probing) "查询中" else "查不到"
         return listOf(
             InfoLine("Zeta 版本", "${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）"),

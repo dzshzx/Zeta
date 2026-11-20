@@ -216,7 +216,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     )
     val problem = edited.problem
     val next = Schedules.nextTrigger(draftRule, now, zone)
-    val defaultCwd = hub.env?.defaultCwd ?: "/workspace"
+    val defaultCwd = hub.settings.env?.defaultCwd ?: "/workspace"
 
     fun save() {
         if (problem != null) return

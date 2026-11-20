@@ -48,7 +48,7 @@ private fun shortPath(path: String, home: String?): String =
 internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val env = hub.env
+    val env = hub.settings.env
     val cwd = env?.defaultCwd ?: "/"
     var overview by remember { mutableStateOf<MemoryOverview?>(null) }
     var project by rememberSaveable { mutableStateOf<String?>(null) }

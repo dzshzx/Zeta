@@ -159,7 +159,7 @@ private class Previewing(val path: String, val entry: LinuxEntry)
 @Composable
 internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
-    val env = hub.env
+    val env = hub.settings.env
     val start = LinuxFiles.normalize(env?.defaultCwd ?: "/workspace")
     var path by rememberSaveable { mutableStateOf(start) }
     var listing by remember { mutableStateOf<LinuxListing?>(null) }

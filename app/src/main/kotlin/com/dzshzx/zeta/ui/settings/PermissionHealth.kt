@@ -161,7 +161,7 @@ internal object PermissionHealth {
                 SetupState.NoEnvironment -> PermissionItem(PermissionId.Linux, "Linux 环境", "点这里去安装", "未安装", PermissionStatus.Missing, false)
                 SetupState.Ready -> {
                     val account = hub.environment.account
-                    val user = hub.env?.user
+                    val user = hub.settings.env?.user
                     if (account != null && !account.loggedIn) {
                         PermissionItem(PermissionId.Linux, "Linux 环境", "点这里登录 Claude 账号", "未登录", PermissionStatus.Attention, false)
                     } else {

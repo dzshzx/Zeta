@@ -88,7 +88,7 @@ private fun SettingsHome(
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    val ready = hub.environment.setup == SetupState.Ready && hub.env != null
+    val ready = hub.environment.setup == SetupState.Ready && hub.settings.env != null
     // 默认值可能在终端里改过（/model、/effort 存为默认）：每次打开都重读
     LaunchedEffect(ready) { if (ready) hub.refreshClaudeDefaults() }
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
@@ -219,7 +219,7 @@ private fun LinuxEntry(hub: ConversationHub, onOpen: () -> Unit) {
         SetupState.Checking -> "检查中" to false
         SetupState.NoRoot -> "没有 root" to true
         SetupState.NoEnvironment -> "未安装" to true
-        SetupState.Ready -> (hub.env?.user ?: "已就绪") to false
+        SetupState.Ready -> (hub.settings.env?.user ?: "已就绪") to false
     }
     ArrowPreference(
         title = "Linux 环境",

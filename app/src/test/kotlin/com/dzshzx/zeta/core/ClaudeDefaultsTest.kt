@@ -79,9 +79,9 @@ class ClaudeDefaultsTest {
         assertFalse(hub.settings.autoTitle)
         assertFalse(hub.settings.autoCompact)
         assertEquals(70, hub.settings.autoCompactPercent)
-        assertEquals("/workspace/other", hub.env?.defaultCwd)
+        assertEquals("/workspace/other", hub.settings.env?.defaultCwd)
         // 空着的新对话换到导入的默认工作目录
-        hub.settingsRestored()
+        hub.renewBlank()
         assertEquals("/workspace/other", hub.current.cwd)
     }
 }

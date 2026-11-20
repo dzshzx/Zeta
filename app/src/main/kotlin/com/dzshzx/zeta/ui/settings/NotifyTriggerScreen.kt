@@ -206,7 +206,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
     val nonce = remember { NotifyRules.nonce() }
 
     val problem = NotifyRules.problem(draft)
-    val defaultCwd = hub.env?.defaultCwd ?: "/workspace"
+    val defaultCwd = hub.settings.env?.defaultCwd ?: "/workspace"
     val now = System.currentTimeMillis()
 
     fun save() {

@@ -69,7 +69,7 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
     companion object {
         const val MAX_TEXT = 1024 * 1024
 
-        fun of(hub: ConversationHub) = ClaudeConfigClient { hub.env?.let(::EnvShell) }
+        fun of(hub: ConversationHub) = ClaudeConfigClient { hub.settings.env?.let(::EnvShell) }
 
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
     }

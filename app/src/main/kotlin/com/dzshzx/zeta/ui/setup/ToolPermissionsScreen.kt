@@ -96,7 +96,7 @@ private fun ToolRow(title: String, summary: String?, own: PermissionBehavior?, e
 internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val cwd = hub.env?.defaultCwd ?: "/"
+    val cwd = hub.settings.env?.defaultCwd ?: "/"
     var rules by remember { mutableStateOf<PermissionRules?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var servers by remember { mutableStateOf<List<McpServer>?>(null) }
@@ -382,7 +382,7 @@ private fun McpPermissionDetail(
 ) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val cwd = hub.env?.defaultCwd ?: "/"
+    val cwd = hub.settings.env?.defaultCwd ?: "/"
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loading by remember(server) { mutableStateOf(false) }

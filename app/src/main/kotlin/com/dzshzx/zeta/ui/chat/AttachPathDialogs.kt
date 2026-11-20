@@ -235,7 +235,7 @@ private fun FolderAttachDialog(
                         }
                         // 已在跑的进程看不到新挂的目录：停下它，下次发送时带着新的挂载重新起来
                         if (conversation.hostKey != null) conversation.shutdown()
-                        AttachedPaths.linuxPathFor(browser.path, hub.settings.sharedFolders, hub.env?.rootfs)?.let {
+                        AttachedPaths.linuxPathFor(browser.path, hub.settings.sharedFolders, hub.settings.env?.rootfs)?.let {
                             onAttach(AttachedPaths.reference(it, folder = true))
                         }
                         onDismiss()

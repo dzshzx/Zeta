@@ -56,7 +56,7 @@ private enum class LinuxEdit { Rootfs, Cwd }
 /** Linux 环境的管理页：用哪个环境、安装、体检与修复、Claude Code 的版本和账号。 */
 @Composable
 internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall: () -> Unit, onOpenLogin: () -> Unit, onOpenSsh: () -> Unit) {
-    val env = hub.env
+    val env = hub.settings.env
     val ready = hub.environment.setup == SetupState.Ready && env != null
     var editing by remember { mutableStateOf<LinuxEdit?>(null) }
     var lastEditing by remember { mutableStateOf(LinuxEdit.Rootfs) }
@@ -440,7 +440,7 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
                 when {
                     installer.running -> TextButton(text = "取消", onClick = installer::cancel, modifier = Modifier.fillMaxWidth())
                     complete -> {
-                        if (hub.env?.rootfs != LinuxEnv.OWN_ROOTFS) {
+                        if (hub.settings.env?.rootfs != LinuxEnv.OWN_ROOTFS) {
                             PrimaryButton(text = "切换到这个环境", onClick = { hub.environment.redetect(LinuxEnv.OWN_ROOTFS) }, enabled = hub.environment.canSwitchEnvironment)
                         } else if (hub.environment.account?.loggedIn != true) {
                             PrimaryButton(text = "登录 Claude 账号", onClick = onOpenLogin)

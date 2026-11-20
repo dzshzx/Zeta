@@ -36,7 +36,7 @@ class AccountService(private val hub: ConversationHub) {
     var problem by mutableStateOf<String?>(null)
         private set
 
-    private fun accounts(): ClaudeAccounts? = hub.env?.let { config ->
+    private fun accounts(): ClaudeAccounts? = hub.settings.env?.let { config ->
         ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script)
     }
 

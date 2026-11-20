@@ -44,7 +44,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 设置首页的入口：当前账号，和最要紧的一个额度窗口。 */
 @Composable
 internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
-    val ready = hub.environment.setup == SetupState.Ready && hub.env != null
+    val ready = hub.environment.setup == SetupState.Ready && hub.settings.env != null
     val now = rememberNow()
     val account = hub.environment.account
     val headline = hub.quota.snapshot?.current(now)?.headline

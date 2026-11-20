@@ -27,7 +27,10 @@ import kotlinx.serialization.json.put
 /**
  * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉、接回进程），各会话的手机工具，界面前后台，
  * 以及挂在它上面的几块：设置 [settings]、Linux 环境 [environment]、会话列表 [sessionList]、
- * 胶囊与提醒 [alerts]、额度 [quota]、账号 [accounts]。Conversation 的事件（一轮结束、等确认、活动变化）先到这里，再分给它们。
+ * 胶囊与提醒 [alerts]、额度 [quota]、账号 [accounts]。
+ *
+ * hub 是对话事件的入口：Conversation 的事件（一轮就要结束、结束了、等确认、后台任务做完、活动变化）都调 hub 上的 on… 方法，
+ * 由 hub 分给上面这几块，Conversation 不直接找它们。只转给一处的（[onTurnEnding]、[onAttentionNeeded]）也照样经 hub 转。
  */
 class ConversationHub(private val app: Application) {
     val context: Application get() = app
@@ -75,17 +78,17 @@ class ConversationHub(private val app: Application) {
 
     /** 重读 Claude Code 的默认值：环境就绪时、打开设置页时。读不到就照旧。 */
     fun refreshClaudeDefaults() {
-        if (env == null) return
+        if (settings.env == null) return
         thread(name = "zeta-defaults", isDaemon = true) {
             val defaults = runCatching { ClaudeConfigClient.of(this).defaults() }.getOrNull() ?: return@thread
             main.post { updateClaudeDefaults(defaults) }
         }
     }
 
-    /** 设置从备份导入后（[Settings.restore] 已经让各项按导入的值重读）：空着的新对话换到导入的默认工作目录。在主线程上调用。 */
-    internal fun settingsRestored() = renewBlank()
-
-    /** 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它。 */
+    /**
+     * 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它：环境就绪时，
+     * 设置从备份导入后（[Settings.restore] 已经让各项按导入的值重读），换了默认工作目录时。在主线程上调用。
+     */
     internal fun renewBlank() {
         if (current.items.isEmpty() && current.sessionId == null) current = blank()
     }
@@ -137,9 +140,6 @@ class ConversationHub(private val app: Application) {
 
     var current by mutableStateOf(blank())
         private set
-
-    /** 当前环境配置（可观察，同 [Settings.env]）；还没识别出环境时为 null。 */
-    val env: LinuxEnvConfig? get() = settings.env
 
     /** Linux 环境：检查、安装、维护、SSH、Claude 账号的登录状态。 */
     val environment = EnvController(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
@@ -425,7 +425,7 @@ class ConversationHub(private val app: Application) {
     }
 
     /** 对话的会话号变了：登记跟着换。新号下面要是还挂着别的一份（不该有），它已经没人找得到，收掉。 */
-    internal fun rekeyPhone(phone: PhoneTools, from: String, to: String) {
+    private fun rekeyPhone(phone: PhoneTools, from: String, to: String) {
         val stale = synchronized(phones) {
             // 已经不在登记里（没人用被丢掉、销毁了）就别再登记回去，否则以后打开这个会话会拿到一份建不了屏的
             if (phones[from] !== phone) return
@@ -439,7 +439,7 @@ class ConversationHub(private val app: Application) {
      * 切到后台的对话按会话号（还没有时按 key）存着。会话号后来才到的话跟着改：
      * 不然从列表打开这个会话时找不到它，会另建一个对话对象，两个对象抢同一份手机工具。在主线程上调用。
      */
-    internal fun rekeyParked(conversation: Conversation, from: String, to: String) {
+    private fun rekeyParked(conversation: Conversation, from: String, to: String) {
         if (parked[from] !== conversation) return
         parked.remove(from)
         parked[to] = conversation

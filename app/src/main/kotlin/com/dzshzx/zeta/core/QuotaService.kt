@@ -97,13 +97,13 @@ class QuotaService(private val hub: ConversationHub) {
         val age = snapshot?.let { now - it.updatedAt } ?: Long.MAX_VALUE
         if (!force && age < STALE_MS) return
         if (now - lastAsked < MANUAL_MS) return
-        val config = hub.env ?: return
+        val config = hub.settings.env ?: return
         lastAsked = now
         refreshing = true
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
         // 借开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
-        if ((listOf(hub.current) + hub.parkedConversations).any { it.queryQuota() }) return
+        if (hub.liveConversations.any { it.queryQuota() }) return
         thread(name = "zeta-quota", isDaemon = true) {
             val body = runCatching { synchronized(probeLock) { QuotaProbe.query(EnvShell(config), config.defaultCwd) } }
             main.post {

@@ -17,7 +17,7 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 /** “SSH 服务”：Debian 里的 sshd，用来从终端应用或别的设备连进这个环境。 */
 @Composable
 internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val env = hub.env
+    val env = hub.settings.env
     val status = hub.environment.ssh
     val maintenance = hub.environment.maintenance
     val busy = hub.environment.sshWorking || maintenance?.running == true

@@ -97,7 +97,7 @@ internal data class StorageView(
 internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSession: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val ready = hub.environment.setup == SetupState.Ready && hub.env != null
+    val ready = hub.environment.setup == SetupState.Ready && hub.settings.env != null
     var view by remember { mutableStateOf(StorageView(ready = ready, imageMemory = ImageStore.memoryBytes(), phone = Storage.phoneSpace())) }
     var notice by remember { mutableStateOf<ConfigNotice?>(null) }
     var project by remember { mutableStateOf<ProjectUsage?>(null) }
@@ -115,7 +115,7 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
     }
     // Debian 整个的大小要把 rootfs 走一遍（几秒到几十秒），单独算，不挡别的
     LaunchedEffect(ready) {
-        val config = hub.env
+        val config = hub.settings.env
         val size = if (ready && config != null) withContext(Dispatchers.IO) { Storage.rootfsBytes(config) } else null
         view = view.copy(rootfs = size, rootfsDone = true)
     }

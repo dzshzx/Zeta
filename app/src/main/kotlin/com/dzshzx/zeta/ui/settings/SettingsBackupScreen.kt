@@ -238,7 +238,7 @@ private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
 private suspend fun applyBackup(context: Context, hub: ConversationHub, ready: ImportReview.Ready): Int? {
     val writes = SettingsBackup.writes(ready.backup, ready.plan)
     if (!withContext(Dispatchers.IO) { restoreBackup(context, hub.settings, writes) }) return null
-    hub.settingsRestored()
+    hub.renewBlank()
     // 共享了内部存储的目录时，Linux 用户要在 media_rw 组里才能读写，和在共享文件夹页添加时一样补上
     val config = hub.settings.env
     if ("sharedFolders" in writes && config != null && hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }) {
