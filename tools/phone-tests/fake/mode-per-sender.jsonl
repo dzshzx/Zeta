@@ -1,0 +1,4 @@
+{"title":"假模式任务","steps":[{"text":"后台跑第一次。","chunk":6,"delay":30},{"pause":15000},{"text":"第一次跑完。","chunk":6,"delay":30}]}
+{"steps":[{"text":"这一条是你自己发的。","chunk":6,"delay":30}]}
+{"steps":[{"text":"后台跑第二次。","chunk":6,"delay":30}]}
+{"steps":[{"text":"又是你自己发的。","chunk":6,"delay":30}]}

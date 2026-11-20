@@ -28,9 +28,9 @@ import kotlin.concurrent.thread
  * 只在有变化时提醒的，Claude 上报没有变化就不发（见 [Schedules.settle]）。
  * 同一项上一次还没跑完就跳过这一次，记一笔。运行记录经 [RunRecords] 写回各自的清单。状态只在主线程上改。
  *
- * 跑的期间对话的手机工具挂着这次运行（[UnattendedRun]），Claude 的上报记在它上面。管理定时任务的工具由 Claude Code 自己的
- * 权限规则拦下（[ScheduleTools.unattendedRules]）：随这次的指令下发给进程，用户自己在这个对话里发下一条消息前才撤
- * （见 Conversation.sendUnattended）。接着已经开着的进程时不重起，这次的说明附在指令后面一起发。
+ * 跑的期间对话的手机工具挂着这次运行（[UnattendedRun]），Claude 的上报记在它上面。这次的权限模式和拦管理定时任务工具的
+ * 权限规则（[ScheduleTools.unattendedRules]）随指令下发给进程，只管后台运行发的这几条：用户自己在这个对话里发下一条消息时
+ * 换回用户的（见 Conversation.sendUnattended）。接着已经开着的进程时不重起，这次的说明附在指令后面一起发。
  */
 internal object ScheduleRunner {
     private val main = Handler(Looper.getMainLooper())
@@ -158,13 +158,13 @@ internal object ScheduleRunner {
         val app = hub.context
         // 接着已经开着的进程：说明进不了系统提示词（起进程时才给），附在指令后面一起发
         val prompt = spec.prompt.trim().let { if (conversation.isProcessAlive) it + "\n\n[Zeta] " + spec.hint else it }
-        conversation.preset(model = spec.model, effort = null, permissionMode = spec.permissionMode, hint = spec.hint)
+        conversation.preset(model = spec.model, effort = null, hint = spec.hint)
         DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
         val run = Run(hub, records, spec.id, conversation, prompt, now, manual, spec.newSession, fresh, spec.onlyOnChange)
         runs[run.key] = run
         conversation.phone.unattended = run.scope
         val adopt = hub.findConversation(conversation.openKey) == null
-        conversation.sendUnattended(prompt, ScheduleTools.unattendedRules)
+        conversation.sendUnattended(prompt, spec.permissionMode, ScheduleTools.unattendedRules)
         if (!conversation.busy) {
             // 没发出去（进程起不来之类），原因在对话里的提示上；这个对话不留在后台
             finish(run)

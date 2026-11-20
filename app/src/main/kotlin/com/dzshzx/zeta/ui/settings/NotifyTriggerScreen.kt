@@ -32,7 +32,6 @@ import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.phone.InstalledApps
-import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
@@ -392,17 +391,8 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
             ) {
                 item(key = "cwd") { BasicComponent(title = "工作目录", summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = RuleDialog.Cwd }) }
                 item(key = "model") { ModelPreference(hub, draft.model) { draft = draft.copy(model = it) } }
-                // 不提供“跟随当前设置”：当前设置可能是完全放行，通知触发的对话要明确选一个
                 val mode = draft.permissionMode
-                val modes = PermissionModes + listOfNotNull(mode.takeIf { value -> PermissionModes.none { it.first == value } }?.let { it to permissionModeLabel(it) })
-                item(key = "mode") {
-                    OverlayDropdownPreference(
-                        title = "权限模式",
-                        items = modes.map { it.second },
-                        selectedIndex = modes.indexOfFirst { it.first == mode },
-                        onSelectedIndexChange = { index -> modes.getOrNull(index)?.let { draft = draft.copy(permissionMode = it.first) } },
-                    )
-                }
+                item(key = "mode") { PermissionModePreference(mode) { draft = draft.copy(permissionMode = it) } }
                 if (mode !in NotifyRules.SAFE_MODES) {
                     // 自动接受编辑只放行改文件；完全放行放行所有操作；自动判断由 Claude Code 决定放行哪些。只给信得过的应用这样设
                     item(key = "risk") {

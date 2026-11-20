@@ -36,8 +36,6 @@ import com.dzshzx.zeta.core.schedule.ScheduledTask
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskDraft
 import com.dzshzx.zeta.core.schedule.TaskRun
-import com.dzshzx.zeta.ui.chat.PermissionModes
-import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -201,7 +199,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
     var hours by remember { mutableStateOf((rule as? ScheduleRule.Interval)?.hours ?: 3) }
     var cwd by remember { mutableStateOf(original?.cwd.orEmpty()) }
     var model by remember { mutableStateOf(original?.model) }
-    var mode by remember { mutableStateOf(original?.permissionMode) }
+    var mode by remember { mutableStateOf(original?.permissionMode ?: Schedules.DEFAULT_MODE) }
     var newSession by remember { mutableStateOf(original?.newSession ?: true) }
     var onlyOnChange by remember { mutableStateOf(original?.onlyOnChange ?: false) }
     var dialog by remember { mutableStateOf<EditorDialog?>(null) }
@@ -315,11 +313,12 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
         item(key = "run") {
             PreferenceGroup(
                 title = "运行方式",
-                footer = "后台运行时没人确认。要改文件、执行命令，权限模式得放宽，否则这一轮会停下来，发通知等你。",
+                footer = "后台运行时没人确认。默认“自动判断”：由 Claude Code 判断每一步放不放行，一般不用停下来等你。" +
+                    "选“逐项确认”的话，要改文件、执行命令时这一轮会停下来，发通知等你。",
             ) {
                 item { BasicComponent(title = "工作目录", summary = cwd.ifBlank { "$defaultCwd（默认）" }, onClick = { dialog = EditorDialog.Cwd }) }
                 item { ModelPreference(hub, model) { model = it } }
-                item { FollowDropdownPreference("权限模式", PermissionModes, mode, unknown = ::permissionModeLabel) { mode = it } }
+                item { PermissionModePreference(mode) { mode = it } }
                 item {
                     SwitchPreference(
                         title = "每次开新对话",

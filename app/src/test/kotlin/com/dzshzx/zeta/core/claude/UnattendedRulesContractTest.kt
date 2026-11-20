@@ -28,8 +28,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 后台运行不让 Claude 管理定时任务，靠的是 Claude Code 的这些行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，
- * 变了就会失败，Conversation.restrict 和 [ScheduleTools.unattendedRules] 跟着改。
+ * 后台运行不让 Claude 管理定时任务、每条消息按发的人的权限模式跑，靠的是 Claude Code 的这些行为（2.1.328 实测），在这里钉住：
+ * 升级 Claude Code 后跑一遍，变了就会失败，Conversation.restrict、Conversation.authorize 和 [ScheduleTools.unattendedRules] 跟着改。
  *
  * 真的 claude 命令行跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱），做法同 [ClaudeCodeContractTest]；
  * 手机工具是 SDK 类型的 MCP 服务器 phone，由这里像 Zeta 那样应答，工具定义就是 [ScheduleTools] 的。钉住的是：
@@ -42,6 +42,8 @@ import org.junit.Test
  * - 没加过规则的进程收到 permissions: null 什么都不变，发给模型的工具名单和系统提示词也不变（Zeta 在用户每条消息前
  *   都撤一次，不记加没加过）。
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
+ * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样。
+ *   进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行；带不带它、模式怎么切，发给模型的工具名单和系统提示词都不变。
  */
 class UnattendedRulesContractTest {
     private lateinit var home: File
@@ -177,7 +179,7 @@ class UnattendedRulesContractTest {
     // ---- 像 Zeta 那样驱动一个进程 ----
 
     /** 一个 stream-json 的 claude 进程，参数和 Zeta 起的一样；phone 服务器的 MCP 消息和 can_use_tool 由这里答（一律允许）。 */
-    private inner class Claude : AutoCloseable {
+    private inner class Claude(mode: String = "default", extra: List<String> = emptyList()) : AutoCloseable {
         private val process: Process
         private val lines = LinkedBlockingQueue<String>()
         private var requests = 0
@@ -185,11 +187,18 @@ class UnattendedRulesContractTest {
         val calls = mutableListOf<String>()
         var toolLists = 0
 
+        /** 每一轮开头 init 报的权限模式，按顺序。 */
+        val modes = mutableListOf<String?>()
+
+        /** 收到的控制应答，按请求号；先到的留着，[response] 晚些再取也拿得到。 */
+        private val responses = HashMap<String, JsonObject>()
+
         init {
             val builder = ProcessBuilder(
                 "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                "--permission-prompt-tool", "stdio", "--permission-mode", "default",
+                "--permission-prompt-tool", "stdio", "--permission-mode", mode,
                 "--mcp-config", """{"mcpServers":{"phone":{"type":"sdk","name":"phone"}}}""",
+                *extra.toTypedArray(),
             ).directory(File(home, "proj"))
             val env = builder.environment()
             val path = listOfNotNull(System.getProperty("user.home")?.let { "$it/.local/bin" }, System.getenv("PATH")).joinToString(":")
@@ -230,9 +239,8 @@ class UnattendedRulesContractTest {
 
         /** 等请求 [id] 的应答，返回它（subtype 和 response）。 */
         fun response(id: String): JsonObject {
-            var found: JsonObject? = null
-            until { o -> (o.str("type") == "control_response" && o.obj("response")?.str("request_id") == id).also { if (it) found = o.obj("response") } }
-            return found!!
+            if (id !in responses) until { id in responses }
+            return responses.getValue(id)
         }
 
         fun result() = until { it.str("type") == "result" }
@@ -247,6 +255,10 @@ class UnattendedRulesContractTest {
                 assertTrue("claude 没有按时回应", left > 0)
                 val line = lines.poll(left, TimeUnit.MILLISECONDS) ?: continue
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
+                when (o.str("type")) {
+                    "control_response" -> o.obj("response")?.let { r -> r.str("request_id")?.let { responses[it] = r } }
+                    "system" -> if (o.str("subtype") == "init") modes += o.str("permissionMode")
+                }
                 answer(o)
                 if (done(o)) return
             }
@@ -310,6 +322,8 @@ class UnattendedRulesContractTest {
         put("subtype", "apply_flag_settings")
         putJsonObject("settings") { put("permissions", rules) }
     }
+
+    private fun setMode(claude: Claude, mode: String): String = claude.request { put("subtype", "set_permission_mode"); put("mode", mode) }
 
     /** 跑一轮：假模型依次调 [tools]，返回这一轮看到的结果。 */
     private fun turn(claude: Claude, prompt: String, vararg tools: String): List<Triple<String, String, Boolean>> {
@@ -401,6 +415,44 @@ class UnattendedRulesContractTest {
             assertEquals(listOf(false, false), lifted.map { it.third })
             assertEquals(listOf("create_scheduled_task", "create_scheduled_task"), claude.asks)
             assertEquals(listOf("create_scheduled_task", "create_scheduled_task", "run_scheduled_task"), claude.calls)
+        }
+    }
+
+    @Test
+    fun modeFollowsTheSender() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        // 不带 --allow-dangerously-skip-permissions：运行中切不进完全放行
+        Claude().use { claude ->
+            claude.response(claude.request { put("subtype", "initialize") })
+            assertEquals("bypass_not_launched", claude.response(setMode(claude, "bypassPermissions")).str("error_code"))
+            // 第一条和下面那个进程的一样：系统提示词开头的计费标记跟着会话的第一条消息变
+            turn(claude, "mine", "create_scheduled_task")
+        }
+        val plain = synchronized(results) { prompts.last() }
+        Claude(mode = "acceptEdits", extra = listOf("--allow-dangerously-skip-permissions")).use { claude ->
+            claude.response(claude.request { put("subtype", "initialize") })
+            // 用户自己的一轮：自动接受编辑，手机工具照常要确认
+            val mine = synchronized(results) { prompts.size }
+            turn(claude, "mine", "create_scheduled_task")
+            // 后台运行：切到完全放行、加上规则、发指令，和 Zeta 一样不等应答
+            val lent = setMode(claude, "bypassPermissions")
+            applyRules(claude, ScheduleTools.unattendedRules)
+            turn(claude, "run", "report_scheduled_run")
+            // 用户的下一条：切回自动接受编辑、撤掉规则、发，同样不等
+            val back = setMode(claude, "acceptEdits")
+            applyRules(claude, JsonNull)
+            val byHand = synchronized(results) { prompts.size }
+            turn(claude, "by hand", "create_scheduled_task")
+            assertEquals("success", claude.response(lent).str("subtype"))
+            assertEquals("success", claude.response(back).str("subtype"))
+            assertEquals(listOf("acceptEdits", "bypassPermissions", "acceptEdits"), claude.modes)
+            assertEquals(listOf("create_scheduled_task", "create_scheduled_task"), claude.asks)
+            assertEquals(listOf("create_scheduled_task", "report_scheduled_run", "create_scheduled_task"), claude.calls)
+            // 带了那个参数、切过模式，发给模型的工具名单和系统提示词跟不带时一样
+            synchronized(results) {
+                assertEquals(plain, prompts[mine])
+                assertEquals(plain, prompts[byHand])
+            }
         }
     }
 }

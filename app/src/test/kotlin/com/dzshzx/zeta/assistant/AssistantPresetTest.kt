@@ -23,7 +23,7 @@ class AssistantPresetTest {
         hub.settings.model = "opus"
         hub.settings.effort = "high"
         val conversation = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
-        conversation.preset(model = "sonnet", effort = "low", permissionMode = null)
+        conversation.preset(model = "sonnet", effort = "low")
         assertEquals("sonnet", conversation.model)
         assertEquals("low", conversation.effort)
         assertEquals("opus", hub.settings.model)
@@ -38,7 +38,7 @@ class AssistantPresetTest {
         assertNull(hub.settings.assistantModel)
         assertNull(hub.settings.assistantEffort)
         val conversation = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
-        conversation.preset(model = hub.settings.assistantModel, permissionMode = null, effort = hub.settings.assistantEffort)
+        conversation.preset(model = hub.settings.assistantModel, effort = hub.settings.assistantEffort)
         assertEquals("opus", conversation.model)
         assertEquals("high", conversation.effort)
     }

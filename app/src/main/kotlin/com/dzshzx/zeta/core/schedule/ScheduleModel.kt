@@ -115,7 +115,8 @@ data class ScheduledTask(
     val cwd: String? = null,
     /** null 跟随当前设置。 */
     val model: String? = null,
-    val permissionMode: String? = null,
+    /** 运行时的权限模式。没有“跟随当前设置”：那是用户在输入栏随手选的，可能是完全放行。 */
+    val permissionMode: String = Schedules.DEFAULT_MODE,
     /** 每次开新对话；false 时接着 [sessionId] 那个对话。 */
     val newSession: Boolean = true,
     /** 接着同一个对话时用的会话（第一次运行后才有）。 */
@@ -136,7 +137,7 @@ data class TaskDraft(
     val rule: ScheduleRule,
     val cwd: String? = null,
     val model: String? = null,
-    val permissionMode: String? = null,
+    val permissionMode: String = Schedules.DEFAULT_MODE,
     val newSession: Boolean = true,
     val enabled: Boolean = true,
     val onlyOnChange: Boolean = false,
@@ -163,6 +164,12 @@ object Schedules {
 
     /** 通知里那段摘要（回答的开头、Claude 上报的结论）最多多少字。 */
     const val MAX_SUMMARY = 200
+
+    /**
+     * 没选权限模式的任务按自动判断跑：没人确认，由 Claude Code 判断每一步放不放行，一般不用停下来等用户。
+     * 通知触发的规则不同，默认逐项确认（NotifyRules.DEFAULT_MODE）：通知谁都能发。
+     */
+    const val DEFAULT_MODE = "auto"
 
     private val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val WEEKDAY = listOf("一", "二", "三", "四", "五", "六", "日")
@@ -386,7 +393,7 @@ object Schedules {
         put("enabled", task.enabled)
         task.cwd?.let { put("cwd", it) }
         task.model?.let { put("model", it) }
-        task.permissionMode?.let { put("permissionMode", it) }
+        put("permissionMode", task.permissionMode)
         put("newSession", task.newSession)
         task.sessionId?.let { put("sessionId", it) }
         if (task.onlyOnChange) put("onlyOnChange", true)
@@ -450,7 +457,7 @@ object Schedules {
             enabled = o.bool("enabled") ?: true,
             cwd = o.str("cwd")?.takeIf { it.isNotBlank() },
             model = o.str("model")?.takeIf { it.isNotBlank() },
-            permissionMode = o.str("permissionMode")?.takeIf { it.isNotBlank() },
+            permissionMode = o.str("permissionMode")?.takeIf { it.isNotBlank() } ?: DEFAULT_MODE,
             newSession = o.bool("newSession") ?: true,
             sessionId = o.str("sessionId")?.takeIf { it.isNotBlank() },
             onlyOnChange = o.bool("onlyOnChange") == true,

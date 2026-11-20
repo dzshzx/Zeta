@@ -6,6 +6,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.readableModelId
+import com.dzshzx.zeta.ui.chat.PermissionModes
+import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 
 /** 可选的模型（值和显示名）：Claude Code 给的清单，拿不到时用几个别名（[ConversationHub.modelOptions]）。 */
@@ -17,7 +19,8 @@ internal fun modelName(hub: ConversationHub, value: String): String = modelLabel
 
 /**
  * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。
- * 设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定模型、思考强度、权限模式都用它；[startAction] 是设置首页的行首图标。
+ * 设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定模型、思考强度都用它；[startAction] 是设置首页的行首图标。
+ * 后台运行的权限模式不跟随，用 [PermissionModePreference]。
  */
 @Composable
 internal fun FollowDropdownPreference(
@@ -51,3 +54,20 @@ internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (St
 @Composable
 internal fun EffortPreference(effort: String?, onChange: (String?) -> Unit) =
     FollowDropdownPreference("思考强度", EffortLevels, effort, onChange = onChange)
+
+/**
+ * 后台运行（定时任务、通知触发）的「权限模式」：没有“跟随当前设置”，必须明确选一个。当前设置是用户在输入栏随手选的，
+ * 可能是完全放行，不该带进没人看着的运行。[mode] 不在清单里时补一项。
+ */
+@Composable
+internal fun PermissionModePreference(mode: String, onChange: (String) -> Unit) {
+    val modes = remember(mode) {
+        PermissionModes + listOfNotNull(mode.takeIf { value -> PermissionModes.none { it.first == value } }?.let { it to permissionModeLabel(it) })
+    }
+    OverlayDropdownPreference(
+        title = "权限模式",
+        items = remember(modes) { modes.map { it.second } },
+        selectedIndex = modes.indexOfFirst { it.first == mode },
+        onSelectedIndexChange = { index -> modes.getOrNull(index)?.let { onChange(it.first) } },
+    )
+}

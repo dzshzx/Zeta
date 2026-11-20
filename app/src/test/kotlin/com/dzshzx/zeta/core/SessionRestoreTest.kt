@@ -100,10 +100,10 @@ class SessionRestoreTest {
         assertNull(hub.settings.model)
 
         val preset = reopened(hub)
-        preset.preset(model = "haiku", effort = null, permissionMode = null)
+        preset.preset(model = "haiku", effort = null)
         assertEquals("haiku", preset.modelArgument())
         val follow = reopened(hub)
-        follow.preset(model = null, effort = "high", permissionMode = null)
+        follow.preset(model = null, effort = "high")
         assertNull(follow.modelArgument())
     }
 

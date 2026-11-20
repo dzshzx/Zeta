@@ -38,7 +38,8 @@ internal data class RunSpec(
     val cwd: String?,
     /** null 跟随当前设置。 */
     val model: String?,
-    val permissionMode: String?,
+    /** 这次运行发的指令用的权限模式，不跟随当前设置：用户在输入栏随手选的模式不该带进没人看着的运行。 */
+    val permissionMode: String,
     val newSession: Boolean,
     /** 接着同一个对话时用的会话。 */
     val sessionId: String?,

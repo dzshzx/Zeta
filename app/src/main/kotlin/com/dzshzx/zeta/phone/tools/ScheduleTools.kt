@@ -86,7 +86,8 @@ internal object ScheduleTools : PhoneToolGroup {
             "Schedule a prompt for Claude to run later in the background on this phone, once or repeatedly. At each run Zeta starts " +
                 "a conversation with the prompt and notifies the user with the start of the answer. Times are the phone's local time " +
                 "(the Linux environment may use another time zone). " +
-                "Nobody is there to approve tool calls, so pick permission_mode for prompts that need such tools.",
+                "Nobody is there to approve tool calls: with the default permission_mode auto, Claude Code decides on each call itself; " +
+                "with default, a run stops at calls that need approval and notifies the user.",
         ) {
             schema(required = listOf("name", "prompt", "repeat")) {
                 taskProps(update = false)
@@ -150,7 +151,7 @@ internal object ScheduleTools : PhoneToolGroup {
         prop("every_hours", "integer", "Hours between runs for interval, 1-${ScheduleRule.MAX_INTERVAL_HOURS}.")
         prop("cwd", "string", "Working directory in the Linux environment; default the user's default directory.")
         prop("model", "string", "Model alias such as sonnet or opus; default follows the user's current setting.")
-        enumProp("permission_mode", if (update) MODES + "" else MODES, "Default follows the user's current setting.")
+        enumProp("permission_mode", if (update) MODES + "" else MODES, "Permission mode for the runs; default ${Schedules.DEFAULT_MODE}.")
         prop("new_session", "boolean", "Start a fresh conversation each run (default true); false continues one conversation across runs.")
         prop(
             "only_on_change", "boolean",
@@ -192,7 +193,7 @@ internal object ScheduleTools : PhoneToolGroup {
             rule = rule(input, base = null, now, zone)!!,
             cwd = input.str("cwd"),
             model = input.str("model")?.trim()?.takeIf { it.isNotEmpty() },
-            permissionMode = mode(input),
+            permissionMode = mode(input) ?: Schedules.DEFAULT_MODE,
             newSession = input.bool("new_session") ?: true,
             onlyOnChange = input.bool("only_on_change") ?: false,
         )
@@ -242,7 +243,7 @@ internal object ScheduleTools : PhoneToolGroup {
             rule = rule(input, task.rule, now, zone) ?: task.rule,
             cwd = if (given(input, "cwd")) input.str("cwd") else task.cwd,
             model = if (given(input, "model")) input.str("model")?.trim()?.takeIf { it.isNotEmpty() } else task.model,
-            permissionMode = if (given(input, "permission_mode")) mode(input) else task.permissionMode,
+            permissionMode = if (given(input, "permission_mode")) mode(input) ?: Schedules.DEFAULT_MODE else task.permissionMode,
             newSession = input.bool("new_session") ?: task.newSession,
             onlyOnChange = input.bool("only_on_change") ?: task.onlyOnChange,
         )
@@ -325,7 +326,7 @@ internal object ScheduleTools : PhoneToolGroup {
         val options = listOfNotNull(
             task.cwd?.let { "工作目录 $it" },
             task.model?.let { "模型 $it" },
-            task.permissionMode?.let { "权限模式 $it" },
+            "权限模式 " + task.permissionMode,
             if (task.newSession) null else "接着同一个对话",
             if (task.onlyOnChange) "只在有变化时提醒" else null,
         )
