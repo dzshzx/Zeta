@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SharedFolder
+import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.RunOutcome
@@ -50,7 +51,7 @@ class SettingsKeysTest {
     private val samples: Map<String, Any?> = mapOf(
         "setSharedFolders" to listOf(SharedFolder("Download", "/storage/emulated/0/Download")),
         "setEnv" to LinuxEnvConfig("/data/local/zeta/debian/rootfs", "someone", 5000, 5000, "/home/someone", "/workspace/claude"),
-        "setCommands" to "[{\"name\":\"compact\"}]",
+        "setCommands" to listOf(SlashCommand("compact", "", "")),
         "setDarkTheme" to true,
         "setPhoneTools" to false,
         "setAgentDisplay" to false,

@@ -18,12 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉、接回进程），各会话的手机工具，界面前后台，
@@ -101,24 +96,6 @@ class ConversationHub(private val app: Application) {
     var incoming by mutableStateOf<Intake?>(null)
 
     private var hostsChecked = false
-
-    /** Claude Code 上次报告的斜杠命令和技能；存一份，应用刚打开还没起进程时也能提示。 */
-    var commands by mutableStateOf(loadCommands())
-        private set
-
-    internal fun updateCommands(list: List<SlashCommand>) {
-        if (list == commands) return
-        commands = list
-        settings.commands = buildJsonArray {
-            for (c in list) add(buildJsonObject { put("name", c.name); put("description", c.description); put("argumentHint", c.argumentHint) })
-        }.toString()
-    }
-
-    private fun loadCommands(): List<SlashCommand> = runCatching {
-        (json.parseToJsonElement(settings.commands ?: return@runCatching emptyList()) as JsonArray).mapNotNull { (it as? JsonObject)?.let { c ->
-            SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
-        } }
-    }.getOrDefault(emptyList())
 
 
     /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，见 [modelOptions]。 */

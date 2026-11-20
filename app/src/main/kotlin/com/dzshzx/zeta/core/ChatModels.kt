@@ -6,11 +6,15 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 
 /** 聊天列表里的一行。全部不可变，更新时整项替换。 */
 @Immutable
@@ -59,6 +63,16 @@ data class RemoteImage(val url: String) : ImageRef {
 /** Claude Code 报告的一个斜杠命令或技能。 */
 @Immutable
 data class SlashCommand(val name: String, val description: String, val argumentHint: String)
+
+/** 斜杠命令清单：Claude Code 在 initialize 的应答里报的 commands，也是存进设置的那份（[encodeSlashCommands]）。没有名字的项跳过。 */
+internal fun parseSlashCommands(list: JsonArray): List<SlashCommand> = list.mapNotNull { (it as? JsonObject)?.let { c ->
+    SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
+} }
+
+/** 斜杠命令清单存进设置的写法：和 Claude Code 报的同样形状的 JSON 数组，[parseSlashCommands] 读回。 */
+internal fun encodeSlashCommands(list: List<SlashCommand>): String = buildJsonArray {
+    for (c in list) add(buildJsonObject { put("name", c.name); put("description", c.description); put("argumentHint", c.argumentHint) })
+}.toString()
 
 /** 发送时把附件（见 [AttachedPaths]）写成消息开头的几行，Claude 据此去读。 */
 internal fun withAttachedFiles(text: String, files: List<String>): String =

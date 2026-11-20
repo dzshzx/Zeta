@@ -714,9 +714,8 @@ class Conversation(
             } }
         }
         response.arr("commands")?.let { list ->
-            hub.updateCommands(list.mapNotNull { (it as? JsonObject)?.let { c ->
-                SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
-            } })
+            val commands = parseSlashCommands(list)
+            if (commands != hub.settings.commands) hub.settings.commands = commands
         }
         response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }

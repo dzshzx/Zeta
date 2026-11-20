@@ -45,7 +45,7 @@ class ControlResponsesTest {
                 """"commands":[{"name":"compact","description":"c","argumentHint":""}],"current_permission_mode":"acceptEdits"}""",
         )
         assertEquals(listOf(ModelOption("opus", "Opus", "d")), hub.models)
-        assertEquals(listOf("compact"), hub.commands.map { it.name })
+        assertEquals(listOf("compact"), hub.settings.commands.map { it.name })
         // 起进程时没指定模式：报来的就是 Claude Code 照设置定的，这个对话从此用它
         assertEquals("acceptEdits", chat.permissionMode)
         assertEquals("acceptEdits", chat.processMode)

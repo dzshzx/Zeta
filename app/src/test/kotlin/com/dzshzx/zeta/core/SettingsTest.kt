@@ -57,6 +57,18 @@ class SettingsTest {
         assertFalse(prefs().contains("autoCompactPercent"))
     }
 
+    /** 斜杠命令清单存成 JSON 数组，重读回来一样；存坏了读成空的。 */
+    @Test
+    fun commandsRoundTrip() {
+        val settings = Settings.of(app)
+        val commands = listOf(SlashCommand("compact", "压缩上下文", ""), SlashCommand("review", "", "<pr>"))
+        settings.commands = commands
+        assertTrue(settings.restore(mapOf("commands" to prefs().getString("commands", null))))
+        assertEquals(commands, settings.commands)
+        assertTrue(settings.restore(mapOf("commands" to "not json")))
+        assertEquals(emptyList<SlashCommand>(), settings.commands)
+    }
+
     /** 导入备份：写完存储，各项（连同交给 LinuxEnv 的共享文件夹清单）按导入的值重读。 */
     @Test
     fun restoreRereadsEveryPref() {
