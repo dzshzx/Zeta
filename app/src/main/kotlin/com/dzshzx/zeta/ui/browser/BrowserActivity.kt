@@ -45,7 +45,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,18 +78,16 @@ import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
 import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
+import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.blur.layerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
 import io.github.suqi8.coui.kmp.icon.extended.Close
@@ -254,16 +251,13 @@ internal fun BrowserScreen(onExit: () -> Unit) {
 /**
  * 浏览器页的 COUI 骨架：菜单和对话框画在 Scaffold 的弹窗层里，没有它就弹不出来。
  * 工具栏是自己的，不用 [com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold] 的顶栏；
- * 照它把页面录成背景图（[LocalPageBackdrop]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
+ * 照它把页面录成背景图（[com.dzshzx.zeta.ui.components.coui2.PageBlur]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
  */
 @Composable
 private fun BrowserScaffold(content: @Composable () -> Unit) {
-    val backdrop = rememberPageBackdrop()
-    val popupBlur = rememberPopupMaterialBlur(backdrop)
+    val blur = rememberPageBlur()
     Scaffold(containerColor = COUITheme.colorScheme.background, contentWindowInsets = WindowInsets(0)) {
-        Box(Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)) {
-            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) { content() }
-        }
+        Box(Modifier.fillMaxSize().pageBlurSource(blur)) { PageBlurHost(blur, content) }
     }
 }
 

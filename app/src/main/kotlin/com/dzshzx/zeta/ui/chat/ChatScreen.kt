@@ -81,13 +81,13 @@ import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
+import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
@@ -101,8 +101,6 @@ import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
-import io.github.suqi8.coui.kmp.blur.layerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Merge
 import io.github.suqi8.coui.kmp.icon.extended.Search
@@ -118,7 +116,7 @@ import kotlinx.coroutines.flow.drop
 
 /**
  * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
- * 内容录进页面背景（[LocalPageBackdrop]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 CouiPageScaffold，
+ * 内容录进页面背景（[PageBlur]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 CouiPageScaffold，
  * 只是聊天页铺整页底色（background），输入栏在内容里跟着键盘走。
  */
 @Composable
@@ -137,19 +135,18 @@ internal fun ChatScreen(
     val colors = COUITheme.colorScheme
     val find = remember(conversation) { ChatFindState() }
     val listState = remember(conversation) { LazyListState() }
-    val backdrop = rememberPageBackdrop()
-    val popupBlur = rememberPopupMaterialBlur(backdrop)
+    val blur = rememberPageBlur()
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = colors.background,
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         topBar = {
             // 顶栏在页面录制范围之外：它的菜单可以模糊页面
-            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+            PageBlurHost(blur) {
                 ChatTopBar(
                     conversation = conversation,
                     models = hub.modelOptions,
-                    backdrop = backdrop,
+                    backdrop = blur.backdrop,
                     listState = listState.takeIf { hub.setup == SetupState.Ready },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
@@ -162,10 +159,10 @@ internal fun ChatScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .pageBlurSource(blur)
                 .background(colors.background),
         ) {
-            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+            PageBlurHost(blur) {
                 when (hub.setup) {
                     // 换对话时这一块整个重建，列表项和输入栏里各控件自己的状态从头来；草稿、消息操作这些对话的状态在 ConversationBody 里另以对话做键
                     SetupState.Ready -> key(conversation) {

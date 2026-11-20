@@ -12,7 +12,7 @@
 COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一份；要加新的共用件就加在这里。
 
 - `CouiPage`（列表页）、`CouiPageScaffold`（内容随意）：页面骨架。顶栏带 COUI 17 光晕，页面录进背景图给弹出的东西做毛玻璃，宽屏时内容居中、顶栏变小，键盘弹出时让位。
-- `CouiBlur.kt`：毛玻璃接线。`LocalCouiBlurEnabled`（截图测试里关掉）、`LocalPageBackdrop`、`panelBlur(...)`。
+- `CouiBlur.kt`：毛玻璃接线。页面骨架用 `rememberPageBlur()` 建这一页的毛玻璃，`Modifier.pageBlurSource(blur)` 标出录进背景图的范围，`PageBlurHost(blur) { }` 包住要弹东西的槽位（顶栏、内容），四处骨架（`CouiPageScaffold`、聊天页、侧栏容器、浏览器）都这么接；`LocalCouiBlurEnabled`（截图测试里关掉）、`panelBlur(...)`（对话框、底部面板的面板模糊）。
 - `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。
 - `SettingsIcon(图标, SettingsHue.*)`：设置首页行首的彩色图标，放进行的 `startAction`；颜色按这一行管的东西分四类，见下面「设置页」。
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时自己给 `dividerStart`。

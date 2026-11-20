@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -51,12 +50,10 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.dzshzx.zeta.R
 import androidx.compose.ui.unit.Dp
-import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.rememberPopupMaterialBlur
+import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
+import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
+import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
 import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.blur.layerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
@@ -91,8 +88,7 @@ fun ConversationSidePaneScaffold(
 ) {
     val sceneLifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val navigationEventState = rememberNavigationEventState(NavigationEventInfo.None)
-    val backdrop = rememberPageBackdrop()
-    val popupBlur = rememberPopupMaterialBlur(backdrop)
+    val blur = rememberPageBlur()
     // 两个槽位各自处理系统栏留白，这一层不给内容加留白
     Scaffold(modifier = modifier.fillMaxSize(), containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0)) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -223,9 +219,10 @@ fun ConversationSidePaneScaffold(
             // 两个槽位并排测量和放置，由同一位移推移；不在聊天内容下面叠放侧栏。
             // 侧栏保留组合，避免每次起手重新创建列表和搜索框。
             Layout(
-                modifier = Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
+                modifier = Modifier.fillMaxSize().pageBlurSource(blur),
                 content = {
-                    CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
+                    // 只给侧栏：聊天页有自己的 Scaffold 和背景图，外面提供了它的弹窗宿主就不给毛玻璃了
+                    PageBlurHost(blur) {
                         pane(
                             paneWidth,
                             isRevealed,

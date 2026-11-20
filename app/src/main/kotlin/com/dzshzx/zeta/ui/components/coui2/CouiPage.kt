@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,8 +51,6 @@ import io.github.suqi8.coui.kmp.basic.glowScrollOffsetPx
 import io.github.suqi8.coui.kmp.basic.rememberScrollBarAdapter
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
-import io.github.suqi8.coui.kmp.blur.layerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
 import io.github.suqi8.coui.kmp.interfaces.ExperimentalScrollBarApi
@@ -92,7 +89,7 @@ internal fun Modifier.couiPageScroll(scope: CouiPageContentScope): Modifier = th
     .fillMaxHeight()
 
 /**
- * COUI 页面：带 COUI 17 光晕的顶栏；页面录进 [LocalPageBackdrop]，页面上弹出的对话框、菜单拿它做毛玻璃。
+ * COUI 页面：带 COUI 17 光晕的顶栏；页面录进背景图（[PageBlur]），页面上弹出的对话框、菜单拿它做毛玻璃。
  * 内容随意排，列表页用 [CouiPage]。
  */
 @Composable
@@ -106,9 +103,8 @@ internal fun CouiPageScaffold(
     topBarSearchState: TopAppBarSearchState? = null,
     content: @Composable (CouiPageContentScope) -> Unit,
 ) {
-    val backdrop = rememberPageBackdrop()
+    val blur = rememberPageBlur()
     val scrollBehavior = COUIScrollBehavior()
-    val popupBlur = rememberPopupMaterialBlur(backdrop)
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     val imePadding = if (windowFocused) Modifier.imePadding() else Modifier
     // 键盘弹出时页面已经让到键盘上面，导航栏在键盘后面，底部不再留导航栏的高度
@@ -119,7 +115,7 @@ internal fun CouiPageScaffold(
             CouiPageTopBar(
                 title = title,
                 scrollBehavior = scrollBehavior,
-                backdrop = backdrop,
+                backdrop = blur.backdrop,
                 onBack = onBack,
                 style = topBarStyle,
                 actions = actions,
@@ -130,7 +126,7 @@ internal fun CouiPageScaffold(
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        Box(Modifier.fillMaxSize().then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)) {
+        Box(Modifier.fillMaxSize().pageBlurSource(blur)) {
             WidePageContent { sidePadding ->
                 val top = innerPadding.calculateTopPadding() + 12.dp
                 val bottom = if (imeShown) 0.dp else max(innerPadding.calculateBottomPadding(), navBottom)
@@ -139,9 +135,7 @@ internal fun CouiPageScaffold(
                 val scope = remember(top, bottom, start, end, scrollBehavior) {
                     CouiPageContentScope(PaddingValues(start = start, top = top, end = end, bottom = bottom), scrollBehavior)
                 }
-                CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
-                    content(scope)
-                }
+                PageBlurHost(blur) { content(scope) }
             }
         }
     }
