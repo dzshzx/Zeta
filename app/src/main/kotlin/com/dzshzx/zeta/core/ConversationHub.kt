@@ -786,6 +786,17 @@ class ConversationHub(private val app: Application) {
         phones.getOrPut(key) { PhoneTools(app, settings, beforeCreate = ::makeRoom, onScreenGone = ::prunePhones) }
     }
 
+    /**
+     * 对话 [conversation] 的会话号从 [from] 换成了 [to]（新对话拿到会话号、/clear 换了新会话；还没有会话号时用对话的 key）。
+     * 按会话登记的都在这里换键：手机工具（之后重新打开才找得回那块后台屏幕）、切到后台的对话、输入栏草稿。
+     * 新加按会话登记的东西也在这里跟着换（SessionRekeyTest 核对）。在主线程上调用。
+     */
+    internal fun sessionChanged(conversation: Conversation, from: String, to: String) {
+        rekeyPhone(conversation.phone, from, to)
+        rekeyBackground(conversation, from, to)
+        drafts.rekey(conversation, from, to)
+    }
+
     /** 对话的会话号变了：登记跟着换。新号下面要是还挂着别的一份（不该有），它已经没人找得到，收掉。 */
     internal fun rekeyPhone(phone: PhoneTools, from: String, to: String) {
         val stale = synchronized(phones) {

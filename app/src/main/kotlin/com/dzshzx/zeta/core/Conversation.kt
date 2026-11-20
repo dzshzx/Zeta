@@ -61,11 +61,8 @@ class Conversation(
             val before = session
             if (value == before) return
             session = value
-            // 手机工具按会话登记：新对话拿到会话号、/clear 换了新会话时跟着改，之后重新打开才找得回这块后台屏幕
-            hub.rekeyPhone(phone, before ?: key, value ?: key)
-            hub.rekeyBackground(this, before ?: key, value ?: key)
-            // 输入栏的草稿也按会话号存：新对话发出第一条后还在输入的，重新打开时才找得回来
-            hub.drafts.rekey(this, before ?: key, value ?: key)
+            // 新对话拿到会话号、/clear 换了新会话：按会话登记的各处跟着换，之后重新打开才找得回来
+            hub.sessionChanged(this, before ?: key, value ?: key)
         }
     var title by mutableStateOf(title)
         internal set
