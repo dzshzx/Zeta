@@ -164,7 +164,7 @@ internal fun ChatScreen(
         ) {
             PageBlurHost(blur) {
                 when (hub.environment.setup) {
-                    // 换对话时这一块整个重建，列表项和输入栏里各控件自己的状态从头来；草稿、消息操作这些对话的状态在 ConversationBody 里另以对话做键
+                    // 换对话时这一块整个重建：ConversationBody 里记住的东西（草稿、消息操作、列表项和输入栏各控件的状态）都从头来
                     SetupState.Ready -> key(conversation) {
                         CompositionLocalProvider(LocalTextFinder provides find) {
                             ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks, onOpenSubagent)
@@ -297,25 +297,26 @@ private fun ConversationBody(
     onOpenSubagent: (String, String) -> Unit,
 ) {
     val items = conversation.items
-    // 下面这个对话的状态（草稿、消息操作、Markdown 缓存、引用路径等）都以 conversation 做键：换了对话就换一套，不靠外层的 key
+    // 下面记住的这个对话的状态（草稿、消息操作、Markdown 缓存、引用路径等）不另以 conversation 做键：
+    // ConversationBody 只在 ChatScreen 的 key(conversation) 里调用，换了对话整块重建，这些状态跟着换一套
     // 每一组步骤拿到的是同一个函数，列表里的步骤组不因上层重组而跟着重组
     val latestOpenSubagent by rememberUpdatedState(onOpenSubagent)
-    val openSubagent = remember(conversation) { { id: String -> latestOpenSubagent(conversation.key, id) } }
+    val openSubagent = remember { { id: String -> latestOpenSubagent(conversation.key, id) } }
     // 输入栏的内容（文字、图片、附带的路径）是这个对话的草稿，由 hub 按对话保管：切走再回来、Zeta 重开后都还在
-    val draft = remember(conversation) { hub.drafts.of(conversation) }
+    val draft = remember { hub.drafts.of(conversation) }
     val input = draft.input
     val attachments = draft.attachments
     val uploads = draft.uploads
-    val markdownCache = remember(conversation) { StreamingMarkdownStateCache() }
+    val markdownCache = remember { StreamingMarkdownStateCache() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
     // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
-    val pathAttach = remember(conversation) { PathAttach() }
+    val pathAttach = remember { PathAttach() }
     // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读。
     // 读图片、复制文件在草稿那边跑，切到别的对话也会做完，落进这份草稿
-    val sink = remember(draft) { IntakeSink(hub, context, hub.drafts.scope, draft, MaxAttachments) }
+    val sink = remember { IntakeSink(hub, context, hub.drafts.scope, draft, MaxAttachments) }
     // 编辑、重新生成、删除一轮、分支
-    val actions = remember(conversation, draft) { MessageActions(hub, conversation, draft, scope, context) }
+    val actions = remember { MessageActions(hub, conversation, draft, scope, context) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> sink.addImages(uris) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> sink.addFiles(uris) }
     // 从外面送进来、定了放进这个对话的东西（分享、用 Zeta 打开、截屏）
@@ -330,7 +331,7 @@ private fun ConversationBody(
     // 贴底跟随：内容增长时自动滚到底；用户向上拖动后停止，回到底部或点按钮后恢复
     val follow = rememberFollowBottom(listState)
     // 撤回的排队消息（点了它，或按了停止）：放回输入框，接在已有草稿前面
-    LaunchedEffect(conversation, conversation.recalled) {
+    LaunchedEffect(conversation.recalled) {
         conversation.takeRecalled()?.let(sink::putBack)
     }
     val streamingAnswers = remember(items) { items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id } }
@@ -354,7 +355,7 @@ private fun ConversationBody(
     )
     // 查找查整个对话：打开查找栏时把还没载入的更早记录一次载完（整份记录只读一遍），之后只在载入的内容里查。
     // 没读成就停下，查找栏里说明；点“更早的记录”那行重试成功后接着载
-    LaunchedEffect(conversation, find.active) {
+    LaunchedEffect(find.active) {
         if (!find.active) return@LaunchedEffect
         snapshotFlow { conversation.earlier.takeIf { conversation.earlierState == EarlierState.Idle && !conversation.loadingHistory } }
             .collect { if (it != null) conversation.loadEarlier(rest = true) }
@@ -378,7 +379,7 @@ private fun ConversationBody(
                 )
                 else -> {
                     val last = items.last()
-                    val idleSeconds by produceState(0, conversation, conversation.busy, conversation.lastActivityAt) {
+                    val idleSeconds by produceState(0, conversation.busy, conversation.lastActivityAt) {
                         value = 0
                         while (conversation.busy) {
                             delay(1000)
@@ -484,8 +485,8 @@ private fun ConversationBody(
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         ) {
-            var viewingScreen by remember(conversation) { mutableStateOf(false) }
-            var viewingUsage by remember(conversation) { mutableStateOf(false) }
+            var viewingScreen by remember { mutableStateOf(false) }
+            var viewingUsage by remember { mutableStateOf(false) }
             // 顶部胶囊正显示这个对话时，后台屏幕在胶囊里看和接管，这里不再重复一条
             if (hub.alerts.overlayFocus !== conversation.overlay) {
                 AgentDisplayStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
