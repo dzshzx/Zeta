@@ -2,9 +2,7 @@ package com.dzshzx.zeta.core
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
 
 /**
  * 新对话的自动标题，用 Claude Code 自己的标题功能（2.1.327 实测）：
@@ -44,8 +42,11 @@ internal class AutoTitle {
     private var placeholder: String? = null
     private var attempts = 0
 
+    /** 一次起标题的请求：[body] 是控制请求的 request 一项，应答回来时连同它交给 [onResponse]。 */
+    class Request internal constructor(val body: JsonObject)
+
     /** 发出去还没回来的请求。 */
-    private var pending: String? = null
+    private var pending: Request? = null
 
     /** 新对话（或 /clear 之后）第一次发消息时调用。 */
     fun arm(placeholderTitle: String) {
@@ -60,10 +61,10 @@ internal class AutoTitle {
     }
 
     /**
-     * 一轮正常结束时调用：该请求就返回要发给 Claude Code 的控制请求，否则 null。
+     * 一轮正常结束时调用：该请求就返回要发给 Claude Code 的请求，否则 null。
      * 标题已经不是临时标题了（用户改了名、Claude Code 报了新标题）就不再起。
      */
-    fun next(enabled: Boolean, title: String, items: List<ChatItem>, requestId: String): JsonObject? {
+    fun next(enabled: Boolean, title: String, items: List<ChatItem>): Request? {
         val expected = placeholder ?: return null
         if (!enabled || title != expected || attempts >= MAX_ATTEMPTS) {
             disarm()
@@ -73,25 +74,18 @@ internal class AutoTitle {
         val description = describe(items)
         if (description.length < MIN_DESCRIPTION) return null
         attempts++
-        pending = requestId
-        return buildJsonObject {
-            put("type", "control_request")
-            put("request_id", requestId)
-            putJsonObject("request") {
-                put("subtype", "generate_session_title")
-                put("description", description)
-                put("persist", true)
-            }
-        }
+        return Request(controlBody("generate_session_title") {
+            put("description", description)
+            put("persist", true)
+        }).also { pending = it }
     }
 
     /**
-     * 看一条 control_response 是不是标题请求的应答；是的话返回 true（别的地方不用再处理），新标题交给 [apply]。
-     * 应答回来时标题已经被用户改了，就不用它。
+     * [request] 的应答（control_response 里的 response 一项）到了，新标题交给 [apply]。
+     * 不是现在等着的那个（之后又重新 arm 过）就不管，返回 false；应答回来时标题已经被用户改了，就不用它。
      */
-    fun onResponse(response: JsonObject?, currentTitle: String, apply: (String) -> Unit): Boolean {
-        val id = response?.str("request_id") ?: return false
-        if (id != pending) return false
+    fun onResponse(request: Request, response: JsonObject, currentTitle: String, apply: (String) -> Unit): Boolean {
+        if (request !== pending) return false
         pending = null
         val expected = placeholder
         if (response.str("subtype") != "success" || expected == null) {

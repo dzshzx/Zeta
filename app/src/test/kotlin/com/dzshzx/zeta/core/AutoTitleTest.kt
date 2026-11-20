@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -45,23 +44,34 @@ class AutoTitleTest {
     fun requestsOnceAndAppliesTheTitle() {
         val auto = AutoTitle()
         // 没 arm（打开的历史会话、分支）不起
-        assertNull(auto.next(true, "帮我看看", turn, "t0"))
+        assertNull(auto.next(true, "帮我看看", turn))
         auto.arm("帮我看看")
-        val request = auto.next(true, "帮我看看", turn, "t1")!!
-        assertEquals("control_request", request["type"]!!.jsonPrimitive.content)
-        val body = request["request"]!!.jsonObject
+        val request = auto.next(true, "帮我看看", turn)!!
+        val body = request.body
         assertEquals("generate_session_title", body["subtype"]!!.jsonPrimitive.content)
         assertEquals(true, body["persist"]!!.jsonPrimitive.content.toBoolean())
         assertEquals(AutoTitle.describe(turn), body["description"]!!.jsonPrimitive.content)
         // 还没回来不重发
-        assertNull(auto.next(true, "帮我看看", turn, "t2"))
-        // 别的应答不管
-        assertFalse(auto.onResponse(response("zeta-9", "x"), "帮我看看") { throw AssertionError() })
+        assertNull(auto.next(true, "帮我看看", turn))
         var applied: String? = null
-        assertTrue(auto.onResponse(response("t1", "截图报错排查"), "帮我看看") { applied = it })
+        assertTrue(auto.onResponse(request, response("t1", "截图报错排查"), "帮我看看") { applied = it })
         assertEquals("截图报错排查", applied)
         // 起成了就不再起
-        assertNull(auto.next(true, "截图报错排查", turn, "t3"))
+        assertNull(auto.next(true, "截图报错排查", turn))
+    }
+
+    /** 重新 arm（/clear 之后）以前发的请求，应答晚到了也不用。 */
+    @Test
+    fun answerToAnEarlierArmingIsIgnored() {
+        val auto = AutoTitle()
+        auto.arm("帮我看看")
+        val stale = auto.next(true, "帮我看看", turn)!!
+        auto.arm("帮我看看")
+        assertFalse(auto.onResponse(stale, response("t1", "旧的"), "帮我看看") { throw AssertionError() })
+        val fresh = auto.next(true, "帮我看看", turn)!!
+        var applied: String? = null
+        assertTrue(auto.onResponse(fresh, response("t2", "新的"), "帮我看看") { applied = it })
+        assertEquals("新的", applied)
     }
 
     @Test
@@ -69,14 +79,14 @@ class AutoTitleTest {
         val auto = AutoTitle()
         auto.arm("hi")
         // 内容不到 10 个字：先不请求
-        assertNull(auto.next(true, "hi", listOf(UserItem("u", "hi")), "s0"))
+        assertNull(auto.next(true, "hi", listOf(UserItem("u", "hi"))))
         repeat(AutoTitle.MAX_ATTEMPTS) { i ->
-            val id = "s${i + 1}"
-            assertNotNull(auto.next(true, "hi", turn, id))
+            val request = auto.next(true, "hi", turn)
+            assertNotNull(request)
             // Claude Code 嫌内容不够，返回 null：保留原标题，下一轮再试
-            assertTrue(auto.onResponse(response(id, null), "hi") { throw AssertionError() })
+            assertTrue(auto.onResponse(request!!, response("s${i + 1}", null), "hi") { throw AssertionError() })
         }
-        assertNull(auto.next(true, "hi", turn, "s9"))
+        assertNull(auto.next(true, "hi", turn))
     }
 
     @Test
@@ -84,23 +94,23 @@ class AutoTitleTest {
         val auto = AutoTitle()
         auto.arm("原句")
         // 关着开关
-        assertNull(auto.next(false, "原句", turn, "x1"))
-        assertNull(auto.next(true, "原句", turn, "x2"))
+        assertNull(auto.next(false, "原句", turn))
+        assertNull(auto.next(true, "原句", turn))
 
         auto.arm("原句")
         // 用户已经改了名
-        assertNull(auto.next(true, "我的名字", turn, "x3"))
+        assertNull(auto.next(true, "我的名字", turn))
 
         auto.arm("原句")
-        assertNotNull(auto.next(true, "原句", turn, "x4"))
+        val renamed = auto.next(true, "原句", turn)!!
         // 应答回来前用户改了名：不用它
-        assertTrue(auto.onResponse(response("x4", "自动标题"), "我的名字") { throw AssertionError() })
+        assertTrue(auto.onResponse(renamed, response("x4", "自动标题"), "我的名字") { throw AssertionError() })
 
         auto.arm("原句")
-        assertNotNull(auto.next(true, "原句", turn, "x5"))
+        val failed = auto.next(true, "原句", turn)!!
         // 出错：不提示，不再试
-        assertTrue(auto.onResponse(response("x5", null, subtype = "error"), "原句") { throw AssertionError() })
-        assertNull(auto.next(true, "原句", turn, "x6"))
+        assertTrue(auto.onResponse(failed, response("x5", null, subtype = "error"), "原句") { throw AssertionError() })
+        assertNull(auto.next(true, "原句", turn))
     }
 
     /** zeta_helper.py 读标题：改过的名字压过自动标题，不看先后（Claude Code 补写元数据时两行会按 custom、ai 的顺序重写一遍）。 */

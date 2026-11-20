@@ -195,7 +195,6 @@ class UsageTracker {
                 baseCost = null
                 changed()
             }
-            "control_response" -> observeControl(event.obj("response")?.obj("response"))
             else -> false
         }
     }
@@ -255,33 +254,32 @@ class UsageTracker {
         return modelUsage.values.mapNotNull { (it as? JsonObject)?.long("contextWindow") }.maxOrNull()
     }
 
-    /** get_context_usage 和 get_settings 的应答。 */
-    private fun observeControl(response: JsonObject?): Boolean {
-        response ?: return false
-        var any = false
-        response.long("maxTokens")?.takeIf { it > 0 }?.let { window ->
-            claudeWindow = window
-            response.str("model")?.let { name ->
-                model = name
-                learnedWindow = name to window
-            }
-            // 还没有实测数时（刚起的新会话、刚压缩完）用 Claude Code 的估算，它含系统提示、工具定义这些固定开销
-            if (estimated) response.long("totalTokens")?.takeIf { it > 0 }?.let { contextTokens = it }
-            // 自动压缩关着时没有 autoCompactThreshold
-            (response["isAutoCompactEnabled"] as? JsonPrimitive)?.booleanOrNull?.let { enabled ->
-                autoCompact = enabled
-                reportedThreshold = if (enabled) response.long("autoCompactThreshold")?.takeIf { it > 0 } else null
-            }
-            any = true
+    /** get_context_usage 的应答（control_response 里的 response 一项）；返回用量有没有变化。 */
+    fun contextUsageAnswered(answer: JsonObject): Boolean {
+        val response = answer.obj("response") ?: return false
+        val window = response.long("maxTokens")?.takeIf { it > 0 } ?: return false
+        claudeWindow = window
+        response.str("model")?.let { name ->
+            model = name
+            learnedWindow = name to window
         }
-        response.obj("applied")?.let { applied ->
-            val effort = applied.str("effort")
-            if (effort != appliedEffort) {
-                appliedEffort = effort
-                any = true
-            }
+        // 还没有实测数时（刚起的新会话、刚压缩完）用 Claude Code 的估算，它含系统提示、工具定义这些固定开销
+        if (estimated) response.long("totalTokens")?.takeIf { it > 0 }?.let { contextTokens = it }
+        // 自动压缩关着时没有 autoCompactThreshold
+        (response["isAutoCompactEnabled"] as? JsonPrimitive)?.booleanOrNull?.let { enabled ->
+            autoCompact = enabled
+            reportedThreshold = if (enabled) response.long("autoCompactThreshold")?.takeIf { it > 0 } else null
         }
-        return any && changed()
+        return changed()
+    }
+
+    /** get_settings 的应答：实际生效的思考强度。返回有没有变化。 */
+    fun settingsAnswered(answer: JsonObject): Boolean {
+        val applied = answer.obj("response")?.obj("applied") ?: return false
+        val effort = applied.str("effort")
+        if (effort == appliedEffort) return false
+        appliedEffort = effort
+        return changed()
     }
 
     /** 会话记录里的一条（形状同 stream-json）。读完后调 [finishHistory]。 */

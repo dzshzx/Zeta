@@ -51,16 +51,15 @@ class QuotaService(private val hub: ConversationHub) {
         }
     }
 
-    /** 对话进程的一条事件（主线程上）。只看 rate_limit_event 和 get_usage 的应答。 */
+    /** 对话进程的一条事件（主线程上）。只看 rate_limit_event。 */
     fun observe(event: JsonObject) {
-        val now = System.currentTimeMillis()
-        when (event.str("type")) {
-            "rate_limit_event" -> Quota.applyEvent(snapshot, event["rate_limit_info"] as? JsonObject, now)?.let { if (it != snapshot) publish(it) }
-            "control_response" -> {
-                val body = ((event["response"] as? JsonObject)?.get("response") as? JsonObject) ?: return
-                Quota.parseUsage(body, now)?.let(::answered)
-            }
-        }
+        if (event.str("type") != "rate_limit_event") return
+        Quota.applyEvent(snapshot, event["rate_limit_info"] as? JsonObject, System.currentTimeMillis())?.let { if (it != snapshot) publish(it) }
+    }
+
+    /** 借对话进程问的 get_usage 答了（control_response 里的 response 一项，主线程上）。答的是错误时不算数，等 [giveUp]。 */
+    internal fun usageAnswered(answer: JsonObject) {
+        Quota.parseUsage(answer.obj("response"), System.currentTimeMillis())?.let(::answered)
     }
 
     /** get_usage 的应答到了。 */
@@ -103,7 +102,7 @@ class QuotaService(private val hub: ConversationHub) {
         refreshing = true
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
-        // 借开着的对话进程问（当前的优先，再是后台的），应答从 observe 进来；都没有进程才单起一个
+        // 借开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
         if ((listOf(hub.current) + hub.backgroundConversations).any { it.queryQuota() }) return
         thread(name = "zeta-quota", isDaemon = true) {
             val body = runCatching { synchronized(probeLock) { QuotaProbe.query(EnvShell(config), config.defaultCwd) } }

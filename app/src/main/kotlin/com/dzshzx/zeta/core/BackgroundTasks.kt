@@ -331,7 +331,7 @@ fun formatElapsed(ms: Long): String {
 
 /**
  * 一个对话的后台任务（可观察）：清单、读到的输出。状态只在主线程上改。
- * 发控制请求由 [Conversation] 做，这里记下请求号，应答回来时认领。
+ * 发控制请求由 [Conversation] 做，应答按请求号交回这里（[outputAnswered]、[stopAnswered]）。
  */
 class BackgroundTasks {
     private val board = TaskBoard()
@@ -343,42 +343,28 @@ class BackgroundTasks {
     var outputs by mutableStateOf<Map<String, TaskOutput>>(emptyMap())
         private set
 
-    private val outputRequests = HashMap<String, String>()
-    private val stopRequests = HashMap<String, String>()
-
     val running: Int get() = list.count { it.running }
 
     fun observe(event: JsonObject, now: Long) {
         if (board.observe(event, now)) publish()
     }
 
-    internal fun outputRequested(requestId: String, taskId: String) {
-        outputRequests[requestId] = taskId
+    /** get_task_output 的应答（control_response 里的 response 一项）到了：任务 [taskId] 读到的输出。 */
+    internal fun outputAnswered(taskId: String, response: JsonObject) {
+        outputs = outputs + (taskId to parseTaskOutput(response))
     }
 
-    internal fun stopRequested(requestId: String, taskId: String) {
-        stopRequests[requestId] = taskId
+    /** 发出了 stop_task：先显示“正在停止”。 */
+    internal fun stopRequested(taskId: String) {
         if (board.markStopping(taskId)) publish()
     }
 
-    /** 一条 control_response 是不是这里发的请求的应答；是就收下。 */
-    internal fun onResponse(response: JsonObject?): Boolean {
-        val id = response?.str("request_id") ?: return false
-        outputRequests.remove(id)?.let { task ->
-            outputs = outputs + (task to parseTaskOutput(response))
-            return true
-        }
-        stopRequests.remove(id)?.let { task ->
-            // stop_task 对不认识的任务也答 success；真停没停看随后的 task_updated。答错时把“正在停止”撤掉
-            if (response.str("subtype") == "error" && board.markStopping(task, stopping = false)) publish()
-            return true
-        }
-        return false
+    /** stop_task 的应答到了。它对不认识的任务也答 success，真停没停看随后的 task_updated；答错时把“正在停止”撤掉。 */
+    internal fun stopAnswered(taskId: String, response: JsonObject) {
+        if (response.str("subtype") == "error" && board.markStopping(taskId, stopping = false)) publish()
     }
 
     internal fun processEnded(now: Long) {
-        outputRequests.clear()
-        stopRequests.clear()
         if (board.processEnded(now)) publish()
     }
 

@@ -239,7 +239,7 @@ class Conversation(
     val hostKey: String? get() = process?.hostKey
 
     /** 等 Claude Code 剪会话（rewind_conversation）的那个请求；答应了做 onDone，没答应做 onFailed。 */
-    private class PendingRewind(val requestId: String, val onDone: () -> Unit, val onFailed: (String) -> Unit)
+    private class PendingRewind(val onDone: () -> Unit, val onFailed: (String) -> Unit)
 
     private var rewind: PendingRewind? = null
 
@@ -264,7 +264,6 @@ class Conversation(
     /** 顶部状态胶囊看到的这个对话。 */
     internal val overlay = ConversationFocus(hub, this)
     private val drainScheduled = AtomicBoolean(false)
-    private var requestSeq = 0
 
     val isProcessAlive: Boolean get() = process != null
 
@@ -308,7 +307,7 @@ class Conversation(
             return
         }
         process = created
-        created.send(controlRequest { put("subtype", "initialize") })
+        initialize(created)
         // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
         meter.processStarted(fresh = false, compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact })
         queryUsage(created)
@@ -549,7 +548,7 @@ class Conversation(
     private fun switchMode(process: ClaudeProcess, mode: String?) {
         if (mode == null || mode == processMode) return
         processMode = mode
-        process.send(controlRequest { put("subtype", "set_permission_mode"); put("mode", mode) })
+        process.request(controlBody("set_permission_mode") { put("mode", mode) })
     }
 
     /**
@@ -571,22 +570,24 @@ class Conversation(
 
     /** Claude Code 的 apply_flag_settings：只改这个进程、叠在 settings.json 上的一层（思考强度、后台运行的权限规则）。 */
     private fun applyFlags(process: ClaudeProcess, settings: JsonObjectBuilder.() -> Unit) =
-        process.send(controlRequest { put("subtype", "apply_flag_settings"); putJsonObject("settings", settings) })
+        process.request(controlBody("apply_flag_settings") { putJsonObject("settings", settings) })
 
-    /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。应答在 [handle] 里收。 */
+    /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。 */
     private fun requestRewind(process: ClaudeProcess, target: String, lastSeen: String?, onDone: () -> Unit, onFailed: (String) -> Unit) {
-        val request = controlRequest { for ((key, value) in rewindRequest(target, lastSeen)) put(key, value) }
-        rewind = PendingRewind(request.str("request_id").orEmpty(), onDone, onFailed)
+        val pending = PendingRewind(onDone, onFailed)
+        rewind = pending
         rewinding = true
-        process.send(request)
+        process.request(rewindRequest(target, lastSeen)) { response -> finishRewind(rewindFailure(response), pending) }
         hub.onActivityChanged()
     }
 
-    private fun finishRewind(failure: String?) {
-        val request = rewind ?: return
+    /** 剪会话有了结果（[failure] 为 null 是剪成了）。[request] 给了时只收它的：对话关了、进程退出时已经按失败收掉了。 */
+    private fun finishRewind(failure: String?, request: PendingRewind? = null) {
+        val current = rewind ?: return
+        if (request != null && request !== current) return
         rewind = null
         rewinding = false
-        if (failure == null) request.onDone() else request.onFailed(failure)
+        if (failure == null) current.onDone() else current.onFailed(failure)
         publish()
         // 剪的期间读回来的更早一页：列表已经是剪完（或恢复）的样子，现在接上
         deferredEarlier?.also { deferredEarlier = null }?.invoke()
@@ -629,7 +630,7 @@ class Conversation(
         for (message in queued) cancelQueued(message.uuid, recall = true)
         steering = false
         interruptRequested = true
-        process.send(controlRequest { put("subtype", "interrupt") })
+        process.request(controlBody("interrupt"))
         // 正在等用户批准的调用一并拒绝，否则进程会一直等
         pending?.let { respond(it, allow = false) }
     }
@@ -641,7 +642,7 @@ class Conversation(
         phone.cancelWaiting()
         steering = true
         interruptRequested = true
-        process.send(controlRequest { put("subtype", "interrupt") })
+        process.request(controlBody("interrupt"))
         pending?.let { respond(it, allow = false) }
     }
 
@@ -650,10 +651,7 @@ class Conversation(
         val process = process ?: return
         if (queued.none { it.uuid == uuid }) return
         if (recall) recalling.add(uuid)
-        process.send(controlRequest {
-            put("subtype", "cancel_async_message")
-            put("message_uuid", uuid)
-        })
+        process.request(controlBody("cancel_async_message") { put("message_uuid", uuid) })
     }
 
     fun takeRecalled(): QueuedMessage? = recalled.also { recalled = null }
@@ -678,7 +676,7 @@ class Conversation(
         model = chosen ?: DEFAULT_MODEL.takeIf { resumed }
         // 上次 init 报的模型作废：新对话选回默认时顶栏写「默认」，下一轮的 init 再报实际用的
         reportedModel = null
-        process?.send(controlRequest { put("subtype", "set_model"); put("model", chosen ?: DEFAULT_MODEL) })
+        process?.request(controlBody("set_model") { put("model", chosen ?: DEFAULT_MODEL) })
         process?.let(::queryUsage)
     }
 
@@ -690,7 +688,7 @@ class Conversation(
         effort = value
         val process = process ?: return
         applyFlags(process) { put("effortLevel", value) }
-        process.send(controlRequest { put("subtype", "get_settings") })
+        querySettings(process)
     }
 
     /**
@@ -722,22 +720,43 @@ class Conversation(
         hub.onActivityChanged()
     }
 
-    /** 问 Claude Code 上下文窗口和实际生效的思考强度（应答由 [UsageTracker] 接住）。 */
-    private fun queryUsage(target: ClaudeProcess) {
-        target.send(controlRequest { put("subtype", "get_context_usage") })
-        target.send(controlRequest { put("subtype", "get_settings") })
-        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次
-        if (hub.quota.claimAutoQuery()) target.send(quotaRequest())
+    /**
+     * 刚起或刚接上的进程：要模型清单、斜杠命令清单；起进程时没指定模式的，应答里的是 Claude Code 照设置定的。
+     * 控制请求按顺序处理，之后发的 apply_flag_settings 等都排在它后面。
+     */
+    private fun initialize(target: ClaudeProcess) = target.request(controlBody("initialize")) { answer ->
+        val response = answer.obj("response") ?: return@request
+        response.arr("models")?.let { list ->
+            hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
+                ModelOption(m.str("value") ?: return@let null, m.str("displayName").orEmpty(), m.str("description").orEmpty())
+            } }
+        }
+        response.arr("commands")?.let { list ->
+            hub.updateCommands(list.mapNotNull { (it as? JsonObject)?.let { c ->
+                SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
+            } })
+        }
+        response.str("current_permission_mode")?.takeIf { processMode == null }?.let(::reportMode)
     }
 
-    /** 借这个对话开着的进程问一次订阅额度，应答由 QuotaService 接住；没有进程时返回 false。 */
+    /** 问 Claude Code 上下文窗口和实际生效的思考强度，应答交给 [UsageTracker]。 */
+    private fun queryUsage(target: ClaudeProcess) {
+        target.request(controlBody("get_context_usage")) { meter.contextUsageAnswered(it) }
+        querySettings(target)
+        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次
+        if (hub.quota.claimAutoQuery()) queryQuota(target)
+    }
+
+    private fun querySettings(target: ClaudeProcess) = target.request(controlBody("get_settings")) { meter.settingsAnswered(it) }
+
+    /** 借这个对话开着的进程问一次订阅额度，应答交给 QuotaService；没有进程时返回 false。 */
     internal fun queryQuota(): Boolean {
-        val target = process ?: return false
-        target.send(quotaRequest())
+        queryQuota(process ?: return false)
         return true
     }
 
-    private fun quotaRequest() = controlRequest { put("subtype", "get_usage"); put("skip_behaviors", true) }
+    private fun queryQuota(target: ClaudeProcess) =
+        target.request(controlBody("get_usage") { put("skip_behaviors", true) }) { hub.quota.usageAnswered(it) }
 
     private fun publishUsage() {
         meter.learnedWindow?.let { (name, window) ->
@@ -759,7 +778,7 @@ class Conversation(
         launchHint = hint
         model?.let { value ->
             this.model = value
-            process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
+            process?.request(controlBody("set_model") { put("model", value) })
         }
         effort?.let(::chooseEffort)
     }
@@ -811,17 +830,14 @@ class Conversation(
     /** 停掉后台任务 [id]。结果看随后的 task_updated / task_notification。 */
     fun stopTask(id: String) {
         val process = process ?: return
-        val request = controlRequest { put("subtype", "stop_task"); put("task_id", id) }
-        tasks.stopRequested(request.str("request_id").orEmpty(), id)
-        process.send(request)
+        tasks.stopRequested(id)
+        process.request(controlBody("stop_task") { put("task_id", id) }) { tasks.stopAnswered(id, it) }
     }
 
     /** 读后台命令、监视器 [id] 输出的最后 8 KiB，应答进 [BackgroundTasks.outputs]。进程不在时什么也不做。 */
     fun readTaskOutput(id: String) {
         val process = process ?: return
-        val request = controlRequest { put("subtype", "get_task_output"); put("task_id", id) }
-        tasks.outputRequested(request.str("request_id").orEmpty(), id)
-        process.send(request)
+        process.request(controlBody("get_task_output") { put("task_id", id) }) { tasks.outputAnswered(id, it) }
     }
 
     /** 子代理查看页要看的那个子代理：[toolUseId] 是发起它的 Agent 调用。记录由 [refreshSubagent] 读。 */
@@ -932,12 +948,6 @@ class Conversation(
         hub.onActivityChanged()
     }
 
-    private fun controlRequest(build: JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject {
-        put("type", "control_request")
-        put("request_id", "zeta-${++requestSeq}")
-        putJsonObject("request", build)
-    }
-
     /** 进程没起来就起一个，权限模式是 [mode]（默认用户的）；起来了就直接用，不切模式。 */
     private fun ensureProcess(mode: String? = userMode): ClaudeProcess? {
         process?.let { return it }
@@ -969,7 +979,7 @@ class Conversation(
         process = created
         permissionMode?.let { hub.rememberHostMode(created.hostKey, it) }
         forkCut = false
-        created.send(controlRequest { put("subtype", "initialize") })
+        initialize(created)
         meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
         queryUsage(created)
         hub.onActivityChanged()
@@ -1160,33 +1170,18 @@ class Conversation(
                 reducer.addNotice("上下文已清空，下面是新的会话", error = false)
                 return true
             }
-            "control_response" -> {
-                if (tasks.onResponse(event.obj("response"))) return false
-                if (autoTitle.onResponse(event.obj("response"), title) { title = it; sessionId?.let { id -> hub.titled(id, it) } }) return false
-                if (rewind != null && event.obj("response")?.str("request_id") == rewind?.requestId) {
-                    finishRewind(rewindFailure(event.obj("response")))
-                    return true
-                }
-                val response = event.obj("response")?.obj("response") ?: return false
-                response.arr("models")?.let { list ->
-                    hub.models = list.mapNotNull { (it as? JsonObject)?.let { m ->
-                        ModelOption(m.str("value") ?: return@let null, m.str("displayName").orEmpty(), m.str("description").orEmpty())
-                    } }
-                }
-                response.arr("commands")?.let { list ->
-                    hub.updateCommands(list.mapNotNull { (it as? JsonObject)?.let { c ->
-                        SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
-                    } })
-                }
-                response.str("current_permission_mode")?.takeIf { processMode == null }?.let(::reportMode)
-            }
+            // 自己发的控制请求的应答：按请求号交给发请求时给的回调（见 ClaudeProcess.request）
+            "control_response" -> process?.answer(event)
         }
         return false
     }
 
     private fun requestTitle() {
         val target = process ?: return
-        autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList(), "zeta-title-${++requestSeq}")?.let(target::send)
+        val request = autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList()) ?: return
+        target.request(request.body) { response ->
+            autoTitle.onResponse(request, response, title) { title = it; sessionId?.let { id -> hub.titled(id, it) } }
+        }
     }
 
     private fun parseQuestions(list: JsonArray?): List<Question> = list.orEmpty().mapNotNull { element ->

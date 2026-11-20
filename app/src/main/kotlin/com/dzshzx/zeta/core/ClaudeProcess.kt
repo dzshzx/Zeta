@@ -2,10 +2,14 @@ package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.diag.DiagEvents
 import java.io.OutputStream
+import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** 一个仍在后台运行、可以重新接上的 Claude Code 进程（应用上次退出时留下的）。 */
 class HostInfo(
@@ -59,6 +63,7 @@ class ClaudeProcess(
     )
     private val outbox = LinkedBlockingQueue<String>()
     private val stderrTail = StringBuilder()
+    private val requests = ControlRequests()
 
     @Volatile private var closed = false
 
@@ -122,9 +127,25 @@ class ClaudeProcess(
         if (!closed) outbox.offer(message.toString())
     }
 
+    /**
+     * 发一个控制请求，[body] 是其中的 request 一项（带 subtype）。要应答时给 [onResponse]：Claude Code 答了这个请求号，
+     * [answer] 就把应答（control_response 里的 response 一项，成功、出错都给）交给它；进程结束时还没答的作废，不再调用。
+     */
+    fun request(body: JsonObject, onResponse: ((JsonObject) -> Unit)? = null) = send(requests.build(body, onResponse))
+
+    /**
+     * 这个进程的一条输出要是等着的某个控制请求的应答，交给那个请求的回调，返回 true。
+     * 在主线程上和别的事件按到达顺序调用（[Conversation] 的 handle），回调里改对话状态不用另外排队。
+     */
+    fun answer(event: JsonObject): Boolean = requests.answer(event)
+
+    /** 还在等应答的、子类型为 [subtype] 的请求号；测试里扮 Claude Code 应答用。 */
+    internal fun waitingFor(subtype: String): String? = requests.waitingFor(subtype)
+
     /** 结束进程并清掉它的托管目录。 */
     fun stop() {
         closed = true
+        requests.clear()
         outbox.offer(POISON)
         thread(isDaemon = true) { runCatching { LinuxEnv.run(config, hostCommand(listOf("stop", hostKey)), timeoutMs = 20_000) } }
     }
@@ -133,6 +154,53 @@ class ClaudeProcess(
         val POISON = String(charArrayOf('\u0000'))
         val json = Json { ignoreUnknownKeys = true; isLenient = true }
     }
+}
+
+/** 控制请求的 request 一项：[subtype] 加上 [fields]。 */
+internal fun controlBody(subtype: String, fields: JsonObjectBuilder.() -> Unit = {}): JsonObject = buildJsonObject {
+    put("subtype", subtype)
+    fields()
+}
+
+/**
+ * 一个连接上发出、还在等应答的控制请求。应答只按请求号认，不看形状。请求号每个连接随机起头再递增：
+ * 重新接上的进程的输出日志里可能还有上一个连接发的请求的应答，号不会撞上。
+ */
+internal class ControlRequests(private val prefix: String = "zeta-" + UUID.randomUUID().toString().take(8) + "-") {
+    private class Waiting(val subtype: String?, val onResponse: (JsonObject) -> Unit)
+
+    private val waiting = LinkedHashMap<String, Waiting>()
+    private var seq = 0
+
+    /** 给 [body] 编上号，组成整行 control_request；[onResponse] 不为 null 时记下，等这个号的应答。 */
+    @Synchronized
+    fun build(body: JsonObject, onResponse: ((JsonObject) -> Unit)?): JsonObject {
+        val id = prefix + ++seq
+        if (onResponse != null) waiting[id] = Waiting(body.str("subtype"), onResponse)
+        return buildJsonObject {
+            put("type", "control_request")
+            put("request_id", id)
+            put("request", body)
+        }
+    }
+
+    /** [event] 是等着的请求的应答就交给它的回调（只调一次），返回 true。回调在锁外调用。 */
+    fun answer(event: JsonObject): Boolean {
+        if (event.str("type") != "control_response") return false
+        val response = event.obj("response") ?: return false
+        val id = response.str("request_id") ?: return false
+        val entry = synchronized(this) { waiting.remove(id) } ?: return false
+        entry.onResponse(response)
+        return true
+    }
+
+    /** 连接断了：还没答的都不等了。 */
+    @Synchronized
+    fun clear() = waiting.clear()
+
+    /** 还在等应答的、子类型为 [subtype] 的最早一个请求的号（测试里扮 Claude Code 应答用）。 */
+    @Synchronized
+    fun waitingFor(subtype: String): String? = waiting.entries.firstOrNull { it.value.subtype == subtype }?.key
 }
 
 private val EnvName = Regex("[A-Za-z_][A-Za-z0-9_]*")

@@ -45,15 +45,15 @@ class AutoCompactTest {
     private fun j(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
 
     private fun contextUsage(extra: String) = j(
-        """{"type":"control_response","response":{"subtype":"success","request_id":"zeta-1","response":""" +
-            """{"totalTokens":20000,"maxTokens":400000,"model":"claude-opus-5-5"$extra}}}""",
+        """{"subtype":"success","request_id":"zeta-1","response":""" +
+            """{"totalTokens":20000,"maxTokens":400000,"model":"claude-opus-5-5"$extra}}""",
     )
 
     @Test
     fun usageCarriesTheCompactionPoint() {
         val meter = UsageTracker()
         meter.processStarted(fresh = true, compactPercent = 70)
-        meter.observe(contextUsage(""","autoCompactThreshold":367000,"isAutoCompactEnabled":true"""))
+        meter.contextUsageAnswered(contextUsage(""","autoCompactThreshold":367000,"isAutoCompactEnabled":true"""))
         val usage = meter.snapshot()
         assertEquals(true, usage.autoCompact)
         assertEquals(266_000L, usage.compactAt)
@@ -62,10 +62,10 @@ class AutoCompactTest {
         // 关着：没有压缩点，窗口回到模型本身的
         val off = UsageTracker()
         off.processStarted(fresh = true, compactPercent = null)
-        off.observe(
+        off.contextUsageAnswered(
             j(
-                """{"type":"control_response","response":{"subtype":"success","request_id":"zeta-1","response":""" +
-                    """{"totalTokens":20000,"maxTokens":1000000,"isAutoCompactEnabled":false,"model":"claude-opus-5-5"}}}""",
+                """{"subtype":"success","request_id":"zeta-1","response":""" +
+                    """{"totalTokens":20000,"maxTokens":1000000,"isAutoCompactEnabled":false,"model":"claude-opus-5-5"}}""",
             ),
         )
         assertEquals(false, off.snapshot().autoCompact)

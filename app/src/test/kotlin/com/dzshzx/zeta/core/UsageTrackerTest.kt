@@ -63,19 +63,19 @@ class UsageTrackerTest {
         assertEquals(1_000_000L, after.contextWindow)
         // post_tokens 不含系统提示和工具：压缩后 Claude Code 的估算到了就换上
         assertTrue(meter.snapshot().contextEstimated)
-        meter.observe(contextUsage(totalTokens = 27040, maxTokens = 400_000))
+        meter.contextUsageAnswered(contextUsage(totalTokens = 27040, maxTokens = 400_000))
         assertEquals(27040L, meter.snapshot().contextTokens)
         assertTrue(meter.snapshot().contextEstimated)
         assertEquals(400_000L, meter.snapshot().contextWindow)
         // 有实测数之后，估算不再覆盖它
         meter.observe(delta2)
-        meter.observe(contextUsage(totalTokens = 30000, maxTokens = 400_000))
+        meter.contextUsageAnswered(contextUsage(totalTokens = 30000, maxTokens = 400_000))
         assertEquals(26852L, meter.snapshot().contextTokens)
         assertFalse(meter.snapshot().contextEstimated)
     }
 
     private fun contextUsage(totalTokens: Long, maxTokens: Long) = j(
-        """{"type":"control_response","response":{"subtype":"success","request_id":"zeta-9","response":{"totalTokens":$totalTokens,"maxTokens":$maxTokens,"model":"claude-opus-5-5"}}}""",
+        """{"subtype":"success","request_id":"zeta-9","response":{"totalTokens":$totalTokens,"maxTokens":$maxTokens,"model":"claude-opus-5-5"}}""",
     )
 
     @Test
@@ -161,16 +161,16 @@ class UsageTrackerTest {
     fun claudeWindowWinsAndIsRemembered() {
         val meter = UsageTracker()
         meter.observe(result1)
-        meter.observe(
-            j("""{"type":"control_response","response":{"subtype":"success","request_id":"zeta-2","response":{"totalTokens":12410,"maxTokens":400000,"rawMaxTokens":400000,"model":"claude-opus-5-5"}}}"""),
+        meter.contextUsageAnswered(
+            j("""{"subtype":"success","request_id":"zeta-2","response":{"totalTokens":12410,"maxTokens":400000,"rawMaxTokens":400000,"model":"claude-opus-5-5"}}"""),
         )
         val usage = meter.snapshot()
         assertEquals(400_000L, usage.contextWindow)
         assertEquals("claude-opus-5-5" to 400_000L, meter.learnedWindow)
         // result1 之前没有消息事件，上下文先用 Claude Code 的估算
         assertEquals(12410L, usage.contextTokens)
-        meter.observe(
-            j("""{"type":"control_response","response":{"subtype":"success","request_id":"zeta-3","response":{"effective":{},"applied":{"model":"claude-opus-5-5","effort":"xhigh"}}}}"""),
+        meter.settingsAnswered(
+            j("""{"subtype":"success","request_id":"zeta-3","response":{"effective":{},"applied":{"model":"claude-opus-5-5","effort":"xhigh"}}}"""),
         )
         assertEquals("xhigh", meter.snapshot().appliedEffort)
     }
@@ -208,7 +208,7 @@ class UsageTrackerTest {
         // 重新打开后起了进程：压缩后的数是估算，换成 Claude Code 报的
         val reopened = UsageTracker()
         reopened.prependHistory(compacted)
-        reopened.observe(contextUsage(totalTokens = 24400, maxTokens = 400_000))
+        reopened.contextUsageAnswered(contextUsage(totalTokens = 24400, maxTokens = 400_000))
         assertEquals(24400L, reopened.snapshot().contextTokens)
 
         // 历史接在实时数据前面
