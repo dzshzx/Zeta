@@ -4,7 +4,8 @@
 #   dev   手机上的测试版（ZETA_DEVICE=phone），同时只给一个 phone-run
 #         测试版都走 tools/phone-run 排队，一般不用直接调
 #   main  手机上的正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd.py 带 --release 时）
-# 已经占着的再要就续租。tools/install.sh 和 tools/vd.py 在工作站上每次碰设备前都调它，拿不到就以退出码 75 失败。
+# 已经占着的再要就续租。tools/install.sh 和 tools/vd.py 在工作站上每次碰设备前都调它，拿不到就以退出码 75 失败；
+# 在 phone-run 里（有 ZETA_PHONE_TICKET）vd.py 不调，用 phone-run 拿到的这一份，装包时 install.sh 续一次。
 # 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
 # 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
 # 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。

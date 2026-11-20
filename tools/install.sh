@@ -27,6 +27,10 @@ fi
 if [[ -n $minor && $variant == dev ]]; then echo "--minor 只用于上线（和 --release 一起用）" >&2; exit 2; fi
 on_phone=
 [[ $(uname -r) == *android* ]] && on_phone=1
+if [[ ${ZETA_PHONE_OWNER:-main} != main && -z ${ZETA_PHONE_TICKET:-} && -z $on_phone ]]; then
+  echo "子代理（ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）装包只经 tools/phone-run：它构建、排队、装好再跑脚本" >&2
+  exit 2
+fi
 device=${ZETA_DEVICE:-emu}
 [[ $device == emu || $device == phone ]] || { echo "ZETA_DEVICE 只能是 emu 或 phone（现在是 $device）" >&2; exit 2; }
 [[ $variant == dev && -z $on_phone ]] || device=phone # 正式版只在手机上

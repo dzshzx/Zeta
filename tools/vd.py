@@ -5,7 +5,9 @@
 在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）；在手机 Debian 里跑时就是这台手机。
 
 用法：vd.py [--release] <命令>
-  默认操作测试版（com.dzshzx.zeta.dev）。设备上的测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py。
+  默认操作测试版（com.dzshzx.zeta.dev）。设备上的测试写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py：
+  phone-run 已经开好模拟器、拿着租约（ZETA_PHONE_TICKET），脚本里的 vd 不再重做这两步。
+  ZETA_PHONE_OWNER 不是 main（子代理）时只能在 phone-run 里用，直接调会被拒绝。
   --release 操作手机上的正式版（com.dzshzx.zeta），只由主会话在上线后验证时用：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
   测试版和正式版各有自己的虚拟屏。
   vd.py build                 编译 VdHold.java 为 dex
@@ -325,6 +327,10 @@ def lease(dev):
             sys.exit(code)
 
 
+# 在 tools/phone-run 里：它已经开好模拟器、排队拿到了租约，这里不再重做
+IN_PHONE_RUN = bool(os.environ.get("ZETA_PHONE_TICKET"))
+
+
 def pick_device(dev):
     """测试版默认在模拟器上，ZETA_DEVICE=phone 时在手机上；正式版只在手机上。手机 Debian 里跑时就是这台手机。"""
     want = os.environ.get("ZETA_DEVICE") or "emu"
@@ -332,7 +338,7 @@ def pick_device(dev):
         sys.exit(f"ZETA_DEVICE 只能是 emu 或 phone（现在是 {want}）")
     if ON_PHONE or not dev:
         return "phone"
-    if want == "emu":
+    if want == "emu" and not IN_PHONE_RUN:
         code = subprocess.run([os.path.join(HERE, "emu"), "start"]).returncode
         if code:
             sys.exit(code)
@@ -356,9 +362,12 @@ def main():
         sys.exit("假 Claude 只给测试版用：去掉 --release")
     if not dev and owner != "main" and c != "build":
         sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版：去掉 --release")
+    if owner != "main" and not IN_PHONE_RUN and not ON_PHONE and c != "build":
+        sys.exit(f"子代理（ZETA_PHONE_OWNER={owner}）碰设备只经 tools/phone-run：把要做的写成脚本交给它排队跑")
     if c != "build":
         DEVICE = pick_device(dev)
-        lease(dev)
+        if not IN_PHONE_RUN:
+            lease(dev)
         use(dev)
     if c == "build":
         build()
