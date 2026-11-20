@@ -6,16 +6,19 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 
 /**
  * zeta-helper 没跑成不等于输出为空（[HelperResult]）。单元测试里的 su 总是失败（app/src/test/no-root/su），
- * 和手机上 Linux 环境出错一样：会话列表留着原来的，接回后台对话时不删用户的权限模式。
+ * 和手机上 Linux 环境出错一样：会话列表留着原来的，接回后台对话时不删用户的权限模式；
+ * 改名、归档没写进会话记录时，界面上先改了的改回去，并说一声。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -60,5 +63,31 @@ class HelperFailureTest {
         hub.onEnvironmentReady()
         settleThreads("zeta-hosts", "zeta-sessions", "zeta-defaults")
         assertEquals(mapOf("k-running" to "plan"), hub.settings.hostModes)
+    }
+
+    private fun session(id: String, title: String, archived: Boolean = false) =
+        SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", "/workspace/claude", title, "", 0, archived = archived)
+
+    @Test
+    fun failedRenameIsUndone() {
+        val hub = Fixtures.readyHub(app)
+        hub.foreground = true
+        val list = hub.sessionList
+        list.listed(listOf(session("a", "原来的")))
+        list.rename(list.sessions.single(), "新标题")
+        assertEquals("界面先改", "新标题", list.sessions.single().title)
+        settleThreads("zeta-sessions")
+        assertEquals("没写成就改回去", "原来的", list.sessions.single().title)
+        assertTrue(ShadowToast.getTextOfLatestToast(), ShadowToast.getTextOfLatestToast().startsWith("改名没成功："))
+    }
+
+    @Test
+    fun failedArchiveIsUndone() {
+        val list = Fixtures.readyHub(app).sessionList
+        list.listed(listOf(session("a", "留着的"), session("b", "已归档的", archived = true)))
+        list.archive(list.sessions.filter { !it.archived }, archived = true)
+        assertTrue("界面先改", list.sessions.all { it.archived })
+        settleThreads("zeta-sessions")
+        assertEquals("没写成就改回去，原来归档的不动", listOf(false, true), list.sessions.map { it.archived })
     }
 }

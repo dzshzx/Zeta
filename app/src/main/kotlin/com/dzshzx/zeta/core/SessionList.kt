@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -93,8 +94,14 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         if (clean.isEmpty()) return
         freshTitles.remove(summary.id)
         sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
-        hub.findConversation(summary.id)?.title = clean
-        thread(isDaemon = true) { hub.helper("rename", listOf(summary.file, clean), backend = summary.backend) }
+        val open = hub.findConversation(summary.id)
+        val shown = open?.title
+        open?.title = clean
+        write("改名", summary.backend, "rename", listOf(summary.file, clean), undo = {
+            // 这期间又改过的不动
+            sessions = sessions.map { if (it.id == summary.id && it.title == clean) it.copy(title = summary.title) else it }
+            if (open != null && shown != null && open.title == clean) open.title = shown
+        })
     }
 
     fun archive(summary: SessionSummary, archived: Boolean) = archive(listOf(summary), archived)
@@ -109,10 +116,11 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         if (archived && hub.current.sessionId in ids) hub.startNew()
         sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
         // 归档标记存在各自主机上 Zeta 的目录里
-        thread(isDaemon = true) {
-            for ((backend, group) in summaries.groupBy { it.backend }) {
-                hub.helper("archive", group.map { it.id }.distinct() + if (archived) "1" else "0", backend = backend)
-            }
+        for ((backend, group) in summaries.groupBy { it.backend }) {
+            val before = group.associate { it.id to it.archived }
+            write(if (archived) "归档" else "取消归档", backend, "archive", before.keys.toList() + if (archived) "1" else "0", undo = {
+                sessions = sessions.map { s -> before[s.id]?.takeIf { s.archived == archived }?.let { s.copy(archived = it) } ?: s }
+            })
         }
     }
 
@@ -127,9 +135,30 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         val pinKeys = summaries.mapTo(HashSet()) { it.pinKey }
         hub.settings.pinnedSessions.takeIf { pins -> pins.any { it in pinKeys } }?.let { hub.settings.pinnedSessions = it - pinKeys }
         hub.drafts.forget(ids)
-        thread(isDaemon = true) {
-            for ((backend, group) in summaries.groupBy { it.backend }) hub.helper("delete", group.map { it.file }, timeoutMs = 60_000, backend = backend)
-            main.post { refresh() }
+        // 开着的对话、置顶、草稿已经去掉，撤不回来；没删掉的会话由重读列表放回去
+        for ((backend, group) in summaries.groupBy { it.backend }) {
+            write("删除", backend, "delete", group.map { it.file }, timeoutMs = 60_000, done = ::refresh)
+        }
+    }
+
+    /**
+     * 把界面上已经改了的写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。
+     * 没写成时在主线程上做 [undo]（把界面改回去，和会话记录对上），Zeta 在前台时说一声“[what]没成功”和原因。
+     * [done] 在写完（成没成都算）后在主线程上调用。
+     */
+    private fun write(
+        what: String, backend: String, subcommand: String, arguments: List<String>,
+        timeoutMs: Long = 30_000, undo: () -> Unit = {}, done: () -> Unit = {},
+    ) {
+        thread(name = "zeta-sessions", isDaemon = true) {
+            val result = hub.helper(subcommand, arguments, timeoutMs, backend)
+            main.post {
+                if (result is HelperResult.Failed) {
+                    undo()
+                    if (hub.foreground) Toast.makeText(hub.context, "${what}没成功：${result.reason}", Toast.LENGTH_LONG).show()
+                }
+                done()
+            }
         }
     }
 
