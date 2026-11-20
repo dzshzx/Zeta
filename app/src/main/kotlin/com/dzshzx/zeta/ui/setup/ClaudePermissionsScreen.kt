@@ -33,7 +33,6 @@ import com.dzshzx.zeta.core.claude.replacePermissionRule
 import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
 import com.dzshzx.zeta.phone.PhoneTools
-import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -42,6 +41,7 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
+import com.dzshzx.zeta.ui.settings.DefaultPermissionModePreference
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -110,6 +110,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val phoneTools = remember { PhoneTools.catalog }
 
     LaunchedEffect(reloads) {
+        hub.refreshClaudeDefaults()
         scope.runConfig({ client.permissions() }) { result ->
             result.onSuccess {
                 rules = it
@@ -130,7 +131,6 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
     val current = rules
     val editable = current != null && loadError == null && !working
-    val mode = hub.settings.permissionMode ?: hub.defaultPermissionMode
 
     val shownDelete = rememberRetained(deleting)
     CouiPage(
@@ -185,7 +185,8 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 footer = ClaudePermissions.SEMANTICS + "改动对所有项目、之后新开始的对话生效。" +
                     (loadError?.let { "\n\n读取失败：$it" } ?: ""),
             ) {
-                item { BasicComponent(title = "当前权限模式", summary = "在聊天输入栏里切换", endActions = { PreferenceValue(permissionModeLabel(mode)) }) }
+                // 和设置首页同一项（Claude Code 的 permissions.defaultMode）；对话里切的只管那个对话
+                item { DefaultPermissionModePreference(hub) }
             }
         }
         item(key = "builtin") {

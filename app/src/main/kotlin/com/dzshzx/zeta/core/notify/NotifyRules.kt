@@ -68,7 +68,7 @@ data class NotifyRule(
     val enabled: Boolean = true,
     val cwd: String? = null,
     val model: String? = null,
-    /** 不跟随当前设置：新规则默认“逐项确认”，免得通知里的诱导文字被自动放行。 */
+    /** 不跟随别处的默认值：新规则默认“逐项确认”，免得通知里的诱导文字被自动放行。 */
     val permissionMode: String = NotifyRules.DEFAULT_MODE,
     val cooldownMinutes: Int = NotifyRules.DEFAULT_COOLDOWN,
     val dailyLimit: Int = NotifyRules.DEFAULT_DAILY_LIMIT,

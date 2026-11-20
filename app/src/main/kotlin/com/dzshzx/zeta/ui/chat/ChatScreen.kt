@@ -570,7 +570,7 @@ private fun ConversationBody(
                 },
                 onStop = conversation::interrupt,
                 tools = {
-                    PermissionModeChip(mode = conversation.permissionMode, onChange = conversation::choosePermissionMode)
+                    PermissionModeChip(mode = conversation.shownPermissionMode, onChange = conversation::choosePermissionMode)
                     // 载入历史期间不能改：载完要照会话记录恢复思考强度
                     EffortChip(
                         effort = conversation.effort,

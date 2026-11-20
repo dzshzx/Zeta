@@ -20,7 +20,7 @@ Zeta 可以被选为系统的默认数字助理。唤起后在当前应用上弹
 - 浮窗开着时再唤起一次，屏幕就是浮窗自己，不再采集，浮窗保持原样。
 - 语音输入的接入点是 `AssistantScreen` 的 `voice`：语音识别模块接好后在 `AssistantActivity` 里给出，面板上就有话筒键。
 
-数字助理新开的对话用 设置 › 能力 › 数字助理 里单独定的模型和思考强度（`assistantModel`、`assistantEffort`，经 `Conversation.preset`）；没定时跟随当前设置（和新对话一样）。只用在这个对话上，不改新对话的默认。
+数字助理新开的对话用 设置 › 能力 › 数字助理 里单独定的模型和思考强度（`assistantModel`、`assistantEffort`，经 `Conversation.preset`）；没定时跟随 Claude Code 的默认（和新对话一样，见设置首页）。只用在这个对话上，不改新对话的默认。
 
 屏幕内容的整理是纯函数（`ScreenDigest`）：按界面顺序收文字，去重，跳过不可见、密码框和应用声明不给助理看的部分，一个应用最多 150 行、3000 字。消息里放在 `<screen_context>` 块里。
 

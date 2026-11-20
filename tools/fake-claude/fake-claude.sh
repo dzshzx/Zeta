@@ -34,7 +34,7 @@ VERSION=2.1.328
 MODEL=claude-fake
 WINDOW=200000
 
-SESSION='' FORK='' MODE=default EFFORT=medium PHONE=''
+SESSION='' FORK='' MODE='' EFFORT=medium PHONE=''
 while [ $# -gt 0 ]; do
   case $1 in
     --resume | --session-id) SESSION=${2:-}; shift ;;
@@ -47,6 +47,9 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+# 没带 --permission-mode 时和真的一样，用 settings.json 里的默认（permissions.defaultMode）
+[ -n "$MODE" ] || MODE=$(jq -r '.permissions.defaultMode // empty' "${HOME:-/nonexistent}/.claude/settings.json" 2>/dev/null)
+MODE=${MODE:-default}
 MODE=${MODE//[!A-Za-z]/} EFFORT=${EFFORT//[!A-Za-z]/}
 
 # ---- 小工具：不起子进程的随机 id、时刻、输出 ----

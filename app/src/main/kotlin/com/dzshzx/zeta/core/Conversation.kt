@@ -130,7 +130,7 @@ class Conversation(
     /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
     val active: Boolean get() = busy || pending != null || backgroundTasks > 0
 
-    /** 还没开始的新对话：没有会话号、没有内容、没在跑。设置页改新对话的默认值时它跟着换。 */
+    /** 还没开始的新对话：没有会话号、没有内容、没在跑。 */
     val notStarted: Boolean get() = sessionId == null && items.isEmpty() && !active
 
     /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
@@ -138,10 +138,11 @@ class Conversation(
 
     /**
      * Zeta 要 Claude Code 用的模型（启动时的 --model、进程里的 set_model），"default" 是 Claude Code 的默认模型；
-     * null 是不指定。新对话取新对话的默认值。接着已有的会话（打开旧对话、分支）时不指定，由 Claude Code 照会话记录恢复它上次用的模型，
-     * 直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。界面显示的是 [shownModel]。
+     * null 是不指定：新对话用 Claude Code 设置里的默认模型（[ConversationHub.claudeDefaults]），接着已有的会话（打开旧对话、分支）时
+     * 由 Claude Code 照会话记录恢复它上次用的模型；直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。
+     * 界面显示的是 [shownModel]。
      */
-    var model by mutableStateOf(if (sessionId != null || fork != null) null else hub.settings.model)
+    var model by mutableStateOf<String?>(null)
         private set
 
     /** 接着已有的会话（打开时有会话号，或是分支）。 */
@@ -161,11 +162,14 @@ class Conversation(
     val shownModel: String? get() = model ?: reportedModel
 
     /**
-     * 用户在这个对话里的权限模式：输入栏显示它，用户自己的消息按它跑。Claude Code 在用户的模式上自己换了模式
-     * （比如计划获批后退出计划模式）时跟着变，见 [reportMode]。
+     * 用户在这个对话里的权限模式，用户自己的消息按它跑。Claude Code 在用户的模式上自己换了模式（比如计划获批后退出计划模式）时跟着变，
+     * 见 [reportMode]。null 是还没选过、也还没报过：起进程时不指定，用 Claude Code 设置里的默认（输入栏显示 [shownPermissionMode]）。
      */
-    var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
+    var permissionMode by mutableStateOf<String?>(null)
         private set
+
+    /** 输入栏显示的权限模式：这个对话的，没有时是 Claude Code 的默认。 */
+    val shownPermissionMode: String? get() = permissionMode ?: hub.defaultPermissionMode
 
     /**
      * 进程现在用的权限模式：起进程时带的、之后切到的，或 Claude Code 报来的；起进程时没指定、还没报过时为 null。
@@ -176,10 +180,10 @@ class Conversation(
         private set
 
     /**
-     * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。新对话取新对话的默认值，分支接着用原对话的；
+     * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置（按模型存的默认）。分支接着用原对话的；
      * Claude Code 接旧会话时不恢复它，所以旧对话载入历史后照最后一次真实回答恢复（[restoreEffort]）。
      */
-    var effort by mutableStateOf(if (fork != null) fork.effort else hub.settings.effort)
+    var effort by mutableStateOf(fork?.effort)
         private set
 
     /** 上下文占用与用量统计，由 [UsageTracker] 从进程输出和会话记录里累计。 */
@@ -527,8 +531,11 @@ class Conversation(
         return process
     }
 
-    /** 用户的消息用的模式。用户的还不知道（Claude Code 没报过）、进程却在后台运行的模式上时用逐项确认：宁可多问。 */
-    private val userMode: String? get() = permissionMode ?: "default".takeIf { processMode != null }
+    /**
+     * 用户的消息用的模式。这个对话没有时：进程没指定模式就不指定（用 Claude Code 的默认）；进程在后台运行的模式上时切到
+     * Claude Code 的默认，还不知道是什么就用逐项确认，宁可多问。
+     */
+    private val userMode: String? get() = permissionMode ?: (hub.defaultPermissionMode ?: "default").takeIf { processMode != null }
 
     /** 把进程切到 [mode]，已经是了就不发。 */
     private fun switchMode(process: ClaudeProcess, mode: String?) {
@@ -538,12 +545,12 @@ class Conversation(
     }
 
     /**
-     * Claude Code 报来进程现在的模式。进程在用户的模式上（没有后台运行的模式在用）时用户的跟着变；
+     * Claude Code 报来进程现在的模式。进程在用户的模式上（没有后台运行的模式在用）时用户的跟着变，用户没选过的从此定下来；
      * 起进程时没指定模式的，报来的是 Claude Code 自己设置里的，记下当新对话的默认。
      */
     private fun reportMode(mode: String) {
-        if (processMode == null && hub.settings.permissionMode == null) hub.defaultPermissionMode = mode
-        if (processMode == permissionMode) permissionMode = mode
+        if (processMode == null) hub.defaultPermissionMode = mode
+        if (processMode == userMode) permissionMode = mode
         processMode = mode
     }
 
@@ -656,7 +663,7 @@ class Conversation(
     }
 
     /**
-     * 用户选了模型（[value] 是选择器里的值，null 是默认模型），也作为之后新对话的默认值。
+     * 用户在这个对话里选了模型（[value] 是选择器里的值，null 是默认模型），只管这个对话；新对话的默认在设置页改（Claude Code 的设置）。
      * 新对话选默认就是不指定（Claude Code 照它自己的设置）；接着已有会话的对话要明说 "default"，否则 Claude Code 会照会话记录恢复原来的模型。
      */
     fun chooseModel(value: String?) {
@@ -664,16 +671,12 @@ class Conversation(
         model = chosen ?: DEFAULT_MODEL.takeIf { resumed }
         // 上次 init 报的模型作废：新对话选回默认时顶栏写「默认」，下一轮的 init 再报实际用的
         reportedModel = null
-        hub.rememberDefaultModel(chosen)
         process?.send(controlRequest { put("subtype", "set_model"); put("model", chosen ?: DEFAULT_MODEL) })
         process?.let(::queryUsage)
     }
 
-    /** 思考强度：这个对话立即生效（apply_flag_settings），也作为之后新对话的默认值。null 回到 Claude Code 自己的设置。 */
-    fun chooseEffort(value: String?) {
-        hub.rememberDefaultEffort(value)
-        applyEffort(value)
-    }
+    /** 思考强度：只管这个对话，立即生效（apply_flag_settings）。null 回到 Claude Code 自己的设置。 */
+    fun chooseEffort(value: String?) = applyEffort(value)
 
     /** 这个对话的思考强度：进程已经起来就当场改，再要一次生效的设置；没起来时启动参数 --effort 带上。 */
     private fun applyEffort(value: String?) {
@@ -755,10 +758,9 @@ class Conversation(
         effort?.let(::applyEffort)
     }
 
-    /** 用户在输入栏选的：这个对话之后按它跑（后台运行这一轮剩下的部分也是），也是新对话的默认。 */
+    /** 用户在输入栏选的：只管这个对话，之后按它跑（后台运行这一轮剩下的部分也是）。新对话的默认在设置页改（Claude Code 的设置）。 */
     fun choosePermissionMode(value: String) {
         permissionMode = value
-        hub.settings.permissionMode = value
         process?.let { switchMode(it, value) }
     }
 

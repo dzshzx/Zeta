@@ -44,6 +44,8 @@ import org.junit.Test
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
  * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样；
  *   模式怎么切，发给模型的工具名单和系统提示词都不变。进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行。
+ * - 起进程不带 --permission-mode（Zeta 的新对话）：initialize 的应答和每轮的 init 报的是 settings.json 的 permissions.defaultMode，
+ *   Zeta 照它在输入栏显示 Claude Code 的默认（ConversationHub.defaultPermissionMode）。
  */
 class UnattendedRulesContractTest {
     private lateinit var home: File
@@ -179,10 +181,11 @@ class UnattendedRulesContractTest {
     // ---- 像 Zeta 那样驱动一个进程 ----
 
     /**
-     * 一个 stream-json 的 claude 进程，参数和 Zeta 起的一样（[allowBypass] 为 false 时不带 --allow-dangerously-skip-permissions）；
+     * 一个 stream-json 的 claude 进程，参数和 Zeta 起的一样（[mode] 为 null 时不带 --permission-mode，
+     * [allowBypass] 为 false 时不带 --allow-dangerously-skip-permissions）；
      * phone 服务器的 MCP 消息和 can_use_tool 由这里答（一律允许）。
      */
-    private inner class Claude(mode: String = "default", allowBypass: Boolean = true) : AutoCloseable {
+    private inner class Claude(mode: String? = "default", allowBypass: Boolean = true) : AutoCloseable {
         private val process: Process
         private val lines = LinkedBlockingQueue<String>()
         private var requests = 0
@@ -199,7 +202,8 @@ class UnattendedRulesContractTest {
         init {
             val builder = ProcessBuilder(
                 "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                "--permission-prompt-tool", "stdio", "--permission-mode", mode,
+                "--permission-prompt-tool", "stdio",
+                *(mode?.let { arrayOf("--permission-mode", it) } ?: emptyArray()),
                 "--mcp-config", """{"mcpServers":{"phone":{"type":"sdk","name":"phone"}}}""",
                 *(if (allowBypass) arrayOf("--allow-dangerously-skip-permissions") else emptyArray()),
             ).directory(File(home, "proj"))
@@ -447,6 +451,20 @@ class UnattendedRulesContractTest {
             assertEquals(listOf("create_scheduled_task", "report_scheduled_run", "create_scheduled_task"), claude.calls)
             // 切过模式，发给模型的工具名单和系统提示词不变
             synchronized(results) { assertEquals(prompts[mine], prompts[byHand]) }
+        }
+    }
+
+    @Test
+    fun launchWithoutModeReportsTheSettingsDefault() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        File(home, ".claude/settings.json").writeText(
+            """{"permissions":{"defaultMode":"acceptEdits","allow":["mcp__phone__run_scheduled_task"],"deny":["WebSearch"]}}""",
+        )
+        Claude(mode = null).use { claude ->
+            val init = claude.response(claude.request { put("subtype", "initialize") })
+            assertEquals("acceptEdits", init.obj("response")?.str("current_permission_mode"))
+            turn(claude, "mine")
+            assertEquals(listOf("acceptEdits"), claude.modes)
         }
     }
 }

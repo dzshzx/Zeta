@@ -14,9 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
-import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.browser.BrowserActivity
@@ -33,8 +31,11 @@ import com.dzshzx.zeta.ui.settings.AppearanceScreen
 import com.dzshzx.zeta.ui.settings.AssistantEntry
 import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
 import com.dzshzx.zeta.ui.settings.AutoCompactSwitch
+import com.dzshzx.zeta.ui.settings.ClaudeDefaultsFooter
 import com.dzshzx.zeta.ui.settings.CompactTimingPreference
-import com.dzshzx.zeta.ui.settings.FollowDropdownPreference
+import com.dzshzx.zeta.ui.settings.DefaultEffortSummary
+import com.dzshzx.zeta.ui.settings.DefaultModelPreference
+import com.dzshzx.zeta.ui.settings.DefaultPermissionModePreference
 import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
 import com.dzshzx.zeta.ui.settings.NotifyTriggerEntry
 import com.dzshzx.zeta.ui.settings.NotifyTriggerScreen
@@ -49,7 +50,6 @@ import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import com.dzshzx.zeta.ui.settings.StorageEntry
 import com.dzshzx.zeta.ui.settings.StorageScreen
-import com.dzshzx.zeta.ui.settings.modelChoices
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
 import com.dzshzx.zeta.ui.setup.ClaudeConfigPages
 import com.dzshzx.zeta.ui.setup.claudeConfigItems
@@ -122,12 +122,15 @@ private fun SettingsHome(
     val context = LocalContext.current
     val prefs = remember(context) { UiPrefs.get(context) }
     val ready = hub.setup == SetupState.Ready && hub.env != null
+    // 默认值可能在终端里改过（/model、/effort 存为默认）：每次打开都重读
+    LaunchedEffect(ready) { if (ready) hub.refreshClaudeDefaults() }
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
         item(key = "claude") {
-            PreferenceGroup(title = "Claude") {
+            PreferenceGroup(title = "Claude", footer = ClaudeDefaultsFooter) {
                 item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
-                item { DefaultModelPreference(hub) }
-                item { DefaultEffortPreference(hub) }
+                item { DefaultModelPreference(hub) { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) } }
+                item { DefaultPermissionModePreference(hub) { SettingsIcon(ZetaIcons.ShieldA, SettingsHue.Claude) } }
+                item { DefaultEffortSummary(hub) { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) } }
             }
         }
         item(key = "context") {
@@ -241,35 +244,6 @@ private fun SettingsHome(
         }
     }
 }
-
-/** 「新对话的模型」：输入栏里选的模型也存成这个默认值，两边读写同一份（[ConversationHub.chooseDefaultModel]）。 */
-@Composable
-private fun DefaultModelPreference(hub: ConversationHub) {
-    FollowDropdownPreference(
-        title = "新对话的模型",
-        // 默认模型就是跟随 Claude Code 的设置，和「跟随」那一项合成一项
-        choices = modelChoices(hub).filter { it.first != Conversation.DEFAULT_MODEL },
-        value = hub.defaultModel?.takeIf { it != Conversation.DEFAULT_MODEL },
-        followLabel = FollowClaudeCode,
-        startAction = { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) },
-        onChange = hub::chooseDefaultModel,
-    )
-}
-
-/** 「新对话的思考强度」：和输入栏的思考强度按钮读写同一份默认值（[ConversationHub.chooseDefaultEffort]）。 */
-@Composable
-private fun DefaultEffortPreference(hub: ConversationHub) {
-    FollowDropdownPreference(
-        title = "新对话的思考强度",
-        choices = EffortLevels,
-        value = hub.defaultEffort,
-        followLabel = FollowClaudeCode,
-        startAction = { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) },
-        onChange = hub::chooseDefaultEffort,
-    )
-}
-
-private const val FollowClaudeCode = "跟随 Claude Code"
 
 /** 「Linux 环境」：右边是 Linux 用户名，没 root、没装环境时红字。 */
 @Composable

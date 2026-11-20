@@ -261,6 +261,60 @@ abstract class ClaudeConfigClientTest {
         }
     }
 
+    /** 设置页的默认模型、默认权限模式：只改 model 和 permissions.defaultMode，别的键和顺序不动；按模型存的思考强度原样读出来。 */
+    @Test
+    fun defaultsEditOnlyTheirKeys() {
+        val settings = "\$HOME/.claude/settings.json"
+        assertEquals(ClaudeDefaults(null, null, emptyMap(), null), client.defaults())
+        run(
+            """
+            mkdir -p "${'$'}HOME/.claude"
+            printf '%s\n' '{"theme":"dark","permissions":{"allow":["Bash"],"defaultMode":"default"},"modelSettings":{"claude-opus-5-5":{"effortLevel":"xhigh"},"claude-fable-5-2":{"effortLevel":"high","maxEffortLevel":"max"}}}' > "$settings"
+            """.trimIndent(),
+        )
+        assertEquals(
+            ClaudeDefaults(null, "default", mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high"), null),
+            client.defaults(),
+        )
+        assertEquals("opus", client.setDefaultModel("opus").model)
+        assertEquals("auto", client.setDefaultPermissionMode("auto").permissionMode)
+        assertEquals(
+            """
+            {
+              "theme": "dark",
+              "permissions": {
+                "allow": [
+                  "Bash"
+                ],
+                "defaultMode": "auto"
+              },
+              "modelSettings": {
+                "claude-opus-5-5": {
+                  "effortLevel": "xhigh"
+                },
+                "claude-fable-5-2": {
+                  "effortLevel": "high",
+                  "maxEffortLevel": "max"
+                }
+              },
+              "model": "opus"
+            }
+            """.trimIndent() + "\n",
+            run("cat \"$settings\""),
+        )
+        // 跟随 Claude Code 内置的默认：删掉 model
+        assertNull(client.setDefaultModel(null).model)
+        assertFalse(run("cat \"$settings\"").contains("\"model\""))
+        // 完全放行不能设成默认，文件不动
+        val before = run("cat \"$settings\"")
+        assertTrue(runCatching { client.setDefaultPermissionMode("bypassPermissions") }.exceptionOrNull() is ClaudeConfigException)
+        assertEquals(before, run("cat \"$settings\""))
+        // 没有 permissions 时建出来
+        run("printf '{}' > \"$settings\"")
+        client.setDefaultPermissionMode("plan")
+        assertEquals("{\n  \"permissions\": {\n    \"defaultMode\": \"plan\"\n  }\n}\n", run("cat \"$settings\""))
+    }
+
     @Test
     fun permissionsEditOnlyTheirRules() {
         val settings = "\$HOME/.claude/settings.json"

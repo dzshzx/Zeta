@@ -19,6 +19,21 @@ data class MemorySettings(
 )
 
 /**
+ * settings.json 里新对话的默认值。Claude Code 的 /model、/effort 存为默认时写的就是这几项（2.1.329）；
+ * 「只用于这个会话」的不写文件，Zeta 对话里选的也一样，只管那个对话。
+ */
+data class ClaudeDefaults(
+    /** model；null 是没设，用 Claude Code 内置的默认模型。 */
+    val model: String?,
+    /** permissions.defaultMode；null 是没设（逐项确认）。完全放行 Claude Code 不肯存成默认。 */
+    val permissionMode: String?,
+    /** 按模型存的思考强度（modelSettings.<模型>.effortLevel），按文件里的顺序；/effort 存为默认时写这里。 */
+    val efforts: Map<String, String>,
+    /** 顶层的 effortLevel：模型没有单独存时用它。 */
+    val effort: String?,
+)
+
+/**
  * 读改 settings.json：只动要改的那一个键，别的键和顺序原样保留；写回的格式和 Claude Code 自己写的一样（两格缩进、末尾换行）。
  * 文件不是有效的 JSON 时不碰它。
  */
@@ -54,6 +69,30 @@ object ClaudeSettings {
     }
 
     fun withAutoMemory(settings: JsonObject, on: Boolean): JsonObject = with(settings, "autoMemoryEnabled", JsonPrimitive(on))
+
+    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
+
+    fun defaults(settings: JsonObject): ClaudeDefaults = ClaudeDefaults(
+        model = settings.string("model"),
+        permissionMode = (settings["permissions"] as? JsonObject)?.string("defaultMode"),
+        efforts = (settings["modelSettings"] as? JsonObject).orEmpty().mapNotNull { (model, value) ->
+            (value as? JsonObject)?.string("effortLevel")?.let { model to it }
+        }.toMap(),
+        effort = settings.string("effortLevel"),
+    )
+
+    /** 默认模型；null 是删掉，回到 Claude Code 内置的默认。 */
+    fun withModel(settings: JsonObject, value: String?): JsonObject = with(settings, "model", value?.let(::JsonPrimitive))
+
+    /** 默认权限模式（permissions.defaultMode）；permissions 里别的键原样留着。permissions 不是对象时抛 [Invalid]。 */
+    fun withDefaultMode(settings: JsonObject, mode: String): JsonObject {
+        val permissions = when (val p = settings["permissions"]) {
+            null -> JsonObject(emptyMap())
+            is JsonObject -> p
+            else -> throw Invalid()
+        }
+        return with(settings, "permissions", with(permissions, "defaultMode", JsonPrimitive(mode)))
+    }
 
     /**
      * skillOverrides：Claude Code 自己停用 Skill 的设置（键是 Skill 的名字，"off" 是对模型和斜杠命令都隐藏）。

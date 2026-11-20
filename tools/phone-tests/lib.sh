@@ -11,6 +11,27 @@ HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
 # 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
 INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
 
+# 输入栏的权限模式按钮（第二个圆钮）和它往上弹的菜单；choose_mode <模式> 只改当前这个对话
+MODE_X=228 MODE_Y=2542
+choose_mode() {
+  local y
+  case $1 in
+    default) y=1863 ;; acceptEdits) y=1993 ;; plan) y=2123 ;; auto) y=2252 ;; bypassPermissions) y=2382 ;;
+    *) echo "choose_mode：不认识的模式 $1" >&2; return 1 ;;
+  esac
+  vd tap $MODE_X $MODE_Y >/dev/null
+  sleep 1
+  vd tap 220 $y >/dev/null
+  sleep 1
+}
+
+# 手机上 Claude Code 设置里的默认权限模式（settings.json 的 permissions.defaultMode，没设是 default）；只取这一个键
+claude_default_mode() {
+  local m
+  m=$(android "grep -o '\"defaultMode\" *: *\"[A-Za-z]*\"' ${HOSTS%/.cache/*}/.claude/settings.json" | head -1 | grep -o '"[A-Za-z]*"$' | tr -d '"' || true)
+  echo "${m:-default}"
+}
+
 # send <文字> [打完字后等几秒，默认 0.5]：在聊天页的输入框里输入并发送（vd text 只能输 ASCII）
 send() {
   vd tap $INPUT_X $INPUT_Y

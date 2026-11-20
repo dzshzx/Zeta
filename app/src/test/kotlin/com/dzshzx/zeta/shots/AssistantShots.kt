@@ -148,7 +148,6 @@ class AssistantShots : ShotTest() {
     fun assistantPage() {
         val app = ApplicationProvider.getApplicationContext<android.app.Application>()
         val hub = Fixtures.readyHub(app)
-        hub.settings.model = "opus"
         hub.settings.assistantModel = "sonnet"
         hub.settings.assistantEffort = "low"
         val owner = AssistantOwner(self = true, packageName = "com.dzshzx.zeta", label = "Zeta", recognizerPackage = "com.dzshzx.zeta")

@@ -260,7 +260,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             val shot = capture?.screenshot
             val block = capture?.let { ScreenDigest.contextBlock(it.apps, shot != null) }
             val started = Conversation(hub, config.defaultCwd, sessionId = null, title = "", historyFile = null)
-            // 设置 › 能力 › 数字助理 里单独定的模型和思考强度；没定（null）时跟随当前设置
+            // 设置 › 能力 › 数字助理 里单独定的模型和思考强度；没定（null）时跟随 Claude Code 的默认
             started.preset(model = hub.settings.assistantModel, effort = hub.settings.assistantEffort, hint = HINT)
             started.send(ScreenDigest.message(question, block), listOfNotNull(shot))
             sending = false

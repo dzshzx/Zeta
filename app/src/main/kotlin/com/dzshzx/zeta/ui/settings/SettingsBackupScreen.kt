@@ -101,7 +101,7 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
     CouiPage(title = "备份与恢复", onBack = onBack, overlays = { SettingsBackupDialogs(hub, state) }) {
         item(key = "backup") {
-            // 备份里是外观、聊天、手机操作、新对话的默认值、置顶和共享文件夹（[SettingsBackup.items]）；
+            // 备份里是外观、聊天、手机操作、数字助理的模型、置顶和共享文件夹（[SettingsBackup.items]）；新对话的默认值是 Claude Code 的配置，不在里面；
             // 只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存）不导出，见 [SettingsBackup.machineKeys]
             PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态。") {
                 item {

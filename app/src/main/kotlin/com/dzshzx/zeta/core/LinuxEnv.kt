@@ -238,11 +238,6 @@ class Settings(context: Context) {
             }.apply()
         }
 
-    /** 新会话使用的模型；null 表示沿用 Claude Code 自己的默认值。 */
-    var model: String?
-        get() = prefs.getString("model", null)
-        set(value) = prefs.edit().putString("model", value).apply()
-
     /** 斜杠命令清单的缓存（JSON 数组）。 */
     var commands: String?
         get() = prefs.getString("commands", null)
@@ -291,11 +286,6 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("autoTitle", true)
         set(value) = prefs.edit().putBoolean("autoTitle", value).apply()
 
-    /** 新会话的权限模式；null 表示沿用 Claude Code 设置里的默认值。 */
-    var permissionMode: String?
-        get() = prefs.getString("permissionMode", null)
-        set(value) = prefs.edit().putString("permissionMode", value).apply()
-
     /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
     var pinnedSessions: Set<String>
         get() = prefs.getStringSet("pinnedSessions", null)?.toSet().orEmpty()
@@ -316,17 +306,12 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("keepScreenOn", true)
         set(value) = prefs.edit().putBoolean("keepScreenOn", value).apply()
 
-    /** 新会话的思考强度（Claude Code 的 --effort）；null 表示沿用 Claude Code 设置里的默认值。 */
-    var effort: String?
-        get() = prefs.getString("effort", null)
-        set(value) = prefs.edit().putString("effort", value).apply()
-
-    /** 数字助理新开的对话用的模型；null 表示跟随当前设置（新对话的 [model]）。只影响数字助理开的对话。 */
+    /** 数字助理新开的对话用的模型；null 表示跟随 Claude Code（新对话的默认模型）。只影响数字助理开的对话。 */
     var assistantModel: String?
         get() = prefs.getString("assistantModel", null)
         set(value) = prefs.edit().putString("assistantModel", value).apply()
 
-    /** 数字助理新开的对话用的思考强度；null 表示跟随当前设置（新对话的 [effort]）。只影响数字助理开的对话。 */
+    /** 数字助理新开的对话用的思考强度；null 表示跟随 Claude Code（按模型存的默认）。只影响数字助理开的对话。 */
     var assistantEffort: String?
         get() = prefs.getString("assistantEffort", null)
         set(value) = prefs.edit().putString("assistantEffort", value).apply()

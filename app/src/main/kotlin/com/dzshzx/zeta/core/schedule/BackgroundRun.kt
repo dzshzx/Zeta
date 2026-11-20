@@ -36,9 +36,9 @@ internal data class RunSpec(
     val prompt: String,
     /** 工作目录；null 用运行那一刻的默认工作目录。 */
     val cwd: String?,
-    /** null 跟随当前设置。 */
+    /** null 用 Claude Code 的默认模型。 */
     val model: String?,
-    /** 这次运行发的指令用的权限模式，不跟随当前设置：用户在输入栏随手选的模式不该带进没人看着的运行。 */
+    /** 这次运行发的指令用的权限模式，在任务上明确定，不跟随别处的默认值。 */
     val permissionMode: String,
     val newSession: Boolean,
     /** 接着同一个对话时用的会话。 */

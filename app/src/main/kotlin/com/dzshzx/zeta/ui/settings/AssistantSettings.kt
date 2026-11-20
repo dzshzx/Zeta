@@ -16,7 +16,6 @@ import com.dzshzx.zeta.assistant.AssistantRole
 import com.dzshzx.zeta.assistant.PowerKeyLog
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -68,7 +67,7 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
 }
 
 /**
- * 数字助理页：默认数字助理是谁，以及数字助理新开的对话用的模型和思考强度（跟随当前设置，或单独定一个；
+ * 数字助理页：默认数字助理是谁，以及数字助理新开的对话用的模型和思考强度（跟随 Claude Code 的默认，或单独定一个；
  * 只影响数字助理开的对话）。[owner] 给了就不查（截图测试用）。
  */
 @Composable
@@ -88,9 +87,7 @@ internal fun AssistantSettingsScreen(hub: ConversationHub, onBack: () -> Unit, o
         item(key = "conversation") {
             PreferenceGroup(
                 title = "数字助理的对话",
-                footer = "选「跟随当前设置」时和新对话一样，现在是 " +
-                    "${hub.settings.model?.let { modelName(hub, it) } ?: "Claude Code 的默认模型"}、思考强度${effortLabel(hub.settings.effort) ?: "按 Claude Code 的设置"}。" +
-                    "单独选的不影响新对话。",
+                footer = "选「跟随 Claude Code」时和新对话一样，用 Claude Code 设置里的默认（设置首页能看到）。单独选的不影响新对话。",
             ) {
                 item {
                     ModelPreference(hub, model) { value ->

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.shots
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.ui.SettingsScreen
@@ -13,6 +14,7 @@ class SettingsShots : ShotTest() {
     @Test
     fun settingsHome() {
         val hub = Fixtures.readyHub(app)
+        hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = "auto", efforts = mapOf("claude-opus-5-5" to "xhigh"), effort = null))
         shoot("settings") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onOpenPhone = {}) }
     }
 

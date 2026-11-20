@@ -113,9 +113,9 @@ data class ScheduledTask(
     val enabled: Boolean = true,
     /** 工作目录；null 用运行那一刻的默认工作目录。 */
     val cwd: String? = null,
-    /** null 跟随当前设置。 */
+    /** null 用 Claude Code 的默认模型。 */
     val model: String? = null,
-    /** 运行时的权限模式。没有“跟随当前设置”：那是用户在输入栏随手选的，可能是完全放行。 */
+    /** 运行时的权限模式。没有“跟随”：没人看着的运行能做什么，在任务上明确定，不随别处的默认值变。 */
     val permissionMode: String = Schedules.DEFAULT_MODE,
     /** 每次开新对话；false 时接着 [sessionId] 那个对话。 */
     val newSession: Boolean = true,

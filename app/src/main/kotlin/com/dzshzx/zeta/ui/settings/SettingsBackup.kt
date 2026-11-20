@@ -10,7 +10,6 @@ import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
-import com.dzshzx.zeta.ui.chat.PermissionModes
 import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.serialization.json.Json
@@ -96,6 +95,13 @@ internal object SettingsBackup {
     }
 
     /** 存储里有、但不导出的键：都和这台手机绑在一起，搬到别处没有意义或者会出错。 */
+    /** 以前的 Zeta 导出过、现在不归 Zeta 管的设置：导入时说明为什么不导入。 */
+    val retiredKeys: Map<String, String> = mapOf(
+        "model" to "新对话的默认模型现在用 Claude Code 自己的设置，在设置首页改",
+        "effort" to "新对话的思考强度现在用 Claude Code 自己的设置（按模型存）",
+        "permissionMode" to "新对话的默认权限模式现在用 Claude Code 自己的设置，在设置首页改",
+    )
+
     val machineKeys: Map<String, String> = mapOf(
         "rootfs" to "Linux 环境装在这台手机的哪个位置，换手机或重装后由 Zeta 重新检测",
         "user" to "Linux 环境里的用户，由 Zeta 检测",
@@ -143,11 +149,8 @@ internal object SettingsBackup {
         boolItem("phoneTools", "手机操作", default = true),
         boolItem("backgroundScreen", "在后台屏幕上操作", default = true),
         boolItem("accessibilityGuard", "无障碍服务被系统关掉后自动打开", default = true),
-        optionalItem("model", "新对话的模型", unset = "Claude Code 的默认模型", check = ::modelName),
-        optionalItem("effort", "新对话的思考强度", unset = "Claude Code 的设置", labels = EffortLevels.toMap()),
-        optionalItem("assistantModel", "数字助理的模型", unset = "跟随当前设置", check = ::modelName),
-        optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随当前设置", labels = EffortLevels.toMap()),
-        optionalItem("permissionMode", "新对话的权限模式", unset = "Claude Code 的设置", labels = PermissionModes.toMap()),
+        optionalItem("assistantModel", "数字助理的模型", unset = "跟随 Claude Code", check = ::modelName),
+        optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随 Claude Code", labels = EffortLevels.toMap()),
         boolItem("autoCompact", "自动压缩上下文", default = true),
         BackupItem(
             key = "autoCompactPercent", label = "压缩时机", nullable = true,
@@ -243,6 +246,7 @@ internal object SettingsBackup {
         for (key in settings.keys) {
             if (key in byKey) continue
             skipped += machineKeys[key]?.let { SkippedItem(key, key, "这台手机特有的设置，不导入：$it") }
+                ?: retiredKeys[key]?.let { SkippedItem(key, key, "不再导入：$it") }
                 ?: SkippedItem(key, key, "不认识的设置项，可能来自更新版本的 Zeta")
         }
         return BackupFile.Valid(

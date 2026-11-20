@@ -1,5 +1,8 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.claude.defaults
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
@@ -131,31 +134,32 @@ class ConversationHub(private val app: Application) {
         settings.autoCompactPercent = percent
     }
 
-    /** 新对话的默认模型（null 是 Claude Code 自己的默认模型）和思考强度（null 按 Claude Code 的设置）。 */
-    var defaultModel by mutableStateOf(settings.model)
+    /**
+     * 新对话的默认值：Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），Zeta 不另存一份。
+     * 新对话起进程时不带模型、思考强度和权限模式，由 Claude Code 照它定；对话里选的只管那个对话。设置页读写它；还没读到时为 null。
+     */
+    var claudeDefaults by mutableStateOf<ClaudeDefaults?>(null)
         private set
-    var defaultEffort by mutableStateOf(settings.effort)
-        private set
 
-    /** 存成新对话的默认模型：输入栏里选模型（[Conversation.chooseModel]）和设置页都走这里。 */
-    internal fun rememberDefaultModel(value: String?) {
-        defaultModel = value
-        settings.model = value
+    /**
+     * Claude Code 的默认权限模式：settings.json 里设的，或没指定模式起的进程报来的；都还不知道时为 null。
+     * 对话还没选过模式时输入栏显示它（[Conversation.shownPermissionMode]）。
+     */
+    var defaultPermissionMode by mutableStateOf<String?>(null)
+
+    /** 读到或改了 Claude Code 的默认值。在主线程上调用。settings.json 没设默认模式时 Claude Code 用逐项确认。 */
+    internal fun updateClaudeDefaults(defaults: ClaudeDefaults) {
+        claudeDefaults = defaults
+        defaultPermissionMode = defaults.permissionMode ?: "default"
     }
 
-    internal fun rememberDefaultEffort(value: String?) {
-        defaultEffort = value
-        settings.effort = value
-    }
-
-    /** 设置页改新对话的默认模型：当前对话还没开始时它也跟着换，回到聊天页看到的和设置页一致。 */
-    fun chooseDefaultModel(value: String?) {
-        if (current.notStarted) current.chooseModel(value) else rememberDefaultModel(value)
-    }
-
-    /** 设置页改新对话的默认思考强度，和 [chooseDefaultModel] 一样。 */
-    fun chooseDefaultEffort(value: String?) {
-        if (current.notStarted) current.chooseEffort(value) else rememberDefaultEffort(value)
+    /** 重读 Claude Code 的默认值：环境就绪时、打开设置页时。读不到就照旧。 */
+    fun refreshClaudeDefaults() {
+        if (env == null) return
+        thread(name = "zeta-defaults", isDaemon = true) {
+            val defaults = runCatching { ClaudeConfigClient.of(this).defaults() }.getOrNull() ?: return@thread
+            main.post { updateClaudeDefaults(defaults) }
+        }
     }
 
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
@@ -185,8 +189,6 @@ class ConversationHub(private val app: Application) {
         autoTitle = settings.autoTitle
         autoCompact = settings.autoCompact
         autoCompactPercent = settings.autoCompactPercent
-        defaultModel = settings.model
-        defaultEffort = settings.effort
         darkTheme = settings.darkTheme
         pinnedSessions = settings.pinnedSessions
         SharedFolders.current = settings.sharedFolders
@@ -297,9 +299,6 @@ class ConversationHub(private val app: Application) {
     var maintenance by mutableStateOf<Maintenance?>(null)
         private set
 
-    /** Claude Code 自己配置的默认权限模式（从第一次会话的 init 里得知，仅本次运行有效）。 */
-    var defaultPermissionMode: String? = null
-
     /** 界面是否在前台；不在前台时一轮结束或需要批准会发通知。 */
     private val startedActivities = HashSet<Activity>()
 
@@ -395,6 +394,7 @@ class ConversationHub(private val app: Application) {
                     refreshAccount()
                     if (current.items.isEmpty() && current.sessionId == null) current = blank()
                     refreshSessions()
+                    refreshClaudeDefaults()
                     if (!hostsChecked) {
                         hostsChecked = true
                         reattachHosts()

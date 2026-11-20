@@ -1,7 +1,7 @@
 #!/bin/bash
 # 真机：search_personal 的音频、文件、下载记录、便签、健康数据。测试版里真跑一轮对话，让 Claude 逐个调用，只回条数、首行的标题和字段名，
 # 不回内容；产物里只有这段汇总（summary.txt）。健康权限用权限健康页一键授予的同一条命令授予。
-# 测完删掉这次建的会话和测试版的对话目录，permissionMode 恢复原样。用法：tools/phone-run tools/phone-tests/personal-sources.sh
+# 测完删掉这次建的会话和测试版的对话目录。用法：tools/phone-run tools/phone-tests/personal-sources.sh
 set -uo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 mark="ZPROBE$(date +%s)"
@@ -28,10 +28,10 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM INT # 超时被结束时也收尾（phone-run 先发 TERM，10 秒后才 KILL）
 android "touch $ref"
-# 不让工具调用停在批准上：这一轮用 bypassPermissions（phone-run 收尾的 vd stop 改回去）
-vd prefs-set permissionMode=bypassPermissions
 vd launch
 sleep 12
+# 不让工具调用停在批准上：这个对话在输入栏切到完全放行（只管这个对话）
+choose_mode bypassPermissions
 
 prompt="$mark Test of the phone tool search_personal. Call it with limit 3 for each source: audio, files, downloads, notes, health. \
 Then call it again with an id: for audio the first item that is a recording (marked luyin), for notes the first item, if any. Never show me any content from the results. \

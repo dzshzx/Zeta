@@ -150,7 +150,7 @@ internal object ScheduleTools : PhoneToolGroup {
         }
         prop("every_hours", "integer", "Hours between runs for interval, 1-${ScheduleRule.MAX_INTERVAL_HOURS}.")
         prop("cwd", "string", "Working directory in the Linux environment; default the user's default directory.")
-        prop("model", "string", "Model alias such as sonnet or opus; default follows the user's current setting.")
+        prop("model", "string", "Model alias such as sonnet or opus; default is Claude Code's default model.")
         enumProp("permission_mode", if (update) MODES + "" else MODES, "Permission mode for the runs; default ${Schedules.DEFAULT_MODE}.")
         prop("new_session", "boolean", "Start a fresh conversation each run (default true); false continues one conversation across runs.")
         prop(

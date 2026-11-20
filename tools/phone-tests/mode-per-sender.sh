@@ -1,13 +1,14 @@
 #!/bin/bash
-# 每条消息按发的人的权限模式跑：测试版换用假 Claude（剧本 fake/mode-per-sender.jsonl），用户的权限模式设成自动接受编辑，
-# 放一个接着同一个对话、权限模式是完全放行的定时任务，用闹钟的广播让它到点两次：
-#   第 1 次新开对话，跑的时候打开它（这个对话成了用户正看着的那个）；跑完用户在里面发一条；
-#   第 2 次接着这个开着的对话跑；跑完用户再发一条。
-# 核对这个对话的假 Claude 每轮开头 init 报的权限模式依次是 完全放行、自动接受编辑、完全放行、自动接受编辑，
-# 控制请求没有出错，用户的设置还是自动接受编辑。截图 run-1、mine-1、run-2、mine-2 是每轮之后的聊天页：
-# 输入栏的模式按钮一直是用户的自动接受编辑（用户接下来发的按它跑），后台运行的模式不显示在这里。
+# 每条消息按发的人的权限模式跑：测试版换用假 Claude（剧本 fake/mode-per-sender.jsonl），放一个接着同一个对话、权限模式是
+# 完全放行的定时任务，用闹钟的广播让它到点两次：
+#   第 1 次新开对话，跑的时候打开它（这个对话成了用户正看着的那个）；跑完用户在里面发一条：用户没选过模式，用 Claude Code 的默认；
+#   第 2 次接着这个开着的对话跑；跑完用户在输入栏把这个对话切到自动接受编辑，再发一条。
+# 核对这个对话的假 Claude 每轮开头 init 报的权限模式依次是 完全放行、Claude Code 的默认（手机上 settings.json 的
+# permissions.defaultMode）、完全放行、自动接受编辑，控制请求没有出错，settings.json 的默认没被改（对话里选的只管这个对话）。
+# 截图 run-1、mine-1、run-2、mine-2 是每轮之后的聊天页：输入栏的模式按钮一直是用户的（先是 Claude Code 的默认，切了以后是
+# 自动接受编辑），后台运行的模式不显示在这里。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/mode-per-sender.sh
-# 假 Claude 不写会话记录，没有要删的测试会话；任务和设置由收尾的 vd stop 改回去，闹钟随 force-stop 清掉。
+# 假 Claude 不写会话记录，没有要删的测试会话；任务由收尾的 vd stop 改回去，闹钟随 force-stop 清掉。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 NEWER=/data/local/tmp/zeta-mode-per-sender.mark
@@ -19,9 +20,12 @@ fire() {
   android "am broadcast -n $PKG/com.dzshzx.zeta.core.schedule.ScheduleReceiver -a $PKG.action.SCHEDULE_FIRE --es task $ID --el at $(($(date +%s) * 1000))" >/dev/null
 }
 
+default=$(claude_default_mode)
+echo "Claude Code 的默认权限模式：$default"
+[[ $default != acceptEdits ]] || echo "注意：默认就是自动接受编辑，第 2、4 轮分不出默认和用户选的"
 android "touch $NEWER"
 task_json='[{"id":"'$ID'","name":"假模式任务","prompt":"fake-mode-run","rule":{"kind":"daily","time":"03:00"},"enabled":true,"permissionMode":"bypassPermissions","newSession":false,"created":0}]'
-vd prefs-set "scheduledTasks=$task_json" "permissionMode=acceptEdits"
+vd prefs-set "scheduledTasks=$task_json"
 vd fake "$HERE/fake/mode-per-sender.jsonl"
 vd launch
 # 冷启动后第一次打字在第 1 次运行之后，不用另等
@@ -57,6 +61,7 @@ echo "第 2 次：$RUN"
 sleep 0.5
 vd shot run-2.png >/dev/null
 
+choose_mode acceptEdits
 send "fake-mode-mine-2"
 wait_result 4 30 || exit 1
 sleep 0.5
@@ -66,8 +71,8 @@ android "cat $log" >run.jsonl
 modes=$(jq -r 'select(.type == "system" and .subtype == "init") | .permissionMode' run.jsonl | paste -sd ' ')
 errors=$(control_errors run.jsonl)
 echo "每轮开头的权限模式：$modes"
-[[ $modes == "bypassPermissions acceptEdits bypassPermissions acceptEdits" ]] || { echo "应依次是 完全放行、自动接受编辑、完全放行、自动接受编辑"; exit 1; }
+[[ $modes == "bypassPermissions $default bypassPermissions acceptEdits" ]] || { echo "应依次是 完全放行、$default、完全放行、自动接受编辑"; exit 1; }
 [[ -z $errors ]] || { echo "控制请求出错：$errors"; exit 1; }
-mine=$(pref permissionMode)
-[[ $mine == acceptEdits ]] || { echo "用户的设置被改成了 ${mine:-没有}"; exit 1; }
-echo "后台运行的模式只管它发的那几条，用户自己的消息切回了自动接受编辑"
+after=$(claude_default_mode)
+[[ $after == "$default" ]] || { echo "Claude Code 的默认被改成了 $after"; exit 1; }
+echo "后台运行的模式只管它发的那几条；用户没选时用 Claude Code 的默认，在对话里选的只管这个对话"

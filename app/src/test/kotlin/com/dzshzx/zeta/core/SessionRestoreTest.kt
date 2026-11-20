@@ -16,20 +16,15 @@ import org.robolectric.annotation.Config
 
 /**
  * 接着已有会话时模型交给 Claude Code：不带 --model，它照会话记录恢复（行为由 ClaudeResumeContractTest 钉住），
- * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。都不动新对话的默认值。
+ * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。
+ * 新对话的默认值是 Claude Code 自己的设置，这里都不动（[ClaudeDefaultsTest]）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class SessionRestoreTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
-    private fun hub(model: String? = null, effort: String? = null): ConversationHub {
-        val hub = Fixtures.readyHub(app)
-        hub.settings.model = model
-        hub.settings.effort = effort
-        hub.reloadSettings()
-        return hub
-    }
+    private fun hub(): ConversationHub = Fixtures.readyHub(app)
 
     /** 已有会话的对话对象；不给记录文件，就不去载入历史。 */
     private fun reopened(hub: ConversationHub) = Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
@@ -37,25 +32,26 @@ class SessionRestoreTest {
     private fun Conversation.modelArgument(): String? = launchArgument("--model")
 
     @Test
-    fun newConversationUsesTheDefaultForNewConversations() {
-        val hub = hub(model = "opus")
+    fun newConversationLeavesTheModelToClaudeCodeSettings() {
+        val hub = hub()
         val conversation = hub.current
-        assertEquals("opus", conversation.model)
-        assertEquals("opus", conversation.modelArgument())
+        assertNull(conversation.model)
+        assertNull(conversation.modelArgument())
         assertFalse(conversation.modelFromSession)
+        conversation.chooseModel("opus")
+        assertEquals("opus", conversation.modelArgument())
         // 新对话选默认：不指定，Claude Code 照它自己的设置
         conversation.receive("""{"type":"system","subtype":"init","session_id":"s-new","model":"claude-opus-5-5"}""")
         conversation.chooseModel("default")
         assertNull(conversation.model)
         assertNull(conversation.modelArgument())
-        assertNull(hub.settings.model)
         // 顶栏写「默认」，不留上一轮 init 报的模型
         assertEquals("默认", modelLabel(conversation.shownModel, hub.modelOptions))
     }
 
     @Test
     fun reopenedConversationLeavesTheModelToClaudeCode() {
-        val hub = hub(model = "opus", effort = "low")
+        val hub = hub()
         val conversation = reopened(hub)
         assertNull(conversation.model)
         assertTrue(conversation.modelFromSession)
@@ -71,25 +67,20 @@ class SessionRestoreTest {
         assertEquals("max", conversation.launchArgument("--effort"))
         conversation.restoreEffort("ultra")
         assertEquals("max", conversation.effort)
-        // 新对话的默认值不动
-        assertEquals("opus", hub.settings.model)
-        assertEquals("low", hub.settings.effort)
     }
 
     /** 用户在这个对话里亲手选了（或定时任务、数字助理定了）才指定；选默认也要明说，不然 Claude Code 会恢复原来的。 */
     @Test
     fun aChoiceInThisConversationIsPassedOn() {
-        val hub = hub(model = "opus")
+        val hub = hub()
         val chosen = reopened(hub)
         chosen.chooseModel("fable")
         assertEquals("fable", chosen.modelArgument())
         assertEquals("fable", chosen.shownModel)
         assertFalse(chosen.modelFromSession)
-        assertEquals("fable", hub.settings.model)
         chosen.chooseModel("default")
         assertEquals("default", chosen.modelArgument())
         assertEquals("默认", modelLabel(chosen.shownModel, emptyList()))
-        assertNull(hub.settings.model)
 
         val preset = reopened(hub)
         preset.preset(model = "haiku", effort = null)
@@ -102,7 +93,7 @@ class SessionRestoreTest {
     /** 分支：--fork-session 复制出的会话同样由 Claude Code 接着用原来的模型；先显示原对话显示的，思考强度接着用原对话的。 */
     @Test
     fun branchLeavesTheModelToClaudeCodeAndKeepsEffort() {
-        val hub = hub(model = "opus", effort = "high")
+        val hub = hub()
         val source = reopened(hub)
         // 原对话显示着 Claude Code 报来的模型（真报来时它在回答，不能分支，这里直接摆上）
         source.force("reportedModel", "claude-fable-5-2")
@@ -119,8 +110,6 @@ class SessionRestoreTest {
         assertTrue("--fork-session" in branch.launchArguments())
         assertEquals("claude-fable-5-2", branch.shownModel)
         assertEquals("max", branch.effort)
-        assertEquals("opus", hub.settings.model)
-        assertEquals("high", hub.settings.effort)
     }
 
     @Test

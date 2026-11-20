@@ -27,6 +27,8 @@ class SettingsBackupTest {
         "gid" to 5000,
         "home" to "/home/someone",
         "cwd" to "/workspace/claude",
+        "assistantModel" to "opus",
+        // 以前的 Zeta 存的新对话默认值，现在用 Claude Code 自己的设置：还留在文件里也不导出
         "model" to "opus",
         "permissionMode" to "acceptEdits",
         "commands" to "[{\"name\":\"compact\"}]",
@@ -70,6 +72,7 @@ class SettingsBackupTest {
         val keys = root["settings"]!!.jsonObject.keys
         assertEquals(SettingsBackup.items.map { it.key }.toSet(), keys)
         for (machine in SettingsBackup.machineKeys.keys) assertFalse("$machine 不该导出", machine in keys)
+        for (retired in SettingsBackup.retiredKeys.keys) assertFalse("$retired 不该导出", retired in keys)
         assertFalse("apiToken" in keys)
         assertFalse(export(phone).contains("fake-token-1"))
         // 常用指令导出时不带这台手机上的 id
@@ -81,7 +84,7 @@ class SettingsBackupTest {
     fun exportFillsDefaultsAndSkipsUnsetCwd() {
         val settings = Json.parseToJsonElement(export(emptyMap<String, Any?>())).jsonObject["settings"]!!.jsonObject
         assertEquals(JsonNull, settings["dark"])
-        assertEquals(JsonNull, settings["model"])
+        assertEquals(JsonNull, settings["assistantModel"])
         assertEquals(JsonPrimitive(true), settings["phoneTools"])
         assertEquals(JsonPrimitive(false), settings["autoLoadRemoteImages"])
         assertEquals(JsonPrimitive("coui"), settings["accent"])
@@ -113,7 +116,6 @@ class SettingsBackupTest {
         assertEquals("深色", changed.getValue("dark").to)
         assertEquals("100%", changed.getValue("interfaceScale").from)
         assertEquals("90%", changed.getValue("interfaceScale").to)
-        assertEquals("自动接受编辑", changed.getValue("permissionMode").to)
         val writes = SettingsBackup.writes(backup, plan)
         assertEquals(true, writes["dark"])
         assertEquals("teal", writes["accent"])
@@ -126,7 +128,7 @@ class SettingsBackupTest {
         assertEquals(listOf("" to "检查 Git 状态", "简报" to "汇总今天的日程\n三行说完"), prompts.map { it.name to it.text })
         assertTrue(prompts.none { it.id == "a" || it.id == "b" })
         assertEquals(false, writes["accessibilityGuard"])
-        assertEquals("opus", writes["model"])
+        assertEquals("opus", writes["assistantModel"])
         assertEquals("/workspace/claude", writes["cwd"])
         assertEquals(setOf("0a1b2c3d-0000-4000-8000-000000000001"), writes["pinnedSessions"])
         assertEquals("[{\"name\":\"Download\",\"source\":\"/storage/emulated/0/Download\"}]", writes["sharedFolders"])
@@ -138,12 +140,12 @@ class SettingsBackupTest {
 
     @Test
     fun nullMeansBackToDefault() {
-        val backup = valid(file(buildJsonObject { put("dark", JsonNull); put("model", JsonNull) }))
+        val backup = valid(file(buildJsonObject { put("dark", JsonNull); put("assistantModel", JsonNull) }))
         val plan = SettingsBackup.plan(backup, phone)
-        assertEquals(setOf("dark", "model"), plan.changes.map { it.key }.toSet())
+        assertEquals(setOf("dark", "assistantModel"), plan.changes.map { it.key }.toSet())
         val writes = SettingsBackup.writes(backup, plan)
         assertTrue("dark" in writes && writes["dark"] == null)
-        assertTrue("model" in writes && writes["model"] == null)
+        assertTrue("assistantModel" in writes && writes["assistantModel"] == null)
     }
 
     @Test
@@ -169,9 +171,10 @@ class SettingsBackupTest {
                     put("pureBlack", true)
                     put("accent", "yellow")
                     put("interfaceScale", 5.0)
-                    put("model", "opus; rm -rf /")
-                    put("effort", "xhigh")
-                    put("permissionMode", "yolo")
+                    put("assistantModel", "opus; rm -rf /")
+                    put("assistantEffort", "xhigh")
+                    // 以前的 Zeta 导出的新对话默认值：说明为什么不导入
+                    put("permissionMode", "acceptEdits")
                     put("cwd", "relative/dir")
                     put("keepScreenOn", JsonNull)
                     put("pinnedSessions", buildJsonArray { add(JsonPrimitive("../../etc")) })
@@ -190,11 +193,11 @@ class SettingsBackupTest {
                 },
             ),
         )
-        assertEquals(mapOf("autoLoadRemoteImages" to JsonPrimitive(true), "effort" to JsonPrimitive("xhigh")), backup.values)
+        assertEquals(mapOf("autoLoadRemoteImages" to JsonPrimitive(true), "assistantEffort" to JsonPrimitive("xhigh")), backup.values)
         val skipped = backup.skipped.associateBy { it.key }
         assertEquals(
             setOf(
-                "phoneTools", "accent", "interfaceScale", "model", "permissionMode", "cwd", "keepScreenOn",
+                "phoneTools", "accent", "interfaceScale", "assistantModel", "permissionMode", "cwd", "keepScreenOn",
                 "pinnedSessions", "sharedFolders", "uid", "rootfs", "somethingNew", "pureBlack",
                 "autoCompact", "autoCompactPercent", "savedPrompts",
             ),
@@ -203,12 +206,13 @@ class SettingsBackupTest {
         assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
         assertTrue(skipped.getValue("somethingNew").reason.startsWith("不认识的设置项"))
         assertTrue(skipped.getValue("pureBlack").reason.startsWith("不认识的设置项"))
+        assertTrue(skipped.getValue("permissionMode").reason.startsWith("不再导入"))
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))
         assertEquals("第 1 条：内容不能为空", skipped.getValue("savedPrompts").reason)
         // 跳过的项原样带进确认清单
         val plan = SettingsBackup.plan(backup, emptyMap<String, Any?>())
         assertEquals(backup.skipped, plan.skipped)
-        assertEquals(setOf("autoLoadRemoteImages", "effort"), plan.changes.map { it.key }.toSet())
+        assertEquals(setOf("autoLoadRemoteImages", "assistantEffort"), plan.changes.map { it.key }.toSet())
     }
 
     @Test

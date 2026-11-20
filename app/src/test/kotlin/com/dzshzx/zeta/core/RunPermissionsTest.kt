@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
@@ -24,22 +25,24 @@ class RunPermissionsTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val rules = ScheduleTools.unattendedRules
 
-    private fun hub(mode: String?): ConversationHub {
+    private fun hub(): ConversationHub {
         val hub = Fixtures.readyHub(app)
-        hub.settings.permissionMode = mode
         hub.settings.env = null
         hub.reloadSettings()
         return hub
     }
 
-    private fun conversation(hub: ConversationHub) = Conversation(hub, "/workspace/claude", sessionId = null, title = "任务", historyFile = null)
+    /** 新对话；[mode] 给了就是用户在输入栏选过的。 */
+    private fun conversation(hub: ConversationHub, mode: String? = null) =
+        Conversation(hub, "/workspace/claude", sessionId = null, title = "任务", historyFile = null).also { chat ->
+            mode?.let(chat::choosePermissionMode)
+        }
 
     private fun status(mode: String) = """{"type":"system","subtype":"status","status":null,"permissionMode":"$mode"}"""
 
     @Test
     fun runModeLastsUntilTheUserSends() {
-        val hub = hub("acceptEdits")
-        val chat = conversation(hub)
+        val chat = conversation(hub(), "acceptEdits")
         chat.sendUnattended("跑一次", "bypassPermissions", rules)
         assertEquals("bypassPermissions", chat.processMode)
         // 输入栏照旧是用户的：用户接下来发的按它跑
@@ -52,7 +55,6 @@ class RunPermissionsTest {
         chat.send("我自己问")
         assertEquals("acceptEdits", chat.processMode)
         assertEquals("acceptEdits", chat.launchArgument("--permission-mode"))
-        assertEquals("acceptEdits", hub.settings.permissionMode)
         // 用户的模式上 Claude Code 自己换了（计划获批后退出计划模式）：用户的跟着变
         chat.receive(status("default"))
         assertEquals("default", chat.permissionMode)
@@ -60,18 +62,16 @@ class RunPermissionsTest {
 
     @Test
     fun choosingDuringARunKeepsTheChoice() {
-        val hub = hub("acceptEdits")
-        val chat = conversation(hub)
+        val chat = conversation(hub(), "acceptEdits")
         chat.sendUnattended("跑一次", "bypassPermissions", rules)
         chat.choosePermissionMode("plan")
         chat.send("我自己问")
         assertEquals("plan", chat.processMode)
-        assertEquals("plan", hub.settings.permissionMode)
     }
 
     @Test
     fun unknownUserModeFallsBackToAsking() {
-        val hub = hub(null)
+        val hub = hub()
         val chat = conversation(hub)
         assertNull(chat.permissionMode)
         assertNull(chat.launchArgument("--permission-mode"))
@@ -89,9 +89,23 @@ class RunPermissionsTest {
         assertEquals("acceptEdits", hub.defaultPermissionMode)
     }
 
+    /** 用户没选过、Claude Code 的默认已知（settings.json 里设的）：后台运行之后用户的消息切回那个默认，输入栏一直显示它。 */
+    @Test
+    fun userWithoutChoiceGetsClaudeCodeDefaultAfterARun() {
+        val hub = hub()
+        hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = "auto", efforts = emptyMap(), effort = null))
+        val chat = conversation(hub)
+        assertEquals("auto", chat.shownPermissionMode)
+        chat.sendUnattended("跑一次", "bypassPermissions", rules)
+        assertEquals("auto", chat.shownPermissionMode)
+        chat.send("我自己问")
+        assertEquals("auto", chat.processMode)
+        assertNull(chat.permissionMode)
+    }
+
     @Test
     fun launchAllowsSwitchingIntoBypassLater() {
-        val chat = conversation(hub("default"))
+        val chat = conversation(hub(), "default")
         assertTrue("--allow-dangerously-skip-permissions" in chat.launchArguments())
         assertFalse("--dangerously-skip-permissions" in chat.launchArguments())
     }
