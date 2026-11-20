@@ -29,9 +29,9 @@ class SetupShots : ShotTest() {
 
     private val ssh = SshStatus(installed = true, running = true, autostart = true, port = "8022", listen = "127.0.0.1:8022", keys = 2, passwordLogin = false)
 
-    private fun readyWithStatus(): ConversationHub = Fixtures.readyHub(app).apply {
-        force("health", health)
-        force("ssh", ssh)
+    private fun readyWithStatus(): ConversationHub = Fixtures.readyHub(app).also { hub ->
+        hub.environment.force("health", health)
+        hub.environment.force("ssh", ssh)
     }
 
     @Test
