@@ -45,12 +45,20 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         sessions = sessions.map { if (it.id == sessionId) it.copy(title = title) else it }
     }
 
+    /**
+     * 按 id 查会话概要：列表里可能没有（最近 300 个之外的，或者列表还没读出来）。返回找到的那些；
+     * 没查成（没有 Linux 环境、助手出错或超时）返回 null，这时不能当作“都不在了”。耗时，别在主线程调用。
+     */
+    internal fun find(ids: Collection<String>, config: LinuxEnvConfig? = hub.settings.env): List<SessionSummary>? {
+        val result = hub.helper("lookup", ids.toList(), timeoutMs = 60_000, config = config) ?: return null
+        return if (result.exitCode == 0) parseSessionSummaries(result.stdout) else null
+    }
+
     /** 按 id 查一个会话（列表里可能还没有，比如点通知冷启动、列表还没读出来）；查到了在主线程上交给 [then]。 */
     internal fun lookup(id: String, then: (SessionSummary) -> Unit) {
         val config = hub.settings.env ?: return
         thread(name = "zeta-sessions", isDaemon = true) {
-            val result = hub.helper("lookup", listOf(id), timeoutMs = 60_000, config = config) ?: return@thread
-            val summary = parseSessionSummaries(result.stdout).firstOrNull { it.id == id } ?: return@thread
+            val summary = find(listOf(id), config)?.firstOrNull() ?: return@thread
             main.post { then(summary) }
         }
     }

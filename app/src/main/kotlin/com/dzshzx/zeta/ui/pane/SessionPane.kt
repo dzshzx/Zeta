@@ -181,7 +181,7 @@ internal fun SessionPane(
             farPinned = emptyList()
             return@LaunchedEffect
         }
-        val found = withContext(Dispatchers.IO) { lookupSessions(hub, missing) } ?: return@LaunchedEffect
+        val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing) } ?: return@LaunchedEffect
         farPinned = found
         val gone = missing - found.mapTo(HashSet()) { it.id }
         if (gone.isNotEmpty()) savePins(pins - gone)
@@ -281,7 +281,7 @@ internal fun SessionPane(
             if (id == null) return@collect
             SessionReveal.request = null
             val target = allNow.firstOrNull { it.id == id }
-                ?: withContext(Dispatchers.IO) { lookupSessions(hub, listOf(id)) }?.firstOrNull { it.id == id }?.also { farRevealed = farRevealed + it }
+                ?: withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id)) }?.firstOrNull()?.also { farRevealed = farRevealed + it }
             if (target == null) {
                 Toast.makeText(context, "侧栏里没有这个对话（它没有可显示的内容）", Toast.LENGTH_SHORT).show()
                 return@collect

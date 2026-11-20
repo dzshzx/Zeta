@@ -34,7 +34,6 @@ import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -352,7 +351,7 @@ private fun ProjectSessionsScreen(hub: ConversationHub, project: ProjectUsage, o
         // 不在侧栏最近 300 个里的，按 id 取一次标题（最多取前 100 个）
         val missing = result.first.map { it.id }.filter { it !in summaries }.take(100)
         if (missing.isNotEmpty()) {
-            val found = withContext(Dispatchers.IO) { lookupSessions(hub, missing) }.orEmpty()
+            val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing) }.orEmpty()
             summaries = summaries + found.associateBy { it.id }
         }
     }

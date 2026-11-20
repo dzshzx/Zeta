@@ -9,12 +9,10 @@ import android.os.PowerManager
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Notifier
-import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.diag.DiagLevel
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
-import com.dzshzx.zeta.core.parseSessionSummaries
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.dzshzx.zeta.ui.MainActivity
 import java.time.Instant
@@ -129,10 +127,16 @@ internal object ScheduleRunner {
         // 接着原来的会话：先查出记录在哪、当时的工作目录（--resume 在原目录下才找得到），历史也一并载入
         starting.add(key)
         thread(name = "zeta-schedule", isDaemon = true) {
-            val summary = lookup(hub, session)
+            val found = hub.sessionList.find(listOf(session))
             main.post {
                 starting.remove(key)
                 val name = records.name(app, spec.id) ?: return@post
+                // 没查成不等于被删了：这次不跑，下次再查，不另开对话
+                if (found == null) {
+                    fail(app, records, spec.copy(name = name), manual, now, "查不到原来的对话（Linux 环境没有响应）")
+                    return@post
+                }
+                val summary = found.firstOrNull()
                 val conversation = if (summary != null) {
                     Conversation(hub, summary.cwd.ifBlank { spec.cwd ?: config.defaultCwd }, summary.id, name, summary.file)
                 } else {
@@ -293,18 +297,9 @@ internal object ScheduleRunner {
         }
     }
 
-    private fun lookup(hub: ConversationHub, id: String): SessionSummary? {
-        val result = hub.helper("lookup", listOf(id), timeoutMs = 60_000) ?: return null
-        return parseSessionSummaries(result.stdout).firstOrNull { it.id == id }
-    }
-
     /** 新开的会话按任务名起标题（侧栏里认得出是哪个任务、哪一次）。 */
-    private fun rename(hub: ConversationHub, id: String, title: String) {
-        thread(name = "zeta-schedule", isDaemon = true) {
-            val summary = lookup(hub, id) ?: return@thread
-            main.post { hub.sessionList.rename(summary, title) }
-        }
-    }
+    private fun rename(hub: ConversationHub, id: String, title: String) =
+        hub.sessionList.lookup(id) { hub.sessionList.rename(it, title) }
 
     private const val POLL_MS = 2_000L
     private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")

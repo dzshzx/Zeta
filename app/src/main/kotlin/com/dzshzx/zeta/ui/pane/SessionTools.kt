@@ -4,8 +4,6 @@ import android.os.Handler
 import android.os.Looper
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
-import com.dzshzx.zeta.core.SessionSummary
-import com.dzshzx.zeta.core.parseSessionSummaries
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.str
 import java.text.SimpleDateFormat
@@ -15,7 +13,7 @@ import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-// 侧栏用到的几样小助手命令（zeta_helper.py 的 search / lookup / export）。大的会话记录只在 Debian 里读，应用只拿结果。
+// 侧栏用到的几样小助手命令（zeta_helper.py 的 search / export；按 id 查会话在 SessionList.find）。大的会话记录只在 Debian 里读，应用只拿结果。
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -85,19 +83,6 @@ internal class ContentSearch(
         }
         running?.let(LinuxEnv::kill)
     }
-}
-
-/**
- * 按 id 取会话概要：置顶的会话可能已经不在 list 给的最近 300 个里，但还在就照样显示。
- * 返回找到的那些；没跑成返回 null（这时不能当作“都不在了”）。耗时，别在主线程调用。
- */
-internal fun lookupSessions(hub: ConversationHub, ids: Collection<String>): List<SessionSummary>? {
-    val config = hub.settings.env ?: return null
-    val result = runCatching {
-        LinuxEnv.run(config, "exec python3 - lookup " + ids.joinToString(" ") { LinuxEnv.quote(it) }, stdin = hub.helperScript, timeoutMs = 60_000)
-    }.getOrNull() ?: return null
-    if (result.exitCode != 0) return null
-    return parseSessionSummaries(result.stdout)
 }
 
 internal class ExportedMarkdown(val file: String, val title: String, val markdown: String)
