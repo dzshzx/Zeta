@@ -16,7 +16,6 @@ import android.view.Display
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +81,10 @@ class PhoneTools(
     beforeCreate: (PhoneTools) -> Unit = {},
     /** 后台屏幕没了（在主线程上调用）：登记处据此丢掉没有屏、也没有对话在用的那些。 */
     onScreenGone: () -> Unit = {},
+    /** 用这份手机工具的对话是否正在进行（后台任务在跑也算）：后台屏幕不休眠、不被腾掉。任何线程上都可能调用。 */
+    isBusy: (PhoneTools) -> Boolean = { false },
+    /** 后台屏幕有了、没了或换了应用（在主线程上调用）。 */
+    onChanged: () -> Unit = {},
 ) {
     /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile var unattended: UnattendedRun? = null
@@ -112,7 +115,10 @@ class PhoneTools(
     private val gate = ControlGate()
 
     /** 这个对话的后台屏幕。 */
-    internal val slot = AgentDisplaySlot(context, lock, gate, beforeCreate = { beforeCreate(this) }, onScreenGone = onScreenGone)
+    internal val slot = AgentDisplaySlot(
+        context, lock, gate, beforeCreate = { beforeCreate(this) }, onScreenGone = onScreenGone,
+        busy = { isBusy(this) }, onChanged = onChanged,
+    )
 
     /** 主屏的编号。平时是 0；调试时可以经设置指到别的屏上，免得测试打扰正在用手机的人。 */
     private val mainDisplay: Int get() = settings.phoneDisplay
@@ -1053,16 +1059,6 @@ class PhoneTools(
     fun onTurnEnded() {
         resetOverlay()
         slot.onTurnEnded()
-    }
-
-    /**
-     * 换到现在用它的对话（重新打开会话时会新建对话对象）：闲置判断、界面刷新都跟着它走。在主线程上调用。
-     * 对话在进行看它的 [busy] 和 [backgroundTasks]（后台任务在跑也算）。只收状态，[onChanged] 也不要捕获对话：
-     * 对话收掉后，有后台屏幕的这份还被登记处留着，捕获了对话就连它的聊天内容、图片一起留住。
-     */
-    fun attach(busy: State<Boolean>, backgroundTasks: State<Int>, onChanged: () -> Unit) {
-        slot.busy = { busy.value || backgroundTasks.value > 0 }
-        slot.onChanged = onChanged
     }
 
     /**

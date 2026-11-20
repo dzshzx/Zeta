@@ -191,17 +191,13 @@ class ConversationHub(private val app: Application) {
 
     private fun blank() = Conversation(this, settings.env?.defaultCwd ?: "/workspace", sessionId = null, title = "", historyFile = null)
 
-    fun isRunning(sessionId: String): Boolean =
-        (current.sessionId == sessionId && current.busy) || parkedFor(sessionId)?.busy == true
+    fun isRunning(sessionId: String): Boolean = findConversation(sessionId)?.busy == true
 
     /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
-    fun isActive(sessionId: String): Boolean {
-        return (current.sessionId == sessionId && current.active) || parkedFor(sessionId)?.active == true
-    }
+    fun isActive(sessionId: String): Boolean = findConversation(sessionId)?.active == true
 
     /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
-    fun isWaiting(sessionId: String): Boolean =
-        (current.sessionId == sessionId && current.pending != null) || parkedFor(sessionId)?.pending != null
+    fun isWaiting(sessionId: String): Boolean = findConversation(sessionId)?.pending != null
 
     /** 环境检查完、就绪了（[EnvController.checkSetup]）：读会话列表和 Claude Code 的默认值，第一次就绪时接回还在跑的进程。在主线程上调用。 */
     internal fun onEnvironmentReady() {
@@ -336,8 +332,8 @@ class ConversationHub(private val app: Application) {
      * 还在后台跑的直接接过来；已经收掉的按会话列表重新打开；都找不到就不动。在主线程上调用。
      */
     fun openConversation(key: String) {
-        if (current.sessionId == key || current.key == key) return
-        val running = parkedFor(key)
+        val running = findConversation(key)
+        if (running === current) return
         if (running != null) {
             leaveCurrent()
             parked.remove(running)
@@ -383,8 +379,17 @@ class ConversationHub(private val app: Application) {
 
     /** 会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */
     internal fun phoneFor(key: String): PhoneTools = synchronized(phones) {
-        phones.getOrPut(key) { PhoneTools(app, settings, beforeCreate = ::makeRoom, onScreenGone = ::prunePhones) }
+        phones.getOrPut(key) {
+            PhoneTools(app, settings, beforeCreate = ::makeRoom, onScreenGone = ::prunePhones, isBusy = ::phoneBusy, onChanged = ::onActivityChanged)
+        }
     }
+
+    /**
+     * 用手机工具 [phone] 的对话正在进行（后台任务在跑也算）。按 hub 手上的对话查，不让手机工具拿着对话：
+     * 对话收掉后有后台屏幕的手机工具还被登记着，拿着对话就连它的聊天内容、图片一起留住；收掉的对话也自然算不忙。
+     * 读的都是快照状态，任何线程上都能调用。
+     */
+    private fun phoneBusy(phone: PhoneTools): Boolean = liveConversations.any { it.phone === phone && (it.busy || it.backgroundTasks > 0) }
 
     /**
      * 对话 [conversation] 的会话号从 [from] 换成了 [to]（新对话拿到会话号、/clear 换了新会话；还没有会话号时用对话的 key）。

@@ -78,23 +78,19 @@ class Conversation(
     var items by mutableStateOf<List<ChatItem>>(emptyList())
         private set
 
-    /** [busy]、[backgroundTasks] 背后的状态，单独拿着好交给手机工具（见 [phone]）。要先于它们声明。 */
-    private val busyState = mutableStateOf(false)
-    private val backgroundTasksState = mutableStateOf(0)
-
     /**
      * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）；
      * 另外自己发出、Claude Code 还没取走的消息也算（result 来时还有排队的，Claude Code 会接着另起一轮）。
      * 和 zeta_host.sh 的看门狗（turn_running）、zeta_helper.py 的 scan_host 同一口径，HostTurnTest 核对三处。
      */
-    var busy by busyState
+    var busy by mutableStateOf(false)
         private set
 
     /**
      * 还在跑的后台任务数（后台命令、后台子代理、监视器等），以 Claude Code 最近一次 background_tasks_changed 为准。
      * 这一轮结束后它们照样在跑，跑完时 Claude Code 会自己另起一轮汇报结果，所以进程不能当闲着收掉。
      */
-    var backgroundTasks by backgroundTasksState
+    var backgroundTasks by mutableStateOf(0)
         private set
 
     /** 后台任务的清单和输出，给后台任务面板看。 */
@@ -241,10 +237,9 @@ class Conversation(
 
     /**
      * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。
-     * Claude Code 还有后台任务在跑也算忙：后台屏幕不休眠、不被腾掉。
-     * 只交状态和 hub 的回调，不交捕获本对象的闭包：对话收掉后后台屏幕还在的话，登记处还留着这份手机工具。
+     * 后台屏幕要知道对话忙不忙时由 hub 按 [busy]、[backgroundTasks] 查（[ConversationHub.phoneFor]）。
      */
-    val phone = hub.phoneFor(openKey).also { it.attach(busyState, backgroundTasksState, onChanged = hub::onActivityChanged) }
+    val phone = hub.phoneFor(openKey)
 
     /** 顶部状态胶囊看到的这个对话。 */
     internal val overlay = ConversationFocus(hub, this)
@@ -715,7 +710,7 @@ class Conversation(
         }
         response.arr("commands")?.let { list ->
             val commands = parseSlashCommands(list)
-            if (commands != hub.settings.commands) hub.settings.commands = commands
+            hub.settings.commands = commands
         }
         response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }

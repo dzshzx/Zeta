@@ -27,6 +27,10 @@ internal class AgentDisplaySlot(
     private val beforeCreate: () -> Unit,
     /** 后台屏幕没了（在主线程上调用）：登记处据此丢掉没有屏、也没有对话在用的那些。 */
     private val onScreenGone: () -> Unit,
+    /** 用它的对话是否正在进行（闲置休眠、腾地方时要避开），任何线程上都可能调用。 */
+    val busy: () -> Boolean,
+    /** 后台屏幕有了、没了或换了应用（在主线程上调用）。 */
+    private val onChanged: () -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
 
@@ -42,11 +46,6 @@ internal class AgentDisplaySlot(
     @Volatile var current: VirtualScreen? = null
         private set
 
-    /** 对话是否正在进行（闲置休眠、腾地方时要避开）。由正在用它的对话经 PhoneTools.attach 给出。 */
-    @Volatile var busy: () -> Boolean = { false }
-
-    /** 后台屏幕有了、没了或换了应用（在主线程上调用）。 */
-    @Volatile var onChanged: () -> Unit = {}
 
     /** 最近一次被 Claude Code 调用的时间：闲置休眠看它，腾地方时先收最久没用的。 */
     @Volatile var lastUse = 0L

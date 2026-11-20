@@ -42,6 +42,7 @@ class Settings private constructor(private val app: Context) {
         override fun getValue(thisRef: Any?, property: KProperty<*>): T = state.value
 
         override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            if (value == state.value) return // 同一个值不重写存储、不重跑 onChange，调用处不用先比较
             state.value = value
             val editor = prefs.edit().apply { write(value) }
             if (commit) editor.commit() else editor.apply()

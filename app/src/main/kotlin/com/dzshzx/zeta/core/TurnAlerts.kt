@@ -57,9 +57,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
      * 只读可观察的状态，由 [focusState] 缓存。
      */
     private fun pickFocus(): ConversationFocus? {
-        val shown = hub.current
-        val chatVisible = hub.foreground
-        fun visible(c: Conversation) = !(chatVisible && c === shown && c.phone.agentDisplay == null)
+        fun visible(c: Conversation) = !(hub.isWatching(c) && c.phone.agentDisplay == null)
         linger?.focus?.takeIf { !it.conversation.busy && visible(it.conversation) }?.let { return it }
         return hub.liveConversations
             .filter { c ->
