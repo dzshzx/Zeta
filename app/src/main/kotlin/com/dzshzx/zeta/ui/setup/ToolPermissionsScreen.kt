@@ -24,7 +24,6 @@ import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.core.claude.PermissionBehavior
 import com.dzshzx.zeta.core.claude.PermissionGroup
 import com.dzshzx.zeta.core.claude.PermissionRules
-import com.dzshzx.zeta.core.claude.PhoneToolLabels
 import com.dzshzx.zeta.core.claude.ToolPermission
 import com.dzshzx.zeta.core.claude.addPermissionRule
 import com.dzshzx.zeta.core.claude.permissions
@@ -32,6 +31,7 @@ import com.dzshzx.zeta.core.claude.removePermissionRule
 import com.dzshzx.zeta.core.claude.replacePermissionRule
 import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
+import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
@@ -108,7 +108,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     var deleting by remember { mutableStateOf<Pair<PermissionBehavior, String>?>(null) }
     var detail by remember { mutableStateOf<McpServer?>(null) }
     var bulk by remember { mutableStateOf<BulkRequest?>(null) }
-    val phoneTools = remember { PhoneTools.catalog }
+    val phoneTools = remember { PhoneToolCatalog.labels }
 
     LaunchedEffect(reloads) {
         scope.runConfig({ client.permissions() }) { result ->
@@ -224,11 +224,11 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
                     val whole = current?.let { ClaudePermissions.server(it, server) } ?: ToolPermission(null)
                     ToolRow("全部手机工具", McpNames.server(server), whole.behavior, editable) { b -> apply { client.setToolPermission(McpNames.server(server), b) } }
                 }
-                phoneTools.forEach { (name, description) ->
+                phoneTools.forEach { (name, label) ->
                     item(key = name) {
                         val state = current?.let { ClaudePermissions.mcpTool(it, server, name) } ?: ToolPermission(null)
                         val own = current?.let { ClaudePermissions.tool(it, McpNames.tool(server, name)).behavior }
-                        ToolRow(name, toolSummary(PhoneToolLabels.label(name, description), state, "全部手机工具"), own, editable) { b ->
+                        ToolRow(name, toolSummary(label, state, "全部手机工具"), own, editable) { b ->
                             apply { client.setToolPermission(McpNames.tool(server, name), b) }
                         }
                     }

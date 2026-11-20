@@ -7,7 +7,6 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -21,9 +20,10 @@ import java.util.Locale
  * 都不碰屏幕，优先用 root 命令；各领域的命令拼装和解析在同目录的 Device*.kt、XiaomiClock.kt 里。
  */
 internal object DeviceTools : PhoneToolGroup {
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             "device_state",
+            "查看、切换 WLAN、蓝牙、亮度等",
             "Read or change phone switches and levels. get without target lists them all. " +
                 "Turning off wifi or mobile_data, or turning on airplane_mode, can cut this conversation's connection; do it only when the user asks.",
         ) {
@@ -37,7 +37,7 @@ internal object DeviceTools : PhoneToolGroup {
                 )
             }
         },
-        tool("media", "Volumes, ringer, audio output and what is playing (status); set a stream's volume; play/pause/skip the current media.") {
+        tool("media", "音量、响铃、音频输出和媒体播放", "Volumes, ringer, audio output and what is playing (status); set a stream's volume; play/pause/skip the current media.") {
             schema(required = listOf("action")) {
                 enumProp("action", listOf("status", "set_volume") + DeviceAudio.KEYS.keys, "What to do.")
                 enumProp("stream", DeviceAudio.STREAMS.keys.toList(), "For set_volume.")
@@ -46,6 +46,7 @@ internal object DeviceTools : PhoneToolGroup {
         },
         tool(
             "clock",
+            "时钟应用的闹钟和倒计时",
             "Alarms and the countdown timer of the Clock app, without opening it. list_alarms shows the alarm_id that update_alarm and delete_alarm need.",
         ) {
             schema(required = listOf("action")) {
@@ -60,7 +61,7 @@ internal object DeviceTools : PhoneToolGroup {
                 prop("seconds", "integer", "start_timer: duration, 2-86399.")
             }
         },
-        tool("system_setting", "Read or write Android settings (the system, secure and global tables of the `settings` command).") {
+        tool("system_setting", "读写 Android 系统设置", "Read or write Android settings (the system, secure and global tables of the `settings` command).") {
             schema(required = listOf("action", "namespace")) {
                 enumProp("action", listOf("get", "put", "delete", "list"), "What to do.")
                 enumProp("namespace", listOf("system", "secure", "global"), "Settings table.")
@@ -71,6 +72,7 @@ internal object DeviceTools : PhoneToolGroup {
         },
         tool(
             "app_control",
+            "查看、停止、冻结应用和使用时长",
             "Installed apps: info (version, install, state, permissions), force_stop, freeze (disable), unfreeze, " +
                 "usage (foreground time per app) and recent (apps opened, newest first) over the last hours.",
         ) {
@@ -83,6 +85,7 @@ internal object DeviceTools : PhoneToolGroup {
         },
         tool(
             "device_info",
+            "电池、温度、内存、网络等手机状况",
             "Phone facts: overview (battery, temperatures, memory, storage, network, screen), location (last known fix), " +
                 "top_memory and top_storage (heaviest apps), wifi_passwords (saved networks with passwords; share only with the user who asked).",
             readOnly = true,
@@ -93,7 +96,7 @@ internal object DeviceTools : PhoneToolGroup {
                 prop("limit", "integer", "top_memory, top_storage: how many (default 15).")
             }
         },
-        tool("logcat", "Read recent Android logs (threadtime format, newest last), narrowed by package, tag, level, text or time.", readOnly = true) {
+        tool("logcat", "读最近的 Android 日志", "Read recent Android logs (threadtime format, newest last), narrowed by package, tag, level, text or time.", readOnly = true) {
             schema {
                 prop("lines", "integer", "Most lines to return (default ${DeviceLogcat.DEFAULT_LINES}, max ${DeviceLogcat.MAX_LINES}).")
                 prop("package", "string", "Only logs from this app's processes.")

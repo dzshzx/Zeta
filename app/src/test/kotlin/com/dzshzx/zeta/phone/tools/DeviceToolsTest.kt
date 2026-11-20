@@ -1,8 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
 import com.dzshzx.zeta.core.LinuxEnv
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -11,13 +9,13 @@ import org.junit.Test
 import java.time.LocalDateTime
 
 class DeviceToolsTest {
-    private fun names() = DeviceTools.tools.map { ((it as JsonObject)["name"] as JsonPrimitive).content }
+    private fun names() = DeviceTools.tools.map { it.name }
 
     @Test
     fun toolsAreFewAndSmall() {
         assertEquals(listOf("device_state", "media", "clock", "system_setting", "app_control", "device_info", "logcat"), names())
         // 预算约 3k token；英文 JSON 大约 3 到 4 个字符一个 token，现在约 5.5k 字符
-        val chars = DeviceTools.tools.sumOf { it.toString().length }
+        val chars = DeviceTools.tools.sumOf { it.definition.toString().length }
         assertTrue("tool definitions are $chars chars", chars <= 8_000)
     }
 

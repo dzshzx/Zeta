@@ -296,7 +296,7 @@ class UnattendedRulesContractTest {
                                 }
                                 "tools/list" -> {
                                     toolLists++
-                                    buildJsonObject { put("tools", JsonArray(ScheduleTools.tools)) }
+                                    buildJsonObject { put("tools", JsonArray(ScheduleTools.tools.map { it.definition })) }
                                 }
                                 "tools/call" -> {
                                     val name = m.obj("params")!!.str("name")!!

@@ -7,7 +7,6 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.InstalledApps
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -34,9 +33,10 @@ internal object PersonalTools : PhoneToolGroup {
 
     private const val TIME_FORMAT = "ISO 8601: 2026-11-19, 2026-11-19T08:00 (local) or with offset."
 
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             SEARCH,
+            "只读搜索日历、短信、相册等",
             "Search the user's personal data on this phone (read-only). Sources: calendar (events in a window, default next 7 days), " +
                 "calendars (ids, writable or not), notifications (current plus recently dismissed), codes (verification codes from SMS and " +
                 "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, photo_content (photos and " +
@@ -60,7 +60,7 @@ internal object PersonalTools : PhoneToolGroup {
                 prop("offset", "integer", "Skip this many, for the next page.")
             }
         },
-        tool(VIEW, "Look at a photo, screenshot, video (its preview frame) or chat image found by search_personal.", readOnly = true) {
+        tool(VIEW, "查看照片、截图、视频或聊天图片", "Look at a photo, screenshot, video (its preview frame) or chat image found by search_personal.", readOnly = true) {
             schema(required = listOf("id")) {
                 prop("id", "integer", "Photo, video or chat image id.")
                 enumProp("kind", listOf("photo", "video") + ChatImages.KINDS, "Default photo; wechat or qq for chat images.")
@@ -69,6 +69,7 @@ internal object PersonalTools : PhoneToolGroup {
         },
         tool(
             EDIT,
+            "新建、修改、删除日程",
             "Create, update or delete a calendar event, then read it back. Recurring events cannot be updated; " +
                 "deleting one removes the whole series and needs series: true.",
         ) {

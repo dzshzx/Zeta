@@ -4,7 +4,6 @@ import android.content.Context
 import com.dzshzx.zeta.core.CommandResult
 import com.dzshzx.zeta.core.LinuxEnv
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,18 +14,27 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /**
+ * 交给 Claude 的一个手机工具：MCP 定义 [definition]，加上工具权限页上的中文名字 [label]（手机宽度下要一行放得下）。
+ * 这一步做了什么的一句中文（聊天里的步骤、顶部胶囊）由所在的组给（[PhoneToolGroup.title]）。用 [tool] 写。
+ */
+internal class PhoneTool(val label: String, val definition: JsonObject) {
+    val name: String = (definition["name"] as JsonPrimitive).content
+}
+
+/**
  * 一组不碰屏幕的手机工具：设备状态、闹钟、日历、通知、个人数据这一类。
  * PhoneTools 把各组的定义并进 MCP 的 tools/list；调用时不走屏幕那一套（不记控件编号、不切屏），直接交给这里，
  * 但用户暂停或接管时同样先等着。每组是本目录下自己文件里的一个 object，写好后在 [PhoneToolGroups.all] 里加一行。
+ * 加一个工具只改所在的组：[tools] 里一项（带中文名字）、[call] 和 [title] 里各一个分支。
  */
 internal interface PhoneToolGroup {
-    /** MCP 工具定义，用 [tool]、[schema]、[prop]、[enumProp] 写。名字在交给 Claude 的整份清单（PhoneTools.definitions）里不能重复。 */
-    val tools: List<JsonElement>
+    /** 工具定义，用 [tool]、[schema]、[prop]、[enumProp] 写。名字在交给 Claude 的整份清单（PhoneToolCatalog）里不能重复。 */
+    val tools: List<PhoneTool>
 
     /** 执行一次调用，返回 MCP 的 result（[toolText]、[toolFailure]）。只会收到 [tools] 里有的名字；在后台线程调用，可以阻塞。 */
     fun call(context: Context, name: String, input: JsonObject): JsonObject
 
-    /** 聊天里和胶囊上显示的一句中文，比如「打开 Wi-Fi」「查看今天的日程」。 */
+    /** 这一步做了什么，一句中文，比如「打开 Wi-Fi」「查看今天的日程」：聊天里的步骤和顶部胶囊都用它。[tools] 里每个名字都要有自己的说法。 */
     fun title(name: String, input: JsonObject): String
 }
 
@@ -43,7 +51,7 @@ internal object PhoneToolGroups {
     )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {
-        all.flatMap { group -> group.tools.map { (it as JsonObject)["name"].toString().trim('"') to group } }.toMap()
+        all.flatMap { group -> group.tools.map { it.name to group } }.toMap()
     }
 
     fun find(name: String): PhoneToolGroup? = byName[name]
@@ -71,12 +79,17 @@ internal inline fun toolCall(block: () -> JsonObject): JsonObject = try {
     toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
 }
 
-internal fun tool(name: String, description: String, readOnly: Boolean = false, build: JsonObjectBuilder.() -> Unit): JsonElement = buildJsonObject {
-    put("name", name)
-    put("description", description)
-    build()
-    if (readOnly) putJsonObject("annotations") { put("readOnlyHint", true) }
-}
+/** 一个工具：[label] 是工具权限页上的中文名字，[description] 和 [build] 写的参数是交给 Claude 的英文定义。 */
+internal fun tool(name: String, label: String, description: String, readOnly: Boolean = false, build: JsonObjectBuilder.() -> Unit): PhoneTool =
+    PhoneTool(
+        label,
+        buildJsonObject {
+            put("name", name)
+            put("description", description)
+            build()
+            if (readOnly) putJsonObject("annotations") { put("readOnlyHint", true) }
+        },
+    )
 
 internal fun JsonObjectBuilder.schema(required: List<String> = emptyList(), properties: JsonObjectBuilder.() -> Unit) {
     putJsonObject("inputSchema") {

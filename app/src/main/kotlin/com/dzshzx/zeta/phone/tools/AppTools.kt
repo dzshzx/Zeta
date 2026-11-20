@@ -5,7 +5,6 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -25,9 +24,10 @@ internal object AppTools : PhoneToolGroup {
     private const val DEFAULT_TIMEOUT_S = 60
     private const val MAX_TIMEOUT_S = 600
 
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             LIST,
+            "查看系统应用自带的工具",
             "List the tools that the phone's system apps expose to HyperOS's built-in assistant, e.g. Calendar birthdays, " +
                 "anniversaries, countdowns and public holidays, Recorder (record, search, transcripts), Gallery (search photos by content, " +
                 "albums, favourites), Notes folders, to-dos and cards, Weather, call controls, XiaoAi (operate third-party apps, translate, " +
@@ -41,6 +41,7 @@ internal object AppTools : PhoneToolGroup {
         },
         tool(
             CALL,
+            "调用系统应用自带的工具",
             "Call one of the system apps' tools listed by app_tools. The app does the work itself, as when its own assistant asks; " +
                 "the result is the app's reply.",
         ) {

@@ -153,10 +153,10 @@ class MiuiNoteWritesTest {
 class NoteToolsTest {
     @Test
     fun oneSmallTool() {
-        val json = kotlinx.serialization.json.JsonArray(NoteTools.tools).toString()
+        val json = kotlinx.serialization.json.JsonArray(NoteTools.tools.map { it.definition }).toString()
         println("note tools definition: ${json.length} chars")
         assertTrue("definition is ${json.length} chars", json.length <= 1_500)
-        assertEquals(listOf("edit_note"), NoteTools.tools.map { (it as JsonObject).str("name") })
+        assertEquals(listOf("edit_note"), NoteTools.tools.map { it.name })
     }
 
     @Test

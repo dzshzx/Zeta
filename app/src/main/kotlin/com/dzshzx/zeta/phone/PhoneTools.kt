@@ -31,6 +31,7 @@ import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.core.schedule.UnattendedRun
+import com.dzshzx.zeta.phone.tools.PhoneTool
 import com.dzshzx.zeta.phone.tools.PhoneToolGroups
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.dzshzx.zeta.phone.tools.enumProp
@@ -41,12 +42,10 @@ import com.dzshzx.zeta.phone.tools.tool
 import com.dzshzx.zeta.phone.tools.toolFailure
 import com.dzshzx.zeta.phone.tools.toolText
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -54,6 +53,7 @@ import kotlinx.serialization.json.putJsonObject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -374,6 +374,11 @@ class PhoneTools(
     /** 胶囊上的一句，给还没轮到执行的调用（几个一起发出、排着队的时候）。 */
     fun describeCall(tool: String, input: JsonObject?): String = callText(tool, input ?: JsonObject(emptyMap()))
 
+    /** 胶囊才知道的现场：控件编号按这次调用要用的那批对上控件，说得出点的是哪个。 */
+    private fun scene() = CallScene(onBackground, backgroundApp) { index ->
+        listed(index)?.node?.let { SceneControl(nodeLabel(it), it.isPassword) }
+    }
+
     /** 调用开始（工具线程上，持着 [lock]，控件编号还是这次调用要用的那批）：告诉胶囊在做什么、在哪块屏上。 */
     private fun reportCall(toolUseId: String?, name: String, a: JsonObject) {
         val call = CallInfo(toolUseId, name, callText(name, a))
@@ -389,48 +394,13 @@ class PhoneTools(
     }
 
     /** 胶囊上的一句：“点按「搜索」”“在后台操作计算器”“看屏幕”。 */
-    private fun callText(name: String, a: JsonObject): String {
-        val app = if (onBackground) backgroundApp else null
-        val node = a.int("node")?.let { listed(it)?.node }
-        // 按文字找控件时，说的就是要找的那段文字
-        val label = node?.let(::nodeLabel) ?: a.str("match")?.takeIf { it.isNotBlank() }?.let { short(it, 12) }
-        return when (name) {
-            "screen" -> "看屏幕"
-            "tap" -> label?.let { "点按「$it」" } ?: app?.let { "在后台操作$it" } ?: "点按屏幕"
-            "long_press" -> label?.let { "长按「$it」" } ?: app?.let { "在后台操作$it" } ?: "长按屏幕"
-            "scroll" -> (ScrollDirection.parse(a.str("direction"))?.word ?: "") + "滚动" + (label?.let { "「$it」" } ?: "")
-            "wait" -> when (val request = WaitRequest.parse(a).value) {
-                is WaitRequest.Control -> "等" + request.selector.describe() + if (request.gone) "消失" else "出现"
-                is WaitRequest.App -> "等${request.app}打开"
-                is WaitRequest.Time -> "等待 " + "%.1f".format(request.ms / 1000.0).removeSuffix(".0") + " 秒"
-                null -> "等待"
-            }
-            "swipe" -> {
-                val dx = (a.int("x2") ?: 0) - (a.int("x1") ?: 0)
-                val dy = (a.int("y2") ?: 0) - (a.int("y1") ?: 0)
-                if (abs(dy) >= abs(dx)) (if (dy < 0) "向上滑动" else "向下滑动") else (if (dx < 0) "向左滑动" else "向右滑动")
-            }
-            // 密码框不把内容显示在胶囊上
-            "type_text" -> if (node?.isPassword == true) "输入密码" else "输入「" + short(a.str("text").orEmpty(), 16) + "」"
-            "press_key" -> KEY_TEXT[a.str("key")?.lowercase()] ?: "按键"
-            "open_app" -> when {
-                a.str("uri") != null -> "打开链接"
-                a.str("action")?.startsWith("android.settings.") == true -> "打开设置页"
-                else -> a.str("app")?.trim()?.takeIf { it.isNotEmpty() && '.' !in it }?.let { "打开$it" } ?: "打开应用"
-            }
-            "show_to_user" -> "把" + (backgroundApp ?: "应用") + "移到主屏"
-            else -> PhoneToolGroups.find(name)?.title(name, a) ?: name
-        }
-    }
+    private fun callText(name: String, a: JsonObject): String = PhoneToolCatalog.title(name, a, scene()) ?: name
 
     private fun nodeLabel(node: AccessibilityNodeInfo): String? {
         if (node.isPassword) return null
         val raw = node.text?.toString()?.takeIf { it.isNotBlank() } ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() } ?: return null
         return short(raw, 12)
     }
-
-    private fun short(value: String, limit: Int): String =
-        value.replace(WHITESPACE, " ").trim().clipChars(limit, "…")
 
     /** Claude 的一次触摸（[Screen] 的像素），归一化后交给悬浮层画光效。 */
     private fun mark(screen: Screen, x: Int, y: Int, endX: Int = x, endY: Int = y, swipe: Boolean = false, longPress: Boolean = false) {
@@ -475,7 +445,7 @@ class PhoneTools(
                 putJsonObject("serverInfo") { put("name", SERVER); put("version", "1") }
                 put("instructions", INSTRUCTIONS)
             }
-            "tools/list" -> buildJsonObject { put("tools", JsonArray(definitions)) }
+            "tools/list" -> buildJsonObject { put("tools", JsonArray(PhoneToolCatalog.definitions)) }
             "tools/call" -> {
                 val params = message.obj("params")
                 val name = params?.str("name").orEmpty()
@@ -1365,12 +1335,10 @@ class PhoneTools(
         /** 总是作用在主屏上的按键。 */
         private val GLOBAL_KEYS = setOf("wake", "notifications", "quick_settings")
 
-        private val KEY_TEXT = mapOf(
-            "back" to "按返回键", "home" to "回到桌面", "recents" to "打开最近任务", "enter" to "按回车", "delete" to "按退格",
-            "wake" to "点亮屏幕", "notifications" to "下拉通知栏", "quick_settings" to "下拉控制中心", "paste" to "粘贴",
-        )
-
         private val WHITESPACE = Regex("\\s+")
+
+        private fun short(value: String, limit: Int): String =
+            value.replace(WHITESPACE, " ").trim().clipChars(limit, "…")
 
         /** 用户在展开画面上的手势按先后一个个做（全应用同一时间只有一个胶囊）。 */
         private val userGestures by lazy {
@@ -1385,20 +1353,6 @@ class PhoneTools(
         val MCP_CONFIG: String = buildJsonObject {
             putJsonObject("mcpServers") { putJsonObject(SERVER) { put("type", "sdk"); put("name", SERVER) } }
         }.toString()
-
-        /**
-         * 交给 Claude 的全部工具定义（MCP 的 tools/list）：屏幕这一套加上各工具组的（含浏览器、定时任务、系统应用工具）。
-         * 调用按名字分派，重名的只有一个调得到，所以名字不能重复（PhoneToolGroupsTest 核对）。
-         */
-        internal val definitions: List<JsonElement>
-            get() = TOOLS + PhoneToolGroups.all.flatMap { it.tools }
-
-        /** 全部手机工具的名字和英文说明（设置里的工具权限页用）。 */
-        val catalog: List<Pair<String, String>>
-            get() = definitions.mapNotNull { tool ->
-                val o = tool as? JsonObject ?: return@mapNotNull null
-                (o.str("name") ?: return@mapNotNull null) to o.str("description").orEmpty()
-            }
 
         /** 无障碍服务是否连着。 */
         val accessibilityConnected: Boolean get() = ZetaAccessibilityService.instance != null
@@ -1455,15 +1409,99 @@ class PhoneTools(
             prop("id", "string", "Find the control by resource id (e.g. com.android.settings:id/search or just search)$instead.")
         }
 
-        private val TOOLS: JsonArray = buildJsonArray {
-            add(tool("screen", "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
+        /**
+         * [SCREEN_TOOLS] 里的工具这一步做了什么（不是这一套的返回 null）。有 [scene]（胶囊）时按编号说出控件上的字，
+         * 说不出字、在后台屏幕上时说在操作哪个应用；没有（聊天里）时照参数说。
+         */
+        internal fun screenTitle(name: String, a: JsonObject, scene: CallScene?): String? {
+            val node = a.int("node")
+            val control = node?.let { scene?.control(it) }
+            // 说得出字的目标：编号对应的控件上的字，或者按文字找时要找的那段
+            val text = control?.label ?: a.str("match")?.takeIf { it.isNotBlank() }?.let { short(it, 12) }
+            // 说不出字的目标：资源 id、编号、坐标
+            val other = a.str("id")?.takeIf { it.isNotBlank() }?.let { "id=$it" } ?: node?.let { "控件 $it" }
+                ?: a.int("x")?.let { "($it, ${a.int("y") ?: 0})" }
+            val app = scene?.takeIf { it.onBackground }?.backgroundApp
+            fun aimed(verb: String) = text?.let { "$verb「$it」" } ?: app?.let { "在后台操作$it" } ?: other?.let { verb + gap(it) + it }
+            return when (name) {
+                "screen" -> if (a.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕"
+                "tap" -> aimed("点按") ?: "点按屏幕"
+                "long_press" -> aimed("长按") ?: "长按屏幕"
+                "scroll" -> {
+                    val verb = (ScrollDirection.parse(a.str("direction"))?.word ?: "") + "滚动"
+                    text?.let { "$verb「$it」" } ?: other?.let { verb + gap(it) + it } ?: verb
+                }
+                "swipe" -> {
+                    val dx = (a.int("x2") ?: 0) - (a.int("x1") ?: 0)
+                    val dy = (a.int("y2") ?: 0) - (a.int("y1") ?: 0)
+                    when {
+                        dx == 0 && dy == 0 -> "滑动"
+                        abs(dy) >= abs(dx) -> if (dy < 0) "向上滑动" else "向下滑动"
+                        else -> if (dx < 0) "向左滑动" else "向右滑动"
+                    }
+                }
+                "type_text" -> {
+                    val value = a.str("text").orEmpty()
+                    when {
+                        value.isEmpty() -> "清空输入框"
+                        // 密码框不把内容显示出来
+                        control?.password == true -> "输入密码"
+                        else -> "输入「" + short(value, 16) + "」"
+                    }
+                }
+                "press_key" -> when (val key = a.str("key")?.lowercase()?.takeIf { it.isNotBlank() }) {
+                    "back" -> "按返回键"
+                    "home" -> "回到桌面"
+                    "recents" -> "打开最近任务"
+                    "enter" -> "按回车"
+                    "delete" -> "按退格"
+                    "paste" -> "粘贴"
+                    "wake" -> "点亮屏幕"
+                    "notifications" -> "下拉通知栏"
+                    "quick_settings" -> "下拉控制中心"
+                    null -> "按键"
+                    else -> "按 $key"
+                }
+                "wait" -> when (val request = WaitRequest.parse(a).value) {
+                    is WaitRequest.Control -> "等" + spaced(request.selector.describe()) + if (request.gone) "消失" else "出现"
+                    is WaitRequest.App -> "等" + spaced(request.app) + "打开"
+                    is WaitRequest.Time -> "等待 " + "%.1f".format(Locale.ROOT, request.ms / 1000.0).removeSuffix(".0") + " 秒"
+                    null -> "等待"
+                }
+                "open_app" -> {
+                    val request = OpenRequest.parse(a).value
+                    val action = request?.action
+                    when {
+                        request?.uri != null -> "打开链接 " + short(request.uri.removePrefix("https://").removePrefix("http://"), 24)
+                        action != null && action.startsWith("android.settings.") -> "打开设置页 " + action.substringAfterLast('.')
+                        action != null -> "打开 " + action.substringAfterLast('.')
+                        request?.app != null -> "打开" + gap(request.app) + short(request.app, 16)
+                        else -> "打开应用"
+                    }
+                }
+                "show_to_user" -> "把" + (scene?.backgroundApp ?: "应用") + "移到主屏"
+                "find_apps" -> a.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + short(it, 16) } ?: "查看已装的应用"
+                "shell" -> a.str("command")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { "Android：" + short(it, 40) } ?: "Android：执行命令"
+                else -> null
+            }
+        }
+
+        /** 中文和紧跟着的英文、数字、括号之间空一格（「点按 id=search」），和中文之间不空（「点按控件 3」）。 */
+        private fun gap(next: String): String = if (next.firstOrNull()?.let { it.code < 128 } == true) " " else ""
+
+        /** 夹在两段中文之间：两头是英文、数字时各空一格（「等 com.android.settings 打开」「等微信打开」）。 */
+        private fun spaced(word: String): String = gap(word) + word + if (word.lastOrNull()?.let { it.code < 128 } == true) " " else ""
+
+        /** 屏幕这一套和 shell、find_apps：由 PhoneTools 自己执行。 */
+        internal val SCREEN_TOOLS: List<PhoneTool> = buildList {
+            add(tool("screen", "读屏：前台应用、可点的控件和截图", "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
                 schema {
                     enumProp("display", listOf("main", "background"), "Switch to this screen first: main (what the user sees) or background (this conversation's hidden screen). Omit to stay on the current one.")
                     prop("screenshot", "boolean", "Also return a screenshot. Default false; use it when the list of controls is not enough.")
                     prop("max_nodes", "integer", "How many controls to list at most (10-250, default 80).")
                 }
             })
-            add(tool("tap", "Tap a control (by its index from the latest observation, or found by text / resource id) or a point on the screen.") {
+            add(tool("tap", "点按", "Tap a control (by its index from the latest observation, or found by text / resource id) or a point on the screen.") {
                 schema {
                     prop("node", "integer", "Index of the control to tap.")
                     target()
@@ -1472,7 +1510,7 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("long_press", "Press and hold a control or a point.") {
+            add(tool("long_press", "长按", "Press and hold a control or a point.") {
                 schema {
                     prop("node", "integer", "Index of the control.")
                     target()
@@ -1482,7 +1520,7 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("swipe", "Swipe from one point to another, for precise drags (sliders, maps, carousels). To browse a list use scroll.") {
+            add(tool("swipe", "滑动", "Swipe from one point to another, for precise drags (sliders, maps, carousels). To browse a list use scroll.") {
                 schema(required = listOf("x1", "y1", "x2", "y2")) {
                     prop("x1", "integer", "Start X in screenshot pixels.")
                     prop("y1", "integer", "Start Y in screenshot pixels.")
@@ -1492,7 +1530,7 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("scroll", "Scroll the main list of the screen, or the list containing the control given by node / match / id, and report whether the content moved and whether the end was reached.") {
+            add(tool("scroll", "滚动列表", "Scroll the main list of the screen, or the list containing the control given by node / match / id, and report whether the content moved and whether the end was reached.") {
                 schema(required = listOf("direction")) {
                     enumProp("direction", listOf("up", "down", "left", "right"), "Where the new content should come from: down reveals content further down.")
                     enumProp("amount", listOf("page", "small"), "page (default) is about one screen; small nudges an item into view.")
@@ -1501,7 +1539,7 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("type_text", "Put text into an input field: the one given by node or match/id, or else the field that has focus. Replaces what is there unless append is true; an empty text clears the field. The result says if the field reads back differently.") {
+            add(tool("type_text", "往输入框里输入文字", "Put text into an input field: the one given by node or match/id, or else the field that has focus. Replaces what is there unless append is true; an empty text clears the field. The result says if the field reads back differently.") {
                 schema(required = listOf("text")) {
                     prop("text", "string", "The text to enter. Empty clears the field.")
                     prop("node", "integer", "Index of the input field. Omit to use the focused field.")
@@ -1512,7 +1550,7 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("press_key", "Press a system key.") {
+            add(tool("press_key", "按系统键（返回、回到桌面等）", "Press a system key.") {
                 schema(required = listOf("key")) {
                     putJsonObject("key") {
                         put("type", "string")
@@ -1526,6 +1564,7 @@ class PhoneTools(
             })
             add(tool(
                 "wait",
+                "等控件出现或应用到前台，再读屏",
                 "Wait, then return the fresh screen: for a fixed time, until a control matching match/id appears (or is gone), or until an app is in front. " +
                     "Fails with the current screen if the condition is not met in time.",
                 readOnly = true,
@@ -1541,6 +1580,7 @@ class PhoneTools(
             })
             add(tool(
                 "open_app",
+                "打开应用、链接或设置页",
                 "Open an app, a link or deep link (uri), or an intent action such as a settings page, by default on the hidden background screen. " +
                     "Later tools act on the screen it opened on.",
             ) {
@@ -1556,16 +1596,16 @@ class PhoneTools(
                     after()
                 }
             })
-            add(tool("show_to_user", "Move the app on the background screen to the main screen, in front of the user, for steps they must do themselves (payment, password, captcha, a login or permission prompt) or to show them the result. Afterwards tools act on the main screen.") {
+            add(tool("show_to_user", "把后台屏幕上的应用移到主屏给你看", "Move the app on the background screen to the main screen, in front of the user, for steps they must do themselves (payment, password, captcha, a login or permission prompt) or to show them the result. Afterwards tools act on the main screen.") {
                 schema {
                     prop("reason", "string", "Short reason, e.g. 需要你输入支付密码.")
                     after()
                 }
             })
-            add(tool("find_apps", "List installed apps that can be launched, with their package names. Empty query lists all.", readOnly = true) {
+            add(tool("find_apps", "查找已装的应用", "List installed apps that can be launched, with their package names. Empty query lists all.", readOnly = true) {
                 schema { prop("query", "string", "Part of the app name or package name.") }
             })
-            add(tool("shell", "Run a shell command as root on the Android side (not inside the Linux environment): pm, am, cmd, settings, dumpsys, getprop, logcat, input, screencap, etc. Returns stdout, stderr and the exit code.") {
+            add(tool("shell", "以 root 在 Android 一侧执行命令", "Run a shell command as root on the Android side (not inside the Linux environment): pm, am, cmd, settings, dumpsys, getprop, logcat, input, screencap, etc. Returns stdout, stderr and the exit code.") {
                 schema(required = listOf("command")) {
                     prop("command", "string", "The command line, run by /system/bin/sh.")
                     prop("timeout_seconds", "integer", "Give up after this long (1-600, default 30).")

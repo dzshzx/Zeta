@@ -3,16 +3,16 @@ package com.dzshzx.zeta.phone.tools
 import android.content.Context
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserRequest
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /** Zeta 内置浏览器：一个工具，用 action 区分动作（照 Eta 的 browser_use）。实现在 [AgentBrowser]。 */
 internal object BrowserTools : PhoneToolGroup {
     const val NAME = "browser"
 
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             NAME,
+            "内置浏览器，在屏幕外操作网页",
             "Zeta's built-in web browser (Android WebView), driven off-screen; the user can watch it in Zeta and take over. " +
                 "Use it instead of WebFetch when a page needs JavaScript, a login or interaction. Cookies stay inside Zeta. " +
                 "open, click, type, scroll, back, forward, reload and wait return a page view: numbered interactive elements in or just below the viewport, plus the visible text. " +

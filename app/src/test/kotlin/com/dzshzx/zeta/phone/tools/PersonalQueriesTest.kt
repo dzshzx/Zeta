@@ -444,11 +444,11 @@ class PersonalQueriesTest {
 class PersonalToolsTest {
     @Test
     fun toolDefinitionsStaySmall() {
-        val json = kotlinx.serialization.json.JsonArray(PersonalTools.tools).toString()
+        val json = kotlinx.serialization.json.JsonArray(PersonalTools.tools.map { it.definition }).toString()
         // 约 2.5k token 的预算：英文定义大约 4 个字符一个 token
         println("personal tools definition: ${json.length} chars")
         assertTrue("definitions are ${json.length} chars", json.length <= 8_000)
-        val names = PersonalTools.tools.map { (it as JsonObject).str("name") }
+        val names = PersonalTools.tools.map { it.name }
         assertEquals(listOf("search_personal", "view_media", "edit_calendar"), names)
     }
 

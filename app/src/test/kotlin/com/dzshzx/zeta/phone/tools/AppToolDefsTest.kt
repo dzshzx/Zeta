@@ -1,9 +1,7 @@
 package com.dzshzx.zeta.phone.tools
 
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -120,7 +118,7 @@ class AppToolDefsTest {
     /** 说明里叫 Claude 改用的都是现有的手机工具。 */
     @Test
     fun supersedingToolsExist() {
-        val names = PhoneToolGroups.all.flatMap { group -> group.tools.map { (it as JsonObject)["name"]!!.jsonPrimitive.content } }.toSet()
+        val names = PhoneToolGroups.all.flatMap { group -> group.tools.map { it.name } }.toSet()
         for (entry in AppToolDefs.SUPERSEDED) for (use in entry.use) assertTrue("${entry.packageName} → $use", use in names)
     }
 

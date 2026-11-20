@@ -1,6 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
-import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.phone.PhoneToolCatalog
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PhoneToolGroupsTest {
-    private val names = PhoneToolGroups.all.flatMap { group -> group.tools.map { (it as JsonObject)["name"]!!.jsonPrimitive.content } }
+    private val names = PhoneToolGroups.all.flatMap { group -> group.tools.map { it.name } }
 
     /**
      * 交给 Claude 的整份清单（屏幕工具和各工具组，含浏览器、定时任务、系统应用工具）里名字都不重复：
@@ -21,9 +21,27 @@ class PhoneToolGroupsTest {
      */
     @Test
     fun toolNamesAreUniqueInTheWholeList() {
-        val all = PhoneTools.definitions.map { (it as JsonObject)["name"]!!.jsonPrimitive.content }
+        val all = PhoneToolCatalog.definitions.map { (it as JsonObject)["name"]!!.jsonPrimitive.content }
         assertTrue(all.containsAll(names) && "screen" in all)
         assertEquals(emptySet<String>(), all.groupBy { it }.filterValues { it.size > 1 }.keys)
+    }
+
+    /**
+     * 每个交给 Claude 的手机工具都有中文名字（工具权限页）和这一步做了什么的一句中文（聊天、胶囊）。
+     * 什么参数都不给时也要说得出来，而且不是退回工具名：组里的 title 漏了这个工具的分支时就是工具名。
+     */
+    @Test
+    fun everyToolHasALabelAndATitle() {
+        val tools = PhoneToolCatalog.tools
+        assertTrue(tools.size > 20)
+        val empty = JsonObject(emptyMap())
+        for (tool in tools) {
+            assertTrue(tool.name, tool.label.isNotBlank() && tool.label.any { it.code > 127 })
+            val title = PhoneToolCatalog.title(tool.name, empty)
+            assertTrue("${tool.name}: $title", !title.isNullOrBlank() && title != tool.name && title.any { it.code > 127 })
+        }
+        assertEquals(tools.map { it.name to it.label }, PhoneToolCatalog.labels)
+        assertNull(PhoneToolCatalog.title("no_such_tool", empty))
     }
 
     @Test

@@ -2,7 +2,6 @@ package com.dzshzx.zeta.phone.tools
 
 import android.content.Context
 import com.dzshzx.zeta.core.str
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -16,9 +15,10 @@ import java.time.ZoneId
 internal object NoteTools : PhoneToolGroup {
     private const val EDIT = "edit_note"
 
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             EDIT,
+            "新建、修改小米便签",
             "Create or update a Xiaomi Notes note, then read it back. Update replaces the title and/or the whole body " +
                 "(plain text or Markdown): read the note with search_personal first and keep its ![](…) image lines. " +
                 "Notes cannot be deleted (Xiaomi Notes has no interface for it; the user deletes in the app). Private notes are off limits.",

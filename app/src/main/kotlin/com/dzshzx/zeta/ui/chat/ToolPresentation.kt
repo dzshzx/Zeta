@@ -2,11 +2,9 @@ package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dzshzx.zeta.core.ToolStep
-import com.dzshzx.zeta.core.bool
-import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.tools.BrowserTools
-import com.dzshzx.zeta.phone.tools.PhoneToolGroups
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Edit
@@ -61,68 +59,21 @@ internal fun presentTool(name: String, input: JsonObject?): ToolPresentation {
     }
 }
 
-/** 手机工具：用人话说它在手机上做了什么。 */
+/** 手机工具：标题用 [PhoneToolCatalog] 里那一句（和顶部胶囊同一处），这里只挑图标。 */
 private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): ToolPresentation {
-    fun s(key: String) = input?.str(key)
-    fun n(key: String) = input?.int(key)
-    // 按文字、id 找的控件显示要找的文字或 id
-    val where = n("node")?.let { "控件 $it" } ?: s("match")?.let { "「" + firstLine(it, 20) + "」" } ?: s("id")?.let { "id=$it" }
-        ?: n("x")?.let { "($it, ${n("y") ?: 0})" }.orEmpty()
-    return when (tool) {
-        "shell" -> ToolPresentation(ZetaIcons.Terminal, "Android：" + firstLine(s("command")).ifEmpty { "执行命令" }, s("command").orEmpty())
-        "screen" -> ToolPresentation(ZetaIcons.Phone, if (input?.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕", json)
-        "tap" -> ToolPresentation(ZetaIcons.Tap, "点按 $where".trim(), json)
-        "long_press" -> ToolPresentation(ZetaIcons.Tap, "长按 $where".trim(), json)
-        "swipe" -> ToolPresentation(ZetaIcons.Tap, "滑动", json)
-        "scroll" -> ToolPresentation(
-            ZetaIcons.Swipe,
-            when (s("direction")) {
-                "up" -> "向上滚动"
-                "left" -> "向左滚动"
-                "right" -> "向右滚动"
-                else -> "向下滚动"
-            } + (if (where.isNotEmpty()) " $where" else ""),
-            json,
-        )
-        "wait" -> ToolPresentation(
-            COUIIcons.Timer,
-            when {
-                s("match") != null || s("id") != null -> "等 $where" + if (input?.bool("gone") == true) "消失" else "出现"
-                s("app") != null -> "等 " + s("app") + " 打开"
-                else -> "等待 " + "%.1f".format((n("duration_ms") ?: 1000) / 1000.0).removeSuffix(".0") + " 秒"
-            },
-            json,
-        )
-        "type_text" -> ToolPresentation(
-            ZetaIcons.Phone,
-            if (s("text").isNullOrEmpty()) "清空输入框" else "输入“" + firstLine(s("text"), 30) + "”",
-            json,
-        )
-        "press_key" -> ToolPresentation(
-            ZetaIcons.Phone,
-            "按" + when (s("key")) {
-                "back" -> "返回键"
-                "home" -> "主屏幕键"
-                "recents" -> "最近任务键"
-                "enter" -> "回车"
-                "delete" -> "退格"
-                "paste" -> "粘贴"
-                "wake" -> "亮屏"
-                "notifications" -> "下拉通知栏"
-                "quick_settings" -> "下拉控制中心"
-                else -> s("key").orEmpty()
-            },
-            json,
-        )
-        "open_app" -> when {
-            s("uri") != null -> ToolPresentation(COUIIcons.Link, "打开 " + firstLine(s("uri"), 50), json)
-            s("action") != null -> ToolPresentation(ZetaIcons.Phone, "打开 " + s("action").orEmpty().substringAfterLast('.'), json)
-            else -> ToolPresentation(ZetaIcons.Phone, "打开 " + s("app").orEmpty(), json)
-        }
-        "find_apps" -> ToolPresentation(ZetaIcons.Phone, "查找应用 " + s("query").orEmpty(), json)
-        BrowserTools.NAME -> ToolPresentation(ZetaIcons.Globe, BrowserTools.title(tool, input ?: JsonObject(emptyMap())), json)
-        else -> ToolPresentation(ZetaIcons.Phone, PhoneToolGroups.find(tool)?.title(tool, input ?: JsonObject(emptyMap())) ?: "手机 · $tool", json)
+    val title = PhoneToolCatalog.title(tool, input ?: JsonObject(emptyMap())) ?: "手机 · $tool"
+    val icon = when (tool) {
+        "shell" -> ZetaIcons.Terminal
+        "tap", "long_press", "swipe" -> ZetaIcons.Tap
+        "scroll" -> ZetaIcons.Swipe
+        "wait" -> COUIIcons.Timer
+        "open_app" -> if (input?.str("uri") != null) COUIIcons.Link else ZetaIcons.Phone
+        BrowserTools.NAME -> ZetaIcons.Globe
+        else -> ZetaIcons.Phone
     }
+    // 命令行展开后直接看命令，别的看整份参数
+    val detail = if (tool == "shell") input?.str("command").orEmpty() else json
+    return ToolPresentation(icon, title, detail)
 }
 
 internal fun ToolStep.presentation(): ToolPresentation = presentTool(name, input)

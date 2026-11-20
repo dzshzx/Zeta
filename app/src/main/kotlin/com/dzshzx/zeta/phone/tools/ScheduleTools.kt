@@ -24,7 +24,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -80,9 +79,10 @@ internal object ScheduleTools : PhoneToolGroup {
     /** 改时间时看的参数：传了其中任一个才重算规则。 */
     private val SCHEDULE_KEYS = listOf("repeat", "time", "at", "days", "every_hours")
 
-    override val tools: List<JsonElement> = listOf(
+    override val tools: List<PhoneTool> = listOf(
         tool(
             CREATE,
+            "新建定时任务，到点让 Claude 做事",
             "Schedule a prompt for Claude to run later in the background on this phone, once or repeatedly. At each run Zeta starts " +
                 "a conversation with the prompt and notifies the user with the start of the answer. Times are the phone's local time " +
                 "(the Linux environment may use another time zone). " +
@@ -93,11 +93,12 @@ internal object ScheduleTools : PhoneToolGroup {
                 taskProps(update = false)
             }
         },
-        tool(LIST, "List the scheduled tasks with their ids, schedules, next and last runs.", readOnly = true) {
+        tool(LIST, "列出定时任务", "List the scheduled tasks with their ids, schedules, next and last runs.", readOnly = true) {
             schema {}
         },
         tool(
             UPDATE,
+            "修改定时任务的时间、指令、开关等",
             "Change a scheduled task; only the fields you pass change. To change when it runs, pass just what changes: " +
                 "time alone keeps a daily or weekly repeat, days alone keeps the time, every_hours alone keeps the start; " +
                 "switching repeat needs that kind's fields. Changing the schedule turns a disabled task back on unless enabled is given. " +
@@ -109,11 +110,12 @@ internal object ScheduleTools : PhoneToolGroup {
                 prop("enabled", "boolean", "Turn the task on or off.")
             }
         },
-        tool(DELETE, "Delete a scheduled task and its alarm. Get the id from list_scheduled_tasks.") {
+        tool(DELETE, "删除定时任务", "Delete a scheduled task and its alarm. Get the id from list_scheduled_tasks.") {
             schema(required = listOf("id")) { prop("id", "string", "Task id.") }
         },
         tool(
             RUN,
+            "立即在后台运行一次定时任务",
             "Run a scheduled task once now in the background with its saved settings, like Run once now in Zeta's settings; " +
                 "its schedule is unchanged. Returns as soon as the run starts; the result arrives as the task's own notification, " +
                 "not in this conversation. Skipped while the task's previous run is still going. Get the id from list_scheduled_tasks.",
@@ -122,6 +124,7 @@ internal object ScheduleTools : PhoneToolGroup {
         },
         tool(
             REPORT,
+            "后台运行上报这次有没有变化",
             "Report the conclusion of this automatic run of a scheduled task or notification rule that notifies the user only on changes. " +
                 "Call it once before your final reply. no_change: nothing worth telling the user; no notification is sent and the run is only logged. " +
                 "deliver: there is something to tell; summary becomes the notification text.",

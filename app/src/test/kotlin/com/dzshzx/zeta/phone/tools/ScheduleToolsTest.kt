@@ -63,7 +63,7 @@ class ScheduleToolsTest {
         // 工具清单不随后台运行变：上报一直列着
         assertEquals(
             listOf("create_scheduled_task", "list_scheduled_tasks", "update_scheduled_task", "delete_scheduled_task", "run_scheduled_task", "report_scheduled_run"),
-            ScheduleTools.tools.map { (it as JsonObject).str("name") },
+            ScheduleTools.tools.map { it.name },
         )
         assertEquals(
             """{"deny":["mcp__phone__create_scheduled_task","mcp__phone__list_scheduled_tasks","mcp__phone__update_scheduled_task",""" +
