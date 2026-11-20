@@ -201,12 +201,12 @@ class Conversation(
     var steering by mutableStateOf(false)
         private set
 
-    /**
-     * 这个对话的 Claude Code 报的斜杠命令和技能（initialize 的应答）；还没起过进程时为 null，
-     * 输入栏这时用这台主机上次报的那份（[Settings.commands]）。
-     */
+    /** 这个对话的 Claude Code 报的斜杠命令和技能（initialize 的应答，项目里的随工作目录变）；还没起过进程时为 null。 */
     var commands by mutableStateOf<List<SlashCommand>?>(null)
         private set
+
+    /** 输入栏提示的斜杠命令：这个对话报的；还没起过进程时用这台主机上次报的那份（[Settings.commands]）。 */
+    val shownCommands: List<SlashCommand> get() = commands ?: hub.settings.commands[backend].orEmpty()
 
     /** 撤回的排队消息，等输入框取走（[takeRecalled]）。 */
     var recalled by mutableStateOf<QueuedMessage?>(null)

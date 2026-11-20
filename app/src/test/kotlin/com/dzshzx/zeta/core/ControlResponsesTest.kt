@@ -68,6 +68,9 @@ class ControlResponsesTest {
             mapOf(Backends.LOCAL to listOf("compact"), remote.id to listOf("deploy")),
             hub.settings.commands.mapValues { (_, list) -> list.map { it.name } },
         )
+        // 那台主机上还没起进程的新对话，输入栏先提示那台上次报的
+        val fresh = Conversation(hub, "/home/ubuntu", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        assertEquals(listOf("deploy"), fresh.shownCommands.map { it.name })
         hub.updateRemoteHosts(emptyList())
         assertEquals(setOf(Backends.LOCAL), hub.models.keys)
         assertEquals(setOf(Backends.LOCAL), hub.settings.commands.keys)

@@ -559,7 +559,7 @@ private fun ConversationBody(
                 enabled = !conversation.loadingHistory && !conversation.rewinding,
                 attachments = attachments,
                 files = uploads,
-                commands = conversation.commands ?: hub.settings.commands[conversation.backend].orEmpty(),
+                commands = conversation.shownCommands,
                 onPickImages = {
                     if (attachments.size < MaxAttachments) {
                         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))

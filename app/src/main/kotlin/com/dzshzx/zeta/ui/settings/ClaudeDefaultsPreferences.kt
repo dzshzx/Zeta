@@ -107,7 +107,7 @@ internal fun DefaultEffortEntry(hub: ConversationHub, onOpen: () -> Unit, startA
 /**
  * 设置 › 默认思考强度：每个模型一行，选的档写进 modelSettings.<完整模型 ID>.effortLevel（和 /effort 存为默认一样），
  * 「跟随 Claude Code」是删掉这个模型的设置。还没拿到 Claude Code 的模型清单（这次打开 Zeta 后还没起过进程）时，
- * 先列 settings.json 里已有的模型，同时让当前对话把进程起好来要清单（和输入斜杠命令时一样，不产生请求）。
+ * 先列 settings.json 里已有的模型；当前对话也在侧栏这台主机上时，同时让它把进程起好来要清单（和输入斜杠命令时一样，不产生请求）。
  * 没设过的旧版本模型收在「更多模型」一行后面，点了才列出来。
  */
 @Composable
