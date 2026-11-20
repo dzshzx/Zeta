@@ -36,6 +36,12 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 
 模块代码在 system_server 里，开机时从 LSPosed 记下的 APK 路径加载。重装会换 APK 路径，LSPosed 有时到下次开机才改过来（实测：重装后第一次开机按旧路径加载失败，开机后才更新），所以重装后的第一次重启可能装不上，诊断页「长按电源键接管」不是「已装上」时再重启一次。模块代码改了也要重启才生效。
 
+## 放行系统应用的工具服务
+
+同一个模块还放行本包调系统应用开给系统智能体的工具（手机工具 `app_tools`、`app_tool`，见 `phone/tools/AppTools.kt`）。多数工具服务在清单里要求签名级权限 `com.aios.osbot.permission.BIND_APP_TOOL`（小爱定义的），Zeta 绑定时被系统拒绝（`Not allowed to bind to service`）。模块拦 `ActivityManagerService.checkComponentPermission`：查的是这个权限、调用方是本包时答有，别的原样交给系统（`xposed/AppToolBindHook.kt`）。只放行绑定，请求仍由 root 辅助进程以 system 身份发，因为服务还看调用方是不是系统签名。日历、电话、桌面、便签这几个的服务不要这个权限，没有模块也能用。
+
+诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaAppTools`、测试版 `ZetaDevAppTools`。命令行：`logcat -d -s ZetaAppTools ZetaDevAppTools`。启用步骤和电源键的一样（下面「用户要做的」第 2、3 步）；只用工具不用电源键时，不必换默认助理。
+
 ## 开机保持默认助理
 
 用户在系统设置里选默认助理时，系统只改 `assistant` 和 `voice_interaction_service`，不改默认语音识别 `voice_recognition_service`。开机时（Android 16 的 VoiceInteractionManagerService.initForUser）系统先看默认识别服务：为空、找不到或不是 `selectableAsDefault` 的，就把默认助理重选成它找到的第一个可用助理（装着 Eta 时就是 Eta，所以重启后默认助理被换掉）。

@@ -44,8 +44,8 @@ internal object NoteTools : PhoneToolGroup {
         return when (input.str("action")) {
             "create" -> {
                 val args = MiuiNoteWrites.createArgs(input)
-                val result = AppToolCall.bind(context, MiuiNoteWrites.SERVICE).use { call(context, MiuiNoteWrites.createOp(args)) }
-                val created = MiuiNoteWrites.createdId(result)
+                val (reply) = AppToolCall.call(context, MiuiNoteWrites.PACKAGE, MiuiNoteWrites.CREATE, args)
+                val created = MiuiNoteWrites.createdId(MiuiNoteWrites.result(reply))
                     ?: throw IllegalStateException("便签没交回新便签的编号，先用 search_personal 查一下，不要重复新建")
                 val note = MiuiNotes.read(context, created)
                     ?: throw IllegalStateException("新建的便签 #$created 读不回来，先用 search_personal 查一下，不要重复新建")
@@ -56,10 +56,9 @@ internal object NoteTools : PhoneToolGroup {
                 val existing = MiuiNotes.read(context, noteId) ?: throw BadInput(MiuiNotes.missing(noteId))
                 val args = MiuiNoteWrites.updateArgs(noteId, input, existing)
                 // 改和读回放在同一次辅助进程里
-                val (update, readBack) = AppToolCall.bind(context, MiuiNoteWrites.SERVICE).use {
-                    RootProvider.run(context, listOf(MiuiNoteWrites.updateOp(args), MiuiNotes.readOp(noteId)), system = true)
-                }
-                MiuiNoteWrites.result(AppToolCall.reply(update))
+                val (reply, after) = AppToolCall.call(context, MiuiNoteWrites.PACKAGE, MiuiNoteWrites.UPDATE, args, then = listOf(MiuiNotes.readOp(noteId)))
+                MiuiNoteWrites.result(reply)
+                val readBack = after.single()
                 if (readBack.str("error") != null) throw IllegalStateException("改完读不回便签 #$noteId：" + readBack.str("error"))
                 val note = RootProvider.rows(readBack).firstOrNull() ?: throw IllegalStateException("改完读不回便签 #$noteId")
                 MiuiNoteWrites.saved("修改", note, args, zone)
@@ -67,8 +66,4 @@ internal object NoteTools : PhoneToolGroup {
             else -> throw BadInput("action 是 create 或 update；便签没有开放删除，要删请用户在便签里自己删")
         }
     }
-
-    /** 调一次工具服务（要先 [AppToolCall.bind]），交回它答的 JSON。 */
-    private fun call(context: Context, op: JsonObject): JsonObject =
-        MiuiNoteWrites.result(AppToolCall.reply(RootProvider.run(context, listOf(op), system = true).single()))
 }

@@ -35,6 +35,7 @@ internal object PhoneToolGroups {
     val all: List<PhoneToolGroup> = listOf(
         PersonalTools,
         NoteTools,
+        AppTools,
         ClipboardTools,
         DeviceTools,
         ScheduleTools,

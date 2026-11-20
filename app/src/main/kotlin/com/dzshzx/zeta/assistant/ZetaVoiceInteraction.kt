@@ -89,7 +89,7 @@ internal class ZetaVoiceInteractionSession(context: Context) : VoiceInteractionS
     }
 
     companion object {
-        /** 唤起来源：电源键模块（xposed/PowerKeyModule.kt）请系统显示会话时放进 args。 */
+        /** 唤起来源：电源键模块（xposed/PowerKeyHook.kt）请系统显示会话时放进 args。 */
         const val SOURCE_EXTRA = "com.dzshzx.zeta.extra.ASSIST_SOURCE"
 
         private var active: WeakReference<ZetaVoiceInteractionSession>? = null

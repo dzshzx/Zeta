@@ -35,6 +35,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- 系统应用开给系统智能体的工具服务（phone/tools/AppTools.kt） -->
+        <intent>
+            <action android:name="com.aios.osbot.action.APP_TOOL_PROVIDER" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>

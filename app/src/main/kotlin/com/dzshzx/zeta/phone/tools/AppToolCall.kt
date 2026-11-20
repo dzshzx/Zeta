@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.Parcel
@@ -11,28 +12,41 @@ import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.InstalledApps
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.zip.ZipFile
 
 /**
- * 调系统应用开给 HyperOS 系统智能体（AIOS 的 OSBot）的工具服务。这种服务是导出的 Service（action
- * `com.aios.osbot.action.APP_TOOL_PROVIDER`），Binder 接口 `com.aios.apptoolsdk.aidl.IAppToolProvider` 只有一个方法
- * `String handleRequest(String)`（事务号 1），收发 MCP 式的 JSON-RPC：`tools/call` 带 `name` 和 `arguments`，答
- * `result.content[0].text` 和 `result.isError`。有哪些工具写在应用 APK 的 `assets/app_tools.json` 里。
+ * 调系统应用开给 HyperOS 系统智能体（AIOS 的 OSBot）的工具服务。这种服务是导出的 Service（action [ACTION]），
+ * Binder 接口 `com.aios.apptoolsdk.aidl.IAppToolProvider` 只有一个方法 `String handleRequest(String)`（事务号 1），
+ * 收发 MCP 式的 JSON-RPC，而且只认 `tools/call`：带 `name` 和 `arguments`，答 `result.content[0].text` 和 `result.isError`。
+ * 没有 `tools/list`，有哪些工具只写在应用 APK 的 `assets/app_tools.json` 里（格式见 [AppToolDefs]）。
+ *
+ * 调用方只说「哪个应用的哪个工具」（[call]），组件由这里按工具清单找（[apps]）。
  *
  * 服务只放行系统应用或平台签名的调用方（SDK 的 AppToolProviderService.isCallerSystemSigned，看的是 Binder 调用方的 uid），
  * Zeta 自己不行，system（uid 1000）可以。可是以 system 起的 app_process 在 ActivityManager 里没有应用记录，绑不了服务，
  * 所以分两步：Zeta 用 [bind] 把服务拉起来、拿住绑定；[ProviderHelper] 以 system 身份执行 [op]，经
  * `IActivityManager.peekService` 取到同一个 Binder 发请求（[handle]；peekService 只返回已经绑定过的服务，Intent 要和绑定时的一样）。
- * 结果交回后 Zeta 解绑。
+ * 结果交回后 Zeta 解绑。多数应用的服务还要求签名级权限 [BIND_PERMISSION]（小爱定义的），Zeta 拿不到，
+ * 由 Zeta 自带的 LSPosed 模块在系统里只对本包放行（xposed/AppToolBindHook.kt）；没装上时绑定被拒。
  */
 internal object AppToolCall {
+    const val ACTION = "com.aios.osbot.action.APP_TOOL_PROVIDER"
+
+    /** 多数工具服务要求的绑定权限：签名级，由小爱（com.miui.voiceassist）定义。 */
+    const val BIND_PERMISSION = "com.aios.osbot.permission.BIND_APP_TOOL"
+
+    private const val ASSET = "assets/app_tools.json"
+
     private const val DESCRIPTOR = "com.aios.apptoolsdk.aidl.IAppToolProvider"
     private const val HANDLE_REQUEST = IBinder.FIRST_CALL_TRANSACTION
 
@@ -59,6 +73,58 @@ internal object AppToolCall {
         put("component", component)
         put("request", request(tool, arguments))
     }
+
+    /**
+     * 调应用 [packageName] 的工具 [tool]：找到处理它的服务、绑定、以 system 身份发请求、解析回答。会阻塞，在后台线程用。
+     * [then] 是要在同一次辅助进程里紧接着做的操作（比如改完马上读回），结果按顺序交回。
+     */
+    fun call(
+        context: Context,
+        packageName: String,
+        tool: String,
+        arguments: JsonObject,
+        timeoutMs: Long = 30_000,
+        then: List<JsonObject> = emptyList(),
+    ): Pair<Reply, List<JsonObject>> {
+        val app = apps(context).firstOrNull { it.packageName == packageName } ?: throw ToolError("$packageName 没有可用的工具服务")
+        val definition = app.tools.firstOrNull { it.name == tool } ?: throw ToolError("${app.label}的工具服务里没有 $tool")
+        val service = app.serviceFor(definition)
+        val results = bind(context, service).use {
+            RootProvider.run(context, listOf(op(service, tool, arguments)) + then, timeoutMs, system = true)
+        }
+        return reply(results.first()) to results.drop(1)
+    }
+
+    // ---- 有工具服务的应用 ----
+
+    /** 一个应用读出来的名字和工具清单，按它的版本（lastUpdateTime）缓存；读不到清单的也记一笔空的，不每次重读。 */
+    private class Entry(val updated: Long, val label: String, val tools: List<AppToolDefs.Tool>)
+
+    private val cache = ConcurrentHashMap<String, Entry>()
+
+    /** 这台手机上有工具服务、读得出工具清单的应用，按包名排。 */
+    fun apps(context: Context): List<AppToolDefs.App> {
+        val services = context.packageManager.queryIntentServices(Intent(ACTION), PackageManager.ResolveInfoFlags.of(0))
+            .mapNotNull { it.serviceInfo }
+            .groupBy { it.packageName }
+        return services.mapNotNull { (pkg, infos) ->
+            val info = infos.first().applicationInfo
+            val updated = runCatching { context.packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0)).lastUpdateTime }.getOrDefault(0L)
+            val entry = cache[pkg]?.takeIf { it.updated == updated }
+                ?: Entry(updated, InstalledApps.label(context, pkg), AppToolDefs.parse(readAsset(info).orEmpty())).also { cache[pkg] = it }
+            entry.tools.takeIf { it.isNotEmpty() }?.let { AppToolDefs.App(pkg, entry.label, infos.map { ComponentName(pkg, it.name).flattenToString() }, it) }
+        }.sortedBy { it.packageName }
+    }
+
+    /** 读过的应用（不碰 PackageManager、不读 APK），给聊天里的标题用。 */
+    fun known(): List<AppToolDefs.App> = cache.entries.filter { it.value.tools.isNotEmpty() }
+        .map { (pkg, entry) -> AppToolDefs.App(pkg, entry.label, emptyList(), entry.tools) }
+
+    /** 直接从 APK 里读 `assets/app_tools.json`（不为读一个文件建整套 Resources）；先看主 APK，再看拆分包。 */
+    private fun readAsset(info: ApplicationInfo): String? =
+        (listOfNotNull(info.sourceDir) + info.splitSourceDirs.orEmpty()).firstNotNullOfOrNull { path ->
+            runCatching { ZipFile(path).use { zip -> zip.getEntry(ASSET)?.let { e -> zip.getInputStream(e).use { it.readBytes().toString(Charsets.UTF_8) } } } }.getOrNull()
+        }
 
     /** [op] 的结果变成 [Reply]；辅助进程失败、调用方没被放行、没有这个工具时抛出异常。 */
     fun reply(result: JsonObject): Reply {
@@ -134,7 +200,14 @@ internal object AppToolCall {
         }
         val binding = Binding(app, connection)
         try {
-            if (!app.bindService(Intent().setComponent(name), connection, Context.BIND_AUTO_CREATE)) {
+            val accepted = try {
+                app.bindService(Intent().setComponent(name), connection, Context.BIND_AUTO_CREATE)
+            } catch (e: SecurityException) {
+                throw ToolError(
+                    "${name.packageName} 的工具服务要系统智能体的绑定权限：在 LSPosed 里启用 Zeta 的模块（作用域：系统框架）并重启手机后才能用（${e.message}）",
+                )
+            }
+            if (!accepted) {
                 // 返回 false 也要解绑，系统才会放掉这次的连接记录
                 binding.close()
                 return null

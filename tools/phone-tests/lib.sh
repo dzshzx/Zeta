@@ -99,3 +99,25 @@ wait_run() {
 control_errors() {
   jq -c 'select(.type == "control_response" and .response.subtype == "error" and .response.error != "假 Claude 不查订阅额度") | .response.error' "$1"
 }
+
+# 工具结果的文字：出错时 content 是一段文字，成功时是 [{type: text, text}]
+TEXT_OF='.message.content[0].content | if type == "string" then . else ([.[]? | .text // empty] | join("\n")) end'
+
+# fake_turn <名字（ASCII）> <标题> <步骤的 JSON 数组>：跑一轮假 Claude（步骤后面补一句「好了。」），等它跑完（最多 FAKE_TURN_WAIT 秒，
+# 默认 120），这一轮的工具结果按顺序一行一个写进 results-<名字>.jsonl（{text, error}）；result_text、result_error 按序号取。
+FAKE_TURNS=0
+fake_turn() {
+  local name=$1 title=$2 steps=$3 before=0
+  jq -nc --arg t "$title" --argjson steps "$steps" '{title: $t, steps: ($steps + [{text: "好了。"}])}' >"turn-$name.jsonl"
+  vd fake "$PWD/turn-$name.jsonl" >/dev/null
+  [[ -n $log ]] && before=$(android "grep -c '\"type\":\"tool_result\"' $log" || true)
+  FAKE_TURNS=$((FAKE_TURNS + 1))
+  send "$name"
+  wait_result $FAKE_TURNS "${FAKE_TURN_WAIT:-120}" || return 1
+  android "grep '\"type\":\"tool_result\"' $log | tail -n +$((${before:-0} + 1))" |
+    jq -c "{text: ($TEXT_OF), error: (.message.content[0].is_error // false)}" >"results-$name.jsonl"
+}
+
+# result_text <名字> <第几个，从 1 起>、result_error <名字> <第几个>：fake_turn 那一轮第 n 个工具结果的文字、是否出错
+result_text() { sed -n "${2}p" "results-$1.jsonl" | jq -r .text; }
+result_error() { sed -n "${2}p" "results-$1.jsonl" | jq -r .error; }

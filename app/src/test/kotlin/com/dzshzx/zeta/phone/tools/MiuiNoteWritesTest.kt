@@ -48,9 +48,11 @@ class MiuiNoteWritesTest {
         assertTrue(e.message, e.message!!.startsWith(message))
     }
 
+    private val SERVICE = "${MiuiNoteWrites.PACKAGE}/com.miui.notes.agent.tool.provider.NoteToolService"
+
     private fun arguments(op: JsonObject): JsonObject {
         assertEquals("appTool", op.str("op"))
-        assertEquals(MiuiNoteWrites.SERVICE, op.str("component"))
+        assertEquals(SERVICE, op.str("component"))
         val request = Json.parseToJsonElement(op.str("request")!!).jsonObject
         assertEquals("tools/call", request.str("method"))
         return request.obj("params")!!
@@ -95,11 +97,11 @@ class MiuiNoteWritesTest {
 
     @Test
     fun callsTheNotesToolService() {
-        val create = arguments(MiuiNoteWrites.createOp(MiuiNoteWrites.createArgs(input("title" to "买菜", "content" to "鸡蛋"))))
+        val create = arguments(AppToolCall.op(SERVICE, MiuiNoteWrites.CREATE, MiuiNoteWrites.createArgs(input("title" to "买菜", "content" to "鸡蛋"))))
         assertEquals("note_create", create.str("name"))
         assertEquals(input("title" to "买菜", "content" to "鸡蛋"), create["arguments"])
 
-        val update = arguments(MiuiNoteWrites.updateOp(input("noteId" to 7, "title" to "新")))
+        val update = arguments(AppToolCall.op(SERVICE, MiuiNoteWrites.UPDATE, input("noteId" to 7, "title" to "新")))
         assertEquals("note_update", update.str("name"))
         assertEquals(input("noteId" to 7, "title" to "新"), update["arguments"])
 

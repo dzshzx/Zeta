@@ -24,7 +24,9 @@ import java.time.ZoneId
  * 快照一条都不会记（真机上快照表是空的），所以这条路也不通。剩下的只有点便签的界面或改它的私有数据库，都不做。
  */
 internal object MiuiNoteWrites {
-    const val SERVICE = "com.miui.notes/com.miui.notes.agent.tool.provider.NoteToolService"
+    const val PACKAGE = "com.miui.notes"
+    const val CREATE = "note_create"
+    const val UPDATE = "note_update"
 
     const val MAX_TITLE = 200
 
@@ -71,12 +73,6 @@ internal object MiuiNoteWrites {
             content?.let { put("content", it) }
         }
     }
-
-    // ---- 操作（交给 [ProviderHelper]，以 system 身份） ----
-
-    fun createOp(args: JsonObject): JsonObject = AppToolCall.op(SERVICE, "note_create", args)
-
-    fun updateOp(args: JsonObject): JsonObject = AppToolCall.op(SERVICE, "note_update", args)
 
     // ---- 回答 ----
 

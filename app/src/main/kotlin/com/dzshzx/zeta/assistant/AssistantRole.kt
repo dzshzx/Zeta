@@ -95,7 +95,7 @@ object AssistantRole {
     }
 }
 
-/** 电源键接管模块（xposed/PowerKeyModule.kt）的状态，从它写的日志里看。 */
+/** 电源键接管模块（xposed/PowerKeyHook.kt）的状态，从它写的日志里看。 */
 data class PowerKeyStatus(
     /** 装上了没有：true 装上了，false 没装（[installNote] 是原因），null 日志里没有安装记录。 */
     val installed: Boolean?,

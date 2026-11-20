@@ -1430,6 +1430,7 @@ class PhoneTools(
                 "(payment, password, captcha, a login or permission prompt meant for them) or when they want to see the result in that app; after it you are on the main screen. " +
                 "Use `display: main` with `open_app` only when the user wants it done in front of them. " +
                 "Ask for `screenshot: true` only when the list is not enough (images, games, canvas-drawn pages); it costs far more than the list. " +
+                "Many system apps can do things themselves when asked: check `app_tools` before driving a system app's screen. " +
                 "`shell` runs a command as root on the Android side, outside the Linux environment your Bash tool lives in: " +
                 "use it for pm, am, cmd, settings, dumpsys, getprop, logcat and the like. " +
                 "If something needs the user's own hands, bring it to them with `show_to_user` and tell them what to do."

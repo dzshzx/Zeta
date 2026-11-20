@@ -10,31 +10,12 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.provider.Settings
 import android.service.voice.VoiceInteractionSession
-import android.util.Log
 import com.dzshzx.zeta.assistant.ZetaVoiceInteractionSession
 import com.dzshzx.zeta.core.AppVariant
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
-import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import java.lang.reflect.Field
 import java.lang.reflect.Method
-
-/**
- * Zeta 自带的 LSPosed 模块（libxposed API 102，入口登记在 resources/META-INF/xposed/java_init.list），
- * 作用域只有 system（system_server）。做一件事：HyperOS 长按电源键时系统直接拉起小爱，不看默认数字助理是谁；
- * 默认助理是本包时改为显示它的助理会话，见 [PowerKeyHook]。正式版、测试版各带一个，在 LSPosed 里各自启用，
- * 互不干扰：每个只认自己，默认助理不是自己就放行。
- */
-class PowerKeyModule : XposedModule() {
-    override fun onModuleLoaded(param: ModuleLoadedParam) {
-        if (!param.isSystemServer) detach()
-    }
-
-    override fun onSystemServerStarting(param: SystemServerStartingParam) {
-        PowerKeyHook.install(this, param.classLoader)
-    }
-}
 
 /**
  * 拦 `ShortCutActionsUtils.triggerFunction`（签名见 [PowerKeySignature]）。只处理功能 launch_voice_assistant、
@@ -49,7 +30,7 @@ internal object PowerKeyHook {
     private val gate = PowerKeyGate()
 
     fun install(module: XposedModule, loader: ClassLoader) {
-        val log = Logger(module)
+        val log = ModuleLog(module, PowerKeyPolicy.LOG_TAG)
         try {
             val type = runCatching { Class.forName(PowerKeySignature.CLASS, false, loader) }.getOrNull()
             if (type == null) {
@@ -77,7 +58,7 @@ internal object PowerKeyHook {
         }
     }
 
-    private fun intercept(chain: XposedInterface.Chain, contextField: Field, log: Logger): Any? {
+    private fun intercept(chain: XposedInterface.Chain, contextField: Field, log: ModuleLog): Any? {
         val function = chain.getArg(0) as? String
         val source = chain.getArg(1) as? String
         if (!PowerKeyPolicy.matches(function, source)) return chain.proceed()
@@ -166,12 +147,4 @@ internal object PowerKeyHook {
     /** AssistUtils 的 invocation_type：长按电源键是 6。 */
     private const val INVOCATION_TYPE = "invocation_type"
     private const val INVOCATION_POWER_LONG_PRESS = 6
-
-    /** 同时写 LSPosed 的模块日志和 logcat。 */
-    private class Logger(private val module: XposedModule) {
-        fun info(message: String) {
-            runCatching { module.log(Log.INFO, PowerKeyPolicy.LOG_TAG, message) }
-            Log.i(PowerKeyPolicy.LOG_TAG, message)
-        }
-    }
 }
