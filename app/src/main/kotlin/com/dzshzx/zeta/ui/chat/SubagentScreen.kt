@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -97,9 +98,11 @@ internal fun SubagentScreen(hub: ConversationHub, conversationKey: String, toolU
         }
     }
     var nested by remember { mutableStateOf<String?>(null) }
-    val home = hub.settings.env?.home
+    val home = hub.home(conversation.backend)
     val imagesOf = remember(conversation.cwd, home) { { text: String -> answerImages(text, conversation.cwd, home) } }
-    SubagentPage(log, conversation.agentCall(toolUseId), onBack, imagesOf, onOpenSubagent = { nested = it })
+    CompositionLocalProvider(LocalBackend provides conversation.backend) {
+        SubagentPage(log, conversation.agentCall(toolUseId), onBack, imagesOf, onOpenSubagent = { nested = it })
+    }
     // 它自己又派的子代理：记录在同一个会话的目录里，照样看
     SlideInPage(nested, onBack = { nested = null }) { SubagentScreen(hub, conversationKey, it, onBack = { nested = null }) }
 }

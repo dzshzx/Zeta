@@ -32,6 +32,9 @@ internal sealed interface AppPage {
 
     @Serializable data object Login : AppPage
 
+    /** 远程主机（没有 Debian 环境时从聊天页直接来）。 */
+    @Serializable data object RemoteHosts : AppPage
+
     /** 后台任务面板：[scope] 是对话的 key（只看它的），或 AllConversations。 */
     @Serializable data class Tasks(val scope: String) : AppPage
 

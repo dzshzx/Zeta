@@ -131,8 +131,8 @@ internal fun Composer(
     commands: List<SlashCommand>,
     onPickImages: () -> Unit,
     onPickFiles: () -> Unit,
-    /** 引用 Linux 里的文件夹（从手机这边选）。 */
-    onPickFolder: () -> Unit,
+    /** 引用 Linux 里的文件夹（从手机这边选）；对话在远程主机上时没有这一项（null）。 */
+    onPickFolder: (() -> Unit)?,
     /** 直接输入 Linux 里的路径。 */
     onEnterPath: () -> Unit,
     /** 打开常用指令（存下来的提问），点一条填进输入框。 */
@@ -322,10 +322,10 @@ internal fun Composer(
         ) {
             val attachEntries = listOf(
                 DropdownEntry(
-                    items = listOf(
+                    items = listOfNotNull(
                         menuItem("图片", COUIIcons.Image, onPickImages),
                         menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
-                        menuItem("文件夹", COUIIcons.Folder, onPickFolder),
+                        onPickFolder?.let { menuItem("文件夹", COUIIcons.Folder, it) },
                         menuItem("输入路径", COUIIcons.Edit, onEnterPath),
                     ),
                 ),

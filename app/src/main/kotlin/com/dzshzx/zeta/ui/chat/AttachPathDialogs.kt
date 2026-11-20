@@ -38,7 +38,8 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.LinuxEnvConfig
+import com.dzshzx.zeta.core.Backends
+import com.dzshzx.zeta.core.EnvShell
 import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.SharedFolder
@@ -115,18 +116,22 @@ private sealed interface Resolution {
     data class Problem(val message: String) : Resolution
 }
 
-/** 查 Linux 路径 [linuxPath] 对对话进程是不是可见。内部存储读不了时先把 Linux 用户补进 media_rw 组再查一次。 */
-private fun checkLinux(config: LinuxEnvConfig, conversation: Conversation, linuxPath: String, wantFolder: Boolean?): Resolution {
-    var kind = PathCheck.check(config, linuxPath, conversation.hostKey)
-    if (kind == PathKind.Denied && linuxPath.startsWith(SharedFolders.LINUX_ROOT + "/") && SharedFolders.ensureMediaGroup(config)) {
-        kind = PathCheck.check(config, linuxPath, conversation.hostKey)
+/**
+ * 查对话所在主机上的路径 [linuxPath] 对对话进程是不是可见。手机本机的内部存储读不了时先把 Linux 用户补进 media_rw 组再查一次。
+ */
+private fun checkLinux(hub: ConversationHub, conversation: Conversation, linuxPath: String, wantFolder: Boolean?): Resolution {
+    val shell = hub.shell(conversation.backend) ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台主机")
+    val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL }
+    var kind = PathCheck.check(shell, linuxPath, conversation.hostKey)
+    if (config != null && kind == PathKind.Denied && linuxPath.startsWith(SharedFolders.LINUX_ROOT + "/") && SharedFolders.ensureMediaGroup(config)) {
+        kind = PathCheck.check(shell, linuxPath, conversation.hostKey)
     }
     return when (kind) {
         PathKind.Folder -> if (wantFolder == false) Resolution.Problem("这是一个文件夹") else Resolution.Ready(linuxPath, true)
         PathKind.File -> if (wantFolder == true) Resolution.Problem("这是一个文件，不是文件夹") else Resolution.Ready(linuxPath, false)
         PathKind.FolderNotInProcess -> if (wantFolder == false) Resolution.Problem("这是一个文件夹") else Resolution.NeedsRestart(linuxPath, true)
         PathKind.FileNotInProcess -> if (wantFolder == true) Resolution.Problem("这是一个文件，不是文件夹") else Resolution.NeedsRestart(linuxPath, false)
-        PathKind.Missing -> Resolution.Problem("Linux 里没有 $linuxPath")
+        PathKind.Missing -> Resolution.Problem(NotThere + linuxPath)
         PathKind.Denied -> Resolution.Problem("Linux 用户没有权限读取 $linuxPath")
         PathKind.Unknown -> Resolution.Problem("查不了：进不去 Linux 环境")
     }
@@ -318,7 +323,7 @@ private fun resolveFolder(hub: ConversationHub, conversation: Conversation, path
     val shares = hub.settings.sharedFolders
     val linux = AttachedPaths.linuxPathFor(path, shares, config.rootfs)
         ?: return Resolution.NeedsShare(SharedFolders.defaultName(path, shares), SharedFolders.sourceProblem(path, shares, config.rootfs))
-    return checkLinux(config, conversation, linux, wantFolder = true)
+    return checkLinux(hub, conversation, linux, wantFolder = true)
 }
 
 /** 把 [path] 加为共享文件夹 [name]，再以 Linux 用户的身份（新进入的环境）确认读得到。成功返回 null，否则是原因。 */
@@ -329,7 +334,7 @@ private fun shareAndCheck(hub: ConversationHub, path: String, name: String): Str
     val updated = shares + SharedFolder(name, path)
     hub.settings.sharedFolders = updated
     if (SharedFolders.isMediaStorage(path)) SharedFolders.ensureMediaGroup(config)
-    return when (PathCheck.check(config, "${SharedFolders.LINUX_ROOT}/$name", null)) {
+    return when (PathCheck.check(EnvShell(config), "${SharedFolders.LINUX_ROOT}/$name", null)) {
         PathKind.Folder -> null
         PathKind.Denied -> "已加为共享文件夹，但 Linux 用户读不了它"
         PathKind.Unknown -> "已加为共享文件夹，但查不了它能不能读"
@@ -349,7 +354,8 @@ private fun PathAttachDialog(
 ) {
     var input by remember(opens) { mutableStateOf("") }
     var resolution by remember(opens) { mutableStateOf<Resolution?>(null) }
-    val home = hub.settings.env?.home
+    val home = hub.home(conversation.backend)
+    val remote = conversation.backend != Backends.LOCAL
     LaunchedEffect(visible, input) {
         if (!visible) return@LaunchedEffect
         resolution = null
@@ -362,8 +368,9 @@ private fun PathAttachDialog(
     val idle = conversation.canRestart()
     ConfirmDialog(
         show = visible,
-        title = "引用 Linux 路径",
-        summary = "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
+        title = if (remote) "引用「${hub.backendName(conversation.backend)}」上的路径" else "引用 Linux 路径",
+        summary = if (remote) "这台主机上一个文件或文件夹的绝对路径，Claude 会直接读到它。"
+        else "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
         confirmText = if (current is Resolution.NeedsRestart) "重启 Claude 并引用" else "引用",
         confirmEnabled = current is Resolution.Ready || (current is Resolution.NeedsRestart && idle),
         onConfirm = {
@@ -424,16 +431,20 @@ private fun PathAttachDialog(
     }
 }
 
-/** 输入的路径：先当 Linux 路径查；没有的话看它是不是手机上能对应到 Linux 的目录。 */
+/** 查不到路径时说明的开头。 */
+private const val NotThere = "没有这个路径："
+
+/** 输入的路径：先当对话所在主机上的路径查；手机本机上没有的话，看它是不是手机上能对应到 Linux 的目录。 */
 private fun resolvePath(hub: ConversationHub, conversation: Conversation, input: String, home: String?): Resolution {
-    val config = hub.settings.env ?: return Resolution.Problem("还没有配置 Linux 环境")
+    if (hub.shell(conversation.backend) == null) return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台主机")
     val path = AttachedPaths.normalize(input, home)
         ?: return Resolution.Problem(if (input.trim().let { it.startsWith("/") || it.startsWith("~") }) "路径里不能有双引号或控制字符" else "要输入以 / 开头的绝对路径")
-    val direct = checkLinux(config, conversation, path, wantFolder = null)
-    if (direct !is Resolution.Problem || !direct.message.startsWith("Linux 里没有")) return direct
+    val direct = checkLinux(hub, conversation, path, wantFolder = null)
+    if (direct !is Resolution.Problem || !direct.message.startsWith(NotThere)) return direct
+    val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL } ?: return direct
     val shares = hub.settings.sharedFolders
     val mapped = AttachedPaths.linuxPathFor(path, shares, config.rootfs)?.takeIf { it != path }
-    if (mapped != null) return checkLinux(config, conversation, mapped, wantFolder = null)
+    if (mapped != null) return checkLinux(hub, conversation, mapped, wantFolder = null)
     if (SharedFolders.bindSource(path).startsWith("/data/media/")) {
         return Resolution.Problem("Linux 里没有这个路径。它是手机内部存储里的目录，要先在设置里把它（或上层目录）加为共享文件夹")
     }

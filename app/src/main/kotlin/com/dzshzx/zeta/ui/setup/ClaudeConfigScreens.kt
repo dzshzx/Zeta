@@ -102,7 +102,11 @@ internal fun CardListGroupScope.claudeConfigItems(ready: Boolean, onOpen: (Setti
 }
 
 @Composable
-internal fun rememberConfigClient(hub: ConversationHub): ClaudeConfigClient = remember(hub) { ClaudeConfigClient.of(hub) }
+internal fun rememberConfigClient(hub: ConversationHub): ClaudeConfigClient {
+    // 侧栏换了主机就换成那台的
+    val backend = hub.backend
+    return remember(hub, backend) { ClaudeConfigClient.of(hub, backend) }
+}
 
 /** 在后台线程跑一个阻塞的配置操作，回到主线程交结果。 */
 internal fun <T> CoroutineScope.runConfig(block: () -> T, done: (Result<T>) -> Unit) {

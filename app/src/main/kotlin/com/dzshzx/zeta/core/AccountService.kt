@@ -9,7 +9,6 @@ import com.dzshzx.zeta.core.claude.AccountsState
 import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.core.claude.ClaudeAccounts
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
-import com.dzshzx.zeta.core.claude.EnvShell
 import com.dzshzx.zeta.core.claude.SwitchOutcome
 import kotlin.concurrent.thread
 

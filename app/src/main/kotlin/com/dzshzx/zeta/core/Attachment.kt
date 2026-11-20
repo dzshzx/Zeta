@@ -50,7 +50,7 @@ object Attachments {
     }
 }
 
-/** 要随消息送进 Linux 环境的一个文件。复制完成后 [path] 才有值。 */
+/** 要随消息送进对话所在主机的一个文件。复制完成后 [path] 才有值。 */
 class FileUpload(val id: String, val name: String) {
     var path by mutableStateOf<String?>(null)
     var failed by mutableStateOf(false)
@@ -86,22 +86,22 @@ object Uploads {
     class Copied(val path: String?, val tooLarge: Boolean = false)
 
     /**
-     * 把文件复制进 Linux 环境的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见 [AppVariant]）。
-     * 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。
+     * 把文件复制进 [shell] 那台机器（对话所在的主机）的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见 [AppVariant]）。
+     * 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。远程主机经 ssh 的标准输入传过去。
      * 超过 [limit] 字节就停下（事先问不到大小的文件只能边读边数）。耗时，别在主线程调用。
      */
-    fun copy(context: Context, config: LinuxEnvConfig, uri: Uri, name: String, limit: Long = Long.MAX_VALUE): Copied =
-        copyFrom(config, name, limit) { context.contentResolver.openInputStream(uri) }
+    fun copy(context: Context, shell: LinuxShell, uri: Uri, name: String, limit: Long = Long.MAX_VALUE): Copied =
+        copyFrom(shell, name, limit) { context.contentResolver.openInputStream(uri) }
 
     /** 把内存里的一段内容（太长的文字、放不下的截屏）当作文件复制进 Linux，返回路径；失败返回 null。 */
-    fun copyBytes(config: LinuxEnvConfig, name: String, bytes: ByteArray): String? =
-        copyFrom(config, name, Long.MAX_VALUE) { bytes.inputStream() }.path
+    fun copyBytes(shell: LinuxShell, name: String, bytes: ByteArray): String? =
+        copyFrom(shell, name, Long.MAX_VALUE) { bytes.inputStream() }.path
 
-    private fun copyFrom(config: LinuxEnvConfig, name: String, limit: Long, open: () -> InputStream?): Copied = runCatching {
+    private fun copyFrom(shell: LinuxShell, name: String, limit: Long, open: () -> InputStream?): Copied = runCatching {
         val input = open() ?: return@runCatching Copied(null)
-        val directory = "${AppVariant.current.cacheDir(config.home)}/files/${UUID.randomUUID().toString().take(8)}"
+        val directory = "${AppVariant.current.cacheDir(shell.home)}/files/${UUID.randomUUID().toString().take(8)}"
         val target = "$directory/$name"
-        val process = LinuxEnv.start(config, "mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
+        val process = shell.start("mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
         var over = false
         input.use { source ->
             process.outputStream.use { sink ->
@@ -122,7 +122,7 @@ object Uploads {
         // 关掉标准输入 cat 就会结束（app 给不了 su 的子进程发信号，只能这样让它停）
         val ok = process.waitFor() == 0
         if (over) {
-            runCatching { LinuxEnv.run(config, "rm -rf " + LinuxEnv.quote(directory)) }
+            runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory)) }
             return@runCatching Copied(null, tooLarge = true)
         }
         Copied(if (ok) target else null)

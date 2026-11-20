@@ -6,8 +6,6 @@ import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.core.claude.EnvShell
-import com.dzshzx.zeta.core.claude.LinuxShell
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread

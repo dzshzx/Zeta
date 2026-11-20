@@ -34,22 +34,25 @@ internal class ContentSearch(
     private var process: Process? = null
     private var cancelled = false
 
+    // 侧栏正看着的那台主机上的会话
+    private val shell = hub.shell(hub.backend)
+
     init {
-        val config = hub.settings.env
-        if (config == null) {
+        val shell = shell
+        if (shell == null) {
             onDone(null)
         } else {
             thread(name = "zeta-search", isDaemon = true) {
                 var complete: Boolean? = null
                 runCatching {
-                    check(hub.ensureHelper(config)) { "zeta-helper 没装上" }
-                    val started = LinuxEnv.start(config, hub.helperProgram.command("search", listOf(query)))
+                    check(hub.ensureHelper(shell)) { "zeta-helper 没装上" }
+                    val started = shell.start(hub.helperProgram.command("search", listOf(query)))
                     val stop = synchronized(this) {
                         process = started
                         cancelled
                     }
                     if (stop) {
-                        LinuxEnv.kill(started)
+                        shell.kill(started)
                         return@thread
                     }
                     started.outputStream.close()
@@ -82,23 +85,23 @@ internal class ContentSearch(
             cancelled = true
             process
         }
-        running?.let(LinuxEnv::kill)
+        running?.let { shell?.kill(it) }
     }
 }
 
 internal class ExportedMarkdown(val file: String, val title: String, val markdown: String)
 
-/** 让助手把会话记录转成 Markdown（照 Eta 的导出格式）。没成返回 null。耗时，别在主线程调用。 */
-internal fun exportMarkdown(hub: ConversationHub, file: String): ExportedMarkdown? = exportMarkdowns(hub, listOf(file))?.firstOrNull()
+/** 让助手把主机 [backend] 上的会话记录转成 Markdown（照 Eta 的导出格式）。没成返回 null。耗时，别在主线程调用。 */
+internal fun exportMarkdown(hub: ConversationHub, backend: String, file: String): ExportedMarkdown? = exportMarkdowns(hub, backend, listOf(file))?.firstOrNull()
 
 /**
  * 一次导出几个会话，按 [files] 的顺序返回导出成了的那些（导不出来的不在里面）；助手没跑成返回 null。
  * 耗时，别在主线程调用。
  */
-internal fun exportMarkdowns(hub: ConversationHub, files: List<String>): List<ExportedMarkdown>? {
+internal fun exportMarkdowns(hub: ConversationHub, backend: String, files: List<String>): List<ExportedMarkdown>? {
     if (files.isEmpty()) return emptyList()
     val timeout = (120_000L + 20_000L * (files.size - 1)).coerceAtMost(600_000L)
-    val output = hub.helper("export", files, timeout).outputOrNull ?: return null
+    val output = hub.helper("export", files, timeout, backend).outputOrNull ?: return null
     val exported = output.lineSequence().mapNotNull(::parseLine).filter { it.str("type") == "zeta_export" }.mapNotNull { o ->
         ExportedMarkdown(o.str("file").orEmpty(), o.str("title").orEmpty(), o.str("markdown") ?: return@mapNotNull null)
     }.associateBy { it.file }

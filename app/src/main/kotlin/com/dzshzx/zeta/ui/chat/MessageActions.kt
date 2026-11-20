@@ -34,8 +34,8 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ImageRef
+import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
-import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.SessionImage
 import com.dzshzx.zeta.core.TurnActions
 import com.dzshzx.zeta.core.imageMediaType
@@ -60,8 +60,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 
 /*
  * 聊天页的消息操作，交互照 Eta：
@@ -120,7 +118,7 @@ internal class MessageActions(
         turn.user.files.forEach(draft.uploads::addPath)
         val images = turn.user.images
         if (images.isNotEmpty()) scope.launch {
-            val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, it) } }
+            val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, conversation.backend, it) } }
             if (editing !== turn) return@launch
             draft.attachments.addAll(restored.filterNotNull())
             if (restored.any { it == null }) toast("有图片取不回来，没有放进输入框")
@@ -173,7 +171,7 @@ internal class MessageActions(
         }
         // 原样重发这一轮的提问：文字、附件路径，还有图片（历史里的要从会话记录取回）
         scope.launch {
-            val images = withContext(Dispatchers.IO) { user.images.map { reattach(hub, it) } }
+            val images = withContext(Dispatchers.IO) { user.images.map { reattach(hub, conversation.backend, it) } }
             if (images.any { it == null }) {
                 toast("有图片取不回来，没法原样重发")
                 return@launch
@@ -299,16 +297,12 @@ internal fun MessageActionDialogs(actions: MessageActions) {
     )
 }
 
-private val helperJson = Json { ignoreUnknownKeys = true }
-
 /** 把消息里的一张图片还原成能再发出去的附件（编辑、重新生成时用）；取不回来返回 null。耗时，别在主线程调用。 */
-private fun reattach(hub: ConversationHub, ref: ImageRef): Attachment? = runCatching {
+private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Attachment? = runCatching {
     val (mediaType, data) = when (ref) {
         is InlineImage -> (imageMediaType(Base64.decode(ref.base64, Base64.DEFAULT)) ?: "image/jpeg") to ref.base64
         is SessionImage -> {
-            val output = hub.helper("image", listOf(ref.file, ref.ref), timeoutMs = 60_000).outputOrNull ?: return null
-            val reply = output.lineSequence().firstOrNull { it.startsWith("{") }
-                ?.let { helperJson.parseToJsonElement(it) as? JsonObject } ?: return null
+            val reply = ImageStore.fetch(hub, backend, "image", listOf(ref.file, ref.ref)) ?: return null
             (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
         }
         else -> return null

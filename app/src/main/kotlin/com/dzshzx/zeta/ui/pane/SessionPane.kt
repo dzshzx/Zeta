@@ -64,6 +64,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.R
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.ui.components.StatusWarning
@@ -170,21 +171,25 @@ internal fun SessionPane(
 
     val exporter = rememberSessionExporter(hub, onSavedMany = exitSelection)
 
-    // 置顶存在设置里，按会话 id；从备份导入设置时也会变，所以用 hub 上那份可观察的
+    // 置顶存在设置里，各台主机的都在一起（[SessionSummary.pinKey]）；从备份导入设置时也会变，所以用 hub 上那份可观察的
     val pins = hub.settings.pinnedSessions
     val savePins: (Set<String>) -> Unit = { hub.settings.pinnedSessions = it }
-    // 置顶的会话不在 list 给的最近 300 个里时单独取来；确实已经不在了（别处删掉的）就把置顶去掉
+    // 列着的这台主机上置顶的会话不在 list 给的最近 300 个里时单独取来；确实已经不在了（别处删掉的）就把置顶去掉。
+    // 别的主机上的置顶不管：在这台上查不到不等于没了
     var farPinned by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
     LaunchedEffect(sessions, pins) {
-        val missing = pins - sessions.mapTo(HashSet()) { it.id }
-        if (sessions.isEmpty() || missing.isEmpty()) {
+        val backend = sessions.firstOrNull()?.backend
+        val missing = sessions.mapTo(HashSet()) { it.id }.let { listed ->
+            pins.mapNotNull { key -> SessionSummary.pinnedId(key, backend ?: return@mapNotNull null)?.takeIf { it !in listed } }
+        }
+        if (backend == null || missing.isEmpty()) {
             farPinned = emptyList()
             return@LaunchedEffect
         }
-        val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing) } ?: return@LaunchedEffect
+        val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing, backend) } ?: return@LaunchedEffect
         farPinned = found
         val gone = missing - found.mapTo(HashSet()) { it.id }
-        if (gone.isNotEmpty()) savePins(pins - gone)
+        if (gone.isNotEmpty()) savePins(pins - gone.mapTo(HashSet()) { SessionSummary.pinKey(backend, it) })
     }
     // 存储页要定位的会话不在最近 300 个里时，也单独取来放进列表
     var farRevealed by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
@@ -241,7 +246,7 @@ internal fun SessionPane(
             selecting = true
         },
         toggle = { session -> selected = if (session.id in selected) selected - session.id else selected + session.id },
-        togglePin = { session -> savePins(if (session.id in pins) pins - session.id else pins + session.id) },
+        togglePin = { session -> savePins(session.pinKey.let { if (it in pins) pins - it else pins + it }) },
         rename = { session ->
             renameDraft = session.title.ifBlank { session.preview.take(40) }
             renaming = session
@@ -262,7 +267,7 @@ internal fun SessionPane(
     if (archived.isEmpty()) showArchived = false
     val visible = remember(all, showArchived) { all.filter { it.archived == showArchived } }
     // 置顶只在主列表里单独成组；归档里的照常按时间排，只带个图钉
-    val pinned = remember(visible, pins, showArchived) { if (showArchived) emptyList() else visible.filter { it.id in pins } }
+    val pinned = remember(visible, pins, showArchived) { if (showArchived) emptyList() else visible.filter { it.pinKey in pins } }
     val unpinned = remember(visible, pinned) { if (pinned.isEmpty()) visible else visible - pinned.toSet() }
     val today = remember(unpinned, todayStart) { if (showArchived) emptyList() else unpinned.filter { it.updated >= todayStart } }
     val earlier = remember(unpinned, todayStart) { if (showArchived) unpinned else unpinned.filter { it.updated < todayStart } }
@@ -281,9 +286,11 @@ internal fun SessionPane(
             if (id == null) return@collect
             SessionReveal.request = null
             val target = allNow.firstOrNull { it.id == id } ?: run {
-                val found = withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id)) }
+                val backend = hub.backend
+                val found = withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id), backend) }
                 if (found == null) {
-                    Toast.makeText(context, "没查到这个对话（Linux 环境没有响应）", Toast.LENGTH_SHORT).show()
+                    val who = if (backend == Backends.LOCAL) "Linux 环境" else "「${hub.backendName(backend)}」"
+                    Toast.makeText(context, "没查到这个对话（${who}没有响应）", Toast.LENGTH_SHORT).show()
                     return@collect
                 }
                 found.firstOrNull()?.also { farRevealed = farRevealed + it }
@@ -314,7 +321,7 @@ internal fun SessionPane(
         waiting = session.id != currentSessionId && hub.isWaiting(session.id),
         // 正看着的对话，草稿就在输入框里
         draft = if (session.id != currentSessionId) hub.drafts.preview(session.id) else null,
-        pinned = session.id in pins,
+        pinned = session.pinKey in pins,
         snippet = snippet,
         highlight = needle,
         selecting = selecting,
@@ -364,6 +371,8 @@ internal fun SessionPane(
             PaneCircleButton(icon = ZetaIcons.NewChat, description = "新对话", onClick = onNewChat)
         }
 
+        // 加过远程主机时：列的是哪台主机上的会话，点开换一台
+        if (!selecting) HostSwitcher(hub, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 8.dp))
         // 有后台对话或后台任务时，列表上方多一个入口
         if (!selecting && !searching) {
             BackgroundTasksEntry(hub, onOpen = onOpenBackgroundTasks, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 6.dp))
@@ -385,7 +394,10 @@ internal fun SessionPane(
                     }
                 }
             } else {
-                if (visible.isEmpty() && !showArchived) {
+                val problem = hub.sessionList.problem
+                if (problem != null) {
+                    item(key = "problem") { PaneMessage(problem) }
+                } else if (visible.isEmpty() && !showArchived) {
                     item(key = "empty") { PaneMessage("还没有对话") }
                 }
                 group("pinned", "置顶", first = true, list = pinned)

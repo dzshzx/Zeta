@@ -256,6 +256,17 @@ internal object ZetaIcons {
         }
     }
 
+    /** 服务器：远程主机。 */
+    val Server: ImageVector by lazy {
+        icon {
+            line(
+                "M5.85 3.85h12.3a3 3 0 0 1 3 3v1.3a3 3 0 0 1-3 3H5.85a3 3 0 0 1-3-3V6.85a3 3 0 0 1 3-3Z" +
+                    "M5.85 13.85h12.3a3 3 0 0 1 3 3v1.3a3 3 0 0 1-3 3H5.85a3 3 0 0 1-3-3v-1.3a3 3 0 0 1 3-3Z",
+            )
+            solid("M7.4 7.5m-1.1 0a1.1 1.1 0 1 0 2.2 0 1.1 1.1 0 1 0-2.2 0ZM7.4 17.5m-1.1 0a1.1 1.1 0 1 0 2.2 0 1.1 1.1 0 1 0-2.2 0Z")
+        }
+    }
+
     /** 三角警告。 */
     val Warning: ImageVector by lazy {
         icon {

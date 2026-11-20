@@ -112,7 +112,16 @@ class AgentService : Service() {
             }
             return START_NOT_STICKY
         }
-        show(throttle.published ?: StatusNotice(active = true, busy = false, running = emptyList(), live = null))
+        starting = false
+        val state = throttle.published ?: StatusNotice(active = true, busy = false, running = emptyList(), live = null)
+        // 叫起服务以后、到这里以前对话又都结束了（比如远程主机连不上，进程一起来就退出）：
+        // 系统要求 startForegroundService 叫起的服务先进前台，所以照样进一下前台再停掉，否则整个应用被系统结束
+        show(state.takeIf { it.active } ?: state.copy(active = true, busy = false))
+        if (!state.active) {
+            if (instance === this) instance = null
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+        }
         return START_NOT_STICKY
     }
 
@@ -206,6 +215,7 @@ class AgentService : Service() {
     }
 
     override fun onDestroy() {
+        starting = false
         if (instance === this) instance = null
         releaseWakeLock()
         super.onDestroy()
@@ -226,6 +236,9 @@ class AgentService : Service() {
 
         /** 正在运行的服务；停掉时（[update] 里）就清空，不等 onDestroy。只在主线程上碰，下同。 */
         private var instance: AgentService? = null
+
+        /** 叫了 startForegroundService、服务还没到 onStartCommand：这时不能 stopService，交给 onStartCommand 按最新状态处理。 */
+        private var starting = false
         private val main = Handler(Looper.getMainLooper())
         private val throttle = Throttle<StatusNotice>(LIVE_INTERVAL_MS) { old, new -> new.minorAfter(old) }
         private var appContext: Context? = null
@@ -257,7 +270,7 @@ class AgentService : Service() {
         private fun publish(context: Context, state: StatusNotice) {
             if (!state.active) {
                 instance = null
-                context.stopService(Intent(context, AgentService::class.java))
+                if (!starting) context.stopService(Intent(context, AgentService::class.java))
                 return
             }
             // 服务已经在跑就直接换通知，不再一次次 startForegroundService
@@ -265,7 +278,8 @@ class AgentService : Service() {
                 service.show(state)
                 return
             }
-            runCatching { context.startForegroundService(Intent(context, AgentService::class.java)) }
+            if (starting) return
+            starting = runCatching { context.startForegroundService(Intent(context, AgentService::class.java)) }.isSuccess
         }
     }
 }

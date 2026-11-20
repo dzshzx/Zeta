@@ -56,30 +56,7 @@ class SessionPaneShots : ShotTest() {
     }
 
     @Composable
-    private fun Pane(hub: ConversationHub) {
-        ConversationSidePaneScaffold(
-            visible = true,
-            backHandlerEnabled = true,
-            onOpen = {},
-            onDismiss = {},
-            pane = { width, revealed, modifier ->
-                SessionPane(
-                    width = width,
-                    sessions = sessions,
-                    currentSessionId = "s2",
-                    revealed = revealed,
-                    isRunning = { it == "s1" },
-                    onNewChat = {},
-                    onOpen = {},
-                    onDelete = {},
-                    onRename = { _, _ -> },
-                    onArchive = { _, _ -> },
-                    onOpenSettings = {},
-                    modifier = modifier,
-                )
-            },
-        ) { Box(Modifier.fillMaxSize()) }
-    }
+    private fun Pane() = PaneShot(sessions, currentSessionId = "s2", isRunning = { it == "s1" })
 
     private fun AndroidComposeTestRule<*, *>.longPress(text: String) {
         onNodeWithText(text).performTouchInput { longClick() }
@@ -88,13 +65,13 @@ class SessionPaneShots : ShotTest() {
     @Test
     fun list() {
         val hub = hub()
-        shoot("pane") { Pane(hub) }
+        shoot("pane") { Pane() }
     }
 
     @Test
     fun menu() {
         val hub = hub()
-        shoot("pane-menu", prepare = { longPress("整理下载目录") }) { Pane(hub) }
+        shoot("pane-menu", prepare = { longPress("整理下载目录") }) { Pane() }
     }
 
     @Test
@@ -106,7 +83,7 @@ class SessionPaneShots : ShotTest() {
             // 时钟不自己走：等菜单收起的动画放完再点下一行，不然这一下点在菜单的遮罩上
             mainClock.advanceTimeBy(1_000)
             onNodeWithText("排查 company-vps 磁盘告警").performClick()
-        }) { Pane(hub) }
+        }) { Pane() }
     }
 
     @Test
@@ -115,7 +92,7 @@ class SessionPaneShots : ShotTest() {
         shoot("pane-delete", prepare = {
             longPress("很久以前的对话")
             onNodeWithText("删除").performClick()
-        }) { Pane(hub) }
+        }) { Pane() }
     }
 
     @Test
@@ -124,12 +101,39 @@ class SessionPaneShots : ShotTest() {
         shoot("pane-rename", prepare = {
             longPress("修复登录页的布局")
             onNodeWithText("重命名").performClick()
-        }) { Pane(hub) }
+        }) { Pane() }
     }
 
     @Test
     fun search() {
         val hub = hub()
-        shoot("pane-search", prepare = { onNode(hasSetTextAction()).performTextInput("对话") }) { Pane(hub) }
+        shoot("pane-search", prepare = { onNode(hasSetTextAction()).performTextInput("对话") }) { Pane() }
     }
+}
+
+/** 截图里展开的侧栏：会话列表 [sessions]，正看着 [currentSessionId]，[isRunning] 的在跑；回调都空着。 */
+@Composable
+internal fun PaneShot(sessions: List<SessionSummary>, currentSessionId: String? = null, isRunning: (String) -> Boolean = { false }) {
+    ConversationSidePaneScaffold(
+        visible = true,
+        backHandlerEnabled = true,
+        onOpen = {},
+        onDismiss = {},
+        pane = { width, revealed, modifier ->
+            SessionPane(
+                width = width,
+                sessions = sessions,
+                currentSessionId = currentSessionId,
+                revealed = revealed,
+                isRunning = isRunning,
+                onNewChat = {},
+                onOpen = {},
+                onDelete = {},
+                onRename = { _, _ -> },
+                onArchive = { _, _ -> },
+                onOpenSettings = {},
+                modifier = modifier,
+            )
+        },
+    ) { Box(Modifier.fillMaxSize()) }
 }

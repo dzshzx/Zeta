@@ -15,7 +15,13 @@ healthConnect = "1.1.0"
 desugarJdkLibs = "2.1.5"
 # LSPosed 的现代模块接口（libxposed），只在编译时用，不打进 APK；手机上 LSPosed v2.2.1 加载 API 102 的模块
 libxposedApi = "102.0.0"
+# 应用自带的 SSH 客户端（远程主机直连，不经手机的 Debian）：JSch 的维护分支，纯 Java、没有依赖
+jsch = "2.28.8"
+# JSch 在 Android 上做 Ed25519、curve25519 和抗量子的密钥交换要它（系统的加密库没有 Ed25519）；JSch 只用它的轻量接口，不注册成系统的加密提供者
+bouncycastle = "1.86"
 junit = "4.13.2"
+# 测试里的 SSH 服务器：在 JVM 里起一个，直连的远程主机连它
+apache-sshd = "2.20.1"
 # 截图测试：Robolectric 在 JVM 上跑 Android（原生图形），Roborazzi 把 Compose 界面存成 PNG。
 # compose-ui-test 不能写得比应用的 Compose 高（会把测试里的 Compose 一起抬高）；写低了 Gradle 按 Compose 的原子组约束自动抬到应用的版本。android-all 是 Robolectric 4.18 对 SDK 37 用的那份系统镜像。
 robolectric = "4.18.1"
@@ -41,7 +47,10 @@ intellij-markdown = { group = "org.jetbrains", name = "markdown", version.ref = 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
+jsch = { group = "com.github.mwiede", name = "jsch", version.ref = "jsch" }
+bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+apache-sshd-core = { group = "org.apache.sshd", name = "sshd-core", version.ref = "apache-sshd" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 robolectric-android-all = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectric-android-all" }
 roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }

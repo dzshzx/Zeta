@@ -149,14 +149,14 @@ object PathCheck {
         }
     }.toList()
 
-    /** 以 Linux 用户的身份一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。 */
-    fun checkAll(config: LinuxEnvConfig, paths: List<String>, hostKey: String?): List<PathKind> {
+    /** 以 Linux 用户的身份在 [shell] 那台机器上一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。 */
+    fun checkAll(shell: LinuxShell, paths: List<String>, hostKey: String?): List<PathKind> {
         if (paths.isEmpty()) return emptyList()
-        val kinds = runCatching { LinuxEnv.run(config, command(paths, hostKey), timeoutMs = 20_000) }.getOrNull()
+        val kinds = runCatching { shell.run(command(paths, hostKey), timeoutMs = 20_000) }.getOrNull()
             ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) }
         return kinds?.takeIf { it.size == paths.size } ?: paths.map { PathKind.Unknown }
     }
 
     /** 以 Linux 用户的身份查 [path]。耗时，别在主线程调用。 */
-    fun check(config: LinuxEnvConfig, path: String, hostKey: String?): PathKind = checkAll(config, listOf(path), hostKey).single()
+    fun check(shell: LinuxShell, path: String, hostKey: String?): PathKind = checkAll(shell, listOf(path), hostKey).single()
 }

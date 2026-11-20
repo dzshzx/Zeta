@@ -155,6 +155,9 @@ fi
 [ -s "$D/pid" ] || { echo "zeta: 进程没有启动" >&2; cat "$D/err.log" >&2 2>/dev/null; exit 98; }
 P=$(cat "$D/pid")
 echo $$ > "$D/attach"
+# 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
+# 应用按这个数读到了第几行，远程主机的连接断了从下一行接着读（ClaudeProcess）；之前的行是登录 shell 打的别的东西。
+echo "{\"type\":\"zeta_attached\",\"from\":$from}"
 
 # 两头任一结束就整体退出：应用没了（输入结束）只是断开；Claude Code 没了（跟读结束）则报告退出码。
 tail -n "+$from" --pid="$P" -f "$D/out.jsonl" &
@@ -164,15 +167,9 @@ C=$!
 wait -n
 kill "$T" "$C" 2>/dev/null
 if [ -f "$D/exit" ]; then
-  python3 -c '
-import json, sys
-d = sys.argv[1]
-def read(name):
-    try:
-        return open(d + "/" + name, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return ""
-print(json.dumps({"type": "zeta_exit", "code": int(read("exit").strip() or 1), "stderr": read("err.log")[-2000:]}))
-' "$D"
+  # 退出报告一行 JSON：退出码，标准错误输出的最后 2000 字节（base64，不用转义；应用那头解码，见 ClaudeProcess 的 hostExitStderr）。
+  # 只用 coreutils，远程主机上不用装别的
+  code=$(tr -cd '0-9' < "$D/exit")
+  printf '{"type":"zeta_exit","code":%s,"stderr_base64":"%s"}\n' "${code:-1}" "$(tail -c 2000 "$D/err.log" 2>/dev/null | base64 | tr -d '\n')"
   rm -rf "$D"
 fi

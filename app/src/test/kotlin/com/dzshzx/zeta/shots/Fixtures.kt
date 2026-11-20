@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.ssh.SshKey
 
 /**
  * 截图用的假数据。界面读的是真的 [ConversationHub]：先把设置写成“环境已装好”的样子再建 hub，
@@ -26,13 +27,25 @@ object Fixtures {
         defaultCwd = "/workspace/claude",
     )
 
+    /** Zeta 直连用的密钥：单元测试里没有 Android Keystore，换成内存里的。 */
+    val sshKey: SshKey by lazy { SshKey.generate("zeta@shots") }
+
     /** 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。 */
     fun readyHub(app: Application): ConversationHub {
         Settings.of(app).env = env
-        val hub = ConversationHub(app)
+        val hub = ConversationHub(app) { sshKey }
         install(hub)
         hub.environment.setup = SetupState.Ready
         hub.environment.account = AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null)
+        return hub
+    }
+
+    /** 手机上没有 Debian 环境的 hub（[state] 是检查的结果），装成全应用共用的那个。 */
+    fun bareHub(app: Application, state: SetupState = SetupState.NoEnvironment): ConversationHub {
+        Settings.of(app).env = null
+        val hub = ConversationHub(app) { sshKey }
+        install(hub)
+        hub.environment.setup = state
         return hub
     }
 

@@ -1,8 +1,8 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
-import com.dzshzx.zeta.core.LinuxEnvConfig
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.OutputStream
@@ -39,26 +39,6 @@ sealed interface SkillImport {
     data class Exists(val name: String, val description: String) : SkillImport
 }
 
-/** 在 Linux 环境里以普通用户身份跑命令。应用里是 [EnvShell]；测试里可以换成别的（比如经 ssh 用临时 HOME）。 */
-interface LinuxShell {
-    val home: String
-
-    /** 起一个进程跑 [command]（交给登录 shell 的一段命令），调用方负责读写和收尾。 */
-    fun start(command: String): Process
-
-    /** 结束 [start] 起的进程，连同它派生的子进程。 */
-    fun kill(process: Process)
-}
-
-/** 经 su 进 Debian（[LinuxEnv]）。 */
-class EnvShell(private val config: LinuxEnvConfig) : LinuxShell {
-    override val home: String get() = config.home
-
-    override fun start(command: String): Process = LinuxEnv.start(config, command)
-
-    override fun kill(process: Process) = LinuxEnv.kill(process)
-}
-
 /**
  * 读写 Linux 环境里 Claude Code 自己的配置：~/.claude 下的记忆、Skill、Subagent、settings.json，以及经 `claude mcp` 管理的 MCP 服务器。
  * 解析、校验、路径、前言、ZIP 检查都在应用这边做（见同目录的几个文件，有单元测试）；读写文件是在 Debian 里以普通用户身份跑
@@ -69,7 +49,8 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
     companion object {
         const val MAX_TEXT = 1024 * 1024
 
-        fun of(hub: ConversationHub) = ClaudeConfigClient { hub.settings.env?.let(::EnvShell) }
+        /** 主机 [backend]（默认是侧栏正看着的那台）上的 Claude Code 配置。 */
+        fun of(hub: ConversationHub, backend: String) = ClaudeConfigClient { hub.shell(backend) }
 
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
     }

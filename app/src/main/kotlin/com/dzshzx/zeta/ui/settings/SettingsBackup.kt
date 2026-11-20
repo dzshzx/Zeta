@@ -115,6 +115,8 @@ internal object SettingsBackup {
         "commands" to "Claude Code 斜杠命令的缓存，打开对话时自动更新",
         "contextWindows" to "各模型上下文窗口的缓存，Claude Code 会重新报",
         "hostModes" to "还开着的 Claude Code 进程上的权限模式，进程没了就作废",
+        "remoteHosts" to "远程主机靠这台手机的密钥连过去（Debian 里 ~/.ssh 的，或 Zeta 直连用的、存在这台手机里的），换手机后先让那些主机认新手机的公钥再加",
+        "backend" to "侧栏正看着哪台主机，跟着远程主机的清单走",
         ScheduleAlarms.ARMED to "定时任务在这台手机上排过的闹钟，重排时据此取消已删掉的任务的闹钟；导入定时任务后会重新排",
     )
 

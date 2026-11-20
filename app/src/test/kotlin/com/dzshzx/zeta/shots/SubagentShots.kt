@@ -29,7 +29,7 @@ class SubagentShots : ShotTest() {
         "Async agent launched successfully.",
     )
 
-    /** 照 zeta_helper.py subagent 的输出喂一份记录：先说一句，读文件、搜索、跑命令，[done] 时交回报告。 */
+    /** 照 zeta-helper subagent 的输出喂一份记录：先说一句，读文件、搜索、跑命令，[done] 时交回报告。 */
     private fun log(done: Boolean): SubagentLog = SubagentLog("toolu_A").apply {
         val finished = if (done) ""","finished":true""" else ""
         val lines = buildList {

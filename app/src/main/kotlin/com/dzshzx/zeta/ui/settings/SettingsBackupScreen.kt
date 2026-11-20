@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.EnvShell
 import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.PrefsListStore
@@ -225,7 +226,7 @@ private fun readBackup(context: Context, hub: ConversationHub, uri: Uri): Import
 private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
     val config = hub.settings.env ?: return "还没有 Linux 环境，装好以后再导入这一项"
     if (config.defaultCwd == cwd) return null
-    return when (PathCheck.check(config, cwd, null)) {
+    return when (PathCheck.check(EnvShell(config), cwd, null)) {
         PathKind.Folder -> null
         PathKind.Missing -> "这台手机的 Linux 环境里没有这个目录"
         PathKind.File -> "这台手机的 Linux 环境里这是个文件，不是目录"

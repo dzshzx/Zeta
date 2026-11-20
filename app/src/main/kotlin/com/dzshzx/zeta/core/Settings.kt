@@ -114,6 +114,18 @@ class Settings private constructor(private val app: Context) {
         },
     )
 
+    /** 远程主机（JSON 数组，见 [RemoteHosts]）：经手机 Debian 里的 OpenSSH 或 Zeta 直连，上面的 Claude Code 也能在 Zeta 里用。 */
+    var remoteHosts: List<RemoteHost> by pref(
+        read = { RemoteHosts.decode(getString("remoteHosts", null)) },
+        write = { putString("remoteHosts", RemoteHosts.encode(it)) },
+    )
+
+    /**
+     * 侧栏正看着哪台主机（[Backends]）：会话列表列它的，新对话默认开在它上面。存的主机已经删掉时当作手机本机
+     * （[ConversationHub.backend]）。只在主线程上写（[ConversationHub.selectBackend]）。
+     */
+    var backend: String by pref("backend", Backends.LOCAL)
+
     /**
      * Claude Code 上次报告的斜杠命令和技能（存成 JSON 数组）：应用刚打开、还没起进程时输入栏也能提示。
      * 每次起进程按 initialize 的应答更新。

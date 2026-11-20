@@ -128,7 +128,7 @@ private val EnvLine = Regex("([A-Za-z_][A-Za-z0-9_]*)=(.*)")
 internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val cwd = hub.settings.env?.defaultCwd ?: "/"
+    val cwd = hub.defaultCwd(hub.backend)
     var servers by remember { mutableStateOf<List<McpServer>?>(null) }
     var status by remember { mutableStateOf<McpStatus?>(null) }
     var statusError by remember { mutableStateOf<String?>(null) }
@@ -352,7 +352,7 @@ private fun McpServerDetail(
 ) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val cwd = hub.settings.env?.defaultCwd ?: "/"
+    val cwd = hub.defaultCwd(hub.backend)
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loadingTools by remember(server) { mutableStateOf(false) }

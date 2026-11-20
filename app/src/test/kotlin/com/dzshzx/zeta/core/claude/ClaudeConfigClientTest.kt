@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.LinuxEnv
 import com.sun.net.httpserver.HttpServer
 import java.io.File

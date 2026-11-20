@@ -29,7 +29,6 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.NoticeItem
-import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.offerIntake
@@ -60,7 +59,7 @@ class AssistantActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         hub = ConversationHub.get(application)
-        if (hub.environment.setup != SetupState.Ready) hub.environment.checkSetup()
+        hub.onUiStarted()
         showing = true
         chat = AssistantChat(hub, captureFrom(intent))
         // ASSIST 带着问题来的（快捷方式之类，SearchManager.QUERY）：先填进输入框，由用户确认再发

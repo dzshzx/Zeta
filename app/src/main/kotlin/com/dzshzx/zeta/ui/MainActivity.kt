@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.LinuxEnv
-import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
@@ -40,6 +39,7 @@ import com.dzshzx.zeta.ui.pane.SessionReveal
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
+import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
 import com.dzshzx.zeta.ui.setup.SshScreen
 import com.dzshzx.zeta.ui.tasks.AllConversations
 import com.dzshzx.zeta.ui.tasks.BackgroundTasksScreen
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hub = ConversationHub.get(application)
         live = WeakReference(this)
-        if (hub.environment.setup != SetupState.Ready) hub.environment.checkSetup()
+        hub.onUiStarted()
         if (savedInstanceState == null && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
@@ -216,6 +216,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             onOpenSettings = { pages.open(AppPage.Settings) },
             onOpenInstall = { pages.open(AppPage.Install) },
             onOpenLogin = { pages.open(AppPage.Login) },
+            onOpenRemoteHosts = { pages.open(AppPage.RemoteHosts) },
             onOpenTasks = { pages.open(AppPage.Tasks(it)) },
             onOpenSubagent = { conversation, use -> pages.open(AppPage.Subagent(conversation, use)) },
         )
@@ -250,6 +251,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             AppPage.Ssh -> SshScreen(hub = hub, onBack = { pages.close(page) })
             AppPage.Install -> EnvInstallScreen(hub = hub, onBack = { pages.close(page) }, onOpenLogin = { pages.open(AppPage.Login) })
             AppPage.Login -> LoginScreen(hub = hub, onBack = { pages.close(page) })
+            AppPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = { pages.close(page) })
             is AppPage.Tasks -> BackgroundTasksScreen(
                 hub = hub,
                 scope = page.scope,

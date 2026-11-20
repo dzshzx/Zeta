@@ -71,6 +71,17 @@ object DiagEvents {
         }
     }
 
+    /** 和远程主机的连接断了（ClaudeProcess），第 [attempt] 次重连之前；[stderr] 是 ssh 说的原因。 */
+    fun claudeLinkLost(hostKey: String, attempt: Int, stderr: String) {
+        val detail = tail(stderr, lines = 2)
+        DiagLog.warn(DiagTopic.Claude, "和远程主机的连接断了（${hostKey.take(8)}），第 $attempt 次重连" + if (detail.isEmpty()) "" else "：$detail")
+    }
+
+    /** 断了的连接又接上了（ClaudeProcess）。 */
+    fun claudeLinkRestored(hostKey: String) {
+        DiagLog.info(DiagTopic.Claude, "重新接上远程主机上的 Claude 进程（${hostKey.take(8)}）")
+    }
+
     /** 手机工具调用的结果（PhoneTools.handle）：失败的记下来。 */
     fun phoneTool(name: String, result: JsonObject) {
         val error = toolError(result) ?: return

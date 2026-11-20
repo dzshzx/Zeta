@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import com.dzshzx.zeta.core.Conversation
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
@@ -127,7 +128,7 @@ internal object ScheduleRunner {
         // 接着原来的会话：先查出记录在哪、当时的工作目录（--resume 在原目录下才找得到），历史也一并载入
         starting.add(key)
         thread(name = "zeta-schedule", isDaemon = true) {
-            val found = hub.sessionList.find(listOf(session))
+            val found = hub.sessionList.find(listOf(session), Backends.LOCAL)
             main.post {
                 starting.remove(key)
                 val named = spec.copy(name = records.name(app, spec.id) ?: return@post)

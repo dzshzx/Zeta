@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.ImageRef
@@ -61,11 +63,15 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 图片的载入结果：null 表示还在取。 */
 private class Loaded(val bitmap: ImageBitmap?)
 
+/** 聊天页正显示的对话在哪台主机上（[Backends]）：会话记录、文件里的图片从那台取。由聊天页提供。 */
+internal val LocalBackend = staticCompositionLocalOf { Backends.LOCAL }
+
 @Composable
 private fun rememberChatImage(ref: ImageRef): Loaded? {
     val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
-    return produceState(initialValue = ImageStore.cached(ref)?.let(::Loaded), ref.key) {
-        if (value == null) value = Loaded(ImageStore.load(hub, ref))
+    val backend = LocalBackend.current
+    return produceState(initialValue = ImageStore.cached(ref, backend)?.let(::Loaded), ref.key, backend) {
+        if (value == null) value = Loaded(ImageStore.load(hub, ref, backend))
     }.value
 }
 
@@ -74,7 +80,7 @@ private fun rememberChatImage(ref: ImageRef): Loaded? {
 private fun waitsForTap(ref: ImageRef): Boolean {
     if (ref !is RemoteImage) return false
     val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
-    return !hub.settings.autoLoadRemoteImages && !ImageStore.isAllowed(ref) && ImageStore.cached(ref) == null
+    return !hub.settings.autoLoadRemoteImages && !ImageStore.isAllowed(ref) && ImageStore.cached(ref, LocalBackend.current) == null
 }
 
 @Composable

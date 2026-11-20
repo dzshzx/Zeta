@@ -49,8 +49,8 @@ private fun shortPath(path: String, home: String?): String =
 internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
     val client = rememberConfigClient(hub)
     val scope = rememberCoroutineScope()
-    val env = hub.settings.env
-    val cwd = env?.defaultCwd ?: "/"
+    val cwd = hub.defaultCwd(hub.backend)
+    val home = hub.home(hub.backend)
     var overview by remember { mutableStateOf<MemoryOverview?>(null) }
     var project by rememberSaveable { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
@@ -118,19 +118,19 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
                     }
                     if (o.customDir != null) {
                         // settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
-                        item { BasicComponent(title = "记忆目录", summary = shortPath(o.customDir, env?.home), endActions = { PreferenceValue("所有项目共用") }) }
+                        item { BasicComponent(title = "记忆目录", summary = shortPath(o.customDir, home), endActions = { PreferenceValue("所有项目共用") }) }
                     } else if (o.projects.isNotEmpty()) {
                         item {
                             val current = o.projects.firstOrNull { it.key == o.selected }
                             DropdownValuePreference(
                                 title = "项目",
-                                summary = current?.let { shortPath(it.label, env?.home) + if (it.isDefault) "（默认工作目录）" else "" },
+                                summary = current?.let { shortPath(it.label, home) + if (it.isDefault) "（默认工作目录）" else "" },
                                 value = current?.let { "${it.count} 条" },
                                 entries = listOf(
                                     DropdownEntry(
                                         items = o.projects.map {
                                             DropdownItem(
-                                                text = shortPath(it.label, env?.home) + if (it.isDefault) "（默认）" else " · ${it.count} 条",
+                                                text = shortPath(it.label, home) + if (it.isDefault) "（默认）" else " · ${it.count} 条",
                                                 selected = it.key == o.selected,
                                                 onClick = { project = it.key },
                                             )

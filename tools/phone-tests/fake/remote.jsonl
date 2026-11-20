@@ -1,0 +1,2 @@
+{"title":"假 Claude · 远程第一轮","steps":[{"text":"远程主机上的假 Claude 答第一轮。","chunk":6,"delay":30}]}
+{"title":"假 Claude · 远程第二轮","steps":[{"text":"重新连上以后答第二轮。","chunk":6,"delay":30}]}

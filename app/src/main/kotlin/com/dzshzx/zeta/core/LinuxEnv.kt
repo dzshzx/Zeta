@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core
 
 import kotlin.concurrent.thread
-import com.dzshzx.zeta.core.diag.DiagEvents
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
@@ -112,7 +111,7 @@ object LinuxEnv {
                     ProcessBuilder("su", "-c", FIND_BUSYBOX + "kt() { for c in \$(\"\$BB\" pgrep -P \"\$1\"); do kt \"\$c\"; done; kill -9 \"\$1\" 2>/dev/null; }; kt $pid").start(),
                     null,
                     5_000,
-                    killOnTimeout = false,
+                    onTimeout = Process::destroy,
                 )
             }
         }
@@ -128,21 +127,17 @@ object LinuxEnv {
     fun runRootBytes(script: String, timeoutMs: Long = 15_000): BytesResult =
         captureBytes(ProcessBuilder("su", "-c", script).start(), null, timeoutMs, drainMs = 5_000)
 
-    fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult =
-        run(config, command, stdin?.toByteArray(), timeoutMs)
+    fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult = EnvShell(config).run(command, stdin, timeoutMs)
 
-    /** 同上，标准输入是原样的字节（装 zeta-helper 时传程序本身，见 [HelperProgram]）。 */
-    fun run(config: LinuxEnvConfig, command: String, stdin: ByteArray?, timeoutMs: Long): CommandResult =
-        capture(start(config, command), stdin, timeoutMs).also { DiagEvents.linuxRun(command, it) }
-
-    private fun capture(process: Process, stdin: ByteArray?, timeoutMs: Long, killOnTimeout: Boolean = true): CommandResult =
-        captureBytes(process, stdin, timeoutMs, killOnTimeout).let { CommandResult(it.exitCode, it.stdout.toString(Charsets.UTF_8), it.stderr) }
+    /** 收齐 [process] 的输出（见 [captureBytes]），到 [timeoutMs] 还没结束就交给 [onTimeout] 结束它（默认经 root，[kill]）。 */
+    internal fun capture(process: Process, stdin: ByteArray?, timeoutMs: Long, onTimeout: (Process) -> Unit = ::kill): CommandResult =
+        captureBytes(process, stdin, timeoutMs, onTimeout).let { CommandResult(it.exitCode, it.stdout.toString(Charsets.UTF_8), it.stderr) }
 
     /**
-     * 收齐 [process] 的输出：到 [timeoutMs] 还没结束就经 root 结束它（[kill]），结果标成超时。
+     * 收齐 [process] 的输出：到 [timeoutMs] 还没结束就交给 [onTimeout] 结束它（默认经 root，[kill]），结果标成超时。
      * 进程结束后再等读输出的线程最多 [drainMs]，管道里剩下的读完。
      */
-    private fun captureBytes(process: Process, stdin: ByteArray?, timeoutMs: Long, killOnTimeout: Boolean = true, drainMs: Long = 2_000): BytesResult {
+    private fun captureBytes(process: Process, stdin: ByteArray?, timeoutMs: Long, onTimeout: (Process) -> Unit = ::kill, drainMs: Long = 2_000): BytesResult {
         val out = ByteArrayOutputStream()
         val err = StringBuilder()
         val t1 = Thread { runCatching { process.inputStream.use { it.copyTo(out) } } }.apply { start() }
@@ -151,7 +146,7 @@ object LinuxEnv {
             process.outputStream.use { if (stdin != null) it.write(stdin) }
         }
         if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
-            if (killOnTimeout) kill(process) else process.destroy()
+            onTimeout(process)
             return BytesResult(-1, out.toByteArray(), CommandResult.TIMEOUT)
         }
         t1.join(drainMs)

@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AndroidCache
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.CleanOutcome
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ImageStore
@@ -351,7 +352,7 @@ private fun ProjectSessionsScreen(hub: ConversationHub, project: ProjectUsage, o
         // 不在侧栏最近 300 个里的，按 id 取一次标题（最多取前 100 个）
         val missing = result.first.map { it.id }.filter { it !in summaries }.take(100)
         if (missing.isNotEmpty()) {
-            val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing) }.orEmpty()
+            val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing, Backends.LOCAL) }.orEmpty()
             summaries = summaries + found.associateBy { it.id }
         }
     }

@@ -18,12 +18,13 @@ private val processField = Conversation::class.java.getDeclaredField("process").
  */
 internal fun Conversation.attachLiveProcess(hub: ConversationHub) {
     val connection = ClaudeProcess(
-        config = checkNotNull(hub.settings.env),
+        shell = checkNotNull(hub.shell(backend)),
         hostScript = hub.hostScript,
         hostKey = "test-live",
         launch = ClaudeProcess.Launch.Attach(fromLine = 1),
         onEvent = {},
-        onExit = { _, _ -> },
+        onExit = {},
+        reconnect = false,
     )
     processField.set(this, connection)
 }
@@ -39,4 +40,13 @@ internal fun Conversation.answer(subtype: String, response: String, success: Boo
         if (success) """{"type":"control_response","response":{"subtype":"success","request_id":"$id","response":$response}}"""
         else """{"type":"control_response","response":{"subtype":"error","request_id":"$id","error":"refused"}}""",
     )
+}
+
+/** 每 0.1 秒看一次 [condition]，最多等 [seconds] 秒；等到了返回 true。 */
+internal fun waitUntil(seconds: Int, condition: () -> Boolean): Boolean {
+    repeat(seconds * 10) {
+        if (condition()) return true
+        Thread.sleep(100)
+    }
+    return false
 }

@@ -69,6 +69,7 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.Conversation
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
@@ -79,6 +80,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
+import com.dzshzx.zeta.ui.pane.HostSwitcher
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -128,6 +130,8 @@ internal fun ChatScreen(
     onOpenSettings: () -> Unit,
     onOpenInstall: () -> Unit,
     onOpenLogin: () -> Unit,
+    /** 打开远程主机设置页（手机上没有 Debian 环境时连远程主机）。 */
+    onOpenRemoteHosts: () -> Unit = {},
     /** 打开后台任务面板，参数是对话的 key。 */
     onOpenTasks: (String) -> Unit = {},
     /** 打开子代理查看页：对话的 key、发起子代理的那一步（tool_use id）。 */
@@ -137,6 +141,8 @@ internal fun ChatScreen(
     val colors = COUITheme.colorScheme
     val find = remember(conversation) { ChatFindState() }
     val listState = remember(conversation) { LazyListState() }
+    // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
+    val usable = hub.usable(conversation.backend)
     val blur = rememberPageBlur()
     // 结束还在进行的对话要先确认：会停掉在做的事
     var confirmingEnd by remember(conversation) { mutableStateOf(false) }
@@ -149,15 +155,16 @@ internal fun ChatScreen(
             PageBlurHost(blur) {
                 ChatTopBar(
                     conversation = conversation,
+                    host = hub.backendName(conversation.backend).takeIf { conversation.backend != Backends.LOCAL },
                     models = hub.modelOptions,
                     backdrop = blur.backdrop,
-                    listState = listState.takeIf { hub.environment.setup == SetupState.Ready },
+                    listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
                     onEnd = { if (conversation.active) confirmingEnd = true else hub.endCurrent() }
                         .takeIf { hub.environment.setup == SetupState.Ready && (conversation.sessionId != null || conversation.items.isNotEmpty()) },
                     onOpenSettings = onOpenSettings,
-                    onFind = find::open.takeIf { hub.environment.setup == SetupState.Ready && conversation.items.isNotEmpty() },
+                    onFind = find::open.takeIf { usable && conversation.items.isNotEmpty() },
                 )
             }
         },
@@ -169,23 +176,30 @@ internal fun ChatScreen(
                 .background(colors.background),
         ) {
             PageBlurHost(blur) {
-                when (hub.environment.setup) {
+                when {
                     // 换对话时这一块整个重建：ConversationBody 里记住的东西（草稿、消息操作、列表项和输入栏各控件的状态）都从头来
-                    SetupState.Ready -> key(conversation) {
-                        CompositionLocalProvider(LocalTextFinder provides find) {
+                    usable -> key(conversation) {
+                        CompositionLocalProvider(LocalTextFinder provides find, LocalBackend provides conversation.backend) {
                             ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks, onOpenSubagent)
                         }
                     }
-                    SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
-                    SetupState.NoRoot -> SetupMessage(
+                    hub.environment.setup == SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
+                    hub.environment.setup == SetupState.NoRoot -> SetupMessage(
                         padding,
                         "需要 root 权限",
-                        "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试。",
-                    ) { TextButton(text = "重试", onClick = hub.environment::checkSetup) }
-                    SetupState.NoEnvironment -> SetupMessage(
+                        "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试；" +
+                            "也可以连远程主机上的 Claude Code。",
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RemoteChoice(hub, onOpenRemoteHosts)
+                            TextButton(text = "重试", onClick = hub.environment::checkSetup)
+                        }
+                    }
+                    else -> SetupMessage(
                         padding,
                         "还没有 Linux 环境",
-                        "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境。",
+                        "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境；" +
+                            "也可以不装，直接连远程主机上的 Claude Code。",
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             TextButton(
@@ -193,6 +207,7 @@ internal fun ChatScreen(
                                 onClick = onOpenInstall,
                                 colors = ButtonDefaults.textButtonColorsPrimary(),
                             )
+                            RemoteChoice(hub, onOpenRemoteHosts)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 TextButton(text = "打开设置", onClick = onOpenSettings)
                                 TextButton(text = "重试", onClick = hub.environment::checkSetup)
@@ -232,6 +247,8 @@ private val GlowRevealDistance = 30.dp
 @Composable
 private fun ChatTopBar(
     conversation: Conversation,
+    /** 对话在远程主机上时是那台的名字，标题下面和模型写在一起；手机本机的是 null。 */
+    host: String?,
     models: List<ModelOption>,
     backdrop: LayerBackdrop?,
     listState: LazyListState?,
@@ -274,8 +291,18 @@ private fun ChatTopBar(
                 .padding(horizontal = 72.dp),
             contentAlignment = Alignment.Center,
         ) {
-            ChatHeader(conversation = conversation, models = models)
+            ChatHeader(conversation = conversation, host = host, models = models)
         }
+    }
+}
+
+/** 手机本机用不了时连远程主机：已经加过的话给主机胶囊换过去，没加过给去加的按钮。 */
+@Composable
+private fun RemoteChoice(hub: ConversationHub, onOpenRemoteHosts: () -> Unit) {
+    if (hub.settings.remoteHosts.isEmpty()) {
+        TextButton(text = "连接远程主机", onClick = onOpenRemoteHosts)
+    } else {
+        HostSwitcher(hub)
     }
 }
 
@@ -334,7 +361,7 @@ private fun ConversationBody(
     val pathAttach = remember { PathAttach() }
     // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读。
     // 读图片、复制文件在草稿那边跑，切到别的对话也会做完，落进这份草稿
-    val sink = remember { IntakeSink(hub, context, hub.drafts.scope, draft, MaxAttachments) }
+    val sink = remember { IntakeSink(hub, context, hub.drafts.scope, draft, MaxAttachments, conversation.backend) }
     // 编辑、重新生成、删除一轮、分支
     val actions = remember { MessageActions(hub, conversation, draft, scope, context) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> sink.addImages(uris) }
@@ -346,7 +373,7 @@ private fun ConversationBody(
         hub.incoming = null
         sink.accept(incoming)
     }
-    val home = hub.settings.env?.home
+    val home = hub.home(conversation.backend)
     val imagesOf = remember(conversation.cwd, home) { { text: String -> answerImages(text, conversation.cwd, home) } }
     // 贴底跟随：内容增长时自动滚到底；用户向上拖动后停止，回到底部或点按钮后恢复
     val follow = rememberFollowBottom(listState)
@@ -386,8 +413,10 @@ private fun ConversationBody(
             when {
                 conversation.loadingHistory -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { TypingIndicator() }
                 items.isEmpty() -> EmptyState(
+                    hub = hub,
                     cwd = conversation.cwd,
-                    needsLogin = hub.environment.account?.loggedIn == false,
+                    // 登录状态查的是手机上的 Claude Code；远程主机上的登没登录，发了才知道
+                    needsLogin = conversation.backend == Backends.LOCAL && hub.environment.account?.loggedIn == false,
                     onLogin = onOpenLogin,
                     onSuggestion = {
                         conversation.send(it)
@@ -530,14 +559,15 @@ private fun ConversationBody(
                 enabled = !conversation.loadingHistory && !conversation.rewinding,
                 attachments = attachments,
                 files = uploads,
-                commands = hub.settings.commands,
+                commands = conversation.commands ?: hub.settings.commands.takeIf { conversation.backend == Backends.LOCAL }.orEmpty(),
                 onPickImages = {
                     if (attachments.size < MaxAttachments) {
                         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
                 },
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
-                onPickFolder = pathAttach::openFolder,
+                // 手机上的文件夹只有手机本机的 Debian 绑得进去
+                onPickFolder = pathAttach::openFolder.takeIf { conversation.backend == Backends.LOCAL },
                 onEnterPath = pathAttach::openPath,
                 onOpenPrompts = prompts::open,
                 onRemoveAttachment = { attachments.remove(it) },
@@ -653,7 +683,7 @@ private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = M
  * 菜单只直接列各系列最新的，旧版本收进「更多模型」二级菜单（[choiceEntries]）；选的是旧版本时那一项下面写着它。
  */
 @Composable
-private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
+private fun ChatHeader(conversation: Conversation, host: String?, models: List<ModelOption>) {
     val colors = COUITheme.colorScheme
     val selected = conversation.model ?: Conversation.DEFAULT_MODEL.takeUnless { conversation.modelFromSession }
     val modelName = modelLabel(conversation.shownModel, models)
@@ -681,7 +711,13 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = modelName, style = COUITheme.textStyles.bodyXS, color = colors.labelSecondary, maxLines = 1)
+                    Text(
+                        text = host?.let { "$it · $modelName" } ?: modelName,
+                        style = COUITheme.textStyles.bodyXS,
+                        color = colors.labelSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Icon(ZetaIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(13.dp), tint = colors.labelTertiary)
                 }
             }
@@ -737,6 +773,7 @@ private val Suggestions = listOf(
 
 @Composable
 private fun EmptyState(
+    hub: ConversationHub,
     cwd: String,
     needsLogin: Boolean,
     onLogin: () -> Unit,
@@ -751,6 +788,8 @@ private fun EmptyState(
         Column(modifier = Modifier.align(Alignment.Center).padding(bottom = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "有什么可以帮你？", style = COUITheme.textStyles.displayXS, color = colors.labelPrimary)
             Spacer(Modifier.height(8.dp))
+            // 加过远程主机时：这个新对话开在哪台主机上，点开换一台
+            HostSwitcher(hub, modifier = Modifier.padding(bottom = 4.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clip(CircleShape).clickable {
@@ -813,7 +852,7 @@ private fun EmptyState(
     TextInputDialog(
         show = editingCwd,
         title = "工作目录",
-        summary = "这个对话在 Debian 里的哪个目录下进行",
+        summary = if (hub.backend == Backends.LOCAL) "这个对话在 Debian 里的哪个目录下进行" else "这个对话在「${hub.backendName(hub.backend)}」上的哪个目录下进行",
         value = cwdDraft,
         onValueChange = { cwdDraft = it },
         label = "/workspace",

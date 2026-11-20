@@ -2,6 +2,8 @@ package com.dzshzx.zeta.core
 
 import java.io.File
 import java.nio.file.Files
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -58,6 +60,31 @@ class HostStderrTest {
         assertTrue(text, text.contains("fatal: something broke"))
         // 托管目录照常由下一次接上或 hosts 清理，这里只核对它不在 hosts 下面
         assertTrue(file.parentFile!!.path.endsWith("/.cache/$name/stderr"))
+    }
+
+    /** 接着的一方见到进程已结束：报一行 zeta_exit，带退出码和标准错误输出的最后一段（base64，引号、反斜杠、中文原样还原）。 */
+    @Test
+    fun exitReportCarriesCodeAndStderr() {
+        fakeClaude("""printf '%s\n' '出错了："引号" \ 反斜杠' >&2; exit 3""")
+        val started = HostTesting.run(home, listOf("bash", host.path, "start", "k-exit", home.path, "t", "-p"), HostTesting.named(name))
+        val dir = File(home, ".cache/$name/hosts/k-exit")
+        // 起进程的那一头可能已经见到它结束、报过了；没报的话等它结束再接上一次
+        val out = started.takeIf { "zeta_exit" in it } ?: run {
+            assertTrue("进程没有结束", HostTesting.waitUntil(10) { File(dir, "exit").exists() })
+            HostTesting.run(home, listOf("bash", host.path, "attach", "k-exit", "1"), HostTesting.named(name))
+        }
+        val report = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single { it.str("type") == "zeta_exit" }
+        assertEquals(3, report.int("code"))
+        assertEquals("出错了：\"引号\" \\ 反斜杠\n", hostExitStderr(report))
+        assertTrue("报完删掉托管目录", !dir.exists())
+    }
+
+    @Test
+    fun exitStderrDropsAHalfCharacterAtTheCut() {
+        val bytes = "好的".toByteArray()
+        val cut = java.util.Base64.getEncoder().encodeToString(bytes.copyOfRange(1, bytes.size))
+        assertEquals("的", hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1,"stderr_base64":"$cut"}""").jsonObject))
+        assertEquals("", hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1}""").jsonObject))
     }
 
     @Test

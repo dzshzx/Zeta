@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionSummary
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
     val scope = rememberCoroutineScope()
     // 选保存位置时界面可能被系统重建：要导出的记录文件（一行一个）和是不是多选导出记在可保存的状态里
     var savingFiles by rememberSaveable { mutableStateOf<String?>(null) }
+    var savingBackend by rememberSaveable { mutableStateOf(Backends.LOCAL) }
     var savingBatch by rememberSaveable { mutableStateOf(false) }
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
         val files = savingFiles?.split('\n')?.filter { it.isNotEmpty() }
@@ -51,7 +53,7 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
         if (uri == null || files.isNullOrEmpty()) return@rememberLauncherForActivityResult
         if (batch) onSavedMany()
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { saveExport(context, hub, files, uri) }
+            val saved = withContext(Dispatchers.IO) { saveExport(context, hub, savingBackend, files, uri) }
             val message = when {
                 saved == 0 -> "导出失败"
                 files.size == 1 -> "已导出"
@@ -63,7 +65,9 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
     }
     fun launch(sessions: List<SessionSummary>, batch: Boolean) {
         if (sessions.isEmpty()) return
+        // 一次导出的都在侧栏同一台主机上
         savingFiles = sessions.joinToString("\n") { it.file }
+        savingBackend = sessions[0].backend
         savingBatch = batch
         val name = if (sessions.size == 1) {
             exportFileName(sessions[0].title.ifBlank { sessions[0].preview.take(40) }.ifBlank { "未命名对话" })
@@ -80,8 +84,8 @@ internal fun rememberSessionExporter(hub: ConversationHub, onSavedMany: () -> Un
 }
 
 /** 导出 [files] 写进 [uri]，返回导出成的会话数；一个都没成（或没写进文件）返回 0。 */
-private fun saveExport(context: Context, hub: ConversationHub, files: List<String>, uri: Uri): Int {
-    val exported = exportMarkdowns(hub, files).orEmpty()
+private fun saveExport(context: Context, hub: ConversationHub, backend: String, files: List<String>, uri: Uri): Int {
+    val exported = exportMarkdowns(hub, backend, files).orEmpty()
     if (exported.isEmpty()) {
         // 一个都没导出来：系统已经建好的那个空文件也删掉，免得留下一个空的 .md
         context.discardDocument(uri)
@@ -92,7 +96,7 @@ private fun saveExport(context: Context, hub: ConversationHub, files: List<Strin
 }
 
 private suspend fun shareExport(context: Context, hub: ConversationHub, session: SessionSummary) {
-    val exported = withContext(Dispatchers.IO) { exportMarkdown(hub, session.file) }
+    val exported = withContext(Dispatchers.IO) { exportMarkdown(hub, session.backend, session.file) }
     when {
         exported == null -> Toast.makeText(context, "导出失败", Toast.LENGTH_LONG).show()
         exported.markdown.length > MaxShareChars -> Toast.makeText(context, "对话太长，没法直接分享，请保存到文件", Toast.LENGTH_LONG).show()

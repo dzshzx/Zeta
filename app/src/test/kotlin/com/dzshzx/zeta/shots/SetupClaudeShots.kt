@@ -88,7 +88,7 @@ class SetupClaudeShots : ShotTest() {
             onNode(hasSetTextAction()).performTextInput("回答用中文。\n改代码前先说明打算怎么改。")
         }) {
             ConfigDocumentEditor(
-                client = ClaudeConfigClient.of(hub),
+                client = ClaudeConfigClient.of(hub, hub.backend),
                 path = "/home/dzshzx/.claude/CLAUDE.md",
                 title = "用户指令",
                 fileLabel = "CLAUDE.md",

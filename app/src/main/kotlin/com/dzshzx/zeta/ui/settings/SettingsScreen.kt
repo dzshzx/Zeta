@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.browser.BrowserActivity
@@ -27,6 +28,7 @@ import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
 import com.dzshzx.zeta.ui.setup.ClaudeSkillsScreen
+import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
 import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import com.dzshzx.zeta.ui.setup.claudeConfigItems
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -66,6 +68,7 @@ internal fun SettingsScreen(
                 SettingsSubPage.ToolPermissions -> ToolPermissionsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
                 SettingsSubPage.DefaultEffort -> DefaultEffortScreen(hub = hub, onBack = close)
+                SettingsSubPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = close)
                 // 打开某次运行的对话：设置页整个关掉，回到聊天页
                 SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
                 SettingsSubPage.NotifyTriggers -> NotifyTriggerScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
@@ -89,12 +92,18 @@ private fun SettingsHome(
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    val ready = hub.environment.setup == SetupState.Ready && hub.settings.env != null
+    // 侧栏正看着的那台能用：要靠 Debian 的主机等它就绪，直连的远程主机不用
+    val ready = hub.usable(hub.backend)
     // 默认值可能在终端里改过（/model、/effort 存为默认）：每次打开都重读
     LaunchedEffect(ready) { if (ready) hub.refreshClaudeDefaults() }
+    // 侧栏切到了远程主机：Claude Code 的默认值和配置读写的是那台上的；账号、定时任务、通知触发还是手机上的
+    val remote = hub.backend.takeIf { it != Backends.LOCAL }?.let(hub::backendName)
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
         item(key = "claude") {
-            PreferenceGroup(title = "Claude", footer = ClaudeDefaultsFooter) {
+            PreferenceGroup(
+                title = if (remote == null) "Claude" else "Claude · $remote",
+                footer = ClaudeDefaultsFooter + if (remote == null) "" else "这几项读写的是「$remote」上的 Claude Code；账号是手机上的。",
+            ) {
                 item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
                 item { DefaultModelPreference(hub) { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) } }
                 item { DefaultPermissionModePreference(hub) { SettingsIcon(ZetaIcons.ShieldA, SettingsHue.Claude) } }
@@ -102,7 +111,10 @@ private fun SettingsHome(
             }
         }
         item(key = "context") {
-            PreferenceGroup(title = "上下文与扩展") {
+            PreferenceGroup(
+                title = "上下文与扩展",
+                footer = remote?.let { "记忆、Skills、MCP、Subagent 和工具权限读写的是「$it」上的；定时任务和通知触发在手机上跑。" },
+            ) {
                 item { AutoCompactSwitch(hub) }
                 item { CompactTimingPreference(hub) }
                 item { AutoTitleSwitch(hub) }
@@ -130,6 +142,14 @@ private fun SettingsHome(
                     )
                 }
                 item { LinuxEntry(hub, onOpenLinux) }
+                item {
+                    ArrowPreference(
+                        title = "远程主机",
+                        startAction = { SettingsIcon(ZetaIcons.Server, SettingsHue.Files) },
+                        endActions = { PreferenceValue(hub.settings.remoteHosts.size.takeIf { it > 0 }?.let { "$it 台" } ?: "未添加") },
+                        onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
+                    )
+                }
             }
         }
         item(key = "general") {

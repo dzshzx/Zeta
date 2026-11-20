@@ -50,6 +50,8 @@ class Conversation(
     external: Boolean = false,
     /** 从别的会话分支出来、还没发过消息的新对话。 */
     private val fork: Fork? = null,
+    /** Claude Code 跑在哪台主机上（[Backends]）：手机里的 Debian 或某台远程主机。一个对话从头到尾都在同一台上。 */
+    val backend: String = Backends.LOCAL,
 ) {
     /** 界面用的稳定标识；会话还没建立（没有 sessionId）时也要能区分。 */
     val key: String = sessionId ?: "new-" + UUID.randomUUID()
@@ -199,12 +201,26 @@ class Conversation(
     var steering by mutableStateOf(false)
         private set
 
+    /**
+     * 这个对话的 Claude Code 报的斜杠命令和技能（initialize 的应答）；还没起过进程时为 null，
+     * 输入栏这时用存下来的手机本机那份（[Settings.commands]），远程主机上的就先不提示。
+     */
+    var commands by mutableStateOf<List<SlashCommand>?>(null)
+        private set
+
     /** 撤回的排队消息，等输入框取走（[takeRecalled]）。 */
     var recalled by mutableStateOf<QueuedMessage?>(null)
         private set
 
     /** 进行中的临时状态（比如网络出错正在重试），显示在等待指示旁边。 */
     var status by mutableStateOf<String?>(null)
+        private set
+
+    /**
+     * 和远程主机的连接断了、正在重连（见 [ClaudeProcess]）。这时那边的进程照样在跑，这边只是等着：
+     * 不为它持有唤醒锁，离线几个小时也不费电（[ConversationHub.onActivityChanged]）。
+     */
+    var offline by mutableStateOf(false)
         private set
 
     /** 最近一次收到进程输出（或发出消息）的时间，界面据此显示“已等待多久”。 */
@@ -269,16 +285,17 @@ class Conversation(
 
     /** 接上后台进程：从日志里上次读到的位置继续，并恢复还没答复的确认请求。 */
     private fun startAttached(host: HostInfo) {
-        val config = hub.settings.env ?: return
+        val shell = hub.shell(backend) ?: return
         lateinit var created: ClaudeProcess
         created = try {
             ClaudeProcess(
-                config = config,
+                shell = shell,
                 hostScript = hub.hostScript,
                 hostKey = host.key,
                 launch = ClaudeProcess.Launch.Attach(host.lines + 1),
                 onEvent = { event -> enqueue(created, event) },
-                onExit = { code, stderr -> main.post { onProcessExit(created, code, stderr) } },
+                onExit = { exit -> main.post { onProcessExit(created, exit) } },
+                onLink = { link -> main.post { onLinkChanged(created, link) } },
             )
         } catch (error: Exception) {
             endTurnState()
@@ -296,10 +313,13 @@ class Conversation(
     }
 
     private fun loadHistory(file: String, attach: HostInfo?) {
-        val config = hub.settings.env ?: run { loadingHistory = false; return }
+        if (hub.shell(backend) == null) {
+            loadingHistory = false
+            return
+        }
         thread(name = "zeta-history", isDaemon = true) {
             val loaded = TranscriptReducer("h")
-            val result = hub.helper("history", listOf(file), timeoutMs = 60_000, config = config)
+            val result = hub.helper("history", listOf(file), timeoutMs = 60_000, backend = backend)
             // 没读成时历史是空的，下面另加一条出错提示
             val read = HistoryPaging.read(result.outputOrNull.orEmpty(), file, loaded, keepRunningTools = attach?.busy == true)
             main.post {
@@ -332,12 +352,12 @@ class Conversation(
     fun loadEarlier(rest: Boolean = false) {
         val window = earlier ?: return
         if (earlierState == EarlierState.Loading || loadingHistory) return
-        val config = hub.settings.env ?: return
+        if (hub.shell(backend) == null) return
         earlierState = EarlierState.Loading
         thread(name = "zeta-history-page", isDaemon = true) {
             // 各页的条目编号按页的位置错开（每页的位置都不同）
             val page = TranscriptReducer("p${window.skipped}-")
-            val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, config = config)
+            val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, backend = backend)
             val read = result.outputOrNull?.let { HistoryPaging.read(it, window.file, page) }
             val failure = (result as? HelperResult.Failed)?.let { "没有读到更早的记录：" + it.reason.takeLast(200) }
             main.post { applyEarlier(page.items, read, failure) }
@@ -705,8 +725,10 @@ class Conversation(
             hub.models = list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
         }
         response.arr("commands")?.let { list ->
-            val commands = parseSlashCommands(list)
-            hub.settings.commands = commands
+            val parsed = parseSlashCommands(list)
+            commands = parsed
+            // 存下来给还没起进程的对话提示用的那份只记手机本机的：远程主机上装的 Skills、命令不一样
+            if (backend == Backends.LOCAL) hub.settings.commands = parsed
         }
         response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }
@@ -715,14 +737,15 @@ class Conversation(
     private fun queryUsage(target: ClaudeProcess) {
         target.request(controlBody("get_context_usage")) { meter.contextUsageAnswered(it) }
         querySettings(target)
-        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次
-        if (hub.quota.claimAutoQuery()) queryQuota(target)
+        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次。只问手机本机的：远程主机上登录的可能是别的账号
+        if (backend == Backends.LOCAL && hub.quota.claimAutoQuery()) queryQuota(target)
     }
 
     private fun querySettings(target: ClaudeProcess) = target.request(controlBody("get_settings")) { meter.settingsAnswered(it) }
 
-    /** 借这个对话开着的进程问一次订阅额度，应答交给 QuotaService；没有进程时返回 false。 */
+    /** 借这个对话开着的进程问一次订阅额度，应答交给 QuotaService；没有进程、或在远程主机上（账号可能不同）时返回 false。 */
     internal fun queryQuota(): Boolean {
+        if (backend != Backends.LOCAL) return false
         queryQuota(process ?: return false)
         return true
     }
@@ -826,9 +849,8 @@ class Conversation(
      */
     suspend fun refreshSubagent(log: SubagentLog) {
         if (log.reading) return
-        val config = hub.settings.env
         val sessions = subagents.sessions(listOfNotNull(sessionId, fork?.source))
-        if (config == null || sessions.isEmpty()) {
+        if (hub.shell(backend) == null || sessions.isEmpty()) {
             publishSubagent(log)
             return
         }
@@ -839,7 +861,7 @@ class Conversation(
         ) + sessions
         log.reading = true
         val result = try {
-            withContext(Dispatchers.IO) { hub.helper("subagent", arguments, timeoutMs = 30_000, config = config) }
+            withContext(Dispatchers.IO) { hub.helper("subagent", arguments, timeoutMs = 30_000, backend = backend) }
         } finally {
             log.reading = false
         }
@@ -866,6 +888,7 @@ class Conversation(
     fun shutdown() {
         val current = process ?: return
         process = null
+        offline = false
         finishRewind("对话已关闭")
         current.stop()
         phone.detach()
@@ -877,9 +900,9 @@ class Conversation(
     private fun ensureProcess(mode: String? = modes.forUser): ClaudeProcess? {
         process?.let { return it }
         modes.processStarted(mode)
-        val config = hub.settings.env
-        if (config == null) {
-            reducer.addNotice("还没有配置 Linux 环境，请到设置里检查", error = true)
+        val shell = hub.shell(backend)
+        if (shell == null) {
+            reducer.addNotice(hub.unavailable(backend) ?: "用不了这台主机", error = true)
             publish()
             return null
         }
@@ -889,12 +912,13 @@ class Conversation(
         lateinit var created: ClaudeProcess
         created = try {
             ClaudeProcess(
-                config = config,
+                shell = shell,
                 hostScript = hub.hostScript,
                 hostKey = UUID.randomUUID().toString(),
                 launch = ClaudeProcess.Launch.Start(cwd, title, arguments, AutoCompact.env(autoCompact, compactPercent)),
                 onEvent = { event -> enqueue(created, event) },
-                onExit = { code, stderr -> main.post { onProcessExit(created, code, stderr) } },
+                onExit = { exit -> main.post { onProcessExit(created, exit) } },
+                onLink = { link -> main.post { onLinkChanged(created, link) } },
             )
         } catch (error: Exception) {
             reducer.addNotice("启动失败：${error.message}", error = true)
@@ -948,7 +972,7 @@ class Conversation(
         val usageBefore = meter.version
         for (event in events) {
             meter.observe(event)
-            hub.quota.observe(event)
+            if (backend == Backends.LOCAL) hub.quota.observe(event)
             changed = handle(event, now) || changed
         }
         if (meter.version != usageBefore) publishUsage()
@@ -1143,10 +1167,28 @@ class Conversation(
         publish()
     }
 
-    private fun onProcessExit(source: ClaudeProcess, code: Int, stderr: String) {
+    /**
+     * 远程主机的连接断了、正在重连，或者又接上了：在等待指示旁边说一声，断着时不算在干活（[offline]）。
+     * 状态都还在（这一轮、等批准的请求、排队的消息），接上后照常继续。
+     */
+    private fun onLinkChanged(source: ClaudeProcess, link: ProcessLink) {
         if (source !== process) return
+        offline = link is ProcessLink.Reconnecting
+        status = when (link) {
+            ProcessLink.Connected -> null
+            is ProcessLink.Reconnecting -> "和「${hub.backendName(backend)}」的连接断了，正在重连" +
+                (if (link.attempt > 1) "（第 ${link.attempt} 次）" else "") + link.reason.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
+        }
+        hub.onActivityChanged()
+    }
+
+    private fun onProcessExit(source: ClaudeProcess, exit: ProcessExit) {
+        if (source !== process) return
+        val code = exit.code
+        val stderr = exit.stderr
         drain()
         process = null
+        offline = false
         finishRewind("Claude Code 进程退出了")
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
@@ -1157,7 +1199,7 @@ class Conversation(
         if (wasBusy || code != 0) {
             val detail = stderr.trim().takeLast(600)
             reducer.addNotice(
-                when {
+                hub.linkProblem(backend, code, stderr) ?: when {
                     detail.contains("zeta: rootfs not found") -> "找不到 Debian 环境，请到设置里检查 rootfs 路径"
                     detail.contains("zeta: busybox not found") -> "找不到 root 管理器自带的 BusyBox"
                     code == 1 && detail.isEmpty() && sessionId == null -> "Claude Code 没能启动。请确认已在 root 管理器里给 Zeta 授权"

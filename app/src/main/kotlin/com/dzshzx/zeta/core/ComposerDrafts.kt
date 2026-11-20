@@ -59,7 +59,12 @@ class ComposerDraft internal constructor(text: String = "", selection: TextRange
  * - 删除会话时连同草稿一起删（[forget]）。
  * - 存盘有上限（[DraftRecords.fit]）：草稿数、文字总长、图片总大小，超了先丢最久没动的。
  */
-class ComposerDrafts(context: Context, private val settings: Settings) {
+class ComposerDrafts(
+    context: Context,
+    private val settings: Settings,
+    /** 在主机（[Backends]）上跑命令的入口（[ConversationHub.shell]），查草稿里的文件还在不在用；没就绪时为 null。 */
+    private val shellFor: (String) -> LinuxShell?,
+) {
     private val imageDir = File(context.applicationContext.filesDir, "drafts")
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -95,16 +100,20 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
         }
     }
 
-    /** 对话 [conversation] 的输入栏用的那份。还没开始的新对话拿共用的那份（见类说明）。 */
+    /**
+     * 对话 [conversation] 的输入栏用的那份。还没开始的新对话拿共用的那份（见类说明）；
+     * 新对话换到了别的主机上时，复制进上一台主机、引用那台主机上路径的附件去掉（文字、图片照留）。
+     */
     fun of(conversation: Conversation): ComposerDraft {
         fresh?.let { if (freshOwner === conversation) return it }
         if (conversation.notStarted) {
-            val draft = fresh ?: (records[NEW]?.let(::restore) ?: ComposerDraft()).also { fresh = it }
+            val draft = fresh ?: (records[NEW]?.let { restore(it, conversation.backend) } ?: ComposerDraft()).also { fresh = it }
+            if (freshOwner != null && freshOwner?.backend != conversation.backend) draft.uploads.clear()
             freshOwner = conversation
             return draft
         }
         val id = conversation.sessionId ?: return unsaved.getOrPut(conversation.key) { ComposerDraft() }
-        return live.getOrPut(id) { records[id]?.let(::restore) ?: ComposerDraft() }
+        return live.getOrPut(id) { records[id]?.let { restore(it, conversation.backend) } ?: ComposerDraft() }
     }
 
     /** 侧栏用：会话 [sessionId] 有没发出的草稿时，草稿开头的一行（可观察）。 */
@@ -200,7 +209,7 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
     }
 
     /** 存盘的草稿重新做成输入栏用的那份。文字和路径马上就有；图片读回来、复制进 Linux 的文件确认还在，之后再补上或去掉。 */
-    private fun restore(record: DraftRecord): ComposerDraft {
+    private fun restore(record: DraftRecord, backend: String): ComposerDraft {
         val draft = ComposerDraft(record.text, TextRange(record.selectionStart, record.selectionEnd))
         for (file in record.files) draft.uploads += FileUpload(UUID.randomUUID().toString(), file.label).also { it.path = file.entry }
         val copied = record.files.map { it.entry }.filterNot(AttachedPaths::isReference)
@@ -213,10 +222,10 @@ class ComposerDrafts(context: Context, private val settings: Settings) {
                 }
             }
             draft.attachments.addAll(0, images.filter { image -> draft.attachments.none { it.id == image.id } })
-            val config = settings.env
-            val missing = if (config == null || copied.isEmpty()) emptySet() else withContext(Dispatchers.IO) {
-                // 查不成（进不了环境）时当作都还在
-                copied.zip(PathCheck.checkAll(config, copied.map(AttachedPaths::path), hostKey = null)).filter { it.second == PathKind.Missing }.map { it.first }.toSet()
+            val shell = shellFor(backend)
+            val missing = if (shell == null || copied.isEmpty()) emptySet() else withContext(Dispatchers.IO) {
+                // 查不成（进不了环境、连不上）时当作都还在
+                copied.zip(PathCheck.checkAll(shell, copied.map(AttachedPaths::path), hostKey = null)).filter { it.second == PathKind.Missing }.map { it.first }.toSet()
             }
             if (missing.isNotEmpty()) draft.uploads.removeAll { it.path in missing }
             // 读不回来的图片、已经不在的文件，存着的那份也去掉；读回来之前存过一次的，把图片补回去

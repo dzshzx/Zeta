@@ -46,6 +46,8 @@ internal class IntakeSink(
     private val scope: CoroutineScope,
     private val draft: ComposerDraft,
     private val maxImages: Int,
+    /** 对话在哪台主机上（[Backends]）：文件复制到那台上。 */
+    private val backend: String,
 ) {
     /** 没有加进来的东西和原因，一条一句。 */
     var problems by mutableStateOf<List<String>>(emptyList())
@@ -125,14 +127,14 @@ internal class IntakeSink(
                     report(FileLimits.tooLargeReason(name, size), tooLarge = true)
                     continue
                 }
-                val config = hub.settings.env ?: run {
-                    report("「$name」没有复制：还没有 Linux 环境")
+                val shell = hub.shell(backend) ?: run {
+                    report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台主机"))
                     continue
                 }
                 val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
                 draft.uploads.add(upload)
                 launch {
-                    val copied = withContext(Dispatchers.IO) { Uploads.copy(context, config, uri, name, FileLimits.MAX_BYTES) }
+                    val copied = withContext(Dispatchers.IO) { Uploads.copy(context, shell, uri, name, FileLimits.MAX_BYTES) }
                     when {
                         copied.path != null -> upload.path = copied.path
                         copied.tooLarge -> {
@@ -148,14 +150,14 @@ internal class IntakeSink(
 
     /** 内存里的一段内容（太长的文字、放不下的截屏）当文件复制进 Linux。 */
     private fun addBytes(name: String, bytes: ByteArray) {
-        val config = hub.settings.env ?: run {
-            report("「$name」没有复制：还没有 Linux 环境")
+        val shell = hub.shell(backend) ?: run {
+            report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台主机"))
             return
         }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, bytes.size.toLong()))
         draft.uploads.add(upload)
         scope.launch {
-            val path = withContext(Dispatchers.IO) { Uploads.copyBytes(config, name, bytes) }
+            val path = withContext(Dispatchers.IO) { Uploads.copyBytes(shell, name, bytes) }
             if (path != null) upload.path = path else upload.failed = true
         }
     }

@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.LinuxShell
 import java.io.File
 import java.nio.file.Files
 import org.junit.After

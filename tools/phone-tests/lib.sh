@@ -140,3 +140,71 @@ fake_turn() {
 # result_text <名字> <第几个，从 1 起>、result_error <名字> <第几个>：fake_turn 那一轮第 n 个工具结果的文字、是否出错
 result_text() { sed -n "${2}p" "results-$1.jsonl" | jq -r .text; }
 result_error() { sed -n "${2}p" "results-$1.jsonl" | jq -r .error; }
+
+# 设备上 Debian 的根目录
+ROOTFS=/data/local/zeta/debian/rootfs
+
+# 设备 Debian 里进程名（/proc/<pid>/comm）是 $1 的进程号，空格分开（OpenSSH 改了进程标题，pidof 认不出）
+debian_pids() {
+  android "for d in /proc/[0-9]*; do [ \"\$(cat \$d/comm 2>/dev/null)\" = $1 ] && [ \"\$(readlink \$d/root)\" = $ROOTFS ] && echo \${d#/proc/}; done; true" | tr -d '\r' | xargs
+}
+
+# 远程主机的测试把设备自己的 Debian 当远程主机：那里的 sshd 只听 127.0.0.1:8022。装了没起（模拟器重启过）就起上，
+# 用 vd 放好的进入脚本进 Debian，sshd 自己转到后台；没装就说明怎么准备。在 vd fake 之后调（它会放好进入脚本）。
+# （设备上的 netstat 加了 -l 也列已经连上的：列全部、只认 LISTEN）
+loopback_sshd_listening() { android "netstat -atn 2>/dev/null | grep -q '127.0.0.1:8022 .*LISTEN'"; }
+ensure_loopback_sshd() {
+  loopback_sshd_listening || android "[ -x $ROOTFS/usr/sbin/sshd ] && [ -f /data/local/tmp/zeta-enter.sh ] && \
+    sh /data/local/tmp/zeta-enter.sh /bin/bash -c 'mkdir -p /run/sshd && /usr/sbin/sshd'" || true
+  loopback_sshd_listening || { echo "设备上 127.0.0.1:8022 没有 sshd：在测试版的设置 › Linux 环境 › SSH 服务里装上"; return 1; }
+}
+
+# 测试版底下名字是 ssh 的子孙进程（经手机 Debian 的 OpenSSH 连远程主机时才有）
+app_ssh_pids() {
+  local app
+  app=$(android "pidof $PKG" | tr -d '\r')
+  android "ps -A -o PID,PPID,NAME" | awk -v root="$app" '
+    NR > 1 { parent[$1] = $2; name[$1] = $3 }
+    END {
+      for (p in parent) {
+        if (name[p] != "ssh") continue
+        for (q = parent[p]; q != "" && q != 0 && q != 1; q = parent[q]) if (q == root) { print p; break }
+      }
+    }'
+}
+
+# 重启设备 Debian 里的 sshd：OpenSSH 会记下认证失败过的来源，一阵子不让它连（PerSourcePenalties），重启就清掉
+restart_loopback_sshd() {
+  local listeners
+  listeners=$(debian_pids sshd)
+  [[ -z $listeners ]] || android "kill $listeners"
+  # 等旧的真的不听了再起新的，否则 ensure_loopback_sshd 以为它还在
+  for _ in $(seq 20); do loopback_sshd_listening || break; sleep 0.5; done
+  ensure_loopback_sshd
+}
+
+# 远程主机上的对话断线重连（剧本 fake/remote.jsonl）：发一轮、截 first.png，调 $1 掐断 Zeta 的连接，再发一轮、截 reconnected.png；
+# 核对托管的还是同一个进程、两轮都答完。$2 是两轮答完时各查一次的检查（可省）。结果留在 run.jsonl。
+two_turns_across_drop() {
+  local cut=$1 check=${2:-true} host_dir pid after results
+  send "remote-1"
+  wait_result 1 40 || { vd shot first-timeout.png >/dev/null; return 1; }
+  sleep 1.5
+  vd shot first.png >/dev/null
+  host_dir=${log%/out.jsonl}
+  pid=$(android "cat $host_dir/pid" | tr -d '\r')
+  "$check" || return 1
+  "$cut" || return 1
+  sleep 3 # 重连第一次在 1 秒后
+  send "remote-2"
+  wait_result 2 60 || { vd shot second-timeout.png >/dev/null; return 1; }
+  sleep 1.5
+  vd shot reconnected.png >/dev/null
+  after=$(android "cat $host_dir/pid" | tr -d '\r')
+  [[ $after == "$pid" ]] || { echo "托管进程换了（$pid → $after）：不是接回原来的那个"; return 1; }
+  "$check" || return 1
+  android "cat $log" >run.jsonl
+  results=$(jq -r 'select(.type == "result") | .result' run.jsonl | paste -sd '|')
+  echo "两轮的回答：$results"
+  [[ $results == *"第一轮"*"|"*"第二轮"* ]] || { echo "两轮回答不对"; return 1; }
+}

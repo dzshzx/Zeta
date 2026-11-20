@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SharedAccess
 import com.dzshzx.zeta.core.SharedFolder
@@ -131,10 +132,10 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
             val config = hub.settings.env
             val (sources, states) = withContext(Dispatchers.IO) {
                 val sources = SharedFolders.sourcesPresent(list)
-                var states = config?.let { SharedFolders.access({ s, a -> hub.helper(s, a, config = it) }, list) }.orEmpty()
+                var states = config?.let { SharedFolders.access({ s, a -> hub.helper(s, a, backend = Backends.LOCAL) }, list) }.orEmpty()
                 val media = list.filter { SharedFolders.isMediaStorage(it.source) }
                 if (config != null && media.isNotEmpty() && (fixGroup || media.any { states[it.name] == SharedAccess.Denied })) {
-                    if (SharedFolders.ensureMediaGroup(config)) states = SharedFolders.access({ s, a -> hub.helper(s, a, config = config) }, list).orEmpty()
+                    if (SharedFolders.ensureMediaGroup(config)) states = SharedFolders.access({ s, a -> hub.helper(s, a, backend = Backends.LOCAL) }, list).orEmpty()
                 }
                 sources to states
             }

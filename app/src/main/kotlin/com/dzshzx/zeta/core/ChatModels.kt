@@ -253,12 +253,26 @@ data class SessionSummary(
     val external: Boolean = false,
     /** 已归档：不在主列表里显示。 */
     val archived: Boolean = false,
-)
+    /** 会话记录在哪台主机上（[Backends]）。 */
+    val backend: String = Backends.LOCAL,
+) {
+    /** 置顶的设置里记它用的键（[pinKey]）。 */
+    val pinKey: String get() = pinKey(backend, id)
+
+    companion object {
+        /** 置顶记的键：手机本机的就是会话号，远程主机的前面加主机编号和 /，各台主机的置顶分得开。 */
+        fun pinKey(backend: String, id: String): String = if (backend == Backends.LOCAL) id else "$backend/$id"
+
+        /** 置顶的键 [key] 是主机 [backend] 上的会话的话，那个会话号；别的主机的是 null。 */
+        fun pinnedId(key: String, backend: String): String? =
+            if (backend == Backends.LOCAL) key.takeIf { '/' !in it } else key.removePrefix("$backend/").takeIf { it.length < key.length }
+    }
+}
 
 private val summaryJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
-/** zeta-helper 的 list / lookup 输出：一行一个会话概要，别的行跳过。 */
-internal fun parseSessionSummaries(stdout: String): List<SessionSummary> = stdout.lineSequence().mapNotNull { line ->
+/** zeta-helper 的 list / lookup 输出：一行一个会话概要，别的行跳过。[backend] 是在哪台主机上读的。 */
+internal fun parseSessionSummaries(stdout: String, backend: String): List<SessionSummary> = stdout.lineSequence().mapNotNull { line ->
     val o = runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
     SessionSummary(
         id = o.str("id") ?: return@mapNotNull null,
@@ -269,6 +283,7 @@ internal fun parseSessionSummaries(stdout: String): List<SessionSummary> = stdou
         updated = (o["updated"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
         external = o.bool("external") == true,
         archived = o.bool("archived") == true,
+        backend = backend,
     )
 }.toList()
 
