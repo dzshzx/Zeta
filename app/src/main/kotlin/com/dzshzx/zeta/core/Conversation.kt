@@ -98,19 +98,8 @@ class Conversation(
     /** 后台任务的清单和输出，给后台任务面板看。 */
     val tasks = BackgroundTasks()
 
-    /** 子代理查看页看过的子代理，按发起它的 Agent 调用；只留最近几个。 */
-    private val subagentLogs = object : LinkedHashMap<String, SubagentLog>(8, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SubagentLog>?) = size > MAX_SUBAGENT_LOGS
-    }
-
-    /** Agent 调用 → 子代理 id（task_started 的 task_id、工具结果里的 agentId）：读记录时不用逐个翻 meta。 */
-    private val subagentIds = LinkedHashMap<String, String>()
-
-    /** 输出流里报了结局的子代理：子代理 id → 结局。 */
-    private val subagentOutcomes = LinkedHashMap<String, TaskState>()
-
-    /** /clear 之前用过的会话号：那之前的子代理记录在那些会话的目录里。 */
-    private val pastSessions = ArrayList<String>()
+    /** 子代理的跟踪：查看页看过的、子代理 id、结局。 */
+    private val subagents = SubagentTracker()
     var loadingHistory by mutableStateOf(historyFile != null)
         private set
 
@@ -168,30 +157,23 @@ class Conversation(
     val shownModel: String? get() = model ?: reportedModel
 
     /**
-     * 用户在这个对话里的权限模式，用户自己的消息按它跑。Claude Code 在用户的模式上自己换了模式（比如计划获批后退出计划模式）时跟着变，
-     * 见 [reportMode]。只管这个对话，和 Claude Code 的「只用于这个会话」一样跟着进程走：分支接着用原对话的，应用被回收后接回进程时
-     * 照记下的恢复（[ConversationHub.hostMode]）。null 是还没选过、也还没报过：起进程时不指定，用 Claude Code 设置里的默认
-     * （输入栏显示 [shownPermissionMode]）。
+     * 权限模式：用户在这个对话里的、进程现在用的，规则见 [PermissionModeState]。分支接着用原对话的，
+     * 应用被回收后接回进程时照进程上记下的恢复（[ConversationHub.hostMode]）。
      */
-    var permissionMode by mutableStateOf(fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) })
-        private set
+    private val modes = PermissionModeState(
+        initial = fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) },
+        claudeDefault = { hub.defaultPermissionMode },
+        remember = { mode -> hostKey?.let { hub.rememberHostMode(it, mode) } },
+    )
 
-    /** 定下用户的模式，也记在进程上，接回时恢复。 */
-    private fun setUserMode(mode: String) {
-        permissionMode = mode
-        hostKey?.let { hub.rememberHostMode(it, mode) }
-    }
+    /** 用户在这个对话里的权限模式（[PermissionModeState.user]）；null 是还没选过、也还没报过。 */
+    val permissionMode: String? get() = modes.user
 
     /** 输入栏显示的权限模式：这个对话的，没有时是 Claude Code 的默认。 */
-    val shownPermissionMode: String? get() = permissionMode ?: hub.defaultPermissionMode
+    val shownPermissionMode: String? get() = modes.shown
 
-    /**
-     * 进程现在用的权限模式：起进程时带的、之后切到的，或 Claude Code 报来的；起进程时没指定、还没报过时为 null。
-     * 每条消息发出前切到发的人的模式（见 [authorize]），所以后台运行发指令后是那次运行的模式，用户自己发下一条时切回
-     * [permissionMode]；Zeta 被结束后接回的对话也一样，不用记切走前是什么。
-     */
-    internal var processMode: String? = null
-        private set
+    /** 进程现在用的权限模式（[PermissionModeState.process]）。 */
+    internal val processMode: String? get() = modes.process
 
     /**
      * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置（按模型存的默认）。分支接着用原对话的；
@@ -273,7 +255,7 @@ class Conversation(
             backgroundTasks = attach.tasks
             // 接回时还在跑的后台任务：助手脚本从输出日志里摘出来的那几条事件
             attach.taskEvents.forEach { tasks.observe(it, System.currentTimeMillis()) }
-            processMode = attach.permissionMode
+            modes.processStarted(attach.permissionMode)
             lastActivityAt = System.currentTimeMillis()
         }
         if (fork != null) {
@@ -527,37 +509,20 @@ class Conversation(
     }
 
     /**
-     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切到 [permissionMode]、撤掉规则。
+     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切到用户的（[PermissionModeState.forUser]）、撤掉规则。
      * 和 [restrict] 一样每条都做、不记上一条是谁发的，模式没变就不发。进程还没起来时按这个模式起。
      * 用户在后台运行这一轮里插话（或在输入栏选模式），这一轮剩下的部分也按用户的跑：用户在场。返回进程，起不来时为 null。
      */
     private fun authorize(run: RunPermissions?): ClaudeProcess? {
-        val mode = run?.mode ?: userMode
+        val mode = run?.mode ?: modes.forUser
         val process = process?.also { switchMode(it, mode) } ?: ensureProcess(mode) ?: return null
         restrict(process, run?.rules)
         return process
     }
 
-    /**
-     * 用户的消息用的模式。这个对话没有时：进程没指定模式就不指定（用 Claude Code 的默认）；进程在后台运行的模式上时切到
-     * Claude Code 的默认，还不知道是什么就用逐项确认，宁可多问。
-     */
-    private val userMode: String? get() = permissionMode ?: (hub.defaultPermissionMode ?: "default").takeIf { processMode != null }
-
     /** 把进程切到 [mode]，已经是了就不发。 */
     private fun switchMode(process: ClaudeProcess, mode: String?) {
-        if (mode == null || mode == processMode) return
-        processMode = mode
-        process.request(controlBody("set_permission_mode") { put("mode", mode) })
-    }
-
-    /**
-     * Claude Code 报来进程现在的模式。进程在用户的模式上（没有后台运行的模式在用）时用户的跟着变，用户没选过的从此定下来；
-     * 起进程时没指定模式的，报来的就是 Claude Code 照设置定的。
-     */
-    private fun reportMode(mode: String) {
-        if (processMode == userMode) setUserMode(mode)
-        processMode = mode
+        if (modes.switchTo(mode)) process.request(controlBody("set_permission_mode") { put("mode", mode) })
     }
 
     /**
@@ -736,7 +701,7 @@ class Conversation(
                 SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
             } })
         }
-        response.str("current_permission_mode")?.takeIf { processMode == null }?.let(::reportMode)
+        response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }
 
     /** 问 Claude Code 上下文窗口和实际生效的思考强度，应答交给 [UsageTracker]。 */
@@ -785,7 +750,7 @@ class Conversation(
 
     /** 用户在输入栏选的：只管这个对话，之后按它跑（后台运行这一轮剩下的部分也是）。新对话的默认在设置页改（Claude Code 的设置）。 */
     fun choosePermissionMode(value: String) {
-        setUserMode(value)
+        modes.choose(value)
         process?.let { switchMode(it, value) }
     }
 
@@ -841,7 +806,7 @@ class Conversation(
     }
 
     /** 子代理查看页要看的那个子代理：[toolUseId] 是发起它的 Agent 调用。记录由 [refreshSubagent] 读。 */
-    fun subagent(toolUseId: String): SubagentLog = subagentLogs.getOrPut(toolUseId) { SubagentLog(toolUseId) }
+    fun subagent(toolUseId: String): SubagentLog = subagents.log(toolUseId)
 
     /** 查看页开着（[watching]）的子代理才收输出流里它的事件。 */
     fun watchSubagent(log: SubagentLog, watching: Boolean) {
@@ -855,7 +820,7 @@ class Conversation(
     suspend fun refreshSubagent(log: SubagentLog) {
         if (log.reading) return
         val config = hub.settings.env
-        val sessions = (listOfNotNull(sessionId, fork?.source) + pastSessions).distinct()
+        val sessions = subagents.sessions(listOfNotNull(sessionId, fork?.source))
         if (config == null || sessions.isEmpty()) {
             publishSubagent(log)
             return
@@ -863,7 +828,7 @@ class Conversation(
         val transcript = log.transcript
         val arguments = listOf(
             transcript.offset.toString(), transcript.line.toString(), log.toolUseId,
-            transcript.meta?.agentId?.takeIf { it.isNotEmpty() } ?: subagentIds[log.toolUseId] ?: "-",
+            subagents.agentId(log) ?: "-",
         ) + sessions
         log.reading = true
         val result = try {
@@ -886,56 +851,8 @@ class Conversation(
     /** 子代理 [log] 不用再读了：不在跑，记录也收齐了（读不了时也算）。 */
     fun subagentSettled(log: SubagentLog): Boolean = !log.running && (!log.transcript.loaded || log.transcript.settled || log.failure != null)
 
-    private fun publishSubagent(log: SubagentLog) {
-        val meta = log.transcript.meta
-        val id = meta?.agentId?.takeIf { it.isNotEmpty() } ?: subagentIds[log.toolUseId]
-        val outcome = id?.let(subagentOutcomes::get) ?: when {
-            meta?.stopped == true -> TaskState.Stopped
-            meta?.finished == true -> TaskState.Completed
-            else -> null
-        }
-        // 子代理在跑的话，这个对话不是在回答（前台的）就是有后台任务（后台的）
-        val running = outcome == null && process != null && (busy || backgroundTasks > 0)
-        log.publish(running, outcome)
-    }
-
-    /** 子代理相关的事件：记下 Agent 调用和子代理 id 的对应、子代理的结局；子代理内部的事件交给开着的查看页。 */
-    private fun observeSubagents(event: JsonObject, parent: String?) {
-        when (event.str("type")) {
-            "system" -> when (event.str("subtype")) {
-                "task_started" -> if (event.str("task_type") == "local_agent") {
-                    val use = event.str("tool_use_id") ?: return
-                    putRecent(subagentIds, use, event.str("task_id") ?: return)
-                }
-                "task_notification" -> {
-                    val id = event.str("task_id") ?: return
-                    val state = when (event.str("status")) {
-                        "completed" -> TaskState.Completed
-                        "failed" -> TaskState.Failed
-                        "stopped" -> TaskState.Stopped
-                        else -> return
-                    }
-                    putRecent(subagentOutcomes, id, state)
-                    subagentLogs.values.filter { it.watchers > 0 && (it.transcript.meta?.agentId == id || subagentIds[it.toolUseId] == id) }.forEach(::publishSubagent)
-                }
-            }
-            "assistant", "user" -> if (parent != null) {
-                val log = subagentLogs[parent]?.takeIf { it.watchers > 0 } ?: return
-                if (log.transcript.observeLive(event)) publishSubagent(log)
-            } else if (event.str("type") == "user") {
-                // Agent 调用的结果里带着子代理 id（前台的做完时、后台的一起来就有）
-                val agent = event.obj("tool_use_result")?.str("agentId") ?: return
-                val use = event.obj("message")?.arr("content")?.firstNotNullOfOrNull { (it as? JsonObject)?.str("tool_use_id") } ?: return
-                putRecent(subagentIds, use, agent)
-            }
-        }
-    }
-
-    private fun <V> putRecent(map: LinkedHashMap<String, V>, key: String, value: V) {
-        map.remove(key)
-        map[key] = value
-        while (map.size > MAX_SUBAGENT_IDS) map.remove(map.keys.first())
-    }
+    /** 子代理在跑的话，这个对话不是在回答（前台的）就是有后台任务（后台的）。 */
+    private fun publishSubagent(log: SubagentLog) = subagents.publish(log, active = process != null && (busy || backgroundTasks > 0))
 
     /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下）。 */
     fun shutdown() {
@@ -949,9 +866,9 @@ class Conversation(
     }
 
     /** 进程没起来就起一个，权限模式是 [mode]（默认用户的）；起来了就直接用，不切模式。 */
-    private fun ensureProcess(mode: String? = userMode): ClaudeProcess? {
+    private fun ensureProcess(mode: String? = modes.forUser): ClaudeProcess? {
         process?.let { return it }
-        processMode = mode
+        modes.processStarted(mode)
         val config = hub.settings.env
         if (config == null) {
             reducer.addNotice("还没有配置 Linux 环境，请到设置里检查", error = true)
@@ -977,7 +894,7 @@ class Conversation(
             return null
         }
         process = created
-        permissionMode?.let { hub.rememberHostMode(created.hostKey, it) }
+        modes.user?.let { hub.rememberHostMode(created.hostKey, it) }
         forkCut = false
         initialize(created)
         meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
@@ -987,7 +904,7 @@ class Conversation(
     }
 
     /** 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型。 */
-    internal fun launchArguments(mode: String? = userMode): List<String> = buildList {
+    internal fun launchArguments(mode: String? = modes.forUser): List<String> = buildList {
         addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages", "--permission-prompt-tool", "stdio"))
         // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
@@ -1034,7 +951,7 @@ class Conversation(
         val parent = (event["parent_tool_use_id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
         val fromSubagent = parent != null
         tasks.observe(event, now)
-        observeSubagents(event, parent)
+        subagents.observe(event, parent).forEach(::publishSubagent)
         when (event.str("type")) {
             "system" -> when (event.str("subtype")) {
                 "init" -> {
@@ -1042,7 +959,7 @@ class Conversation(
                     // 实际在用的模型：没指定时（接着旧会话）是 Claude Code 照会话记录恢复的那个
                     event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
                     // 起进程时没指定模式才要 init 报的（指定了的报来的就是指定的那个）；之后的变化看 status
-                    event.str("permissionMode")?.takeIf { processMode == null }?.let(::reportMode)
+                    event.str("permissionMode")?.let(modes::reportedAtStart)
                     // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
                     // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
                     if (!busy) {
@@ -1061,7 +978,7 @@ class Conversation(
                     }
                 }
                 "status" -> {
-                    event.str("permissionMode")?.let(::reportMode)
+                    event.str("permissionMode")?.let(modes::reported)
                     if (event.str("status") == "compacting") {
                         lastActivityAt = now
                         status = "正在压缩上下文"
@@ -1164,7 +1081,7 @@ class Conversation(
             "control_cancel_request" -> if (pending?.requestId == event.str("request_id")) pending = null
             // /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
             "conversation_reset" -> {
-                sessionId?.let(pastSessions::add)
+                sessionId?.let(subagents::sessionCleared)
                 event.str("new_conversation_id")?.let { sessionId = it }
                 title = ""
                 reducer.addNotice("上下文已清空，下面是新的会话", error = false)
@@ -1204,7 +1121,7 @@ class Conversation(
         // 进程没了，它的后台任务也跟着没了
         backgroundTasks = 0
         tasks.processEnded(System.currentTimeMillis())
-        subagentLogs.values.filter { it.watchers > 0 }.forEach(::publishSubagent)
+        subagents.watched.forEach(::publishSubagent)
         status = null
         pending = null
         interruptRequested = false
@@ -1243,7 +1160,5 @@ class Conversation(
     companion object {
         /** 选择器里 Claude Code 默认模型那一项的值，也是 set_model、--model 认的写法。 */
         const val DEFAULT_MODEL = "default"
-        private const val MAX_SUBAGENT_LOGS = 8
-        private const val MAX_SUBAGENT_IDS = 128
     }
 }
