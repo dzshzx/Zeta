@@ -41,6 +41,7 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.awaitMain
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.AttachPathDialogs
@@ -226,7 +227,7 @@ class ChatPartsShots : ShotTest() {
     @Test
     fun attachFolder() {
         val hub = Fixtures.readyHub(app)
-        // 查 Linux 里看不看得到在后台线程上跑，等它的结果落到界面上，免得有时画成“正在查看”
+        // 查 Linux 里看不看得到在后台线程上跑，等它的结果落到界面上；一直停在“正在查看”就失败
         shoot("chat-parts-attach-folder", prepare = { waitForText("Linux 里看不到这个文件夹", substring = true) }) {
             Host {
                 val state = remember { PathAttach().apply { openFolder() } }
@@ -247,14 +248,11 @@ class ChatPartsShots : ShotTest() {
         }
     }
 
-    /** 等后台线程的结果显示出来：真实时间里每次等 50ms、时钟走一帧，最多 5 秒。 */
-    private fun AndroidComposeTestRule<*, *>.waitForText(text: String, substring: Boolean = false) {
-        repeat(100) {
-            if (onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()) return
-            Thread.sleep(50)
-            mainClock.advanceTimeByFrame()
-            waitForIdle()
-        }
+    /** 等后台线程的结果显示出来：每轮时钟走一帧，5 秒内等不到就失败。 */
+    private fun AndroidComposeTestRule<*, *>.waitForText(text: String, substring: Boolean = false) = awaitMain(5_000) {
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     }
 
     private val fileSteps = listOf(

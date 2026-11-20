@@ -182,18 +182,6 @@ private fun FolderAttachDialog(
         val path = SharedFolders.fromTreeUri(uri)
         if (path == null) browser.error = "只支持内部存储里的文件夹，其他位置请输入路径" else browser.navigate(path)
     }
-    // 换了目录：列子文件夹，同时看它在 Linux 里叫什么、对话的 Claude Code 看不看得到（两件事各起一个 root shell，互不相干）
-    LaunchedEffect(visible, browser, browser.path) {
-        if (!visible) return@LaunchedEffect
-        browser.entries = null
-        browser.resolution = Resolution.Checking
-        val path = browser.path
-        val resolving = async(Dispatchers.IO) { resolveFolder(hub, conversation, path) }
-        val found = withContext(Dispatchers.IO) { SharedFolders.subfolders(path) }
-        browser.entries = found.orEmpty()
-        browser.browseError = if (found == null) "无法打开该目录" else null
-        browser.resolution = resolving.await()
-    }
     val resolution = browser.resolution
     val idle = conversation.canRestart()
     ConfirmDialog(
@@ -251,6 +239,19 @@ private fun FolderAttachDialog(
         },
         onDismissRequest = onDismiss,
     ) {
+        // 换了目录：列子文件夹，同时看它在 Linux 里叫什么、对话的 Claude Code 看不看得到（两件事各起一个 root shell，互不相干）。
+        // 放在对话框内容里，内容画出来以后才开始查：COUI 在 Scaffold 的另一块子组合里画对话框，结果要是赶在内容第一次画出的那一帧到，
+        // 外面这层重组后，Compose 给对话框内容的重画请求会被丢掉，状态就一直停在“正在查看”。
+        LaunchedEffect(browser, browser.path) {
+            browser.entries = null
+            browser.resolution = Resolution.Checking
+            val path = browser.path
+            val resolving = async(Dispatchers.IO) { resolveFolder(hub, conversation, path) }
+            val found = withContext(Dispatchers.IO) { SharedFolders.subfolders(path) }
+            browser.entries = found.orEmpty()
+            browser.browseError = if (found == null) "无法打开该目录" else null
+            browser.resolution = resolving.await()
+        }
         Column(modifier = Modifier.fillMaxWidth()) {
             TextField(
                 value = browser.input,
