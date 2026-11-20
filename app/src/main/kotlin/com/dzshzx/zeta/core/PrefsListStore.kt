@@ -13,7 +13,7 @@ import androidx.compose.runtime.setValue
  * 定时任务、通知触发规则、常用指令各是一份。
  */
 internal open class PrefsListStore<T>(
-    private val key: String,
+    val key: String,
     private val decode: (String?) -> List<T>,
     private val encode: (List<T>) -> String,
     private val onChanged: (Context, List<T>) -> Unit = { _, _ -> },
@@ -35,7 +35,7 @@ internal open class PrefsListStore<T>(
         }
     }
 
-    /** 丢掉内存里的那份，从存储重读（设置备份导入之后）。 */
+    /** 丢掉内存里的那份，从存储重读。 */
     fun reload(context: Context): List<T> = synchronized(lock) {
         cache = null
         load(context)
@@ -55,6 +55,9 @@ internal open class PrefsListStore<T>(
         onChanged(context, next)
         return next
     }
+
+    /** 设置备份导入：整份换成存储写法 [text] 解出来的清单，和别的改动一样存盘、更新界面、做 [onChanged]（定时任务据此重排闹钟）。 */
+    fun replace(context: Context, text: String?): List<T> = decode(text).let { list -> update(context) { list } }
 
     /** 从工具线程改的，到主线程上再取最新的那份：先后几次改动排队到达时不会拿旧的盖掉新的。 */
     private fun publish(list: List<T>) {

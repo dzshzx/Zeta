@@ -25,8 +25,12 @@ import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
+import com.dzshzx.zeta.core.PrefsListStore
 import com.dzshzx.zeta.core.PromptStore
+import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SharedFolders
+import com.dzshzx.zeta.core.notify.NotifyRuleStore
+import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.app.writeText
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -101,9 +105,10 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
     CouiPage(title = "备份与恢复", onBack = onBack, overlays = { SettingsBackupDialogs(hub, state) }) {
         item(key = "backup") {
-            // 备份里是外观、聊天、手机操作、数字助理的模型、置顶和共享文件夹（[SettingsBackup.items]）；新对话的默认值是 Claude Code 的配置，不在里面；
-            // 只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存）不导出，见 [SettingsBackup.machineKeys]
-            PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态。") {
+            // 备份里是外观、聊天、手机操作、数字助理的模型、置顶、共享文件夹、常用指令、定时任务和通知触发（[SettingsBackup.items]）；
+            // 新对话的默认值是 Claude Code 的配置，不在里面；只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存、
+            // 闹钟登记）不导出，见 [SettingsBackup.machineKeys]；定时任务和通知触发只带规则本身，不带运行记录
+            PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态，也不含定时任务和通知触发的运行记录。") {
                 item {
                     BasicComponent(title = "导出设置", summary = "保存成 JSON 文件", enabled = !state.busy, onClick = state.export)
                 }
@@ -233,14 +238,24 @@ private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
 /** 写回存储，再让界面上的各份副本跟着变。返回写了几项；没写成返回 null。在主线程上调用。 */
 private suspend fun applyBackup(context: Context, hub: ConversationHub, ready: ImportReview.Ready): Int? {
     val writes = SettingsBackup.writes(ready.backup, ready.plan)
-    if (!withContext(Dispatchers.IO) { hub.settings.restore(writes) }) return null
+    if (!withContext(Dispatchers.IO) { restoreBackup(context, hub.settings, writes) }) return null
     hub.reloadSettings()
     UiPrefs.get(context).reload()
-    PromptStore.reload(context)
     // 共享了内部存储的目录时，Linux 用户要在 media_rw 组里才能读写，和在共享文件夹页添加时一样补上
     val config = hub.settings.env
     if ("sharedFolders" in writes && config != null && hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }) {
         withContext(Dispatchers.IO) { SharedFolders.ensureMediaGroup(config) }
     }
     return writes.size
+}
+
+/**
+ * 把导入要写的值（[SettingsBackup.writes]）写回存储，成功返回 true。可以在后台线程调用。
+ * 存成清单的几项（常用指令、定时任务、通知触发）经各自的 store 写：内存里的那份跟着换，定时任务的闹钟跟着重排；其余一次写进 [settings]。
+ */
+internal fun restoreBackup(context: Context, settings: Settings, writes: Map<String, Any?>): Boolean {
+    val stores = listOf<PrefsListStore<*>>(PromptStore, ScheduleStore, NotifyRuleStore).associateBy { it.key }
+    if (!settings.restore(writes.filterKeys { it !in stores })) return false
+    for ((key, value) in writes) stores[key]?.replace(context, value as String?)
+    return true
 }

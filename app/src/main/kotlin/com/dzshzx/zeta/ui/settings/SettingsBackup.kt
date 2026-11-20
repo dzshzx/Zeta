@@ -6,10 +6,18 @@ import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.core.SessionIdPattern
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
+import com.dzshzx.zeta.core.notify.NotifyRule
+import com.dzshzx.zeta.core.notify.NotifyRules
+import com.dzshzx.zeta.core.schedule.ScheduleAlarms
+import com.dzshzx.zeta.core.schedule.ScheduledTask
+import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
+import com.dzshzx.zeta.ui.chat.PermissionModes
+import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.serialization.json.Json
@@ -73,10 +81,11 @@ internal data class ImportPlan(val changes: List<ItemChange>, val unchanged: Lis
 
 /**
  * Zeta 设置的备份与恢复：SharedPreferences `zeta` 里 Zeta 自己的设置和一个 JSON 文件互相转换。
- * 这里只有转换和校验，都是纯函数；读写文件、写回存储、刷新界面在 [SettingsBackupGroup]。
+ * 这里只有转换和校验；读写文件、写回存储（[restoreBackup]）、刷新界面在 SettingsBackupScreen.kt。
  *
  * 只导出 [items] 列出的项（白名单），Claude Code 的配置、会话、登录状态都不在 Zeta 的设置里，也就不会进备份。
  * 存储里别的键是这台手机特有的，不导出，原因见 [machineKeys]；文件里出现它们也不导入。
+ * 存储里的每个键都在这两处之一，SettingsKeysTest 核对。
  */
 internal object SettingsBackup {
     const val FORMAT = "zeta-settings"
@@ -106,6 +115,7 @@ internal object SettingsBackup {
         "commands" to "Claude Code 斜杠命令的缓存，打开对话时自动更新",
         "contextWindows" to "各模型上下文窗口的缓存，Claude Code 会重新报",
         "hostModes" to "还开着的 Claude Code 进程上的权限模式，进程没了就作废",
+        ScheduleAlarms.ARMED to "定时任务在这台手机上排过的闹钟，重排时据此取消已删掉的任务的闹钟；导入定时任务后会重新排",
     )
 
     val items: List<BackupItem> = listOf(
@@ -195,6 +205,36 @@ internal object SettingsBackup {
             write = { v -> SavedPrompts.encode(promptsOf(v).map { it.copy(id = UUID.randomUUID().toString()) }) },
             show = { v -> (v as? JsonArray)?.size?.takeIf { it > 0 }?.let { "$it 条" } ?: "无" },
         ),
+        // 定时任务和通知触发只带用户定的那些（[TaskFields]、[RuleFields]）；id、创建时间、运行记录、跳过次数、接着的会话、
+        // 冷却和今天的次数都是这台手机上跑出来的，导入时重新生成、从头算。写回时整份换掉，经各自的 store 写，定时任务的闹钟跟着重排
+        BackupItem(
+            key = Schedules.KEY, label = "定时任务",
+            read = { prefs -> tasksJson(Schedules.decode(prefs[Schedules.KEY] as? String)) },
+            check = ::tasks,
+            write = { v ->
+                val now = System.currentTimeMillis()
+                Schedules.encode(tasksOf(v).map { it.copy(id = Schedules.newId(), created = now) })
+            },
+            show = ::names,
+        ),
+        BackupItem(
+            key = NotifyRules.KEY, label = "通知触发",
+            read = { prefs -> rulesJson(NotifyRules.decode(prefs[NotifyRules.KEY] as? String)) },
+            check = ::rules,
+            write = { v ->
+                val now = System.currentTimeMillis()
+                NotifyRules.encode(rulesOf(v).map { it.copy(id = NotifyRules.newId(), created = now) })
+            },
+            show = ::names,
+        ),
+    )
+
+    /** 定时任务在备份里带的字段（存储里的写法）：编辑页上用户定的那些。 */
+    private val TaskFields = setOf("name", "prompt", "rule", "enabled", "cwd", "model", "permissionMode", "newSession", "onlyOnChange")
+
+    /** 通知触发的规则在备份里带的字段（存储里的写法）：编辑页上用户定的那些。 */
+    private val RuleFields = setOf(
+        "name", "package", "appLabel", "keywords", "window", "prompt", "enabled", "cwd", "model", "permissionMode", "cooldown", "dailyLimit", "onlyOnChange",
     )
 
     private val byKey = items.associateBy { it.key }
@@ -360,6 +400,65 @@ internal object SettingsBackup {
         }
         return Checked.Ok(promptsJson(list))
     }
+
+    /** 定时任务、通知触发规则的列表：逐个按存储的写法解码（补一个临时的 id），再用编辑页的规矩校验。 */
+    private fun tasks(v: JsonElement): Checked {
+        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
+        if (array.size > Schedules.MAX_TASKS) return Checked.Bad("最多 ${Schedules.MAX_TASKS} 个")
+        val list = ArrayList<ScheduledTask>()
+        for ((index, element) in array.withIndex()) {
+            val task = taskOf(element) ?: return Checked.Bad("第 ${index + 1} 个缺少指令或时间")
+            // 不看时间：时间已过的单次任务照样导入，和跑过的一样在列表上显示出来
+            val problem = Schedules.problem(Schedules.draftOf(task), Instant.now(), ZoneId.systemDefault(), checkRule = false)
+                ?: runProblem(task.model, task.permissionMode)
+            if (problem != null) return Checked.Bad("第 ${index + 1} 个（${task.name}）：$problem")
+            list += task
+        }
+        return Checked.Ok(tasksJson(list))
+    }
+
+    private fun rules(v: JsonElement): Checked {
+        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
+        if (array.size > NotifyRules.MAX_RULES) return Checked.Bad("最多 ${NotifyRules.MAX_RULES} 条")
+        val list = ArrayList<NotifyRule>()
+        for ((index, element) in array.withIndex()) {
+            val rule = ruleOf(element) ?: return Checked.Bad("第 ${index + 1} 条缺少应用或指令")
+            val problem = NotifyRules.problem(NotifyRules.draftOf(rule)) ?: runProblem(rule.model, rule.permissionMode)
+            if (problem != null) return Checked.Bad("第 ${index + 1} 条（${rule.name}）：$problem")
+            list += rule
+        }
+        return Checked.Ok(rulesJson(list))
+    }
+
+    /** 运行用的模型和权限模式：模型是 Claude Code 认的名字（没有表示默认），模式是界面上能选的那几种。 */
+    private fun runProblem(model: String?, mode: String): String? = when {
+        model != null && !ModelPattern.matches(model) -> "不是有效的模型名"
+        PermissionModes.none { it.first == mode } -> "不认识的权限模式“${mode.take(40)}”"
+        else -> null
+    }
+
+    private fun JsonObject.only(keys: Set<String>) = JsonObject(filterKeys { it in keys })
+
+    private fun withTempId(element: JsonElement, keys: Set<String>): JsonObject? =
+        (element as? JsonObject)?.let { JsonObject(it.only(keys) + ("id" to JsonPrimitive("backup"))) }
+
+    private fun taskOf(element: JsonElement): ScheduledTask? =
+        withTempId(element, TaskFields)?.let { runCatching { Schedules.decodeTask(it) }.getOrNull() }
+
+    private fun ruleOf(element: JsonElement): NotifyRule? =
+        withTempId(element, RuleFields)?.let { runCatching { NotifyRules.decodeRule(it) }.getOrNull() }
+
+    private fun tasksJson(list: List<ScheduledTask>) = JsonArray(list.map { Schedules.encodeTask(it).only(TaskFields) })
+
+    private fun rulesJson(list: List<NotifyRule>) = JsonArray(list.map { NotifyRules.encodeRule(it).only(RuleFields) })
+
+    private fun tasksOf(v: JsonElement): List<ScheduledTask> = (v as? JsonArray).orEmpty().mapNotNull(::taskOf)
+
+    private fun rulesOf(v: JsonElement): List<NotifyRule> = (v as? JsonArray).orEmpty().mapNotNull(::ruleOf)
+
+    /** 确认清单上的一项：各个的名字。 */
+    private fun names(v: JsonElement): String =
+        (v as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.get("name")?.text() }.joinToString("、").ifEmpty { "无" }
 
     private fun promptsJson(list: List<SavedPrompt>): JsonArray = buildJsonArray {
         list.forEach { add(buildJsonObject { put("name", it.name); put("text", it.text) }) }

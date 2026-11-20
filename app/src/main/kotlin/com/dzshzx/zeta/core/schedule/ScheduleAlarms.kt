@@ -25,7 +25,8 @@ internal object ScheduleAlarms {
     /** 这个闹钟排的是哪个时刻（毫秒）：算下一次时从它往后算，不受送达早晚影响。 */
     const val EXTRA_AT = "at"
 
-    private const val ARMED = "scheduleArmed"
+    /** 存在 SharedPreferences `zeta` 里的闹钟登记：排过闹钟的任务 id，下次重排时据此取消已经删掉的任务的闹钟。 */
+    const val ARMED = "scheduleArmed"
 
     private fun manager(context: Context) = context.getSystemService(AlarmManager::class.java)
 

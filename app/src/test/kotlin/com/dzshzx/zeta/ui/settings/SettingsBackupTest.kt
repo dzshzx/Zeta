@@ -1,6 +1,15 @@
 package com.dzshzx.zeta.ui.settings
 
+import com.dzshzx.zeta.core.notify.NotifyRule
+import com.dzshzx.zeta.core.notify.NotifyRules
+import com.dzshzx.zeta.core.schedule.RunOutcome
+import com.dzshzx.zeta.core.schedule.ScheduleRule
+import com.dzshzx.zeta.core.schedule.ScheduledTask
+import com.dzshzx.zeta.core.schedule.Schedules
+import com.dzshzx.zeta.core.schedule.TaskRun
 import com.dzshzx.zeta.phone.AccessibilityGuard
+import java.time.LocalDate
+import java.time.LocalTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -8,6 +17,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -19,6 +29,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsBackupTest {
+    /** 跑过几次的定时任务：id、接着的会话、运行记录、跳过次数都是这台手机上的。 */
+    private val task = ScheduledTask(
+        id = "t1", name = "早报", prompt = "汇总今天的日程", rule = ScheduleRule.Daily(LocalTime.of(8, 0)), model = "opus",
+        newSession = false, sessionId = "0a1b2c3d-0000-4000-8000-000000000002", created = 1_795_000_000_000,
+        lastRun = TaskRun(1_795_000_100_000, RunOutcome.Done, "0a1b2c3d-0000-4000-8000-000000000002", "好了"), skips = 2, lastSkip = 1_795_000_200_000,
+    )
+
+    /** 触发过的通知规则：冷却、今天的次数、运行记录都是这台手机上的。 */
+    private val rule = NotifyRule(
+        id = "r1", name = "快递", packageName = "com.example.express", appLabel = "快递", keywords = listOf("取件"),
+        prompt = "记下取件码：{text}", cooldownMinutes = 10, created = 1_795_000_000_000,
+        lastRun = TaskRun(1_795_000_100_000, RunOutcome.NoChange, summary = "没有变化"), lastFired = 1_795_000_100_000,
+        firedDay = LocalDate.of(2026, 11, 20), firedCount = 3,
+    )
+
     /** 一台用着的手机上 zeta.xml 的样子（值都是假的）。 */
     private val phone: Map<String, Any?> = mapOf(
         "rootfs" to "/data/local/zeta/debian/rootfs",
@@ -45,6 +70,9 @@ class SettingsBackupTest {
         "autoCompactPercent" to 70,
         "savedPrompts" to "[{\"id\":\"a\",\"name\":\"\",\"text\":\"检查 Git 状态\"},{\"id\":\"b\",\"name\":\"简报\",\"text\":\"汇总今天的日程\\n三行说完\"}]",
         "accessibilityGuard" to false,
+        "scheduledTasks" to Schedules.encode(listOf(task)),
+        "notifyRules" to NotifyRules.encode(listOf(rule)),
+        "scheduleArmed" to setOf("t1"),
         // 万一以后有人往这里存了凭据，也不能被导出去
         "apiToken" to "fake-token-1",
     )
@@ -79,6 +107,12 @@ class SettingsBackupTest {
         // 常用指令导出时不带这台手机上的 id
         val prompts = root["settings"]!!.jsonObject["savedPrompts"]!!.toString()
         assertEquals("""[{"name":"","text":"检查 Git 状态"},{"name":"简报","text":"汇总今天的日程\n三行说完"}]""", prompts)
+        // 定时任务、通知触发只带用户定的那些，不带 id、接着的会话、运行记录、跳过次数、冷却和今天的次数
+        val task = root["settings"]!!.jsonObject["scheduledTasks"]!!.jsonArray.single().jsonObject
+        assertEquals(setOf("name", "prompt", "rule", "enabled", "model", "permissionMode", "newSession"), task.keys)
+        val rule = root["settings"]!!.jsonObject["notifyRules"]!!.jsonArray.single().jsonObject
+        assertEquals(setOf("name", "package", "appLabel", "keywords", "prompt", "enabled", "permissionMode", "cooldown", "dailyLimit"), rule.keys)
+        assertFalse(export(phone).contains("0a1b2c3d-0000-4000-8000-000000000002"))
     }
 
     @Test
@@ -93,6 +127,8 @@ class SettingsBackupTest {
         assertEquals(JsonPrimitive(true), settings["autoCompact"])
         assertEquals(JsonNull, settings["autoCompactPercent"])
         assertEquals("[]", settings["savedPrompts"].toString())
+        assertEquals("[]", settings["scheduledTasks"].toString())
+        assertEquals("[]", settings["notifyRules"].toString())
         assertFalse("没有环境时没有工作目录", "cwd" in settings)
     }
 
@@ -137,6 +173,77 @@ class SettingsBackupTest {
         assertFalse("phoneTools" in writes)
         // 写回的只有白名单里的键
         assertTrue(writes.keys.all { key -> SettingsBackup.items.any { it.key == key } })
+    }
+
+    /** 定时任务和通知触发：确认清单列出名字；写回的是新的 id，运行记录从头算；运行留下的状态不同不算改动。 */
+    @Test
+    fun scheduledTasksAndNotifyRulesTravelWithoutRunState() {
+        val backup = valid(export(phone))
+        val plan = SettingsBackup.plan(backup, mapOf("user" to "someone"))
+        val changed = plan.changes.associateBy { it.key }
+        assertEquals(ItemChange("scheduledTasks", "定时任务", "无", "早报"), changed["scheduledTasks"])
+        assertEquals(ItemChange("notifyRules", "通知触发", "无", "快递"), changed["notifyRules"])
+        val writes = SettingsBackup.writes(backup, plan)
+        val tasks = Schedules.decode(writes["scheduledTasks"] as String)
+        assertEquals(listOf(Schedules.draftOf(task)), tasks.map(Schedules::draftOf))
+        val restored = tasks.single()
+        assertTrue(restored.id != "t1" && restored.id.isNotBlank())
+        assertNull(restored.sessionId)
+        assertNull(restored.lastRun)
+        assertEquals(0, restored.skips)
+        assertNull(restored.lastSkip)
+        assertTrue(restored.created > task.created)
+        val rules = NotifyRules.decode(writes["notifyRules"] as String)
+        assertEquals(listOf(NotifyRules.draftOf(rule)), rules.map(NotifyRules::draftOf))
+        val fresh = rules.single()
+        assertTrue(fresh.id != "r1" && fresh.id.isNotBlank())
+        assertNull(fresh.lastRun)
+        assertNull(fresh.lastFired)
+        assertNull(fresh.firedDay)
+        assertEquals(0, fresh.firedCount)
+
+        // 这台手机上同样的任务和规则，只是又跑过几次：不算改动
+        val ranAgain = phone + mapOf(
+            "scheduledTasks" to Schedules.encode(listOf(task.copy(id = "t9", lastRun = null, skips = 0, sessionId = null))),
+            "notifyRules" to NotifyRules.encode(listOf(rule.copy(id = "r9", firedCount = 7))),
+        )
+        val again = SettingsBackup.plan(backup, ranAgain)
+        assertTrue(again.changes.toString(), again.changes.none { it.key == "scheduledTasks" || it.key == "notifyRules" })
+    }
+
+    @Test
+    fun badTasksAndRulesAreSkippedWithReasons() {
+        fun reason(key: String, item: JsonObject): String =
+            valid(file(buildJsonObject { put(key, buildJsonArray { add(item) }) })).skipped.single().reason
+        val daily = buildJsonObject { put("kind", "daily"); put("time", "08:00") }
+        assertEquals("第 1 个缺少指令或时间", reason("scheduledTasks", buildJsonObject { put("name", "坏的"); put("prompt", "做点事"); put("rule", buildJsonObject { put("kind", "daily"); put("time", "25:00") }) }))
+        assertEquals("第 1 个缺少指令或时间", reason("scheduledTasks", buildJsonObject { put("name", "空的"); put("rule", daily) }))
+        assertEquals(
+            "第 1 个（早报）：不认识的权限模式“yolo”",
+            reason("scheduledTasks", buildJsonObject { put("name", "早报"); put("prompt", "做点事"); put("rule", daily); put("permissionMode", "yolo") }),
+        )
+        assertEquals(
+            "第 1 个（早报）：不是有效的模型名",
+            reason("scheduledTasks", buildJsonObject { put("name", "早报"); put("prompt", "做点事"); put("rule", daily); put("model", "--dangerous") }),
+        )
+        assertEquals(
+            "第 1 个（早报）：工作目录要写 Linux 环境里的绝对路径",
+            reason("scheduledTasks", buildJsonObject { put("name", "早报"); put("prompt", "做点事"); put("rule", daily); put("cwd", "relative") }),
+        )
+        assertEquals("第 1 条缺少应用或指令", reason("notifyRules", buildJsonObject { put("name", "坏的"); put("package", "not a package"); put("prompt", "做点事") }))
+        assertEquals(
+            "第 1 条（自己）：Zeta 自己的通知不会触发任务",
+            reason("notifyRules", buildJsonObject { put("name", "自己"); put("package", "com.dzshzx.zeta"); put("prompt", "做点事") }),
+        )
+        // 备份里带了运行状态（比如手改过的文件）：不认，不导入
+        val stale = valid(
+            file(
+                buildJsonObject {
+                    put("scheduledTasks", buildJsonArray { add(buildJsonObject { put("id", "t1"); put("name", "早报"); put("prompt", "做点事"); put("rule", daily); put("skips", 5) }) })
+                },
+            ),
+        )
+        assertEquals("""[{"name":"早报","prompt":"做点事","rule":{"kind":"daily","time":"08:00"},"enabled":true,"permissionMode":"auto","newSession":true}]""", stale.values.getValue("scheduledTasks").toString())
     }
 
     @Test

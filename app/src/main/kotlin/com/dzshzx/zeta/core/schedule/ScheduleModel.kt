@@ -158,6 +158,8 @@ data class Settled(val outcome: RunOutcome, val summary: String, val notify: Boo
 data class Edited(val draft: TaskDraft, val problem: String?)
 
 object Schedules {
+    /** 存在 SharedPreferences `zeta` 的哪个键下（[ScheduleStore]）。 */
+    const val KEY = "scheduledTasks"
     const val MAX_TASKS = 50
     const val MAX_NAME = 40
     const val MAX_PROMPT = 8000
@@ -383,7 +385,7 @@ object Schedules {
         for (task in tasks) add(encodeTask(task))
     }.toString()
 
-    private fun encodeTask(task: ScheduledTask): JsonObject = buildJsonObject {
+    internal fun encodeTask(task: ScheduledTask): JsonObject = buildJsonObject {
         put("id", task.id)
         put("name", task.name)
         put("prompt", task.prompt)
@@ -442,7 +444,8 @@ object Schedules {
         return array.mapNotNull { element -> runCatching { decodeTask(element) }.getOrNull() }.filter { seen.add(it.id) }
     }
 
-    private fun decodeTask(element: JsonElement): ScheduledTask? {
+    /** 一个任务；缺了必要的字段时为 null，格式不对可能抛异常（[decode] 兜着）。 */
+    internal fun decodeTask(element: JsonElement): ScheduledTask? {
         val o = element as? JsonObject ?: return null
         val id = o.str("id")?.takeIf { it.isNotBlank() } ?: return null
         val prompt = o.str("prompt")?.takeIf { it.isNotBlank() } ?: return null

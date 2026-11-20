@@ -124,6 +124,8 @@ class SeenNotifications(private val capacity: Int = 256) {
 }
 
 object NotifyRules {
+    /** 存在 SharedPreferences `zeta` 的哪个键下（[NotifyRuleStore]）。 */
+    const val KEY = "notifyRules"
     const val MAX_RULES = 30
     const val MAX_NAME = 40
     const val MAX_PROMPT = 8000
@@ -328,7 +330,7 @@ object NotifyRules {
         for (rule in rules) add(encodeRule(rule))
     }.toString()
 
-    private fun encodeRule(rule: NotifyRule): JsonObject = buildJsonObject {
+    internal fun encodeRule(rule: NotifyRule): JsonObject = buildJsonObject {
         put("id", rule.id)
         put("name", rule.name)
         put("package", rule.packageName)
@@ -360,7 +362,8 @@ object NotifyRules {
         return array.mapNotNull { element -> runCatching { decodeRule(element) }.getOrNull() }.filter { seen.add(it.id) }
     }
 
-    private fun decodeRule(element: JsonElement): NotifyRule? {
+    /** 一条规则；缺了必要的字段时为 null，格式不对可能抛异常（[decode] 兜着）。 */
+    internal fun decodeRule(element: JsonElement): NotifyRule? {
         val o = element as? JsonObject ?: return null
         val id = o.str("id")?.takeIf { it.isNotBlank() } ?: return null
         val pkg = o.str("package")?.takeIf { PackagePattern.matches(it) } ?: return null
