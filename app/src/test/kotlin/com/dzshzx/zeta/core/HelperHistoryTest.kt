@@ -20,19 +20,17 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_helper.py 的 history（分页）：在临时 HOME 上真跑 python3，不碰任何人真实的 ~/.claude。
+ * zeta-helper 的 history（分页）：在临时 HOME 上真跑，不碰任何人真实的 ~/.claude。
  * 记录照 Claude Code 的样子写（紧凑 JSON，一行一条；一轮是用户消息、工具调用、工具结果、回答）。
  */
 class HelperHistoryTest {
     private lateinit var home: File
-    private val helper = File("src/main/assets/zeta_helper.py")
     private val session = "aaaaaaaa-1111-4222-8333-444444444444"
     private val file get() = File(home, ".claude/projects/-workspace-test/$session.jsonl")
     private val json = Json { ignoreUnknownKeys = true }
 
     @Before
     fun setUp() {
-        assumeTrue("要有 python3", runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false))
         home = Files.createTempDirectory("zeta-history-home").toFile()
         file.parentFile.mkdirs()
     }
@@ -43,8 +41,8 @@ class HelperHistoryTest {
     }
 
     private fun helper(vararg args: String): List<JsonObject> {
-        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply { environment()["HOME"] = home.path }.start()
-        process.outputStream.use { it.write(helper.readBytes()) }
+        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         val err = process.errorStream.bufferedReader().readText()
         assertTrue(process.waitFor(60, TimeUnit.SECONDS))

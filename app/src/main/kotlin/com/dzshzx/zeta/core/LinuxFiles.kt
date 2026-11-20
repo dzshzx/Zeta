@@ -79,10 +79,8 @@ object LinuxFiles {
 
     fun child(directory: String, name: String): String = if (directory == "/") "/$name" else "$directory/$name"
 
-    fun list(config: LinuxEnvConfig, helper: String, path: String): LinuxListing {
-        val result = runCatching {
-            LinuxEnv.run(config, "exec python3 - ls " + LinuxEnv.quote(path), stdin = helper, timeoutMs = 30_000)
-        }.getOrNull() ?: return LinuxListing.Failed("进不了 Linux 环境")
+    fun list(helper: HelperRun, path: String): LinuxListing {
+        val result = helper("ls", listOf(path)) ?: return LinuxListing.Failed("进不了 Linux 环境")
         val lines = result.stdout.lineSequence().filter { it.startsWith("{") }.mapNotNull { parse(it) }.toList()
         val head = lines.firstOrNull()?.takeIf { it.str("type") == "zeta_ls" }
             ?: return LinuxListing.Failed(result.stderr.lineSequence().lastOrNull { it.isNotBlank() }?.trim() ?: "无法读取该路径")
@@ -104,10 +102,8 @@ object LinuxFiles {
         return LinuxListing.Entries(head.str("path") ?: path, entries, head.int("total") ?: entries.size, head.bool("truncated") == true)
     }
 
-    fun read(config: LinuxEnvConfig, helper: String, path: String): LinuxPreview {
-        val result = runCatching {
-            LinuxEnv.run(config, "exec python3 - read " + LinuxEnv.quote(path) + " " + PREVIEW_BYTES, stdin = helper, timeoutMs = 30_000)
-        }.getOrNull() ?: return LinuxPreview.Failed("进不了 Linux 环境")
+    fun read(helper: HelperRun, path: String): LinuxPreview {
+        val result = helper("read", listOf(path, PREVIEW_BYTES.toString())) ?: return LinuxPreview.Failed("进不了 Linux 环境")
         val item = result.stdout.lineSequence().firstOrNull { it.startsWith("{") }?.let(::parse)
             ?: return LinuxPreview.Failed("无法读取该文件")
         item.str("error")?.let { return LinuxPreview.Failed(problem(it)) }

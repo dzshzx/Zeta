@@ -1,6 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
-import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.HelperProgram
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -12,14 +12,14 @@ class DiagEventsTest {
 
     @Test
     fun helperSubcommand() {
-        assertEquals("list", DiagEvents.helperCommand("exec python3 - list"))
-        assertEquals("history", DiagEvents.helperCommand("exec python3 - history '/home/x/.claude/projects/a/b.jsonl'"))
-        assertEquals("hosts", DiagEvents.helperCommand("python3 - hosts"))
+        val program = HelperProgram({ ByteArray(0) }, "zeta")
+        // 应用里拼 helper 命令行的那一处，诊断日志要认得出子命令
+        assertEquals("storage", DiagEvents.helperCommand(program.command("storage", listOf("it's", "1"))))
+        assertEquals("list", DiagEvents.helperCommand(program.command("list")))
+        assertEquals("history", DiagEvents.helperCommand(program.command("history", listOf("/home/x/.claude/projects/a/b.jsonl"))))
+        assertEquals("install", DiagEvents.helperCommand(program.installCommand(byteArrayOf(1, 2))))
         assertNull(DiagEvents.helperCommand("exec bash -c 'x' zeta-host stop k"))
         assertNull(DiagEvents.helperCommand("exec python3 -c 'print(1)'"))
-        // 应用里拼 helper 命令行的那一处，诊断日志要认得出子命令
-        assertEquals("storage", DiagEvents.helperCommand(LinuxEnv.helperCommand("storage", listOf("it's", "1"))))
-        assertEquals("list", DiagEvents.helperCommand(LinuxEnv.helperCommand("list")))
     }
 
     @Test

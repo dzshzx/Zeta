@@ -125,8 +125,21 @@ class StorageTest {
 
     @Test
     fun everyLinuxKindHasAHelperPlan() {
-        val helper = File("src/main/assets/zeta_helper.py").readText()
-        for (kind in StorageKind.entries.filter { it.inLinux }) assertTrue(kind.key, helper.contains("\"${kind.key}\":"))
+        // zeta-helper storage 对每一类都报一行（统计不成的也报，带 error）：在空的临时 HOME 上跑一次，看报出的类别
+        val home = java.nio.file.Files.createTempDirectory("zeta-storage-kinds").toFile()
+        try {
+            val process = ProcessBuilder(TestHelper.path, "storage").apply {
+                environment()["HOME"] = home.path
+                environment()["ZETA_STORAGE_TEST_TMP"] = home.path
+            }.start()
+            process.outputStream.close()
+            val out = process.inputStream.bufferedReader().readText()
+            assertTrue(process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS))
+            val reported = Storage.parseReport(out).linux.keys
+            for (kind in StorageKind.entries.filter { it.inLinux }) assertTrue(kind.key, kind.key in reported)
+        } finally {
+            home.deleteRecursively()
+        }
     }
 
     private fun aged(file: File, ago: Long = 60 * 60 * 1000L): File {

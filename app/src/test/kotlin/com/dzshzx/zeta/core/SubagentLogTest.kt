@@ -17,12 +17,11 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 子代理查看页的数据：zeta_helper.py subagent 在临时 HOME 上按偏移增量读子代理记录，[SubagentTranscript] 归约成聊天条目，
+ * 子代理查看页的数据：zeta-helper subagent 在临时 HOME 上按偏移增量读子代理记录，[SubagentTranscript] 归约成聊天条目，
  * 输出流里的事件只补文件还没写到的部分。记录的格式照 Claude Code 2.1.328 的真实样子删减（真跑一遍的见 ClaudeTaskContractTest）。
  */
 class SubagentLogTest {
     private lateinit var home: File
-    private val helper = File("src/main/assets/zeta_helper.py")
     private val session = "aaaaaaaa-1111-4222-8333-444444444444"
     private val dir get() = File(home, ".claude/projects/-workspace-test/$session/subagents")
     private val record get() = File(dir, "agent-a1b2c3.jsonl")
@@ -30,7 +29,6 @@ class SubagentLogTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要有 python3", runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false))
         home = Files.createTempDirectory("zeta-subagent-home").toFile().canonicalFile
         dir.mkdirs()
         File(home, ".claude/projects/-workspace-test/$session.jsonl").writeText("{\"type\":\"user\"}\n")
@@ -43,8 +41,8 @@ class SubagentLogTest {
     }
 
     private fun run(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply { environment()["HOME"] = home.path }.start()
-        process.outputStream.use { it.write(helper.readBytes()) }
+        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         process.errorStream.readBytes()
         assertTrue(process.waitFor(30, TimeUnit.SECONDS))

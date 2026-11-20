@@ -257,7 +257,7 @@ data class SessionSummary(
 
 private val summaryJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
-/** zeta_helper.py 的 list / lookup 输出：一行一个会话概要，别的行跳过。 */
+/** zeta-helper 的 list / lookup 输出：一行一个会话概要，别的行跳过。 */
 internal fun parseSessionSummaries(stdout: String): List<SessionSummary> = stdout.lineSequence().mapNotNull { line ->
     val o = runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
     SessionSummary(

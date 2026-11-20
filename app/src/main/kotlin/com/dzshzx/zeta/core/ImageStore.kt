@@ -53,8 +53,8 @@ object ImageStore {
                 if (ref is RemoteImage) return@runCatching download(ref.url)?.let(::decode)
                 val data = when (ref) {
                     is InlineImage -> ref.base64
-                    is SessionImage -> fetch(hub, "image " + LinuxEnv.quote(ref.file) + " " + LinuxEnv.quote(ref.ref))
-                    is FileImage -> fetch(hub, "file-image " + LinuxEnv.quote(ref.path))
+                    is SessionImage -> fetch(hub, "image", listOf(ref.file, ref.ref))
+                    is FileImage -> fetch(hub, "file-image", listOf(ref.path))
                     is RemoteImage -> null
                 } ?: return@runCatching null
                 decode(Base64.decode(data, Base64.DEFAULT))
@@ -91,9 +91,8 @@ object ImageStore {
         }
     }
 
-    private fun fetch(hub: ConversationHub, arguments: String): String? {
-        val config = hub.settings.env ?: return null
-        val result = LinuxEnv.run(config, "exec python3 - $arguments", stdin = hub.helperScript, timeoutMs = 60_000)
+    private fun fetch(hub: ConversationHub, subcommand: String, arguments: List<String>): String? {
+        val result = hub.helper(subcommand, arguments, timeoutMs = 60_000) ?: return null
         if (result.exitCode != 0) return null
         val line = result.stdout.lineSequence().firstOrNull { it.startsWith("{") } ?: return null
         return (json.parseToJsonElement(line) as? JsonObject)?.str("data")

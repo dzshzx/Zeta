@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.diag
 
 import com.dzshzx.zeta.core.CommandResult
+import com.dzshzx.zeta.core.HelperProgram
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -76,12 +77,15 @@ object DiagEvents {
         DiagLog.warn(DiagTopic.Phone, "手机工具 $name 失败：$error")
     }
 
-    /** `exec python3 - <子命令> …` 里的子命令；不是在跑 helper 返回 null。 */
+    /** 跑 zeta-helper 的命令行（[HelperProgram.command]）里的子命令，装它的那一行是 install；不是在跑它返回 null。 */
     fun helperCommand(command: String): String? {
-        val rest = command.trimStart().removePrefix("exec ").trimStart()
-        if (!rest.startsWith("python3 - ")) return null
-        return rest.removePrefix("python3 - ").trim().substringBefore(' ').ifEmpty { null }
+        if ("/" + HelperProgram.TEMP_PREFIX + "." in command) return "install"
+        if ("/zeta-helper-" !in command) return null
+        return command.substringAfter(HELPER_EXEC, "").trim().substringBefore(' ').ifEmpty { null }
     }
+
+    /** [HelperProgram.command] 里执行装好的程序的那一段，子命令紧跟其后。 */
+    private const val HELPER_EXEC = "exec \"\$f\" "
 
     /** 起进程的参数里挑几项看得出这个进程是怎么起的：续哪个会话、模型、权限模式、开没开手机工具。 */
     fun describeArguments(arguments: List<String>): String {

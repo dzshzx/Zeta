@@ -35,14 +35,14 @@ fun formatBytes(bytes: Long): String {
     return (if ('.' in text) text.trimEnd('0').trimEnd('.') else text) + " " + units[unit]
 }
 
-/** 像 Claude Code 会话 id 的字符串（zeta_helper.py 那边同样校验）：存储清理要保护的会话、设置备份里的置顶会话都按它收。 */
+/** 像 Claude Code 会话 id 的字符串（zeta-helper 那边同样校验）：存储清理要保护的会话、设置备份里的置顶会话都按它收。 */
 internal val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
 
 /** 存储页的三组。 */
 enum class StorageGroup { Zeta, Claude, Debian }
 
 /**
- * 存储页上能清理的一类。[key] 和 zeta_helper.py 里 PLANS 的键一致；[AppCache]、[ImageMemory] 在 Android 一侧，由应用自己算、自己删，
+ * 存储页上能清理的一类。[key] 和 zeta-helper 各类清理计划的键一致（helper/storage.go）；[AppCache]、[ImageMemory] 在 Android 一侧，由应用自己算、自己删，
  * [Apt] 要 root，由应用以 root 执行 apt-get clean。[what] 是确认框里的“删什么”，[kept] 是“什么不删”。
  */
 enum class StorageKind(val key: String, val group: StorageGroup, val title: String, val what: String, val kept: String) {

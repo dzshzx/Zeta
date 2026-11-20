@@ -74,13 +74,6 @@ object LinuxEnv {
 
     fun quote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
-    /**
-     * 跑 zeta_helper.py 一个子命令的命令行（脚本本身从标准输入喂）。子命令是脚本里固定的名字，原样放；参数逐个加引号。
-     * 诊断日志靠 [com.dzshzx.zeta.core.diag.DiagEvents.helperCommand] 从这一行认出子命令。
-     */
-    fun helperCommand(subcommand: String, arguments: List<String> = emptyList()): String =
-        "exec python3 - $subcommand" + arguments.joinToString("") { " " + quote(it) }
-
     /** 给 `su -c` 的整段脚本：在 Debian 里以 [config] 的用户身份、登录 shell 的环境执行 [command]。 */
     fun enterScript(config: LinuxEnvConfig, command: String): String =
         FIND_BUSYBOX + "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" unshare -m --propagation private \"\$BB\" sh -c " +
@@ -129,29 +122,33 @@ object LinuxEnv {
 
     /** 以 root 在 Android 侧直接执行一段脚本（不进 Debian）。[stdin] 不进命令行，别的进程从进程列表里看不到。 */
     fun runRoot(script: String, timeoutMs: Long = 15_000, stdin: String? = null): CommandResult =
-        capture(ProcessBuilder("su", "-c", script).start(), stdin, timeoutMs)
+        capture(ProcessBuilder("su", "-c", script).start(), stdin?.toByteArray(), timeoutMs)
 
     /** 同 [runRoot]，标准输出按字节原样收（以 root 读文件用），不经文本、不在别处落盘。 */
     fun runRootBytes(script: String, timeoutMs: Long = 15_000): BytesResult =
         captureBytes(ProcessBuilder("su", "-c", script).start(), null, timeoutMs, drainMs = 5_000)
 
     fun run(config: LinuxEnvConfig, command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult =
+        run(config, command, stdin?.toByteArray(), timeoutMs)
+
+    /** 同上，标准输入是原样的字节（装 zeta-helper 时传程序本身，见 [HelperProgram]）。 */
+    fun run(config: LinuxEnvConfig, command: String, stdin: ByteArray?, timeoutMs: Long): CommandResult =
         capture(start(config, command), stdin, timeoutMs).also { DiagEvents.linuxRun(command, it) }
 
-    private fun capture(process: Process, stdin: String?, timeoutMs: Long, killOnTimeout: Boolean = true): CommandResult =
+    private fun capture(process: Process, stdin: ByteArray?, timeoutMs: Long, killOnTimeout: Boolean = true): CommandResult =
         captureBytes(process, stdin, timeoutMs, killOnTimeout).let { CommandResult(it.exitCode, it.stdout.toString(Charsets.UTF_8), it.stderr) }
 
     /**
      * 收齐 [process] 的输出：到 [timeoutMs] 还没结束就经 root 结束它（[kill]），结果标成超时。
      * 进程结束后再等读输出的线程最多 [drainMs]，管道里剩下的读完。
      */
-    private fun captureBytes(process: Process, stdin: String?, timeoutMs: Long, killOnTimeout: Boolean = true, drainMs: Long = 2_000): BytesResult {
+    private fun captureBytes(process: Process, stdin: ByteArray?, timeoutMs: Long, killOnTimeout: Boolean = true, drainMs: Long = 2_000): BytesResult {
         val out = ByteArrayOutputStream()
         val err = StringBuilder()
         val t1 = Thread { runCatching { process.inputStream.use { it.copyTo(out) } } }.apply { start() }
         val t2 = Thread { runCatching { err.append(process.errorStream.bufferedReader().readText()) } }.apply { start() }
         runCatching {
-            process.outputStream.use { if (stdin != null) it.write(stdin.toByteArray()) }
+            process.outputStream.use { if (stdin != null) it.write(stdin) }
         }
         if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
             if (killOnTimeout) kill(process) else process.destroy()

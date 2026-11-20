@@ -15,19 +15,18 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 正式版和测试版共用同一个 Linux 用户：真的 zeta_host.sh 和 zeta_helper.py 跑在临时 HOME 上，
+ * 正式版和测试版共用同一个 Linux 用户：真的 zeta_host.sh 和 zeta-helper 跑在临时 HOME 上，
  * 用一个假的 claude，确认两个包的后台对话各在各的目录，互相看不到、结束不了对方的。
  */
 class HostIsolationTest {
     private lateinit var home: File
     private val host = File("src/main/assets/zeta_host.sh").absoluteFile
-    private val helper = File("src/main/assets/zeta_helper.py").absoluteFile
     private val release = AppVariant(AppVariant.RELEASE_PACKAGE).linuxName
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash、python3", File("/proc/self/cmdline").exists())
+        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/cmdline").exists())
         home = Files.createTempDirectory("zeta-hosts").toFile().canonicalFile
         HostTesting.writeClaudeStandIn(home)
     }
@@ -45,7 +44,7 @@ class HostIsolationTest {
 
     private fun start(name: String?, key: String) = run(name, "bash", host.path, "start", key, home.path, "t", "-p")
 
-    private fun hosts(name: String?): List<String> = run(name, "python3", "-I", helper.path, "hosts").lineSequence()
+    private fun hosts(name: String?): List<String> = run(name, TestHelper.path, "hosts").lineSequence()
         .filter { it.startsWith("{") }
         .map { Json.parseToJsonElement(it).jsonObject["key"]!!.jsonPrimitive.content }
         .toList()
@@ -99,7 +98,7 @@ class HostIsolationTest {
         )
         val transcript = File(home, ".claude/projects/-p/$session.jsonl").apply { parentFile!!.mkdirs() }
         val user = """{"type":"user","message":{"role":"user","content":"第一句话"},"cwd":"/p"}"""
-        fun title(): String = run(release, "python3", "-I", helper.path, "hosts").lineSequence()
+        fun title(): String = run(release, TestHelper.path, "hosts").lineSequence()
             .filter { it.startsWith("{") }
             .map { Json.parseToJsonElement(it).jsonObject["title"]!!.jsonPrimitive.content }
             .single()

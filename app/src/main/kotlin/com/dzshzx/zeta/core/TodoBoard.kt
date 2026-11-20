@@ -52,7 +52,7 @@ object TodoBoard {
     }
 
     /**
-     * 把 zeta_helper.py 给出的“没载入的历史里的清单工具调用”（assistant、user 两种事件）还原成工具步骤。
+     * 把 zeta-helper 给出的“没载入的历史里的清单工具调用”（assistant、user 两种事件）还原成工具步骤。
      */
     fun seedSteps(events: JsonArray?): List<ToolStep> {
         if (events.isNullOrEmpty()) return emptyList()

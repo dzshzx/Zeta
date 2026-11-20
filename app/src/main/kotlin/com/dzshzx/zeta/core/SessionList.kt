@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
 
 /**
- * 侧栏的会话列表：Claude Code 存在 ~/.claude/projects 下的会话，经 zeta_helper.py 读、改名、归档、删除。
+ * 侧栏的会话列表：Claude Code 存在 ~/.claude/projects 下的会话，经 zeta-helper 读、改名、归档、删除。
  * [sessions] 可观察，在主线程上读写；读写会话记录在后台线程上跑。
  * 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
  */

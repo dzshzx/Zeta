@@ -123,7 +123,7 @@ data class ChatUsage(
 }
 
 /**
- * 从 Claude Code 的 stream-json 事件（以及 zeta_helper.py history 给出的会话记录）累计一个对话的用量。纯逻辑，不依赖 Android。
+ * 从 Claude Code 的 stream-json 事件（以及 zeta-helper history 给出的会话记录）累计一个对话的用量。纯逻辑，不依赖 Android。
  *
  * - 上下文占用：主对话最近一次请求的 usage 四项之和（提示词含缓存读写，加上输出）。这正是 Claude Code 判断自动压缩用的数，
  *   压缩前的 pre_tokens 与它一致。压缩后的 post_tokens 只算消息、不含系统提示和工具定义（实测压缩后下一次请求比它多两万多），

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 
-/** 子代理记录旁 meta.json 里界面要的几项（zeta_helper.py subagent 给出）。 */
+/** 子代理记录旁 meta.json 里界面要的几项（zeta-helper subagent 给出）。 */
 @Immutable
 data class SubagentMeta(
     val agentId: String,
@@ -30,7 +30,7 @@ data class SubagentMeta(
 /**
  * 一个子代理在做什么，归约成和聊天里一样的条目。纯逻辑，在主线程（或测试里）调用。
  *
- * 两个来源：Claude Code 写在 `<会话目录>/subagents/agent-<id>.jsonl` 的记录（zeta_helper.py subagent 按偏移增量读出，
+ * 两个来源：Claude Code 写在 `<会话目录>/subagents/agent-<id>.jsonl` 的记录（zeta-helper subagent 按偏移增量读出，
  * 见 [applyRead]），这是全的；输出流里 parent_tool_use_id 是它的事件（[observeLive]），比读文件及时，
  * 但不全（前台子代理的文字不进输出流），只在文件还没读到时补上，文件里有了就丢掉。
  *
@@ -87,7 +87,7 @@ class SubagentTranscript(val toolUseId: String, private val keep: Int = 800) {
     private val fileToolUses = HashSet<String>()
     private val fileResults = HashSet<String>()
 
-    /** 收下一次 `zeta_helper.py subagent` 的输出。返回内容有没有变。 */
+    /** 收下一次 `zeta-helper subagent` 的输出。返回内容有没有变。 */
     fun applyRead(stdout: String): Boolean {
         val lines = stdout.lineSequence().map { it.trim() }.mapNotNull { line ->
             if (!line.startsWith("{")) null else runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull()

@@ -12,20 +12,20 @@
 # 目录按包分开：ZETA_NAME 是 Zeta 自己的目录名（正式版 zeta，测试版 zeta-dev），由应用进环境时传进来。
 # 两个包看不到对方的后台进程，也就不会接管或结束对方的对话。
 #
-# 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；stop、接着的一方见到 exit、zeta_helper.py hosts 见到进程没了时删掉，
-# 存储页（zeta_helper.py clean）清掉进程和接着的一方都已不在的。
+# 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；stop、接着的一方见到 exit、zeta-helper hosts 见到进程没了时删掉，
+# 存储页（zeta-helper clean）清掉进程和接着的一方都已不在的。
 #   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入转进来；stop 往里写 end_session。
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
-#              看门狗看这一轮和后台任务；zeta_helper.py hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
-#              应用接回时据此建 HostInfo；zeta_helper.py 的存储页从开头取会话号。
-#   pid        Claude Code 的进程号，起进程的那段写。本脚本 attach、stop 用；zeta_helper.py 据此认还活着的托管进程
+#              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
+#              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
+#   pid        Claude Code 的进程号，起进程的那段写。本脚本 attach、stop 用；zeta-helper 据此认还活着的托管进程
 #              （hosts、存储页、别处占用的会话）；zeta_accounts.sh 据此认出进程是哪个包托管的；
 #              应用的 PathCheck（AttachedPaths.kt）经 /proc/<pid>/root 看这个进程的挂载命名空间。
 #   attach     正接着的那一方（本脚本 start、attach 之后的部分）的进程号，接上时写。看门狗据此知道有没有应用接着；
-#              zeta_helper.py 的存储页据此不清还连着的目录。
-#   cwd        启动时的工作目录，start 写。zeta_helper.py hosts 接回时用。
-#   title      启动时的标题，start 写。zeta_helper.py hosts 在会话记录里没有标题时用；诊断页（DiagScripts.kt）列运行中的日志时带上。
-#   exit       Claude Code 的退出码，它退出后起进程的那段写。接着的一方见到它就报 zeta_exit 并删掉目录；zeta_helper.py hosts 见到它就当已结束。
+#              zeta-helper 的存储页据此不清还连着的目录。
+#   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
+#   title      启动时的标题，start 写。zeta-helper hosts 在会话记录里没有标题时用；诊断页（DiagScripts.kt）列运行中的日志时带上。
+#   exit       Claude Code 的退出码，它退出后起进程的那段写。接着的一方见到它就报 zeta_exit 并删掉目录；zeta-helper hosts 见到它就当已结束。
 #   err.log    Claude Code 的标准错误输出，起进程的那段追加。诊断页读运行中的；Claude Code 退出时留一份到 ~/.cache/<ZETA_NAME>/stderr/；
 #              接着的一方报 zeta_exit 时带上最后一段，进程没起来时打出来。
 set -u
@@ -38,7 +38,7 @@ D="$HOME/.cache/${ZETA_NAME:-zeta}/hosts/$2"
 # 别的行都不算：result 之后还会写 command_lifecycle completed、task_notification、background_tasks_changed 等收尾事件，
 # 后台子代理内部的行（assistant、user，带 parent_tool_use_id）在这一轮的 result 之后还会陆续写来。
 # result 行的键顺序不固定，type 不一定在行首；内容里的引号都转义过，不会误中。
-# Conversation.handle 和 zeta_helper.py 的 scan_host 是同一口径（Conversation 另外认它自己发出、还在排队的消息），
+# Conversation.handle 和 zeta-helper 的 scan_host 是同一口径（Conversation 另外认它自己发出、还在排队的消息），
 # HostTurnTest 拿同一组输出日志逐行核对这三处。
 turn_running() {
   grep -E '"type":"result"|^[{]"type":"system","subtype":"init"|^[{]"type":"command_lifecycle".*"state":"started"' "$1" \

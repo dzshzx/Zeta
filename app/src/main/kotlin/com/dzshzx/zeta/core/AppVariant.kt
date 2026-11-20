@@ -55,7 +55,7 @@ class AppVariant(val packageName: String) {
     companion object {
         const val RELEASE_PACKAGE = "com.dzshzx.zeta"
 
-        /** 交给 Debian 里的脚本（zeta_host.sh、zeta_helper.py）的环境变量，值是 [linuxName]。 */
+        /** 交给 Linux 一侧（zeta_host.sh、zeta-helper）的环境变量，值是 [linuxName]。 */
         const val LINUX_NAME_ENV = "ZETA_NAME"
 
         /** 正在运行的这个包。包名在构建时就定了（build type 的 applicationIdSuffix），不用等 Context。 */

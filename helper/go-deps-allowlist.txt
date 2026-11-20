@@ -1,0 +1,2 @@
+# zeta-helper 链接的第三方模块：只有 Go 团队维护的扩展库 x/text（read 解 GB18030 用），门禁 gate_go_deps 按本清单核对，多一个都失败
+golang.org/x/text

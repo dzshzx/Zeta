@@ -1,0 +1,383 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"math"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+const listLimit = 300 // list、search 只看最新的这么多个会话
+
+// summary 是会话列表里的一项。
+type summary struct {
+	id      string
+	file    string
+	cwd     any
+	title   string
+	preview string
+	updated int64
+}
+
+func (s summary) item(external, archived map[string]bool) obj {
+	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "updated": s.updated,
+		"external": external[s.id], "archived": archived[s.id]}
+}
+
+// summaryScan 是读一份记录时攒下的东西。
+type summaryScan struct {
+	custom, ai    string // 改过的名字、自动起的标题
+	first, prompt string // 第一句话（含斜杠命令）、第一句真正的话
+	cwd           any
+}
+
+// summarize 读一份记录的概要：标题、工作目录、预览。记录里一句用户的话都没有时 ok 为假。
+func summarize(path string) (summary, bool, error) {
+	f, err := openFile(path)
+	if err != nil {
+		return summary{}, false, err
+	}
+	defer f.Close()
+	var s summaryScan
+	lr := newLineReader(f)
+	for line, ok := lr.next(); ok; line, ok = lr.next() {
+		s.line(line)
+	}
+	if lr.err != nil {
+		return summary{}, false, lr.err
+	}
+	if s.first == "" {
+		return summary{}, false, nil
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return summary{}, false, err
+	}
+	title := s.custom
+	if title == "" {
+		title = s.ai
+	}
+	preview := s.prompt
+	if preview == "" {
+		preview = s.first
+	}
+	return summary{id: dropRunes(baseName(path), 6), file: path, cwd: orValue(s.cwd, ""), title: title,
+		preview: runePrefix(preview, 200), updated: millis(mtimeOf(fi))}, true, nil
+}
+
+func (s *summaryScan) line(line []byte) {
+	// 先按子串筛，绝大多数行（请求快照等）不必解析
+	switch {
+	case has(line, `"ai-title"`) || has(line, `"custom-title"`):
+		s.title(line)
+	case has(line, `"leafUuid":null`) && isRewind(line):
+		// 剪到了第一条消息之前：之前的提问不算了，预览改用之后的第一句
+		s.first, s.prompt = "", ""
+	case s.prompt == "" && has(line, `"type":"user"`):
+		s.user(line)
+	case s.cwd == nil && has(line, `"cwd"`):
+		if o, ok := parseObject(line); ok {
+			s.cwd = o["cwd"]
+		}
+	}
+}
+
+// title：和 Claude Code 一样，改过的名字（custom-title）压过自动起的（ai-title），不看先后；
+// Claude Code 补写元数据时会把两行按 custom、ai 的顺序再追加一遍。
+func (s *summaryScan) title(line []byte) {
+	o, ok := parseObject(line)
+	if !ok {
+		return
+	}
+	if t := asString(o["customTitle"]); o["type"] == "custom-title" && t != "" {
+		s.custom = t
+	} else if t := asString(o["aiTitle"]); o["type"] == "ai-title" && t != "" {
+		s.ai = t
+	}
+}
+
+func (s *summaryScan) user(line []byte) {
+	o, ok := parseObject(line)
+	if !ok || o["type"] != "user" || truthy(o["isSidechain"]) || truthy(o["isMeta"]) {
+		return
+	}
+	if !truthy(s.cwd) {
+		s.cwd = o["cwd"]
+	}
+	content := asObj(o["message"])["content"]
+	text := userText(content)
+	if text == "" && imageCount(content) > 0 {
+		text = "[图片]"
+	}
+	if text == "" {
+		return
+	}
+	// 附件行不当预览；斜杠命令开头的会话，预览优先用后面第一句真正的话
+	text = previewText(text)
+	if s.first == "" {
+		s.first = text
+	}
+	if !strings.HasPrefix(text, "/") {
+		s.prompt = text
+	}
+}
+
+// previewText 去掉附件行；全是附件行时取第一行附件的名字。
+func previewText(text string) string {
+	var kept []string
+	lines := strings.Split(text, "\n")
+	for _, l := range lines {
+		if _, ok := attachedName(l); !ok {
+			kept = append(kept, l)
+		}
+	}
+	if joined := strings.TrimSpace(strings.Join(kept, "\n")); joined != "" {
+		return joined
+	}
+	if name, ok := attachedName(lines[0]); ok {
+		return name
+	}
+	return text
+}
+
+func cmdList(e *env, o *emitter) error {
+	files := e.sessionFiles()
+	sortNewestFirst(files)
+	external := e.externalSessions()
+	archived := e.archivedSessions()
+	for _, path := range files[:min(len(files), listLimit)] {
+		s, ok, err := summarize(path)
+		if err == nil && ok {
+			o.out(s.item(external, archived))
+		}
+	}
+	return nil
+}
+
+func cmdLookup(e *env, o *emitter, ids []string) error {
+	external := e.externalSessions()
+	archived := e.archivedSessions()
+	for _, id := range ids {
+		for _, path := range e.sessionFilesNamed(id) {
+			s, ok, err := summarize(path)
+			if err == nil && ok {
+				o.out(s.item(external, archived))
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着；文件里一行一个 id。
+func (e *env) archivedSessions() map[string]bool {
+	ids := map[string]bool{}
+	data, err := os.ReadFile(e.archive)
+	if err != nil {
+		return ids
+	}
+	for _, line := range strings.Split(decodeString(data), "\n") {
+		if id := strings.TrimSpace(line); id != "" {
+			ids[id] = true
+		}
+	}
+	return ids
+}
+
+func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
+	// 顺手清掉记录文件已经不在的
+	alive := e.sessionIDs()
+	keep := map[string]bool{}
+	for id := range e.archivedSessions() {
+		if alive[id] {
+			keep[id] = true
+		}
+	}
+	for _, id := range sessions {
+		if on {
+			keep[id] = true
+		} else {
+			delete(keep, id)
+		}
+	}
+	ids := make([]string, 0, len(keep))
+	for id := range keep {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	var b strings.Builder
+	for _, id := range ids {
+		b.WriteString(id + "\n")
+	}
+	if err := os.MkdirAll(dirName(e.archive), 0o777); err != nil {
+		return err
+	}
+	if err := os.WriteFile(e.archive+".tmp", []byte(b.String()), 0o666); err != nil {
+		return err
+	}
+	if err := os.Rename(e.archive+".tmp", e.archive); err != nil {
+		return err
+	}
+	for _, id := range sessions {
+		o.out(obj{"type": "zeta_archived", "id": id, "archived": on})
+	}
+	return nil
+}
+
+// cmdRename 给会话改名：追加一行 custom-title（与 Claude Code 自己的 /rename 写的一样，紧凑的 JSON），文件末尾没有换行时先补一个。
+func cmdRename(o *emitter, path, title string) error {
+	title = runePrefix(squash(title), 200)
+	if title == "" {
+		return errors.New("empty title")
+	}
+	f, err := openFile(path)
+	if err != nil {
+		return err
+	}
+	needsNewline, err := lacksFinalNewline(f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	line := []byte{}
+	if needsNewline {
+		line = append(line, '\n')
+	}
+	line = append(line, `{"type":"custom-title","customTitle":`...)
+	line = appendQuoted(line, title)
+	line = append(line, `,"sessionId":`...)
+	line = appendQuoted(line, dropRunes(baseName(path), 6))
+	line = append(line, "}\n"...)
+	w, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o666)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(line); err != nil {
+		w.Close()
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	o.out(obj{"type": "zeta_renamed", "title": title})
+	return nil
+}
+
+func lacksFinalNewline(f *os.File) (bool, error) {
+	size, err := f.Seek(0, 2)
+	if err != nil || size == 0 {
+		return false, err
+	}
+	last := make([]byte, 1)
+	if _, err := f.ReadAt(last, size-1); err != nil {
+		return false, err
+	}
+	return last[0] != '\n', nil
+}
+
+// cmdDelete 删会话记录和它的同名目录。目录用 removeTree，删到符号链接只删链接本身，不跟进去。
+func cmdDelete(e *env, o *emitter, paths []string) error {
+	for _, path := range paths {
+		dir, hasDir := e.sessionDir(path)
+		if err := unlinkFile(path); err != nil && !isNotExist(err) {
+			return err
+		}
+		cleaned := false
+		if hasDir {
+			removeTree(dir)
+			cleaned = !lexists(dir)
+		}
+		o.out(obj{"type": "zeta_deleted", "file": path, "dir": cleaned})
+	}
+	return nil
+}
+
+// registered 是 Claude Code 某个进程登记的会话。
+type registered struct {
+	pid     int
+	session any
+}
+
+// registeredSessions：Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
+// 给出进程还活着的；pid 被别的进程复用了（启动时刻对不上）的不算。
+func (e *env) registeredSessions() []registered {
+	var out []registered
+	for _, name := range globNames(e.sessions, false, func(n string) bool { return strings.HasSuffix(n, ".json") }) {
+		info := readJSONObject(joinPath(e.sessions, name))
+		pid, ok := jsonInt(info["pid"])
+		if info == nil || !ok {
+			continue
+		}
+		started, ok := procStart(pid)
+		if !ok {
+			continue
+		}
+		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
+			continue
+		}
+		out = append(out, registered{pid: pid, session: info["sessionId"]})
+	}
+	return out
+}
+
+// jsonInt 把登记文件里的 pid 转成整数：整数、写成小数的数（取整数部分）、写成数字的字符串。
+func jsonInt(v any) (int, bool) {
+	switch t := v.(type) {
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(t))
+		return n, err == nil
+	case json.Number:
+		if n, err := t.Int64(); err == nil {
+			return int(n), true
+		}
+		f, err := t.Float64()
+		if err != nil || math.Abs(f) > 1<<62 {
+			return 0, false
+		}
+		return int(f), true
+	}
+	return 0, false
+}
+
+// hostPids 是 Zeta 托管目录里记着的进程号。
+func (e *env) hostPids() map[int]bool {
+	pids := map[int]bool{}
+	for _, name := range globNames(e.hosts, true, nil) {
+		if pid, ok := readPid(joinPath(joinPath(e.hosts, name), "pid")); ok {
+			pids[pid] = true
+		}
+	}
+	return pids
+}
+
+// externalSessions 是正被别的 Claude Code 进程（比如终端里的）占用的会话 id。
+func (e *env) externalSessions() map[string]bool {
+	mine := e.hostPids()
+	out := map[string]bool{}
+	for _, r := range e.registeredSessions() {
+		if s, ok := r.session.(string); ok && !mine[r.pid] {
+			out[s] = true
+		}
+	}
+	return out
+}
+
+// readJSONObject 读一个 JSON 对象文件；读不了、不是合法 UTF-8、不是对象时为 nil。
+func readJSONObject(path string) obj {
+	f, err := openFile(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil || !utf8.Valid(data) {
+		return nil
+	}
+	m, _ := parseObject(data)
+	return m
+}

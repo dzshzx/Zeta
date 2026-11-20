@@ -31,17 +31,23 @@ import kotlinx.serialization.json.JsonObject
 class ConversationHub(private val app: Application) {
     val context: Application get() = app
     val settings = Settings.of(app)
-    val helperScript: String by lazy { app.assets.open("zeta_helper.py").bufferedReader().use { it.readText() } }
     val hostScript: String by lazy { app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() } }
 
+    /** Linux 一侧的程序 zeta-helper：APK 里带着，第一次用时装进 Linux（[HelperProgram]）。 */
+    val helperProgram = HelperProgram({ name -> app.assets.open(name).use { it.readBytes() } }, AppVariant.current.linuxName)
+
     /**
-     * 在 Linux 环境（默认是当前设置的那个）里跑 zeta_helper.py 的子命令 [subcommand]，参数逐个加引号。
+     * 在 Linux 环境（默认是当前设置的那个）里跑 zeta-helper 的子命令 [subcommand]，参数逐个加引号；还没装就先装上。
      * 环境没准备好、起不来时返回 null。阻塞，别在主线程上调用。
      */
     fun helper(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): CommandResult? {
         config ?: return null
-        return runCatching { LinuxEnv.run(config, LinuxEnv.helperCommand(subcommand, arguments), stdin = helperScript, timeoutMs = timeoutMs) }.getOrNull()
+        return runCatching { helperProgram.run({ command, stdin -> LinuxEnv.run(config, command, stdin, timeoutMs) }, subcommand, arguments) }.getOrNull()
     }
+
+    /** 确认 zeta-helper 已装进 Linux 环境 [config]（没装就装上）；要自己起它的进程（边读边出结果）之前用。装好了是 true。阻塞。 */
+    fun ensureHelper(config: LinuxEnvConfig): Boolean =
+        runCatching { helperProgram.ensure { command, stdin -> LinuxEnv.run(config, command, stdin, 60_000) }?.exitCode == 0 }.getOrDefault(false)
 
     /**
      * 新对话的默认值：Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），Zeta 不另存一份。

@@ -13,13 +13,12 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_helper.py 的 delete / archive：在一个临时 HOME 上真跑一遍 python3，不碰任何人真实的 ~/.claude。
+ * zeta-helper 的 delete / archive：在一个临时 HOME 上真跑一遍，不碰任何人真实的 ~/.claude。
  * 删除要连同 Claude Code 存在 <项目>/<会话 id>/ 下的东西一起删，但只删这一个会话的、在 ~/.claude/projects 里的真目录。
  */
 class HelperDeleteTest {
     private lateinit var home: File
     private lateinit var outside: File
-    private val helper = File("src/main/assets/zeta_helper.py")
     private val project get() = File(home, ".claude/projects/-workspace-test")
 
     private val a = "aaaaaaaa-1111-4222-8333-444444444444"
@@ -28,7 +27,6 @@ class HelperDeleteTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要有 python3", runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false))
         home = Files.createTempDirectory("zeta-helper-home").toFile()
         outside = Files.createTempDirectory("zeta-helper-outside").toFile()
         project.mkdirs()
@@ -49,8 +47,8 @@ class HelperDeleteTest {
     }
 
     private fun helper(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply { environment()["HOME"] = home.path }.start()
-        process.outputStream.use { it.write(helper.readBytes()) }
+        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         process.errorStream.readBytes()
         assertTrue(process.waitFor(30, TimeUnit.SECONDS))

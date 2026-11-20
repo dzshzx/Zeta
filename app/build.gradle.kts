@@ -1,4 +1,5 @@
 import java.time.Duration
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
@@ -96,6 +97,44 @@ android {
     }
 }
 
+/**
+ * 编 zeta-helper（仓根 helper/ 的 Go 程序，Zeta 在 Linux 一侧读写会话记录用）：linux 的 arm64、amd64 各一份，
+ * 静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节（应用按内容哈希判断装没装，见 core/HelperProgram.kt）。
+ * 输出 <outputDir>/zeta-helper/linux-<架构>，作为 assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
+ */
+@CacheableTask
+abstract class ZetaHelperTask : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val exec: ExecOperations
+
+    @TaskAction
+    fun build() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        for (arch in listOf("arm64", "amd64")) {
+            exec.exec {
+                workingDir = sources.get().asFile
+                environment("CGO_ENABLED", "0")
+                environment("GOOS", "linux")
+                environment("GOARCH", arch)
+                commandLine("go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", File(out, "zeta-helper/linux-$arch").path, ".")
+            }
+        }
+    }
+}
+
+val zetaHelper = tasks.register<ZetaHelperTask>("zetaHelper") {
+    sources.set(rootProject.layout.projectDirectory.dir("helper"))
+    outputDir.set(layout.buildDirectory.dir("generated/zeta-helper"))
+}
+
 // Robolectric 的 Android 系统镜像（android-all，约 250 MB）交给 Gradle 下载，测试进程直接从 Gradle 缓存里离线取用：
 // 测试进程不走 Gradle 的代理和镜像设置，自己去 Maven Central 下载在本机和手机上都不可靠。
 val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
@@ -103,8 +142,12 @@ val shotsDir = layout.buildDirectory.dir("shots").get().asFile.absolutePath
 val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + providers.environmentVariable("PATH").getOrElse("")
 
 tasks.withType<Test>().configureEach {
-    // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_helper.py、zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
+    // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
     inputs.dir("src/main/assets").withPropertyName("assetScripts").withPathSensitivity(PathSensitivity.RELATIVE)
+    // zeta-helper 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]）
+    val helperDir = zetaHelper.flatMap { it.outputDir }
+    inputs.dir(helperDir).withPropertyName("zetaHelper").withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dzeta.helper.dir=" + helperDir.get().asFile.resolve("zeta-helper").path) })
     // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
     inputs.dir("../tools/fake-claude").withPropertyName("fakeClaude").withPathSensitivity(PathSensitivity.RELATIVE)
     val androidAll: FileCollection = robolectricRuntime
@@ -133,6 +176,7 @@ tasks.withType<Test>().configureEach {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { it.enable = false }
+    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaHelper, ZetaHelperTask::outputDir) }
 }
 
 dependencies {

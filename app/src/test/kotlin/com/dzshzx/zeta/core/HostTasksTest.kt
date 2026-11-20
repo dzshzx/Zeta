@@ -13,17 +13,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 接回后台进程时，zeta_helper.py hosts 从输出日志里摘出还在跑的后台任务的事件（task_events），
+ * 接回后台进程时，zeta-helper hosts 从输出日志里摘出还在跑的后台任务的事件（task_events），
  * 重放给 [TaskBoard] 后和实时收到时一样：命令、开始时间、子代理的进展都在。
  */
 class HostTasksTest {
     private lateinit var home: File
     private var holder: Process? = null
-    private val helper = File("src/main/assets/zeta_helper.py").absoluteFile
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 python3", File("/proc/self/cmdline").exists())
+        assumeTrue("要 Linux 的 /proc", File("/proc/self/cmdline").exists())
         home = Files.createTempDirectory("zeta-host-tasks").toFile().canonicalFile
     }
 
@@ -55,7 +54,7 @@ class HostTasksTest {
                 """{"type":"result","subtype":"success","is_error":false}""",
             ).joinToString("\n", postfix = "\n"),
         )
-        val out = HostTesting.run(home, listOf("python3", "-I", helper.path, "hosts"))
+        val out = HostTesting.run(home, listOf(TestHelper.path, "hosts"))
         val host = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single()
         assertEquals(2, host.int("tasks"))
         val events = host.arr("task_events").orEmpty().map { it as JsonObject }

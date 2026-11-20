@@ -89,7 +89,7 @@ internal data class StorageView(
 /**
  * 存储页：Zeta 自己的、Claude Code 的、Debian 的三组，各项占多少、能清掉多少。每一类清理前都要确认，
  * 写明删什么、能腾出多少、什么不删；会话记录本身不在任何一类里，删会话到侧栏里照常删（点项目里的会话会定位过去）。
- * 统计和 Linux 一侧的删除由 zeta_helper.py 做（storage、clean），apt 缓存以 root 执行 apt-get clean，
+ * 统计和 Linux 一侧的删除由 zeta-helper 做（storage、clean），apt 缓存以 root 执行 apt-get clean，
  * Android 一侧的应用缓存和内存里的图片由应用自己清。
  */
 @Composable

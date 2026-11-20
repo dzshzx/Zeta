@@ -14,15 +14,14 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_helper.py 的 storage / storage-sessions / clean：在临时 HOME 和临时“/tmp”（ZETA_STORAGE_TEST_TMP）上
- * 用造出来的数据真跑 python3，不碰任何人真实的 ~/.claude 和 /tmp。
+ * zeta-helper 的 storage / storage-sessions / clean：在临时 HOME 和临时“/tmp”（ZETA_STORAGE_TEST_TMP）上
+ * 用造出来的数据真跑，不碰任何人真实的 ~/.claude 和 /tmp。
  * 重点是删除的边界：只删预期那一层、不跟符号链接（链接本身和它指向的外面都不动）、正在进行的会话的一律不删。
  */
 class HelperStorageTest {
     private lateinit var home: File
     private lateinit var outside: File
     private lateinit var tmp: File
-    private val helper = File("src/main/assets/zeta_helper.py").absoluteFile
     private val processes = ArrayList<Process>()
     private val claude get() = File(home, ".claude")
     private val project get() = File(claude, "projects/-workspace-test")
@@ -38,8 +37,7 @@ class HelperStorageTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 python3、find、touch、mkfifo", File("/proc/self/stat").exists() &&
-            runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false))
+        assumeTrue("要 Linux 的 /proc 和 find、touch、mkfifo", File("/proc/self/stat").exists())
         home = Files.createTempDirectory("zeta-storage-home").toFile().canonicalFile
         outside = Files.createTempDirectory("zeta-storage-outside").toFile().canonicalFile
         tmp = Files.createTempDirectory("zeta-test-tmp").toFile().canonicalFile
@@ -59,12 +57,12 @@ class HelperStorageTest {
     }
 
     private fun helper(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply {
+        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply {
             environment()["HOME"] = home.path
             environment()["ZETA_STORAGE_TEST_TMP"] = tmp.path
             environment().remove("ZETA_NAME")
         }.start()
-        process.outputStream.use { it.write(helper.readBytes()) }
+        process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         val err = process.errorStream.bufferedReader().readText()
         assertTrue(process.waitFor(120, TimeUnit.SECONDS))

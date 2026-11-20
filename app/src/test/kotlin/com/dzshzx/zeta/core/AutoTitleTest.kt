@@ -113,11 +113,9 @@ class AutoTitleTest {
         assertNull(auto.next(true, "原句", turn))
     }
 
-    /** zeta_helper.py 读标题：改过的名字压过自动标题，不看先后（Claude Code 补写元数据时两行会按 custom、ai 的顺序重写一遍）。 */
+    /** zeta-helper 读标题：改过的名字压过自动标题，不看先后（Claude Code 补写元数据时两行会按 custom、ai 的顺序重写一遍）。 */
     @Test
     fun helperPrefersCustomTitles() {
-        val helper = File("src/main/assets/zeta_helper.py")
-        assertTrue(helper.path, helper.isFile)
         val home = java.nio.file.Files.createTempDirectory("zeta-helper").toFile()
         try {
             val dir = File(home, ".claude/projects/-p").apply { mkdirs() }
@@ -132,13 +130,13 @@ class AutoTitleTest {
                 ).joinToString("\n", postfix = "\n"),
             )
             File(dir, "s3.jsonl").writeText(user + "\n")
-            val process = ProcessBuilder("python3", "-I", "-", "list").directory(home).apply {
+            val process = ProcessBuilder(TestHelper.path, "list").directory(home).apply {
                 environment().clear()
                 environment()["HOME"] = home.path
                 environment()["PATH"] = System.getenv("PATH") ?: "/usr/bin:/bin"
                 environment()["LANG"] = "C.UTF-8"
             }.start()
-            process.outputStream.use { it.write(helper.readBytes()) }
+            process.outputStream.close()
             val out = process.inputStream.bufferedReader().readText()
             assertTrue(process.waitFor(30, TimeUnit.SECONDS))
             val titles = out.lines().filter { it.isNotBlank() }.map { Json.parseToJsonElement(it) as JsonObject }

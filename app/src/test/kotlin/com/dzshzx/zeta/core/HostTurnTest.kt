@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 
 /**
  * 「这一轮在不在进行、有没有后台任务在跑」写在三处：聊天页的 [Conversation]（逐条收事件）、接回后台进程时的
- * zeta_helper.py hosts（scan_host 读整份输出日志）、zeta_host.sh 的看门狗（turn_running、tasks_running，闲着十分钟就结束进程）。
+ * zeta-helper hosts（scan_host 读整份输出日志）、zeta_host.sh 的看门狗（turn_running、tasks_running，闲着十分钟就结束进程）。
  * 同一份输出日志每读完一行，三处的结论都要一样，也要和样本标的一样。口径写在 zeta_host.sh 的 turn_running 上面。
  *
  * 样本照 Claude Code 2.1.329 的真实输出删繁（临时 HOME 上的真 claude 连假的 Messages API 抓的），键序照真的：
@@ -35,11 +35,10 @@ class HostTurnTest {
     private lateinit var home: File
     private val processes = mutableListOf<Process>()
     private val host = File("src/main/assets/zeta_host.sh").absoluteFile
-    private val helper = File("src/main/assets/zeta_helper.py").absoluteFile
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash、python3", File("/proc/self/cmdline").exists())
+        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/cmdline").exists())
         home = Files.createTempDirectory("zeta-host-turn").toFile().canonicalFile
     }
 
@@ -258,8 +257,8 @@ class HostTurnTest {
             }
         }
 
-        // zeta_helper.py hosts：一次列出全部目录
-        val helperSays = execute("python3", "-I", helper.path, "hosts").lineSequence().filter { it.startsWith("{") }
+        // zeta-helper hosts：一次列出全部目录
+        val helperSays = execute(TestHelper.path, "hosts").lineSequence().filter { it.startsWith("{") }
             .map { Json.parseToJsonElement(it).jsonObject }
             .associate { it.str("key")!! to State(turn = it.bool("busy") == true, tasks = (it.int("tasks") ?: 0) > 0) }
         // 看门狗：zeta_host.sh state，输出 turn=0|1 tasks=0|1

@@ -6,6 +6,7 @@ import com.dzshzx.zeta.core.SubagentTranscript
 import com.dzshzx.zeta.core.TaskBoard
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkItem
 import com.sun.net.httpserver.HttpExchange
@@ -404,7 +405,6 @@ class ClaudeTaskContractTest {
     @Test
     fun foregroundSubagentIsRecordedAndOnlyPartlyStreamed() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        assumeTrue("要有 python3", pythonAvailable())
         script = listOf("Agent" to agentInput(background = false))
         Claude().use { claude ->
             claude.turn("go")
@@ -440,7 +440,6 @@ class ClaudeTaskContractTest {
     @Test
     fun backgroundSubagentRecordIsReadWhileItRuns() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        assumeTrue("要有 python3", pythonAvailable())
         pauseBeforeReport = true
         script = listOf("Agent" to agentInput())
         Claude().use { claude ->
@@ -492,13 +491,12 @@ class ClaudeTaskContractTest {
         return json.parseToJsonElement(File(project, "$session/subagents/agent-$id.meta.json").readText()).jsonObject
     }
 
-    private fun pythonAvailable() = runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false)
 
-    /** zeta_helper.py subagent：从 [transcript] 上次读到的地方接着读，和 Zeta 在手机上做的一样（这里在临时 HOME 上）。 */
+    /** zeta-helper subagent：从 [transcript] 上次读到的地方接着读，和 Zeta 在手机上做的一样（这里在临时 HOME 上）。 */
     private fun subagentRead(transcript: SubagentTranscript, hint: String, session: String): String {
         val args = listOf("subagent", transcript.offset.toString(), transcript.line.toString(), transcript.toolUseId, hint, session)
-        val process = ProcessBuilder(listOf("python3", "-I", "-") + args).apply { environment()["HOME"] = home.path }.start()
-        process.outputStream.use { it.write(File("src/main/assets/zeta_helper.py").readBytes()) }
+        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         process.errorStream.readBytes()
         assertTrue(process.waitFor(30, TimeUnit.SECONDS))

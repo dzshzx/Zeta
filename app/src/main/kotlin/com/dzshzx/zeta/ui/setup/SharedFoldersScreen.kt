@@ -131,10 +131,10 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
             val config = hub.settings.env
             val (sources, states) = withContext(Dispatchers.IO) {
                 val sources = SharedFolders.sourcesPresent(list)
-                var states = config?.let { SharedFolders.access(it, hub.helperScript, list) }.orEmpty()
+                var states = config?.let { SharedFolders.access({ s, a -> hub.helper(s, a, config = it) }, list) }.orEmpty()
                 val media = list.filter { SharedFolders.isMediaStorage(it.source) }
                 if (config != null && media.isNotEmpty() && (fixGroup || media.any { states[it.name] == SharedAccess.Denied })) {
-                    if (SharedFolders.ensureMediaGroup(config)) states = SharedFolders.access(config, hub.helperScript, list).orEmpty()
+                    if (SharedFolders.ensureMediaGroup(config)) states = SharedFolders.access({ s, a -> hub.helper(s, a, config = config) }, list).orEmpty()
                 }
                 sources to states
             }

@@ -200,7 +200,7 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
         listing = if (config == null) {
             LinuxListing.Failed("Linux 环境还不可用")
         } else {
-            withContext(Dispatchers.IO) { LinuxFiles.list(config, hub.helperScript, path) }
+            withContext(Dispatchers.IO) { LinuxFiles.list({ s, a -> hub.helper(s, a, config = config) }, path) }
         }
     }
     LaunchedEffect(preview) {
@@ -208,7 +208,7 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
         val target = preview ?: return@LaunchedEffect
         val config = hub.settings.env ?: return@LaunchedEffect
         if (LinuxFiles.isImage(target.entry.name)) return@LaunchedEffect
-        content = withContext(Dispatchers.IO) { LinuxFiles.read(config, hub.helperScript, target.path) }
+        content = withContext(Dispatchers.IO) { LinuxFiles.read({ s, a -> hub.helper(s, a, config = config) }, target.path) }
     }
 
     val shown = preview

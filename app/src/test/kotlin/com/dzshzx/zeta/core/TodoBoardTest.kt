@@ -139,7 +139,7 @@ class TodoBoardTest {
 
     @Test
     fun seedStepsComeFromHelperEvents() {
-        // zeta_helper.py history 在 zeta_history 行里给出的 todo_seed
+        // zeta-helper history 在 zeta_history 行里给出的 todo_seed
         val seed = Json.parseToJsonElement(
             """[
               {"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"TaskCreate","input":{"subject":"First","activeForm":"Doing first"}}]}},

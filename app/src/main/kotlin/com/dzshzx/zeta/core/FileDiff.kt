@@ -73,7 +73,7 @@ data class FileChange(
 /** 会改文件、能画成对比的工具。 */
 internal val FileEditTools = setOf("Edit", "MultiEdit", "Write")
 
-/** zeta_helper.py 截断过长字符串时加的尾巴。 */
+/** zeta-helper 截断过长字符串时加的尾巴。 */
 private const val ClipMarker = "\n…（已截断）"
 
 /**

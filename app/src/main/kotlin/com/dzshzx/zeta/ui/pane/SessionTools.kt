@@ -13,7 +13,7 @@ import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-// 侧栏用到的几样小助手命令（zeta_helper.py 的 search / export；按 id 查会话在 SessionList.find）。大的会话记录只在 Debian 里读，应用只拿结果。
+// 侧栏用到的几样小助手命令（zeta-helper 的 search / export；按 id 查会话在 SessionList.find）。大的会话记录只在 Debian 里读，应用只拿结果。
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -42,7 +42,8 @@ internal class ContentSearch(
             thread(name = "zeta-search", isDaemon = true) {
                 var complete: Boolean? = null
                 runCatching {
-                    val started = LinuxEnv.start(config, "exec python3 - search " + LinuxEnv.quote(query))
+                    check(hub.ensureHelper(config)) { "zeta-helper 没装上" }
+                    val started = LinuxEnv.start(config, hub.helperProgram.command("search", listOf(query)))
                     val stop = synchronized(this) {
                         process = started
                         cancelled
@@ -51,7 +52,7 @@ internal class ContentSearch(
                         LinuxEnv.kill(started)
                         return@thread
                     }
-                    started.outputStream.use { it.write(hub.helperScript.toByteArray()) }
+                    started.outputStream.close()
                     // 错误输出也得读走，不然写满管道会把助手卡住
                     thread(isDaemon = true) { runCatching { started.errorStream.readBytes() } }
                     started.inputStream.bufferedReader().useLines { lines ->
