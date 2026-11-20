@@ -39,7 +39,7 @@ if [ "$mode" = start ]; then
   # 环境变量或 settings.json 的 env 里明确设过的照那边的。
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
   # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude。
-  # 只有测试版在真机测试放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd.py --dev fake 放进来，vd.py --dev stop 删掉）。
+  # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd.py --dev fake 放进来，vd.py --dev stop 删掉）。
   run=claude
   if [ "${ZETA_NAME:-zeta}" = zeta-dev ] && [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
     run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"

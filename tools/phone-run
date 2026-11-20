@@ -1,16 +1,17 @@
 #!/bin/bash
-# 在手机上跑一段真机测试脚本，子代理碰手机只用它。用法、脚本里能用什么见 CLAUDE.md「真机脚本」。
-# 用法：ZETA_PHONE_OWNER=<任务名> tools/phone-run [--no-build] <脚本>
+# 在测试设备上跑一段测试脚本，子代理碰设备只用它。用法、脚本里能用什么见 CLAUDE.md「设备脚本」。
+# 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run [--no-build] <脚本>
+# 设备默认是本机的模拟器（没开就由 tools/emu 开机），ZETA_DEVICE=phone 时是手机。
 # 退出码：脚本自己的；124 超时（ZETA_PHONE_RUN_TIMEOUT，默认也是最多 300 秒）；75 排队超过 ZETA_PHONE_RUN_WAIT（默认 2700 秒）。
-# 手机只有一台，大家先来先到排队（tools/phone-lock），所以一次占用不许超过 300 秒：验得多就拆成几个脚本。
-# 每次占用手机的秒数追加到 $XDG_RUNTIME_DIR/zeta-phone-run.log，用来量手机还是不是瓶颈。
+# 每台设备上的测试版只有一份，大家先来先到排队（tools/phone-lock），所以一次占用不许超过 300 秒：验得多就拆成几个脚本。
+# 每次占用的设备和秒数追加到 $XDG_RUNTIME_DIR/zeta-phone-run.log，用来量设备还是不是瓶颈。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export ZETA_ROOT=$PWD
 build=1
 if [[ ${1:-} == --no-build ]]; then build=; shift; fi
 if [[ $# != 1 || ! -f $1 ]]; then
-  echo "用法：ZETA_PHONE_OWNER=<任务名> tools/phone-run [--no-build] <脚本>" >&2
+  echo "用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run [--no-build] <脚本>" >&2
   exit 2
 fi
 if [[ $(uname -r) == *android* ]]; then
@@ -19,10 +20,16 @@ if [[ $(uname -r) == *android* ]]; then
 fi
 script=$(realpath "$1")
 export ZETA_PHONE_OWNER=${ZETA_PHONE_OWNER:-main}
+export ZETA_DEVICE=${ZETA_DEVICE:-emu}
+case $ZETA_DEVICE in
+  emu) where=模拟器 kind=emu ;;
+  phone) where=手机 kind=dev ;;
+  *) echo "ZETA_DEVICE 只能是 emu 或 phone（现在是 $ZETA_DEVICE）" >&2; exit 2 ;;
+esac
 max=300
 limit=${ZETA_PHONE_RUN_TIMEOUT:-$max}
 if ((limit > max)); then
-  echo "ZETA_PHONE_RUN_TIMEOUT 最多 $max 秒：手机是大家排队用的，验得多就拆成几个脚本" >&2
+  echo "ZETA_PHONE_RUN_TIMEOUT 最多 $max 秒：设备是大家排队用的，验得多就拆成几个脚本" >&2
   exit 2
 fi
 wait=${ZETA_PHONE_RUN_WAIT:-2700}
@@ -30,19 +37,20 @@ OUT=$ZETA_ROOT/build/phone-run/$(date +%Y%m%d-%H%M%S)-$$
 export OUT PKG=com.dzshzx.zeta.dev
 mkdir -p "$OUT"
 exec > >(tee -a "$OUT/run.log") 2>&1
-echo "产物目录：$OUT"
+echo "产物目录：$OUT（设备：$where）"
 
 vd() { python3 "$ZETA_ROOT/tools/vd.py" --dev "$@"; }
 android() { vd sh "$1"; }
 export -f vd android
 
-# 构建在拿租约之前，构建的时间不占手机
+# 构建、开模拟器在拿租约之前，这些时间不占设备
 [[ -z $build ]] || "$ZETA_ROOT/tools/gradle" -q --console=plain :app:assembleDev
+[[ $ZETA_DEVICE != emu ]] || "$ZETA_ROOT/tools/emu" start
 
 start=$SECONDS
 export ZETA_PHONE_TICKET=$$ # 排队号：先来先到，这个进程没了号就作废
 said=''
-until "$ZETA_ROOT/tools/phone-lock" dev 2>"$OUT/lock.err"; do
+until "$ZETA_ROOT/tools/phone-lock" "$kind" 2>"$OUT/lock.err"; do
   if ((SECONDS - start >= wait)); then
     echo "排了 $wait 秒还没拿到测试版：$(cat "$OUT/lock.err")" >&2
     exit 75
@@ -77,11 +85,11 @@ cleanup() {
   vd stop # 关屏、force-stop 测试版、撤销它的通知监听、改回 vd prefs-set 改过的设置
   "$ZETA_ROOT/tools/phone-lock" --release
   local used=$((SECONDS - held))
-  echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc waited=$((held - start))s" >>"${XDG_RUNTIME_DIR:-/tmp}/zeta-phone-run.log"
+  echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc waited=$((held - start))s $ZETA_DEVICE" >>"${XDG_RUNTIME_DIR:-/tmp}/zeta-phone-run.log"
   case $rc in
-    0) echo "通过，占用手机 $used 秒" ;;
-    124) echo "超时（${limit} 秒），占用手机 $used 秒" ;;
-    *) echo "失败（退出码 $rc），占用手机 $used 秒" ;;
+    0) echo "通过，占用${where} $used 秒" ;;
+    124) echo "超时（${limit} 秒），占用${where} $used 秒" ;;
+    *) echo "失败（退出码 $rc），占用${where} $used 秒" ;;
   esac
   echo "产物：$OUT"
   ls "$OUT"

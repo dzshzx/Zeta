@@ -1,5 +1,5 @@
 # shellcheck shell=bash disable=SC2034 # 这里的变量给 source 它的脚本用
-# 真机脚本的公用部分。脚本开头 source 它：
+# 设备脚本的公用部分。脚本开头 source 它：
 #   . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 # 用的是 tools/phone-run 给的 vd、android、$ZETA_ROOT；函数在 set -euo pipefail 下也能用。
 

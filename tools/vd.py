@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """后台虚拟屏：在不占用主屏的情况下运行、截图、点按 Zeta。做法取自 Eta 的 VirtualDisplayCommandMain。
 
-在手机 Debian 里直接进 Android 一侧；在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
+设备：测试版默认在本机的模拟器上（经 adb，没开就由 tools/emu 开机），ZETA_DEVICE=phone 时在手机上；正式版只在手机上。
+在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）；在手机 Debian 里跑时就是这台手机。
 
 用法：vd.py [--dev] <命令>
   --dev 操作测试版（com.dzshzx.zeta.dev），每条命令都要带（build 除外）。测试版和正式版各有自己的虚拟屏。
-  真机测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py --dev。
-  不带 --dev 是正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由主会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
+  设备上的测试一般写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py --dev。
+  不带 --dev 是手机上的正式版（com.dzshzx.zeta）和它自己的虚拟屏，只由主会话碰：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
   vd.py build                 编译 VdHold.java 为 dex
-  vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（默认取主屏尺寸）
+  vd.py start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（手机上默认取主屏尺寸，模拟器上默认和手机一样大）
   vd.py shot 文件.png          截图
   vd.py tap X Y | swipe X1 Y1 X2 Y2 [毫秒] | text 文字 | key 键码
   vd.py launch                在虚拟屏上重新启动 Zeta（装了新包之后）
@@ -41,6 +42,13 @@ PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
 FAKE_DIR = "~/.config/zeta-dev/fake-claude"
 FAKE_SCRIPT = os.path.join(HERE, "fake-claude", "fake-claude.sh")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
+# 模拟器（tools/emu）：adbd 是 root，adb shell 就在 Android 的全局挂载命名空间里；进 Debian 用 Zeta 自己的进入脚本
+ADB = [os.path.expanduser("~/Android/Sdk/platform-tools/adb"), "-s", "emulator-5554"]
+ENTER_SRC = os.path.join(HERE, "..", "app", "src", "main", "assets", "zeta_enter.sh")
+ENTER = "/data/local/tmp/zeta-enter.sh"
+LINUX_USER = "dzshzx"  # 两台设备上 Zeta 的 Linux 用户同名
+PHONE_SCREEN = ("1220", "2656", "520")  # 手机主屏：模拟器上的虚拟屏照它建，测试脚本里的坐标两边通用
+DEVICE = "phone"  # main() 定：phone 或 emu
 
 
 # 测试版停屏时的收尾。force-stop 会让系统把它的无障碍服务从启用列表里拿掉（AOSP onPackagesForceStoppedLocked），
@@ -57,23 +65,37 @@ done
 [ $n -gt 0 ] && echo "从最近任务里清掉了 $n 条记录"
 true"""
 
-def run(cmd, data=None):
-    """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh 断开后远端进程不会自己停。"""
-    argv = ["sudo", "-n", "timeout", "120", "nsenter", "-t", "1", "-m", "--", "/system/bin/sh", "-c",
-            "export PATH=/system/bin:$PATH; " + cmd]
-    if not ON_PHONE:
-        argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+def run(cmd, data=None, seconds=120):
+    """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh、adb 断开后远端进程不会自己停。"""
+    sh = ["timeout", str(seconds), "/system/bin/sh", "-c", "export PATH=/system/bin:$PATH; " + cmd]
+    if DEVICE == "emu":
+        argv = ADB + ["shell", "-T", shlex.join(sh)]
+    else:
+        argv = ["sudo", "-n", "timeout", str(seconds), "nsenter", "-t", "1", "-m", "--"] + sh[2:]
+        if not ON_PHONE:
+            argv = ["ssh", PHONE_SSH, shlex.join(argv)]
     io = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
     return subprocess.run(argv, capture_output=True, **io)
 
 
+ENTER_PUSHED = False
+
+
 def debian(cmd, data=None):
-    """在手机 Debian 里以 Linux 用户（Zeta 起 Claude Code 用的那个）跑 cmd；工作站上经 ssh。远端加 timeout。"""
-    argv = ["timeout", "60", "sh", "-c", cmd]
-    if not ON_PHONE:
-        argv = ["ssh", PHONE_SSH, shlex.join(argv)]
-    io_ = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
-    r = subprocess.run(argv, capture_output=True, **io_)
+    """在 Debian 里以 Linux 用户（Zeta 起 Claude Code 用的那个）跑 cmd：手机经 ssh 登录，模拟器经 Zeta 的进入脚本。远端加 timeout。"""
+    global ENTER_PUSHED
+    if DEVICE == "emu":
+        if not ENTER_PUSHED:
+            with open(ENTER_SRC, "rb") as f:
+                android(f"cat > {ENTER}", data=f.read())
+            ENTER_PUSHED = True
+        r = run(shlex.join(["sh", ENTER, "/usr/sbin/runuser", "-l", LINUX_USER, "-c", cmd]), data, seconds=60)
+    else:
+        argv = ["timeout", "60", "sh", "-c", cmd]
+        if not ON_PHONE:
+            argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+        io_ = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
+        r = subprocess.run(argv, capture_output=True, **io_)
     if r.returncode != 0:
         sys.exit(f"Debian 里的命令失败（{r.returncode}）：{cmd}\n{r.stderr.decode(errors='replace').strip()}")
     return r.stdout.decode(errors="replace")
@@ -244,6 +266,8 @@ def start(args):
         build()
     if len(args) == 3:
         w, h, dpi = map(int, args)
+    elif DEVICE == "emu":
+        w, h, dpi = map(int, PHONE_SCREEN)
     else:
         w, h = map(int, re.search(r"(\d+)x(\d+)", android("wm size")).groups())
         dpi = int(re.findall(r"(\d+)", android("wm density"))[-1])
@@ -291,15 +315,33 @@ def shot(path):
     sys.exit("截图超时")
 
 
-def lease(kind):
-    """按包拿租约（见 tools/phone-lock），拿不到就退出；返回 dev 或 main。在手机 Debian 里直接跑时不协调。"""
+def lease(dev):
+    """按设备和包拿租约（见 tools/phone-lock：模拟器上的测试版 emu，手机上的测试版 dev、正式版 main），拿不到就退出。
+    在手机 Debian 里直接跑时不协调。"""
+    kind = "emu" if DEVICE == "emu" else "dev" if dev else "main"
     if not ON_PHONE:
         code = subprocess.run([os.path.join(HERE, "phone-lock"), kind]).returncode
         if code:
             sys.exit(code)
-    return kind
+    return "dev" if dev else "main"
+
+
+def pick_device(dev):
+    """测试版默认在模拟器上，ZETA_DEVICE=phone 时在手机上；正式版只在手机上。手机 Debian 里跑时就是这台手机。"""
+    want = os.environ.get("ZETA_DEVICE") or "emu"
+    if want not in ("emu", "phone"):
+        sys.exit(f"ZETA_DEVICE 只能是 emu 或 phone（现在是 {want}）")
+    if ON_PHONE or not dev:
+        return "phone"
+    if want == "emu":
+        code = subprocess.run([os.path.join(HERE, "emu"), "start"]).returncode
+        if code:
+            sys.exit(code)
+    return want
+
 
 def main():
+    global DEVICE
     a = sys.argv[1:]
     dev = "--dev" in a
     a = [x for x in a if x != "--dev"]
@@ -312,7 +354,8 @@ def main():
     if not dev and owner != "main" and c != "build":
         sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版，每条命令都带 --dev：vd.py --dev {c}")
     if c != "build":
-        use(lease("dev" if dev else "main"))
+        DEVICE = pick_device(dev)
+        use(lease(dev))
     if c == "build":
         build()
     elif c == "start":

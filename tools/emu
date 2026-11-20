@@ -1,0 +1,64 @@
+#!/bin/bash
+# 测试版默认装在本机的 Android 模拟器上（见 CLAUDE.md「测试设备」）。用法：tools/emu [start|status|stop]
+#   start   没开就开机：本机各项目共用的 AVD retail35，窗口在 xpra 虚拟显示 :99 上；联网经宿主的代理（https_proxy，
+#           用 -http-proxy 交给模拟器：它不读代理环境变量，直连 GitHub 只有几十 KB/s，也连不上 Anthropic）。
+#           等开机完成，再把 adbd 切成 root。已经开着就只做后两步。install.sh、vd.py、phone-run 碰模拟器前自己调。
+#   status  开着没有、是不是 root、开机时带的是哪个代理
+#   stop    关机。几个项目共用它，测完不用关
+# 要给用户看画面：DISPLAY=:0 xpra attach :99，看完 xpra detach :99。
+set -euo pipefail
+export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
+AVD=retail35 PORT=5554 SERIAL=emulator-5554
+adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@"; }
+dir=${XDG_RUNTIME_DIR:-/tmp}
+
+# 监听控制台端口的就是模拟器进程（setsid 打印的 $! 不是它）
+emu_pid() { ss -Hltnp "sport = :$PORT" | grep -oE 'pid=[0-9]+' | head -n 1 | cut -d= -f2; }
+booted() { [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; }
+is_root() { [[ $(adb shell id -u 2>/dev/null | tr -d '\r') == 0 ]]; }
+
+host_proxy=${https_proxy:-${http_proxy:-}}
+# 开着的模拟器带的代理；xiaomi-retail 的抓包用 -http-proxy http://127.0.0.1:8080 开它，那时 Zeta 的联网都经抓包代理
+running_proxy() {
+  local pid
+  pid=$(emu_pid)
+  [[ -n $pid ]] && tr '\0' '\n' <"/proc/$pid/cmdline" | grep -A1 -x -- -http-proxy | tail -n +2 || true
+}
+
+start() {
+  exec 9>"$dir/zeta-emu.lock"
+  flock 9 # 几个 phone-run 同时来时只开一次
+  if [[ -z $(emu_pid) ]]; then
+    echo "开模拟器 $AVD（窗口在 :99，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
+    DISPLAY=:99 setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
+      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"} >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- & # 不把锁带走
+  fi
+  local i
+  for ((i = 0; i < 180; i++)); do booted && break; sleep 1; done
+  booted || { echo "模拟器 3 分钟没开机完成，看 $dir/zeta-emu.log" >&2; exit 1; }
+  if ! is_root; then
+    adb root >/dev/null
+    for ((i = 0; i < 30; i++)); do is_root && break; sleep 1; done
+    is_root || { echo "adbd 切不成 root" >&2; exit 1; }
+  fi
+  local proxy
+  proxy=$(running_proxy)
+  [[ $proxy == "$host_proxy" ]] ||
+    echo "注意：模拟器开机时带的代理是「${proxy:-无}」，不是宿主的「${host_proxy:-无}」（多半是别的项目开的）；Zeta 要正常联网先 tools/emu stop 再开" >&2
+}
+
+case ${1:-start} in
+  start) start ;;
+  status)
+    pid=$(emu_pid)
+    if [[ -z $pid ]]; then echo "模拟器没开"; exit 0; fi
+    echo "模拟器开着（进程 $pid）$(booted && echo "，已开机" || echo "，还在开机")$(is_root && echo "，adbd 是 root")，代理：$(running_proxy)" ;;
+  stop)
+    pid=$(emu_pid)
+    [[ -n $pid ]] || { echo "模拟器没开"; exit 0; }
+    adb emu kill >/dev/null
+    for ((i = 0; i < 30; i++)); do kill -0 "$pid" 2>/dev/null || { echo "关了"; exit 0; }; sleep 1; done
+    echo "模拟器 30 秒没关掉（进程 $pid）" >&2
+    exit 1 ;;
+  *) echo "用法：tools/emu [start|status|stop]" >&2; exit 2 ;;
+esac

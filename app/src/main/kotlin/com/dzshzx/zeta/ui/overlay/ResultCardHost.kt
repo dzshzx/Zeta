@@ -127,7 +127,7 @@ object ResultCardHost {
             // 窗口铺到屏幕底边（导航条下面），卡片自己留出导航条的高度，滑出时整张滑出屏幕
             fitInsetsTypes = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            // dumpsys window 里认得出（真机测试据此判断卡片在不在）
+            // dumpsys window 里认得出（设备测试据此判断卡片在不在）
             title = WINDOW_TITLE
         }
         val window = OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { Content() }

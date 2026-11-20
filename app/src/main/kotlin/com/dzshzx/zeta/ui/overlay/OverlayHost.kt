@@ -180,7 +180,7 @@ object OverlayHost {
             // 窗口原点就是屏幕原点，y 才正好是状态栏下沿
             fitInsetsTypes = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            // dumpsys window 里按这个名字认（真机脚本 tools/phone-tests/capsule-live.sh）
+            // dumpsys window 里按这个名字认（设备脚本 tools/phone-tests/capsule-live.sh）
             title = "ZetaCapsule"
         }
         val window = OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { StatusCapsule(state, controls) }

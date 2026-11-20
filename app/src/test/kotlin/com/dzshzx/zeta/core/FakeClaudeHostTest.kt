@@ -11,7 +11,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 真机测试用的假 Claude（tools/fake-claude）怎么接进来：真的 zeta_host.sh 跑在临时 HOME 上。
+ * 设备测试用的假 Claude（tools/fake-claude）怎么接进来：真的 zeta_host.sh 跑在临时 HOME 上。
  * 测试版（ZETA_NAME=zeta-dev）放了剧本才起假 Claude，正式版永远起真的 claude；剧本删掉后假 Claude 自己退出。
  * 假 Claude 的输出和真 Claude Code 对不对得上，见 FakeClaudeContractTest。
  */

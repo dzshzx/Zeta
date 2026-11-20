@@ -1,5 +1,5 @@
 #!/bin/bash
-# 假 Claude：按剧本回话的 `claude -p --input-format stream-json --output-format stream-json` 替身，只给测试版的真机测试用。
+# 假 Claude：按剧本回话的 `claude -p --input-format stream-json --output-format stream-json` 替身，只给测试版的设备测试用。
 # 不连模型、不写会话记录、不读 ~/.claude；照剧本输出 Claude Code 2.1.328 的事件。事件的样子照真 claude 在临时 HOME 里
 # 连假 Messages API 录下来的写，FakeClaudeContractTest 拿同一段对话的真输出和本脚本的输出逐条比对。
 #

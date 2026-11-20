@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 /**
  * 每条消息按发的人的权限模式跑：后台运行的模式只管它发的那几条，用户自己发下一条时进程切回用户的；
  * 输入栏显示的、用户的设置都不被后台运行改。这里不起进程（没配 Linux 环境），看的是要起进程时带的模式（[Conversation.processMode]）；
- * 已经开着的进程上切模式、Claude Code 那一侧由 UnattendedRulesContractTest 和真机脚本 mode-per-sender.sh 钉住。
+ * 已经开着的进程上切模式、Claude Code 那一侧由 UnattendedRulesContractTest 和设备脚本 mode-per-sender.sh 钉住。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])

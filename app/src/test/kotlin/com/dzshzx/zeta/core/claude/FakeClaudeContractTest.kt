@@ -29,7 +29,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
- * 真机测试用的假 Claude（tools/fake-claude/fake-claude.sh）要和真 Claude Code（2.1.328 实测）对得上，Zeta 走的才是真路径。
+ * 设备测试用的假 Claude（tools/fake-claude/fake-claude.sh）要和真 Claude Code（2.1.328 实测）对得上，Zeta 走的才是真路径。
  * 同一段对话两边各跑一遍：真的 claude 跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱），
  * 做法同 ClaudeTaskContractTest；假 Claude 照等价的剧本回话。两边都像 Zeta 那样驱动：同样的参数和控制请求，
  * 答 phone 服务器的 MCP 消息和 can_use_tool。比的是：
