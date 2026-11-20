@@ -3,11 +3,13 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,14 +44,16 @@ class RunPermissionsTest {
     @Test
     fun runModeLastsUntilTheUserSends() {
         val chat = conversation(hub(), "acceptEdits")
-        chat.sendUnattended("跑一次", "bypassPermissions", rules)
+        val run = UnattendedRun(onlyOnChange = false)
+        chat.sendUnattended("跑一次", "bypassPermissions", rules, run)
+        assertSame("对话挂上这次运行", run, chat.unattended)
         assertEquals("bypassPermissions", chat.processMode)
         // 输入栏照旧是用户的：用户接下来发的按它跑
         assertEquals("acceptEdits", chat.permissionMode)
         // 后台运行这一轮里 Claude Code 报来的是运行的模式，不改用户的
         chat.receive(status("bypassPermissions"))
         assertEquals("acceptEdits", chat.permissionMode)
-        chat.sendUnattended("再跑一次", "auto", rules)
+        chat.sendUnattended("再跑一次", "auto", rules, UnattendedRun(onlyOnChange = false))
         assertEquals("auto", chat.processMode)
         chat.send("我自己问")
         assertEquals("acceptEdits", chat.processMode)
@@ -62,7 +66,7 @@ class RunPermissionsTest {
     @Test
     fun choosingDuringARunKeepsTheChoice() {
         val chat = conversation(hub(), "acceptEdits")
-        chat.sendUnattended("跑一次", "bypassPermissions", rules)
+        chat.sendUnattended("跑一次", "bypassPermissions", rules, UnattendedRun(onlyOnChange = false))
         chat.choosePermissionMode("plan")
         chat.send("我自己问")
         assertEquals("plan", chat.processMode)
@@ -74,7 +78,7 @@ class RunPermissionsTest {
         val chat = conversation(hub)
         assertNull(chat.permissionMode)
         assertNull(chat.launchArgument("--permission-mode"))
-        chat.sendUnattended("跑一次", "auto", rules)
+        chat.sendUnattended("跑一次", "auto", rules, UnattendedRun(onlyOnChange = false))
         // 起进程时指定了模式，init 报的是后台运行的，不当成用户的
         chat.receive("""{"type":"system","subtype":"init","session_id":"s1","permissionMode":"auto"}""")
         assertNull(chat.permissionMode)
@@ -96,7 +100,7 @@ class RunPermissionsTest {
         hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = "auto", efforts = emptyMap(), effort = null))
         val chat = conversation(hub)
         assertEquals("auto", chat.shownPermissionMode)
-        chat.sendUnattended("跑一次", "bypassPermissions", rules)
+        chat.sendUnattended("跑一次", "bypassPermissions", rules, UnattendedRun(onlyOnChange = false))
         assertEquals("auto", chat.shownPermissionMode)
         chat.send("我自己问")
         assertEquals("auto", chat.processMode)

@@ -6,7 +6,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.OverlayFocus
@@ -103,12 +102,6 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
         }
     }
-
-    /**
-     * 这个对话正被后台运行（定时任务、通知触发）跑着：ScheduleRunner 开跑时挂上、跑完摘掉的来源标记（[UnattendedRun]）。
-     * 这里只看标记，不回头问 ScheduleRunner。
-     */
-    private val Conversation.unattended: UnattendedRun? get() = phone.unattended
 
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：不用另外提醒。 */
     private fun watching(conversation: Conversation) = hub.foreground && conversation === hub.current

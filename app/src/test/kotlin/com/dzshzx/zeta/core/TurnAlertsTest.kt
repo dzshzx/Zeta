@@ -12,6 +12,7 @@ import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -72,17 +73,20 @@ class TurnAlertsTest {
         assertEquals(listOf("需要你确认"), alerts())
     }
 
-    /** 后台运行跑着的对话（手机工具上挂着 [UnattendedRun]）：完成和确认由 ScheduleRunner 带任务名提醒，通用的这两条不发。 */
+    /** 后台运行跑着的对话（挂着 [UnattendedRun]）：完成和确认由 ScheduleRunner 带任务名提醒，通用的这两条不发。 */
     @Test
     fun unattendedRunsAlertThemselves() {
         val hub = Fixtures.readyHub(app)
         hub.force("foreground", false)
-        hub.current.phone.unattended = UnattendedRun(onlyOnChange = false)
+        val run = UnattendedRun(onlyOnChange = false)
+        hub.current.unattended = run
+        assertSame("手机工具上同步挂着", run, hub.current.phone.unattended)
         hub.alerts.turnFinished(hub.current, stopped = false)
         hub.alerts.attentionNeeded(hub.current)
         assertEquals(emptyList<String>(), alerts())
         // 跑完摘掉标记，就是普通对话了
-        hub.current.phone.unattended = null
+        hub.current.unattended = null
+        assertNull(hub.current.phone.unattended)
         hub.alerts.attentionNeeded(hub.current)
         assertEquals(listOf("需要你确认"), alerts())
     }
@@ -94,7 +98,8 @@ class TurnAlertsTest {
         assertFalse("没上报：照常提醒", run.quiet)
         run.report = RunReport(changed = false, summary = "没有新邮件")
         assertTrue(run.quiet)
-        run.asked = true
+        run.notifiedRequest = "r1"
+        assertTrue(run.asked)
         assertFalse("等过确认：照常提醒", run.quiet)
         assertFalse("每次都提醒的不会安静", UnattendedRun(onlyOnChange = false).apply { report = RunReport(false, "") }.quiet)
     }

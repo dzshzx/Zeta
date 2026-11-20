@@ -83,7 +83,7 @@ class PhoneTools(
     /** 后台屏幕没了（在主线程上调用）：登记处据此丢掉没有屏、也没有对话在用的那些。 */
     onScreenGone: () -> Unit = {},
 ) {
-    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），由 ScheduleRunner 挂上、跑完摘掉。随每次调用交给工具组（[CallContext]）。 */
+    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile var unattended: UnattendedRun? = null
 
     private class Screen(val width: Int, val height: Int) {

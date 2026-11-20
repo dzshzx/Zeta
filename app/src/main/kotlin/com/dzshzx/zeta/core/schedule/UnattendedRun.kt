@@ -50,20 +50,27 @@ internal data class RunSpec(
 )
 
 /**
- * 一次无人值守的后台运行，挂在跑它的对话的手机工具上（PhoneTools.unattended），从开始到跑完。
+ * 一次无人值守的后台运行，从开始到跑完挂在跑它的对话上（Conversation.unattended，手机工具上同步挂一份给工具调用用）。
  * 它就是这个对话的来源标记：挂着时完成和确认提醒由 [ScheduleRunner] 发（带任务名），通用的那条不发，回答也不念（见 TurnAlerts）。
- * 只在有变化时提醒的运行里 Claude 上报的结论记在 [report]（工具线程写，主线程跑完时读）。
+ * 这次运行的状态都记在这里：只在有变化时提醒的运行里 Claude 上报的结论 [report]（工具线程写，主线程跑完时读），
+ * 为哪个确认请求提醒过（[notifiedRequest]）。跑完怎么算、提不提醒见 [settle]。
  * 管理定时任务的工具在后台运行里拦两道：Claude Code 的权限规则让模型调不到（见 ScheduleTools.unattendedRules），
  * 漏过来的调用再由 ScheduleTools.refusal 看它拒掉。
  */
 class UnattendedRun(val onlyOnChange: Boolean) {
     @Volatile var report: RunReport? = null
 
-    /** 这次停下来等过用户确认：跑完照常提醒。在主线程上读写。 */
-    var asked = false
+    /** 最近一次发过「需要你确认」提醒的确认请求的请求号；没停下来等过确认时为 null。在主线程上读写。 */
+    var notifiedRequest: String? = null
+
+    /** 这次停下来等过用户确认：跑完照常提醒。 */
+    val asked: Boolean get() = notifiedRequest != null
+
+    /** 跑完的结局（见 [Schedules.settle]）：[raw]、[answer] 是从对话里看出来的（[Schedules.outcomeOf]），再按这次的上报和确认定。 */
+    fun settle(raw: RunOutcome, answer: String): Settled = Schedules.settle(raw, answer, onlyOnChange, report, asked)
 
     /** 这一轮跑完不提醒（Claude 上报了没有变化）：屏幕底部也不弹结果卡片。 */
-    val quiet: Boolean get() = !Schedules.settle(RunOutcome.Done, "", onlyOnChange, report, asked).notify
+    val quiet: Boolean get() = !settle(RunOutcome.Done, "").notify
 }
 
 /**

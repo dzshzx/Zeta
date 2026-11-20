@@ -28,9 +28,9 @@ import kotlin.concurrent.thread
  * 只在有变化时提醒的，Claude 上报没有变化就不发（见 [Schedules.settle]）。
  * 同一项上一次还没跑完就跳过这一次，记一笔。运行记录经 [RunRecords] 写回各自的清单。状态只在主线程上改。
  *
- * 跑的期间对话的手机工具挂着这次运行（[UnattendedRun]），Claude 的上报记在它上面。这次的权限模式和拦管理定时任务工具的
- * 权限规则（[ScheduleTools.unattendedRules]）随指令下发给进程，只管后台运行发的这几条：用户自己在这个对话里发下一条消息时
- * 换回用户的（见 Conversation.sendUnattended）。接着已经开着的进程时不重起，这次的说明附在指令后面一起发。
+ * 跑的期间对话挂着这次运行（[UnattendedRun]，由 Conversation.sendUnattended 挂上），Claude 的上报、等没等过确认记在它上面。
+ * 这次的权限模式和拦管理定时任务工具的权限规则（[ScheduleTools.unattendedRules]）随指令下发给进程，只管后台运行发的这几条：
+ * 用户自己在这个对话里发下一条消息时换回用户的。接着已经开着的进程时不重起，这次的说明附在指令后面一起发。
  */
 internal object ScheduleRunner {
     private val main = Handler(Looper.getMainLooper())
@@ -46,14 +46,11 @@ internal object ScheduleRunner {
         val newSession: Boolean,
         /** 会话是这次新开的：跑完按任务名给它改名。 */
         val freshSession: Boolean,
-        val onlyOnChange: Boolean,
+        /** 挂在对话上的这次运行，Claude 的上报、等没等过确认记在里面。 */
+        val scope: UnattendedRun,
     ) {
         val key = key(records, id)
         var savedSession: String? = null
-        var notifiedRequest: String? = null
-
-        /** 挂在对话手机工具上的这次运行，Claude 的上报、等没等过确认记在里面。 */
-        val scope = UnattendedRun(onlyOnChange)
     }
 
     private fun key(records: RunRecords, id: String) = records.kind + ":" + id
@@ -154,11 +151,10 @@ internal object ScheduleRunner {
         val prompt = spec.prompt.trim().let { if (conversation.isProcessAlive) it + "\n\n[Zeta] " + spec.hint else it }
         conversation.preset(model = spec.model, effort = null, hint = spec.hint)
         DiagLog.info(DiagTopic.Schedule, "开始跑后台任务（${records.kind}）：${spec.name}" + (if (manual) "（手动）" else "") + if (fresh) "，新对话" else "，接着原对话")
-        val run = Run(hub, records, spec.id, conversation, prompt, now, manual, spec.newSession, fresh, spec.onlyOnChange)
+        val run = Run(hub, records, spec.id, conversation, prompt, now, manual, spec.newSession, fresh, UnattendedRun(spec.onlyOnChange))
         runs[run.key] = run
-        conversation.phone.unattended = run.scope
         val adopt = hub.findConversation(conversation.openKey) == null
-        conversation.sendUnattended(prompt, spec.permissionMode, ScheduleTools.unattendedRules)
+        conversation.sendUnattended(prompt, spec.permissionMode, ScheduleTools.unattendedRules, run.scope)
         if (!conversation.busy) {
             // 没发出去（进程起不来之类），原因在对话里的提示上；这个对话不留在后台
             finish(run)
@@ -215,9 +211,8 @@ internal object ScheduleRunner {
             }
         }
         val pending = conversation.pending
-        if (pending != null && pending.requestId != run.notifiedRequest) {
-            run.notifiedRequest = pending.requestId
-            run.scope.asked = true
+        if (pending != null && pending.requestId != run.scope.notifiedRequest) {
+            run.scope.notifiedRequest = pending.requestId
             val name = run.records.name(app, run.id) ?: conversation.title
             if (!watching(hub, conversation)) {
                 notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.openKey)
@@ -233,9 +228,9 @@ internal object ScheduleRunner {
         runs.remove(run.key)
         val app = hub.context
         val conversation = run.conversation
-        if (conversation.phone.unattended === run.scope) conversation.phone.unattended = null
+        if (conversation.unattended === run.scope) conversation.unattended = null
         val (raw, answer) = Schedules.outcomeOf(conversation.items, run.prompt)
-        val (outcome, summary, alert) = Schedules.settle(raw, answer, run.onlyOnChange, run.scope.report, run.scope.asked)
+        val (outcome, summary, alert) = run.scope.settle(raw, answer)
         val session = conversation.sessionId
         run.records.update(app, run.id) { record ->
             record.copy(

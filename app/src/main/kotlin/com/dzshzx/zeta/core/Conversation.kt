@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.phone.PhoneTools
 import android.os.Handler
 import android.os.Looper
@@ -384,10 +385,24 @@ class Conversation(
     fun send(text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) = send(text, attachments, files, run = null)
 
     /**
-     * 后台运行（定时任务、通知触发）发指令：进程先切到这次运行的权限模式 [mode]、加上 [rules]，再发。
-     * 两样都留到用户自己发下一条消息时才换回来，见 [authorize]。
+     * 正跑着这个对话的后台运行（定时任务、通知触发）：[sendUnattended] 挂上，ScheduleRunner 跑完摘掉；平常为 null。
+     * 挂着时完成和确认提醒由 ScheduleRunner 发（带任务名），TurnAlerts 只看这个标记。手机工具上同步挂一份（[PhoneTools.unattended]），
+     * 工具调用据此认出后台运行。在主线程上读写。
      */
-    internal fun sendUnattended(text: String, mode: String, rules: JsonObject) = send(text, emptyList(), emptyList(), RunPermissions(mode, rules))
+    var unattended: UnattendedRun? = null
+        internal set(value) {
+            field = value
+            phone.unattended = value
+        }
+
+    /**
+     * 后台运行 [run] 发指令：对话挂上它（[unattended]），进程先切到这次运行的权限模式 [mode]、加上 [rules]，再发。
+     * 模式和规则都留到用户自己发下一条消息时才换回来，见 [authorize]。
+     */
+    internal fun sendUnattended(text: String, mode: String, rules: JsonObject, run: UnattendedRun) {
+        unattended = run
+        send(text, emptyList(), emptyList(), RunPermissions(mode, rules))
+    }
 
     /** 后台运行这一条用的权限：权限模式，和叠在用户规则上的规则（见 [restrict]）。 */
     private class RunPermissions(val mode: String, val rules: JsonObject)
