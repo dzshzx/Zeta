@@ -47,10 +47,6 @@ internal class IntakeSink(
     private val draft: ComposerDraft,
     private val maxImages: Int,
 ) {
-    private val input get() = draft.input
-    private val attachments get() = draft.attachments
-    private val uploads get() = draft.uploads
-
     /** 没有加进来的东西和原因，一条一句。 */
     var problems by mutableStateOf<List<String>>(emptyList())
         private set
@@ -73,8 +69,8 @@ internal class IntakeSink(
     fun accept(intake: Intake) {
         intake.text?.takeIf { it.isNotBlank() }?.let(::addText)
         for (image in intake.images) {
-            if (attachments.size < maxImages) {
-                attachments.add(image)
+            if (draft.attachments.size < maxImages) {
+                draft.attachments.add(image)
             } else {
                 addBytes(screenshotName(), Base64.decode(image.base64, Base64.NO_WRAP))
             }
@@ -84,16 +80,16 @@ internal class IntakeSink(
 
     /** 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的。 */
     fun putBack(message: QueuedMessage) {
-        val typed = input.text.toString()
-        input.setTextAndPlaceCursorAtEnd(listOf(message.text, typed).filter { it.isNotBlank() }.joinToString("\n"))
-        attachments.addAll(message.attachments.filter { a -> attachments.none { it.id == a.id } }.take(maxImages - attachments.size))
-        message.files.forEach(uploads::addPath)
+        val typed = draft.input.text.toString()
+        draft.input.setTextAndPlaceCursorAtEnd(listOf(message.text, typed).filter { it.isNotBlank() }.joinToString("\n"))
+        draft.attachments.addAll(message.attachments.filter { a -> draft.attachments.none { it.id == a.id } }.take(maxImages - draft.attachments.size))
+        message.files.forEach(draft.uploads::addPath)
     }
 
     /** 文字接在草稿后面；太长的存成文本文件当附件，免得把输入框撑爆。 */
     private fun addText(text: String) {
         if (text.length <= IntakeParser.MAX_INLINE_TEXT) {
-            input.setTextAndPlaceCursorAtEnd(IntakeParser.mergeDraft(input.text.toString(), text))
+            draft.input.setTextAndPlaceCursorAtEnd(IntakeParser.mergeDraft(draft.input.text.toString(), text))
         } else {
             addBytes("分享的文字.txt", text.toByteArray())
         }
@@ -102,9 +98,9 @@ internal class IntakeSink(
     /** 附件菜单的「图片」：选的都当图片附件。 */
     fun addImages(uris: List<Uri>) {
         scope.launch {
-            for (uri in uris.take(maxImages - attachments.size)) {
+            for (uri in uris.take(maxImages - draft.attachments.size)) {
                 val loaded = withContext(Dispatchers.IO) { Attachments.load(context, uri) }
-                if (loaded != null) attachments.add(loaded) else report("有一张图片读不了，没有加进来")
+                if (loaded != null) draft.attachments.add(loaded) else report("有一张图片读不了，没有加进来")
             }
         }
     }
@@ -117,10 +113,10 @@ internal class IntakeSink(
         scope.launch {
             for (uri in uris.take(FileLimits.MAX_FILES)) {
                 val (name, type) = withContext(Dispatchers.IO) { Uploads.describe(context, uri) }
-                if (type?.startsWith("image/") == true && type != "image/svg+xml" && attachments.size < maxImages) {
+                if (type?.startsWith("image/") == true && type != "image/svg+xml" && draft.attachments.size < maxImages) {
                     val loaded = withContext(Dispatchers.IO) { Attachments.load(context, uri) }
                     if (loaded != null) {
-                        attachments.add(loaded)
+                        draft.attachments.add(loaded)
                         continue
                     }
                 }
@@ -134,13 +130,13 @@ internal class IntakeSink(
                     continue
                 }
                 val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
-                uploads.add(upload)
+                draft.uploads.add(upload)
                 launch {
                     val copied = withContext(Dispatchers.IO) { Uploads.copy(context, config, uri, name, FileLimits.MAX_BYTES) }
                     when {
                         copied.path != null -> upload.path = copied.path
                         copied.tooLarge -> {
-                            uploads.remove(upload)
+                            draft.uploads.remove(upload)
                             report(FileLimits.tooLargeReason(name, null), tooLarge = true)
                         }
                         else -> upload.failed = true
@@ -157,7 +153,7 @@ internal class IntakeSink(
             return
         }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, bytes.size.toLong()))
-        uploads.add(upload)
+        draft.uploads.add(upload)
         scope.launch {
             val path = withContext(Dispatchers.IO) { Uploads.copyBytes(config, name, bytes) }
             if (path != null) upload.path = path else upload.failed = true

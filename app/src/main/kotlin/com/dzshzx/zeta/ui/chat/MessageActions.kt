@@ -90,10 +90,6 @@ internal class MessageActions(
     private val scope: CoroutineScope,
     private val context: Context,
 ) {
-    private val input get() = draft.input
-    private val attachments get() = draft.attachments
-    private val uploads get() = draft.uploads
-
     /** 正在编辑的那一轮。 */
     var editing by mutableStateOf<TurnActions?>(null)
         private set
@@ -116,17 +112,17 @@ internal class MessageActions(
     fun beginEdit(turn: TurnActions) {
         if (!conversation.canRewind) return
         if (editing != null) cancelEdit()
-        saved = Saved(input.text.toString(), attachments.toList(), uploads.toList())
+        saved = Saved(draft.input.text.toString(), draft.attachments.toList(), draft.uploads.toList())
         editing = turn
-        input.setTextAndPlaceCursorAtEnd(turn.user.text)
-        attachments.clear()
-        uploads.clear()
-        turn.user.files.forEach(uploads::addPath)
+        draft.input.setTextAndPlaceCursorAtEnd(turn.user.text)
+        draft.attachments.clear()
+        draft.uploads.clear()
+        turn.user.files.forEach(draft.uploads::addPath)
         val images = turn.user.images
         if (images.isNotEmpty()) scope.launch {
             val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, it) } }
             if (editing !== turn) return@launch
-            attachments.addAll(restored.filterNotNull())
+            draft.attachments.addAll(restored.filterNotNull())
             if (restored.any { it == null }) toast("有图片取不回来，没有放进输入框")
         }
     }
@@ -135,11 +131,11 @@ internal class MessageActions(
         val before = saved ?: return
         editing = null
         saved = null
-        input.setTextAndPlaceCursorAtEnd(before.text)
-        attachments.clear()
-        attachments.addAll(before.attachments)
-        uploads.clear()
-        uploads.addAll(before.uploads)
+        draft.input.setTextAndPlaceCursorAtEnd(before.text)
+        draft.attachments.clear()
+        draft.attachments.addAll(before.attachments)
+        draft.uploads.clear()
+        draft.uploads.addAll(before.uploads)
     }
 
     /** 发出改好的消息。现在还不能改写（这一轮没结束之类）时返回 false，内容留给输入框。 */
