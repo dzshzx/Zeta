@@ -944,11 +944,17 @@ class Conversation(
 
     private fun drain() {
         drainScheduled.set(false)
+        receive(generateSequence { inbox.poll() }.asIterable(), System.currentTimeMillis())
+    }
+
+    /**
+     * 处理一批 Claude Code 的输出事件（[drain] 从收件箱里取出的；测试直接喂）：用量、额度、聊天列表各自更新，
+     * 用量有变化时发布用量，聊天列表有变化时清掉临时状态、记下活动时间 [now] 再发布列表。在主线程上调用。
+     */
+    internal fun receive(events: Iterable<JsonObject>, now: Long) {
         var changed = false
-        val now = System.currentTimeMillis()
         val usageBefore = meter.version
-        while (true) {
-            val event = inbox.poll() ?: break
+        for (event in events) {
             meter.observe(event)
             hub.quota.observe(event)
             changed = handle(event, now) || changed

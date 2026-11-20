@@ -7,15 +7,8 @@ import kotlinx.serialization.json.JsonObject
 internal fun Conversation.launchArgument(flag: String): String? =
     launchArguments().let { args -> args.indexOf(flag).takeIf { it >= 0 }?.let { args[it + 1] } }
 
-/** 喂一条 Claude Code 的输出事件（和进程送来的一样走 handle；聊天列表、用量有变化时和 drain 一样 publish）。 */
-internal fun Conversation.receive(event: String) {
-    val meter = Conversation::class.java.getDeclaredField("meter").apply { isAccessible = true }.get(this) as UsageTracker
-    val usageBefore = meter.version
-    val changed = Conversation::class.java.getDeclaredMethod("handle", JsonObject::class.java, Long::class.javaPrimitiveType)
-        .apply { isAccessible = true }.invoke(this, Json.parseToJsonElement(event) as JsonObject, 0L) as Boolean
-    if (meter.version != usageBefore) Conversation::class.java.getDeclaredMethod("publishUsage").apply { isAccessible = true }.invoke(this)
-    if (changed) Conversation::class.java.getDeclaredMethod("publish").apply { isAccessible = true }.invoke(this)
-}
+/** 喂一条 Claude Code 的输出事件：和进程送来的一样走 [Conversation.receive]（drain 取出事件后调的那个），时间记作 0。 */
+internal fun Conversation.receive(event: String) = receive(listOf(Json.parseToJsonElement(event) as JsonObject), 0L)
 
 /**
  * 扮 Claude Code 答这个对话的进程正在等的、子类型为 [subtype] 的控制请求（最早的那个），[response] 是应答里的 response 一项。
