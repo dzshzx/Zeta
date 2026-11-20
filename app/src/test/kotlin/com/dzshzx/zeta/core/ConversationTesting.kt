@@ -7,8 +7,9 @@ import kotlinx.serialization.json.JsonObject
 internal fun Conversation.launchArgument(flag: String): String? =
     launchArguments().let { args -> args.indexOf(flag).takeIf { it >= 0 }?.let { args[it + 1] } }
 
-/** 喂一条 Claude Code 的输出事件（和进程送来的一样走 handle）。 */
+/** 喂一条 Claude Code 的输出事件（和进程送来的一样走 handle；聊天列表有变化时和 drain 一样 publish）。 */
 internal fun Conversation.receive(event: String) {
-    Conversation::class.java.getDeclaredMethod("handle", JsonObject::class.java, Long::class.javaPrimitiveType)
-        .apply { isAccessible = true }.invoke(this, Json.parseToJsonElement(event) as JsonObject, 0L)
+    val changed = Conversation::class.java.getDeclaredMethod("handle", JsonObject::class.java, Long::class.javaPrimitiveType)
+        .apply { isAccessible = true }.invoke(this, Json.parseToJsonElement(event) as JsonObject, 0L) as Boolean
+    if (changed) Conversation::class.java.getDeclaredMethod("publish").apply { isAccessible = true }.invoke(this)
 }

@@ -24,8 +24,9 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 工具权限页和自动标题依赖的 Claude Code 行为（2.1.327 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
- * 页面上那句说明（[ClaudePermissions.SEMANTICS]）和 [com.dzshzx.zeta.core.AutoTitle] 跟着改。
+ * 工具权限页、自动标题和排队条依赖的 Claude Code 行为（2.1.327 实测，排队条那条 2.1.329），在这里钉住：升级 Claude Code 后跑一遍，
+ * 变了就会失败，页面上那句说明（[ClaudePermissions.SEMANTICS]）、[com.dzshzx.zeta.core.AutoTitle] 和
+ * [com.dzshzx.zeta.core.Conversation] 的排队跟着改。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱）：
  * 假模型按剧本调用工具，从下一次请求里的 tool_result 看结局；标题请求按系统提示认出来。
@@ -210,6 +211,10 @@ class ClaudeCodeContractTest {
             }
         }
 
+        /** 发一条带 [uuid] 的用户消息（和 Zeta 发的一样），不等。 */
+        fun user(uuid: String, text: String) =
+            send(buildJsonObject { put("type", "user"); put("uuid", uuid); putJsonObject("message") { put("role", "user"); put("content", text) } })
+
         /** 发一个控制请求，等到它的应答。 */
         fun control(request: JsonObject): JsonObject {
             val id = "c${++seq}"
@@ -221,14 +226,27 @@ class ClaudeCodeContractTest {
             return response!!
         }
 
-        private fun until(done: (JsonObject) -> Boolean) {
+        /** 收事件，直到 [done] 为真（60 秒内没等到就失败），返回这期间收到的全部事件。 */
+        fun until(done: (JsonObject) -> Boolean): List<JsonObject> = buildList {
             val deadline = System.currentTimeMillis() + 60_000
             while (true) {
                 val left = deadline - System.currentTimeMillis()
                 assertTrue("claude 没有按时回应", left > 0)
                 val line = lines.poll(left, TimeUnit.MILLISECONDS) ?: continue
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
-                if (done(o)) return
+                add(o)
+                if (done(o)) return@buildList
+            }
+        }
+
+        /** 再收 [millis] 毫秒的事件。 */
+        fun settle(millis: Long): List<JsonObject> = buildList {
+            val deadline = System.currentTimeMillis() + millis
+            while (true) {
+                val left = deadline - System.currentTimeMillis()
+                if (left <= 0) return@buildList
+                val line = lines.poll(left, TimeUnit.MILLISECONDS) ?: continue
+                runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull()?.let(::add)
             }
         }
 
@@ -299,5 +317,30 @@ class ClaudeCodeContractTest {
         }
         assertEquals(emptyList<String>(), synchronized(titleRequests) { titleRequests.toList() })
         assertEquals(listOf("custom-title:我起的名字"), transcriptTitles())
+    }
+
+    /**
+     * 一轮进行中发来的消息（Zeta 的排队条）：它有自己的 command_lifecycle started，在工具边界并进这一轮，两条消息只出一个 result。
+     * Conversation 据此在 started 时把排队的消息放进聊天记录，在 result 时只要没有还在排队的就算这一轮结束。
+     */
+    @Test
+    fun followUpJoinsTheRunningTurn() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        script = listOf(bash("sleep 2"))
+        val first = "11111111-2222-4333-8444-555555555555"
+        val second = "33333333-2222-4333-8444-555555555555"
+        Claude("bypassPermissions", "{}").use { claude ->
+            claude.user(first, "run the tools")
+            val events = claude.until { o -> o.str("type") == "assistant" && "\"tool_use\"" in o.obj("message")?.get("content").toString() }.toMutableList()
+            // 工具还在跑（sleep 2）时插话
+            claude.user(second, "then say done")
+            events += claude.until { it.str("type") == "result" }
+            // 没并进这一轮的话，Claude Code 会接着另起一轮，假 API 随问随答，几秒内就有第二个 result
+            events += claude.settle(3_000)
+            fun startedAt(uuid: String) = events.indexOfFirst { it.str("type") == "command_lifecycle" && it.str("command_uuid") == uuid && it.str("state") == "started" }
+            assertTrue("第一条有 started", startedAt(first) >= 0)
+            assertTrue("插话也有 started，而且在这一轮的 result 之前", startedAt(second) in 0 until events.indexOfFirst { it.str("type") == "result" })
+            assertEquals("两条消息只出一个 result", 1, events.count { it.str("type") == "result" })
+        }
     }
 }

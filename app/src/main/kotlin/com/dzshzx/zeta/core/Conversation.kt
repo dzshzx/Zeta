@@ -243,9 +243,6 @@ class Conversation(
 
     /** 分支在这个进程里已经剪过了（换了进程要重新剪）。 */
     private var forkCut = false
-    /** 只在 Claude Code 不报 command_lifecycle 时（老版本）用来判断一轮是否结束。 */
-    private var turnsInFlight = 0
-    private var lifecycleSeen = false
     /** 撤回时要放回输入框的消息（其余的撤回直接丢弃）。 */
     private val recalling = HashSet<String>()
     private var interruptRequested = false
@@ -271,7 +268,6 @@ class Conversation(
             backgroundTasks = attach.tasks
             // 接回时还在跑的后台任务：助手脚本从输出日志里摘出来的那几条事件
             attach.taskEvents.forEach { tasks.observe(it, System.currentTimeMillis()) }
-            turnsInFlight = if (attach.busy) 1 else 0
             processMode = attach.permissionMode
             lastActivityAt = System.currentTimeMillis()
         }
@@ -497,11 +493,10 @@ class Conversation(
         val uuid = UUID.randomUUID().toString()
         var itemId: String? = null
         // 回答进行中发的先排队，等 Claude Code 真正取走（command_lifecycle started）才进聊天记录
-        if (busy && lifecycleSeen) {
+        if (busy) {
             queued = queued + QueuedMessage(uuid, trimmed, attachments, files)
         } else {
             itemId = reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files, uuid)
-            turnsInFlight++
         }
         busy = true
         interruptRequested = false
@@ -513,7 +508,6 @@ class Conversation(
 
     /** 没能发出的消息：这一轮作罢，文字和附件放回输入框。 */
     private fun abandon(message: Outgoing, reason: String) {
-        turnsInFlight = 0
         busy = false
         addRecalled(QueuedMessage(message.uuid, message.text, message.attachments, message.files))
         reducer.addNotice("没有发出：$reason", error = true)
@@ -707,7 +701,6 @@ class Conversation(
     fun compact() {
         if (busy || blockedByExternal || loadingHistory || items.isEmpty()) return
         val process = ensureProcess() ?: return
-        turnsInFlight++
         busy = true
         interruptRequested = false
         status = "正在压缩上下文"
@@ -1038,7 +1031,6 @@ class Conversation(
                     // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
                     if (!busy) {
                         busy = true
-                        turnsInFlight++
                         lastActivityAt = now
                         hub.onActivityChanged()
                     }
@@ -1091,7 +1083,6 @@ class Conversation(
                 return true
             }
             "command_lifecycle" -> {
-                lifecycleSeen = true
                 val uuid = event.str("command_uuid") ?: return false
                 when (event.str("state")) {
                     "started" -> {
@@ -1112,7 +1103,6 @@ class Conversation(
                 }
             }
             "result" -> {
-                turnsInFlight = (turnsInFlight - 1).coerceAtLeast(0)
                 reducer.finishTurn()
                 val failed = event.bool("is_error") == true || event.str("subtype") != "success"
                 when {
@@ -1127,10 +1117,8 @@ class Conversation(
                 }
                 val stopped = interruptRequested
                 interruptRequested = false
-                // 有 command_lifecycle 时：插话会并进同一轮、只得到一个 result，按条数计会对不上；
-                // 还有排队的消息就会接着另起一轮
-                val turnOver = if (lifecycleSeen) queued.isEmpty() else turnsInFlight == 0
-                if (turnOver) {
+                // 插话会并进同一轮、只出一个 result，所以不按发出的条数算；还有排队的消息，Claude Code 会接着另起一轮
+                if (queued.isEmpty()) {
                     // 先于 busy 和手机工具的状态清掉：胶囊要据此判断结束的是不是正显示着的那个
                     hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
                     busy = false
@@ -1206,7 +1194,6 @@ class Conversation(
     }
 
     private fun endTurnState() {
-        turnsInFlight = 0
         // 进程没了，排队的消息也不会再被处理：放回输入框
         for (message in queued) addRecalled(message)
         queued = emptyList()
