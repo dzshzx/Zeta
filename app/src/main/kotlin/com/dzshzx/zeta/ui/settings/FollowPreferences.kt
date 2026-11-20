@@ -18,9 +18,9 @@ internal fun modelChoices(hub: ConversationHub): List<Pair<String, String>> =
 internal fun modelName(hub: ConversationHub, value: String): String = modelLabel(value, hub.modelOptions)
 
 /**
- * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。
- * 设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定模型、思考强度都用它；[startAction] 是设置首页的行首图标。
- * 后台运行的权限模式不跟随，用 [PermissionModePreference]。
+ * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[followLabel] 为 null 时没有跟随这一项，只能选 [choices] 里的。
+ * [value] 不在 [choices] 里时补一项，显示 [unknown] 给的名字。设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定
+ * 模型、思考强度、后台运行的权限模式都用它；[startAction] 是设置首页的行首图标。
  */
 @Composable
 internal fun FollowDropdownPreference(
@@ -28,12 +28,12 @@ internal fun FollowDropdownPreference(
     choices: List<Pair<String, String>>,
     value: String?,
     unknown: (String) -> String = { it },
-    followLabel: String = "跟随当前设置",
+    followLabel: String? = "跟随当前设置",
     startAction: (@Composable () -> Unit)? = null,
     onChange: (String?) -> Unit,
 ) {
     val options = remember(choices, value, followLabel) {
-        listOf<Pair<String?, String>>(null to followLabel) + choices +
+        listOfNotNull<Pair<String?, String>>(followLabel?.let { null to it }) + choices +
             listOfNotNull(value?.takeIf { v -> choices.none { it.first == v } }?.let { it to unknown(it) })
     }
     OverlayDropdownPreference(
@@ -60,14 +60,5 @@ internal fun EffortPreference(effort: String?, onChange: (String?) -> Unit) =
  * 可能是完全放行，不该带进没人看着的运行。[mode] 不在清单里时补一项。
  */
 @Composable
-internal fun PermissionModePreference(mode: String, onChange: (String) -> Unit) {
-    val modes = remember(mode) {
-        PermissionModes + listOfNotNull(mode.takeIf { value -> PermissionModes.none { it.first == value } }?.let { it to permissionModeLabel(it) })
-    }
-    OverlayDropdownPreference(
-        title = "权限模式",
-        items = remember(modes) { modes.map { it.second } },
-        selectedIndex = modes.indexOfFirst { it.first == mode },
-        onSelectedIndexChange = { index -> modes.getOrNull(index)?.let { onChange(it.first) } },
-    )
-}
+internal fun PermissionModePreference(mode: String, onChange: (String) -> Unit) =
+    FollowDropdownPreference("权限模式", PermissionModes, mode, unknown = ::permissionModeLabel, followLabel = null) { it?.let(onChange) }

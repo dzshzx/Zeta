@@ -160,17 +160,20 @@ class Conversation(
     /** 顶栏显示的模型：指定了的就是它，没指定时是 Claude Code 报的（或会话记录里的）；都不知道时是 null，即默认模型。 */
     val shownModel: String? get() = model ?: reportedModel
 
-    /** 进程现在用的权限模式，输入栏显示它。后台运行发指令后是那次运行的模式，用户自己的记在 [ownMode]。 */
+    /**
+     * 用户在这个对话里的权限模式：输入栏显示它，用户自己的消息按它跑。Claude Code 在用户的模式上自己换了模式
+     * （比如计划获批后退出计划模式）时跟着变，见 [reportMode]。
+     */
     var permissionMode by mutableStateOf(hub.settings.permissionMode ?: hub.defaultPermissionMode)
         private set
 
     /**
-     * 用户自己的消息用的权限模式，只在进程切到了后台运行的模式时记着，平时为 null（这时就是 [permissionMode]）。
-     * 每条消息按发的人的权限跑（见 [authorize]）：后台运行发指令时切到任务的模式，把用户的记在这里；用户自己发下一条或改写时切回来。
-     * 用户在输入栏亲手选了模式就不再切回，这一轮剩下的部分也按用户选的跑。只记在内存里：Zeta 在后台运行还没跑完时被结束、
-     * 重启后接回这个对话，进程停在任务的模式上（输入栏照实显示），用户选一次就回来。
+     * 进程现在用的权限模式：起进程时带的、之后切到的，或 Claude Code 报来的；起进程时没指定、还没报过时为 null。
+     * 每条消息发出前切到发的人的模式（见 [authorize]），所以后台运行发指令后是那次运行的模式，用户自己发下一条时切回
+     * [permissionMode]；Zeta 被结束后接回的对话也一样，不用记切走前是什么。
      */
-    private var ownMode: String? = null
+    internal var processMode: String? = null
+        private set
 
     /**
      * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置。新对话取新对话的默认值，分支接着用原对话的；
@@ -257,7 +260,7 @@ class Conversation(
             // 接回时还在跑的后台任务：助手脚本从输出日志里摘出来的那几条事件
             attach.taskEvents.forEach { tasks.observe(it, System.currentTimeMillis()) }
             turnsInFlight = if (attach.busy) 1 else 0
-            attach.permissionMode?.let { permissionMode = it }
+            processMode = attach.permissionMode
             lastActivityAt = System.currentTimeMillis()
         }
         if (fork != null) {
@@ -429,9 +432,10 @@ class Conversation(
     fun rewrite(target: UserItem, text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) {
         val uuid = target.uuid ?: return
         if (!canRewind || (text.isBlank() && attachments.isEmpty() && files.isEmpty())) return
-        val process = authorize(null) ?: return
+        val process = ensureProcess() ?: return
         val before = reducer.items.toList()
         if (!truncateBefore(reducer.items, target.id)) return
+        authorize(null)
         val message = stage(text.trim(), attachments, files)
         requestRewind(process, uuid, lastSeen(before),
             onDone = {
@@ -512,27 +516,35 @@ class Conversation(
     }
 
     /**
-     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切回 [ownMode]、撤掉规则。
-     * 模式在起进程前就切好，进程还没起来时按切好的模式起。返回进程，起不来时为 null。
+     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切到 [permissionMode]、撤掉规则。
+     * 和 [restrict] 一样每条都做、不记上一条是谁发的，模式没变就不发。进程还没起来时按这个模式起。
+     * 用户在后台运行这一轮里插话（或在输入栏选模式），这一轮剩下的部分也按用户的跑：用户在场。返回进程，起不来时为 null。
      */
     private fun authorize(run: RunPermissions?): ClaudeProcess? {
-        if (run != null) {
-            // 用户的模式还不知道（Claude Code 还没报过）：之后切回逐项确认，宁可多问
-            if (ownMode == null) ownMode = permissionMode ?: "default"
-            switchMode(run.mode)
-        } else {
-            ownMode?.let { mode -> ownMode = null; switchMode(mode) }
-        }
-        val process = ensureProcess() ?: return null
+        val mode = run?.mode ?: userMode
+        val process = process?.also { switchMode(it, mode) } ?: ensureProcess(mode) ?: return null
         restrict(process, run?.rules)
         return process
     }
 
-    /** 把进程切到 [mode]，已经是了就不发；进程还没起来时只记下，起进程时带上。 */
-    private fun switchMode(mode: String) {
-        if (mode == permissionMode) return
-        permissionMode = mode
-        process?.send(controlRequest { put("subtype", "set_permission_mode"); put("mode", mode) })
+    /** 用户的消息用的模式。用户的还不知道（Claude Code 没报过）、进程却在后台运行的模式上时用逐项确认：宁可多问。 */
+    private val userMode: String? get() = permissionMode ?: "default".takeIf { processMode != null }
+
+    /** 把进程切到 [mode]，已经是了就不发。 */
+    private fun switchMode(process: ClaudeProcess, mode: String?) {
+        if (mode == null || mode == processMode) return
+        processMode = mode
+        process.send(controlRequest { put("subtype", "set_permission_mode"); put("mode", mode) })
+    }
+
+    /**
+     * Claude Code 报来进程现在的模式。进程在用户的模式上（没有后台运行的模式在用）时用户的跟着变；
+     * 起进程时没指定模式的，报来的是 Claude Code 自己设置里的，记下当新对话的默认。
+     */
+    private fun reportMode(mode: String) {
+        if (processMode == null && hub.settings.permissionMode == null) hub.defaultPermissionMode = mode
+        if (processMode == permissionMode) permissionMode = mode
+        processMode = mode
     }
 
     /**
@@ -745,9 +757,9 @@ class Conversation(
 
     /** 用户在输入栏选的：这个对话之后按它跑（后台运行这一轮剩下的部分也是），也是新对话的默认。 */
     fun choosePermissionMode(value: String) {
-        ownMode = null
+        permissionMode = value
         hub.settings.permissionMode = value
-        switchMode(value)
+        process?.let { switchMode(it, value) }
     }
 
     /** 回答一次 can_use_tool。[answers] 只用于 AskUserQuestion：问题文字 → 选中的选项。 */
@@ -918,15 +930,17 @@ class Conversation(
         putJsonObject("request", build)
     }
 
-    private fun ensureProcess(): ClaudeProcess? {
+    /** 进程没起来就起一个，权限模式是 [mode]（默认用户的）；起来了就直接用，不切模式。 */
+    private fun ensureProcess(mode: String? = userMode): ClaudeProcess? {
         process?.let { return it }
+        processMode = mode
         val config = hub.settings.env
         if (config == null) {
             reducer.addNotice("还没有配置 Linux 环境，请到设置里检查", error = true)
             publish()
             return null
         }
-        val arguments = launchArguments()
+        val arguments = launchArguments(mode)
         val autoCompact = hub.settings.autoCompact
         val compactPercent = hub.settings.autoCompactPercent
         lateinit var created: ClaudeProcess
@@ -954,14 +968,14 @@ class Conversation(
     }
 
     /** 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型。 */
-    internal fun launchArguments(): List<String> = buildList {
+    internal fun launchArguments(mode: String? = userMode): List<String> = buildList {
         addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages", "--permission-prompt-tool", "stdio"))
         // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
         addAll(sessionArguments(sessionId, fork?.source, title))
         model?.let { add("--model"); add(it) }
-        permissionMode?.let { add("--permission-mode"); add(it) }
-        // 只是允许之后切到完全放行（没有它 set_permission_mode 切不过去），不放行任何东西；发给模型的内容不变（UnattendedRulesContractTest）
+        mode?.let { add("--permission-mode"); add(it) }
+        // 只是允许之后切到完全放行（没有它 set_permission_mode 切不过去，UnattendedRulesContractTest），不放行任何东西；实测发给模型的内容不变
         add("--allow-dangerously-skip-permissions")
         effort?.let { add("--effort"); add(it) }
         add("--append-system-prompt"); add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
@@ -1008,11 +1022,8 @@ class Conversation(
                     event.str("session_id")?.let { sessionId = it }
                     // 实际在用的模型：没指定时（接着旧会话）是 Claude Code 照会话记录恢复的那个
                     event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
-                    // 起进程时没指定模式：报来的是 Claude Code 自己设置里的，记下当新对话的默认（指定了的报来的是指定的那个）
-                    event.str("permissionMode")?.takeIf { permissionMode == null }?.let { mode ->
-                        permissionMode = mode
-                        if (hub.settings.permissionMode == null) hub.defaultPermissionMode = mode
-                    }
+                    // 起进程时没指定模式才要 init 报的（指定了的报来的就是指定的那个）；之后的变化看 status
+                    event.str("permissionMode")?.takeIf { processMode == null }?.let(::reportMode)
                     // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
                     // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
                     if (!busy) {
@@ -1032,7 +1043,7 @@ class Conversation(
                     }
                 }
                 "status" -> {
-                    event.str("permissionMode")?.let { permissionMode = it }
+                    event.str("permissionMode")?.let(::reportMode)
                     if (event.str("status") == "compacting") {
                         lastActivityAt = now
                         status = "正在压缩上下文"
@@ -1163,7 +1174,7 @@ class Conversation(
                         SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
                     } })
                 }
-                if (permissionMode == null) response.str("current_permission_mode")?.let { permissionMode = it }
+                response.str("current_permission_mode")?.takeIf { processMode == null }?.let(::reportMode)
             }
         }
         return false

@@ -42,8 +42,8 @@ import org.junit.Test
  * - 没加过规则的进程收到 permissions: null 什么都不变，发给模型的工具名单和系统提示词也不变（Zeta 在用户每条消息前
  *   都撤一次，不记加没加过）。
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
- * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样。
- *   进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行；带不带它、模式怎么切，发给模型的工具名单和系统提示词都不变。
+ * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样；
+ *   模式怎么切，发给模型的工具名单和系统提示词都不变。进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行。
  */
 class UnattendedRulesContractTest {
     private lateinit var home: File
@@ -178,8 +178,11 @@ class UnattendedRulesContractTest {
 
     // ---- 像 Zeta 那样驱动一个进程 ----
 
-    /** 一个 stream-json 的 claude 进程，参数和 Zeta 起的一样；phone 服务器的 MCP 消息和 can_use_tool 由这里答（一律允许）。 */
-    private inner class Claude(mode: String = "default", extra: List<String> = emptyList()) : AutoCloseable {
+    /**
+     * 一个 stream-json 的 claude 进程，参数和 Zeta 起的一样（[allowBypass] 为 false 时不带 --allow-dangerously-skip-permissions）；
+     * phone 服务器的 MCP 消息和 can_use_tool 由这里答（一律允许）。
+     */
+    private inner class Claude(mode: String = "default", allowBypass: Boolean = true) : AutoCloseable {
         private val process: Process
         private val lines = LinkedBlockingQueue<String>()
         private var requests = 0
@@ -198,7 +201,7 @@ class UnattendedRulesContractTest {
                 "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                 "--permission-prompt-tool", "stdio", "--permission-mode", mode,
                 "--mcp-config", """{"mcpServers":{"phone":{"type":"sdk","name":"phone"}}}""",
-                *extra.toTypedArray(),
+                *(if (allowBypass) arrayOf("--allow-dangerously-skip-permissions") else emptyArray()),
             ).directory(File(home, "proj"))
             val env = builder.environment()
             val path = listOfNotNull(System.getProperty("user.home")?.let { "$it/.local/bin" }, System.getenv("PATH")).joinToString(":")
@@ -394,8 +397,10 @@ class UnattendedRulesContractTest {
     @Test
     fun revokingWithoutRulesChangesNothing() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        Claude().use { claude ->
+        Claude(allowBypass = false).use { claude ->
             claude.response(claude.request { put("subtype", "initialize") })
+            // 顺带：不带 --allow-dangerously-skip-permissions 时运行中切不进完全放行
+            assertEquals("bypass_not_launched", claude.response(setMode(claude, "bypassPermissions")).str("error_code"))
             claude.response(claude.request { put("subtype", "apply_flag_settings"); putJsonObject("settings") { put("effortLevel", "low") } })
             turn(claude, "plain", "create_scheduled_task")
             val seen = synchronized(results) { prompts.size }
@@ -421,15 +426,7 @@ class UnattendedRulesContractTest {
     @Test
     fun modeFollowsTheSender() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        // 不带 --allow-dangerously-skip-permissions：运行中切不进完全放行
-        Claude().use { claude ->
-            claude.response(claude.request { put("subtype", "initialize") })
-            assertEquals("bypass_not_launched", claude.response(setMode(claude, "bypassPermissions")).str("error_code"))
-            // 第一条和下面那个进程的一样：系统提示词开头的计费标记跟着会话的第一条消息变
-            turn(claude, "mine", "create_scheduled_task")
-        }
-        val plain = synchronized(results) { prompts.last() }
-        Claude(mode = "acceptEdits", extra = listOf("--allow-dangerously-skip-permissions")).use { claude ->
+        Claude(mode = "acceptEdits").use { claude ->
             claude.response(claude.request { put("subtype", "initialize") })
             // 用户自己的一轮：自动接受编辑，手机工具照常要确认
             val mine = synchronized(results) { prompts.size }
@@ -448,11 +445,8 @@ class UnattendedRulesContractTest {
             assertEquals(listOf("acceptEdits", "bypassPermissions", "acceptEdits"), claude.modes)
             assertEquals(listOf("create_scheduled_task", "create_scheduled_task"), claude.asks)
             assertEquals(listOf("create_scheduled_task", "report_scheduled_run", "create_scheduled_task"), claude.calls)
-            // 带了那个参数、切过模式，发给模型的工具名单和系统提示词跟不带时一样
-            synchronized(results) {
-                assertEquals(plain, prompts[mine])
-                assertEquals(plain, prompts[byHand])
-            }
+            // 切过模式，发给模型的工具名单和系统提示词不变
+            synchronized(results) { assertEquals(prompts[mine], prompts[byHand]) }
         }
     }
 }

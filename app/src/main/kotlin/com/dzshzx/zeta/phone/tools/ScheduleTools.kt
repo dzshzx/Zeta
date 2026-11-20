@@ -193,7 +193,7 @@ internal object ScheduleTools : PhoneToolGroup {
             rule = rule(input, base = null, now, zone)!!,
             cwd = input.str("cwd"),
             model = input.str("model")?.trim()?.takeIf { it.isNotEmpty() },
-            permissionMode = mode(input) ?: Schedules.DEFAULT_MODE,
+            permissionMode = mode(input),
             newSession = input.bool("new_session") ?: true,
             onlyOnChange = input.bool("only_on_change") ?: false,
         )
@@ -243,7 +243,7 @@ internal object ScheduleTools : PhoneToolGroup {
             rule = rule(input, task.rule, now, zone) ?: task.rule,
             cwd = if (given(input, "cwd")) input.str("cwd") else task.cwd,
             model = if (given(input, "model")) input.str("model")?.trim()?.takeIf { it.isNotEmpty() } else task.model,
-            permissionMode = if (given(input, "permission_mode")) mode(input) ?: Schedules.DEFAULT_MODE else task.permissionMode,
+            permissionMode = if (given(input, "permission_mode")) mode(input) else task.permissionMode,
             newSession = input.bool("new_session") ?: task.newSession,
             onlyOnChange = input.bool("only_on_change") ?: task.onlyOnChange,
         )
@@ -254,8 +254,9 @@ internal object ScheduleTools : PhoneToolGroup {
 
     private fun given(input: JsonObject, key: String) = input[key].let { it != null && it !is JsonNull }
 
-    private fun mode(input: JsonObject): String? {
-        val mode = input.str("permission_mode")?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    /** permission_mode；没给或给了空字符串时是默认的（[Schedules.DEFAULT_MODE]）。 */
+    private fun mode(input: JsonObject): String {
+        val mode = input.str("permission_mode")?.trim()?.takeIf { it.isNotEmpty() } ?: return Schedules.DEFAULT_MODE
         if (mode !in MODES) throw BadInput("permission_mode 只能是 " + MODES.joinToString("、"))
         return mode
     }

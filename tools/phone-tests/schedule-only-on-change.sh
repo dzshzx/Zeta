@@ -21,29 +21,6 @@ finish() {
 }
 trap finish EXIT
 
-# 测试任务现在的样子（设置里那份 JSON 里 id 为 $ID 的一项）
-task() {
-  vd prefs scheduledTasks | sed -e 's/^ *<string name="scheduledTasks">//' -e 's#</string>$##' \
-    -e 's/&quot;/"/g' -e "s/&apos;/'/g" -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' |
-    jq -c --arg id "$ID" '.[] | select(.id == $id)'
-}
-
-# 等第 $1 次运行跑完（lastRun 不再是 running、at 比上一次新），放进 RUN；60 秒没等到就失败
-last_at=0
-wait_run() {
-  for _ in $(seq 60); do
-    RUN=$(task | jq -c '.lastRun // empty')
-    if [[ -n $RUN ]] && (($(jq -r .at <<<"$RUN") > last_at)) && [[ $(jq -r .outcome <<<"$RUN") != running ]]; then
-      last_at=$(jq -r .at <<<"$RUN")
-      return
-    fi
-    sleep 1
-  done
-  echo "第 $1 次运行 60 秒没跑完：$(task)"
-  vd shot "run-$1-timeout.png"
-  exit 1
-}
-
 # 测试任务的通知（tag schedule:$ID）：存下整份 dumpsys，打出每条的正文
 notes() {
   android "dumpsys notification --noredact" >"notifications-$1.txt"
@@ -98,7 +75,7 @@ for log in $logs; do
   android "cat $log" >run.jsonl
   grep -q '看了一下价格' run.jsonl || continue
   applied=$(jq -c 'select(.type == "control_response" and .response.subtype == "success" and (.response | has("response") | not))' run.jsonl | wc -l)
-  errors=$(jq -c 'select(.type == "control_response" and .response.subtype == "error" and .response.error != "假 Claude 不查订阅额度") | .response.error' run.jsonl)
+  errors=$(control_errors run.jsonl)
   echo "$(basename "$log" .jsonl)：apply_flag_settings 应答 $applied 次${errors:+，出错：$errors}"
   ((applied >= 1)) && [[ -z $errors ]] && runs=$((runs + 1))
 done

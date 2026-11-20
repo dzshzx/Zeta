@@ -46,3 +46,35 @@ wait_result() {
   echo "第 $n 轮 $seconds 秒没等到 result（日志：${log:-还没有假 Claude 的日志，测试版起的可能是真的 claude}）"
   return 1
 }
+
+# pref <键>：测试版设置（zeta.xml）里这一项字符串的值，XML 转义已还原；没有这一项时是空的
+pref() {
+  vd prefs "$1" | sed -n "s#^ *<string name=\"$1\">\(.*\)</string>\$#\1#p" |
+    sed -e 's/&quot;/"/g' -e "s/&apos;/'/g" -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g'
+}
+
+# task：设置里 id 为 $ID 的那个定时任务（一行 JSON）。脚本先设好 ID
+task() {
+  pref scheduledTasks | jq -c --arg id "$ID" '.[] | select(.id == $id)'
+}
+
+# wait_run <第几次>：等测试任务的下一次运行跑完（lastRun 不再是 running、at 比上一次新），放进 RUN；60 秒没等到就截图、退出
+RUN='' last_at=0
+wait_run() {
+  for _ in $(seq 60); do
+    RUN=$(task | jq -c '.lastRun // empty')
+    if [[ -n $RUN ]] && (($(jq -r .at <<<"$RUN") > last_at)) && [[ $(jq -r .outcome <<<"$RUN") != running ]]; then
+      last_at=$(jq -r .at <<<"$RUN")
+      return
+    fi
+    sleep 1
+  done
+  echo "第 $1 次运行 60 秒没跑完：$(task)"
+  vd shot "run-$1-timeout.png" >/dev/null
+  exit 1
+}
+
+# control_errors <日志>：假 Claude 的托管日志里控制请求答的错，一行一条（假 Claude 不查订阅额度，那条不算）
+control_errors() {
+  jq -c 'select(.type == "control_response" and .response.subtype == "error" and .response.error != "假 Claude 不查订阅额度") | .response.error' "$1"
+}

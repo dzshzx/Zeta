@@ -5,8 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -36,13 +34,7 @@ class SessionRestoreTest {
     /** 已有会话的对话对象；不给记录文件，就不去载入历史。 */
     private fun reopened(hub: ConversationHub) = Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
 
-    private fun Conversation.modelArgument(): String? = launchArguments().let { args -> args.indexOf("--model").takeIf { it >= 0 }?.let { args[it + 1] } }
-
-    /** 喂一条 Claude Code 的输出事件（和进程送来的一样走 handle）。 */
-    private fun Conversation.receive(event: String) {
-        Conversation::class.java.getDeclaredMethod("handle", JsonObject::class.java, Long::class.javaPrimitiveType)
-            .apply { isAccessible = true }.invoke(this, Json.parseToJsonElement(event) as JsonObject, 0L)
-    }
+    private fun Conversation.modelArgument(): String? = launchArgument("--model")
 
     @Test
     fun newConversationUsesTheDefaultForNewConversations() {
@@ -76,7 +68,7 @@ class SessionRestoreTest {
         // 思考强度 Claude Code 不恢复：照会话记录
         conversation.restoreEffort("max")
         assertEquals("max", conversation.effort)
-        assertEquals("max", conversation.launchArguments().let { it[it.indexOf("--effort") + 1] })
+        assertEquals("max", conversation.launchArgument("--effort"))
         conversation.restoreEffort("ultra")
         assertEquals("max", conversation.effort)
         // 新对话的默认值不动
