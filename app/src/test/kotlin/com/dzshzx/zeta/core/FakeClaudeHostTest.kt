@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.HostTesting.waitUntil
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,23 +47,9 @@ class FakeClaudeHostTest {
         File(fakeDir, "scenario.jsonl").writeText("""{"steps":[{"text":"剧本里的回答","delay":0}]}""" + "\n")
     }
 
-    /** 以 [name] 作 ZETA_NAME（null 表示不设）跑 zeta_host.sh，标准输入立即关掉：进程照样在后台跑。 */
-    private fun run(name: String?, vararg arguments: String): String {
-        val builder = ProcessBuilder(listOf("bash", host.path) + arguments).directory(home).redirectErrorStream(true)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            put("ZETA_IDLE_STEP", "1")
-            if (name != null) put(AppVariant.LINUX_NAME_ENV, name)
-        }
-        val process = builder.start()
-        process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        assertTrue("命令超时：${arguments.toList()}", process.waitFor(30, TimeUnit.SECONDS))
-        return out
-    }
+    /** 以 [name] 作 ZETA_NAME（null 表示不设）跑 zeta_host.sh（[HostTesting.run]）。 */
+    private fun run(name: String?, vararg arguments: String): String =
+        HostTesting.run(home, listOf("bash", host.path) + arguments, HostTesting.named(name))
 
     private fun start(name: String?, key: String) =
         run(name, "start", key, home.path, "t", "-p", "--input-format", "stream-json", "--output-format", "stream-json")

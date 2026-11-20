@@ -2,7 +2,6 @@ package com.dzshzx.zeta.core
 
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,29 +29,12 @@ class HostStderrTest {
         if (::home.isInitialized) home.deleteRecursively()
     }
 
-    private fun fakeClaude(script: String) {
-        File(home, "bin/claude").apply {
-            parentFile!!.mkdirs()
-            writeText("#!/bin/bash\n$script\n")
-            setExecutable(true)
-        }
-    }
+    /** claude 的替身：跑完 [script] 就退出（[script] 以 exit 结尾）。 */
+    private fun fakeClaude(script: String) = HostTesting.writeClaudeStandIn(home, prelude = script)
 
-    /** 起一个对话进程，标准输入立即关掉（应用这头马上断开，进程自己跑完）。 */
+    /** 起一个对话进程（[HostTesting.run]：应用这头马上断开，进程自己跑完）。 */
     private fun start(key: String) {
-        val builder = ProcessBuilder("bash", host.path, "start", key, home.path, "t", "-p").directory(home).redirectErrorStream(true)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            put("ZETA_IDLE_STEP", "1")
-            put(AppVariant.LINUX_NAME_ENV, name)
-        }
-        val process = builder.start()
-        process.outputStream.close()
-        process.inputStream.bufferedReader().readText()
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+        HostTesting.run(home, listOf("bash", host.path, "start", key, home.path, "t", "-p"), HostTesting.named(name))
     }
 
     private val kept: File get() = File(home, ".cache/$name/stderr")

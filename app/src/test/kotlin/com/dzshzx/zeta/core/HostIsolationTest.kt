@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.HostTesting.alive
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -41,24 +40,8 @@ class HostIsolationTest {
         home.deleteRecursively()
     }
 
-    /** 以 [name] 作 ZETA_NAME（null 表示不设，和旧版正式版一样）跑一条命令，标准输入立即关掉。 */
-    private fun run(name: String?, vararg command: String): String {
-        val builder = ProcessBuilder(*command).directory(home).redirectErrorStream(true)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            // 看门狗每秒看一次，测完它很快自己退出，不留后台的 sleep
-            put("ZETA_IDLE_STEP", "1")
-            if (name != null) put(AppVariant.LINUX_NAME_ENV, name)
-        }
-        val process = builder.start()
-        process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        assertTrue("命令超时：${command.toList()}", process.waitFor(30, TimeUnit.SECONDS))
-        return out
-    }
+    /** 以 [name] 作 ZETA_NAME（null 表示不设，和旧版正式版一样）跑一条命令（[HostTesting.run]）。 */
+    private fun run(name: String?, vararg command: String): String = HostTesting.run(home, command.toList(), HostTesting.named(name))
 
     private fun start(name: String?, key: String) = run(name, "bash", host.path, "start", key, home.path, "t", "-p")
 

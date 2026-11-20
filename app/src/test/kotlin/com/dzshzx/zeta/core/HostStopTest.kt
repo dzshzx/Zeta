@@ -37,24 +37,10 @@ class HostStopTest {
         home.deleteRecursively()
     }
 
-    /** 跑 zeta_host.sh，标准输入立即关掉，返回用了多少毫秒。 */
+    /** 跑 zeta_host.sh（[HostTesting.run]），返回用了多少毫秒。 */
     private fun run(vararg arguments: String): Long {
         val started = System.currentTimeMillis()
-        val builder = ProcessBuilder(listOf("bash", host.path) + arguments).directory(home).redirectErrorStream(true)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            put(AppVariant.LINUX_NAME_ENV, name)
-            // 看门狗每秒看一次，进程没了它很快退出，不留后台的 sleep
-            put("ZETA_IDLE_STEP", "1")
-            put("ZETA_STOP_GRACE", "$GRACE")
-        }
-        val process = builder.start()
-        process.outputStream.close()
-        process.inputStream.bufferedReader().readText()
-        assertTrue("命令超时：${arguments.toList()}", process.waitFor(30, TimeUnit.SECONDS))
+        HostTesting.run(home, listOf("bash", host.path) + arguments, HostTesting.named(name) + ("ZETA_STOP_GRACE" to "$GRACE"))
         return System.currentTimeMillis() - started
     }
 

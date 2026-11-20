@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -240,23 +239,8 @@ class HostTurnTest {
         },
     )
 
-    /** 以临时 HOME 跑一条命令（标准输入立即关掉），返回标准输出。 */
-    private fun execute(vararg command: String, env: Map<String, String> = emptyMap()): String {
-        val builder = ProcessBuilder(*command).directory(home)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            putAll(env)
-        }
-        builder.redirectError(File("/dev/null"))
-        val process = builder.start()
-        process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        assertTrue("命令超时：${command.toList()}", process.waitFor(60, TimeUnit.SECONDS))
-        return out
-    }
+    /** 以临时 HOME 跑一条命令（[HostTesting.run]），返回标准输出。 */
+    private fun execute(vararg command: String, env: Map<String, String> = emptyMap()): String = HostTesting.run(home, command.toList(), env)
 
     @Test
     fun conversationHelperAndWatchdogAgreeAfterEveryLine() {
@@ -314,7 +298,7 @@ class HostTurnTest {
         // 假的 claude：把参数逐行写到标准输出（就是 out.jsonl），然后一直读标准输入
         HostTesting.writeClaudeStandIn(home, prelude = "printf '%s\\n' \"\$@\"")
         val out = Out("s-dog")
-        val env = mapOf("ZETA_IDLE_STEP" to "1", "ZETA_IDLE_LIMIT" to "2")
+        val env = mapOf("ZETA_IDLE_LIMIT" to "2")
         fun start(key: String, vararg lines: String) = execute("bash", host.path, "start", key, home.path, "t", *lines, env = env)
         // 标准输入一关，接着的那一方就退出了：三个都没有应用接着
         start("k-idle", out.started("u1"), out.systemInit, out.say("done"), out.result(), out.completed("u1"))

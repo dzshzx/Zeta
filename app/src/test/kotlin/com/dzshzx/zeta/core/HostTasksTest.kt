@@ -2,7 +2,6 @@ package com.dzshzx.zeta.core
 
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -56,17 +55,7 @@ class HostTasksTest {
                 """{"type":"result","subtype":"success","is_error":false}""",
             ).joinToString("\n", postfix = "\n"),
         )
-        val builder = ProcessBuilder("python3", "-I", helper.path, "hosts").directory(home)
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-        }
-        val run = builder.start()
-        run.outputStream.close()
-        val out = run.inputStream.bufferedReader().readText()
-        assertTrue(run.waitFor(30, TimeUnit.SECONDS))
+        val out = HostTesting.run(home, listOf("python3", "-I", helper.path, "hosts"))
         val host = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single()
         assertEquals(2, host.int("tasks"))
         val events = host.arr("task_events").orEmpty().map { it as JsonObject }
