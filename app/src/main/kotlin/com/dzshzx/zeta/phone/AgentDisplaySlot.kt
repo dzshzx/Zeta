@@ -30,13 +30,13 @@ internal class AgentDisplaySlot(
 ) {
     private val main = Handler(Looper.getMainLooper())
 
-    /** 这个对话的后台屏幕（界面用，只在主线程上改）。 */
+    /** 这个对话的后台屏幕（界面用，只在主线程上改；internal set 是给截图测试摆状态的）。 */
     var agentDisplay by mutableStateOf<VirtualScreen?>(null)
-        private set
+        internal set
 
-    /** 后台屏幕上最近打开的应用名（界面用）。 */
+    /** 后台屏幕上最近打开的应用名（界面用，同上）。 */
     var agentDisplayApp by mutableStateOf<String?>(null)
-        private set
+        internal set
 
     /** 工具线程看到的后台屏幕（醒着或睡着；释放后是 null）。 */
     @Volatile var current: VirtualScreen? = null

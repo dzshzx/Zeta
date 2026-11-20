@@ -150,8 +150,8 @@ class ChatScreenPartsShots : ShotTest() {
     fun agentDisplay() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.slot.force("agentDisplay", fakeScreen())
-        phone.slot.force("agentDisplayApp", "设置")
+        phone.slot.agentDisplay = fakeScreen()
+        phone.slot.agentDisplayApp = "设置"
         shoot("chat-agent-display") { Chat(hub) }
     }
 
@@ -160,8 +160,8 @@ class ChatScreenPartsShots : ShotTest() {
     fun agentDisplayViewer() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.slot.force("agentDisplay", fakeScreen())
-        phone.slot.force("agentDisplayApp", "设置")
+        phone.slot.agentDisplay = fakeScreen()
+        phone.slot.agentDisplayApp = "设置"
         shoot("chat-agent-display-viewer", target = isDialog(), prepare = { onNodeWithText("后台屏幕").performClick() }) { Chat(hub) }
     }
 
