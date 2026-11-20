@@ -270,7 +270,7 @@ internal object ScheduleRunner {
             notify(
                 app, run.key, if (outcome == RunOutcome.Done || outcome == RunOutcome.NoChange) name else "$name · 没有完成",
                 summary.ifBlank { "已完成" }, session ?: conversation.key,
-                silent = hub.showedResultCard(conversation),
+                silent = hub.alerts.showedResultCard(conversation),
             )
         }
         if (run.freshSession && session != null && current != null) {

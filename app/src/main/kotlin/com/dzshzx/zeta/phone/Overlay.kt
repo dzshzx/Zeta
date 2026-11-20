@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.SharedFlow
 /*
  * 悬浮层（照 Eta 的顶部状态胶囊）和手机工具之间的约定。
  *
- * - [OverlayFocus]：胶囊要显示的那个对话。由 ConversationHub 算出（`hub.overlayFocus`），主线程上可观察，没有时为 null。
+ * - [OverlayFocus]：胶囊要显示的那个对话。由 TurnAlerts 算出（`hub.alerts.overlayFocus`），主线程上可观察，没有时为 null。
  * - [OverlayBridge]：悬浮窗口和无障碍服务之间要共享的几样东西（胶囊在屏上的位置、让路）。
  */
 

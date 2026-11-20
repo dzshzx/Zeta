@@ -121,15 +121,15 @@ class ResultCardShots : ShotTest() {
         val card = TurnResult(hub.current, emptySet())
         assertEquals("打开了。", card.text)
         assertFalse(card.failed)
-        assertTrue(hub.keepsResultCard(card, locked = false))
-        assertFalse("锁屏", hub.keepsResultCard(card, locked = true))
+        assertTrue(hub.alerts.keepsResultCard(card, locked = false))
+        assertFalse("锁屏", hub.alerts.keepsResultCard(card, locked = true))
 
         hub.force("foreground", true)
-        assertFalse("回到 Zeta", hub.keepsResultCard(card, locked = false))
+        assertFalse("回到 Zeta", hub.alerts.keepsResultCard(card, locked = false))
         hub.force("foreground", false)
 
         hub.current.force("busy", true)
-        assertFalse("这个对话又开始一轮", hub.keepsResultCard(card, locked = false))
+        assertFalse("这个对话又开始一轮", hub.alerts.keepsResultCard(card, locked = false))
         hub.current.force("busy", false)
 
         // 出错提示比一轮结束晚一步进聊天列表：卡片跟着变成错误
@@ -158,17 +158,17 @@ class ResultCardShots : ShotTest() {
             // 真实顺序里，onTurnFinished 之前手机工具的这一轮状态已经清掉了
             conversation.phone.force("engagedThisTurn", false)
             hub.onTurnFinished(conversation)
-            val card = hub.resultCard
+            val card = hub.alerts.resultCard
             assertTrue("用过手机：弹卡片", card != null && card.conversation === conversation)
             val silent = notifications.allNotifications.single()
             assertEquals("silent", silent.group)
             assertEquals(Notification.GROUP_ALERT_SUMMARY, silent.groupAlertBehavior)
 
-            hub.dismissResultCard(card!!)
+            hub.alerts.dismissResultCard(card!!)
             manager.cancelAll()
             hub.onTurnEnding(conversation, "已完成")
             hub.onTurnFinished(conversation)
-            assertEquals("没用手机：不弹", null, hub.resultCard)
+            assertEquals("没用手机：不弹", null, hub.alerts.resultCard)
             val loud = notifications.allNotifications.single()
             assertEquals(null, loud.group)
             assertEquals(Notification.GROUP_ALERT_ALL, loud.groupAlertBehavior)

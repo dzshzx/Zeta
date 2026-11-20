@@ -21,7 +21,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     private val phone: PhoneTools get() = conversation.phone
 
     /** 这一轮刚结束、胶囊还停留着时的那句（“已完成”）；其余时候为 null。 */
-    private val finishing: String? get() = hub.finishingText(this)
+    private val finishing: String? get() = hub.alerts.finishingText(this)
 
     override val title: String get() = conversation.title
 

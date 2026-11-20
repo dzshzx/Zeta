@@ -6,7 +6,7 @@ import androidx.compose.runtime.derivedStateOf
 /**
  * 一轮结束后浮在屏幕底部的结果卡片（照 Eta 的结果卡片）：这一轮用过手机工具、结束时 Zeta 不在前台，
  * 就把这一轮的回答（出错时是错误）浮在用户正在用的应用上，不用切回 Zeta 看。弹不弹、何时收起见 [ResultCardPolicy]；
- * 由 ConversationHub 在一轮结束时建好（`hub.resultCard`），悬浮层（ui/overlay/ResultCardHost）照着画。
+ * 由 TurnAlerts 在一轮结束时建好（`hub.alerts.resultCard`），悬浮层（ui/overlay/ResultCardHost）照着画。
  *
  * 内容跟着对话的聊天记录走，可观察：一轮结束的那一刻，出错提示还没进聊天列表。
  */

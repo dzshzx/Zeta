@@ -39,7 +39,7 @@ private class ResultCardState {
 
 /**
  * 一轮结束后屏幕底部的结果卡片（[ResultCard]）的窗口：和顶部胶囊一样挂在 Zeta 的无障碍服务上（TYPE_ACCESSIBILITY_OVERLAY），
- * 服务连上时 [attach]，断开时 [detach]。弹哪一轮、什么时候收起由 ConversationHub 定（`hub.resultCard`，见 ResultCardPolicy），
+ * 服务连上时 [attach]，断开时 [detach]。弹哪一轮、什么时候收起由 TurnAlerts 定（`hub.alerts.resultCard`，见 ResultCardPolicy），
  * 这里只管窗口：贴着屏幕底边，宽同屏（宽屏时收窄居中），高随卡片（卡片报告自己多高，不用 WRAP_CONTENT：
  * ZetaTheme 的 fillMaxSize 会把它撑满整屏），窗口以外的触摸照常落到下面的应用上。
  * 窗口可获焦点，才收得到系统返回（返回关掉卡片）；不接输入法。
@@ -63,11 +63,11 @@ object ResultCardHost {
                 // 锁屏状态不是快照状态：它一变就重新订阅，按新的锁屏状态判断卡片还留不留
                 ScreenLock.locked.collectLatest {
                     val locked = ScreenLock.hides(OverlayWindow.mainDisplay(service))
-                    snapshotFlow { hub.resultCard?.let { card -> card to hub.keepsResultCard(card, locked) } }.collect { entry ->
+                    snapshotFlow { hub.alerts.resultCard?.let { card -> card to hub.alerts.keepsResultCard(card, locked) } }.collect { entry ->
                         when {
                             entry == null -> hide()
                             // 收起：hub 那边清掉，下一次就是 null
-                            !entry.second -> hub.dismissResultCard(entry.first)
+                            !entry.second -> hub.alerts.dismissResultCard(entry.first)
                             else -> show(entry.first)
                         }
                     }
@@ -81,7 +81,7 @@ object ResultCardHost {
         scope = null
         removeWindow()
         // 服务断开时显示着的卡片作废，免得服务回来时又弹出一张旧的
-        hub?.let { hub -> hub.resultCard?.let(hub::dismissResultCard) }
+        hub?.let { hub -> hub.alerts.resultCard?.let(hub.alerts::dismissResultCard) }
         hub = null
         state.card = null
         state.shown = false
@@ -124,7 +124,7 @@ object ResultCardHost {
         if (window.view.parent == null) {
             // 窗口没加上（测试屏没了之类）：当作没弹
             removeWindow()
-            state.card?.let { card -> hub?.dismissResultCard(card) }
+            state.card?.let { card -> hub?.alerts?.dismissResultCard(card) }
             state.card = null
             state.shown = false
         }
@@ -177,7 +177,7 @@ object ResultCardHost {
                 text = card.text,
                 failed = card.failed,
                 visible = state.shown,
-                onDismiss = { hub?.dismissResultCard(card) },
+                onDismiss = { hub?.alerts?.dismissResultCard(card) },
                 onOpen = card::openInZeta,
                 maxHeight = state.maxHeight,
                 bottomInset = state.bottomInset,

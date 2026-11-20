@@ -487,7 +487,7 @@ private fun ConversationBody(
             var viewingScreen by remember(conversation) { mutableStateOf(false) }
             var viewingUsage by remember(conversation) { mutableStateOf(false) }
             // 顶部胶囊正显示这个对话时，后台屏幕在胶囊里看和接管，这里不再重复一条
-            if (hub.overlayFocus !== conversation.overlay) {
+            if (hub.alerts.overlayFocus !== conversation.overlay) {
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
             }
             if (viewingScreen) BackgroundScreenViewer(conversation.phone) { viewingScreen = false }

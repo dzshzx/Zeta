@@ -111,7 +111,7 @@ object OverlayHost {
         scope = MainScope().apply {
             // 锁屏、息屏时当作没有焦点：胶囊退场，解锁后再出来（见 ScreenLock）
             launch {
-                combine(snapshotFlow { hub.overlayFocus }, ScreenLock.locked) { focus, _ ->
+                combine(snapshotFlow { hub.alerts.overlayFocus }, ScreenLock.locked) { focus, _ ->
                     focus.takeUnless { ScreenLock.hides(OverlayWindow.mainDisplay(service)) }
                 }.collect(::onFocus)
             }
