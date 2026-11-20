@@ -112,6 +112,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - `--resume <id> --fork-session` 的新会话在第一条消息时才写出记录，`--name` 给它定标题。
   - 接着旧会话（`--resume`，含 `--fork-session`）不带 `--model` 时用会话记录里的模型，中间新开的会话不受影响；`--model default` 是内置的默认模型（盖过 settings.json 的 model 和会话记录）。思考强度不恢复。记录里的模型下线了也照用，API 拒绝后这一轮以出错结束，set_model 换一个就好（2.1.328，`ClaudeResumeContractTest` 钉住）。所以 Zeta 接旧会话不带 `--model`（除非用户在这个对话里选过），顶栏显示 init 报的模型；思考强度照会话记录自己恢复。隐藏参数 `--resume-session-at <uuid>` 也能截断，但不留剪切记号，按文件顺序读会把旧内容一起读出来，Zeta 不用它。
   - 权限模式（2.1.329，`UnattendedRulesContractTest` 钉住）：`set_permission_mode` 不等应答、紧接着发消息，这一轮就按新模式跑，每轮开头的 init 报的就是它。进程起的时候不带 `--allow-dangerously-skip-permissions` 就切不进 `bypassPermissions`（答 error，`bypass_not_launched`），所以 Zeta 起进程都带它；它本身不放行任何东西，实测带不带它发给模型的内容一样；模式怎么切，发给模型的工具名单和系统提示词也不变。系统提示词开头的计费标记跟着会话的第一条消息变，跨进程比对提示词时第一条要相同。
+  - 默认值（2.1.329，同一个测试钉住）：不带 `--permission-mode`、`--model` 起的进程用 settings.json 的 `permissions.defaultMode`、`model`，initialize 的应答和 init 照实报。控制请求 `update_settings`（source `userSettings`，和 `/effort` 存为默认一样）把思考强度写进 `modelSettings.<模型的完整 ID>.effortLevel`。Zeta 新对话起进程都不带这三样，设置首页读写的就是这几个键；对话里选的只管那个对话，进程活多久它就管多久（接回进程时照 `hostModes` 恢复用户的模式）。
   - 会话记录的 `parentUuid` 不是一条直链：并行的工具调用各挂各的，从最后一行顺着往回走会漏掉步骤。
   - 一轮进行中发来的消息，会在下一个工具边界并入这一轮，两条消息只出一个 `result`。`interrupt` 的回应会列出 `still_queued`；`cancel_async_message` 能撤回排队中的消息。
   - `result` 行的键序不固定，不一定以 `"type"` 开头；`result` 之后还会有 command_lifecycle、task_notification、background_tasks_changed 行。判断一轮的起止看最后一个开始或结束事件，不看最后一行。

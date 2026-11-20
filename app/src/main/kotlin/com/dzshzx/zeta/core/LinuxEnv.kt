@@ -347,6 +347,13 @@ class Settings(context: Context) {
         return editor.commit()
     }
 
+    /** 还开着的 Claude Code 进程上用户的权限模式（进程键=模式），见 [ConversationHub.hostMode]。 */
+    var hostModes: Map<String, String>
+        get() = prefs.getStringSet("hostModes", null).orEmpty().mapNotNull { entry ->
+            entry.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
+        }.toMap()
+        set(value) = prefs.edit().putStringSet("hostModes", value.map { "${it.key}=${it.value}" }.toSet()).apply()
+
     /** Claude Code 报过的各模型上下文窗口（“模型=窗口”）。旧会话重新打开、还没起进程时拿它算占比。 */
     var contextWindows: Map<String, Long>
         get() = prefs.getStringSet("contextWindows", null).orEmpty().mapNotNull { entry ->

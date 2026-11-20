@@ -28,7 +28,7 @@ class SettingsBackupTest {
         "home" to "/home/someone",
         "cwd" to "/workspace/claude",
         "assistantModel" to "opus",
-        // 以前的 Zeta 存的新对话默认值，现在用 Claude Code 自己的设置：还留在文件里也不导出
+        // 以前的 Zeta 存的新对话默认值，现在用 Claude Code 自己的设置：还留在存储里也不导出
         "model" to "opus",
         "permissionMode" to "acceptEdits",
         "commands" to "[{\"name\":\"compact\"}]",
@@ -72,7 +72,8 @@ class SettingsBackupTest {
         val keys = root["settings"]!!.jsonObject.keys
         assertEquals(SettingsBackup.items.map { it.key }.toSet(), keys)
         for (machine in SettingsBackup.machineKeys.keys) assertFalse("$machine 不该导出", machine in keys)
-        for (retired in SettingsBackup.retiredKeys.keys) assertFalse("$retired 不该导出", retired in keys)
+        assertFalse("model" in keys)
+        assertFalse("permissionMode" in keys)
         assertFalse("apiToken" in keys)
         assertFalse(export(phone).contains("fake-token-1"))
         // 常用指令导出时不带这台手机上的 id
@@ -167,13 +168,13 @@ class SettingsBackupTest {
                 buildJsonObject {
                     put("phoneTools", "yes")
                     put("autoLoadRemoteImages", true)
-                    // 删掉的设置项（旧版的纯黑背景开关）：当成不认识的跳过，不报错
+                    // 去掉了的设置项（旧版的纯黑背景开关）：跳过，不报错
                     put("pureBlack", true)
                     put("accent", "yellow")
                     put("interfaceScale", 5.0)
                     put("assistantModel", "opus; rm -rf /")
                     put("assistantEffort", "xhigh")
-                    // 以前的 Zeta 导出的新对话默认值：说明为什么不导入
+                    // 以前的 Zeta 导出的新对话默认值：同样是去掉了的
                     put("permissionMode", "acceptEdits")
                     put("cwd", "relative/dir")
                     put("keepScreenOn", JsonNull)
@@ -204,9 +205,9 @@ class SettingsBackupTest {
             skipped.keys,
         )
         assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
-        assertTrue(skipped.getValue("somethingNew").reason.startsWith("不认识的设置项"))
-        assertTrue(skipped.getValue("pureBlack").reason.startsWith("不认识的设置项"))
-        assertTrue(skipped.getValue("permissionMode").reason.startsWith("不再导入"))
+        for (gone in listOf("somethingNew", "pureBlack", "permissionMode")) {
+            assertTrue(skipped.getValue(gone).reason.startsWith("这个版本的 Zeta 没有这一项"))
+        }
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))
         assertEquals("第 1 条：内容不能为空", skipped.getValue("savedPrompts").reason)
         // 跳过的项原样带进确认清单

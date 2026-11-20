@@ -90,7 +90,7 @@ class SessionRestoreTest {
         assertNull(follow.modelArgument())
     }
 
-    /** 分支：--fork-session 复制出的会话同样由 Claude Code 接着用原来的模型；先显示原对话显示的，思考强度接着用原对话的。 */
+    /** 分支：--fork-session 复制出的会话同样由 Claude Code 接着用原来的模型；先显示原对话显示的，思考强度、权限模式接着用原对话的。 */
     @Test
     fun branchLeavesTheModelToClaudeCodeAndKeepsEffort() {
         val hub = hub()
@@ -98,6 +98,7 @@ class SessionRestoreTest {
         // 原对话显示着 Claude Code 报来的模型（真报来时它在回答，不能分支，这里直接摆上）
         source.force("reportedModel", "claude-fable-5-2")
         source.restoreEffort("max")
+        source.choosePermissionMode("plan")
         hub.force("current", source)
         hub.showChat("旧对话", listOf(UserItem("u1", "你好", uuid = "uuid-1"), AnswerItem("a1", "你好！", streaming = false)))
         hub.branch("a1")
@@ -110,6 +111,9 @@ class SessionRestoreTest {
         assertTrue("--fork-session" in branch.launchArguments())
         assertEquals("claude-fable-5-2", branch.shownModel)
         assertEquals("max", branch.effort)
+        // 权限模式和思考强度一样接着用原对话的
+        assertEquals("plan", branch.permissionMode)
+        assertEquals("plan", branch.launchArgument("--permission-mode"))
     }
 
     @Test

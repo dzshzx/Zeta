@@ -44,8 +44,10 @@ import org.junit.Test
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
  * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样；
  *   模式怎么切，发给模型的工具名单和系统提示词都不变。进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行。
+ * - 设置首页读写的默认值就在 Claude Code 自己用的位置（ClaudeSettings.defaults）：不带 --model 起的进程用 settings.json 的 model；
+ *   存成默认的思考强度（update_settings，和 /effort 存为默认一样）写进 modelSettings.<模型的完整 ID>.effortLevel，别的键不动。
  * - 起进程不带 --permission-mode（Zeta 的新对话）：initialize 的应答和每轮的 init 报的是 settings.json 的 permissions.defaultMode，
- *   Zeta 照它在输入栏显示 Claude Code 的默认（ConversationHub.defaultPermissionMode）。
+ *   Zeta 设置首页显示的默认（ConversationHub.defaultPermissionMode）读的就是这个键，和进程实际用的一致。
  */
 class UnattendedRulesContractTest {
     private lateinit var home: File
@@ -193,8 +195,9 @@ class UnattendedRulesContractTest {
         val calls = mutableListOf<String>()
         var toolLists = 0
 
-        /** 每一轮开头 init 报的权限模式，按顺序。 */
+        /** 每一轮开头 init 报的权限模式、模型，按顺序。 */
         val modes = mutableListOf<String?>()
+        val models = mutableListOf<String?>()
 
         /** 收到的控制应答，按请求号；先到的留着，[response] 晚些再取也拿得到。 */
         private val responses = HashMap<String, JsonObject>()
@@ -264,7 +267,10 @@ class UnattendedRulesContractTest {
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
                 when (o.str("type")) {
                     "control_response" -> o.obj("response")?.let { r -> r.str("request_id")?.let { responses[it] = r } }
-                    "system" -> if (o.str("subtype") == "init") modes += o.str("permissionMode")
+                    "system" -> if (o.str("subtype") == "init") {
+                        modes += o.str("permissionMode")
+                        models += o.str("model")
+                    }
                 }
                 answer(o)
                 if (done(o)) return
@@ -466,5 +472,28 @@ class UnattendedRulesContractTest {
             turn(claude, "mine")
             assertEquals(listOf("acceptEdits"), claude.modes)
         }
+    }
+
+    @Test
+    fun defaultsLiveWhereZetaReadsThem() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        val settings = File(home, ".claude/settings.json")
+        settings.writeText("""{"model":"claude-opus-5-5","permissions":{"allow":["mcp__phone__run_scheduled_task"],"deny":["WebSearch"]}}""")
+        Claude(mode = null).use { claude ->
+            claude.response(claude.request { put("subtype", "initialize") })
+            turn(claude, "mine")
+            assertEquals(listOf("claude-opus-5-5"), claude.models)
+            val saved = claude.response(
+                claude.request {
+                    put("subtype", "update_settings")
+                    put("source", "userSettings")
+                    putJsonObject("settings") { put("effortLevel", "high") }
+                },
+            )
+            assertEquals("success", saved.str("subtype"))
+        }
+        val defaults = ClaudeSettings.defaults(json.parseToJsonElement(settings.readText()) as JsonObject)
+        assertEquals(ClaudeDefaults("claude-opus-5-5", null, mapOf("claude-opus-5-5" to "high"), null), defaults)
+        assertEquals(PermissionRules(listOf("mcp__phone__run_scheduled_task"), emptyList(), listOf("WebSearch")), ClaudePermissions.rules(json.parseToJsonElement(settings.readText()) as JsonObject))
     }
 }

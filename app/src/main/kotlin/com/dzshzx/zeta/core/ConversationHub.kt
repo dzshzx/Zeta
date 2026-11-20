@@ -142,15 +142,25 @@ class ConversationHub(private val app: Application) {
         private set
 
     /**
-     * Claude Code 的默认权限模式：settings.json 里设的，或没指定模式起的进程报来的；都还不知道时为 null。
-     * 对话还没选过模式时输入栏显示它（[Conversation.shownPermissionMode]）。
+     * Claude Code 的默认权限模式（settings.json 没设时是逐项确认）；还没读到时为 null。
+     * 对话还没定下模式时输入栏显示它（[Conversation.shownPermissionMode]）。
      */
-    var defaultPermissionMode by mutableStateOf<String?>(null)
+    val defaultPermissionMode: String? get() = claudeDefaults?.let { it.permissionMode ?: "default" }
 
-    /** 读到或改了 Claude Code 的默认值。在主线程上调用。settings.json 没设默认模式时 Claude Code 用逐项确认。 */
+    /** 读到或改了 Claude Code 的默认值。在主线程上调用。 */
     internal fun updateClaudeDefaults(defaults: ClaudeDefaults) {
         claudeDefaults = defaults
-        defaultPermissionMode = defaults.permissionMode ?: "default"
+    }
+
+    /**
+     * 还开着的 Claude Code 进程上用户在对话里定的权限模式（进程键 → 模式）。只在进程活着时有意义，和 Claude Code 里
+     * 「只用于这个会话」一样：应用被回收后接回进程时照它恢复（[Conversation] 的 attach），进程没了在 [reattachHosts] 里清掉。
+     */
+    internal fun hostMode(key: String): String? = settings.hostModes[key]
+
+    internal fun rememberHostMode(key: String, mode: String) {
+        val modes = settings.hostModes
+        if (modes[key] != mode) settings.hostModes = modes + (key to mode)
     }
 
     /** 重读 Claude Code 的默认值：环境就绪时、打开设置页时。读不到就照旧。 */
@@ -440,6 +450,11 @@ class ConversationHub(private val app: Application) {
                         runCatching { LinuxEnv.run(config, "exec bash -c " + LinuxEnv.quote(hostScript) + " zeta-host stop " + LinuxEnv.quote(host.key)) }
                     }
                 }
+                // 用户的权限模式只留给还接着的进程
+                val live = known + active.map { it.key }
+                settings.hostModes.takeIf { modes -> modes.keys.any { it !in live } }?.let { modes ->
+                    settings.hostModes = modes.filterKeys { it in live }
+                }
                 if (active.isEmpty()) return@post
                 for (host in active) {
                     val conversation = Conversation(this, host.cwd, host.sessionId, host.title, host.historyFile, attach = host)
@@ -698,7 +713,7 @@ class ConversationHub(private val app: Application) {
         leaveCurrent()
         current = Conversation(
             this, source.cwd, sessionId = null, title = title, historyFile = null,
-            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.shownModel, source.effort),
+            fork = Fork(sourceId, plan.cut, plan.lastSeen, plan.items, source.earlier, source.shownModel, source.effort, source.permissionMode),
         )
         prunePhones()
     }

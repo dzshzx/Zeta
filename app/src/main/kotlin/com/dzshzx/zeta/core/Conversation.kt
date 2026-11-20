@@ -163,10 +163,18 @@ class Conversation(
 
     /**
      * 用户在这个对话里的权限模式，用户自己的消息按它跑。Claude Code 在用户的模式上自己换了模式（比如计划获批后退出计划模式）时跟着变，
-     * 见 [reportMode]。null 是还没选过、也还没报过：起进程时不指定，用 Claude Code 设置里的默认（输入栏显示 [shownPermissionMode]）。
+     * 见 [reportMode]。只管这个对话，和 Claude Code 的「只用于这个会话」一样跟着进程走：分支接着用原对话的，应用被回收后接回进程时
+     * 照记下的恢复（[ConversationHub.hostMode]）。null 是还没选过、也还没报过：起进程时不指定，用 Claude Code 设置里的默认
+     * （输入栏显示 [shownPermissionMode]）。
      */
-    var permissionMode by mutableStateOf<String?>(null)
+    var permissionMode by mutableStateOf(fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) })
         private set
+
+    /** 定下用户的模式，也记在进程上，接回时恢复。 */
+    private fun setUserMode(mode: String) {
+        permissionMode = mode
+        hostKey?.let { hub.rememberHostMode(it, mode) }
+    }
 
     /** 输入栏显示的权限模式：这个对话的，没有时是 Claude Code 的默认。 */
     val shownPermissionMode: String? get() = permissionMode ?: hub.defaultPermissionMode
@@ -546,11 +554,10 @@ class Conversation(
 
     /**
      * Claude Code 报来进程现在的模式。进程在用户的模式上（没有后台运行的模式在用）时用户的跟着变，用户没选过的从此定下来；
-     * 起进程时没指定模式的，报来的是 Claude Code 自己设置里的，记下当新对话的默认。
+     * 起进程时没指定模式的，报来的就是 Claude Code 照设置定的。
      */
     private fun reportMode(mode: String) {
-        if (processMode == null) hub.defaultPermissionMode = mode
-        if (processMode == userMode) permissionMode = mode
+        if (processMode == userMode) setUserMode(mode)
         processMode = mode
     }
 
@@ -760,7 +767,7 @@ class Conversation(
 
     /** 用户在输入栏选的：只管这个对话，之后按它跑（后台运行这一轮剩下的部分也是）。新对话的默认在设置页改（Claude Code 的设置）。 */
     fun choosePermissionMode(value: String) {
-        permissionMode = value
+        setUserMode(value)
         process?.let { switchMode(it, value) }
     }
 
@@ -961,6 +968,7 @@ class Conversation(
             return null
         }
         process = created
+        permissionMode?.let { hub.rememberHostMode(created.hostKey, it) }
         forkCut = false
         created.send(controlRequest { put("subtype", "initialize") })
         meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })

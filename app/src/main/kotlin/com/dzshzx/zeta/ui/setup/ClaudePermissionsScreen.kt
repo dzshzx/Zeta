@@ -41,7 +41,6 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.settings.DefaultPermissionModePreference
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -53,6 +52,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Add
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 下拉里的四个选项：没写规则（按权限模式走）、允许、询问、拒绝。 */
@@ -110,7 +110,6 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val phoneTools = remember { PhoneTools.catalog }
 
     LaunchedEffect(reloads) {
-        hub.refreshClaudeDefaults()
         scope.runConfig({ client.permissions() }) { result ->
             result.onSuccess {
                 rules = it
@@ -180,14 +179,12 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             )
         },
     ) {
-        item(key = "mode") {
-            PreferenceGroup(
-                footer = ClaudePermissions.SEMANTICS + "改动对所有项目、之后新开始的对话生效。" +
+        // 这页只管规则；默认权限模式在设置首页，和默认模型、思考强度在一起
+        item(key = "semantics") {
+            PagerFooterPreference(
+                summary = ClaudePermissions.SEMANTICS + "改动对所有项目、之后新开始的对话生效。" +
                     (loadError?.let { "\n\n读取失败：$it" } ?: ""),
-            ) {
-                // 和设置首页同一项（Claude Code 的 permissions.defaultMode）；对话里切的只管那个对话
-                item { DefaultPermissionModePreference(hub) }
-            }
+            )
         }
         item(key = "builtin") {
             PreferenceGroup(title = "内置工具") {

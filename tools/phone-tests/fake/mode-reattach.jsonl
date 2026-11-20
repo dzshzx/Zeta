@@ -1,0 +1,2 @@
+{"title":"假接回","steps":[{"text":"开始回答。","chunk":6,"delay":30},{"pause":20000},{"text":"答完了。","chunk":6,"delay":30}]}
+{"steps":[{"text":"接回后你又发了一条。","chunk":6,"delay":30}]}
