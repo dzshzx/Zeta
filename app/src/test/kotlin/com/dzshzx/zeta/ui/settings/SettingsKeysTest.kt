@@ -82,7 +82,7 @@ class SettingsKeysTest {
 
     /** 照应用里的各个入口把每个设置写一遍，返回存储里的全部键。 */
     private fun writeEverything(): Set<String> {
-        val settings = Settings(app)
+        val settings = Settings.of(app)
         val setters = Settings::class.java.declaredMethods.filter { it.name.startsWith("set") && it.parameterCount == 1 }
         val unknown = setters.map { it.name }.filter { it !in samples }
         assertTrue("Settings 新加的设置在 samples 里给一个值：$unknown", unknown.isEmpty())
@@ -97,7 +97,7 @@ class SettingsKeysTest {
         return prefs().all.keys
     }
 
-    private fun prefs() = app.getSharedPreferences("zeta", Context.MODE_PRIVATE)
+    private fun prefs() = app.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE)
 
     @Test
     fun everyStoredKeyIsBackedUpOrMachineSpecific() {
@@ -113,7 +113,7 @@ class SettingsKeysTest {
         PromptStore.update(app) { listOf(SavedPrompt("p1", "简报", "汇总今天的日程")) }
         ScheduleStore.update(app) { listOf(task) }
         NotifyRuleStore.update(app) { listOf(rule) }
-        val settings = Settings(app)
+        val settings = Settings.of(app)
         val text = SettingsBackup.export(settings.snapshot(), app = "test", exportedAt = "2026-11-20T10:00:00+08:00")
 
         PromptStore.update(app) { emptyList() }
@@ -141,17 +141,21 @@ class SettingsKeysTest {
         assertEquals(NotifyRuleStore.observed, NotifyRuleStore.reload(app))
     }
 
-    /** 写 `zeta` 这个设置文件的地方都在上面写过一遍；新加了写它的地方，在 [writeEverything] 里补上，再改这里。 */
+    /**
+     * 写设置文件（[Settings.FILE]）的地方都在上面写过一遍；新加了写它的地方，在 [writeEverything] 里补上，再改这里。
+     * 文件名只在 [Settings.FILE] 写一次，别处不写字面的 "zeta"。
+     */
     @Test
     fun everyWriterOfTheSettingsFileIsExercised() {
-        val writers = File("src/main/kotlin").walk().filter { it.isFile && it.extension == "kt" }
-            .filter { file -> file.readText().let { "getSharedPreferences(\"zeta\"" in it || Regex(":\\s*PrefsListStore<").containsMatchIn(it) } }
-            .map { it.name }.toSortedSet()
+        val sources = File("src/main/kotlin").walk().filter { it.isFile && it.extension == "kt" }.associate { it.name to it.readText() }
+        val opener = Regex("getSharedPreferences\\((\\w+\\.)?FILE\\b")
+        val writers = sources.filter { (_, text) -> opener.containsMatchIn(text) || Regex(":\\s*PrefsListStore<").containsMatchIn(text) }.keys.toSortedSet()
         assertEquals(
             sortedSetOf(
-                "AccessibilityGuard.kt", "LinuxEnv.kt", "NotifyRuleStore.kt", "PrefsListStore.kt", "PromptStore.kt", "ScheduleAlarms.kt", "ScheduleStore.kt",
+                "AccessibilityGuard.kt", "NotifyRuleStore.kt", "PrefsListStore.kt", "PromptStore.kt", "ScheduleAlarms.kt", "ScheduleStore.kt", "Settings.kt",
             ),
             writers,
         )
+        assertEquals("直接写了设置文件名的", emptyList<String>(), sources.filter { (_, text) -> "getSharedPreferences(\"zeta\"" in text }.keys.toList())
     }
 }

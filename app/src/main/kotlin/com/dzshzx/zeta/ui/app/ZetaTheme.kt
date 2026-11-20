@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
@@ -27,7 +28,7 @@ internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 /**
  * Zeta 的主题：COUI 2（ColorOS 17）的配色和文字样式。
  *
- * 外观设置（强调色、界面缩放）从 [UiPrefs] 读，改了立即生效。强调色映射到 COUI 的主题色族（[accentThemeColor]）。
+ * 外观设置（强调色、界面缩放）从 [Settings] 读，改了立即生效。强调色映射到 COUI 的主题色族（[accentThemeColor]）。
  * COUI 深色的页面底色本来就是纯黑，Zeta 不另设纯黑开关。
  * 界面缩放和屏幕常亮只作用于 Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
  *
@@ -37,10 +38,10 @@ internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val prefs = remember(context) { UiPrefs.get(context) }
+    val settings = remember(context) { Settings.of(context) }
     val activity = remember(context) { context.findActivity() }
     val isDark = darkTheme ?: isSystemInDarkTheme()
-    val accent = prefs.accent
+    val accent = AccentChoice.from(settings.accent)
     // 壁纸换了，系统会推一次配置变化，这里跟着重新取 Monet 色
     val monet = remember(context, configuration, isDark, accent) {
         if (accent == AccentChoice.System) runCatching { systemAccent(context, isDark) }.getOrNull() else null
@@ -50,7 +51,7 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
     val initialDensity = remember(context) { context.resources.displayMetrics.density }
     val baseDensity = if (configuration.densityDpi > 0) configuration.densityDpi.toFloat() / DisplayMetrics.DENSITY_DEFAULT else initialDensity
     val scaled = activity != null
-    val targetDensity = baseDensity * (if (scaled) prefs.interfaceScale else 1f)
+    val targetDensity = baseDensity * (if (scaled) normalizeInterfaceScale(settings.interfaceScale) else 1f)
     val platformDensity = remember(context, baseDensity, configuration.fontScale) {
         val metrics = context.resources.displayMetrics
         val saved = metrics.density
@@ -84,7 +85,7 @@ fun ZetaTheme(darkTheme: Boolean? = null, windowBackdrop: Boolean = true, conten
             }
         }
     }
-    if (activity != null) KeepScreenOnWhileRunning(activity, prefs)
+    if (activity != null) KeepScreenOnWhileRunning(activity, settings)
 }
 
 @Suppress("DEPRECATION")

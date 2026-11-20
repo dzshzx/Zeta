@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.dzshzx.zeta.core.AppVariant
+import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.ui.MainActivity
 import java.time.Instant
 import java.time.ZoneId
@@ -74,7 +75,7 @@ internal object ScheduleAlarms {
      */
     fun sync(context: Context, tasks: List<ScheduledTask>, now: Instant = Instant.now()) {
         val app = context.applicationContext
-        val prefs = app.getSharedPreferences("zeta", Context.MODE_PRIVATE)
+        val prefs = app.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE)
         val zone = ZoneId.systemDefault()
         val armed = HashSet<String>()
         for (task in tasks) {

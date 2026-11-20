@@ -74,7 +74,7 @@ private fun rememberChatImage(ref: ImageRef): Loaded? {
 private fun waitsForTap(ref: ImageRef): Boolean {
     if (ref !is RemoteImage) return false
     val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
-    return !hub.autoLoadRemoteImages && !ImageStore.isAllowed(ref) && ImageStore.cached(ref) == null
+    return !hub.settings.autoLoadRemoteImages && !ImageStore.isAllowed(ref) && ImageStore.cached(ref) == null
 }
 
 @Composable

@@ -1,18 +1,14 @@
 package com.dzshzx.zeta.ui.app
 
 import android.content.Context
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import com.dzshzx.zeta.core.Settings
 import io.github.suqi8.coui.kmp.theme.COUIThemeColor
 import io.github.suqi8.coui.kmp.theme.COUIThemeColors
 
 internal const val MIN_INTERFACE_SCALE = 0.8f
 internal const val MAX_INTERFACE_SCALE = 1.1f
 
+/** 界面缩放比例（[com.dzshzx.zeta.core.Settings.interfaceScale]）收到允许的范围里；读写都经它。 */
 internal fun normalizeInterfaceScale(value: Float): Float = if (value.isFinite()) value.coerceIn(MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE) else 1f
 
 /**
@@ -33,50 +29,6 @@ internal enum class AccentChoice(val key: String, val label: String, val family:
 
     companion object {
         fun from(key: String?): AccentChoice = entries.firstOrNull { it.key == key } ?: Coui
-    }
-}
-
-/**
- * 界面相关的设置（外观、屏幕常亮）的可观察副本。主界面和悬浮窗都读它，改了马上生效。
- * ConversationHub 里只放了深浅色，这几项单独放在这里，存储仍走 [Settings]。
- */
-internal class UiPrefs private constructor(private val settings: Settings) {
-    var accent by mutableStateOf(AccentChoice.from(settings.accent))
-        private set
-    var interfaceScale by mutableFloatStateOf(normalizeInterfaceScale(settings.interfaceScale))
-        private set
-    var keepScreenOn by mutableStateOf(settings.keepScreenOn)
-        private set
-
-    fun chooseAccent(value: AccentChoice) {
-        accent = value
-        settings.accent = value.key
-    }
-
-    fun chooseInterfaceScale(value: Float) {
-        val scale = normalizeInterfaceScale(value)
-        interfaceScale = scale
-        settings.interfaceScale = scale
-    }
-
-    fun chooseKeepScreenOn(enabled: Boolean) {
-        keepScreenOn = enabled
-        settings.keepScreenOn = enabled
-    }
-
-    /** 设置从备份导入后按存下来的值重读。 */
-    fun reload() {
-        accent = AccentChoice.from(settings.accent)
-        interfaceScale = normalizeInterfaceScale(settings.interfaceScale)
-        keepScreenOn = settings.keepScreenOn
-    }
-
-    companion object {
-        @Volatile private var instance: UiPrefs? = null
-
-        fun get(context: Context): UiPrefs = instance ?: synchronized(this) {
-            instance ?: UiPrefs(Settings(context.applicationContext)).also { instance = it }
-        }
     }
 }
 

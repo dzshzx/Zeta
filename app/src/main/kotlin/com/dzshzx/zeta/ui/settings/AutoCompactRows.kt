@@ -22,23 +22,23 @@ internal fun AutoCompactSwitch(hub: ConversationHub) {
     SwitchPreference(
         title = "自动压缩上下文",
         startAction = { SettingsIcon(COUIIcons.Backup, SettingsHue.Claude) },
-        checked = hub.autoCompact,
-        onCheckedChange = hub::chooseAutoCompact,
+        checked = hub.settings.autoCompact,
+        onCheckedChange = { hub.settings.autoCompact = it },
     )
 }
 
 /** 设置首页「压缩时机」：用到窗口的百分之几时压缩（百分比按窗口扣掉回答预留后算）；关掉自动压缩时不能选。 */
 @Composable
 internal fun CompactTimingPreference(hub: ConversationHub) {
-    val percent = hub.autoCompactPercent
+    val percent = hub.settings.autoCompactPercent
     // 菜单第一项是“默认”（null）；存着的值不在可选的几档里时也列出来，免得显示成别的
     val choices = listOf<Int?>(null) + AutoCompact.Percents + listOfNotNull(percent?.takeIf { it !in AutoCompact.Percents })
     OverlayDropdownPreference(
         title = "压缩时机",
-        startAction = { SettingsIcon(COUIIcons.Tune, SettingsHue.Claude, enabled = hub.autoCompact) },
+        startAction = { SettingsIcon(COUIIcons.Tune, SettingsHue.Claude, enabled = hub.settings.autoCompact) },
         items = choices.map(::compactPercentLabel),
         selectedIndex = choices.indexOf(percent),
-        enabled = hub.autoCompact,
-        onSelectedIndexChange = { index -> hub.chooseAutoCompactPercent(choices.getOrNull(index)) },
+        enabled = hub.settings.autoCompact,
+        onSelectedIndexChange = { index -> hub.settings.autoCompactPercent = choices.getOrNull(index) },
     )
 }

@@ -31,7 +31,6 @@ import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
-import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.app.writeText
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -235,12 +234,11 @@ private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
     }
 }
 
-/** 写回存储，再让界面上的各份副本跟着变。返回写了几项；没写成返回 null。在主线程上调用。 */
+/** 写回存储（[Settings.restore] 写完各项就按新值重读，界面跟着变），空着的新对话换到导入的默认工作目录。返回写了几项；没写成返回 null。在主线程上调用。 */
 private suspend fun applyBackup(context: Context, hub: ConversationHub, ready: ImportReview.Ready): Int? {
     val writes = SettingsBackup.writes(ready.backup, ready.plan)
     if (!withContext(Dispatchers.IO) { restoreBackup(context, hub.settings, writes) }) return null
-    hub.reloadSettings()
-    UiPrefs.get(context).reload()
+    hub.settingsRestored()
     // 共享了内部存储的目录时，Linux 用户要在 media_rw 组里才能读写，和在共享文件夹页添加时一样补上
     val config = hub.settings.env
     if ("sharedFolders" in writes && config != null && hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }) {

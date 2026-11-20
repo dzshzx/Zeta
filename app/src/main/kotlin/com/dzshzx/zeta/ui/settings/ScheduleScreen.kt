@@ -425,7 +425,7 @@ internal fun OnlyOnChangeGroup(hub: ConversationHub, checked: Boolean, onChange:
             SwitchPreference(
                 title = "只在有变化时提醒",
                 summary = when {
-                    checked && !hub.phoneTools -> "手机工具关着，Claude 没法上报，照常提醒"
+                    checked && !hub.settings.phoneTools -> "手机工具关着，Claude 没法上报，照常提醒"
                     checked -> "没有变化只记进运行记录，不发通知"
                     else -> "每次跑完都发通知"
                 },

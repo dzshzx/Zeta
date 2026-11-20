@@ -65,14 +65,14 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) acceptConversation(intent)
         SettingsLink.accept(intent)
         setContent {
-            val dark = hub.darkTheme ?: isSystemInDarkTheme()
+            val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             // 状态栏、导航栏的图标深浅跟着应用自己的主题走，而不是系统的
             DisposableEffect(dark) {
                 val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            ZetaTheme(darkTheme = hub.darkTheme) { ZetaApp(hub, conversationRequests) }
+            ZetaTheme(darkTheme = hub.settings.darkTheme) { ZetaApp(hub, conversationRequests) }
         }
     }
 

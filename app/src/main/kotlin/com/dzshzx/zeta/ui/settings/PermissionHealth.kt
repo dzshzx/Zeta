@@ -174,7 +174,7 @@ internal object PermissionHealth {
             when {
                 checking -> PermissionItem(PermissionId.Accessibility, "无障碍服务", null, "检查中", PermissionStatus.Checking, false)
                 snapshot.accessibilityConnected -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "Claude 读屏、点按都靠它", "已连接", PermissionStatus.Ready, false)
-                !hub.phoneTools -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "手机操作已关闭，现在用不到", "未开启", PermissionStatus.Idle, false)
+                !hub.settings.phoneTools -> PermissionItem(PermissionId.Accessibility, "无障碍服务", "手机操作已关闭，现在用不到", "未开启", PermissionStatus.Idle, false)
                 snapshot.accessibilityListed -> PermissionItem(
                     PermissionId.Accessibility, "无障碍服务", "已开启但没连上，点这里重开", "未连上", PermissionStatus.Attention, root == true,
                 )

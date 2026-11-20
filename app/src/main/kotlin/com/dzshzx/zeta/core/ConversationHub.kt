@@ -35,7 +35,7 @@ enum class SetupState { Checking, NoRoot, NoEnvironment, Ready }
 /** 应用级的单例：设置、历史会话列表、当前对话，以及仍在后台运行的对话。 */
 class ConversationHub(private val app: Application) {
     val context: Application get() = app
-    val settings = Settings(app)
+    val settings = Settings.of(app)
     val helperScript: String by lazy { app.assets.open("zeta_helper.py").bufferedReader().use { it.readText() } }
     val hostScript: String by lazy { app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() } }
 
@@ -47,9 +47,6 @@ class ConversationHub(private val app: Application) {
         config ?: return null
         return runCatching { LinuxEnv.run(config, LinuxEnv.helperCommand(subcommand, arguments), stdin = helperScript, timeoutMs = timeoutMs) }.getOrNull()
     }
-
-    var phoneTools by mutableStateOf(settings.phoneTools)
-        private set
 
     /**
      * 顶部状态胶囊要显示的对话：正在用手机工具的那个（几个都在用时取最近操作的），没有时为 null。
@@ -77,62 +74,6 @@ class ConversationHub(private val app: Application) {
 
     /** 最近一次结束时弹了结果卡片的对话：完成提醒据此不响铃（ScheduleRunner 的也是）。 */
     private var carded: Conversation? = null
-
-    var backgroundScreen by mutableStateOf(settings.backgroundScreen)
-        private set
-
-    /** 立即生效：之后打开的应用放到哪块屏上。 */
-    fun chooseBackgroundScreen(enabled: Boolean) {
-        backgroundScreen = enabled
-        settings.backgroundScreen = enabled
-    }
-
-    /** 开关只影响之后新开的 Claude Code 进程；已经开着的对话下次重启进程时生效。 */
-    fun choosePhoneTools(enabled: Boolean) {
-        phoneTools = enabled
-        settings.phoneTools = enabled
-    }
-
-    var autoLoadRemoteImages by mutableStateOf(settings.autoLoadRemoteImages)
-        private set
-
-    fun chooseAutoLoadRemoteImages(enabled: Boolean) {
-        autoLoadRemoteImages = enabled
-        settings.autoLoadRemoteImages = enabled
-    }
-
-    var autoReadAnswers by mutableStateOf(settings.autoReadAnswers)
-        private set
-
-    fun chooseAutoReadAnswers(enabled: Boolean) {
-        autoReadAnswers = enabled
-        settings.autoReadAnswers = enabled
-    }
-
-    /** 新对话第一轮回答后请 Claude Code 起标题；每次要起标题时读，关掉后还没起的也不再起。 */
-    var autoTitle by mutableStateOf(settings.autoTitle)
-        private set
-
-    fun chooseAutoTitle(enabled: Boolean) {
-        autoTitle = enabled
-        settings.autoTitle = enabled
-    }
-
-    /** Zeta 起的对话要不要自动压缩、用到窗口的百分之几时压缩（null 是快满时）。起进程时带上，已经在跑的对话下次起进程时生效。 */
-    var autoCompact by mutableStateOf(settings.autoCompact)
-        private set
-    var autoCompactPercent by mutableStateOf(settings.autoCompactPercent)
-        private set
-
-    fun chooseAutoCompact(enabled: Boolean) {
-        autoCompact = enabled
-        settings.autoCompact = enabled
-    }
-
-    fun chooseAutoCompactPercent(percent: Int?) {
-        autoCompactPercent = percent
-        settings.autoCompactPercent = percent
-    }
 
     /**
      * 新对话的默认值：Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），Zeta 不另存一份。
@@ -172,37 +113,11 @@ class ConversationHub(private val app: Application) {
         }
     }
 
-    /** 外观：null 跟随系统，true 深色，false 浅色。 */
-    var darkTheme by mutableStateOf(settings.darkTheme)
-        private set
+    /** 设置从备份导入后（[Settings.restore] 已经让各项按导入的值重读）：空着的新对话换到导入的默认工作目录。在主线程上调用。 */
+    internal fun settingsRestored() = renewBlank()
 
-    fun chooseTheme(dark: Boolean?) {
-        settings.darkTheme = dark
-        darkTheme = dark
-    }
-
-    /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
-    var pinnedSessions by mutableStateOf(settings.pinnedSessions)
-        private set
-
-    fun choosePinned(ids: Set<String>) {
-        pinnedSessions = ids
-        settings.pinnedSessions = ids
-    }
-
-    /** 设置从备份导入后：可观察的几份副本按存下来的值重读一遍，界面马上跟着变。在主线程上调用。 */
-    internal fun reloadSettings() {
-        phoneTools = settings.phoneTools
-        backgroundScreen = settings.backgroundScreen
-        autoLoadRemoteImages = settings.autoLoadRemoteImages
-        autoReadAnswers = settings.autoReadAnswers
-        autoTitle = settings.autoTitle
-        autoCompact = settings.autoCompact
-        autoCompactPercent = settings.autoCompactPercent
-        darkTheme = settings.darkTheme
-        pinnedSessions = settings.pinnedSessions
-        SharedFolders.current = settings.sharedFolders
-        env = settings.env
+    /** 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它。 */
+    private fun renewBlank() {
         if (current.items.isEmpty() && current.sessionId == null) current = blank()
     }
 
@@ -258,9 +173,8 @@ class ConversationHub(private val app: Application) {
     var current by mutableStateOf(blank())
         private set
 
-    /** 设置页显示用：当前环境配置（可观察）。 */
-    var env by mutableStateOf(settings.env)
-        private set
+    /** 当前环境配置（可观察，同 [Settings.env]）；还没识别出环境时为 null。 */
+    val env: LinuxEnvConfig? get() = settings.env
 
     /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
@@ -389,11 +303,10 @@ class ConversationHub(private val app: Application) {
             DiagEvents.setupChecked(state.name, settings.env?.rootfs ?: saved?.rootfs, settings.env?.user)
             main.post {
                 setup = state
-                env = settings.env
                 ownStatus = own
                 if (state == SetupState.Ready) {
                     refreshAccount()
-                    if (current.items.isEmpty() && current.sessionId == null) current = blank()
+                    renewBlank()
                     refreshSessions()
                     refreshClaudeDefaults()
                     if (!hostsChecked) {
@@ -525,7 +438,6 @@ class ConversationHub(private val app: Application) {
         // 换了环境，原来的会话都不再接着用：后台屏幕一并收掉
         synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
         settings.env = null
-        env = null
         account = null
         health = null
         ssh = null
@@ -674,8 +586,7 @@ class ConversationHub(private val app: Application) {
     fun setDefaultCwd(cwd: String) {
         val updated = settings.env?.copy(defaultCwd = cwd) ?: return
         settings.env = updated
-        env = updated
-        if (current.items.isEmpty() && current.sessionId == null) current = blank()
+        renewBlank()
     }
 
     fun open(summary: SessionSummary) {
@@ -762,7 +673,7 @@ class ConversationHub(private val app: Application) {
         synchronized(phones) { ids.mapNotNull { phones.remove(it) } }.forEach { it.destroy() }
         prunePhones()
         sessions = sessions.filterNot { it.id in ids }
-        if (pinnedSessions.any { it in ids }) choosePinned(pinnedSessions - ids)
+        settings.pinnedSessions.takeIf { pins -> pins.any { it in ids } }?.let { settings.pinnedSessions = it - ids }
         drafts.forget(ids)
         thread(isDaemon = true) {
             helper("delete", summaries.map { it.file }, timeoutMs = 60_000, config = config)
@@ -939,7 +850,7 @@ class ConversationHub(private val app: Application) {
      * 定时任务起的对话不念：用户多半不在跟前。
      */
     private fun autoRead(conversation: Conversation) {
-        if (!autoReadAnswers || conversation !== current || ScheduleRunner.owns(conversation)) return
+        if (!settings.autoReadAnswers || conversation !== current || ScheduleRunner.owns(conversation)) return
         val answer = conversation.items.lastOrNull() as? AnswerItem ?: return
         if (answer.text.isNotBlank()) ReadAloud.speak(app, answer.id, answer.text)
     }

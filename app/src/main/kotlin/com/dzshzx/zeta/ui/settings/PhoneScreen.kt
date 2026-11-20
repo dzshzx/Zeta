@@ -44,16 +44,16 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
             ) {
                 item {
                     SwitchPreference(
-                        checked = hub.phoneTools,
-                        onCheckedChange = hub::choosePhoneTools,
+                        checked = hub.settings.phoneTools,
+                        onCheckedChange = { hub.settings.phoneTools = it },
                         title = "让 Claude 操作手机",
                         summary = "读屏、点按、输入，执行 root 命令",
                     )
                 }
                 item {
                     SwitchPreference(
-                        checked = hub.backgroundScreen,
-                        onCheckedChange = hub::chooseBackgroundScreen,
+                        checked = hub.settings.backgroundScreen,
+                        onCheckedChange = { hub.settings.backgroundScreen = it },
                         title = "在后台屏幕上操作",
                         summary = "Claude 打开的应用不占你的屏幕",
                     )

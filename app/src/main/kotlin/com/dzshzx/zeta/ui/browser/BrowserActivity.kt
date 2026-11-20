@@ -107,13 +107,13 @@ class BrowserActivity : ComponentActivity() {
         enableEdgeToEdge()
         val hub = ConversationHub.get(application)
         setContent {
-            val dark = hub.darkTheme ?: isSystemInDarkTheme()
+            val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             DisposableEffect(dark) {
                 val style = if (dark) SystemBarStyle.dark(AndroidColor.TRANSPARENT) else SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            ZetaTheme(darkTheme = hub.darkTheme) { BrowserScreen(onExit = ::finish) }
+            ZetaTheme(darkTheme = hub.settings.darkTheme) { BrowserScreen(onExit = ::finish) }
         }
     }
 

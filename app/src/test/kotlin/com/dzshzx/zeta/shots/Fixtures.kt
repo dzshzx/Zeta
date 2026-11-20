@@ -28,7 +28,7 @@ object Fixtures {
 
     /** 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。 */
     fun readyHub(app: Application): ConversationHub {
-        Settings(app).env = env
+        Settings.of(app).env = env
         val hub = ConversationHub(app)
         install(hub)
         hub.force("setup", SetupState.Ready)

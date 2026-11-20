@@ -6,12 +6,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
-import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,10 +23,11 @@ import kotlin.math.roundToInt
 /** 外观与主题：深浅色、强调色、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
 @Composable
 internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val context = LocalContext.current
-    val prefs = remember(context) { UiPrefs.get(context) }
+    val settings = hub.settings
+    val accent = AccentChoice.from(settings.accent)
+    val interfaceScale = normalizeInterfaceScale(settings.interfaceScale)
     // 拖动时只改草稿，松手才写入：每一档都重排整个界面太晃
-    var scaleDraft by remember(prefs.interfaceScale) { mutableFloatStateOf(prefs.interfaceScale * 100f) }
+    var scaleDraft by remember(interfaceScale) { mutableFloatStateOf(interfaceScale * 100f) }
     var showScaleDialog by remember { mutableStateOf(false) }
     var scaleInput by remember { mutableStateOf("") }
     val parsedScale = scaleInput.toIntOrNull()
@@ -36,7 +35,7 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
     fun commitScale(percent: Float) {
         val scale = normalizeInterfaceScale(percent.roundToInt() / 100f)
         scaleDraft = scale * 100f
-        prefs.chooseInterfaceScale(scale)
+        settings.interfaceScale = scale
     }
 
     val themeModes = listOf<Boolean?>(null, false, true)
@@ -70,18 +69,18 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                     OverlayDropdownPreference(
                         title = "主题模式",
                         items = listOf("跟随系统", "浅色", "深色"),
-                        selectedIndex = themeModes.indexOf(hub.darkTheme),
-                        onSelectedIndexChange = { index -> if (index in themeModes.indices) hub.chooseTheme(themeModes[index]) },
+                        selectedIndex = themeModes.indexOf(hub.settings.darkTheme),
+                        onSelectedIndexChange = { index -> if (index in themeModes.indices) hub.settings.darkTheme = themeModes[index] },
                     )
                 }
                 item {
                     // 「系统取色」是跟随壁纸的系统动态取色（Monet）
                     OverlayDropdownPreference(
                         title = "强调色",
-                        summary = if (prefs.accent == AccentChoice.System) "跟随壁纸取色" else null,
+                        summary = if (accent == AccentChoice.System) "跟随壁纸取色" else null,
                         items = accents.map { it.label },
-                        selectedIndex = accents.indexOf(prefs.accent),
-                        onSelectedIndexChange = { index -> accents.getOrNull(index)?.let(prefs::chooseAccent) },
+                        selectedIndex = accents.indexOf(accent),
+                        onSelectedIndexChange = { index -> accents.getOrNull(index)?.let { settings.accent = it.key } },
                     )
                 }
                 item {

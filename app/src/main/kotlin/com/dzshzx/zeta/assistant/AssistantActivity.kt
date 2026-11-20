@@ -70,13 +70,13 @@ class AssistantActivity : ComponentActivity() {
         val onMainScreen = (display?.displayId ?: 0) == 0
         val corner = runCatching { display?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)?.radius?.toFloat() }.getOrNull() ?: 0f
         setContent {
-            val dark = hub.darkTheme ?: isSystemInDarkTheme()
+            val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             DisposableEffect(dark) {
                 val bars = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
                 onDispose {}
             }
-            ZetaTheme(darkTheme = hub.darkTheme) {
+            ZetaTheme(darkTheme = hub.settings.darkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     AssistantScreen(
                         screen = chat.screenChip,

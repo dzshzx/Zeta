@@ -52,7 +52,7 @@ class SessionPaneShots : ShotTest() {
             ),
         )
         app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE).edit().putString(ComposerDrafts.KEY, drafts).commit()
-        return Fixtures.readyHub(app).also { it.choosePinned(setOf("s4")) }
+        return Fixtures.readyHub(app).also { it.settings.pinnedSessions = setOf("s4") }
     }
 
     @Composable

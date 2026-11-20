@@ -166,7 +166,7 @@ internal class AudioFocusGuard(
         fun of(context: Context): AudioFocusGuard = shared ?: synchronized(this) {
             shared ?: AudioFocusGuard(
                 shell = { rootShell(it, ROOT_TIMEOUT_MS) },
-                store = SettingsStore(Settings(context.applicationContext)),
+                store = SettingsStore(Settings.of(context)),
                 user = LinuxEnv.androidUser,
             ).also { shared = it }
         }

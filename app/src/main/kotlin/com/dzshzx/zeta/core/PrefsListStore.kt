@@ -26,7 +26,7 @@ internal open class PrefsListStore<T>(
     var observed by mutableStateOf<List<T>>(emptyList())
         private set
 
-    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("zeta", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE)
 
     fun load(context: Context): List<T> = synchronized(lock) {
         cache ?: decode(prefs(context).getString(key, null)).also {

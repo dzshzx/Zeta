@@ -216,7 +216,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             }
         }
         item(key = "phone") {
-            PreferenceGroup(title = "手机工具", footer = if (hub.phoneTools) null else "手机操作现在关着，Claude 拿不到这些工具。") {
+            PreferenceGroup(title = "手机工具", footer = if (hub.settings.phoneTools) null else "手机操作现在关着，Claude 拿不到这些工具。") {
                 val server = PhoneTools.SERVER
                 val group = PermissionGroup.Server(server)
                 item { BulkButtons(current, group, editable) { enable, change -> bulk = BulkRequest("手机工具", group, enable, change) } }

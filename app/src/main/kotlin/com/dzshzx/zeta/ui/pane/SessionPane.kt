@@ -171,8 +171,8 @@ internal fun SessionPane(
     val exporter = rememberSessionExporter(hub, onSavedMany = exitSelection)
 
     // 置顶存在设置里，按会话 id；从备份导入设置时也会变，所以用 hub 上那份可观察的
-    val pins = hub.pinnedSessions
-    val savePins: (Set<String>) -> Unit = hub::choosePinned
+    val pins = hub.settings.pinnedSessions
+    val savePins: (Set<String>) -> Unit = { hub.settings.pinnedSessions = it }
     // 置顶的会话不在 list 给的最近 300 个里时单独取来；确实已经不在了（别处删掉的）就把置顶去掉
     var farPinned by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
     LaunchedEffect(sessions, pins) {

@@ -10,6 +10,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Settings
 
 internal tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
@@ -23,13 +24,13 @@ internal tailrec fun Context.findActivity(): Activity? = when (this) {
  * 放在 [ZetaTheme] 里调用，是因为它是 Activity 界面树里一定会有的一层，不用再去改 MainActivity。
  */
 @Composable
-internal fun KeepScreenOnWhileRunning(activity: Activity, prefs: UiPrefs) {
+internal fun KeepScreenOnWhileRunning(activity: Activity, settings: Settings) {
     val hub = remember(activity) { ConversationHub.get(activity.application) }
     // 当前对话之外，切走后仍在后台回答的对话也算；isRunning 读的都是可观察的 busy 状态
     val running by remember(hub) {
         derivedStateOf { hub.current.busy || hub.sessions.any { hub.isRunning(it.id) } }
     }
-    val keep = prefs.keepScreenOn && running
+    val keep = settings.keepScreenOn && running
     DisposableEffect(activity, keep) {
         val window = activity.window
         if (keep) {

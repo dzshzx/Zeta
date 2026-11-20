@@ -28,7 +28,6 @@ class RunPermissionsTest {
     private fun hub(): ConversationHub {
         val hub = Fixtures.readyHub(app)
         hub.settings.env = null
-        hub.reloadSettings()
         return hub
     }
 

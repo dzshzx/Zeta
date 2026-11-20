@@ -16,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
-import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -84,7 +83,6 @@ private fun SettingsHome(
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    val prefs = remember(context) { UiPrefs.get(context) }
     val ready = hub.setup == SetupState.Ready && hub.env != null
     // 默认值可能在终端里改过（/model、/effort 存为默认）：每次打开都重读
     LaunchedEffect(ready) { if (ready) hub.refreshClaudeDefaults() }
@@ -113,7 +111,7 @@ private fun SettingsHome(
                     ArrowPreference(
                         title = "手机操作",
                         startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
-                        endActions = { PreferenceValue(if (hub.phoneTools) "已开启" else "已关闭") },
+                        endActions = { PreferenceValue(if (hub.settings.phoneTools) "已开启" else "已关闭") },
                         onClick = { onOpenSubPage(SettingsSubPage.Phone) },
                     )
                 }
@@ -136,7 +134,7 @@ private fun SettingsHome(
                         startAction = { SettingsIcon(COUIIcons.Theme, SettingsHue.System) },
                         endActions = {
                             PreferenceValue(
-                                when (hub.darkTheme) {
+                                when (hub.settings.darkTheme) {
                                     null -> "跟随系统"
                                     false -> "浅色"
                                     true -> "深色"
@@ -151,8 +149,8 @@ private fun SettingsHome(
                     SwitchPreference(
                         title = "对话中保持屏幕常亮",
                         startAction = { SettingsIcon(ZetaIcons.Sun, SettingsHue.System) },
-                        checked = prefs.keepScreenOn,
-                        onCheckedChange = prefs::chooseKeepScreenOn,
+                        checked = hub.settings.keepScreenOn,
+                        onCheckedChange = { hub.settings.keepScreenOn = it },
                     )
                 }
                 item {
@@ -160,8 +158,8 @@ private fun SettingsHome(
                     SwitchPreference(
                         title = "自动加载网络图片",
                         startAction = { SettingsIcon(COUIIcons.Image, SettingsHue.Claude) },
-                        checked = hub.autoLoadRemoteImages,
-                        onCheckedChange = hub::chooseAutoLoadRemoteImages,
+                        checked = hub.settings.autoLoadRemoteImages,
+                        onCheckedChange = { hub.settings.autoLoadRemoteImages = it },
                     )
                 }
                 item {
@@ -169,8 +167,8 @@ private fun SettingsHome(
                     SwitchPreference(
                         title = "回答自动朗读",
                         startAction = { SettingsIcon(COUIIcons.VolumeUp, SettingsHue.Claude) },
-                        checked = hub.autoReadAnswers,
-                        onCheckedChange = hub::chooseAutoReadAnswers,
+                        checked = hub.settings.autoReadAnswers,
+                        onCheckedChange = { hub.settings.autoReadAnswers = it },
                     )
                 }
                 item { StorageEntry { onOpenSubPage(SettingsSubPage.Storage) } }
@@ -255,7 +253,7 @@ private fun AutoTitleSwitch(hub: ConversationHub) {
     SwitchPreference(
         title = "自动生成对话标题",
         startAction = { SettingsIcon(ZetaIcons.Sparkle, SettingsHue.Claude) },
-        checked = hub.autoTitle,
-        onCheckedChange = hub::chooseAutoTitle,
+        checked = hub.settings.autoTitle,
+        onCheckedChange = { hub.settings.autoTitle = it },
     )
 }

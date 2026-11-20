@@ -197,7 +197,7 @@ object AccessibilityGuard {
             }
             val now = System.currentTimeMillis()
             restores.removeAll { now - it >= GuardPolicy.WINDOW_MS }
-            val action = GuardPolicy.decide(false, armed(context), ZetaSettings(context).phoneTools, autoRestore(context), restores, now)
+            val action = GuardPolicy.decide(false, armed(context), ZetaSettings.of(context).phoneTools, autoRestore(context), restores, now)
             // 同一次被关只报一次：上次已经知道不在列表里的，这次只在要加回时再试
             val fresh = was != false
             when (action) {
@@ -348,7 +348,7 @@ object AccessibilityGuard {
     private fun read(context: Context): String? =
         runCatching { Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) }.getOrNull()
 
-    private fun prefs(context: Context) = context.getSharedPreferences("zeta", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences(ZetaSettings.FILE, Context.MODE_PRIVATE)
 
     private fun state(context: Context) = context.getSharedPreferences(STATE, Context.MODE_PRIVATE)
 

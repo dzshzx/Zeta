@@ -8,6 +8,7 @@ import com.dzshzx.zeta.ui.settings.effortSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -70,16 +71,17 @@ class ClaudeDefaultsTest {
         assertEquals("Opus 5.5 超高，其他模型 中", effortSummary(ClaudeDefaults(null, null, mapOf("claude-opus-5-5" to "xhigh"), "medium")))
     }
 
-    /** 导入备份后 [ConversationHub.reloadSettings] 重读：盖在设置首页上的备份页关掉后，首页显示的是导入的值。 */
+    /** 导入备份（[Settings.restore]）后各项按导入的值重读：盖在设置首页上的备份页关掉后，首页显示的是导入的值。 */
     @Test
-    fun reloadRefreshesObservedSettings() {
+    fun restoreRefreshesObservedSettings() {
         val hub = Fixtures.readyHub(app)
-        hub.settings.autoTitle = false
-        hub.settings.autoCompact = false
-        hub.settings.autoCompactPercent = 70
-        hub.reloadSettings()
-        assertFalse(hub.autoTitle)
-        assertFalse(hub.autoCompact)
-        assertEquals(70, hub.autoCompactPercent)
+        assertTrue(hub.settings.restore(mapOf("autoTitle" to false, "autoCompact" to false, "autoCompactPercent" to 70, "cwd" to "/workspace/other")))
+        assertFalse(hub.settings.autoTitle)
+        assertFalse(hub.settings.autoCompact)
+        assertEquals(70, hub.settings.autoCompactPercent)
+        assertEquals("/workspace/other", hub.env?.defaultCwd)
+        // 空着的新对话换到导入的默认工作目录
+        hub.settingsRestored()
+        assertEquals("/workspace/other", hub.current.cwd)
     }
 }
