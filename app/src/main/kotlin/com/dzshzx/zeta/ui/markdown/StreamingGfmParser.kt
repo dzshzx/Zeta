@@ -55,10 +55,7 @@ internal data class StreamingGfmSnapshot(
     val renderedSource: String,
     val isComplete: Boolean,
     val document: MarkdownDocument,
-) {
-    fun completedDocumentFor(content: String): MarkdownDocument? =
-        document.takeIf { isComplete && originalSource == content }
-}
+)
 
 /**
  * 为真实 EOF 和“暂时没有更多字符”的流式 EOF 建立不同语义。

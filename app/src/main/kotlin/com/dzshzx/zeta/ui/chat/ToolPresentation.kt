@@ -13,7 +13,6 @@ import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.File
 import io.github.suqi8.coui.kmp.icon.extended.Link
 import io.github.suqi8.coui.kmp.icon.extended.MindMap
-import io.github.suqi8.coui.kmp.icon.extended.Paste
 import io.github.suqi8.coui.kmp.icon.extended.ReplyAll
 import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.icon.extended.Timer
@@ -91,15 +90,6 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
                 s("match") != null || s("id") != null -> "等 $where" + if (input?.bool("gone") == true) "消失" else "出现"
                 s("app") != null -> "等 " + s("app") + " 打开"
                 else -> "等待 " + "%.1f".format((n("duration_ms") ?: 1000) / 1000.0).removeSuffix(".0") + " 秒"
-            },
-            json,
-        )
-        "clipboard" -> ToolPresentation(
-            COUIIcons.Paste,
-            when (s("text")) {
-                null -> "读取剪贴板"
-                "" -> "清空剪贴板"
-                else -> "写入剪贴板“" + firstLine(s("text"), 30) + "”"
             },
             json,
         )

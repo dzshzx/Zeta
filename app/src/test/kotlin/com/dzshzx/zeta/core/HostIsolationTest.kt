@@ -116,7 +116,10 @@ class HostIsolationTest {
     fun hostTitleComesFromTranscript() {
         start(release, "k-release")
         val session = "0a1b2c3d-0000-4000-8000-000000000001"
-        File(home, ".cache/$release/hosts/k-release/session").writeText(session)
+        // 会话号从 Claude Code 的输出里认：zeta_host.sh 把它的标准输出逐行追加进 out.jsonl，一轮以 system init 开头
+        File(home, ".cache/$release/hosts/k-release/out.jsonl").appendText(
+            """{"type":"system","subtype":"init","cwd":"/p","session_id":"$session","model":"claude-opus-5-5","permissionMode":"default"}""" + "\n",
+        )
         val transcript = File(home, ".claude/projects/-p/$session.jsonl").apply { parentFile!!.mkdirs() }
         val user = """{"type":"user","message":{"role":"user","content":"第一句话"},"cwd":"/p"}"""
         fun title(): String = run(release, "python3", "-I", helper.path, "hosts").lineSequence()

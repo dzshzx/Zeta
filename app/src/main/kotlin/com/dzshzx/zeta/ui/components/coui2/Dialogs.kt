@@ -116,7 +116,7 @@ internal fun NoticeDialog(
     }
 }
 
-/** 单行输入对话框（OverlayInputDialog 加页面毛玻璃）：取消 + 确认，[label] 是输入框里的提示，[maxCount] 显示字数计数。 */
+/** 单行输入对话框（OverlayInputDialog 加页面毛玻璃）：取消 + 确认，[label] 是输入框里的提示。 */
 @Composable
 internal fun TextInputDialog(
     show: Boolean,
@@ -129,7 +129,6 @@ internal fun TextInputDialog(
     modifier: Modifier = Modifier,
     summary: String? = null,
     label: String = "",
-    maxCount: Int? = null,
     confirmEnabled: Boolean = true,
     cancelText: String = stringResource(R.string.action_cancel),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -144,7 +143,6 @@ internal fun TextInputDialog(
         title = title,
         summary = summary,
         label = label,
-        maxCount = maxCount,
         keyboardOptions = keyboardOptions,
         negative = DialogButtonBarAction(cancelText, onClick = onDismissRequest),
         positive = DialogButtonBarAction(confirmText, enabled = confirmEnabled, recommended = true, onClick = onConfirm),

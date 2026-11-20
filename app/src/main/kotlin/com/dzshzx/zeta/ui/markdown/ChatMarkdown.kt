@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.markdown
 
-import androidx.compose.foundation.OverscrollEffect
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,21 +21,18 @@ import io.github.suqi8.coui.kmp.basic.Text
 /**
  * 已完成内容的 Markdown：历史消息、思考全文与流式结束后的静态视图共用。
  *
- * [parsed] 是流式会话的终态快照，可直接复用，切换时不重解析、不经过占位文字。
- * 其余情况在后台解析；命中缓存时首帧即为最终排版，长会话来回滚动不会反复解析。
+ * 在后台解析；命中缓存时首帧即为最终排版，长会话来回滚动不会反复解析。
  */
 @Composable
 internal fun StaticMarkdown(
     content: String,
     tone: MarkdownTone,
     modifier: Modifier = Modifier,
-    parsed: MarkdownDocument? = null,
     /** 这段内容属于哪条消息：给了就能被页面内查找高亮（见 [FindableText]）。 */
     findItem: String? = null,
 ) {
     val style = rememberMarkdownStyle(tone)
-    val reusable = parsed?.takeIf { it.inlineStyle == style.inline }
-    val document = reusable ?: produceState(
+    val document = produceState(
         initialValue = staticMarkdownDocumentCache.get(content, style.inline),
         content,
         style.inline,
@@ -66,7 +62,6 @@ internal fun LazyStaticMarkdown(
     tone: MarkdownTone,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
-    overscrollEffect: OverscrollEffect? = null,
 ) {
     val style = rememberMarkdownStyle(tone)
     val document = produceState(
@@ -82,7 +77,6 @@ internal fun LazyStaticMarkdown(
         style = style,
         modifier = modifier,
         contentPadding = contentPadding,
-        overscrollEffect = overscrollEffect,
     )
 }
 

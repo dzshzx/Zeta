@@ -682,11 +682,11 @@ class Conversation(
         process?.let(::queryUsage)
     }
 
-    /** 思考强度：只管这个对话，立即生效（apply_flag_settings）。null 回到 Claude Code 自己的设置。 */
-    fun chooseEffort(value: String?) = applyEffort(value)
-
-    /** 这个对话的思考强度：进程已经起来就当场改，再要一次生效的设置；没起来时启动参数 --effort 带上。 */
-    private fun applyEffort(value: String?) {
+    /**
+     * 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。
+     * 进程已经起来就当场改（apply_flag_settings），再要一次生效的设置；没起来时启动参数 --effort 带上。
+     */
+    fun chooseEffort(value: String?) {
         effort = value
         val process = process ?: return
         applyFlags(process) { put("effortLevel", value) }
@@ -762,7 +762,7 @@ class Conversation(
             this.model = value
             process?.send(controlRequest { put("subtype", "set_model"); put("model", value) })
         }
-        effort?.let(::applyEffort)
+        effort?.let(::chooseEffort)
     }
 
     /** 用户在输入栏选的：只管这个对话，之后按它跑（后台运行这一轮剩下的部分也是）。新对话的默认在设置页改（Claude Code 的设置）。 */

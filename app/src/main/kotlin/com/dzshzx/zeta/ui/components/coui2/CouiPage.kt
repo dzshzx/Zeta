@@ -41,12 +41,9 @@ import com.dzshzx.zeta.R
 import com.dzshzx.zeta.ui.layout.WidePageContent
 import com.dzshzx.zeta.ui.layout.rememberIsWideScreen
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.FabPosition
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.ScrollBehavior
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
-import io.github.suqi8.coui.kmp.basic.SnackbarHost
-import io.github.suqi8.coui.kmp.basic.SnackbarHostState
 import io.github.suqi8.coui.kmp.basic.TopAppBar
 import io.github.suqi8.coui.kmp.basic.TopAppBarDefaults
 import io.github.suqi8.coui.kmp.basic.TopAppBarSearchState
@@ -56,7 +53,6 @@ import io.github.suqi8.coui.kmp.basic.rememberScrollBarAdapter
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
 import io.github.suqi8.coui.kmp.blur.layerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
@@ -81,12 +77,11 @@ internal enum class CouiTopBarStyle {
     SettingsHome,
 }
 
-/** 页面内容排版要用的东西：留白（已含顶栏、导航栏和宽屏两侧）、顶栏的滚动联动、页面背景图。 */
+/** 页面内容排版要用的东西：留白（已含顶栏、导航栏和宽屏两侧）、顶栏的滚动联动。 */
 @Stable
 internal class CouiPageContentScope(
     val contentPadding: PaddingValues,
     val scrollBehavior: ScrollBehavior,
-    val backdrop: LayerBackdrop?,
 )
 
 /** 页面列表都要的滚动修饰：滚到头的触感、COUI 越界回弹、和顶栏折叠联动。 */
@@ -97,28 +92,22 @@ internal fun Modifier.couiPageScroll(scope: CouiPageContentScope): Modifier = th
     .fillMaxHeight()
 
 /**
- * COUI 页面：带 COUI 17 光晕的顶栏；页面录进 [LocalPageBackdrop]，页面上弹出的对话框、菜单拿它做毛玻璃；
- * 底栏、悬浮按钮在录制范围之外，拿页面做材质背景。内容随意排，列表页用 [CouiPage]。
+ * COUI 页面：带 COUI 17 光晕的顶栏；页面录进 [LocalPageBackdrop]，页面上弹出的对话框、菜单拿它做毛玻璃。
+ * 内容随意排，列表页用 [CouiPage]。
  */
 @Composable
 internal fun CouiPageScaffold(
     title: String,
     modifier: Modifier = Modifier,
-    subtitle: String = "",
     onBack: (() -> Unit)? = null,
     topBarStyle: CouiTopBarStyle = CouiTopBarStyle.Large,
     actions: @Composable RowScope.() -> Unit = {},
     topBarBottomContent: @Composable () -> Unit = {},
     topBarSearchState: TopAppBarSearchState? = null,
-    snackbarHostState: SnackbarHostState? = null,
-    bottomBar: @Composable () -> Unit = {},
-    floatingActionButton: @Composable () -> Unit = {},
-    floatingActionButtonPosition: FabPosition = FabPosition.End,
     content: @Composable (CouiPageContentScope) -> Unit,
 ) {
     val backdrop = rememberPageBackdrop()
     val scrollBehavior = COUIScrollBehavior()
-    val materialBackdrop = rememberMaterialBackdropProvider(backdrop)
     val popupBlur = rememberPopupMaterialBlur(backdrop)
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     val imePadding = if (windowFocused) Modifier.imePadding() else Modifier
@@ -131,7 +120,6 @@ internal fun CouiPageScaffold(
                 title = title,
                 scrollBehavior = scrollBehavior,
                 backdrop = backdrop,
-                subtitle = subtitle,
                 onBack = onBack,
                 style = topBarStyle,
                 actions = actions,
@@ -139,15 +127,6 @@ internal fun CouiPageScaffold(
                 bottomContent = topBarBottomContent,
             )
         },
-        // 这几个位置在页面录制范围之外，材质才能模糊页面
-        bottomBar = {
-            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalMaterialBackdrop provides materialBackdrop) { bottomBar() }
-        },
-        floatingActionButton = {
-            CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalMaterialBackdrop provides materialBackdrop) { floatingActionButton() }
-        },
-        floatingActionButtonPosition = floatingActionButtonPosition,
-        snackbarHost = { if (snackbarHostState != null) SnackbarHost(state = snackbarHostState) },
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -157,8 +136,8 @@ internal fun CouiPageScaffold(
                 val bottom = if (imeShown) 0.dp else max(innerPadding.calculateBottomPadding(), navBottom)
                 val start = innerPadding.calculateStartPadding(layoutDirection) + sidePadding
                 val end = innerPadding.calculateEndPadding(layoutDirection) + sidePadding
-                val scope = remember(top, bottom, start, end, scrollBehavior, backdrop) {
-                    CouiPageContentScope(PaddingValues(start = start, top = top, end = end, bottom = bottom), scrollBehavior, backdrop)
+                val scope = remember(top, bottom, start, end, scrollBehavior) {
+                    CouiPageContentScope(PaddingValues(start = start, top = top, end = end, bottom = bottom), scrollBehavior)
                 }
                 CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
                     content(scope)
@@ -177,13 +156,10 @@ internal fun CouiPageScaffold(
 internal fun CouiPage(
     title: String,
     modifier: Modifier = Modifier,
-    subtitle: String = "",
     onBack: (() -> Unit)? = null,
     topBarStyle: CouiTopBarStyle = CouiTopBarStyle.Large,
     actions: @Composable RowScope.() -> Unit = {},
     topBarBottomContent: @Composable () -> Unit = {},
-    snackbarHostState: SnackbarHostState? = null,
-    floatingActionButton: @Composable () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     overlays: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
@@ -191,13 +167,10 @@ internal fun CouiPage(
     CouiPageScaffold(
         title = title,
         modifier = modifier,
-        subtitle = subtitle,
         onBack = onBack,
         topBarStyle = topBarStyle,
         actions = actions,
         topBarBottomContent = topBarBottomContent,
-        snackbarHostState = snackbarHostState,
-        floatingActionButton = floatingActionButton,
     ) { scope ->
         Box(Modifier.fillMaxSize()) {
             LazyColumn(
@@ -225,7 +198,6 @@ internal fun CouiPageTopBar(
     scrollBehavior: ScrollBehavior,
     backdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
-    subtitle: String = "",
     onBack: (() -> Unit)? = null,
     style: CouiTopBarStyle = CouiTopBarStyle.Large,
     actions: @Composable RowScope.() -> Unit = {},
@@ -257,7 +229,6 @@ internal fun CouiPageTopBar(
         SmallTopAppBar(
             title = title,
             modifier = modifier,
-            subtitle = subtitle,
             color = barColor,
             scrollBehavior = scrollBehavior,
             glow = glow,
@@ -271,7 +242,6 @@ internal fun CouiPageTopBar(
         TopAppBar(
             title = title,
             modifier = modifier,
-            subtitle = subtitle,
             color = barColor,
             scrollBehavior = scrollBehavior,
             expandedHeight = if (home) 116.dp else TopAppBarDefaults.ExpandedHeight,

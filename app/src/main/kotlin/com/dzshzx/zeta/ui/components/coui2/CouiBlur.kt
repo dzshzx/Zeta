@@ -10,20 +10,16 @@ import io.github.suqi8.coui.kmp.blur.Backdrop
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.MaterialBlendMode
 import io.github.suqi8.coui.kmp.blur.MaterialBlurStyle
-import io.github.suqi8.coui.kmp.blur.ViewBlurStyle
 import io.github.suqi8.coui.kmp.blur.couiMaterialBlur
-import io.github.suqi8.coui.kmp.blur.couiViewBlur
 import io.github.suqi8.coui.kmp.blur.isRuntimeShaderSupported
 import io.github.suqi8.coui.kmp.blur.rememberLayerBackdrop
-import io.github.suqi8.coui.kmp.effect.MaterialBackdropProvider
-import io.github.suqi8.coui.kmp.effect.MaterialBackdropSpec
 import io.github.suqi8.coui.kmp.effect.MaterialBlurBlendMode
 import io.github.suqi8.coui.kmp.effect.MaterialBlurProvider
 import io.github.suqi8.coui.kmp.effect.MaterialBlurSpec
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 // COUI 17 的毛玻璃怎么接到 coui-ui 上：照 COUI 仓库 .claude/skills/coui-app/references/scaffold.md 里的 CouiBlur.kt
-// （Apache-2.0，https://github.com/suqi8/coui）。页面先录进一张背景图，顶栏、对话框、菜单、悬浮按钮再拿它做模糊。
+// （Apache-2.0，https://github.com/suqi8/coui）。页面先录进一张背景图，顶栏、对话框、菜单再拿它做模糊。
 
 /** 是否用毛玻璃。ZetaTheme 按 windowBackdrop 提供：JVM 截图测试里关掉，那里模糊既慢又会错位。 */
 internal val LocalCouiBlurEnabled = staticCompositionLocalOf { true }
@@ -39,21 +35,6 @@ internal fun rememberPageBackdrop(): LayerBackdrop? {
     return rememberLayerBackdrop {
         drawRect(background)
         drawContent()
-    }
-}
-
-/** 交给 coui-ui 的 LocalMaterialBackdrop（按钮、悬浮栏、悬浮按钮、工具栏）。背景图里只能有它们后面的东西，不能有它们自己。 */
-@Composable
-internal fun rememberMaterialBackdropProvider(backdrop: Backdrop?): MaterialBackdropProvider? {
-    val active = LocalCouiBlurEnabled.current && backdrop != null && isRuntimeShaderSupported()
-    return remember(backdrop, active) {
-        if (active && backdrop != null) {
-            MaterialBackdropProvider { spec, shape ->
-                Modifier.couiViewBlur(backdrop = backdrop, style = spec.toViewBlurStyle(), shape = shape)
-            }
-        } else {
-            null
-        }
     }
 }
 
@@ -90,14 +71,6 @@ internal fun panelBlur(style: (isDark: Boolean) -> MaterialBlurStyle): PanelBlur
         backgroundColor = Color.Transparent,
     )
 }
-
-private fun MaterialBackdropSpec.toViewBlurStyle(): ViewBlurStyle = ViewBlurStyle(
-    blurRadiusPx = blurRadiusPx,
-    layer1 = layer1,
-    mode1 = mode1,
-    layer2 = layer2,
-    mode2 = mode2,
-)
 
 private fun MaterialBlurSpec.toMaterialBlurStyle(): MaterialBlurStyle = MaterialBlurStyle(
     blurRadiusPx = blurRadiusPx,

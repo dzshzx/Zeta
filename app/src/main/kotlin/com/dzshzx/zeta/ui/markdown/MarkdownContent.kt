@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.markdown
 
-import androidx.compose.foundation.OverscrollEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -100,7 +99,6 @@ internal fun LazyMarkdownContent(
     style: MarkdownStyle,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    overscrollEffect: OverscrollEffect? = null,
 ) {
     val scope = remember(style) { MarkdownRenderScope(style, reveal = null) }
     val density = LocalDensity.current
@@ -108,7 +106,8 @@ internal fun LazyMarkdownContent(
     LazyColumn(
         modifier = modifier,
         contentPadding = contentPadding,
-        overscrollEffect = overscrollEffect,
+        // 回弹由调用方的 COUI overScrollVertical 做，列表自己不再叠一层
+        overscrollEffect = null,
     ) {
         document.blocks.forEachIndexed { blockIndex, block ->
             val previous = document.blocks.getOrNull(blockIndex - 1)

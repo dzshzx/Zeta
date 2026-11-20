@@ -136,8 +136,6 @@ object ClaudePaths {
 
     fun memoryDir(home: String, key: String) = projectsDir(home) + "/" + key + "/memory"
 
-    fun skillsDir(home: String) = claudeDir(home) + "/skills"
-
     fun agentsDir(home: String) = claudeDir(home) + "/agents"
 
     /**

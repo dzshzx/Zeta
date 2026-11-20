@@ -684,7 +684,6 @@ def cmd_hosts():
             lines, session, busy, pending, mode, tasks, events = scan_host(directory)
         except OSError:
             continue
-        session = session or read_text(os.path.join(directory, "session")) or None
         files = glob.glob(os.path.join(ROOT, "*", session + ".jsonl")) if session else []
         # 会话记录里的标题（改过的名字、自动起的标题）比启动时记下的新；都没有时才整份读一遍取开头那句
         title = (session_title(files[0]) if files else None) or read_text(os.path.join(directory, "title"))

@@ -367,8 +367,6 @@ object Schedules {
 
     private val DAY_KEYS = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
-    fun dayKey(day: DayOfWeek): String = DAY_KEYS[day.value - 1]
-
     /** “mon”“monday”“1”（周一）到“sun”“7”。 */
     fun parseDay(text: String): DayOfWeek? {
         val t = text.trim().lowercase()

@@ -595,15 +595,3 @@ internal fun inlineContent(
     style = style,
     mathCache = mathCache,
 ).build(nodes)
-
-internal fun inlineText(
-    nodes: List<ASTNode>,
-    source: String,
-    links: LinkMap?,
-    style: MarkdownInlineStyle,
-): AnnotatedString = inlineContent(
-    nodes = nodes,
-    source = source,
-    links = links,
-    style = style,
-).text

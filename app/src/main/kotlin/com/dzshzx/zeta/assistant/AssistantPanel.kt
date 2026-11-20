@@ -144,14 +144,6 @@ internal object AssistantReplies {
     }
 }
 
-/** 语音输入的接入点：语音识别模块接好后由 [AssistantActivity] 给出，浮窗上就出现话筒键。 */
-@Immutable
-internal class AssistantVoiceEntry(
-    /** 正在听（话筒键高亮，再点一下结束）。 */
-    val listening: Boolean,
-    val onToggle: () -> Unit,
-)
-
 /**
  * 数字助理的浮窗（照 Eta 的助理浮窗，外观按 COUI 2）：屏幕底部一张浮起的面板。
  * 上面一条是带上的屏幕（截图缩略图和应用名，可以去掉），中间是回答（发出去以后），
@@ -170,7 +162,6 @@ internal fun AssistantScreen(
     onToggleScreen: () -> Unit,
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
-    voice: AssistantVoiceEntry? = null,
     /** 进场后把焦点给输入框、弹出键盘（只在主屏上：测试用的虚拟屏上弹键盘会弹到主屏去）。 */
     autoFocus: Boolean = false,
 ) {
@@ -255,7 +246,7 @@ internal fun AssistantScreen(
                         }
                     }
                 }
-                InputRow(draft, sending, followUp = reply != null, voice = voice, autoFocus = autoFocus && visible, onSend = onSend)
+                InputRow(draft, sending, followUp = reply != null, autoFocus = autoFocus && visible, onSend = onSend)
             }
         }
     }
@@ -383,7 +374,7 @@ private fun ReplyArea(reply: ReplyView, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun InputRow(draft: TextFieldState, sending: Boolean, followUp: Boolean, voice: AssistantVoiceEntry?, autoFocus: Boolean, onSend: (String) -> Unit) {
+private fun InputRow(draft: TextFieldState, sending: Boolean, followUp: Boolean, autoFocus: Boolean, onSend: (String) -> Unit) {
     val colors = COUITheme.colorScheme
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -421,16 +412,6 @@ private fun InputRow(draft: TextFieldState, sending: Boolean, followUp: Boolean,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 4),
             )
-        }
-        if (voice != null) {
-            Spacer(Modifier.width(8.dp))
-            RoundButton(
-                description = if (voice.listening) "结束语音输入" else "语音输入",
-                color = if (voice.listening) colors.primary else colors.fillThin,
-                onClick = voice.onToggle,
-            ) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(if (voice.listening) colors.onPrimary else colors.labelSecondary))
-            }
         }
         Spacer(Modifier.width(8.dp))
         val sendColor by animateColorAsState(if (canSend) colors.primary else colors.container8, tween(160), label = "assistant-send")

@@ -90,8 +90,6 @@ class AssistantActivity : ComponentActivity() {
                         onToggleScreen = chat::toggleScreen,
                         onOpen = ::openInZeta,
                         onDismiss = ::dismiss,
-                        // 语音识别模块接好后在这里给出（开始、实时文字写进 chat.draft、结束、取消），浮窗上就有话筒键
-                        voice = null,
                         autoFocus = onMainScreen,
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）

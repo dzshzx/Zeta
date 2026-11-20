@@ -44,10 +44,10 @@ internal object ClipboardTools : PhoneToolGroup {
         }
     }
 
-    override fun title(name: String, input: JsonObject): String = when (input.str("text")) {
+    override fun title(name: String, input: JsonObject): String = when (val text = input.str("text")) {
         null -> "读取剪贴板"
         "" -> "清空剪贴板"
-        else -> "写入剪贴板"
+        else -> text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.let { "写入剪贴板「" + it.clipChars(16, "…") + "」" } ?: "写入剪贴板"
     }
 
     /** 以 root 起辅助进程。app_process 要和系统一样的启动类路径，经 su 进来时不一定带着，从 system_server 那里抄一份（同后台屏幕的辅助进程）。 */
