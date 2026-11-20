@@ -158,7 +158,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
     CouiPage(
         title = "共享文件夹",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             ConfirmDialog(
                 show = picker != null,
                 title = "添加共享文件夹",

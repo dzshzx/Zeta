@@ -128,7 +128,7 @@ internal fun Throwable.problem(): String = message?.takeIf { it.isNotBlank() } ?
 
 internal data class ConfigNotice(val title: String, val message: String)
 
-/** 读写配置出错时的告知框；要放在页面的 overlays 里（CouiPage）或页面骨架的内容里（CouiPageScaffold）。 */
+/** 读写配置出错时的告知框；要放在页面的 dialogs 里（CouiPage）或页面骨架的内容里（CouiPageScaffold）。 */
 @Composable
 internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
     val shown = rememberRetained(notice)

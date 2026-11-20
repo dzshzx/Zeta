@@ -76,7 +76,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     CouiPage(
         title = "Linux 环境",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             TextInputDialog(
                 show = editing != null,
                 title = if (lastEditing == LinuxEdit.Rootfs) "自定义路径" else "默认工作目录",
@@ -370,7 +370,7 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
     CouiPage(
         title = "安装 Debian 环境",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             TextInputDialog(
                 show = editingName,
                 title = "用户名",

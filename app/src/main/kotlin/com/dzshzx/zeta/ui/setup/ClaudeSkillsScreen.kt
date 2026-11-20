@@ -119,7 +119,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
     CouiPage(
         title = "Skills",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             NoticeDialog(
                 show = describing != null,

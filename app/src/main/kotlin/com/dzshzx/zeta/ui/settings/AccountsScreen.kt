@@ -93,7 +93,7 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
         CouiPage(
             title = "账号与额度",
             onBack = onBack,
-            overlays = {
+            dialogs = {
                 ConfirmDialog(
                     show = confirming != null,
                     title = "切换到 ${confirming?.title.orEmpty()}？",

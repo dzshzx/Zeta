@@ -238,7 +238,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
         title = "运行日志",
         onBack = onBack,
         actions = { IconActionButton(COUIIcons.Delete, "清空", enabled = entries.isNotEmpty()) { confirmClear = true } },
-        overlays = {
+        dialogs = {
             ConfirmDialog(
                 show = confirmClear,
                 title = "清空运行日志？",

@@ -59,7 +59,7 @@ private sealed interface ImportReview {
 
 /**
  * “备份与恢复”页的状态：正在读写文件、导入前的核对结果，以及打开系统“保存到”“打开”的两个入口。
- * 页面列表里的两行和 overlays 里的对话框（[SettingsBackupDialogs]）共用这一份。
+ * 页面列表里的两行和 dialogs 里的对话框（[SettingsBackupDialogs]）共用这一份。
  */
 @Stable
 private class SettingsBackupState {
@@ -103,7 +103,7 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
 @Composable
 internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
-    CouiPage(title = "备份与恢复", onBack = onBack, overlays = { SettingsBackupDialogs(hub, state) }) {
+    CouiPage(title = "备份与恢复", onBack = onBack, dialogs = { SettingsBackupDialogs(hub, state) }) {
         item(key = "backup") {
             // 备份里是外观、聊天、手机操作、数字助理的模型、置顶、共享文件夹、常用指令、定时任务和通知触发（[SettingsBackup.items]）；
             // 新对话的默认值是 Claude Code 的配置，不在里面；只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存、
@@ -125,7 +125,7 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 }
 
-/** 导入前的核对：读不了、没有要改的、确认导入。放在页面的 overlays 里。 */
+/** 导入前的核对：读不了、没有要改的、确认导入。放在页面的 dialogs 里。 */
 @Composable
 private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupState) {
     val context = LocalContext.current

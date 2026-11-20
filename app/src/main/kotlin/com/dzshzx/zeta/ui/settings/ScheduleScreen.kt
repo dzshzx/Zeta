@@ -236,7 +236,7 @@ private fun TaskEditor(hub: ConversationHub, original: ScheduledTask?, onBack: (
         title = if (original == null) "新建定时任务" else "编辑定时任务",
         onBack = onBack,
         actions = { ToolbarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
-        overlays = {
+        dialogs = {
             TimeDialog(visible = dialog == EditorDialog.Time, initial = time, onConfirm = { time = it; dialog = null }, onDismiss = { dialog = null })
             DateDialog(visible = dialog == EditorDialog.Date, initial = date, onConfirm = { date = it; dialog = null }, onDismiss = { dialog = null })
             HoursDialog(visible = dialog == EditorDialog.Hours, initial = hours, onConfirm = { hours = it; dialog = null }, onDismiss = { dialog = null })
@@ -387,7 +387,7 @@ internal fun PermissionFixRow(hub: ConversationHub, id: PermissionId, title: Str
     )
 }
 
-/** 编辑器里改工作目录的对话框；确定时交出去的是去掉首尾空白的输入，空的表示用默认。放在页面的 overlays 里。 */
+/** 编辑器里改工作目录的对话框；确定时交出去的是去掉首尾空白的输入，空的表示用默认。放在页面的 dialogs 里。 */
 @Composable
 internal fun CwdDialog(visible: Boolean, cwd: String, defaultCwd: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var input by remember(visible) { mutableStateOf(cwd) }
@@ -531,7 +531,7 @@ private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Un
     }
 }
 
-/** 选时间（时、分）的对话框。放在页面的 overlays 里。 */
+/** 选时间（时、分）的对话框。放在页面的 dialogs 里。 */
 @Composable
 internal fun TimeDialog(visible: Boolean, initial: LocalTime, onConfirm: (LocalTime) -> Unit, onDismiss: () -> Unit) {
     var value by remember(visible) { mutableStateOf(TimeValue(initial.hour, initial.minute)) }

@@ -104,7 +104,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
         title = "Subagent",
         onBack = onBack,
         actions = { IconActionButton(COUIIcons.Add, "新建 Subagent", onClick = { editor = EditorTarget(null) }) },
-        overlays = {
+        dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             NoticeDialog(
                 show = inspected != null,

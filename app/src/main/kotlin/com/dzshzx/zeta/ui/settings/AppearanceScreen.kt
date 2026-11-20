@@ -44,7 +44,7 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
     CouiPage(
         title = "外观与主题",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             TextInputDialog(
                 show = showScaleDialog,
                 title = "界面缩放",

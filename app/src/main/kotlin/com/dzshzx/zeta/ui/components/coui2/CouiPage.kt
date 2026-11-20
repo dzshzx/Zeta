@@ -150,7 +150,7 @@ internal fun CouiPageScaffold(
 /**
  * 内容是一个列表的 [CouiPageScaffold]：带页面滚动行为和滚动条，末尾留 32dp。
  *
- * @param overlays 页面的对话框和底部面板。放在这里、和列表并排，才拿得到页面背景，也不会在所在的列表项滚出屏幕时被销毁。
+ * @param dialogs 页面的对话框和底部面板。放在这里、和列表并排，才拿得到页面背景，也不会在所在的列表项滚出屏幕时被销毁。
  */
 @Composable
 internal fun CouiPage(
@@ -161,7 +161,7 @@ internal fun CouiPage(
     actions: @Composable RowScope.() -> Unit = {},
     topBarBottomContent: @Composable () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
-    overlays: @Composable () -> Unit = {},
+    dialogs: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     CouiPageScaffold(
@@ -186,7 +186,7 @@ internal fun CouiPage(
                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                 trackPadding = scope.contentPadding,
             )
-            overlays()
+            dialogs()
         }
     }
 }

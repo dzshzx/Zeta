@@ -140,7 +140,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             IconActionButton(COUIIcons.Refresh, "重新读取", enabled = !working, onClick = { reloads++ })
             IconActionButton(COUIIcons.Add, "添加规则", enabled = editable, onClick = { editor = RuleDraft(null, PermissionBehavior.Ask, "") })
         },
-        overlays = {
+        dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } }
             RuleEditorDialog(
@@ -406,7 +406,7 @@ private fun McpPermissionDetail(
         title = server.name,
         onBack = onBack,
         actions = { IconActionButton(COUIIcons.Refresh, "刷新工具", enabled = !loading, onClick = ::load) },
-        overlays = { BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } } },
+        dialogs = { BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request -> apply { client.setGroupPermission(request.group, request.enable) } } },
     ) {
         item(key = "whole") {
             PreferenceGroup(footer = "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。") {

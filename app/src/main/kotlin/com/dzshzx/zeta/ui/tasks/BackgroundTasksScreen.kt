@@ -227,7 +227,7 @@ private fun TaskDetail(
     CouiPage(
         title = TaskLabels.page(task),
         onBack = onBack,
-        overlays = {
+        dialogs = {
             ConfirmDialog(
                 show = confirmStop,
                 title = "停止这个任务？",

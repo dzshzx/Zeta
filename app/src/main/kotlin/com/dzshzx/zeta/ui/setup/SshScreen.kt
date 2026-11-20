@@ -28,7 +28,7 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
     CouiPage(
         title = "SSH 服务",
         onBack = onBack,
-        overlays = {
+        dialogs = {
             TextInputDialog(
                 show = adding,
                 title = "添加公钥",

@@ -66,7 +66,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
     val reload: () -> Unit = { reloads++ }
 
     val o = overview
-    CouiPage(title = "记忆", onBack = onBack, overlays = { ConfigNoticeDialog(notice) { notice = null } }) {
+    CouiPage(title = "记忆", onBack = onBack, dialogs = { ConfigNoticeDialog(notice) { notice = null } }) {
         item(key = "instructions") {
             PreferenceGroup(
                 title = "用户指令",

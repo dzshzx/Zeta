@@ -23,7 +23,7 @@ import io.github.suqi8.coui.kmp.overlay.OverlayInputDialog
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 // 页面上的对话框：COUI 2 的 Overlay 对话框，加上当前页面的毛玻璃（见 CouiBlur.kt）。
-// 要放在 CouiPage 的 overlays 里，或 CouiPageScaffold 内容里和列表并排；不放进列表项，否则列表项滚出屏幕时对话框跟着没了。
+// 要放在 CouiPage 的 dialogs 里，或 CouiPageScaffold 内容里和列表并排；不放进列表项，否则列表项滚出屏幕时对话框跟着没了。
 // 自己的内容放 customContent（在说明和按钮栏之间，左右留 DialogContentPadding 和标题、说明对齐）：放在那里，只有标题的对话框
 // 不会多出 16dp 空白，内容也会在面板不够高时自己缩小滚动，按钮栏始终看得见。content 只放按钮栏（DialogButtonBar）。
 

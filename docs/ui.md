@@ -51,7 +51,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 | 要做的 | 用 |
 | --- | --- |
-| 设置页 | `CouiPage(title, onBack, overlays = { 对话框 }) { item { PreferenceGroup(title, footer) { item { 行 } } } }`，首页和子页的分别见上面「设置页」 |
+| 设置页 | `CouiPage(title, onBack, dialogs = { 对话框 }) { item { PreferenceGroup(title, footer) { item { 行 } } } }`，首页和子页的分别见上面「设置页」 |
 | 点了进别的页 | `ArrowPreference` |
 | 点了执行操作、开对话框 | `BasicComponent(onClick = …)`（不带箭头），右侧值 `endActions = { PreferenceValue(…) }` |
 | 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`OverlayDropdownPreference`、`SliderPreference` |
@@ -68,7 +68,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 ## 坑
 
-- Overlay 组件（对话框、菜单、弹窗）只在 COUI 2 的 `Scaffold` 之内才显示。悬浮层窗口和应用最外层（比如「放进哪个对话」）不在任何 Scaffold 里，用 `Window*` 版本，而且不给页面毛玻璃。对话框放在 `CouiPage` 的 `overlays` 里，不放进列表项：列表项滚出屏幕时对话框跟着没了。
+- Overlay 组件（对话框、菜单、弹窗）只在 COUI 2 的 `Scaffold` 之内才显示。悬浮层窗口和应用最外层（比如「放进哪个对话」）不在任何 Scaffold 里，用 `Window*` 版本，而且不给页面毛玻璃。对话框放在 `CouiPage` 的 `dialogs` 里，不放进列表项：列表项滚出屏幕时对话框跟着没了。
 - 对话框的自定义内容放 `customContent`，不和按钮栏一起放进 `content`：否则只有标题的对话框多出 16dp 空白，内容也不会在面板不够高时自己滚动。
 - `PreferenceGroup` 的花括号里不是 composable，`remember`、`stringResource` 这类调用要写进 `item { }`。
 - 浮层（对话框、胶囊、弹窗这类白底面板）上不用卡片配色：浅色下 `cardBackground` 是纯白，深色下 `cardPressed` 是半透明白会发亮。按钮底用 `secondaryButton`，输入框底 `fillThin`，实心占位 `fillSolid`，提示字 `hintNeutral`，描边 `labelQuaternary`。

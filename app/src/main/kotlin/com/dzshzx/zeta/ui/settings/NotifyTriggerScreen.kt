@@ -229,7 +229,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
         title = if (original == null) "新建通知规则" else "编辑通知规则",
         onBack = onBack,
         actions = { ToolbarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
-        overlays = {
+        dialogs = {
             TimeDialog(visible = dialog == RuleDialog.Start, initial = times.start, onConfirm = { setWindow(times.copy(start = it)); dialog = null }, onDismiss = { dialog = null })
             TimeDialog(visible = dialog == RuleDialog.End, initial = times.end, onConfirm = { setWindow(times.copy(end = it)); dialog = null }, onDismiss = { dialog = null })
             TextInputDialog(

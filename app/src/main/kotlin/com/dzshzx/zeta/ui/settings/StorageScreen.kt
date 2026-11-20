@@ -170,7 +170,7 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
         },
         onDismiss = { view = view.copy(confirming = null) },
         onOpenProject = { project = it },
-        overlays = { ConfigNoticeDialog(notice) { notice = null } },
+        dialogs = { ConfigNoticeDialog(notice) { notice = null } },
     )
 
     val shownProject = rememberRetained(project)
@@ -188,7 +188,7 @@ private suspend fun scanAppCache(context: Context): StorageUsage = withContext(D
     StorageUsage(total, freeable + web, if (freeable + web > 0) 1 else 0)
 }
 
-/** 存储页本身（不取数据，截图测试直接给它数据）。[overlays] 是页面上另外的对话框。 */
+/** 存储页本身（不取数据，截图测试直接给它数据）。[dialogs] 是页面上另外的对话框。 */
 @Composable
 internal fun StoragePage(
     view: StorageView,
@@ -198,7 +198,7 @@ internal fun StoragePage(
     onConfirm: (StorageKind) -> Unit,
     onDismiss: () -> Unit,
     onOpenProject: (ProjectUsage) -> Unit,
-    overlays: @Composable () -> Unit = {},
+    dialogs: @Composable () -> Unit = {},
 ) {
     @Composable
     fun KindRow(kind: StorageKind) {
@@ -225,7 +225,7 @@ internal fun StoragePage(
         actions = {
             IconActionButton(COUIIcons.Refresh, "重新统计", enabled = !view.scanning && view.cleaning == null, onClick = onRefresh)
         },
-        overlays = {
+        dialogs = {
             ConfirmDialog(
                 show = view.confirming != null,
                 title = shown?.let { "清理${it.title}？" },
@@ -235,7 +235,7 @@ internal fun StoragePage(
                 onConfirm = { view.confirming?.let(onConfirm) },
                 onDismissRequest = onDismiss,
             )
-            overlays()
+            dialogs()
         },
     ) {
         item(key = "space") {

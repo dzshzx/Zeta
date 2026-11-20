@@ -157,7 +157,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
             IconActionButton(COUIIcons.Refresh, "重新检查", enabled = status != null || statusError != null, onClick = reload)
             IconActionButton(COUIIcons.Add, "添加服务器", onClick = { showAdd = true })
         },
-        overlays = {
+        dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             AddServerDialog(
                 visible = showAdd,
@@ -382,7 +382,7 @@ private fun McpServerDetail(
         title = server.name,
         onBack = onBack,
         actions = { IconActionButton(COUIIcons.Refresh, "刷新工具", enabled = !loadingTools, onClick = ::loadTools) },
-        overlays = {
+        dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             ConfirmDialog(
                 show = showToken,
