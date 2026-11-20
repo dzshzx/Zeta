@@ -91,7 +91,7 @@ root=(sudo -n timeout 300 nsenter -t 1 -m -- /system/bin/sh -c "$cmd")
 if [[ -n $on_phone ]]; then
   "${root[@]}" <"$APK"
 elif [[ $device == emu ]]; then
-  tools/phone-lock emu # 先构建，装之前才拿租约：构建的几分钟不占设备；拿到再开模拟器
+  tools/phone-lock "$lease" # 先构建，装之前才拿租约：构建的几分钟不占设备；拿到再开模拟器
   tools/emu start
   "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" -s emulator-5554 shell -T "timeout 300 $cmd" <"$APK"
 else

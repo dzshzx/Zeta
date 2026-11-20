@@ -9,28 +9,21 @@
 set -uo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 mark="Zeta 测试 $(date +%m%d-%H%M%S)"
-id='' title='' turns=0 TEXT='' FAILED=''
+id='' title='' TEXT='' FAILED=''
 
-# 工具结果的文字：出错时 content 是一段文字，成功时是 [{type: text, text}]
-
-# turn <名字> <手机工具步骤的 JSON 数组> <存到哪>：跑一轮假 Claude，这一轮各次工具结果的文字依次存进文件；
-# TEXT、FAILED 是最后一次的文字和是否出错
+# turn <名字> <手机工具步骤的 JSON 数组> <存到哪>：经 lib.sh 的 fake_turn 跑一轮假 Claude（等 60 秒），
+# 这一轮各次工具结果的文字依次存进文件；TEXT、FAILED 是最后一次的文字和是否出错
 turn() {
-  local name=$1 steps=$2 file=$3 before=0 results start=$SECONDS
-  jq -nc --argjson steps "$steps" '{title: "便签写入测试", steps: ($steps + [{text: "好了。"}])}' >"turn-$name.jsonl"
-  vd fake "$PWD/turn-$name.jsonl" >/dev/null
-  [[ -n $log ]] && before=$(android "grep -c '\"type\":\"tool_result\"' $log" || true)
-  turns=$((turns + 1))
-  send "notes-$name"
-  if ! wait_result $turns 60; then
+  local name=$1 file=$3 start=$SECONDS results
+  results=results-notes-$name.jsonl
+  if ! FAKE_TURN_WAIT=60 fake_turn "notes-$name" 便签写入测试 "$2"; then
     echo "$name 这一轮没跑完"
     TEXT='' FAILED=true
     return 1
   fi
-  results=$(android "grep '\"type\":\"tool_result\"' $log | tail -n +$((${before:-0} + 1))")
-  jq -r "$TEXT_OF" <<<"$results" >"$file"
-  TEXT=$(tail -n 1 <<<"$results" | jq -r "$TEXT_OF")
-  FAILED=$(tail -n 1 <<<"$results" | jq -r '.message.content[0].is_error // false')
+  jq -r .text "$results" >"$file"
+  TEXT=$(tail -n 1 "$results" | jq -r .text)
+  FAILED=$(tail -n 1 "$results" | jq -r .error)
   echo "$name（$((SECONDS - start)) 秒）：$(head -n 1 <<<"$TEXT" | cut -c1-120)"
 }
 
@@ -73,7 +66,8 @@ cleanup() {
       rc=1
     fi
   fi
-  rm -f ui-*.txt
+  # fake_turn 的结果文件里有界面步骤读到的屏幕（别的便签的摘要），和 ui-*.txt 一起删；便签自己的结果另存在 step-*.txt
+  rm -f ui-*.txt results-notes-*.jsonl
   exit $rc
 }
 trap cleanup EXIT
