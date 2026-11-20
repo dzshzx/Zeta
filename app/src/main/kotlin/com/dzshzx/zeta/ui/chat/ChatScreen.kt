@@ -10,8 +10,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -117,7 +115,6 @@ import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.launch
 
 /**
  * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
@@ -138,8 +135,8 @@ internal fun ChatScreen(
 ) {
     val conversation = hub.current
     val colors = COUITheme.colorScheme
-    val find = remember(conversation.key) { ChatFindState() }
-    val listState = remember(conversation.key) { LazyListState() }
+    val find = remember(conversation) { ChatFindState() }
+    val listState = remember(conversation) { LazyListState() }
     val backdrop = rememberPageBackdrop()
     val popupBlur = rememberPopupMaterialBlur(backdrop)
     Scaffold(
@@ -170,8 +167,8 @@ internal fun ChatScreen(
         ) {
             CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
                 when (hub.setup) {
-                    // 换对话全靠这个 key 重建：ConversationBody 里草稿、消息操作等状态都是不带键的 remember，挪走它草稿会串到别的对话
-                    SetupState.Ready -> key(conversation.key) {
+                    // 换对话时这一块整个重建，列表项和输入栏里各控件自己的状态从头来；草稿、消息操作这些对话的状态在 ConversationBody 里另以对话做键
+                    SetupState.Ready -> key(conversation) {
                         CompositionLocalProvider(LocalTextFinder provides find) {
                             ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks, onOpenSubagent)
                         }
@@ -303,22 +300,25 @@ private fun ConversationBody(
     onOpenSubagent: (String, String) -> Unit,
 ) {
     val items = conversation.items
+    // 下面这个对话的状态（草稿、消息操作、Markdown 缓存、引用路径等）都以 conversation 做键：换了对话就换一套，不靠外层的 key
     // 每一组步骤拿到的是同一个函数，列表里的步骤组不因上层重组而跟着重组
     val latestOpenSubagent by rememberUpdatedState(onOpenSubagent)
-    val openSubagent = remember(conversation.key) { { id: String -> latestOpenSubagent(conversation.key, id) } }
+    val openSubagent = remember(conversation) { { id: String -> latestOpenSubagent(conversation.key, id) } }
     // 输入栏的内容（文字、图片、附带的路径）是这个对话的草稿，由 hub 按对话保管：切走再回来、Zeta 重开后都还在
-    val draft = remember { hub.drafts.of(conversation) }
+    val draft = remember(conversation) { hub.drafts.of(conversation) }
     val input = draft.input
-    val markdownCache = remember { StreamingMarkdownStateCache() }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current.applicationContext
     val attachments = draft.attachments
     val uploads = draft.uploads
+    val markdownCache = remember(conversation) { StreamingMarkdownStateCache() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current.applicationContext
     // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
-    val pathAttach = remember { PathAttach() }
+    val pathAttach = remember(conversation) { PathAttach() }
     // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读。
     // 读图片、复制文件在草稿那边跑，切到别的对话也会做完，落进这份草稿
-    val sink = remember { IntakeSink(hub, context, hub.drafts.scope, input, attachments, uploads, MaxAttachments) }
+    val sink = remember(draft) { IntakeSink(hub, context, hub.drafts.scope, draft, MaxAttachments) }
+    // 编辑、重新生成、删除一轮、分支
+    val actions = remember(conversation, draft) { MessageActions(hub, conversation, draft, scope, context) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MaxAttachments)) { uris -> sink.addImages(uris) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> sink.addFiles(uris) }
     // 从外面送进来、定了放进这个对话的东西（分享、用 Zeta 打开、截屏）
@@ -331,45 +331,19 @@ private fun ConversationBody(
     val home = hub.settings.env?.home
     val imagesOf = remember(conversation.cwd, home) { { text: String -> answerImages(text, conversation.cwd, home) } }
     // 贴底跟随：内容增长时自动滚到底；用户向上拖动后停止，回到底部或点按钮后恢复
-    var follow by remember { mutableStateOf(true) }
-    LaunchedEffect(listState) {
-        listState.interactionSource.interactions.collect { interaction ->
-            when (interaction) {
-                is DragInteraction.Start -> follow = false
-                is DragInteraction.Stop, is DragInteraction.Cancel -> if (!listState.canScrollForward) follow = true
-            }
-        }
-    }
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }.collect { (scrolling, canForward) ->
-            if (!scrolling && !canForward) follow = true
-        }
-    }
-    LaunchedEffect(listState, follow) {
-        if (follow) {
-            snapshotFlow { listState.canScrollForward }.collect { canForward ->
-                if (canForward) listState.scrollToEnd()
-            }
-        }
-    }
+    val follow = rememberFollowBottom(listState)
     // 撤回的排队消息（点了它，或按了停止）：放回输入框，接在已有草稿前面
-    LaunchedEffect(conversation.recalled) {
-        val back = conversation.takeRecalled() ?: return@LaunchedEffect
-        val typed = input.text.toString()
-        input.setTextAndPlaceCursorAtEnd(listOf(back.text, typed).filter { it.isNotBlank() }.joinToString("\n"))
-        attachments.addAll(back.attachments.filter { a -> attachments.none { it.id == a.id } }.take(MaxAttachments - attachments.size))
-        back.files.forEach(uploads::addPath)
+    LaunchedEffect(conversation, conversation.recalled) {
+        conversation.takeRecalled()?.let(sink::putBack)
     }
     val streamingAnswers = remember(items) { items.mapNotNullTo(HashSet()) { (it as? AnswerItem)?.takeIf { answer -> answer.streaming }?.id } }
-    LaunchedEffect(streamingAnswers) { markdownCache.discardWhenUnused(streamingAnswers) }
-    // 编辑、重新生成、删除一轮、分支
-    val actions = remember { MessageActions(hub, conversation, input, attachments, uploads, scope, context) }
+    LaunchedEffect(markdownCache, streamingAnswers) { markdownCache.discardWhenUnused(streamingAnswers) }
     SaveDraft(hub.drafts, draft, actions)
     val prompts = rememberPromptsUi(input)
     val turns = remember(items) { TurnIndex(turnActions(items)) }
     val shown = actions.visible(items)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
-    val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = { follow = false })
+    val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
     val leading = if (conversation.earlier != null) 1 else 0
     KeepReadingPosition(listState, shown.firstOrNull()?.id) { key -> shown.indexOfFirst { it.id == key }.let { if (it < 0) -1 else it + leading } }
     ChatFindDriver(
@@ -379,7 +353,7 @@ private fun ConversationBody(
         listState = listState,
         leading = leading,
         topInset = padding.calculateTopPadding(),
-        onJump = { follow = false },
+        onJump = follow::pause,
     )
     // 查找查整个对话：打开查找栏时把还没载入的更早记录一次载完（整份记录只读一遍），之后只在载入的内容里查。
     // 没读成就停下，查找栏里说明；点“更早的记录”那行重试成功后接着载
@@ -407,7 +381,7 @@ private fun ConversationBody(
                 )
                 else -> {
                     val last = items.last()
-                    val idleSeconds by produceState(0, conversation.busy, conversation.lastActivityAt) {
+                    val idleSeconds by produceState(0, conversation, conversation.busy, conversation.lastActivityAt) {
                         value = 0
                         while (conversation.busy) {
                             delay(1000)
@@ -429,7 +403,7 @@ private fun ConversationBody(
                                     skipped = earlier.skipped,
                                     state = conversation.earlierState,
                                     onLoad = {
-                                        follow = false
+                                        follow.pause()
                                         conversation.loadEarlier()
                                     },
                                 )
@@ -483,16 +457,13 @@ private fun ConversationBody(
                 }
             }
             androidx.compose.animation.AnimatedVisibility(
-                visible = !follow && listState.canScrollForward && items.isNotEmpty(),
+                visible = !follow.following && listState.canScrollForward && items.isNotEmpty(),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
                 enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
                 exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
             ) {
                 // COUI 17 的浮动圆形按钮（顶栏按钮那种材质：阴影、边缘光、按压回弹）
-                IconActionButton(ZetaIcons.ArrowDown, "回到底部", iconModifier = Modifier.size(18.dp)) {
-                    follow = true
-                    scope.launch { listState.scrollToEnd() }
-                }
+                IconActionButton(ZetaIcons.ArrowDown, "回到底部", iconModifier = Modifier.size(18.dp), onClick = follow::resume)
             }
         }
         if (find.active) {
@@ -516,8 +487,8 @@ private fun ConversationBody(
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         ) {
-            var viewingScreen by remember { mutableStateOf(false) }
-            var viewingUsage by remember { mutableStateOf(false) }
+            var viewingScreen by remember(conversation) { mutableStateOf(false) }
+            var viewingUsage by remember(conversation) { mutableStateOf(false) }
             // 顶部胶囊正显示这个对话时，后台屏幕在胶囊里看和接管，这里不再重复一条
             if (hub.overlayFocus !== conversation.overlay) {
                 BackgroundScreenStrip(phone = conversation.phone, onOpen = { viewingScreen = true }, modifier = Modifier.padding(bottom = 6.dp))
@@ -555,7 +526,7 @@ private fun ConversationBody(
                 onRemoveFile = { uploads.remove(it) },
                 onSlashTyped = conversation::prepare,
                 onSend = { text ->
-                    follow = true
+                    follow.resume()
                     if (actions.editing == null) {
                         conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
                     } else if (!actions.submitEdit(text, attachments.toList(), uploads.mapNotNull { it.path })) {
@@ -656,12 +627,6 @@ private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = M
         Spacer(Modifier.height(12.dp))
         TextButton(text = "仍要在这里继续", onClick = onTakeOver)
     }
-}
-
-/** 滚到内容的最底端。只定位到最后一项不够：它比一屏还高时会停在它的顶部。 */
-private suspend fun LazyListState.scrollToEnd() {
-    scrollToItem((layoutInfo.totalItemsCount - 1).coerceAtLeast(0))
-    scrollBy(1_000_000f)
 }
 
 /**

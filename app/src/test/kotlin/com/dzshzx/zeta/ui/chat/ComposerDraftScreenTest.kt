@@ -82,6 +82,26 @@ class ComposerDraftScreenTest : ShotTest() {
     }
 
     @Test
+    fun draftsDoNotLeakBetweenConversations() {
+        val hub = Fixtures.readyHub(app)
+        compose.runOnUiThread { hub.openSession("s-a") }
+        show(hub)
+        compose.onNode(hasSetTextAction()).performTextInput("甲的草稿")
+
+        // 直接换到另一个会话：输入栏是它自己的，不带着上一个对话的字
+        compose.runOnUiThread { hub.openSession("s-b") }
+        compose.waitForIdle()
+        compose.onAllNodesWithText("甲的草稿").assertCountEquals(0)
+        compose.onNode(hasSetTextAction()).performTextInput("乙的草稿")
+
+        compose.runOnUiThread { hub.openSession("s-a") }
+        compose.waitForIdle()
+        compose.onNode(hasSetTextAction()).assertTextEquals("甲的草稿")
+        assertEquals("甲的草稿", storedText("s-a"))
+        assertEquals("乙的草稿", storedText("s-b"))
+    }
+
+    @Test
     fun typingIsSavedAfterAPause() {
         val hub = Fixtures.readyHub(app)
         compose.runOnUiThread { hub.openSession("s-a") }

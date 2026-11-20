@@ -3,21 +3,20 @@ package com.dzshzx.zeta.ui.chat
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
+import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileLimits
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeParser
+import com.dzshzx.zeta.core.QueuedMessage
 import com.dzshzx.zeta.core.Uploads
 import com.dzshzx.zeta.core.dropIntake
 import com.dzshzx.zeta.core.intakeTarget
@@ -36,7 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 输入栏这一头：把送进来的东西（[Intake]）和附件菜单里选的图片、文件放进输入栏。
+ * 输入栏这一头：把送进来的东西（[Intake]）、附件菜单里选的图片和文件、撤回的排队消息放进这个对话的草稿 [draft]。
  * 文字接在草稿后面；图片做成图片附件，放不下的、读不了的当文件；别的文件复制进 Linux。
  * 太大的文件不收，没收的和原因攒在 [problems] 里，由 [IntakeProblemsDialog] 告诉用户。
  */
@@ -45,11 +44,13 @@ internal class IntakeSink(
     private val hub: ConversationHub,
     private val context: Context,
     private val scope: CoroutineScope,
-    private val input: TextFieldState,
-    private val attachments: SnapshotStateList<Attachment>,
-    private val uploads: SnapshotStateList<FileUpload>,
+    private val draft: ComposerDraft,
     private val maxImages: Int,
 ) {
+    private val input get() = draft.input
+    private val attachments get() = draft.attachments
+    private val uploads get() = draft.uploads
+
     /** 没有加进来的东西和原因，一条一句。 */
     var problems by mutableStateOf<List<String>>(emptyList())
         private set
@@ -79,6 +80,14 @@ internal class IntakeSink(
             }
         }
         if (intake.uris.isNotEmpty()) addFiles(intake.uris.map(Uri::parse))
+    }
+
+    /** 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的。 */
+    fun putBack(message: QueuedMessage) {
+        val typed = input.text.toString()
+        input.setTextAndPlaceCursorAtEnd(listOf(message.text, typed).filter { it.isNotBlank() }.joinToString("\n"))
+        attachments.addAll(message.attachments.filter { a -> attachments.none { it.id == a.id } }.take(maxImages - attachments.size))
+        message.files.forEach(uploads::addPath)
     }
 
     /** 文字接在草稿后面；太长的存成文本文件当附件，免得把输入框撑爆。 */

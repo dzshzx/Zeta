@@ -2,15 +2,14 @@ package com.dzshzx.zeta.shots
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.test.isDialog
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileLimits
 import com.dzshzx.zeta.core.Intake
@@ -73,7 +72,7 @@ class IntakeShots : ShotTest() {
     private fun Problems(hub: ConversationHub) {
         val scope = rememberCoroutineScope()
         val sink = remember {
-            IntakeSink(hub, hub.context, scope, TextFieldState(), mutableStateListOf(), mutableStateListOf(), maxImages = 4).also {
+            IntakeSink(hub, hub.context, scope, ComposerDraft(), maxImages = 4).also {
                 it.force(
                     "problems",
                     listOf(

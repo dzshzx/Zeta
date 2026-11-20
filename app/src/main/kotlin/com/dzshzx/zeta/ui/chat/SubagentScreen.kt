@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -125,15 +124,9 @@ internal fun SubagentPage(
     val prompt = log.prompt ?: input?.str("prompt")
     val listState = rememberLazyListState()
     val markdownCache = remember { StreamingMarkdownStateCache() }
-    // 拉到底以后跟着新步骤走，往上翻就不跟了
-    var follow by remember { mutableStateOf(false) }
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }.collect { (scrolling, more) -> if (scrolling) follow = !more }
-    }
+    // 一开始停在概要上；拉到底以后跟着新步骤走，往上翻就不跟了
+    rememberFollowBottom(listState, following = false)
     val items = log.items
-    LaunchedEffect(items.size, log.running) {
-        if (follow && items.isNotEmpty()) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
-    }
     CouiPage(title = "子代理", onBack = onBack, listState = listState) {
         item(key = "info") {
             PreferenceGroup {

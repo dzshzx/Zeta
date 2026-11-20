@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -19,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
+import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileUpload
@@ -82,17 +81,19 @@ internal class TurnIndex(list: List<TurnActions>) {
 /** 等确认的重新生成（[regenerate]）或删除。 */
 internal class PendingConfirm(val turn: TurnActions, val regenerate: Boolean)
 
-/** 一个对话的消息操作状态：正在编辑哪条、在等哪个确认。随对话重建。 */
+/** 一个对话的消息操作状态：正在编辑哪条、在等哪个确认。编辑时借这个对话的输入栏草稿 [draft] 放被编辑的消息。随对话重建。 */
 @Stable
 internal class MessageActions(
     private val hub: ConversationHub,
     private val conversation: Conversation,
-    private val input: TextFieldState,
-    private val attachments: SnapshotStateList<Attachment>,
-    private val uploads: SnapshotStateList<FileUpload>,
+    private val draft: ComposerDraft,
     private val scope: CoroutineScope,
     private val context: Context,
 ) {
+    private val input get() = draft.input
+    private val attachments get() = draft.attachments
+    private val uploads get() = draft.uploads
+
     /** 正在编辑的那一轮。 */
     var editing by mutableStateOf<TurnActions?>(null)
         private set
@@ -101,9 +102,9 @@ internal class MessageActions(
         private set
 
     /** 开始编辑前输入框里的东西，取消编辑时放回去。 */
-    private class Draft(val text: String, val attachments: List<Attachment>, val uploads: List<FileUpload>)
+    private class Saved(val text: String, val attachments: List<Attachment>, val uploads: List<FileUpload>)
 
-    private var draft: Draft? = null
+    private var saved: Saved? = null
 
     /** 编辑时只显示到被编辑的那条为止：发出后它和之后的内容都会被替换（照 Eta）。 */
     fun visible(items: List<com.dzshzx.zeta.core.ChatItem>): List<com.dzshzx.zeta.core.ChatItem> {
@@ -115,7 +116,7 @@ internal class MessageActions(
     fun beginEdit(turn: TurnActions) {
         if (!conversation.canRewind) return
         if (editing != null) cancelEdit()
-        draft = Draft(input.text.toString(), attachments.toList(), uploads.toList())
+        saved = Saved(input.text.toString(), attachments.toList(), uploads.toList())
         editing = turn
         input.setTextAndPlaceCursorAtEnd(turn.user.text)
         attachments.clear()
@@ -131,14 +132,14 @@ internal class MessageActions(
     }
 
     fun cancelEdit() {
-        val saved = draft ?: return
+        val before = saved ?: return
         editing = null
-        draft = null
-        input.setTextAndPlaceCursorAtEnd(saved.text)
+        saved = null
+        input.setTextAndPlaceCursorAtEnd(before.text)
         attachments.clear()
-        attachments.addAll(saved.attachments)
+        attachments.addAll(before.attachments)
         uploads.clear()
-        uploads.addAll(saved.uploads)
+        uploads.addAll(before.uploads)
     }
 
     /** 发出改好的消息。现在还不能改写（这一轮没结束之类）时返回 false，内容留给输入框。 */
@@ -149,7 +150,7 @@ internal class MessageActions(
             return false
         }
         editing = null
-        draft = null
+        saved = null
         conversation.rewrite(turn.user, text, attachments, files)
         return true
     }
