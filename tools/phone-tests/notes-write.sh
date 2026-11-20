@@ -12,7 +12,6 @@ mark="Zeta 测试 $(date +%m%d-%H%M%S)"
 id='' title='' turns=0 TEXT='' FAILED=''
 
 # 工具结果的文字：出错时 content 是一段文字，成功时是 [{type: text, text}]
-TEXT_OF='.message.content[0].content | if type == "string" then . else ([.[]? | .text // empty] | join("\n")) end'
 
 # turn <名字> <手机工具步骤的 JSON 数组> <存到哪>：跑一轮假 Claude，这一轮各次工具结果的文字依次存进文件；
 # TEXT、FAILED 是最后一次的文字和是否出错

@@ -102,6 +102,11 @@ control_errors() {
 
 # 工具结果的文字：出错时 content 是一段文字，成功时是 [{type: text, text}]
 TEXT_OF='.message.content[0].content | if type == "string" then . else ([.[]? | .text // empty] | join("\n")) end'
+# 一条工具结果投影成 {text, error}
+RESULT_OF="{text: ($TEXT_OF), error: (.message.content[0].is_error // false)}"
+
+# 前台的 Activity（「包名/类名」），不在前台时空
+resumed() { android "dumpsys activity activities | grep -E 'ResumedActivity'" | grep -o "$PKG/[A-Za-z0-9_.]*" | head -1; }
 
 # fake_turn <名字（ASCII）> <标题> <步骤的 JSON 数组>：跑一轮假 Claude（步骤后面补一句「好了。」），等它跑完（最多 FAKE_TURN_WAIT 秒，
 # 默认 120），这一轮的工具结果按顺序一行一个写进 results-<名字>.jsonl（{text, error}）；result_text、result_error 按序号取。
@@ -115,7 +120,7 @@ fake_turn() {
   send "$name"
   wait_result $FAKE_TURNS "${FAKE_TURN_WAIT:-120}" || return 1
   android "grep '\"type\":\"tool_result\"' $log | tail -n +$((${before:-0} + 1))" |
-    jq -c "{text: ($TEXT_OF), error: (.message.content[0].is_error // false)}" >"results-$name.jsonl"
+    jq -c "$RESULT_OF" >"results-$name.jsonl"
 }
 
 # result_text <名字> <第几个，从 1 起>、result_error <名字> <第几个>：fake_turn 那一轮第 n 个工具结果的文字、是否出错

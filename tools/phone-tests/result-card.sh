@@ -97,6 +97,6 @@ case $CLOSE in
     gone open
     sleep 2
     vd shot back.png
-    android "dumpsys activity activities | grep -E 'ResumedActivity' | grep '$PKG' | head -3"
+    echo "前台：$(resumed)"
     ;;
 esac

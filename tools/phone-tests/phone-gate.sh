@@ -34,7 +34,7 @@ wait_results() {
 }
 # 最后一个工具结果（最近写过的那份日志里）：文字和是否出错
 last_result() {
-  android "grep '\"type\":\"tool_result\"' \$(ls -t $HOSTS/*/out.jsonl | head -n 1) | tail -n 1" | jq -c "{text: ($TEXT_OF), error: (.message.content[0].is_error // false)}"
+  android "grep '\"type\":\"tool_result\"' \$(ls -t $HOSTS/*/out.jsonl | head -n 1) | tail -n 1" | jq -c "$RESULT_OF"
 }
 
 # ui_find <说明或文字的正则>：测试屏上（含悬浮层）第一个 content-desc 或 text 对得上的控件的中心，“x y”；找不到时空

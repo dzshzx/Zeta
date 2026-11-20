@@ -5,6 +5,7 @@
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/settings-pages.sh
 # 每一步截一张图（编号在文件名前面），看停在哪一页；进程没了、界面不在前台，或该换页时画面没变，就失败。
 set -euo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 COMPONENT=$PKG/com.dzshzx.zeta.ui.MainActivity
 EXTRA=com.dzshzx.zeta.extra.SETTINGS_PAGE
@@ -18,7 +19,7 @@ step() {
   shot=$(printf '%02d-%s.png' "$n" "$1")
   vd shot "$shot" >/dev/null
   android "pidof $PKG" >/dev/null || { echo "$PKG 不在跑了（$shot）"; exit 1; }
-  android "dumpsys activity activities | grep -E 'ResumedActivity'" | grep -q "$PKG/" || { echo "Zeta 不在前台（$shot）"; exit 1; }
+  [[ $(resumed) == "$PKG/"* ]] || { echo "Zeta 不在前台（$shot）"; exit 1; }
   if [[ ${2:-} != same && -n $last ]] && cmp -s "$last" "$shot"; then
     echo "画面没变：$last → $shot"
     exit 1

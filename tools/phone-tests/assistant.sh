@@ -8,6 +8,7 @@
 # 不点建议问题：ASSIST 这条路没有截图，问「这页讲了什么」时 Claude 会用手机工具去读主屏，那是用户正在用的屏幕。
 # 也不点输入框：测试屏上弹的键盘会弹到用户的主屏上。所以用 ASSIST 的 query 预填一个不用工具的问题，只点发送键。
 set -euo pipefail
+. "$ZETA_ROOT/tools/phone-tests/lib.sh"
 ROOTFS=/data/local/zeta/debian/rootfs
 MARK=/data/local/tmp/zeta-assistant-test.mark
 QUESTION='Reply with the single word OK. Do not use any tools.'
@@ -36,7 +37,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-resumed() { android "dumpsys activity activities | grep -E 'ResumedActivity|topResumedActivity'" | grep -o "$PKG/[A-Za-z0-9_.]*" | head -1; }
 
 echo "== 注册"
 android "cmd package query-services --components -a android.service.voice.VoiceInteractionService" | tee vis.txt | grep -q "$PKG/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"
