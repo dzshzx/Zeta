@@ -79,6 +79,12 @@ class Conversation(
     }
     var items by mutableStateOf<List<ChatItem>>(emptyList())
         private set
+
+    /**
+     * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）；
+     * 另外自己发出、Claude Code 还没取走的消息也算（result 来时还有排队的，Claude Code 会接着另起一轮）。
+     * 和 zeta_host.sh 的看门狗（turn_running）、zeta_helper.py 的 scan_host 同一口径，HostTurnTest 核对三处。
+     */
     var busy by mutableStateOf(false)
         private set
 

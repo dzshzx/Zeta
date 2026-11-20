@@ -563,7 +563,8 @@ def epoch_ms(stamp):
 
 def scan_host(directory):
     """读一个后台进程的输出日志：到第几行了、是哪个会话、这一轮是否还在进行、有没有等着用户批准的调用、
-    还有几个后台任务在跑，以及这些任务的事件（接上后重放给任务清单）。"""
+    还有几个后台任务在跑，以及这些任务的事件（接上后重放给任务清单）。
+    这一轮的起止和 zeta_host.sh 的 turn_running 同一口径：system init、command_lifecycle started 开始，result 结束，别的行不算。"""
     lines = 0
     session = None
     busy = False
@@ -582,8 +583,7 @@ def scan_host(directory):
                 break  # 还没写完的半行留给之后的跟读
             lines += 1
             if '"stream_event"' in line[:40]:
-                busy = True
-                continue
+                continue  # 回复的增量，量大，不解析
             try:
                 o = json.loads(line)
             except ValueError:
@@ -595,8 +595,7 @@ def scan_host(directory):
                 pending = None
             elif kind == "system":
                 mode = o.get("permissionMode") or mode
-                # 一轮结束后还会有 task_notification、background_tasks_changed、status 之类的收尾事件，
-                # 只有 init 表示新的一轮开始了（后台任务跑完后 Claude Code 自己起的一轮也以 init 开头）
+                # 后台任务跑完后 Claude Code 自己起的一轮也以 init 开头
                 if o.get("subtype") == "init":
                     busy = True
                 elif o.get("subtype") == "background_tasks_changed":
@@ -617,15 +616,13 @@ def scan_host(directory):
                     busy = True
             elif kind in ("assistant", "user"):
                 stamp = epoch_ms(o.get("timestamp")) or stamp
-                # 后台子代理的消息在主对话这一轮结束后还会陆续写进来，不代表这一轮还在进行
-                if not o.get("parent_tool_use_id"):
-                    busy = True
-                    if kind == "assistant":
-                        for block in (o.get("message") or {}).get("content") or []:
-                            if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") in TASK_TOOLS:
-                                calls[block.get("id")] = {"name": block.get("name"), "input": block.get("input")}
-                                if len(calls) > 64:
-                                    calls.pop(next(iter(calls)))
+                # 发起后台任务的调用只看主对话的（子代理内部的行带 parent_tool_use_id）
+                if kind == "assistant" and not o.get("parent_tool_use_id"):
+                    for block in (o.get("message") or {}).get("content") or []:
+                        if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") in TASK_TOOLS:
+                            calls[block.get("id")] = {"name": block.get("name"), "input": block.get("input")}
+                            if len(calls) > 64:
+                                calls.pop(next(iter(calls)))
                 if kind == "user" and pending is not None:
                     content = (o.get("message") or {}).get("content")
                     wanted = (pending.get("request") or {}).get("tool_use_id")
