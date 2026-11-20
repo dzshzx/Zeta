@@ -16,20 +16,27 @@ import androidx.compose.runtime.setValue
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import com.dzshzx.zeta.ui.components.SlideInPage
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
-/** 盖在聊天页上的一页。同一种页面在栈里只有一页。 */
+/** 盖在聊天页上的一页。同一种页面在栈里只有一页。界面重建时整个栈存成 JSON（见 [PageStack.Saver]）。 */
+@Serializable
 internal sealed interface AppPage {
-    data object Settings : AppPage
-    data object Linux : AppPage
-    data object Ssh : AppPage
-    data object Install : AppPage
-    data object Login : AppPage
+    @Serializable data object Settings : AppPage
+
+    @Serializable data object Linux : AppPage
+
+    @Serializable data object Ssh : AppPage
+
+    @Serializable data object Install : AppPage
+
+    @Serializable data object Login : AppPage
 
     /** 后台任务面板：[scope] 是对话的 key（只看它的），或 AllConversations。 */
-    data class Tasks(val scope: String) : AppPage
+    @Serializable data class Tasks(val scope: String) : AppPage
 
     /** 子代理查看页：哪个对话（key）里哪一步（tool_use id）发起的子代理。 */
-    data class Subagent(val conversation: String, val toolUse: String) : AppPage
+    @Serializable data class Subagent(val conversation: String, val toolUse: String) : AppPage
 }
 
 /**
@@ -66,32 +73,11 @@ internal class PageStack(pages: List<AppPage> = emptyList()) {
     }
 
     companion object {
-        /** 存整个栈：每页存成 [名字, 参数…]。 */
+        /** 整个栈存成一段 JSON；读不出来（比如存的是旧格式）就当没有开着的页。 */
         val Saver: Saver<PageStack, Any> = Saver(
-            save = { stack -> ArrayList(stack.pages.map { ArrayList(it.encode()) }) },
-            restore = { saved -> PageStack((saved as List<*>).mapNotNull { (it as? List<*>)?.filterIsInstance<String>()?.let(::decode) }) },
+            save = { stack -> Json.encodeToString(stack.pages) },
+            restore = { saved -> PageStack(runCatching { Json.decodeFromString<List<AppPage>>(saved as String) }.getOrDefault(emptyList())) },
         )
-
-        private fun AppPage.encode(): List<String> = when (this) {
-            AppPage.Settings -> listOf("settings")
-            AppPage.Linux -> listOf("linux")
-            AppPage.Ssh -> listOf("ssh")
-            AppPage.Install -> listOf("install")
-            AppPage.Login -> listOf("login")
-            is AppPage.Tasks -> listOf("tasks", scope)
-            is AppPage.Subagent -> listOf("subagent", conversation, toolUse)
-        }
-
-        private fun decode(parts: List<String>): AppPage? = when (parts.firstOrNull()) {
-            "settings" -> AppPage.Settings
-            "linux" -> AppPage.Linux
-            "ssh" -> AppPage.Ssh
-            "install" -> AppPage.Install
-            "login" -> AppPage.Login
-            "tasks" -> parts.getOrNull(1)?.let { AppPage.Tasks(it) }
-            "subagent" -> if (parts.size == 3) AppPage.Subagent(parts[1], parts[2]) else null
-            else -> null
-        }
     }
 }
 
