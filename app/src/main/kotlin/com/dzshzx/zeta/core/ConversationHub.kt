@@ -24,7 +24,11 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 应用级的单例：设置、历史会话列表、当前对话，以及仍在后台运行的对话。 */
+/**
+ * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉、接回进程），各会话的手机工具，界面前后台，
+ * 以及挂在它上面的几块：设置 [settings]、Linux 环境 [environment]、会话列表 [sessionList]、
+ * 胶囊与提醒 [alerts]、额度 [quota]、账号 [accounts]。Conversation 的事件（一轮结束、等确认、活动变化）先到这里，再分给它们。
+ */
 class ConversationHub(private val app: Application) {
     val context: Application get() = app
     val settings = Settings.of(app)
