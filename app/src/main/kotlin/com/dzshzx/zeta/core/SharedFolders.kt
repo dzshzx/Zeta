@@ -25,8 +25,8 @@ enum class SharedAccess { ReadWrite, ReadOnly, Denied, NotMounted }
  */
 object SharedFolders {
     /**
-     * 挂载点建在 Zeta 自己的 rootfs 里。不放在 /workspace 下：那是 Android 的 /data/local/tmp/eta 绑过去的，
-     * Eta 的环境也用它的 mounts 目录，重名会互相挡住，移除时还会删到 Eta 的挂载点。
+     * 挂载点建在 Zeta 自己的 rootfs 里。不放在 /workspace 下：那是用户的工作区（Android 的 /data/local/tmp/eta 绑过去的），
+     * 挂载点不该和用户的文件混在一起。
      */
     const val LINUX_ROOT = "/mnt/shared"
     const val MAX = 16

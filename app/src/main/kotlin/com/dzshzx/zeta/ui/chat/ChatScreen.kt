@@ -170,6 +170,7 @@ internal fun ChatScreen(
         ) {
             CompositionLocalProvider(LocalPageBackdrop provides backdrop, LocalPopupMaterialBlur provides popupBlur) {
                 when (hub.setup) {
+                    // 换对话全靠这个 key 重建：ConversationBody 里草稿、消息操作等状态都是不带键的 remember，挪走它草稿会串到别的对话
                     SetupState.Ready -> key(conversation.key) {
                         CompositionLocalProvider(LocalTextFinder provides find) {
                             ConversationBody(hub, conversation, padding, listState, onOpenLogin, find, onOpenTasks, onOpenSubagent)
@@ -665,7 +666,7 @@ private suspend fun LazyListState.scrollToEnd() {
 
 /**
  * 顶栏中间：有标题时是“标题 + 模型”两行，新对话时是模型胶囊；点击弹出模型菜单。
- * 显示的是 [Conversation.shownModel]；模型由 Claude Code 照会话记录定时菜单里不勾哪一项。
+ * 显示的是 [Conversation.shownModel]。接旧会话又没在这个对话里选过模型时，模型由 Claude Code 照会话记录定，菜单不勾任何一项。
  */
 @Composable
 private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {

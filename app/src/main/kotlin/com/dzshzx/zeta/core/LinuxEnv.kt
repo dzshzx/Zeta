@@ -193,7 +193,7 @@ object LinuxEnv {
     }
 }
 
-/** 应用设置：Linux 环境、默认工作目录、默认模型。 */
+/** Zeta 自己的设置（SharedPreferences `zeta`）：Linux 环境、默认工作目录、界面与手机工具的各个开关。新对话的默认模型、思考强度和权限模式不在这里，用 Claude Code 自己的 settings.json。 */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("zeta", Context.MODE_PRIVATE)
 

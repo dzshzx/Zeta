@@ -225,7 +225,7 @@ private fun SettingsHome(
             }
         }
         item(key = "about") {
-            PreferenceGroup(title = "关于", footer = "界面基于 Eta 的 COUI 代码，按 GPL-3.0 授权。") {
+            PreferenceGroup(title = "关于", footer = "Markdown 渲染、侧栏和主题的代码来自 Eta，按 GPL-3.0 授权。") {
                 item {
                     BasicComponent(
                         title = "版本",

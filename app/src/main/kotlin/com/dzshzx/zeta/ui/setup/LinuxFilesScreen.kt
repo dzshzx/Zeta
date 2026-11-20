@@ -62,7 +62,7 @@ import com.dzshzx.zeta.core.LinuxPreview
 import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
 import com.dzshzx.zeta.ui.chat.ChatImage
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -341,7 +341,7 @@ private fun LazyListScope.previewItems(context: Context, shown: Previewing, cont
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(top = 4.dp, bottom = 10.dp)) {
             Text(
                 text = shown.path,
-                style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace),
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
                 color = COUITheme.colorScheme.labelSecondary,
             )
             Text(
@@ -392,7 +392,7 @@ private fun TextSlice(text: String, isFirst: Boolean, isLast: Boolean) {
         SelectionContainer {
             Text(
                 text = text,
-                style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 12.sp, lineHeight = 17.sp),
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 12.sp, lineHeight = 17.sp),
                 color = COUITheme.colorScheme.labelPrimary,
             )
         }
@@ -412,7 +412,7 @@ private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
     ) {
         Crumb("/", current = segments.isEmpty()) { onNavigate("/") }
         segments.forEachIndexed { index, segment ->
-            if (index > 0) Text("/", style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace), color = COUITheme.colorScheme.labelSecondary)
+            if (index > 0) Text("/", style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont), color = COUITheme.colorScheme.labelSecondary)
             val target = "/" + segments.take(index + 1).joinToString("/")
             Crumb(segment, current = index == segments.lastIndex) { onNavigate(target) }
         }
@@ -423,7 +423,7 @@ private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
 private fun Crumb(label: String, current: Boolean, onClick: () -> Unit) {
     Text(
         text = label,
-        style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),
+        style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
         color = if (current) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.primary,
         maxLines = 1,
         modifier = Modifier.clip(CircleShape).clickable(enabled = !current, onClick = onClick).padding(horizontal = 6.dp, vertical = 4.dp),

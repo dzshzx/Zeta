@@ -118,6 +118,11 @@ class PhoneTools(
     @Volatile private var seen: List<Seen> = emptyList()
     @Volatile private var latest: List<Seen> = emptyList()
     @Volatile private var replyId: String? = null
+
+    /**
+     * 三种同步各管一样：屏幕动作和用户在后台屏幕上的手势经 [lock] 互斥；暂停、接管时工具线程在 [gate] 前等；
+     * 界面要看的状态（mutableStateOf）只在主线程上改，工具线程经 [onMainAsync] 投递。
+     */
     private val lock = Any()
 
     /** 主屏的编号。平时是 0；调试时可以经设置指到别的屏上，免得测试打扰正在用手机的人。 */

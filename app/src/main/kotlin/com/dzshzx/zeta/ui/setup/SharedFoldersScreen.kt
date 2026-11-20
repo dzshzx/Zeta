@@ -38,7 +38,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SharedAccess
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
@@ -305,7 +305,7 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
         }
         Text(
             text = "挂载目录：" + current.path,
-            style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace),
+            style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
             color = colors.labelSecondary,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -342,7 +342,7 @@ private fun PickerRow(label: String, onClick: () -> Unit) {
         )
         Text(
             text = label,
-            style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),
+            style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
             color = COUITheme.colorScheme.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

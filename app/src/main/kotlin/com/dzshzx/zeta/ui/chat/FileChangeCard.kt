@@ -50,7 +50,7 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.LinkText
@@ -138,7 +138,7 @@ internal fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) 
 @Composable
 private fun ChangeCounts(change: FileChange) {
     val palette = rememberDiffPalette()
-    val style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+    val style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (change.added > 0 || change.removed == 0) Text("+${change.added}", style = style, color = palette.added)
         if (change.added > 0 && change.removed > 0) Spacer(Modifier.width(5.dp))
@@ -284,7 +284,7 @@ private fun HunkGap(palette: DiffPalette) {
  */
 @Composable
 private fun HunkText(lines: List<DiffLine>, numbered: Boolean, numberWidth: Int, palette: DiffPalette) {
-    val style = remember { TextStyle(fontFamily = EtaMonospace, fontSize = 11.5.sp, lineHeight = 17.sp) }
+    val style = remember { TextStyle(fontFamily = MonoFont, fontSize = 11.5.sp, lineHeight = 17.sp) }
     val gutter = remember(lines, numbered, numberWidth, palette) {
         buildAnnotatedString {
             lines.forEachIndexed { index, line ->

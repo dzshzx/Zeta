@@ -79,10 +79,10 @@ object HotspotHelper {
             })
         } else {
             // 别的应用（控制中心）开的热点，按请求停不一定对得上；先用按类型停的老接口，没有再按请求停
-            val legacy = runCatching {
+            val byType = runCatching {
                 TetheringManager::class.java.getMethod("stopTethering", Int::class.javaPrimitiveType).invoke(manager, TetheringManager.TETHERING_WIFI)
             }
-            if (legacy.isSuccess) done.countDown()
+            if (byType.isSuccess) done.countDown()
             else manager.stopTethering(request, direct, object : TetheringManager.StopTetheringCallback {
                 override fun onStopTetheringSucceeded() = done.countDown()
                 override fun onStopTetheringFailed(error: Int) {

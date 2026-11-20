@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.PageDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -89,7 +89,7 @@ private fun DetailBlock(text: String) {
     val colors = COUITheme.colorScheme
     Text(
         text = if (text.length > 4000) text.take(4000) + "\n…" else text,
-        style = COUITheme.textStyles.bodyXS.copy(fontFamily = EtaMonospace),
+        style = COUITheme.textStyles.bodyXS.copy(fontFamily = MonoFont),
         color = colors.labelPrimaryVariant,
         modifier = Modifier
             .fillMaxWidth()

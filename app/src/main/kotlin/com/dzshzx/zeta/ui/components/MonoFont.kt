@@ -6,11 +6,11 @@ import androidx.compose.ui.text.font.FontWeight
 import com.dzshzx.zeta.R
 
 /**
- * 随包的等宽字体。部分系统会把 [FontFamily.Monospace] 替换成比例字体，终端列宽与对齐随之失效；
- * 终端界面统一使用这份字体，CJK 等缺失字形由系统字体回退，网格对齐由按单元格绘制保证。
+ * 随包的等宽字体（JetBrains Mono），代码块、命令、路径、日志都用它。不用 [FontFamily.Monospace]：
+ * 部分系统会把它换成比例字体。CJK 等缺失字形由系统字体回退。
  * 采用无连字版本，避免 `->`、`!=` 在命令与代码里被合成单个字形。
  */
-internal val EtaMonospace = FontFamily(
+internal val MonoFont = FontFamily(
     Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
     Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
 )

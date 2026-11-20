@@ -43,7 +43,7 @@ import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.plainTerminalText
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.ui.chat.SubagentScreen
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -312,7 +312,7 @@ private fun TextBlock(title: String, text: String, mono: Boolean = false) {
                 Text(
                     text = text,
                     style = if (mono) {
-                        COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, lineHeight = 16.sp)
+                        COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 11.5.sp, lineHeight = 16.sp)
                     } else {
                         COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, lineHeight = 21.sp)
                     },

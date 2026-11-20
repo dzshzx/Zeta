@@ -26,10 +26,6 @@ import kotlinx.serialization.json.putJsonObject
 /** 回答进行中发出、Claude Code 还没取走的消息。 */
 class QueuedMessage(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>)
 
-/**
- * 一个对话：界面状态 + 背后的 Claude Code 进程。进程在第一次发送时才启动；
- * 历史对话用 `--resume` 接着原来的会话记录继续。状态只在主线程上改。
- */
 /** 追加给 Claude Code 的一句说明：让它知道对面是什么界面、怎样把图片给用户看。 */
 private const val ClientHint =
     "The user is reading this conversation in Zeta, a chat app on their Android phone. It renders Markdown. " +
@@ -37,6 +33,10 @@ private const val ClientHint =
         "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user taps them. " +
         "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."
 
+/**
+ * 一个对话：界面状态 + 背后的 Claude Code 进程。进程在第一次发送时才启动；
+ * 历史对话用 `--resume` 接着原来的会话记录继续。状态只在主线程上改。
+ */
 class Conversation(
     private val hub: ConversationHub,
     val cwd: String,

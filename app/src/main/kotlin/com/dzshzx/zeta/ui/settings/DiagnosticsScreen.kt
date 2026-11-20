@@ -35,7 +35,7 @@ import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
 import com.dzshzx.zeta.core.diag.Redact
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -325,7 +325,7 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
     CouiPage(title = if (file.kind == LogKind.Running) file.title.ifBlank { file.name } else file.name, onBack = onBack) {
         item(key = "info") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(top = 4.dp, bottom = 10.dp)) {
-                Text(text = file.path, style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace), color = COUITheme.colorScheme.labelSecondary)
+                Text(text = file.path, style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont), color = COUITheme.colorScheme.labelSecondary)
                 Text(
                     text = listOf(file.kind.label, DiagScripts.size(file.size), DiagEntries.shortTime(file.modified, zone)).joinToString(" · ") +
                         if (file.size > DiagScripts.TAIL_BYTES) " · 只显示最后 ${DiagScripts.TAIL_BYTES / 1024} KB" else "",
@@ -346,7 +346,7 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
                         SelectionContainer {
                             Text(
                                 text = part,
-                                style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 12.sp, lineHeight = 17.sp),
+                                style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 12.sp, lineHeight = 17.sp),
                                 color = COUITheme.colorScheme.labelPrimary,
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                             )

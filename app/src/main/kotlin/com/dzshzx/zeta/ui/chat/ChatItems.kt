@@ -59,7 +59,7 @@ import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -430,7 +430,7 @@ private fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
                     val shape = RoundedCornerShape(10.dp)
                     Text(
                         text = detail,
-                        style = COUITheme.textStyles.bodyS.copy(fontFamily = EtaMonospace, fontSize = 11.5.sp, lineHeight = 16.sp),
+                        style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 11.5.sp, lineHeight = 16.sp),
                         color = colors.labelPrimary.copy(alpha = 0.78f),
                         modifier = Modifier
                             .fillMaxWidth()

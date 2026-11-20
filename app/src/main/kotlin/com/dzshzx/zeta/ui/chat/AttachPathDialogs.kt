@@ -43,7 +43,7 @@ import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
@@ -303,7 +303,7 @@ private fun FolderAttachDialog(
             }
             Text(
                 text = status.first,
-                style = COUITheme.textStyles.bodyS.copy(fontFamily = if (resolution is Resolution.Ready) EtaMonospace else null),
+                style = COUITheme.textStyles.bodyS.copy(fontFamily = if (resolution is Resolution.Ready) MonoFont else null),
                 color = if (status.second) COUITheme.colorScheme.error else COUITheme.colorScheme.labelSecondary,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -455,7 +455,7 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
         Icon(imageVector = COUIIcons.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = COUITheme.colorScheme.primary)
         Text(
             text = label,
-            style = COUITheme.textStyles.bodyM.copy(fontFamily = EtaMonospace),
+            style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
             color = COUITheme.colorScheme.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

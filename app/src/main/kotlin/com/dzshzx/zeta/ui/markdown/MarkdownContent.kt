@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.R
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -295,7 +295,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
             Text(
                 text = block.language ?: stringResource(R.string.markdown_code_block),
                 style = COUITheme.textStyles.bodyXS.copy(
-                    fontFamily = if (block.language != null) EtaMonospace else null,
+                    fontFamily = if (block.language != null) MonoFont else null,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Medium,
                 ),

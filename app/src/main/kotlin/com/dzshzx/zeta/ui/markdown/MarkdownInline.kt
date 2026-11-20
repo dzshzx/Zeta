@@ -13,7 +13,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
@@ -267,7 +267,7 @@ internal class MarkdownInlineBuilder(
                             contentEnd = index,
                             nextIndex = index + 1,
                             style = SpanStyle(
-                                fontFamily = EtaMonospace,
+                                fontFamily = MonoFont,
                                 fontSize = 0.87.em,
                                 color = style.codeColor,
                                 background = style.codeBackground,
@@ -284,7 +284,7 @@ internal class MarkdownInlineBuilder(
     private fun AnnotatedString.Builder.appendCode(code: String) {
         withStyle(
             SpanStyle(
-                fontFamily = EtaMonospace,
+                fontFamily = MonoFont,
                 fontSize = 0.87.em,
                 color = style.codeColor,
                 background = style.codeBackground,

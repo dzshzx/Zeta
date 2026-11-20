@@ -195,8 +195,8 @@ fun ConversationSidePaneScaffold(
             }
         }
 
-        // NavDisplay 的退出条目在转场期间仍会保留组合；仅允许已稳定显示的首页
-        // 处理侧栏返回，避免它抢先消费二级页面的第一次返回事件。
+        // 只在聊天页已稳定显示（RESUMED）、上面没盖着别的页面（backHandlerEnabled）时用返回键收起侧栏，
+        // 免得抢在盖着的页面之前消费掉第一次返回。
         NavigationBackHandler(
             state = navigationEventState,
             isBackEnabled = isRevealed &&

@@ -125,7 +125,7 @@ internal object ScrollPlan {
      * 前进 / 后退没有方向，按控件的走向算：[horizontal] 是横着的列表（轮播、横向 RecyclerView，看 CollectionInfo 或类名得知），
      * 前进是向右；否则当作竖着的，前进是向下（大多数列表只报前进后退）。报了另一条轴的确切方向时不这样算。
      */
-    private fun legacy(actions: Set<Int>, direction: ScrollDirection, horizontal: Boolean): Int? {
+    private fun undirected(actions: Set<Int>, direction: ScrollDirection, horizontal: Boolean): Int? {
         if (direction.vertical == horizontal) return null
         if (actions.any { it in (if (direction.vertical) HORIZONTAL else VERTICAL) }) return null
         val wanted = if (direction.sign > 0) FORWARD else BACKWARD
@@ -137,7 +137,7 @@ internal object ScrollPlan {
         if (onlyOtherAxis(actions, direction)) return null
         exact(direction).takeIf { it in actions }?.let { return it }
         page(direction).takeIf { it in actions }?.let { return it }
-        return legacy(actions, direction, horizontal)
+        return undirected(actions, direction, horizontal)
     }
 
     /**
@@ -150,7 +150,7 @@ internal object ScrollPlan {
             onlyOtherAxis(actions, direction) -> 0
             exact(direction) in actions || exact(back) in actions -> 4
             page(direction) in actions || page(back) in actions -> 3
-            legacy(actions, direction, horizontal) != null || legacy(actions, back, horizontal) != null -> 2
+            undirected(actions, direction, horizontal) != null || undirected(actions, back, horizontal) != null -> 2
             else -> 0
         }
     }

@@ -9,7 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
-import com.dzshzx.zeta.ui.components.EtaMonospace
+import com.dzshzx.zeta.ui.components.MonoFont
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /** 正文与思考共用同一套渲染器，只在字号、墨色浓度与留白节奏上区分层级。 */
@@ -140,7 +140,7 @@ internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
             body = body,
             headings = headings,
             code = TextStyle(
-                fontFamily = EtaMonospace,
+                fontFamily = MonoFont,
                 fontSize = if (answer) 13.sp else 12.sp,
                 lineHeight = if (answer) 20.sp else 18.sp,
                 color = inlineCodeColor,
