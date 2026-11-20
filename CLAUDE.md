@@ -118,6 +118,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 权限模式（2.1.329，`UnattendedRulesContractTest` 钉住）：`set_permission_mode` 不等应答、紧接着发消息，这一轮就按新模式跑，每轮开头的 init 报的就是它。进程起的时候不带 `--allow-dangerously-skip-permissions` 就切不进 `bypassPermissions`（答 error，`bypass_not_launched`），所以 Zeta 起进程都带它；它本身不放行任何东西，实测带不带它发给模型的内容一样；模式怎么切，发给模型的工具名单和系统提示词也不变。系统提示词开头的计费标记跟着会话的第一条消息变，跨进程比对提示词时第一条要相同。
   - 默认值（2.1.329，同一个测试钉住）：不带 `--permission-mode`、`--model` 起的进程用 settings.json 的 `permissions.defaultMode`、`model`，initialize 的应答和 init 照实报。控制请求 `update_settings`（source `userSettings`，和 `/effort` 存为默认一样）把思考强度写进 `modelSettings.<模型的完整 ID>.effortLevel`。Zeta 新对话起进程都不带这三样，设置首页读写的就是这几个键；对话里选的只管那个对话，进程活多久它就管多久（接回进程时照 `hostModes` 恢复用户的模式）。
   - 会话记录的 `parentUuid` 不是一条直链：并行的工具调用各挂各的，从最后一行顺着往回走会漏掉步骤。
+  - 结束会话（2.1.329，`ClaudeCodeContractTest` 钉住）：-p 模式不认 `/exit`（答“isn't available in this environment”），对应的是控制请求 `end_session`：答 success，进行中的这一轮按打断收尾，SessionEnd hook 照跑（reason 是 `other`），输入管道开着也自己退出（闲着时退出码 0，停在半路是 1）。Zeta 结束进程都经 `zeta_host.sh stop` 发它，不退再 SIGTERM、SIGKILL；等待在单独的会话里，Zeta 被杀也做完。
   - 一轮进行中发来的消息也有自己的 command_lifecycle started，会在下一个工具边界并入这一轮，两条消息只出一个 `result`（2.1.329，`ClaudeCodeContractTest` 钉住；Zeta 的排队条和一轮的结束靠它）。`interrupt` 的回应会列出 `still_queued`；`cancel_async_message` 能撤回排队中的消息。
   - `result` 行的键序不固定，不一定以 `"type"` 开头；`result` 之后还会有 command_lifecycle、task_notification、background_tasks_changed 行。判断一轮的起止看最后一个开始或结束事件，不看最后一行。
   - 后台任务做完时，Claude Code 会自己起一轮：一条 `system init`，前面没有用户消息。Zeta 把空闲时收到的 init 当成新一轮开始。

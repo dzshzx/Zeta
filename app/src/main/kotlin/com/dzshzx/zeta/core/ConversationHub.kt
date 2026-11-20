@@ -278,6 +278,19 @@ class ConversationHub(private val app: Application) {
         prunePhones()
     }
 
+    /**
+     * 结束当前对话，和终端里的 /exit 一样（[Conversation.shutdown]）：在回答的这一轮、等确认的调用和后台任务一并停下，
+     * 会话记录留着，从会话列表打开还能接着聊。界面换成空的新对话。
+     * 和 [startNew] 的差别只在对话还在进行时：这里停掉，那边留在后台跑完。在主线程上调用。
+     */
+    fun endCurrent() {
+        val ending = current
+        parked.remove(ending)
+        ending.shutdown()
+        current = blank()
+        prunePhones()
+    }
+
     /** 换了环境（[EnvController.redetect]）：原来的会话都不再接着用，进程和后台屏幕一并收掉，换上一个空的新对话。在主线程上调用。 */
     internal fun dropConversations() {
         current.shutdown()

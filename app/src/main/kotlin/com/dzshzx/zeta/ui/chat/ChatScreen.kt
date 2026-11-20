@@ -80,6 +80,7 @@ import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
+import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
@@ -136,6 +137,8 @@ internal fun ChatScreen(
     val find = remember(conversation) { ChatFindState() }
     val listState = remember(conversation) { LazyListState() }
     val blur = rememberPageBlur()
+    // 结束还在进行的对话要先确认：会停掉在做的事
+    var confirmingEnd by remember(conversation) { mutableStateOf(false) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = colors.background,
@@ -150,6 +153,8 @@ internal fun ChatScreen(
                     listState = listState.takeIf { hub.environment.setup == SetupState.Ready },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
+                    onEnd = { if (conversation.active) confirmingEnd = true else hub.endCurrent() }
+                        .takeIf { hub.environment.setup == SetupState.Ready && (conversation.sessionId != null || conversation.items.isNotEmpty()) },
                     onOpenSettings = onOpenSettings,
                     onFind = find::open.takeIf { hub.environment.setup == SetupState.Ready && conversation.items.isNotEmpty() },
                 )
@@ -199,6 +204,18 @@ internal fun ChatScreen(
                     onAllow = { request, answers -> conversation.respond(request, allow = true, answers = answers) },
                     onDeny = { request -> conversation.respond(request, allow = false) },
                 )
+                ConfirmDialog(
+                    show = confirmingEnd,
+                    title = "结束这个对话？",
+                    summary = "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。",
+                    confirmText = "结束",
+                    destructive = true,
+                    onConfirm = {
+                        confirmingEnd = false
+                        if (hub.current === conversation) hub.endCurrent()
+                    },
+                    onDismissRequest = { confirmingEnd = false },
+                )
             }
         }
     }
@@ -219,6 +236,8 @@ private fun ChatTopBar(
     listState: LazyListState?,
     onOpenPane: () -> Unit,
     onNewChat: () -> Unit,
+    /** 结束当前对话；没有可结束的（空的新对话）时为 null。 */
+    onEnd: (() -> Unit)?,
     onOpenSettings: () -> Unit,
     onFind: (() -> Unit)?,
 ) {
@@ -244,7 +263,7 @@ private fun ChatTopBar(
             color = if (backdrop != null) Color.Transparent else colors.background,
             glow = glow,
             navigationIcon = { IconActionButton(COUIIcons.Sidebar, "历史对话", onClick = onOpenPane) },
-            actions = { OverflowMenu(onNewChat = onNewChat, onOpenSettings = onOpenSettings, onFind = onFind) },
+            actions = { OverflowMenu(onNewChat = onNewChat, onEnd = onEnd, onOpenSettings = onOpenSettings, onFind = onFind) },
         )
         // 标题位置：两边让出图标按钮，竖直方向和顶栏的 52dp 工具栏对齐
         Box(
@@ -695,14 +714,15 @@ private fun ChatHeader(conversation: Conversation, models: List<ModelOption>) {
     }
 }
 
-/** 顶栏右边的“更多”：新对话、在对话中查找、设置。 */
+/** 顶栏右边的“更多”：新对话、结束对话（终端里的 /exit）、在对话中查找、设置。 */
 @Composable
-private fun OverflowMenu(onNewChat: () -> Unit, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
+private fun OverflowMenu(onNewChat: () -> Unit, onEnd: (() -> Unit)?, onOpenSettings: () -> Unit, onFind: (() -> Unit)?) {
     TopBarMoreMenu(
         listOf(
             DropdownEntry(
                 items = listOf(
                     menuItem("新对话", ZetaIcons.NewChat, onNewChat),
+                    menuItem("结束对话", ZetaIcons.Exit, { onEnd?.invoke() }, enabled = onEnd != null),
                     menuItem("在对话中查找", COUIIcons.Search, { onFind?.invoke() }, enabled = onFind != null),
                     menuItem("设置", COUIIcons.Settings, onOpenSettings),
                 ),

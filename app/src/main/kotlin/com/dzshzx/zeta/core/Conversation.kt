@@ -863,7 +863,7 @@ class Conversation(
     /** 子代理在跑的话，这个对话不是在回答（前台的）就是有后台任务（后台的）。 */
     private fun publishSubagent(log: SubagentLog) = subagents.publish(log, active = process != null && (busy || backgroundTasks > 0))
 
-    /** 结束背后的进程（对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下）。 */
+    /** 结束背后的进程，等价于终端里的 /exit（[ClaudeProcess.stop]）。对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下。 */
     fun shutdown() {
         val current = process ?: return
         process = null

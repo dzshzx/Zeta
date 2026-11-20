@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
@@ -13,6 +15,7 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.voice.ReadAloud
+import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +30,33 @@ class ChatShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("改 README 的构建命令", oneTurn)
         shoot("chat", prepare = { onNodeWithText("已完成 3 个步骤").performClick() }) {
+            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        }
+    }
+
+    /** 顶栏的“更多”菜单：新对话、结束对话、在对话中查找、设置。 */
+    @Test
+    fun moreMenu() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("改 README 的构建命令", oneTurn)
+        shoot("chat-more-menu", prepare = { onNodeWithContentDescription("更多").performClick() }) {
+            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        }
+    }
+
+    /** 结束还在进行的对话：先确认，会停掉在做的事。 */
+    @Test
+    fun endRunningConversation() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("改 README 的构建命令", oneTurn)
+        hub.current.force("busy", true)
+        val prepare: AndroidComposeTestRule<*, *>.() -> Unit = {
+            onNodeWithContentDescription("更多").performClick()
+            mainClock.advanceTimeBy(500)
+            waitForIdle()
+            onNodeWithText("结束对话").performClick()
+        }
+        shoot("chat-end-confirm", prepare = prepare) {
             ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
         }
     }

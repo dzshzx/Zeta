@@ -21,7 +21,7 @@
 #   {"emit":{…}}                                  原样输出一行（没写 session_id 的补上），用来造后台任务之类的事件
 #   {"exit":1}                                    进程立即退出，测进程意外结束
 # 剧本用完后再来的消息按出错结束。流文字、停顿、等工具时都能被 interrupt 打断，收尾和真 Claude Code 一样。
-# 控制请求（initialize、get_context_usage、set_model 等）随到随答。一轮进行中发来的消息排队（command_lifecycle queued），
+# 控制请求（initialize、get_context_usage、set_model 等）随到随答；end_session 照真 Claude Code 结束会话：进行中的这一轮按打断收尾，然后退出。一轮进行中发来的消息排队（command_lifecycle queued），
 # 这一轮结束后另起一轮；真 Claude Code 会在下一个工具边界把它并进当前这一轮，这里不模拟。
 #
 # 在工作站上直接跑（测试用）：FAKE_CLAUDE_SCENARIO=<剧本> tools/fake-claude/fake-claude.sh -p …
@@ -71,7 +71,7 @@ case $SESSION in '' | *[!0-9a-fA-F-]*) SESSION='' ;; esac
 
 declare -A AWAIT=() RESP=()
 QUEUE=()
-BUF='' EOF='' BUSY='' INTERRUPTED='' TITLE=''
+BUF='' EOF='' BUSY='' INTERRUPTED='' ENDING='' END_REPLY='' TITLE=''
 
 # 读一行标准输入并处理，最多等 $1 毫秒
 poll() {
@@ -198,6 +198,14 @@ control() {
       fi
       ;;
     stop_task) out "$(reply "$rid" '{}')" ;;
+    end_session)
+      # 结束会话（Zeta 结束对话都先发它，等价于终端里的 /exit）：答 success（没有 response 一项），闲着的退出码 0；
+      # 这一轮进行中的照打断收尾，应答放在打断时答 interrupt 的位置（手机工具调用中先发 notifications/cancelled），收完退出码 1
+      value="{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":$(jq -nc --arg id "$rid" '$id')}}"
+      [ -n "$BUSY" ] || { out "$value"; exit 0; }
+      ENDING=1
+      if [ -n "$INTERRUPTED" ]; then out "$value"; else INTERRUPTED=end_session END_REPLY=$value; fi
+      ;;
     get_task_output) out "$(refuse "$rid" "get_task_output: no shell or Monitor task with that task_id in this session")" ;;
     *) out "$(refuse "$rid" "Unsupported control request subtype: $sub" unsupported_request)" ;;
   esac
@@ -459,11 +467,12 @@ step_error() {
 interrupted() {
   local tool_text='"The user doesn'"'"'t want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed. Correction to the text above: this call was stopped while running, not refused before it ran. It may have run in part or in full, and its changes may have been written. No permission prompt was involved. Work it started elsewhere (a remote command, a background process) may still be running, so check before starting the same work again. The instruction to stop and wait still stands."'
   local answer
-  answer=$(reply "$INTERRUPTED" "{\"still_queued\":$(queued_json)}")
+  answer=$END_REPLY
+  [ "$INTERRUPTED" = end_session ] || answer=$(reply "$INTERRUPTED" "{\"still_queued\":$(queued_json)}")
   case $PHASE in
     ask | tool)
       if [ "$PHASE" = ask ]; then
-        out "$answer"
+        [ -z "$answer" ] || out "$answer"
         out "{\"type\":\"control_cancel_request\",\"request_id\":\"$ASKED\"}"
         close_message '"tool_use"'
       else
@@ -471,14 +480,14 @@ interrupted() {
           uuid
           out "{\"type\":\"control_request\",\"request_id\":\"$U\",\"request\":{\"subtype\":\"mcp_message\",\"server_name\":\"phone\",\"message\":{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":$MCP_CALL,\"reason\":\"AbortError: remote-cancel\"}}}}"
         fi
-        out "$answer"
+        [ -z "$answer" ] || out "$answer"
       fi
       user "[{\"type\":\"tool_result\",\"content\":$tool_text,\"is_error\":true,\"tool_use_id\":\"$TOOL_ID\"}]"
       user '[{"type":"text","text":"[Request interrupted by user for tool use]"}]'
       result error_during_execution true '"tool_use"' aborted_tools ',"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use"]'
       ;;
     *)
-      out "$answer"
+      [ -z "$answer" ] || out "$answer"
       if [ -n "$STREAMING" ] && [ ${#PARTIAL[@]} -gt 0 ]; then
         local partial
         partial=$(printf '%s\n' "${PARTIAL[@]}" | jq -sc 'add')
@@ -569,6 +578,7 @@ turn() {
     lifecycle "$CMD" completed
   fi
   BUSY='' INTERRUPTED=''
+  [ -z "$ENDING" ] || exit 1
 }
 
 # ---- 启动：和真 Claude Code 一样先跟 Zeta 的 phone 服务器握手、取工具清单 ----

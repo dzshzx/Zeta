@@ -174,6 +174,13 @@ internal object ZetaIcons {
         }
     }
 
+    /** 门框加向外的箭头：结束对话（终端里的 /exit）。 */
+    val Exit: ImageVector by lazy {
+        icon {
+            line("M10 2.85H6.35a3.5 3.5 0 0 0-3.5 3.5v11.3a3.5 3.5 0 0 0 3.5 3.5H10M9.5 12h11.65M16.4 7.25 21.15 12l-4.75 4.75")
+        }
+    }
+
     /** 芯片：设备状况。 */
     val Chip: ImageVector by lazy {
         icon {

@@ -6,7 +6,7 @@
 #
 #   start  <标识> <工作目录> <标题> <claude 参数…>   启动并接上
 #   attach <标识> <从第几行开始读>                    接上一个已在运行的
-#   stop   <标识>                                     结束并清理
+#   stop   <标识>                                     结束会话（等价于终端里的 /exit）并清理，立即返回
 #   state  <标识>                                     看门狗眼里的样子：输出 turn=1 表示这一轮在进行，tasks=1 表示有后台任务在跑
 #
 # 目录按包分开：ZETA_NAME 是 Zeta 自己的目录名（正式版 zeta，测试版 zeta-dev），由应用进环境时传进来。
@@ -14,7 +14,7 @@
 #
 # 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；stop、接着的一方见到 exit、zeta_helper.py hosts 见到进程没了时删掉，
 # 存储页（zeta_helper.py clean）清掉进程和接着的一方都已不在的。
-#   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入转进来。
+#   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入转进来；stop 往里写 end_session。
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
 #              看门狗看这一轮和后台任务；zeta_helper.py hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              应用接回时据此建 HostInfo；zeta_helper.py 的存储页从开头取会话号。
@@ -58,14 +58,30 @@ if [ "$mode" = state ]; then
   exit 0
 fi
 
+# 结束会话：往输入管道写控制请求 end_session，由 Claude Code 自己结束，等价于终端里的 /exit（-p 模式不认 /exit）：
+# 进行中的这一轮停下，SessionEnd hook 照跑，会话记录留着（ClaudeCodeContractTest 钉住）。等它退出最多 10 秒，
+# 不退（卡住了）再 SIGTERM，还不退就 SIGKILL，然后删托管目录。等待和清理放在单独的会话（setsid）里，本命令写完请求就返回，
+# Zeta 这时被杀也照样做完。
 if [ "$mode" = stop ]; then
-  if [ -s "$D/pid" ]; then
-    P=$(cat "$D/pid")
-    kill "$P" 2>/dev/null
-    for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$P" 2>/dev/null || break; sleep 0.2; done
-    kill -9 "$P" 2>/dev/null
+  P=$(cat "$D/pid" 2>/dev/null)
+  if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then
+    # 管道由起进程的那段以读写方式一直开着，写不会卡住；那段刚好不在了时由 timeout 兜底
+    timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
+      '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$D/in" 2>/dev/null
   fi
-  rm -rf "$D"
+  setsid bash -c '
+    D=$1 P=$2
+    if [ -n "$P" ]; then
+      for _ in $(seq 50); do kill -0 "$P" 2>/dev/null || break; sleep 0.2; done
+      if kill "$P" 2>/dev/null; then
+        for _ in $(seq 25); do kill -0 "$P" 2>/dev/null || break; sleep 0.2; done
+        kill -9 "$P" 2>/dev/null
+      fi
+      # 等起进程的那段留下退出码和标准错误输出的副本（诊断页看）
+      for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
+    fi
+    rm -rf "$D"
+  ' zeta-stop "$D" "$P" </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 

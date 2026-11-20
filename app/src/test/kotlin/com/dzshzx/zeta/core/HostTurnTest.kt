@@ -314,7 +314,7 @@ class HostTurnTest {
         // 假的 claude：把参数逐行写到标准输出（就是 out.jsonl），然后一直读标准输入
         File(home, "bin/claude").apply {
             parentFile!!.mkdirs()
-            writeText("#!/bin/bash\nprintf '%s\\n' \"\$@\"\nwhile read -r line; do :; done\n")
+            writeText("#!/bin/bash\nprintf '%s\\n' \"\$@\"\nwhile read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done\n")
             setExecutable(true)
         }
         val out = Out("s-dog")

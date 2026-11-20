@@ -142,7 +142,7 @@ class ClaudeProcess(
     /** 还在等应答的、子类型为 [subtype] 的请求号；测试里扮 Claude Code 应答用。 */
     internal fun waitingFor(subtype: String): String? = requests.waitingFor(subtype)
 
-    /** 结束进程并清掉它的托管目录。 */
+    /** 结束会话并清掉它的托管目录：zeta_host.sh stop 发 end_session，由 Claude Code 自己退出（等价于终端里的 /exit），立即返回。 */
     fun stop() {
         closed = true
         requests.clear()

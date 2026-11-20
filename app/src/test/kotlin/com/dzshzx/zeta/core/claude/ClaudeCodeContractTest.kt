@@ -24,9 +24,9 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 工具权限页、自动标题和排队条依赖的 Claude Code 行为（2.1.327 实测，排队条那条 2.1.329），在这里钉住：升级 Claude Code 后跑一遍，
- * 变了就会失败，页面上那句说明（[ClaudePermissions.SEMANTICS]）、[com.dzshzx.zeta.core.AutoTitle] 和
- * [com.dzshzx.zeta.core.Conversation] 的排队跟着改。
+ * 工具权限页、自动标题、排队条和结束会话依赖的 Claude Code 行为（2.1.327 实测，排队条和结束会话那几条 2.1.329），在这里钉住：
+ * 升级 Claude Code 后跑一遍，变了就会失败，页面上那句说明（[ClaudePermissions.SEMANTICS]）、[com.dzshzx.zeta.core.AutoTitle]、
+ * [com.dzshzx.zeta.core.Conversation] 的排队和 zeta_host.sh 的 stop 跟着改。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱）：
  * 假模型按剧本调用工具，从下一次请求里的 tool_result 看结局；标题请求按系统提示认出来。
@@ -250,6 +250,9 @@ class ClaudeCodeContractTest {
             }
         }
 
+        /** 等进程自己退出（输入管道一直开着），最多 [seconds] 秒；退出了给退出码，没退是 null。 */
+        fun exitCode(seconds: Long): Int? = if (process.waitFor(seconds, TimeUnit.SECONDS)) process.exitValue() else null
+
         override fun close() {
             runCatching { process.outputStream.close() }
             if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly()
@@ -323,6 +326,54 @@ class ClaudeCodeContractTest {
      * 一轮进行中发来的消息（Zeta 的排队条）：它有自己的 command_lifecycle started，在工具边界并进这一轮，两条消息只出一个 result。
      * Conversation 据此在 started 时把排队的消息放进聊天记录，在 result 时只要没有还在排队的就算这一轮结束。
      */
+    /** settings.json：SessionEnd hook 把 Claude Code 交给它的输入（一行 JSON，带 reason）追加进 [log]。 */
+    private fun sessionEndHook(log: File) =
+        """{"hooks":{"SessionEnd":[{"hooks":[{"type":"command","command":"cat >> ${log.path}; echo >> ${log.path}"}]}]}}"""
+
+    private fun sessionEndReasons(log: File): List<String?> =
+        if (!log.exists()) emptyList() else log.readLines().filter { it.isNotBlank() }.map { (json.parseToJsonElement(it) as JsonObject).str("reason") }
+
+    private fun endSession(): JsonObject = buildJsonObject { put("subtype", "end_session") }
+
+    /**
+     * 控制请求 end_session 是 -p 模式下结束会话的入口，等价于终端里的 /exit（-p 模式不认 /exit，发了只答
+     * “/exit isn't available in this environment”）：答 success，输入管道一直开着也自己退出，退出码 0，SessionEnd hook 照跑
+     * （reason 是 other，-p 模式不报 prompt_input_exit）。zeta_host.sh stop 先发它。
+     */
+    @Test
+    fun endSessionExitsLikeExitCommand() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        val log = File(home, "session-end.log")
+        Claude("bypassPermissions", sessionEndHook(log)).use { claude ->
+            claude.turn("say hi")
+            assertEquals("success", claude.control(endSession()).str("subtype"))
+            assertEquals(0, claude.exitCode(15))
+            assertEquals(listOf("other"), sessionEndReasons(log))
+        }
+    }
+
+    /**
+     * 一轮进行中（工具在跑）收到 end_session：先答 success，不等工具跑完，这一轮按打断收尾（result 是 error_during_execution），
+     * 照样自己退出、跑 SessionEnd hook；退出码 1。
+     */
+    @Test
+    fun endSessionStopsTheRunningTurn() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        script = listOf(bash("timeout 60 tail -f /dev/null"))
+        val log = File(home, "session-end.log")
+        Claude("bypassPermissions", sessionEndHook(log)).use { claude ->
+            claude.user("44444444-2222-4333-8444-555555555555", "run the tools")
+            claude.until { o -> o.str("type") == "assistant" && "\"tool_use\"" in o.obj("message")?.get("content").toString() }
+            val asked = System.currentTimeMillis()
+            claude.send(buildJsonObject { put("type", "control_request"); put("request_id", "end"); put("request", endSession()) })
+            val result = claude.until { it.str("type") == "result" }.last()
+            assertEquals("error_during_execution", result.str("subtype"))
+            assertEquals(1, claude.exitCode(15))
+            assertTrue("没等工具跑完就退出", System.currentTimeMillis() - asked < 15_000)
+            assertEquals(listOf("other"), sessionEndReasons(log))
+        }
+    }
+
     @Test
     fun followUpJoinsTheRunningTurn() {
         assumeTrue("没有 claude 命令", claudeAvailable())

@@ -27,10 +27,10 @@ class FakeClaudeHostTest {
     fun setUp() {
         assumeTrue("要 Linux 的 /proc 和 bash、jq", File("/proc/self/cmdline").exists() && onPath("jq"))
         home = Files.createTempDirectory("zeta-fake").toFile().canonicalFile
-        // 真的 claude 用一个一直读标准输入的替身代替
+        // 真的 claude 用一个一直读标准输入的替身代替，和真的一样收到 end_session（stop 发的）就退出
         File(home, "bin/claude").apply {
             parentFile!!.mkdirs()
-            writeText("#!/bin/bash\nwhile read -r line; do :; done\n")
+            writeText("#!/bin/bash\nwhile read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done\n")
             setExecutable(true)
         }
     }

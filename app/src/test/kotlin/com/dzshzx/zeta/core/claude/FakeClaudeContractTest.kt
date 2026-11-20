@@ -63,6 +63,10 @@ class FakeClaudeContractTest {
         // 流到一半被打断；排队的消息撤回一条、打断后另一条接着跑
         Case("slow", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""")),
         Case("queue", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""", """{"steps":[$hello]}""")),
+        // 结束会话（end_session，Zeta 结束对话都先发它）：闲着时；流到一半；手机工具调用中
+        Case("end", listOf("""{"steps":[$hello]}""")),
+        Case("endslow", listOf("""{"steps":[{"text":"Hello from the fake API.","chunk":6,"delay":3000}]}""")),
+        Case("endtool", listOf("""{"steps":[{"text":"Opening it."},$openApp},$hello]}"""), "bypassPermissions"),
     )
 
     private fun onPath(command: String): Boolean {
@@ -87,6 +91,7 @@ class FakeClaudeContractTest {
             val (real, faked) = pair
             assertEquals("${case.mode}：一轮里的事件", real.turnShapes(), faked.turnShapes())
             assertEquals("${case.mode}：启动时的事件", real.startShapes(), faked.startShapes())
+            assertEquals("${case.mode}：退出码", real.exit, faked.exit)
             real.collectPaths(realPaths)
             faked.collectPaths(fakePaths)
         }
@@ -97,7 +102,7 @@ class FakeClaudeContractTest {
     }
 
     /** 一个进程的全部输出（按顺序）和驱动方发过的控制请求（请求号 → 子类型）。 */
-    private inner class Run(val events: List<JsonObject>, val requests: Map<String, String>) {
+    private inner class Run(val events: List<JsonObject>, val requests: Map<String, String>, val exit: Int? = null) {
         private val firstTurn = events.indexOfFirst { it.str("type") == "command_lifecycle" }.let { if (it < 0) events.size else it }
 
         private fun shapes(list: List<JsonObject>) = list.map { shape(it, requests) }.filterNot { it.endsWith(":get_usage") }
@@ -219,7 +224,7 @@ class FakeClaudeContractTest {
                 sse(ex, "message_delta", obj("delta" to obj("stop_reason" to stop, "stop_sequence" to null), "usage" to buildJsonObject { put("output_tokens", 20) }))
                 sse(ex, "message_stop", JsonObject(emptyMap()))
             }
-            if (results == 0 && mode in setOf("tool", "deny", "toolerr", "toolint")) {
+            if (results == 0 && mode in setOf("tool", "deny", "toolerr", "toolint", "endtool")) {
                 block(ex, 0, obj("type" to "text", "text" to ""), obj("type" to "text_delta", "text" to "Opening it."))
                 block(ex, 1, obj("type" to "tool_use", "id" to "toolu_fake1", "name" to "mcp__phone__open_app", "input" to JsonObject(emptyMap())),
                     obj("type" to "input_json_delta", "partial_json" to """{"app":"com.android.traceur"}"""))
@@ -242,7 +247,7 @@ class FakeClaudeContractTest {
                 sse(ex, "content_block_delta", obj("index" to JsonPrimitive(index), "delta" to obj("type" to "text_delta", "text" to part)))
                 Thread.sleep(50)
                 // 卡在第一段之后，等对方打断（断开连接时写会失败，或者到点）
-                if (mode == "slow" || (mode == "queue" && stalls.incrementAndGet() == 1)) {
+                if (mode == "slow" || mode == "endslow" || (mode == "queue" && stalls.incrementAndGet() == 1)) {
                     repeat(600) {
                         Thread.sleep(100)
                         ex.responseBody.write(": keep\n\n".toByteArray())
@@ -352,7 +357,7 @@ class FakeClaudeContractTest {
                             val text = obj("content" to buildJsonArray { add(obj("type" to "text", "text" to "Opened Traceur on the background screen.")) })
                             when (mode) {
                                 // 应答晚到，期间被打断
-                                "toolint" -> delayed.schedule(Runnable { reply(text) }, 3, TimeUnit.SECONDS)
+                                "toolint", "endtool" -> delayed.schedule(Runnable { reply(text) }, 3, TimeUnit.SECONDS)
                                 "toolerr" -> reply(obj("content" to buildJsonArray { add(obj("type" to "text", "text" to "No such app")) }, "isError" to JsonPrimitive(true)))
                                 else -> { Thread.sleep(300); reply(text) }
                             }
@@ -405,6 +410,16 @@ class FakeClaudeContractTest {
                     settle(1000)
                     control(obj("subtype" to "interrupt"))
                 }
+                "endslow" -> {
+                    until(30_000, firstDelta())
+                    settle(500)
+                    control(obj("subtype" to "end_session"))
+                }
+                "endtool" -> {
+                    until(30_000) { it.obj("request")?.obj("message")?.str("method") == "tools/call" }
+                    settle(1000)
+                    control(obj("subtype" to "end_session"))
+                }
                 "queue" -> {
                     until(30_000, firstDelta())
                     user("33333333-2222-4333-8444-555555555555", "B")
@@ -417,6 +432,15 @@ class FakeClaudeContractTest {
             }
             until(60_000, result())
             settle(1500)
+            if (mode == "end") {
+                until(20_000, response(control(obj("subtype" to "end_session"))))
+                settle(1500)
+            }
+            if (mode.startsWith("end")) {
+                // 输入管道一直开着，它自己退出
+                val exit = if (process.waitFor(15, TimeUnit.SECONDS)) process.exitValue() else null
+                return Run(events.toList(), requests.toMap(), exit ?: -1)
+            }
             if (mode == "text") {
                 for (request in listOf(
                     obj("subtype" to "generate_session_title", "description" to "User said hi and the assistant greeted back.", "persist" to JsonPrimitive(true)),
