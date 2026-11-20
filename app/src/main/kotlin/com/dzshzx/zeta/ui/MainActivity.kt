@@ -134,11 +134,9 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
             }
-            val creator = ActivityOptions.makeBasic().apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) pendingIntentCreatorBackgroundActivityStartMode = mode
-            }
+            val creator = ActivityOptions.makeBasic().apply { pendingIntentCreatorBackgroundActivityStartMode = mode }
             val sender = ActivityOptions.makeBasic().apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) pendingIntentBackgroundActivityStartMode = mode
+                pendingIntentBackgroundActivityStartMode = mode
                 if (displayId != 0) launchDisplayId = displayId
             }
             val pending = PendingIntent.getActivity(

@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -86,9 +85,7 @@ class ZetaRecognitionService : RecognitionService() {
         override fun onEndOfSpeech() { runCatching { callback.endOfSpeech() } }
         override fun onPartialResults(partialResults: Bundle) { runCatching { callback.partialResults(partialResults) } }
         override fun onSegmentResults(segmentResults: Bundle) { runCatching { callback.segmentResults(segmentResults) } }
-        override fun onLanguageDetection(results: Bundle) {
-            if (Build.VERSION.SDK_INT >= 34) runCatching { callback.languageDetection(results) }
-        }
+        override fun onLanguageDetection(results: Bundle) { runCatching { callback.languageDetection(results) } }
         override fun onEvent(eventType: Int, params: Bundle) = Unit
 
         override fun onError(error: Int) {

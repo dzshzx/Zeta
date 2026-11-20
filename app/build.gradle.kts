@@ -42,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId = "com.dzshzx.zeta"
-        minSdk = 33
+        minSdk = 35
         targetSdk = 37
         versionCode = commitCount
         versionName = versionLabel

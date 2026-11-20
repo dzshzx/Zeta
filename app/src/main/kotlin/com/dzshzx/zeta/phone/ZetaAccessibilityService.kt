@@ -13,7 +13,6 @@ import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.RectF
 import android.hardware.display.DisplayManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -95,16 +94,16 @@ class ZetaAccessibilityService : AccessibilityService() {
         readRoots(displayId).takeIf { it.isNotEmpty() }?.let { return it }
         // 应用在几块屏之间挪过以后，本地的窗口缓存可能还是旧的，读出来一个根节点都没有（系统那边窗口其实在）：
         // 清掉缓存再读一次
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || !runCatching { clearCache() }.getOrDefault(false)) return emptyList()
+        if (!runCatching { clearCache() }.getOrDefault(false)) return emptyList()
         return readRoots(displayId).also { if (it.isNotEmpty()) Log.i("ZetaPhone", "display $displayId: stale window cache cleared") }
     }
 
     /**
      * 丢掉本地的控件缓存，下次读的都是应用那边的最新状态。页面切换、返回的动画只挪窗口，不发内容变化的事件，
-     * 缓存里的位置会一直停在动画半路上（实测返回后整列控件偏出屏幕）。Android 14 以下没有这个接口，什么也不做。
+     * 缓存里的位置会一直停在动画半路上（实测返回后整列控件偏出屏幕）。
      */
     fun dropCache() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) runCatching { clearCache() }
+        runCatching { clearCache() }
     }
 
     /** 某块屏幕最上层的应用窗口属于哪个包（状态栏、输入法这些系统窗口不算）。读不到返回 null。 */
@@ -334,7 +333,6 @@ class ZetaAccessibilityService : AccessibilityService() {
 
     /** 逐窗口截图再拼起来，跳过 Zeta 自己的浮层。 */
     private fun compositeShot(displayId: Int, windows: List<AccessibilityWindowInfo>): Shot {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return Shot(null, retry = false)
         // 别的进程建的虚拟屏应用自己查不到尺寸：按各窗口的范围估
         val size = displaySize(displayId) ?: windows.fold(Rect()) { all, window ->
             all.apply { union(Rect().also(window::getBoundsInScreen)) }
