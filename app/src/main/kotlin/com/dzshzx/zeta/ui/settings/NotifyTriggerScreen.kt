@@ -33,6 +33,7 @@ import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.phone.InstalledApps
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -47,7 +48,6 @@ import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.couiPageScroll
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.InputView
@@ -175,7 +175,7 @@ internal fun NotifyTriggerScreen(hub: ConversationHub, onBack: () -> Unit, onOpe
     }
 
     val shown = rememberRetained(editing)
-    ConfigSubPage(visible = editing != null, onBack = { editing = null }) {
+    SlideInPage(visible = editing != null, onBack = { editing = null }) {
         shown?.let { target ->
             key(target) {
                 RuleEditor(
@@ -430,7 +430,7 @@ private fun RuleEditor(hub: ConversationHub, original: NotifyRule?, onBack: () -
     }
 
     val pickerShown = rememberRetained(picking.takeIf { it })
-    ConfigSubPage(visible = picking, onBack = { picking = false }) {
+    SlideInPage(visible = picking, onBack = { picking = false }) {
         if (pickerShown != null) {
             AppPicker(
                 current = draft.packageName,

@@ -33,6 +33,7 @@ import com.dzshzx.zeta.core.claude.replacePermissionRule
 import com.dzshzx.zeta.core.claude.setGroupPermission
 import com.dzshzx.zeta.core.claude.setToolPermission
 import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -281,7 +282,7 @@ internal fun ClaudePermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val shownServer = rememberRetained(detail)
-    ConfigSubPage(visible = detail != null, onBack = { detail = null }) {
+    SlideInPage(visible = detail != null, onBack = { detail = null }) {
         shownServer?.let { server ->
             McpPermissionDetail(hub = hub, server = server, rules = current, editable = editable, apply = apply, onBack = { detail = null })
         }

@@ -12,18 +12,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -63,6 +55,7 @@ import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.MonoFont
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -108,17 +101,10 @@ internal enum class LinuxFilesPage { Browser, Shared }
 internal fun LinuxFilesPages(hub: ConversationHub, page: LinuxFilesPage?, onClose: () -> Unit) {
     var last by remember { mutableStateOf(page ?: LinuxFilesPage.Browser) }
     page?.let { last = it }
-    AnimatedVisibility(
-        visible = page != null,
-        enter = slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(200)),
-        exit = slideOutHorizontally(tween(220)) { it / 3 } + fadeOut(tween(160)),
-    ) {
-        // 底下的 Linux 环境页还在；空的 pointerInput 让触摸不漏到它身上
-        Box(modifier = Modifier.fillMaxSize().pointerInput(Unit) {}) {
-            when (last) {
-                LinuxFilesPage.Browser -> LinuxFilesScreen(hub, onBack = onClose)
-                LinuxFilesPage.Shared -> SharedFoldersScreen(hub, onBack = onClose)
-            }
+    SlideInPage(visible = page != null) {
+        when (last) {
+            LinuxFilesPage.Browser -> LinuxFilesScreen(hub, onBack = onClose)
+            LinuxFilesPage.Shared -> SharedFoldersScreen(hub, onBack = onClose)
         }
     }
 }

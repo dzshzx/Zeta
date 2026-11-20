@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.Subagent
 import com.dzshzx.zeta.core.claude.SubagentDraft
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
@@ -171,7 +172,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val shownEditor = rememberRetained(editor)
-    ConfigSubPage(visible = editor != null, onBack = { editor = null }) {
+    SlideInPage(visible = editor != null, onBack = { editor = null }) {
         shownEditor?.let { target ->
             AgentEditor(
                 hub = hub,

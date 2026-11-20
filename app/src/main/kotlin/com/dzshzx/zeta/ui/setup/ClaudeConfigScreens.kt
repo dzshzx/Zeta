@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.clipChars
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
@@ -61,7 +62,6 @@ import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
-import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Card
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
@@ -106,21 +106,11 @@ internal fun CardListGroupScope.claudeConfigItems(ready: Boolean, onOpen: (Setti
 /** 这几个页面挂在设置页的子页面宿主上；返回键由设置页统一处理（关掉当前子页面）。 */
 @Composable
 internal fun ClaudeConfigPages(hub: ConversationHub, page: SettingsSubPage?, onClose: () -> Unit) {
-    SettingsSubPageHost(page == SettingsSubPage.ClaudeMemory) { ClaudeMemoryScreen(hub = hub, onBack = onClose) }
-    SettingsSubPageHost(page == SettingsSubPage.ClaudeSkills) { ClaudeSkillsScreen(hub = hub, onBack = onClose) }
-    SettingsSubPageHost(page == SettingsSubPage.ClaudeMcp) { ClaudeMcpScreen(hub = hub, onBack = onClose) }
-    SettingsSubPageHost(page == SettingsSubPage.ClaudeAgents) { ClaudeAgentsScreen(hub = hub, onBack = onClose) }
-    SettingsSubPageHost(page == SettingsSubPage.ClaudePermissions) { ClaudePermissionsScreen(hub = hub, onBack = onClose) }
-}
-
-/**
- * 页面里再往下的一层（记忆的编辑器、MCP 服务器详情、Subagent 编辑器），用设置页同一个子页面宿主。
- * 返回键：这里的处理器比设置页的晚注册，打开时先收到返回键，一层一层往回退。
- */
-@Composable
-internal fun ConfigSubPage(visible: Boolean, onBack: () -> Unit, content: @Composable () -> Unit) {
-    SettingsSubPageHost(visible, content)
-    BackHandler(enabled = visible, onBack = onBack)
+    SlideInPage(page == SettingsSubPage.ClaudeMemory) { ClaudeMemoryScreen(hub = hub, onBack = onClose) }
+    SlideInPage(page == SettingsSubPage.ClaudeSkills) { ClaudeSkillsScreen(hub = hub, onBack = onClose) }
+    SlideInPage(page == SettingsSubPage.ClaudeMcp) { ClaudeMcpScreen(hub = hub, onBack = onClose) }
+    SlideInPage(page == SettingsSubPage.ClaudeAgents) { ClaudeAgentsScreen(hub = hub, onBack = onClose) }
+    SlideInPage(page == SettingsSubPage.ClaudePermissions) { ClaudePermissionsScreen(hub = hub, onBack = onClose) }
 }
 
 @Composable

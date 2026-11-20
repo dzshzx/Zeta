@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.claude.McpServer
 import com.dzshzx.zeta.core.claude.McpState
 import com.dzshzx.zeta.core.claude.McpStatus
 import com.dzshzx.zeta.core.claude.McpTool
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -216,7 +217,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val shown = rememberRetained(detail)
-    ConfigSubPage(visible = detail != null, onBack = { detail = null }) {
+    SlideInPage(visible = detail != null, onBack = { detail = null }) {
         shown?.let { server ->
             McpServerDetail(
                 hub = hub,

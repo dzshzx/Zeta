@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
 import com.dzshzx.zeta.ui.chat.severityColor
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -189,7 +190,7 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 item(key = "problem") { PagerFooterPreference(summary = problem, summaryColor = COUITheme.colorScheme.error) }
             }
         }
-        SettingsSubPageHost(adding) {
+        SlideInPage(adding) {
             LoginScreen(hub = hub, onBack = { adding = false })
         }
     }

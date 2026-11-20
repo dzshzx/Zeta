@@ -36,6 +36,7 @@ import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
 import com.dzshzx.zeta.core.diag.Redact
 import com.dzshzx.zeta.ui.components.MonoFont
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -46,7 +47,6 @@ import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
-import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -197,10 +197,10 @@ internal fun DiagnosticsScreen(
     }
 
     val shown = rememberRetained(page)
-    ConfigSubPage(visible = page == DiagPage.Log, onBack = { page = null }) {
+    SlideInPage(visible = page == DiagPage.Log, onBack = { page = null }) {
         DiagLogPage(entries = entries, onBack = { page = null })
     }
-    ConfigSubPage(visible = page is DiagPage.File, onBack = { page = null }) {
+    SlideInPage(visible = page is DiagPage.File, onBack = { page = null }) {
         (shown as? DiagPage.File)?.let { LogTailPage(it.file, tailLoader, onBack = { page = null }) }
     }
 }

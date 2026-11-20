@@ -25,6 +25,7 @@ import com.dzshzx.zeta.core.StorageGroup
 import com.dzshzx.zeta.core.StorageKind
 import com.dzshzx.zeta.core.StorageReport
 import com.dzshzx.zeta.core.StorageUsage
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -36,7 +37,6 @@ import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.pane.lookupSessions
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
-import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
@@ -174,7 +174,7 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
     )
 
     val shownProject = rememberRetained(project)
-    ConfigSubPage(visible = project != null, onBack = { project = null }) {
+    SlideInPage(visible = project != null, onBack = { project = null }) {
         shownProject?.let { item ->
             ProjectSessionsScreen(hub = hub, project = item, onBack = { project = null }, onRevealSession = onRevealSession)
         }

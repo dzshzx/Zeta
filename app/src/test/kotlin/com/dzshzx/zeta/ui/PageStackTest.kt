@@ -99,6 +99,18 @@ class PageStackTest {
     }
 
     @Test
+    fun touchesDoNotLeakToThePageBelow() {
+        val stack = PageStack(listOf(AppPage.Settings))
+        val hits = mutableListOf<AppPage>()
+        compose.setContent {
+            Host(stack) { page -> if (page == AppPage.Settings) Box(Modifier.fillMaxSize().clickable { hits += page }) }
+        }
+        compose.runOnIdle { stack.open(AppPage.Linux) }
+        compose.onRoot().performClick()
+        assertEquals(emptyList<AppPage>(), hits)
+    }
+
+    @Test
     fun pagesBelowTheTopDoNotTakeTheBackKey() {
         // 设置页开着子页时又开了 Linux 环境页：返回键关 Linux 环境页，不去关压在下面的子页
         val stack = PageStack()

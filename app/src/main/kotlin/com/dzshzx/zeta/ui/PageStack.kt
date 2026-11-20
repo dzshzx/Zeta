@@ -1,12 +1,6 @@
 package com.dzshzx.zeta.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import com.dzshzx.zeta.ui.components.SlideInPage
 
 /** 盖在聊天页上的一页。同一种页面在栈里只有一页。 */
 internal sealed interface AppPage {
@@ -144,11 +139,7 @@ internal fun PageStackHost(stack: PageStack, page: @Composable (AppPage) -> Unit
             if (visibility.isIdle && !visibility.currentState) LaunchedEffect(Unit) { shown = shown - entry }
             val back = rememberNavigationEventDispatcherOwner(enabled = entry == top)
             CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides back) {
-                AnimatedVisibility(
-                    visibleState = visibility,
-                    enter = slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(200)),
-                    exit = slideOutHorizontally(tween(220)) { it / 3 } + fadeOut(tween(160)),
-                ) { page(entry) }
+                SlideInPage(visibility) { page(entry) }
             }
         }
     }

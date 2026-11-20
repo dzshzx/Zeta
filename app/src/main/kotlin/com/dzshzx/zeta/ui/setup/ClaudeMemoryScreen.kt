@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.MemoryEntry
 import com.dzshzx.zeta.core.claude.MemoryOverview
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -178,7 +179,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val target = rememberRetained(editing)
-    ConfigSubPage(visible = editing != null, onBack = { editing = null }) {
+    SlideInPage(visible = editing != null, onBack = { editing = null }) {
         target?.let { t ->
             ConfigDocumentEditor(
                 client = client,

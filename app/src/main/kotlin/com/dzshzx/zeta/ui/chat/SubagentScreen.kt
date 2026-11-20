@@ -35,13 +35,13 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
-import com.dzshzx.zeta.ui.setup.ConfigSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
@@ -104,7 +104,7 @@ internal fun SubagentScreen(hub: ConversationHub, conversationKey: String, toolU
     SubagentPage(log, conversation.agentCall(toolUseId), onBack, imagesOf, onOpenSubagent = { nested = it })
     // 它自己又派的子代理：记录在同一个会话的目录里，照样看
     val shown = rememberRetained(nested)
-    ConfigSubPage(visible = nested != null, onBack = { nested = null }) {
+    SlideInPage(visible = nested != null, onBack = { nested = null }) {
         shown?.let { SubagentScreen(hub, conversationKey, it, onBack = { nested = null }) }
     }
 }

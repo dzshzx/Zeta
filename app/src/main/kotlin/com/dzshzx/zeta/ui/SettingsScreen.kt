@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.app.UiPrefs
 import com.dzshzx.zeta.ui.browser.BrowserActivity
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -47,7 +48,6 @@ import com.dzshzx.zeta.ui.settings.ScheduleScreen
 import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
-import com.dzshzx.zeta.ui.settings.SettingsSubPageHost
 import com.dzshzx.zeta.ui.settings.StorageEntry
 import com.dzshzx.zeta.ui.settings.StorageScreen
 import com.dzshzx.zeta.ui.settings.rememberPermissionSnapshot
@@ -77,8 +77,8 @@ internal fun SettingsScreen(
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
     Box(Modifier.fillMaxSize()) {
         SettingsHome(hub, onBack, onOpenLinux, onOpenPhone, onOpenSubPage = { subPage = it })
-        SettingsSubPageHost(subPage == SettingsSubPage.Appearance) { AppearanceScreen(hub = hub, onBack = { subPage = null }) }
-        SettingsSubPageHost(subPage == SettingsSubPage.Permissions) {
+        SlideInPage(subPage == SettingsSubPage.Appearance) { AppearanceScreen(hub = hub, onBack = { subPage = null }) }
+        SlideInPage(subPage == SettingsSubPage.Permissions) {
             PermissionScreen(
                 hub = hub,
                 onBack = { subPage = null },
@@ -90,18 +90,18 @@ internal fun SettingsScreen(
             )
         }
         ClaudeConfigPages(hub = hub, page = subPage, onClose = { subPage = null })
-        SettingsSubPageHost(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
-        SettingsSubPageHost(subPage == SettingsSubPage.Schedules) {
+        SlideInPage(subPage == SettingsSubPage.Accounts) { AccountsScreen(hub = hub, onBack = { subPage = null }) }
+        SlideInPage(subPage == SettingsSubPage.Schedules) {
             // 打开某次运行的对话：设置页整个关掉，回到聊天页
             ScheduleScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
         }
-        SettingsSubPageHost(subPage == SettingsSubPage.NotifyTriggers) {
+        SlideInPage(subPage == SettingsSubPage.NotifyTriggers) {
             NotifyTriggerScreen(hub = hub, onBack = { subPage = null }, onOpenConversation = { subPage = null; onShowChat() })
         }
-        SettingsSubPageHost(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
-        SettingsSubPageHost(subPage == SettingsSubPage.Assistant) { AssistantSettingsScreen(hub = hub, onBack = { subPage = null }) }
-        SettingsSubPageHost(subPage == SettingsSubPage.Backup) { SettingsBackupScreen(hub = hub, onBack = { subPage = null }) }
-        SettingsSubPageHost(subPage == SettingsSubPage.Storage) {
+        SlideInPage(subPage == SettingsSubPage.Diagnostics) { DiagnosticsScreen(hub = hub, onBack = { subPage = null }) }
+        SlideInPage(subPage == SettingsSubPage.Assistant) { AssistantSettingsScreen(hub = hub, onBack = { subPage = null }) }
+        SlideInPage(subPage == SettingsSubPage.Backup) { SettingsBackupScreen(hub = hub, onBack = { subPage = null }) }
+        SlideInPage(subPage == SettingsSubPage.Storage) {
             // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
             StorageScreen(hub = hub, onBack = { subPage = null }, onRevealSession = { subPage = null; onRevealSession(it) })
         }

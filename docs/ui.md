@@ -5,7 +5,7 @@
 ## 照什么写
 
 - 写法照 COUI 2 自带的指南：工作站 `~/workspace-external/coui/.claude/skills/coui-app/SKILL.md`，以及同目录 `references/` 下的 `components.md`（ColorOS 控件对应哪个组件）、`pitfalls.md`（踩过的坑）。组件参数以源码为准：`~/workspace-external/coui/coui-ui/src/commonMain`、`coui-preference/src/commonMain`；组件的样子看 `docs/components/<名字>.md`。对照前先在那里 `git pull`。
-- 指南里这几条 Zeta 不照做：字符串直接写中文，不用 Compose resources、不做双语；页面切换由 Zeta 自己管（`ui/PageStack.kt`），不用 coui-nav；页面骨架用 `ui/components/coui2` 的，不再复制。
+- 指南里这几条 Zeta 不照做：字符串直接写中文，不用 Compose resources、不做双语；页面切换由 Zeta 自己管（聊天页上的页面栈 `ui/PageStack.kt`；一层层盖上去的页面都用 `ui/components/SlideInPage.kt`，带返回键时给 `onBack`），不用 coui-nav；页面骨架用 `ui/components/coui2` 的，不再复制。
 
 ## Zeta 的补充件
 
@@ -33,7 +33,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - 首页每行行首一个 `SettingsIcon`，颜色只有四类：蓝 `Claude`（Claude 与对话）、绿 `System`（手机、系统与 Zeta 本身）、橙 `Files`（文件与环境）、黄 `Automation`（自动触发与规则）。行不能用时图标跟着 `enabled = false` 变灰。
 - 首页的行只写当前状态：右侧值（`PreferenceValue`，出问题时红字）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」留一行授权声明。
 - 子页的行不放图标。摘要最多一行，说这一项是什么或当前状态；要讲清楚的放组下说明（`PreferenceGroup(footer = …)`），一段两三句。
-- 首页上的开关、下拉直接改；要配几项的东西做成子页（`SettingsSubPage` 加一项，在 `SettingsScreen` 里挂 `SettingsSubPageHost`），首页只留一个带状态的入口。
+- 首页上的开关、下拉直接改；要配几项的东西做成子页（`SettingsSubPage` 加一项，在 `SettingsScreen` 里挂一个 `SlideInPage`），首页只留一个带状态的入口。
 
 ## 补上游缺口
 
