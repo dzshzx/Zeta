@@ -9,10 +9,11 @@
 set -euo pipefail
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 AVD=retail35 PORT=5554 SERIAL=emulator-5554
-adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@"; }
+# 不把 start 的锁（9 号描述符）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
+adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&-; }
 dir=${XDG_RUNTIME_DIR:-/tmp}
 
-# 监听控制台端口的就是模拟器进程（setsid 打印的 $! 不是它）
+# 监听控制台端口的就是模拟器进程，按端口找，不靠 $!
 emu_pid() { ss -Hltnp "sport = :$PORT" | grep -oE 'pid=[0-9]+' | head -n 1 | cut -d= -f2; }
 booted() { [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; }
 is_root() { [[ $(adb shell id -u 2>/dev/null | tr -d '\r') == 0 ]]; }
@@ -30,9 +31,10 @@ start() {
   flock 9 # 几个 phone-run 同时来时只开一次
   if [[ -z $(emu_pid) ]]; then
     echo "开模拟器 $AVD（窗口在 :99，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
-    # 在 / 下开、不把锁带走：模拟器一直开着，当前目录留在任务树里会让那棵树回收不了
-    (cd / && DISPLAY=:99 setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
-      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"} >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &)
+    # 模拟器常驻：在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
+    # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）
+    (cd / && DISPLAY=:99 exec setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
+      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
   fi
   local i
   for ((i = 0; i < 180; i++)); do booted && break; sleep 1; done
