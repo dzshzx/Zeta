@@ -49,11 +49,13 @@ object Fixtures {
 
     /**
      * 改 `var x by mutableStateOf(...)` 且 setter 是 private 的属性：直接写它背后的 MutableState。
+     * 状态单独拿着的 `var x by xState`（比如 Conversation.busy）编译器不另存委托，写的是 `xState`。
      * 属性改名后这里会报找不到字段，照新名字改测试即可。
      */
     fun Any.force(property: String, value: Any?) {
+        val names = setOf("$property\$delegate", "${property}State")
         val field = generateSequence<Class<*>>(javaClass) { it.superclass }
-            .firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == "$property\$delegate" } }
+            .firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name in names } }
             ?: error("${javaClass.simpleName} 没有用 mutableStateOf 委托的属性 $property")
         field.isAccessible = true
         @Suppress("UNCHECKED_CAST")

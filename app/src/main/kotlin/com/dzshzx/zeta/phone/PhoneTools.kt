@@ -16,6 +16,7 @@ import android.view.Display
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -1065,9 +1066,13 @@ class PhoneTools(
         slot.onTurnEnded()
     }
 
-    /** 换到现在用它的对话（重新打开会话时会新建对话对象）：闲置判断、界面刷新都跟着它走。在主线程上调用。 */
-    fun attach(busy: () -> Boolean, onChanged: () -> Unit) {
-        slot.busy = busy
+    /**
+     * 换到现在用它的对话（重新打开会话时会新建对话对象）：闲置判断、界面刷新都跟着它走。在主线程上调用。
+     * 对话在进行看它的 [busy] 和 [backgroundTasks]（后台任务在跑也算）。只收状态，[onChanged] 也不要捕获对话：
+     * 对话收掉后，有后台屏幕的这份还被登记处留着，捕获了对话就连它的聊天内容、图片一起留住。
+     */
+    fun attach(busy: State<Boolean>, backgroundTasks: State<Int>, onChanged: () -> Unit) {
+        slot.busy = { busy.value || backgroundTasks.value > 0 }
         slot.onChanged = onChanged
     }
 
