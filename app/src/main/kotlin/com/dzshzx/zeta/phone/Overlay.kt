@@ -43,7 +43,7 @@ enum class OverlayPhase {
  * 坐标按所在屏幕的宽高归一化到 0..1。[byUser]：用户在展开画面上接管时点的。
  */
 data class TouchMark(
-    val onBackground: Boolean,
+    val onAgentDisplay: Boolean,
     val x: Float,
     val y: Float,
     val endX: Float = x,

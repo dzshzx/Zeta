@@ -52,8 +52,8 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                 }
                 item {
                     SwitchPreference(
-                        checked = hub.settings.backgroundScreen,
-                        onCheckedChange = { hub.settings.backgroundScreen = it },
+                        checked = hub.settings.agentDisplay,
+                        onCheckedChange = { hub.settings.agentDisplay = it },
                         title = "在后台屏幕上操作",
                         summary = "Claude 打开的应用不占你的屏幕",
                     )

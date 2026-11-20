@@ -53,7 +53,7 @@ class SettingsKeysTest {
         "setCommands" to "[{\"name\":\"compact\"}]",
         "setDarkTheme" to true,
         "setPhoneTools" to false,
-        "setBackgroundScreen" to false,
+        "setAgentDisplay" to false,
         "setMutedApps" to setOf("com.example.music=allow"),
         "setAutoLoadRemoteImages" to true,
         "setAutoReadAnswers" to true,

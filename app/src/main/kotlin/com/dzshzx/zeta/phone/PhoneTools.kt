@@ -63,11 +63,11 @@ import kotlin.math.roundToInt
  *
  * 每个会话一份（由 ConversationHub 按会话登记）：应用默认开在这个会话自己的后台屏幕（[VirtualScreen]）上，不占用主屏，
  * 几个对话同时操作手机也互不干扰。工具作用在“当前屏幕”上：最近一次打开应用的那块。
- * 后台屏幕的建、睡、醒、释放在 [BackgroundSlot]：对话的进程结束时屏留着、睡下，重新打开会话、接着发送时还是那块屏和上面的应用。
+ * 后台屏幕的建、睡、醒、释放在 [AgentDisplaySlot]：对话的进程结束时屏留着、睡下，重新打开会话、接着发送时还是那块屏和上面的应用。
  * 屏幕这一套工具的定义和说法在 [ScreenToolDefs]，不碰屏幕的工具组在 `phone/tools`。
  *
  * 三种同步各管一样：
- * - 屏幕锁 [lock]：屏幕动作、用户在后台屏幕上的手势、后台屏幕的建睡醒放互斥（[BackgroundSlot] 用同一把）。
+ * - 屏幕锁 [lock]：屏幕动作、用户在后台屏幕上的手势、后台屏幕的建睡醒放互斥（[AgentDisplaySlot] 用同一把）。
  *   wait 等着时用 `lock.wait` 让出它，用户的手势才插得进来。
  * - 闸门 [ControlGate]：暂停、接管时工具线程在它前面等。它用自己的锁，等着的时候不持屏幕锁，用户的手势照样能拿。
  * - 主线程投递：界面要看的状态（mutableStateOf：胶囊、边缘光、后台屏幕和暂停接管的状态）只在主线程上改，
@@ -110,7 +110,7 @@ class PhoneTools(
     private val gate = ControlGate()
 
     /** 这个对话的后台屏幕。 */
-    internal val slot = BackgroundSlot(context, lock, gate, beforeCreate = { beforeCreate(this) }, onScreenGone = onScreenGone)
+    internal val slot = AgentDisplaySlot(context, lock, gate, beforeCreate = { beforeCreate(this) }, onScreenGone = onScreenGone)
 
     /** 主屏的编号。平时是 0；调试时可以经设置指到别的屏上，免得测试打扰正在用手机的人。 */
     private val mainDisplay: Int get() = settings.phoneDisplay
@@ -118,31 +118,31 @@ class PhoneTools(
     private val main = Handler(Looper.getMainLooper())
 
     /** 这个对话的后台屏幕（界面用，只在主线程上改）。 */
-    val background: VirtualScreen? get() = slot.background
+    val agentDisplay: VirtualScreen? get() = slot.agentDisplay
 
     /** 后台屏幕上最近打开的应用名（界面用）。 */
-    val backgroundApp: String? get() = slot.backgroundApp
+    val agentDisplayApp: String? get() = slot.agentDisplayApp
 
     /** 工具线程看到的后台屏幕。 */
     private val screenRef: VirtualScreen? get() = slot.current
 
     /** 当前操作的是后台屏幕。后台屏幕没了也保持为 true，直到模型换屏，免得它不知情地点到主屏上。 */
-    @Volatile private var onBackground = false
+    @Volatile private var onAgentDisplay = false
 
-    private val display: Int get() = if (onBackground) screenRef?.displayId ?: Display.INVALID_DISPLAY else mainDisplay
+    private val display: Int get() = if (onAgentDisplay) screenRef?.displayId ?: Display.INVALID_DISPLAY else mainDisplay
 
     /** 当前屏幕是后台屏幕但它已经没了：返回给模型的说明。 */
-    private fun lostBackground(): String? =
-        if (onBackground && screenRef?.alive != true) {
+    private fun lostAgentDisplay(): String? =
+        if (onAgentDisplay && screenRef?.alive != true) {
             "后台屏幕已经关掉了（用户在 Zeta 里关的，或者同时开着的后台屏幕太多、这块被腾掉了）。要继续就用 open_app 重新打开应用；要看主屏用 screen 并传 display: main。"
         } else null
 
     /** 要操作当前屏幕之前：后台屏幕没了返回说明；在休眠就先唤醒（等到新画面出来）。 */
     private fun ready(): String? {
-        lostBackground()?.let { return it }
-        if (!onBackground) return null
+        lostAgentDisplay()?.let { return it }
+        if (!onAgentDisplay) return null
         val screen = screenRef ?: return null
-        return slot.wakeIfAsleep(screen, ::lostBackground)
+        return slot.wakeIfAsleep(screen, ::lostAgentDisplay)
     }
 
     // ---- 悬浮层（顶部胶囊、主屏边缘光）用的状态 ----
@@ -193,7 +193,7 @@ class PhoneTools(
 
     /** 胶囊上的接管：用户在展开画面上自己操作后台屏幕，Claude 的手机操作先等着。没有后台屏幕时不接管。 */
     fun takeOverByUser() {
-        if (background == null) return
+        if (agentDisplay == null) return
         gate.set(pause = false, control = true)
     }
 
@@ -208,11 +208,11 @@ class PhoneTools(
 
     /** 用户在展开画面上点按（坐标按画面归一化），作用在后台屏幕上；没在接管就先接管。在主线程上调用。 */
     fun userTap(x: Float, y: Float, longPress: Boolean) {
-        val screen = background ?: return
+        val screen = agentDisplay ?: return
         if (!userControlling) takeOverByUser()
         val nx = x.coerceIn(0f, 1f)
         val ny = y.coerceIn(0f, 1f)
-        touchFlow.tryEmit(TouchMark(onBackground = true, x = nx, y = ny, longPress = longPress, byUser = true))
+        touchFlow.tryEmit(TouchMark(onAgentDisplay = true, x = nx, y = ny, longPress = longPress, byUser = true))
         touchedByUser.set(true)
         val px = (nx * (screen.width - 1)).roundToInt()
         val py = (ny * (screen.height - 1)).roundToInt()
@@ -227,13 +227,13 @@ class PhoneTools(
 
     /** 用户在展开画面上滑动。在主线程上调用。 */
     fun userSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Int) {
-        val screen = background ?: return
+        val screen = agentDisplay ?: return
         if (!userControlling) takeOverByUser()
         val sx = startX.coerceIn(0f, 1f)
         val sy = startY.coerceIn(0f, 1f)
         val ex = endX.coerceIn(0f, 1f)
         val ey = endY.coerceIn(0f, 1f)
-        touchFlow.tryEmit(TouchMark(onBackground = true, x = sx, y = sy, endX = ex, endY = ey, swipe = true, byUser = true))
+        touchFlow.tryEmit(TouchMark(onAgentDisplay = true, x = sx, y = sy, endX = ex, endY = ey, swipe = true, byUser = true))
         touchedByUser.set(true)
         val x1 = (sx * (screen.width - 1)).roundToInt()
         val y1 = (sy * (screen.height - 1)).roundToInt()
@@ -300,7 +300,7 @@ class PhoneTools(
     fun describeCall(tool: String, input: JsonObject?): String = callText(tool, input ?: JsonObject(emptyMap()))
 
     /** 胶囊才知道的现场：控件编号按这次调用要用的那批对上控件，说得出点的是哪个。 */
-    private fun scene() = CallScene(onBackground, backgroundApp) { index ->
+    private fun scene() = CallScene(onAgentDisplay, agentDisplayApp) { index ->
         listed(index)?.node?.let { SceneControl(nodeLabel(it), it.isPassword) }
     }
 
@@ -308,8 +308,8 @@ class PhoneTools(
     private fun reportCall(toolUseId: String?, name: String, a: JsonObject) {
         val call = CallInfo(toolUseId, name, callText(name, a))
         val onMainScreen = when (name) {
-            "tap", "long_press", "swipe", "scroll", "type_text" -> !onBackground
-            "press_key" -> !onBackground || a.str("key")?.lowercase() in GLOBAL_KEYS
+            "tap", "long_press", "swipe", "scroll", "type_text" -> !onAgentDisplay
+            "press_key" -> !onAgentDisplay || a.str("key")?.lowercase() in GLOBAL_KEYS
             else -> null
         }
         main.post {
@@ -333,7 +333,7 @@ class PhoneTools(
         val h = screen.height.toFloat().coerceAtLeast(1f)
         touchFlow.tryEmit(
             TouchMark(
-                onBackground = onBackground,
+                onAgentDisplay = onAgentDisplay,
                 x = (x / w).coerceIn(0f, 1f), y = (y / h).coerceIn(0f, 1f),
                 endX = (endX / w).coerceIn(0f, 1f), endY = (endY / h).coerceIn(0f, 1f),
                 swipe = swipe, longPress = longPress,
@@ -402,7 +402,7 @@ class PhoneTools(
         val touched = touchedByUser.getAndSet(false)
         if (touched) forget()
         // 这次的动作是照着旧画面定的，照做可能点错：不执行，把新画面交回去
-        val skip = touched && onBackground && name in BLIND_ACTIONS
+        val skip = touched && onAgentDisplay && name in BLIND_ACTIONS
         val notes = buildList {
             if (touched) add("用户刚才在后台屏幕上手动操作过，画面可能变了")
             if (skip) add("所以这次的 $name 没有执行：请按下面的新画面重新决定")
@@ -433,7 +433,7 @@ class PhoneTools(
         }
         // 开应用、移到主屏之后才知道落在哪块屏上
         if (name == "open_app" || name == "show_to_user") {
-            val onMainScreen = !onBackground
+            val onMainScreen = !onAgentDisplay
             main.post { actingOnMain = onMainScreen }
         }
         withNotes(result, notes)
@@ -442,11 +442,11 @@ class PhoneTools(
     /** screen 的 display 参数：换到主屏或后台屏幕。返回问题，没有问题返回 null。 */
     private fun switchTo(target: String): String? = when (target.lowercase()) {
         "main" -> {
-            onBackground = false
+            onAgentDisplay = false
             null
         }
         "background" -> if (screenRef?.alive == true) {
-            onBackground = true
+            onAgentDisplay = true
             null
         } else "现在没有后台屏幕：用 open_app 打开应用时会自动建一块"
         else -> "display 只能是 main 或 background"
@@ -455,7 +455,7 @@ class PhoneTools(
     // ---- 读屏 ----
 
     private fun screen(): Screen? {
-        if (onBackground) return screenRef?.takeIf { it.alive }?.let { Screen(it.width, it.height) }
+        if (onAgentDisplay) return screenRef?.takeIf { it.alive }?.let { Screen(it.width, it.height) }
         val manager = context.getSystemService(DisplayManager::class.java)
         manager?.getDisplay(display)?.let { d ->
             val metrics = DisplayMetrics()
@@ -480,13 +480,13 @@ class PhoneTools(
         val guard = context.getSystemService(KeyguardManager::class.java)
         val other = screenRef?.takeIf { it.alive }
         val notes = buildList {
-            if (!onBackground && display == 0 && power?.isInteractive == false) add("屏幕是关着的（可以用 shell 执行 input keyevent WAKEUP）")
-            if (!onBackground && display == 0 && guard?.isKeyguardLocked == true) add("手机处于锁屏状态")
-            if (!onBackground && other != null) {
-                add("后台屏幕上还开着" + (backgroundApp?.let { " $it" } ?: "应用") + (if (other.asleep.value) "，在休眠" else "") + "（screen 传 display: background 切过去）")
+            if (!onAgentDisplay && display == 0 && power?.isInteractive == false) add("屏幕是关着的（可以用 shell 执行 input keyevent WAKEUP）")
+            if (!onAgentDisplay && display == 0 && guard?.isKeyguardLocked == true) add("手机处于锁屏状态")
+            if (!onAgentDisplay && other != null) {
+                add("后台屏幕上还开着" + (agentDisplayApp?.let { " $it" } ?: "应用") + (if (other.asleep.value) "，在休眠" else "") + "（screen 传 display: background 切过去）")
             }
         }
-        val where = if (onBackground) "后台屏幕（display $display，用户看不到，除非在 Zeta 里打开查看）" else "主屏"
+        val where = if (onAgentDisplay) "后台屏幕（display $display，用户看不到，除非在 Zeta 里打开查看）" else "主屏"
         val landscape = if (screen.width > screen.height) "，横屏" else ""
         return "$where ${screen.modelWidth}×${screen.modelHeight}（截图坐标）$landscape" + notes.joinToString("") { "；$it" }
     }
@@ -572,7 +572,7 @@ class PhoneTools(
     private fun observe(screenshot: Boolean, maxNodes: Int, notes: List<String> = emptyList(), detail: Boolean = false): JsonObject {
         val woke = if (slot.justWoke) listOf("后台屏幕刚从休眠中唤醒（应用和页面都还在）") else emptyList()
         slot.justWoke = false
-        lostBackground()?.let { return toolFailure((woke + notes + it).joinToString("\n")) }
+        lostAgentDisplay()?.let { return toolFailure((woke + notes + it).joinToString("\n")) }
         val screen = screen() ?: return toolFailure("找不到编号为 $display 的屏幕")
         val tree = (woke + notes + describe(screen, maxNodes, detail)).joinToString("\n")
         if (!screenshot) return toolText(tree)
@@ -587,7 +587,7 @@ class PhoneTools(
 
     /** 截图，缩到“截图坐标”的大小，JPEG，base64。 */
     private fun capture(screen: Screen): String? {
-        val raw: Bitmap = if (onBackground) screenRef?.capture() ?: return null
+        val raw: Bitmap = if (onAgentDisplay) screenRef?.capture() ?: return null
         else ZetaAccessibilityService.instance?.screenshot(display) ?: run {
             // 没有无障碍服务时，主屏可以经 root 截
             if (display != 0) return null
@@ -773,13 +773,13 @@ class PhoneTools(
                 stopped = "用户暂停了手机操作，没等完"
                 break
             }
-            if (onBackground && touchedByUser.getAndSet(false)) {
+            if (onAgentDisplay && touchedByUser.getAndSet(false)) {
                 forget()
                 stopped = "用户在后台屏幕上手动操作了，没等完，画面可能变了"
                 break
             }
             pause(minOf(WAIT_POLL_MS, limit - elapsed))
-            lostBackground()?.let { return toolFailure(it) }
+            lostAgentDisplay()?.let { return toolFailure(it) }
         }
         val seconds = "%.1f".format((System.currentTimeMillis() - start) / 1000.0)
         val summary = when (request) {
@@ -861,7 +861,7 @@ class PhoneTools(
     private fun pressKey(key: String, notes: MutableList<String>): String? {
         val service = ZetaAccessibilityService.instance
         val name = key.lowercase()
-        if (onBackground && (name == "home" || name == "recents")) {
+        if (onAgentDisplay && (name == "home" || name == "recents")) {
             return "后台屏幕没有桌面和最近任务。换应用用 open_app，回上一页用 back"
         }
         if (name == "paste") {
@@ -877,7 +877,7 @@ class PhoneTools(
             return null
         }
         // 全局动作只作用在主屏上；别的屏幕、或者没有无障碍服务时走按键事件
-        if (service != null && !onBackground && display == 0) {
+        if (service != null && !onAgentDisplay && display == 0) {
             val action = when (name) {
                 "back" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK
                 "home" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME
@@ -943,14 +943,14 @@ class PhoneTools(
         var screen: VirtualScreen? = null
         if (requested != "main") {
             val reason = when {
-                !settings.backgroundScreen -> if (requested == "background") "用户在 Zeta 的设置里关掉了「在后台屏幕上操作」，在主屏上打开" else null
+                !settings.agentDisplay -> if (requested == "background") "用户在 Zeta 的设置里关掉了「在后台屏幕上操作」，在主屏上打开" else null
                 handler != null && handler in OpenRequest.mainOnly(homePackage(), context.packageName) -> "$label 只在主屏上打开"
                 // 在后台屏幕上启动会把它从主屏抽走，打断用户正在做的事
                 handler != null && handler == foregroundOnMain() -> "$label 正开在主屏前台（用户可能正在用），就在主屏上操作，不把它挪走"
                 else -> null
             }
             if (reason != null) notes += reason
-            else screen = runCatching { slot.ensure(::lostBackground) }.getOrElse {
+            else screen = runCatching { slot.ensure(::lostAgentDisplay) }.getOrElse {
                 notes += "后台屏幕没能建起来（${it.message ?: it.javaClass.simpleName}），改在主屏上打开"
                 null
             }
@@ -970,7 +970,7 @@ class PhoneTools(
         rootError(command)?.let { return toolFailure(it) }
         // 开到了主屏上：之前为后台屏幕禁掉的音频焦点改回去
         if (screen == null && handler != null) slot.audio.movedToMain(handler)
-        onBackground = screen != null
+        onAgentDisplay = screen != null
         val opened = if (request.isIntent) (request.uri ?: request.action) + "（由 $label 处理）" else label
         if (screen != null) {
             notes += "已在后台屏幕上打开 $opened"
@@ -1002,10 +1002,10 @@ class PhoneTools(
     private fun rootTasks(): List<RootTask> = SystemOutput.rootTasks(root("am stack list").stdout)
 
     private fun showToUser(a: JsonObject): JsonObject {
-        val screen = screenRef?.takeIf { it.alive } ?: return toolFailure(if (onBackground) lostBackground()!! else "现在没有后台屏幕，应用本来就开在主屏上")
-        val label = backgroundApp
+        val screen = screenRef?.takeIf { it.alive } ?: return toolFailure(if (onAgentDisplay) lostAgentDisplay()!! else "现在没有后台屏幕，应用本来就开在主屏上")
+        val label = agentDisplayApp
         val error = moveTopToMain(screen) ?: run {
-            onBackground = false
+            onAgentDisplay = false
             null
         }
         if (error != null) return toolFailure(error)
@@ -1035,9 +1035,9 @@ class PhoneTools(
         thread(name = "zeta-phone-ui", isDaemon = true) {
             synchronized(lock) {
                 val screen = screenRef?.takeIf { it.alive } ?: return@thread
-                val label = backgroundApp
+                val label = agentDisplayApp
                 if (moveTopToMain(screen) == null) {
-                    onBackground = false
+                    onAgentDisplay = false
                     userNotes.add("用户把后台屏幕上的" + (label ?: "应用") + "移到了主屏，之后的操作在主屏上")
                 }
             }
@@ -1045,10 +1045,10 @@ class PhoneTools(
     }
 
     /** 界面上的“关闭”。 */
-    fun closeBackgroundByUser() = slot.close()
+    fun closeAgentDisplayByUser() = slot.close()
 
     /** 全应用的后台屏幕满了，登记处挑中这块腾出来（当前屏幕仍指着它，模型下次调用时会知道它没了）。 */
-    internal fun evictBackground() = slot.evict()
+    internal fun evictAgentDisplay() = slot.evict()
 
     /** 有后台屏幕（醒着或睡着）。登记处据此决定留不留这份、屏幕数有没有到上限。 */
     internal val hasScreen: Boolean get() = slot.alive != null
@@ -1083,7 +1083,7 @@ class PhoneTools(
     /** 彻底释放（会话删了、换了环境、或已经没人用）：收掉后台屏幕，之后也不再建。 */
     fun destroy() {
         slot.destroy {
-            onBackground = false
+            onAgentDisplay = false
             forget()
         }
         resetOverlay()

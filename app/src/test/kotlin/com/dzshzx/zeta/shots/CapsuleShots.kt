@@ -36,7 +36,7 @@ import java.io.OutputStream
 class CapsuleShots : ShotTest() {
     /**
      * 顶部状态胶囊：上面是收起的（运行中，带思考尾句），下面是展开的（暂停，补充 / 继续 / 停止）。
-     * 没有后台屏幕，所以没有右侧的微缩画面和展开后的画面（那些见 [backgroundStage]）。
+     * 没有后台屏幕，所以没有右侧的微缩画面和展开后的画面（那些见 [agentDisplayStage]）。
      */
     @Test
     fun statusCapsule() {
@@ -58,7 +58,7 @@ class CapsuleShots : ShotTest() {
      * 后台屏幕要 root 和虚拟屏，这里用一块不接进程的假屏，画面是手画的一帧。
      */
     @Test
-    fun backgroundStage() {
+    fun agentDisplayStage() {
         Fixtures.readyHub(app)
         val screen = fakeScreen()
         val collapsed = CapsuleState().apply {

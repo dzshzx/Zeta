@@ -16,7 +16,7 @@ class AppProcessTest {
         """for kv in $(tr '\000' ' ' < /proc/$(pidof system_server)/environ); do case "${'$'}kv" in BOOTCLASSPATH=*|DEX2OATBOOTCLASSPATH=*|SYSTEMSERVERCLASSPATH=*|ANDROID_*=*) export "${'$'}kv";; esac; done; """
 
     @Test
-    fun backgroundScreen() = assertEquals(
+    fun agentDisplay() = assertEquals(
         LinuxEnv.androidScript(
             envBusyBox + """CLASSPATH="$2" exec app_process /system/bin com.dzshzx.zeta.phone.VdHelper "$3" "$4" "$5" "$6" "$7"""",
             apk, "com.dzshzx.zeta.dev.vd", "7", "1220", "2656", "520",

@@ -147,7 +147,7 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
     var touch by remember(focus) { mutableStateOf<TouchMark?>(null) }
     LaunchedEffect(focus) {
         focus.touches.collect { mark ->
-            if (mark.onBackground && SystemClock.uptimeMillis() - mark.at < StaleTouchMs) touch = mark
+            if (mark.onAgentDisplay && SystemClock.uptimeMillis() - mark.at < StaleTouchMs) touch = mark
         }
     }
 
@@ -299,7 +299,7 @@ internal fun StatusCapsule(state: CapsuleState, controls: CapsuleControls) {
                             .graphicsLayer { translationY = (1f - expansion) * -6.dp.toPx() },
                     ) {
                         if (screen != null && !state.inputMode) {
-                            BackgroundStage(
+                            AgentDisplayStage(
                                 focus = focus,
                                 screen = screen,
                                 canvas = state.stageCanvas,

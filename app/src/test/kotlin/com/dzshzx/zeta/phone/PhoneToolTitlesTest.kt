@@ -11,7 +11,7 @@ class PhoneToolTitlesTest {
     private fun title(name: String, scene: CallScene? = null, build: JsonObjectBuilder.() -> Unit = {}) =
         PhoneToolCatalog.title(name, buildJsonObject(build), scene)
 
-    private val onCalculator = CallScene(onBackground = true, backgroundApp = "计算器") { index ->
+    private val onCalculator = CallScene(onAgentDisplay = true, agentDisplayApp = "计算器") { index ->
         when (index) {
             3 -> SceneControl("搜索", password = false)
             4 -> SceneControl(null, password = true)
@@ -66,7 +66,7 @@ class PhoneToolTitlesTest {
         assertEquals("输入密码", title("type_text", onCalculator) { put("node", 4); put("text", "secret") })
         assertEquals("把计算器移到主屏", title("show_to_user", onCalculator))
         // 主屏上没有“在后台操作”这一说
-        val main = CallScene(onBackground = false, backgroundApp = "计算器") { null }
+        val main = CallScene(onAgentDisplay = false, agentDisplayApp = "计算器") { null }
         assertEquals("点按控件 9", title("tap", main) { put("node", 9) })
         assertEquals("把计算器移到主屏", title("show_to_user", main))
     }

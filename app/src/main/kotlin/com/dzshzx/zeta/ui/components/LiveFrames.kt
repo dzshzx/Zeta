@@ -11,8 +11,8 @@ import androidx.compose.ui.unit.IntSize
 import com.dzshzx.zeta.phone.VirtualScreen
 import kotlin.math.roundToInt
 
-// 后台屏幕的实时画面怎么取帧、怎么画：聊天页的后台屏幕条和全屏查看（ui/chat/BackgroundScreen.kt）、
-// 顶部胶囊的微缩画面、展开画面和「全屏」过渡（ui/overlay/BackgroundStage.kt）共用。
+// 后台屏幕的实时画面怎么取帧、怎么画：聊天页的后台屏幕条和全屏查看（ui/chat/AgentDisplayView.kt）、
+// 顶部胶囊的微缩画面、展开画面和「全屏」过渡（ui/overlay/AgentDisplayStage.kt）共用。
 
 /** 取帧的快慢。 */
 internal enum class FrameRate(val intervalMs: Long) {

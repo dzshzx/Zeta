@@ -50,7 +50,7 @@ internal object ScreenToolDefs {
         // 说不出字的目标：资源 id、编号、坐标
         val other = a.str("id")?.takeIf { it.isNotBlank() }?.let { "id=$it" } ?: node?.let { "控件 $it" }
             ?: a.int("x")?.let { "($it, ${a.int("y") ?: 0})" }
-        val app = scene?.takeIf { it.onBackground }?.backgroundApp
+        val app = scene?.takeIf { it.onAgentDisplay }?.agentDisplayApp
         fun aimed(verb: String) = text?.let { "$verb「$it」" } ?: app?.let { "在后台操作$it" } ?: other?.let { verb + gap(it) + it }
         return when (name) {
             "screen" -> if (a.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕"
@@ -108,7 +108,7 @@ internal object ScreenToolDefs {
                     else -> "打开应用"
                 }
             }
-            "show_to_user" -> "把" + (scene?.backgroundApp ?: "应用") + "移到主屏"
+            "show_to_user" -> "把" + (scene?.agentDisplayApp ?: "应用") + "移到主屏"
             else -> null
         }
     }

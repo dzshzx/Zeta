@@ -204,7 +204,7 @@ object OverlayHost {
         val density = window.context.resources.displayMetrics.density
         fun px(dp: Int) = (dp * density).roundToInt()
         val screen = state.focus?.screen
-        val background = screen != null
+        val hasAgentDisplay = screen != null
         if (screen != null) {
             val ratio = if (screen.height > 0) screen.width / screen.height.toFloat() else CapsuleLayout.DEFAULT_RATIO
             val canvas = CapsuleLayout.stageCanvas(ratio, screenHeightPx / density, lp.y / density)
@@ -212,13 +212,13 @@ object OverlayHost {
         }
         val widthDp = when {
             windowExpanded -> StageWindowWidthDp
-            background -> LensWindowWidthDp
+            hasAgentDisplay -> LensWindowWidthDp
             else -> WindowWidthDp
         }
         val heightDp = when {
             !windowExpanded -> CollapsedHeightDp
             state.inputMode -> InputHeightDp
-            background -> CapsuleLayout.stageWindowHeight(state.stageCanvas).roundToInt()
+            hasAgentDisplay -> CapsuleLayout.stageWindowHeight(state.stageCanvas).roundToInt()
             else -> ControlsHeightDp
         }
         val width = px(widthDp)

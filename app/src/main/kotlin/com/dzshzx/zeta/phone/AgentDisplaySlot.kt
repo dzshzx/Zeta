@@ -12,14 +12,14 @@ import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
 
 /**
- * 一个对话的后台屏幕（[VirtualScreen]）的一生，[PhoneTools] 持有：要用时建（[ensure]），一轮结束后闲置 [IDLE_SLEEP_MS] 睡下，
+ * 一个对话的后台屏幕（agent display：Claude 操作手机用的那块虚拟显示屏，[VirtualScreen]）的一生，[PhoneTools] 持有：要用时建（[ensure]），一轮结束后闲置 [IDLE_SLEEP_MS] 睡下，
  * 对话的进程结束时也睡下（[detach]），要用时唤醒（[wakeIfAsleep]）；用户在界面上关掉（[close]）、全应用屏幕太多被腾掉（[evict]）、
  * 对话没了（[destroy]）或辅助进程意外退出时释放。屏上的应用不抢音频焦点（[audio]）。
  *
  * 同步照 PhoneTools 的说明：建、睡、醒、释放都持着 PhoneTools 的屏幕锁 [lock]（标着“持锁调用”的由调用方拿锁，
- * 自己起线程的这里拿）；界面看的 [background]、[backgroundApp] 只在主线程上改，工具线程看 [current]。
+ * 自己起线程的这里拿）；界面看的 [agentDisplay]、[agentDisplayApp] 只在主线程上改，工具线程看 [current]。
  */
-internal class BackgroundSlot(
+internal class AgentDisplaySlot(
     private val context: Context,
     private val lock: Any,
     private val gate: ControlGate,
@@ -31,11 +31,11 @@ internal class BackgroundSlot(
     private val main = Handler(Looper.getMainLooper())
 
     /** 这个对话的后台屏幕（界面用，只在主线程上改）。 */
-    var background by mutableStateOf<VirtualScreen?>(null)
+    var agentDisplay by mutableStateOf<VirtualScreen?>(null)
         private set
 
     /** 后台屏幕上最近打开的应用名（界面用）。 */
-    var backgroundApp by mutableStateOf<String?>(null)
+    var agentDisplayApp by mutableStateOf<String?>(null)
         private set
 
     /** 工具线程看到的后台屏幕（醒着或睡着；释放后是 null）。 */
@@ -90,8 +90,8 @@ internal class BackgroundSlot(
         created.onGone = { onGone(created) }
         current = created
         main.post {
-            background = created
-            backgroundApp = null
+            agentDisplay = created
+            agentDisplayApp = null
             onChanged()
         }
         return created
@@ -99,7 +99,7 @@ internal class BackgroundSlot(
 
     /** 在 [screen] 上打开了应用 [label]（界面上显示）。 */
     fun opened(screen: VirtualScreen, label: String) = main.post {
-        if (background === screen) backgroundApp = label
+        if (agentDisplay === screen) agentDisplayApp = label
         onChanged()
     }
 
@@ -124,9 +124,9 @@ internal class BackgroundSlot(
     }
 
     private fun cleared(screen: VirtualScreen) = main.post {
-        if (background === screen) {
-            background = null
-            backgroundApp = null
+        if (agentDisplay === screen) {
+            agentDisplay = null
+            agentDisplayApp = null
             // 屏没了接管不下去：改为暂停，等用户在胶囊上点继续
             if (gate.userControlling) gate.set(pause = true, control = false)
         }

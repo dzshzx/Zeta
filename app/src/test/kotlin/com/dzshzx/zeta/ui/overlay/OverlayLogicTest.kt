@@ -54,7 +54,7 @@ class OverlayLogicTest {
     }
 
     @Test
-    fun landscapeBackgroundScreenIsWidthBound() {
+    fun landscapeAgentDisplayIsWidthBound() {
         // 后台屏幕是横的：按内宽算高，不再被压成竖的
         val ratio = 2656f / 1220f
         val canvas = CapsuleLayout.stageCanvas(ratio, 817f, 40f)

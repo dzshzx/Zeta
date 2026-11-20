@@ -51,10 +51,10 @@ internal object PhoneToolCatalog {
 }
 
 /**
- * 胶囊比聊天多知道的现场：当前操作的是不是后台屏幕（[onBackground]），后台屏幕上最近打开的应用（[backgroundApp]），
+ * 胶囊比聊天多知道的现场：当前操作的是不是后台屏幕（[onAgentDisplay]），后台屏幕上最近打开的应用（[agentDisplayApp]），
  * 控件编号对应的控件（[control]，这次调用要用的那批编号）。
  */
-internal class CallScene(val onBackground: Boolean, val backgroundApp: String?, val control: (Int) -> SceneControl?)
+internal class CallScene(val onAgentDisplay: Boolean, val agentDisplayApp: String?, val control: (Int) -> SceneControl?)
 
 /** 编号对应的控件：上面的字（[label]，密码框没有）、是不是密码框。 */
 internal class SceneControl(val label: String?, val password: Boolean)

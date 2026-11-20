@@ -147,22 +147,22 @@ class ChatScreenPartsShots : ShotTest() {
 
     /** 这个对话开着后台屏幕：输入栏上方的缩略图条。 */
     @Test
-    fun backgroundScreen() {
+    fun agentDisplay() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.slot.force("background", fakeScreen())
-        phone.slot.force("backgroundApp", "设置")
-        shoot("chat-background-screen") { Chat(hub) }
+        phone.slot.force("agentDisplay", fakeScreen())
+        phone.slot.force("agentDisplayApp", "设置")
+        shoot("chat-agent-display") { Chat(hub) }
     }
 
     /** 点开后台屏幕条：全屏查看。 */
     @Test
-    fun backgroundViewer() {
+    fun agentDisplayViewer() {
         val hub = chatHub()
         val phone = hub.current.phone
-        phone.slot.force("background", fakeScreen())
-        phone.slot.force("backgroundApp", "设置")
-        shoot("chat-background-viewer", target = isDialog(), prepare = { onNodeWithText("后台屏幕").performClick() }) { Chat(hub) }
+        phone.slot.force("agentDisplay", fakeScreen())
+        phone.slot.force("agentDisplayApp", "设置")
+        shoot("chat-agent-display-viewer", target = isDialog(), prepare = { onNodeWithText("后台屏幕").performClick() }) { Chat(hub) }
     }
 
     /** 批准一次工具调用。 */

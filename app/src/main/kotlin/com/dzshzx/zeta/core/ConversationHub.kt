@@ -469,7 +469,7 @@ class ConversationHub(private val app: Application) {
         others.filter { !it.isBusy }
             .sortedWith(compareBy<PhoneTools> { it === watching }.thenBy { it.lastUsed })
             .take(excess)
-            .forEach { it.evictBackground() }
+            .forEach { it.evictAgentDisplay() }
     }
 
     /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态），[text] 是胶囊上停留的那一句（“已完成”）。在主线程上调用。 */
@@ -514,7 +514,7 @@ class ConversationHub(private val app: Application) {
         val busy = working || conversationsWorking
         val answering = liveConversations.filter { it.busy }
         val running = answering.map { conversation ->
-            conversation.title.ifBlank { "新对话" } + (conversation.phone.backgroundApp?.let { " · 在后台操作$it" } ?: "")
+            conversation.title.ifBlank { "新对话" } + (conversation.phone.agentDisplayApp?.let { " · 在后台操作$it" } ?: "")
         }
         AgentService.update(app, active, busy, running, alerts.liveStatus(answering))
     }

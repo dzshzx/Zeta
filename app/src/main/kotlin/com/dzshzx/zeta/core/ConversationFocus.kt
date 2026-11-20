@@ -37,8 +37,8 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     /** [step] 和它的类别（实时通知的状态栏小胶囊据此写一个词）。 */
     val stepInfo: Step get() = stepState.value
     override val thought: String get() = thoughtState.value
-    override val screen: VirtualScreen? get() = phone.background
-    override val appName: String? get() = phone.backgroundApp
+    override val screen: VirtualScreen? get() = phone.agentDisplay
+    override val appName: String? get() = phone.agentDisplayApp
     override val actingOnMain: Boolean get() = phone.actingOnMain
     override val userControlling: Boolean get() = phone.userControlling
     override val touches: SharedFlow<TouchMark> get() = phone.touches

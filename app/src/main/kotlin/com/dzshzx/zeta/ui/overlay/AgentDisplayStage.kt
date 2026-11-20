@@ -152,7 +152,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
  * 下面一行是应用名和模式，“接管 / 继续”与“全屏”。
  */
 @Composable
-internal fun BackgroundStage(
+internal fun AgentDisplayStage(
     focus: OverlayFocus,
     screen: VirtualScreen,
     canvas: StageSize,

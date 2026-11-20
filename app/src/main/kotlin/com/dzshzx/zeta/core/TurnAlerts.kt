@@ -60,7 +60,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     private fun pickFocus(): ConversationFocus? {
         val shown = hub.current
         val chatVisible = hub.foreground
-        fun visible(c: Conversation) = !(chatVisible && c === shown && c.phone.background == null)
+        fun visible(c: Conversation) = !(chatVisible && c === shown && c.phone.agentDisplay == null)
         linger?.focus?.takeIf { !it.conversation.busy && visible(it.conversation) }?.let { return it }
         return hub.liveConversations
             .filter { c ->

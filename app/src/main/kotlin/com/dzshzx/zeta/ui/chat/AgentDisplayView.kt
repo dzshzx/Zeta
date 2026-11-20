@@ -58,8 +58,8 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * 休眠时缩略图是休眠前那一帧，调暗显示。点它打开全屏查看（会唤醒）；右边是“移到主屏”和“关闭”。
  */
 @Composable
-internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val screen = phone.background ?: return
+internal fun AgentDisplayStrip(phone: PhoneTools, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val screen = phone.agentDisplay ?: return
     val asleep by screen.asleep.collectAsState()
     val colors = COUITheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
@@ -91,7 +91,7 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
                 )
             }
             Text(
-                text = phone.backgroundApp ?: "还没有打开应用",
+                text = phone.agentDisplayApp ?: "还没有打开应用",
                 style = COUITheme.textStyles.bodyM,
                 color = colors.labelPrimary,
                 maxLines = 1,
@@ -99,7 +99,7 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
             )
         }
         ActionIcon(COUIIcons.ExpandMore, "移到主屏", colors.primary) { phone.moveToMainByUser() }
-        ActionIcon(COUIIcons.Close, "关闭后台屏幕", colors.labelSecondary) { phone.closeBackgroundByUser() }
+        ActionIcon(COUIIcons.Close, "关闭后台屏幕", colors.labelSecondary) { phone.closeAgentDisplayByUser() }
     }
 }
 
@@ -108,8 +108,8 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
  * 是一个全屏的黑底窗口，像看图那样，不随深浅色变；COUI 没有这种全屏查看器，窗口照旧用 Compose 的 Dialog。
  */
 @Composable
-internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
-    val screen = phone.background
+internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
+    val screen = phone.agentDisplay
     LaunchedEffect(screen) { if (screen == null) onDismiss() }
     if (screen == null) return
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -125,7 +125,7 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text("后台屏幕", style = COUITheme.textStyles.bodyS, color = Color.White.copy(alpha = 0.7f))
                     Text(
-                        text = phone.backgroundApp ?: "还没有打开应用",
+                        text = phone.agentDisplayApp ?: "还没有打开应用",
                         style = COUITheme.textStyles.headlineXS,
                         color = Color.White,
                         maxLines = 1,
@@ -149,7 +149,7 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                 TextButton(
                     text = "关闭后台屏幕",
                     onClick = {
-                        phone.closeBackgroundByUser()
+                        phone.closeAgentDisplayByUser()
                         onDismiss()
                     },
                     modifier = Modifier.weight(1f),
