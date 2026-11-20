@@ -182,8 +182,20 @@ object RemoteHosts {
     /** 主机公钥 [text]（[encodeKey] 的结果）的指纹，坏的是 null。 */
     fun fingerprint(text: String): String? = decodeKey(text)?.let(SshKey::fingerprint)
 
-    /** 列出 Debian 里 ~/.ssh/config、~/.ssh/config.local 的 Host 那几行，交给 [parseAliases]。 */
-    const val AliasesScript = "for f in \"\$HOME/.ssh/config\" \"\$HOME/.ssh/config.local\"; do [ -r \"\$f\" ] && grep -iE '^[[:space:]]*Host[[:space:]]' \"\$f\"; done; exit 0"
+    /** 列出 Debian 里 ~/.ssh/config、~/.ssh/config.local 的 Host 那几行，交给 [parseAliases]。自己总以 0 退出。 */
+    private const val AliasesScript = "for f in \"\$HOME/.ssh/config\" \"\$HOME/.ssh/config.local\"; do [ -r \"\$f\" ] && grep -iE '^[[:space:]]*Host[[:space:]]' \"\$f\"; done; exit 0"
+
+    /**
+     * 手机 Debian（[local]）的 ~/.ssh/config 里能选的主机（[parseAliases]）。脚本自己总以 0 退出，不是 0 就是没跑成（进不去 Debian、超时）：
+     * 这时抛出，消息是给人看的原因，不当成没有别名。阻塞，别在主线程上调用。
+     */
+    fun readAliases(local: LinuxShell): List<String> {
+        val result = local.run(AliasesScript)
+        check(result.exitCode == 0) {
+            if (result.timedOut) "手机 Debian 没有响应（超时）" else result.stderr.trim().takeLast(200).ifEmpty { "进不去手机 Debian（退出码 ${result.exitCode}）" }
+        }
+        return parseAliases(result.stdout)
+    }
 
     /** Host 行里的别名，按出现的先后、去重；带通配符的（*、?、!）不是一台具体的主机，跳过。 */
     fun parseAliases(stdout: String): List<String> = stdout.lineSequence()

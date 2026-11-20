@@ -54,7 +54,8 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
     val hosts = hub.settings.remoteHosts
     val local = hub.shell(Backends.LOCAL)?.takeIf { hub.usable(Backends.LOCAL) }
-    var aliases by remember { mutableStateOf<List<String>?>(null) }
+    // ~/.ssh/config 里的别名：读之前是 null，读不到时是原因
+    var aliases by remember { mutableStateOf<Result<List<String>>?>(null) }
     // Zeta 的密钥：第一次打开时从 Keystore 取（没有就生成），取不到时是原因
     var key by remember { mutableStateOf<Result<SshKey>?>(null) }
     // 正在连的地址和连法：同一时间只连一个
@@ -70,9 +71,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
         key = withContext(Dispatchers.IO) { runCatching { hub.ssh.key } }
     }
     LaunchedEffect(local != null) {
-        aliases = if (local == null) emptyList() else withContext(Dispatchers.IO) {
-            runCatching { RemoteHosts.parseAliases(local.run(RemoteHosts.AliasesScript).stdout) }.getOrNull()
-        }.orEmpty()
+        if (local != null) aliases = withContext(Dispatchers.IO) { runCatching { RemoteHosts.readAliases(local) } }
     }
 
     fun add(target: String, via: RemoteHost.Via) {
@@ -180,10 +179,14 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
         if (local != null) {
             item(key = "debian") {
                 val known = hosts.mapTo(HashSet()) { it.target }
-                val choices = aliases?.filter { it !in known && it != "localhost" }
+                val read = aliases
+                val choices = read?.getOrNull()?.filter { it !in known && it != "localhost" }
                 PreferenceGroup(title = "从手机 Debian 的 ~/.ssh/config 选", footer = DebianFooter + HostingFooter) {
                     when {
-                        choices == null -> item { BasicComponent(title = "正在读 ~/.ssh/config…", enabled = false) }
+                        read == null -> item { BasicComponent(title = "正在读 ~/.ssh/config…", enabled = false) }
+                        choices == null -> item {
+                            BasicComponent(title = "读不到 ~/.ssh/config", summary = read.exceptionOrNull()?.message, enabled = false)
+                        }
                         choices.isEmpty() -> item { BasicComponent(title = "~/.ssh/config 里没有别的主机", enabled = false) }
                         else -> choices.forEach { alias ->
                             item {

@@ -7,6 +7,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -103,6 +104,20 @@ class RemoteHostsTest {
         assertEquals("网络不通", RemoteHosts.sshProblem("前面的输出\nzeta-ssh: 网络不通\n"))
     }
 
+    /** 在临时 HOME 上用本机 bash 跑命令的一台 Linux；[broken] 时扮进不去 Debian（su 被拒）。 */
+    private fun shell(broken: Boolean = false) = object : LinuxShell {
+        override val home: String = temp.path
+
+        override fun start(command: String): Process =
+            ProcessBuilder("bash", "-c", if (broken) "echo 'su: permission denied' >&2; exit 1" else command)
+                .apply { environment()["HOME"] = temp.path }
+                .start()
+
+        override fun kill(process: Process) {
+            process.destroyForcibly()
+        }
+    }
+
     @Test
     fun aliasesComeFromHostLinesWithoutPatterns() {
         val config = """
@@ -115,7 +130,18 @@ class RemoteHostsTest {
             Host nerv-wsl
             Hostname not-a-host-line
         """.trimIndent()
-        assertEquals(listOf("personal-vps", "nerv-wsl", "nerv-wsl-gate"), RemoteHosts.parseAliases(config))
+        File(temp, ".ssh").mkdirs()
+        File(temp, ".ssh/config").writeText(config)
+        File(temp, ".ssh/config.local").writeText("Host extra personal-vps\n")
+        assertEquals(listOf("personal-vps", "nerv-wsl", "nerv-wsl-gate", "extra"), RemoteHosts.readAliases(shell()))
+    }
+
+    /** 进不去 Debian 时是失败、带着原因，不当成没有别名；没有 ~/.ssh/config 才是没有。 */
+    @Test
+    fun aliasesThatCannotBeReadAreAFailure() {
+        val failure = assertThrows(IllegalStateException::class.java) { RemoteHosts.readAliases(shell(broken = true)) }
+        assertEquals("su: permission denied", failure.message)
+        assertEquals(emptyList<String>(), RemoteHosts.readAliases(shell()))
     }
 
     /**

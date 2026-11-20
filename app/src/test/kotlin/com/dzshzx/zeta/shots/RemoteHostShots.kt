@@ -18,7 +18,7 @@ import org.junit.Test
 /**
  * 远程主机：设置里的清单、侧栏顶部的主机切换（和它的菜单）、远程主机上的新对话，
  * 以及手机上没有 Debian 环境时：聊天页让人去连远程主机，直连的主机照常能用。
- * 单元测试里进不了 Linux 环境，读 ~/.ssh/config 读不到，「从手机 Debian 选」一组是空的。
+ * 单元测试里进不了 Linux 环境，「从手机 Debian 选」一组显示读不到 ~/.ssh/config 和原因。
  */
 class RemoteHostShots : ShotTest() {
     private val hostKey = RemoteHosts.encodeKey(SshKey.generate().blob)
