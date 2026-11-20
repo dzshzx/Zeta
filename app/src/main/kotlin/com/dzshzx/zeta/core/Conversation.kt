@@ -300,7 +300,8 @@ class Conversation(
         thread(name = "zeta-history", isDaemon = true) {
             val loaded = TranscriptReducer("h")
             val result = hub.helper("history", listOf(file), timeoutMs = 60_000, config = config)
-            val read = HistoryPaging.read(result?.stdout.orEmpty(), file, loaded, keepRunningTools = attach?.busy == true)
+            // 没读成时历史是空的，下面另加一条出错提示
+            val read = HistoryPaging.read(result.outputOrNull.orEmpty(), file, loaded, keepRunningTools = attach?.busy == true)
             main.post {
                 // 载入期间用户已经发了新消息的话，新内容接在历史后面
                 loaded.items.addAll(reducer.items)
@@ -310,8 +311,8 @@ class Conversation(
                 earlier = read.earlier
                 todoSeed = read.todoSeed
                 loadingHistory = false
-                if (result == null || result.exitCode != 0) {
-                    reducer.addNotice("读取历史记录失败" + result?.stderr?.takeIf { it.isNotBlank() }?.let { "：${it.trim().take(300)}" }.orEmpty(), error = true)
+                if (result is HelperResult.Failed) {
+                    reducer.addNotice("读取历史记录失败：${result.reason}", error = true)
                 } else {
                     if (reportedModel == null) reportedModel = read.model
                     restoreEffort(read.effort)
@@ -337,11 +338,8 @@ class Conversation(
             // 各页的条目编号按页的位置错开（每页的位置都不同）
             val page = TranscriptReducer("p${window.skipped}-")
             val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, config = config)
-            val read = result?.takeIf { it.exitCode == 0 }?.let { HistoryPaging.read(it.stdout, window.file, page) }
-            val failure = when {
-                read == null -> "没有读到更早的记录" + result?.stderr?.trim()?.takeIf { it.isNotEmpty() }?.let { "：${it.takeLast(200)}" }.orEmpty()
-                else -> null
-            }
+            val read = result.outputOrNull?.let { HistoryPaging.read(it, window.file, page) }
+            val failure = (result as? HelperResult.Failed)?.let { "没有读到更早的记录：" + it.reason.takeLast(200) }
             main.post { applyEarlier(page.items, read, failure) }
         }
     }
@@ -845,11 +843,12 @@ class Conversation(
         } finally {
             log.reading = false
         }
-        if (result == null || result.exitCode != 0) {
-            log.failure = result?.stderr?.trim()?.takeLast(300)?.ifEmpty { null } ?: "没有读到子代理的记录"
-        } else {
-            log.failure = null
-            log.transcript.applyRead(result.stdout)
+        when (result) {
+            is HelperResult.Failed -> log.failure = result.reason
+            is HelperResult.Ok -> {
+                log.failure = null
+                log.transcript.applyRead(result.output)
+            }
         }
         publishSubagent(log)
     }

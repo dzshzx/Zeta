@@ -38,19 +38,12 @@ class ConversationHub(private val app: Application) {
 
     /**
      * 在 Linux 环境（默认是当前设置的那个）里跑 zeta-helper 的子命令 [subcommand]，参数逐个加引号；还没装就先装上。
-     * 环境没准备好、起不来时返回 null。阻塞，别在主线程上调用。
+     * 跑成了才有输出（[HelperResult]）。阻塞，别在主线程上调用。
      */
-    fun helper(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): CommandResult? {
-        config ?: return null
-        return runCatching { helperProgram.run({ command, stdin -> LinuxEnv.run(config, command, stdin, timeoutMs) }, subcommand, arguments) }.getOrNull()
+    fun helper(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): HelperResult {
+        config ?: return HelperResult.Failed("还没有可用的 Linux 环境")
+        return HelperResult.of(runCatching { helperProgram.run({ command, stdin -> LinuxEnv.run(config, command, stdin, timeoutMs) }, subcommand, arguments) }.getOrNull())
     }
-
-    /**
-     * [helper] 跑成了（退出码 0）时的标准输出；没跑成、出错、超时一律 null。用不着失败原因的调用方用它，
-     * 要把标准错误显示出来的用 [helper]。阻塞，别在主线程上调用。
-     */
-    fun helperOutput(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): String? =
-        helper(subcommand, arguments, timeoutMs, config)?.takeIf { it.exitCode == 0 }?.stdout
 
     /** 确认 zeta-helper 已装进 Linux 环境 [config]（没装就装上）；要自己起它的进程（边读边出结果）之前用。装好了是 true。阻塞。 */
     fun ensureHelper(config: LinuxEnvConfig): Boolean =
@@ -237,8 +230,13 @@ class ConversationHub(private val app: Application) {
     private fun reattachHosts() {
         val config = settings.env ?: return
         thread(name = "zeta-hosts", isDaemon = true) {
-            val result = helper("hosts", timeoutMs = 60_000, config = config) ?: return@thread
-            val hosts = result.stdout.lineSequence().mapNotNull { line ->
+            // 没查成不等于没有：什么都不动（不结束进程、不删权限模式），下次环境就绪时再查
+            val output = helper("hosts", timeoutMs = 60_000, config = config).outputOrNull
+            if (output == null) {
+                main.post { hostsChecked = false }
+                return@thread
+            }
+            val hosts = output.lineSequence().mapNotNull { line ->
                 val o = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
                 HostInfo(
                     key = o.str("key") ?: return@mapNotNull null,

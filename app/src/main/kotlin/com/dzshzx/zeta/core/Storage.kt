@@ -290,16 +290,18 @@ object Storage {
 
     /** 统计 Linux 一侧的各类。耗时，别在主线程调用。 */
     fun scan(hub: ConversationHub, keep: List<String>): StorageReport? =
-        hub.helperOutput("storage", keep, 180_000)?.let(::parseReport)
+        hub.helper("storage", keep, 180_000).outputOrNull?.let(::parseReport)
 
     /** 一个项目里各会话的占用。耗时，别在主线程调用。 */
     fun sessions(hub: ConversationHub, project: String, keep: List<String>): Pair<List<SessionUsage>, Long>? =
-        hub.helperOutput("storage-sessions", listOf(project) + keep, 120_000)?.let(::parseSessions)
+        hub.helper("storage-sessions", listOf(project) + keep, 120_000).outputOrNull?.let(::parseSessions)
 
     /** 由助手清掉一类。耗时，别在主线程调用。 */
     fun clean(hub: ConversationHub, kind: StorageKind, keep: List<String>): CleanOutcome {
-        val result = hub.helper("clean", listOf(kind.key) + keep, 300_000) ?: return CleanOutcome(0, 0, error = "Linux 环境没有响应")
-        return parseCleaned(result.stdout) ?: CleanOutcome(0, 0, error = "没清理成（退出码 ${result.exitCode}）")
+        return when (val result = hub.helper("clean", listOf(kind.key) + keep, 300_000)) {
+            is HelperResult.Failed -> CleanOutcome(0, 0, error = result.reason)
+            is HelperResult.Ok -> parseCleaned(result.output) ?: CleanOutcome(0, 0, error = "没清理成")
+        }
     }
 
     /**

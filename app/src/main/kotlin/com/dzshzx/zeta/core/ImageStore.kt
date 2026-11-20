@@ -92,7 +92,7 @@ object ImageStore {
     }
 
     private fun fetch(hub: ConversationHub, subcommand: String, arguments: List<String>): String? {
-        val output = hub.helperOutput(subcommand, arguments, timeoutMs = 60_000) ?: return null
+        val output = hub.helper(subcommand, arguments, timeoutMs = 60_000).outputOrNull ?: return null
         val line = output.lineSequence().firstOrNull { it.startsWith("{") } ?: return null
         return (json.parseToJsonElement(line) as? JsonObject)?.str("data")
     }

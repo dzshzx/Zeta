@@ -80,10 +80,12 @@ object LinuxFiles {
     fun child(directory: String, name: String): String = if (directory == "/") "/$name" else "$directory/$name"
 
     fun list(helper: HelperRun, path: String): LinuxListing {
-        val result = helper("ls", listOf(path)) ?: return LinuxListing.Failed("进不了 Linux 环境")
-        val lines = result.stdout.lineSequence().filter { it.startsWith("{") }.mapNotNull { parse(it) }.toList()
-        val head = lines.firstOrNull()?.takeIf { it.str("type") == "zeta_ls" }
-            ?: return LinuxListing.Failed(result.stderr.lineSequence().lastOrNull { it.isNotBlank() }?.trim() ?: "无法读取该路径")
+        val output = when (val result = helper("ls", listOf(path))) {
+            is HelperResult.Failed -> return LinuxListing.Failed(result.reason)
+            is HelperResult.Ok -> result.output
+        }
+        val lines = output.lineSequence().filter { it.startsWith("{") }.mapNotNull { parse(it) }.toList()
+        val head = lines.firstOrNull()?.takeIf { it.str("type") == "zeta_ls" } ?: return LinuxListing.Failed("无法读取该路径")
         head.str("error")?.let { return LinuxListing.Failed(problem(it)) }
         val entries = lines.drop(1).mapNotNull { item ->
             val name = item.str("name") ?: return@mapNotNull null
@@ -103,8 +105,11 @@ object LinuxFiles {
     }
 
     fun read(helper: HelperRun, path: String): LinuxPreview {
-        val result = helper("read", listOf(path, PREVIEW_BYTES.toString())) ?: return LinuxPreview.Failed("进不了 Linux 环境")
-        val item = result.stdout.lineSequence().firstOrNull { it.startsWith("{") }?.let(::parse)
+        val output = when (val result = helper("read", listOf(path, PREVIEW_BYTES.toString()))) {
+            is HelperResult.Failed -> return LinuxPreview.Failed(result.reason)
+            is HelperResult.Ok -> result.output
+        }
+        val item = output.lineSequence().firstOrNull { it.startsWith("{") }?.let(::parse)
             ?: return LinuxPreview.Failed("无法读取该文件")
         item.str("error")?.let { return LinuxPreview.Failed(problem(it)) }
         val size = item.long("size") ?: 0L

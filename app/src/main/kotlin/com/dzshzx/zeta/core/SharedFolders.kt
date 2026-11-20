@@ -192,8 +192,8 @@ object SharedFolders {
     /** 以 Linux 用户的身份看各个共享文件夹：挂上没有、能不能读写。查不了返回 null。 */
     fun access(helper: HelperRun, folders: List<SharedFolder>): Map<String, SharedAccess>? {
         if (folders.isEmpty()) return emptyMap()
-        val result = helper("mounts", folders.map { it.name })?.takeIf { it.exitCode == 0 } ?: return null
-        return result.stdout.lineSequence().filter { it.startsWith("{") }.mapNotNull { line ->
+        val output = helper("mounts", folders.map { it.name }).outputOrNull ?: return null
+        return output.lineSequence().filter { it.startsWith("{") }.mapNotNull { line ->
             val item = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return@mapNotNull null
             val name = item.str("name") ?: return@mapNotNull null
             name to when {

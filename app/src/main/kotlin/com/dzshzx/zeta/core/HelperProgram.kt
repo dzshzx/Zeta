@@ -2,8 +2,33 @@ package com.dzshzx.zeta.core
 
 import java.security.MessageDigest
 
-/** 跑 zeta-helper 的一个子命令（子命令、参数）：调用方已经定好在哪个 Linux 环境里跑。没跑成（进不去、起不来）是 null。 */
-typealias HelperRun = (subcommand: String, arguments: List<String>) -> CommandResult?
+/** 跑 zeta-helper 的一个子命令（子命令、参数）：调用方已经定好在哪个 Linux 环境里跑。 */
+typealias HelperRun = (subcommand: String, arguments: List<String>) -> HelperResult
+
+/**
+ * zeta-helper 跑一个子命令的结果。它的约定（`helper/main.go`）：退出码 0 才算跑成，命令里的出错（路径不存在等）写在输出的 JSON 里；
+ * 用法不对、命令本身失败时退出码非 0，原因在标准错误。所以只有 [Ok] 有输出，没跑成的只带原因：
+ * 没跑成不能当作“输出为空”（会话列表清空、后台对话当作没有），调用方要么用输出，要么处理原因。
+ */
+sealed interface HelperResult {
+    class Ok(val output: String) : HelperResult
+
+    /** 没跑成：进不去 Linux 环境、超时、装不上 zeta-helper，或者它以非 0 退出。[reason] 给人看。 */
+    class Failed(val reason: String) : HelperResult
+
+    /** 跑成了的输出；没跑成是 null。 */
+    val outputOrNull: String? get() = (this as? Ok)?.output
+
+    companion object {
+        /** 由一次执行的结果判断：[result] 为 null 是进程没起来。 */
+        fun of(result: CommandResult?): HelperResult = when {
+            result == null -> Failed("进不了 Linux 环境")
+            result.exitCode == 0 -> Ok(result.stdout)
+            result.timedOut -> Failed("Linux 环境没有响应（超时）")
+            else -> Failed(result.stderr.trim().takeLast(300).ifEmpty { "zeta-helper 出错（退出码 ${result.exitCode}）" })
+        }
+    }
+}
 
 /**
  * zeta-helper：Zeta 在 Linux 一侧读写 Claude Code 的会话记录、做存储统计和清理的程序（Go，源码在仓根 `helper/`，

@@ -96,11 +96,10 @@ internal fun exportMarkdown(hub: ConversationHub, file: String): ExportedMarkdow
  * 耗时，别在主线程调用。
  */
 internal fun exportMarkdowns(hub: ConversationHub, files: List<String>): List<ExportedMarkdown>? {
-    if (hub.settings.env == null) return null
     if (files.isEmpty()) return emptyList()
     val timeout = (120_000L + 20_000L * (files.size - 1)).coerceAtMost(600_000L)
-    val result = hub.helper("export", files, timeout) ?: return null
-    val exported = result.stdout.lineSequence().mapNotNull(::parseLine).filter { it.str("type") == "zeta_export" }.mapNotNull { o ->
+    val output = hub.helper("export", files, timeout).outputOrNull ?: return null
+    val exported = output.lineSequence().mapNotNull(::parseLine).filter { it.str("type") == "zeta_export" }.mapNotNull { o ->
         ExportedMarkdown(o.str("file").orEmpty(), o.str("title").orEmpty(), o.str("markdown") ?: return@mapNotNull null)
     }.associateBy { it.file }
     return files.mapNotNull { exported[it] }
