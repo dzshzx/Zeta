@@ -27,6 +27,8 @@ running_proxy() {
 }
 
 start() {
+  # adb 服务先在 / 下起好：由后面的调用顺带拉起的话，它的工作目录会留在调用方的任务树里，那棵树就回收不了
+  (cd / && exec "$ANDROID_HOME/platform-tools/adb" start-server) >/dev/null 2>&1 </dev/null
   exec 9>"$dir/zeta-emu.lock"
   flock 9 # 几个 phone-run 同时来时只开一次
   if [[ -z $(emu_pid) ]]; then
