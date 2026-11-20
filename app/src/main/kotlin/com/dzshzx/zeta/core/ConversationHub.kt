@@ -261,7 +261,7 @@ class ConversationHub(private val app: Application) {
         backgroundList = background.values.toList()
     }
 
-    /** 后台任务面板用：当前对话和还在后台的对话，当前的在前（可观察）。 */
+    /** Zeta 手上的全部对话：当前对话和切到后台还在跑的，当前的在前（可观察）。后台任务面板、胶囊、通知都按它挑。 */
     val liveConversations: List<Conversation> get() = (listOf(current) + backgroundList).distinct()
 
     /** 切到后台还在跑的对话（定时任务起的也在这里），不含当前对话（可观察）。 */
@@ -344,7 +344,7 @@ class ConversationHub(private val app: Application) {
             }.toList()
             main.post {
                 // 这个进程里已经接着的（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
-                val known = (listOf(current) + background.values).mapNotNullTo(HashSet()) { it.hostKey }
+                val known = liveConversations.mapNotNullTo(HashSet()) { it.hostKey }
                 val others = hosts.filter { it.key !in known }
                 // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
                 val active = others.filter { it.active }
@@ -448,7 +448,7 @@ class ConversationHub(private val app: Application) {
 
     /** 有对话在进行：在回答、等你确认，或还有后台任务在跑（结束进程会把任务一起杀掉）。 */
     private val conversationsWorking: Boolean
-        get() = (listOf(current) + background.values).any { it.active }
+        get() = liveConversations.any { it.active }
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
     val canSwitchEnvironment: Boolean get() = !conversationsWorking && !installer.running
@@ -732,7 +732,7 @@ class ConversationHub(private val app: Application) {
 
     /** 丢掉没有后台屏幕、也没有对话在用的那些，免得登记越积越多。在主线程上调用。 */
     private fun prunePhones() {
-        val inUse = (listOf(current) + background.values).mapTo(HashSet()) { it.phone }
+        val inUse = liveConversations.mapTo(HashSet()) { it.phone }
         val unused = synchronized(phones) {
             phones.values.filter { it !in inUse && !it.hasScreen }.also { phones.values.removeAll(it.toSet()) }
         }
@@ -769,7 +769,7 @@ class ConversationHub(private val app: Application) {
         val chatVisible = foreground
         fun visible(c: Conversation) = !(chatVisible && c === shown && c.phone.background == null)
         linger?.focus?.takeIf { !it.conversation.busy && visible(it.conversation) }?.let { return it }
-        return (listOf(shown) + backgroundList).distinct()
+        return liveConversations
             .filter { c ->
                 val phone = c.phone
                 (phone.userControlling || phone.paused || (c.busy && phone.engagedThisTurn)) && visible(c)
@@ -885,10 +885,10 @@ class ConversationHub(private val app: Application) {
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
     internal fun onActivityChanged() {
         val working = installer.running || maintenance?.running == true
-        val active = working || current.isProcessAlive || background.values.any { it.isProcessAlive }
+        val active = working || liveConversations.any { it.isProcessAlive }
         // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起
         val busy = working || conversationsWorking
-        val answering = (listOf(current) + background.values).filter { it.busy }.distinct()
+        val answering = liveConversations.filter { it.busy }
         val running = answering.map { conversation ->
             conversation.title.ifBlank { "新对话" } + (conversation.phone.backgroundApp?.let { " · 在后台操作$it" } ?: "")
         }
@@ -935,7 +935,7 @@ class ConversationHub(private val app: Application) {
 
     /** 通知栏的“停止”：打断所有正在回答的对话，和聊天页的停止键一样。 */
     internal fun interruptAll() {
-        (listOf(current) + background.values).filter { it.busy }.distinct().forEach { it.interrupt() }
+        liveConversations.filter { it.busy }.forEach { it.interrupt() }
     }
 
     companion object {
