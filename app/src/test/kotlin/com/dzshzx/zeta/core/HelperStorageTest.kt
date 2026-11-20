@@ -90,13 +90,16 @@ class HelperStorageTest {
     }
 
     /** 起一个一直等着标准输入的进程，命令行里带 [name]（比如 claude、npm）；返回它的 pid。 */
-    private fun fakeProcess(name: String, cwd: File? = null): Long {
+    private fun fakeProcess(name: String, cwd: File? = null, processHome: File = home): Long {
         val script = File(home, "bin/$name")
         if (!script.exists()) {
             write(script, "#!/bin/bash\nread -r line\n")
             script.setExecutable(true)
         }
-        val process = ProcessBuilder(script.path).apply { if (cwd != null) directory(cwd) }.start()
+        val process = ProcessBuilder(script.path).apply {
+            if (cwd != null) directory(cwd)
+            environment()["HOME"] = processHome.path
+        }.start()
         processes += process
         val pid = process.pid()
         repeat(100) {
@@ -299,6 +302,8 @@ class HelperStorageTest {
         processes.forEach { it.destroyForcibly().waitFor(5, TimeUnit.SECONDS) }
         processes.clear()
 
+        // 别的 HOME 下刚启动的 npm 用的不是这份缓存，不拦着（比如本机别的会话起的 MCP 服务）
+        fakeProcess("npm", processHome = tmp)
         assertEquals(2, cleaned(helper("clean", "npm").second).removed)
         assertFalse(File(home, ".npm/_cacache").exists())
         assertFalse(File(home, ".npm/_logs").exists())
