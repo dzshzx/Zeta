@@ -20,20 +20,16 @@ for arg in "$@"; do
     *) echo "用法：tools/install.sh [--release [--minor]] [--no-build]" >&2; exit 2 ;;
   esac
 done
-if [[ $variant == debug && ${ZETA_PHONE_OWNER:-main} != main ]]; then
-  echo "正式版只在上线时由主会话装（现在 ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）；开发测试装测试版：去掉 --release" >&2
-  exit 2
-fi
 if [[ -n $minor && $variant == dev ]]; then echo "--minor 只用于上线（和 --release 一起用）" >&2; exit 2; fi
 on_phone=
 [[ $(uname -r) == *android* ]] && on_phone=1
-if [[ ${ZETA_PHONE_OWNER:-main} != main && -z ${ZETA_PHONE_TICKET:-} && -z $on_phone ]]; then
-  echo "子代理（ZETA_PHONE_OWNER=$ZETA_PHONE_OWNER）装包只经 tools/phone-run：它构建、排队、装好再跑脚本" >&2
-  exit 2
-fi
 device=${ZETA_DEVICE:-emu}
 [[ $device == emu || $device == phone ]] || { echo "ZETA_DEVICE 只能是 emu 或 phone（现在是 $device）" >&2; exit 2; }
 [[ $variant == dev && -z $on_phone ]] || device=phone # 正式版只在手机上
+lease=main
+[[ $variant == dev ]] && lease=$([[ $device == emu ]] && echo emu || echo dev)
+# 谁能装哪个包由 tools/phone-lock 定；构建前先问一次，被拒绝时不白构建
+[[ -n $on_phone ]] || tools/phone-lock --check "$lease" || exit 2
 package=com.dzshzx.zeta
 [[ $variant == dev ]] && package=com.dzshzx.zeta.dev
 
@@ -95,11 +91,11 @@ root=(sudo -n timeout 300 nsenter -t 1 -m -- /system/bin/sh -c "$cmd")
 if [[ -n $on_phone ]]; then
   "${root[@]}" <"$APK"
 elif [[ $device == emu ]]; then
+  tools/phone-lock emu # 先构建，装之前才拿租约：构建的几分钟不占设备；拿到再开模拟器
   tools/emu start
-  tools/phone-lock emu # 先构建，装之前才拿租约：构建的几分钟不占设备
   "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" -s emulator-5554 shell -T "timeout 300 $cmd" <"$APK"
 else
-  tools/phone-lock "$([[ $variant == dev ]] && echo dev || echo main)"
+  tools/phone-lock "$lease"
   ssh "${ZETA_PHONE_SSH:-xiaomi-17-debian}" "${root[*]@Q}" <"$APK"
 fi
 if [[ -n $tag ]]; then

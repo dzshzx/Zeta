@@ -338,11 +338,14 @@ def pick_device(dev):
         sys.exit(f"ZETA_DEVICE 只能是 emu 或 phone（现在是 {want}）")
     if ON_PHONE or not dev:
         return "phone"
-    if want == "emu" and not IN_PHONE_RUN:
-        code = subprocess.run([os.path.join(HERE, "emu"), "start"]).returncode
-        if code:
-            sys.exit(code)
     return want
+
+
+def start_emulator():
+    """模拟器没开就开机（tools/emu start）。拿到租约之后才调：被拒绝时不白开一次模拟器。"""
+    code = subprocess.run([os.path.join(HERE, "emu"), "start"]).returncode
+    if code:
+        sys.exit(code)
 
 
 COMMANDS = {"build", "start", "shot", "launch", "prefs", "prefs-set", "tap", "swipe", "text", "key", "fake", "status", "sh", "stop"}
@@ -357,17 +360,14 @@ def main():
     if not a or a[0] not in COMMANDS:
         sys.exit(__doc__)
     c, rest = a[0], a[1:]
-    owner = os.environ.get("ZETA_PHONE_OWNER") or "main"
     if c == "fake" and not dev:
         sys.exit("假 Claude 只给测试版用：去掉 --release")
-    if not dev and owner != "main" and c != "build":
-        sys.exit(f"正式版只由主会话碰（现在 ZETA_PHONE_OWNER={owner}）；开发测试用测试版：去掉 --release")
-    if owner != "main" and not IN_PHONE_RUN and not ON_PHONE and c != "build":
-        sys.exit(f"子代理（ZETA_PHONE_OWNER={owner}）碰设备只经 tools/phone-run：把要做的写成脚本交给它排队跑")
     if c != "build":
         DEVICE = pick_device(dev)
-        if not IN_PHONE_RUN:
-            lease(dev)
+        if not IN_PHONE_RUN:  # phone-run 已经开好模拟器、拿着租约
+            lease(dev)  # 谁能碰哪个包由 tools/phone-lock 定
+            if DEVICE == "emu":
+                start_emulator()
         use(dev)
     if c == "build":
         build()
