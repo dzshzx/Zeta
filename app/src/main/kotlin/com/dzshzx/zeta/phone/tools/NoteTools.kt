@@ -32,8 +32,8 @@ internal object NoteTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
-        if (name == EDIT) toolText(edit(context, input)) else toolFailure("没有这个工具：$name")
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = toolCall {
+        if (name == EDIT) toolText(edit(call.context, input)) else toolFailure("没有这个工具：$name")
     }
 
     override fun title(name: String, input: JsonObject): String = MiuiNoteWrites.chatTitle(input)

@@ -54,10 +54,10 @@ internal object AppTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = toolCall {
         when (name) {
-            LIST -> toolText(list(context, appQuery(input)))
-            CALL -> invoke(context, input)
+            LIST -> toolText(list(call.context, appQuery(input)))
+            CALL -> invoke(call.context, input)
             else -> toolFailure("没有这个工具：$name")
         }
     }

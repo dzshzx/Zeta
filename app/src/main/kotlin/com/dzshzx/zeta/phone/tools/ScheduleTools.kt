@@ -40,9 +40,9 @@ import kotlinx.serialization.json.putJsonObject
  *
  * 无人值守的后台运行里（定时任务、通知触发跑起来的那一轮，见 [UnattendedRun]）管理定时任务的工具都用不了：一次运行常读网页、
  * 通知这类外来的文字，要是能新建、改、删、跑别的任务，里面冒充指令的文字就能让自己反复跑下去，或者把别的任务改成不经确认、
- * 照它的意思跑。Claude Code 自己的权限规则（[unattendedRules]）让模型看不到它们；调用还是到了 Zeta 时（规则没生效，或者
- * 用户插话撤了规则而这一轮还在跑），[refusal] 照样不执行。上报结论的 [REPORT] 一直列着，由 PhoneTools 带上这个对话正在跑的
- * 运行交给 [report]。
+ * 照它的意思跑。所以拦两道：Claude Code 自己的权限规则（[unattendedRules]）让模型看不到它们；调用还是到了 Zeta 时（规则没生效，
+ * 或者用户插话撤了规则而这一轮还在跑），[call] 先问 [refusal]，照样不执行。上报结论的 [REPORT] 一直列着，记在调用带来的
+ * 这个对话正在跑的运行上（[CallContext.unattended]）。
  */
 internal object ScheduleTools : PhoneToolGroup {
     private const val CREATE = "create_scheduled_task"
@@ -163,14 +163,16 @@ internal object ScheduleTools : PhoneToolGroup {
         )
     }
 
-    /** [REPORT] 不经这里：PhoneTools 带上这个对话正在跑的运行直接调 [report]。 */
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
+    /** 后台运行里调到管理定时任务的工具时不执行（[refusal]，第二道）；上报记在这次调用所在的运行上。 */
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = refusal(name, call.unattended) ?: toolCall {
+        val context = call.context
         when (name) {
             CREATE -> create(context, input)
             LIST -> toolText(list(context))
             UPDATE -> update(context, input)
             DELETE -> delete(context, input)
             RUN -> runNow(context, input)
+            REPORT -> report(input, call.unattended)
             else -> toolFailure("没有这个工具：$name")
         }
     }
@@ -364,7 +366,7 @@ internal object ScheduleTools : PhoneToolGroup {
     }
 
     /**
-     * 上报这次运行的结论，记在 [run] 上（这个对话正在跑的后台运行，PhoneTools 给）。不在后台运行里、
+     * 上报这次运行的结论，记在 [run] 上（这个对话正在跑的后台运行，调用带来的）。不在后台运行里、
      * 或者这次运行不是只在有变化时提醒的，回一句不用上报。
      */
     fun report(input: JsonObject, run: UnattendedRun?): JsonObject {

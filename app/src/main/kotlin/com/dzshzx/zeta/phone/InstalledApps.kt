@@ -17,6 +17,14 @@ object InstalledApps {
         }
     }
 
+    /** 按应用名或包名找：完全对上的（包名，或不分大小写的应用名）有就只要这些，没有再找名字、包名里含着它的。 */
+    fun match(context: Context, query: String): List<Launcher> {
+        val q = query.trim()
+        val apps = launchable(context)
+        apps.filter { it.packageName == q || it.label.equals(q, ignoreCase = true) }.takeIf { it.isNotEmpty() }?.let { return it }
+        return apps.filter { it.label.contains(q, ignoreCase = true) || it.packageName.contains(q, ignoreCase = true) }
+    }
+
     /** 包名换成应用名；看不到的包（不在 Zeta 的可见范围里）或名字为空时用包名。 */
     fun label(context: Context, packageName: String): String = runCatching {
         context.packageManager.run { getApplicationLabel(getApplicationInfo(packageName, 0)).toString() }

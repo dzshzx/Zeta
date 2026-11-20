@@ -21,7 +21,8 @@ internal object ClipboardTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject {
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject {
+        val context = call.context
         val text = input.str("text")
         if (text != null && text.length > MAX_WRITE) return toolFailure("最多写入 $MAX_WRITE 个字符")
         val out = run(context, if (text == null) "get" else "set", text)

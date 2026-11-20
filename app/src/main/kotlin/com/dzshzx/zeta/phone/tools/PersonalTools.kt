@@ -93,11 +93,11 @@ internal object PersonalTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = toolCall {
         when (name) {
-            SEARCH -> toolText(search(context, input))
-            VIEW -> view(context, input)
-            EDIT -> toolText(edit(context, input))
+            SEARCH -> toolText(search(call.context, input))
+            VIEW -> view(call.context, input)
+            EDIT -> toolText(edit(call.context, input))
             else -> toolFailure("没有这个工具：$name")
         }
     }

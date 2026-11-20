@@ -13,7 +13,7 @@ class DeviceToolsTest {
 
     @Test
     fun toolsAreFewAndSmall() {
-        assertEquals(listOf("device_state", "media", "clock", "system_setting", "app_control", "device_info", "logcat"), names())
+        assertEquals(listOf("find_apps", "shell", "device_state", "media", "clock", "system_setting", "app_control", "device_info", "logcat"), names())
         // 预算约 3k token；英文 JSON 大约 3 到 4 个字符一个 token，现在约 5.5k 字符
         val chars = DeviceTools.tools.sumOf { it.definition.toString().length }
         assertTrue("tool definitions are $chars chars", chars <= 8_000)
@@ -102,6 +102,23 @@ class DeviceShellTest {
     fun parsesContentRowsWithCommasInLastColumn() {
         val rows = contentRows("Row: 0 _id=1, name=a, b, c\nNo result found.\nRow: 1 _id=2, name=", listOf("_id", "name"))
         assertEquals(listOf(mapOf("_id" to "1", "name" to "a, b, c"), mapOf("_id" to "2", "name" to "")), rows)
+    }
+
+    /** shell 原样交回输出和退出码，退出码不是 0 算失败；超时按秒数说。 */
+    @Test
+    fun shellReportsOutputAndExitCode() {
+        var asked = 0L
+        fun run(exit: Int, out: String, err: String, input: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): kotlinx.serialization.json.JsonObject =
+            DeviceTools.shell(buildJsonObject(input)) { _, timeoutMs -> asked = timeoutMs; com.dzshzx.zeta.core.CommandResult(exit, out, err) }
+        fun text(result: kotlinx.serialization.json.JsonObject) = result.toString()
+        val ok = run(0, "a\n", "") { put("command", "getprop x") }
+        assertTrue(text(ok), "a\\n[退出码 0]" in text(ok) && "isError" !in text(ok))
+        assertEquals(30_000L, asked)
+        val bad = run(2, "", "nope") { put("command", "false"); put("timeout_seconds", 5) }
+        assertTrue(text(bad), "[stderr]\\nnope\\n[退出码 2]" in text(bad) && "\"isError\":true" in text(bad))
+        assertEquals(5_000L, asked)
+        assertTrue("[超过 600 秒，已中止]" in text(run(-1, "", com.dzshzx.zeta.core.CommandResult.TIMEOUT) { put("command", "sleep 9999"); put("timeout_seconds", 9999) }))
+        assertTrue("缺少 command" in text(run(0, "", "") { put("command", " ") }))
     }
 
     @Test

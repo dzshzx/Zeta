@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.phone.InstalledApps
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -16,11 +17,30 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * 设备与系统一类的手机工具：开关和档位、音量与播放、闹钟和计时器、系统设置、应用、设备信息、日志。
+ * 设备与系统一类的手机工具：找已装的应用、以 root 执行命令、开关和档位、音量与播放、闹钟和计时器、系统设置、应用、设备信息、日志。
  * 都不碰屏幕，优先用 root 命令；各领域的命令拼装和解析在同目录的 Device*.kt、XiaomiClock.kt 里。
  */
 internal object DeviceTools : PhoneToolGroup {
+    private const val FIND_APPS = "find_apps"
+    private const val SHELL = "shell"
+
+    /** shell 的标准输出、标准错误各最多交回这么多字符（留最后的）。 */
+    private const val OUTPUT_LIMIT = 30_000
+
     override val tools: List<PhoneTool> = listOf(
+        tool(FIND_APPS, "查找已装的应用", "List installed apps that can be launched, with their package names. Empty query lists all.", readOnly = true) {
+            schema { prop("query", "string", "Part of the app name or package name.") }
+        },
+        tool(
+            SHELL,
+            "以 root 在 Android 一侧执行命令",
+            "Run a shell command as root on the Android side (not inside the Linux environment): pm, am, cmd, settings, dumpsys, getprop, logcat, input, screencap, etc. Returns stdout, stderr and the exit code.",
+        ) {
+            schema(required = listOf("command")) {
+                prop("command", "string", "The command line, run by /system/bin/sh.")
+                prop("timeout_seconds", "integer", "Give up after this long (1-600, default 30).")
+            }
+        },
         tool(
             "device_state",
             "查看、切换 WLAN、蓝牙、亮度等",
@@ -109,20 +129,52 @@ internal object DeviceTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = toolCall {
-        toolText(
-            when (name) {
-                "device_state" -> deviceState(context, input)
-                "media" -> media(input)
-                "clock" -> clock(input)
-                "system_setting" -> systemSetting(input)
-                "app_control" -> appControl(context, input)
-                "device_info" -> deviceInfo(input)
-                "logcat" -> logcat(input)
-                else -> throw ToolError("没有这个工具：$name")
-            },
-        )
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = when (name) {
+        FIND_APPS -> findApps(call.context, input.str("query").orEmpty())
+        SHELL -> shell(input)
+        else -> toolCall { toolText(answer(call.context, name, input)) }
     }
+
+    private fun answer(context: Context, name: String, input: JsonObject): String = when (name) {
+        "device_state" -> deviceState(context, input)
+        "media" -> media(input)
+        "clock" -> clock(input)
+        "system_setting" -> systemSetting(input)
+        "app_control" -> appControl(context, input)
+        "device_info" -> deviceInfo(input)
+        "logcat" -> logcat(input)
+        else -> throw ToolError("没有这个工具：$name")
+    }
+
+    // ---- find_apps ----
+
+    private fun findApps(context: Context, query: String): JsonObject {
+        val apps = (if (query.isBlank()) InstalledApps.launchable(context) else InstalledApps.match(context, query)).sortedBy { it.label }
+        if (apps.isEmpty()) return toolText("没有找到匹配“$query”的应用")
+        return toolText(apps.take(200).joinToString("\n") { "${it.label}  ${it.packageName}" })
+    }
+
+    // ---- shell ----
+
+    /** 照原样交回标准输出、标准错误和退出码；退出码不是 0 算失败。 */
+    internal fun shell(a: JsonObject, sh: Shell = this.sh): JsonObject {
+        val command = a.str("command")?.takeIf { it.isNotBlank() } ?: return toolFailure("缺少 command")
+        val timeout = (a.int("timeout_seconds") ?: 30).coerceIn(1, 600)
+        val result = sh.run(command, timeout * 1000L)
+        val body = buildString {
+            if (result.stdout.isNotEmpty()) append(tail(result.stdout))
+            if (result.stderr.isNotBlank()) {
+                if (isNotEmpty() && !endsWith('\n')) append('\n')
+                append("[stderr]\n").append(tail(result.stderr))
+            }
+            if (isNotEmpty() && !endsWith('\n')) append('\n')
+            append(if (result.timedOut) "[超过 $timeout 秒，已中止]" else "[退出码 ${result.exitCode}]")
+        }
+        return if (result.exitCode == 0) toolText(body) else toolFailure(body)
+    }
+
+    private fun tail(value: String): String = if (value.length <= OUTPUT_LIMIT) value else
+        "…（前面省略 ${value.length - OUTPUT_LIMIT} 个字符）\n" + value.takeLast(OUTPUT_LIMIT)
 
     // ---- device_state ----
 
@@ -424,6 +476,8 @@ internal object DeviceTools : PhoneToolGroup {
     // ---- 标题 ----
 
     override fun title(name: String, input: JsonObject): String = when (name) {
+        FIND_APPS -> input.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + short(it, 16) } ?: "查看已装的应用"
+        SHELL -> input.str("command")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { "Android：" + short(it, 40) } ?: "Android：执行命令"
         "device_state" -> {
             val target = input.str("target")
             val what = DeviceSwitches.NAMES[target] ?: target
@@ -508,6 +562,8 @@ internal object DeviceTools : PhoneToolGroup {
             else -> "设置$what"
         }
     }
+
+    private fun short(value: String, limit: Int): String = value.replace(Regex("\\s+"), " ").trim().clipChars(limit, "…")
 
     /** 秒数说成「5 分钟」「1 小时 30 分」。 */
     internal fun spokenZh(seconds: Int): String {

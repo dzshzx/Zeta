@@ -77,6 +77,23 @@ class ScheduleToolsTest {
         assertNull(ScheduleTools.refusal("run_scheduled_task", null))
     }
 
+    /** 调用带着这个对话正在跑的后台运行进来：管理工具在 call 里也拦（第二道），上报记在这次运行上。 */
+    @Test
+    fun callCarriesTheUnattendedRun() {
+        val run = UnattendedRun(onlyOnChange = true)
+        val inRun = CallContext(app, run)
+        val create = """{"name":"x","prompt":"y","repeat":"daily","time":"08:00"}"""
+        assertTrue(failed(ScheduleTools.call(inRun, "create_scheduled_task", args(create))))
+        assertTrue(failed(ScheduleTools.call(inRun, "list_scheduled_tasks", args("{}"))))
+        assertEquals(emptyList<ScheduledTask>(), ScheduleStore.load(app))
+        assertFalse(failed(ScheduleTools.call(inRun, "report_scheduled_run", args("""{"outcome":"deliver","summary":"到货了"}"""))))
+        assertEquals(RunReport(changed = true, summary = "到货了"), run.report)
+        // 平常的对话照常
+        val plain = CallContext(app)
+        assertEquals("还没有定时任务", text(ScheduleTools.call(plain, "list_scheduled_tasks", args("{}"))))
+        assertTrue("不用上报" in text(ScheduleTools.call(plain, "report_scheduled_run", args("""{"outcome":"no_change","summary":"x"}"""))))
+    }
+
     @Test
     fun reportIsRecordedOnTheRun() {
         val run = UnattendedRun(onlyOnChange = true)
@@ -151,21 +168,21 @@ class ScheduleToolsTest {
     @Test
     fun toolsReadAndWriteTheStore() {
         val created = ScheduleTools.call(
-            app, "create_scheduled_task",
+            CallContext(app), "create_scheduled_task",
             args("""{"name":"价格监控","prompt":"看看降价没有","repeat":"interval","every_hours":3,"only_on_change":true}"""),
         )
         assertFalse(text(created), failed(created))
         val task = ScheduleStore.load(app).single()
         assertTrue(task.onlyOnChange)
-        val updated = ScheduleTools.call(app, "update_scheduled_task", args("""{"id":"${task.id}","every_hours":6,"only_on_change":false}"""))
+        val updated = ScheduleTools.call(CallContext(app), "update_scheduled_task", args("""{"id":"${task.id}","every_hours":6,"only_on_change":false}"""))
         assertFalse(text(updated), failed(updated))
         assertTrue(text(updated), "每 6 小时" in text(updated))
         val saved = ScheduleStore.load(app).single()
         assertEquals(6, (saved.rule as ScheduleRule.Interval).hours)
         assertFalse(saved.onlyOnChange)
-        assertTrue("没有要改的" in text(ScheduleTools.call(app, "update_scheduled_task", args("""{"id":"${task.id}"}"""))))
-        assertTrue(failed(ScheduleTools.call(app, "update_scheduled_task", args("""{"id":"nope","name":"x"}"""))))
-        assertTrue(failed(ScheduleTools.call(app, "run_scheduled_task", args("""{"id":"nope"}"""))))
-        assertTrue("只在有变化时提醒" !in text(ScheduleTools.call(app, "list_scheduled_tasks", args("{}"))))
+        assertTrue("没有要改的" in text(ScheduleTools.call(CallContext(app), "update_scheduled_task", args("""{"id":"${task.id}"}"""))))
+        assertTrue(failed(ScheduleTools.call(CallContext(app), "update_scheduled_task", args("""{"id":"nope","name":"x"}"""))))
+        assertTrue(failed(ScheduleTools.call(CallContext(app), "run_scheduled_task", args("""{"id":"nope"}"""))))
+        assertTrue("只在有变化时提醒" !in text(ScheduleTools.call(CallContext(app), "list_scheduled_tasks", args("{}"))))
     }
 }

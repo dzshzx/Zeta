@@ -33,7 +33,7 @@ import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.phone.tools.PhoneTool
 import com.dzshzx.zeta.phone.tools.PhoneToolGroups
-import com.dzshzx.zeta.phone.tools.ScheduleTools
+import com.dzshzx.zeta.phone.tools.CallContext
 import com.dzshzx.zeta.phone.tools.enumProp
 import com.dzshzx.zeta.phone.tools.prop
 import com.dzshzx.zeta.phone.tools.rootShell
@@ -97,7 +97,7 @@ class PhoneTools(
     /** [destroy] 过了：不再建后台屏幕，免得还没结束的工具调用给已经没人要的会话建出一块没人管的屏。 */
     @Volatile private var destroyed = false
 
-    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），由 ScheduleRunner 挂上、跑完摘掉。Claude 的上报记在它上面。 */
+    /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），由 ScheduleRunner 挂上、跑完摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile var unattended: UnattendedRun? = null
 
     private class Screen(val width: Int, val height: Int) {
@@ -468,58 +468,50 @@ class PhoneTools(
         }
     }
 
-    private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = when (name) {
-        "shell" -> shell(a)
-        "find_apps" -> findApps(a.str("query").orEmpty())
-        ScheduleTools.REPORT -> {
-            reportCall(toolUseId, name, a)
-            ScheduleTools.report(a, unattended)
+    private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject = PhoneToolGroups.find(name)?.let { group ->
+        reportCall(toolUseId, name, a)
+        group.call(CallContext(context, unattended), name, a)
+    } ?: synchronized(lock) {
+        justWoke = false
+        // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废
+        val touched = touchedByUser.getAndSet(false)
+        if (touched) forget()
+        // 这次的动作是照着旧画面定的，照做可能点错：不执行，把新画面交回去
+        val skip = touched && onBackground && name in BLIND_ACTIONS
+        val notes = buildList {
+            if (touched) add("用户刚才在后台屏幕上手动操作过，画面可能变了")
+            if (skip) add("所以这次的 $name 没有执行：请按下面的新画面重新决定")
+            while (true) add(userNotes.poll() ?: break)
         }
-        else -> PhoneToolGroups.find(name)?.let { group ->
-            reportCall(toolUseId, name, a)
-            ScheduleTools.refusal(name, unattended) ?: group.call(context, name, a)
-        } ?: synchronized(lock) {
-            justWoke = false
-            // 用户在后台屏幕上动过手：画面可能已经不是 Claude 上次看到的样子，旧的控件编号作废
-            val touched = touchedByUser.getAndSet(false)
-            if (touched) forget()
-            // 这次的动作是照着旧画面定的，照做可能点错：不执行，把新画面交回去
-            val skip = touched && onBackground && name in BLIND_ACTIONS
-            val notes = buildList {
-                if (touched) add("用户刚才在后台屏幕上手动操作过，画面可能变了")
-                if (skip) add("所以这次的 $name 没有执行：请按下面的新画面重新决定")
-                while (true) add(userNotes.poll() ?: break)
+        reportCall(toolUseId, name, a)
+        val result = if (skip) {
+            ready()?.let { toolFailure(it) }
+                ?: JsonObject(observe(screenshot = a.bool("screenshot") == true, maxNodes = 60) + ("isError" to JsonPrimitive(true)))
+        } else when (name) {
+            "screen" -> {
+                // 切到后台屏幕时也在 ready() 里唤醒
+                val problem = a.str("display")?.let { switchTo(it) } ?: ready()
+                if (problem != null) toolFailure(problem)
+                else observe(screenshot = a.bool("screenshot") == true, maxNodes = (a.int("max_nodes") ?: 80).coerceIn(10, 250), detail = true)
             }
-            reportCall(toolUseId, name, a)
-            val result = if (skip) {
-                ready()?.let { toolFailure(it) }
-                    ?: JsonObject(observe(screenshot = a.bool("screenshot") == true, maxNodes = 60) + ("isError" to JsonPrimitive(true)))
-            } else when (name) {
-                "screen" -> {
-                    // 切到后台屏幕时也在 ready() 里唤醒
-                    val problem = a.str("display")?.let { switchTo(it) } ?: ready()
-                    if (problem != null) toolFailure(problem)
-                    else observe(screenshot = a.bool("screenshot") == true, maxNodes = (a.int("max_nodes") ?: 80).coerceIn(10, 250), detail = true)
-                }
-                "tap" -> act(a) { screen, notes -> tap(screen, a, longPressMs = null, notes) }
-                "long_press" -> act(a) { screen, notes -> tap(screen, a, longPressMs = (a.int("duration_ms") ?: 700).coerceIn(300, 5000).toLong(), notes) }
-                "swipe" -> act(a) { screen, _ -> swipe(screen, a) }
-                // 滚动自己等到画面停下来
-                "scroll" -> act(a, settleMs = 0) { screen, notes -> scroll(screen, a, notes) }
-                "type_text" -> act(a) { screen, notes -> typeText(screen, a, notes) }
-                "press_key" -> act(a) { _, notes -> pressKey(a.str("key").orEmpty(), notes) }
-                "wait" -> waitFor(a)
-                "open_app" -> openApp(a)
-                "show_to_user" -> showToUser(a)
-                else -> toolFailure("没有这个工具：$name")
-            }
-            // 开应用、移到主屏之后才知道落在哪块屏上
-            if (name == "open_app" || name == "show_to_user") {
-                val onMainScreen = !onBackground
-                main.post { actingOnMain = onMainScreen }
-            }
-            withNotes(result, notes)
+            "tap" -> act(a) { screen, notes -> tap(screen, a, longPressMs = null, notes) }
+            "long_press" -> act(a) { screen, notes -> tap(screen, a, longPressMs = (a.int("duration_ms") ?: 700).coerceIn(300, 5000).toLong(), notes) }
+            "swipe" -> act(a) { screen, _ -> swipe(screen, a) }
+            // 滚动自己等到画面停下来
+            "scroll" -> act(a, settleMs = 0) { screen, notes -> scroll(screen, a, notes) }
+            "type_text" -> act(a) { screen, notes -> typeText(screen, a, notes) }
+            "press_key" -> act(a) { _, notes -> pressKey(a.str("key").orEmpty(), notes) }
+            "wait" -> waitFor(a)
+            "open_app" -> openApp(a)
+            "show_to_user" -> showToUser(a)
+            else -> toolFailure("没有这个工具：$name")
         }
+        // 开应用、移到主屏之后才知道落在哪块屏上
+        if (name == "open_app" || name == "show_to_user") {
+            val onMainScreen = !onBackground
+            main.post { actingOnMain = onMainScreen }
+        }
+        withNotes(result, notes)
     }
 
     /** screen 的 display 参数：换到主屏或后台屏幕。返回问题，没有问题返回 null。 */
@@ -986,20 +978,7 @@ class PhoneTools(
         return rootError(command)
     }
 
-    private fun launchable(): List<InstalledApps.Launcher> = InstalledApps.launchable(context)
-
-    private fun match(query: String): List<InstalledApps.Launcher> {
-        val q = query.trim()
-        val apps = launchable()
-        apps.filter { it.packageName == q || it.label.equals(q, ignoreCase = true) }.takeIf { it.isNotEmpty() }?.let { return it }
-        return apps.filter { it.label.contains(q, ignoreCase = true) || it.packageName.contains(q, ignoreCase = true) }
-    }
-
-    private fun findApps(query: String): JsonObject {
-        val apps = (if (query.isBlank()) launchable() else match(query)).sortedBy { it.label }
-        if (apps.isEmpty()) return toolText("没有找到匹配“$query”的应用")
-        return toolText(apps.take(200).joinToString("\n") { "${it.label}  ${it.packageName}" })
-    }
+    private fun match(query: String): List<InstalledApps.Launcher> = InstalledApps.match(context, query)
 
     /**
      * 打开应用，或者把链接、intent 动作（设置页之类）交给系统，默认在后台屏幕上。
@@ -1090,7 +1069,7 @@ class PhoneTools(
 
     /** 应用的名字；看不到（没有桌面图标、不在可见范围里）时用包名。 */
     private fun appLabel(packageName: String): String =
-        launchable().firstOrNull { it.packageName == packageName }?.label ?: InstalledApps.label(context, packageName)
+        InstalledApps.launchable(context).firstOrNull { it.packageName == packageName }?.label ?: InstalledApps.label(context, packageName)
 
     /** 主屏前台的应用（用户眼前的那个）。 */
     private fun foregroundOnMain(): String? = rootTasks().firstOrNull { it.displayId == mainDisplay && it.visible }?.packageName
@@ -1276,25 +1255,6 @@ class PhoneTools(
 
     // ---- Android 侧命令 ----
 
-    private fun shell(a: JsonObject): JsonObject {
-        val command = a.str("command")?.takeIf { it.isNotBlank() } ?: return toolFailure("缺少 command")
-        val timeout = (a.int("timeout_seconds") ?: 30).coerceIn(1, 600)
-        val result = root(command, timeout * 1000L)
-        val body = buildString {
-            if (result.stdout.isNotEmpty()) append(tail(result.stdout))
-            if (result.stderr.isNotBlank()) {
-                if (isNotEmpty() && !endsWith('\n')) append('\n')
-                append("[stderr]\n").append(tail(result.stderr))
-            }
-            if (isNotEmpty() && !endsWith('\n')) append('\n')
-            append(if (result.timedOut) "[超过 $timeout 秒，已中止]" else "[退出码 ${result.exitCode}]")
-        }
-        return if (result.exitCode == 0) toolText(body) else toolFailure(body)
-    }
-
-    private fun tail(value: String): String = if (value.length <= OUTPUT_LIMIT) value else
-        "…（前面省略 ${value.length - OUTPUT_LIMIT} 个字符）\n" + value.takeLast(OUTPUT_LIMIT)
-
     /** 在 Android 侧（全局挂载命名空间）以 root 执行。 */
     private fun root(command: String, timeoutMs: Long = 15_000) = rootShell(command, timeoutMs)
 
@@ -1345,7 +1305,6 @@ class PhoneTools(
             Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "zeta-phone-user").apply { isDaemon = true } }
         }
 
-        private const val OUTPUT_LIMIT = 30_000
         /** 本包的无障碍服务组件名。正式版和测试版各是各的，启用、停用都只动自己这一项。 */
         val SERVICE = AppVariant.current.component(ZetaAccessibilityService::class.java.name)
 
@@ -1480,8 +1439,6 @@ class PhoneTools(
                     }
                 }
                 "show_to_user" -> "把" + (scene?.backgroundApp ?: "应用") + "移到主屏"
-                "find_apps" -> a.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + short(it, 16) } ?: "查看已装的应用"
-                "shell" -> a.str("command")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { "Android：" + short(it, 40) } ?: "Android：执行命令"
                 else -> null
             }
         }
@@ -1492,7 +1449,7 @@ class PhoneTools(
         /** 夹在两段中文之间：两头是英文、数字时各空一格（「等 com.android.settings 打开」「等微信打开」）。 */
         private fun spaced(word: String): String = gap(word) + word + if (word.lastOrNull()?.let { it.code < 128 } == true) " " else ""
 
-        /** 屏幕这一套和 shell、find_apps：由 PhoneTools 自己执行。 */
+        /** 屏幕这一套：由 PhoneTools 自己执行（记控件编号、切屏、和用户的手势互斥）。 */
         internal val SCREEN_TOOLS: List<PhoneTool> = buildList {
             add(tool("screen", "读屏：前台应用、可点的控件和截图", "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.", readOnly = true) {
                 schema {
@@ -1600,15 +1557,6 @@ class PhoneTools(
                 schema {
                     prop("reason", "string", "Short reason, e.g. 需要你输入支付密码.")
                     after()
-                }
-            })
-            add(tool("find_apps", "查找已装的应用", "List installed apps that can be launched, with their package names. Empty query lists all.", readOnly = true) {
-                schema { prop("query", "string", "Part of the app name or package name.") }
-            })
-            add(tool("shell", "以 root 在 Android 一侧执行命令", "Run a shell command as root on the Android side (not inside the Linux environment): pm, am, cmd, settings, dumpsys, getprop, logcat, input, screencap, etc. Returns stdout, stderr and the exit code.") {
-                schema(required = listOf("command")) {
-                    prop("command", "string", "The command line, run by /system/bin/sh.")
-                    prop("timeout_seconds", "integer", "Give up after this long (1-600, default 30).")
                 }
             })
         }

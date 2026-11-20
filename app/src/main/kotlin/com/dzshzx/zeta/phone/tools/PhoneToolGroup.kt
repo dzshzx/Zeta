@@ -3,6 +3,7 @@ package com.dzshzx.zeta.phone.tools
 import android.content.Context
 import com.dzshzx.zeta.core.CommandResult
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.schedule.UnattendedRun
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -22,6 +23,12 @@ internal class PhoneTool(val label: String, val definition: JsonObject) {
 }
 
 /**
+ * 一次调用所在的对话给的东西：Android 的 [context]，这个对话正在跑的无人值守后台运行 [unattended]
+ * （定时任务、通知触发跑起来的那一轮；平常的对话是 null）。
+ */
+internal class CallContext(val context: Context, val unattended: UnattendedRun? = null)
+
+/**
  * 一组不碰屏幕的手机工具：设备状态、闹钟、日历、通知、个人数据这一类。
  * PhoneTools 把各组的定义并进 MCP 的 tools/list；调用时不走屏幕那一套（不记控件编号、不切屏），直接交给这里，
  * 但用户暂停或接管时同样先等着。每组是本目录下自己文件里的一个 object，写好后在 [PhoneToolGroups.all] 里加一行。
@@ -32,7 +39,7 @@ internal interface PhoneToolGroup {
     val tools: List<PhoneTool>
 
     /** 执行一次调用，返回 MCP 的 result（[toolText]、[toolFailure]）。只会收到 [tools] 里有的名字；在后台线程调用，可以阻塞。 */
-    fun call(context: Context, name: String, input: JsonObject): JsonObject
+    fun call(call: CallContext, name: String, input: JsonObject): JsonObject
 
     /** 这一步做了什么，一句中文，比如「打开 Wi-Fi」「查看今天的日程」：聊天里的步骤和顶部胶囊都用它。[tools] 里每个名字都要有自己的说法。 */
     fun title(name: String, input: JsonObject): String

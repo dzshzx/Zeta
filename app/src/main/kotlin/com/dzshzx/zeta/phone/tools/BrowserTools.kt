@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.phone.tools
 
-import android.content.Context
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserRequest
 import kotlinx.serialization.json.JsonObject
@@ -34,7 +33,7 @@ internal object BrowserTools : PhoneToolGroup {
         },
     )
 
-    override fun call(context: Context, name: String, input: JsonObject): JsonObject = AgentBrowser.execute(context, input)
+    override fun call(call: CallContext, name: String, input: JsonObject): JsonObject = AgentBrowser.execute(call.context, input)
 
     override fun title(name: String, input: JsonObject): String = BrowserRequest.title(input)
 }
