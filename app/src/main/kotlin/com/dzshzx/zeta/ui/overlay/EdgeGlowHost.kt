@@ -1,22 +1,17 @@
 package com.dzshzx.zeta.ui.overlay
 
 import android.accessibilityservice.AccessibilityService
-import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
 import android.view.Gravity
-import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.ObserverHandle
-import androidx.compose.runtime.snapshots.Snapshot
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.phone.OverlayPhase
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -36,8 +31,6 @@ object EdgeGlowHost {
     private var scope: CoroutineScope? = null
     private var window: OverlayWindow? = null
     private var windowDisplay = Display.INVALID_DISPLAY
-    private var writeObserver: ObserverHandle? = null
-    private val applyPending = AtomicBoolean(false)
 
     // 窗口里的 Compose 内容读这几样
     private val phase = mutableStateOf(OverlayPhase.RUNNING)
@@ -59,16 +52,7 @@ object EdgeGlowHost {
         detach()
         this.service = service
         val hub = ConversationHub.get(service.application)
-        // 全局状态的改动平时由 Compose 的 GlobalSnapshotManager 通知出去，但它要等进程里第一个 ComposeView 组合时才启动；
-        // 无障碍服务可能比任何界面都先起来，这里自己补上，snapshotFlow 才收得到 overlayFocus 的变化
-        writeObserver = Snapshot.registerGlobalWriteObserver {
-            if (applyPending.compareAndSet(false, true)) {
-                main.post {
-                    applyPending.set(false)
-                    Snapshot.sendApplyNotifications()
-                }
-            }
-        }
+        // snapshotFlow 收得到 overlayFocus 的变化靠 SnapshotNotifier（服务连上时挂好）
         scope = MainScope().also { scope ->
             scope.launch {
                 val target = snapshotFlow {
@@ -87,8 +71,6 @@ object EdgeGlowHost {
     fun detach() {
         scope?.cancel()
         scope = null
-        writeObserver?.dispose()
-        writeObserver = null
         main.removeCallbacks(removeWindow)
         window?.destroy()
         window = null
@@ -124,7 +106,7 @@ object EdgeGlowHost {
                 windowDisplay = displayId
             }
         }
-        cornerRadius.floatValue = screenCornerRadius(service, displayId)
+        cornerRadius.floatValue = OverlayDisplays.cornerRadius(service, displayId)
         showing = true
         current.show()
         visible.value = true
@@ -154,20 +136,5 @@ object EdgeGlowHost {
             // 纯装饰，读屏不要停在上面
             it.view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         }
-    }
-
-    /**
-     * 屏幕四角的物理圆角半径，取最大的一个（主流机型四角一样），不让任何一角露出直边。
-     * 部分 ROM 不上报时按常见大圆角估一个保守值（照 Eta 取 28dp），宁可略小也不让光带越出屏幕。
-     */
-    private fun screenCornerRadius(service: AccessibilityService, displayId: Int): Float {
-        val display = service.getSystemService(DisplayManager::class.java)?.getDisplay(displayId)
-        val reported = listOf(
-            RoundedCorner.POSITION_TOP_LEFT,
-            RoundedCorner.POSITION_TOP_RIGHT,
-            RoundedCorner.POSITION_BOTTOM_RIGHT,
-            RoundedCorner.POSITION_BOTTOM_LEFT,
-        ).maxOf { position -> display?.getRoundedCorner(position)?.radius ?: 0 }
-        return if (reported > 0) reported.toFloat() else 28f * service.resources.displayMetrics.density
     }
 }

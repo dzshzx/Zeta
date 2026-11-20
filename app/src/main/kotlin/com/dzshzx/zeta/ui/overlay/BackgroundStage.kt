@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -48,11 +47,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -66,8 +62,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -75,19 +69,16 @@ import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
 import com.dzshzx.zeta.phone.VirtualScreen
+import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
+import com.dzshzx.zeta.ui.components.FrameRate
+import com.dzshzx.zeta.ui.components.LiveFrames
+import com.dzshzx.zeta.ui.components.drawFrame
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.hypot
-import kotlin.math.roundToInt
-
-/** 微缩画面的刷新间隔：看个大概，省电。 */
-private const val LensIntervalMs = 500L
-
-/** 展开画面的刷新间隔（约 20 帧每秒）。 */
-private const val StageIntervalMs = 50L
 
 /**
  * 镶在收起胶囊右侧的 18×32dp 实时微缩画面。平时安静地放后台屏幕的缩略画面（休眠时是休眠前那一帧，调暗）；
@@ -95,7 +86,7 @@ private const val StageIntervalMs = 50L
  */
 @Composable
 internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) {
-    LiveFrames(screen, LensIntervalMs, keepAwake = false)
+    LiveFrames(screen, FrameRate.Thumbnail)
     val frame = screen.frames.collectAsState()
     val asleep = screen.asleep.collectAsState()
     val pulse = remember { Animatable(0f) }
@@ -135,7 +126,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
                 val p = pulse.value
                 val current = frame.value
                 if (current != null) {
-                    drawFrame(current, Rect(Offset.Zero, size), alpha = if (asleep.value) 0.45f else 1f, crop = true)
+                    drawFrame(current, Rect(Offset.Zero, size), alpha = if (asleep.value) AsleepFrameAlpha else 1f, crop = true)
                 } else {
                     drawRoundRect(accent.copy(alpha = 0.55f), Offset(center.x - 2.dp.toPx(), center.y - 2.dp.toPx()), Size(4.dp.toPx(), 4.dp.toPx()), CornerRadius(2.dp.toPx()))
                 }
@@ -170,7 +161,7 @@ internal fun BackgroundStage(
     onTakeOver: () -> Unit,
     onFullscreen: (Rect, VirtualScreen.Frame?) -> Unit,
 ) {
-    LiveFrames(screen, StageIntervalMs, keepAwake = true)
+    LiveFrames(screen, FrameRate.Live, keepAwake = true)
     val frame = screen.frames.collectAsState()
     val hasFrame by remember { derivedStateOf { frame.value != null } }
     val colors = COUITheme.colorScheme
@@ -356,7 +347,7 @@ internal fun MaterializeOverlay(
 ) {
     var still by remember { mutableStateOf<VirtualScreen.Frame?>(null) }
     // 定格以后就不再要帧：应用移走后后台屏幕上就不是它了
-    if (still == null) LiveFrames(screen, StageIntervalMs, keepAwake = true)
+    if (still == null) LiveFrames(screen, FrameRate.Live, keepAwake = true)
     val live = screen.frames.collectAsState()
     val progress = remember { Animatable(0f) }
     val fade = remember { Animatable(1f) }
@@ -387,53 +378,11 @@ internal fun MaterializeOverlay(
     }
 }
 
-/** 在屏上的时候才登记要帧，离开就停。后台屏幕已经没了时不登记。 */
-@Composable
-private fun LiveFrames(screen: VirtualScreen, intervalMs: Long, keepAwake: Boolean) {
-    DisposableEffect(screen, intervalMs, keepAwake) {
-        val stop = if (screen.alive) screen.watch(intervalMs, keepAwake) else null
-        onDispose { stop?.invoke() }
-    }
-}
-
 /** 拷一份只含画面那一截的位图：帧的位图是轮换重用的，定格要自己的一份。 */
 private fun freeze(frame: VirtualScreen.Frame): VirtualScreen.Frame = runCatching {
     val bitmap = Bitmap.createBitmap(frame.bitmap, 0, 0, frame.width, frame.height)
     VirtualScreen.Frame(bitmap, bitmap.width, bitmap.height, frame.sequence)
 }.getOrDefault(frame)
-
-/**
- * 把一帧画进 [dst]。位图可能比画面宽（行尾对齐的空白），只取左边 [VirtualScreen.Frame.width] 那一截；
- * [crop] 时按 [dst] 的比例居中裁切，否则拉伸铺满。
- */
-private fun DrawScope.drawFrame(frame: VirtualScreen.Frame, dst: Rect, alpha: Float = 1f, crop: Boolean = false) {
-    if (frame.bitmap.isRecycled || dst.width <= 0f || dst.height <= 0f) return
-    var srcX = 0
-    var srcY = 0
-    var srcW = frame.width
-    var srcH = frame.height
-    if (crop) {
-        val ratio = dst.width / dst.height
-        if (srcW.toFloat() / srcH > ratio) {
-            val w = (srcH * ratio).roundToInt().coerceIn(1, srcW)
-            srcX = (srcW - w) / 2
-            srcW = w
-        } else {
-            val h = (srcW / ratio).roundToInt().coerceIn(1, srcH)
-            srcY = (srcH - h) / 2
-            srcH = h
-        }
-    }
-    drawImage(
-        image = frame.bitmap.asImageBitmap(),
-        srcOffset = IntOffset(srcX, srcY),
-        srcSize = IntSize(srcW, srcH),
-        dstOffset = IntOffset(dst.left.roundToInt(), dst.top.roundToInt()),
-        dstSize = IntSize(dst.width.roundToInt(), dst.height.roundToInt()),
-        alpha = alpha,
-        filterQuality = FilterQuality.Medium,
-    )
-}
 
 /** 刚发生的触摸才放光效。 */
 private fun TouchMark.fresh() = SystemClock.uptimeMillis() - at < FreshTouchMs

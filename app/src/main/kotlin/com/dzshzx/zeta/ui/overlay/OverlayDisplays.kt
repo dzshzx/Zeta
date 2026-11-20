@@ -6,6 +6,7 @@ import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
+import android.view.RoundedCorner
 import android.view.WindowManager
 
 /**
@@ -51,6 +52,23 @@ internal object OverlayDisplays {
         contexts[displayId] = context
         return context
     }
+
+    /**
+     * [displayId] 那块屏的物理圆角半径（像素）：四角取最大的一个（主流机型四角一样），不让任何一角露出直边。
+     * 部分 ROM 不上报时按常见大圆角估一个保守值（照 Eta 取 28dp）。边缘流光的圆角、「全屏」放大到整屏时的圆角都用它。
+     */
+    fun cornerRadius(service: AccessibilityService, displayId: Int): Float {
+        val display = service.getSystemService(DisplayManager::class.java)?.getDisplay(displayId)
+        val reported = listOf(
+            RoundedCorner.POSITION_TOP_LEFT,
+            RoundedCorner.POSITION_TOP_RIGHT,
+            RoundedCorner.POSITION_BOTTOM_RIGHT,
+            RoundedCorner.POSITION_BOTTOM_LEFT,
+        ).maxOf { position -> display?.getRoundedCorner(position)?.radius ?: 0 }
+        return if (reported > 0) reported.toFloat() else FALLBACK_CORNER_DP * service.resources.displayMetrics.density
+    }
+
+    private const val FALLBACK_CORNER_DP = 28f
 
     /** 服务断开：丢掉全部缓存。窗口要先移除。 */
     fun release() {

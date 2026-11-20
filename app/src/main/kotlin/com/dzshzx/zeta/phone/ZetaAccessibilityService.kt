@@ -27,6 +27,7 @@ import com.dzshzx.zeta.ui.overlay.OverlayHost
 import com.dzshzx.zeta.ui.overlay.OverlayWindow
 import com.dzshzx.zeta.ui.overlay.ResultCardHost
 import com.dzshzx.zeta.ui.overlay.ScreenLock
+import com.dzshzx.zeta.ui.overlay.SnapshotNotifier
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -47,6 +48,8 @@ class ZetaAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        // 悬浮层的 snapshotFlow 靠它收到状态变化：这个服务可能比任何界面都先起来
+        SnapshotNotifier.ensureStarted()
         // 顶部状态胶囊和主屏边缘光都挂在这个服务上；锁屏时收起，先把锁屏状态备好
         ScreenLock.attach(this)
         OverlayHost.attach(this)

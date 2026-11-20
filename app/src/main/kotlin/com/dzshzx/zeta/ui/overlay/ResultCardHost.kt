@@ -13,8 +13,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.ObserverHandle
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
@@ -25,7 +23,6 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 /** 结果卡片窗口里的内容读的状态，全部由 [ResultCardHost] 在主线程上改。 */
@@ -53,8 +50,6 @@ object ResultCardHost {
     private var service: AccessibilityService? = null
     private var hub: ConversationHub? = null
     private var scope: CoroutineScope? = null
-    private var writeObserver: ObserverHandle? = null
-    private val applyPending = AtomicBoolean(false)
     private var window: OverlayWindow? = null
 
     fun attach(service: AccessibilityService) {
@@ -62,13 +57,7 @@ object ResultCardHost {
         this.service = service
         val hub = ConversationHub.get(service.application)
         this.hub = hub
-        // snapshotFlow 要有人发送快照变更通知；进程里还没有任何 Compose 界面时没人发，自己补上（同 OverlayHost）
-        writeObserver = Snapshot.registerGlobalWriteObserver {
-            if (applyPending.compareAndSet(false, true)) main.post {
-                applyPending.set(false)
-                Snapshot.sendApplyNotifications()
-            }
-        }
+        // snapshotFlow 收得到 resultCard 的变化靠 SnapshotNotifier（服务连上时挂好）
         scope = MainScope().apply {
             launch {
                 // 锁屏状态不是快照状态：它一变就重新订阅，按新的锁屏状态判断卡片还留不留
@@ -90,8 +79,6 @@ object ResultCardHost {
     fun detach() {
         scope?.cancel()
         scope = null
-        writeObserver?.dispose()
-        writeObserver = null
         removeWindow()
         // 服务断开时显示着的卡片作废，免得服务回来时又弹出一张旧的
         hub?.let { hub -> hub.resultCard?.let(hub::dismissResultCard) }

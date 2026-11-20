@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,18 +29,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.VirtualScreen
+import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
+import com.dzshzx.zeta.ui.components.FrameRate
+import com.dzshzx.zeta.ui.components.LiveFrames
+import com.dzshzx.zeta.ui.components.drawFrame
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
@@ -51,13 +52,6 @@ import io.github.suqi8.coui.kmp.icon.extended.ExpandMore
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlin.math.roundToInt
-
-/** 缩略图的刷新间隔：看个大概就行，省电。 */
-private const val ThumbnailIntervalMs = 500L
-
-/** 查看页的刷新间隔（约 20 帧每秒）。 */
-private const val ViewerIntervalMs = 50L
 
 /**
  * 输入卡片上方的“后台屏幕”条：这个对话的后台屏幕在用时出现，带实时缩略图和上面的应用名。
@@ -79,7 +73,7 @@ internal fun BackgroundScreenStrip(phone: PhoneTools, onOpen: () -> Unit, modifi
     ) {
         LiveScreen(
             screen = screen,
-            intervalMs = ThumbnailIntervalMs,
+            rate = FrameRate.Thumbnail,
             dim = asleep,
             modifier = Modifier.height(40.dp).aspectRatio(screen.width / screen.height.toFloat()).clip(RoundedCornerShape(COUIRoundCorner.XS)),
         )
@@ -143,7 +137,7 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                 LiveScreen(
                     screen = screen,
-                    intervalMs = ViewerIntervalMs,
+                    rate = FrameRate.Live,
                     keepAwake = true,
                     modifier = Modifier
                         .aspectRatio(screen.width / screen.height.toFloat())
@@ -177,21 +171,10 @@ internal fun BackgroundScreenViewer(phone: PhoneTools, onDismiss: () -> Unit) {
 
 /** 后台屏幕的实时画面；在屏上的时候才登记要帧，离开就停。[keepAwake]：看的期间让它醒着。[dim]：调暗（休眠时）。 */
 @Composable
-private fun LiveScreen(screen: VirtualScreen, intervalMs: Long, modifier: Modifier = Modifier, keepAwake: Boolean = false, dim: Boolean = false) {
-    DisposableEffect(screen, intervalMs, keepAwake) {
-        val stop = screen.watch(intervalMs, keepAwake)
-        onDispose { stop() }
-    }
+private fun LiveScreen(screen: VirtualScreen, rate: FrameRate, modifier: Modifier = Modifier, keepAwake: Boolean = false, dim: Boolean = false) {
+    LiveFrames(screen, rate, keepAwake)
     val frame by screen.frames.collectAsState()
     Canvas(modifier.background(Color.Black)) {
-        val current = frame ?: return@Canvas
-        drawImage(
-            image = current.bitmap.asImageBitmap(),
-            srcOffset = IntOffset.Zero,
-            srcSize = IntSize(current.width, current.height),
-            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-            alpha = if (dim) 0.45f else 1f,
-            filterQuality = FilterQuality.Medium,
-        )
+        frame?.let { drawFrame(it, Rect(Offset.Zero, size), alpha = if (dim) AsleepFrameAlpha else 1f) }
     }
 }

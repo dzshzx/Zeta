@@ -9,7 +9,6 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
-import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -19,8 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.ObserverHandle
-import androidx.compose.runtime.snapshots.Snapshot
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.OverlayFocus
@@ -30,7 +27,6 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Rect as ComposeRect
 
@@ -93,8 +89,6 @@ object OverlayHost {
     private val state = CapsuleState()
     private var service: AccessibilityService? = null
     private var scope: CoroutineScope? = null
-    private var writeObserver: ObserverHandle? = null
-    private val applyPending = AtomicBoolean(false)
 
     private var capsule: OverlayWindow? = null
     /** 窗口当前是不是展开档（展开前先撑大，收起放完才缩回，所以和 [CapsuleState.expanded] 不总一致）。 */
@@ -113,13 +107,7 @@ object OverlayHost {
         detach()
         this.service = service
         val hub = ConversationHub.get(service.application)
-        // snapshotFlow 要有人发送快照变更通知；进程里还没有任何 Compose 界面时没人发，自己补上
-        writeObserver = Snapshot.registerGlobalWriteObserver {
-            if (applyPending.compareAndSet(false, true)) main.post {
-                applyPending.set(false)
-                Snapshot.sendApplyNotifications()
-            }
-        }
+        // snapshotFlow 收得到变化靠 SnapshotNotifier（服务连上时挂好）
         scope = MainScope().apply {
             // 锁屏、息屏时当作没有焦点：胶囊退场，解锁后再出来（见 ScreenLock）
             launch {
@@ -141,8 +129,6 @@ object OverlayHost {
     fun detach() {
         scope?.cancel()
         scope = null
-        writeObserver?.dispose()
-        writeObserver = null
         main.removeCallbacks(materializeTimeout)
         main.removeCallbacks(applyLater)
         materialize?.destroy()
@@ -253,7 +239,10 @@ object OverlayHost {
 
     private fun Int.with(flag: Int, on: Boolean) = if (on) this or flag else this and flag.inv()
 
-    /** 胶囊窗口在屏上的范围（整个窗口：透明的部分也吞触摸）；没显示、在放大动画里时为 null。 */
+    /**
+     * 胶囊窗口在屏上的范围（整个窗口：透明的部分也吞触摸）；没显示、在放大动画里时为 null。
+     * 不只给 Claude 的手势让路用：ConversationHub 看它是不是 null 决定常驻通知要不要提升为实时通知（胶囊显示着就不提升）。
+     */
     private fun publishBounds() {
         val view = capsule?.view
         OverlayBridge.capsuleBounds = if (view != null && view.isAttachedToWindow && view.width > 0 && state.shown && !state.materializing) {
@@ -359,9 +348,7 @@ object OverlayHost {
         applyWindow()
         val displayId = OverlayWindow.mainDisplay(service)
         val display = service.getSystemService(DisplayManager::class.java)?.getDisplay(displayId)
-        val density = service.resources.displayMetrics.density
-        val corner = display?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)?.radius?.takeIf { it > 0 }?.toFloat()
-            ?: (FallbackScreenCornerDp * density)
+        val corner = OverlayDisplays.cornerRadius(service, displayId)
         // 有的机型 MATCH_PARENT 不含系统栏，按真实尺寸给
         val size = Point().also { point ->
             @Suppress("DEPRECATION")
@@ -442,6 +429,5 @@ object OverlayHost {
     private const val ControlsHeightDp = 124
     private const val InputHeightDp = 260
     private const val ContentMarginDp = 4
-    private const val FallbackScreenCornerDp = 28
     private const val MaterializeTimeoutMs = 3_000L
 }
