@@ -137,12 +137,19 @@ class ConversationHub(private val app: Application) {
     /** 界面是否在前台；不在前台时一轮结束或需要批准会发通知。 */
     private val startedActivities = HashSet<Activity>()
 
+    private var shown by mutableStateOf(false)
+
     /**
      * 界面是否正在显示（可观察：胶囊据此避开正显示着同一对话的聊天页）。
      * 按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。
+     * 切到后台时开始等当前对话闲下来再收掉进程，回到前台就不等了（[retireCurrentWhenIdle]）。
      */
-    var foreground by mutableStateOf(false)
-        internal set
+    var foreground: Boolean
+        get() = shown
+        internal set(value) {
+            shown = value
+            retireCurrentWhenIdle()
+        }
 
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：完成、确认都不用另外提醒。 */
     internal fun isWatching(conversation: Conversation): Boolean = foreground && conversation === current
@@ -443,14 +450,27 @@ class ConversationHub(private val app: Application) {
 
     /** 一轮结束了：切走的对话闲下来就收掉，提醒交给 [alerts]，会话列表重读。[stopped]：这一轮是用户叫停的。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
-        if (conversation !== current) retireWhenIdle(conversation)
+        if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
         alerts.turnFinished(conversation, stopped)
         sessionList.refresh()
     }
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */
     internal fun onBackgroundTasksDone(conversation: Conversation) {
-        if (conversation !== current) retireWhenIdle(conversation)
+        if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
+    }
+
+    /**
+     * Zeta 不在前台时，当前对话闲着（[Conversation.active] 为假）满 [IDLE_RETIRE_MS] 就收掉它背后的 Claude Code 进程，
+     * 内容不丢，下次发消息时用 --resume 接上。不收的话，这个进程和为它常驻的前台服务（[onActivityChanged]）互相保着，
+     * 用过一次 Zeta 就一直占着几百 MB 内存和一条常驻通知。切到后台、一轮结束、后台任务做完时重新计时，回到前台就不等了。
+     * 到点时还在进行的不收，等它这一轮结束再计时。
+     */
+    private val retireCurrent = Runnable { if (!foreground && !current.active) current.shutdown() }
+
+    private fun retireCurrentWhenIdle() {
+        main.removeCallbacks(retireCurrent)
+        if (!foreground) main.postDelayed(retireCurrent, IDLE_RETIRE_MS)
     }
 
     /**
@@ -492,6 +512,9 @@ class ConversationHub(private val app: Application) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
         private const val RETIRE_DELAY_MS = 5_000L
+
+        /** 和 zeta_host.sh 的看门狗一样：没人看着、闲着的进程约十分钟后结束。 */
+        internal const val IDLE_RETIRE_MS = 10 * 60_000L
 
         /** 全应用最多同时留几块后台屏幕：每块都连着一个 root 辅助进程和屏上开着的应用，太多了内存吃不消。 */
         private const val MAX_SCREENS = 3

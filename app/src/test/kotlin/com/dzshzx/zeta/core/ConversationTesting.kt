@@ -10,12 +10,30 @@ internal fun Conversation.launchArgument(flag: String): String? =
 /** 喂一条 Claude Code 的输出事件：和进程送来的一样走 [Conversation.receive]（drain 取出事件后调的那个），时间记作 0。 */
 internal fun Conversation.receive(event: String) = receive(listOf(Json.parseToJsonElement(event) as JsonObject), 0L)
 
+private val processField = Conversation::class.java.getDeclaredField("process").apply { isAccessible = true }
+
+/**
+ * 给对话挂上一个一直活着的进程，不经 [Conversation.prepare]：单元测试里的 su 总是失败，这个连接马上就断，
+ * 但退出回调是这里给的空函数，对话照样当它活着，直到对话自己 [Conversation.shutdown]。
+ */
+internal fun Conversation.attachLiveProcess(hub: ConversationHub) {
+    val connection = ClaudeProcess(
+        config = checkNotNull(hub.settings.env),
+        hostScript = hub.hostScript,
+        hostKey = "test-live",
+        launch = ClaudeProcess.Launch.Attach(fromLine = 1),
+        onEvent = {},
+        onExit = { _, _ -> },
+    )
+    processField.set(this, connection)
+}
+
 /**
  * 扮 Claude Code 答这个对话的进程正在等的、子类型为 [subtype] 的控制请求（最早的那个），[response] 是应答里的 response 一项。
  * 没有在等的就失败。
  */
 internal fun Conversation.answer(subtype: String, response: String, success: Boolean = true) {
-    val process = Conversation::class.java.getDeclaredField("process").apply { isAccessible = true }.get(this) as ClaudeProcess
+    val process = processField.get(this) as ClaudeProcess
     val id = checkNotNull(process.waitingFor(subtype)) { "没有在等的 $subtype" }
     receive(
         if (success) """{"type":"control_response","response":{"subtype":"success","request_id":"$id","response":$response}}"""
