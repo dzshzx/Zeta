@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.InstalledApps
@@ -476,8 +477,8 @@ internal object DeviceTools : PhoneToolGroup {
     // ---- 标题 ----
 
     override fun title(name: String, input: JsonObject): String = when (name) {
-        FIND_APPS -> input.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + short(it, 16) } ?: "查看已装的应用"
-        SHELL -> input.str("command")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { "Android：" + short(it, 40) } ?: "Android：执行命令"
+        FIND_APPS -> input.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + it.clipLine(16) } ?: "查看已装的应用"
+        SHELL -> input.str("command")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { "Android：" + it.clipLine(40) } ?: "Android：执行命令"
         "device_state" -> {
             val target = input.str("target")
             val what = DeviceSwitches.NAMES[target] ?: target
@@ -562,8 +563,6 @@ internal object DeviceTools : PhoneToolGroup {
             else -> "设置$what"
         }
     }
-
-    private fun short(value: String, limit: Int): String = value.replace(Regex("\\s+"), " ").trim().clipChars(limit, "…")
 
     /** 秒数说成「5 分钟」「1 小时 30 分」。 */
     internal fun spokenZh(seconds: Int): String {

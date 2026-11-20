@@ -13,3 +13,8 @@ fun String.clipChars(max: Int, ellipsis: String = ""): String {
     val head = substring(0, safeCut(this, max.coerceAtLeast(0)))
     return if (ellipsis.isEmpty()) head else head.trimEnd() + ellipsis
 }
+
+private val WHITESPACE_RUN = Regex("\\s+")
+
+/** 压成一行（连续的空白换成一个空格、去掉首尾空白），再截到 [max] 个字符、接上「…」：工具调用的一句话标题用。 */
+fun String.clipLine(max: Int): String = replace(WHITESPACE_RUN, " ").trim().clipChars(max, "…")

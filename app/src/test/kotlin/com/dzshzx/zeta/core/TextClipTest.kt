@@ -22,6 +22,12 @@ class TextClipTest {
     }
 
     @Test
+    fun clipLineFlattensWhitespace() {
+        assertEquals("a b c", " a\n\tb  c ".clipLine(10))
+        assertEquals("a b…", "a\nb cd".clipLine(3))
+    }
+
+    @Test
     fun safeCutStepsBackOnlyInsideAPair() {
         val text = "a${smile}b"
         assertEquals(1, safeCut(text, 2))

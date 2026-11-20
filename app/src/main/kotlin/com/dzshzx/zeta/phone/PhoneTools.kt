@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.clipChars
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
@@ -325,7 +326,7 @@ class PhoneTools(
     private fun nodeLabel(node: AccessibilityNodeInfo): String? {
         if (node.isPassword) return null
         val raw = node.text?.toString()?.takeIf { it.isNotBlank() } ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() } ?: return null
-        return ScreenToolDefs.short(raw, 12)
+        return raw.clipLine(12)
     }
 
     /** Claude 的一次触摸（[Screen] 的像素），归一化后交给悬浮层画光效。 */

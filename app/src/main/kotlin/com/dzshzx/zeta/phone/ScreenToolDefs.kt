@@ -1,7 +1,7 @@
 package com.dzshzx.zeta.phone
 
 import com.dzshzx.zeta.core.bool
-import com.dzshzx.zeta.core.clipChars
+import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.tools.PhoneTool
@@ -23,11 +23,6 @@ import kotlinx.serialization.json.putJsonObject
  * 执行在 [PhoneTools]：记控件编号、切屏、和用户在后台屏幕上的手势互斥，所以不走工具组。
  */
 internal object ScreenToolDefs {
-    private val WHITESPACE = Regex("\\s+")
-
-    /** 压成一行、截到 [limit] 个字。 */
-    fun short(value: String, limit: Int): String = value.replace(WHITESPACE, " ").trim().clipChars(limit, "…")
-
     private fun JsonObjectBuilder.after() =
         prop("screenshot", "boolean", "Also return a screenshot taken after the action. Default false.")
 
@@ -46,7 +41,7 @@ internal object ScreenToolDefs {
         val node = a.int("node")
         val control = node?.let { scene?.control(it) }
         // 说得出字的目标：编号对应的控件上的字，或者按文字找时要找的那段
-        val text = control?.label ?: a.str("match")?.takeIf { it.isNotBlank() }?.let { short(it, 12) }
+        val text = control?.label ?: a.str("match")?.takeIf { it.isNotBlank() }?.clipLine(12)
         // 说不出字的目标：资源 id、编号、坐标
         val other = a.str("id")?.takeIf { it.isNotBlank() }?.let { "id=$it" } ?: node?.let { "控件 $it" }
             ?: a.int("x")?.let { "($it, ${a.int("y") ?: 0})" }
@@ -75,7 +70,7 @@ internal object ScreenToolDefs {
                     value.isEmpty() -> "清空输入框"
                     // 密码框不把内容显示出来
                     control?.password == true -> "输入密码"
-                    else -> "输入「" + short(value, 16) + "」"
+                    else -> "输入「" + value.clipLine(16) + "」"
                 }
             }
             "press_key" -> when (val key = a.str("key")?.lowercase()?.takeIf { it.isNotBlank() }) {
@@ -101,10 +96,10 @@ internal object ScreenToolDefs {
                 val request = OpenRequest.parse(a).value
                 val action = request?.action
                 when {
-                    request?.uri != null -> "打开链接 " + short(request.uri.removePrefix("https://").removePrefix("http://"), 24)
+                    request?.uri != null -> "打开链接 " + request.uri.removePrefix("https://").removePrefix("http://").clipLine(24)
                     action != null && action.startsWith("android.settings.") -> "打开设置页 " + action.substringAfterLast('.')
                     action != null -> "打开 " + action.substringAfterLast('.')
-                    request?.app != null -> "打开" + gap(request.app) + short(request.app, 16)
+                    request?.app != null -> "打开" + gap(request.app) + request.app.clipLine(16)
                     else -> "打开应用"
                 }
             }
