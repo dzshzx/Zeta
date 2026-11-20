@@ -103,7 +103,7 @@ class QuotaService(private val hub: ConversationHub) {
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
         // 借开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
-        if ((listOf(hub.current) + hub.backgroundConversations).any { it.queryQuota() }) return
+        if ((listOf(hub.current) + hub.parkedConversations).any { it.queryQuota() }) return
         thread(name = "zeta-quota", isDaemon = true) {
             val body = runCatching { synchronized(probeLock) { QuotaProbe.query(EnvShell(config), config.defaultCwd) } }
             main.post {

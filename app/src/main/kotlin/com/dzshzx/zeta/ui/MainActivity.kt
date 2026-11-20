@@ -199,7 +199,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 onRename = hub.sessionList::rename,
                 onArchive = hub.sessionList::archive,
                 onOpenSettings = { pages.open(AppPage.Settings) },
-                onOpenBackground = {
+                onOpenBackgroundTasks = {
                     pages.open(AppPage.Tasks(AllConversations))
                     paneOpen = false
                 },

@@ -166,7 +166,7 @@ internal object ScheduleRunner {
         }
         // 发出去了才放进后台（事件是投递到主线程的，在这之后才到）；再报一次活动，前台服务把它算进去
         if (adopt) {
-            hub.adoptBackground(conversation)
+            hub.park(conversation)
             hub.onActivityChanged()
         }
         records.update(app, spec.id) { it.copy(lastRun = TaskRun(now, RunOutcome.Running, conversation.sessionId, "", manual)) }

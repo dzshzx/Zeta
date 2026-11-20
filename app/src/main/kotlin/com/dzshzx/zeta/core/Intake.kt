@@ -134,10 +134,10 @@ object IntakeRouting {
     /**
      * 除了新对话，还能接着放进去的那个对话：当前对话有内容就是它（用户最近在看的）；
      * 当前是空白的新对话时，取后台最近切走、还在进行的那个；都没有返回 null，直接放进当前这个空白对话，不用问。
-     * [background] 按切走的先后排，最后一个是最近的。
+     * [parked] 按切走的先后排，最后一个是最近的。
      */
-    fun pick(current: IntakeCandidate, background: List<IntakeCandidate>): IntakeCandidate? =
-        if (!current.blank) current else background.lastOrNull { it.active }
+    fun pick(current: IntakeCandidate, parked: List<IntakeCandidate>): IntakeCandidate? =
+        if (!current.blank) current else parked.lastOrNull { it.active }
 }
 
 private fun Conversation.candidate() = IntakeCandidate(
@@ -148,7 +148,7 @@ private fun Conversation.candidate() = IntakeCandidate(
 
 /** 能接着放进去的那个对话（见 [IntakeRouting.pick]）；没有时为 null。在主线程上调用。 */
 fun ConversationHub.intakeTarget(): Conversation? {
-    val others = backgroundConversations
+    val others = parkedConversations
     val picked = IntakeRouting.pick(current.candidate(), others.map { it.candidate() }) ?: return null
     return if (picked.key == current.openKey) current else others.firstOrNull { it.openKey == picked.key }
 }

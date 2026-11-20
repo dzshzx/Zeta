@@ -34,7 +34,7 @@ class ComposerDraftScreenTest : ShotTest() {
     private fun ConversationHub.openSession(id: String, items: List<ChatItem> = emptyList()) {
         val conversation = Conversation(this, Fixtures.env.defaultCwd, id, "会话 $id", historyFile = null)
         if (items.isNotEmpty()) conversation.force("items", items)
-        adoptBackground(conversation)
+        park(conversation)
         openConversation(id)
     }
 

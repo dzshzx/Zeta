@@ -266,7 +266,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
                 problem = started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.text ?: "没有发出去"
                 return@launch
             }
-            hub.adoptBackground(started)
+            hub.park(started)
             hub.onActivityChanged()
             conversation = started
             DiagLog.info(DiagTopic.App, "数字助理开了新对话" + if (capture != null) "（带屏幕内容${if (shot != null) "和截图" else ""}）" else "")

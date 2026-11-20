@@ -77,7 +77,7 @@ class BackgroundTaskShots : ShotTest() {
             at = now - 21 * 60_000,
         )
         other.force("backgroundTasks", 1)
-        hub.adoptBackground(other)
+        hub.park(other)
         return hub
     }
 
@@ -126,7 +126,7 @@ class BackgroundTaskShots : ShotTest() {
                     onRename = { _, _ -> },
                     onArchive = { _, _ -> },
                     onOpenSettings = {},
-                    onOpenBackground = {},
+                    onOpenBackgroundTasks = {},
                 )
             }
         }

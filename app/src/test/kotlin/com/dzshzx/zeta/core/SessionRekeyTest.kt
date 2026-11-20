@@ -30,7 +30,7 @@ class SessionRekeyTest {
     fun registriesFollowTheSessionId() {
         val hub = Fixtures.readyHub(app)
         val chat = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
-        hub.adoptBackground(chat)
+        hub.park(chat)
         chat.send("先问一句")
         // 发出了、会话号还没来：草稿按对话的 key 放着
         val draft = hub.drafts.of(chat)

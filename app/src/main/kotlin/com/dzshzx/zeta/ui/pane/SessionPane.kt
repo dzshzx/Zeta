@@ -75,7 +75,7 @@ import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
-import com.dzshzx.zeta.ui.tasks.BackgroundEntry
+import com.dzshzx.zeta.ui.tasks.BackgroundTasksEntry
 import io.github.suqi8.coui.kmp.basic.Checkbox
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -141,7 +141,7 @@ internal fun SessionPane(
     onArchive: (SessionSummary, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     /** 打开后台任务面板（全部对话的）。 */
-    onOpenBackground: () -> Unit = {},
+    onOpenBackgroundTasks: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = COUITheme.colorScheme
@@ -360,7 +360,7 @@ internal fun SessionPane(
 
         // 有后台对话或后台任务时，列表上方多一个入口
         if (!selecting && !searching) {
-            BackgroundEntry(hub, onOpen = onOpenBackground, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 6.dp))
+            BackgroundTasksEntry(hub, onOpen = onOpenBackgroundTasks, modifier = Modifier.padding(start = PaneHorizontalPadding, end = PaneHorizontalPadding, bottom = 6.dp))
         }
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = 12.dp)) {
             if (searching) {

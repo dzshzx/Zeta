@@ -105,7 +105,7 @@ internal fun BackgroundTasksScreen(hub: ConversationHub, scope: String, onBack: 
     ) {
         if (all) {
             item(key = "conversations") {
-                val others = hub.backgroundConversations
+                val others = hub.parkedConversations
                 PreferenceGroup(title = "后台对话 · ${others.size}", footer = ConversationsFooter) {
                     if (others.isEmpty()) item { BasicComponent(title = "没有在后台运行的对话", enabled = false) }
                     others.forEach { c ->
@@ -370,8 +370,8 @@ internal fun BackgroundTaskStrip(conversation: Conversation, onOpen: () -> Unit,
  * [count] 是在跑的后台对话和后台任务的个数，为 0 时显示有几个结束了的任务。
  */
 @Composable
-internal fun BackgroundEntry(hub: ConversationHub, onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val conversations = hub.backgroundConversations.size
+internal fun BackgroundTasksEntry(hub: ConversationHub, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val conversations = hub.parkedConversations.size
     val live = hub.liveConversations
     val runningTasks = live.sumOf { c -> c.tasks.list.count { it.running } }
     val finishedTasks = live.sumOf { c -> c.tasks.list.count { !it.running } }

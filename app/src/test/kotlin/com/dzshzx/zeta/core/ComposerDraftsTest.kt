@@ -77,7 +77,7 @@ class ComposerDraftsTest {
         fresh.type("还没想好怎么问")
         hub.drafts.save(fresh)
         // 切去别的会话再点“新对话”：没发出的字还在
-        hub.adoptBackground(hub.session("s-other"))
+        hub.park(hub.session("s-other"))
         hub.openConversation("s-other")
         assertTrue(hub.drafts.of(hub.current).input.text.isEmpty())
         hub.startNew()
