@@ -32,22 +32,17 @@ class BytesResult(val exitCode: Int, val stdout: ByteArray, val stderr: String) 
 
 /**
  * 进入 Debian 环境的方式照 Eta：`su -c` → 管理器自带的 BusyBox → 私有挂载命名空间 → chroot。
- * 与 Eta 不同的两点：先 `nsenter -t 1 -m` 回到全局挂载命名空间（本应用看不到 Eta 的私有数据目录），
+ * 与 Eta 不同的两点：先 `nsenter -t 1 -m` 回到全局挂载命名空间（`su` 默认留在本应用的挂载命名空间里，
+ * 那里有 Android 的应用数据隔离，看不到别的应用的数据目录，共享文件夹指到那里就绑不上），
  * 进去以后用 setpriv 降到普通用户，Claude Code 的登录状态和配置都在那个用户的家目录里。
  */
 object LinuxEnv {
-    /** Eta 装的 Debian。在 Eta 的应用数据里，卸载 Eta 或清除它的数据就没了。 */
-    const val ETA_ROOTFS = "/data/user/0/io.github.mangi.eta/files/terminal/debian/rootfs"
-
     /**
      * Zeta 自己装的 Debian 放在这里。特意不放进应用数据目录：那里的东西会随卸载、清除数据一起消失，
      * 而这个环境里有 Claude Code 的全部会话和登录状态。
      */
     const val OWN_BASE = "/data/local/zeta/debian"
     const val OWN_ROOTFS = "$OWN_BASE/rootfs"
-
-    /** 没指定时依次找这几个位置。 */
-    val KNOWN_ROOTFS = listOf(OWN_ROOTFS, ETA_ROOTFS)
 
     /** 以 root 身份进入 [rootfs]（装环境时用，这时还没有普通用户）。 */
     fun rootConfig(rootfs: String) = LinuxEnvConfig(rootfs, "root", 0, 0, "/root", "/")

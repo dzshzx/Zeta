@@ -23,7 +23,7 @@ sha_of() { "$BB" sha256sum "$1" 2>/dev/null | "$BB" awk '{print $1}'; }
 
 case "$cmd" in
 status)
-  # 也用来看别处的环境（比如 Eta 装的），所以只认通用的迹象，不认 Zeta 自己的标记
+  # 只认通用的迹象，不认 Zeta 自己的标记：不是安装向导解压出来的环境（自己放到这个位置的）也要认得
   [ -x "$R/bin/bash" ] && [ -e "$R/usr/bin/setpriv" ] || { echo "base=0"; exit 0; }
   echo "base=1"
   { [ -e "$R/usr/bin/python3" ] || [ -L "$R/usr/bin/python3" ] || [ -L "$R/usr/local/bin/python3" ]; } && [ -e "$R/usr/bin/sudo" ] && echo "tools=1" || echo "tools=0"

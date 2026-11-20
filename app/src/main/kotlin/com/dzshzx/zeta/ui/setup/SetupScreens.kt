@@ -47,7 +47,6 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 private fun locationName(rootfs: String?): String = when (rootfs) {
     null -> "未选择"
     LinuxEnv.OWN_ROOTFS -> "Zeta 自带的环境"
-    LinuxEnv.ETA_ROOTFS -> "Eta 的环境"
     else -> "自定义位置"
 }
 
@@ -155,20 +154,15 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                         enabled = hub.canSwitchEnvironment,
                         entries = listOf(
                             DropdownEntry(
-                                items = listOfNotNull(
+                                items = listOf(
                                     DropdownItem(
                                         text = "Zeta 自带的环境",
                                         selected = current == LinuxEnv.OWN_ROOTFS,
                                         onClick = { choose(LinuxEnv.OWN_ROOTFS) },
                                     ),
                                     DropdownItem(
-                                        text = "Eta 的环境",
-                                        selected = current == LinuxEnv.ETA_ROOTFS,
-                                        onClick = { choose(LinuxEnv.ETA_ROOTFS) },
-                                    ).takeIf { hub.etaPresent || current == LinuxEnv.ETA_ROOTFS },
-                                    DropdownItem(
                                         text = "自定义路径…",
-                                        selected = current !in LinuxEnv.KNOWN_ROOTFS,
+                                        selected = current != LinuxEnv.OWN_ROOTFS,
                                         onClick = {
                                             draft = current
                                             lastEditing = LinuxEdit.Rootfs
@@ -250,7 +244,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     }
                 }
             }
-            // 基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。环境里原来就有的（比如从 Eta 迁过来的）只显示版本。
+            // 基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。环境里原来就有的（不是 Zeta 装的）只显示版本。
             // Go 顺带配好 ~/go/bin；Python 是 uv 管理的最新版，带 pip；Node.js 的全局包装在 ~/.npm-global；
             // APK 分析包括 jadx、apktool、smali/baksmali，环境里没有 Java 时一并装上 OpenJDK。
             item(key = "optional") {

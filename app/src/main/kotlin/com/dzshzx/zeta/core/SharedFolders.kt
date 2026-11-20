@@ -36,10 +36,10 @@ object SharedFolders {
 
     private val NamePattern = Regex("[A-Za-z0-9._-]{1,48}")
 
-    /** 系统关键目录、/workspace 本身（环境里本来就看得到）和各个 rootfs 不能共享。 */
+    /** 系统关键目录、/workspace 本身（环境里本来就看得到）和 Zeta 自带环境的目录不能共享；当前用的 rootfs 由 [sourceProblem] 另外加上。 */
     private val Forbidden = listOf(
         "/proc", "/sys", "/dev", "/system", "/vendor", "/apex", "/product", "/odm",
-        "/data/local/tmp/eta", LinuxEnv.OWN_BASE, LinuxEnv.ETA_ROOTFS,
+        "/data/local/tmp/eta", LinuxEnv.OWN_BASE,
     )
 
     /** 当前清单；Settings 读写时同步过来，进入环境的脚本据此挂载。 */

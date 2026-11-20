@@ -266,9 +266,6 @@ class ConversationHub(private val app: Application) {
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
         private set
 
-    /** [rootfsHint] 是用户指定的；否则检测时把已知的几个位置都找一遍。 */
-    private var hintExplicit = false
-
     /** 安装 Debian 环境、登录 Claude 账号。 */
     val installer = EnvInstaller(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
     private val sshService = SshService(installer) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
@@ -288,10 +285,6 @@ class ConversationHub(private val app: Application) {
 
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
     var ownStatus by mutableStateOf<EnvStatus?>(null)
-        private set
-
-    /** Eta 装的那份 Debian 还在不在。不在了就不再把它列为可选的位置。 */
-    var etaPresent by mutableStateOf(false)
         private set
 
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
@@ -381,10 +374,10 @@ class ConversationHub(private val app: Application) {
             val saved = settings.env
             val state = when {
                 !LinuxEnv.hasRoot() -> SetupState.NoRoot
-                // 环境可能已经不在了（比如装它的应用被卸载），不能只凭存下来的设置就当它可用
+                // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
                 saved != null -> if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
-                else -> (if (hintExplicit) listOf(rootfsHint) else LinuxEnv.KNOWN_ROOTFS).firstNotNullOfOrNull { LinuxEnv.detect(it) }?.let { detected ->
-                    // Eta 的工作区在 /workspace；有 claude 子目录就用它，和终端里的日常目录一致
+                else -> LinuxEnv.detect(rootfsHint)?.let { detected ->
+                    // 默认工作目录：/workspace 是用户的工作区，有 claude 子目录就用它
                     val cwd = runCatching {
                         LinuxEnv.run(detected, "[ -d /workspace/claude ] && echo /workspace/claude || echo /workspace").stdout.trim()
                     }.getOrNull()?.takeIf { it.startsWith("/") } ?: "/workspace"
@@ -393,13 +386,11 @@ class ConversationHub(private val app: Application) {
                 } ?: SetupState.NoEnvironment
             }
             val own = installer.status()
-            val eta = LinuxEnv.exists(LinuxEnv.ETA_ROOTFS)
             DiagEvents.setupChecked(state.name, settings.env?.rootfs ?: saved?.rootfs, settings.env?.user)
             main.post {
                 setup = state
                 env = settings.env
                 ownStatus = own
-                etaPresent = eta
                 if (state == SetupState.Ready) {
                     refreshAccount()
                     if (current.items.isEmpty() && current.sessionId == null) current = blank()
@@ -526,7 +517,6 @@ class ConversationHub(private val app: Application) {
     /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户。 */
     fun redetect(rootfs: String) {
         rootfsHint = rootfs
-        hintExplicit = true
         if (conversationsWorking) return
         current.shutdown()
         background.values.forEach { it.shutdown() }
