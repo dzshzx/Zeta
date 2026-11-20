@@ -30,8 +30,9 @@ start() {
   flock 9 # 几个 phone-run 同时来时只开一次
   if [[ -z $(emu_pid) ]]; then
     echo "开模拟器 $AVD（窗口在 :99，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
-    DISPLAY=:99 setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
-      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"} >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- & # 不把锁带走
+    # 在 / 下开、不把锁带走：模拟器一直开着，当前目录留在任务树里会让那棵树回收不了
+    (cd / && DISPLAY=:99 setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
+      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"} >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &)
   fi
   local i
   for ((i = 0; i < 180; i++)); do booted && break; sleep 1; done
