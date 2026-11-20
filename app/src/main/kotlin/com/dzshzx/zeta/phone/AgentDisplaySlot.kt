@@ -13,7 +13,7 @@ import kotlin.concurrent.thread
 
 /**
  * 一个对话的后台屏幕（agent display：Claude 操作手机用的那块虚拟显示屏，[VirtualScreen]）的一生，[PhoneTools] 持有：要用时建（[ensure]），一轮结束后闲置 [IDLE_SLEEP_MS] 睡下，
- * 对话的进程结束时也睡下（[detach]），要用时唤醒（[wakeIfAsleep]）；用户在界面上关掉（[close]）、全应用屏幕太多被腾掉（[evict]）、
+ * 对话的进程结束时也睡下（[detach]），要用时唤醒（[wakeIfAsleep]）；用户在界面上关掉、全应用屏幕太多被腾掉（[releaseAsync]）、
  * 对话没了（[destroy]）或辅助进程意外退出时释放。屏上的应用不抢音频焦点（[audio]）。
  *
  * 同步照 PhoneTools 的说明：建、睡、醒、释放都持着 PhoneTools 的屏幕锁 [lock]（标着“持锁调用”的由调用方拿锁，
@@ -134,14 +134,12 @@ internal class AgentDisplaySlot(
         onScreenGone()
     }
 
-    /** 界面上的“关闭”。 */
-    fun close() {
-        thread(name = "zeta-phone-ui", isDaemon = true) { synchronized(lock) { release() } }
-    }
-
-    /** 全应用的后台屏幕满了，登记处挑中这块腾出来（和闲置释放一样，当前屏幕仍指着它，模型下次调用时会知道它没了）。 */
-    fun evict() {
-        thread(name = "zeta-phone-evict", isDaemon = true) { synchronized(lock) { release() } }
+    /**
+     * 另起线程拿锁释放：界面上的“关闭”，或全应用的后台屏幕满了、登记处挑中这块腾出来。
+     * 和 [release] 一样，当前屏幕仍指着它，模型下次调用时会知道它没了。
+     */
+    fun releaseAsync() {
+        thread(name = "zeta-phone-release", isDaemon = true) { synchronized(lock) { release() } }
     }
 
     /** 一轮结束：过一阵还没再用就让后台屏幕休眠，省电；应用和页面都留着，下次用时唤醒。 */

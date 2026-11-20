@@ -450,7 +450,7 @@ class ConversationHub(private val app: Application) {
     private fun prunePhones() {
         val inUse = liveConversations.mapTo(HashSet()) { it.phone }
         val unused = synchronized(phones) {
-            phones.values.filter { it !in inUse && !it.hasScreen }.also { phones.values.removeAll(it.toSet()) }
+            phones.values.filter { it !in inUse && it.slot.alive == null }.also { phones.values.removeAll(it.toSet()) }
         }
         // 销毁而不只是丢开：还没结束的工具调用就不会再给它建出一块没人管的屏
         unused.forEach { it.destroy() }
@@ -462,14 +462,14 @@ class ConversationHub(private val app: Application) {
      * 收屏另起线程做，这里不会去拿别的 PhoneTools 的锁，两个对话同时建屏也不会互相卡住。
      */
     private fun makeRoom(phone: PhoneTools) {
-        val others = synchronized(phones) { phones.values.filter { it !== phone && it.hasScreen } }
+        val others = synchronized(phones) { phones.values.filter { it !== phone && it.slot.alive != null } }
         val excess = others.size - MAX_SCREENS + 1
         if (excess <= 0) return
         val watching = current.phone
-        others.filter { !it.isBusy }
-            .sortedWith(compareBy<PhoneTools> { it === watching }.thenBy { it.lastUsed })
+        others.filter { !it.slot.busy() }
+            .sortedWith(compareBy<PhoneTools> { it === watching }.thenBy { it.slot.lastUse })
             .take(excess)
-            .forEach { it.evictAgentDisplay() }
+            .forEach { it.slot.releaseAsync() }
     }
 
     /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态），[text] 是胶囊上停留的那一句（“已完成”）。在主线程上调用。 */

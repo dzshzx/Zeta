@@ -1046,19 +1046,7 @@ class PhoneTools(
     }
 
     /** 界面上的“关闭”。 */
-    fun closeAgentDisplayByUser() = slot.close()
-
-    /** 全应用的后台屏幕满了，登记处挑中这块腾出来（当前屏幕仍指着它，模型下次调用时会知道它没了）。 */
-    internal fun evictAgentDisplay() = slot.evict()
-
-    /** 有后台屏幕（醒着或睡着）。登记处据此决定留不留这份、屏幕数有没有到上限。 */
-    internal val hasScreen: Boolean get() = slot.alive != null
-
-    /** 最近一次被 Claude Code 调用的时间，腾地方时先收最久没用的。 */
-    internal val lastUsed: Long get() = slot.lastUse
-
-    /** 正在用它的对话是否在进行。 */
-    internal val isBusy: Boolean get() = slot.busy()
+    fun closeAgentDisplayByUser() = slot.releaseAsync()
 
     /** 一轮结束：清掉这一轮的悬浮层状态；过一阵还没再用就让后台屏幕休眠。 */
     fun onTurnEnded() {
