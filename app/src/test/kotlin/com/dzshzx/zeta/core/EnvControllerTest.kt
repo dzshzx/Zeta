@@ -51,13 +51,13 @@ class EnvControllerTest {
         val environment = hub.environment
         val before = hub.current
         environment.force("ssh", SshStatus(installed = true, running = true, autostart = false, port = "22", listen = "0.0.0.0", keys = 0, passwordLogin = false))
-        hub.force("sessions", listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0)))
+        hub.sessionList.force("sessions", listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0)))
         environment.redetect("/data/local/other/rootfs")
         assertEquals("/data/local/other/rootfs", environment.rootfsHint)
         assertNull(hub.settings.env)
         assertNull(environment.account)
         assertNull(environment.ssh)
-        assertEquals(emptyList<SessionSummary>(), hub.sessions)
+        assertEquals(emptyList<SessionSummary>(), hub.sessionList.sessions)
         assertNotSame(before, hub.current)
         assertEquals("/workspace", hub.current.cwd)
         waitFor { environment.setup != SetupState.Checking }

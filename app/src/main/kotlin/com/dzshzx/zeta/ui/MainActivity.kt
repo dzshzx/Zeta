@@ -177,13 +177,13 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
         backHandlerEnabled = !pages.any,
         onOpen = {
             paneOpen = true
-            hub.refreshSessions()
+            hub.sessionList.refresh()
         },
         onDismiss = { paneOpen = false },
         pane = { width, revealed, modifier ->
             SessionPane(
                 width = width,
-                sessions = hub.sessions,
+                sessions = hub.sessionList.sessions,
                 currentSessionId = hub.current.sessionId,
                 revealed = revealed,
                 isRunning = hub::isRunning,
@@ -195,9 +195,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                     hub.open(it)
                     paneOpen = false
                 },
-                onDelete = hub::delete,
-                onRename = hub::rename,
-                onArchive = hub::archive,
+                onDelete = hub.sessionList::delete,
+                onRename = hub.sessionList::rename,
+                onArchive = hub.sessionList::archive,
                 onOpenSettings = { pages.open(AppPage.Settings) },
                 onOpenBackground = {
                     pages.open(AppPage.Tasks(AllConversations))
@@ -211,7 +211,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             hub = hub,
             onOpenPane = {
                 paneOpen = true
-                hub.refreshSessions()
+                hub.sessionList.refresh()
             },
             onOpenSettings = { pages.open(AppPage.Settings) },
             onOpenInstall = { pages.open(AppPage.Install) },
@@ -236,7 +236,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                     SessionReveal.request = id
                     pages.close(page)
                     paneOpen = true
-                    hub.refreshSessions()
+                    hub.sessionList.refresh()
                 },
                 onShowChat = { showChat() },
             )

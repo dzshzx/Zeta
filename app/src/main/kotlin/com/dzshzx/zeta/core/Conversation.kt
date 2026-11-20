@@ -453,7 +453,7 @@ class Conversation(
         requestRewind(process, uuid, lastSeen(before),
             onDone = {
                 forkCut = true
-                hub.refreshSessions()
+                hub.sessionList.refresh()
             },
             onFailed = { reason ->
                 restore(before)
@@ -1094,7 +1094,7 @@ class Conversation(
         val target = process ?: return
         val request = autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList()) ?: return
         target.request(request.body) { response ->
-            autoTitle.onResponse(request, response, title) { title = it; sessionId?.let { id -> hub.titled(id, it) } }
+            autoTitle.onResponse(request, response, title) { title = it; sessionId?.let { id -> hub.sessionList.titled(id, it) } }
         }
     }
 

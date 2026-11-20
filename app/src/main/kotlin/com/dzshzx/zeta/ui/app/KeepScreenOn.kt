@@ -28,7 +28,7 @@ internal fun KeepScreenOnWhileRunning(activity: Activity, settings: Settings) {
     val hub = remember(activity) { ConversationHub.get(activity.application) }
     // 当前对话之外，切走后仍在后台回答的对话也算；isRunning 读的都是可观察的 busy 状态
     val running by remember(hub) {
-        derivedStateOf { hub.current.busy || hub.sessions.any { hub.isRunning(it.id) } }
+        derivedStateOf { hub.current.busy || hub.sessionList.sessions.any { hub.isRunning(it.id) } }
     }
     val keep = settings.keepScreenOn && running
     DisposableEffect(activity, keep) {

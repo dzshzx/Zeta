@@ -144,8 +144,6 @@ class ConversationHub(private val app: Application) {
         } }
     }.getOrDefault(emptyList())
 
-    var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
-        private set
 
     /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，见 [modelOptions]。 */
     var models by mutableStateOf<List<ModelOption>>(emptyList())
@@ -173,6 +171,9 @@ class ConversationHub(private val app: Application) {
 
     /** Linux 环境：检查、安装、维护、SSH、Claude 账号的登录状态。 */
     val environment = EnvController(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
+
+    /** 侧栏的会话列表。 */
+    val sessionList = SessionList(this)
 
     /** 当前账号的订阅额度（所有对话共用）。 */
     val quota = QuotaService(this)
@@ -249,7 +250,7 @@ class ConversationHub(private val app: Application) {
     /** 环境检查完、就绪了（[EnvController.checkSetup]）：读会话列表和 Claude Code 的默认值，第一次就绪时接回还在跑的进程。在主线程上调用。 */
     internal fun onEnvironmentReady() {
         renewBlank()
-        refreshSessions()
+        sessionList.refresh()
         refreshClaudeDefaults()
         if (!hostsChecked) {
             hostsChecked = true
@@ -313,53 +314,6 @@ class ConversationHub(private val app: Application) {
         }
     }
 
-    fun rename(summary: SessionSummary, title: String) {
-        val config = settings.env ?: return
-        val clean = title.trim().replace(Regex("\\s+"), " ").take(200)
-        if (clean.isEmpty()) return
-        freshTitles.remove(summary.id)
-        sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
-        if (current.sessionId == summary.id) current.title = clean
-        background[summary.id]?.title = clean
-        thread(isDaemon = true) { helper("rename", listOf(summary.file, clean), config = config) }
-    }
-
-    fun archive(summary: SessionSummary, archived: Boolean) = archiveSessions(listOf(summary), archived)
-
-    /** 归档或取消归档：只影响列表里显不显示，会话记录不动。 */
-    fun archiveSessions(summaries: List<SessionSummary>, archived: Boolean) {
-        val config = settings.env ?: return
-        val ids = summaries.mapTo(LinkedHashSet()) { it.id }
-        if (ids.isEmpty()) return
-        sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
-        thread(isDaemon = true) { helper("archive", ids.toList() + if (archived) "1" else "0", config = config) }
-    }
-
-    fun refreshSessions() {
-        val config = settings.env ?: return
-        thread(name = "zeta-sessions", isDaemon = true) {
-            val result = helper("list", timeoutMs = 60_000, config = config) ?: return@thread
-            val list = parseSessionSummaries(result.stdout)
-            main.post {
-                // 自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的
-                sessions = list.map { s ->
-                    val fresh = freshTitles[s.id] ?: return@map s
-                    if (s.title == fresh) freshTitles.remove(s.id)
-                    s.copy(title = fresh)
-                }
-            }
-        }
-    }
-
-    /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
-    private val freshTitles = HashMap<String, String>()
-
-    /** Claude Code 给会话 [sessionId] 起好了标题（已经写进会话记录）：列表里只改这一项，不整份重读。在主线程上调用。 */
-    internal fun titled(sessionId: String, title: String) {
-        freshTitles[sessionId] = title
-        sessions = sessions.map { if (it.id == sessionId) it.copy(title = title) else it }
-    }
-
     fun startNew(cwd: String? = null) {
         leaveCurrent()
         current = if (cwd == null) blank() else Conversation(this, cwd, sessionId = null, title = "", historyFile = null)
@@ -373,7 +327,7 @@ class ConversationHub(private val app: Application) {
         background.clear()
         backgroundChanged()
         synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
-        sessions = emptyList()
+        sessionList.clear()
         current = blank()
     }
 
@@ -416,7 +370,7 @@ class ConversationHub(private val app: Application) {
         val sourceId = source.sessionId ?: return
         if (!source.canRewind) return
         val plan = branchPlan(source.items, lastItemId) ?: return
-        val title = branchTitle(source.title, sessions.map { it.title })
+        val title = branchTitle(source.title, sessionList.sessions.map { it.title })
         leaveCurrent()
         current = Conversation(
             this, source.cwd, sessionId = null, title = title, historyFile = null,
@@ -440,17 +394,7 @@ class ConversationHub(private val app: Application) {
             prunePhones()
             return
         }
-        sessions.firstOrNull { it.id == key }?.let(::open) ?: openUnlisted(key)
-    }
-
-    /** 会话列表里还没有（比如点通知冷启动，列表还没读出来）：按 id 查一次再打开。 */
-    private fun openUnlisted(id: String) {
-        val config = settings.env ?: return
-        thread(name = "zeta-sessions", isDaemon = true) {
-            val result = helper("lookup", listOf(id), timeoutMs = 60_000, config = config) ?: return@thread
-            val summary = parseSessionSummaries(result.stdout).firstOrNull { it.id == id } ?: return@thread
-            main.post { open(summary) }
-        }
+        sessionList.sessions.firstOrNull { it.id == key }?.let(::open) ?: sessionList.lookup(key, ::open)
     }
 
     /** 会话 [key]（sessionId，新对话用它的 key）当前或在后台的那个对话对象；没有就是 null。 */
@@ -463,13 +407,8 @@ class ConversationHub(private val app: Application) {
         backgroundChanged()
     }
 
-    fun delete(summary: SessionSummary) = deleteSessions(listOf(summary))
-
-    /** 删除会话：记录文件，连同 Claude Code 存在同名目录里的工具结果、子代理记录等；置顶标记、没发出的草稿一并去掉。 */
-    fun deleteSessions(summaries: List<SessionSummary>) {
-        val config = settings.env ?: return
-        val ids = summaries.mapTo(HashSet()) { it.id }
-        if (ids.isEmpty()) return
+    /** 会话 [ids] 要删了（[SessionList.delete]）：开着的对话收掉，后台屏幕一并收掉。在主线程上调用。 */
+    internal fun closeSessions(ids: Set<String>) {
         if (current.sessionId in ids) {
             current.shutdown()
             current = blank()
@@ -478,13 +417,6 @@ class ConversationHub(private val app: Application) {
         backgroundChanged()
         synchronized(phones) { ids.mapNotNull { phones.remove(it) } }.forEach { it.destroy() }
         prunePhones()
-        sessions = sessions.filterNot { it.id in ids }
-        settings.pinnedSessions.takeIf { pins -> pins.any { it in ids } }?.let { settings.pinnedSessions = it - ids }
-        drafts.forget(ids)
-        thread(isDaemon = true) {
-            helper("delete", summaries.map { it.file }, timeoutMs = 60_000, config = config)
-            main.post { refreshSessions() }
-        }
     }
 
     /** 离开当前对话：闲着的直接收掉进程省内存，正在跑的（包括还有后台任务的）留在后台跑完。 */
@@ -612,7 +544,7 @@ class ConversationHub(private val app: Application) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成", silent = showed)
         }
         if (!stopped) autoRead(conversation)
-        refreshSessions()
+        sessionList.refresh()
     }
 
     /** 一轮结束时要不要弹结果卡片（见 [ResultCardPolicy.shows]），要的话换上这一轮的。返回弹了没有。 */

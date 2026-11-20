@@ -173,7 +173,7 @@ class ComposerDraftsTest {
         draft.type("这个会话要删了")
         hub.drafts.save(draft)
         hub.drafts.of(hub.session("s-kept")).also { it.type("留着") }.let(hub.drafts::save)
-        hub.deleteSessions(listOf(SessionSummary("s-gone", "/home/dzshzx/.claude/projects/-w/s-gone.jsonl", cwd, "要删的", "", 0)))
+        hub.sessionList.delete(listOf(SessionSummary("s-gone", "/home/dzshzx/.claude/projects/-w/s-gone.jsonl", cwd, "要删的", "", 0)))
         assertNull(hub.drafts.preview("s-gone"))
         assertEquals(listOf("s-kept"), stored().map { it.key })
         assertTrue(hub.drafts.of(hub.session("s-gone")).input.text.isEmpty())

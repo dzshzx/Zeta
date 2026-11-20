@@ -394,7 +394,7 @@ internal fun SessionPane(
                 count = chosen.size,
                 archive = archive,
                 onArchive = {
-                    hub.archiveSessions(chosen.filter { it.archived != archive }, archive)
+                    hub.sessionList.archive(chosen.filter { it.archived != archive }, archive)
                     exitSelection()
                 },
                 onExport = { exporter.saveAll(chosen) },
@@ -467,7 +467,7 @@ internal fun SessionPane(
         destructive = true,
         onConfirm = {
             // 确认框开着时才开始进行的也不删：删除会结束它的对话进程
-            batchDeleting?.let { hub.deleteSessions(deletable(it, hub::isActive)) }
+            batchDeleting?.let { hub.sessionList.delete(deletable(it, hub::isActive)) }
             batchDeleting = null
             exitSelection()
         },

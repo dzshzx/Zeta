@@ -322,7 +322,7 @@ internal object ScheduleRunner {
     private fun rename(hub: ConversationHub, id: String, title: String) {
         thread(name = "zeta-schedule", isDaemon = true) {
             val summary = lookup(hub, id) ?: return@thread
-            main.post { hub.rename(summary, title) }
+            main.post { hub.sessionList.rename(summary, title) }
         }
     }
 

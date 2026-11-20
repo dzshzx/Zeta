@@ -342,7 +342,7 @@ private fun ProjectSessionsScreen(hub: ConversationHub, project: ProjectUsage, o
     var sessions by remember(project.dir) { mutableStateOf<List<SessionUsage>?>(null) }
     var rest by remember(project.dir) { mutableStateOf(0L) }
     var failed by remember(project.dir) { mutableStateOf(false) }
-    var summaries by remember(project.dir) { mutableStateOf(hub.sessions.associateBy { it.id }) }
+    var summaries by remember(project.dir) { mutableStateOf(hub.sessionList.sessions.associateBy { it.id }) }
     LaunchedEffect(project.dir) {
         val keep = Storage.keepIds(hub)
         val result = withContext(Dispatchers.IO) { Storage.sessions(hub, project.dir, keep) }

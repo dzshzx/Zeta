@@ -285,7 +285,7 @@ object Storage {
 
     /** 应用认为正在进行的会话：当前对话，侧栏里在跑、等确认、有后台任务的，和别处的 Claude Code 开着的。在主线程上调用。 */
     fun keepIds(hub: ConversationHub): List<String> = keepArguments(
-        listOfNotNull(hub.current.sessionId) + hub.sessions.filter { it.external || hub.isActive(it.id) }.map { it.id },
+        listOfNotNull(hub.current.sessionId) + hub.sessionList.sessions.filter { it.external || hub.isActive(it.id) }.map { it.id },
     )
 
     /** 统计 Linux 一侧的各类。耗时，别在主线程调用。 */
