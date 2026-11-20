@@ -60,7 +60,7 @@ class AssistantActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         hub = ConversationHub.get(application)
-        if (hub.setup != SetupState.Ready) hub.checkSetup()
+        if (hub.environment.setup != SetupState.Ready) hub.environment.checkSetup()
         showing = true
         chat = AssistantChat(hub, captureFrom(intent))
         // ASSIST 带着问题来的（快捷方式之类，SearchManager.QUERY）：先填进输入框，由用户确认再发

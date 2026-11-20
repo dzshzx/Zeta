@@ -31,8 +31,8 @@ object Fixtures {
         Settings.of(app).env = env
         val hub = ConversationHub(app)
         install(hub)
-        hub.force("setup", SetupState.Ready)
-        hub.force("account", AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null))
+        hub.environment.force("setup", SetupState.Ready)
+        hub.environment.force("account", AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null))
         return hub
     }
 

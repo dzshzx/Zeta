@@ -18,12 +18,12 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 @Composable
 internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
     val env = hub.env
-    val status = hub.ssh
-    val maintenance = hub.maintenance
-    val busy = hub.sshWorking || maintenance?.running == true
+    val status = hub.environment.ssh
+    val maintenance = hub.environment.maintenance
+    val busy = hub.environment.sshWorking || maintenance?.running == true
     var adding by remember { mutableStateOf(false) }
     var keyDraft by remember { mutableStateOf("") }
-    LaunchedEffect(env?.rootfs) { hub.refreshSsh() }
+    LaunchedEffect(env?.rootfs) { hub.environment.refreshSsh() }
 
     CouiPage(
         title = "SSH 服务",
@@ -39,7 +39,7 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
                 confirmText = "添加",
                 confirmEnabled = Regex("(ssh-|ecdsa-|sk-)\\S+\\s+\\S+.*").matches(keyDraft.trim()),
                 onConfirm = {
-                    hub.addSshKey(keyDraft)
+                    hub.environment.addSshKey(keyDraft)
                     adding = false
                 },
                 onDismissRequest = { adding = false },
@@ -71,7 +71,7 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
                             // 安装 openssh-server
                             summary = "只在本机 8022 端口监听，只认公钥",
                             enabled = !busy,
-                            onClick = hub::setupSsh,
+                            onClick = hub.environment::setupSsh,
                         )
                     }
                 } else if (status != null) {
@@ -80,13 +80,13 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
                         BasicComponent(
                             title = if (status.running) "停止" else "启动",
                             enabled = !busy,
-                            onClick = if (status.running) hub::stopSsh else hub::startSsh,
+                            onClick = if (status.running) hub.environment::stopSsh else hub.environment::startSsh,
                         )
                     }
                     item {
                         SwitchPreference(
                             checked = status.autostart,
-                            onCheckedChange = hub::setSshAutostart,
+                            onCheckedChange = hub.environment::setSshAutostart,
                             title = "开机自动启动",
                             enabled = !busy,
                         )
@@ -119,7 +119,7 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
             }
         }
         if (maintenance != null) {
-            item(key = "maintenance") { MaintenanceGroup(maintenance, onDismiss = hub::dismissMaintenance) }
+            item(key = "maintenance") { MaintenanceGroup(maintenance, onDismiss = hub.environment::dismissMaintenance) }
         }
     }
 }

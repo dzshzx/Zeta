@@ -371,7 +371,7 @@ internal fun PermissionFixRow(hub: ConversationHub, id: PermissionId, title: Str
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var granting by remember { mutableStateOf(false) }
-    val root = hub.setup != SetupState.NoRoot
+    val root = hub.environment.setup != SetupState.NoRoot
     BasicComponent(
         title = title,
         summary = if (granting) "正在授予…" else reason + "点这里" + if (root) "经 root 允许" else "到系统设置里允许",

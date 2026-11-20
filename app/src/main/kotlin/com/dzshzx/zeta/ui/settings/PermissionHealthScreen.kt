@@ -39,7 +39,7 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
     fun onItemClick(item: PermissionItem) {
         when (item.id) {
             // 重新检查时会再调一次 su，没授权过的话 root 管理器会在这时弹出询问
-            PermissionId.Root -> hub.checkSetup()
+            PermissionId.Root -> hub.environment.checkSetup()
             // 安装环境、登录账号都在 Linux 环境页里
             PermissionId.Linux -> onOpenLinux()
             else -> when {
@@ -93,8 +93,8 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
                         summary = when {
                             granting -> "正在授予…"
                             result != null -> result
-                            hub.setup == SetupState.NoRoot -> "需要 root 权限"
-                            hub.setup == SetupState.Checking -> "正在检查 root 权限"
+                            hub.environment.setup == SetupState.NoRoot -> "需要 root 权限"
+                            hub.environment.setup == SetupState.Checking -> "正在检查 root 权限"
                             fixable.isEmpty() -> "没有需要补上的权限"
                             else -> "有 ${fixable.size} 项可以补上"
                         },
@@ -135,7 +135,7 @@ internal suspend fun fixPermission(context: Context, id: PermissionId, tryRoot: 
 /** 这一项点了有没有事可做。 */
 private fun isActionable(item: PermissionItem, hub: ConversationHub): Boolean = when (item.id) {
     PermissionId.Root -> item.status == PermissionStatus.Missing
-    PermissionId.Linux -> hub.setup == SetupState.NoEnvironment || item.status == PermissionStatus.Attention
+    PermissionId.Linux -> hub.environment.setup == SetupState.NoEnvironment || item.status == PermissionStatus.Attention
     else -> item.status != PermissionStatus.Ready && item.status != PermissionStatus.Checking &&
         (item.rootFixable || item.status != PermissionStatus.Idle)
 }

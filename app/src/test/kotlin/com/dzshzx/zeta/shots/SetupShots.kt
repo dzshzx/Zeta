@@ -74,7 +74,7 @@ class SetupShots : ShotTest() {
     @Test
     fun loginCode() {
         val hub = Fixtures.readyHub(app)
-        hub.login.force("state", LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true", notice = "授权码不完整，请重新复制"))
+        hub.environment.login.force("state", LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true", notice = "授权码不完整，请重新复制"))
         shoot("login-code") { LoginScreen(hub = hub, onBack = {}) }
     }
 
@@ -82,6 +82,6 @@ class SetupShots : ShotTest() {
     @Test
     fun sshService() {
         val hub = Fixtures.readyHub(app)
-        shoot("ssh", prepare = { hub.force("ssh", ssh) }) { SshScreen(hub = hub, onBack = {}) }
+        shoot("ssh", prepare = { hub.environment.force("ssh", ssh) }) { SshScreen(hub = hub, onBack = {}) }
     }
 }

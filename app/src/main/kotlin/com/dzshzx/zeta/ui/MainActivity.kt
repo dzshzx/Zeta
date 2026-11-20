@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hub = ConversationHub.get(application)
         live = WeakReference(this)
-        if (hub.setup != SetupState.Ready) hub.checkSetup()
+        if (hub.environment.setup != SetupState.Ready) hub.environment.checkSetup()
         if (savedInstanceState == null && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
@@ -162,7 +162,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     val pages = rememberPageStack()
     /** 回到聊天页：收起侧栏和盖在上面的页面。[keepSetup] 时进行中的安装、登录不打断。 */
     fun showChat(keepSetup: Boolean = false) {
-        if (!keepSetup && AppPage.Login in pages) hub.login.cancel()
+        if (!keepSetup && AppPage.Login in pages) hub.environment.login.cancel()
         pages.closeAll(keepSetup)
         paneOpen = false
     }
@@ -222,7 +222,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     }
     // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键
     BackHandler(enabled = pages.any) {
-        if (pages.top == AppPage.Login) hub.login.cancel()
+        if (pages.top == AppPage.Login) hub.environment.login.cancel()
         pages.pop()
     }
     PageStackHost(pages) { page ->

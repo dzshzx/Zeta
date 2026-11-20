@@ -36,7 +36,7 @@ internal object Diagnostics {
     /** 进 Linux 环境查版本和日志文件；环境不可用时返回 null。 */
     fun probe(hub: ConversationHub): LinuxProbe? {
         val config = hub.settings.env ?: return null
-        if (hub.setup != SetupState.Ready) return null
+        if (hub.environment.setup != SetupState.Ready) return null
         val result = runCatching { LinuxEnv.run(config, "bash -c " + LinuxEnv.quote(DiagScripts.PROBE) + " zeta-diag", timeoutMs = 45_000) }.getOrNull()
         if (result == null || result.exitCode != 0) return null
         return DiagScripts.parseProbe(result.stdout)
@@ -82,7 +82,7 @@ internal object Diagnostics {
             InfoLine("系统版本", Build.DISPLAY),
             InfoLine(
                 "Root",
-                when (hub.setup) {
+                when (hub.environment.setup) {
                     SetupState.Checking -> "检查中"
                     SetupState.NoRoot -> "没有授权"
                     else -> "已授权"

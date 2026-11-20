@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.EnvController
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.InstallStep
 import com.dzshzx.zeta.core.LinuxEnv
@@ -56,7 +57,7 @@ private enum class LinuxEdit { Rootfs, Cwd }
 @Composable
 internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall: () -> Unit, onOpenLogin: () -> Unit, onOpenSsh: () -> Unit) {
     val env = hub.env
-    val ready = hub.setup == SetupState.Ready && env != null
+    val ready = hub.environment.setup == SetupState.Ready && env != null
     var editing by remember { mutableStateOf<LinuxEdit?>(null) }
     var lastEditing by remember { mutableStateOf(LinuxEdit.Rootfs) }
     var draft by remember { mutableStateOf("") }
@@ -65,12 +66,12 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
     var lastRemoving by remember { mutableStateOf("go") }
     removing?.let { lastRemoving = it }
     var filesPage by rememberSaveable { mutableStateOf<LinuxFilesPage?>(null) }
-    val own = hub.ownStatus
-    val maintenance = hub.maintenance
-    val current = env?.rootfs ?: hub.rootfsHint
+    val own = hub.environment.ownStatus
+    val maintenance = hub.environment.maintenance
+    val current = env?.rootfs ?: hub.environment.rootfsHint
     LaunchedEffect(ready, env?.rootfs) {
-        if (ready && hub.health == null) hub.checkHealth()
-        if (ready && hub.ssh == null) hub.refreshSsh()
+        if (ready && hub.environment.health == null) hub.environment.checkHealth()
+        if (ready && hub.environment.ssh == null) hub.environment.refreshSsh()
     }
 
     CouiPage(
@@ -89,8 +90,8 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 onConfirm = {
                     val value = draft.trim()
                     when (editing) {
-                        LinuxEdit.Rootfs -> hub.redetect(value)
-                        LinuxEdit.Cwd -> hub.setDefaultCwd(value)
+                        LinuxEdit.Rootfs -> hub.environment.redetect(value)
+                        LinuxEdit.Cwd -> hub.environment.setDefaultCwd(value)
                         null -> Unit
                     }
                     editing = null
@@ -109,7 +110,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 confirmText = "卸载",
                 destructive = true,
                 onConfirm = {
-                    removing?.let(hub::removeOptional)
+                    removing?.let(hub.environment::removeOptional)
                     removing = null
                 },
                 onDismissRequest = { removing = null },
@@ -121,7 +122,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 confirmText = "退出",
                 onConfirm = {
                     confirmLogout = false
-                    hub.logout()
+                    hub.environment.logout()
                 },
                 onDismissRequest = { confirmLogout = false },
             )
@@ -135,7 +136,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                         title = "状态",
                         endActions = {
                             PreferenceValue(
-                                when (hub.setup) {
+                                when (hub.environment.setup) {
                                     SetupState.Checking -> "检查中"
                                     SetupState.NoRoot -> "没有 root 权限"
                                     SetupState.NoEnvironment -> "未找到环境"
@@ -146,12 +147,12 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     )
                 }
                 item {
-                    val choose: (String) -> Unit = { target -> if (target != env?.rootfs) hub.redetect(target) }
+                    val choose: (String) -> Unit = { target -> if (target != env?.rootfs) hub.environment.redetect(target) }
                     DropdownValuePreference(
                         title = "位置",
                         value = locationName(current),
                         // 有对话正在进行时不能切换
-                        enabled = hub.canSwitchEnvironment,
+                        enabled = hub.environment.canSwitchEnvironment,
                         entries = listOf(
                             DropdownEntry(
                                 items = listOf(
@@ -189,7 +190,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                         )
                     }
                 }
-                item { BasicComponent(title = "重新检测", summary = "重新检查 root 和环境里的用户", onClick = { hub.redetect(current) }) }
+                item { BasicComponent(title = "重新检测", summary = "重新检查 root 和环境里的用户", onClick = { hub.environment.redetect(current) }) }
             }
         }
 
@@ -200,7 +201,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                     item {
                         ArrowPreference(
                             title = when {
-                                hub.installer.running -> "正在安装…"
+                                hub.environment.installer.running -> "正在安装…"
                                 own?.base == true -> "继续安装 Debian 环境"
                                 else -> "安装 Debian 环境"
                             },
@@ -213,14 +214,14 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
         }
 
         if (ready) {
-            val health = hub.health
+            val health = hub.environment.health
             item(key = "health") {
                 PreferenceGroup(title = "体检") {
                     item {
                         BasicComponent(
                             title = "检查环境",
                             summary = when {
-                                hub.healthChecking -> "检查中…"
+                                hub.environment.healthChecking -> "检查中…"
                                 health == null -> "核心命令、工作目录、网络与剩余空间"
                                 else -> buildList {
                                     if (health.missing.isNotEmpty()) add("缺少 " + health.missing.joinToString("、"))
@@ -231,7 +232,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                                     add("剩余 ${formatBytes(health.freeBytes)}")
                                 }.joinToString(" · ")
                             },
-                            onClick = hub::checkHealth,
+                            onClick = hub.environment::checkHealth,
                         )
                     }
                     item {
@@ -239,7 +240,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                             title = "修复",
                             summary = "修好软件包数据库，补齐常用工具",
                             enabled = maintenance?.running != true,
-                            onClick = hub::repairEnvironment,
+                            onClick = hub.environment::repairEnvironment,
                         )
                     }
                 }
@@ -261,7 +262,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                                 pitch = pitch,
                                 health = health,
                                 enabled = maintenance?.running != true && health != null,
-                                onInstall = { hub.installOptional(name) },
+                                onInstall = { hub.environment.installOptional(name) },
                                 onRemove = { removing = name },
                             )
                         }
@@ -285,7 +286,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                         )
                     }
                     item {
-                        val ssh = hub.ssh
+                        val ssh = hub.environment.ssh
                         ArrowPreference(
                             title = "SSH 服务",
                             summary = when {
@@ -300,7 +301,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 }
             }
             item(key = "claude") {
-                val account = hub.account
+                val account = hub.environment.account
                 PreferenceGroup(title = "Claude Code") {
                     item { BasicComponent(title = "版本", endActions = { PreferenceValue(health?.claude?.ifBlank { "未安装" } ?: "…") }) }
                     item {
@@ -309,7 +310,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                             // 运行 claude update
                             summary = "更新到最新版",
                             enabled = maintenance?.running != true,
-                            onClick = hub::updateClaude,
+                            onClick = hub.environment::updateClaude,
                         )
                     }
                     item {
@@ -331,7 +332,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
         }
 
         if (maintenance != null) {
-            item(key = "maintenance") { MaintenanceGroup(maintenance, onDismiss = hub::dismissMaintenance) }
+            item(key = "maintenance") { MaintenanceGroup(maintenance, onDismiss = hub.environment::dismissMaintenance) }
         }
     }
     LinuxFilesPages(hub, page = filesPage.takeIf { ready }, onClose = { filesPage = null })
@@ -339,7 +340,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
 
 /** 正在做或刚做完的维护（修复、更新、装卸可选工具、SSH 的操作）：做完了点一下收起。 */
 @Composable
-internal fun MaintenanceGroup(maintenance: ConversationHub.Maintenance, onDismiss: () -> Unit) {
+internal fun MaintenanceGroup(maintenance: EnvController.Maintenance, onDismiss: () -> Unit) {
     PreferenceGroup(title = maintenance.title) {
         item {
             BasicComponent(
@@ -358,8 +359,8 @@ internal fun MaintenanceGroup(maintenance: ConversationHub.Maintenance, onDismis
 /** 安装向导：列出每一步的状态，失败了可以原地重试（接着没做完的那一步）。 */
 @Composable
 internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLogin: () -> Unit) {
-    val installer = hub.installer
-    val own = hub.ownStatus
+    val installer = hub.environment.installer
+    val own = hub.environment.ownStatus
     var userName by rememberSaveable { mutableStateOf("zeta") }
     var editingName by remember { mutableStateOf(false) }
     var nameDraft by remember { mutableStateOf("") }
@@ -440,8 +441,8 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
                     installer.running -> TextButton(text = "取消", onClick = installer::cancel, modifier = Modifier.fillMaxWidth())
                     complete -> {
                         if (hub.env?.rootfs != LinuxEnv.OWN_ROOTFS) {
-                            PrimaryButton(text = "切换到这个环境", onClick = { hub.redetect(LinuxEnv.OWN_ROOTFS) }, enabled = hub.canSwitchEnvironment)
-                        } else if (hub.account?.loggedIn != true) {
+                            PrimaryButton(text = "切换到这个环境", onClick = { hub.environment.redetect(LinuxEnv.OWN_ROOTFS) }, enabled = hub.environment.canSwitchEnvironment)
+                        } else if (hub.environment.account?.loggedIn != true) {
                             PrimaryButton(text = "登录 Claude 账号", onClick = onOpenLogin)
                         }
                         TextButton(text = "完成", onClick = onBack, modifier = Modifier.fillMaxWidth())
@@ -461,9 +462,9 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
 @Composable
 internal fun LoginScreen(hub: ConversationHub, onBack: () -> Unit) {
     val context = LocalContext.current
-    val flow = hub.login
+    val flow = hub.environment.login
     val state = flow.state
-    val account = hub.account
+    val account = hub.environment.account
     var code by remember { mutableStateOf("") }
     val leave = {
         flow.cancel()

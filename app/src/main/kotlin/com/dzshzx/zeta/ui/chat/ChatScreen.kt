@@ -147,11 +147,11 @@ internal fun ChatScreen(
                     conversation = conversation,
                     models = hub.modelOptions,
                     backdrop = blur.backdrop,
-                    listState = listState.takeIf { hub.setup == SetupState.Ready },
+                    listState = listState.takeIf { hub.environment.setup == SetupState.Ready },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
                     onOpenSettings = onOpenSettings,
-                    onFind = find::open.takeIf { hub.setup == SetupState.Ready && conversation.items.isNotEmpty() },
+                    onFind = find::open.takeIf { hub.environment.setup == SetupState.Ready && conversation.items.isNotEmpty() },
                 )
             }
         },
@@ -163,7 +163,7 @@ internal fun ChatScreen(
                 .background(colors.background),
         ) {
             PageBlurHost(blur) {
-                when (hub.setup) {
+                when (hub.environment.setup) {
                     // 换对话时这一块整个重建，列表项和输入栏里各控件自己的状态从头来；草稿、消息操作这些对话的状态在 ConversationBody 里另以对话做键
                     SetupState.Ready -> key(conversation) {
                         CompositionLocalProvider(LocalTextFinder provides find) {
@@ -175,7 +175,7 @@ internal fun ChatScreen(
                         padding,
                         "需要 root 权限",
                         "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试。",
-                    ) { TextButton(text = "重试", onClick = hub::checkSetup) }
+                    ) { TextButton(text = "重试", onClick = hub.environment::checkSetup) }
                     SetupState.NoEnvironment -> SetupMessage(
                         padding,
                         "还没有 Linux 环境",
@@ -183,13 +183,13 @@ internal fun ChatScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             TextButton(
-                                text = if (hub.ownStatus?.base == true) "继续安装 Debian 环境" else "安装 Debian 环境",
+                                text = if (hub.environment.ownStatus?.base == true) "继续安装 Debian 环境" else "安装 Debian 环境",
                                 onClick = onOpenInstall,
                                 colors = ButtonDefaults.textButtonColorsPrimary(),
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 TextButton(text = "打开设置", onClick = onOpenSettings)
-                                TextButton(text = "重试", onClick = hub::checkSetup)
+                                TextButton(text = "重试", onClick = hub.environment::checkSetup)
                             }
                         }
                     }
@@ -366,7 +366,7 @@ private fun ConversationBody(
                 conversation.loadingHistory -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { TypingIndicator() }
                 items.isEmpty() -> EmptyState(
                     cwd = conversation.cwd,
-                    needsLogin = hub.account?.loggedIn == false,
+                    needsLogin = hub.environment.account?.loggedIn == false,
                     onLogin = onOpenLogin,
                     onSuggestion = {
                         conversation.send(it)

@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.claude.defaults
-import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.voice.ReadAloud
@@ -29,8 +28,6 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-
-enum class SetupState { Checking, NoRoot, NoEnvironment, Ready }
 
 /** 应用级的单例：设置、历史会话列表、当前对话，以及仍在后台运行的对话。 */
 class ConversationHub(private val app: Application) {
@@ -117,7 +114,7 @@ class ConversationHub(private val app: Application) {
     internal fun settingsRestored() = renewBlank()
 
     /** 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它。 */
-    private fun renewBlank() {
+    internal fun renewBlank() {
         if (current.items.isEmpty() && current.sessionId == null) current = blank()
     }
 
@@ -147,8 +144,6 @@ class ConversationHub(private val app: Application) {
         } }
     }.getOrDefault(emptyList())
 
-    var setup by mutableStateOf(SetupState.Checking)
-        private set
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
         private set
 
@@ -176,45 +171,14 @@ class ConversationHub(private val app: Application) {
     /** 当前环境配置（可观察，同 [Settings.env]）；还没识别出环境时为 null。 */
     val env: LinuxEnvConfig? get() = settings.env
 
-    /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
-    var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
-        private set
-
-    /** 安装 Debian 环境、登录 Claude 账号。 */
-    val installer = EnvInstaller(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
-    private val sshService = SshService(installer) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
-
-    /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
-    var ssh by mutableStateOf<SshStatus?>(null)
-        private set
-    var sshWorking by mutableStateOf(false)
-        private set
-    val login = LoginFlow(this)
+    /** Linux 环境：检查、安装、维护、SSH、Claude 账号的登录状态。 */
+    val environment = EnvController(this) { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 
     /** 当前账号的订阅额度（所有对话共用）。 */
     val quota = QuotaService(this)
 
     /** claude-switch 管着的 Claude 账号，和切换账号。 */
     val accounts = AccountService(this)
-
-    /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
-    var ownStatus by mutableStateOf<EnvStatus?>(null)
-        private set
-
-    /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
-    var account by mutableStateOf<AccountStatus?>(null)
-        internal set
-
-    var health by mutableStateOf<EnvHealth?>(null)
-        private set
-    var healthChecking by mutableStateOf(false)
-        private set
-
-    /** 正在进行或刚做完的一项维护（修复、更新 Claude Code）。 */
-    data class Maintenance(val title: String, val running: Boolean, val detail: String, val ok: Boolean = true)
-
-    var maintenance by mutableStateOf<Maintenance?>(null)
-        private set
 
     /** 界面是否在前台；不在前台时一轮结束或需要批准会发通知。 */
     private val startedActivities = HashSet<Activity>()
@@ -282,39 +246,14 @@ class ConversationHub(private val app: Application) {
     fun isWaiting(sessionId: String): Boolean =
         (current.sessionId == sessionId && current.pending != null) || background[sessionId]?.pending != null
 
-    fun checkSetup() {
-        setup = SetupState.Checking
-        thread(name = "zeta-setup", isDaemon = true) {
-            val saved = settings.env
-            val state = when {
-                !LinuxEnv.hasRoot() -> SetupState.NoRoot
-                // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
-                saved != null -> if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
-                else -> LinuxEnv.detect(rootfsHint)?.let { detected ->
-                    // 默认工作目录：/workspace 是用户的工作区，有 claude 子目录就用它
-                    val cwd = runCatching {
-                        LinuxEnv.run(detected, "[ -d /workspace/claude ] && echo /workspace/claude || echo /workspace").stdout.trim()
-                    }.getOrNull()?.takeIf { it.startsWith("/") } ?: "/workspace"
-                    settings.env = detected.copy(defaultCwd = cwd)
-                    SetupState.Ready
-                } ?: SetupState.NoEnvironment
-            }
-            val own = installer.status()
-            DiagEvents.setupChecked(state.name, settings.env?.rootfs ?: saved?.rootfs, settings.env?.user)
-            main.post {
-                setup = state
-                ownStatus = own
-                if (state == SetupState.Ready) {
-                    refreshAccount()
-                    renewBlank()
-                    refreshSessions()
-                    refreshClaudeDefaults()
-                    if (!hostsChecked) {
-                        hostsChecked = true
-                        reattachHosts()
-                    }
-                }
-            }
+    /** 环境检查完、就绪了（[EnvController.checkSetup]）：读会话列表和 Claude Code 的默认值，第一次就绪时接回还在跑的进程。在主线程上调用。 */
+    internal fun onEnvironmentReady() {
+        renewBlank()
+        refreshSessions()
+        refreshClaudeDefaults()
+        if (!hostsChecked) {
+            hostsChecked = true
+            reattachHosts()
         }
     }
 
@@ -427,166 +366,33 @@ class ConversationHub(private val app: Application) {
         prunePhones()
     }
 
-    /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户。 */
-    fun redetect(rootfs: String) {
-        rootfsHint = rootfs
-        if (conversationsWorking) return
+    /** 换了环境（[EnvController.redetect]）：原来的会话都不再接着用，进程和后台屏幕一并收掉，换上一个空的新对话。在主线程上调用。 */
+    internal fun dropConversations() {
         current.shutdown()
         background.values.forEach { it.shutdown() }
         background.clear()
         backgroundChanged()
-        // 换了环境，原来的会话都不再接着用：后台屏幕一并收掉
         synchronized(phones) { phones.values.toList().also { phones.clear() } }.forEach { it.destroy() }
-        settings.env = null
-        account = null
-        health = null
-        ssh = null
         sessions = emptyList()
         current = blank()
-        checkSetup()
     }
 
     /** 有对话在进行：在回答、等你确认，或还有后台任务在跑（结束进程会把任务一起杀掉）。 */
-    private val conversationsWorking: Boolean
+    internal val conversationsWorking: Boolean
         get() = liveConversations.any { it.active }
-
-    /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
-    val canSwitchEnvironment: Boolean get() = !conversationsWorking && !installer.running
 
     /**
      * 换 Claude 账号前：关掉闲着的对话背后的 Claude Code 进程（内容不丢，下次发消息时用 --resume 接上）。
      * 有对话在进行时什么都不做，返回 false。在主线程上调用。
      */
     internal fun closeIdleConversations(): Boolean {
-        if (!canSwitchEnvironment) return false
+        if (!environment.canSwitchEnvironment) return false
         current.shutdown()
         background.values.toList().forEach { it.shutdown() }
         background.clear()
         backgroundChanged()
         prunePhones()
         return true
-    }
-
-    /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
-    internal fun onEnvironmentInstalled() {
-        thread(isDaemon = true) {
-            val own = installer.status()
-            main.post {
-                ownStatus = own
-                if (setup != SetupState.Ready || settings.env?.rootfs == LinuxEnv.OWN_ROOTFS) redetect(LinuxEnv.OWN_ROOTFS)
-            }
-        }
-    }
-
-    fun refreshAccount() {
-        val config = settings.env ?: return
-        thread(name = "zeta-account", isDaemon = true) {
-            val result = runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }.getOrNull() ?: return@thread
-            val o = runCatching { json.parseToJsonElement(result.stdout) as? JsonObject }.getOrNull()
-            val status = if (o == null) null else AccountStatus(o.bool("loggedIn") == true, o.str("email"), o.str("subscriptionType"))
-            main.post { if (settings.env?.rootfs == config.rootfs) account = status }
-        }
-    }
-
-    fun checkHealth() {
-        val config = settings.env ?: return
-        if (healthChecking) return
-        healthChecking = true
-        thread(name = "zeta-health", isDaemon = true) {
-            val result = installer.health(config)
-            main.post {
-                healthChecking = false
-                health = result
-            }
-        }
-    }
-
-    private fun runMaintenance(title: String, asRoot: Boolean, command: String, after: () -> Unit = {}) {
-        val config = settings.env ?: return
-        if (maintenance?.running == true) return
-        maintenance = Maintenance(title, running = true, detail = "")
-        onActivityChanged()
-        thread(name = "zeta-maintain", isDaemon = true) {
-            val (ok, output) = installer.maintain(config, asRoot, command) { line -> main.post { maintenance = Maintenance(title, running = true, detail = line) } }
-            main.post {
-                maintenance = Maintenance(title, running = false, detail = output.lines().takeLast(4).joinToString("\n"), ok = ok)
-                onActivityChanged()
-                after()
-            }
-        }
-    }
-
-    /** 修复软件包并补齐常用工具。 */
-    fun repairEnvironment() = runMaintenance("修复环境", asRoot = true, command = installer.repairCommand) { checkHealth() }
-
-    fun updateClaude() = runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") { checkHealth() }
-
-
-    fun refreshSsh() {
-        val config = settings.env ?: return
-        thread(name = "zeta-ssh", isDaemon = true) {
-            val status = sshService.status(config)
-            main.post { if (settings.env?.rootfs == config.rootfs) ssh = status }
-        }
-    }
-
-    /** 启动、停止、开机自启这类很快的操作；不成功时把原因放进维护卡片。 */
-    private fun sshAction(title: String, action: (LinuxEnvConfig) -> String?) {
-        val config = settings.env ?: return
-        if (sshWorking) return
-        sshWorking = true
-        thread(name = "zeta-ssh", isDaemon = true) {
-            val problem = runCatching { action(config) }.getOrElse { it.message ?: "没有成功" }
-            val status = sshService.status(config)
-            main.post {
-                sshWorking = false
-                ssh = status
-                if (problem != null) maintenance = Maintenance(title, running = false, detail = problem, ok = false)
-            }
-        }
-    }
-
-    fun startSsh() = sshAction("启动 SSH 服务") { sshService.start(it) }
-
-    fun stopSsh() = sshAction("停止 SSH 服务") { sshService.stop(it) }
-
-    fun setSshAutostart(on: Boolean) = sshAction("开机自动启动") { sshService.autostart(it, on) }
-
-    fun setupSsh() {
-        val user = settings.env?.user ?: return
-        runMaintenance("安装 SSH 服务", asRoot = true, command = installer.optionalCommand("ssh-setup") + " " + LinuxEnv.quote(user)) { refreshSsh() }
-    }
-
-    fun addSshKey(key: String) {
-        val user = settings.env?.user ?: return
-        val line = key.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: return
-        runMaintenance("添加公钥", asRoot = true, command = installer.optionalCommand("ssh-addkey") + " " + LinuxEnv.quote(user) + " " + LinuxEnv.quote(line)) { refreshSsh() }
-    }
-
-    /** 安装一样可选工具（go / node / python）；已经是 Zeta 装的则更新到最新版。 */
-    fun installOptional(name: String) = runMaintenance(
-        title = (if (name in health?.zetaOwned.orEmpty()) "更新 " else "安装 ") + optionalName(name),
-        asRoot = name != "python",
-        command = installer.optionalCommand(name),
-    ) { checkHealth() }
-
-    /** 卸载一样 Zeta 装的可选工具。别处装的脚本会拒绝。 */
-    fun removeOptional(name: String) = runMaintenance(
-        title = "卸载 " + optionalName(name),
-        asRoot = name != "python",
-        command = installer.optionalCommand("remove") + " " + name,
-    ) { checkHealth() }
-
-    fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }
-
-    fun dismissMaintenance() {
-        if (maintenance?.running == false) maintenance = null
-    }
-
-    fun setDefaultCwd(cwd: String) {
-        val updated = settings.env?.copy(defaultCwd = cwd) ?: return
-        settings.env = updated
-        renewBlank()
     }
 
     fun open(summary: SessionSummary) {
@@ -884,7 +690,7 @@ class ConversationHub(private val app: Application) {
 
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
     internal fun onActivityChanged() {
-        val working = installer.running || maintenance?.running == true
+        val working = environment.working
         val active = working || liveConversations.any { it.isProcessAlive }
         // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起
         val busy = working || conversationsWorking
@@ -957,12 +763,4 @@ class ConversationHub(private val app: Application) {
             instance ?: ConversationHub(app).also { instance = it }
         }
     }
-}
-
-/** 可选工具在界面上的名字。 */
-fun optionalName(name: String): String = when (name) {
-    "go" -> "Go"
-    "node" -> "Node.js"
-    "apk" -> "APK 分析"
-    else -> "Python / uv"
 }

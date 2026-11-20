@@ -142,7 +142,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
                     error = failure
                 }
                 hub.onActivityChanged()
-                if (failure == null) hub.onEnvironmentInstalled()
+                if (failure == null) hub.environment.onEnvironmentInstalled()
             }
         }
     }

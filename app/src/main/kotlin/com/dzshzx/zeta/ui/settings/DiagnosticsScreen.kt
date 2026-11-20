@@ -86,7 +86,7 @@ internal fun DiagnosticsScreen(
     var reloads by remember { mutableIntStateOf(0) }
     var probe by remember { mutableStateOf<LinuxProbe?>(null) }
     var probing by remember { mutableStateOf(true) }
-    LaunchedEffect(reloads, hub.setup) {
+    LaunchedEffect(reloads, hub.environment.setup) {
         probing = true
         probe = probeLoader()
         probing = false

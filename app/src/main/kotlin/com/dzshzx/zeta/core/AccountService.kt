@@ -82,8 +82,8 @@ class AccountService(private val hub: ConversationHub) {
     /** 现在能不能动登录状态（切换或添加账号）；不能时给出原因。在主线程上调用。 */
     private fun localBlocker(): String? = when {
         working != null -> "上一件事还没做完"
-        !hub.canSwitchEnvironment -> OwnConversationsBusy
-        hub.login.state.let { it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed } -> "正在登录，先完成或取消登录"
+        !hub.environment.canSwitchEnvironment -> OwnConversationsBusy
+        hub.environment.login.state.let { it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed } -> "正在登录，先完成或取消登录"
         else -> null
     }
 
@@ -155,7 +155,7 @@ class AccountService(private val hub: ConversationHub) {
         hub.quota.refresh(force = true)
         refresh { listed ->
             val current = listed?.current?.takeIf { listed.loggedIn && it.email.isNotBlank() && it.subscription.isNotBlank() }
-            if (current != null) hub.account = AccountStatus(loggedIn = true, email = current.email, plan = current.subscription) else hub.refreshAccount()
+            if (current != null) hub.environment.account = AccountStatus(loggedIn = true, email = current.email, plan = current.subscription) else hub.environment.refreshAccount()
         }
     }
 

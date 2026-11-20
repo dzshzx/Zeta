@@ -97,7 +97,7 @@ internal data class StorageView(
 internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSession: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val ready = hub.setup == SetupState.Ready && hub.env != null
+    val ready = hub.environment.setup == SetupState.Ready && hub.env != null
     var view by remember { mutableStateOf(StorageView(ready = ready, imageMemory = ImageStore.memoryBytes(), phone = Storage.phoneSpace())) }
     var notice by remember { mutableStateOf<ConfigNotice?>(null) }
     var project by remember { mutableStateOf<ProjectUsage?>(null) }
@@ -124,7 +124,7 @@ internal fun StorageScreen(hub: ConversationHub, onBack: () -> Unit, onRevealSes
         view = view.copy(cleaning = kind)
         val keep = Storage.keepIds(hub)
         // 有对话在进行时 Claude 可能正用着内置浏览器，网页缓存先不清
-        val quiet = hub.canSwitchEnvironment
+        val quiet = hub.environment.canSwitchEnvironment
         scope.launch {
             val outcome: CleanOutcome = when (kind) {
                 StorageKind.AppCache -> {

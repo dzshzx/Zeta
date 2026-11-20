@@ -77,7 +77,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
         val key = conversation.openKey
         val display = hub.settings.phoneDisplay
         val context = hub.context
-        val route = OpenRoute.choose(hub.foreground, BackgroundStart.allowed(context), root = hub.setup != SetupState.NoRoot)
+        val route = OpenRoute.choose(hub.foreground, BackgroundStart.allowed(context), root = hub.environment.setup != SetupState.NoRoot)
         if (route != OpenRoute.Root) MainActivity.openConversation(context, key, display)
         if (route == OpenRoute.PendingIntent) return
         thread(name = "zeta-open", isDaemon = true) {

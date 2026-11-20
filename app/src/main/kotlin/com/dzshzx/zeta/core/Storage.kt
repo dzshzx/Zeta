@@ -314,7 +314,7 @@ object Storage {
      */
     fun cleanApt(hub: ConversationHub): CleanOutcome {
         val config = hub.settings.env ?: return CleanOutcome(0, 0, error = "还没有可用的 Linux 环境")
-        if (hub.installer.running || hub.maintenance?.running == true) return CleanOutcome(0, 0, busy = "安装或维护")
+        if (hub.environment.installer.running || hub.environment.maintenance?.running == true) return CleanOutcome(0, 0, busy = "安装或维护")
         val script = "b=\$(du -sk /var/cache/apt | cut -f1); apt-get clean 2>&1 | tail -n 3; rc=\${PIPESTATUS[0]}; " +
             "a=\$(du -sk /var/cache/apt | cut -f1); echo \"@zeta apt \$b \$a \$rc\""
         val result = runCatching {

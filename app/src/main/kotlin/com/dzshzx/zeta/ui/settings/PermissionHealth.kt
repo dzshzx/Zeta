@@ -140,7 +140,7 @@ internal object PermissionHealth {
      * 摘要只写一行：这一项管什么或现在怎样；为什么需要、怎么修写在下面的注释里。
      */
     fun items(snapshot: PermissionSnapshot?, hub: ConversationHub): List<PermissionItem> {
-        val setup = hub.setup
+        val setup = hub.environment.setup
         val root: Boolean? = when (setup) {
             SetupState.Checking -> null
             SetupState.NoRoot -> false
@@ -160,7 +160,7 @@ internal object PermissionHealth {
                 SetupState.NoRoot -> PermissionItem(PermissionId.Linux, "Linux 环境", "需要先有 root 权限", "不可用", PermissionStatus.Idle, false)
                 SetupState.NoEnvironment -> PermissionItem(PermissionId.Linux, "Linux 环境", "点这里去安装", "未安装", PermissionStatus.Missing, false)
                 SetupState.Ready -> {
-                    val account = hub.account
+                    val account = hub.environment.account
                     val user = hub.env?.user
                     if (account != null && !account.loggedIn) {
                         PermissionItem(PermissionId.Linux, "Linux 环境", "点这里登录 Claude 账号", "未登录", PermissionStatus.Attention, false)

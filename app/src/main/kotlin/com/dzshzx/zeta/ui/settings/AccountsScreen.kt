@@ -44,9 +44,9 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 设置首页的入口：当前账号，和最要紧的一个额度窗口。 */
 @Composable
 internal fun AccountsEntry(hub: ConversationHub, onOpen: () -> Unit) {
-    val ready = hub.setup == SetupState.Ready && hub.env != null
+    val ready = hub.environment.setup == SetupState.Ready && hub.env != null
     val now = rememberNow()
-    val account = hub.account
+    val account = hub.environment.account
     val headline = hub.quota.snapshot?.current(now)?.headline
     // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
@@ -195,7 +195,7 @@ internal fun AccountsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
     BackHandler(enabled = adding) {
-        hub.login.cancel()
+        hub.environment.login.cancel()
         adding = false
     }
     // 离开页面时，上一次没做成的原因不再挂着
