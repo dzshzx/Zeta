@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.shots.Fixtures
+import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -105,5 +107,37 @@ class BackendSwitchTest {
         val local = hub.current
         hub.selectBackend(Backends.LOCAL)
         assertSame(local, hub.current)
+    }
+
+    /** 加主机时默认的连法：手机 Debian 就绪就经它，没有 Debian 时直连。 */
+    @Test
+    fun defaultViaFollowsDebian() {
+        assertEquals(RemoteHost.Via.Debian, hub().defaultVia)
+        assertEquals(RemoteHost.Via.Direct, Fixtures.bareHub(app).defaultVia)
+    }
+
+    /** 改连法：那台上有对话在回答时不改；闲着时地址、主机指纹跟着换成新连法的，侧栏还在那台上，别的主机不动。 */
+    @Test
+    fun changingTheViaWaitsForWorkToFinish() {
+        val hub = hub()
+        val direct = RemoteHost("r-00000002", "vps", "me@example.com:2222", "/root", "/root", RemoteHost.Via.Direct, RemoteHosts.encodeKey(SshKey.generate().blob))
+        hub.settings.remoteHosts = listOf(remote, direct)
+        hub.selectBackend(direct.id)
+        val target = RemoteHosts.targetFor(direct.target, RemoteHost.Via.Debian)!!
+        assertEquals("ssh://me@example.com:2222", target)
+        hub.current.force("busy", true)
+        assertTrue(hub.hostWorking(direct.id))
+        assertFalse(hub.changeVia(direct.id, RemoteHost.Via.Debian, target, null))
+        assertEquals(direct, hub.remoteHost(direct.id))
+        hub.current.force("busy", false)
+        assertTrue(hub.changeVia(direct.id, RemoteHost.Via.Debian, target, "ignored"))
+        val changed = hub.remoteHost(direct.id)!!
+        assertEquals(RemoteHost.Via.Debian, changed.via)
+        assertEquals(target, changed.target)
+        // 经 Debian 的主机指纹由那边的 known_hosts 管，不记
+        assertNull(changed.hostKey)
+        assertTrue(hub.shell(direct.id) is DebianSshShell)
+        assertEquals(direct.id, hub.backend)
+        assertEquals(remote, hub.remoteHost(remote.id))
     }
 }

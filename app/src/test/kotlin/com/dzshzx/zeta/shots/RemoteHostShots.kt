@@ -16,9 +16,10 @@ import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
 import org.junit.Test
 
 /**
- * 远程主机：设置里的清单、侧栏顶部的主机切换（和它的菜单）、远程主机上的新对话，
- * 以及手机上没有 Debian 环境时：聊天页让人去连远程主机，直连的主机照常能用。
- * 单元测试里进不了 Linux 环境，「从手机 Debian 选」一组显示读不到 ~/.ssh/config 和原因。
+ * 远程主机：设置里的清单、加主机（输入地址时选连接方式、从 ~/.ssh/config 选）、主机页（改连接方式）、
+ * 侧栏顶部的主机切换（和它的菜单）、远程主机上的新对话，
+ * 以及手机上没有 Debian 环境时：只能直连，聊天页让人去连远程主机，直连的主机照常能用。
+ * 单元测试里进不了 Linux 环境，「从 ~/.ssh/config 选」那页显示读不到和原因。
  */
 class RemoteHostShots : ShotTest() {
     private val hostKey = RemoteHosts.encodeKey(SshKey.generate().blob)
@@ -57,18 +58,53 @@ class RemoteHostShots : ShotTest() {
         shoot("remote-host-direct", prepare = { onNodeWithText("personal-vps").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
     }
 
+    /** 主机页点「连接方式」：两种连法，选另一种先按它连一次，连上了才改。 */
+    @Test
+    fun viaMenu() {
+        val hub = hub()
+        shoot(
+            "remote-host-via-menu",
+            prepare = {
+                onNodeWithText("personal-vps").performClick()
+                mainClock.advanceTimeBy(1_000)
+                onNodeWithText("连接方式").performClick()
+            },
+        ) { RemoteHostsScreen(hub = hub, onBack = {}) }
+    }
+
     /** 点「Zeta 的公钥」：整行公钥，复制了加进那台主机的 authorized_keys。 */
     @Test
     fun publicKey() {
         val hub = hub()
-        shoot("remote-public-key", prepare = { onNodeWithText("Zeta 的公钥").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
+        shoot("remote-public-key", prepare = { onNodeWithText("Zeta 的公钥").scrollIntoView().performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
     }
 
-    /** 没有 Debian 环境：只能直连，没有「从手机 Debian 选」那一组。 */
+    /** 输入地址：有 Debian 时默认经 Debian，上面能换成直连。 */
+    @Test
+    fun addressDialog() {
+        val hub = hub()
+        shoot("remote-address", prepare = { onNodeWithText("输入地址").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
+    }
+
+    /** 从 ~/.ssh/config 选：单元测试里进不了 Debian，显示读不到和原因。 */
+    @Test
+    fun sshConfigPage() {
+        val hub = hub()
+        shoot("remote-ssh-config", prepare = { onNodeWithText("从 ~/.ssh/config 选").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
+    }
+
+    /** 没有 Debian 环境：只能直连，没有「从 ~/.ssh/config 选」。 */
     @Test
     fun settingsWithoutDebian() {
         val hub = Fixtures.bareHub(app)
         shoot("remote-hosts-bare") { RemoteHostsScreen(hub = hub, onBack = {}) }
+    }
+
+    /** 没有 Debian 环境时输入地址：只有直连，不给选。 */
+    @Test
+    fun addressDialogWithoutDebian() {
+        val hub = Fixtures.bareHub(app)
+        shoot("remote-address-bare", prepare = { onNodeWithText("输入地址").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
     }
 
     /** 没有 Debian 环境、还没加远程主机：聊天页给「连接远程主机」。 */

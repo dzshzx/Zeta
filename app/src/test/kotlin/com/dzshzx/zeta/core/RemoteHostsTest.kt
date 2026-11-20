@@ -82,6 +82,55 @@ class RemoteHostsTest {
         for (bad in listOf("", "-oProxyCommand=sh", "a b", "a'b", "a\"b", "a\\b", "a\nb")) assertFalse(bad, DebianSshShell.validTarget(bad))
     }
 
+    /**
+     * 地址按连法换写法：直连要写明用户；交给 OpenSSH 的端口放进 ssh://（它不认 主机:端口）；别名、主机名只能经 Debian。
+     * 两种连法之间来回换，地址不变样。
+     */
+    @Test
+    fun targetsConvertBetweenVias() {
+        val debian = RemoteHost.Via.Debian
+        val direct = RemoteHost.Via.Direct
+        assertEquals("me@example.com", RemoteHosts.targetFor(" me@example.com ", debian))
+        assertEquals("me@example.com", RemoteHosts.targetFor("me@example.com", direct))
+        assertEquals("ssh://me@example.com:2222", RemoteHosts.targetFor("me@example.com:2222", debian))
+        assertEquals("me@example.com:2222", RemoteHosts.targetFor("ssh://me@example.com:2222", direct))
+        assertEquals("ssh://me@[::1]:22", RemoteHosts.targetFor("me@[::1]", debian))
+        assertEquals("me@[::1]", RemoteHosts.targetFor("ssh://me@[::1]:22", direct))
+        assertEquals("nerv-wsl", RemoteHosts.targetFor("nerv-wsl", debian))
+        for (text in listOf("nerv-wsl", "host.example:2222", "")) assertNull(text, RemoteHosts.targetFor(text, direct))
+        // 主机:端口 交给 OpenSSH 会被当成主机名的一部分；像选项的、带空白的不行
+        for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(text, RemoteHosts.targetFor(text, debian))
+        for (text in listOf("me@example.com", "me@example.com:2222", "me@[2001:db8::1]:2200")) {
+            val viaDebian = RemoteHosts.targetFor(text, debian)!!
+            assertEquals(text, RemoteHosts.targetFor(viaDebian, direct))
+            assertEquals(text, RemoteHosts.displayTarget(viaDebian))
+        }
+        assertEquals("nerv-wsl", RemoteHosts.displayTarget("nerv-wsl"))
+    }
+
+    /** 换网络时关掉 Debian 里各台的 ssh 主连接：每台各调一次 ssh -O exit，ControlPath 和平常连的一样；ssh 报错也以 0 结束。 */
+    @Test
+    fun closingMastersAsksSshForEachTarget() {
+        val bin = File(temp, "bin").apply { mkdirs() }
+        val log = File(temp, "argv")
+        File(bin, "ssh").apply {
+            writeText("#!/bin/bash\nprintf '%s ' \"\$@\" >> \"${log.path}\"\necho >> \"${log.path}\"\necho 'Control socket connect: No such file' >&2\nexit 255\n")
+            setExecutable(true)
+        }
+        val process = ProcessBuilder("bash", "-c", DebianSshShell.closeMasters(listOf("nerv-wsl", "ssh://me@example.com:2222"))).apply {
+            environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
+        }.redirectErrorStream(true).start()
+        val out = process.inputStream.bufferedReader().readText()
+        assertTrue(process.waitFor(20, TimeUnit.SECONDS))
+        assertEquals(0, process.exitValue())
+        assertEquals("", out)
+        val controlPath = DebianSshShell.Options.single { it.startsWith("ControlPath=") }
+        assertEquals(
+            listOf("-o $controlPath -O exit -- nerv-wsl", "-o $controlPath -O exit -- ssh://me@example.com:2222"),
+            log.readLines().map { it.trim() },
+        )
+    }
+
     @Test
     fun probeResults() {
         fun probe(stdout: String, code: Int = 0, stderr: String = "") = RemoteHosts.parseProbe(CommandResult(code, stdout, stderr))

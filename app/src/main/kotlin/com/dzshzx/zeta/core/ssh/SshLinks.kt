@@ -28,14 +28,16 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /**
- * Zeta 直连的目的地：`用户@主机`，可以带端口（`用户@主机:端口`、`用户@[IPv6]:端口`），前面可以带 `ssh://`。
- * 直连不读 ~/.ssh/config，所以用户名不能省。
+ * 用户名、主机、端口都写明的目的地：`用户@主机`，可以带端口（`用户@主机:端口`、`用户@[IPv6]:端口`），前面可以带 `ssh://`。
+ * Zeta 直连只认这种（直连不读 ~/.ssh/config，所以用户名不能省）；经手机 Debian 连时交给 OpenSSH 的是 [openSsh]。
  */
 data class SshTarget(val user: String, val host: String, val port: Int) {
-    override fun toString(): String {
-        val h = if (':' in host) "[$host]" else host
-        return if (port == 22) "$user@$h" else "$user@$h:$port"
-    }
+    private val bracketed: String get() = if (':' in host) "[$host]" else host
+
+    override fun toString(): String = if (port == 22) "$user@$bracketed" else "$user@$bracketed:$port"
+
+    /** 交给 OpenSSH 的写法：它不认 `主机:端口`，端口不是 22 或主机是 IPv6 时写成 `ssh://用户@主机:端口`。 */
+    val openSsh: String get() = if (port == 22 && ':' !in host) "$user@$host" else "ssh://$user@$bracketed:$port"
 
     companion object {
         private val UserChars = Regex("[A-Za-z0-9._][A-Za-z0-9._-]*")

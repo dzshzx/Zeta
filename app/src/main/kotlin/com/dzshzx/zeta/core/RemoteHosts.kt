@@ -15,8 +15,9 @@ import kotlinx.serialization.json.put
 
 /**
  * 一台远程主机：上面装着 Claude Code。怎么连见 [via]：经手机 Debian 里的 OpenSSH（[DebianSshShell]），
- * [target] 是 ssh 认的目的地（~/.ssh/config 里的别名、host 或 user@host）；或 Zeta 直连（[DirectSshShell]），
+ * [target] 是 ssh 认的目的地（~/.ssh/config 里的别名、host、user@host 或 ssh://user@host:port）；或 Zeta 直连（[DirectSshShell]），
  * [target] 是 `用户@主机[:端口]`（[SshTarget]），[hostKey] 是加主机时记下的主机公钥（SSH 线上格式的 base64），以后只认它。
+ * 加主机时手机 Debian 就绪就默认经 Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。
  * [home] 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。
  */
 data class RemoteHost(
@@ -29,7 +30,7 @@ data class RemoteHost(
     val hostKey: String? = null,
 ) {
     enum class Via(val key: String, val label: String) {
-        Debian("debian", "经手机 Debian 的 OpenSSH"),
+        Debian("debian", "经手机 Debian"),
         Direct("direct", "Zeta 直连"),
     }
 
@@ -173,6 +174,25 @@ object RemoteHosts {
 
     /** 直连地址的写法。 */
     const val DIRECT_TARGET_HINT = "地址写成 用户@主机，端口不是 22 的写成 用户@主机:端口"
+
+    /** 经 Debian 连的地址的写法。 */
+    const val DEBIAN_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名"
+
+    /**
+     * 地址 [text]（用户输入的，或这台主机另一种连法用的）换成连法 [via] 的写法；这种连法用不了它时是 null。
+     * 直连只认写明用户的 `用户@主机[:端口]`（[SshTarget]）；经 Debian 的交给 OpenSSH（[SshTarget.openSsh]），
+     * 也认 ~/.ssh/config 里的别名和不带用户、端口的主机名（用户、端口照那边的配置）。
+     */
+    fun targetFor(text: String, via: RemoteHost.Via): String? {
+        val parsed = SshTarget.parse(text)
+        return when (via) {
+            RemoteHost.Via.Direct -> parsed?.toString()
+            RemoteHost.Via.Debian -> parsed?.openSsh ?: text.trim().takeIf { DebianSshShell.validTarget(it) && it.none { c -> c == '@' || c == ':' || c == '/' } }
+        }
+    }
+
+    /** 给人看的地址：写明用户的按直连的写法（不带 ssh://），别名原样。 */
+    fun displayTarget(target: String): String = SshTarget.parse(target)?.toString() ?: target
 
     fun encodeKey(blob: ByteArray): String = Base64.getEncoder().encodeToString(blob)
 

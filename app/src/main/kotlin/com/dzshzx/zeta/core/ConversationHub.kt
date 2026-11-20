@@ -102,6 +102,33 @@ class ConversationHub(
         }
     }
 
+    /**
+     * 加远程主机时默认的连法：手机 Debian 就绪就经它的 OpenSSH（用那边 ~/.ssh 现成的密钥和配置，不用往主机上另加公钥），
+     * 否则 Zeta 直连。可观察。
+     */
+    val defaultVia: RemoteHost.Via get() = if (usable(Backends.LOCAL)) RemoteHost.Via.Debian else RemoteHost.Via.Direct
+
+    /** 远程主机 [id] 上有对话在进行：在回答、等你确认，或还有后台任务在跑。这时不改它的连法（[changeVia]）。 */
+    fun hostWorking(id: String): Boolean = liveConversations.any { it.backend == id && it.active }
+
+    /**
+     * 把远程主机 [id] 改成连法 [via]：地址 [target] 已经按这种连法写好（[RemoteHosts.targetFor]）、检查过能连上，
+     * 直连的 [hostKey] 是检查时记下的主机公钥。对话进程是按原来的连法接着的，所以那台上有对话在进行（[hostWorking]）时不改、
+     * 返回 false；闲着的收掉进程（内容不丢，下次发消息时用 --resume 经新的连法接上）。在主线程上调用。
+     */
+    fun changeVia(id: String, via: RemoteHost.Via, target: String, hostKey: String?): Boolean {
+        val host = remoteHost(id) ?: return false
+        if (hostWorking(id)) return false
+        val idle = liveConversations.filter { it.backend == id }
+        idle.forEach { it.shutdown() }
+        parked.removeAll(idle.toSet())
+        prunePhones()
+        updateRemoteHosts(settings.remoteHosts.map { if (it.id == id) host.copy(via = via, target = target, hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct }) else it })
+        // 原来的连法没接成（比如经 Debian 而 Debian 没就绪）时没查过那台上的后台进程，换了连法查一次
+        if (usable(id)) reattachHosts(id)
+        return true
+    }
+
     /** 主机 [backend] 上的命令以 [exitCode] 结束、标准错误是 [stderr]：是远程主机连不上的话给界面一句话，别的情况是 null。 */
     fun linkProblem(backend: String, exitCode: Int, stderr: String): String? =
         if (backend != Backends.LOCAL && exitCode == RemoteShell.CONNECTION_FAILED) "连不上「${backendName(backend)}」：" + RemoteHosts.sshProblem(stderr) else null
@@ -304,8 +331,9 @@ class ConversationHub(
     }
 
     /**
-     * 手机换了网络（Wi-Fi 和移动数据之间）：直连的旧连接多半已经死了，马上断开，
-     * 上面的对话随即重连，不等保活包超时（约 45 秒）。重新有网时，等着重连的对话也马上去连。
+     * 手机换了网络（Wi-Fi 和移动数据之间）：远程主机的旧连接多半已经死了，两种连法都马上断开（直连的在 Zeta 里，
+     * 经 Debian 的关掉 Debian 里 ssh 的主连接），上面的对话随即重连，不等保活包超时（约 45 秒）。
+     * 重新有网时，等着重连的对话也马上去连。
      */
     private fun watchNetwork() {
         val connectivity = app.getSystemService(ConnectivityManager::class.java) ?: return
@@ -316,12 +344,23 @@ class ConversationHub(
                 override fun onAvailable(network: Network) {
                     val previous = last
                     last = network
-                    if (previous != null && previous != network) ssh.dropAll()
+                    if (previous != null && previous != network) {
+                        ssh.dropAll()
+                        dropDebianLinks()
+                    }
                     // 等着重连的对话不等满退避的时间
                     NetworkWake.signal()
                 }
             })
         }
+    }
+
+    /** 关掉手机 Debian 里到各台经 Debian 连的主机的 ssh 主连接（[DebianSshShell.closeMasters]），在后台线程上做。 */
+    private fun dropDebianLinks() {
+        val targets = settings.remoteHosts.filter { it.via == RemoteHost.Via.Debian }.map { it.target }
+        if (targets.isEmpty() || !usable(Backends.LOCAL)) return
+        val local = shell(Backends.LOCAL) ?: return
+        thread(name = "zeta-ssh-drop", isDaemon = true) { runCatching { local.run(DebianSshShell.closeMasters(targets), timeoutMs = 15_000) } }
     }
 
     /**
@@ -388,7 +427,7 @@ class ConversationHub(
         reattachHosts(backend)
     }
 
-    /** 设置页改了远程主机的清单（加、改名、改默认工作目录、删）。在主线程上调用。 */
+    /** 设置页改了远程主机的清单（加、改名、改默认工作目录、删；改连法走 [changeVia]）。在主线程上调用。 */
     fun updateRemoteHosts(hosts: List<RemoteHost>) {
         settings.remoteHosts = hosts
         onRemoteHostsChanged()

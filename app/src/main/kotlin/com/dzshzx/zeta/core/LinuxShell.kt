@@ -94,9 +94,20 @@ class DebianSshShell(
             "ServerAliveCountMax=3",
             "Compression=yes",
             "ControlMaster=auto",
-            "ControlPath=~/.ssh/zeta-%C",
+            "ControlPath=$CONTROL_PATH",
             "ControlPersist=300",
         )
+
+        private const val CONTROL_PATH = "~/.ssh/zeta-%C"
+
+        /**
+         * 在本地 Debian 里执行的那行：关掉到 [targets] 的主连接（ControlMaster）。挂在上面的命令随即以 255 结束（实测十几毫秒），
+         * 和网络断了一样由 [ClaudeProcess] 重连。手机换了网络时用：旧连接多半已经死了，不等保活包超时（约 45 秒）。
+         * 没有主连接的那台 ssh 报错退出，不碍事；整行总以 0 结束。
+         */
+        fun closeMasters(targets: List<String>): String =
+            targets.joinToString("") { "ssh -o " + LinuxEnv.quote("ControlPath=$CONTROL_PATH") + " -O exit -- " + LinuxEnv.quote(it) + " 2>/dev/null; " } +
+                "exit 0"
 
         /** ssh 认的目的地：~/.ssh/config 里的别名、host 或 user@host，不能以 - 开头，不能有空白和引号。 */
         fun validTarget(target: String): Boolean =
