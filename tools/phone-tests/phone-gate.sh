@@ -5,6 +5,8 @@
 #   3. 三次 screen 之间停顿，脚本经顶部胶囊点“暂停”、再在展开画面上点“接管”：两次都核对下一次调用在闸门前等着
 #      （停顿过了也没有结果），点“继续”后才执行、不出错。
 # 胶囊上的按钮用 uiautomator 按说明文字找（测试屏上的悬浮层）；找不到时这一段写“没验到”，不算失败。
+# 模拟器上 uiautomator dump --windows 导不出无障碍服务画的悬浮窗（测试屏上只有 Zeta 自己的窗口），这一段在模拟器上总是“没验到”；
+# 暂停、接管的闸门由 ControlGateTest 覆盖。
 # 不等真模型，一分多钟：
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/phone-gate.sh
 # 假 Claude 不写会话记录，没有要删的测试会话；phone-run 收尾的 vd stop 删掉剧本和后台屏幕。
