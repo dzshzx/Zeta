@@ -16,7 +16,7 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     private val main = Handler(Looper.getMainLooper())
 
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
-        private set
+        internal set
 
     /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
     private val freshTitles = HashMap<String, String>()

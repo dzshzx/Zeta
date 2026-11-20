@@ -6,7 +6,6 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.SshStatus
-import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -30,8 +29,8 @@ class SetupShots : ShotTest() {
     private val ssh = SshStatus(installed = true, running = true, autostart = true, port = "8022", listen = "127.0.0.1:8022", keys = 2, passwordLogin = false)
 
     private fun readyWithStatus(): ConversationHub = Fixtures.readyHub(app).also { hub ->
-        hub.environment.force("health", health)
-        hub.environment.force("ssh", ssh)
+        hub.environment.health = health
+        hub.environment.ssh = ssh
     }
 
     @Test
@@ -74,7 +73,7 @@ class SetupShots : ShotTest() {
     @Test
     fun loginCode() {
         val hub = Fixtures.readyHub(app)
-        hub.environment.login.force("state", LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true", notice = "授权码不完整，请重新复制"))
+        hub.environment.login.state = LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true", notice = "授权码不完整，请重新复制")
         shoot("login-code") { LoginScreen(hub = hub, onBack = {}) }
     }
 
@@ -82,6 +81,6 @@ class SetupShots : ShotTest() {
     @Test
     fun sshService() {
         val hub = Fixtures.readyHub(app)
-        shoot("ssh", prepare = { hub.environment.force("ssh", ssh) }) { SshScreen(hub = hub, onBack = {}) }
+        shoot("ssh", prepare = { hub.environment.ssh = ssh }) { SshScreen(hub = hub, onBack = {}) }
     }
 }

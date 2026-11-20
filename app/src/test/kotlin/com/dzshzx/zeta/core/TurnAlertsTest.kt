@@ -8,7 +8,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -45,18 +44,18 @@ class TurnAlertsTest {
     @Test
     fun completionAlertOnlyWhenNotWatching() {
         val hub = Fixtures.readyHub(app)
-        hub.force("foreground", true)
+        hub.foreground = true
         hub.alerts.turnFinished(hub.current, stopped = false)
         assertEquals(emptyList<String>(), alerts())
         // Zeta 切到后台了
-        hub.force("foreground", false)
+        hub.foreground = false
         hub.alerts.turnFinished(hub.current, stopped = true)
         assertEquals("用户叫停的不提醒", emptyList<String>(), alerts())
         hub.alerts.turnFinished(hub.current, stopped = false)
         assertEquals(listOf("已完成"), alerts())
         clear()
         // 前台显示的是别的对话
-        hub.force("foreground", true)
+        hub.foreground = true
         val other = Conversation(hub, "/workspace/claude", sessionId = null, title = "别的", historyFile = null)
         hub.alerts.turnFinished(other, stopped = false)
         assertEquals(listOf("已完成"), alerts())
@@ -65,10 +64,10 @@ class TurnAlertsTest {
     @Test
     fun attentionAlertOnlyWhenNotWatching() {
         val hub = Fixtures.readyHub(app)
-        hub.force("foreground", true)
+        hub.foreground = true
         hub.alerts.attentionNeeded(hub.current)
         assertEquals(emptyList<String>(), alerts())
-        hub.force("foreground", false)
+        hub.foreground = false
         hub.alerts.attentionNeeded(hub.current)
         assertEquals(listOf("需要你确认"), alerts())
     }
@@ -77,7 +76,7 @@ class TurnAlertsTest {
     @Test
     fun unattendedRunsAlertThemselves() {
         val hub = Fixtures.readyHub(app)
-        hub.force("foreground", false)
+        hub.foreground = false
         val run = UnattendedRun(onlyOnChange = false)
         hub.current.unattended = run
         assertSame("手机工具上同步挂着", run, hub.current.phone.unattended)

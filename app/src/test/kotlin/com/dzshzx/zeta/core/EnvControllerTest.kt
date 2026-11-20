@@ -50,8 +50,8 @@ class EnvControllerTest {
         val hub = Fixtures.readyHub(app)
         val environment = hub.environment
         val before = hub.current
-        environment.force("ssh", SshStatus(installed = true, running = true, autostart = false, port = "22", listen = "0.0.0.0", keys = 0, passwordLogin = false))
-        hub.sessionList.force("sessions", listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0)))
+        environment.ssh = SshStatus(installed = true, running = true, autostart = false, port = "22", listen = "0.0.0.0", keys = 0, passwordLogin = false)
+        hub.sessionList.sessions = listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0))
         environment.redetect("/data/local/other/rootfs")
         assertEquals("/data/local/other/rootfs", environment.rootfsHint)
         assertNull(hub.settings.env)
@@ -81,11 +81,11 @@ class EnvControllerTest {
     @Test
     fun onlyFinishedMaintenanceIsDismissed() {
         val environment = Fixtures.readyHub(app).environment
-        environment.force("maintenance", EnvController.Maintenance("修复环境", running = true, detail = ""))
+        environment.maintenance = EnvController.Maintenance("修复环境", running = true, detail = "")
         assertTrue(environment.working)
         environment.dismissMaintenance()
         assertEquals("修复环境", environment.maintenance?.title)
-        environment.force("maintenance", EnvController.Maintenance("修复环境", running = false, detail = "好了"))
+        environment.maintenance = EnvController.Maintenance("修复环境", running = false, detail = "好了")
         environment.dismissMaintenance()
         assertNull(environment.maintenance)
         assertTrue(environment.canSwitchEnvironment)

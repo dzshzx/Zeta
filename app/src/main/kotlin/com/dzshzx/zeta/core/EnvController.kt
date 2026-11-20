@@ -22,7 +22,7 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     private val main = Handler(Looper.getMainLooper())
 
     var setup by mutableStateOf(SetupState.Checking)
-        private set
+        internal set
 
     /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
@@ -34,7 +34,7 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
 
     /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
     var ssh by mutableStateOf<SshStatus?>(null)
-        private set
+        internal set
     var sshWorking by mutableStateOf(false)
         private set
     val login = LoginFlow(hub)
@@ -48,7 +48,7 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
         internal set
 
     var health by mutableStateOf<EnvHealth?>(null)
-        private set
+        internal set
     var healthChecking by mutableStateOf(false)
         private set
 
@@ -56,7 +56,7 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     data class Maintenance(val title: String, val running: Boolean, val detail: String, val ok: Boolean = true)
 
     var maintenance by mutableStateOf<Maintenance?>(null)
-        private set
+        internal set
 
     /** 在装环境或做维护：前台服务据此保持。 */
     internal val working: Boolean get() = installer.running || maintenance?.running == true

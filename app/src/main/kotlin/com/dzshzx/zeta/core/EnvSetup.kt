@@ -324,7 +324,7 @@ sealed interface LoginState {
  */
 class LoginFlow(private val hub: ConversationHub) {
     var state by mutableStateOf<LoginState>(LoginState.Idle)
-        private set
+        internal set
 
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var process: Process? = null

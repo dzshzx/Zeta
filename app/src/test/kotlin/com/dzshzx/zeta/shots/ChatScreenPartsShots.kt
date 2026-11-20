@@ -221,7 +221,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun noEnvironment() {
         val hub = Fixtures.readyHub(app)
-        hub.environment.force("setup", SetupState.NoEnvironment)
+        hub.environment.setup = SetupState.NoEnvironment
         shoot("chat-no-environment") { Chat(hub) }
     }
 

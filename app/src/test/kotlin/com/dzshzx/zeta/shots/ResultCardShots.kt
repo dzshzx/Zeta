@@ -116,7 +116,7 @@ class ResultCardShots : ShotTest() {
     @Test
     fun hubDropsTheCard() {
         val hub = Fixtures.readyHub(app)
-        hub.force("foreground", false)
+        hub.foreground = false
         hub.showChat("打开计算器", listOf(UserItem("u1", "打开计算器"), AnswerItem("a1", "打开了。", streaming = false)))
         val card = TurnResult(hub.current, emptySet())
         assertEquals("打开了。", card.text)
@@ -124,9 +124,9 @@ class ResultCardShots : ShotTest() {
         assertTrue(hub.alerts.keepsResultCard(card, locked = false))
         assertFalse("锁屏", hub.alerts.keepsResultCard(card, locked = true))
 
-        hub.force("foreground", true)
+        hub.foreground = true
         assertFalse("回到 Zeta", hub.alerts.keepsResultCard(card, locked = false))
-        hub.force("foreground", false)
+        hub.foreground = false
 
         hub.current.force("busy", true)
         assertFalse("这个对话又开始一轮", hub.alerts.keepsResultCard(card, locked = false))
@@ -145,7 +145,7 @@ class ResultCardShots : ShotTest() {
     @Test
     fun turnEndOffersCardAndSilencesTheAlert() {
         val hub = Fixtures.readyHub(app)
-        hub.force("foreground", false)
+        hub.foreground = false
         Shadows.shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val manager = app.getSystemService(NotificationManager::class.java)
         val notifications = Shadows.shadowOf(manager)

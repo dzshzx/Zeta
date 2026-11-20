@@ -142,7 +142,7 @@ class ConversationHub(private val app: Application) {
      * 按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。
      */
     var foreground by mutableStateOf(false)
-        private set
+        internal set
 
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：完成、确认都不用另外提醒。 */
     internal fun isWatching(conversation: Conversation): Boolean = foreground && conversation === current
