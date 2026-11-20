@@ -15,9 +15,11 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButtonDefaults
+import io.github.suqi8.coui.kmp.basic.PreciseClickState
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.More
 import io.github.suqi8.coui.kmp.menu.OverlayIconDropdownMenu
+import io.github.suqi8.coui.kmp.overlay.OverlayCascadingListPopup
 import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
@@ -48,20 +50,46 @@ internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enab
 
 /**
  * 挂在旁边元素（胶囊、按钮、标题）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
- * `Box { 元素; AnchoredMenu(show, entries, onDismiss) }`。
+ * `Box { 元素; AnchoredMenu(show, entries, onDismiss) }`。项可以带二级菜单（children），见 [MenuPopup]。
  */
 @Composable
-internal fun AnchoredMenu(show: Boolean, entries: List<DropdownEntry>, onDismiss: () -> Unit) {
-    OverlayDropdownPopup(
-        entries = entries,
-        show = show,
-        onDismiss = onDismiss,
-        onDismissFinished = {},
-        maxHeight = null,
-        dropdownColors = DropdownDefaults.dropdownColors(),
-        renderInRootScaffold = true,
-        collapseOnSelection = true,
-    )
+internal fun AnchoredMenu(show: Boolean, entries: List<DropdownEntry>, onDismiss: () -> Unit) =
+    MenuPopup(entries = entries, show = show, onDismiss = onDismiss)
+
+/**
+ * 弹出 [entries] 的 COUI 菜单，选了一项就收起。有项带二级菜单（DropdownItem 的 children）时用 COUI 的级联弹层：
+ * 点那一项在旁边弹出下一层（普通弹层不认 children）。级联弹层不支持从手指按下的地方弹出，那时 [preciseClickState] 不起作用，从锚点弹出。
+ */
+@Composable
+internal fun MenuPopup(
+    entries: List<DropdownEntry>,
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onDismissFinished: () -> Unit = {},
+    preciseClickState: PreciseClickState? = null,
+) {
+    if (entries.any { entry -> entry.items.any { !it.children.isNullOrEmpty() } }) {
+        OverlayCascadingListPopup(
+            show = show,
+            entries = entries,
+            onDismissRequest = onDismiss,
+            onDismissFinished = onDismissFinished,
+            dropdownColors = DropdownDefaults.dropdownColors(),
+            collapseOnSelection = true,
+        )
+    } else {
+        OverlayDropdownPopup(
+            entries = entries,
+            show = show,
+            onDismiss = onDismiss,
+            onDismissFinished = onDismissFinished,
+            maxHeight = null,
+            dropdownColors = DropdownDefaults.dropdownColors(),
+            renderInRootScaffold = true,
+            collapseOnSelection = true,
+            preciseClickState = preciseClickState,
+        )
+    }
 }
 
 /** 顶栏右边的“更多”：COUI 的图标下拉菜单，按钮和菜单是一体的，[entries] 每组之间有分隔线，点一项就收起。 */

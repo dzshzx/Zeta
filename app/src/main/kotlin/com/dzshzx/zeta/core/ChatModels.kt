@@ -198,6 +198,50 @@ fun readableModelId(id: String): String {
     return family.replaceFirstChar { it.uppercase() } + " " + version.replace('-', '.') + if (wide.isNotEmpty()) " (1M)" else ""
 }
 
+/** 完整模型 ID 的系列和版本：claude-opus-4-6 是 opus、[4, 6]，claude-opus-5-5[1m] 是 opus[1m]、[5, 5]；别名（opus、default）和认不出的是 null。 */
+private fun modelSeries(id: String): Pair<String, List<Int>>? {
+    val match = ModelId.matchEntire(id) ?: return null
+    val (family, version, wide) = match.destructured
+    return family + wide to version.split('-').map { it.toInt() }
+}
+
+private val VersionOrder = Comparator<List<Int>> { a, b ->
+    a.zip(b).firstOrNull { (x, y) -> x != y }?.let { (x, y) -> x.compareTo(y) } ?: a.size.compareTo(b.size)
+}
+
+/** 模型菜单的两层：[latest] 直接列出，[older] 收进「更多模型」。 */
+@Immutable
+data class ModelMenu(val latest: List<ModelOption>, val older: List<ModelOption>)
+
+/**
+ * 模型菜单怎么分层，和 Claude 应用一样只直接列各系列最新的：「默认」和 Claude Code 报的别名（opus、fable、sonnet、haiku 等，
+ * 总是指向那个系列最新的）照它给的顺序放上层；钉死版本的完整 ID（claude-opus-4-6）是旧版本，收进 [ModelMenu.older]，
+ * 按系列（上层的顺序）、版本从新到旧排。没有别名的系列，最新的那个完整 ID 也放上层；和别名指向同一个模型的完整 ID 不重复列。
+ */
+fun modelMenu(models: List<ModelOption>): ModelMenu {
+    val aliases = models.filter { modelSeries(it.value) == null }
+    val pinned = models.filter { modelSeries(it.value) != null }
+    val aliasTargets = aliases.mapNotNullTo(HashSet()) { it.resolvedModel }
+    // 别名管着的系列：看它指向的完整 ID，没报就按别名本身（opus 就是 opus 系列）
+    fun seriesOf(option: ModelOption): String? = modelSeries(option.value)?.first
+        ?: option.resolvedModel?.let(::modelSeries)?.first
+        ?: option.value.takeIf { it != Conversation.DEFAULT_MODEL }
+    val covered = aliases.mapNotNullTo(HashSet(), ::seriesOf)
+    val newestUncovered = pinned.filter { seriesOf(it) !in covered }
+        .groupBy { seriesOf(it) }
+        .values.map { group -> group.maxWith(compareBy(VersionOrder) { modelSeries(it.value)!!.second }) }
+        .toSet()
+    val latest = models.filter { it in aliases || it in newestUncovered }
+    val order = latest.mapNotNull(::seriesOf).distinct()
+    val older = pinned.filter { it !in newestUncovered && it.value !in aliasTargets }
+        .sortedWith(
+            compareBy<ModelOption> { order.indexOf(seriesOf(it)).let { i -> if (i < 0) order.size else i } }
+                .thenBy { seriesOf(it) }
+                .thenByDescending(VersionOrder) { modelSeries(it.value)!!.second },
+        )
+    return ModelMenu(latest, older)
+}
+
 /** 历史会话的概要（来自 ~/.claude/projects 下的记录文件）。 */
 @Immutable
 data class SessionSummary(

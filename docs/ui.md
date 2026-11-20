@@ -65,6 +65,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 | 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
 | 长按菜单 | `OverlayContextMenu` |
 | 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态，带图标的菜单项都从它建）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
+| 二级菜单（如模型菜单的「更多模型」） | 那一项写 `DropdownItem(文字, summary = 选中的子项, children = 子项)`；`AnchoredMenu`、`DropdownValuePreference` 见到 children 自动换成 COUI 的级联弹层（`MenuPopup`），这时菜单从锚点弹出，不从手指按下的地方 |
 
 ## 坑
 
