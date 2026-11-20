@@ -5,7 +5,7 @@
 ## 照什么写
 
 - 写法照 COUI 2 自带的指南：工作站 `~/workspace-external/coui/.claude/skills/coui-app/SKILL.md`，以及同目录 `references/` 下的 `components.md`（ColorOS 控件对应哪个组件）、`pitfalls.md`（踩过的坑）。组件参数以源码为准：`~/workspace-external/coui/coui-ui/src/commonMain`、`coui-preference/src/commonMain`；组件的样子看 `docs/components/<名字>.md`。对照前先在那里 `git pull`。
-- 指南里这几条 Zeta 不照做：字符串直接写中文，不用 Compose resources、不做双语；页面切换由 Zeta 自己管（`ui/OverlayPages.kt`），不用 coui-nav；页面骨架用 `ui/components/coui2` 的，不再复制。
+- 指南里这几条 Zeta 不照做：字符串直接写中文，不用 Compose resources、不做双语；页面切换由 Zeta 自己管（`ui/PageStack.kt`），不用 coui-nav；页面骨架用 `ui/components/coui2` 的，不再复制。
 
 ## Zeta 的补充件
 

@@ -14,12 +14,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import com.dzshzx.zeta.ui.components.rememberRetained
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
@@ -166,10 +159,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     var paneOpen by rememberSaveable { mutableStateOf(false) }
-    val pages = rememberOverlayPages()
+    val pages = rememberPageStack()
     /** 回到聊天页：收起侧栏和盖在上面的页面。[keepSetup] 时进行中的安装、登录不打断。 */
     fun showChat(keepSetup: Boolean = false) {
-        if (!keepSetup && pages.login) hub.login.cancel()
+        if (!keepSetup && AppPage.Login in pages) hub.login.cancel()
         pages.closeAll(keepSetup)
         paneOpen = false
     }
@@ -177,8 +170,8 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     // 从外面送进来的东西要放进输入栏：侧栏和盖在聊天页上的设置页都收起来（安装、登录在进行时不打断）
     val incoming = hub.incoming
     LaunchedEffect(incoming) { if (incoming != null) showChat(keepSetup = true) }
-    // 通知要打开设置里的某一页：先把设置页打开，那一页由设置页自己切过去
-    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) pages.settings = true }
+    // 通知要打开设置里的某一页：先把设置页打开（放到最上面），那一页由设置页自己切过去
+    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) pages.open(AppPage.Settings) }
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !pages.any,
@@ -205,9 +198,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 onDelete = hub::delete,
                 onRename = hub::rename,
                 onArchive = hub::archive,
-                onOpenSettings = { pages.settings = true },
+                onOpenSettings = { pages.open(AppPage.Settings) },
                 onOpenBackground = {
-                    pages.tasksScope = AllConversations
+                    pages.open(AppPage.Tasks(AllConversations))
                     paneOpen = false
                 },
                 modifier = modifier,
@@ -220,73 +213,56 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 paneOpen = true
                 hub.refreshSessions()
             },
-            onOpenSettings = { pages.settings = true },
-            onOpenInstall = { pages.install = true },
-            onOpenLogin = { pages.login = true },
-            onOpenTasks = { pages.tasksScope = it },
-            onOpenSubagent = { conversation, use -> pages.subagent = SubagentPageRef(conversation, use) },
+            onOpenSettings = { pages.open(AppPage.Settings) },
+            onOpenInstall = { pages.open(AppPage.Install) },
+            onOpenLogin = { pages.open(AppPage.Login) },
+            onOpenTasks = { pages.open(AppPage.Tasks(it)) },
+            onOpenSubagent = { conversation, use -> pages.open(AppPage.Subagent(conversation, use)) },
         )
     }
-    Page(pages.settings) {
-        SettingsScreen(
-            hub = hub,
-            onBack = { pages.settings = false },
-            onOpenLinux = { pages.linux = true },
-            onOpenPhone = { pages.phone = true },
-            // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
-            onRevealSession = { id ->
-                SessionReveal.request = id
-                pages.settings = false
-                paneOpen = true
-                hub.refreshSessions()
-            },
-            onShowChat = { showChat() },
-        )
+    // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键
+    BackHandler(enabled = pages.any) {
+        if (pages.top == AppPage.Login) hub.login.cancel()
+        pages.pop()
     }
-    Page(pages.phone) { PhoneScreen(hub = hub, onBack = { pages.phone = false }) }
-    Page(pages.linux) {
-        LinuxScreen(
-            hub = hub,
-            onBack = { pages.linux = false },
-            onOpenInstall = { pages.install = true },
-            onOpenLogin = { pages.login = true },
-            onOpenSsh = { pages.ssh = true },
-        )
-    }
-    Page(pages.ssh) { SshScreen(hub = hub, onBack = { pages.ssh = false }) }
-    Page(pages.install) { EnvInstallScreen(hub = hub, onBack = { pages.install = false }, onOpenLogin = { pages.login = true }) }
-    Page(pages.login) { LoginScreen(hub = hub, onBack = { pages.login = false }) }
-    // 退场动画期间 tasksScope 已经是 null，用最后一个值画完
-    val lastScope = rememberRetained(pages.tasksScope)
-    Page(pages.tasksScope != null) {
-        BackgroundTasksScreen(
-            hub = hub,
-            scope = lastScope ?: AllConversations,
-            onBack = { pages.tasksScope = null },
-            onOpenConversation = { key ->
-                hub.openConversation(key)
-                showChat()
-            },
-        )
-    }
-    val lastSubagent = rememberRetained(pages.subagent)
-    Page(pages.subagent != null) {
-        lastSubagent?.let { ref -> SubagentScreen(hub = hub, conversationKey = ref.conversation, toolUseId = ref.toolUse, onBack = { pages.subagent = null }) }
+    PageStackHost(pages) { page ->
+        when (page) {
+            AppPage.Settings -> SettingsScreen(
+                hub = hub,
+                onBack = { pages.close(page) },
+                onOpenLinux = { pages.open(AppPage.Linux) },
+                onOpenPhone = { pages.open(AppPage.Phone) },
+                // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
+                onRevealSession = { id ->
+                    SessionReveal.request = id
+                    pages.close(page)
+                    paneOpen = true
+                    hub.refreshSessions()
+                },
+                onShowChat = { showChat() },
+            )
+            AppPage.Phone -> PhoneScreen(hub = hub, onBack = { pages.close(page) })
+            AppPage.Linux -> LinuxScreen(
+                hub = hub,
+                onBack = { pages.close(page) },
+                onOpenInstall = { pages.open(AppPage.Install) },
+                onOpenLogin = { pages.open(AppPage.Login) },
+                onOpenSsh = { pages.open(AppPage.Ssh) },
+            )
+            AppPage.Ssh -> SshScreen(hub = hub, onBack = { pages.close(page) })
+            AppPage.Install -> EnvInstallScreen(hub = hub, onBack = { pages.close(page) }, onOpenLogin = { pages.open(AppPage.Login) })
+            AppPage.Login -> LoginScreen(hub = hub, onBack = { pages.close(page) })
+            is AppPage.Tasks -> BackgroundTasksScreen(
+                hub = hub,
+                scope = page.scope,
+                onBack = { pages.close(page) },
+                onOpenConversation = { key ->
+                    hub.openConversation(key)
+                    showChat()
+                },
+            )
+            is AppPage.Subagent -> SubagentScreen(hub = hub, conversationKey = page.conversation, toolUseId = page.toolUse, onBack = { pages.close(page) })
+        }
     }
     IntakeChooser(hub)
-    // 返回键一层一层退：最上面的页面先关
-    BackHandler(enabled = pages.any) {
-        if (pages.login) hub.login.cancel()
-        pages.closeTop()
-    }
-}
-
-/** 盖在聊天页上面的一层页面，从右侧滑入。 */
-@Composable
-private fun Page(visible: Boolean, content: @Composable () -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(200)),
-        exit = slideOutHorizontally(tween(220)) { it / 3 } + fadeOut(tween(160)),
-    ) { content() }
 }
