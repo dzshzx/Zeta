@@ -20,7 +20,7 @@ import kotlinx.serialization.json.putJsonObject
  * 但用户暂停或接管时同样先等着。每组是本目录下自己文件里的一个 object，写好后在 [PhoneToolGroups.all] 里加一行。
  */
 internal interface PhoneToolGroup {
-    /** MCP 工具定义，用 [tool]、[schema]、[prop]、[enumProp] 写。名字在所有组和 PhoneTools 之间不能重复。 */
+    /** MCP 工具定义，用 [tool]、[schema]、[prop]、[enumProp] 写。名字在交给 Claude 的整份清单（PhoneTools.definitions）里不能重复。 */
     val tools: List<JsonElement>
 
     /** 执行一次调用，返回 MCP 的 result（[toolText]、[toolFailure]）。只会收到 [tools] 里有的名字；在后台线程调用，可以阻塞。 */

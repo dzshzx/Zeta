@@ -475,7 +475,7 @@ class PhoneTools(
                 putJsonObject("serverInfo") { put("name", SERVER); put("version", "1") }
                 put("instructions", INSTRUCTIONS)
             }
-            "tools/list" -> buildJsonObject { put("tools", JsonArray(TOOLS + PhoneToolGroups.all.flatMap { it.tools })) }
+            "tools/list" -> buildJsonObject { put("tools", JsonArray(definitions)) }
             "tools/call" -> {
                 val params = message.obj("params")
                 val name = params?.str("name").orEmpty()
@@ -1386,9 +1386,16 @@ class PhoneTools(
             putJsonObject("mcpServers") { putJsonObject(SERVER) { put("type", "sdk"); put("name", SERVER) } }
         }.toString()
 
+        /**
+         * 交给 Claude 的全部工具定义（MCP 的 tools/list）：屏幕这一套加上各工具组的（含浏览器、定时任务、系统应用工具）。
+         * 调用按名字分派，重名的只有一个调得到，所以名字不能重复（PhoneToolGroupsTest 核对）。
+         */
+        internal val definitions: List<JsonElement>
+            get() = TOOLS + PhoneToolGroups.all.flatMap { it.tools }
+
         /** 全部手机工具的名字和英文说明（设置里的工具权限页用）。 */
         val catalog: List<Pair<String, String>>
-            get() = (TOOLS + PhoneToolGroups.all.flatMap { it.tools }).mapNotNull { tool ->
+            get() = definitions.mapNotNull { tool ->
                 val o = tool as? JsonObject ?: return@mapNotNull null
                 (o.str("name") ?: return@mapNotNull null) to o.str("description").orEmpty()
             }

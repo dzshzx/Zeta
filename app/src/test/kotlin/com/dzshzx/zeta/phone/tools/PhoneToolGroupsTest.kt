@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.phone.PhoneTools
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
@@ -14,10 +15,15 @@ import org.junit.Test
 class PhoneToolGroupsTest {
     private val names = PhoneToolGroups.all.flatMap { group -> group.tools.map { (it as JsonObject)["name"]!!.jsonPrimitive.content } }
 
-    /** 登记表按名字查组，重名会被后来的悄悄盖掉。 */
+    /**
+     * 交给 Claude 的整份清单（屏幕工具和各工具组，含浏览器、定时任务、系统应用工具）里名字都不重复：
+     * 调用按名字分派（先看 PhoneTools 自己处理的几个，再按名字查组，组的登记表里后来的盖掉先来的），重名的只有一个调得到。
+     */
     @Test
-    fun toolNamesAreUniqueAcrossGroups() {
-        assertEquals(names.groupBy { it }.filterValues { it.size > 1 }.keys, emptySet<String>())
+    fun toolNamesAreUniqueInTheWholeList() {
+        val all = PhoneTools.definitions.map { (it as JsonObject)["name"]!!.jsonPrimitive.content }
+        assertTrue(all.containsAll(names) && "screen" in all)
+        assertEquals(emptySet<String>(), all.groupBy { it }.filterValues { it.size > 1 }.keys)
     }
 
     @Test
