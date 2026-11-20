@@ -3,7 +3,6 @@ package com.dzshzx.zeta.shots
 import android.animation.ValueAnimator
 import android.app.Application
 import android.content.ComponentName
-import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -119,14 +118,6 @@ abstract class ShotTest {
         }
         compose.waitForIdle()
     }
-
-    /**
-     * 等 [condition] 成立，最多 [timeoutMs] 毫秒；代替 Compose 的 waitUntil。后台线程经 Handler 投回主线程的结果（读历史、跑 helper）
-     * 要主线程执行排队的消息才落下来；Robolectric 里测试线程就是主线程，waitUntil 只推时钟、睡一会儿，不执行这些消息，
-     * 结果晚于前一次 waitForIdle 到的话就一直等不到。这里每轮先执行一遍主线程排队的消息再看条件。
-     */
-    fun awaitMain(timeoutMs: Long = 20_000, condition: () -> Boolean) =
-        compose.waitUntil(timeoutMs) { Shadows.shadowOf(Looper.getMainLooper()).idle(); condition() }
 
     /**
      * 把节点滚进屏幕，在 [shoot] 的 prepare 里用，代替 performScrollTo。performScrollTo 每轮发一次滚动、再看节点进没进屏，

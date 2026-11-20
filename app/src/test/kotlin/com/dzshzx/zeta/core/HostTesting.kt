@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertTrue
 
-/** zeta_host.sh 测试的共用部分：在临时 HOME 里跑命令、claude 的替身、看进程在不在、限时等一个条件。 */
+/** zeta_host.sh 测试的共用部分：在临时 HOME 里跑命令、claude 的替身、看进程在不在（限时等一个条件用同包的 waitUntil）。 */
 internal object HostTesting {
     /**
      * 以 [home] 作 HOME 跑一条命令，返回标准输出。环境只有 HOME、PATH（[home]/bin 排最前，claude 的替身在那里）、LANG、
@@ -47,13 +47,4 @@ internal object HostTesting {
     }
 
     fun alive(pid: Int) = File("/proc/$pid").exists()
-
-    /** 每 0.1 秒看一次 [condition]，[seconds] 秒内成立就返回 true。 */
-    fun waitUntil(seconds: Int, condition: () -> Boolean): Boolean {
-        repeat(seconds * 10) {
-            if (condition()) return true
-            Thread.sleep(100)
-        }
-        return condition()
-    }
 }

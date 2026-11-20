@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.HistoryRead
 import com.dzshzx.zeta.core.TranscriptReducer
 import com.dzshzx.zeta.core.UsageTracker
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.awaitMain
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.app.ZetaTheme

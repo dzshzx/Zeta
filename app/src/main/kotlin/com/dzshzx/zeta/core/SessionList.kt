@@ -94,13 +94,12 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         if (clean.isEmpty()) return
         freshTitles.remove(summary.id)
         sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
-        val open = hub.findConversation(summary.id)
-        val shown = open?.title
-        open?.title = clean
+        val shown = hub.findConversation(summary.id)?.title
+        hub.findConversation(summary.id)?.title = clean
         write("改名", summary.backend, "rename", listOf(summary.file, clean), undo = {
             // 这期间又改过的不动
             sessions = sessions.map { if (it.id == summary.id && it.title == clean) it.copy(title = summary.title) else it }
-            if (open != null && shown != null && open.title == clean) open.title = shown
+            if (shown != null) hub.findConversation(summary.id)?.takeIf { it.title == clean }?.title = shown
         })
     }
 
@@ -117,9 +116,9 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
         // 归档标记存在各自主机上 Zeta 的目录里
         for ((backend, group) in summaries.groupBy { it.backend }) {
-            val before = group.associate { it.id to it.archived }
-            write(if (archived) "归档" else "取消归档", backend, "archive", before.keys.toList() + if (archived) "1" else "0", undo = {
-                sessions = sessions.map { s -> before[s.id]?.takeIf { s.archived == archived }?.let { s.copy(archived = it) } ?: s }
+            val changed = group.filter { it.archived != archived }.mapTo(HashSet()) { it.id }
+            write(if (archived) "归档" else "取消归档", backend, "archive", group.map { it.id }.distinct() + if (archived) "1" else "0", undo = {
+                sessions = sessions.map { if (it.id in changed && it.archived == archived) it.copy(archived = !archived) else it }
             })
         }
     }

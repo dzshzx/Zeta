@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core
 
 import android.app.Application
-import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
@@ -11,7 +10,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowToast
 
@@ -28,11 +26,8 @@ class HelperFailureTest {
     @Before
     fun reset() = Fixtures.install(null)
 
-    /** 等名字在 [names] 里的后台线程都结束，再把它们投回主线程的消息放完。 */
-    private fun settleThreads(vararg names: String) {
-        Thread.getAllStackTraces().keys.filter { it.name in names }.forEach { it.join(30_000) }
-        shadowOf(Looper.getMainLooper()).idle()
-    }
+    private fun session(id: String, title: String, archived: Boolean = false) =
+        SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", "/workspace/claude", title, "", 0, archived = archived)
 
     @Test
     fun onlyASuccessfulRunHasOutput() {
@@ -49,10 +44,10 @@ class HelperFailureTest {
     @Test
     fun failedRefreshKeepsTheSessionList() {
         val list = Fixtures.readyHub(app).sessionList
-        val kept = SessionSummary("a", "/home/dzshzx/.claude/projects/-w/a.jsonl", "/workspace/claude", "留着的", "", 0)
+        val kept = session("a", "留着的")
         list.listed(listOf(kept))
         list.refresh()
-        settleThreads("zeta-sessions")
+        awaitMain { list.problem != null }
         assertEquals(listOf(kept), list.sessions)
     }
 
@@ -61,12 +56,10 @@ class HelperFailureTest {
         val hub = Fixtures.readyHub(app)
         hub.settings.hostModes = mapOf("k-running" to "plan")
         hub.onEnvironmentReady()
-        settleThreads("zeta-hosts", "zeta-sessions", "zeta-defaults")
+        // 没查成时这台主机从“查过的”里去掉，好下次再查
+        awaitMain { Backends.LOCAL !in hub.hostsChecked }
         assertEquals(mapOf("k-running" to "plan"), hub.settings.hostModes)
     }
-
-    private fun session(id: String, title: String, archived: Boolean = false) =
-        SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", "/workspace/claude", title, "", 0, archived = archived)
 
     @Test
     fun failedRenameIsUndone() {
@@ -76,8 +69,8 @@ class HelperFailureTest {
         list.listed(listOf(session("a", "原来的")))
         list.rename(list.sessions.single(), "新标题")
         assertEquals("界面先改", "新标题", list.sessions.single().title)
-        settleThreads("zeta-sessions")
-        assertEquals("没写成就改回去", "原来的", list.sessions.single().title)
+        // 没写成就改回去
+        awaitMain { list.sessions.single().title == "原来的" }
         assertTrue(ShadowToast.getTextOfLatestToast(), ShadowToast.getTextOfLatestToast().startsWith("改名没成功："))
     }
 
@@ -87,7 +80,7 @@ class HelperFailureTest {
         list.listed(listOf(session("a", "留着的"), session("b", "已归档的", archived = true)))
         list.archive(list.sessions.filter { !it.archived }, archived = true)
         assertTrue("界面先改", list.sessions.all { it.archived })
-        settleThreads("zeta-sessions")
-        assertEquals("没写成就改回去，原来归档的不动", listOf(false, true), list.sessions.map { it.archived })
+        // 没写成就改回去，原来归档的不动
+        awaitMain { list.sessions.map { it.archived } == listOf(false, true) }
     }
 }

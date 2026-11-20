@@ -1,7 +1,9 @@
 package com.dzshzx.zeta.core
 
+import android.os.Looper
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import org.robolectric.Shadows.shadowOf
 
 /** 起进程时 [flag] 后面跟的值；没带这个参数时为 null。 */
 internal fun Conversation.launchArgument(flag: String): String? =
@@ -42,7 +44,22 @@ internal fun Conversation.answer(subtype: String, response: String, success: Boo
     )
 }
 
-/** 每 0.1 秒看一次 [condition]，最多等 [seconds] 秒；等到了返回 true。 */
+/**
+ * Robolectric 测试里等后台线程投回主线程的结果（Handler.post、读会话、跑 helper）。测试线程就是主线程，排队的消息要测试自己执行，
+ * Thread.sleep 和 Compose 的 waitUntil 都不执行它们：结果晚于上一次执行就一直等不到。这里每轮先执行一遍主线程排队的消息再看
+ * [condition]，[timeoutMs] 毫秒内等不到就失败。
+ */
+internal fun awaitMain(timeoutMs: Long = 20_000, condition: () -> Boolean) {
+    val deadline = System.currentTimeMillis() + timeoutMs
+    while (true) {
+        shadowOf(Looper.getMainLooper()).idle()
+        if (condition()) return
+        if (System.currentTimeMillis() > deadline) throw AssertionError("等了 ${timeoutMs / 1000} 秒还没等到")
+        Thread.sleep(10)
+    }
+}
+
+/** 每 0.1 秒看一次 [condition]，最多等 [seconds] 秒；等到了返回 true。不执行主线程排队的消息，要等它们用 [awaitMain]。 */
 internal fun waitUntil(seconds: Int, condition: () -> Boolean): Boolean {
     repeat(seconds * 10) {
         if (condition()) return true

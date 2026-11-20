@@ -359,7 +359,7 @@ class Conversation(
             val page = TranscriptReducer("p${window.skipped}-")
             val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, backend = backend)
             val read = result.outputOrNull?.let { HistoryPaging.read(it, window.file, page) }
-            val failure = (result as? HelperResult.Failed)?.let { "没有读到更早的记录：" + it.reason.takeLast(200) }
+            val failure = (result as? HelperResult.Failed)?.let { "没有读到更早的记录：" + it.reason }
             main.post { applyEarlier(page.items, read, failure) }
         }
     }

@@ -194,8 +194,8 @@ class ConversationHub(
     /** 已经定了放进当前对话、等它的输入栏取走的东西。 */
     var incoming by mutableStateOf<Intake?>(null)
 
-    /** 已经查过、接回了后台进程的主机（[reattachHosts]）。只在主线程上用。 */
-    private val hostsChecked = HashSet<String>()
+    /** 已经查过、接回了后台进程的主机（[reattachHosts]）；正在查的也算，没查成时去掉。只在主线程上用。 */
+    internal val hostsChecked = HashSet<String>()
 
     /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，见 [modelOptions]。 */
     var models by mutableStateOf<List<ModelOption>>(emptyList())

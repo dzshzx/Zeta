@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core
 
 import android.app.Application
-import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
@@ -13,7 +12,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -25,22 +23,12 @@ import org.robolectric.annotation.Config
 class EnvControllerTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
-    /** 等后台线程把结果投递回主线程。 */
-    private fun waitFor(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 20_000
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "等不到" }
-            Thread.sleep(10)
-            shadowOf(Looper.getMainLooper()).idle()
-        }
-    }
-
     @Test
     fun checkSetupWithoutRoot() {
         val environment = Fixtures.readyHub(app).environment
         environment.checkSetup()
         assertEquals(SetupState.Checking, environment.setup)
-        waitFor { environment.setup != SetupState.Checking }
+        awaitMain { environment.setup != SetupState.Checking }
         assertEquals(SetupState.NoRoot, environment.setup)
     }
 
@@ -60,7 +48,7 @@ class EnvControllerTest {
         assertEquals(emptyList<SessionSummary>(), hub.sessionList.sessions)
         assertNotSame(before, hub.current)
         assertEquals("/workspace", hub.current.cwd)
-        waitFor { environment.setup != SetupState.Checking }
+        awaitMain { environment.setup != SetupState.Checking }
         assertEquals(SetupState.NoRoot, environment.setup)
     }
 

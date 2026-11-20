@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Looper
 import android.util.Base64
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.ui.graphics.asImageBitmap
@@ -23,7 +22,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -204,7 +202,7 @@ class ComposerDraftsTest {
         assertEquals("第一行\n第二行", restored.input.text.toString())
         assertEquals(TextRange(2, 5), restored.input.selection)
         // 进不了 Linux 环境（测试里没有 root）时查不了文件在不在，照原样留着
-        idleUntil { true }
+        awaitMain { true }
         assertEquals(listOf("报告.pdf (1.2 MB)", "docs"), restored.uploads.map { it.name })
         assertEquals(listOf("/home/dzshzx/.cache/zeta/files/ab12/报告.pdf", "@/workspace/claude/zeta/docs/"), restored.uploads.map { it.path })
         assertEquals("新对话里写了一半", after.drafts.of(after.current).input.text.toString())
@@ -220,7 +218,7 @@ class ComposerDraftsTest {
         draft.attachments += lost
         before.drafts.save(draft)
         val dir = File(app.filesDir, "drafts")
-        idleUntil { File(dir, kept.id).exists() && File(dir, lost.id).exists() }
+        awaitMain { File(dir, kept.id).exists() && File(dir, lost.id).exists() }
         assertEquals(Base64.decode(kept.base64, Base64.NO_WRAP).toList(), File(dir, kept.id).readBytes().toList())
         // 系统或用户清掉了其中一张
         File(dir, lost.id).delete()
@@ -228,7 +226,7 @@ class ComposerDraftsTest {
         val after = Fixtures.readyHub(app)
         assertEquals("2 张图片", after.drafts.preview("s-img"))
         val restored = after.drafts.of(after.session("s-img"))
-        idleUntil { restored.attachments.isNotEmpty() && stored().single().images.size == 1 }
+        awaitMain { restored.attachments.isNotEmpty() && stored().single().images.size == 1 }
         assertEquals(listOf(kept.id), restored.attachments.map { it.id })
         assertEquals(kept.base64, restored.attachments.single().base64)
         assertEquals("1 张图片", after.drafts.preview("s-img"))
@@ -242,10 +240,10 @@ class ComposerDraftsTest {
         draft.attachments += image
         hub.drafts.save(draft)
         val file = File(File(app.filesDir, "drafts"), image.id)
-        idleUntil { file.exists() }
+        awaitMain { file.exists() }
         draft.attachments.clear()
         hub.drafts.save(draft)
-        idleUntil { !file.exists() }
+        awaitMain { !file.exists() }
         assertFalse(file.exists())
     }
 
@@ -253,17 +251,5 @@ class ComposerDraftsTest {
         val bitmap = Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
         val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
         return Attachment(UUID.randomUUID().toString(), bitmap.asImageBitmap(), "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
-    }
-
-    /** 读写文件在后台线程上，结果回到主线程：边转主线程的消息边等，最多 5 秒。 */
-    private fun idleUntil(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 5_000
-        while (true) {
-            Shadows.shadowOf(Looper.getMainLooper()).idle()
-            if (condition() || System.currentTimeMillis() > deadline) break
-            Thread.sleep(20)
-        }
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
-        assertTrue("等了 5 秒还没好", condition())
     }
 }

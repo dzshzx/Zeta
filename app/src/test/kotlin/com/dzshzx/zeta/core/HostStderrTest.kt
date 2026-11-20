@@ -70,7 +70,7 @@ class HostStderrTest {
         val dir = File(home, ".cache/$name/hosts/k-exit")
         // 起进程的那一头可能已经见到它结束、报过了；没报的话等它结束再接上一次
         val out = started.takeIf { "zeta_exit" in it } ?: run {
-            assertTrue("进程没有结束", HostTesting.waitUntil(10) { File(dir, "exit").exists() })
+            assertTrue("进程没有结束", waitUntil(10) { File(dir, "exit").exists() })
             HostTesting.run(home, listOf("bash", host.path, "attach", "k-exit", "1"), HostTesting.named(name))
         }
         val report = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single { it.str("type") == "zeta_exit" }
