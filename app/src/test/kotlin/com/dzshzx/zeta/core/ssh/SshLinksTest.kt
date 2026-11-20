@@ -64,7 +64,10 @@ class SshLinksTest {
         assertEquals(SshKey.ALGORITHM, line[0])
         assertArrayEquals(key.blob, java.util.Base64.getDecoder().decode(line[1]))
         assertTrue(key.fingerprint.startsWith("SHA256:") && !key.fingerprint.endsWith("="))
-        assertEquals(SshKey.ALGORITHM, SshKey.algorithm(key.blob))
+        assertEquals(SshKey.ALGORITHM, SshLinks.hostKey(key.blob)?.type)
+        // 认不得的：长度对、内容不是公钥的，和短得读不出类型的
+        assertNull(SshLinks.hostKey(ByteArray(key.blob.size)))
+        assertNull(SshLinks.hostKey(key.blob.copyOf(6)))
         assertEquals("ssh-ed25519", SshKey.ALGORITHM)
         assertEquals(4 + 11 + 4 + 32, key.blob.size)
     }
@@ -76,7 +79,7 @@ class SshLinksTest {
         assertEquals(3, result.output?.exitCode)
         assertEquals("hi\n", result.output?.stdout)
         val seen = checkNotNull(result.hostKey)
-        assertEquals("ssh-ed25519", SshKey.algorithm(seen))
+        assertEquals("ssh-ed25519", SshLinks.hostKey(seen)?.type)
         // 认着同一个主机公钥再连一次照样连上；换一个就拒绝
         assertNull(links.probe(server.target, seen, "true").problem)
         val other = SshKey.generate().blob

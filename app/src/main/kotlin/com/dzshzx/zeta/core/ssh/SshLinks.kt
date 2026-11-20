@@ -232,7 +232,7 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
         override fun getKnownHostsRepositoryID(): String = "zeta"
 
         // 让 JSch 先谈记下的那种主机密钥：对方有好几种时，不会因为换了一种而当成指纹变了
-        override fun getHostKey(): Array<HostKey> = expected?.let { runCatching { arrayOf(HostKey("zeta", it)) }.getOrNull() } ?: emptyArray()
+        override fun getHostKey(): Array<HostKey> = expected?.let(::hostKey)?.let { arrayOf(it) } ?: emptyArray()
 
         override fun getHostKey(host: String?, type: String?): Array<HostKey> = getHostKey().filter { type == null || it.type == type }.toTypedArray()
     }
@@ -248,18 +248,24 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
     }
 
     companion object {
+        /** 压缩算法的优先顺序：OpenSSH 服务器默认只开登录后才压的 zlib@openssh.com。 */
+        internal const val COMPRESSION = "zlib@openssh.com,zlib,none"
+
         /**
          * Ed25519、X25519、ML-KEM 一律用 JSch 的 BouncyCastle 实现：Android 自带的加密库没有 Ed25519，JSch 在 Android 上
          * 也认不出 Java 版本（按 Java 8 处理），不写死的话 JVM 上的测试走 JDK 的实现、手机上走 BouncyCastle，测的不是同一份代码。
          */
-        /** 压缩算法的优先顺序：OpenSSH 服务器默认只开登录后才压的 zlib@openssh.com。 */
-        internal const val COMPRESSION = "zlib@openssh.com,zlib,none"
-
         private val BouncyCastleAlgorithms = mapOf(
             "ssh-ed25519" to "com.jcraft.jsch.bc.SignatureEd25519",
             "xdh" to "com.jcraft.jsch.bc.XDH",
             "mlkem768" to "com.jcraft.jsch.bc.MLKEM768",
         )
+
+        /**
+         * 主机公钥 [blob]（SSH 线上格式）交给 JSch 认，认不得的（坏的、JSch 不支持的类型）是 null。
+         * 记下的主机公钥都要过这一关：连接时 [HostKeys] 用它让 JSch 先谈这一种。
+         */
+        fun hostKey(blob: ByteArray): HostKey? = runCatching { HostKey("zeta", blob) }.getOrNull()
 
         /** 连不上、连接断了时进程的退出码，和 OpenSSH 一样。 */
         const val CONNECTION_FAILED = 255

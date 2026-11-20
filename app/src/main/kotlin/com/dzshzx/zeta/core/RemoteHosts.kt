@@ -176,8 +176,8 @@ object RemoteHosts {
 
     fun encodeKey(blob: ByteArray): String = Base64.getEncoder().encodeToString(blob)
 
-    /** base64 的主机公钥，坏的是 null。 */
-    fun decodeKey(text: String): ByteArray? = runCatching { Base64.getDecoder().decode(text) }.getOrNull()?.takeIf { it.size > 8 && SshKey.algorithm(it) != null }
+    /** base64 的主机公钥，坏的、JSch 认不得的（[SshLinks.hostKey]）是 null。 */
+    fun decodeKey(text: String): ByteArray? = runCatching { Base64.getDecoder().decode(text) }.getOrNull()?.takeIf { SshLinks.hostKey(it) != null }
 
     /** 主机公钥 [text]（[encodeKey] 的结果）的指纹，坏的是 null。 */
     fun fingerprint(text: String): String? = decodeKey(text)?.let(SshKey::fingerprint)

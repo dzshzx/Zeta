@@ -98,13 +98,6 @@ class SshKey(private val private: PrivateKey, public: PublicKey, private val com
         /** 公钥 [blob]（SSH 线上格式）的指纹。 */
         fun fingerprint(blob: ByteArray): String =
             "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(blob))
-
-        /** 公钥 [blob] 的算法名（它的第一个 string），坏的是 null。 */
-        fun algorithm(blob: ByteArray): String? = runCatching {
-            val length = ((blob[0].toInt() and 0xff) shl 24) or ((blob[1].toInt() and 0xff) shl 16) or
-                ((blob[2].toInt() and 0xff) shl 8) or (blob[3].toInt() and 0xff)
-            String(blob, 4, length, Charsets.US_ASCII)
-        }.getOrNull()
     }
 }
 
