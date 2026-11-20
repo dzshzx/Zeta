@@ -280,8 +280,14 @@ internal fun SessionPane(
         snapshotFlow { SessionReveal.request }.collect { id ->
             if (id == null) return@collect
             SessionReveal.request = null
-            val target = allNow.firstOrNull { it.id == id }
-                ?: withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id)) }?.firstOrNull()?.also { farRevealed = farRevealed + it }
+            val target = allNow.firstOrNull { it.id == id } ?: run {
+                val found = withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id)) }
+                if (found == null) {
+                    Toast.makeText(context, "没查到这个对话（Linux 环境没有响应）", Toast.LENGTH_SHORT).show()
+                    return@collect
+                }
+                found.firstOrNull()?.also { farRevealed = farRevealed + it }
+            }
             if (target == null) {
                 Toast.makeText(context, "侧栏里没有这个对话（它没有可显示的内容）", Toast.LENGTH_SHORT).show()
                 return@collect

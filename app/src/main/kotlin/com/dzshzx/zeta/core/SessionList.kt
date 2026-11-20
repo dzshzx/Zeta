@@ -49,10 +49,8 @@ class SessionList internal constructor(private val hub: ConversationHub) {
      * 按 id 查会话概要：列表里可能没有（最近 300 个之外的，或者列表还没读出来）。返回找到的那些；
      * 没查成（没有 Linux 环境、助手出错或超时）返回 null，这时不能当作“都不在了”。耗时，别在主线程调用。
      */
-    internal fun find(ids: Collection<String>, config: LinuxEnvConfig? = hub.settings.env): List<SessionSummary>? {
-        val result = hub.helper("lookup", ids.toList(), timeoutMs = 60_000, config = config) ?: return null
-        return if (result.exitCode == 0) parseSessionSummaries(result.stdout) else null
-    }
+    internal fun find(ids: Collection<String>, config: LinuxEnvConfig? = hub.settings.env): List<SessionSummary>? =
+        hub.helperOutput("lookup", ids.toList(), timeoutMs = 60_000, config = config)?.let(::parseSessionSummaries)
 
     /** 按 id 查一个会话（列表里可能还没有，比如点通知冷启动、列表还没读出来）；查到了在主线程上交给 [then]。 */
     internal fun lookup(id: String, then: (SessionSummary) -> Unit) {

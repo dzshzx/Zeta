@@ -130,20 +130,20 @@ internal object ScheduleRunner {
             val found = hub.sessionList.find(listOf(session))
             main.post {
                 starting.remove(key)
-                val name = records.name(app, spec.id) ?: return@post
+                val named = spec.copy(name = records.name(app, spec.id) ?: return@post)
                 // 没查成不等于被删了：这次不跑，下次再查，不另开对话
                 if (found == null) {
-                    fail(app, records, spec.copy(name = name), manual, now, "查不到原来的对话（Linux 环境没有响应）")
+                    fail(app, records, named, manual, now, "查不到原来的对话（Linux 环境没有响应）")
                     return@post
                 }
                 val summary = found.firstOrNull()
                 val conversation = if (summary != null) {
-                    Conversation(hub, summary.cwd.ifBlank { spec.cwd ?: config.defaultCwd }, summary.id, name, summary.file)
+                    Conversation(hub, summary.cwd.ifBlank { spec.cwd ?: config.defaultCwd }, summary.id, named.name, summary.file)
                 } else {
                     // 原来的会话找不到了（被删了）：另开一个，以后接着新的这个
-                    Conversation(hub, spec.cwd ?: config.defaultCwd, sessionId = null, title = name, historyFile = null)
+                    Conversation(hub, spec.cwd ?: config.defaultCwd, sessionId = null, title = named.name, historyFile = null)
                 }
-                launch(hub, records, spec.copy(name = name), manual, now, conversation, fresh = summary == null)
+                launch(hub, records, named, manual, now, conversation, fresh = summary == null)
             }
         }
         return null
@@ -260,7 +260,9 @@ internal object ScheduleRunner {
             )
         }
         if (run.freshSession && session != null && current != null) {
-            rename(hub, session, if (run.newSession) name + " · " + STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault())) else name)
+            // 新开的会话按任务名起标题（侧栏里认得出是哪个任务、哪一次）
+            val title = if (run.newSession) name + " · " + STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault())) else name
+            hub.sessionList.lookup(session) { hub.sessionList.rename(it, title) }
         }
     }
 
@@ -296,10 +298,6 @@ internal object ScheduleRunner {
                 .acquire(2 * 60_000L)
         }
     }
-
-    /** 新开的会话按任务名起标题（侧栏里认得出是哪个任务、哪一次）。 */
-    private fun rename(hub: ConversationHub, id: String, title: String) =
-        hub.sessionList.lookup(id) { hub.sessionList.rename(it, title) }
 
     private const val POLL_MS = 2_000L
     private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")

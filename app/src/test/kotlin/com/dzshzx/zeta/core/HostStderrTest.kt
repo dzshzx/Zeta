@@ -29,8 +29,8 @@ class HostStderrTest {
         if (::home.isInitialized) home.deleteRecursively()
     }
 
-    /** claude 的替身：跑完 [script] 就退出（[script] 以 exit 结尾）。 */
-    private fun fakeClaude(script: String) = HostTesting.writeClaudeStandIn(home, prelude = script)
+    /** claude 的替身：只跑 [script]，不读输入。 */
+    private fun fakeClaude(script: String) = HostTesting.writeClaudeStandIn(home, loop = script)
 
     /** 起一个对话进程（[HostTesting.run]：应用这头马上断开，进程自己跑完）。 */
     private fun start(key: String) {

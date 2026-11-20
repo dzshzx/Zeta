@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.HostTesting
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,14 +47,11 @@ class ScheduleResumeTest {
             permissionMode = "default", newSession = false, sessionId = "s-old", hint = "",
         )
         assertNull("查询在后台做，这一步不报原因", ScheduleRunner.start(app, records, spec, manual = true))
-        val deadline = System.currentTimeMillis() + 30_000
-        while (records.record.lastRun == null && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50)
-            shadowOf(Looper.getMainLooper()).idle()
-        }
-        val run = records.record.lastRun
-        assertEquals("记为没有运行：$run", RunOutcome.Failed, run?.outcome)
-        assertTrue(run!!.summary, run.summary.contains("查不到原来的对话"))
+        // 查询在后台线程上做，结果投回主线程
+        assertTrue("等不到运行记录", HostTesting.waitUntil(30) { shadowOf(Looper.getMainLooper()).idle(); records.record.lastRun != null })
+        val run = records.record.lastRun!!
+        assertEquals("记为没有运行：$run", RunOutcome.Failed, run.outcome)
+        assertTrue(run.summary, run.summary.contains("查不到原来的对话"))
         assertEquals("任务仍然接着原来的会话", "s-old", records.record.sessionId)
         assertFalse("没有留下进行中的运行", ScheduleRunner.isRunning(records, spec.id))
     }

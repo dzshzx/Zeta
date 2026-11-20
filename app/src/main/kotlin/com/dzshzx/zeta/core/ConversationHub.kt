@@ -45,6 +45,13 @@ class ConversationHub(private val app: Application) {
         return runCatching { helperProgram.run({ command, stdin -> LinuxEnv.run(config, command, stdin, timeoutMs) }, subcommand, arguments) }.getOrNull()
     }
 
+    /**
+     * [helper] 跑成了（退出码 0）时的标准输出；没跑成、出错、超时一律 null。用不着失败原因的调用方用它，
+     * 要把标准错误显示出来的用 [helper]。阻塞，别在主线程上调用。
+     */
+    fun helperOutput(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, config: LinuxEnvConfig? = settings.env): String? =
+        helper(subcommand, arguments, timeoutMs, config)?.takeIf { it.exitCode == 0 }?.stdout
+
     /** 确认 zeta-helper 已装进 Linux 环境 [config]（没装就装上）；要自己起它的进程（边读边出结果）之前用。装好了是 true。阻塞。 */
     fun ensureHelper(config: LinuxEnvConfig): Boolean =
         runCatching { helperProgram.ensure { command, stdin -> LinuxEnv.run(config, command, stdin, 60_000) }?.exitCode == 0 }.getOrDefault(false)

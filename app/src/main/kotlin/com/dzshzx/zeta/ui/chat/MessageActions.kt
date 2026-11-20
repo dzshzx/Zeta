@@ -306,9 +306,8 @@ private fun reattach(hub: ConversationHub, ref: ImageRef): Attachment? = runCatc
     val (mediaType, data) = when (ref) {
         is InlineImage -> (imageMediaType(Base64.decode(ref.base64, Base64.DEFAULT)) ?: "image/jpeg") to ref.base64
         is SessionImage -> {
-            val result = hub.helper("image", listOf(ref.file, ref.ref), timeoutMs = 60_000) ?: return null
-            if (result.exitCode != 0) return null
-            val reply = result.stdout.lineSequence().firstOrNull { it.startsWith("{") }
+            val output = hub.helperOutput("image", listOf(ref.file, ref.ref), timeoutMs = 60_000) ?: return null
+            val reply = output.lineSequence().firstOrNull { it.startsWith("{") }
                 ?.let { helperJson.parseToJsonElement(it) as? JsonObject } ?: return null
             (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
         }

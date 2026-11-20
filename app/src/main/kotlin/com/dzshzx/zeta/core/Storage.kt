@@ -289,18 +289,12 @@ object Storage {
     )
 
     /** 统计 Linux 一侧的各类。耗时，别在主线程调用。 */
-    fun scan(hub: ConversationHub, keep: List<String>): StorageReport? {
-        val result = hub.helper("storage", keep, 180_000) ?: return null
-        if (result.exitCode != 0) return null
-        return parseReport(result.stdout)
-    }
+    fun scan(hub: ConversationHub, keep: List<String>): StorageReport? =
+        hub.helperOutput("storage", keep, 180_000)?.let(::parseReport)
 
     /** 一个项目里各会话的占用。耗时，别在主线程调用。 */
-    fun sessions(hub: ConversationHub, project: String, keep: List<String>): Pair<List<SessionUsage>, Long>? {
-        val result = hub.helper("storage-sessions", listOf(project) + keep, 120_000) ?: return null
-        if (result.exitCode != 0) return null
-        return parseSessions(result.stdout)
-    }
+    fun sessions(hub: ConversationHub, project: String, keep: List<String>): Pair<List<SessionUsage>, Long>? =
+        hub.helperOutput("storage-sessions", listOf(project) + keep, 120_000)?.let(::parseSessions)
 
     /** 由助手清掉一类。耗时，别在主线程调用。 */
     fun clean(hub: ConversationHub, kind: StorageKind, keep: List<String>): CleanOutcome {
