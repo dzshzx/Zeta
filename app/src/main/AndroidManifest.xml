@@ -58,8 +58,10 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Zeta">
+        <!-- 旋转屏幕、切深浅色时不重建：界面由 Compose 跟着配置重画，开着的对话框、输入框和滚动位置都留着 -->
         <activity
             android:name=".ui.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
