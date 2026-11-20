@@ -11,12 +11,8 @@ import com.dzshzx.zeta.phone.tools.schema
 import com.dzshzx.zeta.phone.tools.tool
 import java.util.Locale
 import kotlin.math.abs
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
 
 /**
  * 屏幕这一套手机工具的说明，纯数据：交给 Claude 的定义（[tools]，带工具权限页上的中文名字）和这一步做了什么的一句中文（[title]）。
@@ -173,13 +169,13 @@ internal object ScreenToolDefs {
         })
         add(tool("press_key", "按系统键（返回、回到桌面等）", "Press a system key.") {
             schema(required = listOf("key")) {
-                putJsonObject("key") {
-                    put("type", "string")
-                    put("enum", JsonArray(listOf("back", "home", "recents", "enter", "delete", "paste", "wake", "notifications", "quick_settings").map { JsonPrimitive(it) }))
-                    put("description", "back, home, recents (app switcher), enter, delete (backspace), paste (the clipboard into the focused field), " +
+                enumProp(
+                    "key",
+                    listOf("back", "home", "recents", "enter", "delete", "paste", "wake", "notifications", "quick_settings"),
+                    "back, home, recents (app switcher), enter, delete (backspace), paste (the clipboard into the focused field), " +
                         "wake (turn the screen on), notifications (open the shade), quick_settings. " +
-                        "home and recents do not exist on the background screen; wake, notifications and quick_settings always act on the main screen.")
-                }
+                        "home and recents do not exist on the background screen; wake, notifications and quick_settings always act on the main screen.",
+                )
                 after()
             }
         })
