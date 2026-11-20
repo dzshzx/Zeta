@@ -4,14 +4,14 @@
 #            ZETA_DEVICE=phone 时装到手机，和用户日常用的正式版并存。开发测试一律用它，一般经 tools/phone-run 调。
 #            版本号跟着提交走，比设备上的旧也照装（任务分支可能比别人的旧）。
 #   不带     上线：装正式版（com.dzshzx.zeta），只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。
-#            要在 master 的最新提交上、工作区干净；HEAD 还没有上线 tag 就打下一个版本（升 patch，第一次是 0.7.0）
-#            并推到 origin，再构建、装。HEAD 已有 tag 就重装这个版本。
+#            要在 master 的最新提交上、工作区干净；HEAD 还没有上线 tag 就在本地打下一个版本（升 patch，第一次是 0.7.0），
+#            构建、核对、装好后才推到 origin，中途失败就删掉这个本地 tag（推上去的 tag 不能改）。HEAD 已有 tag 就重装这个版本。
 #   --minor  上线时升 minor（0.7.3 → 0.8.0），用户说了才用。
 # 正式版只装在手机上：在手机 Debian 里直接进 Android 一侧安装，在工作站上经 ssh（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
 # APK 从标准输入交给 pm install -S，手机、模拟器都走这一条路，不用先拷到设备上。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-variant=debug build=1 minor=
+variant=debug build=1 minor= created=
 for arg in "$@"; do
   case $arg in
     --dev) variant=dev ;;
@@ -57,8 +57,9 @@ if [[ $variant == debug ]]; then
     fi
     tag=v$next
     git tag -a "$tag" -m "上线 $next"
-    git push -q origin "$tag"
-    echo "打了 $tag（上一个是 ${last:-无}）"
+    created=$tag
+    trap '[[ -z $created ]] || { git tag -d "$created" >/dev/null; echo "没装成，删掉了本地的 $created" >&2; }' EXIT
+    echo "打了 $tag（上一个是 ${last:-无}），装好后推到 origin"
   elif [[ -n $minor ]]; then
     echo "HEAD 已经是 $tag，没有新提交可以升 minor" >&2
     exit 1
@@ -97,4 +98,9 @@ else
   tools/phone-lock "$([[ $variant == dev ]] && echo dev || echo main)"
   ssh "${ZETA_PHONE_SSH:-xiaomi-17-debian}" "${root[*]@Q}" <"$APK"
 fi
-[[ -z $tag ]] || echo "正式版已是 ${tag#v}"
+if [[ -n $tag ]]; then
+  created=
+  # 本地有、origin 上还没有（这次新打的，或上回推送失败的）就推上去
+  git ls-remote --exit-code -q origin "refs/tags/$tag" >/dev/null || git push -q origin "$tag"
+  echo "正式版已是 ${tag#v}"
+fi

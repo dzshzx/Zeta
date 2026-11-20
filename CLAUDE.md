@@ -93,7 +93,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 合入：功能分支交回前自己变基到最新的 origin/master、解决冲突、压成一个提交。负责合入的会话先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `wt land` 合入。合入不装正式版。
 
-上线指把正式版装成 master 的最新版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才装：在主 checkout 同步到 origin/master 后跑 `tools/install.sh`（不带 `--dev`；用户说升 minor 时加 `--minor`）。它在 HEAD 上打下一个版本的 tag 并推到 origin，再构建、核对版本名、安装，中间的提交直接跳过；HEAD 已有 tag 就重装这个版本。装完在正式版的测试屏上验一遍（`vd.py launch`、`vd.py shot`）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
+上线指把正式版装成 master 的最新版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才装：在主 checkout 同步到 origin/master 后跑 `tools/install.sh`（不带 `--dev`；用户说升 minor 时加 `--minor`）。它在 HEAD 上打下一个版本的 tag，构建、核对版本名、安装，装好后才把 tag 推到 origin，中间的提交直接跳过；中途失败就删掉这个本地 tag，改好后重跑。HEAD 已有 tag 就重装这个版本（tag 还没推上去的顺带推上去）。装完在正式版的测试屏上验一遍（`vd.py start`、`vd.py launch`、`vd.py shot`）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
 
 ## 边界
 
