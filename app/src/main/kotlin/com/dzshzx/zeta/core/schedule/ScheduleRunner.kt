@@ -52,11 +52,8 @@ internal object ScheduleRunner {
         var savedSession: String? = null
         var notifiedRequest: String? = null
 
-        /** 挂在对话手机工具上的这次运行，Claude 的上报记在里面。 */
+        /** 挂在对话手机工具上的这次运行，Claude 的上报、等没等过确认记在里面。 */
         val scope = UnattendedRun(onlyOnChange)
-
-        /** 这次停下来等过用户确认：跑完照常提醒。 */
-        val asked get() = notifiedRequest != null
     }
 
     private fun key(records: RunRecords, id: String) = records.kind + ":" + id
@@ -67,9 +64,6 @@ internal object ScheduleRunner {
     /** 正在查会话记录、还没真正开始的（接着同一个对话时）。 */
     private val starting = HashSet<String>()
     private var polling = false
-
-    /** 这个对话是后台运行起的、还在跑：完成和需要确认的提醒由这里发，不用通用的那条。 */
-    fun owns(conversation: Conversation): Boolean = runs.values.any { it.conversation === conversation }
 
     fun isRunning(taskId: String): Boolean = isRunning(ScheduleRecords, taskId)
 
@@ -223,6 +217,7 @@ internal object ScheduleRunner {
         val pending = conversation.pending
         if (pending != null && pending.requestId != run.notifiedRequest) {
             run.notifiedRequest = pending.requestId
+            run.scope.asked = true
             val name = run.records.name(app, run.id) ?: conversation.title
             if (!watching(hub, conversation)) {
                 notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.openKey)
@@ -233,14 +228,6 @@ internal object ScheduleRunner {
 
     private fun idle(conversation: Conversation) = !conversation.busy && conversation.pending == null && !conversation.rewinding
 
-    private fun runOf(conversation: Conversation): Run? = runs.values.firstOrNull { it.conversation === conversation }
-
-    /** 这一轮是后台运行、Claude 上报了没有变化、跑完不提醒：屏幕底部也不弹结果卡片。 */
-    fun quiet(conversation: Conversation): Boolean {
-        val run = runOf(conversation) ?: return false
-        return !Schedules.settle(RunOutcome.Done, "", run.onlyOnChange, run.scope.report, run.asked).notify
-    }
-
     private fun finish(run: Run) {
         val hub = run.hub
         runs.remove(run.key)
@@ -248,7 +235,7 @@ internal object ScheduleRunner {
         val conversation = run.conversation
         if (conversation.phone.unattended === run.scope) conversation.phone.unattended = null
         val (raw, answer) = Schedules.outcomeOf(conversation.items, run.prompt)
-        val (outcome, summary, alert) = Schedules.settle(raw, answer, run.onlyOnChange, run.scope.report, run.asked)
+        val (outcome, summary, alert) = Schedules.settle(raw, answer, run.onlyOnChange, run.scope.report, run.scope.asked)
         val session = conversation.sessionId
         run.records.update(app, run.id) { record ->
             record.copy(

@@ -5,10 +5,14 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.schedule.RunReport
+import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -66,6 +70,33 @@ class TurnAlertsTest {
         hub.force("foreground", false)
         hub.alerts.attentionNeeded(hub.current)
         assertEquals(listOf("需要你确认"), alerts())
+    }
+
+    /** 后台运行跑着的对话（手机工具上挂着 [UnattendedRun]）：完成和确认由 ScheduleRunner 带任务名提醒，通用的这两条不发。 */
+    @Test
+    fun unattendedRunsAlertThemselves() {
+        val hub = Fixtures.readyHub(app)
+        hub.force("foreground", false)
+        hub.current.phone.unattended = UnattendedRun(onlyOnChange = false)
+        hub.alerts.turnFinished(hub.current, stopped = false)
+        hub.alerts.attentionNeeded(hub.current)
+        assertEquals(emptyList<String>(), alerts())
+        // 跑完摘掉标记，就是普通对话了
+        hub.current.phone.unattended = null
+        hub.alerts.attentionNeeded(hub.current)
+        assertEquals(listOf("需要你确认"), alerts())
+    }
+
+    /** 只在有变化时提醒的后台运行：Claude 上报没有变化、也没停下来等过确认，这一轮跑完不提醒、不弹结果卡片。 */
+    @Test
+    fun unattendedRunIsQuietOnlyWithoutChange() {
+        val run = UnattendedRun(onlyOnChange = true)
+        assertFalse("没上报：照常提醒", run.quiet)
+        run.report = RunReport(changed = false, summary = "没有新邮件")
+        assertTrue(run.quiet)
+        run.asked = true
+        assertFalse("等过确认：照常提醒", run.quiet)
+        assertFalse("每次都提醒的不会安静", UnattendedRun(onlyOnChange = false).apply { report = RunReport(false, "") }.quiet)
     }
 
     @Test

@@ -6,7 +6,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.core.voice.ReadAloud
 import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.OverlayFocus
@@ -89,8 +89,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     internal fun turnFinished(conversation: Conversation, stopped: Boolean) {
         val showed = offerResultCard(conversation, usedPhone = endingWithPhone === conversation, stopped = stopped)
         endingWithPhone = null
-        // 定时任务起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
-        if (!stopped && !watching(conversation) && !ScheduleRunner.owns(conversation)) {
+        // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
+        if (!stopped && !watching(conversation) && conversation.unattended == null) {
             // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成", silent = showed)
         }
@@ -99,10 +99,16 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
 
     /** 对话停下来等用户批准一次工具调用。 */
     internal fun attentionNeeded(conversation: Conversation) {
-        if (!watching(conversation) && !ScheduleRunner.owns(conversation)) {
+        if (!watching(conversation) && conversation.unattended == null) {
             Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
         }
     }
+
+    /**
+     * 这个对话正被后台运行（定时任务、通知触发）跑着：ScheduleRunner 开跑时挂上、跑完摘掉的来源标记（[UnattendedRun]）。
+     * 这里只看标记，不回头问 ScheduleRunner。
+     */
+    private val Conversation.unattended: UnattendedRun? get() = phone.unattended
 
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：不用另外提醒。 */
     private fun watching(conversation: Conversation) = hub.foreground && conversation === hub.current
@@ -111,7 +117,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     private fun offerResultCard(conversation: Conversation, usedPhone: Boolean, stopped: Boolean): Boolean {
         val others = hub.liveConversations.filter { it !== conversation }
         // 后台运行上报了没有变化：跑完不提醒，卡片也不弹
-        val show = !ScheduleRunner.quiet(conversation) && ResultCardPolicy.shows(
+        val show = conversation.unattended?.quiet != true && ResultCardPolicy.shows(
             usedPhone = usedPhone,
             stopped = stopped,
             zetaForeground = hub.foreground,
@@ -148,7 +154,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
      * 定时任务起的对话不念：用户多半不在跟前。
      */
     private fun autoRead(conversation: Conversation) {
-        if (!hub.settings.autoReadAnswers || conversation !== hub.current || ScheduleRunner.owns(conversation)) return
+        if (!hub.settings.autoReadAnswers || conversation !== hub.current || conversation.unattended != null) return
         val answer = conversation.items.lastOrNull() as? AnswerItem ?: return
         if (answer.text.isNotBlank()) ReadAloud.speak(app, answer.id, answer.text)
     }

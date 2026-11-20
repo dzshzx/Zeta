@@ -51,12 +51,19 @@ internal data class RunSpec(
 
 /**
  * 一次无人值守的后台运行，挂在跑它的对话的手机工具上（PhoneTools.unattended），从开始到跑完。
+ * 它就是这个对话的来源标记：挂着时完成和确认提醒由 [ScheduleRunner] 发（带任务名），通用的那条不发，回答也不念（见 TurnAlerts）。
  * 只在有变化时提醒的运行里 Claude 上报的结论记在 [report]（工具线程写，主线程跑完时读）。
  * 管理定时任务的工具在后台运行里拦两道：Claude Code 的权限规则让模型调不到（见 ScheduleTools.unattendedRules），
  * 漏过来的调用再由 ScheduleTools.refusal 看它拒掉。
  */
 class UnattendedRun(val onlyOnChange: Boolean) {
     @Volatile var report: RunReport? = null
+
+    /** 这次停下来等过用户确认：跑完照常提醒。在主线程上读写。 */
+    var asked = false
+
+    /** 这一轮跑完不提醒（Claude 上报了没有变化）：屏幕底部也不弹结果卡片。 */
+    val quiet: Boolean get() = !Schedules.settle(RunOutcome.Done, "", onlyOnChange, report, asked).notify
 }
 
 /**
