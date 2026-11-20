@@ -214,7 +214,7 @@ internal object ScheduleRunner {
         if (pending != null && pending.requestId != run.scope.notifiedRequest) {
             run.scope.notifiedRequest = pending.requestId
             val name = run.records.name(app, run.id) ?: conversation.title
-            if (!watching(hub, conversation)) {
+            if (!hub.isWatching(conversation)) {
                 notify(app, run.key, "$name · 需要你确认", "Claude 想用 ${pending.toolName}，点这里打开对话处理", conversation.openKey)
             }
         }
@@ -248,7 +248,7 @@ internal object ScheduleRunner {
         )
         // 用户叫停的、没有变化的不提醒（上一次的结果通知留着：用户可能还没看到）；用户正看着这个对话也不必提醒；
         // 屏幕底部弹了结果卡片的不响铃
-        if (alert && !watching(hub, conversation)) {
+        if (alert && !hub.isWatching(conversation)) {
             notify(
                 app, run.key, if (outcome == RunOutcome.Done || outcome == RunOutcome.NoChange) name else "$name · 没有完成",
                 summary.ifBlank { "已完成" }, session ?: conversation.key,
@@ -259,8 +259,6 @@ internal object ScheduleRunner {
             rename(hub, session, if (run.newSession) name + " · " + STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault())) else name)
         }
     }
-
-    private fun watching(hub: ConversationHub, conversation: Conversation) = hub.foreground && hub.current === conversation
 
     // ---- 通知 ----
 

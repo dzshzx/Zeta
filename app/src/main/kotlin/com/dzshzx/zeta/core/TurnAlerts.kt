@@ -7,9 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.voice.ReadAloud
+import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.OverlayFocus
-import com.dzshzx.zeta.phone.ZetaAccessibilityService
 import com.dzshzx.zeta.ui.overlay.ScreenLock
 
 /**
@@ -45,8 +45,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     /** 正在结束的这一轮用过手机工具的那个对话（[turnEnding] 记下，紧接着的 [turnFinished] 取走：那时手机工具的状态已经清了）。 */
     private var endingWithPhone: Conversation? = null
 
-    /** 最近一次结束时弹了结果卡片的对话：完成提醒据此不响铃（后台运行的也是）。 */
-    private var carded: Conversation? = null
+    /** 最近一次结束时弹了结果卡片的对话的 [Conversation.openKey]：完成提醒据此不响铃（后台运行的也是）。只记 key，不留住对话。 */
+    private var carded: String? = null
 
     /**
      * 胶囊显示谁：
@@ -89,22 +89,21 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         val showed = offerResultCard(conversation, usedPhone = endingWithPhone === conversation, stopped = stopped)
         endingWithPhone = null
         // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
-        if (!stopped && !watching(conversation) && conversation.unattended == null) {
+        if (!stopped && !hub.isWatching(conversation) && conversation.unattended == null) {
             // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
-            Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "已完成", silent = showed)
+            alert(conversation, "已完成", silent = showed)
         }
         if (!stopped) autoRead(conversation)
     }
 
     /** 对话停下来等用户批准一次工具调用。 */
     internal fun attentionNeeded(conversation: Conversation) {
-        if (!watching(conversation) && conversation.unattended == null) {
-            Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, "需要你确认")
-        }
+        if (!hub.isWatching(conversation) && conversation.unattended == null) alert(conversation, "需要你确认")
     }
 
-    /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：不用另外提醒。 */
-    private fun watching(conversation: Conversation) = hub.foreground && conversation === hub.current
+    /** 通用的提醒：标题是对话标题。 */
+    private fun alert(conversation: Conversation, text: String, silent: Boolean = false) =
+        Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, text, silent = silent)
 
     /** 一轮结束时要不要弹结果卡片（见 [ResultCardPolicy.shows]），要的话换上这一轮的。返回弹了没有。 */
     private fun offerResultCard(conversation: Conversation, usedPhone: Boolean, stopped: Boolean): Boolean {
@@ -115,10 +114,10 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
             stopped = stopped,
             zetaForeground = hub.foreground,
             locked = ScreenLock.hides(hub.settings.phoneDisplay),
-            overlayReady = ZetaAccessibilityService.instance != null,
+            overlayReady = AccessibilityGuard.connected,
             phoneInUse = others.any { it.busy && it.phone.engagedThisTurn },
         )
-        carded = conversation.takeIf { show }
+        carded = conversation.openKey.takeIf { show }
         if (show) resultCard = TurnResult(conversation, others.filterTo(HashSet()) { it.busy })
         return show
     }
@@ -140,7 +139,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     }
 
     /** [conversation] 最近一次结束时弹了结果卡片：它的完成提醒不必再响铃。 */
-    internal fun showedResultCard(conversation: Conversation): Boolean = carded === conversation
+    internal fun showedResultCard(conversation: Conversation): Boolean = carded == conversation.openKey
 
     /**
      * 开了“回答自动朗读”时，正显示着的对话这一轮以回答收尾就念出来（出错、停在工具步骤上的不念）。

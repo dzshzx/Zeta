@@ -167,6 +167,9 @@ class ConversationHub(private val app: Application) {
     var foreground by mutableStateOf(false)
         private set
 
+    /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：完成、确认都不用另外提醒。 */
+    internal fun isWatching(conversation: Conversation): Boolean = foreground && conversation === current
+
     init {
         DiagLog.init(app)
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
