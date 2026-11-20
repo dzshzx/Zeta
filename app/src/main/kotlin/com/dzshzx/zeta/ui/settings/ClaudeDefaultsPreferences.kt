@@ -61,7 +61,7 @@ private fun rememberDefaultsWriter(hub: ConversationHub): (ClaudeConfigClient.()
 @Composable
 internal fun DefaultModelPreference(hub: ConversationHub, startAction: (@Composable () -> Unit)? = null) {
     val write = rememberDefaultsWriter(hub)
-    val choices = modelChoices(hub.modelOptions)
+    val choices = modelChoices(hub.modelOptions(hub.backend))
     FollowDropdownPreference(
         title = "默认模型",
         // 「默认」就是不设，和跟随那一项合成一项
@@ -114,9 +114,10 @@ internal fun DefaultEffortEntry(hub: ConversationHub, onOpen: () -> Unit, startA
 internal fun DefaultEffortScreen(hub: ConversationHub, onBack: () -> Unit) {
     val write = rememberDefaultsWriter(hub)
     val defaults = hub.claudeDefaults
-    val waiting = hub.models.isEmpty()
+    val models = hub.models[hub.backend].orEmpty()
+    val waiting = models.isEmpty()
     var showOlder by remember { mutableStateOf(false) }
-    LaunchedEffect(waiting) { if (waiting) hub.current.prepare() }
+    LaunchedEffect(waiting) { if (waiting && hub.current.backend == hub.backend) hub.current.prepare() }
     CouiPage(title = "默认思考强度", onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
@@ -126,7 +127,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, onBack: () -> Unit) {
                 if (defaults == null) {
                     item { ArrowPreference(title = NotRead, enabled = false) }
                 } else {
-                    val (shown, folded) = effortRows(hub.models, defaults).partition { showOlder || !it.older }
+                    val (shown, folded) = effortRows(models, defaults).partition { showOlder || !it.older }
                     shown.forEach { row ->
                         item {
                             FollowDropdownPreference(

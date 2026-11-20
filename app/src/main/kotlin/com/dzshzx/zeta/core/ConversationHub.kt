@@ -197,12 +197,15 @@ class ConversationHub(
     /** 已经查过、接回了后台进程的主机（[reattachHosts]）；正在查的也算，没查成时去掉。只在主线程上用。 */
     internal val hostsChecked = HashSet<String>()
 
-    /** Claude Code 报的模型选项（initialize 的应答）；还没起过进程时是空的，见 [modelOptions]。 */
-    var models by mutableStateOf<List<ModelOption>>(emptyList())
+    /**
+     * 各主机（[Backends]）上 Claude Code 报的模型选项（initialize 的应答）。只放在内存里：别名对应的完整 ID 随 Claude Code 升级而变，
+     * 按模型存的默认思考强度要以正开着的进程报的为准。还没起过进程的主机没有，见 [modelOptions]；删主机时一起删。
+     */
+    var models by mutableStateOf<Map<String, List<ModelOption>>>(emptyMap())
         internal set
 
-    /** 选择器里的模型：Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
-    val modelOptions: List<ModelOption> get() = models.ifEmpty { FallbackModels }
+    /** 主机 [backend] 上选择器里的模型：那台的 Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
+    fun modelOptions(backend: String): List<ModelOption> = models[backend].orEmpty().ifEmpty { FallbackModels }
 
     /**
      * 每个会话的手机工具，按 sessionId（新对话还没有时按 key）登记。后台屏幕比 Claude Code 进程活得久：
@@ -392,7 +395,7 @@ class ConversationHub(
     }
 
     /**
-     * 远程主机清单变了：删掉的主机上的对话收掉；正看着的那台删了就回到手机本机；
+     * 远程主机清单变了：删掉的主机上的对话收掉，Claude Code 在那台上报的模型和斜杠命令一起删；正看着的那台删了就回到手机本机；
      * 还没开始的新对话按（可能改过的）默认工作目录重建。在主线程上调用。
      */
     private fun onRemoteHostsChanged() {
@@ -405,6 +408,8 @@ class ConversationHub(
             prunePhones()
         }
         hostsChecked.retainAll(ids)
+        models = models.filterKeys { it in ids }
+        settings.commands = settings.commands.filterKeys { it in ids }
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
     }

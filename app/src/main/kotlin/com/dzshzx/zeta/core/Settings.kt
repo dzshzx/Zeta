@@ -3,8 +3,6 @@ package com.dzshzx.zeta.core
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.mutableStateOf
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -127,12 +125,12 @@ class Settings private constructor(private val app: Context) {
     var backend: String by pref("backend", Backends.LOCAL)
 
     /**
-     * Claude Code 上次报告的斜杠命令和技能（存成 JSON 数组）：应用刚打开、还没起进程时输入栏也能提示。
-     * 每次起进程按 initialize 的应答更新。
+     * 各主机（[Backends]）上 Claude Code 上次报告的斜杠命令和技能（见 [encodeHostCommands]）：应用刚打开、那台主机上
+     * 还没起进程时输入栏也能提示。每次起进程按 initialize 的应答更新那台的，删主机时一起删（[ConversationHub]）。
      */
-    var commands: List<SlashCommand> by pref(
-        read = { getString("commands", null)?.let { runCatching { parseSlashCommands(Json.parseToJsonElement(it) as JsonArray) }.getOrNull() }.orEmpty() },
-        write = { putString("commands", encodeSlashCommands(it)) },
+    var commands: Map<String, List<SlashCommand>> by pref(
+        read = { decodeHostCommands(getString("commands", null)) },
+        write = { putString("commands", encodeHostCommands(it)) },
     )
 
     /** 外观：null 跟随系统，true 深色，false 浅色。 */

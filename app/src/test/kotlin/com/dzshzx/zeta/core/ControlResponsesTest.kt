@@ -36,7 +36,7 @@ class ControlResponsesTest {
             """{"type":"control_response","response":{"subtype":"success","request_id":"zeta-1","response":""" +
                 """{"models":[{"value":"bogus","displayName":"x"}],"current_permission_mode":"plan"}}}""",
         )
-        assertEquals(emptyList<ModelOption>(), hub.models)
+        assertEquals(emptyMap<String, List<ModelOption>>(), hub.models)
         assertNull(chat.permissionMode)
 
         chat.answer(
@@ -44,11 +44,33 @@ class ControlResponsesTest {
             """{"models":[{"value":"opus","displayName":"Opus","description":"d"}],""" +
                 """"commands":[{"name":"compact","description":"c","argumentHint":""}],"current_permission_mode":"acceptEdits"}""",
         )
-        assertEquals(listOf(ModelOption("opus", "Opus", "d")), hub.models)
-        assertEquals(listOf("compact"), hub.settings.commands.map { it.name })
+        assertEquals(listOf(ModelOption("opus", "Opus", "d")), hub.modelOptions(Backends.LOCAL))
+        assertEquals(listOf("compact"), hub.settings.commands[Backends.LOCAL]?.map { it.name })
         // 起进程时没指定模式：报来的就是 Claude Code 照设置定的，这个对话从此用它
         assertEquals("acceptEdits", chat.permissionMode)
         assertEquals("acceptEdits", chat.processMode)
+    }
+
+    /** 模型和斜杠命令按主机记：远程主机上的进程报的不盖手机本机的，还没报过的主机给几个常用别名；删掉那台主机时一起删。 */
+    @Test
+    fun initializeAnswersAreKeptPerHost() {
+        val (hub, local) = started()
+        val remote = RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace")
+        hub.updateRemoteHosts(listOf(remote))
+        assertEquals(FallbackModels, hub.modelOptions(remote.id))
+        val far = Conversation(hub, "/home/ubuntu/workspace", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        far.prepare()
+        local.answer("initialize", """{"models":[{"value":"opus","displayName":"Opus"}],"commands":[{"name":"compact"}]}""")
+        far.answer("initialize", """{"models":[{"value":"sonnet","displayName":"Sonnet"}],"commands":[{"name":"deploy"}]}""")
+        assertEquals(listOf("opus"), hub.modelOptions(Backends.LOCAL).map { it.value })
+        assertEquals(listOf("sonnet"), hub.modelOptions(remote.id).map { it.value })
+        assertEquals(
+            mapOf(Backends.LOCAL to listOf("compact"), remote.id to listOf("deploy")),
+            hub.settings.commands.mapValues { (_, list) -> list.map { it.name } },
+        )
+        hub.updateRemoteHosts(emptyList())
+        assertEquals(setOf(Backends.LOCAL), hub.models.keys)
+        assertEquals(setOf(Backends.LOCAL), hub.settings.commands.keys)
     }
 
     @Test

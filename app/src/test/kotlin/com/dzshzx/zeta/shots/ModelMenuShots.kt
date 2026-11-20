@@ -2,6 +2,7 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ReportedModels
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
@@ -15,7 +16,7 @@ import org.junit.Test
 
 /** 模型菜单只直接列各系列最新的，旧版本在「更多模型」二级菜单里；清单是 Claude Code 2.1.329 实际报的那 14 项。 */
 class ModelMenuShots : ShotTest() {
-    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.models = ReportedModels }
+    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.models = mapOf(Backends.LOCAL to ReportedModels) }
 
     /** 顶栏的模型菜单：默认和四个系列最新的，最后是「更多模型」。 */
     @Test

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.settings
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.RemoteHost
@@ -52,7 +53,7 @@ class SettingsKeysTest {
     private val samples: Map<String, Any?> = mapOf(
         "setSharedFolders" to listOf(SharedFolder("Download", "/storage/emulated/0/Download")),
         "setEnv" to LinuxEnvConfig("/data/local/zeta/debian/rootfs", "someone", 5000, 5000, "/home/someone", "/workspace/claude"),
-        "setCommands" to listOf(SlashCommand("compact", "", "")),
+        "setCommands" to mapOf(Backends.LOCAL to listOf(SlashCommand("compact", "", ""))),
         "setDarkTheme" to true,
         "setPhoneTools" to false,
         "setAgentDisplay" to false,

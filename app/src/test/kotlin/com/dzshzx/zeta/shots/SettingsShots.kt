@@ -3,6 +3,7 @@ package com.dzshzx.zeta.shots
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
@@ -47,13 +48,13 @@ class SettingsShots : ShotTest() {
     fun defaultEffort() {
         val hub = Fixtures.readyHub(app)
         val all = EffortLevels.map { it.first }
-        hub.models = listOf(
+        hub.models = mapOf(Backends.LOCAL to listOf(
             ModelOption("default", "Default (recommended)", "", "claude-opus-5-5", all),
             ModelOption("opus", "Opus", "", "claude-opus-5-5", all),
             ModelOption("fable", "Fable", "", "claude-fable-5-2", all),
             ModelOption("sonnet", "Sonnet", "", "claude-sonnet-5-5", all),
             ModelOption("haiku", "Haiku", "", "claude-haiku-5-5", all),
-        )
+        ))
         hub.updateClaudeDefaults(ClaudeDefaults(model = "opus", permissionMode = null, efforts = mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-1" to "high"), effort = null))
         shoot("settings-default-effort") { DefaultEffortScreen(hub = hub, onBack = {}) }
     }

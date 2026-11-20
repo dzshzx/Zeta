@@ -156,7 +156,7 @@ internal fun ChatScreen(
                 ChatTopBar(
                     conversation = conversation,
                     host = hub.backendName(conversation.backend).takeIf { conversation.backend != Backends.LOCAL },
-                    models = hub.modelOptions,
+                    models = hub.modelOptions(conversation.backend),
                     backdrop = blur.backdrop,
                     listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
@@ -559,7 +559,7 @@ private fun ConversationBody(
                 enabled = !conversation.loadingHistory && !conversation.rewinding,
                 attachments = attachments,
                 files = uploads,
-                commands = conversation.commands ?: hub.settings.commands.takeIf { conversation.backend == Backends.LOCAL }.orEmpty(),
+                commands = conversation.commands ?: hub.settings.commands[conversation.backend].orEmpty(),
                 onPickImages = {
                     if (attachments.size < MaxAttachments) {
                         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))

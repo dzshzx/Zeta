@@ -203,7 +203,7 @@ class Conversation(
 
     /**
      * 这个对话的 Claude Code 报的斜杠命令和技能（initialize 的应答）；还没起过进程时为 null，
-     * 输入栏这时用存下来的手机本机那份（[Settings.commands]），远程主机上的就先不提示。
+     * 输入栏这时用这台主机上次报的那份（[Settings.commands]）。
      */
     var commands by mutableStateOf<List<SlashCommand>?>(null)
         private set
@@ -721,14 +721,12 @@ class Conversation(
      */
     private fun initialize(target: ClaudeProcess) = target.request(controlBody("initialize")) { answer ->
         val response = answer.obj("response") ?: return@request
+        // 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样
         response.arr("models")?.let { list ->
-            hub.models = list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
+            hub.models += backend to list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
         }
         response.arr("commands")?.let { list ->
-            val parsed = parseSlashCommands(list)
-            commands = parsed
-            // 存下来给还没起进程的对话提示用的那份只记手机本机的：远程主机上装的 Skills、命令不一样
-            if (backend == Backends.LOCAL) hub.settings.commands = parsed
+            commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
         }
         response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }

@@ -46,7 +46,7 @@ class SessionRestoreTest {
         assertNull(conversation.model)
         assertNull(conversation.modelArgument())
         // 顶栏写「默认」，不留上一轮 init 报的模型
-        assertEquals("默认", modelLabel(conversation.shownModel, hub.modelOptions))
+        assertEquals("默认", modelLabel(conversation.shownModel, hub.modelOptions(conversation.backend)))
     }
 
     @Test

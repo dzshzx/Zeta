@@ -57,16 +57,21 @@ class SettingsTest {
         assertFalse(prefs().contains("autoCompactPercent"))
     }
 
-    /** 斜杠命令清单存成 JSON 数组，重读回来一样；存坏了读成空的。 */
+    /** 各主机的斜杠命令清单存成一个 JSON 对象，重读回来一样；存坏了（不是 JSON、不是对象）读成空的。 */
     @Test
     fun commandsRoundTrip() {
         val settings = Settings.of(app)
-        val commands = listOf(SlashCommand("compact", "压缩上下文", ""), SlashCommand("review", "", "<pr>"))
+        val commands = mapOf(
+            Backends.LOCAL to listOf(SlashCommand("compact", "压缩上下文", ""), SlashCommand("review", "", "<pr>")),
+            "r-00000001" to listOf(SlashCommand("deploy", "", "")),
+        )
         settings.commands = commands
         assertTrue(settings.restore(mapOf("commands" to prefs().getString("commands", null))))
         assertEquals(commands, settings.commands)
-        assertTrue(settings.restore(mapOf("commands" to "not json")))
-        assertEquals(emptyList<SlashCommand>(), settings.commands)
+        for (bad in listOf("not json", """[{"name":"compact"}]""", """{"local":"compact"}""")) {
+            assertTrue(settings.restore(mapOf("commands" to bad)))
+            assertEquals(bad, emptyMap<String, List<SlashCommand>>(), settings.commands)
+        }
     }
 
     /** 导入备份：写完存储，各项（连同交给 LinuxEnv 的共享文件夹清单）按导入的值重读。 */

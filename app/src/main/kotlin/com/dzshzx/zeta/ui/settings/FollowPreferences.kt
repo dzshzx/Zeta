@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.ModelMenu
@@ -81,10 +82,13 @@ internal fun FollowDropdownPreference(
     )
 }
 
-/** 「模型」：跟随 Claude Code 的默认，或 [modelChoices] 里的一个（旧版本在「更多模型」里）。 */
+/**
+ * 「模型」：跟随 Claude Code 的默认，或 [modelChoices] 里的一个（旧版本在「更多模型」里）。用它的定时任务、通知触发、数字助理
+ * 都只在手机本机上跑，列的是手机本机的 Claude Code 报的模型。
+ */
 @Composable
 internal fun ModelPreference(hub: ConversationHub, model: String?, onChange: (String?) -> Unit) {
-    val choices = modelChoices(hub.modelOptions)
+    val choices = modelChoices(hub.modelOptions(Backends.LOCAL))
     FollowDropdownPreference("模型", choices.latest, model, unknown = ::readableModelId, more = choices.older, onChange = onChange)
 }
 

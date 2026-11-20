@@ -64,15 +64,25 @@ data class RemoteImage(val url: String) : ImageRef {
 @Immutable
 data class SlashCommand(val name: String, val description: String, val argumentHint: String)
 
-/** 斜杠命令清单：Claude Code 在 initialize 的应答里报的 commands，也是存进设置的那份（[encodeSlashCommands]）。没有名字的项跳过。 */
+/** 斜杠命令清单：Claude Code 在 initialize 的应答里报的 commands，也是存进设置的各主机那份（[encodeHostCommands]）。没有名字的项跳过。 */
 internal fun parseSlashCommands(list: JsonArray): List<SlashCommand> = list.mapNotNull { (it as? JsonObject)?.let { c ->
     SlashCommand(c.str("name") ?: return@let null, c.str("description").orEmpty(), c.str("argumentHint").orEmpty())
 } }
 
-/** 斜杠命令清单存进设置的写法：和 Claude Code 报的同样形状的 JSON 数组，[parseSlashCommands] 读回。 */
-internal fun encodeSlashCommands(list: List<SlashCommand>): String = buildJsonArray {
-    for (c in list) add(buildJsonObject { put("name", c.name); put("description", c.description); put("argumentHint", c.argumentHint) })
+/** 各主机的斜杠命令清单存进设置的写法：JSON 对象，主机（[Backends]）→ 和 Claude Code 报的同样形状的数组，[decodeHostCommands] 读回。 */
+internal fun encodeHostCommands(hosts: Map<String, List<SlashCommand>>): String = buildJsonObject {
+    for ((backend, list) in hosts) {
+        put(backend, buildJsonArray {
+            for (c in list) add(buildJsonObject { put("name", c.name); put("description", c.description); put("argumentHint", c.argumentHint) })
+        })
+    }
 }.toString()
+
+/** [encodeHostCommands] 的逆操作；存坏了读成空的，各主机下次起进程时再存。 */
+internal fun decodeHostCommands(text: String?): Map<String, List<SlashCommand>> = runCatching {
+    (Json.parseToJsonElement(text ?: return emptyMap()) as JsonObject).entries
+        .associate { (backend, list) -> backend to parseSlashCommands(list as JsonArray) }
+}.getOrDefault(emptyMap())
 
 /** 发送时把附件（见 [AttachedPaths]）写成消息开头的几行，Claude 据此去读。 */
 internal fun withAttachedFiles(text: String, files: List<String>): String =
