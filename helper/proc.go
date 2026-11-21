@@ -33,6 +33,24 @@ func procStat(pid int) (start string, state byte, ok bool) {
 	return fields[19], fields[0][0], true
 }
 
+// procParent 是进程的父进程号（/proc/<pid>/stat 第 4 项）；进程不在了时 ok 为假。
+func procParent(pid int) (int, bool) {
+	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return 0, false
+	}
+	i := bytes.LastIndexByte(data, ')')
+	if i < 0 {
+		return 0, false
+	}
+	fields := strings.Fields(decodeString(data[i+1:]))
+	if len(fields) < 2 {
+		return 0, false
+	}
+	ppid, err := strconv.Atoi(fields[1])
+	return ppid, err == nil
+}
+
 // readPid 读托管目录里记的进程号（pid、attach 文件）。
 func readPid(path string) (int, bool) {
 	data, err := os.ReadFile(path)

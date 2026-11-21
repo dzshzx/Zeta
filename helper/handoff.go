@@ -154,11 +154,16 @@ func hostBusy(dir string) bool {
 	return err != nil || scan.busy || scan.tasks > 0
 }
 
-// releaseSession 结束占着会话 id 的托管进程；有在忙的时每秒看一次，最多等 wait，到时还忙就一个都不动、busy 为真。
-func (e *env) releaseSession(id string, wait time.Duration) (released int, busy bool) {
+// releaseSession 结束占着会话 id 的托管进程（skip 里的进程号除外）；有在忙的时每秒看一次，最多等 wait，到时还忙就一个都不动、busy 为真。
+func (e *env) releaseSession(id string, wait time.Duration, skip map[int]bool) (released int, busy bool) {
 	deadline := time.Now().Add(wait)
 	for {
-		holders := e.hostedHolders(id)
+		var holders []hostedHolder
+		for _, h := range e.hostedHolders(id) {
+			if !skip[h.pid] {
+				holders = append(holders, h)
+			}
+		}
 		busy = false
 		for _, h := range holders {
 			busy = busy || hostBusy(h.dir)
@@ -211,7 +216,7 @@ func writeFifo(path, line string) error {
 
 // cmdRelease 输出一行 {"released": 结束了几个, "busy": 是否因为还在忙没动}。
 func cmdRelease(e *env, o *emitter, id string, wait time.Duration) error {
-	released, busy := e.releaseSession(id, wait)
+	released, busy := e.releaseSession(id, wait, nil)
 	o.out(obj{"released": released, "busy": busy})
 	return nil
 }
@@ -229,9 +234,24 @@ func cmdSessionStart(e *env, o *emitter, in io.Reader) error {
 	if !isSessionID(id) || asString(input["source"]) != "resume" {
 		return nil
 	}
-	if _, busy := e.releaseSession(id, 0); busy {
+	// Zeta 自己起的进程接着会话时也会跑这个 hook：发起这次接回的 Claude Code 是本进程的祖先，不能把它自己结束掉
+	if _, busy := e.releaseSession(id, 0, ancestors(os.Getpid())); busy {
 		o.out(obj{"systemMessage": "Zeta 那边还在跑这个会话的这一轮。等它跑完再在这里发消息，否则两边会同时写同一份会话记录；" +
 			"跑完后重新 claude --resume 一次，Zeta 那边就会退出。"})
 	}
 	return nil
+}
+
+// ancestors 是进程 pid 往上的各级父进程（不含 pid 自己），按 /proc/<pid>/stat 的第 4 项一级级找到 1 为止。
+func ancestors(pid int) map[int]bool {
+	out := map[int]bool{}
+	for i := 0; i < 64; i++ {
+		ppid, ok := procParent(pid)
+		if !ok || ppid <= 1 || out[ppid] {
+			break
+		}
+		out[ppid] = true
+		pid = ppid
+	}
+	return out
 }

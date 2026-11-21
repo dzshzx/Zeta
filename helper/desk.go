@@ -186,11 +186,11 @@ func (e *env) deskHeader(id string) string {
 
 // deskRelease 让 Zeta 那边放手：正忙时说一声再等，等太久就回到提示。
 func (e *env) deskRelease(w io.Writer, id string) bool {
-	if _, busy := e.releaseSession(id, 0); !busy {
+	if _, busy := e.releaseSession(id, 0, nil); !busy {
 		return true
 	}
 	fmt.Fprintln(w, "Zeta 那边这一轮还在跑，跑完就接过来……")
-	if _, busy := e.releaseSession(id, deskReleaseWait); busy {
+	if _, busy := e.releaseSession(id, deskReleaseWait, nil); busy {
 		fmt.Fprintln(w, "等了太久，Zeta 那边还在跑。稍后再回车。")
 		return false
 	}

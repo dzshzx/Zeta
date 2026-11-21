@@ -434,3 +434,18 @@ func TestSessionStartHookReleasesOnResume(t *testing.T) {
 		t.Fatalf("busy: %q", out)
 	}
 }
+
+func TestSessionStartDoesNotEndTheClaudeThatIsResuming(t *testing.T) {
+	e := testEnv(t)
+	_, pid, done := hosted(t, e, "zeta", handoffID, turnDone...)
+	// Zeta 自己起的 claude --resume 跑这个 hook 时，它是 hook 的祖先：不结束它
+	if released, busy := e.releaseSession(handoffID, 0, map[int]bool{pid: true}); released != 0 || busy || !stillUp(done) {
+		t.Fatalf("released %d busy %v, still up %v", released, busy, stillUp(done))
+	}
+	if !ancestors(os.Getpid())[os.Getppid()] {
+		t.Fatal("the parent is not among the ancestors")
+	}
+	if ancestors(pid)[pid] {
+		t.Fatal("a process is its own ancestor")
+	}
+}
