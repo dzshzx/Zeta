@@ -65,8 +65,12 @@ abstract class RemoteLinkContract {
             writeText("#!/bin/bash\nn=0\nwhile IFS= read -r line; do n=${'$'}((n + 1)); printf '{\"type\":\"echo\",\"n\":%d}\\n' \"${'$'}n\"; done\n")
             setExecutable(true)
         }
+        // 远端的登录配置每读一次记一行：起进程要读，接上、重连不读（LinuxShell.startPlain）
+        File(remoteHome, ".bash_profile").writeText("echo x >> \"\$HOME/profile-reads\"\n")
         shell = connect()
     }
+
+    private fun profileReads(): Int = File(remoteHome, "profile-reads").takeIf { it.exists() }?.readLines()?.size ?: 0
 
     @After
     fun tearDown() {
@@ -123,6 +127,7 @@ abstract class RemoteLinkContract {
         process.send(message(4))
         assertEquals(4, nextEcho())
         assertTrue(exits.isEmpty())
+        assertEquals("登录配置只在起进程时读", 1, profileReads())
     }
 
     @Test

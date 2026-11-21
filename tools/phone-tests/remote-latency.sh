@@ -1,7 +1,8 @@
 #!/bin/bash
 # 每条命令要多久：手机本机的 Debian、经手机 Debian 的 OpenSSH 连远程主机、Zeta 直连远程主机，三条路走的都是测试版平常
 # 跑命令的那段代码（core/diag/LatencyBench，只在测试版的 manifest 里登记），命令是 true。两条远程的连同一台主机的同一个 sshd。
-# 几条路轮流跑：先各预热一次，再复用连接各跑 WARM 次（默认 20），远程的再各重新握手 COLD 次（默认 5）。不起 Claude，不建会话。
+# 几条路轮流跑：先各预热一次，再复用连接各跑 WARM 次（默认 20，登录 shell 和不登录的各一次：zeta-helper 这类命令不起登录 shell），
+# 远程的再各重新握手 COLD 次（默认 5）。不起 Claude，不建会话。
 # 模拟器上连回设备自己 Debian 里的 sshd（127.0.0.1:8022，同 remote-host.sh、remote-direct.sh，测试版的公钥由脚本加进去），
 # 不经网络，量的是两种连法各自的固定开销。手机上连 Debian 的 ~/.ssh/config 里的别名 LATENCY_ALIAS（默认 nerv-wsl）：
 # 直连的地址取 ssh -G 解析出的用户、主机、端口，主机指纹在手机 Debian 里用 ssh-keyscan 取。
@@ -58,8 +59,8 @@ stats() {
   echo "每条命令（true）从发出到收齐结果，毫秒；经 Debian：$debian_target，直连：$direct_target"
   for via in local debian direct; do
     case $via in local) name=手机本机Debian ;; debian) name=经手机Debian ;; direct) name=Zeta直连 ;; esac
-    for kind in warm cold; do
-      case $kind in warm) what=复用连接 ;; cold) what=重新握手 ;; esac
+    for kind in warm plain cold; do
+      case $kind in warm) what=复用连接 ;; plain) what=复用连接不登录 ;; cold) what=重新握手 ;; esac
       line=$(awk -v v=$via -v k=$kind '$1 == "sample" && $2 == v && $3 == k && $5 == 0 { print $4 }' samples.txt | stats)
       [[ -z $line ]] || echo "$name $what：$line"
     done

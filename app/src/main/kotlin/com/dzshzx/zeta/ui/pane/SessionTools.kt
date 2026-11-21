@@ -46,7 +46,7 @@ internal class ContentSearch(
                 var complete: Boolean? = null
                 runCatching {
                     check(hub.ensureHelper(shell)) { "zeta-helper 没装上" }
-                    val started = shell.start(hub.helperProgram.command("search", listOf(query)))
+                    val started = shell.startPlain(hub.helperProgram.command("search", listOf(query)))
                     val stop = synchronized(this) {
                         process = started
                         cancelled

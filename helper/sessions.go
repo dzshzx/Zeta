@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -34,29 +35,40 @@ type summaryScan struct {
 	custom, ai    string // 改过的名字、自动起的标题
 	first, prompt string // 第一句话（含斜杠命令）、第一句真正的话
 	cwd           any
+	// 开头读过 liteBytes 还没找到第一句真正的话：不再找，预览用第一句话（结尾那段里的话不是“第一句”）；
+	// 剪到第一条消息之前时重新找
+	settled bool
 }
 
+// liteBytes：概要读记录的开头和结尾各最多这么多字节（见 summarize）。
+const liteBytes = 64 * 1024
+
 // summarize 读一份记录的概要：标题、工作目录、预览。记录里一句用户的话都没有时 ok 为假。
+//
+// 和 Claude Code 自己的会话列表一样只读头尾，不读整份（记录常有几十上百 MB，列表一次要读几百份）：
+// 开头读到第一句真正的话为止，首句是斜杠命令时再往后找，过了 liteBytes 就不找了，预览用那条斜杠命令；
+// 结尾读最后 liteBytes 取标题：Claude Code 补写元数据时把改过的名字、自动起的标题再追加到末尾，最新的标题总在那里。
+// 中间剪切过（剪到第一条消息之前）的会话，剪切记号不在头尾时预览还是剪掉之前的那句。
 func summarize(path string) (summary, bool, error) {
 	f, err := openFile(path)
 	if err != nil {
 		return summary{}, false, err
 	}
 	defer f.Close()
-	var s summaryScan
-	lr := newLineReader(f)
-	for line, ok := lr.next(); ok; line, ok = lr.next() {
-		s.line(line)
+	fi, err := f.Stat()
+	if err != nil {
+		return summary{}, false, err
 	}
-	if lr.err != nil {
-		return summary{}, false, lr.err
+	var s summaryScan
+	read, err := s.head(f)
+	if err != nil {
+		return summary{}, false, err
+	}
+	if err := s.tail(f, read, fi.Size()); err != nil {
+		return summary{}, false, err
 	}
 	if s.first == "" {
 		return summary{}, false, nil
-	}
-	fi, err := os.Stat(path)
-	if err != nil {
-		return summary{}, false, err
 	}
 	title := s.custom
 	if title == "" {
@@ -70,6 +82,56 @@ func summarize(path string) (summary, bool, error) {
 		preview: runePrefix(preview, 200), updated: millis(mtimeOf(fi))}, true, nil
 }
 
+// head 从头逐行读到第一句真正的话；首句是斜杠命令时接着找，读过 liteBytes 就停。返回读到哪里（最后读的那行的末尾）。
+// 一句用户的话都还没有时一直读下去（比如第一条消息带着很大的图片，一行就超过 liteBytes）。
+func (s *summaryScan) head(f *os.File) (int64, error) {
+	lr := newLineReaderSize(f, liteBytes)
+	var read int64
+	for line, ok := lr.next(); ok; line, ok = lr.next() {
+		s.line(line)
+		read += int64(len(line))
+		if s.prompt != "" {
+			break
+		}
+		if s.first != "" && read >= liteBytes {
+			s.settled = true
+			break
+		}
+	}
+	return read, lr.err
+}
+
+// tail 读 [from, size) 里最后至多 liteBytes 字节中的整行：开头落在一行中间时那半行不要；最后一行没写完的照样读（同 head）。
+func (s *summaryScan) tail(f *os.File, from, size int64) error {
+	start := max(from, size-liteBytes)
+	if start >= size {
+		return nil
+	}
+	// 从 head 读到的地方往后接着读时正是一行的开头；否则多读前一个字节，它是换行才说明 start 是一行的开头
+	cut := start > from
+	if cut {
+		start--
+	}
+	buf := make([]byte, size-start)
+	n, err := f.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	buf = buf[:n]
+	if cut {
+		i := bytes.IndexByte(buf, '\n')
+		if i < 0 {
+			return nil
+		}
+		buf = buf[i+1:]
+	}
+	lr := newLineReaderSize(bytes.NewReader(buf), liteBytes)
+	for line, ok := lr.next(); ok; line, ok = lr.next() {
+		s.line(line)
+	}
+	return lr.err
+}
+
 func (s *summaryScan) line(line []byte) {
 	// 先按子串筛，绝大多数行（请求快照等）不必解析
 	switch {
@@ -77,8 +139,8 @@ func (s *summaryScan) line(line []byte) {
 		s.title(line)
 	case has(line, `"leafUuid":null`) && isRewind(line):
 		// 剪到了第一条消息之前：之前的提问不算了，预览改用之后的第一句
-		s.first, s.prompt = "", ""
-	case s.prompt == "" && has(line, `"type":"user"`):
+		s.first, s.prompt, s.settled = "", "", false
+	case s.prompt == "" && !s.settled && has(line, `"type":"user"`):
 		s.user(line)
 	case s.cwd == nil && has(line, `"cwd"`):
 		if o, ok := parseObject(line); ok {

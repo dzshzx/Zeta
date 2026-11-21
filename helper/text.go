@@ -233,8 +233,11 @@ type lineReader struct {
 	err error
 }
 
-func newLineReader(r io.Reader) *lineReader {
-	return &lineReader{r: bufio.NewReaderSize(r, 256*1024)}
+func newLineReader(r io.Reader) *lineReader { return newLineReaderSize(r, 256*1024) }
+
+// newLineReaderSize：缓冲 size 字节（一次从 r 读这么多；比它长的行照样读得出）。
+func newLineReaderSize(r io.Reader, size int) *lineReader {
+	return &lineReader{r: bufio.NewReaderSize(r, size)}
 }
 
 // next 返回下一行；读完或出错时为 false，出错的原因在 err（读完不算出错）。返回的切片下次调用后失效。

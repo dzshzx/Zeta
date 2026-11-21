@@ -195,10 +195,11 @@ class RemoteHostsTest {
 
     /**
      * 拼出来的那行交给本机的 bash（扮手机的 Debian），bash 起的是一个假 ssh：选项和目的地之后的那一段交给 sh -c（扮远端的登录 shell）。
-     * 命令里的空白、单引号、双引号、$ 都要原样到达远端的 bash，环境变量要带过去。
+     * 命令里的空白、单引号、双引号、$ 都要原样到达远端的 bash，环境变量要带过去。登录的读那边的登录配置，不登录的（startPlain）不读。
      */
     @Test
     fun commandSurvivesBothShells() {
+        File(temp, ".bash_profile").writeText("ZETA_PROFILE=read\n")
         val bin = File(temp, "bin").apply { mkdirs() }
         val log = File(temp, "argv")
         File(bin, "ssh").apply {
@@ -214,15 +215,17 @@ class RemoteHostsTest {
             setExecutable(true)
         }
         val tricky = "a b'c\"d\$e"
-        val command = "printf '%s|' \"\$ZETA_NAME\" \"\$TZ\" " + LinuxEnv.quote(tricky) + " \"\$0\""
-        val line = DebianSshShell.sshCommand("me@example.com", RemoteShell.remoteCommand(command, "zeta-dev", "Asia/Shanghai"))
-        val process = ProcessBuilder("bash", "-c", line).apply {
-            environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
-            environment()["HOME"] = temp.path
-        }.redirectErrorStream(true).start()
-        val out = process.inputStream.bufferedReader().readText()
-        assertTrue(process.waitFor(20, TimeUnit.SECONDS))
-        assertEquals("zeta-dev|Asia/Shanghai|$tricky|bash|", out.lines().last { it.isNotBlank() })
+        val command = "printf '%s|' \"\$ZETA_NAME\" \"\$TZ\" " + LinuxEnv.quote(tricky) + " \"\$0\" \"\${ZETA_PROFILE:-not-read}\""
+        for ((login, profile) in listOf(true to "read", false to "not-read")) {
+            val line = DebianSshShell.sshCommand("me@example.com", RemoteShell.remoteCommand(command, "zeta-dev", "Asia/Shanghai", login))
+            val process = ProcessBuilder("bash", "-c", line).apply {
+                environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
+                environment()["HOME"] = temp.path
+            }.redirectErrorStream(true).start()
+            val out = process.inputStream.bufferedReader().readText()
+            assertTrue(process.waitFor(20, TimeUnit.SECONDS))
+            assertEquals("login=$login", "zeta-dev|Asia/Shanghai|$tricky|bash|$profile|", out.lines().last { it.isNotBlank() })
+        }
         // 目的地在 -- 之后，ssh 不会把它当选项
         val argv = log.readLines()
         assertEquals("me@example.com", argv[argv.indexOf("--") + 1])

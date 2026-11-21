@@ -17,15 +17,26 @@ interface LinuxShell {
     /** 起一个进程跑 [command]（交给登录 shell 的一段命令），调用方负责读写和收尾。 */
     fun start(command: String): Process
 
+    /**
+     * 同 [start]，只是 [command] 用不着登录 shell 设的环境（PATH 里加的工具、代理之类）：只用 bash、coreutils
+     * 和按绝对路径执行的 zeta-helper。远程主机上这样的命令不起登录 shell，省下那边登录配置（~/.profile 等）的几十毫秒；
+     * 手机里 Debian 的登录配置很轻，照 [start] 跑。
+     */
+    fun startPlain(command: String): Process = start(command)
+
     /** 结束 [start] 起的进程，连同它派生的子进程。 */
     fun kill(process: Process)
 
-    /** 跑完 [command] 收齐输出；[stdin] 写进标准输入后关掉。到 [timeoutMs] 还没结束就结束它，结果标成超时（[CommandResult.timedOut]）。 */
-    fun run(command: String, stdin: String? = null, timeoutMs: Long = 30_000): CommandResult = run(command, stdin?.toByteArray(), timeoutMs)
+    /**
+     * 跑完 [command] 收齐输出；[stdin] 写进标准输入后关掉。到 [timeoutMs] 还没结束就结束它，结果标成超时（[CommandResult.timedOut]）。
+     * [plain] 为真时经 [startPlain] 起。
+     */
+    fun run(command: String, stdin: String? = null, timeoutMs: Long = 30_000, plain: Boolean = false): CommandResult =
+        run(command, stdin?.toByteArray(), timeoutMs, plain)
 
     /** 同上，标准输入是原样的字节（装 zeta-helper 时传程序本身，见 [HelperProgram]）。 */
-    fun run(command: String, stdin: ByteArray?, timeoutMs: Long): CommandResult =
-        LinuxEnv.capture(start(command), stdin, timeoutMs, ::kill).also { DiagEvents.linuxRun(command, it) }
+    fun run(command: String, stdin: ByteArray?, timeoutMs: Long, plain: Boolean = false): CommandResult =
+        LinuxEnv.capture(if (plain) startPlain(command) else start(command), stdin, timeoutMs, ::kill).also { DiagEvents.linuxRun(command, it) }
 }
 
 /** 手机里的 Debian：经 su 进去（[LinuxEnv]）。 */
@@ -45,20 +56,26 @@ class EnvShell(private val config: LinuxEnvConfig) : LinuxShell {
 sealed class RemoteShell(protected val host: RemoteHost, private val timeZone: String, private val linuxName: String) : LinuxShell {
     override val home: String get() = host.home
 
-    /** 交给那边登录 shell 的一行（[remoteCommand]）。 */
-    protected fun wrap(command: String): String = remoteCommand(command, linuxName, timeZone)
+    final override fun start(command: String): Process = launch(remoteCommand(command, linuxName, timeZone, login = true))
+
+    final override fun startPlain(command: String): Process = launch(remoteCommand(command, linuxName, timeZone, login = false))
+
+    /** 把交给那边用户 shell 的一行 [remote]（[remoteCommand]）送过去跑。 */
+    protected abstract fun launch(remote: String): Process
 
     companion object {
         /** 连不上（网络、认证、主机密钥不对）或连接断了时的退出码，和 ssh 一样；远端命令的退出码原样带回。 */
         const val CONNECTION_FAILED = SshLinks.CONNECTION_FAILED
 
         /**
-         * 交给远程登录 shell（bash、zsh 都行）的一行：换成 bash 的登录 shell 跑 [command]，环境和本机 Debian 里一样带上
-         * Zeta 的目录名、手机的时区。Claude Code 的安装程序把它放在 ~/.local/bin，有的主机只在交互 shell 里加进 PATH，这里补上。
+         * 交给远程用户 shell（bash、zsh 都行）的一行：换成 bash 跑 [command]，环境和本机 Debian 里一样带上 Zeta 的目录名、
+         * 手机的时区。[login] 时是 bash 的登录 shell，PATH 再补上 ~/.local/bin（Claude Code 的安装程序放在那里，
+         * 有的主机只在交互 shell 里加进 PATH）；不是时不读那边的登录配置（[LinuxShell.startPlain]）。
          */
-        fun remoteCommand(command: String, linuxName: String, timeZone: String): String =
+        fun remoteCommand(command: String, linuxName: String, timeZone: String, login: Boolean): String =
             "exec env " + AppVariant.LINUX_NAME_ENV + "=" + LinuxEnv.quote(linuxName) + " TZ=" + LinuxEnv.quote(timeZone) +
-                " LANG=C.UTF-8 TERM=dumb bash -lc " + LinuxEnv.quote("PATH=\"\$PATH:\$HOME/.local/bin\"; $command")
+                " LANG=C.UTF-8 TERM=dumb bash " +
+                (if (login) "-lc " + LinuxEnv.quote("PATH=\"\$PATH:\$HOME/.local/bin\"; $command") else "-c " + LinuxEnv.quote(command))
     }
 }
 
@@ -76,7 +93,7 @@ class DebianSshShell(
     timeZone: String = TimeZone.getDefault().id,
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
-    override fun start(command: String): Process = local.start(sshCommand(host.target, wrap(command)))
+    override fun launch(remote: String): Process = local.start(sshCommand(host.target, remote))
 
     override fun kill(process: Process) = local.kill(process)
 
@@ -132,7 +149,7 @@ class DirectSshShell(
     private val target = checkNotNull(SshTarget.parse(host.target)) { "直连的地址不对：${host.target}" }
     private val hostKey = checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的主机没有记下指纹" }
 
-    override fun start(command: String): Process = links.start(host.id, target, hostKey, wrap(command))
+    override fun launch(remote: String): Process = links.start(host.id, target, hostKey, remote)
 
     override fun kill(process: Process) = process.destroy()
 }

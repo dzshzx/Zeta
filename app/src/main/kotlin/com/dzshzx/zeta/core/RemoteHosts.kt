@@ -164,7 +164,7 @@ object RemoteHosts {
      */
     fun probeDirect(links: SshLinks, target: String, expectedHostKey: String? = null, linuxName: String = AppVariant.current.linuxName): Probe {
         val parsed = SshTarget.parse(target) ?: return Probe.Failed(DIRECT_TARGET_HINT)
-        val command = RemoteShell.remoteCommand(ProbeScript, linuxName, TimeZone.getDefault().id)
+        val command = RemoteShell.remoteCommand(ProbeScript, linuxName, TimeZone.getDefault().id, login = true)
         val result = runCatching { links.probe(parsed, expectedHostKey?.let(::decodeKey), command) }.getOrElse { return Probe.Failed(SshLinks.problem(it)) }
         val seen = result.hostKey?.let(::encodeKey)
         if (result.hostKeyChanged && seen != null) return Probe.HostKeyChanged(seen)

@@ -104,15 +104,17 @@ class ClaudeProcess(
                 is Launch.Attach -> hostCommand(listOf("attach", hostKey, launch.fromLine.toString()))
             },
             attempt = 0,
+            login = launch is Launch.Start,
         )
     }
 
     /**
      * 接上一次：起 [command]，开读输出、读错误、写输入三个线程。连接断了由读输出的线程决定是结束还是重连。
      * [attempt] 是第几次重连（0 是第一次接上），抛出的异常（su、ssh 起不来）第一次时交给调用方。
+     * [login]：起 Claude Code 要登录 shell 的环境（PATH 里的 claude、代理等）；只接上的话托管脚本只用 bash 和 coreutils（[LinuxShell.startPlain]）。
      */
-    private fun connect(command: String, attempt: Int) {
-        val process = shell.start(command)
+    private fun connect(command: String, attempt: Int, login: Boolean) {
+        val process = if (login) shell.start(command) else shell.startPlain(command)
         val stderrTail = StringBuilder()
         // 托管脚本说接上了才开始写：没接上的连接（ssh 正要失败退出）收下的消息会跟着它一起丢掉
         val ready = CountDownLatch(1)
@@ -202,7 +204,7 @@ class ClaudeProcess(
                 finish(ProcessExit(-1, stderr), stopped = true)
                 return@thread
             }
-            val started = runCatching { connect(hostCommand(listOf("attach", hostKey, nextLine.toString())), attempt) }
+            val started = runCatching { connect(hostCommand(listOf("attach", hostKey, nextLine.toString())), attempt, login = false) }
             if (started.isFailure) retry(attempt + 1, started.exceptionOrNull()?.message.orEmpty())
         }
     }
@@ -242,7 +244,7 @@ class ClaudeProcess(
         closed = true
         requests.clear()
         outbox.offer(POISON)
-        thread(isDaemon = true) { runCatching { shell.run(hostCommand(listOf("stop", hostKey)), timeoutMs = 20_000) } }
+        thread(isDaemon = true) { runCatching { shell.run(hostCommand(listOf("stop", hostKey)), timeoutMs = 20_000, plain = true) } }
     }
 
     private companion object {

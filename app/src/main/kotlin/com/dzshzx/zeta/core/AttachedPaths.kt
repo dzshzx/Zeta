@@ -152,7 +152,7 @@ object PathCheck {
     /** 以 Linux 用户的身份在 [shell] 那台机器上一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。 */
     fun checkAll(shell: LinuxShell, paths: List<String>, hostKey: String?): List<PathKind> {
         if (paths.isEmpty()) return emptyList()
-        val kinds = runCatching { shell.run(command(paths, hostKey), timeoutMs = 20_000) }.getOrNull()
+        val kinds = runCatching { shell.run(command(paths, hostKey), timeoutMs = 20_000, plain = true) }.getOrNull()
             ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) }
         return kinds?.takeIf { it.size == paths.size } ?: paths.map { PathKind.Unknown }
     }

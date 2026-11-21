@@ -159,14 +159,14 @@ class ConversationHub(
      */
     fun helper(subcommand: String, arguments: List<String> = emptyList(), timeoutMs: Long = 30_000, backend: String): HelperResult {
         val shell = shell(backend) ?: return HelperResult.Failed(unavailable(backend) ?: "还没有可用的 Linux 环境")
-        val result = runCatching { helperProgram.run({ command, stdin -> shell.run(command, stdin, timeoutMs) }, subcommand, arguments) }.getOrNull()
+        val result = runCatching { helperProgram.run({ command, stdin -> shell.run(command, stdin, timeoutMs, plain = true) }, subcommand, arguments) }.getOrNull()
         if (result == null && backend != Backends.LOCAL) return HelperResult.Failed("连不上「${backendName(backend)}」")
         return result?.let { linkProblem(backend, it.exitCode, it.stderr) }?.let(HelperResult::Failed) ?: HelperResult.of(result)
     }
 
     /** 确认 zeta-helper 已装进 [shell] 那台（没装就装上）；要自己起它的进程（边读边出结果）之前用。装好了是 true。阻塞。 */
     fun ensureHelper(shell: LinuxShell): Boolean =
-        runCatching { helperProgram.ensure { command, stdin -> shell.run(command, stdin, 60_000) }?.exitCode == 0 }.getOrDefault(false)
+        runCatching { helperProgram.ensure { command, stdin -> shell.run(command, stdin, 60_000, plain = true) }?.exitCode == 0 }.getOrDefault(false)
 
     /**
      * 新对话的默认值：Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），Zeta 不另存一份。
@@ -494,7 +494,7 @@ class ConversationHub(
                 val idle = others - active.toSet()
                 if (idle.isNotEmpty()) thread(name = "zeta-hosts", isDaemon = true) {
                     for (host in idle) {
-                        runCatching { shell.run(hostCommandLine(hostScript, listOf("stop", host.key))) }
+                        runCatching { shell.run(hostCommandLine(hostScript, listOf("stop", host.key)), plain = true) }
                     }
                 }
                 // 用户的权限模式只留给还接着的进程：这台主机上查到的之外的不动（别的主机的进程这次没查）
@@ -704,12 +704,14 @@ class ConversationHub(
     /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态），[text] 是胶囊上停留的那一句（“已完成”）。在主线程上调用。 */
     internal fun onTurnEnding(conversation: Conversation, text: String) = alerts.turnEnding(conversation, text)
 
-    /** 一轮结束了：切走的对话闲下来就收掉，提醒交给 [alerts]，会话列表重读。[stopped]：这一轮是用户叫停的。 */
+    /** 一轮结束了：切走的对话闲下来就收掉，提醒交给 [alerts]，会话列表里这个会话重读。[stopped]：这一轮是用户叫停的。 */
     internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
         if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
         alerts.turnFinished(conversation, stopped)
         // 侧栏列的是别的主机的话，这一轮没改到它
-        if (conversation.backend == backend) sessionList.refresh()
+        if (conversation.backend != backend) return
+        val session = conversation.sessionId
+        if (session != null) sessionList.touched(session) else sessionList.refresh()
     }
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */

@@ -59,6 +59,25 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         }
     }
 
+    /**
+     * 侧栏那台主机上的会话 [sessionId] 刚答完一轮：只重读这一项（新开的对话加进列表，时间、预览换新），不整份重读，
+     * 一轮只改了这一个会话。没查成就不动，下次打开侧栏时整份重读。在主线程上调用。
+     */
+    internal fun touched(sessionId: String) {
+        val backend = hub.backend
+        if (hub.shell(backend) == null) return
+        thread(name = "zeta-sessions", isDaemon = true) {
+            val found = find(listOf(sessionId), backend) ?: return@thread
+            main.post { if (backend == hub.backend) merged(found) }
+        }
+    }
+
+    /** 重读了其中几项（[found]）：换掉列表里的同一会话，没有的加进去，照旧按时间从新到旧排。在主线程上调用。 */
+    internal fun merged(found: List<SessionSummary>) {
+        val ids = found.mapTo(HashSet()) { it.id }
+        listed((found + sessions.filterNot { it.id in ids }).sortedByDescending { it.updated })
+    }
+
     /** Claude Code 给会话 [sessionId] 起好了标题（已经写进会话记录）：列表里只改这一项，不整份重读。在主线程上调用。 */
     internal fun titled(sessionId: String, title: String) {
         freshTitles[sessionId] = title

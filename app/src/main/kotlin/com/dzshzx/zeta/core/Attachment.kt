@@ -101,7 +101,7 @@ object Uploads {
         val input = open() ?: return@runCatching Copied(null)
         val directory = "${AppVariant.current.cacheDir(shell.home)}/files/${UUID.randomUUID().toString().take(8)}"
         val target = "$directory/$name"
-        val process = shell.start("mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
+        val process = shell.startPlain("mkdir -p " + LinuxEnv.quote(directory) + " && cat > " + LinuxEnv.quote(target))
         var over = false
         input.use { source ->
             process.outputStream.use { sink ->
@@ -122,7 +122,7 @@ object Uploads {
         // 关掉标准输入 cat 就会结束（app 给不了 su 的子进程发信号，只能这样让它停）
         val ok = process.waitFor() == 0
         if (over) {
-            runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory)) }
+            runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory), plain = true) }
             return@runCatching Copied(null, tooLarge = true)
         }
         Copied(if (ok) target else null)
