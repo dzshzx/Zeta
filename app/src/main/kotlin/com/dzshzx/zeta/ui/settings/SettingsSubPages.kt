@@ -17,4 +17,7 @@ internal enum class SettingsSubPage(val link: String) {
     Assistant("Assistant"),
     Backup("Backup"),
     RemoteHosts("RemoteHosts"),
+    License("License"),
+    OpenSource("OpenSource"),
+    Credits("Credits"),
 }

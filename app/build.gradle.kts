@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.licensee)
 }
 
 // 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见 CLAUDE.md「发版与上线」）：
@@ -237,4 +238,46 @@ dependencies {
             because("Espresso 3.5 调的 InputManager.getInstance() 在 SDK 37 的 Robolectric 镜像里没有")
         }
     }
+}
+
+// 第三方许可证（见仓根 THIRD_PARTY.md）：licensee 从每个变体的运行时依赖（正式版就是 release 的）生成清单，
+// 打进 assets 的 licenses/artifacts.json，设置「开源许可」页照它列。许可证只许下面这些，别的或认不出的构建失败。
+// 都和 GPL-3.0 兼容；不在 Maven 上的组件（字体、原生库里的代码、zeta-helper 链接的 Go 模块）手写在 core/about/ThirdParty.kt。
+licensee {
+    listOf("Apache-2.0", "MIT", "BSD-3-Clause").forEach { allow(it) }
+    // POM 只写了网址、认不出 SPDX 标识的：核对过网址上的全文，because 写它实际是哪种；ThirdParty.LICENSE_URLS 也要加上
+    allowUrl("https://github.com/suqi8/coui/blob/main/LICENSE") { because("Apache-2.0") }
+    allowUrl("https://www.bouncycastle.org/licence.html") { because("MIT：Bouncy Castle 的许可就是 MIT 的原文") }
+    allowUrl("https://github.com/jordond/materialkolor/blob/master/LICENSE") { because("MIT") }
+    // JSch 另列的 JZlib（BSD-3-Clause）、jBCrypt（ISC）两个网址，Maven 当作任选其一，放行第一个就过了
+    allowUrl("https://github.com/mwiede/jsch/blob/master/LICENSE.txt") { because("BSD-3-Clause") }
+    bundleAndroidAsset = true
+    androidAssetReportPath = "licenses/artifacts.json"
+}
+
+/** 把仓根的 LICENSE（GPL-3.0 全文）拷成 assets 的 licenses/GPL-3.0-only.txt，设置「许可证」页显示它，仓里不另放一份。 */
+@CacheableTask
+abstract class LicenseAssetTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val license: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        license.get().asFile.copyTo(File(out, "licenses/GPL-3.0-only.txt"))
+    }
+}
+
+val zetaLicense = tasks.register<LicenseAssetTask>("zetaLicense") {
+    license.set(rootProject.layout.projectDirectory.file("LICENSE"))
+    outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
+}
+
+androidComponents {
+    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaLicense, LicenseAssetTask::outputDir) }
 }

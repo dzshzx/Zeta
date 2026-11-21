@@ -11,7 +11,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
@@ -26,11 +25,9 @@ import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.pane.hostIcon
 import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
-import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Add
 import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.icon.extended.Info
 import io.github.suqi8.coui.kmp.icon.extended.Theme
 import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
@@ -69,6 +66,9 @@ internal fun SettingsScreen(
                 SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
                 SettingsSubPage.NotifyTriggers -> NotifyTriggerScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
                 SettingsSubPage.Diagnostics -> DiagnosticsScreen(hub = hub, onBack = close)
+                SettingsSubPage.License -> LicenseScreen(onBack = close)
+                SettingsSubPage.OpenSource -> OpenSourceScreen(onBack = close)
+                SettingsSubPage.Credits -> CreditsScreen(onBack = close)
                 SettingsSubPage.Assistant -> AssistantSettingsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Backup -> SettingsBackupScreen(hub = hub, onBack = close)
                 // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
@@ -197,24 +197,7 @@ private fun SettingsHome(
                 }
             }
         }
-        item(key = "about") {
-            PreferenceGroup(title = "关于", footer = "Markdown 渲染、侧栏和主题的代码来自 Eta，按 GPL-3.0 授权。") {
-                item {
-                    BasicComponent(
-                        title = "版本",
-                        summary = BuildConfig.VERSION_NAME,
-                        startAction = { SettingsIcon(COUIIcons.Info, SettingsHue.System) },
-                    )
-                }
-                item {
-                    ArrowPreference(
-                        title = "诊断与日志",
-                        startAction = { SettingsIcon(ZetaIcons.Pulse, SettingsHue.Files) },
-                        onClick = { onOpenSubPage(SettingsSubPage.Diagnostics) },
-                    )
-                }
-            }
-        }
+        item(key = "about") { AboutGroup(onOpenSubPage) }
     }
 }
 
