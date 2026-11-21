@@ -37,6 +37,26 @@ class PhoneToolTitlesTest {
             },
         )
         assertEquals("点按屏幕", title("tap"))
+        assertEquals(
+            "双击「图片」",
+            title("tap") {
+                put("match", "图片")
+                put("count", 2)
+            },
+        )
+        assertEquals("双击屏幕", title("tap") { put("count", 2) })
+        assertEquals(
+            "向下拖动",
+            title("swipe") {
+                put("x1", 300)
+                put("y1", 300)
+                put("x2", 300)
+                put("y2", 900)
+                put("hold_ms", 800)
+            },
+        )
+        assertEquals("开始录屏", title("screen_record") { put("action", "start") })
+        assertEquals("结束录屏", title("screen_record") { put("action", "stop") })
         assertEquals("向下滚动", title("scroll") { put("direction", "down") })
         assertEquals(
             "向上滚动「设置」",

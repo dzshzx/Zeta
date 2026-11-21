@@ -147,51 +147,113 @@ class ZetaAccessibilityService : AccessibilityService() {
     // ---- 手势 ----
 
     /**
-     * 沿 [path] 做一次手势，等它做完。返回是否完成。 [holdMs] 大于 0 时，走到终点后按住不动这么久再抬起：列表就不会按抬手时的速度甩出惯性，滚动的距离和手指走的一样。
+     * 沿 [path] 做一次手势，等它做完。返回是否完成。[pressMs] 大于 0 时先在起点按住不动这么久再走（拖动：按住拿起，再挪过去）。 [holdMs] 大于 0
+     * 时，走到终点后按住不动这么久再抬起：列表就不会按抬手时的速度甩出惯性，滚动的距离和手指走的一样。 几段接成不抬手的一笔（continueStroke），一段一段派发。
      */
-    fun gesture(displayId: Int, path: Path, durationMs: Long, holdMs: Long = 0): Boolean {
+    fun gesture(
+        displayId: Int,
+        path: Path,
+        durationMs: Long,
+        holdMs: Long = 0,
+        pressMs: Long = 0,
+    ): Boolean {
         val duration = durationMs.coerceAtLeast(1)
+        val parts = buildList {
+            if (pressMs > 0) add(still(path, atEnd = false) to pressMs)
+            add(path to duration)
+            if (holdMs > 0) add(still(path, atEnd = true) to holdMs)
+        }
         // 路径越界、时长超限时系统直接抛异常：当作没做成，调用方会改用 input 命令
-        val stroke = runCatching {
-            GestureDescription.StrokeDescription(path, 0, duration, holdMs > 0)
+        val descriptions = runCatching {
+            chained(displayId, parts)
         }
             .getOrElse {
                 return false
             }
-        val description = runCatching {
-            GestureDescription.Builder().setDisplayId(displayId).addStroke(stroke).build()
-        }
-            .getOrElse {
-                return false
-            }
-        val hold =
-            if (holdMs <= 0) null
-            else
-                runCatching {
-                    val end =
-                        FloatArray(2).also {
-                            PathMeasure(path, false).run { getPosTan(length, it, null) }
-                        }
-                    val still = Path().apply { moveTo(end[0], end[1]) }
-                    GestureDescription.Builder()
-                        .setDisplayId(displayId)
-                        .addStroke(stroke.continueStroke(still, 0, holdMs, false))
-                        .build()
+        return clearOfCapsule(displayId, path) { onMain ->
+            if (onMain) GestureIndicator.show(this, displayId, path, pressMs + duration)
+            descriptions.indices.all { i ->
+                dispatchAndWait(descriptions[i], parts[i].second).also {
+                    // 接着的几段里有一段被系统取消（别的触摸、窗口变化），调用方会改用 input 命令重做
+                    if (!it)
+                        Log.w(
+                            "ZetaPhone",
+                            "display $displayId: gesture part ${i + 1}/${parts.size} cancelled",
+                        )
                 }
-                    .getOrElse {
-                        return false
-                    }
+            }
+        }
+    }
+
+    /**
+     * 在 ([x], [y]) 连点几下（双击）：[starts] 是每一下从手势开始算起什么时候按下，每下按 [tapMs]。几下放在同一个手势里，
+     * 节奏由系统按时间表注入，不受派发快慢的影响。返回是否完成。
+     */
+    fun taps(displayId: Int, x: Int, y: Int, starts: List<Long>, tapMs: Long): Boolean {
+        val point = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+        val total = (starts.maxOrNull() ?: 0L) + tapMs
+        val description = runCatching {
+            GestureDescription.Builder()
+                .setDisplayId(displayId)
+                .apply {
+                    for (start in starts) addStroke(
+                        GestureDescription.StrokeDescription(point, start, tapMs),
+                    )
+                }
+                .build()
+        }
+            .getOrElse {
+                return false
+            }
+        return clearOfCapsule(displayId, point) { onMain ->
+            if (onMain) GestureIndicator.show(this, displayId, point, total)
+            dispatchAndWait(description, total)
+        }
+    }
+
+    /** 做 [block]（参数是不是在主屏上）：主屏上的手势经过胶囊时，先请胶囊让开（上移淡出、不接收触摸，否则会被它截走），等动画走完再做。 */
+    private inline fun clearOfCapsule(
+        displayId: Int,
+        path: Path,
+        block: (onMain: Boolean) -> Boolean,
+    ): Boolean {
         val onMain = displayId == OverlayWindow.mainDisplay(this)
-        // 胶囊窗口接收触摸，经过它的手势会被它截走：先请它让开（上移淡出、不接收触摸），等动画走完再注入
         val clear = onMain && Looper.myLooper() != Looper.getMainLooper() && crossesCapsule(path)
         val wait = if (clear) holdCapsule() else 0L
         try {
             if (wait > 0) Thread.sleep(wait)
-            if (onMain) GestureIndicator.show(this, displayId, path, duration)
-            if (!dispatchAndWait(description, duration)) return false
-            return hold == null || dispatchAndWait(hold, holdMs)
+            return block(onMain)
         } finally {
             if (clear) releaseCapsule(RESTORE_AFTER_GESTURE_MS)
+        }
+    }
+
+    /**
+     * 在 [path] 的起点（或 [atEnd] 时终点）按住不动的一段。只有一个点的笔画系统按下后马上就报做完了，按不住（实测拖动时 按住 1500 毫秒，220
+     * 毫秒后就开始挪）：所以来回挪 1 像素再回原处，远小于触摸的容差，应用看来是按着没动，整段时长都按着。
+     */
+    private fun still(path: Path, atEnd: Boolean): Path {
+        val point = FloatArray(2)
+        PathMeasure(path, false).run { getPosTan(if (atEnd) length else 0f, point, null) }
+        val (x, y) = point
+        val nudge = if (x >= 1f) -1f else 1f
+        return Path().apply {
+            moveTo(x, y)
+            lineTo(x + nudge, y)
+            lineTo(x, y)
+        }
+    }
+
+    /** 几段（路径和时长）接成不抬手的一笔：每段一个手势，依次派发。 */
+    private fun chained(displayId: Int, parts: List<Pair<Path, Long>>): List<GestureDescription> {
+        var stroke: GestureDescription.StrokeDescription? = null
+        return parts.mapIndexed { i, (part, ms) ->
+            val more = i < parts.lastIndex
+            val next =
+                stroke?.continueStroke(part, 0, ms, more)
+                    ?: GestureDescription.StrokeDescription(part, 0, ms, more)
+            stroke = next
+            GestureDescription.Builder().setDisplayId(displayId).addStroke(next).build()
         }
     }
 

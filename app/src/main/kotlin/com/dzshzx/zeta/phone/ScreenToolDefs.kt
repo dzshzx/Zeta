@@ -62,7 +62,7 @@ internal object ScreenToolDefs {
                 ?: other?.let { verb + gap(it) + it }
         return when (name) {
             "screen" -> if (a.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕"
-            "tap" -> aimed("点按") ?: "点按屏幕"
+            "tap" -> tapVerb(a.int("count")).let { aimed(it) ?: "${it}屏幕" }
             "long_press" -> aimed("长按") ?: "长按屏幕"
             "scroll" -> {
                 val verb = (ScrollDirection.parse(a.str("direction"))?.word ?: "") + "滚动"
@@ -74,18 +74,29 @@ internal object ScreenToolDefs {
             "wait" -> waitTitle(a)
             "open_app" -> openTitle(a)
             "show_to_user" -> "把" + (scene?.agentDisplayApp ?: "应用") + "移到主屏"
+            "screen_record" -> if (a.str("action") == "stop") "结束录屏" else "开始录屏"
             else -> null
         }
     }
+
+    /** tap 点几下：一下是点按，两下是双击。 */
+    private fun tapVerb(count: Int?): String =
+        when (count) {
+            2 -> "双击"
+            3 -> "连点三下"
+            else -> "点按"
+        }
 
     /** swipe 往哪个方向滑：看起点到终点哪个方向走得多。 */
     private fun swipeTitle(a: JsonObject): String {
         val dx = (a.int("x2") ?: 0) - (a.int("x1") ?: 0)
         val dy = (a.int("y2") ?: 0) - (a.int("y1") ?: 0)
+        // 先按住再挪的是拖动
+        val verb = if ((a.int("hold_ms") ?: 0) > 0) "拖动" else "滑动"
         return when {
-            dx == 0 && dy == 0 -> "滑动"
-            abs(dy) >= abs(dx) -> if (dy < 0) "向上滑动" else "向下滑动"
-            else -> if (dx < 0) "向左滑动" else "向右滑动"
+            dx == 0 && dy == 0 -> verb
+            abs(dy) >= abs(dx) -> (if (dy < 0) "向上" else "向下") + verb
+            else -> (if (dx < 0) "向左" else "向右") + verb
         }
     }
 
@@ -188,6 +199,11 @@ internal object ScreenToolDefs {
                     target()
                     prop("x", "integer", "X in screenshot pixels, when not using node or match/id.")
                     prop("y", "integer", "Y in screenshot pixels, when not using node or match/id.")
+                    prop(
+                        "count",
+                        "integer",
+                        "Taps in quick succession at the target's centre (1-${MultiTap.MAX}, default 1; 2 is a double tap).",
+                    )
                     after()
                 }
             },
@@ -208,7 +224,8 @@ internal object ScreenToolDefs {
             tool(
                 "swipe",
                 "滑动",
-                "Swipe from one point to another, for precise drags (sliders, maps, carousels). To browse a list use scroll.",
+                "Swipe from one point to another, for precise drags (sliders, maps, carousels). To browse a list use scroll. " +
+                    "With hold_ms it presses and holds at the start before moving: drag and drop (reorder list items, move icons).",
             ) {
                 schema(required = listOf("x1", "y1", "x2", "y2")) {
                     prop("x1", "integer", "Start X in screenshot pixels.")
@@ -219,6 +236,11 @@ internal object ScreenToolDefs {
                         "duration_ms",
                         "integer",
                         "Duration (50-5000, default 300). Slower swipes scroll more precisely.",
+                    )
+                    prop(
+                        "hold_ms",
+                        "integer",
+                        "Press and hold at the start this long before moving (0-${GesturePlan.MAX_PRESS_MS}, default 0; about 800 picks up most draggable items).",
                     )
                     after()
                 }
@@ -380,6 +402,23 @@ internal object ScreenToolDefs {
                 schema {
                     prop("reason", "string", "Short reason, e.g. 需要你输入支付密码.")
                     after()
+                }
+            },
+        )
+        add(
+            tool(
+                "screen_record",
+                "录屏",
+                "Record the current screen (background or main, whichever the other tools act on) to an mp4. " +
+                    "start, do the steps, then stop: the result gives the video's path in your Linux environment.",
+            ) {
+                schema(required = listOf("action")) {
+                    enumProp("action", listOf("start", "stop"), "start or stop recording.")
+                    prop(
+                        "time_limit_seconds",
+                        "integer",
+                        "start: stop by itself after this long (1-${ScreenRecording.MAX_SECONDS}, default ${ScreenRecording.DEFAULT_SECONDS}); stop still returns the file.",
+                    )
                 }
             },
         )

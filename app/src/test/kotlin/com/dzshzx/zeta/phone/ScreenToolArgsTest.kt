@@ -173,4 +173,37 @@ class ScreenToolArgsTest {
         assertTrue(textLanded("", "Search", "Search"))
         assertFalse(textLanded("", "old text", "Search"))
     }
+
+    @Test
+    fun tapCountAndRhythm() {
+        assertEquals(1, tapCount(json("{}")).value)
+        assertEquals(2, tapCount(json("""{"count":2}""")).value)
+        assertNotNull(tapCount(json("""{"count":0}""")).problem)
+        assertNotNull(tapCount(json("""{"count":9}""")).problem)
+        assertEquals(listOf(0L, 120L, 240L), MultiTap.starts(3))
+        // 认得出双击：两下按下相隔不到 300 毫秒（再留出余量，150 以内），抬起到再按下至少 40 毫秒
+        val (first, second) = MultiTap.starts(2)
+        assertTrue(second - first < 150)
+        assertTrue(second - (first + MultiTap.TAP_MS) >= 40)
+    }
+
+    @Test
+    fun dragHoldIsClamped() {
+        assertEquals(0L, GesturePlan.pressMs(json("{}")))
+        assertEquals(800L, GesturePlan.pressMs(json("""{"hold_ms":800}""")))
+        assertEquals(GesturePlan.MAX_PRESS_MS, GesturePlan.pressMs(json("""{"hold_ms":999999}""")))
+        assertEquals(0L, GesturePlan.pressMs(json("""{"hold_ms":-5}""")))
+    }
+
+    /** 没有无障碍手势时的拖动：按下、按住整整 hold_ms、分几步挪、停一下再松手。 */
+    @Test
+    fun dragFallbackHoldsThenMoves() {
+        assertEquals(
+            "input -d 7 motionevent DOWN 100 200 && sleep 0.800 && " +
+                "input -d 7 motionevent MOVE 100 300; input -d 7 motionevent MOVE 100 400; " +
+                "input -d 7 motionevent MOVE 100 500; input -d 7 motionevent MOVE 100 600; " +
+                "sleep 0.3; input -d 7 motionevent UP 100 600",
+            DragCommand.motionEvents(7, Stroke(100, 200, 100, 600), 800),
+        )
+    }
 }

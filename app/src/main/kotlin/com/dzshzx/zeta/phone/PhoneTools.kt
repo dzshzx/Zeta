@@ -148,6 +148,9 @@ class PhoneTools(
     private val screenRef: VirtualScreen?
         get() = slot.current
 
+    /** screen_record 的录屏，同一时间最多一段。 */
+    private val recorder = ScreenRecorder(context, settings)
+
     /** 当前操作的是后台屏幕。后台屏幕没了也保持为 true，直到模型换屏，免得它不知情地点到主屏上。 */
     @Volatile private var onAgentDisplay = false
 
@@ -542,7 +545,7 @@ class PhoneTools(
     private fun screenTool(name: String, a: JsonObject): JsonObject =
         when (name) {
             "screen" -> look(a)
-            "tap" -> act(a) { screen, notes -> tap(screen, a, longPressMs = null, notes) }
+            "tap" -> act(a) { screen, notes -> tapTimes(screen, a, notes) }
             "long_press" ->
                 act(a) { screen, notes ->
                     tap(
@@ -560,6 +563,7 @@ class PhoneTools(
             "wait" -> waitFor(a)
             "open_app" -> openApp(a)
             "show_to_user" -> showToUser(a)
+            "screen_record" -> record(a)
             else -> toolFailure("没有这个工具：$name")
         }
 
@@ -941,6 +945,41 @@ class PhoneTools(
         return touchAt(x, y, longPressMs)
     }
 
+    /** tap：按 count 点一下，或连点几下（双击）。返回问题。 */
+    private fun tapTimes(screen: Screen, a: JsonObject, notes: MutableList<String>): String? {
+        val count = tapCount(a).let { it.value ?: return it.problem }
+        return if (count == 1) tap(screen, a, longPressMs = null, notes)
+        else multiTap(screen, a, count, notes)
+    }
+
+    /**
+     * 在目标上快速连点 [count] 下：要真的触摸才认得出双击，所以控件也按它的中心点，不让它自己处理点击； input 命令一下要几百毫秒，凑不成双击， 只用无障碍手势。返回问题。
+     */
+    private fun multiTap(
+        screen: Screen,
+        a: JsonObject,
+        count: Int,
+        notes: MutableList<String>,
+    ): String? {
+        val target = ControlTarget.parse(a, allowPoint = true).let { it.value ?: return it.problem }
+        val (x, y) =
+            when (target) {
+                is ControlTarget.Index ->
+                    listed(target.index)?.bounds?.let { it.centerX() to it.centerY() }
+                        ?: return "没有编号 ${target.index} 的控件，先用 screen 重新看一下屏幕"
+                is ControlTarget.Find ->
+                    locate(screen, target.selector, ControlPurpose.TAP, notes).bounds.let {
+                        it.centerX() to it.centerY()
+                    }
+                is ControlTarget.Point -> screen.toScreen(target.x) to screen.toScreen(target.y)
+                ControlTarget.Unset -> return "要给出 node（控件编号）、match / id（按文字或 id 找控件），或者 x 和 y"
+            }
+        mark(screen, x, y)
+        val service = service() ?: return "连点要用无障碍服务，它没有开启"
+        val done = service.taps(display, x, y, MultiTap.starts(count), MultiTap.TAP_MS)
+        return if (done) null else "连点没有做成（手势被系统取消了）"
+    }
+
     /** 让控件自己处理点按或长按（[longPressMs] 不为空时）。做成了返回 true。 */
     private fun clickNode(item: Seen, longPressMs: Long?): Boolean {
         val nodeAction =
@@ -976,6 +1015,8 @@ class PhoneTools(
         val x2 = a.int("x2") ?: return "缺少 x2"
         val y2 = a.int("y2") ?: return "缺少 y2"
         val duration = (a.int("duration_ms") ?: 300).coerceIn(50, 5000).toLong()
+        // hold_ms：先按住再挪（拖动），到了终点也停一下再松手，放下的位置才认
+        val press = GesturePlan.pressMs(a)
         return drag(
             screen,
             Stroke(
@@ -985,11 +1026,22 @@ class PhoneTools(
                 screen.toScreen(y2),
             ),
             duration,
+            holdMs = if (press > 0) GesturePlan.DROP_HOLD_MS else 0,
+            pressMs = press,
         )
     }
 
-    /** 沿 [stroke]（屏幕像素）滑一下：先用无障碍手势，不行再用 input 命令。[holdMs]：到终点后按住多久再抬手（不甩出惯性）。返回问题。 */
-    private fun drag(screen: Screen, stroke: Stroke, durationMs: Long, holdMs: Long = 0): String? {
+    /**
+     * 沿 [stroke]（屏幕像素）滑一下：先用无障碍手势，不行再用 input 命令。[pressMs]：先在起点按住多久再走（拖动）；
+     * [holdMs]：到终点后按住多久再抬手（不甩出惯性）。返回问题。
+     */
+    private fun drag(
+        screen: Screen,
+        stroke: Stroke,
+        durationMs: Long,
+        holdMs: Long = 0,
+        pressMs: Long = 0,
+    ): String? {
         val (sx1, sy1, sx2, sy2) = stroke
         mark(screen, sx1, sy1, sx2, sy2, swipe = true)
         val service = ZetaAccessibilityService.instance
@@ -999,9 +1051,28 @@ class PhoneTools(
                     moveTo(sx1.toFloat(), sy1.toFloat())
                     lineTo(sx2.toFloat(), sy2.toFloat())
                 }
-            if (service.gesture(display, path, durationMs, holdMs)) return null
+            if (service.gesture(display, path, durationMs, holdMs, pressMs)) return null
         }
+        if (pressMs > 0) return rootError(DragCommand.motionEvents(display, stroke, pressMs))
         return rootError("input -d $display swipe $sx1 $sy1 $sx2 $sy2 $durationMs")
+    }
+
+    // ---- 录屏 ----
+
+    /** screen_record：start 录当前屏幕（后台屏幕或主屏），stop 停下、把 mp4 交给 Claude。 */
+    private fun record(a: JsonObject): JsonObject {
+        if (a.str("action") != "start") return recorder.stop(a.str("action"))
+        ready()?.let {
+            return toolFailure(it)
+        }
+        val target =
+            if (onAgentDisplay)
+                RecordTarget.Background(
+                    screenRef?.takeIf { it.alive }
+                        ?: return toolFailure(lostAgentDisplay() ?: "后台屏幕没了"),
+                )
+            else RecordTarget.Main(mainDisplay)
+        return recorder.start(target, a.int("time_limit_seconds"))
     }
 
     /**
@@ -1577,8 +1648,9 @@ class PhoneTools(
         resetOverlay()
     }
 
-    /** 彻底释放（会话删了、换了环境、或已经没人用）：收掉后台屏幕，之后也不再建。 */
+    /** 彻底释放（会话删了、换了环境、或已经没人用）：停下录屏（录好的照样交给 Linux），收掉后台屏幕，之后也不再建。 */
     fun destroy() {
+        recorder.stopQuietly()
         slot.destroy {
             onAgentDisplay = false
             forget()

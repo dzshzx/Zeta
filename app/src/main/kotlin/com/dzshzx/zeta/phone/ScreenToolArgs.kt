@@ -196,3 +196,53 @@ internal fun textLanded(expected: String, actual: String?, hint: String?): Boole
     if (now == expected) return true
     return expected.isEmpty() && (now.isEmpty() || now == hint)
 }
+
+/** tap 的 count：连着点几下（2 是双击）。没给是 1。 */
+internal fun tapCount(a: JsonObject): Checked<Int> {
+    val count = a.int("count") ?: return Checked.ok(1)
+    return if (count in 1..MultiTap.MAX) Checked.ok(count)
+    else Checked.bad("count 只能是 1 到 ${MultiTap.MAX}（2 是双击）")
+}
+
+/**
+ * 连点的节奏：每下按 [TAP_MS]，抬起后隔 [GAP_MS] 再按下一下。系统认双击要两下按下相隔不到 300 毫秒、 前一下抬起到后一下按下至少 40
+ * 毫秒（ViewConfiguration 的 DOUBLE_TAP_TIMEOUT、DOUBLE_TAP_MIN_TIME），这里两下按下相隔 120 毫秒。
+ */
+internal object MultiTap {
+    const val MAX = 3
+    const val TAP_MS = 50L
+    const val GAP_MS = 70L
+
+    /** 每一下从手势开始算起什么时候按下。 */
+    fun starts(count: Int): List<Long> = (0 until count).map { it * (TAP_MS + GAP_MS) }
+}
+
+/** swipe 的 hold_ms（拖动）：先在起点按住多久再走，0 是普通的滑动。 */
+internal object GesturePlan {
+    const val MAX_PRESS_MS = 5_000L
+
+    /** 拖动到终点后再按住多久才松手：放下的位置要停一下才认（桌面图标、可拖动的列表）。 */
+    const val DROP_HOLD_MS = 300L
+
+    /** 起点按住多久：没给是 0，最多 [MAX_PRESS_MS]。 */
+    fun pressMs(a: JsonObject): Long = (a.int("hold_ms")?.toLong() ?: 0L).coerceIn(0, MAX_PRESS_MS)
+}
+
+/**
+ * 没有无障碍手势时的拖动：用 input 的 motionevent 一步步按下、按住 [pressMs]、分几步挪、松手。`input draganddrop` 按下后只等一个长按时长就挪，
+ * 和应用自己的长按计时差不多同时到，常常认不成长按；input 每条命令要几百毫秒，所以挪得慢，拖放够用。
+ */
+internal object DragCommand {
+    const val STEPS = 4
+
+    fun motionEvents(display: Int, stroke: Stroke, pressMs: Long): String {
+        val (x1, y1, x2, y2) = stroke
+        val moves =
+            (1..STEPS).joinToString("; ") { i ->
+                "input -d $display motionevent MOVE ${x1 + (x2 - x1) * i / STEPS} ${y1 + (y2 - y1) * i / STEPS}"
+            }
+        val seconds = String.format(java.util.Locale.ROOT, "%.3f", pressMs / 1000.0)
+        return "input -d $display motionevent DOWN $x1 $y1 && sleep $seconds && $moves; " +
+            "sleep 0.3; input -d $display motionevent UP $x2 $y2"
+    }
+}
