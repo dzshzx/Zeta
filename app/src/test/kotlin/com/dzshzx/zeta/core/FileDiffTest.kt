@@ -94,14 +94,23 @@ class FileDiffTest {
 
     @Test
     fun largeInputsFallBackWithoutHanging() {
-        // 两份完全不同的大文件：超过编辑上限后整段当作删旧加新，几毫秒内返回
+        // 两份完全不同的大文件：超过编辑上限后整段当作删旧加新
         val old = List(20_000) { "old line $it" }
         val new = List(20_000) { "new line $it" }
-        val started = System.nanoTime()
-        val edits = LineDiff.diff(old, new)
-        val millis = (System.nanoTime() - started) / 1_000_000
-        assertEquals(40_000, replay(old, new, edits))
-        assertTrue("took $millis ms", millis < 2_000)
+        assertEquals(40_000, replay(old, new, LineDiff.diff(old, new)))
+        // 不量时间，看走的是哪条路：隔行相同的两份，最短改法只改两万行、留下一万行相同的；超过编辑上限就不再找最短改法，
+        // 除了开头那行一行相同的也不留。Myers 搜到上限的步数就停（O((N+M)·上限)），所以不会卡住
+        val sameOld = List(20_000) { if (it % 2 == 0) "same $it" else "old $it" }
+        val sameNew = List(20_000) { if (it % 2 == 0) "same $it" else "new $it" }
+        val edits = LineDiff.diff(sameOld, sameNew)
+        assertEquals(39_998, replay(sameOld, sameNew, edits))
+        assertEquals(1, edits.count { it.op == LineDiff.Op.Equal })
+        // 上限以内的照样找最短改法：前 300 行要 300 步，相同的 150 行都留着
+        val fewOld = sameOld.take(300)
+        val fewNew = sameNew.take(300)
+        val few = LineDiff.diff(fewOld, fewNew)
+        assertEquals(300, replay(fewOld, fewNew, few))
+        assertEquals(150, few.count { it.op == LineDiff.Op.Equal })
     }
 
     @Test
