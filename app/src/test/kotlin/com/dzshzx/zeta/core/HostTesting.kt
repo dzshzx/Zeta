@@ -56,7 +56,14 @@ internal object HostTesting {
         }
     }
 
-    fun alive(pid: Int) = File("/proc/$pid").exists()
+    /**
+     * 进程 [pid] 还在跑。僵尸不算（同 zeta_host.sh 的 running）：结束了的进程什么时候被收尸，看它的父进程或祖先里的 subreaper，
+     * 测试管不着。比如跑门禁的程序把自己设成 subreaper、收养后代里的孤儿却不收尸时，包了一层的替身被结束后就一直是僵尸。
+     */
+    fun alive(pid: Int): Boolean {
+        val stat = runCatching { File("/proc/$pid/stat").readText() }.getOrNull() ?: return false
+        return stat.substringAfterLast(") ").firstOrNull() != 'Z'
+    }
 
     /**
      * 替身的 prelude：像 Claude Code 那样用自己的进程号在 ~/.claude/sessions 登记会话 [session]（[registeredPid] 读回来），

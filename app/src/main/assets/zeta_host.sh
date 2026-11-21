@@ -106,21 +106,32 @@ hosted_claude() {
   done
 }
 
+# 进程 $@ 里还有在跑的（僵尸不算，同 zeta-helper 的 running）。不用 kill -0：它对僵尸也成功。包了一层时 Claude Code 是外面那层的子进程，
+# 两个一起收到 SIGTERM 后它的僵尸改挂到祖先里的 subreaper（或 init）名下，那边不收尸时它会一直留着。
+running() {
+  local p s
+  for p; do
+    read -r s 2>/dev/null <"/proc/$p/stat" || continue
+    s=${s##*) } # 括号里的进程名之后第一项是状态
+    [ "${s:0:1}" != Z ] && return 0
+  done
+  return 1
+}
+
 # 结束 Claude Code（托管目录 $1、pid 文件记的进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
 # 由它自己停下进行中的这一轮、跑 SessionEnd hook、退出，会话记录留着（ClaudeCodeContractTest 钉住）。
 # 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL：信号发给 $2 和 hosted_claude 找到的进程
-# （$2 可能只是外面那层，见开头 pid 一项）。stop 和看门狗都用它。
+# （$2 可能只是外面那层，见开头 pid 一项）。经 SIGTERM 结束时，返回时它们都已不在跑。stop 和看门狗都用它。
 end_claude() {
   local d=$1 p=$2 i
-  kill -0 "$p" 2>/dev/null || return 0
+  running "$p" || return 0
   # 管道由起进程的那段以读写方式一直开着，写不会卡住；那段刚好不在了时由 timeout 兜底
   timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
     '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$d/in" 2>/dev/null
-  for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do kill -0 "$p" 2>/dev/null || return 0; sleep 0.2; done
+  for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do running "$p" || return 0; sleep 0.2; done
   set -- "$p" $(hosted_claude "$d") # 一行一个进程号，按词分开
   kill "$@" 2>/dev/null
-  # 有一个还在 kill -0 就成功
-  for ((i = 0; i < 25; i++)); do kill -0 "$@" 2>/dev/null || return 0; sleep 0.2; done
+  for ((i = 0; i < 25; i++)); do running "$@" || return 0; sleep 0.2; done
   kill -9 "$@" 2>/dev/null
 }
 
@@ -141,7 +152,7 @@ if [ "$mode" = stop ]; then
       for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
     fi
     rm -rf "$D"
-  ' zeta-stop "$(declare -f hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
+  ' zeta-stop "$(declare -f running hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 
@@ -176,7 +187,7 @@ if [ "$mode" = start ]; then
     run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
   fi
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。
-  # 看门狗的两个判定函数和结束用的 end_claude 写在上面，经第一个参数带进去（这一段在单引号里）
+  # 看门狗的两个判定函数和结束用的 end_claude（连同它用的 running、hosted_claude）写在上面，经第一个参数带进去（这一段在单引号里）
   setsid bash -c '
     eval "$1"; D=$2; R=$3; shift 3
     exec 3<>"$D/in"
@@ -217,7 +228,7 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -d "$D" ] && echo $code > "$D/exit"
-  ' zeta-run "$(declare -f turn_running tasks_running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
+  ' zeta-run "$(declare -f turn_running tasks_running running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else
