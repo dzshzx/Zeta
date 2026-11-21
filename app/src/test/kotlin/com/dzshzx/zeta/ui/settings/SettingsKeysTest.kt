@@ -74,6 +74,9 @@ class SettingsKeysTest {
         "setRemoteHosts" to listOf(RemoteHost("r-00000001", "工作站", "dev-box", "/home/someone", "/home/someone/workspace")),
         "setBackend" to "r-00000001",
         "setLocalName" to "我的手机",
+        "setAutoUpdateCheck" to false,
+        "setUpdateCheckedAt" to 1_795_000_300_000L,
+        "setUpdateNotified" to 905,
     )
 
     private val task = ScheduledTask(
@@ -100,6 +103,8 @@ class SettingsKeysTest {
         NotifyRuleStore.update(app) { listOf(rule) }
         // 只有调试工具（tools/vd.py prefs-set）写的：手机工具当作主屏的屏幕编号
         prefs().edit().putInt("phoneDisplay", 7).commit()
+        // 同上：测试版调试应用内更新用的清单地址和信任的证书
+        prefs().edit().putString("updateDevManifest", "http://10.0.2.2:8765/update.json").putString("updateDevCert", "0".repeat(64)).commit()
         return prefs().all.keys
     }
 

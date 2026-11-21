@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+    <!-- 应用内更新没有 root 时交给系统安装（PackageInstaller 会话，用户确认）；有 root 时经 pm install，用不到它 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- 按名字找应用、打开应用：只需要能看到有桌面图标的那些 -->
     <queries>
@@ -149,6 +151,10 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+        <!-- 应用内更新交给系统安装（PackageInstaller 会话）后的结果：要用户确认、取消了、装不上 -->
+        <receiver
+            android:name=".core.update.UpdateInstallReceiver"
+            android:exported="false" />
         <!-- 通知触发的任务：别的应用发通知时实时收到（系统设置里的“通知使用权”） -->
         <service
             android:name=".core.notify.ZetaNotificationListener"

@@ -187,10 +187,46 @@ keytool -genkeypair -keystore "$work/zeta-release.p12" -storetype PKCS12 -storep
 | `certificateSha256` | 字符串 | 签名证书的 SHA-256，小写十六进制 |
 | `sourceCommit` | 字符串 | 构建所用的完整提交号 |
 
-应用下载后要核对 `size`、`sha256`，并且只装签名证书与自己当前证书相同（或在 lineage 里接替它）的包；
-`certificateSha256` 只用来提前提示，最终由系统的签名校验把关。以后加字段只加不改，读的一方不认识的字段就忽略。
+应用读它的哪几项、下载后怎么核对见下节。以后加字段只加不改，读的一方不认识的字段就忽略。
 
 Release 的说明写明版本、versionCode、`source_commit` 和签名证书，下面是与 `notes` 相同的提交标题。
+
+## 应用内更新
+
+正式版自己检查、下载和安装新版本，代码在 `app/src/main/kotlin/com/dzshzx/zeta/core/update/`，界面在
+`ui/settings/UpdateScreens.kt`。
+
+- **谁查**：只有正式发版证书签的包查。构建时把 `release/signing-certs.txt` 的最后一行写进
+  `BuildConfig.RELEASE_CERT_SHA256`，本包现在的签名证书就是它才查；测试版、debug 包和别人自己编的包不查，
+  「关于」里只显示版本。
+- **什么时候查**：设置「关于」里点「版本」那一行；应用回到前台时每天最多自动查一次（「关于」里的「自动检查更新」，
+  默认开）。自动查到新版本时发一条通知（渠道「版本更新」，同一个版本只发一次），点开到「版本更新」页。不常驻、
+  不定时唤醒。
+- **从哪取**：清单是上面那个固定地址，APK 按清单的 `url`。GitHub 上的地址先直连，连不上、超时、HTTP 出错或内容
+  不对时走 `https://gh-proxy.com/<原地址>`，和 `assets/zeta_setup_debian.sh` 下载 GitHub 文件一样。versionCode
+  比已装的大才算新版本。
+- **核对**：APK 的大小和 sha256 对清单；`getPackageArchiveInfo` 读出的包名是本包、versionCode 等于清单、签名
+  lineage 里含已装的这个包现在的证书（同一张证书，或从它轮换过来的；所以调试证书签的 v0.7.0 及更早也能升上来）。
+  哪一项不对都删掉文件、说原因。gh-proxy 是第三方的中转，清单和 APK 都可能被换掉，所以最后靠签名把关，装的时候
+  系统还会再核对一次。
+- **安装**：装包会结束本应用的界面，进行中的对话照样跑完，正在执行的手机工具调用却会失败，所以有对话正在回答时
+  等它们都结束再装。有 root 时经 su 用 `pm install -r`（APK 经管道交给 `-S`，同 `tools/install.sh`），装好在原来
+  那块屏上重新打开 Zeta；没有 root 时交给 PackageInstaller 会话，由用户在系统的安装界面上确认，要先在系统设置里
+  允许 Zeta「安装未知应用」。
+
+在模拟器上试：测试版有两项调试覆盖，`updateDevManifest` 换清单地址，`updateDevCert` 换信任的证书（设成调试证书，
+即 `release/signing-certs.txt` 的第一行，测试版也查）。只有测试版读它们（`BuildConfig.UPDATE_DEV_OVERRIDE`），
+正式版里读覆盖的分支被 R8 去掉。在工作站上起一个 HTTP 服务器，放 `update.json` 和一个调试密钥签名、versionCode
+更大的测试版 APK（比如在临时克隆里加几个空提交再 `assembleDev`），`url` 指向它；模拟器经 10.0.2.2 访问宿主。
+设备脚本里：
+
+```sh
+vd prefs-set updateDevManifest=http://10.0.2.2:<端口>/update.json updateDevCert=<调试证书的 SHA-256>
+vd launch
+android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity --es com.dzshzx.zeta.extra.SETTINGS_PAGE Update"
+```
+
+打开的是「版本更新」页，点「更新」走一遍下载、核对、经 root 安装。收尾的 `vd stop` 把两项覆盖改回去。
 
 ## 出错后怎么办
 

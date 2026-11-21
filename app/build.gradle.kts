@@ -32,6 +32,12 @@ val versionLabel = run {
     }
 }
 
+// 正式发版证书：release/signing-certs.txt 的最后一行（SHA-256，小写十六进制，见 docs/release.md「签名」）。
+// 应用内检查更新只在本包是这张证书签的时候才查（core/update/UpdateTrust.kt），测试版和别人自己编的包不查
+val releaseCert: String = providers.fileContents(rootProject.layout.projectDirectory.file("release/signing-certs.txt")).asText.get()
+    .lines().map { it.trim() }.last { it.isNotEmpty() && !it.startsWith("#") }
+    .also { require(Regex("[0-9a-f]{64}").matches(it)) { "release/signing-certs.txt 的最后一行不是证书的 SHA-256：$it" } }
+
 android {
     namespace = "com.dzshzx.zeta"
     compileSdk {
@@ -51,6 +57,10 @@ android {
         ndk {
             abiFilters += "arm64-v8a"
         }
+        buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCert\"")
+        // 应用内更新的调试覆盖（清单地址、信任的证书，tools/vd.py prefs-set 设）只在测试版里打开；正式版里这是常量 false，
+        // 读覆盖的分支连同设置键一起被 R8 去掉
+        buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "false")
     }
 
     signingConfigs {
@@ -85,6 +95,7 @@ android {
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
             resValue("string", "capture_tile", "截屏给 Zeta 测试")
+            buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "true")
             matchingFallbacks += listOf("debug")
         }
     }

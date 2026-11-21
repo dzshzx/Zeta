@@ -26,6 +26,7 @@ import com.dzshzx.zeta.core.about.Component
 import com.dzshzx.zeta.core.about.Licenses
 import com.dzshzx.zeta.core.about.ThirdParty
 import com.dzshzx.zeta.core.about.ZetaInfo
+import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -39,7 +40,6 @@ import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
-import io.github.suqi8.coui.kmp.icon.extended.Info
 import io.github.suqi8.coui.kmp.icon.extended.Layers
 import io.github.suqi8.coui.kmp.icon.extended.Notes
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
@@ -50,13 +50,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 设置首页的「关于」一组：版本、源码、许可证（GPL 要求界面上能看到的版权和无担保声明在那一页）、开源许可、鸣谢、诊断，
+ * 设置首页的「关于」一组：版本（正式版点它检查更新，见 UpdateScreens.kt）、自动检查更新、源码、许可证（GPL 要求界面上能看到的版权和无担保声明在那一页）、开源许可、鸣谢、诊断，
  * 组下一行非官方声明。
  */
 @Composable
 internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
+    val updates = AppUpdates.get(LocalContext.current)
     PreferenceGroup(title = "关于", footer = ZetaInfo.UNOFFICIAL) {
-        item { VersionRow() }
+        item { VersionRow(updates, onOpenUpdate = { onOpenSubPage(SettingsSubPage.Update) }) }
+        if (updates.enabled) item { AutoUpdateSwitch() }
         item {
             val context = LocalContext.current
             ArrowPreference(
@@ -96,16 +98,6 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
             )
         }
     }
-}
-
-/** 版本一行。以后的「检查更新」放在这一行：点它检查，右边写结果。 */
-@Composable
-private fun VersionRow() {
-    BasicComponent(
-        title = "版本",
-        summary = BuildConfig.VERSION_NAME,
-        startAction = { SettingsIcon(COUIIcons.Info, SettingsHue.System) },
-    )
 }
 
 /** 「许可证」：Zeta 的版权、GPL 要求的声明，下面是 GPL-3.0 全文（仓根 LICENSE）。 */

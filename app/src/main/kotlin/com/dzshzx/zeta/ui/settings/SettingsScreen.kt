@@ -69,6 +69,7 @@ internal fun SettingsScreen(
                 SettingsSubPage.License -> LicenseScreen(onBack = close)
                 SettingsSubPage.OpenSource -> OpenSourceScreen(onBack = close)
                 SettingsSubPage.Credits -> CreditsScreen(onBack = close)
+                SettingsSubPage.Update -> UpdateScreen(onBack = close)
                 SettingsSubPage.Assistant -> AssistantSettingsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Backup -> SettingsBackupScreen(hub = hub, onBack = close)
                 // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开

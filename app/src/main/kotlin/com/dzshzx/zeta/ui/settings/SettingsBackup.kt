@@ -111,6 +111,10 @@ internal object SettingsBackup {
         "gid" to "Linux 环境里的用户，由 Zeta 检测",
         "home" to "Linux 环境里的用户，由 Zeta 检测",
         "phoneDisplay" to "调试用的屏幕编号，只对当时那块虚拟屏有效",
+        "updateDevManifest" to "测试版调试应用内更新用的清单地址，只对当时的测试有效",
+        "updateDevCert" to "测试版调试应用内更新用的信任证书，只对当时的测试有效",
+        "updateCheckedAt" to "这台手机上次检查更新的时间",
+        "updateNotified" to "这台手机已经提醒过的新版本",
         "mutedApps" to "为后台运行临时静音、还没恢复的应用，是这台手机当下的状态",
         "commands" to "各设备上 Claude Code 斜杠命令的缓存，打开对话时自动更新",
         "contextWindows" to "各模型上下文窗口的缓存，Claude Code 会重新报",
@@ -159,6 +163,7 @@ internal object SettingsBackup {
         optionalItem("assistantModel", "数字助理的模型", unset = "跟随 Claude Code", check = ::modelName),
         optionalItem("assistantEffort", "数字助理的思考强度", unset = "跟随 Claude Code", labels = EffortLevels.toMap()),
         boolItem("autoCompact", "自动压缩上下文", default = true),
+        boolItem("autoUpdateCheck", "自动检查更新", default = true),
         BackupItem(
             key = "autoCompactPercent", label = "压缩时机", nullable = true,
             read = { prefs -> (prefs["autoCompactPercent"] as? Int)?.takeIf { it in 1..100 }?.let(::JsonPrimitive) ?: JsonNull },

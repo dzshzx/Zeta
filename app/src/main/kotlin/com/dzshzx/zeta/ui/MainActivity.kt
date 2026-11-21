@@ -27,6 +27,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.offerIntake
+import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.IntakeChooser
@@ -74,6 +75,17 @@ class MainActivity : ComponentActivity() {
             }
             ZetaTheme(darkTheme = hub.settings.darkTheme) { ZetaApp(hub, conversationRequests) }
         }
+    }
+
+    /** 回到前台：今天还没查过新版本就查一次（只有正式版查，见 core/update/AppUpdates.kt）；新版本只在界面在前台时装。 */
+    override fun onStart() {
+        super.onStart()
+        AppUpdates.get(this).onForeground()
+    }
+
+    override fun onStop() {
+        AppUpdates.get(this).onBackground()
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {

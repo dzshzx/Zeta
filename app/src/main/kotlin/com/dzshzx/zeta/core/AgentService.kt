@@ -27,11 +27,15 @@ internal object Notifier {
     const val CHANNEL_STATUS = "status"
     const val CHANNEL_ALERT = "alert"
 
+    /** 有新版本（core/update/AppUpdates.kt）：同一个版本只发一次。 */
+    const val CHANNEL_UPDATE = "update"
+
     /** 通知 id：各类各一个，同一类里靠 tag 区分（定时任务、通知触发按“来源:id”各一条）。 */
     const val ID_STATUS = 1
     const val ID_ALERT = 2
     const val ID_SCHEDULE = 3
     const val ID_ACCESSIBILITY = 4
+    const val ID_UPDATE = 5
 
     /** 不提醒的那几条通知归的组，见 [post] 的 silent。 */
     private const val SILENT_GROUP = "silent"
@@ -42,6 +46,7 @@ internal object Notifier {
         // 测试版的提醒不出声：测试时对话跑完、等确认，不该打扰正在用手机的人
         val alert = if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_DEFAULT
         manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
     }
 
     fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
@@ -59,14 +64,17 @@ internal object Notifier {
         post(context, null, ID_ALERT, title, text, openAppIntent(context), silent = silent)
 
     /**
-     * 发一条提醒（渠道“完成与确认提醒”，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。
+     * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。
      * [tag] 和 [id] 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。
      * [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
      */
-    fun post(context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent, bigText: Boolean = false, silent: Boolean = false) {
+    fun post(
+        context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent,
+        bigText: Boolean = false, silent: Boolean = false, channel: String = CHANNEL_ALERT,
+    ) {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         ensureChannels(context)
-        val notification = Notification.Builder(context, CHANNEL_ALERT)
+        val notification = Notification.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_zeta)
             .setContentTitle(AppVariant.current.notificationTitle(title))
             .setContentText(text)

@@ -20,4 +20,5 @@ internal enum class SettingsSubPage(val link: String) {
     License("License"),
     OpenSource("OpenSource"),
     Credits("Credits"),
+    Update("Update"),
 }

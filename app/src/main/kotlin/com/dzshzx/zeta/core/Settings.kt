@@ -200,6 +200,22 @@ class Settings private constructor(private val app: Context) {
     /** Claude Code 报过的各模型上下文窗口（“模型=窗口”）。旧会话重新打开、还没起进程时拿它算占比。 */
     var contextWindows: Map<String, Long> by keyValues("contextWindows", String::toLongOrNull, Long::toString)
 
+    /** 应用回到前台时每天最多自动检查一次新版本（core/update/AppUpdates.kt）。只有正式发版证书签的包才查。 */
+    var autoUpdateCheck: Boolean by pref("autoUpdateCheck", true)
+
+    /** 上次检查更新的时间（毫秒，手动、自动都算）；0 是没查过。自动检查据此一天最多一次。 */
+    var updateCheckedAt: Long by pref({ getLong("updateCheckedAt", 0L) }, { putLong("updateCheckedAt", it) })
+
+    /** 已经发过通知的新版本（versionCode）：同一个版本只提醒一次；0 是还没发过。 */
+    var updateNotified: Int by pref({ getInt("updateNotified", 0) }, { putInt("updateNotified", it) })
+
+    /**
+     * 测试版调试应用内更新用的覆盖（[com.dzshzx.zeta.core.update.UpdateTrust]）：清单地址、信任的签名证书（SHA-256）。
+     * 只由调试工具（tools/vd.py prefs-set）写，界面里没有入口，每次现读；正式版不读。
+     */
+    val updateDevManifest: String? get() = prefs.getString("updateDevManifest", null)?.takeIf { it.isNotBlank() }
+    val updateDevCert: String? get() = prefs.getString("updateDevCert", null)?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+
     /** 存下来的全部设置的一份快照（备份导出、导入前比对用）。 */
     fun snapshot(): Map<String, *> = HashMap(prefs.all)
 

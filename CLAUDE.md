@@ -118,6 +118,8 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 上线指把正式版装成最新发布的版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才做：master 上有没发版的提交就先发版，再在主 checkout 上跑 `tools/install.sh --release`（装指定版本时加 tag，如 `tools/install.sh --release v0.7.1`）。它用 `gh release download` 取 Release 的 APK，核对 sha256、签名证书（`release/signing-certs.txt` 登记的）、包名和版本后装到手机，不在本机构建。装完在正式版的测试屏上验一遍（`vd.py --release` 带 start、launch、shot，验完 stop）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
 
+正式版自己也检查更新（设置「关于」，回到前台时每天最多一次）：读最新 Release 的 `update.json`，核对后经 root 的 `pm install -r` 或系统的安装界面装，有对话在回答时等它结束。只有正式发版证书签的包才查；做法和在模拟器上用测试版试的办法见 `docs/release.md`「应用内更新」。
+
 ## 边界
 
 - 手机上不替用户在 KernelSU 管理器里给 Zeta 授予 root。
