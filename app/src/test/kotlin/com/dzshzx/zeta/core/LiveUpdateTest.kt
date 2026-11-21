@@ -55,6 +55,12 @@ class LiveUpdateTest {
             "takenOver",
             LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew, takenOver), null)?.key,
         )
+        val asking = candidate("asking", step = Step("需要你回答", StepKind.ASKING))
+        assertEquals(
+            "等用户的排在接管之后、用手机之前",
+            "asking",
+            LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew, asking), null)?.key,
+        )
         assertEquals(
             "phoneNew",
             LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew), null)?.key,

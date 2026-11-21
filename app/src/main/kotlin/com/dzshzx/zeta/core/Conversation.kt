@@ -131,8 +131,16 @@ class Conversation(
     var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
         private set
 
-    var pending by mutableStateOf<PermissionRequest?>(null)
-        private set
+    /** 停下来等用户回答的那次 can_use_tool（批准工具、提问）。来了、没了都告诉 hub，提醒通知跟着发、撤。可观察，在主线程上改。 */
+    var pending: PermissionRequest?
+        get() = pendingState
+        private set(value) {
+            val before = pendingState
+            pendingState = value
+            if (before?.requestId != value?.requestId) hub.onPendingChanged(this)
+        }
+
+    private var pendingState by mutableStateOf<PermissionRequest?>(null)
 
     /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
     val active: Boolean
@@ -1325,22 +1333,20 @@ class Conversation(
     }
 
     private fun endTurn(stopped: Boolean, failed: Boolean) {
+        val text = if (stopped) "已停止" else if (failed) "出错了" else "已完成"
         // 先于 busy 和手机工具的状态清掉：胶囊要据此判断结束的是不是正显示着的那个
-        hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
+        hub.onTurnEnding(this, text)
         busy = false
         phone.onTurnEnded()
         if (!stopped && !failed) requestTitle()
-        hub.onTurnFinished(this, stopped)
+        hub.onTurnFinished(this, stopped, text)
     }
 
     private fun handleControlRequest(event: JsonObject) {
         val request = event.obj("request") ?: return
         val requestId = event.str("request_id") ?: return
         when (request.str("subtype")) {
-            "can_use_tool" -> {
-                pending = permissionRequest(requestId, request)
-                hub.onAttentionNeeded(this)
-            }
+            "can_use_tool" -> pending = permissionRequest(requestId, request)
             "mcp_message" -> request.obj("message")?.let { handleMcp(requestId, it) }
         }
     }
@@ -1437,10 +1443,12 @@ class Conversation(
         finishRewind("Claude Code 进程退出了")
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
-        if (busy) hub.onTurnEnding(this, "已中断")
-        phone.detach()
         val wasBusy = busy
+        if (wasBusy) hub.onTurnEnding(this, INTERRUPTED)
+        phone.detach()
         endTurnState()
+        // 进程意外没了，这一轮也就结束了：和正常结束一样提醒（用户自己结束对话走 shutdown，不到这里）
+        if (wasBusy) hub.onTurnFinished(this, stopped = false, text = INTERRUPTED)
         if (wasBusy || code != 0) {
             val detail = stderr.trim().takeLast(600)
             reducer.addNotice(
@@ -1466,6 +1474,9 @@ class Conversation(
     companion object {
         /** 选择器里 Claude Code 默认模型那一项的值，也是 set_model、--model 认的写法。 */
         const val DEFAULT_MODEL = "default"
+
+        /** 进程意外退出时这一轮结束的那一句。 */
+        private const val INTERRUPTED = "已中断"
     }
 }
 

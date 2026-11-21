@@ -91,8 +91,11 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         main.postDelayed(endLinger, FINISHED_LINGER_MS)
     }
 
-    /** 一轮结束了：弹不弹结果卡片、要不要提醒“已完成”、念不念回答。[stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒。 */
-    internal fun turnFinished(conversation: Conversation, stopped: Boolean) {
+    /**
+     * 一轮结束了：弹不弹结果卡片、要不要提醒、念不念回答。[text] 是结束的那一句（“已完成”“出错了”“已中断”），提醒上也写它。
+     * [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒。
+     */
+    internal fun turnFinished(conversation: Conversation, stopped: Boolean, text: String = "已完成") {
         val showed =
             offerResultCard(
                 conversation,
@@ -103,20 +106,64 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
         if (!stopped && !hub.isWatching(conversation) && conversation.unattended == null) {
             // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
-            alert(conversation, "已完成", silent = showed)
+            Notifier.alert(app, conversation.openKey, title(conversation), text, silent = showed)
         }
         if (!stopped) autoRead(conversation)
     }
 
-    /** 对话停下来等用户批准一次工具调用。 */
-    internal fun attentionNeeded(conversation: Conversation) {
-        if (!hub.isWatching(conversation) && conversation.unattended == null)
-            alert(conversation, "需要你确认")
+    /**
+     * 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了而用户没看着这个对话时，这个对话的那条提醒换成在等什么，能在通知上回答的带上按钮（见
+     * [AlertNotice.replies]）；没了就撤掉这条。后台运行的由 ScheduleRunner 提醒。
+     */
+    internal fun pendingChanged(conversation: Conversation) {
+        val key = conversation.openKey
+        val request = conversation.pending
+        if (request == null) {
+            Notifier.clearAlert(app, key)
+            return
+        }
+        if (hub.isWatching(conversation) || conversation.unattended != null) return
+        val notice = AlertNotice.waiting(request)
+        Notifier.alert(
+            app,
+            key,
+            title(conversation),
+            notice.text,
+            detail = notice.detail,
+            actions =
+                notice.replies.mapIndexed { index, reply ->
+                    AlertReplyReceiver.action(app, key, request.requestId, index, reply)
+                },
+        )
     }
 
-    /** 通用的提醒：标题是对话标题。 */
-    private fun alert(conversation: Conversation, text: String, silent: Boolean = false) =
-        Notifier.alert(app, conversation.title.ifBlank { "Zeta" }, text, silent = silent)
+    /** 用户看着的对话变了（回到前台、切了对话）：看着的那个的提醒不必留着。 */
+    internal fun watchChanged() {
+        if (hub.foreground) Notifier.clearAlert(app, hub.current.openKey)
+    }
+
+    /**
+     * 对话 [key] 的提醒上第 [index] 个按钮按下了（[AlertReplyReceiver]），按钮是为请求 [requestId] 发的。那个请求还在等就照按钮回答，
+     * 回答后请求没了，[pendingChanged] 随即撤掉提醒；已经处理掉的不再回答，留着的过时提醒一并撤掉。
+     */
+    internal fun reply(key: String, requestId: String, index: Int) {
+        val conversation = hub.findConversation(key)
+        val pending = conversation?.pending
+        if (conversation == null || pending == null) {
+            Notifier.clearAlert(app, key)
+            return
+        }
+        if (pending.requestId != requestId) return
+        val reply = AlertNotice.replies(pending).getOrNull(index) ?: return
+        conversation.respond(
+            pending,
+            allow = reply != AlertReply.Deny,
+            answers = AlertNotice.answers(pending, reply),
+        )
+    }
+
+    /** 提醒的标题：对话标题。 */
+    private fun title(conversation: Conversation) = conversation.title.ifBlank { "Zeta" }
 
     /** 一轮结束时要不要弹结果卡片（见 [ResultCardPolicy.shows]），要的话换上这一轮的。返回弹了没有。 */
     private fun offerResultCard(
@@ -176,7 +223,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     /** 正在回答的对话这一轮从什么时候开始（墙上时钟），实时通知上走秒用。 */
     private val turnStarts = HashMap<Conversation, Long>()
 
-    /** 有对话在回答、系统允许实时通知时每秒看一次当前步骤：步骤变了不会调 [ConversationHub.onActivityChanged]。 */
+    /** 有对话在回答（不全是在等用户）、系统允许实时通知时每秒看一次当前步骤：步骤变了不会调 [ConversationHub.onActivityChanged]。 */
     private val liveTick = Runnable { hub.onActivityChanged() }
 
     /**
@@ -190,8 +237,11 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         answering.forEach { turnStarts.getOrPut(it) { now } }
         main.removeCallbacks(liveTick)
         if (answering.isEmpty() || !AgentService.canPromote(app)) return null
-        main.postDelayed(liveTick, LIVE_TICK_MS)
-        if (OverlayBridge.capsuleBounds != null) return null
+        val capsule = OverlayBridge.capsuleBounds != null
+        // 都停下来等用户时步骤不会自己变（请求来了、没了另有 onActivityChanged），不必每秒再看；胶囊显示着时照看，好在它退场时接上
+        if (capsule || answering.any { it.pending == null })
+            main.postDelayed(liveTick, LIVE_TICK_MS)
+        if (capsule) return null
         val focusKey = (overlayFocus as? ConversationFocus)?.conversation?.openKey
         val candidates = answering.map { conversation ->
             val phone = conversation.phone

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -119,6 +120,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_CONVERSATION = "com.dzshzx.zeta.extra.CONVERSATION"
+        private const val CONVERSATION_SCHEME = "zeta-conversation"
 
         private var live = WeakReference<MainActivity>(null)
 
@@ -126,10 +128,14 @@ class MainActivity : ComponentActivity() {
         val liveDisplay: Int?
             get() = live.get()?.takeUnless { it.isDestroyed }?.display?.displayId
 
-        /** 点了打开 Zeta 并切到对话 [key] 的 Intent（通知用，点通知时系统允许从后台打开界面）。 */
+        /**
+         * 点了打开 Zeta 并切到对话 [key] 的 Intent（通知用，点通知时系统允许从后台打开界面）。data 里也带上 [key]：系统认 PendingIntent 时不看
+         * extras，各对话的 Intent 只差在 extras 上就会被当成同一个，后发的通知覆盖前面的跳转目标。
+         */
         fun conversationIntent(context: Context, key: String): Intent =
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .setData(Uri.fromParts(CONVERSATION_SCHEME, key, null))
                 .putExtra(EXTRA_CONVERSATION, key)
 
         /** 打开 Zeta 并切到对话 [key]（sessionId，新对话用它的 key）。可以在应用不在前台时调用。 */

@@ -175,12 +175,12 @@ class LiveNotificationTest {
         assertEquals(Step("正在压缩上下文", StepKind.STATUS), focus.stepInfo)
 
         conversation.force(
-            "pending",
+            "pendingState",
             PermissionRequest("r1", "Bash", JsonObject(emptyMap()), emptyList()),
         )
         assertEquals(Step("需要你确认", StepKind.CONFIRMING), focus.stepInfo)
         conversation.force(
-            "pending",
+            "pendingState",
             PermissionRequest("r2", "AskUserQuestion", JsonObject(emptyMap()), emptyList()),
         )
         assertEquals(Step("需要你回答", StepKind.ASKING), focus.stepInfo)

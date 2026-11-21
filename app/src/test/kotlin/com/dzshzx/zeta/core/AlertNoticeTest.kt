@@ -1,0 +1,82 @@
+package com.dzshzx.zeta.core
+
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/** [AlertNotice]：提醒上写什么、给哪些按钮，以及按选项回答时的答案。 */
+class AlertNoticeTest {
+    private fun question(vararg options: String, multi: Boolean = false) =
+        Question("先改哪个？", "顺序", options.map { QuestionOption(it, "") }, multiSelect = multi)
+
+    private fun ask(vararg questions: Question) =
+        PermissionRequest("q", "AskUserQuestion", JsonObject(emptyMap()), questions.toList())
+
+    @Test
+    fun toolsGetAllowAndDeny() {
+        val request =
+            PermissionRequest(
+                "r",
+                "Bash",
+                buildJsonObject {
+                    put("command", "rm -rf build")
+                    put("description", "清掉构建目录")
+                },
+                emptyList(),
+            )
+        val notice = AlertNotice.waiting(request)
+        assertEquals("需要你确认：清掉构建目录", notice.text)
+        assertEquals("清掉构建目录\nrm -rf build", notice.detail)
+        assertEquals(listOf(AlertReply.Allow, AlertReply.Deny), notice.replies)
+    }
+
+    @Test
+    fun planIsOpenedNotApprovedFromTheAlert() {
+        val plan =
+            PermissionRequest(
+                "p",
+                "ExitPlanMode",
+                buildJsonObject { put("plan", "很长的计划") },
+                emptyList(),
+            )
+        assertEquals(emptyList<AlertReply>(), AlertNotice.replies(plan))
+        assertEquals("很长的计划不进提醒", false, AlertNotice.waiting(plan).detail.contains("很长的计划"))
+    }
+
+    @Test
+    fun onlyASingleSmallChoiceGetsButtons() {
+        assertEquals(
+            listOf(AlertReply.Answer("界面"), AlertReply.Answer("文档")),
+            AlertNotice.replies(ask(question("界面", "文档"))),
+        )
+        assertEquals(
+            "多选",
+            emptyList<AlertReply>(),
+            AlertNotice.replies(ask(question("a", "b", multi = true))),
+        )
+        assertEquals(
+            "选项超过三个",
+            emptyList<AlertReply>(),
+            AlertNotice.replies(ask(question("a", "b", "c", "d"))),
+        )
+        assertEquals(
+            "几道题",
+            emptyList<AlertReply>(),
+            AlertNotice.replies(ask(question("a"), question("b"))),
+        )
+        assertEquals("需要你回答", AlertNotice.waiting(ask(question("a"), question("b"))).text)
+    }
+
+    @Test
+    fun answerMapsTheQuestionToTheOption() {
+        val request = ask(question("界面", "文档"))
+        assertEquals(
+            mapOf("先改哪个？" to "文档"),
+            AlertNotice.answers(request, AlertReply.Answer("文档")),
+        )
+        assertNull(AlertNotice.answers(request, AlertReply.Allow))
+    }
+}

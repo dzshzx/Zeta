@@ -61,18 +61,47 @@ internal object Notifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** 用户回到应用里了，提醒就不必留着。 */
-    fun clearAlert(context: Context) {
-        context.getSystemService(NotificationManager::class.java).cancel(ID_ALERT)
-    }
+    /** 点开切到对话 [key]（会话号，新对话是它的 key）。各对话的 Intent 带着不同的 data，不会互相覆盖。 */
+    fun conversationOpen(context: Context, key: String): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            0,
+            MainActivity.conversationIntent(context, key),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
-    /** 对话跑完、等确认的提醒，点开回到 Zeta。[silent] 见 [post]。 */
-    fun alert(context: Context, title: String, text: String, silent: Boolean = false) =
-        post(context, null, ID_ALERT, title, text, openAppIntent(context), silent = silent)
+    /**
+     * 对话 [key] 的提醒（跑完、等你处理）：每个对话一条，tag 就是 [key]，同一个对话再发就替换；点开切到这个对话。[detail] 是展开后的全文，[actions]
+     * 是通知上的按钮，[silent] 见 [post]。
+     */
+    fun alert(
+        context: Context,
+        key: String,
+        title: String,
+        text: String,
+        detail: String? = null,
+        actions: List<Notification.Action> = emptyList(),
+        silent: Boolean = false,
+    ) =
+        post(
+            context,
+            key,
+            ID_ALERT,
+            title,
+            text,
+            conversationOpen(context, key),
+            bigText = detail,
+            silent = silent,
+            actions = actions,
+        )
+
+    /** 撤掉对话 [key] 的提醒（用户看到了，或等的请求已经处理掉）。 */
+    fun clearAlert(context: Context, key: String) = cancel(context, key, ID_ALERT)
 
     /**
      * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。 [tag] 和 [id]
-     * 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。 [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
+     * 一起认出这一条，同一条再发就替换；有 [bigText] 时展开能看到这段全文。 [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
+     * [actions] 是通知上的按钮（系统最多画三个）。
      */
     fun post(
         context: Context,
@@ -81,9 +110,10 @@ internal object Notifier {
         title: String,
         text: String,
         open: PendingIntent,
-        bigText: Boolean = false,
+        bigText: String? = null,
         silent: Boolean = false,
         channel: String = CHANNEL_ALERT,
+        actions: List<Notification.Action> = emptyList(),
     ) {
         if (
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -96,7 +126,10 @@ internal object Notifier {
                 .setSmallIcon(R.drawable.ic_stat_zeta)
                 .setContentTitle(AppVariant.current.notificationTitle(title))
                 .setContentText(text)
-                .apply { if (bigText) setStyle(Notification.BigTextStyle().bigText(text)) }
+                .apply {
+                    if (!bigText.isNullOrBlank())
+                        setStyle(Notification.BigTextStyle().bigText(bigText))
+                }
                 // 框架的 Notification.Builder 没有 setSilent：照 NotificationCompat
                 // 的做法，当成组里的一条、只让（不存在的）摘要提醒
                 .apply {
@@ -104,6 +137,7 @@ internal object Notifier {
                         setGroup(SILENT_GROUP)
                             .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
                 }
+                .apply { actions.forEach(::addAction) }
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()
@@ -247,14 +281,7 @@ class AgentService : Service() {
             .setContentTitle(AppVariant.current.notificationTitle(live.title))
             .setContentText(live.text)
             .setSubText(live.note)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    REQUEST_OPEN_LIVE,
-                    MainActivity.conversationIntent(this, live.key),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                ),
-            )
+            .setContentIntent(Notifier.conversationOpen(this, live.key))
             .setShortCriticalText(live.short)
             .setWhen(live.startedAt)
             .setShowWhen(true)
@@ -296,7 +323,6 @@ class AgentService : Service() {
     companion object {
         private val ACTION_STOP = AppVariant.current.action("STOP")
         private val ACTION_CAPTURE = AppVariant.current.action("CAPTURE")
-        private const val REQUEST_OPEN_LIVE = 3
 
         /** 实时通知上只是步骤、进度变了时，两次更新至少隔这么久（一轮里步骤一秒变好几次）。 */
         private const val LIVE_INTERVAL_MS = 2_000L

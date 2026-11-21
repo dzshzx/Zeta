@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core.schedule
 
 import android.app.Application
-import android.app.PendingIntent
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -17,7 +16,6 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.phone.tools.ScheduleTools
-import com.dzshzx.zeta.ui.MainActivity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -416,16 +414,7 @@ internal object ScheduleRunner {
         silent: Boolean = false,
     ) {
         val open =
-            if (key == null) {
-                Notifier.openAppIntent(app)
-            } else {
-                PendingIntent.getActivity(
-                    app,
-                    tag.hashCode(),
-                    MainActivity.conversationIntent(app, key),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
-            }
+            if (key == null) Notifier.openAppIntent(app) else Notifier.conversationOpen(app, key)
         Notifier.post(
             app,
             tag,
@@ -433,7 +422,7 @@ internal object ScheduleRunner {
             title,
             text,
             open,
-            bigText = true,
+            bigText = text,
             silent = silent,
         )
     }

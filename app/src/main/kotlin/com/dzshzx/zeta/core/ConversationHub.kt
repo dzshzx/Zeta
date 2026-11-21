@@ -31,7 +31,7 @@ import kotlinx.serialization.json.JsonObject
  * [environment]、会话列表 [sessionList]、 胶囊与提醒 [alerts]、额度 [quota]、账号 [accounts]。
  *
  * hub 是对话事件的入口：Conversation 的事件（一轮就要结束、结束了、等确认、后台任务做完、活动变化）都调 hub 上的 on… 方法， 由 hub
- * 分给上面这几块，Conversation 不直接找它们。只转给一处的（[onTurnEnding]、[onAttentionNeeded]）也照样经 hub 转。
+ * 分给上面这几块，Conversation 不直接找它们。只转给一处的（[onTurnEnding]）也照样经 hub 转。
  */
 class ConversationHub(
     private val app: Application,
@@ -370,8 +370,15 @@ class ConversationHub(
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
     val drafts = ComposerDrafts(app, settings, ::shell)
 
-    var current by mutableStateOf(blank())
-        private set
+    /** 界面上的当前对话（可观察）。换了就告诉 [alerts]：看着的那个的提醒不必留着。 */
+    var current: Conversation
+        get() = currentState
+        private set(value) {
+            currentState = value
+            alerts.watchChanged()
+        }
+
+    private var currentState by mutableStateOf(blank())
 
     /** Linux 环境：检查、安装、维护、SSH、Claude 账号的登录状态。 */
     val environment =
@@ -403,6 +410,7 @@ class ConversationHub(
         internal set(value) {
             shown = value
             retireCurrentWhenIdle()
+            alerts.watchChanged()
         }
 
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：完成、确认都不用另外提醒。 */
@@ -416,7 +424,6 @@ class ConversationHub(
                 override fun onActivityStarted(activity: Activity) {
                     startedActivities.add(activity)
                     foreground = true
-                    Notifier.clearAlert(app)
                 }
 
                 override fun onActivityStopped(activity: Activity) {
@@ -927,10 +934,17 @@ class ConversationHub(
     internal fun onTurnEnding(conversation: Conversation, text: String) =
         alerts.turnEnding(conversation, text)
 
-    /** 一轮结束了：切走的对话闲下来就收掉，提醒交给 [alerts]，会话列表里这个会话重读。[stopped]：这一轮是用户叫停的。 */
-    internal fun onTurnFinished(conversation: Conversation, stopped: Boolean = false) {
+    /**
+     * 一轮结束了：切走的对话闲下来就收掉，提醒交给 [alerts]，会话列表里这个会话重读。[stopped]：这一轮是用户叫停的；[text]
+     * 是结束的那一句（“已完成”“出错了”“已中断”）。
+     */
+    internal fun onTurnFinished(
+        conversation: Conversation,
+        stopped: Boolean = false,
+        text: String = "已完成",
+    ) {
         if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
-        alerts.turnFinished(conversation, stopped)
+        alerts.turnFinished(conversation, stopped, text)
         // 侧栏列的是别的主机的话，这一轮没改到它
         if (conversation.backend != backend) return
         val session = conversation.sessionId
@@ -971,9 +985,11 @@ class ConversationHub(
         )
     }
 
-    /** 对话停下来等用户批准一次工具调用。 */
-    internal fun onAttentionNeeded(conversation: Conversation) =
-        alerts.attentionNeeded(conversation)
+    /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和实时通知跟着更新。在主线程上调用。 */
+    internal fun onPendingChanged(conversation: Conversation) {
+        alerts.pendingChanged(conversation)
+        onActivityChanged()
+    }
 
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
     internal fun onActivityChanged() {

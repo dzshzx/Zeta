@@ -151,6 +151,10 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+        <!-- 提醒通知上的按钮（允许、拒绝、选项）：只由本应用的 PendingIntent 发，不必导出 -->
+        <receiver
+            android:name=".core.AlertReplyReceiver"
+            android:exported="false" />
         <!-- 应用内更新交给系统安装（PackageInstaller 会话）后的结果：要用户确认、取消了、装不上 -->
         <receiver
             android:name=".core.update.UpdateInstallReceiver"

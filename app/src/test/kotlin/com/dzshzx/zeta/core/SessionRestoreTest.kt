@@ -107,7 +107,7 @@ class SessionRestoreTest {
         source.force("reportedModel", "claude-fable-5-2")
         source.restoreEffort("max")
         source.choosePermissionMode("plan")
-        hub.force("current", source)
+        hub.force("currentState", source)
         hub.showChat(
             "旧对话",
             listOf(

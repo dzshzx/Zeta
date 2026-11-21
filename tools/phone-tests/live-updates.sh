@@ -13,13 +13,6 @@ PROJECTS=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER/.claude/projects
 PROMOTED=$((0x40000))
 LOOP_SECONDS=190
 
-# 只留本包的通知记录：dumpsys 里还有别的应用的通知内容，不落盘
-ours() {
-  android "dumpsys notification --noredact" | awk -v p="pkg=$PKG " '
-    /NotificationRecord\(/ { keep = index($0, p) > 0; ind = match($0, /[^ ]/); if (keep) print; next }
-    keep { if (match($0, /[^ ]/) <= ind) keep = 0; else print }'
-}
-
 # 一条记录的摘要：是否提升、样式和进度、标题、正文、小胶囊的字。flags 取记录自己那一行
 # （dumpsys 按名字列出，如 ONGOING_EVENT|FOREGROUND_SERVICE|PROMOTED_ONGOING；别的行也有 flags=，不能取第一个）
 summary() {

@@ -84,7 +84,8 @@ internal object LiveUpdate {
 
     /**
      * 显示哪个对话：顶部胶囊要显示的那个（[focusKey]）在回答就用它。胶囊显示着时实时通知不提升，用到它的是胶囊退场
-     * （锁屏、息屏）的时候：锁屏上的实时通知接着说胶囊在说的那个对话。没有时照胶囊挑对话的规则排：接管着的优先，其次是用过手机的里最近用的，再是 Zeta 里正显示着的，最后是最近开始的。
+     * （锁屏、息屏）的时候：锁屏上的实时通知接着说胶囊在说的那个对话。没有时照胶囊挑对话的规则排：接管着的优先，其次是停下来等用户的，再是用过手机的里最近用的，再是 Zeta
+     * 里正显示着的，最后是最近开始的。
      */
     fun pick(candidates: List<LiveCandidate>, focusKey: String?): LiveCandidate? {
         focusKey
@@ -94,6 +95,7 @@ internal object LiveUpdate {
             }
         return candidates.maxWithOrNull(
             compareBy<LiveCandidate> { it.controlling }
+                .thenBy { it.step.kind.needsUser }
                 .thenBy { it.engaged }
                 .thenBy { if (it.engaged) it.engagedAt else 0L }
                 .thenBy { it.current }

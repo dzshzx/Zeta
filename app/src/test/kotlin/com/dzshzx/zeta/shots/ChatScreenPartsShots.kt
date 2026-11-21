@@ -227,7 +227,7 @@ class ChatScreenPartsShots : ShotTest() {
     fun permission() {
         val hub = chatHub()
         hub.current.force(
-            "pending",
+            "pendingState",
             PermissionRequest(
                 "r1",
                 "Bash",
@@ -246,7 +246,7 @@ class ChatScreenPartsShots : ShotTest() {
     fun question() {
         val hub = chatHub()
         hub.current.force(
-            "pending",
+            "pendingState",
             PermissionRequest(
                 "r2",
                 "AskUserQuestion",

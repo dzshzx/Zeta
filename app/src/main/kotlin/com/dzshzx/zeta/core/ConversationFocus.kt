@@ -131,8 +131,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
         if (phone.userControlling) return Step("你在接管", StepKind.CONTROLLING)
         if (phone.paused) return Step("已暂停", StepKind.PAUSED)
         conversation.pending?.let {
-            return if (it.toolName == "AskUserQuestion") Step("需要你回答", StepKind.ASKING)
-            else Step("需要你确认", StepKind.CONFIRMING)
+            return AlertNotice.waitingStep(it)
         }
         conversation.status?.let {
             return Step(it, StepKind.STATUS)

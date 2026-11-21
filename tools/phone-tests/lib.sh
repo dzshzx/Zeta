@@ -220,3 +220,10 @@ two_turns_across_drop() {
   echo "两轮的回答：$results"
   [[ $results == *"第一轮"*"|"*"第二轮"* ]] || { echo "两轮回答不对"; return 1; }
 }
+
+# ours：dumpsys 里本包的通知记录（一条记录连同它下面缩进的几行）；别的应用的通知内容不落盘
+ours() {
+  android "dumpsys notification --noredact" | awk -v p="pkg=$PKG " '
+    /NotificationRecord\(/ { keep = index($0, p) > 0; ind = match($0, /[^ ]/); if (keep) print; next }
+    keep { if (match($0, /[^ ]/) <= ind) keep = 0; else print }'
+}
