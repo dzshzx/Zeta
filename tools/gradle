@@ -7,8 +7,8 @@ JAVA_HOME=$(tools/java-home)
 export JAVA_HOME
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 # 并行开发时几棵任务树会同时构建：最多同时跑 ZETA_GRADLE_SLOTS 个（默认 2），其余排队，免得内存撑爆。
-# 一次门禁构建（assembleDebug 加 testDebugUnitTest）内存峰值约 7G；两个构建加上共用的模拟器（约 6G）和各会话自身，
-# 刚好放进 agent 会话合计的内存上限，三个就放不下。
+# 一次门禁构建（assembleDebug 加 testDebugUnitTest）内存峰值约 6G（守护进程约 2.5G，4 个测试进程各约 1.1G）；
+# 两个构建加上共用的模拟器（约 7G）和各会话自身，放得进 agent 会话合计的内存上限。
 # 锁挂在 gradlew 进程上，它结束就释放；Gradle 守护进程不继承这个文件描述符。
 slots=${ZETA_GRADLE_SLOTS:-2}
 lockdir=${XDG_RUNTIME_DIR:-/tmp}/zeta-gradle
@@ -27,4 +27,7 @@ fi
 # 用量记在它的分组上；一个守护进程同时只跑一个构建，上限按单个构建的峰值定。
 source tools/own-scope.sh
 own_scope zeta-gradle 10G
+# 守护进程的 malloc 分配区限到 2 个（glibc 默认按核数开，本地内存碎得厉害），实测少占约 0.3G，构建不变慢。
+# 只对新起的守护进程生效；测试进程在 app/build.gradle.kts 里另设
+export MALLOC_ARENA_MAX=2
 exec "${OWN_SCOPE[@]}" ./gradlew "$@"

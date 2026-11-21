@@ -277,6 +277,11 @@ tasks.withType<Test>().configureEach {
     systemProperty("robolectric.offline", "true")
     // Robolectric 的原生图形库经 System.load 载入，JDK 25 不加这一项会在每次测试时打一段警告
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+    // 测试进程跑完一次测试就退出，按短命进程配：只用 C1 编译（省下 C2 的编译内存和一半代码缓存），用 Serial GC
+    // （省下 G1 约 70M 的记账结构），malloc 分配区限到 2 个（glibc 默认按核数开，Robolectric 原生图形库的本地内存
+    // 因此碎得厉害）。实测每个进程峰值从约 1.7G 降到约 1.1G，测试阶段没变慢
+    jvmArgs("-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC")
+    environment("MALLOC_ARENA_MAX", "2")
     // 截图测试（app/src/test/kotlin/com/dzshzx/zeta/shots）每次都把图写到 app/build/shots（不进 Git），门禁因此也真的画一遍，
     // 渲染崩溃会让测试失败。同时和上一次的同名图比：变了就在旁边多写一张 <名字>_compare.png
     systemProperty("roborazzi.test.record", "true")
@@ -291,7 +296,7 @@ tasks.withType<Test>().configureEach {
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
     timeout.set(Duration.ofMinutes(10))
     // 按测试类分到几个进程并行跑：串行时全量要 4 分钟，大头是每例约 1 秒的截图测试。
-    // 每个进程常驻约 1G，算在单个构建的内存峰值里（tools/gradle 按这个峰值定同时构建数）
+    // 每个进程峰值约 1.1G，算在单个构建的内存峰值里（tools/gradle 按这个峰值定同时构建数）
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 4).coerceIn(1, 4)
 }
 
