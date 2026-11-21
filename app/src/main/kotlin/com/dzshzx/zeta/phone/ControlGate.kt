@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -52,6 +53,8 @@ internal class ControlGate(private val timeoutMs: Long = TimeUnit.MINUTES.toMill
     /** 暂停或接管时在这里等（工具线程上，不持屏幕锁）。返回不该执行的原因，可以执行时返回 null。 */
     fun await(): String? = lock.withLock {
         if (!closed) return null
+        // 设备脚本（tools/phone-tests/phone-gate.sh）在 logcat 里认这一行：调用确实停在了闸门前
+        Log.i("ZetaPhone", "gate: phone tool call waiting (paused or taken over)")
         val generation = stopGeneration
         var left = TimeUnit.MILLISECONDS.toNanos(timeoutMs)
         while (closed && stopGeneration == generation) {

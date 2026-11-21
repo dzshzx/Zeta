@@ -1,3 +1,3 @@
 {"title":"假 Claude · 后台屏幕睡下","steps":[{"text":"我在后台屏幕上打开系统设置。","chunk":6,"delay":30},{"phone":"open_app","input":{"app":"com.android.settings","display":"background"}},{"pause":1500},{"exit":1}]}
 {"title":"假 Claude · 后台屏幕醒来","steps":[{"phone":"screen","input":{}},{"text":"后台屏幕醒了。","chunk":6,"delay":30}]}
-{"title":"假 Claude · 暂停与接管","steps":[{"phone":"screen","input":{}},{"text":"等你点暂停。","chunk":6,"delay":30},{"pause":15000},{"phone":"screen","input":{}},{"text":"等你接管。","chunk":6,"delay":30},{"pause":15000},{"phone":"screen","input":{}},{"text":"好了。","chunk":6,"delay":30}]}
+{"title":"假 Claude · 暂停与接管","steps":[{"phone":"screen","input":{}},{"text":"等你点暂停。","chunk":6,"delay":30},{"wait":"paused"},{"phone":"screen","input":{}},{"text":"等你接管。","chunk":6,"delay":30},{"wait":"took"},{"phone":"screen","input":{}},{"text":"好了。","chunk":6,"delay":30}]}

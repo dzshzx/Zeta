@@ -31,7 +31,8 @@ wx_id=${wx_full:+$((16#${wx_full:0:13}))}
 wx_thumb_id=${wx_thumb:+$((16#${wx_thumb:0:13}))}
 qq_id=''
 if [[ -n $qq_rel ]]; then
-  qq_id=$(python3 -I -c 'import hashlib,sys; r=sys.argv[1]; h=int.from_bytes(hashlib.sha1(r.encode()).digest()[:5],"big"); print((h<<12)|int(r.split("/")[1],16))' "$qq_rel")
+  qq_dir=${qq_rel#*/}
+  qq_id=$(((16#$(printf %s "$qq_rel" | sha1sum | cut -c1-10) << 12) | 16#${qq_dir%%/*}))
 fi
 echo "挑到：微信 wxgf 原图 ${wx_id:-没有}，微信只有缩略图 ${wx_thumb_id:-没有}，QQ ${qq_id:-没有}"
 

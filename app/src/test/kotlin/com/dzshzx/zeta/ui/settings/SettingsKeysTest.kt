@@ -133,7 +133,7 @@ class SettingsKeysTest {
         // 改清单后重排闹钟，记下排过的任务（scheduleArmed）
         ScheduleStore.update(app) { listOf(task) }
         NotifyRuleStore.update(app) { listOf(rule) }
-        // 只有调试工具（tools/vd.py prefs-set）写的：手机工具当作主屏的屏幕编号
+        // 只有调试工具（tools/vd prefs-set）写的：手机工具当作主屏的屏幕编号
         prefs().edit().putInt("phoneDisplay", 7).commit()
         // 同上：测试版调试应用内更新用的清单地址和信任的证书
         prefs()

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Zeta 的门禁，也是 wt land 合入前跑的检查。工作站和手机 Debian 里都能跑：bash scripts/check.sh
-# 核对仓里的 Python 只有清单里的、都能解析；Kotlin 按 ktfmt 排版、函数认知复杂度不超过上限、文件不超过行数上限
-# （scripts/format.sh）；检查两个 Go 模块，helper/ 的 zeta-helper 和 tools/release 的发版工具（版本、格式、
+# 核对仓里没有 Python；Kotlin 按 ktfmt 排版、函数认知复杂度不超过上限、文件不超过行数上限
+# （scripts/format.sh）；检查三个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具和 tools/vdisplay 的
+# 虚拟屏驱动 tools/vd（版本、格式、
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
@@ -34,7 +35,7 @@ gradle_blind() {
     CLAUDE.md | README.md | CONTRIBUTING.md | SECURITY.md | docs/*) ;;
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
-    tools/shots | tools/vd.py | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
+    tools/shots | tools/vd | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
     *) return 1 ;;
   esac
 }
@@ -54,8 +55,7 @@ skip_gradle=$(gradle_skip_reason)
 
 # shellcheck source=scripts/gatelib.sh
 source scripts/gatelib.sh
-gate_python_allowlist
-git ls-files -z -- '*.py' | xargs -0 python3 -I -c 'import ast, sys; [ast.parse(open(f, encoding="utf-8").read(), f) for f in sys.argv[1:]]'
+gate_python_allowlist # 没有清单文件：仓里不许有 .py
 
 # Kotlin 的工具（ktfmt、detekt）是 jar，用构建用的同一份 JDK 25
 java_home=$(tools/java-home)
@@ -87,6 +87,7 @@ check_go_module helper
 # helper/go.mod 的 tool：单独编进 APK 的程序（claude-switch），它们链接的模块另有一份清单，不算 zeta-helper 的依赖
 (cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
+check_go_module tools/vdisplay
 
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"

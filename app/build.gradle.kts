@@ -74,7 +74,7 @@ android {
             abiFilters += "arm64-v8a"
         }
         buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCert\"")
-        // 应用内更新的调试覆盖（清单地址、信任的证书，tools/vd.py prefs-set 设）只在测试版里打开；正式版里这是常量 false，
+        // 应用内更新的调试覆盖（清单地址、信任的证书，tools/vd prefs-set 设）只在测试版里打开；正式版里这是常量 false，
         // 读覆盖的分支连同设置键一起被 R8 去掉
         buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "false")
     }

@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
  * 后台虚拟屏（做法照 Eta 的 VirtualDisplayCommandMain）：以 root 启动，降到 system 身份后建一块受信任、
  * 自带焦点、不抢主屏焦点的虚拟屏，画面进本进程的 ImageReader。
  *
- * 由 tools/vd.py 构建、推送与启动，不单独使用。
+ * 由 tools/vd 构建、推送与启动，不单独使用。
  * 用法：app_process / VdHold 宽 高 密度 [最长存活秒数，默认 1800] [虚拟屏名字，默认 zeta-vd]
  * 标准输出：VD_READY:<displayId>；标准输入逐行命令：
  *   shot <png 路径>   把最近一帧存成 PNG，回 VD_SHOT:<路径> 或 VD_ERR:<原因>

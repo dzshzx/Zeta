@@ -1,3 +1,0 @@
-# 仓里允许的 Python 文件（门禁 gate_python_allowlist 核对），每个写明为什么留着不是 Go。
-# 测试工具：在后台虚拟屏上驱动 Zeta（截图、点按），工作站和手机 Debian 都直接用系统 python3 跑。
-tools/vd.py

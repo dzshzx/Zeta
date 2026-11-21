@@ -3,8 +3,6 @@ build/
 local.properties
 *.jks
 .kotlin/
-__pycache__/
-*.pyc
 # 维护者本机的环境事实（见 CLAUDE.md 开头）
 CLAUDE.local.md
 # 在 helper/ 里 go build 编出的程序（Gradle 的 zetaHelper 编到 build/ 下，不用它）

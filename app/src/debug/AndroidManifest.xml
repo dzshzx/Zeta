@@ -6,5 +6,9 @@
         <receiver
             android:name="com.dzshzx.zeta.core.diag.LatencyBench"
             android:exported="false" />
+        <!-- 某块屏上的控件清单，含 Zeta 自己的悬浮层（tools/vd nodes、tap-text）：不导出，由 root 用 am broadcast -n 发起 -->
+        <receiver
+            android:name="com.dzshzx.zeta.core.diag.UiNodes"
+            android:exported="false" />
     </application>
 </manifest>

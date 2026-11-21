@@ -244,7 +244,7 @@ class Settings private constructor(private val app: Context) {
 
     /**
      * 测试版调试应用内更新用的覆盖（[com.dzshzx.zeta.core.update.UpdateTrust]）：清单地址、信任的签名证书（SHA-256）。
-     * 只由调试工具（tools/vd.py prefs-set）写，界面里没有入口，每次现读；正式版不读。
+     * 只由调试工具（tools/vd prefs-set）写，界面里没有入口，每次现读；正式版不读。
      */
     val updateDevManifest: String?
         get() = prefs.getString("updateDevManifest", null)?.takeIf { it.isNotBlank() }

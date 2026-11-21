@@ -44,7 +44,7 @@ class FakeClaudeHostTest {
     private fun onPath(command: String) =
         System.getenv("PATH").orEmpty().split(':').any { File(it, command).canExecute() }
 
-    /** 和 vd.py fake 一样：脚本和剧本放进测试版的目录。 */
+    /** 和 vd fake 一样：脚本和剧本放进测试版的目录。 */
     private fun installFake() {
         fakeDir.mkdirs()
         fake.copyTo(File(fakeDir, "fake-claude.sh")).setExecutable(true)

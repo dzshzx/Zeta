@@ -12,7 +12,7 @@
 #             所以只在装回旧版本时用。
 #
 # 在 Android 一侧以 root、全局挂载命名空间里跑，手机和模拟器通用。在工作站上：
-#   tools/vd.py sh "set -- migrate; $(cat tools/migrate-workspace.sh)"     （ZETA_DEVICE=phone 时是手机）
+#   tools/vd sh "set -- migrate; $(cat tools/migrate-workspace.sh)"     （ZETA_DEVICE=phone 时是手机）
 #   设备脚本里（tools/phone-run）：android "set -- migrate; $(cat "$ZETA_ROOT/tools/migrate-workspace.sh")"
 #   或经 ssh 进手机 Debian：ssh <主机> 'sudo -n timeout 60 nsenter -t 1 -m -- /system/bin/sh -s migrate' < tools/migrate-workspace.sh
 set -u

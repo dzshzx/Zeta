@@ -92,9 +92,12 @@ class ZetaAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
-    /** 某块屏幕上各个窗口的根节点，最上层的在前。Zeta 自己的悬浮层不算在内。 */
-    fun roots(displayId: Int): List<AccessibilityNodeInfo> {
-        readRoots(displayId)
+    /**
+     * 某块屏幕上各个窗口的根节点，最上层的在前。Zeta 自己的悬浮层不算在内，[withOwnOverlays] 时也算（测试版给设备脚本读控件用， 见
+     * core/diag/UiNodes）。
+     */
+    fun roots(displayId: Int, withOwnOverlays: Boolean = false): List<AccessibilityNodeInfo> {
+        readRoots(displayId, withOwnOverlays)
             .takeIf { it.isNotEmpty() }
             ?.let {
                 return it
@@ -102,7 +105,7 @@ class ZetaAccessibilityService : AccessibilityService() {
         // 应用在几块屏之间挪过以后，本地的窗口缓存可能还是旧的，读出来一个根节点都没有（系统那边窗口其实在）：
         // 清掉缓存再读一次
         if (!runCatching { clearCache() }.getOrDefault(false)) return emptyList()
-        return readRoots(displayId).also {
+        return readRoots(displayId, withOwnOverlays).also {
             if (it.isNotEmpty())
                 Log.i("ZetaPhone", "display $displayId: stale window cache cleared")
         }
@@ -131,14 +134,15 @@ class ZetaAccessibilityService : AccessibilityService() {
         .orEmpty()
         .any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
 
-    private fun readRoots(displayId: Int): List<AccessibilityNodeInfo> {
+    private fun readRoots(displayId: Int, withOwnOverlays: Boolean): List<AccessibilityNodeInfo> {
         val windows = runCatching { windowsOnAllDisplays.get(displayId) }.getOrNull().orEmpty()
         return windows
             .sortedByDescending { it.layer }
             .mapNotNull { window ->
                 val root = runCatching { window.root }.getOrNull() ?: return@mapNotNull null
                 root.takeUnless {
-                    window.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                    !withOwnOverlays &&
+                        window.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
                         root.packageName?.toString() == packageName
                 }
             }

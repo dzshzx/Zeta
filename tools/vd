@@ -1,0 +1,15 @@
+#!/bin/bash
+# 后台虚拟屏驱动的入口，用法见 tools/vd（不带参数）。源码是 tools/vdisplay 下的 Go，改过以后（或还没编过时）
+# 先编到 tools/vdisplay/build/vd 再执行；工作站和手机 Debian 都用 PATH 上的 go（版本见 tools/vdisplay/go.mod）。
+# tools/vd --build-only：只编，不碰设备（tools/phone-run 在拿租约之前先编好）。
+set -euo pipefail
+src=$(cd "$(dirname "$0")/vdisplay" && pwd)
+bin=$src/build/vd
+if [[ ! -x $bin || -n $(find "$src" -maxdepth 1 \( -name '*.go' -o -name go.mod \) -newer "$bin" -print -quit) ]]; then
+  mkdir -p "$src/build"
+  # 先编到临时文件再换上：同时起的几个 vd 不会执行到写了一半的程序
+  go -C "$src" build -o "$bin.$$" .
+  mv -f "$bin.$$" "$bin"
+fi
+[[ ${1:-} != --build-only ]] || exit 0
+exec "$bin" "$@"
