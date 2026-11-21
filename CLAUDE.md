@@ -114,7 +114,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 - 别的提交是下一个版本的预发布：`0.7.2-dev.3+gabc1234` 是 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。按 SemVer 它排在 0.7.1 之后、0.7.2 之前，`+` 后面的构建元数据不参与比大小。测试版装的都是这种。
 - tag 只标正式版，由 release.yml 经 GitHub API 在发版的提交上打附注 tag，本机不打；推上去后不移动、不删除、不复用。每个 tag 对应一个 GitHub Release，资产是签好的 `Zeta-vX.Y.Z.apk`、它的 `.sha256` 和应用内更新用的 `update.json`（格式见 `docs/release.md`）。
 
-合入：功能分支交回前自己变基到最新的 origin/master、解决冲突、压成一个提交。负责合入的会话先用 `tools/phone-run tools/phone-tests/smoke.sh`（和 `tools/phone-tests/` 下与这次改动有关的脚本）在测试版上过一遍，再用 `wt land` 合入。合入不发版、不装正式版。
+合入：功能分支交回前自己变基到最新的 origin/master、解决冲突、压成一个提交。负责合入的会话用 `wt land` 合入，门禁里的 `AppStartTest` 查装上能不能起来（清单登记的类都在、冷启动画得出界面），不用再上设备跑冒烟测试；改动涉及设备上的行为时，合入前用 `tools/phone-run` 跑 `tools/phone-tests/` 下与它有关的脚本。合入不发版、不装正式版。
 
 发版指在 GitHub 上把 master 的最新提交做成 Release：手动触发 `.github/workflows/release.yml`，先 `gh workflow run release.yml --ref master -f dry_run=true`，看过运行摘要（版本、源提交、资产的 sha256、Release 说明）再 `gh workflow run release.yml --ref master -f bump=patch`；用户说升 minor 时才用 `-f bump=minor`。它算版本（这个提交已发过版就失败）、门禁（wt land 合入时已过门禁的跳过；本机 runner 不在线时加 `-f runner=github-hosted`）、在本机 runner 上构建、在 GitHub 托管机上签名（签名要读发版密钥，本机 runner 的 job 不带密钥）、核对、发布。失败了修好后用同一条命令重跑，能续上，不手工删 tag 或草稿。步骤、签名、Secrets 和出错后怎么办见 `docs/release.md`。
 
