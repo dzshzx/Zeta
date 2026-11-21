@@ -18,9 +18,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.assistant.AssistantOwner
 import com.dzshzx.zeta.assistant.AssistantScreen
 import com.dzshzx.zeta.assistant.AssistantSuggestions
+import com.dzshzx.zeta.assistant.AssistantWakeGlowFrame
 import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.assistant.ReplyView
 import com.dzshzx.zeta.assistant.ScreenChip
+import com.dzshzx.zeta.assistant.WakeHandoffSeconds
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.settings.AssistantDiagnosticsGroup
@@ -31,7 +33,7 @@ import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Test
 
-/** 数字助理：浮窗刚唤起、发出去以后、去掉屏幕内容；设置里的一行和诊断页的一组。 */
+/** 数字助理：浮窗刚唤起、发出去以后、去掉屏幕内容、唤起光效放到一半；设置里的一行和诊断页的一组。 */
 class AssistantShots : ShotTest() {
     private fun thumbnail() =
         Bitmap.createBitmap(120, 260, Bitmap.Config.ARGB_8888)
@@ -187,6 +189,62 @@ class AssistantShots : ShotTest() {
                     onOpen = {},
                     onDismiss = {},
                 )
+            }
+        }
+    }
+
+    /** 回答很长、还在往外出：面板长到上限，回答在面板里滚动、跟到底。 */
+    @Test
+    fun longReply() {
+        val answer = (1..30).joinToString("\n\n") { "第 $it 段：蓝牙、WLAN 和移动网络都在这一页的上半部分。" }
+        shoot("assistant-long-reply") {
+            OverApp {
+                AssistantScreen(
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = thumbnail(),
+                            waiting = false,
+                            removed = false,
+                            textOnly = false,
+                            sent = true,
+                        ),
+                    reply =
+                        ReplyView(
+                            text = answer,
+                            status = null,
+                            streaming = true,
+                            attention = false,
+                            error = null,
+                        ),
+                    draft = remember { TextFieldState() },
+                    suggestions = emptyList(),
+                    sending = false,
+                    problem = null,
+                    visible = true,
+                    onSend = {},
+                    onToggleScreen = {},
+                    onOpen = {},
+                    onDismiss = {},
+                )
+            }
+        }
+    }
+
+    /** 唤起光效放到一半：流光正沿右边框往下。 */
+    @Test
+    fun wakeGlowStreaming() {
+        shoot("assistant-wake-glow-streaming") {
+            OverApp { AssistantWakeGlowFrame(seconds = 0.2f, bottomCornerRadius = 0f) }
+        }
+    }
+
+    /** 唤起光效：流光落到底边、底部光场起来，输入栏从这一刻开始出现。 */
+    @Test
+    fun wakeGlowLanded() {
+        shoot("assistant-wake-glow-landed") {
+            OverApp {
+                AssistantWakeGlowFrame(seconds = WakeHandoffSeconds, bottomCornerRadius = 0f)
             }
         }
     }

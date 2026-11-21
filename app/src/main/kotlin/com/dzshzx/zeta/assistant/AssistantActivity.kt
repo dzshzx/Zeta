@@ -42,8 +42,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 数字助理的浮窗：半透明的 activity，盖在当前应用上，底部一张面板（[AssistantScreen]）。
- * 两个入口：系统助理会话（[ZetaVoiceInteractionSession]，带截图和应用内容）； ACTION_ASSIST（默认助理是按 activity
+ * 数字助理的浮窗：半透明的 activity，盖在当前应用上（[AssistantScreen]）。
+ *
+ * 唤起时页面轻轻压暗，屏幕边缘的唤起光效流到底边后，带上的屏幕、建议问题和输入栏几个浮起的胶囊从底部浮上来；发出去以后铺成贴底的半屏面板显示回答。
+ *
+ * 两个入口：系统助理会话（[ZetaVoiceInteractionSession]，带截图和应用内容）；ACTION_ASSIST（默认助理是按 activity
  * 选的、或别的应用发来，只带前台应用的包名）。
  *
  * 发出去时新开一个对话：截图作图片附件，应用内容整理成精简的文字接在问题后面（[ScreenDigest]）， 对话放在后台跑，不打扰 Zeta
@@ -74,11 +77,9 @@ class AssistantActivity : ComponentActivity() {
                 ?.let { chat.draft.setTextAndPlaceCursorAtEnd(it.take(2000)) }
         }
         val onMainScreen = (display?.displayId ?: 0) == 0
-        val corner =
-            runCatching {
-                display?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)?.radius?.toFloat()
-            }
-                .getOrNull() ?: 0f
+        val corner = cornerRadius(RoundedCorner.POSITION_TOP_LEFT)
+        // 唤起光效从屏幕下角绕上来，用右下角的圆角
+        val bottomCorner = cornerRadius(RoundedCorner.POSITION_BOTTOM_RIGHT)
         setContent {
             val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             DisposableEffect(dark) {
@@ -103,6 +104,7 @@ class AssistantActivity : ComponentActivity() {
                         onOpen = ::openInZeta,
                         onDismiss = ::dismiss,
                         autoFocus = onMainScreen,
+                        cornerRadius = bottomCorner,
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
                     EdgeGlow(
@@ -116,6 +118,10 @@ class AssistantActivity : ComponentActivity() {
             }
         }
     }
+
+    /** 屏幕这个角的物理圆角半径（像素）；取不到时是 0。 */
+    private fun cornerRadius(position: Int): Float =
+        runCatching { display?.getRoundedCorner(position)?.radius?.toFloat() }.getOrNull() ?: 0f
 
     /** 浮窗开着时又唤起一次：屏幕就是浮窗自己，保持原样（新带来的采集不要）。 */
     override fun onNewIntent(intent: Intent) {
