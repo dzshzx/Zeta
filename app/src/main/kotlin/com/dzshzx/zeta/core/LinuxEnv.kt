@@ -41,6 +41,12 @@ object LinuxEnv {
     const val OWN_BASE = "/data/local/zeta/debian"
     const val OWN_ROOTFS = "$OWN_BASE/rootfs"
 
+    /**
+     * Linux 里的 /workspace 绑的是这个目录：用户自己的文件，正式版和测试版共用。放在 rootfs 外面，换环境、重装环境都不动它。
+     * 进入环境时还没有就建出来，交给进来的用户（装环境时进来的是 root，建用户那一步再把空的它交给新用户）。
+     */
+    const val WORKSPACE = "/data/local/zeta/workspace"
+
     /** 以 root 身份进入 [rootfs]（装环境时用，这时还没有普通用户）。 */
     fun rootConfig(rootfs: String) = LinuxEnvConfig(rootfs, "root", 0, 0, "/root", "/")
 
@@ -58,9 +64,10 @@ object LinuxEnv {
         "${'$'}BB" mount -o rbind /dev "${'$'}R/dev" || exit 125
         "${'$'}BB" mount -o rbind /sys "${'$'}R/sys" 2>/dev/null
         [ -d /storage/emulated/0 ] && "${'$'}BB" mount -o bind /storage/emulated/0 "${'$'}R/storage/emulated/0" 2>/dev/null
-        "${'$'}BB" mkdir -p "${'$'}R/data/local/tmp" /data/local/tmp/eta "${'$'}R/workspace"
+        "${'$'}BB" mkdir -p "${'$'}R/data/local/tmp" "${'$'}R/workspace"
+        [ -d $WORKSPACE ] || { "${'$'}BB" mkdir -p $WORKSPACE && "${'$'}BB" chown "${'$'}6:${'$'}7" $WORKSPACE; }
         "${'$'}BB" mount -o bind /data/local/tmp "${'$'}R/data/local/tmp"
-        "${'$'}BB" mount -o bind /data/local/tmp/eta "${'$'}R/workspace"
+        "${'$'}BB" mount -o bind $WORKSPACE "${'$'}R/workspace"
         # 共享文件夹：跟上面一样只绑在这个命名空间里，命令结束就没了；源目录不在的跳过，不影响进入环境
         [ -n "${'$'}9" ] && printf '%s\n' "${'$'}9" | while IFS="${'$'}(printf '\t')" read -r n s; do
           [ -n "${'$'}n" ] && [ -d "${'$'}s" ] && "${'$'}BB" mkdir -p "${'$'}R${SharedFolders.LINUX_ROOT}/${'$'}n" &&
@@ -179,6 +186,7 @@ object LinuxEnv {
         if (f.size < 5) return null
         val uid = f[2].toIntOrNull() ?: return null
         val gid = f[3].toIntOrNull() ?: return null
-        return LinuxEnvConfig(rootfs, f[1], uid, gid, f[4], "/workspace")
+        // 默认工作目录是用户的家目录
+        return LinuxEnvConfig(rootfs, f[1], uid, gid, f[4], f[4])
     }
 }

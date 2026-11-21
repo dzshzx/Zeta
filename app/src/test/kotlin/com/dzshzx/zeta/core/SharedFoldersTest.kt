@@ -21,6 +21,17 @@ class SharedFoldersTest {
         assertEquals("/data/local/tmp/x", SharedFolders.bindSource("/data/local/tmp/x"))
     }
 
+    /** 工作区本来就在 /workspace，Zeta 自带环境的目录也不能共享；别的目录可以。 */
+    @Test
+    fun workspaceAndOwnEnvironmentAreNotShared() {
+        val rootfs = LinuxEnv.OWN_ROOTFS
+        assertNotNull(SharedFolders.sourceProblem(LinuxEnv.WORKSPACE, emptyList(), rootfs))
+        assertNotNull(SharedFolders.sourceProblem("${LinuxEnv.WORKSPACE}/claude", emptyList(), rootfs))
+        assertNotNull(SharedFolders.sourceProblem("$rootfs/home", emptyList(), rootfs))
+        assertNull(SharedFolders.sourceProblem("/data/local/tmp/eta", emptyList(), rootfs))
+        assertNull(SharedFolders.sourceProblem("/sdcard/Download", emptyList(), rootfs))
+    }
+
     @Test
     fun namesAreAsciiAndUnique() {
         val existing = listOf(SharedFolder("Download", "/sdcard/Download"))

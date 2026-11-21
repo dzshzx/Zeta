@@ -28,6 +28,9 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
         private set
 
+    /** 重新检测前设着的默认工作目录：新识别出的环境里还有这个目录就接着用，见 [checkSetup]。 */
+    private var keptCwd: String? = null
+
     /** 安装 Debian 环境、登录 Claude 账号。 */
     val installer = EnvInstaller(hub, assets)
     private val sshService = SshService(installer, assets)
@@ -70,11 +73,11 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
                 // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
                 saved != null -> if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
                 else -> LinuxEnv.detect(rootfsHint)?.let { detected ->
-                    // 默认工作目录：/workspace 是用户的工作区，有 claude 子目录就用它
-                    val cwd = runCatching {
-                        LinuxEnv.run(detected, "[ -d /workspace/claude ] && echo /workspace/claude || echo /workspace").stdout.trim()
-                    }.getOrNull()?.takeIf { it.startsWith("/") } ?: "/workspace"
-                    settings.env = detected.copy(defaultCwd = cwd)
+                    // 默认工作目录：第一次配环境时是用户的家目录（detect 给的）；重新检测前设过的，新环境里还有这个目录就不变
+                    val kept = keptCwd?.takeIf { cwd ->
+                        cwd != detected.defaultCwd && runCatching { LinuxEnv.run(detected, "[ -d ${LinuxEnv.quote(cwd)} ]").exitCode == 0 }.getOrDefault(false)
+                    }
+                    settings.env = if (kept != null) detected.copy(defaultCwd = kept) else detected
                     SetupState.Ready
                 } ?: SetupState.NoEnvironment
             }
@@ -91,10 +94,11 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
         }
     }
 
-    /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户。有对话在进行时只记下路径。 */
+    /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户，默认工作目录在那边还有就留着。有对话在进行时只记下路径。 */
     fun redetect(rootfs: String) {
         rootfsHint = rootfs
         if (hub.conversationsWorking) return
+        settings.env?.let { keptCwd = it.defaultCwd }
         settings.env = null
         account = null
         health = null

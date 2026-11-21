@@ -25,7 +25,7 @@ enum class SharedAccess { ReadWrite, ReadOnly, Denied, NotMounted }
  */
 object SharedFolders {
     /**
-     * 挂载点建在 Zeta 自己的 rootfs 里。不放在 /workspace 下：那是用户的工作区（Android 的 /data/local/tmp/eta 绑过去的），
+     * 挂载点建在 Zeta 自己的 rootfs 里。不放在 /workspace 下：那是用户的工作区（Android 的 [LinuxEnv.WORKSPACE] 绑过去的），
      * 挂载点不该和用户的文件混在一起。
      */
     const val LINUX_ROOT = "/mnt/shared"
@@ -39,7 +39,7 @@ object SharedFolders {
     /** 系统关键目录、/workspace 本身（环境里本来就看得到）和 Zeta 自带环境的目录不能共享；当前用的 rootfs 由 [sourceProblem] 另外加上。 */
     private val Forbidden = listOf(
         "/proc", "/sys", "/dev", "/system", "/vendor", "/apex", "/product", "/odm",
-        "/data/local/tmp/eta", LinuxEnv.OWN_BASE,
+        LinuxEnv.WORKSPACE, LinuxEnv.OWN_BASE,
     )
 
     /** 当前清单；Settings 读写时同步过来，进入环境的脚本据此挂载。 */

@@ -32,7 +32,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - 工作站（nerv-wsl）是主开发处：仓在 `~/workspace/Zeta`，改动在任务树里做，用 `wt land` 跑门禁并合入 master。
 - 手机 Debian 里留一份 `/workspace/claude/zeta`，用来临时开发和实机测试，能编、能装、能测。开工前先 `git pull`。要留下的改动提交到分支、推到 GitHub，再在工作站上用 `wt land` 合入；手机上没有 `wt`，不直接推 master。
 - 两边都只经 GitHub 的 `origin` 同步。
-- 工作站进手机：`ssh xiaomi-17-debian` 进 Debian，`sudo nsenter -t 1 -m -- /system/bin/sh -c '<命令>'` 以 root 进 Android 一侧。`/workspace` 是 Android 的 `/data/local/tmp/eta` 挂进来的；从 chroot 里看不到 `/data/local/zeta`，要经 `nsenter` 看。
+- 工作站进手机：`ssh xiaomi-17-debian` 进 Debian，`sudo nsenter -t 1 -m -- /system/bin/sh -c '<命令>'` 以 root 进 Android 一侧。`/workspace` 是 Android 的 `/data/local/zeta/workspace` 挂进来的；从 chroot 里看不到 `/data/local/zeta`，要经 `nsenter` 看。
 
 ## 构建与测试
 
@@ -109,7 +109,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 坑
 
-- Linux 里的 `/workspace` 是 Android 的 `/data/local/tmp/eta` 绑过去的，和 Eta 共用；Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。
+- Linux 里的 `/workspace` 是 Android 的 `/data/local/zeta/workspace`（`LinuxEnv.WORKSPACE`）绑过去的，是用户自己的文件，正式版和测试版共用；它在 rootfs 外面，换环境、重装环境都不动它。Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。Zeta 不碰 Eta 的 `/data/local/tmp/eta`（别人设备上那可能是 Eta 正在用的工作区）；从前 `/workspace` 绑它的设备用 `tools/migrate-workspace.sh` 迁一次：原地改名到新目录，旧位置留一个指向新目录的符号链接，没升级的旧版本照样绑到同一份文件。手机和模拟器都已迁过。
 - COUI 对话框按钮栏的 `neutral` 一律画成红色的危险按钮，三个按钮还会竖排挤掉内容；不危险的次要操作放菜单，或做成对话框内容里的链接。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - Android 上 `Process.waitFor(超时)` 是 java.lang.Process 的默认实现，每 100 毫秒才看一次进程结束没有，每条命令平均白等约 50 毫秒；等进程用 `Process.exitsWithin`（`core/ProcessWait.kt`，`ProcessWaitTest` 拦着应用代码里带超时的 `waitFor`）。

@@ -84,7 +84,7 @@ internal fun LinuxScreen(hub: ConversationHub, onBack: () -> Unit, onOpenInstall
                 summary = if (lastEditing == LinuxEdit.Rootfs) "Debian 根目录在 Android 里的路径" else "新对话默认在这个目录下开始",
                 value = draft,
                 onValueChange = { draft = it },
-                label = if (lastEditing == LinuxEdit.Rootfs) LinuxEnv.OWN_ROOTFS else "/workspace",
+                label = if (lastEditing == LinuxEdit.Rootfs) LinuxEnv.OWN_ROOTFS else env?.home ?: "/workspace",
                 confirmText = "确定",
                 confirmEnabled = draft.trim().startsWith("/"),
                 onConfirm = {

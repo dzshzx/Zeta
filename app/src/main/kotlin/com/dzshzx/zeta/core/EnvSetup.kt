@@ -176,7 +176,8 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         if (ready.claude) {
             markDone(InstallStep.Claude)
         } else {
-            val config = LinuxEnvConfig(rootfs, user, ready.uid, ready.gid, ready.home ?: "/home/$user", "/workspace")
+            val home = ready.home ?: "/home/$user"
+            val config = LinuxEnvConfig(rootfs, user, ready.uid, ready.gid, home, home)
             runDebian(InstallStep.Claude, config, "claude")?.let { return it }
         }
         return null

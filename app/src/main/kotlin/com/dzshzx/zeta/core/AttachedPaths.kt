@@ -72,7 +72,7 @@ object AttachedPaths {
 
     /**
      * Android 侧的目录在 Linux 环境里叫什么；Linux 里看不到时返回 null。
-     * 进入环境时绑定的有：/data/local/tmp/eta 在 /workspace，/data/local/tmp 原样，各共享文件夹在 /mnt/shared/<名字>，
+     * 进入环境时绑定的有：[LinuxEnv.WORKSPACE] 在 /workspace，/data/local/tmp 原样，各共享文件夹在 /mnt/shared/<名字>，
      * rootfs 本身就是 /。内部存储（/sdcard、/storage/emulated）本身在 Linux 里不能用，只能经共享文件夹。
      */
     fun linuxPathFor(androidPath: String, shares: List<SharedFolder>, rootfs: String?): String? {
@@ -82,7 +82,7 @@ object AttachedPaths {
             bind.startsWith("$base/") -> bind.substring(base.length)
             else -> null
         }
-        under("/data/local/tmp/eta")?.let { return "/workspace$it" }
+        under(LinuxEnv.WORKSPACE)?.let { return "/workspace$it" }
         under("/data/local/tmp")?.let { return "/data/local/tmp$it" }
         if (rootfs != null) under(rootfs.trimEnd('/'))?.let { return it.ifEmpty { "/" } }
         // 共享文件夹可能套着共享文件夹：取源目录最长的那个

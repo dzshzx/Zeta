@@ -80,8 +80,10 @@ class AttachedPathsTest {
     fun androidPathsMapIntoLinux() {
         val shares = listOf(SharedFolder("sdcard", "/sdcard"), SharedFolder("Download", "/storage/emulated/0/Download"))
         val rootfs = "/data/local/zeta/debian/rootfs"
-        assertEquals("/workspace/claude", AttachedPaths.linuxPathFor("/data/local/tmp/eta/claude", shares, rootfs))
-        assertEquals("/workspace", AttachedPaths.linuxPathFor("/data/local/tmp/eta", shares, rootfs))
+        assertEquals("/workspace/claude", AttachedPaths.linuxPathFor("/data/local/zeta/workspace/claude", shares, rootfs))
+        assertEquals("/workspace", AttachedPaths.linuxPathFor("/data/local/zeta/workspace", shares, rootfs))
+        // Eta 的目录不是 Zeta 的工作区，只是 /data/local/tmp 下的一个目录
+        assertEquals("/data/local/tmp/eta/claude", AttachedPaths.linuxPathFor("/data/local/tmp/eta/claude", shares, rootfs))
         assertEquals("/data/local/tmp/x", AttachedPaths.linuxPathFor("/data/local/tmp/x", shares, rootfs))
         assertEquals("/home/dzshzx", AttachedPaths.linuxPathFor("$rootfs/home/dzshzx", shares, rootfs))
         // 套着的共享文件夹取最具体的那个

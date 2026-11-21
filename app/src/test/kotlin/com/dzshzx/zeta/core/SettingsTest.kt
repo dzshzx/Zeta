@@ -57,6 +57,16 @@ class SettingsTest {
         assertFalse(prefs().contains("autoCompactPercent"))
     }
 
+    /** 存着的默认工作目录原样读回；存的环境里没有这一项时用 Linux 用户的家目录。 */
+    @Test
+    fun defaultCwdFallsBackToHome() {
+        val settings = Settings.of(app)
+        settings.env = LinuxEnvConfig(LinuxEnv.OWN_ROOTFS, "dzshzx", 5000, 5000, "/home/dzshzx", "/workspace/claude")
+        assertEquals("/workspace/claude", settings.env?.defaultCwd)
+        assertTrue(settings.restore(mapOf("cwd" to null)))
+        assertEquals("/home/dzshzx", settings.env?.defaultCwd)
+    }
+
     /** 各主机的斜杠命令清单存成一个 JSON 对象，重读回来一样；存坏了（不是 JSON、不是对象）读成空的。 */
     @Test
     fun commandsRoundTrip() {

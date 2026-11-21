@@ -23,9 +23,10 @@ fi
 "$BB" mount -o rbind /dev "$R/dev"
 "$BB" mount -o rbind /sys "$R/sys" 2>/dev/null
 [ -d /storage/emulated/0 ] && "$BB" mount -o bind /storage/emulated/0 "$R/storage/emulated/0" 2>/dev/null
-"$BB" mkdir -p "$R/data/local/tmp" /data/local/tmp/eta "$R/workspace"
+# /workspace 是用户的工作区，和 Zeta 进环境时绑的一样（LinuxEnv.WORKSPACE）
+"$BB" mkdir -p "$R/data/local/tmp" /data/local/zeta/workspace "$R/workspace"
 "$BB" mount -o bind /data/local/tmp "$R/data/local/tmp"
-"$BB" mount -o bind /data/local/tmp/eta "$R/workspace"
+"$BB" mount -o bind /data/local/zeta/workspace "$R/workspace"
 
 unset ZETA_INNS
 [ $# -eq 0 ] && set -- /bin/bash -l

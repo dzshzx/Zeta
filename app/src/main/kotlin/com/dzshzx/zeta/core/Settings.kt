@@ -92,13 +92,14 @@ class Settings private constructor(private val app: Context) {
     var env: LinuxEnvConfig? by pref(
         read = {
             getString("user", null)?.let { user ->
+                val home = getString("home", "/root")!!
                 LinuxEnvConfig(
                     rootfs = getString("rootfs", LinuxEnv.OWN_ROOTFS)!!,
                     user = user,
                     uid = getInt("uid", 0),
                     gid = getInt("gid", 0),
-                    home = getString("home", "/root")!!,
-                    defaultCwd = getString("cwd", "/workspace")!!,
+                    home = home,
+                    defaultCwd = getString("cwd", null) ?: home,
                 )
             }
         },
