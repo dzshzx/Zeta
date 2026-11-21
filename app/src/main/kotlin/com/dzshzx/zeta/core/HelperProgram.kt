@@ -133,12 +133,18 @@ class HelperProgram(
         return installed
     }
 
-    /** 把经标准输入传来的程序 [binary] 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字， 再删掉这个程序别的版本（别的程序的不动）。 */
+    /**
+     * 把经标准输入传来的程序 [binary] 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字， 再删掉这个程序别的版本（别的程序的不动）， 最后让不带版本的
+     * `<程序名>` 链接指向它：Zeta 之外要调它的（电脑那边 tmux 窗口里的 zeta-helper desk、Claude Code 的 SessionStart
+     * hook）用这个固定的名字。
+     */
     internal fun installCommand(binary: ByteArray): String {
         val sha = hex(MessageDigest.getInstance("SHA-256").digest(binary))
+        val link = if (name == ZETA_HELPER) "ln -sfn \"$name-$version\" \"\$d/$name\"; " else ""
         return "d=$directory; mkdir -p \"\$d\" && t=\$(mktemp \"\$d/${tempPrefix(name)}.XXXXXX\") || exit 1; " +
             "if cat > \"\$t\" && [ \"\$(sha256sum < \"\$t\")\" = \"$sha  -\" ] && chmod 755 \"\$t\" && mv -f \"\$t\" $file; then " +
             "for o in \"\$d\"/$name-*; do [ \"\$o\" = $file ] || rm -f \"\$o\"; done; " +
+            link +
             "else rm -f \"\$t\"; echo '$name 没有完整传过去' >&2; exit 1; fi"
     }
 

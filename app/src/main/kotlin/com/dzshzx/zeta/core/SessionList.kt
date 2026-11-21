@@ -143,9 +143,10 @@ class SessionList internal constructor(private val hub: ConversationHub) {
         if (ids.isEmpty()) return
         if (archived && hub.current.sessionId in ids) hub.startNew()
         sessions = sessions.map { if (it.id in ids) it.copy(archived = archived) else it }
-        // 归档标记存在各自主机上 Zeta 的目录里
+        // 归档标记存在各自主机上 Zeta 的目录里；归档的会话在电脑那边的窗口一并关掉
         for ((backend, group) in summaries.groupBy { it.backend }) {
             writeArchived(backend, group, archived)
+            if (archived) DeskWindows.close(hub, backend, group.map { it.id })
         }
     }
 
@@ -179,8 +180,9 @@ class SessionList internal constructor(private val hub: ConversationHub) {
             .takeIf { pins -> pins.any { it in pinKeys } }
             ?.let { hub.settings.pinnedSessions = it - pinKeys }
         hub.drafts.forget(ids)
-        // 开着的对话、置顶、草稿已经去掉，撤不回来；没删掉的会话由重读列表放回去
+        // 开着的对话、置顶、草稿已经去掉，撤不回来；没删掉的会话由重读列表放回去。电脑那边的窗口一并关掉
         for ((backend, group) in summaries.groupBy { it.backend }) {
+            DeskWindows.close(hub, backend, group.map { it.id })
             write(
                 "删除",
                 backend,

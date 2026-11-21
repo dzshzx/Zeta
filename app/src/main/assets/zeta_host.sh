@@ -26,6 +26,7 @@
 #   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
 #   title      启动时的标题，start 写。zeta-helper hosts 在会话记录里没有标题时用；诊断页（DiagScripts.kt）列运行中的日志时带上。
 #   exit       Claude Code 的退出码，它退出后起进程的那段写。接着的一方见到它就报 zeta_exit 并删掉目录；zeta-helper hosts 见到它就当已结束。
+#   released   zeta-helper release 结束进程前留的记号（会话交回终端接着了）：接着的一方报 zeta_exit 时带上 "released":true。
 #   err.log    Claude Code 的标准错误输出，起进程的那段追加。诊断页读运行中的；Claude Code 退出时留一份到 ~/.cache/<ZETA_NAME>/stderr/；
 #              接着的一方报 zeta_exit 时带上最后一段，进程没起来时打出来。
 set -u
@@ -49,6 +50,23 @@ turn_running() {
 # 它们在这一轮结束后照样跑，跑完 Claude Code 还会自己另起一轮。
 tasks_running() {
   grep '^[{]"type":"system","subtype":"background_tasks_changed"' "$1" | tail -n 1 | grep -qF '"tasks":[{'
+}
+
+# 会话 $1 正被 Zeta 之外（不是本包托管）的 Claude Code 进程占着，比如终端里开着的 claude：
+# 照 zeta-helper 的 outsideRegistrations 看 ~/.claude/sessions 的登记，进程还活着、命令行里有 claude 才算。
+# 两个进程同时写一份会话记录会错乱，所以这时不起进程，由 Zeta 先把会话从那边接过来（zeta-helper handoff）。
+held_elsewhere() {
+  local f pid
+  for f in "$HOME"/.claude/sessions/*.json; do
+    grep -qsF "\"sessionId\":\"$1\"" "$f" || continue
+    pid=${f##*/}
+    pid=${pid%.json}
+    case $pid in '' | *[!0-9]*) continue ;; esac
+    kill -0 "$pid" 2>/dev/null || continue
+    grep -qsxF "$pid" "${D%/*}"/*/pid && continue
+    tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q claude && return 0
+  done
+  return 1
 }
 
 # 结束 Claude Code（托管目录 $1、进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
@@ -92,6 +110,17 @@ if [ "$mode" = start ]; then
   title=$4
   shift 4
   cd "$cwd" 2>/dev/null || { echo "zeta: 进不去工作目录 $cwd" >&2; exit 97; }
+  # 接着旧会话（--resume <id>，不是分支出新会话）时先看它是不是正被别处占着
+  resume="" fork=0 prev=""
+  for a in "$@"; do
+    [ "$prev" = --resume ] && resume=$a
+    [ "$a" = --fork-session ] && fork=1
+    prev=$a
+  done
+  if [ -n "$resume" ] && [ $fork = 0 ] && held_elsewhere "$resume"; then
+    echo "zeta: session held elsewhere" >&2
+    exit 96
+  fi
   rm -rf "$D"
   mkdir -p "$D" && mkfifo "$D/in" || { echo "zeta: 建不了 $D" >&2; exit 97; }
   : > "$D/out.jsonl"
@@ -170,6 +199,8 @@ if [ -f "$D/exit" ]; then
   # 退出报告一行 JSON：退出码，标准错误输出的最后 2000 字节（base64，不用转义；应用那头解码，见 ClaudeProcess 的 hostExitStderr）。
   # 只用 coreutils，远程主机上不用装别的
   code=$(tr -cd '0-9' < "$D/exit")
-  printf '{"type":"zeta_exit","code":%s,"stderr_base64":"%s"}\n' "${code:-1}" "$(tail -c 2000 "$D/err.log" 2>/dev/null | base64 | tr -d '\n')"
+  [ -f "$D/released" ] && released=true || released=false
+  printf '{"type":"zeta_exit","code":%s,"released":%s,"stderr_base64":"%s"}\n' "${code:-1}" "$released" \
+    "$(tail -c 2000 "$D/err.log" 2>/dev/null | base64 | tr -d '\n')"
   rm -rf "$D"
 fi

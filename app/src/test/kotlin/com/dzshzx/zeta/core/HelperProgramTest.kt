@@ -74,7 +74,7 @@ class HelperProgramTest {
         assertEquals(0, first!!.exitCode)
         assertEquals("v1 $arch list it's\n", first.stdout)
         assertEquals(3, commands.size) // 没装、装上、再跑
-        assertEquals(listOf("zeta-helper-" + program.version), installed)
+        assertEquals(listOf("zeta-helper", "zeta-helper-" + program.version), installed)
         assertTrue(File(home, ".cache/zeta/bin/zeta-helper-" + program.version).canExecute())
 
         commands.clear()
@@ -90,7 +90,12 @@ class HelperProgramTest {
         val new = program("v2")
         assertFalse(old.version == new.version)
         assertTrue(new.run(exec(), "list")!!.stdout.startsWith("v2 "))
-        assertEquals(listOf("zeta-helper-" + new.version), installed)
+        // 不带版本的 zeta-helper 链接跟着指向新版本（Zeta 之外的入口经它调）
+        assertEquals(listOf("zeta-helper", "zeta-helper-" + new.version), installed)
+        assertEquals(
+            "zeta-helper-" + new.version,
+            Files.readSymbolicLink(File(home, ".cache/zeta/bin/zeta-helper").toPath()).toString(),
+        )
     }
 
     @Test
@@ -105,7 +110,11 @@ class HelperProgramTest {
         val newer = program("s2", HelperProgram.CLAUDE_SWITCH)
         assertTrue(newer.run(exec(), "--json")!!.stdout.startsWith("s2 "))
         assertEquals(
-            listOf("claude-switch-" + newer.version, "zeta-helper-" + helper.version),
+            listOf(
+                "claude-switch-" + newer.version,
+                "zeta-helper",
+                "zeta-helper-" + helper.version,
+            ),
             installed,
         )
         assertTrue(helper.run(exec(), "hosts")!!.stdout.startsWith("h1 "))

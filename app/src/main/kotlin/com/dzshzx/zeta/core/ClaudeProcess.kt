@@ -40,7 +40,16 @@ class HostInfo(
 }
 
 /** 托管进程的结局（[ClaudeProcess] 的 onExit）：退出码和标准错误输出的最后一段。 */
-class ProcessExit(val code: Int, val stderr: String)
+class ProcessExit(val code: Int, val stderr: String, val released: Boolean = false) {
+    /** 托管脚本没起进程：要接着的会话正被 Zeta 之外的 Claude Code（比如终端里的）占着。 */
+    val heldElsewhere: Boolean
+        get() = code == HELD_ELSEWHERE && stderr.contains("zeta: session held elsewhere")
+
+    companion object {
+        /** zeta_host.sh start 因为会话被别处占着而没起进程时的退出码。 */
+        const val HELD_ELSEWHERE = 96
+    }
+}
 
 /** 和托管进程之间连接的状态（远程主机才会断，见 [ClaudeProcess]）。 */
 sealed interface ProcessLink {
@@ -237,7 +246,11 @@ class ClaudeProcess(
         when {
             hostExit != null ->
                 finish(
-                    ProcessExit(hostExit.int("code") ?: 1, hostExitStderr(hostExit)),
+                    ProcessExit(
+                        hostExit.int("code") ?: 1,
+                        hostExitStderr(hostExit),
+                        released = hostExit.bool("released") == true,
+                    ),
                     stopped = false,
                 )
             !stopped && retrying && code == RemoteShell.CONNECTION_FAILED ->

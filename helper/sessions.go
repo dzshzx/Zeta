@@ -364,6 +364,8 @@ type registered struct {
 	pid     int
 	start   string // 进程的启动时刻（procStart）
 	session any
+	status  string // Claude Code 报的忙闲：idle、busy（正在跑一轮）、shell（在跑 ! 命令）、waiting（在等确认）；旧版没有，是空串
+	waiting string // status 是 waiting 时在等什么（waitingFor），没有是空串
 }
 
 // registeredSessions：Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
@@ -383,7 +385,8 @@ func (e *env) registeredSessions() []registered {
 		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
 			continue
 		}
-		out = append(out, registered{pid: pid, start: started, session: info["sessionId"]})
+		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
+			status: asString(info["status"]), waiting: asString(info["waitingFor"])})
 	}
 	return out
 }

@@ -126,7 +126,7 @@ import kotlinx.coroutines.flow.drop
 
 /** 结束当前对话：还在进行的（会停掉在做的事）和正在别处运行的（会停掉那边的进程）先经 [confirm] 确认，别的直接结束。 */
 private fun requestEnd(hub: ConversationHub, conversation: Conversation, confirm: () -> Unit) {
-    if (conversation.active || conversation.external) confirm() else hub.endCurrent()
+    if (conversation.active || conversation.blockedByExternal) confirm() else hub.endCurrent()
 }
 
 /** 结束确认框的说明：正在别处运行的（[external]）连那边的进程一起停掉。 */
@@ -236,7 +236,7 @@ internal fun ChatScreen(
                 ConfirmDialog(
                     show = confirmingEnd,
                     title = "结束这个对话？",
-                    summary = endConfirmSummary(conversation.external),
+                    summary = endConfirmSummary(conversation.blockedByExternal),
                     confirmText = "结束",
                     destructive = true,
                     onConfirm = {
@@ -571,7 +571,7 @@ private fun ConversationBody(
                 modifier = bottomModifier,
             )
         } else if (conversation.blockedByExternal) {
-            ExternalSessionNotice(onTakeOver = conversation::takeOver, modifier = bottomModifier)
+            ExternalSessionNotice(conversation, modifier = bottomModifier)
         } else
             ConversationInput(
                 hub = hub,
@@ -1012,32 +1012,6 @@ internal fun MutableList<FileUpload>.addPath(path: String) {
                 it.path = path
             },
         )
-}
-
-/** 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡。 */
-@Composable
-private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
-    val shape = remember { SquircleShape(ChatPanelCorner) }
-    Column(
-        modifier =
-            modifier.fillMaxWidth().chatPanel(shape).padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Text(
-            text = "这个会话正在别处运行",
-            style = COUITheme.textStyles.headlineXS,
-            color = colors.labelPrimary,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text =
-                "另一个 Claude Code 进程（比如终端里的）还开着它。在这里续聊会让两边同时写同一份记录，内容可能错乱。要停掉那边的进程，用右上角菜单里的「结束对话」。",
-            style = COUITheme.textStyles.bodyS,
-            color = colors.labelSecondary,
-        )
-        Spacer(Modifier.height(12.dp))
-        TextButton(text = "仍要在这里继续", onClick = onTakeOver)
-    }
 }
 
 /**

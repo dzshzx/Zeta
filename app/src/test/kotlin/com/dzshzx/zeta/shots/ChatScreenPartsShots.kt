@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.width
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.QuestionOption
@@ -347,12 +348,20 @@ class ChatScreenPartsShots : ShotTest() {
         shoot("chat-no-environment") { Chat(hub) }
     }
 
-    /** 会话正在别处运行：输入栏换成说明卡。 */
-    @Test
-    fun external() {
+    /** 会话正在别处运行：输入栏换成说明卡，还没查到那边闲不闲。 */
+    @Test fun external() = external("chat-external", null)
+
+    /** 那边闲着：能接过来。 */
+    @Test fun externalIdle() = external("chat-external-idle", Occupant(Occupant.IDLE))
+
+    /** 那边正在回答：等这一轮结束。 */
+    @Test fun externalBusy() = external("chat-external-busy", Occupant("busy"))
+
+    private fun external(name: String, occupant: Occupant?) {
         val hub = chatHub()
         hub.current.force("blockedByExternal", true)
-        shoot("chat-external") { Chat(hub) }
+        hub.current.handoff.force("occupant", occupant)
+        shoot(name) { Chat(hub) }
     }
 
     @androidx.compose.runtime.Composable

@@ -709,14 +709,14 @@ class ConversationHub(
 
     /**
      * 结束当前对话（[Conversation.shutdown]），界面换成空的新对话。和 [startNew] 的差别只在对话还在进行时：
-     * 这里一并停掉，那边留在后台跑完。打开时会话正被别处占用的（[Conversation.external]，比如终端、tmux 里开着的）， 那边的 Claude Code
+     * 这里一并停掉，那边留在后台跑完。会话正被别处占着的（[Conversation.blockedByExternal]，比如终端、tmux 里开着的）， 那边的 Claude Code
      * 进程也结束（[SessionList.endElsewhere]）。在主线程上调用。
      */
     fun endCurrent() {
         val leaving = current
         replaceCurrent(blank(), end = true)
         val sessionId = leaving.sessionId
-        if (leaving.external && sessionId != null)
+        if (leaving.blockedByExternal && sessionId != null)
             sessionList.endElsewhere(sessionId, leaving.backend)
     }
 

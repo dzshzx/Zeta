@@ -39,6 +39,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
@@ -46,7 +47,9 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..." +
 	" | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]" +
 	" | storage-sessions <project> [<id>…] | clean <kind> [<id>…]" +
-	" | subagent <offset> <line> <tool_use> <agent|-> <session>…"
+	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
+	" | occupant <id> | handoff <id> | release <id> [<seconds>] | session-start" +
+	" | desk <id> <cwd> | desk-open <id> <cwd> <title> | desk-close <id>…"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -101,6 +104,12 @@ func dispatch(e *env, o *emitter, args []string) error {
 		if len(rest) == 1 && isSessionID(rest[0]) {
 			return cmdEnd(e, o, rest[0])
 		}
+	case "session-start":
+		if len(rest) == 0 {
+			return cmdSessionStart(e, o, os.Stdin)
+		}
+	case "occupant", "handoff", "release", "desk", "desk-open", "desk-close":
+		return dispatchHandoff(e, o, args[0], rest)
 	case "image":
 		if len(rest) == 2 && e.insideRoot(rest[0]) {
 			return cmdImage(o, rest[0], rest[1])
@@ -124,6 +133,31 @@ func dispatch(e *env, o *emitter, args []string) error {
 		}
 	default:
 		return dispatchFilesAndStorage(e, o, args)
+	}
+	return errUsage
+}
+
+// 交接与电脑那边的 tmux 窗口（handoff.go、desk.go）。
+func dispatchHandoff(e *env, o *emitter, command string, rest []string) error {
+	if len(rest) == 0 || !allOf(rest[:1], isSessionID) {
+		return errUsage
+	}
+	id := rest[0]
+	switch {
+	case command == "occupant" && len(rest) == 1:
+		return cmdOccupant(e, o, id)
+	case command == "handoff" && len(rest) == 1:
+		return cmdHandoff(e, o, id)
+	case command == "release" && len(rest) == 1:
+		return cmdRelease(e, o, id, 0)
+	case command == "release" && len(rest) == 2 && isDigits(rest[1]):
+		return cmdRelease(e, o, id, time.Duration(parseCount(rest[1]))*time.Second)
+	case command == "desk" && len(rest) == 2:
+		return cmdDesk(e, os.Stdout, id, rest[1])
+	case command == "desk-open" && len(rest) == 3:
+		return cmdDeskOpen(e, o, id, rest[1], rest[2])
+	case command == "desk-close" && allOf(rest, isSessionID):
+		return cmdDeskClose(o, rest)
 	}
 	return errUsage
 }
