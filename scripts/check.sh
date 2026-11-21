@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Zeta 的门禁，也是 wt land 合入前跑的检查。工作站和手机 Debian 里都能跑：bash scripts/check.sh
 # 核对仓里的 Python 只有清单里的、都能解析；检查两个 Go 模块，helper/ 的 zeta-helper 和 tools/release 的发版工具（版本、格式、
-# vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的）；再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper）、
+# vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
+# 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
 # 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。
 set -euo pipefail
@@ -37,6 +38,8 @@ check_go_module() {
   gate_no_marker 'gocognit:ignore' "$dir/*.go"
 }
 check_go_module helper
+# helper/go.mod 的 tool：单独编进 APK 的程序（claude-switch），它们链接的模块另有一份清单，不算 zeta-helper 的依赖
+(cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
 
 tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest

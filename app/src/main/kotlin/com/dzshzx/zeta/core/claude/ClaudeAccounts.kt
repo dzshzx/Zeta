@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.claude
 
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.AppVariant
+import com.dzshzx.zeta.core.HelperProgram
 import java.util.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -74,12 +75,13 @@ sealed interface SwitchOutcome {
 }
 
 /**
- * 在 Linux 环境里管理多个 Claude 账号：账号的存档、换号、加号、删号都交给 claude-switch（`~/.local/bin/claude-switch`，
- * dotfiles 里的 Go 程序；它换掉 ~/.claude.json 里跟账号走的字段和凭据里除 MCP 授权外的全部字段，每个号的令牌只留一份，
- * 有 Claude Code 进程在跑就拒绝）。Zeta 经 assets/zeta_accounts.sh 以 Claude Code 所属的用户身份跑它，脚本另外列出开着的
- * Claude Code 进程，好跟用户说清是谁挡着。全是阻塞调用，别在主线程上用。
+ * 在 Linux 环境里管理多个 Claude 账号：账号的存档、换号、加号、删号都交给 claude-switch（开源的 Go 程序
+ * github.com/dzshzx/claude-switch；它换掉 ~/.claude.json 里跟账号走的字段和凭据里除 MCP 授权外的全部字段，每个号的令牌只留一份，
+ * 有 Claude Code 进程在跑就拒绝）。APK 里带着它（[program]），第一次用时装进那边的 ~/.cache/<目录名>/bin，不用用户自己装。
+ * Zeta 经 assets/zeta_accounts.sh 以 Claude Code 所属的用户身份跑它，脚本另外列出开着的 Claude Code 进程，好跟用户说清是谁挡着。
+ * 全是阻塞调用，别在主线程上用。
  */
-class ClaudeAccounts(private val client: ClaudeConfigClient, private val script: String) {
+class ClaudeAccounts(private val client: ClaudeConfigClient, private val script: String, private val program: HelperProgram) {
     /** claude-switch 一次运行的结果。[processes] 只在没成功时列。 */
     private class Run(val code: Int, val stdout: String, val stderr: String, val processes: List<ClaudeProc>) {
         val message: String get() = message(stderr).ifBlank { "没有成功（claude-switch 退出码 $code）" }
@@ -87,10 +89,19 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
         val missing: Boolean get() = code == 2 && MISSING_MARK in stderr
     }
 
-    private fun run(vararg args: String): Run = result(client.runScript(script, listOf("run") + args, timeoutMs = 60_000))
+    private fun run(vararg args: String): Run = result(records(listOf("run") + args))
+
+    /** 跑 zeta_accounts.sh：带着的这个版本的 claude-switch 还没装上（第一次用、应用升级换了它）时先装上，再跑一次。 */
+    private fun records(args: List<String>): List<ShellRecord> {
+        val arguments = listOf(program.relativePath) + args
+        val first = client.runScript(script, arguments, timeoutMs = 60_000)
+        val machine = first.firstOrNull { it.tag == "MISSING" }?.get(1) ?: return first
+        client.install(program, machine)
+        return client.runScript(script, arguments, timeoutMs = 60_000)
+    }
 
     private fun status(): Status {
-        val records = client.runScript(script, listOf("list"))
+        val records = records(listOf("list"))
         val run = result(records)
         if (run.code != 0) throw ClaudeConfigException(run.message)
         return status(run.stdout, processes(records))
@@ -135,7 +146,7 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
         if (id.isBlank()) SwitchOutcome.Missing else outcome(run(id), id)
     }
 
-    /** 没装 claude-switch、进不了环境这类错误也当作没换成，不往外抛。 */
+    /** 装不上 claude-switch、进不了环境这类错误也当作没换成，不往外抛。 */
     private inline fun failSoft(block: () -> SwitchOutcome): SwitchOutcome = try {
         block()
     } catch (error: ClaudeConfigException) {
@@ -155,12 +166,10 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
         else -> SwitchOutcome.Failed(run.message)
     }
 
-    /** claude-switch --json 读出来的状态；[names] 是已经被占的账号名（列出的账号和切换记录里的当前号）。 */
+    /** claude-switch --json 读出来的状态；[names] 是已经被占的名字（列出的账号、非账号目标和切换记录里的当前名字）。 */
     internal class Status(val state: AccountsState, val names: Set<String>)
 
     companion object {
-        const val NOT_INSTALLED = "手机 Debian 里没有 claude-switch（~/.local/bin/claude-switch）"
-
         /** claude-switch 里总能用作目标的号（没有切换记录时默认配置目录里那个号）：直接换过去，add 不收它。 */
         private val BUILTIN = setOf("claude")
         private const val BUSY_MARK = "还有 Claude Code 进程在跑"
@@ -176,7 +185,9 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
                 ?: throw ClaudeConfigException("读不懂 claude-switch 的输出")
             val live = (root["live"] as? JsonObject)?.let(::account)
             val listed = (root["accounts"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-            val names = (listed.map { it.str("name") } + root.str("current")).filter { it.isNotEmpty() }.toSet()
+            // 非账号目标（targets，比如经 API 网关用的设置）的名字也不能再给新账号用
+            val targets = (root["targets"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.str("name") }
+            val names = (listed.map { it.str("name") } + targets + root.str("current")).filter { it.isNotEmpty() }.toSet()
             return Status(
                 AccountsState(
                     current = live,
@@ -214,9 +225,9 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
         /** claude-switch 的提示（一行或几行，以 `claude-switch: ` 开头）去掉前缀。 */
         internal fun message(stderr: String): String = stderr.trim().removePrefix(PREFIX).trim()
 
-        /** zeta_accounts.sh 的记录 → claude-switch 这次运行的结果；没装时抛 [ClaudeConfigException]。 */
+        /** zeta_accounts.sh 的记录 → claude-switch 这次运行的结果；装过以后仍然找不到它时抛 [ClaudeConfigException]。 */
         private fun result(records: List<ShellRecord>): Run {
-            if (records.any { it.tag == "NONE" }) throw ClaudeConfigException(NOT_INSTALLED)
+            if (records.any { it.tag == "MISSING" }) throw ClaudeConfigException("claude-switch 装上以后还是找不到")
             val code = records.firstOrNull { it.tag == "X" }?.get(1)?.toIntOrNull() ?: throw ClaudeConfigException("claude-switch 没有跑完")
             return Run(code, decode(records, "O"), decode(records, "E"), processes(records))
         }

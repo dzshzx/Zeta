@@ -121,15 +121,27 @@ android {
 }
 
 /**
- * 编 zeta-helper（仓根 helper/ 的 Go 程序，Zeta 在 Linux 一侧读写会话记录用）：linux 的 arm64、amd64 各一份，
- * 静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节（应用按内容哈希判断装没装，见 core/HelperProgram.kt）。
- * 输出 <outputDir>/zeta-helper/linux-<架构>，作为 assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
+ * 编一个在 Linux 一侧跑的 Go 程序：linux 的 arm64、amd64 各一份，静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节
+ * （应用按内容哈希判断装没装，见 core/HelperProgram.kt）。在 go.mod 所在的 [module] 里编 [pkg]，输出 <outputDir>/<program>/linux-<架构>，
+ * 作为 assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
  */
 @CacheableTask
-abstract class ZetaHelperTask : DefaultTask() {
-    @get:InputDirectory
+abstract class GoProgramTask : DefaultTask() {
+    /** 程序名：assets 里的目录名，也是装好的文件名的前缀（[com.dzshzx.zeta.core.HelperProgram.name]）。 */
+    @get:Input
+    abstract val program: Property<String>
+
+    /** 交给 go build 的包。 */
+    @get:Input
+    abstract val pkg: Property<String>
+
+    /** go.mod 所在的目录，在这里编；决定编出什么的文件另由 [sources] 声明。 */
+    @get:Internal
+    abstract val module: DirectoryProperty
+
+    @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val sources: DirectoryProperty
+    abstract val sources: ConfigurableFileCollection
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
@@ -143,19 +155,43 @@ abstract class ZetaHelperTask : DefaultTask() {
         out.deleteRecursively()
         for (arch in listOf("arm64", "amd64")) {
             exec.exec {
-                workingDir = sources.get().asFile
+                workingDir = module.get().asFile
                 environment("CGO_ENABLED", "0")
                 environment("GOOS", "linux")
                 environment("GOARCH", arch)
-                commandLine("go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", File(out, "zeta-helper/linux-$arch").path, ".")
+                commandLine(
+                    "go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=",
+                    "-o", File(out, "${program.get()}/linux-$arch").path, pkg.get(),
+                )
             }
         }
     }
 }
 
-val zetaHelper = tasks.register<ZetaHelperTask>("zetaHelper") {
-    sources.set(rootProject.layout.projectDirectory.dir("helper"))
-    outputDir.set(layout.buildDirectory.dir("generated/zeta-helper"))
+val helperModule: Directory = rootProject.layout.projectDirectory.dir("helper")
+
+/**
+ * APK 里带的 Linux 程序，程序名 → 编它的任务：
+ * - zeta-helper：仓根 helper/ 本身，Zeta 在 Linux 一侧读写会话记录用。
+ * - claude-switch：helper/go.mod 里 tool 一行的模块（github.com/dzshzx/claude-switch），账号页用它管多个 Claude 账号。
+ *   版本由 go.mod、go.sum 定，源码按 go.sum 的哈希从模块缓存取，所以只看这两个文件。
+ */
+val goPrograms: Map<String, TaskProvider<GoProgramTask>> = mapOf(
+    "zeta-helper" to tasks.register<GoProgramTask>("zetaHelper") {
+        pkg.set(".")
+        sources.from(helperModule)
+    },
+    "claude-switch" to tasks.register<GoProgramTask>("claudeSwitch") {
+        pkg.set("github.com/dzshzx/claude-switch")
+        sources.from(helperModule.file("go.mod"), helperModule.file("go.sum"))
+    },
+)
+goPrograms.forEach { (name, task) ->
+    task.configure {
+        program.set(name)
+        module.set(helperModule)
+        outputDir.set(layout.buildDirectory.dir("generated/$name"))
+    }
 }
 
 // Robolectric 的 Android 系统镜像（android-all，约 250 MB）交给 Gradle 下载，测试进程直接从 Gradle 缓存里离线取用：
@@ -167,10 +203,13 @@ val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + pr
 tasks.withType<Test>().configureEach {
     // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
     inputs.dir("src/main/assets").withPropertyName("assetScripts").withPathSensitivity(PathSensitivity.RELATIVE)
-    // zeta-helper 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]）
-    val helperDir = zetaHelper.flatMap { it.outputDir }
-    inputs.dir(helperDir).withPropertyName("zetaHelper").withPathSensitivity(PathSensitivity.RELATIVE)
-    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dzeta.helper.dir=" + helperDir.get().asFile.resolve("zeta-helper").path) })
+    // zeta-helper、claude-switch 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]），
+    // 目录经 zeta.programs.<程序名> 传进去
+    goPrograms.forEach { (name, task) ->
+        val dir = task.flatMap { it.outputDir }
+        inputs.dir(dir).withPropertyName(task.name).withPathSensitivity(PathSensitivity.RELATIVE)
+        jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dzeta.programs.$name=" + dir.get().asFile.resolve(name).path) })
+    }
     // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
     inputs.dir("../tools/fake-claude").withPropertyName("fakeClaude").withPathSensitivity(PathSensitivity.RELATIVE)
     val androidAll: FileCollection = robolectricRuntime
@@ -198,7 +237,7 @@ tasks.withType<Test>().configureEach {
 }
 
 androidComponents {
-    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaHelper, ZetaHelperTask::outputDir) }
+    onVariants { variant -> goPrograms.values.forEach { variant.sources.assets?.addGeneratedSourceDirectory(it, GoProgramTask::outputDir) } }
     // 正式版的文件名就是 Release 里的资产名 Zeta-v<版本名>.apk（只有 arm64 一个包）
     onVariants(selector().withBuildType("release")) { variant ->
         variant.outputs.forEach { output -> output.outputFileName.set(output.versionName.map { "Zeta-v$it.apk" }) }
@@ -242,7 +281,7 @@ dependencies {
 
 // 第三方许可证（见仓根 THIRD_PARTY.md）：licensee 从每个变体的运行时依赖（正式版就是 release 的）生成清单，
 // 打进 assets 的 licenses/artifacts.json，设置「开源许可」页照它列。许可证只许下面这些，别的或认不出的构建失败。
-// 都和 GPL-3.0 兼容；不在 Maven 上的组件（字体、原生库里的代码、zeta-helper 链接的 Go 模块）手写在 core/about/ThirdParty.kt。
+// 都和 GPL-3.0 兼容；不在 Maven 上的组件（字体、原生库里的代码、随包的 Go 程序和它们链接的模块）手写在 core/about/ThirdParty.kt。
 licensee {
     listOf("Apache-2.0", "MIT", "BSD-3-Clause").forEach { allow(it) }
     // POM 只写了网址、认不出 SPDX 标识的：核对过网址上的全文，because 写它实际是哪种；ThirdParty.LICENSE_URLS 也要加上

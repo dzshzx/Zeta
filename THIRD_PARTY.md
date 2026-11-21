@@ -120,7 +120,7 @@ RaTeX 的原生库 lib/arm64-v8a/libratex_ffi.so 静态链接的 Rust 标准库�
 |---|---|---|
 | 1.27.4 | BSD-3-Clause | https://go.dev/ |
 
-zeta-helper 是 Go 程序，编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/，静态链接 Go 标准库和运行时。
+zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/，静态链接 Go 标准库和运行时。
 
     Copyright 2009 The Go Authors.
 
@@ -133,6 +133,16 @@ zeta-helper 是 Go 程序，编成 linux 的 arm64、amd64 两份打进 assets/z
 Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。
 
     Copyright 2009 The Go Authors.
+
+### github.com/dzshzx/claude-switch
+
+| 版本 | 许可证 | 上游 |
+|---|---|---|
+| v0.0.0-20261121054243-2d865e0a49de | MIT | https://github.com/dzshzx/claude-switch |
+
+给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。
+
+    Copyright (c) 2026 dzshzx
 
 ### desugar_jdk_libs
 

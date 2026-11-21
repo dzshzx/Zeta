@@ -1,7 +1,9 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaProbe
+import com.dzshzx.zeta.core.TestHelper
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -28,7 +30,8 @@ import org.junit.Test
 
 /**
  * 额度显示和账号切换依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
- * [Quota]、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是真的 claude-switch（工作站 ~/.local/bin 里有时链进临时 HOME，没有时跳过那几条）。
+ * [Quota]、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是应用里带的那份 claude-switch（构建出的本机架构那一份，
+ * 和应用里一样第一次用时装进临时 HOME）。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，用假的 claude.ai 登录（假令牌），连本机一个假的 Messages API：它在响应头里带上
  * anthropic-ratelimit-unified-*，并记下每次请求用的是哪个令牌。代理指到一个不通的端口，claude.ai 那边的接口（取用量、取账号资料）
@@ -137,15 +140,10 @@ class ClaudeCodeQuotaContractTest {
     private fun configAccount(): String? =
         json.parseToJsonElement(File(home, ".claude.json").readText()).jsonObject["oauthAccount"]?.jsonObject?.get("accountUuid")?.jsonPrimitive?.content
 
-    private fun accounts() = ClaudeAccounts(ClaudeConfigClient { ClaudeAccountsTest.localShell(home, env) }, File("src/main/assets/zeta_accounts.sh").readText())
+    private val claudeSwitch = TestHelper.program(HelperProgram.CLAUDE_SWITCH)
 
-    /** 把工作站上真的 claude-switch 链进临时 HOME（Zeta 认的位置是 ~/.local/bin/claude-switch）；没有时跳过这条测试。 */
-    private fun installSwitch() {
-        val real = path().split(':').map { File(it, "claude-switch") }.firstOrNull { it.canExecute() }
-        assumeTrue("没有 claude-switch", real != null)
-        val bin = File(home, ".local/bin").apply { mkdirs() }
-        java.nio.file.Files.createSymbolicLink(File(bin, "claude-switch").toPath(), real!!.canonicalFile.toPath())
-    }
+    private fun accounts() =
+        ClaudeAccounts(ClaudeConfigClient { ClaudeAccountsTest.localShell(home, env) }, File("src/main/assets/zeta_accounts.sh").readText(), claudeSwitch)
 
     /** 一个 stream-json 的 claude 进程，参数和 Zeta 起对话时一样。 */
     private inner class Claude : AutoCloseable {
@@ -214,7 +212,6 @@ class ClaudeCodeQuotaContractTest {
     @Test
     fun rateLimitEventsAndGetUsageCarryTheWindows() {
         assumeTrue("没有 jq", runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }.getOrDefault(false))
-        installSwitch()
         login("a")
         Claude().use { claude ->
             claude.turn("hello")
@@ -262,7 +259,6 @@ class ClaudeCodeQuotaContractTest {
 
     @Test
     fun switchedLoginIsWhatTheNextProcessUses() {
-        installSwitch()
         login("a")
         assertEquals("claude", accounts().save())
         // 添加账号：claude 存档并退出，新登录记成 claude-b

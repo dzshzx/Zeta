@@ -24,6 +24,9 @@ class AccountService(private val hub: ConversationHub) {
     private val main = Handler(Looper.getMainLooper())
     private val script: String by lazy { hub.context.assets.open("zeta_accounts.sh").bufferedReader().use { it.readText() } }
 
+    /** claude-switch：APK 里带着，第一次用时装进 Debian（[HelperProgram]）。 */
+    private val program = HelperProgram({ name -> hub.context.assets.open(name).use { it.readBytes() } }, AppVariant.current.linuxName, HelperProgram.CLAUDE_SWITCH)
+
     var state by mutableStateOf<AccountsState?>(null)
         private set
 
@@ -36,7 +39,7 @@ class AccountService(private val hub: ConversationHub) {
         private set
 
     private fun accounts(): ClaudeAccounts? = hub.settings.env?.let { config ->
-        ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script)
+        ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script, program)
     }
 
     fun refresh() = refresh {}

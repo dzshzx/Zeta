@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.LinuxShell
 import java.io.File
 import java.nio.file.Files
@@ -15,20 +16,37 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 真的 assets/zeta_accounts.sh，跑在临时 HOME 上；claude-switch 是一个假的 bash 脚本（~/.local/bin/claude-switch），
- * 照 ~/fake 下的文件打印 JSON、写标准错误、给退出码，并把每次的参数记进 ~/fake/calls。不碰任何人真实的登录状态。
+ * 真的 assets/zeta_accounts.sh，跑在临时 HOME 上；claude-switch 是一个假的 bash 脚本，和应用里带的程序一样经 [HelperProgram]
+ * 第一次用时装进 ~/.cache/zeta/bin。它照 ~/fake 下的文件打印 JSON、写标准错误、给退出码，并把每次的参数记进 ~/fake/calls。
+ * 不碰任何人真实的登录状态。
  */
 class ClaudeAccountsTest {
     private lateinit var home: File
     private lateinit var accounts: ClaudeAccounts
     private val spawned = mutableListOf<Process>()
 
+    /** 假的 claude-switch：--json 打印 ~/fake/json.out；别的命令按第一个参数（add、remove 或账号名）取 ~/fake/<键>.out、.err、.code。 */
+    private val fakeSwitch = """
+        #!/bin/bash
+        d=${'$'}HOME/fake
+        printf '%s\n' "${'$'}*" >>"${'$'}d/calls"
+        k=${'$'}1
+        [ "${'$'}k" = --json ] && k=json
+        [ -f "${'$'}d/${'$'}k.out" ] && cat "${'$'}d/${'$'}k.out"
+        [ -f "${'$'}d/${'$'}k.err" ] && cat "${'$'}d/${'$'}k.err" >&2
+        exit "${'$'}(cat "${'$'}d/${'$'}k.code" 2>/dev/null || echo 0)"
+    """.trimIndent() + "\n"
+
+    private val program = HelperProgram({ fakeSwitch.toByteArray() }, "zeta", HelperProgram.CLAUDE_SWITCH)
+
+    private val script get() = File("src/main/assets/zeta_accounts.sh").readText()
+
     @Before
     fun setUp() {
         assumeTrue("要 bash 和 /proc", File("/proc/self/stat").exists())
         home = Files.createTempDirectory("zeta-accounts").toFile().canonicalFile
         File(home, ".claude").mkdirs()
-        accounts = ClaudeAccounts(ClaudeConfigClient { localShell(home) }, File("src/main/assets/zeta_accounts.sh").readText())
+        accounts = ClaudeAccounts(ClaudeConfigClient { localShell(home) }, script, program)
     }
 
     @After
@@ -39,27 +57,14 @@ class ClaudeAccountsTest {
 
     private val fake get() = File(home, "fake")
 
-    /** 装上假的 claude-switch：--json 打印 [status]；别的命令按第一个参数（add、remove 或账号名）取 ~/fake/<键>.err、.code。 */
+    /** 让假的 claude-switch 的 --json 打印 [status]（它本身由 [program] 在第一次用时装上）。 */
     private fun installFake(status: String) {
         fake.mkdirs()
         File(fake, "json.out").writeText(status)
-        val bin = File(home, ".local/bin").apply { mkdirs() }
-        File(bin, "claude-switch").apply {
-            writeText(
-                """
-                #!/bin/bash
-                d=${'$'}HOME/fake
-                printf '%s\n' "${'$'}*" >>"${'$'}d/calls"
-                k=${'$'}1
-                [ "${'$'}k" = --json ] && k=json
-                [ -f "${'$'}d/${'$'}k.out" ] && cat "${'$'}d/${'$'}k.out"
-                [ -f "${'$'}d/${'$'}k.err" ] && cat "${'$'}d/${'$'}k.err" >&2
-                exit "${'$'}(cat "${'$'}d/${'$'}k.code" 2>/dev/null || echo 0)"
-                """.trimIndent() + "\n",
-            )
-            setExecutable(true)
-        }
     }
+
+    /** 装好的 claude-switch。 */
+    private val installed get() = File(home, program.relativePath)
 
     /** 让假的 claude-switch 在第一个参数为 [key] 时失败。 */
     private fun failWith(key: String, code: Int, stderr: String) {
@@ -74,7 +79,7 @@ class ClaudeAccountsTest {
             (email?.let { ""","email":"$it","organization":"Org $name","displayName":"$name","subscription":"max","refreshExpiresAt":1900000000000""" } ?: "") + "}"
 
     private fun status(current: String, live: String?, vararg listed: String) =
-        """{"current":"$current","live":${live ?: "null"},"accounts":[${listed.joinToString(",")}],"pending":false,"cpaKey":false,"running":[]}"""
+        """{"current":"$current","live":${live ?: "null"},"accounts":[${listed.joinToString(",")}],"targets":[],"pending":false,"running":[]}"""
 
     /** 两个号：claude 在用，claude-b 有存档。 */
     private val twoAccounts = status("claude", account("claude", current = true), account("claude", current = true), account("claude-b", parked = true))
@@ -139,6 +144,16 @@ class ClaudeAccountsTest {
     }
 
     @Test
+    fun targetNamesAreTaken() {
+        // 非账号目标的名字不能再给新账号用：已有 claude-b 这个目标时，第二个号取名 claude-c
+        val withTarget = """{"current":"claude","live":${account("claude", current = true)},"accounts":[${account("claude", current = true)}],""" +
+            """"targets":[{"name":"claude-b","settings":"/home/me/.config/claude-switch/targets/claude-b.json"}],"pending":false,"running":[]}"""
+        installFake(withTarget)
+        assertEquals(SwitchOutcome.Done("claude-c"), accounts.prepareLogin())
+        assertEquals(listOf("--json", "add claude-c"), calls())
+    }
+
+    @Test
     fun freeNamesGoClaudeThenLetters() {
         assertEquals("claude", ClaudeAccounts.freeName(emptySet()))
         assertEquals("claude", ClaudeAccounts.freeName(setOf("claude-b")))
@@ -156,6 +171,27 @@ class ClaudeAccountsTest {
         assertEquals("claude", state.current!!.id)
         assertEquals(listOf("claude", "claude-b"), state.saved.map { it.id })
         assertEquals(listOf("--json"), calls())
+    }
+
+    @Test
+    fun bundledClaudeSwitchIsInstalledOnFirstUse() {
+        installFake(twoAccounts)
+        assertFalse(installed.exists())
+        accounts.list()
+        // 装在 Zeta 自己的目录里，不占用户的 ~/.local/bin
+        assertEquals(listOf("claude-switch-" + program.version), File(home, ".cache/zeta/bin").list()!!.toList())
+        assertTrue(installed.canExecute())
+        assertFalse(File(home, ".local/bin").exists())
+        // 装好以后直接用，不再装
+        installed.setLastModified(0)
+        accounts.list()
+        assertEquals(0, installed.lastModified())
+        assertEquals(listOf("--json", "--json"), calls())
+
+        // 应用升级换了 claude-switch：装新的、删掉旧的
+        val newer = HelperProgram({ (fakeSwitch + "# v2\n").toByteArray() }, "zeta", HelperProgram.CLAUDE_SWITCH)
+        ClaudeAccounts(ClaudeConfigClient { localShell(home) }, script, newer).list()
+        assertEquals(listOf("claude-switch-" + newer.version), File(home, ".cache/zeta/bin").list()!!.toList())
     }
 
     @Test
@@ -245,12 +281,28 @@ class ClaudeAccountsTest {
     }
 
     @Test
-    fun missingClaudeSwitchIsAClearFailure() {
-        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.list() }.message)
-        assertEquals(SwitchOutcome.Failed(ClaudeAccounts.NOT_INSTALLED), accounts.switch("claude-b"))
-        assertEquals(SwitchOutcome.Failed(ClaudeAccounts.NOT_INSTALLED), accounts.prepareLogin())
-        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.remove("claude-b") }.message)
-        assertEquals(ClaudeAccounts.NOT_INSTALLED, assertThrows(ClaudeConfigException::class.java) { accounts.save() }.message)
+    fun failedInstallIsAClearFailure() {
+        installFake(twoAccounts)
+        // 装的目录建不起来（被一个文件占着）
+        File(home, ".cache/zeta").mkdirs()
+        File(home, ".cache/zeta/bin").writeText("")
+        val message = assertThrows(ClaudeConfigException::class.java) { accounts.list() }.message!!
+        assertTrue(message, message.startsWith("装 claude-switch 没成功："))
+        assertEquals(SwitchOutcome.Failed(message), accounts.switch("claude-b"))
+        assertEquals(SwitchOutcome.Failed(message), accounts.prepareLogin())
+        assertEquals(message, assertThrows(ClaudeConfigException::class.java) { accounts.remove("claude-b") }.message)
+        assertEquals(message, assertThrows(ClaudeConfigException::class.java) { accounts.save() }.message)
+        assertEquals(emptyList<String>(), calls())
+    }
+
+    @Test
+    fun unsupportedMachineIsAClearFailure() {
+        installFake(twoAccounts)
+        val fakeBin = File(home, "fake-bin").apply { mkdirs() }
+        File(fakeBin, "uname").apply { writeText("#!/bin/sh\necho riscv64\n") }.setExecutable(true)
+        val riscv = ClaudeAccounts(ClaudeConfigClient { localShell(home, mapOf("PATH" to fakeBin.path + ":" + System.getenv("PATH"))) }, script, program)
+        assertEquals("claude-switch 没有这台机器（riscv64）能用的版本", assertThrows(ClaudeConfigException::class.java) { riscv.list() }.message)
+        assertEquals(emptyList<String>(), calls())
     }
 
     @Test

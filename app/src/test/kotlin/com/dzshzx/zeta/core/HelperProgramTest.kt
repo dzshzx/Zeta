@@ -13,7 +13,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta-helper 的安装（[HelperProgram]）：真 bash、临时 HOME。两份「程序」是小 shell 脚本，看装没装、装了哪一版、跑的是不是它。
+ * 随包程序的安装（[HelperProgram]）：真 bash、临时 HOME。两份「程序」是小 shell 脚本，看装没装、装了哪一版、跑的是不是它。
  */
 class HelperProgramTest {
     private lateinit var home: File
@@ -31,7 +31,8 @@ class HelperProgramTest {
         home.deleteRecursively()
     }
 
-    private fun program(tag: String) = HelperProgram({ name -> "#!/bin/sh\necho \"$tag ${name.substringAfterLast('-')} \$*\"\n".toByteArray() }, "zeta")
+    private fun program(tag: String, name: String = HelperProgram.ZETA_HELPER) =
+        HelperProgram({ asset -> "#!/bin/sh\necho \"$tag ${asset.substringAfterLast('-')} \$*\"\n".toByteArray() }, "zeta", name)
 
     /** 在临时 HOME 上用 bash 跑一行；[cut] 时只把标准输入的前一半写进去（传到一半断了）。 */
     private fun exec(cut: Boolean = false): (String, ByteArray?) -> CommandResult? = { command, stdin ->
@@ -80,6 +81,21 @@ class HelperProgramTest {
     }
 
     @Test
+    fun programsInstallSideBySide() {
+        val helper = program("h1")
+        val switch = program("s1", HelperProgram.CLAUDE_SWITCH)
+        assertEquals(".cache/zeta/bin/claude-switch-" + switch.version, switch.relativePath)
+        assertEquals("claude-switch/linux-arm64", switch.asset("arm64"))
+        helper.run(exec(), "list")
+        assertTrue(switch.run(exec(), "--json")!!.stdout.startsWith("s1 "))
+        // 换了 claude-switch 的版本：只删它自己的旧版本，zeta-helper 留着
+        val newer = program("s2", HelperProgram.CLAUDE_SWITCH)
+        assertTrue(newer.run(exec(), "--json")!!.stdout.startsWith("s2 "))
+        assertEquals(listOf("claude-switch-" + newer.version, "zeta-helper-" + helper.version), installed)
+        assertTrue(helper.run(exec(), "hosts")!!.stdout.startsWith("h1 "))
+    }
+
+    @Test
     fun incompleteTransferIsNotInstalled() {
         val program = program("v1")
         val result = program.run(exec(cut = true), "list")!!
@@ -101,9 +117,12 @@ class HelperProgramTest {
 
     @Test
     fun missingIsRecognizedOnlyWithItsMark() {
-        assertEquals("aarch64", HelperProgram.missingOn(CommandResult(97, "", "bash: warning\nzeta-helper-missing aarch64\n")))
-        assertNull(HelperProgram.missingOn(CommandResult(97, "", "something else")))
-        assertNull(HelperProgram.missingOn(CommandResult(1, "", "zeta-helper-missing aarch64")))
+        val program = program("v1")
+        assertEquals("aarch64", program.missingOn(CommandResult(97, "", "bash: warning\nzeta-helper-missing aarch64\n")))
+        assertNull(program.missingOn(CommandResult(97, "", "something else")))
+        assertNull(program.missingOn(CommandResult(1, "", "zeta-helper-missing aarch64")))
+        // 别的程序的记号不算
+        assertNull(program("v1", HelperProgram.CLAUDE_SWITCH).missingOn(CommandResult(97, "", "zeta-helper-missing aarch64\n")))
         assertEquals("arm64", HelperProgram.archOf("aarch64"))
         assertEquals("amd64", HelperProgram.archOf("x86_64"))
         assertNull(HelperProgram.archOf("riscv64"))

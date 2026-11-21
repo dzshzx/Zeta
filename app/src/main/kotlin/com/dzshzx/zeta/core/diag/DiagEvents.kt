@@ -90,8 +90,8 @@ object DiagEvents {
 
     /** 跑 zeta-helper 的命令行（[HelperProgram.command]）里的子命令，装它的那一行是 install；不是在跑它返回 null。 */
     fun helperCommand(command: String): String? {
-        if ("/" + HelperProgram.TEMP_PREFIX + "." in command) return "install"
-        if ("/zeta-helper-" !in command) return null
+        if ("/" + HelperProgram.tempPrefix(HelperProgram.ZETA_HELPER) + "." in command) return "install"
+        if ("/" + HelperProgram.ZETA_HELPER + "-" !in command) return null
         return command.substringAfter(HELPER_EXEC, "").trim().substringBefore(' ').ifEmpty { null }
     }
 
