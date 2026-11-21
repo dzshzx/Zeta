@@ -9,7 +9,7 @@
 # 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
 # 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
 # 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。
-# 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release。只协调工作站上的会话。
+# 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release（顺带撤掉同名的模拟器登记）。只协调工作站上的会话。
 # 谁能拿也在这里定（vd.py、install.sh 不另写）：正式版只给主会话；占用者不是 main（子代理）时只给 phone-run
 # 里的调用（带 ZETA_PHONE_TICKET）。拿不到时退出码 2，不是 75：这不是等一会儿就能好的。
 # --check <种类> 只核对这条、不拿租约：install.sh 在构建前先问一次，免得构建完才被拒绝。
@@ -52,6 +52,8 @@ case ${1-} in
       read_holder "$k"
       if [[ $h == "$owner" ]] && ! other_run; then rm -f "$(file "$k")"; fi
     done
+    # 直接用 install.sh、vd.py 时它们经 tools/emu start 登记了模拟器（phone-run 自己撤它的那份）
+    [[ -n ${ZETA_PHONE_TICKET:-} ]] || "$(dirname "$0")/emu" release
     exit 0 ;;
   main | dev | emu)
     allowed "$1" || exit 2

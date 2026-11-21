@@ -47,9 +47,20 @@ vd() { python3 "$ZETA_ROOT/tools/vd.py" "$@"; }
 android() { vd sh "$1"; }
 export -f vd android
 
-# 构建、开模拟器在拿租约之前，这些时间不占设备
+# 构建、开模拟器在拿租约之前，这些时间不占设备。模拟器和构建同时开（从快照恢复的十几秒藏在构建里），
+# 整个 phone-run 期间按本进程登记，跑完撤掉（见 tools/emu）
+emu_boot=''
+if [[ $ZETA_DEVICE == emu ]]; then
+  "$ZETA_ROOT/tools/emu" start --hold-pid $$ >"$OUT/emu-start.log" 2>&1 &
+  emu_boot=$!
+  trap '"$ZETA_ROOT/tools/emu" release --pid $$' EXIT
+fi
 [[ -z $build ]] || "$ZETA_ROOT/tools/gradle" -q --console=plain :app:assembleDev
-[[ $ZETA_DEVICE != emu ]] || "$ZETA_ROOT/tools/emu" start
+if [[ -n $emu_boot ]]; then
+  wait "$emu_boot" || { cat "$OUT/emu-start.log"; exit 1; }
+  cat "$OUT/emu-start.log"
+  rm -f "$OUT/emu-start.log"
+fi
 
 start=$SECONDS
 export ZETA_PHONE_TICKET=$$ # 排队号：先来先到，这个进程没了号就作废
@@ -88,6 +99,7 @@ cleanup() {
   fi
   vd stop # 关屏、force-stop 测试版、撤销它的通知监听、改回 vd prefs-set 改过的设置
   "$ZETA_ROOT/tools/phone-lock" --release
+  [[ $ZETA_DEVICE != emu ]] || "$ZETA_ROOT/tools/emu" release --pid $$
   local used=$((SECONDS - held))
   echo "$(date '+%F %T') $ZETA_PHONE_OWNER ${used}s rc=$rc waited=$((held - start))s $ZETA_DEVICE" >>"${XDG_RUNTIME_DIR:-/tmp}/zeta-phone-run.log"
   case $rc in

@@ -1,12 +1,21 @@
 #!/bin/bash
-# 测试版默认装在本机的 Android 模拟器上（见 CLAUDE.md「测试设备」）。用法：tools/emu [start|status|stop]
-#   start   没开就开机：AVD 取 ZETA_AVD（或 git config zeta.avd），没配时用本机唯一的那个 AVD；
-#           窗口开在 ZETA_EMU_DISPLAY（或 zeta.emuDisplay）这个 X 显示上，没配时不开窗口（-no-window）。
-#           联网经宿主的代理（https_proxy，用 -http-proxy 交给模拟器：它不读代理环境变量）。
-#           等开机完成，再把 adbd 切成 root。已经开着就只做后两步。install.sh、vd.py、phone-run 碰模拟器前自己调。
-#   status  开着没有；开着时列出开机、root、代理和看守的状态
-#   stop    关机（模拟器先存快照，下次开机从快照恢复）。模拟器可以和别的项目共用，测完不用关
-#   watch   start 在后台自动起的看守：空闲满 ZETA_EMU_IDLE_MIN 分钟就关机，见 CLAUDE.md「测试设备」
+# 测试版默认装在本机的 Android 模拟器上（见 CLAUDE.md「测试设备」）。模拟器各项目共用，即开即用、用完存快照关机：
+# 用的人先登记，最后一份登记结束满 ZETA_EMU_GRACE_SEC（默认 300）秒还没人再登记，就存快照关机，下次从快照恢复。
+# 用法：tools/emu [start|hold|release|status|stop]
+#   start [--hold-pid <进程号>]
+#           登记并开机：没开就开（AVD 取 ZETA_AVD 或 git config zeta.avd，没配时用本机唯一的那个；窗口开在 ZETA_EMU_DISPLAY
+#           或 zeta.emuDisplay 这个 X 显示上，没配时不开窗口；联网经宿主的代理，用 -http-proxy 交给模拟器），等开机完成，
+#           再把 adbd 切成 root。登记记到 15 分钟后，再调一次就顺延；--hold-pid 时改为记这个进程，进程结束登记就失效
+#           （phone-run 用）。phone-run 里的调用（有 ZETA_PHONE_TICKET）不另登记，用 phone-run 那一份。
+#   hold [-- <命令…>]
+#           登记本进程并开机，带命令时跑完命令就撤登记，不带时一直等到 Ctrl-C（人看着模拟器、扫码登录时用）
+#   release [--pid <进程号>]
+#           撤掉登记（--pid 撤 start --hold-pid 记的那份），并安排到点关机。tools/phone-lock --release 会顺带撤掉同名的登记
+#   status  开着没有、谁登记着、什么时候关机
+#   stop [--force]
+#           马上关机（先存快照）。还有别人登记着时拒绝，加 --force 照关
+# 登记的名字取 ZETA_EMU_FOR，没设时取 ZETA_PHONE_OWNER（Zeta 的会话），再没有就取当前 git 仓的目录名。
+# 别的项目用别的代理（比如抓包）开着的模拟器不归这里管：不按登记关机，也不替它关。
 set -euo pipefail
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 source "$(dirname "$0")/config.sh"
@@ -16,9 +25,13 @@ WINDOW=$(zeta_config ZETA_EMU_DISPLAY emuDisplay)
 # 不把 start 的锁（9 号描述符）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
 adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&-; }
 dir=${XDG_RUNTIME_DIR:-/tmp}
-idle_min=${ZETA_EMU_IDLE_MIN:-30}
-used_mark=$dir/zeta-emu.used        # 每次 start 都更新它的改动时间：「有人用」的记号
-watch_lock=$dir/zeta-emu-watch.lock # 看守在时有人攥着它的锁
+grace=${ZETA_EMU_GRACE_SEC:-300}
+hold_min=15
+holds=$dir/zeta-emu.holds       # 登记：一人一个文件，内容是「pid <进程号> <启动时刻>」或「until <到期时刻>」
+ended=$dir/zeta-emu.ended       # 最近一次有登记结束的时刻（秒）
+stop_at=$dir/zeta-emu.stop-at   # 安排好的关机时刻：关机进程在等时才有
+stopper_lock=$dir/zeta-emu.stopper.lock
+stop_log=$dir/zeta-emu-stop.log # 到点关机的记录
 
 # 监听控制台端口的就是模拟器进程，按端口找，不靠 $!
 emu_pid() { ss -Hltnp "sport = :$PORT" | grep -oE 'pid=[0-9]+' | head -n 1 | cut -d= -f2 || true; }
@@ -32,6 +45,8 @@ running_proxy() {
   pid=$(emu_pid)
   [[ -n $pid ]] && tr '\0' '\n' <"/proc/$pid/cmdline" | grep -A1 -x -- -http-proxy | tail -n +2 || true
 }
+# 开着的是不是这里按本机配置开的（带宿主代理）：只有这样的才按登记关机
+ours() { [[ $(running_proxy) == "$host_proxy" ]]; }
 
 # 关机：模拟器自己先存快照，最多等 90 秒（存 4G 内存的快照约 20 秒）
 stop_emu() {
@@ -41,58 +56,97 @@ stop_emu() {
   return 1
 }
 
-# xpra 在窗口所在显示上监听的 socket（抽象地址 @xpra/<号>、xpra/<号>/socket、~/.xpra/<主机>-<号>），写成 ss 的过滤条件
-xpra_sockets() { echo "( src *xpra/${WINDOW#:} or src *xpra/${WINDOW#:}/socket or src */.xpra/*-${WINDOW#:} )"; }
-# 有人在看：有 xpra 客户端连着这些 socket。配了窗口却找不到 xpra 在监听（布局变了、xpra 没起）时也算，宁可不关
-xpra_watched() {
-  [[ -n $WINDOW ]] || return 1
-  [[ -z $(ss -Hxl "$(xpra_sockets)") || -n $(ss -Hx state established "$(xpra_sockets)") ]]
+# ---- 登记 ----
+
+hold_name() {
+  local n=${ZETA_EMU_FOR:-${ZETA_PHONE_OWNER:-}}
+  [[ -n $n ]] || n=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || echo manual)")
+  n=${n//[^A-Za-z0-9_.-]/-}
+  printf '%s' "${n:0:64}"
+}
+# 进程的启动时刻（开机以来的时钟滴答）：和进程号一起认，进程号被重用时不会认错
+proc_start() { sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f20; }
+
+hold_until() { # hold_until <名字>
+  mkdir -p "$holds"
+  echo "until $((EPOCHSECONDS + hold_min * 60))" >"$holds/$1"
+}
+hold_pid() { # hold_pid <名字> <进程号>
+  mkdir -p "$holds"
+  echo "pid $2 $(proc_start "$2")" >"$holds/$1"
 }
 
-# 从 since（看守起来或最近一次有人用的时刻）算起空闲满 idle_min 分钟没有，顺带把 since 推到最近一次使用：
-# 记号文件（start 每次更新）和设备租约（拿到、续租时写）取较晚的改动时间；正连着 adb 服务的进程、xpra_watched 算作此刻在用
-idle() {
-  local t
-  if [[ -n $(ss -Htn state established "( dport = :5037 )") ]] || xpra_watched; then
-    since=$EPOCHSECONDS
-    return 1
-  fi
-  for t in $(stat -c %Y "$used_mark" "$dir/zeta-emu.lease" 2>/dev/null); do ((t <= since)) || since=$t; done
-  ((EPOCHSECONDS - since >= idle_min * 60))
+mark_ended() { # mark_ended [时刻]：记下有登记结束，取较晚的
+  local t=${1:-$EPOCHSECONDS} last=0
+  [[ -s $ended ]] && last=$(<"$ended")
+  ((t <= last)) || echo "$t" >"$ended"
 }
 
-watching() { ! flock -n "$watch_lock" true; }
-
-# 看守本身：由 ensure_watch 经 flock 起，锁攥在外面那个 flock 进程手里，这里起的子进程都不带它
-watch() {
-  local pid msg
-  since=$EPOCHSECONDS
-  pid=$(emu_pid)
-  while kill -0 "$pid" 2>/dev/null; do
-    sleep 60
-    idle || continue
-    # 拿 start 的锁再看一遍，不和正在开机或接上的 start 撞上
-    exec 9>"$dir/zeta-emu.lock"
-    if flock -n 9 && idle; then
-      msg="已关模拟器（进程 $pid）"
-      stop_emu "$pid" || msg="关模拟器（进程 $pid）90 秒没关掉"
-      printf '%(%F %T)T 空闲满 %s 分钟，%s\n' -1 "$idle_min" "$msg" >>"$dir/zeta-emu-watch.log"
-      break
+# 清掉失效的登记（进程没了、到期了），记下它们结束的时刻；留下的设 live_holds（份数）、live_pids（其中进程登记的份数）
+# 和 last_until（最晚的到期时刻，没有时是 0）
+prune_holds() {
+  local f kind a b
+  live_holds=0 live_pids=0 last_until=0
+  for f in "$holds"/*; do
+    [[ -f $f ]] || continue
+    read -r kind a b <"$f" || true
+    if [[ $kind == pid && -n $a && $(proc_start "$a") == "$b" ]]; then
+      live_pids=$((live_pids + 1))
+    elif [[ $kind == until && $a =~ ^[0-9]+$ ]] && ((a > EPOCHSECONDS)); then
+      ((a <= last_until)) || last_until=$a
+    else
+      rm -f "$f"
+      if [[ $kind == until && $a =~ ^[0-9]+$ ]]; then mark_ended "$a"; else mark_ended; fi
+      continue
     fi
-    exec 9>&-
+    live_holds=$((live_holds + 1))
   done
 }
 
-# start 结束前确认看守在：只看按本机配置开的这台（$1 是它开机时带的代理，和宿主的一样）。看守单独一个小分组，在 / 下跑，
-# 不攥 start 的锁和输出管道；看守锁由 flock -o 攥着，不传给看守和它的子进程。等 2 秒（status 探测时会短暂占着），
-# 拿不到就是已有看守，静默退出
-ensure_watch() {
-  local self
-  ((idle_min > 0)) && [[ $1 == "$host_proxy" ]] && ! watching || return 0
-  self=$(realpath "$0")
-  own_scope zeta-emu-watch 32M
-  (cd / && exec "${OWN_SCOPE[@]}" setsid flock -o -w 2 -E 0 "$watch_lock" bash "$self" watch) >/dev/null 2>&1 </dev/null 9>&- &
+release() { # release <名字>
+  rm -f "$holds/$1"
+  mark_ended
+  schedule_stop
 }
+
+# ---- 到点关机 ----
+
+# 安排关机：起一个关机进程（只留一个），它等到「没有登记、最后一份结束满宽限期」时关机；有进程登记着时它直接退出，
+# 那些进程撤登记时会再安排。单独一个小分组，在 / 下跑，不攥调用方的锁和输出管道
+schedule_stop() {
+  local self
+  [[ -n $(emu_pid) ]] && ours || return 0
+  self=$(realpath "$0")
+  own_scope zeta-emu-stop 32M
+  (cd / && exec "${OWN_SCOPE[@]}" setsid flock -o -n -E 0 "$stopper_lock" bash "$self" _stop-later) >/dev/null 2>&1 </dev/null 9>&- &
+}
+
+stop_later() {
+  local pid due last
+  while pid=$(emu_pid) && [[ -n $pid ]] && ours; do
+    exec 9>"$dir/zeta-emu.lock"
+    flock 9 # 和 start 互斥：不在别人登记、开机的当口关
+    prune_holds
+    ((live_pids == 0)) || break
+    last=0
+    [[ -s $ended ]] && last=$(<"$ended")
+    ((last_until <= last)) || last=$last_until
+    due=$((last + grace))
+    if ((last_until <= EPOCHSECONDS && EPOCHSECONDS >= due)); then
+      local msg="已关模拟器（进程 $pid）"
+      echo stopping >"$stop_at"
+      stop_emu "$pid" || msg="关模拟器（进程 $pid）90 秒没关掉"
+      printf '%(%F %T)T 最后一份登记结束满 %s 秒，%s\n' -1 "$grace" "$msg" >>"$stop_log"
+      break
+    fi
+    echo "$due" >"$stop_at"
+    exec 9>&-
+    sleep $((due - EPOCHSECONDS))
+  done
+  rm -f "$stop_at"
+}
+
+# ---- 开机 ----
 
 # 要开的 AVD：配了就用配的，没配时本机只有一个 AVD 就用它
 avd() {
@@ -109,24 +163,29 @@ avd() {
   printf '%s' "$name"
 }
 
-start() {
+start() { # start [<登记的名字> <进程号>]
   # adb 服务先在 / 下起好：由后面的调用顺带拉起的话，它的工作目录会留在调用方的任务树里，那棵树就回收不了
   (cd / && exec "$ANDROID_HOME/platform-tools/adb" start-server) >/dev/null 2>&1 </dev/null
   exec 9>"$dir/zeta-emu.lock"
-  flock 9 # 几个 phone-run 同时来时只开一次
-  touch "$used_mark"
+  flock 9 # 几个同时来时只开一次；正在到点关机时等它关完再开
+  if [[ -n ${2:-} ]]; then
+    hold_pid "$1" "$2"
+  elif [[ -z ${ZETA_PHONE_TICKET:-} ]]; then
+    hold_until "$(hold_name)"
+  fi
   if [[ -z $(emu_pid) ]]; then
     local name window=(-no-window)
     name=$(avd)
     [[ -z $WINDOW ]] || window=()
     echo "开模拟器 $name（窗口${WINDOW:+在 $WINDOW}$([[ -n $WINDOW ]] || echo 不开)，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
-    # 模拟器常驻：在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
+    # 在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
     # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）。
     # 它各项目共用，单独一个分组（见 tools/own-scope.sh），不记在开它的会话头上；上限按 AVD 的 4G 内存加模拟器自身留够。
     own_scope zeta-emu 8G
     (cd / && DISPLAY=$WINDOW exec "${OWN_SCOPE[@]}" setsid "$ANDROID_HOME/emulator/emulator" -avd "$name" -port "$PORT" -no-audio -no-boot-anim \
       -gpu swiftshader_indirect "${window[@]}" ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
   fi
+  exec 9>&-
   local i
   for ((i = 0; i < 180; i++)); do booted && break; sleep 1; done
   booted || { echo "模拟器 3 分钟没开机完成，看 $dir/zeta-emu.log" >&2; exit 1; }
@@ -135,30 +194,91 @@ start() {
     for ((i = 0; i < 30; i++)); do is_root && break; sleep 1; done
     is_root || { echo "adbd 切不成 root" >&2; exit 1; }
   fi
-  local proxy
-  proxy=$(running_proxy)
-  [[ $proxy == "$host_proxy" ]] ||
-    echo "注意：模拟器开机时带的代理是「${proxy:-无}」，不是宿主的「${host_proxy:-无}」（多半是别的项目开的）；Zeta 要正常联网先 tools/emu stop 再开" >&2
-  ensure_watch "$proxy"
+  ours ||
+    echo "注意：模拟器开机时带的代理是「$(running_proxy)」，不是宿主的「${host_proxy:-无}」（多半是别的项目开的）；Zeta 要正常联网先 tools/emu stop 再开" >&2
+}
+
+hold() { # hold [-- <命令…>]
+  [[ ${1:-} != -- ]] || shift
+  # 全局变量：退出钩子在函数返回之后才跑
+  held="hold-$(hold_name)-$$"
+  trap 'release "$held"' EXIT
+  trap 'exit 130' INT TERM
+  start "$held" "$$"
+  if (($#)); then
+    "$@"
+  else
+    echo "已登记，模拟器会一直开着；用完按 Ctrl-C"
+    while :; do sleep 3600; done
+  fi
+}
+
+status() {
+  local pid f kind a b
+  pid=$(emu_pid)
+  [[ -n $pid ]] || { echo "模拟器没开"; return 0; }
+  # 正在关：进程退出途中读不到它的启动参数，下面的判断都不准
+  [[ $(cat "$stop_at" 2>/dev/null) != stopping ]] || { echo "模拟器正在存快照关机（进程 $pid）"; return 0; }
+  local s="模拟器开着（进程 $pid）"
+  booted && s+="，已开机" || s+="，还在开机"
+  is_root && s+="，adbd 是 root"
+  ours || s+="，代理是「$(running_proxy)」（别的项目开的，这里不管关机）"
+  echo "$s"
+  prune_holds
+  if ((live_holds == 0)); then
+    if [[ -s $stop_at ]]; then
+      printf '没有登记，%(%T)T 存快照关机\n' "$(<"$stop_at")"
+    else
+      echo "没有登记"
+    fi
+    return 0
+  fi
+  echo "登记："
+  for f in "$holds"/*; do
+    [[ -f $f ]] || continue
+    read -r kind a b <"$f" || true
+    if [[ $kind == pid ]]; then
+      printf '  %-36s 进程 %s\n' "$(basename "$f")" "$a"
+    else
+      printf '  %-36s 到 %(%H:%M)T\n' "$(basename "$f")" "$a"
+    fi
+  done
+  echo "没人登记时 $grace 秒后关机"
+}
+
+stop() { # stop [--force]
+  local pid others
+  pid=$(emu_pid)
+  [[ -n $pid ]] || { echo "模拟器没开"; return 0; }
+  if [[ ${1:-} != --force ]]; then
+    prune_holds
+    others=$live_holds
+    [[ ! -f $holds/$(hold_name) ]] || others=$((others - 1))
+    ((others <= 0)) || { status >&2; echo "还有别人登记着，不关；确实要关加 --force" >&2; return 1; }
+  fi
+  rm -rf "$holds" "$stop_at"
+  stop_emu "$pid" && { echo "关了"; return 0; }
+  echo "模拟器 90 秒没关掉（进程 $pid）" >&2
+  return 1
 }
 
 case ${1:-start} in
-  start) start ;;
-  status)
-    pid=$(emu_pid)
-    [[ -n $pid ]] || { echo "模拟器没开"; exit 0; }
-    s="模拟器开着（进程 $pid）"
-    booted && s+="，已开机" || s+="，还在开机"
-    is_root && s+="，adbd 是 root"
-    s+="，代理：$(running_proxy)"
-    watching && s+="，空闲满 $idle_min 分钟自动关机"
-    echo "$s" ;;
-  stop)
-    pid=$(emu_pid)
-    [[ -n $pid ]] || { echo "模拟器没开"; exit 0; }
-    stop_emu "$pid" && { echo "关了"; exit 0; }
-    echo "模拟器 90 秒没关掉（进程 $pid）" >&2
-    exit 1 ;;
-  watch) watch ;;
-  *) echo "用法：tools/emu [start|status|stop]" >&2; exit 2 ;;
+  start)
+    if [[ ${2:-} == --hold-pid ]]; then
+      [[ ${3:-} =~ ^[0-9]+$ ]] || { echo "用法：tools/emu start [--hold-pid <进程号>]" >&2; exit 2; }
+      start "phone-run-$(hold_name)-$3" "$3"
+    else
+      start
+    fi ;;
+  hold) shift; hold "$@" ;;
+  release)
+    if [[ ${2:-} == --pid && ${3:-} =~ ^[0-9]+$ ]]; then
+      release "phone-run-$(hold_name)-$3"
+    else
+      release "$(hold_name)"
+    fi ;;
+  status) status ;;
+  stop) stop "${2:-}" ;;
+  _stop-later) stop_later ;;
+  *) echo "用法：tools/emu [start [--hold-pid <进程号>]|hold [-- <命令…>]|release [--pid <进程号>]|status|stop [--force]]" >&2; exit 2 ;;
 esac
