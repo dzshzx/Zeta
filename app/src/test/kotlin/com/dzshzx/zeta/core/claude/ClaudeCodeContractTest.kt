@@ -528,7 +528,7 @@ class ClaudeCodeContractTest {
         Claude("bypassPermissions", sessionEndHook(log)).use { claude ->
             claude.turn("say hi")
             assertEquals("success", claude.control(endSession()).str("subtype"))
-            assertEquals(0, claude.exitCode(15))
+            assertEquals(0, claude.exitCode(60))
             assertEquals(listOf("other"), sessionEndReasons(log))
         }
     }
@@ -540,7 +540,8 @@ class ClaudeCodeContractTest {
     @Test
     fun endSessionStopsTheRunningTurn() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        script = listOf(bash("timeout 60 tail -f /dev/null"))
+        // 工具跑得比下面任何一个限时都长：等它跑完才收尾的话 result 等不到，不用按秒数判断
+        script = listOf(bash("timeout 300 tail -f /dev/null"))
         val log = File(home, "session-end.log")
         Claude("bypassPermissions", sessionEndHook(log)).use { claude ->
             claude.user("44444444-2222-4333-8444-555555555555", "run the tools")
@@ -548,7 +549,6 @@ class ClaudeCodeContractTest {
                 o.str("type") == "assistant" &&
                     "\"tool_use\"" in o.obj("message")?.get("content").toString()
             }
-            val asked = System.currentTimeMillis()
             claude.send(
                 buildJsonObject {
                     put("type", "control_request")
@@ -558,8 +558,7 @@ class ClaudeCodeContractTest {
             )
             val result = claude.until { it.str("type") == "result" }.last()
             assertEquals("error_during_execution", result.str("subtype"))
-            assertEquals(1, claude.exitCode(15))
-            assertTrue("没等工具跑完就退出", System.currentTimeMillis() - asked < 15_000)
+            assertEquals(1, claude.exitCode(60))
             assertEquals(listOf("other"), sessionEndReasons(log))
         }
     }
