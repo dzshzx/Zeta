@@ -8,7 +8,14 @@ Zeta 的正式版（包名 `com.dzshzx.zeta`）只经 GitHub Release 发布。�
 
 ## 发版
 
-发版只有一条命令：手动触发 `.github/workflows/release.yml`。先 dry run，看过运行摘要再正式发：
+发版前先在主 checkout 上让测试版照正式版那样经 R8 构建，在模拟器上冷启动一次。合入的门禁（`AppStartTest`）只查不经 R8 的启动，
+R8 误删了运行时才按类名找的类（见 CLAUDE.md「坑」）只有这里查得到：
+
+```sh
+ZETA_R8=1 ZETA_PHONE_OWNER=release tools/phone-run tools/phone-tests/smoke.sh
+```
+
+发版本身只有一条命令：手动触发 `.github/workflows/release.yml`。先 dry run，看过运行摘要再正式发：
 
 ```sh
 gh workflow run release.yml --ref master -f dry_run=true
