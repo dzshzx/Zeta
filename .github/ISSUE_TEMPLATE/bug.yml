@@ -1,0 +1,54 @@
+name: 报告 bug
+description: Zeta 哪里坏了、和预期不一样
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        安全问题请不要在这里提，见 [SECURITY.md](https://github.com/dzshzx/Zeta/blob/master/SECURITY.md)。
+        截图、日志贴出来之前先看一眼有没有不想公开的内容（对话、通知、账号、主机名等）。
+  - type: input
+    id: version
+    attributes:
+      label: Zeta 版本
+      description: 设置 › 关于 里的「版本名（versionCode）」，比如 0.7.1（110）
+      placeholder: 0.7.1（110）
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备与系统版本
+      description: 设备型号、Android 版本，厂商系统的版本（比如 HyperOS 3.0.5）
+      placeholder: Xiaomi 17，Android 16，HyperOS 3.0.5
+    validations:
+      required: true
+  - type: input
+    id: root
+    attributes:
+      label: root 方案
+      description: KernelSU、SukiSU、Magisk 等，带上版本；用了 LSPosed 也写上
+      placeholder: KernelSU v1.0.5，LSPosed v2.2.1
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 看到了什么，本来应该是什么样
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 一步步怎么做能看到这个问题；复现不了就写当时在做什么
+      placeholder: |
+        1. 打开……
+        2. 点……
+        3. 看到……
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图、日志或别的信息
+      description: 设置 › 诊断 › 导出诊断包（已打码）可以附在这里

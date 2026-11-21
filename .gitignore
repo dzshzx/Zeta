@@ -5,3 +5,5 @@ local.properties
 .kotlin/
 __pycache__/
 *.pyc
+# 维护者本机的环境事实（见 CLAUDE.md 开头）
+CLAUDE.local.md

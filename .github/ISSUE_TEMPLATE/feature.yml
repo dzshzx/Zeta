@@ -1,0 +1,40 @@
+name: 想要的功能
+description: 建议加一个功能或改一个现有的做法
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: 想做什么
+      description: 想在手机上用 Zeta 做成什么事，现在卡在哪里
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 设想的做法
+      description: 希望 Zeta 怎么做；有参照（别的应用、Eta、Claude Code 自己的功能）也写上
+  - type: input
+    id: version
+    attributes:
+      label: Zeta 版本
+      description: 设置 › 关于 里的「版本名（versionCode）」
+      placeholder: 0.7.1（110）
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备与系统版本
+      description: 设备型号、Android 版本，厂商系统的版本
+      placeholder: Xiaomi 17，Android 16，HyperOS 3.0.5
+    validations:
+      required: true
+  - type: input
+    id: root
+    attributes:
+      label: root 方案
+      description: KernelSU、SukiSU、Magisk 等；用了 LSPosed 也写上
+      placeholder: KernelSU v1.0.5
+    validations:
+      required: true

@@ -4,7 +4,7 @@
 
 ## 照什么写
 
-- 写法照 COUI 2 自带的指南：工作站 `~/workspace-external/coui/.claude/skills/coui-app/SKILL.md`，以及同目录 `references/` 下的 `components.md`（ColorOS 控件对应哪个组件）、`pitfalls.md`（踩过的坑）。组件参数以源码为准：`~/workspace-external/coui/coui-ui/src/commonMain`、`coui-preference/src/commonMain`；组件的样子看 `docs/components/<名字>.md`。对照前先在那里 `git pull`。
+- 写法照 COUI 2 自带的指南：COUI 2 仓库（github `suqi8/coui`，克隆一份到本地）的 `.claude/skills/coui-app/SKILL.md`，以及同目录 `references/` 下的 `components.md`（ColorOS 控件对应哪个组件）、`pitfalls.md`（踩过的坑）。组件参数以源码为准：那个仓库的 `coui-ui/src/commonMain`、`coui-preference/src/commonMain`；组件的样子看 `docs/components/<名字>.md`。对照前先在那里 `git pull`。
 - 指南里这几条 Zeta 不照做：字符串直接写中文，不用 Compose resources、不做双语；页面切换由 Zeta 自己管（聊天页上的页面栈 `ui/PageStack.kt`；一层层盖上去的页面都用 `ui/components/SlideInPage.kt`，带返回键时给 `onBack`；页面要带着一个值打开时用带值的写法 `SlideInPage(value) { … }`，值变空就关，退场动画期间仍用最后的值画），不用 coui-nav；页面骨架用 `ui/components/coui2` 的，不再复制。
 
 ## Zeta 的补充件
@@ -34,7 +34,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
   - Claude（账号与额度、压缩、标题、定时任务、通知触发）、手机与工具（手机操作、数字助理、浏览器、权限健康）、通用（外观、屏幕常亮、网络图片、朗读、存储、备份）、关于：Zeta 自己的设置，哪台主机都一样。
   - 新入口按管什么归进这几组，不为一两行另开一组。同一个设置项只放一处，别的页面用得到时在说明里指过去，不再放一份能改的。
 - 首页每行行首一个 `SettingsIcon`，颜色只有四类：蓝 `Claude`（Claude 与对话）、绿 `System`（手机、系统与 Zeta 本身）、橙 `Files`（文件与环境）、黄 `Automation`（自动触发与规则）。行不能用时图标跟着 `enabled = false` 变灰。
-- 首页的行只写当前状态：右侧值（`PreferenceValue`，出问题时红字）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」留一行授权声明。
+- 首页的行只写当前状态：右侧值（`PreferenceValue`，出问题时红字）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」组下留一行非官方声明（Claude 是 Anthropic 的商标，Zeta 不是 Anthropic 的产品，`ZetaInfo.UNOFFICIAL`）。
 - 子页的行不放图标。摘要最多一行，说这一项是什么或当前状态；要讲清楚的放组下说明（`PreferenceGroup(footer = …)`），一段两三句。
 - 首页上的开关、下拉直接改；要配几项的东西做成子页（`SettingsSubPage` 加一项，在 `SettingsScreen` 子页的 `when` 里加一个分支），首页只留一个带状态的入口。
 
@@ -47,7 +47,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 ## 图标
 
-- 先用 COUI 2 自带的（`COUIIcons.*`，全部样子见 `~/workspace-external/coui/docs/components/icon.md` 或源码 `coui-icons`），按意思选，不按名字：COUI 的 `ExpandMore` 是全屏的四个角，向下的折角用 `ZetaIcons.ChevronDown`。不用 Material 图标，依赖里已经没有它。
+- 先用 COUI 2 自带的（`COUIIcons.*`，全部样子见 COUI 2 仓库的 `docs/components/icon.md` 或源码 `coui-icons`），按意思选，不按名字：COUI 的 `ExpandMore` 是全屏的四个角，向下的折角用 `ZetaIcons.ChevronDown`。不用 Material 图标，依赖里已经没有它。
 - COUI 没有、或者它的是实心而旁边都是线条的，在 `ui/components/coui2/ZetaIcons.kt` 里画，规格写在那个文件开头。画完看 `tools/shots Icons` 出的 `zeta-icons` 总览图，和开头几个 COUI 图标比粗细、大小；图形出界由同一个测试拦下。
 
 ## 常见的选法
