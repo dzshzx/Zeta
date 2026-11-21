@@ -160,6 +160,13 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     }
 
     /**
+     * 结束 [backend] 上正占着会话 [sessionId] 的、Zeta 之外的 Claude Code 进程（zeta-helper end：先 SIGTERM，不退再 SIGKILL），
+     * 完了重读列表，侧栏不再标它在别处运行。
+     */
+    internal fun endElsewhere(sessionId: String, backend: String) =
+        write("结束别处的 Claude Code", backend, "end", listOf(sessionId), done = ::refresh)
+
+    /**
      * 把界面上已经改了的写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。
      * 没写成时在主线程上做 [undo]（把界面改回去，和会话记录对上），Zeta 在前台时说一声“[what]没成功”和原因。
      * [done] 在写完（成没成都算）后在主线程上调用。

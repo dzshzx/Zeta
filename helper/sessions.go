@@ -362,6 +362,7 @@ func cmdDelete(e *env, o *emitter, paths []string) error {
 // registered 是 Claude Code 某个进程登记的会话。
 type registered struct {
 	pid     int
+	start   string // 进程的启动时刻（procStart）
 	session any
 }
 
@@ -382,7 +383,7 @@ func (e *env) registeredSessions() []registered {
 		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
 			continue
 		}
-		out = append(out, registered{pid: pid, session: info["sessionId"]})
+		out = append(out, registered{pid: pid, start: started, session: info["sessionId"]})
 	}
 	return out
 }
@@ -419,11 +420,20 @@ func (e *env) hostPids() map[int]bool {
 
 // externalSessions 是正被别的 Claude Code 进程（比如终端里的）占用的会话 id。
 func (e *env) externalSessions() map[string]bool {
-	mine := e.hostPids()
 	out := map[string]bool{}
+	for _, r := range e.outsideRegistrations() {
+		out[r.session.(string)] = true
+	}
+	return out
+}
+
+// outsideRegistrations 是 Zeta 之外（不在托管目录里）的进程登记的、带会话 id 的那些：侧栏标“在别处运行”、end 结束的都是它们。
+func (e *env) outsideRegistrations() []registered {
+	mine := e.hostPids()
+	var out []registered
 	for _, r := range e.registeredSessions() {
-		if s, ok := r.session.(string); ok && !mine[r.pid] {
-			out[s] = true
+		if _, ok := r.session.(string); ok && !mine[r.pid] {
+			out = append(out, r)
 		}
 	}
 	return out

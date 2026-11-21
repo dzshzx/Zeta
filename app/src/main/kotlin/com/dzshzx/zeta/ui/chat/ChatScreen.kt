@@ -225,11 +225,10 @@ internal fun ChatScreen(
                 ConfirmDialog(
                     show = confirmingEnd,
                     title = "结束这个对话？",
-                    summary = if (conversation.external) {
-                        "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。"
-                    } else {
-                        "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。"
-                    },
+                    summary = (
+                        if (conversation.external) "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。"
+                        else "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。"
+                    ) + "对话内容保留，可以从历史对话里接着聊。",
                     confirmText = "结束",
                     destructive = true,
                     onConfirm = {

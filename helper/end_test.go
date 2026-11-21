@@ -5,47 +5,55 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"testing"
 	"time"
 )
 
 // fakeClaude 起一个命令行里带 claude 的进程（一个叫 claude 的脚本），[ignoreTerm] 时它不理 SIGTERM。
 // 返回它的 pid 和一个在它退出后关闭的通道（测试进程替它收尸，不留僵尸）。
-func fakeClaude(t *testing.T, dir string, ignoreTerm bool) (int, <-chan struct{}) {
+func fakeClaude(t *testing.T, ignoreTerm bool) (int, <-chan struct{}) {
 	t.Helper()
-	script := filepath.Join(dir, "bin", "claude")
-	if ignoreTerm {
-		script = filepath.Join(dir, "bin-stubborn", "claude")
-	}
+	ready := ""
 	body := "#!/bin/bash\nwhile :; do sleep 0.05; done\n"
 	if ignoreTerm {
-		body = "#!/bin/bash\ntrap '' TERM\nwhile :; do sleep 0.05; done\n"
+		// 设好 trap 后写下标记，测试等到它再往下走
+		ready = filepath.Join(t.TempDir(), "ready")
+		body = "#!/bin/bash\ntrap '' TERM\n: > \"$1\"\nwhile :; do sleep 0.05; done\n"
 	}
+	script := filepath.Join(t.TempDir(), "claude")
 	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(script)
+	cmd := exec.Command(script, ready)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan struct{})
 	go func() { _ = cmd.Wait(); close(done) }()
 	t.Cleanup(func() { _ = cmd.Process.Kill(); <-done })
-	// 等 bash 设好 trap 再往下走
-	time.Sleep(200 * time.Millisecond)
+	for deadline := time.Now().Add(3 * time.Second); ready != ""; time.Sleep(10 * time.Millisecond) {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the stub did not set its trap")
+		}
+	}
 	return cmd.Process.Pid, done
 }
 
-func register(t *testing.T, e *env, pid int, session string) {
+// register 像 Claude Code 那样登记进程 pid 在用会话 session；start 是登记里的启动时刻，空串时取它真的启动时刻。
+func register(t *testing.T, e *env, pid int, session, start string) {
 	t.Helper()
-	mark, ok := procStart(pid)
-	if !ok {
-		t.Fatalf("pid %d is not running", pid)
+	if start == "" {
+		var ok bool
+		if start, ok = procStart(pid); !ok {
+			t.Fatalf("pid %d is not running", pid)
+		}
 	}
 	writeFile(t, filepath.Join(e.sessions, strconv.Itoa(pid)+".json"),
-		`{"pid":`+strconv.Itoa(pid)+`,"sessionId":"`+session+`","procStart":"`+mark+`","kind":"interactive"}`)
+		`{"pid":`+strconv.Itoa(pid)+`,"sessionId":"`+session+`","procStart":"`+start+`","kind":"interactive"}`)
 }
 
 func exited(done <-chan struct{}) bool {
@@ -60,19 +68,18 @@ func exited(done <-chan struct{}) bool {
 func TestEndStopsOnlyOutsideProcessesOfThatSession(t *testing.T) {
 	e := testEnv(t)
 	const id = "aaaaaaaa-1111-4222-8333-444444444444"
-	outside, outsideDone := fakeClaude(t, e.home, false)
-	register(t, e, outside, id)
+	outside, outsideDone := fakeClaude(t, false)
+	register(t, e, outside, id, "")
 	// Zeta 自己托管的同一会话：留给 zeta_host.sh stop
-	hosted, hostedDone := fakeClaude(t, e.home, false)
-	register(t, e, hosted, id)
+	hosted, hostedDone := fakeClaude(t, false)
+	register(t, e, hosted, id, "")
 	writeFile(t, filepath.Join(e.hosts, "k1", "pid"), strconv.Itoa(hosted))
 	// 别的会话
-	other, otherDone := fakeClaude(t, e.home, false)
-	register(t, e, other, "bbbbbbbb-1111-4222-8333-444444444444")
+	other, otherDone := fakeClaude(t, false)
+	register(t, e, other, "bbbbbbbb-1111-4222-8333-444444444444", "")
 	// 登记的启动时刻对不上（pid 被复用了）：不动
-	reused, reusedDone := fakeClaude(t, e.home, false)
-	writeFile(t, filepath.Join(e.sessions, strconv.Itoa(reused)+".json"),
-		`{"pid":`+strconv.Itoa(reused)+`,"sessionId":"`+id+`","procStart":"1"}`)
+	reused, reusedDone := fakeClaude(t, false)
+	register(t, e, reused, id, "1")
 
 	out := mustCall(t, e, "end", id)
 	if len(out) != 1 || num(t, out[0]["ended"]) != 1 {
@@ -96,16 +103,8 @@ func TestEndKillsProcessThatIgnoresTerm(t *testing.T) {
 	t.Cleanup(func() { endGrace = old })
 	e := testEnv(t)
 	const id = "cccccccc-1111-4222-8333-444444444444"
-	pid, done := fakeClaude(t, e.home, true)
-	register(t, e, pid, id)
-	// trap 生效了：单发 SIGTERM 它不退
-	_ = syscall.Kill(pid, syscall.SIGTERM)
-	time.Sleep(200 * time.Millisecond)
-	select {
-	case <-done:
-		t.Fatal("stub exited on SIGTERM; the test needs one that ignores it")
-	default:
-	}
+	pid, done := fakeClaude(t, true)
+	register(t, e, pid, id, "")
 	out := mustCall(t, e, "end", id)
 	if num(t, out[0]["ended"]) != 1 || !exited(done) {
 		t.Fatalf("out = %v, process exited = false", out)

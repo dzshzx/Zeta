@@ -12,19 +12,25 @@ import (
 
 // procStart 是进程的启动时刻（/proc/<pid>/stat 第 22 项，开机后的时钟滴答数，原样的文字），用来识别 pid 被别的进程复用。
 func procStart(pid int) (string, bool) {
+	start, _, ok := procStat(pid)
+	return start, ok
+}
+
+// procStat 读一次 /proc/<pid>/stat，给出启动时刻（同 procStart）和状态（第 3 项，比如 R、S、Z）。
+func procStat(pid int) (start string, state byte, ok bool) {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {
-		return "", false
+		return "", 0, false
 	}
 	i := bytes.LastIndexByte(data, ')')
 	if i < 0 {
-		return "", false
+		return "", 0, false
 	}
 	fields := strings.Fields(decodeString(data[i+1:]))
 	if len(fields) < 20 {
-		return "", false
+		return "", 0, false
 	}
-	return fields[19], true
+	return fields[19], fields[0][0], true
 }
 
 // readPid 读托管目录里记的进程号（pid、attach 文件）。
