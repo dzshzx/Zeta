@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.text.TextRange
 import com.dzshzx.zeta.shots.ShotTest
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
@@ -40,7 +42,7 @@ class TextFieldCursorTest : ShotTest() {
     fun cursorMovesToEndWhenTextChangesOutside() {
         showField("/home")
         field().performTextInput("/a")
-        text = "/data/local"
+        compose.runOnIdle { text = "/data/local" }
         field().performTextInput("/b")
         assertEquals("/data/local/b", text)
     }
@@ -69,5 +71,34 @@ class TextFieldCursorTest : ShotTest() {
         field().assertIsFocused()
         field().performTextInput("/claude")
         assertEquals("/workspace/claude", text)
+    }
+
+    /** 调用方改写刚打的字时光标留在原处：在中间接着打的字按顺序排，不跑到末尾（suqi8/coui#20 的例子）。 */
+    @Test
+    fun cursorStaysWhenCallerUppercasesTypedText() {
+        showRewritingField("AB") { it.uppercase() }
+        field().performTextInputSelection(TextRange(1))
+        field().performTextInput("x")
+        field().performTextInput("y")
+        assertEquals("AXYB", text)
+    }
+
+    /** 调用方滤掉刚打的字（文字没变）时光标也留在原处。 */
+    @Test
+    fun cursorStaysWhenCallerDropsTypedText() {
+        showRewritingField("19") { value -> value.filter(Char::isDigit) }
+        field().performTextInputSelection(TextRange(1))
+        field().performTextInput("a")
+        field().performTextInput("0")
+        assertEquals("109", text)
+    }
+
+    private fun showRewritingField(initial: String, rewrite: (String) -> String) {
+        text = initial
+        compose.setContent {
+            ZetaTheme(windowBackdrop = false) {
+                TextField(value = text, onValueChange = { text = rewrite(it) }, singleLine = true)
+            }
+        }
     }
 }

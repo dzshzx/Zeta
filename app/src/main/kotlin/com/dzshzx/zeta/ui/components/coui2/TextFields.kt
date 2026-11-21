@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.components.coui2
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,13 +50,21 @@ internal fun TextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     var typed by remember { mutableStateOf(atEnd(value)) }
-    // 文字和自己上次打出来的一样时沿用那时的光标；不一样就是外面改的
-    val shown = if (typed.text == value) typed else atEnd(value)
+    // 把打的字交给调用方时记下打字前的样子；下一次组合看到的 value 就是调用方的回应，看完清掉
+    var beforeEdit by remember { mutableStateOf<TextFieldValue?>(null) }
+    val shown = shownValue(value, typed, beforeEdit)
+    SideEffect {
+        beforeEdit = null
+        typed = shown
+    }
     CouiTextField(
         value = shown,
         onValueChange = { new ->
             typed = new
-            if (new.text != value) onValueChange(new.text)
+            if (new.text != value) {
+                beforeEdit = shown
+                onValueChange(new.text)
+            }
         },
         modifier = modifier,
         backgroundMode = backgroundMode,
@@ -76,5 +85,19 @@ internal fun TextField(
         visualTransformation = visualTransformation,
     )
 }
+
+/** 这一次组合给输入框的文字和光标。[typed] 是自己上次打出来的，[beforeEdit] 不为空时 [value] 是调用方对刚打的字的回应。 */
+private fun shownValue(
+    value: String,
+    typed: TextFieldValue,
+    beforeEdit: TextFieldValue?,
+): TextFieldValue =
+    when {
+        // 和自己上次打出来的一样：沿用那时的光标和输入法的组合区
+        typed.text == value -> typed
+        beforeEdit == null -> atEnd(value) // 调用方自己换了文字：光标放到末尾
+        beforeEdit.text == value -> beforeEdit // 调用方没收下刚打的字（滤掉、到了上限）：回到打字前
+        else -> TextFieldValue(value, typed.selection) // 调用方改写了刚打的字（比如转大写）：光标留在原处
+    }
 
 private fun atEnd(text: String) = TextFieldValue(text, TextRange(text.length))
