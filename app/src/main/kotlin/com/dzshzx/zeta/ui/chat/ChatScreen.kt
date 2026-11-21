@@ -146,7 +146,7 @@ internal fun ChatScreen(
     // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
     val usable = hub.usable(conversation.backend)
     val blur = rememberPageBlur()
-    // 结束还在进行的对话要先确认：会停掉在做的事
+    // 结束还在进行的、或正在别处运行的对话要先确认：会停掉在做的事、别处的进程
     var confirmingEnd by remember(conversation) { mutableStateOf(false) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -163,7 +163,7 @@ internal fun ChatScreen(
                     listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
-                    onEnd = { if (conversation.active) confirmingEnd = true else hub.endCurrent() }
+                    onEnd = { if (conversation.active || conversation.external) confirmingEnd = true else hub.endCurrent() }
                         .takeIf { hub.environment.setup == SetupState.Ready && (conversation.sessionId != null || conversation.hasItems) },
                     onOpenSettings = onOpenSettings,
                     onFind = find::open.takeIf { usable && conversation.hasItems },
@@ -225,7 +225,11 @@ internal fun ChatScreen(
                 ConfirmDialog(
                     show = confirmingEnd,
                     title = "结束这个对话？",
-                    summary = "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。",
+                    summary = if (conversation.external) {
+                        "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。"
+                    } else {
+                        "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。"
+                    },
                     confirmText = "结束",
                     destructive = true,
                     onConfirm = {
@@ -681,7 +685,7 @@ private fun ExternalSessionNotice(onTakeOver: () -> Unit, modifier: Modifier = M
         Text(text = "这个会话正在别处运行", style = COUITheme.textStyles.headlineXS, color = colors.labelPrimary)
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "另一个 Claude Code 进程（比如终端里的）还开着它。在这里续聊会让两边同时写同一份记录，内容可能错乱。",
+            text = "另一个 Claude Code 进程（比如终端里的）还开着它。在这里续聊会让两边同时写同一份记录，内容可能错乱。要停掉那边的进程，用右上角菜单里的「结束对话」。",
             style = COUITheme.textStyles.bodyS,
             color = colors.labelSecondary,
         )

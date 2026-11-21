@@ -11,6 +11,7 @@
 //	rename <文件> <标题>   给会话改名（追加一行 custom-title，与 Claude Code 自己的 /rename 相同）
 //	archive <id>... <0|1> 归档或取消归档会话（只是列表里不显示）
 //	hosts                仍在后台运行的 Claude Code 进程（应用被杀后重新接上用）；顺手清掉已经结束的
+//	end <id>             结束正占着这个会话的、Zeta 之外的 Claude Code 进程（终端、tmux 里开着的），见 end.go
 //	image <文件> <位置>    取回会话记录里的一张图片（位置是 history 给出的“行号.块序号[.内层序号]”）
 //	file-image <路径>     读取 Linux 环境里的一个图片文件
 //	search <关键词>       在会话的对话内容里找关键词，每找到一个会话就输出一行（边找边出），最后一行是汇总
@@ -41,7 +42,7 @@ import (
 )
 
 const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
-	" | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts" +
+	" | delete <file>... | rename <file> <title> | archive <id>... <0|1> | hosts | end <id>" +
 	" | image <file> <ref> | file-image <path> | search <query> | lookup <id>... | export <file>..." +
 	" | ls <dir> | read <file> <bytes> | mounts <name…> | storage [<id>…]" +
 	" | storage-sessions <project> [<id>…] | clean <kind> [<id>…]" +
@@ -96,6 +97,10 @@ func dispatch(e *env, o *emitter, args []string) error {
 		}
 	case "hosts":
 		return cmdHosts(e, o)
+	case "end":
+		if len(rest) == 1 && isSessionID(rest[0]) {
+			return cmdEnd(e, o, rest[0])
+		}
 	case "image":
 		if len(rest) == 2 && e.insideRoot(rest[0]) {
 			return cmdImage(o, rest[0], rest[1])

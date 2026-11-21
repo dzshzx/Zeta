@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -566,9 +567,31 @@ class ConversationHub(
 
     /**
      * 结束当前对话（[Conversation.shutdown]），界面换成空的新对话。和 [startNew] 的差别只在对话还在进行时：
-     * 这里一并停掉，那边留在后台跑完。在主线程上调用。
+     * 这里一并停掉，那边留在后台跑完。打开时会话正被别处占用的（[Conversation.external]，比如终端、tmux 里开着的），
+     * 那边的 Claude Code 进程也结束（[endElsewhere]）。在主线程上调用。
      */
-    fun endCurrent() = replaceCurrent(blank(), end = true)
+    fun endCurrent() {
+        val leaving = current
+        replaceCurrent(blank(), end = true)
+        val sessionId = leaving.sessionId
+        if (leaving.external && sessionId != null) endElsewhere(sessionId, leaving.backend)
+    }
+
+    /**
+     * 结束 [backend] 上正占着会话 [sessionId] 的、Zeta 之外的 Claude Code 进程（zeta-helper end：先 SIGTERM，不退再 SIGKILL），
+     * 完了重读会话列表，侧栏不再标它在别处运行。没成功时 Zeta 在前台就说一声。在后台线程上跑。
+     */
+    private fun endElsewhere(sessionId: String, backend: String) {
+        thread(name = "zeta-end", isDaemon = true) {
+            val result = helper("end", listOf(sessionId), timeoutMs = 30_000, backend = backend)
+            main.post {
+                if (result is HelperResult.Failed && foreground) {
+                    Toast.makeText(context, "没能结束别处的 Claude Code：${result.reason}", Toast.LENGTH_LONG).show()
+                }
+                sessionList.refresh()
+            }
+        }
+    }
 
     /**
      * 换了环境（[EnvController.redetect]）：要靠 Debian 的主机上的会话都不再接着用，进程和后台屏幕一并收掉，

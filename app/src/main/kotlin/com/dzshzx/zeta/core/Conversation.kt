@@ -53,8 +53,8 @@ class Conversation(
     private val historyFile: String?,
     /** 上次退出时留下、现在要重新接上的后台进程。 */
     attach: HostInfo? = null,
-    /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）。 */
-    external: Boolean = false,
+    /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）。结束对话时连那边的进程一起结束（[ConversationHub.endCurrent]）。 */
+    val external: Boolean = false,
     /** 从别的会话分支出来、还没发过消息的新对话。 */
     private val fork: Fork? = null,
     /** Claude Code 跑在哪台主机上（[Backends]）：手机里的 Debian 或某台远程主机。一个对话从头到尾都在同一台上。 */
