@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
@@ -169,21 +170,27 @@ class ConversationHub(
         runCatching { helperProgram.ensure { command, stdin -> shell.run(command, stdin, 60_000, plain = true) }?.exitCode == 0 }.getOrDefault(false)
 
     /**
-     * 新对话的默认值：Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），Zeta 不另存一份。
-     * 新对话起进程时不带模型、思考强度和权限模式，由 Claude Code 照它定；对话里选的只管那个对话。设置页读写它；还没读到时为 null。
+     * 各台主机上新对话的默认值（主机 → 读到的）：那台 Claude Code 自己的设置（~/.claude/settings.json，见 [ClaudeDefaults]），
+     * Zeta 不另存一份，所以每台主机各是各的。新对话起进程时不带模型、思考强度和权限模式，由那台的 Claude Code 照它定；
+     * 对话里选的只管那个对话。设置里各主机的页面读写它；还没读到的主机没有这一项。
      */
-    var claudeDefaults by mutableStateOf<ClaudeDefaults?>(null)
-        private set
+    private val defaultsByBackend = mutableStateMapOf<String, ClaudeDefaults>()
+
+    /** 主机 [backend] 上新对话的默认值；还没读到时为 null。 */
+    fun claudeDefaults(backend: String): ClaudeDefaults? = defaultsByBackend[backend]
 
     /**
-     * Claude Code 的默认权限模式（settings.json 没设时是逐项确认）；还没读到时为 null。
+     * 主机 [backend] 上 Claude Code 的默认权限模式（settings.json 没设时是逐项确认）；还没读到时为 null。
      * 对话还没定下模式时输入栏显示它（[Conversation.shownPermissionMode]）。
      */
-    val defaultPermissionMode: String? get() = claudeDefaults?.let { it.permissionMode ?: "default" }
+    fun defaultPermissionMode(backend: String): String? = claudeDefaults(backend)?.let { it.permissionMode ?: "default" }
 
-    /** 读到或改了 Claude Code 的默认值。在主线程上调用。 */
-    internal fun updateClaudeDefaults(defaults: ClaudeDefaults) {
-        claudeDefaults = defaults
+    /** 正在读默认值的主机：同一台同时只读一次（设置首页和主机页可能前后脚要读）。只在主线程上碰。 */
+    private val readingDefaults = HashSet<String>()
+
+    /** 读到或改了主机 [backend] 上 Claude Code 的默认值。在主线程上调用。 */
+    internal fun updateClaudeDefaults(backend: String, defaults: ClaudeDefaults) {
+        defaultsByBackend[backend] = defaults
     }
 
     /**
@@ -197,13 +204,20 @@ class ConversationHub(
         if (modes[key] != mode) settings.hostModes = modes + (key to mode)
     }
 
-    /** 重读 Claude Code 的默认值（侧栏正看着的主机上的）：环境就绪时、换了主机时、打开设置页时。读不到就照旧。 */
-    fun refreshClaudeDefaults() {
-        val backend = backend
-        if (shell(backend) == null) return
+    /**
+     * 重读主机 [backend] 上 Claude Code 的默认值：侧栏正看着的那台在环境就绪时、换过去时读（输入栏要显示它的默认权限模式），
+     * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。
+     * 在主线程上调用。
+     */
+    fun refreshClaudeDefaults(backend: String) {
+        if (backend in readingDefaults || shell(backend) == null) return
+        readingDefaults.add(backend)
         thread(name = "zeta-defaults", isDaemon = true) {
-            val defaults = runCatching { ClaudeConfigClient.of(this, backend).defaults() }.getOrNull() ?: return@thread
-            main.post { if (backend == this.backend) updateClaudeDefaults(defaults) }
+            val defaults = runCatching { ClaudeConfigClient.of(this, backend).defaults() }.getOrNull()
+            main.post {
+                readingDefaults.remove(backend)
+                if (defaults != null && backend in backends) updateClaudeDefaults(backend, defaults)
+            }
         }
     }
 
@@ -325,7 +339,7 @@ class ConversationHub(
         if (backend in direct) {
             renewBlank()
             sessionList.refresh()
-            refreshClaudeDefaults()
+            refreshClaudeDefaults(backend)
         }
         direct.forEach(::reattachHosts)
     }
@@ -399,7 +413,7 @@ class ConversationHub(
         if (needsDebian(backend)) {
             renewBlank()
             sessionList.refresh()
-            refreshClaudeDefaults()
+            refreshClaudeDefaults(backend)
         }
         backends.filter(::needsDebian).forEach(::reattachHosts)
     }
@@ -421,9 +435,8 @@ class ConversationHub(
         if (backend == settings.backend) return
         settings.backend = backend
         sessionList.clear()
-        claudeDefaults = null
         sessionList.refresh()
-        refreshClaudeDefaults()
+        refreshClaudeDefaults(backend)
         reattachHosts(backend)
     }
 
@@ -448,6 +461,7 @@ class ConversationHub(
         }
         hostsChecked.retainAll(ids)
         models = models.filterKeys { it in ids }
+        defaultsByBackend.keys.retainAll(ids)
         settings.commands = settings.commands.filterKeys { it in ids }
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()

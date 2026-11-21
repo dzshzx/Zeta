@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,16 +52,11 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
-import com.dzshzx.zeta.ui.settings.SettingsSubPage
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
@@ -71,9 +65,7 @@ import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Lock
 import io.github.suqi8.coui.kmp.icon.extended.Notes
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import kotlinx.coroutines.CoroutineScope
@@ -81,32 +73,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * 设置首页“上下文与扩展”里管 Claude Code 自身配置的几行。这几页改的是 Linux 环境里 Claude Code 自己的配置（~/.claude），
- * 不是 Zeta 的，终端里的 claude 同样生效；Linux 环境没就绪（[ready] 为 false）时不能点。
- */
-internal fun CardListGroupScope.claudeConfigItems(ready: Boolean, onOpen: (SettingsSubPage) -> Unit) {
-    fun entry(title: String, icon: ImageVector, hue: SettingsHue, page: SettingsSubPage) = item {
-        ArrowPreference(
-            title = title,
-            startAction = { SettingsIcon(icon, hue, enabled = ready) },
-            enabled = ready,
-            onClick = { onOpen(page) },
-        )
-    }
-    entry("记忆", COUIIcons.Notes, SettingsHue.Files, SettingsSubPage.ClaudeMemory)
-    entry("Skills", ZetaIcons.Book, SettingsHue.Files, SettingsSubPage.ClaudeSkills)
-    entry("MCP 服务器", ZetaIcons.Puzzle, SettingsHue.Claude, SettingsSubPage.ClaudeMcp)
-    entry("Subagent", ZetaIcons.Branch, SettingsHue.Claude, SettingsSubPage.ClaudeAgents)
-    entry("工具权限", COUIIcons.Lock, SettingsHue.Automation, SettingsSubPage.ToolPermissions)
-}
-
+/** 主机 [backend] 上 Claude Code 自己的配置（~/.claude）的读写口子，设置里各主机页面下的几页都用它。 */
 @Composable
-internal fun rememberConfigClient(hub: ConversationHub): ClaudeConfigClient {
-    // 侧栏换了主机就换成那台的
-    val backend = hub.backend
-    return remember(hub, backend) { ClaudeConfigClient.of(hub, backend) }
-}
+internal fun rememberConfigClient(hub: ConversationHub, backend: String): ClaudeConfigClient =
+    remember(hub, backend) { ClaudeConfigClient.of(hub, backend) }
 
 /** 在后台线程跑一个阻塞的配置操作，回到主线程交结果。 */
 internal fun <T> CoroutineScope.runConfig(block: () -> T, done: (Result<T>) -> Unit) {

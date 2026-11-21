@@ -94,10 +94,10 @@ private fun ToolRow(title: String, summary: String?, own: PermissionBehavior?, e
  * 规则里写 mcp__phone（整个服务器）或 mcp__phone__工具名；别的 MCP 服务器同样写 mcp__服务器名。
  */
 @Composable
-internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub)
+internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(hub.backend)
+    val cwd = hub.defaultCwd(backend)
     var rules by remember { mutableStateOf<PermissionRules?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var servers by remember { mutableStateOf<List<McpServer>?>(null) }
@@ -181,7 +181,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
             )
         },
     ) {
-        // 这页只管规则；默认权限模式在设置首页，和默认模型、思考强度在一起
+        // 这页只管规则；默认权限模式在这台主机的页面上，和默认模型、思考强度一起在「新对话默认」里
         item(key = "semantics") {
             PagerFooterPreference(
                 summary = ClaudePermissions.SEMANTICS + "改动对所有项目、之后新开始的对话生效。" +
@@ -283,7 +283,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     SlideInPage(detail, onBack = { detail = null }) { server ->
-        McpPermissionDetail(hub = hub, server = server, rules = current, editable = editable, apply = apply, onBack = { detail = null })
+        McpPermissionDetail(hub = hub, backend = backend, server = server, rules = current, editable = editable, apply = apply, onBack = { detail = null })
     }
 }
 
@@ -375,15 +375,16 @@ private fun RuleEditorDialog(draft: RuleDraft?, onDismiss: () -> Unit, onSave: (
 @Composable
 private fun McpPermissionDetail(
     hub: ConversationHub,
+    backend: String,
     server: McpServer,
     rules: PermissionRules?,
     editable: Boolean,
     apply: ApplyRules,
     onBack: () -> Unit,
 ) {
-    val client = rememberConfigClient(hub)
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(hub.backend)
+    val cwd = hub.defaultCwd(backend)
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loading by remember(server) { mutableStateOf(false) }

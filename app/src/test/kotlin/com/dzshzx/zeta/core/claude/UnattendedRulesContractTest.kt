@@ -47,7 +47,7 @@ import org.junit.Test
  * - 设置首页读写的默认值就在 Claude Code 自己用的位置（ClaudeSettings.defaults）：不带 --model 起的进程用 settings.json 的 model；
  *   存成默认的思考强度（update_settings，和 /effort 存为默认一样）写进 modelSettings.<模型的完整 ID>.effortLevel，别的键不动。
  * - 起进程不带 --permission-mode（Zeta 的新对话）：initialize 的应答和每轮的 init 报的是 settings.json 的 permissions.defaultMode，
- *   Zeta 设置首页显示的默认（ConversationHub.defaultPermissionMode）读的就是这个键，和进程实际用的一致。
+ *   Zeta 主机页显示的默认（ConversationHub.defaultPermissionMode）读的就是这个键，和进程实际用的一致。
  */
 class UnattendedRulesContractTest {
     private lateinit var home: File

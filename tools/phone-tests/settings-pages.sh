@@ -1,7 +1,7 @@
 #!/bin/bash
 # 设置的页面和返回键：通知深链打开设置子页（权限健康页用 Permissions，和 0.7.0 起无障碍提醒发的一样，开两次；
-# 手机操作页用 Phone），返回键先回设置首页、再回聊天页；从设置首页点进账号子页再返回；从权限健康页开 Linux 环境页，
-# 返回先关 Linux 环境页、回到权限健康页。深链用 root 的 am start 带 extra 模拟，和无障碍被关掉的提醒发的 Intent 一样。
+# 手机操作页用 Phone），返回键先回设置首页、再回聊天页；从设置首页点进手机的主机页、再进它的默认思考强度页，
+# 返回键一层层退回设置首页；从权限健康页开 Linux 环境页，返回先关 Linux 环境页、回到权限健康页。深链用 root 的 am start 带 extra 模拟，和无障碍被关掉的提醒发的 Intent 一样。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/settings-pages.sh
 # 每一步截一张图（编号在文件名前面），看停在哪一页；进程没了、界面不在前台，或该换页时画面没变，就失败。
 set -euo pipefail
@@ -62,10 +62,15 @@ link Phone
 step phone
 back
 step settings
-# 设置首页最上面的「账号与额度」
+# 设置首页最上面的「手机」，再点主机页里的「默认思考强度」（第一组第二行，读到默认值后才能点）
 vd tap 365 633 >/dev/null
 sleep 1.5
-step accounts
+step host-phone
+vd tap 365 780 >/dev/null
+sleep 1.5
+step host-effort
+back
+step host-phone-again
 back
 step settings-again
 back

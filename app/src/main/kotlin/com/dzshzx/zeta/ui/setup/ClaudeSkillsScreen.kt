@@ -43,8 +43,8 @@ private class PickedZip(val name: String, val bytes: ByteArray)
  * 账号同步的 Skill 在 ~/.claude/skills/synced，由 Claude Code 从 claude.ai 拉下来，这里只列出；标“已停用”的是 skillOverrides 里关掉了。
  */
 @Composable
-internal fun ClaudeSkillsScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub)
+internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var list by remember { mutableStateOf<SkillList?>(null) }

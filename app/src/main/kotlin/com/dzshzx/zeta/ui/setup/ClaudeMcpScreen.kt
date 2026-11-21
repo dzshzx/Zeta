@@ -125,10 +125,10 @@ private val EnvLine = Regex("([A-Za-z_][A-Za-z0-9_]*)=(.*)")
  * Zeta 运行时另外塞给 Claude 的手机工具（SDK 类型的 phone 服务器）不在配置里，这里不显示。
  */
 @Composable
-internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub)
+internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(hub.backend)
+    val cwd = hub.defaultCwd(backend)
     var servers by remember { mutableStateOf<List<McpServer>?>(null) }
     var status by remember { mutableStateOf<McpStatus?>(null) }
     var statusError by remember { mutableStateOf<String?>(null) }
@@ -219,6 +219,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, onBack: () -> Unit) {
     SlideInPage(detail, onBack = { detail = null }) { server ->
         McpServerDetail(
             hub = hub,
+            backend = backend,
             server = server,
             state = status.of(server, statusError != null),
             onBack = { detail = null },
@@ -344,15 +345,16 @@ private fun AddServerDialog(visible: Boolean, onDismiss: () -> Unit, onAdd: (Ser
 @Composable
 private fun McpServerDetail(
     hub: ConversationHub,
+    backend: String,
     server: McpServer,
     state: McpState?,
     onBack: () -> Unit,
     onChanged: () -> Unit,
     onRemoved: () -> Unit,
 ) {
-    val client = rememberConfigClient(hub)
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(hub.backend)
+    val cwd = hub.defaultCwd(backend)
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loadingTools by remember(server) { mutableStateOf(false) }

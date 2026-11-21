@@ -81,8 +81,8 @@ private val CommonTools = listOf(
  * Claude Code 自带的 general-purpose、Explore、Plan 等不在这个目录里，这里不列出。
  */
 @Composable
-internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub)
+internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     var agents by remember { mutableStateOf<List<Subagent>?>(null) }
     var notice by remember { mutableStateOf<ConfigNotice?>(null) }
@@ -175,6 +175,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, onBack: () -> Unit) {
     SlideInPage(editor, onBack = { editor = null }) { target ->
         AgentEditor(
             hub = hub,
+            backend = backend,
             original = target.agent,
             onBack = { editor = null },
             onSaved = {
@@ -234,8 +235,8 @@ private val AgentName = Regex("[a-z0-9][a-z0-9-]{0,63}")
 
 /** 新建或编辑一个 Subagent：名称、什么时候用、模型、工具、系统提示词。 */
 @Composable
-private fun AgentEditor(hub: ConversationHub, original: Subagent?, onBack: () -> Unit, onSaved: () -> Unit) {
-    val client = rememberConfigClient(hub)
+private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagent?, onBack: () -> Unit, onSaved: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     val commonNames = CommonTools.map { it.first }.toSet()
     var name by remember { mutableStateOf(original?.name.orEmpty()) }

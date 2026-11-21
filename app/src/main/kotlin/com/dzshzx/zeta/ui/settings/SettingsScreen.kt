@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.BuildConfig
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -24,15 +24,11 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
-import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
-import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
-import com.dzshzx.zeta.ui.setup.ClaudeSkillsScreen
+import com.dzshzx.zeta.ui.pane.hostIcon
 import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
-import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
-import com.dzshzx.zeta.ui.setup.claudeConfigItems
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
 import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.icon.extended.Info
 import io.github.suqi8.coui.kmp.icon.extended.Theme
@@ -51,23 +47,23 @@ internal fun SettingsScreen(
     onShowChat: () -> Unit = onBack,
 ) {
     // 子页面挂在设置页自己身上：盖在设置页上面，返回键先关它们（子页里再往下的一层先收到返回键）。
-    // 只有一层子页：从通知深链在子页之间直接切换时，内容原地换掉，不放滑入滑出动画
+    // 只有一层：一台主机的页面（[host]）或别的子页（[subPage]），同时只开一个。从通知深链在子页之间直接切换时，
+    // 内容原地换掉，不放滑入滑出动画
     var subPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
     val close = { subPage = null }
+    // 正打开着的主机页（[Backends] 的编号）
+    var host by rememberSaveable { mutableStateOf<String?>(null) }
     Box(Modifier.fillMaxSize()) {
-        SettingsHome(hub, onBack, onOpenLinux, onOpenSubPage = { subPage = it })
+        SettingsHome(hub, onOpenHost = { host = it }, onBack = onBack, onOpenSubPage = { subPage = it })
+        SlideInPage(host, onBack = { host = null }) { id ->
+            HostSettingsScreen(hub = hub, backend = id, onBack = { host = null }, onOpenLinux = onOpenLinux)
+        }
         SlideInPage(subPage, onBack = close) { page ->
             when (page) {
                 SettingsSubPage.Appearance -> AppearanceScreen(hub = hub, onBack = close)
                 SettingsSubPage.PermissionHealth -> PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
                 SettingsSubPage.Phone -> PhoneScreen(hub = hub, onBack = close)
-                SettingsSubPage.ClaudeMemory -> ClaudeMemoryScreen(hub = hub, onBack = close)
-                SettingsSubPage.ClaudeSkills -> ClaudeSkillsScreen(hub = hub, onBack = close)
-                SettingsSubPage.ClaudeMcp -> ClaudeMcpScreen(hub = hub, onBack = close)
-                SettingsSubPage.ClaudeAgents -> ClaudeAgentsScreen(hub = hub, onBack = close)
-                SettingsSubPage.ToolPermissions -> ToolPermissionsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
-                SettingsSubPage.DefaultEffort -> DefaultEffortScreen(hub = hub, onBack = close)
                 SettingsSubPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = close)
                 // 打开某次运行的对话：设置页整个关掉，回到聊天页
                 SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
@@ -81,44 +77,46 @@ internal fun SettingsScreen(
         }
     }
     // 从通知点进来（比如无障碍被关掉的提醒）：直接打开那一页
-    LaunchedEffect(SettingsLink.pending) { SettingsLink.pending?.let { subPage = it; SettingsLink.pending = null } }
+    LaunchedEffect(SettingsLink.pending) {
+        SettingsLink.pending?.let {
+            host = null
+            subPage = it
+            SettingsLink.pending = null
+        }
+    }
 }
 
+/**
+ * 设置首页：最上面是各台主机（手机和远程主机），点进去是那台上新对话的默认值、Claude Code 的配置和连接（[HostSettingsScreen]）；
+ * 下面几组是 Zeta 自己的设置，哪台主机都一样。
+ */
 @Composable
 private fun SettingsHome(
     hub: ConversationHub,
+    onOpenHost: (String) -> Unit,
     onBack: () -> Unit,
-    onOpenLinux: () -> Unit,
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    // 侧栏正看着的那台能用：要靠 Debian 的主机等它就绪，直连的远程主机不用
-    val ready = hub.usable(hub.backend)
-    // 默认值可能在终端里改过（/model、/effort 存为默认）：每次打开都重读
-    LaunchedEffect(ready) { if (ready) hub.refreshClaudeDefaults() }
-    // 侧栏切到了远程主机：Claude Code 的默认值和配置读写的是那台上的；账号、定时任务、通知触发还是手机上的
-    val remote = hub.backend.takeIf { it != Backends.LOCAL }?.let(hub::backendName)
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
-        item(key = "claude") {
-            PreferenceGroup(
-                title = if (remote == null) "Claude" else "Claude · $remote",
-                footer = ClaudeDefaultsFooter + if (remote == null) "" else "这几项读写的是「$remote」上的 Claude Code；账号是手机上的。",
-            ) {
-                item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
-                item { DefaultModelPreference(hub) { SettingsIcon(ZetaIcons.Chip, SettingsHue.Claude) } }
-                item { DefaultPermissionModePreference(hub) { SettingsIcon(ZetaIcons.ShieldA, SettingsHue.Claude) } }
-                item { DefaultEffortEntry(hub, onOpen = { onOpenSubPage(SettingsSubPage.DefaultEffort) }) { SettingsIcon(ZetaIcons.Lightbulb, SettingsHue.Claude) } }
+        item(key = "hosts") {
+            PreferenceGroup(title = "主机") {
+                hub.backends.forEach { backend -> item { HostEntry(hub, backend) { onOpenHost(backend) } } }
+                item {
+                    ArrowPreference(
+                        title = "添加远程主机",
+                        startAction = { SettingsIcon(COUIIcons.Add, SettingsHue.Files) },
+                        onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
+                    )
+                }
             }
         }
-        item(key = "context") {
-            PreferenceGroup(
-                title = "上下文与扩展",
-                footer = remote?.let { "记忆、Skills、MCP、Subagent 和工具权限读写的是「$it」上的；定时任务和通知触发在手机上跑。" },
-            ) {
+        item(key = "claude") {
+            PreferenceGroup(title = "Claude") {
+                item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
                 item { AutoCompactSwitch(hub) }
                 item { CompactTimingPreference(hub) }
                 item { AutoTitleSwitch(hub) }
-                claudeConfigItems(ready, onOpenSubPage)
                 item { ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) } }
                 item { NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) } }
             }
@@ -141,15 +139,7 @@ private fun SettingsHome(
                         onClick = { BrowserActivity.open(context) },
                     )
                 }
-                item { LinuxEntry(hub, onOpenLinux) }
-                item {
-                    ArrowPreference(
-                        title = "远程主机",
-                        startAction = { SettingsIcon(ZetaIcons.Server, SettingsHue.Files) },
-                        endActions = { PreferenceValue(hub.settings.remoteHosts.size.takeIf { it > 0 }?.let { "$it 台" } ?: "未添加") },
-                        onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
-                    )
-                }
+                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.PermissionHealth) } }
             }
         }
         item(key = "general") {
@@ -207,11 +197,6 @@ private fun SettingsHome(
                 }
             }
         }
-        item(key = "permissions") {
-            PreferenceGroup(title = "权限") {
-                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.PermissionHealth) } }
-            }
-        }
         item(key = "about") {
             PreferenceGroup(title = "关于", footer = "Markdown 渲染、侧栏和主题的代码来自 Eta，按 GPL-3.0 授权。") {
                 item {
@@ -233,19 +218,33 @@ private fun SettingsHome(
     }
 }
 
-/** 「Linux 环境」：右边是 Linux 用户名，没 root、没装环境时红字。 */
+/**
+ * 首页的一台主机：名字，下面一行是它在哪（手机里的 Debian，或远程主机的地址和连法），右边是它新对话的默认模型和思考强度；
+ * 还没读过的、能用了就读一次（每次都重读要连一遍所有远程主机，点进主机页时才重读那台）。手机的 Debian 没就绪时右边写状态
+ * （出问题红字），经 Debian 连的远程主机写「Debian 未就绪」。
+ */
 @Composable
-private fun LinuxEntry(hub: ConversationHub, onOpen: () -> Unit) {
-    val (value, bad) = when (hub.environment.setup) {
-        SetupState.Checking -> "检查中" to false
-        SetupState.NoRoot -> "没有 root" to true
-        SetupState.NoEnvironment -> "未安装" to true
-        SetupState.Ready -> (hub.settings.env?.user ?: "已就绪") to false
+private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
+    val host = hub.remoteHost(backend)
+    val usable = hub.usable(backend)
+    val defaults = hub.claudeDefaults(backend)
+    LaunchedEffect(backend, usable) { if (usable && hub.claudeDefaults(backend) == null) hub.refreshClaudeDefaults(backend) }
+    val problem = when {
+        usable -> null
+        host == null -> linuxState(hub)
+        hub.environment.setup == SetupState.Checking -> "检查中" to false
+        else -> "Debian 未就绪" to true
     }
     ArrowPreference(
-        title = "Linux 环境",
-        startAction = { SettingsIcon(ZetaIcons.Terminal, SettingsHue.Files) },
-        endActions = { PreferenceValue(value, color = if (bad) COUITheme.colorScheme.error else Color.Unspecified) },
+        title = hub.backendName(backend),
+        summary = host?.let { RemoteHosts.displayTarget(it.target) + " · " + it.via.label } ?: RemoteHosts.LOCAL_SUMMARY,
+        startAction = { SettingsIcon(hostIcon(backend), SettingsHue.Files) },
+        endActions = {
+            when {
+                problem != null -> PreferenceValue(problem.first, color = if (problem.second) COUITheme.colorScheme.error else Color.Unspecified)
+                defaults != null -> PreferenceValue(hostDefaultsSummary(defaults, hub.modelOptions(backend)))
+            }
+        },
         onClick = onOpen,
     )
 }

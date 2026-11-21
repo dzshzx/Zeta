@@ -1,22 +1,28 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.hasScrollToKeyAction
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToKey
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
+import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
 import org.junit.Test
 
 /**
- * 远程主机：设置里的清单、加主机（输入地址时选连接方式、从 ~/.ssh/config 选）、主机页（改连接方式）、
+ * 远程主机：添加远程主机（输入地址时选连接方式、从 ~/.ssh/config 选）、主机页（新对话默认、改连接方式）、
  * 侧栏顶部的主机切换（和它的菜单）、远程主机上的新对话，
  * 以及手机上没有 Debian 环境时：只能直连，聊天页让人去连远程主机，直连的主机照常能用。
  * 单元测试里进不了 Linux 环境，「从 ~/.ssh/config 选」那页显示读不到和原因。
@@ -24,9 +30,12 @@ import org.junit.Test
 class RemoteHostShots : ShotTest() {
     private val hostKey = RemoteHosts.encodeKey(SshKey.generate().blob)
     private val hosts = listOf(
-        RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace"),
+        Fixtures.workstation,
         RemoteHost("r-00000002", "personal-vps", "root@203.0.113.7:2222", "/root", "/root", RemoteHost.Via.Direct, hostKey),
     )
+
+    /** 主机页滚到连接那一组：它还没组合进 LazyColumn，不能 scrollIntoView，按条目的键滚。 */
+    private fun AndroidComposeTestRule<*, *>.toBottom() = onNode(hasScrollToKeyAction()).performScrollToKey("host")
 
     private fun hub(selected: String? = "r-00000001"): ConversationHub {
         val hub = Fixtures.readyHub(app)
@@ -39,23 +48,38 @@ class RemoteHostShots : ShotTest() {
         return hub
     }
 
+    /** 添加远程主机：两种加法和 Zeta 直连用的公钥。加好的主机列在设置首页。 */
     @Test
     fun settings() {
         val hub = hub()
         shoot("remote-hosts") { RemoteHostsScreen(hub = hub, onBack = {}) }
     }
 
+    /** 一台远程主机的页面：上面是那台上新对话的默认值和 Claude Code 的配置。 */
     @Test
     fun hostPage() {
         val hub = hub()
-        shoot("remote-host", prepare = { onNodeWithText("工作站").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
+        hub.models = mapOf("r-00000001" to Fixtures.models)
+        hub.updateClaudeDefaults("r-00000001", ClaudeDefaults("sonnet", "acceptEdits", mapOf("claude-sonnet-5-5" to "medium"), null))
+        shoot("remote-host") { HostSettingsScreen(hub = hub, backend = "r-00000001", onBack = {}, onOpenLinux = {}) }
+    }
+
+    /** 远程主机页往下滑：连接（名字、地址、连接方式、默认工作目录）、检查连接、删掉。 */
+    @Test
+    fun hostConnection() {
+        val hub = hub()
+        shoot("remote-host-connection", prepare = { toBottom() }) {
+            HostSettingsScreen(hub = hub, backend = "r-00000001", onBack = {}, onOpenLinux = {})
+        }
     }
 
     /** 直连的主机：连接方式、主机指纹。 */
     @Test
     fun directHostPage() {
         val hub = hub()
-        shoot("remote-host-direct", prepare = { onNodeWithText("personal-vps").performClick() }) { RemoteHostsScreen(hub = hub, onBack = {}) }
+        shoot("remote-host-direct", prepare = { toBottom() }) {
+            HostSettingsScreen(hub = hub, backend = "r-00000002", onBack = {}, onOpenLinux = {})
+        }
     }
 
     /** 主机页点「连接方式」：两种连法，选另一种先按它连一次，连上了才改。 */
@@ -65,11 +89,10 @@ class RemoteHostShots : ShotTest() {
         shoot(
             "remote-host-via-menu",
             prepare = {
-                onNodeWithText("personal-vps").performClick()
-                mainClock.advanceTimeBy(1_000)
+                toBottom()
                 onNodeWithText("连接方式").performClick()
             },
-        ) { RemoteHostsScreen(hub = hub, onBack = {}) }
+        ) { HostSettingsScreen(hub = hub, backend = "r-00000002", onBack = {}, onOpenLinux = {}) }
     }
 
     /** 点「Zeta 的公钥」：整行公钥，复制了加进那台主机的 authorized_keys。 */

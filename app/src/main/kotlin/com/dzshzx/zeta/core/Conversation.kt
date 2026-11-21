@@ -133,7 +133,7 @@ class Conversation(
 
     /**
      * Zeta 要 Claude Code 用的模型（启动时的 --model、进程里的 set_model），"default" 是 Claude Code 的默认模型；
-     * null 是不指定：新对话用 Claude Code 设置里的默认模型（[ConversationHub.claudeDefaults]），接着已有的会话（打开旧对话、分支）时
+     * null 是不指定：新对话用所在主机上 Claude Code 设置里的默认模型（[ConversationHub.claudeDefaults]），接着已有的会话（打开旧对话、分支）时
      * 由 Claude Code 照会话记录恢复它上次用的模型；直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。
      * 界面显示的是 [shownModel]。
      */
@@ -162,7 +162,7 @@ class Conversation(
      */
     private val modes = PermissionModeState(
         initial = fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) },
-        claudeDefault = { hub.defaultPermissionMode },
+        claudeDefault = { hub.defaultPermissionMode(backend) },
         remember = { mode -> hostKey?.let { hub.rememberHostMode(it, mode) } },
     )
 

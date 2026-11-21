@@ -8,7 +8,7 @@ import com.dzshzx.zeta.core.ReportedModels
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
-import com.dzshzx.zeta.ui.settings.SettingsScreen
+import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -50,13 +50,13 @@ class ModelMenuShots : ShotTest() {
         assertTrue("菜单收起了", compose.onAllNodesWithText("Opus 4.6").fetchSemanticsNodes().isEmpty())
     }
 
-    /** 设置首页的默认模型：同样两层。 */
+    /** 设置 › 手机里的默认模型：同样两层。 */
     @Test
     fun settingsDefaultModel() {
         val hub = hub()
-        hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = null, efforts = emptyMap(), effort = null))
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = emptyMap(), effort = null))
         shoot("model-settings-older", prepare = { tap("默认模型"); tap("更多模型") }) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
         }
     }
 
@@ -64,7 +64,7 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun defaultEffortFolded() {
         val hub = hub()
-        hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = null))
-        shoot("model-default-effort") { DefaultEffortScreen(hub = hub, onBack = {}) }
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = null))
+        shoot("model-default-effort") { DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
     }
 }

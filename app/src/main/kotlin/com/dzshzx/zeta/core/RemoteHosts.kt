@@ -108,6 +108,9 @@ object RemoteHosts {
     /** 界面上手机里那个 Debian 的叫法。 */
     const val LOCAL_NAME = "手机"
 
+    /** 手机本机在主机清单里的小字（换主机的菜单、设置首页）：它的 Claude Code 跑在哪。 */
+    const val LOCAL_SUMMARY = "手机里的 Debian"
+
     /**
      * 连上以后在那边查的几样：家目录、claude 在不在、什么版本，系统和 CPU（zeta-helper 只有 Linux 的 arm64、amd64 两份）。
      * 每样一行 `zeta_<名字> <值>`，

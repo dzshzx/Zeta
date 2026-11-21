@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.settings.effortSummary
+import com.dzshzx.zeta.ui.settings.hostDefaultsSummary
 import com.dzshzx.zeta.ui.settings.effortRows
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -18,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 新对话的默认值是 Claude Code 自己的设置（[ConversationHub.claudeDefaults]）：新对话起进程时不带模型、思考强度和权限模式；
+ * 新对话的默认值是各台主机上 Claude Code 自己的设置（[ConversationHub.claudeDefaults]）：新对话起进程时不带模型、思考强度和权限模式；
  * 对话里选的只管那个对话，不改别的对话，也不改默认值。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -31,7 +32,7 @@ class ClaudeDefaultsTest {
     @Test
     fun newConversationLeavesDefaultsToClaudeCode() {
         val hub = Fixtures.readyHub(app)
-        hub.updateClaudeDefaults(ClaudeDefaults("opus", "auto", mapOf("claude-opus-5-5" to "xhigh"), null))
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults("opus", "auto", mapOf("claude-opus-5-5" to "xhigh"), null))
         val chat = conversation(hub)
         assertNull(chat.launchArgument("--model"))
         assertNull(chat.launchArgument("--effort"))
@@ -45,7 +46,7 @@ class ClaudeDefaultsTest {
     fun choicesStayInTheirConversation() {
         val hub = Fixtures.readyHub(app)
         val defaults = ClaudeDefaults("opus", "auto", emptyMap(), null)
-        hub.updateClaudeDefaults(defaults)
+        hub.updateClaudeDefaults(Backends.LOCAL, defaults)
         val chat = conversation(hub)
         chat.chooseModel("fable")
         chat.chooseEffort("low")
@@ -59,11 +60,47 @@ class ClaudeDefaultsTest {
         assertNull(other.launchArgument("--model"))
         assertNull(other.launchArgument("--effort"))
         assertEquals("auto", other.shownPermissionMode)
-        assertEquals(defaults, hub.claudeDefaults)
-        assertEquals("auto", hub.defaultPermissionMode)
+        assertEquals(defaults, hub.claudeDefaults(Backends.LOCAL))
+        assertEquals("auto", hub.defaultPermissionMode(Backends.LOCAL))
         // 在终端里删掉了默认模式：回到逐项确认
-        hub.updateClaudeDefaults(defaults.copy(permissionMode = null))
+        hub.updateClaudeDefaults(Backends.LOCAL, defaults.copy(permissionMode = null))
         assertEquals("default", other.shownPermissionMode)
+    }
+
+    /**
+     * 每台主机的默认值各是各的（存在各自的 settings.json）：远程主机上的对话显示那台的默认权限模式，不受手机的影响；
+     * 删掉这台主机时它的默认值一起丢掉。
+     */
+    @Test
+    fun defaultsArePerHost() {
+        val hub = Fixtures.readyHub(app)
+        val remote = Fixtures.workstation
+        hub.updateRemoteHosts(listOf(remote))
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults("opus", "auto", emptyMap(), null))
+        hub.updateClaudeDefaults(remote.id, ClaudeDefaults("sonnet", "plan", emptyMap(), null))
+        val local = conversation(hub)
+        val there = Conversation(hub, remote.defaultCwd, sessionId = null, title = "", historyFile = null, backend = remote.id)
+        assertEquals("auto", local.shownPermissionMode)
+        assertEquals("plan", there.shownPermissionMode)
+        assertEquals("sonnet", hub.claudeDefaults(remote.id)?.model)
+        hub.updateRemoteHosts(emptyList())
+        assertNull(hub.claudeDefaults(remote.id))
+        assertEquals("opus", hub.claudeDefaults(Backends.LOCAL)?.model)
+    }
+
+    /** 设置首页一台主机右边的值：默认模型（别名按这台的清单换成完整 ID）和它的思考强度，没单独设时用共用的那一档。 */
+    @Test
+    fun hostSummaryShowsModelAndItsEffort() {
+        val models = Fixtures.models
+        val efforts = mapOf("claude-opus-5-5" to "xhigh")
+        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), models))
+        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), models))
+        assertEquals("Sonnet 5.5 · 中", hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, "medium"), models))
+        assertEquals("Sonnet 5.5", hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, null), models))
+        // 还没拿到这台的清单：别名找不到完整 ID，只写模型
+        assertEquals("Opus", hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), FallbackModels))
+        assertEquals("默认模型", hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), FallbackModels))
+        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults("claude-opus-5-5", null, efforts, null), FallbackModels))
     }
 
     @Test

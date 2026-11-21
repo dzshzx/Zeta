@@ -289,13 +289,6 @@ internal object ZetaIcons {
         }
     }
 
-    /** 打开的书：Skills。 */
-    val Book: ImageVector by lazy {
-        icon {
-            line("M12 6.3C10.1 4.65 7.3 3.95 2.85 4.15v14.2c4.45-.2 7.25.5 9.15 2.15 1.9-1.65 4.7-2.35 9.15-2.15V4.15C16.7 3.95 13.9 4.65 12 6.3ZM12 6.3v14.2")
-        }
-    }
-
     /** 钟面：定时任务。 */
     val Clock: ImageVector by lazy {
         icon {

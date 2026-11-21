@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,10 +70,10 @@ private class ProbeNotice(val title: String, val message: String)
 private class Probing(val target: String, val fromConfig: Boolean)
 
 /**
- * 远程主机：上面的 Claude Code 也能在 Zeta 里用（侧栏顶部切换）。两种连法（[RemoteHost.via]）：经手机 Debian 的 OpenSSH，
+ * 添加远程主机：上面的 Claude Code 也能在 Zeta 里用（侧栏顶部切换）。两种连法（[RemoteHost.via]）：经手机 Debian 的 OpenSSH，
  * 或 Zeta 用自己的密钥直连。加法：从手机 Debian 的 ~/.ssh/config 里选（经 Debian），或输入地址（两种连法都行，
- * 默认 [ConversationHub.defaultVia]）。加之前先连一次，查家目录、claude、系统和 CPU。点一台进去改名、改连接方式、
- * 改默认工作目录、重新检查或删掉。
+ * 默认 [ConversationHub.defaultVia]）。加之前先连一次，查家目录、claude、系统和 CPU。加好的主机列在设置首页，
+ * 点进去是它的主机页（[RemoteHostScreen]）。
  */
 @Composable
 internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -89,7 +90,6 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     var typedVia by remember { mutableStateOf(hub.defaultVia) }
     var showingKey by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
-    var editing by remember { mutableStateOf<String?>(null) }
     var choosingAlias by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -116,7 +116,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
                     val fingerprint = host.fingerprint?.let { "\n主机指纹 $it" }.orEmpty()
                     notice = ProbeNotice(
                         "已加上「$name」",
-                        probeSummary(probe) + " · " + via.label + fingerprint + "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话。",
+                        probeSummary(probe) + " · " + via.label + fingerprint + "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台主机里。",
                     )
                 }
             }
@@ -124,7 +124,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     CouiPage(
-        title = "远程主机",
+        title = "添加远程主机",
         onBack = onBack,
         dialogs = {
             val keyReady = key?.isSuccess == true
@@ -179,22 +179,6 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
             NoticeDialog(show = notice != null, title = lastNotice?.title, summary = lastNotice?.message, onDismissRequest = { notice = null })
         },
     ) {
-        if (hosts.isNotEmpty()) {
-            item(key = "hosts") {
-                PreferenceGroup(title = "已添加") {
-                    hosts.forEach { host ->
-                        item {
-                            ArrowPreference(
-                                title = host.name,
-                                summary = RemoteHosts.displayTarget(host.target) + " · " + host.via.label,
-                                endActions = { if (host.id == hub.backend) PreferenceValue("正在使用") },
-                                onClick = { editing = host.id },
-                            )
-                        }
-                    }
-                }
-            }
-        }
         item(key = "add") {
             val adding = probing
             PreferenceGroup(title = "加主机", footer = (if (debian) ViaFooter else DirectOnlyFooter) + HostingFooter) {
@@ -251,9 +235,6 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
             onBack = { choosingAlias = false },
         )
     }
-    SlideInPage(editing, onBack = { editing = null }) { id ->
-        RemoteHostScreen(hub, id, onBack = { editing = null })
-    }
 }
 
 /** 从手机 Debian 的 ~/.ssh/config 里选一台（经 Debian 的 OpenSSH 连）：Host 行里的具体主机，[known] 里已经加过的不列。 */
@@ -291,11 +272,12 @@ private fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
     listOf("Claude Code ${probe.claude}", probe.system).filter { it.isNotBlank() }.joinToString(" · ")
 
 /**
- * 一台远程主机：名字、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录，
+ * 设置 › 一台远程主机：上面是 [claude]（这台上新对话的默认值、Claude Code 自己的配置，见 [com.dzshzx.zeta.ui.settings.HostSettingsScreen]），
+ * 下面是连接：名字、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录，
  * 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
  */
 @Composable
-private fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Unit) {
+internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Unit, claude: LazyListScope.() -> Unit) {
     val scope = rememberCoroutineScope()
     val host = hub.settings.remoteHosts.firstOrNull { it.id == id }
     val shown = rememberRetained(host) ?: return
@@ -421,8 +403,9 @@ private fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Uni
             NoticeDialog(show = notice != null, title = lastNotice?.title, summary = lastNotice?.message, onDismissRequest = { notice = null })
         },
     ) {
+        claude()
         item(key = "host") {
-            PreferenceGroup {
+            PreferenceGroup(title = "连接") {
                 item {
                     ArrowPreference(
                         title = "名字",

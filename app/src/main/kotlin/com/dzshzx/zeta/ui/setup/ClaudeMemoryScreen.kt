@@ -46,11 +46,11 @@ private fun shortPath(path: String, home: String?): String =
  * 自动记忆的开关写在 ~/.claude/settings.json（autoMemoryEnabled），对所有项目生效。
  */
 @Composable
-internal fun ClaudeMemoryScreen(hub: ConversationHub, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub)
+internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(hub.backend)
-    val home = hub.home(hub.backend)
+    val cwd = hub.defaultCwd(backend)
+    val home = hub.home(backend)
     var overview by remember { mutableStateOf<MemoryOverview?>(null) }
     var project by rememberSaveable { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }

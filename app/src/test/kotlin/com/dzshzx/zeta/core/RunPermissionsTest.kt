@@ -83,21 +83,21 @@ class RunPermissionsTest {
         chat.receive("""{"type":"system","subtype":"init","session_id":"s1","permissionMode":"auto"}""")
         assertNull(chat.permissionMode)
         // Claude Code 的默认还没读到：用户的消息用逐项确认
-        assertNull(hub.defaultPermissionMode)
+        assertNull(hub.defaultPermissionMode(Backends.LOCAL))
         chat.send("我自己问")
         assertEquals("default", chat.processMode)
         // 没指定模式起的进程报来的是 Claude Code 照设置定的：这个对话从此用它，全局的默认只认 settings.json
         val fresh = conversation(hub)
         fresh.receive("""{"type":"system","subtype":"init","session_id":"s2","permissionMode":"acceptEdits"}""")
         assertEquals("acceptEdits", fresh.permissionMode)
-        assertNull(hub.defaultPermissionMode)
+        assertNull(hub.defaultPermissionMode(Backends.LOCAL))
     }
 
     /** 用户没选过、Claude Code 的默认已知（settings.json 里设的）：后台运行之后用户的消息切回那个默认，输入栏一直显示它。 */
     @Test
     fun userWithoutChoiceGetsClaudeCodeDefaultAfterARun() {
         val hub = hub()
-        hub.updateClaudeDefaults(ClaudeDefaults(model = null, permissionMode = "auto", efforts = emptyMap(), effort = null))
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = "auto", efforts = emptyMap(), effort = null))
         val chat = conversation(hub)
         assertEquals("auto", chat.shownPermissionMode)
         chat.sendUnattended("跑一次", "bypassPermissions", rules, UnattendedRun(onlyOnChange = false))

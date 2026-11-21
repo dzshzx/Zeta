@@ -33,7 +33,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
  * 换主机的小胶囊：显示侧栏正看着的主机（[ConversationHub.backend]），点开列出手机和各台远程主机，选一台就换过去
- * （会话列表、新对话、Claude Code 的设置都跟着换，见 [ConversationHub.selectBackend]）。还没加远程主机时不显示。
+ * （会话列表、新对话都跟着换，见 [ConversationHub.selectBackend]；各台主机的设置在设置首页里分开列）。还没加远程主机时不显示。
  * 侧栏顶部和新对话的空白页上各有一个。
  */
 @Composable
@@ -71,7 +71,7 @@ internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, o
             Icon(imageVector = ZetaIcons.ChevronDown, contentDescription = "换主机", modifier = Modifier.size(14.dp), tint = colors.labelSecondary)
         }
         // 编号、名字、菜单里的小字
-        val items = listOf(Triple(Backends.LOCAL, RemoteHosts.LOCAL_NAME, "手机里的 Debian")) + hosts.map { Triple(it.id, it.name, it.target) }
+        val items = listOf(Triple(Backends.LOCAL, RemoteHosts.LOCAL_NAME, RemoteHosts.LOCAL_SUMMARY)) + hosts.map { Triple(it.id, it.name, it.target) }
         AnchoredMenu(
             show = open,
             entries = listOf(
@@ -89,4 +89,5 @@ internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, o
     }
 }
 
-private fun hostIcon(backend: String) = if (backend == Backends.LOCAL) ZetaIcons.Phone else ZetaIcons.Server
+/** 主机 [backend] 的图标：手机或服务器。换主机的菜单和设置首页的主机一组都用它。 */
+internal fun hostIcon(backend: String) = if (backend == Backends.LOCAL) ZetaIcons.Phone else ZetaIcons.Server

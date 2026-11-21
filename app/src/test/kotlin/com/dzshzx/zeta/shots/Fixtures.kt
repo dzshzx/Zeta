@@ -5,7 +5,10 @@ import androidx.compose.runtime.MutableState
 import com.dzshzx.zeta.core.AccountStatus
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.LinuxEnvConfig
+import com.dzshzx.zeta.core.ModelOption
+import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ssh.SshKey
@@ -26,6 +29,21 @@ object Fixtures {
         home = "/home/dzshzx",
         defaultCwd = "/workspace/claude",
     )
+
+    /** 一台经手机 Debian 连的远程主机。 */
+    val workstation = RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace")
+
+    /** Claude Code 在 initialize 里报的模型清单的样子：别名和它指向的完整 ID，每个都能选全部几档思考强度。 */
+    val models: List<ModelOption> by lazy {
+        val all = EffortLevels.map { it.first }
+        listOf(
+            ModelOption("default", "Default (recommended)", "", "claude-opus-5-5", all),
+            ModelOption("opus", "Opus", "", "claude-opus-5-5", all),
+            ModelOption("fable", "Fable", "", "claude-fable-5-2", all),
+            ModelOption("sonnet", "Sonnet", "", "claude-sonnet-5-5", all),
+            ModelOption("haiku", "Haiku", "", "claude-haiku-5-5", all),
+        )
+    }
 
     /** Zeta 直连用的密钥：单元测试里没有 Android Keystore，换成内存里的。 */
     val sshKey: SshKey by lazy { SshKey.generate("zeta@shots") }

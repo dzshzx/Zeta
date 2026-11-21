@@ -38,8 +38,8 @@ internal fun <V> choiceEntries(top: List<Pair<V, String>>, more: List<Pair<V, St
 /**
  * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[followLabel] 为 null 时没有跟随这一项，只能选 [choices] 里的。
  * [more] 不空时最后多一项「更多模型」，点开是 [more] 的二级菜单（旧版本的模型）。
- * [value] 不在 [choices]、[more] 里时补一项，显示 [unknown] 给的名字。设置首页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定
- * 模型、思考强度、后台运行的权限模式都用它；[startAction] 是设置首页的行首图标。[enabled] 为 false 时灰着，[summary] 写为什么。
+ * [value] 不在 [choices]、[more] 里时补一项，显示 [unknown] 给的名字。主机页的新对话默认值，以及定时任务、通知触发、数字助理给对话单独定
+ * 模型、思考强度、后台运行的权限模式都用它。[enabled] 为 false 时灰着，[summary] 写为什么。
  */
 @Composable
 internal fun FollowDropdownPreference(
@@ -48,7 +48,6 @@ internal fun FollowDropdownPreference(
     value: String?,
     unknown: (String) -> String = { it },
     followLabel: String? = "跟随 Claude Code",
-    startAction: (@Composable () -> Unit)? = null,
     summary: String? = null,
     enabled: Boolean = true,
     more: List<Pair<String, String>> = emptyList(),
@@ -67,7 +66,6 @@ internal fun FollowDropdownPreference(
             summary = summary,
             value = (options + more).firstOrNull { it.first == value }?.second,
             enabled = enabled,
-            startAction = startAction,
         )
         return
     }
@@ -75,7 +73,6 @@ internal fun FollowDropdownPreference(
         title = title,
         summary = summary,
         enabled = enabled,
-        startAction = startAction,
         items = remember(options) { options.map { it.second } },
         selectedIndex = options.indexOfFirst { it.first == value },
         onSelectedIndexChange = { index -> options.getOrNull(index)?.let { onChange(it.first) } },
