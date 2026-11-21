@@ -28,7 +28,10 @@ import kotlinx.serialization.json.putJsonObject
 /** 回答进行中发出、Claude Code 还没取走的消息。 */
 class QueuedMessage(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>)
 
-/** 收到的输出事件攒多久处理一批（[Conversation] 的 drain）。 */
+/**
+ * 收到的输出事件攒多久处理一批（[Conversation] 的 drain）。每处理一批聊天页就要重组、排版一次；
+ * 回答的字由逐字显现平滑地带出来，合并得粗一点看不出来。
+ */
 private const val DRAIN_DELAY_MS = 100L
 
 /** 追加给 Claude Code 的一句说明：让它知道对面是什么界面、怎样把图片给用户看。 */
@@ -85,8 +88,7 @@ class Conversation(
         private set
 
     /** 有没有条目。只在空和非空之间翻转时变：界面上只看有没有的地方读它，不随流式回答的每次更新重组。 */
-    val hasItems: Boolean get() = hasItemsState.value
-    private val hasItemsState = derivedStateOf { items.isNotEmpty() }
+    val hasItems by derivedStateOf { items.isNotEmpty() }
 
     /**
      * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）；
@@ -231,8 +233,12 @@ class Conversation(
     var offline by mutableStateOf(false)
         private set
 
-    /** 最近一次收到进程输出（或发出消息）的时间，界面据此显示“已等待多久”。 */
-    var lastActivityAt by mutableStateOf(0L)
+    /**
+     * 最近一次收到进程输出（或发出消息）的时间，界面据此显示“已等待多久”。每批输出都写，所以是普通字段：
+     * 写快照状态每次都要记一笔、通知观察者，界面只在每秒一次的计时里读它。
+     */
+    @Volatile
+    var lastActivityAt = 0L
         private set
 
     // 分支先显示原对话的内容，新内容的编号要和那些错开
@@ -960,8 +966,6 @@ class Conversation(
     private fun enqueue(source: ClaudeProcess, event: JsonObject) {
         if (source !== process) return
         inbox.add(event)
-        // 增量事件每 0.1 秒合并处理一次：每处理一批，聊天页就要重组、排版一次；回答的字由逐字显现平滑地带出来，
-        // 合并得粗一点看不出来
         if (drainScheduled.compareAndSet(false, true)) main.postDelayed(::drain, DRAIN_DELAY_MS)
     }
 

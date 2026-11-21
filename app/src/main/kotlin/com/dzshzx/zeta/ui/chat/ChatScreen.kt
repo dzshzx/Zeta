@@ -388,7 +388,7 @@ private fun ConversationBody(
     SaveDraft(hub.drafts, draft, actions)
     val prompts = rememberPromptsUi(input)
     // 按值比较：回答逐字增长时各轮能做的操作不变，TurnIndex 还是原来那个，屏幕上别的消息不跟着重组
-    val turnList = turnActions(items)
+    val turnList = remember(items) { turnActions(items) }
     val turns = remember(turnList) { TurnIndex(turnList) }
     val shown = actions.visible(items)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
@@ -432,17 +432,15 @@ private fun ConversationBody(
                 )
                 else -> {
                     val last = items.last()
-                    // 每秒看一次离上次输出多久。lastActivityAt 随每批输出变，只在这里的协程里读、不当键，
-                    // 也只在够长要显示时才更新：回答流式输出时这一页不因它重组
-                    val idleSeconds by produceState(0, conversation.busy) {
-                        value = 0
+                    // 每秒看一次离上次输出多久，够长要显示时才有值：回答流式输出时这一页不因它重组
+                    val idleSeconds by produceState<Int?>(null, conversation.busy) {
+                        value = null
                         while (conversation.busy) {
                             delay(1000)
-                            val idle = ((System.currentTimeMillis() - conversation.lastActivityAt) / 1000).toInt()
-                            value = if (idle >= IdleHintSeconds) idle else 0
+                            value = ((System.currentTimeMillis() - conversation.lastActivityAt) / 1000).toInt().takeIf { it >= IdleHintSeconds }
                         }
                     }
-                    val statusText = conversation.status ?: if (idleSeconds >= IdleHintSeconds) "已等待 $idleSeconds 秒" else null
+                    val statusText = conversation.status ?: idleSeconds?.let { "已等待 $it 秒" }
                     // 等的是用户自己（确认或提问弹层开着）时不算"已等待"
                     val waiting = conversation.busy && conversation.pending == null &&
                         (statusText != null || !((last is AnswerItem && last.streaming) || (last is WorkItem && last.running)))
@@ -612,7 +610,7 @@ private fun ConversationBody(
                 visible = viewingUsage,
                 usage = conversation.usage,
                 skippedHistory = conversation.skippedHistory,
-                canCompact = !conversation.busy && !conversation.loadingHistory && conversation.hasItems,
+                canCompact = !conversation.busy && !conversation.loadingHistory && items.isNotEmpty(),
                 onCompact = conversation::compact,
                 onDismissRequest = { viewingUsage = false },
                 quota = { QuotaDialogSection(hub, visible = viewingUsage) },

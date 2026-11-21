@@ -36,6 +36,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.SlideInPage
+import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -125,7 +126,8 @@ internal fun SubagentPage(
     val markdownCache = remember { StreamingMarkdownStateCache() }
     // 一开始停在概要上；拉到底以后跟着新步骤走，往上翻就不跟了
     rememberFollowBottom(listState, following = false)
-    val items = log.items
+    // 子代理还在跑时步骤随时变；界面看不见时这一页不跟着重组、测量
+    val items = whileStarted { log.items }
     CouiPage(title = "子代理", onBack = onBack, listState = listState) {
         item(key = "info") {
             PreferenceGroup {

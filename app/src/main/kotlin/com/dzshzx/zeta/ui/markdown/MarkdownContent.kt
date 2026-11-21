@@ -84,7 +84,7 @@ internal fun MarkdownContent(
     reveal: SmoothTextRevealCoordinator? = null,
 ) {
     val scope = remember(style, reveal) { MarkdownRenderScope(style, reveal) }
-    MarkdownBlockColumn(blocks = document.blocks, scope = scope, compact = false, modifier = modifier)
+    MarkdownBlockColumn(blocks = document.blocks, scope = scope, compact = false, modifier = modifier, layered = reveal != null)
 }
 
 /**
@@ -164,6 +164,7 @@ private fun MarkdownBlockColumn(
     scope: MarkdownRenderScope,
     compact: Boolean,
     modifier: Modifier = Modifier,
+    layered: Boolean = false,
 ) {
     val density = LocalDensity.current
     Column(modifier) {
@@ -176,8 +177,8 @@ private fun MarkdownBlockColumn(
                     markdownBlockGap(previous, block, scope.style.tone)
                 }
                 if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
-                // 每块单独一层：流式回答只在最后一块长字（还有逐字显现每帧重画），前面的块不跟着重新录制
-                Box(Modifier.graphicsLayer()) { MarkdownBlockView(block, scope) }
+                // [layered]（流式回答的顶层）时每块单独一层：只有最后一块在长字、逐字显现每帧重画，前面的块不跟着重新录制
+                if (layered) Box(Modifier.graphicsLayer()) { MarkdownBlockView(block, scope) } else MarkdownBlockView(block, scope)
             }
         }
     }

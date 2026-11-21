@@ -86,15 +86,20 @@ object Fixtures {
     }
 
     /**
-     * 改 `var x by mutableStateOf(...)` 且 setter 是 private 的属性：直接写它背后的 MutableState。
+     * 改 setter 是 private 的属性：`var x by mutableStateOf(...)` 写它背后的 MutableState，普通字段直接写。
      * 属性改名后这里会报找不到字段，照新名字改测试即可。
      */
     fun Any.force(property: String, value: Any?) {
-        val field = generateSequence<Class<*>>(javaClass) { it.superclass }
-            .firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == "$property\$delegate" } }
-            ?: error("${javaClass.simpleName} 没有用 mutableStateOf 委托的属性 $property")
+        val types = generateSequence<Class<*>>(javaClass) { it.superclass }
+        types.firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == "$property\$delegate" } }?.let { field ->
+            field.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            (field.get(this) as MutableState<Any?>).value = value
+            return
+        }
+        val field = types.firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == property } }
+            ?: error("${javaClass.simpleName} 没有属性 $property")
         field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        (field.get(this) as MutableState<Any?>).value = value
+        field.set(this, value)
     }
 }

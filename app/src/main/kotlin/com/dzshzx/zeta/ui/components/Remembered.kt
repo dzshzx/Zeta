@@ -42,14 +42,12 @@ internal fun rememberNow(periodMs: Long = 30_000): Long {
  * 经它读就不会让看不见的界面跟着重组、测量。
  */
 @Composable
-internal fun <T : Any> whileStarted(read: () -> T): T {
+internal fun <T> whileStarted(read: () -> T): T {
     val state by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    val last = remember { LastValue<T>() }
-    if (state.isAtLeast(Lifecycle.State.STARTED) || last.value == null) last.value = read()
-    return checkNotNull(last.value)
+    val last = remember { LastValue(read()) }
+    if (state.isAtLeast(Lifecycle.State.STARTED)) last.value = read()
+    return last.value
 }
 
 /** [whileStarted] 记下的最后一份：普通字段，不是快照状态，看不见时不读 [read] 就不订阅它的变化。 */
-private class LastValue<T : Any> {
-    var value: T? = null
-}
+private class LastValue<T>(var value: T)
