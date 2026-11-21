@@ -57,10 +57,9 @@ skip_gradle=$(gradle_skip_reason)
 source scripts/gatelib.sh
 gate_python_allowlist # 没有清单文件：仓里不许有 .py
 
-# Kotlin 的工具（ktfmt、detekt）是 jar，用构建用的同一份 JDK 25
-java_home=$(tools/java-home)
-JAVA_HOME=$java_home scripts/format.sh --check
-JAVA_HOME=$java_home scripts/format.sh --lint
+# Kotlin 的工具（ktfmt、detekt）要的 JDK 由 scripts/format.conf 找
+scripts/format.sh --check
+scripts/format.sh --lint
 
 # Go 模块：版本只由各自 go.mod 的 go 行定；之后用这份工具链的绝对路径
 check_go_module() {
