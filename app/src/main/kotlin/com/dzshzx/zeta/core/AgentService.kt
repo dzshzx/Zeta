@@ -27,8 +27,14 @@ internal object Notifier {
     const val CHANNEL_STATUS = "status"
     const val CHANNEL_ALERT = "alert"
 
-    /** 实时通知（超级岛）上显示的对话停下来等用户时，常驻通知临时换到这个渠道发一次：岛弹出时带提示音和震动。 */
-    const val CHANNEL_WAITING = "waiting"
+    /**
+     * 实时通知（超级岛）上显示的对话停下来等用户时，常驻通知临时换到这个渠道发一次。重要度要“高”：HyperOS 在通知要提醒时
+     * 才把岛展开，“默认”只响铃、岛不弹。正式版带提示音和震动；测试版不配声音和震动，岛照样弹，测试时不出声。
+     */
+    const val CHANNEL_WAITING = "island_waiting"
+
+    /** 早先“超级岛上等你处理”用的渠道 id（重要度只有“默认”或“低”，应用调不高它），建渠道时删掉。 */
+    private const val OLD_CHANNEL_WAITING = "waiting"
 
     /** 有新版本（core/update/AppUpdates.kt）：同一个版本只发一次。 */
     const val CHANNEL_UPDATE = "update"
@@ -64,7 +70,22 @@ internal object Notifier {
             if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW
             else NotificationManager.IMPORTANCE_DEFAULT
         manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_WAITING, "超级岛上等你处理", alert))
+        manager.deleteNotificationChannel(OLD_CHANNEL_WAITING)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                    CHANNEL_WAITING,
+                    "超级岛上等你处理",
+                    NotificationManager.IMPORTANCE_HIGH,
+                )
+                .apply {
+                    if (AppVariant.current.isDev) {
+                        setSound(null, null)
+                        enableVibration(false)
+                    } else {
+                        enableVibration(true)
+                    }
+                },
+        )
         manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
     }
 
@@ -235,12 +256,9 @@ class AgentService : Service() {
         val builder = statusBuilder(live)
         if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             promote(builder, live)
-            // 停下来等用户时，按钮换成替用户回答的那几个：超级岛展开就能直接回答
-            val replies = replyActions(live)
-            if (replies.isNotEmpty()) {
-                replies.forEach(builder::addAction)
-                return builder.build()
-            }
+            // 实时通知（超级岛展开时也是它）只在停下来等用户时带按钮，是替用户回答的那几个；“停止”“截屏”在岛上用不着
+            replyActions(live).forEach(builder::addAction)
+            return builder.build()
         } else {
             builder
                 .setContentTitle(

@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.shots.Fixtures
@@ -123,6 +124,13 @@ class LiveNotificationTest {
         val n = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
         // 换到“等你处理”渠道、这一次要提醒：超级岛弹出时带提示音和震动；同一个请求再发就不再提醒
         assertEquals(Notifier.CHANNEL_WAITING, n.channelId)
+        assertEquals(
+            "重要度高，HyperOS 才把岛展开",
+            NotificationManager.IMPORTANCE_HIGH,
+            app.getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(Notifier.CHANNEL_WAITING)
+                .importance,
+        )
         assertEquals(0, n.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         val again = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
         assertTrue(again.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
@@ -131,7 +139,7 @@ class LiveNotificationTest {
         assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(listOf("允许", "拒绝"), n.actions.map { it.title.toString() })
         assertEquals(listOf(true, false), n.actions.map { it.isAuthenticationRequired })
-        // 接管着时胶囊上是“你在接管”，不换按钮
+        // 接管着时胶囊上是“你在接管”，没有回答的按钮
         val controlling =
             LiveUpdate.status(
                 candidate.copy(step = Step("你在接管", StepKind.CONTROLLING), controlling = true),
@@ -139,7 +147,7 @@ class LiveNotificationTest {
                 todo = null,
             )
         val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
-        assertEquals(listOf("停止", "截屏"), plain.actions.map { it.title.toString() })
+        assertEquals("实时通知平时不带停止、截屏", 0, plain.actions?.size ?: 0)
         assertEquals(Notifier.CHANNEL_STATUS, plain.channelId)
     }
 

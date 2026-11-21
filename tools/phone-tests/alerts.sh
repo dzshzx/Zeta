@@ -3,7 +3,8 @@
 # （tag 是会话号）、等批准时带“允许”“拒绝”、单选题的选项是按钮；按钮回答后这一轮接着跑完，提醒换成“已完成”；
 # 系统提升了常驻通知时，“在等你”显示在实时通知（超级岛）上，带同样的按钮、换到出声的渠道，不另发提醒；回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
 # 按钮由 root 直接发给 AlertReplyReceiver（和按钮的 PendingIntent 里是同一个 Intent）；通知栏上真点一下、锁屏上先要解锁，要人看。
-# 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/alerts.sh
+# 加 RECORD_MAIN=1 时在等你、回答后几个时刻截下手机主屏的真实样子（会拍到用户正在用的界面），看超级岛弹没弹。
+# 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] [RECORD_MAIN=1] tools/phone-run tools/phone-tests/alerts.sh
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 NEWER=/data/local/tmp/zeta-alerts-start
@@ -26,6 +27,19 @@ background() {
 
 # step <说明>：打上时间，卡住时看得出卡在哪一步
 step() { echo "[$(date +%T)] $*"; }
+
+# snap <名字>：记下手机主屏真实的样子（超级岛、横幅都画在主屏上）和屏幕状态（亮没亮、锁没锁），存成 main-<名字>.png。
+# 会拍到用户当时正在用的界面，所以只在 RECORD_MAIN=1 时截
+MAIN_DISPLAY=''
+snap() {
+  [[ ${RECORD_MAIN:-} == 1 ]] || return 0
+  [[ -n $MAIN_DISPLAY ]] ||
+    MAIN_DISPLAY=$(android "dumpsys SurfaceFlinger --display-id" | grep -m1 -oE '^Display [0-9]+' | cut -d' ' -f2)
+  local state
+  state=$(android "dumpsys power | grep -m1 -oE 'mWakefulness=[A-Za-z]+'; dumpsys window | grep -m1 -oE 'isKeyguardShowing=[a-z]+'" | tr '\n' ' ')
+  android "screencap -d $MAIN_DISPLAY -p | base64" | base64 -d >"main-$1.png"
+  echo "[$(date +%T)] 主屏 $1：$state→ main-$1.png"
+}
 
 # alert：本包的提醒（id=2）那条记录，没有时是空的；常驻通知（id=1）的第一条记录写进 status.txt
 alert() {
@@ -60,7 +74,9 @@ wait_waiting() {
 check_waiting() {
   if [[ $WHERE == live ]]; then
     check "$1：实时通知（超级岛）上的按钮" "$(buttons "status-$1.txt" | paste -sd,)" "$2"
-    check "$1：实时通知换到出声的渠道" "$(grep -m1 -oE 'channel=[a-z]+' "status-$1.txt")" "channel=waiting"
+    check "$1：实时通知换到等你处理的渠道" "$(grep -m1 -oE 'channel=[a-z_]+' "status-$1.txt")" "channel=island_waiting"
+    # 重要度“高”：HyperOS 才把岛展开（测试版的这个渠道没有声音和震动）
+    check "$1：这一条的重要度是高" "$(grep -m1 -oE ' importance=[0-9]+' "status-$1.txt")" " importance=4"
     check "$1：超级岛能回答时不另发提醒" "$(grep -c NotificationRecord "alert-$1.txt" || true)" "0"
   else
     check "$1：提醒上的按钮" "$(buttons "alert-$1.txt" | paste -sd,)" "$2"
@@ -130,10 +146,14 @@ background
 step 切到后台
 wait_waiting confirm "需要你确认：列出文件"
 step "等到了（$WHERE）"
+snap confirm
+sleep 1.5
+snap confirm-later
 status_line status-confirm.txt
 check_waiting confirm "允许,拒绝"
 press 0
 wait_alert done1 "已完成"
+snap done1
 check "一轮结束后的提醒没有按钮" "$(buttons alert-done1.txt | wc -l)" "0"
 
 # 回到前台看着这个对话：提醒撤掉
@@ -150,6 +170,9 @@ background
 step 切到后台
 wait_waiting ask "需要你回答：先改哪个？"
 step "等到了（$WHERE）"
+snap ask
+sleep 1.5
+snap ask-later
 status_line status-ask.txt
 check_waiting ask "界面,文档"
 press 1
