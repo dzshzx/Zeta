@@ -2,7 +2,7 @@
 agp = "9.5.1"
 kotlin = "2.4.21"
 # COUI 2：ColorOS 17 风格的完整组件库（Miuix 的分支），https://github.com/suqi8/coui
-coui2 = "2.0.0"
+coui2 = "2.1.0"
 activityCompose = "1.13.0"
 androidx-lifecycle = "2.11.0"
 androidx-navigationevent = "1.2.0"

@@ -202,13 +202,13 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Compose Util | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-util`<br>`androidx.compose.ui:ui-util-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Core | 1.18.0 | Apache-2.0 | `androidx.core:core` | https://cs.android.com/androidx/platform/frameworks/support |
 | Core Kotlin Extensions | 1.18.0 | Apache-2.0 | `androidx.core:core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| coui-blur | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-blur-android` | https://github.com/suqi8/coui |
-| coui-core | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-core`<br>`io.github.suqi8.coui.kmp:coui-core-android` | https://github.com/suqi8/coui |
-| coui-icons | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-icons-android` | https://github.com/suqi8/coui |
-| coui-preference | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-preference-android` | https://github.com/suqi8/coui |
-| coui-shader | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-shader`<br>`io.github.suqi8.coui.kmp:coui-shader-android` | https://github.com/suqi8/coui |
-| coui-squircle | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-squircle`<br>`io.github.suqi8.coui.kmp:coui-squircle-android` | https://github.com/suqi8/coui |
-| coui-ui | 2.0.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-ui`<br>`io.github.suqi8.coui.kmp:coui-ui-android` | https://github.com/suqi8/coui |
+| coui-blur | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-blur-android` | https://github.com/suqi8/coui |
+| coui-core | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-core`<br>`io.github.suqi8.coui.kmp:coui-core-android` | https://github.com/suqi8/coui |
+| coui-icons | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-icons-android` | https://github.com/suqi8/coui |
+| coui-preference | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-preference-android` | https://github.com/suqi8/coui |
+| coui-shader | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-shader`<br>`io.github.suqi8.coui.kmp:coui-shader-android` | https://github.com/suqi8/coui |
+| coui-squircle | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-squircle`<br>`io.github.suqi8.coui.kmp:coui-squircle-android` | https://github.com/suqi8/coui |
+| coui-ui | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-ui`<br>`io.github.suqi8.coui.kmp:coui-ui-android` | https://github.com/suqi8/coui |
 | Emoji2 | 1.4.0 | Apache-2.0 | `androidx.emoji2:emoji2` | https://cs.android.com/androidx/platform/frameworks/support |
 | error-prone annotations | 2.18.0 | Apache-2.0 | `com.google.errorprone:error_prone_annotations` | https://github.com/google/error-prone |
 | Experimental annotation | 1.4.1 | Apache-2.0 | `androidx.annotation:annotation-experimental` | https://cs.android.com/androidx/platform/frameworks/support |
