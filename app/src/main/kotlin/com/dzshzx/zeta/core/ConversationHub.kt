@@ -368,12 +368,6 @@ class ConversationHub(
      */
     private val phones = HashMap<String, PhoneTools>()
 
-    /**
-     * Zeta 之外经 root 连进来用手机工具的客户端（工作站上的 Claude Code），按客户端标识各一份手机工具。不进 [phones]：
-     * 一次调用连一次，调用之间没有连接也要留着（控件编号、后台屏幕上的应用），不跟着对话收掉。它们的后台屏幕和对话的一起算 [MAX_SCREENS]
-     * 的上限、一起被腾（[makeRoom]），连接断开后照样闲置休眠（[onBridgeClosed]）。主线程和工具线程都会访问，用它自己当锁。
-     */
-    private val bridged = HashMap<String, PhoneTools>()
     private val bridge =
         PhoneBridge(
             PhoneBridge.socketName(app.packageName),
@@ -382,7 +376,12 @@ class ConversationHub(
             ::onBridgeCall,
         )
 
-    /** 外部客户端在顶部胶囊上的样子，和 [bridged] 一一对应（可观察，只在主线程上加）：胶囊和对话一起从这里挑。 */
+    /**
+     * Zeta 之外经 root 连进来用手机工具的客户端（工作站上的 Claude Code），按客户端标识各一个，带着它那一份手机工具（[BridgeFocus.phone]）。
+     * 手机工具不进 [phones]：一次调用连一次，调用之间没有连接也要留着（控件编号、后台屏幕上的应用），不跟着对话收掉。它们的后台屏幕和对话的 一起算 [MAX_SCREENS]
+     * 的上限、一起被腾（[makeRoom]），连接断开后照样闲置休眠（[onBridgeClosed]）。胶囊和对话一起从这里挑。 可观察，只在主线程上加；工具线程上的 [makeRoom]
+     * 只读。
+     */
     internal val bridgeFoci = mutableStateListOf<BridgeFocus>()
 
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
@@ -473,21 +472,21 @@ class ConversationHub(
 
     /** [PhoneBridge] 的客户端 [key] 连上了：给它那一份手机工具，[busy] 时（有调用在处理）后台屏幕不休眠、不被腾掉。在主线程上调用。 */
     internal fun openBridged(key: String, busy: () -> Boolean): PhoneTools {
-        val phone =
-            synchronized(bridged) {
-                bridged.getOrPut(key) {
-                    PhoneTools(
-                        app,
-                        settings,
-                        beforeCreate = ::makeRoom,
-                        isBusy = { busy() },
-                        onChanged = ::onActivityChanged,
+        val focus =
+            bridgeFoci.firstOrNull { it.key == key }
+                ?: BridgeFocus(
+                        key,
+                        PhoneTools(
+                            app,
+                            settings,
+                            beforeCreate = ::makeRoom,
+                            isBusy = { busy() },
+                            onChanged = ::onActivityChanged,
+                        ),
                     )
-                }
-            }
-        if (bridgeFoci.none { it.key == key }) bridgeFoci += BridgeFocus(key, phone)
+                    .also { bridgeFoci += it }
         onActivityChanged()
-        return phone
+        return focus.phone
     }
 
     /** [PhoneBridge] 的客户端 [key] 的一个工具调用开始（[started]）或结束了：胶囊据此显示、停留、收起。在主线程上调用。 */
@@ -501,7 +500,7 @@ class ConversationHub(
      * 只碰后台屏幕，不复位手机工具的暂停与接管：同一个客户端可能还有别的连接在调用。在主线程上调用。
      */
     private fun onBridgeClosed(key: String) {
-        synchronized(bridged) { bridged[key] }?.slot?.onTurnEnded()
+        bridgeFoci.firstOrNull { it.key == key }?.phone?.slot?.onTurnEnded()
         onActivityChanged()
     }
 
@@ -972,9 +971,7 @@ class ConversationHub(
      * 的锁，两个对话同时建屏也不会互相卡住。
      */
     private fun makeRoom(phone: PhoneTools) {
-        val all =
-            synchronized(phones) { phones.values.toList() } +
-                synchronized(bridged) { bridged.values.toList() }
+        val all = synchronized(phones) { phones.values.toList() } + bridgeFoci.map { it.phone }
         val others = all.filter { it !== phone && it.slot.alive != null }
         val excess = others.size - MAX_SCREENS + 1
         if (excess <= 0) return

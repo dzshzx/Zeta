@@ -261,3 +261,34 @@ open_conversation() {
 --es com.dzshzx.zeta.extra.CONVERSATION $1 >/dev/null"
   sleep "${2:-6}"
 }
+
+# ---- 外部入口（phone/PhoneBridge.kt）：像工作站上的 zeta-phone 那样，以 root 跑这棵树编出的 zeta-helper phone-mcp，一次调用连一次 ----
+BRIDGE_BIN=/data/local/tmp/zeta-bridge-helper
+# bridge_helper：把这棵树编出的、设备架构的 zeta-helper 推到 $BRIDGE_BIN（本机上那份的路径记在 BRIDGE_HELPER），清掉上次留下的请求和应答
+bridge_helper() {
+  local arch
+  case $(android 'uname -m' | tr -d '\r') in
+    aarch64) arch=arm64 ;;
+    x86_64) arch=amd64 ;;
+    *) echo "不认识的架构" >&2; return 1 ;;
+  esac
+  BRIDGE_HELPER=$ZETA_ROOT/app/build/generated/zeta-helper/zeta-helper/linux-$arch
+  vd sh --stdin "cat > $BRIDGE_BIN && chmod 755 $BRIDGE_BIN" <"$BRIDGE_HELPER"
+  vd sh "rm -f $BRIDGE_BIN.*.req $BRIDGE_BIN.*.out $BRIDGE_BIN.*.err"
+}
+BRIDGE_INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"phone-tests","version":"1"}}}'
+# bridge_talk <客户端标识> <名字> <请求…>：一次连接，发 initialize 和这些请求，收齐应答再关输入，应答存到 <名字>.jsonl。
+# 每个名字用设备上自己的一组文件，可以放后台和别的调用、截图同时跑。请求先放进设备上的文件：模拟器的 adb shell 读到输入结束会把远端命令整个结束掉
+bridge_talk() {
+  local key=$1 tag=$2
+  shift 2
+  local req=$BRIDGE_BIN.$tag.req res=$BRIDGE_BIN.$tag.out want=$(($# + 1))
+  printf '%s\n' "$BRIDGE_INIT" '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$@" | vd sh --stdin "cat > $req"
+  vd sh ": > $res; (cat $req; i=0; while [ \$(wc -l < $res) -lt $want ] && [ \$i -lt 200 ]; do sleep 0.3; i=\$((i+1)); done) | timeout 90 $BRIDGE_BIN phone-mcp $PKG $key > $res 2>$res.err; cat $res" >"$tag.jsonl" || true
+}
+# bridge_answered <名字>：等放在后台的 bridge_talk 答完 initialize（请求是一起发出的，之后的调用随即开始处理），最多 10 秒
+bridge_answered() { vd sh "i=0; until [ -s $BRIDGE_BIN.$1.out ] || [ \$i -ge 50 ]; do sleep 0.2; i=\$((i+1)); done"; }
+bridge_call() { printf '{"jsonrpc":"2.0","id":%s,"method":"tools/call","params":{"name":"%s","arguments":%s}}' "$1" "$2" "$3"; }
+# bridge_reply <应答文件> <id>：那个请求的应答；bridge_ok：它成功了（有 result、不是工具出错）
+bridge_reply() { jq -c "select(.id == $2)" "$1"; }
+bridge_ok() { test "$(bridge_reply "$1" "$2" | jq '.result != null and .result.isError != true')" = true; }

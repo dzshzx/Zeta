@@ -5,12 +5,9 @@ import androidx.compose.runtime.derivedStateOf
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.PhoneTools
-import com.dzshzx.zeta.phone.TouchMark
-import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.chat.toolTitle
 import kotlin.concurrent.thread
-import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * 顶部状态胶囊眼里的一个对话（[OverlayFocus]）：状态全取自对话和它的手机工具，自己不另存，所以都可观察。
@@ -18,10 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
  */
 @Stable
 internal class ConversationFocus(private val hub: ConversationHub, val conversation: Conversation) :
-    OverlayFocus {
-    private val phone: PhoneTools
-        get() = conversation.phone
-
+    PhoneFocus(conversation.phone) {
     /** 这一轮刚结束、胶囊还停留着时的那句（“已完成”）；其余时候为 null。 */
     private val finishing: String?
         get() = hub.alerts.finishingText(this)
@@ -51,29 +45,6 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     override val thought: String
         get() = thoughtState.value
 
-    override val screen: VirtualScreen?
-        get() = phone.agentDisplay
-
-    override val appName: String?
-        get() = phone.agentDisplayApp
-
-    override val actingOnMain: Boolean
-        get() = phone.actingOnMain
-
-    override val userControlling: Boolean
-        get() = phone.userControlling
-
-    override val touches: SharedFlow<TouchMark>
-        get() = phone.touches
-
-    override fun takeOver() = phone.takeOverByUser()
-
-    override fun resumeAuto() = phone.resumeByUser()
-
-    override fun pause() = phone.pauseByUser()
-
-    override fun resume() = phone.resumeByUser()
-
     /** 和聊天页的停止键一样；闸门（暂停、接管）在 interrupt 里一并放开，一轮已经结束时也放开。 */
     override fun stop() = conversation.interrupt()
 
@@ -85,18 +56,6 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
         if (conversation.busy && (phone.paused || phone.userControlling))
             phone.cancelWaiting(PhoneTools.SUPPLEMENTED)
     }
-
-    override fun userTap(x: Float, y: Float, longPress: Boolean) = phone.userTap(x, y, longPress)
-
-    override fun userSwipe(
-        startX: Float,
-        startY: Float,
-        endX: Float,
-        endY: Float,
-        durationMs: Int,
-    ) = phone.userSwipe(startX, startY, endX, endY, durationMs)
-
-    override fun handoffToMain() = phone.handoffToMainByUser()
 
     /**
      * 有 MIUI 的“后台弹出界面”权限（或 Zeta 本来就在前台）就直接用 PendingIntent；确定没有就直接经 root 打开，

@@ -73,11 +73,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
                     (phone.userControlling || phone.paused || (c.busy && phone.engagedThisTurn)) &&
                         visible(c)
                 }
-                .map { FocusCandidate(it.overlay, it.phone.userControlling, it.phone.engagedAt) }
-        val clients =
-            hub.bridgeFoci
-                .filter { it.shown }
-                .map { FocusCandidate(it, it.userControlling, it.usedAt) }
+                .map { FocusCandidate(it.overlay, it.phone.engagedAt) }
+        val clients = hub.bridgeFoci.filter { it.shown }.map { FocusCandidate(it, it.usedAt) }
         return choose(conversations + clients)
     }
 
@@ -296,19 +293,15 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         )
     }
 
-    /** 胶囊的一个候选：[controlling] 是用户正接管着它，[usedAt] 是它最近一次用手机的时间（墙上时钟）。 */
-    internal class FocusCandidate(
-        val focus: OverlayFocus,
-        val controlling: Boolean,
-        val usedAt: Long,
-    )
+    /** 胶囊的一个候选：[usedAt] 是它最近一次用手机的时间（墙上时钟）。 */
+    internal class FocusCandidate(val focus: OverlayFocus, val usedAt: Long)
 
     internal companion object {
         /** 几个候选里胶囊显示哪个：接管着的优先，其余取最近用手机的；没有候选时为 null。 */
         fun choose(candidates: List<FocusCandidate>): OverlayFocus? =
             candidates
                 .maxWithOrNull(
-                    compareBy<FocusCandidate> { it.controlling }.thenBy { it.usedAt },
+                    compareBy<FocusCandidate> { it.focus.userControlling }.thenBy { it.usedAt },
                 )
                 ?.focus
 

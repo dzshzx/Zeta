@@ -148,16 +148,16 @@ class BridgeFocusTest {
         val hub = Fixtures.readyHub(app)
         val older = hub.current.overlay
         val newer = hub.client()
-        fun candidate(focus: OverlayFocus, controlling: Boolean, at: Long) =
-            TurnAlerts.FocusCandidate(focus, controlling, at)
+        fun choose(older: OverlayFocus) =
+            TurnAlerts.choose(
+                listOf(TurnAlerts.FocusCandidate(older, 1), TurnAlerts.FocusCandidate(newer, 2)),
+            )
         assertNull(TurnAlerts.choose(emptyList()))
-        assertSame(
-            newer,
-            TurnAlerts.choose(listOf(candidate(older, false, 1), candidate(newer, false, 2))),
-        )
-        assertSame(
-            older,
-            TurnAlerts.choose(listOf(candidate(older, true, 1), candidate(newer, false, 2))),
-        )
+        assertSame(newer, choose(older))
+        val controlling =
+            object : OverlayFocus by older {
+                override val userControlling = true
+            }
+        assertSame("接管着的优先", controlling, choose(controlling))
     }
 }

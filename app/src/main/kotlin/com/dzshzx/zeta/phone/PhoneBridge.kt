@@ -5,6 +5,7 @@ import android.net.LocalSocket
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.dzshzx.zeta.core.str
 import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -17,9 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -153,7 +152,7 @@ internal class PhoneBridge(
             input.bufferedReader(Charsets.UTF_8).use { reader ->
                 for (message in messages(reader)) {
                     if (message["id"] == null) continue
-                    val tool = (message["method"] as? JsonPrimitive)?.contentOrNull == "tools/call"
+                    val tool = message.str("method") == "tools/call"
                     inFlight.incrementAndGet()
                     if (tool) onCall(true)
                     workers.removeAll { !it.isAlive }

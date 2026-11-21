@@ -8,12 +8,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.PhoneTools
-import com.dzshzx.zeta.phone.TouchMark
-import com.dzshzx.zeta.phone.VirtualScreen
-import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * 顶部状态胶囊眼里的一个外部客户端（经 [com.dzshzx.zeta.phone.PhoneBridge] 用手机工具的工作站上的 Claude Code）。
@@ -27,9 +23,9 @@ import kotlinx.coroutines.flow.SharedFlow
 @Stable
 internal class BridgeFocus(
     val key: String,
-    private val phone: PhoneTools,
+    phone: PhoneTools,
     private val main: Handler = Handler(Looper.getMainLooper()),
-) : OverlayFocus {
+) : PhoneFocus(phone) {
     /** 正在处理的工具调用数。 */
     private var calls by mutableIntStateOf(0)
 
@@ -86,32 +82,12 @@ internal class BridgeFocus(
     override val thought: String
         get() = TITLE + (appName?.let { " · $it" } ?: "")
 
-    override val screen: VirtualScreen?
-        get() = phone.agentDisplay
-
     override val appName: String?
         get() = phone.agentDisplayApp?.takeIf { screen != null && it.isNotBlank() }
-
-    override val actingOnMain: Boolean
-        get() = phone.actingOnMain
-
-    override val userControlling: Boolean
-        get() = phone.userControlling
-
-    override val touches: SharedFlow<TouchMark>
-        get() = phone.touches
 
     /** 外部客户端不在 Zeta 里：没有对话可补充一句话、可打开，胶囊上不放这两样。 */
     override val inZeta: Boolean
         get() = false
-
-    override fun takeOver() = phone.takeOverByUser()
-
-    override fun resumeAuto() = phone.resumeByUser()
-
-    override fun pause() = phone.pauseByUser()
-
-    override fun resume() = phone.resumeByUser()
 
     /** 停止：在闸门前等着的调用作废返回，暂停、接管解除，胶囊随即收起（正在处理的调用照常做完）；客户端再来调用时再显示。 */
     override fun stop() {
@@ -121,18 +97,6 @@ internal class BridgeFocus(
     }
 
     override fun supplement(text: String) = Unit
-
-    override fun userTap(x: Float, y: Float, longPress: Boolean) = phone.userTap(x, y, longPress)
-
-    override fun userSwipe(
-        startX: Float,
-        startY: Float,
-        endX: Float,
-        endY: Float,
-        durationMs: Int,
-    ) = phone.userSwipe(startX, startY, endX, endY, durationMs)
-
-    override fun handoffToMain() = phone.handoffToMainByUser()
 
     override fun openInZeta() = Unit
 

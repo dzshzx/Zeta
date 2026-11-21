@@ -2,9 +2,7 @@ package main
 
 import (
 	"os/exec"
-	"strconv"
 	"testing"
-	"time"
 )
 
 // claudeArgv 认活着的 Claude Code：命令行里有 claude 的算，别的程序、僵尸、内核线程不算。
@@ -59,23 +57,9 @@ func TestClaudeArgvAlive(t *testing.T) {
 // kernelThread 是 /proc 里看得到的一个内核线程（stat 的 flags 带 PF_KTHREAD），没有时是 0。
 func kernelThread() int {
 	for _, pid := range procIDs() {
-		fields := procStatFields(pid)
-		if len(fields) < 7 {
-			continue
-		}
-		if flags, err := strconv.ParseUint(fields[6], 10, 64); err == nil && flags&0x00200000 != 0 {
+		if kthread, ok := statKthread(procStatFields(pid)); ok && kthread {
 			return pid
 		}
 	}
 	return 0
-}
-
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-		if cond() {
-			return
-		}
-	}
-	t.Fatal("等了 5 秒没等到")
 }

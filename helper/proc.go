@@ -93,7 +93,6 @@ func claudeArgv(pid int, known bool) ([][]byte, bool) {
 // 这中间读 /proc/<pid>/cmdline 是空的（平时约 0.1 毫秒，负载高或程序文件读得慢时更长）；僵尸（Z、X）和内核线程的命令行也是空的，它们不算。
 // 退出途中内存已经放掉、还没成僵尸的那一下也算还在：下一次再看就认得它结束了。
 func procExecing(pid int) bool {
-	const pfKthread = 0x00200000 // PF_KTHREAD
 	fields := procStatFields(pid)
 	if len(fields) < 7 {
 		return false
@@ -101,8 +100,18 @@ func procExecing(pid int) bool {
 	if s := fields[0]; s == "Z" || s == "X" {
 		return false
 	}
+	kthread, ok := statKthread(fields)
+	return ok && !kthread
+}
+
+// statKthread：procStatFields 读出的这个进程是不是内核线程（flags 带 PF_KTHREAD）；读不出 flags 时 ok 为假。
+func statKthread(fields []string) (kthread, ok bool) {
+	const pfKthread = 0x00200000
+	if len(fields) < 7 {
+		return false, false
+	}
 	flags, err := strconv.ParseUint(fields[6], 10, 64)
-	return err == nil && flags&pfKthread == 0
+	return flags&pfKthread != 0, err == nil
 }
 
 // procStarted 是进程启动的时刻（秒，Unix 时间）；进程不在了时 ok 为假。

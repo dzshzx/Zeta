@@ -142,14 +142,18 @@ func tui(t *testing.T, stubborn bool, env ...string) (int, <-chan struct{}) {
 
 func waitFile(t *testing.T, path string) {
 	t.Helper()
-	for deadline := time.Now().Add(3 * time.Second); ; time.Sleep(10 * time.Millisecond) {
-		if _, err := os.Stat(path); err == nil {
+	waitFor(t, func() bool { _, err := os.Stat(path); return err == nil })
+}
+
+// waitFor 每 10 毫秒看一次 cond，5 秒内没等到就让测试失败。
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if cond() {
 			return
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s did not appear", path)
-		}
 	}
+	t.Fatal("等了 5 秒没等到")
 }
 
 // registerStatus 像 Claude Code 那样登记，带上忙闲状态（空串时不写这一项）。

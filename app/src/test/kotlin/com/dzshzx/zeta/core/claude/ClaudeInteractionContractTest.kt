@@ -10,6 +10,7 @@ import com.dzshzx.zeta.core.elicitationContent
 import com.dzshzx.zeta.core.elicitationResponse
 import com.dzshzx.zeta.core.parsePrompt
 import com.dzshzx.zeta.core.permissionResponse
+import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -380,16 +381,6 @@ class ClaudeInteractionContractTest {
 
     private fun permission(o: JsonObject) = parsePrompt(o) as? PermissionRequest
 
-    /** Claude Code 在别的线程上做完的事（比如写文件）：60 秒内 [done] 变成真就返回 true。 */
-    private fun eventually(done: () -> Boolean): Boolean {
-        val deadline = System.currentTimeMillis() + 60_000
-        while (!done()) {
-            if (System.currentTimeMillis() > deadline) return false
-            Thread.sleep(20)
-        }
-        return true
-    }
-
     @Test
     fun toolPrompts() {
         assumeTrue("没有 claude 命令", claudeAvailable())
@@ -422,7 +413,7 @@ class ClaudeInteractionContractTest {
             val local = File(home, "proj/.claude/settings.local.json")
             assertTrue(
                 "规则写进项目的 settings.local.json",
-                eventually { local.isFile && local.readText().contains("Bash(touch a.txt)") },
+                waitUntil(60) { local.isFile && local.readText().contains("Bash(touch a.txt)") },
             )
             c.user("again")
             var again = 0
