@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertTrue
 
@@ -9,14 +10,17 @@ internal object HostTesting {
     /**
      * 以 [home] 作 HOME 跑一条命令，返回标准输出。环境只有 HOME、PATH（[home]/bin 排最前，claude 的替身在那里）、LANG、
      * ZETA_IDLE_STEP=1（看门狗每秒看一次，进程没了它很快退出，不留后台的 sleep）和 [env]。
-     * 标准输入立即关掉（应用这头马上断开，起的进程照样在后台跑），标准错误丢掉；一分钟内没结束就失败。
+     * 标准输入立即关掉（应用这头马上断开，起的进程照样在后台跑），标准错误丢掉；一分钟内没结束、或结束后一分钟内标准输出还没关就失败。
+     * 标准输出在别的线程读，命令卡住时这个限时照样到点，不会一直等到测试任务超时。
      */
     fun run(home: File, command: List<String>, env: Map<String, String> = emptyMap()): String {
         val process = builder(home, command, env).start()
         process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        assertTrue("命令超时：$command", process.waitFor(60, TimeUnit.SECONDS))
-        return out
+        val out = CompletableFuture.supplyAsync { process.inputStream.bufferedReader().readText() }
+        val exited = process.waitFor(60, TimeUnit.SECONDS)
+        if (!exited) process.destroyForcibly()
+        assertTrue("命令超时：$command", exited)
+        return out.get(60, TimeUnit.SECONDS)
     }
 
     /** [run] 用的进程（同样的环境，标准错误丢掉），要自己读写标准输入输出、看退出码的测试直接用。 */
