@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -29,7 +30,6 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.NoticeItem
-import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.notice
@@ -237,51 +237,57 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
     var conversation by mutableStateOf<Conversation?>(null)
         private set
 
-    var sending by mutableStateOf(false)
-        private set
-
     var problem by mutableStateOf<String?>(null)
         private set
 
     /** 刚发出去、对话还没开起来时的问题：面板先显示它和「正在分析任务」（照 Eta 一发出去就铺开面板）。 */
-    private var asking by mutableStateOf<String?>(null)
+    private var pending by mutableStateOf<String?>(null)
+
+    /** 正在发：等系统交齐截图、开对话。 */
+    val sending: Boolean
+        get() = pending != null
 
     /** 发出去了、Claude 还没开口（也不是在等确认）：屏幕边缘流光。 */
     val thinking: Boolean
         get() =
             sending ||
                 conversation?.let {
-                    it.busy && it.pending == null && reply?.text.isNullOrEmpty()
+                    it.busy && it.pending == null && (reply?.answerLength ?: 0) == 0
                 } == true
 
-    val screenChip: ScreenChip?
-        get() {
-            val capture = capture ?: return null
-            if (capture.empty) return null
-            val app = capture.focusedApp?.let(ScreenDigest::appName) ?: "当前屏幕"
-            return ScreenChip(
-                app = app,
-                thumbnail = capture.screenshot?.preview,
-                waiting = capture.waitingAssist || capture.waitingScreenshot,
-                removed = !includeScreen,
-                textOnly = capture.screenshot == null && !capture.waitingScreenshot,
-                sent = sending || conversation != null,
-            )
-        }
+    /** 带上的屏幕；什么都没采到时为 null。和 [reply] 一样一次快照只算一遍。 */
+    val screenChip: ScreenChip? by derivedStateOf {
+        val capture = capture?.takeIf { !it.empty } ?: return@derivedStateOf null
+        ScreenChip(
+            app = capture.focusedApp?.let(ScreenDigest::appName) ?: "当前屏幕",
+            thumbnail = capture.screenshot?.preview,
+            waiting = capture.waitingAssist || capture.waitingScreenshot,
+            removed = !includeScreen,
+            textOnly = capture.screenshot == null && !capture.waitingScreenshot,
+        )
+    }
 
     val suggestions: List<String>
         get() = AssistantSuggestions.forContext(includeScreen && screenChip != null)
 
-    val reply: ReplyView?
-        get() {
-            val sent = screenChip?.takeIf { !it.removed }
-            val c =
-                conversation
-                    ?: return asking?.let {
-                        AssistantReplies.view(listOf(UserItem("asking", it)), true, null, sent)
-                    }
-            return AssistantReplies.view(c.items, c.busy, c.pending?.notice, sent)
+    /** 面板上的对话，还没发时为 null；用户去掉了的屏幕不画在问题上面。一次快照只算一遍：流式输出时每出一个字都要重新整理整份对话， 浮窗上又有几处读它。 */
+    val reply: ReplyView? by derivedStateOf {
+        val sent = screenChip?.takeIf { !it.removed }
+        val c = conversation
+        if (c != null) {
+            AssistantReplies.view(c.items, c.busy, c.pending?.notice, sent)
+        } else {
+            pending?.let {
+                AssistantReplies.view(
+                    emptyList(),
+                    busy = true,
+                    waitingFor = null,
+                    screen = sent,
+                    asking = it,
+                )
+            }
         }
+    }
 
     fun toggleScreen() {
         includeScreen = !includeScreen
@@ -302,8 +308,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
                     problem = "Zeta 还没有配置 Linux 环境，先打开 Zeta 设置好"
                     return
                 }
-        sending = true
-        asking = question
+        pending = question
         scope.launch {
             val capture = capture?.takeIf { includeScreen }
             capture?.settle()
@@ -324,8 +329,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
                 hint = HINT,
             )
             started.send(ScreenDigest.message(question, block), listOfNotNull(shot))
-            sending = false
-            asking = null
+            pending = null
             if (!started.busy) {
                 problem =
                     started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.text

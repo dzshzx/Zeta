@@ -170,8 +170,25 @@ class ScreenDigestTest {
         assertEquals("这页讲了什么", first.text)
         assertEquals(screen, first.screen)
         assertNull((view.entries[2] as ReplyEntry.Question).screen)
-        assertEquals("先看一下。\n\n这是设置页。", view.text)
+        // 最后一问之后的回答字数（各段去掉首尾空白）
+        assertEquals("先看一下。".length + "这是设置页。".length, view.answerLength)
         assertTrue(view.busy)
+    }
+
+    @Test
+    fun askingShowsBeforeTheConversationStarts() {
+        val screen = ScreenChip("设置", null, waiting = false, removed = false, textOnly = true)
+        // 刚发出去、对话还没开起来：只有这一问（带着屏幕）和「正在分析任务」
+        val view =
+            AssistantReplies.view(emptyList(), true, null, screen = screen, asking = "这页讲了什么")
+        val question = view.entries.first() as ReplyEntry.Question
+        assertEquals("这页讲了什么", question.text)
+        assertEquals(screen, question.screen)
+        assertEquals(WorkSummary.ANALYZING, (view.entries.last() as ReplyEntry.Status).text)
+        assertEquals(0, view.answerLength)
+        // 接着问时屏幕只画在第一问上面
+        val again = AssistantReplies.view(listOf(UserItem("u0", "上一问")), true, null, screen, "再问")
+        assertNull((again.entries[1] as ReplyEntry.Question).screen)
     }
 
     @Test

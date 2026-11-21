@@ -68,14 +68,13 @@ class AssistantShots : ShotTest() {
         }
     }
 
-    private fun screen(sent: Boolean = false, removed: Boolean = false) =
+    private fun screen(removed: Boolean = false) =
         ScreenChip(
             app = "设置（com.android.settings）",
             thumbnail = thumbnail(),
             waiting = false,
             removed = removed,
             textOnly = false,
-            sent = sent,
         )
 
     private val question = "这页讲了什么"
@@ -90,7 +89,7 @@ class AssistantShots : ShotTest() {
             listOf(UserItem("u1", question)) + items,
             busy = busy,
             waitingFor = null,
-            screen = screen(sent = true),
+            screen = screen(),
         )
 
     @Composable

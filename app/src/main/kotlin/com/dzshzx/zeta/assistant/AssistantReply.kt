@@ -1,9 +1,6 @@
 package com.dzshzx.zeta.assistant
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,10 +42,13 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.ui.chat.AnswerBlock
+import com.dzshzx.zeta.ui.chat.Chevron
 import com.dzshzx.zeta.ui.chat.NoticeRow
 import com.dzshzx.zeta.ui.chat.PulsingText
 import com.dzshzx.zeta.ui.chat.WorkStepRow
 import com.dzshzx.zeta.ui.chat.presentation
+import com.dzshzx.zeta.ui.chat.rememberWorkInk
+import com.dzshzx.zeta.ui.chat.workIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
@@ -57,7 +56,6 @@ import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 // 回答面板里的几样照 Eta 浮窗里的对话（GPL-3.0）：用户气泡的外形和配色拷自 ui/components/ChatMessageItem.kt
@@ -75,8 +73,6 @@ internal data class ScreenChip(
     val removed: Boolean,
     /** 没有截图（ASSIST intent 唤起，或者系统没给）。 */
     val textOnly: Boolean,
-    /** 已经发出去了：只说带了什么，不能再改。 */
-    val sent: Boolean = false,
 )
 
 /** 回答面板里的一行（照 Eta 浮窗里的对话列表）。 */
@@ -119,19 +115,9 @@ internal data class ReplyView(
     val entries: List<ReplyEntry>,
     /** 这一轮还在进行（正在分析、正在处理、在出回答）：输入栏右边是停止键，输入框暂时不能输入。 */
     val busy: Boolean,
-) {
-    /** 最后一问之后 Claude 说的话，按顺序接起来。 */
-    val text: String
-        get() =
-            entries
-                .takeLastWhile { it !is ReplyEntry.Question }
-                .filterIsInstance<ReplyEntry.Answer>()
-                .joinToString("\n\n") { it.item.text.trim() }
-
-    /** 有可以复制、带进 Zeta 的回答。 */
-    val answered: Boolean
-        get() = entries.any { it is ReplyEntry.Answer && it.item.text.isNotBlank() }
-}
+    /** 最后一问之后 Claude 说了多少字（各段回答去掉首尾空白后相加）：0 是还没开口；流式输出时跟着长，回答区靠它跟到底。 */
+    val answerLength: Int,
+)
 
 /** 工作过程那一行（照 Eta 的 AgentWorkHeader）的文字。 */
 internal object WorkSummary {
@@ -157,22 +143,32 @@ internal object WorkSummary {
 
 /** 从对话的条目里取浮窗要显示的对话。纯函数，单元测试覆盖。 */
 internal object AssistantReplies {
-    /** [screen] 是这次带上的屏幕，画在第一问上面；[waitingFor] 是在等用户处理的请求（确认工具调用）。 */
+    /** [screen] 是这次带上的屏幕，画在第一问上面；[waitingFor] 是在等用户处理的请求（确认工具调用）；[asking] 是刚发出去、还没进对话的问题，排在最后。 */
     fun view(
         items: List<ChatItem>,
         busy: Boolean,
         waitingFor: String?,
         screen: ScreenChip? = null,
+        asking: String? = null,
     ): ReplyView {
         val entries = ArrayList<ReplyEntry>()
+        var unsentScreen = screen
         for (item in items) {
-            entryOf(item, screen.takeIf { entries.none { it is ReplyEntry.Question } })
-                ?.let(entries::add)
+            val entry = entryOf(item, unsentScreen) ?: continue
+            if (entry is ReplyEntry.Question) unsentScreen = null
+            entries += entry
         }
-        status(entries.takeLastWhile { it !is ReplyEntry.Question }, busy, waitingFor)
-            ?.let(entries::add)
-        return ReplyView(entries, busy)
+        if (asking != null) entries += ReplyEntry.Question(ASKING, asking, unsentScreen)
+        val tail = entries.takeLastWhile { it !is ReplyEntry.Question }
+        val answerLength = tail.sumOf {
+            (it as? ReplyEntry.Answer)?.item?.text?.trim()?.length ?: 0
+        }
+        status(tail, busy, waitingFor)?.let(entries::add)
+        return ReplyView(entries, busy, answerLength)
     }
+
+    /** 还没进对话的那一问的 key。 */
+    private const val ASKING = "asking"
 
     private fun entryOf(item: ChatItem, screen: ScreenChip?): ReplyEntry? =
         when (item) {
@@ -234,7 +230,7 @@ private fun QuestionBubble(entry: ReplyEntry.Question) {
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        entry.screen?.takeIf { !it.removed }?.let { ScreenAttachment(it, colors) }
+        entry.screen?.let { ScreenAttachment(it, colors) }
         if (entry.text.isNotEmpty()) {
             SelectionContainer {
                 Text(
@@ -321,9 +317,7 @@ private fun WorkRow(item: WorkItem) {
         WorkHeader(
             text = WorkSummary.text(item),
             working = item.running,
-            icon =
-                (item.steps.lastOrNull { it.running } as? ToolStep)?.presentation()?.icon
-                    ?: if (item.running) ZetaIcons.Lightbulb else COUIIcons.SelectAll,
+            icon = workIcon(item.steps.lastOrNull { it.running }),
             expanded = expanded,
             onClick = { expanded = !expanded },
         )
@@ -358,10 +352,7 @@ private fun WorkHeader(
     expanded: Boolean?,
     onClick: (() -> Unit)?,
 ) {
-    val colors = COUITheme.colorScheme
-    val dark = colors.isDark
-    val mutedInk = colors.labelPrimary.copy(alpha = if (dark) 0.56f else 0.52f)
-    val iconInk = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f)
+    val ink = rememberWorkInk()
     Row(
         modifier =
             Modifier.fillMaxWidth()
@@ -375,36 +366,23 @@ private fun WorkHeader(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(14.5.dp),
-                tint = if (working) colors.primary else iconInk,
+                tint = if (working) COUITheme.colorScheme.primary else ink.icon,
             )
         }
         Spacer(modifier = Modifier.width(WorkGutterGap))
         PulsingText(
             text = text,
             active = working,
-            color = mutedInk,
+            color = ink.muted,
             modifier = Modifier.weight(1f, fill = false),
         )
-        if (expanded != null) ExpandChevron(expanded)
+        if (expanded != null) {
+            Chevron(
+                expanded,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                size = 13.dp,
+                tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.5f),
+            )
+        }
     }
-}
-
-/** 展开箭头：收着朝右，展开时转到朝下（照 Eta；Zeta 的图标朝下，收着时转 -90 度）。 */
-@Composable
-private fun ExpandChevron(expanded: Boolean) {
-    val rotation by
-        animateFloatAsState(
-            targetValue = if (expanded) 0f else -90f,
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-            label = "expand_chevron",
-        )
-    Icon(
-        imageVector = ZetaIcons.ChevronDown,
-        contentDescription = if (expanded) "收起工作过程" else "展开工作过程",
-        modifier =
-            Modifier.padding(start = 4.dp, end = 4.dp).size(13.dp).graphicsLayer {
-                rotationZ = rotation
-            },
-        tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.5f),
-    )
 }

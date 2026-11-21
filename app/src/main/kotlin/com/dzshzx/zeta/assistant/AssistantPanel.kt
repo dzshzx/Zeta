@@ -4,14 +4,12 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -52,13 +50,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.draw.CacheDrawScope
+import androidx.compose.ui.draw.DrawResult
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -84,16 +86,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import io.github.suqi8.coui.kmp.anim.COUIOutEaseEasing
 import io.github.suqi8.coui.kmp.anim.couiSpring
-import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 拷自 Eta 的 agent/voice/EtaVoicePanel.kt（GPL-3.0）：压暗与托底、进出场、唤起光效、半屏回答面板的外形
@@ -151,9 +154,9 @@ private fun rememberPanelMotion(): PanelMotion {
                     tween(210, delayMillis = 50, easing = CouiEnterEasing),
                 )
             }
-            // 焦点会主动唤起输入法：等显现和位移都结束、建议问题出齐以后再交出输入焦点
-            val gate = Animatable(0f)
-            gate.animateTo(1f, tween(KeyboardDelayMs, easing = LinearEasing))
+            // 焦点会主动唤起输入法：等显现和位移都结束、建议问题出齐以后再交出输入焦点（跟着系统的动画倍率，截图测试里不等）
+            val scale = coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
+            delay((KeyboardDelayMs * scale).toLong())
         }
         motion.keyboardReady = true
     }
@@ -192,66 +195,58 @@ internal fun AssistantScreen(
 ) {
     val colors = rememberAssistantColors()
     val motion = rememberPanelMotion()
-    val keyboard = LocalSoftwareKeyboardController.current
-    val exitProgress by
+    val exitProgress =
         animateFloatAsState(
             targetValue = if (visible) 0f else 1f,
             animationSpec = tween(210, easing = COUIOutEaseEasing),
             label = "assistant_exit",
         )
-    val hasMessages = reply != null
-    val sheetScrimMix by
+    // 发出去以后压暗加深、底部托底退掉、面板底色淡入，都跟这一个进度
+    val sheetProgress =
         animateFloatAsState(
-            targetValue = if (hasMessages) 1f else 0f,
-            animationSpec = tween(240, easing = LinearOutSlowInEasing),
-            label = "assistant_sheet_scrim_mix",
+            targetValue = if (reply != null) 1f else 0f,
+            animationSpec = tween(220, easing = LinearOutSlowInEasing),
+            label = "assistant_sheet",
         )
-    val textCushionAlpha by
-        animateFloatAsState(
-            targetValue = if (hasMessages) 0f else 1f,
-            animationSpec = tween(200, easing = FastOutSlowInEasing),
-            label = "assistant_text_cushion",
-        )
-    val backdrop = Backdrop(colors, { sheetScrimMix }, { textCushionAlpha }, { 1f - exitProgress })
+    val backdrop =
+        remember(colors) { Backdrop(colors, { sheetProgress.value }, { 1f - exitProgress.value }) }
     val entryOffsetPx = with(LocalDensity.current) { 14.dp.toPx() }
     val exitOffsetPx = with(LocalDensity.current) { 22.dp.toPx() }
-    val actions =
-        PanelActions(
-            onSend = { text ->
-                keyboard?.hide()
-                onSend(text)
-            },
-            onToggleScreen = onToggleScreen,
-            onOpen = onOpen,
-            onStop = onStop,
-            onDismiss = onDismiss,
-        )
+    // 回答只在回答区里读：流式输出时每出一个字只重组回答区，外面这一列都跳过
+    val latestReply = rememberUpdatedState(reply)
+    val replyOf = remember { { latestReply.value } }
+    val actions = rememberPanelActions(onSend, onToggleScreen, onOpen, onStop, onDismiss)
     Box(modifier = Modifier.fillMaxSize().assistantBackdrop(backdrop, motion)) {
         Box(
             modifier =
                 Modifier.fillMaxSize()
-                    .clickable(interactionSource = null, indication = null, onClick = onDismiss),
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                        onClick = actions.onDismiss,
+                    ),
         )
         AssistantEdgeGlow(exiting = !visible, bottomCornerRadius = bottomCornerRadius)
         Box(
             modifier =
                 Modifier.fillMaxSize().graphicsLayer {
-                    alpha = motion.entryAlpha.value * (1f - exitProgress)
+                    alpha = motion.entryAlpha.value * (1f - exitProgress.value)
                     translationY =
                         (1f - motion.entryProgress.value) * entryOffsetPx +
-                            exitProgress * exitOffsetPx
+                            exitProgress.value * exitOffsetPx
                 },
         ) {
             PanelColumn(
                 state =
                     PanelState(
                         screen = screen,
-                        reply = reply,
                         draft = draft,
                         suggestions = suggestions,
                         sending = sending,
                         problem = problem,
                     ),
+                reply = replyOf,
+                sheetAlpha = { sheetProgress.value },
                 colors = colors,
                 motion = motion,
                 focusInput = autoFocus && visible && motion.keyboardReady && reply == null,
@@ -261,11 +256,10 @@ internal fun AssistantScreen(
     }
 }
 
-/** 浮窗这一刻要显示的内容。 */
+/** 浮窗这一刻要显示的内容（回答另外传，只在回答区里读）。内容没变时整列跳过重组。 */
 @Immutable
-private class PanelState(
+private data class PanelState(
     val screen: ScreenChip?,
-    val reply: ReplyView?,
     val draft: TextFieldState,
     val suggestions: List<String>,
     val sending: Boolean,
@@ -282,13 +276,34 @@ private class PanelActions(
     val onDismiss: () -> Unit,
 )
 
-/** 内容后面那一层要用的颜色和进度（在绘制阶段读）。 */
-private class Backdrop(
-    val colors: AssistantColors,
-    val sheetMix: () -> Float,
-    val cushion: () -> Float,
-    val fade: () -> Float,
-)
+/** 一直是同一份 [PanelActions]，点了调最新传进来的回调；发送时先收起键盘。 */
+@Composable
+private fun rememberPanelActions(
+    onSend: (String) -> Unit,
+    onToggleScreen: () -> Unit,
+    onOpen: () -> Unit,
+    onStop: () -> Unit,
+    onDismiss: () -> Unit,
+): PanelActions {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val latest =
+        rememberUpdatedState(PanelActions(onSend, onToggleScreen, onOpen, onStop, onDismiss))
+    return remember(keyboard) {
+        PanelActions(
+            onSend = { text ->
+                keyboard?.hide()
+                latest.value.onSend(text)
+            },
+            onToggleScreen = { latest.value.onToggleScreen() },
+            onOpen = { latest.value.onOpen() },
+            onStop = { latest.value.onStop() },
+            onDismiss = { latest.value.onDismiss() },
+        )
+    }
+}
+
+/** 内容后面那一层要用的颜色和进度（在绘制阶段读）：[sheet] 是铺成面板的进度，底部托底跟它反着走；[fade] 是退场的淡出。 */
+private class Backdrop(val colors: AssistantColors, val sheet: () -> Float, val fade: () -> Float)
 
 /** 压暗（没有回答时轻，发出去以后加深）和底部托底（只在没有回答时：输入胶囊与键盘交界处一层柔和羽化）。 */
 @Composable
@@ -299,12 +314,13 @@ private fun Modifier.assistantBackdrop(backdrop: Backdrop, motion: PanelMotion):
         val colors = backdrop.colors
         val exitFade = backdrop.fade()
         val scrimProgress = motion.scrim.value
-        val baseScrim = lerp(colors.idleScrim, colors.sheetScrim, backdrop.sheetMix())
+        val sheet = backdrop.sheet()
+        val baseScrim = lerp(colors.idleScrim, colors.sheetScrim, sheet)
         val scrimAlpha = baseScrim.alpha * scrimProgress * exitFade
         if (scrimAlpha > 0.002f) drawRect(baseScrim.copy(alpha = scrimAlpha))
         val bottomInsetPx =
             maxOf(imeInsets.getBottom(this), navigationInsets.getBottom(this)).toFloat()
-        val textCushion = scrimProgress * backdrop.cushion() * exitFade
+        val textCushion = scrimProgress * (1f - sheet) * exitFade
         if (textCushion > 0.005f)
             drawTextCushion(colors.textBottomCushion, textCushion, bottomInsetPx)
     }
@@ -332,6 +348,8 @@ private fun DrawScope.drawTextCushion(color: Color, strength: Float, bottomInset
 @Composable
 private fun PanelColumn(
     state: PanelState,
+    reply: () -> ReplyView?,
+    sheetAlpha: () -> Float,
     colors: AssistantColors,
     motion: PanelMotion,
     focusInput: Boolean,
@@ -339,14 +357,11 @@ private fun PanelColumn(
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val reply = state.reply
-    val sheet = rememberSheetState(shown = reply != null)
-    val sheetAlpha by
-        animateFloatAsState(
-            targetValue = if (reply != null) 1f else 0f,
-            animationSpec = tween(durationMillis = 190, easing = LinearOutSlowInEasing),
-            label = "assistant_sheet_background",
-        )
+    val shown by remember(reply) { derivedStateOf { reply() != null } }
+    val sheet = rememberSheetState(shown = shown)
+    // 收回去的淡出放完以前面板外形还在
+    val surfaceVisible by
+        remember(reply, sheetAlpha) { derivedStateOf { reply() != null || sheetAlpha() > 0.001f } }
     // 还没发时：整列往上推够了打开 Zeta，往下拉够了关掉，其余弹回原位
     val openDistance = with(density) { OpenDistance.toPx() }
     val closeDistance = with(density) { CloseDistance.toPx() }
@@ -369,18 +384,20 @@ private fun PanelColumn(
                 Modifier.align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .offset { IntOffset(0, (motion.drag.value + sheet.rubber).roundToInt()) }
-                    .panelDrag(dragState, enabled = reply == null) {
-                        settleDrag(motion.drag, openDistance, closeDistance, actions)
-                    }
-                    .sheetSurface(
-                        colors,
-                        { sheetAlpha },
-                        visible = reply != null || sheetAlpha > 0.001f,
+                    // 还没发时整列都能拖：往上推打开 Zeta，往下拉关掉。有回答以后改由面板的把手和回答区拖动
+                    .draggable(
+                        state = dragState,
+                        orientation = Orientation.Vertical,
+                        enabled = !shown,
+                        onDragStopped = {
+                            settleDrag(motion.drag, openDistance, closeDistance, actions)
+                        },
                     )
+                    .sheetSurface(colors, sheetAlpha, visible = surfaceVisible)
                     .onSizeChanged { sheet.panel = it.height }
                     .panelInsets(),
         ) {
-            PanelBody(state, colors, sheet, handle, focusInput, actions)
+            PanelBody(state, reply, shown, colors, sheet, handle, focusInput, actions)
         }
     }
 }
@@ -402,13 +419,15 @@ private fun rememberKeyboardVisible(): Boolean {
 @Composable
 private fun ColumnScope.PanelBody(
     state: PanelState,
+    reply: () -> ReplyView?,
+    shown: Boolean,
     colors: AssistantColors,
     sheet: SheetState,
     handle: HandleState,
     focusInput: Boolean,
     actions: PanelActions,
 ) {
-    val reply = state.reply
+    val busy by remember(reply) { derivedStateOf { reply()?.busy == true } }
     val onRelease: (SheetRelease) -> Unit = {
         when (it) {
             SheetRelease.Dismiss -> actions.onDismiss()
@@ -416,7 +435,7 @@ private fun ColumnScope.PanelBody(
             is SheetRelease.Settle -> Unit
         }
     }
-    if (reply != null) {
+    if (shown) {
         // 上半截最后量：键盘、输入栏这些先排好，剩下的高度才归它，它的最大高度也照这个算
         Column(
             modifier = Modifier.weight(1f, fill = false).sheetHeight(sheet).clipToBounds(),
@@ -437,11 +456,11 @@ private fun ColumnScope.PanelBody(
         suggestions = state.suggestions,
         onSuggestionClick = { if (!state.sending) actions.onSend(it) },
         colors = colors,
-        visible = reply == null && state.suggestions.isNotEmpty(),
+        visible = !shown && state.suggestions.isNotEmpty(),
     )
     AssistantInputBar(
         input = state.draft,
-        busy = reply?.busy == true,
+        busy = busy,
         sending = state.sending,
         focus = focusInput,
         keyboardVisible = rememberKeyboardVisible(),
@@ -495,19 +514,6 @@ private fun HandoffHaptic(ready: Boolean) {
     }
 }
 
-/** 还没发时整列都能拖：往上推打开 Zeta，往下拉关掉。有回答以后改由面板的把手和回答区拖动。 */
-private fun Modifier.panelDrag(
-    state: DraggableState,
-    enabled: Boolean,
-    onStopped: suspend () -> Unit,
-): Modifier =
-    draggable(
-        state = state,
-        orientation = Orientation.Vertical,
-        enabled = enabled,
-        onDragStopped = { onStopped() },
-    )
-
 /** 背景先覆盖导航区域，再让内容避开系统栏；IME 与导航栏取并集，布局阶段消费一次，跟随系统键盘动画。 */
 @Composable
 private fun Modifier.panelInsets(): Modifier =
@@ -522,7 +528,7 @@ private fun Modifier.panelInsets(): Modifier =
 
 /**
  * 回答面板的外观（照 Eta）：G2 连续顶角、底边直角，面板底色、沿顶部圆角外侧渐隐的环境投影和顶边一道高光，都随 [alpha] 淡入。
- * 未展开回复面板时不启用轮廓裁剪，避免把空状态下的悬浮胶囊顶部与阴影裁掉。
+ * 未展开回复面板时不启用轮廓裁剪，避免把空状态下的悬浮胶囊顶部与阴影裁掉。路径、描边和渐变按尺寸缓存，绘制时只换透明度。
  */
 private fun Modifier.sheetSurface(
     colors: AssistantColors,
@@ -530,63 +536,64 @@ private fun Modifier.sheetSurface(
     visible: Boolean,
 ): Modifier {
     val shape = TopCouiSheetShape(topRadius = SheetCornerRadius)
-    return drawBehind { drawSheetShadow(colors, alpha()) }
+    return drawWithCache { sheetShadow(colors, alpha) }
         .then(
             if (visible)
                 Modifier.clip(shape).clickable(interactionSource = null, indication = null) {}
             else Modifier,
         )
-        .drawWithContent {
-            val sheetAlpha = alpha()
-            if (sheetAlpha > 0f)
-                drawRect(colors.content.copy(alpha = colors.content.alpha * sheetAlpha))
-            drawContent()
-            if (sheetAlpha > 0.01f && size.height > 8f) drawSheetSpecular(colors, sheetAlpha)
-        }
+        .drawWithCache { sheetFill(colors, alpha) }
 }
 
+/** 环境投影叠几层描边。 */
+private const val ShadowLayers = 8
+
 /** 沿着 G2 连续顶部圆角外侧绘制渐隐环境投影，切出面板内部后贴合左右切点收束至 0，避免矩形阴影在圆角外侧露馅。 */
-private fun DrawScope.drawSheetShadow(colors: AssistantColors, sheetAlpha: Float) {
-    if (sheetAlpha <= 0.01f || size.height <= 8f) return
+private fun CacheDrawScope.sheetShadow(colors: AssistantColors, alpha: () -> Float): DrawResult {
     val shadowRisePx = 28.dp.toPx()
     val cornerPx = SheetCornerRadius.toPx().coerceIn(0f, minOf(size.width * 0.5f, size.height))
-    val maxAlpha = (if (colors.dark) 0.30f else 0.10f) * sheetAlpha
     val sheetPath = buildTopCouiSheetPath(size, cornerPx)
-    clipRect(left = 0f, top = -shadowRisePx, right = size.width, bottom = cornerPx) {
-        clipPath(sheetPath, clipOp = ClipOp.Difference) {
-            val layers = 8
-            for (i in 0 until layers) {
-                val fraction = (i + 1f) / layers
-                val spread = shadowRisePx * fraction
-                val falloff = 1f - i.toFloat() / layers
-                val layerAlpha = maxAlpha * falloff * falloff * (2.2f / layers)
-                if (layerAlpha > 0.001f) {
-                    drawPath(
-                        path = sheetPath,
-                        color = Color.Black.copy(alpha = layerAlpha),
-                        style = Stroke(width = spread * 2f, cap = StrokeCap.Butt),
-                    )
+    val strokes =
+        List(ShadowLayers) { i ->
+            Stroke(width = shadowRisePx * (i + 1f) / ShadowLayers * 2f, cap = StrokeCap.Butt)
+        }
+    return onDrawBehind {
+        val sheetAlpha = alpha()
+        if (sheetAlpha <= 0.01f || size.height <= 8f) return@onDrawBehind
+        val maxAlpha = (if (colors.dark) 0.30f else 0.10f) * sheetAlpha
+        clipRect(left = 0f, top = -shadowRisePx, right = size.width, bottom = cornerPx) {
+            clipPath(sheetPath, clipOp = ClipOp.Difference) {
+                strokes.forEachIndexed { i, stroke ->
+                    val falloff = 1f - i.toFloat() / ShadowLayers
+                    val layerAlpha = maxAlpha * falloff * falloff * (2.2f / ShadowLayers)
+                    if (layerAlpha > 0.001f) {
+                        drawPath(sheetPath, Color.Black.copy(alpha = layerAlpha), style = stroke)
+                    }
                 }
             }
         }
     }
 }
 
-/** 面板顶边的一道高光，往下渐隐。 */
-private fun DrawScope.drawSheetSpecular(colors: AssistantColors, sheetAlpha: Float) {
-    val rimFadePx = minOf(84.dp.toPx(), size.height * 0.55f)
-    val path = buildTopCouiSheetPath(size, SheetCornerRadius.toPx())
-    drawPath(
-        path = path,
-        brush =
-            Brush.verticalGradient(
-                0f to colors.panelSpecular.copy(alpha = colors.panelSpecular.alpha * sheetAlpha),
-                1f to Color.Transparent,
-                startY = 0f,
-                endY = rimFadePx.coerceAtLeast(1f),
-            ),
-        style = Stroke(width = 1.15.dp.toPx()),
-    )
+/** 面板底色，和顶边的一道高光（往下渐隐）。 */
+private fun CacheDrawScope.sheetFill(colors: AssistantColors, alpha: () -> Float): DrawResult {
+    val rimPath = buildTopCouiSheetPath(size, SheetCornerRadius.toPx())
+    val rimBrush =
+        Brush.verticalGradient(
+            0f to colors.panelSpecular,
+            1f to Color.Transparent,
+            startY = 0f,
+            endY = minOf(84.dp.toPx(), size.height * 0.55f).coerceAtLeast(1f),
+        )
+    val rimStroke = Stroke(width = 1.15.dp.toPx())
+    return onDrawWithContent {
+        val sheetAlpha = alpha()
+        if (sheetAlpha > 0f)
+            drawRect(colors.content.copy(alpha = colors.content.alpha * sheetAlpha))
+        drawContent()
+        if (sheetAlpha > 0.01f && size.height > 8f)
+            drawPath(rimPath, rimBrush, alpha = sheetAlpha, style = rimStroke)
+    }
 }
 
 /** 往上拉时把手的样子：[hint] 拉取进度过了 18%，[ready] 拉够了、这时松手打开 Zeta。 */
@@ -667,12 +674,12 @@ private fun BoxScope.HandoffHint(ready: Boolean, colors: AssistantColors, alpha:
 /** 回答区：占面板上半截剩下的高度，回答短时下面留白，放不下时自己滚动；出来时从下面 14dp 处淡入（照 Eta）。 回答已经滚到顶时往下拖、面板还没到最高时往上拖，改的是面板高度。 */
 @Composable
 private fun ColumnScope.ReplyArea(
-    reply: ReplyView,
+    reply: () -> ReplyView?,
     sheet: SheetState,
     onRelease: (SheetRelease) -> Unit,
     onOpen: () -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val view = reply() ?: return
     val scroll = rememberScrollState()
     val cache = remember { StreamingMarkdownStateCache() }
     val reveal = remember { Animatable(0f) }
@@ -680,8 +687,8 @@ private fun ColumnScope.ReplyArea(
         reveal.animateTo(1f, tween(210, delayMillis = 45, easing = CouiEnterEasing))
     }
     // 一直跟到底：流式回答、面板长高、新的一问都跟着
-    LaunchedEffect(reply.entries.size, reply.text.length, scroll.maxValue) {
-        if (reply.busy) scroll.scrollTo(scroll.maxValue)
+    LaunchedEffect(view.entries.size, view.answerLength, scroll.maxValue) {
+        if (view.busy) scroll.scrollTo(scroll.maxValue)
     }
     Column(
         modifier =
@@ -700,21 +707,13 @@ private fun ColumnScope.ReplyArea(
                     .wrapContentHeight(Alignment.Top)
                     .onSizeChanged { sheet.content = it.height },
         ) {
-            ReplyEntries(reply, cache)
+            ReplyEntries(view, cache)
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.End,
         ) {
-            Text(
-                text = "在 Zeta 中继续",
-                style = COUITheme.textStyles.buttonS,
-                color = colors.primary,
-                modifier =
-                    Modifier.clip(CircleShape)
-                        .clickable(role = Role.Button, onClick = onOpen)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
+            TextAction("在 Zeta 中继续", COUITheme.colorScheme.primary, onOpen)
         }
     }
 }
@@ -763,41 +762,36 @@ private fun screenCaption(screen: ScreenChip): String =
         else -> "会带上截屏和屏幕上的文字"
     }
 
-/** 那一行最右边：去掉了是「带上」，带着是一个叉。 */
+/** 那一行最右边：去掉了是「带上」，带着是一个叉（32dp 的点按区里一个 22dp 的小圆底）。 */
 @Composable
 private fun ScreenToggle(removed: Boolean, colors: AssistantColors, onToggle: () -> Unit) {
     if (removed) {
-        Text(
-            text = "带上",
-            style = COUITheme.textStyles.buttonS,
-            color = colors.accent,
-            modifier =
-                Modifier.clip(CircleShape)
-                    .clickable(role = Role.Button, onClick = onToggle)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
+        TextAction("带上", colors.accent, onToggle)
         return
     }
-    Box(
+    FlatIconButton(
+        icon = COUIIcons.Close,
+        contentDescription = "不带屏幕内容",
+        size = 32.dp,
+        iconSize = 12.dp,
+        modifier = Modifier.drawBehind { drawCircle(colors.controlSurface, radius = 11.dp.toPx()) },
+        tint = colors.inputSecondary,
+        onClick = onToggle,
+    )
+}
+
+/** 只有一行主色小字的按钮：「带上」「在 Zeta 中继续」。 */
+@Composable
+private fun TextAction(text: String, color: Color, onClick: () -> Unit) {
+    Text(
+        text = text,
+        style = COUITheme.textStyles.buttonS,
+        color = color,
         modifier =
-            Modifier.size(32.dp)
-                .clip(CircleShape)
-                .semantics { contentDescription = "不带屏幕内容" }
-                .clickable(role = Role.Button, onClick = onToggle),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier.size(22.dp).clip(CircleShape).background(colors.controlSurface),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                COUIIcons.Close,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = colors.inputSecondary,
-            )
-        }
-    }
+            Modifier.clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 /** 发不出去时的说明（比如还没配置 Linux 环境），放在一块浮起的小面板上，压暗的页面上也看得清。 */

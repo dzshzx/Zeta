@@ -337,11 +337,11 @@ internal fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
     }
 }
 
-/** 时间线里弱化的文字和图标的颜色：主文字色调淡。 */
-private class WorkInk(val border: Color, val muted: Color, val icon: Color)
+/** 时间线里弱化的文字和图标的颜色：主文字色调淡。数字助理浮窗的工作过程那一行也用。 */
+internal class WorkInk(val border: Color, val muted: Color, val icon: Color)
 
 @Composable
-private fun rememberWorkInk(): WorkInk {
+internal fun rememberWorkInk(): WorkInk {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val ink = colors.labelPrimary
@@ -395,12 +395,7 @@ internal fun WorkGroup(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector =
-                    when {
-                        runningTool != null -> runningTool.icon
-                        running is ThinkingStep -> ZetaIcons.Lightbulb
-                        else -> COUIIcons.SelectAll
-                    },
+                imageVector = workIcon(running),
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
                 tint = if (running != null) colors.primary else ink.icon,
@@ -432,6 +427,14 @@ internal fun WorkGroup(
         }
     }
 }
+
+/** 工作过程表头的图标：[running] 是在跑的那一步，工具用它自己的图标，思考是灯泡；都做完了（null）是对勾。数字助理浮窗也用。 */
+internal fun workIcon(running: WorkStep?): ImageVector =
+    when (running) {
+        is ToolStep -> running.presentation().icon
+        null -> COUIIcons.SelectAll
+        else -> ZetaIcons.Lightbulb
+    }
 
 /** 发起子代理的工具。Task 是 Agent 的旧名。 */
 private val SubagentTools = setOf("Agent", "Task")
@@ -628,14 +631,20 @@ private fun StatusDot(color: Color, label: String) {
     }
 }
 
+/** 展开箭头：收着朝右，展开时转到朝下（图标朝下，收着时转 -90 度）。默认是聊天页的大小和颜色，[modifier] 默认在左边留 6dp。 */
 @Composable
-internal fun Chevron(expanded: Boolean) {
+internal fun Chevron(
+    expanded: Boolean,
+    modifier: Modifier = Modifier.padding(start = 6.dp),
+    size: Dp = 17.dp,
+    tint: Color = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.7f),
+) {
     val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
     Icon(
         imageVector = ZetaIcons.ChevronDown,
         contentDescription = if (expanded) "收起" else "展开",
-        modifier = Modifier.padding(start = 6.dp).size(17.dp).rotate(rotation),
-        tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.7f),
+        modifier = modifier.size(size).rotate(rotation),
+        tint = tint,
     )
 }
 
