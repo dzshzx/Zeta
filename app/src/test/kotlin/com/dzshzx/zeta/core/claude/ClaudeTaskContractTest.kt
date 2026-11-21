@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -548,29 +549,41 @@ class ClaudeTaskContractTest {
             claude.turn("go")
             val id = claude.events.system("task_started").single().str("task_id")!!
             val before = claude.events.size
+            val inits = claude.events.system("init").size
             claude.control(
                 buildJsonObject {
                     put("subtype", "stop_task")
                     put("task_id", id)
                 },
             )
+            // 和后台命令不同，子代理的结局不一定在应答之前到齐（要先中止它进行中的模型请求）：读到清单变化为止再看先后
+            if ("background_tasks_changed" !in claude.systemSince(before))
+                claude.until {
+                    it.str("type") == "system" && it.str("subtype") == "background_tasks_changed"
+                }
             assertEquals(
                 listOf("task_updated", "task_notification", "background_tasks_changed"),
-                claude.systemSince(before),
+                claude.systemSince(before).filter { it != "init" },
             )
             assertEquals(
                 "stopped",
                 claude.events.system("task_notification").single().str("status"),
             )
             // 和后台命令不同：子代理停下后 Claude Code 另起一轮处理这个结局
-            assertNotNull(
-                claude.poll(30) { it.str("type") == "system" && it.str("subtype") == "init" },
-            )
+            if (claude.events.system("init").size == inits)
+                claude.until { it.str("type") == "system" && it.str("subtype") == "init" }
             assertEquals(TaskState.Stopped, board(claude.events).tasks.single().state)
-            // 记录的 meta 记着是被停下的，没有 finished
-            val meta = subagentMeta(claude.sessionId(), id)
-            assertEquals("true", meta.str("stoppedByUser"))
-            assertNull(meta["finished"])
+            // 记录的 meta 记着是被停下的，没有 finished。meta 是 Claude Code 另写的文件，和输出流没有先后：等它写上
+            val session = claude.sessionId()
+            var meta: JsonObject? = null
+            assertTrue(
+                "meta 一直没记上 stoppedByUser",
+                waitUntil(60) {
+                    meta = runCatching { subagentMeta(session, id) }.getOrNull()
+                    meta?.str("stoppedByUser") == "true"
+                },
+            )
+            assertNull(meta!!["finished"])
         }
     }
 
