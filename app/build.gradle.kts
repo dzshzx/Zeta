@@ -292,8 +292,11 @@ tasks.withType<Test>().configureEach {
     systemProperty("zeta.shots.dir", shotsDir)
     // Zeta 经 su 执行的命令在单元测试里一律失败，碰不到开发机或手机 Debian 自己的 su
     environment("PATH", noRootPath)
-    // 测试结果不进构建缓存（编译结果照常进）
-    outputs.cacheIf("截图写在没声明的 app/build/shots，取回缓存时图不会出来；契约测试依赖本机的 claude 命令行") { false }
+    // 测试结果不进构建缓存（编译结果照常进）。版本号随提交变、写进 BuildConfig 和清单，换个提交测试的输入就跟着变，
+    // 能命中的只有同一个提交在别的树里重跑；只改文档和设备脚本的提交，门禁已经不跑测试（scripts/check.sh）。
+    // 要缓存还得先声明一串本机输入：截图目录 app/build/shots，契约测试用的 claude 命令行，bash、jq、ssh 等系统命令，
+    // ZETA_TEST_SSH 指的手机 Debian
+    outputs.cacheIf("版本号随提交变，换个提交就不命中；截图目录和本机的 claude、jq 等命令行都没声明") { false }
     // 卡死的测试（比如截图测试里在长页面上 performScrollTo）到点就失败，不把门禁和构建名额一直挂着。
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
     timeout.set(Duration.ofMinutes(10))
