@@ -96,7 +96,7 @@ class FakeClaudeHostTest {
         // result 之后才写 command_lifecycle completed（和真 Claude Code 一样）：等到它，不在 result 一出现就看
         assertTrue(
             "没等到这一轮结束",
-            waitUntil(60) {
+            waitUntil {
                 out.readText().let {
                     "\"type\":\"result\"" in it && "\"state\":\"completed\"" in it
                 }
@@ -112,7 +112,7 @@ class FakeClaudeHostTest {
 
         // 剧本撤下：闲着的假 Claude 自己退出，之后测试版起的就是真的 claude
         fakeDir.deleteRecursively()
-        assertTrue("剧本删了，假 Claude 还在", waitUntil(60) { !HostTesting.alive(pid) })
+        assertTrue("剧本删了，假 Claude 还在", waitUntil { !HostTesting.alive(pid) })
         start(dev, "k-dev")
         assertFalse(commandLine(pid(dev, "k-dev")).contains("fake-claude"))
     }

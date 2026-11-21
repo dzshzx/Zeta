@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.HostTesting.alive
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,12 +33,7 @@ class HostHandoffTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         started.forEach { it.destroyForcibly() }
-        File(home, ".cache/$name/hosts").listFiles().orEmpty().forEach { dir ->
-            runCatching { File(dir, "pid").readText().trim() }
-                .getOrNull()
-                ?.let { ProcessBuilder("kill", "-9", it).start().waitFor(5, TimeUnit.SECONDS) }
-        }
-        HostTesting.killRegistered(home)
+        HostTesting.killHosts(home, name)
         home.deleteRecursively()
     }
 
@@ -155,7 +149,7 @@ class HostHandoffTest {
             )
             assertTrue(
                 "$wrapper：没收掉",
-                waitUntil(60) { !hostDir("k1").exists() && !hostDir("k2").exists() },
+                waitUntil { !hostDir("k1").exists() && !hostDir("k2").exists() },
             )
         }
     }
@@ -219,14 +213,11 @@ class HostHandoffTest {
         val lines = attach.inputStream.bufferedReader()
         assertTrue(lines.readLine().orEmpty().contains("zeta_attached"))
         attach.outputStream.apply {
-            write(
-                "{\"type\":\"control_request\",\"request\":{\"subtype\":\"end_session\"}}\n"
-                    .toByteArray(),
-            )
+            write(HostTesting.END_SESSION.toByteArray())
             flush()
         }
         // 限时只防卡死；zeta_exit 这一行托管脚本等起进程的那段写好 exit 才报，读到它不靠时机
-        assertTrue("替身没退出", waitUntil(60) { !alive(pid) })
+        assertTrue("替身没退出", waitUntil { !alive(pid) })
         return generateSequence { lines.readLine() }.firstOrNull { it.contains("zeta_exit") }
     }
 

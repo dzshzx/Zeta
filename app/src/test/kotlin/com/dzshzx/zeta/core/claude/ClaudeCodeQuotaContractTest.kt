@@ -419,7 +419,7 @@ class ClaudeCodeQuotaContractTest {
             File(home, ".claude/.credentials.json.tmp")
                 .renameTo(File(home, ".claude/.credentials.json"))
             // 写回是它自己发现凭据变了以后另做的，和输出流没有先后：等它写回，限时只防卡死
-            waitUntil(60) { configAccount() == "acc-a" }
+            waitUntil { configAccount() == "acc-a" }
             assertEquals("acc-a", configAccount())
             claude.turn("again")
             assertEquals("a@example.com", claude.status("Email"))

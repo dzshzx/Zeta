@@ -60,13 +60,32 @@ internal object HostTesting {
         }
     }
 
-    /**
-     * 进程 [pid] 还在跑。僵尸不算（同 zeta_host.sh 的 running）：结束了的进程什么时候被收尸，看它的父进程或祖先里的 subreaper，
-     * 测试管不着。比如跑门禁的程序把自己设成 subreaper、收养后代里的孤儿却不收尸时，包了一层的替身被结束后就一直是僵尸。
-     */
-    fun alive(pid: Int): Boolean {
-        val stat = runCatching { File("/proc/$pid/stat").readText() }.getOrNull() ?: return false
-        return stat.substringAfterLast(") ").firstOrNull() != 'Z'
+    /** 进程 [pid] 的 /proc/<pid>/stat 里进程名之后的各项（[0] 是状态，[1] 是父进程号）；进程不在了时是 null。 */
+    private fun stat(pid: Int): List<String>? = runCatching {
+        File("/proc/$pid/stat").readText()
+    }
+        .getOrNull()
+        ?.substringAfterLast(") ")
+        ?.split(' ')
+
+    /** 进程 [pid] 还在跑。僵尸不算（同 zeta_host.sh 的 running）：结束了的进程什么时候被收尸，看它的父进程或祖先里收养孤儿的进程，测试管不着。 */
+    fun alive(pid: Int): Boolean = stat(pid)?.firstOrNull()?.let { it != "Z" } ?: false
+
+    /** 进程 [pid] 的父进程号。 */
+    fun parentOf(pid: Int): Int = stat(pid)!![1].toInt()
+
+    /** 发给托管进程输入管道的结束请求（同 zeta_host.sh 的 end_claude 发的 end_session）。 */
+    const val END_SESSION =
+        "{\"type\":\"control_request\",\"request_id\":\"t\",\"request\":{\"subtype\":\"end_session\"}}\n"
+
+    /** 测试收尾：结束 [home] 下包 [name] 各托管目录 pid 文件记的进程，再按 [killRegistered] 结束包了一层时里面的那个。 */
+    fun killHosts(home: File, name: String) {
+        File(home, ".cache/$name/hosts")
+            .listFiles()
+            .orEmpty()
+            .mapNotNull { runCatching { File(it, "pid").readText().trim().toInt() }.getOrNull() }
+            .forEach { ProcessBuilder("kill", "-9", "$it").start().waitFor(5, TimeUnit.SECONDS) }
+        killRegistered(home)
     }
 
     /**
@@ -87,7 +106,7 @@ internal object HostTesting {
     /** 替身按 [registersAs] 登记的进程号；等它最多 60 秒（只防卡死，登记了就返回），没登记就失败。 */
     fun registeredPid(home: File): Int {
         val dir = File(home, ".claude/sessions")
-        assertTrue("替身没登记", waitUntil(60) { dir.list().orEmpty().isNotEmpty() })
+        assertTrue("替身没登记", waitUntil { dir.list().orEmpty().isNotEmpty() })
         return dir.list()!!.single().removeSuffix(".json").toInt()
     }
 

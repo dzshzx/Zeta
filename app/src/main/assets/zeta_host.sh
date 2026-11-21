@@ -65,20 +65,27 @@ host_mark() {
   done
 }
 
+# 进程 $1 的 /proc/<pid>/stat 里括号中进程名之后的各项，放进调用方的数组 STAT（[0] 状态、[1] 父进程号、[19] 启动时刻）；
+# 进程不在了时失败。调用方先 local -a STAT。
+stat_of() {
+  local line
+  read -r line 2>/dev/null <"/proc/$1/stat" || return 1
+  read -ra STAT <<<"${line##*) }"
+}
+
 # 会话 $1 正被 Zeta 之外（不是本包托管）的 Claude Code 进程占着，比如终端里开着的 claude：
 # 和 zeta-helper 的 outsideRegistrations 同一口径看 ~/.claude/sessions 的登记：进程还在、启动时刻（procStart）对得上、
 # 不是本包托管的（见开头 pid 一项：带着本包的记号、那个托管目录输出里最新的会话就是 $1）。
 # 两个进程同时写一份会话记录会错乱，所以这时不起进程，由 Zeta 先把会话从那边接过来（zeta-helper handoff）。
 held_elsewhere() {
-  local f pid stat m
+  local f pid m
+  local -a STAT
   while read -r f; do
     pid=${f##*/}
     pid=${pid%.json}
     case $pid in '' | *[!0-9]*) continue ;; esac
-    stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
-    # 进程名（括号里）之后的第 20 项是启动时刻（stat 第 22 项）
-    read -ra stat <<<"${stat##*) }"
-    grep -qF '"procStart"' "$f" && ! grep -qF "\"procStart\":\"${stat[19]}\"" "$f" && continue
+    stat_of "$pid" || continue
+    grep -qF '"procStart"' "$f" && ! grep -qF "\"procStart\":\"${STAT[19]}\"" "$f" && continue
     m=$(host_mark "$pid")
     [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] &&
       [ "$(tail -c 65536 "${D%/*}/${m#*/}/out.jsonl" 2>/dev/null | grep -o '"session_id":"[^"]*"' | tail -n 1)" = "\"session_id\":\"$1\"" ] &&
@@ -109,11 +116,11 @@ hosted_claude() {
 # 进程 $@ 里还有在跑的（僵尸不算，同 zeta-helper 的 running）。不用 kill -0：它对僵尸也成功。包了一层时 Claude Code 是外面那层的子进程，
 # 两个一起收到 SIGTERM 后它的僵尸改挂到祖先里的 subreaper（或 init）名下，那边不收尸时它会一直留着。
 running() {
-  local p s
+  local p
+  local -a STAT
   for p; do
-    read -r s 2>/dev/null <"/proc/$p/stat" || continue
-    s=${s##*) } # 括号里的进程名之后第一项是状态
-    [ "${s:0:1}" != Z ] && return 0
+    stat_of "$p" || continue
+    [ "${STAT[0]}" != Z ] && return 0
   done
   return 1
 }
@@ -152,7 +159,7 @@ if [ "$mode" = stop ]; then
       for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
     fi
     rm -rf "$D"
-  ' zeta-stop "$(declare -f running hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
+  ' zeta-stop "$(declare -f stat_of running hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 
@@ -232,7 +239,7 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -n "$mine" ] && echo $code > exit
-  ' zeta-run "$(declare -f turn_running tasks_running running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
+  ' zeta-run "$(declare -f turn_running tasks_running stat_of running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else
@@ -243,7 +250,7 @@ fi
 P=$(cat "$D/pid")
 # 起进程的那段（P 的父进程）：P 退出后由它写 exit，下面等它
 R=
-read -r s 2>/dev/null <"/proc/$P/stat" && { s=${s##*) }; s=${s#* }; R=${s%% *}; }
+stat_of "$P" && R=${STAT[1]}
 echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
 # 应用按这个数读到了第几行，远程主机的连接断了从下一行接着读（ClaudeProcess）；之前的行是登录 shell 打的别的东西。

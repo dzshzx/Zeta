@@ -69,8 +69,11 @@ internal fun awaitMain(timeoutMs: Long = 20_000, condition: () -> Boolean) {
     }
 }
 
-/** 每 0.1 秒看一次 [condition]，最多等 [seconds] 秒；等到了返回 true。不执行主线程排队的消息，要等它们用 [awaitMain]。 */
-internal fun waitUntil(seconds: Int, condition: () -> Boolean): Boolean {
+/**
+ * 每 0.1 秒看一次 [condition]，最多等 [seconds] 秒；等到了返回 true。不执行主线程排队的消息，要等它们用 [awaitMain]。 默认的 60
+ * 秒只防卡死：条件一成立就返回，不拿它量快慢，机器忙时也不会误判。
+ */
+internal fun waitUntil(seconds: Int = 60, condition: () -> Boolean): Boolean {
     repeat(seconds * 10) {
         if (condition()) return true
         Thread.sleep(100)

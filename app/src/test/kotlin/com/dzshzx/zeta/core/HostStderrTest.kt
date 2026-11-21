@@ -31,11 +31,7 @@ class HostStderrTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         // 测试半路失败时还开着的替身（它们读输入一直不退）
-        File(home, ".cache/$name/hosts")
-            .listFiles()
-            .orEmpty()
-            .mapNotNull { runCatching { File(it, "pid").readText().trim() }.getOrNull() }
-            .forEach { ProcessBuilder("kill", "-9", it).start().waitFor() }
+        HostTesting.killHosts(home, name)
         home.deleteRecursively()
     }
 
@@ -54,18 +50,14 @@ class HostStderrTest {
     private val kept: File
         get() = File(home, ".cache/$name/stderr")
 
-    /** 等 [key] 留下的那份副本，上限只防卡死。 */
+    /** 等 [key] 留下的那份副本（[waitUntil]）。 */
     private fun keptFor(key: String): File? {
-        repeat(600) {
-            kept
-                .listFiles()
-                ?.firstOrNull { it.name.endsWith("-$key.log") }
-                ?.let {
-                    return it
-                }
-            Thread.sleep(100)
+        var found: File? = null
+        waitUntil {
+            kept.listFiles()?.firstOrNull { it.name.endsWith("-$key.log") }.also { found = it } !=
+                null
         }
-        return null
+        return found
     }
 
     @Test
@@ -96,7 +88,7 @@ class HostStderrTest {
         val out =
             started.takeIf { "zeta_exit" in it }
                 ?: run {
-                    assertTrue("进程没有结束", waitUntil(60) { File(dir, "exit").exists() })
+                    assertTrue("进程没有结束", waitUntil { File(dir, "exit").exists() })
                     HostTesting.run(
                         home,
                         listOf("bash", host.path, "attach", "k-exit", "1"),
@@ -135,24 +127,20 @@ class HostStderrTest {
         val dir = File(home, ".cache/$name/hosts/k")
         fun pid() = File(dir, "pid").readText().trim().toInt()
         val old = pid()
-        val oldRun = parentOf(old)
-        File(dir, "in").appendText(END_SESSION)
-        assertTrue("旧进程的那段没停在留副本那一步", waitUntil(60) { waiting.exists() })
+        val oldRun = HostTesting.parentOf(old)
+        File(dir, "in").appendText(HostTesting.END_SESSION)
+        assertTrue("旧进程的那段没停在留副本那一步", waitUntil { waiting.exists() })
         start("k")
         val new = pid()
-        val newRun = parentOf(new)
+        val newRun = HostTesting.parentOf(new)
         gate.writeText("")
-        assertTrue("旧进程的那段没做完", waitUntil(60) { !HostTesting.alive(oldRun) })
+        assertTrue("旧进程的那段没做完", waitUntil { !HostTesting.alive(oldRun) })
         assertFalse("旧进程的 exit 落进了新的托管目录", File(dir, "exit").exists())
         assertTrue(HostTesting.alive(new))
         // 收尾：新进程也结束，等它的那段做完再删临时目录
-        File(dir, "in").appendText(END_SESSION)
-        assertTrue("新进程的那段没做完", waitUntil(60) { !HostTesting.alive(newRun) })
+        File(dir, "in").appendText(HostTesting.END_SESSION)
+        assertTrue("新进程的那段没做完", waitUntil { !HostTesting.alive(newRun) })
     }
-
-    /** 进程 [pid] 的父进程号。 */
-    private fun parentOf(pid: Int): Int =
-        File("/proc/$pid/stat").readText().substringAfterLast(") ").split(' ')[1].toInt()
 
     @Test
     fun exitStderrDropsAHalfCharacterAtTheCut() {
@@ -209,10 +197,5 @@ class HostStderrTest {
         assertTrue(names.any { it.endsWith("-k-new.log") })
         // 最旧的几份删掉了
         assertTrue(names.none { it.endsWith("-old0.log") || it.endsWith("-old5.log") })
-    }
-
-    private companion object {
-        const val END_SESSION =
-            "{\"type\":\"control_request\",\"request_id\":\"t\",\"request\":{\"subtype\":\"end_session\"}}\n"
     }
 }

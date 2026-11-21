@@ -57,7 +57,7 @@ class HostIsolationTest {
         File(home, ".cache/$name/hosts/$key/pid").readText().trim().toInt()
 
     /** 等进程 [pid] 结束，上限只防卡死。 */
-    private fun gone(pid: Int): Boolean = waitUntil(60) { !alive(pid) }
+    private fun gone(pid: Int): Boolean = waitUntil { !alive(pid) }
 
     @Test
     fun hostsStayWithTheirOwnPackage() {

@@ -467,11 +467,11 @@ class HostTurnTest {
         val busy = pid("k-busy")
         val tasks = pid("k-tasks")
 
-        assertTrue("闲着的进程没有被看门狗结束", waitUntil(60) { File(dir("k-idle"), "exit").exists() })
+        assertTrue("闲着的进程没有被看门狗结束", waitUntil { File(dir("k-idle"), "exit").exists() })
         // 另外两个各自被看过的轮数超过闲置上限（多一轮：记下的是开始睡，看是在睡醒之后）还活着
         fun seen(key: String) =
             rounds.takeIf { it.exists() }?.readLines().orEmpty().count { it == dir(key).path }
-        waitUntil(60) {
+        waitUntil {
             !HostTesting.alive(busy) ||
                 !HostTesting.alive(tasks) ||
                 listOf("k-busy", "k-tasks").all { seen(it) >= IDLE_LIMIT + 2 }

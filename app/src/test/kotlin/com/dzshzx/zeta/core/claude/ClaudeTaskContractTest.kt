@@ -578,7 +578,7 @@ class ClaudeTaskContractTest {
             var meta: JsonObject? = null
             assertTrue(
                 "meta 一直没记上 stoppedByUser",
-                waitUntil(60) {
+                waitUntil {
                     meta = runCatching { subagentMeta(session, id) }.getOrNull()
                     meta?.str("stoppedByUser") == "true"
                 },

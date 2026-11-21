@@ -413,7 +413,7 @@ class ClaudeInteractionContractTest {
             val local = File(home, "proj/.claude/settings.local.json")
             assertTrue(
                 "规则写进项目的 settings.local.json",
-                waitUntil(60) { local.isFile && local.readText().contains("Bash(touch a.txt)") },
+                waitUntil { local.isFile && local.readText().contains("Bash(touch a.txt)") },
             )
             c.user("again")
             var again = 0

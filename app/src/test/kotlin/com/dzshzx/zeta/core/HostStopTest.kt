@@ -45,12 +45,7 @@ class HostStopTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         // 替身没了，还在等宽限期的 stop 随即做完退出，不留在后台
-        hosts
-            .listFiles()
-            .orEmpty()
-            .mapNotNull { runCatching { File(it, "pid").readText().trim().toInt() }.getOrNull() }
-            .forEach { ProcessBuilder("kill", "-9", "$it").start().waitFor(5, TimeUnit.SECONDS) }
-        HostTesting.killRegistered(home)
+        HostTesting.killHosts(home, name)
         home.deleteRecursively()
     }
 
@@ -80,7 +75,7 @@ class HostStopTest {
 
     /** 等 stop 在后台做完（托管目录删掉）。 */
     private fun awaitStopped(key: String) =
-        assertTrue("$key：stop 一直没做完", waitUntil(STOP_LIMIT) { !hostDir(key).exists() })
+        assertTrue("$key：stop 一直没做完", waitUntil { !hostDir(key).exists() })
 
     /** 替身收到 end_session 就退出、SIGTERM 它不理。宽限期比整个测试还长，信号不会来：stop 做完了，就是替身照 end_session 自己退出的。 */
     @Test
@@ -145,10 +140,7 @@ class HostStopTest {
         /** 卡住的进程等多久才收（秒）：短，测试快。 */
         const val SHORT_GRACE = 1
 
-        /** 要断言宽限期还没到时用（秒）：比 [STOP_LIMIT] 和 [run] 的限时都长得多。 */
+        /** 要断言宽限期还没到时用（秒）：比 [waitUntil] 和 [run] 的限时都长得多。 */
         const val LONG_GRACE = 600
-
-        /** 等 stop 做完的上限（秒），只防卡死：条件一成立就返回。 */
-        const val STOP_LIMIT = 60
     }
 }
