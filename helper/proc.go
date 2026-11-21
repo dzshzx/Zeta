@@ -68,6 +68,8 @@ func procArgv(pid int) ([][]byte, bool) {
 }
 
 // claudeArgv：进程 pid 是活着的 Claude Code 时返回它的命令行；没有 pid（0 也算没有）、进程不在了、pid 被别的进程复用了时 ok 为假。
+// 命令行读出来是空的、进程又还在（procExecing）时也算活着，argv 为 nil：托管脚本起 Claude Code 的那一下（包了一层时还有里面那次）
+// 正好碰上 hosts、存储页时，不能把正在用的托管目录当成没人用删掉。
 func claudeArgv(pid int, known bool) ([][]byte, bool) {
 	if !known || pid == 0 {
 		return nil, false
@@ -76,12 +78,31 @@ func claudeArgv(pid int, known bool) ([][]byte, bool) {
 	if !ok {
 		return nil, false
 	}
+	if len(argv) == 1 && len(argv[0]) == 0 {
+		return nil, procExecing(pid)
+	}
 	for _, a := range argv {
 		if bytes.Contains(a, []byte("claude")) {
 			return argv, true
 		}
 	}
 	return nil, false
+}
+
+// procExecing：命令行读出来是空的进程 pid 还不能算结束了。进程 exec 时内核先换上新的内存、再设参数区，
+// 这中间读 /proc/<pid>/cmdline 是空的（平时约 0.1 毫秒，负载高或程序文件读得慢时更长）；僵尸（Z、X）和内核线程的命令行也是空的，它们不算。
+// 退出途中内存已经放掉、还没成僵尸的那一下也算还在：下一次再看就认得它结束了。
+func procExecing(pid int) bool {
+	const pfKthread = 0x00200000 // PF_KTHREAD
+	fields := procStatFields(pid)
+	if len(fields) < 7 {
+		return false
+	}
+	if s := fields[0]; s == "Z" || s == "X" {
+		return false
+	}
+	flags, err := strconv.ParseUint(fields[6], 10, 64)
+	return err == nil && flags&pfKthread == 0
 }
 
 // procStarted 是进程启动的时刻（秒，Unix 时间）；进程不在了时 ok 为假。
