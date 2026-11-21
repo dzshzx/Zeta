@@ -238,3 +238,26 @@ ours() {
     /NotificationRecord\(/ { keep = index($0, p) > 0; ind = match($0, /[^ ]/); if (keep) print; next }
     keep { if (match($0, /[^ ]/) <= ind) keep = 0; else print }'
 }
+
+# seed_session <会话号> <工作目录> <问> <答>：在 Debian 里摆一份一问一答的测试会话（工作目录和 ~/.claude/projects 下对应的目录都建好）
+seed_session() {
+  local project=.claude/projects/${2//\//-}
+  jq -nc --arg id "$1" --arg cwd "$2" --arg q "$3" --arg a "$4" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '
+    {type: "user", cwd: $cwd, sessionId: $id, uuid: "u1", timestamp: $ts, message: {role: "user", content: $q}},
+    {type: "assistant", cwd: $cwd, sessionId: $id, uuid: "a1", timestamp: $ts,
+     message: {role: "assistant", model: "claude-sonnet-5-5", content: [{type: "text", text: $a}]}}' |
+    vd debian --stdin "mkdir -p $2 ~/$project && cat > ~/$project/$1.jsonl" >/dev/null
+}
+
+# drop_session <会话号> <工作目录>：收掉 seed_session 摆的会话，连同还登记着它的进程和登记（脚本退出时用）
+drop_session() {
+  vd debian "for f in ~/.claude/sessions/*.json; do grep -qs $1 \$f || continue; kill \$(basename \$f .json) 2>/dev/null; rm -f \$f; done; \
+rm -rf ~/.claude/projects/${2//\//-} $2" >/dev/null 2>&1 || true
+}
+
+# open_conversation <会话号> [等几秒，默认 6]：在测试屏上按会话号打开对话（没开着就冷启动），等界面起来
+open_conversation() {
+  android "am start --user 0 --display $DISPLAY_ID --activity-single-top -n $PKG/com.dzshzx.zeta.ui.MainActivity \
+--es com.dzshzx.zeta.extra.CONVERSATION $1 >/dev/null"
+  sleep "${2:-6}"
+}

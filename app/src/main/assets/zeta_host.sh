@@ -21,8 +21,9 @@
 #   pid        起进程的那段起的进程号，那段写：通常就是 Claude Code；登录配置把 claude 包成 shell 函数或不 exec 的脚本时是外面那层，
 #              Claude Code 是它的子进程。它活着就是 Claude Code 还在：本脚本 attach、stop、看门狗，zeta-helper 的 hosts、存储页据此看；
 #              应用的 PathCheck（AttachedPaths.kt）经 /proc/<pid>/root 看这个进程的挂载命名空间。
-#              认哪个登记的进程是 Zeta 托管的不看它，看进程身上的记号：起进程的那段给 Claude Code 设环境变量 ZETA_HOST=<ZETA_NAME>/<标识>，
-#              held_elsewhere、hosted_claude、zeta-helper（hostDirOf）、zeta_accounts.sh 都按它认。
+#              认哪个登记的进程是 Zeta 托管的不看它，看进程身上的记号：起进程的那段给 Claude Code 设环境变量 ZETA_HOST=<ZETA_NAME>/<标识>
+#              （host_mark 读，样子同 zeta-helper 的 hostMark）。记号会传给 Claude Code 起的子进程（Bash 工具里再起的 claude），
+#              所以还要会话对得上：托管目录输出里最新的会话（/clear 会换）就是登记的会话。held_elsewhere、zeta-helper（hostDirOf）都这样认。
 #   attach     正接着的那一方（本脚本 start、attach 之后的部分）的进程号，接上时写。看门狗据此知道有没有应用接着；
 #              zeta-helper 的存储页据此不清还连着的目录。
 #   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
@@ -54,12 +55,22 @@ tasks_running() {
   grep '^[{]"type":"system","subtype":"background_tasks_changed"' "$1" | tail -n 1 | grep -qF '"tasks":[{'
 }
 
+# 进程 $1 身上的记号 ZETA_HOST 的值（<包>/<托管目录名>：包名以 zeta 开头，目录名不空、不含 /、不以 . 开头）；没有、样子不对时不输出。
+host_mark() {
+  local -a vars
+  local v
+  mapfile -d '' -t vars 2>/dev/null <"/proc/$1/environ" || return 0
+  for v in "${vars[@]}"; do
+    [[ $v =~ ^ZETA_HOST=(zeta[^/]*/[^/.][^/]*)$ ]] && { echo "${BASH_REMATCH[1]}"; return 0; }
+  done
+}
+
 # 会话 $1 正被 Zeta 之外（不是本包托管）的 Claude Code 进程占着，比如终端里开着的 claude：
 # 和 zeta-helper 的 outsideRegistrations 同一口径看 ~/.claude/sessions 的登记：进程还在、启动时刻（procStart）对得上、
-# 身上没有本包的记号（ZETA_HOST=<ZETA_NAME>/…）。
+# 不是本包托管的（见开头 pid 一项：带着本包的记号、那个托管目录输出里最新的会话就是 $1）。
 # 两个进程同时写一份会话记录会错乱，所以这时不起进程，由 Zeta 先把会话从那边接过来（zeta-helper handoff）。
 held_elsewhere() {
-  local f pid stat
+  local f pid stat m
   while read -r f; do
     pid=${f##*/}
     pid=${pid%.json}
@@ -68,29 +79,37 @@ held_elsewhere() {
     # 进程名（括号里）之后的第 20 项是启动时刻（stat 第 22 项）
     read -ra stat <<<"${stat##*) }"
     grep -qF '"procStart"' "$f" && ! grep -qF "\"procStart\":\"${stat[19]}\"" "$f" && continue
-    tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -q "^ZETA_HOST=${ZETA_NAME:-zeta}/[^/]*$" && continue
+    m=$(host_mark "$pid")
+    [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] &&
+      [ "$(tail -c 65536 "${D%/*}/${m#*/}/out.jsonl" 2>/dev/null | grep -o '"session_id":"[^"]*"' | tail -n 1)" = "\"session_id\":\"$1\"" ] &&
+      continue
     return 0
   done < <(grep -lsF "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json)
   return 1
 }
 
-# 托管目录 $1 的 Claude Code：~/.claude/sessions 里登记的、身上带着这个目录记号（ZETA_HOST=<包>/<标识>）的进程，一行一个。
-# pid 文件记的是外面那层时（claude 被包成 shell 函数或不 exec 的脚本）只有这样找得到它；还没登记（刚起来）时什么也不输出。
+# 托管目录 $1 的 Claude Code：~/.claude/sessions 里登记的、身上带着这个目录记号的进程，一行一个（它起的、也登记了的子进程也在内，
+# 一并结束无妨）。还没登记（刚起来）时什么也不输出。
 hosted_claude() {
-  local n=${1%/hosts/*} f pid
-  local m="ZETA_HOST=${n##*/}/${1##*/}"
+  local n=${1%/hosts/*} f
+  local -a files=()
   for f in "$HOME"/.claude/sessions/*.json; do
-    pid=${f##*/}
-    pid=${pid%.json}
-    case $pid in '' | *[!0-9]*) continue ;; esac
-    tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qxF "$m" && echo "$pid"
+    f=${f##*/}
+    f=${f%.json}
+    case $f in '' | *[!0-9]*) continue ;; esac
+    files+=("/proc/$f/environ")
+  done
+  [ ${#files[@]} -gt 0 ] || return 0
+  grep -lszxF "ZETA_HOST=${n##*/}/${1##*/}" "${files[@]}" | while read -r f; do
+    f=${f#/proc/}
+    echo "${f%/environ}"
   done
 }
 
 # 结束 Claude Code（托管目录 $1、pid 文件记的进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
 # 由它自己停下进行中的这一轮、跑 SessionEnd hook、退出，会话记录留着（ClaudeCodeContractTest 钉住）。
-# 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL：信号发给 $2 和 hosted_claude 找到的进程，
-# $2 是外面那层时只杀它会把 Claude Code 留成没人管的孤儿。stop 和看门狗都用它。
+# 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL：信号发给 $2 和 hosted_claude 找到的进程
+# （$2 可能只是外面那层，见开头 pid 一项）。stop 和看门狗都用它。
 end_claude() {
   local d=$1 p=$2 i
   kill -0 "$p" 2>/dev/null || return 0
@@ -161,9 +180,7 @@ if [ "$mode" = start ]; then
   setsid bash -c '
     eval "$1"; D=$2; R=$3; shift 3
     exec 3<>"$D/in"
-    # 记号：Claude Code 身上的这个环境变量说明它归哪个包的哪个托管目录（见开头 pid 一项）。
-    # 登录配置把 claude 包成 shell 函数（比如经 BASH_ENV 给每个 bash 定义一个选账号的 claude 函数）或不 exec 的脚本时，
-    # $! 是外面那层，真正的 Claude Code 是它的子进程，环境变量照样传过去
+    # 记号：Claude Code 归哪个包的哪个托管目录，包了几层都传得过去（见开头 pid 一项）
     N=${D%/hosts/*}
     export ZETA_HOST="${N##*/}/${D##*/}"
     "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &

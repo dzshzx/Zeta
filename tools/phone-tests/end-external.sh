@@ -5,32 +5,20 @@
 # 截图 <情形>-opened.png（提示条）、<情形>-confirm.png（确认框）、<情形>-ended.png（结束后的侧栏）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/end-external.sh
 #
-# “别处的 Claude Code”是假的（fake/external-claude.sh）。测试会话和它放在 Debian 的 $DIR 和 ~/$PROJECT 里，脚本退出时删掉；
+# “别处的 Claude Code”是假的（fake/external-claude.sh）。测试会话和它放在 Debian 的 $DIR 和 ~/.claude/projects 下对应的目录里，脚本退出时删掉；
 # 会话按会话号打开（和顶部胶囊的“在 Zeta 中打开”同一个入口），不点侧栏。vd stop（phone-run 收尾）改回 remoteHosts、backend。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 DIR=/tmp/zeta-end-external
-PROJECT=.claude/projects/${DIR//\//-}
 ID=$(cat /proc/sys/kernel/random/uuid)
 PANE_X=116 PANE_Y=84 # 顶栏左边的侧栏按钮
 
-cleanup() {
-  vd debian "for f in ~/.claude/sessions/*.json; do grep -qs $ID \$f && kill \$(basename \$f .json); done; \
-rm -rf ~/$PROJECT $DIR" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+trap 'drop_session $ID $DIR' EXIT
 
 # 测试会话（一问一答）和假的 claude 放进 Debian
 vd debian --stdin "mkdir -p $DIR && cat > $DIR/claude && chmod +x $DIR/claude" <"$HERE/fake/external-claude.sh" >/dev/null
-line() {
-  jq -nc --arg type "$1" --arg uuid "$2" --argjson message "$3" --arg id "$ID" --arg cwd "$DIR" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '{type: $type, cwd: $cwd, sessionId: $id, uuid: $uuid, timestamp: $ts, message: $message}'
-}
-{
-  line user u1 '{"role": "user", "content": "end external probe"}'
-  line assistant a1 '{"role": "assistant", "model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "probe reply"}]}'
-} | vd debian --stdin "mkdir -p ~/$PROJECT && cat > ~/$PROJECT/$ID.jsonl" >/dev/null
+seed_session $ID $DIR "end external probe" "probe reply"
 
 # external <情形>：起一个占着测试会话的假 claude（等它登记好），按会话号打开测试会话，结束、确认，核对它结束了、登记删了
 external() {
@@ -38,9 +26,7 @@ external() {
   pid=$(vd debian "setsid nohup $DIR/claude $ID </dev/null >/dev/null 2>&1 & p=\$!; \
 for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; sleep 0.1; done" | tr -d '\r')
   [[ -n $pid ]] || { echo "$name：假 claude 5 秒没登记上"; exit 1; }
-  android "am start --user 0 --display $DISPLAY_ID --activity-single-top -n $PKG/com.dzshzx.zeta.ui.MainActivity \
---es com.dzshzx.zeta.extra.CONVERSATION $ID >/dev/null"
-  sleep 4
+  open_conversation $ID 4
   vd shot "$name-opened.png" >/dev/null
   menu_item $END_X $END_Y
   sleep 1.5

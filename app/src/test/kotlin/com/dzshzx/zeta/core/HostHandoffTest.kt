@@ -57,7 +57,7 @@ class HostHandoffTest {
 
     /**
      * 终端里开着的 Claude Code：一个命令行里带 claude 的进程，像 Claude Code 那样在 ~/.claude/sessions 登记会话 [session]。
-     * [mark] 是它身上的 ZETA_HOST 记号（<包>/<标识>，冒充某个包托管的），null 时没有：测试本身跑在 Zeta 托管的 Claude Code 里时继承来的也去掉。
+     * [mark] 是它身上的 ZETA_HOST 记号（<包>/<标识>，冒充某个包托管的或继承来的），null 时没有（[HostTesting.marked]）。
      */
     private fun terminalHolding(session: String, mark: String? = null): Long {
         val script =
@@ -65,10 +65,8 @@ class HostHandoffTest {
                 writeText("#!/bin/bash\nwhile :; do sleep 0.2; done\n")
                 setExecutable(true)
             }
-        val builder = ProcessBuilder(script.path)
-        builder.environment().remove("ZETA_HOST")
-        mark?.let { builder.environment()["ZETA_HOST"] = it }
-        val process = builder.start().also { started += it }
+        val process =
+            HostTesting.marked(ProcessBuilder(script.path), mark).start().also { started += it }
         register(process.pid(), session)
         return process.pid()
     }
@@ -109,9 +107,9 @@ class HostHandoffTest {
 
     @Test
     fun aSessionHeldByThisPackagesOwnProcessIsNotElsewhere() {
+        HostTesting.writeClaudeStandIn(home, prelude = HostTesting.registersAs(SESSION))
         start("k1")
-        val pid = File(hostDir("k1"), "pid").readText().trim().toLong()
-        register(pid, SESSION)
+        HostTesting.registeredPid(home)
         // 登记还在但进程没了的也不算
         register(999_999, SESSION)
         start("k2", "--resume", SESSION)
@@ -119,9 +117,20 @@ class HostHandoffTest {
     }
 
     /**
-     * claude 被包了一层（shell 函数、不 exec 的脚本）时 pid 文件记的是外面那层，登记的 Claude Code 是它的子进程： 本包的照样认得（看身上的记号
-     * ZETA_HOST），不算别处占着；账号脚本也认得它归本包。
+     * 本包托管的 Claude Code 起的子进程（Bash 工具里再起的 claude）继承了记号，却占着另一个会话：那个会话对本包来说在别处，
+     * 不因为记号就当成自己的（托管目录输出开头的会话对不上）。
      */
+    @Test
+    fun aChildThatInheritedTheMarkHoldsItsSessionElsewhere() {
+        HostTesting.writeClaudeStandIn(home, prelude = HostTesting.registersAs(SESSION))
+        start("k1")
+        HostTesting.registeredPid(home)
+        terminalHolding(OTHER, mark = "$name/k1")
+        val out = start("k2", "--resume", OTHER)
+        assertTrue(out, out.contains("\"reason\":\"held_elsewhere\""))
+    }
+
+    /** claude 被包了一层（[HostTesting.Wrapper]）时本包的进程照样认得：不算别处占着，账号脚本也认得它归本包。 */
     @Test
     fun thisPackagesWrappedProcessIsNotElsewhere() {
         for (wrapper in HostTesting.Wrapper.entries) {

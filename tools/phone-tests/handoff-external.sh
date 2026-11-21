@@ -7,32 +7,20 @@
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/handoff-external.sh
 #
 # “别处的 Claude Code”是假的（fake/external-claude.sh），接过来以后的 Claude 也是假的（fake/text.jsonl）。
-# 测试会话放在 Debian 的 $DIR 和 ~/$PROJECT 里，脚本退出时删掉；会话按会话号打开。vd stop（phone-run 收尾）改回 remoteHosts、backend。
+# 测试会话放在 Debian 的 $DIR 和 ~/.claude/projects 下对应的目录里，脚本退出时删掉；会话按会话号打开。vd stop（phone-run 收尾）改回 remoteHosts、backend。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 DIR=/tmp/zeta-handoff-external
-PROJECT=.claude/projects/${DIR//\//-}
 ID=$(cat /proc/sys/kernel/random/uuid)
 # 卡片上「在 Zeta 接着」按钮的中心（按 JVM 截图 chat-external-idle 量的，按钮贴着卡片底边，说明几行都不影响它）
 HANDOFF_X=300 HANDOFF_Y=2512
 
-cleanup() {
-  vd debian "for f in ~/.claude/sessions/*.json; do grep -qs $ID \$f && kill \$(basename \$f .json); done; \
-rm -rf ~/$PROJECT $DIR" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+trap 'drop_session $ID $DIR' EXIT
 
 vd fake "$HERE/fake/text.jsonl" >/dev/null
 vd debian --stdin "mkdir -p $DIR && cat > $DIR/claude && chmod +x $DIR/claude" <"$HERE/fake/external-claude.sh" >/dev/null
-line() {
-  jq -nc --arg type "$1" --arg uuid "$2" --argjson message "$3" --arg id "$ID" --arg cwd "$DIR" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '{type: $type, cwd: $cwd, sessionId: $id, uuid: $uuid, timestamp: $ts, message: $message}'
-}
-{
-  line user u1 '{"role": "user", "content": "handoff probe"}'
-  line assistant a1 '{"role": "assistant", "model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "probe reply"}]}'
-} | vd debian --stdin "mkdir -p ~/$PROJECT && cat > ~/$PROJECT/$ID.jsonl" >/dev/null
+seed_session $ID $DIR "handoff probe" "probe reply"
 
 alive() { vd debian "kill -0 $1" >/dev/null 2>&1; }
 
@@ -43,9 +31,7 @@ handoff() {
   pid=$(vd debian "setsid env --default-signal=INT nohup $DIR/claude $ID busy </dev/null >/dev/null 2>&1 & p=\$!; \
 for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; sleep 0.1; done" | tr -d '\r')
   [[ -n $pid ]] || { echo "$name：假 claude 5 秒没登记上"; exit 1; }
-  android "am start --user 0 --display $DISPLAY_ID --activity-single-top -n $PKG/com.dzshzx.zeta.ui.MainActivity \
---es com.dzshzx.zeta.extra.CONVERSATION $ID >/dev/null"
-  sleep 6
+  open_conversation $ID 6
   vd shot "$name-busy.png" >/dev/null
   vd tap $HANDOFF_X $HANDOFF_Y >/dev/null
   sleep 2

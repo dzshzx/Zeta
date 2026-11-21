@@ -94,8 +94,7 @@ class HostStopTest {
     }
 
     /**
-     * 登录配置把 claude 包了一层（shell 函数或不 exec 的脚本）：pid 文件记的是外面那层，Claude Code 身上带着托管目录的记号 ZETA_HOST。 卡住的
-     * Claude Code 收 SIGTERM 时，按登记和记号找到的它也一起收到，不会只杀外面那层、把它留成没人管的孤儿。
+     * claude 被包了一层（[HostTesting.Wrapper]）时卡住的 Claude Code 收 SIGTERM，按登记和记号找到的它也一起收到，不会只杀外面那层、留下孤儿。
      */
     @Test
     fun aStuckWrappedClaudeIsTerminatedNotOrphaned() {

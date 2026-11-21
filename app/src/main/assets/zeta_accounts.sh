@@ -24,7 +24,8 @@ CS=$HOME/${1:-}
 # 还活着的 Claude Code 进程：pid、归属（哪个 Zeta 包的后台对话，别处的为空）、状态（idle、busy…）、种类。没有 jq 时不列
 procs() {
   command -v jq >/dev/null 2>&1 || return 0
-  local f pid want status kind have owner
+  local f pid want status kind have owner v
+  local -a vars
   for f in "$HOME"/.claude/sessions/*.json; do
     [ -f "$f" ] || continue
     # 一个文件只跑一次 jq：pid、启动时刻、状态、种类，用 \x1f 分开（不用 Tab：read 会把连着的几个 Tab 当成一个，空字段就错位了）
@@ -35,8 +36,13 @@ procs() {
     # pid 被别的进程复用了：启动时刻对不上
     have=$(sed 's/^.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)
     [ -n "$want" ] && [ "$want" != "$have" ] && continue
-    # 归属看进程身上 zeta_host.sh 设的记号 ZETA_HOST=<包>/<标识>（见那边开头 pid 一项），不看托管目录的 pid 文件
-    owner=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | sed -n 's|^ZETA_HOST=\(zeta[^/]*\)/[^/][^/]*$|\1|p' | head -n 1)
+    # 归属看进程身上 zeta_host.sh 设的记号 ZETA_HOST=<包>/<标识>（样子同那边的 host_mark），不看托管目录的 pid 文件
+    owner=
+    vars=()
+    mapfile -d '' -t vars 2>/dev/null <"/proc/$pid/environ"
+    for v in "${vars[@]}"; do
+      [[ $v =~ ^ZETA_HOST=(zeta[^/]*)/[^/.][^/]*$ ]] && owner=${BASH_REMATCH[1]}
+    done
     z P "$pid" "$owner" "$status" "$kind"
   done
 }

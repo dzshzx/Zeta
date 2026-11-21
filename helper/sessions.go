@@ -369,22 +369,53 @@ type registered struct {
 	host    string // 托管它的 Zeta 托管目录（hostDirOf），不是 Zeta 托管的是空串
 }
 
-// hostMark 是 zeta_host.sh 给它起的 Claude Code 设的环境变量，值是 <包的目录名>/<托管目录名>（比如 zeta-dev/abc）。
-// Zeta 托管的进程按它认，不按托管目录里记的 pid：登录配置把 claude 包成 shell 函数或不 exec 的脚本时，
-// 记下的是外面那层，在 ~/.claude/sessions 登记的 Claude Code 是它的子进程。
+// hostMark 是 zeta_host.sh 给它起的 Claude Code 设的环境变量，值是 <包的目录名>/<托管目录名>（比如 zeta-dev/abc），
+// 为什么按它认、不按 pid 文件认见 zeta_host.sh 开头 pid 一项。zeta_host.sh、zeta_accounts.sh 照同一个样子认：
+// 包名以 zeta 开头，托管目录名不空、不含 /、不以 . 开头。
 const hostMark = "ZETA_HOST"
 
-// hostDirOf 是进程 pid 所属的托管目录（~/.cache/<包>/hosts/<名字>，两个包都认）；不是 Zeta 托管的、记号的样子不对时 ok 为假。
-func (e *env) hostDirOf(pid int) (string, bool) {
+// hostDirOf 是登记的进程（pid、会话 session）所属的托管目录（~/.cache/<包>/hosts/<名字>，两个包都认）。
+// 记号会传给 Claude Code 起的子进程（Bash 工具里的命令、里面再起的 claude），所以还要会话对得上：
+// 托管目录现在的会话（hostSessionNow）就是登记的会话，才是那个目录托管的 Claude Code。不是时 ok 为假。
+func (e *env) hostDirOf(pid int, session any) (string, bool) {
 	mark, ok := procEnv(pid, hostMark)
 	if !ok {
 		return "", false
 	}
 	pkg, key, ok := strings.Cut(mark, "/")
-	if !ok || !strings.HasPrefix(pkg, "zeta") || key == "" || key == "." || key == ".." || strings.Contains(key, "/") {
+	if !ok || !strings.HasPrefix(pkg, "zeta") || key == "" || key[0] == '.' || strings.Contains(key, "/") {
 		return "", false
 	}
-	return e.home + "/.cache/" + pkg + "/hosts/" + key, true
+	dir := joinPath(newEnvAt(e.home, pkg).hosts, key)
+	if s, _ := session.(string); s == "" || hostSessionNow(dir) != s {
+		return "", false
+	}
+	return dir, true
+}
+
+// hostSessionNow 是托管目录 dir 的 Claude Code 现在的会话：输出里最后一个 session_id。同一个进程里会换会话（/clear），
+// 所以取最后的、不取开头的；每个事件行都带 session_id，读最后 64 KB 就够。还没有输出、读不了时是空串。
+func hostSessionNow(dir string) string {
+	f, err := openFile(joinPath(dir, "out.jsonl"))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	size, err := f.Seek(0, io.SeekEnd)
+	if err != nil {
+		return ""
+	}
+	start := max(0, size-65536)
+	buf := make([]byte, size-start)
+	n, err := f.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return ""
+	}
+	found := sessionInArgv.FindAllSubmatch(buf[:n], -1)
+	if len(found) == 0 {
+		return ""
+	}
+	return string(found[len(found)-1][1])
 }
 
 // ownHost：登记的进程是本包托管的。
@@ -409,7 +440,7 @@ func (e *env) registeredSessions() []registered {
 		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
 			continue
 		}
-		host, _ := e.hostDirOf(pid)
+		host, _ := e.hostDirOf(pid, info["sessionId"])
 		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
 			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host})
 	}

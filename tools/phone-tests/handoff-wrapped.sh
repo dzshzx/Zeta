@@ -1,6 +1,5 @@
 #!/bin/bash
-# 登录配置把 claude 包了一层（不 exec 的脚本、shell 函数）时，Zeta 照样认得自己托管的进程：托管目录的 pid 文件记的是外面那层，
-# 在 ~/.claude/sessions 登记的 Claude Code 是它的子进程，认人靠进程身上的记号 ZETA_HOST。逐项核对：
+# claude 被包了一层（不 exec 的脚本、shell 函数，见 zeta_host.sh 开头 pid 一项）时，Zeta 照样认得自己托管的进程。逐项核对：
 #   一、pid 文件记的和登记的不是一个进程（包装确实生效），登记的那个带着本包、本托管目录的记号；
 #   二、本包的进程不算别处占用：zeta-helper occupant 说没人占着，list 里这个会话不标 external（侧栏的「在别处运行」看它）；
 #       再按会话号打开它，不出「别处运行」卡片，原来那个进程接着答完第二轮
@@ -13,30 +12,18 @@
 # Claude 是假的（fake/remote.jsonl，两轮）。假 Claude 自己不在 ~/.claude/sessions 登记，这里在它外面套两层：fake-claude.sh 换成不 exec 的
 # 包装，里面的 inner.sh 像 Claude Code 那样用自己的进程号登记 --resume 的会话、再 exec 成假 Claude。shell 函数那种包装在
 # HostStopTest、HostHandoffTest 里用真的 zeta_host.sh 测（假 Claude 按路径起，套不上叫 claude 的函数）。
-# 测试会话放在 Debian 的 $DIR 和 ~/$PROJECT 里，脚本退出时删掉，连同它留下的登记；vd stop（phone-run 收尾）撤掉假 Claude、改回设置。
+# 测试会话放在 Debian 的 $DIR 和 ~/.claude/projects 下对应的目录里，脚本退出时删掉，连同它留下的登记；vd stop（phone-run 收尾）撤掉假 Claude、改回设置。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 DIR=/tmp/zeta-handoff-wrapped
-PROJECT=.claude/projects/${DIR//\//-}
 ID=$(cat /proc/sys/kernel/random/uuid)
 FAKE=.config/zeta-dev/fake-claude
 HELPER=.cache/zeta-dev/bin/zeta-helper
 
-cleanup() {
-  vd debian "for f in ~/.claude/sessions/*.json; do grep -qs $ID \$f || continue; kill \$(basename \$f .json) 2>/dev/null; rm -f \$f; done; \
-rm -rf ~/$PROJECT $DIR" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+trap 'drop_session $ID $DIR' EXIT
 
-line() {
-  jq -nc --arg type "$1" --arg uuid "$2" --argjson message "$3" --arg id "$ID" --arg cwd "$DIR" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '{type: $type, cwd: $cwd, sessionId: $id, uuid: $uuid, timestamp: $ts, message: $message}'
-}
-{
-  line user u1 '{"role": "user", "content": "wrapped probe"}'
-  line assistant a1 '{"role": "assistant", "model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "probe reply"}]}'
-} | vd debian --stdin "mkdir -p $DIR ~/$PROJECT && cat > ~/$PROJECT/$ID.jsonl" >/dev/null
+seed_session $ID $DIR "wrapped probe" "probe reply"
 
 # 放好假 Claude，再在外面套两层（每次 vd fake 都会把 fake-claude.sh 换回原样，所以每种情形都重套）
 wrapped_fake() {
@@ -58,12 +45,6 @@ exec "$(dirname "$0")/real.sh" "$@"
 EOF
 }
 
-open_session() {
-  android "am start --user 0 --display $DISPLAY_ID --activity-single-top -n $PKG/com.dzshzx.zeta.ui.MainActivity \
---es com.dzshzx.zeta.extra.CONVERSATION $ID >/dev/null"
-  sleep 8
-}
-
 # 登记着这个会话、进程还活着的那个进程号
 registered() {
   vd debian "for f in ~/.claude/sessions/*.json; do grep -qs '\"sessionId\":\"$ID\"' \$f || continue; p=\$(basename \$f .json); \
@@ -75,7 +56,7 @@ check() {
   wrapped_fake
   android "touch /data/local/tmp/zeta-wrapped-mark"
   NEWER=/data/local/tmp/zeta-wrapped-mark log=''
-  open_session
+  open_conversation $ID 8
   send "first"
   wait_result 1 60 || { vd shot "$name-first-timeout.png" >/dev/null; exit 1; }
   sleep 1
@@ -97,7 +78,7 @@ check() {
   [[ $occupant == *'"status":null'* ]] || { echo "$name：zeta-helper occupant 把自己的进程当成别处的：$occupant"; exit 1; }
   external=$(vd debian "ZETA_NAME=zeta-dev ~/$HELPER list" | tr -d '\r' | jq -r --arg id "$ID" 'select(.id == $id) | .external')
   [[ $external == false ]] || { echo "$name：会话列表里这个会话的 external 是「$external」，该是 false"; exit 1; }
-  open_session
+  open_conversation $ID 8
   send "second"
   wait_result 2 60 || { vd shot "$name-reopened-timeout.png" >/dev/null; echo "$name：第二轮没答完（多半是出了「别处运行」卡片）"; exit 1; }
   sleep 1

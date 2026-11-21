@@ -59,11 +59,19 @@ internal object HostTesting {
     fun alive(pid: Int) = File("/proc/$pid").exists()
 
     /**
-     * 替身的 prelude：像 Claude Code 那样用自己的进程号在 ~/.claude/sessions 登记会话 [session]（[registeredPid] 读回来）。
+     * 替身的 prelude：像 Claude Code 那样用自己的进程号在 ~/.claude/sessions 登记会话 [session]（[registeredPid] 读回来），
+     * 输出里先打一行带这个会话的 init（Zeta 认托管的进程时要托管目录输出开头的会话和登记的对得上）。
      */
     fun registersAs(session: String) =
         "mkdir -p \"\$HOME/.claude/sessions\"; " +
-            "printf '{\"pid\":%s,\"sessionId\":\"$session\",\"kind\":\"sdk\"}' \$\$ > \"\$HOME/.claude/sessions/\$\$.json\""
+            "printf '{\"pid\":%s,\"sessionId\":\"$session\",\"kind\":\"sdk\"}' \$\$ > \"\$HOME/.claude/sessions/\$\$.json\"; " +
+            "echo '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$session\"}'"
+
+    /** 让 [builder] 起的进程身上的记号 ZETA_HOST 是 [mark]；null 时没有（测试本身跑在 Zeta 托管的 Claude Code 里时继承来的也去掉）。 */
+    fun marked(builder: ProcessBuilder, mark: String?): ProcessBuilder = builder.apply {
+        environment().remove("ZETA_HOST")
+        mark?.let { environment()["ZETA_HOST"] = it }
+    }
 
     /** 替身按 [registersAs] 登记的进程号；等它最多 5 秒，没登记就失败。 */
     fun registeredPid(home: File): Int {
@@ -98,8 +106,8 @@ internal object HostTesting {
         ?.substringAfter('=')
 
     /**
-     * 登录配置怎么把 claude 包一层：[FUNCTION] 是经 BASH_ENV 给每个 bash 定义的 shell 函数（nerv-wsl 上选账号的那种）， [SCRIPT] 是
-     * PATH 上排在前面、不 exec 的包装脚本。两种都让托管脚本的 $! 是外面那层，替身是它的子进程。
+     * 登录配置怎么把 claude 包一层（见 zeta_host.sh 开头 pid 一项）：[FUNCTION] 是经 BASH_ENV 定义的 shell 函数，[SCRIPT] 是
+     * PATH 上排在前面、不 exec 的脚本。
      */
     enum class Wrapper {
         FUNCTION,

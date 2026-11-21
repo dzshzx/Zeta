@@ -93,11 +93,10 @@ func cmdHandoff(e *env, o *emitter, id string) error {
 		return nil
 	}
 	// 终端里的发 SIGINT；另一个包托管的进程照 Zeta 自己的规矩结束（end_session），两边一起等
-	var terminal []registered
-	var others []hostedHolder
+	var terminal, others []registered
 	for _, r := range holders {
 		if r.host != "" {
-			others = append(others, hostedHolder{dir: r.host, pid: r.pid, start: r.start})
+			others = append(others, r)
 		} else {
 			terminal = append(terminal, r)
 		}
@@ -112,20 +111,13 @@ func cmdHandoff(e *env, o *emitter, id string) error {
 	return nil
 }
 
-// hostedHolder 是某个包托管的、占着会话的进程。
-type hostedHolder struct {
-	dir   string
-	pid   int
-	start string
-}
-
-// hostedHolders 是两个包托管的、还没结束的进程里占着会话 id 的那些：按 ~/.claude/sessions 的登记和进程身上的记号（hostDirOf）认。
+// hostedHolders 是两个包托管的进程里占着会话 id 的那些（登记着、认得出托管目录的，见 hostDirOf）。
 // 终端那边不知道会话是哪个包托管的，两个都看。
-func (e *env) hostedHolders(id string) []hostedHolder {
-	var out []hostedHolder
+func (e *env) hostedHolders(id string) []registered {
+	var out []registered
 	for _, r := range e.registeredSessions() {
-		if r.host != "" && r.session == id && existsFollow(r.host) && !existsFollow(joinPath(r.host, "exit")) {
-			out = append(out, hostedHolder{dir: r.host, pid: r.pid, start: r.start})
+		if r.host != "" && r.session == id {
+			out = append(out, r)
 		}
 	}
 	return out
@@ -146,7 +138,7 @@ func (e *env) releaseSession(id string, wait time.Duration) (released int, busy 
 	deadline := time.Now().Add(wait)
 	skip := selfAncestors()
 	for {
-		var holders []hostedHolder
+		var holders []registered
 		for _, h := range e.hostedHolders(id) {
 			if !skip[h.pid] {
 				holders = append(holders, h)
@@ -154,7 +146,7 @@ func (e *env) releaseSession(id string, wait time.Duration) (released int, busy 
 		}
 		busy = false
 		for _, h := range holders {
-			busy = busy || hostBusy(h.dir)
+			busy = busy || hostBusy(h.host)
 		}
 		if !busy {
 			endHosted(holders)
@@ -169,11 +161,11 @@ func (e *env) releaseSession(id string, wait time.Duration) (released int, busy 
 
 // endHosted 照 zeta_host.sh 的 end_claude 结束这些托管进程：先各留下 released 记号、往输入管道写 end_session，
 // 一起等 releaseGrace，还在的 SIGTERM，再过 5 秒 SIGKILL。托管目录留给接着的一方或 zeta-helper hosts 清。
-func endHosted(holders []hostedHolder) {
+func endHosted(holders []registered) {
 	procs := map[int]string{}
 	for _, h := range holders {
-		_ = os.WriteFile(joinPath(h.dir, releasedMark), nil, 0o644)
-		if err := writeFifo(joinPath(h.dir, "in"),
+		_ = os.WriteFile(joinPath(h.host, releasedMark), nil, 0o644)
+		if err := writeFifo(joinPath(h.host, "in"),
 			`{"type":"control_request","request_id":"zeta-release","request":{"subtype":"end_session"}}`+"\n"); err != nil {
 			_ = syscall.Kill(h.pid, syscall.SIGTERM)
 		}

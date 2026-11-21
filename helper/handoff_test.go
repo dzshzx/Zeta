@@ -394,9 +394,39 @@ func TestHostedProcessesAreKnownByTheirMark(t *testing.T) {
 	}
 	for _, mark := range []string{"zeta", "zeta/", "zeta/..", "other/k", "zeta/a/b"} {
 		pid, _ := tui(t, false, hostMark+"="+mark)
-		if dir, ok := e.hostDirOf(pid); ok {
+		if dir, ok := e.hostDirOf(pid, handoffID); ok {
 			t.Fatalf("mark %q was taken as %s", mark, dir)
 		}
+	}
+}
+
+// 托管的进程里 /clear 换了新会话：输出开头是旧会话，登记的是新会话，照样认得是自己的（看输出里最新的会话）。
+func TestAHostedProcessIsKnownAfterClearChangedItsSession(t *testing.T) {
+	e := testEnv(t)
+	const old = "ffffffff-1111-4222-8333-444444444444"
+	hosted(t, e, "zeta", handoffID, `{"type":"system","subtype":"init","session_id":"`+old+`"}`,
+		`{"type":"result","subtype":"success","session_id":"`+old+`"}`, turnDone[0], turnDone[1])
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != nil {
+		t.Fatalf("our own process counts as elsewhere after /clear: %v", got)
+	}
+}
+
+// Zeta 托管的 Claude Code 起的子进程（Bash 工具里再起的 claude）继承了记号，但登记的是别的会话：它不是那个托管目录的进程。
+// 对本包来说它占着的会话在别处；终端接回它的会话时，不去结束它所在的那个 Zeta 对话。
+func TestAChildThatInheritedTheMarkIsNotTheHostedProcess(t *testing.T) {
+	e := testEnv(t)
+	dir, _, done := hosted(t, e, "zeta", handoffID, turnDone...)
+	const nested = "ffffffff-1111-4222-8333-444444444444"
+	pid, nestedDone := tui(t, false, hostMark+"=zeta/"+filepath.Base(dir))
+	registerStatus(t, e, pid, nested, "idle", "")
+	if got := mustCall(t, e, "occupant", nested)[0]; got["status"] != "idle" {
+		t.Fatalf("the nested claude is not elsewhere: %v", got)
+	}
+	if released, _ := e.releaseSession(nested, 0); released != 0 {
+		t.Fatalf("released %d hosted processes for the nested session", released)
+	}
+	if _, err := os.Stat(filepath.Join(dir, releasedMark)); err == nil || !stillUp(done) || !stillUp(nestedDone) {
+		t.Fatal("resuming the nested session touched the Zeta conversation it runs in")
 	}
 }
 

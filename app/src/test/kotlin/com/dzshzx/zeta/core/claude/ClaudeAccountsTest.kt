@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.HelperProgram
+import com.dzshzx.zeta.core.HostTesting
 import com.dzshzx.zeta.core.LinuxShell
 import java.io.File
 import java.nio.file.Files
@@ -440,18 +441,9 @@ class ClaudeAccountsTest {
 
     // ---------- 工具 ----------
 
-    /**
-     * 一个活着的进程；[mark] 是 zeta_host.sh 给托管的 Claude Code 设的记号 ZETA_HOST（<包>/<标识>），null 时没有 （测试本身跑在 Zeta
-     * 托管的 Claude Code 里时继承来的也去掉）。
-     */
+    /** 一个活着的进程；[mark] 是它身上的记号 ZETA_HOST（<包>/<标识>），null 时没有（[HostTesting.marked]）。 */
     private fun live(mark: String? = null): Process =
-        ProcessBuilder("sleep", "300")
-            .apply {
-                environment().remove("ZETA_HOST")
-                mark?.let { environment()["ZETA_HOST"] = it }
-            }
-            .start()
-            .also { spawned += it }
+        HostTesting.marked(ProcessBuilder("sleep", "300"), mark).start().also { spawned += it }
 
     private fun session(process: Process, status: String) {
         val stat = File("/proc/${process.pid()}/stat").readText()
