@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.phone.PhoneTools
@@ -122,15 +123,8 @@ class LiveNotificationTest {
         val waiting = LiveUpdate.status(candidate, running = 1, todo = null)
         val service = service()
         val n = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
-        // 换到“等你处理”渠道、这一次要提醒：超级岛弹出时带提示音和震动；同一个请求再发就不再提醒
-        assertEquals(Notifier.CHANNEL_WAITING, n.channelId)
-        assertEquals(
-            "重要度高，HyperOS 才把岛展开",
-            NotificationManager.IMPORTANCE_HIGH,
-            app.getSystemService(NotificationManager::class.java)
-                .getNotificationChannel(Notifier.CHANNEL_WAITING)
-                .importance,
-        )
+        // 这个请求第一次出现：这次更新要提醒（照“运行状态”渠道的设置弹、响）；同一个请求再发就不再提醒
+        assertEquals(Notifier.CHANNEL_STATUS, n.channelId)
         assertEquals(0, n.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         val again = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
         assertTrue(again.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
@@ -148,7 +142,22 @@ class LiveNotificationTest {
             )
         val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
         assertEquals("实时通知平时不带停止、截屏", 0, plain.actions?.size ?: 0)
-        assertEquals(Notifier.CHANNEL_STATUS, plain.channelId)
+    }
+
+    /** 测试版上试过的两个渠道还在就删掉，不在时不去删（删渠道会顺带清一遍这个应用的通知）。 */
+    @Test
+    fun retiredChannelsGo() {
+        val manager = app.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel("island_waiting", "x", NotificationManager.IMPORTANCE_HIGH),
+        )
+        Notifier.ensureChannels(app)
+        assertNull(manager.getNotificationChannel("island_waiting"))
+        assertNull(manager.getNotificationChannel("waiting"))
+        assertEquals(
+            listOf("alert", "status", "update"),
+            manager.notificationChannels.map { it.id }.sorted(),
+        )
     }
 
     @Test

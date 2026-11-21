@@ -27,14 +27,8 @@ internal object Notifier {
     const val CHANNEL_STATUS = "status"
     const val CHANNEL_ALERT = "alert"
 
-    /**
-     * 实时通知（超级岛）上显示的对话停下来等用户时，常驻通知临时换到这个渠道发一次。重要度要“高”：HyperOS 在通知要提醒时
-     * 才把岛展开，“默认”只响铃、岛不弹。正式版带提示音和震动；测试版不配声音和震动，岛照样弹，测试时不出声。
-     */
-    const val CHANNEL_WAITING = "island_waiting"
-
-    /** 早先“超级岛上等你处理”用的渠道 id（重要度只有“默认”或“低”，应用调不高它），建渠道时删掉。 */
-    private const val OLD_CHANNEL_WAITING = "waiting"
+    /** 测试版上试过、已经不用的渠道（等用户时常驻通知临时换过去的），还在就删掉。 */
+    private val RETIRED_CHANNELS = listOf("waiting", "island_waiting")
 
     /** 有新版本（core/update/AppUpdates.kt）：同一个版本只发一次。 */
     const val CHANNEL_UPDATE = "update"
@@ -70,22 +64,8 @@ internal object Notifier {
             if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW
             else NotificationManager.IMPORTANCE_DEFAULT
         manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
-        manager.deleteNotificationChannel(OLD_CHANNEL_WAITING)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                    CHANNEL_WAITING,
-                    "超级岛上等你处理",
-                    NotificationManager.IMPORTANCE_HIGH,
-                )
-                .apply {
-                    if (AppVariant.current.isDev) {
-                        setSound(null, null)
-                        enableVibration(false)
-                    } else {
-                        enableVibration(true)
-                    }
-                },
-        )
+        RETIRED_CHANNELS.filter { manager.getNotificationChannel(it) != null }
+            .forEach(manager::deleteNotificationChannel)
         manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
     }
 
@@ -311,16 +291,14 @@ class AgentService : Service() {
     }
 
     /**
-     * 常驻通知的骨架：平常在“运行状态”渠道、只在第一次发出时提醒（一轮里要更新很多次；用户把这个渠道调成会弹横幅时，
-     * 不然每次更新都再弹一次）。实时通知上显示的对话在等用户时换到“超级岛上等你处理”渠道，这个请求第一次出现时提醒：岛弹出时就带提示音和震动。
+     * 常驻通知的骨架，在“运行状态”渠道。一轮里要更新很多次，平时只在第一次发出时提醒（用户把这个渠道调成会弹横幅时，不然每次更新都再弹一次）。
+     * 实时通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 HyperOS 把实时通知转成超级岛时不让它自己展开（转出来的参数里
+     * enableFloat、islandFirstFloat 都是 false），岛弹出来靠这次提醒。 手机上实测：另建一个重要度“高”的渠道，岛不展开；用户调高过的“运行状态”渠道能展开。
      */
     private fun statusBuilder(live: LiveStatus?): Notification.Builder {
         val waiting =
             live?.requestId?.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA }
-        return Notification.Builder(
-                this,
-                if (waiting != null) Notifier.CHANNEL_WAITING else Notifier.CHANNEL_STATUS,
-            )
+        return Notification.Builder(this, Notifier.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_zeta)
             .setOngoing(true)
             .setOnlyAlertOnce(waiting == null || !Notifier.firstRing(waiting))
