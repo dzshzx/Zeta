@@ -279,6 +279,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
                     engagedAt = phone.engagedAt,
                     current = conversation === hub.current,
                     startedAt = turnStarts.getValue(conversation),
+                    request = conversation.pending,
                 )
         }
         val chosen = LiveUpdate.pick(candidates.map { it.second }, focusKey) ?: return null

@@ -223,6 +223,12 @@ class AgentService : Service() {
         val live = state.live
         if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             promote(builder, live)
+            // 停下来等用户时，按钮换成替用户回答的那几个：超级岛展开就能直接回答
+            val replies = replyActions(live)
+            if (replies.isNotEmpty()) {
+                replies.forEach(builder::addAction)
+                return builder.build()
+            }
         } else {
             builder
                 .setContentTitle(
@@ -274,6 +280,14 @@ class AgentService : Service() {
         return builder.build()
     }
 
+    /** [live] 上替用户回答的按钮（允许、拒绝、选项），和提醒上的一样经 [AlertReplyReceiver] 回答；没在等用户时是空的。 */
+    private fun replyActions(live: LiveStatus): List<Notification.Action> {
+        val requestId = live.requestId ?: return emptyList()
+        return live.replies.mapIndexed { index, reply ->
+            AlertReplyReceiver.action(this, live.key, requestId, index, reply)
+        }
+    }
+
     /** 实时通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），状态栏小胶囊上一个短词，从这一轮开始走秒； 有没做完的任务清单时用进度条样式。点开回到这个对话。 */
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
     private fun promote(builder: Notification.Builder, live: LiveStatus) {
@@ -298,7 +312,7 @@ class AgentService : Service() {
                     .setProgress(progress.done),
             )
         } else {
-            builder.setStyle(Notification.BigTextStyle().bigText(live.text))
+            builder.setStyle(Notification.BigTextStyle().bigText(live.detail ?: live.text))
         }
         if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
             builder.setRequestPromotedOngoing(true)

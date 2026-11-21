@@ -49,6 +49,8 @@ internal data class LiveCandidate(
     val current: Boolean,
     /** 这一轮开始的时间（墙上时钟），通知上据此走秒。 */
     val startedAt: Long,
+    /** 停下来等用户回答的那次请求（批准工具、提问），没有时为 null。 */
+    val request: PermissionRequest? = null,
 )
 
 /** 任务清单的进度。 */
@@ -68,6 +70,11 @@ data class LiveStatus(
     val progress: TodoProgress?,
     /** 除了这个，还有几个对话在回答。 */
     val others: Int,
+    /** 停下来等用户时：等的请求号和展开后的全文；按钮见 [replies]。没在等时为 null。 */
+    val requestId: String? = null,
+    val detail: String? = null,
+    /** 通知上替用户回答的按钮（见 [AlertNotice.replies]），超级岛展开时也在；空的时候是“停止”“截屏”。 */
+    val replies: List<AlertReply> = emptyList(),
 ) {
     /** 状态栏小胶囊上的词。 */
     val short: String
@@ -104,11 +111,17 @@ internal object LiveUpdate {
     }
 
     /** 选中的对话 [chosen] 在通知上的样子；一共有 [running] 个对话在回答，[todo] 是它的任务清单。 */
-    fun status(chosen: LiveCandidate, running: Int, todo: TodoList?): LiveStatus =
-        LiveStatus(
+    fun status(chosen: LiveCandidate, running: Int, todo: TodoList?): LiveStatus {
+        // 胶囊上那句是“需要你确认”“需要你回答”时，正文换成具体的命令、问题，带上回答的按钮（接管、暂停时不换）
+        val request =
+            chosen.request?.takeIf {
+                chosen.step.kind == StepKind.CONFIRMING || chosen.step.kind == StepKind.ASKING
+            }
+        val waiting = request?.let(AlertNotice::waiting)
+        return LiveStatus(
             key = chosen.key,
             title = chosen.title.ifBlank { "新对话" },
-            text = chosen.step.text,
+            text = waiting?.text ?: chosen.step.text,
             kind = chosen.step.kind,
             startedAt = chosen.startedAt,
             progress =
@@ -116,7 +129,11 @@ internal object LiveUpdate {
                     ?.takeIf { it.total > 0 && !it.allDone }
                     ?.let { TodoProgress(it.done, it.total) },
             others = (running - 1).coerceAtLeast(0),
+            requestId = request?.requestId,
+            detail = waiting?.detail,
+            replies = waiting?.replies.orEmpty(),
         )
+    }
 
     /** 进度条各段的长度：一项一段，太多时一整段。 */
     fun segments(total: Int): List<Int> =

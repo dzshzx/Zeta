@@ -1,7 +1,7 @@
 #!/bin/bash
 # 提醒通知（渠道“完成与确认提醒”）：测试版在后台时，假 Claude 停下来等批准、提问、进程意外退出。核对每个对话一条提醒
 # （tag 是会话号）、等批准时带“允许”“拒绝”、单选题的选项是按钮；按钮回答后这一轮接着跑完，提醒换成“已完成”；
-# 回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
+# 等的时候常驻通知（提升为实时通知，超级岛上显示的就是它）也带同样的按钮；回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
 # 按钮由 root 直接发给 AlertReplyReceiver（和按钮的 PendingIntent 里是同一个 Intent）；通知栏上真点一下、锁屏上先要解锁，要人看。
 # 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/alerts.sh
 set -euo pipefail
@@ -78,6 +78,18 @@ press() {
   android "am broadcast -n $PKG/com.dzshzx.zeta.core.AlertReplyReceiver -a $PKG.action.ALERT_REPLY --es key '$key' --es request '$request' --ei index $1 >/dev/null"
 }
 
+# live_buttons <期望>：等常驻通知（超级岛上显示的那条）的按钮变成这样（逗号隔开，最多 10 秒），返回实际的
+live_buttons() {
+  local i got=''
+  for ((i = 0; i < 20; i++)); do
+    alert >/dev/null
+    got=$(buttons status.txt | paste -sd,)
+    [[ $got == "$1" ]] && break
+    sleep 0.5
+  done
+  echo "$got"
+}
+
 fail=0
 check() { # check <说明> <实际> <期望>
   if [[ $2 == "$3" ]]; then echo "通过：$1"; else
@@ -93,6 +105,8 @@ wait_alert confirm "需要你确认：列出文件"
 cp alert-confirm.txt alert-now.txt
 check "等批准时的按钮" "$(buttons alert-confirm.txt | paste -sd,)" "允许,拒绝"
 status_line status-confirm.txt
+# 实时通知只在系统提升了常驻通知时才有（Android 16 起；模拟器上没有）
+if grep -q PROMOTED_ONGOING status-confirm.txt; then check "等批准时实时通知上的按钮" "$(live_buttons 允许,拒绝)" "允许,拒绝"; fi
 press 0
 wait_alert done1 "已完成"
 check "一轮结束后的提醒没有按钮" "$(buttons alert-done1.txt | wc -l)" "0"
@@ -111,6 +125,8 @@ wait_alert ask "需要你回答：先改哪个？"
 cp alert-ask.txt alert-now.txt
 check "单选题的按钮" "$(buttons alert-ask.txt | paste -sd,)" "界面,文档"
 status_line status-ask.txt
+# 实时通知只在系统提升了常驻通知时才有（Android 16 起；模拟器上没有）
+if grep -q PROMOTED_ONGOING status-ask.txt; then check "单选题时实时通知上的按钮" "$(live_buttons 界面,文档)" "界面,文档"; fi
 press 1
 wait_alert done2 "已完成"
 

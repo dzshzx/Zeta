@@ -9,7 +9,7 @@ import com.dzshzx.zeta.ui.chat.presentTool
  */
 
 /** 提醒上的一个按钮：替用户回答这次 can_use_tool。 */
-internal sealed interface AlertReply {
+sealed interface AlertReply {
     val label: String
 
     /** 锁屏时要先解锁才执行（放行工具、替用户选答案）；拒绝不用。 */

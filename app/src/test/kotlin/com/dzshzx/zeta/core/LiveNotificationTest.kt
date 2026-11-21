@@ -92,6 +92,49 @@ class LiveNotificationTest {
         )
     }
 
+    /** 停下来等用户时，实时通知（超级岛展开时也是它）正文是具体的命令，按钮换成允许、拒绝；照样能提升。 */
+    @Test
+    fun waitingCarriesReplies() {
+        val bash =
+            PermissionRequest(
+                "r1",
+                "Bash",
+                buildJsonObject {
+                    put("command", "touch a")
+                    put("description", "建文件")
+                },
+                emptyList(),
+            )
+        val candidate =
+            LiveCandidate(
+                "s1",
+                "修 bug",
+                AlertNotice.waitingStep(bash),
+                controlling = false,
+                engaged = false,
+                engagedAt = 0L,
+                current = false,
+                startedAt = 1_000L,
+                request = bash,
+            )
+        val waiting = LiveUpdate.status(candidate, running = 1, todo = null)
+        val n = service().notification(StatusNotice(true, true, listOf("修 bug"), waiting))
+        assertTrue(n.hasPromotableCharacteristics())
+        assertEquals("待确认", n.shortCriticalText)
+        assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals(listOf("允许", "拒绝"), n.actions.map { it.title.toString() })
+        assertEquals(listOf(true, false), n.actions.map { it.isAuthenticationRequired })
+        // 接管着时胶囊上是“你在接管”，不换按钮
+        val controlling =
+            LiveUpdate.status(
+                candidate.copy(step = Step("你在接管", StepKind.CONTROLLING), controlling = true),
+                running = 1,
+                todo = null,
+            )
+        val plain = service().notification(StatusNotice(true, true, listOf("修 bug"), controlling))
+        assertEquals(listOf("停止", "截屏"), plain.actions.map { it.title.toString() })
+    }
+
     @Test
     fun todoListBecomesProgressBar() {
         val n =
