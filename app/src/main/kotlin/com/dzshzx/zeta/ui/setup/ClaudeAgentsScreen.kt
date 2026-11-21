@@ -49,36 +49,41 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.squircle.squircleBackground
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/** frontmatter 里 model 可写的别名；不写时 Claude Code 让 Subagent 跟随主对话的模型（除非设了 CLAUDE_CODE_SUBAGENT_MODEL）。 */
-private val ModelOptions = listOf(
-    "" to "默认",
-    "inherit" to "跟随主对话",
-    "sonnet" to "Sonnet",
-    "opus" to "Opus",
-    "haiku" to "Haiku",
-    "fable" to "Fable",
-)
+/**
+ * frontmatter 里 model 可写的别名；不写时 Claude Code 让 Subagent 跟随主对话的模型（除非设了 CLAUDE_CODE_SUBAGENT_MODEL）。
+ */
+private val ModelOptions =
+    listOf(
+        "" to "默认",
+        "inherit" to "跟随主对话",
+        "sonnet" to "Sonnet",
+        "opus" to "Opus",
+        "haiku" to "Haiku",
+        "fable" to "Fable",
+    )
 
-private fun modelLabel(model: String): String = ModelOptions.firstOrNull { it.first.equals(model, ignoreCase = true) }?.second ?: model
+private fun modelLabel(model: String): String =
+    ModelOptions.firstOrNull { it.first.equals(model, ignoreCase = true) }?.second ?: model
 
 /** 常用的内置工具；别的（比如 MCP 工具 mcp__服务器__工具）写进“其他工具”。 */
-private val CommonTools = listOf(
-    "Read" to "读文件",
-    "Edit" to "修改文件",
-    "Write" to "新建、覆盖文件",
-    "Glob" to "按文件名查找",
-    "Grep" to "在文件里搜索",
-    "Bash" to "执行命令",
-    "WebFetch" to "抓取网页",
-    "WebSearch" to "网络搜索",
-    "NotebookEdit" to "编辑 Jupyter 笔记本",
-    "Skill" to "使用 Skill",
-)
+private val CommonTools =
+    listOf(
+        "Read" to "读文件",
+        "Edit" to "修改文件",
+        "Write" to "新建、覆盖文件",
+        "Glob" to "按文件名查找",
+        "Grep" to "在文件里搜索",
+        "Bash" to "执行命令",
+        "WebFetch" to "抓取网页",
+        "WebSearch" to "网络搜索",
+        "NotebookEdit" to "编辑 Jupyter 笔记本",
+        "Skill" to "使用 Skill",
+    )
 
 /**
  * “Subagent”：~/.claude/agents 下的每个 .md 是一个自定义 Subagent（前言写 name、description、model、tools，正文是系统提示词）。
- * 照 Eta：列表点开先看详情，再编辑或删除。Eta 的“Subagent 模型”是全局的一项，Claude Code 里每个 Subagent 自己写 model。
- * Claude Code 自带的 general-purpose、Explore、Plan 等不在这个目录里，这里不列出。
+ * 照 Eta：列表点开先看详情，再编辑或删除。Eta 的“Subagent 模型”是全局的一项，Claude Code 里每个 Subagent 自己写 model。 Claude Code
+ * 自带的 general-purpose、Explore、Plan 等不在这个目录里，这里不列出。
  */
 @Composable
 internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
@@ -94,7 +99,9 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: (
 
     LaunchedEffect(reloads) {
         scope.runConfig({ client.agents() }) { result ->
-            result.onSuccess { agents = it }.onFailure { notice = ConfigNotice("读取 Subagent 失败", it.problem()) }
+            result
+                .onSuccess { agents = it }
+                .onFailure { notice = ConfigNotice("读取 Subagent 失败", it.problem()) }
         }
     }
     val reload: () -> Unit = { reloads++ }
@@ -104,7 +111,13 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: (
     CouiPage(
         title = "Subagent",
         onBack = onBack,
-        actions = { IconActionButton(COUIIcons.Add, "新建 Subagent", onClick = { editor = EditorTarget(null) }) },
+        actions = {
+            IconActionButton(
+                COUIIcons.Add,
+                "新建 Subagent",
+                onClick = { editor = EditorTarget(null) },
+            )
+        },
         dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             NoticeDialog(
@@ -155,18 +168,24 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: (
             ) {
                 when {
                     list == null -> item { ConfigLoadingRow() }
-                    list.isEmpty() -> item { ConfigEmptyRow("还没有自定义 Subagent", "让 Claude 写一个，或点右上角 + 新建") }
-                    else -> list.forEach { agent ->
-                        item(key = agent.file) {
-                            // 点开是详情对话框，不是另一页：不带箭头
-                            BasicComponent(
-                                title = agent.name.ifBlank { agent.file },
-                                summary = agent.description.clipLine(90).ifBlank { null },
-                                endActions = { modelLabel(agent.model).takeIf { it.isNotBlank() }?.let { PreferenceValue(it) } },
-                                onClick = { inspected = agent },
-                            )
+                    list.isEmpty() ->
+                        item { ConfigEmptyRow("还没有自定义 Subagent", "让 Claude 写一个，或点右上角 + 新建") }
+                    else ->
+                        list.forEach { agent ->
+                            item(key = agent.file) {
+                                // 点开是详情对话框，不是另一页：不带箭头
+                                BasicComponent(
+                                    title = agent.name.ifBlank { agent.file },
+                                    summary = agent.description.clipLine(90).ifBlank { null },
+                                    endActions = {
+                                        modelLabel(agent.model)
+                                            .takeIf { it.isNotBlank() }
+                                            ?.let { PreferenceValue(it) }
+                                    },
+                                    onClick = { inspected = agent },
+                                )
+                            }
                         }
-                    }
                 }
             }
         }
@@ -197,28 +216,58 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(text = agent.description.clipLine(400).ifBlank { "没有写什么时候用" }, style = styles.bodyXL, fontWeight = FontWeight.Medium, color = colors.labelPrimary)
+        Text(
+            text = agent.description.clipLine(400).ifBlank { "没有写什么时候用" },
+            style = styles.bodyXL,
+            fontWeight = FontWeight.Medium,
+            color = colors.labelPrimary,
+        )
         if (agent.prompt.isNotBlank()) {
-            Text(text = agent.prompt.clipLine(240), style = styles.bodyM, color = colors.labelSecondary)
+            Text(
+                text = agent.prompt.clipLine(240),
+                style = styles.bodyM,
+                color = colors.labelSecondary,
+            )
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "模型：" + modelLabel(agent.model) + " · 工具", style = styles.bodyS, color = colors.labelSecondary)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "模型：" + modelLabel(agent.model) + " · 工具",
+                style = styles.bodyS,
+                color = colors.labelSecondary,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 (agent.tools?.ifEmpty { listOf("（没有工具）") } ?: listOf("全部工具")).forEach { tool ->
                     Box(
-                        modifier = Modifier
-                            .squircleBackground(color = colors.container8, cornerRadius = 8.dp)
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        modifier =
+                            Modifier.squircleBackground(
+                                    color = colors.container8,
+                                    cornerRadius = 8.dp,
+                                )
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
                     ) {
-                        Text(text = tool, style = styles.bodyXS.copy(fontFamily = FontFamily.Monospace), color = colors.labelSecondary)
+                        Text(
+                            text = tool,
+                            style = styles.bodyXS.copy(fontFamily = FontFamily.Monospace),
+                            color = colors.labelSecondary,
+                        )
                     }
                 }
             }
         }
         if (agent.extraKeys.isNotEmpty()) {
-            Text(text = "另外还设了 " + agent.extraKeys.joinToString("、") + "，编辑时原样保留。", style = styles.bodyS, color = colors.labelSecondary)
+            Text(
+                text = "另外还设了 " + agent.extraKeys.joinToString("、") + "，编辑时原样保留。",
+                style = styles.bodyS,
+                color = colors.labelSecondary,
+            )
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             TextButton(
                 text = "删除",
                 onClick = onDelete,
@@ -226,7 +275,13 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
                 minWidth = 0.dp,
                 colors = ButtonDefaults.textButtonColors(textColor = colors.error),
             )
-            TextButton(text = "编辑", onClick = onEdit, modifier = Modifier.weight(1f), minWidth = 0.dp, colors = ButtonDefaults.textButtonColorsPrimary())
+            TextButton(
+                text = "编辑",
+                onClick = onEdit,
+                modifier = Modifier.weight(1f),
+                minWidth = 0.dp,
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         }
     }
 }
@@ -235,7 +290,13 @@ private val AgentName = Regex("[a-z0-9][a-z0-9-]{0,63}")
 
 /** 新建或编辑一个 Subagent：名称、什么时候用、模型、工具、系统提示词。 */
 @Composable
-private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagent?, onBack: () -> Unit, onSaved: () -> Unit) {
+private fun AgentEditor(
+    hub: ConversationHub,
+    backend: String,
+    original: Subagent?,
+    onBack: () -> Unit,
+    onSaved: () -> Unit,
+) {
     val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     val commonNames = CommonTools.map { it.first }.toSet()
@@ -243,16 +304,19 @@ private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagen
     var description by remember { mutableStateOf(original?.description.orEmpty()) }
     var model by remember { mutableStateOf(original?.model.orEmpty()) }
     var allTools by remember { mutableStateOf(original?.tools == null) }
-    var checked by remember { mutableStateOf(original?.tools.orEmpty().filter { it in commonNames }.toSet()) }
-    var others by remember { mutableStateOf(original?.tools.orEmpty().filter { it !in commonNames }.joinToString(", ")) }
+    var checked by remember {
+        mutableStateOf(original?.tools.orEmpty().filter { it in commonNames }.toSet())
+    }
+    var others by remember {
+        mutableStateOf(original?.tools.orEmpty().filter { it !in commonNames }.joinToString(", "))
+    }
     var prompt by remember { mutableStateOf(original?.prompt.orEmpty()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val valid = AgentName.matches(name.trim()) && description.isNotBlank()
 
     fun save() {
-        val tools = if (allTools) null else CommonTools.map { it.first }.filter { it in checked } +
-            others.split(',', '，').map { it.trim() }.filter { it.isNotEmpty() }
+        val tools = if (allTools) null else chosenTools(checked, others)
         val draft = SubagentDraft(name.trim(), description.trim(), model, tools, prompt)
         saving = true
         error = null
@@ -278,7 +342,14 @@ private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagen
         item(key = "name") {
             // 保存为 ~/.claude/agents/<名称>.md
             PreferenceGroup(title = "名称", footer = "小写字母、数字和连字符，比如 code-reviewer。") {
-                item { InputPreference(value = name, onValueChange = { name = it }, hint = "code-reviewer", enabled = !saving) }
+                item {
+                    InputPreference(
+                        value = name,
+                        onValueChange = { name = it },
+                        hint = "code-reviewer",
+                        enabled = !saving,
+                    )
+                }
             }
         }
         item(key = "description") {
@@ -296,49 +367,18 @@ private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagen
             }
         }
         item(key = "model") {
-            // “默认”是不写 model：Claude Code 同样让它跟随主对话，只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型
-            PreferenceGroup(footer = "“默认”一般和“跟随主对话”一样，用当前对话的模型。") {
-                item {
-                    val options = if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions else ModelOptions + (model to model)
-                    OverlayDropdownPreference(
-                        items = options.map { it.second },
-                        selectedIndex = options.indexOfFirst { it.first.equals(model, ignoreCase = true) },
-                        title = "模型",
-                        enabled = !saving,
-                        onSelectedIndexChange = { index -> options.getOrNull(index)?.let { model = it.first } },
-                    )
-                }
-            }
+            AgentModelGroup(model = model, enabled = !saving, onModelChange = { model = it })
         }
         item(key = "tools") {
-            // “其他工具”写 MCP 工具：mcp__服务器名（整个服务器）或 mcp__服务器名__工具名；Zeta 的手机工具是 mcp__phone__ 开头的
-            PreferenceGroup(title = "工具", footer = "关掉“全部工具”后，它只能用勾选的和“其他工具”里写的，多个用逗号分开。") {
-                item {
-                    SwitchPreference(
-                        checked = allTools,
-                        onCheckedChange = { allTools = it },
-                        title = "全部工具",
-                        summary = "和主对话一样，包括 MCP 工具",
-                        enabled = !saving,
-                    )
-                }
-                if (!allTools) {
-                    CommonTools.forEach { (tool, label) ->
-                        item(key = tool) {
-                            CheckboxPreference(
-                                title = tool,
-                                checked = tool in checked,
-                                onCheckedChange = { on -> checked = if (on) checked + tool else checked - tool },
-                                summary = label,
-                                enabled = !saving,
-                            )
-                        }
-                    }
-                    item(key = "others") {
-                        InputPreference(value = others, onValueChange = { others = it }, title = "其他工具", hint = "mcp__github", enabled = !saving)
-                    }
-                }
-            }
+            AgentToolsGroup(
+                allTools = allTools,
+                onAllToolsChange = { allTools = it },
+                checked = checked,
+                onToolCheckedChange = { tool, on -> checked = checked.toggled(tool, on) },
+                others = others,
+                onOthersChange = { others = it },
+                enabled = !saving,
+            )
         }
         item(key = "prompt") {
             PreferenceGroup(title = "系统提示词", footer = "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。") {
@@ -353,12 +393,92 @@ private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagen
                 }
             }
         }
-        error?.let { item(key = "error") { PagerFooterPreference(summary = it, summaryColor = COUITheme.colorScheme.error) } }
+        error?.let {
+            item(key = "error") {
+                PagerFooterPreference(summary = it, summaryColor = COUITheme.colorScheme.error)
+            }
+        }
         // 保存按钮灰着的时候说一下缺什么
         if (!valid && (name.isNotEmpty() || description.isNotEmpty())) {
-            item(key = "missing") {
-                PagerFooterPreference(
-                    summary = if (!AgentName.matches(name.trim())) "名称只能用小写字母、数字和连字符，并以字母或数字开头" else "写上什么时候用它才能保存",
+            item(key = "missing") { PagerFooterPreference(summary = missingFieldHint(name)) }
+        }
+    }
+}
+
+/** 勾选的常用工具（按 [CommonTools] 的顺序）加上「其他工具」里用逗号分开的那些。 */
+private fun chosenTools(checked: Set<String>, others: String): List<String> =
+    CommonTools.map { it.first }.filter { it in checked } +
+        others.split(',', '，').map { it.trim() }.filter { it.isNotEmpty() }
+
+private fun Set<String>.toggled(tool: String, on: Boolean): Set<String> =
+    if (on) this + tool else this - tool
+
+private fun missingFieldHint(name: String): String =
+    if (!AgentName.matches(name.trim())) "名称只能用小写字母、数字和连字符，并以字母或数字开头" else "写上什么时候用它才能保存"
+
+/** 选模型；文件里写的不在选项里时把它加到最后，原样保留。 */
+@Composable
+private fun AgentModelGroup(model: String, enabled: Boolean, onModelChange: (String) -> Unit) {
+    // “默认”是不写 model：Claude Code 同样让它跟随主对话，只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型
+    PreferenceGroup(footer = "“默认”一般和“跟随主对话”一样，用当前对话的模型。") {
+        item {
+            val options =
+                if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions
+                else ModelOptions + (model to model)
+            OverlayDropdownPreference(
+                items = options.map { it.second },
+                selectedIndex = options.indexOfFirst { it.first.equals(model, ignoreCase = true) },
+                title = "模型",
+                enabled = enabled,
+                onSelectedIndexChange = { index ->
+                    options.getOrNull(index)?.let { onModelChange(it.first) }
+                },
+            )
+        }
+    }
+}
+
+/** 「工具」一组：全部工具，或者勾选常用工具再补写其他工具。 */
+@Composable
+private fun AgentToolsGroup(
+    allTools: Boolean,
+    onAllToolsChange: (Boolean) -> Unit,
+    checked: Set<String>,
+    onToolCheckedChange: (String, Boolean) -> Unit,
+    others: String,
+    onOthersChange: (String) -> Unit,
+    enabled: Boolean,
+) {
+    // “其他工具”写 MCP 工具：mcp__服务器名（整个服务器）或 mcp__服务器名__工具名；Zeta 的手机工具是 mcp__phone__ 开头的
+    PreferenceGroup(title = "工具", footer = "关掉“全部工具”后，它只能用勾选的和“其他工具”里写的，多个用逗号分开。") {
+        item {
+            SwitchPreference(
+                checked = allTools,
+                onCheckedChange = onAllToolsChange,
+                title = "全部工具",
+                summary = "和主对话一样，包括 MCP 工具",
+                enabled = enabled,
+            )
+        }
+        if (!allTools) {
+            CommonTools.forEach { (tool, label) ->
+                item(key = tool) {
+                    CheckboxPreference(
+                        title = tool,
+                        checked = tool in checked,
+                        onCheckedChange = { on -> onToolCheckedChange(tool, on) },
+                        summary = label,
+                        enabled = enabled,
+                    )
+                }
+            }
+            item(key = "others") {
+                InputPreference(
+                    value = others,
+                    onValueChange = onOthersChange,
+                    title = "其他工具",
+                    hint = "mcp__github",
+                    enabled = enabled,
                 )
             }
         }
@@ -366,11 +486,18 @@ private fun AgentEditor(hub: ConversationHub, backend: String, original: Subagen
 }
 
 /**
- * 卡片里的多行输入，随内容变高。COUI 2 的 InputPreference 只有单行，InputView 的多行固定 152dp 高，
- * 系统提示词这种长文本要能整段看到，所以用无边框的 TextField，字号、提示色和留白照 InputPreference。
+ * 卡片里的多行输入，随内容变高。COUI 2 的 InputPreference 只有单行，InputView 的多行固定 152dp 高， 系统提示词这种长文本要能整段看到，所以用无边框的
+ * TextField，字号、提示色和留白照 InputPreference。
  */
 @Composable
-private fun MultiLineField(value: String, onValueChange: (String) -> Unit, hint: String, minLines: Int, enabled: Boolean, maxLines: Int = Int.MAX_VALUE) {
+private fun MultiLineField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    hint: String,
+    minLines: Int,
+    enabled: Boolean,
+    maxLines: Int = Int.MAX_VALUE,
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,

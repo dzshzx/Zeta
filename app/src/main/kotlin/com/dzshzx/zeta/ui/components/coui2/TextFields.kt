@@ -15,17 +15,16 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import io.github.suqi8.coui.kmp.basic.TextField as CouiTextField
 import io.github.suqi8.coui.kmp.basic.TextFieldColors
 import io.github.suqi8.coui.kmp.basic.TextFieldDefaults
 import io.github.suqi8.coui.kmp.basic.TextFieldMode
-import io.github.suqi8.coui.kmp.basic.TextField as CouiTextField
 
 /**
  * COUI 2 的输入框，文字按 String 传进传出，参数和 COUI 的同名参数一样。
  *
- * 光标由这里管，不用 COUI 自己的 String 版本：那一版建输入状态时光标在开头，文字从外面改了（清除按钮、调用方重设）以后
- * 光标也不跟到末尾（suqi8/coui#20）。这里用 COUI 的 TextFieldValue 版本：自己打字时光标和输入法的组合区照常保留；
- * 第一次显示、文字从外面变了时，光标放到末尾。
+ * 光标由这里管，不用 COUI 自己的 String 版本：那一版建输入状态时光标在开头，文字从外面改了（清除按钮、调用方重设）以后 光标也不跟到末尾（suqi8/coui#20）。这里用
+ * COUI 的 TextFieldValue 版本：自己打字时光标和输入法的组合区照常保留； 第一次显示、文字从外面变了时，光标放到末尾。
  */
 @Composable
 internal fun TextField(

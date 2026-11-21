@@ -11,8 +11,8 @@ import org.junit.After
 import org.junit.Test
 
 /**
- * 应用内浏览器页：工具栏、地址栏、接管时浮在底部的提示、“更多”菜单和清除数据的确认框。
- * JVM 上的 WebView 不画网页，页面区域是一块白底；地址、能否后退、接管这些状态直接摆进 [AgentBrowser]。
+ * 应用内浏览器页：工具栏、地址栏、接管时浮在底部的提示、“更多”菜单和清除数据的确认框。 JVM 上的 WebView 不画网页，页面区域是一块白底；地址、能否后退、接管这些状态直接摆进
+ * [AgentBrowser]。
  */
 class BrowserShots : ShotTest() {
     @After
@@ -61,11 +61,14 @@ class BrowserShots : ShotTest() {
                 runOnUiThread { closeOffscreenWindow() }
                 prepare()
             },
-        ) { BrowserScreen(onExit = {}) }
+        ) {
+            BrowserScreen(onExit = {})
+        }
     }
 
     private fun closeOffscreenWindow() {
-        val field = AgentBrowser::class.java.getDeclaredField("offscreen").apply { isAccessible = true }
+        val field =
+            AgentBrowser::class.java.getDeclaredField("offscreen").apply { isAccessible = true }
         val window = field.get(AgentBrowser) ?: return
         window.javaClass.getMethod("release").invoke(window)
         field.set(AgentBrowser, null)
@@ -84,7 +87,10 @@ class BrowserShots : ShotTest() {
     /** AgentBrowser 的界面状态只在它自己里面改（private set），测试直接改背后的 MutableState。 */
     @Suppress("UNCHECKED_CAST")
     private fun <T> state(name: String): MutableState<T> {
-        val field = AgentBrowser::class.java.getDeclaredField("$name\$delegate").apply { isAccessible = true }
+        val field =
+            AgentBrowser::class.java.getDeclaredField("$name\$delegate").apply {
+                isAccessible = true
+            }
         return field.get(AgentBrowser) as MutableState<T>
     }
 }

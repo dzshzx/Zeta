@@ -27,23 +27,35 @@ class ScheduleResumeTest {
     private class MemoryRecords(var record: RunRecord) : RunRecords {
         override val kind = "test"
         override val fallbackName = "测试任务"
+
         override fun name(context: Context, id: String) = "接着原对话的任务"
+
         override fun update(context: Context, id: String, change: (RunRecord) -> RunRecord) {
             record = change(record)
         }
     }
 
-    @Before
-    fun reset() = Fixtures.install(null)
+    @Before fun reset() = Fixtures.install(null)
 
     @Test
     fun lookupFailureKeepsTheOriginalSession() {
         Fixtures.readyHub(app)
-        val records = MemoryRecords(RunRecord(lastRun = null, skips = 0, lastSkip = null, sessionId = "s-old"))
-        val spec = RunSpec(
-            id = "t", name = "接着原对话的任务", prompt = "看一下", cwd = null, model = null,
-            permissionMode = "default", newSession = false, sessionId = "s-old", hint = "",
-        )
+        val records =
+            MemoryRecords(
+                RunRecord(lastRun = null, skips = 0, lastSkip = null, sessionId = "s-old"),
+            )
+        val spec =
+            RunSpec(
+                id = "t",
+                name = "接着原对话的任务",
+                prompt = "看一下",
+                cwd = null,
+                model = null,
+                permissionMode = "default",
+                newSession = false,
+                sessionId = "s-old",
+                hint = "",
+            )
         assertNull("查询在后台做，这一步不报原因", ScheduleRunner.start(app, records, spec, manual = true))
         // 查询在后台线程上做，结果投回主线程
         awaitMain { records.record.lastRun != null }

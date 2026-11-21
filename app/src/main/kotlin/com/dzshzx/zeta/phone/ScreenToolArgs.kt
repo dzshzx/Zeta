@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 internal class Checked<T>(val value: T?, val problem: String?) {
     companion object {
         fun <T> ok(value: T) = Checked(value, null)
+
         fun <T> bad(problem: String) = Checked<T>(null, problem)
     }
 }
@@ -18,8 +19,11 @@ internal class Checked<T>(val value: T?, val problem: String?) {
 /** 点按、长按、输入、滚动的目标：控件编号、按文字和 id 找、或坐标。都没给是 [Unset]。 */
 internal sealed interface ControlTarget {
     data class Index(val index: Int) : ControlTarget
+
     data class Find(val selector: ControlSelector) : ControlTarget
+
     data class Point(val x: Int, val y: Int) : ControlTarget
+
     data object Unset : ControlTarget
 
     companion object {
@@ -46,7 +50,8 @@ internal sealed interface WaitRequest {
     data class Time(val ms: Long) : WaitRequest
 
     /** 等对得上 [selector] 的控件出现（[gone] 时等它消失）。 */
-    data class Control(val selector: ControlSelector, val gone: Boolean, val timeoutMs: Long) : WaitRequest
+    data class Control(val selector: ControlSelector, val gone: Boolean, val timeoutMs: Long) :
+        WaitRequest
 
     /** 等 [app]（包名或应用名）到当前屏幕的最前面。 */
     data class App(val app: String, val timeoutMs: Long) : WaitRequest
@@ -58,13 +63,17 @@ internal sealed interface WaitRequest {
             val selector = ControlSelector.of(a.str("match"), a.str("id"))
             val app = a.str("app")?.trim()?.takeIf { it.isNotEmpty() }
             val gone = a.bool("gone") == true
-            val timeout = (a.int("timeout_ms")?.toLong() ?: DEFAULT_TIMEOUT_MS).coerceIn(500, 60_000)
+            val timeout =
+                (a.int("timeout_ms")?.toLong() ?: DEFAULT_TIMEOUT_MS).coerceIn(500, 60_000)
             return when {
                 selector != null && app != null -> Checked.bad("match/id 和 app 只能等一样")
                 selector != null -> Checked.ok(Control(selector, gone, timeout))
                 gone -> Checked.bad("gone 要和 match 或 id 一起用")
                 app != null -> Checked.ok(App(app, timeout))
-                else -> Checked.ok(Time((a.int("duration_ms")?.toLong() ?: 1000L).coerceIn(100, 30_000)))
+                else ->
+                    Checked.ok(
+                        Time((a.int("duration_ms")?.toLong() ?: 1000L).coerceIn(100, 30_000)),
+                    )
             }
         }
     }
@@ -73,10 +82,12 @@ internal sealed interface WaitRequest {
 /** open_app 要打开什么：应用（[app]），或者交给系统的 intent（[action] 加上数据 [uri]，可以限定由 [app] 处理）。 */
 internal class OpenRequest(val app: String?, val uri: String?, val action: String?) {
     /** 走 intent，而不是从桌面图标启动。 */
-    val isIntent: Boolean get() = uri != null || action != null
+    val isIntent: Boolean
+        get() = uri != null || action != null
 
     /** 实际用的 intent 动作：给了 uri 没给动作就是 VIEW。 */
-    val intentAction: String get() = action ?: VIEW
+    val intentAction: String
+        get() = action ?: VIEW
 
     companion object {
         const val VIEW = "android.intent.action.VIEW"
@@ -87,24 +98,32 @@ internal class OpenRequest(val app: String?, val uri: String?, val action: Strin
             val app = a.str("app")?.trim()?.takeIf { it.isNotEmpty() }
             val uri = a.str("uri")?.trim()?.takeIf { it.isNotEmpty() }
             val action = a.str("action")?.trim()?.takeIf { it.isNotEmpty() }
-            if (app == null && uri == null && action == null) return Checked.bad("要给 app（应用名或包名）、uri 或 action 之一")
+            if (app == null && uri == null && action == null)
+                return Checked.bad("要给 app（应用名或包名）、uri 或 action 之一")
             if (uri != null && (!SCHEME.matches(uri) || uri.any { it == '\n' || it == '\u0000' })) {
                 return Checked.bad("uri 要带 scheme，比如 https://…、tel:…、geo:…，或应用自己的 deep link")
             }
-            if (action != null && !ACTION.matches(action)) return Checked.bad("action 要是完整的 intent 动作名，比如 android.settings.WIFI_SETTINGS")
+            if (action != null && !ACTION.matches(action))
+                return Checked.bad("action 要是完整的 intent 动作名，比如 android.settings.WIFI_SETTINGS")
             return Checked.ok(OpenRequest(app, uri, action))
         }
 
         /**
-         * 只在主屏上打开、不放到后台屏幕的包：系统默认的桌面 [home]（问不到时为 null）、Zeta 自己（[self]）、系统界面，
-         * 和系统本身（选择打开方式的界面也在里面）。
+         * 只在主屏上打开、不放到后台屏幕的包：系统默认的桌面 [home]（问不到时为 null）、Zeta 自己（[self]）、系统界面， 和系统本身（选择打开方式的界面也在里面）。
          */
-        fun mainOnly(home: String?, self: String): Set<String> = setOfNotNull("android", "com.android.systemui", self, home)
+        fun mainOnly(home: String?, self: String): Set<String> =
+            setOfNotNull("android", "com.android.systemui", self, home)
     }
 }
 
 /** 系统里的一个任务栈（`am stack list` 的一段）。[topActivity] 是最上面的界面，`包名/类名`。 */
-internal class RootTask(val id: Int, val displayId: Int, val packageName: String?, val visible: Boolean, val topActivity: String?)
+internal class RootTask(
+    val id: Int,
+    val displayId: Int,
+    val packageName: String?,
+    val visible: Boolean,
+    val topActivity: String?,
+)
 
 internal object SystemOutput {
     private val ROOT_TASK = Regex("^RootTask id=(\\d+) .*displayId=(-?\\d+)")
@@ -148,26 +167,30 @@ internal object SystemOutput {
     fun shortComponent(component: String): String {
         val packageName = component.substringBefore('/')
         val cls = component.substringAfter('/', "")
-        return if (cls.startsWith("$packageName.")) "$packageName/" + cls.removePrefix(packageName) else component
+        return if (cls.startsWith("$packageName.")) "$packageName/" + cls.removePrefix(packageName)
+        else component
     }
 
     /**
-     * 解析 `cmd package resolve-activity --brief`：最后一行是 `包名/类名`；没有应用能处理时是 “No activity found”，返回 null。
-     * 有几个应用都能处理、没设默认时，结果是系统的选择界面。
+     * 解析 `cmd package resolve-activity --brief`：最后一行是 `包名/类名`；没有应用能处理时是 “No activity found”，返回
+     * null。 有几个应用都能处理、没设默认时，结果是系统的选择界面。
      */
     fun resolvedComponent(out: String): String? =
-        out.lineSequence().map { it.trim() }.lastOrNull { it.isNotEmpty() }?.takeIf { '/' in it && ' ' !in it && '=' !in it }
+        out.lineSequence()
+            .map { it.trim() }
+            .lastOrNull { it.isNotEmpty() }
+            ?.takeIf { '/' in it && ' ' !in it && '=' !in it }
 
     /** 系统的“选择用哪个应用打开”界面（几个应用都能处理、没设默认时）。 */
     fun isChooser(component: String): Boolean {
         val packageName = component.substringBefore('/')
-        return packageName == "android" || packageName == "com.android.intentresolver" || component.endsWith("ResolverActivity")
+        return packageName == "android" ||
+            packageName == "com.android.intentresolver" ||
+            component.endsWith("ResolverActivity")
     }
 }
 
-/**
- * 填完输入框读回来的内容对不对得上：一样就算对；要清空时，读回来是空的或者只剩提示文字（有的输入框空着时把提示当文字报）也算对。
- */
+/** 填完输入框读回来的内容对不对得上：一样就算对；要清空时，读回来是空的或者只剩提示文字（有的输入框空着时把提示当文字报）也算对。 */
 internal fun textLanded(expected: String, actual: String?, hint: String?): Boolean {
     val now = actual.orEmpty()
     if (now == expected) return true

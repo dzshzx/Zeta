@@ -11,12 +11,25 @@ import org.junit.Test
  */
 class ShotSourcesTest {
     /** [dir] 下有一行匹配 [pattern] 的源文件，ShotTest 自己和这个检查除外。 */
-    private fun offenders(dir: String, pattern: Regex) = sourcesMatching(dir, pattern, except = setOf("ShotTest.kt", "ShotSourcesTest.kt"))
+    private fun offenders(dir: String, pattern: Regex) =
+        sourcesMatching(dir, pattern, except = setOf("ShotTest.kt", "ShotSourcesTest.kt"))
 
     @Test
     fun noRawScrollTo() =
-        assertEquals("改用 scrollIntoView()", emptyList<String>(), offenders("src/test/kotlin/com/dzshzx/zeta/shots", Regex("""\.performScrollTo(Node)?\(""")))
+        assertEquals(
+            "改用 scrollIntoView()",
+            emptyList<String>(),
+            offenders(
+                "src/test/kotlin/com/dzshzx/zeta/shots",
+                Regex("""\.performScrollTo(Node)?\("""),
+            ),
+        )
 
     @Test
-    fun noComposeWaitUntil() = assertEquals("改用 awaitMain()", emptyList<String>(), offenders("src/test/kotlin", Regex("""compose\.waitUntil\(""")))
+    fun noComposeWaitUntil() =
+        assertEquals(
+            "改用 awaitMain()",
+            emptyList<String>(),
+            offenders("src/test/kotlin", Regex("""compose\.waitUntil\(""")),
+        )
 }

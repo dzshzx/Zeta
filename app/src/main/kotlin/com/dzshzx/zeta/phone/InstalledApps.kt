@@ -13,7 +13,11 @@ object InstalledApps {
         val manager = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return manager.queryIntentActivities(intent, 0).map {
-            Launcher(it.loadLabel(manager).toString(), it.activityInfo.packageName, it.activityInfo.name)
+            Launcher(
+                it.loadLabel(manager).toString(),
+                it.activityInfo.packageName,
+                it.activityInfo.name,
+            )
         }
     }
 
@@ -21,19 +25,32 @@ object InstalledApps {
     fun match(context: Context, query: String): List<Launcher> {
         val q = query.trim()
         val apps = launchable(context)
-        apps.filter { it.packageName == q || it.label.equals(q, ignoreCase = true) }.takeIf { it.isNotEmpty() }?.let { return it }
-        return apps.filter { it.label.contains(q, ignoreCase = true) || it.packageName.contains(q, ignoreCase = true) }
+        apps
+            .filter { it.packageName == q || it.label.equals(q, ignoreCase = true) }
+            .takeIf { it.isNotEmpty() }
+            ?.let {
+                return it
+            }
+        return apps.filter {
+            it.label.contains(q, ignoreCase = true) || it.packageName.contains(q, ignoreCase = true)
+        }
     }
 
     /** 包名换成应用名；看不到的包（不在 Zeta 的可见范围里）或名字为空时用包名。 */
-    fun label(context: Context, packageName: String): String = runCatching {
-        context.packageManager.run { getApplicationLabel(getApplicationInfo(packageName, 0)).toString() }
-    }.getOrNull()?.takeIf { it.isNotBlank() } ?: packageName
+    fun label(context: Context, packageName: String): String =
+        runCatching {
+            context.packageManager.run {
+                getApplicationLabel(getApplicationInfo(packageName, 0)).toString()
+            }
+        }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() } ?: packageName
 
     /** 记着查过的名字，一批包名反复换名字时用。 */
     class Labels(private val context: Context) {
         private val cache = HashMap<String, String>()
 
-        fun of(packageName: String): String = cache.getOrPut(packageName) { label(context, packageName) }
+        fun of(packageName: String): String =
+            cache.getOrPut(packageName) { label(context, packageName) }
     }
 }

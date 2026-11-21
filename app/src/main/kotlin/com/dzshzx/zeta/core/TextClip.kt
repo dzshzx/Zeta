@@ -1,9 +1,6 @@
 package com.dzshzx.zeta.core
 
-/**
- * 截断的位置 [end] 落在一对代理（表情、生僻字这类 BMP 之外的字）中间时往前退一格，不把它切成两半；
- * [from] 是这一段的开头，最多退到它。不在中间时原样返回。
- */
+/** 截断的位置 [end] 落在一对代理（表情、生僻字这类 BMP 之外的字）中间时往前退一格，不把它切成两半； [from] 是这一段的开头，最多退到它。不在中间时原样返回。 */
 fun safeCut(text: CharSequence, end: Int, from: Int = 0): Int =
     if (end > from && end < text.length && text[end - 1].isHighSurrogate()) end - 1 else end
 

@@ -11,17 +11,17 @@ import kotlinx.serialization.json.JsonObject
  * 调用按名字分派，重名的只有一个调得到，所以名字不能重复（PhoneToolGroupsTest 核对）。
  */
 internal object PhoneToolCatalog {
-    val tools: List<PhoneTool> get() = ScreenToolDefs.tools + PhoneToolGroups.all.flatMap { it.tools }
+    val tools: List<PhoneTool>
+        get() = ScreenToolDefs.tools + PhoneToolGroups.all.flatMap { it.tools }
 
-    val definitions: List<JsonElement> get() = tools.map { it.definition }
+    val definitions: List<JsonElement>
+        get() = tools.map { it.definition }
 
     /** 全部手机工具的名字和中文名字（设置里的工具权限页用）。 */
-    val labels: List<Pair<String, String>> get() = tools.map { it.name to it.label }
+    val labels: List<Pair<String, String>>
+        get() = tools.map { it.name to it.label }
 
-    /**
-     * 这一步做了什么，一句中文（「点按「搜索」」「打开 Wi-Fi」）。[scene] 是胶囊才知道的现场，有它时说得更具体；
-     * 聊天里没有，传 null。不认识的名字返回 null。
-     */
+    /** 这一步做了什么，一句中文（「点按「搜索」」「打开 Wi-Fi」）。[scene] 是胶囊才知道的现场，有它时说得更具体； 聊天里没有，传 null。不认识的名字返回 null。 */
     fun title(name: String, input: JsonObject, scene: CallScene? = null): String? =
         ScreenToolDefs.title(name, input, scene) ?: PhoneToolGroups.find(name)?.title(name, input)
 
@@ -54,7 +54,11 @@ internal object PhoneToolCatalog {
  * 胶囊比聊天多知道的现场：当前操作的是不是后台屏幕（[onAgentDisplay]），后台屏幕上最近打开的应用（[agentDisplayApp]），
  * 控件编号对应的控件（[control]，这次调用要用的那批编号）。
  */
-internal class CallScene(val onAgentDisplay: Boolean, val agentDisplayApp: String?, val control: (Int) -> SceneControl?)
+internal class CallScene(
+    val onAgentDisplay: Boolean,
+    val agentDisplayApp: String?,
+    val control: (Int) -> SceneControl?,
+)
 
 /** 编号对应的控件：上面的字（[label]，密码框没有）、是不是密码框。 */
 internal class SceneControl(val label: String?, val password: Boolean)

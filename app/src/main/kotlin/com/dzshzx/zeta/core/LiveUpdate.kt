@@ -23,16 +23,15 @@ enum class StepKind(val short: String) {
     /** 手机工具。 */
     PHONE("操作中"),
     TOOL("执行中"),
-    THINKING("思考中"),
-    ;
+    THINKING("思考中");
 
     /** 停下来等用户（确认、回答、继续）：变成或不再是这种时马上更新通知，不节流。 */
-    val needsUser: Boolean get() = this == CONTROLLING || this == PAUSED || this == ASKING || this == CONFIRMING
+    val needsUser: Boolean
+        get() = this == CONTROLLING || this == PAUSED || this == ASKING || this == CONFIRMING
 }
 
 /** 胶囊上的一句当前步骤和它的类别。 */
-@Immutable
-data class Step(val text: String, val kind: StepKind)
+@Immutable data class Step(val text: String, val kind: StepKind)
 
 /** 挑实时通知显示哪个对话时，一个正在回答的对话的样子。 */
 internal data class LiveCandidate(
@@ -53,8 +52,7 @@ internal data class LiveCandidate(
 )
 
 /** 任务清单的进度。 */
-@Immutable
-data class TodoProgress(val done: Int, val total: Int)
+@Immutable data class TodoProgress(val done: Int, val total: Int)
 
 /** 实时通知上的内容。 */
 @Immutable
@@ -72,10 +70,12 @@ data class LiveStatus(
     val others: Int,
 ) {
     /** 状态栏小胶囊上的词。 */
-    val short: String get() = kind.short
+    val short: String
+        get() = kind.short
 
     /** 几个对话同时在回答时，标题旁的一句；只有一个时为 null。 */
-    val note: String? get() = if (others > 0) "另有 $others 个对话在回答" else null
+    val note: String?
+        get() = if (others > 0) "另有 $others 个对话在回答" else null
 }
 
 internal object LiveUpdate {
@@ -87,7 +87,11 @@ internal object LiveUpdate {
      * （锁屏、息屏）的时候：锁屏上的实时通知接着说胶囊在说的那个对话。没有时照胶囊挑对话的规则排：接管着的优先，其次是用过手机的里最近用的，再是 Zeta 里正显示着的，最后是最近开始的。
      */
     fun pick(candidates: List<LiveCandidate>, focusKey: String?): LiveCandidate? {
-        focusKey?.let { key -> candidates.firstOrNull { it.key == key } }?.let { return it }
+        focusKey
+            ?.let { key -> candidates.firstOrNull { it.key == key } }
+            ?.let {
+                return it
+            }
         return candidates.maxWithOrNull(
             compareBy<LiveCandidate> { it.controlling }
                 .thenBy { it.engaged }
@@ -98,45 +102,60 @@ internal object LiveUpdate {
     }
 
     /** 选中的对话 [chosen] 在通知上的样子；一共有 [running] 个对话在回答，[todo] 是它的任务清单。 */
-    fun status(chosen: LiveCandidate, running: Int, todo: TodoList?): LiveStatus = LiveStatus(
-        key = chosen.key,
-        title = chosen.title.ifBlank { "新对话" },
-        text = chosen.step.text,
-        kind = chosen.step.kind,
-        startedAt = chosen.startedAt,
-        progress = todo?.takeIf { it.total > 0 && !it.allDone }?.let { TodoProgress(it.done, it.total) },
-        others = (running - 1).coerceAtLeast(0),
-    )
+    fun status(chosen: LiveCandidate, running: Int, todo: TodoList?): LiveStatus =
+        LiveStatus(
+            key = chosen.key,
+            title = chosen.title.ifBlank { "新对话" },
+            text = chosen.step.text,
+            kind = chosen.step.kind,
+            startedAt = chosen.startedAt,
+            progress =
+                todo
+                    ?.takeIf { it.total > 0 && !it.allDone }
+                    ?.let { TodoProgress(it.done, it.total) },
+            others = (running - 1).coerceAtLeast(0),
+        )
 
     /** 进度条各段的长度：一项一段，太多时一整段。 */
-    fun segments(total: Int): List<Int> = if (total <= MAX_SEGMENTS) List(total) { 1 } else listOf(total)
+    fun segments(total: Int): List<Int> =
+        if (total <= MAX_SEGMENTS) List(total) { 1 } else listOf(total)
 
-    /**
-     * 从 [old] 到 [new] 只是步骤文字、进度变了（同一个对话、几个对话在跑没变、前后都不是在等用户）：
-     * 这种变化一轮里一秒好几次，要节流；其余的变化马上更新。
-     */
+    /** 从 [old] 到 [new] 只是步骤文字、进度变了（同一个对话、几个对话在跑没变、前后都不是在等用户）： 这种变化一轮里一秒好几次，要节流；其余的变化马上更新。 */
     fun minorChange(old: LiveStatus?, new: LiveStatus?): Boolean {
         if (old == null || new == null) return false
-        return old.key == new.key && old.title == new.title && old.others == new.others && old.startedAt == new.startedAt &&
-            !old.kind.needsUser && !new.kind.needsUser
+        return old.key == new.key &&
+            old.title == new.title &&
+            old.others == new.others &&
+            old.startedAt == new.startedAt &&
+            !old.kind.needsUser &&
+            !new.kind.needsUser
     }
 }
 
 /** 常驻通知要显示的状态：有进程在就常驻，[busy] 时持有唤醒锁，[running] 是正在回答的对话；[live] 不为 null 时提升为实时通知。 */
-internal data class StatusNotice(val active: Boolean, val busy: Boolean, val running: List<String>, val live: LiveStatus?) {
+internal data class StatusNotice(
+    val active: Boolean,
+    val busy: Boolean,
+    val running: List<String>,
+    val live: LiveStatus?,
+) {
     /** 和 [old] 比只是实时通知上的步骤、进度变了，其余都一样：这种更新要节流。 */
     fun minorAfter(old: StatusNotice): Boolean =
-        active == old.active && busy == old.busy && running == old.running && LiveUpdate.minorChange(old.live, live)
+        active == old.active &&
+            busy == old.busy &&
+            running == old.running &&
+            LiveUpdate.minorChange(old.live, live)
 }
 
-/**
- * 通知更新的节流：小变化（[minor] 判断）离上次发出不到 [intervalMs] 时先记下，到点再发最新的那份；
- * 其余的变化马上发，和已发出的一样就不发。只在一个线程上用。
- */
-internal class Throttle<T : Any>(private val intervalMs: Long, private val minor: (published: T, next: T) -> Boolean) {
+/** 通知更新的节流：小变化（[minor] 判断）离上次发出不到 [intervalMs] 时先记下，到点再发最新的那份； 其余的变化马上发，和已发出的一样就不发。只在一个线程上用。 */
+internal class Throttle<T : Any>(
+    private val intervalMs: Long,
+    private val minor: (published: T, next: T) -> Boolean,
+) {
     /** 最近发出的那份。 */
     var published: T? = null
         private set
+
     private var publishedAt = 0L
     private var waiting: T? = null
 
@@ -145,7 +164,8 @@ internal class Throttle<T : Any>(private val intervalMs: Long, private val minor
         val last = published
         waiting = null
         if (next == last) return null
-        if (last == null || !minor(last, next) || now - publishedAt >= intervalMs) return publish(next, now)
+        if (last == null || !minor(last, next) || now - publishedAt >= intervalMs)
+            return publish(next, now)
         waiting = next
         return null
     }
@@ -158,7 +178,9 @@ internal class Throttle<T : Any>(private val intervalMs: Long, private val minor
     }
 
     /** 记下的那份还要等多久（毫秒）；没有记下的时为 null。 */
-    fun dueIn(now: Long): Long? = waiting?.let { (publishedAt + intervalMs - now).coerceAtLeast(0L) }
+    fun dueIn(now: Long): Long? = waiting?.let {
+        (publishedAt + intervalMs - now).coerceAtLeast(0L)
+    }
 
     private fun publish(value: T, now: Long): T {
         published = value

@@ -35,8 +35,7 @@ enum class RuleKind(val key: String, val label: String) {
     Once("once", "单次"),
     Daily("daily", "每天"),
     Weekly("weekly", "每周"),
-    Interval("interval", "间隔"),
-    ;
+    Interval("interval", "间隔");
 
     companion object {
         fun of(key: String?): RuleKind? = entries.firstOrNull { it.key == key }
@@ -52,23 +51,31 @@ sealed interface ScheduleRule {
 
     /** 到点跑一次，跑过就自动关掉。 */
     data class Once(val at: LocalDateTime) : ScheduleRule {
-        override val kind get() = RuleKind.Once
-        override val time: LocalTime get() = at.toLocalTime()
+        override val kind
+            get() = RuleKind.Once
+
+        override val time: LocalTime
+            get() = at.toLocalTime()
     }
 
     data class Daily(override val time: LocalTime) : ScheduleRule {
-        override val kind get() = RuleKind.Daily
+        override val kind
+            get() = RuleKind.Daily
     }
 
     /** 每周的这几天。 */
     data class Weekly(val days: Set<DayOfWeek>, override val time: LocalTime) : ScheduleRule {
-        override val kind get() = RuleKind.Weekly
+        override val kind
+            get() = RuleKind.Weekly
     }
 
     /** 从 [start] 起每隔 [hours] 小时（按绝对时间算，跨日照常往后排）。 */
     data class Interval(val hours: Int, val start: LocalDateTime) : ScheduleRule {
-        override val kind get() = RuleKind.Interval
-        override val time: LocalTime get() = start.toLocalTime()
+        override val kind
+            get() = RuleKind.Interval
+
+        override val time: LocalTime
+            get() = start.toLocalTime()
     }
 
     companion object {
@@ -86,8 +93,7 @@ enum class RunOutcome(val key: String, val label: String) {
     Stopped("stopped", "被停止"),
 
     /** Zeta 在这一轮结束前被关掉了，没等到结果（Claude Code 可能已经在后台跑完）。 */
-    Interrupted("interrupted", "中途被关掉"),
-    ;
+    Interrupted("interrupted", "中途被关掉");
 
     companion object {
         fun of(key: String?): RunOutcome? = entries.firstOrNull { it.key == key }
@@ -179,43 +185,65 @@ object Schedules {
     fun newId(): String = UUID.randomUUID().toString().replace("-", "").take(8)
 
     fun draftOf(task: ScheduledTask) =
-        TaskDraft(task.name, task.prompt, task.rule, task.cwd, task.model, task.permissionMode, task.newSession, task.enabled, task.onlyOnChange)
+        TaskDraft(
+            task.name,
+            task.prompt,
+            task.rule,
+            task.cwd,
+            task.model,
+            task.permissionMode,
+            task.newSession,
+            task.enabled,
+            task.onlyOnChange,
+        )
 
     /** 编辑保存：规则以外的运行记录照旧；换了“开新对话”的方式就不再接着原来那个会话。 */
-    fun applyDraft(task: ScheduledTask, draft: TaskDraft) = task.copy(
-        name = draft.name.trim(),
-        prompt = draft.prompt.trim(),
-        rule = draft.rule,
-        cwd = draft.cwd?.trim()?.takeIf { it.isNotEmpty() },
-        model = draft.model,
-        permissionMode = draft.permissionMode,
-        newSession = draft.newSession,
-        enabled = draft.enabled,
-        onlyOnChange = draft.onlyOnChange,
-        sessionId = if (draft.newSession != task.newSession) null else task.sessionId,
-    )
+    fun applyDraft(task: ScheduledTask, draft: TaskDraft) =
+        task.copy(
+            name = draft.name.trim(),
+            prompt = draft.prompt.trim(),
+            rule = draft.rule,
+            cwd = draft.cwd?.trim()?.takeIf { it.isNotEmpty() },
+            model = draft.model,
+            permissionMode = draft.permissionMode,
+            newSession = draft.newSession,
+            enabled = draft.enabled,
+            onlyOnChange = draft.onlyOnChange,
+            sessionId = if (draft.newSession != task.newSession) null else task.sessionId,
+        )
 
-    fun toTask(draft: TaskDraft, now: Long, id: String = newId()) = applyDraft(
-        ScheduledTask(id = id, name = "", prompt = "", rule = draft.rule, newSession = draft.newSession, created = now),
-        draft,
-    )
+    fun toTask(draft: TaskDraft, now: Long, id: String = newId()) =
+        applyDraft(
+            ScheduledTask(
+                id = id,
+                name = "",
+                prompt = "",
+                rule = draft.rule,
+                newSession = draft.newSession,
+                created = now,
+            ),
+            draft,
+        )
 
     /**
-     * 新建或编辑一个任务（设置页的编辑器、手机工具 update_scheduled_task 共用）：[draft] 是改完的样子（它的 enabled 不看），
-     * [enabled] 是这次明确给的开关，没给为 null。改了时间就当用户要它重新开始：关着的打开，除非明确给了开关；
-     * 没改时间、改完还关着的不看时间，跑过、被自动关掉的单次任务也能改名、改指令。新建时 [original] 为 null。
+     * 新建或编辑一个任务（设置页的编辑器、手机工具 update_scheduled_task 共用）：[draft] 是改完的样子（它的 enabled 不看）， [enabled]
+     * 是这次明确给的开关，没给为 null。改了时间就当用户要它重新开始：关着的打开，除非明确给了开关； 没改时间、改完还关着的不看时间，跑过、被自动关掉的单次任务也能改名、改指令。新建时
+     * [original] 为 null。
      */
-    fun edit(original: ScheduledTask?, draft: TaskDraft, enabled: Boolean?, now: Instant, zone: ZoneId): Edited {
+    fun edit(
+        original: ScheduledTask?,
+        draft: TaskDraft,
+        enabled: Boolean?,
+        now: Instant,
+        zone: ZoneId,
+    ): Edited {
         val ruleChanged = original == null || draft.rule != original.rule
         val on = enabled ?: (original == null || original.enabled || ruleChanged)
         val result = draft.copy(enabled = on)
         return Edited(result, problem(result, now, zone, checkRule = ruleChanged || on))
     }
 
-    /**
-     * 不能保存的原因；能保存时为 null。[now] 用来判断单次任务的时间是不是已经过了。
-     * [checkRule] 为 false 时不看时间（见 [edit]）。
-     */
+    /** 不能保存的原因；能保存时为 null。[now] 用来判断单次任务的时间是不是已经过了。 [checkRule] 为 false 时不看时间（见 [edit]）。 */
     fun problem(draft: TaskDraft, now: Instant, zone: ZoneId, checkRule: Boolean = true): String? {
         val name = draft.name.trim()
         val cwd = draft.cwd?.trim().orEmpty()
@@ -230,28 +258,36 @@ object Schedules {
         }
     }
 
-    fun ruleProblem(rule: ScheduleRule, now: Instant, zone: ZoneId): String? = when (rule) {
-        is ScheduleRule.Once -> if (nextTrigger(rule, now, zone) == null) "这个时间已经过了" else null
-        is ScheduleRule.Weekly -> if (rule.days.isEmpty()) "至少选一天" else null
-        is ScheduleRule.Interval -> if (rule.hours !in 1..ScheduleRule.MAX_INTERVAL_HOURS) "间隔要在 1 到 ${ScheduleRule.MAX_INTERVAL_HOURS} 小时之间" else null
-        is ScheduleRule.Daily -> null
-    }
+    fun ruleProblem(rule: ScheduleRule, now: Instant, zone: ZoneId): String? =
+        when (rule) {
+            is ScheduleRule.Once -> if (nextTrigger(rule, now, zone) == null) "这个时间已经过了" else null
+            is ScheduleRule.Weekly -> if (rule.days.isEmpty()) "至少选一天" else null
+            is ScheduleRule.Interval ->
+                if (rule.hours !in 1..ScheduleRule.MAX_INTERVAL_HOURS)
+                    "间隔要在 1 到 ${ScheduleRule.MAX_INTERVAL_HOURS} 小时之间"
+                else null
+            is ScheduleRule.Daily -> null
+        }
 
     /**
-     * [after] 之后（不含）下一次该跑的时刻；单次任务时间已过、每周一天都没选时为 null。
-     * 本地时刻在夏令时跳过的那一小时里时按 java.time 的规则往后挪，不另做处理。
+     * [after] 之后（不含）下一次该跑的时刻；单次任务时间已过、每周一天都没选时为 null。 本地时刻在夏令时跳过的那一小时里时按 java.time 的规则往后挪，不另做处理。
      */
     fun nextTrigger(rule: ScheduleRule, after: Instant, zone: ZoneId): Instant? {
         val today = after.atZone(zone).toLocalDate()
-        fun at(date: LocalDate, time: LocalTime): Instant = date.atTime(time).atZone(zone).toInstant()
+        fun at(date: LocalDate, time: LocalTime): Instant =
+            date.atTime(time).atZone(zone).toInstant()
         return when (rule) {
             is ScheduleRule.Once -> rule.at.atZone(zone).toInstant().takeIf { it.isAfter(after) }
-            is ScheduleRule.Daily -> at(today, rule.time).takeIf { it.isAfter(after) } ?: at(today.plusDays(1), rule.time)
-            is ScheduleRule.Weekly -> (0L..7L).asSequence()
-                .map { today.plusDays(it) }
-                .filter { it.dayOfWeek in rule.days }
-                .map { at(it, rule.time) }
-                .firstOrNull { it.isAfter(after) }
+            is ScheduleRule.Daily ->
+                at(today, rule.time).takeIf { it.isAfter(after) }
+                    ?: at(today.plusDays(1), rule.time)
+            is ScheduleRule.Weekly ->
+                (0L..7L)
+                    .asSequence()
+                    .map { today.plusDays(it) }
+                    .filter { it.dayOfWeek in rule.days }
+                    .map { at(it, rule.time) }
+                    .firstOrNull { it.isAfter(after) }
             is ScheduleRule.Interval -> {
                 if (rule.hours <= 0) return null
                 val start = rule.start.atZone(zone).toInstant()
@@ -264,15 +300,30 @@ object Schedules {
     }
 
     /** “每天 08:00”“每周一、三、五 08:00”“每 3 小时”这样的一句。 */
-    fun describe(rule: ScheduleRule): String = when (rule) {
-        is ScheduleRule.Once -> "仅一次 · " + rule.at.monthValue + "月" + rule.at.dayOfMonth + "日 " + rule.at.toLocalTime().format(HM)
-        is ScheduleRule.Daily -> "每天 " + rule.time.format(HM)
-        is ScheduleRule.Weekly -> weekdays(rule.days) + " " + rule.time.format(HM)
-        is ScheduleRule.Interval -> "每 ${rule.hours} 小时 · 从 " + rule.start.toLocalTime().format(HM) + " 起"
-    }
+    fun describe(rule: ScheduleRule): String =
+        when (rule) {
+            is ScheduleRule.Once ->
+                "仅一次 · " +
+                    rule.at.monthValue +
+                    "月" +
+                    rule.at.dayOfMonth +
+                    "日 " +
+                    rule.at.toLocalTime().format(HM)
+            is ScheduleRule.Daily -> "每天 " + rule.time.format(HM)
+            is ScheduleRule.Weekly -> weekdays(rule.days) + " " + rule.time.format(HM)
+            is ScheduleRule.Interval ->
+                "每 ${rule.hours} 小时 · 从 " + rule.start.toLocalTime().format(HM) + " 起"
+        }
 
     fun weekdays(days: Set<DayOfWeek>): String {
-        val workdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        val workdays =
+            setOf(
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY,
+            )
         return when (days) {
             DayOfWeek.entries.toSet() -> "每天"
             workdays -> "工作日"
@@ -294,27 +345,36 @@ object Schedules {
             -1L -> "昨天 $hm"
             else -> {
                 val sameYear = time.year == now.atZone(zone).year
-                (if (sameYear) "" else "${time.year}年") + "${time.monthValue}月${time.dayOfMonth}日 " + weekdayName(time.dayOfWeek) + " " + hm
+                (if (sameYear) "" else "${time.year}年") +
+                    "${time.monthValue}月${time.dayOfMonth}日 " +
+                    weekdayName(time.dayOfWeek) +
+                    " " +
+                    hm
             }
         }
     }
 
     /** 回答的开头，给通知和列表用：去掉 Markdown 的标记、合并空白，太长截断。 */
     fun preview(text: String, limit: Int = MAX_SUMMARY): String {
-        val plain = text.lineSequence()
-            .map { line ->
-                line.trim()
-                    .replace(Regex("^#{1,6}\\s+"), "")
-                    .replace(Regex("^(?:[-*+]|\\d+[.)])\\s+"), "")
-                    .replace(Regex("^>\\s?"), "")
-            }
-            .filter { it.isNotEmpty() && !it.startsWith("```") && !Regex("^[-*_|: ]{3,}$").matches(it) }
-            .joinToString(" ")
-            .replace(Regex("!\\[([^\\]]*)]\\([^)]*\\)"), "$1")
-            .replace(Regex("\\[([^\\]]+)]\\([^)]*\\)"), "$1")
-            .replace(Regex("(\\*\\*|__|`)"), "")
-            .replace(Regex("\\s+"), " ")
-            .trim()
+        val plain =
+            text
+                .lineSequence()
+                .map { line ->
+                    line
+                        .trim()
+                        .replace(Regex("^#{1,6}\\s+"), "")
+                        .replace(Regex("^(?:[-*+]|\\d+[.)])\\s+"), "")
+                        .replace(Regex("^>\\s?"), "")
+                }
+                .filter {
+                    it.isNotEmpty() && !it.startsWith("```") && !Regex("^[-*_|: ]{3,}$").matches(it)
+                }
+                .joinToString(" ")
+                .replace(Regex("!\\[([^\\]]*)]\\([^)]*\\)"), "$1")
+                .replace(Regex("\\[([^\\]]+)]\\([^)]*\\)"), "$1")
+                .replace(Regex("(\\*\\*|__|`)"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
         return plain.clipChars(limit, "…")
     }
 
@@ -322,11 +382,13 @@ object Schedules {
     fun outcomeOf(items: List<ChatItem>, prompt: String): Pair<RunOutcome, String> {
         val mine = items.indexOfLast { it is UserItem && it.text == prompt }
         val tail = if (mine < 0) items.takeLastWhile { it !is UserItem } else items.drop(mine + 1)
-        val answer = tail.filterIsInstance<AnswerItem>().lastOrNull { it.text.isNotBlank() }?.text.orEmpty()
+        val answer =
+            tail.filterIsInstance<AnswerItem>().lastOrNull { it.text.isNotBlank() }?.text.orEmpty()
         val notices = tail.filterIsInstance<NoticeItem>()
         val error = notices.lastOrNull { it.error }?.text
         return when {
-            notices.any { !it.error && it.text.startsWith("已停止") } -> RunOutcome.Stopped to (Schedules.preview(answer).ifBlank { "已停止" })
+            notices.any { !it.error && it.text.startsWith("已停止") } ->
+                RunOutcome.Stopped to (Schedules.preview(answer).ifBlank { "已停止" })
             error != null -> RunOutcome.Failed to Schedules.preview(error)
             mine < 0 -> RunOutcome.Failed to "指令没有发出去"
             else -> RunOutcome.Done to Schedules.preview(answer)
@@ -334,18 +396,28 @@ object Schedules {
     }
 
     /**
-     * 一次运行跑完：[outcome]、[answer] 是 [outcomeOf] 看对话得出的，[report] 是 Claude 上报的结论（没上报为 null），
-     * [asked] 是这次停下来等过用户确认。只在有变化时提醒的任务，Claude 上报了“没有变化”才不发通知，记成 [RunOutcome.NoChange]；
-     * 没上报、出了错、等过确认的照常提醒（宁可多提醒一次，不漏）。上报了有结果的，通知用它的摘要。用户叫停的不提醒。
-     * 不是只在有变化时提醒的任务不看上报。
+     * 一次运行跑完：[outcome]、[answer] 是 [outcomeOf] 看对话得出的，[report] 是 Claude 上报的结论（没上报为 null）， [asked]
+     * 是这次停下来等过用户确认。只在有变化时提醒的任务，Claude 上报了“没有变化”才不发通知，记成 [RunOutcome.NoChange]；
+     * 没上报、出了错、等过确认的照常提醒（宁可多提醒一次，不漏）。上报了有结果的，通知用它的摘要。用户叫停的不提醒。 不是只在有变化时提醒的任务不看上报。
      */
-    fun settle(outcome: RunOutcome, answer: String, onlyOnChange: Boolean, report: RunReport?, asked: Boolean): Settled {
-        if (outcome != RunOutcome.Done || !onlyOnChange || report == null) return Settled(outcome, answer, notify = outcome != RunOutcome.Stopped)
+    fun settle(
+        outcome: RunOutcome,
+        answer: String,
+        onlyOnChange: Boolean,
+        report: RunReport?,
+        asked: Boolean,
+    ): Settled {
+        if (outcome != RunOutcome.Done || !onlyOnChange || report == null)
+            return Settled(outcome, answer, notify = outcome != RunOutcome.Stopped)
         val summary = preview(report.summary)
         return if (report.changed) {
             Settled(RunOutcome.Done, summary.ifBlank { answer }, notify = true)
         } else {
-            Settled(RunOutcome.NoChange, summary.ifBlank { RunOutcome.NoChange.label }, notify = asked)
+            Settled(
+                RunOutcome.NoChange,
+                summary.ifBlank { RunOutcome.NoChange.label },
+                notify = asked,
+            )
         }
     }
 
@@ -372,18 +444,24 @@ object Schedules {
     /** “mon”“monday”“1”（周一）到“sun”“7”。 */
     fun parseDay(text: String): DayOfWeek? {
         val t = text.trim().lowercase()
-        t.toIntOrNull()?.let { return if (it in 1..7) DayOfWeek.of(it) else null }
+        t.toIntOrNull()?.let {
+            return if (it in 1..7) DayOfWeek.of(it) else null
+        }
         val index = DAY_KEYS.indexOfFirst { t.startsWith(it) }
         return if (index >= 0) DayOfWeek.of(index + 1) else null
     }
 
     // ---- 存储：Zeta 设置里的一个 JSON 数组 ----
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     fun encode(tasks: List<ScheduledTask>): String = buildJsonArray {
         for (task in tasks) add(encodeTask(task))
-    }.toString()
+    }
+        .toString()
 
     internal fun encodeTask(task: ScheduledTask): JsonObject = buildJsonObject {
         put("id", task.id)
@@ -416,12 +494,20 @@ object Schedules {
         o ?: return null
         val at = o.long("at") ?: return null
         val outcome = RunOutcome.of(o.str("outcome")) ?: return null
-        return TaskRun(at, outcome, o.str("session"), o.str("summary").orEmpty(), o.bool("manual") == true)
+        return TaskRun(
+            at,
+            outcome,
+            o.str("session"),
+            o.str("summary").orEmpty(),
+            o.bool("manual") == true,
+        )
     }
 
     /** Zeta 进程刚起来时：上一个进程里没等到结果的那次运行记成中断。 */
     fun interrupted(run: TaskRun?): TaskRun? =
-        if (run?.outcome == RunOutcome.Running) run.copy(outcome = RunOutcome.Interrupted, summary = "Zeta 在这次运行结束前被关掉了，结果在对话里") else run
+        if (run?.outcome == RunOutcome.Running)
+            run.copy(outcome = RunOutcome.Interrupted, summary = "Zeta 在这次运行结束前被关掉了，结果在对话里")
+        else run
 
     private fun encodeRule(rule: ScheduleRule): JsonObject = buildJsonObject {
         put("kind", rule.kind.key)
@@ -432,16 +518,23 @@ object Schedules {
                 putJsonArray("days") { rule.days.sorted().forEach { add(JsonPrimitive(it.value)) } }
                 put("time", rule.time.format(HM))
             }
-            is ScheduleRule.Interval -> { put("hours", rule.hours); put("start", rule.start.toString()) }
+            is ScheduleRule.Interval -> {
+                put("hours", rule.hours)
+                put("start", rule.start.toString())
+            }
         }
     }
 
     /** 容错：整段不是 JSON 数组时当成没有任务，单个任务缺了必要的字段就跳过它，其余字段缺了取默认值。 */
     fun decode(text: String?): List<ScheduledTask> {
         if (text.isNullOrBlank()) return emptyList()
-        val array = runCatching { json.parseToJsonElement(text) as? JsonArray }.getOrNull() ?: return emptyList()
+        val array =
+            runCatching { json.parseToJsonElement(text) as? JsonArray }.getOrNull()
+                ?: return emptyList()
         val seen = HashSet<String>()
-        return array.mapNotNull { element -> runCatching { decodeTask(element) }.getOrNull() }.filter { seen.add(it.id) }
+        return array
+            .mapNotNull { element -> runCatching { decodeTask(element) }.getOrNull() }
+            .filter { seen.add(it.id) }
     }
 
     /** 一个任务；缺了必要的字段时为 null，格式不对可能抛异常（[decode] 兜着）。 */
@@ -452,7 +545,9 @@ object Schedules {
         val rule = decodeRule(o.obj("rule")) ?: return null
         return ScheduledTask(
             id = id,
-            name = o.str("name")?.takeIf { it.isNotBlank() } ?: prompt.lineSequence().first().clipChars(MAX_NAME),
+            name =
+                o.str("name")?.takeIf { it.isNotBlank() }
+                    ?: prompt.lineSequence().first().clipChars(MAX_NAME),
             prompt = prompt,
             rule = rule,
             enabled = o.bool("enabled") ?: true,
@@ -476,11 +571,17 @@ object Schedules {
             RuleKind.Daily -> parseTime(o.str("time"))?.let { ScheduleRule.Daily(it) }
             RuleKind.Weekly -> {
                 val time = parseTime(o.str("time")) ?: return null
-                val days = o.arr("days").orEmpty().mapNotNull { (it as? JsonPrimitive)?.content?.let(::parseDay) }.toSet()
+                val days =
+                    o.arr("days")
+                        .orEmpty()
+                        .mapNotNull { (it as? JsonPrimitive)?.content?.let(::parseDay) }
+                        .toSet()
                 if (days.isEmpty()) null else ScheduleRule.Weekly(days, time)
             }
             RuleKind.Interval -> {
-                val hours = o.int("hours")?.takeIf { it in 1..ScheduleRule.MAX_INTERVAL_HOURS } ?: return null
+                val hours =
+                    o.int("hours")?.takeIf { it in 1..ScheduleRule.MAX_INTERVAL_HOURS }
+                        ?: return null
                 parseDateTime(o.str("start"))?.let { ScheduleRule.Interval(hours, it) }
             }
             null -> null

@@ -25,8 +25,7 @@ import kotlin.math.min
 
 /**
  * Claude 在主屏上点按、长按、滑动时的触摸指示（照 Eta 的 GestureIndicator）：
- * 每次手势挂一个触摸穿透的小窗口（TYPE_ACCESSIBILITY_OVERLAY），动画放完就移除；
- * 点按、长按是落点上的圆环，滑动是沿路径前进的指尖和尾迹。截图和控件列表都会把它排除。
+ * 每次手势挂一个触摸穿透的小窗口（TYPE_ACCESSIBILITY_OVERLAY），动画放完就移除； 点按、长按是落点上的圆环，滑动是沿路径前进的指尖和尾迹。截图和控件列表都会把它排除。
  *
  * [show] 可在任意线程调用（无障碍服务做手势的工具线程），窗口的事都转到主线程。
  */
@@ -36,10 +35,10 @@ internal object GestureIndicator {
     private var active: Active? = null
 
     /** 指示预计放完的时刻；截图据此判断要不要把悬浮层排除掉。 */
-    @Volatile
-    private var visibleUntil = 0L
+    @Volatile private var visibleUntil = 0L
 
-    val showing: Boolean get() = SystemClock.uptimeMillis() < visibleUntil
+    val showing: Boolean
+        get() = SystemClock.uptimeMillis() < visibleUntil
 
     /** 在 [displayId] 上沿 [path]（屏幕像素）画一次手势指示，[durationMs] 和真正注入的手势一样长。 */
     fun show(service: AccessibilityService, displayId: Int, path: Path, durationMs: Long) {
@@ -50,23 +49,37 @@ internal object GestureIndicator {
         val swipe = length >= SWIPE_MIN_DP * density
         // 点按注入 60ms，长按至少 300ms（PhoneTools 的下限）
         val longPress = !swipe && durationMs >= LONG_PRESS_MIN_MS
-        val holdMs = if (longPress) {
-            (durationMs - POP_IN_MS - FADE_OUT_MS).coerceIn(MIN_LONG_PRESS_HOLD_MS, MAX_LONG_PRESS_HOLD_MS)
-        } else TAP_HOLD_MS
-        val totalMs = if (swipe) durationMs.coerceAtLeast(MIN_SWIPE_MS) + SWIPE_FADE_MS else POP_IN_MS + holdMs + FADE_OUT_MS
+        val holdMs =
+            if (longPress) {
+                (durationMs - POP_IN_MS - FADE_OUT_MS).coerceIn(
+                    MIN_LONG_PRESS_HOLD_MS,
+                    MAX_LONG_PRESS_HOLD_MS,
+                )
+            } else TAP_HOLD_MS
+        val totalMs =
+            if (swipe) durationMs.coerceAtLeast(MIN_SWIPE_MS) + SWIPE_FADE_MS
+            else POP_IN_MS + holdMs + FADE_OUT_MS
         visibleUntil = maxOf(visibleUntil, SystemClock.uptimeMillis() + totalMs + 200)
         main.post {
             val context = OverlayDisplays.context(service, displayId) ?: return@post
             val windowManager = context.getSystemService(WindowManager::class.java) ?: return@post
             if (swipe) {
-                attach(windowManager, SwipeIndicatorView(context, copy, durationMs), params(WindowManager.LayoutParams.MATCH_PARENT, 0, 0))
+                attach(
+                    windowManager,
+                    SwipeIndicatorView(context, copy, durationMs),
+                    params(WindowManager.LayoutParams.MATCH_PARENT, 0, 0),
+                )
             } else {
                 // 只有一个落点：窗口只要指示那么大，贴在落点上
                 val point = RectF().also(copy::computeBounds)
                 val sizePx = (PRESS_WINDOW_DP * density).toInt()
                 val x = point.centerX().toInt() - sizePx / 2
                 val y = point.centerY().toInt() - sizePx / 2
-                attach(windowManager, PressIndicatorView(context, longPress, holdMs), params(sizePx, x, y))
+                attach(
+                    windowManager,
+                    PressIndicatorView(context, longPress, holdMs),
+                    params(sizePx, x, y),
+                )
             }
         }
     }
@@ -83,34 +96,42 @@ internal object GestureIndicator {
         active?.let(::finish)
     }
 
-    private fun params(size: Int, x: Int, y: Int) = WindowManager.LayoutParams(
-        size,
-        size,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-        PixelFormat.TRANSLUCENT,
-    ).apply {
-        gravity = Gravity.TOP or Gravity.START
-        this.x = x
-        this.y = y
-        // 坐标按整块屏幕算：不让系统按状态栏、挖孔挪窗口，指示才落在手势的真实位置上
-        setFitInsetsTypes(0)
-        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-        title = "ZetaGestureIndicator"
-    }
+    private fun params(size: Int, x: Int, y: Int) =
+        WindowManager.LayoutParams(
+                size,
+                size,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT,
+            )
+            .apply {
+                gravity = Gravity.TOP or Gravity.START
+                this.x = x
+                this.y = y
+                // 坐标按整块屏幕算：不让系统按状态栏、挖孔挪窗口，指示才落在手势的真实位置上
+                setFitInsetsTypes(0)
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                title = "ZetaGestureIndicator"
+            }
 
-    private fun attach(windowManager: WindowManager, view: IndicatorView, params: WindowManager.LayoutParams) {
+    private fun attach(
+        windowManager: WindowManager,
+        view: IndicatorView,
+        params: WindowManager.LayoutParams,
+    ) {
         active?.let(::finish)
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        runCatching { windowManager.addView(view, params) }.onSuccess {
-            val indicator = Active(windowManager, view)
-            active = indicator
-            view.start { main.post { finish(indicator) } }
-        }
+        runCatching { windowManager.addView(view, params) }
+            .onSuccess {
+                val indicator = Active(windowManager, view)
+                active = indicator
+                view.start { main.post { finish(indicator) } }
+            }
     }
 
     private fun finish(indicator: Active) {
@@ -139,6 +160,7 @@ private const val IndicatorColor = 0xFF2879FB.toInt()
 
 private abstract class IndicatorView(context: Context) : View(context) {
     abstract fun start(onFinished: () -> Unit)
+
     abstract fun cancel()
 }
 
@@ -156,11 +178,17 @@ private class PressIndicatorView(
         scaleX = 0.5f
         scaleY = 0.5f
         val grow = if (longPress) 1.12f else 1.06f
-        animate().alpha(1f).scaleX(1f).scaleY(1f)
+        animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
             .setDuration(200L)
             .setInterpolator(OvershootInterpolator(2f))
             .withEndAction {
-                animate().alpha(0f).scaleX(grow).scaleY(grow)
+                animate()
+                    .alpha(0f)
+                    .scaleX(grow)
+                    .scaleY(grow)
                     .setDuration(180L)
                     .setStartDelay(holdMs)
                     .setInterpolator(DecelerateInterpolator())
@@ -204,11 +232,12 @@ private class SwipeIndicatorView(
     private val path: Path,
     private val durationMs: Long,
 ) : IndicatorView(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = IndicatorColor
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-    }
+    private val paint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = IndicatorColor
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
     private val density = resources.displayMetrics.density
     private val measure = PathMeasure(path, false)
     private val length = measure.length
@@ -221,28 +250,33 @@ private class SwipeIndicatorView(
 
     override fun start(onFinished: () -> Unit) {
         // 系统按路径匀速注入，指尖也匀速走，才和真实触点对得上
-        val advance = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = durationMs.coerceAtLeast(300L)
-            interpolator = LinearInterpolator()
-            addUpdateListener {
-                progress = it.animatedValue as Float
-                invalidate()
+        val advance =
+            ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = durationMs.coerceAtLeast(300L)
+                interpolator = LinearInterpolator()
+                addUpdateListener {
+                    progress = it.animatedValue as Float
+                    invalidate()
+                }
             }
-        }
-        val fadeOut = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 160L
-            addUpdateListener {
-                fade = it.animatedValue as Float
-                invalidate()
+        val fadeOut =
+            ValueAnimator.ofFloat(1f, 0f).apply {
+                duration = 160L
+                addUpdateListener {
+                    fade = it.animatedValue as Float
+                    invalidate()
+                }
             }
-        }
-        animator = AnimatorSet().apply {
-            playSequentially(advance, fadeOut)
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) = onFinished()
-            })
-            start()
-        }
+        animator =
+            AnimatorSet().apply {
+                playSequentially(advance, fadeOut)
+                addListener(
+                    object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) = onFinished()
+                    },
+                )
+                start()
+            }
     }
 
     override fun cancel() {
@@ -277,6 +311,11 @@ private class SwipeIndicatorView(
 
         paint.style = Paint.Style.FILL
         paint.alpha = (fade * 0.5f * 255).toInt()
-        canvas.drawCircle(start[0], start[1], min(4f * density, 4f * density * (1f - progress) + density), paint)
+        canvas.drawCircle(
+            start[0],
+            start[1],
+            min(4f * density, 4f * density * (1f - progress) + density),
+            paint,
+        )
     }
 }

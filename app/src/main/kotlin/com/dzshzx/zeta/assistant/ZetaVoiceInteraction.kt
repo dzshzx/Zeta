@@ -12,9 +12,9 @@ import com.dzshzx.zeta.core.diag.DiagTopic
 import java.lang.ref.WeakReference
 
 /**
- * Zeta 作为系统的数字助理（设置里把默认数字助理选成 Zeta 后由系统绑定）。本身不做事：
- * 系统要显示助理时（长按电源键经 Zeta 的 LSPosed 模块、或别的系统入口）新建 [ZetaVoiceInteractionSession]。
- * 元数据在 res/xml/zeta_voice_interaction.xml；识别服务见 [ZetaRecognitionService]。
+ * Zeta 作为系统的数字助理（设置里把默认数字助理选成 Zeta 后由系统绑定）。本身不做事： 系统要显示助理时（长按电源键经 Zeta 的 LSPosed 模块、或别的系统入口）新建
+ * [ZetaVoiceInteractionSession]。 元数据在 res/xml/zeta_voice_interaction.xml；识别服务见
+ * [ZetaRecognitionService]。
  */
 class ZetaVoiceInteractionService : VoiceInteractionService() {
     /** 系统连上了当前的数字助理服务：选上 Zeta 之后、开机后都会来一次。 */
@@ -27,7 +27,8 @@ class ZetaVoiceInteractionService : VoiceInteractionService() {
 }
 
 class ZetaVoiceInteractionSessionService : VoiceInteractionSessionService() {
-    override fun onNewSession(args: Bundle?): VoiceInteractionSession = ZetaVoiceInteractionSession(this)
+    override fun onNewSession(args: Bundle?): VoiceInteractionSession =
+        ZetaVoiceInteractionSession(this)
 }
 
 /**
@@ -52,7 +53,11 @@ internal class ZetaVoiceInteractionSession(context: Context) : VoiceInteractionS
         super.onPrepareShow(args, showFlags)
         coalesced = AssistantActivity.showing
         if (coalesced) return
-        val foreground = args?.getParcelableArrayList(KEY_FOREGROUND_ACTIVITIES, ComponentName::class.java).orEmpty().map { it.packageName }
+        val foreground =
+            args
+                ?.getParcelableArrayList(KEY_FOREGROUND_ACTIVITIES, ComponentName::class.java)
+                .orEmpty()
+                .map { it.packageName }
         capture = AssistCaptures.begin(context, showFlags, foreground)
     }
 
@@ -63,10 +68,14 @@ internal class ZetaVoiceInteractionSession(context: Context) : VoiceInteractionS
         val source = args?.getString(SOURCE_EXTRA)
         DiagLog.info(DiagTopic.App, "数字助理被唤起" + (source?.let { "（$it）" } ?: ""))
         val intent = AssistantActivity.intent(context, id)
-        runCatching { startAssistantActivity(intent) }.onFailure {
-            DiagLog.warn(DiagTopic.App, "数字助理打不开浮窗：${it.javaClass.simpleName} ${it.message.orEmpty()}")
-            runCatching { context.startActivity(intent) }
-        }
+        runCatching { startAssistantActivity(intent) }
+            .onFailure {
+                DiagLog.warn(
+                    DiagTopic.App,
+                    "数字助理打不开浮窗：${it.javaClass.simpleName} ${it.message.orEmpty()}",
+                )
+                runCatching { context.startActivity(intent) }
+            }
     }
 
     override fun onHandleAssist(state: AssistState) {

@@ -26,8 +26,9 @@ class SpeechTextTest {
 
     @Test
     fun codeBlocksAndTablesAreSkippedWithANote() {
-        val text = read(
-            """
+        val text =
+            read(
+                """
             改动如下：
 
             ```kotlin
@@ -40,7 +41,7 @@ class SpeechTextTest {
 
             就这些。
             """,
-        )
+            )
         assertEquals("改动如下：\n代码略。\n表格略。\n就这些。", text)
         assertFalse("println" in text)
     }

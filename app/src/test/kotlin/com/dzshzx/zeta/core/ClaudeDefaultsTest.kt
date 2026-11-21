@@ -4,9 +4,9 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.shots.Fixtures
+import com.dzshzx.zeta.ui.settings.effortRows
 import com.dzshzx.zeta.ui.settings.effortSummary
 import com.dzshzx.zeta.ui.settings.hostDefaultsSummary
-import com.dzshzx.zeta.ui.settings.effortRows
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -27,12 +27,16 @@ import org.robolectric.annotation.Config
 class ClaudeDefaultsTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
-    private fun conversation(hub: ConversationHub) = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
+    private fun conversation(hub: ConversationHub) =
+        Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
 
     @Test
     fun newConversationLeavesDefaultsToClaudeCode() {
         val hub = Fixtures.readyHub(app)
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults("opus", "auto", mapOf("claude-opus-5-5" to "xhigh"), null))
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults("opus", "auto", mapOf("claude-opus-5-5" to "xhigh"), null),
+        )
         val chat = conversation(hub)
         assertNull(chat.launchArgument("--model"))
         assertNull(chat.launchArgument("--effort"))
@@ -67,10 +71,7 @@ class ClaudeDefaultsTest {
         assertEquals("default", other.shownPermissionMode)
     }
 
-    /**
-     * 每台主机的默认值各是各的（存在各自的 settings.json）：远程主机上的对话显示那台的默认权限模式，不受手机的影响；
-     * 删掉这台主机时它的默认值一起丢掉。
-     */
+    /** 每台主机的默认值各是各的（存在各自的 settings.json）：远程主机上的对话显示那台的默认权限模式，不受手机的影响； 删掉这台主机时它的默认值一起丢掉。 */
     @Test
     fun defaultsArePerHost() {
         val hub = Fixtures.readyHub(app)
@@ -79,7 +80,15 @@ class ClaudeDefaultsTest {
         hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults("opus", "auto", emptyMap(), null))
         hub.updateClaudeDefaults(remote.id, ClaudeDefaults("sonnet", "plan", emptyMap(), null))
         val local = conversation(hub)
-        val there = Conversation(hub, remote.defaultCwd, sessionId = null, title = "", historyFile = null, backend = remote.id)
+        val there =
+            Conversation(
+                hub,
+                remote.defaultCwd,
+                sessionId = null,
+                title = "",
+                historyFile = null,
+                backend = remote.id,
+            )
         assertEquals("auto", local.shownPermissionMode)
         assertEquals("plan", there.shownPermissionMode)
         assertEquals("sonnet", hub.claudeDefaults(remote.id)?.model)
@@ -93,46 +102,101 @@ class ClaudeDefaultsTest {
     fun hostSummaryShowsModelAndItsEffort() {
         val models = Fixtures.models
         val efforts = mapOf("claude-opus-5-5" to "xhigh")
-        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), models))
-        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), models))
-        assertEquals("Sonnet 5.5 · 中", hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, "medium"), models))
-        assertEquals("Sonnet 5.5", hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, null), models))
+        assertEquals(
+            "Opus 5.5 · 超高",
+            hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), models),
+        )
+        assertEquals(
+            "Opus 5.5 · 超高",
+            hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), models),
+        )
+        assertEquals(
+            "Sonnet 5.5 · 中",
+            hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, "medium"), models),
+        )
+        assertEquals(
+            "Sonnet 5.5",
+            hostDefaultsSummary(ClaudeDefaults("sonnet", null, efforts, null), models),
+        )
         // 还没拿到这台的清单：别名找不到完整 ID，只写模型
-        assertEquals("Opus", hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), FallbackModels))
-        assertEquals("默认模型", hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), FallbackModels))
-        assertEquals("Opus 5.5 · 超高", hostDefaultsSummary(ClaudeDefaults("claude-opus-5-5", null, efforts, null), FallbackModels))
+        assertEquals(
+            "Opus",
+            hostDefaultsSummary(ClaudeDefaults("opus", null, efforts, null), FallbackModels),
+        )
+        assertEquals(
+            "默认模型",
+            hostDefaultsSummary(ClaudeDefaults(null, null, efforts, null), FallbackModels),
+        )
+        assertEquals(
+            "Opus 5.5 · 超高",
+            hostDefaultsSummary(
+                ClaudeDefaults("claude-opus-5-5", null, efforts, null),
+                FallbackModels,
+            ),
+        )
     }
 
     @Test
     fun effortSummaryReadsPerModel() {
-        assertEquals("没有设，按 Claude Code 的默认", effortSummary(ClaudeDefaults(null, null, emptyMap(), null)))
+        assertEquals(
+            "没有设，按 Claude Code 的默认",
+            effortSummary(ClaudeDefaults(null, null, emptyMap(), null)),
+        )
         assertEquals("高", effortSummary(ClaudeDefaults(null, null, emptyMap(), "high")))
-        assertEquals("Opus 5.5 超高，Fable 5.2 高", effortSummary(ClaudeDefaults(null, null, mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high"), null)))
-        assertEquals("Opus 5.5 超高，其他模型 中", effortSummary(ClaudeDefaults(null, null, mapOf("claude-opus-5-5" to "xhigh"), "medium")))
+        assertEquals(
+            "Opus 5.5 超高，Fable 5.2 高",
+            effortSummary(
+                ClaudeDefaults(
+                    null,
+                    null,
+                    mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high"),
+                    null,
+                ),
+            ),
+        )
+        assertEquals(
+            "Opus 5.5 超高，其他模型 中",
+            effortSummary(
+                ClaudeDefaults(null, null, mapOf("claude-opus-5-5" to "xhigh"), "medium"),
+            ),
+        )
     }
 
     /**
-     * 默认思考强度页：清单里的模型按完整 ID 各一行（「默认」和 Opus 是同一个，只列一次），档位只列支持的，不支持也没设过的不列；
-     * settings.json 里有、清单里没有的旧模型接在后面；顶层设过时最后是「其他模型」。
+     * 默认思考强度页：清单里的模型按完整 ID 各一行（「默认」和 Opus 是同一个，只列一次），档位只列支持的，不支持也没设过的不列； settings.json
+     * 里有、清单里没有的旧模型接在后面；顶层设过时最后是「其他模型」。
      */
     @Test
     fun effortRowsFollowTheModelList() {
         val all = EffortLevels.map { it.first }
-        val models = listOf(
-            ModelOption("default", "Default", "", "claude-opus-5-5", all),
-            ModelOption("opus", "Opus", "", "claude-opus-5-5", all),
-            ModelOption("fable", "Fable", "", "claude-fable-5-2", listOf("low", "high")),
-            ModelOption("lite", "Lite", "", "claude-lite-1", emptyList()),
-            ModelOption("custom", "Custom", "", null, all),
-        )
-        val defaults = ClaudeDefaults(null, null, mapOf("claude-fable-5-1" to "high", "claude-opus-5-5" to "xhigh"), "medium")
+        val models =
+            listOf(
+                ModelOption("default", "Default", "", "claude-opus-5-5", all),
+                ModelOption("opus", "Opus", "", "claude-opus-5-5", all),
+                ModelOption("fable", "Fable", "", "claude-fable-5-2", listOf("low", "high")),
+                ModelOption("lite", "Lite", "", "claude-lite-1", emptyList()),
+                ModelOption("custom", "Custom", "", null, all),
+            )
+        val defaults =
+            ClaudeDefaults(
+                null,
+                null,
+                mapOf("claude-fable-5-1" to "high", "claude-opus-5-5" to "xhigh"),
+                "medium",
+            )
         val rows = effortRows(models, defaults)
-        assertEquals(listOf("claude-opus-5-5", "claude-fable-5-2", "claude-fable-5-1", null), rows.map { it.model })
+        assertEquals(
+            listOf("claude-opus-5-5", "claude-fable-5-2", "claude-fable-5-1", null),
+            rows.map { it.model },
+        )
         assertEquals(listOf("Opus 5.5", "Fable 5.2", "Fable 5.1", "其他模型"), rows.map { it.title })
         assertEquals(listOf("xhigh", null, "high", "medium"), rows.map { it.value })
         assertEquals(listOf("low" to "低", "high" to "高"), rows[1].choices)
         // 还没拿到清单：只列设过的
-        assertEquals(listOf("claude-fable-5-1", "claude-opus-5-5"), effortRows(emptyList(), defaults.copy(effort = null)).map { it.model })
+        assertEquals(
+            listOf("claude-fable-5-1", "claude-opus-5-5"),
+            effortRows(emptyList(), defaults.copy(effort = null)).map { it.model },
+        )
     }
 
     /** initialize 应答里每个模型的完整 ID 和能选的思考强度；不支持思考强度的能选的是空的。 */
@@ -141,9 +205,15 @@ class ClaudeDefaultsTest {
         fun parse(text: String) = modelOption(Json.parseToJsonElement(text) as JsonObject)
         assertEquals(
             ModelOption("opus", "Opus", "Opus 5.5", "claude-opus-5-5", listOf("low", "high")),
-            parse("""{"value":"opus","resolvedModel":"claude-opus-5-5","displayName":"Opus","description":"Opus 5.5","supportsEffort":true,"supportedEffortLevels":["low","high"]}"""),
+            parse(
+                """{"value":"opus","resolvedModel":"claude-opus-5-5","displayName":"Opus","description":"Opus 5.5","supportsEffort":true,"supportedEffortLevels":["low","high"]}""",
+            ),
         )
-        assertEquals(emptyList<String>(), parse("""{"value":"lite","resolvedModel":"claude-lite-1","supportsEffort":false}""")?.effortLevels)
+        assertEquals(
+            emptyList<String>(),
+            parse("""{"value":"lite","resolvedModel":"claude-lite-1","supportsEffort":false}""")
+                ?.effortLevels,
+        )
         assertEquals(ModelOption("x", "", ""), parse("""{"value":"x"}"""))
         assertNull(parse("""{"displayName":"没有 value"}"""))
     }
@@ -152,7 +222,16 @@ class ClaudeDefaultsTest {
     @Test
     fun restoreRefreshesObservedSettings() {
         val hub = Fixtures.readyHub(app)
-        assertTrue(hub.settings.restore(mapOf("autoTitle" to false, "autoCompact" to false, "autoCompactPercent" to 70, "cwd" to "/workspace/other")))
+        assertTrue(
+            hub.settings.restore(
+                mapOf(
+                    "autoTitle" to false,
+                    "autoCompact" to false,
+                    "autoCompactPercent" to 70,
+                    "cwd" to "/workspace/other",
+                ),
+            ),
+        )
         assertFalse(hub.settings.autoTitle)
         assertFalse(hub.settings.autoCompact)
         assertEquals(70, hub.settings.autoCompactPercent)

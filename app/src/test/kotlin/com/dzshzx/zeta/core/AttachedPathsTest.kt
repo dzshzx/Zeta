@@ -37,7 +37,10 @@ class AttachedPathsTest {
 
     @Test
     fun headersUseQuotedMentions() {
-        assertEquals("[Attached folder: @\"/mnt/shared/Download\"]", AttachedPaths.header("@/mnt/shared/Download/"))
+        assertEquals(
+            "[Attached folder: @\"/mnt/shared/Download\"]",
+            AttachedPaths.header("@/mnt/shared/Download/"),
+        )
         assertEquals("[Attached file: @\"/a b/c.txt\"]", AttachedPaths.header("@/a b/c.txt"))
         assertEquals("[Attached file: /x/y.pdf]", AttachedPaths.header("/x/y.pdf"))
         for (entry in listOf("@/mnt/shared/Download/", "@/a b/c.txt", "/x/y.pdf", "@/")) {
@@ -50,7 +53,12 @@ class AttachedPathsTest {
 
     @Test
     fun messageTextSplitsBackIntoAttachmentsAndBody() {
-        val files = listOf("/home/u/.cache/zeta/files/1/a.txt", "@/workspace/claude/zeta/", "@/etc/hostname")
+        val files =
+            listOf(
+                "/home/u/.cache/zeta/files/1/a.txt",
+                "@/workspace/claude/zeta/",
+                "@/etc/hostname",
+            )
         val text = withAttachedFiles("看看这些", files)
         assertEquals(
             "[Attached file: /home/u/.cache/zeta/files/1/a.txt]\n[Attached folder: @\"/workspace/claude/zeta\"]\n" +
@@ -58,7 +66,10 @@ class AttachedPathsTest {
             text,
         )
         assertEquals(files to "看看这些", splitAttachedFiles(text))
-        assertEquals(listOf("@/x/") to "", splitAttachedFiles(withAttachedFiles("", listOf("@/x/"))))
+        assertEquals(
+            listOf("@/x/") to "",
+            splitAttachedFiles(withAttachedFiles("", listOf("@/x/"))),
+        )
         assertEquals(emptyList<String>() to "[Attached 不是附件", splitAttachedFiles("[Attached 不是附件"))
     }
 
@@ -78,21 +89,58 @@ class AttachedPathsTest {
 
     @Test
     fun androidPathsMapIntoLinux() {
-        val shares = listOf(SharedFolder("sdcard", "/sdcard"), SharedFolder("Download", "/storage/emulated/0/Download"))
+        val shares =
+            listOf(
+                SharedFolder("sdcard", "/sdcard"),
+                SharedFolder("Download", "/storage/emulated/0/Download"),
+            )
         val rootfs = "/data/local/zeta/debian/rootfs"
-        assertEquals("/workspace/claude", AttachedPaths.linuxPathFor("/data/local/zeta/workspace/claude", shares, rootfs))
-        assertEquals("/workspace", AttachedPaths.linuxPathFor("/data/local/zeta/workspace", shares, rootfs))
+        assertEquals(
+            "/workspace/claude",
+            AttachedPaths.linuxPathFor("/data/local/zeta/workspace/claude", shares, rootfs),
+        )
+        assertEquals(
+            "/workspace",
+            AttachedPaths.linuxPathFor("/data/local/zeta/workspace", shares, rootfs),
+        )
         // Eta 的目录不是 Zeta 的工作区，只是 /data/local/tmp 下的一个目录
-        assertEquals("/data/local/tmp/eta/claude", AttachedPaths.linuxPathFor("/data/local/tmp/eta/claude", shares, rootfs))
-        assertEquals("/data/local/tmp/x", AttachedPaths.linuxPathFor("/data/local/tmp/x", shares, rootfs))
-        assertEquals("/home/dzshzx", AttachedPaths.linuxPathFor("$rootfs/home/dzshzx", shares, rootfs))
+        assertEquals(
+            "/data/local/tmp/eta/claude",
+            AttachedPaths.linuxPathFor("/data/local/tmp/eta/claude", shares, rootfs),
+        )
+        assertEquals(
+            "/data/local/tmp/x",
+            AttachedPaths.linuxPathFor("/data/local/tmp/x", shares, rootfs),
+        )
+        assertEquals(
+            "/home/dzshzx",
+            AttachedPaths.linuxPathFor("$rootfs/home/dzshzx", shares, rootfs),
+        )
         // 套着的共享文件夹取最具体的那个
-        assertEquals("/mnt/shared/Download/a", AttachedPaths.linuxPathFor("/sdcard/Download/a", shares, rootfs))
-        assertEquals("/mnt/shared/sdcard/DCIM", AttachedPaths.linuxPathFor("/storage/emulated/0/DCIM", shares, rootfs))
+        assertEquals(
+            "/mnt/shared/Download/a",
+            AttachedPaths.linuxPathFor("/sdcard/Download/a", shares, rootfs),
+        )
+        assertEquals(
+            "/mnt/shared/sdcard/DCIM",
+            AttachedPaths.linuxPathFor("/storage/emulated/0/DCIM", shares, rootfs),
+        )
         assertEquals("/mnt/shared/sdcard", AttachedPaths.linuxPathFor("/sdcard", shares, rootfs))
         // 没共享的内部存储在 Linux 里看不到
-        assertNull(AttachedPaths.linuxPathFor("/sdcard/DCIM", listOf(SharedFolder("Download", "/sdcard/Download")), rootfs))
-        assertNull(AttachedPaths.linuxPathFor("/sdcard/Downloads", listOf(SharedFolder("Download", "/sdcard/Download")), rootfs))
+        assertNull(
+            AttachedPaths.linuxPathFor(
+                "/sdcard/DCIM",
+                listOf(SharedFolder("Download", "/sdcard/Download")),
+                rootfs,
+            ),
+        )
+        assertNull(
+            AttachedPaths.linuxPathFor(
+                "/sdcard/Downloads",
+                listOf(SharedFolder("Download", "/sdcard/Download")),
+                rootfs,
+            ),
+        )
         assertNull(AttachedPaths.linuxPathFor("relative", shares, rootfs))
     }
 
@@ -100,12 +148,26 @@ class AttachedPathsTest {
     fun pathCheckParsesScriptOutput() {
         assertEquals(listOf(PathKind.Folder), PathCheck.parse("motd line\nzeta_path folder\n"))
         assertEquals(
-            listOf(PathKind.File, PathKind.Missing, PathKind.Denied, PathKind.FolderNotInProcess, PathKind.FileNotInProcess, PathKind.Unknown),
-            PathCheck.parse("zeta_path file\nzeta_path missing\nzeta_path denied\nzeta_path hidden-folder\nzeta_path hidden-file\nzeta_path ???"),
+            listOf(
+                PathKind.File,
+                PathKind.Missing,
+                PathKind.Denied,
+                PathKind.FolderNotInProcess,
+                PathKind.FileNotInProcess,
+                PathKind.Unknown,
+            ),
+            PathCheck.parse(
+                "zeta_path file\nzeta_path missing\nzeta_path denied\nzeta_path hidden-folder\nzeta_path hidden-file\nzeta_path ???",
+            ),
         )
         assertEquals(emptyList<PathKind>(), PathCheck.parse(""))
-        assertTrue(PathCheck.command(listOf("/a b/it's"), null).endsWith(" zeta-path '' '/a b/it'\\''s'"))
-        assertTrue(PathCheck.command(listOf("/x", "/y"), "host-1").endsWith(" zeta-path 'host-1' '/x' '/y'"))
+        assertTrue(
+            PathCheck.command(listOf("/a b/it's"), null).endsWith(" zeta-path '' '/a b/it'\\''s'"),
+        )
+        assertTrue(
+            PathCheck.command(listOf("/x", "/y"), "host-1")
+                .endsWith(" zeta-path 'host-1' '/x' '/y'"),
+        )
     }
 
     /** 托管目录按包分开（测试版是 zeta-dev），脚本里不能写死正式版的目录。 */
@@ -124,25 +186,46 @@ class AttachedPathsTest {
             val dir = File(home, "a dir").apply { mkdirs() }
             val file = File(dir, "it's.txt").apply { writeText("x") }
             val key = "host-1"
-            File(home, ".cache/zeta/hosts/$key").apply { mkdirs() }.resolve("pid").writeText(ProcessHandle.current().pid().toString())
+            File(home, ".cache/zeta/hosts/$key")
+                .apply { mkdirs() }
+                .resolve("pid")
+                .writeText(ProcessHandle.current().pid().toString())
             fun runAll(paths: List<String>, hostKey: String?): List<PathKind> {
-                val process = ProcessBuilder(listOf("sh", "-c", PathCheck.Script, "zeta-path", hostKey.orEmpty()) + paths)
-                    .apply { environment()["HOME"] = home.path; environment().remove("ZETA_NAME") }.redirectErrorStream(true).start()
-                return PathCheck.parse(process.inputStream.bufferedReader().readText().also { process.waitFor() })
+                val process =
+                    ProcessBuilder(
+                            listOf("sh", "-c", PathCheck.Script, "zeta-path", hostKey.orEmpty()) +
+                                paths,
+                        )
+                        .apply {
+                            environment()["HOME"] = home.path
+                            environment().remove("ZETA_NAME")
+                        }
+                        .redirectErrorStream(true)
+                        .start()
+                return PathCheck.parse(
+                    process.inputStream.bufferedReader().readText().also { process.waitFor() },
+                )
             }
-            fun run(path: String, hostKey: String?): PathKind = runAll(listOf(path), hostKey).single()
+            fun run(path: String, hostKey: String?): PathKind =
+                runAll(listOf(path), hostKey).single()
             assertEquals(PathKind.Folder, run(dir.path, null))
             assertEquals(PathKind.Folder, run(dir.path, key))
             assertEquals(PathKind.File, run(file.path, key))
             assertEquals(PathKind.Missing, run(dir.path + "/nope", key))
             assertEquals(PathKind.Folder, run(dir.path, "no-such-host"))
             // 一次查几个：顺序同参数（恢复草稿时看复制进去的文件还在不在）
-            assertEquals(listOf(PathKind.File, PathKind.Missing, PathKind.Folder), runAll(listOf(file.path, dir.path + "/gone", dir.path), null))
+            assertEquals(
+                listOf(PathKind.File, PathKind.Missing, PathKind.Folder),
+                runAll(listOf(file.path, dir.path + "/gone", dir.path), null),
+            )
             if (System.getProperty("user.name") != "root" && file.setReadable(false, false)) {
                 assertEquals(PathKind.Denied, run(file.path, key))
             }
         } finally {
-            home.walkBottomUp().forEach { it.setReadable(true); it.delete() }
+            home.walkBottomUp().forEach {
+                it.setReadable(true)
+                it.delete()
+            }
         }
     }
 }

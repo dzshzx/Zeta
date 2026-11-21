@@ -46,12 +46,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.claude.TextDocument
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
+import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -103,11 +104,12 @@ internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
     )
 }
 
-internal fun sizeText(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "%.1f KiB".format(bytes / 1024.0)
-    else -> "%.2f MiB".format(bytes / (1024.0 * 1024.0))
-}
+internal fun sizeText(bytes: Long): String =
+    when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "%.1f KiB".format(bytes / 1024.0)
+        else -> "%.2f MiB".format(bytes / (1024.0 * 1024.0))
+    }
 
 /** 列表里的一行空状态：没有可点的东西时也让分组有内容。放在 PreferenceGroup 的 item 里。 */
 @Composable
@@ -130,13 +132,16 @@ internal fun stripFrontmatter(text: String): String {
     return if (end < 0) text else lines.drop(end + 2).joinToString("\n").trimStart('\n')
 }
 
-private enum class DocumentMode { Preview, Edit }
+private enum class DocumentMode {
+    Preview,
+    Edit,
+}
 
 private const val MAX_DOCUMENT_BYTES = 1024 * 1024
 
 /**
- * 整页的文档编辑器，照 Eta 的记忆页：上面是文件卡片（预览 / 编辑），有改动时底下出现保存条。
- * [onDelete] 非空时顶栏有删除按钮。保存时检查文件在编辑期间是否被 Claude 改过，改过就先问一声。
+ * 整页的文档编辑器，照 Eta 的记忆页：上面是文件卡片（预览 / 编辑），有改动时底下出现保存条。 [onDelete] 非空时顶栏有删除按钮。保存时检查文件在编辑期间是否被 Claude
+ * 改过，改过就先问一声。
  */
 @Composable
 internal fun ConfigDocumentEditor(
@@ -169,12 +174,14 @@ internal fun ConfigDocumentEditor(
     LaunchedEffect(path) {
         loading = true
         scope.runConfig({ client.read(path) }) { result ->
-            result.onSuccess {
-                saved = it.content
-                draft = it.content
-                savedSha = if (it.exists) it.sha else ""
-                mode = if (it.content.isBlank()) DocumentMode.Edit else DocumentMode.Preview
-            }.onFailure { notice = ConfigNotice("读取失败", it.problem()) }
+            result
+                .onSuccess {
+                    saved = it.content
+                    draft = it.content
+                    savedSha = it.baseSha()
+                    mode = initialMode(it.content)
+                }
+                .onFailure { notice = ConfigNotice("读取失败", it.problem()) }
             loading = false
         }
     }
@@ -182,17 +189,20 @@ internal fun ConfigDocumentEditor(
     fun save(force: Boolean) {
         saving = true
         val content = draft
-        scope.runConfig({ client.write(path, content, if (force) null else savedSha) }) { result ->
+        // 强制保存时不比对版本，直接覆盖
+        scope.runConfig({ client.write(path, content, savedSha.takeUnless { force }) }) { result ->
             saving = false
-            result.onSuccess { sha ->
-                if (sha == null) {
-                    conflict = true
-                } else {
-                    saved = content
-                    savedSha = sha
-                    onSaved()
+            result
+                .onSuccess { sha ->
+                    if (sha == null) {
+                        conflict = true
+                    } else {
+                        saved = content
+                        savedSha = sha
+                        onSaved()
+                    }
                 }
-            }.onFailure { notice = ConfigNotice("保存失败", it.problem()) }
+                .onFailure { notice = ConfigNotice("保存失败", it.problem()) }
         }
     }
 
@@ -205,20 +215,26 @@ internal fun ConfigDocumentEditor(
         onBack = leave,
         topBarStyle = CouiTopBarStyle.Small,
         actions = {
-            if (onDelete != null) IconActionButton(COUIIcons.Delete, deleteTitle, enabled = !loading && !saving, onClick = { confirmDelete = true })
+            if (onDelete != null)
+                IconActionButton(
+                    COUIIcons.Delete,
+                    deleteTitle,
+                    enabled = !loading && !saving,
+                    onClick = { confirmDelete = true },
+                )
         },
     ) { scope ->
         val layoutDirection = LocalLayoutDirection.current
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    start = scope.contentPadding.calculateStartPadding(layoutDirection),
-                    top = scope.contentPadding.calculateTopPadding(),
-                    end = scope.contentPadding.calculateEndPadding(layoutDirection),
-                )
-                // 骨架已经给键盘让了位（会消费掉键盘那部分），这里只补键盘收起时的导航栏
-                .navigationBarsPadding(),
+            modifier =
+                Modifier.fillMaxSize()
+                    .padding(
+                        start = scope.contentPadding.calculateStartPadding(layoutDirection),
+                        top = scope.contentPadding.calculateTopPadding(),
+                        end = scope.contentPadding.calculateEndPadding(layoutDirection),
+                    )
+                    // 骨架已经给键盘让了位（会消费掉键盘那部分），这里只补键盘收起时的导航栏
+                    .navigationBarsPadding(),
         ) {
             DocumentCard(
                 fileLabel = fileLabel,
@@ -231,9 +247,7 @@ internal fun ConfigDocumentEditor(
                 placeholder = placeholder,
                 editable = !saving,
                 onContentChange = { draft = it },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
             )
             SaveBar(
                 visible = dirty || saving,
@@ -246,44 +260,84 @@ internal fun ConfigDocumentEditor(
         }
 
         ConfigNoticeDialog(notice) { notice = null }
-        ConfirmDialog(
-            show = conflict,
-            title = "文件已经变了",
-            summary = "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
-            confirmText = "仍然保存",
-            destructive = true,
-            onConfirm = {
+        EditorConfirmDialogs(
+            conflict = conflict,
+            onForceSave = {
                 conflict = false
                 save(force = true)
             },
-            onDismissRequest = { conflict = false },
-        )
-        ConfirmDialog(
-            show = confirmLeave,
-            title = "放弃未保存的更改？",
-            summary = null,
-            confirmText = "放弃",
-            destructive = true,
-            onConfirm = {
+            onDismissConflict = { conflict = false },
+            confirmLeave = confirmLeave,
+            onLeave = {
                 confirmLeave = false
                 onBack()
             },
-            onDismissRequest = { confirmLeave = false },
-        )
-        if (onDelete != null) {
-            ConfirmDialog(
-                show = confirmDelete,
-                title = deleteTitle,
-                summary = deleteMessage,
-                confirmText = "删除",
-                destructive = true,
-                onConfirm = {
-                    confirmDelete = false
-                    onDelete()
+            onDismissLeave = { confirmLeave = false },
+            confirmDelete = confirmDelete,
+            deleteTitle = deleteTitle,
+            deleteMessage = deleteMessage,
+            onDelete =
+                onDelete?.let { delete ->
+                    {
+                        confirmDelete = false
+                        delete()
+                    }
                 },
-                onDismissRequest = { confirmDelete = false },
-            )
-        }
+            onDismissDelete = { confirmDelete = false },
+        )
+    }
+}
+
+/** 写入时比对的版本；文件还不存在时是空串。 */
+private fun TextDocument.baseSha(): String = if (exists) sha else ""
+
+/** 空文件直接进编辑，有内容先预览。 */
+private fun initialMode(content: String): DocumentMode =
+    if (content.isBlank()) DocumentMode.Edit else DocumentMode.Preview
+
+/** 编辑器的三个确认框：保存时文件已被改过、放弃未保存的更改、删除（[onDelete] 为 null 时没有）。 */
+@Composable
+private fun EditorConfirmDialogs(
+    conflict: Boolean,
+    onForceSave: () -> Unit,
+    onDismissConflict: () -> Unit,
+    confirmLeave: Boolean,
+    onLeave: () -> Unit,
+    onDismissLeave: () -> Unit,
+    confirmDelete: Boolean,
+    deleteTitle: String,
+    deleteMessage: String,
+    onDelete: (() -> Unit)?,
+    onDismissDelete: () -> Unit,
+) {
+    ConfirmDialog(
+        show = conflict,
+        title = "文件已经变了",
+        summary = "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
+        confirmText = "仍然保存",
+        destructive = true,
+        onConfirm = onForceSave,
+        onDismissRequest = onDismissConflict,
+    )
+    ConfirmDialog(
+        show = confirmLeave,
+        title = "放弃未保存的更改？",
+        summary = null,
+        confirmText = "放弃",
+        destructive = true,
+        onConfirm = onLeave,
+        onDismissRequest = onDismissLeave,
+    )
+    if (onDelete != null) {
+        ConfirmDialog(
+            show = confirmDelete,
+            title = deleteTitle,
+            summary = deleteMessage,
+            confirmText = "删除",
+            destructive = true,
+            onConfirm = onDelete,
+            onDismissRequest = onDismissDelete,
+        )
     }
 }
 
@@ -301,43 +355,103 @@ private fun DocumentCard(
     onContentChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = COUITheme.colorScheme
     Card(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(imageVector = COUIIcons.Notes, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.primary)
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = fileLabel, style = COUITheme.textStyles.bodyM, fontWeight = FontWeight.Medium, color = colors.labelPrimary, maxLines = 1)
-                Text(
-                    text = if (overLimit) "$sizeLine · 超过上限" else sizeLine,
-                    style = COUITheme.textStyles.bodyXS,
-                    color = if (overLimit) colors.error else colors.labelSecondary,
-                )
-            }
-            SegmentButton(
-                items = listOf("预览", "编辑"),
-                selectedIndex = DocumentMode.entries.indexOf(mode),
-                onSelectedIndexChange = { index -> DocumentMode.entries.getOrNull(index)?.let(onModeChange) },
-                enabled = !loading,
-                height = SegmentButtonDefaults.HeightSmall,
-                padding = SegmentButtonDefaults.PaddingSmall,
-            )
-        }
+        DocumentCardHeader(fileLabel, sizeLine, overLimit, loading, mode, onModeChange)
         HorizontalDivider(Modifier.padding(horizontal = 16.dp))
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             when {
-                loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InfiniteProgressIndicator(size = 24.dp) }
-                else -> Crossfade(targetState = mode, label = "document_mode") { current ->
-                    when (current) {
-                        DocumentMode.Preview -> DocumentPreview(content = content, placeholder = placeholder, onStartEditing = { onModeChange(DocumentMode.Edit) })
-                        DocumentMode.Edit -> DocumentEditor(value = content, placeholder = placeholder, enabled = editable, onValueChange = onContentChange)
+                loading ->
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        InfiniteProgressIndicator(size = 24.dp)
                     }
-                }
+                else ->
+                    Crossfade(targetState = mode, label = "document_mode") { current ->
+                        DocumentBody(
+                            mode = current,
+                            content = content,
+                            placeholder = placeholder,
+                            editable = editable,
+                            onStartEditing = { onModeChange(DocumentMode.Edit) },
+                            onContentChange = onContentChange,
+                        )
+                    }
             }
         }
+    }
+}
+
+/** 文件卡片的头：文件名、大小（超过上限标红）、预览 / 编辑切换。 */
+@Composable
+private fun DocumentCardHeader(
+    fileLabel: String,
+    sizeLine: String,
+    overLimit: Boolean,
+    loading: Boolean,
+    mode: DocumentMode,
+    onModeChange: (DocumentMode) -> Unit,
+) {
+    val colors = COUITheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = COUIIcons.Notes,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = colors.primary,
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = fileLabel,
+                style = COUITheme.textStyles.bodyM,
+                fontWeight = FontWeight.Medium,
+                color = colors.labelPrimary,
+                maxLines = 1,
+            )
+            Text(
+                text = if (overLimit) "$sizeLine · 超过上限" else sizeLine,
+                style = COUITheme.textStyles.bodyXS,
+                color = if (overLimit) colors.error else colors.labelSecondary,
+            )
+        }
+        SegmentButton(
+            items = listOf("预览", "编辑"),
+            selectedIndex = DocumentMode.entries.indexOf(mode),
+            onSelectedIndexChange = { index ->
+                DocumentMode.entries.getOrNull(index)?.let(onModeChange)
+            },
+            enabled = !loading,
+            height = SegmentButtonDefaults.HeightSmall,
+            padding = SegmentButtonDefaults.PaddingSmall,
+        )
+    }
+}
+
+@Composable
+private fun DocumentBody(
+    mode: DocumentMode,
+    content: String,
+    placeholder: String,
+    editable: Boolean,
+    onStartEditing: () -> Unit,
+    onContentChange: (String) -> Unit,
+) {
+    when (mode) {
+        DocumentMode.Preview ->
+            DocumentPreview(
+                content = content,
+                placeholder = placeholder,
+                onStartEditing = onStartEditing,
+            )
+        DocumentMode.Edit ->
+            DocumentEditor(
+                value = content,
+                placeholder = placeholder,
+                enabled = editable,
+                onValueChange = onContentChange,
+            )
     }
 }
 
@@ -350,9 +464,18 @@ private fun DocumentPreview(content: String, placeholder: String, onStartEditing
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(text = "还没有内容", style = COUITheme.textStyles.bodyXL, fontWeight = FontWeight.Medium, color = COUITheme.colorScheme.labelPrimary)
+            Text(
+                text = "还没有内容",
+                style = COUITheme.textStyles.bodyXL,
+                fontWeight = FontWeight.Medium,
+                color = COUITheme.colorScheme.labelPrimary,
+            )
             Spacer(Modifier.height(6.dp))
-            Text(text = placeholder, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.labelSecondary)
+            Text(
+                text = placeholder,
+                style = COUITheme.textStyles.bodyM,
+                color = COUITheme.colorScheme.labelSecondary,
+            )
         }
         return
     }
@@ -365,19 +488,27 @@ private fun DocumentPreview(content: String, placeholder: String, onStartEditing
 }
 
 @Composable
-private fun DocumentEditor(value: String, placeholder: String, enabled: Boolean, onValueChange: (String) -> Unit) {
+private fun DocumentEditor(
+    value: String,
+    placeholder: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit,
+) {
     val colors = COUITheme.colorScheme
     val focusRequester = remember { FocusRequester() }
     val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 22.sp)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(interactionSource = null, indication = null) { focusRequester.requestFocus() }
-            .overScrollVertical()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .clickable(interactionSource = null, indication = null) {
+                    focusRequester.requestFocus()
+                }
+                .overScrollVertical()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        if (value.isEmpty()) Text(text = placeholder, style = textStyle, color = colors.labelSecondary)
+        if (value.isEmpty())
+            Text(text = placeholder, style = textStyle, color = colors.labelSecondary)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -390,8 +521,13 @@ private fun DocumentEditor(value: String, placeholder: String, enabled: Boolean,
 }
 
 @Composable
-private fun SaveBar(visible: Boolean, overLimit: Boolean, saving: Boolean, onDiscard: () -> Unit, onSave: () -> Unit) {
-    val colors = COUITheme.colorScheme
+private fun SaveBar(
+    visible: Boolean,
+    overLimit: Boolean,
+    saving: Boolean,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit,
+) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
@@ -402,22 +538,34 @@ private fun SaveBar(visible: Boolean, overLimit: Boolean, saving: Boolean, onDis
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .background(if (overLimit) colors.error else colors.primary, CircleShape),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (overLimit) "已超过 1 MiB 上限，请删减" else "未保存的更改",
-                    style = COUITheme.textStyles.bodyS,
-                    color = if (overLimit) colors.error else colors.labelSecondary,
-                    maxLines = 2,
-                )
-            }
+            UnsavedHint(overLimit, Modifier.weight(1f))
             CompactButton(text = "放弃", enabled = !saving, onClick = onDiscard)
-            CompactButton(text = if (saving) "保存中" else "保存", enabled = !saving && !overLimit, onClick = onSave, primary = true)
+            CompactButton(
+                text = if (saving) "保存中" else "保存",
+                enabled = !saving && !overLimit,
+                onClick = onSave,
+                primary = true,
+            )
         }
+    }
+}
+
+/** 保存条左边的提示：未保存的更改，超过上限时标红并提示删减。 */
+@Composable
+private fun UnsavedHint(overLimit: Boolean, modifier: Modifier) {
+    val colors = COUITheme.colorScheme
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier =
+                Modifier.size(6.dp)
+                    .background(if (overLimit) colors.error else colors.primary, CircleShape),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = if (overLimit) "已超过 1 MiB 上限，请删减" else "未保存的更改",
+            style = COUITheme.textStyles.bodyS,
+            color = if (overLimit) colors.error else colors.labelSecondary,
+            maxLines = 2,
+        )
     }
 }

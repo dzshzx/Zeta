@@ -36,10 +36,15 @@ internal fun LiveFrames(screen: VirtualScreen, rate: FrameRate, keepAwake: Boole
 }
 
 /**
- * 把一帧画进 [dst]。位图可能比画面宽（行尾对齐的空白），只取左边 [VirtualScreen.Frame.width] 那一截；
- * [crop] 时按 [dst] 的比例居中裁切，否则拉伸铺满。
+ * 把一帧画进 [dst]。位图可能比画面宽（行尾对齐的空白），只取左边 [VirtualScreen.Frame.width] 那一截； [crop] 时按 [dst]
+ * 的比例居中裁切，否则拉伸铺满。
  */
-internal fun DrawScope.drawFrame(frame: VirtualScreen.Frame, dst: Rect, alpha: Float = 1f, crop: Boolean = false) {
+internal fun DrawScope.drawFrame(
+    frame: VirtualScreen.Frame,
+    dst: Rect,
+    alpha: Float = 1f,
+    crop: Boolean = false,
+) {
     if (frame.bitmap.isRecycled || dst.width <= 0f || dst.height <= 0f) return
     var srcX = 0
     var srcY = 0

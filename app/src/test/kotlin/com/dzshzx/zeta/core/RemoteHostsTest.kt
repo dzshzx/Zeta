@@ -22,12 +22,21 @@ class RemoteHostsTest {
 
     @Test
     fun hostsRoundTripAndBadEntriesAreSkipped() {
-        val hosts = listOf(
-            RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace", hostname = "DEVBOX"),
-            RemoteHost("r-00000002", null, "me@example.com", "/root", "/root"),
-        )
+        val hosts =
+            listOf(
+                RemoteHost(
+                    "r-00000001",
+                    "工作站",
+                    "dev-box",
+                    "/home/user",
+                    "/home/user/workspace",
+                    hostname = "DEVBOX",
+                ),
+                RemoteHost("r-00000002", null, "me@example.com", "/root", "/root"),
+            )
         assertEquals(hosts, RemoteHosts.decode(RemoteHosts.encode(hosts)))
-        val mixed = """[
+        val mixed =
+            """[
             {"id":"r-1","name":"","target":"a","home":"/h"},
             {"id":"local","name":"x","target":"b","home":"/h"},
             {"id":"r-2","name":"y","target":"-oProxyCommand=x","home":"/h"},
@@ -40,16 +49,31 @@ class RemoteHostsTest {
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode("not json"))
         // 直连的：地址要是 用户@主机[:端口]，要有记下的主机指纹
         val key = RemoteHosts.encodeKey(com.dzshzx.zeta.core.ssh.SshKey.generate().blob)
-        val direct = RemoteHost("r-3", "vps", "me@example.com:2222", "/root", "/root", RemoteHost.Via.Direct, key)
+        val direct =
+            RemoteHost(
+                "r-3",
+                "vps",
+                "me@example.com:2222",
+                "/root",
+                "/root",
+                RemoteHost.Via.Direct,
+                key,
+            )
         assertEquals(listOf(direct), RemoteHosts.decode(RemoteHosts.encode(listOf(direct))))
-        val broken = """[
+        val broken =
+            """[
             {"id":"r-4","target":"me@example.com","home":"/h","via":"direct"},
             {"id":"r-5","target":"dev-box","home":"/h","via":"direct","hostKey":"$key"},
             {"id":"r-6","target":"me@example.com","home":"/h","via":"direct","hostKey":"not-a-key"}
         ]"""
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(broken))
         // 经 Debian 的不带主机指纹（那边的 known_hosts 管）
-        assertEquals(null, RemoteHosts.decode("""[{"id":"r-7","target":"dev-box","home":"/h","hostKey":"$key"}]""").single().hostKey)
+        assertEquals(
+            null,
+            RemoteHosts.decode("""[{"id":"r-7","target":"dev-box","home":"/h","hostKey":"$key"}]""")
+                .single()
+                .hostKey,
+        )
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(null))
     }
 
@@ -67,17 +91,21 @@ class RemoteHostsTest {
         assertNull(SessionSummary.pinnedId("r-2/s1", "r-1"))
     }
 
-    /**
-     * 设备的名字：起了名字用它，没起时用设备自己报的主机名，还没记下时是地址。早先没起名字时存的是地址，读回来不算起了名字。
-     * 起的名字不能和别的设备现在的名字重复，留空是不起。
-     */
+    /** 设备的名字：起了名字用它，没起时用设备自己报的主机名，还没记下时是地址。早先没起名字时存的是地址，读回来不算起了名字。 起的名字不能和别的设备现在的名字重复，留空是不起。 */
     @Test
     fun namesFallBackToTheDevicesOwn() {
-        assertEquals("工作站", RemoteHost("r-1", "工作站", "dev-box", "/h", "/h", hostname = "DEVBOX").name)
-        assertEquals("DEVBOX", RemoteHost("r-1", null, "dev-box", "/h", "/h", hostname = "DEVBOX").name)
+        assertEquals(
+            "工作站",
+            RemoteHost("r-1", "工作站", "dev-box", "/h", "/h", hostname = "DEVBOX").name,
+        )
+        assertEquals(
+            "DEVBOX",
+            RemoteHost("r-1", null, "dev-box", "/h", "/h", hostname = "DEVBOX").name,
+        )
         assertEquals("dev-box", RemoteHost("r-1", null, "dev-box", "/h", "/h").name)
         val shown = RemoteHosts.displayTarget("ssh://me@example.com:2222")
-        val old = """[{"id":"r-1","name":"dev-box","target":"dev-box","home":"/h"},{"id":"r-2","name":"$shown","target":"ssh://me@example.com:2222","home":"/h"}]"""
+        val old =
+            """[{"id":"r-1","name":"dev-box","target":"dev-box","home":"/h"},{"id":"r-2","name":"$shown","target":"ssh://me@example.com:2222","home":"/h"}]"""
         assertEquals(listOf(null, null), RemoteHosts.decode(old).map { it.customName })
         val others = listOf("工作站", "Xiaomi 17")
         assertNull(RemoteHosts.nameProblem("vps", others))
@@ -89,28 +117,44 @@ class RemoteHostsTest {
 
     @Test
     fun targetsThatSshCouldMisreadAreRejected() {
-        for (ok in listOf("dev-box", "me@example.com", "host.example:2222", "[::1]")) assertTrue(ok, DebianSshShell.validTarget(ok))
-        for (bad in listOf("", "-oProxyCommand=sh", "a b", "a'b", "a\"b", "a\\b", "a\nb")) assertFalse(bad, DebianSshShell.validTarget(bad))
+        for (ok in listOf("dev-box", "me@example.com", "host.example:2222", "[::1]")) assertTrue(
+            ok,
+            DebianSshShell.validTarget(ok),
+        )
+        for (bad in
+            listOf("", "-oProxyCommand=sh", "a b", "a'b", "a\"b", "a\\b", "a\nb")) assertFalse(
+            bad,
+            DebianSshShell.validTarget(bad),
+        )
     }
 
-    /**
-     * 地址按连法换写法：直连要写明用户；交给 OpenSSH 的端口放进 ssh://（它不认 主机:端口）；别名、主机名只能经 Debian。
-     * 两种连法之间来回换，地址不变样。
-     */
+    /** 地址按连法换写法：直连要写明用户；交给 OpenSSH 的端口放进 ssh://（它不认 主机:端口）；别名、主机名只能经 Debian。 两种连法之间来回换，地址不变样。 */
     @Test
     fun targetsConvertBetweenVias() {
         val debian = RemoteHost.Via.Debian
         val direct = RemoteHost.Via.Direct
         assertEquals("me@example.com", RemoteHosts.targetFor(" me@example.com ", debian))
         assertEquals("me@example.com", RemoteHosts.targetFor("me@example.com", direct))
-        assertEquals("ssh://me@example.com:2222", RemoteHosts.targetFor("me@example.com:2222", debian))
-        assertEquals("me@example.com:2222", RemoteHosts.targetFor("ssh://me@example.com:2222", direct))
+        assertEquals(
+            "ssh://me@example.com:2222",
+            RemoteHosts.targetFor("me@example.com:2222", debian),
+        )
+        assertEquals(
+            "me@example.com:2222",
+            RemoteHosts.targetFor("ssh://me@example.com:2222", direct),
+        )
         assertEquals("ssh://me@[::1]:22", RemoteHosts.targetFor("me@[::1]", debian))
         assertEquals("me@[::1]", RemoteHosts.targetFor("ssh://me@[::1]:22", direct))
         assertEquals("dev-box", RemoteHosts.targetFor("dev-box", debian))
-        for (text in listOf("dev-box", "host.example:2222", "")) assertNull(text, RemoteHosts.targetFor(text, direct))
+        for (text in listOf("dev-box", "host.example:2222", "")) assertNull(
+            text,
+            RemoteHosts.targetFor(text, direct),
+        )
         // 主机:端口 交给 OpenSSH 会被当成主机名的一部分；像选项的、带空白的不行
-        for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(text, RemoteHosts.targetFor(text, debian))
+        for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(
+            text,
+            RemoteHosts.targetFor(text, debian),
+        )
         for (text in listOf("me@example.com", "me@example.com:2222", "me@[2001:db8::1]:2200")) {
             val viaDebian = RemoteHosts.targetFor(text, debian)!!
             assertEquals(text, RemoteHosts.targetFor(viaDebian, direct))
@@ -125,65 +169,116 @@ class RemoteHostsTest {
         val bin = File(temp, "bin").apply { mkdirs() }
         val log = File(temp, "argv")
         File(bin, "ssh").apply {
-            writeText("#!/bin/bash\nprintf '%s ' \"\$@\" >> \"${log.path}\"\necho >> \"${log.path}\"\necho 'Control socket connect: No such file' >&2\nexit 255\n")
+            writeText(
+                "#!/bin/bash\nprintf '%s ' \"\$@\" >> \"${log.path}\"\necho >> \"${log.path}\"\necho 'Control socket connect: No such file' >&2\nexit 255\n",
+            )
             setExecutable(true)
         }
-        val process = ProcessBuilder("bash", "-c", DebianSshShell.closeMasters(listOf("dev-box", "ssh://me@example.com:2222"))).apply {
-            environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
-        }.redirectErrorStream(true).start()
+        val process =
+            ProcessBuilder(
+                    "bash",
+                    "-c",
+                    DebianSshShell.closeMasters(listOf("dev-box", "ssh://me@example.com:2222")),
+                )
+                .apply {
+                    environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
+                }
+                .redirectErrorStream(true)
+                .start()
         val out = process.inputStream.bufferedReader().readText()
         assertTrue(process.waitFor(20, TimeUnit.SECONDS))
         assertEquals(0, process.exitValue())
         assertEquals("", out)
         val controlPath = DebianSshShell.Options.single { it.startsWith("ControlPath=") }
         assertEquals(
-            listOf("-o $controlPath -O exit -- dev-box", "-o $controlPath -O exit -- ssh://me@example.com:2222"),
+            listOf(
+                "-o $controlPath -O exit -- dev-box",
+                "-o $controlPath -O exit -- ssh://me@example.com:2222",
+            ),
             log.readLines().map { it.trim() },
         )
     }
 
     @Test
     fun probeResults() {
-        fun probe(stdout: String, code: Int = 0, stderr: String = "") = RemoteHosts.parseProbe(CommandResult(code, stdout, stderr))
-        val ok = "欢迎\nzeta_home /home/user\nzeta_claude 2.1.329 (Claude Code)\nzeta_system Linux x86_64\n"
+        fun probe(stdout: String, code: Int = 0, stderr: String = "") =
+            RemoteHosts.parseProbe(CommandResult(code, stdout, stderr))
+        val ok =
+            "欢迎\nzeta_home /home/user\nzeta_claude 2.1.329 (Claude Code)\nzeta_system Linux x86_64\n"
         assertEquals(RemoteHosts.Probe.Ok("/home/user", "2.1.329", "Linux x86_64"), probe(ok))
-        assertEquals(RemoteHosts.Probe.Ok("/h", "2.1.329", "Linux aarch64"), probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\n"))
+        assertEquals(
+            RemoteHosts.Probe.Ok("/h", "2.1.329", "Linux aarch64"),
+            probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\n"),
+        )
         // 主机名查到了就带上，查不到（空的）是 null
-        assertEquals("DEVBOX", (probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname DEVBOX\n") as RemoteHosts.Probe.Ok).hostname)
-        assertNull((probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname \n") as RemoteHosts.Probe.Ok).hostname)
+        assertEquals(
+            "DEVBOX",
+            (probe(
+                    "zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname DEVBOX\n",
+                )
+                    as RemoteHosts.Probe.Ok)
+                .hostname,
+        )
+        assertNull(
+            (probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname \n")
+                    as RemoteHosts.Probe.Ok)
+                .hostname,
+        )
         assertEquals(
             RemoteHosts.Probe.Failed("对方不认手机 Debian 里的 SSH 密钥（Permission denied）"),
-            probe("", RemoteShell.CONNECTION_FAILED, "me@example.com: Permission denied (publickey).\n"),
+            probe(
+                "",
+                RemoteShell.CONNECTION_FAILED,
+                "me@example.com: Permission denied (publickey).\n",
+            ),
         )
-        assertTrue((probe("zeta_home /h\nzeta_claude \nzeta_system Linux x86_64\n") as RemoteHosts.Probe.Failed).reason.contains("claude"))
+        assertTrue(
+            (probe("zeta_home /h\nzeta_claude \nzeta_system Linux x86_64\n")
+                    as RemoteHosts.Probe.Failed)
+                .reason
+                .contains("claude"),
+        )
         // zeta-helper 只有 Linux 的 arm64、amd64 两份
         for (system in listOf("Linux riscv64", "Darwin arm64", "")) {
-            val failed = probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system $system\n") as RemoteHosts.Probe.Failed
+            val failed =
+                probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system $system\n")
+                    as RemoteHosts.Probe.Failed
             assertTrue(failed.reason, failed.reason.contains("arm64、x86-64 的 Linux"))
         }
         assertEquals(RemoteHosts.Probe.Failed("连接超时"), probe("", -1, CommandResult.TIMEOUT))
-        assertEquals("找不到这台设备（地址解析失败）", RemoteHosts.sshProblem("ssh: Could not resolve hostname nope: Name or service not known"))
+        assertEquals(
+            "找不到这台设备（地址解析失败）",
+            RemoteHosts.sshProblem(
+                "ssh: Could not resolve hostname nope: Name or service not known",
+            ),
+        )
         // 直连的原因已经是一句话
         assertEquals("网络不通", RemoteHosts.sshProblem("前面的输出\nzeta-ssh: 网络不通\n"))
     }
 
     /** 在临时 HOME 上用本机 bash 跑命令的一台 Linux；[broken] 时扮进不去 Debian（su 被拒）。 */
-    private fun shell(broken: Boolean = false) = object : LinuxShell {
-        override val home: String = temp.path
+    private fun shell(broken: Boolean = false) =
+        object : LinuxShell {
+            override val home: String = temp.path
 
-        override fun start(command: String): Process =
-            ProcessBuilder("bash", "-c", if (broken) "echo 'su: permission denied' >&2; exit 1" else command)
-                .apply { environment()["HOME"] = temp.path }
-                .start()
+            override fun start(command: String): Process =
+                ProcessBuilder(
+                        "bash",
+                        "-c",
+                        if (broken) "echo 'su: permission denied' >&2; exit 1" else command,
+                    )
+                    .apply { environment()["HOME"] = temp.path }
+                    .start()
 
-        override fun kill(process: Process) {
-            process.destroyForcibly()
+            override fun kill(process: Process) {
+                process.destroyForcibly()
+            }
         }
-    }
 
     @Test
     fun aliasesComeFromHostLinesWithoutPatterns() {
-        val config = """
+        val config =
+            """
             Host personal-vps
               HostName 1.2.3.4
             host dev-box dev-box-gate
@@ -192,17 +287,24 @@ class RemoteHostsTest {
             Host *.example.com !bad
             Host dev-box
             Hostname not-a-host-line
-        """.trimIndent()
+            """
+                .trimIndent()
         File(temp, ".ssh").mkdirs()
         File(temp, ".ssh/config").writeText(config)
         File(temp, ".ssh/config.local").writeText("Host extra personal-vps\n")
-        assertEquals(listOf("personal-vps", "dev-box", "dev-box-gate", "extra"), RemoteHosts.readAliases(shell()))
+        assertEquals(
+            listOf("personal-vps", "dev-box", "dev-box-gate", "extra"),
+            RemoteHosts.readAliases(shell()),
+        )
     }
 
     /** 进不去 Debian 时是失败、带着原因，不当成没有别名；没有 ~/.ssh/config 才是没有。 */
     @Test
     fun aliasesThatCannotBeReadAreAFailure() {
-        val failure = assertThrows(IllegalStateException::class.java) { RemoteHosts.readAliases(shell(broken = true)) }
+        val failure =
+            assertThrows(IllegalStateException::class.java) {
+                RemoteHosts.readAliases(shell(broken = true))
+            }
         assertEquals("su: permission denied", failure.message)
         assertEquals(emptyList<String>(), RemoteHosts.readAliases(shell()))
     }
@@ -224,21 +326,37 @@ class RemoteHostsTest {
                 while [ ${'$'}# -gt 0 ]; do case "${'$'}1" in -T) shift ;; -o) shift 2 ;; --) shift; break ;; *) break ;; esac; done
                 shift
                 exec sh -c "${'$'}*"
-                """.trimIndent() + "\n",
+                """
+                    .trimIndent() + "\n",
             )
             setExecutable(true)
         }
         val tricky = "a b'c\"d\$e"
-        val command = "printf '%s|' \"\$ZETA_NAME\" \"\$TZ\" " + LinuxEnv.quote(tricky) + " \"\$0\" \"\${ZETA_PROFILE:-not-read}\""
+        val command =
+            "printf '%s|' \"\$ZETA_NAME\" \"\$TZ\" " +
+                LinuxEnv.quote(tricky) +
+                " \"\$0\" \"\${ZETA_PROFILE:-not-read}\""
         for ((login, profile) in listOf(true to "read", false to "not-read")) {
-            val line = DebianSshShell.sshCommand("me@example.com", RemoteShell.remoteCommand(command, "zeta-dev", "Asia/Shanghai", login))
-            val process = ProcessBuilder("bash", "-c", line).apply {
-                environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
-                environment()["HOME"] = temp.path
-            }.redirectErrorStream(true).start()
+            val line =
+                DebianSshShell.sshCommand(
+                    "me@example.com",
+                    RemoteShell.remoteCommand(command, "zeta-dev", "Asia/Shanghai", login),
+                )
+            val process =
+                ProcessBuilder("bash", "-c", line)
+                    .apply {
+                        environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
+                        environment()["HOME"] = temp.path
+                    }
+                    .redirectErrorStream(true)
+                    .start()
             val out = process.inputStream.bufferedReader().readText()
             assertTrue(process.waitFor(20, TimeUnit.SECONDS))
-            assertEquals("login=$login", "zeta-dev|Asia/Shanghai|$tricky|bash|$profile|", out.lines().last { it.isNotBlank() })
+            assertEquals(
+                "login=$login",
+                "zeta-dev|Asia/Shanghai|$tricky|bash|$profile|",
+                out.lines().last { it.isNotBlank() },
+            )
         }
         // 目的地在 -- 之后，ssh 不会把它当选项
         val argv = log.readLines()

@@ -6,24 +6,31 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ReportedModels
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
-import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 模型菜单只直接列各系列最新的，旧版本在「更多模型」二级菜单里；清单是 Claude Code 2.1.329 实际报的那 14 项。 */
 class ModelMenuShots : ShotTest() {
-    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.models = mapOf(Backends.LOCAL to ReportedModels) }
+    private fun hub(): ConversationHub =
+        Fixtures.readyHub(app).also { it.models = mapOf(Backends.LOCAL to ReportedModels) }
 
     /** 顶栏的模型菜单：默认和四个系列最新的，最后是「更多模型」。 */
     @Test
     fun chatMenu() {
         val hub = hub()
         shoot("model-menu", prepare = { tap("Claude · 默认") }) {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
         }
     }
 
@@ -32,8 +39,20 @@ class ModelMenuShots : ShotTest() {
     fun chatMenuOlder() {
         val hub = hub()
         hub.current.chooseModel("claude-opus-4-8")
-        shoot("model-menu-older", prepare = { tap("Claude · Opus 4.8"); tap("更多模型") }) {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        shoot(
+            "model-menu-older",
+            prepare = {
+                tap("Claude · Opus 4.8")
+                tap("更多模型")
+            },
+        ) {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
         }
     }
 
@@ -41,12 +60,26 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun choosingAnOlderModel() {
         val hub = hub()
-        compose.setContent { ZetaTheme(windowBackdrop = false) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) } }
+        compose.setContent {
+            ZetaTheme(windowBackdrop = false) {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
+            }
+        }
         compose.tap("Claude · 默认")
         compose.tap("更多模型")
         compose.tap("Opus 4.7")
         assertEquals("claude-opus-4-7", hub.current.model)
-        assertTrue("顶栏换成 Opus 4.7", runCatching { compose.onNodeWithText("Claude · Opus 4.7").fetchSemanticsNode() }.isSuccess)
+        assertTrue(
+            "顶栏换成 Opus 4.7",
+            runCatching { compose.onNodeWithText("Claude · Opus 4.7").fetchSemanticsNode() }
+                .isSuccess,
+        )
         assertTrue("菜单收起了", compose.onAllNodesWithText("Opus 4.6").fetchSemanticsNodes().isEmpty())
     }
 
@@ -54,8 +87,22 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun settingsDefaultModel() {
         val hub = hub()
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = emptyMap(), effort = null))
-        shoot("model-settings-older", prepare = { tap("默认模型"); tap("更多模型") }) {
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults(
+                model = null,
+                permissionMode = null,
+                efforts = emptyMap(),
+                effort = null,
+            ),
+        )
+        shoot(
+            "model-settings-older",
+            prepare = {
+                tap("默认模型")
+                tap("更多模型")
+            },
+        ) {
             HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
         }
     }
@@ -64,7 +111,17 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun defaultEffortFolded() {
         val hub = hub()
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = null))
-        shoot("model-default-effort") { DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults(
+                model = null,
+                permissionMode = null,
+                efforts = mapOf("claude-opus-4-6" to "high"),
+                effort = null,
+            ),
+        )
+        shoot("model-default-effort") {
+            DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
+        }
     }
 }

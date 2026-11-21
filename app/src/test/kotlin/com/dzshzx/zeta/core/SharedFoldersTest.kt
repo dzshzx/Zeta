@@ -26,7 +26,9 @@ class SharedFoldersTest {
     fun workspaceAndOwnEnvironmentAreNotShared() {
         val rootfs = LinuxEnv.OWN_ROOTFS
         assertNotNull(SharedFolders.sourceProblem(LinuxEnv.WORKSPACE, emptyList(), rootfs))
-        assertNotNull(SharedFolders.sourceProblem("${LinuxEnv.WORKSPACE}/claude", emptyList(), rootfs))
+        assertNotNull(
+            SharedFolders.sourceProblem("${LinuxEnv.WORKSPACE}/claude", emptyList(), rootfs),
+        )
         assertNotNull(SharedFolders.sourceProblem("$rootfs/home", emptyList(), rootfs))
         assertNull(SharedFolders.sourceProblem("/data/local/tmp/eta", emptyList(), rootfs))
         assertNull(SharedFolders.sourceProblem("/sdcard/Download", emptyList(), rootfs))

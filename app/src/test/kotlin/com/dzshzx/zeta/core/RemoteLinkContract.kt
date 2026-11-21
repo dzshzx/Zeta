@@ -23,8 +23,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 远程主机上的对话怎么接：真的 zeta_host.sh 经 [RemoteShell] 跑在“远端”（HOME 是临时目录，PATH 是系统默认的：
- * 远端自己的 claude 在 ~/.local/bin，由 [RemoteShell.remoteCommand] 补进 PATH；不换的话会先找到这台机器上真的 claude）。
+ * 远程主机上的对话怎么接：真的 zeta_host.sh 经 [RemoteShell] 跑在“远端”（HOME 是临时目录，PATH 是系统默认的： 远端自己的 claude 在
+ * ~/.local/bin，由 [RemoteShell.remoteCommand] 补进 PATH；不换的话会先找到这台机器上真的 claude）。
  * 连接断了时那条连接上的命令一起结束，托管的进程不受影响。远端的 claude 是个回声：每读到一行就输出 {"type":"echo","n":第几行}。
  * 两种连法各跑一遍：[DebianRemoteLinkTest]（假 ssh）和 [DirectRemoteLinkTest]（Zeta 直连 JVM 里的 SSH 服务器）。
  */
@@ -57,12 +57,17 @@ abstract class RemoteLinkContract {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc、bash 和 setsid", File("/proc/self").exists() && File("/usr/bin/setsid").canExecute())
+        assumeTrue(
+            "要 Linux 的 /proc、bash 和 setsid",
+            File("/proc/self").exists() && File("/usr/bin/setsid").canExecute(),
+        )
         root = Files.createTempDirectory("zeta-link").toFile().canonicalFile
         remoteHome = File(root, "remote").apply { mkdirs() }
         File(remoteHome, ".local/bin/claude").apply {
             parentFile!!.mkdirs()
-            writeText("#!/bin/bash\nn=0\nwhile IFS= read -r line; do n=${'$'}((n + 1)); printf '{\"type\":\"echo\",\"n\":%d}\\n' \"${'$'}n\"; done\n")
+            writeText(
+                "#!/bin/bash\nn=0\nwhile IFS= read -r line; do n=${'$'}((n + 1)); printf '{\"type\":\"echo\",\"n\":%d}\\n' \"${'$'}n\"; done\n",
+            )
             setExecutable(true)
         }
         // 远端的登录配置每读一次记一行：起进程要读，接上、重连不读（LinuxShell.startPlain）
@@ -70,7 +75,8 @@ abstract class RemoteLinkContract {
         shell = connect()
     }
 
-    private fun profileReads(): Int = File(remoteHome, "profile-reads").takeIf { it.exists() }?.readLines()?.size ?: 0
+    private fun profileReads(): Int =
+        File(remoteHome, "profile-reads").takeIf { it.exists() }?.readLines()?.size ?: 0
 
     @After
     fun tearDown() {
@@ -83,23 +89,31 @@ abstract class RemoteLinkContract {
         root.deleteRecursively()
     }
 
-    private fun launch(launch: ClaudeProcess.Launch, reconnect: Boolean = true): ClaudeProcess = ClaudeProcess(
-        shell = shell,
-        hostScript = hostScript,
-        hostKey = "k1",
-        launch = launch,
-        onEvent = { events.add(it) },
-        onExit = { exits.add(it) },
-        onLink = { links.add(it) },
-        reconnect = reconnect,
-        backoff = { 300L },
-    ).also { started += it }
+    private fun launch(launch: ClaudeProcess.Launch, reconnect: Boolean = true): ClaudeProcess =
+        ClaudeProcess(
+                shell = shell,
+                hostScript = hostScript,
+                hostKey = "k1",
+                launch = launch,
+                onEvent = { events.add(it) },
+                onExit = { exits.add(it) },
+                onLink = { links.add(it) },
+                reconnect = reconnect,
+                backoff = { 300L },
+            )
+            .also { started += it }
 
-    private fun message(n: Int) = buildJsonObject { put("type", "user"); put("n", n) }
+    private fun message(n: Int) = buildJsonObject {
+        put("type", "user")
+        put("n", n)
+    }
 
     /** 接下来的一条回声的序号。 */
     private fun nextEcho(): Int {
-        val event = checkNotNull(events.poll(20, TimeUnit.SECONDS)) { "没等到回声；结束：" + exits.map { it.code to it.stderr } + "，连接：" + links.toList() }
+        val event =
+            checkNotNull(events.poll(20, TimeUnit.SECONDS)) {
+                "没等到回声；结束：" + exits.map { it.code to it.stderr } + "，连接：" + links.toList()
+            }
         assertEquals("echo", event.str("type"))
         return event.int("n")!!
     }
@@ -119,7 +133,9 @@ abstract class RemoteLinkContract {
         assertTrue("没报断开：$lost", lost is ProcessLink.Reconnecting)
         process.send(message(3))
         // 再失败一两次（ssh 直接以 255 退出）也接着重连
-        assertTrue(waitUntil(10) { links.any { it is ProcessLink.Reconnecting && it.attempt >= 2 } })
+        assertTrue(
+            waitUntil(10) { links.any { it is ProcessLink.Reconnecting && it.attempt >= 2 } },
+        )
         down = false
         assertTrue("没重新接上", waitUntil(20) { links.contains(ProcessLink.Connected) })
         // 从断开前读到的下一行接着读：不重复、不漏
@@ -161,13 +177,17 @@ abstract class RemoteLinkContract {
     @Test
     fun attachingToARunningProcessStartsFromTheGivenLine() {
         // 像 Zeta 被杀：这一头的连接没了、不重连，托管的进程还在
-        val first = launch(ClaudeProcess.Launch.Start(remoteHome.path, "t", emptyList()), reconnect = false)
+        val first =
+            launch(ClaudeProcess.Launch.Start(remoteHome.path, "t", emptyList()), reconnect = false)
         first.send(message(1))
         first.send(message(2))
         assertEquals(1, nextEcho())
         assertEquals(2, nextEcho())
         dropConnection()
-        assertEquals(RemoteShell.CONNECTION_FAILED, checkNotNull(exits.poll(20, TimeUnit.SECONDS)) { "没等到结束" }.code)
+        assertEquals(
+            RemoteShell.CONNECTION_FAILED,
+            checkNotNull(exits.poll(20, TimeUnit.SECONDS)) { "没等到结束" }.code,
+        )
         started.remove(first)
         // 重开后从第 2 行接上：先读到 n=2，之后照常
         val again = launch(ClaudeProcess.Launch.Attach(fromLine = 2))
@@ -201,12 +221,22 @@ class DebianRemoteLinkTest : RemoteLinkContract() {
                 code=${'$'}?
                 rm -f "${pids.path}/${'$'}${'$'}"
                 exit ${'$'}code
-                """.trimIndent() + "\n",
+                """
+                    .trimIndent() + "\n",
             )
             setExecutable(true)
         }
-        val local = ClaudeAccountsTest.localShell(File(root, "local").apply { mkdirs() }, mapOf("PATH" to bin.path + ":" + System.getenv("PATH")))
-        return DebianSshShell(local, RemoteHost("r-test", "test", "test-host", remoteHome.path, remoteHome.path), timeZone = "UTC", linuxName = "zeta-test")
+        val local =
+            ClaudeAccountsTest.localShell(
+                File(root, "local").apply { mkdirs() },
+                mapOf("PATH" to bin.path + ":" + System.getenv("PATH")),
+            )
+        return DebianSshShell(
+            local,
+            RemoteHost("r-test", "test", "test-host", remoteHome.path, remoteHome.path),
+            timeZone = "UTC",
+            linuxName = "zeta-test",
+        )
     }
 
     override fun dropConnection() {
@@ -234,7 +264,16 @@ class DirectRemoteLinkTest : RemoteLinkContract() {
         server = TestSshServer(key, remoteHome)
         links = SshLinks({ key })
         val hostKey = checkNotNull(links.probe(server.target, null, "true").hostKey)
-        val host = RemoteHost("r-test", "test", server.target.toString(), remoteHome.path, remoteHome.path, RemoteHost.Via.Direct, RemoteHosts.encodeKey(hostKey))
+        val host =
+            RemoteHost(
+                "r-test",
+                "test",
+                server.target.toString(),
+                remoteHome.path,
+                remoteHome.path,
+                RemoteHost.Via.Direct,
+                RemoteHosts.encodeKey(hostKey),
+            )
         return DirectSshShell(links, host, timeZone = "UTC", linuxName = "zeta-test")
     }
 

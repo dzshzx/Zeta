@@ -12,9 +12,8 @@ import java.util.concurrent.TimeoutException
 class MainThreadTimeout(timeoutMs: Long) : RuntimeException("Zeta 的界面线程 ${timeoutMs / 1000} 秒内没有响应")
 
 /**
- * 在主线程上执行 [block] 并等它的结果，给工具线程这类后台线程用；本来就在主线程上时直接执行。
- * [timeoutMs] 内没做完就抛出 [MainThreadTimeout]，排着队还没开始的撤下不做（已经在执行的做完，结果不要了）。
- * [block] 自己抛出的异常原样抛出，不包一层 ExecutionException。
+ * 在主线程上执行 [block] 并等它的结果，给工具线程这类后台线程用；本来就在主线程上时直接执行。 [timeoutMs] 内没做完就抛出
+ * [MainThreadTimeout]，排着队还没开始的撤下不做（已经在执行的做完，结果不要了）。 [block] 自己抛出的异常原样抛出，不包一层 ExecutionException。
  */
 fun <T> onMain(timeoutMs: Long = 15_000, block: () -> T): T {
     if (Looper.myLooper() == Looper.getMainLooper()) return block()

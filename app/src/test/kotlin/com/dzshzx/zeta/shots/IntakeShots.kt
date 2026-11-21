@@ -7,9 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.test.isDialog
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileLimits
@@ -35,7 +35,13 @@ class IntakeShots : ShotTest() {
         hub.pendingIntake = Intake(IntakeSource.Screenshot, images = listOf(screenshot()))
         shoot("intake-chooser", target = isDialog()) {
             Box {
-                ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
                 IntakeChooser(hub)
             }
         }
@@ -47,9 +53,20 @@ class IntakeShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("看看这个报错", chat)
         // 输入栏的内容是这个对话的草稿，两种配色各从头组合一遍时还在：只送一次
-        hub.incoming = Intake(IntakeSource.Share, text = "页面标题\nhttps://example.com/article", images = listOf(screenshot()))
+        hub.incoming =
+            Intake(
+                IntakeSource.Share,
+                text = "页面标题\nhttps://example.com/article",
+                images = listOf(screenshot()),
+            )
         shoot("intake-composer") {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
         }
     }
 
@@ -62,7 +79,13 @@ class IntakeShots : ShotTest() {
         shoot("intake-problems") {
             Scaffold {
                 Box {
-                    ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+                    ChatScreen(
+                        hub = hub,
+                        onOpenPane = {},
+                        onOpenSettings = {},
+                        onOpenInstall = {},
+                        onOpenLogin = {},
+                    )
                     Problems(hub)
                 }
             }
@@ -73,27 +96,39 @@ class IntakeShots : ShotTest() {
     private fun Problems(hub: ConversationHub) {
         val scope = rememberCoroutineScope()
         val sink = remember {
-            IntakeSink(hub, hub.context, scope, ComposerDraft(), maxImages = 4, backend = Backends.LOCAL).also {
-                it.force(
-                    "problems",
-                    listOf(
-                        FileLimits.tooLargeReason("录屏-1118.mp4", 1288490189L),
-                        "一次最多收 ${FileLimits.MAX_FILES} 个文件，另外 3 个没有加进来",
-                    ),
+            IntakeSink(
+                    hub,
+                    hub.context,
+                    scope,
+                    ComposerDraft(),
+                    maxImages = 4,
+                    backend = Backends.LOCAL,
                 )
-                it.force("rejectedLarge", true)
-            }
+                .also {
+                    it.force(
+                        "problems",
+                        listOf(
+                            FileLimits.tooLargeReason("录屏-1118.mp4", 1288490189L),
+                            "一次最多收 ${FileLimits.MAX_FILES} 个文件，另外 3 个没有加进来",
+                        ),
+                    )
+                    it.force("rejectedLarge", true)
+                }
         }
         IntakeProblemsDialog(sink)
     }
 
     private fun screenshot(): Attachment {
-        val bitmap = Bitmap.createBitmap(305, 664, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF3A6EA5.toInt()) }
+        val bitmap =
+            Bitmap.createBitmap(305, 664, Bitmap.Config.ARGB_8888).apply {
+                eraseColor(0xFF3A6EA5.toInt())
+            }
         return Attachment("shot", bitmap.asImageBitmap(), "image/jpeg", "")
     }
 
-    private val chat = listOf(
-        UserItem("u1", "构建一直失败，帮我看看"),
-        AnswerItem("a1", "把报错的那一屏发给我看看，最好连同上面几行。", streaming = false),
-    )
+    private val chat =
+        listOf(
+            UserItem("u1", "构建一直失败，帮我看看"),
+            AnswerItem("a1", "把报错的那一屏发给我看看，最好连同上面几行。", streaming = false),
+        )
 }

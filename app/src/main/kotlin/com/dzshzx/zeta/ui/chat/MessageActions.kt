@@ -72,7 +72,8 @@ import kotlinx.coroutines.withContext
 @Immutable
 internal class TurnIndex(list: List<TurnActions>) {
     val byUser: Map<String, TurnActions> = list.associateBy { it.user.id }
-    val byLast: Map<String, TurnActions> = list.mapNotNull { turn -> turn.lastItemId?.let { it to turn } }.toMap()
+    val byLast: Map<String, TurnActions> =
+        list.mapNotNull { turn -> turn.lastItemId?.let { it to turn } }.toMap()
     val last: TurnActions? = list.lastOrNull()
 }
 
@@ -96,7 +97,11 @@ internal class MessageActions(
         private set
 
     /** 开始编辑前输入框里的东西，取消编辑时放回去。 */
-    private class Saved(val text: String, val attachments: List<Attachment>, val uploads: List<FileUpload>)
+    private class Saved(
+        val text: String,
+        val attachments: List<Attachment>,
+        val uploads: List<FileUpload>,
+    )
 
     private var saved: Saved? = null
 
@@ -110,19 +115,24 @@ internal class MessageActions(
     fun beginEdit(turn: TurnActions) {
         if (!conversation.canRewind) return
         if (editing != null) cancelEdit()
-        saved = Saved(draft.input.text.toString(), draft.attachments.toList(), draft.uploads.toList())
+        saved =
+            Saved(draft.input.text.toString(), draft.attachments.toList(), draft.uploads.toList())
         editing = turn
         draft.input.setTextAndPlaceCursorAtEnd(turn.user.text)
         draft.attachments.clear()
         draft.uploads.clear()
         turn.user.files.forEach(draft.uploads::addPath)
         val images = turn.user.images
-        if (images.isNotEmpty()) scope.launch {
-            val restored = withContext(Dispatchers.IO) { images.map { reattach(hub, conversation.backend, it) } }
-            if (editing !== turn) return@launch
-            draft.attachments.addAll(restored.filterNotNull())
-            if (restored.any { it == null }) toast("有图片取不回来，没有放进输入框")
-        }
+        if (images.isNotEmpty())
+            scope.launch {
+                val restored =
+                    withContext(Dispatchers.IO) {
+                        images.map { reattach(hub, conversation.backend, it) }
+                    }
+                if (editing !== turn) return@launch
+                draft.attachments.addAll(restored.filterNotNull())
+                if (restored.any { it == null }) toast("有图片取不回来，没有放进输入框")
+            }
     }
 
     fun cancelEdit() {
@@ -171,7 +181,10 @@ internal class MessageActions(
         }
         // 原样重发这一轮的提问：文字、附件路径，还有图片（历史里的要从会话记录取回）
         scope.launch {
-            val images = withContext(Dispatchers.IO) { user.images.map { reattach(hub, conversation.backend, it) } }
+            val images =
+                withContext(Dispatchers.IO) {
+                    user.images.map { reattach(hub, conversation.backend, it) }
+                }
             if (images.any { it == null }) {
                 toast("有图片取不回来，没法原样重发")
                 return@launch
@@ -189,12 +202,14 @@ internal class MessageActions(
     }
 }
 
-/**
- * 挂在 [itemId] 下面的那一轮的操作键（重新生成、删除、分支）；[itemId] 不是哪一轮的最后一项时什么都不画。
- * 最后一轮还在进行时不出现；有别的事在进行时变灰。
- */
+/** 挂在 [itemId] 下面的那一轮的操作键（重新生成、删除、分支）；[itemId] 不是哪一轮的最后一项时什么都不画。 最后一轮还在进行时不出现；有别的事在进行时变灰。 */
 @Composable
-internal fun TurnActionButtons(itemId: String, turns: TurnIndex, conversation: Conversation, actions: MessageActions) {
+internal fun TurnActionButtons(
+    itemId: String,
+    turns: TurnIndex,
+    conversation: Conversation,
+    actions: MessageActions,
+) {
     val turn = turns.byLast[itemId] ?: return
     if (turn === turns.last && (conversation.busy || conversation.rewinding)) return
     val enabled = conversation.canRewind && actions.editing == null
@@ -221,24 +236,49 @@ internal fun ReadAloudButton(answer: AnswerItem) {
         contentDescription = if (active) "停止朗读" else "朗读",
         size = 30.dp,
         iconSize = if (active) 11.dp else 15.dp,
-        backgroundColor = if (active) COUITheme.colorScheme.containerThemeHalftone else Color.Unspecified,
-        tint = if (active) COUITheme.colorScheme.primaryText else COUITheme.colorScheme.labelSecondary,
-    ) { ReadAloud.toggle(context, answer.id, answer.text) }
+        backgroundColor =
+            if (active) COUITheme.colorScheme.containerThemeHalftone else Color.Unspecified,
+        tint =
+            if (active) COUITheme.colorScheme.primaryText else COUITheme.colorScheme.labelSecondary,
+    ) {
+        ReadAloud.toggle(context, answer.id, answer.text)
+    }
 }
 
 /** 不以回答结尾的一轮（停在工具步骤或出错提示上），操作键单独占一行，和回答下方的对齐。 */
 @Composable
-internal fun TurnActionRow(itemId: String, turns: TurnIndex, conversation: Conversation, actions: MessageActions) {
+internal fun TurnActionRow(
+    itemId: String,
+    turns: TurnIndex,
+    conversation: Conversation,
+    actions: MessageActions,
+) {
     if (itemId !in turns.byLast) return
-    Row(modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         TurnActionButtons(itemId, turns, conversation, actions)
     }
 }
 
 /** 和回答下方的复制键一个样子：30dp 的平按钮，15dp 的次要色图标。 */
 @Composable
-private fun ActionButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) =
-    FlatIconButton(icon, description, size = 30.dp, iconSize = 15.dp, enabled = enabled, tint = COUITheme.colorScheme.labelSecondary, onClick = onClick)
+private fun ActionButton(
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) =
+    FlatIconButton(
+        icon,
+        description,
+        size = 30.dp,
+        iconSize = 15.dp,
+        enabled = enabled,
+        tint = COUITheme.colorScheme.labelSecondary,
+        onClick = onClick,
+    )
 
 /** 输入卡片上方的编辑提示条（样子同排队条）：说明发出后会替换什么，× 取消编辑。 */
 @Composable
@@ -246,13 +286,19 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
     val colors = COUITheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .chatPanel(shape)
-            .padding(start = 14.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .chatPanel(shape)
+                .padding(start = 14.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(COUIIcons.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.primary)
+        Icon(
+            COUIIcons.Edit,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = colors.primary,
+        )
         Spacer(Modifier.width(6.dp))
         Text(
             text = "编辑消息",
@@ -283,13 +329,14 @@ internal fun MessageActionDialogs(actions: MessageActions) {
     ConfirmDialog(
         show = pending != null,
         title = if (last?.regenerate != false) "重新生成回复？" else "删除这一轮对话？",
-        summary = when {
-            last == null -> null
-            last.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
-            last.regenerate -> "这一轮的回复将换成新生成的。"
-            later > 0 -> "这条消息及之后 $later 轮对话将被删除。"
-            else -> "这条消息和它的回复将被删除。"
-        },
+        summary =
+            when {
+                last == null -> null
+                last.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
+                last.regenerate -> "这一轮的回复将换成新生成的。"
+                later > 0 -> "这条消息及之后 $later 轮对话将被删除。"
+                else -> "这条消息和它的回复将被删除。"
+            },
         confirmText = if (last?.regenerate != false) "重新生成" else "删除",
         destructive = last?.regenerate == false,
         onConfirm = actions::confirmed,
@@ -298,14 +345,25 @@ internal fun MessageActionDialogs(actions: MessageActions) {
 }
 
 /** 把消息里的一张图片还原成能再发出去的附件（编辑、重新生成时用）；取不回来返回 null。耗时，别在主线程调用。 */
-private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Attachment? = runCatching {
-    val (mediaType, data) = when (ref) {
-        is InlineImage -> (imageMediaType(Base64.decode(ref.base64, Base64.DEFAULT)) ?: "image/jpeg") to ref.base64
-        is SessionImage -> {
-            val reply = ImageStore.fetch(hub, backend, "image", listOf(ref.file, ref.ref)) ?: return null
-            (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
-        }
-        else -> return null
+private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Attachment? =
+    runCatching {
+        val (mediaType, data) =
+            when (ref) {
+                is InlineImage ->
+                    (imageMediaType(Base64.decode(ref.base64, Base64.DEFAULT)) ?: "image/jpeg") to
+                        ref.base64
+                is SessionImage -> {
+                    val reply =
+                        ImageStore.fetch(hub, backend, "image", listOf(ref.file, ref.ref))
+                            ?: return null
+                    (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
+                }
+                else -> return null
+            }
+        Attachments.restore(
+            UUID.randomUUID().toString(),
+            mediaType,
+            Base64.decode(data, Base64.DEFAULT),
+        )
     }
-    Attachments.restore(UUID.randomUUID().toString(), mediaType, Base64.decode(data, Base64.DEFAULT))
-}.getOrNull()
+    .getOrNull()

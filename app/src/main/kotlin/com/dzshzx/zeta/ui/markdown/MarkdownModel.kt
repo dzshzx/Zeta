@@ -7,8 +7,7 @@ import io.ratex.DisplayList
 /**
  * 解析后的 Markdown 文档：后台线程从 GFM AST 构建，Compose 只负责绘制。
  *
- * 所有块都以源码起始偏移 [MarkdownBlock.offset] 作为身份：流式输出只在尾部追加，
- * 已完成块的偏移与内容都不再变化，构建器会复用同一实例，组合期据此直接跳过。
+ * 所有块都以源码起始偏移 [MarkdownBlock.offset] 作为身份：流式输出只在尾部追加， 已完成块的偏移与内容都不再变化，构建器会复用同一实例，组合期据此直接跳过。
  */
 @Immutable
 internal class MarkdownDocument(
@@ -27,8 +26,11 @@ internal sealed interface MarkdownBlock {
 /** 承载一段富文本的叶子块；[revealKey] 即其源码偏移。 */
 internal sealed interface MarkdownTextBlock : MarkdownBlock {
     val text: AnnotatedString
-    val inlineMath: List<InlineMathSpec> get() = emptyList()
-    val revealKey: RevealBlockKey get() = RevealBlockKey(offset)
+    val inlineMath: List<InlineMathSpec>
+        get() = emptyList()
+
+    val revealKey: RevealBlockKey
+        get() = RevealBlockKey(offset)
 }
 
 @Immutable
@@ -68,8 +70,7 @@ internal data class MarkdownCode(
 /**
  * 独立块级数学公式（`$$...$$` 或 `\[...\]`）。
  *
- * [displayList] 由后台线程经 RaTeX 预排版；解析失败或原生引擎不可用时为 `null`，
- * 界面退回按原文显示 [rawSource]，确保公式内容不丢失且始终可复制。
+ * [displayList] 由后台线程经 RaTeX 预排版；解析失败或原生引擎不可用时为 `null`， 界面退回按原文显示 [rawSource]，确保公式内容不丢失且始终可复制。
  */
 @Immutable
 internal data class MarkdownMath(
@@ -78,7 +79,8 @@ internal data class MarkdownMath(
     val rawSource: String,
     val displayList: DisplayList?,
 ) : MarkdownBlock {
-    val revealKey: RevealBlockKey get() = RevealBlockKey(offset)
+    val revealKey: RevealBlockKey
+        get() = RevealBlockKey(offset)
 }
 
 internal data class MarkdownQuote(
@@ -92,7 +94,13 @@ internal data class MarkdownAlert(
     val blocks: List<MarkdownBlock>,
 ) : MarkdownBlock
 
-internal enum class MarkdownAlertKind { Note, Tip, Important, Warning, Caution }
+internal enum class MarkdownAlertKind {
+    Note,
+    Tip,
+    Important,
+    Warning,
+    Caution,
+}
 
 internal data class MarkdownList(
     override val offset: Int,
@@ -126,6 +134,10 @@ internal data class MarkdownTableCell(
     override val inlineMath: List<InlineMathSpec> = emptyList(),
 ) : MarkdownTextBlock
 
-internal enum class MarkdownColumnAlign { Start, Center, End }
+internal enum class MarkdownColumnAlign {
+    Start,
+    Center,
+    End,
+}
 
 internal data class MarkdownRule(override val offset: Int) : MarkdownBlock

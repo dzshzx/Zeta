@@ -42,13 +42,6 @@ import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.phone.tools.toolFailure
 import com.dzshzx.zeta.phone.tools.toolText
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -57,12 +50,20 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 /**
- * Zeta 的内置浏览器：全应用一个 WebView，Claude 经 `browser` 工具在屏幕外驱动它，用户在浏览器页（[com.dzshzx.zeta.ui.browser.BrowserActivity]）里看同一个页面。
+ * Zeta 的内置浏览器：全应用一个 WebView，Claude 经 `browser`
+ * 工具在屏幕外驱动它，用户在浏览器页（[com.dzshzx.zeta.ui.browser.BrowserActivity]）里看同一个页面。
  *
- * - 屏幕外：不在浏览器页上时，WebView 挂在 Zeta 自己的私有虚拟屏上的一个窗口里（[OffscreenWindow]），用户看不到，
- *   但一直有窗口、有帧，Zeta 在前台还是后台都能加载、执行脚本、截图；截图是把它画进一张位图。
+ * - 屏幕外：不在浏览器页上时，WebView 挂在 Zeta 自己的私有虚拟屏上的一个窗口里（[OffscreenWindow]），用户看不到， 但一直有窗口、有帧，Zeta
+ *   在前台还是后台都能加载、执行脚本、截图；截图是把它画进一张位图。
  * - 全应用一个而不是每个对话一个：工具组是无状态的单例（不知道是哪个对话在调），Cookie 本来就是整个 WebView 共用的；
  *   一个页面、一个入口，用户在设置里和聊天里打开看到的都是它。几个对话同时用时按先后排队执行。
  * - 接管：用户在浏览器页上点按（或用地址栏、前进后退）就是接管，Claude 的浏览器操作在 [awaitGate] 里等，交还或离开浏览器页后继续，
@@ -77,14 +78,19 @@ internal object AgentBrowser {
 
     var url by mutableStateOf("")
         private set
+
     var title by mutableStateOf("")
         private set
+
     var loading by mutableStateOf(false)
         private set
+
     var progress by mutableIntStateOf(0)
         private set
+
     var canGoBack by mutableStateOf(false)
         private set
+
     var canGoForward by mutableStateOf(false)
         private set
 
@@ -115,8 +121,8 @@ internal object AgentBrowser {
     // ---- 加载状态（主线程写，工具线程读） ----
 
     /**
-     * 导航开始的次数：onPageStarted 要等服务器回了话（提交）才来，所以页面自己发起的跳转在 shouldOverrideUrlLoading 里就记上，
-     * Zeta 自己 loadUrl、前进后退时也先记上。[finished] 是 onPageFinished 的次数。
+     * 导航开始的次数：onPageStarted 要等服务器回了话（提交）才来，所以页面自己发起的跳转在 shouldOverrideUrlLoading 里就记上， Zeta 自己
+     * loadUrl、前进后退时也先记上。[finished] 是 onPageFinished 的次数。
      */
     @Volatile private var started = 0L
     @Volatile private var finished = 0L
@@ -156,7 +162,9 @@ internal object AgentBrowser {
         if (request == null) return toolFailure(problem ?: "参数不对")
         return op.withLock {
             // 用户接管着就先等着；排在别的调用后面时也是拿到锁以后再看，免得排队期间用户接管了却没等
-            awaitGate()?.let { return@withLock toolFailure(it) }
+            awaitGate()?.let {
+                return@withLock toolFailure(it)
+            }
             main.removeCallbacks(idleRelease)
             val head = buildList {
                 if (touched.getAndSet(false)) add("用户刚才在浏览器里手动操作过，页面可能变了（下面是现在的样子）")
@@ -165,9 +173,15 @@ internal object AgentBrowser {
             val label = BrowserRequest.title(input)
             main.post { agentAction = label }
             try {
-                val result = runCatching { perform(request) }.getOrElse { failure ->
-                    toolFailure((failure as? BrowserFailure)?.message ?: ("浏览器出错：" + (failure.message ?: failure.javaClass.simpleName)))
+                val result = runCatching {
+                    perform(request)
                 }
+                    .getOrElse { failure ->
+                        toolFailure(
+                            (failure as? BrowserFailure)?.message
+                                ?: ("浏览器出错：" + (failure.message ?: failure.javaClass.simpleName)),
+                        )
+                    }
                 // 这次操作中途冒出来的说明（弹窗、拦下的下载）也一并交回去
                 val late = buildList { while (true) add(notes.poll() ?: break) }
                 withNotes(result, head, late)
@@ -180,18 +194,20 @@ internal object AgentBrowser {
         }
     }
 
-    private fun perform(r: BrowserRequest): JsonObject = when (r.action) {
-        "open" -> open(BrowserUrls.forAgent(r.url).first!!)
-        "read" -> read(r.offset)
-        "click" -> click(r)
-        "type" -> type(r)
-        "scroll" -> scroll(r)
-        "back", "forward" -> history(r.action == "back")
-        "reload" -> reload()
-        "screenshot" -> screenshot()
-        "wait" -> waitFor(r)
-        else -> toolFailure("没有这个操作：${r.action}")
-    }
+    private fun perform(r: BrowserRequest): JsonObject =
+        when (r.action) {
+            "open" -> open(BrowserUrls.forAgent(r.url).first!!)
+            "read" -> read(r.offset)
+            "click" -> click(r)
+            "type" -> type(r)
+            "scroll" -> scroll(r)
+            "back",
+            "forward" -> history(r.action == "back")
+            "reload" -> reload()
+            "screenshot" -> screenshot()
+            "wait" -> waitFor(r)
+            else -> toolFailure("没有这个操作：${r.action}")
+        }
 
     private fun open(target: String): JsonObject {
         val f0 = finished
@@ -204,8 +220,12 @@ internal object AgentBrowser {
             v.loadUrl(target)
             same
         }
-        val note = if (sameDocument) null.also { Thread.sleep(300) } else waitForLoad(f0, LOAD_TIMEOUT_MS, requireFinish = true)
-        pageError?.let { return toolFailure("打不开 $target：$it") }
+        val note =
+            if (sameDocument) null.also { Thread.sleep(300) }
+            else waitForLoad(f0, LOAD_TIMEOUT_MS, requireFinish = true)
+        pageError?.let {
+            return toolFailure("打不开 $target：$it")
+        }
         settle()
         return pageView(listOfNotNull(note, httpNote()))
     }
@@ -214,28 +234,41 @@ internal object AgentBrowser {
         requirePage()
         val value = evaluate(BrowserScripts.read())
         value.str("error")?.let { throw BrowserFailure("读不到页面文字：$it") }
-        val head = "「" + BrowserPage.clip(value.str("title").orEmpty().ifBlank { "无标题" }, 100) + "」 " + value.str("url").orEmpty() +
-            (if (value.bool("part") == true) "（正文区）" else "") + "\n\n"
+        val head =
+            "「" +
+                BrowserPage.clip(value.str("title").orEmpty().ifBlank { "无标题" }, 100) +
+                "」 " +
+                value.str("url").orEmpty() +
+                (if (value.bool("part") == true) "（正文区）" else "") +
+                "\n\n"
         return toolText(head + BrowserPage.readSlice(value.str("text").orEmpty(), offset))
     }
 
     private fun click(r: BrowserRequest): JsonObject {
         requirePage()
-        val point = if (r.element == null) {
-            val size = shotSize()
-            size.fraction(r.x!!, r.y!!) ?: return toolFailure("(${r.x}, ${r.y}) 在截图外面：截图是 ${size.width}×${size.height}")
-        } else null
+        val point =
+            if (r.element == null) {
+                val size = shotSize()
+                size.fraction(r.x!!, r.y!!)
+                    ?: return toolFailure("(${r.x}, ${r.y}) 在截图外面：截图是 ${size.width}×${size.height}")
+            } else null
         val s0 = started
         val f0 = finished
         val value = evaluate(BrowserScripts.click(r.element, point?.first, point?.second))
-        missing(value, r.element)?.let { return it }
-        value.str("error")?.let { return toolFailure(if (it == "nothing") "(${r.x}, ${r.y}) 那里没有元素" else "点按失败：$it") }
+        missing(value, r.element)?.let {
+            return it
+        }
+        value.str("error")?.let {
+            return toolFailure(if (it == "nothing") "(${r.x}, ${r.y}) 那里没有元素" else "点按失败：$it")
+        }
         val what = (value["what"] as? JsonObject)?.let(::describeTarget).orEmpty()
         val head = buildList {
             add("点按了 $what".trim())
             if (value.bool("covered") == true) add("（这个元素被别的东西挡着，点按是直接发给它的；如果没反应，先关掉挡着的弹层）")
         }
-        afterAction(s0, f0)?.let { return pageView(head + it) }
+        afterAction(s0, f0)?.let {
+            return pageView(head + it)
+        }
         return pageView(head + listOfNotNull(httpNote()))
     }
 
@@ -244,7 +277,9 @@ internal object AgentBrowser {
         val s0 = started
         val f0 = finished
         val value = evaluate(BrowserScripts.type(r.element, r.text.orEmpty(), r.submit))
-        missing(value, r.element)?.let { return it }
+        missing(value, r.element)?.let {
+            return it
+        }
         val what = (value["what"] as? JsonObject)?.let(::describeTarget).orEmpty()
         when (value.str("error")) {
             null -> Unit
@@ -252,30 +287,50 @@ internal object AgentBrowser {
             "noteditable" -> return toolFailure("$what 不能输入文字（复选框、按钮这类用 click）")
             "readonly" -> return toolFailure("$what 是只读或不可用的")
             "option" -> {
-                val options = (value["options"] as? JsonArray)?.joinToString("、") { (it as? JsonPrimitive)?.content.orEmpty() }.orEmpty()
+                val options =
+                    (value["options"] as? JsonArray)
+                        ?.joinToString("、") { (it as? JsonPrimitive)?.content.orEmpty() }
+                        .orEmpty()
                 return toolFailure("$what 里没有叫“${r.text}”的选项。可选：$options")
             }
             else -> return toolFailure("输入失败：" + value.str("error"))
         }
-        val head = listOf(
-            value.str("selected")?.let { "在 $what 里选了“$it”" }
-                ?: ("在 $what 里输入了 ${r.text.orEmpty().length} 个字" + if (r.submit) "并按了回车" + (if (value.bool("submitted") == true) "（提交了表单）" else "") else ""),
-        )
-        if (r.submit) afterAction(s0, f0)?.let { return pageView(head + it) } else Thread.sleep(250)
+        val head =
+            listOf(
+                value.str("selected")?.let { "在 $what 里选了“$it”" }
+                    ?: ("在 $what 里输入了 ${r.text.orEmpty().length} 个字" +
+                        if (r.submit)
+                            "并按了回车" + (if (value.bool("submitted") == true) "（提交了表单）" else "")
+                        else ""),
+            )
+        if (r.submit)
+            afterAction(s0, f0)?.let {
+                return pageView(head + it)
+            }
+        else Thread.sleep(250)
         return pageView(head)
     }
 
     private fun scroll(r: BrowserRequest): JsonObject {
         requirePage()
         val value = evaluate(BrowserScripts.scroll(r.element, r.direction != "up"))
-        missing(value, r.element)?.let { return it }
-        value.str("error")?.let { return toolFailure("滚动失败：$it") }
-        val note = when {
-            r.element != null -> "把 " + (value["what"] as? JsonObject)?.let(::describeTarget).orEmpty() + " 滚到了视口中间"
-            value.int("moved") == 0 -> if (r.direction == "up") "已经在最上面了，没有滚动" else "已经到底了，没有滚动（如果内容还没出完，可能在加载，稍等再看）"
-            value.bool("inner") == true -> "滚动了页面里的滚动区"
-            else -> null
+        missing(value, r.element)?.let {
+            return it
         }
+        value.str("error")?.let {
+            return toolFailure("滚动失败：$it")
+        }
+        val note =
+            when {
+                r.element != null ->
+                    "把 " +
+                        (value["what"] as? JsonObject)?.let(::describeTarget).orEmpty() +
+                        " 滚到了视口中间"
+                value.int("moved") == 0 ->
+                    if (r.direction == "up") "已经在最上面了，没有滚动" else "已经到底了，没有滚动（如果内容还没出完，可能在加载，稍等再看）"
+                value.bool("inner") == true -> "滚动了页面里的滚动区"
+                else -> null
+            }
         Thread.sleep(300)
         settle(1500)
         return pageView(listOfNotNull(note))
@@ -285,17 +340,19 @@ internal object AgentBrowser {
         requirePage()
         val s0 = started
         val f0 = finished
-        val moved = onMain {
-            val v = ensureView()
-            if (if (back) v.canGoBack() else v.canGoForward()) {
-                navigationStarting()
-                if (back) v.goBack() else v.goForward()
-                true
-            } else false
-        }
+        val moved = onMain { stepHistory(back) }
         if (!moved) return toolFailure(if (back) "没有可以后退的页面" else "没有可以前进的页面")
         val note = afterAction(s0, f0)
         return pageView(listOfNotNull(if (back) "后退了一页" else "前进了一页", note))
+    }
+
+    /** 能后退（[back] 为 false 时是前进）就开始走，返回走没走。在主线程上调用。 */
+    private fun stepHistory(back: Boolean): Boolean {
+        val v = ensureView()
+        if (!(if (back) v.canGoBack() else v.canGoForward())) return false
+        navigationStarting()
+        if (back) v.goBack() else v.goForward()
+        return true
     }
 
     private fun reload(): JsonObject {
@@ -314,44 +371,62 @@ internal object AgentBrowser {
         requirePage()
         val text = r.text?.takeIf { it.isNotBlank() }
         if (text == null) {
-            Thread.sleep(r.ms.takeIf { it > 0 }?.coerceIn(100, BrowserLimits.WAIT_MS)?.toLong() ?: 1000L)
-            if (loadingNow()) waitForLoad(finished, BrowserLimits.WAIT_MS.toLong(), requireFinish = false)
+            Thread.sleep(
+                r.ms.takeIf { it > 0 }?.coerceIn(100, BrowserLimits.WAIT_MS)?.toLong() ?: 1000L,
+            )
+            if (loadingNow())
+                waitForLoad(finished, BrowserLimits.WAIT_MS.toLong(), requireFinish = false)
             settle(1500)
             return pageView(emptyList())
         }
         val timeout = (r.ms.takeIf { it > 0 } ?: 10_000).coerceIn(500, BrowserLimits.WAIT_MS)
         val deadline = System.currentTimeMillis() + timeout
         while (System.currentTimeMillis() < deadline) {
-            val found = runCatching { evaluate(BrowserScripts.contains(text), 3_000).bool("found") }.getOrNull()
+            val found = runCatching {
+                evaluate(BrowserScripts.contains(text), 3_000).bool("found")
+            }
+                .getOrNull()
             if (found == true) {
                 settle(1000)
                 return pageView(listOf("页面上出现了「${BrowserPage.clip(text, 40)}」"))
             }
             Thread.sleep(400)
         }
-        return JsonObject(pageView(listOf("等了 ${timeout / 1000.0} 秒，页面上没有出现「${BrowserPage.clip(text, 40)}」")) + ("isError" to JsonPrimitive(true)))
+        return JsonObject(
+            pageView(listOf("等了 ${timeout / 1000.0} 秒，页面上没有出现「${BrowserPage.clip(text, 40)}」")) +
+                ("isError" to JsonPrimitive(true)),
+        )
     }
 
     private fun screenshot(): JsonObject {
         requirePage()
         val bitmap = onMain { capture() } ?: return toolFailure("截图失败：页面还没有画出来")
         val size = shotSize()
-        val scaled = if (size.scale < 1f) Bitmap.createScaledBitmap(bitmap, size.width, size.height, true).also { bitmap.recycle() } else bitmap
+        val scaled =
+            if (size.scale < 1f)
+                Bitmap.createScaledBitmap(bitmap, size.width, size.height, true).also {
+                    bitmap.recycle()
+                }
+            else bitmap
         val out = ByteArrayOutputStream()
         scaled.compress(Bitmap.CompressFormat.JPEG, SHOT_QUALITY, out)
         scaled.recycle()
         val data = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
         return buildJsonObject {
             putJsonArray("content") {
-                add(buildJsonObject {
-                    put("type", "text")
-                    put("text", "截图 ${size.width}×${size.height}（这是视口；click 的 x、y 用这张图上的像素）")
-                })
-                add(buildJsonObject {
-                    put("type", "image")
-                    put("data", data)
-                    put("mimeType", "image/jpeg")
-                })
+                add(
+                    buildJsonObject {
+                        put("type", "text")
+                        put("text", "截图 ${size.width}×${size.height}（这是视口；click 的 x、y 用这张图上的像素）")
+                    },
+                )
+                add(
+                    buildJsonObject {
+                        put("type", "image")
+                        put("data", data)
+                        put("mimeType", "image/jpeg")
+                    },
+                )
             }
         }
     }
@@ -359,12 +434,19 @@ internal object AgentBrowser {
     /** 页面概况（给 Claude 的标准结果）。[head]：放在最前面的几句。 */
     private fun pageView(head: List<String>): JsonObject {
         // 动作已经做了，读概况失败不算这次失败：说一句，让 Claude 稍后再看
-        val value = try {
-            evaluate(BrowserScripts.snapshot(nextId, BrowserLimits.VIEW_TEXT + 500))
-        } catch (failure: BrowserFailure) {
-            return toolText((head + "（读不到页面概况：${failure.message}。稍后用 wait 或 screenshot 再看）").joinToString("\n"))
+        val value =
+            try {
+                evaluate(BrowserScripts.snapshot(nextId, BrowserLimits.VIEW_TEXT + 500))
+            } catch (failure: BrowserFailure) {
+                return toolText(
+                    (head + "（读不到页面概况：${failure.message}。稍后用 wait 或 screenshot 再看）").joinToString(
+                        "\n",
+                    ),
+                )
+            }
+        value.str("error")?.let {
+            return toolText((head + "（读不到页面概况：$it）").joinToString("\n"))
         }
-        value.str("error")?.let { return toolText((head + "（读不到页面概况：$it）").joinToString("\n")) }
         val page = BrowserPage.parseSnapshot(value)
         if (page.next > nextId) nextId = page.next
         return toolText((head + BrowserPage.render(page, loadingNow())).joinToString("\n"))
@@ -377,7 +459,8 @@ internal object AgentBrowser {
         return JsonObject(view + ("isError" to JsonPrimitive(true)))
     }
 
-    private fun describeTarget(e: JsonObject): String = BrowserPage.element(e)?.let(BrowserPage::line).orEmpty()
+    private fun describeTarget(e: JsonObject): String =
+        BrowserPage.element(e)?.let(BrowserPage::line).orEmpty()
 
     private fun httpNote(): String? = httpStatus.takeIf { it >= 400 }?.let { "网页返回 HTTP $it" }
 
@@ -397,7 +480,8 @@ internal object AgentBrowser {
             settle()
         }
         val current = onMain { view?.url }
-        if (current.isNullOrBlank() || current == "about:blank") throw BrowserFailure("浏览器里还没有打开网页，先用 open")
+        if (current.isNullOrBlank() || current == "about:blank")
+            throw BrowserFailure("浏览器里还没有打开网页，先用 open")
     }
 
     private fun loadingNow(): Boolean = busyLoading
@@ -411,8 +495,8 @@ internal object AgentBrowser {
     }
 
     /**
-     * 等导航加载完（[f0] 是导航前 onPageFinished 的次数）。[requireFinish]：一定要等到 onPageFinished（Zeta 自己 loadUrl 的，它总会来）；
-     * 否则（页面自己的跳转，可能变成下载、被拦下）不再加载 0.6 秒也算完。超时不算失败：返回一句说明，照样交回当前的样子。
+     * 等导航加载完（[f0] 是导航前 onPageFinished 的次数）。[requireFinish]：一定要等到 onPageFinished（Zeta 自己 loadUrl
+     * 的，它总会来）； 否则（页面自己的跳转，可能变成下载、被拦下）不再加载 0.6 秒也算完。超时不算失败：返回一句说明，照样交回当前的样子。
      */
     private fun waitForLoad(f0: Long, timeoutMs: Long, requireFinish: Boolean): String? {
         val deadline = System.currentTimeMillis() + timeoutMs
@@ -433,7 +517,10 @@ internal object AgentBrowser {
     /** 动作之后：要是引起了导航就等加载完，再等页面停下来。返回要告诉 Claude 的一句（超时），没有就是 null。 */
     private fun afterAction(s0: Long, f0: Long): String? {
         Thread.sleep(350)
-        val note = if (started > s0 || loadingNow()) waitForLoad(f0, LOAD_TIMEOUT_MS, requireFinish = false) else null
+        val note =
+            if (started > s0 || loadingNow())
+                waitForLoad(f0, LOAD_TIMEOUT_MS, requireFinish = false)
+            else null
         settle()
         return note
     }
@@ -447,7 +534,10 @@ internal object AgentBrowser {
                 Thread.sleep(150)
                 continue
             }
-            val sig = runCatching { evaluate(BrowserScripts.signature(), 2_000).str("sig") }.getOrNull()
+            val sig = runCatching {
+                evaluate(BrowserScripts.signature(), 2_000).str("sig")
+            }
+                .getOrNull()
             if (sig != null && sig == last) return
             last = sig
             Thread.sleep(300)
@@ -461,11 +551,12 @@ internal object AgentBrowser {
             val v = view ?: throw BrowserFailure("浏览器的页面已经关掉了（用户清除了数据，或者渲染进程退出了），重新 open 吧")
             v.evaluateJavascript(script) { future.complete(it) }
         }
-        val raw = try {
-            future.get(timeoutMs, TimeUnit.MILLISECONDS)
-        } catch (_: TimeoutException) {
-            throw BrowserFailure("页面 ${timeoutMs / 1000} 秒没有响应脚本（可能卡住了，或者正在跳转）")
-        }
+        val raw =
+            try {
+                future.get(timeoutMs, TimeUnit.MILLISECONDS)
+            } catch (_: TimeoutException) {
+                throw BrowserFailure("页面 ${timeoutMs / 1000} 秒没有响应脚本（可能卡住了，或者正在跳转）")
+            }
         return BrowserPage.decode(raw) ?: throw BrowserFailure("页面没有返回结果（可能正在跳转），稍后再试")
     }
 
@@ -490,12 +581,21 @@ internal object AgentBrowser {
         if (head.isEmpty() && tail.isEmpty()) return result
         val content = result["content"] as? JsonArray ?: return result
         val first = content.firstOrNull() as? JsonObject
-        val merged = if (first?.str("type") == "text") {
-            val text = (head + first.str("text").orEmpty() + tail.map { "\n$it" }).joinToString("\n").trim()
-            listOf(JsonObject(first + ("text" to JsonPrimitive(text)))) + content.drop(1)
-        } else {
-            listOf(buildJsonObject { put("type", "text"); put("text", (head + tail).joinToString("\n")) }) + content
-        }
+        val merged =
+            if (first?.str("type") == "text") {
+                val text =
+                    (head + first.str("text").orEmpty() + tail.map { "\n$it" })
+                        .joinToString("\n")
+                        .trim()
+                listOf(JsonObject(first + ("text" to JsonPrimitive(text)))) + content.drop(1)
+            } else {
+                listOf(
+                    buildJsonObject {
+                        put("type", "text")
+                        put("text", (head + tail).joinToString("\n"))
+                    },
+                ) + content
+            }
         return JsonObject(result + ("content" to JsonArray(merged)))
     }
 
@@ -601,7 +701,12 @@ internal object AgentBrowser {
         val v = ensureView()
         wrapper?.baseContext = activity
         (v.parent as? ViewGroup)?.takeIf { it !== container }?.removeView(v)
-        if (v.parent == null) container.addView(v, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        if (v.parent == null)
+            container.addView(
+                v,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
         // 跟着窗口走硬件加速
         v.setLayerType(View.LAYER_TYPE_NONE, null)
     }
@@ -622,7 +727,9 @@ internal object AgentBrowser {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun ensureView(): WebView {
-        view?.let { return it }
+        view?.let {
+            return it
+        }
         val context = app ?: throw BrowserFailure("浏览器还没有初始化")
         val wrap = MutableContextWrapper(context)
         val v = WebView(wrap)
@@ -652,7 +759,9 @@ internal object AgentBrowser {
             busyLoading = false
             val name = URLUtil.guessFileName(link, disposition, mime)
             val size = if (length > 0) "，${length / 1024} KB" else ""
-            notes.add("页面要下载文件「$name」（$mime$size），已拦下：浏览器不下载文件。需要的话把链接告诉用户：" + BrowserUrls.describe(link))
+            notes.add(
+                "页面要下载文件「$name」（$mime$size），已拦下：浏览器不下载文件。需要的话把链接告诉用户：" + BrowserUrls.describe(link),
+            )
         }
         wrapper = wrap
         view = v
@@ -668,28 +777,43 @@ internal object AgentBrowser {
     /** 屏幕外的视口大小：手机屏幕的宽，高度最多 2400。 */
     private fun offscreenSize(context: Context): Triple<Int, Int, Int> {
         val metrics = context.resources.displayMetrics
-        return Triple(metrics.widthPixels.coerceIn(720, 1440), metrics.heightPixels.coerceIn(1280, 2400), metrics.densityDpi)
+        return Triple(
+            metrics.widthPixels.coerceIn(720, 1440),
+            metrics.heightPixels.coerceIn(1280, 2400),
+            metrics.densityDpi,
+        )
     }
 
     /** 把 WebView 放进屏幕外的窗口（主线程上）。窗口建不成就不挂窗口，自己量好布局。 */
     private fun park(v: WebView) {
         val context = app ?: return
         (v.parent as? ViewGroup)?.removeView(v)
-        val window = offscreen ?: offscreenSize(context).let { (w, h, dpi) -> OffscreenWindow.create(context, w, h, dpi) }?.also { offscreen = it }
+        val window =
+            offscreen
+                ?: offscreenSize(context)
+                    .let { (w, h, dpi) -> OffscreenWindow.create(context, w, h, dpi) }
+                    ?.also { offscreen = it }
         if (window == null) {
             wrapper?.baseContext = context
             layoutDetached(v)
             return
         }
         wrapper?.baseContext = window.context
-        window.container.addView(v, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        window.container.addView(
+            v,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        )
     }
 
     /** 没有窗口可挂时：按屏幕外视口的大小量好布局（这时 Chromium 可能不出新帧，截图会停在旧画面上）。 */
     private fun layoutDetached(v: WebView) {
         val (width, height) = offscreenSize(app ?: return)
         if (v.width == width && v.height == height) return
-        v.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+        v.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
         v.layout(0, 0, width, height)
     }
 
@@ -743,7 +867,8 @@ internal object AgentBrowser {
                 if (request.isForMainFrame && v === view) navigationStarting()
                 return false
             }
-            if (request.isForMainFrame) notes.add("页面想打开 ${BrowserUrls.describe(link)}，已拦下（浏览器只开 http / https 网页）")
+            if (request.isForMainFrame)
+                notes.add("页面想打开 ${BrowserUrls.describe(link)}，已拦下（浏览器只开 http / https 网页）")
             return true
         }
 
@@ -771,12 +896,20 @@ internal object AgentBrowser {
             updateHistory(v)
         }
 
-        override fun onReceivedError(v: WebView, request: WebResourceRequest, error: WebResourceError) {
+        override fun onReceivedError(
+            v: WebView,
+            request: WebResourceRequest,
+            error: WebResourceError,
+        ) {
             if (v !== view || !request.isForMainFrame) return
             pageError = error.description?.toString()?.ifBlank { null } ?: "错误 ${error.errorCode}"
         }
 
-        override fun onReceivedHttpError(v: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+        override fun onReceivedHttpError(
+            v: WebView,
+            request: WebResourceRequest,
+            response: WebResourceResponse,
+        ) {
             if (v !== view || !request.isForMainFrame) return
             httpStatus = response.statusCode
         }
@@ -792,7 +925,13 @@ internal object AgentBrowser {
             val last = url
             destroyView()
             resetState()
-            notes.add("网页的渲染进程" + (if (detail.didCrash()) "崩溃了" else "被系统收掉了") + "，页面已关闭" + (if (last.isNotBlank()) "（之前在 ${BrowserUrls.describe(last)}）" else "") + "，要继续请重新 open")
+            notes.add(
+                "网页的渲染进程" +
+                    (if (detail.didCrash()) "崩溃了" else "被系统收掉了") +
+                    "，页面已关闭" +
+                    (if (last.isNotBlank()) "（之前在 ${BrowserUrls.describe(last)}）" else "") +
+                    "，要继续请重新 open",
+            )
             // 浏览器页还开着：放一个新的空白 WebView
             host?.let { attach(it, it.context) }
             return true
@@ -813,43 +952,79 @@ internal object AgentBrowser {
         /** 用户在浏览器页上自己操作时，弹窗照常显示给他；屏幕外（Claude 在用）时自动处理，告诉 Claude。 */
         private fun userSees(): Boolean = host != null && userControlling
 
-        override fun onJsAlert(v: WebView, link: String?, message: String?, result: JsResult): Boolean {
+        override fun onJsAlert(
+            v: WebView,
+            link: String?,
+            message: String?,
+            result: JsResult,
+        ): Boolean {
             if (userSees()) return false
             notes.add("页面弹出提示：" + BrowserPage.clip(message.orEmpty(), 300) + "（已自动关掉）")
             result.confirm()
             return true
         }
 
-        override fun onJsConfirm(v: WebView, link: String?, message: String?, result: JsResult): Boolean {
+        override fun onJsConfirm(
+            v: WebView,
+            link: String?,
+            message: String?,
+            result: JsResult,
+        ): Boolean {
             if (userSees()) return false
-            notes.add("页面弹出确认框：" + BrowserPage.clip(message.orEmpty(), 300) + "（已自动选了“取消”；要确定的话请用户在 Zeta 的浏览器页里自己操作）")
+            notes.add(
+                "页面弹出确认框：" +
+                    BrowserPage.clip(message.orEmpty(), 300) +
+                    "（已自动选了“取消”；要确定的话请用户在 Zeta 的浏览器页里自己操作）",
+            )
             result.cancel()
             return true
         }
 
-        override fun onJsPrompt(v: WebView, link: String?, message: String?, defaultValue: String?, result: JsPromptResult): Boolean {
+        override fun onJsPrompt(
+            v: WebView,
+            link: String?,
+            message: String?,
+            defaultValue: String?,
+            result: JsPromptResult,
+        ): Boolean {
             if (userSees()) return false
             notes.add("页面弹出输入框：" + BrowserPage.clip(message.orEmpty(), 300) + "（已自动取消）")
             result.cancel()
             return true
         }
 
-        override fun onJsBeforeUnload(v: WebView, link: String?, message: String?, result: JsResult): Boolean {
+        override fun onJsBeforeUnload(
+            v: WebView,
+            link: String?,
+            message: String?,
+            result: JsResult,
+        ): Boolean {
             if (userSees()) return false
             result.confirm()
             return true
         }
 
         override fun onPermissionRequest(request: PermissionRequest) {
-            notes.add("页面要求使用 " + request.resources.joinToString("、") { it.substringAfterLast('.') } + "，已拒绝")
+            notes.add(
+                "页面要求使用 " +
+                    request.resources.joinToString("、") { it.substringAfterLast('.') } +
+                    "，已拒绝",
+            )
             request.deny()
         }
 
-        override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback) {
+        override fun onGeolocationPermissionsShowPrompt(
+            origin: String?,
+            callback: GeolocationPermissions.Callback,
+        ) {
             callback.invoke(origin, false, false)
         }
 
-        override fun onShowFileChooser(v: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+        override fun onShowFileChooser(
+            v: WebView,
+            callback: ValueCallback<Array<Uri>>,
+            params: FileChooserParams,
+        ): Boolean {
             notes.add("页面要选择文件上传，浏览器不支持上传文件")
             callback.onReceiveValue(null)
             return true
@@ -859,11 +1034,12 @@ internal object AgentBrowser {
     // ---- 线程 ----
 
     /** 在主线程上执行并等结果（工具线程上调用）；主线程没响应时报 [BrowserFailure]，原话交给 Claude。 */
-    private fun <T> onMain(block: () -> T): T = try {
-        com.dzshzx.zeta.core.onMain(MAIN_TIMEOUT_MS, block)
-    } catch (_: MainThreadTimeout) {
-        throw BrowserFailure("Zeta 的界面线程没有响应，稍后再试")
-    }
+    private fun <T> onMain(block: () -> T): T =
+        try {
+            com.dzshzx.zeta.core.onMain(MAIN_TIMEOUT_MS, block)
+        } catch (_: MainThreadTimeout) {
+            throw BrowserFailure("Zeta 的界面线程没有响应，稍后再试")
+        }
 
     private class BrowserFailure(message: String) : RuntimeException(message)
 

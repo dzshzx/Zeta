@@ -1,15 +1,16 @@
 package com.dzshzx.zeta.phone.tools
 
+import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDateTime
 
 class DeviceAppsTest {
     // 真机 `dumpsys package com.miui.calculator` 的 Packages: 一节（删了与解析无关的行），外加 ##pids
-    private val calculator = """
+    private val calculator =
+        """
         Packages:
           Package [com.miui.calculator] (3bb578a):
             appId=10282
@@ -35,7 +36,8 @@ class DeviceAppsTest {
                 android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET ]
         ##pids
         12345
-    """.trimIndent()
+        """
+            .trimIndent()
 
     @Test
     fun parsesAppInfo() {
@@ -57,7 +59,8 @@ class DeviceAppsTest {
 
     @Test
     fun frozenState() {
-        val line = "    User 0: ceDataInode=1 installed=true hidden=false suspended=false stopped=true notLaunched=false enabled=3 instant=false"
+        val line =
+            "    User 0: ceDataInode=1 installed=true hidden=false suspended=false stopped=true notLaunched=false enabled=3 instant=false"
         assertEquals("3" to true, DeviceApps.userState(line))
         assertEquals(null to null, DeviceApps.userState(""))
     }
@@ -65,24 +68,29 @@ class DeviceAppsTest {
     private fun event(time: String, type: String, pkg: String, instance: String) =
         "    time=\"2026-11-19 $time\" type=$type package=$pkg class=$pkg.Main instanceId=$instance taskRootPackage=$pkg taskRootClass=$pkg.Main flags=0x0 "
 
-    private val events = listOf(
-        event("09:00:00", "ACTIVITY_RESUMED", "com.a", "1"),
-        event("09:10:00", "ACTIVITY_PAUSED", "com.a", "1"),
-        event("09:10:00", "ACTIVITY_RESUMED", "com.miui.home", "2"),
-        event("09:10:05", "ACTIVITY_PAUSED", "com.miui.home", "2"),
-        event("09:10:05", "ACTIVITY_RESUMED", "com.b", "3"),
-        event("09:10:30", "ACTIVITY_RESUMED", "com.b", "4"),
-        event("09:10:31", "ACTIVITY_STOPPED", "com.b", "3"),
-        event("09:20:30", "ACTIVITY_PAUSED", "com.b", "4"),
-        event("09:20:30", "ACTIVITY_RESUMED", "com.a", "5"),
-    ).joinToString("\n")
+    private val events =
+        listOf(
+                event("09:00:00", "ACTIVITY_RESUMED", "com.a", "1"),
+                event("09:10:00", "ACTIVITY_PAUSED", "com.a", "1"),
+                event("09:10:00", "ACTIVITY_RESUMED", "com.miui.home", "2"),
+                event("09:10:05", "ACTIVITY_PAUSED", "com.miui.home", "2"),
+                event("09:10:05", "ACTIVITY_RESUMED", "com.b", "3"),
+                event("09:10:30", "ACTIVITY_RESUMED", "com.b", "4"),
+                event("09:10:31", "ACTIVITY_STOPPED", "com.b", "3"),
+                event("09:20:30", "ACTIVITY_PAUSED", "com.b", "4"),
+                event("09:20:30", "ACTIVITY_RESUMED", "com.a", "5"),
+            )
+            .joinToString("\n")
 
     @Test
     fun usageFromEvents() {
         val parsed = DeviceApps.parseEvents(events)
         assertEquals(9, parsed.size)
         val now = LocalDateTime.of(2026, 11, 19, 9, 30)
-        val usage = DeviceApps.usage(parsed, LocalDateTime.of(2026, 11, 19, 8, 0), now).associateBy { it.packageName }
+        val usage =
+            DeviceApps.usage(parsed, LocalDateTime.of(2026, 11, 19, 8, 0), now).associateBy {
+                it.packageName
+            }
         // com.a：09:00–09:10 加上 09:20:30 到现在
         assertEquals((10 * 60 + 9 * 60 + 30) * 1000L, usage.getValue("com.a").foregroundMs)
         assertEquals(2, usage.getValue("com.a").opens)
@@ -90,26 +98,39 @@ class DeviceAppsTest {
         assertEquals((26 + 600) * 1000L, usage.getValue("com.b").foregroundMs)
         assertEquals(1, usage.getValue("com.b").opens)
         // 从 09:15 起算：com.a 只剩 09:20:30 以后的
-        val late = DeviceApps.usage(parsed, LocalDateTime.of(2026, 11, 19, 9, 15), now).associateBy { it.packageName }
+        val late =
+            DeviceApps.usage(parsed, LocalDateTime.of(2026, 11, 19, 9, 15), now).associateBy {
+                it.packageName
+            }
         assertEquals((9 * 60 + 30) * 1000L, late.getValue("com.a").foregroundMs)
         assertEquals((5 * 60 + 30) * 1000L, late.getValue("com.b").foregroundMs)
     }
 
     @Test
     fun recentOpensNewestFirst() {
-        val recent = DeviceApps.recent(DeviceApps.parseEvents(events), LocalDateTime.of(2026, 11, 19, 8, 0))
+        val recent =
+            DeviceApps.recent(DeviceApps.parseEvents(events), LocalDateTime.of(2026, 11, 19, 8, 0))
         assertEquals(listOf("com.a", "com.b", "com.miui.home", "com.a"), recent.map { it.second })
         assertEquals(LocalDateTime.of(2026, 11, 19, 9, 20, 30), recent.first().first)
     }
 
     @Test
     fun recentSkipsHomeAndLockScreenWithoutBreakingRuns() {
-        val more = events + "\n" + listOf(
-            event("09:30:00", "ACTIVITY_RESUMED", "com.android.systemui", "6"),
-            event("09:30:09", "ACTIVITY_RESUMED", "com.a", "5"),
-        ).joinToString("\n")
+        val more =
+            events +
+                "\n" +
+                listOf(
+                        event("09:30:00", "ACTIVITY_RESUMED", "com.android.systemui", "6"),
+                        event("09:30:09", "ACTIVITY_RESUMED", "com.a", "5"),
+                    )
+                    .joinToString("\n")
         val skip = setOf("com.miui.home", "com.android.systemui")
-        val recent = DeviceApps.recent(DeviceApps.parseEvents(more), LocalDateTime.of(2026, 11, 19, 8, 0), skip)
+        val recent =
+            DeviceApps.recent(
+                DeviceApps.parseEvents(more),
+                LocalDateTime.of(2026, 11, 19, 8, 0),
+                skip,
+            )
         assertEquals(listOf("com.a", "com.b", "com.a"), recent.map { it.second })
     }
 }

@@ -24,20 +24,42 @@ class ApkCheckTest {
     private val stranger = "9".repeat(64)
     private val pkg = "com.dzshzx.zeta"
 
-    private val manifest = UpdateManifest(
-        versionCode = 905, versionName = "0.7.2", notes = "", apk = "Zeta-v0.7.2.apk",
-        url = "https://github.com/dzshzx/Zeta/releases/download/v0.7.2/Zeta-v0.7.2.apk", size = 1, sha256 = "0".repeat(64),
-    )
+    private val manifest =
+        UpdateManifest(
+            versionCode = 905,
+            versionName = "0.7.2",
+            notes = "",
+            apk = "Zeta-v0.7.2.apk",
+            url = "https://github.com/dzshzx/Zeta/releases/download/v0.7.2/Zeta-v0.7.2.apk",
+            size = 1,
+            sha256 = "0".repeat(64),
+        )
 
-    private fun apk(signer: String, history: List<String> = listOf(signer), packageName: String = pkg, versionCode: Long = 905) =
-        ApkFacts(packageName, versionCode, listOf(signer), history)
+    private fun apk(
+        signer: String,
+        history: List<String> = listOf(signer),
+        packageName: String = pkg,
+        versionCode: Long = 905,
+    ) = ApkFacts(packageName, versionCode, listOf(signer), history)
 
     @Test
     fun sameSignerOrARotationFromTheInstalledOneIsAccepted() {
         // 正式发版证书签的装着，新版本也是它签的
-        assertNull(ApkCheck.verdict(apk(release, listOf(debug, release)), manifest, apk(release, listOf(debug, release), versionCode = 900)))
+        assertNull(
+            ApkCheck.verdict(
+                apk(release, listOf(debug, release)),
+                manifest,
+                apk(release, listOf(debug, release), versionCode = 900),
+            ),
+        )
         // v0.7.0 及更早（调试证书）装着，新版本带「调试证书 → 正式发版证书」的 lineage
-        assertNull(ApkCheck.verdict(apk(release, listOf(debug, release)), manifest, apk(debug, versionCode = 800)))
+        assertNull(
+            ApkCheck.verdict(
+                apk(release, listOf(debug, release)),
+                manifest,
+                apk(debug, versionCode = 800),
+            ),
+        )
     }
 
     @Test
@@ -46,16 +68,37 @@ class ApkCheckTest {
         assertEquals("读不出下载的安装包（文件坏了，或不是 APK）", ApkCheck.verdict(null, manifest, installed))
         assertEquals(
             "安装包的包名是 com.example.other，不是本应用（com.dzshzx.zeta）",
-            ApkCheck.verdict(apk(release, listOf(debug, release), packageName = "com.example.other"), manifest, installed),
+            ApkCheck.verdict(
+                apk(release, listOf(debug, release), packageName = "com.example.other"),
+                manifest,
+                installed,
+            ),
         )
-        assertEquals("安装包的 versionCode 是 906，清单写的是 905", ApkCheck.verdict(apk(release, listOf(debug, release), versionCode = 906), manifest, installed))
+        assertEquals(
+            "安装包的 versionCode 是 906，清单写的是 905",
+            ApkCheck.verdict(
+                apk(release, listOf(debug, release), versionCode = 906),
+                manifest,
+                installed,
+            ),
+        )
         // 别人的证书；只有调试证书、没有 lineage 的（旧证书已经作废，系统也装不上）
         assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(stranger), manifest, installed))
         assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(debug), manifest, installed))
         // 自称从别人的证书轮换过来、却不含已装的证书
-        assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(release, listOf(stranger, release)), manifest, apk(debug, versionCode = 800)))
+        assertEquals(
+            "安装包的签名和已装的 Zeta 不一致",
+            ApkCheck.verdict(
+                apk(release, listOf(stranger, release)),
+                manifest,
+                apk(debug, versionCode = 800),
+            ),
+        )
         // 读不出已装的签名时不放行
-        assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(release), manifest, ApkFacts(pkg, 900, emptyList(), emptyList())))
+        assertEquals(
+            "安装包的签名和已装的 Zeta 不一致",
+            ApkCheck.verdict(apk(release), manifest, ApkFacts(pkg, 900, emptyList(), emptyList())),
+        )
     }
 
     @Test
@@ -69,7 +112,11 @@ class ApkCheckTest {
     /** 构建时写进 BuildConfig 的正式发版证书就是 release/signing-certs.txt 的最后一行。 */
     @Test
     fun releaseCertificateComesFromTheRegistry() {
-        val last = File("../release/signing-certs.txt").readLines().map { it.trim() }.last { it.isNotEmpty() && !it.startsWith("#") }
+        val last =
+            File("../release/signing-certs.txt")
+                .readLines()
+                .map { it.trim() }
+                .last { it.isNotEmpty() && !it.startsWith("#") }
         assertEquals(last, BuildConfig.RELEASE_CERT_SHA256)
     }
 
@@ -77,8 +124,11 @@ class ApkCheckTest {
     @Test
     fun devOverridesAreIgnoredOutsideTheDevBuild() {
         val app = ApplicationProvider.getApplicationContext<Application>()
-        app.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE).edit()
-            .putString("updateDevManifest", "http://10.0.2.2:8765/update.json").putString("updateDevCert", debug).commit()
+        app.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE)
+            .edit()
+            .putString("updateDevManifest", "http://10.0.2.2:8765/update.json")
+            .putString("updateDevCert", debug)
+            .commit()
         val settings = Settings.of(app)
         assertEquals("http://10.0.2.2:8765/update.json", settings.updateDevManifest)
         assertFalse(BuildConfig.UPDATE_DEV_OVERRIDE)

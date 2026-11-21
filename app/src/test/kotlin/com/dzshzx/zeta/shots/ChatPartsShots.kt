@@ -66,8 +66,8 @@ import kotlinx.serialization.json.put
 import org.junit.Test
 
 /**
- * 聊天页里的部件单独画：消息气泡、通知、图片、附件标签、折叠的工作组和文件改动卡片、输入栏右边的用量控件、用量弹窗、
- * 引用文件夹和路径的对话框。部件里的对话框和菜单要在 COUI 2 的 Scaffold 里才显示，这里外面包一层。
+ * 聊天页里的部件单独画：消息气泡、通知、图片、附件标签、折叠的工作组和文件改动卡片、输入栏右边的用量控件、用量弹窗、 引用文件夹和路径的对话框。部件里的对话框和菜单要在 COUI 2 的
+ * Scaffold 里才显示，这里外面包一层。
  */
 class ChatPartsShots : ShotTest() {
     private val now = System.currentTimeMillis()
@@ -75,7 +75,10 @@ class ChatPartsShots : ShotTest() {
     @Composable
     private fun Host(content: @Composable ColumnScope.() -> Unit) {
         Scaffold(containerColor = COUITheme.colorScheme.background) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()), content = content)
+            Column(
+                Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
+                content = content,
+            )
         }
     }
 
@@ -83,10 +86,26 @@ class ChatPartsShots : ShotTest() {
         quota.force(
             "snapshot",
             QuotaSnapshot(
-                windows = listOf(
-                    QuotaWindow("session", "session", null, 0.12, now + 3 * 3_600_000 + 20 * 60_000, QuotaSeverity.Normal),
-                    QuotaWindow("weekly_all", "weekly", null, 0.86, now + 2 * 86_400_000 + 9 * 3_600_000, QuotaSeverity.Warning, active = true),
-                ),
+                windows =
+                    listOf(
+                        QuotaWindow(
+                            "session",
+                            "session",
+                            null,
+                            0.12,
+                            now + 3 * 3_600_000 + 20 * 60_000,
+                            QuotaSeverity.Normal,
+                        ),
+                        QuotaWindow(
+                            "weekly_all",
+                            "weekly",
+                            null,
+                            0.86,
+                            now + 2 * 86_400_000 + 9 * 3_600_000,
+                            QuotaSeverity.Warning,
+                            active = true,
+                        ),
+                    ),
                 subscription = "max",
                 updatedAt = now - 60_000,
             ),
@@ -94,26 +113,40 @@ class ChatPartsShots : ShotTest() {
     }
 
     /** 已经被拒：到上限了，两小时后解除。 */
-    private val blocked = QuotaSnapshot(
-        windows = listOf(QuotaWindow("session", "session", null, 1.0, now + 2 * 3_600_000, QuotaSeverity.Critical, active = true)),
-        blocked = true,
-        blockedUntil = now + 2 * 3_600_000,
-        updatedAt = now - 60_000,
-    )
+    private val blocked =
+        QuotaSnapshot(
+            windows =
+                listOf(
+                    QuotaWindow(
+                        "session",
+                        "session",
+                        null,
+                        1.0,
+                        now + 2 * 3_600_000,
+                        QuotaSeverity.Critical,
+                        active = true,
+                    ),
+                ),
+            blocked = true,
+            blockedUntil = now + 2 * 3_600_000,
+            updatedAt = now - 60_000,
+        )
 
-    private val usage = ChatUsage(
-        contextTokens = 214_300,
-        contextWindow = 400_000,
-        model = "claude-opus-5-5",
-        turns = listOf(
-            TurnUsage(TokenCounts(1200, 860, 205_000, 7_240), 0.41, 18_200),
-            TurnUsage(TokenCounts(300, 1_100, 190_000, 2_100), null, 6_400),
-        ),
-        appliedEffort = "high",
-        autoCompact = true,
-        compactAt = 266_000,
-        compactions = 1,
-    )
+    private val usage =
+        ChatUsage(
+            contextTokens = 214_300,
+            contextWindow = 400_000,
+            model = "claude-opus-5-5",
+            turns =
+                listOf(
+                    TurnUsage(TokenCounts(1200, 860, 205_000, 7_240), 0.41, 18_200),
+                    TurnUsage(TokenCounts(300, 1_100, 190_000, 2_100), null, 6_400),
+                ),
+            appliedEffort = "high",
+            autoCompact = true,
+            compactAt = 266_000,
+            compactions = 1,
+        )
 
     /** 用户消息（正在编辑的描边、附件）、回答、通知、图片占位、附件标签、打字中。 */
     @Test
@@ -122,19 +155,36 @@ class ChatPartsShots : ShotTest() {
         shoot("chat-parts-items") {
             Host {
                 UserBubble(
-                    UserItem("u1", "把 README 里的构建命令改成 tools/gradle，顺便看看 CLAUDE.md", files = listOf("/workspace/claude/zeta/README.md")),
+                    UserItem(
+                        "u1",
+                        "把 README 里的构建命令改成 tools/gradle，顺便看看 CLAUDE.md",
+                        files = listOf("/workspace/claude/zeta/README.md"),
+                    ),
                     editing = true,
                     onEdit = {},
                     onDelete = {},
                     onSave = {},
                 )
                 AnswerBlock(
-                    AnswerItem("a1", "改好了：`README.md` 第 12 行换成了 `tools/gradle :app:assembleDebug`。", streaming = false),
+                    AnswerItem(
+                        "a1",
+                        "改好了：`README.md` 第 12 行换成了 `tools/gradle :app:assembleDebug`。",
+                        streaming = false,
+                    ),
                     cache = remember { StreamingMarkdownStateCache() },
                 )
                 NoticeRow(NoticeItem("n1", "已中断", error = false))
-                NoticeRow(NoticeItem("n2", "Claude Code 退出了（code 1）：API Error: 529 overloaded", error = true))
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                NoticeRow(
+                    NoticeItem(
+                        "n2",
+                        "Claude Code 退出了（code 1）：API Error: 529 overloaded",
+                        error = true,
+                    ),
+                )
+                Column(
+                    Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     ChatImage(RemoteImage("https://images.example.invalid/diagram.png"))
                     ChatImage(FileImage("/workspace/claude/zeta/missing.png"))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -151,8 +201,15 @@ class ChatPartsShots : ShotTest() {
     @Test
     fun userMenu() {
         Fixtures.readyHub(app)
-        shoot("chat-parts-user-menu", prepare = { onNodeWithText("看看磁盘还剩多少", substring = true).performTouchInput { longClick() } }) {
-            Host { UserBubble(UserItem("u1", "看看磁盘还剩多少空间"), onEdit = {}, onDelete = {}, onSave = {}) }
+        shoot(
+            "chat-parts-user-menu",
+            prepare = {
+                onNodeWithText("看看磁盘还剩多少", substring = true).performTouchInput { longClick() }
+            },
+        ) {
+            Host {
+                UserBubble(UserItem("u1", "看看磁盘还剩多少空间"), onEdit = {}, onDelete = {}, onSave = {})
+            }
         }
     }
 
@@ -166,8 +223,7 @@ class ChatPartsShots : ShotTest() {
     }
 
     /**
-     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）；
-     * 用量按钮：额度快满和已达上限时额度提醒和上下文圆环并排，额度没事时只有圆环（平时、快满）。
+     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）； 用量按钮：额度快满和已达上限时额度提醒和上下文圆环并排，额度没事时只有圆环（平时、快满）。
      */
     @Test
     fun usageChips() {
@@ -176,13 +232,23 @@ class ChatPartsShots : ShotTest() {
         shoot("chat-parts-chips") {
             Host {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (listOf(null) + PermissionModes.map { it.first }).forEach { PermissionModeChip(mode = it, onChange = {}) }
+                    (listOf(null) + PermissionModes.map { it.first }).forEach {
+                        PermissionModeChip(mode = it, onChange = {})
+                    }
                 }
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     EffortChip(effort = null, applied = "high", onChange = {})
                     EffortChip(effort = "max", applied = "max", onChange = {})
                 }
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     UsageButtons(hub.quota.snapshot, usage, onClick = {})
                     UsageButtons(blocked, usage, onClick = {})
                     UsageButtons(null, usage.copy(contextTokens = 120_000), onClick = {})
@@ -196,9 +262,14 @@ class ChatPartsShots : ShotTest() {
     @Test
     fun effortMenu() {
         Fixtures.readyHub(app)
-        shoot("chat-parts-effort-menu", prepare = { onNode(hasContentDescription("思考强度", substring = true)).performClick() }) {
+        shoot(
+            "chat-parts-effort-menu",
+            prepare = { onNode(hasContentDescription("思考强度", substring = true)).performClick() },
+        ) {
             Host {
-                Row(Modifier.padding(16.dp)) { EffortChip(effort = "xhigh", applied = "xhigh", onChange = {}) }
+                Row(Modifier.padding(16.dp)) {
+                    EffortChip(effort = "xhigh", applied = "xhigh", onChange = {})
+                }
             }
         }
     }
@@ -228,7 +299,10 @@ class ChatPartsShots : ShotTest() {
     fun attachFolder() {
         val hub = Fixtures.readyHub(app)
         // 查 Linux 里看不看得到在后台线程上跑，等它的结果落到界面上；一直停在“正在查看”就失败
-        shoot("chat-parts-attach-folder", prepare = { waitForText("Linux 里看不到这个文件夹", substring = true) }) {
+        shoot(
+            "chat-parts-attach-folder",
+            prepare = { waitForText("Linux 里看不到这个文件夹", substring = true) },
+        ) {
             Host {
                 val state = remember { PathAttach().apply { openFolder() } }
                 AttachPathDialogs(state, hub, hub.current, onAttach = {})
@@ -240,7 +314,12 @@ class ChatPartsShots : ShotTest() {
     @Test
     fun attachPath() {
         val hub = Fixtures.readyHub(app)
-        shoot("chat-parts-attach-path", prepare = { onNode(hasSetTextAction()).performTextInput("/workspace/claude/zeta/docs") }) {
+        shoot(
+            "chat-parts-attach-path",
+            prepare = {
+                onNode(hasSetTextAction()).performTextInput("/workspace/claude/zeta/docs")
+            },
+        ) {
             Host {
                 val state = remember { PathAttach().apply { openPath() } }
                 AttachPathDialogs(state, hub, hub.current, onAttach = {})
@@ -249,67 +328,92 @@ class ChatPartsShots : ShotTest() {
     }
 
     /** 等后台线程的结果显示出来：每轮时钟走一帧，5 秒内等不到就失败。 */
-    private fun AndroidComposeTestRule<*, *>.waitForText(text: String, substring: Boolean = false) = awaitMain(5_000) {
-        mainClock.advanceTimeByFrame()
-        waitForIdle()
-        onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
-    }
+    private fun AndroidComposeTestRule<*, *>.waitForText(text: String, substring: Boolean = false) =
+        awaitMain(5_000) {
+            mainClock.advanceTimeByFrame()
+            waitForIdle()
+            onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
+        }
 
-    private val fileSteps = listOf(
-        ToolStep(
-            "e1", "Write",
-            buildJsonObject {
-                put("file_path", "/workspace/claude/zeta/tools/hello.sh")
-                put("content", "#!/bin/sh\nset -eu\necho hello\n")
-            },
-            ToolStatus.Success,
-            "File created successfully",
-        ),
-        ToolStep(
-            "e2", "Edit",
-            buildJsonObject {
-                put("file_path", "/workspace/claude/zeta/app/build.gradle.kts")
-                put("old_string", "x")
-                put("new_string", "y")
-            },
-            ToolStatus.Success,
-            "The file has been updated.",
-            patch = EditPatch(
-                created = false,
-                hunks = listOf(
-                    DiffHunk((1..9).map { DiffLine(DiffKind.Context, "    implementation(libs.dep$it)", 40 + it, 40 + it) }),
-                    DiffHunk(
-                        listOf(
-                            DiffLine(DiffKind.Removed, "    versionName = \"0.6.32\"", oldLine = 88),
-                            DiffLine(DiffKind.Added, "    versionName = \"0.6.33\"", newLine = 88),
-                            DiffLine(DiffKind.Context, "    versionCode = 63", 89, 89),
-                            DiffLine(DiffKind.Context, "}", 90, 90),
-                            DiffLine(DiffKind.Context, "", 91, 91),
-                        ),
-                    ),
-                ),
+    private val fileSteps =
+        listOf(
+            ToolStep(
+                "e1",
+                "Write",
+                buildJsonObject {
+                    put("file_path", "/workspace/claude/zeta/tools/hello.sh")
+                    put("content", "#!/bin/sh\nset -eu\necho hello\n")
+                },
+                ToolStatus.Success,
+                "File created successfully",
             ),
-        ),
-        ToolStep(
-            "e3", "Edit",
-            buildJsonObject {
-                put("file_path", "/workspace/claude/zeta/README.md")
-                put("old_string", "./gradlew :app:assembleDebug")
-                put("new_string", "tools/gradle :app:assembleDebug")
-                put("replace_all", true)
-            },
-            ToolStatus.Success,
-            "The file has been updated.",
-        ),
-        ToolStep(
-            "e4", "Edit",
-            buildJsonObject {
-                put("file_path", "/workspace/claude/zeta/CLAUDE.md")
-                put("old_string", "a")
-                put("new_string", "b")
-            },
-            ToolStatus.Success,
-            "The file has been updated.",
-        ),
-    )
+            ToolStep(
+                "e2",
+                "Edit",
+                buildJsonObject {
+                    put("file_path", "/workspace/claude/zeta/app/build.gradle.kts")
+                    put("old_string", "x")
+                    put("new_string", "y")
+                },
+                ToolStatus.Success,
+                "The file has been updated.",
+                patch =
+                    EditPatch(
+                        created = false,
+                        hunks =
+                            listOf(
+                                DiffHunk(
+                                    (1..9).map {
+                                        DiffLine(
+                                            DiffKind.Context,
+                                            "    implementation(libs.dep$it)",
+                                            40 + it,
+                                            40 + it,
+                                        )
+                                    },
+                                ),
+                                DiffHunk(
+                                    listOf(
+                                        DiffLine(
+                                            DiffKind.Removed,
+                                            "    versionName = \"0.6.32\"",
+                                            oldLine = 88,
+                                        ),
+                                        DiffLine(
+                                            DiffKind.Added,
+                                            "    versionName = \"0.6.33\"",
+                                            newLine = 88,
+                                        ),
+                                        DiffLine(DiffKind.Context, "    versionCode = 63", 89, 89),
+                                        DiffLine(DiffKind.Context, "}", 90, 90),
+                                        DiffLine(DiffKind.Context, "", 91, 91),
+                                    ),
+                                ),
+                            ),
+                    ),
+            ),
+            ToolStep(
+                "e3",
+                "Edit",
+                buildJsonObject {
+                    put("file_path", "/workspace/claude/zeta/README.md")
+                    put("old_string", "./gradlew :app:assembleDebug")
+                    put("new_string", "tools/gradle :app:assembleDebug")
+                    put("replace_all", true)
+                },
+                ToolStatus.Success,
+                "The file has been updated.",
+            ),
+            ToolStep(
+                "e4",
+                "Edit",
+                buildJsonObject {
+                    put("file_path", "/workspace/claude/zeta/CLAUDE.md")
+                    put("old_string", "a")
+                    put("new_string", "b")
+                },
+                ToolStatus.Success,
+                "The file has been updated.",
+            ),
+        )
 }

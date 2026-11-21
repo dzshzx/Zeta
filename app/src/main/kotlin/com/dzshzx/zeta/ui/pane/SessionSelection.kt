@@ -35,11 +35,14 @@ internal fun toggleAll(selected: Set<String>, scope: List<SessionSummary>): Set<
 }
 
 /** 底部那个按钮是归档（true）还是取消归档（false）：选中的全是已归档的才是取消归档。 */
-internal fun archiveAction(chosen: List<SessionSummary>): Boolean = chosen.isEmpty() || !chosen.all { it.archived }
+internal fun archiveAction(chosen: List<SessionSummary>): Boolean =
+    chosen.isEmpty() || !chosen.all { it.archived }
 
 /** 选中的会话里能删的：正在进行的（Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它）不删。 */
-internal fun deletable(chosen: List<SessionSummary>, isActive: (String) -> Boolean): List<SessionSummary> =
-    chosen.filterNot { it.external || isActive(it.id) }
+internal fun deletable(
+    chosen: List<SessionSummary>,
+    isActive: (String) -> Boolean,
+): List<SessionSummary> = chosen.filterNot { it.external || isActive(it.id) }
 
 /**
  * 单条删除的确认框。打开那一刻就定下是只提示（[Blocked]：正在进行，只有“知道了”）还是确认删除（[Confirm]），开着的时候不再变：
@@ -54,14 +57,20 @@ internal sealed interface DeletePrompt {
 }
 
 internal fun deletePrompt(session: SessionSummary, isActive: (String) -> Boolean): DeletePrompt =
-    if (deletable(listOf(session), isActive).isEmpty()) DeletePrompt.Blocked(session) else DeletePrompt.Confirm(session)
+    if (deletable(listOf(session), isActive).isEmpty()) DeletePrompt.Blocked(session)
+    else DeletePrompt.Confirm(session)
 
 /**
  * 在确认框里点了“删除”以后真正删的那个：只提示的框不删；框开着时才开始进行的（定时任务、通知触发、别处的 Claude Code 接上了它）也不删，
  * 因为删除会结束它的对话进程。批量删除在点“删除”时同样用 [deletable] 再筛一遍。
  */
-internal fun confirmedDeletion(prompt: DeletePrompt?, isActive: (String) -> Boolean): SessionSummary? =
-    (prompt as? DeletePrompt.Confirm)?.session?.takeIf { deletable(listOf(it), isActive).isNotEmpty() }
+internal fun confirmedDeletion(
+    prompt: DeletePrompt?,
+    isActive: (String) -> Boolean,
+): SessionSummary? =
+    (prompt as? DeletePrompt.Confirm)?.session?.takeIf {
+        deletable(listOf(it), isActive).isNotEmpty()
+    }
 
 /** 几个会话导出到一个 Markdown 文件：各自的导出照原样，中间用分隔线隔开。 */
 internal fun combineExports(parts: List<ExportedMarkdown>): String =
@@ -69,7 +78,13 @@ internal fun combineExports(parts: List<ExportedMarkdown>): String =
 
 /** 多选时的顶部：退出多选、已选几个、全选 / 全不选。 */
 @Composable
-internal fun SelectionHeader(count: Int, allSelected: Boolean, canSelectAll: Boolean, onToggleAll: () -> Unit, onExit: () -> Unit) {
+internal fun SelectionHeader(
+    count: Int,
+    allSelected: Boolean,
+    canSelectAll: Boolean,
+    onToggleAll: () -> Unit,
+    onExit: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -110,16 +125,38 @@ internal fun SelectionActions(
     // 侧栏窄，三个按钮并排时“取消归档”要放得下：不要 COUI 按钮默认的 132dp 最小宽度，左右留白也收窄
     val padding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
     val error = COUITheme.colorScheme.error
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(text = if (archive) "归档" else "取消归档", onClick = onArchive, enabled = enabled, minWidth = 0.dp, insideMargin = padding, modifier = Modifier.weight(1f))
-        TextButton(text = "导出", onClick = onExport, enabled = enabled, minWidth = 0.dp, insideMargin = padding, modifier = Modifier.weight(1f))
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(
+            text = if (archive) "归档" else "取消归档",
+            onClick = onArchive,
+            enabled = enabled,
+            minWidth = 0.dp,
+            insideMargin = padding,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            text = "导出",
+            onClick = onExport,
+            enabled = enabled,
+            minWidth = 0.dp,
+            insideMargin = padding,
+            modifier = Modifier.weight(1f),
+        )
         TextButton(
             text = "删除",
             onClick = onDelete,
             enabled = enabled,
             minWidth = 0.dp,
             insideMargin = padding,
-            colors = ButtonDefaults.textButtonColorsPrimary(color = error, disabledColor = COUITheme.colorScheme.errorDisabled),
+            colors =
+                ButtonDefaults.textButtonColorsPrimary(
+                    color = error,
+                    disabledColor = COUITheme.colorScheme.errorDisabled,
+                ),
             modifier = Modifier.weight(1f),
         )
     }

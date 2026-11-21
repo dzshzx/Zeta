@@ -1,13 +1,13 @@
 package com.dzshzx.zeta.core
 
-import com.dzshzx.zeta.core.schedule.UnattendedRun
-import com.dzshzx.zeta.phone.PhoneTools
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.schedule.UnattendedRun
+import com.dzshzx.zeta.phone.PhoneTools
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -19,19 +19,20 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /** 回答进行中发出、Claude Code 还没取走的消息。 */
-class QueuedMessage(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>)
+class QueuedMessage(
+    val uuid: String,
+    val text: String,
+    val attachments: List<Attachment>,
+    val files: List<String>,
+)
 
-/**
- * 收到的输出事件攒多久处理一批（[Conversation] 的 drain）。每处理一批聊天页就要重组、排版一次；
- * 回答的字由逐字显现平滑地带出来，合并得粗一点看不出来。
- */
+/** 收到的输出事件攒多久处理一批（[Conversation] 的 drain）。每处理一批聊天页就要重组、排版一次； 回答的字由逐字显现平滑地带出来，合并得粗一点看不出来。 */
 private const val DRAIN_DELAY_MS = 100L
 
 /** 追加给 Claude Code 的一句说明：让它知道对面是什么界面、怎样把图片给用户看。 */
@@ -41,10 +42,7 @@ private const val ClientHint =
         "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user taps them. " +
         "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."
 
-/**
- * 一个对话：界面状态 + 背后的 Claude Code 进程。进程在第一次发送时才启动；
- * 历史对话用 `--resume` 接着原来的会话记录继续。状态只在主线程上改。
- */
+/** 一个对话：界面状态 + 背后的 Claude Code 进程。进程在第一次发送时才启动； 历史对话用 `--resume` 接着原来的会话记录继续。状态只在主线程上改。 */
 class Conversation(
     private val hub: ConversationHub,
     val cwd: String,
@@ -74,6 +72,7 @@ class Conversation(
             // 新对话拿到会话号、/clear 换了新会话：按会话登记的各处跟着换，之后重新打开才找得回来
             hub.sessionChanged(this, before ?: key, value ?: key)
         }
+
     var title by mutableStateOf(title)
         internal set
 
@@ -84,6 +83,7 @@ class Conversation(
     fun takeOver() {
         blockedByExternal = false
     }
+
     var items by mutableStateOf<List<ChatItem>>(emptyList())
         private set
 
@@ -91,16 +91,16 @@ class Conversation(
     val hasItems by derivedStateOf { items.isNotEmpty() }
 
     /**
-     * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）；
-     * 另外自己发出、Claude Code 还没取走的消息也算（result 来时还有排队的，Claude Code 会接着另起一轮）。
-     * 和 zeta_host.sh 的看门狗（turn_running）、zeta-helper 的 scan_host 同一口径，HostTurnTest 核对三处。
+     * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）； 另外自己发出、Claude
+     * Code 还没取走的消息也算（result 来时还有排队的，Claude Code 会接着另起一轮）。 和 zeta_host.sh
+     * 的看门狗（turn_running）、zeta-helper 的 scan_host 同一口径，HostTurnTest 核对三处。
      */
     var busy by mutableStateOf(false)
         private set
 
     /**
-     * 还在跑的后台任务数（后台命令、后台子代理、监视器等），以 Claude Code 最近一次 background_tasks_changed 为准。
-     * 这一轮结束后它们照样在跑，跑完时 Claude Code 会自己另起一轮汇报结果，所以进程不能当闲着收掉。
+     * 还在跑的后台任务数（后台命令、后台子代理、监视器等），以 Claude Code 最近一次 background_tasks_changed 为准。 这一轮结束后它们照样在跑，跑完时
+     * Claude Code 会自己另起一轮汇报结果，所以进程不能当闲着收掉。
      */
     var backgroundTasks by mutableStateOf(0)
         private set
@@ -118,7 +118,8 @@ class Conversation(
         private set
 
     /** 还没载入的更早记录条数。 */
-    val skippedHistory: Int get() = earlier?.skipped ?: 0
+    val skippedHistory: Int
+        get() = earlier?.skipped ?: 0
 
     var earlierState by mutableStateOf<EarlierState>(EarlierState.Idle)
         private set
@@ -129,23 +130,26 @@ class Conversation(
     /** 没载入的更早历史里的清单工具调用，任务清单面板据此接上更早建的清单。 */
     var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
         private set
+
     var pending by mutableStateOf<PermissionRequest?>(null)
         private set
 
     /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
-    val active: Boolean get() = busy || pending != null || backgroundTasks > 0
+    val active: Boolean
+        get() = busy || pending != null || backgroundTasks > 0
 
     /** 还没开始的新对话：没有会话号、没有内容、没在跑。 */
-    val notStarted: Boolean get() = sessionId == null && items.isEmpty() && !active
+    val notStarted: Boolean
+        get() = sessionId == null && items.isEmpty() && !active
 
     /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
-    val openKey: String get() = sessionId ?: key
+    val openKey: String
+        get() = sessionId ?: key
 
     /**
-     * Zeta 要 Claude Code 用的模型（启动时的 --model、进程里的 set_model），"default" 是 Claude Code 的默认模型；
-     * null 是不指定：新对话用所在主机上 Claude Code 设置里的默认模型（[ConversationHub.claudeDefaults]），接着已有的会话（打开旧对话、分支）时
-     * 由 Claude Code 照会话记录恢复它上次用的模型；直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。
-     * 界面显示的是 [shownModel]。
+     * Zeta 要 Claude Code 用的模型（启动时的 --model、进程里的 set_model），"default" 是 Claude Code 的默认模型； null
+     * 是不指定：新对话用所在主机上 Claude Code 设置里的默认模型（[ConversationHub.claudeDefaults]），接着已有的会话（打开旧对话、分支）时 由
+     * Claude Code 照会话记录恢复它上次用的模型；直到用户在这个对话里亲手选一个（或定时任务、数字助理 [preset] 一个）。 界面显示的是 [shownModel]。
      */
     var model by mutableStateOf<String?>(null)
         private set
@@ -154,40 +158,46 @@ class Conversation(
     private val resumed = sessionId != null || fork != null
 
     /** 模型由 Claude Code 照会话记录定：接着已有的会话，用户也没在这个对话里指定过。 */
-    val modelFromSession: Boolean get() = resumed && model == null
+    val modelFromSession: Boolean
+        get() = resumed && model == null
 
     /**
-     * Claude Code 报的、这个对话实际在用的模型（system init 里的完整 ID）。进程起来之前是会话记录里最后一次真实回答用的，
-     * 分支是原对话当时显示的；都没有时是 null。
+     * Claude Code 报的、这个对话实际在用的模型（system init 里的完整 ID）。进程起来之前是会话记录里最后一次真实回答用的， 分支是原对话当时显示的；都没有时是
+     * null。
      */
     var reportedModel by mutableStateOf(fork?.shownModel)
         private set
 
     /** 顶栏显示的模型：指定了的就是它，没指定时是 Claude Code 报的（或会话记录里的）；都不知道时是 null，即默认模型。 */
-    val shownModel: String? get() = model ?: reportedModel
+    val shownModel: String?
+        get() = model ?: reportedModel
 
     /**
      * 权限模式：用户在这个对话里的、进程现在用的，规则见 [PermissionModeState]。分支接着用原对话的，
      * 应用被回收后接回进程时照进程上记下的恢复（[ConversationHub.hostMode]）。
      */
-    private val modes = PermissionModeState(
-        initial = fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) },
-        claudeDefault = { hub.defaultPermissionMode(backend) },
-        remember = { mode -> hostKey?.let { hub.rememberHostMode(it, mode) } },
-    )
+    private val modes =
+        PermissionModeState(
+            initial = fork?.permissionMode ?: attach?.let { hub.hostMode(it.key) },
+            claudeDefault = { hub.defaultPermissionMode(backend) },
+            remember = { mode -> hostKey?.let { hub.rememberHostMode(it, mode) } },
+        )
 
     /** 用户在这个对话里的权限模式（[PermissionModeState.user]）；null 是还没选过、也还没报过。 */
-    val permissionMode: String? get() = modes.user
+    val permissionMode: String?
+        get() = modes.user
 
     /** 输入栏显示的权限模式：这个对话的，没有时是 Claude Code 的默认。 */
-    val shownPermissionMode: String? get() = modes.shown
+    val shownPermissionMode: String?
+        get() = modes.shown
 
     /** 进程现在用的权限模式（[PermissionModeState.process]）。 */
-    internal val processMode: String? get() = modes.process
+    internal val processMode: String?
+        get() = modes.process
 
     /**
-     * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置（按模型存的默认）。分支接着用原对话的；
-     * Claude Code 接旧会话时不恢复它，所以旧对话载入历史后照最后一次真实回答恢复（[restoreEffort]）。
+     * 思考强度（Claude Code 的 effort）；null 表示不指定，沿用 Claude Code 自己的设置（按模型存的默认）。分支接着用原对话的； Claude Code
+     * 接旧会话时不恢复它，所以旧对话载入历史后照最后一次真实回答恢复（[restoreEffort]）。
      */
     var effort by mutableStateOf(fork?.effort)
         private set
@@ -195,15 +205,13 @@ class Conversation(
     /** 上下文占用与用量统计，由 [UsageTracker] 从进程输出和会话记录里累计。 */
     var usage by mutableStateOf(ChatUsage())
         private set
+
     private val meter = UsageTracker()
 
     /** 新对话第一轮结束后请 Claude Code 起标题。 */
     private val autoTitle = AutoTitle()
 
-    /**
-     * 排队中的消息。Claude Code 会在下一个工具调用结束时把它并进正在进行的这一轮，
-     * 没有工具调用可等时就在这一轮结束后另起一轮。
-     */
+    /** 排队中的消息。Claude Code 会在下一个工具调用结束时把它并进正在进行的这一轮， 没有工具调用可等时就在这一轮结束后另起一轮。 */
     var queued by mutableStateOf<List<QueuedMessage>>(emptyList())
         private set
 
@@ -216,7 +224,8 @@ class Conversation(
         private set
 
     /** 输入栏提示的斜杠命令：这个对话报的；还没起过进程时用这台主机上次报的那份（[Settings.commands]）。 */
-    val shownCommands: List<SlashCommand> get() = commands ?: hub.settings.commands[backend].orEmpty()
+    val shownCommands: List<SlashCommand>
+        get() = commands ?: hub.settings.commands[backend].orEmpty()
 
     /** 撤回的排队消息，等输入框取走（[takeRecalled]）。 */
     var recalled by mutableStateOf<QueuedMessage?>(null)
@@ -233,20 +242,21 @@ class Conversation(
     var offline by mutableStateOf(false)
         private set
 
-    /**
-     * 最近一次收到进程输出（或发出消息）的时间，界面据此显示“已等待多久”。每批输出都写，所以是普通字段：
-     * 写快照状态每次都要记一笔、通知观察者，界面只在每秒一次的计时里读它。
-     */
+    /** 最近一次收到进程输出（或发出消息）的时间，界面据此显示“已等待多久”。每批输出都写，所以是普通字段： 写快照状态每次都要记一笔、通知观察者，界面只在每秒一次的计时里读它。 */
     @Volatile
     var lastActivityAt = 0L
         private set
 
     // 分支先显示原对话的内容，新内容的编号要和那些错开
-    private var reducer = TranscriptReducer(if (fork != null) "b" + UUID.randomUUID().toString().take(8) + "-" else "")
+    private var reducer =
+        TranscriptReducer(
+            if (fork != null) "b" + UUID.randomUUID().toString().take(8) + "-" else "",
+        )
     private var process: ClaudeProcess? = null
 
     /** 正在跑的 Claude Code 进程的托管标识（zeta_host.sh 的 key）：看它的挂载命名空间、认领后台进程都用它；没有进程时为 null。 */
-    val hostKey: String? get() = process?.hostKey
+    val hostKey: String?
+        get() = process?.hostKey
 
     /** 等 Claude Code 剪会话（rewind_conversation）的那个请求；答应了做 onDone，没答应做 onFailed。 */
     private class PendingRewind(val onDone: () -> Unit, val onFailed: (String) -> Unit)
@@ -266,8 +276,8 @@ class Conversation(
     private val inbox = ConcurrentLinkedQueue<JsonObject>()
 
     /**
-     * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。
-     * 后台屏幕要知道对话忙不忙时由 hub 按 [busy]、[backgroundTasks] 查（[ConversationHub.phoneFor]）。
+     * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。 后台屏幕要知道对话忙不忙时由 hub 按
+     * [busy]、[backgroundTasks] 查（[ConversationHub.phoneFor]）。
      */
     val phone = hub.phoneFor(openKey)
 
@@ -275,7 +285,8 @@ class Conversation(
     internal val overlay = ConversationFocus(hub, this)
     private val drainScheduled = AtomicBoolean(false)
 
-    val isProcessAlive: Boolean get() = process != null
+    val isProcessAlive: Boolean
+        get() = process != null
 
     init {
         if (attach != null) {
@@ -301,26 +312,30 @@ class Conversation(
     private fun startAttached(host: HostInfo) {
         val shell = hub.shell(backend) ?: return
         lateinit var created: ClaudeProcess
-        created = try {
-            ClaudeProcess(
-                shell = shell,
-                hostScript = hub.hostScript,
-                hostKey = host.key,
-                launch = ClaudeProcess.Launch.Attach(host.lines + 1),
-                onEvent = { event -> enqueue(created, event) },
-                onExit = { exit -> main.post { onProcessExit(created, exit) } },
-                onLink = { link -> main.post { onLinkChanged(created, link) } },
-            )
-        } catch (error: Exception) {
-            endTurnState()
-            reducer.addNotice("重新接上后台进程失败：${error.message}", error = true)
-            publish()
-            return
-        }
+        created =
+            try {
+                ClaudeProcess(
+                    shell = shell,
+                    hostScript = hub.hostScript,
+                    hostKey = host.key,
+                    launch = ClaudeProcess.Launch.Attach(host.lines + 1),
+                    onEvent = { event -> enqueue(created, event) },
+                    onExit = { exit -> main.post { onProcessExit(created, exit) } },
+                    onLink = { link -> main.post { onLinkChanged(created, link) } },
+                )
+            } catch (error: Exception) {
+                endTurnState()
+                reducer.addNotice("重新接上后台进程失败：${error.message}", error = true)
+                publish()
+                return
+            }
         process = created
         initialize(created)
         // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
-        meter.processStarted(fresh = false, compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact })
+        meter.processStarted(
+            fresh = false,
+            compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact },
+        )
         queryUsage(created)
         host.pending?.let { handle(it, System.currentTimeMillis()) }
         hub.onActivityChanged()
@@ -335,7 +350,13 @@ class Conversation(
             val loaded = TranscriptReducer("h")
             val result = hub.helper("history", listOf(file), timeoutMs = 60_000, backend = backend)
             // 没读成时历史是空的，下面另加一条出错提示
-            val read = HistoryPaging.read(result.outputOrNull.orEmpty(), file, loaded, keepRunningTools = attach?.busy == true)
+            val read =
+                HistoryPaging.read(
+                    result.outputOrNull.orEmpty(),
+                    file,
+                    loaded,
+                    keepRunningTools = attach?.busy == true,
+                )
             main.post {
                 // 载入期间用户已经发了新消息的话，新内容接在历史后面
                 loaded.items.addAll(reducer.items)
@@ -371,7 +392,13 @@ class Conversation(
         thread(name = "zeta-history-page", isDaemon = true) {
             // 各页的条目编号按页的位置错开（每页的位置都不同）
             val page = TranscriptReducer("p${window.skipped}-")
-            val result = hub.helper("history", HistoryPaging.pageArguments(window, rest), timeoutMs = 60_000, backend = backend)
+            val result =
+                hub.helper(
+                    "history",
+                    HistoryPaging.pageArguments(window, rest),
+                    timeoutMs = 60_000,
+                    backend = backend,
+                )
             val read = result.outputOrNull?.let { HistoryPaging.read(it, window.file, page) }
             val failure = (result as? HelperResult.Failed)?.let { "没有读到更早的记录：" + it.reason }
             main.post { applyEarlier(page.items, read, failure) }
@@ -385,7 +412,8 @@ class Conversation(
         }
         when {
             read == null -> earlierState = EarlierState.Failed(failure ?: "没有读到更早的记录", retry = true)
-            read.stale -> earlierState = EarlierState.Failed("会话记录在别处改过，重新打开这个对话再看更早的内容", retry = false)
+            read.stale ->
+                earlierState = EarlierState.Failed("会话记录在别处改过，重新打开这个对话再看更早的内容", retry = false)
             else -> {
                 // 只接在最前面：正看着的那条由列表按 key 保持在原处（见 ui/chat/EarlierHistory.kt）
                 reducer.items.addAll(0, items)
@@ -409,11 +437,15 @@ class Conversation(
     }
 
     /** 用户自己发的消息。[files] 是已经复制进 Linux 环境的附件路径。 */
-    fun send(text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) = send(text, attachments, files, run = null)
+    fun send(
+        text: String,
+        attachments: List<Attachment> = emptyList(),
+        files: List<String> = emptyList(),
+    ) = send(text, attachments, files, run = null)
 
     /**
-     * 正跑着这个对话的后台运行（定时任务、通知触发）：[sendUnattended] 挂上，ScheduleRunner 跑完摘掉；平常为 null。
-     * 挂着时完成和确认提醒由 ScheduleRunner 发（带任务名），TurnAlerts 只看这个标记。手机工具上同步挂一份（[PhoneTools.unattended]），
+     * 正跑着这个对话的后台运行（定时任务、通知触发）：[sendUnattended] 挂上，ScheduleRunner 跑完摘掉；平常为 null。 挂着时完成和确认提醒由
+     * ScheduleRunner 发（带任务名），TurnAlerts 只看这个标记。手机工具上同步挂一份（[PhoneTools.unattended]），
      * 工具调用据此认出后台运行。在主线程上读写。
      */
     var unattended: UnattendedRun? = null
@@ -434,13 +466,21 @@ class Conversation(
     /** 后台运行这一条用的权限：权限模式，和叠在用户规则上的规则（见 [restrict]）。 */
     private class RunPermissions(val mode: String, val rules: JsonObject)
 
-    private fun send(text: String, attachments: List<Attachment>, files: List<String>, run: RunPermissions?) {
+    private fun send(
+        text: String,
+        attachments: List<Attachment>,
+        files: List<String>,
+        run: RunPermissions?,
+    ) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() && attachments.isEmpty() && files.isEmpty()) return
         // 剪会话的应答回来之前不收：这时发出的消息可能被 Claude Code 算在剪之前
         if (rewinding) return
         if (title.isBlank()) {
-            title = trimmed.lineSequence().first().take(40).ifBlank { if (files.isNotEmpty()) files.first().substringAfterLast('/') else "图片" }
+            title =
+                trimmed.lineSequence().first().take(40).ifBlank {
+                    if (files.isNotEmpty()) files.first().substringAfterLast('/') else "图片"
+                }
             autoTitle.arm(title)
         }
         val process = authorize(run) ?: return
@@ -450,7 +490,10 @@ class Conversation(
             transmit(process, message)
         } else {
             // 分支的第一条消息：先在新进程里剪掉原会话的后几轮，再发
-            requestRewind(process, cut, fork.lastSeen,
+            requestRewind(
+                process,
+                cut,
+                fork.lastSeen,
                 onDone = {
                     forkCut = true
                     transmit(process, message)
@@ -465,10 +508,15 @@ class Conversation(
     }
 
     /**
-     * 编辑或重新生成：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。会话号不变。
-     * 先请 Claude Code 剪会话，它答应了才把消息交出去；没答应就恢复原样，新消息放回输入框。
+     * 编辑或重新生成：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。会话号不变。 先请 Claude Code
+     * 剪会话，它答应了才把消息交出去；没答应就恢复原样，新消息放回输入框。
      */
-    fun rewrite(target: UserItem, text: String, attachments: List<Attachment> = emptyList(), files: List<String> = emptyList()) {
+    fun rewrite(
+        target: UserItem,
+        text: String,
+        attachments: List<Attachment> = emptyList(),
+        files: List<String> = emptyList(),
+    ) {
         val uuid = target.uuid ?: return
         if (!canRewind || (text.isBlank() && attachments.isEmpty() && files.isEmpty())) return
         val process = ensureProcess() ?: return
@@ -476,7 +524,10 @@ class Conversation(
         if (!truncateBefore(reducer.items, target.id)) return
         authorize(null)
         val message = stage(text.trim(), attachments, files)
-        requestRewind(process, uuid, lastSeen(before),
+        requestRewind(
+            process,
+            uuid,
+            lastSeen(before),
             onDone = {
                 // 在还没发过消息的分支里改写：这一刀已经把分支要剪的部分一起剪掉了
                 forkCut = true
@@ -497,7 +548,10 @@ class Conversation(
         val before = reducer.items.toList()
         if (!truncateBefore(reducer.items, target.id)) return
         publish()
-        requestRewind(process, uuid, lastSeen(before),
+        requestRewind(
+            process,
+            uuid,
+            lastSeen(before),
             onDone = {
                 forkCut = true
                 hub.sessionList.refresh()
@@ -515,19 +569,41 @@ class Conversation(
 
     /** 现在能不能编辑、重新生成、删除一轮或分支：这一轮已经结束，也没有别的事在等。 */
     val canRewind: Boolean
-        get() = !busy && pending == null && !rewinding && !loadingHistory && !blockedByExternal && queued.isEmpty()
+        get() =
+            !busy &&
+                pending == null &&
+                !rewinding &&
+                !loadingHistory &&
+                !blockedByExternal &&
+                queued.isEmpty()
 
     /** 一条要发的消息：先进列表（或排队），能发了再交给进程。[itemId] 是它在列表里的那一项（排队的没有）。 */
-    private class Outgoing(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>, val itemId: String?)
+    private class Outgoing(
+        val uuid: String,
+        val text: String,
+        val attachments: List<Attachment>,
+        val files: List<String>,
+        val itemId: String?,
+    )
 
-    private fun stage(trimmed: String, attachments: List<Attachment>, files: List<String>): Outgoing {
+    private fun stage(
+        trimmed: String,
+        attachments: List<Attachment>,
+        files: List<String>,
+    ): Outgoing {
         val uuid = UUID.randomUUID().toString()
         var itemId: String? = null
         // 回答进行中发的先排队，等 Claude Code 真正取走（command_lifecycle started）才进聊天记录
         if (busy) {
             queued = queued + QueuedMessage(uuid, trimmed, attachments, files)
         } else {
-            itemId = reducer.addUser(trimmed, attachments.map { InlineImage("a:${it.id}", it.base64) }, files, uuid)
+            itemId =
+                reducer.addUser(
+                    trimmed,
+                    attachments.map { InlineImage("a:${it.id}", it.base64) },
+                    files,
+                    uuid,
+                )
         }
         busy = true
         interruptRequested = false
@@ -553,8 +629,8 @@ class Conversation(
     }
 
     /**
-     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切到用户的（[PermissionModeState.forUser]）、撤掉规则。
-     * 和 [restrict] 一样每条都做、不记上一条是谁发的，模式没变就不发。进程还没起来时按这个模式起。
+     * 这一条按发的人的权限跑：后台运行（[run]）切到它的权限模式、加上它的规则；用户自己的切到用户的（[PermissionModeState.forUser]）、撤掉规则。 和
+     * [restrict] 一样每条都做、不记上一条是谁发的，模式没变就不发。进程还没起来时按这个模式起。
      * 用户在后台运行这一轮里插话（或在输入栏选模式），这一轮剩下的部分也按用户的跑：用户在场。返回进程，起不来时为 null。
      */
     private fun authorize(run: RunPermissions?): ClaudeProcess? {
@@ -566,27 +642,37 @@ class Conversation(
 
     /** 把进程切到 [mode]，已经是了就不发。 */
     private fun switchMode(process: ClaudeProcess, mode: String?) {
-        if (modes.switchTo(mode)) process.request(controlBody("set_permission_mode") { put("mode", mode) })
+        if (modes.switchTo(mode))
+            process.request(controlBody("set_permission_mode") { put("mode", mode) })
     }
 
     /**
      * 后台运行的权限规则：后台运行发指令前加上 [rules]，用户自己发消息、改写前撤掉（null）。用户发的每条都撤一次，不记加没加过：
-     * 没加过时撤了什么都不变，进程是新起的、重新接上的还是一直开着的都一样。走 apply_flag_settings 的 permissions，
-     * 是单独的一层：和用户 settings.json 里的规则叠加，撤时只撤这一层，思考强度（同一层的 effortLevel）不受影响。
-     * 控制请求按顺序处理，新起的进程紧跟在 initialize 后面发，第一条消息就生效。这些都由 UnattendedRulesContractTest 钉住。
+     * 没加过时撤了什么都不变，进程是新起的、重新接上的还是一直开着的都一样。走 apply_flag_settings 的 permissions， 是单独的一层：和用户
+     * settings.json 里的规则叠加，撤时只撤这一层，思考强度（同一层的 effortLevel）不受影响。 控制请求按顺序处理，新起的进程紧跟在 initialize
+     * 后面发，第一条消息就生效。这些都由 UnattendedRulesContractTest 钉住。
      */
-    private fun restrict(process: ClaudeProcess, rules: JsonObject?) = applyFlags(process) { put("permissions", rules ?: JsonNull) }
+    private fun restrict(process: ClaudeProcess, rules: JsonObject?) =
+        applyFlags(process) { put("permissions", rules ?: JsonNull) }
 
     /** Claude Code 的 apply_flag_settings：只改这个进程、叠在 settings.json 上的一层（思考强度、后台运行的权限规则）。 */
     private fun applyFlags(process: ClaudeProcess, settings: JsonObjectBuilder.() -> Unit) =
         process.request(controlBody("apply_flag_settings") { putJsonObject("settings", settings) })
 
     /** 请 Claude Code 把会话剪到 [target] 这条用户消息之前。 */
-    private fun requestRewind(process: ClaudeProcess, target: String, lastSeen: String?, onDone: () -> Unit, onFailed: (String) -> Unit) {
+    private fun requestRewind(
+        process: ClaudeProcess,
+        target: String,
+        lastSeen: String?,
+        onDone: () -> Unit,
+        onFailed: (String) -> Unit,
+    ) {
         val pending = PendingRewind(onDone, onFailed)
         rewind = pending
         rewinding = true
-        process.request(rewindRequest(target, lastSeen)) { response -> finishRewind(rewindFailure(response), pending) }
+        process.request(rewindRequest(target, lastSeen)) { response ->
+            finishRewind(rewindFailure(response), pending)
+        }
         hub.onActivityChanged()
     }
 
@@ -607,26 +693,36 @@ class Conversation(
         if (process !== this.process) return
         val attachments = message.attachments
         val outgoing = withAttachedFiles(message.text, message.files)
-        process.send(buildJsonObject {
-            put("type", "user")
-            put("uuid", message.uuid)
-            putJsonObject("message") {
-                put("role", "user")
-                putJsonArray("content") {
-                    for (attachment in attachments) {
-                        add(buildJsonObject {
-                            put("type", "image")
-                            putJsonObject("source") {
-                                put("type", "base64")
-                                put("media_type", attachment.mediaType)
-                                put("data", attachment.base64)
-                            }
-                        })
+        process.send(
+            buildJsonObject {
+                put("type", "user")
+                put("uuid", message.uuid)
+                putJsonObject("message") {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        for (attachment in attachments) {
+                            add(
+                                buildJsonObject {
+                                    put("type", "image")
+                                    putJsonObject("source") {
+                                        put("type", "base64")
+                                        put("media_type", attachment.mediaType)
+                                        put("data", attachment.base64)
+                                    }
+                                },
+                            )
+                        }
+                        if (outgoing.isNotEmpty())
+                            add(
+                                buildJsonObject {
+                                    put("type", "text")
+                                    put("text", outgoing)
+                                },
+                            )
                     }
-                    if (outgoing.isNotEmpty()) add(buildJsonObject { put("type", "text"); put("text", outgoing) })
                 }
-            }
-        })
+            },
+        )
     }
 
     /** 停止：排队的消息一并撤回放回输入框（和 Claude Code 终端里按 Esc 一样），再打断当前这一轮。 */
@@ -668,12 +764,15 @@ class Conversation(
     /** 撤回的消息并进待放回输入框的那份（连续撤回几条时按顺序拼起来）。 */
     private fun addRecalled(message: QueuedMessage) {
         val before = recalled
-        recalled = if (before == null) message else QueuedMessage(
-            before.uuid,
-            listOf(before.text, message.text).filter { it.isNotBlank() }.joinToString("\n"),
-            before.attachments + message.attachments,
-            before.files + message.files,
-        )
+        recalled =
+            if (before == null) message
+            else
+                QueuedMessage(
+                    before.uuid,
+                    listOf(before.text, message.text).filter { it.isNotBlank() }.joinToString("\n"),
+                    before.attachments + message.attachments,
+                    before.files + message.files,
+                )
     }
 
     /**
@@ -690,8 +789,8 @@ class Conversation(
     }
 
     /**
-     * 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。
-     * 进程已经起来就当场改（apply_flag_settings），再要一次生效的设置；没起来时启动参数 --effort 带上。
+     * 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 进程已经起来就当场改（apply_flag_settings），再要一次生效的设置；没起来时启动参数
+     * --effort 带上。
      */
     fun chooseEffort(value: String?) {
         effort = value
@@ -701,9 +800,8 @@ class Conversation(
     }
 
     /**
-     * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。
-     * 不是 Claude Code 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑；
-     * 载入期间用户改不了（思考强度胶囊这时不能点）。
+     * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。 不是 Claude Code
+     * 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑； 载入期间用户改不了（思考强度胶囊这时不能点）。
      */
     internal fun restoreEffort(recorded: String?) {
         if (process != null) return
@@ -718,32 +816,42 @@ class Conversation(
         interruptRequested = false
         status = "正在压缩上下文"
         lastActivityAt = System.currentTimeMillis()
-        process.send(buildJsonObject {
-            put("type", "user")
-            put("uuid", UUID.randomUUID().toString())
-            putJsonObject("message") {
-                put("role", "user")
-                putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", "/compact") }) }
-            }
-        })
+        process.send(
+            buildJsonObject {
+                put("type", "user")
+                put("uuid", UUID.randomUUID().toString())
+                putJsonObject("message") {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        add(
+                            buildJsonObject {
+                                put("type", "text")
+                                put("text", "/compact")
+                            },
+                        )
+                    }
+                }
+            },
+        )
         hub.onActivityChanged()
     }
 
     /**
-     * 刚起或刚接上的进程：要模型清单、斜杠命令清单；起进程时没指定模式的，应答里的是 Claude Code 照设置定的。
-     * 控制请求按顺序处理，之后发的 apply_flag_settings 等都排在它后面。
+     * 刚起或刚接上的进程：要模型清单、斜杠命令清单；起进程时没指定模式的，应答里的是 Claude Code 照设置定的。 控制请求按顺序处理，之后发的 apply_flag_settings
+     * 等都排在它后面。
      */
-    private fun initialize(target: ClaudeProcess) = target.request(controlBody("initialize")) { answer ->
-        val response = answer.obj("response") ?: return@request
-        // 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样
-        response.arr("models")?.let { list ->
-            hub.models += backend to list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
+    private fun initialize(target: ClaudeProcess) =
+        target.request(controlBody("initialize")) { answer ->
+            val response = answer.obj("response") ?: return@request
+            // 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样
+            response.arr("models")?.let { list ->
+                hub.models += backend to list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
+            }
+            response.arr("commands")?.let { list ->
+                commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
+            }
+            response.str("current_permission_mode")?.let(modes::reportedAtStart)
         }
-        response.arr("commands")?.let { list ->
-            commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
-        }
-        response.str("current_permission_mode")?.let(modes::reportedAtStart)
-    }
 
     /** 问 Claude Code 上下文窗口和实际生效的思考强度，应答交给 [UsageTracker]。 */
     private fun queryUsage(target: ClaudeProcess) {
@@ -753,7 +861,8 @@ class Conversation(
         if (backend == Backends.LOCAL && hub.quota.claimAutoQuery()) queryQuota(target)
     }
 
-    private fun querySettings(target: ClaudeProcess) = target.request(controlBody("get_settings")) { meter.settingsAnswered(it) }
+    private fun querySettings(target: ClaudeProcess) =
+        target.request(controlBody("get_settings")) { meter.settingsAnswered(it) }
 
     /** 借这个对话开着的进程问一次订阅额度，应答交给 QuotaService；没有进程、或在远程主机上（账号可能不同）时返回 false。 */
     internal fun queryQuota(): Boolean {
@@ -763,7 +872,9 @@ class Conversation(
     }
 
     private fun queryQuota(target: ClaudeProcess) =
-        target.request(controlBody("get_usage") { put("skip_behaviors", true) }) { hub.quota.usageAnswered(it) }
+        target.request(controlBody("get_usage") { put("skip_behaviors", true) }) {
+            hub.quota.usageAnswered(it)
+        }
 
     private fun publishUsage() {
         meter.learnedWindow?.let { (name, window) ->
@@ -777,9 +888,8 @@ class Conversation(
     private var launchHint: String? = null
 
     /**
-     * 定时任务、数字助理给这个对话定的模型和思考强度：只改这个对话，不动全局设置；null 的那项照旧。
-     * 权限模式不在这里定：后台运行的模式只管它发的那几条，见 [sendUnattended]。
-     * [hint] 追加进系统提示，进程已经起来的话下次重启进程才生效。
+     * 定时任务、数字助理给这个对话定的模型和思考强度：只改这个对话，不动全局设置；null 的那项照旧。 权限模式不在这里定：后台运行的模式只管它发的那几条，见
+     * [sendUnattended]。 [hint] 追加进系统提示，进程已经起来的话下次重启进程才生效。
      */
     internal fun preset(model: String?, effort: String?, hint: String? = null) {
         launchHint = hint
@@ -799,22 +909,35 @@ class Conversation(
     /** 回答一次 can_use_tool。[answers] 只用于 AskUserQuestion：问题文字 → 选中的选项。 */
     fun respond(request: PermissionRequest, allow: Boolean, answers: Map<String, String>? = null) {
         if (pending?.requestId == request.requestId) pending = null
-        process?.send(buildJsonObject {
-            put("type", "control_response")
-            putJsonObject("response") {
-                put("subtype", "success")
-                put("request_id", request.requestId)
+        process?.send(
+            buildJsonObject {
+                put("type", "control_response")
                 putJsonObject("response") {
-                    if (allow) {
-                        put("behavior", "allow")
-                        put("updatedInput", if (answers == null) request.input else JsonObject(request.input + ("answers" to JsonObject(answers.mapValues { JsonPrimitive(it.value) }))))
-                    } else {
-                        put("behavior", "deny")
-                        put("message", "用户拒绝了这次操作")
+                    put("subtype", "success")
+                    put("request_id", request.requestId)
+                    putJsonObject("response") {
+                        if (allow) {
+                            put("behavior", "allow")
+                            put(
+                                "updatedInput",
+                                if (answers == null) request.input
+                                else
+                                    JsonObject(
+                                        request.input +
+                                            ("answers" to
+                                                JsonObject(
+                                                    answers.mapValues { JsonPrimitive(it.value) },
+                                                )),
+                                    ),
+                            )
+                        } else {
+                            put("behavior", "deny")
+                            put("message", "用户拒绝了这次操作")
+                        }
                     }
                 }
-            }
-        })
+            },
+        )
         hub.onActivityChanged()
     }
 
@@ -823,14 +946,16 @@ class Conversation(
         val target = process ?: return
         thread(name = "zeta-phone", isDaemon = true) {
             val reply = runCatching { phone.handle(message) }.getOrElse { JsonObject(emptyMap()) }
-            target.send(buildJsonObject {
-                put("type", "control_response")
-                putJsonObject("response") {
-                    put("subtype", "success")
-                    put("request_id", requestId)
-                    putJsonObject("response") { put("mcp_response", reply) }
-                }
-            })
+            target.send(
+                buildJsonObject {
+                    put("type", "control_response")
+                    putJsonObject("response") {
+                        put("subtype", "success")
+                        put("request_id", requestId)
+                        putJsonObject("response") { put("mcp_response", reply) }
+                    }
+                },
+            )
         }
     }
 
@@ -838,13 +963,17 @@ class Conversation(
     fun stopTask(id: String) {
         val process = process ?: return
         tasks.stopRequested(id)
-        process.request(controlBody("stop_task") { put("task_id", id) }) { tasks.stopAnswered(id, it) }
+        process.request(controlBody("stop_task") { put("task_id", id) }) {
+            tasks.stopAnswered(id, it)
+        }
     }
 
     /** 读后台命令、监视器 [id] 输出的最后 8 KiB，应答进 [BackgroundTasks.outputs]。进程不在时什么也不做。 */
     fun readTaskOutput(id: String) {
         val process = process ?: return
-        process.request(controlBody("get_task_output") { put("task_id", id) }) { tasks.outputAnswered(id, it) }
+        process.request(controlBody("get_task_output") { put("task_id", id) }) {
+            tasks.outputAnswered(id, it)
+        }
     }
 
     /** 子代理查看页要看的那个子代理：[toolUseId] 是发起它的 Agent 调用。记录由 [refreshSubagent] 读。 */
@@ -855,10 +984,7 @@ class Conversation(
         log.watchers = (log.watchers + if (watching) 1 else -1).coerceAtLeast(0)
     }
 
-    /**
-     * 增量读一次子代理 [log] 的记录（Linux 一侧的助手脚本从上次读到的地方接着读），再更新它的状态。
-     * 在主线程上调用，阻塞的部分在 IO 线程。正在读的不重复读。
-     */
+    /** 增量读一次子代理 [log] 的记录（Linux 一侧的助手脚本从上次读到的地方接着读），再更新它的状态。 在主线程上调用，阻塞的部分在 IO 线程。正在读的不重复读。 */
     suspend fun refreshSubagent(log: SubagentLog) {
         if (log.reading) return
         val sessions = subagents.sessions(listOfNotNull(sessionId, fork?.source))
@@ -867,16 +993,22 @@ class Conversation(
             return
         }
         val transcript = log.transcript
-        val arguments = listOf(
-            transcript.offset.toString(), transcript.line.toString(), log.toolUseId,
-            subagents.agentId(log) ?: "-",
-        ) + sessions
+        val arguments =
+            listOf(
+                transcript.offset.toString(),
+                transcript.line.toString(),
+                log.toolUseId,
+                subagents.agentId(log) ?: "-",
+            ) + sessions
         log.reading = true
-        val result = try {
-            withContext(Dispatchers.IO) { hub.helper("subagent", arguments, timeoutMs = 30_000, backend = backend) }
-        } finally {
-            log.reading = false
-        }
+        val result =
+            try {
+                withContext(Dispatchers.IO) {
+                    hub.helper("subagent", arguments, timeoutMs = 30_000, backend = backend)
+                }
+            } finally {
+                log.reading = false
+            }
         when (result) {
             is HelperResult.Failed -> log.failure = result.reason
             is HelperResult.Ok -> {
@@ -891,10 +1023,12 @@ class Conversation(
     fun subagentHasMore(log: SubagentLog): Boolean = log.transcript.more
 
     /** 子代理 [log] 不用再读了：不在跑，记录也收齐了（读不了时也算）。 */
-    fun subagentSettled(log: SubagentLog): Boolean = !log.running && (!log.transcript.loaded || log.transcript.settled || log.failure != null)
+    fun subagentSettled(log: SubagentLog): Boolean =
+        !log.running && (!log.transcript.loaded || log.transcript.settled || log.failure != null)
 
     /** 子代理在跑的话，这个对话不是在回答（前台的）就是有后台任务（后台的）。 */
-    private fun publishSubagent(log: SubagentLog) = subagents.publish(log, active = process != null && (busy || backgroundTasks > 0))
+    private fun publishSubagent(log: SubagentLog) =
+        subagents.publish(log, active = process != null && (busy || backgroundTasks > 0))
 
     /** 结束背后的进程，等价于终端里的 /exit（[ClaudeProcess.stop]）。对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下。 */
     fun shutdown() {
@@ -910,7 +1044,9 @@ class Conversation(
 
     /** 进程没起来就起一个，权限模式是 [mode]（默认用户的）；起来了就直接用，不切模式。 */
     private fun ensureProcess(mode: String? = modes.forUser): ClaudeProcess? {
-        process?.let { return it }
+        process?.let {
+            return it
+        }
         modes.processStarted(mode)
         val shell = hub.shell(backend)
         if (shell == null) {
@@ -922,26 +1058,36 @@ class Conversation(
         val autoCompact = hub.settings.autoCompact
         val compactPercent = hub.settings.autoCompactPercent
         lateinit var created: ClaudeProcess
-        created = try {
-            ClaudeProcess(
-                shell = shell,
-                hostScript = hub.hostScript,
-                hostKey = UUID.randomUUID().toString(),
-                launch = ClaudeProcess.Launch.Start(cwd, title, arguments, AutoCompact.env(autoCompact, compactPercent)),
-                onEvent = { event -> enqueue(created, event) },
-                onExit = { exit -> main.post { onProcessExit(created, exit) } },
-                onLink = { link -> main.post { onLinkChanged(created, link) } },
-            )
-        } catch (error: Exception) {
-            reducer.addNotice("启动失败：${error.message}", error = true)
-            publish()
-            return null
-        }
+        created =
+            try {
+                ClaudeProcess(
+                    shell = shell,
+                    hostScript = hub.hostScript,
+                    hostKey = UUID.randomUUID().toString(),
+                    launch =
+                        ClaudeProcess.Launch.Start(
+                            cwd,
+                            title,
+                            arguments,
+                            AutoCompact.env(autoCompact, compactPercent),
+                        ),
+                    onEvent = { event -> enqueue(created, event) },
+                    onExit = { exit -> main.post { onProcessExit(created, exit) } },
+                    onLink = { link -> main.post { onLinkChanged(created, link) } },
+                )
+            } catch (error: Exception) {
+                reducer.addNotice("启动失败：${error.message}", error = true)
+                publish()
+                return null
+            }
         process = created
         modes.user?.let { hub.rememberHostMode(created.hostKey, it) }
         forkCut = false
         initialize(created)
-        meter.processStarted(fresh = sessionId == null, compactPercent = compactPercent.takeIf { autoCompact })
+        meter.processStarted(
+            fresh = sessionId == null,
+            compactPercent = compactPercent.takeIf { autoCompact },
+        )
         queryUsage(created)
         hub.onActivityChanged()
         return created
@@ -949,18 +1095,43 @@ class Conversation(
 
     /** 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型。 */
     internal fun launchArguments(mode: String? = modes.forUser): List<String> = buildList {
-        addAll(listOf("-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-            "--include-partial-messages", "--permission-prompt-tool", "stdio"))
+        addAll(
+            listOf(
+                "-p",
+                "--input-format",
+                "stream-json",
+                "--output-format",
+                "stream-json",
+                "--verbose",
+                "--include-partial-messages",
+                "--permission-prompt-tool",
+                "stdio",
+            ),
+        )
         // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
         addAll(sessionArguments(sessionId, fork?.source, title))
-        model?.let { add("--model"); add(it) }
-        mode?.let { add("--permission-mode"); add(it) }
-        // 只是允许之后切到完全放行（没有它 set_permission_mode 切不过去，UnattendedRulesContractTest），不放行任何东西；实测发给模型的内容不变
+        model?.let {
+            add("--model")
+            add(it)
+        }
+        mode?.let {
+            add("--permission-mode")
+            add(it)
+        }
+        // 只是允许之后切到完全放行（没有它 set_permission_mode
+        // 切不过去，UnattendedRulesContractTest），不放行任何东西；实测发给模型的内容不变
         add("--allow-dangerously-skip-permissions")
-        effort?.let { add("--effort"); add(it) }
-        add("--append-system-prompt"); add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
+        effort?.let {
+            add("--effort")
+            add(it)
+        }
+        add("--append-system-prompt")
+        add(launchHint?.let { ClientHint + " " + it } ?: ClientHint)
         // 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由 handleMcp 应答
-        if (hub.settings.phoneTools) { add("--mcp-config"); add(PhoneTools.MCP_CONFIG) }
+        if (hub.settings.phoneTools) {
+            add("--mcp-config")
+            add(PhoneTools.MCP_CONFIG)
+        }
     }
 
     private fun enqueue(source: ClaudeProcess, event: JsonObject) {
@@ -997,168 +1168,231 @@ class Conversation(
     /** 返回聊天列表是否有变化。 */
     private fun handle(event: JsonObject, now: Long): Boolean {
         // 子代理内部的消息不进主列表，只显示发起它的那一步；点开那一步看（子代理查看页）
-        val parent = (event["parent_tool_use_id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val parent =
+            (event["parent_tool_use_id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
         val fromSubagent = parent != null
         tasks.observe(event, now)
         subagents.observe(event, parent).forEach(::publishSubagent)
-        when (event.str("type")) {
-            "system" -> when (event.str("subtype")) {
-                "init" -> {
-                    event.str("session_id")?.let { sessionId = it }
-                    // 实际在用的模型：没指定时（接着旧会话）是 Claude Code 照会话记录恢复的那个
-                    event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
-                    // 起进程时没指定模式才要 init 报的（指定了的报来的就是指定的那个）；之后的变化看 status
-                    event.str("permissionMode")?.let(modes::reportedAtStart)
-                    // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
-                    // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
-                    if (!busy) {
-                        busy = true
-                        lastActivityAt = now
-                        hub.onActivityChanged()
-                    }
-                }
-                "background_tasks_changed" -> {
-                    // 每次都是完整的清单（不含前台运行的命令），数一下就是当前还在跑的
-                    val count = event.arr("tasks")?.size ?: 0
-                    if (count != backgroundTasks) {
-                        backgroundTasks = count
-                        if (count == 0 && !busy) hub.onBackgroundTasksDone(this)
-                        hub.onActivityChanged()
-                    }
-                }
-                "status" -> {
-                    event.str("permissionMode")?.let(modes::reported)
-                    if (event.str("status") == "compacting") {
-                        lastActivityAt = now
-                        status = "正在压缩上下文"
-                    }
-                }
-                "compact_boundary" -> {
-                    reducer.addNotice(compactNotice(event), error = false)
-                    // 压缩后的 post_tokens 不含系统提示和工具，问 Claude Code 要含这些的估算
-                    process?.let(::queryUsage)
-                    return true
-                }
-                "session_title_changed" -> event.str("title")?.takeIf { it.isNotBlank() }?.let { title = it }
-                "api_retry" -> {
-                    lastActivityAt = now
-                    status = "请求出错，正在重试" + (event.int("attempt")?.let { "（第 $it 次）" } ?: "")
-                }
-            }
-            "stream_event" -> {
-                // 新回复开始：手机工具的控件编号从这里起换成上一批结果里的那份（子代理的回复也算）
-                event.obj("event")?.takeIf { it.str("type") == "message_start" }?.obj("message")?.str("id")?.let(phone::onReply)
-                if (!fromSubagent) {
-                    event.obj("event")?.let { reducer.applyStream(it, now) }
-                    return true
-                }
-            }
-            "assistant" -> {
-                event.obj("message")?.str("id")?.let(phone::onReply)
-                if (!fromSubagent) {
-                    event.obj("message")?.let(reducer::applyAssistant)
-                    return true
-                }
-            }
-            "user" -> if (!fromSubagent) {
-                event.obj("message")?.let { reducer.applyUser(it, replay = false, toolUseResult = event.obj("tool_use_result")) }
-                return true
-            }
-            "command_lifecycle" -> {
-                val uuid = event.str("command_uuid") ?: return false
-                when (event.str("state")) {
-                    "started" -> {
-                        busy = true
-                        val message = queued.firstOrNull { it.uuid == uuid } ?: return false
-                        queued = queued - message
-                        recalling.remove(uuid)
-                        if (queued.isEmpty()) steering = false
-                        reducer.addUser(message.text, message.attachments.map { InlineImage("a:${it.id}", it.base64) }, message.files, message.uuid)
-                        return true
-                    }
-                    "cancelled" -> {
-                        val message = queued.firstOrNull { it.uuid == uuid } ?: return false
-                        queued = queued - message
-                        if (recalling.remove(uuid)) addRecalled(message)
-                        if (queued.isEmpty()) steering = false
-                    }
-                }
-            }
-            "result" -> {
-                reducer.finishTurn()
-                val failed = event.bool("is_error") == true || event.str("subtype") != "success"
-                when {
-                    interruptRequested && steering -> reducer.addNotice("已打断，先处理插话", error = false)
-                    interruptRequested -> reducer.addNotice("已停止", error = false)
-                    failed -> reducer.addNotice(
-                        event.str("result")?.takeIf { it.isNotBlank() }
-                            ?: event.arr("errors")?.joinToString("\n") { (it as? JsonPrimitive)?.content.orEmpty() }?.takeIf { it.isNotBlank() }
-                            ?: "这一轮没有正常结束（${event.str("subtype")}）",
-                        error = true,
-                    )
-                }
-                val stopped = interruptRequested
-                interruptRequested = false
-                // 插话会并进同一轮、只出一个 result，所以不按发出的条数算；还有排队的消息，Claude Code 会接着另起一轮
-                if (queued.isEmpty()) {
-                    // 先于 busy 和手机工具的状态清掉：胶囊要据此判断结束的是不是正显示着的那个
-                    hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
-                    busy = false
-                    phone.onTurnEnded()
-                    if (!stopped && !failed) requestTitle()
-                    hub.onTurnFinished(this, stopped)
-                }
-                hub.onActivityChanged()
-                return true
-            }
+        return when (event.str("type")) {
+            "system" -> handleSystem(event, now)
+            "stream_event" -> handleStreamEvent(event, fromSubagent, now)
+            "assistant" -> handleAssistant(event, fromSubagent)
+            "user" -> handleUser(event, fromSubagent)
+            "command_lifecycle" -> handleLifecycle(event)
+            "result" -> handleResult(event)
             "control_request" -> {
-                val request = event.obj("request") ?: return false
-                val requestId = event.str("request_id") ?: return false
-                if (request.str("subtype") == "can_use_tool") {
-                    val input = request.obj("input") ?: JsonObject(emptyMap())
-                    pending = PermissionRequest(
-                        requestId = requestId,
-                        toolName = request.str("tool_name").orEmpty(),
-                        input = input,
-                        questions = if (request.str("tool_name") == "AskUserQuestion") parseQuestions(input.arr("questions")) else emptyList(),
-                    )
-                    hub.onAttentionNeeded(this)
-                } else if (request.str("subtype") == "mcp_message") {
-                    request.obj("message")?.let { handleMcp(requestId, it) }
+                handleControlRequest(event)
+                false
+            }
+            "control_cancel_request" -> {
+                if (pending?.requestId == event.str("request_id")) pending = null
+                false
+            }
+            // /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
+            "conversation_reset" -> handleReset(event)
+            // 自己发的控制请求的应答：按请求号交给发请求时给的回调（见 ClaudeProcess.request）
+            "control_response" -> {
+                process?.answer(event)
+                false
+            }
+            else -> false
+        }
+    }
+
+    /** type 为 system 的事件；返回聊天列表是否有变化。 */
+    private fun handleSystem(event: JsonObject, now: Long): Boolean {
+        when (event.str("subtype")) {
+            "init" -> handleInit(event, now)
+            "background_tasks_changed" -> handleBackgroundTasks(event)
+            "status" -> {
+                event.str("permissionMode")?.let(modes::reported)
+                if (event.str("status") == "compacting") {
+                    lastActivityAt = now
+                    status = "正在压缩上下文"
                 }
             }
-            "control_cancel_request" -> if (pending?.requestId == event.str("request_id")) pending = null
-            // /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
-            "conversation_reset" -> {
-                sessionId?.let(subagents::sessionCleared)
-                event.str("new_conversation_id")?.let { sessionId = it }
-                title = ""
-                reducer.addNotice("上下文已清空，下面是新的会话", error = false)
+            "compact_boundary" -> {
+                reducer.addNotice(compactNotice(event), error = false)
+                // 压缩后的 post_tokens 不含系统提示和工具，问 Claude Code 要含这些的估算
+                process?.let(::queryUsage)
                 return true
             }
-            // 自己发的控制请求的应答：按请求号交给发请求时给的回调（见 ClaudeProcess.request）
-            "control_response" -> process?.answer(event)
+            "session_title_changed" ->
+                event.str("title")?.takeIf { it.isNotBlank() }?.let { title = it }
+            "api_retry" -> {
+                lastActivityAt = now
+                status = "请求出错，正在重试" + (event.int("attempt")?.let { "（第 $it 次）" } ?: "")
+            }
         }
         return false
     }
 
-    private fun requestTitle() {
-        val target = process ?: return
-        val request = autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList()) ?: return
-        target.request(request.body) { response ->
-            autoTitle.onResponse(request, response, title) { title = it; sessionId?.let { id -> hub.sessionList.titled(id, it) } }
+    private fun handleInit(event: JsonObject, now: Long) {
+        event.str("session_id")?.let { sessionId = it }
+        // 实际在用的模型：没指定时（接着旧会话）是 Claude Code 照会话记录恢复的那个
+        event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
+        // 起进程时没指定模式才要 init 报的（指定了的报来的就是指定的那个）；之后的变化看 status
+        event.str("permissionMode")?.let(modes::reportedAtStart)
+        // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
+        // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
+        if (!busy) {
+            busy = true
+            lastActivityAt = now
+            hub.onActivityChanged()
         }
     }
 
-    private fun parseQuestions(list: JsonArray?): List<Question> = list.orEmpty().mapNotNull { element ->
-        val q = element as? JsonObject ?: return@mapNotNull null
-        Question(
-            question = q.str("question").orEmpty(),
-            header = q.str("header").orEmpty(),
-            options = q.arr("options").orEmpty().mapNotNull { (it as? JsonObject)?.let { o -> QuestionOption(o.str("label").orEmpty(), o.str("description").orEmpty()) } },
-            multiSelect = q.bool("multiSelect") == true,
+    private fun handleBackgroundTasks(event: JsonObject) {
+        // 每次都是完整的清单（不含前台运行的命令），数一下就是当前还在跑的
+        val count = event.arr("tasks")?.size ?: 0
+        if (count == backgroundTasks) return
+        backgroundTasks = count
+        if (count == 0 && !busy) hub.onBackgroundTasksDone(this)
+        hub.onActivityChanged()
+    }
+
+    private fun handleStreamEvent(event: JsonObject, fromSubagent: Boolean, now: Long): Boolean {
+        // 新回复开始：手机工具的控件编号从这里起换成上一批结果里的那份（子代理的回复也算）
+        event
+            .obj("event")
+            ?.takeIf { it.str("type") == "message_start" }
+            ?.obj("message")
+            ?.str("id")
+            ?.let(phone::onReply)
+        if (fromSubagent) return false
+        event.obj("event")?.let { reducer.applyStream(it, now) }
+        return true
+    }
+
+    private fun handleAssistant(event: JsonObject, fromSubagent: Boolean): Boolean {
+        event.obj("message")?.str("id")?.let(phone::onReply)
+        if (fromSubagent) return false
+        event.obj("message")?.let(reducer::applyAssistant)
+        return true
+    }
+
+    private fun handleUser(event: JsonObject, fromSubagent: Boolean): Boolean {
+        if (fromSubagent) return false
+        event.obj("message")?.let {
+            reducer.applyUser(it, replay = false, toolUseResult = event.obj("tool_use_result"))
+        }
+        return true
+    }
+
+    /** 排队的消息开始处理（并进当前一轮或另起一轮）或被撤回；返回聊天列表是否有变化。 */
+    private fun handleLifecycle(event: JsonObject): Boolean {
+        val uuid = event.str("command_uuid") ?: return false
+        when (event.str("state")) {
+            "started" -> {
+                busy = true
+                val message = queued.firstOrNull { it.uuid == uuid } ?: return false
+                queued = queued - message
+                recalling.remove(uuid)
+                if (queued.isEmpty()) steering = false
+                reducer.addUser(
+                    message.text,
+                    message.attachments.map { InlineImage("a:${it.id}", it.base64) },
+                    message.files,
+                    message.uuid,
+                )
+                return true
+            }
+            "cancelled" -> {
+                val message = queued.firstOrNull { it.uuid == uuid } ?: return false
+                queued = queued - message
+                if (recalling.remove(uuid)) addRecalled(message)
+                if (queued.isEmpty()) steering = false
+            }
+        }
+        return false
+    }
+
+    /** 一轮结束（result 行）：收尾这一轮的列表，说明停止或出错；没有排队的消息时这一轮就算完了。 */
+    private fun handleResult(event: JsonObject): Boolean {
+        reducer.finishTurn()
+        val failed = event.bool("is_error") == true || event.str("subtype") != "success"
+        when {
+            interruptRequested && steering -> reducer.addNotice("已打断，先处理插话", error = false)
+            interruptRequested -> reducer.addNotice("已停止", error = false)
+            failed -> reducer.addNotice(resultFailureText(event), error = true)
+        }
+        val stopped = interruptRequested
+        interruptRequested = false
+        // 插话会并进同一轮、只出一个 result，所以不按发出的条数算；还有排队的消息，Claude Code 会接着另起一轮
+        if (queued.isEmpty()) endTurn(stopped, failed)
+        hub.onActivityChanged()
+        return true
+    }
+
+    private fun endTurn(stopped: Boolean, failed: Boolean) {
+        // 先于 busy 和手机工具的状态清掉：胶囊要据此判断结束的是不是正显示着的那个
+        hub.onTurnEnding(this, if (stopped) "已停止" else if (failed) "出错了" else "已完成")
+        busy = false
+        phone.onTurnEnded()
+        if (!stopped && !failed) requestTitle()
+        hub.onTurnFinished(this, stopped)
+    }
+
+    private fun handleControlRequest(event: JsonObject) {
+        val request = event.obj("request") ?: return
+        val requestId = event.str("request_id") ?: return
+        when (request.str("subtype")) {
+            "can_use_tool" -> {
+                pending = permissionRequest(requestId, request)
+                hub.onAttentionNeeded(this)
+            }
+            "mcp_message" -> request.obj("message")?.let { handleMcp(requestId, it) }
+        }
+    }
+
+    private fun permissionRequest(requestId: String, request: JsonObject): PermissionRequest {
+        val input = request.obj("input") ?: JsonObject(emptyMap())
+        return PermissionRequest(
+            requestId = requestId,
+            toolName = request.str("tool_name").orEmpty(),
+            input = input,
+            questions =
+                if (request.str("tool_name") == "AskUserQuestion")
+                    parseQuestions(input.arr("questions"))
+                else emptyList(),
         )
     }
+
+    private fun handleReset(event: JsonObject): Boolean {
+        sessionId?.let(subagents::sessionCleared)
+        event.str("new_conversation_id")?.let { sessionId = it }
+        title = ""
+        reducer.addNotice("上下文已清空，下面是新的会话", error = false)
+        return true
+    }
+
+    private fun requestTitle() {
+        val target = process ?: return
+        val request =
+            autoTitle.next(hub.settings.autoTitle, title, reducer.items.toList()) ?: return
+        target.request(request.body) { response ->
+            autoTitle.onResponse(request, response, title) {
+                title = it
+                sessionId?.let { id -> hub.sessionList.titled(id, it) }
+            }
+        }
+    }
+
+    private fun parseQuestions(list: JsonArray?): List<Question> =
+        list.orEmpty().mapNotNull { element ->
+            val q = element as? JsonObject ?: return@mapNotNull null
+            Question(
+                question = q.str("question").orEmpty(),
+                header = q.str("header").orEmpty(),
+                options =
+                    q.arr("options").orEmpty().mapNotNull {
+                        (it as? JsonObject)?.let { o ->
+                            QuestionOption(o.str("label").orEmpty(), o.str("description").orEmpty())
+                        }
+                    },
+                multiSelect = q.bool("multiSelect") == true,
+            )
+        }
 
     private fun endTurnState() {
         // 进程没了，排队的消息也不会再被处理：放回输入框
@@ -1178,18 +1412,18 @@ class Conversation(
         publish()
     }
 
-    /**
-     * 远程主机的连接断了、正在重连，或者又接上了：在等待指示旁边说一声，断着时不算在干活（[offline]）。
-     * 状态都还在（这一轮、等批准的请求、排队的消息），接上后照常继续。
-     */
+    /** 远程主机的连接断了、正在重连，或者又接上了：在等待指示旁边说一声，断着时不算在干活（[offline]）。 状态都还在（这一轮、等批准的请求、排队的消息），接上后照常继续。 */
     private fun onLinkChanged(source: ClaudeProcess, link: ProcessLink) {
         if (source !== process) return
         offline = link is ProcessLink.Reconnecting
-        status = when (link) {
-            ProcessLink.Connected -> null
-            is ProcessLink.Reconnecting -> "和「${hub.backendName(backend)}」的连接断了，正在重连" +
-                (if (link.attempt > 1) "（第 ${link.attempt} 次）" else "") + link.reason.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
-        }
+        status =
+            when (link) {
+                ProcessLink.Connected -> null
+                is ProcessLink.Reconnecting ->
+                    "和「${hub.backendName(backend)}」的连接断了，正在重连" +
+                        (if (link.attempt > 1) "（第 ${link.attempt} 次）" else "") +
+                        link.reason.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
+            }
         hub.onActivityChanged()
     }
 
@@ -1210,13 +1444,18 @@ class Conversation(
         if (wasBusy || code != 0) {
             val detail = stderr.trim().takeLast(600)
             reducer.addNotice(
-                hub.linkProblem(backend, code, stderr) ?: when {
-                    detail.contains("zeta: rootfs not found") -> "找不到 Debian 环境，请到设置里检查 rootfs 路径"
-                    detail.contains("zeta: busybox not found") -> "找不到 root 管理器自带的 BusyBox"
-                    code == 1 && detail.isEmpty() && sessionId == null -> "Claude Code 没能启动。请确认已在 root 管理器里给 Zeta 授权"
-                    code == 143 || code == 137 -> "Claude Code 进程被结束了"
-                    else -> "Claude Code 进程已退出（$code）" + if (detail.isNotEmpty()) "\n$detail" else ""
-                },
+                hub.linkProblem(backend, code, stderr)
+                    ?: when {
+                        detail.contains("zeta: rootfs not found") ->
+                            "找不到 Debian 环境，请到设置里检查 rootfs 路径"
+                        detail.contains("zeta: busybox not found") -> "找不到 root 管理器自带的 BusyBox"
+                        code == 1 && detail.isEmpty() && sessionId == null ->
+                            "Claude Code 没能启动。请确认已在 root 管理器里给 Zeta 授权"
+                        code == 143 || code == 137 -> "Claude Code 进程被结束了"
+                        else ->
+                            "Claude Code 进程已退出（$code）" +
+                                if (detail.isNotEmpty()) "\n$detail" else ""
+                    },
                 error = true,
             )
             publish()
@@ -1229,3 +1468,12 @@ class Conversation(
         const val DEFAULT_MODEL = "default"
     }
 }
+
+/** 一轮出错结束时说什么：result 的文字，没有就把 errors 连起来，都没有就报 subtype。 */
+internal fun resultFailureText(event: JsonObject): String =
+    event.str("result")?.takeIf { it.isNotBlank() }
+        ?: event
+            .arr("errors")
+            ?.joinToString("\n") { (it as? JsonPrimitive)?.content.orEmpty() }
+            ?.takeIf { it.isNotBlank() }
+        ?: "这一轮没有正常结束（${event.str("subtype")}）"

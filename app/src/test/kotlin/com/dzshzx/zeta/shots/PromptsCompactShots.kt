@@ -17,10 +17,10 @@ import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
-import com.dzshzx.zeta.ui.settings.SettingsScreen
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
 import com.dzshzx.zeta.ui.chat.SavedPromptsDialogs
+import com.dzshzx.zeta.ui.settings.SettingsScreen
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import org.junit.Test
 
@@ -32,7 +32,11 @@ class PromptsCompactShots : ShotTest() {
             "看看磁盘",
             listOf(
                 UserItem("u1", "看看 /workspace 还剩多少空间，哪些目录最大"),
-                AnswerItem("a1", "还剩 **38 GB**（共 220 GB）。最大的三个目录：\n\n- `claude/ref` 61 GB\n- `claude/zeta` 9 GB\n- `tmp` 4 GB", streaming = false),
+                AnswerItem(
+                    "a1",
+                    "还剩 **38 GB**（共 220 GB）。最大的三个目录：\n\n- `claude/ref` 61 GB\n- `claude/zeta` 9 GB\n- `tmp` 4 GB",
+                    streaming = false,
+                ),
             ),
         )
         PromptStore.reload(app)
@@ -57,18 +61,34 @@ class PromptsCompactShots : ShotTest() {
     }
 
     /** 外面包一层 COUI 2 的 Scaffold：常用指令和用量的对话框、菜单要在它里面才显示。 */
-    private fun chat(hub: ConversationHub) = @Composable {
-        Scaffold { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
-    }
+    private fun chat(hub: ConversationHub) =
+        @Composable {
+            Scaffold {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
+            }
+        }
 
     /** “+”菜单和长按菜单不在这里点，对话框由测试直接打开。 */
-    private fun withPrompts(hub: ConversationHub, open: PromptsUi.() -> Unit) = @Composable {
-        val ui = remember { PromptsUi(app, TextFieldState()).apply(open) }
-        Scaffold {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
-            SavedPromptsDialogs(ui)
+    private fun withPrompts(hub: ConversationHub, open: PromptsUi.() -> Unit) =
+        @Composable {
+            val ui = remember { PromptsUi(app, TextFieldState()).apply(open) }
+            Scaffold {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
+                SavedPromptsDialogs(ui)
+            }
         }
-    }
 
     @Test
     fun promptList() {
@@ -77,13 +97,24 @@ class PromptsCompactShots : ShotTest() {
 
     @Test
     fun promptEditor() {
-        shoot("prompts-editor", content = withPrompts(hub()) { open(); startEdit(prompts[1]) })
+        shoot(
+            "prompts-editor",
+            content =
+                withPrompts(hub()) {
+                    open()
+                    startEdit(prompts[1])
+                },
+        )
     }
 
     /** 列表里一条的“更多”菜单：编辑、上移、下移、删除。 */
     @Test
     fun promptMenu() {
-        shoot("prompts-menu", prepare = { onAllNodes(hasContentDescription("更多操作")).onFirst().performClick() }, content = withPrompts(hub()) { open() })
+        shoot(
+            "prompts-menu",
+            prepare = { onAllNodes(hasContentDescription("更多操作")).onFirst().performClick() },
+            content = withPrompts(hub()) { open() },
+        )
     }
 
     @Test
@@ -101,9 +132,13 @@ class PromptsCompactShots : ShotTest() {
     @Test
     fun usageWithCompactPoint() {
         val hub = hub()
-        shoot("usage-compact-point", prepare = {
-            onNode(hasContentDescription("上下文用量", substring = true)).performClick()
-        }, content = chat(hub))
+        shoot(
+            "usage-compact-point",
+            prepare = {
+                onNode(hasContentDescription("上下文用量", substring = true)).performClick()
+            },
+            content = chat(hub),
+        )
     }
 
     @Test

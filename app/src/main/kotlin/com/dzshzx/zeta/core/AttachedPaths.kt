@@ -3,7 +3,8 @@ package com.dzshzx.zeta.core
 /**
  * 随消息附带的 Linux 路径。[UserItem.files]、发送、排队和撤回时传的都是“附件说明”字符串，有两种：
  * - 以 / 开头：复制进 Linux 环境的文件（~/.cache/zeta/files/…）。消息里写成 `[Attached file: 路径]`，Claude 自己用工具去读。
- * - 以 @ 开头：引用 Linux 里本来就有的路径，结尾带 / 的是文件夹。消息里写成 `[Attached file: @"路径"]` 或 `[Attached folder: @"路径"]`。
+ * - 以 @ 开头：引用 Linux 里本来就有的路径，结尾带 / 的是文件夹。消息里写成 `[Attached file: @"路径"]` 或 `[Attached
+ *   folder: @"路径"]`。
  *
  * 引用用 Claude Code 自己的 @ 提及（2.1.327 实测，stream-json 输入也认）：前面是空白的 `@"路径"` 会被当成提及，
  * 文件把内容附进上下文（太大的只告诉模型去读），文件夹附上一层目录清单；路径不存在就只剩这行文字，模型照样看得到路径。
@@ -22,28 +23,32 @@ object AttachedPaths {
     fun isFolder(entry: String): Boolean = entry.startsWith("@") && entry.endsWith("/")
 
     /** 附件说明对应的 Linux 路径。 */
-    fun path(entry: String): String = when {
-        isFolder(entry) -> entry.substring(1, entry.length - 1).ifEmpty { "/" }
-        isReference(entry) -> entry.substring(1)
-        else -> entry
-    }
+    fun path(entry: String): String =
+        when {
+            isFolder(entry) -> entry.substring(1, entry.length - 1).ifEmpty { "/" }
+            isReference(entry) -> entry.substring(1)
+            else -> entry
+        }
 
     /** 附件小标签上显示的名字：路径的最后一段。 */
-    fun label(entry: String): String = path(entry).trimEnd('/').substringAfterLast('/').ifEmpty { "/" }
+    fun label(entry: String): String =
+        path(entry).trimEnd('/').substringAfterLast('/').ifEmpty { "/" }
 
     /** 写进消息开头的那一行。 */
-    fun header(entry: String): String = when {
-        isFolder(entry) -> FolderPrefix + "@\"" + path(entry) + "\"]"
-        isReference(entry) -> FilePrefix + "@\"" + path(entry) + "\"]"
-        else -> "$FilePrefix$entry]"
-    }
+    fun header(entry: String): String =
+        when {
+            isFolder(entry) -> FolderPrefix + "@\"" + path(entry) + "\"]"
+            isReference(entry) -> FilePrefix + "@\"" + path(entry) + "\"]"
+            else -> "$FilePrefix$entry]"
+        }
 
     /** [header] 的逆操作；不是附件行返回 null。 */
     fun parseHeader(line: String): String? {
         if (!line.endsWith("]")) return null
         val folder = line.startsWith(FolderPrefix)
         if (!folder && !line.startsWith(FilePrefix)) return null
-        val body = line.substring(if (folder) FolderPrefix.length else FilePrefix.length, line.length - 1)
+        val body =
+            line.substring(if (folder) FolderPrefix.length else FilePrefix.length, line.length - 1)
         if (body.length > 3 && body.startsWith("@\"") && body.endsWith("\"")) {
             val path = body.substring(2, body.length - 1)
             if (path.startsWith("/")) return reference(path, folder)
@@ -52,18 +57,21 @@ object AttachedPaths {
     }
 
     /**
-     * 用户输入的 Linux 路径：去掉首尾空白，`~` 换成家目录，按字面消掉 `.` 和 `..`，去掉结尾的 /。
-     * 不是绝对路径、带控制字符或双引号（写不进 @"…"）的返回 null。
+     * 用户输入的 Linux 路径：去掉首尾空白，`~` 换成家目录，按字面消掉 `.` 和 `..`，去掉结尾的 /。 不是绝对路径、带控制字符或双引号（写不进 @"…"）的返回 null。
      */
     fun normalize(raw: String, home: String? = null): String? {
         var text = raw.trim()
-        if (home != null && (text == "~" || text.startsWith("~/"))) text = home.trimEnd('/') + text.substring(1)
-        if (!text.startsWith("/") || text.any { it < ' ' || it == '\u007f' || it == '"' }) return null
+        if (home != null && (text == "~" || text.startsWith("~/")))
+            text = home.trimEnd('/') + text.substring(1)
+        if (!text.startsWith("/") || text.any { it < ' ' || it == '\u007f' || it == '"' })
+            return null
         val segments = ArrayList<String>()
         for (segment in text.split('/')) {
             when (segment) {
-                "", "." -> Unit
-                ".." -> if (segments.isEmpty()) return null else segments.removeAt(segments.lastIndex)
+                "",
+                "." -> Unit
+                ".." ->
+                    if (segments.isEmpty()) return null else segments.removeAt(segments.lastIndex)
                 else -> segments += segment
             }
         }
@@ -71,23 +79,37 @@ object AttachedPaths {
     }
 
     /**
-     * Android 侧的目录在 Linux 环境里叫什么；Linux 里看不到时返回 null。
-     * 进入环境时绑定的有：[LinuxEnv.WORKSPACE] 在 /workspace，/data/local/tmp 原样，各共享文件夹在 /mnt/shared/<名字>，
-     * rootfs 本身就是 /。内部存储（/sdcard、/storage/emulated）本身在 Linux 里不能用，只能经共享文件夹。
+     * Android 侧的目录在 Linux 环境里叫什么；Linux 里看不到时返回 null。 进入环境时绑定的有：[LinuxEnv.WORKSPACE] 在
+     * /workspace，/data/local/tmp 原样，各共享文件夹在 /mnt/shared/<名字>， rootfs 本身就是
+     * /。内部存储（/sdcard、/storage/emulated）本身在 Linux 里不能用，只能经共享文件夹。
      */
     fun linuxPathFor(androidPath: String, shares: List<SharedFolder>, rootfs: String?): String? {
         val bind = SharedFolders.bindSource(SharedFolders.normalize(androidPath) ?: return null)
-        fun under(base: String): String? = when {
-            bind == base -> ""
-            bind.startsWith("$base/") -> bind.substring(base.length)
-            else -> null
+        fun under(base: String): String? =
+            when {
+                bind == base -> ""
+                bind.startsWith("$base/") -> bind.substring(base.length)
+                else -> null
+            }
+        under(LinuxEnv.WORKSPACE)?.let {
+            return "/workspace$it"
         }
-        under(LinuxEnv.WORKSPACE)?.let { return "/workspace$it" }
-        under("/data/local/tmp")?.let { return "/data/local/tmp$it" }
-        if (rootfs != null) under(rootfs.trimEnd('/'))?.let { return it.ifEmpty { "/" } }
+        under("/data/local/tmp")?.let {
+            return "/data/local/tmp$it"
+        }
+        if (rootfs != null)
+            under(rootfs.trimEnd('/'))?.let {
+                return it.ifEmpty { "/" }
+            }
         // 共享文件夹可能套着共享文件夹：取源目录最长的那个
-        return shares.mapNotNull { share -> under(SharedFolders.bindSource(share.source))?.let { share.mountPoint + it to share.source.length } }
-            .maxByOrNull { it.second }?.first
+        return shares
+            .mapNotNull { share ->
+                under(SharedFolders.bindSource(share.source))?.let {
+                    share.mountPoint + it to share.source.length
+                }
+            }
+            .maxByOrNull { it.second }
+            ?.first
     }
 }
 
@@ -108,12 +130,12 @@ enum class PathKind {
 
 object PathCheck {
     /**
-     * 参数：$1 对话的托管标识（可以为空），之后是要查的路径；每个路径输出一行 `zeta_path <种类>`，顺序同参数。
-     * 有在跑的 Claude Code 进程时经 /proc/<pid>/root 看它那个挂载命名空间：
-     * 共享文件夹按进入环境时的清单绑定，进程启动后加的它看不到。挂载点目录留在 rootfs 里，进程那边看到的是同名的空目录，
+     * 参数：$1 对话的托管标识（可以为空），之后是要查的路径；每个路径输出一行 `zeta_path <种类>`，顺序同参数。 有在跑的 Claude Code 进程时经
+     * /proc/<pid>/root 看它那个挂载命名空间： 共享文件夹按进入环境时的清单绑定，进程启动后加的它看不到。挂载点目录留在 rootfs 里，进程那边看到的是同名的空目录，
      * 所以按设备号和 inode 比两边是不是同一个东西，只看存在与否会把它当成已经看得到。
      */
-    val Script = """
+    val Script =
+        """
         r=
         if [ -n "${'$'}1" ]; then
           p=${'$'}(cat "${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}/hosts/${'$'}1/pid" 2>/dev/null)
@@ -130,33 +152,50 @@ object PathCheck {
           fi
           echo "zeta_path ${'$'}k"
         done
-    """.trimIndent()
+        """
+            .trimIndent()
 
     /** 在 Linux 环境里执行的整条命令。 */
     fun command(paths: List<String>, hostKey: String?): String =
-        "sh -c " + LinuxEnv.quote(Script) + " zeta-path " + LinuxEnv.quote(hostKey.orEmpty()) + paths.joinToString("") { " " + LinuxEnv.quote(it) }
+        "sh -c " +
+            LinuxEnv.quote(Script) +
+            " zeta-path " +
+            LinuxEnv.quote(hostKey.orEmpty()) +
+            paths.joinToString("") { " " + LinuxEnv.quote(it) }
 
     /** 脚本的输出，按路径的顺序（登录提示之类的别的行跳过）。 */
-    fun parse(stdout: String): List<PathKind> = stdout.lineSequence().filter { it.startsWith("zeta_path ") }.map { line ->
-        when (line.removePrefix("zeta_path ").trim()) {
-            "folder" -> PathKind.Folder
-            "file" -> PathKind.File
-            "missing" -> PathKind.Missing
-            "denied" -> PathKind.Denied
-            "hidden-folder" -> PathKind.FolderNotInProcess
-            "hidden-file" -> PathKind.FileNotInProcess
-            else -> PathKind.Unknown
-        }
-    }.toList()
+    fun parse(stdout: String): List<PathKind> =
+        stdout
+            .lineSequence()
+            .filter { it.startsWith("zeta_path ") }
+            .map { line ->
+                when (line.removePrefix("zeta_path ").trim()) {
+                    "folder" -> PathKind.Folder
+                    "file" -> PathKind.File
+                    "missing" -> PathKind.Missing
+                    "denied" -> PathKind.Denied
+                    "hidden-folder" -> PathKind.FolderNotInProcess
+                    "hidden-file" -> PathKind.FileNotInProcess
+                    else -> PathKind.Unknown
+                }
+            }
+            .toList()
 
-    /** 以 Linux 用户的身份在 [shell] 那台机器上一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。 */
+    /**
+     * 以 Linux 用户的身份在 [shell] 那台机器上一次查 [paths]，结果顺序同 [paths]；查不成时都是 [PathKind.Unknown]。耗时，别在主线程调用。
+     */
     fun checkAll(shell: LinuxShell, paths: List<String>, hostKey: String?): List<PathKind> {
         if (paths.isEmpty()) return emptyList()
-        val kinds = runCatching { shell.run(command(paths, hostKey), timeoutMs = 20_000, plain = true) }.getOrNull()
-            ?.takeIf { it.exitCode == 0 }?.let { parse(it.stdout) }
+        val kinds = runCatching {
+            shell.run(command(paths, hostKey), timeoutMs = 20_000, plain = true)
+        }
+            .getOrNull()
+            ?.takeIf { it.exitCode == 0 }
+            ?.let { parse(it.stdout) }
         return kinds?.takeIf { it.size == paths.size } ?: paths.map { PathKind.Unknown }
     }
 
     /** 以 Linux 用户的身份查 [path]。耗时，别在主线程调用。 */
-    fun check(shell: LinuxShell, path: String, hostKey: String?): PathKind = checkAll(shell, listOf(path), hostKey).single()
+    fun check(shell: LinuxShell, path: String, hostKey: String?): PathKind =
+        checkAll(shell, listOf(path), hostKey).single()
 }

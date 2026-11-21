@@ -64,7 +64,9 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
             ArrowPreference(
                 title = "源码",
                 startAction = { SettingsIcon(ZetaIcons.Branch, SettingsHue.System) },
-                endActions = { PreferenceValue(ZetaInfo.sourceRef(BuildConfig.VERSION_NAME) ?: "GitHub") },
+                endActions = {
+                    PreferenceValue(ZetaInfo.sourceRef(BuildConfig.VERSION_NAME) ?: "GitHub")
+                },
                 onClick = { openLink(context, ZetaInfo.sourceUrl(BuildConfig.VERSION_NAME)) },
             )
         }
@@ -119,13 +121,21 @@ internal fun LicenseScreen(onBack: () -> Unit) {
 @Composable
 internal fun OpenSourceScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val maven by produceState<List<Component>?>(null) { value = withContext(Dispatchers.IO) { ThirdParty.loadMaven(context) } }
+    val maven by
+        produceState<List<Component>?>(null) {
+            value = withContext(Dispatchers.IO) { ThirdParty.loadMaven(context) }
+        }
     var open by remember { mutableStateOf<Component?>(null) }
     Box(Modifier.fillMaxSize()) {
         CouiPage(title = "开源许可", onBack = onBack) {
             item(key = "bundled") {
-                PreferenceGroup(title = "随包的其他组件", footer = "不在依赖库里的：改写自 Eta 的代码、字体、原生库和 zeta-helper 里的代码。") {
-                    ThirdParty.BUNDLED.forEach { component -> item { ComponentRow(component) { open = component } } }
+                PreferenceGroup(
+                    title = "随包的其他组件",
+                    footer = "不在依赖库里的：改写自 Eta 的代码、字体、原生库和 zeta-helper 里的代码。",
+                ) {
+                    ThirdParty.BUNDLED.forEach { component ->
+                        item { ComponentRow(component) { open = component } }
+                    }
                 }
             }
             item(key = "maven-title") { PreferenceCategory(title = "依赖库") }
@@ -133,21 +143,33 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
             if (list == null) {
                 item(key = "maven-loading") { PreferenceGroup { item { ConfigLoadingRow() } } }
             } else {
-                itemsIndexed(list, key = { _, c -> "m:${c.artifacts.first()}:${c.version}" }) { index, component ->
-                    CardListSegment(index, list.size, footerBelow = true) { ComponentRow(component) { open = component } }
+                itemsIndexed(list, key = { _, c -> "m:${c.artifacts.first()}:${c.version}" }) {
+                    index,
+                    component ->
+                    CardListSegment(index, list.size, footerBelow = true) {
+                        ComponentRow(component) { open = component }
+                    }
                 }
                 item(key = "maven-footer") {
-                    PagerFooterPreference(summary = "共 ${list.size} 项，构建时由 licensee 从这个版本打包的依赖生成，许可证不在允许名单里的构建不过。")
+                    PagerFooterPreference(
+                        summary = "共 ${list.size} 项，构建时由 licensee 从这个版本打包的依赖生成，许可证不在允许名单里的构建不过。",
+                    )
                 }
             }
         }
-        SlideInPage(open, onBack = { open = null }) { ComponentScreen(it, onBack = { open = null }) }
+        SlideInPage(open, onBack = { open = null }) {
+            ComponentScreen(it, onBack = { open = null })
+        }
     }
 }
 
 @Composable
 private fun ComponentRow(component: Component, onClick: () -> Unit) {
-    ArrowPreference(title = component.name, summary = "${component.version} · ${component.license}", onClick = onClick)
+    ArrowPreference(
+        title = component.name,
+        summary = "${component.version} · ${component.license}",
+        onClick = onClick,
+    )
 }
 
 /** 一个组件：版本、许可证、上游，版权行、包含的部分，再是用到的每种许可证的全文。 */
@@ -159,13 +181,28 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
     CouiPage(title = component.name, onBack = onBack) {
         item(key = "info") {
             PreferenceGroup(footer = component.note) {
-                item { BasicComponent(title = "版本", endActions = { PreferenceValue(component.version) }) }
+                item {
+                    BasicComponent(
+                        title = "版本",
+                        endActions = { PreferenceValue(component.version) },
+                    )
+                }
                 item { BasicComponent(title = "许可证", summary = component.license) }
-                component.url?.let { url -> item { ArrowPreference(title = "上游", summary = url, onClick = { openLink(context, url) }) } }
+                component.url?.let { url ->
+                    item {
+                        ArrowPreference(
+                            title = "上游",
+                            summary = url,
+                            onClick = { openLink(context, url) },
+                        )
+                    }
+                }
             }
         }
         if (component.copyright.isNotEmpty()) {
-            item(key = "copyright") { PreferenceGroup(title = "版权") { item { TextBlock(component.copyright) } } }
+            item(key = "copyright") {
+                PreferenceGroup(title = "版权") { item { TextBlock(component.copyright) } }
+            }
         }
         if (component.parts.isNotEmpty()) {
             item(key = "parts") {
@@ -174,7 +211,12 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
                         item {
                             BasicComponent(
                                 title = part.name,
-                                summary = listOfNotNull("${part.version} · ${part.license}", part.copyright).joinToString("\n"),
+                                summary =
+                                    listOfNotNull(
+                                            "${part.version} · ${part.license}",
+                                            part.copyright,
+                                        )
+                                        .joinToString("\n"),
                             )
                         }
                     }
@@ -184,11 +226,21 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
         if (component.files.isNotEmpty()) {
             // Kotlin 源码的路径去掉公共的前缀，手机上一行放得下
             item(key = "files") {
-                PreferenceGroup(title = "仓里的文件") { item { TextBlock(component.files.map { it.removePrefix("app/src/main/kotlin/com/dzshzx/zeta/") }) } }
+                PreferenceGroup(title = "仓里的文件") {
+                    item {
+                        TextBlock(
+                            component.files.map {
+                                it.removePrefix("app/src/main/kotlin/com/dzshzx/zeta/")
+                            },
+                        )
+                    }
+                }
             }
         }
         if (component.artifacts.isNotEmpty()) {
-            item(key = "artifacts") { PreferenceGroup(title = "构件") { item { TextBlock(component.artifacts) } } }
+            item(key = "artifacts") {
+                PreferenceGroup(title = "构件") { item { TextBlock(component.artifacts) } }
+            }
         }
         ids.forEachIndexed { index, id -> licenseText(id, texts[index]) }
     }
@@ -202,7 +254,13 @@ internal fun CreditsScreen(onBack: () -> Unit) {
         item(key = "credits") {
             PreferenceGroup(footer = ZetaInfo.UNOFFICIAL) {
                 CREDITS.forEach { credit ->
-                    item { ArrowPreference(title = credit.name, summary = credit.summary, onClick = { openLink(context, credit.url) }) }
+                    item {
+                        ArrowPreference(
+                            title = credit.name,
+                            summary = credit.summary,
+                            onClick = { openLink(context, credit.url) },
+                        )
+                    }
                 }
             }
         }
@@ -211,20 +269,33 @@ internal fun CreditsScreen(onBack: () -> Unit) {
 
 private data class Credit(val name: String, val summary: String, val url: String)
 
-private val CREDITS = listOf(
-    Credit("Eta", "Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）", "https://github.com/Mangi-11/Eta"),
-    Credit("COUI 2", "界面组件库，ColorOS 17 的样式（Apache-2.0）", "https://github.com/suqi8/coui"),
-    Credit("Miuix", "COUI 2 的上游（Apache-2.0）", "https://github.com/compose-miuix-ui/miuix"),
-    Credit("Claude Code", "Anthropic 的编程 agent，Zeta 是它在手机上的客户端", "https://github.com/anthropics/claude-code"),
-)
+private val CREDITS =
+    listOf(
+        Credit(
+            "Eta",
+            "Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）",
+            "https://github.com/Mangi-11/Eta",
+        ),
+        Credit("COUI 2", "界面组件库，ColorOS 17 的样式（Apache-2.0）", "https://github.com/suqi8/coui"),
+        Credit("Miuix", "COUI 2 的上游（Apache-2.0）", "https://github.com/compose-miuix-ui/miuix"),
+        Credit(
+            "Claude Code",
+            "Anthropic 的编程 agent，Zeta 是它在手机上的客户端",
+            "https://github.com/anthropics/claude-code",
+        ),
+    )
 
 /** 一种许可证的全文：分类标题，下面一张卡片里分段排；还没读出来时转圈，读不出时说一声。 */
 private fun LazyListScope.licenseText(id: String, text: String?) {
     item(key = "title:$id") { PreferenceCategory(title = Licenses.titles[id] ?: id) }
     val paragraphs = text?.let { Licenses.paragraphs(it) }
     when {
-        paragraphs == null -> item(key = "loading:$id") { PreferenceGroup { item { ConfigLoadingRow() } } }
-        paragraphs.isEmpty() -> item(key = "missing:$id") { PagerFooterPreference(summary = "读不出这份全文（${Licenses.asset(id)}）") }
+        paragraphs == null ->
+            item(key = "loading:$id") { PreferenceGroup { item { ConfigLoadingRow() } } }
+        paragraphs.isEmpty() ->
+            item(key = "missing:$id") {
+                PagerFooterPreference(summary = "读不出这份全文（${Licenses.asset(id)}）")
+            }
         else -> {
             // 几段一组放进列表，长的全文滚动时只组合看得见的那几组
             val chunks = paragraphs.chunked(8)
@@ -232,10 +303,18 @@ private fun LazyListScope.licenseText(id: String, text: String?) {
                 CardListSegment(index, chunks.size, dividerStart = null) {
                     SelectionContainer {
                         Column(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = if (index == 0) 14.dp else 0.dp, bottom = 14.dp),
+                            Modifier.fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(top = if (index == 0) 14.dp else 0.dp, bottom = 14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            chunk.forEach { Text(text = it, style = COUITheme.textStyles.bodyS, color = COUITheme.colorScheme.labelPrimary) }
+                            chunk.forEach {
+                                Text(
+                                    text = it,
+                                    style = COUITheme.textStyles.bodyS,
+                                    color = COUITheme.colorScheme.labelPrimary,
+                                )
+                            }
                         }
                     }
                 }
@@ -248,8 +327,17 @@ private fun LazyListScope.licenseText(id: String, text: String?) {
 @Composable
 private fun TextBlock(lines: List<String>) {
     SelectionContainer {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            lines.forEach { Text(text = it, style = COUITheme.textStyles.bodyS, color = COUITheme.colorScheme.labelPrimary) }
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            lines.forEach {
+                Text(
+                    text = it,
+                    style = COUITheme.textStyles.bodyS,
+                    color = COUITheme.colorScheme.labelPrimary,
+                )
+            }
         }
     }
 }
@@ -258,13 +346,22 @@ private fun TextBlock(lines: List<String>) {
 @Composable
 private fun rememberAssetText(path: String): String? {
     val context = LocalContext.current
-    val text by produceState<String?>(null, path) {
-        value = withContext(Dispatchers.IO) { runCatching { context.assets.open(path).bufferedReader().use { it.readText() } }.getOrDefault("") }
-    }
+    val text by
+        produceState<String?>(null, path) {
+            value =
+                withContext(Dispatchers.IO) {
+                    runCatching { context.assets.open(path).bufferedReader().use { it.readText() } }
+                        .getOrDefault("")
+                }
+        }
     return text
 }
 
 /** 用系统浏览器打开链接。 */
 private fun openLink(context: Context, url: String) {
-    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
 }

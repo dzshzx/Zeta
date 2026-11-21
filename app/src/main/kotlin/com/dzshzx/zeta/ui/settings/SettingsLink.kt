@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * 从通知直接打开设置里的某一页（比如无障碍被关掉时的提醒点开到权限健康页）。
- * MainActivity 收到带 [EXTRA] 的 Intent 后记在 [pending]；主界面据此打开设置页，设置页再切到那一页并清掉它。
+ * 从通知直接打开设置里的某一页（比如无障碍被关掉时的提醒点开到权限健康页）。 MainActivity 收到带 [EXTRA] 的 Intent 后记在
+ * [pending]；主界面据此打开设置页，设置页再切到那一页并清掉它。
  */
 internal object SettingsLink {
     const val EXTRA = "com.dzshzx.zeta.extra.SETTINGS_PAGE"
@@ -23,5 +23,6 @@ internal object SettingsLink {
     }
 
     /** 按 [SettingsSubPage.link] 找页。 */
-    fun page(link: String): SettingsSubPage? = SettingsSubPage.entries.firstOrNull { it.link == link }
+    fun page(link: String): SettingsSubPage? =
+        SettingsSubPage.entries.firstOrNull { it.link == link }
 }

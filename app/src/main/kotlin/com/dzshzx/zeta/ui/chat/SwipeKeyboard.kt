@@ -17,9 +17,8 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 
 /**
- * 在聊天列表上用手指调起、收起输入法：列表已到最底端（或内容不满一屏）时接着往上拖满 [openPx]，调 [onOpen]；
- * 输入法开着（[imeVisible]）时往下拖满 [closePx]，调 [onClose]。列表照常滚动，这里只看不吃位移。
- * 只算手指拖动（惯性滑动不算），一次拖动最多触发一回，松手后重新计。
+ * 在聊天列表上用手指调起、收起输入法：列表已到最底端（或内容不满一屏）时接着往上拖满 [openPx]，调 [onOpen]； 输入法开着（[imeVisible]）时往下拖满
+ * [closePx]，调 [onClose]。列表照常滚动，这里只看不吃位移。 只算手指拖动（惯性滑动不算），一次拖动最多触发一回，松手后重新计。
  */
 internal class SwipeKeyboard(
     private val openPx: Float,
@@ -41,7 +40,11 @@ internal class SwipeKeyboard(
         return Offset.Zero
     }
 
-    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource,
+    ): Offset {
         if (source != NestedScrollSource.UserInput || fired || imeVisible) return Offset.Zero
         // 列表滚不动了还剩下的往上位移（y 为负）才算；列表还在往下滚时不计
         travel = if (consumed.y < 0f) 0f else (travel - available.y).coerceAtLeast(0f)
@@ -67,25 +70,24 @@ internal val OpenDistance = 72.dp
 /** 往下拖多远收起输入法。 */
 internal val CloseDistance = 24.dp
 
-/**
- * 聊天页的 [SwipeKeyboard]：调起时把焦点给输入框 [field]，拿到了才弹输入法（输入框不在屏上或不能输入时拿不到）；收起时连焦点一起清掉。
- */
+/** 聊天页的 [SwipeKeyboard]：调起时把焦点给输入框 [field]，拿到了才弹输入法（输入框不在屏上或不能输入时拿不到）；收起时连焦点一起清掉。 */
 @Composable
 internal fun rememberSwipeKeyboard(field: FocusRequester): NestedScrollConnection {
     val density = LocalDensity.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    val connection = remember(density, keyboard, focusManager, field) {
-        SwipeKeyboard(
-            openPx = with(density) { OpenDistance.toPx() },
-            closePx = with(density) { CloseDistance.toPx() },
-            onOpen = { if (field.requestFocus()) keyboard?.show() },
-            onClose = {
-                keyboard?.hide()
-                focusManager.clearFocus()
-            },
-        )
-    }
+    val connection =
+        remember(density, keyboard, focusManager, field) {
+            SwipeKeyboard(
+                openPx = with(density) { OpenDistance.toPx() },
+                closePx = with(density) { CloseDistance.toPx() },
+                onOpen = { if (field.requestFocus()) keyboard?.show() },
+                onClose = {
+                    keyboard?.hide()
+                    focusManager.clearFocus()
+                },
+            )
+        }
     TrackIme(connection)
     return connection
 }

@@ -22,29 +22,32 @@ class FrontmatterTest {
 
     @Test
     fun parsesScalarsListsAndBlocks() {
-        val meta = Frontmatter.parse(
-            """
-            name: code-reviewer
-            description: "Reviews code: finds bugs\nand smells"
-            quoted: 'it''s'
-            tools: [Read, Grep]
-            list:
-              - a
-              - "b c"
-            block: |
-              line one
-              line two
-            folded: >-
-              one
-              two
-            metadata:
-              type: feedback
-            plain: value # comment
-            wrapped: first part
-              second part
-            crlf: yes
-            """.trimIndent().replace("crlf: yes", "crlf: yes\r"),
-        )
+        val meta =
+            Frontmatter.parse(
+                """
+                name: code-reviewer
+                description: "Reviews code: finds bugs\nand smells"
+                quoted: 'it''s'
+                tools: [Read, Grep]
+                list:
+                  - a
+                  - "b c"
+                block: |
+                  line one
+                  line two
+                folded: >-
+                  one
+                  two
+                metadata:
+                  type: feedback
+                plain: value # comment
+                wrapped: first part
+                  second part
+                crlf: yes
+                """
+                    .trimIndent()
+                    .replace("crlf: yes", "crlf: yes\r"),
+            )
         assertEquals("code-reviewer", meta["name"]?.text())
         assertEquals("Reviews code: finds bugs\nand smells", meta["description"]?.text())
         assertEquals("it's", meta["quoted"]?.text())
@@ -76,7 +79,8 @@ class FrontmatterTest {
 }
 
 class SubagentFilesTest {
-    private val original = """
+    private val original =
+        """
         ---
         # 注释
         name: reviewer
@@ -90,7 +94,8 @@ class SubagentFilesTest {
         ---
 
         You review code.
-    """.trimIndent() + "\n"
+        """
+            .trimIndent() + "\n"
 
     @Test
     fun parsesAgentFile() {
@@ -101,13 +106,29 @@ class SubagentFilesTest {
         assertEquals("You review code.", agent.prompt)
         assertEquals(listOf("color", "hooks"), agent.extraKeys)
         assertNull(SubagentFiles.parse("a.md", "---\nname: a\ndescription: d\n---\nx").tools)
-        assertEquals(emptyList<String>(), SubagentFiles.parse("a.md", "---\nname: a\ntools: []\n---\n").tools)
-        assertEquals("line1\nline2", SubagentFiles.parse("a.md", "---\ndescription: line1\\nline2\n---\n").description)
+        assertEquals(
+            emptyList<String>(),
+            SubagentFiles.parse("a.md", "---\nname: a\ntools: []\n---\n").tools,
+        )
+        assertEquals(
+            "line1\nline2",
+            SubagentFiles.parse("a.md", "---\ndescription: line1\\nline2\n---\n").description,
+        )
     }
 
     @Test
     fun renderKeepsUnknownKeysAndDropsDefaultModel() {
-        val text = SubagentFiles.render(SubagentDraft("reviewer", "Use after: edits", "", listOf("Read", " ", "mcp__phone__tap"), "\nNew prompt\n"), original)
+        val text =
+            SubagentFiles.render(
+                SubagentDraft(
+                    "reviewer",
+                    "Use after: edits",
+                    "",
+                    listOf("Read", " ", "mcp__phone__tap"),
+                    "\nNew prompt\n",
+                ),
+                original,
+            )
         assertEquals(
             """
             ---
@@ -122,7 +143,8 @@ class SubagentFilesTest {
             ---
 
             New prompt
-            """.trimIndent() + "\n",
+            """
+                .trimIndent() + "\n",
             text,
         )
         val reparsed = SubagentFiles.parse("reviewer.md", text)
@@ -130,8 +152,13 @@ class SubagentFilesTest {
         assertEquals("", reparsed.model)
         assertEquals(listOf("color", "hooks"), reparsed.extraKeys)
         // 全部工具：不写 tools；没勾任何工具：tools: []
-        assertFalse("tools:" in SubagentFiles.render(SubagentDraft("a", "d", "inherit", null, "p"), null))
-        assertTrue("tools: []" in SubagentFiles.render(SubagentDraft("a", "d", "inherit", emptyList(), "p"), null))
+        assertFalse(
+            "tools:" in SubagentFiles.render(SubagentDraft("a", "d", "inherit", null, "p"), null),
+        )
+        assertTrue(
+            "tools: []" in
+                SubagentFiles.render(SubagentDraft("a", "d", "inherit", emptyList(), "p"), null),
+        )
     }
 
     @Test
@@ -154,7 +181,8 @@ class ClaudeSettingsTest {
     @Test
     fun renderMatchesJsonStringify() {
         // 期望值由 node 的 JSON.stringify(value, null, 2) 算出
-        val value = Json.parseToJsonElement("""{"a":1,"b":[],"c":{},"d":[1,{"x":"中\u0001\"/"}],"f":null}""")
+        val value =
+            Json.parseToJsonElement("""{"a":1,"b":[],"c":{},"d":[1,{"x":"中\u0001\"/"}],"f":null}""")
         assertEquals(
             "{\n  \"a\": 1,\n  \"b\": [],\n  \"c\": {},\n  \"d\": [\n    1,\n    {\n      \"x\": \"中\\u0001\\\"/\"\n    }\n  ],\n  \"f\": null\n}\n",
             ClaudeSettings.render(value),
@@ -163,18 +191,25 @@ class ClaudeSettingsTest {
 
     @Test
     fun autoMemoryKeepsOtherKeysInPlace() {
-        val settings = ClaudeSettings.parse("""{"model":"opus","autoMemoryEnabled":true,"env":{"A":"1"}}""")
+        val settings =
+            ClaudeSettings.parse("""{"model":"opus","autoMemoryEnabled":true,"env":{"A":"1"}}""")
         val off = ClaudeSettings.withAutoMemory(settings, false)
         assertEquals(listOf("model", "autoMemoryEnabled", "env"), off.keys.toList())
         assertFalse(ClaudeSettings.memory(off).autoMemory)
         assertTrue(ClaudeSettings.memory(ClaudeSettings.parse(null)).autoMemory)
-        val added = ClaudeSettings.withAutoMemory(ClaudeSettings.parse("""{"model":"opus"}"""), true)
+        val added =
+            ClaudeSettings.withAutoMemory(ClaudeSettings.parse("""{"model":"opus"}"""), true)
         assertEquals(listOf("model", "autoMemoryEnabled"), added.keys.toList())
     }
 
     @Test
     fun forcedOffAndCustomDirectory() {
-        val memory = ClaudeSettings.memory(ClaudeSettings.parse("""{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"True"},"autoMemoryDirectory":"~/m"}"""))
+        val memory =
+            ClaudeSettings.memory(
+                ClaudeSettings.parse(
+                    """{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"True"},"autoMemoryDirectory":"~/m"}""",
+                ),
+            )
         assertTrue(memory.forcedOff)
         assertEquals("~/m", memory.customDir)
     }
@@ -184,30 +219,42 @@ class ClaudeSettingsTest {
         try {
             ClaudeSettings.parse("{broken")
             fail()
-        } catch (expected: ClaudeSettings.Invalid) {
-        }
+        } catch (expected: ClaudeSettings.Invalid) {}
         try {
             ClaudeSettings.parse("[1]")
             fail()
-        } catch (expected: ClaudeSettings.Invalid) {
-        }
+        } catch (expected: ClaudeSettings.Invalid) {}
         assertEquals(JsonObject(emptyMap()), ClaudeSettings.parseLenient("{broken"))
     }
 
     @Test
     fun skillOverrides() {
         val start = ClaudeSettings.parse("""{"skillOverrides":{"keep":"name-only"}}""")
-        val off = ClaudeSettings.withSkillEnabled(start, "pdf", listOf("PDF Tools"), enabled = false)
+        val off =
+            ClaudeSettings.withSkillEnabled(start, "pdf", listOf("PDF Tools"), enabled = false)
         assertEquals("off", ClaudeSettings.skillOverride(off, listOf("pdf")))
         assertEquals("name-only", ClaudeSettings.skillOverride(off, listOf("keep")))
         // 前言里的名字也可能被关掉；启用时一起去掉
-        val both = ClaudeSettings.with(off, "skillOverrides", JsonObject((off["skillOverrides"] as JsonObject) + ("PDF Tools" to JsonPrimitive("off"))))
+        val both =
+            ClaudeSettings.with(
+                off,
+                "skillOverrides",
+                JsonObject(
+                    (off["skillOverrides"] as JsonObject) + ("PDF Tools" to JsonPrimitive("off")),
+                ),
+            )
         val on = ClaudeSettings.withSkillEnabled(both, "pdf", listOf("PDF Tools"), enabled = true)
         assertEquals(JsonObject(mapOf("keep" to JsonPrimitive("name-only"))), on["skillOverrides"])
         // 没有 skillOverrides 时启用：不加空对象
         val untouched = ClaudeSettings.parse("""{"a":1}""")
-        assertEquals(untouched, ClaudeSettings.withSkillEnabled(untouched, "pdf", emptyList(), enabled = true))
-        assertEquals(JsonObject(mapOf("keep" to JsonPrimitive("name-only"))), ClaudeSettings.withoutSkill(off, "pdf")["skillOverrides"])
+        assertEquals(
+            untouched,
+            ClaudeSettings.withSkillEnabled(untouched, "pdf", emptyList(), enabled = true),
+        )
+        assertEquals(
+            JsonObject(mapOf("keep" to JsonPrimitive("name-only"))),
+            ClaudeSettings.withoutSkill(off, "pdf")["skillOverrides"],
+        )
         assertEquals(untouched, ClaudeSettings.withoutSkill(untouched, "pdf"))
     }
 }
@@ -215,15 +262,27 @@ class ClaudeSettingsTest {
 class ClaudeMemoryTest {
     @Test
     fun indexLineRemoval() {
-        val index = "# Memory\n- [Role](user-role.md) — who\n- [Other](./other.md) — x\n- [Role again](user-role.md)\n"
-        assertEquals("# Memory\n- [Other](./other.md) — x\n", ClaudeMemory.indexWithout(index, "user-role.md"))
-        assertEquals("# Memory\n- [Role](user-role.md) — who\n- [Role again](user-role.md)\n", ClaudeMemory.indexWithout(index, "other.md"))
+        val index =
+            "# Memory\n- [Role](user-role.md) — who\n- [Other](./other.md) — x\n- [Role again](user-role.md)\n"
+        assertEquals(
+            "# Memory\n- [Other](./other.md) — x\n",
+            ClaudeMemory.indexWithout(index, "user-role.md"),
+        )
+        assertEquals(
+            "# Memory\n- [Role](user-role.md) — who\n- [Role again](user-role.md)\n",
+            ClaudeMemory.indexWithout(index, "other.md"),
+        )
         assertNull(ClaudeMemory.indexWithout(index, "missing.md"))
     }
 
     @Test
     fun entryReadsNestedType() {
-        val entry = ClaudeMemory.entry("/m/a.md", 10, "---\nname: A\ndescription: about\nmetadata:\n  type: feedback\n---\nbody")
+        val entry =
+            ClaudeMemory.entry(
+                "/m/a.md",
+                10,
+                "---\nname: A\ndescription: about\nmetadata:\n  type: feedback\n---\nbody",
+            )
         assertEquals("A", entry.name)
         assertEquals("feedback", entry.type)
         assertEquals("a.md", entry.fileName)
@@ -232,15 +291,19 @@ class ClaudeMemoryTest {
 
     @Test
     fun projectsPutDefaultFirst() {
-        val dirs = listOf(
-            ProjectDir("-workspace-claude", 3, 100, "/workspace/claude/zeta"),
-            ProjectDir("-other", 2, 300, null),
-            ProjectDir("-empty", 0, 400, null),
-            ProjectDir("-nomemory", -1, 0, "/nomemory"),
-            ProjectDir("-w-x", 1, 200, "/w/x"),
-        )
+        val dirs =
+            listOf(
+                ProjectDir("-workspace-claude", 3, 100, "/workspace/claude/zeta"),
+                ProjectDir("-other", 2, 300, null),
+                ProjectDir("-empty", 0, 400, null),
+                ProjectDir("-nomemory", -1, 0, "/nomemory"),
+                ProjectDir("-w-x", 1, 200, "/w/x"),
+            )
         val projects = ClaudeMemory.projects(dirs, "-new-default", "/new/default")
-        assertEquals(listOf("-new-default", "-other", "-w-x", "-workspace-claude"), projects.map { it.key })
+        assertEquals(
+            listOf("-new-default", "-other", "-w-x", "-workspace-claude"),
+            projects.map { it.key },
+        )
         assertEquals(MemoryProject("-new-default", "/new/default", 0, true), projects[0])
         assertEquals("/w/x", projects[2].label)
         assertEquals("/workspace/claude", projects[3].label)
@@ -251,7 +314,8 @@ class ClaudeMemoryTest {
 
     @Test
     fun recordsSkipProfileNoise() {
-        val out = "Welcome!\nnoise\u0000line\n@zeta\nX\u0000/m/MEMORY.md\u0000-1\u00000\u0000\nM\u0000/m/a.md\u00005\u0000100\u0000aGVsbG8=\ngarbage\n"
+        val out =
+            "Welcome!\nnoise\u0000line\n@zeta\nX\u0000/m/MEMORY.md\u0000-1\u00000\u0000\nM\u0000/m/a.md\u00005\u0000100\u0000aGVsbG8=\ngarbage\n"
         val records = ClaudeScripts.records(out)
         assertEquals(listOf("X", "M"), records.map { it.tag })
         assertNull(records[0].file())

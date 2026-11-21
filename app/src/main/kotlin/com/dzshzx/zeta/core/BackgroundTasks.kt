@@ -10,10 +10,21 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 /** 后台任务是什么：后台命令（Bash 的 run_in_background）、监视器（Monitor）、后台子代理，或别的种类。 */
-enum class TaskKind { Command, Monitor, Agent, Other }
+enum class TaskKind {
+    Command,
+    Monitor,
+    Agent,
+    Other,
+}
 
 /** [Ended]：从清单里消失了（或进程没了），却没收到结局，不知道是怎么结束的。 */
-enum class TaskState { Running, Completed, Failed, Stopped, Ended }
+enum class TaskState {
+    Running,
+    Completed,
+    Failed,
+    Stopped,
+    Ended,
+}
 
 /**
  * Claude Code 在一个对话里起的一个后台任务。字段取自 stream-json 的几种 system 事件（2.1.328 实测，见 ClaudeTaskContractTest）：
@@ -43,17 +54,24 @@ data class BackgroundTask(
     val summary: String? = null,
     val error: String? = null,
 ) {
-    val running: Boolean get() = state == TaskState.Running
+    val running: Boolean
+        get() = state == TaskState.Running
 
     /** 能用 get_task_output 读输出的：后台命令和监视器（子代理读不了，看 [progress] 和 [summary]）。 */
-    val readable: Boolean get() = kind == TaskKind.Command || kind == TaskKind.Monitor
+    val readable: Boolean
+        get() = kind == TaskKind.Command || kind == TaskKind.Monitor
 
     fun elapsedMs(now: Long): Long = ((endedAt ?: now) - startedAt).coerceAtLeast(0)
 }
 
 /** get_task_output 的应答：输出的最后至多 8 KiB。[error] 不为 null 时是没读成的原因。 */
 @Immutable
-data class TaskOutput(val text: String, val totalBytes: Long, val truncated: Boolean, val error: String? = null)
+data class TaskOutput(
+    val text: String,
+    val totalBytes: Long,
+    val truncated: Boolean,
+    val error: String? = null,
+)
 
 /**
  * 把 Claude Code 的事件归约成后台任务清单。纯逻辑，不碰 Android，在主线程（或测试里）调用。
@@ -72,24 +90,30 @@ class TaskBoard(private val keepFinished: Int = 20) {
 
     /** 在跑的排前面，各自按开始时间新的在前。 */
     val tasks: List<BackgroundTask>
-        get() = entries.values.sortedWith(compareByDescending<BackgroundTask> { it.running }.thenByDescending { it.startedAt })
+        get() =
+            entries.values.sortedWith(
+                compareByDescending<BackgroundTask> { it.running }
+                    .thenByDescending { it.startedAt },
+            )
 
     /** 处理一条 stream-json 事件，返回清单有没有变。[now] 是收到它的时间（毫秒）。 */
-    fun observe(event: JsonObject, now: Long): Boolean = when (event.str("type")) {
-        "assistant" -> {
-            rememberCalls(event)
-            false
-        }
-        "system" -> when (event.str("subtype")) {
-            "task_started" -> started(event, now)
-            "background_tasks_changed" -> listed(event, now)
-            "task_progress" -> progressed(event)
-            "task_updated" -> patched(event)
-            "task_notification" -> notified(event, now)
+    fun observe(event: JsonObject, now: Long): Boolean =
+        when (event.str("type")) {
+            "assistant" -> {
+                rememberCalls(event)
+                false
+            }
+            "system" ->
+                when (event.str("subtype")) {
+                    "task_started" -> started(event, now)
+                    "background_tasks_changed" -> listed(event, now)
+                    "task_progress" -> progressed(event)
+                    "task_updated" -> patched(event)
+                    "task_notification" -> notified(event, now)
+                    else -> false
+                }
             else -> false
         }
-        else -> false
-    }
 
     /** 用户叫停 [id]（或叫停没成，[stopping] 为 false）。返回清单有没有变。 */
     fun markStopping(id: String, stopping: Boolean = true): Boolean {
@@ -137,7 +161,8 @@ class TaskBoard(private val keepFinished: Int = 20) {
         // 接回后台进程时，助手脚本把发起它的工具调用一并带来（zeta_tool），开始时间是那时的记录时间（zeta_at）
         event.obj("zeta_tool")?.let { tool ->
             val use = event.str("tool_use_id")
-            if (use != null && use !in calls) remember(use, tool.str("name").orEmpty(), tool.obj("input"))
+            if (use != null && use !in calls)
+                remember(use, tool.str("name").orEmpty(), tool.obj("input"))
         }
         val at = event.long("zeta_at") ?: now
         val task = entries[id]
@@ -180,17 +205,31 @@ class TaskBoard(private val keepFinished: Int = 20) {
                 task == null -> {
                     val start = started.remove(id)
                     val type = item.str("task_type").orEmpty()
-                    var created = BackgroundTask(
-                        id = id, type = type, kind = kindOf(type, null), description = description, command = null,
-                        agentType = item.str("subagent_type"), toolUseId = null, startedAt = start?.at ?: now,
-                    )
+                    var created =
+                        BackgroundTask(
+                            id = id,
+                            type = type,
+                            kind = kindOf(type, null),
+                            description = description,
+                            command = null,
+                            agentType = item.str("subagent_type"),
+                            toolUseId = null,
+                            startedAt = start?.at ?: now,
+                        )
                     if (start != null) created = enrich(created, start.event)
                     entries[id] = created
                     changed = true
                 }
                 // 结束了又回到清单（续跑的子代理）：重新算在跑
                 !task.running -> {
-                    entries[id] = task.copy(state = TaskState.Running, endedAt = null, stopping = false, summary = null, error = null)
+                    entries[id] =
+                        task.copy(
+                            state = TaskState.Running,
+                            endedAt = null,
+                            stopping = false,
+                            summary = null,
+                            error = null,
+                        )
                     changed = true
                 }
                 description.isNotBlank() && description != task.description -> {
@@ -202,7 +241,12 @@ class TaskBoard(private val keepFinished: Int = 20) {
         // 从清单里消失、又没收到结局的：结束了，但不知道怎么结束的
         for ((id, task) in entries) {
             if (task.running && id !in listed) {
-                entries[id] = task.copy(state = TaskState.Ended, endedAt = task.endedAt ?: now, stopping = false)
+                entries[id] =
+                    task.copy(
+                        state = TaskState.Ended,
+                        endedAt = task.endedAt ?: now,
+                        stopping = false,
+                    )
                 changed = true
             }
         }
@@ -212,10 +256,11 @@ class TaskBoard(private val keepFinished: Int = 20) {
     private fun progressed(event: JsonObject): Boolean {
         val id = event.str("task_id") ?: return false
         val task = entries[id] ?: return false
-        val updated = task.copy(
-            progress = event.str("description")?.takeIf { it.isNotBlank() } ?: task.progress,
-            toolUses = event.obj("usage")?.int("tool_uses") ?: task.toolUses,
-        )
+        val updated =
+            task.copy(
+                progress = event.str("description")?.takeIf { it.isNotBlank() } ?: task.progress,
+                toolUses = event.obj("usage")?.int("tool_uses") ?: task.toolUses,
+            )
         if (updated == task) return false
         entries[id] = updated
         return true
@@ -226,13 +271,17 @@ class TaskBoard(private val keepFinished: Int = 20) {
         val task = entries[id] ?: return false
         val patch = event.obj("patch") ?: return false
         val state = patch.str("status")?.let(::stateOf) ?: task.state
-        val updated = task.copy(
-            state = state,
-            stopping = task.stopping && state == TaskState.Running,
-            endedAt = if (state == TaskState.Running) null else patch.long("end_time") ?: task.endedAt,
-            description = patch.str("description")?.takeIf { it.isNotBlank() } ?: task.description,
-            error = patch.str("error") ?: task.error,
-        )
+        val updated =
+            task.copy(
+                state = state,
+                stopping = task.stopping && state == TaskState.Running,
+                endedAt =
+                    if (state == TaskState.Running) null
+                    else patch.long("end_time") ?: task.endedAt,
+                description =
+                    patch.str("description")?.takeIf { it.isNotBlank() } ?: task.description,
+                error = patch.str("error") ?: task.error,
+            )
         if (updated == task) return false
         entries[id] = updated
         return true
@@ -241,19 +290,22 @@ class TaskBoard(private val keepFinished: Int = 20) {
     private fun notified(event: JsonObject, now: Long): Boolean {
         val id = event.str("task_id") ?: return false
         val task = entries[id] ?: return false
-        val state = when (event.str("status")) {
-            "completed" -> TaskState.Completed
-            "failed" -> TaskState.Failed
-            "stopped" -> TaskState.Stopped
-            else -> task.state
-        }
-        val summary = event.str("summary")?.trim()?.takeIf { it.isNotEmpty() && it != task.description }
-        entries[id] = task.copy(
-            state = state,
-            stopping = false,
-            endedAt = if (state == TaskState.Running) null else task.endedAt ?: now,
-            summary = summary ?: task.summary,
-        )
+        val state =
+            when (event.str("status")) {
+                "completed" -> TaskState.Completed
+                "failed" -> TaskState.Failed
+                "stopped" -> TaskState.Stopped
+                else -> task.state
+            }
+        val summary =
+            event.str("summary")?.trim()?.takeIf { it.isNotEmpty() && it != task.description }
+        entries[id] =
+            task.copy(
+                state = state,
+                stopping = false,
+                endedAt = if (state == TaskState.Running) null else task.endedAt ?: now,
+                summary = summary ?: task.summary,
+            )
         return trim() || entries[id] != task
     }
 
@@ -261,7 +313,10 @@ class TaskBoard(private val keepFinished: Int = 20) {
     private fun trim(): Boolean {
         val finished = entries.values.filter { !it.running }
         if (finished.size <= keepFinished) return false
-        finished.sortedByDescending { it.endedAt ?: it.startedAt }.drop(keepFinished).forEach { entries.remove(it.id) }
+        finished
+            .sortedByDescending { it.endedAt ?: it.startedAt }
+            .drop(keepFinished)
+            .forEach { entries.remove(it.id) }
         return true
     }
 
@@ -270,11 +325,13 @@ class TaskBoard(private val keepFinished: Int = 20) {
         private val TASK_TOOLS = setOf("Bash", "Monitor", "Agent", "Task")
         private const val MAX_CALLS = 64
 
-        internal fun kindOf(type: String, tool: String?): TaskKind = when {
-            type == "local_bash" -> if (tool == "Monitor") TaskKind.Monitor else TaskKind.Command
-            type == "local_agent" -> TaskKind.Agent
-            else -> TaskKind.Other
-        }
+        internal fun kindOf(type: String, tool: String?): TaskKind =
+            when {
+                type == "local_bash" ->
+                    if (tool == "Monitor") TaskKind.Monitor else TaskKind.Command
+                type == "local_agent" -> TaskKind.Agent
+                else -> TaskKind.Other
+            }
 
         private fun commandOf(call: Pair<String, JsonObject?>?): String? {
             val input = call?.second ?: return null
@@ -285,18 +342,20 @@ class TaskBoard(private val keepFinished: Int = 20) {
             }?.takeIf { it.isNotBlank() }
         }
 
-        private fun stateOf(status: String): TaskState = when (status) {
-            "completed" -> TaskState.Completed
-            "failed" -> TaskState.Failed
-            "killed" -> TaskState.Stopped
-            else -> TaskState.Running // pending、running、paused
-        }
+        private fun stateOf(status: String): TaskState =
+            when (status) {
+                "completed" -> TaskState.Completed
+                "failed" -> TaskState.Failed
+                "killed" -> TaskState.Stopped
+                else -> TaskState.Running // pending、running、paused
+            }
     }
 }
 
 /** get_task_output 应答（control_response 里的 response）。 */
 internal fun parseTaskOutput(response: JsonObject): TaskOutput {
-    if (response.str("subtype") == "error") return TaskOutput("", 0, false, error = response.str("error") ?: "没有读到输出")
+    if (response.str("subtype") == "error")
+        return TaskOutput("", 0, false, error = response.str("error") ?: "没有读到输出")
     val body = response.obj("response") ?: JsonObject(emptyMap())
     return TaskOutput(
         text = body.str("output").orEmpty(),
@@ -314,7 +373,8 @@ fun plainTerminalText(raw: String): String {
     }
 }
 
-private val ANSI = Regex("\u001B(?:\\[[0-?]*[ -/]*[@-~]|\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|[@-Z\\\\-_])")
+private val ANSI =
+    Regex("\u001B(?:\\[[0-?]*[ -/]*[@-~]|\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|[@-Z\\\\-_])")
 
 /** “3 秒”“2 分 05 秒”“1 小时 03 分”。 */
 fun formatElapsed(ms: Long): String {
@@ -330,8 +390,8 @@ fun formatElapsed(ms: Long): String {
 }
 
 /**
- * 一个对话的后台任务（可观察）：清单、读到的输出。状态只在主线程上改。
- * 发控制请求由 [Conversation] 做，应答按请求号交回这里（[outputAnswered]、[stopAnswered]）。
+ * 一个对话的后台任务（可观察）：清单、读到的输出。状态只在主线程上改。 发控制请求由 [Conversation]
+ * 做，应答按请求号交回这里（[outputAnswered]、[stopAnswered]）。
  */
 class BackgroundTasks {
     private val board = TaskBoard()
@@ -343,7 +403,8 @@ class BackgroundTasks {
     var outputs by mutableStateOf<Map<String, TaskOutput>>(emptyMap())
         private set
 
-    val running: Int get() = list.count { it.running }
+    val running: Int
+        get() = list.count { it.running }
 
     fun observe(event: JsonObject, now: Long) {
         if (board.observe(event, now)) publish()
@@ -361,7 +422,8 @@ class BackgroundTasks {
 
     /** stop_task 的应答到了。它对不认识的任务也答 success，真停没停看随后的 task_updated；答错时把“正在停止”撤掉。 */
     internal fun stopAnswered(taskId: String, response: JsonObject) {
-        if (response.str("subtype") == "error" && board.markStopping(taskId, stopping = false)) publish()
+        if (response.str("subtype") == "error" && board.markStopping(taskId, stopping = false))
+            publish()
     }
 
     internal fun processEnded(now: Long) {

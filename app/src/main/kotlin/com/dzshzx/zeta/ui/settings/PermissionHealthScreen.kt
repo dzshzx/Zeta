@@ -21,13 +21,18 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** “权限健康”：Zeta 需要或能用到的权限和状态，每项点一下就去修；有 root 时可以一键授予。 */
 @Composable
-internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit) {
+internal fun PermissionHealthScreen(
+    hub: ConversationHub,
+    onBack: () -> Unit,
+    onOpenLinux: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snapshot = rememberPermissionSnapshot()
@@ -42,16 +47,14 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
             PermissionId.Root -> hub.environment.checkSetup()
             // 安装环境、登录账号都在 Linux 环境页里
             PermissionId.Linux -> onOpenLinux()
-            else -> when {
-                item.rootFixable -> {
-                    working = working + item.id
-                    scope.launch {
-                        fixPermission(context, item.id, tryRoot = true)
-                        working = working - item.id
-                    }
-                }
-                else -> openPermissionSettings(context, item.id)
-            }
+            else ->
+                fixItem(
+                    context,
+                    item,
+                    scope,
+                    onStart = { working = working + item.id },
+                    onDone = { working = working - item.id },
+                )
         }
     }
 
@@ -63,21 +66,12 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
                 items.forEach { entry ->
                     item(key = entry.id) {
                         val busy = entry.id in working
-                        val clickable = !busy && !granting && isActionable(entry, hub)
-                        val value: @Composable () -> Unit = {
-                            PreferenceValue(if (busy) "正在处理…" else entry.value, color = if (busy) Color.Unspecified else statusColor(entry.status))
-                        }
-                        // 点了打开别的页面（Linux 环境页、系统设置）的带箭头；就地经 root 处理的不带
-                        if (clickable && opensPage(entry)) {
-                            ArrowPreference(title = entry.title, summary = entry.summary, endActions = { value() }, onClick = { onItemClick(entry) })
-                        } else {
-                            BasicComponent(
-                                title = entry.title,
-                                summary = entry.summary,
-                                endActions = { value() },
-                                onClick = if (clickable) ({ onItemClick(entry) }) else null,
-                            )
-                        }
+                        PermissionRow(
+                            entry = entry,
+                            busy = busy,
+                            clickable = !busy && !granting && isActionable(entry, hub),
+                            onClick = { onItemClick(entry) },
+                        )
                     }
                 }
             }
@@ -90,24 +84,16 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
                 item {
                     BasicComponent(
                         title = "一键授予",
-                        summary = when {
-                            granting -> "正在授予…"
-                            result != null -> result
-                            hub.environment.setup == SetupState.NoRoot -> "需要 root 权限"
-                            hub.environment.setup == SetupState.Checking -> "正在检查 root 权限"
-                            fixable.isEmpty() -> "没有需要补上的权限"
-                            else -> "有 ${fixable.size} 项可以补上"
-                        },
+                        summary =
+                            grantSummary(granting, result, hub.environment.setup, fixable.size),
                         enabled = fixable.isNotEmpty() && !granting && working.isEmpty(),
                         onClick = {
                             granting = true
                             result = null
                             scope.launch {
-                                val failed = withContext(Dispatchers.IO) {
-                                    fixable.filterNot { entry -> runCatching { PermissionHealth.fixWithRoot(context, entry.id) }.getOrDefault(false) }
-                                }
+                                val failed = grantWithRoot(context, fixable)
                                 granting = false
-                                result = if (failed.isEmpty()) "已全部授予" else "有 ${failed.size} 项没改成"
+                                result = grantResult(failed)
                             }
                         },
                     )
@@ -117,40 +103,134 @@ internal fun PermissionHealthScreen(hub: ConversationHub, onBack: () -> Unit, on
     }
 }
 
+/** 修 Root、Linux 以外的一项：能经 root 改的就地改（开始时调 [onStart]，改完调 [onDone]），别的打开系统设置。 */
+private fun fixItem(
+    context: Context,
+    item: PermissionItem,
+    scope: CoroutineScope,
+    onStart: () -> Unit,
+    onDone: () -> Unit,
+) {
+    if (!item.rootFixable) {
+        openPermissionSettings(context, item.id)
+        return
+    }
+    onStart()
+    scope.launch {
+        fixPermission(context, item.id, tryRoot = true)
+        onDone()
+    }
+}
+
+/** 权限健康的一行；点了打开别的页面（Linux 环境页、系统设置）的带箭头，就地经 root 处理的不带。 */
+@Composable
+private fun PermissionRow(
+    entry: PermissionItem,
+    busy: Boolean,
+    clickable: Boolean,
+    onClick: () -> Unit,
+) {
+    val value: @Composable () -> Unit = {
+        PreferenceValue(
+            if (busy) "正在处理…" else entry.value,
+            color = if (busy) Color.Unspecified else statusColor(entry.status),
+        )
+    }
+    if (clickable && opensPage(entry)) {
+        ArrowPreference(
+            title = entry.title,
+            summary = entry.summary,
+            endActions = { value() },
+            onClick = onClick,
+        )
+    } else {
+        BasicComponent(
+            title = entry.title,
+            summary = entry.summary,
+            endActions = { value() },
+            onClick = if (clickable) onClick else null,
+        )
+    }
+}
+
+/** 一键授予下面的一行说明：正在授予、上次的结果，或者现在能补上几项。 */
+private fun grantSummary(
+    granting: Boolean,
+    result: String?,
+    setup: SetupState,
+    fixable: Int,
+): String =
+    when {
+        granting -> "正在授予…"
+        result != null -> result
+        setup == SetupState.NoRoot -> "需要 root 权限"
+        setup == SetupState.Checking -> "正在检查 root 权限"
+        fixable == 0 -> "没有需要补上的权限"
+        else -> "有 $fixable 项可以补上"
+    }
+
+private fun grantResult(failed: Int): String = if (failed == 0) "已全部授予" else "有 $failed 项没改成"
+
+/** 经 root 逐项改，返回没改成的项数。 */
+private suspend fun grantWithRoot(context: Context, fixable: List<PermissionItem>): Int =
+    withContext(Dispatchers.IO) {
+        fixable
+            .filterNot { entry ->
+                runCatching { PermissionHealth.fixWithRoot(context, entry.id) }.getOrDefault(false)
+            }
+            .size
+    }
+
 /** 打开系统设置里管 [id] 的那一页；ROM 自带的设置页打不开（比如 MIUI 的权限页）时退回应用详情页。 */
 internal fun openPermissionSettings(context: Context, id: PermissionId) {
     val intent = PermissionHealth.settingsIntent(context, id) ?: return
-    runCatching { context.startActivity(intent) }.onFailure {
-        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-        runCatching { context.startActivity(details.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-    }
+    runCatching { context.startActivity(intent) }
+        .onFailure {
+            val details =
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null),
+                )
+            runCatching { context.startActivity(details.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
 }
 
 /** 修一项权限：[tryRoot] 时先经 root 直接改，没改成（或不试 root）就打开系统设置让用户自己开。 */
 internal suspend fun fixPermission(context: Context, id: PermissionId, tryRoot: Boolean) {
-    val ok = tryRoot && withContext(Dispatchers.IO) { runCatching { PermissionHealth.fixWithRoot(context, id) }.getOrDefault(false) }
+    val ok =
+        tryRoot &&
+            withContext(Dispatchers.IO) {
+                runCatching { PermissionHealth.fixWithRoot(context, id) }.getOrDefault(false)
+            }
     if (!ok) openPermissionSettings(context, id)
 }
 
 /** 这一项点了有没有事可做。 */
-private fun isActionable(item: PermissionItem, hub: ConversationHub): Boolean = when (item.id) {
-    PermissionId.Root -> item.status == PermissionStatus.Missing
-    PermissionId.Linux -> hub.environment.setup == SetupState.NoEnvironment || item.status == PermissionStatus.Attention
-    else -> item.status != PermissionStatus.Ready && item.status != PermissionStatus.Checking &&
-        (item.rootFixable || item.status != PermissionStatus.Idle)
-}
+private fun isActionable(item: PermissionItem, hub: ConversationHub): Boolean =
+    when (item.id) {
+        PermissionId.Root -> item.status == PermissionStatus.Missing
+        PermissionId.Linux ->
+            hub.environment.setup == SetupState.NoEnvironment ||
+                item.status == PermissionStatus.Attention
+        else ->
+            item.status != PermissionStatus.Ready &&
+                item.status != PermissionStatus.Checking &&
+                (item.rootFixable || item.status != PermissionStatus.Idle)
+    }
 
 /** 点这一项是打开别的页面（Linux 环境页、系统设置），而不是就地经 root 处理（重新检查 root、一键改好）。 */
-private fun opensPage(item: PermissionItem): Boolean = when (item.id) {
-    PermissionId.Linux -> true
-    PermissionId.Root -> false
-    else -> !item.rootFixable
-}
+private fun opensPage(item: PermissionItem): Boolean =
+    when (item.id) {
+        PermissionId.Linux -> true
+        PermissionId.Root -> false
+        else -> !item.rootFixable
+    }
 
 /** 状态的颜色：缺了是错误色，要注意是警告色，其余 Unspecified（用设置行值的默认颜色）。 */
 @Composable
-internal fun statusColor(status: PermissionStatus): Color = when (status) {
-    PermissionStatus.Missing -> COUITheme.colorScheme.error
-    PermissionStatus.Attention -> StatusWarning
-    else -> Color.Unspecified
-}
+internal fun statusColor(status: PermissionStatus): Color =
+    when (status) {
+        PermissionStatus.Missing -> COUITheme.colorScheme.error
+        PermissionStatus.Attention -> StatusWarning
+        else -> Color.Unspecified
+    }

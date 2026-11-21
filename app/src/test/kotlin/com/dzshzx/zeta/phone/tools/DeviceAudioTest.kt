@@ -8,7 +8,8 @@ import org.junit.Test
 
 class DeviceAudioTest {
     // 真机 dumpsys audio 里各路音量的几行（见 STATUS_SCRIPT 的 grep）
-    private val volumes = """
+    private val volumes =
+        """
         - STREAM_VOICE_CALL:
            Muted: false
            Min: 1
@@ -44,7 +45,8 @@ class DeviceAudioTest {
            Min: 0
            Max: 7
            streamVolume:7
-    """.trimIndent()
+        """
+            .trimIndent()
 
     @Test
     fun parsesVolumes() {
@@ -67,7 +69,8 @@ class DeviceAudioTest {
     }
 
     // 按 AOSP MediaSessionRecord.dump 的格式写的样本
-    private val sessions = """
+    private val sessions =
+        """
         MEDIA SESSION SERVICE (dumpsys media_session)
 
         Global priority session is com.android.server.telecom/HeadsetMediaButton/1 (userId=0)
@@ -90,12 +93,16 @@ class DeviceAudioTest {
               active=false
               state=PlaybackState {state=PAUSED(2), position=0}
               metadata: null
-    """.trimIndent()
+        """
+            .trimIndent()
 
     @Test
     fun parsesSessions() {
         val parsed = DeviceAudio.parseSessions(sessions)
-        assertEquals(listOf("com.example.music", "com.example.video"), parsed.map { it.packageName })
+        assertEquals(
+            listOf("com.example.music", "com.example.video"),
+            parsed.map { it.packageName },
+        )
         assertEquals("playing", parsed[0].state)
         assertEquals("Song Title — Some Singer — An Album", parsed[0].metadata)
         assertEquals("paused", parsed[1].state)
@@ -104,17 +111,29 @@ class DeviceAudioTest {
 
     @Test
     fun statusText() {
-        val text = DeviceAudio.status(mapOf("volumes" to volumes, "ringer" to "1", "output" to "BUILTIN_SPEAKER", "sessions" to sessions))
+        val text =
+            DeviceAudio.status(
+                mapOf(
+                    "volumes" to volumes,
+                    "ringer" to "1",
+                    "output" to "BUILTIN_SPEAKER",
+                    "sessions" to sessions,
+                ),
+            )
         assertTrue(text, text.contains("media: 45/150 (30%)"))
         assertTrue(text, text.contains("ring: 0/15 (0%) muted"))
         assertTrue(text, text.contains("ringer_mode: vibrate"))
         assertTrue(text, text.contains("output: BUILTIN_SPEAKER"))
         assertTrue(text, text.contains("com.example.music: playing — Song Title"))
-        assertTrue(DeviceAudio.status(mapOf("sessions" to "Sessions Stack - have 0 sessions:")).contains("no media session"))
+        assertTrue(
+            DeviceAudio.status(mapOf("sessions" to "Sessions Stack - have 0 sessions:"))
+                .contains("no media session"),
+        )
     }
 
     /** 小米 17 上的真实输出（歌名换掉）：电话的全局会话没有状态，小米音乐停着。 */
-    private val hyperOsSessions = """
+    private val hyperOsSessions =
+        """
         Global priority session is com.android.server.telecom/HeadsetMediaButton/1 (userId=0)
           HeadsetMediaButton com.android.server.telecom/HeadsetMediaButton/1 (userId=0)
             ownerPid=5199, ownerUid=1000, userId=0
@@ -133,7 +152,8 @@ class DeviceAudioTest {
               metadata: size=13, description=Song, Singer, null
         Audio playback (lastly played comes first)
           uid=10463 packages=tv.danmaku.bili
-    """.trimIndent()
+        """
+            .trimIndent()
 
     @Test
     fun parsesHyperOsSessions() {

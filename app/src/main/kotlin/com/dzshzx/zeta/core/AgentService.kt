@@ -1,17 +1,17 @@
 package com.dzshzx.zeta.core
 
 import android.Manifest
+import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.app.Application
-import android.graphics.drawable.Icon
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -42,17 +42,24 @@ internal object Notifier {
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_STATUS, "运行状态", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_STATUS, "运行状态", NotificationManager.IMPORTANCE_LOW),
+        )
         // 测试版的提醒不出声：测试时对话跑完、等确认，不该打扰正在用手机的人
-        val alert = if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_DEFAULT
+        val alert =
+            if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW
+            else NotificationManager.IMPORTANCE_DEFAULT
         manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
         manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
     }
 
-    fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
-        context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-    )
+    fun openAppIntent(context: Context): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     /** 用户回到应用里了，提醒就不必留着。 */
     fun clearAlert(context: Context) {
@@ -64,26 +71,42 @@ internal object Notifier {
         post(context, null, ID_ALERT, title, text, openAppIntent(context), silent = silent)
 
     /**
-     * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。
-     * [tag] 和 [id] 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。
-     * [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
+     * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。 [tag] 和 [id]
+     * 一起认出这一条，同一条再发就替换；[bigText] 为 true 时正文展开能看全。 [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
      */
     fun post(
-        context: Context, tag: String?, id: Int, title: String, text: String, open: PendingIntent,
-        bigText: Boolean = false, silent: Boolean = false, channel: String = CHANNEL_ALERT,
+        context: Context,
+        tag: String?,
+        id: Int,
+        title: String,
+        text: String,
+        open: PendingIntent,
+        bigText: Boolean = false,
+        silent: Boolean = false,
+        channel: String = CHANNEL_ALERT,
     ) {
-        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        if (
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        )
+            return
         ensureChannels(context)
-        val notification = Notification.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(AppVariant.current.notificationTitle(title))
-            .setContentText(text)
-            .apply { if (bigText) setStyle(Notification.BigTextStyle().bigText(text)) }
-            // 框架的 Notification.Builder 没有 setSilent：照 NotificationCompat 的做法，当成组里的一条、只让（不存在的）摘要提醒
-            .apply { if (silent) setGroup(SILENT_GROUP).setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY) }
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .build()
+        val notification =
+            Notification.Builder(context, channel)
+                .setSmallIcon(R.drawable.ic_stat_zeta)
+                .setContentTitle(AppVariant.current.notificationTitle(title))
+                .setContentText(text)
+                .apply { if (bigText) setStyle(Notification.BigTextStyle().bigText(text)) }
+                // 框架的 Notification.Builder 没有 setSilent：照 NotificationCompat
+                // 的做法，当成组里的一条、只让（不存在的）摘要提醒
+                .apply {
+                    if (silent)
+                        setGroup(SILENT_GROUP)
+                            .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
+                }
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build()
         context.getSystemService(NotificationManager::class.java).notify(tag, id, notification)
     }
 
@@ -93,8 +116,8 @@ internal object Notifier {
 }
 
 /**
- * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。
- * 常驻通知在有对话回答时申请提升为实时通知（状态栏、锁屏上的 Live Updates，内容见 [LiveStatus]）；系统不允许时照旧。
+ * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。 常驻通知在有对话回答时申请提升为实时通知（状态栏、锁屏上的 Live Updates，内容见
+ * [LiveStatus]）；系统不允许时照旧。
  */
 class AgentService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -121,7 +144,9 @@ class AgentService : Service() {
             return START_NOT_STICKY
         }
         starting = false
-        val state = throttle.published ?: StatusNotice(active = true, busy = false, running = emptyList(), live = null)
+        val state =
+            throttle.published
+                ?: StatusNotice(active = true, busy = false, running = emptyList(), live = null)
         // 叫起服务以后、到这里以前对话又都结束了（比如远程主机连不上，进程一起来就退出）：
         // 系统要求 startForegroundService 叫起的服务先进前台，所以照样进一下前台再停掉，否则整个应用被系统结束
         show(state.takeIf { it.active } ?: state.copy(active = true, busy = false))
@@ -135,12 +160,18 @@ class AgentService : Service() {
 
     /** 按 [state] 发常驻通知（前台服务的那条），一轮进行中持有唤醒锁。在主线程上调用。 */
     private fun show(state: StatusNotice) {
-        startForeground(Notifier.ID_STATUS, notification(state), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        startForeground(
+            Notifier.ID_STATUS,
+            notification(state),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+        )
         // 只在一轮进行中持有唤醒锁：息屏后设备休眠会把进程一起挂起
         if (state.busy) {
             if (wakeLock == null) {
-                wakeLock = getSystemService(PowerManager::class.java)
-                    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "zeta:turn").apply { acquire(60 * 60 * 1000L) }
+                wakeLock =
+                    getSystemService(PowerManager::class.java)
+                        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "zeta:turn")
+                        .apply { acquire(60 * 60 * 1000L) }
             }
         } else {
             releaseWakeLock()
@@ -151,14 +182,20 @@ class AgentService : Service() {
     internal fun notification(state: StatusNotice): Notification {
         val running = state.running
         Notifier.ensureChannels(this)
-        val builder = Notification.Builder(this, Notifier.CHANNEL_STATUS)
-            .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setOngoing(true)
+        val builder =
+            Notification.Builder(this, Notifier.CHANNEL_STATUS)
+                .setSmallIcon(R.drawable.ic_stat_zeta)
+                .setOngoing(true)
         val live = state.live
         if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             promote(builder, live)
         } else {
-            builder.setContentTitle(AppVariant.current.notificationTitle(if (state.busy) "Claude 正在工作" else "Claude 会话保持中"))
+            builder
+                .setContentTitle(
+                    AppVariant.current.notificationTitle(
+                        if (state.busy) "Claude 正在工作" else "Claude 会话保持中",
+                    ),
+                )
                 .setContentIntent(Notifier.openAppIntent(this))
             when (running.size) {
                 0 -> Unit
@@ -168,35 +205,53 @@ class AgentService : Service() {
         }
         // 只有对话在跑时才给“停止”；安装、维护脚本不从这里打断
         if (running.isNotEmpty()) {
-            val stop = PendingIntent.getService(
-                this, 1, Intent(this, AgentService::class.java).setAction(ACTION_STOP),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+            val stop =
+                PendingIntent.getService(
+                    this,
+                    1,
+                    Intent(this, AgentService::class.java).setAction(ACTION_STOP),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
             builder.addAction(
-                Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stat_zeta), if (running.size > 1) "全部停止" else "停止", stop).build(),
+                Notification.Action.Builder(
+                        Icon.createWithResource(this, R.drawable.ic_stat_zeta),
+                        if (running.size > 1) "全部停止" else "停止",
+                        stop,
+                    )
+                    .build(),
             )
         }
         // 截下当前屏幕放进 Zeta 对话的输入框（和快速设置里的磁贴一样）
-        val capture = PendingIntent.getService(
-            this, 2, Intent(this, AgentService::class.java).setAction(ACTION_CAPTURE),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        val capture =
+            PendingIntent.getService(
+                this,
+                2,
+                Intent(this, AgentService::class.java).setAction(ACTION_CAPTURE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        builder.addAction(
+            Notification.Action.Builder(
+                    Icon.createWithResource(this, R.drawable.ic_tile_capture),
+                    "截屏",
+                    capture,
+                )
+                .build(),
         )
-        builder.addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_tile_capture), "截屏", capture).build())
         return builder.build()
     }
 
-    /**
-     * 实时通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），状态栏小胶囊上一个短词，从这一轮开始走秒；
-     * 有没做完的任务清单时用进度条样式。点开回到这个对话。
-     */
+    /** 实时通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），状态栏小胶囊上一个短词，从这一轮开始走秒； 有没做完的任务清单时用进度条样式。点开回到这个对话。 */
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
     private fun promote(builder: Notification.Builder, live: LiveStatus) {
-        builder.setContentTitle(AppVariant.current.notificationTitle(live.title))
+        builder
+            .setContentTitle(AppVariant.current.notificationTitle(live.title))
             .setContentText(live.text)
             .setSubText(live.note)
             .setContentIntent(
                 PendingIntent.getActivity(
-                    this, REQUEST_OPEN_LIVE, MainActivity.conversationIntent(this, live.key),
+                    this,
+                    REQUEST_OPEN_LIVE,
+                    MainActivity.conversationIntent(this, live.key),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )
@@ -208,7 +263,11 @@ class AgentService : Service() {
         if (progress != null) {
             builder.setStyle(
                 Notification.ProgressStyle()
-                    .setProgressSegments(LiveUpdate.segments(progress.total).map { Notification.ProgressStyle.Segment(it) })
+                    .setProgressSegments(
+                        LiveUpdate.segments(progress.total).map {
+                            Notification.ProgressStyle.Segment(it)
+                        },
+                    )
                     .setProgress(progress.done),
             )
         } else {
@@ -245,10 +304,14 @@ class AgentService : Service() {
         /** 正在运行的服务；停掉时（[update] 里）就清空，不等 onDestroy。只在主线程上碰，下同。 */
         private var instance: AgentService? = null
 
-        /** 叫了 startForegroundService、服务还没到 onStartCommand：这时不能 stopService，交给 onStartCommand 按最新状态处理。 */
+        /**
+         * 叫了 startForegroundService、服务还没到 onStartCommand：这时不能 stopService，交给 onStartCommand
+         * 按最新状态处理。
+         */
         private var starting = false
         private val main = Handler(Looper.getMainLooper())
-        private val throttle = Throttle<StatusNotice>(LIVE_INTERVAL_MS) { old, new -> new.minorAfter(old) }
+        private val throttle =
+            Throttle<StatusNotice>(LIVE_INTERVAL_MS) { old, new -> new.minorAfter(old) }
         private var appContext: Context? = null
         private val flush = Runnable {
             val context = appContext ?: return@Runnable
@@ -258,13 +321,24 @@ class AgentService : Service() {
         /** 系统允许把常驻通知提升为实时通知（Android 16 起，用户也没在设置里关掉这个应用的实时通知）。 */
         fun canPromote(context: Context): Boolean =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA &&
-                runCatching { context.getSystemService(NotificationManager::class.java).canPostPromotedNotifications() }.getOrDefault(false)
+                runCatching {
+                        context
+                            .getSystemService(NotificationManager::class.java)
+                            .canPostPromotedNotifications()
+                    }
+                    .getOrDefault(false)
 
         /**
-         * [running] 是正在回答的对话标题，非空时通知上带“停止”；[live] 是实时通知的内容，null 时是普通的常驻通知。
-         * 在主线程上调用。只是 [live] 的步骤变了时节流（见 [LIVE_INTERVAL_MS]），其余的变化马上更新。
+         * [running] 是正在回答的对话标题，非空时通知上带“停止”；[live] 是实时通知的内容，null 时是普通的常驻通知。 在主线程上调用。只是 [live]
+         * 的步骤变了时节流（见 [LIVE_INTERVAL_MS]），其余的变化马上更新。
          */
-        fun update(context: Context, active: Boolean, busy: Boolean, running: List<String>, live: LiveStatus? = null) {
+        fun update(
+            context: Context,
+            active: Boolean,
+            busy: Boolean,
+            running: List<String>,
+            live: LiveStatus? = null,
+        ) {
             val now = SystemClock.elapsedRealtime()
             val app = context.applicationContext
             main.removeCallbacks(flush)
@@ -287,7 +361,11 @@ class AgentService : Service() {
                 return
             }
             if (starting) return
-            starting = runCatching { context.startForegroundService(Intent(context, AgentService::class.java)) }.isSuccess
+            starting =
+                runCatching {
+                    context.startForegroundService(Intent(context, AgentService::class.java))
+                }
+                    .isSuccess
         }
     }
 }

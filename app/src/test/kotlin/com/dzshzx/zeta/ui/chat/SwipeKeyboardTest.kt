@@ -42,14 +42,20 @@ class SwipeKeyboardTest : ShotTest() {
         val density = LocalDensity.current
         val connection = remember {
             SwipeKeyboard(
-                openPx = with(density) { OpenDistance.toPx() },
-                closePx = with(density) { CloseDistance.toPx() },
-                onOpen = { opened++ },
-                onClose = { closed++ },
-            ).also { keyboard = it }
+                    openPx = with(density) { OpenDistance.toPx() },
+                    closePx = with(density) { CloseDistance.toPx() },
+                    onOpen = { opened++ },
+                    onClose = { closed++ },
+                )
+                .also { keyboard = it }
         }
-        LazyColumn(state = state, modifier = Modifier.fillMaxSize().nestedScroll(connection).testTag("list")) {
-            items((0 until rows).toList(), key = { it }) { Box(Modifier.fillMaxWidth().height(100.dp)) }
+        LazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxSize().nestedScroll(connection).testTag("list"),
+        ) {
+            items((0 until rows).toList(), key = { it }) {
+                Box(Modifier.fillMaxWidth().height(100.dp))
+            }
         }
     }
 
@@ -112,7 +118,11 @@ class SwipeKeyboardTest : ShotTest() {
         val enabled = FocusRequester()
         compose.setContent {
             Column {
-                BasicTextField(rememberTextFieldState(), Modifier.focusRequester(disabled), enabled = false)
+                BasicTextField(
+                    rememberTextFieldState(),
+                    Modifier.focusRequester(disabled),
+                    enabled = false,
+                )
                 BasicTextField(rememberTextFieldState(), Modifier.focusRequester(enabled))
             }
         }

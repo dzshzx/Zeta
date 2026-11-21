@@ -15,8 +15,8 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import kotlinx.coroutines.delay
 import kotlin.concurrent.thread
+import kotlinx.coroutines.delay
 
 /** “手机操作”：要不要把手机工具交给 Claude，以及它依赖的无障碍服务的状态。 */
 @Composable
@@ -33,14 +33,16 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
     CouiPage(title = "手机操作", onBack = onBack) {
-        // 「让 Claude 操作手机」给 Claude 读屏、点按、滑动、输入、打开应用，以及在 Android 一侧以 root 执行命令（pm、am、settings、dumpsys 这些）；
+        // 「让 Claude 操作手机」给 Claude 读屏、点按、滑动、输入、打开应用，以及在 Android 一侧以 root 执行命令（pm、am、settings、dumpsys
+        // 这些）；
         // 只对之后新开的 Claude Code 进程生效。「在后台屏幕上操作」每次打开应用时现读，立即生效：
         // 每个对话各用一块看不见的后台屏幕，屏上的应用不抢音频，后台屏幕关掉时上面的应用一并关闭；关掉开关后应用都在主屏上打开。
         // 聊天页输入框上方的「后台屏幕」条能看实时画面、把应用移到主屏
         item(key = "phone") {
             PreferenceGroup(
-                footer = "「让 Claude 操作手机」对之后新开的对话生效，每次操作仍按权限模式征求你同意。" +
-                    "要你亲自操作（付款、验证码、登录）时，Claude 会把应用移到主屏。",
+                footer =
+                    "「让 Claude 操作手机」对之后新开的对话生效，每次操作仍按权限模式征求你同意。" +
+                        "要你亲自操作（付款、验证码、登录）时，Claude 会把应用移到主屏。",
             ) {
                 item {
                     SwitchPreference(
@@ -73,14 +75,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     BasicComponent(
                         title = "状态",
                         endActions = {
-                            PreferenceValue(
-                                when {
-                                    connected -> "已连接"
-                                    working -> "正在开启…"
-                                    failed -> "没有开启成功"
-                                    else -> "未开启"
-                                },
-                            )
+                            PreferenceValue(accessibilityState(connected, working, failed))
                         },
                     )
                 }
@@ -88,7 +83,11 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item {
                         BasicComponent(
                             title = "关闭无障碍服务",
-                            onClick = { thread(isDaemon = true) { AccessibilityGuard.remove(context.applicationContext, "手机操作页") } },
+                            onClick = {
+                                thread(isDaemon = true) {
+                                    AccessibilityGuard.remove(context.applicationContext, "手机操作页")
+                                }
+                            },
                         )
                     }
                 } else {
@@ -101,7 +100,11 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                                 working = true
                                 failed = false
                                 thread(isDaemon = true) {
-                                    val ok = AccessibilityGuard.enable(context.applicationContext, "手机操作页")
+                                    val ok =
+                                        AccessibilityGuard.enable(
+                                            context.applicationContext,
+                                            "手机操作页",
+                                        )
                                     failed = !ok
                                     working = false
                                 }
@@ -124,7 +127,9 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     item {
                         ArrowPreference(
                             title = "打开系统的无障碍设置",
-                            onClick = { openPermissionSettings(context, PermissionId.Accessibility) },
+                            onClick = {
+                                openPermissionSettings(context, PermissionId.Accessibility)
+                            },
                         )
                     }
                 }
@@ -132,3 +137,12 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 }
+
+/** 无障碍服务的状态：已连接、正在开启、开启失败或未开启。 */
+private fun accessibilityState(connected: Boolean, working: Boolean, failed: Boolean): String =
+    when {
+        connected -> "已连接"
+        working -> "正在开启…"
+        failed -> "没有开启成功"
+        else -> "未开启"
+    }

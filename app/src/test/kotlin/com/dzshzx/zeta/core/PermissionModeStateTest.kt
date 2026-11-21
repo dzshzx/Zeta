@@ -14,7 +14,8 @@ class PermissionModeStateTest {
     private var claudeDefault: String? = null
     private val remembered = ArrayList<String>()
 
-    private fun state(initial: String? = null) = PermissionModeState(initial, { claudeDefault }, { remembered += it })
+    private fun state(initial: String? = null) =
+        PermissionModeState(initial, { claudeDefault }, { remembered += it })
 
     @Test
     fun newConversationLeavesTheModeToClaudeCode() {

@@ -8,10 +8,7 @@ import androidx.compose.ui.unit.dp
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/**
- * 设置首页行首图标的颜色，按这一行管的东西分四类，颜色取 COUI 2 配色里的色相（深色模式各有对应值）。
- * 同一类的行用同一种颜色，新加的行照这四类归，不加第五种。
- */
+/** 设置首页行首图标的颜色，按这一行管的东西分四类，颜色取 COUI 2 配色里的色相（深色模式各有对应值）。 同一类的行用同一种颜色，新加的行照这四类归，不加第五种。 */
 internal enum class SettingsHue {
     /** 蓝：Claude 与对话（账号、模型、思考、上下文、MCP、Subagent、对话里的图片和朗读）。 */
     Claude,
@@ -27,8 +24,8 @@ internal enum class SettingsHue {
 }
 
 /**
- * 设置首页一行的行首图标：放进行的 `startAction`，`startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) }`。
- * 只用在设置首页这类入口列表上；子页里的设置行不放图标。行不能用时给 [enabled] = false，图标跟着标题变灰。
+ * 设置首页一行的行首图标：放进行的 `startAction`，`startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System)
+ * }`。 只用在设置首页这类入口列表上；子页里的设置行不放图标。行不能用时给 [enabled] = false，图标跟着标题变灰。
  */
 @Composable
 internal fun SettingsIcon(icon: ImageVector, hue: SettingsHue, enabled: Boolean = true) {
@@ -37,15 +34,16 @@ internal fun SettingsIcon(icon: ImageVector, hue: SettingsHue, enabled: Boolean 
         imageVector = icon,
         contentDescription = null,
         modifier = Modifier.size(24.dp),
-        tint = if (!enabled) {
-            colors.disabledNeutral
-        } else {
-            when (hue) {
-                SettingsHue.Claude -> colors.blue
-                SettingsHue.System -> colors.green
-                SettingsHue.Files -> colors.orange
-                SettingsHue.Automation -> colors.yellow
-            }
-        },
+        tint =
+            if (!enabled) {
+                colors.disabledNeutral
+            } else {
+                when (hue) {
+                    SettingsHue.Claude -> colors.blue
+                    SettingsHue.System -> colors.green
+                    SettingsHue.Files -> colors.orange
+                    SettingsHue.Automation -> colors.yellow
+                }
+            },
     )
 }

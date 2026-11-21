@@ -2,10 +2,7 @@ package com.dzshzx.zeta.assistant
 
 import com.dzshzx.zeta.core.clipLine
 
-/**
- * 唤起助理时前台的一个应用：系统给的 AssistStructure、AssistContent 里读出来的东西，
- * 或者 ASSIST intent 里带的包名（那时没有界面文字）。
- */
+/** 唤起助理时前台的一个应用：系统给的 AssistStructure、AssistContent 里读出来的东西， 或者 ASSIST intent 里带的包名（那时没有界面文字）。 */
 data class ScreenApp(
     val packageName: String?,
     val label: String?,
@@ -26,13 +23,11 @@ internal interface ScreenNode {
     val text: String?
     val description: String?
     val childCount: Int
+
     fun child(index: Int): ScreenNode
 }
 
-/**
- * 把唤起助理时的屏幕整理成一段给 Claude 的精简文字：应用名、包名、网址、主要可见文字。
- * 纯函数，单元测试覆盖。截图另作图片附件，这里只说有没有。
- */
+/** 把唤起助理时的屏幕整理成一段给 Claude 的精简文字：应用名、包名、网址、主要可见文字。 纯函数，单元测试覆盖。截图另作图片附件，这里只说有没有。 */
 object ScreenDigest {
     /** 一个应用最多收多少行、多少字。 */
     const val MAX_LINES = 150
@@ -54,43 +49,62 @@ object ScreenDigest {
 
     /** 从界面树里按顺序收文字：先文字，没有文字才用够长的描述；空白折成一个空格，重复的只留第一次。 */
     internal fun collect(roots: List<ScreenNode>): Pair<List<String>, Boolean> {
-        val seen = LinkedHashSet<String>()
-        var chars = 0
+        val lines = LineBudget()
         var visited = 0
-        var truncated = false
         val stack = ArrayDeque<Pair<ScreenNode, Int>>()
         for (root in roots.asReversed()) stack.addLast(root to 0)
         while (stack.isNotEmpty()) {
             if (visited >= MAX_NODES) {
-                truncated = true
+                lines.truncated = true
                 break
             }
             val (node, depth) = stack.removeLast()
             visited++
             if (node.skipped) continue
-            val line = clean(node.text) ?: clean(node.description)?.takeIf { it.length >= MIN_DESCRIPTION }
-            if (line != null && line !in seen) {
-                if (seen.size >= MAX_LINES || chars + line.length > MAX_CHARS) {
-                    truncated = true
-                    break
-                }
-                seen += line
-                chars += line.length
-            }
-            if (depth >= MAX_DEPTH) {
-                if (node.childCount > 0) truncated = true
-                continue
-            }
-            for (i in node.childCount - 1 downTo 0) stack.addLast(node.child(i) to depth + 1)
+            if (!lines.add(lineOf(node))) break
+            if (pushChildren(stack, node, depth)) lines.truncated = true
         }
-        return seen.toList() to truncated
+        return lines.seen.toList() to lines.truncated
     }
 
-    private fun clean(value: String?): String? = value?.clipLine(MAX_LINE)?.takeIf { it.isNotEmpty() }
+    /** 收下的文字和用掉的字数；超了上限就不再收。 */
+    private class LineBudget {
+        val seen = LinkedHashSet<String>()
+        var chars = 0
+        var truncated = false
 
-    /**
-     * 屏幕内容那一段。[apps] 为空且没有截图时为 null（什么都没带）。有焦点的应用排前面。
-     */
+        /** 收下一行（null 和重复的跳过）；放不下时记下 [truncated]，返回 false。 */
+        fun add(line: String?): Boolean {
+            if (line == null || line in seen) return true
+            if (seen.size >= MAX_LINES || chars + line.length > MAX_CHARS) {
+                truncated = true
+                return false
+            }
+            seen += line
+            chars += line.length
+            return true
+        }
+    }
+
+    /** 一个节点要收的那行：先文字，没有文字才用够长的描述。 */
+    private fun lineOf(node: ScreenNode): String? =
+        clean(node.text) ?: clean(node.description)?.takeIf { it.length >= MIN_DESCRIPTION }
+
+    /** 把 [node] 的子节点倒着压栈（出栈时就是界面顺序）；已经到了最深那层时不压，返回有没有因此漏掉子节点。 */
+    private fun pushChildren(
+        stack: ArrayDeque<Pair<ScreenNode, Int>>,
+        node: ScreenNode,
+        depth: Int,
+    ): Boolean {
+        if (depth >= MAX_DEPTH) return node.childCount > 0
+        for (i in node.childCount - 1 downTo 0) stack.addLast(node.child(i) to depth + 1)
+        return false
+    }
+
+    private fun clean(value: String?): String? =
+        value?.clipLine(MAX_LINE)?.takeIf { it.isNotEmpty() }
+
+    /** 屏幕内容那一段。[apps] 为空且没有截图时为 null（什么都没带）。有焦点的应用排前面。 */
     fun contextBlock(apps: List<ScreenApp>, screenshot: Boolean): String? {
         if (apps.isEmpty() && !screenshot) return null
         return buildString {
@@ -98,7 +112,9 @@ object ScreenDigest {
             append(if (screenshot) "唤起 Zeta 时的屏幕，截图见附图。" else "唤起 Zeta 时在前台的应用，没有截图。").append('\n')
             for (app in apps.sortedByDescending { it.focused }) {
                 append("应用：").append(appName(app)).append('\n')
-                app.webUri?.takeIf { it.isNotBlank() }?.let { append("网址：").append(it.take(MAX_LINE)).append('\n') }
+                app.webUri
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { append("网址：").append(it.take(MAX_LINE)).append('\n') }
                 if (app.lines.isNotEmpty()) {
                     append("屏幕上的文字：\n")
                     app.lines.forEach { append(it).append('\n') }

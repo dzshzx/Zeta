@@ -14,9 +14,17 @@ class DiagEventsTest {
     fun helperSubcommand() {
         val program = HelperProgram({ ByteArray(0) }, "zeta")
         // 应用里拼 helper 命令行的那一处，诊断日志要认得出子命令
-        assertEquals("storage", DiagEvents.helperCommand(program.command("storage", listOf("it's", "1"))))
+        assertEquals(
+            "storage",
+            DiagEvents.helperCommand(program.command("storage", listOf("it's", "1"))),
+        )
         assertEquals("list", DiagEvents.helperCommand(program.command("list")))
-        assertEquals("history", DiagEvents.helperCommand(program.command("history", listOf("/home/x/.claude/projects/a/b.jsonl"))))
+        assertEquals(
+            "history",
+            DiagEvents.helperCommand(
+                program.command("history", listOf("/home/x/.claude/projects/a/b.jsonl")),
+            ),
+        )
         assertEquals("install", DiagEvents.helperCommand(program.installCommand(byteArrayOf(1, 2))))
         assertNull(DiagEvents.helperCommand("exec bash -c 'x' zeta-host stop k"))
         assertNull(DiagEvents.helperCommand("exec python3 -c 'print(1)'"))
@@ -24,11 +32,27 @@ class DiagEventsTest {
 
     @Test
     fun launchArguments() {
-        val args = listOf(
-            "-p", "--input-format", "stream-json", "--resume", "0a1b2c3d-0000-4000-8000-000000000001", "--fork-session",
-            "--model", "opus", "--permission-mode", "acceptEdits", "--append-system-prompt", "long hint", "--mcp-config", "{}",
+        val args =
+            listOf(
+                "-p",
+                "--input-format",
+                "stream-json",
+                "--resume",
+                "0a1b2c3d-0000-4000-8000-000000000001",
+                "--fork-session",
+                "--model",
+                "opus",
+                "--permission-mode",
+                "acceptEdits",
+                "--append-system-prompt",
+                "long hint",
+                "--mcp-config",
+                "{}",
+            )
+        assertEquals(
+            "续 0a1b2c3d 分支，模型 opus，权限 acceptEdits，手机工具",
+            DiagEvents.describeArguments(args),
         )
-        assertEquals("续 0a1b2c3d 分支，模型 opus，权限 acceptEdits，手机工具", DiagEvents.describeArguments(args))
         assertEquals("", DiagEvents.describeArguments(listOf("-p", "--verbose")))
         // 参数在末尾、缺值的不出错
         assertEquals("", DiagEvents.describeArguments(listOf("--model")))
@@ -37,11 +61,24 @@ class DiagEventsTest {
     @Test
     fun toolErrors() {
         assertNull(DiagEvents.toolError(json("""{"content":[{"type":"text","text":"ok"}]}""")))
-        assertNull(DiagEvents.toolError(json("""{"content":[{"type":"text","text":"ok"}],"isError":false}""")))
-        assertEquals("找不到编号为 7 的屏幕", DiagEvents.toolError(json("""{"content":[{"type":"text","text":"找不到编号为 7 的屏幕"}],"isError":true}""")))
+        assertNull(
+            DiagEvents.toolError(
+                json("""{"content":[{"type":"text","text":"ok"}],"isError":false}"""),
+            ),
+        )
+        assertEquals(
+            "找不到编号为 7 的屏幕",
+            DiagEvents.toolError(
+                json("""{"content":[{"type":"text","text":"找不到编号为 7 的屏幕"}],"isError":true}"""),
+            ),
+        )
         assertEquals(
             "没找到「确定」",
-            DiagEvents.toolError(json("""{"content":[{"type":"image","data":"x"},{"type":"text","text":"\n没找到「确定」\n主屏 1220×2656\n[0] 按钮"}],"isError":true}""")),
+            DiagEvents.toolError(
+                json(
+                    """{"content":[{"type":"image","data":"x"},{"type":"text","text":"\n没找到「确定」\n主屏 1220×2656\n[0] 按钮"}],"isError":true}""",
+                ),
+            ),
         )
         assertEquals("（没有说明）", DiagEvents.toolError(json("""{"content":[],"isError":true}""")))
     }

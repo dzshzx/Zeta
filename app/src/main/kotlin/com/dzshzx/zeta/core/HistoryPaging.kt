@@ -26,10 +26,9 @@ sealed interface EarlierState {
 }
 
 /**
- * 读出来的一段历史：条目已经归并进调用方给的 [TranscriptReducer]。[earlier] 是这段之前还剩的部分（读完了是 null），
- * [todoSeed] 是那部分里的清单工具调用，[usage] 是这段的用量。[stale] 表示助手核对窗口没对上，什么都没给。
- * [model]、[effort] 是整个对话主线上最后一次真实回答用的模型和思考强度（助手按整份记录算，不只是这一段）：
- * 重新打开对话时思考强度照它恢复，模型在 Claude Code 报来之前先显示。
+ * 读出来的一段历史：条目已经归并进调用方给的 [TranscriptReducer]。[earlier] 是这段之前还剩的部分（读完了是 null）， [todoSeed]
+ * 是那部分里的清单工具调用，[usage] 是这段的用量。[stale] 表示助手核对窗口没对上，什么都没给。 [model]、[effort]
+ * 是整个对话主线上最后一次真实回答用的模型和思考强度（助手按整份记录算，不只是这一段）： 重新打开对话时思考强度照它恢复，模型在 Claude Code 报来之前先显示。
  */
 class HistoryRead(
     val earlier: EarlierHistory?,
@@ -41,13 +40,21 @@ class HistoryRead(
 )
 
 internal object HistoryPaging {
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     /**
      * 把助手 history 的输出（第一行 zeta_history，之后一行一条消息）归并进 [into]。[file] 是这份记录，历史里的图片要靠它去取。
      * [keepRunningTools] 用于载入后还要接着跟读进程的情况：最后那几步其实还在跑。
      */
-    fun read(stdout: String, file: String, into: TranscriptReducer, keepRunningTools: Boolean = false): HistoryRead {
+    fun read(
+        stdout: String,
+        file: String,
+        into: TranscriptReducer,
+        keepRunningTools: Boolean = false,
+    ): HistoryRead {
         val usage = UsageTracker()
         var earlier: EarlierHistory? = null
         var seed = emptyList<ToolStep>()
@@ -55,11 +62,13 @@ internal object HistoryPaging {
         var model: String? = null
         var effort: String? = null
         for (line in stdout.lineSequence()) {
-            val event = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
+            val event =
+                runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
             if (event.str("type") == "zeta_history") {
                 stale = event.bool("stale") == true
                 val skipped = event.int("skipped") ?: 0
-                earlier = if (skipped > 0) EarlierHistory(file, skipped, event.str("anchor")) else null
+                earlier =
+                    if (skipped > 0) EarlierHistory(file, skipped, event.str("anchor")) else null
                 seed = TodoBoard.seedSteps(event.arr("todo_seed"))
                 model = event.str("model")
                 effort = event.str("effort")
@@ -67,11 +76,20 @@ internal object HistoryPaging {
             }
             usage.observeHistory(event)
             when (event.str("type")) {
-                "system" -> if (event.str("subtype") == "compact_boundary") into.addNotice(compactNotice(event), error = false)
+                "system" ->
+                    if (event.str("subtype") == "compact_boundary")
+                        into.addNotice(compactNotice(event), error = false)
                 "assistant" -> event.obj("message")?.let { into.applyAssistant(it, history = true) }
-                "user" -> event.obj("message")?.let {
-                    into.applyUser(it, replay = true, sessionFile = file, uuid = event.str("uuid"), toolUseResult = event.obj("tool_use_result"))
-                }
+                "user" ->
+                    event.obj("message")?.let {
+                        into.applyUser(
+                            it,
+                            replay = true,
+                            sessionFile = file,
+                            uuid = event.str("uuid"),
+                            toolUseResult = event.obj("tool_use_result"),
+                        )
+                    }
             }
         }
         into.finishTurn(keepRunningTools)
@@ -81,5 +99,6 @@ internal object HistoryPaging {
 
     /** 要 [window] 之前的一页时给助手的参数。 */
     fun pageArguments(window: EarlierHistory, rest: Boolean = false): List<String> =
-        listOf(window.file, window.skipped.toString(), window.anchor ?: "-") + if (rest) listOf("all") else emptyList()
+        listOf(window.file, window.skipped.toString(), window.anchor ?: "-") +
+            if (rest) listOf("all") else emptyList()
 }

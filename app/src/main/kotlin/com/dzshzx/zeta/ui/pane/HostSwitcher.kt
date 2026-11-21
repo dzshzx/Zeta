@@ -32,12 +32,15 @@ import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 换主机的小胶囊：显示侧栏正看着的主机（[ConversationHub.backend]），点开列出手机和各台远程主机，选一台就换过去
- * （会话列表、新对话都跟着换，见 [ConversationHub.selectBackend]；各台主机的设置在设置首页里分开列）。还没加远程主机时不显示。
- * 侧栏顶部和新对话的空白页上各有一个。
+ * 换主机的小胶囊：显示侧栏正看着的主机（[ConversationHub.backend]），点开列出手机和各台远程主机，选一台就换过去 （会话列表、新对话都跟着换，见
+ * [ConversationHub.selectBackend]；各台主机的设置在设置首页里分开列）。还没加远程主机时不显示。 侧栏顶部和新对话的空白页上各有一个。
  */
 @Composable
-internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, onSelected: () -> Unit = {}) {
+internal fun HostSwitcher(
+    hub: ConversationHub,
+    modifier: Modifier = Modifier,
+    onSelected: () -> Unit = {},
+) {
     val hosts = hub.settings.remoteHosts
     if (hosts.isEmpty()) return
     val colors = COUITheme.colorScheme
@@ -45,11 +48,11 @@ internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, o
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         Row(
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(colors.labelPrimary.copy(alpha = 0.05f))
-                .clickable { open = true }
-                .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            modifier =
+                Modifier.clip(CircleShape)
+                    .background(colors.labelPrimary.copy(alpha = 0.05f))
+                    .clickable { open = true }
+                    .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -68,26 +71,42 @@ internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, o
                 modifier = Modifier.widthIn(max = 180.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Icon(imageVector = ZetaIcons.ChevronDown, contentDescription = "换设备", modifier = Modifier.size(14.dp), tint = colors.labelSecondary)
+            Icon(
+                imageVector = ZetaIcons.ChevronDown,
+                contentDescription = "换设备",
+                modifier = Modifier.size(14.dp),
+                tint = colors.labelSecondary,
+            )
         }
         // 编号、名字、菜单里的小字
-        val items = listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) + hosts.map { Triple(it.id, it.name, it.target) }
+        val items =
+            listOf(
+                Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY),
+            ) + hosts.map { Triple(it.id, it.name, it.target) }
         AnchoredMenu(
             show = open,
-            entries = listOf(
-                DropdownEntry(
-                    items = items.map { (id, name, summary) ->
-                        menuItem(name, hostIcon(id), onClick = {
-                            hub.selectBackend(id)
-                            onSelected()
-                        }).copy(selected = id == current, summary = summary)
-                    },
+            entries =
+                listOf(
+                    DropdownEntry(
+                        items =
+                            items.map { (id, name, summary) ->
+                                menuItem(
+                                        name,
+                                        hostIcon(id),
+                                        onClick = {
+                                            hub.selectBackend(id)
+                                            onSelected()
+                                        },
+                                    )
+                                    .copy(selected = id == current, summary = summary)
+                            },
+                    ),
                 ),
-            ),
             onDismiss = { open = false },
         )
     }
 }
 
 /** 主机 [backend] 的图标：手机或服务器。换主机的菜单和设置首页的主机一组都用它。 */
-internal fun hostIcon(backend: String) = if (backend == Backends.LOCAL) ZetaIcons.Phone else ZetaIcons.Server
+internal fun hostIcon(backend: String) =
+    if (backend == Backends.LOCAL) ZetaIcons.Phone else ZetaIcons.Server

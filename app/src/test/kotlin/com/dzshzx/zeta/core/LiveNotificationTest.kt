@@ -30,39 +30,79 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class LiveNotificationTest {
-    private val app: Application get() = ApplicationProvider.getApplicationContext()
+    private val app: Application
+        get() = ApplicationProvider.getApplicationContext()
 
-    @Before
-    fun reset() = Fixtures.install(null)
+    @Before fun reset() = Fixtures.install(null)
 
     private fun service() = Robolectric.buildService(AgentService::class.java).create().get()
 
     private fun live(progress: TodoProgress? = null) =
-        LiveStatus("s1", "修 bug", "运行 ls", StepKind.TOOL, startedAt = 1_000L, progress = progress, others = 1)
+        LiveStatus(
+            "s1",
+            "修 bug",
+            "运行 ls",
+            StepKind.TOOL,
+            startedAt = 1_000L,
+            progress = progress,
+            others = 1,
+        )
 
     @Test
     fun promotedCarriesLiveFields() {
-        val n = service().notification(StatusNotice(active = true, busy = true, running = listOf("修 bug", "别的"), live = live()))
+        val n =
+            service()
+                .notification(
+                    StatusNotice(
+                        active = true,
+                        busy = true,
+                        running = listOf("修 bug", "别的"),
+                        live = live(),
+                    ),
+                )
         assertTrue(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertTrue("系统据此决定能不能提升", n.hasPromotableCharacteristics())
         // 对照：不常驻的通知系统不认，上面这条检查不是摆设
-        assertFalse(Notification.Builder(app, Notifier.CHANNEL_STATUS).setContentTitle("x").build().hasPromotableCharacteristics())
+        assertFalse(
+            Notification.Builder(app, Notifier.CHANNEL_STATUS)
+                .setContentTitle("x")
+                .build()
+                .hasPromotableCharacteristics(),
+        )
         assertEquals("执行中", n.shortCriticalText)
         assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertEquals("运行 ls", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-        assertEquals("另有 1 个对话在回答", n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
+        assertEquals(
+            "另有 1 个对话在回答",
+            n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString(),
+        )
         assertEquals(1_000L, n.`when`)
         assertTrue(n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
         assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
         // 点开回到这个对话
-        assertEquals("s1", shadowOf(n.contentIntent).savedIntent.getStringExtra("com.dzshzx.zeta.extra.CONVERSATION"))
-        assertEquals(Notification.BigTextStyle::class.java.name, n.extras.getString(Notification.EXTRA_TEMPLATE))
+        assertEquals(
+            "s1",
+            shadowOf(n.contentIntent)
+                .savedIntent
+                .getStringExtra("com.dzshzx.zeta.extra.CONVERSATION"),
+        )
+        assertEquals(
+            Notification.BigTextStyle::class.java.name,
+            n.extras.getString(Notification.EXTRA_TEMPLATE),
+        )
     }
 
     @Test
     fun todoListBecomesProgressBar() {
-        val n = service().notification(StatusNotice(true, true, listOf("修 bug"), live(progress = TodoProgress(2, 5))))
-        assertEquals(Notification.ProgressStyle::class.java.name, n.extras.getString(Notification.EXTRA_TEMPLATE))
+        val n =
+            service()
+                .notification(
+                    StatusNotice(true, true, listOf("修 bug"), live(progress = TodoProgress(2, 5))),
+                )
+        assertEquals(
+            Notification.ProgressStyle::class.java.name,
+            n.extras.getString(Notification.EXTRA_TEMPLATE),
+        )
         assertEquals(2, n.extras.getInt(Notification.EXTRA_PROGRESS))
         assertEquals(5, n.extras.getInt(Notification.EXTRA_PROGRESS_MAX))
         assertTrue(n.hasPromotableCharacteristics())
@@ -70,13 +110,29 @@ class LiveNotificationTest {
 
     @Test
     fun notPromotedKeepsOldLook() {
-        val n = service().notification(StatusNotice(active = true, busy = true, running = listOf("修 bug"), live = null))
+        val n =
+            service()
+                .notification(
+                    StatusNotice(
+                        active = true,
+                        busy = true,
+                        running = listOf("修 bug"),
+                        live = null,
+                    ),
+                )
         assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNull(n.shortCriticalText)
         assertEquals("Claude 正在工作", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-        val idle = service().notification(StatusNotice(active = true, busy = false, running = emptyList(), live = null))
-        assertEquals("Claude 会话保持中", idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        val idle =
+            service()
+                .notification(
+                    StatusNotice(active = true, busy = false, running = emptyList(), live = null),
+                )
+        assertEquals(
+            "Claude 会话保持中",
+            idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertFalse(idle.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }
 
@@ -90,11 +146,25 @@ class LiveNotificationTest {
         assertEquals(Step("正在回答", StepKind.ANSWERING), focus.stepInfo)
         assertEquals("正在回答", focus.step)
 
-        val bash = ToolStep("t1", "Bash", buildJsonObject { put("command", "ls -la") }, ToolStatus.Running, null)
+        val bash =
+            ToolStep(
+                "t1",
+                "Bash",
+                buildJsonObject { put("command", "ls -la") },
+                ToolStatus.Running,
+                null,
+            )
         hub.showChat("t", listOf(WorkItem("w", listOf(bash))))
         assertEquals(Step(toolTitle("Bash", bash.input), StepKind.TOOL), focus.stepInfo)
 
-        val tap = ToolStep("t2", "mcp__${PhoneTools.SERVER}__tap", buildJsonObject { put("id", 3) }, ToolStatus.Running, null)
+        val tap =
+            ToolStep(
+                "t2",
+                "mcp__${PhoneTools.SERVER}__tap",
+                buildJsonObject { put("id", 3) },
+                ToolStatus.Running,
+                null,
+            )
         hub.showChat("t", listOf(WorkItem("w", listOf(tap))))
         assertEquals(StepKind.PHONE, focus.stepInfo.kind)
 
@@ -104,9 +174,15 @@ class LiveNotificationTest {
         conversation.force("status", "正在压缩上下文")
         assertEquals(Step("正在压缩上下文", StepKind.STATUS), focus.stepInfo)
 
-        conversation.force("pending", PermissionRequest("r1", "Bash", JsonObject(emptyMap()), emptyList()))
+        conversation.force(
+            "pending",
+            PermissionRequest("r1", "Bash", JsonObject(emptyMap()), emptyList()),
+        )
         assertEquals(Step("需要你确认", StepKind.CONFIRMING), focus.stepInfo)
-        conversation.force("pending", PermissionRequest("r2", "AskUserQuestion", JsonObject(emptyMap()), emptyList()))
+        conversation.force(
+            "pending",
+            PermissionRequest("r2", "AskUserQuestion", JsonObject(emptyMap()), emptyList()),
+        )
         assertEquals(Step("需要你回答", StepKind.ASKING), focus.stepInfo)
     }
 }

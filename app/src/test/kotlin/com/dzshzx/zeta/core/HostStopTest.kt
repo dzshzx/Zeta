@@ -19,7 +19,8 @@ class HostStopTest {
     private val host = File("src/main/assets/zeta_host.sh").absoluteFile
     private val name = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
     private val key = "k-stop"
-    private val hostDir get() = File(home, ".cache/$name/hosts/$key")
+    private val hostDir
+        get() = File(home, ".cache/$name/hosts/$key")
 
     @Before
     fun setUp() {
@@ -30,21 +31,37 @@ class HostStopTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        runCatching { File(hostDir, "pid").readText().trim().toInt() }.getOrNull()?.let { pid ->
-            ProcessBuilder("kill", "-9", "$pid").start().waitFor(5, TimeUnit.SECONDS)
-        }
+        runCatching { File(hostDir, "pid").readText().trim().toInt() }
+            .getOrNull()
+            ?.let { pid ->
+                ProcessBuilder("kill", "-9", "$pid").start().waitFor(5, TimeUnit.SECONDS)
+            }
         home.deleteRecursively()
     }
 
     /** 跑 zeta_host.sh（[HostTesting.run]），返回用了多少毫秒。 */
     private fun run(vararg arguments: String): Long {
         val started = System.currentTimeMillis()
-        HostTesting.run(home, listOf("bash", host.path) + arguments, HostTesting.named(name) + ("ZETA_STOP_GRACE" to "$GRACE"))
+        HostTesting.run(
+            home,
+            listOf("bash", host.path) + arguments,
+            HostTesting.named(name) + ("ZETA_STOP_GRACE" to "$GRACE"),
+        )
         return System.currentTimeMillis() - started
     }
 
     private fun start(): Int {
-        run("start", key, home.path, "t", "-p", "--input-format", "stream-json", "--output-format", "stream-json")
+        run(
+            "start",
+            key,
+            home.path,
+            "t",
+            "-p",
+            "--input-format",
+            "stream-json",
+            "--output-format",
+            "stream-json",
+        )
         return File(hostDir, "pid").readText().trim().toInt()
     }
 

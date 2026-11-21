@@ -28,34 +28,53 @@ object McpRpc {
     private val json = Json
 
     fun request(id: Int, method: String, params: JsonObject = JsonObject(emptyMap())): String =
-        JsonObject(mapOf("jsonrpc" to JsonPrimitive("2.0"), "id" to JsonPrimitive(id), "method" to JsonPrimitive(method), "params" to params)).toString()
+        JsonObject(
+                mapOf(
+                    "jsonrpc" to JsonPrimitive("2.0"),
+                    "id" to JsonPrimitive(id),
+                    "method" to JsonPrimitive(method),
+                    "params" to params,
+                ),
+            )
+            .toString()
 
     fun notification(method: String): String =
-        JsonObject(mapOf("jsonrpc" to JsonPrimitive("2.0"), "method" to JsonPrimitive(method))).toString()
+        JsonObject(mapOf("jsonrpc" to JsonPrimitive("2.0"), "method" to JsonPrimitive(method)))
+            .toString()
 
-    val initializeParams: JsonObject = JsonObject(
-        mapOf(
-            "protocolVersion" to JsonPrimitive(PROTOCOL),
-            "capabilities" to JsonObject(emptyMap()),
-            "clientInfo" to JsonObject(mapOf("name" to JsonPrimitive("zeta"), "version" to JsonPrimitive("1"))),
-        ),
-    )
+    val initializeParams: JsonObject =
+        JsonObject(
+            mapOf(
+                "protocolVersion" to JsonPrimitive(PROTOCOL),
+                "capabilities" to JsonObject(emptyMap()),
+                "clientInfo" to
+                    JsonObject(
+                        mapOf("name" to JsonPrimitive("zeta"), "version" to JsonPrimitive("1")),
+                    ),
+            ),
+        )
 
-    fun parse(text: String): JsonElement? = runCatching { json.parseToJsonElement(text) }.getOrNull()
+    fun parse(text: String): JsonElement? = runCatching {
+        json.parseToJsonElement(text)
+    }
+        .getOrNull()
 
-    /**
-     * 在一条消息（或一批）里找 id 为 [id] 的回应：找到返回 result，是错误时抛出，找不到返回 null。
-     * 服务器发来的请求、通知（带 method）不算。
-     */
+    /** 在一条消息（或一批）里找 id 为 [id] 的回应：找到返回 result，是错误时抛出，找不到返回 null。 服务器发来的请求、通知（带 method）不算。 */
     fun reply(message: JsonElement?, id: Int): JsonObject? {
-        val candidates = when (message) {
-            is JsonArray -> message.mapNotNull { it as? JsonObject }
-            is JsonObject -> listOf(message)
-            else -> return null
-        }
-        val hit = candidates.firstOrNull { "method" !in it && (it["id"] as? JsonPrimitive)?.intOrNull == id } ?: return null
+        val candidates =
+            when (message) {
+                is JsonArray -> message.mapNotNull { it as? JsonObject }
+                is JsonObject -> listOf(message)
+                else -> return null
+            }
+        val hit =
+            candidates.firstOrNull {
+                "method" !in it && (it["id"] as? JsonPrimitive)?.intOrNull == id
+            } ?: return null
         (hit["error"] as? JsonObject)?.let { error ->
-            throw McpException((error["message"] as? JsonPrimitive)?.contentOrNull?.take(300) ?: "服务器返回了错误")
+            throw McpException(
+                (error["message"] as? JsonPrimitive)?.contentOrNull?.take(300) ?: "服务器返回了错误",
+            )
         }
         return hit["result"] as? JsonObject ?: JsonObject(emptyMap())
     }
@@ -65,14 +84,18 @@ object McpRpc {
         val tools = mutableListOf<McpTool>()
         var cursor: String? = null
         repeat(20) {
-            val params = if (cursor != null) JsonObject(mapOf("cursor" to JsonPrimitive(cursor))) else JsonObject(emptyMap())
+            val params =
+                if (cursor != null) JsonObject(mapOf("cursor" to JsonPrimitive(cursor)))
+                else JsonObject(emptyMap())
             val result = call("tools/list", params)
             (result["tools"] as? JsonArray)?.forEach { tool ->
                 val o = tool as? JsonObject ?: return@forEach
-                tools += McpTool(
-                    name = (o["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
-                    description = (o["description"] as? JsonPrimitive)?.contentOrNull.orEmpty().take(500),
-                )
+                tools +=
+                    McpTool(
+                        name = (o["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                        description =
+                            (o["description"] as? JsonPrimitive)?.contentOrNull.orEmpty().take(500),
+                    )
             }
             cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull
             if (cursor.isNullOrEmpty() || tools.size > 2000) return tools
@@ -90,7 +113,9 @@ class SseReader(private val reader: BufferedReader) {
         var event = "message"
         val data = mutableListOf<String>()
         while (true) {
-            val line = reader.readLine() ?: return if (data.isNotEmpty()) Event(event, data.joinToString("\n")) else null
+            val line =
+                reader.readLine()
+                    ?: return if (data.isNotEmpty()) Event(event, data.joinToString("\n")) else null
             when {
                 line.isEmpty() -> {
                     if (data.isNotEmpty()) return Event(event, data.joinToString("\n"))
@@ -108,14 +133,16 @@ class SseReader(private val reader: BufferedReader) {
         while (true) {
             val event = next() ?: throw McpException("服务器没有回应就断开了")
             if (event.event != "message") continue
-            McpRpc.reply(McpRpc.parse(event.data), id)?.let { return it }
+            McpRpc.reply(McpRpc.parse(event.data), id)?.let {
+                return it
+            }
         }
     }
 }
 
 /**
- * 从应用这边直接连 HTTP 和 SSE 的 MCP 服务器取工具清单（Debian 和 Android 共用网络，127.0.0.1 也连得上）。
- * Claude Code 本身不提供这个查询。需要 OAuth 登录的服务器取不到（Token 在 Claude Code 自己的凭据里）。
+ * 从应用这边直接连 HTTP 和 SSE 的 MCP 服务器取工具清单（Debian 和 Android 共用网络，127.0.0.1 也连得上）。 Claude Code
+ * 本身不提供这个查询。需要 OAuth 登录的服务器取不到（Token 在 Claude Code 自己的凭据里）。
  */
 object McpHttp {
     private const val CONNECT_TIMEOUT = 10_000
@@ -127,9 +154,19 @@ object McpHttp {
         var next = 1
         fun post(body: String, notification: Boolean): JsonObject? = network {
             val id = next
-            val connection = open(url, "POST", headers + mapOf("Content-Type" to "application/json", "Accept" to "application/json, text/event-stream"))
+            val connection =
+                open(
+                    url,
+                    "POST",
+                    headers +
+                        mapOf(
+                            "Content-Type" to "application/json",
+                            "Accept" to "application/json, text/event-stream",
+                        ),
+                )
             session?.let { connection.setRequestProperty("Mcp-Session-Id", it) }
-            if (next > 1 || notification) connection.setRequestProperty("MCP-Protocol-Version", McpRpc.PROTOCOL)
+            if (next > 1 || notification)
+                connection.setRequestProperty("MCP-Protocol-Version", McpRpc.PROTOCOL)
             try {
                 connection.doOutput = true
                 connection.outputStream.use { it.write(body.toByteArray()) }
@@ -142,7 +179,8 @@ object McpHttp {
                     if ("text/event-stream" in type) {
                         SseReader(reader).awaitReply(id)
                     } else {
-                        McpRpc.reply(McpRpc.parse(reader.readText()), id) ?: throw McpException("服务器的回应里没有这次请求的结果")
+                        McpRpc.reply(McpRpc.parse(reader.readText()), id)
+                            ?: throw McpException("服务器的回应里没有这次请求的结果")
                     }
                 }
             } finally {
@@ -155,7 +193,9 @@ object McpHttp {
         }
         try {
             call("initialize", McpRpc.initializeParams)
-            runCatching { post(McpRpc.notification("notifications/initialized"), notification = true) }
+            runCatching {
+                post(McpRpc.notification("notifications/initialized"), notification = true)
+            }
             return McpRpc.listTools(::call)
         } finally {
             session?.let { id ->
@@ -174,17 +214,20 @@ object McpHttp {
         val stream = open(url, "GET", headers + mapOf("Accept" to "text/event-stream"))
         try {
             check(stream)
-            val events = SseReader(BufferedReader(InputStreamReader(stream.inputStream, Charsets.UTF_8)))
+            val events =
+                SseReader(BufferedReader(InputStreamReader(stream.inputStream, Charsets.UTF_8)))
             fun findEndpoint(): String {
                 while (true) {
                     val event = events.next() ?: throw McpException("服务器没有给出消息地址")
-                    if (event.event == "endpoint") return URI(url).resolve(event.data.trim()).toString()
+                    if (event.event == "endpoint")
+                        return URI(url).resolve(event.data.trim()).toString()
                 }
             }
             val endpoint = findEndpoint()
             var next = 0
             fun send(body: String) {
-                val connection = open(endpoint, "POST", headers + mapOf("Content-Type" to "application/json"))
+                val connection =
+                    open(endpoint, "POST", headers + mapOf("Content-Type" to "application/json"))
                 try {
                     connection.doOutput = true
                     connection.outputStream.use { it.write(body.toByteArray()) }
@@ -207,20 +250,26 @@ object McpHttp {
     }
 
     /** 网络层的异常换成给人看的说明（不带地址，地址里可能有密钥）。 */
-    private inline fun <T> network(block: () -> T): T = try {
-        block()
-    } catch (error: SocketTimeoutException) {
-        throw McpException("连接超时")
-    } catch (error: IOException) {
-        throw McpException("连不上：" + (error.message?.let { Regex("https?://\\S+").replace(it, "…") } ?: error.javaClass.simpleName))
-    }
+    private inline fun <T> network(block: () -> T): T =
+        try {
+            block()
+        } catch (error: SocketTimeoutException) {
+            throw McpException("连接超时")
+        } catch (error: IOException) {
+            throw McpException(
+                "连不上：" +
+                    (error.message?.let { Regex("https?://\\S+").replace(it, "…") }
+                        ?: error.javaClass.simpleName),
+            )
+        }
 
     private fun open(url: String, method: String, headers: Map<String, String>): HttpURLConnection {
-        val connection = try {
-            URL(url).openConnection() as HttpURLConnection
-        } catch (error: Exception) {
-            throw McpException("地址不对")
-        }
+        val connection =
+            try {
+                URL(url).openConnection() as HttpURLConnection
+            } catch (error: Exception) {
+                throw McpException("地址不对")
+            }
         connection.requestMethod = method
         connection.connectTimeout = CONNECT_TIMEOUT
         connection.readTimeout = READ_TIMEOUT
@@ -230,13 +279,18 @@ object McpHttp {
     }
 
     private fun check(connection: HttpURLConnection) {
-        val code = try {
-            connection.responseCode
-        } catch (error: SocketTimeoutException) {
-            throw McpException("连接超时")
-        } catch (error: IOException) {
-            throw McpException("连不上：" + (error.message?.let { Regex("https?://\\S+").replace(it, "…") } ?: error.javaClass.simpleName))
-        }
+        val code =
+            try {
+                connection.responseCode
+            } catch (error: SocketTimeoutException) {
+                throw McpException("连接超时")
+            } catch (error: IOException) {
+                throw McpException(
+                    "连不上：" +
+                        (error.message?.let { Regex("https?://\\S+").replace(it, "…") }
+                            ?: error.javaClass.simpleName),
+                )
+            }
         when {
             code in 200..299 -> Unit
             code == 401 || code == 403 -> throw McpException("服务器要求登录或 Token 不对（HTTP $code）")
@@ -246,8 +300,8 @@ object McpHttp {
 }
 
 /**
- * stdio 的 MCP 服务器：进程由调用方在 Linux 环境里起好（见 [ClaudeScripts.MCP_STDIO]），这里按行收发 JSON-RPC。
- * 标准输出里不是 JSON 的行（登录 shell 打的字之类）跳过。
+ * stdio 的 MCP 服务器：进程由调用方在 Linux 环境里起好（见 [ClaudeScripts.MCP_STDIO]），这里按行收发 JSON-RPC。 标准输出里不是 JSON
+ * 的行（登录 shell 打的字之类）跳过。
  */
 class McpStdio(private val process: Process, private val deadlineMs: Long) {
     private val lines = LinkedBlockingQueue<String>()
@@ -282,7 +336,9 @@ class McpStdio(private val process: Process, private val deadlineMs: Long) {
             if (line == end) throw McpException("服务器进程退出了")
             val trimmed = line.trim()
             if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) continue
-            McpRpc.reply(McpRpc.parse(trimmed), next)?.let { return it }
+            McpRpc.reply(McpRpc.parse(trimmed), next)?.let {
+                return it
+            }
         }
     }
 
@@ -294,25 +350,32 @@ class McpStdio(private val process: Process, private val deadlineMs: Long) {
 
     companion object {
         /** 交给 [ClaudeScripts.MCP_STDIO] 的开头：命令、参数和环境变量，各一行 base64，空行结束。 */
-        fun preamble(command: String, args: List<String>, env: Map<String, String>): ByteArray = buildString {
-            (listOf(command) + args).forEach { append("A ").append(ClaudeScripts.encode(it.toByteArray())).append('\n') }
-            env.forEach { (k, v) -> append("E ").append(ClaudeScripts.encode("$k=$v".toByteArray())).append('\n') }
-            append('\n')
-        }.toByteArray()
+        fun preamble(command: String, args: List<String>, env: Map<String, String>): ByteArray =
+            buildString {
+                (listOf(command) + args).forEach {
+                    append("A ").append(ClaudeScripts.encode(it.toByteArray())).append('\n')
+                }
+                env.forEach { (k, v) ->
+                    append("E ").append(ClaudeScripts.encode("$k=$v".toByteArray())).append('\n')
+                }
+                append('\n')
+            }
+            .toByteArray()
 
         /** 读完一个流（只留最后 [keep] 个字符），免得管道写满把对面卡住。 */
         fun drain(stream: InputStream, keep: Int = 4096): () -> String {
             val text = StringBuilder()
-            val worker = thread(isDaemon = true) {
-                runCatching {
-                    stream.bufferedReader().forEachLine { line ->
-                        synchronized(text) {
-                            text.append(line).append('\n')
-                            if (text.length > keep) text.delete(0, text.length - keep)
+            val worker =
+                thread(isDaemon = true) {
+                    runCatching {
+                        stream.bufferedReader().forEachLine { line ->
+                            synchronized(text) {
+                                text.append(line).append('\n')
+                                if (text.length > keep) text.delete(0, text.length - keep)
+                            }
                         }
                     }
                 }
-            }
             return {
                 worker.join(1_000)
                 synchronized(text) { text.toString() }

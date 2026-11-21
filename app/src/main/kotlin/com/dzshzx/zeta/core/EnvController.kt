@@ -10,15 +10,22 @@ import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-enum class SetupState { Checking, NoRoot, NoEnvironment, Ready }
+enum class SetupState {
+    Checking,
+    NoRoot,
+    NoEnvironment,
+    Ready,
+}
 
 /**
  * Linux 环境这一摊：检查 root 和环境、识别 Linux 用户、安装、修复与可选工具、SSH 服务、Claude 账号的登录状态。
- * 状态都可观察，在主线程上读写；查询和命令在后台线程上跑，结果投递回主线程。
- * 和对话有关的事交回 [hub]：环境就绪后读会话列表、接回进程，换环境前收掉对话。
+ * 状态都可观察，在主线程上读写；查询和命令在后台线程上跑，结果投递回主线程。 和对话有关的事交回 [hub]：环境就绪后读会话列表、接回进程，换环境前收掉对话。
  */
-class EnvController internal constructor(private val hub: ConversationHub, assets: (String) -> String) {
-    private val settings get() = hub.settings
+class EnvController
+internal constructor(private val hub: ConversationHub, assets: (String) -> String) {
+    private val settings
+        get() = hub.settings
+
     private val main = Handler(Looper.getMainLooper())
 
     var setup by mutableStateOf(SetupState.Checking)
@@ -38,8 +45,10 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
     var ssh by mutableStateOf<SshStatus?>(null)
         internal set
+
     var sshWorking by mutableStateOf(false)
         private set
+
     val login = LoginFlow(hub)
 
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
@@ -52,37 +61,58 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
 
     var health by mutableStateOf<EnvHealth?>(null)
         internal set
+
     var healthChecking by mutableStateOf(false)
         private set
 
     /** 正在进行或刚做完的一项维护（修复、更新 Claude Code）。 */
-    data class Maintenance(val title: String, val running: Boolean, val detail: String, val ok: Boolean = true)
+    data class Maintenance(
+        val title: String,
+        val running: Boolean,
+        val detail: String,
+        val ok: Boolean = true,
+    )
 
     var maintenance by mutableStateOf<Maintenance?>(null)
         internal set
 
     /** 在装环境或做维护：前台服务据此保持。 */
-    internal val working: Boolean get() = installer.running || maintenance?.running == true
+    internal val working: Boolean
+        get() = installer.running || maintenance?.running == true
 
     fun checkSetup() {
         setup = SetupState.Checking
         thread(name = "zeta-setup", isDaemon = true) {
             val saved = settings.env
-            val state = when {
-                !LinuxEnv.hasRoot() -> SetupState.NoRoot
-                // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
-                saved != null -> if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
-                else -> LinuxEnv.detect(rootfsHint)?.let { detected ->
-                    // 默认工作目录：第一次配环境时是用户的家目录（detect 给的）；重新检测前设过的，新环境里还有这个目录就不变
-                    val kept = keptCwd?.takeIf { cwd ->
-                        cwd != detected.defaultCwd && runCatching { LinuxEnv.run(detected, "[ -d ${LinuxEnv.quote(cwd)} ]").exitCode == 0 }.getOrDefault(false)
-                    }
-                    settings.env = if (kept != null) detected.copy(defaultCwd = kept) else detected
-                    SetupState.Ready
-                } ?: SetupState.NoEnvironment
-            }
+            val state =
+                when {
+                    !LinuxEnv.hasRoot() -> SetupState.NoRoot
+                    // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
+                    saved != null ->
+                        if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready
+                        else SetupState.NoEnvironment
+                    else ->
+                        LinuxEnv.detect(rootfsHint)?.let { detected ->
+                            // 默认工作目录：第一次配环境时是用户的家目录（detect 给的）；重新检测前设过的，新环境里还有这个目录就不变
+                            val kept = keptCwd?.takeIf { cwd ->
+                                cwd != detected.defaultCwd &&
+                                    runCatching {
+                                            LinuxEnv.run(detected, "[ -d ${LinuxEnv.quote(cwd)} ]")
+                                                .exitCode == 0
+                                        }
+                                        .getOrDefault(false)
+                            }
+                            settings.env =
+                                if (kept != null) detected.copy(defaultCwd = kept) else detected
+                            SetupState.Ready
+                        } ?: SetupState.NoEnvironment
+                }
             val own = installer.status()
-            DiagEvents.setupChecked(state.name, settings.env?.rootfs ?: saved?.rootfs, settings.env?.user)
+            DiagEvents.setupChecked(
+                state.name,
+                settings.env?.rootfs ?: saved?.rootfs,
+                settings.env?.user,
+            )
             main.post {
                 setup = state
                 ownStatus = own
@@ -108,7 +138,8 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     }
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
-    val canSwitchEnvironment: Boolean get() = !hub.conversationsWorking && !installer.running
+    val canSwitchEnvironment: Boolean
+        get() = !hub.conversationsWorking && !installer.running
 
     /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
     internal fun onEnvironmentInstalled() {
@@ -116,7 +147,8 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
             val own = installer.status()
             main.post {
                 ownStatus = own
-                if (setup != SetupState.Ready || settings.env?.rootfs == LinuxEnv.OWN_ROOTFS) redetect(LinuxEnv.OWN_ROOTFS)
+                if (setup != SetupState.Ready || settings.env?.rootfs == LinuxEnv.OWN_ROOTFS)
+                    redetect(LinuxEnv.OWN_ROOTFS)
             }
         }
     }
@@ -124,9 +156,21 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     fun refreshAccount() {
         val config = settings.env ?: return
         thread(name = "zeta-account", isDaemon = true) {
-            val result = runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }.getOrNull() ?: return@thread
-            val o = runCatching { json.parseToJsonElement(result.stdout) as? JsonObject }.getOrNull()
-            val status = if (o == null) null else AccountStatus(o.bool("loggedIn") == true, o.str("email"), o.str("subscriptionType"))
+            val result =
+                runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }
+                    .getOrNull() ?: return@thread
+            val o = runCatching {
+                json.parseToJsonElement(result.stdout) as? JsonObject
+            }
+                .getOrNull()
+            val status =
+                if (o == null) null
+                else
+                    AccountStatus(
+                        o.bool("loggedIn") == true,
+                        o.str("email"),
+                        o.str("subscriptionType"),
+                    )
             main.post { if (settings.env?.rootfs == config.rootfs) account = status }
         }
     }
@@ -144,15 +188,29 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
         }
     }
 
-    private fun runMaintenance(title: String, asRoot: Boolean, command: String, after: () -> Unit = {}) {
+    private fun runMaintenance(
+        title: String,
+        asRoot: Boolean,
+        command: String,
+        after: () -> Unit = {},
+    ) {
         val config = settings.env ?: return
         if (maintenance?.running == true) return
         maintenance = Maintenance(title, running = true, detail = "")
         hub.onActivityChanged()
         thread(name = "zeta-maintain", isDaemon = true) {
-            val (ok, output) = installer.maintain(config, asRoot, command) { line -> main.post { maintenance = Maintenance(title, running = true, detail = line) } }
+            val (ok, output) =
+                installer.maintain(config, asRoot, command) { line ->
+                    main.post { maintenance = Maintenance(title, running = true, detail = line) }
+                }
             main.post {
-                maintenance = Maintenance(title, running = false, detail = output.lines().takeLast(4).joinToString("\n"), ok = ok)
+                maintenance =
+                    Maintenance(
+                        title,
+                        running = false,
+                        detail = output.lines().takeLast(4).joinToString("\n"),
+                        ok = ok,
+                    )
                 hub.onActivityChanged()
                 after()
             }
@@ -160,9 +218,13 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     }
 
     /** 修复软件包并补齐常用工具。 */
-    fun repairEnvironment() = runMaintenance("修复环境", asRoot = true, command = installer.repairCommand) { checkHealth() }
+    fun repairEnvironment() =
+        runMaintenance("修复环境", asRoot = true, command = installer.repairCommand) { checkHealth() }
 
-    fun updateClaude() = runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") { checkHealth() }
+    fun updateClaude() =
+        runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") {
+            checkHealth()
+        }
 
     fun refreshSsh() {
         val config = settings.env ?: return
@@ -183,7 +245,8 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
             main.post {
                 sshWorking = false
                 ssh = status
-                if (problem != null) maintenance = Maintenance(title, running = false, detail = problem, ok = false)
+                if (problem != null)
+                    maintenance = Maintenance(title, running = false, detail = problem, ok = false)
             }
         }
     }
@@ -196,30 +259,57 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
 
     fun setupSsh() {
         val user = settings.env?.user ?: return
-        runMaintenance("安装 SSH 服务", asRoot = true, command = installer.optionalCommand("ssh-setup") + " " + LinuxEnv.quote(user)) { refreshSsh() }
+        runMaintenance(
+            "安装 SSH 服务",
+            asRoot = true,
+            command = installer.optionalCommand("ssh-setup") + " " + LinuxEnv.quote(user),
+        ) {
+            refreshSsh()
+        }
     }
 
     fun addSshKey(key: String) {
         val user = settings.env?.user ?: return
         val line = key.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: return
-        runMaintenance("添加公钥", asRoot = true, command = installer.optionalCommand("ssh-addkey") + " " + LinuxEnv.quote(user) + " " + LinuxEnv.quote(line)) { refreshSsh() }
+        runMaintenance(
+            "添加公钥",
+            asRoot = true,
+            command =
+                installer.optionalCommand("ssh-addkey") +
+                    " " +
+                    LinuxEnv.quote(user) +
+                    " " +
+                    LinuxEnv.quote(line),
+        ) {
+            refreshSsh()
+        }
     }
 
     /** 安装一样可选工具（go / node / python）；已经是 Zeta 装的则更新到最新版。 */
-    fun installOptional(name: String) = runMaintenance(
-        title = (if (name in health?.zetaOwned.orEmpty()) "更新 " else "安装 ") + optionalName(name),
-        asRoot = name != "python",
-        command = installer.optionalCommand(name),
-    ) { checkHealth() }
+    fun installOptional(name: String) =
+        runMaintenance(
+            title =
+                (if (name in health?.zetaOwned.orEmpty()) "更新 " else "安装 ") + optionalName(name),
+            asRoot = name != "python",
+            command = installer.optionalCommand(name),
+        ) {
+            checkHealth()
+        }
 
     /** 卸载一样 Zeta 装的可选工具。别处装的脚本会拒绝。 */
-    fun removeOptional(name: String) = runMaintenance(
-        title = "卸载 " + optionalName(name),
-        asRoot = name != "python",
-        command = installer.optionalCommand("remove") + " " + name,
-    ) { checkHealth() }
+    fun removeOptional(name: String) =
+        runMaintenance(
+            title = "卸载 " + optionalName(name),
+            asRoot = name != "python",
+            command = installer.optionalCommand("remove") + " " + name,
+        ) {
+            checkHealth()
+        }
 
-    fun logout() = runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") { refreshAccount() }
+    fun logout() =
+        runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") {
+            refreshAccount()
+        }
 
     fun dismissMaintenance() {
         if (maintenance?.running == false) maintenance = null
@@ -233,14 +323,18 @@ class EnvController internal constructor(private val hub: ConversationHub, asset
     }
 
     private companion object {
-        val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        val json = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
     }
 }
 
 /** 可选工具在界面上的名字。 */
-fun optionalName(name: String): String = when (name) {
-    "go" -> "Go"
-    "node" -> "Node.js"
-    "apk" -> "APK 分析"
-    else -> "Python / uv"
-}
+fun optionalName(name: String): String =
+    when (name) {
+        "go" -> "Go"
+        "node" -> "Node.js"
+        "apk" -> "APK 分析"
+        else -> "Python / uv"
+    }

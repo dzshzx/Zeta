@@ -45,13 +45,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** 聊天列表在根坐标里的范围，查找跳转时据此判断命中处在不在视野里。 */
-internal fun Modifier.findViewport(find: ChatFindState): Modifier = onGloballyPositioned { find.viewport = it.boundsInRoot() }
+internal fun Modifier.findViewport(find: ChatFindState): Modifier = onGloballyPositioned {
+    find.viewport = it.boundsInRoot()
+}
 
 /**
  * 能查的段：提问的正文，和已经写完的回答排版后的文字（[answerText] 先去掉单独显示的图片，和回答块画的是同一份）。
  * 工具步骤和思考折叠着，不查。写完的回答不再变，它的段按消息记下来，重算时只解析新来的（或改过的）回答。
- * 解析结果不放进回答显示共用的缓存：那里只放得下几十份，整个对话解析一遍会把屏上回答的挤掉，滚动时又要重新解析。
- * 只在一个线程上用（查找的那个协程）。
+ * 解析结果不放进回答显示共用的缓存：那里只放得下几十份，整个对话解析一遍会把屏上回答的挤掉，滚动时又要重新解析。 只在一个线程上用（查找的那个协程）。
  */
 internal class FindSegments(private val inline: MarkdownInlineStyle) {
     /** 回答 id → 算段时的原文和段。 */
@@ -61,9 +62,12 @@ internal class FindSegments(private val inline: MarkdownInlineStyle) {
         val kept = HashMap<String, Pair<String, List<FindSegment>>>()
         val segments = ArrayList<FindSegment>()
         for (item in items) {
-            if (item is UserItem && item.text.isNotEmpty()) segments += FindSegment(item.id, 0, item.text)
+            if (item is UserItem && item.text.isNotEmpty())
+                segments += FindSegment(item.id, 0, item.text)
             if (item is AnswerItem && !item.streaming) {
-                val entry = answers[item.id]?.takeIf { it.first == item.text } ?: (item.text to parse(item.id, answerText(item.text)))
+                val entry =
+                    answers[item.id]?.takeIf { it.first == item.text }
+                        ?: (item.text to parse(item.id, answerText(item.text)))
                 kept[item.id] = entry
                 segments += entry.second
             }
@@ -75,15 +79,18 @@ internal class FindSegments(private val inline: MarkdownInlineStyle) {
 
     private fun parse(id: String, text: String): List<FindSegment> {
         if (text.isBlank()) return emptyList()
-        val document = staticMarkdownDocumentCache.get(text, inline) ?: StreamingGfmParserSession().parse(text, isComplete = true, style = inline).document
+        val document =
+            staticMarkdownDocumentCache.get(text, inline)
+                ?: StreamingGfmParserSession()
+                    .parse(text, isComplete = true, style = inline)
+                    .document
         return document.findSegments().map { (block, content) -> FindSegment(id, block, content) }
     }
 }
 
 /**
- * 查找在聊天列表这边要做的事：内容或查找词变了就重算命中，跳到一处时把它滚进视野。
- * [leading] 是列表里排在消息前面的项数（“更早的记录”那行），[topInset] 是盖在列表上面的顶栏高度。
- * 跳转前调 [onJump]（停掉贴底跟随，不然新内容一来又被拽回底部）。
+ * 查找在聊天列表这边要做的事：内容或查找词变了就重算命中，跳到一处时把它滚进视野。 [leading] 是列表里排在消息前面的项数（“更早的记录”那行），[topInset]
+ * 是盖在列表上面的顶栏高度。 跳转前调 [onJump]（停掉贴底跟随，不然新内容一来又被拽回底部）。
  */
 @Composable
 internal fun ChatFindDriver(
@@ -103,15 +110,17 @@ internal fun ChatFindDriver(
     LaunchedEffect(find, find.active, inline) {
         if (!find.active) return@LaunchedEffect
         val segments = FindSegments(inline)
-        snapshotFlow { ChatFind.normalize(find.input) to latestItems }.conflate().collect { (query, list) ->
-            // 命中和条目的先后（换选中哪个时用）都在后台算，主线程只收结果
-            val (found, order) = withContext(Dispatchers.Default) {
-                val found = if (query.isEmpty()) emptyList() else ChatFind.matches(segments.of(list, latestText), query)
-                found to if (found.isEmpty()) emptyMap() else list.withIndex().associate { it.value.id to it.index }
+        snapshotFlow { ChatFind.normalize(find.input) to latestItems }
+            .conflate()
+            .collect { (query, list) ->
+                // 命中和条目的先后（换选中哪个时用）都在后台算，主线程只收结果
+                val (found, order) =
+                    withContext(Dispatchers.Default) {
+                        findMatches(segments, list, query, latestText)
+                    }
+                find.update(query, found, order)
+                delay(120)
             }
-            find.update(query, found, order)
-            delay(120)
-        }
     }
     val density = LocalDensity.current
     val latestOnJump by rememberUpdatedState(onJump)
@@ -121,25 +130,60 @@ internal fun ChatFindDriver(
         val position = latestItems.indexOfFirst { it.id == match.itemId }
         if (position < 0) return@LaunchedEffect
         latestOnJump()
-        val index = position + latestLeading
-        // 不在屏上的先滚到那条消息，等它排好版报上位置，再把命中处挪到视野上部三分之一处
-        if (listState.layoutInfo.visibleItemsInfo.none { it.index == index }) listState.scrollToItem(index)
-        val bounds = withTimeoutOrNull(1_000) { snapshotFlow { find.placedFor(match) }.filterNotNull().first() } ?: return@LaunchedEffect
-        val viewport = find.viewport ?: return@LaunchedEffect
-        val top = viewport.top + with(density) { topInset.toPx() }
+        val top = with(density) { topInset.toPx() }
         val margin = with(density) { 24.dp.toPx() }
-        if (bounds.top >= top + margin && bounds.bottom <= viewport.bottom - margin) return@LaunchedEffect
-        listState.animateScrollBy(bounds.top - (top + (viewport.bottom - top) * 0.3f))
+        scrollToMatch(find, match, listState, position + latestLeading, top, margin)
     }
+}
+
+/** 查 [query] 的命中，和各条目在列表里的位置（有命中时才算）。 */
+private fun findMatches(
+    segments: FindSegments,
+    list: List<ChatItem>,
+    query: String,
+    answerText: (String) -> String,
+): Pair<List<FindMatch>, Map<String, Int>> {
+    if (query.isEmpty()) return emptyList<FindMatch>() to emptyMap()
+    val found = ChatFind.matches(segments.of(list, answerText), query)
+    if (found.isEmpty()) return found to emptyMap()
+    return found to list.withIndex().associate { it.value.id to it.index }
+}
+
+/**
+ * 把命中处 [match]（在列表第 [index] 项）滚进视野：不在屏上的先滚到那条消息，等它排好版报上位置，再把命中处挪到视野上部三分之一处。 [topInset]
+ * 是盖在列表上面的顶栏高度，命中处离视野上下边不到 [margin] 时也挪。
+ */
+private suspend fun scrollToMatch(
+    find: ChatFindState,
+    match: FindMatch,
+    listState: LazyListState,
+    index: Int,
+    topInset: Float,
+    margin: Float,
+) {
+    if (listState.layoutInfo.visibleItemsInfo.none { it.index == index })
+        listState.scrollToItem(index)
+    val bounds =
+        withTimeoutOrNull(1_000) {
+            snapshotFlow { find.placedFor(match) }.filterNotNull().first()
+        } ?: return
+    val viewport = find.viewport ?: return
+    val top = viewport.top + topInset
+    if (bounds.top >= top + margin && bounds.bottom <= viewport.bottom - margin) return
+    listState.animateScrollBy(bounds.top - (top + (viewport.bottom - top) * 0.3f))
 }
 
 /**
  * 查找栏：查找时顶替输入栏。COUI 的搜索输入胶囊，后面是命中计数和上一个、下一个、关闭；下面一行说明查的范围。
- * 查的是整个对话：打开查找栏时界面把还没载入的更早记录一次载完，[earlierLeft] 是还剩几条没载入，
- * [earlierProblem] 是载不下去时的说明（这时只查载入了的）。
+ * 查的是整个对话：打开查找栏时界面把还没载入的更早记录一次载完，[earlierLeft] 是还剩几条没载入， [earlierProblem] 是载不下去时的说明（这时只查载入了的）。
  */
 @Composable
-internal fun ChatFindBar(find: ChatFindState, earlierLeft: Int, earlierProblem: String?, modifier: Modifier = Modifier) {
+internal fun ChatFindBar(
+    find: ChatFindState,
+    earlierLeft: Int,
+    earlierProblem: String?,
+    modifier: Modifier = Modifier,
+) {
     val colors = COUITheme.colorScheme
     BackHandler(onBack = find::close)
     val count = find.matches.size
@@ -158,7 +202,7 @@ internal fun ChatFindBar(find: ChatFindState, earlierLeft: Int, earlierProblem: 
             )
             if (find.query.isNotEmpty()) {
                 Text(
-                    text = if (count > 0) "${find.index + 1}/$count" else if (earlierLeft > 0 && earlierProblem == null) "查找中" else "无结果",
+                    text = matchCountText(find.index, count, earlierLeft, earlierProblem),
                     style = COUITheme.textStyles.bodyS,
                     color = if (count == 0) colors.labelTertiary else colors.labelSecondary,
                     maxLines = 1,
@@ -170,11 +214,13 @@ internal fun ChatFindBar(find: ChatFindState, earlierLeft: Int, earlierProblem: 
             BarButton(COUIIcons.Close, "关闭查找", enabled = true, onClick = find::close)
         }
         Text(
-            text = "查提问和回答，不含工具步骤和思考" + when {
-                earlierProblem != null -> "；$earlierProblem，更早的 $earlierLeft 条没查"
-                earlierLeft > 0 -> "；正在载入更早的 $earlierLeft 条…"
-                else -> ""
-            },
+            text =
+                "查提问和回答，不含工具步骤和思考" +
+                    when {
+                        earlierProblem != null -> "；$earlierProblem，更早的 $earlierLeft 条没查"
+                        earlierLeft > 0 -> "；正在载入更早的 $earlierLeft 条…"
+                        else -> ""
+                    },
             style = COUITheme.textStyles.bodyXS,
             color = colors.labelSecondary,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp),
@@ -182,7 +228,32 @@ internal fun ChatFindBar(find: ChatFindState, earlierLeft: Int, earlierProblem: 
     }
 }
 
+/** 查找栏里的命中计数：第几个/共几个；没有命中时看更早的记录还载不载。 */
+private fun matchCountText(
+    index: Int,
+    count: Int,
+    earlierLeft: Int,
+    earlierProblem: String?,
+): String =
+    when {
+        count > 0 -> "${index + 1}/$count"
+        earlierLeft > 0 && earlierProblem == null -> "查找中"
+        else -> "无结果"
+    }
+
 /** 查找栏的小按钮：36dp 的平按钮，20dp 图标。 */
 @Composable
-private fun BarButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) =
-    FlatIconButton(icon, description, size = 36.dp, iconSize = 20.dp, enabled = enabled, onClick = onClick)
+private fun BarButton(
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) =
+    FlatIconButton(
+        icon,
+        description,
+        size = 36.dp,
+        iconSize = 20.dp,
+        enabled = enabled,
+        onClick = onClick,
+    )

@@ -6,43 +6,46 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 注入页面的脚本。每段都是 `(function (A) { … })(参数)`，参数是 Kotlin 这边编码好的 JSON，不拼字符串；
- * 返回 `JSON.stringify(结果)`，出错时结果里带 `error`。扫描都有条数和时间上限，大页面也不会卡住界面线程太久。
+ * 注入页面的脚本。每段都是 `(function (A) { … })(参数)`，参数是 Kotlin 这边编码好的 JSON，不拼字符串； 返回
+ * `JSON.stringify(结果)`，出错时结果里带 `error`。扫描都有条数和时间上限，大页面也不会卡住界面线程太久。
  *
- * 元素编号放在页面自己的 window 上（WeakMap，不改 DOM）：同一个文档里同一个元素编号不变，
- * 换了文档从 Kotlin 给的起点接着编，旧页面的编号不会对上新页面的元素。
+ * 元素编号放在页面自己的 window 上（WeakMap，不改 DOM）：同一个文档里同一个元素编号不变， 换了文档从 Kotlin 给的起点接着编，旧页面的编号不会对上新页面的元素。
  */
 internal object BrowserScripts {
     /** 页面概况：可交互元素（按离视口远近，最多 250 个）和视口里的文字。 */
-    fun snapshot(start: Int, textMax: Int): String = run(SNAPSHOT) {
-        put("start", start)
-        put("textMax", textMax)
-    }
+    fun snapshot(start: Int, textMax: Int): String =
+        run(SNAPSHOT) {
+            put("start", start)
+            put("textMax", textMax)
+        }
 
     /** 全文（正文区，没有就是整页）。 */
     fun read(): String = run(READ) {}
 
     /** 点按编号为 [id] 的元素，或视口里比例位置 ([fx], [fy]) 上的元素。 */
-    fun click(id: Int?, fx: Double?, fy: Double?): String = run(CLICK) {
-        if (id != null) put("id", id)
-        if (fx != null && fy != null) {
-            put("fx", fx)
-            put("fy", fy)
+    fun click(id: Int?, fx: Double?, fy: Double?): String =
+        run(CLICK) {
+            if (id != null) put("id", id)
+            if (fx != null && fy != null) {
+                put("fx", fx)
+                put("fy", fy)
+            }
         }
-    }
 
     /** 在元素 [id]（没给就是当前焦点）里输入 [text]，替换原有内容；下拉框按选项文字选。[submit]：再按回车提交。 */
-    fun type(id: Int?, text: String, submit: Boolean): String = run(TYPE) {
-        if (id != null) put("id", id)
-        put("text", text)
-        put("submit", submit)
-    }
+    fun type(id: Int?, text: String, submit: Boolean): String =
+        run(TYPE) {
+            if (id != null) put("id", id)
+            put("text", text)
+            put("submit", submit)
+        }
 
     /** 向上、向下滚大半屏；给了 [id] 就把那个元素滚到视口中间。 */
-    fun scroll(id: Int?, down: Boolean): String = run(SCROLL) {
-        if (id != null) put("id", id)
-        put("down", down)
-    }
+    fun scroll(id: Int?, down: Boolean): String =
+        run(SCROLL) {
+            if (id != null) put("id", id)
+            put("down", down)
+        }
 
     /** 页面上有没有这段文字。 */
     fun contains(text: String): String = run(CONTAINS) { put("text", text) }
@@ -55,7 +58,8 @@ internal object BrowserScripts {
         return "(function (A) {\n$PRELUDE\ntry {\n$body\n} catch (e) { return JSON.stringify({ error: String((e && e.message) || e) }); }\n})($json);"
     }
 
-    private const val PRELUDE = """
+    private const val PRELUDE =
+        """
 var SEL = 'a[href],button,input,textarea,select,summary,[role=button],[role=link],[role=checkbox],[role=radio],[role=switch],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=combobox],[role=textbox],[role=searchbox],[role=slider],[contenteditable=""],[contenteditable=true],[onclick],[tabindex]:not([tabindex="-1"]),label';
 var OUTER = 'a[href],button,[role=button],[role=link]';
 function clean(v, n) {
@@ -146,7 +150,8 @@ function describe(el) {
 }
 """
 
-    private const val SNAPSHOT = """
+    private const val SNAPSHOT =
+        """
 var Z = state();
 if (Z.next < A.start) Z.next = A.start;
 var vh = window.innerHeight, vw = window.innerWidth;
@@ -211,7 +216,8 @@ return JSON.stringify({
 });
 """
 
-    private const val READ = """
+    private const val READ =
+        """
 var body = document.body || document.documentElement;
 var total = (body.innerText || '').length, root = body, best = 0;
 ['article', 'main', '[role=main]'].forEach(function (sel) {
@@ -225,7 +231,8 @@ if (best < total * 0.4) root = body;
 return JSON.stringify({ url: location.href, title: document.title, text: (root.innerText || '').slice(0, 300000), part: root !== body });
 """
 
-    private const val CLICK = """
+    private const val CLICK =
+        """
 var el, x, y;
 if (A.id != null) {
   el = find(A.id);
@@ -255,7 +262,8 @@ el.click();
 return JSON.stringify({ ok: true, what: describe(el), covered: covered });
 """
 
-    private const val TYPE = """
+    private const val TYPE =
+        """
 var el = A.id != null ? find(A.id) : document.activeElement;
 if (!el || el === document.body || el === document.documentElement) return JSON.stringify({ error: A.id != null ? 'gone' : 'nofocus' });
 var tag = el.tagName;
@@ -321,7 +329,8 @@ if (A.submit) {
 return JSON.stringify({ ok: true, what: describe(el), submitted: submitted });
 """
 
-    private const val SCROLL = """
+    private const val SCROLL =
+        """
 if (A.id != null) {
   var target = find(A.id);
   if (!target) return JSON.stringify({ error: 'gone' });
@@ -349,12 +358,14 @@ if (moved === 0) {
 return JSON.stringify({ ok: true, moved: Math.round(moved), inner: inner });
 """
 
-    private const val CONTAINS = """
+    private const val CONTAINS =
+        """
 var body = document.body || document.documentElement;
 return JSON.stringify({ found: (body.innerText || '').indexOf(A.text) >= 0 });
 """
 
-    private const val SIGNATURE = """
+    private const val SIGNATURE =
+        """
 var body = document.body;
 return JSON.stringify({ sig: document.readyState + '|' + (body ? (body.innerText || '').length : 0) + '|' + document.getElementsByTagName('*').length });
 """

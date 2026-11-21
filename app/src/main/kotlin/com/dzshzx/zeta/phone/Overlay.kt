@@ -13,35 +13,30 @@ import kotlinx.coroutines.flow.SharedFlow
  * - [OverlayBridge]：悬浮窗口和无障碍服务之间要共享的几样东西（胶囊在屏上的位置、让路）。
  */
 
-/**
- * 胶囊的阶段：运行中（转圈）、暂停（用户点了暂停，Claude 停下等你，橙色空心环）、
- * 接管（用户在展开画面上自己操作后台屏幕，紫色触点）、刚结束（实心点，稍后收起）。
- */
+/** 胶囊的阶段：运行中（转圈）、暂停（用户点了暂停，Claude 停下等你，橙色空心环）、 接管（用户在展开画面上自己操作后台屏幕，紫色触点）、刚结束（实心点，稍后收起）。 */
 enum class OverlayPhase {
     RUNNING,
     PAUSED,
     CONTROLLING,
-    FINISHED,
-    ;
+    FINISHED;
 
     /** Claude 的手机操作停着、等用户（暂停或接管）：胶囊上是“继续”，展开画面描边。 */
-    val held: Boolean get() = this == PAUSED || this == CONTROLLING
+    val held: Boolean
+        get() = this == PAUSED || this == CONTROLLING
 
     companion object {
         /** 结束优先，其次是接管（用户在动手），再是暂停。 */
-        fun of(finishing: Boolean, controlling: Boolean, paused: Boolean): OverlayPhase = when {
-            finishing -> FINISHED
-            controlling -> CONTROLLING
-            paused -> PAUSED
-            else -> RUNNING
-        }
+        fun of(finishing: Boolean, controlling: Boolean, paused: Boolean): OverlayPhase =
+            when {
+                finishing -> FINISHED
+                controlling -> CONTROLLING
+                paused -> PAUSED
+                else -> RUNNING
+            }
     }
 }
 
-/**
- * 一次触摸，画在缩略画面和展开画面上做光效（点按是水波纹，滑动是流光尾迹，缩略画面外圈呼吸一下）。
- * 坐标按所在屏幕的宽高归一化到 0..1。[byUser]：用户在展开画面上接管时点的。
- */
+/** 一次触摸，画在缩略画面和展开画面上做光效（点按是水波纹，滑动是流光尾迹，缩略画面外圈呼吸一下）。 坐标按所在屏幕的宽高归一化到 0..1。[byUser]：用户在展开画面上接管时点的。 */
 data class TouchMark(
     val onAgentDisplay: Boolean,
     val x: Float,
@@ -77,20 +72,29 @@ interface OverlayFocus {
 
     /** 接管：Claude 之后的手机操作先挂起，直到 [resumeAuto]。 */
     fun takeOver()
+
     /** 交还给 Claude 继续。 */
     fun resumeAuto()
+
     /** 暂停（不接管画面，只让 Claude 的手机操作先等着）。 */
     fun pause()
+
     fun resume()
+
     /** 停止这一轮（和聊天页的停止键一样）。 */
     fun stop()
+
     /** 补充一句话给正在运行的这一轮（Claude Code 会在下一个工具调用的间隙读到）。 */
     fun supplement(text: String)
+
     /** 用户在展开画面上点按 / 滑动，坐标按画面归一化到 0..1，作用在后台屏幕上。 */
     fun userTap(x: Float, y: Float, longPress: Boolean)
+
     fun userSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Int)
+
     /** 把后台屏幕最上面的应用移到主屏（“全屏”）。放大动画放完再调用。 */
     fun handoffToMain()
+
     /** 打开 Zeta 的这个对话。 */
     fun openInZeta()
 }

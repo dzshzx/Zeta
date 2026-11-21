@@ -1,6 +1,9 @@
 package com.dzshzx.zeta.core
 
 import android.os.Looper
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -9,9 +12,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.concurrent.thread
 
 /** Robolectric 里测试跑在主线程上，主线程的消息要手动放（idle）：用它摆出“主线程忙着、没空执行”的情形。 */
 @RunWith(RobolectricTestRunner::class)
@@ -38,8 +38,14 @@ class MainThreadTest {
 
     @Test
     fun theBlocksOwnExceptionComesOutUnwrapped() {
-        val failure = fromWorker { onMain { throw IllegalStateException("页面已经关掉了") } }.exceptionOrNull()
-        assertTrue(failure.toString(), failure is IllegalStateException && failure.message == "页面已经关掉了")
+        val failure = fromWorker {
+            onMain { throw IllegalStateException("页面已经关掉了") }
+        }
+            .exceptionOrNull()
+        assertTrue(
+            failure.toString(),
+            failure is IllegalStateException && failure.message == "页面已经关掉了",
+        )
     }
 
     @Test
@@ -47,7 +53,9 @@ class MainThreadTest {
         val ran = AtomicBoolean(false)
         // 主线程不放消息：任务一直排着，到时限
         val failure = AtomicReference<Throwable>()
-        val worker = thread { failure.set(runCatching { onMain(50) { ran.set(true) } }.exceptionOrNull()) }
+        val worker = thread {
+            failure.set(runCatching { onMain(50) { ran.set(true) } }.exceptionOrNull())
+        }
         worker.join(5_000)
         assertTrue(failure.get().toString(), failure.get() is MainThreadTimeout)
         // 主线程之后有空了，撤下的任务也不再执行

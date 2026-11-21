@@ -18,6 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -40,7 +42,10 @@ internal class HoldToTalk(
 
     /** 按住超过 [HOLD_DELAY_MS]：开始一场识别，识别完把文字交给 [onText]。没有麦克风权限时先去要，返回 false。 */
     fun begin(onText: (String) -> Unit): Boolean {
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (
+            context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
             askPermission()
             return false
         }
@@ -82,53 +87,78 @@ internal fun rememberHoldToTalk(): HoldToTalk? {
     val context = LocalContext.current
     val available = remember { SpeechInput.available(context) }
     if (!available) return null
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val text = if (granted) "可以按住说话了" else "没有麦克风权限，到设置的权限页一键授予"
-        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    val permission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val text = if (granted) "可以按住说话了" else "没有麦克风权限，到设置的权限页一键授予"
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        }
+    val voice = remember {
+        HoldToTalk(SpeechInput(context), context) {
+            permission.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
-    val voice = remember { HoldToTalk(SpeechInput(context), context) { permission.launch(Manifest.permission.RECORD_AUDIO) } }
     DisposableEffect(voice) { onDispose { voice.cancel() } }
     return voice
 }
 
 /**
- * 发送键上的按住说话手势：轻点只提示用法；按住超过 [HoldToTalk.HOLD_DELAY_MS] 开始识别（震一下），
- * 跟着手指判断是否滑进了取消区，松手交给 [HoldToTalk.release]。手势被打断（页面切走、来电）时丢掉这一场。
+ * 发送键上的按住说话手势：轻点只提示用法；按住超过 [HoldToTalk.HOLD_DELAY_MS] 开始识别（震一下）， 跟着手指判断是否滑进了取消区，松手交给
+ * [HoldToTalk.release]。手势被打断（页面切走、来电）时丢掉这一场。
  */
-internal fun Modifier.holdToTalk(voice: HoldToTalk, haptics: HapticFeedback, onText: (String) -> Unit): Modifier =
+internal fun Modifier.holdToTalk(
+    voice: HoldToTalk,
+    haptics: HapticFeedback,
+    onText: (String) -> Unit,
+): Modifier =
     pointerInput(voice) {
         val cancelPx = HoldToTalk.CancelDistance.toPx()
         awaitEachGesture {
             val down = awaitFirstDown()
             down.consume()
-            // 到点前松开（或手指没了）是轻点；到点还按着返回 null
-            val tapped = withTimeoutOrNull(HoldToTalk.HOLD_DELAY_MS) {
-                var change = down
-                while (change.pressed) change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                true
-            }
-            if (tapped != null) {
+            if (releasedWithin(down, HoldToTalk.HOLD_DELAY_MS)) {
                 voice.tapped()
                 return@awaitEachGesture
             }
             if (!voice.begin(onText)) return@awaitEachGesture
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            var done = false
-            try {
-                while (true) {
-                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                    change.consume()
-                    val cancelling = change.position.y - down.position.y < -cancelPx
-                    if (cancelling != voice.cancelling) {
-                        voice.cancelling = cancelling
-                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                    }
-                    if (!change.pressed) break
-                }
-                voice.release()
-                done = true
-            } finally {
-                if (!done) voice.cancel()
-            }
+            followTalk(down, voice, haptics, cancelPx)
         }
     }
+
+/** 到点前松开（或手指没了）是轻点，返回 true；到点还按着返回 false。 */
+private suspend fun AwaitPointerEventScope.releasedWithin(
+    down: PointerInputChange,
+    timeoutMs: Long,
+): Boolean =
+    withTimeoutOrNull(timeoutMs) {
+        var change = down
+        while (change.pressed) change =
+            awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+        true
+    } != null
+
+/** 识别开始后跟着手指：上滑超过 [cancelPx] 进取消区（进出时震一下），松手交给 [HoldToTalk.release]；手势被打断时丢掉这一场。 */
+private suspend fun AwaitPointerEventScope.followTalk(
+    down: PointerInputChange,
+    voice: HoldToTalk,
+    haptics: HapticFeedback,
+    cancelPx: Float,
+) {
+    var done = false
+    try {
+        while (true) {
+            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+            change.consume()
+            val cancelling = change.position.y - down.position.y < -cancelPx
+            if (cancelling != voice.cancelling) {
+                voice.cancelling = cancelling
+                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+            if (!change.pressed) break
+        }
+        voice.release()
+        done = true
+    } finally {
+        if (!done) voice.cancel()
+    }
+}

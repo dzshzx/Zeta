@@ -16,9 +16,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * 贴底跟随：[following] 时内容一长出屏幕就滚到最底端。
- * 用户往上拖就停下；拖完、或者滚动停下时在最底端（而且列表确实滚得动）就恢复。程序跳到别处（接上更早的记录、查找跳转）前调 [pause]，
- * 发消息、点「回到底部」时调 [resume]。聊天页和子代理查看页共用。
+ * 贴底跟随：[following] 时内容一长出屏幕就滚到最底端。 用户往上拖就停下；拖完、或者滚动停下时在最底端（而且列表确实滚得动）就恢复。程序跳到别处（接上更早的记录、查找跳转）前调
+ * [pause]， 发消息、点「回到底部」时调 [resume]。聊天页和子代理查看页共用。
  */
 @Stable
 internal class FollowBottom(private val listState: LazyListState, following: Boolean) {
@@ -35,28 +34,49 @@ internal class FollowBottom(private val listState: LazyListState, following: Boo
 
     /** 跟着手势和内容变化走，直到所在的协程被取消。由 [rememberFollowBottom] 挂在界面上。 */
     suspend fun run() = coroutineScope {
-        launch {
-            listState.interactionSource.interactions.collect { interaction ->
-                when (interaction) {
-                    is DragInteraction.Start -> following = false
-                    is DragInteraction.Stop, is DragInteraction.Cancel -> if (!listState.canScrollForward) following = true
-                }
+        launch { watchDrags() }
+        launch { watchSettled() }
+        scrollWhileFollowing()
+    }
+
+    /** 用户往上拖就停下；拖完时在最底端就恢复。 */
+    private suspend fun watchDrags() {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> following = false
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel -> if (!listState.canScrollForward) following = true
             }
         }
-        launch {
-            // 内容还不满一屏时不算「停在底部」：子代理查看页一开始不跟，内容还没载入时不能就此跟上
-            snapshotFlow { listState.isScrollInProgress to (!listState.canScrollForward && listState.canScrollBackward) }
-                .collect { (scrolling, atEnd) -> if (!scrolling && atEnd) following = true }
+    }
+
+    /** 滚动停下时停在最底端就恢复。 */
+    private suspend fun watchSettled() {
+        // 内容还不满一屏时不算「停在底部」：子代理查看页一开始不跟，内容还没载入时不能就此跟上
+        snapshotFlow {
+            listState.isScrollInProgress to
+                (!listState.canScrollForward && listState.canScrollBackward)
         }
-        snapshotFlow { following }.collectLatest { on ->
-            if (on) snapshotFlow { listState.canScrollForward }.collect { canForward -> if (canForward) listState.scrollToEnd() }
-        }
+            .collect { (scrolling, atEnd) -> if (!scrolling && atEnd) following = true }
+    }
+
+    /** 跟着的时候，内容一长出屏幕就滚到最底端。 */
+    private suspend fun scrollWhileFollowing() {
+        snapshotFlow { following }
+            .collectLatest { on ->
+                if (on)
+                    snapshotFlow { listState.canScrollForward }
+                        .collect { canForward -> if (canForward) listState.scrollToEnd() }
+            }
     }
 }
 
 /** 挂在 [listState] 上的贴底跟随；[following] 是一开始跟不跟。 */
 @Composable
-internal fun rememberFollowBottom(listState: LazyListState, following: Boolean = true): FollowBottom {
+internal fun rememberFollowBottom(
+    listState: LazyListState,
+    following: Boolean = true,
+): FollowBottom {
     val follow = remember(listState) { FollowBottom(listState, following) }
     LaunchedEffect(follow) { follow.run() }
     return follow

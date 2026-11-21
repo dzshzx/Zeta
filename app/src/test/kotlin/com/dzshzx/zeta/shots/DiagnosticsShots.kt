@@ -1,10 +1,10 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
@@ -18,23 +18,43 @@ import org.junit.Test
 class DiagnosticsShots : ShotTest() {
     private val now = System.currentTimeMillis()
 
-    private val probe = LinuxProbe(
-        claude = "2.1.330",
-        node = "22.11.0",
-        debian = "13.1",
-        files = listOf(
-            LogFile(LogKind.Running, "/home/dzshzx/.cache/zeta-dev/hosts/k1/err.log", 2_048, now - 60_000, "整理下载目录"),
-            LogFile(LogKind.Finished, "/home/dzshzx/.cache/zeta-dev/stderr/20261119-095950-0a1b2c3d.log", 312, now - 3_600_000),
-            LogFile(LogKind.Debug, "/home/dzshzx/.claude/debug/0a1b2c3d-0000-4000-8000-000000000001.txt", 182_000, now - 7_200_000),
-        ),
-    )
+    private val probe =
+        LinuxProbe(
+            claude = "2.1.330",
+            node = "22.11.0",
+            debian = "13.1",
+            files =
+                listOf(
+                    LogFile(
+                        LogKind.Running,
+                        "/home/dzshzx/.cache/zeta-dev/hosts/k1/err.log",
+                        2_048,
+                        now - 60_000,
+                        "整理下载目录",
+                    ),
+                    LogFile(
+                        LogKind.Finished,
+                        "/home/dzshzx/.cache/zeta-dev/stderr/20261119-095950-0a1b2c3d.log",
+                        312,
+                        now - 3_600_000,
+                    ),
+                    LogFile(
+                        LogKind.Debug,
+                        "/home/dzshzx/.claude/debug/0a1b2c3d-0000-4000-8000-000000000001.txt",
+                        182_000,
+                        now - 7_200_000,
+                    ),
+                ),
+        )
 
-    private val tail = """
+    private val tail =
+        """
         # zeta: claude 退出码 1，2026-11-19 09:59:50 +0800
         [ERROR] MCP server "github" connection failed: Authorization: Bearer fake-token-1
         Error: spawn npx ENOENT
             at ChildProcess._handle.onexit (node:internal/child_process:285:19)
-    """.trimIndent()
+        """
+            .trimIndent()
 
     private fun seedLog() {
         DiagLog.clear()
@@ -43,7 +63,10 @@ class DiagnosticsShots : ShotTest() {
         DiagLog.warn(DiagTopic.Accessibility, "无障碍服务不在系统的启用列表里了（Zeta 启动）")
         DiagLog.info(DiagTopic.Accessibility, "已经 root 把无障碍服务加回启用列表")
         DiagLog.warn(DiagTopic.Phone, "手机工具 tap 失败：没找到「确定」")
-        DiagLog.error(DiagTopic.Helper, "helper history 出错（退出码 1）：Traceback (most recent call last):\n  File \"<stdin>\", line 401\nSystemExit: no such line")
+        DiagLog.error(
+            DiagTopic.Helper,
+            "helper history 出错（退出码 1）：Traceback (most recent call last):\n  File \"<stdin>\", line 401\nSystemExit: no such line",
+        )
         DiagLog.info(DiagTopic.Schedule, "定时任务到点：每天早上的新闻摘要")
         DiagLog.warn(DiagTopic.Claude, "Claude 进程退出（0a1b2c3d），退出码 1\nError: spawn npx ENOENT")
     }
@@ -52,7 +75,14 @@ class DiagnosticsShots : ShotTest() {
     fun diagnostics() {
         val hub = Fixtures.readyHub(app)
         seedLog()
-        shoot("diagnostics") { DiagnosticsScreen(hub = hub, onBack = {}, probeLoader = { probe }, tailLoader = { tail }) }
+        shoot("diagnostics") {
+            DiagnosticsScreen(
+                hub = hub,
+                onBack = {},
+                probeLoader = { probe },
+                tailLoader = { tail },
+            )
+        }
     }
 
     @Test
@@ -60,7 +90,12 @@ class DiagnosticsShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seedLog()
         shoot("diagnostics-log", prepare = { onNodeWithText("查看运行日志").performClick() }) {
-            DiagnosticsScreen(hub = hub, onBack = {}, probeLoader = { probe }, tailLoader = { tail })
+            DiagnosticsScreen(
+                hub = hub,
+                onBack = {},
+                probeLoader = { probe },
+                tailLoader = { tail },
+            )
         }
     }
 
@@ -77,7 +112,12 @@ class DiagnosticsShots : ShotTest() {
                 onNodeWithText("整理下载目录").performSemanticsAction(SemanticsActions.OnClick)
             },
         ) {
-            DiagnosticsScreen(hub = hub, onBack = {}, probeLoader = { probe }, tailLoader = { tail })
+            DiagnosticsScreen(
+                hub = hub,
+                onBack = {},
+                probeLoader = { probe },
+                tailLoader = { tail },
+            )
         }
     }
 

@@ -9,8 +9,8 @@ import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
 /**
- * 图片的解码、缩小、压 JPEG：附件、聊天里显示的图、手机工具看照片和聊天图片都走这里。
- * 不碰 Context，root 辅助进程（[com.dzshzx.zeta.phone.tools.ProviderHelper]，同一个 APK 起的 app_process）里也能用。
+ * 图片的解码、缩小、压 JPEG：附件、聊天里显示的图、手机工具看照片和聊天图片都走这里。 不碰 Context，root
+ * 辅助进程（[com.dzshzx.zeta.phone.tools.ProviderHelper]，同一个 APK 起的 app_process）里也能用。
  */
 object Images {
     /** 解出来的位图（软件位图，能直接压缩），[sourceWidth]×[sourceHeight] 是原图的大小。 */
@@ -21,39 +21,50 @@ object Images {
         val longest = maxOf(width, height)
         if (longest <= edge || longest <= 0) return width to height
         val scale = edge.toDouble() / longest
-        return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
+        return (width * scale).roundToInt().coerceAtLeast(1) to
+            (height * scale).roundToInt().coerceAtLeast(1)
     }
 
     /** 解码并缩到最长边不超过 [edge]：解码时就按目标大小解，不先解出整张原图。动图取第一帧。解不开抛出异常。 */
     fun decodeWithin(source: ImageDecoder.Source, edge: Int): Decoded {
         var width = 0
         var height = 0
-        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            width = info.size.width
-            height = info.size.height
-            val (w, h) = fitWithin(width, height, edge)
-            if (w != width || h != height) decoder.setTargetSize(w, h)
-        }
+        val bitmap =
+            ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                width = info.size.width
+                height = info.size.height
+                val (w, h) = fitWithin(width, height, edge)
+                if (w != width || h != height) decoder.setTargetSize(w, h)
+            }
         return Decoded(bitmap, width, height)
     }
 
-    fun decodeWithin(bytes: ByteArray, edge: Int): Decoded = decodeWithin(ImageDecoder.createSource(ByteBuffer.wrap(bytes)), edge)
+    fun decodeWithin(bytes: ByteArray, edge: Int): Decoded =
+        decodeWithin(ImageDecoder.createSource(ByteBuffer.wrap(bytes)), edge)
 
     /** 已经在内存里的位图等比缩到最长边不超过 [edge]；本来就不大的原样返回。 */
     fun scaleWithin(bitmap: Bitmap, edge: Int): Bitmap {
         val (w, h) = fitWithin(bitmap.width, bitmap.height, edge)
-        return if (w == bitmap.width && h == bitmap.height) bitmap else Bitmap.createScaledBitmap(bitmap, w, h, true)
+        return if (w == bitmap.width && h == bitmap.height) bitmap
+        else Bitmap.createScaledBitmap(bitmap, w, h, true)
     }
 
     /** 压成 JPEG。JPEG 没有透明，透明的地方先垫白底，不然会成黑色。 */
     fun jpeg(bitmap: Bitmap, quality: Int): ByteArray {
-        val opaque = if (!bitmap.hasAlpha()) bitmap else {
-            Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888).also {
-                Canvas(it).apply { drawColor(Color.WHITE); drawBitmap(bitmap, 0f, 0f, null) }
+        val opaque =
+            if (!bitmap.hasAlpha()) bitmap
+            else {
+                Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888).also {
+                    Canvas(it).apply {
+                        drawColor(Color.WHITE)
+                        drawBitmap(bitmap, 0f, 0f, null)
+                    }
+                }
             }
-        }
-        return ByteArrayOutputStream().also { opaque.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+        return ByteArrayOutputStream()
+            .also { opaque.compress(Bitmap.CompressFormat.JPEG, quality, it) }
+            .toByteArray()
     }
 }
 

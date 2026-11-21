@@ -26,8 +26,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * 输入栏草稿按对话保管（[ComposerDrafts]）：换对话、新对话拿到会话号、发出后清空、删除会话、Zeta 重开后恢复。
- * 用真的 hub（不起 Claude 进程）；“重开”是在同一份设置上再建一个 hub。
+ * 输入栏草稿按对话保管（[ComposerDrafts]）：换对话、新对话拿到会话号、发出后清空、删除会话、Zeta 重开后恢复。 用真的 hub（不起 Claude
+ * 进程）；“重开”是在同一份设置上再建一个 hub。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -36,18 +36,25 @@ class ComposerDraftsTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val cwd = Fixtures.env.defaultCwd
 
-    private fun ConversationHub.session(id: String) = Conversation(this, cwd, id, "会话 $id", historyFile = null)
+    private fun ConversationHub.session(id: String) =
+        Conversation(this, cwd, id, "会话 $id", historyFile = null)
 
     private fun ComposerDraft.type(text: String) = input.setTextAndPlaceCursorAtEnd(text)
 
     /** Claude Code 报来了会话号（init 事件里的 session_id）。 */
     private fun Conversation.receiveSessionId(id: String) {
-        Conversation::class.java.getDeclaredMethod("setSessionId", String::class.java).apply { isAccessible = true }.invoke(this, id)
+        Conversation::class
+            .java
+            .getDeclaredMethod("setSessionId", String::class.java)
+            .apply { isAccessible = true }
+            .invoke(this, id)
     }
 
-    private val prefs get() = app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE)
+    private val prefs
+        get() = app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE)
 
-    private fun stored(): List<DraftRecord> = DraftRecords.decode(prefs.getString(ComposerDrafts.KEY, null))
+    private fun stored(): List<DraftRecord> =
+        DraftRecords.decode(prefs.getString(ComposerDrafts.KEY, null))
 
     @Test
     fun eachConversationKeepsItsOwn() {
@@ -56,7 +63,10 @@ class ComposerDraftsTest {
         val b = hub.drafts.of(hub.session("s-b"))
         assertNotSame(a, b)
         a.type("给甲的")
-        a.uploads += FileUpload("u1", "报告.pdf").also { it.path = "/home/dzshzx/.cache/zeta/files/ab12/报告.pdf" }
+        a.uploads +=
+            FileUpload("u1", "报告.pdf").also {
+                it.path = "/home/dzshzx/.cache/zeta/files/ab12/报告.pdf"
+            }
         hub.drafts.save(a)
         b.type("给乙的")
         hub.drafts.save(b)
@@ -171,7 +181,18 @@ class ComposerDraftsTest {
         draft.type("这个会话要删了")
         hub.drafts.save(draft)
         hub.drafts.of(hub.session("s-kept")).also { it.type("留着") }.let(hub.drafts::save)
-        hub.sessionList.delete(listOf(SessionSummary("s-gone", "/home/dzshzx/.claude/projects/-w/s-gone.jsonl", cwd, "要删的", "", 0)))
+        hub.sessionList.delete(
+            listOf(
+                SessionSummary(
+                    "s-gone",
+                    "/home/dzshzx/.claude/projects/-w/s-gone.jsonl",
+                    cwd,
+                    "要删的",
+                    "",
+                    0,
+                ),
+            ),
+        )
         assertNull(hub.drafts.preview("s-gone"))
         assertEquals(listOf("s-kept"), stored().map { it.key })
         assertTrue(hub.drafts.of(hub.session("s-gone")).input.text.isEmpty())
@@ -188,8 +209,12 @@ class ComposerDraftsTest {
             replace(0, length, "第一行\n第二行")
             selection = TextRange(2, 5)
         }
-        session.uploads += FileUpload("u1", "报告.pdf (1.2 MB)").also { it.path = "/home/dzshzx/.cache/zeta/files/ab12/报告.pdf" }
-        session.uploads += FileUpload("u2", "docs").also { it.path = "@/workspace/claude/zeta/docs/" }
+        session.uploads +=
+            FileUpload("u1", "报告.pdf (1.2 MB)").also {
+                it.path = "/home/dzshzx/.cache/zeta/files/ab12/报告.pdf"
+            }
+        session.uploads +=
+            FileUpload("u2", "docs").also { it.path = "@/workspace/claude/zeta/docs/" }
         before.drafts.save(session)
         val fresh = before.drafts.of(before.current)
         fresh.type("新对话里写了一半")
@@ -204,7 +229,10 @@ class ComposerDraftsTest {
         // 进不了 Linux 环境（测试里没有 root）时查不了文件在不在，照原样留着
         awaitMain { true }
         assertEquals(listOf("报告.pdf (1.2 MB)", "docs"), restored.uploads.map { it.name })
-        assertEquals(listOf("/home/dzshzx/.cache/zeta/files/ab12/报告.pdf", "@/workspace/claude/zeta/docs/"), restored.uploads.map { it.path })
+        assertEquals(
+            listOf("/home/dzshzx/.cache/zeta/files/ab12/报告.pdf", "@/workspace/claude/zeta/docs/"),
+            restored.uploads.map { it.path },
+        )
         assertEquals("新对话里写了一半", after.drafts.of(after.current).input.text.toString())
     }
 
@@ -219,7 +247,10 @@ class ComposerDraftsTest {
         before.drafts.save(draft)
         val dir = File(app.filesDir, "drafts")
         awaitMain { File(dir, kept.id).exists() && File(dir, lost.id).exists() }
-        assertEquals(Base64.decode(kept.base64, Base64.NO_WRAP).toList(), File(dir, kept.id).readBytes().toList())
+        assertEquals(
+            Base64.decode(kept.base64, Base64.NO_WRAP).toList(),
+            File(dir, kept.id).readBytes().toList(),
+        )
         // 系统或用户清掉了其中一张
         File(dir, lost.id).delete()
 
@@ -248,8 +279,17 @@ class ComposerDraftsTest {
     }
 
     private fun jpeg(color: Int): Attachment {
-        val bitmap = Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
-        val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
-        return Attachment(UUID.randomUUID().toString(), bitmap.asImageBitmap(), "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        val bitmap =
+            Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        val bytes =
+            ByteArrayOutputStream()
+                .also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                .toByteArray()
+        return Attachment(
+            UUID.randomUUID().toString(),
+            bitmap.asImageBitmap(),
+            "image/jpeg",
+            Base64.encodeToString(bytes, Base64.NO_WRAP),
+        )
     }
 }

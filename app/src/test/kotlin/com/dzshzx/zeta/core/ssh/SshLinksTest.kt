@@ -24,8 +24,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Zeta 直连：密钥、主机指纹、连接复用、断线，对着 JVM 里的一个真 SSH 服务器（[TestSshServer]）。
- * 走的是 OpenSSH 认的线上格式：服务器要验 Zeta 的公钥和签名，签错了登录不上。
+ * Zeta 直连：密钥、主机指纹、连接复用、断线，对着 JVM 里的一个真 SSH 服务器（[TestSshServer]）。 走的是 OpenSSH 认的线上格式：服务器要验 Zeta
+ * 的公钥和签名，签错了登录不上。
  */
 class SshLinksTest {
     private lateinit var home: File
@@ -49,14 +49,24 @@ class SshLinksTest {
     }
 
     /** 加主机那一次：谁都认，把对方的主机公钥带回来。 */
-    private fun hostKey(): ByteArray = checkNotNull(links.probe(server.target, null, "true").hostKey)
+    private fun hostKey(): ByteArray =
+        checkNotNull(links.probe(server.target, null, "true").hostKey)
 
-    private fun shell(hostKey: ByteArray = hostKey()) = DirectSshShell(
-        links,
-        RemoteHost("r-test", "test", server.target.toString(), home.path, home.path, RemoteHost.Via.Direct, RemoteHosts.encodeKey(hostKey)),
-        timeZone = "UTC",
-        linuxName = "zeta-test",
-    )
+    private fun shell(hostKey: ByteArray = hostKey()) =
+        DirectSshShell(
+            links,
+            RemoteHost(
+                "r-test",
+                "test",
+                server.target.toString(),
+                home.path,
+                home.path,
+                RemoteHost.Via.Direct,
+                RemoteHosts.encodeKey(hostKey),
+            ),
+            timeZone = "UTC",
+            linuxName = "zeta-test",
+        )
 
     @Test
     fun keyLooksLikeOpenSsh() {
@@ -99,7 +109,12 @@ class SshLinksTest {
             assertTrue(negotiated.isNotEmpty())
             for ((kex, hostKeyAlgorithm) in negotiated) {
                 assertEquals("ssh-ed25519", hostKeyAlgorithm)
-                assertTrue(kex, kex.startsWith("mlkem768x25519") || kex.startsWith("sntrup761x25519") || kex.startsWith("curve25519"))
+                assertTrue(
+                    kex,
+                    kex.startsWith("mlkem768x25519") ||
+                        kex.startsWith("sntrup761x25519") ||
+                        kex.startsWith("curve25519"),
+                )
             }
             println("谈成的算法：$negotiated")
         } finally {
@@ -115,7 +130,10 @@ class SshLinksTest {
         try {
             process.outputStream.use { it.write(text.toByteArray()) }
             assertEquals(text, process.inputStream.bufferedReader().readText())
-            assertEquals(listOf("zlib@openssh.com" to "zlib@openssh.com"), server.compression.distinct())
+            assertEquals(
+                listOf("zlib@openssh.com" to "zlib@openssh.com"),
+                server.compression.distinct(),
+            )
         } finally {
             process.destroy()
         }
@@ -147,7 +165,8 @@ class SshLinksTest {
     @Test
     fun commandsGetStdinExitCodeAndEnvironment() {
         val shell = shell()
-        val result = shell.run("cat; printf '|%s|%s' \"\$ZETA_NAME\" \"\$TZ\"; exit 7", stdin = "a b'c\"d\n")
+        val result =
+            shell.run("cat; printf '|%s|%s' \"\$ZETA_NAME\" \"\$TZ\"; exit 7", stdin = "a b'c\"d\n")
         assertEquals(7, result.exitCode)
         assertEquals("a b'c\"d\n|zeta-test|UTC", result.stdout)
     }
@@ -213,24 +232,45 @@ class SshLinksTest {
             writeText("#!/bin/sh\necho '2.1.400 (Claude Code)'\n")
             setExecutable(true)
         }
-        val probe = RemoteHosts.probeDirect(links, server.target.toString(), linuxName = "zeta-test")
+        val probe =
+            RemoteHosts.probeDirect(links, server.target.toString(), linuxName = "zeta-test")
         assertTrue(probe.toString(), probe is RemoteHosts.Probe.Ok)
         probe as RemoteHosts.Probe.Ok
         assertEquals(home.path, probe.home)
         assertEquals("2.1.400", probe.claude)
         assertNotNull(probe.hostKey)
-        val changed = RemoteHosts.probeDirect(links, server.target.toString(), RemoteHosts.encodeKey(SshKey.generate().blob), linuxName = "zeta-test")
+        val changed =
+            RemoteHosts.probeDirect(
+                links,
+                server.target.toString(),
+                RemoteHosts.encodeKey(SshKey.generate().blob),
+                linuxName = "zeta-test",
+            )
         assertEquals(RemoteHosts.Probe.HostKeyChanged(probe.hostKey!!), changed)
     }
 
     @Test
     fun targets() {
         assertEquals(SshTarget("me", "example.com", 22), SshTarget.parse("me@example.com"))
-        assertEquals(SshTarget("me", "example.com", 2222), SshTarget.parse("ssh://me@example.com:2222/"))
+        assertEquals(
+            SshTarget("me", "example.com", 2222),
+            SshTarget.parse("ssh://me@example.com:2222/"),
+        )
         assertEquals(SshTarget("me", "::1", 2222), SshTarget.parse("me@[::1]:2222"))
         assertEquals(SshTarget("me", "fe80::1", 22), SshTarget.parse("me@fe80::1"))
         assertEquals("me@[::1]:2222", SshTarget("me", "::1", 2222).toString())
-        for (bad in listOf("example.com", "@example.com", "me@", "me@host:0", "me@host:99999", "me@-oProxy", "me@a b", "-me@host", "me@host;rm")) {
+        for (bad in
+            listOf(
+                "example.com",
+                "@example.com",
+                "me@",
+                "me@host:0",
+                "me@host:99999",
+                "me@-oProxy",
+                "me@a b",
+                "-me@host",
+                "me@host;rm",
+            )) {
             assertNull(bad, SshTarget.parse(bad))
         }
     }
@@ -240,11 +280,26 @@ class SshLinksTest {
     fun problemsAreReadFromExceptionTypes() {
         fun wrapped(cause: Throwable) = JSchException("Session.connect: $cause", cause)
         assertEquals("对方拒绝连接（端口上没有 SSH 服务）", SshLinks.problem(wrapped(ConnectException("连接被拒绝"))))
-        assertEquals("网络不通", SshLinks.problem(wrapped(ConnectException("failed to connect to /10.0.0.9 (port 22): connect failed: ENETUNREACH (Network is unreachable)"))))
+        assertEquals(
+            "网络不通",
+            SshLinks.problem(
+                wrapped(
+                    ConnectException(
+                        "failed to connect to /10.0.0.9 (port 22): connect failed: ENETUNREACH (Network is unreachable)",
+                    ),
+                ),
+            ),
+        )
         assertEquals("网络不通", SshLinks.problem(wrapped(NoRouteToHostException("没有到主机的路由"))))
         assertEquals("连接超时", SshLinks.problem(wrapped(SocketTimeoutException("连接超时"))))
         assertEquals("连接超时", SshLinks.problem(JSchException("timeout: socket is not established")))
-        assertEquals("找不到这台设备（地址解析失败）", SshLinks.problem(wrapped(UnknownHostException("nope.invalid"))))
-        assertTrue(SshLinks.problem(JSchException("Auth fail for methods 'publickey'")).contains("不认 Zeta 的公钥"))
+        assertEquals(
+            "找不到这台设备（地址解析失败）",
+            SshLinks.problem(wrapped(UnknownHostException("nope.invalid"))),
+        )
+        assertTrue(
+            SshLinks.problem(JSchException("Auth fail for methods 'publickey'"))
+                .contains("不认 Zeta 的公钥"),
+        )
     }
 }

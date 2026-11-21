@@ -32,11 +32,13 @@ class SavedPromptsTest {
 
     @Test
     fun encodeDecodeKeepsOrderAndSkipsBadEntries() {
-        val list = SavedPrompts.add(SavedPrompts.add(emptyList(), "1", "", "第一条"), "2", "二", "第二条\n多行")
+        val list =
+            SavedPrompts.add(SavedPrompts.add(emptyList(), "1", "", "第一条"), "2", "二", "第二条\n多行")
         // 新加的在最前面
         assertEquals(listOf("2", "1"), list.map { it.id })
         assertEquals(list, SavedPrompts.decode(SavedPrompts.encode(list)))
-        val messy = """[{"id":"x","name":"n","text":"ok"},{"id":"y","text":"  "},{"name":"no id","text":"still ok"},3,{"id":"x","text":"dup"}]"""
+        val messy =
+            """[{"id":"x","name":"n","text":"ok"},{"id":"y","text":"  "},{"name":"no id","text":"still ok"},3,{"id":"x","text":"dup"}]"""
         val decoded = SavedPrompts.decode(messy)
         assertEquals(listOf("ok", "still ok"), decoded.map { it.text })
         assertEquals(emptyList<SavedPrompt>(), SavedPrompts.decode("not json"))
@@ -45,7 +47,8 @@ class SavedPromptsTest {
 
     @Test
     fun moveRemoveAndDuplicates() {
-        val list = listOf(SavedPrompt("a", "", "A"), SavedPrompt("b", "", "B"), SavedPrompt("c", "", "C"))
+        val list =
+            listOf(SavedPrompt("a", "", "A"), SavedPrompt("b", "", "B"), SavedPrompt("c", "", "C"))
         assertEquals(listOf("b", "a", "c"), SavedPrompts.move(list, "b", -1).map { it.id })
         assertEquals(listOf("a", "c", "b"), SavedPrompts.move(list, "b", 1).map { it.id })
         assertSame(list, SavedPrompts.move(list, "a", -1))
@@ -60,7 +63,9 @@ class SavedPromptsTest {
     fun problems() {
         assertEquals("内容不能为空", SavedPrompts.problem(emptyList(), "名字", "  "))
         assertNotNull(SavedPrompts.problem(emptyList(), "", "x".repeat(SavedPrompts.MAX_TEXT + 1)))
-        assertNotNull(SavedPrompts.problem(emptyList(), "n".repeat(SavedPrompts.MAX_NAME + 1), "ok"))
+        assertNotNull(
+            SavedPrompts.problem(emptyList(), "n".repeat(SavedPrompts.MAX_NAME + 1), "ok"),
+        )
         val full = List(SavedPrompts.MAX) { SavedPrompt("$it", "", "p$it") }
         assertNotNull(SavedPrompts.problem(full, "", "new"))
         // 满了也能改已有的

@@ -37,7 +37,15 @@ class EarlierHistoryShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("长对话", turns("h", 0 until 2))
         hub.current.force("earlier", EarlierHistory(file, 120, "row119"))
-        shoot("chat-earlier") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+        shoot("chat-earlier") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
     }
 
     @Test
@@ -46,7 +54,15 @@ class EarlierHistoryShots : ShotTest() {
         hub.showChat("长对话", turns("h", 0 until 2))
         hub.current.force("earlier", EarlierHistory(file, 120, "row119"))
         hub.current.force("earlierState", EarlierState.Loading)
-        shoot("chat-earlier-loading") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+        shoot("chat-earlier-loading") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
     }
 
     /** 查找栏打开时把剩下的一次载完：下面那行说还剩几条在载。 */
@@ -57,7 +73,15 @@ class EarlierHistoryShots : ShotTest() {
         hub.current.force("earlier", EarlierHistory(file, 120, "row119"))
         // 标成正在载入：不真去读（单元测试里没有 Linux 环境）
         hub.current.force("earlierState", EarlierState.Loading)
-        shoot("chat-find-earlier", prepare = { openFind() }) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+        shoot("chat-find-earlier", prepare = { openFind() }) {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
     }
 
     /** 打开查找栏就去载更早的记录；读不成时停下，查找栏里说明没查到的部分。 */
@@ -67,7 +91,17 @@ class EarlierHistoryShots : ShotTest() {
         val conversation = hub.current
         hub.showChat("长对话", turns("h", 0 until 2))
         conversation.force("earlier", EarlierHistory(file, 120, "row119"))
-        compose.setContent { ZetaTheme(darkTheme = false, windowBackdrop = false) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) } }
+        compose.setContent {
+            ZetaTheme(darkTheme = false, windowBackdrop = false) {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
+            }
+        }
         settle()
         assertEquals(EarlierState.Idle, conversation.earlierState)
         compose.openFind()
@@ -89,8 +123,7 @@ class EarlierHistoryShots : ShotTest() {
     }
 
     /**
-     * 翻到最顶上（“更早的记录”那行露出来）时接上几百项：最前面那条提问停在原处，不被新内容往下推。
-     * 再往下翻一点（那行不在屏上了）时接上一千多项（最后一页，那行跟着没了）：屏上那条也不动。
+     * 翻到最顶上（“更早的记录”那行露出来）时接上几百项：最前面那条提问停在原处，不被新内容往下推。 再往下翻一点（那行不在屏上了）时接上一千多项（最后一页，那行跟着没了）：屏上那条也不动。
      * LazyColumn 自己只在第一项附近约 130 项里找 key，插这么多它找不到，靠 KeepReadingPosition 定位。页走 Conversation 自己接上的那条路。
      */
     @Test
@@ -104,13 +137,25 @@ class EarlierHistoryShots : ShotTest() {
         // 标成正在载入：往上翻时不自己去读（单元测试里没有 Linux 环境），页由下面直接交给它
         conversation.force("earlierState", EarlierState.Loading)
         compose.mainClock.autoAdvance = false
-        compose.setContent { ZetaTheme(darkTheme = false, windowBackdrop = false) { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) } }
+        compose.setContent {
+            ZetaTheme(darkTheme = false, windowBackdrop = false) {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                )
+            }
+        }
         settle()
         val list = compose.onNode(hasScrollToIndexAction())
         // 用手指往上翻到顶（这样才会停掉贴底跟随）
         compose.mainClock.autoAdvance = true
         // 从中间往下拖：列表顶边盖在顶栏下面，从那里按到的是顶栏
-        repeat(40) { list.performTouchInput { swipeDown(startY = height * 0.3f, endY = height * 0.9f) } }
+        repeat(40) {
+            list.performTouchInput { swipeDown(startY = height * 0.3f, endY = height * 0.9f) }
+        }
         compose.mainClock.autoAdvance = false
         // 顶上拉过头的回弹放完再量
         settle(3_000)
@@ -141,14 +186,17 @@ class EarlierHistoryShots : ShotTest() {
 
     /**
      * 一帧一帧走，直到新接上的那页排版出来（[text] 是页里最后那条回答）。在这一帧量位置：没缓存过的回答先用原文占位，
-     * 解析完高度会差一点，翻到最顶上时正看着的那条上面紧挨着的就是这样一条，再过一帧会跟着它挪几个 dp
-     * （往上翻进没解析过的回答时也一样），那不是接页造成的。
+     * 解析完高度会差一点，翻到最顶上时正看着的那条上面紧挨着的就是这样一条，再过一帧会跟着它挪几个 dp （往上翻进没解析过的回答时也一样），那不是接页造成的。
      */
     private fun landed(text: String) {
         repeat(10) {
             compose.mainClock.advanceTimeByFrame()
             compose.waitForIdle()
-            if (runCatching { compose.onNodeWithText(text, substring = true).fetchSemanticsNode() }.isSuccess) return
+            if (
+                runCatching { compose.onNodeWithText(text, substring = true).fetchSemanticsNode() }
+                    .isSuccess
+            )
+                return
         }
         throw AssertionError("接上的那页一直没排版出来")
     }
@@ -166,12 +214,31 @@ class EarlierHistoryShots : ShotTest() {
     }
 
     private fun reducerOf(conversation: Conversation): TranscriptReducer =
-        Conversation::class.java.getDeclaredField("reducer").apply { isAccessible = true }.get(conversation) as TranscriptReducer
+        Conversation::class
+            .java
+            .getDeclaredField("reducer")
+            .apply { isAccessible = true }
+            .get(conversation) as TranscriptReducer
 
     /** 把读回来的一页交给对话（它自己读回来时走的就是这里）。[left] 是这页之前还剩的。 */
     private fun deliver(conversation: Conversation, items: List<ChatItem>, left: EarlierHistory?) {
-        val apply = Conversation::class.java.getDeclaredMethod("applyEarlier", List::class.java, HistoryRead::class.java, String::class.java)
-            .apply { isAccessible = true }
-        compose.runOnUiThread { apply.invoke(conversation, items, HistoryRead(left, emptyList(), UsageTracker(), stale = false), null) }
+        val apply =
+            Conversation::class
+                .java
+                .getDeclaredMethod(
+                    "applyEarlier",
+                    List::class.java,
+                    HistoryRead::class.java,
+                    String::class.java,
+                )
+                .apply { isAccessible = true }
+        compose.runOnUiThread {
+            apply.invoke(
+                conversation,
+                items,
+                HistoryRead(left, emptyList(), UsageTracker(), stale = false),
+                null,
+            )
+        }
     }
 }

@@ -20,10 +20,7 @@ internal fun <T> rememberRetained(value: T?): T? {
     return last
 }
 
-/**
- * 每 [periodMs] 走一次的“现在”。读它的地方每次走都重组，所以只在真要显示时间的那一小块里读，
- * 别在整页的最外层读。
- */
+/** 每 [periodMs] 走一次的“现在”。读它的地方每次走都重组，所以只在真要显示时间的那一小块里读， 别在整页的最外层读。 */
 @Composable
 internal fun rememberNow(periodMs: Long = 30_000): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -37,9 +34,8 @@ internal fun rememberNow(periodMs: Long = 30_000): Long {
 }
 
 /**
- * [read] 读到的值，只在界面看得见（生命周期至少 STARTED）时跟着变；看不见时停在最后一份、也不读 [read]，
- * 回到前台再一次补上。Compose 在界面停止后只暂停动画帧，重组和测量照做：随回答流式输出频繁变的状态，
- * 经它读就不会让看不见的界面跟着重组、测量。
+ * [read] 读到的值，只在界面看得见（生命周期至少 STARTED）时跟着变；看不见时停在最后一份、也不读 [read]， 回到前台再一次补上。Compose
+ * 在界面停止后只暂停动画帧，重组和测量照做：随回答流式输出频繁变的状态， 经它读就不会让看不见的界面跟着重组、测量。
  */
 @Composable
 internal fun <T> whileStarted(read: () -> T): T {

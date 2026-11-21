@@ -16,19 +16,28 @@ enum class LogKind(val code: String, val label: String) {
 }
 
 /** Linux 环境里的一个日志文件。[modified] 是毫秒；[title] 是对话标题（只有运行中的有）。 */
-data class LogFile(val kind: LogKind, val path: String, val size: Long, val modified: Long, val title: String = "") {
-    val name: String get() = path.substringAfterLast('/')
+data class LogFile(
+    val kind: LogKind,
+    val path: String,
+    val size: Long,
+    val modified: Long,
+    val title: String = "",
+) {
+    val name: String
+        get() = path.substringAfterLast('/')
 }
 
 /** 进 Linux 环境查一次得到的东西。 */
-data class LinuxProbe(val claude: String, val node: String, val debian: String, val files: List<LogFile>) {
+data class LinuxProbe(
+    val claude: String,
+    val node: String,
+    val debian: String,
+    val files: List<LogFile>,
+) {
     fun files(kind: LogKind): List<LogFile> = files.filter { it.kind == kind }
 }
 
-/**
- * 诊断页在 Linux 环境里跑的几段脚本（以 Claude Code 的那个 Linux 用户身份），和解析它们输出的纯函数。
- * 只读，不改 `~/.claude` 里的任何东西。
- */
+/** 诊断页在 Linux 环境里跑的几段脚本（以 Claude Code 的那个 Linux 用户身份），和解析它们输出的纯函数。 只读，不改 `~/.claude` 里的任何东西。 */
 object DiagScripts {
     /** 看日志、打包时每个文件只取最后这么多字节。 */
     const val TAIL_BYTES = 64 * 1024
@@ -38,7 +47,8 @@ object DiagScripts {
     const val DEBUG_LIMIT = 30
 
     /** 版本号，加上可看的日志文件：每行 `file<Tab>类别<Tab>修改时间（秒）<Tab>字节数<Tab>路径<Tab>标题`。 */
-    val PROBE: String = """
+    val PROBE: String =
+        """
         H="${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}"
         echo "claude=${'$'}(claude --version 2>/dev/null | head -n 1)"
         echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
@@ -51,7 +61,8 @@ object DiagScripts {
         find "${'$'}H/stderr" -maxdepth 1 -type f -name '*.log' -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n $FINISHED_LIMIT | sed 's/^/file\tfinished\t/'
         find "${'$'}HOME/.claude/debug" -maxdepth 1 -type f -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n $DEBUG_LIMIT | sed 's/^/file\tdebug\t/'
         exit 0
-    """.trimIndent()
+    """
+            .trimIndent()
 
     /** 打包用：每个参数一行 `路径<Tab>最后 TAIL_BYTES 字节的 base64`。 */
     val TAILS: String =
@@ -64,13 +75,18 @@ object DiagScripts {
         val files = ArrayList<LogFile>()
         for (line in stdout.lineSequence()) {
             when {
-                line.startsWith("claude=") -> claude = line.removePrefix("claude=").trim().substringBefore(" (")
-                line.startsWith("node=") -> node = line.removePrefix("node=").trim().removePrefix("v")
+                line.startsWith("claude=") ->
+                    claude = line.removePrefix("claude=").trim().substringBefore(" (")
+                line.startsWith("node=") ->
+                    node = line.removePrefix("node=").trim().removePrefix("v")
                 line.startsWith("debian=") -> debian = line.removePrefix("debian=").trim()
                 line.startsWith("file\t") -> parseFile(line)?.let(files::add)
             }
         }
-        val sorted = files.distinctBy { it.path }.sortedWith(compareBy<LogFile> { it.kind.ordinal }.thenByDescending { it.modified })
+        val sorted =
+            files
+                .distinctBy { it.path }
+                .sortedWith(compareBy<LogFile> { it.kind.ordinal }.thenByDescending { it.modified })
         return LinuxProbe(claude, node, debian, sorted)
     }
 
@@ -85,17 +101,20 @@ object DiagScripts {
     }
 
     /**
-     * 只许读这几处的文件：`~/.claude/debug/` 下的，Zeta 自己（[linuxName]）的 `stderr/` 下的，
-     * 和 `hosts/<标识>/err.log`。路径里不能有 `..`。
+     * 只许读这几处的文件：`~/.claude/debug/` 下的，Zeta 自己（[linuxName]）的 `stderr/` 下的， 和
+     * `hosts/<标识>/err.log`。路径里不能有 `..`。
      */
     fun readable(path: String, home: String, linuxName: String): Boolean {
         if (!path.startsWith("/") || path.split('/').any { it == ".." || it == "." }) return false
         val h = home.trimEnd('/')
         val cache = "$h/.cache/$linuxName/"
-        fun directChild(dir: String) = path.startsWith(dir) && path.length > dir.length && '/' !in path.substring(dir.length)
+        fun directChild(dir: String) =
+            path.startsWith(dir) && path.length > dir.length && '/' !in path.substring(dir.length)
         return directChild("$h/.claude/debug/") ||
             directChild("${cache}stderr/") ||
-            (path.startsWith("${cache}hosts/") && path.endsWith("/err.log") && path.removePrefix("${cache}hosts/").count { it == '/' } == 1)
+            (path.startsWith("${cache}hosts/") &&
+                path.endsWith("/err.log") &&
+                path.removePrefix("${cache}hosts/").count { it == '/' } == 1)
     }
 
     /** [TAILS] 的输出：路径 → 内容（按 UTF-8 解，坏字节换成替代符）。解不开的行跳过。 */
@@ -104,7 +123,9 @@ object DiagScripts {
         for (line in stdout.lineSequence()) {
             val tab = line.indexOf('\t')
             if (tab <= 0) continue
-            val bytes = runCatching { Base64.getDecoder().decode(line.substring(tab + 1).trim()) }.getOrNull() ?: continue
+            val bytes =
+                runCatching { Base64.getDecoder().decode(line.substring(tab + 1).trim()) }
+                    .getOrNull() ?: continue
             result[line.substring(0, tab)] = String(bytes, Charsets.UTF_8)
         }
         return result
@@ -117,35 +138,50 @@ object DiagScripts {
 /** 诊断包里的文件：名字 → 内容。全部打过码。纯函数。 */
 object DiagBundle {
     /**
-     * [info] 环境与权限，[log] 运行日志，[logcat] 本应用的 logcat，[tails] Claude Code 那边各文件的尾部
-     * （键是 [LogFile]，值是内容）。同名的文件加序号区分。
+     * [info] 环境与权限，[log] 运行日志，[logcat] 本应用的 logcat，[tails] Claude Code 那边各文件的尾部 （键是
+     * [LogFile]，值是内容）。同名的文件加序号区分。
      */
-    fun files(info: String, log: String, logcat: String, tails: Map<LogFile, String>): Map<String, String> {
+    fun files(
+        info: String,
+        log: String,
+        logcat: String,
+        tails: Map<LogFile, String>,
+    ): Map<String, String> {
         val out = LinkedHashMap<String, String>()
         out["info.txt"] = info
         out["zeta-log.txt"] = log
         out["logcat.txt"] = logcat
         for ((file, text) in tails) {
-            val dir = when (file.kind) {
-                LogKind.Running -> "claude-stderr/running"
-                LogKind.Finished -> "claude-stderr"
-                LogKind.Debug -> "claude-debug"
-            }
-            val base = if (file.kind == LogKind.Running) file.path.substringBeforeLast("/err.log").substringAfterLast('/') + ".log" else file.name
+            val dir =
+                when (file.kind) {
+                    LogKind.Running -> "claude-stderr/running"
+                    LogKind.Finished -> "claude-stderr"
+                    LogKind.Debug -> "claude-debug"
+                }
+            val base =
+                if (file.kind == LogKind.Running)
+                    file.path.substringBeforeLast("/err.log").substringAfterLast('/') + ".log"
+                else file.name
             val safe = safeName(base)
             var name = "$dir/$safe"
             var n = 2
             while (name in out) {
                 val dot = safe.lastIndexOf('.')
-                name = if (dot > 0) "$dir/${safe.substring(0, dot)}-$n${safe.substring(dot)}" else "$dir/$safe-$n"
+                name =
+                    if (dot > 0) "$dir/${safe.substring(0, dot)}-$n${safe.substring(dot)}"
+                    else "$dir/$safe-$n"
                 n++
             }
-            val note = if (file.size > DiagScripts.TAIL_BYTES) "# 原文件 ${DiagScripts.size(file.size)}，这里只有最后 ${DiagScripts.TAIL_BYTES / 1024} KB：${file.path}\n" else "# ${file.path}\n"
+            val note =
+                if (file.size > DiagScripts.TAIL_BYTES)
+                    "# 原文件 ${DiagScripts.size(file.size)}，这里只有最后 ${DiagScripts.TAIL_BYTES / 1024} KB：${file.path}\n"
+                else "# ${file.path}\n"
             out[name] = note + text
         }
         return out.mapValues { (_, text) -> Redact.text(text) }
     }
 
     /** 包里的文件名只留安全的字符。 */
-    fun safeName(name: String): String = name.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.').ifEmpty { "file" }.take(100)
+    fun safeName(name: String): String =
+        name.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.').ifEmpty { "file" }.take(100)
 }

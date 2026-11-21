@@ -60,7 +60,15 @@ class AppVariantTest {
 
     @Test
     fun linuxCommandsCarryTheDirectoryName() {
-        val config = LinuxEnvConfig("/data/local/zeta/debian/rootfs", "dzshzx", 5000, 5000, "/home/dzshzx", "/workspace")
+        val config =
+            LinuxEnvConfig(
+                "/data/local/zeta/debian/rootfs",
+                "dzshzx",
+                5000,
+                5000,
+                "/home/dzshzx",
+                "/workspace",
+            )
         val script = LinuxEnv.enterScript(config, "true")
         assertTrue(script, script.contains("${AppVariant.LINUX_NAME_ENV}='\\''zeta'\\''"))
     }

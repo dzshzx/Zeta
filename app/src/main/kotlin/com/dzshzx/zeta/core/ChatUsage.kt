@@ -9,22 +9,37 @@ import kotlinx.serialization.json.booleanOrNull
 
 /** 一次或几次模型请求的 token 数。 */
 @Immutable
-data class TokenCounts(val input: Long = 0, val output: Long = 0, val cacheRead: Long = 0, val cacheWrite: Long = 0) {
-    val total: Long get() = input + output + cacheRead + cacheWrite
+data class TokenCounts(
+    val input: Long = 0,
+    val output: Long = 0,
+    val cacheRead: Long = 0,
+    val cacheWrite: Long = 0,
+) {
+    val total: Long
+        get() = input + output + cacheRead + cacheWrite
 
     operator fun plus(other: TokenCounts) =
-        TokenCounts(input + other.input, output + other.output, cacheRead + other.cacheRead, cacheWrite + other.cacheWrite)
+        TokenCounts(
+            input + other.input,
+            output + other.output,
+            cacheRead + other.cacheRead,
+            cacheWrite + other.cacheWrite,
+        )
 
     /** 每一项都不小于 [other]：累计数只会涨，变小说明计数从头开始了。 */
     fun covers(other: TokenCounts): Boolean =
-        input >= other.input && output >= other.output && cacheRead >= other.cacheRead && cacheWrite >= other.cacheWrite
+        input >= other.input &&
+            output >= other.output &&
+            cacheRead >= other.cacheRead &&
+            cacheWrite >= other.cacheWrite
 
-    operator fun minus(other: TokenCounts) = TokenCounts(
-        (input - other.input).coerceAtLeast(0),
-        (output - other.output).coerceAtLeast(0),
-        (cacheRead - other.cacheRead).coerceAtLeast(0),
-        (cacheWrite - other.cacheWrite).coerceAtLeast(0),
-    )
+    operator fun minus(other: TokenCounts) =
+        TokenCounts(
+            (input - other.input).coerceAtLeast(0),
+            (output - other.output).coerceAtLeast(0),
+            (cacheRead - other.cacheRead).coerceAtLeast(0),
+            (cacheWrite - other.cacheWrite).coerceAtLeast(0),
+        )
 
     companion object {
         val Zero = TokenCounts()
@@ -42,14 +57,17 @@ data class TokenCounts(val input: Long = 0, val output: Long = 0, val cacheRead:
 
         /** result 行的 modelUsage：这个进程启动以来各模型的累计，加在一起。 */
         fun ofModelUsage(modelUsage: JsonObject?): TokenCounts? {
-            val models = modelUsage?.values?.filterIsInstance<JsonObject>()?.takeIf { it.isNotEmpty() } ?: return null
+            val models =
+                modelUsage?.values?.filterIsInstance<JsonObject>()?.takeIf { it.isNotEmpty() }
+                    ?: return null
             return models.fold(Zero) { sum, m ->
-                sum + TokenCounts(
-                    m.long("inputTokens") ?: 0,
-                    m.long("outputTokens") ?: 0,
-                    m.long("cacheReadInputTokens") ?: 0,
-                    m.long("cacheCreationInputTokens") ?: 0,
-                )
+                sum +
+                    TokenCounts(
+                        m.long("inputTokens") ?: 0,
+                        m.long("outputTokens") ?: 0,
+                        m.long("cacheReadInputTokens") ?: 0,
+                        m.long("cacheCreationInputTokens") ?: 0,
+                    )
             }
         }
     }
@@ -59,7 +77,11 @@ data class TokenCounts(val input: Long = 0, val output: Long = 0, val cacheRead:
 @Immutable
 data class TurnUsage(val tokens: TokenCounts, val costUsd: Double?, val durationMs: Long? = null)
 
-enum class ContextLevel { Normal, Warning, Critical }
+enum class ContextLevel {
+    Normal,
+    Warning,
+    Critical,
+}
 
 /** 界面要显示的一个对话的用量。 */
 @Immutable
@@ -80,13 +102,16 @@ data class ChatUsage(
     /** 自动压缩会在上下文到多少 token 时触发（已算上 Zeta 给的百分比，见 [AutoCompact.threshold]）；关着或还不知道时是 null。 */
     val compactAt: Long? = null,
 ) {
-    val total: TokenCounts get() = turns.fold(TokenCounts.Zero) { sum, turn -> sum + turn.tokens }
+    val total: TokenCounts
+        get() = turns.fold(TokenCounts.Zero) { sum, turn -> sum + turn.tokens }
 
     /** 已知费用之和；一轮都算不出来时为 null。 */
-    val totalCost: Double? get() = turns.mapNotNull { it.costUsd }.takeIf { it.isNotEmpty() }?.sum()
+    val totalCost: Double?
+        get() = turns.mapNotNull { it.costUsd }.takeIf { it.isNotEmpty() }?.sum()
 
     /** 有些轮次（从会话记录恢复的、接上后台进程后的第一轮）没有费用数据。 */
-    val costPartial: Boolean get() = turns.any { it.costUsd == null }
+    val costPartial: Boolean
+        get() = turns.any { it.costUsd == null }
 
     val fraction: Float?
         get() {
@@ -104,14 +129,16 @@ data class ChatUsage(
         }
 
     /**
-     * 快满时提醒。知道压缩点时按离压缩点多近算（到 95% 就是马上要压缩了）；
-     * 不知道时按窗口算：Claude Code 默认在窗口减去约 3.3 万处压缩，92% 左右就到了；自动压缩关着时窗口满了就发不出去。
+     * 快满时提醒。知道压缩点时按离压缩点多近算（到 95% 就是马上要压缩了）； 不知道时按窗口算：Claude Code 默认在窗口减去约 3.3 万处压缩，92%
+     * 左右就到了；自动压缩关着时窗口满了就发不出去。
      */
     val level: ContextLevel
         get() {
             val used = contextTokens ?: return ContextLevel.Normal
             val at = compactAt?.takeIf { it > 0 }
-            val f = if (at != null) (used.toDouble() / at).toFloat() else fraction ?: return ContextLevel.Normal
+            val f =
+                if (at != null) (used.toDouble() / at).toFloat()
+                else fraction ?: return ContextLevel.Normal
             return when {
                 f >= (if (at != null) 0.95f else 0.92f) -> ContextLevel.Critical
                 f >= (if (at != null) 0.80f else 0.75f) -> ContextLevel.Warning
@@ -119,15 +146,16 @@ data class ChatUsage(
             }
         }
 
-    val known: Boolean get() = contextTokens != null || turns.isNotEmpty()
+    val known: Boolean
+        get() = contextTokens != null || turns.isNotEmpty()
 }
 
 /**
  * 从 Claude Code 的 stream-json 事件（以及 zeta-helper history 给出的会话记录）累计一个对话的用量。纯逻辑，不依赖 Android。
  *
- * - 上下文占用：主对话最近一次请求的 usage 四项之和（提示词含缓存读写，加上输出）。这正是 Claude Code 判断自动压缩用的数，
- *   压缩前的 pre_tokens 与它一致。压缩后的 post_tokens 只算消息、不含系统提示和工具定义（实测压缩后下一次请求比它多两万多），
- *   所以压缩后先显示它，再用 get_context_usage 的估算（含这些固定开销）替换，下一次请求的实测数到了再以实测为准。
+ * - 上下文占用：主对话最近一次请求的 usage 四项之和（提示词含缓存读写，加上输出）。这正是 Claude Code 判断自动压缩用的数， 压缩前的 pre_tokens 与它一致。压缩后的
+ *   post_tokens 只算消息、不含系统提示和工具定义（实测压缩后下一次请求比它多两万多）， 所以压缩后先显示它，再用 get_context_usage
+ *   的估算（含这些固定开销）替换，下一次请求的实测数到了再以实测为准。
  * - 每轮用量：result 行的 modelUsage 和 total_cost_usd 是这个进程启动以来的累计（含子代理和压缩请求），相邻两个 result 相减就是这一轮。
  *   全新会话的进程从零开始累计；用 `--resume` 续上旧会话时 Claude Code 会把上次进程的累计带过来，接上后台进程时也不知道之前读到哪，
  *   这两种情况第一轮的基线未知：token 改用 result.usage（只含这一轮），费用只在累计与这一轮完全对得上时才算。
@@ -167,8 +195,8 @@ class UsageTracker {
     }
 
     /**
-     * 起了一个新进程。[fresh] 表示全新会话（没带 --resume），它的累计从零开始。
-     * [compactPercent] 是给这个进程的自动压缩百分比（[AutoCompact.PERCENT_ENV]），Claude Code 报的压缩点不含它，算压缩点要用。
+     * 起了一个新进程。[fresh] 表示全新会话（没带 --resume），它的累计从零开始。 [compactPercent]
+     * 是给这个进程的自动压缩百分比（[AutoCompact.PERCENT_ENV]），Claude Code 报的压缩点不含它，算压缩点要用。
      */
     fun processStarted(fresh: Boolean, compactPercent: Int? = null) {
         baseTokens = if (fresh) TokenCounts.Zero else null
@@ -186,7 +214,9 @@ class UsageTracker {
             "stream_event" -> main && observeStream(event.obj("event"))
             "assistant" -> main && observeMessage(event.obj("message"))
             "result" -> observeResult(event)
-            "system" -> event.str("subtype") == "compact_boundary" && compacted(event.obj("compact_metadata")?.long("post_tokens"))
+            "system" ->
+                event.str("subtype") == "compact_boundary" &&
+                    compacted(event.obj("compact_metadata")?.long("post_tokens"))
             // /clear 换了新会话，之前的上下文都不在了；Claude Code 的累计也可能跟着清零，下一轮的基线算未知
             "conversation_reset" -> {
                 contextTokens = null
@@ -199,12 +229,14 @@ class UsageTracker {
         }
     }
 
-    private fun observeStream(event: JsonObject?): Boolean = when (event?.str("type")) {
-        "message_start" -> observeMessage(event.obj("message"))
-        // 消息结束时的 usage 是最终数（含完整的输出）
-        "message_delta" -> TokenCounts.ofApi(event.obj("usage"))?.let { setContext(it.total) } ?: false
-        else -> false
-    }
+    private fun observeStream(event: JsonObject?): Boolean =
+        when (event?.str("type")) {
+            "message_start" -> observeMessage(event.obj("message"))
+            // 消息结束时的 usage 是最终数（含完整的输出）
+            "message_delta" ->
+                TokenCounts.ofApi(event.obj("usage"))?.let { setContext(it.total) } ?: false
+            else -> false
+        }
 
     private fun observeMessage(message: JsonObject?): Boolean {
         message ?: return false
@@ -234,24 +266,32 @@ class UsageTracker {
         val own = TokenCounts.ofApi(event.obj("usage")) ?: TokenCounts.Zero
         val base = baseTokens?.takeIf { cumulative != null && cumulative.covers(it) }
         val tokens = if (cumulative != null && base != null) cumulative - base else own
-        val turnCost = when {
-            cost == null -> null
-            base != null -> baseCost?.takeIf { cost >= it }?.let { cost - it }
-            cumulative == own -> cost
-            else -> null
-        }
+        val turnCost =
+            when {
+                cost == null -> null
+                base != null -> baseCost?.takeIf { cost >= it }?.let { cost - it }
+                cumulative == own -> cost
+                else -> null
+            }
         if (cumulative != null) baseTokens = cumulative
         if (cost != null) baseCost = cost
         windowOf(modelUsage)?.let { modelWindow = it }
         // 斜杠命令（/context 之类）也会出一个 result，但没有请求模型
-        if (tokens.total > 0 || (turnCost ?: 0.0) > 0.0) turns.add(TurnUsage(tokens, turnCost, event.long("duration_ms")))
+        if (tokens.total > 0 || (turnCost ?: 0.0) > 0.0)
+            turns.add(TurnUsage(tokens, turnCost, event.long("duration_ms")))
         return changed()
     }
 
     private fun windowOf(modelUsage: JsonObject?): Long? {
         modelUsage ?: return null
-        model?.let { name -> modelUsage.obj(name)?.long("contextWindow")?.let { return it } }
-        return modelUsage.values.mapNotNull { (it as? JsonObject)?.long("contextWindow") }.maxOrNull()
+        model?.let { name ->
+            modelUsage.obj(name)?.long("contextWindow")?.let {
+                return it
+            }
+        }
+        return modelUsage.values
+            .mapNotNull { (it as? JsonObject)?.long("contextWindow") }
+            .maxOrNull()
     }
 
     /** get_context_usage 的应答（control_response 里的 response 一项）；返回用量有没有变化。 */
@@ -268,7 +308,8 @@ class UsageTracker {
         // 自动压缩关着时没有 autoCompactThreshold
         (response["isAutoCompactEnabled"] as? JsonPrimitive)?.booleanOrNull?.let { enabled ->
             autoCompact = enabled
-            reportedThreshold = if (enabled) response.long("autoCompactThreshold")?.takeIf { it > 0 } else null
+            reportedThreshold =
+                if (enabled) response.long("autoCompactThreshold")?.takeIf { it > 0 } else null
         }
         return changed()
     }
@@ -286,9 +327,14 @@ class UsageTracker {
     fun observeHistory(event: JsonObject) {
         when (event.str("type")) {
             // 用户亲手发的消息（不是工具结果）开始新的一轮
-            "user" -> if (event.obj("message")?.arr("content").orEmpty().any { (it as? JsonObject)?.str("type") in setOf("text", "image") }) {
-                flushHistoryTurn()
-            }
+            "user" ->
+                if (
+                    event.obj("message")?.arr("content").orEmpty().any {
+                        (it as? JsonObject)?.str("type") in setOf("text", "image")
+                    }
+                ) {
+                    flushHistoryTurn()
+                }
             "assistant" -> {
                 val message = event.obj("message") ?: return
                 message.str("model")?.let { model = it }
@@ -299,11 +345,12 @@ class UsageTracker {
                     estimated = false
                 }
             }
-            "system" -> if (event.str("subtype") == "compact_boundary") {
-                compactions++
-                contextTokens = event.obj("compact_metadata")?.long("post_tokens")
-                estimated = true
-            }
+            "system" ->
+                if (event.str("subtype") == "compact_boundary") {
+                    compactions++
+                    contextTokens = event.obj("compact_metadata")?.long("post_tokens")
+                    estimated = true
+                }
         }
     }
 
@@ -332,22 +379,23 @@ class UsageTracker {
     }
 
     /** [knownWindows] 是以前从 Claude Code 得知的各模型窗口，这个对话自己还没拿到窗口时用。 */
-    fun snapshot(knownWindows: Map<String, Long> = emptyMap()): ChatUsage = ChatUsage(
-        contextTokens = contextTokens,
-        contextEstimated = estimated && contextTokens != null,
-        contextWindow = claudeWindow ?: model?.let { knownWindows[it] } ?: modelWindow,
-        model = model,
-        turns = turns.toList(),
-        compactions = compactions,
-        appliedEffort = appliedEffort,
-        autoCompact = autoCompact,
-        compactAt = AutoCompact.threshold(reportedThreshold, compactPercent),
-    )
+    fun snapshot(knownWindows: Map<String, Long> = emptyMap()): ChatUsage =
+        ChatUsage(
+            contextTokens = contextTokens,
+            contextEstimated = estimated && contextTokens != null,
+            contextWindow = claudeWindow ?: model?.let { knownWindows[it] } ?: modelWindow,
+            model = model,
+            turns = turns.toList(),
+            compactions = compactions,
+            appliedEffort = appliedEffort,
+            autoCompact = autoCompact,
+            compactAt = AutoCompact.threshold(reportedThreshold, compactPercent),
+        )
 }
 
 /**
- * compact_boundary 在聊天里显示的提示。只写压缩前的大小：它是实测数；post_tokens 不含系统提示和工具，
- * 写成「→ 7.6K」会让人以为上下文只剩这么多。压缩后的占用看用量弹窗。
+ * compact_boundary 在聊天里显示的提示。只写压缩前的大小：它是实测数；post_tokens 不含系统提示和工具， 写成「→
+ * 7.6K」会让人以为上下文只剩这么多。压缩后的占用看用量弹窗。
  */
 internal fun compactNotice(event: JsonObject): String {
     val metadata = event.obj("compact_metadata")
@@ -355,16 +403,22 @@ internal fun compactNotice(event: JsonObject): String {
     return metadata?.long("pre_tokens")?.let { "$label（压缩前 ${formatTokens(it)}）" } ?: label
 }
 
-/** Claude Code 支持的思考强度（`--effort`、`apply_flag_settings` 的 effortLevel）；null 表示不指定，沿用 Claude Code 自己的设置。 */
-internal val EffortLevels: List<Pair<String, String>> = listOf(
-    "low" to "低",
-    "medium" to "中",
-    "high" to "高",
-    "xhigh" to "超高",
-    "max" to "最高",
-)
+/**
+ * Claude Code 支持的思考强度（`--effort`、`apply_flag_settings` 的 effortLevel）；null 表示不指定，沿用 Claude Code
+ * 自己的设置。
+ */
+internal val EffortLevels: List<Pair<String, String>> =
+    listOf(
+        "low" to "低",
+        "medium" to "中",
+        "high" to "高",
+        "xhigh" to "超高",
+        "max" to "最高",
+    )
 
-internal fun effortLabel(effort: String?): String? = effort?.let { value -> EffortLevels.firstOrNull { it.first == value }?.second ?: value }
+internal fun effortLabel(effort: String?): String? = effort?.let { value ->
+    EffortLevels.firstOrNull { it.first == value }?.second ?: value
+}
 
 /** 1234 → 1.2K，26618 → 26.6K，123456 → 123K，1234567 → 1.23M。十万以内留一位小数，压缩前后差几百也看得出来。 */
 internal fun formatTokens(value: Long): String {
@@ -377,14 +431,16 @@ internal fun formatTokens(value: Long): String {
     }
 }
 
-private fun trimZeros(text: String): String = if (text.contains('.')) text.trimEnd('0').trimEnd('.') else text
+private fun trimZeros(text: String): String =
+    if (text.contains('.')) text.trimEnd('0').trimEnd('.') else text
 
 /** 精确数，千位分隔。 */
-internal fun formatExactTokens(value: Long): String = String.format(Locale.US, "%,d", value.coerceAtLeast(0))
+internal fun formatExactTokens(value: Long): String =
+    String.format(Locale.US, "%,d", value.coerceAtLeast(0))
 
-internal fun formatCost(usd: Double): String = when {
-    usd <= 0.0 -> "$0"
-    usd < 1.0 -> "$" + String.format(Locale.US, "%.4f", usd)
-    else -> "$" + String.format(Locale.US, "%.2f", usd)
-}
-
+internal fun formatCost(usd: Double): String =
+    when {
+        usd <= 0.0 -> "$0"
+        usd < 1.0 -> "$" + String.format(Locale.US, "%.4f", usd)
+        else -> "$" + String.format(Locale.US, "%.2f", usd)
+    }

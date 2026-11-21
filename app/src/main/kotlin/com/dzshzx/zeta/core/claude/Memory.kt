@@ -31,8 +31,14 @@ data class MemoryOverview(
 data class TextDocument(val content: String, val sha: String, val exists: Boolean)
 
 /** [ClaudeScripts.MEMORY_SCAN] 里一个项目目录的 P 记录。 */
-data class ProjectDir(val key: String, val memoryCount: Int, val memoryMtime: Long, val sampleCwd: String?) {
-    val hasMemory: Boolean get() = memoryCount >= 0
+data class ProjectDir(
+    val key: String,
+    val memoryCount: Int,
+    val memoryMtime: Long,
+    val sampleCwd: String?,
+) {
+    val hasMemory: Boolean
+        get() = memoryCount >= 0
 }
 
 object ClaudeMemory {
@@ -61,20 +67,38 @@ object ClaudeMemory {
     fun sampleCwd(raw: String): String? {
         if (raw.isEmpty()) return null
         val value = McpRpc.parse("{$raw}") as? kotlinx.serialization.json.JsonObject ?: return null
-        return (value["cwd"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.startsWith("/") }
+        return (value["cwd"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf {
+            it.startsWith("/")
+        }
     }
 
-    /**
-     * 项目列表：默认工作目录对应的项目排第一（即使还没有记忆），其余有 memory 目录、里面有文件的按修改时间新的在前。
-     * 名字从会话记录里的 cwd 还原，对不上的显示目录名。
-     */
-    fun projects(dirs: List<ProjectDir>, defaultKey: String?, defaultLabel: String?): List<MemoryProject> {
+    /** 项目列表：默认工作目录对应的项目排第一（即使还没有记忆），其余有 memory 目录、里面有文件的按修改时间新的在前。 名字从会话记录里的 cwd 还原，对不上的显示目录名。 */
+    fun projects(
+        dirs: List<ProjectDir>,
+        defaultKey: String?,
+        defaultLabel: String?,
+    ): List<MemoryProject> {
         val samples = dirs.mapNotNull { it.sampleCwd }
-        val others = dirs.filter { it.key != defaultKey && it.memoryCount > 0 }
-            .sortedByDescending { it.memoryMtime }
-            .map { MemoryProject(it.key, ClaudePaths.labelFor(it.key, listOfNotNull(it.sampleCwd) + samples) ?: it.key, it.memoryCount, false) }
+        val others =
+            dirs
+                .filter { it.key != defaultKey && it.memoryCount > 0 }
+                .sortedByDescending { it.memoryMtime }
+                .map {
+                    MemoryProject(
+                        it.key,
+                        ClaudePaths.labelFor(it.key, listOfNotNull(it.sampleCwd) + samples)
+                            ?: it.key,
+                        it.memoryCount,
+                        false,
+                    )
+                }
         val default = defaultKey?.let { key ->
-            MemoryProject(key, defaultLabel ?: key, dirs.firstOrNull { it.key == key }?.memoryCount?.coerceAtLeast(0) ?: 0, true)
+            MemoryProject(
+                key,
+                defaultLabel ?: key,
+                dirs.firstOrNull { it.key == key }?.memoryCount?.coerceAtLeast(0) ?: 0,
+                true,
+            )
         }
         return listOfNotNull(default) + others
     }

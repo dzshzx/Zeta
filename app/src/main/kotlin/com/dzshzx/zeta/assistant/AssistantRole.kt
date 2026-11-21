@@ -26,7 +26,10 @@ data class AssistantOwner(
 ) {
     /** 开机时默认助理保得住：默认助理是 Zeta 时，系统默认识别要是它自己的识别服务（见 docs/assistant.md「开机保持默认助理」）。 */
     val keepsOnBoot: Boolean
-        get() = packageName == null || !AppVariant.isZetaPackage(packageName) || recognizerPackage == packageName
+        get() =
+            packageName == null ||
+                !AppVariant.isZetaPackage(packageName) ||
+                recognizerPackage == packageName
 
     /** 诊断页「系统语音识别」那一行：是谁。保不住默认助理的提醒在那一行的副标题上。 */
     val recognizerSummary: String
@@ -34,38 +37,61 @@ data class AssistantOwner(
 
     /** 设置页、诊断页上的一句。 */
     val summary: String
-        get() = if (self) "是 Zeta" + if (AppVariant.current.isDev) "（本测试版）" else "" else name(packageName, label)
+        get() =
+            if (self) "是 Zeta" + if (AppVariant.current.isDev) "（本测试版）" else ""
+            else name(packageName, label)
 
-    private fun name(pkg: String?, label: String?): String = when {
-        pkg == null -> "没有设置"
-        AppVariant.isZetaPackage(pkg) -> "是 " + AppVariant(pkg).label
-        else -> "是 " + (label ?: pkg)
-    }
+    private fun name(pkg: String?, label: String?): String =
+        when {
+            pkg == null -> "没有设置"
+            AppVariant.isZetaPackage(pkg) -> "是 " + AppVariant(pkg).label
+            else -> "是 " + (label ?: pkg)
+        }
 }
 
-/**
- * 默认数字助理：查现在是谁，打开系统的默认助理设置让用户自己选。不替用户换。
- * Android 的助理角色不能由应用弹窗请求（系统不让），所以只跳设置。
- */
+/** 默认数字助理：查现在是谁，打开系统的默认助理设置让用户自己选。不替用户换。 Android 的助理角色不能由应用弹窗请求（系统不让），所以只跳设置。 */
 object AssistantRole {
     fun owner(context: Context): AssistantOwner {
-        val self = runCatching { context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_ASSISTANT) == true }.getOrDefault(false)
-        val component = listOf("assistant", "voice_interaction_service").firstNotNullOfOrNull { key ->
-            runCatching { Settings.Secure.getString(context.contentResolver, key) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        val self = runCatching {
+            context
+                .getSystemService(RoleManager::class.java)
+                ?.isRoleHeld(RoleManager.ROLE_ASSISTANT) == true
         }
+            .getOrDefault(false)
+        val component =
+            listOf("assistant", "voice_interaction_service").firstNotNullOfOrNull { key ->
+                runCatching { Settings.Secure.getString(context.contentResolver, key) }
+                    .getOrNull()
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            }
         val pkg = PowerKeyPolicy.packageOf(component) ?: if (self) context.packageName else null
-        val recognizer = PowerKeyPolicy.packageOf(runCatching { Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING) }.getOrNull())
-        return AssistantOwner(self, pkg, pkg?.let { AssistCaptures.appLabel(context, it) }, recognizer)
+        val recognizer =
+            PowerKeyPolicy.packageOf(
+                runCatching {
+                    Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING)
+                }
+                    .getOrNull(),
+            )
+        return AssistantOwner(
+            self,
+            pkg,
+            pkg?.let { AssistCaptures.appLabel(context, it) },
+            recognizer,
+        )
     }
 
     /**
-     * 把系统默认语音识别服务换成本包的 [ZetaRecognitionService]（它转给手机原有的识别服务），开机后默认助理才保得住；
-     * 为什么、为什么不直接写小米的，见 docs/assistant.md「开机保持默认助理」。普通应用写不了 secure 设置，用 root；
-     * 已经是本服务就不动。在 [ZetaVoiceInteractionService.onReady] 里调（不在主线程）。
+     * 把系统默认语音识别服务换成本包的 [ZetaRecognitionService]（它转给手机原有的识别服务），开机后默认助理才保得住； 为什么、为什么不直接写小米的，见
+     * docs/assistant.md「开机保持默认助理」。普通应用写不了 secure 设置，用 root； 已经是本服务就不动。在
+     * [ZetaVoiceInteractionService.onReady] 里调（不在主线程）。
      */
     fun claimRecognizer(context: Context) {
         val ours = ComponentName(context, ZetaRecognitionService::class.java).flattenToShortString()
-        val current = runCatching { Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING) }.getOrNull()
+        val current = runCatching {
+            Settings.Secure.getString(context.contentResolver, SpeechBackend.SETTING)
+        }
+            .getOrNull()
         val command = recognizerCommand(current, ours) ?: return
         val result = rootShell(command)
         if (result.exitCode == 0) {
@@ -77,16 +103,26 @@ object AssistantRole {
 
     /** 要换时的命令；[current] 已经是 [ours] 时为 null。 */
     internal fun recognizerCommand(current: String?, ours: String): String? {
-        val same = current?.let(ComponentName::unflattenFromString)?.let { it == ComponentName.unflattenFromString(ours) } ?: false
+        val same =
+            current?.let(ComponentName::unflattenFromString)?.let {
+                it == ComponentName.unflattenFromString(ours)
+            } ?: false
         return if (same) null else "settings put secure ${SpeechBackend.SETTING} '$ours'"
     }
 
     /** 系统的默认数字助理设置；HyperOS 上没有这一页时退到默认应用设置。 */
     fun openSettings(context: Context): Boolean {
-        for (action in listOf(Settings.ACTION_VOICE_INPUT_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) {
+        for (action in
+            listOf(
+                Settings.ACTION_VOICE_INPUT_SETTINGS,
+                Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            )) {
             val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (context.packageManager.resolveActivity(intent, PackageManager.ResolveInfoFlags.of(0)) != null &&
-                runCatching { context.startActivity(intent) }.isSuccess
+            if (
+                context.packageManager.resolveActivity(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(0),
+                ) != null && runCatching { context.startActivity(intent) }.isSuccess
             ) {
                 return true
             }
@@ -104,25 +140,24 @@ data class PowerKeyStatus(
     val recent: List<String>,
 ) {
     val summary: String
-        get() = when (installed) {
-            true -> "已装上"
-            false -> "没装上"
-            null -> if (recent.isEmpty()) "没有记录" else "有记录"
-        }
+        get() =
+            when (installed) {
+                true -> "已装上"
+                false -> "没装上"
+                null -> if (recent.isEmpty()) "没有记录" else "有记录"
+            }
 }
 
-/**
- * 读电源键模块的日志：LSPosed 的模块日志（本次开机以来的，在 /data/adb/lspd/log，要 root），没有时退到 logcat。
- * 解析是纯函数，单元测试覆盖。
- */
+/** 读电源键模块的日志：LSPosed 的模块日志（本次开机以来的，在 /data/adb/lspd/log，要 root），没有时退到 logcat。 解析是纯函数，单元测试覆盖。 */
 object PowerKeyLog {
     private const val MAX = 40
 
     /** 在后台线程调用。读不到返回 null（没有 root）。 */
     fun read(): PowerKeyStatus? {
         val tag = PowerKeyPolicy.LOG_TAG
-        val script = "f=\$(ls -t /data/adb/lspd/log/modules_*.log 2>/dev/null | head -n 1); " +
-            "[ -n \"\$f\" ] && grep -a '$tag' \"\$f\" | tail -n $MAX; echo '$SPLIT'; logcat -d -v time -s '$tag:I' 2>/dev/null | tail -n $MAX"
+        val script =
+            "f=\$(ls -t /data/adb/lspd/log/modules_*.log 2>/dev/null | head -n 1); " +
+                "[ -n \"\$f\" ] && grep -a '$tag' \"\$f\" | tail -n $MAX; echo '$SPLIT'; logcat -d -v time -s '$tag:I' 2>/dev/null | tail -n $MAX"
         val result = runCatching { LinuxEnv.runRoot(script, 15_000) }.getOrNull() ?: return null
         if (result.exitCode != 0 && result.stdout.isBlank()) return null
         return parse(result.stdout)
@@ -139,7 +174,10 @@ object PowerKeyLog {
         return PowerKeyStatus(
             installed = install?.second?.startsWith("装上了"),
             installNote = install?.second?.substringAfter('：', "")?.ifBlank { null },
-            recent = lines.takeLast(MAX).map { (time, message) -> if (time != null) "$time $message" else message },
+            recent =
+                lines.takeLast(MAX).map { (time, message) ->
+                    if (time != null) "$time $message" else message
+                },
         )
     }
 
@@ -147,9 +185,14 @@ object PowerKeyLog {
     private val LEAD = Regex("^[^\\u4e00-\\u9fffa-z]+")
 
     /** 每行取时间（时:分:秒）和标签后面的消息。 */
-    private fun messages(text: String, tag: String): List<Pair<String?, String>> = text.lineSequence().mapNotNull { line ->
-        val at = line.indexOf(tag).takeIf { it >= 0 } ?: return@mapNotNull null
-        val message = line.substring(at + tag.length).replace(LEAD, "").trim().trimEnd(']').trim()
-        if (message.isEmpty()) null else TIME.find(line.substring(0, at))?.value to message
-    }.toList()
+    private fun messages(text: String, tag: String): List<Pair<String?, String>> =
+        text
+            .lineSequence()
+            .mapNotNull { line ->
+                val at = line.indexOf(tag).takeIf { it >= 0 } ?: return@mapNotNull null
+                val message =
+                    line.substring(at + tag.length).replace(LEAD, "").trim().trimEnd(']').trim()
+                if (message.isEmpty()) null else TIME.find(line.substring(0, at))?.value to message
+            }
+            .toList()
 }

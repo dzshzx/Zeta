@@ -12,10 +12,7 @@ enum class PowerKeyRoute(val label: String) {
     /** 同一次按键刚显示过 Zeta 的会话，又派发来一次（imperceptible 和 long_press 两路）：吞掉。 */
     Duplicate("同一次按键的重复派发，已吞掉"),
 
-    /**
-     * 默认数字助理不是本包：放行给下一个钩子或原逻辑。正式版、测试版各带一个模块，可以同时启用，
-     * 各自只接管默认助理是自己的那一次，互不干扰；都不是时到小爱。
-     */
+    /** 默认数字助理不是本包：放行给下一个钩子或原逻辑。正式版、测试版各带一个模块，可以同时启用， 各自只接管默认助理是自己的那一次，互不干扰；都不是时到小爱。 */
     NotMine("默认助理不是本包，放行"),
 
     /** 锁屏中：走原逻辑，Zeta 不在锁屏上弹出对话。 */
@@ -26,8 +23,8 @@ enum class PowerKeyRoute(val label: String) {
 }
 
 /**
- * HyperOS 长按电源键交给 Zeta 的判断（LSPosed 模块在 system_server 里用，见 [PowerKeyHook]）。
- * 只管 `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
+ * HyperOS 长按电源键交给 Zeta 的判断（LSPosed 模块在 system_server 里用，见 [PowerKeyHook]）。 只管
+ * `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
  */
 object PowerKeyPolicy {
     /** 模块日志（LSPosed 模块日志和 logcat）的标签，见 [AppVariant.powerKeyTag]。 */
@@ -41,11 +38,14 @@ object PowerKeyPolicy {
     /** 同一次按键的几路派发间隔多久以内算重复。 */
     const val DEDUP_WINDOW_MS = 1_000L
 
-    fun matches(function: String?, source: String?): Boolean = function == FUNCTION && source in SOURCES
+    fun matches(function: String?, source: String?): Boolean =
+        function == FUNCTION && source in SOURCES
 
     /** secure 设置 voice_interaction_service 里的组件（“包名/类名”，类名可以是 .开头的短写）的包名；没有时为 null。 */
     fun packageOf(component: String?): String? =
-        component?.trim()?.substringBefore('/', missingDelimiterValue = "")?.takeIf { it.isNotEmpty() }
+        component?.trim()?.substringBefore('/', missingDelimiterValue = "")?.takeIf {
+            it.isNotEmpty()
+        }
 
     /** [self] 是这个模块所在的包（模块和应用在同一个 APK 里）：只有默认助理就是它时才接管。 */
     fun route(
@@ -55,21 +55,21 @@ object PowerKeyPolicy {
         locked: Boolean,
         duplicate: Boolean,
         self: String = AppVariant.current.packageName,
-    ): PowerKeyRoute = when {
-        !matches(function, source) -> PowerKeyRoute.NotOurs
-        packageOf(assistant) != self -> PowerKeyRoute.NotMine
-        duplicate -> PowerKeyRoute.Duplicate
-        locked -> PowerKeyRoute.Locked
-        else -> PowerKeyRoute.Show
-    }
+    ): PowerKeyRoute =
+        when {
+            !matches(function, source) -> PowerKeyRoute.NotOurs
+            packageOf(assistant) != self -> PowerKeyRoute.NotMine
+            duplicate -> PowerKeyRoute.Duplicate
+            locked -> PowerKeyRoute.Locked
+            else -> PowerKeyRoute.Show
+        }
 }
 
 /** 记下上一次成功显示会话的时刻，[PowerKeyPolicy.DEDUP_WINDOW_MS] 以内再来的算同一次按键。 */
 class PowerKeyGate(private val windowMs: Long = PowerKeyPolicy.DEDUP_WINDOW_MS) {
     private var last: Long? = null
 
-    @Synchronized
-    fun duplicate(now: Long): Boolean = last?.let { now - it in 0..windowMs } == true
+    @Synchronized fun duplicate(now: Long): Boolean = last?.let { now - it in 0..windowMs } == true
 
     @Synchronized
     fun shown(now: Long) {
@@ -85,18 +85,32 @@ object PowerKeySignature {
     const val CLASS = "com.miui.server.input.util.ShortCutActionsUtils"
     const val METHOD = "triggerFunction"
 
-    private val four = listOf(String::class.java, String::class.java, Bundle::class.java, Boolean::class.javaPrimitiveType)
+    private val four =
+        listOf(
+            String::class.java,
+            String::class.java,
+            Bundle::class.java,
+            Boolean::class.javaPrimitiveType,
+        )
     private val five = four + String::class.java
 
     fun pick(type: Class<*>): Method? {
-        val candidates = type.declaredMethods.filter { it.name == METHOD && it.returnType == Boolean::class.javaPrimitiveType }
-        return candidates.firstOrNull { it.parameterTypes.toList() == five } ?: candidates.firstOrNull { it.parameterTypes.toList() == four }
+        val candidates =
+            type.declaredMethods.filter {
+                it.name == METHOD && it.returnType == Boolean::class.javaPrimitiveType
+            }
+        return candidates.firstOrNull { it.parameterTypes.toList() == five }
+            ?: candidates.firstOrNull { it.parameterTypes.toList() == four }
     }
 
     /** 日志里的写法：triggerFunction(String, String, Bundle, boolean, String)。 */
-    fun describe(method: Method): String = method.name + method.parameterTypes.joinToString(", ", "(", ")") { it.simpleName }
+    fun describe(method: Method): String =
+        method.name + method.parameterTypes.joinToString(", ", "(", ")") { it.simpleName }
 
     /** 这个类里有哪些 triggerFunction（签名对不上时写进日志，方便看 ROM 改成了什么）。 */
     fun available(type: Class<*>): String =
-        type.declaredMethods.filter { it.name == METHOD }.joinToString("；") { it.returnType.simpleName + " " + describe(it) }.ifEmpty { "没有" }
+        type.declaredMethods
+            .filter { it.name == METHOD }
+            .joinToString("；") { it.returnType.simpleName + " " + describe(it) }
+            .ifEmpty { "没有" }
 }

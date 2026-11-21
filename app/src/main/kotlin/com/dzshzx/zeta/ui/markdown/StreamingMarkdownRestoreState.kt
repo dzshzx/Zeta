@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 internal class StreamingMarkdownRestoreState {
     var generation by mutableIntStateOf(0)
         private set
+
     private var baseline: String? = null
 
     fun begin(content: String) {
@@ -23,8 +24,9 @@ internal class StreamingMarkdownRestoreState {
     fun completeLayout(generation: Int, renderedContent: String, currentContent: String): Boolean {
         val pending = baseline ?: return false
         if (generation != this.generation) return false
-        val caughtUp = renderedContent == currentContent ||
-            (renderedContent.startsWith(pending) && currentContent.startsWith(renderedContent))
+        val caughtUp =
+            renderedContent == currentContent ||
+                (renderedContent.startsWith(pending) && currentContent.startsWith(renderedContent))
         if (!caughtUp) return false
         baseline = null
         return true

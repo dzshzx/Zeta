@@ -27,12 +27,18 @@ class LiveUpdateTest {
     ) = LiveStatus(key, "对话", text, kind, startedAt = 100L, progress = progress, others = others)
 
     private fun todo(vararg statuses: TodoStatus) =
-        TodoList(statuses.mapIndexed { i, status -> TodoEntry("$i", "第 $i 项", "正在做第 $i 项", status) })
+        TodoList(
+            statuses.mapIndexed { i, status -> TodoEntry("$i", "第 $i 项", "正在做第 $i 项", status) },
+        )
 
     @Test
     fun capsuleChoiceWins() {
         // 胶囊正显示 b：通知也说 b，哪怕 a 是用户正看着的、最近开始的
-        val runs = listOf(candidate("a", current = true, startedAt = 50), candidate("b", engaged = true, engagedAt = 10))
+        val runs =
+            listOf(
+                candidate("a", current = true, startedAt = 50),
+                candidate("b", engaged = true, engagedAt = 10),
+            )
         assertEquals("b", LiveUpdate.pick(runs, focusKey = "b")?.key)
         // 胶囊显示的那个不在回答了（停在“已完成”）：照规则在回答的里挑
         assertEquals("a", LiveUpdate.pick(runs.take(1), focusKey = "b")?.key)
@@ -45,10 +51,19 @@ class LiveUpdateTest {
         val phoneOld = candidate("phoneOld", engaged = true, engagedAt = 10)
         val phoneNew = candidate("phoneNew", engaged = true, engagedAt = 20)
         val takenOver = candidate("takenOver", controlling = true, engaged = true, engagedAt = 1)
-        assertEquals("takenOver", LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew, takenOver), null)?.key)
-        assertEquals("phoneNew", LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew), null)?.key)
+        assertEquals(
+            "takenOver",
+            LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew, takenOver), null)?.key,
+        )
+        assertEquals(
+            "phoneNew",
+            LiveUpdate.pick(listOf(plain, shown, phoneOld, phoneNew), null)?.key,
+        )
         assertEquals("shown", LiveUpdate.pick(listOf(plain, shown), null)?.key)
-        assertEquals("plain", LiveUpdate.pick(listOf(candidate("older", startedAt = 100), plain), null)?.key)
+        assertEquals(
+            "plain",
+            LiveUpdate.pick(listOf(candidate("older", startedAt = 100), plain), null)?.key,
+        )
         assertNull(LiveUpdate.pick(emptyList(), "a"))
     }
 
@@ -62,7 +77,8 @@ class LiveUpdateTest {
 
     @Test
     fun statusText() {
-        val chosen = candidate("s1", step = Step("运行 ls", StepKind.TOOL), title = "", startedAt = 42)
+        val chosen =
+            candidate("s1", step = Step("运行 ls", StepKind.TOOL), title = "", startedAt = 42)
         val status = LiveUpdate.status(chosen, running = 3, todo = null)
         assertEquals("s1", status.key)
         assertEquals("新对话", status.title)
@@ -76,7 +92,10 @@ class LiveUpdateTest {
     @Test
     fun shortTextsFitTheChip() {
         // 状态栏小胶囊只放得下几个字，每种都要有、都要短
-        for (kind in StepKind.entries) assertTrue(kind.name, kind.short.isNotBlank() && kind.short.length <= 3)
+        for (kind in StepKind.entries) assertTrue(
+            kind.name,
+            kind.short.isNotBlank() && kind.short.length <= 3,
+        )
         assertEquals("待确认", StepKind.CONFIRMING.short)
         assertEquals("操作中", StepKind.PHONE.short)
     }
@@ -87,14 +106,19 @@ class LiveUpdateTest {
         val list = todo(TodoStatus.Completed, TodoStatus.InProgress, TodoStatus.Pending)
         assertEquals(TodoProgress(1, 3), LiveUpdate.status(chosen, 1, list).progress)
         // 全部做完（多半是上一轮的清单）：不画进度条
-        assertNull(LiveUpdate.status(chosen, 1, todo(TodoStatus.Completed, TodoStatus.Completed)).progress)
+        assertNull(
+            LiveUpdate.status(chosen, 1, todo(TodoStatus.Completed, TodoStatus.Completed)).progress,
+        )
         assertNull(LiveUpdate.status(chosen, 1, TodoList(emptyList())).progress)
     }
 
     @Test
     fun segmentsPerItemUntilTooMany() {
         assertEquals(listOf(1, 1, 1), LiveUpdate.segments(3))
-        assertEquals(List(LiveUpdate.MAX_SEGMENTS) { 1 }, LiveUpdate.segments(LiveUpdate.MAX_SEGMENTS))
+        assertEquals(
+            List(LiveUpdate.MAX_SEGMENTS) { 1 },
+            LiveUpdate.segments(LiveUpdate.MAX_SEGMENTS),
+        )
         assertEquals(listOf(30), LiveUpdate.segments(30))
     }
 
@@ -124,7 +148,8 @@ class LiveUpdateTest {
 
     @Test
     fun throttleHoldsMinorChangesAndSendsLatest() {
-        val throttle = Throttle<String>(intervalMs = 2_000) { old, new -> old.first() == new.first() }
+        val throttle =
+            Throttle<String>(intervalMs = 2_000) { old, new -> old.first() == new.first() }
         assertEquals("a1", throttle.offer("a1", now = 0))
         // 一样的不再发
         assertNull(throttle.offer("a1", now = 100))
@@ -143,7 +168,8 @@ class LiveUpdateTest {
 
     @Test
     fun throttlePassesUrgentChangesAndDropsSuperseded() {
-        val throttle = Throttle<String>(intervalMs = 2_000) { old, new -> old.first() == new.first() }
+        val throttle =
+            Throttle<String>(intervalMs = 2_000) { old, new -> old.first() == new.first() }
         throttle.offer("a1", now = 0)
         assertNull(throttle.offer("a2", now = 100))
         // 不是小变化：马上发，记下的那份作废

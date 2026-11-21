@@ -15,24 +15,28 @@ import io.github.suqi8.coui.kmp.theme.Colors
 @Composable
 internal fun phaseAccent(phase: OverlayPhase): Color = phaseAccent(phase, COUITheme.colorScheme)
 
-internal fun phaseAccent(phase: OverlayPhase, colors: Colors): Color = when (phase) {
-    OverlayPhase.RUNNING -> colors.primary
-    OverlayPhase.PAUSED -> colors.orange
-    OverlayPhase.CONTROLLING -> colors.purple
-    OverlayPhase.FINISHED -> colors.green
-}
+internal fun phaseAccent(phase: OverlayPhase, colors: Colors): Color =
+    when (phase) {
+        OverlayPhase.RUNNING -> colors.primary
+        OverlayPhase.PAUSED -> colors.orange
+        OverlayPhase.CONTROLLING -> colors.purple
+        OverlayPhase.FINISHED -> colors.green
+    }
 
 /** 胶囊上没有具体步骤时的那句。 */
-internal fun phaseLabel(phase: OverlayPhase) = when (phase) {
-    OverlayPhase.RUNNING -> "运行中"
-    OverlayPhase.PAUSED -> "已暂停"
-    OverlayPhase.CONTROLLING -> "你在接管"
-    OverlayPhase.FINISHED -> "已完成"
-}
+internal fun phaseLabel(phase: OverlayPhase) =
+    when (phase) {
+        OverlayPhase.RUNNING -> "运行中"
+        OverlayPhase.PAUSED -> "已暂停"
+        OverlayPhase.CONTROLLING -> "你在接管"
+        OverlayPhase.FINISHED -> "已完成"
+    }
 
 /** 展开画面下方那一行的模式：后台画布 / 已暂停，等你继续 / 手动接管中。 */
-internal fun stageModeLabel(phase: OverlayPhase) = when (phase) {
-    OverlayPhase.PAUSED -> "已暂停，等你继续"
-    OverlayPhase.CONTROLLING -> "手动接管中"
-    OverlayPhase.RUNNING, OverlayPhase.FINISHED -> "后台画布"
-}
+internal fun stageModeLabel(phase: OverlayPhase) =
+    when (phase) {
+        OverlayPhase.PAUSED -> "已暂停，等你继续"
+        OverlayPhase.CONTROLLING -> "手动接管中"
+        OverlayPhase.RUNNING,
+        OverlayPhase.FINISHED -> "后台画布"
+    }

@@ -18,32 +18,48 @@ fun git(vararg args: String): String? {
         commandLine("git", *args)
         isIgnoreExitValue = true
     }
-    return out.standardOutput.asText.get().trim().takeIf { out.result.get().exitValue == 0 && it.isNotEmpty() }
+    return out.standardOutput.asText.get().trim().takeIf {
+        out.result.get().exitValue == 0 && it.isNotEmpty()
+    }
 }
+
 val commitCount = git("rev-list", "--count", "HEAD")?.toIntOrNull() ?: 1
 val versionLabel = run {
     val hash = git("rev-parse", "--short=7", "HEAD") ?: "unknown"
-    val described = git("describe", "--tags", "--long", "--match", "v[0-9]*.[0-9]*.[0-9]*") // v0.7.1-3-gabc1234
+    val described =
+        git("describe", "--tags", "--long", "--match", "v[0-9]*.[0-9]*.[0-9]*") // v0.7.1-3-gabc1234
     val m = described?.let { Regex("""v(\d+)\.(\d+)\.(\d+)-(\d+)-g[0-9a-f]+""").matchEntire(it) }
     when {
         m == null -> "0.7.0-dev.$commitCount+g$hash"
         m.groupValues[4] == "0" -> "${m.groupValues[1]}.${m.groupValues[2]}.${m.groupValues[3]}"
-        else -> "${m.groupValues[1]}.${m.groupValues[2]}.${m.groupValues[3].toInt() + 1}-dev.${m.groupValues[4]}+g$hash"
+        else ->
+            "${m.groupValues[1]}.${m.groupValues[2]}.${m.groupValues[3].toInt() + 1}-dev.${m.groupValues[4]}+g$hash"
     }
 }
 
 // 正式发版证书：release/signing-certs.txt 的最后一行（SHA-256，小写十六进制，见 docs/release.md「签名」）。
 // 应用内检查更新只在本包是这张证书签的时候才查（core/update/UpdateTrust.kt），测试版和别人自己编的包不查
-val releaseCert: String = providers.fileContents(rootProject.layout.projectDirectory.file("release/signing-certs.txt")).asText.get()
-    .lines().map { it.trim() }.last { it.isNotEmpty() && !it.startsWith("#") }
-    .also { require(Regex("[0-9a-f]{64}").matches(it)) { "release/signing-certs.txt 的最后一行不是证书的 SHA-256：$it" } }
+val releaseCert: String =
+    providers
+        .fileContents(rootProject.layout.projectDirectory.file("release/signing-certs.txt"))
+        .asText
+        .get()
+        .lines()
+        .map { it.trim() }
+        .last { it.isNotEmpty() && !it.startsWith("#") }
+        .also {
+            require(Regex("[0-9a-f]{64}").matches(it)) {
+                "release/signing-certs.txt 的最后一行不是证书的 SHA-256：$it"
+            }
+        }
 
 android {
     namespace = "com.dzshzx.zeta"
     compileSdk {
-        version = release(37) {
-            minorApiLevel = 2
-        }
+        version =
+            release(37) {
+                minorApiLevel = 2
+            }
     }
 
     buildToolsVersion = "37.0.0"
@@ -69,7 +85,8 @@ android {
         // CI 上没有这个文件（它不进 CI），这时不改 storeFile，用 AGP 自己生成的默认调试密钥：门禁只构建、不装机。
         // 路径按 JVM 的 user.home 取（来自 passwd，不看 HOME），和 AGP 找默认调试密钥的地方一样。
         getByName("debug") {
-            val zetaDebugKey = file("${System.getProperty("user.home")}/.android/zeta-debug.keystore")
+            val zetaDebugKey =
+                file("${System.getProperty("user.home")}/.android/zeta-debug.keystore")
             if (zetaDebugKey.isFile) storeFile = zetaDebugKey
         }
     }
@@ -82,7 +99,10 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
         // debug：不经 R8，包名同正式版。门禁和单元测试用它，不装到设备上。
         // 测试版：包名加 .dev，和正式版并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
@@ -90,7 +110,11 @@ android {
         // 环境变量 ZETA_R8=1 时改照正式版构建（经 R8、不可调试），用来在测试版上验 R8 去掉代码以后还能不能跑，
         // 例如 ZETA_R8=1 tools/phone-run tools/phone-tests/smoke.sh
         create("dev") {
-            initWith(getByName(if (providers.environmentVariable("ZETA_R8").isPresent) "release" else "debug"))
+            initWith(
+                getByName(
+                    if (providers.environmentVariable("ZETA_R8").isPresent) "release" else "debug",
+                ),
+            )
             signingConfig = signingConfigs.getByName("debug") // 照正式版构建时也用调试密钥签：正式版自己不签名
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
@@ -107,7 +131,7 @@ android {
 
     buildFeatures {
         buildConfig = true
-        resValues = true  // 测试版的桌面名用 resValue 给
+        resValues = true // 测试版的桌面名用 resValue 给
         compose = true
     }
 
@@ -131,33 +155,28 @@ android {
 }
 
 /**
- * 编一个在 Linux 一侧跑的 Go 程序：linux 的 arm64、amd64 各一份，静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节
- * （应用按内容哈希判断装没装，见 core/HelperProgram.kt）。在 go.mod 所在的 [module] 里编 [pkg]，输出 <outputDir>/<program>/linux-<架构>，
- * 作为 assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
+ * 编一个在 Linux 一侧跑的 Go 程序：linux 的 arm64、amd64 各一份，静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节 （应用按内容哈希判断装没装，见
+ * core/HelperProgram.kt）。在 go.mod 所在的 [module] 里编 [pkg]，输出 <outputDir>/<program>/linux-<架构>， 作为
+ * assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
  */
 @CacheableTask
 abstract class GoProgramTask : DefaultTask() {
     /** 程序名：assets 里的目录名，也是装好的文件名的前缀（[com.dzshzx.zeta.core.HelperProgram.name]）。 */
-    @get:Input
-    abstract val program: Property<String>
+    @get:Input abstract val program: Property<String>
 
     /** 交给 go build 的包。 */
-    @get:Input
-    abstract val pkg: Property<String>
+    @get:Input abstract val pkg: Property<String>
 
     /** go.mod 所在的目录，在这里编；决定编出什么的文件另由 [sources] 声明。 */
-    @get:Internal
-    abstract val module: DirectoryProperty
+    @get:Internal abstract val module: DirectoryProperty
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sources: ConfigurableFileCollection
 
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
-    @get:Inject
-    abstract val exec: ExecOperations
+    @get:Inject abstract val exec: ExecOperations
 
     @TaskAction
     fun build() {
@@ -170,8 +189,14 @@ abstract class GoProgramTask : DefaultTask() {
                 environment("GOOS", "linux")
                 environment("GOARCH", arch)
                 commandLine(
-                    "go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=",
-                    "-o", File(out, "${program.get()}/linux-$arch").path, pkg.get(),
+                    "go",
+                    "build",
+                    "-trimpath",
+                    "-buildvcs=false",
+                    "-ldflags=-s -w -buildid=",
+                    "-o",
+                    File(out, "${program.get()}/linux-$arch").path,
+                    pkg.get(),
                 )
             }
         }
@@ -186,16 +211,20 @@ val helperModule: Directory = rootProject.layout.projectDirectory.dir("helper")
  * - claude-switch：helper/go.mod 里 tool 一行的模块（github.com/dzshzx/claude-switch），账号页用它管多个 Claude 账号。
  *   版本由 go.mod、go.sum 定，源码按 go.sum 的哈希从模块缓存取，所以只看这两个文件。
  */
-val goPrograms: Map<String, TaskProvider<GoProgramTask>> = mapOf(
-    "zeta-helper" to tasks.register<GoProgramTask>("zetaHelper") {
-        pkg.set(".")
-        sources.from(helperModule)
-    },
-    "claude-switch" to tasks.register<GoProgramTask>("claudeSwitch") {
-        pkg.set("github.com/dzshzx/claude-switch")
-        sources.from(helperModule.file("go.mod"), helperModule.file("go.sum"))
-    },
-)
+val goPrograms: Map<String, TaskProvider<GoProgramTask>> =
+    mapOf(
+        "zeta-helper" to
+            tasks.register<GoProgramTask>("zetaHelper") {
+                pkg.set(".")
+                sources.from(helperModule)
+            },
+        "claude-switch" to
+            tasks.register<GoProgramTask>("claudeSwitch") {
+                pkg.set("github.com/dzshzx/claude-switch")
+                sources.from(helperModule.file("go.mod"), helperModule.file("go.sum"))
+            },
+    )
+
 goPrograms.forEach { (name, task) ->
     task.configure {
         program.set(name)
@@ -208,23 +237,43 @@ goPrograms.forEach { (name, task) ->
 // 测试进程不走 Gradle 的代理和镜像设置，自己去 Maven Central 下载在本机和手机上都不可靠。
 val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
 val shotsDir = layout.buildDirectory.dir("shots").get().asFile.absolutePath
-val noRootPath = file("src/test/no-root").absolutePath + File.pathSeparator + providers.environmentVariable("PATH").getOrElse("")
+val noRootPath =
+    file("src/test/no-root").absolutePath +
+        File.pathSeparator +
+        providers.environmentVariable("PATH").getOrElse("")
 
 tasks.withType<Test>().configureEach {
     // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
-    inputs.dir("src/main/assets").withPropertyName("assetScripts").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .dir("src/main/assets")
+        .withPropertyName("assetScripts")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // zeta-helper、claude-switch 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]），
     // 目录经 zeta.programs.<程序名> 传进去
     goPrograms.forEach { (name, task) ->
         val dir = task.flatMap { it.outputDir }
         inputs.dir(dir).withPropertyName(task.name).withPathSensitivity(PathSensitivity.RELATIVE)
-        jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dzeta.programs.$name=" + dir.get().asFile.resolve(name).path) })
+        jvmArgumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf("-Dzeta.programs.$name=" + dir.get().asFile.resolve(name).path)
+            },
+        )
     }
     // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
-    inputs.dir("../tools/fake-claude").withPropertyName("fakeClaude").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .dir("../tools/fake-claude")
+        .withPropertyName("fakeClaude")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     val androidAll: FileCollection = robolectricRuntime
-    inputs.files(androidAll).withPropertyName("robolectricAndroidAll").withNormalizer(ClasspathNormalizer::class.java)
-    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=" + androidAll.singleFile.parentFile) })
+    inputs
+        .files(androidAll)
+        .withPropertyName("robolectricAndroidAll")
+        .withNormalizer(ClasspathNormalizer::class.java)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            listOf("-Drobolectric.dependency.dir=" + androidAll.singleFile.parentFile)
+        },
+    )
     systemProperty("robolectric.offline", "true")
     // Robolectric 的原生图形库经 System.load 载入，JDK 25 不加这一项会在每次测试时打一段警告
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -247,10 +296,16 @@ tasks.withType<Test>().configureEach {
 }
 
 androidComponents {
-    onVariants { variant -> goPrograms.values.forEach { variant.sources.assets?.addGeneratedSourceDirectory(it, GoProgramTask::outputDir) } }
+    onVariants { variant ->
+        goPrograms.values.forEach {
+            variant.sources.assets?.addGeneratedSourceDirectory(it, GoProgramTask::outputDir)
+        }
+    }
     // 正式版的文件名就是 Release 里的资产名 Zeta-v<版本名>.apk（只有 arm64 一个包）
     onVariants(selector().withBuildType("release")) { variant ->
-        variant.outputs.forEach { output -> output.outputFileName.set(output.versionName.map { "Zeta-v$it.apk" }) }
+        variant.outputs.forEach { output ->
+            output.outputFileName.set(output.versionName.map { "Zeta-v$it.apk" })
+        }
     }
 }
 
@@ -295,7 +350,9 @@ licensee {
     listOf("Apache-2.0", "MIT", "BSD-3-Clause").forEach { allow(it) }
     // POM 只写了网址、认不出 SPDX 标识的：核对过网址上的全文，because 写它实际是哪种；ThirdParty.LICENSE_URLS 也要加上
     allowUrl("https://github.com/suqi8/coui/blob/main/LICENSE") { because("Apache-2.0") }
-    allowUrl("https://www.bouncycastle.org/licence.html") { because("MIT：Bouncy Castle 的许可就是 MIT 的原文") }
+    allowUrl("https://www.bouncycastle.org/licence.html") {
+        because("MIT：Bouncy Castle 的许可就是 MIT 的原文")
+    }
     allowUrl("https://github.com/jordond/materialkolor/blob/master/LICENSE") { because("MIT") }
     // JSch 另列的 JZlib（BSD-3-Clause）、jBCrypt（ISC）两个网址，Maven 当作任选其一，放行第一个就过了
     allowUrl("https://github.com/mwiede/jsch/blob/master/LICENSE.txt") { because("BSD-3-Clause") }
@@ -310,8 +367,7 @@ abstract class LicenseAssetTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val license: RegularFileProperty
 
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
     @TaskAction
     fun copy() {
@@ -321,11 +377,17 @@ abstract class LicenseAssetTask : DefaultTask() {
     }
 }
 
-val zetaLicense = tasks.register<LicenseAssetTask>("zetaLicense") {
-    license.set(rootProject.layout.projectDirectory.file("LICENSE"))
-    outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
-}
+val zetaLicense =
+    tasks.register<LicenseAssetTask>("zetaLicense") {
+        license.set(rootProject.layout.projectDirectory.file("LICENSE"))
+        outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
+    }
 
 androidComponents {
-    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaLicense, LicenseAssetTask::outputDir) }
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            zetaLicense,
+            LicenseAssetTask::outputDir,
+        )
+    }
 }

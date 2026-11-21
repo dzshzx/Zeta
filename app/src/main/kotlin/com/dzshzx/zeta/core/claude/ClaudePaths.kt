@@ -23,21 +23,22 @@ data class GitProbe(
 )
 
 /**
- * Claude Code 2.1.327 给项目算目录的办法（从它的程序里读出来的，见各函数的说明）。
- * 会话记录在 ~/.claude/projects/<key>/，自动记忆在 ~/.claude/projects/<key>/memory/。
+ * Claude Code 2.1.327 给项目算目录的办法（从它的程序里读出来的，见各函数的说明）。 会话记录在 ~/.claude/projects/<key>/，自动记忆在
+ * ~/.claude/projects/<key>/memory/。
  */
 object ClaudePaths {
     /** 目录名超过这个长度就截断再加哈希。 */
     const val MAX_KEY = 200
 
     /** 非字母数字一律换成 -（按 UTF-16 码元逐个换，与 JS 的 `replace(/[^a-zA-Z0-9]/g, "-")` 一致）。 */
-    fun sanitize(path: String): String = buildString(path.length) {
-        for (c in path) append(if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9') c else '-')
-    }
+    fun sanitize(path: String): String =
+        buildString(path.length) {
+            for (c in path) append(if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9') c else '-')
+        }
 
     /**
-     * 项目目录名：先 [sanitize]；超过 200 个字符时取前 200 个，再接 `-` 和整条路径的哈希（36 进制）。
-     * 哈希是 `(h << 5) - h + charCode | 0` 逐个码元累加，正是 Java 的 String.hashCode；取绝对值时按 JS 的数值算，不会溢出。
+     * 项目目录名：先 [sanitize]；超过 200 个字符时取前 200 个，再接 `-` 和整条路径的哈希（36 进制）。 哈希是 `(h << 5) - h + charCode |
+     * 0` 逐个码元累加，正是 Java 的 String.hashCode；取绝对值时按 JS 的数值算，不会溢出。
      */
     fun projectKey(path: String): String {
         val sanitized = sanitize(path)
@@ -51,7 +52,8 @@ object ClaudePaths {
         val segments = ArrayList<String>()
         for (segment in full.split('/')) {
             when (segment) {
-                "", "." -> Unit
+                "",
+                "." -> Unit
                 ".." -> if (segments.isNotEmpty()) segments.removeAt(segments.lastIndex)
                 else -> segments += segment
             }
@@ -64,8 +66,8 @@ object ClaudePaths {
     fun baseName(path: String): String = path.substringAfterLast('/')
 
     /**
-     * 同一个仓库的各个 worktree 共用一份自动记忆：`.git` 是文件时顺着 gitdir → commondir 找到主仓库。
-     * 照 Claude Code 的做法逐项核对，任何一项对不上就当普通目录，用 `.git` 所在的目录。
+     * 同一个仓库的各个 worktree 共用一份自动记忆：`.git` 是文件时顺着 gitdir → commondir 找到主仓库。 照 Claude Code
+     * 的做法逐项核对，任何一项对不上就当普通目录，用 `.git` 所在的目录。
      */
     fun canonicalRoot(probe: GitProbe): String? {
         val root = probe.root ?: return null
@@ -86,8 +88,8 @@ object ClaudePaths {
     fun memoryBase(cwd: String, probe: GitProbe): String = canonicalRoot(probe) ?: cwd
 
     /**
-     * 列表里给项目目录找回原来的路径：目录名把 / 换成了 -，还原不了，只能拿会话记录里的 cwd 去对。
-     * cwd 或它的某一级上层算出来正好是 [key] 就用它（会话常在仓库的子目录里开）；都对不上返回 null。
+     * 列表里给项目目录找回原来的路径：目录名把 / 换成了 -，还原不了，只能拿会话记录里的 cwd 去对。 cwd 或它的某一级上层算出来正好是 [key]
+     * 就用它（会话常在仓库的子目录里开）；都对不上返回 null。
      */
     fun labelFor(key: String, cwds: Collection<String>): String? {
         for (cwd in cwds) {
@@ -105,7 +107,11 @@ object ClaudePaths {
 
     /** 记忆目录里的一个文件名：不带路径、不是隐藏文件、以 .md 结尾。 */
     fun isMemoryFileName(name: String): Boolean =
-        name.endsWith(".md") && name.length > 3 && '/' !in name && !name.startsWith(".") && name.none { it < ' ' }
+        name.endsWith(".md") &&
+            name.length > 3 &&
+            '/' !in name &&
+            !name.startsWith(".") &&
+            name.none { it < ' ' }
 
     /**
      * 设置页能读写的文件只有这些：~/.claude/CLAUDE.md，各项目 memory 目录里的 .md，以及设了 autoMemoryDirectory 时那个目录里的 .md。
@@ -139,17 +145,18 @@ object ClaudePaths {
     fun agentsDir(home: String) = claudeDir(home) + "/agents"
 
     /**
-     * settings.json 里的 autoMemoryDirectory：`~/` 开头的接到家目录上，去掉末尾的 /；
-     * 不是绝对路径、太短或是根目录的，Claude Code 不认，这里也当没设。
+     * settings.json 里的 autoMemoryDirectory：`~/` 开头的接到家目录上，去掉末尾的 /； 不是绝对路径、太短或是根目录的，Claude Code
+     * 不认，这里也当没设。
      */
     fun customMemoryDir(value: String?, home: String): String? {
         val raw = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        val expanded = when {
-            raw == "~" -> return null
-            raw.startsWith("~/") -> resolve(home, raw.removePrefix("~/"))
-            raw.startsWith("/") -> resolve("/", raw)
-            else -> return null
-        }
+        val expanded =
+            when {
+                raw == "~" -> return null
+                raw.startsWith("~/") -> resolve(home, raw.removePrefix("~/"))
+                raw.startsWith("/") -> resolve("/", raw)
+                else -> return null
+            }
         return expanded.takeIf { it.length >= 3 && '\u0000' !in it }
     }
 }

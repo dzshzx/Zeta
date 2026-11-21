@@ -28,12 +28,11 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
 
 /**
- * 只放一个图标的按钮（顶栏的新建、刷新，侧栏的圆钮，回到底部）；图标按钮都从它建，不在页面里各自写一份。
- * 按钮参数照 COUI 的 IconButton 原样转发，[tint] 是能点时图标的颜色。
+ * 只放一个图标的按钮（顶栏的新建、刷新，侧栏的圆钮，回到底部）；图标按钮都从它建，不在页面里各自写一份。 按钮参数照 COUI 的 IconButton 原样转发，[tint]
+ * 是能点时图标的颜色。
  *
  * 补的是 COUI 2.0.0 IconButton 的两处缺口：IconButtonContainer 不给内容提供 LocalContentColor，不能点时图标颜色不变，
- * 这里换成禁用色；不能点时它也不加 clickable，读屏只看到一张图片，这里补上按钮角色和不可用状态。
- * 上游修好后删掉 tint 换色和这段 semantics。
+ * 这里换成禁用色；不能点时它也不加 clickable，读屏只看到一张图片，这里补上按钮角色和不可用状态。 上游修好后删掉 tint 换色和这段 semantics。
  */
 @Composable
 internal fun IconActionButton(
@@ -53,14 +52,15 @@ internal fun IconActionButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = if (enabled) {
-            modifier
-        } else {
-            modifier.semantics(mergeDescendants = true) {
-                role = Role.Button
-                disabled()
-            }
-        },
+        modifier =
+            if (enabled) {
+                modifier
+            } else {
+                modifier.semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    disabled()
+                }
+            },
         enabled = enabled,
         holdDownState = holdDownState,
         material = material,
@@ -78,9 +78,7 @@ internal fun IconActionButton(
     }
 }
 
-/**
- * 平的图标按钮（不带顶栏按钮的材质）：[size] 见方的圆，图标 [iconSize]。列表行、提示条、查找栏、消息下方的小按钮用它。
- */
+/** 平的图标按钮（不带顶栏按钮的材质）：[size] 见方的圆，图标 [iconSize]。列表行、提示条、查找栏、消息下方的小按钮用它。 */
 @Composable
 internal fun FlatIconButton(
     icon: ImageVector,
@@ -124,8 +122,7 @@ internal fun CopyIconButton(
     modifier: Modifier = Modifier,
     contentDescription: String = "复制",
 ) {
-    @Suppress("DEPRECATION")
-    val clipboard = LocalClipboardManager.current
+    @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
         if (copied) {

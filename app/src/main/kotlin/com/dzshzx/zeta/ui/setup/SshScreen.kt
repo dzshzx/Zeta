@@ -7,11 +7,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.SshStatus
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.CardListGroupScope
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 
 /** “SSH 服务”：Debian 里的 sshd，用来从终端应用或别的设备连进这个环境。 */
@@ -47,79 +49,116 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
         },
     ) {
         // sshd 跑在 Debian 环境里，和 Zeta 开没开着无关
-        item(key = "service") {
-            PreferenceGroup(title = "服务", footer = "停止后不再接受新连接，已连上的会话不受影响。") {
-                item {
-                    BasicComponent(
-                        title = "状态",
-                        endActions = {
-                            PreferenceValue(
-                                when {
-                                    status == null -> "检查中"
-                                    !status.installed -> "未安装"
-                                    status.running -> "运行中"
-                                    else -> "未运行"
-                                },
-                            )
-                        },
-                    )
-                }
-                if (status != null && !status.installed) {
-                    item {
-                        BasicComponent(
-                            title = "安装并配置",
-                            // 安装 openssh-server
-                            summary = "只在本机 8022 端口监听，只认公钥",
-                            enabled = !busy,
-                            onClick = hub.environment::setupSsh,
-                        )
-                    }
-                } else if (status != null) {
-                    item { BasicComponent(title = "监听地址", endActions = { PreferenceValue(status.listen.ifBlank { "端口 " + status.port }) }) }
-                    item {
-                        BasicComponent(
-                            title = if (status.running) "停止" else "启动",
-                            enabled = !busy,
-                            onClick = if (status.running) hub.environment::stopSsh else hub.environment::startSsh,
-                        )
-                    }
-                    item {
-                        SwitchPreference(
-                            checked = status.autostart,
-                            onCheckedChange = hub.environment::setSshAutostart,
-                            title = "开机自动启动",
-                            enabled = !busy,
-                        )
-                    }
-                }
-            }
-        }
+        item(key = "service") { SshServiceGroup(hub, status, busy) }
         if (status?.installed == true) {
             item(key = "login") {
-                PreferenceGroup(
-                    title = "登录",
-                    footer = "本机用 ssh -p ${status.port.ifBlank { "8022" }} ${env?.user ?: "用户名"}@127.0.0.1 连接，" +
-                        (if (status.passwordLogin) "注意当前配置允许密码登录。" else "只认公钥。") +
-                        "别的设备要经 Tailscale 之类转到这个端口。",
-                ) {
-                    item { BasicComponent(title = "已授权的公钥", endActions = { PreferenceValue("${status.keys} 条") }) }
-                    item {
-                        BasicComponent(
-                            title = "添加公钥",
-                            // 加进 ~/.ssh/authorized_keys
-                            summary = "粘贴一条公钥",
-                            enabled = !busy,
-                            onClick = {
-                                keyDraft = ""
-                                adding = true
-                            },
-                        )
-                    }
-                }
+                SshLoginGroup(
+                    status = status,
+                    user = env?.user,
+                    busy = busy,
+                    onAddKey = {
+                        keyDraft = ""
+                        adding = true
+                    },
+                )
             }
         }
         if (maintenance != null) {
-            item(key = "maintenance") { MaintenanceGroup(maintenance, onDismiss = hub.environment::dismissMaintenance) }
+            item(key = "maintenance") {
+                MaintenanceGroup(maintenance, onDismiss = hub.environment::dismissMaintenance)
+            }
+        }
+    }
+}
+
+/** 「服务」一组：状态；没装时是安装，装了是监听地址、启停和开机自启。 */
+@Composable
+private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Boolean) {
+    PreferenceGroup(title = "服务", footer = "停止后不再接受新连接，已连上的会话不受影响。") {
+        item {
+            BasicComponent(
+                title = "状态",
+                endActions = {
+                    PreferenceValue(
+                        when {
+                            status == null -> "检查中"
+                            !status.installed -> "未安装"
+                            status.running -> "运行中"
+                            else -> "未运行"
+                        },
+                    )
+                },
+            )
+        }
+        if (status != null && !status.installed) {
+            item {
+                BasicComponent(
+                    title = "安装并配置",
+                    // 安装 openssh-server
+                    summary = "只在本机 8022 端口监听，只认公钥",
+                    enabled = !busy,
+                    onClick = hub.environment::setupSsh,
+                )
+            }
+        } else if (status != null) {
+            installedRows(hub, status, busy)
+        }
+    }
+}
+
+/** 装好以后的几行：监听地址、启停、开机自启。 */
+private fun CardListGroupScope.installedRows(
+    hub: ConversationHub,
+    status: SshStatus,
+    busy: Boolean,
+) {
+    item {
+        BasicComponent(
+            title = "监听地址",
+            endActions = { PreferenceValue(status.listen.ifBlank { "端口 " + status.port }) },
+        )
+    }
+    item {
+        BasicComponent(
+            title = if (status.running) "停止" else "启动",
+            enabled = !busy,
+            onClick = if (status.running) hub.environment::stopSsh else hub.environment::startSsh,
+        )
+    }
+    item {
+        SwitchPreference(
+            checked = status.autostart,
+            onCheckedChange = hub.environment::setSshAutostart,
+            title = "开机自动启动",
+            enabled = !busy,
+        )
+    }
+}
+
+/** 「登录」一组：怎么连、已授权的公钥条数、添加公钥。 */
+@Composable
+private fun SshLoginGroup(status: SshStatus, user: String?, busy: Boolean, onAddKey: () -> Unit) {
+    PreferenceGroup(
+        title = "登录",
+        footer =
+            "本机用 ssh -p ${status.port.ifBlank { "8022" }} ${user ?: "用户名"}@127.0.0.1 连接，" +
+                (if (status.passwordLogin) "注意当前配置允许密码登录。" else "只认公钥。") +
+                "别的设备要经 Tailscale 之类转到这个端口。",
+    ) {
+        item {
+            BasicComponent(
+                title = "已授权的公钥",
+                endActions = { PreferenceValue("${status.keys} 条") },
+            )
+        }
+        item {
+            BasicComponent(
+                title = "添加公钥",
+                // 加进 ~/.ssh/authorized_keys
+                summary = "粘贴一条公钥",
+                enabled = !busy,
+                onClick = onAddKey,
+            )
         }
     }
 }

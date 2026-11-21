@@ -20,8 +20,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 取清单、下载 APK 的镜像回退：JVM 里起两个本地 HTTP 服务器，一个当 GitHub，一个当 gh-proxy（路径是完整的原地址，
- * 和 gh-proxy.com 一样）。GitHub 那个可以换成超时不应答、连不上（端口没人听）。
+ * 取清单、下载 APK 的镜像回退：JVM 里起两个本地 HTTP 服务器，一个当 GitHub，一个当 gh-proxy（路径是完整的原地址， 和 gh-proxy.com 一样）。GitHub
+ * 那个可以换成超时不应答、连不上（端口没人听）。
  */
 class UpdateHttpTest {
     /** 一个假服务器：路径 → (状态码, 内容)；没登记的路径 404。记下收到的每个请求路径。 */
@@ -29,7 +29,8 @@ class UpdateHttpTest {
         val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val routes = HashMap<String, Pair<Int, ByteArray>>()
         val hits: MutableList<String> = Collections.synchronizedList(ArrayList())
-        val base get() = "http://127.0.0.1:${server.address.port}/"
+        val base
+            get() = "http://127.0.0.1:${server.address.port}/"
 
         init {
             server.createContext("/") { exchange: HttpExchange ->
@@ -64,15 +65,22 @@ class UpdateHttpTest {
     }
 
     private fun http(mirrored: String = github.base) =
-        UpdateHttp(userAgent = "Zeta/test", mirrors = Mirrors(mirrored = mirrored, proxy = proxy.base), connectTimeoutMs = 1_000, readTimeoutMs = 500)
+        UpdateHttp(
+            userAgent = "Zeta/test",
+            mirrors = Mirrors(mirrored = mirrored, proxy = proxy.base),
+            connectTimeoutMs = 1_000,
+            readTimeoutMs = 500,
+        )
 
     private val apk = ByteArray(300_000) { (it * 31 % 251).toByte() }
     private val apkSha = UpdateHttp.hex(MessageDigest.getInstance("SHA-256").digest(apk))
 
-    private fun manifestJson(base: String, sha: String = apkSha, size: Int = apk.size) = """
+    private fun manifestJson(base: String, sha: String = apkSha, size: Int = apk.size) =
+        """
         {"versionCode": 905, "versionName": "0.7.2", "notes": "- 新的", "apk": "Zeta-v0.7.2.apk",
          "url": "${base}releases/download/v0.7.2/Zeta-v0.7.2.apk", "size": $size, "sha256": "$sha"}
-    """.trimIndent()
+    """
+            .trimIndent()
 
     private val manifestPath = "/releases/latest/download/update.json"
     private val apkPath = "/releases/download/v0.7.2/Zeta-v0.7.2.apk"
@@ -80,22 +88,31 @@ class UpdateHttpTest {
     /** 同一个文件在 gh-proxy 上的路径：前面是完整的原地址。 */
     private fun viaProxy(path: String) = "/" + github.base + path.removePrefix("/")
 
-    private fun reason(block: suspend () -> Unit): String = try {
-        runBlocking { block() }
-        fail("应当失败")
-        ""
-    } catch (e: UpdateException) {
-        e.reason
-    }
+    private fun reason(block: suspend () -> Unit): String =
+        try {
+            runBlocking { block() }
+            fail("应当失败")
+            ""
+        } catch (e: UpdateException) {
+            e.reason
+        }
 
     @Test
     fun githubAddressesFallBackToTheProxyNothingElseDoes() {
         val mirrors = Mirrors()
         assertEquals(
-            listOf("https://github.com/dzshzx/Zeta/releases/latest/download/update.json", "https://gh-proxy.com/https://github.com/dzshzx/Zeta/releases/latest/download/update.json"),
-            mirrors.candidates("https://github.com/dzshzx/Zeta/releases/latest/download/update.json"),
+            listOf(
+                "https://github.com/dzshzx/Zeta/releases/latest/download/update.json",
+                "https://gh-proxy.com/https://github.com/dzshzx/Zeta/releases/latest/download/update.json",
+            ),
+            mirrors.candidates(
+                "https://github.com/dzshzx/Zeta/releases/latest/download/update.json",
+            ),
         )
-        assertEquals(listOf("http://10.0.2.2:8765/update.json"), mirrors.candidates("http://10.0.2.2:8765/update.json"))
+        assertEquals(
+            listOf("http://10.0.2.2:8765/update.json"),
+            mirrors.candidates("http://10.0.2.2:8765/update.json"),
+        )
     }
 
     @Test
@@ -121,10 +138,16 @@ class UpdateHttpTest {
         val silent = ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"))
         val held = Collections.synchronizedList(ArrayList<Socket>())
         thread(isDaemon = true) { runCatching { while (true) held += silent.accept() } }
-        closers += { silent.close(); held.forEach { it.close() } }
+        closers += {
+            silent.close()
+            held.forEach { it.close() }
+        }
         val base = "http://127.0.0.1:${silent.localPort}/"
-        proxy.routes["/" + base + manifestPath.removePrefix("/")] = 200 to manifestJson(base).toByteArray()
-        val m = runBlocking { http(mirrored = base).manifest(base + manifestPath.removePrefix("/")) }
+        proxy.routes["/" + base + manifestPath.removePrefix("/")] =
+            200 to manifestJson(base).toByteArray()
+        val m = runBlocking {
+            http(mirrored = base).manifest(base + manifestPath.removePrefix("/"))
+        }
         assertEquals(905, m.versionCode)
     }
 
@@ -133,12 +156,21 @@ class UpdateHttpTest {
         // 端口没人听
         val closed = ServerSocket(0).use { it.localPort }
         val base = "http://127.0.0.1:$closed/"
-        proxy.routes["/" + base + manifestPath.removePrefix("/")] = 200 to manifestJson(base).toByteArray()
-        assertEquals(905, runBlocking { http(mirrored = base).manifest(base + manifestPath.removePrefix("/")) }.versionCode)
+        proxy.routes["/" + base + manifestPath.removePrefix("/")] =
+            200 to manifestJson(base).toByteArray()
+        assertEquals(
+            905,
+            runBlocking { http(mirrored = base).manifest(base + manifestPath.removePrefix("/")) }
+                .versionCode,
+        )
         // 回了 200 却不是清单（比如被网络劫持成网页）
         github.routes[manifestPath] = 200 to "<html>login</html>".toByteArray()
         proxy.routes[viaProxy(manifestPath)] = 200 to manifestJson(github.base).toByteArray()
-        assertEquals(905, runBlocking { http().manifest(github.base + manifestPath.removePrefix("/")) }.versionCode)
+        assertEquals(
+            905,
+            runBlocking { http().manifest(github.base + manifestPath.removePrefix("/")) }
+                .versionCode,
+        )
     }
 
     @Test
@@ -154,7 +186,10 @@ class UpdateHttpTest {
         // 内容不对时说是哪一处给的、哪一项不对
         github.routes[manifestPath] = 200 to manifestJson(github.base, sha = "nope").toByteArray()
         proxy.routes.remove(viaProxy(manifestPath))
-        assertEquals("$g 给的更新清单格式不对：sha256 缺少或不是 64 位小写十六进制；$p 回了 HTTP 404", reason { http().manifest(github.base + manifestPath.removePrefix("/")) })
+        assertEquals(
+            "$g 给的更新清单格式不对：sha256 缺少或不是 64 位小写十六进制；$p 回了 HTTP 404",
+            reason { http().manifest(github.base + manifestPath.removePrefix("/")) },
+        )
     }
 
     @Test
@@ -195,10 +230,15 @@ class UpdateHttpTest {
         assertEquals(emptyList<String>(), dir.list()!!.toList())
         // 比清单写的大：下到超出就停
         github.routes[apkPath] = 200 to apk + ByteArray(10)
-        assertTrue(reason { http().download(m, dest) {} }.startsWith("从 $g 下的文件比清单写的 ${apk.size} 字节大，已删掉"))
+        assertTrue(
+            reason { http().download(m, dest) {} }.startsWith("从 $g 下的文件比清单写的 ${apk.size} 字节大，已删掉"),
+        )
         // 比清单写的小
         github.routes[apkPath] = 200 to apk.copyOf(1000)
-        assertTrue(reason { http().download(m, dest) {} }.startsWith("从 $g 下的文件只有 1000 字节，清单写的是 ${apk.size}，已删掉"))
+        assertTrue(
+            reason { http().download(m, dest) {} }
+                .startsWith("从 $g 下的文件只有 1000 字节，清单写的是 ${apk.size}，已删掉"),
+        )
         assertEquals(emptyList<String>(), dir.list()!!.toList())
     }
 }

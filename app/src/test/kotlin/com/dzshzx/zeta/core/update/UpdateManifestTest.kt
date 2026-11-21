@@ -14,7 +14,8 @@ class UpdateManifestTest {
         size: String = "13200000",
         apk: String = "\"Zeta-v0.7.2.apk\"",
         extra: String = ",\n  \"future\": {\"x\": 1}",
-    ) = """
+    ) =
+        """
         {
           "versionCode": $versionCode,
           "versionName": "0.7.2",
@@ -28,15 +29,17 @@ class UpdateManifestTest {
           "certificateSha256": "${"cd".repeat(32)}",
           "sourceCommit": "${"1".repeat(40)}"$extra
         }
-    """.trimIndent()
+    """
+            .trimIndent()
 
-    private fun reason(text: String): String = try {
-        UpdateManifest.parse(text)
-        fail("应当解析失败：$text")
-        ""
-    } catch (e: UpdateException) {
-        e.reason
-    }
+    private fun reason(text: String): String =
+        try {
+            UpdateManifest.parse(text)
+            fail("应当解析失败：$text")
+            ""
+        } catch (e: UpdateException) {
+            e.reason
+        }
 
     @Test
     fun parsesTheReleaseManifestAndIgnoresUnknownFields() {
@@ -44,7 +47,10 @@ class UpdateManifestTest {
         assertEquals(905, m.versionCode)
         assertEquals("0.7.2", m.versionName)
         assertEquals("Zeta-v0.7.2.apk", m.apk)
-        assertEquals("https://github.com/dzshzx/Zeta/releases/download/v0.7.2/Zeta-v0.7.2.apk", m.url)
+        assertEquals(
+            "https://github.com/dzshzx/Zeta/releases/download/v0.7.2/Zeta-v0.7.2.apk",
+            m.url,
+        )
         assertEquals(13_200_000L, m.size)
         assertEquals("ab".repeat(32), m.sha256)
         assertEquals("- feat(update): 应用内更新\n- fix(chat): 修一处", m.notes)

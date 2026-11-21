@@ -36,19 +36,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 自画图标（[ZetaIcons]）一览：每个都画出来，最后一行是思考强度刻度表的各种样子（0 是不知道档位），
- * 开头几个是 COUI 自带的图标，用来比粗细、大小。新加的图标不用登记，按反射列出来；图形边界由 [drawnIconsStayInsideTheMargin] 核对。
+ * 自画图标（[ZetaIcons]）一览：每个都画出来，最后一行是思考强度刻度表的各种样子（0 是不知道档位）， 开头几个是 COUI
+ * 自带的图标，用来比粗细、大小。新加的图标不用登记，按反射列出来；图形边界由 [drawnIconsStayInsideTheMargin] 核对。
  */
 class IconsShots : ShotTest() {
     private fun drawn(): List<Pair<String, ImageVector>> =
-        ZetaIcons::class.java.declaredMethods
-            .filter { JavaModifier.isPublic(it.modifiers) && it.parameterCount == 0 && it.returnType == ImageVector::class.java && it.name.startsWith("get") }
+        ZetaIcons::class
+            .java
+            .declaredMethods
+            .filter {
+                JavaModifier.isPublic(it.modifiers) &&
+                    it.parameterCount == 0 &&
+                    it.returnType == ImageVector::class.java &&
+                    it.name.startsWith("get")
+            }
             .sortedBy { it.name }
             .map { it.name.removePrefix("get") to it.invoke(ZetaIcons) as ImageVector }
 
     @Test
     fun icons() {
-        val reference = listOf("COUI 复制" to COUIIcons.Copy, "COUI 文件" to COUIIcons.File, "COUI 文件夹" to COUIIcons.Folder, "COUI 搜索" to COUIIcons.Search)
+        val reference =
+            listOf(
+                "COUI 复制" to COUIIcons.Copy,
+                "COUI 文件" to COUIIcons.File,
+                "COUI 文件夹" to COUIIcons.Folder,
+                "COUI 搜索" to COUIIcons.Search,
+            )
         val efforts = EffortGauges.mapIndexed { level, icon -> "强度 $level" to icon }
         val all = reference + drawn() + efforts
         shoot("zeta-icons") {
@@ -59,8 +72,16 @@ class IconsShots : ShotTest() {
                 all.chunked(6).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         row.forEach { (name, icon) ->
-                            Column(Modifier.width(60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(imageVector = icon, contentDescription = name, modifier = Modifier.size(24.dp), tint = COUITheme.colorScheme.labelPrimary)
+                            Column(
+                                Modifier.width(60.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = name,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = COUITheme.colorScheme.labelPrimary,
+                                )
                                 Text(
                                     text = name,
                                     modifier = Modifier.padding(top = 3.dp),
@@ -84,7 +105,11 @@ class IconsShots : ShotTest() {
         val outside = icons.flatMap { (name, icon) ->
             paths(icon.root, Matrix()).mapNotNull { path ->
                 val bounds = RectF().also { path.computeBounds(it, true) }
-                val inside = bounds.left >= 2f - SLACK && bounds.top >= 2f - SLACK && bounds.right <= 22f + SLACK && bounds.bottom <= 22f + SLACK
+                val inside =
+                    bounds.left >= 2f - SLACK &&
+                        bounds.top >= 2f - SLACK &&
+                        bounds.right <= 22f + SLACK &&
+                        bounds.bottom <= 22f + SLACK
                 if (inside) null else "$name：$bounds"
             }
         }
@@ -92,16 +117,18 @@ class IconsShots : ShotTest() {
     }
 
     private fun paths(group: VectorGroup, parent: Matrix): List<Path> {
-        val matrix = Matrix(parent).apply {
-            preTranslate(group.translationX + group.pivotX, group.translationY + group.pivotY)
-            preRotate(group.rotation)
-            preScale(group.scaleX, group.scaleY)
-            preTranslate(-group.pivotX, -group.pivotY)
-        }
+        val matrix =
+            Matrix(parent).apply {
+                preTranslate(group.translationX + group.pivotX, group.translationY + group.pivotY)
+                preRotate(group.rotation)
+                preScale(group.scaleX, group.scaleY)
+                preTranslate(-group.pivotX, -group.pivotY)
+            }
         return group.flatMap { node ->
             when (node) {
                 is VectorGroup -> paths(node, matrix)
-                is VectorPath -> listOf(node.pathData.toPath().asAndroidPath().apply { transform(matrix) })
+                is VectorPath ->
+                    listOf(node.pathData.toPath().asAndroidPath().apply { transform(matrix) })
             }
         }
     }

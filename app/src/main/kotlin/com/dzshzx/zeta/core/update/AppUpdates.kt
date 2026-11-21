@@ -40,7 +40,8 @@ internal sealed interface UpdateState {
     data class CheckFailed(val reason: String) : UpdateState
 
     /** 有新版本 [manifest]，下载、安装走到了 [step]。 */
-    data class Available(val manifest: UpdateManifest, val step: UpdateStep = UpdateStep.Ready) : UpdateState
+    data class Available(val manifest: UpdateManifest, val step: UpdateStep = UpdateStep.Ready) :
+        UpdateState
 }
 
 /** 有新版本以后的一步。 */
@@ -73,8 +74,7 @@ internal sealed interface UpdateStep {
  * 有新版本发一条通知，点开到「版本更新」页。不常驻、不定时唤醒。
  *
  * 新版本的 APK 下载到应用缓存目录的 update/，核对大小、sha256（对清单）和包名、versionCode、签名（对已装的本应用，见 [ApkCheck]），
- * 哪一项不对都删掉文件、说原因。装包会结束本应用的界面：进行中的对话由托管脚本跑完，正在执行的手机工具调用却会失败，
- * 所以有对话正在回答（手机工具只在一轮回答里被调用）时先不装，等都结束了再装。
+ * 哪一项不对都删掉文件、说原因。装包会结束本应用的界面：进行中的对话由托管脚本跑完，正在执行的手机工具调用却会失败， 所以有对话正在回答（手机工具只在一轮回答里被调用）时先不装，等都结束了再装。
  *
  * 全进程一份（[get]），状态是 mutableStateOf，界面读了跟着变。都在主线程上调用。
  */
@@ -82,7 +82,8 @@ internal class AppUpdates private constructor(private val app: Context) {
     private val settings = Settings.of(app)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val http = UpdateHttp(userAgent = "Zeta/${BuildConfig.VERSION_NAME}")
-    private val dir get() = File(app.cacheDir, "update")
+    private val dir
+        get() = File(app.cacheDir, "update")
 
     var state by mutableStateOf<UpdateState>(UpdateState.Idle)
         private set
@@ -100,11 +101,15 @@ internal class AppUpdates private constructor(private val app: Context) {
 
     private var enabledOverride: Boolean? = null
     private val signedByTrusted by lazy {
-        UpdateTrust.shouldCheck(ApkCheck.readInstalled(app.packageManager, app.packageName), UpdateTrust.trustedCert(settings))
+        UpdateTrust.shouldCheck(
+            ApkCheck.readInstalled(app.packageManager, app.packageName),
+            UpdateTrust.trustedCert(settings),
+        )
     }
 
     /** 本包检查更新吗：现在签它的是正式发版证书（测试版可以用调试覆盖换掉，见 [UpdateTrust]）。 */
-    val enabled: Boolean get() = enabledOverride ?: signedByTrusted
+    val enabled: Boolean
+        get() = enabledOverride ?: signedByTrusted
 
     /** 设置里点「检查更新」。 */
     fun check() {
@@ -121,26 +126,38 @@ internal class AppUpdates private constructor(private val app: Context) {
             cleaned = true
             cleanDownloads()
         }
-        if (!settings.autoUpdateCheck || state == UpdateState.Checking || state is UpdateState.Available) return
+        if (
+            !settings.autoUpdateCheck ||
+                state == UpdateState.Checking ||
+                state is UpdateState.Available
+        )
+            return
         val today = LocalDate.now()
-        if (LocalDate.ofInstant(Instant.ofEpochMilli(settings.updateCheckedAt), ZoneId.systemDefault()) == today) return
+        if (
+            LocalDate.ofInstant(
+                Instant.ofEpochMilli(settings.updateCheckedAt),
+                ZoneId.systemDefault(),
+            ) == today
+        )
+            return
         settings.updateCheckedAt = System.currentTimeMillis()
         scope.launch { checkNow(notify = true) }
     }
 
     private suspend fun checkNow(notify: Boolean) {
         state = UpdateState.Checking
-        state = try {
-            val manifest = http.manifest(UpdateTrust.manifestUrl(settings))
-            if (manifest.isNewerThan(BuildConfig.VERSION_CODE)) {
-                if (notify) notifyOnce(manifest)
-                UpdateState.Available(manifest)
-            } else {
-                UpdateState.UpToDate
+        state =
+            try {
+                val manifest = http.manifest(UpdateTrust.manifestUrl(settings))
+                if (manifest.isNewerThan(BuildConfig.VERSION_CODE)) {
+                    if (notify) notifyOnce(manifest)
+                    UpdateState.Available(manifest)
+                } else {
+                    UpdateState.UpToDate
+                }
+            } catch (e: UpdateException) {
+                UpdateState.CheckFailed(e.reason)
             }
-        } catch (e: UpdateException) {
-            UpdateState.CheckFailed(e.reason)
-        }
     }
 
     /** 「更新」：下载、核对，再等空闲安装。失败后点「重试」也是它。 */
@@ -164,11 +181,12 @@ internal class AppUpdates private constructor(private val app: Context) {
     /** 下载中取消回到「更新」，等空闲时取消回到「安装」。 */
     fun cancel() {
         val available = state as? UpdateState.Available ?: return
-        val back = when (available.step) {
-            is UpdateStep.Downloading -> UpdateStep.Ready
-            UpdateStep.WaitingIdle -> UpdateStep.Downloaded
-            else -> return
-        }
+        val back =
+            when (available.step) {
+                is UpdateStep.Downloading -> UpdateStep.Ready
+                UpdateStep.WaitingIdle -> UpdateStep.Downloaded
+                else -> return
+            }
         run++
         job?.cancel()
         state = available.copy(step = back)
@@ -223,14 +241,12 @@ internal class AppUpdates private constructor(private val app: Context) {
         file.isFile && file.length() == manifest.size && UpdateHttp.sha256(file) == manifest.sha256
 
     private fun verify(file: File, manifest: UpdateManifest): String? {
-        val installed = ApkCheck.readInstalled(app.packageManager, app.packageName) ?: return "读不出本应用自己的签名"
+        val installed =
+            ApkCheck.readInstalled(app.packageManager, app.packageName) ?: return "读不出本应用自己的签名"
         return ApkCheck.verdict(ApkCheck.readArchive(app.packageManager, file), manifest, installed)
     }
 
-    /**
-     * 等到没有对话在回答、界面在前台时再装：在后台装的话，有 root 时新版本会盖到用户正用着的应用上面，
-     * 没有 root 时系统的确认界面又被后台启动的限制拦下。
-     */
+    /** 等到没有对话在回答、界面在前台时再装：在后台装的话，有 root 时新版本会盖到用户正用着的应用上面， 没有 root 时系统的确认界面又被后台启动的限制拦下。 */
     private suspend fun install(id: Int, file: File) {
         if (busy() || !foreground) {
             setStep(id, UpdateStep.WaitingIdle)
@@ -241,17 +257,23 @@ internal class AppUpdates private constructor(private val app: Context) {
             val component = app.packageName + "/" + MainActivity::class.java.name
             val display = MainActivity.liveDisplay ?: 0
             // 装成了本应用随即被结束，新版本由脚本重新打开；走到下一行的是没装上
-            val reason = withContext(Dispatchers.IO) { UpdateInstaller.installAsRoot(file, component, display) }
+            val reason =
+                withContext(Dispatchers.IO) {
+                    UpdateInstaller.installAsRoot(file, component, display)
+                }
             if (reason != null) setStep(id, UpdateStep.Failed(reason))
             return
         }
         if (!UpdateInstaller.canRequestInstalls(app)) return setStep(id, UpdateStep.NeedsPermission)
         setStep(id, UpdateStep.Installing(root = false))
-        withContext(Dispatchers.IO) { UpdateInstaller.installWithSession(app, file) }?.let { setStep(id, UpdateStep.Failed(it)) }
+        withContext(Dispatchers.IO) { UpdateInstaller.installWithSession(app, file) }
+            ?.let { setStep(id, UpdateStep.Failed(it)) }
     }
 
     /** 有对话正在回答（含一轮里正在调用的手机工具）。 */
-    private fun busy(): Boolean = (app as? Application)?.let { ConversationHub.get(it).liveConversations.any { c -> c.busy } } ?: false
+    private fun busy(): Boolean =
+        (app as? Application)?.let { ConversationHub.get(it).liveConversations.any { c -> c.busy } }
+            ?: false
 
     /** 删掉 update/ 下的旧文件：装好以后剩下的、下到一半的。 */
     private fun cleanDownloads() {
@@ -262,12 +284,27 @@ internal class AppUpdates private constructor(private val app: Context) {
     private fun notifyOnce(manifest: UpdateManifest) {
         if (settings.updateNotified == manifest.versionCode) return
         settings.updateNotified = manifest.versionCode
-        val open = Intent(app, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra(SettingsLink.EXTRA, SettingsSubPage.Update.link)
-        val pending = PendingIntent.getActivity(app, Notifier.ID_UPDATE, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val open =
+            Intent(app, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(SettingsLink.EXTRA, SettingsSubPage.Update.link)
+        val pending =
+            PendingIntent.getActivity(
+                app,
+                Notifier.ID_UPDATE,
+                open,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
         runCatching {
-            Notifier.post(app, null, Notifier.ID_UPDATE, "Zeta 有新版本 ${manifest.versionName}", "点开看更新说明、下载并安装", pending, channel = Notifier.CHANNEL_UPDATE)
+            Notifier.post(
+                app,
+                null,
+                Notifier.ID_UPDATE,
+                "Zeta 有新版本 ${manifest.versionName}",
+                "点开看更新说明、下载并安装",
+                pending,
+                channel = Notifier.CHANNEL_UPDATE,
+            )
         }
     }
 
@@ -286,8 +323,14 @@ internal class AppUpdates private constructor(private val app: Context) {
         /** 本进程的那一份。单元测试里每个用例是新的 Application，跟着换一份。 */
         fun get(context: Context): AppUpdates {
             val app = context.applicationContext
-            shared?.takeIf { it.app === app }?.let { return it }
-            return synchronized(this) { shared?.takeIf { it.app === app } ?: AppUpdates(app).also { shared = it } }
+            shared
+                ?.takeIf { it.app === app }
+                ?.let {
+                    return it
+                }
+            return synchronized(this) {
+                shared?.takeIf { it.app === app } ?: AppUpdates(app).also { shared = it }
+            }
         }
     }
 }

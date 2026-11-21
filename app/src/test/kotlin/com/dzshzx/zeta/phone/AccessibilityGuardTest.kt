@@ -12,8 +12,9 @@ class AccessibilityGuardTest {
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").component(serviceClass)
 
     /** 一台手机上常见的启用列表：别的应用的服务，有的写成“包名/.类名”。 */
-    private val others = "com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService:" +
-        "io.github.mangi.eta/.agent.EtaAccessibilityService:com.example.clicker/.service.ClickService"
+    private val others =
+        "com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService:" +
+            "io.github.mangi.eta/.agent.EtaAccessibilityService:com.example.clicker/.service.ClickService"
 
     @Test
     fun componentNamesComeFromTheVariant() {
@@ -74,18 +75,32 @@ class AccessibilityGuardTest {
     fun lostReportsMissingOthers() {
         val after = "io.github.mangi.eta/.agent.EtaAccessibilityService:$dev"
         assertEquals(
-            listOf("com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService", "com.example.clicker/.service.ClickService"),
+            listOf(
+                "com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService",
+                "com.example.clicker/.service.ClickService",
+            ),
             AccessibilityList.lost(others, after),
         )
         // 写法不同但是同一个组件，不算丢
-        assertTrue(AccessibilityList.lost("io.github.mangi.eta/.agent.EtaAccessibilityService", "io.github.mangi.eta/io.github.mangi.eta.agent.EtaAccessibilityService").isEmpty())
+        assertTrue(
+            AccessibilityList.lost(
+                    "io.github.mangi.eta/.agent.EtaAccessibilityService",
+                    "io.github.mangi.eta/io.github.mangi.eta.agent.EtaAccessibilityService",
+                )
+                .isEmpty(),
+        )
     }
 
     @Test
     fun policy() {
         val now = 1_000_000_000L
-        fun decide(listed: Boolean = false, armed: Boolean = true, phoneTools: Boolean = true, autoRestore: Boolean = true, recent: List<Long> = emptyList()) =
-            GuardPolicy.decide(listed, armed, phoneTools, autoRestore, recent, now)
+        fun decide(
+            listed: Boolean = false,
+            armed: Boolean = true,
+            phoneTools: Boolean = true,
+            autoRestore: Boolean = true,
+            recent: List<Long> = emptyList(),
+        ) = GuardPolicy.decide(listed, armed, phoneTools, autoRestore, recent, now)
         assertEquals(GuardAction.Restore, decide())
         assertEquals("开着就不用管", GuardAction.None, decide(listed = true))
         assertEquals("没开过、或在 Zeta 里关掉的不守", GuardAction.None, decide(armed = false))
@@ -94,6 +109,10 @@ class AccessibilityGuardTest {
         val window = GuardPolicy.WINDOW_MS
         val three = listOf(now - 1_000, now - 2_000, now - 3_000)
         assertEquals("短时间里加回太多次就不拉锯了", GuardAction.GiveUp, decide(recent = three))
-        assertEquals("早于窗口的不算", GuardAction.Restore, decide(recent = three.take(2) + (now - window)))
+        assertEquals(
+            "早于窗口的不算",
+            GuardAction.Restore,
+            decide(recent = three.take(2) + (now - window)),
+        )
     }
 }

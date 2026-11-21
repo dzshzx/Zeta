@@ -12,12 +12,13 @@ import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
 
 /**
- * 一个对话的后台屏幕（agent display：Claude 操作手机用的那块虚拟显示屏，[VirtualScreen]）的一生，[PhoneTools] 持有：要用时建（[ensure]），一轮结束后闲置 [IDLE_SLEEP_MS] 睡下，
+ * 一个对话的后台屏幕（agent display：Claude 操作手机用的那块虚拟显示屏，[VirtualScreen]）的一生，[PhoneTools]
+ * 持有：要用时建（[ensure]），一轮结束后闲置 [IDLE_SLEEP_MS] 睡下，
  * 对话的进程结束时也睡下（[detach]），要用时唤醒（[wakeIfAsleep]）；用户在界面上关掉、全应用屏幕太多被腾掉（[releaseAsync]）、
  * 对话没了（[destroy]）或辅助进程意外退出时释放。屏上的应用不抢音频焦点（[audio]）。
  *
- * 同步照 PhoneTools 的说明：建、睡、醒、释放都持着 PhoneTools 的屏幕锁 [lock]（标着“持锁调用”的由调用方拿锁，
- * 自己起线程的这里拿）；界面看的 [agentDisplay]、[agentDisplayApp] 只在主线程上改，工具线程看 [current]。
+ * 同步照 PhoneTools 的说明：建、睡、醒、释放都持着 PhoneTools 的屏幕锁 [lock]（标着“持锁调用”的由调用方拿锁， 自己起线程的这里拿）；界面看的
+ * [agentDisplay]、[agentDisplayApp] 只在主线程上改，工具线程看 [current]。
  */
 internal class AgentDisplaySlot(
     private val context: Context,
@@ -43,9 +44,9 @@ internal class AgentDisplaySlot(
         internal set
 
     /** 工具线程看到的后台屏幕（醒着或睡着；释放后是 null）。 */
-    @Volatile var current: VirtualScreen? = null
+    @Volatile
+    var current: VirtualScreen? = null
         private set
-
 
     /** 最近一次被 Claude Code 调用的时间：闲置休眠看它，腾地方时先收最久没用的。 */
     @Volatile var lastUse = 0L
@@ -60,12 +61,14 @@ internal class AgentDisplaySlot(
     val audio by lazy { AudioFocusGuard.of(context) }
 
     /** 有后台屏幕（醒着或睡着）。 */
-    val alive: VirtualScreen? get() = current?.takeIf { it.alive }
+    val alive: VirtualScreen?
+        get() = current?.takeIf { it.alive }
 
     /** 后台屏幕在休眠就唤醒它（持锁调用）。返回问题，没有问题返回 null；[gone] 是屏已经没了时的说明。 */
     fun wakeIfAsleep(screen: VirtualScreen, gone: () -> String?): String? {
         if (!screen.asleep.value) return null
-        if (!screen.wake()) return if (screen.alive) "后台屏幕在休眠，没能唤醒。可以再试一次，或者用 open_app 重新打开应用" else gone()
+        if (!screen.wake())
+            return if (screen.alive) "后台屏幕在休眠，没能唤醒。可以再试一次，或者用 open_app 重新打开应用" else gone()
         // 第一帧出来了，再稍等让无障碍那边的窗口列表也跟上
         Thread.sleep(200)
         justWoke = true
@@ -82,10 +85,18 @@ internal class AgentDisplaySlot(
         beforeCreate()
         audio.restoreLeftovers()
         val metrics = DisplayMetrics()
-        val physical = context.getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
-            ?: throw IllegalStateException("读不到主屏的尺寸")
+        val physical =
+            context
+                .getSystemService(DisplayManager::class.java)
+                ?.getDisplay(Display.DEFAULT_DISPLAY) ?: throw IllegalStateException("读不到主屏的尺寸")
         @Suppress("DEPRECATION") physical.getRealMetrics(metrics)
-        val created = VirtualScreen.create(context, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+        val created =
+            VirtualScreen.create(
+                context,
+                metrics.widthPixels,
+                metrics.heightPixels,
+                metrics.densityDpi,
+            )
         created.onGone = { onGone(created) }
         current = created
         main.post {
@@ -133,10 +144,7 @@ internal class AgentDisplaySlot(
         onScreenGone()
     }
 
-    /**
-     * 另起线程拿锁释放：界面上的“关闭”，或全应用的后台屏幕满了、登记处挑中这块腾出来。
-     * 和 [release] 一样，当前屏幕仍指着它，模型下次调用时会知道它没了。
-     */
+    /** 另起线程拿锁释放：界面上的“关闭”，或全应用的后台屏幕满了、登记处挑中这块腾出来。 和 [release] 一样，当前屏幕仍指着它，模型下次调用时会知道它没了。 */
     fun releaseAsync() {
         thread(name = "zeta-phone-release", isDaemon = true) { synchronized(lock) { release() } }
     }

@@ -11,9 +11,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 手电筒：用本进程的 CameraManager（setTorchMode 不要相机权限），状态取自系统的手电筒回调。
- * 灯归打开它的进程所有：Zeta 的进程没了灯也会灭，所以这个对象跟着进程一直留着。
- * 系统没有对应的 shell 命令，MIUI 的控制中心也是这样开关的。
+ * 手电筒：用本进程的 CameraManager（setTorchMode 不要相机权限），状态取自系统的手电筒回调。 灯归打开它的进程所有：Zeta
+ * 的进程没了灯也会灭，所以这个对象跟着进程一直留着。 系统没有对应的 shell 命令，MIUI 的控制中心也是这样开关的。
  */
 internal object Torch {
     private val lock = ReentrantLock()
@@ -26,20 +25,34 @@ internal object Torch {
     private fun start(context: Context): Unit = lock.withLock {
         if (started) return
         started = true
-        val cameras = context.applicationContext.getSystemService(CameraManager::class.java) ?: return
+        val cameras =
+            context.applicationContext.getSystemService(CameraManager::class.java) ?: return
         manager = cameras
         val withFlash = runCatching {
-            cameras.cameraIdList.filter { cameras.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
-        }.getOrDefault(emptyList())
-        cameraId = withFlash.firstOrNull {
-            runCatching { cameras.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) }.getOrNull() == CameraCharacteristics.LENS_FACING_BACK
-        } ?: withFlash.firstOrNull()
+            cameras.cameraIdList.filter {
+                cameras
+                    .getCameraCharacteristics(it)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }
+            .getOrDefault(emptyList())
+        cameraId =
+            withFlash.firstOrNull {
+                runCatching {
+                    cameras.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING)
+                }
+                    .getOrNull() == CameraCharacteristics.LENS_FACING_BACK
+            } ?: withFlash.firstOrNull()
         if (cameraId == null) return
         val thread = HandlerThread("zeta-torch").apply { start() }
-        cameras.registerTorchCallback(object : CameraManager.TorchCallback() {
-            override fun onTorchModeChanged(id: String, enabled: Boolean) = publish(id, enabled)
-            override fun onTorchModeUnavailable(id: String) = publish(id, null)
-        }, Handler(thread.looper))
+        cameras.registerTorchCallback(
+            object : CameraManager.TorchCallback() {
+                override fun onTorchModeChanged(id: String, enabled: Boolean) = publish(id, enabled)
+
+                override fun onTorchModeUnavailable(id: String) = publish(id, null)
+            },
+            Handler(thread.looper),
+        )
     }
 
     private fun publish(id: String, value: Boolean?) = lock.withLock {

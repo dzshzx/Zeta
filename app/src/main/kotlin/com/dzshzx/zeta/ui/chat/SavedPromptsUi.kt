@@ -61,12 +61,15 @@ internal class PromptDraft(val id: String?, val name: String, val text: String)
 internal class PromptsUi(private val context: Context, private val input: TextFieldState) {
     var listOpen by mutableStateOf(false)
         private set
+
     var editing by mutableStateOf<PromptDraft?>(null)
         private set
+
     var deleting by mutableStateOf<SavedPrompt?>(null)
         private set
 
-    val prompts: List<SavedPrompt> get() = PromptStore.observed
+    val prompts: List<SavedPrompt>
+        get() = PromptStore.observed
 
     fun open() {
         PromptStore.load(context)
@@ -94,14 +97,16 @@ internal class PromptsUi(private val context: Context, private val input: TextFi
         editing = PromptDraft(prompt.id, prompt.name, prompt.text)
     }
 
-    fun problem(name: String, text: String): String? = SavedPrompts.problem(prompts, name, text, editing?.id)
+    fun problem(name: String, text: String): String? =
+        SavedPrompts.problem(prompts, name, text, editing?.id)
 
     fun save(name: String, text: String) {
         val draft = editing ?: return
         if (problem(name, text) != null) return
         PromptStore.update(context) { list ->
             val id = draft.id
-            if (id == null) SavedPrompts.add(list, UUID.randomUUID().toString(), name, text) else SavedPrompts.update(list, id, name, text)
+            if (id == null) SavedPrompts.add(list, UUID.randomUUID().toString(), name, text)
+            else SavedPrompts.update(list, id, name, text)
         }
         editing = null
         listOpen = true
@@ -112,7 +117,8 @@ internal class PromptsUi(private val context: Context, private val input: TextFi
         listOpen = true
     }
 
-    fun move(prompt: SavedPrompt, delta: Int) = PromptStore.update(context) { SavedPrompts.move(it, prompt.id, delta) }
+    fun move(prompt: SavedPrompt, delta: Int) =
+        PromptStore.update(context) { SavedPrompts.move(it, prompt.id, delta) }
 
     fun askDelete(prompt: SavedPrompt) {
         listOpen = false
@@ -134,13 +140,18 @@ internal class PromptsUi(private val context: Context, private val input: TextFi
     /** 长按消息里的“收藏”：直接存，不弹编辑框；同样的内容存过就不再存。 */
     fun saveMessage(text: String) {
         val list = PromptStore.load(context)
-        val message = when {
-            SavedPrompts.findSame(list, text) != null -> "已经在常用指令里了"
-            else -> SavedPrompts.problem(list, "", text) ?: run {
-                PromptStore.update(context) { SavedPrompts.add(it, UUID.randomUUID().toString(), "", text) }
-                "已收藏，在输入框左边的“+”里"
+        val message =
+            when {
+                SavedPrompts.findSame(list, text) != null -> "已经在常用指令里了"
+                else ->
+                    SavedPrompts.problem(list, "", text)
+                        ?: run {
+                            PromptStore.update(context) {
+                                SavedPrompts.add(it, UUID.randomUUID().toString(), "", text)
+                            }
+                            "已收藏，在输入框左边的“+”里"
+                        }
             }
-        }
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 }
@@ -190,26 +201,37 @@ private fun PromptListDialog(ui: PromptsUi) {
     ConfirmDialog(
         show = ui.listOpen,
         title = "常用指令",
-        summary = if (prompts.isEmpty()) "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。" else null,
+        summary =
+            if (prompts.isEmpty()) "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。"
+            else null,
         confirmText = "新建",
         confirmEnabled = prompts.size < SavedPrompts.MAX,
         cancelText = "关闭",
         onConfirm = ui::startNew,
         onDismissRequest = ui::close,
-        content = if (prompts.isEmpty()) {
-            null
-        } else {
-            {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    prompts.forEachIndexed { index, prompt ->
-                        PromptRow(prompt, first = index == 0, last = index == prompts.lastIndex, ui = ui)
+        content =
+            if (prompts.isEmpty()) {
+                null
+            } else {
+                {
+                    Column(
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        prompts.forEachIndexed { index, prompt ->
+                            PromptRow(
+                                prompt,
+                                first = index == 0,
+                                last = index == prompts.lastIndex,
+                                ui = ui,
+                            )
+                        }
                     }
                 }
-            }
-        },
+            },
     )
 }
 
@@ -217,28 +239,46 @@ private fun PromptListDialog(ui: PromptsUi) {
 private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: PromptsUi) {
     val colors = COUITheme.colorScheme
     val current by rememberUpdatedState(prompt)
-    val entries = remember(first, last, ui) {
-        listOf(
-            DropdownEntry(
-                items = listOf(
-                    menuItem("编辑", COUIIcons.Edit, { ui.startEdit(current) }),
-                    menuItem("上移", ZetaIcons.ArrowUp, { ui.move(current, -1) }, enabled = !first),
-                    menuItem("下移", ZetaIcons.ArrowDown, { ui.move(current, 1) }, enabled = !last),
+    val entries =
+        remember(first, last, ui) {
+            listOf(
+                DropdownEntry(
+                    items =
+                        listOf(
+                            menuItem("编辑", COUIIcons.Edit, { ui.startEdit(current) }),
+                            menuItem(
+                                "上移",
+                                ZetaIcons.ArrowUp,
+                                { ui.move(current, -1) },
+                                enabled = !first,
+                            ),
+                            menuItem(
+                                "下移",
+                                ZetaIcons.ArrowDown,
+                                { ui.move(current, 1) },
+                                enabled = !last,
+                            ),
+                        ),
                 ),
-            ),
-            DropdownEntry(
-                items = listOf(
-                    menuItem("删除", COUIIcons.Delete, { ui.askDelete(current) }, alert = true),
+                DropdownEntry(
+                    items =
+                        listOf(
+                            menuItem(
+                                "删除",
+                                COUIIcons.Delete,
+                                { ui.askDelete(current) },
+                                alert = true,
+                            ),
+                        ),
                 ),
-            ),
-        )
-    }
+            )
+        }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { ui.pick(prompt) }
-            .padding(start = 8.dp, top = 8.dp, bottom = 8.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { ui.pick(prompt) }
+                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 起了名字的：名字加两行内容；没起名字的直接显示内容，不把开头重复一遍
@@ -246,7 +286,12 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (named) prompt.name.trim() else prompt.text.trim(),
-                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.5.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+                style =
+                    COUITheme.textStyles.bodyM.copy(
+                        fontSize = 14.5.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
                 color = colors.labelPrimary,
                 maxLines = if (named) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
@@ -302,7 +347,12 @@ private fun PromptEditorDialog(ui: PromptsUi) {
             )
             // 空着时不报错，“保存”变灰就够了
             if (problem != null && text.isNotEmpty()) {
-                Text(text = problem, style = COUITheme.textStyles.bodyM, color = COUITheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    text = problem,
+                    style = COUITheme.textStyles.bodyM,
+                    color = COUITheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }

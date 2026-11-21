@@ -34,7 +34,12 @@ class SettingsTest {
         val reads = HashSet<Any>()
         val snapshot = Snapshot.takeSnapshot(readObserver = { reads += it })
         try {
-            snapshot.enter { settings.phoneTools; settings.darkTheme; settings.pinnedSessions; settings.env }
+            snapshot.enter {
+                settings.phoneTools
+                settings.darkTheme
+                settings.pinnedSessions
+                settings.env
+            }
         } finally {
             snapshot.dispose()
         }
@@ -61,7 +66,15 @@ class SettingsTest {
     @Test
     fun defaultCwdFallsBackToHome() {
         val settings = Settings.of(app)
-        settings.env = LinuxEnvConfig(LinuxEnv.OWN_ROOTFS, "dzshzx", 5000, 5000, "/home/dzshzx", "/workspace/claude")
+        settings.env =
+            LinuxEnvConfig(
+                LinuxEnv.OWN_ROOTFS,
+                "dzshzx",
+                5000,
+                5000,
+                "/home/dzshzx",
+                "/workspace/claude",
+            )
         assertEquals("/workspace/claude", settings.env?.defaultCwd)
         assertTrue(settings.restore(mapOf("cwd" to null)))
         assertEquals("/home/dzshzx", settings.env?.defaultCwd)
@@ -71,10 +84,15 @@ class SettingsTest {
     @Test
     fun commandsRoundTrip() {
         val settings = Settings.of(app)
-        val commands = mapOf(
-            Backends.LOCAL to listOf(SlashCommand("compact", "压缩上下文", ""), SlashCommand("review", "", "<pr>")),
-            "r-00000001" to listOf(SlashCommand("deploy", "", "")),
-        )
+        val commands =
+            mapOf(
+                Backends.LOCAL to
+                    listOf(
+                        SlashCommand("compact", "压缩上下文", ""),
+                        SlashCommand("review", "", "<pr>"),
+                    ),
+                "r-00000001" to listOf(SlashCommand("deploy", "", "")),
+            )
         settings.commands = commands
         assertTrue(settings.restore(mapOf("commands" to prefs().getString("commands", null))))
         assertEquals(commands, settings.commands)

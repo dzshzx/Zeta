@@ -6,7 +6,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ClaudePathsTest {
-    // 期望值由 node 照 Claude Code 2.1.327 的 rN() 算出：replace(/[^a-zA-Z0-9]/g, "-")，超过 200 截断加 Math.abs(hash).toString(36)
+    // 期望值由 node 照 Claude Code 2.1.327 的 rN() 算出：replace(/[^a-zA-Z0-9]/g, "-")，超过 200 截断加
+    // Math.abs(hash).toString(36)
     @Test
     fun projectKeyMatchesClaudeCode() {
         assertEquals("-workspace-claude", ClaudePaths.projectKey("/workspace/claude"))
@@ -45,18 +46,22 @@ class ClaudePathsTest {
 
     @Test
     fun worktreeSharesMainRepository() {
-        val probe = GitProbe(
-            root = "/w/feature",
-            dotGitFile = true,
-            gitFile = "gitdir: /w/main/.git/worktrees/feature\n",
-            gitDir = "/w/main/.git/worktrees/feature",
-            commonDir = "../..\n",
-            backLink = "/w/feature/.git\n",
-            backLinkReal = "/w/feature/.git",
-        )
+        val probe =
+            GitProbe(
+                root = "/w/feature",
+                dotGitFile = true,
+                gitFile = "gitdir: /w/main/.git/worktrees/feature\n",
+                gitDir = "/w/main/.git/worktrees/feature",
+                commonDir = "../..\n",
+                backLink = "/w/feature/.git\n",
+                backLinkReal = "/w/feature/.git",
+            )
         assertEquals("/w/main", ClaudePaths.canonicalRoot(probe))
         // gitdir 回指的不是自己：不认，当普通目录
-        assertEquals("/w/feature", ClaudePaths.canonicalRoot(probe.copy(backLinkReal = "/elsewhere/.git")))
+        assertEquals(
+            "/w/feature",
+            ClaudePaths.canonicalRoot(probe.copy(backLinkReal = "/elsewhere/.git")),
+        )
         // 没有 commondir（submodule）：用自己
         assertEquals("/w/feature", ClaudePaths.canonicalRoot(probe.copy(commonDir = null)))
         // 内容不是 gitdir:
@@ -68,15 +73,16 @@ class ClaudePathsTest {
 
     @Test
     fun bareRepositoryWorktree() {
-        val probe = GitProbe(
-            root = "/w/wt",
-            dotGitFile = true,
-            gitFile = "gitdir: /w/bare.git/worktrees/wt",
-            gitDir = "/w/bare.git/worktrees/wt",
-            commonDir = "../..",
-            backLink = "/w/wt/.git",
-            backLinkReal = "/w/wt/.git",
-        )
+        val probe =
+            GitProbe(
+                root = "/w/wt",
+                dotGitFile = true,
+                gitFile = "gitdir: /w/bare.git/worktrees/wt",
+                gitDir = "/w/bare.git/worktrees/wt",
+                commonDir = "../..",
+                backLink = "/w/wt/.git",
+                backLinkReal = "/w/wt/.git",
+            )
         assertEquals("/w/bare.git", ClaudePaths.canonicalRoot(probe))
         assertEquals("/w/wt", ClaudePaths.canonicalRoot(probe.copy(commonHasDotGit = true)))
     }
@@ -84,7 +90,10 @@ class ClaudePathsTest {
     @Test
     fun labelsComeFromSessionCwdOrItsParents() {
         val key = ClaudePaths.projectKey("/workspace/claude")
-        assertEquals("/workspace/claude", ClaudePaths.labelFor(key, listOf("/workspace/claude/zeta/app", "/other")))
+        assertEquals(
+            "/workspace/claude",
+            ClaudePaths.labelFor(key, listOf("/workspace/claude/zeta/app", "/other")),
+        )
         assertNull(ClaudePaths.labelFor(key, listOf("/elsewhere")))
     }
 
@@ -92,13 +101,41 @@ class ClaudePathsTest {
     fun onlyMemoryFilesAreEditable() {
         val home = "/home/u"
         assertNull(ClaudePaths.editableProblem("/home/u/.claude/CLAUDE.md", home, null))
-        assertNull(ClaudePaths.editableProblem("/home/u/.claude/projects/-workspace-claude/memory/MEMORY.md", home, null))
-        assertNull(ClaudePaths.editableProblem("/home/u/.claude/projects/-w/memory/user-role.md", home, null))
+        assertNull(
+            ClaudePaths.editableProblem(
+                "/home/u/.claude/projects/-workspace-claude/memory/MEMORY.md",
+                home,
+                null,
+            ),
+        )
+        assertNull(
+            ClaudePaths.editableProblem(
+                "/home/u/.claude/projects/-w/memory/user-role.md",
+                home,
+                null,
+            ),
+        )
         assertNotNull(ClaudePaths.editableProblem("/home/u/.claude/settings.json", home, null))
-        assertNotNull(ClaudePaths.editableProblem("/home/u/.claude/projects/-w/memory/../../x.md", home, null))
-        assertNotNull(ClaudePaths.editableProblem("/home/u/.claude/projects/-w/abc.jsonl", home, null))
-        assertNotNull(ClaudePaths.editableProblem("/home/u/.claude/projects/-w/memory/.hidden.md", home, null))
-        assertNotNull(ClaudePaths.editableProblem("/home/u/.claude/projects/a b/memory/x.md", home, null))
+        assertNotNull(
+            ClaudePaths.editableProblem(
+                "/home/u/.claude/projects/-w/memory/../../x.md",
+                home,
+                null,
+            ),
+        )
+        assertNotNull(
+            ClaudePaths.editableProblem("/home/u/.claude/projects/-w/abc.jsonl", home, null),
+        )
+        assertNotNull(
+            ClaudePaths.editableProblem(
+                "/home/u/.claude/projects/-w/memory/.hidden.md",
+                home,
+                null,
+            ),
+        )
+        assertNotNull(
+            ClaudePaths.editableProblem("/home/u/.claude/projects/a b/memory/x.md", home, null),
+        )
         assertNotNull(ClaudePaths.editableProblem("/etc/x.md", home, null))
         assertNull(ClaudePaths.editableProblem("/srv/mem/x.md", home, "/srv/mem"))
         assertNotNull(ClaudePaths.editableProblem("/srv/mem/sub/x.md", home, "/srv/mem"))

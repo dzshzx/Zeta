@@ -24,11 +24,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 朗读回答：用系统默认的朗读引擎（Android [TextToSpeech]，手机上是小米的），不接第三方服务。
- * 进程里一份，同时只读一条，后点的替换前一条。读之前把 Markdown 换成念得顺的文字（[SpeechText]）。
+ * 朗读回答：用系统默认的朗读引擎（Android [TextToSpeech]，手机上是小米的），不接第三方服务。 进程里一份，同时只读一条，后点的替换前一条。读之前把 Markdown
+ * 换成念得顺的文字（[SpeechText]）。
  *
- * 出声期间开着前台服务 [ReadAloudService]，退到后台、锁屏后接着读，通知上能停。
- * 申请临时音频焦点（音乐会暂停，读完恢复）；焦点被抢走（来电、别的应用放声音）或拔掉耳机时停下。
+ * 出声期间开着前台服务 [ReadAloudService]，退到后台、锁屏后接着读，通知上能停。 申请临时音频焦点（音乐会暂停，读完恢复）；焦点被抢走（来电、别的应用放声音）或拔掉耳机时停下。
  * 在主线程上调用。
  */
 object ReadAloud {
@@ -51,10 +50,11 @@ object ReadAloud {
     /** 读完多久后放掉引擎（它是另一个应用里的服务，常连着占资源）。 */
     private const val IDLE_SHUTDOWN_MS = 120_000L
 
-    private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_MEDIA)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
+    private val attributes =
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
 
     private val shutdown = Runnable {
         engine?.shutdown()
@@ -62,11 +62,12 @@ object ReadAloud {
         engineReady = false
     }
 
-    private val noisy = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) stop(context)
+    private val noisy =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) stop(context)
+            }
         }
-    }
 
     /** 正在读 [id] 就停下，否则读它。 */
     fun toggle(context: Context, id: String, markdown: String) {
@@ -81,7 +82,10 @@ object ReadAloud {
         val current = ++session
         mutableState.value = State(id, preparing = true)
         scope.launch {
-            val chunks = withContext(Dispatchers.Default) { SpeechText.chunks(SpeechText.readable(markdown)) }
+            val chunks =
+                withContext(Dispatchers.Default) {
+                    SpeechText.chunks(SpeechText.readable(markdown))
+                }
             if (current != session) return@launch
             if (chunks.isEmpty()) {
                 fail(appContext, "这条回答没有能念的文字")
@@ -107,23 +111,35 @@ object ReadAloud {
     private fun start(context: Context, current: Long, chunks: List<String>) {
         val tts = engine ?: return
         val audio = context.getSystemService(AudioManager::class.java)
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-            .setAudioAttributes(attributes)
-            .setOnAudioFocusChangeListener({ change ->
-                // 可以压低音量的短暂失去（导航播报之类）由系统压低，不停；其余的失去都停下
-                if (current == session && change < 0 && change != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                    DiagLog.info(DiagTopic.App, "朗读：音频焦点被拿走（$change），停下")
-                    stop(context)
-                }
-            }, main)
-            .build()
+        val request =
+            AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(attributes)
+                .setOnAudioFocusChangeListener(
+                    { change ->
+                        // 可以压低音量的短暂失去（导航播报之类）由系统压低，不停；其余的失去都停下
+                        if (
+                            current == session &&
+                                change < 0 &&
+                                change != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
+                        ) {
+                            DiagLog.info(DiagTopic.App, "朗读：音频焦点被拿走（$change），停下")
+                            stop(context)
+                        }
+                    },
+                    main,
+                )
+                .build()
         if (audio.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             fail(context, "现在放不了声音（可能正在通话）")
             return
         }
         focus = request
         runCatching {
-            context.registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), Context.RECEIVER_NOT_EXPORTED)
+            context.registerReceiver(
+                noisy,
+                IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
             noisyRegistered = true
         }
         // 这时 Zeta 多半在前台（用户刚点了朗读），可以开前台服务；自动朗读时在后台，开不了也照样读
@@ -149,22 +165,23 @@ object ReadAloud {
         waiting = { then(engineReady) }
         if (engine != null) return
         var created: TextToSpeech? = null
-        created = TextToSpeech(context) { status ->
-            main.post {
-                if (engine !== created) return@post
-                engineReady = status == TextToSpeech.SUCCESS
-                if (engineReady) {
-                    created?.setOnUtteranceProgressListener(Progress)
-                } else {
-                    DiagLog.warn(DiagTopic.App, "朗读：引擎连不上（$status）")
-                    created?.shutdown()
-                    engine = null
+        created =
+            TextToSpeech(context) { status ->
+                main.post {
+                    if (engine !== created) return@post
+                    engineReady = status == TextToSpeech.SUCCESS
+                    if (engineReady) {
+                        created?.setOnUtteranceProgressListener(Progress)
+                    } else {
+                        DiagLog.warn(DiagTopic.App, "朗读：引擎连不上（$status）")
+                        created?.shutdown()
+                        engine = null
+                    }
+                    val next = waiting
+                    waiting = null
+                    next?.invoke()
                 }
-                val next = waiting
-                waiting = null
-                next?.invoke()
             }
-        }
         engine = created
     }
 
@@ -197,7 +214,8 @@ object ReadAloud {
         }
     }
 
-    private fun sessionOf(utteranceId: String): Long? = utteranceId.substringBefore(':').toLongOrNull()
+    private fun sessionOf(utteranceId: String): Long? =
+        utteranceId.substringBefore(':').toLongOrNull()
 
     private fun fail(context: Context, message: String) {
         DiagLog.warn(DiagTopic.App, "朗读：$message")
@@ -206,7 +224,9 @@ object ReadAloud {
     }
 
     private fun release(context: Context) {
-        focus?.let { context.getSystemService(AudioManager::class.java).abandonAudioFocusRequest(it) }
+        focus?.let {
+            context.getSystemService(AudioManager::class.java).abandonAudioFocusRequest(it)
+        }
         focus = null
         if (noisyRegistered) runCatching { context.unregisterReceiver(noisy) }
         noisyRegistered = false

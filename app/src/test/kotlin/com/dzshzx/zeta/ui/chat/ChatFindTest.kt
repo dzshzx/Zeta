@@ -25,11 +25,12 @@ class ChatFindTest {
 
     @Test
     fun matchesFollowSegmentOrder() {
-        val segments = listOf(
-            FindSegment("u1", 0, "查一下 Zeta 的日志"),
-            FindSegment("a1", 0, "zeta 的日志在这里"),
-            FindSegment("a1", 12, "没有别的 ZETA"),
-        )
+        val segments =
+            listOf(
+                FindSegment("u1", 0, "查一下 Zeta 的日志"),
+                FindSegment("a1", 0, "zeta 的日志在这里"),
+                FindSegment("a1", 12, "没有别的 ZETA"),
+            )
         assertEquals(
             listOf(FindMatch("u1", 0, 4, 8), FindMatch("a1", 0, 0, 4), FindMatch("a1", 12, 5, 9)),
             ChatFind.matches(segments, ChatFind.normalize("  zeta ")),
@@ -48,7 +49,8 @@ class ChatFindTest {
     @Test
     fun reselectKeepsPlace() {
         val order = mapOf("u1" to 0, "a1" to 1, "u2" to 2, "a2" to 3)
-        val matches = listOf(FindMatch("u1", 0, 0, 2), FindMatch("a1", 5, 3, 5), FindMatch("a2", 0, 1, 3))
+        val matches =
+            listOf(FindMatch("u1", 0, 0, 2), FindMatch("a1", 5, 3, 5), FindMatch("a2", 0, 1, 3))
         // 第一次从最后一处（最新的）开始
         assertEquals(2, ChatFind.reselect(null, matches, order))
         // 原来那处还在：停在它上面
@@ -93,13 +95,27 @@ class ChatFindTest {
     /** 查的是排版后的文字：Markdown 记号、链接地址不算，各块按画出来的顺序。 */
     @Test
     fun markdownSegmentsAreRenderedText() {
-        val source = "# 标题\n\n**粗体** 和 [链接](https://example.com/zeta) 文字\n\n- 第一项\n- 第二项\n\n> 引用 zeta\n\n```\ncode zeta\n```\n\n| a | b |\n|---|---|\n| 1 | zeta |\n"
-        val document = StreamingGfmParserSession().parse(source, isComplete = true, style = MarkdownInlineStyle.Default).document
+        val source =
+            "# 标题\n\n**粗体** 和 [链接](https://example.com/zeta) 文字\n\n- 第一项\n- 第二项\n\n> 引用 zeta\n\n```\ncode zeta\n```\n\n| a | b |\n|---|---|\n| 1 | zeta |\n"
+        val document =
+            StreamingGfmParserSession()
+                .parse(source, isComplete = true, style = MarkdownInlineStyle.Default)
+                .document
         val texts = document.findSegments().map { it.second }
-        assertEquals(listOf("标题", "粗体 和 链接 文字", "第一项", "第二项", "引用 zeta", "code zeta", "a", "b", "1", "zeta"), texts)
+        assertEquals(
+            listOf("标题", "粗体 和 链接 文字", "第一项", "第二项", "引用 zeta", "code zeta", "a", "b", "1", "zeta"),
+            texts,
+        )
         val offsets = document.findSegments().map { it.first }
         assertEquals(offsets.size, offsets.toSet().size)
-        assertEquals(3, ChatFind.matches(document.findSegments().map { FindSegment("a", it.first, it.second) }, "zeta").size)
+        assertEquals(
+            3,
+            ChatFind.matches(
+                    document.findSegments().map { FindSegment("a", it.first, it.second) },
+                    "zeta",
+                )
+                .size,
+        )
     }
 
     /** 往前接上一页（对话内查找时把整个对话载完）：命中多了、下标往后挪，但停着的还是同一处，不跳。 */
@@ -112,7 +128,11 @@ class ChatFindTest {
         assertEquals(1, state.index)
         assertEquals(1, state.jumps)
         val longerOrder = mapOf("p-u" to 0, "p-a" to 1, "u1" to 2, "a1" to 3)
-        state.update("ab", listOf(FindMatch("p-a", 0, 0, 2), FindMatch("p-a", 0, 7, 9)) + matches, longerOrder)
+        state.update(
+            "ab",
+            listOf(FindMatch("p-a", 0, 0, 2), FindMatch("p-a", 0, 7, 9)) + matches,
+            longerOrder,
+        )
         assertEquals(3, state.index)
         assertEquals(FindMatch("a1", 0, 3, 5), state.current)
         assertEquals(1, state.jumps)
@@ -127,7 +147,12 @@ class ChatFindTest {
     fun answerSegmentsAreKeptPerMessage() {
         val segments = FindSegments(MarkdownInlineStyle.Default)
         val answer = AnswerItem("a1", "**粗体** findme 段落", streaming = false)
-        val items = listOf(UserItem("u1", "问 findme"), answer, AnswerItem("a2", "还在写 findme", streaming = true))
+        val items =
+            listOf(
+                UserItem("u1", "问 findme"),
+                answer,
+                AnswerItem("a2", "还在写 findme", streaming = true),
+            )
         val first = segments.of(items) { it }
         assertEquals(listOf("u1", "a1"), first.map { it.itemId })
         assertEquals("粗体 findme 段落", first[1].text)

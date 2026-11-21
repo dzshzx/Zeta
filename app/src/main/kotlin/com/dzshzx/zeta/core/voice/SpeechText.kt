@@ -24,19 +24,19 @@ import org.intellij.markdown.parser.MarkdownParser
 object SpeechText {
     fun readable(markdown: String): String {
         val source = TexMathDelimiters.normalize(markdown)
-        val root = MarkdownParser(ChatGfmFlavourDescriptor(originalSource = markdown)).buildMarkdownTreeFromString(source)
+        val root =
+            MarkdownParser(ChatGfmFlavourDescriptor(originalSource = markdown))
+                .buildMarkdownTreeFromString(source)
         val lines = mutableListOf<String>()
         Reader(source, lines).blocks(root)
         return lines.joinToString("\n")
     }
 
-    /**
-     * 切成一段段交给朗读引擎（引擎一次收的字数有上限）：尽量按行合并到 [limit] 字以内，
-     * 单行太长时在句末标点处断开，实在没有标点才硬切，不切开代理对。
-     */
+    /** 切成一段段交给朗读引擎（引擎一次收的字数有上限）：尽量按行合并到 [limit] 字以内， 单行太长时在句末标点处断开，实在没有标点才硬切，不切开代理对。 */
     fun chunks(text: String, limit: Int = 800): List<String> {
         require(limit >= 2)
-        val pieces = text.lines().map { it.trim() }.filter { it.isNotEmpty() }.flatMap { split(it, limit) }
+        val pieces =
+            text.lines().map { it.trim() }.filter { it.isNotEmpty() }.flatMap { split(it, limit) }
         val result = mutableListOf<String>()
         val current = StringBuilder()
         for (piece in pieces) {
@@ -71,10 +71,13 @@ object SpeechText {
 
         fun blocks(node: ASTNode) {
             when (node.type) {
-                MarkdownElementTypes.CODE_FENCE, MarkdownElementTypes.CODE_BLOCK -> line("代码略")
+                MarkdownElementTypes.CODE_FENCE,
+                MarkdownElementTypes.CODE_BLOCK -> line("代码略")
                 GFMElementTypes.TABLE -> line("表格略")
                 GFMElementTypes.BLOCK_MATH -> line("公式略")
-                MarkdownElementTypes.HTML_BLOCK, MarkdownElementTypes.LINK_DEFINITION, MarkdownTokenTypes.HORIZONTAL_RULE -> Unit
+                MarkdownElementTypes.HTML_BLOCK,
+                MarkdownElementTypes.LINK_DEFINITION,
+                MarkdownTokenTypes.HORIZONTAL_RULE -> Unit
                 GFMTokenTypes.CHECK_BOX -> prefix = checkBox(node)
                 in TEXT_BLOCKS -> line(inline(node))
                 else -> node.children.forEach(::blocks)
@@ -94,40 +97,60 @@ object SpeechText {
             when (node.type) {
                 MarkdownElementTypes.CODE_SPAN -> {
                     val code = text(node).trim('`').trim()
-                    append(if (code.length <= SHORT_CODE && !URL.containsMatchIn(code)) code else "代码")
+                    append(
+                        if (code.length <= SHORT_CODE && !URL.containsMatchIn(code)) code else "代码",
+                    )
                 }
                 GFMElementTypes.INLINE_MATH -> {
                     val math = text(node).trim('$').trim()
                     append(if (math.length <= SHORT_CODE && '\\' !in math) math else "公式")
                 }
-                MarkdownElementTypes.INLINE_LINK, MarkdownElementTypes.FULL_REFERENCE_LINK, MarkdownElementTypes.SHORT_REFERENCE_LINK -> {
-                    val label = node.children.firstOrNull { it.type == MarkdownElementTypes.LINK_TEXT }
-                        ?: node.children.firstOrNull { it.type == MarkdownElementTypes.LINK_LABEL }
-                    val words = label?.children
-                        ?.filterNot { it.type == MarkdownTokenTypes.LBRACKET || it.type == MarkdownTokenTypes.RBRACKET }
-                        ?.joinToString("") { inline(it) }
-                        .orEmpty().let(::withoutUrls).trim()
+                MarkdownElementTypes.INLINE_LINK,
+                MarkdownElementTypes.FULL_REFERENCE_LINK,
+                MarkdownElementTypes.SHORT_REFERENCE_LINK -> {
+                    val label =
+                        node.children.firstOrNull { it.type == MarkdownElementTypes.LINK_TEXT }
+                            ?: node.children.firstOrNull {
+                                it.type == MarkdownElementTypes.LINK_LABEL
+                            }
+                    val words =
+                        label
+                            ?.children
+                            ?.filterNot {
+                                it.type == MarkdownTokenTypes.LBRACKET ||
+                                    it.type == MarkdownTokenTypes.RBRACKET
+                            }
+                            ?.joinToString("") { inline(it) }
+                            .orEmpty()
+                            .let(::withoutUrls)
+                            .trim()
                     append(" ").append(words.ifEmpty { "链接" }).append(" ")
                 }
-                MarkdownElementTypes.AUTOLINK, GFMTokenTypes.GFM_AUTOLINK -> append(" 链接 ")
+                MarkdownElementTypes.AUTOLINK,
+                GFMTokenTypes.GFM_AUTOLINK -> append(" 链接 ")
                 GFMTokenTypes.CHECK_BOX -> append(checkBox(node))
-                MarkdownTokenTypes.EOL, MarkdownTokenTypes.HARD_LINE_BREAK -> append(' ')
+                MarkdownTokenTypes.EOL,
+                MarkdownTokenTypes.HARD_LINE_BREAK -> append(' ')
                 in SILENT -> Unit
-                else -> if (node.children.isEmpty()) append(source, node.startOffset, node.endOffset) else node.children.forEach { appendInline(it) }
+                else ->
+                    if (node.children.isEmpty()) append(source, node.startOffset, node.endOffset)
+                    else node.children.forEach { appendInline(it) }
             }
         }
 
-        private fun checkBox(node: ASTNode) = if (text(node).contains('x', ignoreCase = true)) "已完成，" else "未完成，"
+        private fun checkBox(node: ASTNode) =
+            if (text(node).contains('x', ignoreCase = true)) "已完成，" else "未完成，"
 
         private fun text(node: ASTNode) = source.substring(node.startOffset, node.endOffset)
     }
 
     /** 收拾一行：裸网址换成“链接”，空白并成一个，中文字之间的空格去掉。 */
-    private fun tidy(text: String): String = withoutUrls(text)
-        .replace(SPACES, " ")
-        .replace(CJK_GAP) { it.groupValues[1] + it.groupValues[2] }
-        .replace(CJK_GAP) { it.groupValues[1] + it.groupValues[2] }
-        .trim()
+    private fun tidy(text: String): String =
+        withoutUrls(text)
+            .replace(SPACES, " ")
+            .replace(CJK_GAP) { it.groupValues[1] + it.groupValues[2] }
+            .replace(CJK_GAP) { it.groupValues[1] + it.groupValues[2] }
+            .trim()
 
     /** 结尾不是标点时补一个句号：有汉字的行补中文句号，纯外文的补英文句点。 */
     private fun sentence(line: String): String {
@@ -138,31 +161,41 @@ object SpeechText {
 
     private fun withoutUrls(text: String): String = URL.replace(text, " 链接 ")
 
-    private val TEXT_BLOCKS: Set<IElementType> = setOf(
-        MarkdownElementTypes.PARAGRAPH,
-        MarkdownElementTypes.ATX_1, MarkdownElementTypes.ATX_2, MarkdownElementTypes.ATX_3,
-        MarkdownElementTypes.ATX_4, MarkdownElementTypes.ATX_5, MarkdownElementTypes.ATX_6,
-        MarkdownElementTypes.SETEXT_1, MarkdownElementTypes.SETEXT_2,
-    )
+    private val TEXT_BLOCKS: Set<IElementType> =
+        setOf(
+            MarkdownElementTypes.PARAGRAPH,
+            MarkdownElementTypes.ATX_1,
+            MarkdownElementTypes.ATX_2,
+            MarkdownElementTypes.ATX_3,
+            MarkdownElementTypes.ATX_4,
+            MarkdownElementTypes.ATX_5,
+            MarkdownElementTypes.ATX_6,
+            MarkdownElementTypes.SETEXT_1,
+            MarkdownElementTypes.SETEXT_2,
+        )
 
     /** 行内不念的记号。 */
-    private val SILENT: Set<IElementType> = setOf(
-        MarkdownElementTypes.IMAGE,
-        MarkdownTokenTypes.HTML_TAG,
-        MarkdownTokenTypes.ATX_HEADER,
-        MarkdownTokenTypes.SETEXT_1, MarkdownTokenTypes.SETEXT_2,
-        MarkdownTokenTypes.BLOCK_QUOTE,
-        MarkdownTokenTypes.BACKTICK,
-        MarkdownTokenTypes.EMPH,
-        GFMTokenTypes.TILDE,
-    )
+    private val SILENT: Set<IElementType> =
+        setOf(
+            MarkdownElementTypes.IMAGE,
+            MarkdownTokenTypes.HTML_TAG,
+            MarkdownTokenTypes.ATX_HEADER,
+            MarkdownTokenTypes.SETEXT_1,
+            MarkdownTokenTypes.SETEXT_2,
+            MarkdownTokenTypes.BLOCK_QUOTE,
+            MarkdownTokenTypes.BACKTICK,
+            MarkdownTokenTypes.EMPH,
+            GFMTokenTypes.TILDE,
+        )
 
     private const val SHORT_CODE = 24
     private const val SENTENCE_ENDS = "。！？；.!?;，,"
 
-    private val URL = Regex("""(?:https?://|www\.)[^\s<>"'`，。！？；：、（）【】《》“”‘’]+""", RegexOption.IGNORE_CASE)
+    private val URL =
+        Regex("""(?:https?://|www\.)[^\s<>"'`，。！？；：、（）【】《》“”‘’]+""", RegexOption.IGNORE_CASE)
     private val HAN = Regex("""\p{IsHan}""")
     private val SPACES = Regex("""\s+""")
-    private const val CJK = """\p{IsHan}\p{InCJKSymbolsAndPunctuation}\p{InHalfwidthAndFullwidthForms}"""
+    private const val CJK =
+        """\p{IsHan}\p{InCJKSymbolsAndPunctuation}\p{InHalfwidthAndFullwidthForms}"""
     private val CJK_GAP = Regex("""([$CJK]) +([$CJK])""")
 }

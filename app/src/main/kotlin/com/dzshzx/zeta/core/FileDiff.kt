@@ -6,19 +6,27 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-enum class DiffKind { Context, Added, Removed }
+enum class DiffKind {
+    Context,
+    Added,
+    Removed,
+}
 
 /** 对比里的一行。[oldLine]、[newLine] 是它在原文件、新文件里的行号（从 1 起），不知道或不适用时为 null。 */
 @Immutable
-data class DiffLine(val kind: DiffKind, val text: String, val oldLine: Int? = null, val newLine: Int? = null)
+data class DiffLine(
+    val kind: DiffKind,
+    val text: String,
+    val oldLine: Int? = null,
+    val newLine: Int? = null,
+)
 
 /** 一段连续的改动连同前后几行上下文；两段之间的行没变，界面上用分隔条表示。 */
-@Immutable
-data class DiffHunk(val lines: List<DiffLine>)
+@Immutable data class DiffHunk(val lines: List<DiffLine>)
 
 /**
- * Claude Code 给的改文件结果（工具结果里的 `tool_use_result`）：
- * [created] 是 Write 新建了文件；[hunks] 来自 `structuredPatch`，带文件里的真实行号。
+ * Claude Code 给的改文件结果（工具结果里的 `tool_use_result`）： [created] 是 Write 新建了文件；[hunks] 来自
+ * `structuredPatch`，带文件里的真实行号。
  */
 @Immutable
 data class EditPatch(val created: Boolean, val hunks: List<DiffHunk>) {
@@ -35,16 +43,17 @@ data class EditPatch(val created: Boolean, val hunks: List<DiffHunk>) {
             hunk ?: return null
             var old = hunk.int("oldStart") ?: return null
             var new = hunk.int("newStart") ?: return null
-            val lines = (hunk["lines"] as? JsonArray).orEmpty().mapNotNull { element ->
-                val raw = (element as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null
-                when (raw.firstOrNull()) {
-                    '+' -> DiffLine(DiffKind.Added, raw.substring(1), newLine = new++)
-                    '-' -> DiffLine(DiffKind.Removed, raw.substring(1), oldLine = old++)
-                    ' ' -> DiffLine(DiffKind.Context, raw.substring(1), old++, new++)
-                    // "\ No newline at end of file" 之类的说明行
-                    else -> null
+            val lines =
+                (hunk["lines"] as? JsonArray).orEmpty().mapNotNull { element ->
+                    val raw = (element as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null
+                    when (raw.firstOrNull()) {
+                        '+' -> DiffLine(DiffKind.Added, raw.substring(1), newLine = new++)
+                        '-' -> DiffLine(DiffKind.Removed, raw.substring(1), oldLine = old++)
+                        ' ' -> DiffLine(DiffKind.Context, raw.substring(1), old++, new++)
+                        // "\ No newline at end of file" 之类的说明行
+                        else -> null
+                    }
                 }
-            }
             return if (lines.isEmpty()) null else DiffHunk(lines)
         }
     }
@@ -63,7 +72,11 @@ data class FileChange(
     /** Edit 的 replace_all：文件里所有相同的片段都换了。 */
     val replaceAll: Boolean = false,
 ) {
-    enum class Kind { Create, Overwrite, Edit }
+    enum class Kind {
+        Create,
+        Overwrite,
+        Edit,
+    }
 
     val added: Int = hunks.sumOf { hunk -> hunk.lines.count { it.kind == DiffKind.Added } }
     val removed: Int = hunks.sumOf { hunk -> hunk.lines.count { it.kind == DiffKind.Removed } }
@@ -76,18 +89,23 @@ internal val FileEditTools = setOf("Edit", "MultiEdit", "Write")
 /** zeta-helper 截断过长字符串时加的尾巴。 */
 private const val ClipMarker = "\n…（已截断）"
 
-/**
- * 从一次工具调用算出文件改动；不是改文件的工具、参数还没到时返回 null。
- * 有 Claude Code 给的 [patch] 就照它画（带真实行号），否则按参数里的新旧字符串自己对比。
- */
+/** 从一次工具调用算出文件改动；不是改文件的工具、参数还没到时返回 null。 有 Claude Code 给的 [patch] 就照它画（带真实行号），否则按参数里的新旧字符串自己对比。 */
 internal fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): FileChange? {
     if (name !in FileEditTools || input == null) return null
     val path = input.str("file_path") ?: return null
     if (patch != null && (patch.hunks.isNotEmpty() || patch.created)) {
         return when {
             name == "Write" && patch.created -> writeAsNewFile(path, input)
-            name == "Write" -> FileChange(path, FileChange.Kind.Overwrite, patch.hunks, numbered = true)
-            else -> FileChange(path, FileChange.Kind.Edit, patch.hunks, numbered = true, replaceAll = input.bool("replace_all") == true)
+            name == "Write" ->
+                FileChange(path, FileChange.Kind.Overwrite, patch.hunks, numbered = true)
+            else ->
+                FileChange(
+                    path,
+                    FileChange.Kind.Edit,
+                    patch.hunks,
+                    numbered = true,
+                    replaceAll = input.bool("replace_all") == true,
+                )
         }
     }
     return when (name) {
@@ -97,7 +115,8 @@ internal fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): 
             val old = unclip(input.str("old_string") ?: return null)
             val new = unclip(input.str("new_string") ?: return null)
             FileChange(
-                path, FileChange.Kind.Edit,
+                path,
+                FileChange.Kind.Edit,
                 LineDiff.hunks(old.first, new.first),
                 numbered = false,
                 truncated = old.second || new.second,
@@ -106,14 +125,23 @@ internal fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): 
         }
         "MultiEdit" -> {
             var truncated = false
-            val hunks = (input["edits"] as? JsonArray).orEmpty().flatMap { element ->
-                val edit = element as? JsonObject ?: return@flatMap emptyList()
-                val old = unclip(edit.str("old_string").orEmpty())
-                val new = unclip(edit.str("new_string").orEmpty())
-                truncated = truncated || old.second || new.second
-                LineDiff.hunks(old.first, new.first)
-            }
-            if (hunks.isEmpty()) null else FileChange(path, FileChange.Kind.Edit, hunks, numbered = false, truncated = truncated)
+            val hunks =
+                (input["edits"] as? JsonArray).orEmpty().flatMap { element ->
+                    val edit = element as? JsonObject ?: return@flatMap emptyList()
+                    val old = unclip(edit.str("old_string").orEmpty())
+                    val new = unclip(edit.str("new_string").orEmpty())
+                    truncated = truncated || old.second || new.second
+                    LineDiff.hunks(old.first, new.first)
+                }
+            if (hunks.isEmpty()) null
+            else
+                FileChange(
+                    path,
+                    FileChange.Kind.Edit,
+                    hunks,
+                    numbered = false,
+                    truncated = truncated,
+                )
         }
         else -> null
     }
@@ -122,8 +150,17 @@ internal fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): 
 private fun writeAsNewFile(path: String, input: JsonObject): FileChange? {
     val (content, truncated) = unclip(input.str("content") ?: return null)
     val lines = splitLines(content)
-    val hunk = DiffHunk(lines.mapIndexed { index, text -> DiffLine(DiffKind.Added, text, newLine = index + 1) })
-    return FileChange(path, FileChange.Kind.Create, if (lines.isEmpty()) emptyList() else listOf(hunk), numbered = true, truncated = truncated)
+    val hunk =
+        DiffHunk(
+            lines.mapIndexed { index, text -> DiffLine(DiffKind.Added, text, newLine = index + 1) },
+        )
+    return FileChange(
+        path,
+        FileChange.Kind.Create,
+        if (lines.isEmpty()) emptyList() else listOf(hunk),
+        numbered = true,
+        truncated = truncated,
+    )
 }
 
 private fun unclip(text: String): Pair<String, Boolean> =
@@ -139,31 +176,45 @@ internal fun splitLines(text: String): List<String> {
 /**
  * 行级对比（Myers 差分）。纯函数，不依赖 Android。
  *
- * 先去掉两边相同的开头和结尾，只对中间部分跑 Myers；编辑距离超过 [MaxEdits] 或中间部分太长时
- * 不再找最短改法，整段当作“删掉旧的、加上新的”，免得大文件卡住界面。
+ * 先去掉两边相同的开头和结尾，只对中间部分跑 Myers；编辑距离超过 [MaxEdits] 或中间部分太长时 不再找最短改法，整段当作“删掉旧的、加上新的”，免得大文件卡住界面。
  */
 object LineDiff {
     const val MaxEdits = 400
     const val MaxLines = 100_000
     const val Context = 3
 
-    enum class Op { Equal, Insert, Delete }
+    enum class Op {
+        Equal,
+        Insert,
+        Delete,
+    }
 
-    /** 一步编辑：[Op.Equal] 和 [Op.Delete] 的 [oldIndex] 有效，[Op.Equal] 和 [Op.Insert] 的 [newIndex] 有效（都从 0 起）。 */
+    /**
+     * 一步编辑：[Op.Equal] 和 [Op.Delete] 的 [oldIndex] 有效，[Op.Equal] 和 [Op.Insert] 的 [newIndex] 有效（都从 0
+     * 起）。
+     */
     data class Edit(val op: Op, val oldIndex: Int, val newIndex: Int)
 
     fun diff(old: List<String>, new: List<String>, maxEdits: Int = MaxEdits): List<Edit> {
         var prefix = 0
         while (prefix < old.size && prefix < new.size && old[prefix] == new[prefix]) prefix++
         var suffix = 0
-        while (suffix < old.size - prefix && suffix < new.size - prefix && old[old.size - 1 - suffix] == new[new.size - 1 - suffix]) suffix++
+        while (
+            suffix < old.size - prefix &&
+                suffix < new.size - prefix &&
+                old[old.size - 1 - suffix] == new[new.size - 1 - suffix]
+        ) suffix++
         val a = old.subList(prefix, old.size - suffix)
         val b = new.subList(prefix, new.size - suffix)
-        val middle = (if (a.size + b.size <= MaxLines) myers(a, b, maxEdits) else null) ?: replaceAll(a.size, b.size)
+        val middle =
+            (if (a.size + b.size <= MaxLines) myers(a, b, maxEdits) else null)
+                ?: replaceAll(a.size, b.size)
         val edits = ArrayList<Edit>(prefix + middle.size + suffix)
         for (i in 0 until prefix) edits.add(Edit(Op.Equal, i, i))
         middle.forEach { edits.add(Edit(it.op, it.oldIndex + prefix, it.newIndex + prefix)) }
-        for (i in 0 until suffix) edits.add(Edit(Op.Equal, old.size - suffix + i, new.size - suffix + i))
+        for (i in 0 until suffix) edits.add(
+            Edit(Op.Equal, old.size - suffix + i, new.size - suffix + i),
+        )
         return edits
     }
 
@@ -171,13 +222,22 @@ object LineDiff {
     fun hunks(old: String, new: String, context: Int = Context): List<DiffHunk> {
         val a = splitLines(old)
         val b = splitLines(new)
-        val lines = diff(a, b).map { edit ->
-            when (edit.op) {
-                Op.Equal -> DiffLine(DiffKind.Context, a[edit.oldIndex], edit.oldIndex + 1, edit.newIndex + 1)
-                Op.Delete -> DiffLine(DiffKind.Removed, a[edit.oldIndex], oldLine = edit.oldIndex + 1)
-                Op.Insert -> DiffLine(DiffKind.Added, b[edit.newIndex], newLine = edit.newIndex + 1)
+        val lines =
+            diff(a, b).map { edit ->
+                when (edit.op) {
+                    Op.Equal ->
+                        DiffLine(
+                            DiffKind.Context,
+                            a[edit.oldIndex],
+                            edit.oldIndex + 1,
+                            edit.newIndex + 1,
+                        )
+                    Op.Delete ->
+                        DiffLine(DiffKind.Removed, a[edit.oldIndex], oldLine = edit.oldIndex + 1)
+                    Op.Insert ->
+                        DiffLine(DiffKind.Added, b[edit.newIndex], newLine = edit.newIndex + 1)
+                }
             }
-        }
         return group(lines, context)
     }
 
@@ -204,38 +264,62 @@ object LineDiff {
     private fun replaceAll(oldSize: Int, newSize: Int): List<Edit> =
         List(oldSize) { Edit(Op.Delete, it, -1) } + List(newSize) { Edit(Op.Insert, -1, it) }
 
-    /**
-     * Myers 的 O((N+M)·D) 算法；超过 [maxEdits] 步返回 null。
-     * 每一轮只存下 k ∈ [-d-1, d+1] 那一段，回溯用，内存是 O(D²)。
-     */
+    /** Myers 的 O((N+M)·D) 算法；超过 [maxEdits] 步返回 null。 每一轮只存下 k ∈ [-d-1, d+1] 那一段，回溯用，内存是 O(D²)。 */
     private fun myers(a: List<String>, b: List<String>, maxEdits: Int): List<Edit>? {
         val n = a.size
         val m = b.size
         if (n == 0 || m == 0) return replaceAll(n, m)
+        val trace = ArrayList<IntArray>()
+        val found = myersSearch(a, b, maxEdits, trace)
+        if (found < 0) return null
+        return myersBacktrack(trace, found, n, m)
+    }
+
+    /** 前向搜索：每一轮先把 v 的那一段存进 [trace]，返回走到终点用了几步；超过 [maxEdits] 步是 -1。 */
+    private fun myersSearch(
+        a: List<String>,
+        b: List<String>,
+        maxEdits: Int,
+        trace: MutableList<IntArray>,
+    ): Int {
+        val n = a.size
+        val m = b.size
         val max = n + m
         val offset = max + 1
         val v = IntArray(2 * max + 3)
-        val trace = ArrayList<IntArray>()
-        var found = -1
-        search@ for (d in 0..minOf(max, maxEdits)) {
+        for (d in 0..minOf(max, maxEdits)) {
             trace.add(v.copyOfRange(offset - d - 1, offset + d + 2))
             var k = -d
             while (k <= d) {
-                var x = if (k == -d || (k != d && v[offset + k - 1] < v[offset + k + 1])) v[offset + k + 1] else v[offset + k - 1] + 1
-                var y = x - k
-                while (x < n && y < m && a[x] == b[y]) {
-                    x++
-                    y++
-                }
+                val start =
+                    if (fromAbove(k, d, v[offset + k - 1], v[offset + k + 1])) v[offset + k + 1]
+                    else v[offset + k - 1] + 1
+                val x = followSnake(a, b, start, k)
                 v[offset + k] = x
-                if (x >= n && y >= m) {
-                    found = d
-                    break@search
-                }
+                if (x >= n && x - k >= m) return d
                 k += 2
             }
         }
-        if (found < 0) return null
+        return -1
+    }
+
+    /** 第 d 轮对角线 k 上的点是从 k+1（插入）下来的，而不是从 k-1（删除）过来的；[left]、[right] 是上一轮 k-1、k+1 走到的 x。 */
+    private fun fromAbove(k: Int, d: Int, left: Int, right: Int): Boolean =
+        k == -d || (k != d && left < right)
+
+    /** 从对角线 [k] 上的 x = [start] 起，沿相同的行一直往下走，返回走到的 x。 */
+    private fun followSnake(a: List<String>, b: List<String>, start: Int, k: Int): Int {
+        var x = start
+        var y = x - k
+        while (x < a.size && y < b.size && a[x] == b[y]) {
+            x++
+            y++
+        }
+        return x
+    }
+
+    /** 从终点照 [trace] 往回走到起点，得出每一步的编辑。 */
+    private fun myersBacktrack(trace: List<IntArray>, found: Int, n: Int, m: Int): List<Edit> {
         val edits = ArrayList<Edit>()
         var x = n
         var y = m
@@ -243,7 +327,7 @@ object LineDiff {
             val snapshot = trace[d]
             fun at(k: Int) = snapshot[k + d + 1]
             val k = x - y
-            val prevK = if (k == -d || (k != d && at(k - 1) < at(k + 1))) k + 1 else k - 1
+            val prevK = if (fromAbove(k, d, at(k - 1), at(k + 1))) k + 1 else k - 1
             val prevX = at(prevK)
             val prevY = prevX - prevK
             while (x > prevX && y > prevY) {
@@ -251,13 +335,15 @@ object LineDiff {
                 y--
                 edits.add(Edit(Op.Equal, x, y))
             }
-            if (d > 0) {
-                if (x == prevX) edits.add(Edit(Op.Insert, -1, prevY)) else edits.add(Edit(Op.Delete, prevX, -1))
-            }
+            if (d > 0) edits.add(stepEdit(x == prevX, prevX, prevY))
             x = prevX
             y = prevY
         }
         edits.reverse()
         return edits
     }
+
+    /** 回溯时这一轮那一步：x 没变是插入新的第 [prevY] 行，否则是删掉旧的第 [prevX] 行。 */
+    private fun stepEdit(inserted: Boolean, prevX: Int, prevY: Int): Edit =
+        if (inserted) Edit(Op.Insert, -1, prevY) else Edit(Op.Delete, prevX, -1)
 }

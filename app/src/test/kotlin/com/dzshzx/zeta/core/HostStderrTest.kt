@@ -12,8 +12,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_host.sh 在 Claude 进程结束时把标准错误输出留一份到 `~/.cache/<ZETA_NAME>/stderr/`，诊断页从那里读。
- * 真脚本跑在临时 HOME 上，用一个假的 claude。
+ * zeta_host.sh 在 Claude 进程结束时把标准错误输出留一份到 `~/.cache/<ZETA_NAME>/stderr/`，诊断页从那里读。 真脚本跑在临时 HOME
+ * 上，用一个假的 claude。
  */
 class HostStderrTest {
     private lateinit var home: File
@@ -36,14 +36,24 @@ class HostStderrTest {
 
     /** 起一个对话进程（[HostTesting.run]：应用这头马上断开，进程自己跑完）。 */
     private fun start(key: String) {
-        HostTesting.run(home, listOf("bash", host.path, "start", key, home.path, "t", "-p"), HostTesting.named(name))
+        HostTesting.run(
+            home,
+            listOf("bash", host.path, "start", key, home.path, "t", "-p"),
+            HostTesting.named(name),
+        )
     }
 
-    private val kept: File get() = File(home, ".cache/$name/stderr")
+    private val kept: File
+        get() = File(home, ".cache/$name/stderr")
 
     private fun keptFor(key: String): File? {
         repeat(100) {
-            kept.listFiles()?.firstOrNull { it.name.endsWith("-$key.log") }?.let { return it }
+            kept
+                .listFiles()
+                ?.firstOrNull { it.name.endsWith("-$key.log") }
+                ?.let {
+                    return it
+                }
             Thread.sleep(100)
         }
         return null
@@ -66,14 +76,29 @@ class HostStderrTest {
     @Test
     fun exitReportCarriesCodeAndStderr() {
         fakeClaude("""printf '%s\n' '出错了："引号" \ 反斜杠' >&2; exit 3""")
-        val started = HostTesting.run(home, listOf("bash", host.path, "start", "k-exit", home.path, "t", "-p"), HostTesting.named(name))
+        val started =
+            HostTesting.run(
+                home,
+                listOf("bash", host.path, "start", "k-exit", home.path, "t", "-p"),
+                HostTesting.named(name),
+            )
         val dir = File(home, ".cache/$name/hosts/k-exit")
         // 起进程的那一头可能已经见到它结束、报过了；没报的话等它结束再接上一次
-        val out = started.takeIf { "zeta_exit" in it } ?: run {
-            assertTrue("进程没有结束", waitUntil(10) { File(dir, "exit").exists() })
-            HostTesting.run(home, listOf("bash", host.path, "attach", "k-exit", "1"), HostTesting.named(name))
-        }
-        val report = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single { it.str("type") == "zeta_exit" }
+        val out =
+            started.takeIf { "zeta_exit" in it }
+                ?: run {
+                    assertTrue("进程没有结束", waitUntil(10) { File(dir, "exit").exists() })
+                    HostTesting.run(
+                        home,
+                        listOf("bash", host.path, "attach", "k-exit", "1"),
+                        HostTesting.named(name),
+                    )
+                }
+        val report =
+            out.lineSequence()
+                .filter { it.startsWith("{") }
+                .map { Json.parseToJsonElement(it).jsonObject }
+                .single { it.str("type") == "zeta_exit" }
         assertEquals(3, report.int("code"))
         assertEquals("出错了：\"引号\" \\ 反斜杠\n", hostExitStderr(report))
         assertTrue("报完删掉托管目录", !dir.exists())
@@ -83,8 +108,17 @@ class HostStderrTest {
     fun exitStderrDropsAHalfCharacterAtTheCut() {
         val bytes = "好的".toByteArray()
         val cut = java.util.Base64.getEncoder().encodeToString(bytes.copyOfRange(1, bytes.size))
-        assertEquals("的", hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1,"stderr_base64":"$cut"}""").jsonObject))
-        assertEquals("", hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1}""").jsonObject))
+        assertEquals(
+            "的",
+            hostExitStderr(
+                Json.parseToJsonElement("""{"type":"zeta_exit","code":1,"stderr_base64":"$cut"}""")
+                    .jsonObject,
+            ),
+        )
+        assertEquals(
+            "",
+            hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1}""").jsonObject),
+        )
     }
 
     @Test
@@ -95,18 +129,31 @@ class HostStderrTest {
         fakeClaude("echo 'boom' >&2; exit 1")
         start("k-loud")
         assertTrue(keptFor("k-loud") != null)
-        assertEquals(listOf("k-loud"), kept.listFiles().orEmpty().map { it.name.substringAfterLast("-k-").removeSuffix(".log").let { k -> "k-$k" } })
+        assertEquals(
+            listOf("k-loud"),
+            kept.listFiles().orEmpty().map {
+                it.name.substringAfterLast("-k-").removeSuffix(".log").let { k -> "k-$k" }
+            },
+        )
     }
 
     @Test
     fun onlyTheLatestTwentyAreKept() {
         kept.mkdirs()
         val old = System.currentTimeMillis() - 3_600_000
-        repeat(25) { i -> File(kept, "20000101-0000%02d-old$i.log".format(i)).apply { writeText("x"); setLastModified(old + i * 1000L) } }
+        repeat(25) { i ->
+            File(kept, "20000101-0000%02d-old$i.log".format(i)).apply {
+                writeText("x")
+                setLastModified(old + i * 1000L)
+            }
+        }
         fakeClaude("echo 'boom' >&2; exit 1")
         start("k-new")
         assertTrue(keptFor("k-new") != null)
-        repeat(50) { if ((kept.listFiles()?.size ?: 0) <= 20) return@repeat; Thread.sleep(100) }
+        repeat(50) {
+            if ((kept.listFiles()?.size ?: 0) <= 20) return@repeat
+            Thread.sleep(100)
+        }
         val names = kept.listFiles().orEmpty().map { it.name }
         assertEquals(20, names.size)
         assertTrue(names.any { it.endsWith("-k-new.log") })

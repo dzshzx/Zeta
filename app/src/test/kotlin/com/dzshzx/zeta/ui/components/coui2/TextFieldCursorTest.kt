@@ -26,7 +26,13 @@ class TextFieldCursorTest : ShotTest() {
         text = initial
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
-                TextField(value = text, onValueChange = { text = it }, label = "目录", singleLine = true, showClearButton = true)
+                TextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = "目录",
+                    singleLine = true,
+                    showClearButton = true,
+                )
             }
         }
     }

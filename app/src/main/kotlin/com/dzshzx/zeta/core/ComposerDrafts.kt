@@ -24,11 +24,12 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /**
- * 一个对话的输入栏里还没发出的东西：文字（连同光标）、图片附件、附带的 Linux 路径（复制好的、还在复制的、引用的）。
- * 输入栏直接拿它当状态，由 [ComposerDrafts] 按对话保管：切到别的对话再回来、界面重建时都还在。在主线程上改。
+ * 一个对话的输入栏里还没发出的东西：文字（连同光标）、图片附件、附带的 Linux 路径（复制好的、还在复制的、引用的）。 输入栏直接拿它当状态，由 [ComposerDrafts]
+ * 按对话保管：切到别的对话再回来、界面重建时都还在。在主线程上改。
  */
 @Stable
-class ComposerDraft internal constructor(text: String = "", selection: TextRange = TextRange(text.length)) {
+class ComposerDraft
+internal constructor(text: String = "", selection: TextRange = TextRange(text.length)) {
     val input = TextFieldState(text, selection)
     val attachments = mutableStateListOf<Attachment>()
     val uploads = mutableStateListOf<FileUpload>()
@@ -37,21 +38,26 @@ class ComposerDraft internal constructor(text: String = "", selection: TextRange
     internal fun record(key: String, at: Long): DraftRecord? {
         val selection = input.selection
         return DraftRecord(
-            key = key,
-            text = input.text.toString(),
-            selectionStart = selection.start,
-            selectionEnd = selection.end,
-            images = attachments.map { DraftImage(it.id, it.mediaType, it.base64.length * 3L / 4) },
-            files = uploads.mapNotNull { upload -> upload.path?.let { DraftFile(it, upload.name) } },
-            at = at,
-        ).takeUnless { it.isEmpty }
+                key = key,
+                text = input.text.toString(),
+                selectionStart = selection.start,
+                selectionEnd = selection.end,
+                images =
+                    attachments.map { DraftImage(it.id, it.mediaType, it.base64.length * 3L / 4) },
+                files =
+                    uploads.mapNotNull { upload ->
+                        upload.path?.let { DraftFile(it, upload.name) }
+                    },
+                at = at,
+            )
+            .takeUnless { it.isEmpty }
     }
 }
 
 /**
- * 各对话没发出的输入（[ComposerDraft]），按会话号保管；随手存进单独的设置文件 [PREFS]（图片另存成文件），
- * Zeta 被杀、重开后接着用。界面停手一会儿、离开对话、发出消息时调 [save]。在主线程上用。
- * 不放进主设置文件：那里有很大的斜杠命令缓存，每次存都要整份重写，Activity 停下时系统还会在主线程上等它写完。
+ * 各对话没发出的输入（[ComposerDraft]），按会话号保管；随手存进单独的设置文件 [PREFS]（图片另存成文件）， Zeta
+ * 被杀、重开后接着用。界面停手一会儿、离开对话、发出消息时调 [save]。在主线程上用。 不放进主设置文件：那里有很大的斜杠命令缓存，每次存都要整份重写，Activity
+ * 停下时系统还会在主线程上等它写完。
  *
  * - 还没开始的新对话（没有会话号、也没有内容）共用一份草稿，存在 [NEW] 下：切走再点「新对话」，没发出的字还在。
  *   这一份跟着最近显示它的那个新对话走；那个对话拿到会话号时（发出第一条消息后）改记到会话号下，下一个新对话从空的开始。
@@ -84,10 +90,7 @@ class ComposerDrafts(
     /** 侧栏显示的一行，按会话号（可观察）。 */
     private val previews = mutableStateMapOf<String, String>()
 
-    /**
-     * 输入栏的后台活（读图片、把文件复制进 Linux、恢复存下来的草稿）在这里跑：切到别的对话时接着做完，
-     * 结果落进原来那份草稿，不会停在「复制中」。
-     */
+    /** 输入栏的后台活（读图片、把文件复制进 Linux、恢复存下来的草稿）在这里跑：切到别的对话时接着做完， 结果落进原来那份草稿，不会停在「复制中」。 */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** 图片文件的读写排成一队：先写后删的顺序不乱。 */
@@ -107,22 +110,26 @@ class ComposerDrafts(
     fun of(conversation: Conversation): ComposerDraft {
         fresh?.let { if (freshOwner === conversation) return it }
         if (conversation.notStarted) {
-            val draft = fresh ?: (records[NEW]?.let { restore(it, conversation.backend) } ?: ComposerDraft()).also { fresh = it }
-            if (freshOwner != null && freshOwner?.backend != conversation.backend) draft.uploads.clear()
+            val draft =
+                fresh
+                    ?: (records[NEW]?.let { restore(it, conversation.backend) } ?: ComposerDraft())
+                        .also { fresh = it }
+            if (freshOwner != null && freshOwner?.backend != conversation.backend)
+                draft.uploads.clear()
             freshOwner = conversation
             return draft
         }
-        val id = conversation.sessionId ?: return unsaved.getOrPut(conversation.key) { ComposerDraft() }
-        return live.getOrPut(id) { records[id]?.let { restore(it, conversation.backend) } ?: ComposerDraft() }
+        val id =
+            conversation.sessionId ?: return unsaved.getOrPut(conversation.key) { ComposerDraft() }
+        return live.getOrPut(id) {
+            records[id]?.let { restore(it, conversation.backend) } ?: ComposerDraft()
+        }
     }
 
     /** 侧栏用：会话 [sessionId] 有没发出的草稿时，草稿开头的一行（可观察）。 */
     fun preview(sessionId: String): String? = previews[sessionId]
 
-    /**
-     * 把 [draft] 现在的样子存盘（空了就删掉存着的那份）。已经不归谁（会话删了）的不存。
-     * 新对话那一份在它的对话开始后（发出了第一条）归那个对话，下一个新对话从空的开始。
-     */
+    /** 把 [draft] 现在的样子存盘（空了就删掉存着的那份）。已经不归谁（会话删了）的不存。 新对话那一份在它的对话开始后（发出了第一条）归那个对话，下一个新对话从空的开始。 */
     fun save(draft: ComposerDraft) {
         if (draft === fresh) {
             val owner = freshOwner
@@ -146,15 +153,16 @@ class ComposerDrafts(
     /** 对话的会话号变了（新对话拿到会话号、/clear 换了新会话）：草稿跟着改记。 */
     internal fun rekey(conversation: Conversation, from: String, to: String) {
         if (from == to) return
-        val draft = if (fresh != null && freshOwner === conversation) {
-            fresh.also {
-                fresh = null
-                freshOwner = null
-                drop(NEW)
-            }
-        } else {
-            live.remove(from)?.also { drop(from) } ?: unsaved.remove(from)
-        } ?: return
+        val draft =
+            if (fresh != null && freshOwner === conversation) {
+                fresh.also {
+                    fresh = null
+                    freshOwner = null
+                    drop(NEW)
+                }
+            } else {
+                live.remove(from)?.also { drop(from) } ?: unsaved.remove(from)
+            } ?: return
         live[to] = draft
         store(to, draft, force = true)
     }
@@ -190,43 +198,76 @@ class ComposerDrafts(
         val kept = DraftRecords.fit(records.values.toList())
         records.clear()
         kept.forEach { records[it.key] = it }
+        updatePreviews(kept)
+        prefs
+            .edit()
+            .apply {
+                if (kept.isEmpty()) remove(KEY) else putString(KEY, DraftRecords.encode(kept))
+            }
+            .apply()
+        val wanted = kept.flatMap { it.images }.mapNotNullTo(HashSet()) { imageName(it.id) }
+        val toWrite = images.filterKeys { imageName(it) in wanted }
+        scope.launch(disk) { runCatching { syncImages(toWrite, wanted) } }
+    }
+
+    /** 侧栏的预览跟着留下的草稿走：去掉没了的，只改变了的（新对话那份不显示）。 */
+    private fun updatePreviews(kept: List<DraftRecord>) {
         val shown = kept.filter { it.key != NEW }.associate { it.key to DraftRecords.preview(it) }
         (previews.keys - shown.keys).forEach(previews::remove)
         for ((key, line) in shown) if (previews[key] != line) previews[key] = line
-        prefs.edit().apply { if (kept.isEmpty()) remove(KEY) else putString(KEY, DraftRecords.encode(kept)) }.apply()
-        val wanted = kept.flatMap { it.images }.mapNotNullTo(HashSet()) { imageName(it.id) }
-        val toWrite = images.filterKeys { imageName(it) in wanted }
-        scope.launch(disk) {
-            runCatching {
-                imageDir.mkdirs()
-                for ((id, base64) in toWrite) {
-                    val file = File(imageDir, imageName(id) ?: continue)
-                    if (!file.exists()) file.writeBytes(Base64.decode(base64, Base64.NO_WRAP))
-                }
-                imageDir.listFiles()?.forEach { if (it.name !in wanted) it.delete() }
-            }
+    }
+
+    /** 在磁盘线程上：补写还没有的图片文件（[toWrite]：id → base64），删掉文件名不在 [wanted] 里的。 */
+    private fun syncImages(toWrite: Map<String, String>, wanted: Set<String>) {
+        imageDir.mkdirs()
+        for ((id, base64) in toWrite) {
+            val file = File(imageDir, imageName(id) ?: continue)
+            if (!file.exists()) file.writeBytes(Base64.decode(base64, Base64.NO_WRAP))
         }
+        imageDir.listFiles()?.forEach { if (it.name !in wanted) it.delete() }
     }
 
     /** 存盘的草稿重新做成输入栏用的那份。文字和路径马上就有；图片读回来、复制进 Linux 的文件确认还在，之后再补上或去掉。 */
     private fun restore(record: DraftRecord, backend: String): ComposerDraft {
-        val draft = ComposerDraft(record.text, TextRange(record.selectionStart, record.selectionEnd))
-        for (file in record.files) draft.uploads += FileUpload(UUID.randomUUID().toString(), file.label).also { it.path = file.entry }
+        val draft =
+            ComposerDraft(record.text, TextRange(record.selectionStart, record.selectionEnd))
+        for (file in record.files) draft.uploads +=
+            FileUpload(UUID.randomUUID().toString(), file.label).also { it.path = file.entry }
         val copied = record.files.map { it.entry }.filterNot(AttachedPaths::isReference)
         if (record.images.isEmpty() && copied.isEmpty()) return draft
         scope.launch {
-            val images = withContext(disk) {
-                record.images.mapNotNull { image ->
-                    val bytes = imageName(image.id)?.let { runCatching { File(imageDir, it).readBytes() }.getOrNull() }
-                    bytes?.let { Attachments.restore(image.id, image.mediaType, it) }
+            val images =
+                withContext(disk) {
+                    record.images.mapNotNull { image ->
+                        val bytes =
+                            imageName(image.id)?.let {
+                                runCatching { File(imageDir, it).readBytes() }.getOrNull()
+                            }
+                        bytes?.let { Attachments.restore(image.id, image.mediaType, it) }
+                    }
                 }
-            }
-            draft.attachments.addAll(0, images.filter { image -> draft.attachments.none { it.id == image.id } })
+            draft.attachments.addAll(
+                0,
+                images.filter { image -> draft.attachments.none { it.id == image.id } },
+            )
             val shell = shellFor(backend)
-            val missing = if (shell == null || copied.isEmpty()) emptySet() else withContext(Dispatchers.IO) {
-                // 查不成（进不了环境、连不上）时当作都还在
-                copied.zip(PathCheck.checkAll(shell, copied.map(AttachedPaths::path), hostKey = null)).filter { it.second == PathKind.Missing }.map { it.first }.toSet()
-            }
+            val missing =
+                if (shell == null || copied.isEmpty()) emptySet()
+                else
+                    withContext(Dispatchers.IO) {
+                        // 查不成（进不了环境、连不上）时当作都还在
+                        copied
+                            .zip(
+                                PathCheck.checkAll(
+                                    shell,
+                                    copied.map(AttachedPaths::path),
+                                    hostKey = null,
+                                ),
+                            )
+                            .filter { it.second == PathKind.Missing }
+                            .map { it.first }
+                            .toSet()
+                    }
             if (missing.isNotEmpty()) draft.uploads.removeAll { it.path in missing }
             // 读不回来的图片、已经不在的文件，存着的那份也去掉；读回来之前存过一次的，把图片补回去
             save(draft)
@@ -261,7 +302,8 @@ data class DraftRecord(
     /** 最后存的时间（毫秒）：超出上限时先丢最久没动的。 */
     val at: Long,
 ) {
-    val isEmpty: Boolean get() = text.isBlank() && images.isEmpty() && files.isEmpty()
+    val isEmpty: Boolean
+        get() = text.isBlank() && images.isEmpty() && files.isEmpty()
 }
 
 /** 草稿里的一张图片：内容另存成文件（应用私有目录 files/drafts/<id>），这里只记类型和大约多少字节。 */
@@ -303,12 +345,13 @@ object DraftRecords {
                 imagesLeft -= image.bytes
                 images += image
             }
-            val fitted = record.copy(
-                text = text,
-                selectionStart = record.selectionStart.coerceIn(0, text.length),
-                selectionEnd = record.selectionEnd.coerceIn(0, text.length),
-                images = images,
-            )
+            val fitted =
+                record.copy(
+                    text = text,
+                    selectionStart = record.selectionStart.coerceIn(0, text.length),
+                    selectionEnd = record.selectionEnd.coerceIn(0, text.length),
+                    images = images,
+                )
             if (!fitted.isEmpty) kept += fitted
         }
         return kept
@@ -316,7 +359,12 @@ object DraftRecords {
 
     /** 侧栏上草稿那一行：文字的第一行；没有文字时说有几张图片、附了哪个文件。 */
     fun preview(record: DraftRecord): String {
-        val line = record.text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }?.replace(Spaces, " ")
+        val line =
+            record.text
+                .lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.isNotEmpty() }
+                ?.replace(Spaces, " ")
         return when {
             line != null -> line.clipChars(PREVIEW_CHARS)
             record.images.isNotEmpty() -> "${record.images.size} 张图片"
@@ -331,41 +379,80 @@ object DraftRecords {
             for (r in records) addJsonObject {
                 put("key", r.key)
                 put("text", r.text)
-                putJsonArray("selection") { add(r.selectionStart); add(r.selectionEnd) }
-                putJsonArray("images") { for (i in r.images) addJsonObject { put("id", i.id); put("type", i.mediaType); put("bytes", i.bytes) } }
-                putJsonArray("files") { for (f in r.files) addJsonObject { put("entry", f.entry); put("label", f.label) } }
+                putJsonArray("selection") {
+                    add(r.selectionStart)
+                    add(r.selectionEnd)
+                }
+                putJsonArray("images") {
+                    for (i in r.images) addJsonObject {
+                        put("id", i.id)
+                        put("type", i.mediaType)
+                        put("bytes", i.bytes)
+                    }
+                }
+                putJsonArray("files") {
+                    for (f in r.files) addJsonObject {
+                        put("entry", f.entry)
+                        put("label", f.label)
+                    }
+                }
                 put("at", r.at)
             }
         }
-    }.toString()
+    }
+        .toString()
 
     /** 存储里的文字 → 草稿。坏的条目跳过，不让一条坏数据弄丢全部；同一个 key 只留第一份。 */
     fun decode(raw: String?): List<DraftRecord> {
-        val root = raw?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() } ?: return emptyList()
+        val root =
+            raw?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+                ?: return emptyList()
         val array = root.arr("drafts") ?: return emptyList()
-        return array.mapNotNull { element ->
-            val o = element as? JsonObject ?: return@mapNotNull null
-            val key = o.str("key")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-            val text = o.str("text").orEmpty()
-            val selection = o.arr("selection")?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() }
-            val images = o.arr("images").orEmpty().mapNotNull { (it as? JsonObject)?.let { i ->
-                DraftImage(i.str("id") ?: return@let null, i.str("type") ?: "image/jpeg", i.long("bytes") ?: 0)
-            } }
-            val files = o.arr("files").orEmpty().mapNotNull { (it as? JsonObject)?.let { f ->
-                val entry = f.str("entry")?.takeIf { e -> e.startsWith("/") || AttachedPaths.isReference(e) } ?: return@let null
-                DraftFile(entry, f.str("label") ?: AttachedPaths.label(entry))
-            } }
-            DraftRecord(
-                key = key,
-                text = text,
-                selectionStart = (selection?.getOrNull(0) ?: text.length).coerceIn(0, text.length),
-                selectionEnd = (selection?.getOrNull(1) ?: text.length).coerceIn(0, text.length),
-                images = images,
-                files = files,
-                at = o.long("at") ?: 0,
-            ).takeUnless { it.isEmpty }
-        }.distinctBy { it.key }
+        return array
+            .mapNotNull { element ->
+                val o = element as? JsonObject ?: return@mapNotNull null
+                val key = o.str("key")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val text = o.str("text").orEmpty()
+                val selection =
+                    o.arr("selection")?.mapNotNull {
+                        (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
+                    }
+                val images =
+                    o.arr("images").orEmpty().mapNotNull {
+                        (it as? JsonObject)?.let { i ->
+                            DraftImage(
+                                i.str("id") ?: return@let null,
+                                i.str("type") ?: "image/jpeg",
+                                i.long("bytes") ?: 0,
+                            )
+                        }
+                    }
+                val files =
+                    o.arr("files").orEmpty().mapNotNull {
+                        (it as? JsonObject)?.let { f ->
+                            val entry =
+                                f.str("entry")?.takeIf { e ->
+                                    e.startsWith("/") || AttachedPaths.isReference(e)
+                                } ?: return@let null
+                            DraftFile(entry, f.str("label") ?: AttachedPaths.label(entry))
+                        }
+                    }
+                DraftRecord(
+                        key = key,
+                        text = text,
+                        selectionStart =
+                            (selection?.getOrNull(0) ?: text.length).coerceIn(0, text.length),
+                        selectionEnd =
+                            (selection?.getOrNull(1) ?: text.length).coerceIn(0, text.length),
+                        images = images,
+                        files = files,
+                        at = o.long("at") ?: 0,
+                    )
+                    .takeUnless { it.isEmpty }
+            }
+            .distinctBy { it.key }
     }
 
-    private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> = this ?: emptyList()
+    private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> =
+        this ?: emptyList()
 }

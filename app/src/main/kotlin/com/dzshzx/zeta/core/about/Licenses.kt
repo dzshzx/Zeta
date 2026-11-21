@@ -1,34 +1,40 @@
 package com.dzshzx.zeta.core.about
 
 /**
- * 应用里能看全文的许可证，键是 SPDX 标识。全文在 assets 的 [asset]：GPL-3.0 是构建时从仓根 LICENSE 拷进去的，
- * 别的放在 `src/main/assets/licenses/`。MIT、BSD、ISC 的全文不带版权行（各组件的版权行另列在 [Component.copyright]）。
+ * 应用里能看全文的许可证，键是 SPDX 标识。全文在 assets 的 [asset]：GPL-3.0 是构建时从仓根 LICENSE 拷进去的， 别的放在
+ * `src/main/assets/licenses/`。MIT、BSD、ISC 的全文不带版权行（各组件的版权行另列在 [Component.copyright]）。
  */
 internal object Licenses {
-    val titles: Map<String, String> = linkedMapOf(
-        "GPL-3.0-only" to "GNU General Public License v3.0",
-        "Apache-2.0" to "Apache License 2.0",
-        "MIT" to "MIT License",
-        "BSD-3-Clause" to "BSD 3-Clause License",
-        "ISC" to "ISC License",
-        "OFL-1.1" to "SIL Open Font License 1.1",
-        "Unicode-3.0" to "Unicode License v3",
-    )
+    val titles: Map<String, String> =
+        linkedMapOf(
+            "GPL-3.0-only" to "GNU General Public License v3.0",
+            "Apache-2.0" to "Apache License 2.0",
+            "MIT" to "MIT License",
+            "BSD-3-Clause" to "BSD 3-Clause License",
+            "ISC" to "ISC License",
+            "OFL-1.1" to "SIL Open Font License 1.1",
+            "Unicode-3.0" to "Unicode License v3",
+        )
 
     fun asset(id: String): String = "licenses/" + id.replace(" WITH ", "-with-") + ".txt"
 
     /** 全文按空行分段，段内原来的折行并成空格：手机上按屏宽重新折行，不照 80 列的版式。 */
     fun paragraphs(text: String): List<String> =
-        text.replace("\r\n", "\n").split(Regex("""\n[ \t]*\n""")).map { paragraph ->
-            paragraph.lines().joinToString(" ") { it.trim() }.trim()
-        }.filter { it.isNotEmpty() }
+        text
+            .replace("\r\n", "\n")
+            .split(Regex("""\n[ \t]*\n"""))
+            .map { paragraph ->
+                paragraph.lines().joinToString(" ") { it.trim() }.trim()
+            }
+            .filter { it.isNotEmpty() }
 
     /** 表达式里出现的许可证（`WITH` 连着例外算一个），按出现的先后、不重复：组件详情页显示的就是这几份全文。 */
-    fun ids(expression: String): List<String> = ExpressionParser(expression).also { it.parse() }.seen.distinct()
+    fun ids(expression: String): List<String> =
+        ExpressionParser(expression).also { it.parse() }.seen.distinct()
 
     /**
-     * SPDX 表达式展开成几种可选的组合，每种组合里的许可证都要遵守：`A OR (B AND C)` 是 [[A], [B, C]]。
-     * 只认 `AND`、`OR`、括号和 `WITH`，够写随包组件的那几种；写错（括号不配对、少了许可证）时抛 [IllegalArgumentException]。
+     * SPDX 表达式展开成几种可选的组合，每种组合里的许可证都要遵守：`A OR (B AND C)` 是 [[A], [B, C]]。 只认 `AND`、`OR`、括号和
+     * `WITH`，够写随包组件的那几种；写错（括号不配对、少了许可证）时抛 [IllegalArgumentException]。
      */
     fun alternatives(expression: String): List<List<String>> = ExpressionParser(expression).parse()
 }

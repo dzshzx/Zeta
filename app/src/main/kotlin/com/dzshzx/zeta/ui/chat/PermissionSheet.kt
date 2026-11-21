@@ -34,10 +34,7 @@ import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/**
- * Claude Code 要求确认时从底部弹出：批准一次工具调用，或回答它提的问题。
- * 要放在 COUI 的 Scaffold 里（聊天页的内容里），对话框才显示得出来。
- */
+/** Claude Code 要求确认时从底部弹出：批准一次工具调用，或回答它提的问题。 要放在 COUI 的 Scaffold 里（聊天页的内容里），对话框才显示得出来。 */
 @Composable
 internal fun PermissionSheet(
     request: PermissionRequest?,
@@ -47,38 +44,73 @@ internal fun PermissionSheet(
     // 关闭动画期间仍要显示上一条请求的内容
     val current = rememberRetained(request) ?: return
     if (current.questions.isNotEmpty()) {
-        QuestionSheet(visible = request != null, request = current, onAllow = onAllow, onDeny = onDeny)
+        QuestionSheet(
+            visible = request != null,
+            request = current,
+            onAllow = onAllow,
+            onDeny = onDeny,
+        )
     } else {
-        val presentation = presentTool(current.toolName, current.input)
-        val plan = current.toolName == "ExitPlanMode"
-        // 只有明确点“拒绝”才算拒绝；误触外面或按返回不替用户做决定
-        PageDialog(
-            show = request != null,
-            onDismissRequest = {},
-            title = if (plan) "按这个计划执行？" else "允许这次操作？",
-            summary = if (plan) null else presentation.title,
-            customContent = if (presentation.detail.isBlank()) {
+        ToolApprovalSheet(
+            visible = request != null,
+            request = current,
+            onAllow = onAllow,
+            onDeny = onDeny,
+        )
+    }
+}
+
+/** 批准一次工具调用；退出计划模式时问的是按不按这个计划执行，计划按 Markdown 排。 */
+@Composable
+private fun ToolApprovalSheet(
+    visible: Boolean,
+    request: PermissionRequest,
+    onAllow: (PermissionRequest, Map<String, String>?) -> Unit,
+    onDeny: (PermissionRequest) -> Unit,
+) {
+    val presentation = presentTool(request.toolName, request.input)
+    val plan = request.toolName == "ExitPlanMode"
+    // 只有明确点“拒绝”才算拒绝；误触外面或按返回不替用户做决定
+    PageDialog(
+        show = visible,
+        onDismissRequest = {},
+        title = if (plan) "按这个计划执行？" else "允许这次操作？",
+        summary = if (plan) null else presentation.title,
+        customContent =
+            if (presentation.detail.isBlank()) {
                 null
             } else {
-                {
-                    Box(Modifier.padding(horizontal = DialogContentPadding)) {
-                        if (plan) {
-                            StaticMarkdown(
-                                content = presentation.detail,
-                                tone = MarkdownTone.Thinking,
-                                modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp),
-                            )
-                        } else {
-                            DetailBlock(presentation.detail)
-                        }
-                    }
-                }
+                { ApprovalDetail(plan, presentation.detail) }
             },
-        ) {
-            DialogButtonBar(
-                negative = DialogButtonBarAction("拒绝", onClick = { onDeny(current) }),
-                positive = DialogButtonBarAction("允许", recommended = true, onClick = { onAllow(current, null) }),
+    ) {
+        DialogButtonBar(
+            negative = DialogButtonBarAction("拒绝", onClick = { onDeny(request) }),
+            positive =
+                DialogButtonBarAction(
+                    "允许",
+                    recommended = true,
+                    onClick = { onAllow(request, null) },
+                ),
+        )
+    }
+}
+
+/** 确认框里的详情：计划按 Markdown 排，别的是等宽字的灰底块。 */
+@Composable
+private fun ApprovalDetail(plan: Boolean, detail: String) {
+    Box(Modifier.padding(horizontal = DialogContentPadding)) {
+        if (plan) {
+            StaticMarkdown(
+                content = detail,
+                tone = MarkdownTone.Thinking,
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 4.dp),
             )
+        } else {
+            DetailBlock(detail)
         }
     }
 }
@@ -91,15 +123,15 @@ private fun DetailBlock(text: String) {
         text = if (text.length > 4000) text.take(4000) + "\n…" else text,
         style = COUITheme.textStyles.bodyXS.copy(fontFamily = MonoFont),
         color = colors.labelPrimaryVariant,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .heightIn(max = 260.dp)
-            .clip(shape)
-            .background(colors.container4, shape)
-            .verticalScroll(rememberScrollState())
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .heightIn(max = 260.dp)
+                .clip(shape)
+                .background(colors.container4, shape)
+                .verticalScroll(rememberScrollState())
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
     )
 }
 
@@ -121,7 +153,10 @@ private fun QuestionSheet(
         title = single?.question ?: "需要你的选择",
         customContent = {
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
             ) {
                 request.questions.forEachIndexed { index, question ->
                     if (single == null) {
@@ -129,16 +164,23 @@ private fun QuestionSheet(
                             text = question.question,
                             style = COUITheme.textStyles.bodyM,
                             color = COUITheme.colorScheme.labelSecondary,
-                            modifier = Modifier.padding(start = DialogContentPadding, end = DialogContentPadding, top = if (index == 0) 0.dp else 12.dp, bottom = 4.dp),
+                            modifier =
+                                Modifier.padding(
+                                    start = DialogContentPadding,
+                                    end = DialogContentPadding,
+                                    top = if (index == 0) 0.dp else 12.dp,
+                                    bottom = 4.dp,
+                                ),
                         )
                     }
                     QuestionOptions(question, chosen[index].orEmpty()) { label ->
                         val before = chosen[index].orEmpty()
-                        chosen[index] = when {
-                            !question.multiSelect -> setOf(label)
-                            label in before -> before - label
-                            else -> before + label
-                        }
+                        chosen[index] =
+                            when {
+                                !question.multiSelect -> setOf(label)
+                                label in before -> before - label
+                                else -> before + label
+                            }
                     }
                 }
             }
@@ -146,14 +188,20 @@ private fun QuestionSheet(
     ) {
         DialogButtonBar(
             negative = DialogButtonBarAction("跳过", onClick = { onDeny(request) }),
-            positive = DialogButtonBarAction(
-                "确定",
-                enabled = complete,
-                recommended = true,
-                onClick = {
-                    onAllow(request, request.questions.withIndex().associate { (index, q) -> q.question to chosen[index].orEmpty().joinToString(", ") })
-                },
-            ),
+            positive =
+                DialogButtonBarAction(
+                    "确定",
+                    enabled = complete,
+                    recommended = true,
+                    onClick = {
+                        onAllow(
+                            request,
+                            request.questions.withIndex().associate { (index, q) ->
+                                q.question to chosen[index].orEmpty().joinToString(", ")
+                            },
+                        )
+                    },
+                ),
         )
     }
 }

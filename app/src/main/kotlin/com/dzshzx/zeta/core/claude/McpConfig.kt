@@ -38,12 +38,14 @@ data class McpStatus(val statuses: Map<String, McpState>, val connectors: List<M
 data class McpTool(val name: String, val description: String)
 
 /**
- * 配置里的一个服务器，带原样的配置（可能有 Token）。只在应用内存里用：连接、改 Token 时要原值，从不显示、不写日志。
- * 故意不是 data class，免得 toString 把配置打出来。
+ * 配置里的一个服务器，带原样的配置（可能有 Token）。只在应用内存里用：连接、改 Token 时要原值，从不显示、不写日志。 故意不是 data class，免得 toString
+ * 把配置打出来。
  */
 class McpEntry(val name: String, val scope: String, val config: JsonObject) {
     val type: String
-        get() = (config["type"] as? JsonPrimitive)?.contentOrNull ?: if ("command" in config) "stdio" else "http"
+        get() =
+            (config["type"] as? JsonPrimitive)?.contentOrNull
+                ?: if ("command" in config) "stdio" else "http"
 
     override fun toString(): String = "McpEntry($scope/$name)"
 }
@@ -53,7 +55,8 @@ object McpConfig {
     private val json = Json
     val Scopes = listOf("local", "project", "user")
     private val ServerName = Regex("[A-Za-z0-9_-]{1,64}")
-    private val SecretArg = Regex("(key|token|secret|password|passwd|auth|bearer|credential)", RegexOption.IGNORE_CASE)
+    private val SecretArg =
+        Regex("(key|token|secret|password|passwd|auth|bearer|credential)", RegexOption.IGNORE_CASE)
     private val TokenLike = Regex("(sk|ghp|gho|ghs|github_pat|xox[a-z]|AKIA)[-_A-Za-z0-9]{12,}")
     private val Url = Regex("https?://\\S+")
     private val VarRef = Regex("\\$\\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\\}")
@@ -63,10 +66,14 @@ object McpConfig {
     fun statusKey(scope: String, name: String) = "$scope/$name"
 
     /**
-     * 列出配置里的服务器：~/.claude.json 的 mcpServers（user），它的 projects 里这个项目的 mcpServers（local），各级 .mcp.json（project）。
-     * local 按项目路径存：cwd 本身，或 cwd 所在 git 仓库的根（在子目录里加的会记在仓库根上）。
+     * 列出配置里的服务器：~/.claude.json 的 mcpServers（user），它的 projects 里这个项目的 mcpServers（local），各级
+     * .mcp.json（project）。 local 按项目路径存：cwd 本身，或 cwd 所在 git 仓库的根（在子目录里加的会记在仓库根上）。
      */
-    fun entries(claudeJson: String?, projectKeys: List<String>, mcpJsonFiles: List<String>): List<McpEntry> {
+    fun entries(
+        claudeJson: String?,
+        projectKeys: List<String>,
+        mcpJsonFiles: List<String>,
+    ): List<McpEntry> {
         val found = mutableListOf<McpEntry>()
         val data = parseObject(claudeJson)
         (data?.get("mcpServers") as? JsonObject)?.forEach { (name, config) ->
@@ -74,21 +81,25 @@ object McpConfig {
         }
         val projects = data?.get("projects") as? JsonObject
         for (key in projectKeys.distinct()) {
-            val servers = ((projects?.get(key) as? JsonObject)?.get("mcpServers") as? JsonObject) ?: continue
+            val servers =
+                ((projects?.get(key) as? JsonObject)?.get("mcpServers") as? JsonObject) ?: continue
             servers.forEach { (name, config) ->
-                if (found.none { it.scope == "local" && it.name == name }) (config as? JsonObject)?.let { found += McpEntry(name, "local", it) }
+                if (found.none { it.scope == "local" && it.name == name })
+                    (config as? JsonObject)?.let { found += McpEntry(name, "local", it) }
             }
         }
         for (file in mcpJsonFiles) {
             (parseObject(file)?.get("mcpServers") as? JsonObject)?.forEach { (name, config) ->
-                if (found.none { it.scope == "project" && it.name == name }) (config as? JsonObject)?.let { found += McpEntry(name, "project", it) }
+                if (found.none { it.scope == "project" && it.name == name })
+                    (config as? JsonObject)?.let { found += McpEntry(name, "project", it) }
             }
         }
         return found
     }
 
-    private fun parseObject(text: String?): JsonObject? =
-        text?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+    private fun parseObject(text: String?): JsonObject? = text?.let {
+        runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull()
+    }
 
     /** 界面用的样子：秘密只说有没有；同名的按 local > project > user 标出被盖住的。 */
     fun describe(entries: List<McpEntry>): List<McpServer> = entries.map { entry ->
@@ -104,7 +115,12 @@ object McpConfig {
             type = entry.type,
             url = maskedUrl(config.string("url")),
             command = config.string("command"),
-            args = maskedArgs((config["args"] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull ?: it.toString() }.orEmpty()),
+            args =
+                maskedArgs(
+                    (config["args"] as? JsonArray)
+                        ?.map { (it as? JsonPrimitive)?.contentOrNull ?: it.toString() }
+                        .orEmpty(),
+                ),
             envKeys = env.keys.sorted(),
             headerKeys = headers.keys.filter { it != authKey }.sorted(),
             bearer = authValue?.trim()?.startsWith("bearer ", ignoreCase = true) == true,
@@ -116,9 +132,12 @@ object McpConfig {
 
     /** 同名时实际生效的那一个：local 优先，其次 project，最后 user。 */
     fun winner(entries: List<McpEntry>, name: String): McpEntry? =
-        Scopes.firstNotNullOfOrNull { scope -> entries.firstOrNull { it.name == name && it.scope == scope } }
+        Scopes.firstNotNullOfOrNull { scope ->
+            entries.firstOrNull { it.name == name && it.scope == scope }
+        }
 
-    private fun JsonObject.string(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    private fun JsonObject.string(key: String): String =
+        (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
 
     /** 地址里的用户名密码和查询参数的值可能就是密钥，只留参数名。 */
     fun maskedUrl(url: String): String {
@@ -126,7 +145,10 @@ object McpConfig {
         val uri = runCatching { URI(url) }.getOrNull() ?: return url.substringBefore('?')
         val authority = uri.rawAuthority ?: return url.substringBefore('?')
         val host = if ('@' in authority) "…@" + authority.substringAfterLast('@') else authority
-        val query = uri.rawQuery?.split('&')?.joinToString("&") { part -> part.substringBefore('=') + if ('=' in part) "=…" else "" }
+        val query =
+            uri.rawQuery?.split('&')?.joinToString("&") { part ->
+                part.substringBefore('=') + if ('=' in part) "=…" else ""
+            }
         return buildString {
             append(uri.scheme).append("://").append(host)
             append(uri.rawPath.orEmpty())
@@ -144,7 +166,10 @@ object McpConfig {
                     shown += "…"
                     hideNext = false
                 }
-                arg.startsWith("-") && '=' in arg && SecretArg.containsMatchIn(arg.substringBefore('=')) -> shown += arg.substringBefore('=') + "=…"
+                arg.startsWith("-") &&
+                    '=' in arg &&
+                    SecretArg.containsMatchIn(arg.substringBefore('=')) ->
+                    shown += arg.substringBefore('=') + "=…"
                 arg.startsWith("-") && SecretArg.containsMatchIn(arg) -> {
                     shown += arg
                     hideNext = true
@@ -156,17 +181,18 @@ object McpConfig {
         return shown
     }
 
-    private val Phrases = listOf(
-        "Needs authentication" to "auth",
-        "tools fetch failed" to "partial",
-        "Connected" to "connected",
-        "Pending approval" to "pending",
-        "Rejected" to "rejected",
-        "Disabled" to "disabled",
-        "Not configured" to "unconfigured",
-        "Failed to connect" to "failed",
-        "Connection error" to "failed",
-    )
+    private val Phrases =
+        listOf(
+            "Needs authentication" to "auth",
+            "tools fetch failed" to "partial",
+            "Connected" to "connected",
+            "Pending approval" to "pending",
+            "Rejected" to "rejected",
+            "Disabled" to "disabled",
+            "Not configured" to "unconfigured",
+            "Failed to connect" to "failed",
+            "Connection error" to "failed",
+        )
 
     /** `claude mcp list` 一行里 “名字: 目标 - 图标 状态 — 原因” 的目标和状态部分。 */
     private fun splitStatus(tail: String): Pair<String, String>? {
@@ -197,16 +223,25 @@ object McpConfig {
             if (name == null && !connector) continue
             val label = name ?: line.substringBefore(": ")
             val (target, status) = splitStatus(line.substring(label.length + 2)) ?: continue
-            val state = McpState(
-                state = Phrases.firstOrNull { status.substringBefore(" — ").contains(it.first) }?.second ?: "unknown",
-                issue = if (" — " in status) Url.replace(status.substringAfter(" — ").trim(), "…").take(300) else "",
-            )
+            val state =
+                McpState(
+                    state =
+                        Phrases.firstOrNull { status.substringBefore(" — ").contains(it.first) }
+                            ?.second ?: "unknown",
+                    issue =
+                        if (" — " in status)
+                            Url.replace(status.substringAfter(" — ").trim(), "…").take(300)
+                        else "",
+                )
             if (connector) {
                 connectors += McpConnector(label, state)
                 continue
             }
             val candidates = entries.filter { it.name == label }
-            val matched = candidates.filter { targetOf(it) == target || (it.type != "stdio" && target.startsWith(it.config.string("url"))) }
+            val matched = candidates.filter {
+                targetOf(it) == target ||
+                    (it.type != "stdio" && target.startsWith(it.config.string("url")))
+            }
             val owner = matched.singleOrNull() ?: winner(candidates, label) ?: continue
             statuses[statusKey(owner.scope, owner.name)] = state
         }
@@ -215,45 +250,62 @@ object McpConfig {
 
     /** `claude mcp list` 显示 stdio 服务器的样子：命令和参数用空格连起来。 */
     private fun targetOf(entry: McpEntry): String {
-        if (entry.type != "stdio") return entry.config.string("url") + " (" + entry.type.uppercase() + ")"
-        val args = (entry.config["args"] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull ?: it.toString() }.orEmpty()
+        if (entry.type != "stdio")
+            return entry.config.string("url") + " (" + entry.type.uppercase() + ")"
+        val args =
+            (entry.config["args"] as? JsonArray)
+                ?.map { (it as? JsonPrimitive)?.contentOrNull ?: it.toString() }
+                .orEmpty()
         return (listOf(entry.config.string("command")) + args).joinToString(" ")
     }
 
-    fun bearerValue(token: String): String = token.trim().let { if (it.startsWith("Bearer ", ignoreCase = true)) it else "Bearer $it" }
+    fun bearerValue(token: String): String =
+        token.trim().let { if (it.startsWith("Bearer ", ignoreCase = true)) it else "Bearer $it" }
 
     /** 换掉 Authorization 请求头：[token] 为空表示去掉身份认证；别的请求头照旧。 */
     fun withToken(config: JsonObject, token: String): JsonObject {
         val headers = LinkedHashMap(config["headers"] as? JsonObject ?: JsonObject(emptyMap()))
-        headers.keys.filter { it.equals("authorization", ignoreCase = true) }.forEach { headers.remove(it) }
+        headers.keys
+            .filter { it.equals("authorization", ignoreCase = true) }
+            .forEach { headers.remove(it) }
         if (token.isNotBlank()) headers["Authorization"] = JsonPrimitive(bearerValue(token))
         val result = LinkedHashMap(config)
         if (headers.isEmpty()) result.remove("headers") else result["headers"] = JsonObject(headers)
         return JsonObject(result)
     }
 
-    fun httpConfig(type: String, url: String, token: String): JsonObject = JsonObject(
-        buildMap {
-            put("type", JsonPrimitive(type))
-            put("url", JsonPrimitive(url))
-            if (token.isNotBlank()) put("headers", JsonObject(mapOf("Authorization" to JsonPrimitive(bearerValue(token)))))
-        },
-    )
+    fun httpConfig(type: String, url: String, token: String): JsonObject =
+        JsonObject(
+            buildMap {
+                put("type", JsonPrimitive(type))
+                put("url", JsonPrimitive(url))
+                if (token.isNotBlank())
+                    put(
+                        "headers",
+                        JsonObject(mapOf("Authorization" to JsonPrimitive(bearerValue(token)))),
+                    )
+            },
+        )
 
-    fun stdioConfig(command: String, args: List<String>, env: Map<String, String>): JsonObject = JsonObject(
-        buildMap {
-            put("type", JsonPrimitive("stdio"))
-            put("command", JsonPrimitive(command))
-            put("args", JsonArray(args.map { JsonPrimitive(it) }))
-            if (env.isNotEmpty()) put("env", JsonObject(env.mapValues { JsonPrimitive(it.value) }))
-        },
-    )
+    fun stdioConfig(command: String, args: List<String>, env: Map<String, String>): JsonObject =
+        JsonObject(
+            buildMap {
+                put("type", JsonPrimitive("stdio"))
+                put("command", JsonPrimitive(command))
+                put("args", JsonArray(args.map { JsonPrimitive(it) }))
+                if (env.isNotEmpty())
+                    put("env", JsonObject(env.mapValues { JsonPrimitive(it.value) }))
+            },
+        )
 
     /** 配置里 `${VAR}`、`${VAR:-默认值}` 引用到的变量名。 */
     fun referencedVars(config: JsonObject): Set<String> = buildSet {
         fun scan(element: JsonElement?) {
             when (element) {
-                is JsonPrimitive -> element.contentOrNull?.let { text -> VarRef.findAll(text).forEach { add(it.groupValues[1]) } }
+                is JsonPrimitive ->
+                    element.contentOrNull?.let { text ->
+                        VarRef.findAll(text).forEach { add(it.groupValues[1]) }
+                    }
                 is JsonArray -> element.forEach(::scan)
                 is JsonObject -> element.values.forEach(::scan)
                 null -> Unit
@@ -268,11 +320,14 @@ object McpConfig {
 
     /** 把整份配置里的字符串都展开。 */
     fun expandAll(config: JsonObject, values: Map<String, String>): JsonObject {
-        fun walk(element: JsonElement): JsonElement = when (element) {
-            is JsonPrimitive -> if (element.isString) JsonPrimitive(expand(element.content, values)) else element
-            is JsonArray -> JsonArray(element.map(::walk))
-            is JsonObject -> JsonObject(element.mapValues { walk(it.value) })
-        }
+        fun walk(element: JsonElement): JsonElement =
+            when (element) {
+                is JsonPrimitive ->
+                    if (element.isString) JsonPrimitive(expand(element.content, values))
+                    else element
+                is JsonArray -> JsonArray(element.map(::walk))
+                is JsonObject -> JsonObject(element.mapValues { walk(it.value) })
+            }
         return walk(config) as JsonObject
     }
 }

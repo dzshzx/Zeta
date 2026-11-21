@@ -42,17 +42,17 @@ internal sealed interface AppPage {
     @Serializable data class Subagent(val conversation: String, val toolUse: String) : AppPage
 }
 
-/**
- * 盖在聊天页上的页面，从下到上排：后开的在上面，画在上面，返回键先关它。
- * 几页可以同时开着（比如设置上面再开 Linux 环境）。
- */
+/** 盖在聊天页上的页面，从下到上排：后开的在上面，画在上面，返回键先关它。 几页可以同时开着（比如设置上面再开 Linux 环境）。 */
 @Stable
 internal class PageStack(pages: List<AppPage> = emptyList()) {
     var pages by mutableStateOf(pages)
         private set
 
-    val any: Boolean get() = pages.isNotEmpty()
-    val top: AppPage? get() = pages.lastOrNull()
+    val any: Boolean
+        get() = pages.isNotEmpty()
+
+    val top: AppPage?
+        get() = pages.lastOrNull()
 
     operator fun contains(page: AppPage): Boolean = page in pages
 
@@ -72,25 +72,31 @@ internal class PageStack(pages: List<AppPage> = emptyList()) {
 
     /** 全部收起。[keepSetup] 时安装和登录两页留着：它们在进行时不打断。 */
     fun closeAll(keepSetup: Boolean) {
-        pages = if (keepSetup) pages.filter { it == AppPage.Install || it == AppPage.Login } else emptyList()
+        pages =
+            if (keepSetup) pages.filter { it == AppPage.Install || it == AppPage.Login }
+            else emptyList()
     }
 
     companion object {
         /** 整个栈存成一段 JSON；读不出来（比如存的是旧格式）就当没有开着的页。 */
-        val Saver: Saver<PageStack, String> = Saver(
-            save = { stack -> Json.encodeToString(stack.pages) },
-            restore = { saved -> PageStack(runCatching { Json.decodeFromString<List<AppPage>>(saved) }.getOrDefault(emptyList())) },
-        )
+        val Saver: Saver<PageStack, String> =
+            Saver(
+                save = { stack -> Json.encodeToString(stack.pages) },
+                restore = { saved ->
+                    PageStack(
+                        runCatching { Json.decodeFromString<List<AppPage>>(saved) }
+                            .getOrDefault(emptyList()),
+                    )
+                },
+            )
     }
 }
 
 @Composable
-internal fun rememberPageStack(): PageStack = rememberSaveable(saver = PageStack.Saver) { PageStack() }
+internal fun rememberPageStack(): PageStack =
+    rememberSaveable(saver = PageStack.Saver) { PageStack() }
 
-/**
- * 要画的页面，从下到上：[pages] 按栈的顺序；[shown]（上一次画的）里已经关掉、还在播退场动画的，
- * 留在它原来所在的位置上（紧挨在原来压在它下面的那页之上）。
- */
+/** 要画的页面，从下到上：[pages] 按栈的顺序；[shown]（上一次画的）里已经关掉、还在播退场动画的， 留在它原来所在的位置上（紧挨在原来压在它下面的那页之上）。 */
 internal fun drawOrder(shown: List<AppPage>, pages: List<AppPage>): List<AppPage> {
     val result = pages.toMutableList()
     var anchor = -1
@@ -105,10 +111,7 @@ internal fun drawOrder(shown: List<AppPage>, pages: List<AppPage>): List<AppPage
     return result
 }
 
-/**
- * 按 [stack] 的顺序把页面一层层盖上去，关掉的页播完退场动画再拿掉。
- * 只有最上面那页里的返回键处理器生效：压在下面的页里开着的子页不抢返回键。
- */
+/** 按 [stack] 的顺序把页面一层层盖上去，关掉的页播完退场动画再拿掉。 只有最上面那页里的返回键处理器生效：压在下面的页里开着的子页不抢返回键。 */
 @Composable
 internal fun PageStackHost(stack: PageStack, page: @Composable (AppPage) -> Unit) {
     val pages = stack.pages
@@ -122,7 +125,8 @@ internal fun PageStackHost(stack: PageStack, page: @Composable (AppPage) -> Unit
         key(entry) {
             val visibility = remember { MutableTransitionState(restored.remove(entry)) }
             visibility.targetState = entry in pages
-            if (visibility.isIdle && !visibility.currentState) LaunchedEffect(Unit) { shown = shown - entry }
+            if (visibility.isIdle && !visibility.currentState)
+                LaunchedEffect(Unit) { shown = shown - entry }
             val back = rememberNavigationEventDispatcherOwner(enabled = entry == top)
             CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides back) {
                 SlideInPage(visibility) { page(entry) }

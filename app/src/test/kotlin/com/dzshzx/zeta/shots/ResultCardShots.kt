@@ -33,8 +33,8 @@ import org.robolectric.Robolectric
 import org.robolectric.Shadows
 
 /**
- * 一轮结束后屏幕底部的结果卡片：两张图（回答长到要滚动、出错），以及卡片自己怎么收起（没碰多久、碰了重新计时、下滑、按钮），
- * hub 那边一轮结束时弹不弹、完成通知响不响，新的一轮开始、回到 Zeta、锁屏时收起。窗口本身（叠在别的应用上、返回键、焦点）要上真机看。
+ * 一轮结束后屏幕底部的结果卡片：两张图（回答长到要滚动、出错），以及卡片自己怎么收起（没碰多久、碰了重新计时、下滑、按钮）， hub 那边一轮结束时弹不弹、完成通知响不响，新的一轮开始、回到
+ * Zeta、锁屏时收起。窗口本身（叠在别的应用上、返回键、焦点）要上真机看。
  */
 class ResultCardShots : ShotTest() {
     @Test
@@ -47,7 +47,11 @@ class ResultCardShots : ShotTest() {
     fun error() {
         Fixtures.readyHub(app)
         shoot("result-card-error") {
-            OnScreen("打开计算器", "API Error: 529 {\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}", failed = true)
+            OnScreen(
+                "打开计算器",
+                "API Error: 529 {\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}",
+                failed = true,
+            )
         }
     }
 
@@ -84,10 +88,14 @@ class ResultCardShots : ShotTest() {
     fun swipeDownDismisses() {
         var dismissed = 0
         present("计算器打开了。") { dismissed++ }
-        compose.onNodeWithText("已完成").performTouchInput { swipeDown(startY = centerY, endY = centerY + 30.dp.toPx(), durationMillis = 600) }
+        compose.onNodeWithText("已完成").performTouchInput {
+            swipeDown(startY = centerY, endY = centerY + 30.dp.toPx(), durationMillis = 600)
+        }
         advance(500)
         assertEquals("拖一点点就松手：弹回去", 0, dismissed)
-        compose.onNodeWithText("已完成").performTouchInput { swipeDown(startY = centerY, endY = centerY + 240.dp.toPx(), durationMillis = 300) }
+        compose.onNodeWithText("已完成").performTouchInput {
+            swipeDown(startY = centerY, endY = centerY + 240.dp.toPx(), durationMillis = 300)
+        }
         advance(500)
         assertEquals("拖得够远：关掉", 1, dismissed)
     }
@@ -117,7 +125,10 @@ class ResultCardShots : ShotTest() {
     fun hubDropsTheCard() {
         val hub = Fixtures.readyHub(app)
         hub.foreground = false
-        hub.showChat("打开计算器", listOf(UserItem("u1", "打开计算器"), AnswerItem("a1", "打开了。", streaming = false)))
+        hub.showChat(
+            "打开计算器",
+            listOf(UserItem("u1", "打开计算器"), AnswerItem("a1", "打开了。", streaming = false)),
+        )
         val card = TurnResult(hub.current, emptySet())
         assertEquals("打开了。", card.text)
         assertFalse(card.failed)
@@ -133,7 +144,14 @@ class ResultCardShots : ShotTest() {
         hub.current.force("busy", false)
 
         // 出错提示比一轮结束晚一步进聊天列表：卡片跟着变成错误
-        hub.showChat("打开计算器", listOf(UserItem("u1", "打开计算器"), AnswerItem("a1", "打开了。", streaming = false), NoticeItem("n1", "出错了：网络断开", error = true)))
+        hub.showChat(
+            "打开计算器",
+            listOf(
+                UserItem("u1", "打开计算器"),
+                AnswerItem("a1", "打开了。", streaming = false),
+                NoticeItem("n1", "出错了：网络断开", error = true),
+            ),
+        )
         assertEquals("出错了：网络断开", card.text)
         assertTrue(card.failed)
     }
@@ -149,7 +167,10 @@ class ResultCardShots : ShotTest() {
         Shadows.shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val manager = app.getSystemService(NotificationManager::class.java)
         val notifications = Shadows.shadowOf(manager)
-        val service = ZetaAccessibilityService::class.java.getDeclaredField("instance").apply { isAccessible = true }
+        val service =
+            ZetaAccessibilityService::class.java.getDeclaredField("instance").apply {
+                isAccessible = true
+            }
         service.set(null, Robolectric.buildService(ZetaAccessibilityService::class.java).get())
         try {
             val conversation = hub.current
@@ -180,8 +201,19 @@ class ResultCardShots : ShotTest() {
     /** 卡片贴在屏幕底部（最高半屏：817dp 的一半），后面垫一层页面底色当作别的应用。 */
     @Composable
     private fun OnScreen(title: String, text: String, failed: Boolean) {
-        Box(Modifier.fillMaxSize().background(COUITheme.colorScheme.backgroundWithCard), contentAlignment = Alignment.BottomCenter) {
-            ResultCard(title = title, text = text, failed = failed, visible = true, onDismiss = {}, onOpen = {}, maxHeight = 408.dp)
+        Box(
+            Modifier.fillMaxSize().background(COUITheme.colorScheme.backgroundWithCard),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            ResultCard(
+                title = title,
+                text = text,
+                failed = failed,
+                visible = true,
+                onDismiss = {},
+                onOpen = {},
+                maxHeight = 408.dp,
+            )
         }
     }
 
@@ -190,7 +222,15 @@ class ResultCardShots : ShotTest() {
         compose.setContent {
             ZetaTheme(darkTheme = false, windowBackdrop = false) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                    ResultCard(title = "打开计算器", text = text, failed = false, visible = true, onDismiss = onDismiss, onOpen = onOpen, maxHeight = 408.dp)
+                    ResultCard(
+                        title = "打开计算器",
+                        text = text,
+                        failed = false,
+                        visible = true,
+                        onDismiss = onDismiss,
+                        onOpen = onOpen,
+                        maxHeight = 408.dp,
+                    )
                 }
             }
         }
@@ -205,7 +245,8 @@ class ResultCardShots : ShotTest() {
     }
 
     private companion object {
-        val LongAnswer = """
+        val LongAnswer =
+            """
             11 月的截图已经按日期归档好了，一共 **86 张**：
 
             - **1 日–10 日**：23 张，放进「截图/11 月上旬」
@@ -217,6 +258,7 @@ class ResultCardShots : ShotTest() {
             相册里「最近项目」的排序没有变，原来的截图文件夹现在是空的，我也没有删掉它，免得别的应用还在往里面存。
 
             要是想按应用分类（微信、浏览器、地图……），告诉我一声，我再整理一遍。
-        """.trimIndent()
+            """
+                .trimIndent()
     }
 }

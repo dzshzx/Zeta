@@ -16,17 +16,35 @@ class BackgroundStartTest {
 
     @Test
     fun openRouteSkipsTheWaitWhenTheAnswerIsKnown() {
-        assertEquals(OpenRoute.PendingIntent, OpenRoute.choose(foreground = false, backgroundStartAllowed = true, root = true))
-        assertEquals(OpenRoute.Root, OpenRoute.choose(foreground = false, backgroundStartAllowed = false, root = true))
-        assertEquals(OpenRoute.PendingIntentThenRoot, OpenRoute.choose(foreground = false, backgroundStartAllowed = null, root = true))
+        assertEquals(
+            OpenRoute.PendingIntent,
+            OpenRoute.choose(foreground = false, backgroundStartAllowed = true, root = true),
+        )
+        assertEquals(
+            OpenRoute.Root,
+            OpenRoute.choose(foreground = false, backgroundStartAllowed = false, root = true),
+        )
+        assertEquals(
+            OpenRoute.PendingIntentThenRoot,
+            OpenRoute.choose(foreground = false, backgroundStartAllowed = null, root = true),
+        )
         // Zeta 本来就在前台：系统不拦
-        assertEquals(OpenRoute.PendingIntent, OpenRoute.choose(foreground = true, backgroundStartAllowed = false, root = true))
+        assertEquals(
+            OpenRoute.PendingIntent,
+            OpenRoute.choose(foreground = true, backgroundStartAllowed = false, root = true),
+        )
         // 没有 root：只能试 PendingIntent
-        assertEquals(OpenRoute.PendingIntent, OpenRoute.choose(foreground = false, backgroundStartAllowed = false, root = false))
+        assertEquals(
+            OpenRoute.PendingIntent,
+            OpenRoute.choose(foreground = false, backgroundStartAllowed = false, root = false),
+        )
     }
 
     @Test
     fun grantScriptTargetsTheMiuiOp() {
-        assertEquals("cmd appops set --user \"\$3\" \"\$2\" 10021 allow", BackgroundStart.GRANT_SCRIPT)
+        assertEquals(
+            "cmd appops set --user \"\$3\" \"\$2\" 10021 allow",
+            BackgroundStart.GRANT_SCRIPT,
+        )
     }
 }

@@ -8,18 +8,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta-helper 的 delete / archive：在一个临时 HOME 上真跑一遍，不碰任何人真实的 ~/.claude。
- * 删除要连同 Claude Code 存在 <项目>/<会话 id>/ 下的东西一起删，但只删这一个会话的、在 ~/.claude/projects 里的真目录。
+ * zeta-helper 的 delete / archive：在一个临时 HOME 上真跑一遍，不碰任何人真实的 ~/.claude。 删除要连同 Claude Code 存在 <项目>/<会话
+ * id>/ 下的东西一起删，但只删这一个会话的、在 ~/.claude/projects 里的真目录。
  */
 class HelperDeleteTest {
     private lateinit var home: File
     private lateinit var outside: File
-    private val project get() = File(home, ".claude/projects/-workspace-test")
+    private val project
+        get() = File(home, ".claude/projects/-workspace-test")
 
     private val a = "aaaaaaaa-1111-4222-8333-444444444444"
     private val b = "bbbbbbbb-1111-4222-8333-444444444444"
@@ -30,7 +30,8 @@ class HelperDeleteTest {
         home = Files.createTempDirectory("zeta-helper-home").toFile()
         outside = Files.createTempDirectory("zeta-helper-outside").toFile()
         project.mkdirs()
-        for (id in listOf(a, b, c)) File(project, "$id.jsonl").writeText("{\"type\":\"user\",\"sessionId\":\"$id\"}\n")
+        for (id in listOf(a, b, c)) File(project, "$id.jsonl")
+            .writeText("{\"type\":\"user\",\"sessionId\":\"$id\"}\n")
         File(project, "$a/tool-results").mkdirs()
         File(project, "$a/tool-results/shot.png").writeText("png")
         File(project, "$a/subagents").mkdirs()
@@ -47,7 +48,10 @@ class HelperDeleteTest {
     }
 
     private fun helper(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        val process =
+            ProcessBuilder(listOf(TestHelper.path) + args)
+                .apply { environment()["HOME"] = home.path }
+                .start()
         process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         process.errorStream.readBytes()
@@ -69,7 +73,8 @@ class HelperDeleteTest {
 
     @Test
     fun deleteTakesSeveralSessions() {
-        val (code, _) = helper("delete", File(project, "$a.jsonl").path, File(project, "$b.jsonl").path)
+        val (code, _) =
+            helper("delete", File(project, "$a.jsonl").path, File(project, "$b.jsonl").path)
         assertEquals(0, code)
         assertFalse(File(project, a).exists())
         assertFalse(File(project, b).exists())
@@ -82,7 +87,8 @@ class HelperDeleteTest {
         Files.createSymbolicLink(File(project, c).toPath(), outside.toPath())
         // 会话目录里指到外面的链接：只删链接本身
         Files.createSymbolicLink(File(project, "$a/tool-results/link").toPath(), outside.toPath())
-        val (code, _) = helper("delete", File(project, "$c.jsonl").path, File(project, "$a.jsonl").path)
+        val (code, _) =
+            helper("delete", File(project, "$c.jsonl").path, File(project, "$a.jsonl").path)
         assertEquals(0, code)
         assertFalse(File(project, "$c.jsonl").exists())
         assertTrue(Files.isSymbolicLink(File(project, c).toPath()))

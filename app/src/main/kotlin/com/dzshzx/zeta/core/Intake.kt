@@ -4,11 +4,14 @@ import android.content.Intent
 import android.net.Uri
 
 /** 从外面送进对话的东西从哪来。 */
-enum class IntakeSource { Share, Open, Screenshot }
+enum class IntakeSource {
+    Share,
+    Open,
+    Screenshot,
+}
 
 /**
- * 从外面送进对话的东西：别的应用分享来的文字和文件（ACTION_SEND / SEND_MULTIPLE）、
- * 用 Zeta 打开的文件（ACTION_VIEW），或者一张截屏。
+ * 从外面送进对话的东西：别的应用分享来的文字和文件（ACTION_SEND / SEND_MULTIPLE）、 用 Zeta 打开的文件（ACTION_VIEW），或者一张截屏。
  *
  * 先定放进哪个对话（[offerIntake]：新对话，或者接着最近那个），再由那个对话的输入栏取走（[ConversationHub.incoming]）：
  * 文字进输入框，图片成图片附件，别的文件复制进 Linux 成文件附件。都不自动发送，用户补一句话再发。
@@ -21,28 +24,48 @@ class Intake(
     /** 已经做好的图片附件（截屏）。 */
     val images: List<Attachment> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = text.isNullOrBlank() && uris.isEmpty() && images.isEmpty()
+    val isEmpty: Boolean
+        get() = text.isNullOrBlank() && uris.isEmpty() && images.isEmpty()
 
     /** 用户还没选放进哪个对话，又送来一次：合在一起。 */
-    operator fun plus(other: Intake): Intake = Intake(
-        source = if (source == other.source) source else IntakeSource.Share,
-        text = listOfNotNull(text, other.text).filter { it.isNotBlank() }.joinToString("\n").ifBlank { null },
-        uris = (uris + other.uris).distinct(),
-        images = images + other.images,
-    )
+    operator fun plus(other: Intake): Intake =
+        Intake(
+            source = if (source == other.source) source else IntakeSource.Share,
+            text =
+                listOfNotNull(text, other.text)
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n")
+                    .ifBlank { null },
+            uris = (uris + other.uris).distinct(),
+            images = images + other.images,
+        )
 
     /** 给用户看的一句：收到了什么。 */
-    val summary: String get() = intakeSummary(source, hasText = !text.isNullOrBlank(), files = uris.size, images = images.size)
+    val summary: String
+        get() =
+            intakeSummary(
+                source,
+                hasText = !text.isNullOrBlank(),
+                files = uris.size,
+                images = images.size,
+            )
 
     companion object {
         /** 从启动 Zeta 的 Intent 里取出分享或打开的内容；不是这两种、或者什么都没带时返回 null。 */
         fun fromIntent(intent: Intent?): Intake? {
             intent ?: return null
-            val streams = when (intent.action) {
-                Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java))
-                Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
-                else -> emptyList()
-            }.map(Uri::toString)
+            val streams =
+                when (intent.action) {
+                    Intent.ACTION_SEND ->
+                        listOfNotNull(
+                            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java),
+                        )
+                    Intent.ACTION_SEND_MULTIPLE ->
+                        intent
+                            .getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                            .orEmpty()
+                    else -> emptyList()
+                }.map(Uri::toString)
             val clip = intent.clipData
             val clipItems = (0 until (clip?.itemCount ?: 0)).mapNotNull { clip?.getItemAt(it) }
             return IntakeParser.parse(
@@ -58,16 +81,26 @@ class Intake(
     }
 }
 
-internal fun intakeSummary(source: IntakeSource, hasText: Boolean, files: Int, images: Int): String {
+internal fun intakeSummary(
+    source: IntakeSource,
+    hasText: Boolean,
+    files: Int,
+    images: Int,
+): String {
     val parts = buildList {
-        if (images > 0) add(if (source == IntakeSource.Screenshot) countOf(images, "张截屏") else countOf(images, "张图片"))
+        if (images > 0)
+            add(
+                if (source == IntakeSource.Screenshot) countOf(images, "张截屏")
+                else countOf(images, "张图片"),
+            )
         if (files > 0) add(countOf(files, "个文件"))
         if (hasText) add("一段文字")
     }
     return parts.joinToString("和").ifEmpty { "空的内容" }
 }
 
-private fun countOf(n: Int, unit: String) = (if (n == 1) "一" else n.toString()) + (if (n == 1) unit else " $unit")
+private fun countOf(n: Int, unit: String) =
+    (if (n == 1) "一" else n.toString()) + (if (n == 1) unit else " $unit")
 
 /** 把分享和打开的 Intent 拆成 [Intake]。只处理取出来的值，不碰 Android 对象，方便单元测试。 */
 object IntakeParser {
@@ -76,8 +109,7 @@ object IntakeParser {
 
     /**
      * [streams] 是 EXTRA_STREAM 里的地址，[data] 是 ACTION_VIEW 的地址，[clipUris]、[clipTexts] 是 ClipData 里的。
-     * 分享网页时浏览器常把标题放在 [subject]、网址放在 [text]：标题接在前面一行。
-     * 有的应用把文件地址也写进 EXTRA_TEXT，和文件重复的文字不要。
+     * 分享网页时浏览器常把标题放在 [subject]、网址放在 [text]：标题接在前面一行。 有的应用把文件地址也写进 EXTRA_TEXT，和文件重复的文字不要。
      */
     fun parse(
         action: String?,
@@ -87,19 +119,32 @@ object IntakeParser {
         data: String?,
         clipUris: List<String>,
         clipTexts: List<String>,
-    ): Intake? = when (action) {
-        Intent.ACTION_VIEW -> data?.takeIf { it.isNotBlank() }?.let { Intake(IntakeSource.Open, uris = listOf(it)) }
-        Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
-            val uris = (streams + clipUris).filter { it.isNotBlank() }.distinct()
-            val body = text?.trim()?.takeIf { it.isNotEmpty() }
-                ?: clipTexts.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n").ifEmpty { null }.takeIf { uris.isEmpty() }
-            val kept = body?.takeUnless { it in uris }
-            val title = subject?.trim()?.takeIf { it.isNotEmpty() }
-            val full = if (kept != null && title != null && !kept.contains(title)) "$title\n$kept" else kept
-            Intake(IntakeSource.Share, text = full, uris = uris).takeUnless { it.isEmpty }
+    ): Intake? =
+        when (action) {
+            Intent.ACTION_VIEW ->
+                data
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { Intake(IntakeSource.Open, uris = listOf(it)) }
+            Intent.ACTION_SEND,
+            Intent.ACTION_SEND_MULTIPLE -> {
+                val uris = (streams + clipUris).filter { it.isNotBlank() }.distinct()
+                val body =
+                    text?.trim()?.takeIf { it.isNotEmpty() }
+                        ?: clipTexts
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .joinToString("\n")
+                            .ifEmpty { null }
+                            .takeIf { uris.isEmpty() }
+                val kept = body?.takeUnless { it in uris }
+                val title = subject?.trim()?.takeIf { it.isNotEmpty() }
+                val full =
+                    if (kept != null && title != null && !kept.contains(title)) "$title\n$kept"
+                    else kept
+                Intake(IntakeSource.Share, text = full, uris = uris).takeUnless { it.isEmpty }
+            }
+            else -> null
         }
-        else -> null
-    }
 
     /** 把收到的文字接在输入框已有的草稿后面（另起一行）。 */
     fun mergeDraft(draft: String, text: String): String =
@@ -120,11 +165,14 @@ object FileLimits {
     fun tooLarge(size: Long?): Boolean = size != null && size > MAX_BYTES
 
     /** 附件上显示的名字：大文件后面注明大小。 */
-    fun label(name: String, size: Long?): String = if (size != null && size >= NOTE_BYTES) "$name · ${formatBytes(size)}" else name
+    fun label(name: String, size: Long?): String =
+        if (size != null && size >= NOTE_BYTES) "$name · ${formatBytes(size)}" else name
 
     /** 没收某个文件的原因（[size] 不知道时是读到一半才发现超过上限）。 */
     fun tooLargeReason(name: String, size: Long?): String =
-        "「$name」" + (if (size != null) "有 ${formatBytes(size)}，" else "") + "超过 ${formatBytes(MAX_BYTES)} 的上限，没有复制"
+        "「$name」" +
+            (if (size != null) "有 ${formatBytes(size)}，" else "") +
+            "超过 ${formatBytes(MAX_BYTES)} 的上限，没有复制"
 }
 
 /** 「放进哪个对话」的一个候选：[blank] 是还什么都没有的新对话，[active] 是还在进行（在跑、等确认、后台任务没完）。 */
@@ -132,25 +180,27 @@ data class IntakeCandidate(val key: String, val blank: Boolean, val active: Bool
 
 object IntakeRouting {
     /**
-     * 除了新对话，还能接着放进去的那个对话：当前对话有内容就是它（用户最近在看的）；
-     * 当前是空白的新对话时，取后台最近切走、还在进行的那个；都没有返回 null，直接放进当前这个空白对话，不用问。
-     * [parked] 按切走的先后排，最后一个是最近的。
+     * 除了新对话，还能接着放进去的那个对话：当前对话有内容就是它（用户最近在看的）； 当前是空白的新对话时，取后台最近切走、还在进行的那个；都没有返回
+     * null，直接放进当前这个空白对话，不用问。 [parked] 按切走的先后排，最后一个是最近的。
      */
     fun pick(current: IntakeCandidate, parked: List<IntakeCandidate>): IntakeCandidate? =
         if (!current.blank) current else parked.lastOrNull { it.active }
 }
 
-private fun Conversation.candidate() = IntakeCandidate(
-    key = openKey,
-    blank = items.isEmpty() && sessionId == null && !busy,
-    active = active,
-)
+private fun Conversation.candidate() =
+    IntakeCandidate(
+        key = openKey,
+        blank = items.isEmpty() && sessionId == null && !busy,
+        active = active,
+    )
 
 /** 能接着放进去的那个对话（见 [IntakeRouting.pick]）；没有时为 null。在主线程上调用。 */
 fun ConversationHub.intakeTarget(): Conversation? {
     val others = parkedConversations
-    val picked = IntakeRouting.pick(current.candidate(), others.map { it.candidate() }) ?: return null
-    return if (picked.key == current.openKey) current else others.firstOrNull { it.openKey == picked.key }
+    val picked =
+        IntakeRouting.pick(current.candidate(), others.map { it.candidate() }) ?: return null
+    return if (picked.key == current.openKey) current
+    else others.firstOrNull { it.openKey == picked.key }
 }
 
 /**

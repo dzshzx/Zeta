@@ -11,33 +11,45 @@ import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import org.junit.Test
 
 /**
- * 聊天里的 Markdown：标题、列表、行内样式、代码块、引用；表格、提示块、公式、分隔线。一屏放不下，分两张。
- * 平滑圆角（squircle）靠着色器裁剪，Robolectric 里画不出来，代码块、表格、提示块会整块空白；
- * 这里关掉它，退回普通圆角，好看清块里的内容和配色。
+ * 聊天里的 Markdown：标题、列表、行内样式、代码块、引用；表格、提示块、公式、分隔线。一屏放不下，分两张。 平滑圆角（squircle）靠着色器裁剪，Robolectric
+ * 里画不出来，代码块、表格、提示块会整块空白； 这里关掉它，退回普通圆角，好看清块里的内容和配色。
  */
 class MarkdownShots : ShotTest() {
     @Composable
     private fun Chat(hub: ConversationHub) {
         CompositionLocalProvider(LocalSquircleEnabled provides false) {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
         }
     }
 
     @Test
     fun blocks() {
         val hub = Fixtures.readyHub(app)
-        hub.showChat("Markdown 样张", listOf(UserItem("u1", "把构建步骤写成清单"), AnswerItem("a1", blocks, streaming = false)))
+        hub.showChat(
+            "Markdown 样张",
+            listOf(UserItem("u1", "把构建步骤写成清单"), AnswerItem("a1", blocks, streaming = false)),
+        )
         shoot("markdown-blocks") { Chat(hub) }
     }
 
     @Test
     fun tables() {
         val hub = Fixtures.readyHub(app)
-        hub.showChat("Markdown 样张", listOf(UserItem("u1", "对比一下两种做法"), AnswerItem("a1", tables, streaming = false)))
+        hub.showChat(
+            "Markdown 样张",
+            listOf(UserItem("u1", "对比一下两种做法"), AnswerItem("a1", tables, streaming = false)),
+        )
         shoot("markdown-tables") { Chat(hub) }
     }
 
-    private val blocks = """
+    private val blocks =
+        """
         ## 构建步骤
 
         先确认 **JDK 25** 已装好，再用 `tools/gradle` 构建，参见 [CLAUDE.md](https://example.invalid/claude)。
@@ -60,9 +72,11 @@ class MarkdownShots : ShotTest() {
         > 引用：改界面前先跑一次截图，改完再跑，看对照图。
         >
         > > 嵌套的引用只画一条细线。
-    """.trimIndent()
+        """
+            .trimIndent()
 
-    private val tables = """
+    private val tables =
+        """
         ### 两种做法
 
         | 做法 | 内存 | 说明 |
@@ -86,5 +100,6 @@ class MarkdownShots : ShotTest() {
 
         > [!TIP]
         > 分隔线上下留白相等。
-    """.trimIndent()
+        """
+            .trimIndent()
 }

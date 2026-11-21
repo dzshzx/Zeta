@@ -12,7 +12,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -23,16 +22,24 @@ import org.junit.Test
 class SubagentLogTest {
     private lateinit var home: File
     private val session = "aaaaaaaa-1111-4222-8333-444444444444"
-    private val dir get() = File(home, ".claude/projects/-workspace-test/$session/subagents")
-    private val record get() = File(dir, "agent-a1b2c3.jsonl")
-    private val meta get() = File(dir, "agent-a1b2c3.meta.json")
+    private val dir
+        get() = File(home, ".claude/projects/-workspace-test/$session/subagents")
+
+    private val record
+        get() = File(dir, "agent-a1b2c3.jsonl")
+
+    private val meta
+        get() = File(dir, "agent-a1b2c3.meta.json")
 
     @Before
     fun setUp() {
         home = Files.createTempDirectory("zeta-subagent-home").toFile().canonicalFile
         dir.mkdirs()
-        File(home, ".claude/projects/-workspace-test/$session.jsonl").writeText("{\"type\":\"user\"}\n")
-        meta.writeText("""{"agentType":"general-purpose","description":"look around","toolUseId":"toolu_A","requestShape":"background","model":"claude-opus-5-5"}""")
+        File(home, ".claude/projects/-workspace-test/$session.jsonl")
+            .writeText("{\"type\":\"user\"}\n")
+        meta.writeText(
+            """{"agentType":"general-purpose","description":"look around","toolUseId":"toolu_A","requestShape":"background","model":"claude-opus-5-5"}""",
+        )
     }
 
     @After
@@ -41,7 +48,10 @@ class SubagentLogTest {
     }
 
     private fun run(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        val process =
+            ProcessBuilder(listOf(TestHelper.path) + args)
+                .apply { environment()["HOME"] = home.path }
+                .start()
         process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         process.errorStream.readBytes()
@@ -50,38 +60,79 @@ class SubagentLogTest {
     }
 
     /** 从 [t] 上次读到的地方接着读一次。 */
-    private fun read(t: SubagentTranscript, hint: String = "-", use: String = t.toolUseId): Boolean {
-        val (code, out) = run("subagent", t.offset.toString(), t.line.toString(), use, hint, session)
+    private fun read(
+        t: SubagentTranscript,
+        hint: String = "-",
+        use: String = t.toolUseId,
+    ): Boolean {
+        val (code, out) =
+            run("subagent", t.offset.toString(), t.line.toString(), use, hint, session)
         assertEquals(out, 0, code)
         return t.applyRead(out)
     }
 
     private fun line(text: String) = text.trimIndent().replace("\n", "") + "\n"
 
-    private val prompt = line("""{"type":"user","isSidechain":true,"agentId":"a1b2c3","message":{"role":"user","content":"SUBAGENT look around"},"uuid":"u0"}""")
-    private val attachment = line("""{"type":"attachment","isSidechain":true,"agentId":"a1b2c3","attachment":{"type":"skill_listing"},"uuid":"u1"}""")
-    private val requestBlob = line("""{"type":"api-request-blob","agentId":"a1b2c3","message":{"role":"user","content":[{"type":"text","text":"x"}]}}""")
-    private val thinkingText = line("""{"type":"assistant","isSidechain":true,"message":{"id":"msg_1","role":"assistant","content":[{"type":"text","text":"checking first"}]},"uuid":"u2"}""")
-    private val bashCall = line(
-        """{"type":"assistant","isSidechain":true,"message":{"id":"msg_1","role":"assistant","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash",
+    private val prompt =
+        line(
+            """{"type":"user","isSidechain":true,"agentId":"a1b2c3","message":{"role":"user","content":"SUBAGENT look around"},"uuid":"u0"}""",
+        )
+    private val attachment =
+        line(
+            """{"type":"attachment","isSidechain":true,"agentId":"a1b2c3","attachment":{"type":"skill_listing"},"uuid":"u1"}""",
+        )
+    private val requestBlob =
+        line(
+            """{"type":"api-request-blob","agentId":"a1b2c3","message":{"role":"user","content":[{"type":"text","text":"x"}]}}""",
+        )
+    private val thinkingText =
+        line(
+            """{"type":"assistant","isSidechain":true,"message":{"id":"msg_1","role":"assistant","content":[{"type":"text","text":"checking first"}]},"uuid":"u2"}""",
+        )
+    private val bashCall =
+        line(
+            """{"type":"assistant","isSidechain":true,"message":{"id":"msg_1","role":"assistant","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash",
         "input":{"command":"echo hi","description":"sub step"}}]},"uuid":"u3"}""",
-    )
-    private val bashResult = line(
-        """{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"hi","is_error":false}]},
+        )
+    private val bashResult =
+        line(
+            """{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"hi","is_error":false}]},
         "toolUseResult":{"stdout":"hi"},"uuid":"u4"}""",
-    )
-    private val report = line("""{"type":"assistant","isSidechain":true,"message":{"id":"msg_2","role":"assistant","content":[{"type":"text","text":"REPORT: all good"}]},"uuid":"u5"}""")
+        )
+    private val report =
+        line(
+            """{"type":"assistant","isSidechain":true,"message":{"id":"msg_2","role":"assistant","content":[{"type":"text","text":"REPORT: all good"}]},"uuid":"u5"}""",
+        )
 
     @Test
     fun recordIsFoundByItsAgentCallAndReadIncrementally() {
         // 结果那一行还没写完：这次只交出前面的整行
-        record.writeText(prompt + attachment + requestBlob + thinkingText + bashCall + bashResult.dropLast(20))
+        record.writeText(
+            prompt + attachment + requestBlob + thinkingText + bashCall + bashResult.dropLast(20),
+        )
         val t = SubagentTranscript("toolu_A")
         assertTrue(read(t))
         assertEquals("SUBAGENT look around", t.prompt)
-        assertEquals(SubagentMeta("a1b2c3", "general-purpose", "look around", "claude-opus-5-5", finished = false, stopped = false, background = true), t.meta)
+        assertEquals(
+            SubagentMeta(
+                "a1b2c3",
+                "general-purpose",
+                "look around",
+                "claude-opus-5-5",
+                finished = false,
+                stopped = false,
+                background = true,
+            ),
+            t.meta,
+        )
         assertEquals(record.canonicalPath, t.file)
-        assertEquals((prompt + attachment + requestBlob + thinkingText + bashCall).toByteArray().size.toLong(), t.offset)
+        assertEquals(
+            (prompt + attachment + requestBlob + thinkingText + bashCall)
+                .toByteArray()
+                .size
+                .toLong(),
+            t.offset,
+        )
         assertEquals(5, t.line)
         assertFalse(t.more)
         val running = t.items(running = true)
@@ -93,7 +144,9 @@ class SubagentLogTest {
 
         // 写完了：从上次的位置接着读，结果补上，报告接在后面
         record.appendText(bashResult.takeLast(20) + report)
-        meta.writeText("""{"agentType":"general-purpose","description":"look around","toolUseId":"toolu_A","requestShape":"background","finished":true}""")
+        meta.writeText(
+            """{"agentType":"general-purpose","description":"look around","toolUseId":"toolu_A","requestShape":"background","finished":true}""",
+        )
         assertTrue(read(t))
         assertTrue(t.meta!!.finished && t.meta!!.ended)
         val done = t.items(running = false)
@@ -118,7 +171,8 @@ class SubagentLogTest {
         assertTrue(other.missing)
         assertNull(other.meta)
         // 会话里还没有子代理目录
-        val (_, out) = run("subagent", "0", "0", "toolu_A", "-", "bbbbbbbb-1111-4222-8333-444444444444")
+        val (_, out) =
+            run("subagent", "0", "0", "toolu_A", "-", "bbbbbbbb-1111-4222-8333-444444444444")
         assertTrue(out, out.contains("\"missing\":true"))
         // 参数不对的不执行
         assertNotEquals(0, run("subagent", "0", "0", "../x", "-", session).first)
@@ -136,19 +190,26 @@ class SubagentLogTest {
         meta.writeText("""{"toolUseId":"toolu_A","stoppedByUser":true}""")
         read(t)
         assertTrue(t.meta!!.stopped && t.meta!!.ended)
-        assertEquals(ToolStatus.Failed, ((t.items(running = false)[1] as WorkItem).steps.single() as ToolStep).status)
+        assertEquals(
+            ToolStatus.Failed,
+            ((t.items(running = false)[1] as WorkItem).steps.single() as ToolStep).status,
+        )
         // 记录变短了（换了文件）：从头重读，不接着旧的偏移
         record.writeText(prompt + report)
         assertTrue(read(t))
-        assertEquals(listOf("REPORT: all good"), t.items(running = false).map { (it as AnswerItem).text })
+        assertEquals(
+            listOf("REPORT: all good"),
+            t.items(running = false).map { (it as AnswerItem).text },
+        )
     }
 
     @Test
     fun imagesInResultsPointAtTheirRecordLine() {
-        val shot = line(
-            """{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":[
+        val shot =
+            line(
+                """{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":[
             {"type":"text","text":"screen"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGk="}}]}]},"uuid":"u4"}""",
-        )
+            )
         record.writeText(prompt + bashCall + shot)
         val t = SubagentTranscript("toolu_A")
         read(t)
@@ -164,7 +225,10 @@ class SubagentLogTest {
 
     @Test
     fun aLineLongerThanOneReadIsSkipped() {
-        val huge = line("""{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"${"x".repeat(4_300_000)}"}]}}""")
+        val huge =
+            line(
+                """{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"${"x".repeat(4_300_000)}"}]}}""",
+            )
         record.writeText(prompt + bashCall + huge + report)
         val t = SubagentTranscript("toolu_A")
         read(t)
@@ -176,47 +240,97 @@ class SubagentLogTest {
         assertEquals(record.length(), t.offset)
     }
 
-    private fun e(text: String): JsonObject = Json.parseToJsonElement(text.trimIndent().replace("\n", "")).jsonObject
+    private fun e(text: String): JsonObject =
+        Json.parseToJsonElement(text.trimIndent().replace("\n", "")).jsonObject
 
     /** 前台子代理：输出流先送来工具调用和结果，文件随后追上；追上之前补上，追上之后不重复。 */
     @Test
     fun liveEventsFillTheGapUntilTheFileCatchesUp() {
         val t = SubagentTranscript("toolu_A")
         t.applyRead(
-            """{"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{"toolUseId":"toolu_A"},"offset":10,"line":2,"more":false,"skipped":0,"reset":false}
-            {"type":"user","prompt":true,"message":{"content":[{"type":"text","text":"go"}]}}
-            {"type":"assistant","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash","input":{"command":"a"}}]}}""".trimIndent(),
+            """
+            {"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{"toolUseId":"toolu_A"},"offset":10,"line":2,"more":false,"skipped":0,"reset":false}
+                        {"type":"user","prompt":true,"message":{"content":[{"type":"text","text":"go"}]}}
+                        {"type":"assistant","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash","input":{"command":"a"}}]}}
+            """
+                .trimIndent(),
         )
         // 指令那条（输出流里也有）不算新内容
-        assertFalse(t.observeLive(e("""{"type":"user","parent_tool_use_id":"toolu_A","message":{"content":[{"type":"text","text":"go"}]}}""")))
+        assertFalse(
+            t.observeLive(
+                e(
+                    """{"type":"user","parent_tool_use_id":"toolu_A","message":{"content":[{"type":"text","text":"go"}]}}""",
+                ),
+            ),
+        )
         // 文件里已经有的工具调用不再要
-        assertFalse(t.observeLive(e("""{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash","input":{"command":"a"}}]}}""")))
-        assertTrue(t.observeLive(e("""{"type":"user","parent_tool_use_id":"toolu_A","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"ok"}]}}""")))
-        assertTrue(t.observeLive(e("""{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_2","content":[{"type":"tool_use","id":"toolu_s1","name":"Read","input":{"file_path":"/x"}}]}}""")))
+        assertFalse(
+            t.observeLive(
+                e(
+                    """{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_s0","name":"Bash","input":{"command":"a"}}]}}""",
+                ),
+            ),
+        )
+        assertTrue(
+            t.observeLive(
+                e(
+                    """{"type":"user","parent_tool_use_id":"toolu_A","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"ok"}]}}""",
+                ),
+            ),
+        )
+        assertTrue(
+            t.observeLive(
+                e(
+                    """{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_2","content":[{"type":"tool_use","id":"toolu_s1","name":"Read","input":{"file_path":"/x"}}]}}""",
+                ),
+            ),
+        )
         val live = (t.items(running = true).single() as WorkItem).steps.map { it as ToolStep }
-        assertEquals(listOf("toolu_s0" to ToolStatus.Success, "toolu_s1" to ToolStatus.Running), live.map { it.id to it.status })
+        assertEquals(
+            listOf("toolu_s0" to ToolStatus.Success, "toolu_s1" to ToolStatus.Running),
+            live.map { it.id to it.status },
+        )
         assertEquals(2, t.toolUses())
 
         // 文件追上：同样的内容只出现一次
         t.applyRead(
-            """{"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{"toolUseId":"toolu_A"},"offset":20,"line":5,"more":false,"skipped":0,"reset":false}
-            {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"ok"}]}}
-            {"type":"assistant","message":{"id":"msg_2","content":[{"type":"text","text":"reading"}]}}
-            {"type":"assistant","message":{"id":"msg_2","content":[{"type":"tool_use","id":"toolu_s1","name":"Read","input":{"file_path":"/x"}}]}}""".trimIndent(),
+            """
+            {"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{"toolUseId":"toolu_A"},"offset":20,"line":5,"more":false,"skipped":0,"reset":false}
+                        {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_s0","content":"ok"}]}}
+                        {"type":"assistant","message":{"id":"msg_2","content":[{"type":"text","text":"reading"}]}}
+                        {"type":"assistant","message":{"id":"msg_2","content":[{"type":"tool_use","id":"toolu_s1","name":"Read","input":{"file_path":"/x"}}]}}
+            """
+                .trimIndent(),
         )
         val items = t.items(running = true)
-        assertEquals(listOf("toolu_s0", "toolu_s1"), items.filterIsInstance<WorkItem>().flatMap { it.steps }.map { it.id })
+        assertEquals(
+            listOf("toolu_s0", "toolu_s1"),
+            items.filterIsInstance<WorkItem>().flatMap { it.steps }.map { it.id },
+        )
         assertEquals("reading", items.filterIsInstance<AnswerItem>().single().text)
         assertEquals(2, t.toolUses())
         // 同一条消息里文件已有文字的，输出流的文字不再补
-        assertFalse(t.observeLive(e("""{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_2","content":[{"type":"text","text":"reading"}]}}""")))
+        assertFalse(
+            t.observeLive(
+                e(
+                    """{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"id":"msg_2","content":[{"type":"text","text":"reading"}]}}""",
+                ),
+            ),
+        )
     }
 
     @Test
     fun onlyTheLatestEventsAreKept() {
         val t = SubagentTranscript("toolu_A", keep = 2)
-        val events = (0 until 5).joinToString("\n") { """{"type":"assistant","message":{"id":"m$it","content":[{"type":"text","text":"t$it"}]}}""" }
-        t.applyRead("""{"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{},"offset":1,"line":5,"more":false,"skipped":1,"reset":false}""" + "\n" + events)
+        val events =
+            (0 until 5).joinToString("\n") {
+                """{"type":"assistant","message":{"id":"m$it","content":[{"type":"text","text":"t$it"}]}}"""
+            }
+        t.applyRead(
+            """{"type":"zeta_subagent","file":"/f.jsonl","agent_id":"a1","meta":{},"offset":1,"line":5,"more":false,"skipped":1,"reset":false}""" +
+                "\n" +
+                events,
+        )
         assertEquals(4, t.skipped)
         assertEquals(listOf("t3", "t4"), t.items(running = false).map { (it as AnswerItem).text })
     }

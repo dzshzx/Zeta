@@ -2,13 +2,13 @@ package com.dzshzx.zeta.ui.markdown
 
 import android.content.Context
 import android.graphics.Typeface
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import android.util.Log
 import io.ratex.DisplayItem
 import io.ratex.DisplayList
 import io.ratex.RaTeXColor
@@ -27,9 +27,8 @@ internal fun interface MathLayoutEngine {
 /**
  * RaTeX 原生排版桥接。
  *
- * 传入全透明色作为默认颜色哨兵（`a == 0f`），使解析产出的 [DisplayList] 只与公式文本和
- * `displayMode` 相关，可跨深浅色主题、正文/标题/引用/思考语气直接缓存复用；绘制前再将
- * 哨兵颜色绑定为当前上下文墨色，同时保留公式内显式 `\color` 指定的颜色。
+ * 传入全透明色作为默认颜色哨兵（`a == 0f`），使解析产出的 [DisplayList] 只与公式文本和 `displayMode`
+ * 相关，可跨深浅色主题、正文/标题/引用/思考语气直接缓存复用；绘制前再将 哨兵颜色绑定为当前上下文墨色，同时保留公式内显式 `\color` 指定的颜色。
  */
 internal object RaTeXMathLayoutEngine : MathLayoutEngine {
     private const val SENTINEL_TRANSPARENT_ARGB = 0
@@ -50,7 +49,10 @@ internal object RaTeXMathLayoutEngine : MathLayoutEngine {
             null
         } catch (error: LinkageError) {
             if (nativeUnavailable.compareAndSet(false, true)) {
-                Log.w("Zeta", "markdown math native engine unavailable: ${error.javaClass.simpleName}")
+                Log.w(
+                    "Zeta",
+                    "markdown math native engine unavailable: ${error.javaClass.simpleName}",
+                )
             }
             null
         }
@@ -62,8 +64,7 @@ internal val markdownMathLayoutCache = MarkdownMathLayoutCache()
 /**
  * 进程内有界公式布局缓存。
  *
- * 流式输出同一长段落时，前半句已闭合的行内公式会随尾部文字追加反复经过行内构建；
- * 同时缓存成功与失败结果，使同一公式只调用一次原生解析，并返回同一 [DisplayList] 实例供组合期跳过。
+ * 流式输出同一长段落时，前半句已闭合的行内公式会随尾部文字追加反复经过行内构建； 同时缓存成功与失败结果，使同一公式只调用一次原生解析，并返回同一 [DisplayList] 实例供组合期跳过。
  */
 internal class MarkdownMathLayoutCache(
     private val engine: MathLayoutEngine = RaTeXMathLayoutEngine,
@@ -78,14 +79,16 @@ internal class MarkdownMathLayoutCache(
 
     private sealed interface Entry {
         data class Hit(val displayList: DisplayList) : Entry
+
         data object Miss : Entry
     }
 
     private val lock = Any()
-    private val map = object : LinkedHashMap<Key, Entry>(32, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, Entry>?): Boolean =
-            size > maxEntries
-    }
+    private val map =
+        object : LinkedHashMap<Key, Entry>(32, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, Entry>?): Boolean =
+                size > maxEntries
+        }
 
     fun layout(latex: String, displayMode: Boolean): DisplayList? {
         val trimmed = latex.trim()
@@ -112,12 +115,13 @@ internal class MarkdownMathLayoutCache(
 
 internal fun DisplayList.bindDefaultColor(defaultColor: Color): DisplayList {
     if (items.isEmpty()) return this
-    val fallback = RaTeXColor(
-        r = defaultColor.red,
-        g = defaultColor.green,
-        b = defaultColor.blue,
-        a = defaultColor.alpha,
-    )
+    val fallback =
+        RaTeXColor(
+            r = defaultColor.red,
+            g = defaultColor.green,
+            b = defaultColor.blue,
+            a = defaultColor.alpha,
+        )
     val mapped = items.map { item ->
         when (item) {
             is DisplayItem.GlyphPath -> item.copy(color = item.color.resolveWith(fallback))
@@ -129,17 +133,19 @@ internal fun DisplayList.bindDefaultColor(defaultColor: Color): DisplayList {
     return copy(items = mapped)
 }
 
-private fun RaTeXColor.resolveWith(fallback: RaTeXColor): RaTeXColor = when {
-    a <= 0f -> fallback
-    fallback.a >= 0.999f -> this
-    else -> copy(a = (a * fallback.a).coerceIn(0f, 1f))
-}
+private fun RaTeXColor.resolveWith(fallback: RaTeXColor): RaTeXColor =
+    when {
+        a <= 0f -> fallback
+        fallback.a >= 0.999f -> this
+        else -> copy(a = (a * fallback.a).coerceIn(0f, 1f))
+    }
 
 internal object RaTeXFontRegistry {
     private const val ASSET_FONT_DIR = "fonts"
-    private val SUPPLEMENTAL_FONTS = listOf(
-        "Caligraphic-Bold" to "KaTeX_Caligraphic-Bold.ttf",
-    )
+    private val SUPPLEMENTAL_FONTS =
+        listOf(
+            "Caligraphic-Bold" to "KaTeX_Caligraphic-Bold.ttf",
+        )
 
     private val loaded = AtomicBoolean(false)
     private val loadLock = Any()
@@ -168,9 +174,11 @@ internal object RaTeXFontRegistry {
             for ((fontId, fileName) in SUPPLEMENTAL_FONTS) {
                 runCatching {
                     Typeface.createFromAsset(appContext.assets, "$ASSET_FONT_DIR/$fileName")
-                }.getOrNull()?.let { typeface ->
-                    supplementalCache[fontId] = typeface
                 }
+                    .getOrNull()
+                    ?.let { typeface ->
+                        supplementalCache[fontId] = typeface
+                    }
             }
             loaded.set(true)
             readyState.value = true
@@ -178,7 +186,5 @@ internal object RaTeXFontRegistry {
     }
 
     fun resolveTypeface(fontId: String): Typeface? =
-        RaTeXFontLoader.getTypeface(fontId)
-            ?: supplementalCache[fontId]
-            ?: Typeface.DEFAULT
+        RaTeXFontLoader.getTypeface(fontId) ?: supplementalCache[fontId] ?: Typeface.DEFAULT
 }

@@ -6,7 +6,8 @@ import androidx.compose.runtime.snapshotFlow
 /** 流式状态只跨条目挂载保留；已结束且脱离组合的文档交给有界静态缓存。 */
 internal class StreamingMarkdownStateCache {
     private val retainedStates = mutableStateMapOf<String, StreamingMarkdownState>()
-    val states: Map<String, StreamingMarkdownState> get() = retainedStates
+    val states: Map<String, StreamingMarkdownState>
+        get() = retainedStates
 
     fun getOrCreate(messageId: String): StreamingMarkdownState =
         retainedStates.getOrPut(messageId) { StreamingMarkdownState() }
@@ -20,8 +21,11 @@ internal class StreamingMarkdownStateCache {
             retainedStates.entries.mapNotNull { (id, state) ->
                 id.takeIf { it !in streamingMessageIds && !state.isAttachedToContent }
             }
-        }.collect { unused ->
-            unused.forEach { id -> retainedStates.remove(id)?.snapshot?.let(staticMarkdownDocumentCache::put) }
         }
+            .collect { unused ->
+                unused.forEach { id ->
+                    retainedStates.remove(id)?.snapshot?.let(staticMarkdownDocumentCache::put)
+                }
+            }
     }
 }

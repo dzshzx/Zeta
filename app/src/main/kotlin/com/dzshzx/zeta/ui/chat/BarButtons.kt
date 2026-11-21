@@ -22,8 +22,8 @@ import io.github.suqi8.coui.kmp.basic.rememberTooltipState
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 输入栏底栏的按钮：COUI 的 IconChip（28dp 定宽，16dp 图标），只放图标，底栏上不写字。
- * [description] 同时是读屏说明和长按弹出的提示，档位名、百分比都写在这句话里；图标自己的读屏说明给 null。
+ * 输入栏底栏的按钮：COUI 的 IconChip（28dp 定宽，16dp 图标），只放图标，底栏上不写字。 [description]
+ * 同时是读屏说明和长按弹出的提示，档位名、百分比都写在这句话里；图标自己的读屏说明给 null。
  */
 @Composable
 internal fun BarButton(
@@ -40,7 +40,13 @@ internal fun BarButton(
         modifier = modifier,
         enableUserInput = true,
     ) {
-        IconChip(onClick = onClick, modifier = Modifier.semantics { contentDescription = description }, enabled = enabled, colors = colors, icon = icon)
+        IconChip(
+            onClick = onClick,
+            modifier = Modifier.semantics { contentDescription = description },
+            enabled = enabled,
+            colors = colors,
+            icon = icon,
+        )
     }
 }
 
@@ -56,14 +62,20 @@ internal fun BarMenuButton(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
-        BarButton(description, onClick = { expanded = true }, enabled = enabled, colors = colors, icon = icon)
+        BarButton(
+            description,
+            onClick = { expanded = true },
+            enabled = enabled,
+            colors = colors,
+            icon = icon,
+        )
         AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
     }
 }
 
 /**
- * 底栏按钮的配色：[tone] 为 null 是中性的灰；有颜色时是它的淡底加同色图标，
- * 透明度照 COUI 半透明主题底的比例（浅色 15%，深色 25%）。跟着强调色变的用 [barChipThemeColors]。
+ * 底栏按钮的配色：[tone] 为 null 是中性的灰；有颜色时是它的淡底加同色图标， 透明度照 COUI 半透明主题底的比例（浅色 15%，深色 25%）。跟着强调色变的用
+ * [barChipThemeColors]。
  */
 @Composable
 internal fun barChipColors(tone: Color?): ChipColors {
@@ -71,11 +83,17 @@ internal fun barChipColors(tone: Color?): ChipColors {
     return if (tone == null) {
         ChipDefaults.chipColors(contentColor = colors.labelSecondary)
     } else {
-        ChipDefaults.chipColors(containerColor = tone.copy(alpha = if (colors.isDark) 0.25f else 0.15f), contentColor = tone)
+        ChipDefaults.chipColors(
+            containerColor = tone.copy(alpha = if (colors.isDark) 0.25f else 0.15f),
+            contentColor = tone,
+        )
     }
 }
 
 /** 主题色的底栏按钮：COUI 的半透明主题底加主题色图标，跟着强调色变。 */
 @Composable
 internal fun barChipThemeColors(): ChipColors =
-    ChipDefaults.chipColors(containerColor = COUITheme.colorScheme.containerThemeHalftone, contentColor = COUITheme.colorScheme.primaryText)
+    ChipDefaults.chipColors(
+        containerColor = COUITheme.colorScheme.containerThemeHalftone,
+        contentColor = COUITheme.colorScheme.primaryText,
+    )

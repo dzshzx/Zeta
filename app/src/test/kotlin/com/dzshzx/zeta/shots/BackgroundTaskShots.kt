@@ -33,7 +33,13 @@ class BackgroundTaskShots : ShotTest() {
     /** 当前对话：一个在跑的后台命令、一个在跑的子代理、一个跑完的命令；另有一个在后台跑着监视器的对话。 */
     private fun hubWithTasks(): ConversationHub {
         val hub = Fixtures.readyHub(app)
-        hub.showChat("给设置页加后台任务面板", listOf(UserItem("u1", "跑一遍单元测试，同时让子代理看看面板的排版"), AnswerItem("a1", "测试和审查都放到后台了，跑完我来汇总。", streaming = false)))
+        hub.showChat(
+            "给设置页加后台任务面板",
+            listOf(
+                UserItem("u1", "跑一遍单元测试，同时让子代理看看面板的排版"),
+                AnswerItem("a1", "测试和审查都放到后台了，跑完我来汇总。", streaming = false),
+            ),
+        )
         val current = hub.current
         current.feed(
             """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"tools/gradle :app:testDebugUnitTest --tests 'com.dzshzx.zeta.core.*'"}},{"type":"tool_use","id":"t3","name":"Bash","input":{"command":"git fetch -q origin && git status -sb"}}]}}""",
@@ -61,11 +67,13 @@ class BackgroundTaskShots : ShotTest() {
         current.tasks.force(
             "outputs",
             mapOf(
-                "b1" to TaskOutput(
-                    "> Task :app:compileDebugKotlin\n> Task :app:testDebugUnitTest\n\nTaskBoardTest > backgroundCommandStartsAndIsStopped PASSED\n" +
-                        "TaskBoardTest > subagentProgressAndReport PASSED\nHostTasksTest > runningTasksAreReplayedWithTheirCallAndStartTime PASSED\n",
-                    totalBytes = 12_640, truncated = true,
-                ),
+                "b1" to
+                    TaskOutput(
+                        "> Task :app:compileDebugKotlin\n> Task :app:testDebugUnitTest\n\nTaskBoardTest > backgroundCommandStartsAndIsStopped PASSED\n" +
+                            "TaskBoardTest > subagentProgressAndReport PASSED\nHostTasksTest > runningTasksAreReplayedWithTheirCallAndStartTime PASSED\n",
+                        totalBytes = 12_640,
+                        truncated = true,
+                    ),
             ),
         )
 
@@ -84,14 +92,26 @@ class BackgroundTaskShots : ShotTest() {
     @Test
     fun panel() {
         val hub = hubWithTasks()
-        shoot("tasks-all") { BackgroundTasksScreen(hub = hub, scope = AllConversations, onBack = {}, onOpenConversation = {}) }
+        shoot("tasks-all") {
+            BackgroundTasksScreen(
+                hub = hub,
+                scope = AllConversations,
+                onBack = {},
+                onOpenConversation = {},
+            )
+        }
     }
 
     @Test
     fun detail() {
         val hub = hubWithTasks()
         shoot("tasks-detail", prepare = { onNodeWithText("跑单元测试").performClick() }) {
-            BackgroundTasksScreen(hub = hub, scope = hub.current.key, onBack = {}, onOpenConversation = {})
+            BackgroundTasksScreen(
+                hub = hub,
+                scope = hub.current.key,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -99,14 +119,27 @@ class BackgroundTaskShots : ShotTest() {
     fun agentDetail() {
         val hub = hubWithTasks()
         shoot("tasks-agent", prepare = { onNodeWithText("审查面板排版").performClick() }) {
-            BackgroundTasksScreen(hub = hub, scope = hub.current.key, onBack = {}, onOpenConversation = {})
+            BackgroundTasksScreen(
+                hub = hub,
+                scope = hub.current.key,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
     @Test
     fun chatStrip() {
         val hub = hubWithTasks()
-        shoot("tasks-chat-strip") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+        shoot("tasks-chat-strip") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
     }
 
     @Test

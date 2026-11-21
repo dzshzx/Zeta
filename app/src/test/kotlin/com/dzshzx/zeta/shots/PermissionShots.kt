@@ -17,7 +17,10 @@ class PermissionShots : ShotTest() {
     fun bottom() {
         val hub = Fixtures.readyHub(app)
         // 列表里是权限一组、一键授予一组、页尾留白；跳到页尾，不用滚动动画
-        shoot("permissions-bottom", prepare = { onNode(hasScrollToIndexAction()).performScrollToIndex(2) }) {
+        shoot(
+            "permissions-bottom",
+            prepare = { onNode(hasScrollToIndexAction()).performScrollToIndex(2) },
+        ) {
             PermissionHealthScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }

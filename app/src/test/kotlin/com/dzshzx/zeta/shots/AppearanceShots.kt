@@ -16,7 +16,10 @@ class AppearanceShots : ShotTest() {
     @Test
     fun scaleDialog() {
         val hub = Fixtures.readyHub(app)
-        shoot("appearance-scale-dialog", prepare = { onAllNodesWithText("界面缩放").onFirst().performClick() }) {
+        shoot(
+            "appearance-scale-dialog",
+            prepare = { onAllNodesWithText("界面缩放").onFirst().performClick() },
+        ) {
             AppearanceScreen(hub = hub, onBack = {})
         }
     }

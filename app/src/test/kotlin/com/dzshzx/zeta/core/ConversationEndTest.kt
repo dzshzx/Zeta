@@ -15,8 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 聊天页离开一个会话的几条路：结束对话（终端里的 /exit）把进行中的也停掉，归档和“新对话”一样把进行中的留在后台；
- * 归档的是聊天页正开着的会话时，聊天页换成空的新对话，不再显示已归档的会话。
+ * 聊天页离开一个会话的几条路：结束对话（终端里的 /exit）把进行中的也停掉，归档和“新对话”一样把进行中的留在后台； 归档的是聊天页正开着的会话时，聊天页换成空的新对话，不再显示已归档的会话。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -24,7 +23,8 @@ class ConversationEndTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val cwd = Fixtures.env.defaultCwd
 
-    private fun summary(id: String) = SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", cwd, "会话 $id", "", 0)
+    private fun summary(id: String) =
+        SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", cwd, "会话 $id", "", 0)
 
     private fun ConversationHub.opened(id: String): Conversation {
         val s = summary(id)

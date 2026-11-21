@@ -27,9 +27,7 @@ internal object CapsuleLayout {
     /** 后台屏幕的宽高比读不到时，按常见手机屏算。 */
     const val DEFAULT_RATIO = 9f / 19.5f
 
-    /**
-     * 画布尺寸：[ratio] 是后台屏幕的宽 / 高，[screenHeightDp] 是胶囊所在屏幕的高，[topDp] 是胶囊窗口的上沿（状态栏下沿）。
-     */
+    /** 画布尺寸：[ratio] 是后台屏幕的宽 / 高，[screenHeightDp] 是胶囊所在屏幕的高，[topDp] 是胶囊窗口的上沿（状态栏下沿）。 */
     fun stageCanvas(ratio: Float, screenHeightDp: Float, topDp: Float): StageSize {
         val r = if (ratio.isFinite() && ratio > 0f) ratio.coerceIn(0.3f, 3f) else DEFAULT_RATIO
         val room = screenHeightDp - topDp - STAGE_CHROME_DP - BOTTOM_GAP_DP

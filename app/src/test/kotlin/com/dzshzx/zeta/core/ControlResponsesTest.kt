@@ -11,9 +11,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 对话发出的控制请求，各自的应答交给各自的接收方：initialize 给模型、命令清单和起进程时的模式，get_context_usage、get_settings
- * 给用量，get_usage 给额度。只认请求号：形状一样、号对不上的应答什么也不改。
- * 进程是真起的，只是单元测试的 su 总是失败（同 QueuedMessagesTest），应答由测试扮 Claude Code 送进来。
+ * 对话发出的控制请求，各自的应答交给各自的接收方：initialize 给模型、命令清单和起进程时的模式，get_context_usage、get_settings 给用量，get_usage
+ * 给额度。只认请求号：形状一样、号对不上的应答什么也不改。 进程是真起的，只是单元测试的 su 总是失败（同 QueuedMessagesTest），应答由测试扮 Claude Code 送进来。
  * Claude Code 那一侧（每种请求都按请求号答）由 FakeClaudeContractTest 钉住，应答里的各个字段由各自的契约测试钉住。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -23,7 +22,8 @@ class ControlResponsesTest {
 
     private fun started(): Pair<ConversationHub, Conversation> {
         val hub = Fixtures.readyHub(app)
-        val chat = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
+        val chat =
+            Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         chat.prepare()
         return hub to chat
     }
@@ -55,13 +55,28 @@ class ControlResponsesTest {
     @Test
     fun initializeAnswersAreKeptPerHost() {
         val (hub, local) = started()
-        val remote = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
+        val remote =
+            RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
         hub.updateRemoteHosts(listOf(remote))
         assertEquals(FallbackModels, hub.modelOptions(remote.id))
-        val far = Conversation(hub, "/home/user/workspace", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        val far =
+            Conversation(
+                hub,
+                "/home/user/workspace",
+                sessionId = null,
+                title = "",
+                historyFile = null,
+                backend = remote.id,
+            )
         far.prepare()
-        local.answer("initialize", """{"models":[{"value":"opus","displayName":"Opus"}],"commands":[{"name":"compact"}]}""")
-        far.answer("initialize", """{"models":[{"value":"sonnet","displayName":"Sonnet"}],"commands":[{"name":"deploy"}]}""")
+        local.answer(
+            "initialize",
+            """{"models":[{"value":"opus","displayName":"Opus"}],"commands":[{"name":"compact"}]}""",
+        )
+        far.answer(
+            "initialize",
+            """{"models":[{"value":"sonnet","displayName":"Sonnet"}],"commands":[{"name":"deploy"}]}""",
+        )
         assertEquals(listOf("opus"), hub.modelOptions(Backends.LOCAL).map { it.value })
         assertEquals(listOf("sonnet"), hub.modelOptions(remote.id).map { it.value })
         assertEquals(
@@ -69,7 +84,15 @@ class ControlResponsesTest {
             hub.settings.commands.mapValues { (_, list) -> list.map { it.name } },
         )
         // 那台主机上还没起进程的新对话，输入栏先提示那台上次报的
-        val fresh = Conversation(hub, "/home/user", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        val fresh =
+            Conversation(
+                hub,
+                "/home/user",
+                sessionId = null,
+                title = "",
+                historyFile = null,
+                backend = remote.id,
+            )
         assertEquals(listOf("deploy"), fresh.shownCommands.map { it.name })
         hub.updateRemoteHosts(emptyList())
         assertEquals(setOf(Backends.LOCAL), hub.models.keys)
@@ -79,10 +102,16 @@ class ControlResponsesTest {
     @Test
     fun usageAnswersReachTheMeter() {
         val (_, chat) = started()
-        chat.answer("get_context_usage", """{"totalTokens":12410,"maxTokens":400000,"model":"claude-opus-5-5"}""")
+        chat.answer(
+            "get_context_usage",
+            """{"totalTokens":12410,"maxTokens":400000,"model":"claude-opus-5-5"}""",
+        )
         assertEquals(400_000L, chat.usage.contextWindow)
         assertEquals(12410L, chat.usage.contextTokens)
-        chat.answer("get_settings", """{"effective":{},"applied":{"model":"claude-opus-5-5","effort":"xhigh"}}""")
+        chat.answer(
+            "get_settings",
+            """{"effective":{},"applied":{"model":"claude-opus-5-5","effort":"xhigh"}}""",
+        )
         assertEquals("xhigh", chat.usage.appliedEffort)
     }
 

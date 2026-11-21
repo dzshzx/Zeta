@@ -13,17 +13,18 @@ class RewindTest {
     private val stopped = NoticeItem("n-stop", "已停止", error = false)
 
     /** 一段典型的对话：载入提示、三轮，第二轮停在工具步骤上，第三轮末尾是“已停止”。 */
-    private val items = listOf(
-        NoticeItem("n-0", "上下文已压缩", error = false),
-        UserItem("u-1", "first", uuid = "uuid-1"),
-        AnswerItem("a-1", "one", streaming = false),
-        UserItem("u-2", "second", uuid = "uuid-2"),
-        AnswerItem("a-2", "two", streaming = false),
-        WorkItem("w-2", emptyList()),
-        UserItem("u-3", "third", uuid = "uuid-3"),
-        AnswerItem("a-3", "three", streaming = false),
-        stopped,
-    )
+    private val items =
+        listOf(
+            NoticeItem("n-0", "上下文已压缩", error = false),
+            UserItem("u-1", "first", uuid = "uuid-1"),
+            AnswerItem("a-1", "one", streaming = false),
+            UserItem("u-2", "second", uuid = "uuid-2"),
+            AnswerItem("a-2", "two", streaming = false),
+            WorkItem("w-2", emptyList()),
+            UserItem("u-3", "third", uuid = "uuid-3"),
+            AnswerItem("a-3", "three", streaming = false),
+            stopped,
+        )
 
     private fun json(text: String) = Json.parseToJsonElement(text) as JsonObject
 
@@ -46,18 +47,20 @@ class RewindTest {
     fun turnWithOnlyPlainNoticesHasNoActionRow() {
         val only = listOf(UserItem("u", "hi", uuid = "x"), stopped)
         assertNull(turnActions(only).single().lastItemId)
-        val failed = listOf(UserItem("u", "hi", uuid = "x"), NoticeItem("e", "出错了", error = true), stopped)
+        val failed =
+            listOf(UserItem("u", "hi", uuid = "x"), NoticeItem("e", "出错了", error = true), stopped)
         assertEquals("e", turnActions(failed).single().lastItemId)
     }
 
     @Test
     fun messagesWithoutUuidCannotBeCutAt() {
-        val mixed = listOf(
-            UserItem("u-1", "first", uuid = "uuid-1"),
-            AnswerItem("a-1", "one", streaming = false),
-            UserItem("u-2", "queued"),
-            AnswerItem("a-2", "two", streaming = false),
-        )
+        val mixed =
+            listOf(
+                UserItem("u-1", "first", uuid = "uuid-1"),
+                AnswerItem("a-1", "one", streaming = false),
+                UserItem("u-2", "queued"),
+                AnswerItem("a-2", "two", streaming = false),
+            )
         val turns = turnActions(mixed)
         assertTrue(turns[0].rewindable)
         assertFalse(turns[0].branchable)
@@ -96,27 +99,57 @@ class RewindTest {
     @Test
     fun rewindRequestNamesTargetAndLastSeen() {
         assertEquals(
-            json("""{"subtype":"rewind_conversation","target_message_uuid":"t","last_seen_user_message_uuid":"s"}"""),
+            json(
+                """{"subtype":"rewind_conversation","target_message_uuid":"t","last_seen_user_message_uuid":"s"}""",
+            ),
             rewindRequest("t", "s"),
         )
-        assertEquals(json("""{"subtype":"rewind_conversation","target_message_uuid":"t"}"""), rewindRequest("t", null))
+        assertEquals(
+            json("""{"subtype":"rewind_conversation","target_message_uuid":"t"}"""),
+            rewindRequest("t", null),
+        )
     }
 
     @Test
     fun rewindAnswersAreRead() {
         // 2.1.327 实测的应答形状
-        assertNull(rewindFailure(json(
-            """{"subtype":"success","request_id":"zeta-2","response":{"rewound":true,"targetMessageUuid":"t","prefillText":"hi","precedingAssistantUuid":null}}""",
-        )))
-        val stale = rewindFailure(json(
-            """{"subtype":"success","request_id":"zeta-2","response":{"rewound":false,"prefillText":null,"precedingAssistantUuid":null,"error":"stale target","reason":"stale_target"}}""",
-        ))
+        assertNull(
+            rewindFailure(
+                json(
+                    """{"subtype":"success","request_id":"zeta-2","response":{"rewound":true,"targetMessageUuid":"t","prefillText":"hi","precedingAssistantUuid":null}}""",
+                ),
+            ),
+        )
+        val stale =
+            rewindFailure(
+                json(
+                    """{"subtype":"success","request_id":"zeta-2","response":{"rewound":false,"prefillText":null,"precedingAssistantUuid":null,"error":"stale target","reason":"stale_target"}}""",
+                ),
+            )
         assertEquals("这个会话在别处有了新内容，重新打开它再试", stale)
-        assertEquals("Claude 还在处理消息，等这一轮结束再试", rewindFailure(json("""{"subtype":"success","response":{"rewound":false,"reason":"turn_running"}}""")))
-        assertEquals("Claude Code 没有剪：odd", rewindFailure(json("""{"subtype":"success","response":{"rewound":false,"error":"odd","reason":"new_reason"}}""")))
+        assertEquals(
+            "Claude 还在处理消息，等这一轮结束再试",
+            rewindFailure(
+                json(
+                    """{"subtype":"success","response":{"rewound":false,"reason":"turn_running"}}""",
+                ),
+            ),
+        )
+        assertEquals(
+            "Claude Code 没有剪：odd",
+            rewindFailure(
+                json(
+                    """{"subtype":"success","response":{"rewound":false,"error":"odd","reason":"new_reason"}}""",
+                ),
+            ),
+        )
         assertEquals(
             "Claude Code 拒绝了这次操作：rewind_conversation: target_message_uuid must be a string",
-            rewindFailure(json("""{"subtype":"error","request_id":"zeta-2","error":"rewind_conversation: target_message_uuid must be a string"}""")),
+            rewindFailure(
+                json(
+                    """{"subtype":"error","request_id":"zeta-2","error":"rewind_conversation: target_message_uuid must be a string"}""",
+                ),
+            ),
         )
         assertNotNull(rewindFailure(null))
     }
@@ -124,8 +157,14 @@ class RewindTest {
     @Test
     fun launchResumesOrForks() {
         assertEquals(listOf("--resume", "s"), sessionArguments("s", "src", "T"))
-        assertEquals(listOf("--resume", "src", "--fork-session", "--name", "分支 · T"), sessionArguments(null, "src", "分支 · T"))
-        assertEquals(listOf("--resume", "src", "--fork-session"), sessionArguments(null, "src", " "))
+        assertEquals(
+            listOf("--resume", "src", "--fork-session", "--name", "分支 · T"),
+            sessionArguments(null, "src", "分支 · T"),
+        )
+        assertEquals(
+            listOf("--resume", "src", "--fork-session"),
+            sessionArguments(null, "src", " "),
+        )
         assertEquals(emptyList<String>(), sessionArguments(null, null, "T"))
     }
 
@@ -133,7 +172,10 @@ class RewindTest {
     fun branchTitlesAreNumberedAndNotStacked() {
         assertEquals("分支 · 修 bug", branchTitle("修 bug", emptyList()))
         assertEquals("分支 2 · 修 bug", branchTitle("修 bug", listOf("分支 · 修 bug")))
-        assertEquals("分支 3 · 修 bug", branchTitle("分支 · 修 bug", listOf("分支 · 修 bug", "分支 2 · 修 bug")))
+        assertEquals(
+            "分支 3 · 修 bug",
+            branchTitle("分支 · 修 bug", listOf("分支 · 修 bug", "分支 2 · 修 bug")),
+        )
         assertEquals("分支 2 · 修 bug", branchTitle("分支 4 · 修 bug", listOf("分支 · 修 bug")))
         assertEquals("分支 · 新对话", branchTitle("  ", emptyList()))
         assertEquals("分支 · 修 bug · 分支", branchTitle("修 bug · 分支", emptyList()))

@@ -7,12 +7,12 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 /**
- * Zeta 自己的设置（SharedPreferences [FILE]）：Linux 环境、默认工作目录、界面与手机工具的各个开关。
- * 新对话的默认模型、思考强度和权限模式不在这里，用 Claude Code 自己的 settings.json。
+ * Zeta 自己的设置（SharedPreferences [FILE]）：Linux 环境、默认工作目录、界面与手机工具的各个开关。 新对话的默认模型、思考强度和权限模式不在这里，用
+ * Claude Code 自己的 settings.json。
  *
  * 全进程一份（[of]）。每一项都用 [pref] 声明，底下是一份 mutableStateOf：界面读了就跟着变，写了马上生效，哪个线程上读写都行。
- * 备份导入（[restore]）写完存储后各项按存下来的值重读，界面不用另外刷新。
- * 存成清单的几项（常用指令、定时任务、通知触发）不在这里，见 [PrefsListStore]：它们要在锁里读改写，改完还有别的事要做。
+ * 备份导入（[restore]）写完存储后各项按存下来的值重读，界面不用另外刷新。 存成清单的几项（常用指令、定时任务、通知触发）不在这里，见
+ * [PrefsListStore]：它们要在锁里读改写，改完还有别的事要做。
  */
 class Settings private constructor(private val app: Context) {
     private val prefs = app.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -21,8 +21,8 @@ class Settings private constructor(private val app: Context) {
     private val reloads = ArrayList<() -> Unit>()
 
     /**
-     * 一项设置：建好时从存储读出来放进 mutableStateOf，写的时候先换掉它再存盘（[commit] 时同步写盘）。
-     * [onChange] 在读出、写入、重读后各调一次，给要把值交给别处的项用。
+     * 一项设置：建好时从存储读出来放进 mutableStateOf，写的时候先换掉它再存盘（[commit] 时同步写盘）。 [onChange]
+     * 在读出、写入、重读后各调一次，给要把值交给别处的项用。
      */
     private inner class Pref<T>(
         private val read: SharedPreferences.() -> T,
@@ -55,69 +55,90 @@ class Settings private constructor(private val app: Context) {
         onChange: (T) -> Unit = {},
     ): ReadWriteProperty<Any?, T> = Pref(read, write, commit, onChange)
 
-    private fun pref(key: String, default: Boolean) = pref({ getBoolean(key, default) }, { putBoolean(key, it) })
+    private fun pref(key: String, default: Boolean) =
+        pref({ getBoolean(key, default) }, { putBoolean(key, it) })
 
-    private fun pref(key: String, default: Float) = pref({ getFloat(key, default) }, { putFloat(key, it) })
+    private fun pref(key: String, default: Float) =
+        pref({ getFloat(key, default) }, { putFloat(key, it) })
 
-    private fun pref(key: String, default: String) = pref({ getString(key, null) ?: default }, { putString(key, it) })
+    private fun pref(key: String, default: String) =
+        pref({ getString(key, null) ?: default }, { putString(key, it) })
 
     /** 没设过时为 null；写 null 删掉这一项。 */
-    private fun optionalString(key: String) = pref({ getString(key, null) }, { if (it == null) remove(key) else putString(key, it) })
+    private fun optionalString(key: String) =
+        pref({ getString(key, null) }, { if (it == null) remove(key) else putString(key, it) })
 
     private fun stringSet(key: String, commit: Boolean = false) =
         pref({ getStringSet(key, null)?.toSet().orEmpty() }, { putStringSet(key, it) }, commit)
 
     /** 存成“键=值”字符串集合的表。 */
-    private fun <V> keyValues(key: String, parse: (String) -> V?, format: (V) -> String) = pref(
-        read = {
-            getStringSet(key, null).orEmpty().mapNotNull { entry ->
-                val parts = entry.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
-                parse(parts[1])?.let { parts[0] to it }
-            }.toMap()
-        },
-        write = { value -> putStringSet(key, value.map { "${it.key}=${format(it.value)}" }.toSet()) },
-    )
+    private fun <V> keyValues(key: String, parse: (String) -> V?, format: (V) -> String) =
+        pref(
+            read = {
+                getStringSet(key, null)
+                    .orEmpty()
+                    .mapNotNull { entry ->
+                        val parts =
+                            entry.split('=', limit = 2).takeIf { it.size == 2 }
+                                ?: return@mapNotNull null
+                        parse(parts[1])?.let { parts[0] to it }
+                    }
+                    .toMap()
+            },
+            write = { value ->
+                putStringSet(key, value.map { "${it.key}=${format(it.value)}" }.toSet())
+            },
+        )
 
     /**
-     * 共享文件夹（JSON 数组）。改动对之后进入环境的命令生效，已经在跑的对话看不到新加的。
-     * 进入环境的脚本要用这份清单，而 LinuxEnv 拿不到 Settings：每次变了都交给 [SharedFolders.current]。
+     * 共享文件夹（JSON 数组）。改动对之后进入环境的命令生效，已经在跑的对话看不到新加的。 进入环境的脚本要用这份清单，而 LinuxEnv 拿不到 Settings：每次变了都交给
+     * [SharedFolders.current]。
      */
-    var sharedFolders: List<SharedFolder> by pref(
-        read = { SharedFolders.decode(getString("sharedFolders", null)) },
-        write = { putString("sharedFolders", SharedFolders.encode(it)) },
-        onChange = { SharedFolders.current = it },
-    )
+    var sharedFolders: List<SharedFolder> by
+        pref(
+            read = { SharedFolders.decode(getString("sharedFolders", null)) },
+            write = { putString("sharedFolders", SharedFolders.encode(it)) },
+            onChange = { SharedFolders.current = it },
+        )
 
     /** Linux 环境和默认工作目录；还没识别出环境时为 null。 */
-    var env: LinuxEnvConfig? by pref(
-        read = {
-            getString("user", null)?.let { user ->
-                val home = getString("home", "/root")!!
-                LinuxEnvConfig(
-                    rootfs = getString("rootfs", LinuxEnv.OWN_ROOTFS)!!,
-                    user = user,
-                    uid = getInt("uid", 0),
-                    gid = getInt("gid", 0),
-                    home = home,
-                    defaultCwd = getString("cwd", null) ?: home,
-                )
-            }
-        },
-        write = { value ->
-            if (value == null) {
-                remove("user")
-            } else {
-                putString("rootfs", value.rootfs).putString("user", value.user).putInt("uid", value.uid)
-                    .putInt("gid", value.gid).putString("home", value.home).putString("cwd", value.defaultCwd)
-            }
-        },
-    )
+    var env: LinuxEnvConfig? by
+        pref(
+            read = {
+                getString("user", null)?.let { user ->
+                    val home = getString("home", "/root")!!
+                    LinuxEnvConfig(
+                        rootfs = getString("rootfs", LinuxEnv.OWN_ROOTFS)!!,
+                        user = user,
+                        uid = getInt("uid", 0),
+                        gid = getInt("gid", 0),
+                        home = home,
+                        defaultCwd = getString("cwd", null) ?: home,
+                    )
+                }
+            },
+            write = { value ->
+                if (value == null) {
+                    remove("user")
+                } else {
+                    putString("rootfs", value.rootfs)
+                        .putString("user", value.user)
+                        .putInt("uid", value.uid)
+                        .putInt("gid", value.gid)
+                        .putString("home", value.home)
+                        .putString("cwd", value.defaultCwd)
+                }
+            },
+        )
 
-    /** 远程主机（JSON 数组，见 [RemoteHosts]）：经手机 Debian 里的 OpenSSH 或 Zeta 直连，上面的 Claude Code 也能在 Zeta 里用。 */
-    var remoteHosts: List<RemoteHost> by pref(
-        read = { RemoteHosts.decode(getString("remoteHosts", null)) },
-        write = { putString("remoteHosts", RemoteHosts.encode(it)) },
-    )
+    /**
+     * 远程主机（JSON 数组，见 [RemoteHosts]）：经手机 Debian 里的 OpenSSH 或 Zeta 直连，上面的 Claude Code 也能在 Zeta 里用。
+     */
+    var remoteHosts: List<RemoteHost> by
+        pref(
+            read = { RemoteHosts.decode(getString("remoteHosts", null)) },
+            write = { putString("remoteHosts", RemoteHosts.encode(it)) },
+        )
 
     /**
      * 侧栏正看着哪台主机（[Backends]）：会话列表列它的，新对话默认开在它上面。存的主机已经删掉时当作手机本机
@@ -132,29 +153,31 @@ class Settings private constructor(private val app: Context) {
      * 各主机（[Backends]）上 Claude Code 上次报告的斜杠命令和技能（见 [encodeHostCommands]）：应用刚打开、那台主机上
      * 还没起进程时输入栏也能提示。每次起进程按 initialize 的应答更新那台的，删主机时一起删（[ConversationHub]）。
      */
-    var commands: Map<String, List<SlashCommand>> by pref(
-        read = { decodeHostCommands(getString("commands", null)) },
-        write = { putString("commands", encodeHostCommands(it)) },
-    )
+    var commands: Map<String, List<SlashCommand>> by
+        pref(
+            read = { decodeHostCommands(getString("commands", null)) },
+            write = { putString("commands", encodeHostCommands(it)) },
+        )
 
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
-    var darkTheme: Boolean? by pref(
-        read = { if (contains("dark")) getBoolean("dark", false) else null },
-        write = { if (it == null) remove("dark") else putBoolean("dark", it) },
-    )
+    var darkTheme: Boolean? by
+        pref(
+            read = { if (contains("dark")) getBoolean("dark", false) else null },
+            write = { if (it == null) remove("dark") else putBoolean("dark", it) },
+        )
 
     /** 把手机工具（读屏、点按、Android 侧命令）交给 Claude。只影响之后新开的 Claude Code 进程；已经开着的对话下次重启进程时生效。 */
     var phoneTools: Boolean by pref("phoneTools", true)
 
     /** 手机工具当作“主屏”的屏幕编号。平时是 0；调试时可以指到一块虚拟屏上，免得测试打扰用手机的人。界面里没有入口，每次现读。 */
-    val phoneDisplay: Int get() = prefs.getInt("phoneDisplay", 0)
+    val phoneDisplay: Int
+        get() = prefs.getInt("phoneDisplay", 0)
 
     /** Claude 打开应用时默认放到后台屏幕上，不占用主屏。立即生效：之后打开的应用放到哪块屏上。键名 backgroundScreen 是历史名字，存盘的键不改。 */
     var agentDisplay: Boolean by pref("backgroundScreen", true)
 
     /**
-     * 为后台运行禁掉了音频焦点、还没恢复的应用（“包名=原来的设置”，见 AudioFocusGuard）。
-     * 同步写盘：先记下再改，改完马上被杀，下次启动也知道要改回什么。不要在界面线程上写。
+     * 为后台运行禁掉了音频焦点、还没恢复的应用（“包名=原来的设置”，见 AudioFocusGuard）。 同步写盘：先记下再改，改完马上被杀，下次启动也知道要改回什么。不要在界面线程上写。
      */
     var mutedApps: Set<String> by stringSet("mutedApps", commit = true)
 
@@ -189,32 +212,46 @@ class Settings private constructor(private val app: Context) {
     var autoCompact: Boolean by pref("autoCompact", true)
 
     /** 自动压缩的触发点（有效窗口的百分比）；null 用 Claude Code 自己的（快满时）。 */
-    var autoCompactPercent: Int? by pref(
-        read = { if (contains("autoCompactPercent")) getInt("autoCompactPercent", 0).takeIf { it in 1..100 } else null },
-        write = { if (it == null) remove("autoCompactPercent") else putInt("autoCompactPercent", it) },
-    )
+    var autoCompactPercent: Int? by
+        pref(
+            read = {
+                if (contains("autoCompactPercent"))
+                    getInt("autoCompactPercent", 0).takeIf { it in 1..100 }
+                else null
+            },
+            write = {
+                if (it == null) remove("autoCompactPercent") else putInt("autoCompactPercent", it)
+            },
+        )
 
     /** 还开着的 Claude Code 进程上用户的权限模式（进程键=模式），见 [ConversationHub.hostMode]。 */
     var hostModes: Map<String, String> by keyValues("hostModes", { it }, { it })
 
     /** Claude Code 报过的各模型上下文窗口（“模型=窗口”）。旧会话重新打开、还没起进程时拿它算占比。 */
-    var contextWindows: Map<String, Long> by keyValues("contextWindows", String::toLongOrNull, Long::toString)
+    var contextWindows: Map<String, Long> by
+        keyValues("contextWindows", String::toLongOrNull, Long::toString)
 
     /** 应用回到前台时每天最多自动检查一次新版本（core/update/AppUpdates.kt）。只有正式发版证书签的包才查。 */
     var autoUpdateCheck: Boolean by pref("autoUpdateCheck", true)
 
     /** 上次检查更新的时间（毫秒，手动、自动都算）；0 是没查过。自动检查据此一天最多一次。 */
-    var updateCheckedAt: Long by pref({ getLong("updateCheckedAt", 0L) }, { putLong("updateCheckedAt", it) })
+    var updateCheckedAt: Long by
+        pref({ getLong("updateCheckedAt", 0L) }, { putLong("updateCheckedAt", it) })
 
     /** 已经发过通知的新版本（versionCode）：同一个版本只提醒一次；0 是还没发过。 */
-    var updateNotified: Int by pref({ getInt("updateNotified", 0) }, { putInt("updateNotified", it) })
+    var updateNotified: Int by
+        pref({ getInt("updateNotified", 0) }, { putInt("updateNotified", it) })
 
     /**
      * 测试版调试应用内更新用的覆盖（[com.dzshzx.zeta.core.update.UpdateTrust]）：清单地址、信任的签名证书（SHA-256）。
      * 只由调试工具（tools/vd.py prefs-set）写，界面里没有入口，每次现读；正式版不读。
      */
-    val updateDevManifest: String? get() = prefs.getString("updateDevManifest", null)?.takeIf { it.isNotBlank() }
-    val updateDevCert: String? get() = prefs.getString("updateDevCert", null)?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+    val updateDevManifest: String?
+        get() = prefs.getString("updateDevManifest", null)?.takeIf { it.isNotBlank() }
+
+    val updateDevCert: String?
+        get() =
+            prefs.getString("updateDevCert", null)?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
 
     /** 存下来的全部设置的一份快照（备份导出、导入前比对用）。 */
     fun snapshot(): Map<String, *> = HashMap(prefs.all)
@@ -248,8 +285,14 @@ class Settings private constructor(private val app: Context) {
         /** 本进程的那一份。单元测试里每个用例是新的 Application，跟着换一份。 */
         fun of(context: Context): Settings {
             val app = context.applicationContext
-            shared?.takeIf { it.app === app }?.let { return it }
-            return synchronized(this) { shared?.takeIf { it.app === app } ?: Settings(app).also { shared = it } }
+            shared
+                ?.takeIf { it.app === app }
+                ?.let {
+                    return it
+                }
+            return synchronized(this) {
+                shared?.takeIf { it.app === app } ?: Settings(app).also { shared = it }
+            }
         }
     }
 }

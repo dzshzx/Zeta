@@ -5,6 +5,11 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.core.str
+import java.net.URI
+import java.net.URLEncoder
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -12,11 +17,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import java.net.URI
-import java.net.URLEncoder
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 /*
  * 浏览器工具里不碰 Android 的部分：参数解析、网址规则、把页面脚本交回的 JSON 整理成给 Claude 看的精简文字。
@@ -90,32 +90,40 @@ internal object BrowserPage {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * evaluateJavascript 交回的原始值：页面脚本 `return JSON.stringify(...)`，所以外面又包了一层 JSON 字符串。
-     * 解不开、脚本没有返回时返回 null。
+     * evaluateJavascript 交回的原始值：页面脚本 `return JSON.stringify(...)`，所以外面又包了一层 JSON 字符串。 解不开、脚本没有返回时返回
+     * null。
      */
     fun decode(raw: String?): JsonObject? {
         if (raw == null || raw == "null" || raw.isBlank()) return null
         val outer = runCatching { json.parseToJsonElement(raw) }.getOrNull() ?: return null
-        val inner = when (outer) {
-            is JsonPrimitive -> if (outer.isString) runCatching { json.parseToJsonElement(outer.content) }.getOrNull() else null
-            else -> outer
-        }
+        val inner =
+            when (outer) {
+                is JsonPrimitive ->
+                    if (outer.isString)
+                        runCatching { json.parseToJsonElement(outer.content) }.getOrNull()
+                    else null
+                else -> outer
+            }
         return inner as? JsonObject
     }
 
-    fun parseSnapshot(value: JsonObject): PageSnapshot = PageSnapshot(
-        url = value.str("url").orEmpty(),
-        title = value.str("title").orEmpty(),
-        scrollY = value.num("scrollY"),
-        viewportWidth = value.num("vw"),
-        viewportHeight = value.num("vh"),
-        pageHeight = value.num("height"),
-        elements = (value["elements"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::element) },
-        text = value.str("text").orEmpty(),
-        textCut = value.bool("textCut") == true,
-        total = value.num("total"),
-        next = value.num("next"),
-    )
+    fun parseSnapshot(value: JsonObject): PageSnapshot =
+        PageSnapshot(
+            url = value.str("url").orEmpty(),
+            title = value.str("title").orEmpty(),
+            scrollY = value.num("scrollY"),
+            viewportWidth = value.num("vw"),
+            viewportHeight = value.num("vh"),
+            pageHeight = value.num("height"),
+            elements =
+                (value["elements"] as? JsonArray).orEmpty().mapNotNull {
+                    (it as? JsonObject)?.let(::element)
+                },
+            text = value.str("text").orEmpty(),
+            textCut = value.bool("textCut") == true,
+            total = value.num("total"),
+            next = value.num("next"),
+        )
 
     /** 页面脚本描述的一个元素；没有编号的返回 null。 */
     fun element(e: JsonObject): PageElement? {
@@ -139,7 +147,8 @@ internal object BrowserPage {
         )
     }
 
-    private fun JsonObject.num(key: String): Int = (this[key] as? JsonPrimitive)?.let { it.intOrNull ?: it.doubleOrNull?.roundToInt() } ?: 0
+    private fun JsonObject.num(key: String): Int =
+        (this[key] as? JsonPrimitive)?.let { it.intOrNull ?: it.doubleOrNull?.roundToInt() } ?: 0
 
     /** 元素是什么（中文），给列表和动作结果用。 */
     fun kind(e: PageElement): String {
@@ -147,33 +156,43 @@ internal object BrowserPage {
         return when (e.role?.lowercase()) {
             "button" -> "按钮"
             "link" -> "链接"
-            "checkbox", "menuitemcheckbox" -> "复选框"
-            "radio", "menuitemradio" -> "单选项"
+            "checkbox",
+            "menuitemcheckbox" -> "复选框"
+            "radio",
+            "menuitemradio" -> "单选项"
             "switch" -> "开关"
             "tab" -> "标签页"
             "menuitem" -> "菜单项"
             "option" -> "选项"
             "combobox" -> "组合框"
-            "textbox", "searchbox" -> "输入框"
+            "textbox",
+            "searchbox" -> "输入框"
             "slider" -> "滑块"
-            else -> when (e.tag.lowercase()) {
-                "a" -> "链接"
-                "button" -> "按钮"
-                "select" -> "下拉框"
-                "textarea" -> "多行输入框"
-                "summary" -> "折叠标题"
-                "input" -> when (type) {
-                    "checkbox" -> "复选框"
-                    "radio" -> "单选项"
-                    "submit", "button", "reset", "image" -> "按钮"
-                    "range" -> "滑块"
-                    "file" -> "文件选择"
-                    "password" -> "密码框"
-                    null, "", "text" -> "输入框"
-                    else -> "输入框($type)"
+            else ->
+                when (e.tag.lowercase()) {
+                    "a" -> "链接"
+                    "button" -> "按钮"
+                    "select" -> "下拉框"
+                    "textarea" -> "多行输入框"
+                    "summary" -> "折叠标题"
+                    "input" ->
+                        when (type) {
+                            "checkbox" -> "复选框"
+                            "radio" -> "单选项"
+                            "submit",
+                            "button",
+                            "reset",
+                            "image" -> "按钮"
+                            "range" -> "滑块"
+                            "file" -> "文件选择"
+                            "password" -> "密码框"
+                            null,
+                            "",
+                            "text" -> "输入框"
+                            else -> "输入框($type)"
+                        }
+                    else -> if (e.editable) "可编辑区" else "可点元素"
                 }
-                else -> if (e.editable) "可编辑区" else "可点元素"
-            }
         }
     }
 
@@ -181,28 +200,56 @@ internal object BrowserPage {
     fun line(e: PageElement): String = buildString {
         append('[').append(e.id).append("] ").append(kind(e))
         if (e.name.isNotBlank()) append(" \"").append(clip(e.name, BrowserLimits.NAME)).append('"')
-        e.placeholder?.takeIf { it != e.name }?.let { append(" 提示=\"").append(clip(it, BrowserLimits.NAME)).append('"') }
+        e.placeholder
+            ?.takeIf { it != e.name }
+            ?.let { append(" 提示=\"").append(clip(it, BrowserLimits.NAME)).append('"') }
+        appendValue(e)
+        e.href
+            ?.takeIf { !it.startsWith("javascript:", true) }
+            ?.let { append(" → ").append(clip(it, BrowserLimits.HREF)) }
+        val flags = flags(e)
+        if (flags.isNotEmpty()) append(' ').append(flags.joinToString("·"))
+    }
+
+    /** 元素当前的值：下拉框是当前选项和选项数，勾选框不写（看状态），别的有值才写。 */
+    private fun StringBuilder.appendValue(e: PageElement) {
         if (e.tag.equals("select", true)) {
             append(" 当前=\"").append(clip(e.value.orEmpty(), BrowserLimits.NAME)).append('"')
             e.options?.let { append("（").append(it).append(" 个选项）") }
         } else if (e.checked == null) {
-            e.value?.takeIf { it.isNotEmpty() }?.let { append(" 值=\"").append(clip(it, BrowserLimits.NAME)).append('"') }
+            e.value
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { append(" 值=\"").append(clip(it, BrowserLimits.NAME)).append('"') }
         }
-        e.href?.takeIf { !it.startsWith("javascript:", true) }?.let { append(" → ").append(clip(it, BrowserLimits.HREF)) }
-        val flags = buildList {
-            e.checked?.let { add(if (it) "已选" else "未选") }
-            e.expanded?.let { add(if (it) "已展开" else "已收起") }
-            if (e.disabled) add("不可用")
-        }
-        if (flags.isNotEmpty()) append(' ').append(flags.joinToString("·"))
     }
 
-    /**
-     * 动作之后交给 Claude 的页面概况：地址和位置、视口里（和紧挨着下方）的可交互元素编号列表、视口里的文字。都有条数和长度上限。
-     */
+    /** 元素的状态：选没选、展没展开、可不可用。 */
+    private fun flags(e: PageElement): List<String> {
+        val flags = ArrayList<String>()
+        e.checked?.let { flags += if (it) "已选" else "未选" }
+        e.expanded?.let { flags += if (it) "已展开" else "已收起" }
+        if (e.disabled) flags += "不可用"
+        return flags
+    }
+
+    /** 动作之后交给 Claude 的页面概况：地址和位置、视口里（和紧挨着下方）的可交互元素编号列表、视口里的文字。都有条数和长度上限。 */
     fun render(page: PageSnapshot, loading: Boolean = false): String = buildString {
-        append('「').append(clip(page.title.ifBlank { "无标题" }, 100)).append("」 ").append(page.url).append('\n')
+        append('「')
+            .append(clip(page.title.ifBlank { "无标题" }, 100))
+            .append("」 ")
+            .append(page.url)
+            .append('\n')
         val vh = max(page.viewportHeight, 1)
+        appendViewport(page, vh)
+        if (loading) append("；页面还在加载")
+        append('\n')
+        appendElements(page, vh)
+        appendViewText(page)
+    }
+        .trimEnd()
+
+    /** 视口多大、页面多高、看到的是哪一段。[vh] 是视口高度（至少 1）。 */
+    private fun StringBuilder.appendViewport(page: PageSnapshot, vh: Int) {
         val height = max(page.pageHeight, vh)
         val top = page.scrollY.coerceIn(0, height)
         val bottom = min(top + vh, height)
@@ -214,40 +261,53 @@ internal object BrowserPage {
             val below = height - bottom
             append(if (below > 2) "，下面还有 $below" else "，已到底")
         }
-        if (loading) append("；页面还在加载")
-        append('\n')
+    }
 
-        val inView = page.elements.filter { it.bottom > 0 && it.top < vh }.sortedWith(compareBy({ it.top }, { it.id }))
+    /** 可交互元素的编号列表：视口里的、紧挨着视口下方的，和视口外还有多少没列。[vh] 是视口高度。 */
+    private fun StringBuilder.appendElements(page: PageSnapshot, vh: Int) {
+        val inView =
+            page.elements
+                .filter { it.bottom > 0 && it.top < vh }
+                .sortedWith(compareBy({ it.top }, { it.id }))
         val below = page.elements.filter { it.top >= vh }.sortedBy { it.top }
         val above = page.elements.count { it.bottom <= 0 }
         val shown = inView.take(BrowserLimits.VIEWPORT_ELEMENTS)
         val shownBelow = below.take(BrowserLimits.BELOW_ELEMENTS)
         if (shown.isEmpty() && shownBelow.isEmpty()) {
             append("\n视口里没有可交互元素")
-        } else {
-            append("\n可交互元素（click / type 用方括号里的编号）：\n")
-            shown.forEach { append(line(it)).append('\n') }
-            if (inView.size > shown.size) append("…视口里还有 ").append(inView.size - shown.size).append(" 个没列出\n")
-            if (shownBelow.isNotEmpty()) {
-                append("视口下方：\n")
-                shownBelow.forEach { append(line(it)).append('\n') }
-            }
-            val hidden = (below.size - shownBelow.size) + above + max(0, page.total - page.elements.size)
-            if (hidden > 0) append("（视口外还有约 ").append(hidden).append(" 个，滚动后会列出）\n")
+            return
         }
+        append("\n可交互元素（click / type 用方括号里的编号）：\n")
+        shown.forEach { append(line(it)).append('\n') }
+        if (inView.size > shown.size)
+            append("…视口里还有 ").append(inView.size - shown.size).append(" 个没列出\n")
+        if (shownBelow.isNotEmpty()) {
+            append("视口下方：\n")
+            shownBelow.forEach { append(line(it)).append('\n') }
+        }
+        val hidden =
+            (below.size - shownBelow.size) + above + max(0, page.total - page.elements.size)
+        if (hidden > 0) append("（视口外还有约 ").append(hidden).append(" 个，滚动后会列出）\n")
+    }
+
+    /** 视口里的文字，太长时截断并说怎么读全文。 */
+    private fun StringBuilder.appendViewText(page: PageSnapshot) {
         val text = normalizeText(page.text)
-        if (text.isNotEmpty()) {
-            append("\n视口里的文字：\n")
-            if (text.length > BrowserLimits.VIEW_TEXT) {
-                append(text.clipChars(BrowserLimits.VIEW_TEXT)).append("…\n（只给了前 ").append(BrowserLimits.VIEW_TEXT).append(" 字；read 读全文）")
-            } else {
-                append(text)
-                if (page.textCut) append("\n…（文字太多，没取完；read 读全文）")
-            }
-        } else {
+        if (text.isEmpty()) {
             append("\n视口里没有文字")
+            return
         }
-    }.trimEnd()
+        append("\n视口里的文字：\n")
+        if (text.length > BrowserLimits.VIEW_TEXT) {
+            append(text.clipChars(BrowserLimits.VIEW_TEXT))
+                .append("…\n（只给了前 ")
+                .append(BrowserLimits.VIEW_TEXT)
+                .append(" 字；read 读全文）")
+        } else {
+            append(text)
+            if (page.textCut) append("\n…（文字太多，没取完；read 读全文）")
+        }
+    }
 
     /** 收拢空白：每行去掉首尾空白、连续空格并成一个，空行最多留一行。 */
     fun normalizeText(raw: String): String {
@@ -275,13 +335,20 @@ internal object BrowserPage {
         val end = safeCut(all, min(all.length, start + limit), start)
         return buildString {
             append(all, start, end)
-            append("\n\n（第 ").append(start).append('–').append(end).append(" 字，全文共 ").append(all.length).append(" 字")
+            append("\n\n（第 ")
+                .append(start)
+                .append('–')
+                .append(end)
+                .append(" 字，全文共 ")
+                .append(all.length)
+                .append(" 字")
             if (end < all.length) append("；接着读传 offset: ").append(end)
             append('）')
         }
     }
 
-    fun clip(value: String, limit: Int): String = value.replace(SPACES, " ").trim().clipChars(limit, "…")
+    fun clip(value: String, limit: Int): String =
+        value.replace(SPACES, " ").trim().clipChars(limit, "…")
 
     private val SPACES = Regex("[\\s\\u00a0]+")
 }
@@ -298,9 +365,12 @@ internal object BrowserUrls {
     fun forAgent(raw: String?): Pair<String?, String?> {
         val value = raw?.trim().orEmpty()
         if (value.isEmpty()) return null to "open 要给 url"
-        val withScheme = if (hasScheme(value)) value else if (value.startsWith("//")) "https:$value" else "https://$value"
+        val withScheme =
+            if (hasScheme(value)) value
+            else if (value.startsWith("//")) "https:$value" else "https://$value"
         val scheme = withScheme.substringBefore(':').lowercase()
-        if (scheme != "http" && scheme != "https") return null to "只能打开 http / https 网页，不能打开 $scheme: 开头的地址"
+        if (scheme != "http" && scheme != "https")
+            return null to "只能打开 http / https 网页，不能打开 $scheme: 开头的地址"
         val host = runCatching { URI(withScheme).host }.getOrNull()
         if (host.isNullOrBlank()) return null to "网址不对：$value"
         return withScheme to null
@@ -311,8 +381,12 @@ internal object BrowserUrls {
         val value = input.trim()
         if (value.isEmpty()) return null
         if (hasScheme(value)) return forAgent(value).first
-        val looksLikeHost = value.none { it.isWhitespace() } && (value.contains('.') || value.startsWith("localhost", true)) &&
-            runCatching { URI("https://$value").host }.getOrNull()?.let { it.contains('.') || it.equals("localhost", true) } == true
+        val looksLikeHost =
+            value.none { it.isWhitespace() } &&
+                (value.contains('.') || value.startsWith("localhost", true)) &&
+                runCatching { URI("https://$value").host }
+                    .getOrNull()
+                    ?.let { it.contains('.') || it.equals("localhost", true) } == true
         if (looksLikeHost) return "https://$value"
         return SEARCH + URLEncoder.encode(value, Charsets.UTF_8)
     }
@@ -324,7 +398,8 @@ internal object BrowserUrls {
     fun host(url: String): String = runCatching { URI(url).host }.getOrNull().orEmpty()
 
     /** 开头是不是协议（`https:`、`javascript:`）；`localhost:8080` 这种主机加端口不算。 */
-    private fun hasScheme(value: String): Boolean = SCHEME.containsMatchIn(value) && !HOST_PORT.containsMatchIn(value)
+    private fun hasScheme(value: String): Boolean =
+        SCHEME.containsMatchIn(value) && !HOST_PORT.containsMatchIn(value)
 
     private val SCHEME = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:")
     private val HOST_PORT = Regex("^[a-zA-Z0-9.-]+:\\d+(/|\\?|#|$)")
@@ -345,7 +420,19 @@ internal data class BrowserRequest(
     val ms: Int = 0,
 ) {
     companion object {
-        val ACTIONS = listOf("open", "read", "click", "type", "scroll", "back", "forward", "reload", "screenshot", "wait")
+        val ACTIONS =
+            listOf(
+                "open",
+                "read",
+                "click",
+                "type",
+                "scroll",
+                "back",
+                "forward",
+                "reload",
+                "screenshot",
+                "wait",
+            )
 
         /** 解析并校验；有问题时返回 (null, 说明)。 */
         fun parse(input: JsonObject): Pair<BrowserRequest?, String?> {
@@ -356,28 +443,35 @@ internal data class BrowserRequest(
             val y = input.int("y")
             if ((x == null) != (y == null)) return null to "x 和 y 要一起给"
             val text = input.str("text")
-            val request = BrowserRequest(
-                action = action,
-                url = input.str("url"),
-                element = element,
-                x = x,
-                y = y,
-                text = text,
-                submit = input.bool("submit") == true,
-                direction = input.str("direction")?.lowercase() ?: "down",
-                offset = (input.int("offset") ?: 0).coerceAtLeast(0),
-                ms = input.int("ms") ?: 0,
-            )
-            val problem = when (action) {
-                "open" -> BrowserUrls.forAgent(request.url).second
-                "click" -> if (element == null && x == null) "click 要给 element（页面概况里的编号），或者截图上的 x、y" else null
-                "type" -> when {
-                    text == null -> "type 要给 text"
+            val request =
+                BrowserRequest(
+                    action = action,
+                    url = input.str("url"),
+                    element = element,
+                    x = x,
+                    y = y,
+                    text = text,
+                    submit = input.bool("submit") == true,
+                    direction = input.str("direction")?.lowercase() ?: "down",
+                    offset = (input.int("offset") ?: 0).coerceAtLeast(0),
+                    ms = input.int("ms") ?: 0,
+                )
+            val problem =
+                when (action) {
+                    "open" -> BrowserUrls.forAgent(request.url).second
+                    "click" ->
+                        if (element == null && x == null) "click 要给 element（页面概况里的编号），或者截图上的 x、y"
+                        else null
+                    "type" ->
+                        when {
+                            text == null -> "type 要给 text"
+                            else -> null
+                        }
+                    "scroll" ->
+                        if (request.direction !in setOf("up", "down")) "direction 只能是 up 或 down"
+                        else null
                     else -> null
                 }
-                "scroll" -> if (request.direction !in setOf("up", "down")) "direction 只能是 up 或 down" else null
-                else -> null
-            }
             return if (problem != null) null to problem else request to null
         }
 
@@ -385,17 +479,43 @@ internal data class BrowserRequest(
         fun title(input: JsonObject): String {
             val element = input.int("element")?.let { "[$it]" }
             return when (input.str("action")?.lowercase()) {
-                "open" -> "打开网页 " + (input.str("url")?.let { BrowserUrls.host(BrowserUrls.forAgent(it).first ?: it).ifEmpty { BrowserPage.clip(it, 40) } } ?: "")
+                "open" ->
+                    "打开网页 " +
+                        (input.str("url")?.let {
+                            BrowserUrls.host(BrowserUrls.forAgent(it).first ?: it).ifEmpty {
+                                BrowserPage.clip(it, 40)
+                            }
+                        } ?: "")
                 "read" -> "读网页全文"
-                "click" -> "点按网页里的" + (element ?: input.int("x")?.let { "(${it}, ${input.int("y") ?: 0})" } ?: "元素")
-                "type" -> "在网页里输入“" + BrowserPage.clip(input.str("text").orEmpty(), 24) + "”" + if (input.bool("submit") == true) "并提交" else ""
-                "scroll" -> if (element != null) "网页滚到 $element" else if (input.str("direction") == "up") "网页向上滚动" else "网页向下滚动"
+                "click" ->
+                    "点按网页里的" +
+                        (element
+                            ?: input.int("x")?.let { "(${it}, ${input.int("y") ?: 0})" }
+                            ?: "元素")
+                "type" ->
+                    "在网页里输入“" +
+                        BrowserPage.clip(input.str("text").orEmpty(), 24) +
+                        "”" +
+                        if (input.bool("submit") == true) "并提交" else ""
+                "scroll" ->
+                    if (element != null) "网页滚到 $element"
+                    else if (input.str("direction") == "up") "网页向上滚动" else "网页向下滚动"
                 "back" -> "网页后退"
                 "forward" -> "网页前进"
                 "reload" -> "刷新网页"
                 "screenshot" -> "网页截图"
-                "wait" -> input.str("text")?.let { "等网页出现「" + BrowserPage.clip(it, 20) + "」" }
-                    ?: ("等待网页 " + "%.1f".format(((input.int("ms") ?: 1000).coerceIn(100, BrowserLimits.WAIT_MS)) / 1000.0).removeSuffix(".0") + " 秒")
+                "wait" ->
+                    input.str("text")?.let { "等网页出现「" + BrowserPage.clip(it, 20) + "」" }
+                        ?: ("等待网页 " +
+                            "%.1f"
+                                .format(
+                                    ((input.int("ms") ?: 1000).coerceIn(
+                                        100,
+                                        BrowserLimits.WAIT_MS,
+                                    )) / 1000.0,
+                                )
+                                .removeSuffix(".0") +
+                            " 秒")
                 else -> "浏览器"
             }.trim()
         }
@@ -404,9 +524,13 @@ internal data class BrowserRequest(
 
 /** 截图的大小：WebView 按比例缩到长边不超过 [BrowserLimits.SHOT_EDGE]。click 的 x、y 用这套像素。 */
 internal data class ShotSize(val viewWidth: Int, val viewHeight: Int) {
-    val scale: Float = min(1f, BrowserLimits.SHOT_EDGE / max(max(viewWidth, viewHeight), 1).toFloat())
-    val width: Int get() = max(1, (viewWidth * scale).roundToInt())
-    val height: Int get() = max(1, (viewHeight * scale).roundToInt())
+    val scale: Float =
+        min(1f, BrowserLimits.SHOT_EDGE / max(max(viewWidth, viewHeight), 1).toFloat())
+    val width: Int
+        get() = max(1, (viewWidth * scale).roundToInt())
+
+    val height: Int
+        get() = max(1, (viewHeight * scale).roundToInt())
 
     /** 截图上的一点换成视口里的比例（0..1），页面脚本再按视口的 CSS 尺寸换算。点在截图外时返回 null。 */
     fun fraction(x: Int, y: Int): Pair<Double, Double>? {

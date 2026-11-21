@@ -56,32 +56,55 @@ private const val LoadAhead = 3
  * 内容不满一屏、翻不动时点它），载入中是转圈，没读到时说明原因，能重试的点一下重试。几种样子一样高。
  */
 @Composable
-internal fun EarlierHistoryRow(skipped: Int, state: EarlierState, onLoad: () -> Unit, modifier: Modifier = Modifier) {
+internal fun EarlierHistoryRow(
+    skipped: Int,
+    state: EarlierState,
+    onLoad: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = COUITheme.colorScheme
     val clickable = state == EarlierState.Idle || (state as? EarlierState.Failed)?.retry == true
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(EarlierRowHeight)
-            .then(if (clickable) Modifier.clickable(role = Role.Button, onClick = onLoad) else Modifier)
-            .padding(horizontal = 20.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(EarlierRowHeight)
+                .then(
+                    if (clickable) Modifier.clickable(role = Role.Button, onClick = onLoad)
+                    else Modifier,
+                )
+                .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
         when (state) {
-            EarlierState.Idle -> Text(text = "载入更早的 $skipped 条记录", style = COUITheme.textStyles.bodyS, color = colors.primary)
-            EarlierState.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                InfiniteProgressIndicator(size = 16.dp)
-                Spacer(Modifier.width(8.dp))
-                Text(text = "正在载入更早的记录", style = COUITheme.textStyles.bodyS, color = colors.labelSecondary)
-            }
-            is EarlierState.Failed -> Text(
-                text = state.message + if (state.retry) "，点按重试" else "",
-                style = COUITheme.textStyles.bodyS,
-                color = colors.labelSecondary,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            EarlierState.Idle ->
+                Text(
+                    text = "载入更早的 $skipped 条记录",
+                    style = COUITheme.textStyles.bodyS,
+                    color = colors.primary,
+                )
+            EarlierState.Loading ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    InfiniteProgressIndicator(size = 16.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "正在载入更早的记录",
+                        style = COUITheme.textStyles.bodyS,
+                        color = colors.labelSecondary,
+                    )
+                }
+            is EarlierState.Failed ->
+                Text(
+                    text = state.message + if (state.retry) "，点按重试" else "",
+                    style = COUITheme.textStyles.bodyS,
+                    color = colors.labelSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
         }
     }
 }
@@ -92,9 +115,9 @@ private class SeenFirstKey {
 }
 
 /**
- * 往前接上一页（列表前面多了内容）时，让上次排版时屏上第一条消息停在原来的位置：在新列表排版之前（同一帧）找到它的新下标，
- * requestScrollToItem 到那里、偏移照旧。“更早的记录”那行不算（翻到最顶上时它是第一项）。[firstKey] 是列表里第一条消息的 key，
- * 它变了才找；[indexOf] 给出 key 在新列表里的下标（找不到是 -1，比如开头那几轮被删了，这时照 LazyColumn 自己的）。
+ * 往前接上一页（列表前面多了内容）时，让上次排版时屏上第一条消息停在原来的位置：在新列表排版之前（同一帧）找到它的新下标， requestScrollToItem
+ * 到那里、偏移照旧。“更早的记录”那行不算（翻到最顶上时它是第一项）。[firstKey] 是列表里第一条消息的 key， 它变了才找；[indexOf] 给出 key 在新列表里的下标（找不到是
+ * -1，比如开头那几轮被删了，这时照 LazyColumn 自己的）。
  */
 @Composable
 internal fun KeepReadingPosition(listState: LazyListState, firstKey: Any?, indexOf: (Any) -> Int) {
@@ -103,53 +126,67 @@ internal fun KeepReadingPosition(listState: LazyListState, firstKey: Any?, index
         val before = seen.key
         seen.key = firstKey
         if (before == null || before == firstKey) return@SideEffect
-        val anchor = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != EarlierRowKey } ?: return@SideEffect
+        val anchor =
+            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != EarlierRowKey }
+                ?: return@SideEffect
         val index = indexOf(anchor.key)
-        if (index >= 0 && index != anchor.index) listState.requestScrollToItem(index, -anchor.offset)
+        if (index >= 0 && index != anchor.index)
+            listState.requestScrollToItem(index, -anchor.offset)
     }
 }
 
-/**
- * 往上翻到顶附近时自动载入更早的记录。返回要挂到聊天列表上的嵌套滚动连接（用来认出用户往上翻）。
- * [onLoad] 在开始载入前调（停掉贴底跟随：接上一页后内容变长，不能被拽回底部）。
- */
+/** 往上翻到顶附近时自动载入更早的记录。返回要挂到聊天列表上的嵌套滚动连接（用来认出用户往上翻）。 [onLoad] 在开始载入前调（停掉贴底跟随：接上一页后内容变长，不能被拽回底部）。 */
 @Composable
-internal fun rememberEarlierPaging(conversation: Conversation, listState: LazyListState, onLoad: () -> Unit): NestedScrollConnection {
+internal fun rememberEarlierPaging(
+    conversation: Conversation,
+    listState: LazyListState,
+    onLoad: () -> Unit,
+): NestedScrollConnection {
     // 用户真往上翻过才载入：数据插进来、重新排版、程序滚动（查找跳转、贴底跟随）都不算（照 Eta）。每载入一次用掉一次。
     // 记下是对哪段没载入的部分翻的：一页刚接上时，不能拿载入前的那次翻动再载一页
     val demand = remember(conversation) { mutableStateOf<EarlierHistory?>(null) }
     val latestOnLoad by rememberUpdatedState(onLoad)
-    val connection = remember(demand) {
-        object : NestedScrollConnection {
-            fun scrolled(y: Float) {
-                // 手指往下拖（内容往上翻）时 y 为正
-                if (y != 0f) demand.value = if (y > 0f) conversation.earlier else null
-            }
+    val connection =
+        remember(demand) {
+            object : NestedScrollConnection {
+                fun scrolled(y: Float) {
+                    // 手指往下拖（内容往上翻）时 y 为正
+                    if (y != 0f) demand.value = if (y > 0f) conversation.earlier else null
+                }
 
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput) scrolled(available.y)
-                return Offset.Zero
-            }
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (source == NestedScrollSource.UserInput) scrolled(available.y)
+                    return Offset.Zero
+                }
 
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                // 松手后的惯性滑动也算
-                scrolled(consumed.y)
-                return Offset.Zero
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    // 松手后的惯性滑动也算
+                    scrolled(consumed.y)
+                    return Offset.Zero
+                }
             }
         }
-    }
     LaunchedEffect(conversation, listState) {
         snapshotFlow {
             val earlier = conversation.earlier
-            earlier != null && demand.value == earlier && conversation.earlierState == EarlierState.Idle &&
-                listState.layoutInfo.totalItemsCount > 0 && listState.firstVisibleItemIndex <= LoadAhead
-        }.distinctUntilChanged().collect { ready ->
-            if (ready) {
-                demand.value = null
-                latestOnLoad()
-                conversation.loadEarlier()
-            }
+            earlier != null &&
+                demand.value == earlier &&
+                conversation.earlierState == EarlierState.Idle &&
+                listState.layoutInfo.totalItemsCount > 0 &&
+                listState.firstVisibleItemIndex <= LoadAhead
         }
+            .distinctUntilChanged()
+            .collect { ready ->
+                if (ready) {
+                    demand.value = null
+                    latestOnLoad()
+                    conversation.loadEarlier()
+                }
+            }
     }
     return connection
 }

@@ -16,9 +16,11 @@ import org.robolectric.annotation.Config
 class IntakeIntentTest {
     @Test
     fun sendText() {
-        val intent = Intent(Intent.ACTION_SEND).setType("text/plain")
-            .putExtra(Intent.EXTRA_TEXT, "https://example.com/a")
-            .putExtra(Intent.EXTRA_SUBJECT, "标题")
+        val intent =
+            Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, "https://example.com/a")
+                .putExtra(Intent.EXTRA_SUBJECT, "标题")
         val intake = Intake.fromIntent(intent)!!
         assertEquals("标题\nhttps://example.com/a", intake.text)
         assertEquals(emptyList<String>(), intake.uris)
@@ -26,10 +28,15 @@ class IntakeIntentTest {
 
     @Test
     fun sendMultipleUris() {
-        val uris = arrayListOf(Uri.parse("content://files/a.txt"), Uri.parse("content://files/b.png"))
-        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*").putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+        val uris =
+            arrayListOf(Uri.parse("content://files/a.txt"), Uri.parse("content://files/b.png"))
+        val intent =
+            Intent(Intent.ACTION_SEND_MULTIPLE)
+                .setType("*/*")
+                .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
         // 系统会把 EXTRA_STREAM 搬一份进 ClipData（授权跟着它走），两边重复的只算一次
-        intent.clipData = ClipData.newRawUri(null, uris[0]).apply { addItem(ClipData.Item(uris[1])) }
+        intent.clipData =
+            ClipData.newRawUri(null, uris[0]).apply { addItem(ClipData.Item(uris[1])) }
         val intake = Intake.fromIntent(intent)!!
         assertEquals(listOf("content://files/a.txt", "content://files/b.png"), intake.uris)
         assertNull(intake.text)
@@ -38,13 +45,18 @@ class IntakeIntentTest {
 
     @Test
     fun sendOneStream() {
-        val intent = Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, Uri.parse("content://files/r.pdf"))
+        val intent =
+            Intent(Intent.ACTION_SEND)
+                .setType("application/pdf")
+                .putExtra(Intent.EXTRA_STREAM, Uri.parse("content://files/r.pdf"))
         assertEquals(listOf("content://files/r.pdf"), Intake.fromIntent(intent)!!.uris)
     }
 
     @Test
     fun viewOpensData() {
-        val intent = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://files/notes.md"), "text/markdown")
+        val intent =
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(Uri.parse("content://files/notes.md"), "text/markdown")
         val intake = Intake.fromIntent(intent)!!
         assertEquals(IntakeSource.Open, intake.source)
         assertEquals(listOf("content://files/notes.md"), intake.uris)

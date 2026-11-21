@@ -1,13 +1,11 @@
 package com.dzshzx.zeta.core.claude
 
-import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.LinuxShell
 import com.sun.net.httpserver.HttpServer
-import java.io.File
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,15 +21,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 端到端：真的 [ClaudeConfigClient]、真的壳脚本，跑在一个临时 HOME 上，不碰任何人真实的 ~/.claude。
- * [LocalClientTest] 在跑测试的机器上用 bash；[PhoneClientTest] 设了 ZETA_TEST_SSH（手机 Debian 的 ssh 别名）时经 ssh 在手机的 Debian 里跑同一套。
+ * 端到端：真的 [ClaudeConfigClient]、真的壳脚本，跑在一个临时 HOME 上，不碰任何人真实的 ~/.claude。 [LocalClientTest] 在跑测试的机器上用
+ * bash；[PhoneClientTest] 设了 ZETA_TEST_SSH（手机 Debian 的 ssh 别名）时经 ssh 在手机的 Debian 里跑同一套。
  */
 abstract class ClaudeConfigClientTest {
     protected abstract fun shell(): TestShell
 
     protected lateinit var sh: TestShell
     protected lateinit var client: ClaudeConfigClient
-    protected val home get() = sh.home
+    protected val home
+        get() = sh.home
 
     @Before
     fun setUp() {
@@ -57,14 +56,19 @@ abstract class ClaudeConfigClientTest {
 
     private class MCPDrain(stream: java.io.InputStream) {
         private val text = StringBuilder()
-        private val t = Thread { runCatching { text.append(stream.bufferedReader().readText()) } }.apply { start() }
+        private val t = Thread {
+            runCatching { text.append(stream.bufferedReader().readText()) }
+        }
+            .apply { start() }
+
         fun text(): String {
             t.join(2_000)
             return text.toString()
         }
     }
 
-    private val git = "GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c user.email=t@example.com -c user.name=t -c init.defaultBranch=main"
+    private val git =
+        "GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c user.email=t@example.com -c user.name=t -c init.defaultBranch=main"
 
     @Test
     fun memoryFollowsGitAndClaudeCodeKeys() {
@@ -73,7 +77,8 @@ abstract class ClaudeConfigClientTest {
             set -e
             mkdir -p "${'$'}HOME/repo/sub"
             cd "${'$'}HOME/repo" && $git init -q && $git commit -q --allow-empty -m init && $git worktree add -q "${'$'}HOME/wt" -b feature
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val repo = run("cd \"\$HOME/repo\" && pwd -P").trim()
         val key = ClaudePaths.projectKey(repo)
@@ -89,7 +94,8 @@ abstract class ClaudeConfigClientTest {
             mkdir -p "${'$'}HOME/.claude/projects/-linked" && ln -s ../-other-proj/memory "${'$'}HOME/.claude/projects/-linked/memory"
             printf '{"cwd":"/other/proj","type":"user"}\n' > "${'$'}HOME/.claude/projects/-other-proj/s1.jsonl"
             printf '{"model":"opus","autoMemoryEnabled":true}\n' > "${'$'}HOME/.claude/settings.json"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         // 子目录和 worktree 都落到主仓库那一份
         for (cwd in listOf("$home/repo/sub", "$home/wt")) {
@@ -99,7 +105,10 @@ abstract class ClaudeConfigClientTest {
         }
         val overview = client.memory("$home/repo", null)
         // memory 是符号链接的项目也照样数得出条数
-        assertEquals(setOf("-other-proj", "-linked"), overview.projects.drop(1).map { it.key }.toSet())
+        assertEquals(
+            setOf("-other-proj", "-linked"),
+            overview.projects.drop(1).map { it.key }.toSet(),
+        )
         assertEquals(listOf(1, 1), overview.projects.drop(1).map { it.count })
         assertEquals("/other/proj", overview.projects.first { it.key == "-other-proj" }.label)
         assertEquals(listOf("keep.md", "user-role.md"), overview.files.map { it.fileName })
@@ -118,7 +127,10 @@ abstract class ClaudeConfigClientTest {
 
         // 开关自动记忆：只改这一个键
         client.setAutoMemory(false)
-        assertEquals("{\n  \"model\": \"opus\",\n  \"autoMemoryEnabled\": false\n}\n", run("cat \"\$HOME/.claude/settings.json\""))
+        assertEquals(
+            "{\n  \"model\": \"opus\",\n  \"autoMemoryEnabled\": false\n}\n",
+            run("cat \"\$HOME/.claude/settings.json\""),
+        )
         assertFalse(client.memory("$home/repo", null).autoMemory)
 
         // 设了 autoMemoryDirectory 以后所有项目共用一个目录
@@ -133,8 +145,7 @@ abstract class ClaudeConfigClientTest {
         try {
             client.read("$home/.claude/settings.json")
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
     }
 
     @Test
@@ -154,74 +165,126 @@ abstract class ClaudeConfigClientTest {
         assertNull(client.write(path, "mine\n", doc.sha))
         assertEquals("first\nchanged by claude\n", client.read(path).content)
         // 强制覆盖；符号链接写到它指的文件上，权限照旧
-        run("mv '$path' \"\$HOME/real.md\" && chmod 600 \"\$HOME/real.md\" && ln -s \"\$HOME/real.md\" '$path'")
+        run(
+            "mv '$path' \"\$HOME/real.md\" && chmod 600 \"\$HOME/real.md\" && ln -s \"\$HOME/real.md\" '$path'",
+        )
         assertNotNull(client.write(path, "forced 中文\n", null))
         assertEquals("forced 中文\n", run("cat \"\$HOME/real.md\""))
-        assertEquals("link 600", run("[ -L '$path' ] && printf link; printf ' '; stat -c %a \"\$HOME/real.md\"").trim())
+        assertEquals(
+            "link 600",
+            run("[ -L '$path' ] && printf link; printf ' '; stat -c %a \"\$HOME/real.md\"").trim(),
+        )
     }
 
     @Test
     fun skillsImportToggleDelete() {
         val skillMd = "---\nname: pdf-tools\ndescription: Work with PDFs\n---\n# PDF\n"
-        val zip = zipOf(
-            ZipItem("pdf-tools/SKILL.md", skillMd.toByteArray()),
-            ZipItem("pdf-tools/bin/run.sh", "#!/bin/sh\necho ok\n".toByteArray(), mode = 0x81ED),
-            ZipItem("pdf-tools/docs/", ByteArray(0)),
-        )
+        val zip =
+            zipOf(
+                ZipItem("pdf-tools/SKILL.md", skillMd.toByteArray()),
+                ZipItem(
+                    "pdf-tools/bin/run.sh",
+                    "#!/bin/sh\necho ok\n".toByteArray(),
+                    mode = 0x81ED,
+                ),
+                ZipItem("pdf-tools/docs/", ByteArray(0)),
+            )
         run(
             """
             mkdir -p "${'$'}HOME/.claude/skills/synced/acc" "${'$'}HOME/.claude/skills/broken"
             printf '{"skills":[{"name":"docx","description":"Word files"}]}' > "${'$'}HOME/.claude/skills/synced/acc/manifest.json"
             printf '{"theme":"dark"}' > "${'$'}HOME/.claude/settings.json"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val installed = client.importSkill("pdf.zip", zip, replace = false)
-        assertEquals(SkillImport.Installed("pdf-tools", replaced = false, enabled = true), installed)
+        assertEquals(
+            SkillImport.Installed("pdf-tools", replaced = false, enabled = true),
+            installed,
+        )
         assertEquals("ok", run("\"\$HOME/.claude/skills/pdf-tools/bin/run.sh\"").trim())
-        assertEquals("dir", run("[ -d \"\$HOME/.claude/skills/pdf-tools/docs\" ] && echo dir").trim())
+        assertEquals(
+            "dir",
+            run("[ -d \"\$HOME/.claude/skills/pdf-tools/docs\" ] && echo dir").trim(),
+        )
         assertEquals("", run("ls -A \"\$HOME/.claude\" | grep zeta-skill || true").trim())
 
-        assertEquals(SkillImport.Exists("pdf-tools", "Work with PDFs"), client.importSkill("pdf.zip", zip, replace = false))
-        val newer = zipOf(ZipItem("SKILL.md", skillMd.replace("Work with PDFs", "Newer").toByteArray()))
-        assertEquals(SkillImport.Installed("pdf-tools", replaced = true, enabled = true), client.importSkill("pdf.zip", newer, replace = true))
-        assertEquals("gone", run("[ -e \"\$HOME/.claude/skills/pdf-tools/bin\" ] && echo there || echo gone").trim())
+        assertEquals(
+            SkillImport.Exists("pdf-tools", "Work with PDFs"),
+            client.importSkill("pdf.zip", zip, replace = false),
+        )
+        val newer =
+            zipOf(ZipItem("SKILL.md", skillMd.replace("Work with PDFs", "Newer").toByteArray()))
+        assertEquals(
+            SkillImport.Installed("pdf-tools", replaced = true, enabled = true),
+            client.importSkill("pdf.zip", newer, replace = true),
+        )
+        assertEquals(
+            "gone",
+            run("[ -e \"\$HOME/.claude/skills/pdf-tools/bin\" ] && echo there || echo gone").trim(),
+        )
 
         var list = client.skills()
         assertEquals(listOf("broken", "pdf-tools"), list.skills.map { it.name })
         assertFalse(list.skills[0].valid)
-        assertEquals(SkillInfo("pdf-tools", "pdf-tools", "Newer", enabled = true, valid = true), list.skills[1])
+        assertEquals(
+            SkillInfo("pdf-tools", "pdf-tools", "Newer", enabled = true, valid = true),
+            list.skills[1],
+        )
         assertEquals(listOf(SyncedSkill("docx", "Word files", true)), list.synced)
 
         client.setSkillEnabled(list.skills[1], enabled = false)
-        assertEquals("{\n  \"theme\": \"dark\",\n  \"skillOverrides\": {\n    \"pdf-tools\": \"off\"\n  }\n}\n", run("cat \"\$HOME/.claude/settings.json\""))
+        assertEquals(
+            "{\n  \"theme\": \"dark\",\n  \"skillOverrides\": {\n    \"pdf-tools\": \"off\"\n  }\n}\n",
+            run("cat \"\$HOME/.claude/settings.json\""),
+        )
         list = client.skills()
         assertFalse(list.skills[1].enabled)
-        assertEquals(SkillImport.Exists("pdf-tools", "Newer"), client.importSkill("pdf.zip", newer, replace = false))
-        assertEquals(SkillImport.Installed("pdf-tools", replaced = true, enabled = false), client.importSkill("pdf.zip", newer, replace = true))
+        assertEquals(
+            SkillImport.Exists("pdf-tools", "Newer"),
+            client.importSkill("pdf.zip", newer, replace = false),
+        )
+        assertEquals(
+            SkillImport.Installed("pdf-tools", replaced = true, enabled = false),
+            client.importSkill("pdf.zip", newer, replace = true),
+        )
         client.setSkillEnabled(list.skills[1], enabled = true)
         assertTrue(client.skills().skills[1].enabled)
 
         client.setSkillEnabled(list.skills[1], enabled = false)
         client.deleteSkill("pdf-tools")
         assertEquals(listOf("broken"), client.skills().skills.map { it.name })
-        assertEquals("{\n  \"theme\": \"dark\",\n  \"skillOverrides\": {}\n}\n", run("cat \"\$HOME/.claude/settings.json\""))
+        assertEquals(
+            "{\n  \"theme\": \"dark\",\n  \"skillOverrides\": {}\n}\n",
+            run("cat \"\$HOME/.claude/settings.json\""),
+        )
         try {
             client.deleteSkill("../etc")
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
     }
 
     @Test
     fun subagentsRoundTrip() {
         assertEquals(emptyList<Subagent>(), client.agents())
-        val file = client.saveAgent(null, SubagentDraft("reviewer", "Review: after edits", "", listOf("Read", "Grep"), "You review."))
+        val file =
+            client.saveAgent(
+                null,
+                SubagentDraft(
+                    "reviewer",
+                    "Review: after edits",
+                    "",
+                    listOf("Read", "Grep"),
+                    "You review.",
+                ),
+            )
         assertEquals("reviewer.md", file)
         run(
             """
             mkdir -p "${'$'}HOME/.claude/agents/team"
             printf -- '---\nname: helper\ndescription: helps\ncolor: blue\npermissionMode: plan\n---\nBe helpful.\n' > "${'$'}HOME/.claude/agents/team/helper.md"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val agents = client.agents()
         assertEquals(listOf("reviewer.md", "team/helper.md"), agents.map { it.file })
@@ -231,35 +294,42 @@ abstract class ClaudeConfigClientTest {
         assertEquals(listOf("color", "permissionMode"), helper.extraKeys)
 
         // 改名：留在原来的子目录里，旧文件删掉，不认识的键留着
-        val renamed = client.saveAgent(helper, SubagentDraft("assistant", "helps more", "haiku", null, "Be very helpful."))
+        val renamed =
+            client.saveAgent(
+                helper,
+                SubagentDraft("assistant", "helps more", "haiku", null, "Be very helpful."),
+            )
         assertEquals("team/assistant.md", renamed)
         assertEquals(
             "---\nname: assistant\ndescription: helps more\nmodel: haiku\ncolor: blue\npermissionMode: plan\n---\n\nBe very helpful.\n",
             run("cat \"\$HOME/.claude/agents/team/assistant.md\""),
         )
-        assertEquals("gone", run("[ -e \"\$HOME/.claude/agents/team/helper.md\" ] && echo there || echo gone").trim())
+        assertEquals(
+            "gone",
+            run("[ -e \"\$HOME/.claude/agents/team/helper.md\" ] && echo there || echo gone")
+                .trim(),
+        )
 
         // 新建时不能和已有的重名
         try {
-            client.saveAgent(null, SubagentDraft("reviewer", "x", "", null, "")).let { fail("存成了 $it") }
-        } catch (expected: ClaudeConfigException) {
-        }
+            client.saveAgent(null, SubagentDraft("reviewer", "x", "", null, "")).let {
+                fail("存成了 $it")
+            }
+        } catch (expected: ClaudeConfigException) {}
         val reviewer = client.agents().first { it.name == "reviewer" }
         // 编辑期间文件被改过
         run("printf 'more\\n' >> \"\$HOME/.claude/agents/reviewer.md\"")
         try {
             client.saveAgent(reviewer, SubagentDraft("reviewer", "x", "", null, ""))
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
         client.deleteAgent("team/assistant.md")
         client.deleteAgent("reviewer.md")
         assertEquals(emptyList<Subagent>(), client.agents())
         try {
             client.deleteAgent("../settings.json")
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
     }
 
     /** 设置页的默认模型、默认权限模式：只改 model 和 permissions.defaultMode，别的键和顺序不动；按模型存的思考强度原样读出来。 */
@@ -271,10 +341,16 @@ abstract class ClaudeConfigClientTest {
             """
             mkdir -p "${'$'}HOME/.claude"
             printf '%s\n' '{"theme":"dark","permissions":{"allow":["Bash"],"defaultMode":"default"},"modelSettings":{"claude-opus-5-5":{"effortLevel":"xhigh"},"claude-fable-5-2":{"effortLevel":"high","maxEffortLevel":"max"}}}' > "$settings"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         assertEquals(
-            ClaudeDefaults(null, "default", mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high"), null),
+            ClaudeDefaults(
+                null,
+                "default",
+                mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high"),
+                null,
+            ),
             client.defaults(),
         )
         assertEquals("opus", client.setDefaultModel("opus").model)
@@ -300,7 +376,8 @@ abstract class ClaudeConfigClientTest {
               },
               "model": "opus"
             }
-            """.trimIndent() + "\n",
+            """
+                .trimIndent() + "\n",
             run("cat \"$settings\""),
         )
         // 跟随 Claude Code 内置的默认：删掉 model
@@ -308,12 +385,18 @@ abstract class ClaudeConfigClientTest {
         assertFalse(run("cat \"$settings\"").contains("\"model\""))
         // 完全放行不能设成默认，文件不动
         val before = run("cat \"$settings\"")
-        assertTrue(runCatching { client.setDefaultPermissionMode("bypassPermissions") }.exceptionOrNull() is ClaudeConfigException)
+        assertTrue(
+            runCatching { client.setDefaultPermissionMode("bypassPermissions") }.exceptionOrNull()
+                is ClaudeConfigException,
+        )
         assertEquals(before, run("cat \"$settings\""))
         // 没有 permissions 时建出来
         run("printf '{}' > \"$settings\"")
         client.setDefaultPermissionMode("plan")
-        assertEquals("{\n  \"permissions\": {\n    \"defaultMode\": \"plan\"\n  }\n}\n", run("cat \"$settings\""))
+        assertEquals(
+            "{\n  \"permissions\": {\n    \"defaultMode\": \"plan\"\n  }\n}\n",
+            run("cat \"$settings\""),
+        )
     }
 
     /**
@@ -327,11 +410,22 @@ abstract class ClaudeConfigClientTest {
             """
             mkdir -p "${'$'}HOME/.claude"
             printf '%s\n' '{"model":"opus","modelSettings":{"claude-opus-5-5":{"effortLevel":"xhigh"},"claude-fable-5-2":{"effortLevel":"high","maxEffortLevel":"max"}}}' > "$settings"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val sonnet = client.setDefaultEffort("claude-sonnet-5-5", "low")
-        assertEquals(mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-2" to "high", "claude-sonnet-5-5" to "low"), sonnet.efforts)
-        assertEquals("medium", client.setDefaultEffort("claude-fable-5-2", "medium").efforts["claude-fable-5-2"])
+        assertEquals(
+            mapOf(
+                "claude-opus-5-5" to "xhigh",
+                "claude-fable-5-2" to "high",
+                "claude-sonnet-5-5" to "low",
+            ),
+            sonnet.efforts,
+        )
+        assertEquals(
+            "medium",
+            client.setDefaultEffort("claude-fable-5-2", "medium").efforts["claude-fable-5-2"],
+        )
         // 跟随 Claude Code：删掉这个模型的 effortLevel；opus 下没别的键了，整项删掉
         assertNull(client.setDefaultEffort("claude-opus-5-5", null).efforts["claude-opus-5-5"])
         assertEquals("high", client.setDefaultEffort(null, "high").effort)
@@ -350,7 +444,8 @@ abstract class ClaudeConfigClientTest {
               },
               "effortLevel": "high"
             }
-            """.trimIndent() + "\n",
+            """
+                .trimIndent() + "\n",
             run("cat \"$settings\""),
         )
         // 只剩别的键的模型留着，删空了的模型和空的 modelSettings 都不留
@@ -360,12 +455,17 @@ abstract class ClaudeConfigClientTest {
             "{\n  \"model\": \"opus\",\n  \"modelSettings\": {\n    \"claude-fable-5-2\": {\n      \"maxEffortLevel\": \"max\"\n    }\n  },\n  \"effortLevel\": \"high\"\n}\n",
             run("cat \"$settings\""),
         )
-        run("printf '{\"modelSettings\":{\"claude-opus-5-5\":{\"effortLevel\":\"low\"}}}' > \"$settings\"")
+        run(
+            "printf '{\"modelSettings\":{\"claude-opus-5-5\":{\"effortLevel\":\"low\"}}}' > \"$settings\"",
+        )
         client.setDefaultEffort("claude-opus-5-5", null)
         assertEquals("{}\n", run("cat \"$settings\""))
         // modelSettings 不是对象：不写，报原因
         run("printf '{\"modelSettings\":3}' > \"$settings\"")
-        assertTrue(runCatching { client.setDefaultEffort("claude-opus-5-5", "low") }.exceptionOrNull() is ClaudeConfigException)
+        assertTrue(
+            runCatching { client.setDefaultEffort("claude-opus-5-5", "low") }.exceptionOrNull()
+                is ClaudeConfigException,
+        )
         assertEquals("{\"modelSettings\":3}", run("cat \"$settings\""))
     }
 
@@ -375,14 +475,21 @@ abstract class ClaudeConfigClientTest {
         assertEquals(PermissionRules.Empty, client.permissions())
         // 不存在时加一条：建出 permissions
         client.setToolPermission("WebSearch", PermissionBehavior.Ask)
-        assertEquals("{\n  \"permissions\": {\n    \"ask\": [\n      \"WebSearch\"\n    ]\n  }\n}\n", run("cat \"$settings\""))
+        assertEquals(
+            "{\n  \"permissions\": {\n    \"ask\": [\n      \"WebSearch\"\n    ]\n  }\n}\n",
+            run("cat \"$settings\""),
+        )
         run(
             """
             printf '%s\n' '{"model":"opus","permissions":{"defaultMode":"bypassPermissions","allow":["Bash(git status:*)",5,"Bash"],"deny":["Bash(rm:*"]},"env":{"A":"1"}}' > "$settings"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val before = client.permissions()
-        assertEquals(PermissionRules(listOf("Bash(git status:*)", "Bash"), emptyList(), listOf("Bash(rm:*")), before)
+        assertEquals(
+            PermissionRules(listOf("Bash(git status:*)", "Bash"), emptyList(), listOf("Bash(rm:*")),
+            before,
+        )
 
         // 整个 Bash 设成拒绝：允许里的 Bash 去掉，带参数的、认不出的、非字符串的、defaultMode 和别的键都不动
         val denied = client.setToolPermission("Bash", PermissionBehavior.Deny)
@@ -407,40 +514,59 @@ abstract class ClaudeConfigClientTest {
               }
             }
 
-            """.trimIndent(),
+            """
+                .trimIndent(),
             run("cat \"$settings\""),
         )
 
         client.addPermissionRule(PermissionBehavior.Ask, "mcp__phone__shell")
-        val moved = client.replacePermissionRule(PermissionBehavior.Allow, "Bash(git status:*)", PermissionBehavior.Ask, "Bash(git status:*)")
-        assertEquals(PermissionRules(emptyList(), listOf("mcp__phone__shell", "Bash(git status:*)"), listOf("Bash(rm:*", "Bash")), moved)
+        val moved =
+            client.replacePermissionRule(
+                PermissionBehavior.Allow,
+                "Bash(git status:*)",
+                PermissionBehavior.Ask,
+                "Bash(git status:*)",
+            )
+        assertEquals(
+            PermissionRules(
+                emptyList(),
+                listOf("mcp__phone__shell", "Bash(git status:*)"),
+                listOf("Bash(rm:*", "Bash"),
+            ),
+            moved,
+        )
         assertEquals(moved, client.permissions())
 
         // 别人在中间改了文件：改的是新内容，别人加的留着
-        run("jq -c '.permissions.deny += [\"Read(./.env)\"] | .theme = \"dark\"' \"$settings\" > \"$settings.new\" && mv \"$settings.new\" \"$settings\"")
+        run(
+            "jq -c '.permissions.deny += [\"Read(./.env)\"] | .theme = \"dark\"' \"$settings\" > \"$settings.new\" && mv \"$settings.new\" \"$settings\"",
+        )
         val removed = client.removePermissionRule(PermissionBehavior.Deny, "Bash(rm:*")
         assertEquals(listOf("Bash", "Read(./.env)"), removed.deny)
         assertTrue(run("cat \"$settings\"").contains("\"theme\": \"dark\""))
         // 要改的那条已经被别人删了
         try {
-            client.replacePermissionRule(PermissionBehavior.Deny, "Bash(rm:*", PermissionBehavior.Ask, "Bash(rm:*)")
+            client.replacePermissionRule(
+                PermissionBehavior.Deny,
+                "Bash(rm:*",
+                PermissionBehavior.Ask,
+                "Bash(rm:*)",
+            )
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
         try {
             client.addPermissionRule(PermissionBehavior.Ask, "Bash(ls")
             fail()
-        } catch (expected: ClaudeConfigException) {
-        }
+        } catch (expected: ClaudeConfigException) {}
 
         // 文件坏了：读、改都报错，不碰它
         run("printf '{oops' > \"$settings\"")
-        for (action in listOf({ client.permissions() }, { client.setToolPermission("Bash", null) })) {
+        for (action in
+            listOf({ client.permissions() }, { client.setToolPermission("Bash", null) })) {
             try {
                 action()
                 fail()
-            } catch (expected: ClaudeConfigException) {
-            }
+            } catch (expected: ClaudeConfigException) {}
         }
         assertEquals("{oops", run("cat \"$settings\""))
     }
@@ -452,15 +578,30 @@ abstract class ClaudeConfigClientTest {
             """
             mkdir -p "${'$'}HOME/.claude"
             printf '%s\n' '{"model":"opus","permissions":{"defaultMode":"bypassPermissions","allow":["mcp__phone__screen","Read"],"ask":["Bash(git push:*)","mcp__phone__shell"],"deny":["Bash(rm:*","WebFetch"]}}' > "$settings"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         // 关掉手机工具：一条整个服务器的拒绝，手机工具上的允许、询问去掉
         val off = client.setGroupPermission(PermissionGroup.Server("phone"), enable = false)
-        assertEquals(PermissionRules(listOf("Read"), listOf("Bash(git push:*)"), listOf("Bash(rm:*", "WebFetch", "mcp__phone")), off)
+        assertEquals(
+            PermissionRules(
+                listOf("Read"),
+                listOf("Bash(git push:*)"),
+                listOf("Bash(rm:*", "WebFetch", "mcp__phone"),
+            ),
+            off,
+        )
         // 开启内置工具：逐个写允许，内置工具上的拒绝、询问去掉，认不出的 Bash(rm:* 留着
         val tools = listOf("Bash", "Read", "WebFetch")
         val on = client.setGroupPermission(PermissionGroup.Tools(tools), enable = true)
-        assertEquals(PermissionRules(listOf("Read", "Bash", "WebFetch"), emptyList(), listOf("Bash(rm:*", "mcp__phone")), on)
+        assertEquals(
+            PermissionRules(
+                listOf("Read", "Bash", "WebFetch"),
+                emptyList(),
+                listOf("Bash(rm:*", "mcp__phone"),
+            ),
+            on,
+        )
         assertEquals(
             """
             {
@@ -480,7 +621,8 @@ abstract class ClaudeConfigClientTest {
               }
             }
 
-            """.trimIndent(),
+            """
+                .trimIndent(),
             run("cat \"$settings\""),
         )
         // 已经全开：不写文件
@@ -491,7 +633,10 @@ abstract class ClaudeConfigClientTest {
 
     /** 需要 claude 命令行：没有就跳过。 */
     protected fun assumeClaude() {
-        assumeTrue("没有 claude 命令", run("command -v claude >/dev/null && echo yes || echo no").trim() == "yes")
+        assumeTrue(
+            "没有 claude 命令",
+            run("command -v claude >/dev/null && echo yes || echo no").trim() == "yes",
+        )
     }
 
     @Test
@@ -515,10 +660,21 @@ abstract class ClaudeConfigClientTest {
             done
             EOF
             chmod +x "${'$'}HOME/fake-mcp.sh"
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
-        client.addHttpServer("remote", "http", "http://127.0.0.1:9/mcp?key=QUERYSECRET", "TOKENSECRET")
-        client.addStdioServer("local-fake", "$home/fake-mcp.sh", listOf("--flag"), mapOf("FAKE_GREETING" to "hello"))
+        client.addHttpServer(
+            "remote",
+            "http",
+            "http://127.0.0.1:9/mcp?key=QUERYSECRET",
+            "TOKENSECRET",
+        )
+        client.addStdioServer(
+            "local-fake",
+            "$home/fake-mcp.sh",
+            listOf("--flag"),
+            mapOf("FAKE_GREETING" to "hello"),
+        )
         try {
             client.addHttpServer("remote", "sse", "http://127.0.0.1:9/sse", "")
             fail()
@@ -532,8 +688,18 @@ abstract class ClaudeConfigClientTest {
         assertEquals("http://127.0.0.1:9/mcp?key=…", servers[0].url)
         assertEquals(listOf("FAKE_GREETING"), servers[1].envKeys)
         // claude 自己写进 ~/.claude.json 的配置
-        val raw = Json.parseToJsonElement(run("cat \"\$HOME/.claude.json\"")).jsonObject["mcpServers"]!!.jsonObject
-        assertEquals("Bearer TOKENSECRET", raw["remote"]!!.jsonObject["headers"]!!.jsonObject["Authorization"]!!.jsonPrimitive.content)
+        val raw =
+            Json.parseToJsonElement(run("cat \"\$HOME/.claude.json\""))
+                .jsonObject["mcpServers"]!!
+                .jsonObject
+        assertEquals(
+            "Bearer TOKENSECRET",
+            raw["remote"]!!
+                .jsonObject["headers"]!!
+                .jsonObject["Authorization"]!!
+                .jsonPrimitive
+                .content,
+        )
 
         val status = client.mcpStatus(cwd)
         assertEquals("failed", status.statuses["user/remote"]?.state)
@@ -548,8 +714,18 @@ abstract class ClaudeConfigClientTest {
         }
 
         client.setMcpToken(servers[0], cwd, "NEWSECRET")
-        val updated = Json.parseToJsonElement(run("cat \"\$HOME/.claude.json\"")).jsonObject["mcpServers"]!!.jsonObject
-        assertEquals("Bearer NEWSECRET", updated["remote"]!!.jsonObject["headers"]!!.jsonObject["Authorization"]!!.jsonPrimitive.content)
+        val updated =
+            Json.parseToJsonElement(run("cat \"\$HOME/.claude.json\""))
+                .jsonObject["mcpServers"]!!
+                .jsonObject
+        assertEquals(
+            "Bearer NEWSECRET",
+            updated["remote"]!!
+                .jsonObject["headers"]!!
+                .jsonObject["Authorization"]!!
+                .jsonPrimitive
+                .content,
+        )
         client.setMcpToken(client.mcpServers(cwd).first { it.name == "remote" }, cwd, "")
         assertFalse(client.mcpServers(cwd).first { it.name == "remote" }.authHeader)
 
@@ -564,30 +740,37 @@ interface TestShell : LinuxShell {
 }
 
 class LocalClientTest : ClaudeConfigClientTest() {
-    override fun shell(): TestShell = object : TestShell {
-        private val dir = java.nio.file.Files.createTempDirectory("zeta-home").toFile().canonicalFile
-        override val home: String = dir.path
+    override fun shell(): TestShell =
+        object : TestShell {
+            private val dir =
+                java.nio.file.Files.createTempDirectory("zeta-home").toFile().canonicalFile
+            override val home: String = dir.path
 
-        override fun start(command: String): Process {
-            val builder = ProcessBuilder("bash", "-c", command).directory(dir)
-            val env = builder.environment()
-            val path = listOfNotNull(System.getProperty("user.home")?.let { "$it/.local/bin" }, System.getenv("PATH")).joinToString(":")
-            env.clear()
-            env["HOME"] = home
-            env["PATH"] = path
-            env["LANG"] = "C.UTF-8"
-            env["USER"] = System.getProperty("user.name") ?: "user"
-            return builder.start()
-        }
+            override fun start(command: String): Process {
+                val builder = ProcessBuilder("bash", "-c", command).directory(dir)
+                val env = builder.environment()
+                val path =
+                    listOfNotNull(
+                            System.getProperty("user.home")?.let { "$it/.local/bin" },
+                            System.getenv("PATH"),
+                        )
+                        .joinToString(":")
+                env.clear()
+                env["HOME"] = home
+                env["PATH"] = path
+                env["LANG"] = "C.UTF-8"
+                env["USER"] = System.getProperty("user.name") ?: "user"
+                return builder.start()
+            }
 
-        override fun kill(process: Process) {
-            process.destroyForcibly()
-        }
+            override fun kill(process: Process) {
+                process.destroyForcibly()
+            }
 
-        override fun cleanup() {
-            dir.deleteRecursively()
+            override fun cleanup() {
+                dir.deleteRecursively()
+            }
         }
-    }
 
     /** HTTP 的 MCP 服务器从应用这边直接连：本机起一个假的，配置经 claude 写进去，再按配置连。 */
     @Test
@@ -596,7 +779,11 @@ class LocalClientTest : ClaudeConfigClientTest() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/mcp") { ex ->
             // Claude Code 的客户端还会 GET 一条事件流、最后 DELETE 会话：都回 405，表示不支持
-            val message = runCatching { Json.parseToJsonElement(ex.requestBody.readBytes().toString(Charsets.UTF_8)).jsonObject }.getOrNull()
+            val message = runCatching {
+                Json.parseToJsonElement(ex.requestBody.readBytes().toString(Charsets.UTF_8))
+                    .jsonObject
+            }
+                .getOrNull()
             if (ex.requestMethod != "POST" || message == null) {
                 ex.sendResponseHeaders(405, -1)
                 ex.close()
@@ -608,11 +795,14 @@ class LocalClientTest : ClaudeConfigClientTest() {
                 ex.close()
                 return@createContext
             }
-            val result = when (message["method"]?.jsonPrimitive?.content) {
-                "initialize" -> """{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"fake","version":"1"}}"""
-                "tools/list" -> """{"tools":[{"name":"ping","inputSchema":{"type":"object"}}]}"""
-                else -> "{}"
-            }
+            val result =
+                when (message["method"]?.jsonPrimitive?.content) {
+                    "initialize" ->
+                        """{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"fake","version":"1"}}"""
+                    "tools/list" ->
+                        """{"tools":[{"name":"ping","inputSchema":{"type":"object"}}]}"""
+                    else -> "{}"
+                }
             val bytes = """{"jsonrpc":"2.0","id":$id,"result":$result}""".toByteArray()
             ex.responseHeaders.add("Content-Type", "application/json")
             ex.sendResponseHeaders(200, bytes.size.toLong())
@@ -620,7 +810,12 @@ class LocalClientTest : ClaudeConfigClientTest() {
         }
         server.start()
         try {
-            client.addHttpServer("fake-http", "http", "http://127.0.0.1:${server.address.port}/mcp", "T0KEN-VALUE")
+            client.addHttpServer(
+                "fake-http",
+                "http",
+                "http://127.0.0.1:${server.address.port}/mcp",
+                "T0KEN-VALUE",
+            )
             val entry = client.mcpServers(home).first { it.name == "fake-http" }
             assertEquals(listOf(McpTool("ping", "")), client.mcpTools(entry, home))
             assertEquals("connected", client.mcpStatus(home).statuses["user/fake-http"]?.state)
@@ -638,14 +833,26 @@ class PhoneClientTest : ClaudeConfigClientTest() {
         val made = ProcessBuilder("ssh", "-T", "-o", "BatchMode=yes", host, "mktemp -d").start()
         val remoteHome = made.inputStream.bufferedReader().readText().trim()
         assertTrue(made.waitFor(30, TimeUnit.SECONDS) && remoteHome.startsWith("/tmp/"))
-        val user = ProcessBuilder("ssh", "-T", "-o", "BatchMode=yes", host, "id -un").start().inputStream.bufferedReader().readText().trim()
+        val user =
+            ProcessBuilder("ssh", "-T", "-o", "BatchMode=yes", host, "id -un")
+                .start()
+                .inputStream
+                .bufferedReader()
+                .readText()
+                .trim()
         return object : TestShell {
             override val home: String = remoteHome
 
             override fun start(command: String): Process {
                 // 和 LinuxEnv 一样清空环境、用登录 shell；PATH 补上真实用户的 ~/.local/bin（claude 装在那里）
-                val remote = "cd " + LinuxEnv.quote(remoteHome) + " && exec env -i HOME=" + LinuxEnv.quote(remoteHome) + " USER=$user LOGNAME=$user LANG=C.UTF-8 " +
-                    "PATH=/home/$user/.local/bin:/usr/local/bin:/usr/bin:/bin bash -c " + LinuxEnv.quote(command)
+                val remote =
+                    "cd " +
+                        LinuxEnv.quote(remoteHome) +
+                        " && exec env -i HOME=" +
+                        LinuxEnv.quote(remoteHome) +
+                        " USER=$user LOGNAME=$user LANG=C.UTF-8 " +
+                        "PATH=/home/$user/.local/bin:/usr/local/bin:/usr/bin:/bin bash -c " +
+                        LinuxEnv.quote(command)
                 return ProcessBuilder("ssh", "-T", "-o", "BatchMode=yes", host, remote).start()
             }
 
@@ -654,7 +861,16 @@ class PhoneClientTest : ClaudeConfigClientTest() {
             }
 
             override fun cleanup() {
-                ProcessBuilder("ssh", "-T", "-o", "BatchMode=yes", host, "rm -rf -- " + LinuxEnv.quote(remoteHome)).start().waitFor(30, TimeUnit.SECONDS)
+                ProcessBuilder(
+                        "ssh",
+                        "-T",
+                        "-o",
+                        "BatchMode=yes",
+                        host,
+                        "rm -rf -- " + LinuxEnv.quote(remoteHome),
+                    )
+                    .start()
+                    .waitFor(30, TimeUnit.SECONDS)
             }
         }
     }

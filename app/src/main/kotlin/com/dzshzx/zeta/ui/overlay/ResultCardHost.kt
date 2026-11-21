@@ -18,12 +18,12 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.TurnResult
 import io.github.suqi8.coui.kmp.layout.BottomSheetDefaults
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /** 结果卡片窗口里的内容读的状态，全部由 [ResultCardHost] 在主线程上改。 */
 @Stable
@@ -38,11 +38,10 @@ private class ResultCardState {
 }
 
 /**
- * 一轮结束后屏幕底部的结果卡片（[ResultCard]）的窗口：和顶部胶囊一样挂在 Zeta 的无障碍服务上（TYPE_ACCESSIBILITY_OVERLAY），
- * 服务连上时 [attach]，断开时 [detach]。弹哪一轮、什么时候收起由 TurnAlerts 定（`hub.alerts.resultCard`，见 ResultCardPolicy），
- * 这里只管窗口：贴着屏幕底边，宽同屏（宽屏时收窄居中），高随卡片（卡片报告自己多高，不用 WRAP_CONTENT：
- * ZetaTheme 的 fillMaxSize 会把它撑满整屏），窗口以外的触摸照常落到下面的应用上。
- * 窗口可获焦点，才收得到系统返回（返回关掉卡片）；不接输入法。
+ * 一轮结束后屏幕底部的结果卡片（[ResultCard]）的窗口：和顶部胶囊一样挂在 Zeta 的无障碍服务上（TYPE_ACCESSIBILITY_OVERLAY）， 服务连上时
+ * [attach]，断开时 [detach]。弹哪一轮、什么时候收起由 TurnAlerts 定（`hub.alerts.resultCard`，见 ResultCardPolicy），
+ * 这里只管窗口：贴着屏幕底边，宽同屏（宽屏时收窄居中），高随卡片（卡片报告自己多高，不用 WRAP_CONTENT： ZetaTheme 的 fillMaxSize
+ * 会把它撑满整屏），窗口以外的触摸照常落到下面的应用上。 窗口可获焦点，才收得到系统返回（返回关掉卡片）；不接输入法。
  */
 object ResultCardHost {
     private val main = Handler(Looper.getMainLooper())
@@ -58,22 +57,28 @@ object ResultCardHost {
         val hub = ConversationHub.get(service.application)
         this.hub = hub
         // snapshotFlow 收得到 resultCard 的变化靠 SnapshotNotifier（服务连上时挂好）
-        scope = MainScope().apply {
-            launch {
-                // 锁屏状态不是快照状态：它一变就重新订阅，按新的锁屏状态判断卡片还留不留
-                ScreenLock.locked.collectLatest {
-                    val locked = ScreenLock.hides(OverlayWindow.mainDisplay(service))
-                    snapshotFlow { hub.alerts.resultCard?.let { card -> card to hub.alerts.keepsResultCard(card, locked) } }.collect { entry ->
-                        when {
-                            entry == null -> hide()
-                            // 收起：hub 那边清掉，下一次就是 null
-                            !entry.second -> hub.alerts.dismissResultCard(entry.first)
-                            else -> show(entry.first)
+        scope =
+            MainScope().apply {
+                launch {
+                    // 锁屏状态不是快照状态：它一变就重新订阅，按新的锁屏状态判断卡片还留不留
+                    ScreenLock.locked.collectLatest {
+                        val locked = ScreenLock.hides(OverlayWindow.mainDisplay(service))
+                        snapshotFlow {
+                            hub.alerts.resultCard?.let { card ->
+                                card to hub.alerts.keepsResultCard(card, locked)
+                            }
                         }
+                            .collect { entry ->
+                                when {
+                                    entry == null -> hide()
+                                    // 收起：hub 那边清掉，下一次就是 null
+                                    !entry.second -> hub.alerts.dismissResultCard(entry.first)
+                                    else -> show(entry.first)
+                                }
+                            }
                     }
                 }
             }
-        }
     }
 
     fun detach() {
@@ -102,22 +107,28 @@ object ResultCardHost {
 
     private fun createWindow() {
         val service = service ?: return
-        val params = OverlayWindow.params(
-            width = WindowManager.LayoutParams.MATCH_PARENT,
-            // 先给 1 像素，卡片量出自己多高再撑开（onContentHeight）
-            height = 1,
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
-        ).apply {
-            // 可获焦点才收得到返回键；卡片上没有输入框，不做输入法的目标，下面应用的输入法不受影响
-            flags = (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-            windowAnimations = 0
-            // 窗口铺到屏幕底边（导航条下面），卡片自己留出导航条的高度，滑出时整张滑出屏幕
-            fitInsetsTypes = 0
-            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            // dumpsys window 里认得出（设备测试据此判断卡片在不在）
-            title = WINDOW_TITLE
-        }
-        val window = OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { Content() }
+        val params =
+            OverlayWindow.params(
+                    width = WindowManager.LayoutParams.MATCH_PARENT,
+                    // 先给 1 像素，卡片量出自己多高再撑开（onContentHeight）
+                    height = 1,
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+                )
+                .apply {
+                    // 可获焦点才收得到返回键；卡片上没有输入框，不做输入法的目标，下面应用的输入法不受影响
+                    flags =
+                        (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
+                            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                    windowAnimations = 0
+                    // 窗口铺到屏幕底边（导航条下面），卡片自己留出导航条的高度，滑出时整张滑出屏幕
+                    fitInsetsTypes = 0
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    // dumpsys window 里认得出（设备测试据此判断卡片在不在）
+                    title = WINDOW_TITLE
+                }
+        val window =
+            OverlayWindow(service, OverlayWindow.mainDisplay(service), params) { Content() }
         measure(window)
         this.window = window
         window.show()
@@ -139,11 +150,25 @@ object ResultCardHost {
     private fun measure(window: OverlayWindow) {
         val context = window.context
         val density = context.resources.displayMetrics.density
-        val metrics = runCatching { context.getSystemService(WindowManager::class.java).currentWindowMetrics }.getOrNull()
-        val width = metrics?.bounds?.width()?.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
-        val height = metrics?.bounds?.height()?.takeIf { it > 0 } ?: context.resources.displayMetrics.heightPixels
-        val navigation = runCatching { metrics!!.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars()).bottom }.getOrDefault(0)
-        val widest = ((BottomSheetDefaults.PanelMaxWidth.value + 2 * WINDOW_SIDE_DP) * density).roundToInt()
+        val metrics = runCatching {
+            context.getSystemService(WindowManager::class.java).currentWindowMetrics
+        }
+            .getOrNull()
+        val width =
+            metrics?.bounds?.width()?.takeIf { it > 0 }
+                ?: context.resources.displayMetrics.widthPixels
+        val height =
+            metrics?.bounds?.height()?.takeIf { it > 0 }
+                ?: context.resources.displayMetrics.heightPixels
+        val navigation = runCatching {
+            metrics!!
+                .windowInsets
+                .getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars())
+                .bottom
+        }
+            .getOrDefault(0)
+        val widest =
+            ((BottomSheetDefaults.PanelMaxWidth.value + 2 * WINDOW_SIDE_DP) * density).roundToInt()
         if (width > widest) window.params.width = widest
         state.maxHeight = (height * MAX_HEIGHT_FRACTION / density).dp
         state.bottomInset = (navigation / density).dp

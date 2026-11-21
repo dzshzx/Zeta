@@ -14,24 +14,26 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ssh.SshKey
 
 /**
- * 截图用的假数据。界面读的是真的 [ConversationHub]：先把设置写成“环境已装好”的样子再建 hub，
- * 只有 root 才查得到的状态（环境就绪、账号已登录）和对话内容直接摆进去，不起 Claude 进程。
+ * 截图用的假数据。界面读的是真的 [ConversationHub]：先把设置写成“环境已装好”的样子再建 hub， 只有 root
+ * 才查得到的状态（环境就绪、账号已登录）和对话内容直接摆进去，不起 Claude 进程。
  *
- * 单元测试的 PATH 里有一个总是失败的 `su`（app/src/test/no-root），所以界面里要经 root 查的东西
- * （共享文件夹的子目录、权限健康里的 root 项）在图上显示成查不到，不会碰到开发机自己的 su。
+ * 单元测试的 PATH 里有一个总是失败的 `su`（app/src/test/no-root），所以界面里要经 root 查的东西 （共享文件夹的子目录、权限健康里的 root
+ * 项）在图上显示成查不到，不会碰到开发机自己的 su。
  */
 object Fixtures {
-    val env = LinuxEnvConfig(
-        rootfs = "/data/local/zeta/debian/rootfs",
-        user = "dzshzx",
-        uid = 5000,
-        gid = 5000,
-        home = "/home/dzshzx",
-        defaultCwd = "/workspace/claude",
-    )
+    val env =
+        LinuxEnvConfig(
+            rootfs = "/data/local/zeta/debian/rootfs",
+            user = "dzshzx",
+            uid = 5000,
+            gid = 5000,
+            home = "/home/dzshzx",
+            defaultCwd = "/workspace/claude",
+        )
 
     /** 一台经手机 Debian 连的远程主机。 */
-    val workstation = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
+    val workstation =
+        RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
 
     /** Claude Code 在 initialize 里报的模型清单的样子：别名和它指向的完整 ID，每个都能选全部几档思考强度。 */
     val models: List<ModelOption> by lazy {
@@ -50,7 +52,11 @@ object Fixtures {
 
     /** 系统设置里的设备名（Robolectric 里没有，图上手机就叫型号「robolectric」）：写成真机上的样子。 */
     private fun nameThePhone(app: Application) {
-        android.provider.Settings.Global.putString(app.contentResolver, android.provider.Settings.Global.DEVICE_NAME, "Xiaomi 17")
+        android.provider.Settings.Global.putString(
+            app.contentResolver,
+            android.provider.Settings.Global.DEVICE_NAME,
+            "Xiaomi 17",
+        )
     }
 
     /** 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。 */
@@ -60,7 +66,8 @@ object Fixtures {
         val hub = ConversationHub(app) { sshKey }
         install(hub)
         hub.environment.setup = SetupState.Ready
-        hub.environment.account = AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null)
+        hub.environment.account =
+            AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null)
         return hub
     }
 
@@ -76,7 +83,11 @@ object Fixtures {
 
     /** 换掉全应用共用的 hub；每个测试开始时清空，免得拿到上一个测试（上一个 Application）留下的那个。 */
     fun install(hub: ConversationHub?) {
-        ConversationHub::class.java.getDeclaredField("instance").apply { isAccessible = true }.set(null, hub)
+        ConversationHub::class
+            .java
+            .getDeclaredField("instance")
+            .apply { isAccessible = true }
+            .set(null, hub)
     }
 
     /** 把当前对话换成这些聊天内容（标题 [title]）。 */
@@ -91,14 +102,20 @@ object Fixtures {
      */
     fun Any.force(property: String, value: Any?) {
         val types = generateSequence<Class<*>>(javaClass) { it.superclass }
-        types.firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == "$property\$delegate" } }?.let { field ->
-            field.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            (field.get(this) as MutableState<Any?>).value = value
-            return
-        }
-        val field = types.firstNotNullOfOrNull { type -> type.declaredFields.firstOrNull { it.name == property } }
-            ?: error("${javaClass.simpleName} 没有属性 $property")
+        types
+            .firstNotNullOfOrNull { type ->
+                type.declaredFields.firstOrNull { it.name == "$property\$delegate" }
+            }
+            ?.let { field ->
+                field.isAccessible = true
+                @Suppress("UNCHECKED_CAST")
+                (field.get(this) as MutableState<Any?>).value = value
+                return
+            }
+        val field =
+            types.firstNotNullOfOrNull { type ->
+                type.declaredFields.firstOrNull { it.name == property }
+            } ?: error("${javaClass.simpleName} 没有属性 $property")
         field.isAccessible = true
         field.set(this, value)
     }

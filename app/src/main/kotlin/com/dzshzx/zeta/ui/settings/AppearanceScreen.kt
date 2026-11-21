@@ -1,18 +1,18 @@
 package com.dzshzx.zeta.ui.settings
 
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
@@ -70,7 +70,10 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                         title = "主题模式",
                         items = listOf("跟随系统", "浅色", "深色"),
                         selectedIndex = themeModes.indexOf(hub.settings.darkTheme),
-                        onSelectedIndexChange = { index -> if (index in themeModes.indices) hub.settings.darkTheme = themeModes[index] },
+                        onSelectedIndexChange = { index ->
+                            if (index in themeModes.indices)
+                                hub.settings.darkTheme = themeModes[index]
+                        },
                     )
                 }
                 item {
@@ -80,7 +83,9 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                         summary = if (accent == AccentChoice.System) "跟随壁纸取色" else null,
                         items = accents.map { it.label },
                         selectedIndex = accents.indexOf(accent),
-                        onSelectedIndexChange = { index -> accents.getOrNull(index)?.let { settings.accent = it.key } },
+                        onSelectedIndexChange = { index ->
+                            accents.getOrNull(index)?.let { settings.accent = it.key }
+                        },
                     )
                 }
                 item {
@@ -88,7 +93,11 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                     SliderPreference(
                         title = "界面缩放",
                         summary = "只缩放 Zeta 自己的页面",
-                        value = scaleDraft.coerceIn(MIN_INTERFACE_SCALE * 100f, MAX_INTERFACE_SCALE * 100f),
+                        value =
+                            scaleDraft.coerceIn(
+                                MIN_INTERFACE_SCALE * 100f,
+                                MAX_INTERFACE_SCALE * 100f,
+                            ),
                         onValueChange = { scaleDraft = it },
                         valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
                         steps = 5,

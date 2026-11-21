@@ -11,9 +11,7 @@ internal data class RunRecord(
     val sessionId: String?,
 )
 
-/**
- * 后台运行从哪来：定时任务，或通知触发的规则。[ScheduleRunner] 经它把运行记录写回各自的清单。
- */
+/** 后台运行从哪来：定时任务，或通知触发的规则。[ScheduleRunner] 经它把运行记录写回各自的清单。 */
 internal interface RunRecords {
     /** 来源的名字。进行中运行的键、通知的 tag 都是“[kind]:<id>”，两种来源的 id 撞不上。 */
     val kind: String
@@ -50,12 +48,11 @@ internal data class RunSpec(
 )
 
 /**
- * 一次无人值守的后台运行，从开始到跑完挂在跑它的对话上（Conversation.unattended，手机工具上同步挂一份给工具调用用）。
- * 它就是这个对话的来源标记：挂着时完成和确认提醒由 [ScheduleRunner] 发（带任务名），通用的那条不发，回答也不念（见 TurnAlerts）。
- * 这次运行的状态都记在这里：只在有变化时提醒的运行里 Claude 上报的结论 [report]（工具线程写，主线程跑完时读），
- * 为哪个确认请求提醒过（[notifiedRequest]）。跑完怎么算、提不提醒见 [settle]。
- * 管理定时任务的工具在后台运行里拦两道：Claude Code 的权限规则让模型调不到（见 ScheduleTools.unattendedRules），
- * 漏过来的调用再由 ScheduleTools.refusal 看它拒掉。
+ * 一次无人值守的后台运行，从开始到跑完挂在跑它的对话上（Conversation.unattended，手机工具上同步挂一份给工具调用用）。 它就是这个对话的来源标记：挂着时完成和确认提醒由
+ * [ScheduleRunner] 发（带任务名），通用的那条不发，回答也不念（见 TurnAlerts）。 这次运行的状态都记在这里：只在有变化时提醒的运行里 Claude 上报的结论
+ * [report]（工具线程写，主线程跑完时读）， 为哪个确认请求提醒过（[notifiedRequest]）。跑完怎么算、提不提醒见 [settle]。
+ * 管理定时任务的工具在后台运行里拦两道：Claude Code 的权限规则让模型调不到（见 ScheduleTools.unattendedRules）， 漏过来的调用再由
+ * ScheduleTools.refusal 看它拒掉。
  */
 class UnattendedRun(val onlyOnChange: Boolean) {
     @Volatile var report: RunReport? = null
@@ -64,13 +61,16 @@ class UnattendedRun(val onlyOnChange: Boolean) {
     var notifiedRequest: String? = null
 
     /** 这次停下来等过用户确认：跑完照常提醒。 */
-    val asked: Boolean get() = notifiedRequest != null
+    val asked: Boolean
+        get() = notifiedRequest != null
 
     /** 跑完的结局（见 [Schedules.settle]）：[raw]、[answer] 是从对话里看出来的（[Schedules.outcomeOf]），再按这次的上报和确认定。 */
-    fun settle(raw: RunOutcome, answer: String): Settled = Schedules.settle(raw, answer, onlyOnChange, report, asked)
+    fun settle(raw: RunOutcome, answer: String): Settled =
+        Schedules.settle(raw, answer, onlyOnChange, report, asked)
 
     /** 这一轮跑完不提醒（Claude 上报了没有变化）：屏幕底部也不弹结果卡片。 */
-    val quiet: Boolean get() = !settle(RunOutcome.Done, "").notify
+    val quiet: Boolean
+        get() = !settle(RunOutcome.Done, "").notify
 }
 
 /**
@@ -79,7 +79,8 @@ class UnattendedRun(val onlyOnChange: Boolean) {
  */
 internal fun unattendedHint(intro: String, onlyOnChange: Boolean): String =
     "$intro The user first sees the opening of your final reply (about ${Schedules.MAX_SUMMARY} characters) in a phone notification, " +
-        "so lead with the result." + if (onlyOnChange) " $ONLY_ON_CHANGE_HINT" else ""
+        "so lead with the result." +
+        if (onlyOnChange) " $ONLY_ON_CHANGE_HINT" else ""
 
 private const val ONLY_ON_CHANGE_HINT =
     "This automation notifies the user only when there is something worth telling them. Before ending each automatic run, " +
@@ -98,23 +99,30 @@ internal object ScheduleRecords : RunRecords {
     override fun update(context: Context, id: String, change: (RunRecord) -> RunRecord) {
         ScheduleStore.updateTask(context, id) { task ->
             val next = change(RunRecord(task.lastRun, task.skips, task.lastSkip, task.sessionId))
-            task.copy(lastRun = next.lastRun, skips = next.skips, lastSkip = next.lastSkip, sessionId = next.sessionId)
+            task.copy(
+                lastRun = next.lastRun,
+                skips = next.skips,
+                lastSkip = next.lastSkip,
+                sessionId = next.sessionId,
+            )
         }
     }
 
-    fun spec(task: ScheduledTask) = RunSpec(
-        id = task.id,
-        name = task.name,
-        prompt = task.prompt,
-        cwd = task.cwd,
-        model = task.model,
-        permissionMode = task.permissionMode,
-        newSession = task.newSession,
-        sessionId = task.sessionId,
-        hint = unattendedHint(
-            "Messages in this conversation may be sent automatically by the user's scheduled task \"${task.name}\" while nobody is watching.",
-            task.onlyOnChange,
-        ),
-        onlyOnChange = task.onlyOnChange,
-    )
+    fun spec(task: ScheduledTask) =
+        RunSpec(
+            id = task.id,
+            name = task.name,
+            prompt = task.prompt,
+            cwd = task.cwd,
+            model = task.model,
+            permissionMode = task.permissionMode,
+            newSession = task.newSession,
+            sessionId = task.sessionId,
+            hint =
+                unattendedHint(
+                    "Messages in this conversation may be sent automatically by the user's scheduled task \"${task.name}\" while nobody is watching.",
+                    task.onlyOnChange,
+                ),
+            onlyOnChange = task.onlyOnChange,
+        )
 }

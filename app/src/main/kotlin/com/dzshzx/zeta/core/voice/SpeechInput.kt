@@ -24,17 +24,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 语音识别：只用手机自带的识别服务（Android [SpeechRecognizer]），不接第三方服务。和界面无关，
- * 输入栏的按住说话、以后的助手浮窗都用它。一次一场：[start] 开始，[state] 里是实时文字，
- * [finish] 停止收音、等最后的结果交给 onResult，[cancel] 丢掉这一场。都在主线程上调用。
+ * 语音识别：只用手机自带的识别服务（Android [SpeechRecognizer]），不接第三方服务。和界面无关， 输入栏的按住说话、以后的助手浮窗都用它。一次一场：[start]
+ * 开始，[state] 里是实时文字， [finish] 停止收音、等最后的结果交给 onResult，[cancel] 丢掉这一场。都在主线程上调用。
  *
- * 系统的识别服务说完一句、停顿一会儿就自己结束。按住说话时用户还没松手，所以这里把这一句记下、
- * 接着再听，直到 [finish]，交出去的是各句连起来的文字。
+ * 系统的识别服务说完一句、停顿一会儿就自己结束。按住说话时用户还没松手，所以这里把这一句记下、 接着再听，直到 [finish]，交出去的是各句连起来的文字。
  *
  * 识别期间把识别服务所在的进程提到前台（[ProcessBoost]），否则 HyperOS 上小米的服务录不了音。
  */
 class SpeechInput(private val context: Context, private val backend: SpeechBackend? = null) {
-    enum class Phase { Idle, Starting, Listening, Finishing }
+    enum class Phase {
+        Idle,
+        Starting,
+        Listening,
+        Finishing,
+    }
 
     data class State(
         val phase: Phase = Phase.Idle,
@@ -43,7 +46,8 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         /** 0 到 1 的音量，画波纹用。 */
         val level: Float = 0f,
     ) {
-        val active: Boolean get() = phase != Phase.Idle
+        val active: Boolean
+            get() = phase != Phase.Idle
     }
 
     private val mutableState = MutableStateFlow(State())
@@ -57,21 +61,26 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
 
     /** 识别服务正在听（startListening 之后、结果或出错之前）。 */
     private var listening = false
-    private val relisten = Runnable { if (mutableState.value.phase == Phase.Listening) recognizer?.let(::listen) }
+    private val relisten = Runnable {
+        if (mutableState.value.phase == Phase.Listening) recognizer?.let(::listen)
+    }
     private var onResult: ((String) -> Unit)? = null
     private var onError: ((SpeechInputError) -> Unit)? = null
     private val finishTimeout = Runnable { deliver() }
     private val boost = ProcessBoost(context.applicationContext, main)
 
     /**
-     * 开始一场识别。[onResult] 在 [finish] 之后拿到最后的文字时调用（可能是空串，表示没听到话）；
-     * [onError] 在识别出错时调用。[cancel] 之后两者都不再调用。已有一场时先取消它。
+     * 开始一场识别。[onResult] 在 [finish] 之后拿到最后的文字时调用（可能是空串，表示没听到话）； [onError] 在识别出错时调用。[cancel]
+     * 之后两者都不再调用。已有一场时先取消它。
      */
     fun start(onResult: (String) -> Unit, onError: (SpeechInputError) -> Unit) {
         cancel()
         this.onResult = onResult
         this.onError = onError
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (
+            context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
             fail(SpeechInputError(SpeechInputError.NO_PERMISSION, "没有麦克风权限，到设置的权限页一键授予"))
             return
         }
@@ -80,8 +89,12 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             fail(SpeechInputError(SpeechInputError.NO_SERVICE, "手机上没有可用的语音识别服务"))
             return
         }
-        val created = runCatching { chosen.create(context) }
-            .onFailure { DiagLog.warn(DiagTopic.App, "语音识别：建不了识别器（$chosen）：${it.javaClass.simpleName}") }
+        val created = runCatching {
+            chosen.create(context)
+        }
+            .onFailure {
+                DiagLog.warn(DiagTopic.App, "语音识别：建不了识别器（$chosen）：${it.javaClass.simpleName}")
+            }
             .getOrNull()
         if (created == null) {
             fail(SpeechInputError(SpeechInputError.NO_SERVICE, "语音识别服务用不了"))
@@ -93,14 +106,13 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         mutableState.value = State(Phase.Starting)
         val id = ++session
         created.setRecognitionListener(Listener(id))
-        boost.bind((chosen as? SpeechBackend.Service)?.component?.packageName) { if (id == session) listen(created) }
+        boost.bind((chosen as? SpeechBackend.Service)?.component?.packageName) {
+            if (id == session) listen(created)
+        }
         DiagLog.info(DiagTopic.App, "语音识别：开始（$chosen）")
     }
 
-    /**
-     * 松手：停止收音，等识别服务交回最后一句。服务一直不回时几秒后用已有的文字收尾。
-     * 服务还没准备好就松手的，什么也没录到，直接交空串。
-     */
+    /** 松手：停止收音，等识别服务交回最后一句。服务一直不回时几秒后用已有的文字收尾。 服务还没准备好就松手的，什么也没录到，直接交空串。 */
     fun finish() {
         val current = mutableState.value
         if (!current.active || current.phase == Phase.Finishing) return
@@ -120,7 +132,10 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         main.removeCallbacks(finishTimeout)
         main.removeCallbacks(relisten)
         listening = false
-        recognizer?.let { runCatching { it.cancel() }; runCatching { it.destroy() } }
+        recognizer?.let {
+            runCatching { it.cancel() }
+            runCatching { it.destroy() }
+        }
         recognizer = null
         boost.release()
         onResult = null
@@ -130,11 +145,15 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
     }
 
     private fun listen(target: SpeechRecognizer) {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
-            .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+        val intent =
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                )
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
         listening = true
         target.startListening(intent)
     }
@@ -156,13 +175,15 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
     }
 
     private inner class Listener(private val id: Long) : RecognitionListener {
-        private val live get() = id == session
+        private val live
+            get() = id == session
 
         override fun onReadyForSpeech(params: Bundle?) {
             if (!live) return
             DiagLog.info(DiagTopic.App, "语音识别：可以说话了")
             val current = mutableState.value
-            if (current.phase == Phase.Starting) mutableState.value = current.copy(phase = Phase.Listening)
+            if (current.phase == Phase.Starting)
+                mutableState.value = current.copy(phase = Phase.Listening)
         }
 
         override fun onBeginningOfSpeech() = Unit
@@ -201,7 +222,8 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             val finishing = mutableState.value.phase == Phase.Finishing
             when {
                 // 没听到话：松手后就用已有的文字收尾，还按着就接着听
-                error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                error == SpeechRecognizer.ERROR_NO_MATCH ||
+                    error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
                     segments.close(null)
                     if (finishing) deliver() else listenAgain()
                 }
@@ -211,8 +233,9 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
                     deliver()
                 }
                 // 接着听的那一下撞上服务还没收拾完上一句：再等一下重来（次数有上限）
-                restarts > 0 && (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) ->
-                    listenAgain()
+                restarts > 0 &&
+                    (error == SpeechRecognizer.ERROR_CLIENT ||
+                        error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) -> listenAgain()
                 else -> fail(SpeechInputError(error, SpeechInputError.describe(error)))
             }
         }
@@ -221,8 +244,8 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
     }
 
     /**
-     * 按着还没松手时接着听。要等一下再开始：在结果或出错的回调里马上 startListening，
-     * 系统还当上一句在进行，回 ERROR_CLIENT（真机实测）。服务接连马上结束（坏了）时不无限重来，按松手收尾。
+     * 按着还没松手时接着听。要等一下再开始：在结果或出错的回调里马上 startListening， 系统还当上一句在进行，回
+     * ERROR_CLIENT（真机实测）。服务接连马上结束（坏了）时不无限重来，按松手收尾。
      */
     private fun listenAgain() {
         if (++restarts > MAX_RESTARTS) {
@@ -254,13 +277,12 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
 /**
  * 把识别服务所在的进程提到前台。
  *
- * 系统替应用绑定识别服务时，HyperOS 上小米服务的进程留在后台（缓存状态，没有“使用中”的能力），
- * 它的麦克风权限只许在前台用，Android 核对录音的委托链时就在它这一环拒掉，回 ERROR_INSUFFICIENT_PERMISSIONS（9）；
- * Zeta 自己这一环是通过的。所以识别期间由前台的 Zeta 带着 BIND_INCLUDE_CAPABILITIES 绑定同一个应用里
- * 不要权限的导出服务（小米的是它的朗读服务），那个进程跟着有了前台和麦克风能力。识别完解绑。
- * 找不到这样的服务时直接往下走。
+ * 系统替应用绑定识别服务时，HyperOS 上小米服务的进程留在后台（缓存状态，没有“使用中”的能力）， 它的麦克风权限只许在前台用，Android 核对录音的委托链时就在它这一环拒掉，回
+ * ERROR_INSUFFICIENT_PERMISSIONS（9）； Zeta 自己这一环是通过的。所以识别期间由前台的 Zeta 带着 BIND_INCLUDE_CAPABILITIES
+ * 绑定同一个应用里 不要权限的导出服务（小米的是它的朗读服务），那个进程跟着有了前台和麦克风能力。识别完解绑。 找不到这样的服务时直接往下走。
  */
-private class ProcessBoost(private val context: Context, private val main: Handler) : ServiceConnection {
+private class ProcessBoost(private val context: Context, private val main: Handler) :
+    ServiceConnection {
     private var bound = false
     private var then: (() -> Unit)? = null
     private val giveUp = Runnable { proceed() }
@@ -274,12 +296,15 @@ private class ProcessBoost(private val context: Context, private val main: Handl
             return
         }
         this.then = then
-        bound = runCatching {
-            context.bindService(
-                Intent(TTS_SERVICE).setComponent(service), this,
-                Context.BIND_AUTO_CREATE or Context.BIND_INCLUDE_CAPABILITIES,
-            )
-        }.getOrDefault(false)
+        bound =
+            runCatching {
+                    context.bindService(
+                        Intent(TTS_SERVICE).setComponent(service),
+                        this,
+                        Context.BIND_AUTO_CREATE or Context.BIND_INCLUDE_CAPABILITIES,
+                    )
+                }
+                .getOrDefault(false)
         if (bound) main.postDelayed(giveUp, CONNECT_TIMEOUT_MS) else proceed()
     }
 
@@ -291,7 +316,9 @@ private class ProcessBoost(private val context: Context, private val main: Handl
     }
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) = proceed()
+
     override fun onNullBinding(name: ComponentName?) = proceed()
+
     override fun onServiceDisconnected(name: ComponentName?) = Unit
 
     private fun proceed() {
@@ -303,11 +330,16 @@ private class ProcessBoost(private val context: Context, private val main: Handl
 
     /** 同一个应用里答应朗读服务、又不要权限的导出服务。 */
     private fun companion(packageName: String): ComponentName? = runCatching {
-        context.packageManager.queryIntentServices(Intent(TTS_SERVICE).setPackage(packageName), PackageManager.ResolveInfoFlags.of(0))
+        context.packageManager
+            .queryIntentServices(
+                Intent(TTS_SERVICE).setPackage(packageName),
+                PackageManager.ResolveInfoFlags.of(0),
+            )
             .mapNotNull { it.serviceInfo }
             .firstOrNull { it.exported && it.permission == null }
             ?.let { ComponentName(it.packageName, it.name) }
-    }.getOrNull()
+    }
+        .getOrNull()
 
     private companion object {
         const val TTS_SERVICE = "android.intent.action.TTS_SERVICE"
@@ -321,18 +353,23 @@ data class SpeechInputError(val code: Int, val message: String) {
         const val NO_PERMISSION = -1
         const val NO_SERVICE = -2
 
-        fun describe(code: Int): String = when (code) {
-            SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_NETWORK -> "识别服务连不上网络"
-            SpeechRecognizer.ERROR_AUDIO -> "麦克风录不了音，可能正被别的应用占用"
-            SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> "识别服务出错了"
-            SpeechRecognizer.ERROR_CLIENT -> "识别服务中途断开了"
-            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "识别服务说没有麦克风权限"
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务正忙，稍后再试"
-            SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> "识别请求太频繁，稍后再试"
-            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "识别服务不支持当前语言"
-            SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS -> "识别服务不可用"
-            else -> "语音识别失败（$code）"
-        }
+        fun describe(code: Int): String =
+            when (code) {
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                SpeechRecognizer.ERROR_NETWORK -> "识别服务连不上网络"
+                SpeechRecognizer.ERROR_AUDIO -> "麦克风录不了音，可能正被别的应用占用"
+                SpeechRecognizer.ERROR_SERVER,
+                SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> "识别服务出错了"
+                SpeechRecognizer.ERROR_CLIENT -> "识别服务中途断开了"
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "识别服务说没有麦克风权限"
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务正忙，稍后再试"
+                SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> "识别请求太频繁，稍后再试"
+                SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+                SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "识别服务不支持当前语言"
+                SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT,
+                SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS -> "识别服务不可用"
+                else -> "语音识别失败（$code）"
+            }
     }
 }
 
@@ -341,18 +378,23 @@ sealed interface SpeechBackend {
     fun create(context: Context): SpeechRecognizer
 
     data class Service(val component: ComponentName) : SpeechBackend {
-        override fun create(context: Context): SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context.applicationContext, component)
+        override fun create(context: Context): SpeechRecognizer =
+            SpeechRecognizer.createSpeechRecognizer(context.applicationContext, component)
+
         override fun toString() = component.flattenToShortString()
     }
 
     data object OnDevice : SpeechBackend {
-        override fun create(context: Context): SpeechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context.applicationContext)
+        override fun create(context: Context): SpeechRecognizer =
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(context.applicationContext)
+
         override fun toString() = "端侧识别"
     }
 
     companion object {
         /** 小米的识别服务（小爱同学的语音引擎）。HyperOS 上系统设置 voice_recognition_service 是空的，要显式指定它。 */
-        val XIAOMI = ComponentName("com.xiaomi.mibrain.speech", "com.xiaomi.mibrain.speech.asr.AsrService")
+        val XIAOMI =
+            ComponentName("com.xiaomi.mibrain.speech", "com.xiaomi.mibrain.speech.asr.AsrService")
         const val XIAOMI_NAME = "com.xiaomi.mibrain.speech/com.xiaomi.mibrain.speech.asr.AsrService"
 
         /** 系统默认语音识别服务的 secure 设置键。 */
@@ -361,32 +403,45 @@ sealed interface SpeechBackend {
         fun pick(context: Context): SpeechBackend? {
             val configured = runCatching {
                 Settings.Secure.getString(context.contentResolver, SETTING)
-            }.getOrNull()?.let(ComponentName::unflattenFromString)?.flattenToString()
+            }
+                .getOrNull()
+                ?.let(ComponentName::unflattenFromString)
+                ?.flattenToString()
             val installed = runCatching {
-                context.packageManager.queryIntentServices(Intent(RecognitionService.SERVICE_INTERFACE), PackageManager.ResolveInfoFlags.of(0))
+                context.packageManager
+                    .queryIntentServices(
+                        Intent(RecognitionService.SERVICE_INTERFACE),
+                        PackageManager.ResolveInfoFlags.of(0),
+                    )
                     .mapNotNull { it.serviceInfo }
                     .filter { it.exported }
                     .map { ComponentName(it.packageName, it.name).flattenToString() }
-            }.getOrDefault(emptyList())
-            choose(installed, configured)?.let(ComponentName::unflattenFromString)?.let { return Service(it) }
-            return OnDevice.takeIf { runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }.getOrDefault(false) }
+            }
+                .getOrDefault(emptyList())
+            choose(installed, configured)?.let(ComponentName::unflattenFromString)?.let {
+                return Service(it)
+            }
+            return OnDevice.takeIf {
+                runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }
+                    .getOrDefault(false)
+            }
         }
 
         /**
-         * 在装着的识别服务（完整的“包名/类名”）里挑真正干活的那个：系统设置里指定的优先，其次小米的，再其次第一个。
-         * Zeta 自己的（正式版、测试版）只是转给别人的代理，不算：数字助理是 Zeta 时系统默认识别会是它（见 AssistantRole.claimRecognizer），
+         * 在装着的识别服务（完整的“包名/类名”）里挑真正干活的那个：系统设置里指定的优先，其次小米的，再其次第一个。 Zeta
+         * 自己的（正式版、测试版）只是转给别人的代理，不算：数字助理是 Zeta 时系统默认识别会是它（见 AssistantRole.claimRecognizer），
          * 要是挑上它，一个版本的语音输入就要经另一个版本转一道。按住说话和代理服务转给谁都用它。纯函数。
          */
         fun choose(installed: List<String>, configured: String?): String? {
             val others = installed.filterNot { AppVariant.isZetaPackage(it.substringBefore('/')) }
-            return configured?.takeIf { it in others } ?: XIAOMI_NAME.takeIf { it in others } ?: others.firstOrNull()
+            return configured?.takeIf { it in others }
+                ?: XIAOMI_NAME.takeIf { it in others }
+                ?: others.firstOrNull()
         }
     }
 }
 
-/**
- * 一场识别里的文字：说完的几句和正在说的这句。系统服务一句一结束，这里把它们连起来。纯逻辑，单元测试覆盖。
- */
+/** 一场识别里的文字：说完的几句和正在说的这句。系统服务一句一结束，这里把它们连起来。纯逻辑，单元测试覆盖。 */
 class SpeechSegments {
     private val closed = mutableListOf<String>()
     private var current = ""
@@ -407,13 +462,17 @@ class SpeechSegments {
 
     companion object {
         /** 连起来：中文之间不加空格，两边都是拉丁字母或数字时加一个。 */
-        fun join(parts: List<String>): String = parts.fold("") { acc, part ->
-            when {
-                acc.isEmpty() -> part
-                acc.last().isLetterOrDigit() && acc.last().code < 0x2E80 && part.first().isLetterOrDigit() && part.first().code < 0x2E80 -> "$acc $part"
-                else -> acc + part
+        fun join(parts: List<String>): String =
+            parts.fold("") { acc, part ->
+                when {
+                    acc.isEmpty() -> part
+                    acc.last().isLetterOrDigit() &&
+                        acc.last().code < 0x2E80 &&
+                        part.first().isLetterOrDigit() &&
+                        part.first().code < 0x2E80 -> "$acc $part"
+                    else -> acc + part
+                }
             }
-        }
 
         /** 识别服务给的音量（dB，大约 -2 到 10）换成 0 到 1。 */
         fun level(rmsdB: Float): Float = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)

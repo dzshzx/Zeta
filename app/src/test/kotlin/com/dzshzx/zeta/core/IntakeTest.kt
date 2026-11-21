@@ -32,19 +32,26 @@ class IntakeTest {
 
     @Test
     fun browserSubjectComesFirst() {
-        assertEquals("页面标题\nhttps://example.com/a", parse(send, text = "https://example.com/a", subject = "页面标题")!!.text)
+        assertEquals(
+            "页面标题\nhttps://example.com/a",
+            parse(send, text = "https://example.com/a", subject = "页面标题")!!.text,
+        )
         // 文字里已经有标题就不重复
-        assertEquals("页面标题 https://example.com/a", parse(send, text = "页面标题 https://example.com/a", subject = "页面标题")!!.text)
+        assertEquals(
+            "页面标题 https://example.com/a",
+            parse(send, text = "页面标题 https://example.com/a", subject = "页面标题")!!.text,
+        )
     }
 
     @Test
     fun streamsAndClipDataAreMergedWithoutDuplicates() {
-        val intake = parse(
-            sendMultiple,
-            streams = listOf("content://a/1", "content://a/2"),
-            clipUris = listOf("content://a/2", "content://a/3"),
-            clipTexts = listOf("ignored when files are present"),
-        )!!
+        val intake =
+            parse(
+                sendMultiple,
+                streams = listOf("content://a/1", "content://a/2"),
+                clipUris = listOf("content://a/2", "content://a/3"),
+                clipTexts = listOf("ignored when files are present"),
+            )!!
         assertEquals(listOf("content://a/1", "content://a/2", "content://a/3"), intake.uris)
         assertNull(intake.text)
         assertEquals("3 个文件", intake.summary)
@@ -82,7 +89,8 @@ class IntakeTest {
     @Test
     fun pendingIntakesCombine() {
         val a = Intake(IntakeSource.Share, text = "一", uris = listOf("content://a/1"))
-        val b = Intake(IntakeSource.Share, text = "二", uris = listOf("content://a/1", "content://a/2"))
+        val b =
+            Intake(IntakeSource.Share, text = "二", uris = listOf("content://a/1", "content://a/2"))
         val both = a + b
         assertEquals("一\n二", both.text)
         assertEquals(listOf("content://a/1", "content://a/2"), both.uris)
@@ -96,9 +104,18 @@ class IntakeTest {
 
     @Test
     fun summaryNamesScreenshots() {
-        assertEquals("一张截屏", intakeSummary(IntakeSource.Screenshot, hasText = false, files = 0, images = 1))
-        assertEquals("2 张截屏", intakeSummary(IntakeSource.Screenshot, hasText = false, files = 0, images = 2))
-        assertEquals("一张图片和一个文件", intakeSummary(IntakeSource.Share, hasText = false, files = 1, images = 1))
+        assertEquals(
+            "一张截屏",
+            intakeSummary(IntakeSource.Screenshot, hasText = false, files = 0, images = 1),
+        )
+        assertEquals(
+            "2 张截屏",
+            intakeSummary(IntakeSource.Screenshot, hasText = false, files = 0, images = 2),
+        )
+        assertEquals(
+            "一张图片和一个文件",
+            intakeSummary(IntakeSource.Share, hasText = false, files = 1, images = 1),
+        )
     }
 
     @Test
@@ -116,7 +133,10 @@ class IntakeTest {
         assertFalse(FileLimits.tooLarge(null))
         assertFalse(FileLimits.tooLarge(FileLimits.MAX_BYTES))
         assertTrue(FileLimits.tooLarge(FileLimits.MAX_BYTES + 1))
-        assertEquals("「v.mp4」有 1.29 GB，超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", 1288490189L))
+        assertEquals(
+            "「v.mp4」有 1.29 GB，超过 200 MB 的上限，没有复制",
+            FileLimits.tooLargeReason("v.mp4", 1288490189L),
+        )
         assertEquals("「v.mp4」超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", null))
     }
 

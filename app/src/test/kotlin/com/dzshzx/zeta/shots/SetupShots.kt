@@ -14,29 +14,48 @@ import org.junit.Test
 
 /** Linux 环境页、安装向导、登录页、SSH 服务页。体检和 SSH 的状态要 root 才查得到，这里直接摆上去。 */
 class SetupShots : ShotTest() {
-    private val health = EnvHealth(
-        missing = emptyList(),
-        workspaceWritable = true,
-        network = true,
-        freeBytes = 48L * 1024 * 1024 * 1024,
-        debian = "13.1",
-        claude = "2.1.330 (Claude Code)",
-        go = "go1.25.4",
-        node = "v22.11.0",
-        zetaOwned = setOf("go"),
-    )
+    private val health =
+        EnvHealth(
+            missing = emptyList(),
+            workspaceWritable = true,
+            network = true,
+            freeBytes = 48L * 1024 * 1024 * 1024,
+            debian = "13.1",
+            claude = "2.1.330 (Claude Code)",
+            go = "go1.25.4",
+            node = "v22.11.0",
+            zetaOwned = setOf("go"),
+        )
 
-    private val ssh = SshStatus(installed = true, running = true, autostart = true, port = "8022", listen = "127.0.0.1:8022", keys = 2, passwordLogin = false)
+    private val ssh =
+        SshStatus(
+            installed = true,
+            running = true,
+            autostart = true,
+            port = "8022",
+            listen = "127.0.0.1:8022",
+            keys = 2,
+            passwordLogin = false,
+        )
 
-    private fun readyWithStatus(): ConversationHub = Fixtures.readyHub(app).also { hub ->
-        hub.environment.health = health
-        hub.environment.ssh = ssh
-    }
+    private fun readyWithStatus(): ConversationHub =
+        Fixtures.readyHub(app).also { hub ->
+            hub.environment.health = health
+            hub.environment.ssh = ssh
+        }
 
     @Test
     fun linux() {
         val hub = readyWithStatus()
-        shoot("linux") { LinuxScreen(hub = hub, onBack = {}, onOpenInstall = {}, onOpenLogin = {}, onOpenSsh = {}) }
+        shoot("linux") {
+            LinuxScreen(
+                hub = hub,
+                onBack = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+                onOpenSsh = {},
+            )
+        }
     }
 
     /** 点“位置”弹出的环境菜单。 */
@@ -44,7 +63,13 @@ class SetupShots : ShotTest() {
     fun linuxLocationMenu() {
         val hub = readyWithStatus()
         shoot("linux-location", prepare = { onNodeWithText("位置").performClick() }) {
-            LinuxScreen(hub = hub, onBack = {}, onOpenInstall = {}, onOpenLogin = {}, onOpenSsh = {})
+            LinuxScreen(
+                hub = hub,
+                onBack = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+                onOpenSsh = {},
+            )
         }
     }
 
@@ -53,7 +78,13 @@ class SetupShots : ShotTest() {
     fun linuxCwdDialog() {
         val hub = readyWithStatus()
         shoot("linux-cwd", prepare = { onNodeWithText("默认工作目录").performClick() }) {
-            LinuxScreen(hub = hub, onBack = {}, onOpenInstall = {}, onOpenLogin = {}, onOpenSsh = {})
+            LinuxScreen(
+                hub = hub,
+                onBack = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+                onOpenSsh = {},
+            )
         }
     }
 
@@ -73,7 +104,11 @@ class SetupShots : ShotTest() {
     @Test
     fun loginCode() {
         val hub = Fixtures.readyHub(app)
-        hub.environment.login.state = LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true", notice = "授权码不完整，请重新复制")
+        hub.environment.login.state =
+            LoginState.WaitingCode(
+                "https://claude.ai/oauth/authorize?code=true",
+                notice = "授权码不完整，请重新复制",
+            )
         shoot("login-code") { LoginScreen(hub = hub, onBack = {}) }
     }
 

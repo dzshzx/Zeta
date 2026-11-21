@@ -24,10 +24,16 @@ import io.github.suqi8.coui.kmp.popup.OverlayDropdownPopup
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 菜单里带图标的一项。COUI 2 的菜单行给文字上色却不给图标上色，这里让图标取和文字同一份颜色
- * （[DropdownDefaults.dropdownColors]）：[alert] 的（删除）是红色，不可用的变灰。带图标的菜单项都从这里建。
+ * 菜单里带图标的一项。COUI 2 的菜单行给文字上色却不给图标上色，这里让图标取和文字同一份颜色 （[DropdownDefaults.dropdownColors]）：[alert]
+ * 的（删除）是红色，不可用的变灰。带图标的菜单项都从这里建。
  */
-internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true, alert: Boolean = false): DropdownItem =
+internal fun menuItem(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    alert: Boolean = false,
+): DropdownItem =
     DropdownItem(
         text = text,
         enabled = enabled,
@@ -39,20 +45,20 @@ internal fun menuItem(text: String, icon: ImageVector, onClick: () -> Unit, enab
                 imageVector = icon,
                 contentDescription = null,
                 modifier = modifier,
-                tint = when {
-                    !enabled -> colors.disabledContentColor
-                    alert -> colors.alertContentColor
-                    else -> colors.contentColor
-                },
+                tint =
+                    when {
+                        !enabled -> colors.disabledContentColor
+                        alert -> colors.alertContentColor
+                        else -> colors.contentColor
+                    },
             )
         },
     )
 
 /**
- * 挂在旁边元素（胶囊、按钮、标题、设置行）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box：
- * `Box { 元素; AnchoredMenu(show, entries, onDismiss) }`；给了 [preciseClickState] 时从手指按下的地方弹出。
- * 有项带二级菜单（DropdownItem 的 children）时用 COUI 的级联弹层，点那一项在旁边弹出下一层（普通弹层不认 children）；
- * 级联弹层不支持从手指按下的地方弹出，那时从锚点弹出。
+ * 挂在旁边元素（胶囊、按钮、标题、设置行）上的 COUI 下拉菜单，点一项就收起。和那个元素放进同一个 Box： `Box { 元素; AnchoredMenu(show, entries,
+ * onDismiss) }`；给了 [preciseClickState] 时从手指按下的地方弹出。 有项带二级菜单（DropdownItem 的 children）时用 COUI
+ * 的级联弹层，点那一项在旁边弹出下一层（普通弹层不认 children）； 级联弹层不支持从手指按下的地方弹出，那时从锚点弹出。
  */
 @Composable
 internal fun AnchoredMenu(
@@ -90,15 +96,19 @@ internal fun AnchoredMenu(
 @Composable
 internal fun TopBarMoreMenu(entries: List<DropdownEntry>, contentDescription: String = "更多") {
     OverlayIconDropdownMenu(entries = entries, collapseOnSelection = true) {
-        Icon(imageVector = COUIIcons.More, contentDescription = contentDescription, tint = COUITheme.colorScheme.labelPrimary)
+        Icon(
+            imageVector = COUIIcons.More,
+            contentDescription = contentDescription,
+            tint = COUITheme.colorScheme.labelPrimary,
+        )
     }
 }
 
 /**
  * 列表行里的“更多”：平的图标按钮，菜单展开时按钮保持按下的样子，点一项就收起。
  *
- * 不用 OverlayIconDropdownMenu：它的按钮是顶栏那种带阴影的材质圆钮，放在列表行里是个实心圆，在对话框的列表里阴影还会被裁掉一截。
- * 这里用平按钮加 [AnchoredMenu]，两者在同一个 Box 里，菜单以按钮为锚。
+ * 不用 OverlayIconDropdownMenu：它的按钮是顶栏那种带阴影的材质圆钮，放在列表行里是个实心圆，在对话框的列表里阴影还会被裁掉一截。 这里用平按钮加
+ * [AnchoredMenu]，两者在同一个 Box 里，菜单以按钮为锚。
  */
 @Composable
 internal fun RowMoreMenu(

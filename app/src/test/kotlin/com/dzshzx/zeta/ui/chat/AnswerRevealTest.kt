@@ -14,8 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 回答结束时尾部的字还在逐字显现：列表这时不能删掉它的流式状态，要等显现收尾、换成静态排版以后再删。
- * 借截图测试的 Robolectric 环境，不出图；时钟一帧一帧地拨，显现的进度看得见。
+ * 回答结束时尾部的字还在逐字显现：列表这时不能删掉它的流式状态，要等显现收尾、换成静态排版以后再删。 借截图测试的 Robolectric 环境，不出图；时钟一帧一帧地拨，显现的进度看得见。
  */
 class AnswerRevealTest : ShotTest() {
     /** 拨一帧；Markdown 在 Dispatchers.Default 上解析，不算在 Compose 的空闲判断里，再等一点真实时间。 */

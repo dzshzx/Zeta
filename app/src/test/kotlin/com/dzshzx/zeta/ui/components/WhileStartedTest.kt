@@ -13,10 +13,7 @@ import com.dzshzx.zeta.shots.ShotTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/**
- * 界面看不见时，经 [whileStarted] 读的状态变了也不重组：聊天页靠它在后台不随流式回答重组、测量。
- * 借截图测试的 Robolectric 环境，不出图。
- */
+/** 界面看不见时，经 [whileStarted] 读的状态变了也不重组：聊天页靠它在后台不随流式回答重组、测量。 借截图测试的 Robolectric 环境，不出图。 */
 class WhileStartedTest : ShotTest() {
     @Test
     fun followsOnlyWhileTheScreenIsStarted() {
@@ -48,7 +45,9 @@ class WhileStartedTest : ShotTest() {
     }
 
     private class TestOwner : LifecycleOwner {
-        val registry: LifecycleRegistry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
-        override val lifecycle: Lifecycle get() = registry
+        val registry: LifecycleRegistry =
+            LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
+        override val lifecycle: Lifecycle
+            get() = registry
     }
 }

@@ -6,7 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinuxEnvTest {
-    private val config = LinuxEnvConfig(LinuxEnv.OWN_ROOTFS, "dzshzx", 5000, 5000, "/home/dzshzx", "/home/dzshzx")
+    private val config =
+        LinuxEnvConfig(LinuxEnv.OWN_ROOTFS, "dzshzx", 5000, 5000, "/home/dzshzx", "/home/dzshzx")
     private val bind = "mount -o bind ${LinuxEnv.WORKSPACE} \"\$R/workspace\""
 
     /** /workspace 绑 Zeta 自己的目录：Zeta 进环境的脚本和 SSH 服务的入口（zeta_enter.sh）绑的是同一个，都不碰 Eta 的目录。 */

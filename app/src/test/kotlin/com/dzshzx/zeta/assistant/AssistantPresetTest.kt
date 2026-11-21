@@ -21,11 +21,13 @@ class AssistantPresetTest {
     @Test
     fun presetAppliesToThisConversationOnly() {
         val hub = Fixtures.readyHub(app)
-        val conversation = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
+        val conversation =
+            Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         conversation.preset(model = "sonnet", effort = "low")
         assertEquals("sonnet", conversation.model)
         assertEquals("low", conversation.effort)
-        val other = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
+        val other =
+            Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         assertNull(other.model)
         assertNull(other.effort)
     }
@@ -36,8 +38,12 @@ class AssistantPresetTest {
         val hub = Fixtures.readyHub(app)
         assertNull(hub.settings.assistantModel)
         assertNull(hub.settings.assistantEffort)
-        val conversation = Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
-        conversation.preset(model = hub.settings.assistantModel, effort = hub.settings.assistantEffort)
+        val conversation =
+            Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
+        conversation.preset(
+            model = hub.settings.assistantModel,
+            effort = hub.settings.assistantEffort,
+        )
         assertNull(conversation.launchArgument("--model"))
         assertNull(conversation.launchArgument("--effort"))
     }

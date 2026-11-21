@@ -15,16 +15,18 @@ import org.junit.Test
 
 /**
  * zeta-helper 的 storage / storage-sessions / clean：在临时 HOME 和临时“/tmp”（ZETA_STORAGE_TEST_TMP）上
- * 用造出来的数据真跑，不碰任何人真实的 ~/.claude 和 /tmp。
- * 重点是删除的边界：只删预期那一层、不跟符号链接（链接本身和它指向的外面都不动）、正在进行的会话的一律不删。
+ * 用造出来的数据真跑，不碰任何人真实的 ~/.claude 和 /tmp。 重点是删除的边界：只删预期那一层、不跟符号链接（链接本身和它指向的外面都不动）、正在进行的会话的一律不删。
  */
 class HelperStorageTest {
     private lateinit var home: File
     private lateinit var outside: File
     private lateinit var tmp: File
     private val processes = ArrayList<Process>()
-    private val claude get() = File(home, ".claude")
-    private val project get() = File(claude, "projects/-workspace-test")
+    private val claude
+        get() = File(home, ".claude")
+
+    private val project
+        get() = File(claude, "projects/-workspace-test")
 
     // 三天前：比所有“刚写过”“一天内动过”的门槛都早
     private val oldSeconds = System.currentTimeMillis() / 1000 - 3 * 86400
@@ -45,23 +47,32 @@ class HelperStorageTest {
         File(outside, gone).mkdirs()
         File(outside, "$gone/inside.txt").writeText("keep")
         project.mkdirs()
-        File(project, "$alive.jsonl").writeText("{\"type\":\"user\",\"cwd\":\"/workspace/test\",\"sessionId\":\"$alive\"}\n")
+        File(project, "$alive.jsonl")
+            .writeText("{\"type\":\"user\",\"cwd\":\"/workspace/test\",\"sessionId\":\"$alive\"}\n")
     }
 
     @After
     fun tearDown() {
         processes.forEach { it.destroyForcibly().waitFor(5, TimeUnit.SECONDS) }
-        for (dir in listOf(if (::home.isInitialized) home else null, if (::outside.isInitialized) outside else null, if (::tmp.isInitialized) tmp else null)) {
+        for (dir in
+            listOf(
+                if (::home.isInitialized) home else null,
+                if (::outside.isInitialized) outside else null,
+                if (::tmp.isInitialized) tmp else null,
+            )) {
             dir?.deleteRecursively()
         }
     }
 
     private fun helper(vararg args: String): Pair<Int, String> {
-        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply {
-            environment()["HOME"] = home.path
-            environment()["ZETA_STORAGE_TEST_TMP"] = tmp.path
-            environment().remove("ZETA_NAME")
-        }.start()
+        val process =
+            ProcessBuilder(listOf(TestHelper.path) + args)
+                .apply {
+                    environment()["HOME"] = home.path
+                    environment()["ZETA_STORAGE_TEST_TMP"] = tmp.path
+                    environment().remove("ZETA_NAME")
+                }
+                .start()
         process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         val err = process.errorStream.bufferedReader().readText()
@@ -83,7 +94,10 @@ class HelperStorageTest {
 
     /** 把这些路径（含里面的，链接只改链接本身）的修改时刻都拨到三天前。 */
     private fun age(vararg paths: File) {
-        val command = listOf("find") + paths.map { it.path } + listOf("-exec", "touch", "-h", "-d", "@$oldSeconds", "{}", "+")
+        val command =
+            listOf("find") +
+                paths.map { it.path } +
+                listOf("-exec", "touch", "-h", "-d", "@$oldSeconds", "{}", "+")
         assertEquals(0, ProcessBuilder(command).redirectErrorStream(true).start().waitFor())
     }
 
@@ -94,14 +108,22 @@ class HelperStorageTest {
             write(script, "#!/bin/bash\nread -r line\n")
             script.setExecutable(true)
         }
-        val process = ProcessBuilder(script.path).apply {
-            if (cwd != null) directory(cwd)
-            environment()["HOME"] = processHome.path
-        }.start()
+        val process =
+            ProcessBuilder(script.path)
+                .apply {
+                    if (cwd != null) directory(cwd)
+                    environment()["HOME"] = processHome.path
+                }
+                .start()
         processes += process
         val pid = process.pid()
         repeat(100) {
-            if (runCatching { File("/proc/$pid/cmdline").readText() }.getOrDefault("").contains(name)) return pid
+            if (
+                runCatching { File("/proc/$pid/cmdline").readText() }
+                    .getOrDefault("")
+                    .contains(name)
+            )
+                return pid
             Thread.sleep(20)
         }
         return pid
@@ -109,7 +131,10 @@ class HelperStorageTest {
 
     /** 像 Claude Code 那样在 ~/.claude/sessions/<pid>.json 登记一个进程正在用会话 [session]。 */
     private fun register(pid: Long, session: String) {
-        write(File(claude, "sessions/$pid.json"), "{\"pid\":$pid,\"sessionId\":\"$session\",\"cwd\":\"/workspace/test\"}")
+        write(
+            File(claude, "sessions/$pid.json"),
+            "{\"pid\":$pid,\"sessionId\":\"$session\",\"cwd\":\"/workspace/test\"}",
+        )
     }
 
     private fun report(out: String, key: String): StorageUsage {
@@ -151,20 +176,38 @@ class HelperStorageTest {
         val residue = report(out, "claude-residue")
         assertEquals(7, residue.items)
         assertTrue(residue.freeable > 0)
-        assertEquals(setOf("file-history", "session-env", "tasks", "uploads", "todos", "projects"), residue.parts.map { it.name }.toSet())
+        assertEquals(
+            setOf("file-history", "session-env", "tasks", "uploads", "todos", "projects"),
+            residue.parts.map { it.name }.toSet(),
+        )
 
         val (cleanCode, cleanOut) = helper("clean", "claude-residue", kept)
         assertEquals(0, cleanCode)
         val outcome = cleaned(cleanOut)
         assertEquals(7, outcome.removed)
         assertEquals(0, outcome.failed)
-        for (path in listOf("projects/-workspace-test/$gone", "file-history/$gone", "session-env/$gone", "tasks/$gone", "uploads/$gone",
-            "todos/$gone-agent-$gone.json", "file-history/$gone2")) {
+        for (path in
+            listOf(
+                "projects/-workspace-test/$gone",
+                "file-history/$gone",
+                "session-env/$gone",
+                "tasks/$gone",
+                "uploads/$gone",
+                "todos/$gone-agent-$gone.json",
+                "file-history/$gone2",
+            )) {
             assertFalse("应删掉 $path", File(claude, path).exists())
         }
-        for (path in listOf("projects/-workspace-test/$alive.jsonl", "projects/-workspace-test/$alive/tool-results/a.txt",
-            "file-history/$alive/backup@v1", "todos/$alive-agent-$alive.json", "tasks/my-team/1.json", "session-env/$kept/hook.sh",
-            "file-history/$running/backup@v1")) {
+        for (path in
+            listOf(
+                "projects/-workspace-test/$alive.jsonl",
+                "projects/-workspace-test/$alive/tool-results/a.txt",
+                "file-history/$alive/backup@v1",
+                "todos/$alive-agent-$alive.json",
+                "tasks/my-team/1.json",
+                "session-env/$kept/hook.sh",
+                "file-history/$running/backup@v1",
+            )) {
             assertTrue("应留着 $path", File(claude, path).exists())
         }
         assertTrue(Files.isSymbolicLink(File(claude, "session-env/$gone2").toPath()))
@@ -208,7 +251,10 @@ class HelperStorageTest {
         // 另一个包的目录不归这个包管
         write(File(home, ".cache/zeta-dev/hosts/other/pid"), "$finished\n")
         // 附件：进行中的会话提到的不删
-        write(File(project, "$kept.jsonl"), "{\"type\":\"user\",\"message\":{\"content\":\"[Attached file: ${home.path}/.cache/zeta/files/abcd1234/pic.png]\"}}\n")
+        write(
+            File(project, "$kept.jsonl"),
+            "{\"type\":\"user\",\"message\":{\"content\":\"[Attached file: ${home.path}/.cache/zeta/files/abcd1234/pic.png]\"}}\n",
+        )
         write(File(home, ".cache/zeta/files/abcd1234/pic.png"))
         write(File(home, ".cache/zeta/files/0f0f0f0f/old.png"))
         write(File(home, ".cache/zeta/files/not-an-upload/x"))
@@ -256,7 +302,10 @@ class HelperStorageTest {
         link(File(tmp, "link-to-outside"), outside)
         write(File(tmp, "tmux-$uid/x"))
         File(tmp, "with-fifo").mkdirs()
-        assertEquals(0, ProcessBuilder("mkfifo", File(tmp, "with-fifo/pipe").path).start().waitFor())
+        assertEquals(
+            0,
+            ProcessBuilder("mkfifo", File(tmp, "with-fifo/pipe").path).start().waitFor(),
+        )
         write(File(tmp, "busy/work.txt"))
         val claudeTmp = File(tmp, "claude-$uid")
         write(File(claudeTmp, "-workspace-test/$running/tasks/1.output"))
@@ -270,10 +319,24 @@ class HelperStorageTest {
         val (code, out) = helper("clean", "tmp")
         assertEquals(0, code)
         assertEquals(5, cleaned(out).removed)
-        for (gone in listOf("old.txt", "old-dir", "old-dir-with-link", "claude-$uid/-workspace-test/$gone", "claude-$uid/-workspace-old")) {
+        for (gone in
+            listOf(
+                "old.txt",
+                "old-dir",
+                "old-dir-with-link",
+                "claude-$uid/-workspace-test/$gone",
+                "claude-$uid/-workspace-old",
+            )) {
             assertFalse("应删掉 $gone", File(tmp, gone).exists())
         }
-        for (kept in listOf("new.txt", "tmux-$uid/x", "with-fifo/pipe", "busy/work.txt", "claude-$uid/-workspace-test/$running/tasks/1.output")) {
+        for (kept in
+            listOf(
+                "new.txt",
+                "tmux-$uid/x",
+                "with-fifo/pipe",
+                "busy/work.txt",
+                "claude-$uid/-workspace-test/$running/tasks/1.output",
+            )) {
             assertTrue("应留着 $kept", File(tmp, kept).exists())
         }
         assertTrue(Files.isSymbolicLink(File(tmp, "link-to-outside").toPath()))
@@ -310,7 +373,10 @@ class HelperStorageTest {
 
     @Test
     fun storageReportsProjectsAndOnlyTheCleanupSetting() {
-        write(File(claude, "settings.json"), "{\"cleanupPeriodDays\": 7, \"env\": {\"API_KEY\": \"fake-token-1\"}}")
+        write(
+            File(claude, "settings.json"),
+            "{\"cleanupPeriodDays\": 7, \"env\": {\"API_KEY\": \"fake-token-1\"}}",
+        )
         write(File(project, "$gone/tool-results/b.txt"))
         val (code, out) = helper("storage")
         assertEquals(0, code)
@@ -321,7 +387,10 @@ class HelperStorageTest {
         assertEquals(listOf("-workspace-test"), parsed.projects.map { it.dir })
         assertEquals("/workspace/test", parsed.projects.single().cwd)
         assertEquals(1, parsed.projects.single().sessions)
-        for (kind in StorageKind.entries.filter { it.inLinux }) assertNotNull("缺 ${kind.key}", parsed.linux[kind.key])
+        for (kind in StorageKind.entries.filter { it.inLinux }) assertNotNull(
+            "缺 ${kind.key}",
+            parsed.linux[kind.key],
+        )
     }
 
     @Test
@@ -343,15 +412,16 @@ class HelperStorageTest {
     fun badArgumentsAreRefusedAsAWhole() {
         write(File(outside, "x.jsonl"), "{}\n")
         link(File(claude, "projects/escape"), outside)
-        for (args in listOf(
-            listOf("storage-sessions", ".."),
-            listOf("storage-sessions", "../../" + outside.name),
-            listOf("storage-sessions", "escape"),
-            listOf("clean", "apt"),
-            listOf("clean", "nope"),
-            listOf("clean", "tmp", "../x"),
-            listOf("storage", "\$(id)"),
-        )) {
+        for (args in
+            listOf(
+                listOf("storage-sessions", ".."),
+                listOf("storage-sessions", "../../" + outside.name),
+                listOf("storage-sessions", "escape"),
+                listOf("clean", "apt"),
+                listOf("clean", "nope"),
+                listOf("clean", "tmp", "../x"),
+                listOf("storage", "\$(id)"),
+            )) {
             assertNotEquals("应拒绝 $args", 0, helper(*args.toTypedArray()).first)
         }
         assertTrue(File(outside, "x.jsonl").exists())

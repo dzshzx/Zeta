@@ -16,8 +16,8 @@ import org.robolectric.annotation.Config
 
 /**
  * 接着已有会话时模型交给 Claude Code：不带 --model，它照会话记录恢复（行为由 ClaudeResumeContractTest 钉住），
- * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。
- * 新对话的默认值是 Claude Code 自己的设置，这里都不动（[ClaudeDefaultsTest]）。
+ * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。 新对话的默认值是 Claude Code
+ * 自己的设置，这里都不动（[ClaudeDefaultsTest]）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -27,7 +27,8 @@ class SessionRestoreTest {
     private fun hub(): ConversationHub = Fixtures.readyHub(app)
 
     /** 已有会话的对话对象；不给记录文件，就不去载入历史。 */
-    private fun reopened(hub: ConversationHub) = Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
+    private fun reopened(hub: ConversationHub) =
+        Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
 
     private fun Conversation.modelArgument(): String? = launchArgument("--model")
 
@@ -41,12 +42,17 @@ class SessionRestoreTest {
         conversation.chooseModel("opus")
         assertEquals("opus", conversation.modelArgument())
         // 新对话选默认：不指定，Claude Code 照它自己的设置
-        conversation.receive("""{"type":"system","subtype":"init","session_id":"s-new","model":"claude-opus-5-5"}""")
+        conversation.receive(
+            """{"type":"system","subtype":"init","session_id":"s-new","model":"claude-opus-5-5"}""",
+        )
         conversation.chooseModel("default")
         assertNull(conversation.model)
         assertNull(conversation.modelArgument())
         // 顶栏写「默认」，不留上一轮 init 报的模型
-        assertEquals("默认", modelLabel(conversation.shownModel, hub.modelOptions(conversation.backend)))
+        assertEquals(
+            "默认",
+            modelLabel(conversation.shownModel, hub.modelOptions(conversation.backend)),
+        )
     }
 
     @Test
@@ -58,7 +64,9 @@ class SessionRestoreTest {
         assertTrue("--resume" in conversation.launchArguments())
         assertNull(conversation.modelArgument())
         // Claude Code 起来后报的是它照会话记录恢复的那个
-        conversation.receive("""{"type":"system","subtype":"init","session_id":"s-old","model":"claude-sonnet-5-5"}""")
+        conversation.receive(
+            """{"type":"system","subtype":"init","session_id":"s-old","model":"claude-sonnet-5-5"}""",
+        )
         assertEquals("claude-sonnet-5-5", conversation.shownModel)
         assertEquals("Sonnet 5.5", modelLabel(conversation.shownModel, emptyList()))
         // 思考强度 Claude Code 不恢复：照会话记录
@@ -100,7 +108,13 @@ class SessionRestoreTest {
         source.restoreEffort("max")
         source.choosePermissionMode("plan")
         hub.force("current", source)
-        hub.showChat("旧对话", listOf(UserItem("u1", "你好", uuid = "uuid-1"), AnswerItem("a1", "你好！", streaming = false)))
+        hub.showChat(
+            "旧对话",
+            listOf(
+                UserItem("u1", "你好", uuid = "uuid-1"),
+                AnswerItem("a1", "你好！", streaming = false),
+            ),
+        )
         hub.branch("a1")
         val branch = hub.current
         assertTrue(branch !== source)
@@ -122,7 +136,11 @@ class SessionRestoreTest {
         assertEquals("Haiku 4.5", readableModelId("claude-haiku-4-5-20251001"))
         assertEquals("Opus 5.5 (1M)", readableModelId("claude-opus-5-5[1m]"))
         assertEquals("gpt-6-astra", readableModelId("gpt-6-astra"))
-        val options = listOf(ModelOption("default", "Default (recommended)", ""), ModelOption("fable", "Fable", ""))
+        val options =
+            listOf(
+                ModelOption("default", "Default (recommended)", ""),
+                ModelOption("fable", "Fable", ""),
+            )
         assertEquals("Fable", modelLabel("fable", options))
         assertEquals("默认", modelLabel(null, options))
         assertEquals("默认", modelLabel("default", options))

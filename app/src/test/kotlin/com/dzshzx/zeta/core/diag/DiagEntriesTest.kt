@@ -26,7 +26,10 @@ class DiagEntriesTest {
     fun badLinesAreSkipped() {
         assertNull(DiagEntries.decode(""))
         assertNull(DiagEntries.decode("{\"t\":1,\"l\":\"w\",\"c\":\"a11y\""))
-        assertNull("不认识的类别", DiagEntries.decode("{\"t\":1,\"l\":\"w\",\"c\":\"later\",\"m\":\"x\"}"))
+        assertNull(
+            "不认识的类别",
+            DiagEntries.decode("{\"t\":1,\"l\":\"w\",\"c\":\"later\",\"m\":\"x\"}"),
+        )
         assertNull("不认识的级别", DiagEntries.decode("{\"t\":1,\"l\":\"x\",\"c\":\"app\",\"m\":\"x\"}"))
         assertNull("缺时间", DiagEntries.decode("{\"l\":\"i\",\"c\":\"app\",\"m\":\"x\"}"))
     }
@@ -47,18 +50,39 @@ class DiagEntriesTest {
         val error = DiagEntry(at, DiagLevel.Error, DiagTopic.Helper, "helper list 出错（退出码 1）")
         val all = listOf(info, warn, error)
         assertEquals(all, all.filter { DiagEntries.matches(it, null, DiagLevel.Info) })
-        assertEquals(listOf(warn, error), all.filter { DiagEntries.matches(it, null, DiagLevel.Warn) })
+        assertEquals(
+            listOf(warn, error),
+            all.filter { DiagEntries.matches(it, null, DiagLevel.Warn) },
+        )
         assertEquals(listOf(error), all.filter { DiagEntries.matches(it, null, DiagLevel.Error) })
-        assertEquals(listOf(warn), all.filter { DiagEntries.matches(it, DiagTopic.Accessibility, DiagLevel.Info) })
-        assertEquals(emptyList<DiagEntry>(), all.filter { DiagEntries.matches(it, DiagTopic.Claude, DiagLevel.Warn) })
-        assertEquals(listOf(error), all.filter { DiagEntries.matches(it, null, DiagLevel.Info, " HELPER ") })
+        assertEquals(
+            listOf(warn),
+            all.filter { DiagEntries.matches(it, DiagTopic.Accessibility, DiagLevel.Info) },
+        )
+        assertEquals(
+            emptyList<DiagEntry>(),
+            all.filter { DiagEntries.matches(it, DiagTopic.Claude, DiagLevel.Warn) },
+        )
+        assertEquals(
+            listOf(error),
+            all.filter { DiagEntries.matches(it, null, DiagLevel.Info, " HELPER ") },
+        )
     }
 
     @Test
     fun formatting() {
         val entry = DiagEntry(at, DiagLevel.Error, DiagTopic.Claude, "退出码 1\nstderr 第一行")
-        assertEquals("2026-11-19 10:00:00.123 出错 [Claude 进程] 退出码 1\n    stderr 第一行", DiagEntries.format(entry, zone))
-        assertEquals("10:00:00", DiagEntries.shortTime(at, zone, today = LocalDate.of(2026, 11, 19)))
-        assertEquals("11-19 10:00:00", DiagEntries.shortTime(at, zone, today = LocalDate.of(2026, 11, 20)))
+        assertEquals(
+            "2026-11-19 10:00:00.123 出错 [Claude 进程] 退出码 1\n    stderr 第一行",
+            DiagEntries.format(entry, zone),
+        )
+        assertEquals(
+            "10:00:00",
+            DiagEntries.shortTime(at, zone, today = LocalDate.of(2026, 11, 19)),
+        )
+        assertEquals(
+            "11-19 10:00:00",
+            DiagEntries.shortTime(at, zone, today = LocalDate.of(2026, 11, 20)),
+        )
     }
 }

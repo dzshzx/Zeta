@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.ui.chat
 
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -30,10 +28,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +47,7 @@ import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -63,14 +61,33 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * 实际生效的档位，用中性的灰，指定了用主题色。档位名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
-internal fun EffortChip(effort: String?, applied: String?, enabled: Boolean = true, onChange: (String?) -> Unit) {
+internal fun EffortChip(
+    effort: String?,
+    applied: String?,
+    enabled: Boolean = true,
+    onChange: (String?) -> Unit,
+) {
     val choose by rememberUpdatedState(onChange)
     val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
-    val entries = remember(defaultText, effort) {
-        val items = listOf(DropdownItem(text = defaultText, selected = effort == null, onClick = { choose(null) })) +
-            EffortLevels.map { (value, label) -> DropdownItem(text = label, selected = value == effort, onClick = { choose(value) }) }
-        listOf(DropdownEntry(items = items))
-    }
+    val entries =
+        remember(defaultText, effort) {
+            val items =
+                listOf(
+                    DropdownItem(
+                        text = defaultText,
+                        selected = effort == null,
+                        onClick = { choose(null) },
+                    ),
+                ) +
+                    EffortLevels.map { (value, label) ->
+                        DropdownItem(
+                            text = label,
+                            selected = value == effort,
+                            onClick = { choose(value) },
+                        )
+                    }
+            listOf(DropdownEntry(items = items))
+        }
     // 第几档，从 1 数；不知道是哪档时为 0
     val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1
     BarMenuButton(
@@ -84,14 +101,17 @@ internal fun EffortChip(effort: String?, applied: String?, enabled: Boolean = tr
 }
 
 /** 思考强度的刻度表，第 i 个亮 i 格（0 是不知道档位）。 */
-internal val EffortGauges: List<ImageVector> by lazy { (0..EffortLevels.size).map { ZetaIcons.gauge(it, EffortLevels.size) } }
+internal val EffortGauges: List<ImageVector> by lazy {
+    (0..EffortLevels.size).map { ZetaIcons.gauge(it, EffortLevels.size) }
+}
 
 @Composable
-private fun levelColor(level: ContextLevel, normal: Color): Color = when (level) {
-    ContextLevel.Critical -> COUITheme.colorScheme.error
-    ContextLevel.Warning -> StatusWarning
-    ContextLevel.Normal -> normal
-}
+private fun levelColor(level: ContextLevel, normal: Color): Color =
+    when (level) {
+        ContextLevel.Critical -> COUITheme.colorScheme.error
+        ContextLevel.Warning -> StatusWarning
+        ContextLevel.Normal -> normal
+    }
 
 /**
  * 发送键左边的用量按钮，点开都是用量弹窗（订阅额度、上下文、累计）：订阅额度快到上限或已被拒时有额度提醒（[QuotaAlarm]），
@@ -115,7 +135,11 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
     val percent = usage.fraction?.let { (it * 100).toInt() }
     val loud = level != ContextLevel.Normal && percent != null
     BarButton(
-        description = "上下文用量" + (percent?.let { "：$it%" } ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" } ?: ""),
+        description =
+            "上下文用量" +
+                (percent?.let { "：$it%" }
+                    ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" }
+                    ?: ""),
         onClick = onClick,
         colors = barChipColors(if (loud) color else null),
     ) {
@@ -131,12 +155,27 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
 
 /** [mark] 是自动压缩点在圆环上的位置（0..1），画一道短刻度；快到窗口尽头的不画，和起点挤在一起看不清。 */
 @Composable
-private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier, mark: Float? = null, markColor: Color = track) {
+private fun ContextRing(
+    fraction: Float,
+    color: Color,
+    track: Color,
+    modifier: Modifier = Modifier,
+    mark: Float? = null,
+    markColor: Color = track,
+) {
     Canvas(modifier = modifier.size(16.dp)) {
         val stroke = 2.dp.toPx()
         val inset = stroke / 2
         val arcSize = Size(size.width - stroke, size.height - stroke)
-        drawArc(track, 0f, 360f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
+        drawArc(
+            track,
+            0f,
+            360f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = arcSize,
+            style = Stroke(stroke),
+        )
         if (fraction > 0f) {
             drawArc(
                 color,
@@ -153,7 +192,8 @@ private fun ContextRing(fraction: Float, color: Color, track: Color, modifier: M
             val angle = Math.toRadians((-90.0 + 360.0 * mark))
             val radius = (size.width - stroke) / 2
             val center = Offset(size.width / 2, size.height / 2)
-            val direction = Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
+            val direction =
+                Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
             drawLine(
                 markColor,
                 start = center + direction * (radius - stroke * 1.1f),
@@ -189,35 +229,51 @@ internal fun UsageDialog(
         },
         onDismissRequest = onDismissRequest,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+        Column(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .heightIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState()),
+        ) {
             if (quota != null) {
                 quota()
                 Spacer(Modifier.height(18.dp))
             }
             ContextSection(usage)
             Spacer(Modifier.height(18.dp))
-            val total = usage.total
-            SectionHeader("本对话累计", if (usage.turns.isEmpty()) null else "${usage.turns.size} 轮")
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StatRow("输入（未走缓存）", "${formatExactTokens(total.input)} tok")
-                StatRow("缓存读取", "${formatExactTokens(total.cacheRead)} tok")
-                StatRow("缓存写入", "${formatExactTokens(total.cacheWrite)} tok")
-                StatRow("输出", "${formatExactTokens(total.output)} tok")
-                StatRow("费用（按 API 标价）", usage.totalCost?.let(::formatCost) ?: "—")
-            }
-            val notes = buildList {
-                if (usage.costPartial) add("会话记录里没有费用，从记录恢复的轮次只计 token。")
-                if (skippedHistory > 0) add("更早的记录没有载入，也没有计入。")
-            }
-            if (notes.isNotEmpty()) Note(notes.joinToString(""), Modifier.padding(top = 8.dp))
-            if (usage.turns.isNotEmpty()) {
-                Spacer(Modifier.height(18.dp))
-                SectionHeader("各轮", null)
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // 新的在上；太长的对话只列最近 50 轮
-                    usage.turns.withIndex().reversed().take(50).forEach { (index, turn) -> TurnRow(index + 1, turn) }
-                }
-            }
+            TotalsSection(usage, skippedHistory)
+            if (usage.turns.isNotEmpty()) TurnsSection(usage)
+        }
+    }
+}
+
+/** 本对话累计：各类 token 和按 API 标价算的费用，有缺的注明。 */
+@Composable
+private fun TotalsSection(usage: ChatUsage, skippedHistory: Int) {
+    val total = usage.total
+    SectionHeader("本对话累计", if (usage.turns.isEmpty()) null else "${usage.turns.size} 轮")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        StatRow("输入（未走缓存）", "${formatExactTokens(total.input)} tok")
+        StatRow("缓存读取", "${formatExactTokens(total.cacheRead)} tok")
+        StatRow("缓存写入", "${formatExactTokens(total.cacheWrite)} tok")
+        StatRow("输出", "${formatExactTokens(total.output)} tok")
+        StatRow("费用（按 API 标价）", usage.totalCost?.let(::formatCost) ?: "—")
+    }
+    val notes = buildList {
+        if (usage.costPartial) add("会话记录里没有费用，从记录恢复的轮次只计 token。")
+        if (skippedHistory > 0) add("更早的记录没有载入，也没有计入。")
+    }
+    if (notes.isNotEmpty()) Note(notes.joinToString(""), Modifier.padding(top = 8.dp))
+}
+
+/** 各轮明细，新的在上；太长的对话只列最近 50 轮。 */
+@Composable
+private fun TurnsSection(usage: ChatUsage) {
+    Spacer(Modifier.height(18.dp))
+    SectionHeader("各轮", null)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        usage.turns.withIndex().reversed().take(50).forEach { (index, turn) ->
+            TurnRow(index + 1, turn)
         }
     }
 }
@@ -247,7 +303,8 @@ private fun ContextSection(usage: ChatUsage) {
         add(
             when {
                 tokens == null -> "发出第一条消息后显示。"
-                usage.autoCompact == false && usage.level == ContextLevel.Critical -> "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。"
+                usage.autoCompact == false && usage.level == ContextLevel.Critical ->
+                    "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。"
                 usage.autoCompact == false -> "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。"
                 usage.level == ContextLevel.Critical -> "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。"
                 usage.contextEstimated -> "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"
@@ -255,38 +312,60 @@ private fun ContextSection(usage: ChatUsage) {
             },
         )
         if (compactAt != null && usage.autoCompact != false) {
-            add("自动压缩点：${formatTokens(compactAt)}" + (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%，条上的刻度）" } ?: "") + "。")
+            add(
+                "自动压缩点：${formatTokens(compactAt)}" +
+                    (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%，条上的刻度）" } ?: "") +
+                    "。",
+            )
         }
         if (usage.compactions > 0) add("已压缩 ${usage.compactions} 次。")
-        val meta = listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" }).joinToString(" · ")
+        val meta =
+            listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" })
+                .joinToString(" · ")
         if (meta.isNotEmpty()) add(meta)
     }
     Note(detail.joinToString("\n"))
 }
 
 /**
- * 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。[mark] 处画一道竖线（比如自动压缩点），
- * 上下各伸出条外 3dp，要的话调用方自己留出这点空。上下文和订阅额度共用。
+ * 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。[mark] 处画一道竖线（比如自动压缩点）， 上下各伸出条外
+ * 3dp，要的话调用方自己留出这点空。上下文和订阅额度共用。
  */
 @Composable
-internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier, mark: Float? = null) {
+internal fun UsageBar(
+    fraction: Float,
+    color: Color,
+    modifier: Modifier = Modifier,
+    mark: Float? = null,
+) {
     val ink = COUITheme.colorScheme.labelPrimary
     val dark = COUITheme.colorScheme.isDark
     Box(modifier = modifier.fillMaxWidth().height(6.dp)) {
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(3.dp))
-                .background(ink.copy(alpha = if (dark) 0.12f else 0.07f)),
+            modifier =
+                Modifier.matchParentSize()
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(ink.copy(alpha = if (dark) 0.12f else 0.07f)),
         ) {
-            Box(Modifier.fillMaxWidth(fraction.coerceIn(0.01f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
+            Box(
+                Modifier.fillMaxWidth(fraction.coerceIn(0.01f, 1f))
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(color),
+            )
         }
         if (mark != null) {
             val markColor = ink.copy(alpha = if (dark) 0.6f else 0.5f)
             Canvas(Modifier.matchParentSize()) {
                 val x = (size.width * mark).coerceIn(1.dp.toPx(), size.width - 1.dp.toPx())
                 val reach = 3.dp.toPx()
-                drawLine(markColor, Offset(x, -reach), Offset(x, size.height + reach), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+                drawLine(
+                    markColor,
+                    Offset(x, -reach),
+                    Offset(x, size.height + reach),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
             }
         }
     }
@@ -295,17 +374,26 @@ internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifi
 @Composable
 private fun SectionHeader(title: String, value: String?) {
     val ink = COUITheme.colorScheme.labelPrimary
-    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             text = title,
-            style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            style =
+                COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
             color = ink,
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
             Text(
                 text = value,
-                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                style =
+                    COUITheme.textStyles.bodyM.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFeatureSettings = "tnum",
+                    ),
                 color = ink,
                 maxLines = 1,
             )
@@ -328,7 +416,12 @@ private fun StatRow(label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Text(
             text = value,
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+            style =
+                COUITheme.textStyles.bodyS.copy(
+                    fontSize = 12.5.sp,
+                    lineHeight = 18.sp,
+                    fontFeatureSettings = "tnum",
+                ),
             color = colors.labelPrimary.copy(alpha = 0.84f),
             maxLines = 1,
         )
@@ -349,13 +442,24 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
             )
             Text(
                 text = turn.costUsd?.let(::formatCost) ?: "—",
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
+                style =
+                    COUITheme.textStyles.bodyS.copy(
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp,
+                        fontFeatureSettings = "tnum",
+                    ),
                 color = colors.labelPrimary.copy(alpha = 0.84f),
             )
         }
         Text(
-            text = "输入 ${formatTokens(t.input)} · 缓存读 ${formatTokens(t.cacheRead)} · 缓存写 ${formatTokens(t.cacheWrite)} · 输出 ${formatTokens(t.output)}",
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 11.5.sp, lineHeight = 16.sp, fontFeatureSettings = "tnum"),
+            text =
+                "输入 ${formatTokens(t.input)} · 缓存读 ${formatTokens(t.cacheRead)} · 缓存写 ${formatTokens(t.cacheWrite)} · 输出 ${formatTokens(t.output)}",
+            style =
+                COUITheme.textStyles.bodyS.copy(
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                    fontFeatureSettings = "tnum",
+                ),
             color = colors.labelSecondary,
         )
     }

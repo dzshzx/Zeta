@@ -17,7 +17,15 @@ import org.robolectric.annotation.Config
 class SessionListTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
-    private fun summary(id: String, title: String = "会话 $id") = SessionSummary(id, "/home/dzshzx/.claude/projects/-w/$id.jsonl", "/workspace/claude", title, "", 0)
+    private fun summary(id: String, title: String = "会话 $id") =
+        SessionSummary(
+            id,
+            "/home/dzshzx/.claude/projects/-w/$id.jsonl",
+            "/workspace/claude",
+            title,
+            "",
+            0,
+        )
 
     /** 自动起的标题先记着：在它写进会话记录之前读到的列表用记着的，读到写进去的以后就不再替它补。 */
     @Test

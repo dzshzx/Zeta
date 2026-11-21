@@ -26,14 +26,15 @@ fun ClaudeConfigClient.setDefaultPermissionMode(mode: String): ClaudeDefaults {
 }
 
 /** 默认思考强度：[model] 是完整模型 ID 时只改这个模型的，null 时改没单独设的模型用的那一档；[level] 为 null 是删掉。 */
-fun ClaudeConfigClient.setDefaultEffort(model: String?, level: String?): ClaudeDefaults = ClaudeSettings.defaults(
-    updateSettings {
-        try {
-            ClaudeSettings.withEffort(it, model, level)
-        } catch (error: ClaudeSettings.Invalid) {
-            throw ClaudeConfigException("settings.json 里的 modelSettings 不是对象，先在终端里修好它")
-        }
-    },
-)
+fun ClaudeConfigClient.setDefaultEffort(model: String?, level: String?): ClaudeDefaults =
+    ClaudeSettings.defaults(
+        updateSettings {
+            try {
+                ClaudeSettings.withEffort(it, model, level)
+            } catch (error: ClaudeSettings.Invalid) {
+                throw ClaudeConfigException("settings.json 里的 modelSettings 不是对象，先在终端里修好它")
+            }
+        },
+    )
 
 private const val BYPASS = "bypassPermissions"

@@ -12,14 +12,18 @@ import org.junit.Test
 /** 暂停、接管的闸门：工具线程在 await 里等，另一个线程开关；作废时交回原因，等太久交回超时的说明。 */
 class ControlGateTest {
     /** 在另一个线程里过闸门，返回它的结果（还在等就是没完成的 future）。 */
-    private fun ControlGate.awaitAsync(): CompletableFuture<String?> = CompletableFuture.supplyAsync { await() }
+    private fun ControlGate.awaitAsync(): CompletableFuture<String?> =
+        CompletableFuture.supplyAsync {
+            await()
+        }
 
-    private fun CompletableFuture<String?>.stillWaiting(): Boolean = try {
-        get(200, TimeUnit.MILLISECONDS)
-        false
-    } catch (_: TimeoutException) {
-        true
-    }
+    private fun CompletableFuture<String?>.stillWaiting(): Boolean =
+        try {
+            get(200, TimeUnit.MILLISECONDS)
+            false
+        } catch (_: TimeoutException) {
+            true
+        }
 
     @Test
     fun openGateLetsCallsThrough() {

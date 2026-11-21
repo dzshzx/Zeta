@@ -34,9 +34,9 @@ import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
+import com.dzshzx.zeta.ui.pane.SessionReveal
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsScreen
-import com.dzshzx.zeta.ui.pane.SessionReveal
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -58,7 +58,11 @@ class MainActivity : ComponentActivity() {
         hub = ConversationHub.get(application)
         live = WeakReference(this)
         hub.onUiStarted()
-        if (savedInstanceState == null && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (
+            savedInstanceState == null &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+        ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         acceptShared(intent)
@@ -69,7 +73,9 @@ class MainActivity : ComponentActivity() {
             val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             // 状态栏、导航栏的图标深浅跟着应用自己的主题走，而不是系统的
             DisposableEffect(dark) {
-                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                val style =
+                    if (dark) SystemBarStyle.dark(Color.TRANSPARENT)
+                    else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
@@ -117,37 +123,48 @@ class MainActivity : ComponentActivity() {
         private var live = WeakReference<MainActivity>(null)
 
         /** 界面还开着（没被销毁）时它所在的屏幕；截屏后把 Zeta 打开到这块屏上。 */
-        val liveDisplay: Int? get() = live.get()?.takeUnless { it.isDestroyed }?.display?.displayId
+        val liveDisplay: Int?
+            get() = live.get()?.takeUnless { it.isDestroyed }?.display?.displayId
 
         /** 点了打开 Zeta 并切到对话 [key] 的 Intent（通知用，点通知时系统允许从后台打开界面）。 */
-        fun conversationIntent(context: Context, key: String): Intent = Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra(EXTRA_CONVERSATION, key)
+        fun conversationIntent(context: Context, key: String): Intent =
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(EXTRA_CONVERSATION, key)
 
         /** 打开 Zeta 并切到对话 [key]（sessionId，新对话用它的 key）。可以在应用不在前台时调用。 */
         /**
-         * 打开 Zeta 并切到对话 [key]。从胶囊上调用时 Zeta 在后台，直接 startActivity 会被后台启动限制拦下（不报错，任务就是不上来）：
-         * 照 Eta 用 PendingIntent 发，声明“胶囊这个可见窗口在，就允许”。[displayId] 不是 0 时（调试用的“主屏”）开到那块屏上。
+         * 打开 Zeta 并切到对话 [key]。从胶囊上调用时 Zeta 在后台，直接 startActivity 会被后台启动限制拦下（不报错，任务就是不上来）： 照 Eta 用
+         * PendingIntent 发，声明“胶囊这个可见窗口在，就允许”。[displayId] 不是 0 时（调试用的“主屏”）开到那块屏上。
          */
         fun openConversation(context: Context, key: String, displayId: Int = 0) {
-            val intent = Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(EXTRA_CONVERSATION, key)
-            val mode = if (Build.VERSION.SDK_INT >= 36) {
-                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
-            } else {
-                @Suppress("DEPRECATION")
-                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-            }
-            val creator = ActivityOptions.makeBasic().apply { pendingIntentCreatorBackgroundActivityStartMode = mode }
-            val sender = ActivityOptions.makeBasic().apply {
-                pendingIntentBackgroundActivityStartMode = mode
-                if (displayId != 0) launchDisplayId = displayId
-            }
-            val pending = PendingIntent.getActivity(
-                context, OPEN_CONVERSATION_REQUEST, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE, creator.toBundle(),
-            )
+            val intent =
+                Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(EXTRA_CONVERSATION, key)
+            val mode =
+                if (Build.VERSION.SDK_INT >= 36) {
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                } else {
+                    @Suppress("DEPRECATION") ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                }
+            val creator =
+                ActivityOptions.makeBasic().apply {
+                    pendingIntentCreatorBackgroundActivityStartMode = mode
+                }
+            val sender =
+                ActivityOptions.makeBasic().apply {
+                    pendingIntentBackgroundActivityStartMode = mode
+                    if (displayId != 0) launchDisplayId = displayId
+                }
+            val pending =
+                PendingIntent.getActivity(
+                    context,
+                    OPEN_CONVERSATION_REQUEST,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    creator.toBundle(),
+                )
             runCatching { pending.send(context, 0, null, null, null, null, sender.toBundle()) }
                 .onFailure { runCatching { context.startActivity(intent, sender.toBundle()) } }
         }
@@ -158,9 +175,15 @@ class MainActivity : ComponentActivity() {
          */
         fun openConversationAsRoot(context: Context, key: String, displayId: Int = 0) {
             val display = if (displayId != 0) " --display $displayId" else ""
-            val script = "am start --activity-single-top -n \"\$2\" --es \"\$3\" \"\$4\"$display >/dev/null 2>&1"
+            val script =
+                "am start --activity-single-top -n \"\$2\" --es \"\$3\" \"\$4\"$display >/dev/null 2>&1"
             val component = context.packageName + "/" + MainActivity::class.java.name
-            runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(script, component, EXTRA_CONVERSATION, key), 10_000) }
+            runCatching {
+                LinuxEnv.runRoot(
+                    LinuxEnv.androidScript(script, component, EXTRA_CONVERSATION, key),
+                    10_000,
+                )
+            }
         }
 
         private const val OPEN_CONVERSATION_REQUEST = 7
@@ -183,7 +206,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     val incoming = hub.incoming
     LaunchedEffect(incoming) { if (incoming != null) showChat(keepSetup = true) }
     // 通知要打开设置里的某一页：先把设置页打开（放到最上面），那一页由设置页自己切过去
-    LaunchedEffect(SettingsLink.pending) { if (SettingsLink.pending != null) pages.open(AppPage.Settings) }
+    LaunchedEffect(SettingsLink.pending) {
+        if (SettingsLink.pending != null) pages.open(AppPage.Settings)
+    }
     ConversationSidePaneScaffold(
         visible = paneOpen,
         backHandlerEnabled = !pages.any,
@@ -230,7 +255,9 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             onOpenLogin = { pages.open(AppPage.Login) },
             onOpenRemoteHosts = { pages.open(AppPage.RemoteHosts) },
             onOpenTasks = { pages.open(AppPage.Tasks(it)) },
-            onOpenSubagent = { conversation, use -> pages.open(AppPage.Subagent(conversation, use)) },
+            onOpenSubagent = { conversation, use ->
+                pages.open(AppPage.Subagent(conversation, use))
+            },
         )
     }
     // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键
@@ -240,40 +267,54 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     }
     PageStackHost(pages) { page ->
         when (page) {
-            AppPage.Settings -> SettingsScreen(
-                hub = hub,
-                onBack = { pages.close(page) },
-                onOpenLinux = { pages.open(AppPage.Linux) },
-                // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
-                onRevealSession = { id ->
-                    SessionReveal.request = id
-                    pages.close(page)
-                    paneOpen = true
-                    hub.sessionList.refresh()
-                },
-                onShowChat = { showChat() },
-            )
-            AppPage.Linux -> LinuxScreen(
-                hub = hub,
-                onBack = { pages.close(page) },
-                onOpenInstall = { pages.open(AppPage.Install) },
-                onOpenLogin = { pages.open(AppPage.Login) },
-                onOpenSsh = { pages.open(AppPage.Ssh) },
-            )
+            AppPage.Settings ->
+                SettingsScreen(
+                    hub = hub,
+                    onBack = { pages.close(page) },
+                    onOpenLinux = { pages.open(AppPage.Linux) },
+                    // 存储页里点一个会话：关掉设置，打开侧栏并定位到它
+                    onRevealSession = { id ->
+                        SessionReveal.request = id
+                        pages.close(page)
+                        paneOpen = true
+                        hub.sessionList.refresh()
+                    },
+                    onShowChat = { showChat() },
+                )
+            AppPage.Linux ->
+                LinuxScreen(
+                    hub = hub,
+                    onBack = { pages.close(page) },
+                    onOpenInstall = { pages.open(AppPage.Install) },
+                    onOpenLogin = { pages.open(AppPage.Login) },
+                    onOpenSsh = { pages.open(AppPage.Ssh) },
+                )
             AppPage.Ssh -> SshScreen(hub = hub, onBack = { pages.close(page) })
-            AppPage.Install -> EnvInstallScreen(hub = hub, onBack = { pages.close(page) }, onOpenLogin = { pages.open(AppPage.Login) })
+            AppPage.Install ->
+                EnvInstallScreen(
+                    hub = hub,
+                    onBack = { pages.close(page) },
+                    onOpenLogin = { pages.open(AppPage.Login) },
+                )
             AppPage.Login -> LoginScreen(hub = hub, onBack = { pages.close(page) })
             AppPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = { pages.close(page) })
-            is AppPage.Tasks -> BackgroundTasksScreen(
-                hub = hub,
-                scope = page.scope,
-                onBack = { pages.close(page) },
-                onOpenConversation = { key ->
-                    hub.openConversation(key)
-                    showChat()
-                },
-            )
-            is AppPage.Subagent -> SubagentScreen(hub = hub, conversationKey = page.conversation, toolUseId = page.toolUse, onBack = { pages.close(page) })
+            is AppPage.Tasks ->
+                BackgroundTasksScreen(
+                    hub = hub,
+                    scope = page.scope,
+                    onBack = { pages.close(page) },
+                    onOpenConversation = { key ->
+                        hub.openConversation(key)
+                        showChat()
+                    },
+                )
+            is AppPage.Subagent ->
+                SubagentScreen(
+                    hub = hub,
+                    conversationKey = page.conversation,
+                    toolUseId = page.toolUse,
+                    onBack = { pages.close(page) },
+                )
         }
     }
     IntakeChooser(hub)

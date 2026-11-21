@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -27,16 +27,17 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class PageStackTest {
-    private val register = object : ExternalResource() {
-        override fun before() {
-            val app = ApplicationProvider.getApplicationContext<Application>()
-            Shadows.shadowOf(app.packageManager).addActivityIfNotPresent(ComponentName(app, ComponentActivity::class.java))
+    private val register =
+        object : ExternalResource() {
+            override fun before() {
+                val app = ApplicationProvider.getApplicationContext<Application>()
+                Shadows.shadowOf(app.packageManager)
+                    .addActivityIfNotPresent(ComponentName(app, ComponentActivity::class.java))
+            }
         }
-    }
     private val compose = createAndroidComposeRule<ComponentActivity>()
 
-    @get:Rule
-    val rules: RuleChain = RuleChain.outerRule(register).around(compose)
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(register).around(compose)
 
     private val tasks = AppPage.Tasks("k")
 
@@ -62,7 +63,10 @@ class PageStackTest {
 
     @Test
     fun closeAllKeepsSetupWhenAsked() {
-        val stack = PageStack(listOf(AppPage.Settings, AppPage.Install, AppPage.Linux, AppPage.Login, tasks))
+        val stack =
+            PageStack(
+                listOf(AppPage.Settings, AppPage.Install, AppPage.Linux, AppPage.Login, tasks),
+            )
         stack.closeAll(keepSetup = true)
         assertEquals(listOf(AppPage.Install, AppPage.Login), stack.pages)
         stack.closeAll(keepSetup = false)
@@ -84,7 +88,9 @@ class PageStackTest {
     fun drawsInStackOrderAndBackClosesTheTop() {
         val stack = PageStack()
         val hits = mutableListOf<AppPage>()
-        compose.setContent { Host(stack) { page -> Box(Modifier.fillMaxSize().clickable { hits += page }) } }
+        compose.setContent {
+            Host(stack) { page -> Box(Modifier.fillMaxSize().clickable { hits += page }) }
+        }
         compose.runOnIdle {
             stack.open(AppPage.Install)
             stack.open(tasks)
@@ -103,7 +109,9 @@ class PageStackTest {
         val stack = PageStack(listOf(AppPage.Settings))
         val hits = mutableListOf<AppPage>()
         compose.setContent {
-            Host(stack) { page -> if (page == AppPage.Settings) Box(Modifier.fillMaxSize().clickable { hits += page }) }
+            Host(stack) { page ->
+                if (page == AppPage.Settings) Box(Modifier.fillMaxSize().clickable { hits += page })
+            }
         }
         compose.runOnIdle { stack.open(AppPage.Linux) }
         compose.onRoot().performClick()
@@ -144,7 +152,9 @@ class PageStackTest {
             stack.open(sub)
         }
         restoration.emulateSavedInstanceStateRestore()
-        compose.runOnIdle { assertEquals(listOf(AppPage.Login, tasks, AppPage.Settings, sub), stack.pages) }
+        compose.runOnIdle {
+            assertEquals(listOf(AppPage.Login, tasks, AppPage.Settings, sub), stack.pages)
+        }
     }
 
     /** 和 MainActivity 一样：先注册关最上面一页的返回键，再画页面。 */

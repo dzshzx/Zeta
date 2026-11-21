@@ -15,18 +15,19 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta-helper 的 history（分页）：在临时 HOME 上真跑，不碰任何人真实的 ~/.claude。
- * 记录照 Claude Code 的样子写（紧凑 JSON，一行一条；一轮是用户消息、工具调用、工具结果、回答）。
+ * zeta-helper 的 history（分页）：在临时 HOME 上真跑，不碰任何人真实的 ~/.claude。 记录照 Claude Code 的样子写（紧凑
+ * JSON，一行一条；一轮是用户消息、工具调用、工具结果、回答）。
  */
 class HelperHistoryTest {
     private lateinit var home: File
     private val session = "aaaaaaaa-1111-4222-8333-444444444444"
-    private val file get() = File(home, ".claude/projects/-workspace-test/$session.jsonl")
+    private val file
+        get() = File(home, ".claude/projects/-workspace-test/$session.jsonl")
+
     private val json = Json { ignoreUnknownKeys = true }
 
     @Before
@@ -41,13 +42,18 @@ class HelperHistoryTest {
     }
 
     private fun helper(vararg args: String): List<JsonObject> {
-        val process = ProcessBuilder(listOf(TestHelper.path) + args).apply { environment()["HOME"] = home.path }.start()
+        val process =
+            ProcessBuilder(listOf(TestHelper.path) + args)
+                .apply { environment()["HOME"] = home.path }
+                .start()
         process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         val err = process.errorStream.bufferedReader().readText()
         assertTrue(process.waitFor(60, TimeUnit.SECONDS))
         assertEquals(err, 0, process.exitValue())
-        return out.lines().filter { it.isNotBlank() }.map { json.parseToJsonElement(it) as JsonObject }
+        return out.lines()
+            .filter { it.isNotBlank() }
+            .map { json.parseToJsonElement(it) as JsonObject }
     }
 
     private val lines = ArrayList<String>()
@@ -57,37 +63,73 @@ class HelperHistoryTest {
     }
 
     private fun user(uuid: String, text: String) = write {
-        put("type", "user"); put("uuid", uuid)
-        putJsonObject("message") { put("role", "user"); put("content", text) }
+        put("type", "user")
+        put("uuid", uuid)
+        putJsonObject("message") {
+            put("role", "user")
+            put("content", text)
+        }
     }
 
     private fun toolUse(uuid: String, id: String) = write {
-        put("type", "assistant"); put("uuid", uuid)
+        put("type", "assistant")
+        put("uuid", uuid)
         putJsonObject("message") {
             put("id", "m-$uuid")
-            putJsonArray("content") { add(buildJsonObject { put("type", "tool_use"); put("id", id); put("name", "Bash"); putJsonObject("input") { put("command", "ls") } }) }
+            putJsonArray("content") {
+                add(
+                    buildJsonObject {
+                        put("type", "tool_use")
+                        put("id", id)
+                        put("name", "Bash")
+                        putJsonObject("input") { put("command", "ls") }
+                    },
+                )
+            }
         }
     }
 
     private fun toolResult(uuid: String, id: String) = write {
-        put("type", "user"); put("uuid", uuid)
+        put("type", "user")
+        put("uuid", uuid)
         putJsonObject("message") {
-            putJsonArray("content") { add(buildJsonObject { put("type", "tool_result"); put("tool_use_id", id); put("content", "ok") }) }
+            putJsonArray("content") {
+                add(
+                    buildJsonObject {
+                        put("type", "tool_result")
+                        put("tool_use_id", id)
+                        put("content", "ok")
+                    },
+                )
+            }
         }
     }
 
-    private fun answer(uuid: String, text: String, model: String? = null, effort: String? = null) = write {
-        put("type", "assistant"); put("uuid", uuid)
-        effort?.let { put("effort", it) }
-        putJsonObject("message") {
-            put("id", "m-$uuid")
-            model?.let { put("model", it) }
-            putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", text) }) }
+    private fun answer(uuid: String, text: String, model: String? = null, effort: String? = null) =
+        write {
+            put("type", "assistant")
+            put("uuid", uuid)
+            effort?.let { put("effort", it) }
+            putJsonObject("message") {
+                put("id", "m-$uuid")
+                model?.let { put("model", it) }
+                putJsonArray("content") {
+                    add(
+                        buildJsonObject {
+                            put("type", "text")
+                            put("text", text)
+                        },
+                    )
+                }
+            }
         }
-    }
 
     private fun rewind(cut: String, leaf: String?) = write {
-        put("type", "last-prompt"); put("explicit", true); put("rewound", true); put("cutUuid", cut); put("leafUuid", leaf)
+        put("type", "last-prompt")
+        put("explicit", true)
+        put("rewound", true)
+        put("cutUuid", cut)
+        put("leafUuid", leaf)
     }
 
     /** [turns] 轮，每轮 4 条：第 t 轮的用户消息 uuid 是 u<t>，回答是 b<t>。 */
@@ -102,20 +144,31 @@ class HelperHistoryTest {
 
     private fun save() = file.writeText(lines.joinToString("\n", postfix = "\n"))
 
-    private val List<JsonObject>.header get() = first()
-    private val List<JsonObject>.events get() = drop(1)
+    private val List<JsonObject>.header
+        get() = first()
+
+    private val List<JsonObject>.events
+        get() = drop(1)
+
     private fun JsonObject.skipped() = (this["skipped"] as JsonPrimitive).content.toInt()
-    private fun JsonObject.anchor() = (this["anchor"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: "-"
-    private fun JsonObject.text(): String? = (this["message"] as? JsonObject)?.let { message ->
-        (message["content"] as? JsonArray)?.firstNotNullOfOrNull { block -> ((block as JsonObject)["text"] as? JsonPrimitive)?.content }
-    }
+
+    private fun JsonObject.anchor() =
+        (this["anchor"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: "-"
+
+    private fun JsonObject.text(): String? =
+        (this["message"] as? JsonObject)?.let { message ->
+            (message["content"] as? JsonArray)?.firstNotNullOfOrNull { block ->
+                ((block as JsonObject)["text"] as? JsonPrimitive)?.content
+            }
+        }
 
     /** 从最近的一段一页页往前翻到头，按先后拼起来。 */
     private fun readAll(): List<JsonObject> {
         var page = helper("history", file.path)
         val all = ArrayList(page.events)
         while (page.header.skipped() > 0) {
-            page = helper("history", file.path, page.header.skipped().toString(), page.header.anchor())
+            page =
+                helper("history", file.path, page.header.skipped().toString(), page.header.anchor())
             assertNull(page.header["stale"])
             all.addAll(0, page.events)
         }
@@ -142,13 +195,17 @@ class HelperHistoryTest {
         assertEquals(0, last.header.skipped())
         assertEquals(1700, last.events.size)
         // 一页页翻到头：每一轮各出现一次，先后不乱
-        val questions = readAll().mapNotNull { it.text()?.takeIf { text -> text.startsWith("question") } }
+        val questions =
+            readAll().mapNotNull { it.text()?.takeIf { text -> text.startsWith("question") } }
         assertEquals((0 until 1000).map { "question $it" }, questions)
         // 查找时一次要走剩下的全部：和一页页翻的一样，同样核对窗口
         val rest = helper("history", file.path, "3200", "b799", "all")
         assertEquals(0, rest.header.skipped())
         assertEquals(last.events + page.events, rest.events)
-        assertEquals(JsonPrimitive(true), helper("history", file.path, "3200", "nope", "all").header["stale"])
+        assertEquals(
+            JsonPrimitive(true),
+            helper("history", file.path, "3200", "nope", "all").header["stale"],
+        )
     }
 
     @Test
@@ -164,18 +221,33 @@ class HelperHistoryTest {
         var page = helper("history", file.path)
         val seen = HashSet<String>()
         while (true) {
-            val calls = page.events.flatMap { e -> contentOf(e).filter { it.str("type") == "tool_use" }.map { it.str("id")!! } }.toSet()
-            val results = page.events.flatMap { e -> contentOf(e).filter { it.str("type") == "tool_result" }.map { it.str("tool_use_id")!! } }.toSet()
+            val calls =
+                page.events
+                    .flatMap { e ->
+                        contentOf(e).filter { it.str("type") == "tool_use" }.map { it.str("id")!! }
+                    }
+                    .toSet()
+            val results =
+                page.events
+                    .flatMap { e ->
+                        contentOf(e)
+                            .filter { it.str("type") == "tool_result" }
+                            .map { it.str("tool_use_id")!! }
+                    }
+                    .toSet()
             assertEquals("一页里的工具调用和结果是成对的", calls, results)
             seen.addAll(calls)
             if (page.header.skipped() == 0) break
-            page = helper("history", file.path, page.header.skipped().toString(), page.header.anchor())
+            page =
+                helper("history", file.path, page.header.skipped().toString(), page.header.anchor())
         }
         assertEquals(2000, seen.size)
     }
 
     private fun contentOf(event: JsonObject): List<JsonObject> =
-        ((event["message"] as? JsonObject)?.get("content") as? JsonArray).orEmpty().map { it as JsonObject }
+        ((event["message"] as? JsonObject)?.get("content") as? JsonArray).orEmpty().map {
+            it as JsonObject
+        }
 
     @Test
     fun rewindMarksStillCutOutTheDroppedTurns() {
@@ -200,21 +272,26 @@ class HelperHistoryTest {
         rewind("u450", "b449")
         user("x1", "after rewind")
         save()
-        val earlier = helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor())
+        val earlier =
+            helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor())
         assertNull(earlier.header["stale"])
         assertEquals(1200, earlier.events.size)
         // 在别处剪到了还没载入的地方：对不上，不给
         rewind("u250", "b249")
         save()
-        assertEquals(JsonPrimitive(true), helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor()).header["stale"])
+        assertEquals(
+            JsonPrimitive(true),
+            helper("history", file.path, tail.header.skipped().toString(), tail.header.anchor())
+                .header["stale"],
+        )
         // 核对用的那一行不对也不给
-        assertEquals(JsonPrimitive(true), helper("history", file.path, "1000", "nope").header["stale"])
+        assertEquals(
+            JsonPrimitive(true),
+            helper("history", file.path, "1000", "nope").header["stale"],
+        )
     }
 
-    /**
-     * 重新打开时：思考强度照最后一次真实回答恢复，它的模型在 Claude Code 报来之前先显示。按整个对话算：
-     * 最后一次真实回答在没载入的那段里也照样给。
-     */
+    /** 重新打开时：思考强度照最后一次真实回答恢复，它的模型在 Claude Code 报来之前先显示。按整个对话算： 最后一次真实回答在没载入的那段里也照样给。 */
     @Test
     fun modelAndEffortComeFromTheWholeConversation() {
         user("u-first", "first")
@@ -241,7 +318,8 @@ class HelperHistoryTest {
             return first.str("model") to first.str("effort")
         }
         fun answerLine(uuid: String, model: String, effort: String?, sidechain: Boolean = false) =
-            """{"type":"assistant","uuid":"$uuid",""" + (if (sidechain) """"isSidechain":true,""" else "") +
+            """{"type":"assistant","uuid":"$uuid",""" +
+                (if (sidechain) """"isSidechain":true,""" else "") +
                 (effort?.let { """"effort":"$it",""" } ?: "") +
                 """"message":{"id":"m-$uuid","model":"$model","content":[{"type":"text","text":"答"}],"usage":{"input_tokens":3,"output_tokens":5}}}"""
         val u1 = """{"type":"user","uuid":"u1","message":{"role":"user","content":"第一问"}}"""
@@ -249,7 +327,10 @@ class HelperHistoryTest {
         assertEquals(
             "claude-fable-5-2" to "xhigh",
             header(
-                u1, answerLine("a1", "claude-opus-5-5", "high"), u2, answerLine("a2", "claude-fable-5-2", "xhigh"),
+                u1,
+                answerLine("a1", "claude-opus-5-5", "high"),
+                u2,
+                answerLine("a2", "claude-fable-5-2", "xhigh"),
                 answerLine("s1", "claude-haiku-5-5", "low", sidechain = true),
                 """{"type":"assistant","uuid":"a3","isApiErrorMessage":true,"message":{"id":"m-a3","model":"<synthetic>","content":[{"type":"text","text":"API Error"}]}}""",
             ),
@@ -257,14 +338,23 @@ class HelperHistoryTest {
         assertEquals(
             "claude-opus-5-5" to "high",
             header(
-                u1, answerLine("a1", "claude-opus-5-5", "high"), u2, answerLine("a2", "claude-fable-5-2", "xhigh"),
+                u1,
+                answerLine("a1", "claude-opus-5-5", "high"),
+                u2,
+                answerLine("a2", "claude-fable-5-2", "xhigh"),
                 """{"type":"last-prompt","explicit":true,"rewound":true,"cutUuid":"u2","leafUuid":"a1"}""",
             ),
         )
-        assertEquals("claude-sonnet-5-5" to null, header(u1, answerLine("a1", "claude-sonnet-5-5", null)))
+        assertEquals(
+            "claude-sonnet-5-5" to null,
+            header(u1, answerLine("a1", "claude-sonnet-5-5", null)),
+        )
         assertEquals(
             null to null,
-            header(u1, """{"type":"assistant","uuid":"a1","message":{"id":"m","model":"<synthetic>","content":[{"type":"text","text":"Prompt is too long"}]}}"""),
+            header(
+                u1,
+                """{"type":"assistant","uuid":"a1","message":{"id":"m","model":"<synthetic>","content":[{"type":"text","text":"Prompt is too long"}]}}""",
+            ),
         )
     }
 }

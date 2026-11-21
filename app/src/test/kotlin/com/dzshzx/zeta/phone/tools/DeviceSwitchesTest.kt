@@ -8,18 +8,26 @@ import org.junit.Test
 
 class DeviceSwitchesTest {
     // 真机 `cmd wifi status | head -6`，网络名、MAC、IP 换成了假的
-    private val wifiStatus = """
+    private val wifiStatus =
+        """
         Wifi is enabled
         Wifi scanning is always available
         ==== ClientModeManager instance: ConcreteClientModeManager{id=458689365 iface=wlan0 role=ROLE_CLIENT_PRIMARY} ====
         Wifi is connected to "Home_5G"
         WifiInfo: SSID: "Home_5G", BSSID: 00:11:22:33:44:55, MAC: 02:00:00:00:00:00, IP: /192.168.1.20, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -41, Link speed: 1200Mbps
-    """.trimIndent()
+        """
+            .trimIndent()
 
     @Test
     fun describesWifi() {
-        assertEquals("on (connected to \"Home_5G\", -41 dBm)", DeviceSwitches.describe("wifi", wifiStatus))
-        assertEquals("on (not connected)", DeviceSwitches.describe("wifi", "Wifi is enabled\nWifi scanning is always available"))
+        assertEquals(
+            "on (connected to \"Home_5G\", -41 dBm)",
+            DeviceSwitches.describe("wifi", wifiStatus),
+        )
+        assertEquals(
+            "on (not connected)",
+            DeviceSwitches.describe("wifi", "Wifi is enabled\nWifi scanning is always available"),
+        )
         assertEquals("off", DeviceSwitches.describe("wifi", "Wifi is disabled\n"))
         assertNull(DeviceSwitches.describe("wifi", "Can't find service: wifi"))
     }
@@ -36,7 +44,10 @@ class DeviceSwitchesTest {
         assertEquals("on", DeviceSwitches.describe("dark_mode", "Night mode: yes"))
         assertEquals("on", DeviceSwitches.describe("dark_mode", "Night mode: yes\n1"))
         assertEquals("off", DeviceSwitches.describe("dark_mode", "Night mode: no\nnull"))
-        assertEquals("off (HyperOS dark_mode_enable=1)", DeviceSwitches.describe("dark_mode", "Night mode: no\n1"))
+        assertEquals(
+            "off (HyperOS dark_mode_enable=1)",
+            DeviceSwitches.describe("dark_mode", "Night mode: no\n1"),
+        )
         assertEquals("10%", DeviceSwitches.describe("brightness", "10.07708"))
         assertEquals("600s", DeviceSwitches.describe("screen_timeout", "600000"))
         assertEquals("never", DeviceSwitches.describe("screen_timeout", "2147483647"))
@@ -48,12 +59,18 @@ class DeviceSwitchesTest {
     @Test
     fun hotspotFromTetherState() {
         // 真机 dumpsys tethering 的 Tether state 一节（热点关着）
-        val off = "  Tether state:\n    p2p0 - AvailableState - lastError = 0\n    Upstream wanted: false\n    Current upstream interface(s): null\n  Hardware offload:"
+        val off =
+            "  Tether state:\n    p2p0 - AvailableState - lastError = 0\n    Upstream wanted: false\n    Current upstream interface(s): null\n  Hardware offload:"
         assertEquals("off", DeviceSwitches.describe("hotspot", off))
-        val on = "  Tether state:\n    p2p0 - AvailableState - lastError = 0\n    wlan1 - TetheredState - lastError = 0\n    Upstream wanted: true"
+        val on =
+            "  Tether state:\n    p2p0 - AvailableState - lastError = 0\n    wlan1 - TetheredState - lastError = 0\n    Upstream wanted: true"
         assertEquals("on", DeviceSwitches.describe("hotspot", on))
         // USB 共享不算热点
-        assertFalse(DeviceSwitches.hotspotOn("  Tether state:\n    rndis0 - TetheredState - lastError = 0")!!)
+        assertFalse(
+            DeviceSwitches.hotspotOn(
+                "  Tether state:\n    rndis0 - TetheredState - lastError = 0",
+            )!!,
+        )
         assertNull(DeviceSwitches.hotspotOn(""))
     }
 
@@ -78,8 +95,14 @@ class DeviceSwitchesTest {
         assertEquals("cmd location set-location-enabled false", cmd("location", "off"))
         assertEquals("cmd nfc disable-nfc persist", cmd("nfc", "off"))
         assertEquals("cmd nfc enable-nfc", cmd("nfc", "on"))
-        assertEquals("cmd uimode night yes && settings put system dark_mode_enable 1", cmd("dark_mode", "on"))
-        assertEquals("cmd uimode night no && settings put system dark_mode_enable 0", cmd("dark_mode", "off"))
+        assertEquals(
+            "cmd uimode night yes && settings put system dark_mode_enable 1",
+            cmd("dark_mode", "on"),
+        )
+        assertEquals(
+            "cmd uimode night no && settings put system dark_mode_enable 0",
+            cmd("dark_mode", "off"),
+        )
         assertEquals("cmd power set-mode 1", cmd("battery_saver", "on"))
         assertEquals("settings put system accelerometer_rotation 0", cmd("auto_rotate", "off"))
         assertEquals("settings put system screen_brightness_mode 1", cmd("auto_brightness", "on"))
@@ -97,7 +120,10 @@ class DeviceSwitchesTest {
         assertFalse(DeviceSwitches.reached("brightness", "34%", "30%"))
         assertTrue(DeviceSwitches.reached("wifi", "on (connected)", "on"))
         assertEquals("settings put system screen_off_timeout 30000", cmd("screen_timeout", "30"))
-        assertEquals("settings put system screen_off_timeout 2147483647", cmd("screen_timeout", "never"))
+        assertEquals(
+            "settings put system screen_off_timeout 2147483647",
+            cmd("screen_timeout", "never"),
+        )
         assertEquals("cmd notification set_dnd priority", cmd("do_not_disturb", "on"))
         assertEquals("cmd notification set_dnd none", cmd("do_not_disturb", "silence"))
         assertEquals("silence", DeviceSwitches.setPlan("do_not_disturb", "silence").expect)
@@ -107,9 +133,80 @@ class DeviceSwitchesTest {
     }
 
     @Test
+    fun everySwitchHasBothCommands() {
+        val expected =
+            mapOf(
+                "wifi" to
+                    ("cmd wifi set-wifi-enabled enabled" to "cmd wifi set-wifi-enabled disabled"),
+                "bluetooth" to ("cmd bluetooth_manager enable" to "cmd bluetooth_manager disable"),
+                "mobile_data" to ("svc data enable" to "svc data disable"),
+                "airplane_mode" to
+                    ("cmd connectivity airplane-mode enable" to
+                        "cmd connectivity airplane-mode disable"),
+                "hotspot" to ("" to ""),
+                "location" to
+                    ("cmd location set-location-enabled true" to
+                        "cmd location set-location-enabled false"),
+                "nfc" to ("cmd nfc enable-nfc" to "cmd nfc disable-nfc persist"),
+                "flashlight" to ("" to ""),
+                "dark_mode" to
+                    ("cmd uimode night yes && settings put system dark_mode_enable 1" to
+                        "cmd uimode night no && settings put system dark_mode_enable 0"),
+                "battery_saver" to ("cmd power set-mode 1" to "cmd power set-mode 0"),
+                "auto_rotate" to
+                    ("settings put system accelerometer_rotation 1" to
+                        "settings put system accelerometer_rotation 0"),
+                "auto_brightness" to
+                    ("settings put system screen_brightness_mode 1" to
+                        "settings put system screen_brightness_mode 0"),
+            )
+        assertEquals(expected.keys, DeviceSwitches.SWITCHES)
+        for ((target, commands) in expected) {
+            val on = DeviceSwitches.setPlan(target, "打开")
+            val off = DeviceSwitches.setPlan(target, "false")
+            assertEquals(target, commands.first, on.command)
+            assertEquals(target, commands.second, off.command)
+            assertEquals("on", on.expect)
+            assertEquals("off", off.expect)
+        }
+        // 不是开关的值、不认识的项
+        assertEquals("never", DeviceSwitches.setPlan("screen_timeout", "NEVER").expect)
+        assertEquals(
+            "cmd audio set-ringer-mode SILENT",
+            DeviceSwitches.setPlan("ringer_mode", "mute").command,
+        )
+        assertEquals(
+            "cmd notification set_dnd alarms",
+            DeviceSwitches.setPlan("do_not_disturb", "alarms").command,
+        )
+        assertTrue(
+            runCatching { DeviceSwitches.setPlan("volume", "1") }.exceptionOrNull() is ToolError,
+        )
+        assertEquals(
+            "on (connected to \"Home\")",
+            DeviceSwitches.describe("wifi", "Wifi is enabled\nWifi is connected to \"Home\""),
+        )
+        assertEquals("silent", DeviceSwitches.describe("ringer_mode", "0"))
+        assertEquals("silence", DeviceSwitches.describe("do_not_disturb", "2"))
+        assertNull(DeviceSwitches.describe("location", "1"))
+        assertNull(DeviceSwitches.describe("nfc", "unknown"))
+    }
+
+    @Test
     fun rejectsBadValues() {
-        for ((target, value) in listOf("wifi" to "maybe", "brightness" to "120", "screen_timeout" to "2", "do_not_disturb" to "loud", "ringer_mode" to "x")) {
-            assertTrue("$target=$value", runCatching { DeviceSwitches.setPlan(target, value) }.exceptionOrNull() is ToolError)
+        for ((target, value) in
+            listOf(
+                "wifi" to "maybe",
+                "brightness" to "120",
+                "screen_timeout" to "2",
+                "do_not_disturb" to "loud",
+                "ringer_mode" to "x",
+            )) {
+            assertTrue(
+                "$target=$value",
+                runCatching { DeviceSwitches.setPlan(target, value) }.exceptionOrNull()
+                    is ToolError,
+            )
         }
     }
 

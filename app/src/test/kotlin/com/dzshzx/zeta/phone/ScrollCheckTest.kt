@@ -27,7 +27,10 @@ class ScrollCheckTest {
 
     @Test
     fun picksExactThenPageThenLegacyAction() {
-        assertEquals(scrollDown, ScrollPlan.action(setOf(scrollDown, pageDown, forward), ScrollDirection.DOWN))
+        assertEquals(
+            scrollDown,
+            ScrollPlan.action(setOf(scrollDown, pageDown, forward), ScrollDirection.DOWN),
+        )
         assertEquals(pageDown, ScrollPlan.action(setOf(pageDown, forward), ScrollDirection.DOWN))
         assertEquals(forward, ScrollPlan.action(setOf(forward, backward), ScrollDirection.DOWN))
         assertEquals(backward, ScrollPlan.action(setOf(forward, backward), ScrollDirection.UP))
@@ -37,7 +40,10 @@ class ScrollCheckTest {
     @Test
     fun legacyActionsFollowTheListAxis() {
         // 横着的列表（看 CollectionInfo 得知）：前进是向右，竖着滚不用前进后退
-        assertEquals(forward, ScrollPlan.action(setOf(forward), ScrollDirection.RIGHT, horizontal = true))
+        assertEquals(
+            forward,
+            ScrollPlan.action(setOf(forward), ScrollDirection.RIGHT, horizontal = true),
+        )
         assertNull(ScrollPlan.action(setOf(forward), ScrollDirection.DOWN, horizontal = true))
         assertNull(ScrollPlan.action(setOf(forward), ScrollDirection.RIGHT))
         // 报了横向动作的控件，前进后退不当作竖着
@@ -70,14 +76,26 @@ class ScrollCheckTest {
         assertEquals(3, ScrollPlan.supportRank(setOf(pageDown), ScrollDirection.UP))
         assertEquals(2, ScrollPlan.supportRank(setOf(backward), ScrollDirection.DOWN))
         assertEquals(0, ScrollPlan.supportRank(setOf(scrollLeft), ScrollDirection.DOWN))
-        assertEquals(0, ScrollPlan.supportRank(setOf(forward), ScrollDirection.DOWN, horizontal = true))
+        assertEquals(
+            0,
+            ScrollPlan.supportRank(setOf(forward), ScrollDirection.DOWN, horizontal = true),
+        )
     }
 
     @Test
     fun bestIsLargestThenBestSupportedThenDeepest() {
-        assertEquals(1, ScrollPlan.best(listOf(ScrollCandidate(100, 4, 1), ScrollCandidate(200, 2, 1))))
-        assertEquals(0, ScrollPlan.best(listOf(ScrollCandidate(200, 4, 1), ScrollCandidate(200, 2, 5))))
-        assertEquals(1, ScrollPlan.best(listOf(ScrollCandidate(200, 2, 1), ScrollCandidate(200, 2, 5))))
+        assertEquals(
+            1,
+            ScrollPlan.best(listOf(ScrollCandidate(100, 4, 1), ScrollCandidate(200, 2, 1))),
+        )
+        assertEquals(
+            0,
+            ScrollPlan.best(listOf(ScrollCandidate(200, 4, 1), ScrollCandidate(200, 2, 5))),
+        )
+        assertEquals(
+            1,
+            ScrollPlan.best(listOf(ScrollCandidate(200, 2, 1), ScrollCandidate(200, 2, 5))),
+        )
         assertNull(ScrollPlan.best(emptyList()))
     }
 
@@ -85,12 +103,21 @@ class ScrollCheckTest {
     fun strokeMovesFingerAgainstContent() {
         val area = Box(0, 100, 1000, 1101)
         // 要看下面的内容：手指从下往上
-        assertEquals(Stroke(499, 900, 499, 300), ScrollPlan.stroke(area, ScrollDirection.DOWN, ScrollAmount.PAGE))
-        assertEquals(Stroke(499, 300, 499, 900), ScrollPlan.stroke(area, ScrollDirection.UP, ScrollAmount.PAGE))
+        assertEquals(
+            Stroke(499, 900, 499, 300),
+            ScrollPlan.stroke(area, ScrollDirection.DOWN, ScrollAmount.PAGE),
+        )
+        assertEquals(
+            Stroke(499, 300, 499, 900),
+            ScrollPlan.stroke(area, ScrollDirection.UP, ScrollAmount.PAGE),
+        )
         val small = ScrollPlan.stroke(area, ScrollDirection.DOWN, ScrollAmount.SMALL)!!
         assertTrue(small.y1 - small.y2 in 200..260)
         val wide = Box(0, 0, 1001, 400)
-        assertEquals(Stroke(200, 199, 800, 199), ScrollPlan.stroke(wide, ScrollDirection.LEFT, ScrollAmount.PAGE))
+        assertEquals(
+            Stroke(200, 199, 800, 199),
+            ScrollPlan.stroke(wide, ScrollDirection.LEFT, ScrollAmount.PAGE),
+        )
         assertNull(ScrollPlan.stroke(Box(0, 0, 1000, 30), ScrollDirection.DOWN, ScrollAmount.PAGE))
     }
 
@@ -101,15 +128,23 @@ class ScrollCheckTest {
         assertEquals(Box(10, 15, 90, 85), Box(0, 0, 100, 100).inset(0.1f, 0.15f))
     }
 
-    private fun anchors(vararg items: Pair<String, Int>) = items.map { (key, y) -> Anchor(key, 100, y) }
+    private fun anchors(vararg items: Pair<String, Int>) = items.map { (key, y) ->
+        Anchor(key, 100, y)
+    }
 
     @Test
     fun consistentMotionIsMeasured() {
         val before = anchors("title" to 50, "a" to 300, "b" to 500, "c" to 700)
         // 标题吸顶不动，列表项往上走了 200：往下滚了 200
         val after = anchors("title" to 50, "a" to 100, "b" to 300, "c" to 500, "d" to 700)
-        assertEquals(ScrollResult.Moved(200), ScrollCheck.compare(before, after, ScrollDirection.DOWN))
-        assertEquals(ScrollResult.Backward(200), ScrollCheck.compare(before, after, ScrollDirection.UP))
+        assertEquals(
+            ScrollResult.Moved(200),
+            ScrollCheck.compare(before, after, ScrollDirection.DOWN),
+        )
+        assertEquals(
+            ScrollResult.Backward(200),
+            ScrollCheck.compare(before, after, ScrollDirection.UP),
+        )
     }
 
     @Test
@@ -124,16 +159,27 @@ class ScrollCheckTest {
         val before = anchors("a" to 300, "b" to 500)
         assertEquals(ScrollResult.Still, ScrollCheck.compare(before, before, ScrollDirection.DOWN))
         // 一像素的抖动不算动
-        assertEquals(ScrollResult.Still, ScrollCheck.compare(before, anchors("a" to 301, "b" to 500), ScrollDirection.DOWN))
-        assertEquals(ScrollResult.Unknown, ScrollCheck.compare(emptyList(), emptyList(), ScrollDirection.DOWN))
+        assertEquals(
+            ScrollResult.Still,
+            ScrollCheck.compare(before, anchors("a" to 301, "b" to 500), ScrollDirection.DOWN),
+        )
+        assertEquals(
+            ScrollResult.Unknown,
+            ScrollCheck.compare(emptyList(), emptyList(), ScrollDirection.DOWN),
+        )
     }
 
     @Test
     fun duplicateKeysAndOutliersAreIgnored() {
-        val before = anchors("icon" to 100, "icon" to 200, "a" to 300, "b" to 500, "c" to 700, "ad" to 900)
+        val before =
+            anchors("icon" to 100, "icon" to 200, "a" to 300, "b" to 500, "c" to 700, "ad" to 900)
         // 一个控件自己乱动（轮播），不影响多数的判断
-        val after = anchors("icon" to 400, "icon" to 600, "a" to 150, "b" to 350, "c" to 550, "ad" to 1200)
-        assertEquals(ScrollResult.Moved(150), ScrollCheck.compare(before, after, ScrollDirection.DOWN))
+        val after =
+            anchors("icon" to 400, "icon" to 600, "a" to 150, "b" to 350, "c" to 550, "ad" to 1200)
+        assertEquals(
+            ScrollResult.Moved(150),
+            ScrollCheck.compare(before, after, ScrollDirection.DOWN),
+        )
     }
 
     @Test
@@ -141,15 +187,30 @@ class ScrollCheckTest {
         val before = listOf(Anchor("a", 100, 10), Anchor("b", 400, 10))
         val after = listOf(Anchor("a", 600, 10), Anchor("b", 900, 10))
         // 内容往右走：露出左边的内容
-        assertEquals(ScrollResult.Moved(500), ScrollCheck.compare(before, after, ScrollDirection.LEFT))
+        assertEquals(
+            ScrollResult.Moved(500),
+            ScrollCheck.compare(before, after, ScrollDirection.LEFT),
+        )
     }
 
     @Test
     fun summaryTellsMovedAndEnd() {
         val half = { v: Int -> v / 2 }
-        assertEquals("向下滚了约 100 像素（截图坐标），已经到底了", scrollSummary(ScrollResult.Moved(200), true, ScrollDirection.DOWN, half))
-        assertEquals("向上滚动了，换了一屏内容", scrollSummary(ScrollResult.Changed, null, ScrollDirection.UP, half))
-        assertEquals("没有滚动：已经到顶了", scrollSummary(ScrollResult.Still, true, ScrollDirection.UP, half))
-        assertTrue(scrollSummary(ScrollResult.Still, null, ScrollDirection.DOWN, half).startsWith("没有滚动：这里可能不能向下滚"))
+        assertEquals(
+            "向下滚了约 100 像素（截图坐标），已经到底了",
+            scrollSummary(ScrollResult.Moved(200), true, ScrollDirection.DOWN, half),
+        )
+        assertEquals(
+            "向上滚动了，换了一屏内容",
+            scrollSummary(ScrollResult.Changed, null, ScrollDirection.UP, half),
+        )
+        assertEquals(
+            "没有滚动：已经到顶了",
+            scrollSummary(ScrollResult.Still, true, ScrollDirection.UP, half),
+        )
+        assertTrue(
+            scrollSummary(ScrollResult.Still, null, ScrollDirection.DOWN, half)
+                .startsWith("没有滚动：这里可能不能向下滚"),
+        )
     }
 }

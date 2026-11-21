@@ -10,8 +10,8 @@ import org.junit.Test
 class AudioFocusGuardTest {
     /**
      * 一台假手机：按 AOSP `cmd appops` 的样子回答 get、set。[modes] 是包级模式（没有就是没设过、也没用过），[uidModes] 是 uid 级的。
-     * [defaultMode] 是这个操作的默认模式：Android 17 的 HyperOS 上是 foreground，老系统是 allow。
-     * [log] 按先后记下每条命令和每次存记录，用来核对先后顺序。
+     * [defaultMode] 是这个操作的默认模式：Android 17 的 HyperOS 上是 foreground，老系统是 allow。 [log]
+     * 按先后记下每条命令和每次存记录，用来核对先后顺序。
      */
     private class Phone(val defaultMode: String = "foreground") {
         val installed = mutableSetOf("com.miui.player", "com.example.video", "com.example.radio")
@@ -35,7 +35,8 @@ class AudioFocusGuardTest {
                         val mode = modes[pkg]
                         when {
                             mode != null -> append("TAKE_AUDIO_FOCUS: $mode; time=+3m12s ago\n")
-                            uidModes[pkg] == null -> append("No operations.\nDefault mode: $defaultMode\n")
+                            uidModes[pkg] == null ->
+                                append("No operations.\nDefault mode: $defaultMode\n")
                         }
                     }
                     CommandResult(0, out, "")
@@ -52,9 +53,14 @@ class AudioFocusGuardTest {
         fun mode(pkg: String): String = modes[pkg] ?: defaultMode
     }
 
-    private class Store(initial: Set<String> = emptySet(), private val log: MutableList<String>? = null) : AudioFocusGuard.Store {
+    private class Store(
+        initial: Set<String> = emptySet(),
+        private val log: MutableList<String>? = null,
+    ) : AudioFocusGuard.Store {
         var entries: Set<String> = initial
+
         override fun load(): Set<String> = entries
+
         override fun save(entries: Set<String>) {
             this.entries = entries
             log?.add("save $entries")
@@ -67,7 +73,8 @@ class AudioFocusGuardTest {
     private val usual = "foreground"
     private val video = "com.example.video"
 
-    private fun guard(phone: Phone, store: Store = Store(log = phone.log)) = AudioFocusGuard(phone::shell, store, user = 0)
+    private fun guard(phone: Phone, store: Store = Store(log = phone.log)) =
+        AudioFocusGuard(phone::shell, store, user = 0)
 
     @Test
     fun parsesAppOpsOutput() {
@@ -76,10 +83,14 @@ class AudioFocusGuardTest {
         assertNull(none.uidMode)
         assertEquals("allow", none.defaultMode)
 
-        val used = AudioFocusGuard.parse("TAKE_AUDIO_FOCUS: allow; time=+2d3h ago; duration=+1s\n")!!
+        val used =
+            AudioFocusGuard.parse("TAKE_AUDIO_FOCUS: allow; time=+2d3h ago; duration=+1s\n")!!
         assertEquals("allow", used.packageMode)
 
-        val both = AudioFocusGuard.parse("Uid mode: TAKE_AUDIO_FOCUS: ignore\nTAKE_AUDIO_FOCUS: allow; time=+5m ago\n")!!
+        val both =
+            AudioFocusGuard.parse(
+                "Uid mode: TAKE_AUDIO_FOCUS: ignore\nTAKE_AUDIO_FOCUS: allow; time=+5m ago\n",
+            )!!
         assertEquals("ignore", both.uidMode)
         assertEquals("allow", both.packageMode)
 
@@ -97,7 +108,10 @@ class AudioFocusGuardTest {
         // 不知道默认模式就不改：改回时不知道写什么
         assertNull(original("No operations."))
         // 单独设过的不碰：包括 default（MODE_DEFAULT，对音频焦点等于不允许）和 uid 级的
-        for (mode in listOf("ignore", "deny", "default")) assertNull(mode, original("TAKE_AUDIO_FOCUS: $mode"))
+        for (mode in listOf("ignore", "deny", "default")) assertNull(
+            mode,
+            original("TAKE_AUDIO_FOCUS: $mode"),
+        )
         assertNull(original("Uid mode: TAKE_AUDIO_FOCUS: ignore"))
         assertNull(original("Uid mode: TAKE_AUDIO_FOCUS: allow\nTAKE_AUDIO_FOCUS: allow"))
         assertNull(original("something went wrong"))
@@ -284,7 +298,10 @@ class AudioFocusGuardTest {
         phone.installed -= music
         guard.screenGone(7)
         assertTrue(store.entries.isEmpty())
-        assertEquals(AudioFocusGuard.Restore.LATER, AudioFocusGuard.restoreAction(CommandResult(1, "", "su: not found")))
+        assertEquals(
+            AudioFocusGuard.Restore.LATER,
+            AudioFocusGuard.restoreAction(CommandResult(1, "", "su: not found")),
+        )
     }
 
     @Test
@@ -329,8 +346,14 @@ class AudioFocusGuardTest {
     fun recordsRoundTripAndBadEntriesAreDropped() {
         val records = mapOf(music to "allow", video to "deny")
         assertEquals(records, AudioFocusGuard.decode(AudioFocusGuard.encode(records)))
-        val decoded = AudioFocusGuard.decode(setOf("bad name=allow", "x=allow", "com.a.b=", "com.c.d=weird", "com.e.f=ignore"))
-        assertEquals(mapOf("com.a.b" to "allow", "com.c.d" to "allow", "com.e.f" to "allow"), decoded)
+        val decoded =
+            AudioFocusGuard.decode(
+                setOf("bad name=allow", "x=allow", "com.a.b=", "com.c.d=weird", "com.e.f=ignore"),
+            )
+        assertEquals(
+            mapOf("com.a.b" to "allow", "com.c.d" to "allow", "com.e.f" to "allow"),
+            decoded,
+        )
     }
 
     @Test

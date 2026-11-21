@@ -24,11 +24,20 @@ class EdgeGlowShots : ShotTest() {
         shoot("edge-glow", target = hasTestTag("glows")) {
             val corner = with(LocalDensity.current) { 32.dp.toPx() }
             Row(
-                modifier = Modifier.testTag("glows").fillMaxWidth().background(COUITheme.colorScheme.backgroundWithCard).padding(16.dp),
+                modifier =
+                    Modifier.testTag("glows")
+                        .fillMaxWidth()
+                        .background(COUITheme.colorScheme.backgroundWithCard)
+                        .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                for (phase in listOf(OverlayPhase.RUNNING, OverlayPhase.PAUSED, OverlayPhase.CONTROLLING)) {
-                    Box(Modifier.weight(1f).height(240.dp).background(COUITheme.colorScheme.background)) {
+                for (phase in
+                    listOf(OverlayPhase.RUNNING, OverlayPhase.PAUSED, OverlayPhase.CONTROLLING)) {
+                    Box(
+                        Modifier.weight(1f)
+                            .height(240.dp)
+                            .background(COUITheme.colorScheme.background),
+                    ) {
                         EdgeGlow(phase, visible = true, hidden = false, cornerRadius = corner)
                     }
                 }

@@ -10,10 +10,10 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
-import com.dzshzx.zeta.ui.settings.SettingsScreen
-import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
+import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
+import com.dzshzx.zeta.ui.settings.SettingsScreen
 import org.junit.Test
 
 class SettingsShots : ShotTest() {
@@ -25,8 +25,24 @@ class SettingsShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.settings.remoteHosts = listOf(workstation)
         hub.models = mapOf(Backends.LOCAL to models, workstation.id to models)
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = "sonnet", permissionMode = "auto", efforts = mapOf("claude-sonnet-5-5" to "medium"), effort = null))
-        hub.updateClaudeDefaults(workstation.id, ClaudeDefaults(model = null, permissionMode = "auto", efforts = mapOf("claude-opus-5-5" to "xhigh"), effort = null))
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults(
+                model = "sonnet",
+                permissionMode = "auto",
+                efforts = mapOf("claude-sonnet-5-5" to "medium"),
+                effort = null,
+            ),
+        )
+        hub.updateClaudeDefaults(
+            workstation.id,
+            ClaudeDefaults(
+                model = null,
+                permissionMode = "auto",
+                efforts = mapOf("claude-opus-5-5" to "xhigh"),
+                effort = null,
+            ),
+        )
         return hub
     }
 
@@ -54,7 +70,10 @@ class SettingsShots : ShotTest() {
     @Test
     fun deviceName() {
         val hub = hostsHub()
-        shoot("settings-device-name", prepare = { onNodeWithText("名字").scrollIntoView().performClick() }) {
+        shoot(
+            "settings-device-name",
+            prepare = { onNodeWithText("名字").scrollIntoView().performClick() },
+        ) {
             HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
         }
     }
@@ -63,14 +82,19 @@ class SettingsShots : ShotTest() {
     @Test
     fun phoneHost() {
         val hub = hostsHub()
-        shoot("settings-host-phone") { HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {}) }
+        shoot("settings-host-phone") {
+            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
+        }
     }
 
     /** 设置首页最下面：手机与工具、通用、关于。 */
     @Test
     fun settingsBottom() {
         val hub = Fixtures.readyHub(app)
-        shoot("settings-bottom", prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } }) {
+        shoot(
+            "settings-bottom",
+            prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } },
+        ) {
             SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }
@@ -80,8 +104,18 @@ class SettingsShots : ShotTest() {
     fun defaultEffort() {
         val hub = Fixtures.readyHub(app)
         hub.models = mapOf(Backends.LOCAL to models)
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = "opus", permissionMode = null, efforts = mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-1" to "high"), effort = null))
-        shoot("settings-default-effort") { DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults(
+                model = "opus",
+                permissionMode = null,
+                efforts = mapOf("claude-opus-5-5" to "xhigh", "claude-fable-5-1" to "high"),
+                effort = null,
+            ),
+        )
+        shoot("settings-default-effort") {
+            DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
+        }
     }
 
     /** 设置 › 备份与恢复。 */

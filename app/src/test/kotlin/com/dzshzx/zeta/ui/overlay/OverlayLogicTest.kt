@@ -11,12 +11,27 @@ import org.junit.Test
 class OverlayLogicTest {
     @Test
     fun phaseSeparatesPauseFromTakeover() {
-        assertEquals(OverlayPhase.RUNNING, OverlayPhase.of(finishing = false, controlling = false, paused = false))
-        assertEquals(OverlayPhase.PAUSED, OverlayPhase.of(finishing = false, controlling = false, paused = true))
-        assertEquals(OverlayPhase.CONTROLLING, OverlayPhase.of(finishing = false, controlling = true, paused = false))
+        assertEquals(
+            OverlayPhase.RUNNING,
+            OverlayPhase.of(finishing = false, controlling = false, paused = false),
+        )
+        assertEquals(
+            OverlayPhase.PAUSED,
+            OverlayPhase.of(finishing = false, controlling = false, paused = true),
+        )
+        assertEquals(
+            OverlayPhase.CONTROLLING,
+            OverlayPhase.of(finishing = false, controlling = true, paused = false),
+        )
         // 用户在动手时说“接管”，不说“暂停”
-        assertEquals(OverlayPhase.CONTROLLING, OverlayPhase.of(finishing = false, controlling = true, paused = true))
-        assertEquals(OverlayPhase.FINISHED, OverlayPhase.of(finishing = true, controlling = true, paused = true))
+        assertEquals(
+            OverlayPhase.CONTROLLING,
+            OverlayPhase.of(finishing = false, controlling = true, paused = true),
+        )
+        assertEquals(
+            OverlayPhase.FINISHED,
+            OverlayPhase.of(finishing = true, controlling = true, paused = true),
+        )
         assertTrue(OverlayPhase.PAUSED.held && OverlayPhase.CONTROLLING.held)
         assertFalse(OverlayPhase.RUNNING.held || OverlayPhase.FINISHED.held)
     }

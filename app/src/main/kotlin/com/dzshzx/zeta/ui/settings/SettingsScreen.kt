@@ -51,20 +51,47 @@ internal fun SettingsScreen(
     // 正打开着的主机页（[Backends] 的编号）
     var host by rememberSaveable { mutableStateOf<String?>(null) }
     Box(Modifier.fillMaxSize()) {
-        SettingsHome(hub, onOpenHost = { host = it }, onBack = onBack, onOpenSubPage = { subPage = it })
+        SettingsHome(
+            hub,
+            onOpenHost = { host = it },
+            onBack = onBack,
+            onOpenSubPage = { subPage = it },
+        )
         SlideInPage(host, onBack = { host = null }) { id ->
-            HostSettingsScreen(hub = hub, backend = id, onBack = { host = null }, onOpenLinux = onOpenLinux)
+            HostSettingsScreen(
+                hub = hub,
+                backend = id,
+                onBack = { host = null },
+                onOpenLinux = onOpenLinux,
+            )
         }
         SlideInPage(subPage, onBack = close) { page ->
             when (page) {
                 SettingsSubPage.Appearance -> AppearanceScreen(hub = hub, onBack = close)
-                SettingsSubPage.PermissionHealth -> PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
+                SettingsSubPage.PermissionHealth ->
+                    PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
                 SettingsSubPage.Phone -> PhoneScreen(hub = hub, onBack = close)
                 SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
                 SettingsSubPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = close)
                 // 打开某次运行的对话：设置页整个关掉，回到聊天页
-                SettingsSubPage.Schedules -> ScheduleScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
-                SettingsSubPage.NotifyTriggers -> NotifyTriggerScreen(hub = hub, onBack = close, onOpenConversation = { subPage = null; onShowChat() })
+                SettingsSubPage.Schedules ->
+                    ScheduleScreen(
+                        hub = hub,
+                        onBack = close,
+                        onOpenConversation = {
+                            subPage = null
+                            onShowChat()
+                        },
+                    )
+                SettingsSubPage.NotifyTriggers ->
+                    NotifyTriggerScreen(
+                        hub = hub,
+                        onBack = close,
+                        onOpenConversation = {
+                            subPage = null
+                            onShowChat()
+                        },
+                    )
                 SettingsSubPage.Diagnostics -> DiagnosticsScreen(hub = hub, onBack = close)
                 SettingsSubPage.License -> LicenseScreen(onBack = close)
                 SettingsSubPage.OpenSource -> OpenSourceScreen(onBack = close)
@@ -73,7 +100,15 @@ internal fun SettingsScreen(
                 SettingsSubPage.Assistant -> AssistantSettingsScreen(hub = hub, onBack = close)
                 SettingsSubPage.Backup -> SettingsBackupScreen(hub = hub, onBack = close)
                 // 定位到侧栏里的会话：设置页整个关掉，侧栏由 MainActivity 打开
-                SettingsSubPage.Storage -> StorageScreen(hub = hub, onBack = close, onRevealSession = { subPage = null; onRevealSession(it) })
+                SettingsSubPage.Storage ->
+                    StorageScreen(
+                        hub = hub,
+                        onBack = close,
+                        onRevealSession = {
+                            subPage = null
+                            onRevealSession(it)
+                        },
+                    )
             }
         }
     }
@@ -88,8 +123,8 @@ internal fun SettingsScreen(
 }
 
 /**
- * 设置首页：最上面是各台主机（手机和远程主机），点进去是那台上新对话的默认值、Claude Code 的配置和连接（[HostSettingsScreen]）；
- * 下面几组是 Zeta 自己的设置，哪台主机都一样。
+ * 设置首页：最上面是各台主机（手机和远程主机），点进去是那台上新对话的默认值、Claude Code 的配置和连接（[HostSettingsScreen]）； 下面几组是 Zeta
+ * 自己的设置，哪台主机都一样。
  */
 @Composable
 private fun SettingsHome(
@@ -102,7 +137,9 @@ private fun SettingsHome(
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
         item(key = "hosts") {
             PreferenceGroup(title = "设备") {
-                hub.backends.forEach { backend -> item { HostEntry(hub, backend) { onOpenHost(backend) } } }
+                hub.backends.forEach { backend ->
+                    item { HostEntry(hub, backend) { onOpenHost(backend) } }
+                }
                 item {
                     ArrowPreference(
                         title = "添加远程设备",
@@ -128,7 +165,9 @@ private fun SettingsHome(
                     ArrowPreference(
                         title = "手机操作",
                         startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
-                        endActions = { PreferenceValue(if (hub.settings.phoneTools) "已开启" else "已关闭") },
+                        endActions = {
+                            PreferenceValue(if (hub.settings.phoneTools) "已开启" else "已关闭")
+                        },
                         onClick = { onOpenSubPage(SettingsSubPage.Phone) },
                     )
                 }
@@ -140,7 +179,9 @@ private fun SettingsHome(
                         onClick = { BrowserActivity.open(context) },
                     )
                 }
-                item { PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.PermissionHealth) } }
+                item {
+                    PermissionHealthEntry(hub) { onOpenSubPage(SettingsSubPage.PermissionHealth) }
+                }
             }
         }
         item(key = "general") {
@@ -204,29 +245,40 @@ private fun SettingsHome(
 
 /**
  * 首页的一台主机：名字，下面一行是它在哪（手机里的 Debian，或远程主机的地址和连法），右边是它新对话的默认模型和思考强度；
- * 还没读过的、能用了就读一次（每次都重读要连一遍所有远程主机，点进主机页时才重读那台）。手机的 Debian 没就绪时右边写状态
- * （出问题红字），经 Debian 连的远程主机写「Debian 未就绪」。
+ * 还没读过的、能用了就读一次（每次都重读要连一遍所有远程主机，点进主机页时才重读那台）。手机的 Debian 没就绪时右边写状态 （出问题红字），经 Debian 连的远程主机写「Debian
+ * 未就绪」。
  */
 @Composable
 private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
     val host = hub.remoteHost(backend)
     val usable = hub.usable(backend)
     val defaults = hub.claudeDefaults(backend)
-    LaunchedEffect(backend, usable) { if (usable && hub.claudeDefaults(backend) == null) hub.refreshClaudeDefaults(backend) }
-    val problem = when {
-        usable -> null
-        host == null -> linuxState(hub)
-        hub.environment.setup == SetupState.Checking -> "检查中" to false
-        else -> "Debian 未就绪" to true
+    LaunchedEffect(backend, usable) {
+        if (usable && hub.claudeDefaults(backend) == null) hub.refreshClaudeDefaults(backend)
     }
+    val problem =
+        when {
+            usable -> null
+            host == null -> linuxState(hub)
+            hub.environment.setup == SetupState.Checking -> "检查中" to false
+            else -> "Debian 未就绪" to true
+        }
     ArrowPreference(
         title = hub.backendName(backend),
-        summary = host?.let { RemoteHosts.displayTarget(it.target) + " · " + it.via.label } ?: RemoteHosts.LOCAL_SUMMARY,
+        summary =
+            host?.let { RemoteHosts.displayTarget(it.target) + " · " + it.via.label }
+                ?: RemoteHosts.LOCAL_SUMMARY,
         startAction = { SettingsIcon(hostIcon(backend), SettingsHue.Files) },
         endActions = {
             when {
-                problem != null -> PreferenceValue(problem.first, color = if (problem.second) COUITheme.colorScheme.error else Color.Unspecified)
-                defaults != null -> PreferenceValue(hostDefaultsSummary(defaults, hub.modelOptions(backend)))
+                problem != null ->
+                    PreferenceValue(
+                        problem.first,
+                        color =
+                            if (problem.second) COUITheme.colorScheme.error else Color.Unspecified,
+                    )
+                defaults != null ->
+                    PreferenceValue(hostDefaultsSummary(defaults, hub.modelOptions(backend)))
             }
         },
         onClick = onOpen,
@@ -244,11 +296,12 @@ private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
         startAction = { SettingsIcon(ZetaIcons.ShieldCheck, SettingsHue.System) },
         endActions = {
             PreferenceValue(
-                text = when {
-                    issues > 0 -> "$issues 项需关注"
-                    checking -> "检查中"
-                    else -> "正常"
-                },
+                text =
+                    when {
+                        issues > 0 -> "$issues 项需关注"
+                        checking -> "检查中"
+                        else -> "正常"
+                    },
                 color = if (issues == 0) Color.Unspecified else COUITheme.colorScheme.error,
             )
         },

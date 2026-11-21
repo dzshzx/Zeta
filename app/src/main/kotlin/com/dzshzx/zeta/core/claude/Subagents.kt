@@ -14,7 +14,13 @@ data class Subagent(
     val sha: String = "",
 )
 
-data class SubagentDraft(val name: String, val description: String, val model: String, val tools: List<String>?, val prompt: String)
+data class SubagentDraft(
+    val name: String,
+    val description: String,
+    val model: String,
+    val tools: List<String>?,
+    val prompt: String,
+)
 
 /**
  * ~/.claude/agents 下的 Subagent 文件：前言写 name、description、model、tools，正文是系统提示词。
@@ -29,11 +35,13 @@ object SubagentFiles {
     fun parse(file: String, text: String): Subagent {
         val split = Frontmatter.split(text)
         val meta = Frontmatter.parse(split.front)
-        val tools = when (val value = meta["tools"]) {
-            is FrontValue.Text -> value.value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-            is FrontValue.Items -> value.values
-            else -> null
-        }
+        val tools =
+            when (val value = meta["tools"]) {
+                is FrontValue.Text ->
+                    value.value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                is FrontValue.Items -> value.values
+                else -> null
+            }
         return Subagent(
             file = file,
             name = meta["name"]?.text().orEmpty(),
@@ -47,11 +55,12 @@ object SubagentFiles {
     }
 
     /** 名字和说明的问题；没问题返回 null。 */
-    fun draftProblem(draft: SubagentDraft): String? = when {
-        !isValidName(draft.name) -> "名称只能用小写字母、数字和连字符，并以字母或数字开头"
-        draft.description.isBlank() -> "请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent"
-        else -> null
-    }
+    fun draftProblem(draft: SubagentDraft): String? =
+        when {
+            !isValidName(draft.name) -> "名称只能用小写字母、数字和连字符，并以字母或数字开头"
+            draft.description.isBlank() -> "请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent"
+            else -> null
+        }
 
     /** 相对路径能不能动：不出 agents 目录、以 .md 结尾。 */
     fun relativeProblem(file: String): String? {
@@ -73,16 +82,29 @@ object SubagentFiles {
     /** 拼出文件内容；[original] 是原文件的内容（新建为 null），从里面留下不认识的键。 */
     fun render(draft: SubagentDraft, original: String?): String {
         val kept = mutableListOf<String>()
-        original?.let { Frontmatter.split(it).front }?.let { front ->
-            for (block in Frontmatter.blocks(front)) {
-                if (block.key !in Known && block.lines.any { it.isNotBlank() }) kept += block.lines
+        original
+            ?.let { Frontmatter.split(it).front }
+            ?.let { front ->
+                for (block in Frontmatter.blocks(front)) {
+                    if (block.key !in Known && block.lines.any { it.isNotBlank() })
+                        kept += block.lines
+                }
             }
-        }
-        val lines = mutableListOf("---", "name: " + draft.name.trim(), "description: " + Frontmatter.yamlValue(draft.description.trim()))
-        draft.model.trim().takeIf { it.isNotEmpty() }?.let { lines += "model: " + Frontmatter.yamlValue(it) }
+        val lines =
+            mutableListOf(
+                "---",
+                "name: " + draft.name.trim(),
+                "description: " + Frontmatter.yamlValue(draft.description.trim()),
+            )
+        draft.model
+            .trim()
+            .takeIf { it.isNotEmpty() }
+            ?.let { lines += "model: " + Frontmatter.yamlValue(it) }
         draft.tools?.let { tools ->
             val cleaned = tools.map { it.trim() }.filter { it.isNotEmpty() }
-            lines += if (cleaned.isEmpty()) "tools: []" else "tools: " + Frontmatter.yamlValue(cleaned.joinToString(", "))
+            lines +=
+                if (cleaned.isEmpty()) "tools: []"
+                else "tools: " + Frontmatter.yamlValue(cleaned.joinToString(", "))
         }
         lines += kept
         lines += "---"

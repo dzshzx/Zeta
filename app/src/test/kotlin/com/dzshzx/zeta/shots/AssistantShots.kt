@@ -24,8 +24,8 @@ import com.dzshzx.zeta.assistant.ScreenChip
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.settings.AssistantDiagnosticsGroup
-import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
 import com.dzshzx.zeta.ui.settings.AssistantEntry
+import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -33,7 +33,10 @@ import org.junit.Test
 
 /** 数字助理：浮窗刚唤起、发出去以后、去掉屏幕内容；设置里的一行和诊断页的一组。 */
 class AssistantShots : ShotTest() {
-    private fun thumbnail() = Bitmap.createBitmap(120, 260, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF3A6EA5.toInt()) }.asImageBitmap()
+    private fun thumbnail() =
+        Bitmap.createBitmap(120, 260, Bitmap.Config.ARGB_8888)
+            .apply { eraseColor(0xFF3A6EA5.toInt()) }
+            .asImageBitmap()
 
     /** 浮窗下面垫一个假的“当前应用”，看得出浮窗是盖在别的应用上。 */
     @Composable
@@ -44,7 +47,12 @@ class AssistantShots : ShotTest() {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text("设置", style = COUITheme.textStyles.headlineM, color = Color(0xFF222222))
                     listOf("WLAN", "蓝牙", "移动网络", "更多连接方式", "显示与亮度", "声音与振动").forEach {
-                        Text(it, style = COUITheme.textStyles.bodyL, color = Color(0xFF222222), modifier = Modifier.padding(top = 18.dp))
+                        Text(
+                            it,
+                            style = COUITheme.textStyles.bodyL,
+                            color = Color(0xFF222222),
+                            modifier = Modifier.padding(top = 18.dp),
+                        )
                     }
                 }
                 content()
@@ -57,7 +65,14 @@ class AssistantShots : ShotTest() {
         shoot("assistant-entry") {
             OverApp {
                 AssistantScreen(
-                    screen = ScreenChip(app = "设置（com.android.settings）", thumbnail = thumbnail(), waiting = false, removed = false, textOnly = false),
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = thumbnail(),
+                            waiting = false,
+                            removed = false,
+                            textOnly = false,
+                        ),
                     reply = null,
                     draft = remember { TextFieldState() },
                     suggestions = AssistantSuggestions.forContext(true),
@@ -78,14 +93,24 @@ class AssistantShots : ShotTest() {
         shoot("assistant-reply") {
             OverApp {
                 AssistantScreen(
-                    screen = ScreenChip(app = "设置（com.android.settings）", thumbnail = thumbnail(), waiting = false, removed = false, textOnly = false, sent = true),
-                    reply = ReplyView(
-                        text = "这是系统**设置**的首页，列着网络和显示几类入口：\n\n- WLAN、蓝牙、移动网络管连接\n- 显示与亮度、声音与振动管屏幕和声音\n\n要改哪一项，点进去就行。",
-                        status = null,
-                        streaming = false,
-                        attention = false,
-                        error = null,
-                    ),
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = thumbnail(),
+                            waiting = false,
+                            removed = false,
+                            textOnly = false,
+                            sent = true,
+                        ),
+                    reply =
+                        ReplyView(
+                            text =
+                                "这是系统**设置**的首页，列着网络和显示几类入口：\n\n- WLAN、蓝牙、移动网络管连接\n- 显示与亮度、声音与振动管屏幕和声音\n\n要改哪一项，点进去就行。",
+                            status = null,
+                            streaming = false,
+                            attention = false,
+                            error = null,
+                        ),
                     draft = remember { TextFieldState() },
                     suggestions = AssistantSuggestions.forContext(true),
                     sending = false,
@@ -106,8 +131,23 @@ class AssistantShots : ShotTest() {
         shoot("assistant-waiting") {
             OverApp {
                 AssistantScreen(
-                    screen = ScreenChip(app = "设置（com.android.settings）", thumbnail = null, waiting = false, removed = true, textOnly = true, sent = true),
-                    reply = ReplyView(text = "", status = "Claude 正在看…", streaming = false, attention = false, error = null),
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = null,
+                            waiting = false,
+                            removed = true,
+                            textOnly = true,
+                            sent = true,
+                        ),
+                    reply =
+                        ReplyView(
+                            text = "",
+                            status = "Claude 正在看…",
+                            streaming = false,
+                            attention = false,
+                            error = null,
+                        ),
                     draft = remember { TextFieldState("再说说蓝牙") },
                     suggestions = emptyList(),
                     sending = false,
@@ -128,7 +168,14 @@ class AssistantShots : ShotTest() {
         shoot("assistant-removed") {
             OverApp {
                 AssistantScreen(
-                    screen = ScreenChip(app = "设置（com.android.settings）", thumbnail = thumbnail(), waiting = false, removed = true, textOnly = false),
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = thumbnail(),
+                            waiting = false,
+                            removed = true,
+                            textOnly = false,
+                        ),
                     reply = null,
                     draft = remember { TextFieldState("今天天气怎么样") },
                     suggestions = AssistantSuggestions.forContext(false),
@@ -150,22 +197,31 @@ class AssistantShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         hub.settings.assistantModel = "sonnet"
         hub.settings.assistantEffort = "low"
-        val owner = AssistantOwner(self = true, packageName = "com.dzshzx.zeta", label = "Zeta", recognizerPackage = "com.dzshzx.zeta")
+        val owner =
+            AssistantOwner(
+                self = true,
+                packageName = "com.dzshzx.zeta",
+                label = "Zeta",
+                recognizerPackage = "com.dzshzx.zeta",
+            )
         shoot("assistant-page") { AssistantSettingsScreen(hub = hub, onBack = {}, owner = owner) }
     }
 
     @Test
     fun settingsAndDiagnostics() {
-        val status = PowerKeyStatus(
-            installed = true,
-            installNote = null,
-            recent = listOf(
-                "09:01:02 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)",
-                "10:11:12 imperceptible_press_power_key：已显示 com.dzshzx.zeta 的助理会话，消费这次动作",
-                "10:11:12 long_press_power_key：同一次按键的重复派发，已吞掉",
-            ),
-        )
-        val owner = AssistantOwner(self = false, packageName = "com.miui.voiceassist", label = "超级小爱")
+        val status =
+            PowerKeyStatus(
+                installed = true,
+                installNote = null,
+                recent =
+                    listOf(
+                        "09:01:02 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)",
+                        "10:11:12 imperceptible_press_power_key：已显示 com.dzshzx.zeta 的助理会话，消费这次动作",
+                        "10:11:12 long_press_power_key：同一次按键的重复派发，已吞掉",
+                    ),
+            )
+        val owner =
+            AssistantOwner(self = false, packageName = "com.miui.voiceassist", label = "超级小爱")
         shoot("assistant-settings") {
             CouiPage(title = "数字助理", onBack = {}) {
                 item { PreferenceGroup(title = "能力") { item { AssistantEntry(owner) {} } } }
@@ -177,7 +233,13 @@ class AssistantShots : ShotTest() {
     /** 诊断页那一组出问题的样子：默认助理是 Zeta 但系统语音识别不是（开机保不住），模块还没有任何记录。 */
     @Test
     fun diagnosticsTrouble() {
-        val owner = AssistantOwner(self = true, packageName = "com.dzshzx.zeta", label = "Zeta", recognizerPackage = "com.xiaomi.mibrain.speech")
+        val owner =
+            AssistantOwner(
+                self = true,
+                packageName = "com.dzshzx.zeta",
+                label = "Zeta",
+                recognizerPackage = "com.xiaomi.mibrain.speech",
+            )
         val status = PowerKeyStatus(installed = null, installNote = null, recent = emptyList())
         shoot("assistant-diagnostics-trouble") {
             CouiPage(title = "诊断", onBack = {}) {

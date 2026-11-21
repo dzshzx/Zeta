@@ -29,10 +29,12 @@ internal object HostTesting {
     }
 
     /** 以 [name] 作 ZETA_NAME 的环境；null 表示不设（和旧版正式版一样）。 */
-    fun named(name: String?): Map<String, String> = name?.let { mapOf(AppVariant.LINUX_NAME_ENV to it) }.orEmpty()
+    fun named(name: String?): Map<String, String> =
+        name?.let { mapOf(AppVariant.LINUX_NAME_ENV to it) }.orEmpty()
 
     /** 替身的读输入循环：一直读输入管道，和真 Claude Code 一样收到 end_session（zeta_host.sh 结束会话时发的）就退出。 */
-    const val READ_UNTIL_END = "while read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done"
+    const val READ_UNTIL_END =
+        "while read -r line; do case \$line in *'\"subtype\":\"end_session\"'*) exit 0 ;; esac; done"
 
     /** 卡住的替身：不理 end_session，一直读。 */
     const val READ_FOREVER = "while read -r line; do :; done"

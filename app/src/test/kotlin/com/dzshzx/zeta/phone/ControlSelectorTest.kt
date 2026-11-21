@@ -41,15 +41,19 @@ class ControlSelectorTest {
         val selector = select("OK", "button1")
         assertEquals(3, selector.score(ControlFacts(text = "OK", viewId = "android:id/button1")))
         assertEquals(0, selector.score(ControlFacts(text = "OK", viewId = "android:id/button2")))
-        assertEquals(0, selector.score(ControlFacts(text = "Cancel", viewId = "android:id/button1")))
+        assertEquals(
+            0,
+            selector.score(ControlFacts(text = "Cancel", viewId = "android:id/button1")),
+        )
     }
 
     @Test
     fun tapPrefersBetterMatchOverClickable() {
-        val controls = listOf(
-            ControlFacts(description = "Wi-Fi, connected", clickable = true),
-            ControlFacts(text = "Wi-Fi"),
-        )
+        val controls =
+            listOf(
+                ControlFacts(description = "Wi-Fi, connected", clickable = true),
+                ControlFacts(text = "Wi-Fi"),
+            )
         val pick = select("Wi-Fi").pick(controls, ControlPurpose.TAP)!!
         assertEquals(1, pick.index)
         assertEquals(1, pick.ties)
@@ -57,31 +61,34 @@ class ControlSelectorTest {
 
     @Test
     fun tapPrefersClickableAmongEqualMatches() {
-        val controls = listOf(
-            ControlFacts(text = "Send"),
-            ControlFacts(text = "Send", clickable = true),
-            ControlFacts(text = "Send", clickable = true, enabled = false),
-        )
+        val controls =
+            listOf(
+                ControlFacts(text = "Send"),
+                ControlFacts(text = "Send", clickable = true),
+                ControlFacts(text = "Send", clickable = true, enabled = false),
+            )
         assertEquals(1, select("send").pick(controls, ControlPurpose.TAP)!!.index)
     }
 
     @Test
     fun typePrefersEditableOverExactLabel() {
-        val controls = listOf(
-            ControlFacts(text = "Name"),
-            ControlFacts(hint = "Name (required)", editable = true),
-        )
+        val controls =
+            listOf(
+                ControlFacts(text = "Name"),
+                ControlFacts(hint = "Name (required)", editable = true),
+            )
         assertEquals(1, select("name").pick(controls, ControlPurpose.TYPE)!!.index)
         assertEquals(0, select("name").pick(controls, ControlPurpose.TAP)!!.index)
     }
 
     @Test
     fun tiesAreCountedAndFirstWins() {
-        val controls = listOf(
-            ControlFacts(text = "Delete", clickable = true),
-            ControlFacts(text = "Other", clickable = true),
-            ControlFacts(text = "Delete", clickable = true),
-        )
+        val controls =
+            listOf(
+                ControlFacts(text = "Delete", clickable = true),
+                ControlFacts(text = "Other", clickable = true),
+                ControlFacts(text = "Delete", clickable = true),
+            )
         val pick = select("Delete").pick(controls, ControlPurpose.TAP)!!
         assertEquals(0, pick.index)
         assertEquals(2, pick.ties)
@@ -89,7 +96,9 @@ class ControlSelectorTest {
 
     @Test
     fun noMatchGivesNull() {
-        assertNull(select("Missing").pick(listOf(ControlFacts(text = "Present")), ControlPurpose.ANY))
+        assertNull(
+            select("Missing").pick(listOf(ControlFacts(text = "Present")), ControlPurpose.ANY),
+        )
     }
 
     @Test

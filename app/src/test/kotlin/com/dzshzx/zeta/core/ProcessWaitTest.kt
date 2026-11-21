@@ -32,6 +32,10 @@ class ProcessWaitTest {
     @Test
     fun appCodeDoesNotUseTimedWaitFor() {
         val timed = Regex("""\.waitFor\([^)]""")
-        assertEquals("改用 Process.exitsWithin", emptyList<String>(), sourcesMatching("src/main/kotlin", timed, except = setOf("ProcessWait.kt")))
+        assertEquals(
+            "改用 Process.exitsWithin",
+            emptyList<String>(),
+            sourcesMatching("src/main/kotlin", timed, except = setOf("ProcessWait.kt")),
+        )
     }
 }

@@ -13,8 +13,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 接回后台进程时，zeta-helper hosts 从输出日志里摘出还在跑的后台任务的事件（task_events），
- * 重放给 [TaskBoard] 后和实时收到时一样：命令、开始时间、子代理的进展都在。
+ * 接回后台进程时，zeta-helper hosts 从输出日志里摘出还在跑的后台任务的事件（task_events）， 重放给 [TaskBoard]
+ * 后和实时收到时一样：命令、开始时间、子代理的进展都在。
  */
 class HostTasksTest {
     private lateinit var home: File
@@ -35,27 +35,36 @@ class HostTasksTest {
     @Test
     fun runningTasksAreReplayedWithTheirCallAndStartTime() {
         // 助手脚本认 /proc/<pid>/cmdline 里有 claude 的才算活着
-        val process = ProcessBuilder("bash", "-c", "exec -a claude-fake sleep 60").start().also { holder = it }
+        val process =
+            ProcessBuilder("bash", "-c", "exec -a claude-fake sleep 60").start().also {
+                holder = it
+            }
         val dir = File(home, ".cache/zeta/hosts/k1").apply { mkdirs() }
         File(dir, "pid").writeText("${process.pid()}\n")
-        File(dir, "out.jsonl").writeText(
-            listOf(
-                """{"type":"system","subtype":"init","session_id":"s1","permissionMode":"default"}""",
-                """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_0","name":"Bash","input":{"command":"make test","run_in_background":true}}]},"parent_tool_use_id":null,"timestamp":"2026-11-19T02:13:29.893Z"}""",
-                """{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1","task_type":"local_bash","description":"run tests"}]}""",
-                """{"type":"system","subtype":"task_started","task_id":"b1","tool_use_id":"toolu_0","description":"run tests","task_type":"local_bash"}""",
-                """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Agent","input":{"prompt":"review it","subagent_type":"general-purpose"}},{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"sleep 1"}}]},"parent_tool_use_id":null,"timestamp":"2026-11-19T02:14:00.000Z"}""",
-                """{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1","task_type":"local_bash","description":"run tests"},{"task_id":"a1","task_type":"local_agent","subagent_type":"general-purpose","description":"review"}]}""",
-                """{"type":"system","subtype":"task_started","task_id":"a1","tool_use_id":"toolu_1","description":"review","task_type":"local_agent","prompt":"review it"}""",
-                """{"type":"system","subtype":"task_progress","task_id":"a1","description":"Reading files","usage":{"tool_uses":1}}""",
-                """{"type":"system","subtype":"task_progress","task_id":"a1","description":"Running checks","usage":{"tool_uses":3}}""",
-                // 前台跑完的不进最后的清单
-                """{"type":"system","subtype":"task_started","task_id":"b2","tool_use_id":"toolu_2","description":"sleep","task_type":"local_bash","is_backgrounded":false}""",
-                """{"type":"result","subtype":"success","is_error":false}""",
-            ).joinToString("\n", postfix = "\n"),
-        )
+        File(dir, "out.jsonl")
+            .writeText(
+                listOf(
+                        """{"type":"system","subtype":"init","session_id":"s1","permissionMode":"default"}""",
+                        """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_0","name":"Bash","input":{"command":"make test","run_in_background":true}}]},"parent_tool_use_id":null,"timestamp":"2026-11-19T02:13:29.893Z"}""",
+                        """{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1","task_type":"local_bash","description":"run tests"}]}""",
+                        """{"type":"system","subtype":"task_started","task_id":"b1","tool_use_id":"toolu_0","description":"run tests","task_type":"local_bash"}""",
+                        """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Agent","input":{"prompt":"review it","subagent_type":"general-purpose"}},{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"sleep 1"}}]},"parent_tool_use_id":null,"timestamp":"2026-11-19T02:14:00.000Z"}""",
+                        """{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1","task_type":"local_bash","description":"run tests"},{"task_id":"a1","task_type":"local_agent","subagent_type":"general-purpose","description":"review"}]}""",
+                        """{"type":"system","subtype":"task_started","task_id":"a1","tool_use_id":"toolu_1","description":"review","task_type":"local_agent","prompt":"review it"}""",
+                        """{"type":"system","subtype":"task_progress","task_id":"a1","description":"Reading files","usage":{"tool_uses":1}}""",
+                        """{"type":"system","subtype":"task_progress","task_id":"a1","description":"Running checks","usage":{"tool_uses":3}}""",
+                        // 前台跑完的不进最后的清单
+                        """{"type":"system","subtype":"task_started","task_id":"b2","tool_use_id":"toolu_2","description":"sleep","task_type":"local_bash","is_backgrounded":false}""",
+                        """{"type":"result","subtype":"success","is_error":false}""",
+                    )
+                    .joinToString("\n", postfix = "\n"),
+            )
         val out = HostTesting.run(home, listOf(TestHelper.path, "hosts"))
-        val host = out.lineSequence().filter { it.startsWith("{") }.map { Json.parseToJsonElement(it).jsonObject }.single()
+        val host =
+            out.lineSequence()
+                .filter { it.startsWith("{") }
+                .map { Json.parseToJsonElement(it).jsonObject }
+                .single()
         assertEquals(2, host.int("tasks"))
         val events = host.arr("task_events").orEmpty().map { it as JsonObject }
 

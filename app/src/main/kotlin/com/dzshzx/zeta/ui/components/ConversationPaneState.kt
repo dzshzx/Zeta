@@ -23,4 +23,5 @@ internal fun conversationPaneSettledValues(
         null
     }
     // 必须先让 snapshotFlow 观察到运动中的 null，再过滤；回到原锚点也要重新同步。
-}.filterNotNull()
+}
+    .filterNotNull()

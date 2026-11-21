@@ -1,16 +1,13 @@
 package com.dzshzx.zeta.phone.tools
 
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.random.Random
 
-/**
- * [ChatImages.newest] 的目录加倍：用编造的缓存（目录的修改时间、文件的修改时间）照 listScript 的规则模拟每一次列目录，
- * 和整个扫一遍的前 N 条比。
- */
+/** [ChatImages.newest] 的目录加倍：用编造的缓存（目录的修改时间、文件的修改时间）照 listScript 的规则模拟每一次列目录， 和整个扫一遍的前 N 条比。 */
 class ChatImagesListingTest {
     private val slack = ChatImages.SLACK_MS
 
@@ -24,24 +21,43 @@ class ChatImagesListingTest {
             fun inWindow(t: Long) = (start == null || t >= start) && (end == null || t < end)
             val all = files.filter { inWindow(it.first) }.sortedByDescending { it.first }
             if (want == 0) return ChatImages.Listing(all.take(max), null)
-            val ranked = dirs.entries.filter { start == null || it.value >= start - ChatImages.SLACK_MS }.sortedByDescending { it.value }
+            val ranked =
+                dirs.entries
+                    .filter { start == null || it.value >= start - ChatImages.SLACK_MS }
+                    .sortedByDescending { it.value }
             val chosen = HashSet<String>()
             var older = 0
             var next: Long? = null
             for ((dir, time) in ranked) {
-                if ((end != null && time >= end) || ++older <= want) chosen += dir else { next = time; break }
+                if ((end != null && time >= end) || ++older <= want) chosen += dir
+                else {
+                    next = time
+                    break
+                }
             }
             if (chosen.size > ChatImages.MAX_DIRS) return ChatImages.Listing(all.take(max), null)
-            return ChatImages.Listing(all.filter { it.third.substringBeforeLast('/') in chosen }.take(max), next)
+            return ChatImages.Listing(
+                all.filter { it.third.substringBeforeLast('/') in chosen }.take(max),
+                next,
+            )
         }
 
-        fun full(max: Int, start: Long? = null, end: Long? = null) = pass(0, max, start, end).lines.also { asked.removeAt(asked.lastIndex) }
+        fun full(max: Int, start: Long? = null, end: Long? = null) =
+            pass(0, max, start, end).lines.also { asked.removeAt(asked.lastIndex) }
     }
 
     /** [count] 个目录，每个里面 [perDir] 个文件，时间依次往后；目录的修改时间是其中最新文件建立的时间。 */
     private fun steady(count: Int, perDir: Int): Cache {
-        val files = (0 until count * perDir).map { i -> Triple(1_000_000L + i * 10_000L, 100L, "/c/d${i % count}/f$i") }
-        return Cache(files.groupBy { it.third.substringBeforeLast('/') }.mapValues { (_, f) -> f.maxOf { it.first } }, files)
+        val files =
+            (0 until count * perDir).map { i ->
+                Triple(1_000_000L + i * 10_000L, 100L, "/c/d${i % count}/f$i")
+            }
+        return Cache(
+            files
+                .groupBy { it.third.substringBeforeLast('/') }
+                .mapValues { (_, f) -> f.maxOf { it.first } },
+            files,
+        )
     }
 
     @Test
@@ -58,7 +74,14 @@ class ChatImagesListingTest {
         // 清理缓存删掉了 500 个目录里的新文件：目录的修改时间是最近，里面剩下的都是旧的
         val now = base.files.maxOf { it.first } + 3_600_000
         val touched = base.dirs.keys.take(500).associateWith { now }
-        val cache = Cache(base.dirs + touched, base.files.filter { it.first < 1_000_000L + 10_000L * 5_000 || it.third.substringBeforeLast('/') !in touched })
+        val cache =
+            Cache(
+                base.dirs + touched,
+                base.files.filter {
+                    it.first < 1_000_000L + 10_000L * 5_000 ||
+                        it.third.substringBeforeLast('/') !in touched
+                },
+            )
         val got = ChatImages.newest(63) { cache.pass(it, 63) }
         assertEquals(cache.full(63), got)
         assertEquals(listOf(126, 252, 504, 1_008), cache.asked)
@@ -66,7 +89,8 @@ class ChatImagesListingTest {
 
     @Test
     fun stopsOnlyWhenTheLastWantedFileBeatsUnlistedDirectoriesByTheSlack() {
-        fun listing(last: Long, next: Long?) = ChatImages.Listing(listOf(Triple(last + 5, 1L, "/a/1"), Triple(last, 1L, "/a/2")), next)
+        fun listing(last: Long, next: Long?) =
+            ChatImages.Listing(listOf(Triple(last + 5, 1L, "/a/1"), Triple(last, 1L, "/a/2")), next)
         // 文件可能比它的目录晚写完一点：没选上的目录里的文件最晚可到 next + 余量
         assertTrue(listing(1_000_000 + slack + 1, 1_000_000).covers(2))
         assertFalse(listing(1_000_000 + slack, 1_000_000).covers(2))
@@ -141,11 +165,13 @@ class ChatImagesListingTest {
             // 有的目录被清理碰过：修改时间是最近，文件没变
             repeat(random.nextInt(0, 300)) {
                 val dir = "/r/d${random.nextInt(dirCount)}"
-                dirTime[dir] = maxOf(dirTime[dir] ?: 0, random.nextLong(900_000_000L, 1_000_000_000L))
+                dirTime[dir] =
+                    maxOf(dirTime[dir] ?: 0, random.nextLong(900_000_000L, 1_000_000_000L))
             }
             val max = random.nextInt(1, 200)
             val start = if (random.nextBoolean()) random.nextLong(0, 1_000_000_000L) else null
-            val end = if (random.nextBoolean()) random.nextLong(start ?: 0, 1_000_000_001L) else null
+            val end =
+                if (random.nextBoolean()) random.nextLong(start ?: 0, 1_000_000_001L) else null
             val cache = Cache(dirTime, files)
             val got = ChatImages.newest(max) { cache.pass(it, max, start, end) }
             assertEquals("第 $round 次", cache.full(max, start, end), got)

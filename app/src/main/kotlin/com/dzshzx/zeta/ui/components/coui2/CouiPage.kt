@@ -58,7 +58,8 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
 
-// 页面骨架照 COUI 仓库 .claude/skills/coui-app/references/scaffold.md 里的 CouiPage.kt（Apache-2.0，https://github.com/suqi8/coui）。
+// 页面骨架照 COUI 仓库 .claude/skills/coui-app/references/scaffold.md 里的
+// CouiPage.kt（Apache-2.0，https://github.com/suqi8/coui）。
 // Zeta 的改动：宽屏判断用 rememberIsWideScreen（不随界面缩放跳），宽屏时内容限在居中的最大宽度内；
 // 窗口有焦点时才给键盘让位，免得输入对话框打开时背景页面提前空出键盘高度。
 
@@ -82,16 +83,13 @@ internal class CouiPageContentScope(
 )
 
 /** 页面列表都要的滚动修饰：滚到头的触感、COUI 越界回弹、和顶栏折叠联动。 */
-internal fun Modifier.couiPageScroll(scope: CouiPageContentScope): Modifier = this
-    .scrollEndHaptic()
-    .overScrollVertical()
-    .nestedScroll(scope.scrollBehavior.nestedScrollConnection)
-    .fillMaxHeight()
+internal fun Modifier.couiPageScroll(scope: CouiPageContentScope): Modifier =
+    this.scrollEndHaptic()
+        .overScrollVertical()
+        .nestedScroll(scope.scrollBehavior.nestedScrollConnection)
+        .fillMaxHeight()
 
-/**
- * COUI 页面：带 COUI 17 光晕的顶栏；页面录进背景图（[PageBlur]），页面上弹出的对话框、菜单拿它做毛玻璃。
- * 内容随意排，列表页用 [CouiPage]。
- */
+/** COUI 页面：带 COUI 17 光晕的顶栏；页面录进背景图（[PageBlur]），页面上弹出的对话框、菜单拿它做毛玻璃。 内容随意排，列表页用 [CouiPage]。 */
 @Composable
 internal fun CouiPageScaffold(
     title: String,
@@ -129,12 +127,17 @@ internal fun CouiPageScaffold(
         Box(Modifier.fillMaxSize().pageBlurSource(blur)) {
             WidePageContent { sidePadding ->
                 val top = innerPadding.calculateTopPadding() + 12.dp
-                val bottom = if (imeShown) 0.dp else max(innerPadding.calculateBottomPadding(), navBottom)
+                val bottom =
+                    if (imeShown) 0.dp else max(innerPadding.calculateBottomPadding(), navBottom)
                 val start = innerPadding.calculateStartPadding(layoutDirection) + sidePadding
                 val end = innerPadding.calculateEndPadding(layoutDirection) + sidePadding
-                val scope = remember(top, bottom, start, end, scrollBehavior) {
-                    CouiPageContentScope(PaddingValues(start = start, top = top, end = end, bottom = bottom), scrollBehavior)
-                }
+                val scope =
+                    remember(top, bottom, start, end, scrollBehavior) {
+                        CouiPageContentScope(
+                            PaddingValues(start = start, top = top, end = end, bottom = bottom),
+                            scrollBehavior,
+                        )
+                    }
                 PageBlurHost(blur) { content(scope) }
             }
         }
@@ -201,19 +204,7 @@ internal fun CouiPageTopBar(
     val colors = COUITheme.colorScheme
     // 透明顶栏加光晕时，像 COUI 17 那样不画分隔线；没有光晕就是实色顶栏
     val barColor = if (backdrop != null) Color.Transparent else colors.backgroundWithCard
-    val glow: (@Composable BoxScope.() -> Unit)? = if (backdrop != null) {
-        {
-            TopAppBarGlow(
-                backdrop = backdrop,
-                scrollOffsetPx = scrollBehavior.glowScrollOffsetPx(),
-                isDark = colors.isDark,
-                baseColor = colors.backgroundWithCard,
-                enabled = true,
-            )
-        }
-    } else {
-        null
-    }
+    val glow = pageGlow(backdrop, scrollBehavior, colors.isDark, colors.backgroundWithCard)
     val backDescription = stringResource(R.string.action_back)
     val navigationIcon: @Composable () -> Unit = {
         if (onBack != null) IconActionButton(COUIIcons.Back, backDescription, onClick = onBack)
@@ -231,17 +222,13 @@ internal fun CouiPageTopBar(
             bottomContent = bottomContent,
         )
     } else {
-        // 设置首页顶栏保留默认的标题变形，折叠后小标题仍停在顶栏里
-        val home = style == CouiTopBarStyle.SettingsHome
-        TopAppBar(
+        LargePageTopBar(
             title = title,
             modifier = modifier,
-            color = barColor,
+            barColor = barColor,
             scrollBehavior = scrollBehavior,
-            expandedHeight = if (home) 116.dp else TopAppBarDefaults.ExpandedHeight,
-            largeTitleFontSize = if (home) 40.sp else TopAppBarDefaults.largeTitleFontSize(),
-            titlePadding = if (home) 24.dp else Dp.Unspecified,
-            largeTitleBottomMargin = if (home) 18.dp else Dp.Unspecified,
+            // 设置首页顶栏保留默认的标题变形，折叠后小标题仍停在顶栏里
+            home = style == CouiTopBarStyle.SettingsHome,
             glow = glow,
             navigationIcon = navigationIcon,
             actions = actions,
@@ -249,4 +236,56 @@ internal fun CouiPageTopBar(
             bottomContent = bottomContent,
         )
     }
+}
+
+/** 页面录进了 [backdrop] 时顶栏上的 COUI 17 光晕，随滚动显出；没有录制时为 null。 */
+private fun pageGlow(
+    backdrop: LayerBackdrop?,
+    scrollBehavior: ScrollBehavior,
+    isDark: Boolean,
+    baseColor: Color,
+): (@Composable BoxScope.() -> Unit)? =
+    if (backdrop != null) {
+        {
+            TopAppBarGlow(
+                backdrop = backdrop,
+                scrollOffsetPx = scrollBehavior.glowScrollOffsetPx(),
+                isDark = isDark,
+                baseColor = baseColor,
+                enabled = true,
+            )
+        }
+    } else {
+        null
+    }
+
+/** 大标题顶栏；[home]（设置首页）的大标题更高更大，折叠后小标题仍停在顶栏里。 */
+@Composable
+private fun LargePageTopBar(
+    title: String,
+    modifier: Modifier,
+    barColor: Color,
+    scrollBehavior: ScrollBehavior,
+    home: Boolean,
+    glow: (@Composable BoxScope.() -> Unit)?,
+    navigationIcon: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    searchState: TopAppBarSearchState?,
+    bottomContent: @Composable () -> Unit,
+) {
+    TopAppBar(
+        title = title,
+        modifier = modifier,
+        color = barColor,
+        scrollBehavior = scrollBehavior,
+        expandedHeight = if (home) 116.dp else TopAppBarDefaults.ExpandedHeight,
+        largeTitleFontSize = if (home) 40.sp else TopAppBarDefaults.largeTitleFontSize(),
+        titlePadding = if (home) 24.dp else Dp.Unspecified,
+        largeTitleBottomMargin = if (home) 18.dp else Dp.Unspecified,
+        glow = glow,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        searchState = searchState,
+        bottomContent = bottomContent,
+    )
 }

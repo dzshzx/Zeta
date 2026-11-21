@@ -3,9 +3,9 @@ package com.dzshzx.zeta.shots
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.dzshzx.zeta.core.notify.NotifyRule
@@ -23,18 +23,34 @@ import org.junit.Test
 class NotifyTriggerShots : ShotTest() {
     private fun seed() {
         val now = System.currentTimeMillis()
-        val express = NotifyRules.recordFire(
+        val express =
+            NotifyRules.recordFire(
+                    NotifyRule(
+                        id = "r1",
+                        name = "快递取件提醒",
+                        packageName = "com.example.express",
+                        appLabel = "快递助手",
+                        keywords = listOf("取件码", "驿站"),
+                        prompt = "看看这条快递通知 {text}，把取件码和地址记进今天的待办",
+                    ),
+                    now,
+                    ZoneId.systemDefault(),
+                )
+                .copy(
+                    lastRun =
+                        TaskRun(now - 60_000, RunOutcome.Done, "s-1", "已记下：取件码 1234，菜鸟驿站 3 号柜"),
+                )
+        val night =
             NotifyRule(
-                id = "r1", name = "快递取件提醒", packageName = "com.example.express", appLabel = "快递助手",
-                keywords = listOf("取件码", "驿站"), prompt = "看看这条快递通知 {text}，把取件码和地址记进今天的待办",
-            ),
-            now, ZoneId.systemDefault(),
-        ).copy(lastRun = TaskRun(now - 60_000, RunOutcome.Done, "s-1", "已记下：取件码 1234，菜鸟驿站 3 号柜"))
-        val night = NotifyRule(
-            id = "r2", name = "夜间工作群", packageName = "com.tencent.mm", appLabel = "微信",
-            window = TimeWindow(LocalTime.of(22, 0), LocalTime.of(7, 0)), prompt = "有人在群里找我时汇总一下", enabled = false,
-            permissionMode = "bypassPermissions",
-        )
+                id = "r2",
+                name = "夜间工作群",
+                packageName = "com.tencent.mm",
+                appLabel = "微信",
+                window = TimeWindow(LocalTime.of(22, 0), LocalTime.of(7, 0)),
+                prompt = "有人在群里找我时汇总一下",
+                enabled = false,
+                permissionMode = "bypassPermissions",
+            )
         NotifyRuleStore.update(app) { listOf(express, night) }
     }
 
@@ -42,7 +58,9 @@ class NotifyTriggerShots : ShotTest() {
     fun list() {
         val hub = Fixtures.readyHub(app)
         seed()
-        shoot("notify-triggers") { NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {}) }
+        shoot("notify-triggers") {
+            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+        }
     }
 
     @Test
@@ -67,7 +85,9 @@ class NotifyTriggerShots : ShotTest() {
                 // 慢慢划半屏，不带惯性，停在中段
                 mainClock.advanceTimeBy(600)
                 waitForIdle()
-                onRoot().performTouchInput { swipeUp(startY = bottom * 0.85f, endY = bottom * 0.3f, durationMillis = 2000) }
+                onRoot().performTouchInput {
+                    swipeUp(startY = bottom * 0.85f, endY = bottom * 0.3f, durationMillis = 2000)
+                }
             },
         ) {
             NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
@@ -97,7 +117,16 @@ class NotifyTriggerShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seed()
         NotifyRuleStore.updateRule(app, "r1") {
-            it.copy(onlyOnChange = true, lastRun = TaskRun(System.currentTimeMillis() - 60_000, RunOutcome.NoChange, "s-1", "不是取件通知，是广告"))
+            it.copy(
+                onlyOnChange = true,
+                lastRun =
+                    TaskRun(
+                        System.currentTimeMillis() - 60_000,
+                        RunOutcome.NoChange,
+                        "s-1",
+                        "不是取件通知，是广告",
+                    ),
+            )
         }
         shoot(
             "notify-trigger-only-on-change",

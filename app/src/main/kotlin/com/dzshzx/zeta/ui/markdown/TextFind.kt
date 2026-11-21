@@ -52,10 +52,11 @@ internal fun findOccurrences(text: String, query: String): List<IntRange> {
 }
 
 /**
- * 文档里能查的文字，按画出来的顺序：每个文字块一段，键是块的源码偏移（同一份文档里各不相同）。
- * 查的是排版后的文字（`**粗体**` 只算“粗体”，链接只算链接文字），和高亮的对象一致。公式和分隔线不算。
+ * 文档里能查的文字，按画出来的顺序：每个文字块一段，键是块的源码偏移（同一份文档里各不相同）。 查的是排版后的文字（`**粗体**`
+ * 只算“粗体”，链接只算链接文字），和高亮的对象一致。公式和分隔线不算。
  */
-internal fun MarkdownDocument.findSegments(): List<Pair<Int, String>> = ArrayList<Pair<Int, String>>().also { collectSegments(blocks, it) }
+internal fun MarkdownDocument.findSegments(): List<Pair<Int, String>> =
+    ArrayList<Pair<Int, String>>().also { collectSegments(blocks, it) }
 
 private fun collectSegments(blocks: List<MarkdownBlock>, into: MutableList<Pair<Int, String>>) {
     for (block in blocks) {
@@ -64,8 +65,10 @@ private fun collectSegments(blocks: List<MarkdownBlock>, into: MutableList<Pair<
             is MarkdownQuote -> collectSegments(block.blocks, into)
             is MarkdownAlert -> collectSegments(block.blocks, into)
             is MarkdownList -> block.items.forEach { collectSegments(it.blocks, into) }
-            is MarkdownTable -> (block.header + block.rows.flatten()).forEach { into += it.offset to it.text.text }
-            is MarkdownMath, is MarkdownRule -> Unit
+            is MarkdownTable ->
+                (block.header + block.rows.flatten()).forEach { into += it.offset to it.text.text }
+            is MarkdownMath,
+            is MarkdownRule -> Unit
         }
     }
 }
@@ -77,12 +80,14 @@ private fun findColors(): Pair<Color, Color> {
     val soft = colors.textColorHighlight
     val primary = colors.primary
     val dark = colors.isDark
-    return remember(soft, primary, dark) { soft to primary.copy(alpha = if (dark) 0.62f else 0.42f) }
+    return remember(soft, primary, dark) {
+        soft to primary.copy(alpha = if (dark) 0.62f else 0.42f)
+    }
 }
 
 /**
- * 能被页面内查找高亮的一段文字。没在查找、或不知道属于哪条消息时就是普通的 [Text]。
- * [block] 是这段文字在消息里的编号（Markdown 块的源码偏移，纯文本为 0），和查找时切的段对应。
+ * 能被页面内查找高亮的一段文字。没在查找、或不知道属于哪条消息时就是普通的 [Text]。 [block] 是这段文字在消息里的编号（Markdown 块的源码偏移，纯文本为
+ * 0），和查找时切的段对应。
  */
 @Composable
 internal fun FindableText(
@@ -98,40 +103,38 @@ internal fun FindableText(
     val finder = LocalTextFinder.current
     val query = finder?.query.orEmpty()
     if (finder == null || itemId == null || query.isEmpty()) {
-        Text(text = text, modifier = modifier, color = color, softWrap = softWrap, inlineContent = inlineContent, style = style)
+        Text(
+            text = text,
+            modifier = modifier,
+            color = color,
+            softWrap = softWrap,
+            inlineContent = inlineContent,
+            style = style,
+        )
         return
     }
     val ranges = remember(text, query) { findOccurrences(text.text, query) }
     val current = ranges.firstOrNull { finder.isCurrent(itemId, block, it.first) }
     val (soft, strong) = findColors()
-    val shown = remember(text, ranges, current, soft, strong) {
-        if (ranges.isEmpty()) {
-            text
-        } else {
-            buildAnnotatedString {
-                append(text)
-                for (range in ranges) addStyle(SpanStyle(background = if (range == current) strong else soft), range.first, range.last + 1)
-            }
+    val shown =
+        remember(text, ranges, current, soft, strong) {
+            highlightOccurrences(text, ranges, current, soft, strong)
         }
-    }
     // 当前那一处在哪：排版和位置都有了才报，任何一个变了都再报一次（滚动时位置一直在变）
     val place = remember { arrayOfNulls<Any>(2) }
     fun report() {
         val start = current?.first ?: return
         val layout = place[0] as? TextLayoutResult ?: return
         val coordinates = place[1] as? LayoutCoordinates ?: return
-        if (!coordinates.isAttached || start >= layout.layoutInput.text.length) return
-        val box = layout.getBoundingBox(start)
-        val line = layout.getLineForOffset(start)
-        val origin = coordinates.positionInRoot()
-        finder.placeCurrent(Rect(origin.x + box.left, origin.y + layout.getLineTop(line), origin.x + box.right, origin.y + layout.getLineBottom(line)))
+        currentMatchBounds(start, layout, coordinates)?.let(finder::placeCurrent)
     }
     Text(
         text = shown,
-        modifier = modifier.onGloballyPositioned {
-            place[1] = it
-            report()
-        },
+        modifier =
+            modifier.onGloballyPositioned {
+                place[1] = it
+                report()
+            },
         color = color,
         softWrap = softWrap,
         inlineContent = inlineContent,
@@ -140,6 +143,43 @@ internal fun FindableText(
             report()
         },
         style = style,
+    )
+}
+
+/** 给每处匹配加底色，当前那处用 [strong]，其余用 [soft]；没有匹配时原样返回。 */
+private fun highlightOccurrences(
+    text: AnnotatedString,
+    ranges: List<IntRange>,
+    current: IntRange?,
+    soft: Color,
+    strong: Color,
+): AnnotatedString {
+    if (ranges.isEmpty()) return text
+    return buildAnnotatedString {
+        append(text)
+        for (range in ranges) addStyle(
+            SpanStyle(background = if (range == current) strong else soft),
+            range.first,
+            range.last + 1,
+        )
+    }
+}
+
+/** 从 [start] 起那一处在根坐标里的框：横向取那个字，纵向取整行；布局已脱离或偏移越界时为 null。 */
+private fun currentMatchBounds(
+    start: Int,
+    layout: TextLayoutResult,
+    coordinates: LayoutCoordinates,
+): Rect? {
+    if (!coordinates.isAttached || start >= layout.layoutInput.text.length) return null
+    val box = layout.getBoundingBox(start)
+    val line = layout.getLineForOffset(start)
+    val origin = coordinates.positionInRoot()
+    return Rect(
+        origin.x + box.left,
+        origin.y + layout.getLineTop(line),
+        origin.x + box.right,
+        origin.y + layout.getLineBottom(line),
     )
 }
 

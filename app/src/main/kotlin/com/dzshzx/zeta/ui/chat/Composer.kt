@@ -59,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,13 +91,14 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-internal val PermissionModes = listOf(
-    "default" to "逐项确认",
-    "acceptEdits" to "自动接受编辑",
-    "plan" to "计划模式",
-    "auto" to "自动判断",
-    "bypassPermissions" to "完全放行",
-)
+internal val PermissionModes =
+    listOf(
+        "default" to "逐项确认",
+        "acceptEdits" to "自动接受编辑",
+        "plan" to "计划模式",
+        "auto" to "自动判断",
+        "bypassPermissions" to "完全放行",
+    )
 
 internal fun permissionModeLabel(mode: String?): String =
     PermissionModes.firstOrNull { it.first == mode }?.second ?: mode ?: "默认权限"
@@ -158,197 +160,60 @@ internal fun Composer(
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val shape = remember { SquircleShape(ChatPanelCorner) }
-    val canSend = enabled && files.none { it.uploading } &&
-        (state.text.isNotBlank() || attachments.isNotEmpty() || files.any { it.path != null })
+    val canSend = hasSomethingToSend(enabled, state.text, attachments, files)
     val talk by (voice?.input?.state ?: IdleTalk).collectAsState()
     val talking = talk.active
     val cancelling = talking && voice?.cancelling == true
     // 说话时输入卡片描一圈主题色，滑进取消区换成红色
-    val talkBorder by animateColorAsState(
-        targetValue = when {
-            cancelling -> colors.error.copy(alpha = 0.6f)
-            talking -> colors.primary.copy(alpha = 0.5f)
-            else -> Color.Transparent
-        },
-        animationSpec = tween(160),
-        label = "talk-border",
-    )
+    val talkBorder by
+        animateColorAsState(
+            targetValue = talkBorderTarget(talking, cancelling),
+            animationSpec = tween(160),
+            label = "talk-border",
+        )
     // 只打了“/名字”还没打空格时，提示可用的斜杠命令
-    val typed = state.text.toString()
-    val slash = if (typed.startsWith("/") && typed.none { it.isWhitespace() }) typed.drop(1).lowercase() else null
-    val suggestions = remember(slash, commands) {
-        if (slash == null) {
-            emptyList()
-        } else {
-            val visible = commands.filter { !it.name.startsWith("__") }
-            visible.filter { it.name.lowercase().startsWith(slash) } +
-                visible.filter { !it.name.lowercase().startsWith(slash) && it.name.lowercase().contains(slash) }
-        }
-    }
+    val slash = slashQuery(state.text.toString())
+    val suggestions = remember(slash, commands) { slashSuggestions(slash, commands) }
     LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
-    val textStyle = COUITheme.textStyles.bodyXL.copy(
-        color = colors.labelPrimary,
-        lineHeight = 22.sp,
-        lineHeightStyle = EditorialLineHeightStyle,
-    )
+    val textStyle =
+        COUITheme.textStyles.bodyXL.copy(
+            color = colors.labelPrimary,
+            lineHeight = 22.sp,
+            lineHeightStyle = EditorialLineHeightStyle,
+        )
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .dropShadow(shape = shape, shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = if (dark) 0.22f else 0.045f))
-            .chatPanel(shape)
-            .border(1.dp, talkBorder, shape)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .dropShadow(
+                    shape = shape,
+                    shadow =
+                        Shadow(
+                            radius = 16.dp,
+                            color = Color.Black,
+                            alpha = if (dark) 0.22f else 0.045f,
+                        ),
+                )
+                .chatPanel(shape)
+                .border(1.dp, talkBorder, shape)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        if (suggestions.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 232.dp).padding(bottom = 4.dp)) {
-                items(suggestions, key = { it.name }) { command ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(COUIRoundCorner.M))
-                            .clickable { state.setTextAndPlaceCursorAtEnd("/${command.name} ") }
-                            .padding(horizontal = 8.dp, vertical = 7.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "/${command.name}",
-                                style = COUITheme.textStyles.buttonM,
-                                color = colors.primary,
-                                maxLines = 1,
-                            )
-                            if (command.argumentHint.isNotBlank()) {
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = command.argumentHint,
-                                    style = COUITheme.textStyles.bodyXS,
-                                    color = colors.labelSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        if (command.description.isNotBlank()) {
-                            Text(
-                                text = command.description,
-                                style = COUITheme.textStyles.bodyXS,
-                                color = colors.labelSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 6.dp), color = colors.divider)
-            Spacer(Modifier.height(4.dp))
-        }
+        if (suggestions.isNotEmpty()) SlashSuggestions(suggestions, state)
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                files.forEach { file ->
-                    FileChip(
-                        name = when {
-                            file.failed -> "复制失败 · ${file.name}"
-                            file.uploading -> "正在复制 · ${file.name}"
-                            else -> file.name
-                        },
-                        modifier = Modifier.widthIn(max = 220.dp),
-                        folder = AttachedPaths.isFolder(file.path.orEmpty()),
-                    ) {
-                        Icon(
-                            COUIIcons.Close,
-                            contentDescription = "移除",
-                            modifier = Modifier.size(22.dp).clip(CircleShape).clickable { onRemoveFile(file) }.padding(4.dp),
-                            tint = colors.labelSecondary,
-                        )
-                    }
-                }
-                attachments.forEach { attachment ->
-                    Box {
-                        Image(
-                            bitmap = attachment.preview,
-                            contentDescription = "图片附件",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M)),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(3.dp)
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(colors.mask)
-                                .clickable { onRemoveAttachment(attachment) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(COUIIcons.Close, contentDescription = "移除", modifier = Modifier.size(13.dp), tint = colors.labelOnColor)
-                        }
-                    }
-                }
-            }
+            ComposerAttachments(attachments, files, onRemoveAttachment, onRemoveFile)
         }
-        Box(
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 36.dp).padding(horizontal = 6.dp, vertical = 5.dp),
-            contentAlignment = Alignment.TopStart,
-        ) {
-            when {
-                // 说话时输入框是空的：识别出的字实时显示在这里，松手后整段发出去
-                talking -> Text(
-                    text = talk.text.ifEmpty { if (talk.phase == SpeechInput.Phase.Finishing) "正在识别…" else "正在听…" },
-                    style = textStyle,
-                    color = if (talk.text.isEmpty()) colors.primaryText else colors.labelPrimary,
-                    maxLines = 6,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                state.text.isEmpty() -> Text(
-                    text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
-                    style = textStyle,
-                    color = colors.hintNeutral,
-                )
-            }
-            BasicTextField(
-                state = state,
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                enabled = enabled,
-                textStyle = textStyle,
-                cursorBrush = SolidColor(colors.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),
-            )
-        }
+        ComposerField(state, talk, busy, enabled, textStyle, focus)
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val attachEntries = listOf(
-                DropdownEntry(
-                    items = listOfNotNull(
-                        menuItem("图片", COUIIcons.Image, onPickImages),
-                        menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
-                        onPickFolder?.let { menuItem("文件夹", COUIIcons.Folder, it) },
-                        menuItem("输入路径", COUIIcons.Edit, onEnterPath),
-                    ),
-                ),
-                DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
-            )
             if (talking) {
                 // 说话时底栏只留提示和麦克风键
-                Text(
-                    text = when {
-                        talk.phase == SpeechInput.Phase.Finishing -> "松开了，正在识别"
-                        cancelling -> "松开取消"
-                        else -> "松开发送，上滑取消"
-                    },
-                    style = COUITheme.textStyles.bodyS,
-                    color = if (cancelling) colors.error else colors.labelSecondary,
-                    modifier = Modifier.weight(1f).padding(start = 6.dp),
-                    maxLines = 1,
-                )
+                TalkHint(talk, cancelling, Modifier.weight(1f).padding(start = 6.dp))
             } else {
+                val attachEntries =
+                    attachMenu(onPickImages, onPickFiles, onPickFolder, onEnterPath, onOpenPrompts)
                 BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
                     Icon(COUIIcons.Add, contentDescription = null)
                 }
@@ -356,133 +221,490 @@ internal fun Composer(
                 Spacer(Modifier.weight(1f))
                 status()
             }
-            val showStop = busy && !canSend
-            // 没东西可发、也没在跑时（或正说着话），发送键换成按住说话的麦克风
-            val mic = voice != null && enabled && (talking || (!showStop && !canSend))
-            val buttonColor by animateColorAsState(
-                targetValue = when {
-                    cancelling -> colors.error
-                    talking -> colors.primary
-                    showStop -> colors.labelPrimary
-                    canSend -> colors.primary
-                    else -> colors.container8
-                },
-                animationSpec = tween(160),
-                label = "send-color",
+            SendButton(
+                state = state,
+                talk = talk,
+                cancelling = cancelling,
+                busy = busy,
+                canSend = canSend,
+                enabled = enabled,
+                voice = voice,
+                onSend = onSend,
+                onStop = onStop,
             )
-            val haptics = LocalHapticFeedback.current
-            val level by animateFloatAsState(if (talk.phase == SpeechInput.Phase.Listening) talk.level else 0f, tween(90), label = "talk-level")
-            val grow by animateFloatAsState(if (talking) 1.12f else 1f, tween(160), label = "talk-grow")
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .then(
-                        if (mic && voice != null) {
-                            Modifier
-                                .semantics { contentDescription = "按住说话" }
-                                .holdToTalk(voice, haptics) { text -> onSend(text) }
-                        } else {
-                            Modifier.clip(CircleShape).clickable(enabled = showStop || canSend) {
-                                if (showStop) {
-                                    onStop()
-                                } else {
-                                    val text = state.text.toString()
-                                    state.clearText()
-                                    onSend(text)
-                                }
-                            }
-                        },
-                    ),
-                contentAlignment = Alignment.Center,
+        }
+    }
+}
+
+/** 输入卡片描边的目标颜色：说话时是主题色，滑进取消区换成红色，平时透明。 */
+@Composable
+private fun talkBorderTarget(talking: Boolean, cancelling: Boolean): Color {
+    val colors = COUITheme.colorScheme
+    return when {
+        cancelling -> colors.error.copy(alpha = 0.6f)
+        talking -> colors.primary.copy(alpha = 0.5f)
+        else -> Color.Transparent
+    }
+}
+
+/** 有没有东西可发：输入栏可用、没有文件在复制，且有字、有图片或有传好的文件。 */
+private fun hasSomethingToSend(
+    enabled: Boolean,
+    text: CharSequence,
+    attachments: List<Attachment>,
+    files: List<FileUpload>,
+): Boolean =
+    enabled &&
+        files.none { it.uploading } &&
+        (text.isNotBlank() || attachments.isNotEmpty() || files.any { it.path != null })
+
+/** 输入框里只有“/名字”、还没打空格时，这是要提示的命令名前缀（小写）；否则是 null。 */
+private fun slashQuery(typed: String): String? =
+    if (typed.startsWith("/") && typed.none { it.isWhitespace() }) typed.drop(1).lowercase()
+    else null
+
+/** 要提示的斜杠命令：名字以 [slash] 开头的排前面，名字里含有它的跟在后面；内部命令（“__”开头）不列。 */
+private fun slashSuggestions(slash: String?, commands: List<SlashCommand>): List<SlashCommand> {
+    if (slash == null) return emptyList()
+    val visible = commands.filter { !it.name.startsWith("__") }
+    return visible.filter { it.name.lowercase().startsWith(slash) } +
+        visible.filter {
+            !it.name.lowercase().startsWith(slash) && it.name.lowercase().contains(slash)
+        }
+}
+
+/** 输入框上方的斜杠命令提示，点一条把命令填进输入框。 */
+@Composable
+private fun SlashSuggestions(suggestions: List<SlashCommand>, state: TextFieldState) {
+    val colors = COUITheme.colorScheme
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().heightIn(max = 232.dp).padding(bottom = 4.dp),
+    ) {
+        items(suggestions, key = { it.name }) { command ->
+            SlashSuggestionRow(command) { state.setTextAndPlaceCursorAtEnd("/${command.name} ") }
+        }
+    }
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 6.dp),
+        color = colors.divider,
+    )
+    Spacer(Modifier.height(4.dp))
+}
+
+/** 一条斜杠命令提示：命令名和参数提示一行，说明在下一行。 */
+@Composable
+private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
+    val colors = COUITheme.colorScheme
+    Column(
+        modifier =
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(COUIRoundCorner.M))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 8.dp, vertical = 7.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "/${command.name}",
+                style = COUITheme.textStyles.buttonM,
+                color = colors.primary,
+                maxLines = 1,
+            )
+            if (command.argumentHint.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = command.argumentHint,
+                    style = COUITheme.textStyles.bodyXS,
+                    color = colors.labelSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (command.description.isNotBlank()) {
+            Text(
+                text = command.description,
+                style = COUITheme.textStyles.bodyXS,
+                color = colors.labelSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** 输入框上方一排待发的附件：文件（复制中、复制失败的注明）和图片缩略图，各带移除键，横向滚动。 */
+@Composable
+private fun ComposerAttachments(
+    attachments: List<Attachment>,
+    files: List<FileUpload>,
+    onRemoveAttachment: (Attachment) -> Unit,
+    onRemoveFile: (FileUpload) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        files.forEach { file ->
+            FileChip(
+                name = uploadLabel(file),
+                modifier = Modifier.widthIn(max = 220.dp),
+                folder = AttachedPaths.isFolder(file.path.orEmpty()),
             ) {
-                // 说话时按钮后面一圈随音量放大的光晕
-                if (talking) {
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .graphicsLayer {
-                                val scale = 1f + 0.45f * level
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .background(buttonColor.copy(alpha = 0.22f), CircleShape),
+                Icon(
+                    COUIIcons.Close,
+                    contentDescription = "移除",
+                    modifier =
+                        Modifier.size(22.dp)
+                            .clip(CircleShape)
+                            .clickable { onRemoveFile(file) }
+                            .padding(4.dp),
+                    tint = COUITheme.colorScheme.labelSecondary,
+                )
+            }
+        }
+        attachments.forEach { attachment ->
+            AttachmentThumbnail(attachment) { onRemoveAttachment(attachment) }
+        }
+    }
+}
+
+/** 待发文件的名字，复制中、复制失败时在前面注明。 */
+private fun uploadLabel(file: FileUpload): String =
+    when {
+        file.failed -> "复制失败 · ${file.name}"
+        file.uploading -> "正在复制 · ${file.name}"
+        else -> file.name
+    }
+
+/** 待发图片的缩略图，右上角是移除键。 */
+@Composable
+private fun AttachmentThumbnail(attachment: Attachment, onRemove: () -> Unit) {
+    val colors = COUITheme.colorScheme
+    Box {
+        Image(
+            bitmap = attachment.preview,
+            contentDescription = "图片附件",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M)),
+        )
+        Box(
+            modifier =
+                Modifier.align(Alignment.TopEnd)
+                    .padding(3.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(colors.mask)
+                    .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                COUIIcons.Close,
+                contentDescription = "移除",
+                modifier = Modifier.size(13.dp),
+                tint = colors.labelOnColor,
+            )
+        }
+    }
+}
+
+/** 输入框；空着时下面垫一行占位提示，说话时垫着识别出的字（输入框这时是空的，松手后整段发出去）。 */
+@Composable
+private fun ComposerField(
+    state: TextFieldState,
+    talk: SpeechInput.State,
+    busy: Boolean,
+    enabled: Boolean,
+    textStyle: TextStyle,
+    focus: FocusRequester,
+) {
+    val colors = COUITheme.colorScheme
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
+                .defaultMinSize(minHeight = 36.dp)
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+        contentAlignment = Alignment.TopStart,
+    ) {
+        when {
+            // 说话时输入框是空的：识别出的字实时显示在这里，松手后整段发出去
+            talk.active ->
+                Text(
+                    text = talk.text.ifEmpty { listeningText(talk.phase) },
+                    style = textStyle,
+                    color = if (talk.text.isEmpty()) colors.primaryText else colors.labelPrimary,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            state.text.isEmpty() ->
+                Text(
+                    text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
+                    style = textStyle,
+                    color = colors.hintNeutral,
+                )
+        }
+        BasicTextField(
+            state = state,
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            enabled = enabled,
+            textStyle = textStyle,
+            cursorBrush = SolidColor(colors.primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+            lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),
+        )
+    }
+}
+
+private fun listeningText(phase: SpeechInput.Phase): String =
+    if (phase == SpeechInput.Phase.Finishing) "正在识别…" else "正在听…"
+
+/** 附件菜单：图片、文件、文件夹（有的话）、输入路径一组，常用指令单独一组。 */
+private fun attachMenu(
+    onPickImages: () -> Unit,
+    onPickFiles: () -> Unit,
+    onPickFolder: (() -> Unit)?,
+    onEnterPath: () -> Unit,
+    onOpenPrompts: () -> Unit,
+): List<DropdownEntry> =
+    listOf(
+        DropdownEntry(
+            items =
+                listOfNotNull(
+                    menuItem("图片", COUIIcons.Image, onPickImages),
+                    menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
+                    onPickFolder?.let { menuItem("文件夹", COUIIcons.Folder, it) },
+                    menuItem("输入路径", COUIIcons.Edit, onEnterPath),
+                ),
+        ),
+        DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
+    )
+
+/** 说话时底栏的提示：松开发送、上滑取消，滑进取消区时标红。 */
+@Composable
+private fun TalkHint(talk: SpeechInput.State, cancelling: Boolean, modifier: Modifier) {
+    val colors = COUITheme.colorScheme
+    Text(
+        text =
+            when {
+                talk.phase == SpeechInput.Phase.Finishing -> "松开了，正在识别"
+                cancelling -> "松开取消"
+                else -> "松开发送，上滑取消"
+            },
+        style = COUITheme.textStyles.bodyS,
+        color = if (cancelling) colors.error else colors.labelSecondary,
+        modifier = modifier,
+        maxLines = 1,
+    )
+}
+
+/** 底栏右端的圆形键：有东西可发时是发送，在跑又没东西可发时是停止；没东西可发、也没在跑时（或正说着话）换成按住说话的麦克风。 说话时随音量放大一圈光晕。 */
+@Composable
+private fun SendButton(
+    state: TextFieldState,
+    talk: SpeechInput.State,
+    cancelling: Boolean,
+    busy: Boolean,
+    canSend: Boolean,
+    enabled: Boolean,
+    voice: HoldToTalk?,
+    onSend: (String) -> Unit,
+    onStop: () -> Unit,
+) {
+    val colors = COUITheme.colorScheme
+    val talking = talk.active
+    val showStop = busy && !canSend
+    // 没东西可发、也没在跑时（或正说着话），发送键换成按住说话的麦克风
+    val mic = voice != null && enabled && (talking || (!showStop && !canSend))
+    val buttonColor by
+        animateColorAsState(
+            targetValue = sendButtonTarget(cancelling, talking, showStop, canSend),
+            animationSpec = tween(160),
+            label = "send-color",
+        )
+    val haptics = LocalHapticFeedback.current
+    val level by
+        animateFloatAsState(
+            if (talk.phase == SpeechInput.Phase.Listening) talk.level else 0f,
+            tween(90),
+            label = "talk-level",
+        )
+    val grow by animateFloatAsState(if (talking) 1.12f else 1f, tween(160), label = "talk-grow")
+    Box(
+        modifier =
+            Modifier.size(36.dp)
+                .then(
+                    if (mic && voice != null) {
+                        Modifier.semantics { contentDescription = "按住说话" }
+                            .holdToTalk(voice, haptics) { text -> onSend(text) }
+                    } else {
+                        Modifier.clip(CircleShape).clickable(enabled = showStop || canSend) {
+                            sendOrStop(state, showStop, onSend, onStop)
+                        }
+                    },
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // 说话时按钮后面一圈随音量放大的光晕
+        if (talking) {
+            Box(
+                Modifier.size(36.dp)
+                    .graphicsLayer {
+                        val scale = 1f + 0.45f * level
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .background(buttonColor.copy(alpha = 0.22f), CircleShape),
+            )
+        }
+        Box(
+            modifier =
+                Modifier.size(32.dp)
+                    .graphicsLayer {
+                        scaleX = grow
+                        scaleY = grow
+                    }
+                    .clip(CircleShape)
+                    .background(buttonColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedContent(
+                targetState = sendFace(mic, showStop),
+                transitionSpec = {
+                    (fadeIn(tween(130)) + scaleIn(tween(160), initialScale = 0.72f)).togetherWith(
+                        fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.72f),
                     )
-                }
-                Box(
-                    modifier = Modifier.size(32.dp).graphicsLayer { scaleX = grow; scaleY = grow }.clip(CircleShape).background(buttonColor),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val face = when {
-                        mic -> SendFace.Mic
-                        showStop -> SendFace.Stop
-                        else -> SendFace.Send
-                    }
-                    AnimatedContent(
-                        targetState = face,
-                        transitionSpec = {
-                            (fadeIn(tween(130)) + scaleIn(tween(160), initialScale = 0.72f))
-                                .togetherWith(fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.72f))
-                        },
-                        label = "send-stop",
-                    ) { shown ->
-                        Icon(
-                            imageVector = when (shown) {
-                                SendFace.Mic -> COUIIcons.Mic
-                                SendFace.Stop -> ZetaIcons.Stop
-                                SendFace.Send -> ZetaIcons.ArrowUp
-                            },
-                            contentDescription = if (shown == SendFace.Mic) null else if (shown == SendFace.Stop) "停止" else "发送",
-                            modifier = Modifier.size(
-                                when (shown) {
-                                    SendFace.Mic -> 17.dp
-                                    SendFace.Stop -> 12.dp
-                                    SendFace.Send -> 17.dp
-                                },
-                            ),
-                            tint = when {
-                                shown == SendFace.Mic && talking -> colors.onPrimary
-                                shown == SendFace.Mic -> colors.labelSecondary
-                                shown == SendFace.Stop -> colors.background
-                                canSend -> colors.onPrimary
-                                else -> colors.labelTertiary
-                            },
-                        )
-                    }
-                }
+                },
+                label = "send-stop",
+            ) { shown ->
+                SendFaceIcon(shown, talking, canSend)
             }
         }
     }
 }
 
+/** 发送键底色的目标颜色：说话时是主题色（滑进取消区是红色），停止键深色，能发时主题色，否则灰色。 */
+@Composable
+private fun sendButtonTarget(
+    cancelling: Boolean,
+    talking: Boolean,
+    showStop: Boolean,
+    canSend: Boolean,
+): Color {
+    val colors = COUITheme.colorScheme
+    return when {
+        cancelling -> colors.error
+        talking -> colors.primary
+        showStop -> colors.labelPrimary
+        canSend -> colors.primary
+        else -> colors.container8
+    }
+}
+
+private fun sendFace(mic: Boolean, showStop: Boolean): SendFace =
+    when {
+        mic -> SendFace.Mic
+        showStop -> SendFace.Stop
+        else -> SendFace.Send
+    }
+
+/** 点发送键：在跑又没东西可发时停下这一轮，否则发出输入框里的字并清空。 */
+private fun sendOrStop(
+    state: TextFieldState,
+    showStop: Boolean,
+    onSend: (String) -> Unit,
+    onStop: () -> Unit,
+) {
+    if (showStop) {
+        onStop()
+    } else {
+        val text = state.text.toString()
+        state.clearText()
+        onSend(text)
+    }
+}
+
+/** 发送键上的图标：麦克风、停止或向上的箭头。 */
+@Composable
+private fun SendFaceIcon(shown: SendFace, talking: Boolean, canSend: Boolean) {
+    val colors = COUITheme.colorScheme
+    Icon(
+        imageVector =
+            when (shown) {
+                SendFace.Mic -> COUIIcons.Mic
+                SendFace.Stop -> ZetaIcons.Stop
+                SendFace.Send -> ZetaIcons.ArrowUp
+            },
+        contentDescription =
+            when (shown) {
+                SendFace.Mic -> null
+                SendFace.Stop -> "停止"
+                SendFace.Send -> "发送"
+            },
+        modifier =
+            Modifier.size(
+                when (shown) {
+                    SendFace.Mic -> 17.dp
+                    SendFace.Stop -> 12.dp
+                    SendFace.Send -> 17.dp
+                },
+            ),
+        tint =
+            when {
+                shown == SendFace.Mic && talking -> colors.onPrimary
+                shown == SendFace.Mic -> colors.labelSecondary
+                shown == SendFace.Stop -> colors.background
+                canSend -> colors.onPrimary
+                else -> colors.labelTertiary
+            },
+    )
+}
+
 /** 发送键上显示什么。 */
-private enum class SendFace { Send, Stop, Mic }
+private enum class SendFace {
+    Send,
+    Stop,
+    Mic,
+}
 
 /** 没有按住说话时的识别状态（一直空闲）。 */
 private val IdleTalk: StateFlow<SpeechInput.State> = MutableStateFlow(SpeechInput.State())
 
 /**
- * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定、不跟强调色变（选红色强调色时也分得清「完全放行」）。
- * 逐项确认和没指定时是灰色的 M，计划模式青色的 P，自动接受编辑紫色的 E，自动判断蓝色的 A，完全放行红色的感叹号。
- * 模式名在读屏说明、长按提示和点开的单选菜单里。
+ * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定、不跟强调色变（选红色强调色时也分得清「完全放行」）。 逐项确认和没指定时是灰色的 M，计划模式青色的 P，自动接受编辑紫色的
+ * E，自动判断蓝色的 A，完全放行红色的感叹号。 模式名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
 internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
     val colors = COUITheme.colorScheme
-    val (icon, tone) = when (mode) {
-        "auto" -> ZetaIcons.ShieldA to colors.blue
-        "plan" -> ZetaIcons.ShieldP to colors.cyan
-        "acceptEdits" -> ZetaIcons.ShieldE to colors.purple
-        "bypassPermissions" -> ZetaIcons.ShieldAlert to colors.error
-        else -> ZetaIcons.ShieldM to null
-    }
-    val entries = listOf(
-        DropdownEntry(
-            items = PermissionModes.map { (value, label) ->
-                DropdownItem(text = label, selected = value == mode, onClick = { onChange(value) })
-            },
-        ),
-    )
-    BarMenuButton(description = "权限模式：${permissionModeLabel(mode)}", entries = entries, colors = barChipColors(tone)) {
+    val (icon, tone) =
+        when (mode) {
+            "auto" -> ZetaIcons.ShieldA to colors.blue
+            "plan" -> ZetaIcons.ShieldP to colors.cyan
+            "acceptEdits" -> ZetaIcons.ShieldE to colors.purple
+            "bypassPermissions" -> ZetaIcons.ShieldAlert to colors.error
+            else -> ZetaIcons.ShieldM to null
+        }
+    val entries =
+        listOf(
+            DropdownEntry(
+                items =
+                    PermissionModes.map { (value, label) ->
+                        DropdownItem(
+                            text = label,
+                            selected = value == mode,
+                            onClick = { onChange(value) },
+                        )
+                    },
+            ),
+        )
+    BarMenuButton(
+        description = "权限模式：${permissionModeLabel(mode)}",
+        entries = entries,
+        colors = barChipColors(tone),
+    ) {
         Icon(imageVector = icon, contentDescription = null)
     }
 }

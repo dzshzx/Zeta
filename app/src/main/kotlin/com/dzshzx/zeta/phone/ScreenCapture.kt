@@ -21,11 +21,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * 截屏发给 Claude：收起通知栏和控制中心，藏起 Zeta 自己的悬浮层，经 root `screencap` 截下主屏，
- * 做成图片附件交给「放进哪个对话」（[offerIntake]），再把 Zeta 打开到那一步。不自动发送，用户补一句话再发。
+ * 截屏发给 Claude：收起通知栏和控制中心，藏起 Zeta 自己的悬浮层，经 root `screencap` 截下主屏， 做成图片附件交给「放进哪个对话」（[offerIntake]），再把
+ * Zeta 打开到那一步。不自动发送，用户补一句话再发。
  *
- * 入口：快速设置磁贴 [CaptureTileService]，和运行状态通知上的「截屏」。
- * 主屏平时是 0 号屏；调试时是设置里的 phoneDisplay（测试用的虚拟屏），screencap 截不到它，改用无障碍截图。
+ * 入口：快速设置磁贴 [CaptureTileService]，和运行状态通知上的「截屏」。 主屏平时是 0 号屏；调试时是设置里的 phoneDisplay（测试用的虚拟屏），screencap
+ * 截不到它，改用无障碍截图。
  */
 object ScreenCapture {
     private const val TAG = "ZetaCapture"
@@ -46,13 +46,18 @@ object ScreenCapture {
                 val display = hub.settings.phoneDisplay
                 val shot = capture(display)
                 val attachment = shot?.let(Attachments::fromBitmap)
-                Log.i(TAG, "display=$display shot=${shot?.width}x${shot?.height} attached=${attachment != null}")
+                Log.i(
+                    TAG,
+                    "display=$display shot=${shot?.width}x${shot?.height} attached=${attachment != null}",
+                )
                 if (attachment == null) {
                     main.post { Toast.makeText(app, "截屏没有成功", Toast.LENGTH_SHORT).show() }
                     return@thread
                 }
                 // 先挂上，再打开界面：主线程上这一条排在界面启动之前
-                main.post { hub.offerIntake(Intake(IntakeSource.Screenshot, images = listOf(attachment))) }
+                main.post {
+                    hub.offerIntake(Intake(IntakeSource.Screenshot, images = listOf(attachment)))
+                }
                 open(display)
             } finally {
                 running.set(false)
@@ -61,11 +66,12 @@ object ScreenCapture {
     }
 
     /** 收起通知栏和控制中心，等动画放完。 */
-    private val COLLAPSE_PANELS = "cmd statusbar collapse >/dev/null 2>&1; sleep ${PANEL_SETTLE_MS / 1000.0}"
+    private val COLLAPSE_PANELS =
+        "cmd statusbar collapse >/dev/null 2>&1; sleep ${PANEL_SETTLE_MS / 1000.0}"
 
     /**
-     * 先收起面板。0 号屏经 root screencap（收面板和截屏在同一次 root 调用里），截之前藏起 Zeta 的悬浮层；
-     * 截不到时（或调试用的测试屏）走无障碍截图，它自己会跳过 Zeta 的悬浮层。
+     * 先收起面板。0 号屏经 root screencap（收面板和截屏在同一次 root 调用里），截之前藏起 Zeta 的悬浮层； 截不到时（或调试用的测试屏）走无障碍截图，它自己会跳过
+     * Zeta 的悬浮层。
      */
     private fun capture(display: Int): Bitmap? {
         if (display == 0) {
@@ -86,19 +92,26 @@ object ScreenCapture {
     internal fun rootScreencap(before: String? = null): Bitmap? {
         val script = (before?.let { "$it; " } ?: "") + "exec screencap -p"
         // 限时：卡住时经 root 结束它，不让截屏磁贴和手机工具一直等着
-        val result = runCatching { LinuxEnv.runRootBytes(script, timeoutMs = 10_000) }
-            .onFailure { Log.w(TAG, "screencap failed", it) }.getOrNull() ?: return null
+        val result =
+            runCatching { LinuxEnv.runRootBytes(script, timeoutMs = 10_000) }
+                .onFailure { Log.w(TAG, "screencap failed", it) }
+                .getOrNull() ?: return null
         if (result.timedOut) Log.w(TAG, "screencap timed out")
-        return result.stdout.takeIf { !result.timedOut && it.isNotEmpty() }?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        return result.stdout
+            .takeIf { !result.timedOut && it.isNotEmpty() }
+            ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
     }
 
     /**
-     * 把 Zeta 打开到「放进哪个对话」那一步：Zeta 的界面还开着就在它那块屏上，否则在主屏上。
-     * 经 root 打开：磁贴、通知按钮都在后台，MIUI 的“后台弹出界面”限制会把普通的启动悄悄拦下。
+     * 把 Zeta 打开到「放进哪个对话」那一步：Zeta 的界面还开着就在它那块屏上，否则在主屏上。 经 root 打开：磁贴、通知按钮都在后台，MIUI
+     * 的“后台弹出界面”限制会把普通的启动悄悄拦下。
      */
     private fun open(display: Int) {
         val target = MainActivity.liveDisplay ?: display
-        val script = "am start --activity-single-top -n \"\$2\"" + (if (target != 0) " --display $target" else "") + " >/dev/null 2>&1"
+        val script =
+            "am start --activity-single-top -n \"\$2\"" +
+                (if (target != 0) " --display $target" else "") +
+                " >/dev/null 2>&1"
         val component = AppVariant.current.component(MainActivity::class.java.name)
         runCatching { LinuxEnv.runRoot(LinuxEnv.androidScript(script, component), 10_000) }
     }

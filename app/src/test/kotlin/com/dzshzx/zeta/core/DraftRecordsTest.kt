@@ -19,14 +19,25 @@ class DraftRecordsTest {
 
     @Test
     fun roundTrip() {
-        val records = listOf(
-            record(
-                "s1", "第一行\n第二行 \"引号\"", at = 5, selection = 2 to 4,
-                images = listOf(DraftImage("0b6f-1", "image/jpeg", 1234)),
-                files = listOf(DraftFile("/home/u/.cache/zeta/files/ab12/报告 v2.pdf", "报告 v2.pdf (1.2 MB)"), DraftFile("@/workspace/claude/zeta/", "zeta")),
-            ),
-            record(ComposerDrafts.NEW, "新对话里写了一半", at = 9),
-        )
+        val records =
+            listOf(
+                record(
+                    "s1",
+                    "第一行\n第二行 \"引号\"",
+                    at = 5,
+                    selection = 2 to 4,
+                    images = listOf(DraftImage("0b6f-1", "image/jpeg", 1234)),
+                    files =
+                        listOf(
+                            DraftFile(
+                                "/home/u/.cache/zeta/files/ab12/报告 v2.pdf",
+                                "报告 v2.pdf (1.2 MB)",
+                            ),
+                            DraftFile("@/workspace/claude/zeta/", "zeta"),
+                        ),
+                ),
+                record(ComposerDrafts.NEW, "新对话里写了一半", at = 9),
+            )
         assertEquals(records, DraftRecords.decode(DraftRecords.encode(records)))
     }
 
@@ -35,7 +46,8 @@ class DraftRecordsTest {
         assertEquals(emptyList<DraftRecord>(), DraftRecords.decode(null))
         assertEquals(emptyList<DraftRecord>(), DraftRecords.decode("不是 JSON"))
         assertEquals(emptyList<DraftRecord>(), DraftRecords.decode("[]"))
-        val raw = """
+        val raw =
+            """
             {"version":1,"drafts":[
               "坏的",
               {"text":"没有 key"},
@@ -43,7 +55,8 @@ class DraftRecordsTest {
               {"key":"s1","text":"同一个 key 的第二份"},
               {"key":"s2","text":"  "}
             ]}
-        """.trimIndent()
+            """
+                .trimIndent()
         val decoded = DraftRecords.decode(raw)
         assertEquals(1, decoded.size)
         val only = decoded.single()
@@ -56,7 +69,9 @@ class DraftRecordsTest {
 
     @Test
     fun fitKeepsNewestWithinLimits() {
-        val many = (1..DraftRecords.MAX_DRAFTS + 5).map { record("s$it", "草稿 $it", at = it.toLong()) } + record("empty", " \n", at = 999)
+        val many =
+            (1..DraftRecords.MAX_DRAFTS + 5).map { record("s$it", "草稿 $it", at = it.toLong()) } +
+                record("empty", " \n", at = 999)
         val kept = DraftRecords.fit(many)
         assertEquals(DraftRecords.MAX_DRAFTS, kept.size)
         assertEquals("s${DraftRecords.MAX_DRAFTS + 5}", kept.first().key)
@@ -72,7 +87,8 @@ class DraftRecordsTest {
         assertEquals("光标跟着收进文字里", DraftRecords.MAX_TEXT, kept.single().selectionEnd)
 
         // 一个表情不切成两半
-        val emoji = DraftRecords.fit(listOf(record("e", "x".repeat(DraftRecords.MAX_TEXT - 1) + "😀")))
+        val emoji =
+            DraftRecords.fit(listOf(record("e", "x".repeat(DraftRecords.MAX_TEXT - 1) + "😀")))
         assertEquals("x".repeat(DraftRecords.MAX_TEXT - 1), emoji.single().text)
 
         // 总量用完后，更旧的只剩放得下的那段，再旧的没有文字了，图片照样存
@@ -80,7 +96,8 @@ class DraftRecordsTest {
         val second = record("new2", "b".repeat(DraftRecords.MAX_TEXT), at = 9)
         val leftover = DraftRecords.MAX_TOTAL_TEXT - 2 * DraftRecords.MAX_TEXT
         val third = record("old", "c".repeat(leftover) + "tail", at = 8)
-        val fourth = record("older", "d", at = 7, images = listOf(DraftImage("i1", "image/jpeg", 10)))
+        val fourth =
+            record("older", "d", at = 7, images = listOf(DraftImage("i1", "image/jpeg", 10)))
         val fitted = DraftRecords.fit(listOf(fourth, third, second, first))
         assertEquals(listOf("new1", "new2", "old", "older"), fitted.map { it.key })
         assertEquals("c".repeat(leftover), fitted[2].text)
@@ -93,7 +110,14 @@ class DraftRecordsTest {
     fun fitDropsImagesOverBudget() {
         val big = DraftRecords.MAX_IMAGE_BYTES / 2 + 1
         val newest = record("s1", "新", at = 3, images = listOf(DraftImage("a", "image/jpeg", big)))
-        val older = record("s2", "旧", at = 2, images = listOf(DraftImage("b", "image/jpeg", big), DraftImage("c", "image/jpeg", 100)))
+        val older =
+            record(
+                "s2",
+                "旧",
+                at = 2,
+                images =
+                    listOf(DraftImage("b", "image/jpeg", big), DraftImage("c", "image/jpeg", 100)),
+            )
         val onlyImages = record("s3", at = 1, images = listOf(DraftImage("d", "image/jpeg", big)))
         val fitted = DraftRecords.fit(listOf(onlyImages, older, newest))
         assertEquals(listOf("a"), fitted[0].images.map { it.id })
@@ -104,9 +128,26 @@ class DraftRecordsTest {
     @Test
     fun preview() {
         assertEquals("先看日志 再说", DraftRecords.preview(record("s", "\n  先看日志   再说\n第二行")))
-        assertEquals("2 张图片", DraftRecords.preview(record("s", images = listOf(DraftImage("a", "image/jpeg", 1), DraftImage("b", "image/jpeg", 1)))))
-        assertEquals("a.txt", DraftRecords.preview(record("s", files = listOf(DraftFile("/x/a.txt", "a.txt")))))
-        assertEquals("a.txt 等 2 个文件", DraftRecords.preview(record("s", files = listOf(DraftFile("/x/a.txt", "a.txt"), DraftFile("@/y", "y")))))
+        assertEquals(
+            "2 张图片",
+            DraftRecords.preview(
+                record(
+                    "s",
+                    images =
+                        listOf(DraftImage("a", "image/jpeg", 1), DraftImage("b", "image/jpeg", 1)),
+                ),
+            ),
+        )
+        assertEquals(
+            "a.txt",
+            DraftRecords.preview(record("s", files = listOf(DraftFile("/x/a.txt", "a.txt")))),
+        )
+        assertEquals(
+            "a.txt 等 2 个文件",
+            DraftRecords.preview(
+                record("s", files = listOf(DraftFile("/x/a.txt", "a.txt"), DraftFile("@/y", "y"))),
+            ),
+        )
         assertEquals(60, DraftRecords.preview(record("s", "长".repeat(100))).length)
     }
 
@@ -117,8 +158,11 @@ class DraftRecordsTest {
         try {
             val there = File(dir, "有 空格 的'文件'.txt").apply { writeText("x") }
             val gone = File(dir, "已经清掉了.pdf").path
-            val process = ProcessBuilder("sh", "-c", PathCheck.command(listOf(there.path, gone), null))
-                .apply { environment()["HOME"] = dir.path }.redirectErrorStream(true).start()
+            val process =
+                ProcessBuilder("sh", "-c", PathCheck.command(listOf(there.path, gone), null))
+                    .apply { environment()["HOME"] = dir.path }
+                    .redirectErrorStream(true)
+                    .start()
             val out = process.inputStream.bufferedReader().readText()
             assertEquals(0, process.waitFor())
             assertEquals(listOf(PathKind.File, PathKind.Missing), PathCheck.parse(out))

@@ -28,11 +28,16 @@ internal object DeviceLogcat {
     )
 
     /** 包名 → uid 的命令，输出形如 `package:com.x uid:10282`。 */
-    fun uidCommand(packageName: String): String = "pm list packages -U ${LinuxEnv.quote(packageName)}"
+    fun uidCommand(packageName: String): String =
+        "pm list packages -U ${LinuxEnv.quote(packageName)}"
 
-    fun parseUid(output: String, packageName: String): Int? = output.lineSequence()
-        .firstOrNull { it.trim().startsWith("package:$packageName uid:") }
-        ?.substringAfter(" uid:")?.takeWhile { it.isDigit() }?.toIntOrNull()
+    fun parseUid(output: String, packageName: String): Int? =
+        output
+            .lineSequence()
+            .firstOrNull { it.trim().startsWith("package:$packageName uid:") }
+            ?.substringAfter(" uid:")
+            ?.takeWhile { it.isDigit() }
+            ?.toIntOrNull()
 
     /** 标签只认字母、数字和 `_.-$/[]`，逗号分开。 */
     fun parseTags(value: String?): List<String> {
@@ -53,7 +58,8 @@ internal object DeviceLogcat {
             append(" '*:S'")
         }
         // 先在手机上截掉多余的行，不把整个缓冲区搬过来
-        append(" | grep -v '^--------- beginning of' | tail -n ").append(q.lines.coerceIn(1, MAX_LINES))
+        append(" | grep -v '^--------- beginning of' | tail -n ")
+            .append(q.lines.coerceIn(1, MAX_LINES))
     }
 
     /** 截掉过长的行，总长超出时丢掉前面较旧的行。 */

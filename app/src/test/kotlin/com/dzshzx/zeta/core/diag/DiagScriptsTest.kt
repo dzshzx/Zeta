@@ -15,7 +15,8 @@ class DiagScriptsTest {
 
     @Test
     fun probeOutputIsParsed() {
-        val out = """
+        val out =
+            """
             claude=2.1.330 (Claude Code)
             node=v22.11.0
             debian=13.1
@@ -26,15 +27,22 @@ class DiagScriptsTest {
             file	debug	bad	1	/home/someone/.claude/debug/broken.txt
             file	weird	1	1	/x
             noise
-        """.trimIndent()
+            """
+                .trimIndent()
         val probe = DiagScripts.parseProbe(out)
         assertEquals("2.1.330", probe.claude)
         assertEquals("22.11.0", probe.node)
         assertEquals("13.1", probe.debian)
-        assertEquals(listOf(LogKind.Running, LogKind.Finished, LogKind.Finished, LogKind.Debug), probe.files.map { it.kind })
+        assertEquals(
+            listOf(LogKind.Running, LogKind.Finished, LogKind.Finished, LogKind.Debug),
+            probe.files.map { it.kind },
+        )
         assertEquals("修一下 bug", probe.files.first().title)
         // 同一类里新的在前
-        assertEquals(listOf("20261119-095950-k2.log", "20261119-095820-k0.log"), probe.files(LogKind.Finished).map { it.name })
+        assertEquals(
+            listOf("20261119-095950-k2.log", "20261119-095820-k0.log"),
+            probe.files(LogKind.Finished).map { it.name },
+        )
         assertEquals(1_795_053_590_250L, probe.files(LogKind.Finished).first().modified)
         assertEquals(70000L, probe.files(LogKind.Debug).single().size)
     }
@@ -52,7 +60,10 @@ class DiagScriptsTest {
         assertTrue(DiagScripts.readable("$home/.claude/debug/abc.txt", home, name))
         assertTrue(DiagScripts.readable("$home/.cache/zeta-dev/stderr/x.log", home, name))
         assertTrue(DiagScripts.readable("$home/.cache/zeta-dev/hosts/k1/err.log", home, "$name"))
-        assertFalse("正式版的目录测试版不读", DiagScripts.readable("$home/.cache/zeta/stderr/x.log", home, name))
+        assertFalse(
+            "正式版的目录测试版不读",
+            DiagScripts.readable("$home/.cache/zeta/stderr/x.log", home, name),
+        )
         assertFalse(DiagScripts.readable("$home/.claude/debug/../.credentials.json", home, name))
         assertFalse(DiagScripts.readable("$home/.claude/.credentials.json", home, name))
         assertFalse(DiagScripts.readable("$home/.claude/debug/sub/x.txt", home, name))
@@ -66,34 +77,59 @@ class DiagScriptsTest {
     fun tailsAreDecoded() {
         fun b64(s: String) = Base64.getEncoder().encodeToString(s.toByteArray())
         val out = "/a/x.log\t${b64("第一行\nsecond")}\n/a/empty.log\t\n/a/bad.log\t!!!\nnot a line\n"
-        assertEquals(mapOf("/a/x.log" to "第一行\nsecond", "/a/empty.log" to ""), DiagScripts.parseTails(out))
+        assertEquals(
+            mapOf("/a/x.log" to "第一行\nsecond", "/a/empty.log" to ""),
+            DiagScripts.parseTails(out),
+        )
     }
 
     @Test
     fun bundleIsRedactedAndNamed() {
-        val running = LogFile(LogKind.Running, "$home/.cache/zeta-dev/hosts/k1/err.log", 10, 0, "标题")
-        val finished = LogFile(LogKind.Finished, "$home/.cache/zeta-dev/stderr/20261119-k0.log", 100_000, 0)
+        val running =
+            LogFile(LogKind.Running, "$home/.cache/zeta-dev/hosts/k1/err.log", 10, 0, "标题")
+        val finished =
+            LogFile(LogKind.Finished, "$home/.cache/zeta-dev/stderr/20261119-k0.log", 100_000, 0)
         val debug = LogFile(LogKind.Debug, "$home/.claude/debug/a b.txt", 10, 0)
-        val files = DiagBundle.files(
-            info = "Zeta 0.6.21",
-            log = "export GH_TOKEN=fake-token-1",
-            logcat = "Authorization: Bearer fake-token-2",
-            tails = mapOf(running to "boom", finished to "x", debug to "{\"accessToken\":\"fake-token-3\"}"),
-        )
+        val files =
+            DiagBundle.files(
+                info = "Zeta 0.6.21",
+                log = "export GH_TOKEN=fake-token-1",
+                logcat = "Authorization: Bearer fake-token-2",
+                tails =
+                    mapOf(
+                        running to "boom",
+                        finished to "x",
+                        debug to "{\"accessToken\":\"fake-token-3\"}",
+                    ),
+            )
         assertEquals(
-            listOf("info.txt", "zeta-log.txt", "logcat.txt", "claude-stderr/running/k1.log", "claude-stderr/20261119-k0.log", "claude-debug/a_b.txt"),
+            listOf(
+                "info.txt",
+                "zeta-log.txt",
+                "logcat.txt",
+                "claude-stderr/running/k1.log",
+                "claude-stderr/20261119-k0.log",
+                "claude-debug/a_b.txt",
+            ),
             files.keys.toList(),
         )
         for ((name, text) in files) assertFalse("$name 里有没打码的", text.contains("fake-token"))
-        assertTrue(files.getValue("claude-stderr/20261119-k0.log").startsWith("# 原文件 100 KB，这里只有最后 64 KB"))
-        assertTrue(files.getValue("claude-debug/a_b.txt").startsWith("# $home/.claude/debug/a b.txt\n"))
+        assertTrue(
+            files.getValue("claude-stderr/20261119-k0.log").startsWith("# 原文件 100 KB，这里只有最后 64 KB"),
+        )
+        assertTrue(
+            files.getValue("claude-debug/a_b.txt").startsWith("# $home/.claude/debug/a b.txt\n"),
+        )
     }
 
     @Test
     fun duplicateNamesGetANumber() {
         val a = LogFile(LogKind.Debug, "$home/.claude/debug/a:b.txt", 1, 0)
         val b = LogFile(LogKind.Debug, "$home/.claude/debug/a;b.txt", 1, 0)
-        assertEquals(listOf("claude-debug/a_b.txt", "claude-debug/a_b-2.txt"), DiagBundle.files("", "", "", mapOf(a to "1", b to "2")).keys.drop(3))
+        assertEquals(
+            listOf("claude-debug/a_b.txt", "claude-debug/a_b-2.txt"),
+            DiagBundle.files("", "", "", mapOf(a to "1", b to "2")).keys.drop(3),
+        )
     }
 
     /** 真跑一遍探测脚本（临时 HOME，假的 claude），核对脚本和解析对得上。 */
@@ -102,7 +138,11 @@ class DiagScriptsTest {
         assumeTrue("要 Linux 的 bash 和 GNU find", File("/proc/self/cmdline").exists())
         val dir = Files.createTempDirectory("zeta-probe").toFile().canonicalFile
         try {
-            File(dir, "bin/claude").apply { parentFile!!.mkdirs(); writeText("#!/bin/sh\necho '9.9.9 (Claude Code)'\n"); setExecutable(true) }
+            File(dir, "bin/claude").apply {
+                parentFile!!.mkdirs()
+                writeText("#!/bin/sh\necho '9.9.9 (Claude Code)'\n")
+                setExecutable(true)
+            }
             File(dir, ".cache/zeta-dev/hosts/k1").mkdirs()
             File(dir, ".cache/zeta-dev/hosts/k1/err.log").writeText("oops\n")
             File(dir, ".cache/zeta-dev/hosts/k1/title").writeText("a\tb\nc")
@@ -128,10 +168,18 @@ class DiagScriptsTest {
             assertEquals("a b c", probe.files.first().title)
             assertTrue(probe.files.all { DiagScripts.readable(it.path, dir.path, "zeta-dev") })
 
-            val tails = ProcessBuilder(listOf("bash", "-c", DiagScripts.TAILS, "zeta-diag") + probe.files.map { it.path }).start()
+            val tails =
+                ProcessBuilder(
+                        listOf("bash", "-c", DiagScripts.TAILS, "zeta-diag") +
+                            probe.files.map { it.path },
+                    )
+                    .start()
             val tailOut = tails.inputStream.bufferedReader().readText()
             assertTrue(tails.waitFor(30, TimeUnit.SECONDS))
-            assertEquals(listOf("oops\n", "old\n", "debug line\n"), DiagScripts.parseTails(tailOut).values.toList())
+            assertEquals(
+                listOf("oops\n", "old\n", "debug line\n"),
+                DiagScripts.parseTails(tailOut).values.toList(),
+            )
         } finally {
             dir.deleteRecursively()
         }

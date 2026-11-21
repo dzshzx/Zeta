@@ -12,9 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * 随包程序的安装（[HelperProgram]）：真 bash、临时 HOME。两份「程序」是小 shell 脚本，看装没装、装了哪一版、跑的是不是它。
- */
+/** 随包程序的安装（[HelperProgram]）：真 bash、临时 HOME。两份「程序」是小 shell 脚本，看装没装、装了哪一版、跑的是不是它。 */
 class HelperProgramTest {
     private lateinit var home: File
     private lateinit var fakeBin: File
@@ -32,25 +30,40 @@ class HelperProgramTest {
     }
 
     private fun program(tag: String, name: String = HelperProgram.ZETA_HELPER) =
-        HelperProgram({ asset -> "#!/bin/sh\necho \"$tag ${asset.substringAfterLast('-')} \$*\"\n".toByteArray() }, "zeta", name)
+        HelperProgram(
+            { asset ->
+                "#!/bin/sh\necho \"$tag ${asset.substringAfterLast('-')} \$*\"\n".toByteArray()
+            },
+            "zeta",
+            name,
+        )
 
     /** 在临时 HOME 上用 bash 跑一行；[cut] 时只把标准输入的前一半写进去（传到一半断了）。 */
-    private fun exec(cut: Boolean = false): (String, ByteArray?) -> CommandResult? = { command, stdin ->
-        commands += command
-        val process = ProcessBuilder("bash", "-c", command).apply {
-            environment()["HOME"] = home.path
-            environment()["PATH"] = fakeBin.path + File.pathSeparator + System.getenv("PATH")
-        }.start()
-        process.outputStream.use { out -> if (stdin != null) out.write(if (cut) stdin.copyOf(stdin.size / 2) else stdin) }
-        val out = process.inputStream.bufferedReader().readText()
-        val err = process.errorStream.bufferedReader().readText()
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
-        CommandResult(process.exitValue(), out, err)
-    }
+    private fun exec(cut: Boolean = false): (String, ByteArray?) -> CommandResult? =
+        { command, stdin ->
+            commands += command
+            val process =
+                ProcessBuilder("bash", "-c", command)
+                    .apply {
+                        environment()["HOME"] = home.path
+                        environment()["PATH"] =
+                            fakeBin.path + File.pathSeparator + System.getenv("PATH")
+                    }
+                    .start()
+            process.outputStream.use { out ->
+                if (stdin != null) out.write(if (cut) stdin.copyOf(stdin.size / 2) else stdin)
+            }
+            val out = process.inputStream.bufferedReader().readText()
+            val err = process.errorStream.bufferedReader().readText()
+            assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+            CommandResult(process.exitValue(), out, err)
+        }
 
-    private val installed: List<String> get() = File(home, ".cache/zeta/bin").list().orEmpty().sorted()
+    private val installed: List<String>
+        get() = File(home, ".cache/zeta/bin").list().orEmpty().sorted()
 
-    private fun machine(): String = ProcessBuilder("uname", "-m").start().inputStream.bufferedReader().readText().trim()
+    private fun machine(): String =
+        ProcessBuilder("uname", "-m").start().inputStream.bufferedReader().readText().trim()
 
     @Test
     fun installsOnceThenRunsInstalled() {
@@ -91,7 +104,10 @@ class HelperProgramTest {
         // 换了 claude-switch 的版本：只删它自己的旧版本，zeta-helper 留着
         val newer = program("s2", HelperProgram.CLAUDE_SWITCH)
         assertTrue(newer.run(exec(), "--json")!!.stdout.startsWith("s2 "))
-        assertEquals(listOf("claude-switch-" + newer.version, "zeta-helper-" + helper.version), installed)
+        assertEquals(
+            listOf("claude-switch-" + newer.version, "zeta-helper-" + helper.version),
+            installed,
+        )
         assertTrue(helper.run(exec(), "hosts")!!.stdout.startsWith("h1 "))
     }
 
@@ -118,11 +134,19 @@ class HelperProgramTest {
     @Test
     fun missingIsRecognizedOnlyWithItsMark() {
         val program = program("v1")
-        assertEquals("aarch64", program.missingOn(CommandResult(97, "", "bash: warning\nzeta-helper-missing aarch64\n")))
+        assertEquals(
+            "aarch64",
+            program.missingOn(
+                CommandResult(97, "", "bash: warning\nzeta-helper-missing aarch64\n"),
+            ),
+        )
         assertNull(program.missingOn(CommandResult(97, "", "something else")))
         assertNull(program.missingOn(CommandResult(1, "", "zeta-helper-missing aarch64")))
         // 别的程序的记号不算
-        assertNull(program("v1", HelperProgram.CLAUDE_SWITCH).missingOn(CommandResult(97, "", "zeta-helper-missing aarch64\n")))
+        assertNull(
+            program("v1", HelperProgram.CLAUDE_SWITCH)
+                .missingOn(CommandResult(97, "", "zeta-helper-missing aarch64\n")),
+        )
         assertEquals("arm64", HelperProgram.archOf("aarch64"))
         assertEquals("amd64", HelperProgram.archOf("x86_64"))
         assertNull(HelperProgram.archOf("riscv64"))

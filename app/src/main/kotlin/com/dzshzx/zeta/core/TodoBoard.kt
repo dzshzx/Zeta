@@ -4,24 +4,40 @@ import androidx.compose.runtime.Immutable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 
-enum class TodoStatus { Pending, InProgress, Completed }
+enum class TodoStatus {
+    Pending,
+    InProgress,
+    Completed,
+}
 
 /** 任务清单里的一项。[activeForm] 是进行中时显示的说法（“正在运行测试”），没有时同 [content]。 */
 @Immutable
-data class TodoEntry(val key: String, val content: String, val activeForm: String, val status: TodoStatus)
+data class TodoEntry(
+    val key: String,
+    val content: String,
+    val activeForm: String,
+    val status: TodoStatus,
+)
 
 /** Claude 当前的任务清单。 */
 @Immutable
 data class TodoList(val entries: List<TodoEntry>) {
-    val total: Int get() = entries.size
-    val done: Int get() = entries.count { it.status == TodoStatus.Completed }
-    val allDone: Boolean get() = entries.all { it.status == TodoStatus.Completed }
+    val total: Int
+        get() = entries.size
+
+    val done: Int
+        get() = entries.count { it.status == TodoStatus.Completed }
+
+    val allDone: Boolean
+        get() = entries.all { it.status == TodoStatus.Completed }
 
     /** 正在做的那一项；没有时为 null。 */
-    val current: TodoEntry? get() = entries.firstOrNull { it.status == TodoStatus.InProgress }
+    val current: TodoEntry?
+        get() = entries.firstOrNull { it.status == TodoStatus.InProgress }
 
     /** 接下来要做的那一项。 */
-    val next: TodoEntry? get() = entries.firstOrNull { it.status == TodoStatus.Pending }
+    val next: TodoEntry?
+        get() = entries.firstOrNull { it.status == TodoStatus.Pending }
 }
 
 /**
@@ -30,7 +46,8 @@ data class TodoList(val entries: List<TodoEntry>) {
  * Claude Code 2.1.327 有两套清单工具，同一时间只开其中一套：
  * - 任务工具（默认）：TaskCreate（`subject`、`activeForm`，结果文字 `Task #<id> created successfully: …` 给出编号）
  *   逐项新建，TaskUpdate（`taskId`，可选 `status`、`subject`、`activeForm`；`status` 为 `deleted` 时删掉）逐项改；
- * - TodoWrite（设了 CLAUDE_CODE_ENABLE_TASKS=false 时）：每次给出整份清单 `todos: [{content, status, activeForm}]`。
+ * - TodoWrite（设了 CLAUDE_CODE_ENABLE_TASKS=false 时）：每次给出整份清单 `todos:
+ *   [{content, status, activeForm}]`。
  *
  * 归并方式照 Claude Code 自己给远程会话还原清单的做法：任务工具的清单不空就用它，否则用最后一次 TodoWrite。
  * 另加一条：旧清单全部做完后又新建任务，算开了一份新清单，旧的那些不再显示。
@@ -46,14 +63,13 @@ object TodoBoard {
         seed.forEach(board::apply)
         for (item in items) {
             if (item !is WorkItem) continue
-            for (step in item.steps) if (step is ToolStep && step.name in ToolNames) board.apply(step)
+            for (step in item.steps) if (step is ToolStep && step.name in ToolNames)
+                board.apply(step)
         }
         return board.list()
     }
 
-    /**
-     * 把 zeta-helper 给出的“没载入的历史里的清单工具调用”（assistant、user 两种事件）还原成工具步骤。
-     */
+    /** 把 zeta-helper 给出的“没载入的历史里的清单工具调用”（assistant、user 两种事件）还原成工具步骤。 */
     fun seedSteps(events: JsonArray?): List<ToolStep> {
         if (events.isNullOrEmpty()) return emptyList()
         val reducer = TranscriptReducer("seed")
@@ -65,7 +81,10 @@ object TodoBoard {
                 "user" -> reducer.applyUser(message, replay = false)
             }
         }
-        return reducer.items.filterIsInstance<WorkItem>().flatMap { it.steps }.filterIsInstance<ToolStep>()
+        return reducer.items
+            .filterIsInstance<WorkItem>()
+            .flatMap { it.steps }
+            .filterIsInstance<ToolStep>()
     }
 
     private class Board {
@@ -82,19 +101,39 @@ object TodoBoard {
             when (step.name) {
                 "TaskCreate" -> create(step, input)
                 "TaskUpdate" -> update(input)
-                "TodoWrite" -> written = (input["todos"] as? JsonArray).orEmpty().mapIndexedNotNull { index, element ->
-                    val todo = element as? JsonObject ?: return@mapIndexedNotNull null
-                    val content = todo.str("content")?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
-                    TodoEntry("todo-$index", content, todo.str("activeForm")?.takeIf { it.isNotBlank() } ?: content, status(todo.str("status")) ?: TodoStatus.Pending)
-                }
+                "TodoWrite" ->
+                    written =
+                        (input["todos"] as? JsonArray).orEmpty().mapIndexedNotNull { index, element
+                            ->
+                            val todo = element as? JsonObject ?: return@mapIndexedNotNull null
+                            val content =
+                                todo.str("content")?.takeIf { it.isNotBlank() }
+                                    ?: return@mapIndexedNotNull null
+                            TodoEntry(
+                                "todo-$index",
+                                content,
+                                todo.str("activeForm")?.takeIf { it.isNotBlank() } ?: content,
+                                status(todo.str("status")) ?: TodoStatus.Pending,
+                            )
+                        }
             }
         }
 
         private fun create(step: ToolStep, input: JsonObject) {
-            val subject = (input.str("subject") ?: input.str("title") ?: input.str("name"))?.takeIf { it.isNotBlank() } ?: return
-            val activeForm = (input.str("activeForm") ?: input.str("active_form"))?.takeIf { it.isNotBlank() } ?: subject
+            val subject =
+                (input.str("subject") ?: input.str("title") ?: input.str("name"))?.takeIf {
+                    it.isNotBlank()
+                } ?: return
+            val activeForm =
+                (input.str("activeForm") ?: input.str("active_form"))?.takeIf { it.isNotBlank() }
+                    ?: subject
             // 上一份清单已经全部做完：这是一份新清单
-            if (creating.isEmpty() && tasks.isNotEmpty() && tasks.values.all { it.status == TodoStatus.Completed }) tasks.clear()
+            if (
+                creating.isEmpty() &&
+                    tasks.isNotEmpty() &&
+                    tasks.values.all { it.status == TodoStatus.Completed }
+            )
+                tasks.clear()
             val id = step.result?.let { CreatedId.find(it.trim())?.groupValues?.get(1) }
             if (step.status == ToolStatus.Success && id != null) {
                 if (id !in tasks) tasks[id] = TodoEntry(id, subject, activeForm, TodoStatus.Pending)
@@ -104,7 +143,10 @@ object TodoBoard {
         }
 
         private fun update(input: JsonObject) {
-            val id = (input.str("taskId") ?: input.str("task_id") ?: input.str("id"))?.takeIf { it.isNotBlank() } ?: return
+            val id =
+                (input.str("taskId") ?: input.str("task_id") ?: input.str("id"))?.takeIf {
+                    it.isNotBlank()
+                } ?: return
             val requested = input.str("status")
             if (requested == "deleted") {
                 tasks.remove(id)
@@ -113,13 +155,20 @@ object TodoBoard {
             val existing = tasks[id]
             val subject = input.str("subject")?.takeIf { it.isNotBlank() }
             val content = subject ?: existing?.content ?: "任务 #$id"
-            tasks[id] = TodoEntry(
-                key = id,
-                content = content,
-                activeForm = (input.str("activeForm") ?: input.str("active_form"))?.takeIf { it.isNotBlank() }
-                    ?: existing?.activeForm?.takeUnless { subject != null && it == existing.content } ?: content,
-                status = status(requested) ?: existing?.status ?: TodoStatus.Pending,
-            )
+            tasks[id] =
+                TodoEntry(
+                    key = id,
+                    content = content,
+                    activeForm =
+                        (input.str("activeForm") ?: input.str("active_form"))?.takeIf {
+                            it.isNotBlank()
+                        }
+                            ?: existing?.activeForm?.takeUnless {
+                                subject != null && it == existing.content
+                            }
+                            ?: content,
+                    status = status(requested) ?: existing?.status ?: TodoStatus.Pending,
+                )
         }
 
         fun list(): TodoList? {
@@ -127,11 +176,12 @@ object TodoBoard {
             return if (entries.isEmpty()) null else TodoList(entries)
         }
 
-        private fun status(value: String?): TodoStatus? = when (value) {
-            "pending" -> TodoStatus.Pending
-            "in_progress" -> TodoStatus.InProgress
-            "completed" -> TodoStatus.Completed
-            else -> null
-        }
+        private fun status(value: String?): TodoStatus? =
+            when (value) {
+                "pending" -> TodoStatus.Pending
+                "in_progress" -> TodoStatus.InProgress
+                "completed" -> TodoStatus.Completed
+                else -> null
+            }
     }
 }

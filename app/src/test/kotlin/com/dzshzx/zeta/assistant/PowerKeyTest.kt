@@ -19,7 +19,9 @@ class PowerKeyTest {
     @Test
     fun onlyThePowerKeyAssistantActionIsOurs() {
         assertTrue(PowerKeyPolicy.matches("launch_voice_assistant", "long_press_power_key"))
-        assertTrue(PowerKeyPolicy.matches("launch_voice_assistant", "imperceptible_press_power_key"))
+        assertTrue(
+            PowerKeyPolicy.matches("launch_voice_assistant", "imperceptible_press_power_key"),
+        )
         assertFalse(PowerKeyPolicy.matches("launch_voice_assistant", "long_press_home_key"))
         assertFalse(PowerKeyPolicy.matches("screen_shot", "long_press_power_key"))
         assertFalse(PowerKeyPolicy.matches("mi_pay", "double_click_power_key"))
@@ -29,8 +31,16 @@ class PowerKeyTest {
     @Test
     fun packageOfComponent() {
         assertEquals("com.dzshzx.zeta", PowerKeyPolicy.packageOf(zeta))
-        assertEquals("com.dzshzx.zeta.dev", PowerKeyPolicy.packageOf("com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"))
-        assertEquals("com.dzshzx.zeta", PowerKeyPolicy.packageOf("com.dzshzx.zeta/.assistant.ZetaVoiceInteractionService"))
+        assertEquals(
+            "com.dzshzx.zeta.dev",
+            PowerKeyPolicy.packageOf(
+                "com.dzshzx.zeta.dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService",
+            ),
+        )
+        assertEquals(
+            "com.dzshzx.zeta",
+            PowerKeyPolicy.packageOf("com.dzshzx.zeta/.assistant.ZetaVoiceInteractionService"),
+        )
         assertEquals("com.miui.voiceassist", PowerKeyPolicy.packageOf(xiaoai))
         assertNull(PowerKeyPolicy.packageOf(""))
         assertNull(PowerKeyPolicy.packageOf("com.dzshzx.zeta"))
@@ -39,8 +49,13 @@ class PowerKeyTest {
 
     @Test
     fun routes() {
-        fun route(source: String = "long_press_power_key", assistant: String? = zeta, locked: Boolean = false, duplicate: Boolean = false, function: String = "launch_voice_assistant") =
-            PowerKeyPolicy.route(function, source, assistant, locked, duplicate)
+        fun route(
+            source: String = "long_press_power_key",
+            assistant: String? = zeta,
+            locked: Boolean = false,
+            duplicate: Boolean = false,
+            function: String = "launch_voice_assistant",
+        ) = PowerKeyPolicy.route(function, source, assistant, locked, duplicate)
         assertEquals(PowerKeyRoute.Show, route())
         assertEquals(PowerKeyRoute.NotOurs, route(function = "launch_camera"))
         assertEquals(PowerKeyRoute.NotOurs, route(source = "long_press_home_key"))
@@ -58,7 +73,14 @@ class PowerKeyTest {
         val dev = "com.dzshzx.zeta.dev"
         val devAssistant = "$dev/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"
         fun route(self: String, assistant: String?) =
-            PowerKeyPolicy.route("launch_voice_assistant", "long_press_power_key", assistant, locked = false, duplicate = false, self = self)
+            PowerKeyPolicy.route(
+                "launch_voice_assistant",
+                "long_press_power_key",
+                assistant,
+                locked = false,
+                duplicate = false,
+                self = self,
+            )
         // 两个模块都启用：默认助理是谁，就只有谁的模块接管，另一个放行
         assertEquals(PowerKeyRoute.Show, route(release, zeta))
         assertEquals(PowerKeyRoute.NotMine, route(dev, zeta))
@@ -74,8 +96,10 @@ class PowerKeyTest {
         val release = AppVariant("com.dzshzx.zeta").powerKeyTag
         val dev = AppVariant("com.dzshzx.zeta.dev").powerKeyTag
         assertFalse(release.contains(dev) || dev.contains(release))
-        val output = "[ 2026-11-20T10:00:00.000 1000: 1650: 1650 I/$dev ] long_press_power_key：已显示 com.dzshzx.zeta.dev 的助理会话，消费这次动作\n" +
-            PowerKeyLog.SPLIT + "\n"
+        val output =
+            "[ 2026-11-20T10:00:00.000 1000: 1650: 1650 I/$dev ] long_press_power_key：已显示 com.dzshzx.zeta.dev 的助理会话，消费这次动作\n" +
+                PowerKeyLog.SPLIT +
+                "\n"
         assertEquals(1, PowerKeyLog.parse(output, dev).recent.size)
         assertTrue(PowerKeyLog.parse(output, release).recent.isEmpty())
     }
@@ -93,25 +117,51 @@ class PowerKeyTest {
 
     @Suppress("unused", "UNUSED_PARAMETER")
     private class HyperOs4 {
-        fun triggerFunction(function: String?, action: String?, extras: Bundle?, haptic: Boolean): Boolean = false
-        fun triggerFunction(function: String?, action: String?, extras: Bundle?, haptic: Boolean, effect: String?): Boolean = false
+        fun triggerFunction(
+            function: String?,
+            action: String?,
+            extras: Bundle?,
+            haptic: Boolean,
+        ): Boolean = false
+
+        fun triggerFunction(
+            function: String?,
+            action: String?,
+            extras: Bundle?,
+            haptic: Boolean,
+            effect: String?,
+        ): Boolean = false
     }
 
     @Suppress("unused", "UNUSED_PARAMETER")
     private class OnlyFour {
-        fun triggerFunction(function: String?, action: String?, extras: Bundle?, haptic: Boolean): Boolean = false
+        fun triggerFunction(
+            function: String?,
+            action: String?,
+            extras: Bundle?,
+            haptic: Boolean,
+        ): Boolean = false
     }
 
     @Suppress("unused", "UNUSED_PARAMETER")
     private class Changed {
         fun triggerFunction(function: String?, action: String?, extras: Bundle?): Boolean = false
-        fun triggerFunction(function: String?, action: String?, extras: Bundle?, haptic: Boolean): Unit = Unit
+
+        fun triggerFunction(
+            function: String?,
+            action: String?,
+            extras: Bundle?,
+            haptic: Boolean,
+        ): Unit = Unit
     }
 
     @Test
     fun picksTheFiveArgumentOverloadWhenThere() {
         assertEquals(5, PowerKeySignature.pick(HyperOs4::class.java)!!.parameterCount)
-        assertEquals("triggerFunction(String, String, Bundle, boolean, String)", PowerKeySignature.describe(PowerKeySignature.pick(HyperOs4::class.java)!!))
+        assertEquals(
+            "triggerFunction(String, String, Bundle, boolean, String)",
+            PowerKeySignature.describe(PowerKeySignature.pick(HyperOs4::class.java)!!),
+        )
         assertEquals(4, PowerKeySignature.pick(OnlyFour::class.java)!!.parameterCount)
     }
 
@@ -120,36 +170,49 @@ class PowerKeyTest {
         assertNull(PowerKeySignature.pick(Changed::class.java))
         val available = PowerKeySignature.available(Changed::class.java)
         assertTrue(available, available.contains("boolean triggerFunction(String, String, Bundle)"))
-        assertTrue(available, available.contains("void triggerFunction(String, String, Bundle, boolean)"))
+        assertTrue(
+            available,
+            available.contains("void triggerFunction(String, String, Bundle, boolean)"),
+        )
         assertEquals("没有", PowerKeySignature.available(String::class.java))
     }
 
     @Test
     fun logPrefersLsposedAndReadsInstallState() {
-        val output = """
+        val output =
+            """
             [ 2026-11-20T09:01:02.345     1000:  1650:  1650 I/ZetaPowerKey ] 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)
             [ 2026-11-20T10:11:12.000     1000:  1650:  2010 I/ZetaPowerKey ] imperceptible_press_power_key：已显示 com.dzshzx.zeta 的助理会话，消费这次动作
             [ 2026-11-20T10:11:12.200     1000:  1650:  2010 I/ZetaPowerKey ] long_press_power_key：同一次按键的重复派发，已吞掉
             ${PowerKeyLog.SPLIT}
             11-20 10:11:12.000 I/ZetaPowerKey( 1650): imperceptible_press_power_key：已显示 com.dzshzx.zeta 的助理会话，消费这次动作
-        """.trimIndent()
+        """
+                .trimIndent()
         val status = PowerKeyLog.parse(output)
         assertEquals(true, status.installed)
         assertEquals("已装上", status.summary)
         assertEquals(3, status.recent.size)
-        assertEquals("09:01:02 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)", status.recent.first())
+        assertEquals(
+            "09:01:02 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)",
+            status.recent.first(),
+        )
         assertEquals("10:11:12 long_press_power_key：同一次按键的重复派发，已吞掉", status.recent.last())
     }
 
     @Test
     fun logFallsBackToLogcat() {
-        val output = PowerKeyLog.SPLIT + "\n" +
-            "11-20 10:11:12.000 I/ZetaPowerKey( 1650): 没装：triggerFunction 签名对不上，系统里有的是：没有\n" +
-            "11-20 10:12:00.000 I/ZetaPowerKey( 1650): long_press_power_key：默认助理不是 Zeta，走原逻辑（默认助理 com.miui.voiceassist）\n"
+        val output =
+            PowerKeyLog.SPLIT +
+                "\n" +
+                "11-20 10:11:12.000 I/ZetaPowerKey( 1650): 没装：triggerFunction 签名对不上，系统里有的是：没有\n" +
+                "11-20 10:12:00.000 I/ZetaPowerKey( 1650): long_press_power_key：默认助理不是 Zeta，走原逻辑（默认助理 com.miui.voiceassist）\n"
         val status = PowerKeyLog.parse(output)
         assertEquals(false, status.installed)
         assertEquals("triggerFunction 签名对不上，系统里有的是：没有", status.installNote)
-        assertEquals("10:12:00 long_press_power_key：默认助理不是 Zeta，走原逻辑（默认助理 com.miui.voiceassist）", status.recent.last())
+        assertEquals(
+            "10:12:00 long_press_power_key：默认助理不是 Zeta，走原逻辑（默认助理 com.miui.voiceassist）",
+            status.recent.last(),
+        )
     }
 
     @Test

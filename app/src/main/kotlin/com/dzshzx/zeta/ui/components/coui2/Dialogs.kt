@@ -60,9 +60,9 @@ internal fun PageDialog(
 }
 
 /**
- * 确认对话框：取消 + 确认。确认是主操作（主题色实心）；[destructive] 时确认放进 COUI 画成红色的 neutral 位置。
- * 点取消默认和点外面、按返回一样走 [onDismissRequest]；要区分「明确拒绝」和「随手关掉」时另给 [onCancel]。
- * [content] 是说明下面的额外内容（放进 customContent，已留好左右边距）。
+ * 确认对话框：取消 + 确认。确认是主操作（主题色实心）；[destructive] 时确认放进 COUI 画成红色的 neutral 位置。 点取消默认和点外面、按返回一样走
+ * [onDismissRequest]；要区分「明确拒绝」和「随手关掉」时另给 [onCancel]。 [content] 是说明下面的额外内容（放进
+ * customContent，已留好左右边距）。
  */
 @Composable
 internal fun ConfirmDialog(
@@ -85,9 +85,16 @@ internal fun ConfirmDialog(
         modifier = modifier,
         title = title,
         summary = summary,
-        customContent = content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
+        customContent =
+            content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
     ) {
-        val confirm = DialogButtonBarAction(confirmText, enabled = confirmEnabled, recommended = !destructive, onClick = onConfirm)
+        val confirm =
+            DialogButtonBarAction(
+                confirmText,
+                enabled = confirmEnabled,
+                recommended = !destructive,
+                onClick = onConfirm,
+            )
         DialogButtonBar(
             negative = DialogButtonBarAction(cancelText, onClick = onCancel),
             positive = if (destructive) null else confirm,
@@ -113,17 +120,21 @@ internal fun NoticeDialog(
         modifier = modifier,
         title = title,
         summary = summary,
-        customContent = content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
+        customContent =
+            content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
     ) {
-        DialogButtonBar(negative = null, positive = DialogButtonBarAction(closeText, recommended = true, onClick = onDismissRequest))
+        DialogButtonBar(
+            negative = null,
+            positive =
+                DialogButtonBarAction(closeText, recommended = true, onClick = onDismissRequest),
+        )
     }
 }
 
 /**
- * 单行输入对话框：取消 + 确认，[label] 是输入框里的提示。打开时输入框自动聚焦、弹出键盘，光标在已有文字的末尾。
- * 样子照 COUI 2 的 OverlayInputDialog（COUI 的 SingleEdit：线条输入框、带清除按钮、最多 5 行），搭在 [ConfirmDialog] 上，
- * 输入框换成光标由 Zeta 管的 [TextField]。对话框在自己的内容下面留 8dp，正好是 SingleEdit 输入框下面的那段，所以输入框只留上面的 8dp；
- * 左右的 [DialogContentPadding] 和 SingleEdit 的一样宽。
+ * 单行输入对话框：取消 + 确认，[label] 是输入框里的提示。打开时输入框自动聚焦、弹出键盘，光标在已有文字的末尾。 样子照 COUI 2 的 OverlayInputDialog（COUI
+ * 的 SingleEdit：线条输入框、带清除按钮、最多 5 行），搭在 [ConfirmDialog] 上， 输入框换成光标由 Zeta 管的 [TextField]。对话框在自己的内容下面留
+ * 8dp，正好是 SingleEdit 输入框下面的那段，所以输入框只留上面的 8dp； 左右的 [DialogContentPadding] 和 SingleEdit 的一样宽。
  */
 @Composable
 internal fun TextInputDialog(
@@ -157,7 +168,10 @@ internal fun TextInputDialog(
         TextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.padding(top = InputDialogDefaults.EditMarginVertical).fillMaxWidth().focusRequester(focus),
+            modifier =
+                Modifier.padding(top = InputDialogDefaults.EditMarginVertical)
+                    .fillMaxWidth()
+                    .focusRequester(focus),
             label = label,
             showClearButton = true,
             keyboardOptions = keyboardOptions,
@@ -167,8 +181,8 @@ internal fun TextInputDialog(
 }
 
 /**
- * 对话框里的一个输入框：上面一行小字说明填什么（[title]），框里是占位提示（[hint]，不给就用 [title]）。
- * COUI 2 的 TextField 只有框里的提示，这几个对话框（添加 MCP 服务器、规则、共享文件夹）要同时说清字段和举例，所以上面另放一行。
+ * 对话框里的一个输入框：上面一行小字说明填什么（[title]），框里是占位提示（[hint]，不给就用 [title]）。 COUI 2 的 TextField
+ * 只有框里的提示，这几个对话框（添加 MCP 服务器、规则、共享文件夹）要同时说清字段和举例，所以上面另放一行。
  */
 @Composable
 internal fun DialogTextField(
@@ -186,7 +200,12 @@ internal fun DialogTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     Column(modifier.fillMaxWidth()) {
-        if (title != null) Text(text = title, style = COUITheme.textStyles.bodyS, color = COUITheme.colorScheme.labelSecondary)
+        if (title != null)
+            Text(
+                text = title,
+                style = COUITheme.textStyles.bodyS,
+                color = COUITheme.colorScheme.labelSecondary,
+            )
         TextField(
             value = value,
             onValueChange = onValueChange,

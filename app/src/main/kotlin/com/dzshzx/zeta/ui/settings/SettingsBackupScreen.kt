@@ -54,12 +54,13 @@ import kotlinx.serialization.json.contentOrNull
 /** 读完备份文件、比对过当前设置后要给人看的结果。 */
 private sealed interface ImportReview {
     data class Failed(val reason: String) : ImportReview
+
     data class Ready(val backup: BackupFile.Valid, val plan: ImportPlan) : ImportReview
 }
 
 /**
- * “备份与恢复”页的状态：正在读写文件、导入前的核对结果，以及打开系统“保存到”“打开”的两个入口。
- * 页面列表里的两行和 dialogs 里的对话框（[SettingsBackupDialogs]）共用这一份。
+ * “备份与恢复”页的状态：正在读写文件、导入前的核对结果，以及打开系统“保存到”“打开”的两个入口。 页面列表里的两行和 dialogs
+ * 里的对话框（[SettingsBackupDialogs]）共用这一份。
  */
 @Stable
 private class SettingsBackupState {
@@ -74,31 +75,48 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember { SettingsBackupState() }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            state.busy = true
-            val ok = withContext(Dispatchers.IO) { writeBackup(context, hub, uri) }
-            state.busy = false
-            Toast.makeText(context, if (ok) "设置已导出" else "导出失败", if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
+    val exportLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json"),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                state.busy = true
+                val ok = withContext(Dispatchers.IO) { writeBackup(context, hub, uri) }
+                state.busy = false
+                Toast.makeText(
+                        context,
+                        if (ok) "设置已导出" else "导出失败",
+                        if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
+                    )
+                    .show()
+            }
+        }
+    val importLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                state.busy = true
+                state.review = withContext(Dispatchers.IO) { readBackup(context, hub, uri) }
+                state.busy = false
+            }
+        }
+    state.export = {
+        runCatching { exportLauncher.launch(exportFileName("设置", extension = "json")) }
+    }
+    state.import = {
+        runCatching {
+            importLauncher.launch(
+                arrayOf("application/json", "text/plain", "application/octet-stream"),
+            )
         }
     }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            state.busy = true
-            state.review = withContext(Dispatchers.IO) { readBackup(context, hub, uri) }
-            state.busy = false
-        }
-    }
-    state.export = { runCatching { exportLauncher.launch(exportFileName("设置", extension = "json")) } }
-    state.import = { runCatching { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) } }
     return state
 }
 
 /**
- * 设置 › 备份与恢复：把 Zeta 自己的设置存成一个 JSON 文件（系统的“保存到”），或从文件导入（系统的“打开”）。
- * 导入前列出会改哪几项、跳过哪几项，确认后才写。转换和校验在 [SettingsBackup]。
+ * 设置 › 备份与恢复：把 Zeta 自己的设置存成一个 JSON 文件（系统的“保存到”），或从文件导入（系统的“打开”）。 导入前列出会改哪几项、跳过哪几项，确认后才写。转换和校验在
+ * [SettingsBackup]。
  */
 @Composable
 internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
@@ -110,7 +128,12 @@ internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
             // 闹钟登记）不导出，见 [SettingsBackup.machineKeys]；定时任务和通知触发只带规则本身，不带运行记录
             PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态，也不含定时任务和通知触发的运行记录。") {
                 item {
-                    BasicComponent(title = "导出设置", summary = "保存成 JSON 文件", enabled = !state.busy, onClick = state.export)
+                    BasicComponent(
+                        title = "导出设置",
+                        summary = "保存成 JSON 文件",
+                        enabled = !state.busy,
+                        onClick = state.export,
+                    )
                 }
                 item {
                     BasicComponent(
@@ -146,7 +169,9 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
         title = "没有要改的设置",
         summary = null,
         onDismissRequest = { state.review = null },
-    ) { ready?.let { PlanDetails(it.plan) } }
+    ) {
+        ready?.let { PlanDetails(it.plan) }
+    }
     ConfirmDialog(
         show = shown is ImportReview.Ready && shown.plan.changes.isNotEmpty(),
         title = "导入设置？",
@@ -159,15 +184,18 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
                 scope.launch {
                     val count = applyBackup(context, hub, confirmed)
                     Toast.makeText(
-                        context,
-                        if (count != null) "已导入 $count 项设置" else "导入失败，设置没有改动",
-                        if (count != null) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
-                    ).show()
+                            context,
+                            if (count != null) "已导入 $count 项设置" else "导入失败，设置没有改动",
+                            if (count != null) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
+                        )
+                        .show()
                 }
             }
         },
         onDismissRequest = { state.review = null },
-    ) { ready?.let { PlanDetails(it.plan) } }
+    ) {
+        ready?.let { PlanDetails(it.plan) }
+    }
 }
 
 /** 确认框里的清单：会改的（原来 → 备份里的）、跳过的及原因、和当前一样的。 */
@@ -180,13 +208,28 @@ private fun PlanDetails(plan: ImportPlan) {
         if (plan.changes.isNotEmpty()) {
             Text("将覆盖 ${plan.changes.size} 项：", style = body, color = colors.labelPrimary)
             for (change in plan.changes) {
-                Text("${change.label}：${change.from} → ${change.to}", style = body, color = colors.labelPrimary, modifier = Modifier.padding(top = 4.dp))
+                Text(
+                    "${change.label}：${change.from} → ${change.to}",
+                    style = body,
+                    color = colors.labelPrimary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
         if (plan.skipped.isNotEmpty()) {
-            Text("跳过 ${plan.skipped.size} 项：", style = body, color = colors.labelPrimary, modifier = Modifier.padding(top = 12.dp))
+            Text(
+                "跳过 ${plan.skipped.size} 项：",
+                style = body,
+                color = colors.labelPrimary,
+                modifier = Modifier.padding(top = 12.dp),
+            )
             for (item in plan.skipped) {
-                Text("${item.label}：${item.reason}", style = note, color = colors.labelSecondary, modifier = Modifier.padding(top = 4.dp))
+                Text(
+                    "${item.label}：${item.reason}",
+                    style = note,
+                    color = colors.labelSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
         if (plan.unchanged.isNotEmpty()) {
@@ -202,24 +245,35 @@ private fun PlanDetails(plan: ImportPlan) {
 
 private fun writeBackup(context: Context, hub: ConversationHub, uri: Uri): Boolean {
     val exportedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
-    return context.writeText(uri, SettingsBackup.export(hub.settings.snapshot(), BuildConfig.VERSION_NAME, exportedAt))
+    return context.writeText(
+        uri,
+        SettingsBackup.export(hub.settings.snapshot(), BuildConfig.VERSION_NAME, exportedAt),
+    )
 }
 
 /** 读文件、校验、和当前设置比对。耗时（读文件，查工作目录在不在），别在主线程调用。 */
 private fun readBackup(context: Context, hub: ConversationHub, uri: Uri): ImportReview {
-    val bytes = runCatching {
-        context.contentResolver.openInputStream(uri)?.use { it.readNBytes(SettingsBackup.MAX_BYTES + 1) }
-    }.getOrNull() ?: return ImportReview.Failed("读不了这个文件")
+    val bytes =
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use {
+                it.readNBytes(SettingsBackup.MAX_BYTES + 1)
+            }
+        }
+            .getOrNull() ?: return ImportReview.Failed("读不了这个文件")
     if (bytes.size > SettingsBackup.MAX_BYTES) return ImportReview.Failed("文件太大，不像 Zeta 的设置备份")
-    val backup = when (val parsed = SettingsBackup.parse(bytes.toString(Charsets.UTF_8))) {
-        is BackupFile.Invalid -> return ImportReview.Failed(parsed.reason)
-        is BackupFile.Valid -> parsed
-    }
+    val backup =
+        when (val parsed = SettingsBackup.parse(bytes.toString(Charsets.UTF_8))) {
+            is BackupFile.Invalid -> return ImportReview.Failed(parsed.reason)
+            is BackupFile.Valid -> parsed
+        }
     val extraSkips = HashMap<String, String>()
     (backup.values["cwd"] as? JsonPrimitive)?.contentOrNull?.let { cwd ->
         cwdProblem(hub, cwd)?.let { extraSkips["cwd"] = it }
     }
-    return ImportReview.Ready(backup, SettingsBackup.plan(backup, hub.settings.snapshot(), extraSkips))
+    return ImportReview.Ready(
+        backup,
+        SettingsBackup.plan(backup, hub.settings.snapshot(), extraSkips),
+    )
 }
 
 /** 备份里的默认工作目录在这台手机的 Linux 环境里用不了的原因；能用返回 null。 */
@@ -236,24 +290,39 @@ private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
 }
 
 /** 写回存储（[Settings.restore] 写完各项就按新值重读，界面跟着变），空着的新对话换到导入的默认工作目录。返回写了几项；没写成返回 null。在主线程上调用。 */
-private suspend fun applyBackup(context: Context, hub: ConversationHub, ready: ImportReview.Ready): Int? {
+private suspend fun applyBackup(
+    context: Context,
+    hub: ConversationHub,
+    ready: ImportReview.Ready,
+): Int? {
     val writes = SettingsBackup.writes(ready.backup, ready.plan)
     if (!withContext(Dispatchers.IO) { restoreBackup(context, hub.settings, writes) }) return null
     hub.renewBlank()
     // 共享了内部存储的目录时，Linux 用户要在 media_rw 组里才能读写，和在共享文件夹页添加时一样补上
     val config = hub.settings.env
-    if ("sharedFolders" in writes && config != null && hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }) {
+    if (
+        "sharedFolders" in writes &&
+            config != null &&
+            hub.settings.sharedFolders.any { SharedFolders.isMediaStorage(it.source) }
+    ) {
         withContext(Dispatchers.IO) { SharedFolders.ensureMediaGroup(config) }
     }
     return writes.size
 }
 
 /**
- * 把导入要写的值（[SettingsBackup.writes]）写回存储，成功返回 true。可以在后台线程调用。
- * 存成清单的几项（常用指令、定时任务、通知触发）经各自的 store 写：内存里的那份跟着换，定时任务的闹钟跟着重排；其余一次写进 [settings]。
+ * 把导入要写的值（[SettingsBackup.writes]）写回存储，成功返回 true。可以在后台线程调用。 存成清单的几项（常用指令、定时任务、通知触发）经各自的 store
+ * 写：内存里的那份跟着换，定时任务的闹钟跟着重排；其余一次写进 [settings]。
  */
-internal fun restoreBackup(context: Context, settings: Settings, writes: Map<String, Any?>): Boolean {
-    val stores = listOf<PrefsListStore<*>>(PromptStore, ScheduleStore, NotifyRuleStore).associateBy { it.key }
+internal fun restoreBackup(
+    context: Context,
+    settings: Settings,
+    writes: Map<String, Any?>,
+): Boolean {
+    val stores =
+        listOf<PrefsListStore<*>>(PromptStore, ScheduleStore, NotifyRuleStore).associateBy {
+            it.key
+        }
     if (!settings.restore(writes.filterKeys { it !in stores })) return false
     for ((key, value) in writes) stores[key]?.replace(context, value as String?)
     return true

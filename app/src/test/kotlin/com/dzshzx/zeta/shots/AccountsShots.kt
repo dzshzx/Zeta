@@ -27,11 +27,34 @@ class AccountsShots : ShotTest() {
         quota.force(
             "snapshot",
             QuotaSnapshot(
-                windows = listOf(
-                    QuotaWindow("session", "session", null, 0.12, now + 3 * 3_600_000 + 20 * 60_000, QuotaSeverity.Normal),
-                    QuotaWindow("weekly_all", "weekly", null, 0.86, now + 2 * 86_400_000 + 9 * 3_600_000, QuotaSeverity.Warning, active = true),
-                    QuotaWindow("weekly_scoped", "weekly", "Fable", 0.78, now + 2 * 86_400_000 + 9 * 3_600_000, QuotaSeverity.Warning),
-                ),
+                windows =
+                    listOf(
+                        QuotaWindow(
+                            "session",
+                            "session",
+                            null,
+                            0.12,
+                            now + 3 * 3_600_000 + 20 * 60_000,
+                            QuotaSeverity.Normal,
+                        ),
+                        QuotaWindow(
+                            "weekly_all",
+                            "weekly",
+                            null,
+                            0.86,
+                            now + 2 * 86_400_000 + 9 * 3_600_000,
+                            QuotaSeverity.Warning,
+                            active = true,
+                        ),
+                        QuotaWindow(
+                            "weekly_scoped",
+                            "weekly",
+                            "Fable",
+                            0.78,
+                            now + 2 * 86_400_000 + 9 * 3_600_000,
+                            QuotaSeverity.Warning,
+                        ),
+                    ),
                 subscription = "max",
                 // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
                 updatedAt = now - 60_000,
@@ -48,20 +71,34 @@ class AccountsShots : ShotTest() {
         val current = account("claude", "shots@example.invalid")
         return AccountsState(
             current = current,
-            saved = listOf(current, account("claude-b", "work@example.invalid", org = "Example Co", subscription = "team")),
+            saved =
+                listOf(
+                    current,
+                    account(
+                        "claude-b",
+                        "work@example.invalid",
+                        org = "Example Co",
+                        subscription = "team",
+                    ),
+                ),
             processes = emptyList(),
         )
     }
 
     /** 在用的登录 claude-switch 还没记过：没有名字，列成当前账号，提示添加账号时会记下。 */
-    private fun unrecordedState() = AccountsState(
-        current = account("", "new@example.invalid"),
-        saved = listOf(account("claude", "shots@example.invalid")),
-        processes = emptyList(),
-    )
+    private fun unrecordedState() =
+        AccountsState(
+            current = account("", "new@example.invalid"),
+            saved = listOf(account("claude", "shots@example.invalid")),
+            processes = emptyList(),
+        )
 
     /** 账号页：打开页面时会去 Linux 环境里读账号，JVM 上读不到，换成摆好的 [state]；[then] 是摆好以后要做的操作。 */
-    private fun shootAccounts(name: String, state: AccountsState, then: AndroidComposeTestRule<*, *>.() -> Unit = {}) {
+    private fun shootAccounts(
+        name: String,
+        state: AccountsState,
+        then: AndroidComposeTestRule<*, *>.() -> Unit = {},
+    ) {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
         shoot(
@@ -71,38 +108,64 @@ class AccountsShots : ShotTest() {
                 hub.accounts.force("problem", null)
                 then()
             },
-        ) { AccountsScreen(hub = hub, onBack = {}) }
+        ) {
+            AccountsScreen(hub = hub, onBack = {})
+        }
     }
 
-    @Test
-    fun accountsPage() = shootAccounts("accounts", accountsState())
+    @Test fun accountsPage() = shootAccounts("accounts", accountsState())
 
-    @Test
-    fun accountsUnrecorded() = shootAccounts("accounts-unrecorded", unrecordedState())
+    @Test fun accountsUnrecorded() = shootAccounts("accounts-unrecorded", unrecordedState())
 
     /** 点另一个账号弹出的菜单：切换、移除。 */
     @Test
-    fun accountsMenu() = shootAccounts("accounts-menu", accountsState()) {
-        settle()
-        onNodeWithText("work@example.invalid").performClick()
-    }
+    fun accountsMenu() =
+        shootAccounts("accounts-menu", accountsState()) {
+            settle()
+            onNodeWithText("work@example.invalid").performClick()
+        }
 
     /** 输入栏右边的用量按钮在额度快到上限时换成额度提醒。 */
     @Test
     fun chatQuotaChip() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
-        hub.showChat("额度", listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)))
-        shoot("chat-quota-chip") { ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {}) }
+        hub.showChat(
+            "额度",
+            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)),
+        )
+        shoot("chat-quota-chip") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
     }
 
     @Test
     fun chatQuotaChipAndUsageDialog() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
-        hub.showChat("额度", listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)))
-        shoot("chat-quota", prepare = { onAllNodes(hasContentDescription("订阅额度", substring = true)).onFirst().performClick() }) {
-            ChatScreen(hub = hub, onOpenPane = {}, onOpenSettings = {}, onOpenInstall = {}, onOpenLogin = {})
+        hub.showChat(
+            "额度",
+            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)),
+        )
+        shoot(
+            "chat-quota",
+            prepare = {
+                onAllNodes(hasContentDescription("订阅额度", substring = true)).onFirst().performClick()
+            },
+        ) {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
         }
     }
 }

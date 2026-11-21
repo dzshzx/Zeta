@@ -84,12 +84,13 @@ import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-private val UserBubbleShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
+private val UserBubbleShape =
+    RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
 private val WorkCardShape = RoundedCornerShape(16.dp)
 
 /**
- * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。
- * 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2 的 Scaffold 里才显示。
+ * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2
+ * 的 Scaffold 里才显示。
  */
 @Composable
 internal fun UserBubble(
@@ -101,55 +102,86 @@ internal fun UserBubble(
     /** 收藏为常用指令。 */
     onSave: (() -> Unit)? = null,
 ) {
-    val colors = COUITheme.colorScheme
-    val dark = colors.isDark
-    @Suppress("DEPRECATION")
-    val clipboard = LocalClipboardManager.current
+    @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     val text by rememberUpdatedState(item.text)
     val edit by rememberUpdatedState(onEdit)
     val delete by rememberUpdatedState(onDelete)
     val save by rememberUpdatedState(onSave)
-    val menu = remember(onEdit != null, onDelete != null, onSave != null, clipboard) {
-        userMenuEntries(
-            onCopy = { clipboard.setText(AnnotatedString(text)) },
-            onSave = if (onSave != null) ({ save?.invoke() }) else null,
-            onEdit = if (onEdit != null) ({ edit?.invoke() }) else null,
-            onDelete = if (onDelete != null) ({ delete?.invoke() }) else null,
-        )
-    }
+    val menu =
+        remember(onEdit != null, onDelete != null, onSave != null, clipboard) {
+            userMenuEntries(
+                onCopy = { clipboard.setText(AnnotatedString(text)) },
+                onSave = if (onSave != null) ({ save?.invoke() }) else null,
+                onEdit = if (onEdit != null) ({ edit?.invoke() }) else null,
+                onDelete = if (onDelete != null) ({ delete?.invoke() }) else null,
+            )
+        }
     Column(
-        modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
+        modifier =
+            modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.End,
     ) {
-        if (item.images.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = if (item.text.isEmpty() && item.files.isEmpty()) 0.dp else 6.dp)) {
-                item.images.take(4).forEach { image -> ChatThumbnail(image, size = if (item.images.size == 1) 148.dp else 76.dp) }
-            }
-        }
+        if (item.images.isNotEmpty()) UserImages(item)
         item.files.forEach { path ->
-            FileChip(name = AttachedPaths.label(path), folder = AttachedPaths.isFolder(path), modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 280.dp))
+            FileChip(
+                name = AttachedPaths.label(path),
+                folder = AttachedPaths.isFolder(path),
+                modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 280.dp),
+            )
         }
         if (item.text.isNotEmpty()) {
-            OverlayContextMenu(entries = menu) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = 316.dp)
-                        .clip(UserBubbleShape)
-                        // 气泡是聊天页自己画的，COUI 没有对应的配色：浅淡的蓝灰，和回答的白底分开
-                        .background(if (dark) Color(0xFF202634) else Color(0xFFEEF2FA), UserBubbleShape)
-                        .then(if (editing) Modifier.border(1.dp, colors.primary, UserBubbleShape) else Modifier)
-                        .padding(horizontal = 16.dp, vertical = 10.5.dp),
-                ) {
-                    FindableText(
-                        text = item.text,
-                        block = 0,
-                        itemId = item.id,
-                        style = COUITheme.textStyles.bodyXL.copy(lineHeight = 23.sp, lineHeightStyle = EditorialLineHeightStyle),
-                        color = colors.labelPrimary,
-                    )
-                }
-            }
+            OverlayContextMenu(entries = menu) { UserTextBubble(item, editing) }
         }
+    }
+}
+
+/** 用户消息带的图片：最多四张缩略图排一行，只有一张时画大些。 */
+@Composable
+private fun UserImages(item: UserItem) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier =
+            Modifier.padding(
+                bottom = if (item.text.isEmpty() && item.files.isEmpty()) 0.dp else 6.dp,
+            ),
+    ) {
+        item.images.take(4).forEach { image ->
+            ChatThumbnail(image, size = if (item.images.size == 1) 148.dp else 76.dp)
+        }
+    }
+}
+
+/** 用户消息的文字气泡；[editing] 时描一圈强调色边。 */
+@Composable
+private fun UserTextBubble(item: UserItem, editing: Boolean) {
+    val colors = COUITheme.colorScheme
+    val dark = colors.isDark
+    Column(
+        modifier =
+            Modifier.widthIn(max = 316.dp)
+                .clip(UserBubbleShape)
+                // 气泡是聊天页自己画的，COUI 没有对应的配色：浅淡的蓝灰，和回答的白底分开
+                .background(
+                    if (dark) Color(0xFF202634) else Color(0xFFEEF2FA),
+                    UserBubbleShape,
+                )
+                .then(
+                    if (editing) Modifier.border(1.dp, colors.primary, UserBubbleShape)
+                    else Modifier,
+                )
+                .padding(horizontal = 16.dp, vertical = 10.5.dp),
+    ) {
+        FindableText(
+            text = item.text,
+            block = 0,
+            itemId = item.id,
+            style =
+                COUITheme.textStyles.bodyXL.copy(
+                    lineHeight = 23.sp,
+                    lineHeightStyle = EditorialLineHeightStyle,
+                ),
+            color = colors.labelPrimary,
+        )
     }
 }
 
@@ -165,11 +197,12 @@ private fun userMenuEntries(
         if (onSave != null) add(menuItem("收藏为常用指令", COUIIcons.Favorites, onSave))
         if (onEdit != null) add(menuItem("编辑", COUIIcons.Edit, onEdit))
     }
-    val danger = if (onDelete != null) {
-        listOf(menuItem("删除", COUIIcons.Delete, onDelete, alert = true))
-    } else {
-        emptyList()
-    }
+    val danger =
+        if (onDelete != null) {
+            listOf(menuItem("删除", COUIIcons.Delete, onDelete, alert = true))
+        } else {
+            emptyList()
+        }
     return listOf(DropdownEntry(items = main), DropdownEntry(items = danger))
 }
 
@@ -185,9 +218,14 @@ internal fun AnswerBlock(
 ) {
     val parts = remember(item.text) { imagesOf(item.text) }
     // 流式状态跟着消息走：结束后等逐字显现收尾，再换成可选中文本的静态排版。
-    val streamingState = if (item.streaming || cache.states.containsKey(item.id)) cache.getOrCreate(item.id) else null
+    val streamingState =
+        if (item.streaming || cache.states.containsKey(item.id)) cache.getOrCreate(item.id)
+        else null
     var revealComplete by remember(item.id) { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 6.dp)) {
+    Column(
+        modifier =
+            modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 6.dp),
+    ) {
         when {
             item.text.isBlank() && item.streaming -> TypingIndicator(Modifier.padding(top = 4.dp))
             streamingState != null && (item.streaming || !revealComplete) -> {
@@ -209,14 +247,28 @@ internal fun AnswerBlock(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            else -> SelectionContainer {
-                StaticMarkdown(content = parts.text, tone = MarkdownTone.Answer, modifier = Modifier.fillMaxWidth(), findItem = item.id)
-            }
+            else ->
+                SelectionContainer {
+                    StaticMarkdown(
+                        content = parts.text,
+                        tone = MarkdownTone.Answer,
+                        modifier = Modifier.fillMaxWidth(),
+                        findItem = item.id,
+                    )
+                }
         }
         parts.images.forEach { image -> ChatImage(image, modifier = Modifier.padding(top = 10.dp)) }
         if (!item.streaming && item.text.isNotBlank()) {
-            Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                CopyIconButton(text = item.text, size = 30.dp, iconSize = 15.dp, tint = COUITheme.colorScheme.labelSecondary)
+            Row(
+                modifier = Modifier.padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CopyIconButton(
+                    text = item.text,
+                    size = 30.dp,
+                    iconSize = 15.dp,
+                    tint = COUITheme.colorScheme.labelSecondary,
+                )
                 actions?.invoke()
             }
         }
@@ -227,14 +279,23 @@ internal fun AnswerBlock(
 internal fun TypingIndicator(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "typing")
     val dot = COUITheme.colorScheme.labelSecondary
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         repeat(3) { index ->
-            val alpha by transition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(animation = tween(600, delayMillis = index * 150), repeatMode = RepeatMode.Reverse),
-                label = "alpha",
-            )
+            val alpha by
+                transition.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1f,
+                    animationSpec =
+                        infiniteRepeatable(
+                            animation = tween(600, delayMillis = index * 150),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                    label = "alpha",
+                )
             Box(Modifier.size(6.dp).graphicsLayer(alpha = alpha).background(dot, CircleShape))
         }
     }
@@ -245,21 +306,30 @@ internal fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
     if (item.error) {
         val shape = RoundedCornerShape(14.dp)
-        SelectionContainer(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
+        SelectionContainer(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+        ) {
             Text(
                 text = item.text,
                 style = COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, lineHeight = 19.sp),
                 color = colors.error,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(colors.error.copy(alpha = 0.08f), shape)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .clip(shape)
+                        .background(colors.error.copy(alpha = 0.08f), shape)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
     } else {
-        Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            Text(text = item.text, style = COUITheme.textStyles.bodyS, color = colors.labelSecondary)
+        Box(
+            modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = item.text,
+                style = COUITheme.textStyles.bodyS,
+                color = colors.labelSecondary,
+            )
         }
     }
 }
@@ -282,8 +352,8 @@ private fun rememberWorkInk(): WorkInk {
 }
 
 /**
- * 一组连续的思考与工具调用：默认折叠成一行摘要，点开是逐步的时间线（[expandedByDefault] 时一开始就展开）。
- * 给了 [onOpenSubagent] 时，发起子代理的那一步点了进子代理查看页（参数是那一步的 tool_use id）。
+ * 一组连续的思考与工具调用：默认折叠成一行摘要，点开是逐步的时间线（[expandedByDefault] 时一开始就展开）。 给了 [onOpenSubagent]
+ * 时，发起子代理的那一步点了进子代理查看页（参数是那一步的 tool_use id）。
  */
 @Composable
 internal fun WorkGroup(
@@ -298,29 +368,36 @@ internal fun WorkGroup(
     val running = item.steps.lastOrNull { it.running }
     val toolCount = item.steps.count { it is ToolStep }
     val runningTool = (running as? ToolStep)?.presentation()
-    val headerText = when {
-        runningTool != null -> "正在处理第 $toolCount 步 · " + runningTool.title
-        running is ThinkingStep -> "正在思考"
-        else -> if (toolCount > 0) "已完成 $toolCount 个步骤" else "思考已完成"
-    }
+    val headerText =
+        when {
+            runningTool != null -> "正在处理第 $toolCount 步 · " + runningTool.title
+            running is ThinkingStep -> "正在思考"
+            else -> if (toolCount > 0) "已完成 $toolCount 个步骤" else "思考已完成"
+        }
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(WorkCardShape)
-            .border(0.5.dp, ink.border, WorkCardShape)
-            .animateContentSize(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 4.dp)
+                .clip(WorkCardShape)
+                .border(0.5.dp, ink.border, WorkCardShape)
+                .animateContentSize(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 42.dp).clickable { expanded = !expanded }.padding(horizontal = 14.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .heightIn(min = 42.dp)
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = when {
-                    runningTool != null -> runningTool.icon
-                    running is ThinkingStep -> ZetaIcons.Lightbulb
-                    else -> COUIIcons.SelectAll
-                },
+                imageVector =
+                    when {
+                        runningTool != null -> runningTool.icon
+                        running is ThinkingStep -> ZetaIcons.Lightbulb
+                        else -> COUIIcons.SelectAll
+                    },
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
                 tint = if (running != null) colors.primary else ink.icon,
@@ -337,8 +414,16 @@ internal fun WorkGroup(
         // 折叠着也直接露出改了哪些文件
         if (!expanded) CollapsedFileChanges(item.steps, onShowAll = { expanded = true })
         AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp)) {
-                Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).height(0.5.dp).background(ink.border))
+            Column(
+                modifier =
+                    Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+            ) {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .padding(bottom = 4.dp)
+                        .height(0.5.dp)
+                        .background(ink.border),
+                )
                 item.steps.forEach { step -> WorkStepRow(step, onOpenSubagent) }
             }
         }
@@ -356,98 +441,174 @@ private fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
     // 发起子代理的一步：点了看它在做什么，不在这里展开
     val subagent = if (step is ToolStep && step.name in SubagentTools) onOpenSubagent else null
     var expanded by rememberSaveable(step.id) { mutableStateOf(false) }
-    val colors = COUITheme.colorScheme
-    val dark = colors.isDark
-    val ink = rememberWorkInk()
-    val icon: ImageVector
-    val title: String
-    val detail: String
-    var status: ToolStatus? = null
-    when (step) {
-        is ThinkingStep -> {
-            icon = ZetaIcons.Lightbulb
-            title = when {
-                step.running -> "正在思考"
-                step.seconds != null -> "思考已完成 · 用时 ${step.seconds} 秒"
-                else -> "思考已完成"
-            }
-            detail = step.text
-        }
-        is ToolStep -> {
-            val presentation = step.presentation()
-            icon = presentation.icon
-            title = presentation.title
-            detail = buildString {
-                append(presentation.detail.trim())
-                step.result?.takeIf { it.isNotBlank() }?.let {
-                    if (isNotEmpty()) append("\n\n")
-                    append(it.trim().let { text -> if (text.length > 3000) text.take(3000) + "\n…" else text })
-                }
-            }
-            status = step.status
-        }
-    }
+    val summary = stepSummary(step)
+    val detail = summary.detail
     val images = (step as? ToolStep)?.images.orEmpty()
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 34.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(
-                    enabled = subagent != null || detail.isNotBlank() || images.isNotEmpty(),
-                    onClickLabel = if (subagent != null) "查看子代理的步骤" else null,
-                ) { if (subagent != null) subagent(step.id) else expanded = !expanded },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (step.running) colors.primary else ink.icon)
-            Spacer(Modifier.width(10.dp))
-            PulsingText(text = title, active = step.running, color = ink.muted, modifier = Modifier.weight(1f))
-            when (status) {
-                ToolStatus.Success -> StatusDot(COUITheme.colorScheme.success, "已完成")
-                ToolStatus.Failed -> StatusDot(colors.error, "失败")
-                else -> Unit
-            }
-            if (step is ToolStep && step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
-            // 进子代理查看页的钮，和“在浏览器里查看”一个样子，和原地展开的折角分开
-            when {
-                subagent != null -> FlatIconButton(
-                    icon = COUIIcons.Forward,
-                    contentDescription = "查看子代理的步骤",
-                    size = 26.dp,
-                    iconSize = 16.dp,
-                    modifier = Modifier.padding(start = 6.dp),
-                    tint = colors.primary,
-                ) { subagent(step.id) }
-                detail.isNotBlank() || images.isNotEmpty() -> Chevron(expanded)
-            }
+        WorkStepHeader(step, summary, images.isNotEmpty(), expanded, subagent) {
+            expanded = !expanded
         }
         AnimatedVisibility(visible = expanded && detail.isNotBlank()) {
-            SelectionContainer {
-                if (step is ThinkingStep) {
-                    StaticMarkdown(content = detail, tone = MarkdownTone.Thinking, modifier = Modifier.fillMaxWidth().padding(start = 25.dp, bottom = 8.dp))
-                } else {
-                    val shape = RoundedCornerShape(10.dp)
-                    Text(
-                        text = detail,
-                        style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont, fontSize = 11.5.sp, lineHeight = 16.sp),
-                        color = colors.labelPrimary.copy(alpha = 0.78f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 25.dp, bottom = 8.dp)
-                            .clip(shape)
-                            .background(colors.labelPrimary.copy(alpha = if (dark) 0.06f else 0.035f), shape)
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                    )
-                }
-            }
+            SelectionContainer { WorkStepDetail(step, detail) }
         }
         AnimatedVisibility(visible = expanded && images.isNotEmpty()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 25.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(start = 25.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 images.forEach { image -> ChatImage(image) }
             }
         }
+    }
+}
+
+/** 一步在时间线里的样子：图标、标题、展开后的详情，工具调用还有结果状态（思考没有）。 */
+private class StepSummary(
+    val icon: ImageVector,
+    val title: String,
+    val detail: String,
+    val status: ToolStatus?,
+)
+
+private fun stepSummary(step: WorkStep): StepSummary =
+    when (step) {
+        is ThinkingStep -> StepSummary(ZetaIcons.Lightbulb, thinkingTitle(step), step.text, null)
+        is ToolStep -> {
+            val presentation = step.presentation()
+            StepSummary(
+                presentation.icon,
+                presentation.title,
+                toolDetail(presentation.detail, step.result),
+                step.status,
+            )
+        }
+    }
+
+private fun thinkingTitle(step: ThinkingStep): String =
+    when {
+        step.running -> "正在思考"
+        step.seconds != null -> "思考已完成 · 用时 ${step.seconds} 秒"
+        else -> "思考已完成"
+    }
+
+/** 工具调用展开后的详情：调用的说明，空一行接结果（太长的截到 3000 字）。 */
+private fun toolDetail(presented: String, result: String?): String = buildString {
+    append(presented.trim())
+    result
+        ?.takeIf { it.isNotBlank() }
+        ?.let {
+            if (isNotEmpty()) append("\n\n")
+            append(
+                it.trim().let { text ->
+                    if (text.length > 3000) text.take(3000) + "\n…" else text
+                },
+            )
+        }
+}
+
+/** 一步的标题行：点了展开详情，发起子代理的一步点了进子代理查看页（[subagent]）。 */
+@Composable
+private fun WorkStepHeader(
+    step: WorkStep,
+    summary: StepSummary,
+    hasImages: Boolean,
+    expanded: Boolean,
+    subagent: ((String) -> Unit)?,
+    onToggle: () -> Unit,
+) {
+    val colors = COUITheme.colorScheme
+    val ink = rememberWorkInk()
+    val expandable = summary.detail.isNotBlank() || hasImages
+    Row(
+        modifier =
+            Modifier.fillMaxWidth().heightIn(min = 34.dp).clip(RoundedCornerShape(8.dp)).clickable(
+                enabled = subagent != null || expandable,
+                onClickLabel = if (subagent != null) "查看子代理的步骤" else null,
+            ) {
+                if (subagent != null) subagent(step.id) else onToggle()
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = summary.icon,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
+            tint = if (step.running) colors.primary else ink.icon,
+        )
+        Spacer(Modifier.width(10.dp))
+        PulsingText(
+            text = summary.title,
+            active = step.running,
+            color = ink.muted,
+            modifier = Modifier.weight(1f),
+        )
+        when (summary.status) {
+            ToolStatus.Success -> StatusDot(COUITheme.colorScheme.success, "已完成")
+            ToolStatus.Failed -> StatusDot(colors.error, "失败")
+            else -> Unit
+        }
+        if (step is ToolStep && step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
+        WorkStepOpener(step, subagent, expandable, expanded)
+    }
+}
+
+/** 标题行末尾：进子代理查看页的钮（和“在浏览器里查看”一个样子），或原地展开的折角。 */
+@Composable
+private fun WorkStepOpener(
+    step: WorkStep,
+    subagent: ((String) -> Unit)?,
+    expandable: Boolean,
+    expanded: Boolean,
+) {
+    when {
+        subagent != null ->
+            FlatIconButton(
+                icon = COUIIcons.Forward,
+                contentDescription = "查看子代理的步骤",
+                size = 26.dp,
+                iconSize = 16.dp,
+                modifier = Modifier.padding(start = 6.dp),
+                tint = COUITheme.colorScheme.primary,
+            ) {
+                subagent(step.id)
+            }
+        expandable -> Chevron(expanded)
+    }
+}
+
+/** 一步展开后的详情：思考按 Markdown 排，工具调用是等宽字的灰底块，太宽时横向滚动。 */
+@Composable
+private fun WorkStepDetail(step: WorkStep, detail: String) {
+    if (step is ThinkingStep) {
+        StaticMarkdown(
+            content = detail,
+            tone = MarkdownTone.Thinking,
+            modifier = Modifier.fillMaxWidth().padding(start = 25.dp, bottom = 8.dp),
+        )
+    } else {
+        val colors = COUITheme.colorScheme
+        val dark = colors.isDark
+        val shape = RoundedCornerShape(10.dp)
+        Text(
+            text = detail,
+            style =
+                COUITheme.textStyles.bodyS.copy(
+                    fontFamily = MonoFont,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                ),
+            color = colors.labelPrimary.copy(alpha = 0.78f),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(start = 25.dp, bottom = 8.dp)
+                    .clip(shape)
+                    .background(
+                        colors.labelPrimary.copy(alpha = if (dark) 0.06f else 0.035f),
+                        shape,
+                    )
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+        )
     }
 }
 
@@ -456,7 +617,11 @@ private fun StatusDot(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
         Box(Modifier.size(6.dp).background(color, CircleShape))
         Spacer(Modifier.width(5.dp))
-        Text(text = label, style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp), color = COUITheme.colorScheme.labelPrimary.copy(alpha = 0.7f))
+        Text(
+            text = label,
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp),
+            color = COUITheme.colorScheme.labelPrimary.copy(alpha = 0.7f),
+        )
     }
 }
 
@@ -473,13 +638,26 @@ internal fun Chevron(expanded: Boolean) {
 
 /** 进行中的那一行轻微呼吸，提示还在跑。 */
 @Composable
-internal fun PulsingText(text: String, active: Boolean, color: Color, modifier: Modifier = Modifier) {
-    val alpha = if (active) {
-        val transition = rememberInfiniteTransition(label = "pulse")
-        transition.animateFloat(0.45f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "pulse-alpha").value
-    } else {
-        1f
-    }
+internal fun PulsingText(
+    text: String,
+    active: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val alpha =
+        if (active) {
+            val transition = rememberInfiniteTransition(label = "pulse")
+            transition
+                .animateFloat(
+                    0.45f,
+                    1f,
+                    infiniteRepeatable(tween(800), RepeatMode.Reverse),
+                    label = "pulse-alpha",
+                )
+                .value
+        } else {
+            1f
+        }
     Text(
         text = text,
         style = COUITheme.textStyles.bodyM.copy(fontSize = 13.5.sp),

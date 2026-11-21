@@ -26,50 +26,67 @@ import com.dzshzx.zeta.ui.overlay.CapsuleControls
 import com.dzshzx.zeta.ui.overlay.CapsuleState
 import com.dzshzx.zeta.ui.overlay.StatusCapsule
 import io.github.suqi8.coui.kmp.theme.COUITheme
+import java.io.InputStream
+import java.io.OutputStream
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import org.junit.Test
-import java.io.InputStream
-import java.io.OutputStream
 
 class CapsuleShots : ShotTest() {
     /**
-     * 顶部状态胶囊：上面是收起的（运行中，带思考尾句），下面是展开的（暂停，补充 / 继续 / 停止）。
-     * 没有后台屏幕，所以没有右侧的微缩画面和展开后的画面（那些见 [agentDisplayStage]）。
+     * 顶部状态胶囊：上面是收起的（运行中，带思考尾句），下面是展开的（暂停，补充 / 继续 / 停止）。 没有后台屏幕，所以没有右侧的微缩画面和展开后的画面（那些见
+     * [agentDisplayStage]）。
      */
     @Test
     fun statusCapsule() {
         Fixtures.readyHub(app)
-        val collapsed = CapsuleState().apply {
-            focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹，再按月份归档")
-            shown = true
-        }
-        val expanded = CapsuleState().apply {
-            focus = FakeFocus(OverlayPhase.PAUSED, step = "已暂停", thought = "")
-            shown = true
-            this.expanded = true
-        }
+        val collapsed =
+            CapsuleState().apply {
+                focus =
+                    FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹，再按月份归档")
+                shown = true
+            }
+        val expanded =
+            CapsuleState().apply {
+                focus = FakeFocus(OverlayPhase.PAUSED, step = "已暂停", thought = "")
+                shown = true
+                this.expanded = true
+            }
         shootCapsules("status-capsule", collapsed, expanded)
     }
 
     /**
-     * 后台屏幕在用时：收起的胶囊右侧镶微缩画面（运行中），展开的是画廊式的画面加下面那一行（接管中：紫色描边、“继续”高亮）。
-     * 后台屏幕要 root 和虚拟屏，这里用一块不接进程的假屏，画面是手画的一帧。
+     * 后台屏幕在用时：收起的胶囊右侧镶微缩画面（运行中），展开的是画廊式的画面加下面那一行（接管中：紫色描边、“继续”高亮）。 后台屏幕要 root
+     * 和虚拟屏，这里用一块不接进程的假屏，画面是手画的一帧。
      */
     @Test
     fun agentDisplayStage() {
         Fixtures.readyHub(app)
         val screen = fakeScreen()
-        val collapsed = CapsuleState().apply {
-            focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹", screen = screen)
-            shown = true
-        }
-        val expanded = CapsuleState().apply {
-            focus = FakeFocus(OverlayPhase.CONTROLLING, step = "你在接管", thought = "", screen = screen)
-            shown = true
-            this.expanded = true
-        }
+        val collapsed =
+            CapsuleState().apply {
+                focus =
+                    FakeFocus(
+                        OverlayPhase.RUNNING,
+                        step = "在后台操作相册",
+                        thought = "先找到截图文件夹",
+                        screen = screen,
+                    )
+                shown = true
+            }
+        val expanded =
+            CapsuleState().apply {
+                focus =
+                    FakeFocus(
+                        OverlayPhase.CONTROLLING,
+                        step = "你在接管",
+                        thought = "",
+                        screen = screen,
+                    )
+                shown = true
+                this.expanded = true
+            }
         shootCapsules("status-capsule-stage", collapsed, expanded)
     }
 
@@ -77,19 +94,24 @@ class CapsuleShots : ShotTest() {
     @Test
     fun supplementInput() {
         Fixtures.readyHub(app)
-        val input = CapsuleState().apply {
-            focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹")
-            shown = true
-            expanded = true
-            inputMode = true
-        }
+        val input =
+            CapsuleState().apply {
+                focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "先找到截图文件夹")
+                shown = true
+                expanded = true
+                inputMode = true
+            }
         shootCapsules("status-capsule-input", input)
     }
 
     private fun shootCapsules(name: String, vararg states: CapsuleState) {
         shoot(name, target = hasTestTag("capsules")) {
             Column(
-                modifier = Modifier.testTag("capsules").fillMaxWidth().background(COUITheme.colorScheme.backgroundWithCard).padding(vertical = 16.dp),
+                modifier =
+                    Modifier.testTag("capsules")
+                        .fillMaxWidth()
+                        .background(COUITheme.colorScheme.backgroundWithCard)
+                        .padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 for (state in states) StatusCapsule(state, NoControls)
@@ -104,14 +126,29 @@ class CapsuleShots : ShotTest() {
     private fun fakeScreen(): VirtualScreen {
         val width = 1220
         val height = 2656
-        val constructor = VirtualScreen::class.java.declaredConstructors.single { it.parameterCount == 7 }
+        val constructor =
+            VirtualScreen::class.java.declaredConstructors.single { it.parameterCount == 7 }
         constructor.isAccessible = true
         val worker = HandlerThread("fake-screen").apply { start() }
         val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-        val screen = constructor.newInstance(0, width, height, reader, worker, Handler(worker.looper), IdleProcess()) as VirtualScreen
+        val screen =
+            constructor.newInstance(
+                0,
+                width,
+                height,
+                reader,
+                worker,
+                Handler(worker.looper),
+                IdleProcess(),
+            ) as VirtualScreen
         val frame = VirtualScreen.Frame(fakeApp(width, height), width, height, 1)
-        VirtualScreen::class.java.getDeclaredField("snapshot").apply { isAccessible = true }.set(screen, frame)
-        val frames = VirtualScreen::class.java.getDeclaredField("_frames").apply { isAccessible = true }
+        VirtualScreen::class
+            .java
+            .getDeclaredField("snapshot")
+            .apply { isAccessible = true }
+            .set(screen, frame)
+        val frames =
+            VirtualScreen::class.java.getDeclaredField("_frames").apply { isAccessible = true }
         @Suppress("UNCHECKED_CAST")
         (frames.get(screen) as MutableStateFlow<VirtualScreen.Frame?>).value = frame
         return screen
@@ -125,7 +162,15 @@ class CapsuleShots : ShotTest() {
         canvas.drawColor(0xFFF2F3F5.toInt())
         paint.color = 0xFF2F6FED.toInt()
         canvas.drawRect(0f, 0f, width.toFloat(), 420f, paint)
-        val tiles = intArrayOf(0xFFFFB74D.toInt(), 0xFF81C784.toInt(), 0xFF64B5F6.toInt(), 0xFFE57373.toInt(), 0xFFBA68C8.toInt(), 0xFF4DB6AC.toInt())
+        val tiles =
+            intArrayOf(
+                0xFFFFB74D.toInt(),
+                0xFF81C784.toInt(),
+                0xFF64B5F6.toInt(),
+                0xFFE57373.toInt(),
+                0xFFBA68C8.toInt(),
+                0xFF4DB6AC.toInt(),
+            )
         val size = (width - 80f) / 3f
         for (i in 0 until 12) {
             val col = i % 3
@@ -140,10 +185,15 @@ class CapsuleShots : ShotTest() {
 
     private class IdleProcess : Process() {
         override fun getOutputStream(): OutputStream = OutputStream.nullOutputStream()
+
         override fun getInputStream(): InputStream = InputStream.nullInputStream()
+
         override fun getErrorStream(): InputStream = InputStream.nullInputStream()
+
         override fun waitFor(): Int = 0
+
         override fun exitValue(): Int = 0
+
         override fun destroy() = Unit
     }
 
@@ -158,28 +208,53 @@ class CapsuleShots : ShotTest() {
         override val actingOnMain = false
         override val userControlling = phase == OverlayPhase.CONTROLLING
         override val touches: SharedFlow<TouchMark> = MutableSharedFlow()
+
         override fun takeOver() = Unit
+
         override fun resumeAuto() = Unit
+
         override fun pause() = Unit
+
         override fun resume() = Unit
+
         override fun stop() = Unit
+
         override fun supplement(text: String) = Unit
+
         override fun userTap(x: Float, y: Float, longPress: Boolean) = Unit
-        override fun userSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Int) = Unit
+
+        override fun userSwipe(
+            startX: Float,
+            startY: Float,
+            endX: Float,
+            endY: Float,
+            durationMs: Int,
+        ) = Unit
+
         override fun handoffToMain() = Unit
+
         override fun openInZeta() = Unit
     }
 
     private object NoControls : CapsuleControls {
         override fun toggle() = Unit
+
         override fun collapse() = Unit
+
         override fun onCollapsedSettled() = Unit
+
         override fun onExitSettled() = Unit
+
         override fun setInputMode(enabled: Boolean) = Unit
+
         override fun reportContentHeight(px: Int) = Unit
+
         override fun onScreenChanged() = Unit
+
         override fun takeOver() = Unit
+
         override fun fullscreen(stage: Rect, frame: VirtualScreen.Frame?) = Unit
+
         override fun openInZeta() = Unit
     }
 }

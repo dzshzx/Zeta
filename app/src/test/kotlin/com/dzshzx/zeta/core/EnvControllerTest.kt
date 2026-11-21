@@ -15,8 +15,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * [EnvController]：检查环境、换环境、默认工作目录、维护卡片。单元测试的 PATH 里的 `su` 总是失败（app/src/test/no-root），
- * 所以检查的结果是没有 root；要真 root 的安装、SSH、修复在设备上验。
+ * [EnvController]：检查环境、换环境、默认工作目录、维护卡片。单元测试的 PATH 里的 `su` 总是失败（app/src/test/no-root）， 所以检查的结果是没有
+ * root；要真 root 的安装、SSH、修复在设备上验。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -38,8 +38,18 @@ class EnvControllerTest {
         val hub = Fixtures.readyHub(app)
         val environment = hub.environment
         val before = hub.current
-        environment.ssh = SshStatus(installed = true, running = true, autostart = false, port = "22", listen = "0.0.0.0", keys = 0, passwordLogin = false)
-        hub.sessionList.sessions = listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0))
+        environment.ssh =
+            SshStatus(
+                installed = true,
+                running = true,
+                autostart = false,
+                port = "22",
+                listen = "0.0.0.0",
+                keys = 0,
+                passwordLogin = false,
+            )
+        hub.sessionList.sessions =
+            listOf(SessionSummary("s1", "/f", "/workspace/claude", "旧会话", "", 0))
         environment.redetect("/data/local/other/rootfs")
         assertEquals("/data/local/other/rootfs", environment.rootfsHint)
         assertNull(hub.settings.env)

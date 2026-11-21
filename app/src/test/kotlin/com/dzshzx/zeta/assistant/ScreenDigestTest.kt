@@ -17,19 +17,23 @@ class ScreenDigestTest {
         override val skipped: Boolean = false,
         val kids: List<Node> = emptyList(),
     ) : ScreenNode {
-        override val childCount: Int get() = kids.size
+        override val childCount: Int
+            get() = kids.size
+
         override fun child(index: Int): ScreenNode = kids[index]
     }
 
     @Test
     fun collectsTextInScreenOrderAndDropsRepeats() {
-        val root = Node(
-            kids = listOf(
-                Node(text = "  标题 \n 第二行 "),
-                Node(kids = listOf(Node(text = "正文"), Node(text = "标题 第二行"))),
-                Node(text = "尾巴"),
-            ),
-        )
+        val root =
+            Node(
+                kids =
+                    listOf(
+                        Node(text = "  标题 \n 第二行 "),
+                        Node(kids = listOf(Node(text = "正文"), Node(text = "标题 第二行"))),
+                        Node(text = "尾巴"),
+                    ),
+            )
         val (lines, truncated) = ScreenDigest.collect(listOf(root))
         assertEquals(listOf("标题 第二行", "正文", "尾巴"), lines)
         assertFalse(truncated)
@@ -37,18 +41,28 @@ class ScreenDigestTest {
 
     @Test
     fun skipsHiddenAndPasswordSubtrees() {
-        val root = Node(
-            kids = listOf(
-                Node(text = "看得见"),
-                Node(skipped = true, text = "密码", kids = listOf(Node(text = "下面也不要"))),
-            ),
-        )
+        val root =
+            Node(
+                kids =
+                    listOf(
+                        Node(text = "看得见"),
+                        Node(skipped = true, text = "密码", kids = listOf(Node(text = "下面也不要"))),
+                    ),
+            )
         assertEquals(listOf("看得见"), ScreenDigest.collect(listOf(root)).first)
     }
 
     @Test
     fun shortDescriptionsAreButtonNamesNotContent() {
-        val root = Node(kids = listOf(Node(description = "返回"), Node(description = "一张猫的照片"), Node(text = "正文", description = "被文字盖过")))
+        val root =
+            Node(
+                kids =
+                    listOf(
+                        Node(description = "返回"),
+                        Node(description = "一张猫的照片"),
+                        Node(text = "正文", description = "被文字盖过"),
+                    ),
+            )
         assertEquals(listOf("一张猫的照片", "正文"), ScreenDigest.collect(listOf(root)).first)
     }
 
@@ -70,7 +84,14 @@ class ScreenDigestTest {
 
     @Test
     fun blockNamesTheAppAndListsText() {
-        val app = ScreenApp("com.android.settings", "设置", webUri = null, lines = listOf("WLAN", "蓝牙"), truncated = true)
+        val app =
+            ScreenApp(
+                "com.android.settings",
+                "设置",
+                webUri = null,
+                lines = listOf("WLAN", "蓝牙"),
+                truncated = true,
+            )
         val block = ScreenDigest.contextBlock(listOf(app), screenshot = true)!!
         assertEquals(
             "<screen_context>\n唤起 Zeta 时的屏幕，截图见附图。\n应用：设置（com.android.settings）\n屏幕上的文字：\nWLAN\n蓝牙\n（文字太多，后面的没有列出）\n</screen_context>",
@@ -119,14 +140,15 @@ class ScreenDigestTest {
 
     @Test
     fun replyJoinsThisTurnsAnswers() {
-        val items = listOf(
-            UserItem("u0", "上一个问题"),
-            AnswerItem("a0", "上一轮的回答", streaming = false),
-            UserItem("u1", "这页讲了什么"),
-            AnswerItem("a1", "先看一下。", streaming = false),
-            WorkItem("w1", emptyList()),
-            AnswerItem("a2", "这是设置页。", streaming = true),
-        )
+        val items =
+            listOf(
+                UserItem("u0", "上一个问题"),
+                AnswerItem("a0", "上一轮的回答", streaming = false),
+                UserItem("u1", "这页讲了什么"),
+                AnswerItem("a1", "先看一下。", streaming = false),
+                WorkItem("w1", emptyList()),
+                AnswerItem("a2", "这是设置页。", streaming = true),
+            )
         val view = AssistantReplies.view(items, busy = true, pendingTool = null)
         assertEquals("先看一下。\n\n这是设置页。", view.text)
         assertTrue(view.streaming)
@@ -136,16 +158,31 @@ class ScreenDigestTest {
     @Test
     fun replyStatusBeforeTheAnswer() {
         val asked = listOf(UserItem("u1", "这页讲了什么"))
-        assertEquals("Claude 正在看…", AssistantReplies.view(asked, busy = true, pendingTool = null).status)
-        val working = AssistantReplies.view(asked + WorkItem("w", emptyList()), busy = true, pendingTool = null)
+        assertEquals(
+            "Claude 正在看…",
+            AssistantReplies.view(asked, busy = true, pendingTool = null).status,
+        )
+        val working =
+            AssistantReplies.view(
+                asked + WorkItem("w", emptyList()),
+                busy = true,
+                pendingTool = null,
+            )
         assertEquals("Claude 正在处理…", working.status)
         val waiting = AssistantReplies.view(asked, busy = true, pendingTool = "Bash")
         assertTrue(waiting.attention)
         assertTrue(waiting.status!!.contains("Bash"))
-        val failed = AssistantReplies.view(asked + NoticeItem("n", "进程退出了", error = true), busy = false, pendingTool = null)
+        val failed =
+            AssistantReplies.view(
+                asked + NoticeItem("n", "进程退出了", error = true),
+                busy = false,
+                pendingTool = null,
+            )
         assertEquals("进程退出了", failed.error)
         assertNull(failed.status)
-        assertEquals("这一轮没有回答", AssistantReplies.view(asked, busy = false, pendingTool = null).status)
+        assertEquals(
+            "这一轮没有回答",
+            AssistantReplies.view(asked, busy = false, pendingTool = null).status,
+        )
     }
-
 }

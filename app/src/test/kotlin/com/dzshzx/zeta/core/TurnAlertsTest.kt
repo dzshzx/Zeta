@@ -21,8 +21,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，用户叫停的不提醒；没人用手机时胶囊不显示、实时通知没有内容。
- * 结果卡片弹不弹、留不留由 ResultCardShots 走一轮结束的真实路径验。
+ * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，用户叫停的不提醒；没人用手机时胶囊不显示、实时通知没有内容。 结果卡片弹不弹、留不留由 ResultCardShots
+ * 走一轮结束的真实路径验。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -36,8 +36,9 @@ class TurnAlertsTest {
     }
 
     private fun alerts(): List<String> =
-        shadowOf(app.getSystemService(NotificationManager::class.java)).allNotifications
-            .map { it.extras.getCharSequence(Notification.EXTRA_TEXT).toString() }
+        shadowOf(app.getSystemService(NotificationManager::class.java)).allNotifications.map {
+            it.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
+        }
 
     private fun clear() = app.getSystemService(NotificationManager::class.java).cancelAll()
 
@@ -56,7 +57,14 @@ class TurnAlertsTest {
         clear()
         // 前台显示的是别的对话
         hub.foreground = true
-        val other = Conversation(hub, "/workspace/claude", sessionId = null, title = "别的", historyFile = null)
+        val other =
+            Conversation(
+                hub,
+                "/workspace/claude",
+                sessionId = null,
+                title = "别的",
+                historyFile = null,
+            )
         hub.alerts.turnFinished(other, stopped = false)
         assertEquals(listOf("已完成"), alerts())
     }
@@ -100,7 +108,10 @@ class TurnAlertsTest {
         run.notifiedRequest = "r1"
         assertTrue(run.asked)
         assertFalse("等过确认：照常提醒", run.quiet)
-        assertFalse("每次都提醒的不会安静", UnattendedRun(onlyOnChange = false).apply { report = RunReport(false, "") }.quiet)
+        assertFalse(
+            "每次都提醒的不会安静",
+            UnattendedRun(onlyOnChange = false).apply { report = RunReport(false, "") }.quiet,
+        )
     }
 
     @Test

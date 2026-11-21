@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -37,10 +38,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -51,7 +56,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.R
@@ -73,8 +80,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
  *
- * 每个块以源码偏移作为组合 key；未变化的块是同一个实例，组合期直接跳过。传入
- * [reveal] 时文本块接入逐字显现：排版仍然一次完成，帧间推进只让绘制失效。
+ * 每个块以源码偏移作为组合 key；未变化的块是同一个实例，组合期直接跳过。传入 [reveal] 时文本块接入逐字显现：排版仍然一次完成，帧间推进只让绘制失效。
  */
 @Composable
 internal fun MarkdownContent(
@@ -84,14 +90,19 @@ internal fun MarkdownContent(
     reveal: SmoothTextRevealCoordinator? = null,
 ) {
     val scope = remember(style, reveal) { MarkdownRenderScope(style, reveal) }
-    MarkdownBlockColumn(blocks = document.blocks, scope = scope, compact = false, modifier = modifier, layered = reveal != null)
+    MarkdownBlockColumn(
+        blocks = document.blocks,
+        scope = scope,
+        compact = false,
+        modifier = modifier,
+        layered = reveal != null,
+    )
 }
 
 /**
  * 面向独立滚动视口（如长篇 MEMORY.md 预览）的按需虚拟化 Markdown 视图。
  *
- * 将顶层块与顶层列表项拆分为 LazyColumn 条目，使数十 KiB 的长文档首帧只组合与测量当前视口内的少量节点，
- * 避免页面进入动画期间一次性排版整篇文档造成主线程掉帧。
+ * 将顶层块与顶层列表项拆分为 LazyColumn 条目，使数十 KiB 的长文档首帧只组合与测量当前视口内的少量节点， 避免页面进入动画期间一次性排版整篇文档造成主线程掉帧。
  */
 @Composable
 internal fun LazyMarkdownContent(
@@ -113,36 +124,53 @@ internal fun LazyMarkdownContent(
             val previous = document.blocks.getOrNull(blockIndex - 1)
             val blockGapSp = markdownBlockGap(previous, block, style.tone)
             if (block is MarkdownList && block.items.isNotEmpty()) {
-                val markerWidth = listMarkerWidth(block)
-                block.items.forEachIndexed { itemIndex, listItem ->
-                    val prevItem = block.items.getOrNull(itemIndex - 1)
-                    item(key = (block.offset.toLong() shl 32) or (listItem.offset.toLong() and 0xFFFFFFFFL)) {
-                        if (itemIndex == 0) {
-                            if (blockGapSp.value > 0f) {
-                                Spacer(Modifier.height(with(density) { blockGapSp.toDp() }))
-                            }
-                        } else if (prevItem != null) {
-                            Spacer(Modifier.height(listItemGap(prevItem, listItem, block.loose, answer)))
-                        }
-                        MarkdownListItemRow(
-                            item = listItem,
-                            ordered = block.ordered,
-                            loose = block.loose,
-                            depth = 0,
-                            markerWidth = markerWidth,
-                            scope = scope,
-                        )
-                    }
-                }
+                lazyListItems(block, blockGapSp, density, answer, scope)
             } else {
                 item(key = block.offset) {
-                    if (blockGapSp.value > 0f) {
-                        Spacer(Modifier.height(with(density) { blockGapSp.toDp() }))
-                    }
+                    BlockGapSpacer(blockGapSp, density)
                     MarkdownBlockView(block, scope)
                 }
             }
         }
+    }
+}
+
+/** 顶层列表的每一项各占一个 LazyColumn 条目；第一项前是块间距，其余项前是项间距。 */
+private fun LazyListScope.lazyListItems(
+    block: MarkdownList,
+    blockGapSp: TextUnit,
+    density: Density,
+    answer: Boolean,
+    scope: MarkdownRenderScope,
+) {
+    val markerWidth = listMarkerWidth(block)
+    block.items.forEachIndexed { itemIndex, listItem ->
+        val prevItem = block.items.getOrNull(itemIndex - 1)
+        item(
+            key = (block.offset.toLong() shl 32) or (listItem.offset.toLong() and 0xFFFFFFFFL),
+        ) {
+            if (itemIndex == 0) {
+                BlockGapSpacer(blockGapSp, density)
+            } else if (prevItem != null) {
+                Spacer(Modifier.height(listItemGap(prevItem, listItem, block.loose, answer)))
+            }
+            MarkdownListItemRow(
+                item = listItem,
+                ordered = block.ordered,
+                loose = block.loose,
+                depth = 0,
+                markerWidth = markerWidth,
+                scope = scope,
+            )
+        }
+    }
+}
+
+/** 块间距（sp），为 0 时不放 Spacer。 */
+@Composable
+private fun BlockGapSpacer(gapSp: TextUnit, density: Density) {
+    if (gapSp.value > 0f) {
+        Spacer(Modifier.height(with(density) { gapSp.toDp() }))
     }
 }
 
@@ -171,14 +199,16 @@ private fun MarkdownBlockColumn(
         blocks.forEachIndexed { index, block ->
             key(block.offset) {
                 val previous = blocks.getOrNull(index - 1)
-                val gap = if (compact) {
-                    markdownCompactGap(previous, block, scope.style.tone)
-                } else {
-                    markdownBlockGap(previous, block, scope.style.tone)
-                }
+                val gap =
+                    if (compact) {
+                        markdownCompactGap(previous, block, scope.style.tone)
+                    } else {
+                        markdownBlockGap(previous, block, scope.style.tone)
+                    }
                 if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
                 // [layered]（流式回答的顶层）时每块单独一层：只有最后一块在长字、逐字显现每帧重画，前面的块不跟着重新录制
-                if (layered) Box(Modifier.graphicsLayer()) { MarkdownBlockView(block, scope) } else MarkdownBlockView(block, scope)
+                if (layered) Box(Modifier.graphicsLayer()) { MarkdownBlockView(block, scope) }
+                else MarkdownBlockView(block, scope)
             }
         }
     }
@@ -188,36 +218,40 @@ private fun MarkdownBlockColumn(
 private fun MarkdownBlockView(block: MarkdownBlock, scope: MarkdownRenderScope) {
     when (block) {
         is MarkdownParagraph -> MarkdownText(block, scope.style.body, scope)
-        is MarkdownHeading -> MarkdownText(
-            block = block,
-            style = scope.style.heading(block.level),
-            scope = scope,
-            modifier = Modifier.semantics { heading() },
-        )
+        is MarkdownHeading ->
+            MarkdownText(
+                block = block,
+                style = scope.style.heading(block.level),
+                scope = scope,
+                modifier = Modifier.semantics { heading() },
+            )
         is MarkdownCode -> MarkdownCodeBlock(block, scope)
-        is MarkdownMath -> MarkdownDisplayMathBlock(
-            block = block,
-            style = scope.style,
-            inQuote = scope.inQuote,
-            reveal = scope.reveal,
-        )
+        is MarkdownMath ->
+            MarkdownDisplayMathBlock(
+                block = block,
+                style = scope.style,
+                inQuote = scope.inQuote,
+                reveal = scope.reveal,
+            )
         is MarkdownQuote -> MarkdownQuoteBlock(block, scope)
         is MarkdownAlert -> MarkdownAlertBlock(block, scope)
         is MarkdownList -> MarkdownListBlock(block, scope)
         is MarkdownTable -> MarkdownTableBlock(block, scope)
-        is MarkdownTableCell -> MarkdownText(
-            block = block,
-            style = scope.style.table,
-            scope = scope,
-            maxInlineMathWidth = TableMaxColumnWidth - 24.dp,
-        )
-        is MarkdownRule -> Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp)
-                .height(0.5.dp)
-                .background(scope.style.ruleColor),
-        )
+        is MarkdownTableCell ->
+            MarkdownText(
+                block = block,
+                style = scope.style.table,
+                scope = scope,
+                maxInlineMathWidth = TableMaxColumnWidth - 24.dp,
+            )
+        is MarkdownRule ->
+            Box(
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .height(0.5.dp)
+                        .background(scope.style.ruleColor),
+            )
     }
 }
 
@@ -230,17 +264,18 @@ private fun MarkdownText(
     softWrap: Boolean = true,
     maxInlineMathWidth: Dp? = null,
 ) {
-    val inlineContent = if (block.inlineMath.isEmpty()) {
-        emptyMap()
-    } else {
-        rememberInlineMathContentMap(
-            text = block.text,
-            specs = block.inlineMath,
-            textStyle = style,
-            fallbackColor = scope.style.textColor,
-            maxInlineWidthDp = maxInlineMathWidth,
-        )
-    }
+    val inlineContent =
+        if (block.inlineMath.isEmpty()) {
+            emptyMap()
+        } else {
+            rememberInlineMathContentMap(
+                text = block.text,
+                specs = block.inlineMath,
+                textStyle = style,
+                fallbackColor = scope.style.textColor,
+                maxInlineWidthDp = maxInlineMathWidth,
+            )
+        }
     val reveal = scope.reveal
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
     if (reveal == null || block.text.isEmpty()) {
@@ -256,13 +291,14 @@ private fun MarkdownText(
         return
     }
     val revealState = rememberSmoothTextRevealState(block.revealKey, reveal)
-    val atomicSpans = if (block.inlineMath.isEmpty()) {
-        emptyList()
-    } else {
-        remember(block.inlineMath) {
-            block.inlineMath.map { RevealAtomicSpan(it.rangeStart, it.rangeEnd) }
+    val atomicSpans =
+        if (block.inlineMath.isEmpty()) {
+            emptyList()
+        } else {
+            remember(block.inlineMath) {
+                block.inlineMath.map { RevealAtomicSpan(it.rangeStart, it.rangeEnd) }
+            }
         }
-    }
     // 显现裁剪按字素边界逐帧变化，关闭像素对齐可避免裁剪边缘抖动。
     val animatedStyle = remember(style) { style.copy(textMotion = TextMotion.Animated) }
     Text(
@@ -281,45 +317,53 @@ private fun MarkdownText(
 private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
     val style = scope.style
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .squircleSurface(color = style.codeBackground, cornerRadius = 12.dp)
-            .squircleBorder(width = 0.5.dp, color = style.subtleBorderColor, cornerRadius = 12.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .squircleSurface(color = style.codeBackground, cornerRadius = 12.dp)
+                .squircleBorder(
+                    width = 0.5.dp,
+                    color = style.subtleBorderColor,
+                    cornerRadius = 12.dp,
+                ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 34.dp)
-                .background(style.codeHeaderBackground)
-                .padding(start = 14.dp, end = 4.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .heightIn(min = 34.dp)
+                    .background(style.codeHeaderBackground)
+                    .padding(start = 14.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = block.language ?: stringResource(R.string.markdown_code_block),
-                style = COUITheme.textStyles.bodyXS.copy(
-                    fontFamily = if (block.language != null) MonoFont else null,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
+                style =
+                    COUITheme.textStyles.bodyXS.copy(
+                        fontFamily = if (block.language != null) MonoFont else null,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
                 color = style.secondaryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            CopyIconButton(text = block.text.text, size = 32.dp, iconSize = 14.dp, tint = style.secondaryColor, contentDescription = "复制代码")
+            CopyIconButton(
+                text = block.text.text,
+                size = 32.dp,
+                iconSize = 14.dp,
+                tint = style.secondaryColor,
+                contentDescription = "复制代码",
+            )
         }
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(style.subtleBorderColor),
+            modifier = Modifier.fillMaxWidth().height(0.5.dp).background(style.subtleBorderColor),
         )
         // 代码不折行，长行横向滚动，保留缩进与对齐。
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp, vertical = 11.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
         ) {
             MarkdownText(block, style.code, scope, softWrap = false)
         }
@@ -328,12 +372,13 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
 
 // ── 引用与提示 ──────────────────────────────────────────────────────────
 
-private val QuoteContainerShape = RoundedCornerShape(
-    topStart = 3.dp,
-    bottomStart = 3.dp,
-    topEnd = 10.dp,
-    bottomEnd = 10.dp,
-)
+private val QuoteContainerShape =
+    RoundedCornerShape(
+        topStart = 3.dp,
+        bottomStart = 3.dp,
+        topEnd = 10.dp,
+        bottomEnd = 10.dp,
+    )
 
 @Composable
 private fun MarkdownQuoteBlock(block: MarkdownQuote, scope: MarkdownRenderScope) {
@@ -342,33 +387,32 @@ private fun MarkdownQuoteBlock(block: MarkdownQuote, scope: MarkdownRenderScope)
     val quotedScope = remember(scope) { scope.quoted() }
     // 聊天中的顶层引用常承载模型拟好的回复话术或核心摘录，采用轻底色便签容器与细边条；
     // 嵌套引用只保留细内线，避免多层底色叠加显得笨重。
-    val quoteModifier = if (scope.inQuote) {
-        Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                val width = 2.dp.toPx()
-                drawLine(
-                    color = barColor,
-                    start = Offset(width / 2, width / 2),
-                    end = Offset(width / 2, size.height - width / 2),
-                    strokeWidth = width,
-                    cap = StrokeCap.Round,
-                )
-            }
-            .padding(start = 12.dp)
-    } else {
-        Modifier
-            .fillMaxWidth()
-            .clip(QuoteContainerShape)
-            .background(style.quoteBackground)
-            .drawBehind {
-                drawRect(
-                    color = barColor,
-                    size = Size(2.5.dp.toPx(), size.height),
-                )
-            }
-            .padding(start = 13.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-    }
+    val quoteModifier =
+        if (scope.inQuote) {
+            Modifier.fillMaxWidth()
+                .drawBehind {
+                    val width = 2.dp.toPx()
+                    drawLine(
+                        color = barColor,
+                        start = Offset(width / 2, width / 2),
+                        end = Offset(width / 2, size.height - width / 2),
+                        strokeWidth = width,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                .padding(start = 12.dp)
+        } else {
+            Modifier.fillMaxWidth()
+                .clip(QuoteContainerShape)
+                .background(style.quoteBackground)
+                .drawBehind {
+                    drawRect(
+                        color = barColor,
+                        size = Size(2.5.dp.toPx(), size.height),
+                    )
+                }
+                .padding(start = 13.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+        }
     MarkdownBlockColumn(
         blocks = block.blocks,
         scope = quotedScope,
@@ -382,11 +426,15 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
     val accent = block.kind.accentColor()
     val fillAlpha = if (scope.style.isDark) 0.10f else 0.055f
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .squircleSurface(color = accent.copy(alpha = fillAlpha), cornerRadius = 12.dp)
-            .squircleBorder(width = 0.5.dp, color = accent.copy(alpha = 0.20f), cornerRadius = 12.dp)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .squircleSurface(color = accent.copy(alpha = fillAlpha), cornerRadius = 12.dp)
+                .squircleBorder(
+                    width = 0.5.dp,
+                    color = accent.copy(alpha = 0.20f),
+                    cornerRadius = 12.dp,
+                )
+                .padding(horizontal = 14.dp, vertical = 11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -398,10 +446,11 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
             Spacer(Modifier.width(6.dp))
             Text(
                 text = stringResource(block.kind.label),
-                style = COUITheme.textStyles.bodyM.copy(
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
+                style =
+                    COUITheme.textStyles.bodyM.copy(
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
                 color = accent,
             )
         }
@@ -413,22 +462,24 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
 }
 
 private val MarkdownAlertKind.icon: ImageVector
-    get() = when (this) {
-        MarkdownAlertKind.Note -> COUIIcons.Info
-        MarkdownAlertKind.Tip -> ZetaIcons.Lightbulb
-        MarkdownAlertKind.Important -> COUIIcons.Community
-        MarkdownAlertKind.Warning -> ZetaIcons.Warning
-        MarkdownAlertKind.Caution -> COUIIcons.Report
-    }
+    get() =
+        when (this) {
+            MarkdownAlertKind.Note -> COUIIcons.Info
+            MarkdownAlertKind.Tip -> ZetaIcons.Lightbulb
+            MarkdownAlertKind.Important -> COUIIcons.Community
+            MarkdownAlertKind.Warning -> ZetaIcons.Warning
+            MarkdownAlertKind.Caution -> COUIIcons.Report
+        }
 
 private val MarkdownAlertKind.label: Int
-    get() = when (this) {
-        MarkdownAlertKind.Note -> R.string.markdown_alert_note
-        MarkdownAlertKind.Tip -> R.string.markdown_alert_tip
-        MarkdownAlertKind.Important -> R.string.markdown_alert_important
-        MarkdownAlertKind.Warning -> R.string.markdown_alert_warning
-        MarkdownAlertKind.Caution -> R.string.markdown_alert_caution
-    }
+    get() =
+        when (this) {
+            MarkdownAlertKind.Note -> R.string.markdown_alert_note
+            MarkdownAlertKind.Tip -> R.string.markdown_alert_tip
+            MarkdownAlertKind.Important -> R.string.markdown_alert_important
+            MarkdownAlertKind.Warning -> R.string.markdown_alert_warning
+            MarkdownAlertKind.Caution -> R.string.markdown_alert_caution
+        }
 
 @Composable
 private fun MarkdownAlertKind.accentColor(): Color {
@@ -444,13 +495,14 @@ private fun MarkdownAlertKind.accentColor(): Color {
 
 // ── 列表 ────────────────────────────────────────────────────────────────
 
-private fun listMarkerWidth(block: MarkdownList): Dp = if (block.ordered) {
-    val digits = (block.items.lastOrNull()?.number ?: 1).toString().length
-    // 单位数序号起始贴齐正文左边界，多位数按最长序号预留槽位，保证列表项正文左边缘统一。
-    if (digits <= 1) 18.dp else (digits * 9 + 6).dp
-} else {
-    14.dp
-}
+private fun listMarkerWidth(block: MarkdownList): Dp =
+    if (block.ordered) {
+        val digits = (block.items.lastOrNull()?.number ?: 1).toString().length
+        // 单位数序号起始贴齐正文左边界，多位数按最长序号预留槽位，保证列表项正文左边缘统一。
+        if (digits <= 1) 18.dp else (digits * 9 + 6).dp
+    } else {
+        14.dp
+    }
 
 private fun MarkdownListItem.hasStructuredContent(): Boolean =
     blocks.size > 1 || blocks.any { it !is MarkdownParagraph }
@@ -460,11 +512,13 @@ private fun listItemGap(
     current: MarkdownListItem,
     loose: Boolean,
     answer: Boolean,
-): Dp = when {
-    loose -> if (answer) 11.dp else 8.dp
-    previous.hasStructuredContent() || current.hasStructuredContent() -> if (answer) 10.dp else 7.dp
-    else -> if (answer) 6.dp else 4.dp
-}
+): Dp =
+    when {
+        loose -> if (answer) 11.dp else 8.dp
+        previous.hasStructuredContent() || current.hasStructuredContent() ->
+            if (answer) 10.dp else 7.dp
+        else -> if (answer) 6.dp else 4.dp
+    }
 
 @Composable
 private fun MarkdownListBlock(block: MarkdownList, scope: MarkdownRenderScope) {
@@ -502,15 +556,21 @@ private fun MarkdownListItemRow(
 ) {
     val useBaselineAlignment = ordered && item.checked == null
     Row(Modifier.fillMaxWidth()) {
-        ListMarker(item = item, ordered = ordered, depth = depth, width = markerWidth, scope = scope)
+        ListMarker(
+            item = item,
+            ordered = ordered,
+            depth = depth,
+            width = markerWidth,
+            scope = scope,
+        )
         CompositionLocalProvider(LocalListDepth provides depth + 1) {
             MarkdownBlockColumn(
                 blocks = item.blocks,
                 scope = scope,
                 compact = !loose,
-                modifier = Modifier
-                    .weight(1f)
-                    .then(if (useBaselineAlignment) Modifier.alignByBaseline() else Modifier),
+                modifier =
+                    Modifier.weight(1f)
+                        .then(if (useBaselineAlignment) Modifier.alignByBaseline() else Modifier),
             )
         }
     }
@@ -527,83 +587,113 @@ private fun RowScope.ListMarker(
     val style = scope.style
     val reveal = scope.reveal
     val firstBlock = item.blocks.firstOrNull()
-    val firstLineHeightSp = if (firstBlock is MarkdownHeading) {
-        style.heading(firstBlock.level).lineHeight
-    } else {
-        style.body.lineHeight
-    }
+    val firstLineHeightSp =
+        if (firstBlock is MarkdownHeading) {
+            style.heading(firstBlock.level).lineHeight
+        } else {
+            style.body.lineHeight
+        }
     val topInset = if (firstBlock is MarkdownQuote && !scope.inQuote) 8.dp else 0.dp
     // 在 graphicsLayer 内读取显现进度：块开始显现只让 marker 图层更新，不触发重组。
     val visibility = Modifier.graphicsLayer {
-        alpha = if (listMarkerVisible(reveal != null, item.markerRevealKey, reveal?.started?.value)) 1f else 0f
+        alpha =
+            if (listMarkerVisible(reveal != null, item.markerRevealKey, reveal?.started?.value)) 1f
+            else 0f
     }
-    val markerModifier = visibility
-        .padding(end = 6.dp)
-        .widthIn(min = width)
+    val markerModifier = visibility.padding(end = 6.dp).widthIn(min = width)
     when {
-        item.checked != null -> {
-            val lineHeight = with(LocalDensity.current) { firstLineHeightSp.toDp() }
-            Box(
-                modifier = markerModifier
-                    .padding(top = topInset)
-                    .height(lineHeight),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Icon(
-                    imageVector = if (item.checked) COUIIcons.Tasks else ZetaIcons.CheckboxBlank,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp),
-                    tint = if (item.checked) COUITheme.colorScheme.primary else style.markerColor,
-                )
-            }
-        }
-        ordered -> Text(
-            text = "${item.number}.",
-            style = style.body.copy(fontWeight = FontWeight.Medium),
-            color = style.markerColor,
-            textAlign = TextAlign.Start,
-            modifier = markerModifier.alignByBaseline(),
+        item.checked != null ->
+            TaskMarker(
+                checked = item.checked,
+                modifier = markerModifier.padding(top = topInset),
+                lineHeightSp = firstLineHeightSp,
+                uncheckedTint = style.markerColor,
+            )
+        ordered ->
+            Text(
+                text = "${item.number}.",
+                style = style.body.copy(fontWeight = FontWeight.Medium),
+                color = style.markerColor,
+                textAlign = TextAlign.Start,
+                modifier = markerModifier.alignByBaseline(),
+            )
+        else ->
+            BulletMarker(
+                depth = depth,
+                answer = style.tone == MarkdownTone.Answer,
+                color = style.markerColor,
+                modifier = markerModifier.padding(top = topInset),
+                lineHeightSp = firstLineHeightSp,
+            )
+    }
+}
+
+/** 任务列表项的勾选框，在第一行里竖直居中。 */
+@Composable
+private fun TaskMarker(
+    checked: Boolean,
+    modifier: Modifier,
+    lineHeightSp: TextUnit,
+    uncheckedTint: Color,
+) {
+    val lineHeight = with(LocalDensity.current) { lineHeightSp.toDp() }
+    Box(
+        modifier = modifier.height(lineHeight),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Icon(
+            imageVector = if (checked) COUIIcons.Tasks else ZetaIcons.CheckboxBlank,
+            contentDescription = null,
+            modifier = Modifier.size(17.dp),
+            tint = if (checked) COUITheme.colorScheme.primary else uncheckedTint,
         )
+    }
+}
+
+/** 无序列表的圆点，按层级轮换实心圆、空心圆和小方块。 */
+@Composable
+private fun BulletMarker(
+    depth: Int,
+    answer: Boolean,
+    color: Color,
+    modifier: Modifier,
+    lineHeightSp: TextUnit,
+) {
+    val lineHeight = with(LocalDensity.current) { lineHeightSp.toDp() }
+    Box(
+        modifier =
+            modifier.height(lineHeight).drawBehind {
+                // 自绘几何圆点替代字体自带的 "•"，跨 ColorOS / HyperOS 字库保持尺寸与视觉重心一致。
+                drawListBullet(depth, answer, color)
+            },
+    )
+}
+
+private fun DrawScope.drawListBullet(depth: Int, answer: Boolean, bulletColor: Color) {
+    val diameter = (if (answer) 5.dp else 4.dp).toPx()
+    val center = Offset(x = diameter / 2f + 2.dp.toPx(), y = size.height * 0.52f)
+    when (depth % 3) {
+        0 -> drawCircle(color = bulletColor, radius = diameter / 2f, center = center)
+        1 ->
+            drawCircle(
+                color = bulletColor,
+                radius = diameter / 2f,
+                center = center,
+                style = Stroke(width = 1.2.dp.toPx()),
+            )
         else -> {
-            val lineHeight = with(LocalDensity.current) { firstLineHeightSp.toDp() }
-            val bulletColor = style.markerColor
-            val answer = style.tone == MarkdownTone.Answer
-            Box(
-                modifier = markerModifier
-                    .padding(top = topInset)
-                    .height(lineHeight)
-                    .drawBehind {
-                        // 自绘几何圆点替代字体自带的 "•"，跨 ColorOS / HyperOS 字库保持尺寸与视觉重心一致。
-                        val diameter = (if (answer) 5.dp else 4.dp).toPx()
-                        val center = Offset(x = diameter / 2f + 2.dp.toPx(), y = size.height * 0.52f)
-                        when (depth % 3) {
-                            0 -> drawCircle(color = bulletColor, radius = diameter / 2f, center = center)
-                            1 -> drawCircle(
-                                color = bulletColor,
-                                radius = diameter / 2f,
-                                center = center,
-                                style = Stroke(width = 1.2.dp.toPx()),
-                            )
-                            else -> {
-                                val side = (if (answer) 4.dp else 3.5.dp).toPx()
-                                drawRoundRect(
-                                    color = bulletColor,
-                                    topLeft = Offset(center.x - side / 2f, center.y - side / 2f),
-                                    size = Size(side, side),
-                                    cornerRadius = CornerRadius(1.dp.toPx()),
-                                )
-                            }
-                        }
-                    },
+            val side = (if (answer) 4.dp else 3.5.dp).toPx()
+            drawRoundRect(
+                color = bulletColor,
+                topLeft = Offset(center.x - side / 2f, center.y - side / 2f),
+                size = Size(side, side),
+                cornerRadius = CornerRadius(1.dp.toPx()),
             )
         }
     }
 }
 
-/**
- * 流式正文里 marker 与该项第一段文字同时出现；没有文字的空项在显现期间保持隐藏，
- * 避免先冒出孤立的圆点。
- */
+/** 流式正文里 marker 与该项第一段文字同时出现；没有文字的空项在显现期间保持隐藏， 避免先冒出孤立的圆点。 */
 internal fun listMarkerVisible(
     revealActive: Boolean,
     markerKey: RevealBlockKey?,
@@ -612,23 +702,23 @@ internal fun listMarkerVisible(
 
 // ── 表格 ────────────────────────────────────────────────────────────────
 
-/**
- * 列宽按内容自适应：每列取最宽单元格的自然宽度并限制在合理区间；总宽不足时按比例
- * 撑满可用宽度，超出时整体横向滚动。网格线与表头底色在绘制阶段按测量结果画出。
- */
+/** 列宽按内容自适应：每列取最宽单元格的自然宽度并限制在合理区间；总宽不足时按比例 撑满可用宽度，超出时整体横向滚动。网格线与表头底色在绘制阶段按测量结果画出。 */
 @Composable
 private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope) {
     val style = scope.style
-    val bodyStyles = remember(style, block.alignments) {
-        block.alignments.map { align -> style.table.copy(textAlign = align.textAlign) }
-    }
-    val headerStyles = remember(bodyStyles, style.strongColor) {
-        bodyStyles.map { it.copy(fontWeight = FontWeight.Bold, color = style.strongColor) }
-    }
+    val bodyStyles =
+        remember(style, block.alignments) {
+            block.alignments.map { align -> style.table.copy(textAlign = align.textAlign) }
+        }
+    val headerStyles =
+        remember(bodyStyles, style.strongColor) {
+            bodyStyles.map { it.copy(fontWeight = FontWeight.Bold, color = style.strongColor) }
+        }
     var grid by remember { mutableStateOf(TableGrid.Empty) }
     val borderColor = style.subtleBorderColor
     val rowLineColor = style.subtleBorderColor
-    val columnLineColor = style.subtleBorderColor.copy(alpha = style.subtleBorderColor.alpha * 0.65f)
+    val columnLineColor =
+        style.subtleBorderColor.copy(alpha = style.subtleBorderColor.alpha * 0.65f)
     val headerColor = style.tableHeaderBackground
     val columns = block.header.size
     val rows = remember(block) { listOf(block.header) + block.rows }
@@ -636,36 +726,26 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val availableWidth = constraints.maxWidth
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         ) {
             Layout(
-                modifier = Modifier
-                    .squircleBorder(width = 0.5.dp, color = borderColor, cornerRadius = 12.dp)
-                    .squircleClip(cornerRadius = 12.dp)
-                    .drawBehind {
-                        val current = grid
-                        val headerHeight = current.rowHeights.firstOrNull() ?: return@drawBehind
-                        drawRect(headerColor, size = Size(size.width, headerHeight.toFloat()))
-                        val stroke = 0.5.dp.toPx()
-                        var y = 0f
-                        current.rowHeights.dropLast(1).forEach { height ->
-                            y += height
-                            drawLine(rowLineColor, Offset(0f, y), Offset(size.width, y), stroke)
-                        }
-                        var x = 0f
-                        current.columnWidths.dropLast(1).forEach { width ->
-                            x += width
-                            drawLine(columnLineColor, Offset(x, 0f), Offset(x, size.height), stroke)
-                        }
-                    },
+                modifier =
+                    Modifier.squircleBorder(
+                            width = 0.5.dp,
+                            color = borderColor,
+                            cornerRadius = 12.dp,
+                        )
+                        .squircleClip(cornerRadius = 12.dp)
+                        .drawBehind {
+                            drawTableGrid(grid, headerColor, rowLineColor, columnLineColor)
+                        },
                 content = {
                     rows.forEachIndexed { rowIndex, row ->
                         row.forEachIndexed { column, cell ->
                             MarkdownText(
                                 block = cell,
-                                style = if (rowIndex == 0) headerStyles[column] else bodyStyles[column],
+                                style =
+                                    if (rowIndex == 0) headerStyles[column] else bodyStyles[column],
                                 scope = scope,
                                 // 单元格以固定宽度测量，不需要 fill；fill 会干扰列宽的固有尺寸查询。
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
@@ -675,49 +755,106 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
                     }
                 },
             ) { measurables, _ ->
-                val rowCount = measurables.size / columns
-                val minWidth = TableMinColumnWidth.roundToPx()
-                val maxWidth = TableMaxColumnWidth.roundToPx()
-                val widths = IntArray(columns) { column ->
-                    (0 until rowCount).maxOf { row ->
-                        measurables[row * columns + column].maxIntrinsicWidth(Constraints.Infinity)
-                    }.coerceIn(minWidth, maxWidth)
-                }
-                val natural = widths.sum()
-                if (natural in 1 until availableWidth) {
-                    val extra = availableWidth - natural
-                    var assigned = 0
-                    for (column in 0 until columns) {
-                        val share = if (column == columns - 1) {
-                            extra - assigned
-                        } else {
-                            (extra.toLong() * widths[column] / natural).toInt()
-                        }
-                        widths[column] += share
-                        assigned += share
-                    }
-                }
-                val placeables = measurables.mapIndexed { index, measurable ->
-                    measurable.measure(Constraints.fixedWidth(widths[index % columns]))
-                }
-                val heights = IntArray(rowCount) { row ->
-                    (0 until columns).maxOf { column -> placeables[row * columns + column].height }
-                }
-                val next = TableGrid(widths.toList(), heights.toList())
-                if (next != grid) grid = next
-                layout(widths.sum(), heights.sum()) {
-                    var y = 0
-                    for (row in 0 until rowCount) {
-                        var x = 0
-                        for (column in 0 until columns) {
-                            placeables[row * columns + column].place(x, y)
-                            x += widths[column]
-                        }
-                        y += heights[row]
-                    }
+                measureTable(measurables, columns, availableWidth) { next ->
+                    if (next != grid) grid = next
                 }
             }
         }
+    }
+}
+
+/** 按测量结果画表头底色和网格线；还没测量过时什么都不画。 */
+private fun DrawScope.drawTableGrid(
+    current: TableGrid,
+    headerColor: Color,
+    rowLineColor: Color,
+    columnLineColor: Color,
+) {
+    val headerHeight = current.rowHeights.firstOrNull() ?: return
+    drawRect(headerColor, size = Size(size.width, headerHeight.toFloat()))
+    val stroke = 0.5.dp.toPx()
+    var y = 0f
+    current.rowHeights.dropLast(1).forEach { height ->
+        y += height
+        drawLine(rowLineColor, Offset(0f, y), Offset(size.width, y), stroke)
+    }
+    var x = 0f
+    current.columnWidths.dropLast(1).forEach { width ->
+        x += width
+        drawLine(columnLineColor, Offset(x, 0f), Offset(x, size.height), stroke)
+    }
+}
+
+/** 量出各列宽和各行高，交给 [onGrid] 供绘制阶段画网格，再逐行逐列摆放单元格。 */
+private fun MeasureScope.measureTable(
+    measurables: List<Measurable>,
+    columns: Int,
+    availableWidth: Int,
+    onGrid: (TableGrid) -> Unit,
+): MeasureResult {
+    val rowCount = measurables.size / columns
+    val widths =
+        tableColumnWidths(
+            measurables,
+            columns,
+            rowCount,
+            TableMinColumnWidth.roundToPx(),
+            TableMaxColumnWidth.roundToPx(),
+        )
+    stretchColumnsToFill(widths, availableWidth)
+    val placeables = measurables.mapIndexed { index, measurable ->
+        measurable.measure(Constraints.fixedWidth(widths[index % columns]))
+    }
+    val heights =
+        IntArray(rowCount) { row ->
+            (0 until columns).maxOf { column -> placeables[row * columns + column].height }
+        }
+    onGrid(TableGrid(widths.toList(), heights.toList()))
+    return layout(widths.sum(), heights.sum()) {
+        var y = 0
+        for (row in 0 until rowCount) {
+            var x = 0
+            for (column in 0 until columns) {
+                placeables[row * columns + column].place(x, y)
+                x += widths[column]
+            }
+            y += heights[row]
+        }
+    }
+}
+
+/** 每列取最宽单元格的自然宽度，限制在 [minWidth]..[maxWidth]。 */
+private fun tableColumnWidths(
+    measurables: List<Measurable>,
+    columns: Int,
+    rowCount: Int,
+    minWidth: Int,
+    maxWidth: Int,
+): IntArray =
+    IntArray(columns) { column ->
+        (0 until rowCount)
+            .maxOf { row ->
+                measurables[row * columns + column].maxIntrinsicWidth(Constraints.Infinity)
+            }
+            .coerceIn(minWidth, maxWidth)
+    }
+
+/** 总宽不足 [availableWidth] 时把差额按列宽比例分给各列，余数给最后一列。 */
+private fun stretchColumnsToFill(widths: IntArray, availableWidth: Int) {
+    val natural = widths.sum()
+    if (natural !in 1 until availableWidth) return
+    val columns = widths.size
+    val extra = availableWidth - natural
+    var assigned = 0
+    for (column in 0 until columns) {
+        val share =
+            if (column == columns - 1) {
+                extra - assigned
+            } else {
+                (extra.toLong() * widths[column] / natural).toInt()
+            }
+        widths[column] += share
+        assigned += share
     }
 }
 
@@ -730,11 +867,12 @@ private data class TableGrid(val columnWidths: List<Int>, val rowHeights: List<I
 }
 
 private val MarkdownColumnAlign.textAlign: TextAlign
-    get() = when (this) {
-        MarkdownColumnAlign.Start -> TextAlign.Start
-        MarkdownColumnAlign.Center -> TextAlign.Center
-        MarkdownColumnAlign.End -> TextAlign.End
-    }
+    get() =
+        when (this) {
+            MarkdownColumnAlign.Start -> TextAlign.Start
+            MarkdownColumnAlign.Center -> TextAlign.Center
+            MarkdownColumnAlign.End -> TextAlign.End
+        }
 
 private val TableMinColumnWidth = 72.dp
 private val TableMaxColumnWidth = 260.dp

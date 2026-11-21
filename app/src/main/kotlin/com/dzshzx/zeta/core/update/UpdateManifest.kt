@@ -45,15 +45,28 @@ internal data class UpdateManifest(
 
         /** 读 update.json 的文字；格式不对时抛 [UpdateException]，说哪一项不对。 */
         fun parse(text: String): UpdateManifest {
-            val root = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: throw bad("不是 JSON 对象")
-            fun string(key: String): String? = (root[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-            fun number(key: String): Long? = (root[key] as? JsonPrimitive)?.takeUnless { it.isString }?.longOrNull
-            val versionCode = number("versionCode")?.takeIf { it in 1..Int.MAX_VALUE.toLong() } ?: throw bad("versionCode 缺少或不是正整数")
-            val versionName = string("versionName")?.takeIf { VersionName.matches(it) } ?: throw bad("versionName 缺少或不是 X.Y.Z")
-            val apk = string("apk")?.takeIf { FileName.matches(it) } ?: throw bad("apk 缺少或不是 .apk 文件名")
-            val url = string("url")?.takeIf { it.startsWith("https://") || it.startsWith("http://") } ?: throw bad("url 缺少或不是网址")
+            val root =
+                runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject
+                    ?: throw bad("不是 JSON 对象")
+            fun string(key: String): String? =
+                (root[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+            fun number(key: String): Long? =
+                (root[key] as? JsonPrimitive)?.takeUnless { it.isString }?.longOrNull
+            val versionCode =
+                number("versionCode")?.takeIf { it in 1..Int.MAX_VALUE.toLong() }
+                    ?: throw bad("versionCode 缺少或不是正整数")
+            val versionName =
+                string("versionName")?.takeIf { VersionName.matches(it) }
+                    ?: throw bad("versionName 缺少或不是 X.Y.Z")
+            val apk =
+                string("apk")?.takeIf { FileName.matches(it) } ?: throw bad("apk 缺少或不是 .apk 文件名")
+            val url =
+                string("url")?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                    ?: throw bad("url 缺少或不是网址")
             val size = number("size")?.takeIf { it in 1..MAX_APK_BYTES } ?: throw bad("size 缺少或不对")
-            val sha256 = string("sha256")?.takeIf { Hex64.matches(it) } ?: throw bad("sha256 缺少或不是 64 位小写十六进制")
+            val sha256 =
+                string("sha256")?.takeIf { Hex64.matches(it) }
+                    ?: throw bad("sha256 缺少或不是 64 位小写十六进制")
             return UpdateManifest(
                 versionCode = versionCode.toInt(),
                 versionName = versionName,

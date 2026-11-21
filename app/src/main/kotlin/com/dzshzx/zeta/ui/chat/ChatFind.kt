@@ -22,17 +22,21 @@ internal object ChatFind {
 
     /** 各段里的命中，按段的顺序、段内从前往后。 */
     fun matches(segments: List<FindSegment>, query: String): List<FindMatch> =
-        if (query.isEmpty()) emptyList() else segments.flatMap { segment ->
-            findOccurrences(segment.text, query).map { FindMatch(segment.itemId, segment.block, it.first, it.last + 1) }
-        }
+        if (query.isEmpty()) emptyList()
+        else
+            segments.flatMap { segment ->
+                findOccurrences(segment.text, query).map {
+                    FindMatch(segment.itemId, segment.block, it.first, it.last + 1)
+                }
+            }
 
     /** 从 [index] 走 [delta] 步，两头接上。 */
-    fun step(index: Int, count: Int, delta: Int): Int = if (count <= 0) -1 else Math.floorMod(index + delta, count)
+    fun step(index: Int, count: Int, delta: Int): Int =
+        if (count <= 0) -1 else Math.floorMod(index + delta, count)
 
     /**
      * 命中列表换了以后停在哪一处（下标，没有命中是 -1）。[previous] 还在就停在它上面；不在了（比如查找词多打了一个字）
-     * 就停在它所在位置之后最近的一处，后面没有了停在最后一处；之前没选中过的从最后一处开始：聊天里最新的内容在底部。
-     * [order] 是各条消息在列表里的位置。
+     * 就停在它所在位置之后最近的一处，后面没有了停在最后一处；之前没选中过的从最后一处开始：聊天里最新的内容在底部。 [order] 是各条消息在列表里的位置。
      */
     fun reselect(previous: FindMatch?, matches: List<FindMatch>, order: Map<String, Int>): Int {
         if (matches.isEmpty()) return -1
@@ -40,7 +44,9 @@ internal object ChatFind {
         val same = matches.indexOf(previous)
         if (same >= 0) return same
         val from = position(previous, order) ?: return matches.lastIndex
-        val after = matches.indexOfFirst { match -> position(match, order)?.let { compare(it, from) >= 0 } == true }
+        val after = matches.indexOfFirst { match ->
+            position(match, order)?.let { compare(it, from) >= 0 } == true
+        }
         return if (after >= 0) after else matches.lastIndex
     }
 
@@ -52,8 +58,8 @@ internal object ChatFind {
 }
 
 /**
- * 一个对话的查找状态：输入框里的字、算好的命中、当前停在哪一处。也是给正文加高亮的 [TextFinder]。
- * 跳到另一处时 [jumps] 加一，聊天列表据此滚动；命中列表只是刷新（比如来了新消息）不会把视野拽走。
+ * 一个对话的查找状态：输入框里的字、算好的命中、当前停在哪一处。也是给正文加高亮的 [TextFinder]。 跳到另一处时 [jumps]
+ * 加一，聊天列表据此滚动；命中列表只是刷新（比如来了新消息）不会把视野拽走。
  */
 @Stable
 internal class ChatFindState : TextFinder {
@@ -82,7 +88,8 @@ internal class ChatFindState : TextFinder {
     /** 聊天列表在根坐标里的范围。只在滚动时读，不必是快照状态。 */
     var viewport: Rect? = null
 
-    val current: FindMatch? get() = matches.getOrNull(index)
+    val current: FindMatch?
+        get() = matches.getOrNull(index)
 
     fun open() {
         active = true

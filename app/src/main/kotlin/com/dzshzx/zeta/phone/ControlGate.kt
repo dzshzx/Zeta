@@ -8,11 +8,11 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 暂停、接管的闸门（一个对话一份，[PhoneTools] 持有）：用户在胶囊上点了暂停，或者接管了后台屏幕，
- * Claude 接下来的手机工具调用先在 [await] 前等着，直到继续、交还，或者被作废（停止这一轮、用户补充了要求）。
+ * 暂停、接管的闸门（一个对话一份，[PhoneTools] 持有）：用户在胶囊上点了暂停，或者接管了后台屏幕， Claude 接下来的手机工具调用先在 [await]
+ * 前等着，直到继续、交还，或者被作废（停止这一轮、用户补充了要求）。
  *
- * 工具线程在 [await] 里等，主线程在 [set] 里开关。它用自己的锁，不用 PhoneTools 的屏幕锁：
- * 等着的时候用户在后台屏幕上的手势要拿那把锁。界面看的 [paused]、[userControlling] 只在主线程上改（经 [set]）。
+ * 工具线程在 [await] 里等，主线程在 [set] 里开关。它用自己的锁，不用 PhoneTools 的屏幕锁： 等着的时候用户在后台屏幕上的手势要拿那把锁。界面看的
+ * [paused]、[userControlling] 只在主线程上改（经 [set]）。
  */
 internal class ControlGate(private val timeoutMs: Long = TimeUnit.MINUTES.toMillis(30)) {
     /** 用户点了暂停：之后的手机工具调用先等着。 */
@@ -32,7 +32,8 @@ internal class ControlGate(private val timeoutMs: Long = TimeUnit.MINUTES.toMill
     private var cancelReason = ""
 
     /** 正暂停或接管着（工具线程上看）：等着的 wait 据此不再等下去。 */
-    val held: Boolean get() = lock.withLock { closed }
+    val held: Boolean
+        get() = lock.withLock { closed }
 
     /** 在主线程上调用。[cancel]：在闸门前等着的调用作废，这是交给 Claude 的原因。 */
     fun set(pause: Boolean, control: Boolean, cancel: String? = null) {

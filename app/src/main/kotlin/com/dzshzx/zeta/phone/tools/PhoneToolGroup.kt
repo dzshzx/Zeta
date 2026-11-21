@@ -23,16 +23,14 @@ internal class PhoneTool(val label: String, val definition: JsonObject) {
 }
 
 /**
- * 一次调用所在的对话给的东西：Android 的 [context]，这个对话正在跑的无人值守后台运行 [unattended]
- * （定时任务、通知触发跑起来的那一轮；平常的对话是 null）。
+ * 一次调用所在的对话给的东西：Android 的 [context]，这个对话正在跑的无人值守后台运行 [unattended] （定时任务、通知触发跑起来的那一轮；平常的对话是 null）。
  */
 internal class CallContext(val context: Context, val unattended: UnattendedRun? = null)
 
 /**
- * 一组不碰屏幕的手机工具：设备状态、闹钟、日历、通知、个人数据这一类。
- * PhoneTools 把各组的定义并进 MCP 的 tools/list；调用时不走屏幕那一套（不记控件编号、不切屏），直接交给这里，
- * 但用户暂停或接管时同样先等着。每组是本目录下自己文件里的一个 object，写好后在 [PhoneToolGroups.all] 里加一行。
- * 加一个工具只改所在的组：[tools] 里一项（带中文名字）、[call] 和 [title] 里各一个分支。
+ * 一组不碰屏幕的手机工具：设备状态、闹钟、日历、通知、个人数据这一类。 PhoneTools 把各组的定义并进 MCP 的
+ * tools/list；调用时不走屏幕那一套（不记控件编号、不切屏），直接交给这里， 但用户暂停或接管时同样先等着。每组是本目录下自己文件里的一个 object，写好后在
+ * [PhoneToolGroups.all] 里加一行。 加一个工具只改所在的组：[tools] 里一项（带中文名字）、[call] 和 [title] 里各一个分支。
  */
 internal interface PhoneToolGroup {
     /** 工具定义，用 [tool]、[schema]、[prop]、[enumProp] 写。名字在交给 Claude 的整份清单（PhoneToolCatalog）里不能重复。 */
@@ -47,15 +45,16 @@ internal interface PhoneToolGroup {
 
 internal object PhoneToolGroups {
     /** 所有工具组。新的一组在这里加一行。 */
-    val all: List<PhoneToolGroup> = listOf(
-        PersonalTools,
-        NoteTools,
-        AppTools,
-        ClipboardTools,
-        DeviceTools,
-        ScheduleTools,
-        BrowserTools,
-    )
+    val all: List<PhoneToolGroup> =
+        listOf(
+            PersonalTools,
+            NoteTools,
+            AppTools,
+            ClipboardTools,
+            DeviceTools,
+            ScheduleTools,
+            BrowserTools,
+        )
 
     private val byName: Map<String, PhoneToolGroup> by lazy {
         all.flatMap { group -> group.tools.map { it.name to group } }.toMap()
@@ -69,25 +68,46 @@ internal fun rootShell(command: String, timeoutMs: Long = 15_000): CommandResult
     LinuxEnv.runRoot(LinuxEnv.androidScript("exec /system/bin/sh -c \"\$2\"", command), timeoutMs)
 
 internal fun toolText(value: String): JsonObject = buildJsonObject {
-    putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", value) }) }
+    putJsonArray("content") {
+        add(
+            buildJsonObject {
+                put("type", "text")
+                put("text", value)
+            },
+        )
+    }
 }
 
 internal fun toolFailure(value: String): JsonObject = buildJsonObject {
-    putJsonArray("content") { add(buildJsonObject { put("type", "text"); put("text", value) }) }
+    putJsonArray("content") {
+        add(
+            buildJsonObject {
+                put("type", "text")
+                put("text", value)
+            },
+        )
+    }
     put("isError", true)
 }
 
 /** 执行一次调用：[ToolError]（含参数不对的 [BadInput]）照原话交给 Claude，别的异常报「执行失败」加原因。 */
-internal inline fun toolCall(block: () -> JsonObject): JsonObject = try {
-    block()
-} catch (e: ToolError) {
-    toolFailure(e.message ?: "参数不对")
-} catch (e: Exception) {
-    toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
-}
+internal inline fun toolCall(block: () -> JsonObject): JsonObject =
+    try {
+        block()
+    } catch (e: ToolError) {
+        toolFailure(e.message ?: "参数不对")
+    } catch (e: Exception) {
+        toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
+    }
 
 /** 一个工具：[label] 是工具权限页上的中文名字，[description] 和 [build] 写的参数是交给 Claude 的英文定义。 */
-internal fun tool(name: String, label: String, description: String, readOnly: Boolean = false, build: JsonObjectBuilder.() -> Unit): PhoneTool =
+internal fun tool(
+    name: String,
+    label: String,
+    description: String,
+    readOnly: Boolean = false,
+    build: JsonObjectBuilder.() -> Unit,
+): PhoneTool =
     PhoneTool(
         label,
         buildJsonObject {
@@ -98,7 +118,10 @@ internal fun tool(name: String, label: String, description: String, readOnly: Bo
         },
     )
 
-internal fun JsonObjectBuilder.schema(required: List<String> = emptyList(), properties: JsonObjectBuilder.() -> Unit) {
+internal fun JsonObjectBuilder.schema(
+    required: List<String> = emptyList(),
+    properties: JsonObjectBuilder.() -> Unit,
+) {
     putJsonObject("inputSchema") {
         put("type", "object")
         putJsonObject("properties", properties)
@@ -107,7 +130,10 @@ internal fun JsonObjectBuilder.schema(required: List<String> = emptyList(), prop
 }
 
 internal fun JsonObjectBuilder.prop(name: String, type: String, description: String) {
-    putJsonObject(name) { put("type", type); put("description", description) }
+    putJsonObject(name) {
+        put("type", type)
+        put("description", description)
+    }
 }
 
 internal fun JsonObjectBuilder.enumProp(name: String, values: List<String>, description: String) {

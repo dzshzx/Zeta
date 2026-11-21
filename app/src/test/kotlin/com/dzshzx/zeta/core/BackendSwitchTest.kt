@@ -9,8 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,9 +24,11 @@ import org.robolectric.annotation.Config
 @Config(sdk = [37])
 class BackendSwitchTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-    private val remote = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
+    private val remote =
+        RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
 
-    private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.settings.remoteHosts = listOf(remote) }
+    private fun hub(): ConversationHub =
+        Fixtures.readyHub(app).also { it.settings.remoteHosts = listOf(remote) }
 
     @Test
     fun selectingAHostStartsTheNewConversationThere() {
@@ -46,7 +48,16 @@ class BackendSwitchTest {
     @Test
     fun openingASessionOnAnotherHostMovesTheSidebarThere() {
         val hub = hub()
-        val summary = SessionSummary("s-remote", "/home/user/.claude/projects/-w/s-remote.jsonl", "/home/user/workspace/Zeta", "远程会话", "", 0L, backend = remote.id)
+        val summary =
+            SessionSummary(
+                "s-remote",
+                "/home/user/.claude/projects/-w/s-remote.jsonl",
+                "/home/user/workspace/Zeta",
+                "远程会话",
+                "",
+                0L,
+                backend = remote.id,
+            )
         hub.open(summary)
         assertEquals(remote.id, hub.current.backend)
         assertEquals(remote.id, hub.backend)
@@ -61,7 +72,16 @@ class BackendSwitchTest {
     @Test
     fun directHostsDoNotNeedDebian() {
         val hub = Fixtures.bareHub(app)
-        val direct = RemoteHost("r-00000002", "vps", "me@example.com:2222", "/root", "/root", RemoteHost.Via.Direct, RemoteHosts.encodeKey(SshKey.generate().blob))
+        val direct =
+            RemoteHost(
+                "r-00000002",
+                "vps",
+                "me@example.com:2222",
+                "/root",
+                "/root",
+                RemoteHost.Via.Direct,
+                RemoteHosts.encodeKey(SshKey.generate().blob),
+            )
         hub.settings.remoteHosts = listOf(remote, direct)
         assertNull(hub.shell(Backends.LOCAL))
         assertEquals("还没有配置 Linux 环境，请到设置里检查", hub.unavailable(Backends.LOCAL))
@@ -79,7 +99,16 @@ class BackendSwitchTest {
     @Test
     fun redetectingDebianKeepsDirectConversations() {
         val hub = hub()
-        val direct = RemoteHost("r-00000002", "vps", "me@example.com:2222", "/root", "/root", RemoteHost.Via.Direct, RemoteHosts.encodeKey(SshKey.generate().blob))
+        val direct =
+            RemoteHost(
+                "r-00000002",
+                "vps",
+                "me@example.com:2222",
+                "/root",
+                "/root",
+                RemoteHost.Via.Direct,
+                RemoteHosts.encodeKey(SshKey.generate().blob),
+            )
         hub.settings.remoteHosts = listOf(remote, direct)
         hub.selectBackend(direct.id)
         val onDirect = hub.current
@@ -120,7 +149,16 @@ class BackendSwitchTest {
     @Test
     fun changingTheViaWaitsForWorkToFinish() {
         val hub = hub()
-        val direct = RemoteHost("r-00000002", "vps", "me@example.com:2222", "/root", "/root", RemoteHost.Via.Direct, RemoteHosts.encodeKey(SshKey.generate().blob))
+        val direct =
+            RemoteHost(
+                "r-00000002",
+                "vps",
+                "me@example.com:2222",
+                "/root",
+                "/root",
+                RemoteHost.Via.Direct,
+                RemoteHosts.encodeKey(SshKey.generate().blob),
+            )
         hub.settings.remoteHosts = listOf(remote, direct)
         hub.selectBackend(direct.id)
         val target = RemoteHosts.targetFor(direct.target, RemoteHost.Via.Debian)!!
