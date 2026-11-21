@@ -7,11 +7,15 @@
 # 不经网络，量的是两种连法各自的固定开销。手机上连 Debian 的 ~/.ssh/config 里的别名 LATENCY_ALIAS（默认 nerv-wsl）：
 # 直连的地址取 ssh -G 解析出的用户、主机、端口，主机指纹在手机 Debian 里用 ssh-keyscan 取。
 # 手机上测试版的公钥要已经在那台主机上（往主机上加公钥是新增访问权限，脚本不做），不在时直连那一路记成失败。
-#   [LATENCY_ALIAS=<别名>] ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/remote-latency.sh
-# 产物：latency.txt（每条路的次数、中位数、平均、最少、最多，毫秒），samples.txt（LatencyBench 的原始输出）。
+# 手机上测完再用手机 Debian 里的 tailscale ping 量一组网络往返，记下走的路径（直连的地址或中继），和命令的耗时对照。
+# NETWORK=cellular（只在手机上）：先关掉 Wi-Fi，走蜂窝到通了再测，测完开回。关之前在手机上起一个兜底进程，
+# 10 分钟后开回 Wi-Fi（工作站和手机失联时也恢复）；正常收尾时删掉它认的标记，它到点就不动。
+#   [LATENCY_ALIAS=<别名>] [NETWORK=cellular] ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/remote-latency.sh
+# 产物：latency.txt（每条路的次数、中位数、平均、最少、最多，毫秒；网络往返），samples.txt（LatencyBench 的原始输出）。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
-WARM=${WARM:-20} COLD=${COLD:-5}
+WARM=${WARM:-20} COLD=${COLD:-5} NETWORK=${NETWORK:-}
+[[ -z $NETWORK || ($NETWORK == cellular && $ZETA_DEVICE == phone) ]] || { echo "NETWORK 只能是 cellular，且只在手机上"; exit 1; }
 
 # 兜底：不会起对话，万一起了也是假 Claude，不起真的 claude、不建真会话
 vd fake "$HERE/fake/remote.jsonl"
@@ -41,6 +45,26 @@ vd launch
 [[ $ZETA_DEVICE != emu ]] || authorize_test_key
 sleep 8 # 启动时接回远程主机上进程的那几条命令跑完，不和计时的抢
 
+if [[ $NETWORK == cellular ]]; then
+  guard=/data/local/tmp/zeta-latency-wifi-guard
+  [[ $(android 'settings get global wifi_on' | tr -d '\r') == 1 ]] || { echo "Wi-Fi 本来就关着，不动"; exit 1; }
+  # 兜底到点时标记还是这次写的才开回 Wi-Fi；正常收尾删掉标记，它到点什么都不做（不靠发信号结束它）
+  token=$(date +%s%N)
+  android "echo $token > $guard; setsid sh -c 'sleep 600; [ \"\$(cat $guard 2>/dev/null)\" = $token ] && cmd wifi set-wifi-enabled enabled && rm -f $guard' </dev/null >/dev/null 2>&1 &"
+  restore_wifi() { android "rm -f $guard; cmd wifi set-wifi-enabled enabled" >/dev/null || true; }
+  trap restore_wifi EXIT
+  trap 'exit 143' TERM INT
+  android 'cmd wifi set-wifi-enabled disabled' >/dev/null
+  # 等 Wi-Fi 真关了、经蜂窝连得上那台主机
+  for _ in $(seq 30); do
+    [[ $(android 'settings get global wifi_on' | tr -d '\r') == 0 ]] && vd debian "ssh -o BatchMode=yes -o ConnectTimeout=10 -- $alias true" >/dev/null 2>&1 && break
+    sleep 2
+  done
+  [[ $(android 'settings get global wifi_on' | tr -d '\r') == 0 ]] || { echo "Wi-Fi 没关掉"; exit 1; }
+  echo "已关 Wi-Fi，走蜂窝"
+  sleep 3 # Zeta 收到换网络、断开旧连接
+fi
+
 t0=$(android 'date +%s' | tr -d '\r')
 android "am broadcast -n $PKG/com.dzshzx.zeta.core.diag.LatencyBench --ei warm $WARM --ei cold $COLD" >/dev/null
 for _ in $(seq 240); do
@@ -49,6 +73,8 @@ for _ in $(seq 240); do
   sleep 0.5
 done
 grep -qx "done" samples.txt || { echo "LatencyBench 两分钟没跑完"; cat samples.txt; exit 1; }
+# 网络往返：tailscale ping 不停在打通直连那一下，每次都记
+[[ $ZETA_DEVICE == emu ]] || vd debian "tailscale ping -c 20 --until-direct=false -- $host" 2>&1 | tr -d '\r' >ping.txt || true
 
 # 一列毫秒数 → 次数、中位数、平均、最少、最多
 stats() {
@@ -56,7 +82,7 @@ stats() {
     END { if (NR) printf "%d 次，中位 %.0f，平均 %.0f，最少 %.0f，最多 %.0f\n", NR, NR % 2 ? a[(NR + 1) / 2] : (a[NR / 2] + a[NR / 2 + 1]) / 2, s / NR, a[1], a[NR] }'
 }
 {
-  echo "每条命令（true）从发出到收齐结果，毫秒；经 Debian：$debian_target，直连：$direct_target"
+  echo "每条命令（true）从发出到收齐结果，毫秒；经 Debian：$debian_target，直连：$direct_target；网络：${NETWORK:-默认}"
   for via in local debian direct; do
     case $via in local) name=手机本机Debian ;; debian) name=经手机Debian ;; direct) name=Zeta直连 ;; esac
     for kind in warm plain cold; do
@@ -65,6 +91,10 @@ stats() {
       [[ -z $line ]] || echo "$name $what：$line"
     done
   done
+  if [[ -s ping.txt ]]; then
+    line=$(sed -n 's/^pong from .* in \([0-9.]*\)ms$/\1/p' ping.txt | stats)
+    echo "网络往返（tailscale ping）：${line:-没有应答}；路径：$(sed -n 's/^pong from .* via \(.*\) in [0-9.]*ms$/\1/p' ping.txt | sort | uniq -c | sort -rn | awk '{ printf "%s%s×%s", (NR > 1 ? "，" : ""), $2, $1 }')"
+  fi
 } | tee latency.txt
 
 bad=$(grep -E '^(skip|stderr) ' samples.txt || true)
