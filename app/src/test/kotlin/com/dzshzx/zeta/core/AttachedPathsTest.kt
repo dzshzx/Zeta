@@ -144,6 +144,30 @@ class AttachedPathsTest {
         assertNull(AttachedPaths.linuxPathFor("relative", shares, rootfs))
     }
 
+    /** app_control install 收到的是 Claude 在 Linux 里看到的路径，以 root 在 Android 一侧读之前换回去。 */
+    @Test
+    fun linuxPathsMapToAndroid() {
+        val shares = listOf(SharedFolder("Download", "/storage/emulated/0/Download"))
+        val rootfs = "/data/local/zeta/debian/rootfs"
+        fun map(path: String, root: String? = rootfs) =
+            AttachedPaths.androidPathFor(path, shares, root, home = "/home/zeta")
+        assertEquals("/data/local/zeta/workspace/a.apk", map("/workspace/a.apk"))
+        assertEquals("/data/local/zeta/workspace", map("/workspace/"))
+        // 共享文件夹换回它真正绑定的目录（内部存储绑的是 /data/media/<用户>）
+        assertEquals("/data/media/0/Download/x.apk", map("/mnt/shared/Download/x.apk"))
+        assertEquals("$rootfs/home/zeta/app.apk", map("~/app.apk"))
+        assertEquals("$rootfs/tmp/b.apk", map("/tmp/./c/../b.apk"))
+        assertEquals("$rootfs/mnt/shared/Other/x", map("/mnt/shared/Other/x"))
+        // Linux 里原样绑进去的、只有 Android 才有的，原样用
+        assertEquals("/data/local/tmp/x.apk", map("/data/local/tmp/x.apk"))
+        assertEquals("/sdcard/Download/x.apk", map("/sdcard/Download/x.apk"))
+        assertEquals("/storage/emulated/0/x.apk", map("/storage/emulated/0/x.apk"))
+        assertEquals("/sdcard/x", map("/sdcard/x", root = null))
+        assertNull(map("/home/zeta/x", root = null))
+        assertNull(map("relative.apk"))
+        assertNull(map("/../x"))
+    }
+
     @Test
     fun pathCheckParsesScriptOutput() {
         assertEquals(listOf(PathKind.Folder), PathCheck.parse("motd line\nzeta_path folder\n"))

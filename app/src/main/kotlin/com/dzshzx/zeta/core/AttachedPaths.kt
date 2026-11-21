@@ -111,6 +111,43 @@ object AttachedPaths {
             .maxByOrNull { it.second }
             ?.first
     }
+
+    /**
+     * [linuxPathFor] 反过来：手机 Linux 环境里的路径（Claude 看到的）在 Android 一侧（以 root、全局挂载命名空间）叫什么。 /workspace 是
+     * [LinuxEnv.WORKSPACE]，共享文件夹换回它绑定的源目录，别的都在 [rootfs] 里。/data（Linux 里只有原样绑进去的
+     * /data/local/tmp）、/sdcard、/storage 当作已经是 Android 路径，原样用。[home] 用来展开 `~`。不是绝对路径、 或该在 rootfs
+     * 里却没有 [rootfs] 时返回 null。
+     */
+    fun androidPathFor(
+        linuxPath: String,
+        shares: List<SharedFolder>,
+        rootfs: String?,
+        home: String? = null,
+    ): String? {
+        val path = normalize(linuxPath, home) ?: return null
+        fun under(base: String): String? =
+            when {
+                path == base -> ""
+                path.startsWith("$base/") -> path.substring(base.length)
+                else -> null
+            }
+        under("/workspace")?.let {
+            return LinuxEnv.WORKSPACE + it
+        }
+        if (AndroidSide.any { under(it) != null }) return path
+        shares
+            .firstNotNullOfOrNull { share ->
+                under(share.mountPoint)?.let { SharedFolders.bindSource(share.source) + it }
+            }
+            ?.let {
+                return it
+            }
+        val root = rootfs?.trimEnd('/')?.takeIf { it.isNotEmpty() } ?: return null
+        return if (path == "/") root else root + path
+    }
+
+    /** 在 Linux 环境里和 Android 一侧是同一个路径的顶层目录（/data/local/tmp 原样绑进去），或只有 Android 才有的。 */
+    private val AndroidSide = listOf("/data", "/sdcard", "/storage")
 }
 
 /** 在 Linux 用户（和对话的 Claude Code 进程）眼里，一个路径是什么。 */

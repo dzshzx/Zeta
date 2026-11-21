@@ -7,11 +7,23 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * app_control：应用详情（`dumpsys package`）、强行停止、冻结 / 解冻（`pm disable-user` / `pm enable`），
- * 以及使用时长和最近打开（`dumpsys usagestats` 里最近 24 小时的事件，不需要给 Zeta 加使用情况访问权）。
+ * app_control：应用详情（`dumpsys package`）、强行停止、冻结 / 解冻（`pm disable-user` / `pm enable`）， 安装、卸载、清除数据（`pm
+ * install`、`pm uninstall`、`pm clear`，执行在 [AppPackages]），以及使用时长和最近打开 （`dumpsys usagestats` 里最近 24
+ * 小时的事件，不需要给 Zeta 加使用情况访问权）。
  */
 internal object DeviceApps {
-    val ACTIONS = listOf("info", "force_stop", "freeze", "unfreeze", "usage", "recent")
+    val ACTIONS =
+        listOf(
+            "info",
+            "force_stop",
+            "freeze",
+            "unfreeze",
+            "install",
+            "uninstall",
+            "clear_data",
+            "usage",
+            "recent",
+        )
 
     /** 停掉或冻结了会让手机或 Zeta 自己用不了的包。 */
     val PROTECTED =
@@ -153,6 +165,39 @@ internal object DeviceApps {
                 ?.toBooleanStrictOrNull()
         return enabled to stopped
     }
+
+    // ---- 安装、卸载、清除数据 ----
+
+    /** 列出用户 0 下装着的这个包（`pm list packages` 按包名的一部分筛，要再按整个包名核对，见 [isInstalled]）。 */
+    fun installedCommand(packageName: String): String =
+        "pm list packages --user 0 ${LinuxEnv.quote(packageName)}"
+
+    /** [installedCommand] 的输出里有没有正好是 [packageName] 的那一行。 */
+    fun isInstalled(output: String, packageName: String): Boolean =
+        output.lineSequence().any { it.trim() == "package:$packageName" }
+
+    /** 只从用户 0 卸载：系统应用这样卸了还能用 `cmd package install-existing` 装回来，分身空间里的那份不动。 */
+    fun uninstallCommand(packageName: String, keepData: Boolean): String =
+        "pm uninstall " + (if (keepData) "-k " else "") + "--user 0 ${LinuxEnv.quote(packageName)}"
+
+    fun clearCommand(packageName: String): String =
+        "pm clear --user 0 ${LinuxEnv.quote(packageName)}"
+
+    /**
+     * 以 root 把 [source] 抄到 Zeta 自己建好的空文件 [target] 里：抄进已有的文件，属主和 SELinux 标签还是 Zeta 的，Zeta 才读得了。
+     * 不存在时退出 4，不是普通文件退出 3。
+     */
+    fun copyCommand(source: String, target: String): String {
+        val from = LinuxEnv.quote(source)
+        return "[ -e $from ] || exit 4; [ -f $from ] || exit 3; exec /system/bin/cat $from > ${LinuxEnv.quote(target)}"
+    }
+
+    /** 装 [apk]（[size] 字节）：经管道交给 pm，pm 读不了的位置（应用私有目录）也装得上。-r 覆盖已装的，-t 允许 testOnly 的调试包。 */
+    fun installCommand(apk: String, size: Long): String =
+        "/system/bin/cat ${LinuxEnv.quote(apk)} | pm install -r -t -S $size"
+
+    /** pm install、uninstall、clear 成功时输出里有一行 Success；失败时的原因（Failure [...]）原样交回。 */
+    fun pmSucceeded(output: String): Boolean = output.lineSequence().any { it.trim() == "Success" }
 
     // ---- 使用情况 ----
 

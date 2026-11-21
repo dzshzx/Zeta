@@ -133,4 +133,34 @@ class DeviceAppsTest {
             )
         assertEquals(listOf("com.a", "com.b", "com.a"), recent.map { it.second })
     }
+
+    @Test
+    fun installUninstallAndClearCommands() {
+        assertEquals("pm list packages --user 0 'com.x'", DeviceApps.installedCommand("com.x"))
+        // pm list packages 按包名的一部分筛：要整行对上
+        assertTrue(DeviceApps.isInstalled("package:com.x.y\npackage:com.x\n", "com.x"))
+        assertFalse(DeviceApps.isInstalled("package:com.x.y\n", "com.x"))
+        assertFalse(DeviceApps.isInstalled("", "com.x"))
+        assertEquals("pm uninstall --user 0 'com.x'", DeviceApps.uninstallCommand("com.x", false))
+        assertEquals("pm uninstall -k --user 0 'com.x'", DeviceApps.uninstallCommand("com.x", true))
+        assertEquals("pm clear --user 0 'com.x'", DeviceApps.clearCommand("com.x"))
+        assertEquals(
+            "/system/bin/cat '/data/user/0/p/cache/a b.apk' | pm install -r -t -S 1234",
+            DeviceApps.installCommand("/data/user/0/p/cache/a b.apk", 1234),
+        )
+        assertEquals(
+            "[ -e '/sdcard/it'\\''s.apk' ] || exit 4; [ -f '/sdcard/it'\\''s.apk' ] || exit 3; " +
+                "exec /system/bin/cat '/sdcard/it'\\''s.apk' > '/data/c.apk'",
+            DeviceApps.copyCommand("/sdcard/it's.apk", "/data/c.apk"),
+        )
+        assertTrue(DeviceApps.pmSucceeded("Performing Streamed Install\nSuccess\n"))
+        assertFalse(
+            DeviceApps.pmSucceeded(
+                "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]",
+            ),
+        )
+        // 改应用的几样都在动作清单里；不另设 list（find_apps 列应用）
+        assertTrue(DeviceApps.ACTIONS.containsAll(listOf("install", "uninstall", "clear_data")))
+        assertFalse("list" in DeviceApps.ACTIONS)
+    }
 }

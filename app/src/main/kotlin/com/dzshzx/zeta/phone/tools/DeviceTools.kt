@@ -121,17 +121,23 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "app_control",
-                "查看、停止、冻结应用和使用时长",
+                "安装、卸载、冻结应用，看使用时长",
                 "Installed apps: info (version, install, state, permissions), force_stop, freeze (disable), unfreeze, " +
-                    "usage (foreground time per app) and recent (apps opened, newest first) over the last hours.",
+                    "install (an .apk file), uninstall, clear_data (wipe its data), usage (foreground time per app) and recent (apps opened, newest first) over the last hours.",
             ) {
                 schema(required = listOf("action")) {
                     enumProp("action", DeviceApps.ACTIONS, "What to do.")
                     prop(
                         "package",
                         "string",
-                        "Package name (find_apps lists them). Required except for usage and recent, where it filters.",
+                        "Package name (find_apps lists them). Required except for install, usage and recent (where it filters).",
                     )
+                    prop(
+                        "path",
+                        "string",
+                        "install: the .apk as a path in your Linux environment on this phone (/workspace/..., ~/...) or an Android path (/sdcard/...).",
+                    )
+                    prop("keep_data", "boolean", "uninstall: keep the app's data (default false).")
                     prop("hours", "integer", "usage, recent: look back 1-24 hours (default 24).")
                     prop("limit", "integer", "usage, recent: most entries to return (default 20).")
                 }
@@ -559,6 +565,25 @@ internal object DeviceTools : PhoneToolGroup {
             "force_stop" -> forceStop(context, required().also { guard(it, action) })
             "freeze" -> freeze(context, required().also { guard(it, action) })
             "unfreeze" -> unfreeze(context, required())
+            "install" ->
+                AppPackages.install(
+                    context,
+                    sh,
+                    a.str("path")?.takeIf { it.isNotBlank() } ?: throw ToolError("install 要给 path"),
+                )
+            "uninstall" ->
+                AppPackages.uninstall(
+                    context,
+                    sh,
+                    required().also { guard(it, action) },
+                    a.bool("keep_data") == true,
+                ) {
+                    named(context, it)
+                }
+            "clear_data" ->
+                AppPackages.clearData(sh, required().also { guard(it, action) }) {
+                    named(context, it)
+                }
             "usage",
             "recent" -> appActivity(context, a, action, packageName)
             else -> throw ToolError("不认识的 action：$action")
@@ -567,7 +592,16 @@ internal object DeviceTools : PhoneToolGroup {
 
     /** 系统或 Zeta 自己离不开的包不做 [action]。 */
     private fun guard(p: String, action: String) {
-        if (p in DeviceApps.PROTECTED) throw ToolError("$p 是系统或 Zeta 自己离不开的包，不$action")
+        if (p !in DeviceApps.PROTECTED) return
+        val verb =
+            when (action) {
+                "force_stop" -> "强行停止"
+                "freeze" -> "冻结"
+                "uninstall" -> "卸载"
+                "clear_data" -> "清除数据"
+                else -> action
+            }
+        throw ToolError("$p 是系统或 Zeta 自己离不开的包，不$verb")
     }
 
     /** 用户 0 下的 enabled 值（没装时为 null）和是否 stopped。 */
@@ -730,18 +764,7 @@ internal object DeviceTools : PhoneToolGroup {
                     else -> "读取系统设置$key"
                 }
             }
-            "app_control" -> {
-                val p = input.str("package")?.let { " $it" }.orEmpty()
-                when (input.str("action")) {
-                    "info" -> "查看应用信息$p"
-                    "force_stop" -> "强行停止$p"
-                    "freeze" -> "冻结$p"
-                    "unfreeze" -> "解冻$p"
-                    "usage" -> "查看应用使用时长"
-                    "recent" -> "查看最近打开的应用"
-                    else -> "管理应用$p"
-                }
-            }
+            "app_control" -> appTitle(input)
             "device_info" ->
                 when (input.str("what")) {
                     "location" -> "查看当前位置"
@@ -754,6 +777,31 @@ internal object DeviceTools : PhoneToolGroup {
                 "读取系统日志" + (input.str("package") ?: input.str("tag"))?.let { " $it" }.orEmpty()
             else -> name
         }
+
+    /** app_control：对哪个应用做什么。 */
+    private fun appTitle(input: JsonObject): String {
+        val p = input.str("package")?.let { " $it" }.orEmpty()
+        return when (input.str("action")) {
+            "info" -> "查看应用信息$p"
+            "force_stop" -> "强行停止$p"
+            "freeze" -> "冻结$p"
+            "unfreeze" -> "解冻$p"
+            "install" ->
+                "安装" +
+                    (input
+                        .str("path")
+                        ?.substringAfterLast('/')
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let {
+                            " " + it.clipLine(24)
+                        } ?: "应用")
+            "uninstall" -> "卸载$p"
+            "clear_data" -> "清除数据$p"
+            "usage" -> "查看应用使用时长"
+            "recent" -> "查看最近打开的应用"
+            else -> "管理应用$p"
+        }
+    }
 
     /** device_state：查看或设置哪一项。 */
     private fun stateTitle(input: JsonObject): String {

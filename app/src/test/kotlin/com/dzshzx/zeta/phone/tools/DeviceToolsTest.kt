@@ -123,6 +123,28 @@ class DeviceToolsTest {
                 put("package", "com.miui.calculator")
             },
         )
+        assertEquals(
+            "安装 app-debug.apk",
+            title("app_control") {
+                put("action", "install")
+                put("path", "/workspace/build/app-debug.apk")
+            },
+        )
+        assertEquals("安装应用", title("app_control") { put("action", "install") })
+        assertEquals(
+            "卸载 com.x",
+            title("app_control") {
+                put("action", "uninstall")
+                put("package", "com.x")
+            },
+        )
+        assertEquals(
+            "清除数据 com.x",
+            title("app_control") {
+                put("action", "clear_data")
+                put("package", "com.x")
+            },
+        )
         assertEquals("读取已保存的 Wi-Fi 密码", title("device_info") { put("what", "wifi_passwords") })
         assertEquals("读取系统日志 com.x", title("logcat") { put("package", "com.x") })
         assertEquals(
