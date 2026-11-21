@@ -393,8 +393,8 @@ private fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
 
 /**
  * 设置 › 一台远程主机：上面是 [claude]（这台上新对话的默认值、Claude Code 自己的配置，见
- * [com.dzshzx.zeta.ui.settings.HostSettingsScreen]）， 下面是连接：名字、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录，
- * 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
+ * [com.dzshzx.zeta.ui.settings.HostSettingsScreen]），
+ * 下面是连接：自定义设备名、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录， 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
  */
 @Composable
 internal fun RemoteHostScreen(
@@ -638,7 +638,7 @@ private fun RemoteHost.refreshedBy(probe: RemoteHosts.Probe.Ok): RemoteHost =
         hostname = probe.hostname ?: hostname,
     )
 
-/** 主机页的「连接」一组：名字、地址、连接方式、主机指纹、家目录、默认工作目录。 */
+/** 主机页的「连接」一组：自定义设备名、地址、连接方式、主机指纹、家目录、默认工作目录。 */
 @Composable
 private fun ConnectionGroup(
     hub: ConversationHub,

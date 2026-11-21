@@ -109,7 +109,7 @@ private fun LazyListScope.claudeItems(
     }
 }
 
-/** 设置 › 手机：Claude Code 的两组，下面是这台手机的名字和 Linux 环境（手机里的 Debian）的入口。 */
+/** 设置 › 手机：Claude Code 的两组，下面是这台手机的自定义设备名和 Linux 环境（手机里的 Debian）的入口。 */
 @Composable
 private fun LocalHostScreen(
     hub: ConversationHub,

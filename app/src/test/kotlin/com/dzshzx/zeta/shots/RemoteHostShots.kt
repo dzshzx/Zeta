@@ -76,7 +76,7 @@ class RemoteHostShots : ShotTest() {
         }
     }
 
-    /** 远程主机页往下滑：连接（名字、地址、连接方式、默认工作目录）、检查连接、删掉。 */
+    /** 远程主机页往下滑：连接（自定义设备名、地址、连接方式、默认工作目录）、检查连接、删掉。 */
     @Test
     fun hostConnection() {
         val hub = hub()
