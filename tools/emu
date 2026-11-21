@@ -4,23 +4,24 @@
 #           窗口开在 ZETA_EMU_DISPLAY（或 zeta.emuDisplay）这个 X 显示上，没配时不开窗口（-no-window）。
 #           联网经宿主的代理（https_proxy，用 -http-proxy 交给模拟器：它不读代理环境变量）。
 #           等开机完成，再把 adbd 切成 root。已经开着就只做后两步。install.sh、vd.py、phone-run 碰模拟器前自己调。
-#   status  开着没有、是不是 root、开机时带的是哪个代理
+#   status  开着没有；开着时列出开机、root、代理和看守的状态
 #   stop    关机（模拟器先存快照，下次开机从快照恢复）。模拟器可以和别的项目共用，测完不用关
-#   watch   start 在后台自动起的看守：空闲满 ZETA_EMU_IDLE_MIN 分钟（默认 30，0 不关）就关机，见 CLAUDE.md「测试设备」
+#   watch   start 在后台自动起的看守：空闲满 ZETA_EMU_IDLE_MIN 分钟就关机，见 CLAUDE.md「测试设备」
 set -euo pipefail
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 source "$(dirname "$0")/config.sh"
 source "$(dirname "$0")/own-scope.sh"
 PORT=5554 SERIAL=emulator-5554
 WINDOW=$(zeta_config ZETA_EMU_DISPLAY emuDisplay)
-# 不把 start 的锁（9 号描述符）和看守的锁（8 号）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
-adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&- 8>&-; }
+# 不把 start 的锁（9 号描述符）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
+adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&-; }
 dir=${XDG_RUNTIME_DIR:-/tmp}
 idle_min=${ZETA_EMU_IDLE_MIN:-30}
-watch_lock=$dir/zeta-emu.watch # 看守在时攥着它的锁
+used_mark=$dir/zeta-emu.used        # 每次 start 都更新它的改动时间：「有人用」的记号
+watch_lock=$dir/zeta-emu-watch.lock # 看守在时有人攥着它的锁
 
 # 监听控制台端口的就是模拟器进程，按端口找，不靠 $!
-emu_pid() { ss -Hltnp "sport = :$PORT" | grep -oE 'pid=[0-9]+' | head -n 1 | cut -d= -f2; }
+emu_pid() { ss -Hltnp "sport = :$PORT" | grep -oE 'pid=[0-9]+' | head -n 1 | cut -d= -f2 || true; }
 booted() { [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; }
 is_root() { [[ $(adb shell id -u 2>/dev/null | tr -d '\r') == 0 ]]; }
 
@@ -40,45 +41,38 @@ stop_emu() {
   return 1
 }
 
-# 有 xpra 客户端接在模拟器窗口所在的显示上（有人在看）：连着它监听的 socket（xpra/<号>、xpra/<号>/socket、~/.xpra/<主机>-<号>）
+# xpra 在窗口所在显示上监听的 socket（抽象地址 @xpra/<号>、xpra/<号>/socket、~/.xpra/<主机>-<号>），写成 ss 的过滤条件
+xpra_sockets() { echo "( src *xpra/${WINDOW#:} or src *xpra/${WINDOW#:}/socket or src */.xpra/*-${WINDOW#:} )"; }
+# 有人在看：有 xpra 客户端连着这些 socket。配了窗口却找不到 xpra 在监听（布局变了、xpra 没起）时也算，宁可不关
 xpra_watched() {
   [[ -n $WINDOW ]] || return 1
-  ss -Hx state established | awk -v n="${WINDOW#:}" '$4 ~ ("xpra/" n "(/socket)?$") || $4 ~ ("\\.xpra/.*-" n "$") {f = 1} END {exit !f}'
+  [[ -z $(ss -Hxl "$(xpra_sockets)") || -n $(ss -Hx state established "$(xpra_sockets)") ]]
 }
 
-# 最近一次有人用模拟器的时刻（秒）：start 开机或接上时打开锁文件、设备租约拿到或续租时写租约文件，取两者较晚的改动时间；
-# 正连着 adb 服务的进程、xpra_watched 算作此刻在用
-last_use() {
-  local t newest=0
-  if [[ -n $(ss -Htn state established "( dport = :5037 )") ]] || xpra_watched; then
-    echo "$EPOCHSECONDS"
-    return
-  fi
-  while read -r t; do ((t <= newest)) || newest=$t; done < <(stat -c %Y "$dir/zeta-emu.lock" "$dir/zeta-emu.lease" 2>/dev/null)
-  echo "$newest"
-}
-
-# 从 watch 的 since（看守起来或最近一次有人用的时刻）算起空闲满 idle_min 分钟没有，顺带把 since 推到最近一次使用
+# 从 since（看守起来或最近一次有人用的时刻）算起空闲满 idle_min 分钟没有，顺带把 since 推到最近一次使用：
+# 记号文件（start 每次更新）和设备租约（拿到、续租时写）取较晚的改动时间；正连着 adb 服务的进程、xpra_watched 算作此刻在用
 idle() {
   local t
-  t=$(last_use)
-  ((t <= since)) || since=$t
+  if [[ -n $(ss -Htn state established "( dport = :5037 )") ]] || xpra_watched; then
+    since=$EPOCHSECONDS
+    return 1
+  fi
+  for t in $(stat -c %Y "$used_mark" "$dir/zeta-emu.lease" 2>/dev/null); do ((t <= since)) || since=$t; done
   ((EPOCHSECONDS - since >= idle_min * 60))
 }
 
 watching() { ! flock -n "$watch_lock" true; }
 
+# 看守本身：由 ensure_watch 经 flock 起，锁攥在外面那个 flock 进程手里，这里起的子进程都不带它
 watch() {
-  local pid since=$EPOCHSECONDS msg
-  exec 8>>"$watch_lock"
-  flock -n 8 || return 0 # 已经有看守了
+  local pid msg
+  since=$EPOCHSECONDS
   pid=$(emu_pid)
-  [[ -n $pid ]] || return 0
   while kill -0 "$pid" 2>/dev/null; do
     sleep 60
     idle || continue
-    # 拿 start 的锁再看一遍，不和正在开机或接上的 start 撞上；追加方式打开，不改锁文件的改动时间（那是「有人用」的记号）
-    exec 9>>"$dir/zeta-emu.lock"
+    # 拿 start 的锁再看一遍，不和正在开机或接上的 start 撞上
+    exec 9>"$dir/zeta-emu.lock"
     if flock -n 9 && idle; then
       msg="已关模拟器（进程 $pid）"
       stop_emu "$pid" || msg="关模拟器（进程 $pid）90 秒没关掉"
@@ -89,14 +83,15 @@ watch() {
   done
 }
 
-# start 结束前确认看守在：只看按本机配置开的这台（$1 是它开机时带的代理，和宿主的一样）；看守单独一个小分组，
-# 在 / 下跑，不攥锁和输出管道。两个 start 同时补起看守也没关系，拿不到看守锁的那个自己退出
+# start 结束前确认看守在：只看按本机配置开的这台（$1 是它开机时带的代理，和宿主的一样）。看守单独一个小分组，在 / 下跑，
+# 不攥 start 的锁和输出管道；看守锁由 flock -o 攥着，不传给看守和它的子进程。等 2 秒（status 探测时会短暂占着），
+# 拿不到就是已有看守，静默退出
 ensure_watch() {
   local self
   ((idle_min > 0)) && [[ $1 == "$host_proxy" ]] && ! watching || return 0
   self=$(realpath "$0")
   own_scope zeta-emu-watch 32M
-  (cd / && exec "${OWN_SCOPE[@]}" setsid bash "$self" watch) >/dev/null 2>&1 </dev/null 9>&- &
+  (cd / && exec "${OWN_SCOPE[@]}" setsid flock -o -w 2 -E 0 "$watch_lock" bash "$self" watch) >/dev/null 2>&1 </dev/null 9>&- &
 }
 
 # 要开的 AVD：配了就用配的，没配时本机只有一个 AVD 就用它
@@ -119,6 +114,7 @@ start() {
   (cd / && exec "$ANDROID_HOME/platform-tools/adb" start-server) >/dev/null 2>&1 </dev/null
   exec 9>"$dir/zeta-emu.lock"
   flock 9 # 几个 phone-run 同时来时只开一次
+  touch "$used_mark"
   if [[ -z $(emu_pid) ]]; then
     local name window=(-no-window)
     name=$(avd)
@@ -150,12 +146,12 @@ case ${1:-start} in
   start) start ;;
   status)
     pid=$(emu_pid)
-    if [[ -z $pid ]]; then echo "模拟器没开"; exit 0; fi
+    [[ -n $pid ]] || { echo "模拟器没开"; exit 0; }
     s="模拟器开着（进程 $pid）"
     booted && s+="，已开机" || s+="，还在开机"
-    ! is_root || s+="，adbd 是 root"
+    is_root && s+="，adbd 是 root"
     s+="，代理：$(running_proxy)"
-    ! watching || s+="，空闲满 $idle_min 分钟自动关机"
+    watching && s+="，空闲满 $idle_min 分钟自动关机"
     echo "$s" ;;
   stop)
     pid=$(emu_pid)

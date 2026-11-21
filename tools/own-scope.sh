@@ -12,9 +12,8 @@
 # 关掉它对命令行的 $ 展开，参数（比如 --tests 'Foo$Bar'）原样交给命令。
 own_scope() {
   OWN_SCOPE=()
-  local bus=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus cg=
-  read -r cg </proc/self/cgroup 2>/dev/null || true
-  [[ $cg =~ /agent-cpu-[^/]*\.scope$ ]] || return 0
+  local bus=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus cg
+  read -r cg </proc/self/cgroup && [[ $cg =~ /agent-cpu-[^/]*\.scope$ ]] || return 0
   [[ -S $bus ]] && command -v systemd-run >/dev/null || return 0
   # shellcheck disable=SC2034 # 由 source 本文件的脚本使用
   OWN_SCOPE=(systemd-run --user --scope --quiet --collect --expand-environment=no --slice=app-agent.slice --unit="$1-$$"
