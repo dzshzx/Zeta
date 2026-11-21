@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 /**
  * 数字助理的浮窗：半透明的 activity，盖在当前应用上（[AssistantScreen]）。
  *
- * 唤起时页面轻轻压暗，屏幕边缘的唤起光效流到底边后，带上的屏幕、建议问题和输入栏几个浮起的胶囊从底部浮上来；发出去以后铺成贴底的半屏面板显示回答。
+ * 唤起时页面轻轻压暗，屏幕边缘的唤起光效流到底边后，带上的屏幕、建议问题和输入栏几个浮起的胶囊从底部浮上来；发出去以后铺成贴底的半屏面板显示回答，回答期间可以点停止键打断这一轮。
  *
  * 两个入口：系统助理会话（[ZetaVoiceInteractionSession]，带截图和应用内容）；ACTION_ASSIST（默认助理是按 activity
  * 选的、或别的应用发来，只带前台应用的包名）。
@@ -105,6 +105,7 @@ class AssistantActivity : ComponentActivity() {
                         onDismiss = ::dismiss,
                         autoFocus = onMainScreen,
                         cornerRadius = bottomCorner,
+                        onStop = { chat.conversation?.interrupt() },
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
                     EdgeGlow(

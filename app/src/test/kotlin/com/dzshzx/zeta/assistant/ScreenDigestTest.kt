@@ -152,6 +152,7 @@ class ScreenDigestTest {
         val view = AssistantReplies.view(items, busy = true, waitingFor = null)
         assertEquals("先看一下。\n\n这是设置页。", view.text)
         assertTrue(view.streaming)
+        assertTrue(view.busy)
         assertNull(view.status)
     }
 
@@ -169,6 +170,9 @@ class ScreenDigestTest {
                 waitingFor = null,
             )
         assertEquals("Claude 正在处理…", working.status)
+        // 正在看、正在处理时还没有流式回答，这一轮照样算在进行：输入栏是停止键
+        assertTrue(working.busy)
+        assertFalse(working.streaming)
         val waiting = AssistantReplies.view(asked, busy = true, waitingFor = "Claude 想用 Bash")
         assertTrue(waiting.attention)
         assertTrue(waiting.status!!.contains("Bash"))
@@ -179,6 +183,7 @@ class ScreenDigestTest {
                 waitingFor = null,
             )
         assertEquals("进程退出了", failed.error)
+        assertFalse(failed.busy)
         assertNull(failed.status)
         assertEquals(
             "这一轮没有回答",

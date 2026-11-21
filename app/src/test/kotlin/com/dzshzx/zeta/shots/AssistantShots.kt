@@ -33,7 +33,7 @@ import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Test
 
-/** 数字助理：浮窗刚唤起、发出去以后、去掉屏幕内容、唤起光效放到一半；设置里的一行和诊断页的一组。 */
+/** 数字助理：浮窗刚唤起、发出去以后、回答中带停止键、去掉屏幕内容、唤起光效放到一半；设置里的一行和诊断页的一组。 */
 class AssistantShots : ShotTest() {
     private fun thumbnail() =
         Bitmap.createBitmap(120, 260, Bitmap.Config.ARGB_8888)
@@ -85,6 +85,7 @@ class AssistantShots : ShotTest() {
                     onToggleScreen = {},
                     onOpen = {},
                     onDismiss = {},
+                    onStop = {},
                 )
             }
         }
@@ -122,6 +123,7 @@ class AssistantShots : ShotTest() {
                     onToggleScreen = {},
                     onOpen = {},
                     onDismiss = {},
+                    onStop = {},
                 )
             }
         }
@@ -149,6 +151,7 @@ class AssistantShots : ShotTest() {
                             streaming = false,
                             attention = false,
                             error = null,
+                            busy = true,
                         ),
                     draft = remember { TextFieldState("再说说蓝牙") },
                     suggestions = emptyList(),
@@ -159,6 +162,7 @@ class AssistantShots : ShotTest() {
                     onToggleScreen = {},
                     onOpen = {},
                     onDismiss = {},
+                    onStop = {},
                 )
             }
         }
@@ -188,6 +192,7 @@ class AssistantShots : ShotTest() {
                     onToggleScreen = {},
                     onOpen = {},
                     onDismiss = {},
+                    onStop = {},
                 )
             }
         }
@@ -216,6 +221,7 @@ class AssistantShots : ShotTest() {
                             streaming = true,
                             attention = false,
                             error = null,
+                            busy = true,
                         ),
                     draft = remember { TextFieldState() },
                     suggestions = emptyList(),
@@ -226,6 +232,46 @@ class AssistantShots : ShotTest() {
                     onToggleScreen = {},
                     onOpen = {},
                     onDismiss = {},
+                    onStop = {},
+                )
+            }
+        }
+    }
+
+    /** 回答正在往外出：回答还短，面板停在基础高度，输入栏右边是停止键。 */
+    @Test
+    fun streaming() {
+        shoot("assistant-streaming") {
+            OverApp {
+                AssistantScreen(
+                    screen =
+                        ScreenChip(
+                            app = "设置（com.android.settings）",
+                            thumbnail = thumbnail(),
+                            waiting = false,
+                            removed = false,
+                            textOnly = false,
+                            sent = true,
+                        ),
+                    reply =
+                        ReplyView(
+                            text = "这是系统设置的首页，上面几项管网络连接",
+                            status = null,
+                            streaming = true,
+                            attention = false,
+                            error = null,
+                            busy = true,
+                        ),
+                    draft = remember { TextFieldState() },
+                    suggestions = emptyList(),
+                    sending = false,
+                    problem = null,
+                    visible = true,
+                    onSend = {},
+                    onToggleScreen = {},
+                    onOpen = {},
+                    onDismiss = {},
+                    onStop = {},
                 )
             }
         }

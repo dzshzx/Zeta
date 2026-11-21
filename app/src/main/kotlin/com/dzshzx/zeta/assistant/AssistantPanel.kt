@@ -2,11 +2,9 @@ package com.dzshzx.zeta.assistant
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -16,7 +14,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,6 +47,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,7 +63,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
@@ -104,7 +102,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -158,6 +155,8 @@ internal data class ReplyView(
     /** 要用户去 Zeta 里处理（确认工具调用）。 */
     val attention: Boolean,
     val error: String?,
+    /** 这一轮还在进行（正在看、正在处理、在出回答）：输入栏右边是停止键，输入框暂时不能输入。 */
+    val busy: Boolean = false,
 )
 
 /** 从对话的条目里取浮窗要显示的回答。纯函数，单元测试覆盖。 */
@@ -182,6 +181,7 @@ internal object AssistantReplies {
             streaming = busy && answers.lastOrNull()?.streaming == true,
             attention = waitingFor != null,
             error = error,
+            busy = busy,
         )
     }
 }
@@ -255,9 +255,10 @@ private fun rememberPanelMotion(visible: Boolean): PanelMotion {
  *
  * 唤起时页面轻轻压暗、底部铺一层托底，屏幕边缘的唤起光效流到底边后，三样东西从下面浮上来：带上的屏幕（截图缩略图和应用名，可以去掉）、一行建议问题、输入栏，都是浮起的胶囊。
  *
- * 发出去以后压暗加深，同一列内容铺成贴底的半屏面板：顶上是把手，下面是带上的屏幕、回答、输入栏；回答变长面板跟着长高，到顶后在回答区里滚动。
+ * 有回答以后压暗加深，同一列内容铺成贴底的半屏面板（照 Eta
+ * 的回答面板）：顶上是把手，下面是带上的屏幕、回答、输入栏。面板直接升到基础高度，回答变长时只长不缩，到最高后在回答区里滚动；把手和回答区可以拖着改高度，松手停到最近的一档（[SheetState]）。这一轮还在进行时输入栏右边是停止键。
  *
- * 往上推（面板上拖把手）、点把手或「在 Zeta 中继续」打开 Zeta 接着这个对话，往下拖、点外面关掉。
+ * 还没发时整列往上推、有回答后在最高档从把手再往上拉、点把手或「在 Zeta 中继续」，打开 Zeta 接着这个对话；往下拖过最低档、点外面关掉。
  */
 @Composable
 internal fun AssistantScreen(
@@ -276,6 +277,8 @@ internal fun AssistantScreen(
     autoFocus: Boolean = false,
     /** 屏幕下角的物理圆角半径（像素），唤起光效沿它绕过来；0 时由光效自己取默认值。 */
     cornerRadius: Float = 0f,
+    /** 回答期间点停止键：打断这一轮。 */
+    onStop: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -286,16 +289,23 @@ internal fun AssistantScreen(
             tween(240),
             label = "assistant-sheet",
         )
-    // 松手时：往上推够了打开 Zeta，往下拉够了关掉，其余弹回原位
+    val sheet = rememberSheetState(shown = reply != null)
+    // 还没发时：整列往上推够了打开 Zeta，往下拉够了关掉，其余弹回原位
     val openDistance = with(density) { OpenDistance.toPx() }
     val closeDistance = with(density) { CloseDistance.toPx() }
-    val hint by
-        remember(openDistance) { derivedStateOf { motion.drag.value < -openDistance * 0.18f } }
-    val ready by remember(openDistance) { derivedStateOf { motion.drag.value < -openDistance } }
-    HandoffHaptic(ready)
+    val handle by
+        remember(openDistance) { derivedStateOf { handleState(sheet, motion, openDistance) } }
+    HandoffHaptic(handle.ready)
     val dragState = rememberDraggableState { delta ->
         val next = dragTarget(motion.drag.value, delta)
         scope.launch { motion.drag.snapTo(next) }
+    }
+    val onRelease: (SheetRelease) -> Unit = {
+        when (it) {
+            SheetRelease.Dismiss -> onDismiss()
+            SheetRelease.Handoff -> onOpen()
+            is SheetRelease.Settle -> Unit
+        }
     }
     Box(modifier = Modifier.fillMaxSize()) {
         Backdrop(motion, sheetMix, onDismiss)
@@ -309,15 +319,16 @@ internal fun AssistantScreen(
                 modifier =
                     Modifier.fillMaxSize()
                         .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-                        .padding(top = SheetTopGap),
+                        .padding(top = SheetTopGap)
+                        .onSizeChanged { sheet.room = it.height },
             ) {
                 Column(
                     modifier =
                         Modifier.align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .panelMotion(motion)
+                            .panelMotion(motion, sheet)
                             .sheetSurface(shown = reply != null, mix = sheetMix)
-                            .panelDrag(dragState) {
+                            .panelDrag(dragState, enabled = reply == null) {
                                 settleDrag(
                                     motion.drag,
                                     openDistance,
@@ -326,6 +337,7 @@ internal fun AssistantScreen(
                                     onDismiss,
                                 )
                             }
+                            .onSizeChanged { sheet.panel = it.height }
                             .panelInsets(),
                 ) {
                     PanelBody(
@@ -336,16 +348,36 @@ internal fun AssistantScreen(
                         sending = sending,
                         problem = problem,
                         autoFocus = autoFocus && visible && motion.settled,
-                        handle = HandleState(hint, ready),
-                        onSend = onSend,
-                        onToggleScreen = onToggleScreen,
-                        onOpen = onOpen,
+                        sheet = sheet,
+                        handle = handle,
+                        actions = PanelActions(onSend, onToggleScreen, onOpen, onStop, onRelease),
                     )
                 }
             }
         }
     }
 }
+
+/** 浮窗上各处点了、拖完以后要做的事。 */
+@Immutable
+private class PanelActions(
+    val onSend: (String) -> Unit,
+    val onToggleScreen: () -> Unit,
+    val onOpen: () -> Unit,
+    val onStop: () -> Unit,
+    val onRelease: (SheetRelease) -> Unit,
+)
+
+/** 把手现在的样子：有回答时看面板的过顶拉取（照 Eta），还没发时看整列往上推了多远（这时没有把手，只用来振动）。 */
+private fun handleState(sheet: SheetState, motion: PanelMotion, openDistance: Float): HandleState =
+    if (sheet.open) {
+        HandleState(sheet.handoffProgress > HandoffHintProgress, sheet.handoffReady)
+    } else {
+        HandleState(
+            motion.drag.value < -openDistance * HandoffHintProgress,
+            motion.drag.value < -openDistance,
+        )
+    }
 
 /** 拖动面板时这一下之后的位置：往上拖有阻尼，往下跟手。 */
 private fun dragTarget(current: Float, delta: Float): Float =
@@ -375,18 +407,27 @@ private fun HandoffHaptic(ready: Boolean) {
     }
 }
 
-/** 内容跟着拖动走；出场时从下面 18dp 处淡入上来（照 Eta 的助理浮窗），关掉时淡出。 */
-private fun Modifier.panelMotion(motion: PanelMotion): Modifier = offset {
-    IntOffset(0, motion.drag.value.roundToInt())
+/** 内容跟着拖动走（面板拖出档位时有阻尼地跟手）；出场时从下面 18dp 处淡入上来（照 Eta 的助理浮窗），关掉时淡出。 */
+private fun Modifier.panelMotion(motion: PanelMotion, sheet: SheetState): Modifier = offset {
+    IntOffset(0, (motion.drag.value + sheet.rubber).roundToInt())
 }
     .graphicsLayer {
         alpha = motion.reveal.value * motion.fade.value
         translationY = (1f - motion.reveal.value) * 18.dp.toPx()
     }
 
-/** 整列都能拖：往上推打开 Zeta，往下拉关掉。 */
-private fun Modifier.panelDrag(state: DraggableState, onStopped: suspend () -> Unit): Modifier =
-    draggable(state = state, orientation = Orientation.Vertical, onDragStopped = { onStopped() })
+/** 还没发时整列都能拖：往上推打开 Zeta，往下拉关掉。有回答以后改由面板的把手和回答区拖动。 */
+private fun Modifier.panelDrag(
+    state: DraggableState,
+    enabled: Boolean,
+    onStopped: suspend () -> Unit,
+): Modifier =
+    draggable(
+        state = state,
+        orientation = Orientation.Vertical,
+        enabled = enabled,
+        onDragStopped = { onStopped() },
+    )
 
 /** 面板的底色先铺到导航栏下面，内容再让开键盘、导航栏和挖孔。 */
 @Composable
@@ -514,7 +555,7 @@ private fun DrawScope.drawCushion(color: Color, strength: Float, bottomInset: In
     )
 }
 
-/** 从上到下：把手（只在面板里）、带上的屏幕、回答、出错说明、建议问题（只在发出去以前）、输入栏。 */
+/** 从上到下：面板上半截（把手、带上的屏幕、回答，只在有回答时）或带上的屏幕、出错说明、建议问题（只在发出去以前）、输入栏。 */
 @Composable
 private fun ColumnScope.PanelBody(
     screen: ScreenChip?,
@@ -524,38 +565,50 @@ private fun ColumnScope.PanelBody(
     sending: Boolean,
     problem: String?,
     autoFocus: Boolean,
+    sheet: SheetState,
     handle: HandleState,
-    onSend: (String) -> Unit,
-    onToggleScreen: () -> Unit,
-    onOpen: () -> Unit,
+    actions: PanelActions,
 ) {
-    AnimatedVisibility(
-        visible = reply != null,
-        enter = fadeIn(tween(160)) + expandVertically(),
-        exit = fadeOut(tween(120)) + shrinkVertically(),
-    ) {
-        DragHandle(handle, onOpen)
+    if (reply != null) {
+        // 上半截最后量：键盘、输入栏这些先排好，剩下的高度才归它，它的最大高度也照这个算
+        Column(modifier = Modifier.weight(1f, fill = false).sheetHeight(sheet).clipToBounds()) {
+            DragHandle(
+                handle,
+                actions.onOpen,
+                Modifier.sheetDrag(sheet, scroll = null, onRelease = actions.onRelease),
+            )
+            if (screen != null) ScreenRow(screen, actions.onToggleScreen)
+            ReplyArea(reply, sheet, actions)
+        }
+    } else if (screen != null) {
+        ScreenRow(screen, actions.onToggleScreen)
     }
-    if (screen != null) ScreenRow(screen, onToggleScreen)
-    ReplySection(reply, onOpen)
     problem?.let { ProblemNote(it) }
     Suggestions(
         visible = reply == null && suggestions.isNotEmpty(),
         suggestions = suggestions,
         sending = sending,
-        onSend = onSend,
+        onSend = actions.onSend,
     )
-    InputRow(draft, sending, followUp = reply != null, autoFocus = autoFocus, onSend = onSend)
+    InputRow(
+        draft = draft,
+        sending = sending,
+        busy = reply?.busy == true,
+        followUp = reply != null,
+        autoFocus = autoFocus,
+        actions = actions,
+    )
 }
 
-/** 往上推时把手的样子：[hint] 推过了打开距离的 18%，[ready] 推过了打开距离、这时松手打开 Zeta。 */
+/** 往上拉时把手的样子：[hint] 拉取进度过了 18%，[ready] 拉够了、这时松手打开 Zeta。 */
 @Immutable private data class HandleState(val hint: Boolean, val ready: Boolean)
 
 /**
- * 面板顶上的把手（照 Eta 的把手）。往上推过一点，下面淡入「上拉打开 Zeta」、把手往上让；推够了把手变宽、染成主色，提示换成「松手打开 Zeta」。点一下等于往上推：打开 Zeta。
+ * 面板顶上的把手（照 Eta 的把手）。拖它改面板高度；在最高档再往上拉，下面淡入「上拉打开 Zeta」、把手往上让，拉够了把手变宽、染成主色，提示换成「松手打开 Zeta」。点一下打开
+ * Zeta（读屏用户用得上）。
  */
 @Composable
-private fun DragHandle(state: HandleState, onOpen: () -> Unit) {
+private fun DragHandle(state: HandleState, onOpen: () -> Unit, modifier: Modifier) {
     val colors = COUITheme.colorScheme
     val accent = if (state.ready) colors.primary else colors.dragHandle
     val hintColor = if (state.ready) colors.primary else colors.labelSecondary
@@ -575,7 +628,8 @@ private fun DragHandle(state: HandleState, onOpen: () -> Unit) {
         )
     Box(
         modifier =
-            Modifier.fillMaxWidth()
+            modifier
+                .fillMaxWidth()
                 .height(38.dp)
                 .semantics { contentDescription = "在 Zeta 中继续" }
                 .clickable(
@@ -723,27 +777,43 @@ private fun ScreenToggle(screen: ScreenChip, onToggle: () -> Unit) {
     }
 }
 
-/** 发出去以后的回答区：占面板里剩下的高度，放不下时自己滚动。 */
+/** 回答区：占面板上半截剩下的高度，回答短时下面留白，放不下时自己滚动；出来时从下面 14dp 处淡入（照 Eta）。回答已经滚到顶时往下拖、面板还没到最高时往上拖，改的是面板高度。 */
 @Composable
-private fun ColumnScope.ReplySection(reply: ReplyView?, onOpen: () -> Unit) {
-    AnimatedVisibility(
-        visible = reply != null,
-        modifier = Modifier.weight(1f, fill = false),
-        enter = fadeIn(tween(210, delayMillis = 45, easing = EnterEasing)) + expandVertically(),
-        exit = fadeOut(tween(110)) + shrinkVertically(),
-    ) {
-        if (reply != null) ReplyArea(reply, onOpen)
-    }
-}
-
-@Composable
-private fun ReplyArea(reply: ReplyView, onOpen: () -> Unit) {
+private fun ColumnScope.ReplyArea(reply: ReplyView, sheet: SheetState, actions: PanelActions) {
     val colors = COUITheme.colorScheme
     val scroll = rememberScrollState()
-    // 流式回答跟到底
-    LaunchedEffect(reply.text.length) { if (reply.streaming) scroll.scrollTo(scroll.maxValue) }
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-        GrowingScroll(scroll, Modifier.weight(1f, fill = false)) { ReplyContent(reply) }
+    val reveal = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        reveal.animateTo(1f, tween(210, delayMillis = 45, easing = EnterEasing))
+    }
+    // 流式回答跟到底；面板长高时也跟着
+    LaunchedEffect(reply.text.length, scroll.maxValue) {
+        if (reply.streaming) scroll.scrollTo(scroll.maxValue)
+    }
+    Column(
+        modifier =
+            Modifier.weight(1f)
+                .fillMaxWidth()
+                .sheetDrag(sheet, scroll, actions.onRelease)
+                .graphicsLayer {
+                    alpha = reveal.value
+                    translationY = (1f - reveal.value) * 14.dp.toPx()
+                }
+                .padding(top = 4.dp),
+    ) {
+        Column(
+            modifier =
+                Modifier.weight(1f)
+                    .fillMaxWidth()
+                    .onSizeChanged { sheet.viewport = it.height }
+                    .verticalScroll(scroll)
+                    // 滚动区把最小高度传给内容：先放开，量到的才是回答本身的高度
+                    .wrapContentHeight(Alignment.Top)
+                    .onSizeChanged { sheet.content = it.height }
+                    .padding(horizontal = 22.dp),
+        ) {
+            ReplyContent(reply)
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 12.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.End,
@@ -754,38 +824,11 @@ private fun ReplyArea(reply: ReplyView, onOpen: () -> Unit) {
                 color = colors.primary,
                 modifier =
                     Modifier.clip(CircleShape)
-                        .clickable(role = Role.Button, onClick = onOpen)
+                        .clickable(role = Role.Button, onClick = actions.onOpen)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
     }
-}
-
-/** 回答的滚动区，高度只长不缩（照 Eta 的回答面板）：记下见过的最高高度当下限，回答变长时用弹簧平滑长高，变短或流式结束后不回落；上限是面板里剩下的高度，再高就滚动。 */
-@Composable
-private fun GrowingScroll(
-    scroll: ScrollState,
-    modifier: Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val density = LocalDensity.current
-    var tallest by remember { mutableIntStateOf(0) }
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .animateContentSize(
-                    spring<IntSize>(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-                )
-                .heightIn(min = with(density) { tallest.toDp() })
-                .onSizeChanged { if (it.height > tallest) tallest = it.height }
-                .verticalScroll(scroll)
-                .padding(horizontal = 22.dp),
-        content = content,
-    )
 }
 
 /** 回答区里滚动的那部分：状态、回答正文、出错说明。 */
@@ -896,14 +939,15 @@ private fun SuggestionCapsule(
     )
 }
 
-/** 输入栏：一个浮起的胶囊，左边输入框，右边圆形发送按钮。 */
+/** 输入栏：一个浮起的胶囊，左边输入框，右边圆形发送按钮；这一轮还在进行时（[busy]）按钮换成停止键，输入框暂时不能输入（照 Eta 的输入栏）。 */
 @Composable
 private fun InputRow(
     draft: TextFieldState,
     sending: Boolean,
+    busy: Boolean,
     followUp: Boolean,
     autoFocus: Boolean,
-    onSend: (String) -> Unit,
+    actions: PanelActions,
 ) {
     val colors = COUITheme.colorScheme
     val focus = remember { FocusRequester() }
@@ -914,7 +958,7 @@ private fun InputRow(
         runCatching { focus.requestFocus() }
         keyboard?.show()
     }
-    val canSend = !sending && draft.text.isNotBlank()
+    val canSend = !sending && !busy && draft.text.isNotBlank()
     Row(
         modifier =
             Modifier.fillMaxWidth()
@@ -923,12 +967,12 @@ private fun InputRow(
                 .floatingSurface(colors, InputShape, Lift.Composer),
         verticalAlignment = Alignment.Bottom,
     ) {
-        DraftField(draft, sending, followUp, focus)
+        DraftField(draft, enabled = !sending && !busy, followUp, focus)
         Box(modifier = Modifier.padding(6.dp)) {
-            SendButton(canSend) {
+            SendButton(canSend, busy, actions.onStop) {
                 val text = draft.text.toString()
                 draft.clearText()
-                onSend(text)
+                actions.onSend(text)
             }
         }
     }
@@ -938,7 +982,7 @@ private fun InputRow(
 @Composable
 private fun RowScope.DraftField(
     draft: TextFieldState,
-    sending: Boolean,
+    enabled: Boolean,
     followUp: Boolean,
     focus: FocusRequester,
 ) {
@@ -965,7 +1009,7 @@ private fun RowScope.DraftField(
                 Modifier.fillMaxWidth().focusRequester(focus).semantics {
                     contentDescription = "输入问题"
                 },
-            enabled = !sending,
+            enabled = enabled,
             textStyle = style,
             cursorBrush = SolidColor(colors.primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
@@ -974,17 +1018,32 @@ private fun RowScope.DraftField(
     }
 }
 
-/** 发送按钮：能发时是主色，不能发时变灰。 */
+/** 发送按钮：能发时是主色，不能发时变灰；这一轮还在进行时是停止键（深色底、面板底色的实心方块，和聊天页的停止键同一个图标）。 */
 @Composable
-private fun SendButton(canSend: Boolean, onClick: () -> Unit) {
+private fun SendButton(canSend: Boolean, busy: Boolean, onStop: () -> Unit, onSend: () -> Unit) {
     val colors = COUITheme.colorScheme
-    val sendColor by
+    val buttonColor by
         animateColorAsState(
-            if (canSend) colors.primary else colors.container8,
-            tween(160),
+            when {
+                busy -> colors.labelPrimary
+                canSend -> colors.primary
+                else -> colors.container8
+            },
+            tween(180),
             label = "assistant-send",
         )
-    RoundButton(description = "发送", color = sendColor, enabled = canSend, onClick = onClick) {
+    if (busy) {
+        RoundButton(description = "停止", color = buttonColor, onClick = onStop) {
+            Icon(
+                ZetaIcons.Stop,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = colors.surface,
+            )
+        }
+        return
+    }
+    RoundButton(description = "发送", color = buttonColor, enabled = canSend, onClick = onSend) {
         Icon(
             ZetaIcons.ArrowUp,
             contentDescription = null,
