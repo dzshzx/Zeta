@@ -93,7 +93,15 @@ class FakeClaudeHostTest {
                     "\n",
             )
         val out = File(hostDir(dev, "k-dev"), "out.jsonl")
-        assertTrue("没等到这一轮结束", waitUntil(20) { out.readText().contains("\"type\":\"result\"") })
+        // result 之后才写 command_lifecycle completed（和真 Claude Code 一样）：等到它，不在 result 一出现就看
+        assertTrue(
+            "没等到这一轮结束",
+            waitUntil(60) {
+                out.readText().let {
+                    "\"type\":\"result\"" in it && "\"state\":\"completed\"" in it
+                }
+            },
+        )
         val text = out.readText()
         assertTrue(
             text,
@@ -104,7 +112,7 @@ class FakeClaudeHostTest {
 
         // 剧本撤下：闲着的假 Claude 自己退出，之后测试版起的就是真的 claude
         fakeDir.deleteRecursively()
-        assertTrue("剧本删了，假 Claude 还在", waitUntil(10) { !File("/proc/$pid").exists() })
+        assertTrue("剧本删了，假 Claude 还在", waitUntil(60) { !HostTesting.alive(pid) })
         start(dev, "k-dev")
         assertFalse(commandLine(pid(dev, "k-dev")).contains("fake-claude"))
     }
