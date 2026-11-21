@@ -19,8 +19,8 @@ class LicensesTest {
             Licenses.alternatives("(MIT OR Apache-2.0) AND Unicode-3.0"),
         )
         assertEquals(
-            listOf(listOf("GPL-2.0-only WITH Classpath-exception-2.0")),
-            Licenses.alternatives("GPL-2.0-only WITH Classpath-exception-2.0"),
+            listOf(listOf("Apache-2.0 WITH LLVM-exception")),
+            Licenses.alternatives("Apache-2.0 WITH LLVM-exception"),
         )
         assertEquals(listOf("MIT", "Apache-2.0", "Unicode-3.0"), Licenses.ids("(MIT OR Apache-2.0) AND Unicode-3.0"))
     }
@@ -41,7 +41,7 @@ class LicensesTest {
     @Test
     fun assetPathsFollowSpdxIds() {
         assertEquals("licenses/MIT.txt", Licenses.asset("MIT"))
-        assertEquals("licenses/GPL-2.0-only-with-Classpath-exception-2.0.txt", Licenses.asset("GPL-2.0-only WITH Classpath-exception-2.0"))
+        assertEquals("licenses/Apache-2.0-with-LLVM-exception.txt", Licenses.asset("Apache-2.0 WITH LLVM-exception"))
     }
 
     /** 正式版指向 tag，测试版指向版本名里的提交号（版本名的写法见 app/build.gradle.kts）。 */

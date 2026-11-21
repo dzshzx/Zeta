@@ -12,7 +12,6 @@ kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
 # 健康连接的公开接口：search_personal 读步数、睡眠、心率等的汇总
 healthConnect = "1.1.0"
-desugarJdkLibs = "2.1.5"
 # LSPosed 的现代模块接口（libxposed），只在编译时用，不打进 APK；手机上 LSPosed v2.2.1 加载 API 102 的模块
 libxposedApi = "102.0.0"
 # 应用自带的 SSH 客户端（远程主机直连，不经手机的 Debian）：JSch 的维护分支，纯 Java、没有依赖
@@ -60,7 +59,6 @@ roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "compose-ui-test" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
 
 [plugins]

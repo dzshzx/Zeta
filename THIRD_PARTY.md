@@ -144,16 +144,6 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 
     Copyright (c) 2026 dzshzx
 
-### desugar_jdk_libs
-
-| 版本 | 许可证 | 上游 |
-|---|---|---|
-| 2.1.5 | GPL-2.0-only WITH Classpath-exception-2.0 | https://github.com/google/desugar_jdk_libs |
-
-OpenJDK 类库里新接口在旧系统上的实现（core library desugaring），构建时按用到的部分并进 dex。Classpath 例外允许它和别的许可证的代码链接在一起。
-
-    Copyright (c) Oracle and/or its affiliates. All rights reserved.
-
 ## 依赖库
 
 | 组件 | 版本 | 许可证 | 构件 | 上游 |

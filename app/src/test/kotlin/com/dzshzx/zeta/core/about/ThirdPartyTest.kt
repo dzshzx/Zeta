@@ -93,12 +93,11 @@ class ThirdPartyTest {
         for (c in ThirdParty.GO_MODULES) assertTrue("${c.name} 也要在 ThirdParty.BUNDLED 里", c in ThirdParty.BUNDLED)
     }
 
-    /** gradle/libs.versions.toml：desugar_jdk_libs 的版本，RaTeX 的版本（KaTeX 字体、原生库里的 Rust 代码两条照它核对过）。 */
+    /** gradle/libs.versions.toml：RaTeX 的版本（KaTeX 字体、原生库里的 Rust 代码两条照它核对过）。 */
     @Test
     fun catalogVersionsMatch() {
         val versions = File(repo, "gradle/libs.versions.toml").readLines()
             .mapNotNull { Regex("""^([\w-]+)\s*=\s*"([^"]+)"""").find(it)?.destructured?.let { (k, v) -> k to v } }.toMap()
-        assertEquals("desugar_jdk_libs", versions["desugarJdkLibs"], ThirdParty.BUNDLED.single { it.name == "desugar_jdk_libs" }.version)
         assertEquals("升级 RaTeX 后重核 KaTeX 字体和 RATEX_RUST，再改 RATEX_VERSION", versions["ratex"], ThirdParty.RATEX_VERSION)
         assertEquals(ThirdParty.RATEX_VERSION, maven.single { "io.github.erweixin:ratex-android" in it.artifacts }.version)
     }
@@ -150,11 +149,11 @@ class ThirdPartyTest {
         /** 随包组件可以用的许可证，都和 GPL-3.0 兼容（OFL-1.1 的字体和程序分开授权，FSF 认可和 GPL 程序一起分发）。 */
         val PERMISSIVE = setOf("Apache-2.0", "MIT", "BSD-3-Clause", "ISC", "OFL-1.1", "Unicode-3.0")
 
-        /** 只许点名的组件用的：Eta 的 GPL-3.0；desugar_jdk_libs 的 GPL-2.0 带 Classpath 例外，例外允许它和 GPL-3.0 的代码链接。 */
-        val NAMED = mapOf("Eta" to "GPL-3.0-only", "desugar_jdk_libs" to "GPL-2.0-only WITH Classpath-exception-2.0")
+        /** 只许点名的组件用的：Eta 的 GPL-3.0。 */
+        val NAMED = mapOf("Eta" to "GPL-3.0-only")
 
         /** 要求随包附上版权行的许可证（Apache-2.0 只要求附全文，Unicode-3.0 的全文里自带版权行）。 */
-        val NEEDS_NOTICE = setOf("MIT", "BSD-3-Clause", "ISC", "OFL-1.1", "GPL-3.0-only", "GPL-2.0-only WITH Classpath-exception-2.0")
+        val NEEDS_NOTICE = setOf("MIT", "BSD-3-Clause", "ISC", "OFL-1.1", "GPL-3.0-only")
     }
 }
 

@@ -13,7 +13,6 @@ internal object Licenses {
         "ISC" to "ISC License",
         "OFL-1.1" to "SIL Open Font License 1.1",
         "Unicode-3.0" to "Unicode License v3",
-        "GPL-2.0-only WITH Classpath-exception-2.0" to "GNU General Public License v2.0 with Classpath Exception",
     )
 
     fun asset(id: String): String = "licenses/" + id.replace(" WITH ", "-with-") + ".txt"

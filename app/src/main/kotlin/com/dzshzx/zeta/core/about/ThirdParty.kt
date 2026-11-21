@@ -226,15 +226,7 @@ internal object ThirdParty {
             note = "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/，" +
                 "静态链接 Go 标准库和运行时。",
         ),
-    ) + GO_MODULES + Component(
-        name = "desugar_jdk_libs",
-        version = "2.1.5",
-        license = "GPL-2.0-only WITH Classpath-exception-2.0",
-        url = "https://github.com/google/desugar_jdk_libs",
-        copyright = listOf("Copyright (c) Oracle and/or its affiliates. All rights reserved."),
-        note = "OpenJDK 类库里新接口在旧系统上的实现（core library desugaring），构建时按用到的部分并进 dex。" +
-            "Classpath 例外允许它和别的许可证的代码链接在一起。",
-    )
+    ) + GO_MODULES
 
     private val json = Json { ignoreUnknownKeys = true }
 

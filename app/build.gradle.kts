@@ -90,7 +90,6 @@ android {
     }
 
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
     }
@@ -245,7 +244,6 @@ androidComponents {
 }
 
 dependencies {
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.coui2.ui)
     implementation(libs.coui2.preference)
     implementation(libs.coui2.icons)
