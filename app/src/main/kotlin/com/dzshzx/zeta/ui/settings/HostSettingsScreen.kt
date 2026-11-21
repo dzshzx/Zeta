@@ -147,12 +147,11 @@ private fun LocalHostScreen(
     }
 }
 
-/** 「名字」一行：右边是设备现在的名字，没起名字时说用的是设备自己的。点了改名（[DeviceNameDialog]）。 */
+/** 「自定义设备名」一行：右边是设备现在的名字（没起名字时是设备自己的）。点了改名（[DeviceNameDialog]）。 */
 @Composable
 internal fun DeviceNameRow(hub: ConversationHub, backend: String, onClick: () -> Unit) {
     ArrowPreference(
-        title = "名字",
-        summary = "设备自己的名字".takeIf { hub.customName(backend) == null },
+        title = "自定义设备名",
         endActions = { PreferenceValue(hub.backendName(backend)) },
         onClick = onClick,
     )
@@ -172,7 +171,7 @@ internal fun DeviceNameDialog(
         RemoteHosts.nameProblem(draft, hub.backends.filter { it != backend }.map(hub::backendName))
     TextInputDialog(
         show = show,
-        title = "名字",
+        title = "自定义设备名",
         summary = problem ?: "留空就用设备自己的名字「$original」",
         value = draft,
         onValueChange = { draft = it },

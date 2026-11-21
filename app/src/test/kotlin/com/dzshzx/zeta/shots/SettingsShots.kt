@@ -66,19 +66,19 @@ class SettingsShots : ShotTest() {
         shoot("settings-bare") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
     }
 
-    /** 设置 › 手机 › 名字：留空就用系统里的设备名。 */
+    /** 设置 › 手机 › 自定义设备名：留空就用系统里的设备名。 */
     @Test
     fun deviceName() {
         val hub = hostsHub()
         shoot(
             "settings-device-name",
-            prepare = { onNodeWithText("名字").scrollIntoView().performClick() },
+            prepare = { onNodeWithText("自定义设备名").scrollIntoView().performClick() },
         ) {
             HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
         }
     }
 
-    /** 设置 › 手机：新对话默认、Claude Code 配置、设备（名字、Linux 环境）。 */
+    /** 设置 › 手机：新对话默认、Claude Code 配置、设备（自定义设备名、Linux 环境）。 */
     @Test
     fun phoneHost() {
         val hub = hostsHub()
