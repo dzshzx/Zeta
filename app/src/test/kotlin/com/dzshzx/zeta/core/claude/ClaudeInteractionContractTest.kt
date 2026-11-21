@@ -380,6 +380,16 @@ class ClaudeInteractionContractTest {
 
     private fun permission(o: JsonObject) = parsePrompt(o) as? PermissionRequest
 
+    /** Claude Code 在别的线程上做完的事（比如写文件）：60 秒内 [done] 变成真就返回 true。 */
+    private fun eventually(done: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + 60_000
+        while (!done()) {
+            if (System.currentTimeMillis() > deadline) return false
+            Thread.sleep(20)
+        }
+        return true
+    }
+
     @Test
     fun toolPrompts() {
         assumeTrue("没有 claude 命令", claudeAvailable())
@@ -407,10 +417,12 @@ class ClaudeInteractionContractTest {
                 }
             }
             assertTrue("要有不再问的建议", asked!!.suggestions.isNotEmpty())
+            // Claude Code 落盘这条规则不等写完就接着跑工具、结束这一轮（工作线程上先写临时文件再改名），
+            // result 到了文件未必已在，等它出现
+            val local = File(home, "proj/.claude/settings.local.json")
             assertTrue(
-                File(home, "proj/.claude/settings.local.json")
-                    .readText()
-                    .contains("Bash(touch a.txt)"),
+                "规则写进项目的 settings.local.json",
+                eventually { local.isFile && local.readText().contains("Bash(touch a.txt)") },
             )
             c.user("again")
             var again = 0
