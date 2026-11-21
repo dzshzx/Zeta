@@ -106,23 +106,46 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
         if (!stopped && !hub.isWatching(conversation) && conversation.unattended == null) {
             // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
+            waitingShown.remove(conversation.openKey)
             Notifier.alert(app, conversation.openKey, title(conversation), text, silent = showed)
         }
         if (!stopped) autoRead(conversation)
     }
 
+    /** 正显示着“在等你”的提醒：会话的 openKey → 请求号。同一个请求不重发；提醒撤掉或换成结束的那句时去掉。 */
+    private val waitingShown = HashMap<String, String>()
+
+    /** 提醒响过铃的请求号：用户回来看过又离开时，同一个请求的提醒只更新、不再响。请求没了就去掉。 */
+    private val rung = HashSet<String>()
+
     /**
-     * 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了而用户没看着这个对话时，这个对话的那条提醒换成在等什么，能在通知上回答的带上按钮（见
-     * [AlertNotice.replies]）；没了就撤掉这条。后台运行的由 ScheduleRunner 提醒。
+     * 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了而用户没看着这个对话时发提醒（见 [showWaiting]）， 没了就撤掉这个对话的提醒。
      */
     internal fun pendingChanged(conversation: Conversation) {
-        val key = conversation.openKey
-        val request = conversation.pending
-        if (request == null) {
-            Notifier.clearAlert(app, key)
+        if (conversation.pending != null) {
+            showWaiting(conversation)
             return
         }
+        rung.retainAll(hub.liveConversations.mapNotNullTo(HashSet()) { it.pending?.requestId })
+        clearAlert(conversation.openKey)
+    }
+
+    /** 用户看着的对话变了（回到前台、切到后台、切了对话）：看着的那个的提醒不必留着；没看着、还在等用户的对话发提醒， 这样请求在用户看着时来、用户随后离开的也提醒到。 */
+    internal fun watchChanged() {
+        if (hub.foreground) clearAlert(hub.current.openKey)
+        hub.liveConversations.forEach(::showWaiting)
+    }
+
+    /**
+     * 对话在等用户、用户又没看着它时，它的那条提醒换成在等什么，能在通知上回答的带上按钮（见 [AlertNotice.replies]）。 同一个请求只在第一次响铃。后台运行的由
+     * ScheduleRunner 提醒。
+     */
+    private fun showWaiting(conversation: Conversation) {
+        val request = conversation.pending ?: return
         if (hub.isWatching(conversation) || conversation.unattended != null) return
+        val key = conversation.openKey
+        if (waitingShown[key] == request.requestId) return
+        waitingShown[key] = request.requestId
         val notice = AlertNotice.waiting(request)
         Notifier.alert(
             app,
@@ -134,12 +157,13 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
                 notice.replies.mapIndexed { index, reply ->
                     AlertReplyReceiver.action(app, key, request.requestId, index, reply)
                 },
+            silent = !rung.add(request.requestId),
         )
     }
 
-    /** 用户看着的对话变了（回到前台、切了对话）：看着的那个的提醒不必留着。 */
-    internal fun watchChanged() {
-        if (hub.foreground) Notifier.clearAlert(app, hub.current.openKey)
+    private fun clearAlert(key: String) {
+        waitingShown.remove(key)
+        Notifier.clearAlert(app, key)
     }
 
     /**
@@ -150,7 +174,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         val conversation = hub.findConversation(key)
         val pending = conversation?.pending
         if (conversation == null || pending == null) {
-            Notifier.clearAlert(app, key)
+            clearAlert(key)
             return
         }
         if (pending.requestId != requestId) return

@@ -103,6 +103,26 @@ class TurnAlertsTest {
         assertEquals(listOf("需要你确认：列出文件"), alerts())
     }
 
+    /** 请求在用户看着时来、用户随后离开：照样提醒，第一次响铃；回来看过再离开只更新、不响铃（进不响铃的那一组）。 */
+    @Test
+    fun leavingAWaitingConversationAlerts() {
+        val hub = Fixtures.readyHub(app)
+        hub.foreground = true
+        hub.current.receive(bash("r1"))
+        assertEquals(emptyList<String>(), alerts())
+        hub.foreground = false
+        assertEquals(listOf("需要你确认：列出文件"), alerts())
+        assertNull("第一次响铃", notification(hub.current.openKey)!!.group)
+        hub.foreground = true
+        assertEquals(emptyList<String>(), alerts())
+        hub.foreground = false
+        assertEquals("silent", notification(hub.current.openKey)!!.group)
+        assertEquals(
+            listOf("允许", "拒绝"),
+            notification(hub.current.openKey)!!.actions.map { it.title.toString() },
+        )
+    }
+
     /** 每个对话一条提醒（tag 是会话的 openKey），点开的 PendingIntent 各对话不同，不会互相顶掉。 */
     @Test
     fun oneAlertPerConversation() {

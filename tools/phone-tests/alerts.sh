@@ -1,7 +1,7 @@
 #!/bin/bash
 # 提醒通知（渠道“完成与确认提醒”）：测试版在后台时，假 Claude 停下来等批准、提问、进程意外退出。核对每个对话一条提醒
 # （tag 是会话号）、等批准时带“允许”“拒绝”、单选题的选项是按钮；按钮回答后这一轮接着跑完，提醒换成“已完成”；
-# 回到前台看着这个对话时提醒撤掉；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
+# 回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
 # 按钮由 root 直接发给 AlertReplyReceiver（和按钮的 PendingIntent 里是同一个 Intent）；通知栏上真点一下、锁屏上先要解锁，要人看。
 # 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/alerts.sh
 set -euo pipefail
@@ -102,8 +102,10 @@ vd launch >/dev/null
 wait_gone "回到前台"
 echo "通过：回到前台后提醒撤掉"
 
-# 第二轮：单选题
+# 第二轮：单选题。等提问在聊天页上弹出来（剧本停 4 秒）再离开：看着时来的请求，离开后也要提醒
 send "two"
+sleep 7
+[[ -z $(alert) ]] || { echo "不对：看着这个对话时就发了提醒"; fail=1; }
 background
 wait_alert ask "需要你回答：先改哪个？"
 cp alert-ask.txt alert-now.txt
