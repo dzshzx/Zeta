@@ -8,11 +8,11 @@ Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：K
 
 用户定的，改之前先问。
 
-- 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式都用它自带的，它没有的才在 `ui/components/coui2` 补，不照抄 Eta 的组件。写法照它自带的指南（COUI 2 仓库里的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。不接第三方服务，功能从简。
+- 界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式默认用它自带的；它没有的，在 `ui/components/coui2` 补，或者直接拿 Eta 的来用。写法照它自带的指南（COUI 2 仓库里的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。不接第三方服务，功能从简。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商。压缩上下文和起标题不自己实现，用 Claude Code 自带的；设置里的自动压缩、自动标题只是打开它们、设阈值。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x，不发 1.0。正式版的版本只在发版时升一次 patch（0.7.0 → 0.7.1），用户说了才升 minor；合入不改版本号，测试版的版本跟着提交自动走（见「发版与上线」）。
-- Eta（GPL-3.0）是功能和交互的参照：照它的设计重写，不整段复制；外观、尺寸、动画以 COUI 2 为准。`ui/markdown`、侧栏骨架等是从 Eta 拷来改写的（具体文件见仓根 `THIRD_PARTY.md`），所以本仓是 GPL-3.0（只写第 3 版：Eta 没有许可后续版本）。Eta 的上游是 github `Mangi-11/Eta`，COUI 2 的上游是 github `suqi8/coui`；对照前先把本地的那份更新到上游最新。
+- Eta（GPL-3.0）是功能、交互和外观的参照，它的代码可以直接拷来改写，外观、尺寸、动画也可以照它的。拷来的文件登记进 `core/about/ThirdParty.kt` 的 Eta 清单（`ThirdPartyTest` 核对它们还在，并生成仓根 `THIRD_PARTY.md`）；`ui/markdown`、侧栏骨架等就是这样来的，所以本仓是 GPL-3.0（只写第 3 版：Eta 没有许可后续版本）。Eta 的上游是 github `Mangi-11/Eta`，COUI 2 的上游是 github `suqi8/coui`；对照前先把本地的那份更新到上游最新。
 
 ## 架构
 
