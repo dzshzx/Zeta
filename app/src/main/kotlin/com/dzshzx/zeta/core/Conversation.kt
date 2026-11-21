@@ -14,12 +14,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -131,16 +131,23 @@ class Conversation(
     var todoSeed by mutableStateOf<List<ToolStep>>(emptyList())
         private set
 
-    /** 停下来等用户回答的那次 can_use_tool（批准工具、提问）。来了、没了都告诉 hub，提醒通知跟着发、撤。可观察，在主线程上改。 */
-    var pending: PermissionRequest?
-        get() = pendingState
+    /**
+     * 在等用户回应的请求（工具确认、计划审批、问题、MCP 表单），按到达顺序。主对话和后台子代理可能同时各有一个在等， 界面一次弹第一个（[pending]），答完再弹下一个。队首换了就告诉
+     * hub，提醒通知跟着发、撤。可观察，在主线程上改。
+     */
+    var prompts: List<UserPrompt>
+        get() = promptsState
         private set(value) {
-            val before = pendingState
-            pendingState = value
-            if (before?.requestId != value?.requestId) hub.onPendingChanged(this)
+            val before = promptsState.firstOrNull()?.requestId
+            promptsState = value
+            if (before != value.firstOrNull()?.requestId) hub.onPendingChanged(this)
         }
 
-    private var pendingState by mutableStateOf<PermissionRequest?>(null)
+    private var promptsState by mutableStateOf<List<UserPrompt>>(emptyList())
+
+    /** 界面上现在要弹的那个请求。 */
+    val pending: UserPrompt?
+        get() = prompts.firstOrNull()
 
     /** 对话在进行：在回答、等你确认，或者还有后台任务在跑。结束进程会打断它，批量删除、切环境、换账号都要等它。 */
     val active: Boolean
@@ -345,7 +352,7 @@ class Conversation(
             compactPercent = hub.settings.autoCompactPercent.takeIf { hub.settings.autoCompact },
         )
         queryUsage(created)
-        host.pending?.let { handle(it, System.currentTimeMillis()) }
+        host.pending.forEach { handle(it, System.currentTimeMillis()) }
         hub.onActivityChanged()
     }
 
@@ -484,6 +491,16 @@ class Conversation(
         if (trimmed.isEmpty() && attachments.isEmpty() && files.isEmpty()) return
         // 剪会话的应答回来之前不收：这时发出的消息可能被 Claude Code 算在剪之前
         if (rewinding) return
+        if (
+            run == null &&
+                attachments.isEmpty() &&
+                files.isEmpty() &&
+                trimmed.startsWith("!") &&
+                trimmed.length > 1
+        ) {
+            runShell(trimmed.substring(1).trim(), text)
+            return
+        }
         if (title.isBlank()) {
             title =
                 trimmed.lineSequence().first().take(40).ifBlank {
@@ -512,6 +529,40 @@ class Conversation(
                 },
             )
         }
+        hub.onActivityChanged()
+    }
+
+    /** 在跑的 `!` 命令（bash_command 的 uuid）：它们没有 result，靠 command_lifecycle 的 completed 收尾。 */
+    private val shellCommands = HashSet<String>()
+
+    /**
+     * 输入栏里 `!` 开头的一条：和 TUI 的 `!` 一样由 Claude Code 在会话的目录里直接执行（stream-json 的 bash_command），
+     * 命令和输出记进会话、下一条消息时模型看得到，这一条不让模型回答。回答进行中不收，原样放回输入框。
+     */
+    private fun runShell(command: String, typed: String) {
+        if (busy) {
+            addRecalled(
+                QueuedMessage(UUID.randomUUID().toString(), typed, emptyList(), emptyList()),
+            )
+            reducer.addNotice("回答进行中不能直接执行命令，等这一轮结束再发", error = true)
+            publish()
+            return
+        }
+        val process = authorize(null) ?: return
+        val uuid = UUID.randomUUID().toString()
+        shellCommands += uuid
+        busy = true
+        interruptRequested = false
+        status = null
+        lastActivityAt = System.currentTimeMillis()
+        process.send(
+            buildJsonObject {
+                put("type", "bash_command")
+                put("uuid", uuid)
+                put("command", command)
+            },
+        )
+        publish()
         hub.onActivityChanged()
     }
 
@@ -546,6 +597,46 @@ class Conversation(
                 abandon(message, reason)
             },
         )
+    }
+
+    /**
+     * 还原 [target] 之前的代码会动到哪些文件（只看不改，见 [CodeRewind]），结果交给 [onResult]（主线程）； 没有可还原的、或者现在不能还原时给 null。
+     */
+    internal fun previewCodeRewind(target: UserItem, onResult: (CodeRewind.Changes?) -> Unit) {
+        val uuid = target.uuid
+        val process = if (uuid != null && canRewind) ensureProcess() else null
+        if (uuid == null || process == null) {
+            onResult(null)
+            return
+        }
+        process.request(CodeRewind.request(uuid, dryRun = true)) {
+            onResult(CodeRewind.changes(it))
+        }
+    }
+
+    /**
+     * 把文件改回 [target] 这条消息之前的样子（TUI /rewind 的 “Restore code”），成了再做 [then]（比如接着删这一轮）。 先还原代码再剪会话：剪掉以后
+     * Claude Code 就找不到这条消息了。没还原成就不做 [then]，在列表里说明原因。
+     */
+    fun restoreCode(target: UserItem, then: () -> Unit = {}) {
+        val uuid = target.uuid ?: return
+        if (!canRewind) return
+        val process = ensureProcess() ?: return
+        // 和剪会话一样占着 rewinding：期间不收新消息，进程退出、对话关闭时按失败收掉
+        val pending =
+            PendingRewind(
+                onDone = {
+                    reducer.addNotice("代码已还原到这条消息之前", error = false)
+                    then()
+                },
+                onFailed = { reason -> reducer.addNotice(reason, error = true) },
+            )
+        rewind = pending
+        rewinding = true
+        process.request(CodeRewind.request(uuid, dryRun = false)) { response ->
+            finishRewind(CodeRewind.failure(response), pending)
+        }
+        hub.onActivityChanged()
     }
 
     /** 删除 [target] 开始的这一轮和之后的内容（只剪不发）。 */
@@ -744,8 +835,8 @@ class Conversation(
         steering = false
         interruptRequested = true
         process.request(controlBody("interrupt"))
-        // 正在等用户批准的调用一并拒绝，否则进程会一直等
-        pending?.let { respond(it, allow = false) }
+        // 正在等用户回应的一并拒绝，否则进程会一直等
+        dismissPrompts()
     }
 
     /** 立即插话：叫停当前这一轮，排队的消息随即开始，不必等手上的工具跑完。 */
@@ -756,7 +847,7 @@ class Conversation(
         steering = true
         interruptRequested = true
         process.request(controlBody("interrupt"))
-        pending?.let { respond(it, allow = false) }
+        dismissPrompts()
     }
 
     /** 撤回一条排队消息；[recall] 时放回输入框，否则直接丢掉。已被取走的撤不回，会照常出现在记录里。 */
@@ -859,6 +950,16 @@ class Conversation(
                 commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
             }
             response.str("current_permission_mode")?.let(modes::reportedAtStart)
+            // 接回进程时：还在等的工具确认以 Claude Code 报的为准（输出日志里看不出答没答过，比如答了以后命令还在跑）。
+            // MCP 表单不在这份清单里，照日志里读到的留着
+            answer.arr("pending_permission_requests")?.let { listed ->
+                val waiting = listed.mapNotNull {
+                    (it as? JsonObject)?.let(::parsePrompt) as? PermissionRequest
+                }
+                val ids = waiting.mapTo(HashSet()) { it.requestId }
+                prompts = prompts.filter { it !is PermissionRequest || it.requestId in ids }
+                waiting.forEach(::enqueuePrompt)
+            }
         }
 
     /** 问 Claude Code 上下文窗口和实际生效的思考强度，应答交给 [UsageTracker]。 */
@@ -914,39 +1015,62 @@ class Conversation(
         process?.let { switchMode(it, value) }
     }
 
-    /** 回答一次 can_use_tool。[answers] 只用于 AskUserQuestion：问题文字 → 选中的选项。 */
-    fun respond(request: PermissionRequest, allow: Boolean, answers: Map<String, String>? = null) {
-        if (pending?.requestId == request.requestId) pending = null
+    /** 后台子代理 [agentId] 在界面上的叫法：发起它的 Agent 调用写的说明；找不到时为 null。 */
+    fun subagentLabel(agentId: String): String? {
+        val use = subagents.toolUseOf(agentId) ?: return null
+        return items
+            .asSequence()
+            .filterIsInstance<WorkItem>()
+            .flatMap { it.steps.asSequence() }
+            .filterIsInstance<ToolStep>()
+            .firstOrNull { it.id == use }
+            ?.input
+            ?.str("description")
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    /** 回应一次 can_use_tool（工具确认、计划审批、AskUserQuestion），应答怎么拼见 [permissionResponse]。 */
+    fun reply(request: PermissionRequest, reply: PermissionReply) {
+        // 不写理由的拒绝和终端里按 Esc 一样叫停这一轮：结局算“已停止”，不算出错
+        if (reply is PermissionReply.Deny && reply.feedback.isNullOrBlank())
+            interruptRequested = true
+        answer(request.requestId, permissionResponse(request, reply))
+    }
+
+    /** 回应一次 MCP 服务器的 elicitation：[action] 是 accept、decline 或 cancel，接受表单时带 [content]。 */
+    fun answerElicitation(
+        request: ElicitationRequest,
+        action: String,
+        content: JsonObject? = null,
+    ) = answer(request.requestId, elicitationResponse(action, content))
+
+    private fun answer(requestId: String, response: JsonObject) {
+        prompts = prompts.filterNot { it.requestId == requestId }
         process?.send(
             buildJsonObject {
                 put("type", "control_response")
                 putJsonObject("response") {
                     put("subtype", "success")
-                    put("request_id", request.requestId)
-                    putJsonObject("response") {
-                        if (allow) {
-                            put("behavior", "allow")
-                            put(
-                                "updatedInput",
-                                if (answers == null) request.input
-                                else
-                                    JsonObject(
-                                        request.input +
-                                            ("answers" to
-                                                JsonObject(
-                                                    answers.mapValues { JsonPrimitive(it.value) },
-                                                )),
-                                    ),
-                            )
-                        } else {
-                            put("behavior", "deny")
-                            put("message", "用户拒绝了这次操作")
-                        }
-                    }
+                    put("request_id", requestId)
+                    put("response", response)
                 }
             },
         )
         hub.onActivityChanged()
+    }
+
+    /** 停止时把在等的都答掉：工具确认按 Esc 那样拒绝（这一轮停下），MCP 表单取消。 */
+    private fun dismissPrompts() {
+        for (prompt in prompts) when (prompt) {
+            is PermissionRequest -> reply(prompt, PermissionReply.Deny(null))
+            is ElicitationRequest -> answerElicitation(prompt, "cancel")
+        }
+    }
+
+    /** Claude Code 发来一个要用户回应的请求；同一个号已经在等（接回进程时重放过来的）就不再排一次。 */
+    private fun enqueuePrompt(prompt: UserPrompt) {
+        if (prompts.any { it.requestId == prompt.requestId }) return
+        prompts = prompts + prompt
     }
 
     /** Claude Code 发给手机工具的一条 MCP 消息：在后台处理（读屏、点按都要时间），再把应答送回去。 */
@@ -1077,7 +1201,7 @@ class Conversation(
                             cwd,
                             title,
                             arguments,
-                            AutoCompact.env(autoCompact, compactPercent),
+                            AutoCompact.env(autoCompact, compactPercent) + CodeRewind.ENV,
                         ),
                     onEvent = { event -> enqueue(created, event) },
                     onExit = { exit -> main.post { onProcessExit(created, exit) } },
@@ -1192,8 +1316,11 @@ class Conversation(
                 handleControlRequest(event)
                 false
             }
+            // Claude Code 自己撤回的（这一轮被打断、子代理被停）
             "control_cancel_request" -> {
-                if (pending?.requestId == event.str("request_id")) pending = null
+                event.str("request_id")?.let { id ->
+                    prompts = prompts.filterNot { it.requestId == id }
+                }
                 false
             }
             // /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
@@ -1281,6 +1408,11 @@ class Conversation(
 
     private fun handleUser(event: JsonObject, fromSubagent: Boolean): Boolean {
         if (fromSubagent) return false
+        // Zeta 不让 Claude Code 回放用户消息，回放出来的只有 `!` 命令和它的输出
+        if (event.bool("isReplay") == true) {
+            val content = event.obj("message")?.get("content") as? JsonPrimitive
+            return content?.contentOrNull?.let(reducer::applyShell) == true
+        }
         event.obj("message")?.let {
             reducer.applyUser(it, replay = false, toolUseResult = event.obj("tool_use_result"))
         }
@@ -1290,6 +1422,10 @@ class Conversation(
     /** 排队的消息开始处理（并进当前一轮或另起一轮）或被撤回；返回聊天列表是否有变化。 */
     private fun handleLifecycle(event: JsonObject): Boolean {
         val uuid = event.str("command_uuid") ?: return false
+        if (event.str("state") in setOf("completed", "cancelled") && shellCommands.remove(uuid)) {
+            finishShell()
+            return true
+        }
         when (event.str("state")) {
             "started" -> {
                 busy = true
@@ -1313,6 +1449,14 @@ class Conversation(
             }
         }
         return false
+    }
+
+    /** `!` 命令做完了：它没有 result，做完就算这一条结束。 */
+    private fun finishShell() {
+        if (queued.isNotEmpty()) return
+        busy = false
+        reducer.finishTurn()
+        hub.onActivityChanged()
     }
 
     /** 一轮结束（result 行）：收尾这一轮的列表，说明停止或出错；没有排队的消息时这一轮就算完了。 */
@@ -1343,25 +1487,15 @@ class Conversation(
     }
 
     private fun handleControlRequest(event: JsonObject) {
+        val prompt = parsePrompt(event)
+        if (prompt != null) {
+            enqueuePrompt(prompt)
+            return
+        }
         val request = event.obj("request") ?: return
         val requestId = event.str("request_id") ?: return
-        when (request.str("subtype")) {
-            "can_use_tool" -> pending = permissionRequest(requestId, request)
-            "mcp_message" -> request.obj("message")?.let { handleMcp(requestId, it) }
-        }
-    }
-
-    private fun permissionRequest(requestId: String, request: JsonObject): PermissionRequest {
-        val input = request.obj("input") ?: JsonObject(emptyMap())
-        return PermissionRequest(
-            requestId = requestId,
-            toolName = request.str("tool_name").orEmpty(),
-            input = input,
-            questions =
-                if (request.str("tool_name") == "AskUserQuestion")
-                    parseQuestions(input.arr("questions"))
-                else emptyList(),
-        )
+        if (request.str("subtype") == "mcp_message")
+            request.obj("message")?.let { handleMcp(requestId, it) }
     }
 
     private fun handleReset(event: JsonObject): Boolean {
@@ -1384,22 +1518,6 @@ class Conversation(
         }
     }
 
-    private fun parseQuestions(list: JsonArray?): List<Question> =
-        list.orEmpty().mapNotNull { element ->
-            val q = element as? JsonObject ?: return@mapNotNull null
-            Question(
-                question = q.str("question").orEmpty(),
-                header = q.str("header").orEmpty(),
-                options =
-                    q.arr("options").orEmpty().mapNotNull {
-                        (it as? JsonObject)?.let { o ->
-                            QuestionOption(o.str("label").orEmpty(), o.str("description").orEmpty())
-                        }
-                    },
-                multiSelect = q.bool("multiSelect") == true,
-            )
-        }
-
     private fun endTurnState() {
         // 进程没了，排队的消息也不会再被处理：放回输入框
         for (message in queued) addRecalled(message)
@@ -1412,7 +1530,8 @@ class Conversation(
         tasks.processEnded(System.currentTimeMillis())
         subagents.watched.forEach(::publishSubagent)
         status = null
-        pending = null
+        prompts = emptyList()
+        shellCommands.clear()
         interruptRequested = false
         reducer.finishTurn()
         publish()

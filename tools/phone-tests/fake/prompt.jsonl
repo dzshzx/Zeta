@@ -1,0 +1,1 @@
+{"title":"假 Claude · 确认","steps":[{"text":"我先列一下目录。","chunk":6,"delay":30},{"tool":"Bash","input":{"command":"ls -la","description":"列出目录"},"result":"total 0","ask":true},{"text":"列完了。","chunk":6,"delay":30}]}

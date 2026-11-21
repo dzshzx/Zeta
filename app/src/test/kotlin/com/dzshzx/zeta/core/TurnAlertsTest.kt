@@ -151,7 +151,9 @@ class TurnAlertsTest {
         assertNull(text(hub.current.openKey))
         assertEquals(listOf("已完成"), alerts())
         hub.current.receive(bash("r2"))
-        hub.current.pending?.let { hub.current.respond(it, allow = false) }
+        (hub.current.pending as? PermissionRequest)?.let {
+            hub.current.reply(it, PermissionReply.Deny(null))
+        }
         assertNull(text(hub.current.openKey))
     }
 

@@ -643,7 +643,7 @@ class ConversationHub(
             historyFile = o.str("file"),
             lines = o.int("lines") ?: 0,
             busy = o.bool("busy") == true,
-            pending = o.obj("pending"),
+            pending = o.arr("pending").orEmpty().filterIsInstance<JsonObject>(),
             permissionMode = o.str("mode"),
             tasks = o.int("tasks") ?: 0,
             taskEvents = o.arr("task_events").orEmpty().filterIsInstance<JsonObject>(),

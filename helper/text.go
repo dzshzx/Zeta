@@ -133,6 +133,7 @@ var (
 	commandName = regexp.MustCompile(`(?s)<command-name>` + space + `*(.*?)` + space + `*</command-name>`)
 	commandArgs = regexp.MustCompile(`(?s)<command-args>` + space + `*(.*?)` + space + `*</command-args>`)
 	commandOut  = regexp.MustCompile(`(?s)<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>`)
+	bashInput   = regexp.MustCompile(`(?s)<bash-input>(.*?)</bash-input>`)
 	ansiEscape  = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 	// 消息开头的附件行（见 Kotlin 的 AttachedPaths）：复制进来的文件 [Attached file: 路径]，
 	// 引用的路径 [Attached file: @"路径"] 和 [Attached folder: @"路径"]
@@ -140,24 +141,17 @@ var (
 )
 
 // injectedPrefixes 开头的用户消息是系统注入的，不是用户亲手输入的。
-var injectedPrefixes = []string{"<command-name>", "<local-command", "<system-reminder>", "<task-notification>", "Caveat:", "[Request interrupted"}
+var injectedPrefixes = []string{"<command-name>", "<local-command", "<system-reminder>", "<task-notification>", "Caveat:", "[Request interrupted", "<bash-stdout>", "<bash-stderr>"}
 
-// userText 是用户亲手输入的文字（斜杠命令还原成 /名字 参数）；工具结果、系统注入的内容是空串。
+// userText 是用户亲手输入的文字（斜杠命令还原成 /名字 参数，! 命令还原成 ! 命令）；工具结果、系统注入的内容、! 命令的输出是空串。
 func userText(content any) string {
-	var text string
-	switch c := content.(type) {
-	case string:
-		text = c
-	case []any:
-		var parts []string
-		for _, b := range c {
-			if m, ok := b.(obj); ok && m["type"] == "text" {
-				parts = append(parts, asString(m["text"]))
-			}
+	text := rawUserText(content)
+	if strings.HasPrefix(text, "<bash-input>") {
+		if m := bashInput.FindStringSubmatch(text); m != nil {
+			return "! " + strings.TrimSpace(m[1])
 		}
-		text = strings.Join(parts, "\n")
+		return ""
 	}
-	text = strings.TrimSpace(text)
 	if strings.HasPrefix(text, "<command-name>") {
 		name := commandName.FindStringSubmatch(text)
 		if name == nil {
@@ -179,6 +173,33 @@ func userText(content any) string {
 		}
 	}
 	return text
+}
+
+// rawUserText 是用户消息里的文字块连起来、去掉首尾空白，不做别的处理。
+func rawUserText(content any) string {
+	var text string
+	switch c := content.(type) {
+	case string:
+		text = c
+	case []any:
+		var parts []string
+		for _, b := range c {
+			if m, ok := b.(obj); ok && m["type"] == "text" {
+				parts = append(parts, asString(m["text"]))
+			}
+		}
+		text = strings.Join(parts, "\n")
+	}
+	return strings.TrimSpace(text)
+}
+
+// shellText 是 ! 命令的那两行（<bash-input>…、<bash-stdout>…），原样交给 Zeta 画成命令步骤；别的是空串。
+func shellText(content any) string {
+	text := rawUserText(content)
+	if strings.HasPrefix(text, "<bash-input>") || strings.HasPrefix(text, "<bash-stdout>") || strings.HasPrefix(text, "<bash-stderr>") {
+		return text
+	}
+	return ""
 }
 
 // attachedPath 是附件行里的路径；不是附件行时 ok 为假。

@@ -47,7 +47,6 @@ class QueuedMessagesTest {
                 historyFile = null,
                 lines = 0,
                 busy = true,
-                pending = null,
             )
         val chat =
             Conversation(hub, host.cwd, host.sessionId, host.title, host.historyFile, attach = host)

@@ -4,7 +4,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** [AlertNotice]：提醒上写什么、给哪些按钮，以及按选项回答时的答案。 */
@@ -74,9 +73,24 @@ class AlertNoticeTest {
     fun answerMapsTheQuestionToTheOption() {
         val request = ask(question("界面", "文档"))
         assertEquals(
-            mapOf("先改哪个？" to "文档"),
-            AlertNotice.answers(request, AlertReply.Answer("文档")),
+            PermissionReply.Answer(mapOf("先改哪个？" to "文档"), emptyMap()),
+            AlertNotice.permissionReply(request, AlertReply.Answer("文档")),
         )
-        assertNull(AlertNotice.answers(request, AlertReply.Allow))
+        assertEquals(PermissionReply.Allow, AlertNotice.permissionReply(request, AlertReply.Allow))
+        // 通知上的“拒绝”写不了理由：和弹层里直接拒绝一样，这一轮停下
+        assertEquals(
+            PermissionReply.Deny(null),
+            AlertNotice.permissionReply(request, AlertReply.Deny),
+        )
+    }
+
+    @Test
+    fun elicitationOnlyOpensTheConversation() {
+        val form = ElicitationRequest("e1", "deploy", "发布前确认几项", url = null, fields = emptyList())
+        val notice = AlertNotice.waiting(form)
+        assertEquals("MCP 服务器 deploy 需要你填写信息", notice.text)
+        assertEquals("发布前确认几项", notice.detail)
+        assertEquals(emptyList<AlertReply>(), notice.replies)
+        assertEquals(StepKind.ASKING, AlertNotice.waitingStep(form).kind)
     }
 }

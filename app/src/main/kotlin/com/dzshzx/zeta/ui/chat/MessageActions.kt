@@ -3,6 +3,8 @@ package com.dzshzx.zeta.ui.chat
 import android.content.Context
 import android.util.Base64
 import android.widget.Toast
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
+import com.dzshzx.zeta.core.CodeRewind
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
@@ -53,6 +56,9 @@ import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Refresh
 import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
+import io.github.suqi8.coui.kmp.preference.CheckboxPreference
+import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
+import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
@@ -77,8 +83,16 @@ internal class TurnIndex(list: List<TurnActions>) {
     val last: TurnActions? = list.lastOrNull()
 }
 
-/** 等确认的重新生成（[regenerate]）或删除。 */
-internal class PendingConfirm(val turn: TurnActions, val regenerate: Boolean)
+/**
+ * 等确认的重新生成（[regenerate]）或删除。这条消息之后改过文件（[changes]，问过 Claude Code 才知道）时， 和 TUI 的 /rewind
+ * 一样可以一起还原代码（[code]），删除时也可以只还原代码（[codeOnly]）。
+ */
+@Stable
+internal class PendingConfirm(val turn: TurnActions, val regenerate: Boolean) {
+    var changes by mutableStateOf<CodeRewind.Changes?>(null)
+    var code by mutableStateOf(true)
+    var codeOnly by mutableStateOf(false)
+}
 
 /** 一个对话的消息操作状态：正在编辑哪条、在等哪个确认。编辑时借这个对话的输入栏草稿 [draft] 放被编辑的消息。随对话重建。 */
 @Stable
@@ -159,12 +173,13 @@ internal class MessageActions(
         return true
     }
 
-    fun askRegenerate(turn: TurnActions) {
-        confirm = PendingConfirm(turn, regenerate = true)
-    }
+    fun askRegenerate(turn: TurnActions) = ask(PendingConfirm(turn, regenerate = true))
 
-    fun askDelete(turn: TurnActions) {
-        confirm = PendingConfirm(turn, regenerate = false)
+    fun askDelete(turn: TurnActions) = ask(PendingConfirm(turn, regenerate = false))
+
+    private fun ask(pending: PendingConfirm) {
+        confirm = pending
+        conversation.previewCodeRewind(pending.turn.user) { pending.changes = it }
     }
 
     fun dismissConfirm() {
@@ -175,8 +190,14 @@ internal class MessageActions(
         val pending = confirm ?: return
         confirm = null
         val user = pending.turn.user
+        val withCode = pending.changes != null && pending.code
+        if (pending.changes != null && pending.codeOnly) {
+            conversation.restoreCode(user)
+            return
+        }
         if (!pending.regenerate) {
-            conversation.dropFrom(user)
+            if (withCode) conversation.restoreCode(user) { conversation.dropFrom(user) }
+            else conversation.dropFrom(user)
             return
         }
         // 原样重发这一轮的提问：文字、附件路径，还有图片（历史里的要从会话记录取回）
@@ -189,7 +210,10 @@ internal class MessageActions(
                 toast("有图片取不回来，没法原样重发")
                 return@launch
             }
-            conversation.rewrite(user, user.text, images.filterNotNull(), user.files)
+            val resend = {
+                conversation.rewrite(user, user.text, images.filterNotNull(), user.files)
+            }
+            if (withCode) conversation.restoreCode(user, resend) else resend()
         }
     }
 
@@ -319,29 +343,85 @@ internal fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifi
     }
 }
 
-/** 重新生成和删除前的确认。两样都会丢掉内容（会话记录里还在，但界面和 Claude 都不再看到），所以先问。 */
+/**
+ * 重新生成和删除前的确认。两样都会丢掉内容（会话记录里还在，但界面和 Claude 都不再看到），所以先问。 这条消息之后改过文件时多给还原代码的选择，和 TUI 的 /rewind
+ * 一样：删除时三选一（一起还原、只删对话、只还原代码），重新生成时勾选。
+ */
 @Composable
 internal fun MessageActionDialogs(actions: MessageActions) {
     val pending = actions.confirm
     // 对话框收起的动画里还要显示原来的文字
     val last = rememberRetained(pending)
-    val later = last?.turn?.laterTurns ?: 0
+    val changes = last?.changes
     ConfirmDialog(
         show = pending != null,
         title = if (last?.regenerate != false) "重新生成回复？" else "删除这一轮对话？",
-        summary =
+        summary = last?.let(::confirmSummary),
+        confirmText =
             when {
-                last == null -> null
-                last.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
-                last.regenerate -> "这一轮的回复将换成新生成的。"
-                later > 0 -> "这条消息及之后 $later 轮对话将被删除。"
-                else -> "这条消息和它的回复将被删除。"
+                last?.regenerate != false -> "重新生成"
+                changes != null && last.codeOnly -> "还原代码"
+                else -> "删除"
             },
-        confirmText = if (last?.regenerate != false) "重新生成" else "删除",
         destructive = last?.regenerate == false,
         onConfirm = actions::confirmed,
         onDismissRequest = actions::dismissConfirm,
+        content = if (last == null || changes == null) null else ({ CodeRestoreChoice(last) }),
     )
+}
+
+/** 确认框的说明：会丢掉哪些对话，这条消息之后改过文件时再说改了多少。 */
+private fun confirmSummary(confirm: PendingConfirm): String {
+    val later = confirm.turn.laterTurns
+    val turns =
+        when {
+            confirm.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
+            confirm.regenerate -> "这一轮的回复将换成新生成的。"
+            later > 0 -> "这条消息及之后 $later 轮对话将被删除。"
+            else -> "这条消息和它的回复将被删除。"
+        }
+    val files =
+        confirm.changes?.let {
+            "\n这条消息之后改过 ${it.files.size} 个文件（+${it.insertions} −${it.deletions}）。"
+        }
+    return turns + files.orEmpty()
+}
+
+/** 还原代码的选择：重新生成时勾选；删除时三选一（一起还原、只删对话、只还原代码）。 */
+@Composable
+private fun CodeRestoreChoice(confirm: PendingConfirm) {
+    val margin = PaddingValues(vertical = 10.dp)
+    Column {
+        if (confirm.regenerate) {
+            CheckboxPreference(
+                title = "同时还原代码",
+                checked = confirm.code,
+                onCheckedChange = { confirm.code = it },
+                insideMargin = margin,
+            )
+            return@Column
+        }
+        // 每项是（标题，code，codeOnly）
+        listOf(
+                Triple("删除并还原代码", true, false),
+                Triple("只删除对话", false, false),
+                Triple("只还原代码，对话不动", true, true),
+            )
+            .forEach { (title, code, codeOnly) ->
+                RadioButtonPreference(
+                    title = title,
+                    selected =
+                        if (codeOnly) confirm.codeOnly
+                        else !confirm.codeOnly && confirm.code == code,
+                    onClick = {
+                        confirm.code = code
+                        confirm.codeOnly = codeOnly
+                    },
+                    radioButtonLocation = RadioButtonLocation.End,
+                    insideMargin = margin,
+                )
+            }
+    }
 }
 
 /** 把消息里的一张图片还原成能再发出去的附件（编辑、重新生成时用）；取不回来返回 null。耗时，别在主线程调用。 */

@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.core
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /*
@@ -161,4 +163,43 @@ internal fun branchTitle(title: String, taken: Collection<String>): String {
     return generateSequence(1) { it + 1 }
         .map { if (it == 1) "分支 · $base" else "分支 $it · $base" }
         .first { it !in taken }
+}
+
+/**
+ * 还原代码（TUI 的 /rewind 里的 “Restore code”）：Claude Code 每轮改文件前给它们留快照，rewind_files 把文件改回某条用户消息之前的样子
+ * （2.1.330 实测，ClaudeInteractionContractTest 钉住）。快照要起进程时用 [ENV] 打开（-p 模式默认不留），存在会话目录里， 换个进程 --resume
+ * 接着用也还在；没打开的进程答 canRewind false。dry_run 只报会改哪些文件、加减几行，不动文件。
+ */
+internal object CodeRewind {
+    val ENV = mapOf("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING" to "1")
+
+    fun request(target: String, dryRun: Boolean): JsonObject =
+        controlBody("rewind_files") {
+            put("user_message_id", target)
+            if (dryRun) put("dry_run", true)
+        }
+
+    /** 还原 [target] 之前的代码会动到的：文件、加减行数。 */
+    data class Changes(val files: List<String>, val insertions: Int, val deletions: Int)
+
+    /** 读 dry_run 的应答：没有可还原的（没打开快照、这条消息之后没改过文件）为 null。 */
+    fun changes(response: JsonObject?): Changes? {
+        val body =
+            response?.takeIf { it.str("subtype") == "success" }?.obj("response") ?: return null
+        if (body.bool("canRewind") != true) return null
+        val files =
+            body.arr("filesChanged").orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+        if (files.isEmpty()) return null
+        return Changes(files, body.int("insertions") ?: 0, body.int("deletions") ?: 0)
+    }
+
+    /** 读真还原的应答：还原成了返回 null，没成返回给用户看的原因。 */
+    fun failure(response: JsonObject?): String? {
+        if (response == null) return "Claude Code 没有回应"
+        if (response.str("subtype") != "success")
+            return "Claude Code 拒绝了：" + (response.str("error") ?: "未知错误")
+        val body = response.obj("response") ?: return "Claude Code 没有说还原没还原"
+        return if (body.bool("canRewind") == true) null
+        else "没有还原代码：" + (body.str("error") ?: "没有这条消息之前的快照")
+    }
 }

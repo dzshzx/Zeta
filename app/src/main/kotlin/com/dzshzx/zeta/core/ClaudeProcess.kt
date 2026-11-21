@@ -25,8 +25,8 @@ class HostInfo(
     /** 输出日志已经有多少行；接上时从下一行开始读。 */
     val lines: Int,
     val busy: Boolean,
-    /** 还在等用户批准的 can_use_tool 请求（原样）。 */
-    val pending: JsonObject?,
+    /** 还在等用户回应的请求（can_use_tool、elicitation 的 control_request 行，原样），按到达顺序。 */
+    val pending: List<JsonObject> = emptyList(),
     /** 进程当前的权限模式（可能在运行中变过，比如计划获批后）。 */
     val permissionMode: String? = null,
     /** 还在跑的后台任务数；这一轮已经结束也要接上，任务跑完 Claude Code 还会接着汇报。 */
@@ -36,7 +36,7 @@ class HostInfo(
 ) {
     /** 和 [Conversation.active] 同一口径：在回答、等确认或有后台任务。 */
     val active: Boolean
-        get() = busy || pending != null || tasks > 0
+        get() = busy || pending.isNotEmpty() || tasks > 0
 }
 
 /** 托管进程的结局（[ClaudeProcess] 的 onExit）：退出码和标准错误输出的最后一段。 */

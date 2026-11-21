@@ -2,6 +2,8 @@ package com.dzshzx.zeta.core
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * 把 Claude Code 的 stream-json 事件归并成聊天列表。
@@ -41,6 +43,67 @@ class TranscriptReducer(private val idPrefix: String = "") {
         items.add(UserItem(id, text, images, files, uuid))
         return id
     }
+
+    /** 上一条 `!` 命令那一步：等它的输出那行填结果。 */
+    private var shellStep: String? = null
+
+    /**
+     * 用户在输入栏执行的命令（TUI 的 `!`，stream-json 的 bash_command）：Claude Code 把它记成两条用户消息，
+     * `<bash-input>命令</bash-input>` 和
+     * `<bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr><bash-exit-code>N</bash-exit-code>`
+     * （退出码是 0 时不写），实时的和历史里的一样。这里画成单独一组里的一个命令步骤，标题是 `! 命令`。 不是这两种的返回 false。
+     */
+    fun applyShell(text: String): Boolean {
+        val trimmed = text.trim()
+        when {
+            trimmed.startsWith("<bash-input>") -> {
+                val command = tagged(trimmed, "bash-input").orEmpty()
+                val id = nextId("sh")
+                val step =
+                    ToolStep(
+                        id,
+                        "Bash",
+                        buildJsonObject {
+                            put("command", command)
+                            put(
+                                "description",
+                                "! " + command.lineSequence().firstOrNull().orEmpty(),
+                            )
+                        },
+                        ToolStatus.Running,
+                        null,
+                    )
+                items.add(WorkItem("w:$id", listOf(step)))
+                shellStep = id
+            }
+            trimmed.startsWith("<bash-stdout>") || trimmed.startsWith("<bash-stderr>") -> {
+                val id = shellStep ?: return true
+                shellStep = null
+                val out = tagged(trimmed, "bash-stdout").orEmpty().trimEnd()
+                val err = tagged(trimmed, "bash-stderr").orEmpty().trimEnd()
+                val code = tagged(trimmed, "bash-exit-code")?.trim()?.toIntOrNull() ?: 0
+                val result =
+                    listOf(out, err)
+                        .filter { it.isNotEmpty() }
+                        .joinToString("\n")
+                        .ifEmpty { "（没有输出）" } + if (code != 0) "\n退出码 $code" else ""
+                updateToolStep(id) {
+                    it.copy(
+                        status = if (code == 0) ToolStatus.Success else ToolStatus.Failed,
+                        result = result,
+                    )
+                }
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    private fun tagged(text: String, tag: String): String? =
+        text
+            .substringAfter("<$tag>", missingDelimiterValue = "")
+            .takeIf { "<$tag>" in text }
+            ?.substringBefore("</$tag>")
 
     fun addNotice(text: String, error: Boolean) {
         items.add(NoticeItem(nextId("n"), text, error))
@@ -226,6 +289,7 @@ class TranscriptReducer(private val idPrefix: String = "") {
                     }
                     .joinToString("\n")
                     .trim()
+            if (images.isEmpty() && applyShell(raw)) return
             val (files, text) = splitAttachedFiles(raw)
             if (images.isNotEmpty() || files.isNotEmpty() || text.isNotEmpty())
                 addUser(text, images, files, uuid)

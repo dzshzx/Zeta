@@ -35,14 +35,20 @@ internal fun Conversation.attachLiveProcess(hub: ConversationHub) {
 }
 
 /**
- * 扮 Claude Code 答这个对话的进程正在等的、子类型为 [subtype] 的控制请求（最早的那个），[response] 是应答里的 response 一项。 没有在等的就失败。
+ * 扮 Claude Code 答这个对话的进程正在等的、子类型为 [subtype] 的控制请求（最早的那个），[response] 是应答里的 response 一项。 [extra] 是和
+ * response 并列的字段（以逗号开头），比如 initialize 应答里的 pending_permission_requests。没有在等的就失败。
  */
-internal fun Conversation.answer(subtype: String, response: String, success: Boolean = true) {
+internal fun Conversation.answer(
+    subtype: String,
+    response: String,
+    success: Boolean = true,
+    extra: String = "",
+) {
     val process = processField.get(this) as ClaudeProcess
     val id = checkNotNull(process.waitingFor(subtype)) { "没有在等的 $subtype" }
     receive(
         if (success)
-            """{"type":"control_response","response":{"subtype":"success","request_id":"$id","response":$response}}"""
+            """{"type":"control_response","response":{"subtype":"success","request_id":"$id"$extra,"response":$response}}"""
         else
             """{"type":"control_response","response":{"subtype":"error","request_id":"$id","error":"refused"}}""",
     )

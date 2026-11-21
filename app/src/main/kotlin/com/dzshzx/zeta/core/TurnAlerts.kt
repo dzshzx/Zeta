@@ -179,11 +179,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         }
         if (pending.requestId != requestId) return
         val reply = AlertNotice.replies(pending).getOrNull(index) ?: return
-        conversation.respond(
-            pending,
-            allow = reply != AlertReply.Deny,
-            answers = AlertNotice.answers(pending, reply),
-        )
+        if (pending is PermissionRequest)
+            conversation.reply(pending, AlertNotice.permissionReply(pending, reply))
     }
 
     /** 提醒的标题：对话标题。 */

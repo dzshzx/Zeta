@@ -71,7 +71,7 @@ case $SESSION in '' | *[!0-9a-fA-F-]*) SESSION='' ;; esac
 
 declare -A AWAIT=() RESP=()
 QUEUE=()
-BUF='' EOF='' BUSY='' INTERRUPTED='' END_REPLY='' TITLE=''
+BUF='' EOF='' BUSY='' INTERRUPTED='' REJECTED='' END_REPLY='' TITLE=''
 
 # 读一行标准输入并处理，最多等 $1 毫秒
 poll() {
@@ -365,7 +365,7 @@ tool_use() {
 }
 
 # 问 Zeta 批不批（can_use_tool）：$1 工具名，$2 input，$3 追加的字段。批了返回 0，INPUT 换成批准时给的；
-# 拒了写 tool_result 并返回 2；被打断返回 1
+# 拒了写 tool_result 并返回 2；被打断、或拒绝时带 interrupt（这一轮停下，照真 Claude Code 收尾）返回 1
 permission() {
   PHASE=ask
   ask_zeta "{\"subtype\":\"can_use_tool\",\"tool_name\":\"$1\"$3,\"input\":$2,\"permission_suggestions\":[{\"type\":\"addRules\",\"rules\":[{\"toolName\":\"$1\"}],\"behavior\":\"allow\",\"destination\":\"localSettings\"}],\"tool_use_id\":\"$TOOL_ID\"}" || return 1
@@ -378,11 +378,18 @@ permission() {
     return 0
   fi
   close_message '"tool_use"'
+  DENIALS=$(jq -c --arg n "$1" --arg id "$TOOL_ID" --argjson i "$2" '. + [{tool_name: $n, tool_use_id: $id, tool_input: $i}]' <<<"$DENIALS")
+  if [ "$(jq -r '.interrupt // false' <<<"$decision")" = true ]; then
+    user "[{\"type\":\"tool_result\",\"content\":\"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\",\"is_error\":true,\"tool_use_id\":\"$TOOL_ID\"}]" \
+      ",\"tool_use_result\":\"User rejected tool use\",\"tool_result_meta\":[{\"id\":\"$TOOL_ID\",\"non_execution_kind\":\"user-rejected\"}]"
+    user '[{"type":"text","text":"[Request interrupted by user for tool use]"}]'
+    REJECTED=1
+    return 1
+  fi
   local message
   message=$(jq -c '.message // "用户拒绝了这次操作"' <<<"$decision")
   user "[{\"type\":\"tool_result\",\"content\":$message,\"is_error\":true,\"tool_use_id\":\"$TOOL_ID\"}]" \
     ",\"tool_use_result\":$(jq -c '"Error: " + .' <<<"$message"),\"tool_result_meta\":[{\"id\":\"$TOOL_ID\",\"non_execution_kind\":\"permission-rule\",\"permission_decision\":{\"decision\":\"reject\",\"source\":\"user_reject\"}}]"
-  DENIALS=$(jq -c --arg n "$1" --arg id "$TOOL_ID" --argjson i "$2" '. + [{tool_name: $n, tool_use_id: $id, tool_input: $i}]' <<<"$DENIALS")
   return 2
 }
 
@@ -526,7 +533,7 @@ next_turn() {
 turn() {
   CMD=${QUEUE[0]}
   QUEUE=("${QUEUE[@]:1}")
-  BUSY=1 INTERRUPTED='' MSG='' BLOCK=0 PHASE='' STREAMING='' PARTIAL=() REQUESTS=0 IN_T=0 OUT_T=0 DENIALS='[]' LAST_TEXT=null
+  BUSY=1 INTERRUPTED='' REJECTED='' MSG='' BLOCK=0 PHASE='' STREAMING='' PARTIAL=() REQUESTS=0 IN_T=0 OUT_T=0 DENIALS='[]' LAST_TEXT=null
   now
   TURN_T0=$NOW
   lifecycle "$CMD" started
@@ -575,12 +582,15 @@ turn() {
   done
   if [ -n "$INTERRUPTED" ]; then
     interrupted
+  elif [ -n "$REJECTED" ]; then
+    result error_during_execution true '"tool_use"' aborted_tools ',"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use"]'
+    lifecycle "$CMD" cancelled
   else
     close_message '"end_turn"'
     result success false '"end_turn"' completed ",\"result\":$(jq -c '. // ""' <<<"$LAST_TEXT")"
     lifecycle "$CMD" completed
   fi
-  BUSY='' INTERRUPTED=''
+  BUSY='' INTERRUPTED='' REJECTED=''
   [ -z "$END_REPLY" ] || exit 1
 }
 

@@ -185,6 +185,10 @@ func (r *historyReader) user(o obj, content any, number int, row any) {
 	if truthy(o["isCompactSummary"]) {
 		return
 	}
+	if shell := shellText(content); shell != "" {
+		r.add(obj{"type": "user", "message": obj{"content": []any{obj{"type": "text", "text": clipText(shell)}}}}, row)
+		return
+	}
 	text := userText(content)
 	// 记录里 /compact 命令写在压缩提示之后，那条提示已经说明了，不再显示一遍命令
 	if r.compacted && text != "" && strings.SplitN(text, " ", 2)[0] == "/compact" {

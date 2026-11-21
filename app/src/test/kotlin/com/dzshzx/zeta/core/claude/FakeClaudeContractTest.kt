@@ -63,6 +63,11 @@ class FakeClaudeContractTest {
                 "deny",
                 listOf("""{"steps":[{"text":"Opening it."},$openApp,"ask":true},$hello]}"""),
             ),
+            // 不写理由的拒绝（带 interrupt，和 TUI 按 Esc 一样）：这一轮停下，不再调模型
+            Case(
+                "denystop",
+                listOf("""{"steps":[{"text":"Opening it."},$openApp,"ask":true},$hello]}"""),
+            ),
             Case(
                 "toolerr",
                 listOf("""{"steps":[{"text":"Opening it."},$openApp},$hello]}"""),
@@ -380,7 +385,10 @@ class FakeClaudeContractTest {
     /** 流式答一次：第一次请求按 [mode] 调手机工具或 Bash，否则（可以先想一想）说一段话，有的模式说到一半卡住。 */
     private fun streamReply(ex: HttpExchange, mode: String, stalls: AtomicInteger, results: Int) {
         sse(ex, "message_start", obj("message" to message(null)))
-        if (results == 0 && mode in setOf("tool", "deny", "toolerr", "toolint", "endtool")) {
+        if (
+            results == 0 &&
+                mode in setOf("tool", "deny", "denystop", "toolerr", "toolint", "endtool")
+        ) {
             block(
                 ex,
                 0,
@@ -709,8 +717,16 @@ class FakeClaudeContractTest {
                 "can_use_tool" ->
                     answer(
                         id,
-                        if (mode == "deny") obj("behavior" to "deny", "message" to "用户拒绝了这次操作")
-                        else obj("behavior" to "allow", "updatedInput" to request["input"]!!),
+                        when (mode) {
+                            "deny" -> obj("behavior" to "deny", "message" to "用户拒绝了这次操作")
+                            "denystop" ->
+                                obj(
+                                    "behavior" to "deny",
+                                    "message" to "User rejected tool use",
+                                    "interrupt" to JsonPrimitive(true),
+                                )
+                            else -> obj("behavior" to "allow", "updatedInput" to request["input"]!!)
+                        },
                     )
             }
         }

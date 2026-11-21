@@ -8,7 +8,7 @@ import com.dzshzx.zeta.ui.chat.presentTool
  * 这里是不碰 Android 的部分，发通知在 Notifier，什么时候发、撤在 TurnAlerts。
  */
 
-/** 提醒上的一个按钮：替用户回答这次 can_use_tool。 */
+/** 提醒上的一个按钮：替用户回答这次 can_use_tool。“拒绝”和弹层里不写理由的拒绝一样，这一轮停下。 */
 sealed interface AlertReply {
     val label: String
 
@@ -46,13 +46,21 @@ internal object AlertNotice {
     /** 展开后的细节最多这么多字，命令、问题再长就点开对话看。 */
     private const val DETAIL_CHARS = 400
 
-    /** 胶囊、实时通知和提醒共用的那一句：提问是“需要你回答”，别的工具是“需要你确认”。 */
-    fun waitingStep(request: PermissionRequest): Step =
-        if (request.toolName == ASK) Step("需要你回答", StepKind.ASKING)
+    /** 胶囊、实时通知和提醒共用的那一句：提问和 MCP 表单是“需要你回答”，别的是“需要你确认”。 */
+    fun waitingStep(prompt: UserPrompt): Step =
+        if (prompt.asksForInput) Step("需要你回答", StepKind.ASKING)
         else Step("需要你确认", StepKind.CONFIRMING)
 
-    fun waiting(request: PermissionRequest): WaitingNotice {
-        val step = waitingStep(request).text
+    fun waiting(prompt: UserPrompt): WaitingNotice {
+        val step = waitingStep(prompt).text
+        // MCP 服务器要填表或去网页：通知上只说是哪台服务器、要什么，点开对话处理
+        val request =
+            prompt as? PermissionRequest
+                ?: return WaitingNotice(
+                    text = prompt.notice,
+                    detail = (prompt as ElicitationRequest).message.clipChars(DETAIL_CHARS, "…"),
+                    replies = emptyList(),
+                )
         if (request.toolName == ASK) {
             val question = request.questions.singleOrNull()?.question?.takeIf { it.isNotBlank() }
             return WaitingNotice(
@@ -79,8 +87,9 @@ internal object AlertNotice {
      * 提醒上给哪些按钮：一般的工具给“允许”“拒绝”；只有一道单选题、选项不超过 [MAX_BUTTONS] 个的提问，
      * 每个选项一个按钮；多选、几道题、计划（要看完整份）都不给，点开对话处理。
      */
-    fun replies(request: PermissionRequest): List<AlertReply> =
-        when (request.toolName) {
+    fun replies(prompt: UserPrompt): List<AlertReply> {
+        val request = prompt as? PermissionRequest ?: return emptyList()
+        return when (request.toolName) {
             PLAN -> emptyList()
             ASK -> {
                 val question = request.questions.singleOrNull()
@@ -95,11 +104,21 @@ internal object AlertNotice {
             }
             else -> listOf(AlertReply.Allow, AlertReply.Deny)
         }
+    }
 
-    /** 按 [reply] 回答 [request] 时交给 [Conversation.respond] 的答案（只有提问有）。 */
-    fun answers(request: PermissionRequest, reply: AlertReply): Map<String, String>? =
-        (reply as? AlertReply.Answer)?.let { answer ->
-            request.questions.singleOrNull()?.let { mapOf(it.question to answer.option) }
+    /** 按 [reply] 回答 [request] 时交给 [Conversation.reply] 的回应。 */
+    fun permissionReply(request: PermissionRequest, reply: AlertReply): PermissionReply =
+        when (reply) {
+            AlertReply.Allow -> PermissionReply.Allow
+            AlertReply.Deny -> PermissionReply.Deny(null)
+            is AlertReply.Answer ->
+                PermissionReply.Answer(
+                    request.questions
+                        .singleOrNull()
+                        ?.let { mapOf(it.question to reply.option) }
+                        .orEmpty(),
+                    emptyMap(),
+                )
         }
 
     private const val ASK = "AskUserQuestion"

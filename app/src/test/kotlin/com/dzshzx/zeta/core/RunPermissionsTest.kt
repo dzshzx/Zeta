@@ -136,7 +136,6 @@ class RunPermissionsTest {
                 historyFile = null,
                 lines = 0,
                 busy = true,
-                pending = null,
                 permissionMode = mode,
             )
         fun attached(host: HostInfo) =

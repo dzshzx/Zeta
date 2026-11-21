@@ -196,3 +196,22 @@ func TestHistoryHeaderModelAndCompactDedup(t *testing.T) {
 		t.Error("signature kept")
 	}
 }
+
+// ! 命令的两行原样交给 Zeta（它画成命令步骤），不当成用户说的话
+func TestHistoryKeepsShellLinesRaw(t *testing.T) {
+	e := testEnv(t)
+	file := e.root + "/-p/55555555-5555-4555-8555-555555555555.jsonl"
+	writeLines(t, file,
+		`{"type":"user","message":{"role":"user","content":"<bash-input>pwd</bash-input>"},"uuid":"b1"}`,
+		`{"type":"user","message":{"role":"user","content":"<bash-stdout>/w</bash-stdout><bash-stderr></bash-stderr>"},"uuid":"b2"}`,
+		userLine("u1", "a"))
+	out := mustCall(t, e, "history", file)
+	var texts []string
+	for _, o := range out[1:] {
+		texts = append(texts, asString(asObj(asList(asObj(o["message"])["content"])[0])["text"]))
+	}
+	want := []string{"<bash-input>pwd</bash-input>", "<bash-stdout>/w</bash-stdout><bash-stderr></bash-stderr>", "a"}
+	if fmt.Sprint(texts) != fmt.Sprint(want) {
+		t.Errorf("texts %q, want %q", texts, want)
+	}
+}

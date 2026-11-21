@@ -66,6 +66,8 @@ func TestUserTextRestoresCommandsAndDropsInjected(t *testing.T) {
 		{"<system-reminder>x</system-reminder>", ""},
 		{"[Request interrupted by user]", ""},
 		{"  hello  ", "hello"},
+		{"<bash-input>ls -la</bash-input>", "! ls -la"},
+		{"<bash-stdout>out</bash-stdout><bash-stderr></bash-stderr>", ""},
 		{[]any{obj{"type": "text", "text": "a"}, obj{"type": "image"}, obj{"type": "text", "text": "b"}}, "a\nb"},
 		{[]any{obj{"type": "tool_result", "content": "x"}}, ""},
 		{obj{"type": "text"}, ""},

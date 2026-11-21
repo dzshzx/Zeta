@@ -114,7 +114,7 @@ type hostScan struct {
 	lines   int
 	session any
 	busy    bool
-	pending any // 等着批准的 control_request（整行），没有是 nil
+	pending []any // 等着用户回应的 control_request（can_use_tool、elicitation，整行），按到达顺序
 	mode    any
 	tasks   int
 	events  []any
@@ -123,12 +123,13 @@ type hostScan struct {
 // hostReader 是 scanHost 的状态。后台任务：最后一份清单；各任务的 task_started（带上发起它的工具调用和开始时间）和最近一条 task_progress。
 type hostReader struct {
 	hostScan
-	pendingCall obj
-	listing     obj
-	started     map[string]obj
-	progress    map[string]obj
-	calls       orderedCalls
-	stamp       int64 // 最近一条 user、assistant 行的时刻（毫秒），0 表示还不知道
+	waiting  []obj             // 还没回应的请求，见 pending
+	mcpCalls map[string]string // MCP 工具调用的 id → 工具名，elicitation 靠它认出调用已经有了结果
+	listing  obj
+	started  map[string]obj
+	progress map[string]obj
+	calls    orderedCalls
+	stamp    int64 // 最近一条 user、assistant 行的时刻（毫秒），0 表示还不知道
 }
 
 // scanHost 读 out.jsonl。这一轮的起止和 zeta_host.sh 的 turn_running 同一口径：system init、command_lifecycle started 开始，
@@ -139,7 +140,7 @@ func scanHost(dir string) (hostScan, error) {
 		return hostScan{}, err
 	}
 	defer f.Close()
-	r := &hostReader{started: map[string]obj{}, progress: map[string]obj{}}
+	r := &hostReader{started: map[string]obj{}, progress: map[string]obj{}, mcpCalls: map[string]string{}}
 	lr := newLineReader(f)
 	for line, ok := lr.next(); ok; line, ok = lr.next() {
 		if line[len(line)-1] != '\n' {
@@ -156,8 +157,9 @@ func scanHost(dir string) (hostScan, error) {
 	if lr.err != nil {
 		return hostScan{}, lr.err
 	}
-	if r.pendingCall != nil {
-		r.pending = r.pendingCall
+	r.pending = []any{}
+	for _, w := range r.waiting {
+		r.pending = append(r.pending, w)
 	}
 	r.events = r.taskEvents()
 	return r.hostScan, nil
@@ -170,7 +172,8 @@ func (r *hostReader) record(o obj) {
 	switch o["type"] {
 	case "result":
 		r.busy = false
-		r.pendingCall = nil
+		// 后台子代理的确认（带 agent_id）不随主对话这一轮结束
+		r.dropWaiting(func(w obj) bool { return !truthy(asObj(w["request"])["agent_id"]) })
 	case "system":
 		r.system(o)
 	case "command_lifecycle":
@@ -180,13 +183,11 @@ func (r *hostReader) record(o obj) {
 	case "assistant", "user":
 		r.message(o)
 	case "control_request":
-		if asObj(o["request"])["subtype"] == "can_use_tool" {
-			r.pendingCall = o
+		if sub := asObj(o["request"])["subtype"]; sub == "can_use_tool" || sub == "elicitation" {
+			r.waiting = append(r.waiting, o)
 		}
 	case "control_cancel_request":
-		if r.pendingCall != nil && sameValue(r.pendingCall["request_id"], o["request_id"]) {
-			r.pendingCall = nil
-		}
+		r.dropWaiting(func(w obj) bool { return sameValue(w["request_id"], o["request_id"]) })
 	}
 }
 
@@ -232,15 +233,52 @@ func (r *hostReader) message(o obj) {
 			}
 		}
 	}
-	if o["type"] == "user" && r.pendingCall != nil {
-		wanted := asObj(r.pendingCall["request"])["tool_use_id"]
+	if o["type"] == "assistant" {
 		for _, b := range asList(content) {
-			if m, ok := b.(obj); ok && sameValue(m["tool_use_id"], wanted) {
-				r.pendingCall = nil
-				break
+			if m, ok := b.(obj); ok && m["type"] == "tool_use" && strings.HasPrefix(asString(m["name"]), "mcp__") {
+				r.mcpCalls[valueKey(m["id"])] = asString(m["name"])
 			}
 		}
 	}
+	if o["type"] == "user" && len(r.waiting) > 0 {
+		for _, b := range asList(content) {
+			m, ok := b.(obj)
+			if !ok || m["type"] != "tool_result" {
+				continue
+			}
+			id := m["tool_use_id"]
+			tool := r.mcpCalls[valueKey(id)]
+			r.dropWaiting(func(w obj) bool {
+				req := asObj(w["request"])
+				if req["subtype"] == "elicitation" {
+					// elicitation 不带调用号：发起它的那台 MCP 服务器有工具调用出了结果，就当已经答过
+					return tool != "" && strings.HasPrefix(tool, "mcp__"+mcpToolPrefix(asString(req["mcp_server_name"]))+"__")
+				}
+				return sameValue(req["tool_use_id"], id)
+			})
+		}
+	}
+}
+
+// dropWaiting 去掉 drop 为真的请求。
+func (r *hostReader) dropWaiting(drop func(obj) bool) {
+	kept := r.waiting[:0]
+	for _, w := range r.waiting {
+		if !drop(w) {
+			kept = append(kept, w)
+		}
+	}
+	r.waiting = kept
+}
+
+// mcpToolPrefix 是 MCP 服务器名在工具名里的写法（mcp__<它>__<工具>）：字母、数字、_ 和 - 以外的换成 _，和 Claude Code 一样。
+func mcpToolPrefix(server string) string {
+	return strings.Map(func(c rune) rune {
+		if c == '_' || c == '-' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			return c
+		}
+		return '_'
+	}, server)
 }
 
 // taskEvents 是重放的事件：各任务的 task_started，再是清单（据此列出），最后是进展。

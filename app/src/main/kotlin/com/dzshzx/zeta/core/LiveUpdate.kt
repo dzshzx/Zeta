@@ -49,8 +49,8 @@ internal data class LiveCandidate(
     val current: Boolean,
     /** 这一轮开始的时间（墙上时钟），通知上据此走秒。 */
     val startedAt: Long,
-    /** 停下来等用户回答的那次请求（批准工具、提问），没有时为 null。 */
-    val request: PermissionRequest? = null,
+    /** 停下来等用户回应的那个请求（批准工具、提问、MCP 表单），没有时为 null。 */
+    val request: UserPrompt? = null,
 )
 
 /** 任务清单的进度。 */

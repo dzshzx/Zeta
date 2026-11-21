@@ -124,7 +124,7 @@ internal data class ReplyView(
 
 /** 从对话的条目里取浮窗要显示的回答。纯函数，单元测试覆盖。 */
 internal object AssistantReplies {
-    fun view(items: List<ChatItem>, busy: Boolean, pendingTool: String?): ReplyView {
+    fun view(items: List<ChatItem>, busy: Boolean, waitingFor: String?): ReplyView {
         val tail = items.takeLastWhile { it !is UserItem }
         val answers = tail.filterIsInstance<AnswerItem>().filter { it.text.isNotBlank() }
         val text = answers.joinToString("\n\n") { it.text.trim() }
@@ -132,7 +132,7 @@ internal object AssistantReplies {
         val working = tail.any { it is WorkItem }
         val status =
             when {
-                pendingTool != null -> "等你确认：Claude 想用 $pendingTool，到 Zeta 里处理"
+                waitingFor != null -> "等你处理：$waitingFor，到 Zeta 里处理"
                 busy && text.isEmpty() -> if (working) "Claude 正在处理…" else "Claude 正在看…"
                 busy && tail.lastOrNull() is WorkItem -> "Claude 正在处理…"
                 !busy && text.isEmpty() && error == null -> "这一轮没有回答"
@@ -142,7 +142,7 @@ internal object AssistantReplies {
             text = text,
             status = status,
             streaming = busy && answers.lastOrNull()?.streaming == true,
-            attention = pendingTool != null,
+            attention = waitingFor != null,
             error = error,
         )
     }

@@ -14,6 +14,7 @@ import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.diag.DiagLevel
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.notice
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import java.time.Instant
@@ -323,7 +324,7 @@ internal object ScheduleRunner {
                     app,
                     run.key,
                     "$name · 需要你确认",
-                    "Claude 想用 ${pending.toolName}，点这里打开对话处理",
+                    "${pending.notice}，点这里打开对话处理",
                     conversation.openKey,
                 )
             }

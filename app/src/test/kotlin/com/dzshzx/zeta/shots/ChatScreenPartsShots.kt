@@ -28,12 +28,16 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.parsePrompt
 import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import java.io.InputStream
 import java.io.OutputStream
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -222,46 +226,98 @@ class ChatScreenPartsShots : ShotTest() {
         }
     }
 
-    /** 批准一次工具调用。 */
+    /** 批准一次工具调用：Claude Code 给了“以后不再问”的建议，还说明了为什么要问。 */
     @Test
     fun permission() {
         val hub = chatHub()
         hub.current.force(
-            "pendingState",
-            PermissionRequest(
-                "r1",
-                "Bash",
-                buildJsonObject {
-                    put("command", "tools/gradle :app:assembleDebug")
-                    put("description", "构建 debug 包")
-                },
-                emptyList(),
+            "promptsState",
+            listOf(
+                PermissionRequest(
+                    "r1",
+                    "Bash",
+                    buildJsonObject {
+                        put("command", "tools/gradle :app:assembleDebug")
+                        put("description", "构建 debug 包")
+                    },
+                    suggestions =
+                        Json.parseToJsonElement(
+                            """[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"tools/gradle:*"}],"behavior":"allow","destination":"localSettings"}]""",
+                        ) as JsonArray,
+                ),
             ),
         )
         shoot("chat-permission") { Chat(hub) }
     }
 
-    /** Claude 提问：选了一个选项。 */
+    /** 计划审批：计划正文，批准后用哪种模式，不批准时写要改什么。 */
+    @Test
+    fun plan() {
+        val hub = chatHub()
+        hub.current.force(
+            "promptsState",
+            listOf(
+                PermissionRequest(
+                    "p1",
+                    "ExitPlanMode",
+                    buildJsonObject {
+                        put("plan", "# 改构建命令\n\n1. 改 README\n2. 改 CLAUDE.md\n3. 跑一遍门禁")
+                    },
+                ),
+            ),
+        )
+        shoot("chat-plan") { Chat(hub) }
+    }
+
+    /** Claude 提问：选了一个带预览的选项，可以写备注；最后一行是自己写。 */
     @Test
     fun question() {
         val hub = chatHub()
         hub.current.force(
-            "pendingState",
-            PermissionRequest(
-                "r2",
-                "AskUserQuestion",
-                buildJsonObject {},
-                listOf(
-                    Question(
-                        "CLAUDE.md 里的构建命令要一起改吗？",
-                        "构建命令",
-                        listOf(QuestionOption("一起改", "两处保持一致"), QuestionOption("先不改", "只改 README")),
-                        multiSelect = false,
+            "promptsState",
+            listOf(
+                PermissionRequest(
+                    "r2",
+                    "AskUserQuestion",
+                    buildJsonObject {},
+                    listOf(
+                        Question(
+                            "CLAUDE.md 里的构建命令要一起改吗？",
+                            "构建命令",
+                            listOf(
+                                QuestionOption(
+                                    "一起改",
+                                    "两处保持一致",
+                                    preview = "tools/gradle :app:assembleDebug",
+                                ),
+                                QuestionOption("先不改", "只改 README"),
+                            ),
+                            multiSelect = false,
+                        ),
                     ),
                 ),
             ),
         )
         shoot("chat-question", prepare = { onNodeWithText("一起改").performClick() }) { Chat(hub) }
+    }
+
+    /** MCP 服务器要填一张表：文字、数字、开关、单选。 */
+    @Test
+    fun elicitation() {
+        val hub = chatHub()
+        val request =
+            parsePrompt(
+                Json.parseToJsonElement(
+                    """{"type":"control_request","request_id":"e1","request":{"subtype":"elicitation","mcp_server_name":"deploy","message":"发布前确认几项",
+            "requested_schema":{"type":"object","required":["name"],"properties":{
+            "name":{"type":"string","title":"服务名","description":"小写字母和短横线"},
+            "count":{"type":"integer","title":"实例数","minimum":1,"maximum":5,"default":2},
+            "prod":{"type":"boolean","title":"发到生产环境","default":false},
+            "region":{"type":"string","title":"地区","enum":["cn","us"],"enumNames":["中国","美国"]}}}}}""",
+                ) as JsonObject,
+            )!!
+        hub.current.force("promptsState", listOf(request))
+        shoot("chat-elicitation") { Chat(hub) }
     }
 
     /** 新对话：建议和工作目录。 */

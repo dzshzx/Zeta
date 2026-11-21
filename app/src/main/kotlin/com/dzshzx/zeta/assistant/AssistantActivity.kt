@@ -31,6 +31,7 @@ import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.notice
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.ui.MainActivity
@@ -264,7 +265,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
     val reply: ReplyView?
         get() {
             val c = conversation ?: return null
-            return AssistantReplies.view(c.items, c.busy, c.pending?.toolName)
+            return AssistantReplies.view(c.items, c.busy, c.pending?.notice)
         }
 
     fun toggleScreen() {

@@ -149,7 +149,7 @@ class ScreenDigestTest {
                 WorkItem("w1", emptyList()),
                 AnswerItem("a2", "这是设置页。", streaming = true),
             )
-        val view = AssistantReplies.view(items, busy = true, pendingTool = null)
+        val view = AssistantReplies.view(items, busy = true, waitingFor = null)
         assertEquals("先看一下。\n\n这是设置页。", view.text)
         assertTrue(view.streaming)
         assertNull(view.status)
@@ -160,29 +160,29 @@ class ScreenDigestTest {
         val asked = listOf(UserItem("u1", "这页讲了什么"))
         assertEquals(
             "Claude 正在看…",
-            AssistantReplies.view(asked, busy = true, pendingTool = null).status,
+            AssistantReplies.view(asked, busy = true, waitingFor = null).status,
         )
         val working =
             AssistantReplies.view(
                 asked + WorkItem("w", emptyList()),
                 busy = true,
-                pendingTool = null,
+                waitingFor = null,
             )
         assertEquals("Claude 正在处理…", working.status)
-        val waiting = AssistantReplies.view(asked, busy = true, pendingTool = "Bash")
+        val waiting = AssistantReplies.view(asked, busy = true, waitingFor = "Claude 想用 Bash")
         assertTrue(waiting.attention)
         assertTrue(waiting.status!!.contains("Bash"))
         val failed =
             AssistantReplies.view(
                 asked + NoticeItem("n", "进程退出了", error = true),
                 busy = false,
-                pendingTool = null,
+                waitingFor = null,
             )
         assertEquals("进程退出了", failed.error)
         assertNull(failed.status)
         assertEquals(
             "这一轮没有回答",
-            AssistantReplies.view(asked, busy = false, pendingTool = null).status,
+            AssistantReplies.view(asked, busy = false, waitingFor = null).status,
         )
     }
 }

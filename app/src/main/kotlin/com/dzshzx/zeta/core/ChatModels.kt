@@ -170,25 +170,6 @@ data class ToolStep(
         get() = status == ToolStatus.Running
 }
 
-@Immutable data class QuestionOption(val label: String, val description: String)
-
-@Immutable
-data class Question(
-    val question: String,
-    val header: String,
-    val options: List<QuestionOption>,
-    val multiSelect: Boolean,
-)
-
-/** Claude Code 发来的 can_use_tool：等用户批准一次工具调用，或回答 AskUserQuestion。 */
-@Immutable
-data class PermissionRequest(
-    val requestId: String,
-    val toolName: String,
-    val input: JsonObject,
-    val questions: List<Question>,
-)
-
 /** 模型选择器里的一项（Claude Code 报的）。 */
 @Immutable
 data class ModelOption(

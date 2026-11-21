@@ -35,6 +35,9 @@ internal class SubagentTracker {
     fun agentId(log: SubagentLog): String? =
         log.transcript.meta?.agentId?.takeIf { it.isNotEmpty() } ?: ids[log.toolUseId]
 
+    /** 子代理 [agentId] 是哪个 Agent 调用发起的；输出流里没见过时为 null。 */
+    fun toolUseOf(agentId: String): String? = ids.entries.firstOrNull { it.value == agentId }?.key
+
     /** /clear 换了新会话：[previous] 里的子代理记录以后也要能找到。 */
     fun sessionCleared(previous: String) {
         pastSessions.add(previous)

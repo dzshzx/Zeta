@@ -227,12 +227,11 @@ internal fun ChatScreen(
                             onOpenSettings,
                         )
                 }
-                PermissionSheet(
-                    request = conversation.pending,
-                    onAllow = { request, answers ->
-                        conversation.respond(request, allow = true, answers = answers)
-                    },
-                    onDeny = { request -> conversation.respond(request, allow = false) },
+                PromptSheet(
+                    prompt = conversation.pending,
+                    onReply = conversation::reply,
+                    onElicit = conversation::answerElicitation,
+                    subagentLabel = conversation::subagentLabel,
                 )
                 ConfirmDialog(
                     show = confirmingEnd,
