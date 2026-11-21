@@ -987,8 +987,9 @@ class ConversationHub(
 
     /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和实时通知跟着更新。在主线程上调用。 */
     internal fun onPendingChanged(conversation: Conversation) {
-        alerts.pendingChanged(conversation)
+        // 先更新实时通知：提醒要据此判断超级岛上是不是已经能回答这个请求
         onActivityChanged()
+        alerts.pendingChanged(conversation)
     }
 
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
@@ -1003,6 +1004,7 @@ class ConversationHub(
                 (conversation.phone.agentDisplayApp?.let { " · 在后台操作$it" } ?: "")
         }
         AgentService.update(app, active, busy, running, alerts.liveStatus(answering))
+        alerts.syncAll()
     }
 
     /** 通知栏的“停止”：打断所有正在回答的对话，和聊天页的停止键一样。 */

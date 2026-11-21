@@ -115,35 +115,39 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     /** 正显示着“在等你”的提醒：会话的 openKey → 请求号。同一个请求不重发；提醒撤掉或换成结束的那句时去掉。 */
     private val waitingShown = HashMap<String, String>()
 
-    /** 提醒响过铃的请求号：用户回来看过又离开时，同一个请求的提醒只更新、不再响。请求没了就去掉。 */
-    private val rung = HashSet<String>()
-
-    /**
-     * 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了而用户没看着这个对话时发提醒（见 [showWaiting]）， 没了就撤掉这个对话的提醒。
-     */
+    /** 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了就照 [syncWaiting] 提醒，没了就撤掉这个对话的提醒。 */
     internal fun pendingChanged(conversation: Conversation) {
         if (conversation.pending != null) {
-            showWaiting(conversation)
+            syncWaiting(conversation)
             return
         }
-        rung.retainAll(hub.liveConversations.mapNotNullTo(HashSet()) { it.pending?.requestId })
+        Notifier.forgetRings(
+            hub.liveConversations.mapNotNullTo(HashSet()) { it.pending?.requestId },
+        )
         clearAlert(conversation.openKey)
     }
 
-    /** 用户看着的对话变了（回到前台、切到后台、切了对话）：看着的那个的提醒不必留着；没看着、还在等用户的对话发提醒， 这样请求在用户看着时来、用户随后离开的也提醒到。 */
+    /** 用户看着的对话变了（回到前台、切到后台、切了对话）：看着的那个的提醒不必留着；没看着、还在等用户的对话照 [syncWaiting] 提醒。 */
     internal fun watchChanged() {
         if (hub.foreground) clearAlert(hub.current.openKey)
-        hub.liveConversations.forEach(::showWaiting)
+        syncAll()
     }
 
+    /** 实时通知刚更新过（[ConversationHub.onActivityChanged]）：它显示的对话可能换了，各对话的提醒跟着对一遍。 */
+    internal fun syncAll() = hub.liveConversations.forEach(::syncWaiting)
+
     /**
-     * 对话在等用户、用户又没看着它时，它的那条提醒换成在等什么，能在通知上回答的带上按钮（见 [AlertNotice.replies]）。 同一个请求只在第一次响铃。后台运行的由
-     * ScheduleRunner 提醒。
+     * 对话在等用户、用户又没看着它时怎么提醒：实时通知上正显示着这个请求的，超级岛弹出时自己响铃震动、按钮也在， 不另发提醒（有的话撤掉）；
+     * 否则它的那条提醒换成在等什么，能在通知上回答的带上按钮（见 [AlertNotice.replies]）。同一个请求只响一次。后台运行的由 ScheduleRunner 提醒。
      */
-    private fun showWaiting(conversation: Conversation) {
+    private fun syncWaiting(conversation: Conversation) {
         val request = conversation.pending ?: return
         if (hub.isWatching(conversation) || conversation.unattended != null) return
         val key = conversation.openKey
+        if (AgentService.liveRequestId == request.requestId) {
+            if (key in waitingShown) clearAlert(key)
+            return
+        }
         if (waitingShown[key] == request.requestId) return
         waitingShown[key] = request.requestId
         val notice = AlertNotice.waiting(request)
@@ -157,7 +161,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
                 notice.replies.mapIndexed { index, reply ->
                     AlertReplyReceiver.action(app, key, request.requestId, index, reply)
                 },
-            silent = !rung.add(request.requestId),
+            silent = !Notifier.firstRing(request.requestId),
         )
     }
 

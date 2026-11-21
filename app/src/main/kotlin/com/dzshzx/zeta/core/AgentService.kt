@@ -27,6 +27,9 @@ internal object Notifier {
     const val CHANNEL_STATUS = "status"
     const val CHANNEL_ALERT = "alert"
 
+    /** 实时通知（超级岛）上显示的对话停下来等用户时，常驻通知临时换到这个渠道发一次：岛弹出时带提示音和震动。 */
+    const val CHANNEL_WAITING = "waiting"
+
     /** 有新版本（core/update/AppUpdates.kt）：同一个版本只发一次。 */
     const val CHANNEL_UPDATE = "update"
 
@@ -36,6 +39,17 @@ internal object Notifier {
     const val ID_SCHEDULE = 3
     const val ID_ACCESSIBILITY = 4
     const val ID_UPDATE = 5
+
+    /** 响过的请求号：同一个请求不管从实时通知还是提醒发出，只响一次。在主线程上用。 */
+    private val rung = HashSet<String>()
+
+    /** 请求 [requestId] 还没响过就记下、返回 true（这次该响）；响过返回 false。 */
+    fun firstRing(requestId: String): Boolean = rung.add(requestId)
+
+    /** 只留还在等的请求号 [waiting]，别的忘掉。 */
+    fun forgetRings(waiting: Set<String>) {
+        rung.retainAll(waiting)
+    }
 
     /** 不提醒的那几条通知归的组，见 [post] 的 silent。 */
     private const val SILENT_GROUP = "silent"
@@ -50,6 +64,7 @@ internal object Notifier {
             if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW
             else NotificationManager.IMPORTANCE_DEFAULT
         manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_WAITING, "超级岛上等你处理", alert))
         manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
     }
 
@@ -216,11 +231,8 @@ class AgentService : Service() {
     internal fun notification(state: StatusNotice): Notification {
         val running = state.running
         Notifier.ensureChannels(this)
-        val builder =
-            Notification.Builder(this, Notifier.CHANNEL_STATUS)
-                .setSmallIcon(R.drawable.ic_stat_zeta)
-                .setOngoing(true)
         val live = state.live
+        val builder = statusBuilder(live)
         if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             promote(builder, live)
             // 停下来等用户时，按钮换成替用户回答的那几个：超级岛展开就能直接回答
@@ -278,6 +290,22 @@ class AgentService : Service() {
                 .build(),
         )
         return builder.build()
+    }
+
+    /**
+     * 常驻通知的骨架：平常在“运行状态”渠道、只在第一次发出时提醒（一轮里要更新很多次；用户把这个渠道调成会弹横幅时，
+     * 不然每次更新都再弹一次）。实时通知上显示的对话在等用户时换到“超级岛上等你处理”渠道，这个请求第一次出现时提醒：岛弹出时就带提示音和震动。
+     */
+    private fun statusBuilder(live: LiveStatus?): Notification.Builder {
+        val waiting =
+            live?.requestId?.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA }
+        return Notification.Builder(
+                this,
+                if (waiting != null) Notifier.CHANNEL_WAITING else Notifier.CHANNEL_STATUS,
+            )
+            .setSmallIcon(R.drawable.ic_stat_zeta)
+            .setOngoing(true)
+            .setOnlyAlertOnce(waiting == null || !Notifier.firstRing(waiting))
     }
 
     /** [live] 上替用户回答的按钮（允许、拒绝、选项），和提醒上的一样经 [AlertReplyReceiver] 回答；没在等用户时是空的。 */
@@ -357,6 +385,10 @@ class AgentService : Service() {
             val context = appContext ?: return@Runnable
             throttle.poll(SystemClock.elapsedRealtime())?.let { publish(context, it) }
         }
+
+        /** 实时通知上正显示着、等用户回答的那个请求号（超级岛上能直接回答它）；没有时为 null。在主线程上读。 */
+        internal val liveRequestId: String?
+            get() = throttle.published?.live?.requestId
 
         /** 系统允许把常驻通知提升为实时通知（Android 16 起，用户也没在设置里关掉这个应用的实时通知）。 */
         fun canPromote(context: Context): Boolean =

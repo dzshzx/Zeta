@@ -79,6 +79,7 @@ class LiveNotificationTest {
         assertEquals(1_000L, n.`when`)
         assertTrue(n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
         assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertTrue("更新不再弹横幅", n.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
         // 点开回到这个对话
         assertEquals(
             "s1",
@@ -118,7 +119,13 @@ class LiveNotificationTest {
                 request = bash,
             )
         val waiting = LiveUpdate.status(candidate, running = 1, todo = null)
-        val n = service().notification(StatusNotice(true, true, listOf("修 bug"), waiting))
+        val service = service()
+        val n = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
+        // 换到“等你处理”渠道、这一次要提醒：超级岛弹出时带提示音和震动；同一个请求再发就不再提醒
+        assertEquals(Notifier.CHANNEL_WAITING, n.channelId)
+        assertEquals(0, n.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+        val again = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
+        assertTrue(again.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
         assertTrue(n.hasPromotableCharacteristics())
         assertEquals("待确认", n.shortCriticalText)
         assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
@@ -131,8 +138,9 @@ class LiveNotificationTest {
                 running = 1,
                 todo = null,
             )
-        val plain = service().notification(StatusNotice(true, true, listOf("修 bug"), controlling))
+        val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
         assertEquals(listOf("停止", "截屏"), plain.actions.map { it.title.toString() })
+        assertEquals(Notifier.CHANNEL_STATUS, plain.channelId)
     }
 
     @Test
