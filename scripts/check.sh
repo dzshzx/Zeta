@@ -5,12 +5,52 @@
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
+# 构建和单元测试只在改动全落在它们读不到的路径里时跳过（见下面的 gradle_blind），别的检查每次都跑。
+# ZETA_GATE_FULL=1 时照样全跑。
 # 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 tracked_state() { git status --porcelain --untracked-files=no && git diff HEAD | git hash-object --stdin; }
 before=$(tracked_state)
+
+# 这次要合入的改动涉及的文件，一行一个：相对 origin/master 分叉点的全部改动（已提交、未提交的都算，改名记新旧两个），
+# 加上未跟踪、未忽略的新文件。wt land 先把分支变基到刚拉取的 origin/master 上再跑门禁，分叉点就是它；
+# 在 master 自己的提交上（CI、release.yml）分叉点是 HEAD，没有未提交的改动时输出为空。
+# 不在 git 仓里、没有 origin/master、git 出错时失败。
+changed_files() {
+  local base
+  base=$(git merge-base HEAD refs/remotes/origin/master 2>/dev/null) || return 1
+  git -c core.quotePath=false diff --name-only --no-renames "$base" -- &&
+    git -c core.quotePath=false ls-files --others --exclude-standard
+}
+
+# Gradle 构建（含编进 assets 的 Go 程序）和单元测试都读不到的路径：只有设备流程、发版、文档和 CI 用。
+# 构建读 app/、helper/、gradle/、gradlew、根目录的 *.gradle.kts 与 gradle.properties、LICENSE、release/，
+# 经 tools/gradle、tools/java-home、tools/own-scope.sh 启动；单元测试另读 tools/fake-claude/、THIRD_PARTY.md。
+# 这些和拿不准的路径都不往这里加：不在这里的一律当作会影响构建。
+gradle_blind() {
+  case $1 in
+    CLAUDE.md | README.md | CONTRIBUTING.md | SECURITY.md | docs/*) ;;
+    .github/* | .gitignore | .gitleaks-test-values.toml) ;;
+    tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
+    tools/shots | tools/vd.py | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
+    *) return 1 ;;
+  esac
+}
+
+# 要跑 Gradle 时输出为空；可以跳过时输出这次改动的文件（以顿号分隔）。改动为空或算不出时都要跑。
+gradle_skip_reason() {
+  local files f
+  [[ ${ZETA_GATE_FULL:-} == 1 ]] && return 0
+  files=$(changed_files) || return 0
+  [[ -n $files ]] || return 0
+  while IFS= read -r f; do
+    gradle_blind "$f" || return 0
+  done <<<"$files"
+  sort -u <<<"$files" | paste -sd '、'
+}
+skip_gradle=$(gradle_skip_reason)
 
 # shellcheck source=scripts/gatelib.sh
 source scripts/gatelib.sh
@@ -48,7 +88,11 @@ check_go_module helper
 (cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
 
-tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
+if [[ -n $skip_gradle ]]; then
+  echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"
+else
+  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
+fi
 
 if [[ "$(tracked_state)" != "$before" ]]; then
   echo "检查改动了已跟踪文件：" >&2
