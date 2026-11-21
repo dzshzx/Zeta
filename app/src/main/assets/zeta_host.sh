@@ -18,7 +18,7 @@
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
-#   pid        Claude Code 的进程号，起进程的那段写。本脚本 attach、stop 用；zeta-helper 据此认还活着的托管进程
+#   pid        Claude Code 的进程号（claude 是 shell 函数时是函数起的那个子进程），起进程的那段写。本脚本 attach、stop 用；zeta-helper 据此认还活着的托管进程
 #              （hosts、存储页、别处占用的会话）；zeta_accounts.sh 据此认出进程是哪个包托管的；
 #              应用的 PathCheck（AttachedPaths.kt）经 /proc/<pid>/root 看这个进程的挂载命名空间。
 #   attach     正接着的那一方（本脚本 start、attach 之后的部分）的进程号，接上时写。看门狗据此知道有没有应用接着；
@@ -141,7 +141,19 @@ if [ "$mode" = start ]; then
     eval "$1"; D=$2; R=$3; shift 3
     exec 3<>"$D/in"
     "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
-    P=$!
+    S=$!
+    P=$S
+    # 登录配置把 claude 包成 shell 函数时（比如经 BASH_ENV 给每个 bash 定义一个选账号的 claude 函数），$! 是跑函数的子 shell，
+    # 真正的 Claude Code 是它的子进程。记它的进程号：结束进程、zeta-helper 按 ~/.claude/sessions 的登记认人都要它；等的还是子 shell
+    if [ "$(type -t "$R")" = function ]; then
+      for _ in $(seq 100); do
+        for c in $(cat "/proc/$S/task/$S/children" 2>/dev/null); do
+          tr "\0" " " < "/proc/$c/cmdline" 2>/dev/null | grep -q claude && { P=$c; break 2; }
+        done
+        kill -0 $S 2>/dev/null || break
+        sleep 0.05
+      done
+    fi
     echo $P > "$D/pid"
     # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
     # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
@@ -162,7 +174,7 @@ if [ "$mode" = start ]; then
       done
     ) &
     W=$!
-    wait $P
+    wait $S
     code=$?
     kill $W 2>/dev/null
     # 标准错误输出留一份给 Zeta 的诊断页：托管目录随后会被删掉。只留最近 20 份，每份最后 64 KB
@@ -175,7 +187,7 @@ if [ "$mode" = start ]; then
     fi
     [ -d "$D" ] && echo $code > "$D/exit"
   ' zeta-run "$(declare -f turn_running tasks_running end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
-  for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
+  for _ in $(seq 200); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else
   from=$3

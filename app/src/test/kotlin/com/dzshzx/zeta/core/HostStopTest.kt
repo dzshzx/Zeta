@@ -39,13 +39,16 @@ class HostStopTest {
         home.deleteRecursively()
     }
 
+    /** 跑 zeta_host.sh 时另加的环境变量。 */
+    private var extraEnv = emptyMap<String, String>()
+
     /** 跑 zeta_host.sh（[HostTesting.run]），返回用了多少毫秒。 */
     private fun run(vararg arguments: String): Long {
         val started = System.currentTimeMillis()
         HostTesting.run(
             home,
             listOf("bash", host.path) + arguments,
-            HostTesting.named(name) + ("ZETA_STOP_GRACE" to "$GRACE"),
+            HostTesting.named(name) + ("ZETA_STOP_GRACE" to "$GRACE") + extraEnv,
         )
         return System.currentTimeMillis() - started
     }
@@ -85,6 +88,24 @@ class HostStopTest {
         assertTrue("stop 要立即返回（$took 毫秒）", took < 1_500)
         assertTrue("还没到点就收掉了", alive(pid) && hostDir.exists())
         assertTrue("卡住的进程没被收掉", waitUntil(GRACE + 5) { !alive(pid) })
+        assertTrue("托管目录没删", waitUntil(5) { !hostDir.exists() })
+    }
+
+    /**
+     * 登录配置经 BASH_ENV 把 claude 包成 shell 函数（选账号之类）：托管目录记的是函数起的真正的 Claude Code，不是跑函数的子 shell， 所以
+     * zeta-helper 按 ~/.claude/sessions 的登记认得出它；stop 结束的也是它，不留下没人管的 claude。
+     */
+    @Test
+    fun claudeWrappedInAShellFunctionIsTheRecordedProcess() {
+        HostTesting.writeClaudeStandIn(home, prelude = "trap '' TERM")
+        val env =
+            File(home, "bash-env.sh").apply { writeText("claude() { command claude \"\$@\"; }\n") }
+        extraEnv = mapOf("BASH_ENV" to env.path)
+        val pid = start()
+        val cmdline = File("/proc/$pid/cmdline").readText().replace('\u0000', ' ')
+        assertTrue("记下的是 $cmdline", cmdline.contains("bin/claude") && !cmdline.startsWith("bash"))
+        run("stop", key)
+        assertTrue("claude 没结束", waitUntil(GRACE - 1) { !alive(pid) })
         assertTrue("托管目录没删", waitUntil(5) { !hostDir.exists() })
     }
 
