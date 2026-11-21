@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -28,7 +29,14 @@ class HostStderrTest {
 
     @After
     fun tearDown() {
-        if (::home.isInitialized) home.deleteRecursively()
+        if (!::home.isInitialized) return
+        // 测试半路失败时还开着的替身（它们读输入一直不退）
+        File(home, ".cache/$name/hosts")
+            .listFiles()
+            .orEmpty()
+            .mapNotNull { runCatching { File(it, "pid").readText().trim() }.getOrNull() }
+            .forEach { ProcessBuilder("kill", "-9", it).start().waitFor() }
+        home.deleteRecursively()
     }
 
     /** claude 的替身：只跑 [script]，不读输入。 */
@@ -104,6 +112,47 @@ class HostStderrTest {
         assertTrue("报完删掉托管目录", !dir.exists())
     }
 
+    /**
+     * 同一个标识刚结束又起了新进程（stop 后马上又 start）：旧进程的那段晚一步写的 exit 不落进新的托管目录，否则新进程会被当成已结束。 不靠时机：date
+     * 换成等放行的替身，旧的那段留标准错误输出副本时停在那里，新进程起来以后才放行。
+     */
+    @Test
+    fun aLateExitOfTheOldProcessStaysOutOfTheNewDirectory() {
+        val gate = File(home, "go")
+        val waiting = File(home, "at-gate")
+        File(home, "bin/date").apply {
+            parentFile!!.mkdirs()
+            writeText(
+                "#!/bin/bash\n: > '${waiting.path}'\n" +
+                    "while [ ! -e '${gate.path}' ] && [ -d '${home.path}' ]; do sleep 0.05; done\n" +
+                    "PATH=\${PATH#*:} exec date \"\$@\"\n",
+            )
+            setExecutable(true)
+        }
+        fakeClaude("echo boom >&2; " + HostTesting.READ_UNTIL_END)
+        start("k")
+        val dir = File(home, ".cache/$name/hosts/k")
+        fun pid() = File(dir, "pid").readText().trim().toInt()
+        val old = pid()
+        val oldRun = parentOf(old)
+        File(dir, "in").appendText(END_SESSION)
+        assertTrue("旧进程的那段没停在留副本那一步", waitUntil(60) { waiting.exists() })
+        start("k")
+        val new = pid()
+        val newRun = parentOf(new)
+        gate.writeText("")
+        assertTrue("旧进程的那段没做完", waitUntil(60) { !HostTesting.alive(oldRun) })
+        assertFalse("旧进程的 exit 落进了新的托管目录", File(dir, "exit").exists())
+        assertTrue(HostTesting.alive(new))
+        // 收尾：新进程也结束，等它的那段做完再删临时目录
+        File(dir, "in").appendText(END_SESSION)
+        assertTrue("新进程的那段没做完", waitUntil(60) { !HostTesting.alive(newRun) })
+    }
+
+    /** 进程 [pid] 的父进程号。 */
+    private fun parentOf(pid: Int): Int =
+        File("/proc/$pid/stat").readText().substringAfterLast(") ").split(' ')[1].toInt()
+
     @Test
     fun exitStderrDropsAHalfCharacterAtTheCut() {
         val bytes = "好的".toByteArray()
@@ -159,5 +208,10 @@ class HostStderrTest {
         assertTrue(names.any { it.endsWith("-k-new.log") })
         // 最旧的几份删掉了
         assertTrue(names.none { it.endsWith("-old0.log") || it.endsWith("-old5.log") })
+    }
+
+    private companion object {
+        const val END_SESSION =
+            "{\"type\":\"control_request\",\"request_id\":\"t\",\"request\":{\"subtype\":\"end_session\"}}\n"
     }
 }

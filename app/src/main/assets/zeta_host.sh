@@ -197,6 +197,10 @@ if [ "$mode" = start ]; then
     "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
     P=$!
     echo $P > "$D/pid"
+    # 进程起来以后就待在托管目录里（进程的工作目录在起它时已经定了）：同一个标识的目录随后被删掉重建时
+    # （stop 后马上又 start），下面的 exit 写进的是已删掉的这一个、写不成，不会把新进程报成已结束
+    mine=
+    cd "$D" && mine=1
     # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
     # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
     (
@@ -227,7 +231,7 @@ if [ "$mode" = start ]; then
         mv -f "$T" "$L/$(date +%Y%m%d-%H%M%S)-${D##*/}.log"
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
-    [ -d "$D" ] && echo $code > "$D/exit"
+    [ -n "$mine" ] && echo $code > exit
   ' zeta-run "$(declare -f turn_running tasks_running running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
