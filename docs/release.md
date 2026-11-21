@@ -245,9 +245,11 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 ## 装到手机上（上线）
 
 ```sh
-tools/install.sh --release          # 最新的 Release
-tools/install.sh --release v0.7.1   # 指定版本
+ZETA_PHONE_OWNER=main tools/install.sh --release          # 最新的 Release
+ZETA_PHONE_OWNER=main tools/install.sh --release v0.7.1   # 指定版本
 ```
+
+正式版是日常在用的那一份，脚本只在命令前写明 `ZETA_PHONE_OWNER=main` 时才装；没设时不装，免得没设占用者名字的测试流程碰到它。
 
 它用 `gh release download` 取 APK、`.sha256` 和 `update.json`，经 `tools/release check-download` 核对 sha256、
 签名证书（本仓 `release/signing-certs.txt` 的最后一行）、lineage、包名和版本，再按 `pm install -r` 装到手机。

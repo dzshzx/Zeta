@@ -72,6 +72,7 @@ func onPhone() bool {
 }
 
 // connect 选设备、拿租约、开模拟器。在 tools/phone-run 里（有 ZETA_PHONE_TICKET）时它已经开好模拟器、排队拿到了租约，这里不再重做。
+// 碰正式版先问 phone-lock 让不让：phone-run 里和手机 Debian 里不拿租约，这一问照样要过。
 func (v *vd) connect() {
 	want := os.Getenv("ZETA_DEVICE")
 	if want == "" {
@@ -82,6 +83,9 @@ func (v *vd) connect() {
 	}
 	if v.dev && !v.onPhone {
 		v.device = want // 测试版默认在模拟器上；正式版只在手机上，手机 Debian 里跑时就是这台手机
+	}
+	if !v.dev {
+		v.tool("phone-lock", "--check", "main")
 	}
 	if os.Getenv("ZETA_PHONE_TICKET") != "" {
 		return

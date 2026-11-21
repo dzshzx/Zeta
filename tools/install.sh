@@ -4,7 +4,7 @@
 #             ZETA_DEVICE=phone 时装到手机，和用户日常用的正式版并存。开发测试一律用它，一般经 tools/phone-run 调。
 #             版本号跟着提交走，比设备上的旧也照装（任务分支可能比别人的旧）。--no-build 装上次构建的包。
 #   --release 上线：把 GitHub Release 上的正式版（com.dzshzx.zeta）装到手机，不给 tag 就装最新的 Release。
-#             只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。不在本机构建、不打 tag（发版见 docs/release.md）：
+#             只在用户说上线时由主会话装：命令前要写明 ZETA_PHONE_OWNER=main，没设或是别的名字都不装。不在本机构建、不打 tag（发版见 docs/release.md）：
 #             用 gh release download 取 APK、.sha256 和 update.json，经 tools/release check-download 核对 sha256、
 #             签名证书（本仓 release/signing-certs.txt 登记的）、包名和版本后再装。要 gh、go 和 Android SDK 的 build-tools。
 # 正式版只装在手机上：在手机 Debian 里直接进 Android 一侧安装，在工作站上经 ssh（手机 Debian 的别名取 ZETA_PHONE_SSH 或 git config zeta.phoneSsh）。
@@ -30,8 +30,8 @@ device=${ZETA_DEVICE:-emu}
 [[ $variant == dev && -z $on_phone ]] || device=phone # 正式版只在手机上
 lease=main
 [[ $variant == dev ]] && lease=$([[ $device == emu ]] && echo emu || echo dev)
-# 谁能装哪个包由 tools/phone-lock 定；构建或下载前先问一次，被拒绝时不白做
-[[ -n $on_phone ]] || tools/phone-lock --check "$lease" || exit 2
+# 谁能装哪个包由 tools/phone-lock 定；构建或下载前先问一次，被拒绝时不白做。手机 Debian 里不拿租约，装正式版照样先问
+[[ -n $on_phone && $lease != main ]] || tools/phone-lock --check "$lease" || exit 2
 phone=
 [[ -n $on_phone || $device != phone ]] || phone=$(zeta_phone_ssh) # 工作站上连手机：别名没配就在构建前停下
 

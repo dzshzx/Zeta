@@ -20,7 +20,7 @@ const usage = `后台虚拟屏：在不占用主屏的情况下运行、截图�
   默认操作测试版（com.dzshzx.zeta.dev）。设备上的测试写成脚本交给 tools/phone-run，脚本里的 vd 就是 tools/vd：
   phone-run 已经开好模拟器、拿着租约（ZETA_PHONE_TICKET），脚本里的 vd 不再重做这两步。
   ZETA_PHONE_OWNER 不是 main（子代理）时只能在 phone-run 里用，直接调会被拒绝。
-  --release 操作手机上的正式版（com.dzshzx.zeta），只由主会话在上线后验证时用：ZETA_PHONE_OWNER 不设或为 main 时才肯做。
+  --release 操作手机上的正式版（com.dzshzx.zeta），只由主会话在上线后验证时用：命令前要写明 ZETA_PHONE_OWNER=main，没设或是别的名字都不做，phone-run 里也不做。
   测试版和正式版各有自己的虚拟屏。
   vd build                 编译 VdHold.java 为 dex
   vd start [宽 高 dpi]      建虚拟屏并在上面启动 Zeta（手机上默认取主屏尺寸，模拟器上默认和手机一样大）

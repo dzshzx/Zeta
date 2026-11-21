@@ -6,28 +6,37 @@
 #   main  手机上的正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd 带 --release 时）
 # 已经占着的再要就续租。tools/install.sh 和 tools/vd 在工作站上每次碰设备前都调它，拿不到就以退出码 75 失败；
 # 在 phone-run 里（有 ZETA_PHONE_TICKET）vd 不调，用 phone-run 拿到的这一份，装包时 install.sh 续一次。
-# 占用者名字取 ZETA_PHONE_OWNER（默认 main）；15 分钟没动静的租约自动作废。
+# 占用者名字取 ZETA_PHONE_OWNER，没设时算主会话（main）；15 分钟没动静的租约自动作废。
 # 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
 # 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。
 # 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release（顺带撤掉同名的模拟器登记）。只协调工作站上的会话。
-# 谁能拿也在这里定（vd、install.sh 不另写）：正式版只给主会话；占用者不是 main（子代理）时只给 phone-run
-# 里的调用（带 ZETA_PHONE_TICKET）。拿不到时退出码 2，不是 75：这不是等一会儿就能好的。
-# --check <种类> 只核对这条、不拿租约：install.sh 在构建前先问一次，免得构建完才被拒绝。
+# 谁能拿也在这里定（vd、install.sh 不另写）：正式版只给写明了 ZETA_PHONE_OWNER=main 的主会话，没设不给，phone-run 里
+# 也不给；占用者不是 main（子代理）时只给 phone-run 里的调用（带 ZETA_PHONE_TICKET）。拿不到时退出码 2，不是 75：
+# 这不是等一会儿就能好的。
+# --check <种类> 只核对这条、不拿租约：install.sh 在构建前先问一次，免得构建完才被拒绝；不拿租约的地方（手机 Debian 里、
+# phone-run 里）碰正式版前，install.sh 和 vd 也先问它。
 set -euo pipefail
 owner=${ZETA_PHONE_OWNER:-main}
 ticket=${ZETA_PHONE_TICKET:-}
 dir=${XDG_RUNTIME_DIR:-/tmp}
 allowed() { # 占用者能不能拿种类 $1 的租约，不能就说明原因
-  if [[ $1 == main && $owner != main ]]; then
-    echo "正式版只由主会话碰（现在 ZETA_PHONE_OWNER=$owner）；开发测试用测试版：去掉 --release" >&2
-    return 1
+  if [[ $1 == main ]]; then
+    # 正式版是用户日常在用的：没写明自己是主会话的不给，忘了设 ZETA_PHONE_OWNER 的调用不会被当成主会话
+    if [[ ${ZETA_PHONE_OWNER:-} != main ]]; then
+      echo "正式版只由主会话在上线时碰，命令前要写明 ZETA_PHONE_OWNER=main（现在${ZETA_PHONE_OWNER:+是 }${ZETA_PHONE_OWNER:-没设}）；开发测试用测试版：去掉 --release" >&2
+      return 1
+    fi
+    if [[ -n $ticket ]]; then
+      echo "tools/phone-run 里不碰正式版：它排的是测试版的队，上线和上线后的验证由主会话直接跑" >&2
+      return 1
+    fi
   fi
   if [[ $owner != main && -z $ticket ]]; then
     echo "子代理（ZETA_PHONE_OWNER=$owner）碰设备只经 tools/phone-run：把要做的写成脚本交给它排队跑" >&2
     return 1
   fi
 }
-if [[ ${1-} == --check ]]; then allowed "${2-}"; exit $?; fi
+if [[ ${1-} == --check ]]; then allowed "${2-}" || exit 2; exit 0; fi
 ttl=900
 file() { case $1 in main) echo "$dir/zeta-phone-main.lease" ;; emu) echo "$dir/zeta-emu.lease" ;; *) echo "$dir/zeta-phone.lease" ;; esac; }
 exec 9>"$dir/zeta-phone.lease.lock"
