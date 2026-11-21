@@ -190,9 +190,10 @@ start() { # start [<登记的名字> <进程号>]
     # 在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
     # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）。
     # 它各项目共用，单独一个分组（见 tools/own-scope.sh），不记在开它的会话头上；上限按 AVD 的 4G 内存加模拟器自身留够。
+    # 渲染器用 swangle：swiftshader_indirect 画助理浮窗的入场光效时渲染线程段错误，整个模拟器退出。
     own_scope zeta-emu 8G
     (cd / && DISPLAY=$WINDOW exec "${OWN_SCOPE[@]}" setsid "$ANDROID_HOME/emulator/emulator" -avd "$name" -port "$PORT" -no-audio -no-boot-anim \
-      -gpu swiftshader_indirect "${window[@]}" ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
+      -gpu swangle_indirect "${window[@]}" ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
   fi
   exec 9>&-
   local i
