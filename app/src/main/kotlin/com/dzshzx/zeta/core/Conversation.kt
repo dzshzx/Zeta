@@ -734,11 +734,15 @@ class Conversation(
      * 控制请求按顺序处理，之后发的 apply_flag_settings 等都排在它后面。
      */
     private fun initialize(target: ClaudeProcess) = target.request(controlBody("initialize")) { answer ->
-        val report = InitializeReport.of(answer) ?: return@request
+        val response = answer.obj("response") ?: return@request
         // 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样
-        report.models?.let { hub.modelsReported(backend, it) }
-        report.commands?.let { list -> commands = list.also { hub.settings.commands += backend to it } }
-        report.permissionMode?.let(modes::reportedAtStart)
+        response.arr("models")?.let { list ->
+            hub.models += backend to list.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
+        }
+        response.arr("commands")?.let { list ->
+            commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
+        }
+        response.str("current_permission_mode")?.let(modes::reportedAtStart)
     }
 
     /** 问 Claude Code 上下文窗口和实际生效的思考强度，应答交给 [UsageTracker]。 */

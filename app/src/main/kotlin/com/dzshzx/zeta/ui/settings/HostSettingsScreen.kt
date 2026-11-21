@@ -48,13 +48,8 @@ internal fun HostSettingsScreen(hub: ConversationHub, backend: String, onBack: (
     var page by rememberSaveable { mutableStateOf<HostPage?>(null) }
     val close = { page = null }
     val ready = hub.usable(backend)
-    // 默认值可能在那台的终端里改过（/model、/effort 存为默认）：每次打开都重读。默认模型的选择要那台的模型清单，还没有就去要
-    LaunchedEffect(backend, ready) {
-        if (ready) {
-            hub.refreshClaudeDefaults(backend)
-            hub.requestModels(backend)
-        }
-    }
+    // 默认值可能在那台的终端里改过（/model、/effort 存为默认）：每次打开都重读
+    LaunchedEffect(backend, ready) { if (ready) hub.refreshClaudeDefaults(backend) }
     val claude: LazyListScope.() -> Unit = { claudeItems(hub, backend, ready) { page = it } }
     Box(Modifier.fillMaxSize()) {
         if (backend == Backends.LOCAL) LocalHostScreen(hub, onBack, onOpenLinux, claude) else RemoteHostScreen(hub, backend, onBack, claude)

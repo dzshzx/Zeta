@@ -271,36 +271,13 @@ class ConversationHub(
 
     /**
      * 各主机（[Backends]）上 Claude Code 报的模型选项（initialize 的应答）。只放在内存里：别名对应的完整 ID 随 Claude Code 升级而变，
-     * 按模型存的默认思考强度要以正开着的进程报的为准。对话在那台上起进程时带来；设置页要用、那台上还没起过进程时去要（[requestModels]）。
-     * 还没拿到的主机没有，见 [modelOptions]；删主机时一起删。
+     * 按模型存的默认思考强度要以正开着的进程报的为准。还没起过进程的主机没有，见 [modelOptions]；删主机时一起删。
      */
     var models by mutableStateOf<Map<String, List<ModelOption>>>(emptyMap())
         internal set
 
     /** 主机 [backend] 上选择器里的模型：那台的 Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
     fun modelOptions(backend: String): List<ModelOption> = models[backend].orEmpty().ifEmpty { FallbackModels }
-
-    /** 主机 [backend] 上的 Claude Code 报了模型清单 [list]（initialize 的应答）；那台已经删掉时不记。在主线程上调用。 */
-    internal fun modelsReported(backend: String, list: List<ModelOption>) {
-        if (backend in backends) models += backend to list
-    }
-
-    /** 只为要模型清单单起的 Claude Code（[requestModels]）。 */
-    internal val modelProbes = ModelProbes(this)
-
-    /**
-     * 设置页要列主机 [backend] 上的模型（默认模型、默认思考强度）时调用：[models] 里还没有那台的清单就去要。当前对话就在那台上时
-     * 让它把进程起好（和输入斜杠命令时一样，不产生请求），清单随它的 initialize 来；否则（或它起不了进程）单起一个只答 initialize 的
-     * Claude Code（[ModelProbes]）。已经有清单、那台现在用不了（[usable]）时什么都不做。在主线程上调用。
-     */
-    fun requestModels(backend: String) {
-        if (!models[backend].isNullOrEmpty() || !usable(backend)) return
-        if (current.backend == backend) {
-            current.prepare()
-            if (current.isProcessAlive) return
-        }
-        modelProbes.probe(backend)
-    }
 
     /**
      * 每个会话的手机工具，按 sessionId（新对话还没有时按 key）登记。后台屏幕比 Claude Code 进程活得久：

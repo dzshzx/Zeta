@@ -7,7 +7,6 @@ import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.settings.effortSummary
 import com.dzshzx.zeta.ui.settings.hostDefaultsSummary
 import com.dzshzx.zeta.ui.settings.effortRows
-import com.dzshzx.zeta.ui.settings.moreModelsSummary
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -114,7 +113,7 @@ class ClaudeDefaultsTest {
 
     /**
      * 默认思考强度页：清单里的模型按完整 ID 各一行（「默认」和 Opus 是同一个，只列一次），档位只列支持的，不支持也没设过的不列；
-     * settings.json 里有、清单里没有的旧模型收进「更多模型」；顶层设过时最后是「其他模型」。
+     * settings.json 里有、清单里没有的旧模型接在后面；顶层设过时最后是「其他模型」。
      */
     @Test
     fun effortRowsFollowTheModelList() {
@@ -131,34 +130,9 @@ class ClaudeDefaultsTest {
         assertEquals(listOf("claude-opus-5-5", "claude-fable-5-2", "claude-fable-5-1", null), rows.map { it.model })
         assertEquals(listOf("Opus 5.5", "Fable 5.2", "Fable 5.1", "其他模型"), rows.map { it.title })
         assertEquals(listOf("xhigh", null, "high", "medium"), rows.map { it.value })
-        assertEquals(listOf(false, false, true, false), rows.map { it.older })
         assertEquals(listOf("low" to "低", "high" to "高"), rows[1].choices)
-        // 还没拿到清单：只列设过的，直接列出
-        val waiting = effortRows(emptyList(), defaults.copy(effort = null))
-        assertEquals(listOf("claude-fable-5-1", "claude-opus-5-5"), waiting.map { it.model })
-        assertEquals(listOf(false, false), waiting.map { it.older })
-    }
-
-    /**
-     * 一台远程设备上的 Claude Code（2.1.330，没登录）报的清单只有五个别名；settings.json 里设过四个模型和顶层一档，其中 Fable 5.1
-     * 是旧版本留下的。直接列的是清单里各系列最新的四个（Haiku 5.5 没设过也列）和「其他模型」，Fable 5.1 收进「更多模型」，摘要带上档位。
-     */
-    @Test
-    fun effortRowsListTheLatestAndFoldWhatTheListLacks() {
-        val all = EffortLevels.map { it.first }
-        val models = listOf(
-            "default" to "claude-opus-5-5", "opus" to "claude-opus-5-5", "fable" to "claude-fable-5-2",
-            "sonnet" to "claude-sonnet-5-5", "haiku" to "claude-haiku-5-5",
-        ).map { (alias, id) -> ModelOption(alias, alias, "", id, all) }
-        val efforts = mapOf("claude-fable-5-1" to "high", "claude-opus-5-5" to "xhigh", "claude-sonnet-5-5" to "medium", "claude-fable-5-2" to "high")
-        val rows = effortRows(models, ClaudeDefaults(null, null, efforts, "high"))
-        assertEquals(
-            listOf("Opus 5.5", "Fable 5.2", "Sonnet 5.5", "Haiku 5.5", "其他模型"),
-            rows.filter { !it.older }.map { it.title },
-        )
-        val folded = rows.filter { it.older }
-        assertEquals(listOf("claude-fable-5-1"), folded.map { it.model })
-        assertEquals("Fable 5.1 高", moreModelsSummary(folded))
+        // 还没拿到清单：只列设过的
+        assertEquals(listOf("claude-fable-5-1", "claude-opus-5-5"), effortRows(emptyList(), defaults.copy(effort = null)).map { it.model })
     }
 
     /** initialize 应答里每个模型的完整 ID 和能选的思考强度；不支持思考强度的能选的是空的。 */

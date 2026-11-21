@@ -60,22 +60,11 @@ class ModelMenuShots : ShotTest() {
         }
     }
 
-    /**
-     * 默认思考强度：直接列各系列最新的和「其他模型」，旧版本设没设过都收在「更多模型」一行里（在「其他模型」前面），
-     * 摘要里设过的 Opus 4.6 带着档位。
-     */
+    /** 默认思考强度：各系列最新的和设过的旧版本（Opus 4.6）直接列出，其余旧版本收在「更多模型」一行后面。 */
     @Test
     fun defaultEffortFolded() {
         val hub = hub()
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = "medium"))
+        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = null))
         shoot("model-default-effort") { DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
-    }
-
-    /** 点开「更多模型」：旧版本按系列、从新到旧列在原处，「其他模型」还在最后。 */
-    @Test
-    fun defaultEffortMore() {
-        val hub = hub()
-        hub.updateClaudeDefaults(Backends.LOCAL, ClaudeDefaults(model = null, permissionMode = null, efforts = mapOf("claude-opus-4-6" to "high"), effort = "medium"))
-        shoot("model-default-effort-more", prepare = { tap("更多模型") }) { DefaultEffortScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
     }
 }
