@@ -176,7 +176,8 @@ private fun MarkdownBlockColumn(
                     markdownBlockGap(previous, block, scope.style.tone)
                 }
                 if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
-                MarkdownBlockView(block, scope)
+                // 每块单独一层：流式回答只在最后一块长字（还有逐字显现每帧重画），前面的块不跟着重新录制
+                Box(Modifier.graphicsLayer()) { MarkdownBlockView(block, scope) }
             }
         }
     }

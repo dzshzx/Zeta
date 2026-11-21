@@ -62,8 +62,12 @@ internal fun rememberFollowBottom(listState: LazyListState, following: Boolean =
     return follow
 }
 
-/** 滚到内容的最底端。只定位到最后一项不够：它比一屏还高时会停在它的顶部。 */
+/**
+ * 滚到内容的最底端。最后一项不在屏上时先定位到它，再往下滚到底：只定位不够，它比一屏还高时会停在它的顶部。
+ * 最后一项已在屏上（回答流式输出、贴底跟随时就是这样，每长一行来一次）时直接往下滚：定位会多强制测量一遍整个列表。
+ */
 internal suspend fun LazyListState.scrollToEnd() {
-    scrollToItem((layoutInfo.totalItemsCount - 1).coerceAtLeast(0))
+    val last = (layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+    if (layoutInfo.visibleItemsInfo.none { it.index == last }) scrollToItem(last)
     scrollBy(1_000_000f)
 }

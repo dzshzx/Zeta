@@ -81,6 +81,7 @@ import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.pane.HostSwitcher
+import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -162,9 +163,9 @@ internal fun ChatScreen(
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
                     onEnd = { if (conversation.active) confirmingEnd = true else hub.endCurrent() }
-                        .takeIf { hub.environment.setup == SetupState.Ready && (conversation.sessionId != null || conversation.items.isNotEmpty()) },
+                        .takeIf { hub.environment.setup == SetupState.Ready && (conversation.sessionId != null || conversation.hasItems) },
                     onOpenSettings = onOpenSettings,
-                    onFind = find::open.takeIf { usable && conversation.items.isNotEmpty() },
+                    onFind = find::open.takeIf { usable && conversation.hasItems },
                 )
             }
         },
@@ -343,7 +344,8 @@ private fun ConversationBody(
     onOpenTasks: (String) -> Unit,
     onOpenSubagent: (String, String) -> Unit,
 ) {
-    val items = conversation.items
+    // 回答流式输出时条目每秒变好几次；界面看不见时这一整页不跟着重组、测量（贴底跟随还会强制测量列表）
+    val items = whileStarted { conversation.items }
     // 下面记住的这个对话的状态（草稿、消息操作、Markdown 缓存、引用路径等）不另以 conversation 做键：
     // ConversationBody 只在 ChatScreen 的 key(conversation) 里调用，换了对话整块重建，这些状态跟着换一套
     // 每一组步骤拿到的是同一个函数，列表里的步骤组不因上层重组而跟着重组
@@ -385,7 +387,9 @@ private fun ConversationBody(
     LaunchedEffect(markdownCache, streamingAnswers) { markdownCache.discardWhenUnused(streamingAnswers) }
     SaveDraft(hub.drafts, draft, actions)
     val prompts = rememberPromptsUi(input)
-    val turns = remember(items) { TurnIndex(turnActions(items)) }
+    // 按值比较：回答逐字增长时各轮能做的操作不变，TurnIndex 还是原来那个，屏幕上别的消息不跟着重组
+    val turnList = turnActions(items)
+    val turns = remember(turnList) { TurnIndex(turnList) }
     val shown = actions.visible(items)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
@@ -428,14 +432,17 @@ private fun ConversationBody(
                 )
                 else -> {
                     val last = items.last()
-                    val idleSeconds by produceState(0, conversation.busy, conversation.lastActivityAt) {
+                    // 每秒看一次离上次输出多久。lastActivityAt 随每批输出变，只在这里的协程里读、不当键，
+                    // 也只在够长要显示时才更新：回答流式输出时这一页不因它重组
+                    val idleSeconds by produceState(0, conversation.busy) {
                         value = 0
                         while (conversation.busy) {
                             delay(1000)
-                            value = ((System.currentTimeMillis() - conversation.lastActivityAt) / 1000).toInt()
+                            val idle = ((System.currentTimeMillis() - conversation.lastActivityAt) / 1000).toInt()
+                            value = if (idle >= IdleHintSeconds) idle else 0
                         }
                     }
-                    val statusText = conversation.status ?: if (idleSeconds >= 15) "已等待 $idleSeconds 秒" else null
+                    val statusText = conversation.status ?: if (idleSeconds >= IdleHintSeconds) "已等待 $idleSeconds 秒" else null
                     // 等的是用户自己（确认或提问弹层开着）时不算"已等待"
                     val waiting = conversation.busy && conversation.pending == null &&
                         (statusText != null || !((last is AnswerItem && last.streaming) || (last is WorkItem && last.running)))
@@ -542,7 +549,7 @@ private fun ConversationBody(
             }
             if (viewingScreen) AgentDisplayViewer(conversation.phone) { viewingScreen = false }
             BackgroundTaskStrip(conversation, onOpen = { onOpenTasks(conversation.key) }, modifier = Modifier.padding(bottom = 6.dp))
-            TodoStrip(conversation.items, conversation.todoSeed, conversation.busy, Modifier.padding(bottom = 6.dp))
+            TodoStrip(items, conversation.todoSeed, conversation.busy, Modifier.padding(bottom = 6.dp))
             actions.editing?.let { EditStrip(it, onCancel = actions::cancelEdit, modifier = Modifier.padding(bottom = 6.dp)) }
             QueueStrip(
                 queued = conversation.queued,
@@ -605,7 +612,7 @@ private fun ConversationBody(
                 visible = viewingUsage,
                 usage = conversation.usage,
                 skippedHistory = conversation.skippedHistory,
-                canCompact = !conversation.busy && !conversation.loadingHistory && conversation.items.isNotEmpty(),
+                canCompact = !conversation.busy && !conversation.loadingHistory && conversation.hasItems,
                 onCompact = conversation::compact,
                 onDismissRequest = { viewingUsage = false },
                 quota = { QuotaDialogSection(hub, visible = viewingUsage) },
@@ -619,6 +626,9 @@ private fun ConversationBody(
 }
 
 private const val MaxAttachments = 4
+
+/** 一轮里多久没有输出就在等待行上显示“已等待 N 秒”。 */
+private const val IdleHintSeconds = 15
 
 /** 停手这么久后把草稿存盘。 */
 private const val DraftSaveDelayMs = 600L

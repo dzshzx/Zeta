@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.phone.PhoneTools
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,6 +27,9 @@ import kotlinx.serialization.json.putJsonObject
 
 /** 回答进行中发出、Claude Code 还没取走的消息。 */
 class QueuedMessage(val uuid: String, val text: String, val attachments: List<Attachment>, val files: List<String>)
+
+/** 收到的输出事件攒多久处理一批（[Conversation] 的 drain）。 */
+private const val DRAIN_DELAY_MS = 100L
 
 /** 追加给 Claude Code 的一句说明：让它知道对面是什么界面、怎样把图片给用户看。 */
 private const val ClientHint =
@@ -79,6 +83,10 @@ class Conversation(
     }
     var items by mutableStateOf<List<ChatItem>>(emptyList())
         private set
+
+    /** 有没有条目。只在空和非空之间翻转时变：界面上只看有没有的地方读它，不随流式回答的每次更新重组。 */
+    val hasItems: Boolean get() = hasItemsState.value
+    private val hasItemsState = derivedStateOf { items.isNotEmpty() }
 
     /**
      * 这一轮在进行：system init、command_lifecycle started 开始，result 结束，别的行不算（见 [handle]）；
@@ -952,8 +960,9 @@ class Conversation(
     private fun enqueue(source: ClaudeProcess, event: JsonObject) {
         if (source !== process) return
         inbox.add(event)
-        // 增量事件按约 25 帧每秒合并处理，避免每个字都触发一次重组
-        if (drainScheduled.compareAndSet(false, true)) main.postDelayed(::drain, 40)
+        // 增量事件每 0.1 秒合并处理一次：每处理一批，聊天页就要重组、排版一次；回答的字由逐字显现平滑地带出来，
+        // 合并得粗一点看不出来
+        if (drainScheduled.compareAndSet(false, true)) main.postDelayed(::drain, DRAIN_DELAY_MS)
     }
 
     private fun drain() {
