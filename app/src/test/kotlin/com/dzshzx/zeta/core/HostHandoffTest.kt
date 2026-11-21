@@ -225,7 +225,8 @@ class HostHandoffTest {
             )
             flush()
         }
-        assertTrue("替身没退出", waitUntil(10) { !alive(pid) })
+        // 限时只防卡死；zeta_exit 这一行托管脚本等起进程的那段写好 exit 才报，读到它不靠时机
+        assertTrue("替身没退出", waitUntil(60) { !alive(pid) })
         return generateSequence { lines.readLine() }.firstOrNull { it.contains("zeta_exit") }
     }
 

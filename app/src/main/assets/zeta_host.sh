@@ -237,6 +237,9 @@ fi
 
 [ -s "$D/pid" ] || { echo "zeta: 进程没有启动" >&2; cat "$D/err.log" >&2 2>/dev/null; exit 98; }
 P=$(cat "$D/pid")
+# 起进程的那段（P 的父进程）：P 退出后由它写 exit，下面等它
+R=
+read -r s 2>/dev/null <"/proc/$P/stat" && { s=${s##*) }; s=${s#* }; R=${s%% *}; }
 echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
 # 应用按这个数读到了第几行，远程主机的连接断了从下一行接着读（ClaudeProcess）；之前的行是登录 shell 打的别的东西。
@@ -249,6 +252,11 @@ cat <&0 > "$D/in" &
 C=$!
 wait -n
 kill "$T" "$C" 2>/dev/null
+# Claude Code 没了：那段先收尸、留标准错误输出的副本，再写 exit，跟读却在进程一没就结束了。等它写完（或它也不在了）再看，
+# 否则 exit 晚到一步就漏报 zeta_exit：应用拿不到退出码和 released，托管目录也没人删
+if ! running "$P"; then
+  while [ ! -f "$D/exit" ] && [ -d "$D" ] && running "$R"; do sleep 0.05; done
+fi
 if [ -f "$D/exit" ]; then
   # 退出报告一行 JSON：退出码，标准错误输出的最后 2000 字节（base64，不用转义；应用那头解码，见 ClaudeProcess 的 hostExitStderr）。
   # 只用 coreutils，远程主机上不用装别的
