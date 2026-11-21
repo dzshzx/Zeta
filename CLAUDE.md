@@ -38,7 +38,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 - 构建：`tools/gradle <任务>`，例如 `tools/gradle :app:assembleDebug`；不直接跑 `./gradlew`。它用 `tools/java-home` 找 JDK 25（`JAVA_HOME`，再是 PATH 上的 `java`，最后是 `~/.gradle/jdks` 里 Gradle 下载过的那份），并设 `ANDROID_HOME=~/Android/Sdk`。缺的 SDK 平台和 build-tools 由 AGP 构建时自动下载，两台机器都已接受许可。
 - 手机上为内存和 CPU 架构调的 Gradle 参数写在手机的 `~/.gradle/gradle.properties`，不进仓：不开守护进程、Kotlin 在进程内编译、最多 4 个 worker、aapt2 用 `~/Android/aapt2-x86_64/aapt2`（经 qemu-user 跑官方 x86-64 版，Google 不提供 linux-arm64 版）。这个 aapt2 的版本要和 AGP 一致，升 AGP 时一起换。手机空闲内存常只有几百 MB 到 3 GB，同一时间只跑一个 Gradle。
-- 签名：debug 包用 `~/.android/zeta-debug.keystore` 签名，是手机上已装的 Zeta 用的那把调试密钥。工作站上是一份拷贝（权限 600），手机上是指向 `~/.android/debug.keystore` 的符号链接。签名对不上时 `pm install -r` 会失败，卸载重装会丢掉 Zeta 的全部设置，所以不换这把密钥，也不卸载。
+- 签名：正式版、测试版和 debug 包都用 `~/.android/zeta-debug.keystore` 签名，是手机上已装的 Zeta 用的那把调试密钥。工作站上是一份拷贝（权限 600），手机上是指向 `~/.android/debug.keystore` 的符号链接。原件在 Bitwarden 的 Personal 文件夹，条目「Zeta APK 签名密钥」的附件，别名、口令和证书指纹在条目的字段里；两台机器上的丢了从那里取回。签名对不上时 `pm install -r` 会失败，卸载重装会丢掉 Zeta 的全部设置，所以不换这把密钥，也不卸载。
 - 门禁：`bash scripts/check.sh`。它核对 Python 清单，确认 Python 都能解析，检查 `helper/` 的 Go（版本、gofmt、vet、staticcheck、测试、认知复杂度、第三方模块只许 `helper/go-deps-allowlist.txt` 里列的），再构建 debug 包、跑 JVM 单元测试（含截图测试）。构建要有 PATH 上的 `go`（版本见 `helper/go.mod`），工作站和手机 Debian 都装着。
 - 单元测试：`tools/gradle :app:testDebugUnitTest`，放在 `app/src/test/kotlin`。不碰 Android 运行时的逻辑（解析、路径、状态归约）都写成单元测试，在工作站上就能验，不用装机。`ClaudeConfigClientTest` 在临时 HOME 上端到端跑 `core/claude` 的脚本和 `claude` 命令行；加 `ZETA_TEST_SSH=xiaomi-17-debian`（和 `--rerun`）时经 ssh 在手机 Debian 里用临时 HOME 再跑一遍。
 - 截图测试（看界面不用装机）：`tools/shots [过滤]` 在 JVM 上（Robolectric 原生图形 + Roborazzi）把界面画成 PNG，写到 `app/build/shots/<名字>-light.png` 和 `-dark.png`，尺寸、密度和手机一样（约 1220×2656，520 dpi），可以和真机截图并排看。过滤是测试类名的一部分（`tools/shots Settings`），不给就全跑。和上一次画的不一样时旁边多一张 `<名字>-<配色>_compare.png`（左旧、中差异、右新）：改界面前跑一次，改完再跑，看对照图。
@@ -64,7 +64,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
   - 必须上手机的：HyperOS 和小米专有的（电源键助理与 LSPosed 模块、小米的语音识别服务、GreezeManager 冻结）、Android 16 才有的（实时通知）、KernelSU 的授权流程、真机上的性能、耗电和休眠、MiSans 字体和毛玻璃的最终效果，以及上线后的正式版。
   - 模拟器也是 xiaomi-retail 抓包用的：别的项目用别的代理（比如抓包的 `-http-proxy http://127.0.0.1:8080`）开着它时 `tools/emu` 会提示，这时 Zeta 联网都经那个代理；用假 Claude 不联网的测试照跑，要联网就 `tools/emu stop` 后重开。
 - 并行开发：几棵任务树同时开发时，`tools/gradle` 最多同时跑 3 个构建（`ZETA_GRADLE_SLOTS`），其余排队。每台设备上同一个包同时只能装一个版本，所以按设备和包发租约（模拟器上的测试版、手机上的测试版、手机上的正式版各一把）：`tools/phone-run` 排队拿租约（见下面「设备脚本」），脚本里的 `vd` 在它的租约下跑；主会话在 phone-run 之外直接用 `tools/install.sh`、`tools/vd.py` 时，它们每次碰设备前自己经 `tools/phone-lock` 拿租约，被别人占着就失败（退出码 75），15 分钟没动静自动作废，测完用 `tools/phone-lock --release` 释放。占用者名字取 `ZETA_PHONE_OWNER`（默认 `main`），不是 `main` 的（子代理）在 phone-run 之外碰设备会被这两个工具拒绝。设备是并行开发的瓶颈：单元测试、临时 HOME、契约测试、截图测试能验的不占设备。
-- 测试版：用户日常用的是正式版 `com.dzshzx.zeta`（debug 包）。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，`assembleDebug` 照旧只出正式版）。任务分支的提交数可能比手机上刚装的少，`tools/install.sh` 用 `pm install -d` 照装。手机上两个包同时装着，互不替换。每台设备上测试版只有一份，设备上的测试交脚本给 `tools/phone-run` 排队执行。
+- 测试版：用户日常用的是正式版 `com.dzshzx.zeta`，是 build type `release`（`assembleRelease`）：经 R8 去掉用不到的代码和资源（约 13 MB，不经 R8 时 56 MB），不改类名，不可调试，只在上线时构建。开发测试装测试版：包名 `com.dzshzx.zeta.dev`，桌面名「Zeta 测试」，橙色图标，是 build type `dev`（`tools/gradle :app:assembleDev`，代码和签名同 debug，不经 R8）。`debug` 包名同正式版、不经 R8，只给门禁和单元测试用，不装到设备上。任务分支的提交数可能比手机上刚装的少，`tools/install.sh` 用 `pm install -d` 照装。手机上两个包同时装着，互不替换。每台设备上测试版只有一份，设备上的测试交脚本给 `tools/phone-run` 排队执行。
   - 子代理和开发测试一律装测试版、在测试版上测。正式版只在上线时由主会话装（见「发版与上线」）：`tools/install.sh`、`tools/vd.py` 默认就是测试版，碰正式版要显式加 `--release`，`ZETA_PHONE_OWNER` 不是 `main` 时会被拒绝。
   - 手机上的测试版第一次装上（或卸载后重装）时没有 root，要用户自己在 KernelSU 管理器里给「Zeta 测试」授予 root，代理不能替用户授予；没 root 时它只显示没有 root。有了 root 以后，无障碍、通知、电池、后台弹出界面等在测试版自己的权限健康页一键授予。
   - 两个包共用同一个 Debian 和 Linux 用户：Claude Code 的会话、登录状态、配置是同一份，测试版里建的会话也会出现在正式版的列表里，照样测完就删。Zeta 自己在 Linux 里的目录按包分开（正式版 `~/.cache/zeta`、`~/.config/zeta`，测试版 `zeta-dev`，由环境变量 `ZETA_NAME` 告诉脚本，见 `AppVariant`），所以两个包不会接管、结束或清理对方的后台对话和附件；正在被另一个包跑着的会话在这边算作别处占用。设置、定时任务、通知渠道、无障碍服务也各是各的。包名相关的名字（无障碍组件、Provider authority、广播 action）都从 `AppVariant` 取，不写死 `com.dzshzx.zeta`。
@@ -114,6 +114,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - Android 上 `Process.waitFor(超时)` 是 java.lang.Process 的默认实现，每 100 毫秒才看一次进程结束没有，每条命令平均白等约 50 毫秒；等进程用 `Process.exitsWithin`（`core/ProcessWait.kt`，`ProcessWaitTest` 拦着应用代码里带超时的 `waitFor`）。
 - `zeta_host.sh` 的看门狗在 `setsid bash -c '…'` 里面，那一段里不能写单引号。
+- 正式版经 R8，测试版和单元测试不经：运行时才按类名找的类（`app_process` 起的辅助进程、LSPosed 的入口、JSch 按配置加载的算法、别的反射）R8 看不出有人用，会被去掉，只有正式版出错。新增这类入口时登记在 `app/proguard-rules.pro`；改了它、加了这类入口或升级依赖后，用 `ZETA_R8=1 tools/phone-run …` 让测试版照正式版那样经 R8 构建，跑相关的设备脚本。它不可调试：在手机上装过以后，用 `ZETA_DEVICE=phone tools/install.sh` 装回普通测试版，否则之后提交数更少的测试版在手机上装不上（`pm install -d` 降版本只对已装的可调试包放行；模拟器不受限）。
 - Kotlin：在 `VirtualDisplay.() -> Unit` 这类带接收者的 lambda 里裸写 `surface`，会解析成 `VirtualDisplay.getSurface()`，不是外层的字段。
 - Claude Code 的 stream-json（2.1.327 实测）：
   - 标准输入的每条用户消息可带 `uuid`，它就是这条消息在会话记录里的 uuid；标准输出有 `command_lifecycle`（queued / started / completed / cancelled）。

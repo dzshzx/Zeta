@@ -3,7 +3,7 @@
 #   不带      装测试版（com.dzshzx.zeta.dev，桌面名「Zeta 测试」），默认装到本机的模拟器（没开就由 tools/emu 开机），
 #             ZETA_DEVICE=phone 时装到手机，和用户日常用的正式版并存。开发测试一律用它，一般经 tools/phone-run 调。
 #             版本号跟着提交走，比设备上的旧也照装（任务分支可能比别人的旧）。
-#   --release 上线：装正式版（com.dzshzx.zeta），只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。
+#   --release 上线：装正式版（com.dzshzx.zeta，release 构建，经 R8），只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。
 #             要在 master 的最新提交上、工作区干净；HEAD 还没有上线 tag 就在本地打下一个版本（升 patch），
 #             构建、核对、装好后才推到 origin，中途失败就删掉这个本地 tag（推上去的 tag 不能改）。HEAD 已有 tag 就重装这个版本。
 #   --minor   上线时升 minor（0.7.3 → 0.8.0），用户说了才用。
@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 variant=dev build=1 minor= created=
 for arg in "$@"; do
   case $arg in
-    --release) variant=debug ;;
+    --release) variant=release ;;
     --no-build) build= ;;
     --minor) minor=1 ;;
     *) echo "用法：tools/install.sh [--release [--minor]] [--no-build]" >&2; exit 2 ;;
@@ -34,7 +34,7 @@ package=com.dzshzx.zeta
 [[ $variant == dev ]] && package=com.dzshzx.zeta.dev
 
 tag=
-if [[ $variant == debug ]]; then
+if [[ $variant == release ]]; then
   # 上线：正式版的版本就是 HEAD 上的 tag，构建时 app/build.gradle.kts 从 git describe 取
   match='v[0-9]*.[0-9]*.[0-9]*'
   git fetch -q origin master --tags
@@ -85,7 +85,7 @@ if [[ -n $aapt2 ]]; then
     [[ $name == "${tag#v}" ]] || { echo "$APK 的版本是 $name，不是 ${tag#v}：去掉 --no-build 重新构建" >&2; exit 1; }
   fi
 fi
-# 测试版可以比手机上的旧（-d，debug 包才允许）：任务分支的提交数可能比别人刚装的少
+# 测试版可以比手机上的旧（-d）：任务分支的提交数可能比别人刚装的少。手机上只有可调试的包能这样装，ZETA_R8=1 构建的不行
 cmd="pm install -r $([[ $variant == dev ]] && echo -d) -S $(stat -c %s "$APK")"
 root=(sudo -n timeout 300 nsenter -t 1 -m -- /system/bin/sh -c "$cmd")
 if [[ -n $on_phone ]]; then

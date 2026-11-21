@@ -61,11 +61,21 @@ android {
     }
 
     buildTypes {
-        // 正式版就是 debug 包，release 变体在下面的 androidComponents 里关掉。
-        // 测试版：包名加 .dev，和用户日常用的正式版（debug）并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
-        // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。assembleDebug 照旧只出正式版。
+        // 正式版（用户日常用的，只在上线时由 tools/install.sh --release 构建安装）：R8 去掉用不到的代码和资源，不可调试。
+        // 签名仍用手机上已装的那把调试密钥，换了签名 pm install -r 就装不上。R8 找不到的入口（按类名起的）登记在 proguard-rules.pro。
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        // debug：不经 R8，包名同正式版。门禁和单元测试用它，不装到设备上。
+        // 测试版：包名加 .dev，和正式版并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
+        // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。
+        // 环境变量 ZETA_R8=1 时改照正式版构建（经 R8、不可调试），用来在测试版上验 R8 去掉代码以后还能不能跑，
+        // 例如 ZETA_R8=1 tools/phone-run tools/phone-tests/smoke.sh
         create("dev") {
-            initWith(getByName("debug"))
+            initWith(getByName(if (providers.environmentVariable("ZETA_R8").isPresent) "release" else "debug"))
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
             resValue("string", "capture_tile", "截屏给 Zeta 测试")
@@ -175,7 +185,6 @@ tasks.withType<Test>().configureEach {
 }
 
 androidComponents {
-    beforeVariants(selector().withBuildType("release")) { it.enable = false }
     onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaHelper, ZetaHelperTask::outputDir) }
 }
 
