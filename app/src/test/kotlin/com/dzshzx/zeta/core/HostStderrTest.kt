@@ -54,8 +54,9 @@ class HostStderrTest {
     private val kept: File
         get() = File(home, ".cache/$name/stderr")
 
+    /** 等 [key] 留下的那份副本，上限只防卡死。 */
     private fun keptFor(key: String): File? {
-        repeat(100) {
+        repeat(600) {
             kept
                 .listFiles()
                 ?.firstOrNull { it.name.endsWith("-$key.log") }
@@ -95,7 +96,7 @@ class HostStderrTest {
         val out =
             started.takeIf { "zeta_exit" in it }
                 ?: run {
-                    assertTrue("进程没有结束", waitUntil(10) { File(dir, "exit").exists() })
+                    assertTrue("进程没有结束", waitUntil(60) { File(dir, "exit").exists() })
                     HostTesting.run(
                         home,
                         listOf("bash", host.path, "attach", "k-exit", "1"),

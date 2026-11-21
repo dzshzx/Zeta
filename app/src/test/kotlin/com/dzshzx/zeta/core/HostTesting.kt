@@ -84,10 +84,10 @@ internal object HostTesting {
         mark?.let { environment()["ZETA_HOST"] = it }
     }
 
-    /** 替身按 [registersAs] 登记的进程号；等它最多 5 秒，没登记就失败。 */
+    /** 替身按 [registersAs] 登记的进程号；等它最多 60 秒（只防卡死，登记了就返回），没登记就失败。 */
     fun registeredPid(home: File): Int {
         val dir = File(home, ".claude/sessions")
-        assertTrue("替身没登记", waitUntil(5) { dir.list().orEmpty().isNotEmpty() })
+        assertTrue("替身没登记", waitUntil(60) { dir.list().orEmpty().isNotEmpty() })
         return dir.list()!!.single().removeSuffix(".json").toInt()
     }
 

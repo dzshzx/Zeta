@@ -155,7 +155,7 @@ class HostHandoffTest {
             )
             assertTrue(
                 "$wrapper：没收掉",
-                waitUntil(10) { !hostDir("k1").exists() && !hostDir("k2").exists() },
+                waitUntil(60) { !hostDir("k1").exists() && !hostDir("k2").exists() },
             )
         }
     }

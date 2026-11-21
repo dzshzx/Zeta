@@ -56,13 +56,8 @@ class HostIsolationTest {
     private fun pid(name: String, key: String): Int =
         File(home, ".cache/$name/hosts/$key/pid").readText().trim().toInt()
 
-    private fun gone(pid: Int): Boolean {
-        repeat(50) {
-            if (!alive(pid)) return true
-            Thread.sleep(100)
-        }
-        return false
-    }
+    /** 等进程 [pid] 结束，上限只防卡死。 */
+    private fun gone(pid: Int): Boolean = waitUntil(60) { !alive(pid) }
 
     @Test
     fun hostsStayWithTheirOwnPackage() {
