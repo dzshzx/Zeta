@@ -5,7 +5,7 @@
 set -uo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 mark="ZPROBE$(date +%s)"
-home=/data/local/zeta/debian/rootfs/home/dzshzx
+home=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER
 hosts=$HOSTS
 ref=/data/local/tmp/zeta-personal-sources.ref
 user=$(android 'am get-current-user' | tr -d '\r')

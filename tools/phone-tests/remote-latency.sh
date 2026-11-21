@@ -4,7 +4,7 @@
 # 几条路轮流跑：先各预热一次，再复用连接各跑 WARM 次（默认 20，登录 shell 和不登录的各一次：zeta-helper 这类命令不起登录 shell），
 # 远程的再各重新握手 COLD 次（默认 5）。不起 Claude，不建会话。
 # 模拟器上连回设备自己 Debian 里的 sshd（127.0.0.1:8022，同 remote-host.sh、remote-direct.sh，测试版的公钥由脚本加进去），
-# 不经网络，量的是两种连法各自的固定开销。手机上连 Debian 的 ~/.ssh/config 里的别名 LATENCY_ALIAS（默认 nerv-wsl）：
+# 不经网络，量的是两种连法各自的固定开销。手机上连 Debian 的 ~/.ssh/config 里的别名 LATENCY_ALIAS（或 git config zeta.latencyAlias）：
 # 直连的地址取 ssh -G 解析出的用户、主机、端口，主机指纹在手机 Debian 里用 ssh-keyscan 取。
 # 手机上测试版的公钥要已经在那台主机上（往主机上加公钥是新增访问权限，脚本不做），不在时直连那一路记成失败。
 # 手机上测完再用手机 Debian 里的 tailscale ping 量一组网络往返，记下走的路径（直连的地址或中继），和命令的耗时对照。
@@ -21,11 +21,13 @@ WARM=${WARM:-20} COLD=${COLD:-5} NETWORK=${NETWORK:-}
 vd fake "$HERE/fake/remote.jsonl"
 if [[ $ZETA_DEVICE == emu ]]; then
   ensure_loopback_sshd
-  user=dzshzx host=127.0.0.1 port=8022 home=/home/dzshzx
-  debian_target=ssh://dzshzx@127.0.0.1:8022
+  user=$ZETA_LINUX_USER host=127.0.0.1 port=8022 home=/home/$ZETA_LINUX_USER
+  debian_target=ssh://$ZETA_LINUX_USER@127.0.0.1:8022
   hostkey=$(android "cut -d' ' -f2 $ROOTFS/etc/ssh/ssh_host_ed25519_key.pub" | tr -d '\r')
 else
-  alias=${LATENCY_ALIAS:-nerv-wsl}
+  . "$ZETA_ROOT/tools/config.sh"
+  alias=$(zeta_config LATENCY_ALIAS latencyAlias)
+  [[ -n $alias ]] || { echo "手机上要连哪台主机：设 LATENCY_ALIAS，或 git config zeta.latencyAlias <手机 Debian 里的 ssh 别名>"; exit 1; }
   read -r user host port jump < <(vd debian "ssh -G -- $alias" |
     awk '$1 == "user" { u = $2 } $1 == "hostname" { h = $2 } $1 == "port" { p = $2 } $1 == "proxyjump" { j = $2 }
       END { print u, h, p, (j == "" ? "none" : j) }')

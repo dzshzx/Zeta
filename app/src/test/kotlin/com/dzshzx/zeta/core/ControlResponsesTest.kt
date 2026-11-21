@@ -55,10 +55,10 @@ class ControlResponsesTest {
     @Test
     fun initializeAnswersAreKeptPerHost() {
         val (hub, local) = started()
-        val remote = RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace")
+        val remote = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
         hub.updateRemoteHosts(listOf(remote))
         assertEquals(FallbackModels, hub.modelOptions(remote.id))
-        val far = Conversation(hub, "/home/ubuntu/workspace", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        val far = Conversation(hub, "/home/user/workspace", sessionId = null, title = "", historyFile = null, backend = remote.id)
         far.prepare()
         local.answer("initialize", """{"models":[{"value":"opus","displayName":"Opus"}],"commands":[{"name":"compact"}]}""")
         far.answer("initialize", """{"models":[{"value":"sonnet","displayName":"Sonnet"}],"commands":[{"name":"deploy"}]}""")
@@ -69,7 +69,7 @@ class ControlResponsesTest {
             hub.settings.commands.mapValues { (_, list) -> list.map { it.name } },
         )
         // 那台主机上还没起进程的新对话，输入栏先提示那台上次报的
-        val fresh = Conversation(hub, "/home/ubuntu", sessionId = null, title = "", historyFile = null, backend = remote.id)
+        val fresh = Conversation(hub, "/home/user", sessionId = null, title = "", historyFile = null, backend = remote.id)
         assertEquals(listOf("deploy"), fresh.shownCommands.map { it.name })
         hub.updateRemoteHosts(emptyList())
         assertEquals(setOf(Backends.LOCAL), hub.models.keys)

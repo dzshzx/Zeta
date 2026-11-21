@@ -1,14 +1,16 @@
 #!/bin/bash
 # 测试版默认装在本机的 Android 模拟器上（见 CLAUDE.md「测试设备」）。用法：tools/emu [start|status|stop]
-#   start   没开就开机：本机各项目共用的 AVD retail35，窗口在 xpra 虚拟显示 :99 上；联网经宿主的代理（https_proxy，
-#           用 -http-proxy 交给模拟器：它不读代理环境变量，直连 GitHub 只有几十 KB/s，也连不上 Anthropic）。
+#   start   没开就开机：AVD 取 ZETA_AVD（或 git config zeta.avd），没配时用本机唯一的那个 AVD；
+#           窗口开在 ZETA_EMU_DISPLAY（或 zeta.emuDisplay）这个 X 显示上，没配时不开窗口（-no-window）。
+#           联网经宿主的代理（https_proxy，用 -http-proxy 交给模拟器：它不读代理环境变量）。
 #           等开机完成，再把 adbd 切成 root。已经开着就只做后两步。install.sh、vd.py、phone-run 碰模拟器前自己调。
 #   status  开着没有、是不是 root、开机时带的是哪个代理
-#   stop    关机。几个项目共用它，测完不用关
-# 要给用户看画面：DISPLAY=:0 xpra attach :99，看完 xpra detach :99。
+#   stop    关机。模拟器可以和别的项目共用，测完不用关
 set -euo pipefail
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
-AVD=retail35 PORT=5554 SERIAL=emulator-5554
+source "$(dirname "$0")/config.sh"
+PORT=5554 SERIAL=emulator-5554
+WINDOW=$(zeta_config ZETA_EMU_DISPLAY emuDisplay)
 # 不把 start 的锁（9 号描述符）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
 adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&-; }
 dir=${XDG_RUNTIME_DIR:-/tmp}
@@ -19,11 +21,26 @@ booted() { [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') =
 is_root() { [[ $(adb shell id -u 2>/dev/null | tr -d '\r') == 0 ]]; }
 
 host_proxy=${https_proxy:-${http_proxy:-}}
-# 开着的模拟器带的代理；xiaomi-retail 的抓包用 -http-proxy http://127.0.0.1:8080 开它，那时 Zeta 的联网都经抓包代理
+# 开着的模拟器带的代理；别的项目（比如抓包）用别的 -http-proxy 开它时，Zeta 的联网都经那个代理
 running_proxy() {
   local pid
   pid=$(emu_pid)
   [[ -n $pid ]] && tr '\0' '\n' <"/proc/$pid/cmdline" | grep -A1 -x -- -http-proxy | tail -n +2 || true
+}
+
+# 要开的 AVD：配了就用配的，没配时本机只有一个 AVD 就用它
+avd() {
+  local name list
+  name=$(zeta_config ZETA_AVD avd)
+  if [[ -z $name ]]; then
+    list=$("$ANDROID_HOME/emulator/emulator" -list-avds 2>/dev/null | grep -v '^INFO' || true)
+    [[ -n $list && $(wc -l <<<"$list") == 1 ]] || {
+      echo "不知道开哪个 AVD（本机有：${list//$'\n'/、}）：设 ZETA_AVD，或 git config zeta.avd <名字>" >&2
+      exit 2
+    }
+    name=$list
+  fi
+  printf '%s' "$name"
 }
 
 start() {
@@ -32,11 +49,14 @@ start() {
   exec 9>"$dir/zeta-emu.lock"
   flock 9 # 几个 phone-run 同时来时只开一次
   if [[ -z $(emu_pid) ]]; then
-    echo "开模拟器 $AVD（窗口在 :99，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
+    local name window=(-no-window)
+    name=$(avd)
+    [[ -z $WINDOW ]] || window=()
+    echo "开模拟器 $name（窗口${WINDOW:+在 $WINDOW}$([[ -n $WINDOW ]] || echo 不开)，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
     # 模拟器常驻：在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
     # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）
-    (cd / && DISPLAY=:99 exec setsid "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port "$PORT" -no-audio -no-boot-anim \
-      -gpu swiftshader_indirect ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
+    (cd / && DISPLAY=$WINDOW exec setsid "$ANDROID_HOME/emulator/emulator" -avd "$name" -port "$PORT" -no-audio -no-boot-anim \
+      -gpu swiftshader_indirect "${window[@]}" ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
   fi
   local i
   for ((i = 0; i < 180; i++)); do booted && break; sleep 1; done

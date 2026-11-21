@@ -156,8 +156,8 @@ class RemoteHostShots : ShotTest() {
     }
 
     private val sessions = listOf(
-        SessionSummary("w1", "/home/ubuntu/.claude/projects/-w/w1.jsonl", "/home/ubuntu/workspace/Zeta", "Zeta 多后端", "", System.currentTimeMillis(), backend = "r-00000001"),
-        SessionSummary("w2", "/home/ubuntu/.claude/projects/-w/w2.jsonl", "/home/ubuntu/workspace/fleet-state", "排查 company-vps 磁盘告警", "", System.currentTimeMillis() - 86_400_000L * 3, backend = "r-00000001"),
+        SessionSummary("w1", "/home/user/.claude/projects/-w/w1.jsonl", "/home/user/workspace/Zeta", "Zeta 多后端", "", System.currentTimeMillis(), backend = "r-00000001"),
+        SessionSummary("w2", "/home/user/.claude/projects/-w/w2.jsonl", "/home/user/workspace/ops", "排查 web-01 磁盘告警", "", System.currentTimeMillis() - 86_400_000L * 3, backend = "r-00000001"),
     )
 
     @Test

@@ -6,9 +6,9 @@
 # 截图 first.png（第一轮答完）、reconnected.png（重连后第二轮答完）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/remote-direct.sh
 #
-# 远程主机是设备自己的 Debian（dzshzx@127.0.0.1:8022，sshd 的准备见 lib.sh 的 ensure_loopback_sshd），家目录相同，
+# 远程主机是设备自己的 Debian（<Linux 用户>@127.0.0.1:8022，sshd 的准备见 lib.sh 的 ensure_loopback_sshd），家目录相同，
 # 托管目录、假 Claude 的剧本都在老地方。测试版的公钥（应用私有目录的 zeta_ssh.pub，密钥第一次用时写出）
-# 加进 dzshzx 自己的 authorized_keys（同一个注释的旧行先删掉）：只听本机的 sshd，测试设备自己连自己。
+# 加进 Linux 用户自己的 authorized_keys（同一个注释的旧行先删掉）：只听本机的 sshd，测试设备自己连自己。
 # 主机指纹取 sshd 的 Ed25519 主机密钥：手机上验 Ed25519 主机签名靠 BouncyCastle，这里一并测到。
 # 假 Claude 不写会话记录，没有要删的测试会话；vd stop 改回 remoteHosts、backend、rootfs 三项设置。
 set -euo pipefail
@@ -22,7 +22,7 @@ ensure_loopback_sshd
 hostkey=$(android "cut -d' ' -f2 $ROOTFS/etc/ssh/ssh_host_ed25519_key.pub" | tr -d '\r')
 [[ -n $hostkey ]] || { echo "读不到 sshd 的 Ed25519 主机密钥"; exit 1; }
 id=r-phonedirect
-vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"直连回环\",\"target\":\"dzshzx@127.0.0.1:8022\",\"home\":\"/home/dzshzx\",\"cwd\":\"/home/dzshzx\",\"via\":\"direct\",\"hostKey\":\"$hostkey\"}]" \
+vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"直连回环\",\"target\":\"$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\",\"via\":\"direct\",\"hostKey\":\"$hostkey\"}]" \
   "backend=$id" "rootfs=/data/local/zeta/no-debian-for-this-test"
 # 测试版起来就去接回直连主机上的进程，这时取密钥（没有就生成）、写出公钥；先删掉旧的公钥文件，等这次写出的
 android "rm -f $TEST_PUB"

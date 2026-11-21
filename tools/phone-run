@@ -35,6 +35,10 @@ fi
 wait=${ZETA_PHONE_RUN_WAIT:-2700}
 OUT=$ZETA_ROOT/build/phone-run/$(date +%Y%m%d-%H%M%S)-$$
 export OUT PKG=com.dzshzx.zeta.dev
+source "$ZETA_ROOT/tools/config.sh"
+# 设备 Debian 里 Zeta 用的 Linux 用户（见 CLAUDE.md「本机配置」），脚本里拼家目录、ssh 目标时用
+ZETA_LINUX_USER=$(zeta_config ZETA_LINUX_USER linuxUser zeta)
+export ZETA_LINUX_USER
 mkdir -p "$OUT"
 exec > >(tee -a "$OUT/run.log") 2>&1
 echo "产物目录：$OUT（设备：$where）"

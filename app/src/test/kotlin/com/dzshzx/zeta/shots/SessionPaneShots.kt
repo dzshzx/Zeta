@@ -36,8 +36,8 @@ class SessionPaneShots : ShotTest() {
         session("s1", "/workspace/claude/zeta", "侧栏迁到 COUI 2", todayStart + 3 * 60_000),
         session("s2", "/workspace/claude/zeta", "修复登录页的布局", todayStart + 2 * 60_000),
         session("s3", "/workspace/claude", "整理下载目录", todayStart + 60_000, external = true),
-        session("s4", "/workspace/claude/fleet-state", "排查 company-vps 磁盘告警", todayStart - 3 * 86_400_000L),
-        session("s5", "/workspace/claude", "", todayStart - 5 * 86_400_000L, preview = "把周报里的表格换成钉钉表格，再发到群里"),
+        session("s4", "/workspace/claude/ops", "排查 web-01 磁盘告警", todayStart - 3 * 86_400_000L),
+        session("s5", "/workspace/claude", "", todayStart - 5 * 86_400_000L, preview = "把周报里的表格整理成一页，再发到群里"),
         session("s6", "/workspace/claude", "很久以前的对话", todayStart - 9 * 86_400_000L),
         session("s7", "/workspace/claude", "已经归档的对话", todayStart - 20 * 86_400_000L, archived = true),
     )
@@ -82,7 +82,7 @@ class SessionPaneShots : ShotTest() {
             onNodeWithText("选择").performClick()
             // 时钟不自己走：等菜单收起的动画放完再点下一行，不然这一下点在菜单的遮罩上
             mainClock.advanceTimeBy(1_000)
-            onNodeWithText("排查 company-vps 磁盘告警").performClick()
+            onNodeWithText("排查 web-01 磁盘告警").performClick()
         }) { Pane() }
     }
 

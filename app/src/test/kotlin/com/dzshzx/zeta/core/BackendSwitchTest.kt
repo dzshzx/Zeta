@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [37])
 class BackendSwitchTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-    private val remote = RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace")
+    private val remote = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
 
     private fun hub(): ConversationHub = Fixtures.readyHub(app).also { it.settings.remoteHosts = listOf(remote) }
 
@@ -35,7 +35,7 @@ class BackendSwitchTest {
         hub.selectBackend(remote.id)
         assertEquals(remote.id, hub.backend)
         assertEquals(remote.id, hub.current.backend)
-        assertEquals("/home/ubuntu/workspace", hub.current.cwd)
+        assertEquals("/home/user/workspace", hub.current.cwd)
         // 不认识的编号不动
         hub.selectBackend("r-nope")
         assertEquals(remote.id, hub.backend)
@@ -46,7 +46,7 @@ class BackendSwitchTest {
     @Test
     fun openingASessionOnAnotherHostMovesTheSidebarThere() {
         val hub = hub()
-        val summary = SessionSummary("s-remote", "/home/ubuntu/.claude/projects/-w/s-remote.jsonl", "/home/ubuntu/workspace/Zeta", "远程会话", "", 0L, backend = remote.id)
+        val summary = SessionSummary("s-remote", "/home/user/.claude/projects/-w/s-remote.jsonl", "/home/user/workspace/Zeta", "远程会话", "", 0L, backend = remote.id)
         hub.open(summary)
         assertEquals(remote.id, hub.current.backend)
         assertEquals(remote.id, hub.backend)

@@ -2,7 +2,8 @@
 """后台虚拟屏：在不占用主屏的情况下运行、截图、点按 Zeta。做法取自 Eta 的 VirtualDisplayCommandMain。
 
 设备：测试版默认在本机的模拟器上（经 adb，没开就由 tools/emu 开机），ZETA_DEVICE=phone 时在手机上；正式版只在手机上。
-在工作站上经 ssh 连手机（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）；在手机 Debian 里跑时就是这台手机。
+在工作站上经 ssh 连手机（手机 Debian 的别名取 ZETA_PHONE_SSH 或 git config zeta.phoneSsh）；在手机 Debian 里跑时就是这台手机。
+模拟器上进 Debian 用的 Linux 用户取 ZETA_LINUX_USER 或 zeta.linuxUser，默认 zeta（Zeta 装环境时的默认用户名）。
 
 用法：vd.py [--release] <命令>
   默认操作测试版（com.dzshzx.zeta.dev）。设备上的测试写成脚本交给 tools/phone-run，脚本里的 vd 就是 vd.py：
@@ -33,23 +34,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "vdisplay", "VdHold.java")
 OUT = os.path.join(HERE, "vdisplay", "build")
 DEX = os.path.join(OUT, "classes.dex")
-D8 = os.path.expanduser("~/Android/Sdk/build-tools/37.0.0/lib/d8.jar")
+SDK = os.environ.get("ANDROID_HOME") or os.path.expanduser("~/Android/Sdk")  # 同 tools/gradle
+D8 = os.path.join(SDK, "build-tools", "37.0.0", "lib", "d8.jar")
 RELEASE = "com.dzshzx.zeta"
 # 下面三个由 use() 按测试版还是正式版定：包名、虚拟屏名字（VdHold 的第 5 个参数）、手机上的工作目录
 PACKAGE = RELEASE
 NAME = "zeta-screen-main"
 WORK = "/data/local/tmp/zeta-screen-main"
 ACTIVITY = "com.dzshzx.zeta.ui.MainActivity"  # 类名不随包名变：测试版只加了 applicationIdSuffix
-PHONE_SSH = os.environ.get("ZETA_PHONE_SSH", "xiaomi-17-debian")
 # 假 Claude：测试版的 zeta_host.sh 看到这里有 scenario.jsonl 就起它（Debian 里 Linux 用户的家目录下）
 FAKE_DIR = "~/.config/zeta-dev/fake-claude"
 FAKE_SCRIPT = os.path.join(HERE, "fake-claude", "fake-claude.sh")
 ON_PHONE = "android" in os.uname().release  # 手机 Debian 是 chroot，和 Android 共用内核
 # 模拟器（tools/emu）：adbd 是 root，adb shell 就在 Android 的全局挂载命名空间里；进 Debian 用 Zeta 自己的进入脚本
-ADB = [os.path.expanduser("~/Android/Sdk/platform-tools/adb"), "-s", "emulator-5554"]
+ADB = [os.path.join(SDK, "platform-tools", "adb"), "-s", "emulator-5554"]
 ENTER_SRC = os.path.join(HERE, "..", "app", "src", "main", "assets", "zeta_enter.sh")
 ENTER = "/data/local/tmp/zeta-enter.sh"
-LINUX_USER = "dzshzx"  # 两台设备上 Zeta 的 Linux 用户同名
 PHONE_SCREEN = ("1220", "2656", "520")  # 手机主屏：模拟器上的虚拟屏照它建，测试脚本里的坐标两边通用
 DEVICE = "phone"  # main() 定：phone 或 emu
 
@@ -68,6 +68,23 @@ done
 [ $n -gt 0 ] && echo "从最近任务里清掉了 $n 条记录"
 true"""
 
+def setting(env, key, default=""):
+    """本机的开发配置（同 tools/config.sh）：环境变量优先，其次是本仓的 git config zeta.<key>，都没有就是 default。"""
+    value = os.environ.get(env)
+    if not value:
+        r = subprocess.run(["git", "-C", HERE, "config", "--get", f"zeta.{key}"], capture_output=True, text=True)
+        value = r.stdout.strip()
+    return value or default
+
+
+def phone_ssh():
+    """手机 Debian 的 ssh 别名；没配时退出。"""
+    alias = setting("ZETA_PHONE_SSH", "phoneSsh")
+    if not alias:
+        sys.exit("连手机要知道它 Debian 的 ssh 别名：设 ZETA_PHONE_SSH，或 git config zeta.phoneSsh <别名>")
+    return alias
+
+
 def run(cmd, data=None, seconds=120):
     """在 Android 一侧以 root 运行 cmd，data 经标准输入传过去。远端加 timeout：ssh、adb 断开后远端进程不会自己停。"""
     sh = ["timeout", str(seconds), "/system/bin/sh", "-c", "export PATH=/system/bin:$PATH; " + cmd]
@@ -76,7 +93,7 @@ def run(cmd, data=None, seconds=120):
     else:
         argv = ["sudo", "-n", "timeout", str(seconds), "nsenter", "-t", "1", "-m", "--"] + sh[2:]
         if not ON_PHONE:
-            argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+            argv = ["ssh", phone_ssh(), shlex.join(argv)]
     io = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
     return subprocess.run(argv, capture_output=True, **io)
 
@@ -92,11 +109,12 @@ def debian(cmd, data=None):
             with open(ENTER_SRC, "rb") as f:
                 android(f"cat > {ENTER}", data=f.read())
             ENTER_PUSHED = True
-        r = run(shlex.join(["sh", ENTER, "/usr/sbin/runuser", "-l", LINUX_USER, "-c", cmd]), data, seconds=60)
+        user = setting("ZETA_LINUX_USER", "linuxUser", "zeta")
+        r = run(shlex.join(["sh", ENTER, "/usr/sbin/runuser", "-l", user, "-c", cmd]), data, seconds=60)
     else:
         argv = ["timeout", "60", "sh", "-c", cmd]
         if not ON_PHONE:
-            argv = ["ssh", PHONE_SSH, shlex.join(argv)]
+            argv = ["ssh", phone_ssh(), shlex.join(argv)]
         io_ = {"input": data} if data is not None else {"stdin": subprocess.DEVNULL}
         r = subprocess.run(argv, capture_output=True, **io_)
     if r.returncode != 0:

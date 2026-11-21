@@ -6,7 +6,7 @@
 HERE=$ZETA_ROOT/tools/phone-tests
 
 # 测试版的托管目录：每个对话一个子目录，out.jsonl 是 Claude（或假 Claude）的输出
-HOSTS=/data/local/zeta/debian/rootfs/home/dzshzx/.cache/zeta-dev/hosts
+HOSTS=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER/.cache/zeta-dev/hosts
 
 # 聊天页的输入框、发送键（整屏 1220×2656 的坐标，冷启动后的新对话页）
 INPUT_X=320 INPUT_Y=2418 SEND_X=1091 SEND_Y=2548
@@ -183,14 +183,14 @@ restart_loopback_sshd() {
   ensure_loopback_sshd
 }
 
-# 测试版的公钥（应用私有目录的 zeta_ssh.pub，密钥第一次用时写出）：等它写出来，加进设备 Debian 里 dzshzx 自己的
+# 测试版的公钥（应用私有目录的 zeta_ssh.pub，密钥第一次用时写出）：等它写出来，加进设备 Debian 里 Linux 用户自己的
 # authorized_keys（已经在的不重复加，同一个注释的旧行先删掉），再重启回环的 sshd（加公钥以前那几次登录失败会让它一阵子
 # 不理 127.0.0.1）。只给回环的 sshd 用：往别的主机加公钥是新增访问权限，脚本不做。
 TEST_PUB=/data/user/0/$PKG/files/zeta_ssh.pub
 authorize_test_key() {
   for _ in $(seq 40); do android "[ -s $TEST_PUB ]" && break; sleep 0.5; done
   android "[ -s $TEST_PUB ]" || { echo "测试版没写出公钥 $TEST_PUB"; return 1; }
-  android "k=\$(cat $TEST_PUB); c=\${k##* }; f=$ROOTFS/home/dzshzx/.ssh/authorized_keys; grep -qxF \"\$k\" \$f || \
+  android "k=\$(cat $TEST_PUB); c=\${k##* }; f=$ROOTFS/home/$ZETA_LINUX_USER/.ssh/authorized_keys; grep -qxF \"\$k\" \$f || \
     { grep -v \" \$c\\\$\" \$f > \$f.new; echo \"\$k\" >> \$f.new; cat \$f.new > \$f; rm -f \$f.new; }"
   restart_loopback_sshd
 }

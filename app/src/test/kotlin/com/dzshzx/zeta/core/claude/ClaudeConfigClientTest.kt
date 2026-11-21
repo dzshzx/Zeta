@@ -24,7 +24,7 @@ import org.junit.Test
 
 /**
  * 端到端：真的 [ClaudeConfigClient]、真的壳脚本，跑在一个临时 HOME 上，不碰任何人真实的 ~/.claude。
- * [LocalClientTest] 在跑测试的机器上用 bash；[PhoneClientTest] 设了 ZETA_TEST_SSH（比如 xiaomi-17-debian）时经 ssh 在手机的 Debian 里跑同一套。
+ * [LocalClientTest] 在跑测试的机器上用 bash；[PhoneClientTest] 设了 ZETA_TEST_SSH（手机 Debian 的 ssh 别名）时经 ssh 在手机的 Debian 里跑同一套。
  */
 abstract class ClaudeConfigClientTest {
     protected abstract fun shell(): TestShell

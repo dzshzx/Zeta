@@ -1,7 +1,7 @@
 #!/bin/bash
 # zeta-helper 装进设备的 Debian：删掉测试版已装的、放一个旧版本的假文件，冷启动后应用第一次用它（接回后台进程、读会话列表）时
 # 按那边的 uname -m 把对应的一份经标准输入传进去装上。核对：只剩一个新版本、旧的删了；装好的程序在 Debian 里
-# 以 dzshzx 直接跑 list 退出码是 0。
+# 以 Linux 用户直接跑 list 退出码是 0。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/helper-install.sh
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
@@ -30,7 +30,7 @@ left=$(android "ls -A $BIN")
 [[ $left == "$installed" ]] || { echo "$BIN 里应只剩新版本，实际是：$left"; exit 1; }
 android "test -x $BIN/$installed" || { echo "$installed 没有执行权限"; exit 1; }
 
-android "chroot $ROOTFS /usr/bin/setpriv --reuid=5000 --regid=5000 --init-groups /usr/bin/env -i HOME=/home/dzshzx ZETA_NAME=zeta-dev ${BIN#"$ROOTFS"}/$installed list >/dev/null" ||
+android "chroot $ROOTFS /usr/bin/setpriv --reuid=5000 --regid=5000 --init-groups /usr/bin/env -i HOME=/home/$ZETA_LINUX_USER ZETA_NAME=zeta-dev ${BIN#"$ROOTFS"}/$installed list >/dev/null" ||
   { echo "在 Debian 里直接跑 $installed list 失败"; exit 1; }
-echo "在 Debian 里以 dzshzx 跑 list：退出码 0"
+echo "在 Debian 里以 $ZETA_LINUX_USER 跑 list：退出码 0"
 vd shot installed.png >/dev/null

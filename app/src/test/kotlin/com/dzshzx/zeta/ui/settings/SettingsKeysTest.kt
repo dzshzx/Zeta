@@ -71,7 +71,7 @@ class SettingsKeysTest {
         "setAutoCompactPercent" to 70,
         "setHostModes" to mapOf("k1" to "plan"),
         "setContextWindows" to mapOf("opus" to 200_000L),
-        "setRemoteHosts" to listOf(RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/someone", "/home/someone/workspace")),
+        "setRemoteHosts" to listOf(RemoteHost("r-00000001", "工作站", "dev-box", "/home/someone", "/home/someone/workspace")),
         "setBackend" to "r-00000001",
         "setLocalName" to "我的手机",
     )

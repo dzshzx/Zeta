@@ -4,9 +4,9 @@
 # 截图 first.png（第一轮答完）、reconnected.png（重连后第二轮答完）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/remote-host.sh
 #
-# 远程主机是设备自己的 Debian：经 127.0.0.1:8022 的 sshd 连回自己（ssh://dzshzx@127.0.0.1:8022），家目录一样，
+# 远程主机是设备自己的 Debian：经 127.0.0.1:8022 的 sshd 连回自己（ssh://<Linux 用户>@127.0.0.1:8022），家目录一样，
 # 所以托管目录、假 Claude 的剧本都在本机的老地方，lib.sh 的 find_log、wait_result 照用。设备上要先准备好（一次）：
-# 在 Debian 里装好并起着 sshd（设置 › Linux 环境 › SSH 服务），dzshzx 有一把密钥、它的公钥在自己的 authorized_keys 里。
+# 在 Debian 里装好并起着 sshd（设置 › Linux 环境 › SSH 服务），Linux 用户有一把密钥、它的公钥在自己的 authorized_keys 里。
 # 假 Claude 不写会话记录，没有要删的测试会话；vd stop 改回 remoteHosts、backend 两项设置。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
@@ -17,7 +17,7 @@ android "touch $NEWER"
 vd fake "$HERE/fake/remote.jsonl"
 ensure_loopback_sshd
 id=r-phonetest
-vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"回环\",\"target\":\"ssh://dzshzx@127.0.0.1:8022\",\"home\":\"/home/dzshzx\",\"cwd\":\"/home/dzshzx\"}]" "backend=$id"
+vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"回环\",\"target\":\"ssh://$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\"}]" "backend=$id"
 vd launch
 sleep 10 # 冷启动后马上输入会丢字
 

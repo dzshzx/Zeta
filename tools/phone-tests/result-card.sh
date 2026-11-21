@@ -10,7 +10,7 @@ set -euo pipefail
 
 MARK="zeta-result-card-test-$(date +%s)"
 CLOSE=${CLOSE:-open}
-CLAUDE_HOME=/data/local/zeta/debian/rootfs/home/dzshzx/.claude
+CLAUDE_HOME=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER/.claude
 
 cleanup() {
   set +e

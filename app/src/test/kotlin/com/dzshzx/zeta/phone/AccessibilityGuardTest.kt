@@ -12,8 +12,8 @@ class AccessibilityGuardTest {
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").component(serviceClass)
 
     /** 一台手机上常见的启用列表：别的应用的服务，有的写成“包名/.类名”。 */
-    private val others = "com.x8bit.bitwarden/com.x8bit.bitwarden.Accessibility.AccessibilityService:" +
-        "io.github.mangi.eta/.agent.EtaAccessibilityService:li.songe.gkd/.service.GkdAbService"
+    private val others = "com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService:" +
+        "io.github.mangi.eta/.agent.EtaAccessibilityService:com.example.clicker/.service.ClickService"
 
     @Test
     fun componentNamesComeFromTheVariant() {
@@ -74,7 +74,7 @@ class AccessibilityGuardTest {
     fun lostReportsMissingOthers() {
         val after = "io.github.mangi.eta/.agent.EtaAccessibilityService:$dev"
         assertEquals(
-            listOf("com.x8bit.bitwarden/com.x8bit.bitwarden.Accessibility.AccessibilityService", "li.songe.gkd/.service.GkdAbService"),
+            listOf("com.example.passwords/com.example.passwords.autofill.AutofillAccessibilityService", "com.example.clicker/.service.ClickService"),
             AccessibilityList.lost(others, after),
         )
         // 写法不同但是同一个组件，不算丢

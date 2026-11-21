@@ -9,7 +9,7 @@ set -euo pipefail
 MARK=$(printf 'zlive%05d%05d' $RANDOM $RANDOM)
 # 认测试会话的记号：提示里的“Tag: zlive”加至少四位数字（脚本自己的源码对不上这个式子）
 MARKED='Tag: zlive[0-9]{4,}'
-PROJECTS=/data/local/zeta/debian/rootfs/home/dzshzx/.claude/projects
+PROJECTS=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER/.claude/projects
 PROMOTED=$((0x40000))
 LOOP_SECONDS=190
 

@@ -6,7 +6,7 @@
 # 开关飞行模式会断掉设备的网络，所以只在模拟器上跑。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/remote-network-change.sh
 #
-# 设备上的准备同 remote-host.sh（Debian 里装好 sshd，dzshzx 的公钥在自己的 authorized_keys 里）。
+# 设备上的准备同 remote-host.sh（Debian 里装好 sshd，Linux 用户的公钥在自己的 authorized_keys 里）。
 # 假 Claude 不写会话记录，没有要删的测试会话；vd stop 改回 remoteHosts、backend 两项设置，飞行模式在退出时关掉。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
@@ -18,7 +18,7 @@ android "touch $NEWER"
 vd fake "$HERE/fake/remote.jsonl"
 ensure_loopback_sshd
 id=r-phonetest
-vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"回环\",\"target\":\"ssh://dzshzx@127.0.0.1:8022\",\"home\":\"/home/dzshzx\",\"cwd\":\"/home/dzshzx\",\"via\":\"debian\"}]" "backend=$id"
+vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"回环\",\"target\":\"ssh://$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\",\"via\":\"debian\"}]" "backend=$id"
 vd launch
 sleep 10 # 冷启动后马上输入会丢字
 

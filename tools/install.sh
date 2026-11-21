@@ -7,10 +7,11 @@
 #             只在用户说上线时由主会话装，ZETA_PHONE_OWNER 不设或为 main 时才肯装。不在本机构建、不打 tag（发版见 docs/release.md）：
 #             用 gh release download 取 APK、.sha256 和 update.json，经 tools/release check-download 核对 sha256、
 #             签名证书（本仓 release/signing-certs.txt 登记的）、包名和版本后再装。要 gh、go 和 Android SDK 的 build-tools。
-# 正式版只装在手机上：在手机 Debian 里直接进 Android 一侧安装，在工作站上经 ssh（主机名取 ZETA_PHONE_SSH，默认 xiaomi-17-debian）。
+# 正式版只装在手机上：在手机 Debian 里直接进 Android 一侧安装，在工作站上经 ssh（手机 Debian 的别名取 ZETA_PHONE_SSH 或 git config zeta.phoneSsh）。
 # APK 从标准输入交给 pm install -S，手机、模拟器都走这一条路，不用先拷到设备上。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source tools/config.sh
 variant=dev build=1 tag=
 usage() { echo "用法：tools/install.sh [--no-build] | tools/install.sh --release [vX.Y.Z]" >&2; exit 2; }
 for arg in "$@"; do
@@ -31,6 +32,8 @@ lease=main
 [[ $variant == dev ]] && lease=$([[ $device == emu ]] && echo emu || echo dev)
 # 谁能装哪个包由 tools/phone-lock 定；构建或下载前先问一次，被拒绝时不白做
 [[ -n $on_phone ]] || tools/phone-lock --check "$lease" || exit 2
+phone=
+[[ -n $on_phone || $device != phone ]] || phone=$(zeta_phone_ssh) # 工作站上连手机：别名没配就在构建前停下
 
 if [[ $variant == release ]]; then
   # 上线：装 Release 上的包，核对通过才装；check-download 在标准输出打印核对过的 APK 路径
@@ -65,6 +68,6 @@ elif [[ $device == emu ]]; then
   "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" -s emulator-5554 shell -T "timeout 300 $cmd" <"$APK"
 else
   tools/phone-lock "$lease"
-  ssh "${ZETA_PHONE_SSH:-xiaomi-17-debian}" "${root[*]@Q}" <"$APK"
+  ssh "$phone" "${root[*]@Q}" <"$APK"
 fi
 [[ $variant == dev ]] || echo "正式版已是 $(basename "$APK" .apk)"

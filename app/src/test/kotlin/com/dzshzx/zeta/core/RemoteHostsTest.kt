@@ -23,7 +23,7 @@ class RemoteHostsTest {
     @Test
     fun hostsRoundTripAndBadEntriesAreSkipped() {
         val hosts = listOf(
-            RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace", hostname = "NERV"),
+            RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace", hostname = "DEVBOX"),
             RemoteHost("r-00000002", null, "me@example.com", "/root", "/root"),
         )
         assertEquals(hosts, RemoteHosts.decode(RemoteHosts.encode(hosts)))
@@ -44,12 +44,12 @@ class RemoteHostsTest {
         assertEquals(listOf(direct), RemoteHosts.decode(RemoteHosts.encode(listOf(direct))))
         val broken = """[
             {"id":"r-4","target":"me@example.com","home":"/h","via":"direct"},
-            {"id":"r-5","target":"nerv-wsl","home":"/h","via":"direct","hostKey":"$key"},
+            {"id":"r-5","target":"dev-box","home":"/h","via":"direct","hostKey":"$key"},
             {"id":"r-6","target":"me@example.com","home":"/h","via":"direct","hostKey":"not-a-key"}
         ]"""
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(broken))
         // 经 Debian 的不带主机指纹（那边的 known_hosts 管）
-        assertEquals(null, RemoteHosts.decode("""[{"id":"r-7","target":"nerv-wsl","home":"/h","hostKey":"$key"}]""").single().hostKey)
+        assertEquals(null, RemoteHosts.decode("""[{"id":"r-7","target":"dev-box","home":"/h","hostKey":"$key"}]""").single().hostKey)
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(null))
     }
 
@@ -73,11 +73,11 @@ class RemoteHostsTest {
      */
     @Test
     fun namesFallBackToTheDevicesOwn() {
-        assertEquals("工作站", RemoteHost("r-1", "工作站", "nerv-wsl", "/h", "/h", hostname = "NERV").name)
-        assertEquals("NERV", RemoteHost("r-1", null, "nerv-wsl", "/h", "/h", hostname = "NERV").name)
-        assertEquals("nerv-wsl", RemoteHost("r-1", null, "nerv-wsl", "/h", "/h").name)
+        assertEquals("工作站", RemoteHost("r-1", "工作站", "dev-box", "/h", "/h", hostname = "DEVBOX").name)
+        assertEquals("DEVBOX", RemoteHost("r-1", null, "dev-box", "/h", "/h", hostname = "DEVBOX").name)
+        assertEquals("dev-box", RemoteHost("r-1", null, "dev-box", "/h", "/h").name)
         val shown = RemoteHosts.displayTarget("ssh://me@example.com:2222")
-        val old = """[{"id":"r-1","name":"nerv-wsl","target":"nerv-wsl","home":"/h"},{"id":"r-2","name":"$shown","target":"ssh://me@example.com:2222","home":"/h"}]"""
+        val old = """[{"id":"r-1","name":"dev-box","target":"dev-box","home":"/h"},{"id":"r-2","name":"$shown","target":"ssh://me@example.com:2222","home":"/h"}]"""
         assertEquals(listOf(null, null), RemoteHosts.decode(old).map { it.customName })
         val others = listOf("工作站", "Xiaomi 17")
         assertNull(RemoteHosts.nameProblem("vps", others))
@@ -89,7 +89,7 @@ class RemoteHostsTest {
 
     @Test
     fun targetsThatSshCouldMisreadAreRejected() {
-        for (ok in listOf("nerv-wsl", "me@example.com", "host.example:2222", "[::1]")) assertTrue(ok, DebianSshShell.validTarget(ok))
+        for (ok in listOf("dev-box", "me@example.com", "host.example:2222", "[::1]")) assertTrue(ok, DebianSshShell.validTarget(ok))
         for (bad in listOf("", "-oProxyCommand=sh", "a b", "a'b", "a\"b", "a\\b", "a\nb")) assertFalse(bad, DebianSshShell.validTarget(bad))
     }
 
@@ -107,8 +107,8 @@ class RemoteHostsTest {
         assertEquals("me@example.com:2222", RemoteHosts.targetFor("ssh://me@example.com:2222", direct))
         assertEquals("ssh://me@[::1]:22", RemoteHosts.targetFor("me@[::1]", debian))
         assertEquals("me@[::1]", RemoteHosts.targetFor("ssh://me@[::1]:22", direct))
-        assertEquals("nerv-wsl", RemoteHosts.targetFor("nerv-wsl", debian))
-        for (text in listOf("nerv-wsl", "host.example:2222", "")) assertNull(text, RemoteHosts.targetFor(text, direct))
+        assertEquals("dev-box", RemoteHosts.targetFor("dev-box", debian))
+        for (text in listOf("dev-box", "host.example:2222", "")) assertNull(text, RemoteHosts.targetFor(text, direct))
         // 主机:端口 交给 OpenSSH 会被当成主机名的一部分；像选项的、带空白的不行
         for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(text, RemoteHosts.targetFor(text, debian))
         for (text in listOf("me@example.com", "me@example.com:2222", "me@[2001:db8::1]:2200")) {
@@ -116,7 +116,7 @@ class RemoteHostsTest {
             assertEquals(text, RemoteHosts.targetFor(viaDebian, direct))
             assertEquals(text, RemoteHosts.displayTarget(viaDebian))
         }
-        assertEquals("nerv-wsl", RemoteHosts.displayTarget("nerv-wsl"))
+        assertEquals("dev-box", RemoteHosts.displayTarget("dev-box"))
     }
 
     /** 换网络时关掉 Debian 里各台的 ssh 主连接：每台各调一次 ssh -O exit，ControlPath 和平常连的一样；ssh 报错也以 0 结束。 */
@@ -128,7 +128,7 @@ class RemoteHostsTest {
             writeText("#!/bin/bash\nprintf '%s ' \"\$@\" >> \"${log.path}\"\necho >> \"${log.path}\"\necho 'Control socket connect: No such file' >&2\nexit 255\n")
             setExecutable(true)
         }
-        val process = ProcessBuilder("bash", "-c", DebianSshShell.closeMasters(listOf("nerv-wsl", "ssh://me@example.com:2222"))).apply {
+        val process = ProcessBuilder("bash", "-c", DebianSshShell.closeMasters(listOf("dev-box", "ssh://me@example.com:2222"))).apply {
             environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
         }.redirectErrorStream(true).start()
         val out = process.inputStream.bufferedReader().readText()
@@ -137,7 +137,7 @@ class RemoteHostsTest {
         assertEquals("", out)
         val controlPath = DebianSshShell.Options.single { it.startsWith("ControlPath=") }
         assertEquals(
-            listOf("-o $controlPath -O exit -- nerv-wsl", "-o $controlPath -O exit -- ssh://me@example.com:2222"),
+            listOf("-o $controlPath -O exit -- dev-box", "-o $controlPath -O exit -- ssh://me@example.com:2222"),
             log.readLines().map { it.trim() },
         )
     }
@@ -145,11 +145,11 @@ class RemoteHostsTest {
     @Test
     fun probeResults() {
         fun probe(stdout: String, code: Int = 0, stderr: String = "") = RemoteHosts.parseProbe(CommandResult(code, stdout, stderr))
-        val ok = "欢迎\nzeta_home /home/ubuntu\nzeta_claude 2.1.329 (Claude Code)\nzeta_system Linux x86_64\n"
-        assertEquals(RemoteHosts.Probe.Ok("/home/ubuntu", "2.1.329", "Linux x86_64"), probe(ok))
+        val ok = "欢迎\nzeta_home /home/user\nzeta_claude 2.1.329 (Claude Code)\nzeta_system Linux x86_64\n"
+        assertEquals(RemoteHosts.Probe.Ok("/home/user", "2.1.329", "Linux x86_64"), probe(ok))
         assertEquals(RemoteHosts.Probe.Ok("/h", "2.1.329", "Linux aarch64"), probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\n"))
         // 主机名查到了就带上，查不到（空的）是 null
-        assertEquals("NERV", (probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname NERV\n") as RemoteHosts.Probe.Ok).hostname)
+        assertEquals("DEVBOX", (probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname DEVBOX\n") as RemoteHosts.Probe.Ok).hostname)
         assertNull((probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname \n") as RemoteHosts.Probe.Ok).hostname)
         assertEquals(
             RemoteHosts.Probe.Failed("对方不认手机 Debian 里的 SSH 密钥（Permission denied）"),
@@ -186,17 +186,17 @@ class RemoteHostsTest {
         val config = """
             Host personal-vps
               HostName 1.2.3.4
-            host nerv-wsl nerv-wsl-gate
+            host dev-box dev-box-gate
             Host *
               ConnectTimeout 30
             Host *.example.com !bad
-            Host nerv-wsl
+            Host dev-box
             Hostname not-a-host-line
         """.trimIndent()
         File(temp, ".ssh").mkdirs()
         File(temp, ".ssh/config").writeText(config)
         File(temp, ".ssh/config.local").writeText("Host extra personal-vps\n")
-        assertEquals(listOf("personal-vps", "nerv-wsl", "nerv-wsl-gate", "extra"), RemoteHosts.readAliases(shell()))
+        assertEquals(listOf("personal-vps", "dev-box", "dev-box-gate", "extra"), RemoteHosts.readAliases(shell()))
     }
 
     /** 进不去 Debian 时是失败、带着原因，不当成没有别名；没有 ~/.ssh/config 才是没有。 */

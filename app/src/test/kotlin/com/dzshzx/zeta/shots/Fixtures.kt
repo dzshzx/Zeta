@@ -31,7 +31,7 @@ object Fixtures {
     )
 
     /** 一台经手机 Debian 连的远程主机。 */
-    val workstation = RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace")
+    val workstation = RemoteHost("r-00000001", "工作站", "dev-box", "/home/user", "/home/user/workspace")
 
     /** Claude Code 在 initialize 里报的模型清单的样子：别名和它指向的完整 ID，每个都能选全部几档思考强度。 */
     val models: List<ModelOption> by lazy {
