@@ -48,13 +48,14 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -66,10 +67,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.Conversation
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
@@ -80,8 +81,6 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
-import com.dzshzx.zeta.ui.pane.HostSwitcher
-import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -92,10 +91,12 @@ import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
+import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
+import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.pane.HostSwitcher
 import com.dzshzx.zeta.ui.settings.choiceEntries
 import com.dzshzx.zeta.ui.settings.modelChoices
-import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -394,6 +395,10 @@ private fun ConversationBody(
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
     val leading = if (conversation.earlier != null) 1 else 0
+    // 列表到底后接着上拖调起输入法，输入法开着时下拖收起
+    val composerFocus = remember { FocusRequester() }
+    val composerShown = !find.active && !conversation.blockedByExternal && !conversation.loadingHistory && !conversation.rewinding
+    val swipeKeyboard = rememberSwipeKeyboard(composerFocus, canOpen = composerShown)
     KeepReadingPosition(listState, shown.firstOrNull()?.id) { key -> shown.indexOfFirst { it.id == key }.let { if (it < 0) -1 else it + leading } }
     ChatFindDriver(
         find = find,
@@ -446,7 +451,7 @@ private fun ConversationBody(
                         (statusText != null || !((last is AnswerItem && last.streaming) || (last is WorkItem && last.running)))
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize().nestedScroll(earlierPaging),
+                        modifier = Modifier.fillMaxSize().nestedScroll(earlierPaging).nestedScroll(swipeKeyboard),
                         contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = 16.dp),
                     ) {
                         conversation.earlier?.let { earlier ->
@@ -605,6 +610,7 @@ private fun ConversationBody(
                 },
                 status = { UsageButtons(hub.quota.snapshot, conversation.usage, onClick = { viewingUsage = true }) },
                 voice = voice,
+                focus = composerFocus,
             )
             UsageDialog(
                 visible = viewingUsage,

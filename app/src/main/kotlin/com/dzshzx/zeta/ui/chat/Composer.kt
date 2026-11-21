@@ -47,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -150,6 +152,8 @@ internal fun Composer(
     status: @Composable () -> Unit = {},
     /** 按住说话（见 HoldToTalk.kt）；手机上没有识别服务时为 null。 */
     voice: HoldToTalk? = null,
+    /** 输入框的焦点：聊天页在列表上拖动时用它调起输入法（见 SwipeKeyboard.kt）。 */
+    focus: FocusRequester = remember { FocusRequester() },
 ) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
@@ -307,7 +311,7 @@ internal fun Composer(
             }
             BasicTextField(
                 state = state,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 enabled = enabled,
                 textStyle = textStyle,
                 cursorBrush = SolidColor(colors.primary),
