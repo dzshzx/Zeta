@@ -17,11 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
 import com.dzshzx.zeta.phone.VirtualScreen
+import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.overlay.CapsuleControls
 import com.dzshzx.zeta.ui.overlay.CapsuleState
 import com.dzshzx.zeta.ui.overlay.StatusCapsule
@@ -88,6 +91,58 @@ class CapsuleShots : ShotTest() {
                 this.expanded = true
             }
         shootCapsules("status-capsule-stage", collapsed, expanded)
+    }
+
+    /**
+     * 工作站上的 Claude Code 经外部入口操作手机（BridgeFocus）：收起的第二行写谁在操作、在哪个应用；展开后只有暂停、停止，
+     * 没有“补充”，右上角也没有可点开的对话标题（外部客户端不在 Zeta 里）。
+     */
+    @Test
+    fun bridgeClient() {
+        Fixtures.readyHub(app)
+        val screen = fakeScreen()
+        fun bridge() =
+            FakeFocus(
+                OverlayPhase.RUNNING,
+                step = "点按「截图」",
+                thought = "电脑在操作 · 相册",
+                screen = screen,
+                title = "电脑在操作",
+                inZeta = false,
+            )
+        val collapsed =
+            CapsuleState().apply {
+                focus = bridge()
+                shown = true
+            }
+        val expanded =
+            CapsuleState().apply {
+                focus = bridge()
+                shown = true
+                this.expanded = true
+            }
+        shootCapsules("status-capsule-bridge", collapsed, expanded)
+        compose.onNodeWithContentDescription("补充").assertDoesNotExist()
+        compose.onNodeWithText("电脑在操作").assertDoesNotExist()
+        compose.onNodeWithContentDescription("暂停").assertExists()
+        compose.onNodeWithContentDescription("停止").assertExists()
+    }
+
+    /** Zeta 里的对话展开后有“补充”和可点开的对话标题（和 [bridgeClient] 对照）。 */
+    @Test
+    fun conversationHasSupplementAndTitle() {
+        Fixtures.readyHub(app)
+        val expanded =
+            CapsuleState().apply {
+                focus = FakeFocus(OverlayPhase.RUNNING, step = "在后台操作相册", thought = "")
+                shown = true
+                this.expanded = true
+            }
+        compose.setContent {
+            ZetaTheme(windowBackdrop = false) { StatusCapsule(expanded, NoControls) }
+        }
+        compose.onNodeWithContentDescription("补充").assertExists()
+        compose.onNodeWithText("整理相册里的截图").assertExists()
     }
 
     /** 展开后点了“补充”：输入框和取消 / 发送。 */
@@ -202,8 +257,9 @@ class CapsuleShots : ShotTest() {
         override val step: String,
         override val thought: String,
         override val screen: VirtualScreen? = null,
+        override val title: String = "整理相册里的截图",
+        override val inZeta: Boolean = true,
     ) : OverlayFocus {
-        override val title = "整理相册里的截图"
         override val appName = "相册"
         override val actingOnMain = false
         override val userControlling = phase == OverlayPhase.CONTROLLING

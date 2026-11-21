@@ -375,7 +375,15 @@ class ConversationHub(
      */
     private val bridged = HashMap<String, PhoneTools>()
     private val bridge =
-        PhoneBridge(PhoneBridge.socketName(app.packageName), ::openBridged, ::onBridgeClosed)
+        PhoneBridge(
+            PhoneBridge.socketName(app.packageName),
+            ::openBridged,
+            ::onBridgeClosed,
+            ::onBridgeCall,
+        )
+
+    /** 外部客户端在顶部胶囊上的样子，和 [bridged] 一一对应（可观察，只在主线程上加）：胶囊和对话一起从这里挑。 */
+    internal val bridgeFoci = mutableStateListOf<BridgeFocus>()
 
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
     val drafts = ComposerDrafts(app, settings, ::shell)
@@ -464,8 +472,9 @@ class ConversationHub(
     }
 
     /** [PhoneBridge] 的客户端 [key] 连上了：给它那一份手机工具，[busy] 时（有调用在处理）后台屏幕不休眠、不被腾掉。在主线程上调用。 */
-    private fun openBridged(key: String, busy: () -> Boolean): PhoneTools =
-        synchronized(bridged) {
+    internal fun openBridged(key: String, busy: () -> Boolean): PhoneTools {
+        val phone =
+            synchronized(bridged) {
                 bridged.getOrPut(key) {
                     PhoneTools(
                         app,
@@ -476,7 +485,16 @@ class ConversationHub(
                     )
                 }
             }
-            .also { onActivityChanged() }
+        if (bridgeFoci.none { it.key == key }) bridgeFoci += BridgeFocus(key, phone)
+        onActivityChanged()
+        return phone
+    }
+
+    /** [PhoneBridge] 的客户端 [key] 的一个工具调用开始（[started]）或结束了：胶囊据此显示、停留、收起。在主线程上调用。 */
+    internal fun onBridgeCall(key: String, started: Boolean) {
+        val focus = bridgeFoci.firstOrNull { it.key == key } ?: return
+        if (started) focus.callStarted() else focus.callEnded()
+    }
 
     /**
      * [PhoneBridge] 的客户端 [key] 断开了一条连接：和对话的一轮结束一样，后台屏幕闲置满时间就休眠（这期间又有调用就不睡）。

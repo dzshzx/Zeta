@@ -24,8 +24,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     private val main = Handler(Looper.getMainLooper())
 
     /**
-     * 顶部状态胶囊要显示的对话：正在用手机工具的那个（几个都在用时取最近操作的），没有时为 null。 可观察（随对话、手机工具、界面前后台的状态自动更新），在主线程上读。挑法见
-     * [pickFocus]。
+     * 顶部状态胶囊要显示的对话或外部客户端：正在用手机工具的那个（几个都在用时取最近操作的），没有时为 null。
+     * 可观察（随对话、手机工具、外部客户端的调用、界面前后台的状态自动更新），在主线程上读。挑法见 [pickFocus]。
      */
     val overlayFocus: OverlayFocus?
         get() = focusState.value
@@ -54,10 +54,11 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     /**
      * 胶囊显示谁：
      * - 刚结束一轮的那个先停留 [FINISHED_LINGER_MS]（显示“已完成”），期间它又开始了就照常显示；
-     * - 否则在进行中、这一轮用过手机（看屏或动手）的对话，以及暂停着、用户正接管着的对话里， 接管着的优先，其余取最近用手机的；
+     * - 否则在进行中、这一轮用过手机（看屏或动手）的对话，暂停着、用户正接管着的对话，以及正在显示的外部客户端（[BridgeFocus.shown]）里， 照 [choose]
+     *   挑：接管着的优先，其余取最近用手机的；
      * - Zeta 的聊天页正显示着这个对话、它又没有后台屏幕时不显示（聊天页上已经看得到进度，照 Eta）。 只读可观察的状态，由 [focusState] 缓存。
      */
-    private fun pickFocus(): ConversationFocus? {
+    private fun pickFocus(): OverlayFocus? {
         fun visible(c: Conversation) = !(hub.isWatching(c) && c.phone.agentDisplay == null)
         linger
             ?.focus
@@ -65,16 +66,19 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
             ?.let {
                 return it
             }
-        return hub.liveConversations
-            .filter { c ->
-                val phone = c.phone
-                (phone.userControlling || phone.paused || (c.busy && phone.engagedThisTurn)) &&
-                    visible(c)
-            }
-            .maxWithOrNull(
-                compareBy<Conversation> { it.phone.userControlling }.thenBy { it.phone.engagedAt },
-            )
-            ?.overlay
+        val conversations =
+            hub.liveConversations
+                .filter { c ->
+                    val phone = c.phone
+                    (phone.userControlling || phone.paused || (c.busy && phone.engagedThisTurn)) &&
+                        visible(c)
+                }
+                .map { FocusCandidate(it.overlay, it.phone.userControlling, it.phone.engagedAt) }
+        val clients =
+            hub.bridgeFoci
+                .filter { it.shown }
+                .map { FocusCandidate(it, it.userControlling, it.usedAt) }
+        return choose(conversations + clients)
     }
 
     /** [focus] 正停留在“已完成”时的那一句，否则为 null。 */
@@ -292,11 +296,26 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         )
     }
 
-    private companion object {
+    /** 胶囊的一个候选：[controlling] 是用户正接管着它，[usedAt] 是它最近一次用手机的时间（墙上时钟）。 */
+    internal class FocusCandidate(
+        val focus: OverlayFocus,
+        val controlling: Boolean,
+        val usedAt: Long,
+    )
+
+    internal companion object {
+        /** 几个候选里胶囊显示哪个：接管着的优先，其余取最近用手机的；没有候选时为 null。 */
+        fun choose(candidates: List<FocusCandidate>): OverlayFocus? =
+            candidates
+                .maxWithOrNull(
+                    compareBy<FocusCandidate> { it.controlling }.thenBy { it.usedAt },
+                )
+                ?.focus
+
         /** 对话在回答时多久看一次当前步骤（发不发通知另由 AgentService 节流）。 */
-        const val LIVE_TICK_MS = 1_000L
+        private const val LIVE_TICK_MS = 1_000L
 
         /** 一轮结束后胶囊停留显示“已完成”多久。 */
-        const val FINISHED_LINGER_MS = 2_000L
+        private const val FINISHED_LINGER_MS = 2_000L
     }
 }

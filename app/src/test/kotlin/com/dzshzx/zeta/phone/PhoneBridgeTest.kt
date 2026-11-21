@@ -27,10 +27,14 @@ class PhoneBridgeTest {
         put("result", message["method"]!!)
     }
 
-    private fun serve(input: String, handle: (JsonObject) -> JsonObject): List<JsonObject> {
+    private fun serve(
+        input: String,
+        onCall: (Boolean) -> Unit = {},
+        handle: (JsonObject) -> JsonObject,
+    ): List<JsonObject> {
         val out = ByteArrayOutputStream()
         val inFlight = AtomicInteger()
-        PhoneBridge.serve(ByteArrayInputStream(input.toByteArray()), out, inFlight, handle)
+        PhoneBridge.serve(ByteArrayInputStream(input.toByteArray()), out, inFlight, onCall, handle)
         assertEquals("答完才返回，正在处理的归零", 0, inFlight.get())
         return out.toString(Charsets.UTF_8)
             .lines()
@@ -51,7 +55,7 @@ class PhoneBridgeTest {
                 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
                 """
                     .trimIndent(),
-                ::reply,
+                handle = ::reply,
             )
         assertEquals(setOf(1, 2), replies.map { it["id"]!!.jsonPrimitive.int }.toSet())
     }
@@ -81,6 +85,25 @@ class PhoneBridgeTest {
         val only = replies.single()
         assertEquals("x", only["id"]!!.jsonPrimitive.content)
         assertEquals("坏了", only["error"]!!.jsonObject["message"]!!.jsonPrimitive.content)
+    }
+
+    /** 只有工具调用报开始、结束（胶囊据此显示），出错的也报结束；initialize、tools/list 不报。 */
+    @Test
+    fun reportsToolCallsOnly() {
+        val events = java.util.Collections.synchronizedList(mutableListOf<Boolean>())
+        serve(
+            """
+            {"jsonrpc":"2.0","id":1,"method":"initialize"}
+            {"jsonrpc":"2.0","id":2,"method":"tools/list"}
+            {"jsonrpc":"2.0","id":3,"method":"tools/call"}
+            {"jsonrpc":"2.0","id":4,"method":"tools/call"}
+            """
+                .trimIndent(),
+            onCall = { events += it },
+        ) {
+            if (it["id"]!!.jsonPrimitive.int == 4) error("坏了") else reply(it)
+        }
+        assertEquals(listOf(true, true, false, false), events.sortedDescending())
     }
 
     @Test

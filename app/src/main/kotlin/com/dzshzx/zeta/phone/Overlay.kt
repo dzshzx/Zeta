@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.SharedFlow
 /*
  * 悬浮层（照 Eta 的顶部状态胶囊）和手机工具之间的约定。
  *
- * - [OverlayFocus]：胶囊要显示的那个对话。由 TurnAlerts 算出（`hub.alerts.overlayFocus`），主线程上可观察，没有时为 null。
+ * - [OverlayFocus]：胶囊要显示的那个对话，或经外部入口操作手机的客户端。由 TurnAlerts 算出（`hub.alerts.overlayFocus`），主线程上可观察，没有时为 null。
  * - [OverlayBridge]：悬浮窗口和无障碍服务之间要共享的几样东西（胶囊在屏上的位置、让路）。
  */
 
@@ -49,15 +49,23 @@ data class TouchMark(
     val at: Long = SystemClock.uptimeMillis(),
 )
 
-/** 胶囊显示的那个对话。属性都是 Compose 可观察的状态；动作可以在主线程上直接调用（耗时的自己另起线程）。 */
+/**
+ * 胶囊显示的那个对话（Zeta 之外经外部入口操作手机的客户端也是一个，[inZeta] 为 false）。属性都是 Compose 可观察的状态；
+ * 动作可以在主线程上直接调用（耗时的自己另起线程）。
+ */
 @Stable
 interface OverlayFocus {
     /** 对话的标题（还没有时为空）。 */
     val title: String
+
+    /** 是 Zeta 里的对话：能补充一句话（[supplement]）、能在 Zeta 里打开（[openInZeta]）。外部客户端没有这两样，胶囊上不放它们的按钮。 */
+    val inZeta: Boolean
+        get() = true
+
     val phase: OverlayPhase
     /** 一句当前步骤，比如“正在思考”“在后台操作计算器”“点按「搜索」”“正在回答”。 */
     val step: String
-    /** 思考尾句：最近一小段可见推理，只在 RUNNING 时有，可以为空。 */
+    /** 标题行下面的一行小字，可以为空：对话是思考尾句（最近一小段可见推理，只在运行中有），外部客户端是谁在操作、在哪个应用。 */
     val thought: String
     /** 这个对话的后台屏幕（醒着或睡着）；没有时为 null。胶囊右侧的缩略画面、展开画面都用它。 */
     val screen: VirtualScreen?

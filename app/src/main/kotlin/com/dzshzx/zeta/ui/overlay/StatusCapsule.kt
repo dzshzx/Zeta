@@ -396,7 +396,7 @@ private fun CapsuleHeader(
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
             StepText(step)
-            ThoughtLine(focus.thought.takeIf { phase == OverlayPhase.RUNNING }.orEmpty())
+            ThoughtLine(focus.thought)
         }
         // 右侧同一个位置：收起时是微缩画面，展开时换成对话标题
         Box(contentAlignment = Alignment.CenterEnd) {
@@ -413,8 +413,9 @@ private fun CapsuleHeader(
                     }
                 }
             }
+            // 外部客户端不在 Zeta 里，没有可打开的对话
             androidx.compose.animation.AnimatedVisibility(
-                visible = expanded,
+                visible = expanded && focus.inZeta,
                 enter = fadeIn(tween(180, delayMillis = 60)),
                 exit = fadeOut(tween(90)),
             ) {
@@ -505,7 +506,8 @@ private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: ()
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
     ) {
-        CapsuleAction(COUIIcons.Edit, "补充", colors.labelPrimary, onSupplement)
+        // 外部客户端没有一轮对话可补充
+        if (focus.inZeta) CapsuleAction(COUIIcons.Edit, "补充", colors.labelPrimary, onSupplement)
         when (phase) {
             OverlayPhase.RUNNING ->
                 CapsuleAction(COUIIcons.Pause, "暂停", colors.labelPrimary) { focus.pause() }

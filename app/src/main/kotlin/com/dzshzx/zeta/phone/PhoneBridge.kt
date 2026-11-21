@@ -17,7 +17,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -39,6 +41,8 @@ internal class PhoneBridge(
     private val open: (key: String, busy: () -> Boolean) -> PhoneTools,
     /** 客户端 key 的一条连接断了（在主线程上调用）。 */
     private val closed: (key: String) -> Unit,
+    /** 客户端 key 的一个工具调用（tools/call）开始了（[started] 为 true）或结束了，在主线程上按先后调用。顶部胶囊据此显示它。 */
+    private val calling: (key: String, started: Boolean) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val clients = AtomicInteger()
@@ -82,7 +86,14 @@ internal class PhoneBridge(
             clients.incrementAndGet()
             try {
                 val phone = onMain { open(key) { calls.get() > 0 } }
-                serve(input, it.outputStream, calls) { message -> phone.handle(message) }
+                serve(
+                    input,
+                    it.outputStream,
+                    calls,
+                    onCall = { started -> main.post { calling(key, started) } },
+                ) { message ->
+                    phone.handle(message)
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "客户端 $key：$e")
             } finally {
@@ -127,12 +138,14 @@ internal class PhoneBridge(
 
         /**
          * 读 [input] 里一行一条的 MCP 消息，交给 [handle]，应答一行一条写到 [output]，直到对方关掉。 有 id 的请求各在一个线程里处理（读屏、等待要时间，
-         * 不挡后面的调用），[inFlight] 记着正在处理的个数；通知（没有 id）不用应答，读不懂的行跳过。
+         * 不挡后面的调用），[inFlight] 记着正在处理的个数；通知（没有 id）不用应答，读不懂的行跳过。 工具调用（tools/call）开始、结束时各调一次
+         * [onCall]（读消息、处理消息的线程上）。
          */
         fun serve(
             input: InputStream,
             output: OutputStream,
             inFlight: AtomicInteger,
+            onCall: (started: Boolean) -> Unit = {},
             handle: (JsonObject) -> JsonObject,
         ) {
             val writer = output.bufferedWriter(Charsets.UTF_8)
@@ -140,7 +153,9 @@ internal class PhoneBridge(
             input.bufferedReader(Charsets.UTF_8).use { reader ->
                 for (message in messages(reader)) {
                     if (message["id"] == null) continue
+                    val tool = (message["method"] as? JsonPrimitive)?.contentOrNull == "tools/call"
                     inFlight.incrementAndGet()
+                    if (tool) onCall(true)
                     workers.removeAll { !it.isAlive }
                     workers +=
                         thread(name = "zeta-phone-bridge-call", isDaemon = true) {
@@ -149,6 +164,7 @@ internal class PhoneBridge(
                             }
                                 .getOrElse { failed(message, it) }
                             inFlight.decrementAndGet()
+                            if (tool) onCall(false)
                             write(writer, reply)
                         }
                 }
