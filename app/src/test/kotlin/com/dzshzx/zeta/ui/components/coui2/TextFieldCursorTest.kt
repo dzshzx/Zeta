@@ -3,12 +3,8 @@ package com.dzshzx.zeta.ui.components.coui2
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.dzshzx.zeta.shots.ShotTest
 import com.dzshzx.zeta.ui.app.ZetaTheme
@@ -16,8 +12,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * [TextField] 和 [TextInputDialog] 的光标：带着文字显示时在末尾，文字从外面改了也到末尾，清空以后打的字按顺序排。
- * 借截图测试的 Robolectric 环境，不出图。
+ * [TextField] 和 [TextInputDialog] 的光标：带着文字显示时在末尾，文字从外面改了也到末尾。借截图测试的 Robolectric 环境，不出图。
+ * 「点清除后打完第一个字光标跳回开头」要真的输入法才出现，这里复现不了（COUI 原版在这里也是对的），见 [com.dzshzx.zeta.shots.CouiGapsTest]。
  */
 class TextFieldCursorTest : ShotTest() {
     private var text by mutableStateOf("")
@@ -45,21 +41,8 @@ class TextFieldCursorTest : ShotTest() {
         showField("/home")
         field().performTextInput("/a")
         text = "/data/local"
-        compose.waitForIdle()
         field().performTextInput("/b")
         assertEquals("/data/local/b", text)
-    }
-
-    @Test
-    fun typesInOrderAfterClearButton() {
-        showField("/workspace")
-        field().performSemanticsAction(SemanticsActions.RequestFocus)
-        compose.onNodeWithContentDescription("Clear text").performClick()
-        assertEquals("", text)
-        field().performTextInput("/")
-        field().performTextInput("home")
-        field().performTextInput("/work")
-        assertEquals("/home/work", text)
     }
 
     @Test

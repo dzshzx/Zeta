@@ -77,7 +77,8 @@ class CouiGapsTest : ShotTest() {
         }
         compose.onNode(hasSetTextAction()).performTextInput("/claude")
         assertEquals(
-            "COUI 的 String 版 TextField 已经把光标放在末尾：删掉 TextFields.kt 和 TextFieldSourcesTest，TextInputDialog 可以改回 OverlayInputDialog",
+            "COUI 的 String 版 TextField 已经把光标放在末尾。先在设备上复验「点清除后接着打字，字按顺序排」（这里测不出来，见 docs/ui.md），" +
+                "也对了再删 TextFields.kt 和 TextFieldSourcesTest，TextInputDialog 改回 OverlayInputDialog",
             "/claude/workspace",
             text,
         )

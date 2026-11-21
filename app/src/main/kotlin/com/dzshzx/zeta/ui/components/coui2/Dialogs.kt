@@ -121,8 +121,9 @@ internal fun NoticeDialog(
 
 /**
  * 单行输入对话框：取消 + 确认，[label] 是输入框里的提示。打开时输入框自动聚焦、弹出键盘，光标在已有文字的末尾。
- * 样子照 COUI 2 的 OverlayInputDialog（COUI 的 SingleEdit：线条输入框、带清除按钮、最多 5 行），输入框换成光标由 Zeta 管的
- * [TextField]。普通对话框在自己的内容下面留 8dp，正好是 SingleEdit 输入框下面的那段，所以输入框只留上面的 8dp。
+ * 样子照 COUI 2 的 OverlayInputDialog（COUI 的 SingleEdit：线条输入框、带清除按钮、最多 5 行），搭在 [ConfirmDialog] 上，
+ * 输入框换成光标由 Zeta 管的 [TextField]。对话框在自己的内容下面留 8dp，正好是 SingleEdit 输入框下面的那段，所以输入框只留上面的 8dp；
+ * 左右的 [DialogContentPadding] 和 SingleEdit 的一样宽。
  */
 @Composable
 internal fun TextInputDialog(
@@ -140,33 +141,27 @@ internal fun TextInputDialog(
     cancelText: String = stringResource(R.string.action_cancel),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
-    PageDialog(
+    ConfirmDialog(
         show = show,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier,
         title = title,
         summary = summary,
-        customContent = {
-            val focus = remember { FocusRequester() }
-            LaunchedEffect(focus) { runCatching { focus.requestFocus() } }
-            TextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier
-                    .padding(horizontal = InputDialogDefaults.FieldMarginHorizontal)
-                    .padding(top = InputDialogDefaults.EditMarginVertical)
-                    .fillMaxWidth()
-                    .focusRequester(focus),
-                label = label,
-                showClearButton = true,
-                keyboardOptions = keyboardOptions,
-                maxLines = InputDialogDefaults.MaxLines,
-            )
-        },
+        confirmText = confirmText,
+        onConfirm = onConfirm,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        cancelText = cancelText,
+        confirmEnabled = confirmEnabled,
     ) {
-        DialogButtonBar(
-            negative = DialogButtonBarAction(cancelText, onClick = onDismissRequest),
-            positive = DialogButtonBarAction(confirmText, enabled = confirmEnabled, recommended = true, onClick = onConfirm),
+        val focus = remember { FocusRequester() }
+        LaunchedEffect(focus) { runCatching { focus.requestFocus() } }
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.padding(top = InputDialogDefaults.EditMarginVertical).fillMaxWidth().focusRequester(focus),
+            label = label,
+            showClearButton = true,
+            keyboardOptions = keyboardOptions,
+            maxLines = InputDialogDefaults.MaxLines,
         )
     }
 }

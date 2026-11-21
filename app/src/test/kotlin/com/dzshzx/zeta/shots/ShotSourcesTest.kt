@@ -1,8 +1,8 @@
 package com.dzshzx.zeta.shots
 
+import com.dzshzx.zeta.sourcesMatching
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.io.File
 
 /**
  * 测试里不直接用这几个 Compose 测试函数：
@@ -10,13 +10,8 @@ import java.io.File
  * - Compose 测试规则的 waitUntil（所有测试）：不执行主线程排队的消息，等后台线程投回来的结果会偶尔等不到，用 core 的 awaitMain。
  */
 class ShotSourcesTest {
-    /** [dir] 下（含子目录）有一行匹配 [pattern] 的源文件，ShotTest 自己和这个检查除外。 */
-    private fun offenders(dir: String, pattern: Regex): List<String> =
-        File(dir).walk()
-            .filter { f -> f.extension == "kt" && f.name != "ShotTest.kt" && f.name != "ShotSourcesTest.kt" }
-            .filter { f -> f.readLines().any { pattern.containsMatchIn(it) } }
-            .map { it.name }
-            .toList()
+    /** [dir] 下有一行匹配 [pattern] 的源文件，ShotTest 自己和这个检查除外。 */
+    private fun offenders(dir: String, pattern: Regex) = sourcesMatching(dir, pattern, except = setOf("ShotTest.kt", "ShotSourcesTest.kt"))
 
     @Test
     fun noRawScrollTo() =

@@ -45,7 +45,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 - 图标按钮不能点时不变灰，也没有按钮角色（`IconButtonContainer` 不给内容提供 `LocalContentColor`，禁用时不加 `clickable`）。补在 `IconActionButton`：自己换 tint，补上按钮角色和「已停用」。
 - 菜单行给文字上色却不给图标上色（图标槽没有 `LocalContentColor`）。补在 `menuItem`：图标颜色照 `DropdownColors` 按可用、警示状态取。
-- 输入框 `TextField` 的 String 版本把光标初始化在开头，文字从外面改了（清除按钮、调用方重设）以后光标也不跟到末尾（[suqi8/coui#20](https://github.com/suqi8/coui/issues/20)）：自动聚焦的 `OverlayInputDialog` 里打的字插到原有内容前面，点清除后打完第一个字光标又跳回开头。补在 `TextField`（`TextFields.kt`）：用 COUI 的 TextFieldValue 版本，光标自己管；`TextInputDialog` 用 `PageDialog` 加它搭成，不用 `OverlayInputDialog`。应用代码不直接用 COUI 的 `TextField`、`OverlayInputDialog`（`TextFieldSourcesTest` 断言）。`InputView` 没有 TextFieldValue 版本，照旧用 COUI 的。
+- 输入框 `TextField` 的 String 版本把光标初始化在开头，文字从外面改了（清除按钮、调用方重设）以后光标也不跟到末尾（[suqi8/coui#20](https://github.com/suqi8/coui/issues/20)）：自动聚焦的 `OverlayInputDialog` 里打的字插到原有内容前面，点清除后打完第一个字光标又跳回开头。补在 `TextField`（`TextFields.kt`）：用 COUI 的 TextFieldValue 版本，光标自己管；`TextInputDialog` 用 `ConfirmDialog` 加它搭成，不用 `OverlayInputDialog`。应用代码不直接用 COUI 的 `TextField`、`OverlayInputDialog`（`TextFieldSourcesTest` 断言）。`CouiGapsTest` 只测得出第一个现象；第二个现象要真的输入法才出现，在设备上验：打开「外观与主题 › 界面缩放」，点清除，依次输入 9、5，应是 95（有缺口时是 59）。`InputPreference` 和多行 `InputView` 内部也用 String 版本、没有 TextFieldValue 版本，同样受影响（预填的名称点清除后重打；在多行框文字下方的空白处点一下，光标停在开头），照旧用 COUI 的，等上游修。
 
 ## 图标
 

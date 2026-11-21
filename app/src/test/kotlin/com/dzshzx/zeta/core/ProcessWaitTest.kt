@@ -1,10 +1,10 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.sourcesMatching
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class ProcessWaitTest {
     @Test
@@ -32,11 +32,6 @@ class ProcessWaitTest {
     @Test
     fun appCodeDoesNotUseTimedWaitFor() {
         val timed = Regex("""\.waitFor\([^)]""")
-        val offenders = File("src/main/kotlin").walk()
-            .filter { it.extension == "kt" && it.name != "ProcessWait.kt" }
-            .filter { f -> f.readLines().any { timed.containsMatchIn(it) } }
-            .map { it.name }
-            .toList()
-        assertEquals("改用 Process.exitsWithin", emptyList<String>(), offenders)
+        assertEquals("改用 Process.exitsWithin", emptyList<String>(), sourcesMatching("src/main/kotlin", timed, except = setOf("ProcessWait.kt")))
     }
 }
