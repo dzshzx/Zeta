@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.dzshzx.zeta.core.Backends
@@ -48,7 +50,16 @@ class SettingsShots : ShotTest() {
         shoot("settings-bare") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
     }
 
-    /** 设置 › 手机：新对话默认、Claude Code 配置、Linux 环境。 */
+    /** 设置 › 手机 › 名字：留空就用系统里的设备名。 */
+    @Test
+    fun deviceName() {
+        val hub = hostsHub()
+        shoot("settings-device-name", prepare = { onNodeWithText("名字").scrollIntoView().performClick() }) {
+            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
+        }
+    }
+
+    /** 设置 › 手机：新对话默认、Claude Code 配置、设备（名字、Linux 环境）。 */
     @Test
     fun phoneHost() {
         val hub = hostsHub()

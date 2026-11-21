@@ -900,7 +900,7 @@ class Conversation(
         modes.processStarted(mode)
         val shell = hub.shell(backend)
         if (shell == null) {
-            reducer.addNotice(hub.unavailable(backend) ?: "用不了这台主机", error = true)
+            reducer.addNotice(hub.unavailable(backend) ?: "用不了这台设备", error = true)
             publish()
             return null
         }

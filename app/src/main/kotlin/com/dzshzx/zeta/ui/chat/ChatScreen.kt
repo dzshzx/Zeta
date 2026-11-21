@@ -188,7 +188,7 @@ internal fun ChatScreen(
                         padding,
                         "需要 root 权限",
                         "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试；" +
-                            "也可以连远程主机上的 Claude Code。",
+                            "也可以连远程设备上的 Claude Code。",
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             RemoteChoice(hub, onOpenRemoteHosts)
@@ -199,7 +199,7 @@ internal fun ChatScreen(
                         padding,
                         "还没有 Linux 环境",
                         "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境；" +
-                            "也可以不装，直接连远程主机上的 Claude Code。",
+                            "也可以不装，直接连远程设备上的 Claude Code。",
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             TextButton(
@@ -300,7 +300,7 @@ private fun ChatTopBar(
 @Composable
 private fun RemoteChoice(hub: ConversationHub, onOpenRemoteHosts: () -> Unit) {
     if (hub.settings.remoteHosts.isEmpty()) {
-        TextButton(text = "连接远程主机", onClick = onOpenRemoteHosts)
+        TextButton(text = "连接远程设备", onClick = onOpenRemoteHosts)
     } else {
         HostSwitcher(hub)
     }

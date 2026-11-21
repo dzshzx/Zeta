@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -19,6 +20,7 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
@@ -31,7 +33,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 主机页往下的一层：这台主机上的默认思考强度和 Claude Code 自己的配置。 */
 private enum class HostPage { DefaultEffort, Memory, Skills, Mcp, Agents, ToolPermissions }
 
-private const val ConfigFooter = "改的是这台主机上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。"
+private const val ConfigFooter = "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。"
 
 private const val LinuxFooter = "手机上的 Claude Code 跑在手机里的 Debian 上：安装、体检、可选工具、文件、SSH 服务，" +
     "以及 Claude Code 的版本和登录都在这里。"
@@ -85,13 +87,19 @@ private fun LazyListScope.claudeItems(hub: ConversationHub, backend: String, rea
     }
 }
 
-/** 设置 › 手机：Claude Code 的两组，下面是 Linux 环境（手机里的 Debian）的入口。 */
+/** 设置 › 手机：Claude Code 的两组，下面是这台手机的名字和 Linux 环境（手机里的 Debian）的入口。 */
 @Composable
 private fun LocalHostScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinux: () -> Unit, claude: LazyListScope.() -> Unit) {
-    CouiPage(title = RemoteHosts.LOCAL_NAME, onBack = onBack) {
+    var renaming by remember { mutableStateOf(false) }
+    CouiPage(
+        title = hub.backendName(Backends.LOCAL),
+        onBack = onBack,
+        dialogs = { DeviceNameDialog(hub, Backends.LOCAL, show = renaming, onDismiss = { renaming = false }) },
+    ) {
         claude()
-        item(key = "linux") {
-            PreferenceGroup(title = "环境", footer = LinuxFooter) {
+        item(key = "device") {
+            PreferenceGroup(title = "设备", footer = LinuxFooter) {
+                item { DeviceNameRow(hub, Backends.LOCAL) { renaming = true } }
                 item {
                     val (value, bad) = linuxState(hub)
                     ArrowPreference(
@@ -103,6 +111,40 @@ private fun LocalHostScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLinu
             }
         }
     }
+}
+
+/** 「名字」一行：右边是设备现在的名字，没起名字时说用的是设备自己的。点了改名（[DeviceNameDialog]）。 */
+@Composable
+internal fun DeviceNameRow(hub: ConversationHub, backend: String, onClick: () -> Unit) {
+    ArrowPreference(
+        title = "名字",
+        summary = "设备自己的名字".takeIf { hub.customName(backend) == null },
+        endActions = { PreferenceValue(hub.backendName(backend)) },
+        onClick = onClick,
+    )
+}
+
+/** 给设备 [backend] 起名字：留空是不起，显示设备自己的名字；和别的设备重名、太长时不让确定。放在页面的 dialogs 里。 */
+@Composable
+internal fun DeviceNameDialog(hub: ConversationHub, backend: String, show: Boolean, onDismiss: () -> Unit) {
+    var draft by remember(show) { mutableStateOf(hub.customName(backend).orEmpty()) }
+    val original = hub.originalName(backend)
+    val problem = RemoteHosts.nameProblem(draft, hub.backends.filter { it != backend }.map(hub::backendName))
+    TextInputDialog(
+        show = show,
+        title = "名字",
+        summary = problem ?: "留空就用设备自己的名字「$original」",
+        value = draft,
+        onValueChange = { draft = it },
+        label = original,
+        confirmText = "确定",
+        confirmEnabled = problem == null,
+        onConfirm = {
+            hub.rename(backend, draft)
+            onDismiss()
+        },
+        onDismissRequest = onDismiss,
+    )
 }
 
 /** 手机的 Debian 现在怎样、要不要红字：就绪了是 Linux 用户名。 */

@@ -72,7 +72,7 @@ class BackendSwitchTest {
         hub.selectBackend(direct.id)
         assertEquals(direct.id, hub.current.backend)
         assertEquals("/root", hub.current.cwd)
-        assertEquals("远程主机已经从设置里删掉了", hub.unavailable("r-gone"))
+        assertEquals("远程设备已经从设置里删掉了", hub.unavailable("r-gone"))
     }
 
     /** 换手机的 Debian 环境只收掉要靠 Debian 的主机上的对话，直连主机上的照常留着。 */

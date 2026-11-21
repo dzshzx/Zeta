@@ -284,9 +284,9 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
             val text = causes.joinToString(" ") { it.message.orEmpty() }
             val unreachable = Regex("ENETUNREACH|EHOSTUNREACH|unreachable", RegexOption.IGNORE_CASE).containsMatchIn(text)
             return when {
-                causes.any { it is JSchChangedHostKeyException } -> "主机指纹和加主机时记下的不一样（主机重装过，或者连到了别的机器上）"
-                text.contains("Auth fail") || text.contains("Auth cancel") -> "对方不认 Zeta 的公钥：把它加进那台主机的 ~/.ssh/authorized_keys"
-                causes.any { it is UnknownHostException } -> "找不到这台主机（地址解析失败）"
+                causes.any { it is JSchChangedHostKeyException } -> "主机指纹和加设备时记下的不一样（设备重装过，或者连到了别的机器上）"
+                text.contains("Auth fail") || text.contains("Auth cancel") -> "对方不认 Zeta 的公钥：把它加进那台设备的 ~/.ssh/authorized_keys"
+                causes.any { it is UnknownHostException } -> "找不到这台设备（地址解析失败）"
                 causes.any { it is NoRouteToHostException } || unreachable -> "网络不通"
                 causes.any { it is SocketTimeoutException } || Regex("timeout|timed out|ETIMEDOUT", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "连接超时"
                 causes.any { it is ConnectException } -> "对方拒绝连接（端口上没有 SSH 服务）"

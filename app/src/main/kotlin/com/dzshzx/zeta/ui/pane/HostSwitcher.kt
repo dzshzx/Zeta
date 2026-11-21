@@ -68,10 +68,10 @@ internal fun HostSwitcher(hub: ConversationHub, modifier: Modifier = Modifier, o
                 modifier = Modifier.widthIn(max = 180.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Icon(imageVector = ZetaIcons.ChevronDown, contentDescription = "换主机", modifier = Modifier.size(14.dp), tint = colors.labelSecondary)
+            Icon(imageVector = ZetaIcons.ChevronDown, contentDescription = "换设备", modifier = Modifier.size(14.dp), tint = colors.labelSecondary)
         }
         // 编号、名字、菜单里的小字
-        val items = listOf(Triple(Backends.LOCAL, RemoteHosts.LOCAL_NAME, RemoteHosts.LOCAL_SUMMARY)) + hosts.map { Triple(it.id, it.name, it.target) }
+        val items = listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) + hosts.map { Triple(it.id, it.name, it.target) }
         AnchoredMenu(
             show = open,
             entries = listOf(

@@ -73,6 +73,7 @@ class SettingsKeysTest {
         "setContextWindows" to mapOf("opus" to 200_000L),
         "setRemoteHosts" to listOf(RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/someone", "/home/someone/workspace")),
         "setBackend" to "r-00000001",
+        "setLocalName" to "我的手机",
     )
 
     private val task = ScheduledTask(

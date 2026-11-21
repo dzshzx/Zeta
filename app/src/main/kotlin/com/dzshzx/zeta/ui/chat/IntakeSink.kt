@@ -128,7 +128,7 @@ internal class IntakeSink(
                     continue
                 }
                 val shell = hub.shell(backend) ?: run {
-                    report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台主机"))
+                    report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台设备"))
                     continue
                 }
                 val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
@@ -151,7 +151,7 @@ internal class IntakeSink(
     /** 内存里的一段内容（太长的文字、放不下的截屏）当文件复制进 Linux。 */
     private fun addBytes(name: String, bytes: ByteArray) {
         val shell = hub.shell(backend) ?: run {
-            report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台主机"))
+            report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台设备"))
             return
         }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, bytes.size.toLong()))

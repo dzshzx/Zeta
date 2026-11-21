@@ -38,7 +38,7 @@ import io.github.suqi8.coui.kmp.preference.ArrowPreference
 
 /** 主机页「新对话默认」那一组的说明。 */
 internal const val ClaudeDefaultsFooter =
-    "在这台主机上开新对话时用。存在这台主机上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
+    "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
         "对话里选的只管那个对话。思考强度按模型分别存。"
 
 /** 还没读到 Claude Code 的设置（环境没就绪、读失败）时三行灰着，写这一句。 */
@@ -122,7 +122,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
     CouiPage(title = "默认思考强度", onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
-                footer = "这台主机上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；对话里选的只管那个对话。" +
+                footer = "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；对话里选的只管那个对话。" +
                     if (waiting) "正在向 Claude Code 要模型清单，先列出已经设过的。" else "",
             ) {
                 if (defaults == null) {

@@ -23,8 +23,8 @@ class RemoteHostsTest {
     @Test
     fun hostsRoundTripAndBadEntriesAreSkipped() {
         val hosts = listOf(
-            RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace"),
-            RemoteHost("r-00000002", "vps", "me@example.com", "/root", "/root"),
+            RemoteHost("r-00000001", "工作站", "nerv-wsl", "/home/ubuntu", "/home/ubuntu/workspace", hostname = "NERV"),
+            RemoteHost("r-00000002", null, "me@example.com", "/root", "/root"),
         )
         assertEquals(hosts, RemoteHosts.decode(RemoteHosts.encode(hosts)))
         val mixed = """[
@@ -35,8 +35,8 @@ class RemoteHostsTest {
             {"id":"r-1","name":"dup","target":"d","home":"/h"},
             "junk"
         ]"""
-        // 没名字的用地址当名字，没有默认目录的用家目录；编号不对、地址像选项、家目录不是绝对路径、编号重复的都丢掉
-        assertEquals(listOf(RemoteHost("r-1", "a", "a", "/h", "/h")), RemoteHosts.decode(mixed))
+        // 没名字的不算起了名字，没有默认目录的用家目录；编号不对、地址像选项、家目录不是绝对路径、编号重复的都丢掉
+        assertEquals(listOf(RemoteHost("r-1", null, "a", "/h", "/h")), RemoteHosts.decode(mixed))
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode("not json"))
         // 直连的：地址要是 用户@主机[:端口]，要有记下的主机指纹
         val key = RemoteHosts.encodeKey(com.dzshzx.zeta.core.ssh.SshKey.generate().blob)
@@ -67,13 +67,24 @@ class RemoteHostsTest {
         assertNull(SessionSummary.pinnedId("r-2/s1", "r-1"))
     }
 
+    /**
+     * 设备的名字：起了名字用它，没起时用设备自己报的主机名，还没记下时是地址。早先没起名字时存的是地址，读回来不算起了名字。
+     * 起的名字不能和别的设备现在的名字重复，留空是不起。
+     */
     @Test
-    fun namesMustBeUniqueAndNotThePhone() {
-        val others = listOf(RemoteHost("r-1", "工作站", "nerv-wsl", "/h", "/h"))
+    fun namesFallBackToTheDevicesOwn() {
+        assertEquals("工作站", RemoteHost("r-1", "工作站", "nerv-wsl", "/h", "/h", hostname = "NERV").name)
+        assertEquals("NERV", RemoteHost("r-1", null, "nerv-wsl", "/h", "/h", hostname = "NERV").name)
+        assertEquals("nerv-wsl", RemoteHost("r-1", null, "nerv-wsl", "/h", "/h").name)
+        val shown = RemoteHosts.displayTarget("ssh://me@example.com:2222")
+        val old = """[{"id":"r-1","name":"nerv-wsl","target":"nerv-wsl","home":"/h"},{"id":"r-2","name":"$shown","target":"ssh://me@example.com:2222","home":"/h"}]"""
+        assertEquals(listOf(null, null), RemoteHosts.decode(old).map { it.customName })
+        val others = listOf("工作站", "Xiaomi 17")
         assertNull(RemoteHosts.nameProblem("vps", others))
-        assertTrue(RemoteHosts.nameProblem("  ", others) != null)
+        assertNull(RemoteHosts.nameProblem("  ", others))
         assertTrue(RemoteHosts.nameProblem("工作站", others) != null)
-        assertTrue(RemoteHosts.nameProblem(RemoteHosts.LOCAL_NAME, others) != null)
+        assertTrue(RemoteHosts.nameProblem(" Xiaomi 17 ", others) != null)
+        assertTrue(RemoteHosts.nameProblem("x".repeat(41), others) != null)
     }
 
     @Test
@@ -137,6 +148,9 @@ class RemoteHostsTest {
         val ok = "欢迎\nzeta_home /home/ubuntu\nzeta_claude 2.1.329 (Claude Code)\nzeta_system Linux x86_64\n"
         assertEquals(RemoteHosts.Probe.Ok("/home/ubuntu", "2.1.329", "Linux x86_64"), probe(ok))
         assertEquals(RemoteHosts.Probe.Ok("/h", "2.1.329", "Linux aarch64"), probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\n"))
+        // 主机名查到了就带上，查不到（空的）是 null
+        assertEquals("NERV", (probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname NERV\n") as RemoteHosts.Probe.Ok).hostname)
+        assertNull((probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system Linux aarch64\nzeta_hostname \n") as RemoteHosts.Probe.Ok).hostname)
         assertEquals(
             RemoteHosts.Probe.Failed("对方不认手机 Debian 里的 SSH 密钥（Permission denied）"),
             probe("", RemoteShell.CONNECTION_FAILED, "me@example.com: Permission denied (publickey).\n"),
@@ -148,7 +162,7 @@ class RemoteHostsTest {
             assertTrue(failed.reason, failed.reason.contains("arm64、x86-64 的 Linux"))
         }
         assertEquals(RemoteHosts.Probe.Failed("连接超时"), probe("", -1, CommandResult.TIMEOUT))
-        assertEquals("找不到这台主机（地址解析失败）", RemoteHosts.sshProblem("ssh: Could not resolve hostname nope: Name or service not known"))
+        assertEquals("找不到这台设备（地址解析失败）", RemoteHosts.sshProblem("ssh: Could not resolve hostname nope: Name or service not known"))
         // 直连的原因已经是一句话
         assertEquals("网络不通", RemoteHosts.sshProblem("前面的输出\nzeta-ssh: 网络不通\n"))
     }

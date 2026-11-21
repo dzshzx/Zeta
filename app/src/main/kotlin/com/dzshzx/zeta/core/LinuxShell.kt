@@ -147,7 +147,7 @@ class DirectSshShell(
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
     private val target = checkNotNull(SshTarget.parse(host.target)) { "直连的地址不对：${host.target}" }
-    private val hostKey = checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的主机没有记下指纹" }
+    private val hostKey = checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的设备没有记下指纹" }
 
     override fun launch(remote: String): Process = links.start(host.id, target, hostKey, remote)
 

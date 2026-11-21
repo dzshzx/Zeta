@@ -35,6 +35,8 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.settings.DangerRow
+import com.dzshzx.zeta.ui.settings.DeviceNameDialog
+import com.dzshzx.zeta.ui.settings.DeviceNameRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.SegmentButton
 import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
@@ -45,21 +47,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 「加主机」下面的说明：两种连法各要什么、多花什么，默认用哪种。数是真机上量的（每条命令：tools/phone-tests/remote-latency.sh；ssh 进程）。 */
-private const val ViaFooter = "两种连法：经手机 Debian，用那边 ~/.ssh 的密钥和配置（别名、跳板），不用往主机上另加公钥，" +
-    "每条命令多约 50 毫秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台主机。" +
-    "有 Debian 时默认经 Debian，加好以后在主机页里能改。"
+private const val ViaFooter = "两种连法：经手机 Debian，用那边 ~/.ssh 的密钥和配置（别名、跳板），不用往设备上另加公钥，" +
+    "每条命令多约 50 毫秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台设备。" +
+    "有 Debian 时默认经 Debian，加好以后在设备页里能改。"
 
-private const val DirectOnlyFooter = "手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台主机，再输入地址。"
+private const val DirectOnlyFooter = "手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台设备，再输入地址。"
 
-private const val HostingFooter = "那台主机要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。"
+private const val HostingFooter = "那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。"
 
-private const val KeyFooter = "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台主机的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。" +
-    "加主机时记下对方的主机指纹，以后只认它。"
+private const val KeyFooter = "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。" +
+    "加设备时记下对方的主机指纹，以后只认它。"
 
 private const val SshConfigFooter = "手机 Debian 里 ~/.ssh/config 和 config.local 的 Host 行里的主机，带通配符的、已经加过的不列。" +
     "选一台，经 Debian 的 OpenSSH 连一次，连上了才加。"
 
-private const val BusyMessage = "这台主机上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。"
+private const val BusyMessage = "这台设备上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。"
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
 
@@ -107,16 +109,14 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 is RemoteHosts.Probe.Failed -> notice = ProbeNotice("没有加上「$shownTarget」", probe.reason)
                 is RemoteHosts.Probe.HostKeyChanged -> notice = ProbeNotice("没有加上「$shownTarget」", "主机指纹不对")
                 is RemoteHosts.Probe.Ok -> {
-                    val current = hub.settings.remoteHosts
-                    val name = generateSequence(shownTarget) { it + "'" }.first { RemoteHosts.nameProblem(it, current) == null }
-                    val host = RemoteHost(Backends.newId(), name, target, probe.home, probe.home, via, probe.hostKey)
-                    hub.updateRemoteHosts(current + host)
+                    val host = RemoteHost(Backends.newId(), null, target, probe.home, probe.home, via, probe.hostKey, probe.hostname)
+                    hub.updateRemoteHosts(hub.settings.remoteHosts + host)
                     // 手机本机用不了时，加的第一台直接用上
                     if (!hub.usable(Backends.LOCAL) && hub.backend == Backends.LOCAL) hub.selectBackend(host.id)
                     val fingerprint = host.fingerprint?.let { "\n主机指纹 $it" }.orEmpty()
                     notice = ProbeNotice(
-                        "已加上「$name」",
-                        probeSummary(probe) + " · " + via.label + fingerprint + "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台主机里。",
+                        "已加上「${host.name}」",
+                        probeSummary(probe) + " · " + via.label + fingerprint + "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台设备里。",
                     )
                 }
             }
@@ -124,7 +124,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     CouiPage(
-        title = "添加远程主机",
+        title = "添加远程设备",
         onBack = onBack,
         dialogs = {
             val keyReady = key?.isSuccess == true
@@ -134,7 +134,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 title = "输入地址",
                 summary = when {
                     typedVia == RemoteHost.Via.Debian -> "经手机 Debian 的 OpenSSH 连，用那边 ~/.ssh 的密钥。" + RemoteHosts.DEBIAN_TARGET_HINT
-                    keyReady -> "Zeta 用自己的密钥直连，先把它的公钥加进那台主机。" + RemoteHosts.DIRECT_TARGET_HINT
+                    keyReady -> "Zeta 用自己的密钥直连，先把它的公钥加进那台设备。" + RemoteHosts.DIRECT_TARGET_HINT
                     else -> "读不到 Zeta 的密钥，直连用不了。"
                 },
                 confirmText = "连接并添加",
@@ -181,7 +181,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     ) {
         item(key = "add") {
             val adding = probing
-            PreferenceGroup(title = "加主机", footer = (if (debian) ViaFooter else DirectOnlyFooter) + HostingFooter) {
+            PreferenceGroup(title = "加设备", footer = (if (debian) ViaFooter else DirectOnlyFooter) + HostingFooter) {
                 if (debian) {
                     item {
                         ArrowPreference(
@@ -324,7 +324,7 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
                         ProbeNotice(
                             "已改成${via.label}",
                             probeSummary(probe) + probe.hostKey?.let { "\n主机指纹 " + RemoteHosts.fingerprint(it) }.orEmpty() +
-                                "\n这台主机上闲着的对话，下次发消息时经新的连法接上。",
+                                "\n这台设备上闲着的对话，下次发消息时经新的连法接上。",
                         )
                     } else {
                         ProbeNotice("没有改成${via.label}", BusyMessage)
@@ -335,31 +335,16 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
         }
     }
 
-    val others = hub.settings.remoteHosts.filter { it.id != id }
     val cwd = AttachedPaths.normalize(draft, shown.home)
     CouiPage(
         title = shown.name,
         onBack = onBack,
         dialogs = {
-            TextInputDialog(
-                show = renaming,
-                title = "名字",
-                summary = RemoteHosts.nameProblem(draft, others).takeIf { draft.isNotBlank() },
-                value = draft,
-                onValueChange = { draft = it },
-                label = shown.target,
-                confirmText = "确定",
-                confirmEnabled = RemoteHosts.nameProblem(draft, others) == null,
-                onConfirm = {
-                    renaming = false
-                    save { it.copy(name = draft.trim()) }
-                },
-                onDismissRequest = { renaming = false },
-            )
+            DeviceNameDialog(hub, id, show = renaming, onDismiss = { renaming = false })
             TextInputDialog(
                 show = cwdEditing,
                 title = "默认工作目录",
-                summary = "在这台主机上开新对话时的工作目录，~ 是 ${shown.home}",
+                summary = "在这台设备上开新对话时的工作目录，~ 是 ${shown.home}",
                 value = draft,
                 onValueChange = { draft = it },
                 label = shown.home,
@@ -375,7 +360,7 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
                 show = changedKey != null,
                 title = "主机指纹变了",
                 summary = "记下的：${shown.fingerprint}\n现在的：${lastChangedKey?.let(RemoteHosts::fingerprint)}\n" +
-                    "确认是那台主机换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。",
+                    "确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。",
                 confirmText = "改认新的",
                 destructive = true,
                 onConfirm = {
@@ -391,7 +376,7 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
             ConfirmDialog(
                 show = removing,
                 title = "删掉「${shown.name}」？",
-                summary = "只是 Zeta 不再连它。那台主机上的会话记录、Claude Code 的配置都不动；它上面正开着的对话会断开。",
+                summary = "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动；它上面正开着的对话会断开。",
                 confirmText = "删掉",
                 destructive = true,
                 onConfirm = {
@@ -406,16 +391,7 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
         claude()
         item(key = "host") {
             PreferenceGroup(title = "连接") {
-                item {
-                    ArrowPreference(
-                        title = "名字",
-                        endActions = { PreferenceValue(shown.name) },
-                        onClick = {
-                            draft = shown.name
-                            renaming = true
-                        },
-                    )
-                }
+                item { DeviceNameRow(hub, id) { renaming = true } }
                 item { BasicComponent(title = "地址", endActions = { PreferenceValue(RemoteHosts.displayTarget(shown.target)) }) }
                 item {
                     OverlayDropdownPreference(
@@ -460,9 +436,13 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
                                         "没连上：主机指纹和记下的不一样"
                                     }
                                     is RemoteHosts.Probe.Ok -> {
-                                        // 家目录变了（换了用户）就跟着改；默认工作目录还在原来家目录下的一起换
-                                        if (probe.home != shown.home) save {
-                                            it.copy(home = probe.home, defaultCwd = if (it.defaultCwd == it.home) probe.home else it.defaultCwd)
+                                        // 家目录变了（换了用户）就跟着改，默认工作目录还在原来家目录下的一起换；主机名变了（改过名、重装过）也跟着改
+                                        if (probe.home != shown.home || probe.hostname != shown.hostname) save {
+                                            it.copy(
+                                                home = probe.home,
+                                                defaultCwd = if (it.defaultCwd == it.home) probe.home else it.defaultCwd,
+                                                hostname = probe.hostname ?: it.hostname,
+                                            )
                                         }
                                         "连上了：" + probeSummary(probe)
                                     }
@@ -474,7 +454,7 @@ internal fun RemoteHostScreen(hub: ConversationHub, id: String, onBack: () -> Un
             }
         }
         item(key = "remove") {
-            PreferenceGroup { item { DangerRow("删掉这台主机") { removing = true } } }
+            PreferenceGroup { item { DangerRow("删掉这台设备") { removing = true } } }
         }
     }
 }

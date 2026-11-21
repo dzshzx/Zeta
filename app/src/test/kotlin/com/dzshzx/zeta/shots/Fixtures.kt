@@ -48,8 +48,14 @@ object Fixtures {
     /** Zeta 直连用的密钥：单元测试里没有 Android Keystore，换成内存里的。 */
     val sshKey: SshKey by lazy { SshKey.generate("zeta@shots") }
 
+    /** 系统设置里的设备名（Robolectric 里没有，图上手机就叫型号「robolectric」）：写成真机上的样子。 */
+    private fun nameThePhone(app: Application) {
+        android.provider.Settings.Global.putString(app.contentResolver, android.provider.Settings.Global.DEVICE_NAME, "Xiaomi 17")
+    }
+
     /** 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。 */
     fun readyHub(app: Application): ConversationHub {
+        nameThePhone(app)
         Settings.of(app).env = env
         val hub = ConversationHub(app) { sshKey }
         install(hub)
@@ -60,6 +66,7 @@ object Fixtures {
 
     /** 手机上没有 Debian 环境的 hub（[state] 是检查的结果），装成全应用共用的那个。 */
     fun bareHub(app: Application, state: SetupState = SetupState.NoEnvironment): ConversationHub {
+        nameThePhone(app)
         Settings.of(app).env = null
         val hub = ConversationHub(app) { sshKey }
         install(hub)

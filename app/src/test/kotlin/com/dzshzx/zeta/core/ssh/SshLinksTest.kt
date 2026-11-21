@@ -244,7 +244,7 @@ class SshLinksTest {
         assertEquals("网络不通", SshLinks.problem(wrapped(NoRouteToHostException("没有到主机的路由"))))
         assertEquals("连接超时", SshLinks.problem(wrapped(SocketTimeoutException("连接超时"))))
         assertEquals("连接超时", SshLinks.problem(JSchException("timeout: socket is not established")))
-        assertEquals("找不到这台主机（地址解析失败）", SshLinks.problem(wrapped(UnknownHostException("nope.invalid"))))
+        assertEquals("找不到这台设备（地址解析失败）", SshLinks.problem(wrapped(UnknownHostException("nope.invalid"))))
         assertTrue(SshLinks.problem(JSchException("Auth fail for methods 'publickey'")).contains("不认 Zeta 的公钥"))
     }
 }

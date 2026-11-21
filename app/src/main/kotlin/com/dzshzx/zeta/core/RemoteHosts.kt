@@ -19,16 +19,21 @@ import kotlinx.serialization.json.put
  * [target] 是 `用户@主机[:端口]`（[SshTarget]），[hostKey] 是加主机时记下的主机公钥（SSH 线上格式的 base64），以后只认它。
  * 加主机时手机 Debian 就绪就默认经 Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。
  * [home] 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。
+ * 界面上叫它 [name]：用户起的 [customName]，没起时是它自己报的主机名 [hostname]（`uname -n`，连上时记下），还没记下时是地址。
  */
 data class RemoteHost(
     val id: String,
-    val name: String,
+    val customName: String?,
     val target: String,
     val home: String,
     val defaultCwd: String,
     val via: Via = Via.Debian,
     val hostKey: String? = null,
+    val hostname: String? = null,
 ) {
+    /** 界面上的名字。 */
+    val name: String get() = customName ?: hostname ?: RemoteHosts.displayTarget(target)
+
     enum class Via(val key: String, val label: String) {
         Debian("debian", "经手机 Debian"),
         Direct("direct", "Zeta 直连"),
@@ -56,7 +61,8 @@ object RemoteHosts {
         hosts.forEach {
             addJsonObject {
                 put("id", it.id)
-                put("name", it.name)
+                it.customName?.let { name -> put("name", name) }
+                it.hostname?.let { name -> put("hostname", name) }
                 put("target", it.target)
                 put("home", it.home)
                 put("cwd", it.defaultCwd)
@@ -82,31 +88,28 @@ object RemoteHosts {
             if (hosts.any { it.id == id }) continue
             hosts += RemoteHost(
                 id = id,
-                name = item.str("name")?.trim()?.ifEmpty { null } ?: target,
+                // 早先没起名字时存的是地址：那不算用户起的
+                customName = item.str("name")?.trim()?.ifEmpty { null }?.takeIf { it != target && it != displayTarget(target) },
                 target = target,
                 home = home,
                 defaultCwd = item.str("cwd")?.takeIf { it.startsWith("/") } ?: home,
                 via = via,
                 hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct },
+                hostname = item.str("hostname")?.trim()?.ifEmpty { null },
             )
         }
         return hosts
     }
 
-    /** 给主机起的名字有没有问题：空的、和别的主机重名（[others] 不含它自己）、和手机本机的叫法撞上。没问题返回 null。 */
-    fun nameProblem(name: String, others: List<RemoteHost>): String? {
+    /** 给设备起的名字有没有问题：太长、和别的设备（[others] 是它们现在的名字，不含它自己）重名。空的是不起名字，没问题；没问题返回 null。 */
+    fun nameProblem(name: String, others: List<String>): String? {
         val clean = name.trim()
         return when {
-            clean.isEmpty() -> "名字不能为空"
             clean.length > 40 -> "名字太长了"
-            clean == LOCAL_NAME -> "「$LOCAL_NAME」指手机里的 Debian，换个名字"
-            others.any { it.name == clean } -> "已经有叫「$clean」的主机了"
+            clean.isNotEmpty() && clean in others -> "已经有叫「$clean」的设备了"
             else -> null
         }
     }
-
-    /** 界面上手机里那个 Debian 的叫法。 */
-    const val LOCAL_NAME = "手机"
 
     /** 手机本机在主机清单里的小字（换主机的菜单、设置首页）：它的 Claude Code 跑在哪。 */
     const val LOCAL_SUMMARY = "手机里的 Debian"
@@ -120,11 +123,12 @@ object RemoteHosts {
         printf 'zeta_home %s\n' "${'$'}HOME"
         printf 'zeta_claude %s\n' "${'$'}(claude --version 2>/dev/null | head -n 1)"
         printf 'zeta_system %s\n' "${'$'}(uname -sm 2>/dev/null)"
+        printf 'zeta_hostname %s\n' "${'$'}(uname -n 2>/dev/null)"
     """.trimIndent()
 
-    /** 连一次 [target] 查到的情况。直连的 [Ok.hostKey] 是对方的主机公钥（base64），加主机时记下。 */
+    /** 连一次 [target] 查到的情况。直连的 [Ok.hostKey] 是对方的主机公钥（base64），加主机时记下；[Ok.hostname] 是它报的主机名，查不到时为 null。 */
     sealed interface Probe {
-        data class Ok(val home: String, val claude: String, val system: String, val hostKey: String? = null) : Probe
+        data class Ok(val home: String, val claude: String, val system: String, val hostKey: String? = null, val hostname: String? = null) : Probe
 
         data class Failed(val reason: String) : Probe
 
@@ -143,9 +147,9 @@ object RemoteHosts {
         return when {
             result.timedOut -> Probe.Failed("连接超时")
             result.exitCode == RemoteShell.CONNECTION_FAILED || home.isEmpty() -> Probe.Failed(sshProblem(result.stderr))
-            claude.isEmpty() -> Probe.Failed("那台主机上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）")
+            claude.isEmpty() -> Probe.Failed("那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）")
             !helperRuns(system) -> Probe.Failed("Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 ${system.ifEmpty { "未知的系统" }}")
-            else -> Probe.Ok(home, claude.substringBefore(" ("), system, hostKey)
+            else -> Probe.Ok(home, claude.substringBefore(" ("), system, hostKey, values["hostname"]?.ifEmpty { null })
         }
     }
 
@@ -156,7 +160,7 @@ object RemoteHosts {
     /** 经手机的 Debian（[local]）连一次 [target]，查家目录、claude、系统和 CPU。阻塞，别在主线程上调用。 */
     fun probeDebian(local: LinuxShell, target: String): Probe {
         if (!DebianSshShell.validTarget(target)) return Probe.Failed("地址里不能有空白、引号，也不能以 - 开头")
-        val shell = DebianSshShell(local, RemoteHost("probe", target, target, "/", "/"))
+        val shell = DebianSshShell(local, RemoteHost("probe", null, target, "/", "/"))
         val result = runCatching { shell.run(ProbeScript, timeoutMs = 45_000) }.getOrNull() ?: return Probe.Failed("进不了手机里的 Linux 环境")
         return parseProbe(result)
     }
@@ -235,7 +239,7 @@ object RemoteHosts {
         return when {
             text.contains(SshLinks.PROBLEM_PREFIX) -> text.substringAfterLast(SshLinks.PROBLEM_PREFIX).lineSequence().first().trim()
             text.contains("Permission denied") -> "对方不认手机 Debian 里的 SSH 密钥（Permission denied）"
-            text.contains("Could not resolve hostname") -> "找不到这台主机（地址解析失败）"
+            text.contains("Could not resolve hostname") -> "找不到这台设备（地址解析失败）"
             text.contains("Host key verification failed") || text.contains("REMOTE HOST IDENTIFICATION HAS CHANGED") ->
                 "主机密钥和记下的不一样，先在 Debian 里核对 ~/.ssh/known_hosts"
             text.contains("timed out") -> "连接超时"

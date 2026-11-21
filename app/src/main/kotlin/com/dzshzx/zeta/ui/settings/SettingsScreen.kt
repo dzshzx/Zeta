@@ -100,11 +100,11 @@ private fun SettingsHome(
     val context = LocalContext.current
     CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
         item(key = "hosts") {
-            PreferenceGroup(title = "主机") {
+            PreferenceGroup(title = "设备") {
                 hub.backends.forEach { backend -> item { HostEntry(hub, backend) { onOpenHost(backend) } } }
                 item {
                     ArrowPreference(
-                        title = "添加远程主机",
+                        title = "添加远程设备",
                         startAction = { SettingsIcon(COUIIcons.Add, SettingsHue.Files) },
                         onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
                     )

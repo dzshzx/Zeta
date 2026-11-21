@@ -98,7 +98,7 @@ class ConversationHub(
         val host = remoteHost(backend)
         return when {
             backend == Backends.LOCAL -> "还没有配置 Linux 环境，请到设置里检查"
-            host == null -> "远程主机已经从设置里删掉了"
+            host == null -> "远程设备已经从设置里删掉了"
             else -> "「${host.name}」经手机的 Debian 连，Debian 环境还没就绪"
         }
     }
@@ -146,9 +146,30 @@ class ConversationHub(
     /** 主机 [backend] 上那个用户的家目录；还不知道时为 null。 */
     fun home(backend: String): String? = if (backend == Backends.LOCAL) settings.env?.home else remoteHost(backend)?.home
 
-    /** 界面上主机 [backend] 的名字。 */
+    /** 界面上设备 [backend] 的名字：用户起的，没起时是它自己的名字（[originalName]）。 */
     fun backendName(backend: String): String =
-        if (backend == Backends.LOCAL) RemoteHosts.LOCAL_NAME else remoteHost(backend)?.name ?: "已删除的主机"
+        if (backend == Backends.LOCAL) settings.localName ?: phoneName else remoteHost(backend)?.name ?: "已删除的设备"
+
+    /** 手机自己的名字：系统设置里的设备名（「关于手机」里能改），取不到时是型号。Zeta 开着时改了系统里的名字，下次启动才跟上。 */
+    private val phoneName: String by lazy {
+        android.provider.Settings.Global.getString(app.contentResolver, android.provider.Settings.Global.DEVICE_NAME)?.trim()?.ifEmpty { null } ?: Build.MODEL
+    }
+
+    /** 设备 [backend] 自己的名字（用户没起名字时显示它）：手机是系统里的设备名，远程设备是它报的主机名，还没记下时是地址。 */
+    fun originalName(backend: String): String {
+        val host = remoteHost(backend) ?: return phoneName
+        return host.hostname ?: RemoteHosts.displayTarget(host.target)
+    }
+
+    /** 用户给设备 [backend] 起的名字；没起是 null。 */
+    fun customName(backend: String): String? = if (backend == Backends.LOCAL) settings.localName else remoteHost(backend)?.customName
+
+    /** 给设备 [backend] 起名字；[name] 为空是不起，显示它自己的名字（[originalName]）。在主线程上调用。 */
+    fun rename(backend: String, name: String?) {
+        val clean = name?.trim()?.ifEmpty { null }
+        if (backend == Backends.LOCAL) settings.localName = clean
+        else updateRemoteHosts(settings.remoteHosts.map { if (it.id == backend) it.copy(customName = clean) else it })
+    }
 
     /** 主机 [backend] 上新对话的默认工作目录。 */
     fun defaultCwd(backend: String): String =
@@ -207,19 +228,29 @@ class ConversationHub(
     /**
      * 重读主机 [backend] 上 Claude Code 的默认值：侧栏正看着的那台在环境就绪时、换过去时读（输入栏要显示它的默认权限模式），
      * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。
-     * 在主线程上调用。
+     * 远程设备还没记下自己的主机名（加的时候还不查它）时，读到了就顺带问一句（[RemoteHost.hostname]）。在主线程上调用。
      */
     fun refreshClaudeDefaults(backend: String) {
         if (backend in readingDefaults || shell(backend) == null) return
         readingDefaults.add(backend)
+        val askHostname = remoteHost(backend)?.hostname == null && backend != Backends.LOCAL
         thread(name = "zeta-defaults", isDaemon = true) {
             val defaults = runCatching { ClaudeConfigClient.of(this, backend).defaults() }.getOrNull()
+            val hostname = if (askHostname && defaults != null) hostnameOf(backend) else null
             main.post {
                 readingDefaults.remove(backend)
                 if (defaults != null && backend in backends) updateClaudeDefaults(backend, defaults)
+                if (hostname != null) {
+                    settings.remoteHosts = settings.remoteHosts.map { if (it.id == backend && it.hostname == null) it.copy(hostname = hostname) else it }
+                }
             }
         }
     }
+
+    /** 设备 [backend] 报的主机名（`uname -n`）；问不到是 null。阻塞。 */
+    private fun hostnameOf(backend: String): String? =
+        runCatching { shell(backend)?.run("uname -n", timeoutMs = 15_000, plain = true) }.getOrNull()
+            ?.takeIf { it.exitCode == 0 }?.stdout?.lineSequence()?.firstOrNull()?.trim()?.ifEmpty { null }
 
     /**
      * 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它：环境就绪时，

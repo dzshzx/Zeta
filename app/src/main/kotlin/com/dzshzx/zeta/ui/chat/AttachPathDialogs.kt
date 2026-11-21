@@ -120,7 +120,7 @@ private sealed interface Resolution {
  * 查对话所在主机上的路径 [linuxPath] 对对话进程是不是可见。手机本机的内部存储读不了时先把 Linux 用户补进 media_rw 组再查一次。
  */
 private fun checkLinux(hub: ConversationHub, conversation: Conversation, linuxPath: String, wantFolder: Boolean?): Resolution {
-    val shell = hub.shell(conversation.backend) ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台主机")
+    val shell = hub.shell(conversation.backend) ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
     val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL }
     var kind = PathCheck.check(shell, linuxPath, conversation.hostKey)
     if (config != null && kind == PathKind.Denied && linuxPath.startsWith(SharedFolders.LINUX_ROOT + "/") && SharedFolders.ensureMediaGroup(config)) {
@@ -370,7 +370,7 @@ private fun PathAttachDialog(
     ConfirmDialog(
         show = visible,
         title = if (remote) "引用「${hub.backendName(conversation.backend)}」上的路径" else "引用 Linux 路径",
-        summary = if (remote) "这台主机上一个文件或文件夹的绝对路径，Claude 会直接读到它。"
+        summary = if (remote) "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。"
         else "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
         confirmText = if (current is Resolution.NeedsRestart) "重启 Claude 并引用" else "引用",
         confirmEnabled = current is Resolution.Ready || (current is Resolution.NeedsRestart && idle),
@@ -437,7 +437,7 @@ private const val NotThere = "没有这个路径："
 
 /** 输入的路径：先当对话所在主机上的路径查；手机本机上没有的话，看它是不是手机上能对应到 Linux 的目录。 */
 private fun resolvePath(hub: ConversationHub, conversation: Conversation, input: String, home: String?): Resolution {
-    if (hub.shell(conversation.backend) == null) return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台主机")
+    if (hub.shell(conversation.backend) == null) return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
     val path = AttachedPaths.normalize(input, home)
         ?: return Resolution.Problem(if (input.trim().let { it.startsWith("/") || it.startsWith("~") }) "路径里不能有双引号或控制字符" else "要输入以 / 开头的绝对路径")
     val direct = checkLinux(hub, conversation, path, wantFolder = null)
