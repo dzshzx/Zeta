@@ -107,9 +107,9 @@ internal fun DefaultEffortEntry(hub: ConversationHub, backend: String, onOpen: (
 
 /**
  * 设置 › 一台主机 › 默认思考强度：每个模型一行，选的档写进 modelSettings.<完整模型 ID>.effortLevel（和 /effort 存为默认一样），
- * 「跟随 Claude Code」是删掉这个模型的设置。还没拿到 Claude Code 的模型清单（这次打开 Zeta 后还没起过进程）时，
- * 先列 settings.json 里已有的模型；当前对话也在这台主机上时，同时让它把进程起好来要清单（和输入斜杠命令时一样，不产生请求）。
- * 没设过的旧版本模型收在「更多模型」一行后面，点了才列出来。
+ * 「跟随 Claude Code」是删掉这个模型的设置。直接列的是各系列最新的模型和「其他模型」，旧版本和清单里已经没有的收在「更多模型」一行里，
+ * 点了才列出来（[effortRows]）。还没拿到这台 Claude Code 的模型清单（这次打开 Zeta 后那台上还没起过进程）时先列 settings.json 里
+ * 已经设过的，同时去要清单（[ConversationHub.requestModels]）。
  */
 @Composable
 internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
@@ -117,8 +117,9 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
     val defaults = hub.claudeDefaults(backend)
     val models = hub.models[backend].orEmpty()
     val waiting = models.isEmpty()
+    val ready = hub.usable(backend)
     var showOlder by remember { mutableStateOf(false) }
-    LaunchedEffect(waiting) { if (waiting && hub.current.backend == backend) hub.current.prepare() }
+    LaunchedEffect(waiting, ready) { if (waiting && ready) hub.requestModels(backend) }
     CouiPage(title = "默认思考强度", onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
@@ -128,19 +129,23 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
                 if (defaults == null) {
                     item { ArrowPreference(title = NotRead, enabled = false) }
                 } else {
-                    val (shown, folded) = effortRows(models, defaults).partition { showOlder || !it.older }
-                    shown.forEach { row ->
-                        item {
-                            FollowDropdownPreference(
-                                title = row.title,
-                                choices = row.choices,
-                                value = row.value,
-                                followLabel = "跟随 Claude Code",
-                            ) { level -> write { setDefaultEffort(row.model, level) } }
+                    val rows = effortRows(models, defaults)
+                    val folded = rows.filter { it.older }
+                    rows.forEach { row ->
+                        when {
+                            showOlder || !row.older -> item {
+                                FollowDropdownPreference(
+                                    title = row.title,
+                                    choices = row.choices,
+                                    value = row.value,
+                                    followLabel = "跟随 Claude Code",
+                                ) { level -> write { setDefaultEffort(row.model, level) } }
+                            }
+                            // 收起时整组换成一行，放在第一个收起的那一行的位置（「其他模型」前面）
+                            row === folded.first() -> item {
+                                ArrowPreference(title = "更多模型", summary = moreModelsSummary(folded), onClick = { showOlder = true })
+                            }
                         }
-                    }
-                    if (folded.isNotEmpty()) {
-                        item { ArrowPreference(title = "更多模型", summary = folded.joinToString("、") { it.title }, onClick = { showOlder = true }) }
                     }
                 }
             }
@@ -150,7 +155,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
 
 /**
  * 默认思考强度页的一行：[model] 是完整模型 ID，null 是没单独设的模型共用的那一档（顶层 effortLevel）。
- * [older]：没设过的旧版本模型，收在「更多模型」后面。
+ * [older]：收在「更多模型」里的：清单里的旧版本，和清单里已经没有、只在 settings.json 里设过的。
  */
 internal data class EffortRow(
     val model: String?,
@@ -161,26 +166,34 @@ internal data class EffortRow(
 )
 
 /**
- * 默认思考强度页有哪几行：Claude Code 清单里的模型按模型菜单的顺序（[modelMenu]：各系列最新的在前，旧版本在后），
- * 同一个完整 ID 只列一次（「默认」和它指向的那个是同一个），档位只列这个模型支持的；不支持思考强度、也没设过的不列。
- * 没设过的旧版本标上 [EffortRow.older]。settings.json 里设过、清单里没有的（下线的模型）接在后面，好让人改掉或删掉。
- * 顶层设过一档时最后一行是「其他模型」。
+ * 默认思考强度页有哪几行，依次是：
+ * - Claude Code 清单里各系列最新的模型（[modelMenu] 的 latest），同一个完整 ID 只列一次（「默认」和它指向的那个是同一个）；
+ * - 收进「更多模型」的（标上 [EffortRow.older]，设没设过都收）：清单里的旧版本（[modelMenu] 的 older，按它的顺序），然后是清单里没有、
+ *   只在 settings.json 里设过的（下线的模型），在那里仍能改掉或删掉旧设置；
+ * - 顶层设过一档时是「其他模型」。
+ * 档位只列这个模型支持的；不支持思考强度、也没设过的不列。还没拿到清单（[models] 为空）时只有设过的，直接列出，不收。
  */
 internal fun effortRows(models: List<ModelOption>, defaults: ClaudeDefaults): List<EffortRow> {
     val menu = modelMenu(models)
-    val olderIds = menu.older.mapNotNullTo(HashSet()) { it.resolvedModel }
-    val listed = (menu.latest + menu.older).filter { it.resolvedModel != null }.distinctBy { it.resolvedModel }
-    val rows = listed.mapNotNull { option ->
+    val latest = menu.latest.filter { it.resolvedModel != null }.distinctBy { it.resolvedModel }
+    val latestIds = latest.mapTo(HashSet()) { it.resolvedModel }
+    val older = menu.older.filter { it.resolvedModel != null && it.resolvedModel !in latestIds }.distinctBy { it.resolvedModel }
+    val listedIds = latestIds + older.map { it.resolvedModel }
+    fun row(option: ModelOption, folded: Boolean): EffortRow? {
         val id = option.resolvedModel!!
         val choices = EffortLevels.filter { level -> option.effortLevels?.contains(level.first) ?: true }
         val value = defaults.efforts[id]
-        if (choices.isEmpty() && value == null) null else EffortRow(id, readableModelId(id), choices, value, older = id in olderIds && value == null)
+        return if (choices.isEmpty() && value == null) null else EffortRow(id, readableModelId(id), choices, value, folded)
     }
-    val others = defaults.efforts.filterKeys { id -> listed.none { it.resolvedModel == id } }
-        .map { (id, level) -> EffortRow(id, readableModelId(id), EffortLevels, level) }
+    val unlisted = defaults.efforts.filterKeys { it !in listedIds }
+        .map { (id, level) -> EffortRow(id, readableModelId(id), EffortLevels, level, older = models.isNotEmpty()) }
     val rest = defaults.effort?.let { EffortRow(null, "其他模型", EffortLevels, it) }
-    return rows + others + listOfNotNull(rest)
+    return latest.mapNotNull { row(it, folded = false) } + older.mapNotNull { row(it, folded = true) } + unlisted + listOfNotNull(rest)
 }
+
+/** 「更多模型」一行的摘要：收在里面的模型（[rows]），设过的带上档位，比如「Opus 4.6 高、Fable 5」。 */
+internal fun moreModelsSummary(rows: List<EffortRow>): String =
+    rows.joinToString("、") { row -> row.title + (row.value?.let { " " + (effortLabel(it) ?: it) } ?: "") }
 
 /** 「Opus 5.5 超高，Fable 5.2 高」；只有顶层的就是那一档，都没设时说由 Claude Code 定。 */
 internal fun effortSummary(defaults: ClaudeDefaults): String {

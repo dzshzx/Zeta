@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.ui.settings.effortRows
+import com.dzshzx.zeta.ui.settings.moreModelsSummary
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -63,18 +64,25 @@ class ModelMenuTest {
         assertEquals(emptyList<ModelOption>(), menu.older)
     }
 
-    /** 默认思考强度页：旧版本排在最新的后面；没设过的标成收起，设过的照常列出。 */
+    /** 默认思考强度页：只直接列各系列最新的；旧版本设没设过都收进「更多模型」，按菜单的顺序，摘要里设过的带上档位。 */
     @Test
-    fun effortRowsFoldUnsetOlderModels() {
+    fun effortRowsFoldOlderModels() {
         val rows = effortRows(reported, ClaudeDefaults(null, null, mapOf("claude-opus-4-6" to "high"), null))
         assertEquals(
             listOf("claude-opus-5-5", "claude-fable-5-2", "claude-sonnet-5-5", "claude-haiku-5-5"),
-            rows.filter { !it.older }.map { it.model }.take(4),
+            rows.filter { !it.older }.map { it.model },
         )
-        assertEquals(listOf("claude-opus-4-6"), rows.filter { !it.older }.drop(4).map { it.model })
+        val folded = rows.filter { it.older }
         assertEquals(
-            listOf("claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-fable-5-1", "claude-fable-5", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"),
-            rows.filter { it.older }.map { it.model },
+            listOf(
+                "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-fable-5-1", "claude-fable-5",
+                "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
+            ),
+            folded.map { it.model },
+        )
+        assertEquals(
+            "Opus 5、Opus 4.8、Opus 4.7、Opus 4.6 高、Fable 5.1、Fable 5、Sonnet 5、Sonnet 4.6、Haiku 4.5",
+            moreModelsSummary(folded),
         )
     }
 }

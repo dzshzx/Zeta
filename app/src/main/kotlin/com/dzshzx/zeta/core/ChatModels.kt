@@ -181,6 +181,21 @@ internal fun modelOption(m: JsonObject): ModelOption? = ModelOption(
     else m.arr("supportedEffortLevels")?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
 )
 
+/**
+ * Claude Code 对 initialize 的应答（control_response 里的 response 一项）里 Zeta 用的几样，没报的是 null：模型清单、
+ * 斜杠命令清单，和起进程时没指定权限模式时它照设置定的那个。对话的进程（[Conversation]）和只为要模型清单起的进程（[ModelProbes]）都按它读。
+ */
+internal class InitializeReport private constructor(response: JsonObject) {
+    val models: List<ModelOption>? = response.arr("models")?.mapNotNull { (it as? JsonObject)?.let(::modelOption) }
+    val commands: List<SlashCommand>? = response.arr("commands")?.let(::parseSlashCommands)
+    val permissionMode: String? = response.str("current_permission_mode")
+
+    companion object {
+        /** 读应答 [answer]；答的是错误（没有 response）时为 null。 */
+        fun of(answer: JsonObject): InitializeReport? = answer.obj("response")?.let(::InitializeReport)
+    }
+}
+
 /** 还没连上进程、拿不到 Claude Code 的清单时先给的几个常用别名（Claude Code 自己解析）。 */
 val FallbackModels = listOf(
     ModelOption(Conversation.DEFAULT_MODEL, "默认", ""),

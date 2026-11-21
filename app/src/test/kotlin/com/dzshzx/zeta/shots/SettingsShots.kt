@@ -75,7 +75,10 @@ class SettingsShots : ShotTest() {
         }
     }
 
-    /** 设置 › 手机 › 默认思考强度：Claude Code 清单里的模型各一行，Opus 设过、Fable 没设（跟随），还有一个清单里没有的旧模型。 */
+    /**
+     * 设置 › 手机 › 默认思考强度：Claude Code 清单里的模型各一行，Opus 设过、Fable 没设（跟随）；清单里没有的旧模型 Fable 5.1
+     * 收在「更多模型」里，摘要带着它的档位。
+     */
     @Test
     fun defaultEffort() {
         val hub = Fixtures.readyHub(app)
