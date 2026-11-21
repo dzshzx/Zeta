@@ -152,7 +152,7 @@ internal fun Composer(
     status: @Composable () -> Unit = {},
     /** 按住说话（见 HoldToTalk.kt）；手机上没有识别服务时为 null。 */
     voice: HoldToTalk? = null,
-    /** 输入框的焦点：聊天页在列表上拖动时用它调起输入法（见 SwipeKeyboard.kt）。 */
+    /** 挂在输入框上的焦点，调用方用它把焦点给输入框。 */
     focus: FocusRequester = remember { FocusRequester() },
 ) {
     val colors = COUITheme.colorScheme

@@ -397,8 +397,7 @@ private fun ConversationBody(
     val leading = if (conversation.earlier != null) 1 else 0
     // 列表到底后接着上拖调起输入法，输入法开着时下拖收起
     val composerFocus = remember { FocusRequester() }
-    val composerShown = !find.active && !conversation.blockedByExternal && !conversation.loadingHistory && !conversation.rewinding
-    val swipeKeyboard = rememberSwipeKeyboard(composerFocus, canOpen = composerShown)
+    val swipeKeyboard = rememberSwipeKeyboard(composerFocus)
     KeepReadingPosition(listState, shown.firstOrNull()?.id) { key -> shown.indexOfFirst { it.id == key }.let { if (it < 0) -1 else it + leading } }
     ChatFindDriver(
         find = find,
