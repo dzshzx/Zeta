@@ -291,7 +291,7 @@ tasks.withType<Test>().configureEach {
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
     timeout.set(Duration.ofMinutes(10))
     // 按测试类分到几个进程并行跑：串行时全量要 4 分钟，大头是每例约 1 秒的截图测试。
-    // 每个进程常驻约 1G；tools/gradle 同时最多 3 个构建，最多 4 个进程时内存仍够
+    // 每个进程常驻约 1G，算在单个构建的内存峰值里（tools/gradle 按这个峰值定同时构建数）
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 4).coerceIn(1, 4)
 }
 

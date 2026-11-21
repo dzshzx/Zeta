@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # 重的常驻进程（Gradle 守护进程连同它派生的测试进程、模拟器）各自单独一个 systemd 分组，不记在启动它的
-# agent 会话的分组里。会话分组有自己的内存上限（本机 16G），这些进程却是各会话共用的：记在谁头上，谁撞上限时
+# agent 会话的分组里。会话分组有自己的内存上限，这些进程却是各会话共用的：记在谁头上，谁撞上限时
 # 内核就在谁的分组里回收和查杀，别的会话的构建和共用的模拟器也跟着卡住或被杀。
 #
 # 只在当前进程位于 agent 会话的分组（agent-cpu-*.scope）之下、用户总线在时才包一层；手机 Debian、本机 CI runner、
@@ -12,8 +12,9 @@
 # 关掉它对命令行的 $ 展开，参数（比如 --tests 'Foo$Bar'）原样交给命令。
 own_scope() {
   OWN_SCOPE=()
-  local bus=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus
-  grep -q '/agent-cpu-[^/]*\.scope$' /proc/self/cgroup 2>/dev/null || return 0
+  local bus=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus cg=
+  read -r cg </proc/self/cgroup 2>/dev/null || true
+  [[ $cg =~ /agent-cpu-[^/]*\.scope$ ]] || return 0
   [[ -S $bus ]] && command -v systemd-run >/dev/null || return 0
   # shellcheck disable=SC2034 # 由 source 本文件的脚本使用
   OWN_SCOPE=(systemd-run --user --scope --quiet --collect --expand-environment=no --slice=app-agent.slice --unit="$1-$$"
