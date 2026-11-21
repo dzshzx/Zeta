@@ -2,7 +2,6 @@ package com.dzshzx.zeta.assistant
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -12,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,8 +39,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,13 +63,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import kotlinx.coroutines.flow.first
 
 // 拷自 Eta 的 agent/voice/EtaAssistantComposer.kt（GPL-3.0）的打字输入栏：去掉了语音那一半
 // （聆听态、按住说话、麦克风键），空闲时右边是发送键，空着时是灰的。
 
-private val ComposerModeEasing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
+/** 停止键上方块图标的大小：方块边长约 7dp，和 Eta 手画的那个一样大。 */
+private val StopIconSize = 10.8.dp
 
 /** 输入框空着时的提示（照 Eta 的「发消息问 Eta…」）。 */
 internal const val InputHint = "问问 Claude"
@@ -72,14 +80,14 @@ internal const val InputHint = "问问 Claude"
 /**
  * 输入栏：浮起的胶囊，左边输入框，右边圆形按钮。能发时是主色的发送键，空着时是灰的；这一轮还在进行时（[busy]）是停止键，输入框暂时不能输入。
  *
- * [focusRequestKey] 变成非负数时把焦点给输入框、弹出键盘（等窗口拿到焦点以后）。
+ * [focus] 为真时把焦点给输入框、弹出键盘（等窗口拿到焦点以后）。
  */
 @Composable
 internal fun AssistantInputBar(
     input: TextFieldState,
     busy: Boolean,
     sending: Boolean,
-    focusRequestKey: Int,
+    focus: Boolean,
     keyboardVisible: Boolean,
     colors: AssistantColors,
     onSubmit: () -> Unit,
@@ -89,16 +97,16 @@ internal fun AssistantInputBar(
     val inputEnabled = !busy && !sending
     val canSubmit = input.text.isNotBlank() && inputEnabled
     val focusRequester = remember { FocusRequester() }
-    InputFocus(focusRequestKey, inputEnabled, focusRequester)
+    InputFocus(focus, inputEnabled, focusRequester)
     var textFocused by remember { mutableStateOf(false) }
     val inputHighlighted = textFocused || keyboardVisible
-    val inputBackground by
+    val inputBackground =
         animateColorAsState(
             targetValue = if (inputHighlighted) colors.focusedInput else colors.input,
             animationSpec = tween(190, easing = LinearOutSlowInEasing),
             label = "assistant_input_background",
         )
-    val highlightProgress by
+    val highlightProgress =
         animateFloatAsState(
             targetValue = if (inputHighlighted) 1f else 0f,
             animationSpec = tween(210, easing = FastOutSlowInEasing),
@@ -109,11 +117,10 @@ internal fun AssistantInputBar(
             modifier
                 .heightIn(min = 50.dp)
                 .couiAssistantCapsule(
-                    surfaceColor = inputBackground,
-                    strokeColor = colors.chipStroke,
-                    dark = colors.dark,
+                    colors = colors,
                     elevation = AssistantCapsuleElevation.Composer,
-                    highlightProgress = highlightProgress,
+                    surface = { inputBackground.value },
+                    highlight = { highlightProgress.value },
                     highlightColor = colors.accent.copy(alpha = if (colors.dark) 0.44f else 0.30f),
                 )
                 .clickable(interactionSource = null, indication = null, onClick = {})
@@ -163,18 +170,18 @@ private fun HintDecorator(empty: Boolean, colors: AssistantColors, field: @Compo
 
 /** 输入栏挂载且浮窗取得焦点后再连接输入法，避免动画切换时请求落在尚不存在的输入框上。 */
 @Composable
-private fun InputFocus(key: Int, enabled: Boolean, focusRequester: FocusRequester) {
+private fun InputFocus(focus: Boolean, enabled: Boolean, focusRequester: FocusRequester) {
     val keyboard = LocalSoftwareKeyboardController.current
     val windowInfo = LocalWindowInfo.current
-    LaunchedEffect(key, enabled) {
-        if (key < 0 || !enabled) return@LaunchedEffect
+    LaunchedEffect(focus, enabled) {
+        if (!focus || !enabled) return@LaunchedEffect
         snapshotFlow { windowInfo.isWindowFocused }.first { it }
         runCatching { focusRequester.requestFocus() }
         keyboard?.show()
     }
 }
 
-/** 输入栏右边的键：停止、发送（能发时主色，空着时灰）。 */
+/** 输入栏右边的键：停止、发送（能发时主色，空着时灰）。按下时缩一下（COUI 的按压回弹），点了轻振一下。 */
 @Composable
 private fun TrailingButton(
     busy: Boolean,
@@ -183,52 +190,20 @@ private fun TrailingButton(
     onSubmit: () -> Unit,
     onStop: () -> Unit,
 ) {
-    val enabled = canSubmit || busy
     val containerColor by
         animateColorAsState(
-            targetValue =
-                when {
-                    busy -> colors.inputPrimary
-                    canSubmit -> colors.accent
-                    else -> colors.controlSurface
-                },
+            targetValue = trailingContainerColor(busy, canSubmit, colors),
             animationSpec = tween(180, easing = FastOutSlowInEasing),
             label = "assistant_trailing_bg",
         )
     val iconTint by
         animateColorAsState(
-            targetValue =
-                when {
-                    canSubmit -> colors.onAccent
-                    busy -> if (colors.dark) Color(0xFF17191E) else Color.White
-                    else -> colors.inputTertiary.copy(alpha = 0.42f)
-                },
+            targetValue = trailingIconTint(busy, canSubmit, colors),
             animationSpec = tween(180, easing = FastOutSlowInEasing),
             label = "assistant_trailing_tint",
         )
-    AssistantTrailingButton(
-        glyphKind = if (busy) AssistantGlyphKind.Stop else AssistantGlyphKind.Send,
-        contentDescription = if (busy) "停止" else "发送",
-        containerColor = containerColor,
-        iconTint = iconTint,
-        enabled = enabled,
-        onClick = if (busy) onStop else onSubmit,
-    )
-}
-
-/** 输入栏尾部按钮：按下时缩一下（COUI 的按压回弹），点了轻振一下。 */
-@Composable
-private fun AssistantTrailingButton(
-    glyphKind: AssistantGlyphKind,
-    contentDescription: String,
-    containerColor: Color,
-    iconTint: Color,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val haptics = LocalHapticFeedback.current
     val press = rememberCouiPressMotion()
-    val currentClick by rememberUpdatedState(onClick)
+    val currentClick by rememberUpdatedState(if (busy) onStop else onSubmit)
     Box(
         modifier =
             Modifier.size(38.dp)
@@ -238,46 +213,113 @@ private fun AssistantTrailingButton(
                 }
                 .clip(CircleShape)
                 .background(containerColor, CircleShape)
-                .semantics(mergeDescendants = true) {
-                    this.contentDescription = contentDescription
-                    role = Role.Button
-                    if (!enabled) disabled()
-                    onClick {
-                        if (enabled) currentClick()
-                        enabled
-                    }
-                }
-                .pointerInput(enabled, press) {
-                    if (!enabled) return@pointerInput
-                    detectTapGestures(
-                        onPress = {
-                            press.press(size)
-                            tryAwaitRelease()
-                            press.release()
-                        },
-                        onTap = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            currentClick()
-                        },
-                    )
-                },
+                .trailingButtonInput(
+                    description = if (busy) "停止" else "发送",
+                    enabled = canSubmit || busy,
+                    press = press,
+                    action = { currentClick() },
+                ),
         contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(
-            targetState = glyphKind,
+            targetState = busy,
             transitionSpec = {
                 (fadeIn(tween(140)) +
-                        scaleIn(tween(170, easing = ComposerModeEasing), initialScale = 0.72f))
+                        scaleIn(tween(170, easing = CouiEnterEasing), initialScale = 0.72f))
                     .togetherWith(fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.72f))
             },
             label = "assistant_trailing_glyph",
-        ) { targetGlyph ->
-            AssistantActionGlyph(
-                kind = targetGlyph,
-                tint = iconTint,
-                modifier =
-                    Modifier.size(if (targetGlyph == AssistantGlyphKind.Stop) 18.dp else 19.dp),
-            )
+        ) { stop ->
+            if (stop) {
+                Icon(
+                    imageVector = ZetaIcons.Stop,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(StopIconSize),
+                )
+            } else {
+                SendArrow(iconTint)
+            }
         }
     }
+}
+
+/**
+ * 发送键上的箭头（照 Eta 手画的）：比 [ZetaIcons.ArrowUp] 短、线更粗，放进 38dp 的圆键里和 Eta 一样醒目。 换成通用图标得缩小到 13dp
+ * 才一样高，线宽只剩一半，所以留着自己画。
+ */
+@Composable
+private fun SendArrow(tint: Color) {
+    Canvas(modifier = Modifier.size(19.dp)) {
+        val u = size.minDimension / 24f
+        val stroke = 2.25f * u
+        val centerX = size.width * 0.5f
+        val topY = 5.6f * u
+        drawLine(
+            color = tint,
+            start = Offset(centerX, 18.4f * u),
+            end = Offset(centerX, topY + 0.6f * u),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        val wing =
+            Path().apply {
+                moveTo(6.8f * u, 11.0f * u)
+                lineTo(centerX, topY)
+                lineTo(17.2f * u, 11.0f * u)
+            }
+        drawPath(
+            path = wing,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+    }
+}
+
+private fun trailingContainerColor(busy: Boolean, canSubmit: Boolean, colors: AssistantColors) =
+    when {
+        busy -> colors.inputPrimary
+        canSubmit -> colors.accent
+        else -> colors.controlSurface
+    }
+
+private fun trailingIconTint(busy: Boolean, canSubmit: Boolean, colors: AssistantColors) =
+    when {
+        canSubmit -> colors.onAccent
+        busy -> if (colors.dark) Color(0xFF17191E) else Color.White
+        else -> colors.inputTertiary.copy(alpha = 0.42f)
+    }
+
+/** 尾部按钮的读屏语义和触摸：按下时 [press] 缩下去，松手回弹；点了轻振一下再调 [action]。 */
+@Composable
+private fun Modifier.trailingButtonInput(
+    description: String,
+    enabled: Boolean,
+    press: CouiPressMotion,
+    action: () -> Unit,
+): Modifier {
+    val haptics = LocalHapticFeedback.current
+    return semantics(mergeDescendants = true) {
+            contentDescription = description
+            role = Role.Button
+            if (!enabled) disabled()
+            onClick {
+                if (enabled) action()
+                enabled
+            }
+        }
+        .pointerInput(enabled, press) {
+            if (!enabled) return@pointerInput
+            detectTapGestures(
+                onPress = {
+                    press.press(size)
+                    tryAwaitRelease()
+                    press.release()
+                },
+                onTap = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    action()
+                },
+            )
+        }
 }

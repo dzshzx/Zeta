@@ -79,6 +79,7 @@ class AssistantActivity : ComponentActivity() {
         }
         val onMainScreen = (display?.displayId ?: 0) == 0
         val corner = cornerRadius(RoundedCorner.POSITION_TOP_LEFT)
+        val bottomCorner = cornerRadius(RoundedCorner.POSITION_BOTTOM_RIGHT)
         setContent {
             val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             DisposableEffect(dark) {
@@ -104,6 +105,7 @@ class AssistantActivity : ComponentActivity() {
                         onDismiss = ::dismiss,
                         autoFocus = onMainScreen,
                         onStop = { chat.conversation?.interrupt() },
+                        bottomCornerRadius = bottomCorner,
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
                     EdgeGlow(

@@ -2,11 +2,11 @@ package com.dzshzx.zeta.assistant
 
 import android.graphics.BlurMaskFilter
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
 import android.graphics.Shader
-import android.view.RoundedCorner
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -17,12 +17,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -32,18 +31,13 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 // 拷自 Eta 的 agent/voice/EtaAssistantEdgeGlow.kt（GPL-3.0）：只留第一次唤起的光效（没有语音，
 // 不随音量呼吸）；时钟从逐帧的 withFrameNanos 换成 Animatable（截图测试里动画时长按 0 算，直接放完），
-// 屏幕下角的圆角取浮窗所在那块屏的。
+// 屏幕下角的圆角由浮窗的 Activity 读好传进来。
 
 private const val POWER_BUTTON_HEIGHT_RATIO = 0.355f
 private const val POWER_HALO_HOLD_SECONDS = 0.06f
@@ -68,6 +62,35 @@ private val bottomRevealEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private val powerAuroraCore = Color(0xFF93C5FD).copy(alpha = 0.42f)
 private val powerAuroraMid = Color(0xFFC4B5FD).copy(alpha = 0.26f)
 
+// 下面几个径向渐变都按圆心在原点、半径 1 建一次，画的时候平移、缩放到位。
+private val powerHaloBrush =
+    Brush.radialGradient(
+        0f to powerAuroraCore,
+        0.46f to powerAuroraMid,
+        1f to Color.Transparent,
+        center = Offset.Zero,
+        radius = 1f,
+    )
+
+private val streamerHeadBrush =
+    Brush.radialGradient(
+        listOf(Color(0xFFFFF8EB), Color(0xFFF472B6).copy(alpha = 0.58f), Color.Transparent),
+        center = Offset.Zero,
+        radius = 1f,
+    )
+
+private val bottomLobeBrushes =
+    listOf(
+            Color(0xFF4F8BFF).copy(alpha = 0.66f),
+            Color(0xFFA78BFA).copy(alpha = 0.58f),
+            Color(0xFFFF7AC6).copy(alpha = 0.62f),
+            Color(0xFFFFE4B5).copy(alpha = 0.54f),
+        )
+        .map { Brush.radialGradient(listOf(it, Color.Transparent), Offset.Zero, 1f) }
+
+/** 底部四团柔光的横向半径占屏宽的比例。 */
+private val bottomLobeRadiusRatios = floatArrayOf(0.32f, 0.38f, 0.36f, 0.30f)
+
 private val streamerGradientArgb =
     intArrayOf(
         Color(0x0060A5FA).toArgb(),
@@ -76,6 +99,7 @@ private val streamerGradientArgb =
         Color(0xF2F472B6).toArgb(),
         Color(0xFFFFF3DC).toArgb(),
     )
+private val streamerGradientStops = floatArrayOf(0f, 0.25f, 0.62f, 0.86f, 1f)
 
 private val bottomRimGradientArgb =
     intArrayOf(
@@ -86,131 +110,128 @@ private val bottomRimGradientArgb =
         Color(0xCCFBBF24).toArgb(),
         Color(0x00A78BFA).toArgb(),
     )
-
-private val bottomLobePalettes =
-    listOf(
-        listOf(Color(0xFF4F8BFF).copy(alpha = 0.66f), Color.Transparent),
-        listOf(Color(0xFFA78BFA).copy(alpha = 0.58f), Color.Transparent),
-        listOf(Color(0xFFFF7AC6).copy(alpha = 0.62f), Color.Transparent),
-        listOf(Color(0xFFFFE4B5).copy(alpha = 0.54f), Color.Transparent),
-    )
-
-/** 浮窗所在那块屏的左下、右下圆角半径（像素）；取不到时用 36dp。 */
-@Composable
-private fun rememberBottomCornerRadiiPx(): Pair<Float, Float> {
-    val display = LocalView.current.display
-    val fallbackPx = with(LocalDensity.current) { 36.dp.toPx() }
-    return remember(display, fallbackPx) {
-        fun radius(position: Int): Float =
-            runCatching { display?.getRoundedCorner(position)?.radius }
-                .getOrNull()
-                ?.takeIf { it > 0 }
-                ?.toFloat() ?: fallbackPx
-        radius(RoundedCorner.POSITION_BOTTOM_LEFT) to radius(RoundedCorner.POSITION_BOTTOM_RIGHT)
-    }
-}
+private val bottomRimGradientStops = floatArrayOf(0f, 0.18f, 0.42f, 0.64f, 0.84f, 1f)
 
 /**
  * 唤起光效（照 Eta）：从右侧电源键激发极光光晕，流光沿真实屏幕圆角连续包覆滑入底部，底部升起一片柔光和贴边的细边光， 放完（0.64 秒）后淡出。
  *
- * 时钟走到 [WakeHandoffSeconds] 时调一次 [onEntranceFinished]。[exiting] 为真（浮窗要关了）时立刻淡出。
+ * [bottomCornerRadius] 是屏幕下角的物理圆角半径（像素），取不到时传 0，按 36dp 估。[exiting] 为真（浮窗要关了）时立刻淡出。
  */
 @Composable
 internal fun AssistantEdgeGlow(
     exiting: Boolean,
-    onEntranceFinished: () -> Unit,
+    bottomCornerRadius: Float,
     modifier: Modifier = Modifier,
 ) {
     val clock = remember { Animatable(0f) }
     var firstWakeComplete by remember { mutableStateOf(false) }
-    val entranceFinished by rememberUpdatedState(onEntranceFinished)
-    val opacity by
+    val shown = !firstWakeComplete && !exiting
+    val opacity =
         animateFloatAsState(
-            targetValue = if (!firstWakeComplete && !exiting) 1f else 0f,
+            targetValue = if (shown) 1f else 0f,
             animationSpec =
-                tween(
-                    durationMillis = if (!firstWakeComplete && !exiting) 140 else 260,
-                    easing = FastOutSlowInEasing,
-                ),
+                tween(durationMillis = if (shown) 140 else 260, easing = FastOutSlowInEasing),
             label = "assistant_edge_glow",
         )
+    // 淡入淡出每帧都变，组合阶段只看它是不是还在画
+    val drawing by remember { derivedStateOf { opacity.value > 0f } }
     LaunchedEffect(Unit) {
-        launch {
-            snapshotFlow { clock.value >= WakeHandoffSeconds }.first { it }
-            entranceFinished()
-        }
         val durationMs = (entranceDurationSeconds * 1000f).toInt()
         clock.animateTo(entranceDurationSeconds, tween(durationMs, easing = LinearEasing))
         firstWakeComplete = true
     }
-    if (opacity > 0f) EdgeGlowCanvas({ clock.value }, { opacity }, modifier)
+    if (drawing) EdgeGlowCanvas({ clock.value }, { opacity.value }, bottomCornerRadius, modifier)
 }
 
 /** 停在 [seconds] 那一刻的一帧，不动；截图测试用来看光效放到一半的样子。 */
 @Composable
-internal fun AssistantEdgeGlowFrame(seconds: Float, modifier: Modifier = Modifier) {
-    EdgeGlowCanvas({ seconds }, { 1f }, modifier)
+internal fun AssistantEdgeGlowFrame(
+    seconds: Float,
+    modifier: Modifier = Modifier,
+    bottomCornerRadius: Float = 0f,
+) {
+    EdgeGlowCanvas({ seconds }, { 1f }, bottomCornerRadius, modifier)
 }
 
 /** 铺满的光效层。[seconds] 和 [opacity] 只在绘制阶段读，动画每帧只重画、不重组。 */
 @Composable
-private fun EdgeGlowCanvas(seconds: () -> Float, opacity: () -> Float, modifier: Modifier) {
-    val (bottomLeftRadiusPx, bottomRightRadiusPx) = rememberBottomCornerRadiiPx()
+private fun EdgeGlowCanvas(
+    seconds: () -> Float,
+    opacity: () -> Float,
+    bottomCornerRadius: Float,
+    modifier: Modifier,
+) {
     val painter = remember { EdgeGlowPainter() }
     Canvas(modifier.fillMaxSize()) {
         val alpha = opacity()
         if (alpha <= 0f || size.width <= 0f || size.height <= 0f) return@Canvas
-        painter.draw(this, seconds(), alpha, bottomLeftRadiusPx, bottomRightRadiusPx)
+        val corner = if (bottomCornerRadius > 0f) bottomCornerRadius else 36f * density
+        painter.draw(this, seconds(), alpha, corner)
     }
 }
 
-/** 光效的路径和画笔（照 Eta 在 remember 里建的那几样），一帧一帧往上画。 */
+/**
+ * 光效的几何：屏幕尺寸、电源键高度、下角（内收后）的半径。只跟着尺寸、密度和圆角变，不随帧变。
+ *
+ * [cornerRadius] 是屏幕下角的物理圆角半径（像素）。
+ */
+private class Frame(
+    val width: Float,
+    val height: Float,
+    val density: Float,
+    val cornerRadius: Float,
+    val hardware: Boolean,
+) {
+    val inset = 1.5f * density
+    val corner = (cornerRadius - inset).coerceIn(12f * density, minOf(width, height) * 0.22f)
+    val powerY = height * POWER_BUTTON_HEIGHT_RATIO
+
+    fun matches(width: Float, height: Float, density: Float, radius: Float, hardware: Boolean) =
+        width == this.width &&
+            height == this.height &&
+            density == this.density &&
+            radius == cornerRadius &&
+            hardware == this.hardware
+}
+
+/** 光效的路径、渐变和画笔（照 Eta 在 remember 里建的那几样）：几何不变时都复用，一帧一帧往上画。 */
 private class EdgeGlowPainter {
+    private var frame: Frame? = null
     private val fullTrackPath = Path()
+    private var trackLength = 0f
     private val segmentPath = Path()
     private val cradleRimPath = Path()
+    private var cradleRimClimb = Float.NaN
     private val pathMeasure = PathMeasure()
     private val headPos = FloatArray(2)
     private val tailPos = FloatArray(2)
-    private val haloStrokePaint = strokePaint()
-    private val coreStrokePaint = strokePaint()
 
-    /** 这一帧的几何：屏幕尺寸、电源键高度、两个下角（内收后）的半径。 */
-    private class Frame(
-        val width: Float,
-        val height: Float,
-        val density: Float,
-        val inset: Float,
-        val cornerL: Float,
-        val cornerR: Float,
-        val hardware: Boolean,
-    ) {
-        val powerY = height * POWER_BUTTON_HEIGHT_RATIO
-    }
+    /** 流光的渐变从 (0, 0) 到 (1, 0) 建一次，每帧用 [streamerMatrix] 映射到尾到头那一段。 */
+    private val streamerShader =
+        LinearGradient(
+            0f,
+            0f,
+            1f,
+            0f,
+            streamerGradientArgb,
+            streamerGradientStops,
+            Shader.TileMode.CLAMP,
+        )
+    private val streamerMatrix = Matrix()
+    private val streamerMatrixValues = FloatArray(9).also { it[8] = 1f }
+    private val streamerHaloPaint = strokePaint().apply { shader = streamerShader }
+    private val streamerCorePaint = strokePaint().apply { shader = streamerShader }
 
-    fun draw(
-        scope: DrawScope,
-        seconds: Float,
-        alpha: Float,
-        bottomLeftRadiusPx: Float,
-        bottomRightRadiusPx: Float,
-    ) =
+    /** 底边光的渐变按屏宽建，每帧用 [rimMatrix] 横向平移出流动感。 */
+    private var rimShader: LinearGradient? = null
+    private val rimMatrix = Matrix()
+    private val rimHaloPaint = strokePaint()
+    private val rimCorePaint = strokePaint()
+
+    fun draw(scope: DrawScope, seconds: Float, alpha: Float, cornerRadius: Float) =
         with(scope) {
-            val width = size.width
-            val height = size.height
-            val inset = 1.5f * density
-            val limit = minOf(width, height) * 0.22f
-            val frame =
-                Frame(
-                    width = width,
-                    height = height,
-                    density = density,
-                    inset = inset,
-                    cornerL = (bottomLeftRadiusPx - inset).coerceIn(12f * density, limit),
-                    cornerR = (bottomRightRadiusPx - inset).coerceIn(12f * density, limit),
-                    hardware = drawContext.canvas.nativeCanvas.isHardwareAccelerated,
-                )
-            val wakeEntry = height > width
+            val frame = layout(this, cornerRadius)
+            val wakeEntry = frame.height > frame.width
             // 1. 电源键极光呼吸点亮。
             if (wakeEntry && seconds < POWER_HALO_END_SECONDS) drawPowerHalo(frame, seconds, alpha)
             // 2. 沿右侧边框经右下真实圆角包覆滑入底边的流光拖尾。
@@ -235,6 +256,46 @@ private class EdgeGlowPainter {
             }
         }
 
+    /** 这一帧的几何；尺寸、密度和圆角都没变时沿用上一帧的轨道、底边渐变和画笔设置。 */
+    private fun layout(scope: DrawScope, cornerRadius: Float): Frame {
+        val width = scope.size.width
+        val height = scope.size.height
+        val density = scope.density
+        val hardware = scope.drawContext.canvas.nativeCanvas.isHardwareAccelerated
+        frame
+            ?.takeIf { it.matches(width, height, density, cornerRadius, hardware) }
+            ?.let {
+                return it
+            }
+        val next = Frame(width, height, density, cornerRadius, hardware)
+        frame = next
+        buildTrack(next)
+        pathMeasure.setPath(fullTrackPath, false)
+        trackLength = pathMeasure.length
+        cradleRimClimb = Float.NaN
+        val shader =
+            LinearGradient(
+                0f,
+                height,
+                width,
+                height,
+                bottomRimGradientArgb,
+                bottomRimGradientStops,
+                Shader.TileMode.CLAMP,
+            )
+        rimShader = shader
+        streamerHaloPaint.strokeWidth = 16f * density
+        streamerHaloPaint.maskFilter =
+            if (hardware) BlurMaskFilter(11f * density, BlurMaskFilter.Blur.NORMAL) else null
+        streamerCorePaint.strokeWidth = 3.2f * density
+        rimHaloPaint.shader = shader
+        rimHaloPaint.strokeWidth = 8.5f * density
+        rimHaloPaint.maskFilter = BlurMaskFilter(8f * density, BlurMaskFilter.Blur.NORMAL)
+        rimCorePaint.shader = shader
+        rimCorePaint.strokeWidth = 2.2f * density
+        return next
+    }
+
     private fun DrawScope.drawPowerHalo(frame: Frame, seconds: Float, alpha: Float) {
         val early = (seconds / POWER_HALO_HOLD_SECONDS).coerceIn(0f, 1f)
         val late =
@@ -246,53 +307,34 @@ private class EdgeGlowPainter {
         val radiusScale = frame.density / 3f
         val radius = (((240f + 560f * early) + 880f * late) * radiusScale).coerceAtLeast(1f)
         val driftY = haloEasing.transform((seconds / POWER_HALO_MOVE_SECONDS).coerceIn(0f, 1f))
-        val center =
-            Offset(
-                frame.width * 1.24f,
-                frame.powerY + (frame.height * 0.62f - frame.powerY) * 0.55f * driftY,
-            )
+        val centerX = frame.width * 1.24f
+        val centerY = frame.powerY + (frame.height * 0.62f - frame.powerY) * 0.55f * driftY
         val haloFade = if (seconds < POWER_HALO_HOLD_SECONDS) early else (1f - late)
-        drawCircle(
-            brush =
-                Brush.radialGradient(
-                    colorStops =
-                        arrayOf(
-                            0f to powerAuroraCore,
-                            0.46f to powerAuroraMid,
-                            1f to Color.Transparent,
-                        ),
-                    center = center,
-                    radius = radius,
-                ),
-            center = center,
-            radius = radius,
-            alpha = alpha * haloFade,
-        )
+        drawUnitGlow(powerHaloBrush, centerX, centerY, radius, radius, alpha * haloFade)
     }
 
     private fun buildTrack(frame: Frame) {
         val width = frame.width
         val height = frame.height
         val inset = frame.inset
-        val cornerR = frame.cornerR
-        val cornerL = frame.cornerL
+        val corner = frame.corner
         fullTrackPath.reset()
         fullTrackPath.moveTo(width - inset, frame.powerY)
-        fullTrackPath.lineTo(width - inset, height - inset - cornerR)
+        fullTrackPath.lineTo(width - inset, height - inset - corner)
         fullTrackPath.arcTo(
-            width - inset - cornerR * 2f,
-            height - inset - cornerR * 2f,
+            width - inset - corner * 2f,
+            height - inset - corner * 2f,
             width - inset,
             height - inset,
             0f,
             90f,
             false,
         )
-        fullTrackPath.lineTo(inset + cornerL, height - inset)
+        fullTrackPath.lineTo(inset + corner, height - inset)
         fullTrackPath.arcTo(
             inset,
-            height - inset - cornerL * 2f,
-            inset + cornerL * 2f,
+            height - inset - corner * 2f,
+            inset + corner * 2f,
             height - inset,
             90f,
             72f,
@@ -310,9 +352,7 @@ private class EdgeGlowPainter {
                 ((seconds - bottomRevealEndSeconds) /
                         (STREAMER_SETTLE_SECONDS - bottomRevealEndSeconds))
                     .coerceIn(0f, 1f))
-        buildTrack(frame)
-        pathMeasure.setPath(fullTrackPath, false)
-        val totalLength = pathMeasure.length
+        val totalLength = trackLength
         if (totalLength <= 1f) return
         val headDist = totalLength * travel
         val tailSpan = totalLength * (0.34f + 0.18f * sin(travel * Math.PI).toFloat())
@@ -322,51 +362,40 @@ private class EdgeGlowPainter {
         if (!pathMeasure.getSegment(tailDist, headDist, segmentPath, true)) return
         pathMeasure.getPosTan(headDist, headPos, null)
         pathMeasure.getPosTan(tailDist, tailPos, null)
-        val ribbonShader =
-            LinearGradient(
-                tailPos[0],
-                tailPos[1],
-                headPos[0] + 0.5f,
-                headPos[1] + 0.5f,
-                streamerGradientArgb,
-                floatArrayOf(0f, 0.25f, 0.62f, 0.86f, 1f),
-                Shader.TileMode.CLAMP,
-            )
+        alignStreamerGradient()
         val density = frame.density
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
-            haloStrokePaint.shader = ribbonShader
-            haloStrokePaint.strokeWidth = 16f * density
-            haloStrokePaint.maskFilter =
-                if (frame.hardware) BlurMaskFilter(11f * density, BlurMaskFilter.Blur.NORMAL)
-                else null
-            haloStrokePaint.alpha =
+            streamerHaloPaint.alpha =
                 (alpha * fadeOut * (if (frame.hardware) 0.62f else 0.24f) * 255f).toInt()
-            native.drawPath(segmentPath, haloStrokePaint)
-
-            coreStrokePaint.shader = ribbonShader
-            coreStrokePaint.strokeWidth = 3.2f * density
-            coreStrokePaint.alpha = (alpha * fadeOut * 0.92f * 255f).toInt()
-            native.drawPath(segmentPath, coreStrokePaint)
+            native.drawPath(segmentPath, streamerHaloPaint)
+            streamerCorePaint.alpha = (alpha * fadeOut * 0.92f * 255f).toInt()
+            native.drawPath(segmentPath, streamerCorePaint)
         }
-        val headCenter = Offset(headPos[0], headPos[1])
         val headRadius = 20f * density
-        drawCircle(
-            brush =
-                Brush.radialGradient(
-                    colors =
-                        listOf(
-                            Color(0xFFFFF8EB),
-                            Color(0xFFF472B6).copy(alpha = 0.58f),
-                            Color.Transparent,
-                        ),
-                    center = headCenter,
-                    radius = headRadius,
-                ),
-            center = headCenter,
-            radius = headRadius,
-            alpha = alpha * fadeOut * 0.72f,
+        drawUnitGlow(
+            streamerHeadBrush,
+            headPos[0],
+            headPos[1],
+            headRadius,
+            headRadius,
+            alpha * fadeOut * 0.72f,
         )
+    }
+
+    /** 把流光渐变的 (0, 0)→(1, 0) 映射到尾端→头端（头端外推半个像素，照 Eta），只旋转、等比缩放和平移。 */
+    private fun alignStreamerGradient() {
+        val dx = headPos[0] + 0.5f - tailPos[0]
+        val dy = headPos[1] + 0.5f - tailPos[1]
+        val values = streamerMatrixValues
+        values[0] = dx
+        values[1] = -dy
+        values[2] = tailPos[0]
+        values[3] = dy
+        values[4] = dx
+        values[5] = tailPos[1]
+        streamerMatrix.setValues(values)
+        streamerShader.setLocalMatrix(streamerMatrix)
     }
 
     private fun DrawScope.drawBottomLobes(
@@ -379,32 +408,46 @@ private class EdgeGlowPainter {
         val slowDrift = sin(seconds * 0.95f) * 0.045f
         val secondaryDrift = cos(seconds * 0.68f) * 0.03f
         val glowHeight = 88f * frame.density * (0.72f + 0.28f * bottomEntry)
-        val centersX =
-            floatArrayOf(
-                (0.12f + slowDrift) * width,
-                (0.39f - secondaryDrift) * width,
-                (0.66f + secondaryDrift) * width,
-                (0.88f - slowDrift * 0.8f) * width,
-            )
-        val radiiRatio = floatArrayOf(0.32f, 0.38f, 0.36f, 0.30f)
         val radius = glowHeight.coerceAtLeast(1f)
-        for (index in bottomLobePalettes.indices) {
-            val center = Offset(centersX[index], frame.height + glowHeight * 0.12f)
-            val horizontalRadius = (width * radiiRatio[index]).coerceAtLeast(glowHeight)
-            val lobeAlpha = (alpha * bottomEntry * 0.78f).coerceIn(0f, 1f)
-            withTransform({ scale(horizontalRadius / radius, 1f, pivot = center) }) {
-                drawCircle(
-                    brush =
-                        Brush.radialGradient(
-                            colors = bottomLobePalettes[index],
-                            center = center,
-                            radius = radius,
-                        ),
-                    center = center,
-                    radius = radius,
-                    alpha = lobeAlpha,
-                )
-            }
+        val centerY = frame.height + glowHeight * 0.12f
+        val lobeAlpha = (alpha * bottomEntry * 0.78f).coerceIn(0f, 1f)
+        for (index in bottomLobeBrushes.indices) {
+            val centerX =
+                width *
+                    when (index) {
+                        0 -> 0.12f + slowDrift
+                        1 -> 0.39f - secondaryDrift
+                        2 -> 0.66f + secondaryDrift
+                        else -> 0.88f - slowDrift * 0.8f
+                    }
+            val horizontalRadius = (width * bottomLobeRadiusRatios[index]).coerceAtLeast(glowHeight)
+            drawUnitGlow(
+                bottomLobeBrushes[index],
+                centerX,
+                centerY,
+                horizontalRadius,
+                radius,
+                lobeAlpha,
+            )
+        }
+    }
+
+    /** 画一团按单位半径建的径向光：圆心平移到 ([x], [y])，横竖各缩放到 [radiusX]、[radiusY]。 */
+    private fun DrawScope.drawUnitGlow(
+        brush: Brush,
+        x: Float,
+        y: Float,
+        radiusX: Float,
+        radiusY: Float,
+        alpha: Float,
+    ) {
+        withTransform(
+            {
+                translate(x, y)
+                scale(radiusX, radiusY, pivot = Offset.Zero)
+            },
+        ) {
+            drawCircle(brush = brush, radius = 1f, center = Offset.Zero, alpha = alpha)
         }
     }
 
@@ -415,66 +458,55 @@ private class EdgeGlowPainter {
         alpha: Float,
         bottomEntry: Float,
     ) {
+        val rimClimb = 22f * frame.density * bottomEntry
+        if (rimClimb != cradleRimClimb) {
+            buildCradleRim(frame, rimClimb)
+            cradleRimClimb = rimClimb
+        }
+        rimMatrix.setTranslate(sin(seconds * 1.35f) * frame.width * 0.12f, 0f)
+        rimShader?.setLocalMatrix(rimMatrix)
+        val rimBreath = 0.46f + 0.12f * sin(seconds * 2.1f)
+        drawIntoCanvas { canvas ->
+            val native = canvas.nativeCanvas
+            if (frame.hardware) {
+                rimHaloPaint.alpha =
+                    (alpha * bottomEntry * rimBreath * 0.65f * 255f).toInt().coerceIn(0, 255)
+                native.drawPath(cradleRimPath, rimHaloPaint)
+            }
+            rimCorePaint.alpha =
+                (alpha * bottomEntry * rimBreath * 0.88f * 255f).toInt().coerceIn(0, 255)
+            native.drawPath(cradleRimPath, rimCorePaint)
+        }
+    }
+
+    private fun buildCradleRim(frame: Frame, rimClimb: Float) {
         val width = frame.width
         val height = frame.height
         val inset = frame.inset
-        val cornerL = frame.cornerL
-        val cornerR = frame.cornerR
-        val density = frame.density
-        val rimClimb = 22f * density * bottomEntry
+        val corner = frame.corner
         cradleRimPath.reset()
-        cradleRimPath.moveTo(inset, height - inset - cornerL - rimClimb)
-        cradleRimPath.lineTo(inset, height - inset - cornerL)
+        cradleRimPath.moveTo(inset, height - inset - corner - rimClimb)
+        cradleRimPath.lineTo(inset, height - inset - corner)
         cradleRimPath.arcTo(
             inset,
-            height - inset - cornerL * 2f,
-            inset + cornerL * 2f,
+            height - inset - corner * 2f,
+            inset + corner * 2f,
             height - inset,
             180f,
             -90f,
             false,
         )
-        cradleRimPath.lineTo(width - inset - cornerR, height - inset)
+        cradleRimPath.lineTo(width - inset - corner, height - inset)
         cradleRimPath.arcTo(
-            width - inset - cornerR * 2f,
-            height - inset - cornerR * 2f,
+            width - inset - corner * 2f,
+            height - inset - corner * 2f,
             width - inset,
             height - inset,
             90f,
             -90f,
             false,
         )
-        cradleRimPath.lineTo(width - inset, height - inset - cornerR - rimClimb)
-
-        val shimmerShift = sin(seconds * 1.35f) * width * 0.12f
-        val rimShader =
-            LinearGradient(
-                shimmerShift,
-                height,
-                width + shimmerShift,
-                height,
-                bottomRimGradientArgb,
-                floatArrayOf(0f, 0.18f, 0.42f, 0.64f, 0.84f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        val rimBreath = 0.46f + 0.12f * sin(seconds * 2.1f)
-        drawIntoCanvas { canvas ->
-            val native = canvas.nativeCanvas
-            if (frame.hardware) {
-                haloStrokePaint.shader = rimShader
-                haloStrokePaint.strokeWidth = 8.5f * density
-                haloStrokePaint.maskFilter =
-                    BlurMaskFilter(8f * density, BlurMaskFilter.Blur.NORMAL)
-                haloStrokePaint.alpha =
-                    (alpha * bottomEntry * rimBreath * 0.65f * 255f).toInt().coerceIn(0, 255)
-                native.drawPath(cradleRimPath, haloStrokePaint)
-            }
-            coreStrokePaint.shader = rimShader
-            coreStrokePaint.strokeWidth = 2.2f * density
-            coreStrokePaint.alpha =
-                (alpha * bottomEntry * rimBreath * 0.88f * 255f).toInt().coerceIn(0, 255)
-            native.drawPath(cradleRimPath, coreStrokePaint)
-        }
+        cradleRimPath.lineTo(width - inset, height - inset - corner - rimClimb)
     }
 
     private companion object {

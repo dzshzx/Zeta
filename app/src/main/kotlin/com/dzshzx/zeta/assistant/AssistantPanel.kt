@@ -3,7 +3,6 @@ package com.dzshzx.zeta.assistant
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -86,6 +85,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import io.github.suqi8.coui.kmp.anim.COUIOutEaseEasing
 import io.github.suqi8.coui.kmp.anim.couiSpring
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
@@ -100,9 +100,6 @@ import kotlinx.coroutines.launch
 // （G2 顶角、沿顶边的环境投影、顶边高光）、把手。去掉了语音（声波、聆听态的托底、语音反馈）；
 // 面板的高度、档位和拖动在 AssistantSheet.kt；回答里一问一答怎么排在 AssistantReply.kt。
 // Zeta 自己加的：带上的屏幕那一行、发不出去时的说明、「在 Zeta 中继续」、还没发时整列上推打开 Zeta。
-
-private val CouiEnterEasing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
-private val CouiExitEasing = CubicBezierEasing(0.30f, 0f, 1f, 1f)
 
 /** 唤起以后多久弹键盘（照 Eta 的录屏：面板先淡入、建议问题一个个出来，约 1.2 秒时键盘已经弹上来）。 */
 private const val KeyboardDelayMs = 850
@@ -190,6 +187,8 @@ internal fun AssistantScreen(
     autoFocus: Boolean = false,
     /** 回答期间点停止键：打断这一轮。 */
     onStop: () -> Unit = {},
+    /** 屏幕下角的物理圆角半径（像素），唤起光效贴着它转弯；取不到时是 0。 */
+    bottomCornerRadius: Float = 0f,
 ) {
     val colors = rememberAssistantColors()
     val motion = rememberPanelMotion()
@@ -197,7 +196,7 @@ internal fun AssistantScreen(
     val exitProgress by
         animateFloatAsState(
             targetValue = if (visible) 0f else 1f,
-            animationSpec = tween(210, easing = CouiExitEasing),
+            animationSpec = tween(210, easing = COUIOutEaseEasing),
             label = "assistant_exit",
         )
     val hasMessages = reply != null
@@ -233,7 +232,7 @@ internal fun AssistantScreen(
                 Modifier.fillMaxSize()
                     .clickable(interactionSource = null, indication = null, onClick = onDismiss),
         )
-        AssistantEdgeGlow(exiting = !visible, onEntranceFinished = {})
+        AssistantEdgeGlow(exiting = !visible, bottomCornerRadius = bottomCornerRadius)
         Box(
             modifier =
                 Modifier.fillMaxSize().graphicsLayer {
@@ -444,7 +443,7 @@ private fun ColumnScope.PanelBody(
         input = state.draft,
         busy = reply?.busy == true,
         sending = state.sending,
-        focusRequestKey = if (focusInput) 0 else -1,
+        focus = focusInput,
         keyboardVisible = rememberKeyboardVisible(),
         colors = colors,
         onSubmit = {
@@ -530,7 +529,7 @@ private fun Modifier.sheetSurface(
     alpha: () -> Float,
     visible: Boolean,
 ): Modifier {
-    val shape = TopCouiSheetShape(topRadius = SheetCornerRadius, cornerWeight = 2.6f)
+    val shape = TopCouiSheetShape(topRadius = SheetCornerRadius)
     return drawBehind { drawSheetShadow(colors, alpha()) }
         .then(
             if (visible)
@@ -552,8 +551,7 @@ private fun DrawScope.drawSheetShadow(colors: AssistantColors, sheetAlpha: Float
     val shadowRisePx = 28.dp.toPx()
     val cornerPx = SheetCornerRadius.toPx().coerceIn(0f, minOf(size.width * 0.5f, size.height))
     val maxAlpha = (if (colors.dark) 0.30f else 0.10f) * sheetAlpha
-    val sheetPath = buildTopCouiSheetPath(size, cornerPx, 2.6f)
-    val rimPath = buildTopCouiRimPath(size, cornerPx, 2.6f)
+    val sheetPath = buildTopCouiSheetPath(size, cornerPx)
     clipRect(left = 0f, top = -shadowRisePx, right = size.width, bottom = cornerPx) {
         clipPath(sheetPath, clipOp = ClipOp.Difference) {
             val layers = 8
@@ -564,7 +562,7 @@ private fun DrawScope.drawSheetShadow(colors: AssistantColors, sheetAlpha: Float
                 val layerAlpha = maxAlpha * falloff * falloff * (2.2f / layers)
                 if (layerAlpha > 0.001f) {
                     drawPath(
-                        path = rimPath,
+                        path = sheetPath,
                         color = Color.Black.copy(alpha = layerAlpha),
                         style = Stroke(width = spread * 2f, cap = StrokeCap.Butt),
                     )
@@ -577,7 +575,7 @@ private fun DrawScope.drawSheetShadow(colors: AssistantColors, sheetAlpha: Float
 /** 面板顶边的一道高光，往下渐隐。 */
 private fun DrawScope.drawSheetSpecular(colors: AssistantColors, sheetAlpha: Float) {
     val rimFadePx = minOf(84.dp.toPx(), size.height * 0.55f)
-    val path = buildTopCouiSheetPath(size, SheetCornerRadius.toPx(), 2.6f)
+    val path = buildTopCouiSheetPath(size, SheetCornerRadius.toPx())
     drawPath(
         path = path,
         brush =
@@ -728,12 +726,7 @@ private fun ScreenRow(screen: ScreenChip, colors: AssistantColors, onToggle: () 
         Row(
             modifier =
                 Modifier.weight(1f, fill = false)
-                    .couiAssistantCapsule(
-                        surfaceColor = colors.chipBackground,
-                        strokeColor = colors.chipStroke,
-                        dark = colors.dark,
-                        elevation = AssistantCapsuleElevation.Chip,
-                    )
+                    .couiAssistantCapsule(colors, AssistantCapsuleElevation.Chip)
                     .padding(start = 11.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -817,9 +810,7 @@ private fun ProblemNote(text: String, colors: AssistantColors) {
             color = colors.error,
             modifier =
                 Modifier.couiAssistantCapsule(
-                        surfaceColor = colors.chipBackground,
-                        strokeColor = colors.chipStroke,
-                        dark = colors.dark,
+                        colors = colors,
                         elevation = AssistantCapsuleElevation.Chip,
                         shape = RoundedCornerShape(16.dp),
                     )

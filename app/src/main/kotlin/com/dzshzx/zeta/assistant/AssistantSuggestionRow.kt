@@ -3,7 +3,6 @@ package com.dzshzx.zeta.assistant
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -32,13 +31,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.suqi8.coui.kmp.basic.Text
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 // 拷自 Eta 的 agent/voice/EtaAssistantSuggestions.kt（GPL-3.0）：建议问题改由调用方给，
 // 依次错开出现的间隔从协程里的 delay 换成动画自己的 delayMillis（截图测试里动画时长按 0 算，一样放完）。
-
-private val suggestionEnterEasing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
 
 /** 第一个建议问题等浮窗淡入一点以后再出来，之后每个错开这么久（照 Eta 录屏里一个个冒出来的节奏）。 */
 private const val SuggestionLeadMs = 120
@@ -93,31 +89,14 @@ private fun SuggestionCapsule(
     val opacity = remember(suggestion) { Animatable(0f) }
     val interactionSource = remember(suggestion) { MutableInteractionSource() }
     val press = rememberCouiPressMotion()
-    LaunchedEffect(visible) {
-        if (visible) {
-            progress.snapTo(0f)
-            opacity.snapTo(0f)
-            val lead = SuggestionLeadMs + index * SuggestionStaggerMs
-            coroutineScope {
-                launch {
-                    progress.animateTo(
-                        targetValue = 1f,
-                        animationSpec =
-                            tween(250, delayMillis = lead, easing = suggestionEnterEasing),
-                    )
-                }
-                launch {
-                    opacity.animateTo(
-                        1f,
-                        tween(180, delayMillis = lead, easing = FastOutSlowInEasing),
-                    )
-                }
-            }
-        } else {
-            coroutineScope {
-                launch { progress.animateTo(0f, tween(120)) }
-                launch { opacity.animateTo(0f, tween(110)) }
-            }
+    // 只管入场：出场由外层的 AnimatedVisibility 收起整行（建议问题只在发出去以后或列表变空时消失）
+    LaunchedEffect(suggestion) {
+        val lead = SuggestionLeadMs + index * SuggestionStaggerMs
+        launch {
+            progress.animateTo(1f, tween(250, delayMillis = lead, easing = CouiEnterEasing))
+        }
+        launch {
+            opacity.animateTo(1f, tween(180, delayMillis = lead, easing = FastOutSlowInEasing))
         }
     }
     Box(
@@ -127,18 +106,15 @@ private fun SuggestionCapsule(
                     val p = progress.value
                     alpha = opacity.value
                     translationY = (1f - p) * 10.dp.toPx()
-                    val entryScale = 0.93f + 0.07f * p
-                    scaleX = entryScale
-                    scaleY = entryScale
+                    val scale = (0.93f + 0.07f * p) * press.scale.value
+                    scaleX = scale
+                    scaleY = scale
                 }
-                .couiPressMotion(press, enabled = visible, cancelOnConsumedMove = true)
+                .couiPressMotion(press, enabled = visible)
                 .couiAssistantCapsule(
-                    surfaceColor = colors.chipBackground,
-                    strokeColor = colors.chipStroke,
-                    dark = colors.dark,
+                    colors = colors,
                     elevation = AssistantCapsuleElevation.Chip,
                     interactionSource = if (visible) interactionSource else null,
-                    pressMotion = press,
                 )
                 .clickable(
                     interactionSource = interactionSource,

@@ -1,13 +1,14 @@
 package com.dzshzx.zeta.assistant
 
-import android.util.LruCache
 import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -15,8 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -24,12 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -43,12 +39,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.suqi8.coui.kmp.anim.couiSpring
+import io.github.suqi8.coui.kmp.effect.COUIMaterialEffect
+import io.github.suqi8.coui.kmp.squircle.addSquircleRect
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.COUIIndication
 import io.github.suqi8.coui.kmp.utils.couiTouchFeedback
-import kotlin.math.ceil
-import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -140,142 +134,85 @@ private fun lightColors(accent: Color, destructive: Color) =
         questionBubble = Color(0xFFE5E7EA),
     )
 
+/** 回答面板 G2 顶角的超椭圆指数（照 Eta）。 */
+private const val SheetCornerWeight = 2.6f
+
+/** 浮窗里各处进场用的曲线（COUI 的进场减速曲线 cubic-bezier(0.2, 0, 0, 1)）。 */
+internal val CouiEnterEasing: Easing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
+
 /** 顶部采用 Oplus G2 连续曲率、底部保持直角的半屏面板轮廓，使面板底边能完整贴合屏幕与导航区。 */
 @Immutable
-internal data class TopCouiSheetShape(val topRadius: Dp, val cornerWeight: Float = 2.6f) : Shape {
+internal data class TopCouiSheetShape(val topRadius: Dp) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density,
-    ): Outline {
-        if (size.width <= 0f || size.height <= 0f) {
-            return Outline.Rectangle(Rect.Zero)
-        }
-        val radiusPx =
-            (topRadius.value * density.density).coerceIn(0f, minOf(size.width * 0.5f, size.height))
-        if (radiusPx <= 0.5f) {
-            return Outline.Rectangle(Rect(0f, 0f, size.width, size.height))
-        }
-        return Outline.Generic(buildTopCouiSheetPath(size, radiusPx, cornerWeight))
-    }
+    ): Outline = Outline.Generic(buildTopCouiSheetPath(size, with(density) { topRadius.toPx() }))
 }
 
-private data class SheetCornerKey(val radiusPx: Int, val weightBits: Int)
-
-private val topSheetCornerSamples = LruCache<SheetCornerKey, FloatArray>(8)
-
-internal fun buildTopCouiSheetPath(size: Size, radiusPx: Float, cornerWeight: Float = 2.6f): Path {
-    val r = radiusPx.coerceIn(0f, minOf(size.width * 0.5f, size.height))
-    val path = Path()
-    if (r <= 0.5f) {
-        path.addRect(Rect(0f, 0f, size.width, size.height))
-        return path
+/** 面板轮廓的路径：两个顶角是 G2 连续圆角，两个底角是直角。 */
+internal fun buildTopCouiSheetPath(size: Size, radiusPx: Float): Path =
+    Path().apply {
+        addSquircleRect(
+            rect = Rect(Offset.Zero, size),
+            topLeft = radiusPx,
+            topRight = radiusPx,
+            bottomRight = 0f,
+            bottomLeft = 0f,
+            weight = SheetCornerWeight,
+        )
     }
-    path.moveTo(0f, size.height)
-    path.lineTo(0f, r)
-    appendTopCouiRim(path, size.width, r, cornerWeight)
-    path.lineTo(size.width, size.height)
-    path.close()
-    return path
-}
-
-internal fun buildTopCouiRimPath(size: Size, radiusPx: Float, cornerWeight: Float = 2.6f): Path {
-    val r = radiusPx.coerceIn(0f, minOf(size.width * 0.5f, size.height))
-    val path = Path()
-    if (r <= 0.5f) {
-        path.moveTo(0f, 0f)
-        path.lineTo(size.width, 0f)
-        return path
-    }
-    path.moveTo(0f, r)
-    appendTopCouiRim(path, size.width, r, cornerWeight)
-    return path
-}
-
-private fun appendTopCouiRim(path: Path, width: Float, r: Float, cornerWeight: Float) {
-    val key = SheetCornerKey((r * 10f).toInt(), cornerWeight.toRawBits())
-    val points =
-        topSheetCornerSamples[key]
-            ?: sampleQuarterLpCorner(r, cornerWeight).also { topSheetCornerSamples.put(key, it) }
-    val count = points.size / 2
-    // 左上连续圆角：i 递增时 (r - y, r - x) 从 (0, r) 顺时针过渡到 (r, 0)。
-    for (i in 0 until count) {
-        val x = points[i * 2]
-        val y = points[i * 2 + 1]
-        path.lineTo(r - y, r - x)
-    }
-    path.lineTo(width - r, 0f)
-    // 右上连续圆角：i 递增时 (width - r + x, r - y) 从 (width - r, 0) 顺时针过渡到 (width, r)。
-    for (i in 0 until count) {
-        val x = points[i * 2]
-        val y = points[i * 2 + 1]
-        path.lineTo(width - r + x, r - y)
-    }
-}
-
-private fun sampleQuarterLpCorner(radiusPx: Float, cornerWeight: Float): FloatArray {
-    val weight = cornerWeight.coerceAtLeast(2f).toDouble()
-    val diagonal = 0.5.pow(1.0 / weight)
-    val segments =
-        ceil(sqrt(radiusPx * (weight - 1.0) * diagonal / (4.0 * 0.05))).toInt().coerceIn(4, 48)
-    val halfCorner =
-        DoubleArray(segments + 1) { index ->
-            (1.0 - (diagonal * index / segments).pow(weight)).pow(1.0 / weight)
-        }
-    val total = segments * 2 + 1
-    val coords = FloatArray(total * 2)
-    for (index in 0..segments * 2) {
-        val firstHalf = index <= segments
-        val halfIndex = if (firstHalf) index else segments * 2 - index
-        val a = diagonal * halfIndex / segments
-        val b = halfCorner[halfIndex]
-        coords[index * 2] = (radiusPx * if (firstHalf) a else b).toFloat()
-        coords[index * 2 + 1] = (radiusPx * if (firstHalf) b else a).toFloat()
-    }
-    return coords
-}
 
 internal enum class AssistantCapsuleElevation {
     Composer,
     Chip,
 }
 
-/** 悬浮胶囊表面：硬件加速画布上启用投影，软件画布或窗口切换期回退为同轮廓纯色填充与细描边。 */
+/**
+ * 悬浮胶囊表面：硬件加速画布上启用投影，软件画布或窗口切换期回退为同轮廓纯色填充与细描边。
+ *
+ * [surface] 和 [highlight]（聚焦时那圈强调色描边的进度）只在绘制阶段读，跟着动画变时只重画、不重组。
+ */
 @Composable
 internal fun Modifier.couiAssistantCapsule(
-    surfaceColor: Color,
-    strokeColor: Color,
-    dark: Boolean,
+    colors: AssistantColors,
     elevation: AssistantCapsuleElevation = AssistantCapsuleElevation.Composer,
-    highlightProgress: Float = 0f,
+    surface: () -> Color = { colors.chipBackground },
+    highlight: () -> Float = { 0f },
     highlightColor: Color = Color.Unspecified,
     interactionSource: MutableInteractionSource? = null,
-    pressMotion: CouiPressMotion? = null,
     shape: Shape = CircleShape,
 ): Modifier {
-    val shadow = capsuleShadow(elevation, dark)
+    val shadow = capsuleShadow(elevation, colors.dark)
     val feedback =
-        if (interactionSource != null) Modifier.couiButtonFeedback(dark, interactionSource)
-        else Modifier
+        if (interactionSource != null) {
+            Modifier.couiTouchFeedback(interactionSource)
+                .indication(interactionSource, LocalIndication.current)
+        } else {
+            Modifier
+        }
     val shadowContext = LocalGraphicsContext.current.shadowContext
     val shadowPainter =
         remember(shadowContext, shadow, shape) {
             shadowContext.createDropShadowPainter(shape, shadow)
         }
-    return this.then(
-            if (pressMotion == null) Modifier
-            else
-                Modifier.graphicsLayer {
-                    scaleX = pressMotion.scale.value
-                    scaleY = pressMotion.scale.value
-                },
-        )
-        .drawBehind {
-            if (drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
-                with(shadowPainter) { draw(size) }
-            }
+    val strokeColor = colors.chipStroke
+    return this.drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
-            drawCapsuleFill(outline, surfaceColor, strokeColor, highlightColor, highlightProgress)
+            val hairline = Stroke(width = 0.75.dp.toPx())
+            val ring = Stroke(width = 1.15.dp.toPx())
+            onDrawBehind {
+                if (drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
+                    with(shadowPainter) { draw(size) }
+                }
+                drawOutline(outline, surface())
+                if (strokeColor.alpha > 0f) drawOutline(outline, strokeColor, style = hairline)
+                val progress = highlight()
+                if (progress > 0.01f && highlightColor != Color.Unspecified) {
+                    val ringColor = highlightColor.copy(alpha = highlightColor.alpha * progress)
+                    drawOutline(outline, ringColor, style = ring)
+                }
+            }
         }
         .clip(shape)
         .then(feedback)
@@ -298,67 +235,46 @@ private fun capsuleShadow(elevation: AssistantCapsuleElevation, dark: Boolean): 
             )
     }
 
-/** 胶囊的底色、细描边和聚焦时的一圈强调色描边。 */
-private fun DrawScope.drawCapsuleFill(
-    outline: Outline,
-    surfaceColor: Color,
-    strokeColor: Color,
-    highlightColor: Color,
-    highlightProgress: Float,
-) {
-    drawOutline(outline, surfaceColor)
-    if (strokeColor.alpha > 0f) {
-        drawOutline(outline, strokeColor, style = Stroke(width = 0.75.dp.toPx()))
-    }
-    if (highlightProgress > 0.01f && highlightColor != Color.Unspecified) {
-        drawOutline(
-            outline = outline,
-            color = highlightColor.copy(alpha = highlightColor.alpha * highlightProgress),
-            style = Stroke(width = 1.15.dp.toPx()),
-        )
-    }
-}
-
-/** COUI 按钮的按压蒙层：按下就出现（不等点击的超时），被外层滚动接走时撤掉。 */
-@Composable
-private fun Modifier.couiButtonFeedback(
-    dark: Boolean,
-    interactionSource: MutableInteractionSource,
-): Modifier {
-    val colors = COUITheme.colorScheme
-    val ink = if (dark) Color.White else Color.Black
-    val press = colors.press
-    val hover = colors.hover
-    val focus = colors.focus
-    val indication =
-        remember(ink, press, hover, focus) {
-            COUIIndication(ink, pressColor = press, hoverColor = hover, focusColor = focus)
-        }
-    return couiTouchFeedback(interactionSource).indication(interactionSource, indication)
-}
-
-/** 为需要与进入动画叠加的悬浮控件提供独立的按压进度。 */
+/**
+ * 为需要与进入动画叠加的悬浮控件提供独立的按压缩放（照 COUI 的 COUITouchMotionAnimator）：按下时缩到
+ * [COUIMaterialEffect.pressTargetScale]，松手回弹；长宽比不过 2 的用 jelly 弹簧，更长的用 candy 弹簧。
+ */
 internal class CouiPressMotion(private val scope: CoroutineScope, private val density: Float) {
     private val animation = Animatable(1f)
     private var motion: Job? = null
+    private var candy = false
     val scale = animation.asState()
 
     fun press(size: IntSize) {
         if (size.width <= 0 || size.height <= 0) return
-        val shortestSide = minOf(size.width, size.height) / density
-        val progress = ((shortestSide - 20f) / 130f).coerceIn(0f, 1f)
-        animate(0.85f + 0.12f * progress, response = 0.25f, bounce = 0f)
+        val width = size.width / density
+        val height = size.height / density
+        candy = maxOf(width / height, height / width) > PressCandyAspectRatio
+        val spring = if (candy) CandyPressSpring else JellyPressSpring
+        animate(COUIMaterialEffect.pressTargetScale(width, height), spring)
     }
 
-    fun release() = animate(1f, response = 0.5f, bounce = 0.55f)
+    fun release() = animate(1f, if (candy) CandyReleaseSpring else JellyReleaseSpring)
 
-    private fun animate(target: Float, response: Float, bounce: Float) {
+    private fun animate(target: Float, spring: SpringSpec<Float>) {
         motion?.cancel()
-        motion = scope.launch {
-            animation.animateTo(target, couiSpring(response = response, bounce = bounce))
-        }
+        motion = scope.launch { animation.animateTo(target, spring) }
     }
 }
+
+/** 长宽比超过它的控件按 COUI 的 candy 弹簧回弹（COUIPressAnimatorUnit）。 */
+private const val PressCandyAspectRatio = 2f
+
+// COUI 的 pressParamsDefault：按下 (bounce 0, response 0.25 / 0.3)，松手 (0.6 / 0.5, 0.5)；
+// 停止阈值照 COUIPressAnimatorUnit 的最小可见变化。
+private val JellyPressSpring =
+    couiSpring(response = 0.25f, bounce = 0f, visibilityThreshold = 0.001f)
+private val JellyReleaseSpring =
+    couiSpring(response = 0.5f, bounce = 0.6f, visibilityThreshold = 1.0e-4f)
+private val CandyPressSpring =
+    couiSpring(response = 0.3f, bounce = 0f, visibilityThreshold = 0.001f)
+private val CandyReleaseSpring =
+    couiSpring(response = 0.5f, bounce = 0.5f, visibilityThreshold = 1.0e-4f)
 
 @Composable
 internal fun rememberCouiPressMotion(): CouiPressMotion {
@@ -367,13 +283,10 @@ internal fun rememberCouiPressMotion(): CouiPressMotion {
     return remember(scope, density) { CouiPressMotion(scope, density) }
 }
 
-internal fun Modifier.couiPressMotion(
-    motion: CouiPressMotion,
-    enabled: Boolean = true,
-    cancelOnConsumedMove: Boolean = false,
-): Modifier {
+/** 按下时让 [motion] 缩下去、松手回弹；手指被外层滚动接走时也松开。 */
+internal fun Modifier.couiPressMotion(motion: CouiPressMotion, enabled: Boolean = true): Modifier {
     if (!enabled) return this
-    return pointerInput(motion, cancelOnConsumedMove) {
+    return pointerInput(motion) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
             motion.press(size)
@@ -381,68 +294,12 @@ internal fun Modifier.couiPressMotion(
                 do {
                     val event = awaitPointerEvent(PointerEventPass.Final)
                     val stolen =
-                        cancelOnConsumedMove &&
-                            event.changes.any {
-                                it.isConsumed && it.pressed && it.positionChangedIgnoreConsumed()
-                            }
+                        event.changes.any {
+                            it.isConsumed && it.pressed && it.positionChangedIgnoreConsumed()
+                        }
                 } while (!stolen && event.changes.any { it.pressed })
             } finally {
                 motion.release()
-            }
-        }
-    }
-}
-
-internal enum class AssistantGlyphKind {
-    Send,
-    Stop,
-}
-
-/** 胶囊内部动作图标，避免旧矢量自带实心外圈放进圆形按钮后形成双层套环。 */
-@Composable
-internal fun AssistantActionGlyph(
-    kind: AssistantGlyphKind,
-    tint: Color,
-    modifier: Modifier = Modifier.size(20.dp),
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val u = minOf(w, h) / 24f
-        when (kind) {
-            AssistantGlyphKind.Send -> {
-                val stroke = 2.25f * u
-                val centerX = w * 0.5f
-                val topY = 5.6f * u
-                val bottomY = 18.4f * u
-                drawLine(
-                    color = tint,
-                    start = Offset(centerX, bottomY),
-                    end = Offset(centerX, topY + 0.6f * u),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round,
-                )
-                val wing =
-                    Path().apply {
-                        moveTo(6.8f * u, 11.0f * u)
-                        lineTo(centerX, topY)
-                        lineTo(17.2f * u, 11.0f * u)
-                    }
-                drawPath(
-                    path = wing,
-                    color = tint,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round),
-                )
-            }
-            AssistantGlyphKind.Stop -> {
-                val side = 9.4f * u
-                val topLeft = Offset((w - side) * 0.5f, (h - side) * 0.5f)
-                drawRoundRect(
-                    color = tint,
-                    topLeft = topLeft,
-                    size = Size(side, side),
-                    cornerRadius = CornerRadius(2.5f * u, 2.5f * u),
-                )
             }
         }
     }
