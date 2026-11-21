@@ -5,7 +5,7 @@ name: Release
 #   gh workflow run release.yml --ref master -f bump=patch
 # version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
 # gate：wt land 合入时已在这个提交上过了门禁（commit status wt-land/gate）就跳过，否则调 ci.yml 跑。
-# build：GitHub 托管机上构建未签名的正式版。sign：在 environment release 里用正式发版密钥签名、核对、打包，
+# build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
 # 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：建草稿、打 tag、发布，只有它能写仓库。
 # dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
 # 只放 master 时，别的分支到 sign 就停。
@@ -21,8 +21,8 @@ on:
         description: 只构建、签名并核对，写运行摘要；不打 tag、不发布
         type: boolean
         default: false
-      gate_runner:
-        description: 合入时没过门禁时，门禁跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
+      runner:
+        description: 门禁（合入时没过门禁才跑）和构建跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
         type: choice
         options: [self-hosted, github-hosted]
         default: self-hosted
@@ -74,15 +74,19 @@ jobs:
     if: needs.version.outputs.gate_passed != 'true'
     uses: ./.github/workflows/ci.yml
     with:
-      gate_runner: ${{ inputs.gate_runner }}
+      gate_runner: ${{ inputs.runner }}
 
   build:
     needs: [version, gate]
     # gate 跳过（合入时已过门禁）也接着构建
     if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
-    runs-on: ubuntu-latest
+    # 默认在本机 runner 上构建：它的 .env 给 ANDROID_HOME 和持久的 GRADLE_USER_HOME，这个 job 不碰 Secrets。
+    runs-on: ${{ inputs.runner == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","nerv"]') }}
     timeout-minutes: 40
     steps:
+      - name: 每个 job 用新的 HOME
+        run: mkdir -p "$RUNNER_TEMP/home" && echo "HOME=$RUNNER_TEMP/home" >> "$GITHUB_ENV"
+
       - name: 检出
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,7 +98,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: gradle
+          # 本机 runner 的 Gradle 目录本来就持久，只在托管机上存进 Actions 缓存
+          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}
 
       # 构建时编 zeta-helper 要 go
       - name: 安装 Go
