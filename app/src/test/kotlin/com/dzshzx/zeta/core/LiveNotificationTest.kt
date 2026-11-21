@@ -72,7 +72,10 @@ class LiveNotificationTest {
                 .hasPromotableCharacteristics(),
         )
         assertEquals("执行中", n.shortCriticalText)
-        assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(
+            AppVariant.current.notificationTitle("修 bug"),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertEquals("运行 ls", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(
             "另有 1 个对话在回答",
@@ -190,7 +193,10 @@ class LiveNotificationTest {
                 )
         assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNull(n.shortCriticalText)
-        assertEquals("Claude 正在工作", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(
+            AppVariant.current.notificationTitle("Claude 正在工作"),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         val idle =
             service()
@@ -198,7 +204,7 @@ class LiveNotificationTest {
                     StatusNotice(active = true, busy = false, running = emptyList(), live = null),
                 )
         assertEquals(
-            "Claude 会话保持中",
+            AppVariant.current.notificationTitle("Claude 会话保持中"),
             idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
         )
         assertFalse(idle.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))

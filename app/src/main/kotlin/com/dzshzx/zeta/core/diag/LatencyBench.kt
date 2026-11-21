@@ -20,7 +20,7 @@ import kotlin.concurrent.thread
  *
  * 结果写进 logcat（标签 [TAG]）：每次一行 `sample <连法> <warmup|warm|plain|cold> <毫秒> <退出码>`（连法是
  * local、debian、direct）， 用不了的路一行 `skip`，最后一行 `done`。tools/phone-tests/remote-latency.sh 发起并收集。
- * 只在测试版的 manifest 里登记（app/src/dev），不导出，只有 root、system 发得进来： am broadcast -n
+ * 只在测试版的 manifest 里登记（app/src/debug），不导出，只有 root、system 发得进来： am broadcast -n
  * com.dzshzx.zeta.dev/com.dzshzx.zeta.core.diag.LatencyBench [--ei warm 20] [--ei cold 5]
  */
 class LatencyBench : BroadcastReceiver() {

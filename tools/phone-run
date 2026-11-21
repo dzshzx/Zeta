@@ -55,7 +55,7 @@ if [[ $ZETA_DEVICE == emu ]]; then
   emu_boot=$!
   trap '"$ZETA_ROOT/tools/emu" release --pid $$' EXIT
 fi
-[[ -z $build ]] || "$ZETA_ROOT/tools/gradle" -q --console=plain :app:assembleDev
+[[ -z $build ]] || "$ZETA_ROOT/tools/gradle" -q --console=plain :app:assembleDebug
 if [[ -n $emu_boot ]]; then
   wait "$emu_boot" || { cat "$OUT/emu-start.log"; exit 1; }
   cat "$OUT/emu-start.log"

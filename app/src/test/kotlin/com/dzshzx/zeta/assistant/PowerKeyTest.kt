@@ -14,6 +14,8 @@ import org.junit.Test
 
 class PowerKeyTest {
     private val zeta = "com.dzshzx.zeta/com.dzshzx.zeta.assistant.ZetaVoiceInteractionService"
+    // 下面的日志样例是正式版模块写的；单元测试跑在测试版上，默认标签是测试版的
+    private val releaseTag = AppVariant(AppVariant.RELEASE_PACKAGE).powerKeyTag
     private val xiaoai = "com.miui.voiceassist/com.xiaomi.voiceassistant.AssistInteractionService"
 
     @Test
@@ -55,7 +57,15 @@ class PowerKeyTest {
             locked: Boolean = false,
             duplicate: Boolean = false,
             function: String = "launch_voice_assistant",
-        ) = PowerKeyPolicy.route(function, source, assistant, locked, duplicate)
+        ) =
+            PowerKeyPolicy.route(
+                function,
+                source,
+                assistant,
+                locked,
+                duplicate,
+                AppVariant.RELEASE_PACKAGE,
+            )
         assertEquals(PowerKeyRoute.Show, route())
         assertEquals(PowerKeyRoute.NotOurs, route(function = "launch_camera"))
         assertEquals(PowerKeyRoute.NotOurs, route(source = "long_press_home_key"))
@@ -188,7 +198,7 @@ class PowerKeyTest {
             11-20 10:11:12.000 I/ZetaPowerKey( 1650): imperceptible_press_power_key：已显示 com.dzshzx.zeta 的助理会话，消费这次动作
         """
                 .trimIndent()
-        val status = PowerKeyLog.parse(output)
+        val status = PowerKeyLog.parse(output, releaseTag)
         assertEquals(true, status.installed)
         assertEquals("已装上", status.summary)
         assertEquals(3, status.recent.size)
@@ -206,7 +216,7 @@ class PowerKeyTest {
                 "\n" +
                 "11-20 10:11:12.000 I/ZetaPowerKey( 1650): 没装：triggerFunction 签名对不上，系统里有的是：没有\n" +
                 "11-20 10:12:00.000 I/ZetaPowerKey( 1650): long_press_power_key：默认助理不是 Zeta，走原逻辑（默认助理 com.miui.voiceassist）\n"
-        val status = PowerKeyLog.parse(output)
+        val status = PowerKeyLog.parse(output, releaseTag)
         assertEquals(false, status.installed)
         assertEquals("triggerFunction 签名对不上，系统里有的是：没有", status.installNote)
         assertEquals(

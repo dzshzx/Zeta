@@ -80,7 +80,7 @@ android {
     }
 
     signingConfigs {
-        // 测试版和 debug 包用调试密钥签名。工作站和手机 Debian 上是 ~/.android/zeta-debug.keystore：手机上装着的测试版
+        // 测试版（debug）用调试密钥签名。工作站和手机 Debian 上是 ~/.android/zeta-debug.keystore：手机上装着的测试版
         // 是它签的，签名一致 pm install -r 才能覆盖安装，否则只能卸载重装、丢掉测试版的全部设置。
         // CI 上没有这个文件（它不进 CI），这时不改 storeFile，用 AGP 自己生成的默认调试密钥：门禁只构建、不装机。
         // 路径按 JVM 的 user.home 取（来自 passwd，不看 HOME），和 AGP 找默认调试密钥的地方一样。
@@ -104,23 +104,25 @@ android {
                 "proguard-rules.pro",
             )
         }
-        // debug：不经 R8，包名同正式版。门禁和单元测试用它，不装到设备上。
-        // 测试版：包名加 .dev，和正式版并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
-        // 代码、签名同 debug；图标在 src/dev/res 里换掉，名字用 resValue 给。
-        // 环境变量 ZETA_R8=1 时改照正式版构建（经 R8、不可调试），用来在测试版上验 R8 去掉代码以后还能不能跑，
-        // 例如 ZETA_R8=1 tools/phone-run tools/phone-tests/smoke.sh
-        create("dev") {
-            initWith(
-                getByName(
-                    if (providers.environmentVariable("ZETA_R8").isPresent) "release" else "debug",
-                ),
-            )
-            signingConfig = signingConfigs.getByName("debug") // 照正式版构建时也用调试密钥签：正式版自己不签名
+        // debug 就是测试版：包名加 .dev，和正式版并存在手机上，开发测试只装它（tools/install.sh 装的就是它）；
+        // 门禁和单元测试也用它，装机的和测过的是同一份构建。不经 R8，图标在 src/debug/res 里换掉，名字用 resValue 给。
+        // 环境变量 ZETA_R8=1 时改照正式版那样经 R8、不可调试（可调试的包 R8 会少做优化，就不像正式版了），用来在测试版上
+        // 验 R8 去掉代码以后还能不能跑：发版前跑一次 ZETA_R8=1 tools/phone-run tools/phone-tests/smoke.sh（见
+        // docs/release.md）
+        debug {
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
             resValue("string", "capture_tile", "截屏给 Zeta 测试")
             buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "true")
-            matchingFallbacks += listOf("debug")
+            if (providers.environmentVariable("ZETA_R8").isPresent) {
+                isDebuggable = false
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro",
+                )
+            }
         }
     }
 

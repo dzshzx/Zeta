@@ -122,7 +122,7 @@ class ApkCheckTest {
 
     /** 调试覆盖只在测试版里生效：单元测试跑的是 debug 包（同正式版不读覆盖），设了也照样用默认的地址和证书。 */
     @Test
-    fun devOverridesAreIgnoredOutsideTheDevBuild() {
+    fun devOverridesApplyOnlyToTheTestBuild() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         app.getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE)
             .edit()
@@ -131,8 +131,17 @@ class ApkCheckTest {
             .commit()
         val settings = Settings.of(app)
         assertEquals("http://10.0.2.2:8765/update.json", settings.updateDevManifest)
-        assertFalse(BuildConfig.UPDATE_DEV_OVERRIDE)
-        assertEquals(UpdateTrust.MANIFEST_URL, UpdateTrust.manifestUrl(settings))
-        assertEquals(BuildConfig.RELEASE_CERT_SHA256, UpdateTrust.trustedCert(settings))
+        // 正式版（开关是常量 false）不理会覆盖；单元测试跑在测试版上，开关是 true，覆盖生效
+        assertEquals(
+            UpdateTrust.MANIFEST_URL,
+            UpdateTrust.manifestUrl(settings, devOverride = false),
+        )
+        assertEquals(
+            BuildConfig.RELEASE_CERT_SHA256,
+            UpdateTrust.trustedCert(settings, devOverride = false),
+        )
+        assertTrue(BuildConfig.UPDATE_DEV_OVERRIDE)
+        assertEquals("http://10.0.2.2:8765/update.json", UpdateTrust.manifestUrl(settings))
+        assertEquals(debug, UpdateTrust.trustedCert(settings))
     }
 }

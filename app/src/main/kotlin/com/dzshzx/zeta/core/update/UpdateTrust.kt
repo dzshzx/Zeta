@@ -9,18 +9,22 @@ import com.dzshzx.zeta.core.Settings
  *
  * 测试版可以用两项调试覆盖在模拟器上走一遍（tools/vd.py prefs-set，界面里没有入口）：`updateDevManifest` 换清单地址， `updateDevCert`
  * 换信任的证书（设成调试证书时测试版也查）。只有测试版的 [BuildConfig.UPDATE_DEV_OVERRIDE] 是 true； 正式版里它是常量 false，读覆盖的分支被 R8
- * 去掉。
+ * 去掉。`devOverride` 参数只给单元测试用：测试跑在测试版上，要传 false 才测得到正式版的行为。
  */
 internal object UpdateTrust {
     /** 最新正式版的清单：GitHub 把 latest 跳到最新发布的那个 Release。 */
     const val MANIFEST_URL = "https://github.com/dzshzx/Zeta/releases/latest/download/update.json"
 
-    fun manifestUrl(settings: Settings): String =
-        (if (BuildConfig.UPDATE_DEV_OVERRIDE) settings.updateDevManifest else null) ?: MANIFEST_URL
+    fun manifestUrl(
+        settings: Settings,
+        devOverride: Boolean = BuildConfig.UPDATE_DEV_OVERRIDE,
+    ): String = (if (devOverride) settings.updateDevManifest else null) ?: MANIFEST_URL
 
-    fun trustedCert(settings: Settings): String =
-        (if (BuildConfig.UPDATE_DEV_OVERRIDE) settings.updateDevCert else null)
-            ?: BuildConfig.RELEASE_CERT_SHA256
+    fun trustedCert(
+        settings: Settings,
+        devOverride: Boolean = BuildConfig.UPDATE_DEV_OVERRIDE,
+    ): String =
+        (if (devOverride) settings.updateDevCert else null) ?: BuildConfig.RELEASE_CERT_SHA256
 
     /** 本包（[installed]）现在只由 [trusted] 这张证书签名时才检查更新。 */
     fun shouldCheck(installed: ApkFacts?, trusted: String): Boolean =

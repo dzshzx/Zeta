@@ -45,10 +45,10 @@ if [[ $variant == release ]]; then
 else
   if [[ -n $build ]]; then
     # 构建失败就停，不装旧包；输出只留错误、Kotlin 警告和结果行。
-    tools/gradle --console=plain :app:assembleDev 2>&1 \
+    tools/gradle --console=plain :app:assembleDebug 2>&1 \
       | grep -E '^e: |^w: .*\.kt|BUILD|FAILED|What went wrong|error:' -A3 | cut -c1-400
   fi
-  APK=app/build/outputs/apk/dev/app-dev.apk
+  APK=app/build/outputs/apk/debug/app-debug.apk
   [ -f "$APK" ] || { echo "没有 $APK" >&2; exit 1; }
   # 包名对不上（例如上次构建被别的变体覆盖）就不装
   aapt2=$(ls -d "${ANDROID_HOME:-$HOME/Android/Sdk}"/build-tools/*/aapt2 2>/dev/null | tail -n 1 || true)

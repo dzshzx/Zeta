@@ -217,7 +217,7 @@ Release 的说明写明版本、versionCode、`source_commit` 和签名证书，
 在模拟器上试：测试版有两项调试覆盖，`updateDevManifest` 换清单地址，`updateDevCert` 换信任的证书（设成调试证书，
 即 `release/signing-certs.txt` 的第一行，测试版也查）。只有测试版读它们（`BuildConfig.UPDATE_DEV_OVERRIDE`），
 正式版里读覆盖的分支被 R8 去掉。在工作站上起一个 HTTP 服务器，放 `update.json` 和一个调试密钥签名、versionCode
-更大的测试版 APK（比如在临时克隆里加几个空提交再 `assembleDev`），`url` 指向它；模拟器经 10.0.2.2 访问宿主。
+更大的测试版 APK（比如在临时克隆里加几个空提交再 `assembleDebug`），`url` 指向它；模拟器经 10.0.2.2 访问宿主。
 设备脚本里：
 
 ```sh

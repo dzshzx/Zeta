@@ -106,7 +106,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## 从源码构建
 
-要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDev` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。
+要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。
 
 ## 反馈
 

@@ -53,9 +53,9 @@ class AppVariantTest {
     }
 
     @Test
-    fun unitTestsBuildTheReleasePackage() {
-        // testDebugUnitTest 跑的是 debug（正式版）；测试版只多了 applicationIdSuffix
-        assertEquals(AppVariant.RELEASE_PACKAGE, AppVariant.current.packageName)
+    fun unitTestsBuildTheTestPackage() {
+        // testDebugUnitTest 跑的是 debug，也就是测试版：正式版的包名加 applicationIdSuffix
+        assertEquals(AppVariant.RELEASE_PACKAGE + ".dev", AppVariant.current.packageName)
     }
 
     @Test
@@ -70,6 +70,6 @@ class AppVariantTest {
                 "/workspace",
             )
         val script = LinuxEnv.enterScript(config, "true")
-        assertTrue(script, script.contains("${AppVariant.LINUX_NAME_ENV}='\\''zeta'\\''"))
+        assertTrue(script, script.contains("${AppVariant.LINUX_NAME_ENV}='\\''zeta-dev'\\''"))
     }
 }
