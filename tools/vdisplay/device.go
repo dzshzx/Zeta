@@ -175,6 +175,9 @@ func capture(argv []string, data []byte) result {
 }
 
 // run 在 Android 一侧以 root 运行 cmd。远端加 timeout：ssh、adb 断开后远端进程不会自己停。
+// 手机上经 nsenter 进去的 shell 没有 BOOTCLASSPATH 这些 Android 运行环境：am、cmd、input、settings、dumpsys 走 binder，照常能用；
+// 经 app_process 起的（uiautomator、svc 这类）起不来却返回 0。vd 里只有 VdHold 走 app_process，start 时从 system_server 抄环境
+// （bootEnv）；要用别的 app_process 命令时同样带上，或者在手机上改走 adb（adb shell 带着这套环境，但是 shell 用户、没有 root）。
 func (v *vd) run(cmd string, data []byte, seconds int) result {
 	t := strconv.Itoa(seconds)
 	sh := []string{"/system/bin/sh", "-c", "export PATH=/system/bin:$PATH; " + cmd}
