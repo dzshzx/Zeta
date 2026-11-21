@@ -50,11 +50,12 @@ internal fun TextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     var typed by remember { mutableStateOf(atEnd(value)) }
-    // 把打的字交给调用方时记下打字前的样子；下一次组合看到的 value 就是调用方的回应，看完清掉
-    var beforeEdit by remember { mutableStateOf<TextFieldValue?>(null) }
-    val shown = shownValue(value, typed, beforeEdit)
+    // 把打的字交给调用方时记下打字前的样子；下一次组合看到的 value 就是调用方的回应，看完清掉。
+    // 那次组合本来就由 typed 的写入引起，所以这里用普通引用，不用 State：清掉时不必再重组一次
+    val beforeEdit = remember { arrayOfNulls<TextFieldValue>(1) }
+    val shown = shownValue(value, typed, beforeEdit[0])
     SideEffect {
-        beforeEdit = null
+        beforeEdit[0] = null
         typed = shown
     }
     CouiTextField(
@@ -62,7 +63,7 @@ internal fun TextField(
         onValueChange = { new ->
             typed = new
             if (new.text != value) {
-                beforeEdit = shown
+                beforeEdit[0] = shown
                 onValueChange(new.text)
             }
         },
