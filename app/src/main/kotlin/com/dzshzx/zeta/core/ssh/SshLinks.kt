@@ -101,8 +101,8 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
             try {
                 open(link, command, process)
             } catch (e: Exception) {
-                // 复用的连接可能刚好断了（还没发现）：换一条新的再试一次
-                if (e is JSchException && !link.connected()) {
+                // 复用的连接可能刚好断了（还没发现）：等它标成断开，换一条新的再试一次
+                if (e is JSchException && link.awaitDown()) {
                     link.drop()
                     runCatching { open(link, command, process) }
                         .onFailure { process.fail(problem(it)) }
@@ -136,7 +136,8 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
         opened: () -> Unit = {},
         release: () -> Unit = {},
     ) {
-        val channel = session.openChannel("exec") as ChannelExec
+        // 连接正在断开时 JSch 不抛异常、给 null
+        val channel = session.openChannel("exec") as? ChannelExec ?: throw JSchException("开不了通道")
         channel.setCommand(command.toByteArray(Charsets.UTF_8))
         opened()
         val attempt = process.attempt(channel, release)
@@ -240,7 +241,7 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
 
     /** 一台主机的连接：没连上或断了时，下一个要用的人去连（同一时间只连一次）。 */
     private inner class Link(val target: SshTarget, val hostKey: ByteArray) {
-        private var session: Session? = null
+        @Volatile private var session: Session? = null
         private val channels = AtomicInteger()
         @Volatile private var idle: ScheduledFuture<*>? = null
 
@@ -255,6 +256,19 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
         }
 
         fun connected(): Boolean = session?.isConnected == true
+
+        /**
+         * 等这条连接标成断开，最多 [ms] 毫秒，断开了是 true。JSch 发现连接断了时先关掉上面的通道、再把会话标成断开：
+         * 通道一关调用方就会接着发下一个命令，夹在中间开通道会失败，这时会话看上去还连着。
+         */
+        fun awaitDown(ms: Long = 2_000): Boolean {
+            val deadline = System.nanoTime() + ms * 1_000_000
+            while (connected()) {
+                if (System.nanoTime() > deadline) return false
+                Thread.sleep(20)
+            }
+            return true
+        }
 
         fun channelOpened() {
             channels.incrementAndGet()
