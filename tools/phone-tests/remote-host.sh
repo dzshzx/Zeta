@@ -15,9 +15,7 @@ trap 'android "rm -f $NEWER" >/dev/null 2>&1 || true' EXIT
 
 android "touch $NEWER"
 vd fake "$HERE/fake/remote.jsonl"
-ensure_loopback_sshd
-id=r-phonetest
-vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"回环\",\"target\":\"ssh://$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\"}]" "backend=$id"
+use_loopback_host r-phonetest
 vd launch
 sleep 10 # 冷启动后马上输入会丢字
 

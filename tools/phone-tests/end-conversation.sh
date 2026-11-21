@@ -6,8 +6,6 @@
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
-CONFIRM_X=866 CONFIRM_Y=2430  # 确认框右边的“结束”
-
 # gone <托管目录>：10 秒内目录没了（zeta_host.sh stop 收掉进程后删掉它）
 gone() {
   for _ in $(seq 20); do

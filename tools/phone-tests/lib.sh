@@ -19,6 +19,8 @@ menu_item() {
   sleep 1
   vd tap "$1" "$2" >/dev/null
 }
+# “结束对话”弹出的确认框里右边的“结束”
+CONFIRM_X=866 CONFIRM_Y=2430
 # 冷启动可能停在别的对话上（还可能正在跑）：开一个空的新对话
 new_chat() {
   menu_item $NEW_X $NEW_Y
@@ -157,6 +159,15 @@ ensure_loopback_sshd() {
   loopback_sshd_listening || android "[ -x $ROOTFS/usr/sbin/sshd ] && [ -f /data/local/tmp/zeta-enter.sh ] && \
     sh /data/local/tmp/zeta-enter.sh /bin/bash -c 'mkdir -p /run/sshd && /usr/sbin/sshd'" || true
   loopback_sshd_listening || { echo "设备上 127.0.0.1:8022 没有 sshd：在测试版的设置 › Linux 环境 › SSH 服务里装上"; return 1; }
+}
+
+# use_loopback_host <id> [连法]：起好回环的 sshd，把测试版的远程主机设成只有这一台“回环”（ssh://<Linux 用户>@127.0.0.1:8022，
+# 经手机 Debian 的 OpenSSH；连法给了就写进 via），侧栏切到它。prefs-set 会先 force-stop 测试版，之后要 vd launch。
+# vd stop（phone-run 收尾）改回 remoteHosts、backend。
+use_loopback_host() {
+  local via=${2:+",\"via\":\"$2\""}
+  ensure_loopback_sshd
+  vd prefs-set "remoteHosts=[{\"id\":\"$1\",\"name\":\"回环\",\"target\":\"ssh://$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\"$via}]" "backend=$1" >/dev/null
 }
 
 # 测试版底下名字是 ssh 的子孙进程（经手机 Debian 的 OpenSSH 连远程主机时才有）
