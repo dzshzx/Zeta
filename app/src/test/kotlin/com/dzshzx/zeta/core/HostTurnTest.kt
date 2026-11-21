@@ -423,8 +423,20 @@ class HostTurnTest {
     fun watchdogEndsOnlyIdleProcesses() {
         // 假的 claude：把参数逐行写到标准输出（就是 out.jsonl），然后一直读标准输入
         HostTesting.writeClaudeStandIn(home, prelude = "printf '%s\\n' \"\$@\"")
+        // 「不动」不靠多等几秒：sleep 换成记账的替身，看门狗每轮 sleep 1 时在 rounds 里记一行它的托管目录
+        // （看门狗那段是起进程的那段的子 shell，命令行和它一样，托管目录是其中一个参数），
+        // 等另外两个各自被看过的轮数超过闲置上限再断言
+        val rounds = File(home, "rounds")
+        File(home, "bin/sleep").apply {
+            writeText(
+                "#!/bin/bash\n" +
+                    "[ \"\$1\" = 1 ] && tr '\\0' '\\n' < /proc/\$PPID/cmdline | grep -m1 -x '/.*/hosts/[^/]*' >> '${rounds.path}'\n" +
+                    "PATH=\${PATH#*:} exec sleep \"\$@\"\n",
+            )
+            setExecutable(true)
+        }
         val out = Out("s-dog")
-        val env = mapOf("ZETA_IDLE_LIMIT" to "2")
+        val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
         fun start(key: String, vararg lines: String) =
             execute("bash", host.path, "start", key, home.path, "t", *lines, env = env)
         // 标准输入一关，接着的那一方就退出了：三个都没有应用接着
@@ -455,15 +467,24 @@ class HostTurnTest {
         val busy = pid("k-busy")
         val tasks = pid("k-tasks")
 
-        val deadline = System.currentTimeMillis() + 20_000
-        while (!File(dir("k-idle"), "exit").exists()) {
-            assertTrue("闲着的进程没有被看门狗结束", System.currentTimeMillis() < deadline)
-            Thread.sleep(200)
+        assertTrue("闲着的进程没有被看门狗结束", waitUntil(60) { File(dir("k-idle"), "exit").exists() })
+        // 另外两个各自被看过的轮数超过闲置上限（多一轮：记下的是开始睡，看是在睡醒之后）还活着
+        fun seen(key: String) =
+            rounds.takeIf { it.exists() }?.readLines().orEmpty().count { it == dir(key).path }
+        waitUntil(60) {
+            !HostTesting.alive(busy) ||
+                !HostTesting.alive(tasks) ||
+                listOf("k-busy", "k-tasks").all { seen(it) >= IDLE_LIMIT + 2 }
         }
-        // 再多等两轮，另外两个还活着
-        Thread.sleep(2500)
-        assertTrue("这一轮还在进行的被结束了", File("/proc/$busy").exists())
-        assertTrue("有后台任务在跑的被结束了", File("/proc/$tasks").exists())
+        assertTrue("这一轮还在进行的被结束了", HostTesting.alive(busy))
+        assertTrue("有后台任务在跑的被结束了", HostTesting.alive(tasks))
         assertFalse(File(dir("k-busy"), "exit").exists())
+        assertFalse(File(dir("k-tasks"), "exit").exists())
+        assertTrue("看门狗没在转", listOf("k-busy", "k-tasks").all { seen(it) >= IDLE_LIMIT + 2 })
+    }
+
+    private companion object {
+        /** 看门狗测试里的闲置上限（ZETA_IDLE_LIMIT，轮）。 */
+        const val IDLE_LIMIT = 2
     }
 }
