@@ -65,8 +65,8 @@ internal fun externalNoticeText(
 }
 
 /**
- * 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡：显示着时每隔几秒查一次那边闲不闲（[Conversation.refreshOccupant]，那边自己退出了卡片就收起），
- * 闲着时能一键接过来（[Conversation.handOver]）。 要强行停掉那边，用右上角菜单里的「结束对话」。
+ * 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡：显示着时每隔几秒查一次那边闲不闲（[SessionHandoff.refresh]，那边自己退出了卡片就收起），
+ * 闲着时能一键接过来（[SessionHandoff.handOver]）。 要强行停掉那边，用右上角菜单里的「结束对话」。
  */
 @Composable
 internal fun ExternalSessionNotice(conversation: Conversation, modifier: Modifier = Modifier) {
@@ -76,7 +76,7 @@ internal fun ExternalSessionNotice(conversation: Conversation, modifier: Modifie
     LaunchedEffect(conversation, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                conversation.refreshOccupant()
+                conversation.handoff.refresh()
                 delay(OCCUPANT_POLL_MS)
             }
         }
@@ -95,6 +95,10 @@ internal fun ExternalSessionNotice(conversation: Conversation, modifier: Modifie
         Spacer(Modifier.height(4.dp))
         Text(text = text.summary, style = COUITheme.textStyles.bodyS, color = colors.labelSecondary)
         Spacer(Modifier.height(12.dp))
-        TextButton(text = text.button, onClick = conversation::handOver, enabled = text.enabled)
+        TextButton(
+            text = text.button,
+            onClick = conversation.handoff::handOver,
+            enabled = text.enabled,
+        )
     }
 }

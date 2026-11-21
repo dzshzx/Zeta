@@ -51,8 +51,8 @@ class Conversation(
     private val historyFile: String?,
     /** 上次退出时留下、现在要重新接上的后台进程。 */
     attach: HostInfo? = null,
-    /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）。结束对话时连那边的进程一起结束（[ConversationHub.endCurrent]）。 */
-    val external: Boolean = false,
+    /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）：[blockedByExternal] 的初值。 */
+    external: Boolean = false,
     /** 从别的会话分支出来、还没发过消息的新对话。 */
     private val fork: Fork? = null,
     /** Claude Code 跑在哪台主机上（[Backends]）：手机里的 Debian 或某台远程主机。一个对话从头到尾都在同一台上。 */
@@ -71,38 +71,19 @@ class Conversation(
             session = value
             // 新对话拿到会话号、/clear 换了新会话：按会话登记的各处跟着换，之后重新打开才找得回来
             hub.sessionChanged(this, before ?: key, value ?: key)
-            // 在 Zeta 里起的新会话：远程主机上给它在「Zeta」tmux 会话里开个窗口，回到电脑前在那里接着
-            if (before == null && value != null) {
-                deskOwned = true
-                DeskWindows.open(hub, backend, value, cwd, this.title)
-            }
+            // 在 Zeta 里起的新会话：远程主机上给它在「Zeta」tmux 会话里开个窗口，回到电脑前在那里接着（窗口名跟着会话记录里的标题）
+            if (before == null && value != null) DeskWindows.open(hub, backend, value, cwd)
         }
 
-    /** 这个会话是在 Zeta 里起的、开过电脑那边的窗口（[DeskWindows]）：标题变了窗口名跟着改。 */
-    private var deskOwned = false
-
-    private var titleState by mutableStateOf(title)
-
-    var title: String
-        get() = titleState
-        internal set(value) {
-            if (value == titleState) return
-            titleState = value
-            if (deskOwned) sessionId?.let { DeskWindows.open(hub, backend, it, cwd, value) }
-        }
+    var title by mutableStateOf(title)
+        internal set
 
     /** 会话正被别处（比如终端里的 Claude Code）占着：不让发送，等用户把它接过来（[handOver]）或那边自己退出。 */
     var blockedByExternal by mutableStateOf(external)
         private set
 
-    /** 占着会话的那边闲不闲、把会话接过来（「别处运行」卡片用）。 */
-    val handoff = SessionHandoff(hub, backend) { sessionId }
-
-    /** 会话被别处占着时查一次那边的样子；那边已经退出了就放开输入栏。卡片显示着时定时调。 */
-    fun refreshOccupant() = handoff.refresh { blockedByExternal = false }
-
-    /** 把会话从别处接过来：那边闲着时让它照 /exit 那样退出（zeta-helper handoff），成了就放开输入栏。 */
-    fun handOver() = handoff.handOver { blockedByExternal = false }
+    /** 占着会话的那边闲不闲、把会话接过来（「别处运行」卡片用）；那边退出了（自己退的或接过来了）就放开输入栏。 */
+    val handoff = SessionHandoff(hub, backend, { sessionId }) { blockedByExternal = false }
 
     /** 交给了新起的进程、还没见它有任何输出的消息：进程因为会话被别处占着没起来时（[onProcessExit]）放回输入框。 */
     private val unsent = mutableListOf<Outgoing>()
@@ -1587,8 +1568,8 @@ class Conversation(
         finishRewind("Claude Code 进程退出了")
         // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
         source.stop()
-        if (exit.released || exit.heldElsewhere) {
-            handedAway(exit.released)
+        if (exit.reason == ProcessExit.RELEASED || exit.reason == ProcessExit.HELD_ELSEWHERE) {
+            handedAway(released = exit.reason == ProcessExit.RELEASED)
             return
         }
         val wasBusy = busy
@@ -1620,7 +1601,7 @@ class Conversation(
     }
 
     /**
-     * 会话到了别处：电脑那边接回去了（[released]，zeta-helper release 结束了这边的进程），或者这边要起进程时它正被别处占着（托管脚本没起进程）。
+     * 会话到了别处：电脑那边接回去了（[released]，zeta-helper 让出会话时结束了这边的进程），或者这边要起进程时它正被别处占着（托管脚本没起进程）。
      * 换成「别处运行」卡片；没送到的消息放回输入框。
      */
     private fun handedAway(released: Boolean) {
@@ -1636,7 +1617,7 @@ class Conversation(
         if (released) reducer.addNotice("这个会话在电脑上接着了", error = false)
         blockedByExternal = true
         publish()
-        refreshOccupant()
+        handoff.refresh()
         hub.onActivityChanged()
     }
 

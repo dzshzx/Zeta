@@ -12,21 +12,29 @@ internal object HostTesting {
      * 标准输入立即关掉（应用这头马上断开，起的进程照样在后台跑），标准错误丢掉；一分钟内没结束就失败。
      */
     fun run(home: File, command: List<String>, env: Map<String, String> = emptyMap()): String {
-        val builder = ProcessBuilder(command).directory(home).redirectError(File("/dev/null"))
-        builder.environment().apply {
-            clear()
-            put("HOME", home.path)
-            put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-            put("LANG", "C.UTF-8")
-            put("ZETA_IDLE_STEP", "1")
-            putAll(env)
-        }
-        val process = builder.start()
+        val process = builder(home, command, env).start()
         process.outputStream.close()
         val out = process.inputStream.bufferedReader().readText()
         assertTrue("命令超时：$command", process.waitFor(60, TimeUnit.SECONDS))
         return out
     }
+
+    /** [run] 用的进程（同样的环境，标准错误丢掉），要自己读写标准输入输出、看退出码的测试直接用。 */
+    fun builder(
+        home: File,
+        command: List<String>,
+        env: Map<String, String> = emptyMap(),
+    ): ProcessBuilder =
+        ProcessBuilder(command).directory(home).redirectError(File("/dev/null")).apply {
+            environment().apply {
+                clear()
+                put("HOME", home.path)
+                put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
+                put("LANG", "C.UTF-8")
+                put("ZETA_IDLE_STEP", "1")
+                putAll(env)
+            }
+        }
 
     /** 以 [name] 作 ZETA_NAME 的环境；null 表示不设（和旧版正式版一样）。 */
     fun named(name: String?): Map<String, String> =

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -90,22 +91,47 @@ func readText(path string) string {
 // sessionTitle 是会话记录里的标题，规矩同 summarize：改过的名字（custom-title）压过自动起的（ai-title），不看先后。
 // 只看这两种行（按字节筛，不解码别的行），没有标题是空串。
 func sessionTitle(path string) string {
-	f, err := openFile(path)
-	if err != nil {
-		return ""
+	var f titleFollower
+	return f.read(path)
+}
+
+// titleFollower 跟读一份会话记录里的标题行（custom-title、ai-title）：每次只读上次之后新写完的整行，
+// 换了文件或文件变短了从头读。改名是往记录末尾追加一行（cmdRename、Claude Code 的 /rename），跟读得到。
+type titleFollower struct {
+	path string
+	off  int64
+	s    summaryScan
+}
+
+// read 读到 path 现在为止的标题；path 是空串或读不了时给出上次读到的。
+func (t *titleFollower) read(path string) string {
+	if path != t.path {
+		*t = titleFollower{path: path}
 	}
-	defer f.Close()
-	var s summaryScan
+	if f, err := openFile(path); err == nil {
+		t.follow(f)
+		f.Close()
+	}
+	if t.s.custom != "" {
+		return t.s.custom
+	}
+	return t.s.ai
+}
+
+func (t *titleFollower) follow(f *os.File) {
+	if fi, err := f.Stat(); err != nil || fi.Size() < t.off {
+		*t = titleFollower{path: t.path}
+	}
+	if _, err := f.Seek(t.off, io.SeekStart); err != nil {
+		return
+	}
 	lr := newLineReader(f)
-	for line, ok := lr.next(); ok; line, ok = lr.next() {
+	for line, ok := lr.next(); ok && line[len(line)-1] == '\n'; line, ok = lr.next() {
+		t.off += int64(len(line))
 		if has(line, `-title"`) && validUTF8(line) {
-			s.title(line)
+			t.s.title(line)
 		}
 	}
-	if s.custom != "" {
-		return s.custom
-	}
-	return s.ai
 }
 
 // hostScan 是读一个后台进程的输出日志得到的：到第几行了、是哪个会话、这一轮是否还在进行、有没有等着用户批准的调用、

@@ -17,22 +17,45 @@ var endGrace = 10 * time.Second
 const endPoll = 100 * time.Millisecond
 
 func cmdEnd(e *env, o *emitter, id string) error {
-	signaled := map[int]string{}
+	var holders []registered
 	for _, r := range e.outsideRegistrations() {
-		if r.session != id {
-			continue
+		if r.session == id {
+			holders = append(holders, r)
 		}
-		if _, alive := claudeArgv(r.pid, true); alive && syscall.Kill(r.pid, syscall.SIGTERM) == nil {
+	}
+	signaled := signalHolders(holders, syscall.SIGTERM)
+	escalate(signaled, endGrace, syscall.SIGKILL)
+	o.out(obj{"ended": len(signaled)})
+	return nil
+}
+
+// signalHolders 给这些登记的进程里还在跑、命令行里有 claude 的发 sig；给出发出去的（pid → 启动时刻）。
+func signalHolders(holders []registered, sig syscall.Signal) map[int]string {
+	signaled := map[int]string{}
+	for _, r := range holders {
+		if _, alive := claudeArgv(r.pid, true); alive && syscall.Kill(r.pid, sig) == nil {
 			signaled[r.pid] = r.start
 		}
 	}
-	stubborn := waitGone(signaled, endGrace)
-	for pid := range stubborn {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
+	return signaled
+}
+
+// escalate 等 procs 退出最多 grace，还在的依次发 signals 里的信号：发 SIGKILL 后再等 2 秒，别的信号后再等 5 秒。
+func escalate(procs map[int]string, grace time.Duration, signals ...syscall.Signal) {
+	left := waitGone(procs, grace)
+	for _, sig := range signals {
+		if len(left) == 0 {
+			return
+		}
+		for pid := range left {
+			_ = syscall.Kill(pid, sig)
+		}
+		wait := 5 * time.Second
+		if sig == syscall.SIGKILL {
+			wait = 2 * time.Second
+		}
+		left = waitGone(left, wait)
 	}
-	waitGone(stubborn, 2*time.Second)
-	o.out(obj{"ended": len(signaled)})
-	return nil
 }
 
 // running：进程 pid 还在跑（僵尸不算），而且还是启动时刻为 start 的那一个（不是复用了 pid 的别的进程）。

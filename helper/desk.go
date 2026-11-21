@@ -15,10 +15,11 @@ import (
 // 电脑那边的「Zeta」tmux 会话：Zeta 在远程主机上起的对话，每个在 tmux 会话 zeta 里有一个窗口（窗口名是标题），
 // 回到电脑前 `tmux attach -t zeta` 就找得到，回车就在终端里接着。
 //
-//   desk-open <id> <工作目录> <标题>   没有这个会话的窗口就开一个（窗口选项 @zeta_session 记着会话 id），有就改窗口名
-//   desk-close <id>…                   关掉这些会话的窗口（Zeta 里删除、归档时）
-//   desk <id> <工作目录>               窗口里跑的：平时只显示一行提示、不起 claude；回车先 release（Zeta 那边闲着就让它退出，
-//                                      正忙就等），再在这个窗口里 `claude --resume <id>`；它退出（/exit，或 Zeta 用 handoff 接走）后回到提示
+//   desk-open <id> <工作目录>   没有这个会话的窗口就开一个（窗口选项 @zeta_session 记着会话 id），有就不动
+//   desk-close <id>…           关掉这些会话的窗口（Zeta 里删除、归档时）
+//   desk <id> <工作目录>       窗口里跑的：平时只显示一行提示、不起 claude，按会话记录里的标题（不管在哪边改的）改窗口名；
+//                              回车先让 Zeta 那边放手（releaseSession：闲着就让它退出，正忙就等），再在这个窗口里
+//                              `claude --resume <id>`；它退出（/exit，或 Zeta 用 handoff 接走）后回到提示
 //
 // 窗口里跑的是装好的程序旁边那个不带版本的链接（HelperProgram 装程序时建），Zeta 升级换了程序也照样能用。
 
@@ -28,8 +29,11 @@ const deskSession = "zeta"
 // deskStale：会话记录这么久没动过、窗口又闲着，就关掉窗口（窗口里的提示自己退出）。
 const deskStale = 7 * 24 * time.Hour
 
-// deskCheck 是窗口闲着时多久看一次会话还在不在、旧没旧。
-var deskCheck = 10 * time.Minute
+// deskTick 是窗口闲着时多久看一次会话还在不在、旧没旧、标题变没变。
+var deskTick = 30 * time.Second
+
+// deskFirstRecord：窗口开了这么久会话记录还没出现，就当会话没了。
+const deskFirstRecord = 10 * time.Minute
 
 // deskReleaseWait 是回车后等 Zeta 那边这一轮跑完的上限。
 const deskReleaseWait = 30 * time.Minute
@@ -76,15 +80,13 @@ func deskTitle(title, id string) string {
 // shellQuote 给 sh 用的单引号写法。
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
-// cmdDeskOpen 输出一行 {"window": 窗口 id}；这台机器没有 tmux 时是 {"window": null, "reason": "no-tmux"}。
-func cmdDeskOpen(e *env, o *emitter, id, cwd, title string) error {
+// cmdDeskOpen 输出一行 {"window": 窗口 id}；这台机器没有 tmux 时是 null。窗口名先是会话 id 的前 8 位，desk 读到标题后改。
+func cmdDeskOpen(e *env, o *emitter, id, cwd string) error {
 	if !tmuxPresent() {
-		o.out(obj{"window": nil, "reason": "no-tmux"})
+		o.out(obj{"window": nil})
 		return nil
 	}
-	name := deskTitle(title, id)
 	if window, ok := deskWindows()[id]; ok {
-		_, _ = tmuxRun("rename-window", "-t", window, name)
 		o.out(obj{"window": window})
 		return nil
 	}
@@ -93,7 +95,7 @@ func cmdDeskOpen(e *env, o *emitter, id, cwd, title string) error {
 	if _, err := tmuxRun("has-session", "-t", "="+deskSession); err == nil {
 		args = []string{"new-window", "-d", "-t", "=" + deskSession + ":"}
 	}
-	args = append(args, "-P", "-F", "#{window_id}", "-n", name, "-c", cwd, command)
+	args = append(args, "-P", "-F", "#{window_id}", "-n", deskTitle("", id), "-c", cwd, command)
 	window, err := tmuxRun(args...)
 	if err != nil {
 		return fmt.Errorf("tmux 开不了窗口：%w", err)
@@ -121,15 +123,16 @@ func cmdDeskClose(o *emitter, ids []string) error {
 }
 
 // deskGone：会话记录没了，或很久没动过（deskStale），窗口就不用留了。记录要在第一条消息之后才写出来，
-// 窗口可能开得比它早，所以 seen（见过记录）之前没有记录不算没了，只在过了 deskCheck 还没有时才算。
-func (e *env) deskGone(id string, seen *bool, opened time.Time) bool {
+// 窗口可能开得比它早，所以 seen（见过记录）之前没有记录不算没了，只在过了 deskFirstRecord 还没有时才算。
+// 还在时 file 是会话记录的路径（还没写出来时是空串）。
+func (e *env) deskGone(id string, seen *bool, opened time.Time) (file string, gone bool) {
 	files := e.sessionFilesNamed(id)
 	if len(files) == 0 {
-		return *seen || time.Since(opened) > deskCheck
+		return "", *seen || time.Since(opened) > deskFirstRecord
 	}
 	*seen = true
 	fi, err := os.Stat(files[0])
-	return err == nil && time.Since(fi.ModTime()) > deskStale
+	return files[0], err == nil && time.Since(fi.ModTime()) > deskStale
 }
 
 // waitEnter 等终端里的一次回车，最多等 limit；回车了为真，到时或标准输入结束（窗口关了）为假，eof 区分这两种。
@@ -152,45 +155,57 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 	// 终端里按 Ctrl+C 只结束这个窗口；claude 跑着的时候 SIGINT 归它（交接也靠它），这里不跟着退出
 	interrupts := make(chan os.Signal, 1)
 	seen, opened := false, time.Now()
+	var titles titleFollower
+	shown, prompt := "", true
 	for {
-		if e.deskGone(id, &seen, opened) {
+		file, gone := e.deskGone(id, &seen, opened)
+		if gone {
 			fmt.Fprintln(w, "这个会话已经删除或很久没用，窗口关掉。")
 			return nil
 		}
-		fmt.Fprintf(w, "\n%s\n回车在终端里接着（claude --resume %s）；Ctrl+C 关掉这个窗口。\n", e.deskHeader(id), id)
-		entered, eof := waitEnter(deskCheck)
+		if title := titles.read(file); title != shown || prompt {
+			if title != shown {
+				renameOwnWindow(deskTitle(title, id))
+			}
+			shown, prompt = title, false
+			fmt.Fprintf(w, "\n%s\n回车在终端里接着（claude --resume %s）；Ctrl+C 关掉这个窗口。\n", deskHeader(title, id), id)
+		}
+		entered, eof := waitEnter(deskTick)
 		if eof {
 			return nil
 		}
-		if !entered {
-			continue
-		}
-		if !e.deskRelease(w, id) {
+		if !entered || !e.deskRelease(w, id) {
 			continue
 		}
 		signal.Notify(interrupts, syscall.SIGINT)
 		runResume(w, id, cwd)
 		signal.Stop(interrupts)
+		prompt = true
 	}
 }
 
-// deskHeader 是提示的第一行：会话的标题。
-func (e *env) deskHeader(id string) string {
-	if files := e.sessionFilesNamed(id); len(files) > 0 {
-		if t := sessionTitle(files[0]); t != "" {
-			return "「" + t + "」"
-		}
+// renameOwnWindow 把这个程序所在的 tmux 窗口改名（TMUX_PANE 是 tmux 给窗口里的程序设的）。
+func renameOwnWindow(name string) {
+	if pane := os.Getenv("TMUX_PANE"); pane != "" {
+		_, _ = tmuxRun("rename-window", "-t", pane, name)
+	}
+}
+
+// deskHeader 是提示的第一行：会话的标题，没有时是会话 id 的前 8 位。
+func deskHeader(title, id string) string {
+	if title != "" {
+		return "「" + title + "」"
 	}
 	return "会话 " + id[:8]
 }
 
 // deskRelease 让 Zeta 那边放手：正忙时说一声再等，等太久就回到提示。
 func (e *env) deskRelease(w io.Writer, id string) bool {
-	if _, busy := e.releaseSession(id, 0, nil); !busy {
+	if _, busy := e.releaseSession(id, 0); !busy {
 		return true
 	}
 	fmt.Fprintln(w, "Zeta 那边这一轮还在跑，跑完就接过来……")
-	if _, busy := e.releaseSession(id, deskReleaseWait, nil); busy {
+	if _, busy := e.releaseSession(id, deskReleaseWait); busy {
 		fmt.Fprintln(w, "等了太久，Zeta 那边还在跑。稍后再回车。")
 		return false
 	}

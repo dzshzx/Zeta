@@ -12,12 +12,13 @@ import kotlinx.serialization.json.JsonObject
 /**
  * 终端里开着的 Claude Code（比如 tmux 里的 claude）占着会话时，它现在的样子（zeta-helper occupant）。 [status] 是 Claude Code
  * 登记的忙闲：idle、waiting（在等确认，[waitingFor] 是在等什么）、busy（正在跑一轮）、shell（在跑 ! 命令）；旧版不报时是 unknown。
+ * [handsOver]：现在能交给 Zeta（两轮之间），由 zeta-helper 判断（handoff.go 的 handsOver）。正跑着的一轮在那边的进程里，交接会丢掉它。
  */
-data class Occupant(val status: String, val waitingFor: String? = null) {
-    /** 现在能交给 Zeta：两轮之间（闲着、在等确认、看不出忙闲）。正跑着的一轮在那边的进程里，交接会丢掉它。 */
-    val handsOver: Boolean
-        get() = status == IDLE || status == WAITING || status == UNKNOWN
-
+data class Occupant(
+    val status: String,
+    val waitingFor: String? = null,
+    val handsOver: Boolean = true,
+) {
     companion object {
         const val IDLE = "idle"
         const val WAITING = "waiting"
@@ -56,7 +57,7 @@ internal object HandoffOutput {
     fun occupant(output: String): Occupant? {
         val o = line(output) ?: return Occupant(Occupant.UNKNOWN)
         val status = o.str("status") ?: return null
-        return Occupant(status, o.str("waiting_for"))
+        return Occupant(status, o.str("waiting_for"), handsOver = o.bool("hands_over") != false)
     }
 
     fun handoff(output: String): HandoffResult {
@@ -64,19 +65,21 @@ internal object HandoffOutput {
         return when {
             o.bool("handed") == true -> HandoffResult.Handed
             o.str("status") == "stuck" -> HandoffResult.Stuck
-            else -> HandoffResult.Busy(Occupant(o.str("status") ?: Occupant.UNKNOWN))
+            else ->
+                HandoffResult.Busy(Occupant(o.str("status") ?: Occupant.UNKNOWN, handsOver = false))
         }
     }
 }
 
 /**
  * 一个对话的会话正被终端里的 Claude Code 占着时，聊天页「别处运行」卡片背后的状态：那边闲不闲（[occupant]，卡片开着时定时 [refresh]），
- * 和把会话接过来（[handOver]：那边闲着时让它照 /exit 那样退出）。在主线程上调用，跑命令在后台线程。
+ * 和把会话接过来（[handOver]：那边闲着时让它照 /exit 那样退出）。那边不再占着了（自己退出或接过来了）就调 [onFreed]。 在主线程上调用，跑命令在后台线程。
  */
 class SessionHandoff(
     private val hub: ConversationHub,
     private val backend: String,
     private val sessionId: () -> String?,
+    private val onFreed: () -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
 
@@ -94,8 +97,8 @@ class SessionHandoff(
 
     private var refreshing = false
 
-    /** 查一次那边的样子；那边已经不占着了就调 [onGone]。 */
-    fun refresh(onGone: () -> Unit) {
+    /** 查一次那边的样子。 */
+    fun refresh() {
         val id = sessionId() ?: return
         if (refreshing || handing) return
         refreshing = true
@@ -105,13 +108,13 @@ class SessionHandoff(
                 refreshing = false
                 val output = result.outputOrNull ?: return@post
                 val now = HandoffOutput.occupant(output)
-                if (now == null) onGone() else occupant = now
+                if (now == null) onFreed() else occupant = now
             }
         }
     }
 
-    /** 接过来：成了调 [onHanded]；没成的原因记在 [problem]，那边正忙时 [occupant] 也跟着更新。 */
-    fun handOver(onHanded: () -> Unit) {
+    /** 接过来；没成的原因记在 [problem]，那边正忙时 [occupant] 也跟着更新。 */
+    fun handOver() {
         val id = sessionId() ?: return
         if (handing) return
         handing = true
@@ -127,7 +130,7 @@ class SessionHandoff(
                 when (result) {
                     HandoffResult.Handed -> {
                         occupant = null
-                        onHanded()
+                        onFreed()
                     }
                     is HandoffResult.Busy -> occupant = result.occupant
                     HandoffResult.Stuck -> problem = "那边的 Claude Code 没有退出。要强行停掉它，用右上角菜单里的「结束对话」。"
@@ -143,19 +146,24 @@ class SessionHandoff(
  * zeta` 回车就在终端里接着。手机本机不开：人就在手机上。没有 tmux 的主机 desk-open 什么也不做。都在后台跑，不等结果。
  */
 internal object DeskWindows {
-    /** 开窗口，已经有了就改窗口名（标题变了时再调一次）。 */
-    fun open(hub: ConversationHub, backend: String, sessionId: String, cwd: String, title: String) {
-        if (backend == Backends.LOCAL) return
-        thread(name = "zeta-desk", isDaemon = true) {
-            hub.helper("desk-open", listOf(sessionId, cwd, title), 15_000, backend)
-        }
-    }
+    /** 开窗口（已经有了就不动）。窗口名由窗口里的程序按会话记录里的标题改。 */
+    fun open(hub: ConversationHub, backend: String, sessionId: String, cwd: String) =
+        fire(hub, backend, "desk-open", listOf(sessionId, cwd))
 
     /** 关掉这些会话的窗口（删除、归档时）。 */
     fun close(hub: ConversationHub, backend: String, sessionIds: Collection<String>) {
-        if (backend == Backends.LOCAL || sessionIds.isEmpty()) return
+        if (sessionIds.isNotEmpty()) fire(hub, backend, "desk-close", sessionIds.toList())
+    }
+
+    private fun fire(
+        hub: ConversationHub,
+        backend: String,
+        command: String,
+        arguments: List<String>,
+    ) {
+        if (backend == Backends.LOCAL) return
         thread(name = "zeta-desk", isDaemon = true) {
-            hub.helper("desk-close", sessionIds.toList(), 15_000, backend)
+            hub.helper(command, arguments, 15_000, backend)
         }
     }
 }

@@ -11,16 +11,18 @@ import org.junit.Test
 class SessionHandoffTest {
     @Test
     fun occupantOutput() {
-        assertNull(HandoffOutput.occupant("""{"status":null,"waiting_for":null}"""))
+        assertNull(
+            HandoffOutput.occupant("""{"status":null,"waiting_for":null,"hands_over":true}"""),
+        )
         assertEquals(
             Occupant("waiting", "approve Bash"),
             HandoffOutput.occupant(
-                "登录 shell 打的字\n{\"status\":\"waiting\",\"waiting_for\":\"approve Bash\"}\n",
+                "登录 shell 打的字\n{\"status\":\"waiting\",\"waiting_for\":\"approve Bash\",\"hands_over\":true}\n",
             ),
         )
         assertEquals(
-            Occupant("busy"),
-            HandoffOutput.occupant("""{"status":"busy","waiting_for":null}"""),
+            Occupant("busy", handsOver = false),
+            HandoffOutput.occupant("""{"status":"busy","waiting_for":null,"hands_over":false}"""),
         )
         // 看不懂的当作还占着、看不出忙闲：不能因此放开输入栏
         assertEquals(Occupant(Occupant.UNKNOWN), HandoffOutput.occupant("not json"))
@@ -37,19 +39,10 @@ class SessionHandoffTest {
             HandoffOutput.handoff("""{"handed":false,"status":"stuck"}"""),
         )
         assertEquals(
-            HandoffResult.Busy(Occupant("shell")),
+            HandoffResult.Busy(Occupant("shell", handsOver = false)),
             HandoffOutput.handoff("""{"handed":false,"status":"shell"}"""),
         )
         assertTrue(HandoffOutput.handoff("") is HandoffResult.Failed)
-    }
-
-    @Test
-    fun onlyBetweenTurnsCanBeHandedOver() {
-        assertTrue(Occupant(Occupant.IDLE).handsOver)
-        assertTrue(Occupant(Occupant.WAITING).handsOver)
-        assertTrue(Occupant(Occupant.UNKNOWN).handsOver)
-        assertFalse(Occupant("busy").handsOver)
-        assertFalse(Occupant(Occupant.SHELL).handsOver)
     }
 
     @Test
@@ -70,10 +63,11 @@ class SessionHandoffTest {
                 assertTrue(it.enabled)
                 assertTrue(it.summary.contains("approve Bash") && it.summary.contains("作废"))
             }
-        externalNoticeText(Occupant("busy"), handing = false, problem = null).let {
-            assertFalse(it.enabled)
-            assertEquals("等那边这一轮结束", it.button)
-        }
+        externalNoticeText(Occupant("busy", handsOver = false), handing = false, problem = null)
+            .let {
+                assertFalse(it.enabled)
+                assertEquals("等那边这一轮结束", it.button)
+            }
         assertFalse(
             externalNoticeText(Occupant(Occupant.IDLE), handing = true, problem = null).enabled,
         )

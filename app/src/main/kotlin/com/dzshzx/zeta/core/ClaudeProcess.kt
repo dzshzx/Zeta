@@ -39,15 +39,15 @@ class HostInfo(
         get() = busy || pending.isNotEmpty() || tasks > 0
 }
 
-/** 托管进程的结局（[ClaudeProcess] 的 onExit）：退出码和标准错误输出的最后一段。 */
-class ProcessExit(val code: Int, val stderr: String, val released: Boolean = false) {
-    /** 托管脚本没起进程：要接着的会话正被 Zeta 之外的 Claude Code（比如终端里的）占着。 */
-    val heldElsewhere: Boolean
-        get() = code == HELD_ELSEWHERE && stderr.contains("zeta: session held elsewhere")
-
+/**
+ * 托管进程的结局（[ClaudeProcess] 的 onExit）：退出码、标准错误输出的最后一段，和托管脚本报的会话去了别处的原因（[reason]，zeta_exit 的 reason）：
+ * [RELEASED] 是电脑那边接回去了（zeta-helper 让出会话时结束了这边的进程），[HELD_ELSEWHERE] 是要接着的会话正被 Zeta 之外的 Claude
+ * Code（比如终端里的）占着、托管脚本没起进程；别的结局是 null。
+ */
+class ProcessExit(val code: Int, val stderr: String, val reason: String? = null) {
     companion object {
-        /** zeta_host.sh start 因为会话被别处占着而没起进程时的退出码。 */
-        const val HELD_ELSEWHERE = 96
+        const val RELEASED = "released"
+        const val HELD_ELSEWHERE = "held_elsewhere"
     }
 }
 
@@ -249,7 +249,7 @@ class ClaudeProcess(
                     ProcessExit(
                         hostExit.int("code") ?: 1,
                         hostExitStderr(hostExit),
-                        released = hostExit.bool("released") == true,
+                        reason = hostExit.str("reason"),
                     ),
                     stopped = false,
                 )

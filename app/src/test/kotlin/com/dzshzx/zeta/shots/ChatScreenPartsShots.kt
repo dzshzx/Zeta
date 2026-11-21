@@ -355,7 +355,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test fun externalIdle() = external("chat-external-idle", Occupant(Occupant.IDLE))
 
     /** 那边正在回答：等这一轮结束。 */
-    @Test fun externalBusy() = external("chat-external-busy", Occupant("busy"))
+    @Test fun externalBusy() = external("chat-external-busy", Occupant("busy", handsOver = false))
 
     private fun external(name: String, occupant: Occupant?) {
         val hub = chatHub()

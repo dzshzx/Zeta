@@ -1,10 +1,9 @@
 package main
 
 import (
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -13,38 +12,15 @@ import (
 // 返回它的 pid 和一个在它退出后关闭的通道（测试进程替它收尸，不留僵尸）。
 func fakeClaude(t *testing.T, ignoreTerm bool) (int, <-chan struct{}) {
 	t.Helper()
-	ready := ""
-	body := "#!/bin/bash\nwhile :; do sleep 0.05; done\n"
 	if ignoreTerm {
-		// 设好 trap 后写下标记，测试等到它再往下走
-		ready = filepath.Join(t.TempDir(), "ready")
-		body = "#!/bin/bash\ntrap '' TERM\n: > \"$1\"\nwhile :; do sleep 0.05; done\n"
+		return trapped(t, "trap '' TERM")
 	}
-	script := filepath.Join(t.TempDir(), "claude")
-	writeFile(t, script, body)
-	if err := os.Chmod(script, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command(script, ready)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan struct{})
-	go func() { _ = cmd.Wait(); close(done) }()
-	t.Cleanup(func() { _ = cmd.Process.Kill(); <-done })
-	for deadline := time.Now().Add(3 * time.Second); ready != ""; time.Sleep(10 * time.Millisecond) {
-		if _, err := os.Stat(ready); err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the stub did not set its trap")
-		}
-	}
-	return cmd.Process.Pid, done
+	return trapped(t, ":")
 }
 
 // register 像 Claude Code 那样登记进程 pid 在用会话 session；start 是登记里的启动时刻，空串时取它真的启动时刻。
-func register(t *testing.T, e *env, pid int, session, start string) {
+// extra 是另加的键（以逗号开头的 JSON 片段）。
+func register(t *testing.T, e *env, pid int, session, start string, extra ...string) {
 	t.Helper()
 	if start == "" {
 		var ok bool
@@ -53,7 +29,7 @@ func register(t *testing.T, e *env, pid int, session, start string) {
 		}
 	}
 	writeFile(t, filepath.Join(e.sessions, strconv.Itoa(pid)+".json"),
-		`{"pid":`+strconv.Itoa(pid)+`,"sessionId":"`+session+`","procStart":"`+start+`","kind":"interactive"}`)
+		`{"pid":`+strconv.Itoa(pid)+`,"sessionId":"`+session+`","procStart":"`+start+`","kind":"interactive"`+strings.Join(extra, "")+`}`)
 }
 
 func exited(done <-chan struct{}) bool {

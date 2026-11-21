@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,4 +95,74 @@ func textOf(e obj) string {
 		}
 	}
 	return strings.Join(parts, "|")
+}
+
+// stub 起一个命令行里带 claude 的脚本 body（第一个参数是 dir），返回 pid 和它退出后关闭的通道。
+func stub(t *testing.T, body, dir string) (int, <-chan struct{}) {
+	t.Helper()
+	script := filepath.Join(t.TempDir(), "claude")
+	writeFile(t, script, "#!/bin/bash\n"+body)
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, dir)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	t.Cleanup(func() { _ = cmd.Process.Kill(); <-done })
+	return cmd.Process.Pid, done
+}
+
+// trapped 起一个设了 trap 的 stub，一直跑着；trap 设好后才返回。
+func trapped(t *testing.T, trap string) (int, <-chan struct{}) {
+	t.Helper()
+	ready := filepath.Join(t.TempDir(), "ready")
+	pid, done := stub(t, trap+"\n: > \"$1\"\nwhile :; do sleep 0.05; done\n", ready)
+	waitFile(t, ready)
+	return pid, done
+}
+
+// tui 是终端里的 Claude Code：收到 SIGINT 就退出（照 /exit），[stubborn] 时不理它。
+func tui(t *testing.T, stubborn bool) (int, <-chan struct{}) {
+	t.Helper()
+	if stubborn {
+		return trapped(t, "trap '' INT")
+	}
+	return trapped(t, "trap 'exit 0' INT")
+}
+
+func waitFile(t *testing.T, path string) {
+	t.Helper()
+	for deadline := time.Now().Add(3 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s did not appear", path)
+		}
+	}
+}
+
+// registerStatus 像 Claude Code 那样登记，带上忙闲状态（空串时不写这一项）。
+func registerStatus(t *testing.T, e *env, pid int, session, status, waitingFor string) {
+	t.Helper()
+	extra := ""
+	if status != "" {
+		extra += `,"status":"` + status + `"`
+	}
+	if waitingFor != "" {
+		extra += `,"waitingFor":"` + waitingFor + `"`
+	}
+	register(t, e, pid, session, "", extra)
+}
+
+func stillUp(done <-chan struct{}) bool {
+	select {
+	case <-done:
+		return false
+	default:
+		return true
+	}
 }

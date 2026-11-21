@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 
 /**
  * 会话到了别处时对话怎么收场（Conversation.handedAway）：要起进程时会话正被终端里的 Claude Code 占着（托管脚本以 96 退出），刚发的消息放回输入框；
- * 电脑那边接回去了（zeta_exit 带 released），换成「别处运行」卡片、不报进程出错。进程是假的，退出回调由测试直接调。
+ * 电脑那边接回去了（zeta_exit 的 reason 是 released），换成「别处运行」卡片、不报进程出错。进程是假的，退出回调由测试直接调。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -43,7 +43,7 @@ class HandedAwayTest {
     fun messageGoesBackWhenTheSessionIsHeldElsewhere() {
         val chat = chat(Fixtures.readyHub(app))
         chat.send("接着做")
-        chat.exit(ProcessExit(ProcessExit.HELD_ELSEWHERE, "zeta: session held elsewhere\n"))
+        chat.exit(ProcessExit(0, "", reason = ProcessExit.HELD_ELSEWHERE))
         assertTrue(chat.blockedByExternal)
         assertFalse(chat.busy)
         assertEquals("接着做", chat.takeRecalled()?.text)
@@ -59,7 +59,7 @@ class HandedAwayTest {
         chat.receive(
             """{"type":"result","subtype":"success","is_error":false,"result":"好","session_id":"$SESSION"}""",
         )
-        chat.exit(ProcessExit(0, "", released = true))
+        chat.exit(ProcessExit(0, "", reason = ProcessExit.RELEASED))
         assertTrue(chat.blockedByExternal)
         assertNull("送到了的消息不放回去", chat.takeRecalled())
         assertTrue(chat.items.any { it is UserItem })
@@ -71,7 +71,7 @@ class HandedAwayTest {
     fun otherExitsAreStillErrors() {
         val chat = chat(Fixtures.readyHub(app))
         chat.send("你好")
-        chat.exit(ProcessExit(ProcessExit.HELD_ELSEWHERE, "别的原因"))
+        chat.exit(ProcessExit(96, "别的原因"))
         assertFalse(chat.blockedByExternal)
         assertTrue(chat.items.any { it is NoticeItem && it.error })
     }

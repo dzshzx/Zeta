@@ -13,8 +13,9 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta_host.sh 在交接里的两处：接着旧会话时，会话正被 Zeta 之外的 Claude Code（比如终端里的）占着就不起进程（退出码 96）； zeta-helper release
- * 留了 released 记号的进程退出时，zeta_exit 带上 "released":true。真的 zeta_host.sh 跑在临时 HOME 上，claude 换成替身。
+ * zeta_host.sh 在交接里的两处：接着旧会话时，会话正被 Zeta 之外的 Claude Code（比如终端里的）占着就不起进程，报 zeta_exit 带
+ * "reason":"held_elsewhere"；zeta-helper 让出会话时留了 released 记号的进程退出时，zeta_exit 带 "reason":"released"。
+ * 真的 zeta_host.sh 跑在临时 HOME 上，claude 换成替身。
  */
 class HostHandoffTest {
     private lateinit var home: File
@@ -43,31 +44,15 @@ class HostHandoffTest {
 
     private fun hostDir(key: String) = File(home, ".cache/$name/hosts/$key")
 
-    /** 跑 zeta_host.sh start，返回退出码（标准输入立即关掉：应用这头马上断开，起的进程照样在后台跑）。 */
-    private fun start(key: String, vararg claudeArguments: String): Int {
-        val process =
-            builder("start", key, home.path, "t", "-p", *claudeArguments)
-                .redirectOutput(File("/dev/null"))
-                .start()
-        process.outputStream.close()
-        assertTrue("start 超时", process.waitFor(60, TimeUnit.SECONDS))
-        return process.exitValue()
-    }
+    /** 跑 zeta_host.sh start，返回它的标准输出（[HostTesting.run]：应用这头马上断开，起的进程照样在后台跑）。 */
+    private fun start(key: String, vararg claudeArguments: String): String =
+        HostTesting.run(
+            home,
+            command("start", key, home.path, "t", "-p", *claudeArguments),
+            HostTesting.named(name),
+        )
 
-    private fun builder(vararg arguments: String): ProcessBuilder =
-        ProcessBuilder(listOf("bash", host.path) + arguments)
-            .directory(home)
-            .redirectError(File("/dev/null"))
-            .apply {
-                environment().apply {
-                    clear()
-                    put("HOME", home.path)
-                    put("PATH", "${home.path}/bin:" + System.getenv("PATH"))
-                    put("LANG", "C.UTF-8")
-                    put("ZETA_IDLE_STEP", "1")
-                    putAll(HostTesting.named(name))
-                }
-            }
+    private fun command(vararg arguments: String) = listOf("bash", host.path) + arguments
 
     /**
      * 终端里开着的 Claude Code：一个命令行里带 claude 的进程，像 Claude Code 那样在 ~/.claude/sessions 登记会话 [session]。
@@ -83,55 +68,79 @@ class HostHandoffTest {
         return process.pid()
     }
 
-    private fun register(pid: Long, session: String) {
+    /** 像 Claude Code 那样登记；[procStart] 是登记里的启动时刻，null 时不写（旧版）。 */
+    private fun register(pid: Long, session: String, procStart: String? = null) {
+        val start = procStart?.let { ",\"procStart\":\"$it\"" }.orEmpty()
         File(home, ".claude/sessions/$pid.json").apply {
             parentFile!!.mkdirs()
             writeText(
-                """{"pid":$pid,"sessionId":"$session","kind":"interactive","status":"idle"}""",
+                """{"pid":$pid,"sessionId":"$session"$start,"kind":"interactive","status":"idle"}""",
             )
         }
     }
 
+    private fun hasProcess(key: String) = File(hostDir(key), "pid").exists()
+
     @Test
     fun resumingASessionHeldInATerminalDoesNotStartClaude() {
         terminalHolding(SESSION)
-        assertEquals(96, start("k1", "--resume", SESSION))
+        val out = start("k1", "--resume", SESSION)
+        assertTrue(
+            out,
+            out.contains("\"type\":\"zeta_exit\"") && out.contains("\"reason\":\"held_elsewhere\""),
+        )
         assertFalse("不该建托管目录", hostDir("k1").exists())
     }
 
     @Test
     fun otherSessionsAndBranchesStillStart() {
         terminalHolding(SESSION)
-        assertEquals(0, start("k1", "--resume", OTHER))
+        start("k1", "--resume", OTHER)
+        assertTrue(hasProcess("k1"))
         // 分支出来的是新会话，原会话被占着也不要紧
-        assertEquals(0, start("k2", "--resume", SESSION, "--fork-session"))
-        assertTrue(File(hostDir("k2"), "pid").exists())
+        start("k2", "--resume", SESSION, "--fork-session")
+        assertTrue(hasProcess("k2"))
     }
 
     @Test
     fun aSessionHeldByThisPackagesOwnProcessIsNotElsewhere() {
-        assertEquals(0, start("k1"))
+        start("k1")
         val pid = File(hostDir("k1"), "pid").readText().trim().toLong()
         register(pid, SESSION)
         // 登记还在但进程没了的也不算
         register(999_999, SESSION)
-        assertEquals(0, start("k2", "--resume", SESSION))
+        start("k2", "--resume", SESSION)
+        assertTrue(hasProcess("k2"))
     }
 
-    /** 接着的一方在进程退出时报 zeta_exit：有 released 记号的带 "released":true，没有的是 false。 */
+    /** 登记里的启动时刻和进程对不上（进程号被别的进程复用了）的不算，和 zeta-helper 同一口径。 */
+    @Test
+    fun aRegistrationWhosePidWasReusedIsNotElsewhere() {
+        val pid = terminalHolding(OTHER)
+        register(pid, SESSION, procStart = "1")
+        start("k1", "--resume", SESSION)
+        assertTrue(hasProcess("k1"))
+    }
+
+    /** 接着的一方在进程退出时报 zeta_exit：有 released 记号的带 "reason":"released"，没有的是 null。 */
     @Test
     fun exitReportSaysWhetherTheSessionWasReleased() {
-        assertEquals(true, exitAfter(released = true)?.contains("\"released\":true"))
-        assertEquals(true, exitAfter(released = false)?.contains("\"released\":false"))
+        assertEquals(true, exitAfter(released = true)?.contains("\"reason\":\"released\""))
+        assertEquals(true, exitAfter(released = false)?.contains("\"reason\":null"))
     }
 
     private fun exitAfter(released: Boolean): String? {
         val key = "k-$released"
-        assertEquals(0, start(key))
+        start(key)
         val dir = hostDir(key)
         val pid = File(dir, "pid").readText().trim().toInt()
         if (released) File(dir, "released").writeText("")
-        val attach = builder("attach", key, "1").start().also { started += it }
+        val attach =
+            HostTesting.builder(home, command("attach", key, "1"), HostTesting.named(name))
+                .start()
+                .also {
+                    started += it
+                }
         val lines = attach.inputStream.bufferedReader()
         assertTrue(lines.readLine().orEmpty().contains("zeta_attached"))
         attach.outputStream.apply {

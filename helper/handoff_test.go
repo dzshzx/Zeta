@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -11,87 +10,17 @@ import (
 	"time"
 )
 
-// stub 起一个命令行里带 claude 的脚本 body（第一个参数是 dir），返回 pid 和它退出后关闭的通道。
-func stub(t *testing.T, body, dir string) (int, <-chan struct{}) {
-	t.Helper()
-	script := filepath.Join(t.TempDir(), "claude")
-	writeFile(t, script, "#!/bin/bash\n"+body)
-	if err := os.Chmod(script, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command(script, dir)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan struct{})
-	go func() { _ = cmd.Wait(); close(done) }()
-	t.Cleanup(func() { _ = cmd.Process.Kill(); <-done })
-	return cmd.Process.Pid, done
-}
-
-// tui 是终端里的 Claude Code：收到 SIGINT 就退出（照 /exit），[stubborn] 时不理它。设好 trap 后才返回。
-func tui(t *testing.T, stubborn bool) (int, <-chan struct{}) {
-	t.Helper()
-	ready := filepath.Join(t.TempDir(), "ready")
-	trap := "trap 'exit 0' INT"
-	if stubborn {
-		trap = "trap '' INT"
-	}
-	pid, done := stub(t, trap+"\n: > \"$1\"\nwhile :; do sleep 0.05; done\n", ready)
-	waitFile(t, ready)
-	return pid, done
-}
-
-func waitFile(t *testing.T, path string) {
-	t.Helper()
-	for deadline := time.Now().Add(3 * time.Second); ; time.Sleep(10 * time.Millisecond) {
-		if _, err := os.Stat(path); err == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s did not appear", path)
-		}
-	}
-}
-
-// registerStatus 像 Claude Code 那样登记，带上忙闲状态（空串时不写这一项）。
-func registerStatus(t *testing.T, e *env, pid int, session, status, waitingFor string) {
-	t.Helper()
-	start, ok := procStart(pid)
-	if !ok {
-		t.Fatalf("pid %d is not running", pid)
-	}
-	extra := ""
-	if status != "" {
-		extra += `,"status":"` + status + `"`
-	}
-	if waitingFor != "" {
-		extra += `,"waitingFor":"` + waitingFor + `"`
-	}
-	writeFile(t, filepath.Join(e.sessions, strconv.Itoa(pid)+".json"),
-		`{"pid":`+strconv.Itoa(pid)+`,"sessionId":"`+session+`","procStart":"`+start+`"`+extra+`}`)
-}
-
-func stillUp(done <-chan struct{}) bool {
-	select {
-	case <-done:
-		return false
-	default:
-		return true
-	}
-}
-
 const handoffID = "eeeeeeee-1111-4222-8333-444444444444"
 
 func TestOccupantReportsTheMostPressingStatus(t *testing.T) {
 	e := testEnv(t)
 	out := mustCall(t, e, "occupant", handoffID)
-	if out[0]["status"] != nil {
+	if out[0]["status"] != nil || out[0]["hands_over"] != true {
 		t.Fatalf("nobody holds it: %v", out)
 	}
 	idle, _ := tui(t, false)
 	registerStatus(t, e, idle, handoffID, "idle", "")
-	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "idle" || got["waiting_for"] != nil {
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "idle" || got["waiting_for"] != nil || got["hands_over"] != true {
 		t.Fatalf("idle holder: %v", got)
 	}
 	waiting, _ := tui(t, false)
@@ -101,7 +30,7 @@ func TestOccupantReportsTheMostPressingStatus(t *testing.T) {
 	}
 	busy, _ := tui(t, false)
 	registerStatus(t, e, busy, handoffID, "busy", "")
-	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "busy" {
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "busy" || got["hands_over"] != false {
 		t.Fatalf("busy holder: %v", got)
 	}
 }
@@ -110,7 +39,7 @@ func TestOccupantWithoutStatusIsUnknown(t *testing.T) {
 	e := testEnv(t)
 	pid, _ := tui(t, false)
 	registerStatus(t, e, pid, handoffID, "", "")
-	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "unknown" {
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "unknown" || got["hands_over"] != true {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -198,9 +127,8 @@ func TestReleaseEndsAnIdleHostedProcessOfEitherPackage(t *testing.T) {
 	e := testEnv(t)
 	dir, _, done := hosted(t, e, "zeta-dev", handoffID, turnDone...)
 	other, _, otherDone := hosted(t, e, "zeta", "ffffffff-1111-4222-8333-444444444444", turnDone...)
-	got := mustCall(t, e, "release", handoffID)[0]
-	if num(t, got["released"]) != 1 || got["busy"] != false || !exited(done) {
-		t.Fatalf("got %v", got)
+	if released, busy := e.releaseSession(handoffID, 0); released != 1 || busy || !exited(done) {
+		t.Fatalf("released %d, busy %v", released, busy)
 	}
 	if _, err := os.Stat(filepath.Join(dir, releasedMark)); err != nil {
 		t.Fatal("no released mark for zeta_host.sh")
@@ -213,9 +141,8 @@ func TestReleaseEndsAnIdleHostedProcessOfEitherPackage(t *testing.T) {
 func TestReleaseLeavesABusyHostedProcessAlone(t *testing.T) {
 	e := testEnv(t)
 	dir, _, done := hosted(t, e, "zeta", handoffID, turnOn...)
-	got := mustCall(t, e, "release", handoffID)[0]
-	if num(t, got["released"]) != 0 || got["busy"] != true || !stillUp(done) {
-		t.Fatalf("got %v", got)
+	if released, busy := e.releaseSession(handoffID, 0); released != 0 || !busy || !stillUp(done) {
+		t.Fatalf("released %d, busy %v", released, busy)
 	}
 	if _, err := os.Stat(filepath.Join(dir, releasedMark)); err == nil {
 		t.Fatal("marked a process that was left running")
@@ -233,9 +160,8 @@ func TestReleaseWaitsForTheTurnToEnd(t *testing.T) {
 			_ = f.Close()
 		}
 	}()
-	got := mustCall(t, e, "release", handoffID, "5")
-	if num(t, got[0]["released"]) != 1 || !exited(done) {
-		t.Fatalf("got %v", got)
+	if released, _ := e.releaseSession(handoffID, 5*time.Second); released != 1 || !exited(done) {
+		t.Fatalf("released %d", released)
 	}
 }
 
@@ -258,15 +184,15 @@ func TestReleaseFallsBackToSigtermWhenTheProcessIgnoresTheRequest(t *testing.T) 
 	waitFile(t, ready)
 	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(pid))
 	registerStatus(t, e, pid, handoffID, "idle", "")
-	if got := mustCall(t, e, "release", handoffID)[0]; num(t, got["released"]) != 1 || !exited(done) {
-		t.Fatalf("got %v", got)
+	if released, _ := e.releaseSession(handoffID, 0); released != 1 || !exited(done) {
+		t.Fatalf("released %d", released)
 	}
 }
 
 func TestHandoffCommandsRejectMalformedIDs(t *testing.T) {
 	e := testEnv(t)
 	for _, args := range [][]string{
-		{"occupant", "../x"}, {"handoff"}, {"release", handoffID, "soon"}, {"desk-open", handoffID, "/tmp"},
+		{"occupant", "../x"}, {"handoff"}, {"release", handoffID}, {"desk-open", handoffID}, {"desk-open", handoffID, "/tmp", "x"},
 		{"desk-close", handoffID, "../x"}, {"desk", handoffID},
 	} {
 		if _, err := call(t, e, args...); err == nil {
@@ -306,23 +232,23 @@ func TestDeskOpenStartsTheZetaSessionThenAddsWindows(t *testing.T) {
 		}
 		return "", nil
 	})
-	got := mustCall(t, e, "desk-open", handoffID, "/work/a b", "修 'bug' 的会话")[0]
+	got := mustCall(t, e, "desk-open", handoffID, "/work/a b")[0]
 	if got["window"] != "@7" {
 		t.Fatalf("got %v", got)
 	}
 	joined := strings.Join(*calls, "\n")
-	want := "new-session -d -s zeta -P -F #{window_id} -n 修 'bug' 的会话 -c /work/a b '" + e.home +
+	want := "new-session -d -s zeta -P -F #{window_id} -n eeeeeeee -c /work/a b '" + e.home +
 		"/.cache/zeta/bin/zeta-helper' desk '" + handoffID + "' '/work/a b'"
 	if !strings.Contains(joined, want) || !strings.Contains(joined, "set-option -w -t @7 @zeta_session "+handoffID) {
 		t.Fatalf("calls:\n%s", joined)
 	}
-	mustCall(t, e, "desk-open", "ffffffff-1111-4222-8333-444444444444", "/w", "")
+	mustCall(t, e, "desk-open", "ffffffff-1111-4222-8333-444444444444", "/w")
 	if last := strings.Join(*calls, "\n"); !strings.Contains(last, "new-window -d -t =zeta: -P -F #{window_id} -n ffffffff -c /w") {
 		t.Fatalf("calls:\n%s", last)
 	}
 }
 
-func TestDeskOpenRenamesAnExistingWindow(t *testing.T) {
+func TestDeskOpenLeavesAnExistingWindow(t *testing.T) {
 	e := testEnv(t)
 	calls := fakeTmux(t, true, func(args []string) (string, error) {
 		if args[0] == "list-windows" {
@@ -330,18 +256,62 @@ func TestDeskOpenRenamesAnExistingWindow(t *testing.T) {
 		}
 		return "", nil
 	})
-	if got := mustCall(t, e, "desk-open", handoffID, "/w", "新标题")[0]; got["window"] != "@3" {
+	if got := mustCall(t, e, "desk-open", handoffID, "/w")[0]; got["window"] != "@3" {
 		t.Fatalf("got %v", got)
 	}
-	if joined := strings.Join(*calls, "\n"); !strings.Contains(joined, "rename-window -t @3 新标题") || strings.Contains(joined, "new-") {
+	if joined := strings.Join(*calls, "\n"); joined != "list-windows -a -F #{window_id} #{@zeta_session}" {
 		t.Fatalf("calls:\n%s", joined)
+	}
+}
+
+func TestRenameOwnWindowTargetsItsPane(t *testing.T) {
+	calls := fakeTmux(t, true, func([]string) (string, error) { return "", nil })
+	t.Setenv("TMUX_PANE", "")
+	renameOwnWindow("x")
+	t.Setenv("TMUX_PANE", "%5")
+	renameOwnWindow("修 bug")
+	if joined := strings.Join(*calls, "\n"); joined != "rename-window -t %5 修 bug" {
+		t.Fatalf("calls:\n%s", joined)
+	}
+}
+
+func TestTitleFollowerReadsOnlyNewLines(t *testing.T) {
+	file := filepath.Join(t.TempDir(), handoffID+".jsonl")
+	var f titleFollower
+	if got := f.read(""); got != "" {
+		t.Fatalf("no file: %q", got)
+	}
+	writeLines(t, file, `{"type":"user"}`, `{"type":"ai-title","aiTitle":"自动的"}`)
+	if got := f.read(file); got != "自动的" {
+		t.Fatalf("got %q", got)
+	}
+	read := f.off
+	appendLine := func(line string) {
+		w, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.WriteString(line)
+		_ = w.Close()
+	}
+	appendLine(`{"type":"custom-title","customTitle":"改过的"}` + "\n" + `{"type":"custom-title","customTitle":"半行`)
+	if got := f.read(file); got != "改过的" || f.off <= read {
+		t.Fatalf("got %q at %d", got, f.off)
+	}
+	appendLine(`后半"}` + "\n")
+	if got := f.read(file); got != "半行后半" {
+		t.Fatalf("the half line: %q", got)
+	}
+	writeLines(t, file, `{"type":"ai-title","aiTitle":"重写"}`)
+	if got := f.read(file); got != "重写" {
+		t.Fatalf("a shorter file: %q", got)
 	}
 }
 
 func TestDeskOpenWithoutTmux(t *testing.T) {
 	e := testEnv(t)
 	fakeTmux(t, false, func([]string) (string, error) { t.Fatal("ran tmux"); return "", nil })
-	if got := mustCall(t, e, "desk-open", handoffID, "/w", "x")[0]; got["window"] != nil || got["reason"] != "no-tmux" {
+	if got := mustCall(t, e, "desk-open", handoffID, "/w")[0]; got["window"] != nil {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -365,25 +335,26 @@ func TestDeskCloseKillsOnlyThoseWindows(t *testing.T) {
 func TestDeskGoneWhenTheSessionIsDeletedOrStale(t *testing.T) {
 	e := testEnv(t)
 	seen, opened := false, time.Now()
-	if e.deskGone(handoffID, &seen, opened) {
+	gone := func(opened time.Time) bool { _, g := e.deskGone(handoffID, &seen, opened); return g }
+	if gone(opened) {
 		t.Fatal("a window opened before the record was written is gone")
 	}
-	if !e.deskGone(handoffID, &seen, opened.Add(-deskCheck-time.Minute)) {
+	if !gone(opened.Add(-deskFirstRecord - time.Minute)) {
 		t.Fatal("a record that never showed up is kept")
 	}
 	file := filepath.Join(e.root, "-w", handoffID+".jsonl")
 	writeLines(t, file, `{"type":"user"}`)
-	if e.deskGone(handoffID, &seen, opened) || !seen {
+	if got, g := e.deskGone(handoffID, &seen, opened); g || !seen || got != file {
 		t.Fatal("a fresh session is gone")
 	}
 	age(t, file, deskStale+time.Hour)
-	if !e.deskGone(handoffID, &seen, opened) {
+	if !gone(opened) {
 		t.Fatal("a stale session is kept")
 	}
 	if err := os.Remove(file); err != nil {
 		t.Fatal(err)
 	}
-	if !e.deskGone(handoffID, &seen, opened) {
+	if !gone(opened) {
 		t.Fatal("a deleted session is kept")
 	}
 }
@@ -439,7 +410,10 @@ func TestSessionStartDoesNotEndTheClaudeThatIsResuming(t *testing.T) {
 	e := testEnv(t)
 	_, pid, done := hosted(t, e, "zeta", handoffID, turnDone...)
 	// Zeta 自己起的 claude --resume 跑这个 hook 时，它是 hook 的祖先：不结束它
-	if released, busy := e.releaseSession(handoffID, 0, map[int]bool{pid: true}); released != 0 || busy || !stillUp(done) {
+	old := selfAncestors
+	selfAncestors = func() map[int]bool { return map[int]bool{pid: true} }
+	t.Cleanup(func() { selfAncestors = old })
+	if released, busy := e.releaseSession(handoffID, 0); released != 0 || busy || !stillUp(done) {
 		t.Fatalf("released %d busy %v, still up %v", released, busy, stillUp(done))
 	}
 	if !ancestors(os.Getpid())[os.Getppid()] {
