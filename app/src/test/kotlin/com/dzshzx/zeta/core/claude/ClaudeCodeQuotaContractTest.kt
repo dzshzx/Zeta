@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaProbe
 import com.dzshzx.zeta.core.TestHelper
+import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -417,9 +418,8 @@ class ClaudeCodeQuotaContractTest {
             File(home, ".claude/.credentials.json.tmp").writeText(credentials("b"))
             File(home, ".claude/.credentials.json.tmp")
                 .renameTo(File(home, ".claude/.credentials.json"))
-            val deadline = System.currentTimeMillis() + 10_000
-            while (configAccount() != "acc-a" && System.currentTimeMillis() < deadline) Thread
-                .sleep(100)
+            // 写回是它自己发现凭据变了以后另做的，和输出流没有先后：等它写回，限时只防卡死
+            waitUntil(60) { configAccount() == "acc-a" }
             assertEquals("acc-a", configAccount())
             claude.turn("again")
             assertEquals("a@example.com", claude.status("Email"))
