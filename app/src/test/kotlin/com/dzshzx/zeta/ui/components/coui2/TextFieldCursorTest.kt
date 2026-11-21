@@ -22,13 +22,13 @@ class TextFieldCursorTest : ShotTest() {
 
     private fun field() = compose.onNode(hasSetTextAction())
 
-    private fun showField(initial: String) {
+    private fun showField(initial: String, rewrite: (String) -> String = { it }) {
         text = initial
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
                 TextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { text = rewrite(it) },
                     label = "目录",
                     singleLine = true,
                     showClearButton = true,
@@ -82,7 +82,7 @@ class TextFieldCursorTest : ShotTest() {
     /** 调用方改写刚打的字时光标留在原处：在中间接着打的字按顺序排，不跑到末尾（suqi8/coui#20 的例子）。 */
     @Test
     fun cursorStaysWhenCallerUppercasesTypedText() {
-        showRewritingField("AB") { it.uppercase() }
+        showField("AB") { it.uppercase() }
         field().performTextInputSelection(TextRange(1))
         field().performTextInput("x")
         field().performTextInput("y")
@@ -92,19 +92,10 @@ class TextFieldCursorTest : ShotTest() {
     /** 调用方滤掉刚打的字（文字没变）时光标也留在原处。 */
     @Test
     fun cursorStaysWhenCallerDropsTypedText() {
-        showRewritingField("19") { value -> value.filter(Char::isDigit) }
+        showField("19") { value -> value.filter(Char::isDigit) }
         field().performTextInputSelection(TextRange(1))
         field().performTextInput("a")
         field().performTextInput("0")
         assertEquals("109", text)
-    }
-
-    private fun showRewritingField(initial: String, rewrite: (String) -> String) {
-        text = initial
-        compose.setContent {
-            ZetaTheme(windowBackdrop = false) {
-                TextField(value = text, onValueChange = { text = rewrite(it) }, singleLine = true)
-            }
-        }
     }
 }
