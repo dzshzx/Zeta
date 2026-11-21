@@ -1,6 +1,6 @@
 # Zeta 在 Debian 里管 Claude 账号用的小脚本（bash）。以 Claude Code 所属的普通用户身份运行。
 #
-# 账号本身由 claude-switch 管（~/.local/bin/claude-switch，dotfiles 里的 Go 程序）：存档、换号、加号、删号、
+# 账号本身由 claude-switch 管（~/.local/bin/claude-switch，开源程序 github.com/dzshzx/claude-switch）：存档、换号、加号、删号、
 # 有 Claude Code 进程在跑时拒绝，都是它的事。这个脚本只做两件事：替 Zeta 跑 claude-switch、把输出和退出码转成记录；
 # 列出还开着的 Claude Code 进程和它们归哪个 Zeta 包，界面据此说清是谁挡着。
 #

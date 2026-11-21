@@ -114,7 +114,7 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
 
     /**
      * 登录另一个号之前：挑个空闲的名字，把在用的号存档并退出登录，登录后的新号由 claude-switch 下次运行时记成这个名字。
-     * 名字是 claude、claude-b 这两个固定的号时用 `claude-switch <名字>`（换到一个没有存档的号就是存档并退出），
+     * 名字是固定的 claude 时用 `claude-switch claude`（换到一个没有存档的号就是存档并退出），
      * 别的用 `claude-switch add <名字>`（add 不收固定的号）。在用的登录还没记过时先 add 一个名字把它记下，不丢它的令牌。
      * 没登录时什么都不做。成功时 [SwitchOutcome.Done] 带新号的名字（没登录时为空串）。
      */
@@ -161,8 +161,8 @@ class ClaudeAccounts(private val client: ClaudeConfigClient, private val script:
     companion object {
         const val NOT_INSTALLED = "手机 Debian 里没有 claude-switch（~/.local/bin/claude-switch）"
 
-        /** claude-switch 里总能用作目标的两个号（主号、第二账号）：直接换过去，add 不收它们。 */
-        private val BUILTIN = setOf("claude", "claude-b")
+        /** claude-switch 里总能用作目标的号（没有切换记录时默认配置目录里那个号）：直接换过去，add 不收它。 */
+        private val BUILTIN = setOf("claude")
         private const val BUSY_MARK = "还有 Claude Code 进程在跑"
         private const val MISSING_MARK = "没有叫"
         private const val PREFIX = "claude-switch: "

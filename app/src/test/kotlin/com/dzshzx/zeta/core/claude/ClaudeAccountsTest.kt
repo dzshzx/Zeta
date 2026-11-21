@@ -186,19 +186,19 @@ class ClaudeAccountsTest {
     }
 
     @Test
-    fun prepareLoginUsesAFreeBuiltinNameBySwitchingToIt() {
-        // 只用过主号：第二账号 claude-b 空着，add 不收固定的号，直接换过去就是存档并退出
+    fun prepareLoginAddsTheSecondAccount() {
+        // 只用过 claude：第二个号取名 claude-b，用 add 把在用的号存档并退出（claude-b 不是固定的号）
         installFake(status("claude", account("claude", current = true), account("claude", current = true)))
         assertEquals(SwitchOutcome.Done("claude-b"), accounts.prepareLogin())
-        assertEquals(listOf("--json", "claude-b"), calls())
+        assertEquals(listOf("--json", "add claude-b"), calls())
     }
 
     @Test
     fun prepareLoginRecordsAnUnknownLoginFirst() {
         installFake(unknownLive)
-        assertEquals(SwitchOutcome.Done("claude-b"), accounts.prepareLogin())
-        // 先把认不出的登录 add 成 claude-c（不改登录；add 不收固定的号），再换到空着的 claude-b 把它存档并退出
-        assertEquals(listOf("--json", "add claude-c", "claude-b"), calls())
+        assertEquals(SwitchOutcome.Done("claude-c"), accounts.prepareLogin())
+        // 先把认不出的登录 add 成 claude-b（不改登录），再 add claude-c 把它存档并退出
+        assertEquals(listOf("--json", "add claude-b", "add claude-c"), calls())
     }
 
     @Test
@@ -206,7 +206,7 @@ class ClaudeAccountsTest {
         installFake(unknownLive)
         failWith("add", 1, "claude-switch: 还有 Claude Code 进程在跑，先全部退出再换号：\n  123 claude\n")
         assertTrue(accounts.prepareLogin() is SwitchOutcome.Busy)
-        assertEquals(listOf("--json", "add claude-c"), calls())
+        assertEquals(listOf("--json", "add claude-b"), calls())
     }
 
     @Test
@@ -224,8 +224,8 @@ class ClaudeAccountsTest {
 
         installFake(unknownLive)
         File(fake, "calls").delete()
-        assertEquals("claude-c", accounts.save())
-        assertEquals(listOf("--json", "add claude-c"), calls())
+        assertEquals("claude-b", accounts.save())
+        assertEquals(listOf("--json", "add claude-b"), calls())
 
         failWith("add", 2, "claude-switch: 已经有叫 claude-c 的账号，未改动\n")
         assertEquals("已经有叫 claude-c 的账号，未改动", assertThrows(ClaudeConfigException::class.java) { accounts.save() }.message)
