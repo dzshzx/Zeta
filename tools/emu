@@ -27,6 +27,7 @@ adb() { "$ANDROID_HOME/platform-tools/adb" -s "$SERIAL" "$@" 9>&-; }
 dir=${XDG_RUNTIME_DIR:-/tmp}
 grace=${ZETA_EMU_GRACE_SEC:-300}
 hold_min=15
+pid_poll=30 # 关机进程隔多少秒看一次登记的进程还在不在
 holds=$dir/zeta-emu.holds       # 登记：一人一个文件，内容是「pid <进程号> <启动时刻>」或「until <到期时刻>」
 ended=$dir/zeta-emu.ended       # 最近一次有登记结束的时刻（秒）
 stop_at=$dir/zeta-emu.stop-at   # 安排好的关机时刻：关机进程在等时才有
@@ -111,11 +112,13 @@ release() { # release <名字>
 
 # ---- 到点关机 ----
 
-# 安排关机：起一个关机进程（只留一个），它等到「没有登记、最后一份结束满宽限期」时关机；有进程登记着时它直接退出，
-# 那些进程撤登记时会再安排。单独一个小分组，在 / 下跑，不攥调用方的锁和输出管道
+# 安排关机：起一个关机进程（只留一个），它等到「没有登记、最后一份结束满宽限期」时关机。开机和撤登记时都安排：
+# 登记的进程被强杀、来不及撤登记，或按时限的登记到期没人撤，也照样到点关。单独一个小分组，在 / 下跑，不攥调用方的锁和输出管道
 schedule_stop() {
   local self
   [[ -n $(emu_pid) ]] && ours || return 0
+  # 已经有关机进程在等就不再起（每次 start 都来安排，省掉起分组的开销）
+  flock -n "$stopper_lock" true 2>/dev/null || return 0
   self=$(realpath "$0")
   own_scope zeta-emu-stop 32M
   (cd / && exec "${OWN_SCOPE[@]}" setsid flock -o -n -E 0 "$stopper_lock" bash "$self" _stop-later) >/dev/null 2>&1 </dev/null 9>&- &
@@ -127,7 +130,13 @@ stop_later() {
     exec 9>"$dir/zeta-emu.lock"
     flock 9 # 和 start 互斥：不在别人登记、开机的当口关
     prune_holds
-    ((live_pids == 0)) || break
+    if ((live_pids > 0)); then
+      # 有进程登记着：隔一阵看它们还在不在，被强杀的下一轮就清掉、记为结束
+      rm -f "$stop_at"
+      exec 9>&-
+      sleep "$pid_poll"
+      continue
+    fi
     last=0
     [[ -s $ended ]] && last=$(<"$ended")
     ((last_until <= last)) || last=$last_until
@@ -194,6 +203,7 @@ start() { # start [<登记的名字> <进程号>]
     for ((i = 0; i < 30; i++)); do is_root && break; sleep 1; done
     is_root || { echo "adbd 切不成 root" >&2; exit 1; }
   fi
+  schedule_stop
   ours ||
     echo "注意：模拟器开机时带的代理是「$(running_proxy)」，不是宿主的「${host_proxy:-无}」（多半是别的项目开的）；Zeta 要正常联网先 tools/emu stop 再开" >&2
 }
