@@ -9,6 +9,7 @@
 set -euo pipefail
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 source "$(dirname "$0")/config.sh"
+source "$(dirname "$0")/own-scope.sh"
 PORT=5554 SERIAL=emulator-5554
 WINDOW=$(zeta_config ZETA_EMU_DISPLAY emuDisplay)
 # 不把 start 的锁（9 号描述符）带进 adb：第一次调用会拉起常驻的 adb 后台服务，它会一直攥着锁
@@ -54,8 +55,10 @@ start() {
     [[ -z $WINDOW ]] || window=()
     echo "开模拟器 $name（窗口${WINDOW:+在 $WINDOW}$([[ -n $WINDOW ]] || echo 不开)，代理 ${host_proxy:-无}，日志 $dir/zeta-emu.log）"
     # 模拟器常驻：在 / 下开（当前目录留在任务树里，那棵树回收不了）；重定向放在子 shell 上、子 shell 里 exec，
-    # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）
-    (cd / && DISPLAY=$WINDOW exec setsid "$ANDROID_HOME/emulator/emulator" -avd "$name" -port "$PORT" -no-audio -no-boot-anim \
+    # 不留中间进程（它会一直攥着锁和调用方的输出管道，后来的 start 和调用方都等着）。
+    # 它各项目共用，单独一个分组（见 tools/own-scope.sh），不记在开它的会话头上；上限按 AVD 的 4G 内存加模拟器自身留够。
+    own_scope zeta-emu 8G
+    (cd / && DISPLAY=$WINDOW exec "${OWN_SCOPE[@]}" setsid "$ANDROID_HOME/emulator/emulator" -avd "$name" -port "$PORT" -no-audio -no-boot-anim \
       -gpu swiftshader_indirect "${window[@]}" ${host_proxy:+-http-proxy "$host_proxy"}) >"$dir/zeta-emu.log" 2>&1 </dev/null 9>&- &
   fi
   local i

@@ -6,9 +6,11 @@ cd "$(dirname "$0")/.."
 JAVA_HOME=$(tools/java-home)
 export JAVA_HOME
 export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
-# 并行开发时几棵任务树会同时构建：最多同时跑 ZETA_GRADLE_SLOTS 个（默认 3），其余排队，免得内存撑爆。
+# 并行开发时几棵任务树会同时构建：最多同时跑 ZETA_GRADLE_SLOTS 个（默认 2），其余排队，免得内存撑爆。
+# 一次门禁构建（assembleDebug 加 testDebugUnitTest）内存峰值约 7G；两个构建加上共用的模拟器（约 6G）和各会话自身，
+# 刚好放进 agent 会话合计的内存上限，三个就放不下。
 # 锁挂在 gradlew 进程上，它结束就释放；Gradle 守护进程不继承这个文件描述符。
-slots=${ZETA_GRADLE_SLOTS:-3}
+slots=${ZETA_GRADLE_SLOTS:-2}
 lockdir=${XDG_RUNTIME_DIR:-/tmp}/zeta-gradle
 mkdir -p "$lockdir"
 got=
@@ -21,4 +23,8 @@ if [[ -z $got ]]; then
   exec 9>"$lockdir/slot$(($$ % slots + 1))"
   flock 9
 fi
-exec ./gradlew "$@"
+# 这次要起的守护进程和它派生的测试进程单独一个分组（见 tools/own-scope.sh）。已有空闲守护进程时构建在它那里跑，
+# 用量记在它的分组上；一个守护进程同时只跑一个构建，上限按单个构建的峰值定。
+source tools/own-scope.sh
+own_scope zeta-gradle 10G
+exec "${OWN_SCOPE[@]}" ./gradlew "$@"
