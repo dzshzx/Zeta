@@ -46,10 +46,9 @@ func TestEndStopsOnlyOutsideProcessesOfThatSession(t *testing.T) {
 	const id = "aaaaaaaa-1111-4222-8333-444444444444"
 	outside, outsideDone := fakeClaude(t, false)
 	register(t, e, outside, id, "")
-	// Zeta 自己托管的同一会话：留给 zeta_host.sh stop
-	hosted, hostedDone := fakeClaude(t, false)
+	// Zeta 自己托管的同一会话（身上有本包的记号）：留给 zeta_host.sh stop
+	hosted, hostedDone := trapped(t, ":", hostMark+"="+e.name+"/k1")
 	register(t, e, hosted, id, "")
-	writeFile(t, filepath.Join(e.hosts, "k1", "pid"), strconv.Itoa(hosted))
 	// 别的会话
 	other, otherDone := fakeClaude(t, false)
 	register(t, e, other, "bbbbbbbb-1111-4222-8333-444444444444", "")

@@ -6,7 +6,7 @@ import (
 )
 
 // end <id>：结束正占着会话 <id> 的、Zeta 之外的 Claude Code 进程（比如终端或 tmux 里开着的交互式 claude）。
-// 进程按 ~/.claude/sessions 的登记找（见 outsideRegistrations：启动时刻对得上、不在托管目录里），命令行里还要有 claude；
+// 进程按 ~/.claude/sessions 的登记找（见 outsideRegistrations：启动时刻对得上、身上没有本包的记号 ZETA_HOST），命令行里还要有 claude；
 // Zeta 自己托管的进程不在这里结束，它们由 zeta_host.sh stop 经 end_session 结束。
 // 先 SIGTERM（交互式 Claude Code 收到后自己收尾退出，删掉登记，实测 2.1.330 约 2 秒），
 // 过了 endGrace 还在的 SIGKILL。输出一行 {"ended": 结束了几个}；一个也没有时是 0，不算出错。

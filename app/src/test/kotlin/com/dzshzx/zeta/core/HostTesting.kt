@@ -57,4 +57,72 @@ internal object HostTesting {
     }
 
     fun alive(pid: Int) = File("/proc/$pid").exists()
+
+    /**
+     * 替身的 prelude：像 Claude Code 那样用自己的进程号在 ~/.claude/sessions 登记会话 [session]（[registeredPid] 读回来）。
+     */
+    fun registersAs(session: String) =
+        "mkdir -p \"\$HOME/.claude/sessions\"; " +
+            "printf '{\"pid\":%s,\"sessionId\":\"$session\",\"kind\":\"sdk\"}' \$\$ > \"\$HOME/.claude/sessions/\$\$.json\""
+
+    /** 替身按 [registersAs] 登记的进程号；等它最多 5 秒，没登记就失败。 */
+    fun registeredPid(home: File): Int {
+        val dir = File(home, ".claude/sessions")
+        assertTrue("替身没登记", waitUntil(5) { dir.list().orEmpty().isNotEmpty() })
+        return dir.list()!!.single().removeSuffix(".json").toInt()
+    }
+
+    /**
+     * 测试收尾：结束 [home] 的 ~/.claude/sessions 里登记的、HOME 是 [home] 的进程（包了一层的替身不是 pid 文件记的那个，只能从这里找）。
+     * 测试随手登记的假进程号（比如 999999）可能正是别的真进程，HOME 对不上的不动。
+     */
+    fun killRegistered(home: File) {
+        File(home, ".claude/sessions")
+            .list()
+            .orEmpty()
+            .mapNotNull { it.removeSuffix(".json").toIntOrNull() }
+            .forEach { pid ->
+                if (envOf(pid, "HOME") == home.path) {
+                    ProcessBuilder("kill", "-9", "$pid").start().waitFor(5, TimeUnit.SECONDS)
+                }
+            }
+    }
+
+    /** 进程启动时的环境变量 [name]；没有、读不了时是 null。 */
+    fun envOf(pid: Int, name: String): String? = runCatching {
+        File("/proc/$pid/environ").readText()
+    }
+        .getOrNull()
+        ?.split('\u0000')
+        ?.firstOrNull { it.startsWith("$name=") }
+        ?.substringAfter('=')
+
+    /**
+     * 登录配置怎么把 claude 包一层：[FUNCTION] 是经 BASH_ENV 给每个 bash 定义的 shell 函数（nerv-wsl 上选账号的那种）， [SCRIPT] 是
+     * PATH 上排在前面、不 exec 的包装脚本。两种都让托管脚本的 $! 是外面那层，替身是它的子进程。
+     */
+    enum class Wrapper {
+        FUNCTION,
+        SCRIPT,
+    }
+
+    /** 在 [home] 里摆好 [wrapper]，返回跑 zeta_host.sh 时要另加的环境变量。 */
+    fun wrapClaude(home: File, wrapper: Wrapper): Map<String, String> =
+        when (wrapper) {
+            Wrapper.FUNCTION -> {
+                val env =
+                    File(home, "bash-env.sh").apply {
+                        writeText("claude() { command claude \"\$@\"; }\n")
+                    }
+                mapOf("BASH_ENV" to env.path)
+            }
+            Wrapper.SCRIPT -> {
+                File(home, "wrap/claude").apply {
+                    parentFile!!.mkdirs()
+                    writeText("#!/bin/bash\n\"\$HOME/bin/claude\" \"\$@\"\n")
+                    setExecutable(true)
+                }
+                mapOf("PATH" to "${home.path}/wrap:${home.path}/bin:" + System.getenv("PATH"))
+            }
+        }
 }

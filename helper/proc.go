@@ -136,13 +136,22 @@ func clockTicks() int64 {
 
 // procHome 是进程的 HOME 环境变量（真实路径）；读不了（别的用户的进程）、没有时 ok 为假。
 func procHome(pid int) (string, bool) {
+	home, ok := procEnv(pid, "HOME")
+	if !ok {
+		return "", false
+	}
+	return realPath(home), true
+}
+
+// procEnv 是进程启动时的环境变量 name（/proc/<pid>/environ，进程起来后自己改的看不到）；读不了（别的用户的进程）、没有时 ok 为假。
+func procEnv(pid int, name string) (string, bool) {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/environ")
 	if err != nil {
 		return "", false
 	}
 	for _, item := range bytes.Split(data, []byte{0}) {
-		if v, ok := bytes.CutPrefix(item, []byte("HOME=")); ok {
-			return realPath(decodeString(v)), true
+		if v, ok := bytes.CutPrefix(item, []byte(name+"=")); ok {
+			return decodeString(v), true
 		}
 	}
 	return "", false

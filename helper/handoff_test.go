@@ -97,7 +97,9 @@ func TestHandoffWithNobodyHoldingIt(t *testing.T) {
 	}
 }
 
-// hosted 照 zeta_host.sh 在包 name 的托管目录里摆一个 Claude Code：输入管道读到 end_session 就退出，out.jsonl 是 lines。
+// hosted 照 zeta_host.sh 在包 name 的托管目录里摆一个 Claude Code：身上带着这个目录的记号（hostMark），
+// 输入管道读到 end_session 就退出，out.jsonl 是 lines。托管目录的 pid 文件记的是外面那层（这里用测试进程自己代替），
+// 和 claude 被包成 shell 函数时一样不是登记的那个进程：认人只能靠记号。
 func hosted(t *testing.T, e *env, name, session string, lines ...string) (string, int, <-chan struct{}) {
 	t.Helper()
 	dir := filepath.Join(newEnvAt(e.home, name).hosts, "k-"+name+"-"+strconv.Itoa(len(lines)))
@@ -111,9 +113,9 @@ func hosted(t *testing.T, e *env, name, session string, lines ...string) (string
 	ready := filepath.Join(dir, "ready")
 	pid, done := stub(t, `D=$(dirname "$1"); exec 3<>"$D/in"; : > "$1"
 while read -r l <&3; do case $l in *end_session*) exit 0;; esac; done
-`, ready)
+`, ready, hostMark+"="+name+"/"+filepath.Base(dir))
 	waitFile(t, ready)
-	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(pid))
+	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid()))
 	registerStatus(t, e, pid, session, "idle", "")
 	return dir, pid, done
 }
@@ -180,9 +182,9 @@ func TestReleaseFallsBackToSigtermWhenTheProcessIgnoresTheRequest(t *testing.T) 
 	writeLines(t, filepath.Join(dir, "out.jsonl"), turnDone...)
 	ready := filepath.Join(dir, "ready")
 	// 开着管道、什么都不读：end_session 没人理
-	pid, done := stub(t, `D=$(dirname "$1"); exec 3<>"$D/in"; : > "$1"; while :; do sleep 0.05; done`+"\n", ready)
+	pid, done := stub(t, `D=$(dirname "$1"); exec 3<>"$D/in"; : > "$1"; while :; do sleep 0.05; done`+"\n", ready, hostMark+"=zeta/k")
 	waitFile(t, ready)
-	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(pid))
+	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid()))
 	registerStatus(t, e, pid, handoffID, "idle", "")
 	if released, _ := e.releaseSession(handoffID, 0); released != 1 || !exited(done) {
 		t.Fatalf("released %d", released)
@@ -376,6 +378,25 @@ func TestHandoffEndsTheOtherPackagesProcessTheZetaWay(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, releasedMark)); err != nil {
 		t.Fatal("no released mark")
+	}
+}
+
+// 认 Zeta 托管的进程只看它身上的记号：pid 文件记的是外面那层也认得（claude 是 shell 函数时就是这样），
+// 本包的不算别处占用，另一个包的算；记号的样子不对的当终端里的。
+func TestHostedProcessesAreKnownByTheirMark(t *testing.T) {
+	e := testEnv(t)
+	hosted(t, e, "zeta", handoffID, turnDone...)
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != nil {
+		t.Fatalf("our own process counts as elsewhere: %v", got)
+	}
+	if got := mustCall(t, newEnvAt(e.home, "zeta-dev"), "occupant", handoffID)[0]; got["status"] != "idle" {
+		t.Fatalf("the other package does not see our process: %v", got)
+	}
+	for _, mark := range []string{"zeta", "zeta/", "zeta/..", "other/k", "zeta/a/b"} {
+		pid, _ := tui(t, false, hostMark+"="+mark)
+		if dir, ok := e.hostDirOf(pid); ok {
+			t.Fatalf("mark %q was taken as %s", mark, dir)
+		}
 	}
 }
 

@@ -386,11 +386,9 @@ class ClaudeAccountsTest {
         // 一个“别处的” Claude Code：~/.claude/sessions 里登记着、进程还活着
         val other = live()
         session(other, status = "idle")
-        // 另一个 Zeta 包托管的一个，正在回答
-        val zeta = live()
+        // 另一个 Zeta 包托管的一个，正在回答：归属看它身上的记号
+        val zeta = live(mark = "zeta/k1")
         session(zeta, status = "busy")
-        File(home, ".cache/zeta/hosts/k1").mkdirs()
-        File(home, ".cache/zeta/hosts/k1/pid").writeText("${zeta.pid()}\n")
         // pid 还在但已经是别的进程了（启动时刻对不上）：不算
         File(home, ".claude/sessions/999.json")
             .writeText(
@@ -427,10 +425,8 @@ class ClaudeAccountsTest {
         File(fake, "claude-b.err").delete()
         other.destroyForcibly().waitFor()
         zeta.destroyForcibly().waitFor()
-        val mine = live()
+        val mine = live(mark = "zeta-dev/k2")
         session(mine, status = "idle")
-        File(home, ".cache/zeta-dev/hosts/k2").mkdirs()
-        File(home, ".cache/zeta-dev/hosts/k2/pid").writeText("${mine.pid()}")
         assertNull(ClaudeAccounts.blocker(accounts.list().processes, "zeta-dev"))
         Thread {
             Thread.sleep(600)
@@ -444,7 +440,18 @@ class ClaudeAccountsTest {
 
     // ---------- 工具 ----------
 
-    private fun live(): Process = ProcessBuilder("sleep", "300").start().also { spawned += it }
+    /**
+     * 一个活着的进程；[mark] 是 zeta_host.sh 给托管的 Claude Code 设的记号 ZETA_HOST（<包>/<标识>），null 时没有 （测试本身跑在 Zeta
+     * 托管的 Claude Code 里时继承来的也去掉）。
+     */
+    private fun live(mark: String? = null): Process =
+        ProcessBuilder("sleep", "300")
+            .apply {
+                environment().remove("ZETA_HOST")
+                mark?.let { environment()["ZETA_HOST"] = it }
+            }
+            .start()
+            .also { spawned += it }
 
     private fun session(process: Process, status: String) {
         val stat = File("/proc/${process.pid()}/stat").readText()

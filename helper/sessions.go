@@ -366,6 +366,30 @@ type registered struct {
 	session any
 	status  string // Claude Code 报的忙闲：idle、busy（正在跑一轮）、shell（在跑 ! 命令）、waiting（在等确认）；旧版没有，是空串
 	waiting string // status 是 waiting 时在等什么（waitingFor），没有是空串
+	host    string // 托管它的 Zeta 托管目录（hostDirOf），不是 Zeta 托管的是空串
+}
+
+// hostMark 是 zeta_host.sh 给它起的 Claude Code 设的环境变量，值是 <包的目录名>/<托管目录名>（比如 zeta-dev/abc）。
+// Zeta 托管的进程按它认，不按托管目录里记的 pid：登录配置把 claude 包成 shell 函数或不 exec 的脚本时，
+// 记下的是外面那层，在 ~/.claude/sessions 登记的 Claude Code 是它的子进程。
+const hostMark = "ZETA_HOST"
+
+// hostDirOf 是进程 pid 所属的托管目录（~/.cache/<包>/hosts/<名字>，两个包都认）；不是 Zeta 托管的、记号的样子不对时 ok 为假。
+func (e *env) hostDirOf(pid int) (string, bool) {
+	mark, ok := procEnv(pid, hostMark)
+	if !ok {
+		return "", false
+	}
+	pkg, key, ok := strings.Cut(mark, "/")
+	if !ok || !strings.HasPrefix(pkg, "zeta") || key == "" || key == "." || key == ".." || strings.Contains(key, "/") {
+		return "", false
+	}
+	return e.home + "/.cache/" + pkg + "/hosts/" + key, true
+}
+
+// ownHost：登记的进程是本包托管的。
+func (e *env) ownHost(r registered) bool {
+	return strings.HasPrefix(r.host, e.hosts+"/")
 }
 
 // registeredSessions：Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
@@ -385,8 +409,9 @@ func (e *env) registeredSessions() []registered {
 		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
 			continue
 		}
+		host, _ := e.hostDirOf(pid)
 		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
-			status: asString(info["status"]), waiting: asString(info["waitingFor"])})
+			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host})
 	}
 	return out
 }
@@ -410,17 +435,6 @@ func jsonInt(v any) (int, bool) {
 	return 0, false
 }
 
-// hostPids 是 Zeta 托管目录里记着的进程号。
-func (e *env) hostPids() map[int]bool {
-	pids := map[int]bool{}
-	for _, name := range globNames(e.hosts, true, nil) {
-		if pid, ok := readPid(joinPath(joinPath(e.hosts, name), "pid")); ok {
-			pids[pid] = true
-		}
-	}
-	return pids
-}
-
 // externalSessions 是正被别的 Claude Code 进程（比如终端里的）占用的会话 id。
 func (e *env) externalSessions() map[string]bool {
 	out := map[string]bool{}
@@ -430,12 +444,11 @@ func (e *env) externalSessions() map[string]bool {
 	return out
 }
 
-// outsideRegistrations 是 Zeta 之外（不在托管目录里）的进程登记的、带会话 id 的那些：侧栏标“在别处运行”、end 结束的都是它们。
+// outsideRegistrations 是本包之外（终端里的、另一个包托管的）的进程登记的、带会话 id 的那些：侧栏标“在别处运行”、end 结束的都是它们。
 func (e *env) outsideRegistrations() []registered {
-	mine := e.hostPids()
 	var out []registered
 	for _, r := range e.registeredSessions() {
-		if _, ok := r.session.(string); ok && !mine[r.pid] {
+		if _, ok := r.session.(string); ok && !e.ownHost(r) {
 			out = append(out, r)
 		}
 	}

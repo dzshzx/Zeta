@@ -97,8 +97,9 @@ func textOf(e obj) string {
 	return strings.Join(parts, "|")
 }
 
-// stub 起一个命令行里带 claude 的脚本 body（第一个参数是 dir），返回 pid 和它退出后关闭的通道。
-func stub(t *testing.T, body, dir string) (int, <-chan struct{}) {
+// stub 起一个命令行里带 claude 的脚本 body（第一个参数是 dir），另加环境变量 env，返回 pid 和它退出后关闭的通道。
+// 测试本身跑在 Zeta 托管的 Claude Code 里时会继承它的记号（hostMark），这里去掉，只留 env 里给的。
+func stub(t *testing.T, body, dir string, env ...string) (int, <-chan struct{}) {
 	t.Helper()
 	script := filepath.Join(t.TempDir(), "claude")
 	writeFile(t, script, "#!/bin/bash\n"+body)
@@ -106,6 +107,12 @@ func stub(t *testing.T, body, dir string) (int, <-chan struct{}) {
 		t.Fatal(err)
 	}
 	cmd := exec.Command(script, dir)
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, hostMark+"=") {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
+	cmd.Env = append(cmd.Env, env...)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -116,21 +123,21 @@ func stub(t *testing.T, body, dir string) (int, <-chan struct{}) {
 }
 
 // trapped 起一个设了 trap 的 stub，一直跑着；trap 设好后才返回。
-func trapped(t *testing.T, trap string) (int, <-chan struct{}) {
+func trapped(t *testing.T, trap string, env ...string) (int, <-chan struct{}) {
 	t.Helper()
 	ready := filepath.Join(t.TempDir(), "ready")
-	pid, done := stub(t, trap+"\n: > \"$1\"\nwhile :; do sleep 0.05; done\n", ready)
+	pid, done := stub(t, trap+"\n: > \"$1\"\nwhile :; do sleep 0.05; done\n", ready, env...)
 	waitFile(t, ready)
 	return pid, done
 }
 
-// tui 是终端里的 Claude Code：收到 SIGINT 就退出（照 /exit），[stubborn] 时不理它。
-func tui(t *testing.T, stubborn bool) (int, <-chan struct{}) {
+// tui 是终端里的 Claude Code：收到 SIGINT 就退出（照 /exit），[stubborn] 时不理它；env 是另加的环境变量。
+func tui(t *testing.T, stubborn bool, env ...string) (int, <-chan struct{}) {
 	t.Helper()
 	if stubborn {
-		return trapped(t, "trap '' INT")
+		return trapped(t, "trap '' INT", env...)
 	}
-	return trapped(t, "trap 'exit 0' INT")
+	return trapped(t, "trap 'exit 0' INT", env...)
 }
 
 func waitFile(t *testing.T, path string) {

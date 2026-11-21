@@ -39,6 +39,7 @@ class HostHandoffTest {
                 .getOrNull()
                 ?.let { ProcessBuilder("kill", "-9", it).start().waitFor(5, TimeUnit.SECONDS) }
         }
+        HostTesting.killRegistered(home)
         home.deleteRecursively()
     }
 
@@ -56,14 +57,18 @@ class HostHandoffTest {
 
     /**
      * 终端里开着的 Claude Code：一个命令行里带 claude 的进程，像 Claude Code 那样在 ~/.claude/sessions 登记会话 [session]。
+     * [mark] 是它身上的 ZETA_HOST 记号（<包>/<标识>，冒充某个包托管的），null 时没有：测试本身跑在 Zeta 托管的 Claude Code 里时继承来的也去掉。
      */
-    private fun terminalHolding(session: String): Long {
+    private fun terminalHolding(session: String, mark: String? = null): Long {
         val script =
             File(home, "bin/claude-terminal").apply {
                 writeText("#!/bin/bash\nwhile :; do sleep 0.2; done\n")
                 setExecutable(true)
             }
-        val process = ProcessBuilder(script.path).start().also { started += it }
+        val builder = ProcessBuilder(script.path)
+        builder.environment().remove("ZETA_HOST")
+        mark?.let { builder.environment()["ZETA_HOST"] = it }
+        val process = builder.start().also { started += it }
         register(process.pid(), session)
         return process.pid()
     }
@@ -111,6 +116,67 @@ class HostHandoffTest {
         register(999_999, SESSION)
         start("k2", "--resume", SESSION)
         assertTrue(hasProcess("k2"))
+    }
+
+    /**
+     * claude 被包了一层（shell 函数、不 exec 的脚本）时 pid 文件记的是外面那层，登记的 Claude Code 是它的子进程： 本包的照样认得（看身上的记号
+     * ZETA_HOST），不算别处占着；账号脚本也认得它归本包。
+     */
+    @Test
+    fun thisPackagesWrappedProcessIsNotElsewhere() {
+        for (wrapper in HostTesting.Wrapper.entries) {
+            File(home, ".claude/sessions").deleteRecursively()
+            HostTesting.writeClaudeStandIn(home, prelude = HostTesting.registersAs(SESSION))
+            val env = HostTesting.named(name) + HostTesting.wrapClaude(home, wrapper)
+            HostTesting.run(home, command("start", "k1", home.path, "t", "-p"), env)
+            val claude = HostTesting.registeredPid(home)
+            assertEquals("$wrapper：账号脚本说的归属", listOf(name), accountsOwners(claude))
+            val out =
+                HostTesting.run(
+                    home,
+                    command("start", "k2", home.path, "t", "-p", "--resume", SESSION),
+                    env,
+                )
+            assertFalse("$wrapper：$out", out.contains("held_elsewhere"))
+            assertTrue(hasProcess("k2"))
+            for (key in listOf("k1", "k2")) HostTesting.run(
+                home,
+                command("stop", key),
+                HostTesting.named(name),
+            )
+            assertTrue(
+                "$wrapper：没收掉",
+                waitUntil(10) { !hostDir("k1").exists() && !hostDir("k2").exists() },
+            )
+        }
+    }
+
+    /** 另一个包托管的进程（身上是那个包的记号）对本包来说是别处占着；账号脚本说它归那个包，终端里的归属是空的。 */
+    @Test
+    fun aProcessOfTheOtherPackageIsElsewhere() {
+        val other = AppVariant(AppVariant.RELEASE_PACKAGE).linuxName
+        val pid = terminalHolding(SESSION, mark = "$other/k9")
+        val terminal = terminalHolding(OTHER)
+        val out = start("k1", "--resume", SESSION)
+        assertTrue(out, out.contains("\"reason\":\"held_elsewhere\""))
+        assertEquals(listOf(other), accountsOwners(pid.toInt()))
+        assertEquals(listOf(""), accountsOwners(terminal.toInt()))
+    }
+
+    /** 账号脚本（zeta_accounts.sh list）列出的进程 [pid] 归哪个包（P 记录的第三个字段，终端里的是空串）。没有 jq 时跳过。 */
+    private fun accountsOwners(pid: Int): List<String> {
+        assumeTrue("账号脚本要 jq", File("/usr/bin/jq").exists())
+        File(home, "cs").apply {
+            writeText("#!/bin/bash\necho '{}'\n")
+            setExecutable(true)
+        }
+        val accounts = File("src/main/assets/zeta_accounts.sh").absoluteFile
+        // 参数：claude-switch 相对家目录的路径（这里是假的），再是子命令
+        return HostTesting.run(home, listOf("bash", accounts.path, "cs", "list"))
+            .lines()
+            .map { it.split('\u0000') }
+            .filter { it.firstOrNull() == "P" && it.getOrNull(1) == "$pid" }
+            .map { it[2] }
     }
 
     /** 登记里的启动时刻和进程对不上（进程号被别的进程复用了）的不算，和 zeta-helper 同一口径。 */

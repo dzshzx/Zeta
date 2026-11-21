@@ -93,12 +93,11 @@ func cmdHandoff(e *env, o *emitter, id string) error {
 		return nil
 	}
 	// 终端里的发 SIGINT；另一个包托管的进程照 Zeta 自己的规矩结束（end_session），两边一起等
-	hostedDirs := e.hostedDirs()
 	var terminal []registered
 	var others []hostedHolder
 	for _, r := range holders {
-		if dir, ok := hostedDirs[r.pid]; ok {
-			others = append(others, hostedHolder{dir: dir, pid: r.pid, start: r.start})
+		if r.host != "" {
+			others = append(others, hostedHolder{dir: r.host, pid: r.pid, start: r.start})
 		} else {
 			terminal = append(terminal, r)
 		}
@@ -120,24 +119,13 @@ type hostedHolder struct {
 	start string
 }
 
-// hostedDirs 是两个包托管的、还没结束的进程：pid → 托管目录。终端那边不知道会话是哪个包托管的，两个都看。
-func (e *env) hostedDirs() map[int]string {
-	owner := map[int]string{}
-	for _, dir := range e.allHostDirs() {
-		if pid, ok := readPid(joinPath(dir, "pid")); ok && !existsFollow(joinPath(dir, "exit")) {
-			owner[pid] = dir
-		}
-	}
-	return owner
-}
-
-// hostedHolders 是两个包托管的进程里占着会话 id 的那些，按 ~/.claude/sessions 的登记认（托管目录记着它的 pid）。
+// hostedHolders 是两个包托管的、还没结束的进程里占着会话 id 的那些：按 ~/.claude/sessions 的登记和进程身上的记号（hostDirOf）认。
+// 终端那边不知道会话是哪个包托管的，两个都看。
 func (e *env) hostedHolders(id string) []hostedHolder {
-	owner := e.hostedDirs()
 	var out []hostedHolder
 	for _, r := range e.registeredSessions() {
-		if dir, ok := owner[r.pid]; ok && r.session == id {
-			out = append(out, hostedHolder{dir: dir, pid: r.pid, start: r.start})
+		if r.host != "" && r.session == id && existsFollow(r.host) && !existsFollow(joinPath(r.host, "exit")) {
+			out = append(out, hostedHolder{dir: r.host, pid: r.pid, start: r.start})
 		}
 	}
 	return out

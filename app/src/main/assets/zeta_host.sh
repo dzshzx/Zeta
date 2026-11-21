@@ -18,9 +18,11 @@
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
-#   pid        Claude Code 的进程号（claude 是 shell 函数时是函数起的那个子进程），起进程的那段写。本脚本 attach、stop 用；zeta-helper 据此认还活着的托管进程
-#              （hosts、存储页、别处占用的会话）；zeta_accounts.sh 据此认出进程是哪个包托管的；
+#   pid        起进程的那段起的进程号，那段写：通常就是 Claude Code；登录配置把 claude 包成 shell 函数或不 exec 的脚本时是外面那层，
+#              Claude Code 是它的子进程。它活着就是 Claude Code 还在：本脚本 attach、stop、看门狗，zeta-helper 的 hosts、存储页据此看；
 #              应用的 PathCheck（AttachedPaths.kt）经 /proc/<pid>/root 看这个进程的挂载命名空间。
+#              认哪个登记的进程是 Zeta 托管的不看它，看进程身上的记号：起进程的那段给 Claude Code 设环境变量 ZETA_HOST=<ZETA_NAME>/<标识>，
+#              held_elsewhere、hosted_claude、zeta-helper（hostDirOf）、zeta_accounts.sh 都按它认。
 #   attach     正接着的那一方（本脚本 start、attach 之后的部分）的进程号，接上时写。看门狗据此知道有没有应用接着；
 #              zeta-helper 的存储页据此不清还连着的目录。
 #   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
@@ -53,7 +55,8 @@ tasks_running() {
 }
 
 # 会话 $1 正被 Zeta 之外（不是本包托管）的 Claude Code 进程占着，比如终端里开着的 claude：
-# 和 zeta-helper 的 outsideRegistrations 同一口径看 ~/.claude/sessions 的登记：进程还在、启动时刻（procStart）对得上、不是本包托管的。
+# 和 zeta-helper 的 outsideRegistrations 同一口径看 ~/.claude/sessions 的登记：进程还在、启动时刻（procStart）对得上、
+# 身上没有本包的记号（ZETA_HOST=<ZETA_NAME>/…）。
 # 两个进程同时写一份会话记录会错乱，所以这时不起进程，由 Zeta 先把会话从那边接过来（zeta-helper handoff）。
 held_elsewhere() {
   local f pid stat
@@ -65,15 +68,29 @@ held_elsewhere() {
     # 进程名（括号里）之后的第 20 项是启动时刻（stat 第 22 项）
     read -ra stat <<<"${stat##*) }"
     grep -qF '"procStart"' "$f" && ! grep -qF "\"procStart\":\"${stat[19]}\"" "$f" && continue
-    grep -qsxF "$pid" "${D%/*}"/*/pid && continue
+    tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -q "^ZETA_HOST=${ZETA_NAME:-zeta}/[^/]*$" && continue
     return 0
   done < <(grep -lsF "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json)
   return 1
 }
 
-# 结束 Claude Code（托管目录 $1、进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
+# 托管目录 $1 的 Claude Code：~/.claude/sessions 里登记的、身上带着这个目录记号（ZETA_HOST=<包>/<标识>）的进程，一行一个。
+# pid 文件记的是外面那层时（claude 被包成 shell 函数或不 exec 的脚本）只有这样找得到它；还没登记（刚起来）时什么也不输出。
+hosted_claude() {
+  local n=${1%/hosts/*} f pid
+  local m="ZETA_HOST=${n##*/}/${1##*/}"
+  for f in "$HOME"/.claude/sessions/*.json; do
+    pid=${f##*/}
+    pid=${pid%.json}
+    case $pid in '' | *[!0-9]*) continue ;; esac
+    tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qxF "$m" && echo "$pid"
+  done
+}
+
+# 结束 Claude Code（托管目录 $1、pid 文件记的进程 $2），等价于终端里的 /exit（-p 模式不认 /exit）：往输入管道写控制请求 end_session，
 # 由它自己停下进行中的这一轮、跑 SessionEnd hook、退出，会话记录留着（ClaudeCodeContractTest 钉住）。
-# 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL。stop 和看门狗都用它。
+# 等它退出最多 ZETA_STOP_GRACE 秒（默认 10），不退（卡住了）再 SIGTERM，还不退就 SIGKILL：信号发给 $2 和 hosted_claude 找到的进程，
+# $2 是外面那层时只杀它会把 Claude Code 留成没人管的孤儿。stop 和看门狗都用它。
 end_claude() {
   local d=$1 p=$2 i
   kill -0 "$p" 2>/dev/null || return 0
@@ -81,9 +98,11 @@ end_claude() {
   timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
     '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$d/in" 2>/dev/null
   for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do kill -0 "$p" 2>/dev/null || return 0; sleep 0.2; done
-  kill "$p" 2>/dev/null
-  for ((i = 0; i < 25; i++)); do kill -0 "$p" 2>/dev/null || return 0; sleep 0.2; done
-  kill -9 "$p" 2>/dev/null
+  set -- "$p" $(hosted_claude "$d") # 一行一个进程号，按词分开
+  kill "$@" 2>/dev/null
+  # 有一个还在 kill -0 就成功
+  for ((i = 0; i < 25; i++)); do kill -0 "$@" 2>/dev/null || return 0; sleep 0.2; done
+  kill -9 "$@" 2>/dev/null
 }
 
 if [ "$mode" = state ]; then
@@ -103,7 +122,7 @@ if [ "$mode" = stop ]; then
       for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
     fi
     rm -rf "$D"
-  ' zeta-stop "$(declare -f end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
+  ' zeta-stop "$(declare -f hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 
@@ -142,20 +161,13 @@ if [ "$mode" = start ]; then
   setsid bash -c '
     eval "$1"; D=$2; R=$3; shift 3
     exec 3<>"$D/in"
+    # 记号：Claude Code 身上的这个环境变量说明它归哪个包的哪个托管目录（见开头 pid 一项）。
+    # 登录配置把 claude 包成 shell 函数（比如经 BASH_ENV 给每个 bash 定义一个选账号的 claude 函数）或不 exec 的脚本时，
+    # $! 是外面那层，真正的 Claude Code 是它的子进程，环境变量照样传过去
+    N=${D%/hosts/*}
+    export ZETA_HOST="${N##*/}/${D##*/}"
     "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
-    S=$!
-    P=$S
-    # 登录配置把 claude 包成 shell 函数时（比如经 BASH_ENV 给每个 bash 定义一个选账号的 claude 函数），$! 是跑函数的子 shell，
-    # 真正的 Claude Code 是它的子进程。记它的进程号：结束进程、zeta-helper 按 ~/.claude/sessions 的登记认人都要它；等的还是子 shell
-    if [ "$(type -t "$R")" = function ]; then
-      for _ in $(seq 100); do
-        for c in $(cat "/proc/$S/task/$S/children" 2>/dev/null); do
-          tr "\0" " " < "/proc/$c/cmdline" 2>/dev/null | grep -q claude && { P=$c; break 2; }
-        done
-        kill -0 $S 2>/dev/null || break
-        sleep 0.05
-      done
-    fi
+    P=$!
     echo $P > "$D/pid"
     # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
     # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
@@ -176,7 +188,7 @@ if [ "$mode" = start ]; then
       done
     ) &
     W=$!
-    wait $S
+    wait $P
     code=$?
     kill $W 2>/dev/null
     # 标准错误输出留一份给 Zeta 的诊断页：托管目录随后会被删掉。只留最近 20 份，每份最后 64 KB
@@ -188,8 +200,8 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -d "$D" ] && echo $code > "$D/exit"
-  ' zeta-run "$(declare -f turn_running tasks_running end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
-  for _ in $(seq 200); do [ -s "$D/pid" ] && break; sleep 0.05; done
+  ' zeta-run "$(declare -f turn_running tasks_running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
+  for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   from=1
 else
   from=$3

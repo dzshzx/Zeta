@@ -5,6 +5,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -36,6 +37,7 @@ class HostStopTest {
             ?.let { pid ->
                 ProcessBuilder("kill", "-9", "$pid").start().waitFor(5, TimeUnit.SECONDS)
             }
+        HostTesting.killRegistered(home)
         home.deleteRecursively()
     }
 
@@ -92,21 +94,27 @@ class HostStopTest {
     }
 
     /**
-     * 登录配置经 BASH_ENV 把 claude 包成 shell 函数（选账号之类）：托管目录记的是函数起的真正的 Claude Code，不是跑函数的子 shell， 所以
-     * zeta-helper 按 ~/.claude/sessions 的登记认得出它；stop 结束的也是它，不留下没人管的 claude。
+     * 登录配置把 claude 包了一层（shell 函数或不 exec 的脚本）：pid 文件记的是外面那层，Claude Code 身上带着托管目录的记号 ZETA_HOST。 卡住的
+     * Claude Code 收 SIGTERM 时，按登记和记号找到的它也一起收到，不会只杀外面那层、把它留成没人管的孤儿。
      */
     @Test
-    fun claudeWrappedInAShellFunctionIsTheRecordedProcess() {
-        HostTesting.writeClaudeStandIn(home, prelude = "trap '' TERM")
-        val env =
-            File(home, "bash-env.sh").apply { writeText("claude() { command claude \"\$@\"; }\n") }
-        extraEnv = mapOf("BASH_ENV" to env.path)
-        val pid = start()
-        val cmdline = File("/proc/$pid/cmdline").readText().replace('\u0000', ' ')
-        assertTrue("记下的是 $cmdline", cmdline.contains("bin/claude") && !cmdline.startsWith("bash"))
-        run("stop", key)
-        assertTrue("claude 没结束", waitUntil(GRACE - 1) { !alive(pid) })
-        assertTrue("托管目录没删", waitUntil(5) { !hostDir.exists() })
+    fun aStuckWrappedClaudeIsTerminatedNotOrphaned() {
+        for (wrapper in HostTesting.Wrapper.entries) {
+            File(home, ".claude/sessions").deleteRecursively()
+            HostTesting.writeClaudeStandIn(
+                home,
+                prelude = HostTesting.registersAs("s"),
+                loop = HostTesting.READ_FOREVER,
+            )
+            extraEnv = HostTesting.wrapClaude(home, wrapper)
+            val outer = start()
+            val claude = HostTesting.registeredPid(home)
+            assertTrue("$wrapper：pid 文件记的该是外面那层", outer != claude)
+            assertEquals("$wrapper：记号", "$name/$key", HostTesting.envOf(claude, "ZETA_HOST"))
+            run("stop", key)
+            assertTrue("$wrapper：Claude Code 没被收掉", waitUntil(GRACE + 5) { !alive(claude) })
+            assertTrue("$wrapper：托管目录没删", waitUntil(5) { !hostDir.exists() })
+        }
     }
 
     private companion object {
