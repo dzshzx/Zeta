@@ -183,6 +183,18 @@ restart_loopback_sshd() {
   ensure_loopback_sshd
 }
 
+# 测试版的公钥（应用私有目录的 zeta_ssh.pub，密钥第一次用时写出）：等它写出来，加进设备 Debian 里 dzshzx 自己的
+# authorized_keys（已经在的不重复加，同一个注释的旧行先删掉），再重启回环的 sshd（加公钥以前那几次登录失败会让它一阵子
+# 不理 127.0.0.1）。只给回环的 sshd 用：往别的主机加公钥是新增访问权限，脚本不做。
+TEST_PUB=/data/user/0/$PKG/files/zeta_ssh.pub
+authorize_test_key() {
+  for _ in $(seq 40); do android "[ -s $TEST_PUB ]" && break; sleep 0.5; done
+  android "[ -s $TEST_PUB ]" || { echo "测试版没写出公钥 $TEST_PUB"; return 1; }
+  android "k=\$(cat $TEST_PUB); c=\${k##* }; f=$ROOTFS/home/dzshzx/.ssh/authorized_keys; grep -qxF \"\$k\" \$f || \
+    { grep -v \" \$c\\\$\" \$f > \$f.new; echo \"\$k\" >> \$f.new; cat \$f.new > \$f; rm -f \$f.new; }"
+  restart_loopback_sshd
+}
+
 # 远程主机上的对话断线重连（剧本 fake/remote.jsonl）：发一轮、截 first.png，调 $1 掐断 Zeta 的连接，再发一轮、截 reconnected.png；
 # 核对托管的还是同一个进程、两轮都答完。$2 是两轮答完时各查一次的检查（可省）。结果留在 run.jsonl。
 two_turns_across_drop() {

@@ -190,7 +190,7 @@ object QuotaProbe {
         } finally {
             // 关掉标准输入它就自己退出（会顺手删掉 ~/.claude/sessions 里的登记）；不退再杀
             runCatching { process.outputStream.close() }
-            if (!runCatching { process.waitFor(5, TimeUnit.SECONDS) }.getOrDefault(false)) shell.kill(process)
+            if (!runCatching { process.exitsWithin(5_000) }.getOrDefault(false)) shell.kill(process)
         }
     }
 }

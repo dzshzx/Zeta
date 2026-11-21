@@ -2,7 +2,6 @@ package com.dzshzx.zeta.core
 
 import kotlin.concurrent.thread
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.TimeUnit
 
 /** Debian 环境里，Claude Code 所属的那个 Linux 用户。 */
 data class LinuxEnvConfig(
@@ -145,7 +144,7 @@ object LinuxEnv {
         runCatching {
             process.outputStream.use { if (stdin != null) it.write(stdin) }
         }
-        if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
+        if (!process.exitsWithin(timeoutMs)) {
             onTimeout(process)
             return BytesResult(-1, out.toByteArray(), CommandResult.TIMEOUT)
         }

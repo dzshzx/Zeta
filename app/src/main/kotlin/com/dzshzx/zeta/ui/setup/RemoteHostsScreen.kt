@@ -43,9 +43,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 「加主机」下面的说明：两种连法各要什么、多花什么，默认用哪种。数是真机上量的（每条命令进 Debian 那一段、ssh 进程）。 */
+/** 「加主机」下面的说明：两种连法各要什么、多花什么，默认用哪种。数是真机上量的（每条命令：tools/phone-tests/remote-latency.sh；ssh 进程）。 */
 private const val ViaFooter = "两种连法：经手机 Debian，用那边 ~/.ssh 的密钥和配置（别名、跳板），不用往主机上另加公钥，" +
-    "每条命令多约 0.1 秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台主机。" +
+    "每条命令多约 50 毫秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台主机。" +
     "有 Debian 时默认经 Debian，加好以后在主机页里能改。"
 
 private const val DirectOnlyFooter = "手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台主机，再输入地址。"

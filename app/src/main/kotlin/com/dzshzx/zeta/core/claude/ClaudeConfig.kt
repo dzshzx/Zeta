@@ -3,11 +3,11 @@ package com.dzshzx.zeta.core.claude
 import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.exitsWithin
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.OutputStream
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -97,7 +97,7 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
             isDaemon = true
             start()
         }
-        if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
+        if (!process.exitsWithin(timeoutMs)) {
             shell.kill(process)
             throw ClaudeConfigException("等了太久没有结果")
         }
@@ -486,7 +486,7 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
             throw McpException(error.message + (detail?.let { "：$it" } ?: ""))
         } finally {
             runCatching { process.outputStream.close() }
-            if (!runCatching { process.waitFor(2, TimeUnit.SECONDS) }.getOrDefault(false)) shell.kill(process)
+            if (!runCatching { process.exitsWithin(2_000) }.getOrDefault(false)) shell.kill(process)
         }
     }
 

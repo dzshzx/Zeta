@@ -25,19 +25,11 @@ id=r-phonedirect
 vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"直连回环\",\"target\":\"dzshzx@127.0.0.1:8022\",\"home\":\"/home/dzshzx\",\"cwd\":\"/home/dzshzx\",\"via\":\"direct\",\"hostKey\":\"$hostkey\"}]" \
   "backend=$id" "rootfs=/data/local/zeta/no-debian-for-this-test"
 # 测试版起来就去接回直连主机上的进程，这时取密钥（没有就生成）、写出公钥；先删掉旧的公钥文件，等这次写出的
-pub=/data/user/0/$PKG/files/zeta_ssh.pub
-android "rm -f $pub"
+android "rm -f $TEST_PUB"
 helper_bin=${HOSTS%/hosts}/bin
 android "rm -rf $helper_bin"
 vd launch
-
-# 把公钥加进 authorized_keys（已经在的不重复加）
-for _ in $(seq 40); do android "[ -s $pub ]" && break; sleep 0.5; done
-android "[ -s $pub ]" || { echo "测试版没写出公钥 $pub"; exit 1; }
-android "k=\$(cat $pub); c=\${k##* }; f=$ROOTFS/home/dzshzx/.ssh/authorized_keys; grep -qxF \"\$k\" \$f || \
-  { grep -v \" \$c\\\$\" \$f > \$f.new; echo \"\$k\" >> \$f.new; cat \$f.new > \$f; rm -f \$f.new; }"
-# 加公钥以前那几次登录失败会让 sshd 一阵子不理 127.0.0.1，重启它清掉
-restart_loopback_sshd
+authorize_test_key
 sleep 6 # 冷启动后马上输入会丢字
 
 # 连接在应用里，不经 Debian 的 OpenSSH

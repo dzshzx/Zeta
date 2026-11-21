@@ -15,7 +15,6 @@ import androidx.compose.runtime.setValue
 import java.io.BufferedInputStream
 import java.io.InputStream
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -317,7 +316,7 @@ object LinuxTransfers {
             // 读的一侧断了多半是进程已经退出（比如进不了环境），等它一下好拿到退出码和报错
             val code = when {
                 cancelled || (failed != null && failed !is ReadFailure) -> -1
-                started.waitFor(10, TimeUnit.SECONDS) -> started.exitValue()
+                started.exitsWithin(10_000) -> started.exitValue()
                 else -> -1
             }
             if (code == -1) LinuxEnv.kill(started)

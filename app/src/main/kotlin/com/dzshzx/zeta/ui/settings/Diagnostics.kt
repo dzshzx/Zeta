@@ -14,11 +14,11 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagScripts
 import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
+import com.dzshzx.zeta.core.exitsWithin
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +63,7 @@ internal object Diagnostics {
             process.outputStream.close()
             val text = StringBuilder()
             val reader = Thread { runCatching { text.append(process.inputStream.bufferedReader().readText()) } }.apply { start() }
-            if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroy()
+            if (!process.exitsWithin(15_000)) process.destroy()
             reader.join(2_000)
             text.toString()
         }.getOrElse { "（读不出来：${it.message}）" }

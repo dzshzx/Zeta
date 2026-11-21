@@ -13,6 +13,7 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.exitsWithin
 import com.dzshzx.zeta.phone.tools.appProcess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -298,7 +299,7 @@ class VirtualScreen private constructor(
             process.outputStream.write("release\n".toByteArray())
             process.outputStream.close()
         }
-        if (!runCatching { process.waitFor(2, TimeUnit.SECONDS) }.getOrDefault(false)) LinuxEnv.kill(process)
+        if (!runCatching { process.exitsWithin(2_000) }.getOrDefault(false)) LinuxEnv.kill(process)
         handler.post {
             synchronized(lock) {
                 latest?.close()

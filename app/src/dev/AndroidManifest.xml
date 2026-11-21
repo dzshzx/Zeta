@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 测试版才登记的组件，正式版的 manifest 里没有。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 量每条命令要多久（tools/phone-tests/remote-latency.sh）：不导出，由 root 用 am broadcast -n 发起 -->
+        <receiver
+            android:name="com.dzshzx.zeta.core.diag.LatencyBench"
+            android:exported="false" />
+    </application>
+</manifest>
