@@ -1,7 +1,7 @@
 #!/bin/bash
 # 手机工具的外部入口（phone/PhoneBridge.kt）：工作站上的 Claude Code 经 `sudo zeta-helper phone-mcp <包名>` 用手机工具。
 # 以 root 跑这棵树编出的 zeta-helper，一次调用连一次（像工作站上那样）：打开应用、重连后读屏、再重连按上次的编号点按；
-# 换一个客户端标识是另一份手机工具；Debian 里的普通用户连，应该被拒。
+# 换一个客户端标识是另一份手机工具；再开四个标识，后台屏幕不超过全应用的上限；Debian 里的普通用户连，应该被拒。
 # 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/phone-bridge.sh
 set -euo pipefail
 
@@ -59,6 +59,17 @@ check "重连后按上次的控件编号点按" ok round3.jsonl 5
 # 另一个标识是另一份手机工具：没读过屏，没有编号 0
 talk other round4.jsonl "$(call 6 tap '{"node":0}')"
 check "别的标识用不到这份的控件编号" test "$(reply round4.jsonl 6 | jq '.result.isError')" = true
+
+# 外部客户端的后台屏幕和对话的一起算上限（ConversationHub.MAX_SCREENS，3 块）：再开四个标识、各开一块，满了就腾掉闲着的
+screens() { android 'dumpsys display' | grep -oE 'uniqueId="virtual:[^"]*zeta-background[^"]*"' | sort -u | wc -l; }
+before=$(screens)
+for i in 1 2 3 4; do
+  talk "limit-$i" "limit$i.jsonl" "$(call $((10 + i)) open_app '{"app":"com.android.settings"}')"
+  check "标识 limit-$i 在后台屏幕打开设置" ok "limit$i.jsonl" $((10 + i))
+done
+after=$(screens)
+echo "Zeta 的后台屏幕：开之前 $before 块，四个标识各开一块之后 $after 块"
+check "外部客户端的后台屏幕不超过上限" test "$after" -le 3
 
 # Debian 里不带 sudo 的进程：入口不认，连上就断，什么也收不到
 vd debian --stdin 'cat > /tmp/zeta-bridge-helper && chmod 755 /tmp/zeta-bridge-helper' <"$HELPER"

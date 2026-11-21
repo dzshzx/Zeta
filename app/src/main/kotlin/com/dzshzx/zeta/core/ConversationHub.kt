@@ -370,11 +370,12 @@ class ConversationHub(
 
     /**
      * Zeta 之外经 root 连进来用手机工具的客户端（工作站上的 Claude Code），按客户端标识各一份手机工具。不进 [phones]：
-     * 一次调用连一次，调用之间没有连接也要留着（控件编号、后台屏幕上的应用），不跟着对话收掉。只在主线程上读写。
+     * 一次调用连一次，调用之间没有连接也要留着（控件编号、后台屏幕上的应用），不跟着对话收掉。它们的后台屏幕和对话的一起算 [MAX_SCREENS]
+     * 的上限、一起被腾（[makeRoom]），连接断开后照样闲置休眠（[onBridgeClosed]）。主线程和工具线程都会访问，用它自己当锁。
      */
     private val bridged = HashMap<String, PhoneTools>()
     private val bridge =
-        PhoneBridge(PhoneBridge.socketName(app.packageName), ::openBridged, ::onActivityChanged)
+        PhoneBridge(PhoneBridge.socketName(app.packageName), ::openBridged, ::onBridgeClosed)
 
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
     val drafts = ComposerDrafts(app, settings, ::shell)
@@ -464,17 +465,27 @@ class ConversationHub(
 
     /** [PhoneBridge] 的客户端 [key] 连上了：给它那一份手机工具，[busy] 时（有调用在处理）后台屏幕不休眠、不被腾掉。在主线程上调用。 */
     private fun openBridged(key: String, busy: () -> Boolean): PhoneTools =
-        bridged
-            .getOrPut(key) {
-                PhoneTools(
-                    app,
-                    settings,
-                    beforeCreate = ::makeRoom,
-                    isBusy = { busy() },
-                    onChanged = ::onActivityChanged,
-                )
+        synchronized(bridged) {
+                bridged.getOrPut(key) {
+                    PhoneTools(
+                        app,
+                        settings,
+                        beforeCreate = ::makeRoom,
+                        isBusy = { busy() },
+                        onChanged = ::onActivityChanged,
+                    )
+                }
             }
             .also { onActivityChanged() }
+
+    /**
+     * [PhoneBridge] 的客户端 [key] 断开了一条连接：和对话的一轮结束一样，后台屏幕闲置满时间就休眠（这期间又有调用就不睡）。
+     * 只碰后台屏幕，不复位手机工具的暂停与接管：同一个客户端可能还有别的连接在调用。在主线程上调用。
+     */
+    private fun onBridgeClosed(key: String) {
+        synchronized(bridged) { bridged[key] }?.slot?.onTurnEnded()
+        onActivityChanged()
+    }
 
     /** 已经在界面起来时接过 Zeta 直连的主机（[onUiStarted]）。 */
     private var directStarted = false
@@ -938,12 +949,15 @@ class ConversationHub(
     }
 
     /**
-     * [phone] 要新建一块后台屏幕（工具线程上）。全应用已有 [MAX_SCREENS] 块时先腾出来：
-     * 只挑对话没在进行的，用户正看着的当前对话放最后，其余最久没用的先收；都在忙就照样建。 收屏另起线程做，这里不会去拿别的 PhoneTools 的锁，两个对话同时建屏也不会互相卡住。
+     * [phone] 要新建一块后台屏幕（工具线程上）。全应用已有 [MAX_SCREENS] 块时（对话的和外部客户端的一起算）先腾出来：
+     * 只挑对话没在进行、外部客户端没有调用在处理的，用户正看着的当前对话放最后，其余最久没用的先收；都在忙就照样建。 收屏另起线程做，这里不会去拿别的 PhoneTools
+     * 的锁，两个对话同时建屏也不会互相卡住。
      */
     private fun makeRoom(phone: PhoneTools) {
-        val others =
-            synchronized(phones) { phones.values.filter { it !== phone && it.slot.alive != null } }
+        val all =
+            synchronized(phones) { phones.values.toList() } +
+                synchronized(bridged) { bridged.values.toList() }
+        val others = all.filter { it !== phone && it.slot.alive != null }
         val excess = others.size - MAX_SCREENS + 1
         if (excess <= 0) return
         val watching = current.phone

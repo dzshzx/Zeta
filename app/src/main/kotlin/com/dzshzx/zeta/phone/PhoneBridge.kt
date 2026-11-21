@@ -37,8 +37,8 @@ internal class PhoneBridge(
     private val socketName: String,
     /** 客户端 key 连上了，要它的手机工具（在主线程上调用；同一个 key 给同一份）。[busy] 是这个客户端有没有调用正在处理。 */
     private val open: (key: String, busy: () -> Boolean) -> PhoneTools,
-    /** 一条连接断了（在主线程上调用）。 */
-    private val closed: () -> Unit,
+    /** 客户端 key 的一条连接断了（在主线程上调用）。 */
+    private val closed: (key: String) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val clients = AtomicInteger()
@@ -87,7 +87,7 @@ internal class PhoneBridge(
                 Log.w(TAG, "客户端 $key：$e")
             } finally {
                 clients.decrementAndGet()
-                main.post(closed)
+                main.post { closed(key) }
             }
         }
     }
