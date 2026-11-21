@@ -17,9 +17,9 @@ Zeta 本身按 GPL-3.0 授权（[LICENSE](LICENSE)），Copyright © 2026 dzshzx
 
 | 版本 | 许可证 | 上游 |
 |---|---|---|
-| 2026-11-18 | GPL-3.0-only | https://github.com/Mangi-11/Eta |
+| 2026-11-21 | GPL-3.0-only | https://github.com/Mangi-11/Eta |
 
-Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义和对话框的接口是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。
+Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。
 
     Copyright © 2026 蛮吉 (Mangi-11)
 
@@ -47,6 +47,12 @@ Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/layout/AdaptivePageLayout.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/components/MonoFont.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/components/coui2/Dialogs.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantPanel.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantSurface.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantComposer.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantSuggestionRow.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantEdgeGlow.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantReply.kt`
 
 ### JetBrains Mono NL
 

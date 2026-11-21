@@ -2,6 +2,9 @@ package com.dzshzx.zeta.assistant
 
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.NoticeItem
+import com.dzshzx.zeta.core.ThinkingStep
+import com.dzshzx.zeta.core.ToolStatus
+import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import org.junit.Assert.assertEquals
@@ -139,55 +142,84 @@ class ScreenDigestTest {
     }
 
     @Test
-    fun replyJoinsThisTurnsAnswers() {
+    fun questionDropsTheScreenBlock() {
+        val block = ScreenDigest.contextBlock(listOf(ScreenApp("com.a", "甲")), screenshot = true)
+        assertEquals("这页讲了什么", ScreenDigest.question(ScreenDigest.message(" 这页讲了什么 ", block)))
+        assertEquals("只问问题", ScreenDigest.question(ScreenDigest.message("只问问题", null)))
+    }
+
+    @Test
+    fun replyListsEveryTurnLikeEta() {
+        val screen = ScreenChip("设置", null, waiting = false, removed = false, textOnly = true)
+        val asked = ScreenDigest.message("这页讲了什么", ScreenDigest.contextBlock(emptyList(), true))
         val items =
             listOf(
-                UserItem("u0", "上一个问题"),
+                UserItem("u0", asked),
                 AnswerItem("a0", "上一轮的回答", streaming = false),
-                UserItem("u1", "这页讲了什么"),
+                UserItem("u1", "再说说蓝牙"),
+                WorkItem("w0", emptyList()),
                 AnswerItem("a1", "先看一下。", streaming = false),
-                WorkItem("w1", emptyList()),
+                NoticeItem("n0", "已压缩上下文", error = false),
                 AnswerItem("a2", "这是设置页。", streaming = true),
             )
-        val view = AssistantReplies.view(items, busy = true, waitingFor = null)
+        val view = AssistantReplies.view(items, busy = true, waitingFor = null, screen = screen)
+        val keys = view.entries.map { it.key }
+        // 空的工作过程、不是错误的提示不显示；回答在流式输出时不加状态行
+        assertEquals(listOf("u0", "a0", "u1", "a1", "a2"), keys)
+        val first = view.entries[0] as ReplyEntry.Question
+        assertEquals("这页讲了什么", first.text)
+        assertEquals(screen, first.screen)
+        assertNull((view.entries[2] as ReplyEntry.Question).screen)
         assertEquals("先看一下。\n\n这是设置页。", view.text)
-        assertTrue(view.streaming)
         assertTrue(view.busy)
-        assertNull(view.status)
     }
 
     @Test
     fun replyStatusBeforeTheAnswer() {
         val asked = listOf(UserItem("u1", "这页讲了什么"))
-        assertEquals(
-            "Claude 正在看…",
-            AssistantReplies.view(asked, busy = true, waitingFor = null).status,
-        )
-        val working =
-            AssistantReplies.view(
-                asked + WorkItem("w", emptyList()),
-                busy = true,
-                waitingFor = null,
-            )
-        assertEquals("Claude 正在处理…", working.status)
-        // 正在看、正在处理时还没有流式回答，这一轮照样算在进行：输入栏是停止键
-        assertTrue(working.busy)
-        assertFalse(working.streaming)
-        val waiting = AssistantReplies.view(asked, busy = true, waitingFor = "Claude 想用 Bash")
-        assertTrue(waiting.attention)
-        assertTrue(waiting.status!!.contains("Bash"))
+        fun status(view: ReplyView) = view.entries.last() as? ReplyEntry.Status
+        // 刚发出去：「正在分析任务」，图标主色
+        val analyzing = status(AssistantReplies.view(asked, busy = true, waitingFor = null))
+        assertEquals("正在分析任务", analyzing?.text)
+        assertTrue(analyzing!!.active)
+        // 工具在跑：工作过程那一行自己说在做什么，不再加状态行
+        val tool = ToolStep("t", "Bash", null, ToolStatus.Running, null)
+        val running = AssistantReplies.view(asked + WorkItem("w", listOf(tool)), true, null)
+        assertTrue(running.entries.last() is ReplyEntry.Work)
+        assertTrue(running.busy)
+        val waiting =
+            status(AssistantReplies.view(asked, busy = true, waitingFor = "Claude 想用 Bash"))
+        assertTrue(waiting!!.attention)
+        assertTrue(waiting.text.contains("Bash"))
         val failed =
             AssistantReplies.view(
                 asked + NoticeItem("n", "进程退出了", error = true),
                 busy = false,
                 waitingFor = null,
             )
-        assertEquals("进程退出了", failed.error)
+        assertTrue(failed.entries.last() is ReplyEntry.Problem)
         assertFalse(failed.busy)
-        assertNull(failed.status)
         assertEquals(
             "这一轮没有回答",
-            AssistantReplies.view(asked, busy = false, waitingFor = null).status,
+            status(AssistantReplies.view(asked, busy = false, waitingFor = null))?.text,
+        )
+    }
+
+    @Test
+    fun workSummaryCountsThinkingAndTools() {
+        val thinking = ThinkingStep("k", "想想", running = false, seconds = 2)
+        val done = ToolStep("t1", "Bash", null, ToolStatus.Success, "ok")
+        val failed = ToolStep("t2", "Bash", null, ToolStatus.Failed, "no")
+        assertEquals("思考 1 次", WorkSummary.text(WorkItem("w", listOf(thinking))))
+        assertEquals(
+            "思考 1 次 · 调用 2 个工具 · 1 个失败",
+            WorkSummary.text(WorkItem("w", listOf(thinking, done, failed))),
+        )
+        val stillThinking = thinking.copy(running = true)
+        assertEquals("正在分析任务", WorkSummary.text(WorkItem("w", listOf(stillThinking))))
+        val running = ToolStep("t3", "Bash", null, ToolStatus.Running, null)
+        assertTrue(
+            WorkSummary.text(WorkItem("w", listOf(done, running))).startsWith("正在处理 · 第 2 步 · "),
         )
     }
 }

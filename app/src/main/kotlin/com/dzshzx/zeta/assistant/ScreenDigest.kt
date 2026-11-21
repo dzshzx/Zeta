@@ -140,11 +140,14 @@ object ScreenDigest {
         val question = prompt.trim()
         return if (block == null) question else "$question\n\n$block"
     }
+
+    /** [message] 的逆操作：发出去的消息里用户自己问的那句（去掉后面的屏幕内容）。 */
+    fun question(message: String): String = message.substringBefore("\n\n$OPEN_TAG").trim()
 }
 
-/** 浮窗上给的几个建议问题。没带屏幕内容时不给（问“这页”没有意义）。 */
+/** 浮窗上给的几个建议问题（照 Eta 三个短标签，一行放得下）。没带屏幕内容时不给（问“这页”没有意义）。 */
 object AssistantSuggestions {
-    private val forScreen = listOf("这页讲了什么", "总结要点", "翻译成中文", "接下来该怎么做")
+    private val forScreen = listOf("这页讲了什么", "总结要点", "翻译成中文")
 
     fun forContext(hasScreen: Boolean): List<String> = if (hasScreen) forScreen else emptyList()
 }

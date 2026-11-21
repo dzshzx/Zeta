@@ -29,6 +29,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.NoticeItem
+import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.notice
@@ -44,7 +45,7 @@ import kotlinx.coroutines.launch
 /**
  * 数字助理的浮窗：半透明的 activity，盖在当前应用上（[AssistantScreen]）。
  *
- * 唤起时页面轻轻压暗，屏幕边缘的唤起光效流到底边后，带上的屏幕、建议问题和输入栏几个浮起的胶囊从底部浮上来；发出去以后铺成贴底的半屏面板显示回答，回答期间可以点停止键打断这一轮。
+ * 唤起时页面轻轻压暗，屏幕边缘播一次唤起光效，同时带上的屏幕、建议问题和输入栏几个浮起的胶囊淡入上来；发出去以后铺成贴底的半屏面板，一问一答排下来，回答期间可以点停止键打断这一轮。
  *
  * 两个入口：系统助理会话（[ZetaVoiceInteractionSession]，带截图和应用内容）；ACTION_ASSIST（默认助理是按 activity
  * 选的、或别的应用发来，只带前台应用的包名）。
@@ -78,8 +79,6 @@ class AssistantActivity : ComponentActivity() {
         }
         val onMainScreen = (display?.displayId ?: 0) == 0
         val corner = cornerRadius(RoundedCorner.POSITION_TOP_LEFT)
-        // 唤起光效从屏幕下角绕上来，用右下角的圆角
-        val bottomCorner = cornerRadius(RoundedCorner.POSITION_BOTTOM_RIGHT)
         setContent {
             val dark = hub.settings.darkTheme ?: isSystemInDarkTheme()
             DisposableEffect(dark) {
@@ -104,7 +103,6 @@ class AssistantActivity : ComponentActivity() {
                         onOpen = ::openInZeta,
                         onDismiss = ::dismiss,
                         autoFocus = onMainScreen,
-                        cornerRadius = bottomCorner,
                         onStop = { chat.conversation?.interrupt() },
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
@@ -243,6 +241,9 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
     var problem by mutableStateOf<String?>(null)
         private set
 
+    /** 刚发出去、对话还没开起来时的问题：面板先显示它和「正在分析任务」（照 Eta 一发出去就铺开面板）。 */
+    private var asking by mutableStateOf<String?>(null)
+
     /** 发出去了、Claude 还没开口（也不是在等确认）：屏幕边缘流光。 */
     val thinking: Boolean
         get() =
@@ -271,8 +272,13 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
 
     val reply: ReplyView?
         get() {
-            val c = conversation ?: return null
-            return AssistantReplies.view(c.items, c.busy, c.pending?.notice)
+            val sent = screenChip?.takeIf { !it.removed }
+            val c =
+                conversation
+                    ?: return asking?.let {
+                        AssistantReplies.view(listOf(UserItem("asking", it)), true, null, sent)
+                    }
+            return AssistantReplies.view(c.items, c.busy, c.pending?.notice, sent)
         }
 
     fun toggleScreen() {
@@ -295,6 +301,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
                     return
                 }
         sending = true
+        asking = question
         scope.launch {
             val capture = capture?.takeIf { includeScreen }
             capture?.settle()
@@ -316,6 +323,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             )
             started.send(ScreenDigest.message(question, block), listOfNotNull(shot))
             sending = false
+            asking = null
             if (!started.busy) {
                 problem =
                     started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.text

@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AnswerItem
@@ -215,6 +216,8 @@ internal fun AnswerBlock(
     imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
     /** 复制键后面的操作（这一轮的最后一段回答才有：重新生成、删除、分支）。 */
     actions: (@Composable () -> Unit)? = null,
+    /** 左右留白：聊天页 20dp，数字助理的浮窗照 Eta 是 16dp。 */
+    inset: Dp = 20.dp,
 ) {
     val parts = remember(item.text) { imagesOf(item.text) }
     // 流式状态跟着消息走：结束后等逐字显现收尾，再换成可选中文本的静态排版。
@@ -224,7 +227,7 @@ internal fun AnswerBlock(
     var revealComplete by remember(item.id) { mutableStateOf(false) }
     Column(
         modifier =
-            modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 6.dp),
+            modifier.fillMaxWidth().padding(start = inset, end = inset, top = 4.dp, bottom = 6.dp),
     ) {
         when {
             item.text.isBlank() && item.streaming -> TypingIndicator(Modifier.padding(top = 4.dp))
@@ -434,7 +437,7 @@ internal fun WorkGroup(
 private val SubagentTools = setOf("Agent", "Task")
 
 @Composable
-private fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
+internal fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
     // 改文件的一步直接画成红绿对比
     val change = (step as? ToolStep)?.let { rememberFileChange(it) }
     if (change != null) return FileEditStepRow(step, change)

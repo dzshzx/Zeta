@@ -130,6 +130,12 @@ internal object ThirdParty {
                 "ui/layout/AdaptivePageLayout.kt",
                 "ui/components/MonoFont.kt",
                 "ui/components/coui2/Dialogs.kt",
+                "assistant/AssistantPanel.kt",
+                "assistant/AssistantSurface.kt",
+                "assistant/AssistantComposer.kt",
+                "assistant/AssistantSuggestionRow.kt",
+                "assistant/AssistantEdgeGlow.kt",
+                "assistant/AssistantReply.kt",
             )
             .map { "app/src/main/kotlin/com/dzshzx/zeta/$it" }
 
@@ -242,12 +248,12 @@ internal object ThirdParty {
         listOf(
             Component(
                 name = "Eta",
-                version = "2026-11-18",
+                version = "2026-11-21",
                 license = "GPL-3.0-only",
                 url = "https://github.com/Mangi-11/Eta",
                 copyright = listOf("Copyright © 2026 蛮吉 (Mangi-11)"),
                 note =
-                    "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义和对话框的接口是从 Eta 拷来再改写的，" +
+                    "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，" +
                         "按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。",
                 files = ETA_FILES,
             ),

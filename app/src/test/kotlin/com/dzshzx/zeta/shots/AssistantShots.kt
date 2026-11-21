@@ -15,14 +15,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.assistant.AssistantEdgeGlowFrame
 import com.dzshzx.zeta.assistant.AssistantOwner
+import com.dzshzx.zeta.assistant.AssistantReplies
 import com.dzshzx.zeta.assistant.AssistantScreen
 import com.dzshzx.zeta.assistant.AssistantSuggestions
-import com.dzshzx.zeta.assistant.AssistantWakeGlowFrame
 import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.assistant.ReplyView
 import com.dzshzx.zeta.assistant.ScreenChip
 import com.dzshzx.zeta.assistant.WakeHandoffSeconds
+import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.ChatItem
+import com.dzshzx.zeta.core.ThinkingStep
+import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.settings.AssistantDiagnosticsGroup
@@ -33,7 +39,7 @@ import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Test
 
-/** 数字助理：浮窗刚唤起、发出去以后、回答中带停止键、去掉屏幕内容、唤起光效放到一半；设置里的一行和诊断页的一组。 */
+/** 数字助理：浮窗刚唤起、去掉屏幕内容、刚发出去、回答中、答完、长回答、唤起光效；设置里的一行和诊断页的一组。 */
 class AssistantShots : ShotTest() {
     private fun thumbnail() =
         Bitmap.createBitmap(120, 260, Bitmap.Config.ARGB_8888)
@@ -62,218 +68,112 @@ class AssistantShots : ShotTest() {
         }
     }
 
+    private fun screen(sent: Boolean = false, removed: Boolean = false) =
+        ScreenChip(
+            app = "设置（com.android.settings）",
+            thumbnail = thumbnail(),
+            waiting = false,
+            removed = removed,
+            textOnly = false,
+            sent = sent,
+        )
+
+    private val question = "这页讲了什么"
+
+    private val answer =
+        "这是系统**设置**的首页，列着网络和显示几类入口：\n\n- WLAN、蓝牙、移动网络管连接\n- 显示与亮度、声音与振动管屏幕和声音\n\n要改哪一项，点进去就行。"
+
+    private val thought = WorkItem("w1", listOf(ThinkingStep("k1", "先看截图", false, 2)))
+
+    private fun reply(vararg items: ChatItem, busy: Boolean): ReplyView =
+        AssistantReplies.view(
+            listOf(UserItem("u1", question)) + items,
+            busy = busy,
+            waitingFor = null,
+            screen = screen(sent = true),
+        )
+
+    @Composable
+    private fun Assistant(
+        reply: ReplyView?,
+        screen: ScreenChip? = screen(),
+        draft: String = "",
+        suggestions: List<String> = AssistantSuggestions.forContext(true),
+    ) {
+        OverApp {
+            AssistantScreen(
+                screen = screen,
+                reply = reply,
+                draft = remember { TextFieldState(draft) },
+                suggestions = if (reply == null) suggestions else emptyList(),
+                sending = false,
+                problem = null,
+                visible = true,
+                onSend = {},
+                onToggleScreen = {},
+                onOpen = {},
+                onDismiss = {},
+                onStop = {},
+            )
+        }
+    }
+
+    /** 刚唤起：带上的屏幕、一行三个建议问题、输入栏（空着，发送键是灰的）。 */
     @Test
     fun entry() {
-        shoot("assistant-entry") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = thumbnail(),
-                            waiting = false,
-                            removed = false,
-                            textOnly = false,
-                        ),
-                    reply = null,
-                    draft = remember { TextFieldState() },
-                    suggestions = AssistantSuggestions.forContext(true),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
-        }
+        shoot("assistant-entry") { Assistant(reply = null) }
     }
 
-    @Test
-    fun reply() {
-        shoot("assistant-reply") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = thumbnail(),
-                            waiting = false,
-                            removed = false,
-                            textOnly = false,
-                            sent = true,
-                        ),
-                    reply =
-                        ReplyView(
-                            text =
-                                "这是系统**设置**的首页，列着网络和显示几类入口：\n\n- WLAN、蓝牙、移动网络管连接\n- 显示与亮度、声音与振动管屏幕和声音\n\n要改哪一项，点进去就行。",
-                            status = null,
-                            streaming = false,
-                            attention = false,
-                            error = null,
-                        ),
-                    draft = remember { TextFieldState() },
-                    suggestions = AssistantSuggestions.forContext(true),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
-        }
-    }
-
-    /** ASSIST 唤起（只有应用信息）、用户去掉了屏幕内容、还在等回答。 */
-    @Test
-    fun removedAndWaiting() {
-        shoot("assistant-waiting") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = null,
-                            waiting = false,
-                            removed = true,
-                            textOnly = true,
-                            sent = true,
-                        ),
-                    reply =
-                        ReplyView(
-                            text = "",
-                            status = "Claude 正在看…",
-                            streaming = false,
-                            attention = false,
-                            error = null,
-                            busy = true,
-                        ),
-                    draft = remember { TextFieldState("再说说蓝牙") },
-                    suggestions = emptyList(),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
-        }
-    }
-
-    /** 还没发：用户去掉了屏幕内容，可以再带上。 */
+    /** 还没发：用户去掉了屏幕内容，可以再带上；输入框里有字，发送键是主色。 */
     @Test
     fun removed() {
         shoot("assistant-removed") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = thumbnail(),
-                            waiting = false,
-                            removed = true,
-                            textOnly = false,
-                        ),
-                    reply = null,
-                    draft = remember { TextFieldState("今天天气怎么样") },
-                    suggestions = AssistantSuggestions.forContext(false),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
+            Assistant(
+                reply = null,
+                screen = screen(removed = true),
+                draft = "今天天气怎么样",
+                suggestions = AssistantSuggestions.forContext(false),
+            )
+        }
+    }
+
+    /** 刚发出去：键盘收起、面板升起，顶上是问题的气泡（带着屏幕），下面「正在分析任务」，输入栏右边是停止键。 */
+    @Test
+    fun analyzing() {
+        shoot("assistant-analyzing") { Assistant(reply = reply(busy = true)) }
+    }
+
+    /** 回答正在往外出：「思考 1 次」折叠着，下面流式出字。 */
+    @Test
+    fun streaming() {
+        shoot("assistant-streaming") {
+            Assistant(
+                reply =
+                    reply(
+                        thought,
+                        AnswerItem("a1", "这是系统设置的首页，上面几项管网络连接", streaming = true),
+                        busy = true,
+                    ),
+            )
+        }
+    }
+
+    /** 答完：正文下面是复制键，输入栏右边换回发送键。 */
+    @Test
+    fun answered() {
+        shoot("assistant-reply") {
+            Assistant(
+                reply = reply(thought, AnswerItem("a1", answer, streaming = false), busy = false),
+            )
         }
     }
 
     /** 回答很长、还在往外出：面板长到上限，回答在面板里滚动、跟到底。 */
     @Test
     fun longReply() {
-        val answer = (1..30).joinToString("\n\n") { "第 $it 段：蓝牙、WLAN 和移动网络都在这一页的上半部分。" }
+        val long = (1..30).joinToString("\n\n") { "第 $it 段：蓝牙、WLAN 和移动网络都在这一页的上半部分。" }
         shoot("assistant-long-reply") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = thumbnail(),
-                            waiting = false,
-                            removed = false,
-                            textOnly = false,
-                            sent = true,
-                        ),
-                    reply =
-                        ReplyView(
-                            text = answer,
-                            status = null,
-                            streaming = true,
-                            attention = false,
-                            error = null,
-                            busy = true,
-                        ),
-                    draft = remember { TextFieldState() },
-                    suggestions = emptyList(),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
-        }
-    }
-
-    /** 回答正在往外出：回答还短，面板停在基础高度，输入栏右边是停止键。 */
-    @Test
-    fun streaming() {
-        shoot("assistant-streaming") {
-            OverApp {
-                AssistantScreen(
-                    screen =
-                        ScreenChip(
-                            app = "设置（com.android.settings）",
-                            thumbnail = thumbnail(),
-                            waiting = false,
-                            removed = false,
-                            textOnly = false,
-                            sent = true,
-                        ),
-                    reply =
-                        ReplyView(
-                            text = "这是系统设置的首页，上面几项管网络连接",
-                            status = null,
-                            streaming = true,
-                            attention = false,
-                            error = null,
-                            busy = true,
-                        ),
-                    draft = remember { TextFieldState() },
-                    suggestions = emptyList(),
-                    sending = false,
-                    problem = null,
-                    visible = true,
-                    onSend = {},
-                    onToggleScreen = {},
-                    onOpen = {},
-                    onDismiss = {},
-                    onStop = {},
-                )
-            }
+            Assistant(reply = reply(thought, AnswerItem("a1", long, streaming = true), busy = true))
         }
     }
 
@@ -281,17 +181,15 @@ class AssistantShots : ShotTest() {
     @Test
     fun wakeGlowStreaming() {
         shoot("assistant-wake-glow-streaming") {
-            OverApp { AssistantWakeGlowFrame(seconds = 0.2f, bottomCornerRadius = 0f) }
+            OverApp { AssistantEdgeGlowFrame(seconds = 0.2f) }
         }
     }
 
-    /** 唤起光效：流光落到底边、底部光场起来，输入栏从这一刻开始出现。 */
+    /** 唤起光效：流光落到底边、底部光场起来。 */
     @Test
     fun wakeGlowLanded() {
         shoot("assistant-wake-glow-landed") {
-            OverApp {
-                AssistantWakeGlowFrame(seconds = WakeHandoffSeconds, bottomCornerRadius = 0f)
-            }
+            OverApp { AssistantEdgeGlowFrame(seconds = WakeHandoffSeconds) }
         }
     }
 
