@@ -7,19 +7,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.R
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextField
 import io.github.suqi8.coui.kmp.blur.MaterialBlurDefaults
 import io.github.suqi8.coui.kmp.layout.DialogButtonBar
 import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
 import io.github.suqi8.coui.kmp.layout.DialogDefaults
+import io.github.suqi8.coui.kmp.layout.InputDialogDefaults
 import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.overlay.OverlayInputDialog
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 // 页面上的对话框：COUI 2 的 Overlay 对话框，加上当前页面的毛玻璃（见 CouiBlur.kt）。
@@ -116,7 +119,11 @@ internal fun NoticeDialog(
     }
 }
 
-/** 单行输入对话框（OverlayInputDialog 加页面毛玻璃）：取消 + 确认，[label] 是输入框里的提示。 */
+/**
+ * 单行输入对话框：取消 + 确认，[label] 是输入框里的提示。打开时输入框自动聚焦、弹出键盘，光标在已有文字的末尾。
+ * 样子照 COUI 2 的 OverlayInputDialog（COUI 的 SingleEdit：线条输入框、带清除按钮、最多 5 行），输入框换成光标由 Zeta 管的
+ * [TextField]。普通对话框在自己的内容下面留 8dp，正好是 SingleEdit 输入框下面的那段，所以输入框只留上面的 8dp。
+ */
 @Composable
 internal fun TextInputDialog(
     show: Boolean,
@@ -133,23 +140,35 @@ internal fun TextInputDialog(
     cancelText: String = stringResource(R.string.action_cancel),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
-    val blur = panelBlur(MaterialBlurDefaults::dialog)
-    OverlayInputDialog(
+    PageDialog(
         show = show,
-        value = value,
-        onValueChange = onValueChange,
+        onDismissRequest = onDismissRequest,
         modifier = modifier,
-        backgroundModifier = blur?.backgroundModifier ?: Modifier,
         title = title,
         summary = summary,
-        label = label,
-        keyboardOptions = keyboardOptions,
-        negative = DialogButtonBarAction(cancelText, onClick = onDismissRequest),
-        positive = DialogButtonBarAction(confirmText, enabled = confirmEnabled, recommended = true, onClick = onConfirm),
-        backgroundColor = blur?.backgroundColor ?: DialogDefaults.backgroundColor(),
-        onDismissRequest = onDismissRequest,
-        materialStroke = blur != null,
-    )
+        customContent = {
+            val focus = remember { FocusRequester() }
+            LaunchedEffect(focus) { runCatching { focus.requestFocus() } }
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .padding(horizontal = InputDialogDefaults.FieldMarginHorizontal)
+                    .padding(top = InputDialogDefaults.EditMarginVertical)
+                    .fillMaxWidth()
+                    .focusRequester(focus),
+                label = label,
+                showClearButton = true,
+                keyboardOptions = keyboardOptions,
+                maxLines = InputDialogDefaults.MaxLines,
+            )
+        },
+    ) {
+        DialogButtonBar(
+            negative = DialogButtonBarAction(cancelText, onClick = onDismissRequest),
+            positive = DialogButtonBarAction(confirmText, enabled = confirmEnabled, recommended = true, onClick = onConfirm),
+        )
+    }
 }
 
 /**

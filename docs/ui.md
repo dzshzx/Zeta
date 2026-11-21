@@ -20,6 +20,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - `IconActionButton`、`FlatIconButton`、`CopyIconButton`（`IconActionButton.kt`）：只放一个图标的按钮。`IconActionButton` 参数照 COUI 的 `IconButton`（顶栏的新建、刷新、返回）；`FlatIconButton(size, iconSize)` 是平的小圆钮（查找栏、消息下方、排队条）；`CopyIconButton` 是点了复制、短暂显示对勾的复制键。图标按钮都从这三个建，不直接用 COUI 的 `IconButton`。
 - `menuItem`、`AnchoredMenu`、`TopBarMoreMenu`、`RowMoreMenu`（`Menus.kt`）：带图标的菜单项；挂在胶囊、按钮、标题上的下拉菜单；顶栏和列表行里的「更多」。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`、`DialogTextField`（`Dialogs.kt`）：带页面毛玻璃的对话框，对话框里带标题的输入框。
+- `TextField`（`TextFields.kt`）：参数照 COUI 的 `TextField`，光标由 Zeta 管（见「补上游缺口」）；应用代码里的输入框都用它。
 - `CompactButton`：卡片里、列表行里的小号文字按钮（COUI 的 `TextButton` 最小宽 132dp，放不下时用它）。
 - `ZetaIcons`：COUI 2 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.gauge(档位, 格数)` 是刻度表。
 
@@ -40,10 +41,11 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 ## 补上游缺口
 
-下面两处是 COUI 2.0.0 的缺口，Zeta 在本地补着。`CouiGapsTest` 断言缺口还在：升级 COUI 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
+下面三处是 COUI 2.0.0 的缺口，Zeta 在本地补着。`CouiGapsTest` 断言缺口还在：升级 COUI 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
 
 - 图标按钮不能点时不变灰，也没有按钮角色（`IconButtonContainer` 不给内容提供 `LocalContentColor`，禁用时不加 `clickable`）。补在 `IconActionButton`：自己换 tint，补上按钮角色和「已停用」。
 - 菜单行给文字上色却不给图标上色（图标槽没有 `LocalContentColor`）。补在 `menuItem`：图标颜色照 `DropdownColors` 按可用、警示状态取。
+- 输入框 `TextField` 的 String 版本把光标初始化在开头，文字从外面改了（清除按钮、调用方重设）以后光标也不跟到末尾（[suqi8/coui#20](https://github.com/suqi8/coui/issues/20)）：自动聚焦的 `OverlayInputDialog` 里打的字插到原有内容前面，点清除后打完第一个字光标又跳回开头。补在 `TextField`（`TextFields.kt`）：用 COUI 的 TextFieldValue 版本，光标自己管；`TextInputDialog` 用 `PageDialog` 加它搭成，不用 `OverlayInputDialog`。应用代码不直接用 COUI 的 `TextField`、`OverlayInputDialog`（`TextFieldSourcesTest` 断言）。`InputView` 没有 TextFieldValue 版本，照旧用 COUI 的。
 
 ## 图标
 
@@ -62,7 +64,7 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 | 分组标题、一行小字、页面底部说明 | `PreferenceCategory`、`SmallTitle`、`PagerFooterPreference` |
 | 图标按钮、顶栏的文字按钮 | `IconActionButton`（平的小圆钮 `FlatIconButton`，复制键 `CopyIconButton`）、`ToolbarTextButton` |
 | 按钮 | `TextButton(text, onClick)`；主操作 `colors = ButtonDefaults.textButtonColorsPrimary()`；放不下 132dp 宽时 `CompactButton` |
-| 输入框 | 卡片里带标题的 `InputView`，对话框里带标题的 `DialogTextField`，其他 `TextField` |
+| 输入框 | 卡片里带标题的 `InputView`，对话框里带标题的 `DialogTextField`，其他用 Zeta 的 `TextField` |
 | 确认、告知、单行输入 | `ConfirmDialog`（危险操作 `destructive = true`，COUI 画成红字；要区分「拒绝」和「随手关掉」给 `onCancel`）、`NoticeDialog`、`TextInputDialog` |
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
 | 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
