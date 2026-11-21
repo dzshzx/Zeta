@@ -1,0 +1,245 @@
+name: Release
+
+# 唯一的发版入口，先 dry run 再正式发（做法、签名、Secrets 与出错后怎么办见 docs/release.md）：
+#   gh workflow run release.yml --ref master -f dry_run=true
+#   gh workflow run release.yml --ref master -f bump=patch
+# version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
+# gate：wt land 合入时已在这个提交上过了门禁（commit status wt-land/gate）就跳过，否则调 ci.yml 跑。
+# build：GitHub 托管机上构建未签名的正式版。sign：在 environment release 里用正式发版密钥签名、核对、打包，
+# 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：建草稿、打 tag、发布，只有它能写仓库。
+# dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
+# 只放 master 时，别的分支到 sign 就停。
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 从最高的 vX.Y.Z 升哪一档（minor、major 要用户先同意）
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      dry_run:
+        description: 只构建、签名并核对，写运行摘要；不打 tag、不发布
+        type: boolean
+        default: false
+      gate_runner:
+        description: 合入时没过门禁时，门禁跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
+        type: choice
+        options: [self-hosted, github-hosted]
+        default: self-hosted
+
+permissions:
+  contents: read
+
+concurrency:
+  # 两次发版同时跑会算出同一个版本：排队，不取消
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: read # 读 wt land 记在提交上的门禁状态
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      gate_passed: ${{ steps.version.outputs.gate_passed }}
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 全部 tag 和历史：算版本、versionCode
+          persist-credentials: false
+
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/release/go.mod
+          cache: false
+
+      - name: 算版本，查是否已发过版、合入时是否已过门禁
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: go -C tools/release run . next-version -bump "$BUMP" -branch "$DEFAULT_BRANCH" -dry-run="$DRY_RUN" >> "$GITHUB_OUTPUT"
+
+  gate:
+    needs: version
+    if: needs.version.outputs.gate_passed != 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      gate_runner: ${{ inputs.gate_runner }}
+
+  build:
+    needs: [version, gate]
+    # gate 跳过（合入时已过门禁）也接着构建
+    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # versionCode 是提交数，versionName 由 git describe 从 tag 推出
+          persist-credentials: false
+
+      - name: 安装 JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      # 构建时编 zeta-helper 要 go
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: helper/go.mod
+          cache: false
+
+      # 版本仍从 git 推出（app/build.gradle.kts）：在这份检出里给本提交打上这次的 tag，版本名就是干净的 X.Y.Z。
+      # 只是本地 tag，不推送；续发时检出里已有 API 打的同名 tag，就用它
+      - name: 在检出里打上这次的 tag
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || git tag "$TAG"
+          got=$(git describe --tags --exact-match --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD)
+          [ "$got" = "$TAG" ] || { echo "::error::HEAD 上的 tag 是 $got，不是 $TAG"; exit 1; }
+
+      - name: 构建正式版（未签名）
+        run: tools/gradle --console=plain :app:assembleRelease
+
+      - name: 上传未签名的包
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned
+          path: app/build/outputs/apk/release/Zeta-v${{ needs.version.outputs.version }}.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    needs: [version, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release # 正式发版密钥的 Secrets 只在这里
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      VERSION_CODE: ${{ needs.version.outputs.version_code }}
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 发布说明列上一个正式版以来的提交
+          persist-credentials: false
+
+      # apksigner 用 PATH 上的 java
+      - name: 安装 JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/release/go.mod
+          cache: false
+
+      # apksigner、aapt2、zipalign 用 app/build.gradle.kts 写的那一版 build-tools，镜像里没有就装上
+      - name: 安装 build-tools
+        run: |
+          set -euo pipefail
+          v=$(sed -n 's/^ *buildToolsVersion = "\([0-9.]*\)".*/\1/p' app/build.gradle.kts)
+          [ -n "$v" ] || { echo "::error::app/build.gradle.kts 里没有 buildToolsVersion"; exit 1; }
+          [ -x "$ANDROID_HOME/build-tools/$v/apksigner" ] ||
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;$v" </dev/null >/dev/null
+
+      - name: 编 tools/release
+        run: go -C tools/release build -o "$RUNNER_TEMP/release" .
+
+      - name: 取未签名的包
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned
+          path: ${{ runner.temp }}/unsigned
+
+      # 密钥库只在这一步的临时目录里，用完就删；口令经环境变量交给 apksigner，不进命令行
+      - name: 签名
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ZETA_RELEASE_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ZETA_RELEASE_KEY_ALIAS }}
+          ZETA_RELEASE_STORE_PASSWORD: ${{ secrets.ZETA_RELEASE_STORE_PASSWORD }}
+          ZETA_RELEASE_KEY_PASSWORD: ${{ secrets.ZETA_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/zeta-release.p12"
+          trap 'rm -f "$keystore"' EXIT
+          (umask 077 && printf '%s' "$KEYSTORE_BASE64" | base64 -d >"$keystore")
+          "$RUNNER_TEMP/release" sign -apk "$RUNNER_TEMP/unsigned/Zeta-v$VERSION.apk" \
+            -keystore "$keystore" -alias "$KEY_ALIAS" -out "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk"
+
+      - name: 删掉签名材料
+        if: always()
+        run: rm -f "$RUNNER_TEMP/zeta-release.p12"
+
+      - name: 核对签名、证书、包名和版本
+        run: '"$RUNNER_TEMP/release" verify -apk "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk" -version "$VERSION" -version-code "$VERSION_CODE"'
+
+      # 资产目录里只放 Release 的资产：APK、.sha256、update.json；运行摘要列出各自的 sha256
+      - name: 打包
+        run: |
+          "$RUNNER_TEMP/release" package -apk "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk" -version "$VERSION" \
+            -version-code "$VERSION_CODE" -commit "$GITHUB_SHA" -repo "$GITHUB_REPOSITORY" -out "$RUNNER_TEMP/assets"
+
+      - name: dry run 到此为止
+        if: inputs.dry_run
+        run: echo $'\n**dry run**：没有打 tag，也没有发布。资产在本次运行的 release 构件里。' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传资产
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/assets
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [version, sign]
+    if: ${{ !cancelled() && !inputs.dry_run && needs.sign.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/release/go.mod
+          cache: false
+
+      - name: 取资产
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/assets
+
+      # 删同名旧草稿 → 建草稿 → 经 API 打附注 tag → 发布并设为最新（见 tools/release publish）
+      - name: 发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: go -C tools/release run . publish -version "$VERSION" -assets "$RUNNER_TEMP/assets"

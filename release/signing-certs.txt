@@ -1,0 +1,10 @@
+# Zeta 正式版的签名证书：每行一个证书的 SHA-256（apksigner 打印的 certificate SHA-256 digest，小写十六进制），从旧到新。
+# 顺序与 release/lineage.bin 里的签名 lineage 相同；最后一行是现在签名用的正式发版证书。
+# tools/release 签名前核对 lineage.bin 与这里一致，签完、上线前核对包的签名证书是最后一行、包里的 lineage 与这里逐行相同。
+# 生成与轮换的步骤见 docs/release.md「生成正式发版密钥」。
+
+# v0.7.0 及更早的正式版用的调试证书（CN=Android Debug）
+b350fad0e6e35e4e717875cc3131e47b96d98482a3f1c9451295217435f91746
+
+# 正式发版证书（CN=Zeta，RSA 4096），v0.7.1 起
+1b89b1ab1d2274b98847c466b19bbf51f9ef997cb08956d9ed4b4caa7fba2403

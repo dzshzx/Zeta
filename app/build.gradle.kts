@@ -9,9 +9,9 @@ plugins {
 
 // 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见 CLAUDE.md「发版与上线」）：
 // - versionCode 是 HEAD 的提交数：每合入一次自动加一；同一个提交编出的测试版和正式版相同，一对就知道是哪个提交。
-// - 上线时打的 tag（v0.7.1）上，版本名就是 0.7.1。
+// - 发版时打的 tag（v0.7.1）上，版本名就是 0.7.1（release.yml 构建前先在检出里打上这个 tag，见 docs/release.md）。
 // - 别的提交是下一个版本的预发布：0.7.2-dev.3+gabc1234 = 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。
-//   按 SemVer 它排在 0.7.1 之后、0.7.2 之前；+ 后面是构建元数据，不参与比大小。还没有上线 tag 时以 0.7.0 为目标。
+//   按 SemVer 它排在 0.7.1 之后、0.7.2 之前；+ 后面是构建元数据，不参与比大小。还没有正式版 tag 时以 0.7.0 为目标。
 fun git(vararg args: String): String? {
     val out = providers.exec {
         commandLine("git", *args)
@@ -53,21 +53,25 @@ android {
     }
 
     signingConfigs {
-        // 手机上装着的包用这把调试密钥签名；工作站和手机都放在 ~/.android/zeta-debug.keystore，
-        // 签名一致 pm install -r 才能覆盖安装，否则只能卸载重装、丢掉 Zeta 的全部设置。
+        // 测试版和 debug 包用调试密钥签名。工作站和手机 Debian 上是 ~/.android/zeta-debug.keystore：手机上装着的测试版
+        // 是它签的，签名一致 pm install -r 才能覆盖安装，否则只能卸载重装、丢掉测试版的全部设置。
+        // CI 上没有这个文件（它不进 CI），这时不改 storeFile，用 AGP 自己生成的默认调试密钥：门禁只构建、不装机。
+        // 路径按 JVM 的 user.home 取（来自 passwd，不看 HOME），和 AGP 找默认调试密钥的地方一样。
         getByName("debug") {
-            storeFile = file("${System.getProperty("user.home")}/.android/zeta-debug.keystore")
+            val zetaDebugKey = file("${System.getProperty("user.home")}/.android/zeta-debug.keystore")
+            if (zetaDebugKey.isFile) storeFile = zetaDebugKey
         }
     }
 
     buildTypes {
-        // 正式版（用户日常用的，只在上线时由 tools/install.sh --release 构建安装）：R8 去掉用不到的代码和资源，不可调试。
-        // 签名仍用手机上已装的那把调试密钥，换了签名 pm install -r 就装不上。R8 找不到的入口（按类名起的）登记在 proguard-rules.pro。
+        // 正式版（用户日常用的，只在发版时由 .github/workflows/release.yml 构建）：R8 去掉用不到的代码和资源，不可调试。
+        // R8 找不到的入口（按类名起的）登记在 proguard-rules.pro。
+        // 这里不签名，出的是未签名的 Zeta-v<版本名>.apk：AGP 的签名配置不支持密钥轮换的 lineage，
+        // 由 tools/release sign 用正式发版密钥加 release/lineage.bin 只签 APK 签名方案 v3（做法见 docs/release.md）。
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
         }
         // debug：不经 R8，包名同正式版。门禁和单元测试用它，不装到设备上。
         // 测试版：包名加 .dev，和正式版并存在手机上，开发测试只装它（tools/install.sh 默认装的就是它）。
@@ -76,6 +80,7 @@ android {
         // 例如 ZETA_R8=1 tools/phone-run tools/phone-tests/smoke.sh
         create("dev") {
             initWith(getByName(if (providers.environmentVariable("ZETA_R8").isPresent) "release" else "debug"))
+            signingConfig = signingConfigs.getByName("debug") // 照正式版构建时也用调试密钥签：正式版自己不签名
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
             resValue("string", "capture_tile", "截屏给 Zeta 测试")
@@ -97,6 +102,13 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "b+zh+Hans")
+    }
+
+    // 不往包里写 AGP 的依赖信息块（用 Google 的密钥加密的依赖清单，只给 Play 管理中心看）：Zeta 不上架 Play，
+    // 别人也解不开、核对不了它
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // JVM 单元测试里碰到 android.* 的调用返回默认值，不抛 “not mocked”；要真 Android 行为的放到手机上测。
@@ -186,6 +198,10 @@ tasks.withType<Test>().configureEach {
 
 androidComponents {
     onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(zetaHelper, ZetaHelperTask::outputDir) }
+    // 正式版的文件名就是 Release 里的资产名 Zeta-v<版本名>.apk（只有 arm64 一个包）
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output -> output.outputFileName.set(output.versionName.map { "Zeta-v$it.apk" }) }
+    }
 }
 
 dependencies {

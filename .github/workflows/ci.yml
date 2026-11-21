@@ -1,0 +1,66 @@
+name: CI
+
+# 门禁 bash scripts/check.sh。每个提交只跑一次：wt land 推送前在这个提交上跑过（通过后记成 commit status
+# wt-land/gate），所以推送不触发这里。手动、每天定时和 release.yml 调用时在这里跑，定时的也兜住没经 wt land 推上来的提交。
+# 默认在本机 runner 上；本机 runner 不在线时 gate_runner=github-hosted 改到 GitHub 托管机：
+#   gh workflow run ci.yml -f gate_runner=github-hosted
+# 不设 pull_request 触发：公开仓的 PR 不能在本机 runner 上跑代码。装机与真机验收不在这里，见 CLAUDE.md「构建与测试」。
+on:
+  schedule:
+    # 每天 03:17（Asia/Shanghai）
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+    inputs:
+      gate_runner:
+        description: 门禁跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
+        type: choice
+        options: [self-hosted, github-hosted]
+        default: self-hosted
+  workflow_call:
+    inputs:
+      gate_runner:
+        description: 同手动触发的 gate_runner
+        type: string
+        default: self-hosted
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ inputs.gate_runner || 'self-hosted' }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    # 本机 runner 的 .env 给 ANDROID_HOME（已接受许可）和持久的 GRADLE_USER_HOME；托管镜像自带 ANDROID_HOME。
+    # 缺的 SDK 平台和 build-tools 由 AGP 构建时下载。JDK 和 Go 两边都由下面的 setup action 装。
+    runs-on: ${{ inputs.gate_runner == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","nerv"]') }}
+    timeout-minutes: 45
+    steps:
+      - name: 每个 job 用新的 HOME
+        run: mkdir -p "$RUNNER_TEMP/home" && echo "HOME=$RUNNER_TEMP/home" >> "$GITHUB_ENV"
+
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # 版本号从 git 推出：versionCode 是提交数，versionName 看最近的 vX.Y.Z tag
+          fetch-depth: 0
+          persist-credentials: false
+
+      # tools/java-home 先认 JAVA_HOME；Gradle 的依赖缓存只在托管机上存进 Actions 缓存
+      - name: 安装 JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}
+
+      # 版本只认 helper/go.mod 的 go 行（tools/release/go.mod 相同），门禁断言 go env GOVERSION 与之相等
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: helper/go.mod
+          cache: false
+
+      - name: 门禁
+        run: bash scripts/check.sh
