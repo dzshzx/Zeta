@@ -21,6 +21,7 @@ import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.phone.AccessibilityGuard
+import com.dzshzx.zeta.phone.PhoneBridge
 import com.dzshzx.zeta.phone.PhoneTools
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
@@ -367,6 +368,14 @@ class ConversationHub(
      */
     private val phones = HashMap<String, PhoneTools>()
 
+    /**
+     * Zeta 之外经 root 连进来用手机工具的客户端（工作站上的 Claude Code），按客户端标识各一份手机工具。不进 [phones]：
+     * 一次调用连一次，调用之间没有连接也要留着（控件编号、后台屏幕上的应用），不跟着对话收掉。只在主线程上读写。
+     */
+    private val bridged = HashMap<String, PhoneTools>()
+    private val bridge =
+        PhoneBridge(PhoneBridge.socketName(app.packageName), ::openBridged, ::onActivityChanged)
+
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
     val drafts = ComposerDrafts(app, settings, ::shell)
 
@@ -450,7 +459,22 @@ class ConversationHub(
         ScheduleRunner.onAppStart(app)
         AccessibilityGuard.start(app)
         watchNetwork()
+        bridge.start()
     }
+
+    /** [PhoneBridge] 的客户端 [key] 连上了：给它那一份手机工具，[busy] 时（有调用在处理）后台屏幕不休眠、不被腾掉。在主线程上调用。 */
+    private fun openBridged(key: String, busy: () -> Boolean): PhoneTools =
+        bridged
+            .getOrPut(key) {
+                PhoneTools(
+                    app,
+                    settings,
+                    beforeCreate = ::makeRoom,
+                    isBusy = { busy() },
+                    onChanged = ::onActivityChanged,
+                )
+            }
+            .also { onActivityChanged() }
 
     /** 已经在界面起来时接过 Zeta 直连的主机（[onUiStarted]）。 */
     private var directStarted = false
@@ -995,7 +1019,8 @@ class ConversationHub(
     /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
     internal fun onActivityChanged() {
         val working = environment.working
-        val active = working || liveConversations.any { it.isProcessAlive }
+        // 外部客户端连着时也要前台服务：不然进程退到后台被冻结，连接那头的调用就没人答
+        val active = working || liveConversations.any { it.isProcessAlive } || bridge.connected > 0
         // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起；和远程主机断了连接、正在重连的不算（那边照样在跑）
         val busy = working || liveConversations.any { it.active && !it.offline }
         val answering = liveConversations.filter { it.busy }

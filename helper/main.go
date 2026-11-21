@@ -23,6 +23,7 @@
 //	storage [<id>…]      存储页：各类占多少空间、能清掉多少（<id> 是应用认为正在进行、要保护的会话）
 //	storage-sessions <项目目录> [<id>…]  存储页：一个项目里每个会话占的空间
 //	clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见 storage.go）
+//	phone-mcp <包名> [<标识>] 把标准输入输出接到这个包的 Zeta 手机工具（MCP），要 root，见 phonemcp.go
 //	subagent <字节> <行> <tool_use id> <agent id|-> <会话 id>…
 //	                     子代理查看页：发起它的 Agent 调用对应的记录，从这个位置起增量读（见 subagent.go）
 //
@@ -49,7 +50,8 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | storage-sessions <project> [<id>…] | clean <kind> [<id>…]" +
 	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
 	" | occupant <id> | handoff <id> | release <id> [<seconds>] | session-start" +
-	" | desk <id> <cwd> | desk-open <id> <cwd> <title> | desk-close <id>…"
+	" | desk <id> <cwd> | desk-open <id> <cwd> <title> | desk-close <id>…" +
+	" | phone-mcp <package> [<client key>]"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -60,6 +62,10 @@ var (
 )
 
 func main() {
+	// phone-mcp 一直转发到连接断开，输出不能等到退出再写，不走 run 的缓冲
+	if len(os.Args) > 1 && os.Args[1] == "phone-mcp" {
+		os.Exit(runPhoneMCP(realPhoneBridge, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 

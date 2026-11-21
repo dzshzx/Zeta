@@ -20,7 +20,7 @@
   vd.py prefs-set 键[:int]=值…
                               改测试版的设置（默认是字符串，:int 是整数）：force-stop 后原地改写；
                               每个键第一次改时记下原值，stop 时改回去（phoneDisplay 一律删掉）
-  vd.py sh '命令'              在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码
+  vd.py sh [--stdin] '命令'    在 Android 一侧以 root 跑一条 shell 命令，原样输出、带回退出码；--stdin 时把标准输入交给它
   vd.py debian [--stdin] '命令' 在 Debian 里以 Linux 用户跑一条命令（手机经 ssh 登录，模拟器经进入脚本），原样输出；失败时退出码非 0。
                              带 --stdin 时把本地的标准输入交给它（比如往 Debian 里写文件：--stdin 'cat > 路径' < 文件）
   vd.py fake 剧本.jsonl       测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
@@ -417,7 +417,11 @@ def main():
         did = display_id()
         print("虚拟屏不在" if did is None else f"虚拟屏 {did}")
     elif c == "sh":
-        r = run(rest[0])
+        stdin = rest[:1] == ["--stdin"]
+        rest = rest[1:] if stdin else rest
+        if len(rest) != 1:
+            sys.exit("用法：vd.py sh [--stdin] '命令'")
+        r = run(rest[0], sys.stdin.buffer.read() if stdin else None)
         sys.stdout.buffer.write(r.stdout)
         sys.stderr.buffer.write(r.stderr)
         sys.exit(r.returncode)

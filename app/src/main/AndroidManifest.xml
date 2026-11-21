@@ -155,6 +155,10 @@
         <receiver
             android:name=".core.AlertReplyReceiver"
             android:exported="false" />
+        <!-- 叫起手机工具的外部入口（phone/PhoneBridge.kt）：zeta-helper phone-mcp 以 root 指名发，不必导出 -->
+        <receiver
+            android:name=".phone.PhoneBridgeReceiver"
+            android:exported="false" />
         <!-- 应用内更新交给系统安装（PackageInstaller 会话）后的结果：要用户确认、取消了、装不上 -->
         <receiver
             android:name=".core.update.UpdateInstallReceiver"
