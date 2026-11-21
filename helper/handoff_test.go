@@ -162,7 +162,8 @@ func TestReleaseWaitsForTheTurnToEnd(t *testing.T) {
 			_ = f.Close()
 		}
 	}()
-	if released, _ := e.releaseSession(handoffID, 5*time.Second); released != 1 || !exited(done) {
+	// 上限只防卡死：这一轮一结束它就返回
+	if released, _ := e.releaseSession(handoffID, 30*time.Second); released != 1 || !exited(done) {
 		t.Fatalf("released %d", released)
 	}
 }

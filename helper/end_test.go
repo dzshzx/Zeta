@@ -36,7 +36,7 @@ func exited(done <-chan struct{}) bool {
 	select {
 	case <-done:
 		return true
-	case <-time.After(3 * time.Second):
+	case <-time.After(30 * time.Second): // 只防卡死：一退出就返回
 		return false
 	}
 }

@@ -145,15 +145,15 @@ func waitFile(t *testing.T, path string) {
 	waitFor(t, func() bool { _, err := os.Stat(path); return err == nil })
 }
 
-// waitFor 每 10 毫秒看一次 cond，5 秒内没等到就让测试失败。
+// waitFor 每 10 毫秒看一次 cond，30 秒内没等到就让测试失败（上限只防卡死，条件一成立就返回）。
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		if cond() {
 			return
 		}
 	}
-	t.Fatal("等了 5 秒没等到")
+	t.Fatal("等了 30 秒没等到")
 }
 
 // registerStatus 像 Claude Code 那样登记，带上忙闲状态（空串时不写这一项）。

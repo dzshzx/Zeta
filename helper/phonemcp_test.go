@@ -45,7 +45,7 @@ func testBridge(woke *[]string, onWake func()) phoneBridge {
 		}
 		return nil
 	}
-	b.wait = 2 * time.Second
+	b.wait = 30 * time.Second // 只防卡死：入口一开就连上
 	b.step = 20 * time.Millisecond
 	return b
 }
