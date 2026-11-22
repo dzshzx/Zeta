@@ -6,7 +6,7 @@
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
-# 合入时（wt land）单元测试不跑截图测试（标了 FullGateOnly 的，依据见 app/src/test/kotlin/com/dzshzx/zeta/FullGateOnly.kt）。
+# 合入时（wt land）单元测试不跑截图测试（shots 包里类名以 Shots 结尾的，依据见 app/build.gradle.kts 的测试任务）。
 # 构建和单元测试在改动全落在它们读不到的路径里时整个跳过（见下面的 gradle_blind）。别的检查每次都跑。
 # ZETA_GATE_FULL=1 是全量：构建照跑，单元测试一个不落。每晚的 CI 和发版前跑的是它。
 # 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。

@@ -24,14 +24,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
-import com.dzshzx.zeta.FullGateOnly
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.RoborazziTaskType
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.io.File
 import org.junit.Rule
-import org.junit.experimental.categories.Category
 import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
@@ -53,7 +51,6 @@ const val PhoneQualifiers = "w375dp-h817dp-port-520dpi"
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [37], qualifiers = PhoneQualifiers)
-@Category(FullGateOnly::class)
 abstract class ShotTest {
     private val setup =
         object : ExternalResource() {
