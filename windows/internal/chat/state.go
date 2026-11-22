@@ -47,6 +47,11 @@ type State struct {
 	Commands json.RawMessage `json:"commands"`
 	// TodoSeed 是没载入的更早历史里的待办清单工具调用，原样，界面拼出当前待办用。
 	TodoSeed json.RawMessage `json:"todo_seed"`
+	// Key 是这个对话在核心里的标识：还没有会话号的分支断线重连时按它重新打开。
+	Key string `json:"key"`
+	// CanRewind：现在能编辑、重新生成、删除一轮、还原代码、分支。Rewinding：正在等 Claude Code 剪会话或还原代码。
+	CanRewind bool `json:"can_rewind"`
+	Rewinding bool `json:"rewinding"`
 }
 
 // Message 是排队的、撤回的一条消息。

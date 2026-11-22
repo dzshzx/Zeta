@@ -25,6 +25,8 @@ type Conversation struct {
 	items  []items.Item
 	// connected：连接在、核心那边这个对话开着；opened：打开成过（重连后要重新打开的只有这些）。
 	connected, opened bool
+	// forked：这是分支（conv.fork 来的），还没有会话号时按 key 重新打开。
+	forked bool
 	// pending 是上次 Take 以后的变化。
 	pending Update
 }
@@ -101,8 +103,13 @@ func (c *Conversation) open(ctx context.Context) error {
 	if c.state.Session != "" {
 		spec.Session = c.state.Session
 	}
+	key := ""
+	if c.forked && spec.Session == "" {
+		key = c.state.Key
+	}
 	c.mu.Unlock()
 	params := map[string]any{"conv": c.name, "options": spec.Options}
+	putNonEmpty(params, "key", key)
 	putNonEmpty(params, "session", spec.Session)
 	putNonEmpty(params, "file", spec.File)
 	putNonEmpty(params, "cwd", spec.Cwd)
