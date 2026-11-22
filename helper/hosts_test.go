@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -122,6 +123,11 @@ func TestLegacyAttachFileCountsOnlyAZetaHostProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	// Start 返回时子进程可能还在 exec 当中，命令行读出来是空的：等它换成 bash 的再往下（线上的 attach 进程早就跑起来了）
+	waitFor(t, func() bool {
+		argv, _ := procArgv(cmd.Process.Pid)
+		return slices.ContainsFunc(argv, func(a []byte) bool { return string(a) == "zeta-host" })
+	})
 	legacy := endedHost(t, e, "k-legacy")
 	writeFile(t, filepath.Join(legacy, "attach"), strconv.Itoa(cmd.Process.Pid))
 	other := endedHost(t, e, "k-other")
