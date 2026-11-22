@@ -5,6 +5,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -16,42 +17,63 @@ const allHostsLabel = "全部设备"
 const sidebarWidth = 300
 
 // sidebar 是左边的侧栏（照手机版的 SessionPane）：灰底铺到窗口顶边，顶上一行品牌和新对话同时是标题栏（空白处拖动窗口），
-// 然后是设备切换，置顶/今天/更早几组会话（搜索时换成结果），
-// 底下左边是搜索框、右边是设置按钮。
+// 然后是设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成归档的），
+// 底下左边是搜索框、右边是归档的入口和设置按钮。多选时顶上一行和底下换成多选的（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
 	k := coui.Of(c)
 	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(k.Sidebar).Children(func() {
-		ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 20).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-			brand(c, 28)
-			ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM).FontWeight(600).TextColor(k.Text)
-			ui.Spacer(c)
-			if len(a.hub.Hosts()) > 0 {
-				coui.CircleButton(c, coui.IconNewChat, "新对话").OnClick(func() {
-					a.page = pageHome
-					a.hub.NewChat()
-				})
-			}
-		})
-		if len(a.hub.Hosts()) > 0 {
+		if a.ops.selecting {
+			a.selectionHeader(c)
+		} else {
+			a.sidebarTop(c)
+		}
+		if len(a.hub.Hosts()) > 0 && !a.ops.selecting {
 			ui.Row(c).Padding(0, 16, 8, 16).Shrink(0).Children(func() { a.hostSwitcher(c) })
 		}
 		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(0, 0, 12, 0).Children(func() {
-				if a.hub.Searching() {
+				switch {
+				case a.hub.Searching():
 					a.searchResults(c)
-				} else {
+				case a.ops.archived:
+					a.archivedGroup(c)
+				default:
 					a.sessionGroups(c)
 				}
 			})
 		})
+		if a.ops.selecting {
+			a.selectionActions(c)
+			return
+		}
 		ui.Row(c).Padding(10, 16).Gap(8).Shrink(0).AlignItems(ui.Center).Children(func() {
 			if len(a.hub.Hosts()) > 0 {
 				a.searchField(c)
 			} else {
 				ui.Spacer(c)
 			}
+			if !a.hub.Searching() {
+				a.archiveToggle(c)
+			}
 			a.settingsButton(c)
 		})
+	})
+	a.sessionDialogs(c)
+}
+
+// sidebarTop 是侧栏顶上一行：品牌和新对话，同时是标题栏。
+func (a *App) sidebarTop(c *ui.Context) {
+	k := coui.Of(c)
+	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 20).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
+		brand(c, 28)
+		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM).FontWeight(600).TextColor(k.Text)
+		ui.Spacer(c)
+		if len(a.hub.Hosts()) > 0 {
+			coui.CircleButton(c, coui.IconNewChat, "新对话").OnClick(func() {
+				a.page = pageHome
+				a.hub.NewChat()
+			})
+		}
 	})
 }
 
@@ -155,7 +177,8 @@ func (a *App) currentSession() hostlink.Session {
 }
 
 // sessionRow 是一行会话：标题（搜索时关键词标成主题色），下面是对话内容里命中的片段，或所在的目录（列着全部设备时前面是设备名）；
-// 行尾是状态（回答中、等你确认……），没有状态时置顶的标个图钉。正开着的那个是白底圆角卡片。右键菜单里置顶。
+// 行尾是状态（回答中、等你确认……），没有状态时置顶的标个图钉。正开着的那个是白底圆角卡片。右键菜单是会话操作（sessionMenu）；
+// 多选时点一行是勾选，行尾是复选框，没有右键菜单。
 func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	k := coui.Of(c)
 	pinned := a.hub.Pinned(s)
@@ -171,20 +194,19 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	default:
 		row.Radius(coui.ShapeRow.Radii[0]) // 焦点框跟着圆角
 	}
+	selecting := a.ops.selecting
 	row.OnClick(func() {
+		if selecting {
+			a.toggle(s)
+			return
+		}
 		a.page = pageHome
 		a.query = ""
 		a.hub.OpenSession(s)
 	})
-	row.PopoverMenu(func(m *ui.Menu) {
-		pin := "置顶"
-		if pinned {
-			pin = "取消置顶"
-		}
-		if m.Item(pin).Chosen() {
-			a.hub.TogglePin(s)
-		}
-	})
+	if !selecting {
+		row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
+	}
 	row.Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
 			weight := 0
@@ -200,8 +222,11 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		})
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
-		} else if pinned {
+		} else if pinned && !selecting {
 			ui.Icon(c, coui.IconPin).Size(16, 16).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
+		}
+		if selecting {
+			coui.MarkLook(c, coui.MarkCheck, a.ops.selected[settings.PinKey(s.Backend, s.ID)])
 		}
 	})
 }
