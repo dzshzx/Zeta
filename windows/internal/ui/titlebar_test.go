@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"image"
 	"image/color"
 	"image/draw"
@@ -75,6 +76,9 @@ func TestHeadersClearWindowButtons(t *testing.T) {
 	f := newChatFixture(t)
 	f.showTurn(t, false)
 	f.tt.SetTitleBar(windowTitleBar)
+	// 侧栏里也有正开着的这个会话、和顶栏同名，Find 会先找到侧栏那行：让列表里这条叫别的名字，找到的就只有顶栏的标题
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "s0", Title: "侧栏里的名字", Updated: at(14)}}})
+	f.tt.Frame()
 	buttons := float32(previewWidth) - windowTitleBar.Right
 	name := f.app.chatTitle(f.app.pane)
 	title, ok := f.tt.Find(name)

@@ -477,7 +477,7 @@ func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 			`"input":{"command":"tools/gradle :app:assembleDebug","description":"构建 debug 包"},"status":"running"}]}`
 	}
 	f.link().Push(`{"type":"conv.items","conv":"w1","at":0,"remove":0,"items":[` + items + `]}`)
-	f.push(`"title":"改 README 的构建命令","reported_model":"claude-opus-5-5"`)
+	f.push(`"session":"s0","cwd":"/home/box/project","title":"改 README 的构建命令","reported_model":"claude-opus-5-5"`)
 	if confirm {
 		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"p1","tool_name":"Bash","input":{"command":"tools/gradle :app:assembleDebug","description":"构建 debug 包"},` +
 			`"suggestion_lines":["允许 Bash(tools/gradle:*)"],"notice":""}]`)
