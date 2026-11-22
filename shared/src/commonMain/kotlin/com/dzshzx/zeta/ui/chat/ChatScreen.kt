@@ -812,7 +812,7 @@ private fun ConversationInput(
             enabled = !conversation.loadingHistory && !conversation.rewinding,
             attachments = attachments,
             files = uploads,
-            commands = conversation.shownCommands,
+            commands = conversation.commands,
             onPickImages = { if (attachments.size < MaxAttachments) onPickImages() },
             onPickFiles = onPickFiles,
             // 手机上的文件夹只有手机本机的 Debian 绑得进去

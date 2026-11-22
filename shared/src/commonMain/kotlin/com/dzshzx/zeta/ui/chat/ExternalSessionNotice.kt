@@ -6,23 +6,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.Occupant
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.coroutines.delay
-
-/** 卡片显示着、Zeta 在前台时多久查一次那边闲不闲。 */
-private const val OCCUPANT_POLL_MS = 3_000L
 
 /** 「别处运行」卡片上的字：说明和按钮。 */
 data class ExternalNoticeText(
@@ -32,8 +24,8 @@ data class ExternalNoticeText(
 )
 
 /**
- * 卡片按那边的样子（[occupant]，还没查到是 null）说什么：闲着时能接过来；在等确认时也能接，那个确认作废；正跑着一轮时等它跑完。 [handing] 是正在接，[problem]
- * 是上次没接过来的原因。
+ * 卡片按那边的样子（[occupant]，核心推来的，还没查到是 null）说什么：闲着时能接过来；在等确认时也能接，那个确认作废；正跑着一轮时等它跑完。 [handing]
+ * 是正在接，[problem] 是上次没接过来的原因。
  */
 fun externalNoticeText(
     occupant: Occupant?,
@@ -65,24 +57,15 @@ fun externalNoticeText(
 }
 
 /**
- * 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡：显示着时每隔几秒查一次那边闲不闲（[SessionHandoff.refresh]，那边自己退出了卡片就收起），
- * 闲着时能一键接过来（[SessionHandoff.handOver]）。 要强行停掉那边，用右上角菜单里的「结束对话」。
+ * 会话正在别处（比如终端里）运行时，输入栏的位置换成这张说明卡：那边闲不闲照核心推来的 [Conversation.occupant] 说（核心自己盯着，那边退出了核心解开
+ * blocked，卡片就收起），闲着时能一键接过来（[SessionHandoff.handOver]）。 要强行停掉那边，用右上角菜单里的「结束对话」。
  */
 @Composable
 fun ExternalSessionNotice(conversation: Conversation, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
     val shape = remember { SquircleShape(ChatPanelCorner) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(conversation, lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                conversation.handoff.refresh()
-                delay(OCCUPANT_POLL_MS)
-            }
-        }
-    }
     val handoff = conversation.handoff
-    val text = externalNoticeText(handoff.occupant, handoff.handing, handoff.problem)
+    val text = externalNoticeText(conversation.occupant, handoff.handing, handoff.problem)
     Column(
         modifier =
             modifier.fillMaxWidth().chatPanel(shape).padding(horizontal = 16.dp, vertical = 14.dp),

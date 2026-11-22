@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
 import com.dzshzx.zeta.core.ModelOption
+import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.QuestionOption
@@ -61,6 +62,8 @@ data class ConvState(
     val status: String = "",
     /** 会话正被 Zeta 之外的进程占着。 */
     val blocked: Boolean = false,
+    /** [blocked] 时占着会话的那个进程的样子（核心每 3 秒查一次，变了才推）；不 blocked 或还没查到时为 null。 */
+    val occupant: Occupant? = null,
     val loadingHistory: Boolean = false,
     /** 会话记录里还没载入的更早事件数，0 是全载入了。 */
     val earlier: Int = 0,
@@ -84,7 +87,7 @@ data class ConvState(
     /** 这个对话指定的思考强度；null 是用默认。 */
     val effort: String? = null,
     val mode: ConvMode = ConvMode(),
-    /** Claude Code 报的斜杠命令，进程还没起过时是空的。 */
+    /** Claude Code 报的斜杠命令；进程还没起过时是核心按工作目录记着的上一份，都没有时是空的。 */
     val commands: List<SlashCommand> = emptyList(),
     /** Claude Code 报的可选模型，进程还没起过时是空的（界面用 FallbackModels）。 */
     val models: List<ModelOption> = emptyList(),
@@ -135,6 +138,7 @@ private val fieldReaders: Map<String, FieldReader> =
         "busy" to { s, v -> s.copy(busy = v.flag()) },
         "status" to { s, v -> s.copy(status = v.text().orEmpty()) },
         "blocked" to { s, v -> s.copy(blocked = v.flag()) },
+        "occupant" to { s, v -> s.copy(occupant = (v as? JsonObject)?.let(Occupant::of)) },
         "loading_history" to { s, v -> s.copy(loadingHistory = v.flag()) },
         "earlier" to { s, v -> s.copy(earlier = (v as? JsonPrimitive)?.intOrNull ?: 0) },
         "earlier_loading" to { s, v -> s.copy(earlierLoading = v.flag()) },

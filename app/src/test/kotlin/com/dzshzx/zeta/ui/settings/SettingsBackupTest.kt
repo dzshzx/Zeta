@@ -85,7 +85,8 @@ class SettingsBackupTest {
             "contextWindows" to setOf("opus=200000"),
             // 这个版本没有的强调色设置：留在存储里也不导出
             "accent" to "teal",
-            "commands" to "[{\"name\":\"compact\"}]",
+            // 以前的 Zeta 存的各设备斜杠命令，现在由核心按工作目录记着：留在存储里也不导出
+            "commands" to "{\"local\":[{\"name\":\"compact\"}]}",
             "mutedApps" to setOf("com.example.music=allow"),
             "phoneDisplay" to 7,
             "dark" to true,

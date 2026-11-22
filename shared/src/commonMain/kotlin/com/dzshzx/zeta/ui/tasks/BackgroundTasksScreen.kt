@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,7 +42,6 @@ import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.formatElapsed
-import com.dzshzx.zeta.core.plainTerminalText
 import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -64,13 +63,9 @@ import io.github.suqi8.coui.kmp.squircle.squircleBackground
 import io.github.suqi8.coui.kmp.squircle.squircleBorder
 import io.github.suqi8.coui.kmp.squircle.squircleClip
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.coroutines.delay
 
 /** 面板看全部对话时 scope 用的值。 */
 const val AllConversations = "*"
-
-/** 运行中的任务多久读一次输出。 */
-private const val OutputPollMs = 2_000L
 
 private const val ListFooter =
     "Claude 在对话里放到后台跑的命令、监视器和子代理。它们跑在对话的 Claude Code 进程里：" +
@@ -276,8 +271,13 @@ private fun TaskDetail(
     onOpenSteps: (String) -> Unit,
 ) {
     var confirmStop by remember { mutableStateOf(false) }
-    // 运行中每两秒读一次输出；结束时（running 变了，重新启动）再读最后一次
-    LaunchedEffect(conversation, task.id, task.running) { followTaskOutput(conversation, task) }
+    // 详情开着时请核心推输出（变了才推，任务结束后核心读完最后一次就不再问），关了就停；子代理读不了输出，不看
+    if (task.readable) {
+        DisposableEffect(conversation, task.id) {
+            conversation.watchTaskOutput(task.id, true)
+            onDispose { conversation.watchTaskOutput(task.id, false) }
+        }
+    }
     val output = conversation.tasks.outputs[task.id]
     CouiPage(
         title = TaskLabels.page(task),
@@ -306,16 +306,6 @@ private fun TaskDetail(
         if (task.readable) {
             item(key = "output") { TaskOutputBlock(output, conversation.isProcessAlive) }
         }
-    }
-}
-
-/** 读任务的输出：先读一次，运行中每隔一会儿再读；读不了的（子代理）不读。 */
-private suspend fun followTaskOutput(conversation: Conversation, task: BackgroundTask) {
-    if (!task.readable) return
-    conversation.readTaskOutput(task.id)
-    while (task.running) {
-        delay(OutputPollMs)
-        conversation.readTaskOutput(task.id)
     }
 }
 
@@ -421,8 +411,8 @@ private fun LazyListScope.taskTextItems(task: BackgroundTask) {
 /** 后台命令、监视器的输出（最多 8 KiB）；还没读到、读不到或还没有输出时说明。 */
 @Composable
 private fun TaskOutputBlock(output: TaskOutput?, processAlive: Boolean) {
-    // 去控制符只在输出变了时做，不随别的重组重做
-    val text = remember(output?.text) { output?.let { plainTerminalText(it.text).trimEnd() } }
+    // 核心推来的已经是去掉控制符的纯文本
+    val text = output?.text?.trimEnd()
     TextBlock(
         title =
             output

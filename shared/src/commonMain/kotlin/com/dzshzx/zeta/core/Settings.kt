@@ -149,16 +149,6 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     /** 用户给这台手机在 Zeta 里起的名字；null 是没起，用系统设置里的设备名（[ConversationHub.backendName]）。 */
     var localName: String? by optionalString("localName")
 
-    /**
-     * 各主机（[Backends]）上 Claude Code 上次报告的斜杠命令和技能（见 [encodeHostCommands]）：应用刚打开、那台主机上
-     * 还没起进程时输入栏也能提示。每次起进程按 initialize 的应答更新那台的，删主机时一起删（[ConversationHub]）。
-     */
-    var commands: Map<String, List<SlashCommand>> by
-        pref(
-            read = { decodeHostCommands(getString("commands", null)) },
-            write = { putString("commands", encodeHostCommands(it)) },
-        )
-
     /** 外观：null 跟随系统，true 深色，false 浅色。 */
     var darkTheme: Boolean? by
         pref(

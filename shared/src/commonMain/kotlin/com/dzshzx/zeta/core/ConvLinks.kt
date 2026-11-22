@@ -221,6 +221,10 @@ class ConvLinks(private val hub: ConversationHub) {
         override fun subagent(conv: CoreConversation, subagent: ConvSubagent) {
             owner(conv)?.coreSubagent(subagent)
         }
+
+        override fun taskOutput(conv: CoreConversation, task: String, output: TaskOutput) {
+            owner(conv)?.coreTaskOutput(task, output)
+        }
     }
 
     companion object {

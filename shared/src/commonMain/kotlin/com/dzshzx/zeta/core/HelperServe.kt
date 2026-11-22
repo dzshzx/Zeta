@@ -281,7 +281,7 @@ class HelperServe(
         /** 多久发一次 ping：比那边的 90 秒短得多，丢一两次也不至于被当成走了。 */
         const val PING_MS = 30_000L
 
-        /** [call] 默认最多等多久：conv.open 可能要先拉起核心、载入历史，conv.task_output 在核心里最多等 30 秒。 */
+        /** [call] 默认最多等多久：conv.open 可能要先拉起核心、载入历史，要等 Claude Code 应答的 conv.* 请求在核心里最多等 30 秒。 */
         const val CALL_TIMEOUT_MS = 60_000L
 
         private const val DROPPED = "和 zeta-helper serve 的连接断了，没收到应答"

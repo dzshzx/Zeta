@@ -61,6 +61,7 @@ class ConvClientTest {
         val turns = CopyOnWriteArrayList<ConvTurn>()
         val phone = CopyOnWriteArrayList<JsonObject>()
         val subagents = LinkedBlockingQueue<ConvSubagent>()
+        val outputs = LinkedBlockingQueue<Pair<String, TaskOutput>>()
         val activity = CopyOnWriteArrayList<Map<String, SessionActivity>>()
 
         override fun changed(conv: CoreConversation) {
@@ -77,6 +78,10 @@ class ConvClientTest {
 
         override fun subagent(conv: CoreConversation, subagent: ConvSubagent) {
             subagents.put(subagent)
+        }
+
+        override fun taskOutput(conv: CoreConversation, task: String, output: TaskOutput) {
+            outputs.put(task to output)
         }
 
         override fun activity(sessions: Map<String, SessionActivity>) {
@@ -532,6 +537,12 @@ class ConvClientTest {
                 {
                     conv.watchSubagent("tu1", false)
                 } to call("conv.subagent", """"tool_use_id":"tu1","watch":false"""),
+                {
+                    conv.watchTaskOutput("t1", true)
+                } to call("conv.task_output", """"task":"t1","watch":true"""),
+                {
+                    conv.watchTaskOutput("t1", false)
+                } to call("conv.task_output", """"task":"t1","watch":false"""),
                 { client.watchActivity(true) } to Call("conv.activity", obj("""{"watch":true}""")),
             )
         for ((run, want) in cases) {
@@ -550,9 +561,6 @@ class ConvClientTest {
         link.results["conv.take_recalled"] =
             """{"uuid":"q1","text":"再看看","images":null,"files":null}"""
         assertEquals(ConvMessage("q1", "再看看"), conv.takeRecalled())
-
-        link.results["conv.task_output"] = """{"text":"ok\n","total_bytes":9000,"truncated":true}"""
-        assertEquals(TaskOutput("ok\n", 9000, true), conv.taskOutput("t1"))
 
         link.results["conv.elicit"] = """{"errors":{"port":"要填整数","host":"必填"}}"""
         assertEquals(
@@ -690,6 +698,40 @@ class ConvClientTest {
             Call("conv.subagent", obj("""{"conv":"k1","tool_use_id":"tu1","watch":true}""")),
             link.next(),
         )
+    }
+
+    @Test
+    fun taskOutputPushesReachTheListenerWhileWatchedAndWatchAgainAfterReopening() {
+        val conv = opened()
+        val pushed =
+            """{"type":"conv.task_output","conv":"k1","task":"t1","text":"ok\n","total_bytes":9000,"truncated":true}"""
+        // 还没看着的不收
+        push(pushed)
+        assertNull(events.outputs.poll())
+        conv.watchTaskOutput("t1", true)
+        link.took()
+        push(pushed)
+        assertEquals(
+            "t1" to TaskOutput("ok\n", 9000, true),
+            events.outputs.poll(1, TimeUnit.SECONDS),
+        )
+        push(
+            """{"type":"conv.task_output","conv":"k1","task":"t1","text":"","total_bytes":0,"truncated":false,"error":"没有进程"}""",
+        )
+        assertEquals("没有进程", events.outputs.poll(1, TimeUnit.SECONDS)!!.second.error)
+        // 重新打开以后再看一次：放开对话时核心停了推送
+        client.disconnected()
+        link.took()
+        client.connected()
+        assertEquals("conv.open", link.next().method)
+        assertEquals(
+            Call("conv.task_output", obj("""{"conv":"k1","task":"t1","watch":true}""")),
+            link.next(),
+        )
+        // 停了以后不收
+        conv.watchTaskOutput("t1", false)
+        push(pushed)
+        assertNull(events.outputs.poll(200, TimeUnit.MILLISECONDS))
     }
 
     private fun subagent(

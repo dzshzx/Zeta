@@ -3,14 +3,12 @@ package com.dzshzx.zeta.ui.settings
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SharedFolder
-import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.of
@@ -63,7 +61,6 @@ class SettingsKeysTest {
                     "/home/someone",
                     "/workspace/claude",
                 ),
-            "setCommands" to mapOf(Backends.LOCAL to listOf(SlashCommand("compact", "", ""))),
             "setDarkTheme" to true,
             "setPhoneTools" to false,
             "setAgentDisplay" to false,

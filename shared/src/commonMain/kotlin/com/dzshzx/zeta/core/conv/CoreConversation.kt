@@ -4,10 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.CodeRewind
 import com.dzshzx.zeta.core.HandoffResult
-import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeError
-import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.chatItemOf
@@ -60,6 +58,8 @@ internal constructor(
     /** 看着的子代理：发起它的 Agent 调用 → 合并到现在的样子（还没收到整份时没有）。 */
     private val subagents = HashMap<String, ConvSubagent?>()
     private val staleSubagents = HashSet<String>()
+    /** 看着输出的后台任务（[watchTaskOutput]）。 */
+    private val taskOutputs = HashSet<String>()
 
     // ---- 打开与重连
 
@@ -95,7 +95,7 @@ internal constructor(
             val again = synchronized(client.lock) { settle(epoch, failure) }
             client.listener.changed(this)
             if (!again) {
-                if (failure == null) rewatchSubagents()
+                if (failure == null) rewatch()
                 return failure
             }
             withClose = failure == null
@@ -158,14 +158,17 @@ internal constructor(
         return true
     }
 
-    /** 重新打开以后，看着的子代理再看一次（放开对话时核心停了推送），收到整份前的替换不套。 */
-    private fun rewatchSubagents() {
-        val ids =
+    /** 重新打开以后，看着的子代理和后台任务输出再看一次（放开对话时核心停了推送）：子代理收到整份前的替换不套，输出开始看时核心先推一份。 */
+    private fun rewatch() {
+        val (ids, tasks) =
             synchronized(client.lock) {
                 staleSubagents.addAll(subagents.keys)
-                subagents.keys.toList()
+                subagents.keys.toList() to taskOutputs.toList()
             }
         ids.forEach { id -> runCatching { request("conv.subagent", watchParams(id, true)) } }
+        tasks.forEach { task ->
+            runCatching { request("conv.task_output", taskParams(task, true)) }
+        }
     }
 
     // ---- 推送
@@ -181,6 +184,7 @@ internal constructor(
                 }
             "conv.items" -> receiveItems(o)
             "conv.subagent" -> receiveSubagent(o)
+            "conv.task_output" -> receiveTaskOutput(o)
             "conv.turn" -> if (!isClosed()) client.listener.turn(this, convTurnOf(o))
             "conv.mcp",
             "conv.reply",
@@ -257,6 +261,12 @@ internal constructor(
             thread(name = "zeta-conv-subagent", isDaemon = true) {
                 runCatching { request("conv.subagent", watchParams(id, true)) }
             }
+    }
+
+    private fun receiveTaskOutput(o: JsonObject) {
+        val task = o.str("task") ?: return
+        synchronized(client.lock) { if (closed || task !in taskOutputs) return }
+        client.listener.taskOutput(this, task, taskOutputOf(o))
     }
 
     // ---- 请求
@@ -407,19 +417,19 @@ internal constructor(
         request("conv.stop_task", mapOf("task" to JsonPrimitive(task)))
     }
 
-    /** 后台命令输出的最后至多 8 KiB；[TaskOutput.error] 不为 null 时是没读成的原因。 */
-    fun taskOutput(task: String): TaskOutput =
-        (request("conv.task_output", mapOf("task" to JsonPrimitive(task))) as? JsonObject)?.let(
-            ::taskOutputOf,
-        ) ?: TaskOutput("", 0, false, error = "核心没给后台任务的输出")
+    /**
+     * 开始（[watch] 为真）或停止看后台命令、监视器 [task] 的输出：看着时核心先推一份，之后输出变了才推（conv.task_output），经
+     * [ConvListener.taskOutput] 交来；任务结束后核心不再问。
+     */
+    fun watchTaskOutput(task: String, watch: Boolean) {
+        synchronized(client.lock) { if (watch) taskOutputs.add(task) else taskOutputs.remove(task) }
+        request("conv.task_output", taskParams(task, watch))
+    }
 
     /** 结束 Claude Code 进程（等于终端里的 /exit）；对话内容留着，下次发消息时接上。 */
     fun end() {
         request("conv.end")
     }
-
-    /** Zeta 之外占着这个会话的进程的样子（conv.occupant）；没人占着是 null。 */
-    fun occupant(): Occupant? = Occupant.of(request("conv.occupant"))
 
     /** 把会话从别处接过来（conv.handoff），要等那边退出，最多十几秒；交出来了核心就解开 blocked 并推 conv.state。 */
     fun handoff(): HandoffResult = HandoffResult.of(request("conv.handoff"))
@@ -557,6 +567,9 @@ internal constructor(
 
         fun watchParams(toolUseId: String, watch: Boolean): Map<String, JsonElement> =
             mapOf("tool_use_id" to JsonPrimitive(toolUseId), "watch" to JsonPrimitive(watch))
+
+        fun taskParams(task: String, watch: Boolean): Map<String, JsonElement> =
+            mapOf("task" to JsonPrimitive(task), "watch" to JsonPrimitive(watch))
 
         fun messageParams(
             text: String,

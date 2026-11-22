@@ -57,7 +57,7 @@ data class BackgroundTask(
     fun elapsedMs(now: Long): Long = ((endedAt ?: now) - startedAt).coerceAtLeast(0)
 }
 
-/** conv.task_output 的结果：输出的最后至多 8 KiB。[error] 不为 null 时是没读成的原因。 */
+/** conv.task_output 推来的输出：最后至多 8 KiB，核心已去掉终端转义、只留回车覆盖的进度行的最后一版。[error] 不为 null 时是没读成的原因。 */
 @Immutable
 data class TaskOutput(
     val text: String,
@@ -65,18 +65,6 @@ data class TaskOutput(
     val truncated: Boolean,
     val error: String? = null,
 )
-
-/** 终端输出转成能直接显示的纯文本：去掉颜色等转义序列；回车覆盖的进度行只留最后一版。 */
-fun plainTerminalText(raw: String): String {
-    val stripped = raw.replace(ANSI, "")
-    return stripped.split('\n').joinToString("\n") { line ->
-        val trimmed = line.removeSuffix("\r")
-        trimmed.substringAfterLast('\r')
-    }
-}
-
-private val ANSI =
-    Regex("\u001B(?:\\[[0-?]*[ -/]*[@-~]|\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|[@-Z\\\\-_])")
 
 /** “3 秒”“2 分 05 秒”“1 小时 03 分”。 */
 fun formatElapsed(ms: Long): String {
@@ -91,7 +79,7 @@ fun formatElapsed(ms: Long): String {
     }
 }
 
-/** 一个对话的后台任务（可观察）：清单是核心推来的（[source]），读到的输出按任务记在这里。「清除已结束」只是这边不再列出它们。 状态只在主线程上改。 */
+/** 一个对话的后台任务（可观察）：清单是核心推来的（[source]），看着的任务的输出（核心推来的）按任务记在这里。「清除已结束」只是这边不再列出它们。 状态只在主线程上改。 */
 class BackgroundTasks(private val source: () -> List<BackgroundTask>) {
     /** 用户清掉的已结束任务。 */
     private var cleared by mutableStateOf<Set<String>>(emptySet())
@@ -110,7 +98,7 @@ class BackgroundTasks(private val source: () -> List<BackgroundTask>) {
     val running: Int
         get() = list.count { it.running }
 
-    /** conv.task_output 读到了任务 [taskId] 的输出。 */
+    /** 核心推来了任务 [taskId] 的输出（conv.task_output）。 */
     fun outputRead(taskId: String, output: TaskOutput) {
         outputs = outputs + (taskId to output)
     }

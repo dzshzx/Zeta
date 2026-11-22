@@ -112,7 +112,11 @@ class Conversation(
     val blockedByExternal: Boolean
         get() = state.blocked
 
-    /** 占着会话的那边闲不闲、把会话接过来（「别处运行」卡片用），经这个对话的 conv.occupant、conv.handoff。 */
+    /** [blockedByExternal] 时占着会话的那边的样子（核心盯着、推来的），「别处运行」卡片照它说话；还没查到时为 null。 */
+    val occupant: Occupant?
+        get() = state.occupant
+
+    /** 把会话接过来（「别处运行」卡片的「接管」），经这个对话的 conv.handoff。 */
     val handoff = SessionHandoff { core }
 
     /** 请求没成的提示（核心没收到，所以不在核心的条目里），接在条目后面。 */
@@ -230,13 +234,9 @@ class Conversation(
     val steering: Boolean
         get() = state.steering
 
-    /** 这个对话的 Claude Code 报的斜杠命令和技能；还没起过进程时为 null。 */
-    val commands: List<SlashCommand>?
-        get() = state.commands.ifEmpty { null }
-
-    /** 输入栏提示的斜杠命令：这个对话报的；还没起过进程时用这台主机上次报的那份（[Settings.commands]）。 */
-    val shownCommands: List<SlashCommand>
-        get() = commands ?: hub.settings.commands[backend].orEmpty()
+    /** 输入栏提示的斜杠命令和技能：核心给的，还没起过进程时是核心按工作目录记着的上一份。 */
+    val commands: List<SlashCommand>
+        get() = state.commands
 
     /** 请求没成、要放回输入框的消息（核心没收到它）。 */
     private var localRecalled by mutableStateOf<QueuedMessage?>(null)
@@ -668,15 +668,24 @@ class Conversation(
         if (isProcessAlive) call { it.stopTask(id) }
     }
 
-    /** 读后台命令、监视器 [id] 输出的最后 8 KiB，读到的进 [BackgroundTasks.outputs]。进程不在时什么也不做。 */
-    fun readTaskOutput(id: String) {
-        val target = core?.takeIf { isProcessAlive } ?: return
-        thread(name = "zeta-task-output", isDaemon = true) {
-            val output = runCatching {
-                target.taskOutput(id)
+    /**
+     * 任务详情开着（[watching]）时核心推后台命令、监视器 [id] 输出的最后 8 KiB（变了才推），收到的进 [BackgroundTasks.outputs]；关了就停。
+     * 进程不在时不看（界面说读不到了）；开始看没成时把原因当作读到的输出显示。不为它打开已经放开的对话。
+     */
+    fun watchTaskOutput(id: String, watching: Boolean) {
+        val target = (if (watching) core?.takeIf { isProcessAlive } else core) ?: return
+        enqueue {
+            try {
+                target.watchTaskOutput(id, watching)
+            } catch (e: Exception) {
+                if (watching)
+                    main.post {
+                        tasks.outputRead(
+                            id,
+                            TaskOutput("", 0, false, error = e.message ?: "没有读到输出"),
+                        )
+                    }
             }
-                .getOrElse { TaskOutput("", 0, false, error = it.message ?: "没有读到输出") }
-            main.post { tasks.outputRead(id, output) }
         }
     }
 
@@ -768,6 +777,11 @@ class Conversation(
         main.post { subagents = subagents + (subagent.toolUseId to subagent) }
     }
 
+    /** 看着的后台任务输出有了变化。 */
+    internal fun coreTaskOutput(task: String, output: TaskOutput) {
+        main.post { tasks.outputRead(task, output) }
+    }
+
     private fun turnStarted() {
         turnRunning = true
         hub.onActivityChanged()
@@ -786,7 +800,7 @@ class Conversation(
 
     /**
      * 把核心那份 [next] 照到界面上（主线程）。核心说的变化里有几样要告诉别处：会话号换了（按会话登记的跟着换）、等着的请求换了（提醒）、
-     * 忙闲变了（前台服务、胶囊）、斜杠命令和模型清单（按主机记下，下次还没起进程时先用）。测试和截图也经它摆出对话的样子。
+     * 忙闲变了（前台服务、胶囊）、模型清单（按主机记下，下次还没起进程时先用）。测试和截图也经它摆出对话的样子。
      */
     fun mirror(next: ConvView) {
         val before = view
@@ -795,7 +809,7 @@ class Conversation(
         if (next.connected && !before.connected && !next.state.busy) turnRunning = false
         followSession()
         followTitle(before.state, next.state)
-        rememberLists(next.state)
+        rememberModels(next.state)
         noticeChanges(before.state, next.state, before.connected != next.connected)
     }
 
@@ -812,10 +826,8 @@ class Conversation(
         sessionId?.let { hub.sessionList.titled(it, next.title) }
     }
 
-    /** 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样。 */
-    private fun rememberLists(next: ConvState) {
-        if (next.commands.isNotEmpty() && hub.settings.commands[backend] != next.commands)
-            hub.settings.commands += backend to next.commands
+    /** 按主机记：各台主机上的 Claude Code 版本不一样，可选的模型也不一样。 */
+    private fun rememberModels(next: ConvState) {
         if (next.models.isNotEmpty() && hub.models[backend] != next.models)
             hub.models += backend to next.models
     }
@@ -824,7 +836,7 @@ class Conversation(
         if (before.prompts.firstOrNull()?.requestId != next.prompts.firstOrNull()?.requestId)
             hub.onPendingChanged(this)
         if (before.process && !next.process) phoneSession?.detach()
-        if (!before.blocked && next.blocked) handoff.refresh()
+        if (before.occupant != next.occupant) handoff.occupantChanged()
         val runningBefore = before.tasks.count { it.running }
         val runningNow = next.tasks.count { it.running }
         if (runningBefore > 0 && runningNow == 0 && !busy) hub.onBackgroundTasksDone(this)

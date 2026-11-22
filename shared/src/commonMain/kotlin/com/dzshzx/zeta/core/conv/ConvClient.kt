@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeRequests
 import com.dzshzx.zeta.core.int
+import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.str
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonElement
@@ -30,6 +31,9 @@ interface ConvListener {
 
     /** 用 [CoreConversation.watchSubagent] 看着的子代理有了变化。 */
     fun subagent(conv: CoreConversation, subagent: ConvSubagent) {}
+
+    /** 用 [CoreConversation.watchTaskOutput] 看着的后台任务 [task] 的输出（每次整份）。 */
+    fun taskOutput(conv: CoreConversation, task: String, output: TaskOutput) {}
 
     /** conv.activity：这个核心里各会话的忙闲，每次整份（[ConvClient.watchActivity] 订阅以后才有）。 */
     fun activity(sessions: Map<String, SessionActivity>) {}
