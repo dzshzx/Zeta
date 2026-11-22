@@ -10,7 +10,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 换一个看得到新挂载的核心：手机上每次进 Debian 都在一个新的私有挂载环境里（`zeta_enter.sh` 的 `unshare -m`），共享文件夹在进入时挂上，常驻的核心和它起的 Claude Code 只看得到核心启动那一刻的挂载和组。共享文件夹增删以后，客户端经一次新的进入跑 `zeta-helper core-takeover`：在跑的核心不论版本都交班，由这个进程拉起新核心（`helper/takeover.go`）。进行中的对话照「新的接手」接上；已经在跑、看不到新文件夹的 Claude Code 由客户端按 `host_key` 判断要不要重起：先结束它（`conv.end`），再跑 `core-takeover`，下次发消息时由新核心起。顺序不能反：新核心不接闲着的托管进程，先换核心的话结束不到它，下次 start 又会接回这个看不到的（Android 的引用文件夹、路径对话框，`ui/chat/AttachPathDialogs.kt`）。
 - 协议只做加法：新方法、新字段可以加，已有的不改不删；客户端忽略不认识的字段，核心对缺的字段按零值处理。非改不可的不兼容改动提升 `protocol`，比核心旧的客户端连上时明说「主机上的 Zeta 服务比这个客户端新，请更新」。
 - 托管层不动：`zeta_host.sh` 照旧托管 Claude Code 进程，serve 重启、升级或崩溃都不结束进行中的对话；serve 里存的只是能重建的状态。
-- 客户端：Android 只用 Kotlin（界面用 COUI）写 Android 原生层（界面、手机工具里调系统接口的部分、悬浮层、无障碍、虚拟屏、数字助理、语音、通知与前台服务、闹钟、应用内更新、进 Debian 的管道），加一层协议转换：核心推来的 JSON 换成界面状态、用户操作换成请求，不写业务规则，核心算好的值（用量的比例与档位、确认的种类与说明等）直接用；其余能用 Go 写的都用 Go；Windows 是 Go + mygo 的原生界面（`windows/`）。客户端共用、和界面无关的 Go 代码在仓根 `client/`（SSH 直连 `client/sshlink`；在主机上跑命令、装 zeta-helper、到 serve 的连接 `client/hostlink`）：Windows 直接链接；Android 以后经随 APK 带的 Go 程序用，手机不装 Debian 也能直连远程主机。`shared/` 里的逻辑搬完后这个模块撤掉，界面回 `app/`。
+- 客户端：Android 只用 Kotlin（界面用 COUI）写 Android 原生层（界面、手机工具里调系统接口的部分、悬浮层、无障碍、虚拟屏、数字助理、语音、通知与前台服务、闹钟、应用内更新、进 Debian 的管道），加一层协议转换：核心推来的 JSON 换成界面状态、用户操作换成请求，不写业务规则，核心算好的值（用量的比例与档位、确认的种类与说明等）直接用；其余能用 Go 写的都用 Go；Windows 是 Go + mygo 的原生界面（`windows/`）。客户端共用、和界面无关的 Go 代码在仓根 `client/`（SSH 直连 `client/sshlink`；在主机上跑命令、装 zeta-helper、到 serve 的连接 `client/hostlink`）：Windows 直接链接；Android 经随 APK 带的 Go 程序 zeta-ssh 用它直连远程主机，手机不装 Debian 也能连（见「Android 直连（zeta-ssh）」）。`shared/` 里的逻辑搬完后这个模块撤掉，界面回 `app/`。
 - 手机工具：Claude 调手机工具时，serve 把请求转给给这个对话登记了手机能力的客户端（和现在 `PhoneBridge` 的做法一样）。
 - 测试：核心的测试都是 Go 测试，在 Linux 上跑；界面测试用录好的协议消息喂界面，不依赖真核心。
 
@@ -216,9 +216,45 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 算法和 Claude Code 状态栏常用的 cpu% 一样（`helper/cpu.go`）：两次读 `/proc/stat` 汇总行，忙碌占比是 1 减去空闲增量除以总增量，空闲含 iowait。上一次的读数在核心的内存里，几个客户端共用；离上一次不到 0.5 秒直接答上一次的数，没有上一次或上一次超过 5 分钟时就地采样 0.1 秒。聊天页输入栏上的负载标识（`ui/chat/HostLoad.kt`）在聊天页看得见时每 5 秒借那台主机对话用的连接问一次（对话里有了消息以后才显示、才问；还没发过消息的新对话不显示，也不为它连主机），显示的是对话所在那台主机（手机本机的 Debian 或远程主机）的负载；问不到时显示一道横线。
 
+## Android 直连（zeta-ssh）
+
+手机直连远程主机（`RemoteHost.Via.Direct`，不要 Debian 和 root）的 SSH 在 Go 程序 zeta-ssh 里（`client/cmd/zeta-ssh`，逻辑在 `client/sshbridge`，连接用和 Windows 版同一份的 `client/sshlink`、`client/hostlink`）。Kotlin 一侧是 `app` 的 `core/ssh/GoSshLinks.kt`，只做协议转换和 Android 原生的三件事：用 Keystore 里的私钥签名、经系统解析域名、把远程命令当成 Java 的 `Process`。重连、闲置断开、保活、主机指纹的核对、交给那边 shell 的写法（登录 shell 与否，`hostlink.RemoteCommand`）、出错的说法都在 Go 里。
+
+- 打包与启动：Gradle 任务 `zetaSsh` 把它编成 android/arm64（不用 cgo），当原生库 `lib/arm64-v8a/libzeta_ssh.so` 打进 APK，`useLegacyPackaging` 让安装时解到应用的 `nativeLibraryDir`：Android 10 起应用不许执行自己数据目录里的文件，`nativeLibraryDir` 里的可以。第一次要直连时 `GoSshLinks` 起它，整个应用进程一个，是应用进程的子进程（不在 Debian 里），跟着应用一起被冻结、被杀；标准输入结束它就断开所有连接退出。它退出了，上面的命令都以 255 结束（原因「Zeta 的 SSH 程序退出了」），下一次要用时再起。单元测试起 `zetaSshHost` 编的本机那一份（`GoSshLinksTest`）。
+- 密钥：Ed25519，私钥在 Android Keystore 里，取不出来。zeta-ssh 第一次登录时请应用给公钥（`key`），之后每次登录要签名时请应用签（`sign`），应用调 `SshKey.sign` 在 Keystore 里签、答原始的 64 字节签名，Go 一侧包成 `ssh-ed25519` 签名。密钥交换（`mlkem768x25519-sha256`、`curve25519-sha256` 优先）和验对方的主机签名都用 golang.org/x/crypto/ssh 自带的。
+- 域名：不用 cgo 的 Go 在 Android 上解析不了域名（没有 `/etc/resolv.conf`），地址不是 IP 时请应用经 `InetAddress` 解析（`resolve`），照系统的 DNS、私人 DNS 和 VPN，再按给的先后一个个连。
+- 没有压缩：x/crypto/ssh 不支持 SSH 的 zlib 压缩（和 Windows 版一样）。
+
+协议：两个方向都是一行一个 JSON，`data` 一律是 base64。zeta-ssh 先发 `{"type":"hello","protocol":1,"window":262144}`。
+
+应用发给 zeta-ssh 的（`method`）：
+
+| 方法 | 字段 | 说明 |
+|---|---|---|
+| `start` | `p`（应用给的进程编号）、`host{id,target,host_key}`、`command`、`login`、`name`（`ZETA_NAME`）、`tz` | 在那台主机上起命令：连接没有就先连，每个命令一个通道。不回应答，之后有这个进程的 `out`、`wrote`、`exit` |
+| `stdin` | `p`、`data`，或 `eof: true` | 写进标准输入；每条 `data` 写进通道（或写不进）后回一条 `wrote`，应用等到它再写下一条。`eof` 关掉输入，不回 |
+| `ack` | `p`、`stream`（`stdout`/`stderr`）、`n` | 应用读掉了 `n` 字节，那一路可以再送这么多 |
+| `close` | `p` | 结束它：还在连的不连了（命令不会在那边跑起来），开着的通道关掉；之后照样有 `exit` |
+| `probe` | `id`、`target`、`host_key`（空是谁都认）、`command`、`name`、`tz`、`timeout_ms` | 连一次、在登录 shell 里跑完命令（加设备、检查连接），连接不进连接池；回 `reply` |
+| `retain` | `ids` | 只留下这几台的连接（删了设备），别的断开 |
+| `drop_all` | 无 | 断开所有连接（换了网络） |
+| `answer` | `id`、`data` 或 `addrs`，不成时 `error` | 答 zeta-ssh 的 `call` |
+
+zeta-ssh 发给应用的（`type`）：
+
+| 类型 | 字段 | 说明 |
+|---|---|---|
+| `out` | `p`、`stream`、`data` | 一段输出（最多 32 KiB） |
+| `wrote` | `p`，写不进时 `error` | 一条 `stdin` 写完了 |
+| `exit` | `p`、`code`，连不上时 `problem` | 进程结束，在它的输出都送完以后。连不上、连接断了的 `code` 是 255；`problem` 是给人看的原因，应用以 `zeta-ssh: ` 开头写进标准错误（`RemoteHosts.sshProblem` 取它） |
+| `reply` | `id`、`host_key`（看到的对方主机公钥）、`changed`（和请求里记下的不一样）、`problem`，或 `code`、`stdout`、`stderr`、`timed_out` | `probe` 的结果 |
+| `call` | `id`、`method`（`key`；`sign` 带 `data`；`resolve` 带 `host`） | 请应用做的事，最多等 30 秒 |
+
+输出按额度送：每个进程的每一路，发出去还没被 `ack` 的不超过招呼里的 `window`（256 KiB）。应用不读时 zeta-ssh 就不读通道，SSH 的窗口满了那边的命令停下来等，不在应用里越堆越多，也不挡别的进程；应用的管道按 `window` 开，收的那条线程从不等。应用不读了（关掉那一路）时，剩下的和之后收到的都马上确认掉。两边读消息的那一路都不等：连接、开通道、写输入、回调各在自己的 goroutine 或线程上。
+
 ## 进度
 
 1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。侧栏的操作（改名、归档、删除、导出、查、搜索、看图、接管、tmux 窗口）也已挂成核心的 `sessions.` 方法（见「会话」，`helper/sessionmethods_test.go` 经真的 serve 和核心走一遍）；手机版客户端已改走它们（「别处运行」卡片读对话 `conv.state` 的 `occupant`、接管走 `conv.handoff`），还剩删掉对应的子命令。
 2. 对话（已做）：输出流归约、确认与提问、控制请求、子代理与后台任务都在核心里。第一批：常驻核心与 serve 转发、输出流归约（`helper/transcript`，对照用例在 `helper/testdata/transcript`）、确认与提问（`helper/prompt`）、后台任务（`helper/tasks`）、用量（`helper/usage`）、托管连接（`helper/host`）和对话状态机（`helper/conv`），上一节的方法都能用；`helper/conv_e2e_test.go` 从 serve 经核心、`zeta_host.sh` 到假 Claude 走通一轮。第二批已做：更早历史分页、编辑与重新生成、删除一轮、还原代码、分支、子代理查看、额度、核心起来时接回还在干活的托管进程、各会话的忙闲订阅、远程主机的 tmux 窗口，核心按方法前缀分发（`core.Mux`）。一个服务端也已做：每个包一个核心，新版本的 serve 让旧核心交班（`helper/handover_test.go`、`helper/conv_e2e_test.go` 钉住交班时进行中的一轮不断），serve 只转发，会话列表、配置、账号与额度都在核心里。Android 的对话也走这套协议：`Conversation` 是核心那份对话的镜像（`core/conv` 的 `ConvClient`、`CoreConversation`，带应答的请求经 `HelperServe.call`，端到端回归 `ConvEndToEndTest`、`ConversationEndToEndTest`），Kotlin 里的归约、起进程、确认与提问的解析都已删掉。客户端各写一份的对话规则也收进了核心：任务清单（`todos`）、重新生成的原样重发（`resend`）、各轮能做什么（用户条目的 `rewindable`、`forkable`、`round_last`）、别处占用（`occupant`，自动解开 `blocked`）、还没起进程时的斜杠命令、后台命令输出的推送、子代理概要；Android 已全部改读这些并删掉了自己那份（`TodoBoard` 的归约、`Rewind.kt` 的 `turnActions`、`SessionHandoff` 的轮询、设置里存的 `commands`、后台任务页的定时拉取），Windows 客户端也已改读、删掉了自己那份。
 3. Windows 客户端（已做）：用 mygo 写的全功能桌面版（`windows/`，设计见 `docs/desktop.md`），对话直接用第 2 步的 serve 协议，随正式版一起发 MSI。
-4. Android：手机本机的连法搬完、Claude Code 配置和账号额度改用核心的方法（随核心一起做，不另搬；额度已改用：`QuotaService` 订阅 `quota.watch`，界面在前台时连着，刷新时把 get_usage 的应答交给 `quota.usage`）以后，删掉 `shared/` 里的逻辑，`shared/` 撤掉，界面搬回 `app/`；KMP 配置、JSch、BouncyCastle 一并去掉。
+4. Android：手机本机的连法搬完、Claude Code 配置和账号额度改用核心的方法（随核心一起做，不另搬；额度已改用：`QuotaService` 订阅 `quota.watch`，界面在前台时连着，刷新时把 get_usage 的应答交给 `quota.usage`）以后，删掉 `shared/` 里的逻辑，`shared/` 撤掉，界面搬回 `app/`，KMP 配置一并去掉。直连已改用 Go 的 zeta-ssh（见「Android 直连（zeta-ssh）」），不再带 JSch 和 BouncyCastle。

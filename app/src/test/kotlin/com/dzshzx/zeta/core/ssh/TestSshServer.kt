@@ -30,8 +30,7 @@ class TestSshServer(val clientKey: SshKey, val home: File) : AutoCloseable {
         SshServer.setUpDefaultServer().apply {
             host = "127.0.0.1"
             port = 0
-            // 和 OpenSSH 一样优先给 Ed25519 的主机密钥：手机上验它的签名靠 BouncyCastle，测试走同一条路
-            // （用 MINA 自己生成：它经 BouncyCastle 认 Ed25519 密钥，认不出 JDK 的）
+            // 和 OpenSSH 一样优先给 Ed25519 的主机密钥（用 MINA 自己生成：它经 BouncyCastle 认 Ed25519 密钥，认不出 JDK 的）
             keyPairProvider =
                 KeyPairProvider.wrap(KeyUtils.generateKeyPair(KeyPairProvider.SSH_ED25519, 256))
             // 按指纹比：服务器自己按 OpenSSH 的线上格式编码收到的公钥，和 Zeta 拼的对得上才算
@@ -58,14 +57,6 @@ class TestSshServer(val clientKey: SshKey, val home: File) : AutoCloseable {
             server.activeSessions.map {
                 it.getNegotiatedKexParameter(KexProposalOption.ALGORITHMS) to
                     it.getNegotiatedKexParameter(KexProposalOption.SERVERKEYS)
-            }
-
-    /** 现有各条连接谈成的压缩算法：（客户端到服务器，服务器到客户端）。 */
-    val compression: List<Pair<String, String>>
-        get() =
-            server.activeSessions.map {
-                it.getNegotiatedKexParameter(KexProposalOption.C2SCOMP) to
-                    it.getNegotiatedKexParameter(KexProposalOption.S2CCOMP)
             }
 
     /** 像断网一样掐断现有的连接。 */

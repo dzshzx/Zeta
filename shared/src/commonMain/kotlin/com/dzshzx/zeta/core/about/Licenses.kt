@@ -2,7 +2,7 @@ package com.dzshzx.zeta.core.about
 
 /**
  * 应用里能看全文的许可证，键是 SPDX 标识。全文在 assets 的 [asset]：GPL-3.0 是构建时从仓根 LICENSE 拷进去的， 别的放在
- * `src/main/assets/licenses/`。MIT、BSD、ISC 的全文不带版权行（各组件的版权行另列在 [Component.copyright]）。
+ * `src/main/assets/licenses/`。MIT、BSD 的全文不带版权行（各组件的版权行另列在 [Component.copyright]）。
  */
 object Licenses {
     val titles: Map<String, String> =
@@ -11,7 +11,6 @@ object Licenses {
             "Apache-2.0" to "Apache License 2.0",
             "MIT" to "MIT License",
             "BSD-3-Clause" to "BSD 3-Clause License",
-            "ISC" to "ISC License",
             "OFL-1.1" to "SIL Open Font License 1.1",
             "Unicode-3.0" to "Unicode License v3",
         )

@@ -27,7 +27,7 @@ changed_files() {
 }
 
 # Gradle 构建（含编进 assets 的 Go 程序）和单元测试都读不到的路径：只有设备流程、发版、文档和 CI 用。
-# 构建读 app/、shared/、helper/、gradle/、gradlew、根目录的 *.gradle.kts 与 gradle.properties、LICENSE、release/，
+# 构建读 app/、shared/、helper/、client/（zeta-ssh 编进 APK）、gradle/、gradlew、根目录的 *.gradle.kts 与 gradle.properties、LICENSE、release/，
 # 经 tools/gradle、tools/java-home、tools/own-scope.sh 启动；单元测试另读 tools/fake-claude/、THIRD_PARTY.md。
 # 各仓共用的 scripts/gatelib.sh、scripts/format.sh 也读不到：它们的函数只用在上面的排版、lint 和 Go 模块检查里（那些
 # 每次都跑），下面起 Gradle 的那一段只经 tools/gradle。本文件不算：它决定 Gradle 怎么起。
@@ -39,7 +39,7 @@ gradle_blind() {
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
     tools/shots | tools/vd | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
-    client/* | windows/*) ;;
+    windows/*) ;;
     *) return 1 ;;
   esac
 }

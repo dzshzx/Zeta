@@ -1,6 +1,6 @@
 // Package hostlink 在一台远程主机上跑命令：交给那边 shell 的写法（同 shared 的 LinuxShell.kt 的 remoteCommand）、
 // zeta-helper 这类程序按内容哈希装到 ~/.cache/<ZETA_NAME>/bin 再调用、到 zeta-helper serve 的常驻连接（会话列表的订阅、
-// 对话的请求），和会话列表的格式。连接经 sshlink；客户端共用（Windows 桌面版链接，Android 以后经随 APK 带的 Go 程序用），
+// 对话的请求），和会话列表的格式。连接经 sshlink；客户端共用（Windows 桌面版链接；Android 的 zeta-ssh 用它拼交给那边 shell 的写法），
 // 不碰界面，也不管是哪个客户端：Zeta 在那边的目录名、带着的程序由调用方给。
 package hostlink
 

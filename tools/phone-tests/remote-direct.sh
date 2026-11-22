@@ -1,15 +1,15 @@
 #!/bin/bash
 # 没有 Debian 也能连远程主机：测试版的 Linux 环境指到一个不存在的地方（手机本机用不了），侧栏切到一台 Zeta 直连的主机，
 # 假 Claude（剧本 fake/remote.jsonl）答一轮；然后在那台主机上掐断这条 SSH 连接，等 Zeta 自己重连，再发一条，
-# 核对两轮都答完、托管的还是同一个进程，测试版底下始终没有 ssh 进程（连接在应用里，不经 Debian 的 OpenSSH）。
-# 开始前删掉测试版装的 zeta-helper：手机本机用不了，它只能经直连（压缩开着）装进那台主机，最后核对装上了。
+# 核对两轮都答完、托管的还是同一个进程，测试版底下始终没有 ssh 进程（连接在应用自己起的 zeta-ssh 里，不经 Debian 的 OpenSSH）。
+# 开始前删掉测试版装的 zeta-helper：手机本机用不了，它只能经直连装进那台主机，最后核对装上了。
 # 截图 first.png（第一轮答完）、reconnected.png（重连后第二轮答完）。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/remote-direct.sh
 #
 # 远程主机是设备自己的 Debian（<Linux 用户>@127.0.0.1:8022，sshd 的准备见 lib.sh 的 ensure_loopback_sshd），家目录相同，
 # 托管目录、假 Claude 的剧本都在老地方。测试版的公钥（应用私有目录的 zeta_ssh.pub，密钥第一次用时写出）
 # 加进 Linux 用户自己的 authorized_keys（同一个注释的旧行先删掉）：只听本机的 sshd，测试设备自己连自己。
-# 主机指纹取 sshd 的 Ed25519 主机密钥：手机上验 Ed25519 主机签名靠 BouncyCastle，这里一并测到。
+# 主机指纹取 sshd 的 Ed25519 主机密钥：验它的签名、Zeta 的密钥在 Keystore 里签名（zeta-ssh 回调应用）都在这里一并测到。
 # 假 Claude 不写会话记录，没有要删的测试会话；vd stop 改回 remoteHosts、backend、rootfs 三项设置。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"

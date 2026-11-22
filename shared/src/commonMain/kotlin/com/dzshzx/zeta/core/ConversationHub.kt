@@ -27,7 +27,8 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /** Zeta 直连远程主机的 SSH 连接（[RemoteHost.Via.Direct]），和它用的密钥。 */
-    val ssh = SshLinks(platform.sshAuth)
+    val ssh: SshLinks
+        get() = platform.sshLinks
 
     /** 各台主机上对话用的 serve 连接（每台一条），对话经它和主机上的核心说话。 */
     val convLinks = ConvLinks(this)

@@ -135,6 +135,28 @@ class ThirdPartyTest {
         )
     }
 
+    /**
+     * client/go.mod：zeta-ssh 链接的模块（直接 require 的）在 ZETA_SSH_MODULES 里各有一条，版本相同；Go 版本和 helper/ 的一样。
+     */
+    @Test
+    fun zetaSshModulesMatchGoMod() {
+        val mod = GoMod.parse(File(repo, "client/go.mod").readText())
+        assertEquals(
+            "client/go.mod 的 go 行和 helper/go.mod 的一样",
+            GoMod.parse(File(repo, "helper/go.mod").readText()).go,
+            mod.go,
+        )
+        assertEquals(
+            "ThirdParty.ZETA_SSH_MODULES 和 client/go.mod 直接 require 的",
+            mod.require.filterKeys { it !in mod.indirect },
+            ThirdParty.ZETA_SSH_MODULES.associate { it.name to it.version },
+        )
+        for (c in ThirdParty.ZETA_SSH_MODULES) assertTrue(
+            "${c.name} 也要在 ThirdParty.BUNDLED 里",
+            c in ThirdParty.BUNDLED,
+        )
+    }
+
     /** gradle/libs.versions.toml：RaTeX 的版本（KaTeX 字体、原生库里的 Rust 代码两条照它核对过）。 */
     @Test
     fun catalogVersionsMatch() {
@@ -230,15 +252,27 @@ class ThirdPartyTest {
     }
 }
 
-/** go.mod 里本测试要的：go 行的版本，require 的模块和版本（单行和括号块两种写法都认，`// indirect` 也算）。 */
-private data class GoMod(val go: String, val require: Map<String, String>) {
+/** go.mod 里本测试要的：go 行的版本，require 的模块和版本（单行和括号块两种写法都认，`// indirect` 也算，另记在 [indirect]）。 */
+private data class GoMod(
+    val go: String,
+    val require: Map<String, String>,
+    val indirect: Set<String>,
+) {
     companion object {
         fun parse(text: String): GoMod {
             var go = ""
             val require = linkedMapOf<String, String>()
+            val indirect = mutableSetOf<String>()
             var inBlock = false
             for (raw in text.lines()) {
                 val line = raw.substringBefore("//").trim()
+                if (raw.substringAfter("//", "").trim() == "indirect")
+                    line
+                        .removePrefix("require ")
+                        .trim()
+                        .split(Regex("""\s+"""))
+                        .firstOrNull()
+                        ?.let(indirect::add)
                 when {
                     line.startsWith("go ") -> go = line.removePrefix("go ").trim()
                     line == "require (" -> inBlock = true
@@ -251,7 +285,7 @@ private data class GoMod(val go: String, val require: Map<String, String>) {
                         }
                 }
             }
-            return GoMod(go, require)
+            return GoMod(go, require, indirect)
         }
     }
 }

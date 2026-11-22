@@ -118,6 +118,15 @@ android {
         localeFilters += listOf("en", "b+zh+Hans")
     }
 
+    // 原生库安装时解到 nativeLibraryDir（AGP 默认不解、留在 APK 里直接映射）：zeta-ssh 是应用要执行的程序，得是一个文件。
+    // 它已经去掉了调试信息，不再交给 NDK 的 strip
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += "**/libzeta_ssh.so"
+        }
+    }
+
     // 不往包里写 AGP 的依赖信息块（用 Google 的密钥加密的依赖清单，只给 Play 管理中心看）：Zeta 不上架 Play，
     // 别人也解不开、核对不了它
     dependenciesInfo {
@@ -134,14 +143,15 @@ android {
 }
 
 /**
- * 编一个在 Linux 一侧跑的 Go 程序：linux 的 arm64、amd64 各一份，静态链接、去掉调试信息和构建号，同样的源码每次编出一样的字节 （应用按内容哈希判断装没装，见
- * core/HelperProgram.kt）。在 go.mod 所在的 [module] 里编 [pkg]，输出 <outputDir>/<program>/linux-<架构>， 作为
- * assets 打进包里；单元测试直接跑本机架构的那一份。要有 PATH 上的 go。
+ * 编一个 Go 程序：按 [targets] 各编一份，不用 cgo、去掉调试信息和构建号，同样的源码每次编出一样的字节（应用按内容哈希判断装没装，见
+ * core/HelperProgram.kt）。在 go.mod 所在的 [module] 里编 [pkg]。在 Linux 一侧跑的（zeta-helper、claude-switch）编
+ * linux 的 arm64、amd64 两份，输出 <outputDir>/<程序名>/linux-<架构>，作为 assets 打进包里，单元测试直接跑本机架构的那一份； 应用自己起的
+ * zeta-ssh 编 android/arm64，当原生库打进包里，单元测试另编一份本机的。要有 PATH 上的 go。
  */
 @CacheableTask
 abstract class GoProgramTask : DefaultTask() {
-    /** 程序名：assets 里的目录名，也是装好的文件名的前缀（[com.dzshzx.zeta.core.HelperProgram.name]）。 */
-    @get:Input abstract val program: Property<String>
+    /** 编哪几份：GOOS/GOARCH → 输出文件（相对 [outputDir]）。 */
+    @get:Input abstract val targets: MapProperty<String, String>
 
     /** 交给 go build 的包。 */
     @get:Input abstract val pkg: Property<String>
@@ -164,11 +174,12 @@ abstract class GoProgramTask : DefaultTask() {
     fun build() {
         val out = outputDir.get().asFile
         out.deleteRecursively()
-        for (arch in listOf("arm64", "amd64")) {
+        for ((target, path) in targets.get()) {
+            val (os, arch) = target.split("/")
             exec.exec {
                 workingDir = module.get().asFile
                 environment("CGO_ENABLED", "0")
-                environment("GOOS", "linux")
+                environment("GOOS", os)
                 environment("GOARCH", arch)
                 commandLine(
                     "go",
@@ -180,7 +191,7 @@ abstract class GoProgramTask : DefaultTask() {
                                 linkVars.get().map { (name, value) -> "-X=$name=$value" })
                             .joinToString(" "),
                     "-o",
-                    File(out, "${program.get()}/linux-$arch").path,
+                    File(out, path).path,
                     pkg.get(),
                 )
             }
@@ -216,12 +227,41 @@ val goPrograms: Map<String, TaskProvider<GoProgramTask>> =
 
 goPrograms.forEach { (name, task) ->
     task.configure {
-        program.set(name)
+        targets.set(listOf("arm64", "amd64").associate { "linux/$it" to "$name/linux-$it" })
         module.set(helperModule)
         outputDir.set(layout.buildDirectory.dir("generated/$name"))
         linkVars.convention(emptyMap())
     }
 }
+
+val clientModule: Directory = rootProject.layout.projectDirectory.dir("client")
+
+/**
+ * 直连远程主机的 zeta-ssh（仓根 client/cmd/zeta-ssh，见 core/ssh/GoSshLinks.kt）：应用自己起它，所以编成 android/arm64、当原生库
+ * lib/arm64-v8a/libzeta_ssh.so 打进包里，装好后在 nativeLibraryDir 里能执行（应用自己的数据目录不许执行程序）。 zetaSshHost
+ * 编一份这台机器的，给单元测试起。源码是 client/ 模块，testdata 是指向 helper/ 的链接，不算。
+ */
+fun GoProgramTask.configureZetaSsh(target: String, path: String, dir: String) {
+    pkg.set("./cmd/zeta-ssh")
+    module.set(clientModule)
+    sources.from(fileTree(clientModule) { exclude("testdata/**") })
+    targets.put(target, path)
+    outputDir.set(layout.buildDirectory.dir("generated/$dir"))
+    linkVars.set(emptyMap())
+}
+
+val zetaSsh =
+    tasks.register<GoProgramTask>("zetaSsh") {
+        // 文件名同 GoSshLinks.LIBRARY；要是 lib*.so，安装时才会被解出来
+        configureZetaSsh("android/arm64", "arm64-v8a/libzeta_ssh.so", "zeta-ssh")
+    }
+
+val zetaSshHost =
+    tasks.register<GoProgramTask>("zetaSshHost") {
+        val arch =
+            if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "arm64" else "amd64"
+        configureZetaSsh("linux/$arch", "zeta-ssh", "zeta-ssh-host")
+    }
 
 // Robolectric 的 Android 系统镜像（android-all，约 250 MB）交给 Gradle 下载，测试进程直接从 Gradle 缓存里离线取用：
 // 测试进程不走 Gradle 的代理和镜像设置，自己去 Maven Central 下载在本机和手机上都不可靠。
@@ -253,6 +293,17 @@ tasks.withType<Test>().configureEach {
             },
         )
     }
+    // zeta-ssh：直连的测试（GoSshLinksTest）起这台机器的那一份，路径经 zeta.programs.zeta-ssh 传进去
+    val zetaSshDir = zetaSshHost.flatMap { it.outputDir }
+    inputs
+        .dir(zetaSshDir)
+        .withPropertyName("zetaSshHost")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            listOf("-Dzeta.programs.zeta-ssh=" + zetaSshDir.get().asFile.resolve("zeta-ssh").path)
+        },
+    )
     // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
     inputs
         .dir("../tools/fake-claude")
@@ -309,6 +360,7 @@ androidComponents {
         goPrograms.values.forEach {
             variant.sources.assets?.addGeneratedSourceDirectory(it, GoProgramTask::outputDir)
         }
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(zetaSsh, GoProgramTask::outputDir)
     }
     // 正式版的文件名就是 Release 里的资产名 Zeta-v<版本名>.apk（只有 arm64 一个包）
     onVariants(selector().withBuildType("release")) { variant ->
@@ -333,12 +385,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.health.connect.client)
-    implementation(libs.jsch)
-    implementation(libs.bcprov)
     // Zeta 自带的 LSPosed 模块（xposed/：长按电源键、放行系统应用的工具服务）：接口由 LSPosed 在 system_server 里提供
     compileOnly(libs.libxposed.api)
     testImplementation(libs.junit)
     testImplementation(libs.apache.sshd.core)
+    // 测试里的 SSH 服务器（Apache MINA SSHD）经 BouncyCastle 认 Ed25519 的主机密钥和客户端公钥；应用本身不再带它
+    testImplementation(libs.bcprov)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
@@ -360,12 +412,7 @@ licensee {
     listOf("Apache-2.0", "MIT", "BSD-3-Clause").forEach { allow(it) }
     // POM 只写了网址、认不出 SPDX 标识的：核对过网址上的全文，because 写它实际是哪种；ThirdParty.LICENSE_URLS 也要加上
     allowUrl("https://github.com/suqi8/coui/blob/main/LICENSE") { because("Apache-2.0") }
-    allowUrl("https://www.bouncycastle.org/licence.html") {
-        because("MIT：Bouncy Castle 的许可就是 MIT 的原文")
-    }
     allowUrl("https://github.com/jordond/materialkolor/blob/master/LICENSE") { because("MIT") }
-    // JSch 另列的 JZlib（BSD-3-Clause）、jBCrypt（ISC）两个网址，Maven 当作任选其一，放行第一个就过了
-    allowUrl("https://github.com/mwiede/jsch/blob/master/LICENSE.txt") { because("BSD-3-Clause") }
     bundleAndroidAsset = true
     androidAssetReportPath = "licenses/artifacts.json"
 }

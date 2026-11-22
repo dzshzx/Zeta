@@ -128,7 +128,7 @@ RaTeX 的原生库 lib/arm64-v8a/libratex_ffi.so 静态链接的 Rust 标准库�
 |---|---|---|
 | 1.27.4 | BSD-3-Clause | https://go.dev/ |
 
-zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/，静态链接 Go 标准库和运行时。
+zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。
 
     Copyright 2009 The Go Authors.
 
@@ -151,6 +151,16 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。
 
     Copyright (c) 2026 dzshzx
+
+### golang.org/x/crypto
+
+| 版本 | 许可证 | 上游 |
+|---|---|---|
+| v0.57.0 | BSD-3-Clause | https://go.googlesource.com/crypto |
+
+Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），静态链接进 lib/arm64-v8a/libzeta_ssh.so。
+
+    Copyright 2009 The Go Authors.
 
 ## 依赖库
 
@@ -176,7 +186,6 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | androidx.core:core-viewtree | 1.0.0 | Apache-2.0 | `androidx.core:core-viewtree` | https://cs.android.com/androidx/platform/frameworks/support |
 | androidx.customview:poolingcontainer | 1.0.0 | Apache-2.0 | `androidx.customview:customview-poolingcontainer` | https://cs.android.com/androidx/platform/frameworks/support |
 | Annotation | 1.9.1 | Apache-2.0 | `androidx.annotation:annotation`<br>`androidx.annotation:annotation-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
-| Bouncy Castle Provider | 1.86 | MIT | `org.bouncycastle:bcprov-jdk18on` | https://github.com/bcgit/bc-java |
 | Checker Qual | 3.33.0 | MIT | `org.checkerframework:checker-qual` | https://github.com/typetools/checker-framework.git |
 | collections | 1.5.0 | Apache-2.0 | `androidx.collection:collection`<br>`androidx.collection:collection-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
 | Collections Kotlin Extensions | 1.5.0 | Apache-2.0 | `androidx.collection:collection-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
@@ -229,7 +238,6 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Health Connect Client Proto | 1.1.0 | Apache-2.0 | `androidx.health.connect:connect-client-proto` | https://cs.android.com/androidx/platform/frameworks/support |
 | J2ObjC Annotations | 2.8 | Apache-2.0 | `com.google.j2objc:j2objc-annotations` | https://github.com/google/j2objc |
 | JetBrains Java Annotations | 23.0.0 | Apache-2.0 | `org.jetbrains:annotations` | https://github.com/JetBrains/java-annotations |
-| JSch | 2.28.8 | BSD-3-Clause AND ISC | `com.github.mwiede:jsch` | https://github.com/mwiede/jsch |
 | JSpecify annotations | 1.0.0 | Apache-2.0 | `org.jspecify:jspecify` | https://github.com/jspecify/jspecify/ |
 | Kotlin Stdlib | 2.4.21 | Apache-2.0 | `org.jetbrains.kotlin:kotlin-stdlib` | https://github.com/JetBrains/kotlin |
 | kotlinx-coroutines-android | 1.11.0 | Apache-2.0 | `org.jetbrains.kotlinx:kotlinx-coroutines-android` | https://github.com/Kotlin/kotlinx.coroutines |
@@ -268,9 +276,7 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 
 MIT、BSD、ISC 要求随包附上的版权行：
 
-- Bouncy Castle Provider：Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)
 - Checker Qual：Copyright 2004-present by the Checker Framework developers
 - Health Connect Client External Protobuf：Copyright 2008 Google Inc.
-- JSch：Copyright (c) 2002-2015 Atsuhiko Yamanaka, JCraft,Inc.；JZlib: Copyright (c) 2000-2011 ymnk, JCraft,Inc.；jBCrypt: Copyright (c) 2006 Damien Miller <djm@mindrot.org>
 - MaterialKolor：Copyright (c) 2025 Jordon de Hoog
 - RaTeX Android：Copyright (c) erweixin

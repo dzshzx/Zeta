@@ -28,11 +28,14 @@ class AboutShots : ShotTest() {
         shoot("about-component-eta") { ComponentScreen(eta, onBack = {}) }
     }
 
-    /** 一个 Maven 依赖的详情：JSch 的三份版权行，下面是 BSD-3-Clause 和 ISC 的全文。 */
+    /** 一个 Maven 依赖的详情：materialkolor 的版权行（POM 没写、手补的），下面是 MIT 的全文。 */
     @Test
     fun mavenComponent() {
-        val jsch = ThirdParty.loadMaven(app).single { "com.github.mwiede:jsch" in it.artifacts }
-        shoot("about-component-jsch") { ComponentScreen(jsch, onBack = {}) }
+        val kolor =
+            ThirdParty.loadMaven(app).first { c ->
+                c.artifacts.any { it.startsWith("com.materialkolor:") }
+            }
+        shoot("about-component-materialkolor") { ComponentScreen(kolor, onBack = {}) }
     }
 
     @Test

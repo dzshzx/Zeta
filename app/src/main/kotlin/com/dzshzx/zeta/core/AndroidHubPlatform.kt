@@ -15,9 +15,10 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.ScheduleStore
+import com.dzshzx.zeta.core.ssh.GoSshLinks
 import com.dzshzx.zeta.core.ssh.OwnKeyAuth
-import com.dzshzx.zeta.core.ssh.SshAuth
 import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.core.ssh.keystore
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneBridge
@@ -89,7 +90,11 @@ class AndroidHubPlatform(
             ?.ifEmpty { null } ?: Build.MODEL
     }
 
-    override val sshAuth: SshAuth = OwnKeyAuth(keyFactory)
+    /** 直连远程主机经随 APK 带的 zeta-ssh：它以原生库的名字打进 APK，装好后在 nativeLibraryDir 里（应用自己的数据目录不许执行程序）。 */
+    override val sshLinks: SshLinks =
+        GoSshLinks(OwnKeyAuth(keyFactory)) {
+            File(app.applicationInfo.nativeLibraryDir.orEmpty(), GoSshLinks.LIBRARY)
+        }
 
     override val clientHint: String = clientHint("a chat app on their Android phone", "tap")
 

@@ -27,8 +27,6 @@ kotlin {
             api(libs.coui2.icons.kmp)
             api(libs.coui2.blur.kmp)
             api(libs.intellij.markdown)
-            api(libs.jsch)
-            api(libs.bcprov)
             api(libs.androidx.navigationevent)
             api(libs.jetbrains.lifecycle.runtime.compose)
         }

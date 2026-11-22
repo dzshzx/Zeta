@@ -47,39 +47,17 @@ internal object ThirdParty {
 
     /**
      * POM 只给了网址、没有 SPDX 标识的许可证：核对过网址上的全文是哪一种。app/build.gradle.kts 的 licensee 一节按网址放行，
-     * 新放行一个网址时这里也要加（ThirdPartyTest 拦着）；JSch 列了三个网址，Maven 当作任选其一，licensee 只放行第一个。
+     * 新放行一个网址时这里也要加（ThirdPartyTest 拦着）。
      */
     val LICENSE_URLS: Map<String, String> =
         mapOf(
             "https://github.com/suqi8/coui/blob/main/LICENSE" to "Apache-2.0",
-            "https://www.bouncycastle.org/licence.html" to "MIT",
             "https://github.com/jordond/materialkolor/blob/master/LICENSE" to "MIT",
-            "https://github.com/mwiede/jsch/blob/master/LICENSE.txt" to "BSD-3-Clause",
-            "https://github.com/mwiede/jsch/blob/master/LICENSE.JZlib.txt" to "BSD-3-Clause",
-            "https://github.com/mwiede/jsch/blob/master/LICENSE.jBCrypt.txt" to "ISC",
         )
 
     /** Maven 依赖要补的：版权行（取自构件里的许可证文件），以及 POM 写得不对的许可证和上游地址。键是 group:artifact。 */
     val MAVEN_NOTES: Map<String, MavenNote> =
         mapOf(
-            // 三个网址分别管 JSch 自己、它带的 JZlib 和 jBCrypt，三份都适用
-            "com.github.mwiede:jsch" to
-                MavenNote(
-                    license = "BSD-3-Clause AND ISC",
-                    copyright =
-                        listOf(
-                            "Copyright (c) 2002-2015 Atsuhiko Yamanaka, JCraft,Inc.",
-                            "JZlib: Copyright (c) 2000-2011 ymnk, JCraft,Inc.",
-                            "jBCrypt: Copyright (c) 2006 Damien Miller <djm@mindrot.org>",
-                        ),
-                ),
-            "org.bouncycastle:bcprov-jdk18on" to
-                MavenNote(
-                    copyright =
-                        listOf(
-                            "Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)",
-                        ),
-                ),
             "com.materialkolor:material-color-utilities" to
                 MavenNote(copyright = listOf("Copyright (c) 2025 Jordon de Hoog")),
             "com.materialkolor:material-color-utilities-android" to
@@ -252,6 +230,24 @@ internal object ThirdParty {
             ),
         )
 
+    /**
+     * zeta-ssh（仓根 client/cmd/zeta-ssh，Go）静态链接的 Go 标准库之外的模块：client/go.mod 里直接 require 的那些，版本相同
+     * （ThirdPartyTest 核对；标着 indirect 的没链接进 zeta-ssh，不列）。
+     */
+    val ZETA_SSH_MODULES: List<Component> =
+        listOf(
+            Component(
+                name = "golang.org/x/crypto",
+                version = "v0.57.0",
+                license = "BSD-3-Clause",
+                url = "https://go.googlesource.com/crypto",
+                copyright = listOf("Copyright 2009 The Go Authors."),
+                note =
+                    "Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），" +
+                        "静态链接进 lib/arm64-v8a/libzeta_ssh.so。",
+            ),
+        )
+
     /** 不在 Maven 依赖里、手写的条目。 */
     val BUNDLED: List<Component> =
         listOf(
@@ -313,10 +309,10 @@ internal object ThirdParty {
                 url = "https://go.dev/",
                 copyright = listOf("Copyright 2009 The Go Authors."),
                 note =
-                    "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/，" +
-                        "静态链接 Go 标准库和运行时。",
+                    "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；" +
+                        "直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。",
             ),
-        ) + GO_MODULES
+        ) + GO_MODULES + ZETA_SSH_MODULES
 
     private val json = Json { ignoreUnknownKeys = true }
 

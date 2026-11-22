@@ -68,20 +68,18 @@ class EnvShell(private val config: LinuxEnvConfig) : LinuxShell {
  */
 sealed class RemoteShell(
     protected val host: RemoteHost,
-    private val timeZone: String,
-    private val linuxName: String,
+    protected val timeZone: String,
+    protected val linuxName: String,
 ) : LinuxShell {
     override val home: String
         get() = host.home
 
-    final override fun start(command: String): Process =
-        launch(remoteCommand(command, linuxName, timeZone, login = true))
+    final override fun start(command: String): Process = launch(command, login = true)
 
-    final override fun startPlain(command: String): Process =
-        launch(remoteCommand(command, linuxName, timeZone, login = false))
+    final override fun startPlain(command: String): Process = launch(command, login = false)
 
-    /** 把交给那边用户 shell 的一行 [remote]（[remoteCommand]）送过去跑。 */
-    protected abstract fun launch(remote: String): Process
+    /** 在那边跑 [command]：[login] 时在登录 shell 里，否则只用 bash（[remoteCommand]）。 */
+    protected abstract fun launch(command: String, login: Boolean): Process
 
     companion object {
         /** 连不上（网络、认证、主机密钥不对）或连接断了时的退出码，和 ssh 一样；远端命令的退出码原样带回。 */
@@ -122,7 +120,8 @@ class DebianSshShell(
     timeZone: String = TimeZone.getDefault().id,
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
-    override fun launch(remote: String): Process = local.start(sshCommand(host.target, remote))
+    override fun launch(command: String, login: Boolean): Process =
+        local.start(sshCommand(host.target, remoteCommand(command, linuxName, timeZone, login)))
 
     override fun kill(process: Process) = local.kill(process)
 
@@ -180,7 +179,7 @@ class DebianSshShell(
 
 /**
  * Zeta 直连的远程主机：不经手机的 Debian，用应用自带的 SSH（[SshLinks]）连过去，密钥见 [SshLinks.auth]。 手机上没装 Debian 也能用。[start]
- * 马上返回，连接在后台建；结束进程是关掉那个通道。
+ * 马上返回，连接在后台建；结束进程是关掉那个通道。交给那边 shell 的写法由 [SshLinks] 拼（手机上在 zeta-ssh 里）。
  */
 class DirectSshShell(
     private val links: SshLinks,
@@ -188,10 +187,12 @@ class DirectSshShell(
     timeZone: String = TimeZone.getDefault().id,
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
-    private val hostKey = checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的设备没有记下指纹" }
+    init {
+        checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的设备没有记下指纹" }
+    }
 
-    override fun launch(remote: String): Process =
-        links.start(host.id, host.target, hostKey, remote, host.key)
+    override fun launch(command: String, login: Boolean): Process =
+        links.start(host, command, login, linuxName, timeZone)
 
     override fun kill(process: Process) = process.destroy()
 }

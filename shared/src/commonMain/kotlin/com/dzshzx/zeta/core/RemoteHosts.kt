@@ -221,18 +221,18 @@ object RemoteHosts {
         key: String? = null,
         linuxName: String = AppVariant.current.linuxName,
     ): Probe {
-        val command =
-            RemoteShell.remoteCommand(
+        val result = runCatching {
+            links.probe(
+                target,
+                expectedHostKey?.let(::decodeKey),
                 ProbeScript,
+                key,
                 linuxName,
                 TimeZone.getDefault().id,
-                login = true,
             )
-        val result = runCatching {
-            links.probe(target, expectedHostKey?.let(::decodeKey), command, key = key)
         }
             .getOrElse {
-                return Probe.Failed(SshLinks.problem(it))
+                return Probe.Failed(it.message ?: "没有连上")
             }
         val seen = result.hostKey?.let(::encodeKey)
         if (result.hostKeyChanged && seen != null) return Probe.HostKeyChanged(seen)
@@ -275,12 +275,12 @@ object RemoteHosts {
 
     fun encodeKey(blob: ByteArray): String = Base64.getEncoder().encodeToString(blob)
 
-    /** base64 的主机公钥，坏的、JSch 认不得的（[SshLinks.hostKey]）是 null。 */
+    /** base64 的主机公钥，坏的、认不得的（[SshKey.hostKeyType]）是 null。 */
     fun decodeKey(text: String): ByteArray? = runCatching {
         Base64.getDecoder().decode(text)
     }
         .getOrNull()
-        ?.takeIf { SshLinks.hostKey(it) != null }
+        ?.takeIf { SshKey.hostKeyType(it) != null }
 
     /** 主机公钥 [text]（[encodeKey] 的结果）的指纹，坏的是 null。 */
     fun fingerprint(text: String): String? = decodeKey(text)?.let(SshKey::fingerprint)
