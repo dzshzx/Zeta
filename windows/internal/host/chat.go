@@ -12,12 +12,14 @@ import (
 )
 
 // OpenChat 起一条到设备 h 上 serve 的连接给对话用（和会话列表的订阅各用各的：对话开在哪台和侧栏列哪台无关）。
-// 推来的对话推送（type 以 conv. 开头的行）和搜索的命中（sessions.match）交给 push，连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
+// 推来的对话推送（type 以 conv. 开头的行）和搜索的命中（sessions.match）交给 push，每次连上时 serve 的招呼交给 hello（可以是 nil），
+// 连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
 // 请求用返回的连接（一个 *Serve）的 Call。第一次就没连上时 Serve 停掉，Call 返回那次的原因，要再用得重新 OpenChat。
-func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) ChatLink {
+func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), hello func(hostlink.Hello), problem func(why string)) ChatLink {
 	shell := hostlink.NewShell(d.Links, h, LinuxName)
 	return hostlink.StartServe(hostlink.ServeOptions{
-		Open: func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
+		Open:  func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
+		Hello: hello,
 		Message: func(kind string, line []byte) {
 			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" {
 				push(line)
@@ -30,7 +32,7 @@ func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), problem func(
 // OpenBulk 另起一条到设备 h 上 serve 的连接，只取大块数据（sessions.image、sessions.export）：应答是一整行，几 MB 的
 // 和对话的推送挤在 OpenChat 那条上时，流式输出要排在它后面。两条是同一个 SSH 连接上的两个通道，各走各的。不收推送。
 func (d *Devices) OpenBulk(h sshlink.Host) ChatLink {
-	return d.OpenChat(h, func([]byte) {}, func(string) {})
+	return d.OpenChat(h, func([]byte) {}, nil, func(string) {})
 }
 
 // dirCheckTimeout 是查一个目录最多等多久。
@@ -79,30 +81,8 @@ func DirProblem(stdout, hostName, path string) string {
 	return ""
 }
 
-// hostnameTimeout 是问一次主机名最多等多久。
-const hostnameTimeout = 15 * time.Second
-
-// Hostname 是设备 h 报的主机名（uname -n）。连不上、没报时是错误。阻塞。
-func (d *Devices) Hostname(h sshlink.Host) (string, error) {
-	shell := hostlink.NewShell(d.Links, h, LinuxName)
-	r, err := shell.Run("uname -n", nil, hostnameTimeout, true)
-	if err != nil {
-		return "", err
-	}
-	if problem := shell.LinkProblem(r); problem != "" {
-		return "", errors.New(problem)
-	}
-	name, _, _ := strings.Cut(strings.TrimSpace(r.Stdout), "\n")
-	if r.Code != 0 || strings.TrimSpace(name) == "" {
-		return "", errors.New("「" + h.Name() + "」没有报主机名")
-	}
-	return strings.TrimSpace(name), nil
-}
-
 // ChatLink 是 OpenChat 给的对话连接：发请求、关掉。界面测试里换成假的（hubtest）。
 type ChatLink interface {
 	Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
-	// CallTagged 同 Call，写出之前把请求的 id 交给 tag（见 hostlink.Serve.CallTagged）。
-	CallTagged(ctx context.Context, method string, params map[string]any, tag func(id int64)) (json.RawMessage, error)
 	Close() error
 }

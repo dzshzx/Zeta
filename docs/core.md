@@ -109,11 +109,11 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `sessions.desk_open` | `session` | 在 tmux 会话 `zeta` 里给它开窗口，已经有就不动（同 `zeta-helper desk-open`）；窗口的工作目录是会话记录里的 `cwd`，还没有记录时是家目录。`result` 是 `{window}`：tmux 的窗口号，主机上没有 tmux 时为 `null` |
 | `sessions.desk_close` | `session` | 关掉它的窗口（同 `zeta-helper desk-close`），`result` 是 `{closed}`：关掉了几个 |
 
-对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`）和 Windows 版的搜索（`client/hostlink` 的 `Search`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。
+对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。
 
-客户端改走这些方法时一并删掉各自重复写的规则：
+客户端改走这些方法时一并删掉各自重复写的规则（Windows 版已经改走，下面列的是 Kotlin 还要做的；Windows 的置顶迁移在 `windows/internal/hub/pins.go`，删的时机写在那里）：
 
-- 置顶：Kotlin 的 `Settings.pinnedSessions`（连同 `SessionSummary.pinKey`、设置备份里的 `pinnedSessions` 一项）、侧栏取回不在最近 300 个里的置顶会话的 `missingPinned`、`syncFarPinned` 和 `farPinned`（`withFarSessions` 留给存储页定位用）、`SessionList.delete` 里去掉置顶的那段；Windows 的 `settings.Pins`、`SetPins`、`PinKey`（未读标记还在用的话换成别的键）和 `Hub.pins`。置顶看列表项的 `pinned`，点置顶发 `sessions.pin`。
+- 置顶：Kotlin 的 `Settings.pinnedSessions`（连同 `SessionSummary.pinKey`、设置备份里的 `pinnedSessions` 一项）、侧栏取回不在最近 300 个里的置顶会话的 `missingPinned`、`syncFarPinned` 和 `farPinned`（`withFarSessions` 留给存储页定位用）、`SessionList.delete` 里去掉置顶的那段。置顶看列表项的 `pinned`，点置顶发 `sessions.pin`。
 - 本地置顶一次性迁过来：客户端每次连上一台设备（收到 `zeta_hello`）时，本地设置里还有这台的置顶键（手机本机的就是会话号，远程设备的是 `<设备编号>/<会话号>`）就逐个发 `sessions.pin`（`pinned` 为真），答成功或答 `no_session` 的从本地设置里删掉这个键，别的出错留着下次连上再迁；还没迁完时列表里的置顶取 `pinned` 和本地键的并集，取消置顶也同时删本地键。本地没有键了就不再做什么。这段迁移代码在带它的手机正式版和 Windows 版都发出以后的下一次发版时删掉，连同读旧键的代码：到那时没连过的设备上的置顶会丢，只是标记，会话不丢。
 - 导出：Kotlin 的 `exportMarkdown`、`exportMarkdowns`、`combineExports`、`exportName` 改成发 `sessions.export`（多选时带 `sessions` 和 `utc_offset`），存文件用 `file_name`；`SessionTools.kt` 的 `exportFileName` 只剩设置备份在用。
 - 删除：Kotlin 的 `deletable` 和 `confirmedDeletion` 里按「正在进行」的筛选、`DeletePrompt.Blocked` 的判断改成看 `sessions.delete` 是不是答 `active`：答了就提示「对话正在进行，结束后再删」，批量删除时其余照删。

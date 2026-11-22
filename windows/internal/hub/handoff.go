@@ -40,10 +40,7 @@ func (h *Hub) HandOver() {
 	ho.Handing, ho.Problem = true, ""
 	call := h.sessionsCall(c.Backend)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
-		var r struct {
-			Handed bool   `json:"handed"`
-			Status string `json:"status"`
-		}
+		var r sessionproto.Handoff
 		raw, err := call(ctx, "sessions.handoff", map[string]any{"session": session})
 		if err == nil {
 			err = json.Unmarshal(raw, &r)
@@ -53,7 +50,7 @@ func (h *Hub) HandOver() {
 			switch {
 			case err != nil:
 				ho.Problem = "接管失败：" + err.Error()
-			case !r.Handed && r.Status == sessionproto.StatusStuck:
+			case !r.Handed && r.Status != nil && *r.Status == sessionproto.StatusStuck:
 				ho.Problem = "对方的 Claude Code 没有退出，可以在终端里结束它后再试。"
 			}
 		}

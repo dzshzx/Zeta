@@ -2,7 +2,6 @@ package hub
 
 import (
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
 // Activity 是会话列表里一个会话眼下在干什么（同 Kotlin 版的 SessionStatus.Activity）。
@@ -71,7 +70,7 @@ func (h *Hub) activityReceived(id string, sessions map[string]hostlink.Activity)
 	before := h.activity[id]
 	for session, now := range sessions {
 		if was, ok := before[session]; ok && now.TurnEnd > was.TurnEnd && !h.showing(id, session) {
-			h.unread[settings.PinKey(id, session)] = true
+			h.unread[key(id, session)] = true
 		}
 	}
 	h.activity[id] = sessions

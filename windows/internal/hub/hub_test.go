@@ -2,6 +2,7 @@ package hub
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,17 +128,19 @@ func TestGroupsAndPins(t *testing.T) {
 		{ID: "archived", Updated: midnight + 500, Archived: true},
 		{ID: "old", Updated: midnight - 2000},
 	}})
-	h.TogglePin(h.Sessions()[1])
+	failed := func(err error) { t.Error(err) }
+	h.TogglePin(h.Sessions()[1], failed)
 	g := h.Groups(now, hostlink.Session{})
 	if !reflect.DeepEqual(ids(g.Pinned), []string{"pinned-old"}) || !reflect.DeepEqual(ids(g.Today), []string{"new"}) || !reflect.DeepEqual(ids(g.Earlier), []string{"old"}) {
 		t.Errorf("groups %v %v %v", ids(g.Pinned), ids(g.Today), ids(g.Earlier))
 	}
-	if !reflect.DeepEqual(s.Pins(), []string{a.ID + "/pinned-old"}) {
-		t.Errorf("saved pins %v", s.Pins())
+	// 置顶记在核心里，本机设置不记
+	if got := d.SessionCalls(); !reflect.DeepEqual(got, []string{a.ID + ` sessions.pin {"pinned":true,"session":"pinned-old"}`}) || s.Pins() != nil {
+		t.Errorf("发出 %q，本机记的 %v", got, s.Pins())
 	}
-	h.TogglePin(h.Sessions()[1])
-	if len(h.Groups(now, hostlink.Session{}).Pinned) != 0 || len(s.Pins()) != 0 {
-		t.Error("unpin")
+	h.TogglePin(h.Sessions()[1], failed)
+	if got := d.SessionCalls(); len(h.Groups(now, hostlink.Session{}).Pinned) != 0 || len(got) != 1 || !strings.Contains(got[0], `"pinned":false`) {
+		t.Errorf("取消置顶：发出 %q", got)
 	}
 }
 
@@ -214,7 +217,7 @@ func TestGroupsFollowChanges(t *testing.T) {
 		}
 	}
 	check("起头", now, hostlink.Session{}, nil, []string{"a", "b"}, nil, []string{"c"})
-	h.TogglePin(hostlink.Session{Backend: x.ID, ID: "b"})
+	h.TogglePin(hostlink.Session{Backend: x.ID, ID: "b"}, func(err error) { t.Error(err) })
 	check("置顶", now, hostlink.Session{}, []string{"b"}, []string{"a"}, nil, []string{"c"})
 	h.SetArchived([]hostlink.Session{{Backend: x.ID, ID: "a"}}, true, func(err error) { t.Error(err) })
 	check("归档", now, hostlink.Session{}, []string{"b"}, nil, nil, []string{"a", "c"})

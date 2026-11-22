@@ -35,14 +35,13 @@ type Devices interface {
 	Keys() []string
 	// Retain 只留下 ids 这几台的连接。
 	Retain(ids []string)
-	// OpenChat 起一条到设备 h 的 serve 连接给对话用：推送、连接的变化在后台 goroutine 上交给 push、problem（见 host.Devices.OpenChat）。
-	OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) host.ChatLink
+	// OpenChat 起一条到设备 h 的 serve 连接给对话用：推送、招呼、连接的变化在后台 goroutine 上交给 push、hello、problem
+	// （见 host.Devices.OpenChat）。
+	OpenChat(h sshlink.Host, push func(line []byte), hello func(hostlink.Hello), problem func(why string)) host.ChatLink
 	// OpenBulk 另起一条到设备 h 的 serve 连接，只取大块数据（见 host.Devices.OpenBulk）。
 	OpenBulk(h sshlink.Host) host.ChatLink
 	// CheckDir 看设备 h 上进不进得去目录 path：进不去时是原因，进得去是空，查不成时是错误。阻塞。
 	CheckDir(h sshlink.Host, path string) (string, error)
-	// Hostname 是设备 h 报的主机名（uname -n）。阻塞。
-	Hostname(h sshlink.Host) (string, error)
 	// Upload 把本机的文件、文件夹或一段内容传到设备 h 上，返回那边的路径（见 host.Devices.Upload）。阻塞。
 	Upload(ctx context.Context, h sshlink.Host, u host.Upload, progress func(int64)) (string, error)
 	// CheckPath 查设备 h 上的路径是什么。阻塞。
@@ -59,16 +58,13 @@ type Hub struct {
 	post     func(func())
 
 	hosts    []sshlink.Host
-	pins     map[string]bool
+	pins     localPins                               // 本机设置里还没迁到核心的置顶（pins.go）
 	watches  map[string]io.Closer                    // 订阅着的设备
-	sessions []hostlink.Session                      // 列着的各台的会话（连同单独取来的置顶会话），合在一起，新的在前
+	sessions []hostlink.Session                      // 列着的各台的会话，合在一起，新的在前
 	problems map[string]string                       // 各台没读成会话列表的原因
 	activity map[string]map[string]hostlink.Activity // 各台的核心报的各会话忙闲：设备 → 会话号 → 样子
-	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按置顶键）
+	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按 Key）
 	search   search                                  // 侧栏的搜索（search.go）
-	far      map[string]map[string]bool              // 各台置顶、却不在列表里而单独取来的会话：设备 → 会话号（sessions.go 的 syncFar）
-	farAsked map[string]map[string]bool              // 各台问过的置顶会话：设备 → 会话号
-	naming   map[string]bool                         // 正在问主机名的设备（hostname.go）
 	view     view                                    // 侧栏的分组和归档，算好的（Groups）
 
 	chat    *Chat                // 聊天窗格里的对话
@@ -84,15 +80,10 @@ type Hub struct {
 
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
 func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
-	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
+	return &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: loadPins(s),
 		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay,
-		far: map[string]map[string]bool{}, farAsked: map[string]map[string]bool{}, naming: map[string]bool{},
 		bulks: map[string]*bulkLink{}, bulkIdle: bulkIdle}
-	for _, pin := range s.Pins() {
-		h.pins[pin] = true
-	}
-	return h
 }
 
 // Start 订阅侧栏列着的各台设备的会话列表。
@@ -186,16 +177,6 @@ func (h *Hub) Refresh() {
 			delete(h.activity, id)
 		}
 	}
-	for id := range h.far {
-		if !slices.Contains(listed, id) {
-			delete(h.far, id)
-		}
-	}
-	for id := range h.farAsked {
-		if !slices.Contains(listed, id) {
-			delete(h.farAsked, id)
-		}
-	}
 	h.changed()
 	for _, id := range listed {
 		if _, live := h.watches[id]; live && h.problems[id] == "" {
@@ -212,6 +193,13 @@ func (h *Hub) watch(id string) {
 	var w io.Closer
 	current := func() bool { return w != nil && h.watches[id] == w }
 	w = h.devices.WatchSessions(x, host.SessionWatch{
+		Hello: func(hello hostlink.Hello) {
+			h.post(func() {
+				if current() {
+					h.greeted(id, hello)
+				}
+			})
+		},
 		Update: func(u hostlink.SessionsUpdate) {
 			h.post(func() {
 				if current() {
@@ -250,28 +238,24 @@ func (h *Hub) unwatch(id string) {
 	}
 }
 
-// received：设备 id 推来了列表。整份时换掉它的那些，再取回不在里面的置顶会话；否则 Upsert 是新出现或变了的、
-// Remove 是不再列出的，别的都留着。单独取来的置顶会话（far）不因为不在列表里拿掉，列表里有它时换成列表里的样子。
+// received：设备 id 推来了列表。整份时换掉它的那些；否则 Upsert 是新出现或变了的、Remove 是不再列出的，别的都留着。
+// 置顶了却不在最新 300 个里的会话核心也列着（排在最后），不用另外取。
 func (h *Hub) received(id string, u hostlink.SessionsUpdate) {
 	defer h.changed()
-	far := h.far[id]
 	dropped := map[string]bool{}
 	for _, s := range u.Upsert {
 		dropped[s.ID] = true
 	}
 	for _, sid := range u.Remove {
-		dropped[sid] = dropped[sid] || !far[sid]
+		dropped[sid] = true
 	}
 	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool {
-		return s.Backend == id && (dropped[s.ID] || u.Full && !far[s.ID])
+		return s.Backend == id && (u.Full || dropped[s.ID])
 	})
 	if u.Full && len(kept) == 0 {
 		h.sessions = u.Upsert // 只有这一台时照那边给的先后
 	} else {
 		h.sessions = byTime(append(slices.Clone(u.Upsert), kept...))
-	}
-	if u.Full {
-		h.syncFar(id)
 	}
 }
 
@@ -280,7 +264,7 @@ func byTime(list []hostlink.Session) []hostlink.Session {
 	return list
 }
 
-// Sessions 是列着的各台的会话（连同单独取来的置顶会话），新的在前。只读。
+// Sessions 是列着的各台的会话，新的在前。只读。
 func (h *Hub) Sessions() []hostlink.Session { return h.sessions }
 
 // Problem 是没读成会话列表的原因；都读成了是空。列着几台时每条前面注明是哪台。
@@ -351,7 +335,7 @@ func (h *Hub) sorted(now time.Time, current hostlink.Session) *view {
 	return v
 }
 
-// withCurrent 是列着的会话（连同单独取来的置顶会话），加上列表里还没有的 current（排在最前，时间算作 now）。
+// withCurrent 是列着的会话，加上列表里还没有的 current（排在最前，时间算作 now）。
 // current 不在列着的设备上时不加。
 func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Session {
 	if current.ID == "" || !slices.Contains(h.Listed(), current.Backend) ||
@@ -364,26 +348,10 @@ func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Se
 	return append([]hostlink.Session{current}, h.sessions...)
 }
 
-// Pinned：会话 s 置顶了。
-func (h *Hub) Pinned(s hostlink.Session) bool { return h.pins[Key(s)] }
+// Key 是会话 s 在各台设备之间不重的键（多选、新回答的标记、搜索的命中都用它）：设备编号/会话号。
+func Key(s hostlink.Session) string { return key(s.Backend, s.ID) }
 
-// Key 是会话 s 在各台设备之间不重的键（置顶、多选、新回答的标记都用它，同 settings.PinKey）。
-func Key(s hostlink.Session) string { return settings.PinKey(s.Backend, s.ID) }
-
-// TogglePin 置顶或取消置顶会话 s。只是 Zeta 这边的标记，会话记录不动。
-func (h *Hub) TogglePin(s hostlink.Session) {
-	defer h.changed()
-	key := Key(s)
-	pins := h.settings.Pins()
-	if h.pins[key] {
-		delete(h.pins, key)
-		pins = slices.DeleteFunc(pins, func(p string) bool { return p == key })
-	} else {
-		h.pins[key] = true
-		pins = append(pins, key)
-	}
-	logSave(h.settings.SetPins(pins))
-}
+func key(backend, session string) string { return backend + "/" + session }
 
 // Probe、ConfigHosts、Keys 见 Devices；在后台 goroutine 上调用。
 func (h *Hub) Probe(target, expected, key string) (host.Found, error) {

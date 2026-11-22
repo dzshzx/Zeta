@@ -1,37 +1,27 @@
 package hub
 
 import (
-	"context"
-	"log"
 	"slices"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// FillHostname：早先加的设备没记下主机名（加的时候还不查它）时，问一句（uname -n）补上，侧栏、设置里的名字跟着换
-// （同 Kotlin 版 ConversationHub.refreshClaudeDefaults 读到默认值后顺带问的那句）。设备页读到新对话默认时调；问不到就照旧。
-func (h *Hub) FillHostname(id string) {
-	x, ok := h.Host(id)
-	if !ok || x.Hostname != "" || h.naming[id] {
+// greeted：设备 id 上的 serve 连上了（会话列表的订阅或对话连接收到 zeta_hello）。拿招呼里的主机名补上设备的主机名，
+// 再把本机设置里这台的置顶迁到核心（pins.go）。
+func (h *Hub) greeted(id string, hello hostlink.Hello) {
+	h.setHostname(id, hello.Hostname)
+	h.migratePins(id)
+}
+
+// setHostname 记下设备 id 报的主机名 name（没起名字的设备在侧栏、设置里就叫它）。name 是空的（那边查不到）或和记着的一样时不动。
+// 加设备时的检查（host.Probe）在装 zeta-helper 之前，照旧自己查主机名。
+func (h *Hub) setHostname(id, name string) {
+	i := slices.IndexFunc(h.hosts, func(x sshlink.Host) bool { return x.ID == id })
+	if name == "" || i < 0 || h.hosts[i].Hostname == name {
 		return
 	}
-	h.naming[id] = true
-	devices := h.devices
-	h.background(0, func(context.Context) func() { // Hostname 自己有时限
-		name, err := devices.Hostname(x)
-		return func() {
-			delete(h.naming, id)
-			if err != nil {
-				log.Printf("zeta: 没问到「%s」的主机名：%v", x.Name(), err)
-				return
-			}
-			i := slices.IndexFunc(h.hosts, func(o sshlink.Host) bool { return o.ID == id })
-			if i < 0 || h.hosts[i].Hostname != "" {
-				return
-			}
-			hosts := slices.Clone(h.hosts)
-			hosts[i].Hostname = name
-			logSave(h.setHosts(hosts))
-		}
-	})
+	hosts := slices.Clone(h.hosts)
+	hosts[i].Hostname = name
+	logSave(h.setHosts(hosts))
 }

@@ -37,7 +37,7 @@ const (
 
 type search struct {
 	query    string
-	hits     map[string]string // 内容里找到的会话（按置顶键）→ 命中处的片段
+	hits     map[string]string // 内容里找到的会话（按 Key）→ 命中处的片段
 	progress SearchProgress
 	cancel   context.CancelFunc
 }
@@ -136,7 +136,7 @@ func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needl
 
 type searchOutcome struct{ complete, ok bool }
 
-// received 是连接推来的一行：搜索的命中交给在搜的那次，别的（对话推送）交给协议层。在读的 goroutine 上。
+// received 是连接推来的一行：搜索的命中交给最近一次搜索（名字对得上的），别的（对话推送）交给协议层。在读的 goroutine 上。
 func (c *chatConn) received(line []byte) {
 	var m struct {
 		Type    string `json:"type"`
@@ -149,30 +149,31 @@ func (c *chatConn) received(line []byte) {
 		return
 	}
 	c.searchMu.Lock()
-	hit := c.searches[m.Search]
+	hit := c.searchHit
+	if m.Search != c.searchName {
+		hit = nil // 之前那次的，已经换了关键词
+	}
 	c.searchMu.Unlock()
 	if hit != nil && m.ID != "" {
 		hit(m.ID, m.Snippet)
 	}
 }
 
-// search 在这条连接的核心里搜 needle（sessions.search）：边找边推来的命中交给 hit（在读的 goroutine 上），搜完返回
-// 是不是都搜完了（false 是到了时限或个数被截断）。同一个客户端发新的搜索时核心取消上一个。在后台调用。
+// search 在这条连接的核心里搜 needle（sessions.search）：给这次搜索起个新名字放进 search，推来的命中里名字是它的交给 hit
+// （在读的 goroutine 上），搜完返回是不是都搜完了（false 是到了时限或个数被截断）。同一个客户端发新的搜索时核心取消上一个。在后台调用。
 func (c *chatConn) search(ctx context.Context, needle string, hit func(session, snippet string)) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, searchTimeout)
 	defer cancel()
-	var id int64
-	raw, err := c.link.CallTagged(ctx, "sessions.search", map[string]any{"query": needle}, func(n int64) {
-		id = n
-		c.searchMu.Lock()
-		if c.searches == nil {
-			c.searches = map[int64]func(string, string){}
-		}
-		c.searches[n] = hit
-		c.searchMu.Unlock()
-	})
 	c.searchMu.Lock()
-	delete(c.searches, id)
+	c.searchName++
+	name := c.searchName
+	c.searchHit = hit
+	c.searchMu.Unlock()
+	raw, err := c.link.Call(ctx, "sessions.search", map[string]any{"query": needle, "search": name})
+	c.searchMu.Lock()
+	if c.searchName == name {
+		c.searchHit = nil
+	}
 	c.searchMu.Unlock()
 	var r struct {
 		Complete bool `json:"complete"`

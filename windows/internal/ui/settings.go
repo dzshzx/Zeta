@@ -253,7 +253,6 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 		Run:    a.run,
 		Post:   a.post,
 		Models: a.models(x.ID),
-		Loaded: func() { a.hub.FillHostname(x.ID) },
 	})
 	a.cfg.Load()
 }

@@ -23,8 +23,9 @@ func (d *Devices) Probe(target, expected, key string) (Found, error) {
 }
 
 // SessionWatch 是会话列表订阅的回调，都在后台 goroutine 上调用：Update 是推来的列表，Activity 是核心报的各会话忙闲
-// （conv.activity，每次整份），Problem 是连上（空）、断开或连不上（原因）。
+// （conv.activity，每次整份），Hello 是每次连上时 serve 的招呼，Problem 是连上（空）、断开或连不上（原因）。
 type SessionWatch struct {
+	Hello    func(hostlink.Hello)
 	Update   func(hostlink.SessionsUpdate)
 	Activity func(map[string]hostlink.Activity)
 	Problem  func(string)
@@ -36,6 +37,7 @@ func (d *Devices) WatchSessions(h sshlink.Host, w SessionWatch) io.Closer {
 	return hostlink.StartServe(hostlink.ServeOptions{
 		Open:          func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Subscriptions: []string{"sessions.watch", "conv.activity"},
+		Hello:         w.Hello,
 		Message: func(kind string, line []byte) {
 			switch kind {
 			case "zeta_sessions":

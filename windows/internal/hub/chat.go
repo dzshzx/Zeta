@@ -41,9 +41,11 @@ type chatConn struct {
 	// problem 是连接现在的问题（断了、连不上），空是连着；ever：连上过。只在主线程上读写。
 	problem string
 	ever    bool
-	// searches 是这条连接上在搜的（sessions.search 的请求 id → 收命中的），推来的 sessions.match 照 id 交过去（search.go）。
-	searchMu sync.Mutex
-	searches map[int64]func(session, snippet string)
+	// 这条连接上最近一次搜索（sessions.search）：searchName 是给它起的名字，推来的 sessions.match 里 search 等于它的交给 searchHit；
+	// 搜完了 searchHit 为 nil（search.go）。
+	searchMu   sync.Mutex
+	searchName int64
+	searchHit  func(session, snippet string)
 }
 
 // Call 把请求交给连接：Client 建在连接之前，经它转一手。
@@ -147,7 +149,7 @@ func (h *Hub) closeConv(conv *chat.Conversation) {
 	})
 }
 
-// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送和连接的变化在读的 goroutine 上来：推送交给协议层，
+// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 交给 greeted，
 // 连上时经 run 在后台让打开过的对话重新打开（Call 的应答要靠读的那个 goroutine 送回来，不能就地等），
 // 界面要重画的经 post 回主线程。
 func (h *Hub) chatConn(id string) *chatConn {
@@ -159,6 +161,13 @@ func (h *Hub) chatConn(id string) *chatConn {
 	c.client = chat.NewClient(c, func() { h.post(func() {}) })
 	c.link = h.devices.OpenChat(x,
 		c.received,
+		func(hello hostlink.Hello) {
+			h.post(func() {
+				if h.conns[id] == c {
+					h.greeted(id, hello)
+				}
+			})
+		},
 		func(why string) {
 			if why == "" {
 				h.run(func() {

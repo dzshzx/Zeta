@@ -150,30 +150,35 @@ func TestBatchesRunFourAtATimePerHost(t *testing.T) {
 	}
 }
 
-// 几个一起导出时，先答完的不排到前面：照选中的先后合成。
+// 几台设备的一起导出：每台一个请求、带它的几个；先答完的不排到前面，照各台在选中里第一次出现的先后接起来。
 func TestExportKeepsTheOrder(t *testing.T) {
-	f := newChatFixture(t)
-	list := f.listed()
-	last := make(chan struct{})
-	f.devices.OnSessions = func(_ string, c hubtest.Call) {
-		switch c.Str("session") {
-		case "s1":
-			select { // 等最后一个答完再答
-			case <-last:
-			case <-time.After(5 * time.Second):
-			}
-		case list[len(list)-1].ID:
-			defer close(last)
+	d := hubtest.NewDevices()
+	h, _ := newHub(t, d)
+	a, _ := h.AddHost("a", "", d.Found("a"))
+	b, _ := h.AddHost("b", "", d.Found("b"))
+	list := []hostlink.Session{{Backend: b.ID, ID: "b0"}, {Backend: a.ID, ID: "a0"}, {Backend: b.ID, ID: "b1"}}
+	answered := make(chan struct{})
+	d.OnSessions = func(host string, _ hubtest.Call) {
+		if host == a.ID {
+			defer close(answered)
+			return
+		}
+		select { // 等 a 答完再答
+		case <-answered:
+		case <-time.After(5 * time.Second):
 		}
 	}
 	var got Exported
-	f.hub.Export(list, time.Now(), func(e Exported) { got = e }, func(err error) { t.Error(err) })
+	h.Export(list, time.Date(2026, 11, 22, 9, 5, 0, 0, time.UTC), func(e Exported) { got = e }, func(err error) { t.Error(err) })
 	var order []string
 	for _, part := range strings.Split(got.Content, "\n---\n\n") {
 		order = append(order, strings.TrimPrefix(strings.SplitN(part, "\n", 2)[0], "# 对话 "))
 	}
-	if want := ids(list); fmt.Sprint(order) != fmt.Sprint(want) {
-		t.Errorf("合成的先后 %v，要 %v", order, want)
+	if fmt.Sprint(order) != "[b0 b1 a0]" || got.Name != "Zeta-3个对话-20261122-0905.md" {
+		t.Errorf("接起来的先后 %v，文件名 %q", order, got.Name)
+	}
+	if calls := d.SessionCalls(); len(calls) != 2 {
+		t.Errorf("发出 %q", calls)
 	}
 }
 

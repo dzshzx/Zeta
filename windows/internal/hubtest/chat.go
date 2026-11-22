@@ -18,18 +18,18 @@ import (
 )
 
 // ChatLink 是假的对话连接，扮主机上的 serve 和核心：记下发来的请求，按 OnCall 应答（没给时答成功、没有 result）；
-// 推送、连接的变化由测试经 Push、Connect、Drop 送来，像 serve 那样在调用者的 goroutine 上交给中枢。
+// 推送、招呼、连接的变化由测试经 Push、Greet、Connect、Drop 送来，像 serve 那样在调用者的 goroutine 上交给中枢。
 // 像 serve 那条连接上一行行写出那样，sessions.image 的应答没写完时，推送等着它（wire）。
 type ChatLink struct {
 	Host string
 
 	devices *Devices
-	seq     int64
 	wire    sync.Mutex
 	mu      sync.Mutex
 	calls   []Call
 	onCall  func(Call) (json.RawMessage, error)
 	push    func([]byte)
+	hello   func(hostlink.Hello)
 	problem func(string)
 	closed  bool
 }
@@ -46,28 +46,33 @@ func (c Call) Conv() string { s, _ := c.Params["conv"].(string); return s }
 // Str 是参数 key 的字符串值。
 func (c Call) Str(key string) string { s, _ := c.Params[key].(string); return s }
 
+// Strs 是参数 key 的字符串列表（[]string，或解过 JSON 的 []any）；没有时是 nil。
+func (c Call) Strs(key string) []string {
+	switch v := c.Params[key].(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, len(v))
+		for i, x := range v {
+			out[i], _ = x.(string)
+		}
+		return out
+	}
+	return nil
+}
+
 // JSON 是参数的 JSON，键按字母排好。
 func (c Call) JSON() string {
 	b, _ := json.Marshal(c.Params)
 	return string(b)
 }
 
-// Call 见 host.ChatLink。
-func (l *ChatLink) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
-	return l.CallTagged(ctx, method, params, nil)
-}
-
-// CallTagged 见 host.ChatLink：请求依次编号。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
-func (l *ChatLink) CallTagged(_ context.Context, method string, params map[string]any, tag func(int64)) (json.RawMessage, error) {
+// Call 见 host.ChatLink。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
+func (l *ChatLink) Call(_ context.Context, method string, params map[string]any) (json.RawMessage, error) {
 	l.mu.Lock()
 	if l.closed {
 		l.mu.Unlock()
 		return nil, errors.New("和 zeta-helper serve 的连接已关闭")
-	}
-	l.seq++
-	id := l.seq
-	if tag != nil {
-		tag(id)
 	}
 	if strings.HasPrefix(method, "sessions.") {
 		l.mu.Unlock()
@@ -75,7 +80,7 @@ func (l *ChatLink) CallTagged(_ context.Context, method string, params map[strin
 			l.wire.Lock()
 			defer l.wire.Unlock()
 		}
-		return l.devices.answerSessions(l, id, Call{Method: method, Params: params})
+		return l.devices.answerSessions(l, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
 	l.calls = append(l.calls, c)
@@ -134,13 +139,20 @@ func (l *ChatLink) Push(line string) {
 	l.push([]byte(line))
 }
 
+// Greet 交来 serve 的招呼（像每次连上时那样），带主机名 hostname。
+func (l *ChatLink) Greet(hostname string) {
+	if l.hello != nil {
+		l.hello(hostlink.Hello{Hostname: hostname})
+	}
+}
+
 // Connect 报连上了（serve 收到招呼）；Drop 报断开了，why 是原因。
 func (l *ChatLink) Connect()        { l.problem("") }
 func (l *ChatLink) Drop(why string) { l.problem(why) }
 
 // OpenChat 见 hub.Devices：起一条假连接，记下来，测试用 Chat 拿到它。
-func (d *Devices) OpenChat(h sshlink.Host, push func([]byte), problem func(string)) host.ChatLink {
-	l := &ChatLink{Host: h.ID, devices: d, push: push, problem: problem}
+func (d *Devices) OpenChat(h sshlink.Host, push func([]byte), hello func(hostlink.Hello), problem func(string)) host.ChatLink {
+	l := &ChatLink{Host: h.ID, devices: d, push: push, hello: hello, problem: problem}
 	d.mu.Lock()
 	d.chats = append(d.chats, l)
 	onOpen := d.OnChat

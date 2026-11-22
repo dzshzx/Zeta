@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/egoist/mygo/ui"
 )
 
 func TestHandoffText(t *testing.T) {
 	for _, c := range []struct {
-		o       *chat.Occupant
+		o       *sessionproto.Occupancy
 		handing bool
 		problem string
 		summary string
@@ -18,12 +18,12 @@ func TestHandoffText(t *testing.T) {
 		enabled bool
 	}{
 		{nil, false, "", "正在查询它的状态", "接管会话", false},
-		{&chat.Occupant{Status: "idle", HandsOver: true}, false, "", "当前空闲", "接管会话", true},
-		{&chat.Occupant{Status: "waiting", WaitingFor: "Bash", HandsOver: true}, false, "", "正在等待确认（Bash）", "接管会话", true},
-		{&chat.Occupant{Status: "busy"}, false, "", "本轮结束后可以接管", "等待对方空闲", false},
-		{&chat.Occupant{Status: "shell"}, false, "", "! 命令", "等待对方空闲", false},
-		{&chat.Occupant{Status: "idle", HandsOver: true}, true, "", "当前空闲", "正在接管…", false},
-		{&chat.Occupant{Status: "idle", HandsOver: true}, false, "接管失败：连不上", "接管失败：连不上", "接管会话", true},
+		{&sessionproto.Occupancy{Status: ptr("idle"), HandsOver: true}, false, "", "当前空闲", "接管会话", true},
+		{&sessionproto.Occupancy{Status: ptr("waiting"), WaitingFor: ptr("Bash"), HandsOver: true}, false, "", "正在等待确认（Bash）", "接管会话", true},
+		{&sessionproto.Occupancy{Status: ptr("busy")}, false, "", "本轮结束后可以接管", "等待对方空闲", false},
+		{&sessionproto.Occupancy{Status: ptr("shell")}, false, "", "! 命令", "等待对方空闲", false},
+		{&sessionproto.Occupancy{Status: ptr("idle"), HandsOver: true}, true, "", "当前空闲", "正在接管…", false},
+		{&sessionproto.Occupancy{Status: ptr("idle"), HandsOver: true}, false, "接管失败：连不上", "接管失败：连不上", "接管会话", true},
 	} {
 		summary, button, enabled := handoffText(c.o, c.handing, c.problem)
 		if !strings.Contains(summary, c.summary) || button != c.button || enabled != c.enabled {
@@ -31,6 +31,8 @@ func TestHandoffText(t *testing.T) {
 		}
 	}
 }
+
+func ptr(s string) *string { return &s }
 
 // 卡片照 conv.state 的 occupant 说话，不自己去查；点「接管」才发 sessions.handoff。
 func TestHandoffCardReplacesTheComposer(t *testing.T) {

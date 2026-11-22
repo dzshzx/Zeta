@@ -42,7 +42,12 @@ func TestSettingsThroughServe(t *testing.T) {
 		t.Fatalf("claude-switch 没装到主机上：%v", err)
 	}
 
-	f.clickButton(t, f.host.Name(), 0)
+	// 连上时招呼里的主机名记下了：设备叫它
+	x, _ := f.hub.Host(f.host.ID)
+	if hostname, _ := os.Hostname(); x.Name() != hostname {
+		t.Errorf("设备的名字 %q，主机名 %q", x.Name(), hostname)
+	}
+	f.clickButton(t, x.Name(), 0)
 	f.until(t, "读到新对话默认", func() bool {
 		return f.shows("Sonnet") || strings.Contains(strings.Join(f.tt.Texts(), "\n"), "读取失败")
 	})

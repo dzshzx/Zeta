@@ -37,15 +37,14 @@ type Devices struct {
 	SearchHits map[string]map[string]string
 	SearchErr  map[string]error
 	Partial    map[string]bool
-	// Far 是各台 sessions.lookup 找得到的会话（不在列表里的置顶会话）：设备编号 → 会话；SessionsErr 是各个 sessions.* 方法
-	// 答的错（方法名 → 错误）；Hostnames 是 Hostname 答的各台主机名（设备编号 → 名字，没列的答出错）。
-	Far map[string][]hostlink.Session
+	// SessionsErr 是各个 sessions.* 方法答的错（方法名 → 错误）；SessionErrs 是对各个会话的 sessions.* 答的错（会话号 → 错误，
+	// 比如 hostlink.NewReplyError 带的 code）。
+	SessionErrs map[string]error
 	// Handoffs 是 sessions.handoff 答的结果（会话号 → 结果 JSON）：没给的是交出来了。
 	Handoffs map[string]string
-	// OnSearch 给了时由它答 sessions.search（l 是那条连接，id 是请求的编号，命中用 PushMatch 推），不照 SearchHits 答。
-	OnSearch    func(l *ChatLink, id int64, query string) (json.RawMessage, error)
+	// OnSearch 给了时由它答 sessions.search（l 是那条连接，search 是客户端给这次搜索起的名字，命中用 PushMatch 推），不照 SearchHits 答。
+	OnSearch    func(l *ChatLink, search any, query string) (json.RawMessage, error)
 	SessionsErr map[string]error
-	Hostnames   map[string]string
 	// OnSessions 给了时在答每个 sessions.* 请求之前调（h 是设备编号），可以在这里等着，扮慢的核心。
 	OnSessions func(h string, c Call)
 
@@ -198,6 +197,13 @@ func (d *Devices) PushActivity(id string, a map[string]hostlink.Activity) {
 func (d *Devices) PushStale(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, false); w != nil {
 		w.w.Update(withBackend(u, id))
+	}
+}
+
+// Greet 替设备 id 开着的订阅交来 serve 的招呼（像每次连上时那样），带主机名 hostname。
+func (d *Devices) Greet(id, hostname string) {
+	if w := d.last(id, true); w != nil && w.w.Hello != nil {
+		w.w.Hello(hostlink.Hello{Hostname: hostname})
 	}
 }
 

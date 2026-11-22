@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"errors"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
@@ -18,7 +20,7 @@ import (
 // sessionOps 是侧栏这些操作的界面状态。
 type sessionOps struct {
 	selecting bool
-	selected  map[string]bool // 选中的（置顶键）
+	selected  map[string]bool // 选中的（hub.Key）
 	archived  bool            // 侧栏在看归档
 
 	renaming struct {
@@ -26,17 +28,14 @@ type sessionOps struct {
 		draft  string
 		open   bool
 	}
-	// deleting 是单条删除的确认框。打开时就定下是只提示（blocked：正在进行）还是确认删除，开着时不再变：
-	// 否则对话恰好在框开着时结束，「知道了」会在指针下面变成同一位置的「删除」。
+	// deleting、batch 是删除一个、几个的确认框。正在进行的删不删由核心定（hub.Delete），这边不筛。
 	deleting struct {
-		target  hostlink.Session
-		blocked bool
-		open    bool
+		target hostlink.Session
+		open   bool
 	}
 	batch struct {
-		list    []hostlink.Session
-		skipped int
-		open    bool
+		list []hostlink.Session
+		open bool
 	}
 }
 
@@ -51,7 +50,7 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 		pin = "取消置顶"
 	}
 	if m.Item(pin).Chosen() {
-		h.TogglePin(s)
+		h.TogglePin(s, a.failed(pin+"没成功"))
 	}
 	if m.Item("重命名").Chosen() {
 		a.ops.renaming.target, a.ops.renaming.draft, a.ops.renaming.open = s, rowTitle(s), true
@@ -70,14 +69,24 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 		h.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(archive+"没成功"))
 	}
 	m.Separator()
-	if m.Item("删除").Danger().Chosen() {
-		a.ops.deleting.target, a.ops.deleting.blocked, a.ops.deleting.open = s, h.Active(s, a.local(s)), true
+	// 正在进行的置灰；能不能删以核心的应答为准
+	if m.Item("删除").Danger().Disabled(h.Active(s, a.local(s))).Chosen() {
+		a.ops.deleting.target, a.ops.deleting.open = s, true
 	}
 }
 
 // failed 是操作没成时弹框说一声的办法。
 func (a *App) failed(title string) func(error) {
 	return func(err error) { a.say(title, err.Error()) }
+}
+
+// deleteFailed 是删除没成时弹框说一声：核心答正在进行的（有一个就算）说「这个对话正在进行」。
+func (a *App) deleteFailed(err error) {
+	title := "删除没成功"
+	if errors.Is(err, hub.ErrActive) {
+		title = "这个对话正在进行"
+	}
+	a.say(title, err.Error())
 }
 
 // local 是聊天窗格里开着的对话的样子，s 不是它时是零值（判断能不能删用）。
@@ -211,13 +220,10 @@ func (a *App) selectionActions(c *ui.Context, chosen []hostlink.Session) {
 			a.exitSelection()
 		})
 		coui.SmallButton(c, "导出").Grow(1).Basis(0).Disabled(none).OnClick(func() { a.export(chosen) })
-		coui.SmallDangerButton(c, "删除").Grow(1).Basis(0).Disabled(none).OnClick(func() {
-			removable := slices.DeleteFunc(slices.Clone(chosen), func(s hostlink.Session) bool { return a.hub.Active(s, a.local(s)) })
-			if len(removable) == 0 {
-				a.say("不能删除", "选中的对话都在进行中，先停止它们，或等它们结束。")
-				return
-			}
-			a.ops.batch.list, a.ops.batch.skipped, a.ops.batch.open = removable, len(chosen)-len(removable), true
+		// 选中的都在进行时置灰；能不能删以核心的应答为准
+		allActive := !slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !a.hub.Active(s, a.local(s)) })
+		coui.SmallDangerButton(c, "删除").Grow(1).Basis(0).Disabled(none || allActive).OnClick(func() {
+			a.ops.batch.list, a.ops.batch.open = chosen, true
 		})
 	})
 }
@@ -247,38 +253,26 @@ func (a *App) archivedGroup(c *ui.Context) {
 	}
 }
 
-// sessionDialogs 是这些操作的对话框：重命名、删除一个（或只提示正在进行）、删除几个。
+// sessionDialogs 是这些操作的对话框：重命名、删除一个、删除几个。
 func (a *App) sessionDialogs(c *ui.Context) {
 	o := &a.ops
 	h := a.hub
 	if r := &o.renaming; r.open {
-		if coui.InputDialog(c, &r.open, "重命名", "", &r.draft, "对话标题", "确定", hub.CleanTitle(r.draft) != "") {
+		if coui.InputDialog(c, &r.open, "重命名", "", &r.draft, "对话标题", "确定", strings.TrimSpace(r.draft) != "") {
 			h.Rename(r.target, r.draft, a.failed("改名没成功"))
 		}
 	}
 	if d := &o.deleting; d.open {
-		name := deleteName(d.target)
-		if d.blocked {
-			coui.Alert(c, &d.open, "这个对话正在进行", name+"\n先停止它，或等它结束，再删除。", coui.Action{Label: "知道了", Style: coui.Recommend})
-		} else if coui.Alert(c, &d.open, "删除这个对话？", name+"\n会话记录文件会被一并删除，无法恢复。",
+		if coui.Alert(c, &d.open, "删除这个对话？", deleteName(d.target)+"\n会话记录文件会被一并删除，无法恢复。",
 			coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
-			// 确认框开着时它开始进行了就不删：删除会结束它的对话进程
-			if h.Active(d.target, a.local(d.target)) {
-				a.say("没有删除", "这个对话正在进行。")
-			} else {
-				h.Delete([]hostlink.Session{d.target}, a.failed("删除没成功"))
-			}
+			h.Delete([]hostlink.Session{d.target}, a.deleteFailed)
 		}
 	}
 	if b := &o.batch; b.open {
-		summary := "会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。"
-		if b.skipped > 0 {
-			summary += "\n另有 " + strconv.Itoa(b.skipped) + " 个正在进行的对话不会删除。"
-		}
-		if coui.Alert(c, &b.open, "删除 "+strconv.Itoa(len(b.list))+" 个对话？", summary,
+		if coui.Alert(c, &b.open, "删除 "+strconv.Itoa(len(b.list))+" 个对话？",
+			"会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。",
 			coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
-			list := slices.DeleteFunc(slices.Clone(b.list), func(s hostlink.Session) bool { return h.Active(s, a.local(s)) })
-			h.Delete(list, a.failed("删除没成功"))
+			h.Delete(b.list, a.deleteFailed)
 			a.exitSelection()
 		}
 	}

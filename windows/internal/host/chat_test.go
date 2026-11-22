@@ -1,9 +1,6 @@
 package host
 
-import (
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
 	b := newBox(t)
@@ -21,17 +18,5 @@ func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
 	}
 	if got := DirProblem("Welcome!\nzeta_dir denied\n", "box", "/srv"); got != "「box」上的 /srv 没有权限进去" {
 		t.Errorf("没有权限：%q", got)
-	}
-}
-
-func TestHostnameAsksTheDevice(t *testing.T) {
-	b := newBox(t)
-	want, err := os.Hostname() // 测试的 SSH 服务器在本机上跑命令
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := (&Devices{Links: b.links}).Hostname(b.host)
-	if err != nil || got != want {
-		t.Errorf("主机名 %q、%v", got, err)
 	}
 }

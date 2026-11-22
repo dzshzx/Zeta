@@ -127,6 +127,8 @@ type e2e struct {
 	hub    *Hub
 	server *sshtest.Server
 	posts  chan func()
+	// another 起同一台设备的另一个客户端（自己的设置、自己的 SSH 连接），推来的同样排进 posts
+	another func(t *testing.T) *Hub
 
 	// 下面只在测试的 goroutine 上动：像界面那样 Take 下来、套上增量拼出来的样子
 	state     chat.State
@@ -176,7 +178,18 @@ func newE2E(t *testing.T, scenario string) *e2e {
 	e := &e2e{server: server, posts: make(chan func(), 1000), recorded: map[string][]string{}}
 	devices := &teeDevices{Devices: &host.Devices{Links: sshlink.NewLinks(sshlink.KeyAuth{Signer: key}, time.Minute), Helper: program},
 		tee: e.received}
-	e.hub = New(s, devices, func(f func()) { go f() }, func(f func()) { e.posts <- f })
+	run, post := func(f func()) { go f() }, func(f func()) { e.posts <- f }
+	e.hub = New(s, devices, run, post)
+	e.another = func(t *testing.T) *Hub {
+		s, err := settings.Load(t.TempDir())
+		if err == nil {
+			err = s.SetHosts([]sshlink.Host{x})
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return New(s, &host.Devices{Links: sshlink.NewLinks(sshlink.KeyAuth{Signer: key}, time.Minute), Helper: program}, run, post)
+	}
 	t.Cleanup(func() { stopCore(t, server.Home, program) })
 	return e
 }
@@ -187,8 +200,8 @@ type teeDevices struct {
 	tee func(line []byte)
 }
 
-func (d *teeDevices) OpenChat(h sshlink.Host, push func([]byte), problem func(string)) host.ChatLink {
-	return d.Devices.OpenChat(h, func(line []byte) { d.tee(line); push(line) }, problem)
+func (d *teeDevices) OpenChat(h sshlink.Host, push func([]byte), hello func(hostlink.Hello), problem func(string)) host.ChatLink {
+	return d.Devices.OpenChat(h, func(line []byte) { d.tee(line); push(line) }, hello, problem)
 }
 
 func (e *e2e) received(line []byte) {
