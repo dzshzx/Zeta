@@ -237,9 +237,9 @@ goPrograms.forEach { (name, task) ->
 val clientModule: Directory = rootProject.layout.projectDirectory.dir("client")
 
 /**
- * 直连远程主机的 zeta-ssh（仓根 client/cmd/zeta-ssh，见 core/ssh/GoSshLinks.kt）：应用自己起它，所以编成 android/arm64、当原生库
- * lib/arm64-v8a/libzeta_ssh.so 打进包里，装好后在 nativeLibraryDir 里能执行（应用自己的数据目录不许执行程序）。 zetaSshHost
- * 编一份这台机器的，给单元测试起。源码是 client/ 模块，testdata 是指向 helper/ 的链接，不算。
+ * 直连远程主机的 zeta-ssh（仓根 client/cmd/zeta-ssh，见 shared 的 core/ssh/SshLinks.kt）：应用自己起它，所以编成
+ * android/arm64、当原生库 lib/arm64-v8a/libzeta_ssh.so 打进包里，装好后在 nativeLibraryDir 里能执行（应用自己的数据目录不许执行程序）。
+ * zetaSshHost 编一份这台机器的，给单元测试起。源码是 client/ 模块，testdata 是指向 helper/ 的链接，不算。
  */
 fun GoProgramTask.configureZetaSsh(target: String, path: String, dir: String) {
     pkg.set("./cmd/zeta-ssh")
@@ -252,11 +252,11 @@ fun GoProgramTask.configureZetaSsh(target: String, path: String, dir: String) {
 
 val zetaSsh =
     tasks.register<GoProgramTask>("zetaSsh") {
-        // 文件名同 GoSshLinks.LIBRARY；要是 lib*.so，安装时才会被解出来
+        // 文件名同 SshLinks.LIBRARY；要是 lib*.so，安装时才会被解出来
         configureZetaSsh("android/arm64", "arm64-v8a/libzeta_ssh.so", "zeta-ssh")
     }
 
-// 测试版另带一份 x86_64 的，只给 x86_64 模拟器用（为什么、什么时候删见 GoSshLinks.EMULATOR_LIBRARY，文件名与它相同）：
+// 测试版另带一份 x86_64 的，只给 x86_64 模拟器用（为什么、什么时候删见 SshLinks.EMULATOR_LIBRARY，文件名与它相同）：
 // linux/amd64 而不是 android/amd64，后者 Go 要求开 cgo；放 arm64-v8a/ 下是为了不让安装器把整个应用换成 x86_64。
 // 只接进 debug 变体，正式版的核对在下面 mergeReleaseNativeLibs 上。
 val zetaSshEmulatorLibrary = "libzeta_ssh_x86_64.so"
@@ -318,7 +318,7 @@ tasks.withType<Test>().configureEach {
             },
         )
     }
-    // zeta-ssh：直连的测试（GoSshLinksTest）起这台机器的那一份，路径经 zeta.programs.zeta-ssh 传进去
+    // zeta-ssh：直连的测试（SshLinksTest）起这台机器的那一份，路径经 zeta.programs.zeta-ssh 传进去
     val zetaSshDir = zetaSshHost.flatMap { it.outputDir }
     inputs
         .dir(zetaSshDir)

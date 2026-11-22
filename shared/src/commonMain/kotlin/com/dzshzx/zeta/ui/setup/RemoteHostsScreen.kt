@@ -98,7 +98,7 @@ fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     LaunchedEffect(Unit) {
         key =
             withContext(Dispatchers.IO) {
-                runCatching { checkNotNull(hub.ssh.auth.ownKey()) { "没有 Zeta 自己的密钥" } }
+                runCatching { hub.ssh.key }
             }
     }
 
@@ -453,7 +453,7 @@ fun RemoteHostScreen(
         scope.launch {
             val probe =
                 withContext(Dispatchers.IO) {
-                    hub.probeRemote(shown.target, shown.via, shown.hostKey, shown.key)
+                    hub.probeRemote(shown.target, shown.via, shown.hostKey)
                 }
             checking = false
             check =

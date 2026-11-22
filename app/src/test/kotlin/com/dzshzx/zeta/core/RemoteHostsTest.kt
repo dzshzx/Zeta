@@ -63,6 +63,11 @@ class RemoteHostsTest {
         // 直连的地址不能是别名（Zeta 直连不读 ~/.ssh/config）
         val alias = direct.copy(id = "r-7", target = "dev-box")
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(RemoteHosts.encode(listOf(alias))))
+        // 以前存的 key（桌面版另选的私钥）不再认：照常读出这台，下次存时没有这一项
+        val withKey =
+            """[{"id":"r-3","name":"vps","target":"me@example.com:2222","home":"/root","via":"direct","hostKey":"$key","key":"~/.ssh/dev"}]"""
+        assertEquals(listOf(direct), RemoteHosts.decode(withKey))
+        assertFalse("\"key\"" in RemoteHosts.encode(RemoteHosts.decode(withKey)))
         val broken =
             """[
             {"id":"r-4","target":"me@example.com","home":"/h","via":"direct"},

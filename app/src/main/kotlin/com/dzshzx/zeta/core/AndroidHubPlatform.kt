@@ -15,8 +15,6 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.ScheduleStore
-import com.dzshzx.zeta.core.ssh.GoSshLinks
-import com.dzshzx.zeta.core.ssh.OwnKeyAuth
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.core.ssh.keystore
@@ -92,15 +90,15 @@ class AndroidHubPlatform(
 
     /**
      * 直连远程主机经随 APK 带的 zeta-ssh：它以原生库的名字打进 APK，装好后在 nativeLibraryDir 里（应用自己的数据目录不许执行程序）。 首选 ABI 是
-     * x86_64、又有测试版带的那份时用那份：x86_64 模拟器的 arm64 转译跑不了 Go 程序（见 [GoSshLinks.EMULATOR_LIBRARY]，
+     * x86_64、又有测试版带的那份时用那份：x86_64 模拟器的 arm64 转译跑不了 Go 程序（见 [SshLinks.EMULATOR_LIBRARY]，
      * 什么时候删也写在那里）。
      */
     override val sshLinks: SshLinks =
-        GoSshLinks(OwnKeyAuth(keyFactory)) {
+        SshLinks(keyFactory) {
             val dir = File(app.applicationInfo.nativeLibraryDir.orEmpty())
-            File(dir, GoSshLinks.EMULATOR_LIBRARY).takeIf {
+            File(dir, SshLinks.EMULATOR_LIBRARY).takeIf {
                 Build.SUPPORTED_ABIS.firstOrNull() == "x86_64" && it.isFile
-            } ?: File(dir, GoSshLinks.LIBRARY)
+            } ?: File(dir, SshLinks.LIBRARY)
         }
 
     override val clientHint: String = clientHint("a chat app on their Android phone", "tap")

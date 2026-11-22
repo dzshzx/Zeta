@@ -19,19 +19,19 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 手机上的直连（[GoSshLinks]）：起这台机器编的 zeta-ssh（app/build.gradle.kts 的 zetaSshHost），对着 JVM 里的一个真 SSH 服务器
+ * 手机上的直连（[SshLinks]）：起这台机器编的 zeta-ssh（app/build.gradle.kts 的 zetaSshHost），对着 JVM 里的一个真 SSH 服务器
  * （[TestSshServer]，Apache MINA SSHD）。验的是协议转换这一层：命令的输入输出和退出码、登录 shell 与否、按读掉的确认输出、Zeta 的密钥
  * 经回调签名（服务器验 Zeta 的公钥和签名，签错了登录不上）、域名经回调解析、主机指纹、断线、zeta-ssh 退出。连接本身的规矩在 Go 里测
  * （client/sshbridge、client/sshlink）。
  */
-class GoSshLinksTest {
+class SshLinksTest {
     private lateinit var home: File
     private lateinit var key: SshKey
     private lateinit var server: TestSshServer
-    private lateinit var links: GoSshLinks
+    private lateinit var links: SshLinks
 
     private fun links(key: SshKey) =
-        GoSshLinks(OwnKeyAuth { key }, idleMs = 500) {
+        SshLinks({ key }, idleMs = 500) {
             File(
                 checkNotNull(System.getProperty("zeta.programs.zeta-ssh")) {
                     "测试任务没有传 zeta.programs.zeta-ssh（见 app/build.gradle.kts）"
@@ -58,8 +58,8 @@ class GoSshLinksTest {
         target: String = server.target.toString(),
         expected: ByteArray? = null,
         command: String = "true",
-        links: GoSshLinks = this.links,
-    ) = links.probe(target, expected, command, null, "zeta-test", "UTC")
+        links: SshLinks = this.links,
+    ) = links.probe(target, expected, command, "zeta-test", "UTC")
 
     /** 加主机那一次：谁都认，把对方的主机公钥带回来。 */
     private fun hostKey(): ByteArray = checkNotNull(probe().hostKey)
@@ -206,7 +206,7 @@ class GoSshLinksTest {
         assertEquals("again\n", shell.run("echo again").stdout)
     }
 
-    /** 换网络时（[GoSshLinks.dropAll]）开着的命令马上以 255 结束，下一个重新连。 */
+    /** 换网络时（[SshLinks.dropAll]）开着的命令马上以 255 结束，下一个重新连。 */
     @Test
     fun dropAllEndsRunningCommands() {
         val shell = shell()
@@ -283,7 +283,7 @@ class GoSshLinksTest {
                 )
                 setExecutable(true)
             }
-        val dying = GoSshLinks(OwnKeyAuth { key }) { fake }
+        val dying = SshLinks({ key }) { fake }
         val process = DirectSshShell(dying, shellHost(), "UTC", "zeta-test").start("true")
         assertTrue(process.waitFor(20, TimeUnit.SECONDS))
         assertEquals(RemoteShell.CONNECTION_FAILED, process.exitValue())
@@ -293,8 +293,8 @@ class GoSshLinksTest {
 
     @Test
     fun programThatCannotStartIsExplained() {
-        val broken = GoSshLinks(OwnKeyAuth { key }) { File(home, "missing") }
-        val result = broken.probe(server.target.toString(), null, "true", null, "zeta-test", "UTC")
+        val broken = SshLinks({ key }) { File(home, "missing") }
+        val result = broken.probe(server.target.toString(), null, "true", "zeta-test", "UTC")
         assertTrue(result.problem, result.problem!!.startsWith("Zeta 的 SSH 程序起不来"))
     }
 

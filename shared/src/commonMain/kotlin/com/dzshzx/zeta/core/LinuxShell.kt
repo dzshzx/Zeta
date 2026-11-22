@@ -178,8 +178,8 @@ class DebianSshShell(
 }
 
 /**
- * Zeta 直连的远程主机：不经手机的 Debian，用应用自带的 SSH（[SshLinks]）连过去，密钥见 [SshLinks.auth]。 手机上没装 Debian 也能用。[start]
- * 马上返回，连接在后台建；结束进程是关掉那个通道。交给那边 shell 的写法由 [SshLinks] 拼（手机上在 zeta-ssh 里）。
+ * Zeta 直连的远程主机：不经手机的 Debian，用应用自带的 SSH（[SshLinks]）连过去，用 Zeta 自己的密钥（[SshLinks.key]）。 手机上没装 Debian
+ * 也能用。[start] 马上返回，连接在后台建；结束进程是关掉那个通道。交给那边 shell 的写法由 zeta-ssh 拼。
  */
 class DirectSshShell(
     private val links: SshLinks,

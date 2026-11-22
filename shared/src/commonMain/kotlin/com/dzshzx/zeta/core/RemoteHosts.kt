@@ -18,9 +18,8 @@ import kotlinx.serialization.json.put
  * 认的目的地（~/.ssh/config 里的别名、host、user@host 或 ssh://user@host:port）；或 Zeta 直连（[DirectSshShell]），
  * [target] 是 `用户@主机[:端口]`（[SshTarget]），[hostKey] 是加主机时记下的主机公钥（SSH 线上格式的 base64），以后只认它。 加主机时手机
  * Debian 就绪就默认经 Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。 [home]
- * 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。直连的 [key] 是交给
- * [com.dzshzx.zeta.core.ssh.SshAuth.resolve] 的私钥，手机上没有能选的，总是 null（SSH 直连的代码改完时连同这一项一起删）。 界面上叫它
- * [name]：用户起的 [customName]，没起时是它自己报的主机名 [hostname]（`uname -n`，连上时记下），还没记下时是地址。
+ * 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。界面上叫它 [name]：用户起的 [customName]，没起时是它自己报的主机名
+ * [hostname]（`uname -n`，连上时记下），还没记下时是地址。
  */
 data class RemoteHost(
     val id: String,
@@ -31,7 +30,6 @@ data class RemoteHost(
     val via: Via = Via.Debian,
     val hostKey: String? = null,
     val hostname: String? = null,
-    val key: String? = null,
 ) {
     /** 界面上的名字。 */
     val name: String
@@ -72,7 +70,6 @@ object RemoteHosts {
                 put("cwd", it.defaultCwd)
                 put("via", it.via.key)
                 it.hostKey?.let { key -> put("hostKey", key) }
-                it.key?.let { key -> put("key", key) }
             }
         }
     }
@@ -112,8 +109,6 @@ object RemoteHosts {
                     via = via,
                     hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct },
                     hostname = item.str("hostname")?.trim()?.ifEmpty { null },
-                    key =
-                        item.str("key")?.ifEmpty { null }?.takeIf { via == RemoteHost.Via.Direct },
                 )
         }
         return hosts
@@ -211,14 +206,12 @@ object RemoteHosts {
     }
 
     /**
-     * Zeta 直连 [target]（私钥 [key] 见 [RemoteHost.key]）查一次。[expectedHostKey] 是记下的主机公钥（重新检查时），加主机时为
-     * null：谁都认，看到的放进结果。 阻塞，别在主线程上调用。
+     * Zeta 直连 [target] 查一次。[expectedHostKey] 是记下的主机公钥（重新检查时），加主机时为 null：谁都认，看到的放进结果。 阻塞，别在主线程上调用。
      */
     fun probeDirect(
         links: SshLinks,
         target: String,
         expectedHostKey: String? = null,
-        key: String? = null,
         linuxName: String = AppVariant.current.linuxName,
     ): Probe {
         val result = runCatching {
@@ -226,7 +219,6 @@ object RemoteHosts {
                 target,
                 expectedHostKey?.let(::decodeKey),
                 ProbeScript,
-                key,
                 linuxName,
                 TimeZone.getDefault().id,
             )
