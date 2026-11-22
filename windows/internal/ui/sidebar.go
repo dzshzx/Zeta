@@ -146,6 +146,10 @@ func (a *App) currentSession() hostlink.Session {
 		if s.Title == "" {
 			s.Title = p.state.Title
 		}
+		// 新对话起头时是设备的默认目录，核心报来的才是这个对话实际的目录
+		if p.state.Cwd != "" {
+			s.Cwd = p.state.Cwd
+		}
 	}
 	return s
 }
