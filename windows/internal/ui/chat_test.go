@@ -173,7 +173,7 @@ func TestToolPermissionCard(t *testing.T) {
 	f.newChat(t)
 	f.replay("turn")
 	f.replay("permission")
-	f.see(t, "允许这次操作？", "列出文件", "总是允许：允许 Bash", "允许", "拒绝")
+	f.see(t, "允许这次操作？", "列出文件", "以后不再询问", "允许 Bash", "允许", "拒绝")
 	f.click(t, "拒绝的理由")
 	f.tt.Type("别列了")
 	f.click(t, "拒绝并告诉 Claude")
@@ -205,7 +205,7 @@ func TestPlanAndQuestionCards(t *testing.T) {
 	f.push(`"prompts":[{"kind":"permission","request_id":"q1","tool_name":"AskUserQuestion","input":{},"asks_input":true,
 		"questions":[{"question":"用哪个库？","header":"库","options":[{"label":"标准库","description":"不加依赖"},{"label":"第三方","description":"","preview":"go get x"}],"takes_notes":true},
 		{"question":"要测试吗？","header":"测试","options":[{"label":"单元"},{"label":"端到端"}],"multi_select":true}]}]`)
-	f.see(t, "需要你的选择", "用哪个库？", "标准库 —— 不加依赖")
+	f.see(t, "需要你的选择", "用哪个库？", "标准库", "不加依赖")
 	if a, _ := f.tt.AccessByRole(ui.RoleButton, "确定"); !a.Disabled {
 		t.Error("没答完也能确定")
 	}
@@ -356,6 +356,16 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.showTurn(t, false)
 		f.click(t, "默认权限")
 	},
+	// 和 Compose 版对照用：同一段对话上弹出提问、计划审批
+	"chat-ask": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"q1","tool_name":"AskUserQuestion","input":{},"asks_input":true,
+			"questions":[{"question":"用哪个库？","header":"库","options":[{"label":"标准库","description":"不加依赖"},{"label":"第三方","description":"功能多"}]}]}]`)
+	},
+	"chat-approve": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"p1","tool_name":"ExitPlanMode","input":{"plan":"# 计划\n1. 改登录页的表单校验\n2. 补单元测试\n3. 跑一遍端到端"},"is_plan":true,"notice":""}]`)
+	},
 	"chat-history": func(t *testing.T, f *chatFixture) { f.click(t, "修登录页") },
 	"chat-streaming": func(t *testing.T, f *chatFixture) {
 		f.newChat(t)
@@ -383,7 +393,7 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.newChat(t)
 		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"q1","tool_name":"AskUserQuestion","input":{},"asks_input":true,
 			"questions":[{"question":"用哪个库？","header":"库","options":[{"label":"标准库","description":"不加依赖"},{"label":"第三方","description":"功能多","preview":"go get example.com/x"}],"takes_notes":true}]}]`)
-		f.click(t, "第三方 —— 功能多")
+		f.click(t, "第三方")
 	},
 	"chat-elicit": func(t *testing.T, f *chatFixture) {
 		f.newChat(t)

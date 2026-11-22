@@ -12,7 +12,7 @@ const allHostsLabel = "全部设备"
 // sidebarWidth 同 Compose 桌面版的侧栏（DesktopApp.kt 的 PaneWidth）。
 const sidebarWidth = 300
 
-// sidebar 是左边的侧栏（照手机版的 SessionPane）：品牌和新对话、设备切换，置顶/今天/更早几组会话，底下是设备的入口。
+// sidebar 是左边的侧栏（照手机版的 SessionPane）：品牌和新对话、设备切换，置顶/今天/更早几组会话，右下角是设置按钮。
 func (a *App) sidebar(c *ui.Context) {
 	k := coui.Of(c)
 	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(k.Sidebar).Children(func() {
@@ -33,24 +33,14 @@ func (a *App) sidebar(c *ui.Context) {
 		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(0, 0, 12, 0).Children(func() { a.sessionGroups(c) })
 		})
-		ui.Row(c).Padding(10, 16).Shrink(0).Children(func() { a.devicesEntry(c) })
+		ui.Row(c).Padding(10, 16).Shrink(0).Justify(ui.End).Children(func() { a.settingsButton(c) })
 	})
 }
 
-// devicesEntry 是侧栏底下的设备入口：和手机版底栏的搜索框一样的浮起胶囊。
-func (a *App) devicesEntry(c *ui.Context) {
-	k := coui.Of(c)
-	b := ui.ButtonBase(c).Label("设备").Grow(1).Height(40).Radius(20).Padding(0, 16, 0, 12).Gap(8).AlignItems(ui.Center).
-		Cursor(ui.CursorPointer).Background(k.Bar).Shadow(0, 3.2, 16, 0, k.Shadow)
-	if b.Hovered() {
-		b.Background(k.Bar.Mix(k.Text, 0.05))
-	}
-	b.OnClick(func() { a.open(pageDevices) })
-	b.Children(func() {
-		ui.Icon(c, coui.IconServer).Size(20, 20).TextColor(k.Secondary)
-		ui.Text(c, "设备").FontSize(coui.SizeBodyL).TextColor(k.Secondary).Grow(1)
-		ui.Icon(c, coui.IconForward).Size(16, 16).TextColor(k.Tertiary)
-	})
+// settingsButton 是侧栏右下角的设置按钮（同 Compose 桌面版侧栏底下右边那个），进设备页。Compose 在它左边还有一个
+// 搜会话的框；这边还不能搜，不画一个点了没用的框。
+func (a *App) settingsButton(c *ui.Context) {
+	coui.CircleButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageDevices) })
 }
 
 // hostSwitcher 是换设备的胶囊和菜单：先是「全部设备」，然后是各台，最后是管理设备。
@@ -130,13 +120,15 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session) {
 	k := coui.Of(c)
 	pinned := a.hub.Pinned(s)
 	showing := a.showing(s)
-	row := ui.Column(c.Key(s.Backend+"/"+s.ID)).Margin(1.5, 16).MinHeight(44).Padding(10, 16).Radius(16).Gap(1).
+	row := ui.Column(c.Key(s.Backend+"/"+s.ID)).Margin(1.5, 16).MinHeight(44).Padding(10, 16).Gap(1).
 		Focusable().Label(s.Label()).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	switch {
 	case showing:
-		row.Background(k.Selected)
+		coui.Surface{Shape: coui.ShapeRow, Fill: k.Selected}.Paint(row)
 	case row.Hovered():
-		row.Background(k.Hover)
+		coui.Surface{Shape: coui.ShapeRow, Fill: k.Hover}.Paint(row)
+	default:
+		row.Radius(coui.ShapeRow.Radii[0]) // 焦点框跟着圆角
 	}
 	row.OnClick(func() {
 		a.page = pageHome

@@ -32,7 +32,7 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 	k := inkOf(t)
 	open := ch.flag("work:"+it.ID, false)
 	running := lastRunning(it.Steps)
-	ui.Column(c).FillWidth().MarginY(4).Radius(16).Border(1, k.border).Clip().Children(func() {
+	coui.Surface{Shape: coui.ShapeRow, Edge: k.border}.Paint(ui.Column(c)).FillWidth().MarginY(4).Clip().Children(func() {
 		p := ui.CollapsibleBase(c, open)
 		if p.Trigger.Changed() {
 			// 点开最后一张卡时，点的那一行留在原处，不跟着底部往上跑

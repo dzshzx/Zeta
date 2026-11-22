@@ -33,8 +33,8 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 		k := coui.Of(c)
 		text := it.Text
 		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
-		ui.Text(c, text).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
-			Padding(10.5, 16).Radius(22, 22, 4, 22).Background(k.Bubble).ContextMenu(func(m *ui.Menu) {
+		coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble}.Paint(ui.Text(c, text)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
+			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
 			}
@@ -127,5 +127,5 @@ func noticeRow(c *ui.Context, it items.Item) {
 	})
 }
 
-// bubbleWidth 是用户消息的气泡最宽多少（手机上 316，桌面上宽一些）。
-const bubbleWidth = 480
+// bubbleWidth 是用户消息的气泡最宽多少（同 Compose 的 UserTextBubble）。
+const bubbleWidth = 316

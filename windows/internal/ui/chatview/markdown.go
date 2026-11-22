@@ -26,7 +26,7 @@ func styleMarkdown(c *ui.Context, answer, thinking *markdown.Theme) {
 // 底色比正文深一点，下面一条细线；正文 13 的等宽字，不折行、横着滚。
 func codeBlock(c *ui.Context, b *markdown.CodeBlockView) {
 	k := coui.Of(c)
-	box := ui.Column(c).Background(k.CodeBody).Border(1, k.CodeEdge).Radius(12).AlignSelf(ui.Stretch).Clip().MarginY(2)
+	box := coui.Surface{Shape: coui.ShapeBlock, Fill: k.CodeBody, Edge: k.CodeEdge}.Paint(ui.Column(c)).AlignSelf(ui.Stretch).Clip().MarginY(2)
 	box.Role(ui.RoleGroup).Label("代码")
 	box.Children(func() {
 		ui.Row(c).MinHeight(34).Padding(0, 4, 0, 14).AlignItems(ui.Center).Background(k.CodeHeader).Children(func() {

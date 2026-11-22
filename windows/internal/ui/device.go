@@ -21,6 +21,8 @@ type editing struct {
 	changedKey string // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
 	trusting   bool   // 正问着认不认新的指纹
 	removing   bool   // 正问着删不删
+	naming     bool   // 正在改名（对话框开着）
+	moving     bool   // 正在改默认工作目录（对话框开着）
 }
 
 // startEditing 打开一台设备的页面：输入框里放上现在的值。
@@ -64,15 +66,9 @@ func (a *App) devicePage(c *ui.Context) {
 // connectionSection 是名称、地址、私钥、指纹、家目录、默认工作目录。
 func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 	k := coui.Of(c)
-	nameProblem := sshlink.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
-	coui.Group(c, "连接", nameProblem, func(l *coui.List) {
-		l.Row(coui.Row{Title: "名称", End: func() {
-			coui.Input(c.Key("name"), &a.edit.name).Placeholder(original(x)).Label("名称").Width(220)
-			changed := strings.TrimSpace(a.edit.name) != x.CustomName
-			coui.SmallButton(c, "保存").Disabled(!changed || nameProblem != "").OnClick(func() {
-				x.CustomName = strings.TrimSpace(a.edit.name)
-				a.save(x)
-			})
+	coui.Group(c, "连接", "", func(l *coui.List) {
+		l.Row(coui.Row{Title: "自定义设备名", Value: x.Name(), Arrow: true, OnClick: func() {
+			a.edit.name, a.edit.naming = x.CustomName, true
 		}})
 		l.Row(coui.Row{Title: "地址", Value: sshlink.DisplayTarget(x.Target)})
 		l.Row(coui.Row{Title: "SSH 密钥", End: func() {
@@ -85,14 +81,8 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 			l.Row(coui.Row{Title: "主机指纹", Summary: fp})
 		}
 		l.Row(coui.Row{Title: "家目录", Value: x.Home})
-		cwd, cwdOK := normalizeCwd(a.edit.cwd, x.Home)
-		l.Row(coui.Row{Title: "默认工作目录", End: func() {
-			coui.Input(c.Key("cwd"), &a.edit.cwd).Placeholder(x.Home).Label("默认工作目录").Width(220)
-			coui.SmallButton(c.Key("save-cwd"), "保存").Disabled(!cwdOK || cwd == x.DefaultCwd).OnClick(func() {
-				x.DefaultCwd = cwd
-				a.edit.cwd = cwd
-				a.save(x)
-			})
+		l.Row(coui.Row{Title: "默认工作目录", Summary: x.DefaultCwd, Arrow: true, OnClick: func() {
+			a.edit.cwd, a.edit.moving = x.DefaultCwd, true
 		}})
 	})
 }
@@ -185,8 +175,23 @@ func refreshed(x sshlink.Host, f host.Found) sshlink.Host {
 	return x
 }
 
-// deviceDialogs 是认不认新指纹、删不删两个确认框。
+// deviceDialogs 是改名、改默认工作目录两个输入框，和认不认新指纹、删不删两个确认框。
 func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
+	summary := sshlink.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
+	nameOK := summary == ""
+	if nameOK {
+		summary = "留空就用设备自己的名字「" + original(x) + "」"
+	}
+	if coui.InputDialog(c, &a.edit.naming, "自定义设备名", summary, &a.edit.name, original(x), "确定", nameOK) {
+		x.CustomName = strings.TrimSpace(a.edit.name)
+		a.save(x)
+	}
+	cwd, cwdOK := normalizeCwd(a.edit.cwd, x.Home)
+	if coui.InputDialog(c, &a.edit.moving, "默认工作目录", "在这台设备上开新对话时的工作目录，~ 是 "+x.Home, &a.edit.cwd, x.Home, "确定",
+		cwdOK) {
+		x.DefaultCwd = cwd
+		a.save(x)
+	}
 	message := "记下的：" + x.Fingerprint() + "\n现在的：" + sshlink.Fingerprint(a.edit.changedKey) +
 		"\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。"
 	if coui.Alert(c, &a.edit.trusting, "主机指纹变了", message, coui.Action{Label: "取消"},

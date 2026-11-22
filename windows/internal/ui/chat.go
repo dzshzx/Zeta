@@ -123,25 +123,28 @@ func (a *App) chatTitle(p *chatPane) string {
 	return "新对话"
 }
 
-// chatPage 是聊天窗格：顶上标题，中间聊天列表，底下输入栏一带。
+// chatPage 是聊天窗格：中间聊天列表，顶上浮着标题栏（列表从它底下滚过去，透出来的是模糊的），底下输入栏一带。
 func (a *App) chatPage(c *ui.Context) {
 	p := a.pane
 	k := coui.Of(c)
 	ui.Column(c).Fill().Children(func() {
-		a.chatHeader(c, p)
-		switch {
-		case p.src.Opening:
-			ui.Row(c).Grow(1).Center().Gap(8).Children(func() {
-				ui.Spinner(c).Size(16, 16)
-				ui.Text(c, "正在打开").FontSize(coui.SizeBodyM).TextColor(k.Secondary)
-			})
-		case p.src.Conv == nil:
-			ui.Column(c).Grow(1).Center().Padding(32).Children(func() {
-				ui.Text(c, p.src.Problem).FontSize(coui.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
-			})
-		default:
-			p.list.View(c).Grow(1).MinHeight(0)
-		}
+		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
+			switch {
+			case p.src.Opening:
+				ui.Row(c).Grow(1).Center().Gap(8).Margin(headerHeight, 0, 0, 0).Children(func() {
+					ui.Spinner(c).Size(16, 16)
+					ui.Text(c, "正在打开").FontSize(coui.SizeBodyM).TextColor(k.Secondary)
+				})
+			case p.src.Conv == nil:
+				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
+					ui.Text(c, p.src.Problem).FontSize(coui.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
+				})
+			default:
+				p.list.Top = headerHeight
+				p.list.View(c).Grow(1).MinHeight(0)
+			}
+			a.chatHeader(c, p)
+		})
 		ui.Column(c).FillWidth().MaxWidth(chatWidth).AlignSelf(ui.Center).Padding(4, 12, 12, 12).Gap(6).Children(func() {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
@@ -157,15 +160,23 @@ func (a *App) chatPage(c *ui.Context) {
 // chatWidth 是输入栏一带最宽多少，和聊天列表的内容一样宽。
 const chatWidth = 860 + 24
 
+// headerHeight 是聊天页顶栏的高度。
+const headerHeight = 52
+
 // chatHeader 是顶上的标题（同手机版聊天页的小顶栏）：居中的对话标题，下面一行小字是设备和工作目录，
-// 后面是模型，点开换模型。
+// 后面是模型，点开换模型。它浮在聊天列表上面，是一层毛玻璃（CouiBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
+// 列表没翻动时是透明的，内容滚到它底下时才透出模糊的一层。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	cwd := p.state.Cwd
 	if cwd == "" {
 		cwd = p.src.Session.Cwd
 	}
-	ui.Column(c).Height(52).Padding(0, 72).Justify(ui.Center).AlignItems(ui.Center).Gap(1).Shrink(0).Children(func() {
+	bar := ui.Column(c)
+	if p.list.Scrolled() {
+		coui.Surface{Fill: k.Window.Alpha(0.8), Blur: coui.BlurBar}.Paint(bar)
+	}
+	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, 72).Justify(ui.Center).AlignItems(ui.Center).Gap(1).Children(func() {
 		ui.Text(c, a.chatTitle(p)).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…")
 		ui.Row(c).Gap(4).AlignItems(ui.Center).MaxWidth(720).Children(func() {
 			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().
@@ -286,10 +297,10 @@ func queuedPreview(m chat.Message) string {
 	return "[" + strconv.Itoa(len(m.Files)) + " 个文件]"
 }
 
-// panel 是输入栏一带的一块面板，和输入栏一样（Composer.kt）：淡灰底、细边、20 的圆角、淡淡的阴影。
+// panel 是输入栏一带的一块面板，和输入栏一样（Composer.kt）：淡灰底、细边、24 的平滑圆角、淡淡的阴影。
 func panel(c *ui.Context, fn func()) {
 	k := coui.Of(c)
-	ui.Column(c).FillWidth().Padding(6, 0).Gap(2).Radius(20).Background(k.Field).Border(1, k.Edge).
+	coui.Surface{Shape: coui.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(6, 0).Gap(2).
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(fn)
 }
 

@@ -212,21 +212,26 @@ func TestEditingADevice(t *testing.T) {
 	}
 	f.see(t, "/home/box", "SHA256:")
 
-	// 改名：和别的设备重名时不让存
+	// 改名：点那一行弹出输入框，和别的设备重名时不让存
+	f.click(t, "自定义设备名")
 	f.app.edit.name = "lab"
 	f.tt.Frame()
 	f.see(t, "已经有叫「lab」的设备了")
+	if a, _ := f.tt.AccessByRole(ui.RoleButton, "确定"); !a.Disabled {
+		t.Error("重名也能确定")
+	}
 	f.app.edit.name = "工作站"
 	f.tt.Frame()
-	f.click(t, "保存")
+	f.click(t, "确定")
 	if f.hub.Name(hosts[0].ID) != "工作站" {
 		t.Errorf("name %q", f.hub.Name(hosts[0].ID))
 	}
 
 	// 默认工作目录：~ 开头的换成家目录下
+	f.click(t, "默认工作目录")
 	f.app.edit.cwd = "~/src/"
 	f.tt.Frame()
-	f.clickButton(t, "保存", 1)
+	f.click(t, "确定")
 	x, _ := f.hub.Host(hosts[0].ID)
 	if x.DefaultCwd != "/home/box/src" {
 		t.Errorf("cwd %q", x.DefaultCwd)

@@ -46,6 +46,8 @@ type Chat struct {
 	LoadMarkdownImage func(url string) ([]byte, error)
 	// Earlier 是更早记录的情况。
 	Earlier Earlier
+	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
+	Top float32
 
 	items []items.Item
 	list  ui.ListState
@@ -58,6 +60,8 @@ type Chat struct {
 	changes map[string]*changeView
 	images  imageCache
 	paging  paging
+	// scrolled：上一帧内容往上滚过了（最上面一行不是第一条，或第一条的顶端到了内容区上沿以上）。
+	scrolled bool
 }
 
 // loadAhead：往上翻到离顶这么多行以内时载入更早的。
@@ -123,11 +127,17 @@ func (ch *Chat) forget(it items.Item) {
 	}
 }
 
+// Scrolled 说内容是不是往上滚过了：顶上浮着的标题栏这时才透出底下模糊的内容（Compose 的 TopAppBarGlow）。
+func (ch *Chat) Scrolled() bool { return ch.scrolled }
+
 // ScrollToEnd 回到底部并跟着新内容走（发消息、点「回到底部」时）。
 func (ch *Chat) ScrollToEnd() { ch.list.ScrollToEnd() }
 
 // AtEnd 报告上一帧显示着底部；不在底部时调用方可以显示「回到底部」。
 func (ch *Chat) AtEnd() bool { return ch.list.AtEnd() }
+
+// listTop 是列表内容上面留的空（Top 之外）。
+const listTop = 12
 
 // 内容最宽这么多，窗口再宽也居中，免得一行字太长。
 const contentWidth = 860
@@ -140,11 +150,16 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 	ch.answer.OnLink = ch.OpenLink
 	ch.thinking.OnLink = ch.OpenLink
 	styleMarkdown(c, &ch.answerTheme, &ch.thinkingTheme)
+	top := float32(math.Inf(1)) // 第一条上一帧的顶端（窗口坐标），没建它时是无穷大
 	list := ui.List(c, &ch.list, len(ch.items), func(row int) {
 		if ch.paging.built(row) && ch.Earlier.idle() {
 			c.Invalidate()
 		}
-		ui.Column(c).FillWidth().MaxWidth(contentWidth).AlignSelf(ui.Center).Children(func() {
+		e := ui.Column(c).FillWidth().MaxWidth(contentWidth).AlignSelf(ui.Center)
+		if row == 0 {
+			top = e.Bounds().Y
+		}
+		e.Children(func() {
 			// 「更早的记录」画在第一条的上面、同一行里，不单占一行：列表按看得见的第一行记位置，
 			// 它要是单占一行，翻到最顶上时就是它，接上的一页会把正看着的那条往下推走
 			if row == 0 && ch.Earlier.shown() {
@@ -158,7 +173,10 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 			ui.Column(c).FillWidth().Children(func() { ch.earlierRow(c) })
 		}
 	})
-	return list.Padding(12, 24, 20, 24).Justify(ui.End).Label("对话内容")
+	first, last := ch.list.Visible()
+	ch.scrolled = last >= first && (first > 0 || top < list.Bounds().Y+listTop+ch.Top-0.5)
+	// 照 Compose 从顶上往下排；内容多了跟到底部靠 FollowEnd
+	return list.Padding(listTop+ch.Top, 24, 20, 24).Label("对话内容")
 }
 
 // paging 认出用户往上翻到了列表顶上附近，好自动载入更早的记录。列表只建看得见的行（和上下几行），所以比较相邻两帧
