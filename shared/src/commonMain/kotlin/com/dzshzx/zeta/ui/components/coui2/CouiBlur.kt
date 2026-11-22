@@ -11,11 +11,15 @@ import io.github.suqi8.coui.kmp.blur.Backdrop
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.MaterialBlendMode
 import io.github.suqi8.coui.kmp.blur.MaterialBlurStyle
+import io.github.suqi8.coui.kmp.blur.ViewBlurStyle
 import io.github.suqi8.coui.kmp.blur.couiMaterialBlur
+import io.github.suqi8.coui.kmp.blur.couiViewBlur
 import io.github.suqi8.coui.kmp.blur.isRuntimeShaderSupported
 import io.github.suqi8.coui.kmp.blur.layerBackdrop
 import io.github.suqi8.coui.kmp.blur.rememberLayerBackdrop
+import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
+import io.github.suqi8.coui.kmp.effect.MaterialBackdropProvider
 import io.github.suqi8.coui.kmp.effect.MaterialBlurBlendMode
 import io.github.suqi8.coui.kmp.effect.MaterialBlurProvider
 import io.github.suqi8.coui.kmp.effect.MaterialBlurSpec
@@ -67,6 +71,47 @@ fun PageBlurHost(blur: PageBlur, content: @Composable () -> Unit) {
         LocalPopupMaterialBlur provides blur.popup,
         content = content,
     )
+}
+
+/**
+ * 盖在录制范围上面的栏（比如看大图的顶栏和底部工具栏）拿 [blur] 做毛玻璃：除了 [PageBlurHost] 给的两样，还给 coui-ui 自带材质的组件（悬浮工具栏、按钮）提供
+ * LocalMaterialBackdrop。只包录制范围之外的兄弟节点：包在录制范围里面，组件会模糊到自己。
+ */
+@Composable
+fun PageBarHost(blur: PageBlur, content: @Composable () -> Unit) {
+    val material = rememberMaterialBackdrop(blur.backdrop)
+    CompositionLocalProvider(
+        LocalPageBackdrop provides blur.backdrop,
+        LocalPopupMaterialBlur provides blur.popup,
+        LocalMaterialBackdrop provides material,
+        content = content,
+    )
+}
+
+/** 交给 coui-ui 的 LocalMaterialBackdrop（悬浮工具栏、按钮的 COUI 17 材质）。 */
+@Composable
+private fun rememberMaterialBackdrop(backdrop: Backdrop?): MaterialBackdropProvider? {
+    val active = LocalCouiBlurEnabled.current && backdrop != null && isRuntimeShaderSupported()
+    return remember(backdrop, active) {
+        if (active && backdrop != null) {
+            MaterialBackdropProvider { spec, shape ->
+                Modifier.couiViewBlur(
+                    backdrop = backdrop,
+                    style =
+                        ViewBlurStyle(
+                            blurRadiusPx = spec.blurRadiusPx,
+                            layer1 = spec.layer1,
+                            mode1 = spec.mode1,
+                            layer2 = spec.layer2,
+                            mode2 = spec.mode2,
+                        ),
+                    shape = shape,
+                )
+            }
+        } else {
+            null
+        }
+    }
 }
 
 /** 把页面录在窗口底色上的背景图；毛玻璃关掉时为 null。 */

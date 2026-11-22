@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 看大图时分享的图：只开放缓存里的 shared_images 一个目录（core/ImageExport.kt 的 ShareDir）。 -->
+<paths>
+    <cache-path name="shared_images" path="shared_images/" />
+</paths>

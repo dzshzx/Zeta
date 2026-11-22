@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.AttachedPaths
+import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
 import com.dzshzx.zeta.core.ToolStatus
@@ -87,7 +89,8 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private val UserBubbleShape =
     RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 4.dp, bottomStart = 22.dp)
-private val WorkCardShape = RoundedCornerShape(16.dp)
+/** 折叠卡片（思考与工具调用的一组、回答里的图片组）的外形。 */
+internal val WorkCardShape = RoundedCornerShape(16.dp)
 
 /**
  * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈主题色边，表示正在编辑它。 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2
@@ -260,7 +263,7 @@ internal fun AnswerBlock(
                     )
                 }
         }
-        parts.images.forEach { image -> ChatImage(image, modifier = Modifier.padding(top = 10.dp)) }
+        AnswerImageGroups(parts.groups)
         if (!item.streaming && item.text.isNotBlank()) {
             Row(
                 modifier = Modifier.padding(top = 6.dp),
@@ -274,6 +277,18 @@ internal fun AnswerBlock(
                 )
                 actions?.invoke()
             }
+        }
+    }
+}
+
+/** 回答正文下面的图片：单张照原样铺开，连着的几张是一个图片组。 */
+@Composable
+private fun AnswerImageGroups(groups: List<List<ImageRef>>) {
+    // 按组的第一张图认组：流式输出时组里多了图，翻到的页和展开与否都留着
+    groups.forEach { group ->
+        key(group.first().key) {
+            if (group.size == 1) ChatImage(group.first(), Modifier.padding(top = 10.dp))
+            else ImageGallery(group, Modifier.padding(top = 10.dp))
         }
     }
 }

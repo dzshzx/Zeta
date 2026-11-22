@@ -4,9 +4,6 @@ import android.app.Application
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -22,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -31,19 +27,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileImage
@@ -61,14 +51,18 @@ import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/** 图片的载入结果：null 表示还在取。 */
-private class Loaded(val bitmap: ImageBitmap?)
+/** 图片的载入结果：bitmap 为 null 表示取不到。 */
+internal class Loaded(val bitmap: ImageBitmap?)
+
+/** 聊天里图片的圆角。 */
+internal val ChatImageShape = RoundedCornerShape(14.dp)
 
 /** 聊天页正显示的对话在哪台主机上（[Backends]）：会话记录、文件里的图片从那台取。由聊天页提供。 */
 internal val LocalBackend = staticCompositionLocalOf { Backends.LOCAL }
 
+/** 取一张图：null 表示还在取。 */
 @Composable
-private fun rememberChatImage(ref: ImageRef): Loaded? {
+internal fun rememberChatImage(ref: ImageRef): Loaded? {
     val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
     val backend = LocalBackend.current
     return produceState(
@@ -83,7 +77,7 @@ private fun rememberChatImage(ref: ImageRef): Loaded? {
 
 /** 网络图片要不要等用户点一下：访问图片地址会把你的 IP 暴露给对方服务器，默认先问。 */
 @Composable
-private fun waitsForTap(ref: ImageRef): Boolean {
+internal fun waitsForTap(ref: ImageRef): Boolean {
     if (ref !is RemoteImage) return false
     val hub = ConversationHub.get(LocalContext.current.applicationContext as Application)
     return !hub.settings.autoLoadRemoteImages &&
@@ -92,7 +86,7 @@ private fun waitsForTap(ref: ImageRef): Boolean {
 }
 
 @Composable
-private fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
+internal fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
     Row(
         modifier =
             modifier
@@ -151,7 +145,7 @@ internal fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifie
                 )
         }
     }
-    if (viewing) loaded?.bitmap?.let { ImageViewer(it) { viewing = false } }
+    if (viewing) ImageViewer(listOf(ref), 0) { viewing = false }
 }
 
 /** 按原比例铺开的图片（回答里、工具结果里）。很高的图限制高度，免得一张图占满几屏。 */
@@ -163,7 +157,6 @@ internal fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
     }
     val loaded = rememberChatImage(ref)
     var viewing by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(14.dp)
     val bitmap = loaded?.bitmap
     when {
         bitmap != null -> {
@@ -178,91 +171,53 @@ internal fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
                             if (ratio >= 0.8f) Modifier.fillMaxWidth().aspectRatio(ratio)
                             else Modifier.height(340.dp).aspectRatio(ratio),
                         )
-                        .clip(shape)
+                        .clip(ChatImageShape)
                         .clickable { viewing = true },
             )
         }
-        loaded == null ->
-            Box(
-                modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .clip(shape)
-                    .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)),
-            )
-        else ->
-            Row(
-                modifier =
-                    modifier
-                        .clip(CircleShape)
-                        .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f))
-                        .padding(horizontal = 11.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    ZetaIcons.ImageOff,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = COUITheme.colorScheme.labelSecondary,
-                )
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text =
-                        "图片无法显示" +
-                            ((ref as? FileImage)?.let { "：${it.path.substringAfterLast('/')}" }
-                                ?: ""),
-                    style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
-                    color = COUITheme.colorScheme.labelSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        loaded == null -> ImageLoading(modifier.fillMaxWidth().height(120.dp))
+        else -> ImageUnavailable(ref, modifier)
     }
-    if (viewing && bitmap != null) ImageViewer(bitmap) { viewing = false }
+    if (viewing) ImageViewer(listOf(ref), 0) { viewing = false }
 }
 
-/** 全屏看图：双指缩放、拖动，点一下关闭。 */
+/** 还在取的图片：浅灰的占位块，大小由 [modifier] 定。 */
 @Composable
-private fun ImageViewer(bitmap: ImageBitmap, onDismiss: () -> Unit) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+internal fun ImageLoading(modifier: Modifier) {
+    Box(
+        modifier
+            .clip(ChatImageShape)
+            .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)),
+    )
+}
+
+/** 取不到的图片：一行「图片无法显示」，文件里的图带上文件名。 */
+@Composable
+internal fun ImageUnavailable(ref: ImageRef, modifier: Modifier = Modifier) {
+    Row(
+        modifier =
+            modifier
+                .clip(CircleShape)
+                .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f))
+                .padding(horizontal = 11.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        var scale by remember { mutableFloatStateOf(1f) }
-        var offset by remember { mutableStateOf(Offset.Zero) }
-        val transform = rememberTransformableState { zoom, pan, _ ->
-            scale = (scale * zoom).coerceIn(1f, 6f)
-            offset = if (scale == 1f) Offset.Zero else offset + pan
-        }
-        Box(
-            modifier =
-                Modifier.fillMaxSize()
-                    .background(Color.Black)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { onDismiss() },
-                            onDoubleTap = {
-                                scale = if (scale > 1f) 1f else 2.5f
-                                offset = Offset.Zero
-                            },
-                        )
-                    }
-                    .transformable(transform),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(
-                bitmap = bitmap,
-                contentDescription = "图片",
-                contentScale = ContentScale.Fit,
-                modifier =
-                    Modifier.fillMaxSize().graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                    },
-            )
-        }
+        Icon(
+            ZetaIcons.ImageOff,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = COUITheme.colorScheme.labelSecondary,
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text =
+                "图片无法显示" +
+                    ((ref as? FileImage)?.let { "：${it.path.substringAfterLast('/')}" } ?: ""),
+            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
+            color = COUITheme.colorScheme.labelSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -312,30 +267,53 @@ private val MarkdownImage = Regex("""!\[[^\]]*]\(\s*<?([^)\s>]+)>?(?:\s+["'][^"'
 private val CodeFence = Regex("""```.*?(```|$)""", RegexOption.DOT_MATCHES_ALL)
 private val ImageSuffixes = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "avif")
 
-/** 一段回答拆成两部分：照常排版的正文，和从正文里取出来直接显示的图片。 */
-internal class AnswerImages(val text: String, val images: List<ImageRef>)
+/**
+ * 一段回答拆成两部分：照常排版的正文，和从正文里取出来直接显示的图片。图片按原文里的先后分成 [groups]： 只隔着空白的几张连成一组（显示成一个能左右翻的图片组），被正文隔开的各成一组。
+ */
+internal class AnswerImages(val text: String, val groups: List<List<ImageRef>>)
+
+/** 一段回答里最多直接显示几张图，多的原样留在正文里。 */
+private const val MaxAnswerImages = 12
 
 /**
- * 找出回答里用 Markdown 引用的本机图片（`![说明](/路径)`），并把这些写法从正文里拿掉——图片本身会显示在正文下面，
- * 不必再留一行替代文字。远程地址不加载，原样留在正文里当链接；相对路径按工作目录解析；代码块里的不算。
+ * 找出回答里用 Markdown 引用的图片（`![说明](/路径)`、网络地址、内嵌的 data:），并把这些写法从正文里拿掉——图片本身会显示在正文下面，
+ * 不必再留一行替代文字。相对路径按工作目录解析；代码块里的不算；同一张图只显示一次。
  */
 internal fun answerImages(text: String, cwd: String, home: String?): AnswerImages {
     if (!text.contains("![")) return AnswerImages(text, emptyList())
     val fences = CodeFence.findAll(text).map { it.range }.toList()
-    val images = LinkedHashMap<String, ImageRef>()
+    val picker = ImagePicker(text)
     val shown =
         MarkdownImage.replace(text) { match ->
             val ref =
                 if (fences.any { match.range.first in it }) null
                 else localImage(match.groupValues[1], cwd, home)
-            if (ref == null || (ref.key !in images && images.size >= 12)) {
-                match.value
-            } else {
-                images.getOrPut(ref.key) { ref }
-                ""
-            }
+            if (ref != null && picker.take(ref, match.range)) "" else match.value
         }
-    return AnswerImages(if (images.isEmpty()) text else shown.trimEnd(), images.values.toList())
+    return AnswerImages(if (picker.groups.isEmpty()) text else shown.trimEnd(), picker.groups)
+}
+
+/** 按原文里的先后收下回答里的图片，顺带分组：和上一张之间只有空白的接进上一组。 */
+private class ImagePicker(private val text: String) {
+    val groups = ArrayList<MutableList<ImageRef>>()
+    private val seen = HashSet<String>()
+    private var lastEnd = -1
+    private var open = false
+
+    /** 收下原文 [range] 处的 [ref] 就返回 true，这处写法要从正文里拿掉；收满了的新图返回 false，留在正文里。 */
+    fun take(ref: ImageRef, range: IntRange): Boolean {
+        val fresh = ref.key !in seen
+        if (fresh && seen.size >= MaxAnswerImages) return false
+        // 重复的图不再显示，也不打断连着的一组；它前面隔着正文时，后面的图另起一组
+        if (lastEnd < 0 || text.substring(lastEnd, range.first).isNotBlank()) open = false
+        if (fresh) {
+            if (open) groups.last().add(ref) else groups.add(mutableListOf(ref))
+            seen.add(ref.key)
+            open = true
+        }
+        lastEnd = range.last + 1
+        return true
+    }
 }
 
 private fun localImage(target: String, cwd: String, home: String?): ImageRef? =

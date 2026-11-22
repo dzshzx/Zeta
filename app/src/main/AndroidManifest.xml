@@ -139,6 +139,16 @@
             android:exported="true"
             android:grantUriPermissions="false"
             android:permission="android.permission.MANAGE_ACCESSIBILITY" />
+        <!-- 看大图时分享：把缓存里的那张图按次授权给接收的应用读（authority 和 AppVariant.authority("images") 一致） -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.images"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/zeta_shared_images" />
+        </provider>
         <!-- 定时任务的闹钟，以及要重排闹钟的系统广播（都由系统发，不必导出） -->
         <receiver
             android:name=".core.schedule.ScheduleReceiver"

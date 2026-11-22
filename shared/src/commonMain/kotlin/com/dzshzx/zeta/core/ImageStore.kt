@@ -21,6 +21,12 @@ object ImageStore {
                 value.width * value.height * 4
         }
 
+    /** 解码前的原始字节，和 [cache] 同一个键：看大图时保存到相册、分享用的就是显示的这一份，不另去取。 */
+    private val originals =
+        object : LruCache<String, ByteArray>(32 * 1024 * 1024) {
+            override fun sizeOf(key: String, value: ByteArray): Int = value.size
+        }
+
     /** 取不到的不反复去取（每次都要进一趟 Linux 环境）。 */
     private val failed = Collections.synchronizedSet(HashSet<String>())
     private val json = Json { ignoreUnknownKeys = true }
@@ -37,6 +43,9 @@ object ImageStore {
 
     fun cached(ref: ImageRef, backend: String): ImageBitmap? = cache.get(cacheKey(ref, backend))
 
+    /** 取到过的这张图的原始字节；没取过、没取到或已被挤出缓存时为 null。 */
+    fun original(ref: ImageRef, backend: String): ByteArray? = originals.get(cacheKey(ref, backend))
+
     /** 会话记录、文件里的图片按主机分开缓存；内嵌的、网络上的哪台主机都一样。 */
     private fun cacheKey(ref: ImageRef, backend: String): String =
         when (ref) {
@@ -45,12 +54,13 @@ object ImageStore {
             else -> ref.key
         }
 
-    /** 内存里缓存的图片一共多少字节（存储页显示）。 */
-    fun memoryBytes(): Long = cache.size().toLong()
+    /** 内存里缓存的图片一共多少字节（存储页显示）：解码后的图加原始字节。 */
+    fun memoryBytes(): Long = cache.size().toLong() + originals.size()
 
-    /** 存储页的清理：清空内存里的图片和“取不到”的记录。正在显示的图片不受影响，之后需要时重新取。 */
+    /** 存储页的清理：清空内存里的图片、原始字节和“取不到”的记录。正在显示的图片不受影响，之后需要时重新取。 */
     fun clearMemory() {
         cache.evictAll()
+        originals.evictAll()
         failed.clear()
     }
 
@@ -60,25 +70,31 @@ object ImageStore {
             return it
         }
         if (key in failed) return null
-        val bitmap =
+        val loaded =
             withContext(Dispatchers.IO) {
-                runCatching {
-                    if (ref is RemoteImage) return@runCatching download(ref.url)?.let(::decode)
-                    val data =
-                        when (ref) {
-                            is InlineImage -> ref.base64
-                            is SessionImage ->
-                                fetch(hub, backend, "image", listOf(ref.file, ref.ref))?.str("data")
-                            is FileImage ->
-                                fetch(hub, backend, "file-image", listOf(ref.path))?.str("data")
-                            is RemoteImage -> null
-                        } ?: return@runCatching null
-                    decode(Base64.getMimeDecoder().decode(data))
-                }
-                    .getOrNull()
+                runCatching { fetchBytes(hub, ref, backend)?.let { it to decode(it) } }.getOrNull()
             }
-        if (bitmap == null) failed.add(key) else cache.put(key, bitmap)
-        return bitmap
+        if (loaded == null) {
+            failed.add(key)
+            return null
+        }
+        originals.put(key, loaded.first)
+        cache.put(key, loaded.second)
+        return loaded.second
+    }
+
+    /** 取一张图的原始字节：网络图下载，会话记录和文件里的经助手从主机取，内嵌的直接解 base64。阻塞。 */
+    private fun fetchBytes(hub: ConversationHub, ref: ImageRef, backend: String): ByteArray? {
+        if (ref is RemoteImage) return download(ref.url)
+        val data =
+            when (ref) {
+                is InlineImage -> ref.base64
+                is SessionImage ->
+                    fetch(hub, backend, "image", listOf(ref.file, ref.ref))?.str("data")
+                is FileImage -> fetch(hub, backend, "file-image", listOf(ref.path))?.str("data")
+                is RemoteImage -> null
+            } ?: return null
+        return Base64.getMimeDecoder().decode(data)
     }
 
     /** 下载一张网络图片，太大的不要。 */
