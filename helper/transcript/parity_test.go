@@ -2,7 +2,6 @@ package transcript
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -12,41 +11,28 @@ import (
 )
 
 // 对照用例（../testdata/transcript）：每个 <名字>.ops.jsonl 一行一次调用，<名字>.items.json 是 Kotlin 的 TranscriptReducer
-// 跑完得出的条目（app 的 TranscriptParityTest 生成和核对）。Go 版跑同样的调用，得出的条目要和它一模一样。
+// 跑完得出的条目（app 的 TranscriptParityTest 录下和核对）。Go 版跑同样的调用，条目要按值相同：Kotlin 版写出全部字段，
+// 这里没写出的是零值，所以比之前两边都去掉 null、false、空字符串和空数组。
 //
-// 调用的写法：{"op":"prefix","value":…}（只能在第一行，换编号前缀）、{"op":"stream","event":…,"now":毫秒}、
-// {"op":"assistant","message":…,"history":真假}、{"op":"user","message":…,"replay":真假,"sessionFile":…,"uuid":…,"toolUseResult":…}、
-// {"op":"addUser","text":…,"files":[…],"uuid":…}、{"op":"notice","text":…,"error":真假}、{"op":"shell","text":…}、
-// {"op":"finish","keepRunningTools":真假}。
+// 一行的写法见 op：prefix（只能在第一行，换编号前缀）、stream、assistant、user、addUser、notice、shell、finish。
+type op struct {
+	Op               string         `json:"op"`
+	Value            string         `json:"value"`
+	Event            StreamEvent    `json:"event"`
+	Now              int64          `json:"now"`
+	Message          Message        `json:"message"`
+	History          bool           `json:"history"`
+	Replay           bool           `json:"replay"`
+	SessionFile      string         `json:"sessionFile"`
+	UUID             string         `json:"uuid"`
+	ToolUseResult    *ToolUseResult `json:"toolUseResult"`
+	Text             string         `json:"text"`
+	Files            []string       `json:"files"`
+	Error            bool           `json:"error"`
+	KeepRunningTools bool           `json:"keepRunningTools"`
+}
 
 const casesDir = "../testdata/transcript"
-
-func decode(t *testing.T, data []byte) any {
-	t.Helper()
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		t.Fatalf("解析 %q：%v", data, err)
-	}
-	return v
-}
-
-func values(t *testing.T, data []byte) any {
-	t.Helper()
-	var v any
-	if err := json.Unmarshal(data, &v); err != nil {
-		t.Fatal(err)
-	}
-	return v
-}
-
-func optString(o obj, key string) *string {
-	if s, ok := o[key].(string); ok {
-		return &s
-	}
-	return nil
-}
 
 func run(t *testing.T, path string) *Reducer {
 	t.Helper()
@@ -59,36 +45,32 @@ func run(t *testing.T, path string) *Reducer {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(nil, 1<<20)
 	for n := 1; sc.Scan(); n++ {
-		op, _ := decode(t, sc.Bytes()).(map[string]any)
-		flag := func(key string) bool { b, _ := op[key].(bool); return b }
-		switch strOr(op, "op") {
+		var o op
+		if err := json.Unmarshal(sc.Bytes(), &o); err != nil {
+			t.Fatalf("%s:%d：%v", path, n, err)
+		}
+		switch o.Op {
 		case "prefix":
 			if n != 1 {
 				t.Fatalf("%s:%d：prefix 只能在第一行", path, n)
 			}
-			r = New(strOr(op, "value"))
+			r = New(o.Value)
 		case "stream":
-			now, _ := op["now"].(json.Number).Int64()
-			r.ApplyStream(object(op, "event"), now)
+			r.ApplyStream(o.Event, o.Now)
 		case "assistant":
-			r.ApplyAssistant(object(op, "message"), flag("history"))
+			r.ApplyAssistant(o.Message, o.History)
 		case "user":
-			r.ApplyUser(object(op, "message"), flag("replay"), UserOptions{SessionFile: optString(op, "sessionFile"),
-				UUID: optString(op, "uuid"), ToolUseResult: object(op, "toolUseResult")})
+			r.ApplyUser(o.Message, o.Replay, UserOptions{SessionFile: o.SessionFile, UUID: o.UUID, Result: o.ToolUseResult})
 		case "addUser":
-			var files []string
-			for _, f := range array(op, "files") {
-				files = append(files, f.(string))
-			}
-			r.AddUser(strOr(op, "text"), nil, files, optString(op, "uuid"))
+			r.AddUser(o.Text, nil, o.Files, o.UUID)
 		case "notice":
-			r.AddNotice(strOr(op, "text"), flag("error"))
+			r.AddNotice(o.Text, o.Error)
 		case "shell":
-			r.ApplyShell(strOr(op, "text"))
+			r.ApplyShell(o.Text)
 		case "finish":
-			r.FinishTurn(flag("keepRunningTools"))
+			r.FinishTurn(o.KeepRunningTools)
 		default:
-			t.Fatalf("%s:%d：不认识的调用 %v", path, n, op)
+			t.Fatalf("%s:%d：不认识的调用 %q", path, n, o.Op)
 		}
 	}
 	if err := sc.Err(); err != nil {
@@ -97,25 +79,51 @@ func run(t *testing.T, path string) *Reducer {
 	return r
 }
 
-func TestParityWithKotlin(t *testing.T) {
+// normalized 是 JSON 的值去掉了零值字段：对象里值为 null、false、""、[] 的键不要。
+func normalized(t *testing.T, data []byte) any {
+	t.Helper()
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		t.Fatal(err)
+	}
+	return dropZero(v)
+}
+
+func dropZero(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			if a, ok := e.([]any); e == nil || e == false || e == "" || ok && len(a) == 0 {
+				delete(x, k)
+				continue
+			}
+			x[k] = dropZero(e)
+		}
+	case []any:
+		for i, e := range x {
+			x[i] = dropZero(e)
+		}
+	}
+	return v
+}
+
+func TestMatchesKotlin(t *testing.T) {
 	cases, _ := filepath.Glob(filepath.Join(casesDir, "*.ops.jsonl"))
 	if len(cases) == 0 {
 		t.Fatalf("%s 下没有对照用例", casesDir)
 	}
 	for _, path := range cases {
-		name := strings.TrimSuffix(filepath.Base(path), ".ops.jsonl")
-		t.Run(name, func(t *testing.T) {
-			wantRaw, err := os.ReadFile(strings.TrimSuffix(path, ".ops.jsonl") + ".items.json")
+		t.Run(strings.TrimSuffix(filepath.Base(path), ".ops.jsonl"), func(t *testing.T) {
+			want, err := os.ReadFile(strings.TrimSuffix(path, ".ops.jsonl") + ".items.json")
 			if err != nil {
-				t.Fatalf("没有 Kotlin 一侧生成的期望结果（跑 app 的 TranscriptParityTest 生成）：%v", err)
+				t.Fatalf("没有 Kotlin 一侧录下的期望结果（跑 app 的 TranscriptParityTest 录）：%v", err)
 			}
-			gotRaw, err := json.MarshalIndent(run(t, path).Items, "", "  ")
+			got, err := json.MarshalIndent(run(t, path).Items, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
-			// 数字按数值比：两边的 JSON 库对同一个数可能写法不同（2.50 和 2.5）
-			if !reflect.DeepEqual(values(t, gotRaw), values(t, wantRaw)) {
-				t.Errorf("和 Kotlin 不一样\nGo：\n%s\nKotlin：\n%s", gotRaw, wantRaw)
+			if !reflect.DeepEqual(normalized(t, got), normalized(t, want)) {
+				t.Errorf("和 Kotlin 不一样\nGo：\n%s\nKotlin：\n%s", got, want)
 			}
 		})
 	}
