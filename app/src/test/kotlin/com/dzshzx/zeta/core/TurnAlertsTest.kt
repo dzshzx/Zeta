@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.shots.Fixtures
+import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -89,6 +90,23 @@ class TurnAlertsTest {
             )
         hub.alerts.turnFinished(other, stopped = false)
         assertEquals(listOf("已完成"), alerts())
+    }
+
+    /** 一轮答完、后台任务还在跑：不响铃、不说已完成；后台都做完、最后一轮答完时才响铃说已完成。 */
+    @Test
+    fun backgroundTasksStillRunningIsNotDone() {
+        val hub = Fixtures.readyHub(app)
+        hub.foreground = false
+        val chat = hub.current
+        chat.force("backgroundTasks", 3)
+        hub.alerts.turnFinished(chat, stopped = false)
+        assertEquals("答完了，后台还有 3 个任务在跑", text(chat.openKey))
+        assertEquals("后台还在跑，不响铃", "silent", notification(chat.openKey)!!.group)
+
+        chat.force("backgroundTasks", 0)
+        hub.alerts.turnFinished(chat, stopped = false)
+        assertEquals("已完成", text(chat.openKey))
+        assertNotEquals("都做完了才响铃", "silent", notification(chat.openKey)!!.group)
     }
 
     @Test

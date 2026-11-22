@@ -80,12 +80,12 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
     internal fun finishingText(focus: ConversationFocus): String? =
         linger?.takeIf { it.focus === focus && !focus.conversation.busy }?.text
 
-    /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态）。正显示在胶囊上的话，先停留一会儿显示 [text]（“已完成”）。 */
+    /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态）。正显示在胶囊上的话，先停留一会儿显示 [text]（“已完成”；后台还有任务时见 [endText]）。 */
     override fun turnEnding(conversation: Conversation, text: String) {
         endingWithPhone = conversation.takeIf { it.phone.engagedThisTurn }
         val focus = conversation.overlay
         if (focusState.value !== focus) return
-        linger = Linger(focus, text)
+        linger = Linger(focus, endText(conversation, text))
         main.removeCallbacks(endLinger)
         main.postDelayed(endLinger, FINISHED_LINGER_MS)
     }
@@ -104,9 +104,16 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         endingWithPhone = null
         // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
         if (!stopped && !hub.isWatching(conversation) && conversation.unattended == null) {
-            // 弹了结果卡片就不再响铃，免得打扰两次；通知照样留在通知栏里
+            // 弹了结果卡片就不再响铃，免得打扰两次；后台还有任务时活还没干完，也不响铃（等它们做完、Claude Code 答完最后一轮再响）。
+            // 通知照样留在通知栏里
             waitingShown.remove(conversation.openKey)
-            Notifier.alert(app, conversation.openKey, title(conversation), text, silent = showed)
+            Notifier.alert(
+                app,
+                conversation.openKey,
+                title(conversation),
+                endText(conversation, text),
+                silent = showed || conversation.backgroundTasks > 0,
+            )
         }
         if (!stopped) autoRead(conversation)
     }
@@ -184,6 +191,15 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         val reply = AlertNotice.replies(pending).getOrNull(index) ?: return
         if (pending is PermissionRequest)
             conversation.reply(pending, AlertNotice.permissionReply(pending, reply))
+    }
+
+    /**
+     * 一轮结束时说的那句：这一轮答完了、后台任务（子代理、后台命令）还在跑时，活还没干完，不说 [text]（“已完成”），说还有几个在跑。 它们做完后 Claude Code
+     * 会接着答一轮，那一轮结束时才是“已完成”。
+     */
+    private fun endText(conversation: Conversation, text: String): String {
+        val tasks = conversation.backgroundTasks
+        return if (tasks > 0 && text == DONE) "答完了，后台还有 $tasks 个任务在跑" else text
     }
 
     /** 提醒的标题：对话标题。 */
@@ -295,6 +311,9 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
     internal class FocusCandidate(val focus: OverlayFocus, val usedAt: Long)
 
     internal companion object {
+        /** 一轮正常结束时的那句（Conversation 结束一轮时给的）。 */
+        private const val DONE = "已完成"
+
         /** 几个候选里胶囊显示哪个：接管着的优先，其余取最近用手机的；没有候选时为 null。 */
         fun choose(candidates: List<FocusCandidate>): OverlayFocus? =
             candidates
