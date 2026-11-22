@@ -3,10 +3,9 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.SessionStatus.Activity
+import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -89,8 +88,8 @@ class SessionStatusTest {
         fun core(vararg sessions: Pair<String, SessionActivity>) =
             hub.sessionList.activityReceived("local", mapOf(*sessions))
         core(
-            "s-a" to SessionActivity(SessionActivity.ANSWERING, 0, 100),
-            "s-b" to SessionActivity(SessionActivity.WAITING, 1, 0),
+            "s-a" to SessionActivity(Activity.Answering, 0, 100),
+            "s-b" to SessionActivity(Activity.Waiting, 1, 0),
         )
         assertEquals(Activity.Answering, hub.sessionStatus("s-a")?.activity)
         assertEquals(Activity.Waiting, hub.sessionStatus("s-b")?.activity)
@@ -98,31 +97,15 @@ class SessionStatusTest {
 
         hub.open(summary("s-b"))
         core(
-            "s-a" to SessionActivity(SessionActivity.IDLE, 0, 200),
-            "s-b" to SessionActivity(SessionActivity.IDLE, 0, 300),
+            "s-a" to SessionActivity(Activity.Idle, 0, 200),
+            "s-b" to SessionActivity(Activity.Idle, 0, 300),
         )
         assertEquals("别处开的对话答完了，不在眼前的记成有新回答", Activity.Unread, hub.sessionStatus("s-a")?.activity)
         assertEquals("正看着的不算新回答", Activity.Idle, hub.sessionStatus("s-b")?.activity)
         assertEquals(false, hub.isActive("s-a"))
 
-        core("s-c" to SessionActivity(SessionActivity.IDLE, 0, 400))
+        core("s-c" to SessionActivity(Activity.Idle, 0, 400))
         assertEquals("第一次见到的会话不算刚答完", Activity.Idle, hub.sessionStatus("s-c")?.activity)
-    }
-
-    @Test
-    fun parsesThePush() {
-        val push =
-            Json.parseToJsonElement(
-                    """{"type":"conv.activity","sessions":{"s-a":{"activity":"answering","tasks":2,"turn_end":5},"s-b":{},"s-x":3}}""",
-                )
-                .jsonObject
-        assertEquals(
-            mapOf(
-                "s-a" to SessionActivity("answering", 2, 5),
-                "s-b" to SessionActivity(null, 0, 0),
-            ),
-            SessionActivity.parse(push),
-        )
     }
 
     @Test
@@ -132,7 +115,7 @@ class SessionStatusTest {
         chat.force("busy", true)
         hub.sessionList.activityReceived(
             "local",
-            mapOf("s-both" to SessionActivity(SessionActivity.BACKGROUND, 3, 0)),
+            mapOf("s-both" to SessionActivity(Activity.Background, 3, 0)),
         )
         val status = hub.sessionStatus("s-both")
         assertEquals(Activity.Answering, status?.activity)

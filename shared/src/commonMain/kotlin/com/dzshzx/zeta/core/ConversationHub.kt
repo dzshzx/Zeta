@@ -445,18 +445,21 @@ class ConversationHub(val platform: HubPlatform) {
         val conversation = findConversation(sessionId)
         val core = sessionList.activityOf(sessionId)
         return SessionStatus.of(
-            waiting = conversation?.pending != null || core?.state == SessionActivity.WAITING,
-            busy = conversation?.busy == true || core?.state == SessionActivity.ANSWERING,
+            waiting =
+                conversation?.pending != null || core?.activity == SessionStatus.Activity.Waiting,
+            busy = conversation?.busy == true || core?.activity == SessionStatus.Activity.Answering,
             tasks = maxOf(conversation?.backgroundTasks ?: 0, core?.tasks ?: 0),
             unread = sessionId in unread,
-            alive = conversation?.isProcessAlive == true || core?.state != null,
+            alive = conversation?.isProcessAlive == true || core?.activity != null,
         )
     }
 
     /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完（这边开着的，或主机上的核心报的）。批量删除跳过这些。 */
     fun isActive(sessionId: String): Boolean =
         findConversation(sessionId)?.active == true ||
-            sessionList.activityOf(sessionId)?.active == true
+            sessionList.activityOf(sessionId)?.activity.let {
+                it != null && it != SessionStatus.Activity.Idle
+            }
 
     /** 主机上的核心说这几个会话各结束了一轮（可能是别的客户端开的）：不在眼前的记成有新回答。在主线程上调用。 */
     fun onTurnsEnded(sessions: List<String>) {

@@ -3,6 +3,8 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.conv.SessionActivity
+import com.dzshzx.zeta.core.conv.sessionActivitiesOf
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -108,7 +110,7 @@ class SessionList constructor(private val hub: ConversationHub) {
     private fun pushed(backend: String, o: JsonObject, current: () -> Boolean) {
         when (o.str("type")) {
             "conv.activity" -> {
-                val sessions = SessionActivity.parse(o)
+                val sessions = sessionActivitiesOf(o)
                 main.post { if (current()) activityReceived(backend, sessions) }
             }
             "zeta_sessions" -> {
@@ -131,7 +133,12 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /** 主机 [backend] 的核心推来了各会话的忙闲（整份）：换掉那台的，结束了一轮的交给 hub 记成有新回答（不在眼前的才记）。在主线程上调用。 */
     fun activityReceived(backend: String, sessions: Map<String, SessionActivity>) {
-        val ended = SessionActivity.turnsEnded(activity[backend].orEmpty(), sessions)
+        val before = activity[backend].orEmpty()
+        // 两份里都有、结束时刻往后挪了的；第一次见的不算（不知道它是不是刚结束）
+        val ended = sessions.mapNotNull { (session, now) ->
+            val was = before[session] ?: return@mapNotNull null
+            session.takeIf { (now.turnEnd ?: 0) > (was.turnEnd ?: 0) }
+        }
         activity = activity + (backend to sessions)
         if (ended.isNotEmpty()) hub.onTurnsEnded(ended)
     }
