@@ -21,6 +21,14 @@ var chatToolScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.tt.Type("/c")
 		f.tt.Key(0, ui.KeyDown)
 	},
+	// 查找：提问里两处、回答里一处（行内代码），停在提问里的第二处
+	"chat-find": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.tt.Key(ui.Cmd, ui.KeyF)
+		f.tt.Type("gradle")
+		f.tt.Key(0, ui.KeyEnter)
+		f.tt.Key(0, ui.KeyEnter)
+	},
 	// 草稿：在「修登录页」里写了一半、带一张图和一个文件，切走、重开 Zeta（内存里的丢掉）再回来，从存盘的恢复
 	"chat-draft": func(t *testing.T, f *chatFixture) {
 		dir := t.TempDir()

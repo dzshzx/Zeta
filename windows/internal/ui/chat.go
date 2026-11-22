@@ -40,6 +40,8 @@ type chatPane struct {
 	pages chatPages
 	// slash 是斜杠命令提示（slash.go）。
 	slash slashMenu
+	// find 是对话内查找的查找栏（find.go）。
+	find findBar
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -155,6 +157,7 @@ func (a *App) chatPage(c *ui.Context) {
 	}
 	page.Children(func() {
 		a.attachProblems(c, p)
+		a.findShortcuts(c, p)
 		a.pathDialog(c, p)
 		a.savedPrompts(c, p)
 		a.messageDialogs(c, p)
@@ -184,7 +187,9 @@ func (a *App) chatPage(c *ui.Context) {
 				a.editStrip(c, p)
 				a.chatStatus(c, p)
 			}
-			if p.state.Blocked && p.src.Conv != nil {
+			if p.find.open {
+				a.findBar(c, p) // 查找时顶替输入栏
+			} else if p.state.Blocked && p.src.Conv != nil {
 				a.handoffCard(c, p) // 别处运行：输入栏换成接管的卡片（handoff.go）
 			} else {
 				a.composer(c, p)

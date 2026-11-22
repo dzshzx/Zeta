@@ -69,6 +69,8 @@ type Chat struct {
 	changes map[string]*changeView
 	images  imageCache
 	paging  paging
+	// find 是对话内查找（find.go）。
+	find finder
 	// scrolled：上一帧内容往上滚过了（最上面一行不是第一条，或第一条的顶端到了内容区上沿以上）。
 	scrolled bool
 }
@@ -109,6 +111,7 @@ func (ch *Chat) Items() []items.Item { return ch.items }
 // SetItems 整份换掉条目（打开会话、重新取了一份时）。折叠卡展开与否按 id 留着。
 func (ch *Chat) SetItems(list []items.Item) {
 	ch.items = list
+	ch.find.dirty = true
 	clear(ch.changes)
 }
 
@@ -125,6 +128,7 @@ func (ch *Chat) Splice(at, remove int, add []items.Item) error {
 	for _, it := range add {
 		ch.forget(it)
 	}
+	ch.find.dirty = true
 	ch.items = next
 	return nil
 }
@@ -157,6 +161,8 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 	if ch.paging.next(rows) && ch.Earlier.idle() && ch.LoadEarlier != nil {
 		ch.LoadEarlier()
 	}
+	ch.findFrame()
+	ch.anchorFrame(c)
 	ch.answer.OnLink = ch.OpenLink
 	ch.thinking.OnLink = ch.OpenLink
 	styleMarkdown(c, &ch.answerTheme, &ch.thinkingTheme)

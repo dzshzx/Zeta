@@ -34,7 +34,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 		text := it.Text
 		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
 		bubble := coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
-		bubble.Paint(ui.Text(c, text)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
+		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
@@ -78,7 +78,7 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item) {
 		if it.Streaming {
 			md = markdown.Stream(c, it.Text, &ch.answer)
 		} else {
-			md = markdown.View(c, it.Text, &ch.answer)
+			md = markdown.View(c, ch.answerSource(c, it), &ch.answer)
 		}
 		md.FillWidth()
 		if !it.Streaming && strings.TrimSpace(it.Text) != "" && markdown.Revealed(md) {
