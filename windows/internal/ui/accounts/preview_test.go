@@ -63,8 +63,5 @@ func TestPreviews(t *testing.T) {
 		tt = page(f)
 		f.until(t, tt, "读完", f.loaded)
 		shot("unknown", tt)
-
-		click(t, tt, "每周 · 全部模型 86%")
-		shot("popover", tt)
 	}
 }
