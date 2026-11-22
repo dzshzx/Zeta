@@ -7,6 +7,7 @@ import android.os.HandlerThread
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -319,6 +320,34 @@ class ChatScreenPartsShots : ShotTest() {
             )!!
         hub.current.force("promptsState", listOf(request))
         shoot("chat-elicitation") { Chat(hub) }
+    }
+
+    /** 侧栏开着时等用户回应的请求先不弹（聊天页被推开，对话框在侧栏上没有底），收起侧栏就弹出来。 */
+    @Test
+    fun promptWaitsForThePaneToClose() {
+        val hub = chatHub()
+        hub.current.force(
+            "promptsState",
+            listOf(PermissionRequest("r3", "Bash", buildJsonObject { put("command", "ls") })),
+        )
+        val paneOpen = androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent {
+            com.dzshzx.zeta.ui.app.ZetaTheme(windowBackdrop = false) {
+                ChatScreen(
+                    hub = hub,
+                    onOpenPane = {},
+                    onOpenSettings = {},
+                    onOpenInstall = {},
+                    onOpenLogin = {},
+                    paneOpen = paneOpen.value,
+                )
+            }
+        }
+        fun shown() = compose.onAllNodesWithText("拒绝").fetchSemanticsNodes().isNotEmpty()
+        assertTrue("侧栏开着时不弹", !shown())
+        paneOpen.value = false
+        compose.waitForIdle()
+        assertTrue("收起侧栏后弹出来", shown())
     }
 
     /** 新对话：建议和工作目录。 */

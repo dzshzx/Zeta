@@ -264,6 +264,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             onOpenSubagent = { conversation, use ->
                 pages.open(AppPage.Subagent(conversation, use))
             },
+            paneOpen = paneOpen,
         )
     }
     // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键

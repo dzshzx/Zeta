@@ -150,6 +150,8 @@ internal fun ChatScreen(
     onOpenTasks: (String) -> Unit = {},
     /** 打开子代理查看页：对话的 key、发起子代理的那一步（tool_use id）。 */
     onOpenSubagent: (String, String) -> Unit = { _, _ -> },
+    /** 侧栏开着：聊天页被推到一边，等用户回应的请求先不弹，收起侧栏后再弹。 */
+    paneOpen: Boolean = false,
 ) {
     val conversation = hub.current
     val colors = COUITheme.colorScheme
@@ -226,8 +228,9 @@ internal fun ChatScreen(
                             onOpenSettings,
                         )
                 }
+                // 对话框的毛玻璃底取的是聊天页的画面：聊天页被侧栏推开时，侧栏那一块没有底，会透出侧栏的字
                 PromptSheet(
-                    prompt = conversation.pending,
+                    prompt = conversation.pending.takeUnless { paneOpen },
                     onReply = conversation::reply,
                     onElicit = conversation::answerElicitation,
                     subagentLabel = conversation::subagentLabel,
