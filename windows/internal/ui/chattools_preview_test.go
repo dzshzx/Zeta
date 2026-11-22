@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -18,6 +20,29 @@ var chatToolScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.click(t, "消息")
 		f.tt.Type("/c")
 		f.tt.Key(0, ui.KeyDown)
+	},
+	// 草稿：在「修登录页」里写了一半、带一张图和一个文件，切走、重开 Zeta（内存里的丢掉）再回来，从存盘的恢复
+	"chat-draft": func(t *testing.T, f *chatFixture) {
+		dir := t.TempDir()
+		shot, doc := filepath.Join(dir, "登录页.png"), filepath.Join(dir, "设计稿.pdf")
+		if err := os.WriteFile(shot, picture(320, 200, color.NRGBA{0x28, 0x78, 0xDC, 255}, color.NRGBA{0xFA, 0xD2, 0x78, 255}), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(doc, []byte("%PDF-1.7"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		f.devices.Paths = map[string]hostlink.PathKind{}
+		f.click(t, "修登录页")
+		f.pickReturns(shot, doc)
+		f.attach(t, "文件")
+		for _, x := range f.app.pane.att.files {
+			f.devices.Paths[x.entry] = hostlink.PathFile
+		}
+		f.click(t, "消息")
+		f.tt.Type("登录按钮在窄屏上被挤到第二行了，照设计稿改一下")
+		f.newChat(t)
+		f.app.drafts = nil
+		f.click(t, "修登录页")
 	},
 }
 

@@ -63,9 +63,8 @@ func TestSlashCommandsRememberedPerDevice(t *testing.T) {
 	f.click(t, "消息")
 	f.tt.Type("/co")
 	f.see(t, "/compact")
-	// 换个新对话：进程还没起，提示这台上次报的
-	f.click(t, "新对话")
-	f.link().Took()
+	// 换到别的对话：进程还没起，提示这台上次报的
+	f.click(t, "修登录页")
 	f.click(t, "消息")
 	f.tt.Type("/re")
 	f.see(t, "/review", "审查改动")

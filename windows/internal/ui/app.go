@@ -45,6 +45,7 @@ type App struct {
 	add    adding
 	edit   editing
 	pane   *chatPane  // 聊天窗格，跟着中枢的对话
+	drafts *draftBook // 各对话没发的输入（drafts.go）
 	query  string     // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
 	ops    sessionOps // 侧栏的会话操作（sessionops.go）
 

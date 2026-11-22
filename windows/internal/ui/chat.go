@@ -60,14 +60,17 @@ func (a *App) syncChat() {
 	defer a.syncWindowButtons()
 	c := a.hub.Chat()
 	if c == nil {
+		a.leaveDraft(a.pane)
 		a.pane = nil
 		return
 	}
 	if a.pane == nil || a.pane.src != c {
+		a.leaveDraft(a.pane)
 		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
 		p.list.LoadEarlier = func() { a.loadEarlier(p) }
 		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 		a.pane = p
+		a.enterDraft(p)
 	}
 	p := a.pane
 	if c.Conv == nil {
@@ -75,6 +78,7 @@ func (a *App) syncChat() {
 	}
 	u := c.Conv.Take()
 	p.state, p.connected = u.State, u.Connected
+	a.trackDraft(p)
 	for _, ch := range u.Items {
 		if ch.Full {
 			p.list.SetItems(ch.Items)
