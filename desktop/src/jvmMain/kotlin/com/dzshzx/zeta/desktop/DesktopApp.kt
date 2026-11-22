@@ -38,7 +38,11 @@ private val PaneWidth = 300.dp
 
 /** 桌面主界面：左边常开的会话列表，右边聊天；设置、远程设备、后台任务、子代理这些页面盖在右边。 */
 @Composable
-fun DesktopApp(hub: ConversationHub, pages: PageStack = rememberPageStack()) {
+fun DesktopApp(
+    hub: ConversationHub,
+    updates: DesktopUpdates,
+    pages: PageStack = rememberPageStack(),
+) {
     LaunchedEffect(Unit) { hub.sessionList.refresh() }
     Row(Modifier.fillMaxSize()) {
         SessionPane(
@@ -81,6 +85,7 @@ fun DesktopApp(hub: ConversationHub, pages: PageStack = rememberPageStack()) {
                     AppPage.Settings ->
                         DesktopSettingsScreen(
                             hub,
+                            updates,
                             onBack = { pages.close(page) },
                             onAddHost = { pages.open(AppPage.RemoteHosts) },
                         )

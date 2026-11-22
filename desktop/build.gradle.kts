@@ -32,10 +32,23 @@ val linuxAssets =
         app.tasks.named("claudeSwitch"),
     )
 
+// 版本号和手机版同一份（根目录的 build.gradle.kts）
+val versionLabel: String by rootProject.extra
+val commitCount: Int by rootProject.extra
+
+// 运行时要知道自己的版本（设置「关于」、检查更新）：写进 jar 的 zeta/version.properties，DesktopVersion 读它
+val versionResource by
+    tasks.registering(WriteProperties::class) {
+        destinationFile = layout.buildDirectory.file("generated/version/version.properties")
+        property("versionCode", commitCount)
+        property("versionName", versionLabel)
+    }
+
 // 等宽字体也用手机版 res/font 里的那份（MonoFont）
 tasks.named<ProcessResources>("jvmProcessResources") {
     from(linuxAssets) { into("assets") }
     from(app.layout.projectDirectory.dir("src/main/res/font")) { into("font") }
+    from(versionResource) { into("zeta") }
 }
 
 compose.desktop { application { mainClass = "com.dzshzx.zeta.desktop.MainKt" } }
@@ -78,9 +91,6 @@ val windowsApp by
             check(linux.isEmpty()) { "Windows 安装包里混进了 Linux 的原生库：$linux" }
         }
     }
-
-// 版本号和手机版同一份（根目录的 build.gradle.kts）
-val versionLabel: String by rootProject.extra
 
 tasks.register<Exec>("packageWindows") {
     group = "distribution"

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -37,6 +38,8 @@ fun main() = application {
     val platform = remember { DesktopHubPlatform() }
     val hub = remember { ConversationHub(platform).also { ProcessHub.current = it } }
     val back = remember { DirectNavigationEventInput() }
+    val updates = remember { DesktopUpdates.forApp(platform, exit = ::exitApplication) }
+    LaunchedEffect(updates) { updates.onStart() }
     Window(
         onCloseRequest = ::exitApplication,
         title = "Zeta",
@@ -48,7 +51,7 @@ fun main() = application {
             escape
         },
     ) {
-        DesktopRoot(hub, platform, back)
+        DesktopRoot(hub, platform, updates, back)
     }
 }
 
@@ -57,6 +60,7 @@ fun main() = application {
 fun DesktopRoot(
     hub: ConversationHub,
     platform: DesktopHubPlatform,
+    updates: DesktopUpdates,
     back: DirectNavigationEventInput?,
     pages: PageStack = rememberPageStack(),
 ) {
@@ -72,7 +76,7 @@ fun DesktopRoot(
         LocalHub provides hub,
     ) {
         DesktopTheme(hub) {
-            DesktopApp(hub, pages)
+            DesktopApp(hub, updates, pages)
             NoticeToast(platform)
         }
     }

@@ -56,6 +56,8 @@ func TestWriteAssets(t *testing.T) {
 		"notes": "- feat(a): 一\n- fix(b): 二", "apk": "Zeta-v0.7.1.apk",
 		"url":  "https://github.com/o/r/releases/download/v0.7.1/Zeta-v0.7.1.apk",
 		"size": 3.0, "sha256": sum, "certificateSha256": newCert, "sourceCommit": "c0ffee",
+		"msi": "Zeta-v0.7.1.msi", "msiUrl": "https://github.com/o/r/releases/download/v0.7.1/Zeta-v0.7.1.msi",
+		"msiSize": 3.0, "msiSha256": msiSum,
 	}
 	for key, value := range want {
 		if fields[key] != value {
@@ -92,6 +94,14 @@ func TestCheckAssetsCatchesTampering(t *testing.T) {
 			return rewriteUpdate(dir, func(u *update) { u.URL = "https://example.com/Zeta-v0.7.1.apk" })
 		}, "url"},
 		{"update.json without a certificate", func(dir string) error { return rewriteUpdate(dir, func(u *update) { u.Certificate = "" }) }, "certificateSha256"},
+		{"update.json with another MSI size", func(dir string) error { return rewriteUpdate(dir, func(u *update) { u.MSISize++ }) }, "msiSize"},
+		{"update.json with another MSI sha256", func(dir string) error {
+			return rewriteUpdate(dir, func(u *update) { u.MSISHA256 = strings.Repeat("0", 64) })
+		}, "msiSha256"},
+		{"update.json naming another MSI", func(dir string) error { return rewriteUpdate(dir, func(u *update) { u.MSI = "Zeta.msi" }) }, "msi 是"},
+		{"update.json with the MSI elsewhere", func(dir string) error {
+			return rewriteUpdate(dir, func(u *update) { u.MSIURL = "https://example.com/Zeta-v0.7.1.msi" })
+		}, "msiUrl"},
 	}
 	for _, c := range cases {
 		dir, _ := writeSample(t)
@@ -114,6 +124,13 @@ func TestCheckAssetsCatchesTampering(t *testing.T) {
 	}
 	if _, err := checkAssets(dir, "0.7.1", false); err != nil {
 		t.Errorf("the phone assets alone check out: %v", err)
+	}
+	// 手机只看自己的那几项：MSI 的字段不对或没有（v0.7.5 及更早的清单）都不管
+	if err := rewriteUpdate(dir, func(u *update) { u.MSI, u.MSIURL, u.MSISize, u.MSISHA256 = "", "", 0, "" }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := checkAssets(dir, "0.7.1", false); err != nil {
+		t.Errorf("an update.json without the MSI fields checks out for the phone: %v", err)
 	}
 	if _, err := checkAssets(dir, "0.7.1", true); err == nil {
 		t.Error("a release without the MSI fails")

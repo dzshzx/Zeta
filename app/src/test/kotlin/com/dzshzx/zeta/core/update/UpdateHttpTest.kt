@@ -197,7 +197,9 @@ class UpdateHttpTest {
         github.routes[apkPath] = 200 to apk
         val m = UpdateManifest.parse(manifestJson(github.base))
         val progress = ArrayList<Long>()
-        val file = runBlocking { http().download(m, File(dir, m.apk)) { progress += it } }
+        val file = runBlocking {
+            http().download(m.apkPackage, File(dir, m.apk)) { progress += it }
+        }
         assertTrue(file.readBytes().contentEquals(apk))
         assertEquals(apk.size.toLong(), progress.last())
         assertEquals(progress.sorted(), progress)
@@ -210,7 +212,7 @@ class UpdateHttpTest {
         github.routes[apkPath] = 200 to apk.copyOf().also { it[1000] = (it[1000] + 1).toByte() }
         proxy.routes[viaProxy(apkPath)] = 200 to apk
         val m = UpdateManifest.parse(manifestJson(github.base))
-        val file = runBlocking { http().download(m, File(dir, m.apk)) {} }
+        val file = runBlocking { http().download(m.apkPackage, File(dir, m.apk)) {} }
         assertTrue(file.readBytes().contentEquals(apk))
         assertEquals(listOf(viaProxy(apkPath)), proxy.hits)
     }
@@ -225,18 +227,19 @@ class UpdateHttpTest {
         github.routes[apkPath] = 200 to apk.copyOf().also { it[0] = (it[0] + 1).toByte() }
         assertEquals(
             "从 $g 下的文件 sha256 和清单不一致，已删掉；$p 回了 HTTP 404",
-            reason { http().download(m, dest) {} },
+            reason { http().download(m.apkPackage, dest) {} },
         )
         assertEquals(emptyList<String>(), dir.list()!!.toList())
         // 比清单写的大：下到超出就停
         github.routes[apkPath] = 200 to apk + ByteArray(10)
         assertTrue(
-            reason { http().download(m, dest) {} }.startsWith("从 $g 下的文件比清单写的 ${apk.size} 字节大，已删掉"),
+            reason { http().download(m.apkPackage, dest) {} }
+                .startsWith("从 $g 下的文件比清单写的 ${apk.size} 字节大，已删掉"),
         )
         // 比清单写的小
         github.routes[apkPath] = 200 to apk.copyOf(1000)
         assertTrue(
-            reason { http().download(m, dest) {} }
+            reason { http().download(m.apkPackage, dest) {} }
                 .startsWith("从 $g 下的文件只有 1000 字节，清单写的是 ${apk.size}，已删掉"),
         )
         assertEquals(emptyList<String>(), dir.list()!!.toList())

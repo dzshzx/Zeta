@@ -46,6 +46,11 @@ type update struct {
 	SHA256       string `json:"sha256"`
 	Certificate  string `json:"certificateSha256"`
 	SourceCommit string `json:"sourceCommit"`
+	// 桌面版的 MSI：文件名、下载地址、字节数、sha256，桌面版的应用内更新读它们。v0.7.5 及更早的清单没有。
+	MSI       string `json:"msi"`
+	MSIURL    string `json:"msiUrl"`
+	MSISize   int64  `json:"msiSize"`
+	MSISHA256 string `json:"msiSha256"`
 }
 
 // formatNotes 把提交标题排成 Markdown 列表，旧的在前。
@@ -74,26 +79,18 @@ func commitTitles(previous, commit string) ([]string, error) {
 }
 
 // writeAssets 把签好的包拷成 Zeta-vX.Y.Z.apk，桌面版的 msi 拷成 Zeta-vX.Y.Z.msi，各写一个 .sha256（sha256sum 的格式），
-// 再写 update.json。u 里与 APK 有关的字段（apk、url、size、sha256）由这里填。
+// 再写 update.json。u 里与这两个文件有关的字段（apk、url、size、sha256 和 msi 开头的四项）由这里填。
 func writeAssets(dir, apk, msi, repo string, u update) (update, error) {
-	if err := copyWithChecksum(msi, filepath.Join(dir, msiAsset(u.VersionName))); err != nil {
+	download := "https://github.com/" + repo + "/releases/download/" + u.Tag + "/"
+	var err error
+	u.MSI = msiAsset(u.VersionName)
+	u.MSIURL = download + u.MSI
+	if u.MSISize, u.MSISHA256, err = copyWithChecksum(msi, filepath.Join(dir, u.MSI)); err != nil {
 		return u, err
 	}
 	u.APK = apkAsset(u.VersionName)
-	u.URL = "https://github.com/" + repo + "/releases/download/" + u.Tag + "/" + u.APK
-	path := filepath.Join(dir, u.APK)
-	if err := copyFile(apk, path); err != nil {
-		return u, err
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return u, err
-	}
-	u.Size = info.Size()
-	if u.SHA256, err = fileHash(path); err != nil {
-		return u, err
-	}
-	if err := os.WriteFile(path+".sha256", []byte(u.SHA256+"  "+u.APK+"\n"), 0o644); err != nil {
+	u.URL = download + u.APK
+	if u.Size, u.SHA256, err = copyWithChecksum(apk, filepath.Join(dir, u.APK)); err != nil {
 		return u, err
 	}
 	data, err := json.MarshalIndent(u, "", "  ")
@@ -103,20 +100,25 @@ func writeAssets(dir, apk, msi, repo string, u update) (update, error) {
 	return u, os.WriteFile(filepath.Join(dir, updateFile), append(data, '\n'), 0o644)
 }
 
-// copyWithChecksum 把 src 拷到 dst，旁边写 dst.sha256。
-func copyWithChecksum(src, dst string) error {
+// copyWithChecksum 把 src 拷到 dst，旁边写 dst.sha256，返回 dst 的字节数和 sha256。
+func copyWithChecksum(src, dst string) (int64, string, error) {
 	if err := copyFile(src, dst); err != nil {
-		return err
+		return 0, "", err
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		return 0, "", err
 	}
 	sum, err := fileHash(dst)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
-	return os.WriteFile(dst+".sha256", []byte(sum+"  "+filepath.Base(dst)+"\n"), 0o644)
+	return info.Size(), sum, os.WriteFile(dst+".sha256", []byte(sum+"  "+filepath.Base(dst)+"\n"), 0o644)
 }
 
 // checkAssets 核对一套资产：正好是 assetNames 那几个文件（desktop 时含桌面版的 MSI），各个 .sha256 对得上，
-// update.json 写的版本、文件名、大小、sha256 与 APK 相符。返回读到的 update.json。
+// update.json 写的版本和 APK 的文件名、地址、大小、sha256 与文件相符；desktop 时 msi 开头的四项也要与 MSI 相符
+// （check-download 只下手机的那几个，不管它们）。返回读到的 update.json。
 func checkAssets(dir, version string, desktop bool) (update, error) {
 	var u update
 	entries, err := os.ReadDir(dir)
@@ -131,16 +133,6 @@ func checkAssets(dir, version string, desktop bool) (update, error) {
 	if want := assetNames(version, desktop); !slices.Equal(names, want) {
 		return u, fmt.Errorf("%s 里是 %v，应该正好是 %v", dir, names, want)
 	}
-	if desktop {
-		if _, err := checkChecksum(filepath.Join(dir, msiAsset(version))); err != nil {
-			return u, err
-		}
-	}
-	apk := filepath.Join(dir, apkAsset(version))
-	sum, err := checkChecksum(apk)
-	if err != nil {
-		return u, err
-	}
 	data, err := os.ReadFile(filepath.Join(dir, updateFile))
 	if err != nil {
 		return u, err
@@ -148,9 +140,45 @@ func checkAssets(dir, version string, desktop bool) (update, error) {
 	if err := json.Unmarshal(data, &u); err != nil {
 		return u, fmt.Errorf("%s 读不了：%w", updateFile, err)
 	}
-	info, err := os.Stat(apk)
+	var problems []error
+	if u.VersionName != version || u.Tag != "v"+version {
+		problems = append(problems, fmt.Errorf("%s 的 versionName、tag 是 %q、%q，应该是 %q、%q", updateFile, u.VersionName, u.Tag, version, "v"+version))
+	}
+	if u.VersionCode <= 0 || !certHex.MatchString(u.Certificate) || u.SourceCommit == "" {
+		problems = append(problems, fmt.Errorf("%s 缺 versionCode、certificateSha256 或 sourceCommit", updateFile))
+	}
+	files := []listed{{"apk", "url", "size", "sha256", u.APK, u.URL, u.Size, u.SHA256, apkAsset(version)}}
+	if desktop {
+		files = append(files, listed{"msi", "msiUrl", "msiSize", "msiSha256", u.MSI, u.MSIURL, u.MSISize, u.MSISHA256, msiAsset(version)})
+	}
+	for _, f := range files {
+		found, err := f.check(dir, version)
+		if err != nil {
+			return u, err
+		}
+		problems = append(problems, found...)
+	}
+	return u, errors.Join(problems...)
+}
+
+// listed 是 update.json 里写的一个文件：四项的键名、写的值，和它在这个 Release 里应有的文件名 asset。
+type listed struct {
+	nameKey, urlKey, sizeKey, sumKey string
+	name, url                        string
+	size                             int64
+	sum, asset                       string
+}
+
+// check 核对文件本身（.sha256 对得上；出错时返回 error），再核对清单写的四项与文件相符，不符的各一条。
+func (f listed) check(dir, version string) ([]error, error) {
+	path := filepath.Join(dir, f.asset)
+	sum, err := checkChecksum(path)
 	if err != nil {
-		return u, err
+		return nil, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
 	}
 	var problems []error
 	expect := func(field, got, want string) {
@@ -158,18 +186,13 @@ func checkAssets(dir, version string, desktop bool) (update, error) {
 			problems = append(problems, fmt.Errorf("%s 的 %s 是 %q，应该是 %q", updateFile, field, got, want))
 		}
 	}
-	expect("versionName", u.VersionName, version)
-	expect("tag", u.Tag, "v"+version)
-	expect("apk", u.APK, apkAsset(version))
-	expect("sha256", u.SHA256, sum)
-	expect("size", fmt.Sprint(u.Size), fmt.Sprint(info.Size()))
-	if !strings.HasSuffix(u.URL, "/releases/download/v"+version+"/"+apkAsset(version)) {
-		problems = append(problems, fmt.Errorf("%s 的 url %q 不指向这个 Release 的 APK", updateFile, u.URL))
+	expect(f.nameKey, f.name, f.asset)
+	expect(f.sumKey, f.sum, sum)
+	expect(f.sizeKey, fmt.Sprint(f.size), fmt.Sprint(info.Size()))
+	if !strings.HasSuffix(f.url, "/releases/download/v"+version+"/"+f.asset) {
+		problems = append(problems, fmt.Errorf("%s 的 %s %q 不指向这个 Release 的 %s", updateFile, f.urlKey, f.url, f.asset))
 	}
-	if u.VersionCode <= 0 || !certHex.MatchString(u.Certificate) || u.SourceCommit == "" {
-		problems = append(problems, fmt.Errorf("%s 缺 versionCode、certificateSha256 或 sourceCommit", updateFile))
-	}
-	return u, errors.Join(problems...)
+	return problems, nil
 }
 
 // checkChecksum 核对 <文件>.sha256（「<sha256>  <文件名>」一行），返回文件的 sha256。

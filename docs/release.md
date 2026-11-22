@@ -198,15 +198,21 @@ keytool -genkeypair -keystore "$work/zeta-release.p12" -storetype PKCS12 -storep
 | `sha256` | 字符串 | APK 的 SHA-256，小写十六进制 |
 | `certificateSha256` | 字符串 | 签名证书的 SHA-256，小写十六进制 |
 | `sourceCommit` | 字符串 | 构建所用的完整提交号 |
+| `msi` | 字符串 | 桌面版 MSI 的文件名 `Zeta-vX.Y.Z.msi`（v0.7.5 及更早的清单没有这四项） |
+| `msiUrl` | 字符串 | MSI 的下载地址 `https://github.com/dzshzx/Zeta/releases/download/vX.Y.Z/Zeta-vX.Y.Z.msi` |
+| `msiSize` | 整数 | MSI 的字节数 |
+| `msiSha256` | 字符串 | MSI 的 SHA-256，小写十六进制 |
 
-应用读它的哪几项、下载后怎么核对见下节。以后加字段只加不改，读的一方不认识的字段就忽略。
+应用读它的哪几项、下载后怎么核对见下节。以后加字段只加不改，读的一方不认识的字段就忽略。`package` 写完后
+`checkAssets` 核对每一项与文件相符；`check-download` 只下手机的那几个文件，不核对 `msi` 开头的四项。
 
 Release 的说明写明版本、versionCode、`source_commit` 和签名证书，下面是与 `notes` 相同的提交标题。
 
 ## 应用内更新
 
 正式版自己检查、下载和安装新版本，代码在 `app/src/main/kotlin/com/dzshzx/zeta/core/update/`，界面在
-`ui/settings/UpdateScreens.kt`。
+`ui/settings/UpdateScreens.kt`；读清单（`UpdateManifest`）和下载（`UpdateHttp`）和桌面版共用，在
+`shared/src/commonMain/kotlin/com/dzshzx/zeta/core/update/`。桌面版的见本节末尾。
 
 - **谁查**：只有正式发版证书签的包查。构建时把 `release/signing-certs.txt` 的最后一行写进
   `BuildConfig.RELEASE_CERT_SHA256`，本包现在的签名证书就是它才查；测试版、debug 包和别人自己编的包不查，
@@ -239,6 +245,24 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 ```
 
 打开的是「版本更新」页，点「更新」走一遍下载、核对、经 root 安装。收尾的 `vd stop` 把两项覆盖改回去。
+
+### 桌面版
+
+代码在 `desktop/src/jvmMain/kotlin/com/dzshzx/zeta/desktop/`：状态和流程 `DesktopUpdates.kt`，装 MSI 的脚本
+`MsiInstall.kt`，界面是设置里的「关于」（`DesktopAbout.kt`）。
+
+- **谁查**：构建时把 versionCode（提交数）和版本名写进 jar 的 `zeta/version.properties`（`desktop/build.gradle.kts`
+  的 versionResource，运行时 `DesktopVersion` 读）。版本名是干净的 `X.Y.Z` 的（发版 tag 上打的包）才查；开发构建在
+  「关于」里标「开发版」，不查。
+- **什么时候查**：启动时每天最多自动查一次（「自动检查更新」，和手机同一个设置项），查到新版本在窗口底部提示一句
+  （同一个版本只提示一次）；「关于」里随时手动查。清单和手机是同一个地址，versionCode 比自己大、清单里有 `msi`
+  四项才算新版本。
+- **下载和核对**：MSI 下到 `%LOCALAPPDATA%\Zeta\update`（别的系统上是设置目录下的 `update/`），镜像回退和手机一样，
+  大小和 sha256 对不上清单就删掉、说原因。MSI 没做代码签名，最后靠 sha256 对清单把关。
+- **安装**：只在 Windows 上。起一个 PowerShell（脚本经 `-EncodedCommand` 传），它等 Zeta 的进程退出，
+  `msiexec /i <msi> /passive /norestart` 装完（记录在设置目录的 `diag/msi-install.log`），再用 Zeta 启动时的同一条
+  命令重新打开（Windows 上取不到原来的参数，按 JVM 记的类路径拼回 `-cp "<安装目录>\app\*"`）；起好后 Zeta 退出。
+  对话的 Claude Code 进程在远程主机上由托管脚本管着，不受影响，重开后照常接上。
 
 ## 出错后怎么办
 

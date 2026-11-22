@@ -73,6 +73,22 @@ class UpdateManifestTest {
         assertTrue(reason(json(apk = "\"Zeta.zip\"")).contains("apk"))
     }
 
+    /** 清单里多了桌面版的四项：手机读到的照旧，那几项坏了也不影响手机。 */
+    @Test
+    fun desktopFieldsLeaveWhatThePhoneReadsAlone() {
+        val desktop =
+            ",\n  \"msi\": \"Zeta-v0.7.2.msi\",\n" +
+                "  \"msiUrl\": \"https://github.com/dzshzx/Zeta/releases/download/v0.7.2/Zeta-v0.7.2.msi\",\n" +
+                "  \"msiSize\": 115000000,\n  \"msiSha256\": \"${"ef".repeat(32)}\""
+        val old = UpdateManifest.parse(json(extra = ""))
+        val withDesktop = UpdateManifest.parse(json(extra = desktop))
+        assertEquals(old, withDesktop.copy(msi = null))
+        assertEquals(old.apkPackage, withDesktop.apkPackage)
+        assertEquals(115_000_000L, withDesktop.msi?.size)
+        val broken = UpdateManifest.parse(json(extra = desktop.replace("115000000", "\"big\"")))
+        assertEquals(old, broken)
+    }
+
     @Test
     fun onlyABiggerVersionCodeIsNewer() {
         val m = UpdateManifest.parse(json(versionCode = "905"))

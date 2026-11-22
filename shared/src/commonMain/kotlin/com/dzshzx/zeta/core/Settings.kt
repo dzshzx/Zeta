@@ -234,7 +234,10 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     var contextWindows: Map<String, Long> by
         keyValues("contextWindows", String::toLongOrNull, Long::toString)
 
-    /** 应用回到前台时每天最多自动检查一次新版本（core/update/AppUpdates.kt）。只有正式发版证书签的包才查。 */
+    /**
+     * 每天最多自动检查一次新版本：手机正式版在回到前台时（app 的 core/update/AppUpdates.kt，只有正式发版证书签的包才查）， 桌面版在启动时（desktop 的
+     * DesktopUpdates.kt，只有正式发版打的包才查）。
+     */
     var autoUpdateCheck: Boolean by pref("autoUpdateCheck", true)
 
     /** 上次检查更新的时间（毫秒，手动、自动都算）；0 是没查过。自动检查据此一天最多一次。 */

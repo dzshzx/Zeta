@@ -18,10 +18,10 @@ import kotlinx.coroutines.withContext
 
 /**
  * 一个地址该从哪几处取：GitHub 上的先直连，不通再走 gh-proxy（地址前面加上它），和 assets/zeta_setup_debian.sh 下载 GitHub
- * 文件的做法一样。别的地址（测试版的调试覆盖、测试里的本地服务器）只有它自己。 gh-proxy 是第三方的中转：从它取的清单和 APK 照样要核对（大小、sha256
- * 对清单，包名、版本、签名对已装的 Zeta，见 [ApkCheck]）。
+ * 文件的做法一样。别的地址（测试版的调试覆盖、测试里的本地服务器）只有它自己。 gh-proxy 是第三方的中转：从它取的清单和安装包照样要核对（大小、sha256 对清单；手机上还核对 APK
+ * 的包名、版本、签名对已装的 Zeta，见 app 的 ApkCheck）。
  */
-internal class Mirrors(
+class Mirrors(
     private val mirrored: String = GITHUB,
     private val proxy: String = GH_PROXY,
 ) {
@@ -35,10 +35,10 @@ internal class Mirrors(
 }
 
 /**
- * 取更新清单、下载 APK：每个地址按 [Mirrors] 给的顺序试，前一个连不上、超时、HTTP 出错或内容不对就换下一个。 都不行时抛
+ * 取更新清单、下载安装包（手机的 APK、桌面版的 MSI）：每个地址按 [Mirrors] 给的顺序试，前一个连不上、超时、HTTP 出错或内容不对就换下一个。 都不行时抛
  * [UpdateException]，原因里每个地址各一句。只用 [HttpURLConnection]，走系统的代理设置。
  */
-internal class UpdateHttp(
+class UpdateHttp(
     private val userAgent: String,
     private val mirrors: Mirrors = Mirrors(),
     private val connectTimeoutMs: Int = 10_000,
@@ -58,15 +58,15 @@ internal class UpdateHttp(
         }
 
     /**
-     * 下载 [manifest] 的 APK 到 [dest]：先写到旁边的 `.part`，大小和 sha256 都对上清单才改名成 [dest]；对不上就删掉，
+     * 下载清单写的安装包 [pkg] 到 [dest]：先写到旁边的 `.part`，大小和 sha256 都对上清单才改名成 [dest]；对不上就删掉，
      * 换下一个地址重下。[onProgress] 报已下载的字节数（在下载的线程上调）。
      */
-    suspend fun download(manifest: UpdateManifest, dest: File, onProgress: (Long) -> Unit): File =
+    suspend fun download(pkg: UpdatePackage, dest: File, onProgress: (Long) -> Unit): File =
         withContext(Dispatchers.IO) {
             val part = File(dest.path + ".part")
             try {
-                attempts(manifest.url) { candidate ->
-                    downloadFrom(candidate, manifest, part, dest, onProgress)
+                attempts(pkg.url) { candidate ->
+                    downloadFrom(candidate, pkg, part, dest, onProgress)
                 }
             } finally {
                 part.delete()
@@ -76,7 +76,7 @@ internal class UpdateHttp(
     /** 从一个地址 [candidate] 下载到 [part]，核对大小和 sha256 后改名成 [dest]；对不上时抛 [UpdateException]。 */
     private suspend fun downloadFrom(
         candidate: String,
-        manifest: UpdateManifest,
+        pkg: UpdatePackage,
         part: File,
         dest: File,
         onProgress: (Long) -> Unit,
@@ -87,14 +87,14 @@ internal class UpdateHttp(
         val total =
             get(candidate) { input ->
                 part.outputStream().use { out ->
-                    copyChecked(context, input, out, digest, manifest.size, candidate, onProgress)
+                    copyChecked(context, input, out, digest, pkg.size, candidate, onProgress)
                 }
             }
-        if (total != manifest.size)
+        if (total != pkg.size)
             throw UpdateException(
-                "从 ${host(candidate)} 下的文件只有 $total 字节，清单写的是 ${manifest.size}，已删掉",
+                "从 ${host(candidate)} 下的文件只有 $total 字节，清单写的是 ${pkg.size}，已删掉",
             )
-        if (hex(digest.digest()) != manifest.sha256)
+        if (hex(digest.digest()) != pkg.sha256)
             throw UpdateException("从 ${host(candidate)} 下的文件 sha256 和清单不一致，已删掉")
         dest.delete()
         if (!part.renameTo(dest)) throw UpdateException("存不下下载的文件")

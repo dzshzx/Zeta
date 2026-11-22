@@ -134,7 +134,7 @@ class ApkCheckTest {
         assertEquals("http://10.0.2.2:8765/update.json", settings.updateDevManifest)
         // 正式版（开关是常量 false）不理会覆盖；单元测试跑在测试版上，开关是 true，覆盖生效
         assertEquals(
-            UpdateTrust.MANIFEST_URL,
+            UpdateManifest.LATEST_URL,
             UpdateTrust.manifestUrl(settings, devOverride = false),
         )
         assertEquals(

@@ -17,11 +17,18 @@ import com.dzshzx.zeta.ui.setup.RemoteHostScreen
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 
 /**
- * 桌面版的设置：加过的远程设备（点进去是它的连接、默认目录、改名和删除，见 [RemoteHostScreen]）和「添加远程设备」。 手机版设置里的手机、Debian、提醒这些桌面上没有。
+ * 桌面版的设置：加过的远程设备（点进去是它的连接、默认目录、改名和删除，见 [RemoteHostScreen]）和「添加远程设备」，再是「关于」（版本和检查更新，见
+ * [aboutItems]）。手机版设置里的手机、Debian、提醒这些桌面上没有。
  */
 @Composable
-fun DesktopSettingsScreen(hub: ConversationHub, onBack: () -> Unit, onAddHost: () -> Unit) {
+fun DesktopSettingsScreen(
+    hub: ConversationHub,
+    updates: DesktopUpdates,
+    onBack: () -> Unit,
+    onAddHost: () -> Unit,
+) {
     var host by rememberSaveable { mutableStateOf<String?>(null) }
+    val update = updates.state
     Box(Modifier.fillMaxSize()) {
         CouiPage(title = "设置", onBack = onBack) {
             item(key = "hosts") {
@@ -41,6 +48,7 @@ fun DesktopSettingsScreen(hub: ConversationHub, onBack: () -> Unit, onAddHost: (
                     item { ArrowPreference(title = "添加远程设备", onClick = onAddHost) }
                 }
             }
+            aboutItems(updates, update, hub.settings)
         }
         SlideInPage(host, onBack = { host = null }) { backend ->
             RemoteHostScreen(hub, backend, onBack = { host = null }) {}

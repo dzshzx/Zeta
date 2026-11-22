@@ -1,12 +1,16 @@
 package com.dzshzx.zeta.desktop
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.core.update.UpdateException
+import com.dzshzx.zeta.core.update.UpdateManifest
+import com.dzshzx.zeta.core.update.UpdatePackage
 import com.dzshzx.zeta.ui.AppPage
 import com.dzshzx.zeta.ui.PageStack
 import com.dzshzx.zeta.ui.setup.RemoteHostScreen
@@ -34,11 +38,50 @@ class DesktopShots {
             RemoteHosts.encodeKey(SshKey.generate().blob),
         )
 
-    /** [hosts] 在中枢建出来之前就存进设置（和重开 Zeta 时一样），[pages] 是一开始就开着的页面。 */
-    private fun shoot(name: String, hosts: List<RemoteHost> = emptyList(), vararg pages: AppPage) =
+    /**
+     * [hosts] 在中枢建出来之前就存进设置（和重开 Zeta 时一样），[pages] 是一开始就开着的页面。检查更新不联网：[version] 是这个包的版本， 检查更新摆成
+     * [update]。
+     */
+    private fun shoot(
+        name: String,
+        hosts: List<RemoteHost> = emptyList(),
+        vararg pages: AppPage,
+        version: DesktopVersion = Release,
+        update: DesktopUpdateState = DesktopUpdateState.Idle,
+    ) =
         shoot(name, hosts) { hub, platform ->
-            DesktopRoot(hub, platform, back = null, pages = PageStack(pages.toList()))
+            val updates = remember { previewUpdates(platform, version, update) }
+            DesktopRoot(hub, platform, updates, back = null, pages = PageStack(pages.toList()))
         }
+
+    private fun previewUpdates(
+        platform: DesktopHubPlatform,
+        version: DesktopVersion,
+        state: DesktopUpdateState,
+    ) =
+        DesktopUpdates(
+                settings = platform.settings,
+                version = version,
+                dir = File(platform.filesDir, "update"),
+                feed =
+                    object : UpdateFeed {
+                        override suspend fun manifest() = throw UpdateException("截图里不联网")
+
+                        override suspend fun download(
+                            pkg: UpdatePackage,
+                            dest: File,
+                            onProgress: (Long) -> Unit,
+                        ) = throw UpdateException("截图里不联网")
+                    },
+                installer = { "截图里不安装" },
+                notify = {},
+                exit = {},
+            )
+            .also { it.preview(state) }
+
+    /** 设置页的「关于」，检查更新摆成 [update]。 */
+    private fun about(name: String, update: DesktopUpdateState, version: DesktopVersion = Release) =
+        shoot(name, listOf(workstation), AppPage.Settings, version = version, update = update)
 
     /** 画 [content]（整个窗口）。 */
     private fun shoot(
@@ -87,10 +130,72 @@ class DesktopShots {
             RemoteHostScreen(hub, workstation.id, onBack = {}) {}
         }
 
+    // 设置「关于」：版本、检查更新的各个结果；有新版本时的下载并安装和更新说明
+    @Test
+    fun aboutDev() =
+        about(
+            "desktop-about-dev",
+            DesktopUpdateState.Idle,
+            DesktopVersion(905, "0.7.6-dev.3+gabc1234"),
+        )
+
+    @Test fun aboutChecking() = about("desktop-about-checking", DesktopUpdateState.Checking)
+
+    @Test fun aboutUpToDate() = about("desktop-about-up-to-date", DesktopUpdateState.UpToDate)
+
+    @Test
+    fun aboutCheckFailed() =
+        about(
+            "desktop-about-failed",
+            DesktopUpdateState.CheckFailed("连 github.com 超时；连 gh-proxy.com 超时"),
+        )
+
+    @Test
+    fun updateReady() = about("desktop-update-ready", DesktopUpdateState.Available(NewRelease))
+
+    @Test
+    fun updateDownloading() =
+        about(
+            "desktop-update-downloading",
+            DesktopUpdateState.Available(NewRelease, DesktopUpdateStep.Downloading(48_300_000)),
+        )
+
+    @Test
+    fun updateFailed() =
+        about(
+            "desktop-update-failed",
+            DesktopUpdateState.Available(
+                NewRelease,
+                DesktopUpdateStep.Failed("从 github.com 下的文件 sha256 和清单不一致，已删掉"),
+            ),
+        )
+
     private companion object {
         const val WIDTH = 1280
         const val HEIGHT = 860
         const val FRAMES = 60
         const val FRAME_NANOS = 16_000_000L
+
+        val Release = DesktopVersion(900, "0.7.5")
+
+        val NewRelease =
+            UpdateManifest(
+                versionCode = 905,
+                versionName = "0.7.6",
+                notes =
+                    "- feat(desktop): 桌面版自己检查和安装更新\n- fix(chat): 长回答滚动时不再跳动\n- perf(pane): 会话列表打开更快",
+                apk = "Zeta-v0.7.6.apk",
+                url = "https://github.com/dzshzx/Zeta/releases/download/v0.7.6/Zeta-v0.7.6.apk",
+                size = 13_200_000,
+                sha256 = "ab".repeat(32),
+                publishedAt = "2026-11-22T08:00:00Z",
+                msi =
+                    UpdatePackage(
+                        "Zeta-v0.7.6.msi",
+                        "https://github.com/dzshzx/Zeta/releases/download/v0.7.6/Zeta-v0.7.6.msi",
+                        115_400_000,
+                        "cd".repeat(32),
+                    ),
+            )
     }
 }

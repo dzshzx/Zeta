@@ -220,7 +220,7 @@ internal class AppUpdates private constructor(private val app: Context) {
                 dir.mkdirs()
                 setStep(id, UpdateStep.Downloading(0))
                 var shown = 0L
-                http.download(manifest, file) { done ->
+                http.download(manifest.apkPackage, file) { done ->
                     // 大约每 1% 更新一次界面
                     if (done - shown >= manifest.size / 100 || done == manifest.size) {
                         shown = done

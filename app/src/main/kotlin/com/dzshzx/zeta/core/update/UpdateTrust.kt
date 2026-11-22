@@ -12,13 +12,11 @@ import com.dzshzx.zeta.core.Settings
  * 去掉。`devOverride` 参数只给单元测试用：测试跑在测试版上，要传 false 才测得到正式版的行为。
  */
 internal object UpdateTrust {
-    /** 最新正式版的清单：GitHub 把 latest 跳到最新发布的那个 Release。 */
-    const val MANIFEST_URL = "https://github.com/dzshzx/Zeta/releases/latest/download/update.json"
-
+    /** 清单地址：正式版是 [UpdateManifest.LATEST_URL]。 */
     fun manifestUrl(
         settings: Settings,
         devOverride: Boolean = BuildConfig.UPDATE_DEV_OVERRIDE,
-    ): String = (if (devOverride) settings.updateDevManifest else null) ?: MANIFEST_URL
+    ): String = (if (devOverride) settings.updateDevManifest else null) ?: UpdateManifest.LATEST_URL
 
     fun trustedCert(
         settings: Settings,
