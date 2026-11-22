@@ -30,6 +30,7 @@ func newConversations(e *env) *conversations {
 	h.m = conv.NewManager(conv.Deps{
 		Start:       startHost(e),
 		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
+		Subagent:    func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
 		DefaultMode: func() string { return defaultPermissionMode(e) },
 		Windows:     windows,
 	}, h.send)
@@ -68,6 +69,15 @@ func historyOutput(e *env, args []string) ([]byte, error) {
 	var buf bytes.Buffer
 	o := newEmitter(&buf)
 	err := dispatchHistory(e, o, args)
+	o.flush()
+	return buf.Bytes(), err
+}
+
+// subagentOutput 是 zeta-helper subagent 的输出（子代理查看页增量读记录），同样在核心进程里直接跑。
+func subagentOutput(e *env, args []string) ([]byte, error) {
+	var buf bytes.Buffer
+	o := newEmitter(&buf)
+	err := dispatchSubagent(e, o, args)
 	o.flush()
 	return buf.Bytes(), err
 }

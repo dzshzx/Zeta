@@ -13,6 +13,8 @@ type Deps struct {
 	Start func(StartOptions, Events) (Link, error)
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
 	History func(args ...string) ([]byte, error)
+	// Subagent 跑 zeta-helper subagent 的参数（子代理查看页增量读记录），返回它的输出（第一行 zeta_subagent，之后一行一个事件）
+	Subagent func(args ...string) ([]byte, error)
 	// DefaultMode 是这台主机上 Claude Code 设置里的默认权限模式（permissions.defaultMode），不知道时为空
 	DefaultMode func() string
 	// Windows 是这台主机上学到的各模型的上下文窗口（用量条用），几个对话共用；可以是 nil

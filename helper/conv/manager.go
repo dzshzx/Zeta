@@ -60,6 +60,8 @@ type request struct {
 	Model     string              `json:"model"`
 	Effort    string              `json:"effort"`
 	Hint      string              `json:"hint"`
+	ToolUseID string              `json:"tool_use_id"`
+	Watch     bool                `json:"watch"`
 	Message
 }
 
@@ -149,6 +151,9 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 		c.mcpReply(r.RequestID, r.Response)
 		return nil, nil
 	},
+	"conv.subagent": func(c *Conversation, client int, r request) (any, error) {
+		return nil, c.watchSubagent(client, r.ToolUseID, r.Watch)
+	},
 }
 
 func value(r request) string {
@@ -200,6 +205,7 @@ func (m *Manager) release(client int, name string, c *Conversation) {
 	_, _ = c.Call(func() (any, error) {
 		delete(c.holders, client)
 		delete(c.options, client)
+		c.unwatchSubagents(client)
 		return nil, nil
 	})
 }

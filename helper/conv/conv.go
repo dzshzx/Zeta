@@ -78,6 +78,7 @@ type Conversation struct {
 	openedSession string
 	sendNow       bool // 这个进程的 Claude Code 认 interrupt 的 send_now
 	autoName      autoTitle
+	subagents     subagentTracker // 子代理查看页（subagent.go）
 
 	options  map[int]Options // 各客户端给的设置
 	starter  int             // 起进程用谁的设置：最近一个发消息（或要起进程）的客户端
