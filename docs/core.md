@@ -26,7 +26,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 对话的状态在核心进程 `zeta-helper core` 里（服务端框架在 `helper/core`，对话逻辑是挂在上面的处理器）：每台主机上每个 Linux 用户、每个包（`ZETA_NAME`）、每个 helper 版本一个，监听 `~/.cache/<ZETA_NAME>/core/<版本>.sock`（版本是程序文件名 `zeta-helper-<版本>` 去掉前缀；目录只有本人能进；测试用环境变量 `ZETA_CORE_DIR` 换个目录）。只起一个靠同目录的 `<版本>.lock`：正在跑的核心持着它（flock，里面写着进程号），已有核心在听时新起的直接退出，上一个崩溃留下的套接字文件由拿到锁的那个清掉再听。客户端不直接连它：serve 收到 `conv.` 开头的请求时连上核心，没人在听就用同一个程序拉起一个（`core` 子命令，自成一个会话，标准错误追加到同目录的 `<版本>.log`），等它听上，约 5 秒为限，连不上时这个请求答出错；几个 serve 同时拉起时由锁保证只留一个。之后这类请求原样转过去，核心的应答和推送原样写回客户端，ping、`sessions.watch` 照旧由 serve 自己答。核心没了（崩溃、被结束）时 serve 跟着退出，客户端照常重连，重新打开它的对话。
 
-- 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：下次打开时载入会话记录、接上还在跑的进程。
+- 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：核心起来时扫一遍托管进程（`zeta-helper hosts`），在回答、等确认、有后台任务的接上（有会话记录的先载入历史，从输出日志的下一行读起，还没答的确认重新排上），闲着的断开；客户端之后打开同一个会话号拿到的就是接上的那个。闲着被断开的，下次发消息时 `zeta_host.sh start` 照常接回同一个进程。
 - 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒，核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话（处理器说自己闲着）满 60 秒就退出；收到 SIGTERM 时也干净退出，都会删掉自己的套接字文件。
 - 同一个会话在一个核心里只有一份状态：几个客户端打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。不同 helper 版本的核心（比如手机和电脑装的版本不同）可以同时各有一份同一个会话的状态，各自接着同一个托管进程，行为和现在两个客户端同时接着一样（见 `zeta_host.sh` 开头）。
 
@@ -51,8 +51,17 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.task_output` | `task` | 读后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}` |
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
 | `conv.mcp_reply` | `request_id`、`response` | 手机工具的应答（见 `conv.mcp`） |
+| `conv.earlier` | `rest` | 载入更早的一页接到最前面（`rest` 为真时载完剩下的全部，对话内查找用）。新的一页经 `conv.items` 推成一次替换（`at` 0、`remove` 0），不推整份，客户端据此保住正看着的位置；读完才回应答。同一时间只读一页，正在读时答出错。会话记录在别处被改过（比如终端里剪到了更早的地方）时答出错「会话记录在别处改过，重新打开这个对话再看更早的内容」，重试没用 |
+| `conv.rewrite` | `target`、`text`、`images`、`files` | 编辑或重新生成：`target` 是那条用户消息的条目 `id`。请 Claude Code 剪掉它和之后的内容（`rewind_conversation`，会话号不变），剪成了再发新消息；没剪成时列表恢复原样、新消息放回 `recalled`，列表里加一条出错提示 |
+| `conv.drop` | `target` | 删掉这一轮和之后的（只剪不发），没剪成时恢复并提示原因 |
+| `conv.code_changes` | `target` | 把文件改回这条消息之前会动到哪些（`rewind_files` 的 dry_run，只看不改），`result` 是 `{files, insertions, deletions}`，没有可还原的为 `null` |
+| `conv.restore_code` | `target`、`drop` | 把文件改回这条消息之前（终端 `/rewind` 的 Restore code）；`drop` 为真时还原成了再删这一轮。结果以列表里的提示告知 |
+| `conv.fork` | `as`、`last` | 从条目 `last` 所在那一轮之后分支：新对话由这个客户端以名字 `as` 拿着（同 `conv.open`，推整份），原对话不动。新对话先显示到那一轮为止的内容，标题是「分支 · 原标题」（重名时编号），发出第一条消息时 Claude Code 才从原会话复制出新会话（`--fork-session`）；从中间分支时先剪掉下一轮 |
+| `conv.quota` | | 借这个对话开着的进程问一次订阅额度（`get_usage`），`result` 是应答里的 `response` 原样（交给 `quota.usage`，见「账号与额度」）；没有进程时出错 |
+| `conv.subagent` | `tool_use_id`、`watch` | 子代理查看页：`watch` 为真时开始给这个客户端推这个子代理（`tool_use_id` 是发起它的 Agent 调用）的 `conv.subagent`，为假时停；放开对话、断开时也停。有人看着时核心增量读它的记录 |
+| `conv.activity` | `watch` | 不带 `conv`。订阅（`watch` 为真）或退订这个核心里各会话的忙闲，见推送 `conv.activity` |
 
-`options`（都可省，写法见 `helper/conv/conv.go` 的 `Options`）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）。
+`options`（都可省，写法见 `helper/conv/conv.go` 的 `Options`）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）、`desk`（这台主机是远程主机，不是客户端所在的设备：新会话拿到会话号时、之后每次起进程时，核心在远程的「Zeta」tmux 会话里补开它的窗口，回到电脑前 `tmux attach -t zeta` 接着；删除、归档时关窗口仍由客户端调 `desk-close`）。
 
 `options` 按客户端分开记：起进程时用发起这次起进程的那个客户端的（发消息、压缩等），`mcp_config` 只在有声明 `phone` 的客户端拿着这个对话时才带上。
 
@@ -60,12 +69,14 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 推送（都带 `conv`）：
 
-- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`blocked`（会话正被 Zeta 之外的进程占着）。
+- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`earlier_loading`（正在载入更早的一页）、`can_rewind`（现在能不能编辑、重新生成、删除一轮、还原代码、分支：这一轮结束了，没有等确认、排队的消息，没在剪、没在载入历史，会话没被别处占着）、`blocked`（会话正被 Zeta 之外的进程占着）。
 - `conv.items`：聊天条目（格式见 `helper/transcript/items.go`）。`full` 为真时 `items` 是整份；否则是一次替换：从下标 `at` 起去掉 `remove` 项、换成 `items`。流式回答时通常只换最后一两项。
 - `conv.turn`：一轮的起止，客户端据此提醒。`phase` 是 `started` 或 `finished`；结束时带 `outcome`（`done`、`stopped`、`failed`、`interrupted`：进程意外没了）和一句 `text`。
 - `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。
 - `conv.reply`：新的一条回复开始了（`message_id`，子代理的也算），只发给 `options.phone` 为真的客户端：手机工具的控件编号从这时起换成上一批结果里的那份。
 - `conv.phone_cancel`：这一轮被停了，只发给 `options.phone` 为真的客户端，那边把暂停、接管着的手机操作一并作废。
+- `conv.subagent`：看着的那个子代理（`tool_use_id`）的记录，只发给用 `conv.subagent` 看着它的客户端。条目和 `conv.items` 同格式、同增量规则（第一次 `full`）；另有 `meta`（`{agent_id, agent_type, description, model, finished, stopped, background}`）、`prompt`（交给它的任务）、`tool_uses`、`running`、`loaded`、`missing`（记录文件还没有）、`failure`（读失败的原因）、`file`、`skipped`（只留最近一段，前面略去了几条）。
+- `conv.activity`（不带 `conv`，只发给订阅了的客户端）：`{sessions: {会话号: {activity, tasks, turn_end}}}`，每次变了推整份，订阅时先给一份。`activity` 是 `waiting`（等用户回应）、`answering`（在回答）、`background`（这一轮答完了，后台任务还在跑）、`idle`（进程开着、没在干活），进程没了时省掉；`tasks` 是还在跑的后台任务数；`turn_end` 是最后一轮结束的时刻（Unix 毫秒），客户端拿它算「不在眼前时答完了一轮、还没看」。只报这个核心里的对话：现在核心还按 helper 版本分，别的版本的核心接着的由那边报（「一个服务端」做完后就是全部）。
 
 ## 账号与额度
 
