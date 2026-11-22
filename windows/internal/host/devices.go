@@ -14,6 +14,8 @@ type Devices struct {
 	Links  *sshlink.Links
 	Config *sshlink.OpenSSH
 	Helper *hostlink.Program
+	// Switch 是带到设备上的 claude-switch（账号与额度），见 ClaudeSwitch。
+	Switch *hostlink.Program
 }
 
 // Probe 见 host.Probe。

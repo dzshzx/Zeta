@@ -214,3 +214,9 @@ const EarlierStale = "会话记录在别处改过"
 
 // IsEarlierStale：err 是 conv.earlier 因为会话记录在别处改过而没读成，重试没用。
 func IsEarlierStale(err error) bool { return err != nil && strings.Contains(err.Error(), EarlierStale) }
+
+// Quota 借这个对话开着的 Claude Code 进程问一次订阅额度（conv.quota），返回 get_usage 应答的原文，交给 quota.usage 读。
+// 没有进程时核心答出错。
+func (c *Conversation) Quota(ctx context.Context) (json.RawMessage, error) {
+	return c.callResult(ctx, "conv.quota", nil)
+}

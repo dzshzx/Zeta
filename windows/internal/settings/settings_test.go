@@ -188,3 +188,31 @@ func TestUpdatePrefsUseComposeKeysAndTypes(t *testing.T) {
 		t.Error("defaults")
 	}
 }
+
+// 外观同 Compose 版：键 dark 是布尔值，跟随系统时没有这个键。
+func TestDarkUsesComposeKey(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, set := s.Dark(); set {
+		t.Fatal("没设过时应该跟随系统")
+	}
+	dark := true
+	if err := s.SetDark(&dark); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "zeta.json"))
+	if err != nil || !strings.Contains(string(data), `"dark":{"t":"b","v":true}`) {
+		t.Fatalf("写出来的：%s %v", data, err)
+	}
+	if err := s.SetDark(nil); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := Load(dir); again != nil {
+		if _, set := again.Dark(); set {
+			t.Fatal("改回跟随系统后还留着 dark")
+		}
+	}
+}

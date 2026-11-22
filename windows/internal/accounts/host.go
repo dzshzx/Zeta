@@ -7,6 +7,7 @@ package accounts
 import (
 	"context"
 	"encoding/json"
+	"errors"
 )
 
 // Caller 向一台主机上的 serve 发一个请求：params 的各个键和 id、method 平级放进请求那一行，返回 reply 的 result 原文。
@@ -33,11 +34,14 @@ type Conversations interface {
 	CloseIdle() bool
 }
 
-// UsageSource 向那台主机上的 Claude Code 要一次额度（serve 的 conv.quota：借开着的对话进程问，没有就单起一个只答这个问题的），
+// UsageSource 向那台主机上的 Claude Code 要一次额度（serve 的 conv.quota：借开着的对话进程问，没有时返回 ErrNoProcess），
 // 返回 get_usage 应答的原文（control_response 的 response.response）。由对话核心那边实现；没有时 Quota 只读主机上存着的数。
 type UsageSource interface {
 	Usage(ctx context.Context) (json.RawMessage, error)
 }
+
+// ErrNoProcess 是 UsageSource 在那台上没有开着的 Claude Code 进程可借时返回的：Quota 这时只读主机上存着的数。
+var ErrNoProcess = errors.New("没有开着的 Claude Code 进程")
 
 // coded 是带 code 的 serve 出错（见 Caller）。
 type coded interface{ Code() string }

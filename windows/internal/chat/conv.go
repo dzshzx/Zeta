@@ -225,3 +225,10 @@ func (c *Conversation) Session() string {
 	}
 	return c.spec.Session
 }
+
+// State 是此刻的状态（同 Take 给的那份，不取走变化）。可以在任何 goroutine 里调。
+func (c *Conversation) State() State {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.state
+}

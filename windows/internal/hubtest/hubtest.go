@@ -13,6 +13,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"golang.org/x/crypto/ssh"
 )
@@ -227,3 +228,11 @@ func (d *Devices) Searched() []string {
 	defer d.mu.Unlock()
 	return slices.Clone(d.searched)
 }
+
+// ClaudeSwitch 见 hub.Devices：假的 claude-switch，路径为空（serve 自己找），装的时候什么都不做。
+func (d *Devices) ClaudeSwitch(sshlink.Host) accounts.Program { return program{} }
+
+type program struct{}
+
+func (program) Path() string                  { return "" }
+func (program) Install(context.Context) error { return nil }

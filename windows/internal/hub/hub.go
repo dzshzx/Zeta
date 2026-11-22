@@ -18,6 +18,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
@@ -46,6 +47,8 @@ type Devices interface {
 	Upload(ctx context.Context, h sshlink.Host, u host.Upload, progress func(int64)) (string, error)
 	// CheckPath 查设备 h 上的路径是什么。阻塞。
 	CheckPath(h sshlink.Host, path string) (hostlink.PathKind, error)
+	// ClaudeSwitch 是带到设备 h 上的 claude-switch（账号与额度用，见 host.Devices.ClaudeSwitch）。
+	ClaudeSwitch(h sshlink.Host) accounts.Program
 }
 
 // Hub 见包的说明。
@@ -64,8 +67,9 @@ type Hub struct {
 	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按置顶键）
 	search   search                                  // 侧栏的搜索（search.go）
 
-	chat  *Chat                // 聊天窗格里的对话
-	conns map[string]*chatConn // 各台给对话用的 serve 连接
+	chat    *Chat                // 聊天窗格里的对话
+	conns   map[string]*chatConn // 各台给对话用的 serve 连接
+	remotes map[string]*Remote   // 设置里各台的 Claude Code 配置、账号与额度（remote.go）
 
 	// SearchDelay 是关键词停下多久才去搜对话内容（打字时不必每个字都搜一次）；测试里设成 0。
 	SearchDelay time.Duration
@@ -74,7 +78,7 @@ type Hub struct {
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
 func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
-		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{},
+		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay}
 	for _, pin := range s.Pins() {
 		h.pins[pin] = true
@@ -399,6 +403,7 @@ func (h *Hub) RemoveHost(id string) error {
 		h.CloseChat()
 	}
 	h.closeConn(id)
+	delete(h.remotes, id)
 	return nil
 }
 

@@ -205,3 +205,20 @@ func logSave(err error) {
 		log.Printf("zeta: 设置没存上：%v", err)
 	}
 }
+
+// Store 是底下的设置文件：按键读写的部件（Claude Code 配置页的 claudecfg.Prefs）直接用它。
+func (s *Settings) Store() *Store { return s.store }
+
+// keyDark 是外观（同 Settings.kt 的 darkTheme）：true 深色、false 浅色，没有这个键是跟随系统。
+const keyDark = "dark"
+
+// Dark 是选的深浅色；跟随系统时 set 为 false。
+func (s *Settings) Dark() (dark, set bool) { return s.store.Bool(keyDark) }
+
+// SetDark 存深浅色：nil 是跟随系统。
+func (s *Settings) SetDark(dark *bool) error {
+	if dark == nil {
+		return s.store.Delete(keyDark)
+	}
+	return s.store.SetBool(keyDark, *dark)
+}

@@ -44,10 +44,6 @@ func (c *chatConn) Call(ctx context.Context, method string, params map[string]an
 	return c.link.Call(ctx, method, params)
 }
 
-// chatOptions 是起 Claude Code 进程用的设置。设备各自的自动标题、自动压缩是第 5 段的设置页，现在照 Kotlin 版的默认：
-// 自动标题开着，自动压缩照 Claude Code 自己的。
-var chatOptions = chat.Options{AutoTitle: true}
-
 // Chat 是聊天窗格里的对话；没有时是 nil。
 func (h *Hub) Chat() *Chat { return h.chat }
 
@@ -69,7 +65,7 @@ func (h *Hub) OpenSession(s hostlink.Session) {
 		return
 	}
 	h.open(&Chat{Backend: s.Backend, Session: s},
-		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: chatOptions}, false)
+		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: h.options(s.Backend)}, false)
 }
 
 // NewChat 在侧栏正看着的设备上开一个新对话，工作目录是它的默认工作目录；先在设备上看进不进得去。
@@ -83,7 +79,7 @@ func (h *Hub) NewChat() {
 		cwd = x.Home
 	}
 	h.open(&Chat{Backend: x.ID, Session: hostlink.Session{Cwd: cwd, Backend: x.ID}},
-		chat.Spec{Cwd: cwd, Options: chatOptions}, true)
+		chat.Spec{Cwd: cwd, Options: h.options(x.ID)}, true)
 }
 
 // open 换成对话 c：关掉原来的，在后台连设备、打开，结果回主线程填进 c。checkCwd 时先看工作目录进不进得去。
@@ -244,8 +240,8 @@ func (h *Hub) reopen(c *Chat) {
 	}
 	h.chat = nil // 原来的连接已经关了，不再发 conv.close
 	if s.ID == "" {
-		h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Cwd: s.Cwd, Options: chatOptions}, true)
+		h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Cwd: s.Cwd, Options: h.options(c.Backend)}, true)
 		return
 	}
-	h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: chatOptions}, false)
+	h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: h.options(c.Backend)}, false)
 }

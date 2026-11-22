@@ -90,6 +90,8 @@ func (q *Quota) fetch(ctx context.Context, ask bool) (quotaResult, error) {
 	}
 	raw, err := q.source.Usage(ctx)
 	switch {
+	case errors.Is(err, ErrNoProcess):
+		return r, q.call(ctx, "quota.get", nil, &r)
 	case errors.Is(err, context.DeadlineExceeded):
 		return r, errors.New("等了太久没有结果")
 	case err != nil:
