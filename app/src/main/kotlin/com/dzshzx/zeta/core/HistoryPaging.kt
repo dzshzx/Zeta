@@ -29,6 +29,7 @@ sealed interface EarlierState {
  * 读出来的一段历史：条目已经归并进调用方给的 [TranscriptReducer]。[earlier] 是这段之前还剩的部分（读完了是 null）， [todoSeed]
  * 是那部分里的清单工具调用，[usage] 是这段的用量。[stale] 表示助手核对窗口没对上，什么都没给。 [model]、[effort]
  * 是整个对话主线上最后一次真实回答用的模型和思考强度（助手按整份记录算，不只是这一段）： 重新打开对话时思考强度照它恢复，模型在 Claude Code 报来之前先显示。
+ * [switchedModel] 是那次回答之后终端里 /model 换成的模型（Claude Code 打出来的显示名，比如 Fable 5.2），没换过是 null。
  */
 class HistoryRead(
     val earlier: EarlierHistory?,
@@ -37,6 +38,7 @@ class HistoryRead(
     val stale: Boolean,
     val model: String? = null,
     val effort: String? = null,
+    val switchedModel: String? = null,
 )
 
 internal object HistoryPaging {
@@ -61,6 +63,7 @@ internal object HistoryPaging {
         var stale = false
         var model: String? = null
         var effort: String? = null
+        var switched: String? = null
         for (line in stdout.lineSequence()) {
             val event =
                 runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
@@ -72,6 +75,7 @@ internal object HistoryPaging {
                 seed = TodoBoard.seedSteps(event.arr("todo_seed"))
                 model = event.str("model")
                 effort = event.str("effort")
+                switched = event.str("switched_model")
                 continue
             }
             usage.observeHistory(event)
@@ -94,7 +98,7 @@ internal object HistoryPaging {
         }
         into.finishTurn(keepRunningTools)
         usage.finishHistory()
-        return HistoryRead(earlier, seed, usage, stale, model, effort)
+        return HistoryRead(earlier, seed, usage, stale, model, effort, switched)
     }
 
     /** 要 [window] 之前的一页时给助手的参数。 */

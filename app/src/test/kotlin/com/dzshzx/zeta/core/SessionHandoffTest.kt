@@ -51,7 +51,7 @@ class SessionHandoffTest {
         assertFalse(externalNoticeText(null, handing = false, problem = null).enabled)
         externalNoticeText(Occupant(Occupant.IDLE), handing = false, problem = null).let {
             assertTrue(it.enabled)
-            assertEquals("在 Zeta 接着", it.button)
+            assertEquals("接管会话", it.button)
             assertTrue(it.summary.contains("/exit"))
         }
         externalNoticeText(
@@ -66,7 +66,7 @@ class SessionHandoffTest {
         externalNoticeText(Occupant("busy", handsOver = false), handing = false, problem = null)
             .let {
                 assertFalse(it.enabled)
-                assertEquals("等那边这一轮结束", it.button)
+                assertEquals("等待对方空闲", it.button)
             }
         assertFalse(
             externalNoticeText(Occupant(Occupant.IDLE), handing = true, problem = null).enabled,

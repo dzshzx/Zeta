@@ -40,27 +40,27 @@ internal fun externalNoticeText(
     handing: Boolean,
     problem: String?,
 ): ExternalNoticeText {
-    val take = "在 Zeta 接着"
+    val take = "接管会话"
     val summary =
         when {
             problem != null -> problem
-            occupant == null -> "另一个 Claude Code 进程（比如终端里的）开着它，正在看那边闲不闲。"
+            occupant == null -> "另一个 Claude Code 进程（例如终端里的）正在使用此会话，正在查询它的状态。"
             occupant.status == Occupant.IDLE ->
-                "终端里的 Claude Code 开着它，现在闲着。接过来会让那边像 /exit 一样退出，终端里留下 claude --resume 的提示，再在这里接着。"
+                "终端里的 Claude Code 正在使用此会话，当前空闲。接管后，终端一侧会像执行 /exit 一样退出并留下 claude --resume 提示，会话转到 Zeta 继续。"
             occupant.status == Occupant.WAITING ->
-                "终端里的 Claude Code 在等你确认" +
+                "终端里的 Claude Code 正在等待确认" +
                     (occupant.waitingFor?.let { "（$it）" } ?: "") +
-                    "。接过来那个确认就作废，接上后让 Claude 重新来一遍。"
+                    "。接管后该确认作废，需要让 Claude 重新执行这一步。"
             occupant.status == Occupant.UNKNOWN ->
-                "另一个 Claude Code 进程开着它，看不出它闲不闲。接过来会让它退出，要是它正在做事，做到一半的会停下。"
-            occupant.status == Occupant.SHELL -> "终端里的 Claude Code 正在执行 ! 命令，跑完就能接过来。"
-            else -> "终端里的 Claude Code 正在回答，这一轮结束就能接过来。"
+                "另一个 Claude Code 进程正在使用此会话，无法判断它是否空闲。接管会使它退出，进行中的操作将被中断。"
+            occupant.status == Occupant.SHELL -> "终端里的 Claude Code 正在执行 ! 命令，执行完毕后可以接管。"
+            else -> "终端里的 Claude Code 正在回答，本轮结束后可以接管。"
         }
     return when {
-        handing -> ExternalNoticeText(summary, "正在接过来…", enabled = false)
+        handing -> ExternalNoticeText(summary, "正在接管…", enabled = false)
         occupant == null || occupant.handsOver ->
             ExternalNoticeText(summary, take, enabled = occupant != null)
-        else -> ExternalNoticeText(summary, "等那边这一轮结束", enabled = false)
+        else -> ExternalNoticeText(summary, "等待对方空闲", enabled = false)
     }
 }
 
@@ -88,7 +88,7 @@ internal fun ExternalSessionNotice(conversation: Conversation, modifier: Modifie
             modifier.fillMaxWidth().chatPanel(shape).padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
-            text = "这个会话正在别处运行",
+            text = "会话正在别处运行",
             style = COUITheme.textStyles.headlineXS,
             color = colors.labelPrimary,
         )

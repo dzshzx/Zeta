@@ -1,6 +1,6 @@
 #!/bin/bash
 # 把终端里开着的会话接到 Zeta：会话正被 Zeta 之外的 Claude Code 占着时，聊天页底部是「别处运行」卡片。
-# 那边正忙时按钮是灰的、点了不动它；那边闲下来（卡片每 3 秒查一次）后点「在 Zeta 接着」，那边照 /exit 退出、登记删掉，
+# 那边正忙时按钮是灰的、点了不动它；那边闲下来（卡片每 3 秒查一次）后点「接管会话」，那边照 /exit 退出、登记删掉，
 # 卡片收起，再发一条消息由假 Claude 接着这个会话答完一轮。
 # 先在设备自己的 Debian 上走一遍（local），再把它当远程主机（127.0.0.1:8022，要先准备好，见 remote-host.sh）走一遍（remote）。
 # 截图 <情形>-busy.png（灰按钮）、<情形>-idle.png（能点）、<情形>-handed.png（卡片收起）、<情形>-replied.png（接着答完）。
@@ -13,7 +13,7 @@ set -euo pipefail
 
 DIR=/tmp/zeta-handoff-external
 ID=$(cat /proc/sys/kernel/random/uuid)
-# 卡片上「在 Zeta 接着」按钮的中心（按 JVM 截图 chat-external-idle 量的，按钮贴着卡片底边，说明几行都不影响它）
+# 卡片上「接管会话」按钮的中心（按 JVM 截图 chat-external-idle 量的，按钮贴着卡片底边，说明几行都不影响它）
 HANDOFF_X=300 HANDOFF_Y=2512
 
 trap 'drop_session $ID $DIR' EXIT
@@ -42,7 +42,7 @@ for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; 
   vd tap $HANDOFF_X $HANDOFF_Y >/dev/null
   result=$(vd debian "for _ in \$(seq 200); do kill -0 $pid 2>/dev/null || break; sleep 0.1; done
 if kill -0 $pid 2>/dev/null; then echo 还在跑; elif [ -e ~/.claude/sessions/$pid.json ]; then echo 进程没了但登记还在; else echo handed; fi" | tr -d '\r')
-  [[ $result == handed ]] || { echo "$name：点了「在 Zeta 接着」后假 claude（$pid）$result"; exit 1; }
+  [[ $result == handed ]] || { echo "$name：点了「接管会话」后假 claude（$pid）$result"; exit 1; }
   sleep 2
   vd shot "$name-handed.png" >/dev/null
   android "touch /data/local/tmp/zeta-handoff-mark"

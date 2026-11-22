@@ -133,8 +133,8 @@ class SessionHandoff(
                         onFreed()
                     }
                     is HandoffResult.Busy -> occupant = result.occupant
-                    HandoffResult.Stuck -> problem = "那边的 Claude Code 没有退出。要强行停掉它，用右上角菜单里的「结束对话」。"
-                    is HandoffResult.Failed -> problem = "没接过来：${result.reason}"
+                    HandoffResult.Stuck -> problem = "对方的 Claude Code 没有退出。如需强制结束，请使用右上角菜单中的「结束对话」。"
+                    is HandoffResult.Failed -> problem = "接管失败：${result.reason}"
                 }
             }
         }

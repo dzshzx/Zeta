@@ -35,6 +35,8 @@ import org.junit.Test
  * - 思考强度不恢复：接回后是默认的那档，所以 Zeta 照会话记录自己恢复（--effort）。
  * - 记录里的模型下线了（API 说没有这个模型）：照用不误，不自动换，这一轮以出错结束（result 的 is_error），init 报的就是那个模型； 之后用 set_model
  *   换一个就照常（用户在 Zeta 的模型菜单里另选一个）。
+ * - 终端里 `/model` 换的模型不恢复：记录里只有它打出来的那句话，接着时用最后一次回答的模型，一个回答都没有时用默认模型。所以 Zeta
+ *   读出那句话，起进程时指定换成的模型（[com.dzshzx.zeta.core.Conversation.restoreModel]）。
  * - 没测到的：`[1m]` 变体接回后还在不在。用 API key 时 Claude Code 不提供 [1m] 选项，`--model sonnet[1m]` 的请求也不带 1M 的
  *   beta， 这里分不出来，要用订阅账号在真机上看。
  *
@@ -371,6 +373,63 @@ class ClaudeResumeContractTest {
             assertEquals("false", (ok["is_error"] as? JsonPrimitive)?.contentOrNull)
             assertEquals("claude-sonnet-5-5", lastRequest.first)
         }
+    }
+
+    /** 终端里 `/model` 留在会话记录里的三行（2.1.330 的原样），接在 [parent] 后面。 */
+    private fun slashModelLines(session: String, parent: String?, name: String): String {
+        val ids = List(3) { java.util.UUID.randomUUID().toString() }
+        val contents =
+            listOf(
+                "<local-command-caveat>The command below was run directly in Claude Code, not sent to you as a request, and its output goes straight to the user. It's recorded here as context for later messages.</local-command-caveat>",
+                "<command-name>/model</command-name>\n            <command-message>model</command-message>\n            <command-args></command-args>",
+                "<local-command-stdout>Set model to `$name` for this session only</local-command-stdout>",
+            )
+        return contents
+            .mapIndexed { i, content ->
+                buildJsonObject {
+                    put("parentUuid", if (i == 0) parent else ids[i - 1])
+                    put("isSidechain", false)
+                    put("type", "user")
+                    putJsonObject("message") {
+                        put("role", "user")
+                        put("content", content)
+                    }
+                    if (i == 0) put("isMeta", true)
+                    put("uuid", ids[i])
+                    put("timestamp", "2026-01-01T00:00:00.000Z")
+                    put("userType", "external")
+                    put("entrypoint", "cli")
+                    put("cwd", File(home, "proj").path)
+                    put("sessionId", session)
+                    put("version", "2.1.330")
+                }
+                    .toString() + "\n"
+            }
+            .joinToString("")
+    }
+
+    /** 终端里 /model 换的模型，接着会话时不认：有过回答的用最后一次回答的模型，一个回答都没有的用默认模型。 */
+    @Test
+    fun aModelSwitchedInTheTerminalIsNotRestored() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        val default = run().model!!
+        val made = run("--model", "sonnet")
+        assertNotEquals(default, made.model)
+        val record =
+            File(home, ".claude/projects").walk().first { it.name == "${made.session}.jsonl" }
+        val last =
+            record
+                .readLines()
+                .mapNotNull { (json.parseToJsonElement(it) as? JsonObject)?.str("uuid") }
+                .last()
+        record.appendText(slashModelLines(made.session, last, "Haiku 4.5"))
+        assertEquals(made.model, run("--resume", made.session).model)
+
+        val bare = java.util.UUID.randomUUID().toString()
+        File(record.parentFile, "$bare.jsonl").writeText(slashModelLines(bare, null, "Haiku 4.5"))
+        val resumed = run("--resume", bare)
+        assertEquals(bare, resumed.session)
+        assertEquals(default, resumed.model)
     }
 
     private companion object {

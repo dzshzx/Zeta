@@ -187,9 +187,22 @@ class Conversation(
     var reportedModel by mutableStateOf(fork?.shownModel)
         private set
 
-    /** 顶栏显示的模型：指定了的就是它，没指定时是 Claude Code 报的（或会话记录里的）；都不知道时是 null，即默认模型。 */
+    /**
+     * 终端里用 /model 换的模型（会话记录里最后一次回答之后换的，载入历史时读到）。Claude Code 接着会话时只认回答用过的模型，不认这次切换
+     * （ClaudeResumeContractTest），所以起进程时由 Zeta 指定它；用户在这个对话里另选了（[model]）就照用户选的。
+     */
+    private var switchedInTerminal: String? = null
+
+    /** 顶栏显示的模型：指定了的就是它，没指定时是 Claude Code 报的（或会话记录里的）；都不知道时是 null，即所在主机的默认模型。 */
     val shownModel: String?
         get() = model ?: reportedModel
+
+    /**
+     * 顶栏写的模型名，是具体的模型（Opus 5.5），不写「默认」：[shownModel] 没有时是所在主机 Claude Code 设置里的默认模型，别名按清单 [models]
+     * 换成它指向的那个。那台还没起过进程、清单没到时，默认模型说不出是哪个，才写「默认」。
+     */
+    fun shownModelName(models: List<ModelOption>): String =
+        modelName(shownModel ?: hub.claudeDefaults(backend)?.model ?: DEFAULT_MODEL, models) ?: "默认"
 
     /**
      * 权限模式：用户在这个对话里的、进程现在用的，规则见 [PermissionModeState]。分支接着用原对话的，
@@ -388,7 +401,8 @@ class Conversation(
                 if (result is HelperResult.Failed) {
                     reducer.addNotice("读取历史记录失败：${result.reason}", error = true)
                 } else {
-                    if (reportedModel == null) reportedModel = read.model
+                    // 接回还在跑的进程时模型以进程报的为准，终端里换的那次已经过去了
+                    restoreModel(read.model, read.switchedModel.takeIf { attach == null })
                     restoreEffort(read.effort)
                 }
                 publish()
@@ -907,6 +921,15 @@ class Conversation(
      * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。 不是 Claude Code
      * 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑； 载入期间用户改不了（思考强度胶囊这时不能点）。
      */
+    /**
+     * 载入历史后照会话记录定模型：[answered] 是最后一次真实回答用的，Claude Code 接着会话时自己恢复它，这里只是先显示；[switched] 是那之后终端里 /model
+     * 换成的（显示名），认得出是哪个模型就记进 [switchedInTerminal]、显示它。
+     */
+    internal fun restoreModel(answered: String?, switched: String?) {
+        switchedInTerminal = switched?.let(::modelIdOfName)
+        if (reportedModel == null) reportedModel = switchedInTerminal ?: answered
+    }
+
     internal fun restoreEffort(recorded: String?) {
         if (process != null) return
         recorded?.takeIf { value -> EffortLevels.any { it.first == value } }?.let { effort = it }
@@ -1230,7 +1253,10 @@ class Conversation(
         return created
     }
 
-    /** 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型。 */
+    /**
+     * 起 Claude Code 进程的参数。没指定模型（[model] 为 null）时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型；
+     * 终端里换过模型、之后还没有回答的（[switchedInTerminal]）指定换成的那个。
+     */
     internal fun launchArguments(mode: String? = modes.forUser): List<String> = buildList {
         addAll(
             listOf(
@@ -1247,7 +1273,7 @@ class Conversation(
         )
         // 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
         addAll(sessionArguments(sessionId, fork?.source, title))
-        model?.let {
+        (model ?: switchedInTerminal)?.let {
             add("--model")
             add(it)
         }
@@ -1614,7 +1640,7 @@ class Conversation(
             )
         }
         unsent.clear()
-        if (released) reducer.addNotice("这个会话在电脑上接着了", error = false)
+        if (released) reducer.addNotice("会话已转到电脑终端继续", error = false)
         blockedByExternal = true
         publish()
         handoff.refresh()

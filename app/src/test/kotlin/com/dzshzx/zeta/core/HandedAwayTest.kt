@@ -64,7 +64,7 @@ class HandedAwayTest {
         assertNull("送到了的消息不放回去", chat.takeRecalled())
         assertTrue(chat.items.any { it is UserItem })
         assertTrue(chat.items.none { it is NoticeItem && it.error })
-        assertTrue(chat.items.any { it is NoticeItem && it.text.contains("电脑上接着") })
+        assertTrue(chat.items.any { it is NoticeItem && it.text.contains("转到电脑终端") })
     }
 
     @Test

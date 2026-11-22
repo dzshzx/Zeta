@@ -83,7 +83,6 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
-import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.turnActions
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -1024,7 +1023,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
     val selected =
         conversation.model
             ?: Conversation.DEFAULT_MODEL.takeUnless { conversation.modelFromSession }
-    val modelName = modelLabel(conversation.shownModel, models)
+    val modelName = conversation.shownModelName(models)
     var expanded by remember { mutableStateOf(false) }
     val entries =
         remember(models, selected, conversation) {

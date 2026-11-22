@@ -168,7 +168,7 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 				renameOwnWindow(deskTitle(title, id))
 			}
 			shown, prompt = title, false
-			fmt.Fprintf(w, "\n%s\n回车在终端里接着（claude --resume %s）；Ctrl+C 关掉这个窗口。\n", deskHeader(title, id), id)
+			fmt.Fprintf(w, "\n%s\n按回车在终端里接管会话（claude --resume %s）；Ctrl+C 关掉这个窗口。\n", deskHeader(title, id), id)
 		}
 		entered, eof := waitEnter(deskTick)
 		if eof {
@@ -204,9 +204,9 @@ func (e *env) deskRelease(w io.Writer, id string) bool {
 	if _, busy := e.releaseSession(id, 0); !busy {
 		return true
 	}
-	fmt.Fprintln(w, "Zeta 那边这一轮还在跑，跑完就接过来……")
+	fmt.Fprintln(w, "Zeta 一侧的本轮回答尚未结束，结束后自动接管……")
 	if _, busy := e.releaseSession(id, deskReleaseWait); busy {
-		fmt.Fprintln(w, "等了太久，Zeta 那边还在跑。稍后再回车。")
+		fmt.Fprintln(w, "等待超时，Zeta 一侧仍在回答。请稍后再按回车。")
 		return false
 	}
 	return true

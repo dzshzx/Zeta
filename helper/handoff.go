@@ -202,8 +202,8 @@ func cmdSessionStart(e *env, o *emitter, in io.Reader) error {
 		return nil
 	}
 	if _, busy := e.releaseSession(id, 0); busy {
-		o.out(obj{"systemMessage": "Zeta 那边还在跑这个会话的这一轮。等它跑完再在这里发消息，否则两边会同时写同一份会话记录；" +
-			"跑完后重新 claude --resume 一次，Zeta 那边就会退出。"})
+		o.out(obj{"systemMessage": "Zeta 一侧仍在执行此会话的本轮回答。请等它结束后再在这里发送消息，否则两侧会同时写入同一份会话记录；" +
+			"结束后重新执行一次 claude --resume，Zeta 一侧即会退出。"})
 	}
 	return nil
 }

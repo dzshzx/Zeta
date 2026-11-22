@@ -208,16 +208,39 @@ val FallbackModels =
     )
 
 /**
- * 模型 [value] 给人看的名字，顶栏、模型菜单、设置页都用它：默认模型（null 或 "default"）是「默认」， 清单 [models] 里有显示名的用它，完整 ID 写成「Opus
- * 5.5」，别的原样。
+ * 选择器里模型 [value] 这一项的名字，模型菜单、设置页用它：默认模型（null 或 "default"）写明它现在指向哪个，比如「默认（Opus 5.5）」， 清单 [models]
+ * 还没报它指向谁时只写「默认」；别的项清单里有显示名的用它，完整 ID 写成「Opus 5.5」，别的原样。
  */
 fun modelLabel(value: String?, models: List<ModelOption>): String =
     when {
-        value == null || value == Conversation.DEFAULT_MODEL -> "默认"
+        value == null || value == Conversation.DEFAULT_MODEL ->
+            modelName(Conversation.DEFAULT_MODEL, models)?.let { "默认（$it）" } ?: "默认"
         else ->
             models.firstOrNull { it.value == value }?.displayName?.ifBlank { null }
                 ?: readableModelId(value)
     }
+
+/**
+ * 模型 [value] 实际是哪个模型，写成「Opus 5.5」这样的名字，顶栏和设置首页用它：别名（opus、default）按清单 [models] 换成它指向的完整 ID
+ * 再写；清单里没有它指向谁的别名写显示名，这时默认模型说不出是哪个，是 null。
+ */
+fun modelName(value: String, models: List<ModelOption>): String? {
+    val option = models.firstOrNull { it.value == value }
+    return option?.resolvedModel?.let(::readableModelId)
+        ?: if (value == Conversation.DEFAULT_MODEL) null
+        else option?.displayName?.ifBlank { null } ?: readableModelId(value)
+}
+
+private val ModelName = Regex("([A-Z][a-z]+) (\\d+(?:\\.\\d{1,2})*)")
+
+/**
+ * [readableModelId] 反过来：终端里 /model 打出来的显示名（Fable 5.2）对应的模型 ID（claude-fable-5-2）；不是这个样子的（别家的模型、带 1M
+ * 之类说明的）是 null。
+ */
+fun modelIdOfName(name: String): String? {
+    val (family, version) = ModelName.matchEntire(name)?.destructured ?: return null
+    return "claude-" + family.lowercase() + "-" + version.replace('.', '-')
+}
 
 private val ModelId = Regex("claude-([a-z]+)-(\\d+(?:-\\d{1,2})*)(?:-\\d{8})?(\\[1m])?")
 

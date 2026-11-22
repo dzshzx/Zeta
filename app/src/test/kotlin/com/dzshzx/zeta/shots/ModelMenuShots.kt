@@ -23,7 +23,7 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun chatMenu() {
         val hub = hub()
-        shoot("model-menu", prepare = { tap("Claude · 默认") }) {
+        shoot("model-menu", prepare = { tap("Claude · Opus 5.5") }) {
             ChatScreen(
                 hub = hub,
                 onOpenPane = {},
@@ -71,7 +71,7 @@ class ModelMenuShots : ShotTest() {
                 )
             }
         }
-        compose.tap("Claude · 默认")
+        compose.tap("Claude · Opus 5.5")
         compose.tap("更多模型")
         compose.tap("Opus 4.7")
         assertEquals("claude-opus-4-7", hub.current.model)

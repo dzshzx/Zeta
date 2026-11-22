@@ -67,6 +67,14 @@ func cutAt(owners []any, cut, leaf any) int {
 type timeline struct {
 	events []obj
 	owners []any
+	// 终端里 /model 换模型的各次，按先后；at 是换的时候前面已有几项，被剪掉的部分里的不留
+	switches []modelSwitch
+}
+
+// modelSwitch 是终端里的一次 /model：换成了 name（Claude Code 打出来的显示名，比如 Fable 5.2）。
+type modelSwitch struct {
+	at   int
+	name string
 }
 
 func (t *timeline) add(e obj, owner any) {
@@ -77,6 +85,22 @@ func (t *timeline) add(e obj, owner any) {
 func (t *timeline) cut(cut, leaf any) {
 	keep := cutAt(t.owners, cut, leaf)
 	t.events, t.owners = t.events[:keep], t.owners[:keep]
+	for len(t.switches) > 0 && t.switches[len(t.switches)-1].at > keep {
+		t.switches = t.switches[:len(t.switches)-1]
+	}
+}
+
+// switchedModel 是最后一次真实回答之后终端里 /model 换成的模型（显示名）；之后已经有回答（模型以回答的为准）或没换过时是空串。
+// Claude Code 接着会话时不认这次切换（ClaudeResumeContractTest），界面据此在起进程时指定模型。
+func (t *timeline) switchedModel() string {
+	if len(t.switches) == 0 {
+		return ""
+	}
+	last := t.switches[len(t.switches)-1]
+	if _, _, answered := lastAnswer(t.events[last.at:]); answered {
+		return ""
+	}
+	return last.name
 }
 
 // historyReader 把会话记录读成要显示的消息（形状同 stream-json）。
@@ -183,6 +207,10 @@ func (r *historyReader) user(o obj, content any, number int, row any) {
 		return
 	}
 	if truthy(o["isCompactSummary"]) {
+		return
+	}
+	if m := modelSet.FindStringSubmatch(rawUserText(content)); m != nil {
+		r.switches = append(r.switches, modelSwitch{len(r.events), m[1]})
 		return
 	}
 	if shell := shellText(content); shell != "" {
@@ -355,6 +383,9 @@ func cmdHistory(o *emitter, path string, pos historyPos) error {
 	// 模型和思考强度按整个对话（剪切之后的全部消息）算，不只是这一页
 	if model, effort, ok := lastAnswer(t.events); ok {
 		header["model"], header["effort"] = model, effort
+	}
+	if name := t.switchedModel(); name != "" {
+		header["switched_model"] = name
 	}
 	o.out(header)
 	for _, e := range t.events[start:end] {

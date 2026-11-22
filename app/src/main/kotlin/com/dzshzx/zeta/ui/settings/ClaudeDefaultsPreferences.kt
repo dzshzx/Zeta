@@ -19,8 +19,8 @@ import com.dzshzx.zeta.core.claude.setDefaultEffort
 import com.dzshzx.zeta.core.claude.setDefaultModel
 import com.dzshzx.zeta.core.claude.setDefaultPermissionMode
 import com.dzshzx.zeta.core.effortLabel
-import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.modelMenu
+import com.dzshzx.zeta.core.modelName
 import com.dzshzx.zeta.core.readableModelId
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
@@ -250,9 +250,7 @@ internal fun effortSummary(defaults: ClaudeDefaults): String {
 internal fun hostDefaultsSummary(defaults: ClaudeDefaults, models: List<ModelOption>): String {
     val model = defaults.model ?: Conversation.DEFAULT_MODEL
     val id = models.firstOrNull { it.value == model }?.resolvedModel
-    val name =
-        id?.let(::readableModelId)
-            ?: if (model == Conversation.DEFAULT_MODEL) "默认模型" else modelLabel(model, models)
+    val name = modelName(model, models) ?: "默认模型"
     val effort = effortLabel(defaults.efforts[id ?: model] ?: defaults.effort)
     return listOfNotNull(name, effort).joinToString(" · ")
 }

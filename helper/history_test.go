@@ -215,3 +215,43 @@ func TestHistoryKeepsShellLinesRaw(t *testing.T) {
 		t.Errorf("texts %q, want %q", texts, want)
 	}
 }
+
+func TestHistoryHeaderModelSwitchedInTerminal(t *testing.T) {
+	e := testEnv(t)
+	file := e.root + "/-p/55555555-5555-5555-5555-555555555555.jsonl"
+	slashModel := func(uuid, name, rest string) string {
+		return fmt.Sprintf(`{"type":"user","message":{"content":"<local-command-stdout>Set model to `+"`%s`"+`%s</local-command-stdout>"},"uuid":%q}`, name, rest, uuid)
+	}
+	// 一个回答都没有的会话：只有终端里换的模型
+	writeLines(t, file, slashModel("s1", "Fable 5.2", " for this session only"))
+	out := mustCall(t, e, "history", file)
+	if out[0]["switched_model"] != "Fable 5.2" || out[0]["model"] != nil || len(out) != 1 {
+		t.Errorf("bare %v", out)
+	}
+	// 回答之后换的算数，取最后一次；换了之后又有回答就以回答的为准
+	writeLines(t, file,
+		userLine("u1", "a"), answerLine("a1", "x"),
+		slashModel("s1", "Opus 4.8", " and saved as your default for new sessions"),
+		slashModel("s2", "Fable 5.2", " for this session only with `high` effort"))
+	out = mustCall(t, e, "history", file)
+	if out[0]["switched_model"] != "Fable 5.2" || out[0]["model"] != "claude-x" {
+		t.Errorf("after answer %v", out[0])
+	}
+	writeLines(t, file,
+		slashModel("s1", "Fable 5.2", " for this session only"),
+		userLine("u1", "a"), answerLine("a1", "x"))
+	out = mustCall(t, e, "history", file)
+	if _, ok := out[0]["switched_model"]; ok {
+		t.Errorf("answered since %v", out[0])
+	}
+	// 换模型的那段被剪掉了（改写到它之前）：不算
+	writeLines(t, file,
+		userLine("u1", "a"), answerLine("a1", "x"),
+		userLine("u2", "b"),
+		slashModel("s1", "Fable 5.2", " for this session only"),
+		`{"type":"last-prompt","explicit":true,"rewound":true,"cutUuid":"u2","leafUuid":"a1"}`)
+	out = mustCall(t, e, "history", file)
+	if _, ok := out[0]["switched_model"]; ok || len(out) != 3 {
+		t.Errorf("cut %v", out)
+	}
+}
