@@ -105,7 +105,7 @@ func TestPermissionsView(t *testing.T) {
 	if len(v.Servers) != 1 || v.Servers[0].State.Behavior != Allow || len(v.Servers[0].Bulk.Enable.Add) != 0 {
 		t.Errorf("servers %+v", v.Servers)
 	}
-	if len(v.ServerTools) != 1 || !v.ServerTools[0].State.Inherited {
+	if len(v.ServerTools) != 1 || !v.ServerTools[0].State.Inherited || v.ServerTools[0].Own != "" || v.ServerTools[0].Rule != "mcp__gh__list" {
 		t.Errorf("server tools %+v", v.ServerTools)
 	}
 }

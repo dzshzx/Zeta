@@ -19,9 +19,12 @@ type RuleView struct {
 	Malformed bool `json:"malformed"`
 }
 
-// ToolView 是一个工具一行。
+// ToolView 是一个工具一行。State 是生效的状态（MCP 工具算上整个服务器的设置）；Own 是它自己那条规则，下拉里显示的是它，
+// 改的时候把 Rule 交给 SetToolPermission。
 type ToolView struct {
 	ToolInfo
+	Rule  string    `json:"rule"`
+	Own   Behavior  `json:"own"`
 	More  bool      `json:"more"`
 	State ToolState `json:"state"`
 }
@@ -35,6 +38,7 @@ type BulkPair struct {
 // ServerView 是一个 MCP 服务器整体的设置。
 type ServerView struct {
 	Name  string    `json:"name"`
+	Rule  string    `json:"rule"` // 整个服务器的规则名 mcp__服务器
 	Scope string    `json:"scope"`
 	OAuth bool      `json:"oauth"`
 	State ToolState `json:"state"`
@@ -52,7 +56,8 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 		v.Rules = append(v.Rules, RuleView{r, RuleMalformed(r.Text)})
 	}
 	for i, t := range append(slices.Clone(CommonTools), OtherTools...) {
-		v.Builtin = append(v.Builtin, ToolView{t, i >= len(CommonTools), rs.Tool(t.Name)})
+		st := rs.Tool(t.Name)
+		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t, Rule: t.Name, Own: st.Behavior, More: i >= len(CommonTools), State: st})
 	}
 	v.BuiltinBulk = bulkPair(rs, BuiltinGroup())
 	var seen []string
@@ -62,13 +67,14 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 		}
 		seen = append(seen, e.name)
 		v.Servers = append(v.Servers, ServerView{
-			Name: e.name, Scope: e.scope, OAuth: e.config.obj("oauth") != nil,
+			Name: e.name, Rule: McpServerName(e.name), Scope: e.scope, OAuth: e.config.obj("oauth") != nil,
 			State: rs.Server(e.name), Bulk: bulkPair(rs, PermissionGroup{Server: e.name}),
 		})
 	}
 	if server != "" {
 		for _, t := range tools {
-			v.ServerTools = append(v.ServerTools, ToolView{ToolInfo: ToolInfo{Name: t}, State: rs.McpTool(server, t)})
+			rule := McpToolName(server, t)
+			v.ServerTools = append(v.ServerTools, ToolView{ToolInfo: ToolInfo{Name: t}, Rule: rule, Own: rs.Tool(rule).Behavior, State: rs.McpTool(server, t)})
 		}
 	}
 	return v

@@ -101,7 +101,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `config.agents.list` | | `[{file, name, description, model, tools, prompt, extraKeys, sha}]`（`tools` 为 null 是全部工具） |
 | `config.agents.save` | `original`（编辑时是读到的那一项，新建为 null）、`draft`（`{name, description, model, tools, prompt}`） | `{file}`；改名时旧文件删掉，不认识的前言键原样留着 |
 | `config.agents.delete` | `file` | |
-| `config.permissions.read` | `cwd`、`server`、`tools` | 工具权限页：`rules`、`builtin`（每个内置工具的状态）、`builtinBulk`、`servers`（每个 MCP 服务器整体的状态和一键开关会加删的规则）；给了 `server` 时 `serverTools` 是它这几个工具的状态 |
+| `config.permissions.read` | `cwd`、`server`、`tools` | 工具权限页：`rules`、`builtin`（每个内置工具的状态；`own` 是它自己那条规则，`rule` 是改它时交给 `setTool` 的名字）、`builtinBulk`、`servers`（每个 MCP 服务器整体的状态和一键开关会加删的规则）；给了 `server` 时 `serverTools` 是它这几个工具的状态 |
 | `config.permissions.setTool` | `tool`、`behavior`（allow、ask、deny，空串是去掉），和 read 的参数 | 同 read |
 | `config.permissions.add`、`config.permissions.remove` | `behavior`、`rule`，和 read 的参数 | 同 read |
 | `config.permissions.replace` | `old`、`new`（各是 `{behavior, rule}`），和 read 的参数 | 同 read；`old` 已经不在了时出错 |
