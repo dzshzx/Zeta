@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.shots.Fixtures
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -181,5 +183,23 @@ class BackendSwitchTest {
         assertTrue(hub.shell(direct.id) is DebianSshShell)
         assertEquals(direct.id, hub.backend)
         assertEquals(remote, hub.remoteHost(remote.id))
+    }
+
+    /** 连上 serve 时招呼里报的主机名记到远程设备上，没起名字的设备就叫它；空的不记，手机本机不管。 */
+    @Test
+    fun helloHostnameNamesTheDevice() {
+        val hub = Fixtures.readyHub(app)
+        val unnamed = RemoteHost("r-00000003", null, "me@10.0.0.9", "/home/me", "/home/me")
+        hub.settings.remoteHosts = listOf(unnamed)
+        assertEquals(RemoteHosts.displayTarget(unnamed.target), hub.backendName(unnamed.id))
+        hub.helloFrom(unnamed.id)(Json.parseToJsonElement("""{"hostname":"devbox"}""").jsonObject)
+        awaitMain { hub.remoteHost(unnamed.id)?.hostname == "devbox" }
+        assertEquals("devbox", hub.backendName(unnamed.id))
+        hub.hostnameReported(unnamed.id, " ")
+        assertEquals("devbox", hub.remoteHost(unnamed.id)?.hostname)
+        hub.hostnameReported(unnamed.id, "devbox2")
+        assertEquals("主机名变了跟着改", "devbox2", hub.originalName(unnamed.id))
+        hub.hostnameReported(Backends.LOCAL, "phone")
+        assertEquals(listOf(unnamed.copy(hostname = "devbox2")), hub.settings.remoteHosts)
     }
 }

@@ -24,7 +24,7 @@ hostkey=$(android "cut -d' ' -f2 $ROOTFS/etc/ssh/ssh_host_ed25519_key.pub" | tr 
 id=r-phonedirect
 vd prefs-set "remoteHosts=[{\"id\":\"$id\",\"name\":\"直连回环\",\"target\":\"$ZETA_LINUX_USER@127.0.0.1:8022\",\"home\":\"/home/$ZETA_LINUX_USER\",\"cwd\":\"/home/$ZETA_LINUX_USER\",\"via\":\"direct\",\"hostKey\":\"$hostkey\"}]" \
   "backend=$id" "rootfs=/data/local/zeta/no-debian-for-this-test"
-# 测试版起来就去接回直连主机上的进程，这时取密钥（没有就生成）、写出公钥；先删掉旧的公钥文件，等这次写出的
+# 测试版起来就去读直连主机的会话列表，这时取密钥（没有就生成）、写出公钥；先删掉旧的公钥文件，等这次写出的
 android "rm -f $TEST_PUB"
 helper_bin=${HOSTS%/hosts}/bin
 android "rm -rf $helper_bin"

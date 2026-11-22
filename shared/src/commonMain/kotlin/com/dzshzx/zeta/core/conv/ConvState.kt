@@ -466,7 +466,15 @@ data class SessionActivity(
     val activity: SessionStatus.Activity?,
     val tasks: Int = 0,
     val turnEnd: Long? = null,
-)
+) {
+    /** 对话在进行：在回答、等确认，或还有后台任务在跑。 */
+    val active: Boolean
+        get() =
+            activity == SessionStatus.Activity.Answering ||
+                activity == SessionStatus.Activity.Waiting ||
+                activity == SessionStatus.Activity.Background ||
+                tasks > 0
+}
 
 /** conv.activity 的 sessions：会话号 → 忙闲。认不出的 activity 当作没有。 */
 internal fun sessionActivitiesOf(o: JsonObject): Map<String, SessionActivity> =

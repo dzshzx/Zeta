@@ -22,6 +22,7 @@ fun ConversationHub.openCore(backend: String, onMessage: (JsonObject) -> Unit = 
         subscriptions = emptyList(),
         onMessage = onMessage,
         onProblem = {},
+        onHello = helloFrom(backend),
     )
 
 /**

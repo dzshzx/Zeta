@@ -32,7 +32,7 @@
 #              detach、stop 据此决定结不结束、删不删目录；zeta-helper（liveAttachers）的 hosts、存储页据此不删还有人接着的目录。
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给核心（helper/host 的 Link）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
-#              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
+#              核心起来时据此接回在干活的对话（helper/conversations.go 的 adoptHosts）；zeta-helper 的存储页从开头取会话号。
 #   pid        起进程的那段起的进程号，那段写：通常就是 Claude Code；登录配置把 claude 包成 shell 函数或不 exec 的脚本时是外面那层，
 #              Claude Code 是它的子进程。它活着就是 Claude Code 还在：本脚本 attach、stop、看门狗，zeta-helper 的 hosts、存储页据此看；
 #              应用的 PathCheck（AttachedPaths.kt）经 /proc/<pid>/root 看这个进程的挂载命名空间。

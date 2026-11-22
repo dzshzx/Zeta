@@ -45,7 +45,7 @@ entry() { echo "{\"id\":\"$1\",\"name\":\"$2\",\"target\":\"$3\",\"home\":\"$hom
 vd prefs-set "remoteHosts=[$(entry r-latdebian 延迟-经Debian "$debian_target" debian),$(entry r-latdirect 延迟-直连 "$direct_target" direct "$hostkey")]"
 vd launch
 [[ $ZETA_DEVICE != emu ]] || authorize_test_key
-sleep 8 # 启动时接回远程主机上进程的那几条命令跑完，不和计时的抢
+sleep 8 # 启动时连远程主机的那几条命令（会话列表、默认值）跑完，不和计时的抢
 
 if [[ $NETWORK == cellular ]]; then
   guard=/data/local/tmp/zeta-latency-wifi-guard

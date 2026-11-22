@@ -36,7 +36,7 @@ class DesktopHubPlatform(override val filesDir: File = defaultDir()) : HubPlatfo
 
     override fun started() = Unit
 
-    /** 随包的资源（托管脚本、zeta-helper 等）在 jar 的 assets/ 下，和 APK 里的同名。 */
+    /** 随包的资源（zeta-helper、账号脚本等）在 jar 的 assets/ 下，和 APK 里的同名。 */
     override fun asset(name: String): ByteArray =
         checkNotNull(javaClass.getResourceAsStream("/assets/$name")) { "桌面版里没有 $name" }
             .use { it.readBytes() }

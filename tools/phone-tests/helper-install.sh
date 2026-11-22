@@ -1,5 +1,5 @@
 #!/bin/bash
-# zeta-helper 装进设备的 Debian：删掉测试版已装的、放一个旧版本的假文件，冷启动后应用第一次用它（接回后台进程、读会话列表）时
+# zeta-helper 装进设备的 Debian：删掉测试版已装的、放一个旧版本的假文件，冷启动后应用第一次用它（读会话列表）时
 # 按那边的 uname -m 把对应的一份经标准输入传进去装上。核对：只剩一个新版本、旧的删了；装好的程序在 Debian 里
 # 以 Linux 用户直接跑 list 退出码是 0。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/helper-install.sh
@@ -11,7 +11,7 @@ OLD=zeta-helper-0000000000000000
 
 echo "Debian 的 CPU：$(android "chroot $ROOTFS /usr/bin/uname -m")"
 android "rm -rf $BIN && mkdir -m 755 $BIN && printf old > $BIN/$OLD && chmod 644 $BIN/$OLD && chown -R 5000:5000 $BIN"
-# vd launch 只把界面再开一次；要冷启动（接回后台进程、读会话列表时才第一次用到 zeta-helper），先停掉测试版
+# vd launch 只把界面再开一次；要冷启动（读会话列表时才第一次用到 zeta-helper），先停掉测试版
 android "am force-stop $PKG"
 vd launch
 

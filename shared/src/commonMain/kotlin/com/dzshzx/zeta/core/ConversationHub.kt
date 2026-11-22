@@ -8,13 +8,13 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.claude.defaults
+import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.ssh.SshLinks
 import kotlin.concurrent.thread
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉、接回进程），界面前后台，各台主机，以及挂在它上面的几块： 设置 [settings]、会话列表
+ * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉，跟上核心里在跑的），界面前后台，各台主机，以及挂在它上面的几块： 设置 [settings]、会话列表
  * [sessionList]、额度 [quota]、账号 [accounts]。手机和桌面共用这一份；只属于一边的（手机本机的 Linux 环境、 各会话的手机工具、胶囊与提醒、前台服务）在平台
  * [platform] 里，见 [HubPlatform]。
  *
@@ -34,8 +34,6 @@ class ConversationHub(val platform: HubPlatform) {
 
     val settings: Settings
         get() = platform.settings
-
-    val hostScript: String by lazy { platform.asset("zeta_host.sh").decodeToString() }
 
     /** Linux 一侧的程序 zeta-helper：APK 里带着，第一次用时装进 Linux（[HelperProgram]）。 */
     val helperProgram =
@@ -140,8 +138,6 @@ class ConversationHub(val platform: HubPlatform) {
                 else it
             },
         )
-        // 原来的连法没接成（比如经 Debian 而 Debian 没就绪）时没查过那台上的后台进程，换了连法查一次
-        if (usable(id)) reattachHosts(id)
         return true
     }
 
@@ -265,57 +261,42 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * 还开着的 Claude Code 进程上用户在对话里定的权限模式（进程键 → 模式）。只在进程活着时有意义，和 Claude Code 里
-     * 「只用于这个会话」一样：应用被回收后接回进程时照它恢复（[Conversation] 的 attach），进程没了在 [reattachHosts] 里清掉。
-     */
-    fun hostMode(key: String): String? = settings.hostModes[key]
-
-    fun rememberHostMode(key: String, mode: String) {
-        val modes = settings.hostModes
-        if (modes[key] != mode) settings.hostModes = modes + (key to mode)
-    }
-
-    /**
      * 重读主机 [backend] 上 Claude Code 的默认值：侧栏正看着的那台在环境就绪时、换过去时读（输入栏要显示它的默认权限模式），
-     * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。
-     * 远程设备还没记下自己的主机名（加的时候还不查它）时，读到了就顺带问一句（[RemoteHost.hostname]）。在主线程上调用。
+     * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。在主线程上调用。
      */
     fun refreshClaudeDefaults(backend: String) {
         if (backend in readingDefaults || shell(backend) == null) return
         readingDefaults.add(backend)
-        val askHostname = remoteHost(backend)?.hostname == null && backend != Backends.LOCAL
         thread(name = "zeta-defaults", isDaemon = true) {
             val defaults = runCatching {
                 ClaudeConfigClient.of(this, backend).defaults()
             }
                 .getOrNull()
-            val hostname = if (askHostname && defaults != null) hostnameOf(backend) else null
-            main.post { onDefaultsRead(backend, defaults, hostname) }
+            main.post { onDefaultsRead(backend, defaults) }
         }
     }
 
-    /** [refreshClaudeDefaults] 读完（在主线程上）：读到的默认值记下，问到的主机名补进还没记主机名的那台设备。 */
-    private fun onDefaultsRead(backend: String, defaults: ClaudeDefaults?, hostname: String?) {
+    /** [refreshClaudeDefaults] 读完（在主线程上）：读到的默认值记下。 */
+    private fun onDefaultsRead(backend: String, defaults: ClaudeDefaults?) {
         readingDefaults.remove(backend)
         if (defaults != null && backend in backends) updateClaudeDefaults(backend, defaults)
-        if (hostname == null) return
-        settings.remoteHosts =
-            settings.remoteHosts.map {
-                if (it.id == backend && it.hostname == null) it.copy(hostname = hostname) else it
-            }
     }
 
-    /** 设备 [backend] 报的主机名（`uname -n`）；问不到是 null。阻塞。 */
-    private fun hostnameOf(backend: String): String? = runCatching {
-        shell(backend)?.run("uname -n", timeoutMs = 15_000, plain = true)
+    /**
+     * 连上设备 [backend] 上的 zeta-helper serve 时，招呼 zeta_hello 里报了主机名 [hostname]（docs/core.md「协议」）。
+     * 远程设备记下它，用户没起名字时界面上就叫它（[originalName]）；空的（那边查不到）不记。在主线程上调用。
+     */
+    fun hostnameReported(backend: String, hostname: String) {
+        val name = hostname.trim().ifEmpty { null } ?: return
+        if (remoteHost(backend)?.let { it.hostname != name } != true) return
+        settings.remoteHosts =
+            settings.remoteHosts.map { if (it.id == backend) it.copy(hostname = name) else it }
     }
-        .getOrNull()
-        ?.takeIf { it.exitCode == 0 }
-        ?.stdout
-        ?.lineSequence()
-        ?.firstOrNull()
-        ?.trim()
-        ?.ifEmpty { null }
+
+    /** 给连主机 [backend] 的 [HelperServe] 的 onHello：招呼里的主机名交给 [hostnameReported]（在连接自己的线程上收到，投回主线程）。 */
+    fun helloFrom(backend: String): (JsonObject) -> Unit = { hello ->
+        hello.str("hostname")?.let { name -> main.post { hostnameReported(backend, name) } }
+    }
 
     /**
      * 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它：环境就绪时， 设置从备份导入后（[Settings.restore]
@@ -330,9 +311,6 @@ class ConversationHub(val platform: HubPlatform) {
 
     /** 已经定了放进当前对话、等它的输入栏取走的东西。 */
     var incoming by mutableStateOf<Intake?>(null)
-
-    /** 已经查过、接回了后台进程的主机（[reattachHosts]）；正在查的也算，没查成时去掉。只在主线程上用。 */
-    val hostsChecked = HashSet<String>()
 
     /**
      * 各主机（[Backends]）上 Claude Code 报的模型选项（initialize 的应答）。只放在内存里：别名对应的完整 ID 随 Claude Code 升级而变，
@@ -396,25 +374,21 @@ class ConversationHub(val platform: HubPlatform) {
     /** 用户正看着这个对话（Zeta 在前台、显示的就是它）：完成、确认都不用另外提醒。 */
     fun isWatching(conversation: Conversation): Boolean = foreground && conversation === current
 
-    /** 已经在界面起来时接过 Zeta 直连的主机（[onUiStarted]）。 */
+    /** 已经在界面起来时读过 Zeta 直连的主机（[onUiStarted]）。 */
     private var directStarted = false
 
     /**
      * 界面（主界面、数字助理）起来了：手机的 Linux 环境还没就绪就去检查，就绪后要靠 Debian 的主机由 [onEnvironmentReady] 接着做。 Zeta
-     * 直连的主机不用等 Debian：第一次时就接回它们上面还在跑的进程，侧栏正看着其中一台的话读会话列表和默认值。
-     * 和手机本机一样等界面起来才做，系统为无障碍服务、定时任务拉起应用时不去连远程主机。在主线程上调用。
+     * 直连的主机不用等 Debian：第一次时侧栏正看着其中一台的话就读会话列表和默认值。 和手机本机一样等界面起来才做，系统为无障碍服务、定时任务拉起应用时不去连远程主机。在主线程上调用。
      */
     fun onUiStarted() {
         platform.local?.takeIf { !it.ready }?.checkSetup()
         if (directStarted) return
         directStarted = true
-        val direct = backends.filterNot(::needsDebian)
-        if (backend in direct) {
-            renewBlank()
-            sessionList.refresh()
-            refreshClaudeDefaults(backend)
-        }
-        direct.forEach(::reattachHosts)
+        if (needsDebian(backend)) return
+        renewBlank()
+        sessionList.refresh()
+        refreshClaudeDefaults(backend)
     }
 
     /**
@@ -468,8 +442,8 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * 环境检查完、就绪了（[EnvController.checkSetup]）：侧栏正看着要靠 Debian 的主机的话读会话列表和 Claude Code 的默认值，
-     * 第一次就绪时接回这些主机上还在跑的进程（远程主机连不上的，等换到它时再查）。直连的主机由 [onUiStarted] 管。在主线程上调用。
+     * 环境检查完、就绪了（[EnvController.checkSetup]）：侧栏正看着要靠 Debian 的主机的话读会话列表和 Claude Code 的默认值。 直连的主机由
+     * [onUiStarted] 管。在主线程上调用。
      */
     fun onEnvironmentReady() {
         if (needsDebian(backend)) {
@@ -477,13 +451,11 @@ class ConversationHub(val platform: HubPlatform) {
             sessionList.refresh()
             refreshClaudeDefaults(backend)
         }
-        backends.filter(::needsDebian).forEach(::reattachHosts)
     }
 
     /**
-     * 侧栏换到主机 [backend]：Claude Code 的默认值换成它的，会话列表也换成它的（列着全部主机时列表不变），当前对话还没开始的话换成它上面的新对话，
-     * 那台主机上还在跑的进程接回来（之前没接上的话）。别的主机上正在进行的对话留在后台照常跑完。列不列全部主机不归它管，见 [listOnly]、
-     * [selectAllHosts]。在主线程上调用。
+     * 侧栏换到主机 [backend]：Claude Code 的默认值换成它的，会话列表也换成它的（列着全部主机时列表不变），当前对话还没开始的话换成它上面的新对话。
+     * 别的主机上正在进行的对话留在后台照常跑完。列不列全部主机不归它管，见 [listOnly]、 [selectAllHosts]。在主线程上调用。
      */
     fun selectBackend(backend: String) {
         if (backend !in backends) return
@@ -503,13 +475,12 @@ class ConversationHub(val platform: HubPlatform) {
         selectBackend(backend)
     }
 
-    /** 侧栏的会话列表改成列全部主机的：各台还没接过的后台进程接回来。新对话仍开在 [backend] 上，当前对话不动。在主线程上调用。 */
+    /** 侧栏的会话列表改成列全部主机的。新对话仍开在 [backend] 上，当前对话不动。在主线程上调用。 */
     fun selectAllHosts() {
         if (allHosts || settings.remoteHosts.isEmpty()) return
         val listed = listedBackends
         settings.paneAll = true
         sessionList.refresh(backends - listed)
-        backends.forEach(::reattachHosts)
     }
 
     /** 会话列表换成只列主机 [backend] 的：已经读到的它的那些先留着，再重读。 */
@@ -518,13 +489,12 @@ class ConversationHub(val platform: HubPlatform) {
         sessionList.refresh()
     }
 
-    /** 侧栏换成主机 [backend] 的：Claude Code 的默认值，没接过的后台进程接回来，会话列表换成它的（列着全部主机时列表不用换）。 当前对话不动。 */
+    /** 侧栏换成主机 [backend] 的：Claude Code 的默认值，会话列表换成它的（列着全部主机时列表不用换）。 当前对话不动。 */
     private fun followBackend(backend: String) {
         if (backend == settings.backend) return
         settings.backend = backend
         if (!allHosts) relist(backend)
         refreshClaudeDefaults(backend)
-        reattachHosts(backend)
     }
 
     /** 设置页改了远程主机的清单（加、改名、改默认工作目录、删；改连法走 [changeVia]）。在主线程上调用。 */
@@ -546,7 +516,6 @@ class ConversationHub(val platform: HubPlatform) {
             if (current.backend !in ids) current = blank()
             platform.prunePhones()
         }
-        hostsChecked.retainAll(ids)
         models = models.filterKeys { it in ids }
         quotas.filterKeys { it !in ids }.values.forEach(QuotaService::close)
         quotas.keys.retainAll(ids)
@@ -558,106 +527,39 @@ class ConversationHub(val platform: HubPlatform) {
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
     }
 
-    /**
-     * 应用上次是被系统回收或划掉的话，主机 [backend] 上的 Claude Code 进程可能还在后台。
-     * 还在干活或等确认的重新接上；闲着的没有别的客户端接着就结束（[stopHosts]），省内存。每台主机查成一次就不再查；连不上的下次再查。在主线程上调用。
-     */
-    private fun reattachHosts(backend: String) {
-        if (backend in hostsChecked) return
-        val shell = shell(backend) ?: return
-        hostsChecked += backend
-        thread(name = "zeta-hosts", isDaemon = true) {
-            // 没查成不等于没有：什么都不动（不结束进程、不删权限模式），下次再查
-            val output = helper("hosts", timeoutMs = 60_000, backend = backend).outputOrNull
-            if (output == null) {
-                main.post { hostsChecked -= backend }
-                return@thread
-            }
-            val hosts = parseHosts(output, defaultCwd(backend))
-            main.post { onHostsListed(backend, shell, hosts) }
-        }
-    }
-
-    /** zeta-helper hosts 的输出：一行一个托管进程；坏行和没有 key 的跳过，没记工作目录的用 [defaultCwd]。 */
-    private fun parseHosts(output: String, defaultCwd: String): List<HostInfo> =
-        output
-            .lineSequence()
-            .mapNotNull { line ->
-                runCatching { json.parseToJsonElement(line) as? JsonObject }
-                    .getOrNull()
-                    ?.let { hostInfo(it, defaultCwd) }
-            }
-            .toList()
-
-    private fun hostInfo(o: JsonObject, defaultCwd: String): HostInfo? =
-        HostInfo(
-            key = o.str("key") ?: return null,
-            cwd = o.str("cwd").orEmpty().ifBlank { defaultCwd },
-            title = o.str("title").orEmpty(),
-            sessionId = o.str("session"),
-            historyFile = o.str("file"),
-            lines = o.int("lines") ?: 0,
-            busy = o.bool("busy") == true,
-            pending = o.arr("pending").orEmpty().filterIsInstance<JsonObject>(),
-            permissionMode = o.str("mode"),
-            tasks = o.int("tasks") ?: 0,
-            taskEvents = o.arr("task_events").orEmpty().filterIsInstance<JsonObject>(),
-        )
-
-    /** 查到了主机 [backend] 上的托管进程（在主线程上）：在干活的接上，闲着的交给 [stopHosts]，结束了的进程的权限模式不再留。 */
-    private fun onHostsListed(backend: String, shell: LinuxShell, hosts: List<HostInfo>) {
-        // 这个进程里已经开着的会话（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
-        val sessions = liveConversations.mapNotNullTo(HashSet()) { it.sessionId }
-        val known = hosts.filter { it.sessionId in sessions }.mapTo(HashSet()) { it.key }
-        val others = hosts.filter { it.key !in known }
-        // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
-        val active = others.filter { it.active }
-        val idle = others - active.toSet()
-        if (idle.isNotEmpty()) stopHosts(shell, idle)
-        // 用户的权限模式只留给还接着的进程：这台主机上查到的之外的不动（别的主机的进程这次没查）
-        val dead = (hosts.map { it.key } - known - active.map { it.key }.toSet()).toSet()
-        settings.hostModes
-            .takeIf { modes -> modes.keys.any { it in dead } }
-            ?.let { modes -> settings.hostModes = modes.filterKeys { it !in dead } }
-        if (active.isEmpty()) return
-        for (host in active) adoptHost(backend, host)
-        onActivityChanged()
-    }
+    /** 已经照核心报的忙闲打开过的会话（[openRunning]）：每个只打开一次。只在主线程上用。 */
+    private val openedFromActivity = HashSet<String>()
 
     /**
-     * 在后台线程上收掉这个进程里没人接着的闲着的托管进程：别的客户端（同一个包装在别的设备上、连同一台主机的）还接着的照常跑， 没人接着的结束（zeta_host.sh detach）。
+     * 核心推来了主机 [backend] 上各会话的忙闲（[SessionList.activityReceived]）。在进行（[SessionActivity.active]）、
+     * 这里却还没有对话对象的会话，比如应用被回收重开后核心接着跑的那些，按会话号打开放在后台（conv.open 拿到的就是核心里接着的那个），
+     * 提醒和胶囊才跟得上它；当前对话不换。每个会话只打开一次。 这里自己的新对话还在进行、还没拿到会话号时，核心报的忙着的会话可能就是它，这次先不打开，等下一次推来。在主线程上调用。
      */
-    private fun stopHosts(shell: LinuxShell, idle: List<HostInfo>) {
-        thread(name = "zeta-hosts", isDaemon = true) {
-            for (host in idle) {
-                runCatching {
-                    shell.run(hostCommandLine(hostScript, listOf("detach", host.key)), plain = true)
-                }
-            }
+    fun openRunning(backend: String, sessions: Map<String, SessionActivity>) {
+        if (liveConversations.any { it.backend == backend && it.sessionId == null && it.active })
+            return
+        val running = sessions.filter { (session, activity) ->
+            activity.active && session !in openedFromActivity && findConversation(session) == null
         }
-    }
-
-    /** 接回一个还在干活的进程：当前对话还空着就换成它，否则放到后台。 */
-    private fun adoptHost(backend: String, host: HostInfo) {
-        val conversation =
-            Conversation(
-                this,
-                host.cwd,
-                host.sessionId,
-                host.title,
-                host.historyFile,
-                backend = backend,
+        if (running.isEmpty()) return
+        for (session in running.keys) {
+            openedFromActivity += session
+            val summary =
+                sessionList.sessions.firstOrNull { it.id == session && it.backend == backend }
+            // 列表里还没有它时，工作目录和标题等核心推来
+            park(
+                summary?.let(::conversationOf)
+                    ?: Conversation(
+                        this,
+                        defaultCwd(backend),
+                        session,
+                        "",
+                        null,
+                        backend = backend,
+                    ),
             )
-        if (
-            current.backend == backend &&
-                current.items.isEmpty() &&
-                current.sessionId == null &&
-                !current.active
-        ) {
-            current = conversation
-        } else {
-            park(conversation)
         }
+        onActivityChanged()
     }
 
     /** 换上一个新对话，开在侧栏正看着的主机上，工作目录是 [cwd]（默认用那台主机的）。 */
@@ -715,19 +617,20 @@ class ConversationHub(val platform: HubPlatform) {
 
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return
-        replaceCurrent(
-            parkedFor(summary.id)
-                ?: Conversation(
-                    this,
-                    summary.cwd.ifBlank { defaultCwd(summary.backend) },
-                    summary.id,
-                    summary.title.ifBlank { summary.preview.take(40) },
-                    summary.file,
-                    backend = summary.backend,
-                ),
-        )
+        replaceCurrent(parkedFor(summary.id) ?: conversationOf(summary))
         followBackend(current.backend)
     }
+
+    /** 按会话列表里的 [summary] 打开的对话对象（建好就 conv.open）。 */
+    private fun conversationOf(summary: SessionSummary) =
+        Conversation(
+            this,
+            summary.cwd.ifBlank { defaultCwd(summary.backend) },
+            summary.id,
+            summary.title.ifBlank { summary.preview.take(40) },
+            summary.file,
+            backend = summary.backend,
+        )
 
     /**
      * 从当前对话 [lastItemId] 所在那一轮之后分支：切到一个新对话，先显示到那一轮为止的内容，原对话不动（核心的 conv.fork）。 新会话由 Claude Code
@@ -899,10 +802,6 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     companion object {
-        private val json = Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-        }
         private const val RETIRE_DELAY_MS = 5_000L
 
         /** 和 zeta_host.sh 的看门狗一样：没人看着、闲着的进程约十分钟后结束。 */

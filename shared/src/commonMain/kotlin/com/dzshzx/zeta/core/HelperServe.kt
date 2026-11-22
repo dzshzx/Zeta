@@ -31,10 +31,10 @@ fun interface ServeRequests {
 /**
  * 到一台主机上 `zeta-helper serve` 的常驻连接（协议见 `helper/serve.go`）：一条连接收那边推来的消息，不为每个操作各起一次命令。
  *
- * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后把 [subscriptions] 里的方法各发一次，之后每行推来的消息交给 [onMessage]
- * （在读线程上调用）。连上过以后断了（网络、那边的进程没了）按 [backoff] 隔一会儿重连，重连后照样再订阅一遍， 所以 [onMessage]
- * 先收到的总是整份的；第一次就没连上的不重试，报了原因就停。每次连上或断开都经 [onProblem] 报一声：连上是 null， 断开、连不上是给人看的原因。 每 [pingMs] 发一次
- * ping，那边 90 秒收不到任何一行就自己退出（网络断了而 SSH 还没发觉时，不在主机上留下没人用的进程）。 [close] 以后不再重连、不再回调。
+ * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后交给 [onHello]（每次连上都给，在读线程上调用），把 [subscriptions]
+ * 里的方法各发一次，之后每行推来的消息交给 [onMessage] （在读线程上调用）。连上过以后断了（网络、那边的进程没了）按 [backoff] 隔一会儿重连，重连后照样再订阅一遍， 所以
+ * [onMessage] 先收到的总是整份的；第一次就没连上的不重试，报了原因就停。每次连上或断开都经 [onProblem] 报一声：连上是 null， 断开、连不上是给人看的原因。 每
+ * [pingMs] 发一次 ping，那边 90 秒收不到任何一行就自己退出（网络断了而 SSH 还没发觉时，不在主机上留下没人用的进程）。 [close] 以后不再重连、不再回调。
  *
  * 要应答的请求用 [call]，在别的线程上等；订阅的应答和 ping 的不交给它，订阅被拒时经 [onProblem] 报。
  */
@@ -44,6 +44,7 @@ class HelperServe(
     private val subscriptions: List<String>,
     private val onMessage: (JsonObject) -> Unit,
     private val onProblem: (String?) -> Unit,
+    private val onHello: (JsonObject) -> Unit = {},
     private val backoff: (attempt: Int) -> Long = ::reconnectDelay,
     private val pingMs: Long = PING_MS,
 ) : ServeRequests {
@@ -188,6 +189,7 @@ class HelperServe(
                     greeted -> handle(o)
                     o.str("type") == "zeta_hello" && o.int("protocol") == PROTOCOL -> {
                         greeted = true
+                        onHello(o)
                         greet(process)
                         connected()
                         onProblem(null)

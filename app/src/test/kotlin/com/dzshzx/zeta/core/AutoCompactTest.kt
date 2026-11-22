@@ -19,20 +19,4 @@ class AutoCompactTest {
         assertEquals(emptyMap<String, String>(), AutoCompact.env(enabled = true, percent = 0))
         assertEquals(emptyMap<String, String>(), AutoCompact.env(enabled = true, percent = 101))
     }
-
-    @Test
-    fun envGoesInFrontOfTheHostScript() {
-        val plain = hostCommandLine("echo hi", listOf("start", "k", "/w", "t", "-p"))
-        assertEquals("exec bash -c 'echo hi' zeta-host 'start' 'k' '/w' 't' '-p'", plain)
-        val withEnv =
-            hostCommandLine(
-                "echo hi",
-                listOf("start"),
-                mapOf("DISABLE_AUTO_COMPACT" to "1", "bad name" to "x", "A" to "it's"),
-            )
-        assertEquals(
-            "exec env DISABLE_AUTO_COMPACT='1' A='it'\\''s' bash -c 'echo hi' zeta-host 'start'",
-            withEnv,
-        )
-    }
 }

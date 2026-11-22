@@ -3,7 +3,7 @@
 #   一、pid 文件记的和登记的不是一个进程（包装确实生效），登记的那个带着本包、本托管目录的记号；
 #   二、本包的进程不算别处占用：zeta-helper occupant 说没人占着，list 里这个会话不标 external（侧栏的「在别处运行」看它）；
 #       再按会话号打开它，不出「别处运行」卡片，原来那个进程接着答完第二轮
-#       （不 force-stop 再重开：测试版冷启动时把闲着的托管进程收掉，下一条消息另起进程，见 ConversationHub.onHostsListed）；
+#       （不 force-stop 再重开：闲着没人拿着的托管进程由核心断开、看门狗约十分钟后收掉，收掉了下一条消息就另起进程，见 docs/core.md「对话」）；
 #   三、终端里接回（SessionStart hook 跑 zeta-helper session-start）时，它闲着就照 stop 那样退出，外面那层一起没了。
 # 先在设备自己的 Debian 上走一遍（local），再把它当远程主机（127.0.0.1:8022，见 remote-host.sh）走一遍（remote）。
 # 截图 <情形>-first.png（第一轮答完）、<情形>-reopened.png（再打开后第二轮答完）、<情形>-released.png（终端接走后）。

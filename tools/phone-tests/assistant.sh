@@ -14,7 +14,7 @@ MARK=/data/local/tmp/zeta-assistant-test.mark
 QUESTION='Reply with the single word OK. Do not use any tools.'
 
 # 删掉标记 $1 之后新建、带屏幕内容的测试会话，并结束接着它的后台进程（后台进程的输出开头记着会话 ID）。
-# 只删会话文件不够：进程还在等确认或还在跑的话，测试版下次冷启动会把它接回来，别人的测试就停在这个对话上。
+# 只删会话文件不够：进程还在等确认或还在跑的话，测试版下次冷启动会把它打开放在后台，别人的测试会收到它的提醒。
 reap() {
   android "for f in \$(find $ROOTFS/home/*/.claude/projects -name '*.jsonl' -newer $1 2>/dev/null | xargs grep -l '<screen_context>' 2>/dev/null); do
     id=\${f##*/}; id=\${id%.jsonl}; n=0

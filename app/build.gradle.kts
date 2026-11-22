@@ -190,7 +190,7 @@ abstract class GoProgramTask : DefaultTask() {
 
 val helperModule: Directory = rootProject.layout.projectDirectory.dir("helper")
 
-/** 托管脚本 zeta_host.sh：放在 helper/host（zeta-helper 编进程序里），由 hostScript 任务拷进 assets。 */
+/** 托管脚本 zeta_host.sh：放在 helper/host，zeta-helper 编进程序里；跑托管脚本的测试直接读它。 */
 val hostScriptFile: RegularFile = helperModule.file("host/zeta_host.sh")
 
 /**
@@ -373,7 +373,6 @@ licensee {
 /**
  * 把仓里别处的一个文件拷进 assets 的 [target]，仓里只放一份：
  * - zetaLicense：仓根的 LICENSE（GPL-3.0 全文）拷成 licenses/GPL-3.0-only.txt，设置「许可证」页显示它。
- * - hostScript：托管脚本 helper/host/zeta_host.sh（zeta-helper 也把它编进程序里），拷成 zeta_host.sh。
  */
 @CacheableTask
 abstract class AssetFileTask : DefaultTask() {
@@ -398,11 +397,6 @@ val assetFiles: List<TaskProvider<AssetFileTask>> =
             source.set(rootProject.layout.projectDirectory.file("LICENSE"))
             target.set("licenses/GPL-3.0-only.txt")
             outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
-        },
-        tasks.register<AssetFileTask>("hostScript") {
-            source.set(hostScriptFile)
-            target.set("zeta_host.sh")
-            outputDir.set(layout.buildDirectory.dir("generated/host-script"))
         },
     )
 

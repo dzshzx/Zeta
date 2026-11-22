@@ -99,6 +99,7 @@ class SessionList constructor(private val hub: ConversationHub) {
                 open = hub.serveOpener(backend),
                 subscriptions = listOf("sessions.watch", "conv.activity"),
                 onMessage = { o -> pushed(backend, o) { current() } },
+                onHello = hub.helloFrom(backend),
                 onProblem = { why ->
                     main.post {
                         if (current()) noted(backend, why?.let { "没读到会话列表：$it" })
@@ -133,7 +134,10 @@ class SessionList constructor(private val hub: ConversationHub) {
         activity = activity - backend
     }
 
-    /** 主机 [backend] 的核心推来了各会话的忙闲（整份）：换掉那台的，结束了一轮的交给 hub 记成有新回答（不在眼前的才记）。在主线程上调用。 */
+    /**
+     * 主机 [backend] 的核心推来了各会话的忙闲（整份）：换掉那台的，结束了一轮的交给 hub 记成有新回答（不在眼前的才记）， 在进行、这里还没打开的交给 hub
+     * 打开（[ConversationHub.openRunning]）。在主线程上调用。
+     */
     fun activityReceived(backend: String, sessions: Map<String, SessionActivity>) {
         val before = activity[backend].orEmpty()
         // 两份里都有、结束时刻往后挪了的；第一次见的不算（不知道它是不是刚结束）
@@ -143,6 +147,7 @@ class SessionList constructor(private val hub: ConversationHub) {
         }
         activity = activity + (backend to sessions)
         if (ended.isNotEmpty()) hub.onTurnsEnded(ended)
+        hub.openRunning(backend, sessions)
     }
 
     /** 界面退到后台：断开全部订阅，那边的 serve 随之退出，后台不留连接。在主线程上调用。 */

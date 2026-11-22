@@ -49,7 +49,5 @@ class DesktopPlatformTest {
         assertNull(hub.current.phoneSession)
         // 和手机正式版同一个目录：电脑、手机同时接着同一个托管进程
         assertEquals("zeta", AppVariant.current.linuxName)
-        // 托管脚本从 jar 里的 assets/ 读
-        assertTrue(hub.hostScript.startsWith("# Zeta "))
     }
 }

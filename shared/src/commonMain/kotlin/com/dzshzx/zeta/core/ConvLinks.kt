@@ -133,6 +133,7 @@ class ConvLinks(private val hub: ConversationHub) {
                 subscriptions = emptyList(),
                 onMessage = onMessage,
                 onProblem = onProblem,
+                onHello = hub.helloFrom(backend),
             )
         return object : ConvConnection, ServeRequests by serve {
             override fun close() = serve.close()

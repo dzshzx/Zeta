@@ -93,6 +93,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
                     }
                 },
                 subscriptions = listOf("quota.watch"),
+                onHello = hub.helloFrom(backend),
                 onMessage = { o ->
                     if (o.str("type") == "quota.snapshot") {
                         val pushed = o["snapshot"] as? JsonObject

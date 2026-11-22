@@ -15,7 +15,7 @@ import org.robolectric.shadows.ShadowToast
 
 /**
  * zeta-helper 没跑成不等于输出为空（[HelperResult]）。单元测试里的 su 总是失败（app/src/test/no-root/su）， 和手机上 Linux
- * 环境出错一样：会话列表留着原来的，接回后台对话时不删用户的权限模式； 改名、归档没写进会话记录时，界面上先改了的改回去，并说一声。
+ * 环境出错一样：会话列表留着原来的；改名、归档没写进会话记录时，界面上先改了的改回去，并说一声。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -60,16 +60,6 @@ class HelperFailureTest {
         list.refresh()
         awaitMain { list.problem != null }
         assertEquals(listOf(kept), list.sessions)
-    }
-
-    @Test
-    fun failedReattachKeepsPermissionModes() {
-        val hub = Fixtures.readyHub(app)
-        hub.settings.hostModes = mapOf("k-running" to "plan")
-        hub.onEnvironmentReady()
-        // 没查成时这台主机从“查过的”里去掉，好下次再查
-        awaitMain { Backends.LOCAL !in hub.hostsChecked }
-        assertEquals(mapOf("k-running" to "plan"), hub.settings.hostModes)
     }
 
     @Test

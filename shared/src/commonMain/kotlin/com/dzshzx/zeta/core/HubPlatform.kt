@@ -15,7 +15,7 @@ interface HubPlatform {
     /** hub 的各项都初始化完了：手机上这时才开始监听网络和界面前后台、接上外部入口、排定时任务。 */
     fun started()
 
-    /** 随包的资源文件（zeta_host.sh、zeta-helper、claude-switch 等），按名字读出全部字节。 */
+    /** 随包的资源文件（zeta-helper、claude-switch、zeta_accounts.sh 等），按名字读出全部字节。 */
     fun asset(name: String): ByteArray
 
     /** Zeta 自己的设置（全进程一份，界面也读写同一份）。 */

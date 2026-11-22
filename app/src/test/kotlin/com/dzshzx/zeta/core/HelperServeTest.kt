@@ -44,6 +44,9 @@ class HelperServeTest {
     /** 每次 [HelperServe] 报的：连上是空串，断开、连不上是原因。 */
     private val reports = LinkedBlockingQueue<String>()
     private val opened = LinkedBlockingQueue<Process>()
+
+    /** 每次连上收到的招呼（zeta_hello）。 */
+    private val hellos = LinkedBlockingQueue<JsonObject>()
     private val serves = ArrayList<HelperServe>()
 
     @After
@@ -59,6 +62,7 @@ class HelperServeTest {
                 subscriptions = listOf("sessions.watch"),
                 onMessage = messages::put,
                 onProblem = { reports.put(it.orEmpty()) },
+                onHello = hellos::put,
                 backoff = { 0L },
             )
             .also { serves += it }
@@ -90,6 +94,11 @@ class HelperServeTest {
         writeSession(A)
         serve()
         assertEquals("", reports.next())
+        // 招呼里带主机名（os.Hostname，Linux 上读的就是这个文件）
+        assertEquals(
+            File("/proc/sys/kernel/hostname").readText().trim(),
+            hellos.next().str("hostname"),
+        )
         val full = sessions()
         assertEquals(true, full.bool("full"))
         assertEquals(listOf(A), ids(full))

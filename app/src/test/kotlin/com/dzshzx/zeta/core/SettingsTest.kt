@@ -95,7 +95,7 @@ class SettingsTest {
                     "interfaceScale" to 0.9f,
                     "assistantModel" to "opus",
                     "sharedFolders" to SharedFolders.encode(folders),
-                    "hostModes" to setOf("k1=plan"),
+                    "remoteClaude" to setOf("r-1/autoTitle=false"),
                 ),
             ),
         )
@@ -105,7 +105,7 @@ class SettingsTest {
         assertEquals("opus", settings.assistantModel)
         assertEquals(folders, settings.sharedFolders)
         assertEquals(folders, SharedFolders.current)
-        assertEquals(mapOf("k1" to "plan"), settings.hostModes)
+        assertEquals(mapOf("r-1/autoTitle" to "false"), settings.remoteClaude)
         assertTrue(settings.restore(mapOf("assistantModel" to null)))
         assertNull(settings.assistantModel)
     }

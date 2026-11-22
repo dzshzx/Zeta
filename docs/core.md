@@ -18,7 +18,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 一行一个 JSON，写法和方法清单以 `helper/serve.go` 开头为准。要点：
 
-- 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`，以及主机名 `hostname`（`os.Hostname`，和 `uname -n` 同一个值；查不到时是空串）。`protocol` 在改已有消息的含义时加一，只加方法、字段不加。客户端每次连上时拿 `hostname` 补设备的主机名（界面上没起名字的设备就叫它），不用另跑 `uname -n`：Kotlin 的 `ConversationHub.hostnameOf` 和 `onDefaultsRead` 里顺带问主机名的那段随之删掉；加设备时的检查（`RemoteHosts.ProbeScript`、Windows 的 `host.Probe`）在装 zeta-helper 之前跑，照旧自己查。
+- 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`，以及主机名 `hostname`（`os.Hostname`，和 `uname -n` 同一个值；查不到时是空串）。`protocol` 在改已有消息的含义时加一，只加方法、字段不加。客户端每次连上时拿 `hostname` 更新设备的主机名（界面上没起名字的设备就叫它；Kotlin 是 `ConversationHub.hostnameReported`），不另跑 `uname -n`；加设备时的检查（`RemoteHosts.ProbeScript`、Windows 的 `host.Probe`）在装 zeta-helper 之前跑，照旧自己查。
 - 客户端认得这些新方法、新字段，就说明它连的核心也有：客户端起的是自己带的那个版本的 serve，核心不比 serve 旧（见下一条和「目标」的新的接手）。所以客户端不用先探测核心支不支持。
 - 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`、`system.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
@@ -30,7 +30,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 对话的状态在核心进程 `zeta-helper core` 里（服务端框架在 `helper/core`，对话逻辑是挂在上面的处理器 `helper/conv`）：每台主机上每个 Linux 用户、每个包（`ZETA_NAME`）一个，监听 `~/.cache/<ZETA_NAME>/core/core.sock`（目录只有本人能进；测试用环境变量 `ZETA_CORE_DIR` 换个目录）。只起一个靠同目录的 `core.lock`：正在跑的核心持着它（flock，里面写着进程号），已有核心在听时新起的直接退出，上一个崩溃留下的套接字文件由拿到锁的那个清掉再听。连上时核心先发一行 `core_hello`（`build`、`version`），serve 读掉它决定用这个核心还是让它交班，不转给客户端。客户端不直接连核心：serve 收到 ping 以外的第一个请求时连上它，没人在听就用自己的程序拉起一个（`core` 子命令，自成一个会话，标准错误追加到同目录的 `core.log`），等它听上，约 5 秒为限，连不上时这个请求答出错；几个 serve 同时拉起时由锁保证只留一个。之后请求原样转过去，核心的应答和推送原样写回客户端。核心没了（崩溃、被结束、交班）时 serve 跟着退出，客户端照常重连，重新订阅、打开它的对话。
 
-- 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：核心起来时扫一遍托管进程（`zeta-helper hosts`），在回答、等确认、有后台任务的接上（有会话记录的先载入历史，从输出日志的下一行读起，还没答的确认重新排上，用户在这个对话里的权限模式照托管目录的 `user_mode` 恢复：核心在它变了时写），闲着的断开；客户端之后打开同一个会话号拿到的就是接上的那个。闲着被断开的，下次发消息时 `zeta_host.sh start` 照常接回同一个进程。
+- 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：核心起来时扫一遍托管进程（`zeta-helper hosts`），在回答、等确认、有后台任务的接上（有会话记录的先载入历史，从输出日志的下一行读起，还没答的确认重新排上，用户在这个对话里的权限模式照托管目录的 `user_mode` 恢复：核心在它变了时写），闲着的断开；客户端之后打开同一个会话号拿到的就是接上的那个；Android 客户端收到 `conv.activity` 时，把在进行、自己还没打开的会话按会话号打开放在后台（`ConversationHub.openRunning`，每个会话只开一次），提醒和胶囊跟得上它。闲着被断开的，下次发消息时 `zeta_host.sh start` 照常接回同一个进程。
 - 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒（还没发过消息的分支满 10 分钟：它没有会话号，收掉就没了，客户端断线重连时按 `key` 重开），核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话（处理器说自己闲着）满 60 秒就退出；收到 SIGTERM 时也干净退出，都会删掉自己的套接字文件。
 - 同一个会话只有一份状态：几个客户端（手机、电脑）打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。
 

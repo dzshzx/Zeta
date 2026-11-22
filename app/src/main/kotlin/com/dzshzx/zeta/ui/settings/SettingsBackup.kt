@@ -120,7 +120,6 @@ internal object SettingsBackup {
             "updateCheckedAt" to "这台手机上次检查更新的时间",
             "updateNotified" to "这台手机已经提醒过的新版本",
             "mutedApps" to "为后台运行临时静音、还没恢复的应用，是这台手机当下的状态",
-            "hostModes" to "还开着的 Claude Code 进程上的权限模式，进程没了就作废",
             "remoteClaude" to "各台远程设备上的自动压缩、压缩时机和自动标题，跟着远程设备的清单走",
             "remoteHosts" to
                 "远程设备靠这台手机的密钥连过去（Debian 里 ~/.ssh 的，或 Zeta 直连用的、存在这台手机里的），换手机后先让那些设备认新手机的公钥再加",
