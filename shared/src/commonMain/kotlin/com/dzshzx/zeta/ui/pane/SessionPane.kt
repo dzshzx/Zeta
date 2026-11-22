@@ -51,6 +51,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -1117,7 +1119,14 @@ private fun RowScope.SessionRowText(
 ) {
     val colors = COUITheme.colorScheme
     val title = session.title.ifBlank { session.preview }.ifBlank { "未命名对话" }
-    Column(modifier = Modifier.weight(1f)) {
+    // 已结束（没有活着的 Claude Code 进程）的会话灰着显示：一眼看出哪些还占着机器
+    val ended = !session.live
+    Column(
+        modifier =
+            Modifier.weight(1f).semantics(mergeDescendants = false) {
+                if (ended) stateDescription = "已结束"
+            },
+    ) {
         Text(
             text =
                 if (highlight.isEmpty()) AnnotatedString(title)
@@ -1126,7 +1135,7 @@ private fun RowScope.SessionRowText(
                 COUITheme.textStyles.bodyL.copy(
                     fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                 ),
-            color = colors.labelPrimary,
+            color = if (ended) colors.labelTertiary else colors.labelPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -1144,12 +1153,14 @@ private fun SessionSubtitle(
 ) {
     val colors = COUITheme.colorScheme
     val subtitleStyle = COUITheme.textStyles.bodyXS
+    // 已结束的会话这一行也灰着（草稿的红字照旧：没发出的东西要显眼）
+    val subtitleColor = if (session.live) colors.labelSecondary else colors.labelTertiary
     when {
         snippet != null ->
             Text(
                 text = highlighted(snippet, highlight, colors.primary),
                 style = subtitleStyle,
-                color = colors.labelSecondary,
+                color = subtitleColor,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1162,7 +1173,7 @@ private fun SessionSubtitle(
                         append(draft)
                     },
                 style = subtitleStyle,
-                color = colors.labelSecondary,
+                color = subtitleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1175,7 +1186,7 @@ private fun SessionSubtitle(
                         LocalHostName.current?.invoke(session.backend),
                     ),
                 style = subtitleStyle,
-                color = colors.labelSecondary,
+                color = subtitleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

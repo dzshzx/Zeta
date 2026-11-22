@@ -45,6 +45,7 @@ class SessionPaneShots : ShotTest() {
         preview: String = "",
         external: Boolean = false,
         archived: Boolean = false,
+        live: Boolean = true,
     ) =
         SessionSummary(
             id,
@@ -55,6 +56,7 @@ class SessionPaneShots : ShotTest() {
             updated,
             external = external,
             archived = archived,
+            live = live,
         )
 
     private val sessions =
@@ -69,14 +71,22 @@ class SessionPaneShots : ShotTest() {
                 "",
                 todayStart - 5 * 86_400_000L,
                 preview = "把周报里的表格整理成一页，再发到群里",
+                live = false,
             ),
-            session("s6", "/workspace/claude", "很久以前的对话", todayStart - 9 * 86_400_000L),
+            session(
+                "s6",
+                "/workspace/claude",
+                "很久以前的对话",
+                todayStart - 9 * 86_400_000L,
+                live = false,
+            ),
             session(
                 "s7",
                 "/workspace/claude",
                 "已经归档的对话",
                 todayStart - 20 * 86_400_000L,
                 archived = true,
+                live = false,
             ),
         )
 
@@ -116,7 +126,7 @@ class SessionPaneShots : ShotTest() {
         return Fixtures.readyHub(app).also { it.settings.pinnedSessions = setOf("s4") }
     }
 
-    /** 各种状态各一行：在回答、正看着的闲着、等你确认、后台任务、有新回答；其余只是历史记录。 */
+    /** 各种状态各一行：在回答、正看着的闲着、等你确认、后台任务、有新回答；s5 起进程已结束（灰着），其余只是历史记录。 */
     private val statuses =
         mapOf(
             "s1" to SessionStatus(Activity.Answering),

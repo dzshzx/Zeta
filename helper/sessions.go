@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,7 +32,8 @@ type summary struct {
 // item 是列表里的这一项（zeta_sessions 的 upsert、sessions.lookup 的每一项），带上 marks 里它的标记。
 func (s summary) item(marks sessionMarks) obj {
 	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "updated": s.updated,
-		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id]}
+		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id],
+		"live": marks.live[s.id]}
 }
 
 // summaryScan 是读一份记录时攒下的东西。
@@ -271,13 +273,37 @@ func lookupSessions(e *env, ids []string) []obj {
 
 // sessionMarks 是列表每一项要带的几样标记，按会话 id。
 type sessionMarks struct {
-	external map[string]bool // 正被别的 Claude Code 进程占着（externalSessions）
+	external map[string]bool // 正被别的 Claude Code 进程占着（outsideRegistrations）
+	live     map[string]bool // 有还活着的 Claude Code 进程（Zeta 托管的、终端里的都算）；没有的是已结束的会话
 	archived map[string]bool // 归档了
 	pinned   map[string]bool // 置顶了
 }
 
 func (e *env) sessionMarks() sessionMarks {
-	return sessionMarks{external: e.externalSessions(), archived: e.archivedSessions(), pinned: e.pinnedSessions()}
+	external, live := map[string]bool{}, map[string]bool{}
+	for _, r := range e.registeredSessions() {
+		id, ok := r.session.(string)
+		if !ok {
+			continue
+		}
+		live[id] = true
+		if !e.ownHost(r) {
+			external[id] = true
+		}
+	}
+	return sessionMarks{external: external, live: live, archived: e.archivedSessions(), pinned: e.pinnedSessions()}
+}
+
+// liveKey 是有活着的进程的会话 id，排好序连成一串：会话列表的订阅拿它看进程有没有起来、结束（sessionWatch.liveChanged）。
+func (e *env) liveKey() string {
+	var ids []string
+	for _, r := range e.registeredSessions() {
+		if id, ok := r.session.(string); ok {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return strings.Join(slices.Compact(ids), " ")
 }
 
 // archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着。
@@ -580,15 +606,6 @@ func jsonInt(v any) (int, bool) {
 		return int(f), true
 	}
 	return 0, false
-}
-
-// externalSessions 是正被别的 Claude Code 进程（比如终端里的）占用的会话 id。
-func (e *env) externalSessions() map[string]bool {
-	out := map[string]bool{}
-	for _, r := range e.outsideRegistrations() {
-		out[r.session.(string)] = true
-	}
-	return out
 }
 
 // outsideRegistrations 是本包之外（终端里的、另一个包托管的）的进程登记的、带会话 id 的那些：侧栏标“在别处运行”、end 结束的都是它们。

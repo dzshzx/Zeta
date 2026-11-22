@@ -3,7 +3,10 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,6 +29,19 @@ class SessionListTest {
             "",
             0,
         )
+
+    /** 会话项的 live：核心说进程没了（false）才算已结束；核心没给这一项（比它旧）时当作还在运行，不把整个列表灰掉。 */
+    @Test
+    fun liveDefaultsToRunning() {
+        fun parsed(extra: String) =
+            sessionSummaryOf(
+                Json.parseToJsonElement("""{"id":"s1","file":"/f/s1.jsonl"$extra}""").jsonObject,
+                Backends.LOCAL,
+            )!!
+        assertFalse(parsed(""","live":false""").live)
+        assertTrue(parsed(""","live":true""").live)
+        assertTrue(parsed("").live)
+    }
 
     /** 自动起的标题先记着：在它写进会话记录之前读到的列表用记着的，读到写进去的以后就不再替它补。 */
     @Test

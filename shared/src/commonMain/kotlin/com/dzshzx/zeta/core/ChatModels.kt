@@ -300,6 +300,8 @@ data class SessionSummary(
     val archived: Boolean = false,
     /** 会话记录在哪台主机上（[Backends]）。 */
     val backend: String = Backends.LOCAL,
+    /** 有还活着的 Claude Code 进程（Zeta 托管的、终端里的都算）；为假是已结束的会话，侧栏里灰着显示。 */
+    val live: Boolean = true,
 ) {
     /** 置顶的设置里记它用的键（[pinKey]）。 */
     val pinKey: String
@@ -340,6 +342,8 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? =
         external = o.bool("external") == true,
         archived = o.bool("archived") == true,
         backend = backend,
+        // 核心没给这一项时（比它旧）当作还在运行，不把整个列表都灰掉
+        live = o.bool("live") != false,
     )
 
 /** 核心的 `sessions.lookup` 的结果（会话摘要的数组）里的会话（[backend] 是在哪台主机上查的）；结果不成样子时是 null。 */

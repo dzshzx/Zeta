@@ -19,6 +19,7 @@ import (
 // 什么时候重读：用 inotify 盯着会话目录（~/.claude/projects 和其下各项目）、Claude Code 的进程登记
 // （~/.claude/sessions，决定 external）和归档、置顶文件所在的目录；任何变化之后等 debounce 再重读，其间的变化合成一次。
 // 要盯的目录还不在时盯它最近的、已有的上级目录，等它建出来；inotify 用不了时每 poll 重读一次。
+// 进程被杀时登记文件常常留着（目录不变），所以盯得上时也每 poll 核对一次登记的进程还在不在（live），变了才重读。
 // 重读时按文件大小和修改时刻认出没变的记录，只重新读变了的那几份的头尾（summarize）。
 //
 // 侧栏的写操作（改名、归档、置顶、删除）写完由 force 叫它马上重读，不等 debounce，那几项不管和上次发的同不同都发：
@@ -42,6 +43,7 @@ type sessionWatch struct {
 	cache   map[string]cached // 记录文件 → 上次读到的概要
 	shown   map[string]string // 上次发出去的：id → 那一项的 JSON
 	blind   bool              // 有要盯的目录盯不上（没有已有的上级、inotify 加不上）：靠定时重读
+	live    string            // 上次核对时有活着的进程的会话（env.liveKey）
 }
 
 type watch struct {
@@ -121,6 +123,7 @@ func (w *sessionWatch) run() {
 	}()
 	// 先盯上再读，读的时候改了的也不会漏
 	w.ensureWatches()
+	w.live = w.e.liveKey()
 	if w.publish(true) != nil {
 		return
 	}
@@ -145,7 +148,7 @@ func (w *sessionWatch) run() {
 		case <-w.now:
 			// 等着的 settle 留着：到时再看一遍，没有新的差异就不发
 		case <-poll.C:
-			if !w.blind {
+			if !w.blind && !w.liveChanged() {
 				continue
 			}
 		case <-w.again:
@@ -347,4 +350,12 @@ func unlisted(next, shown map[string]string, forced map[string]bool) []string {
 	}
 	sort.Strings(remove)
 	return remove
+}
+
+// liveChanged：登记的进程里有起来或结束的（和上次核对时比），记下这次的。
+func (w *sessionWatch) liveChanged() bool {
+	live := w.e.liveKey()
+	changed := live != w.live
+	w.live = live
+	return changed
 }
