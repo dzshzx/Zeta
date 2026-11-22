@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Go 桌面版的 MSI，由 msi.sh 交给 wixl。按用户安装到 %LOCALAPPDATA%\Programs\Zeta，不要管理员；MSI 里的字符串只用 ASCII，免得各语言的 Windows 上乱码。
+     UpgradeCode 是 Compose 桌面版（desktop/windows/Zeta.wxs）的那个，不能改：装这个包时靠它认出已装的旧版（Compose 版或更早的 Go 版）并卸掉，
+     安装范围也要和它一样按用户，否则认不出。installer_test.go 钉着这几项。 -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Zeta" Language="1033" Version="$(var.Version)" Manufacturer="dzshzx"
+           UpgradeCode="d73fe446-ddad-4182-b6f1-fc4f8ac025fb">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
+             Description="Zeta: Claude Code on remote hosts over SSH" />
+    <Media Id="1" Cabinet="zeta.cab" EmbedCab="yes" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Zeta is already installed." />
+    <!-- wixl 把卸旧版排在装新文件之前（不认 MajorUpgrade 的 Schedule），而装不装一个文件是卸旧版之前按版本号定的：
+         版本号没变的文件会被判成「已有、不用装」，接着被卸旧版删掉。a 让每个文件都照装；只装在本程序自己的目录里，不碰共用的文件。 -->
+    <Property Id="REINSTALLMODE" Value="amus" />
+
+    <Icon Id="zeta.ico" SourceFile="$(var.IconFile)" />
+    <Property Id="ARPPRODUCTICON" Value="zeta.ico" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsDir" Name="Programs">
+          <Directory Id="INSTALLDIR" Name="Zeta">
+            <Component Id="ZetaExe" Guid="*">
+              <File Id="ZetaExe" Name="Zeta.exe" Source="$(var.Exe)" KeyPath="yes" />
+            </Component>
+          </Directory>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <!-- 开始菜单的快捷方式。Compose 版的那个起 runtime\bin\javaw.exe，内容变了所以换了组件的 Guid；键路径是同一个注册表值。 -->
+    <DirectoryRef Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="0e6f0c7a-5a43-4d1e-9a52-3f0a8f6c2b71">
+        <Shortcut Id="ZetaShortcut" Name="Zeta" Description="Zeta"
+                  Target="[INSTALLDIR]Zeta.exe" WorkingDirectory="INSTALLDIR" Icon="zeta.ico" />
+        <RegistryValue Root="HKCU" Key="Software\dzshzx\Zeta" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Level="1">
+      <ComponentRef Id="ZetaExe" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Product>
+</Wix>

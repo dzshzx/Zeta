@@ -1,0 +1,13 @@
+{
+  "name": "Zeta",
+  "slug": "zeta",
+  "identifier": "com.dzshzx.zeta.desktop",
+  "version": "0.0.0",
+  "copyright": "© 2026 dzshzx",
+  "publisher": "dzshzx",
+  "license": "GPL-3.0-only",
+  "icon": "installer/icon.png",
+  "main": "./cmd/zeta",
+  "out": "build/mygo",
+  "linux": { "webview": false }
+}
