@@ -71,7 +71,7 @@ func TestShellRunsInTheRemoteEnvironment(t *testing.T) {
 	b.shell.TZ = "UTC"
 	b.file(t, ".local/bin/only-in-login", "#!/bin/sh\necho found\n", 0o755)
 	r, err := b.shell.Run(`echo "$ZETA_NAME $TZ $LANG"; only-in-login; echo 'it''s'`, nil, 10*time.Second, false)
-	if err != nil || r.Stdout != "zeta UTC C.UTF-8\nfound\nits\n" || r.Code != 0 {
+	if err != nil || r.Stdout != LinuxName+" UTC C.UTF-8\nfound\nits\n" || r.Code != 0 {
 		t.Errorf("login: %v %+v", err, r)
 	}
 	r, _ = b.shell.Run("only-in-login", nil, 10*time.Second, true)
@@ -147,8 +147,8 @@ func TestHelperInstallsOnceByContentHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stale := b.file(t, ".cache/zeta/bin/zeta-helper-0123456789abcdef", "old", 0o755)
-	other := b.file(t, ".cache/zeta/bin/claude-switch-0123456789abcdef", "other program", 0o755)
+	stale := b.file(t, ".cache/"+LinuxName+"/bin/zeta-helper-0123456789abcdef", "old", 0o755)
+	other := b.file(t, ".cache/"+LinuxName+"/bin/claude-switch-0123456789abcdef", "other program", 0o755)
 	b.session(t, "11111111-2222-3333-4444-555555555555", "你好")
 	out, err := b.shell.Helper(program, 30*time.Second, "list")
 	if err != nil || !strings.Contains(out, `"id":"11111111-2222-3333-4444-555555555555"`) {
@@ -165,7 +165,7 @@ func TestHelperInstallsOnceByContentHash(t *testing.T) {
 	if _, err := os.Stat(other); err != nil {
 		t.Error("another program's version was removed")
 	}
-	if link, _ := os.Readlink(filepath.Join(b.server.Home, ".cache/zeta/bin/zeta-helper")); link != "zeta-helper-"+program.Version {
+	if link, _ := os.Readlink(filepath.Join(b.server.Home, ".cache/"+LinuxName+"/bin/zeta-helper")); link != "zeta-helper-"+program.Version {
 		t.Errorf("link %q", link)
 	}
 	// 装好了就直接跑，不再传程序
@@ -202,7 +202,7 @@ func TestHelperErrorsAreExplained(t *testing.T) {
 func TestProgramVersionMatchesKotlin(t *testing.T) {
 	// HelperProgram.version：两份程序先 arm64 后 amd64 接起来的 SHA-256，取前 16 位
 	p := NewProgram("zeta-helper", map[string][]byte{"arm64": []byte("a"), "amd64": []byte("b")})
-	if p.Version != "fb8e20fc2e4c3f24" || p.RelativePath() != ".cache/zeta/bin/zeta-helper-fb8e20fc2e4c3f24" {
+	if p.Version != "fb8e20fc2e4c3f24" || p.RelativePath() != ".cache/"+LinuxName+"/bin/zeta-helper-fb8e20fc2e4c3f24" {
 		t.Errorf("version %s", p.Version)
 	}
 }
@@ -392,5 +392,15 @@ func TestSessionsDecodeOddFields(t *testing.T) {
 	}
 	if (Session{Cwd: ""}).Place() != "/" || (Session{Title: " ", Preview: "p"}).Label() != "p" {
 		t.Error("place or label")
+	}
+}
+
+// 正式版和手机正式版同包，别的构建和手机测试版同包（docs/desktop.md）。
+func TestLinuxNameFollowsBuild(t *testing.T) {
+	if linuxName(true) != "zeta" || linuxName(false) != "zeta-dev" {
+		t.Fatal(linuxName(true), linuxName(false))
+	}
+	if LinuxName != "zeta-dev" {
+		t.Fatal("测试编出的不是正式版，应该是 zeta-dev：", LinuxName)
 	}
 }

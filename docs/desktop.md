@@ -7,7 +7,7 @@
 - 只连远程主机，用 Zeta 自带的 SSH 直连（`golang.org/x/crypto/ssh`）。认证照这台电脑的 OpenSSH 配置：地址可以是 `~/.ssh/config` 里的别名，交给 `ssh -G` 算出主机、用户、端口和私钥；每台设备能另选 `~/.ssh` 里一把私钥（旁边有 `.pub` 的）。带口令的私钥、ProxyJump、ProxyCommand 不支持，遇到明说。主机指纹在加设备时记下，之后只认它。x/crypto/ssh 没有 zlib 压缩，连接不压缩。
 - 设置和 Compose 版共用 `%APPDATA%\Zeta` 下的同一批 JSON 文件，格式照 `desktop/…/FilePrefStore.kt`（每项 `{"t":类型,"v":值}`），键和取值照 `shared/…/core/Settings.kt`：从旧版升上来，设备、置顶、常用指令、草稿都还在。
 - 安装包是 MSI，在 Linux 上用 wixl 打，`UpgradeCode` 沿用 `desktop/windows/Zeta.wxs` 的那个，所以装新版直接替换旧版；同样带 `REINSTALLMODE=amus`。随正式版一起发，`update.json` 的 `msi`、`msiUrl`、`msiSize`、`msiSha256` 照旧。自动更新照 Compose 版的 `MsiInstall.kt` 起安装：脚本写成 UTF-8 带 BOM 的 `.ps1`，用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` 起，不加 `-WindowStyle Hidden`、不用 `-EncodedCommand`（有的杀毒软件拦后者，拦下后这个进程再起什么子进程都被拒）。
-- 在主机上算作手机正式版同一个包（`ZETA_NAME=zeta`，见 `AppVariant.linuxName`）：同一个会话可以电脑和手机同时接着。托管脚本 `zeta_host.sh`、zeta-helper、claude-switch、`zeta_accounts.sh` 都是手机版那几份（构建时编进程序），按内容哈希装到主机上，和手机版装的是同一份。
+- 在主机上和手机版用同一个包：正式版是 `zeta`，和手机正式版同包；测试版（不是干净 X.Y.Z 的构建）是 `zeta-dev`，和手机测试版同包（见 `AppVariant.linuxName`、`internal/host` 的 `LinuxName`）。同一个包在一台主机上只有一份 zeta-helper 和一个核心，同一个会话可以电脑和手机同时接着、看到的是同一份状态。托管脚本 `zeta_host.sh`、zeta-helper、claude-switch 都是手机版那几份（构建时编进程序），按内容哈希装到主机上，和手机版装的是同一份。
 - 和 Claude Code 说话（起进程的参数、stream-json 输入、控制请求、确认的应答格式）由 serve 做，桌面版不直接碰 stream-json。
 
 ## 结构
