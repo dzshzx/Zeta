@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
@@ -40,12 +39,15 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 
 // sessionsHandler 管会话列表的订阅：sessions.watch 先推一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只推变了的几项
 // （见 sessionWatch）；再发一次就再给一份整份的。sessions.unwatch 退订，客户端断开时也退订。
+// 别的 sessions.* 是侧栏对会话的操作（改名、归档、删除等），见 sessionmethods.go。
 type sessionsHandler struct {
 	e    *env
 	opts watchOptions
 
 	mu      sync.Mutex
 	watches map[*core.Client]*sessionWatch
+
+	archiveMu sync.Mutex // 改归档文件的一个一个来
 }
 
 func (h *sessionsHandler) Request(c *core.Client, r core.Request) (any, error) {
@@ -55,7 +57,7 @@ func (h *sessionsHandler) Request(c *core.Client, r core.Request) (any, error) {
 		return nil, nil
 	case "sessions.watch":
 	default:
-		return nil, errors.New("unknown method: " + r.Method)
+		return h.call(c, r)
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
