@@ -152,6 +152,17 @@ func (v *vd) phoneSSH() string {
 	return alias
 }
 
+// ssh 是在手机 Debian 里跑 remote 的命令行。连接复用：第一条命令建的主连接在最后一次用过之后留 60 秒，其间每个 vd 不再握手。
+// 主连接 30 秒收不到手机的应答就断开，和不复用时连接超时的上限一样；它断了以后下一条命令照常新建。
+func (v *vd) ssh(remote string) []string {
+	dir := os.Getenv("XDG_RUNTIME_DIR")
+	if dir == "" {
+		dir = filepath.Join(os.Getenv("HOME"), ".ssh")
+	}
+	return []string{"ssh", "-o", "ControlMaster=auto", "-o", "ControlPath=" + filepath.Join(dir, "zeta-vd-%C"), "-o", "ControlPersist=60",
+		"-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", v.phoneSSH(), remote}
+}
+
 func (v *vd) adb() []string {
 	return []string{filepath.Join(v.sdk, "platform-tools", "adb"), "-s", "emulator-5554"}
 }
@@ -195,7 +206,7 @@ func (v *vd) run(cmd string, data []byte, seconds int) result {
 	} else {
 		argv = append([]string{"sudo", "-n", "timeout", t, "nsenter", "-t", "1", "-m", "--"}, sh...)
 		if !v.onPhone {
-			argv = []string{"ssh", v.phoneSSH(), shJoin(argv)}
+			argv = v.ssh(shJoin(argv))
 		}
 	}
 	return capture(argv, data)
@@ -235,7 +246,7 @@ func (v *vd) debian(cmd string, data []byte) string {
 	} else {
 		argv := []string{"timeout", "60", "sh", "-c", cmd}
 		if !v.onPhone {
-			argv = []string{"ssh", v.phoneSSH(), shJoin(argv)}
+			argv = v.ssh(shJoin(argv))
 		}
 		r = capture(argv, data)
 	}

@@ -1,7 +1,7 @@
 #!/bin/bash
 # 接回进程时恢复用户在对话里定的权限模式：测试版换用假 Claude（剧本 fake/mode-reattach.jsonl），新对话在输入栏切到计划模式、
-# 发一条；回答到一半强行停掉测试版（托管的 Claude Code 进程不随应用退出），冷启动后 Zeta 把还在回答的进程接回来；
-# 等这一轮答完再发一条。核对假 Claude 两轮开头 init 报的权限模式都是计划模式，没被换成 Claude Code 的默认。
+# 发一条；回答到一半（剧本在这里等标记）强行停掉测试版（托管的 Claude Code 进程不随应用退出），冷启动后 Zeta 把还在回答的
+# 进程接回来，脚本这时才放标记；等这一轮答完再发一条。核对假 Claude 两轮开头 init 报的权限模式都是计划模式，没被换成 Claude Code 的默认。
 # 截图 reattached.png 是接回后的聊天页，输入栏的模式按钮应是计划模式。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/mode-reattach.sh
 # 假 Claude 不写会话记录，没有要删的测试会话。
@@ -20,7 +20,7 @@ sleep 10 # 冷启动后马上输入会丢字
 
 choose_mode plan
 send "fake-reattach-1"
-# 等假 Claude 开始回答（剧本先说一句，再停 20 秒）
+# 等假 Claude 开始回答（剧本先说一句，再等标记）
 for _ in $(seq 30); do
   find_log
   [[ -n $log ]] && android "grep -q '\"type\":\"assistant\"' $log" && break
@@ -31,6 +31,7 @@ android "am force-stop $PKG"
 sleep 1
 vd launch
 sleep 10
+mark relaunched # 测试版接回了还在回答的进程，让它答完
 wait_result 1 40 || exit 1
 sleep 1
 vd shot reattached.png >/dev/null

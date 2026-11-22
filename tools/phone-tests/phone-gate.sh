@@ -65,9 +65,7 @@ echo "后台屏幕睡下后再用时唤醒了"
 sleep 3
 
 # ---- 3：暂停、接管时下一次调用等着，继续后执行 ----
-# 剧本在每次 screen 之前等脚本放的标记（{"wait":…}），不和固定的停顿赛跑：设备忙时找、点按钮慢多少都不影响结果。
-# mark <名字>：放标记，剧本接着发出下一次调用
-mark() { vd fake --mark "$1" >/dev/null; }
+# 剧本在每次 screen 之前等脚本放的标记（lib.sh 的 mark），脚本点好按钮再让它发出下一次调用。
 # gate_waiting <从什么时候起>：测试版的日志里有没有调用停在闸门前（ControlGate.await 打的那一行），在设备上每半秒看一次，最多等 30 秒
 gate_waiting() {
   android "i=0; while [ \$i -lt 60 ]; do logcat -d -T '$1' --pid=\$(pidof $PKG) -s ZetaPhone:I | grep -q 'gate: phone tool call waiting' && exit 0; sleep 0.5; i=\$((i + 1)); done; exit 1"

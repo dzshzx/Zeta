@@ -43,45 +43,16 @@ var (
 // noDisplay 是 onDisplay 里找不到虚拟屏时远端的退出码。
 const noDisplay = 97
 
-// do 执行一条已经核对过参数的命令。
-func (v *vd) do(c command) {
-	switch c.name {
-	case "build":
-		v.buildDex()
-	case "start":
-		v.start(c.args)
-	case "shot":
-		v.shot(c.args[0])
-	case "launch":
-		v.onDisplay(v.launchCmd(`"$d"`))
-	case "status":
-		if id, ok := v.displayID(); ok {
-			fmt.Printf("虚拟屏 %d\n", id)
-		} else {
-			fmt.Println("虚拟屏不在")
-		}
-	case "stop":
-		v.stop()
-	case "tap", "swipe":
-		v.onDisplay(`input -d "$d" ` + c.name + " " + strings.Join(c.args, " "))
-	case "text":
-		v.onDisplay(`input -d "$d" text ` + shQuote(c.args[0]))
-	case "key":
-		v.onDisplay(`input -d "$d" keyevent ` + c.args[0])
-	case "nodes":
-		v.nodes(c.match)
-	case "tap-text":
-		v.tapText(c.match)
-	case "prefs":
-		v.prefs(c.args)
-	case "prefs-set":
-		v.prefsSet(c.args)
-	case "fake":
-		v.fake(c.args[0], c.args[len(c.args)-1])
-	case "sh":
-		v.sh(c)
-	case "debian":
-		fmt.Print(v.debian(c.args[0], stdinIf(c.stdin)))
+// input 在虚拟屏上注入一次输入：args 是 input 命令屏号之后的部分。
+func (v *vd) input(args string) {
+	v.onDisplay(`input -d "$d" ` + args)
+}
+
+func (v *vd) status() {
+	if id, ok := v.displayID(); ok {
+		fmt.Printf("虚拟屏 %d\n", id)
+	} else {
+		fmt.Println("虚拟屏不在")
 	}
 }
 
@@ -96,7 +67,7 @@ func stdinIf(want bool) []byte {
 	return data
 }
 
-func (v *vd) sh(c command) {
+func (v *vd) sh(c *command) {
 	r := v.run(c.args[0], stdinIf(c.stdin), 120)
 	os.Stdout.Write(r.stdout)
 	os.Stderr.Write(r.stderr)
@@ -272,17 +243,17 @@ func (v *vd) shot(path string) {
 }
 
 func (v *vd) stop() {
-	cmds := []string{v.findDisplay() + `[ -z "$d" ] || echo release > ` + v.work + "/ctl"}
-	if v.dev {
-		// 测试版另外收拾干净；用户的正式版只关屏，不碰（force-stop 会让系统拿掉它的无障碍服务）。
-		// force-stop 放在关屏之后：先 force-stop 再关屏，测试版会被重新拉起来
-		cmds = append(cmds, "am force-stop "+v.pkg, strings.ReplaceAll(devCleanup, "@PKG@", v.pkg))
+	closeScreen := v.findDisplay() + `[ -z "$d" ] || echo release > ` + v.work + "/ctl"
+	if !v.dev {
+		// 用户的正式版只关屏，不碰（force-stop 会让系统拿掉它的无障碍服务）
+		fmt.Print(v.try(closeScreen))
+		fmt.Println("stopped")
+		return
 	}
-	fmt.Print(v.try(strings.Join(cmds, "\n")))
-	if v.dev {
-		v.prefsRestore()
-		// 假 Claude 撤下：之后测试版起的都是真的 claude，闲着的假 Claude 看到剧本没了自己退出
-		fmt.Print(v.debian(fmt.Sprintf("if [ -d %[1]s ]; then rm -rf %[1]s && echo 删掉了假 Claude 的剧本; fi", fakeDir), nil))
-	}
+	// 测试版另外收拾干净。force-stop 放在关屏之后：先 force-stop 再关屏，测试版会被重新拉起来
+	fmt.Print(v.try(strings.Join([]string{closeScreen, "am force-stop " + v.pkg, strings.ReplaceAll(devCleanup, "@PKG@", v.pkg)}, "\n")))
+	v.prefsRestore()
+	// 假 Claude 撤下：之后测试版起的都是真的 claude，闲着的假 Claude 看到剧本没了自己退出
+	fmt.Print(v.debian(fmt.Sprintf("if [ -d %[1]s ]; then rm -rf %[1]s && echo 删掉了假 Claude 的剧本; fi", fakeDir), nil))
 	fmt.Println("stopped")
 }

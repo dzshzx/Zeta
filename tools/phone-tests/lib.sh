@@ -57,6 +57,10 @@ send() {
   vd tap $SEND_X $SEND_Y
 }
 
+# mark <名字>：放下剧本里 {"wait":"<名字>"} 等的标记，假 Claude 接着往下走。剧本在要和脚本对上的地方等标记，不用固定的停顿：
+# 设备忙时脚本慢多少都不影响结果
+mark() { vd fake --mark "$1" >/dev/null; }
+
 # 这次对话的托管日志放进 log：起的是假 Claude（init 里有 fake_claude）的、最新的那份。
 # NEWER 设成手机上的一个文件时，只看比它新的（先 android "touch <文件>"，别的测试留下的假 Claude 日志就不算）。还没有时 log 是空的。
 NEWER=''

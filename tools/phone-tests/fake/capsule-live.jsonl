@@ -1,1 +1,1 @@
-{"title":"假 Claude · 胶囊与实时通知","steps":[{"text":"先想一会儿。","chunk":6,"delay":30},{"pause":9000},{"phone":"open_app","input":{"app":"com.android.settings","display":"background"}},{"text":"设置开在后台屏幕上了，再等一会儿。","chunk":6,"delay":30},{"pause":9000},{"text":"好了。","chunk":6,"delay":30}]}
+{"title":"假 Claude · 胶囊与实时通知","steps":[{"text":"先想一会儿。","chunk":6,"delay":30},{"wait":"promoted"},{"phone":"open_app","input":{"app":"com.android.settings","display":"background"}},{"text":"设置开在后台屏幕上了，再等一会儿。","chunk":6,"delay":30},{"wait":"capsule"},{"text":"好了。","chunk":6,"delay":30}]}

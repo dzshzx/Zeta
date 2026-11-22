@@ -1,7 +1,8 @@
 #!/bin/bash
 # 每条消息按发的人的权限模式跑：测试版换用假 Claude（剧本 fake/mode-per-sender.jsonl），放一个接着同一个对话、权限模式是
 # 完全放行的定时任务，用闹钟的广播让它到点两次：
-#   第 1 次新开对话，跑的时候打开它（这个对话成了用户正看着的那个）；跑完用户在里面发一条：用户没选过模式，用 Claude Code 的默认；
+#   第 1 次新开对话，跑的时候打开它（这个对话成了用户正看着的那个；剧本说完第一句等标记，脚本看到这一句在屏上了才放）；
+#     跑完用户在里面发一条：用户没选过模式，用 Claude Code 的默认；
 #   第 2 次接着这个开着的对话跑；跑完用户在输入栏把这个对话切到自动接受编辑，再发一条。
 # 核对这个对话的假 Claude 每轮开头 init 报的权限模式依次是 完全放行、Claude Code 的默认（手机上 settings.json 的
 # permissions.defaultMode）、完全放行、自动接受编辑，控制请求没有出错，settings.json 的默认没被改（对话里选的只管这个对话）。
@@ -31,7 +32,7 @@ vd launch
 # 冷启动后第一次打字在第 1 次运行之后，不用另等
 [[ $(task | jq -r .permissionMode) == bypassPermissions ]] || { echo "测试任务没放进设置：$(task)"; exit 1; }
 
-# 第 1 次：新开对话，跑的时候（剧本里停 8 秒）打开它
+# 第 1 次：新开对话，跑的时候（剧本说完第一句等标记）打开它
 fire
 session=''
 for _ in $(seq 20); do
@@ -41,6 +42,15 @@ for _ in $(seq 20); do
 done
 [[ -n $session ]] || { echo "第 1 次运行 20 秒没拿到会话号：$(task)"; exit 1; }
 android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity -f 0x30000000 --es com.dzshzx.zeta.extra.CONVERSATION $session" >/dev/null
+# 等这个对话显示在屏上（看得到剧本的第一句）再让它跑完
+shown=''
+for _ in $(seq 20); do
+  shown=$(vd nodes '后台跑第一次')
+  [[ -n $shown ]] && break
+  sleep 0.5
+done
+[[ -n $shown ]] || { vd shot not-opened.png >/dev/null; echo "打开对话 $session 后 10 秒，屏上没有第 1 次运行的回答"; exit 1; }
+mark opened
 wait_run 1
 echo "第 1 次：$RUN"
 sleep 0.5

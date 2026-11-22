@@ -198,3 +198,17 @@ func TestParseBroadcast(t *testing.T) {
 		t.Fatal("没等到结果应当报错")
 	}
 }
+
+// 表里每条命令都要有说明和执行，名字不重复；用法由表生成，所以每条都在里面。
+func TestCommandsTable(t *testing.T) {
+	seen := map[string]bool{}
+	for _, s := range commands {
+		if s.help == "" || s.run == nil || seen[s.name] {
+			t.Errorf("%s: 缺说明或执行，或名字重复", s.name)
+		}
+		seen[s.name] = true
+		if !strings.Contains(usage(), "\n  vd "+s.name) {
+			t.Errorf("用法里没有 %s", s.name)
+		}
+	}
+}
