@@ -132,7 +132,7 @@ class DesktopUpdates(
         return scope.launch { checkNow(announce = false) }
     }
 
-    /** 「下载并安装」：下载、核对，起安装程序后退出。失败后的「重试」也是它。 */
+    /** 「更新」：下载、核对，起安装程序后退出。失败后的「重试」也是它。 */
     fun start(): Job? {
         val available = state as? DesktopUpdateState.Available ?: return null
         if (job?.isActive == true) return null

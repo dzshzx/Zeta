@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.desktop
 
-import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,15 +58,20 @@ class MsiInstallTest {
         val quoted =
             MsiScript.script(1, """C:\O'Brien\Zeta.msi""", relaunch(listOf("-jar", "x.jar")), "l")
         assertTrue(quoted, quoted.contains("""'/i C:\O''Brien\Zeta.msi /passive"""))
-        // 交给 PowerShell 的是 UTF-16LE 的 base64，解出来就是原脚本
-        val command = MsiScript.powershell("""C:\Windows""", script)
+        // 脚本写成文件交给 -File，不带隐藏窗口、编码命令这类会被杀毒软件拦的参数
+        val path = """C:\Users\Zeta User\AppData\Local\Zeta\update\install.ps1"""
+        val command = MsiScript.powershell("""C:\Windows""", path)
         assertEquals(
             """C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe""",
             command.first(),
         )
-        assertEquals("-EncodedCommand", command[command.size - 2])
-        assertEquals(script, String(Base64.getDecoder().decode(command.last()), Charsets.UTF_16LE))
-        assertEquals("powershell.exe", MsiScript.powershell(null, script).first())
+        assertEquals(listOf("-File", path), command.takeLast(2))
+        assertFalse(command.toString(), command.any { it.contains("Encoded") || it == "Hidden" })
+        assertEquals("powershell.exe", MsiScript.powershell(null, path).first())
+        // 文件是 UTF-8 带 BOM，去掉 BOM 就是原脚本
+        val bytes = MsiScript.scriptFile(script)
+        assertEquals(listOf(0xEF, 0xBB, 0xBF), bytes.take(3).map { it.toInt() and 0xFF })
+        assertEquals(script, String(bytes.copyOfRange(3, bytes.size), Charsets.UTF_8))
     }
 
     @Test

@@ -3,7 +3,6 @@ package com.dzshzx.zeta.desktop
 import java.io.File
 import java.io.IOException
 import java.lang.management.ManagementFactory
-import java.util.Base64
 
 /** 装下载好、核对过的 MSI。 */
 fun interface MsiInstaller {
@@ -16,8 +15,10 @@ data class Launch(val command: String, val arguments: List<String>, val workDir:
 
 /**
  * Windows 上装 MSI：起一个脱离本进程的 PowerShell，它等本进程退出（MSI 要换掉正在用的 javaw.exe 和 jar）→ `msiexec /i <msi>
- * /passive /norestart` 等它装完 → 用本进程启动时的同一条命令重新打开 Zeta（装没装上都重开：没装上时 MSI 已回滚到旧版）。脚本用 `-EncodedCommand`
- * 传，免得路径里的空格、引号再转义一层。对话的 Claude Code 进程跑在远程主机上、由托管脚本管着，Zeta 退出不影响，重开后照常接上。
+ * /passive /norestart` 等它装完 → 用本进程启动时的同一条命令重新打开 Zeta（装没装上都重开：没装上时 MSI 已回滚到旧版）。脚本写成 MSI 旁边的
+ * install.ps1（UTF-8 带 BOM，Windows PowerShell 5.1 才按 UTF-8 读）交给 `-File`。不用
+ * `-EncodedCommand`、`-WindowStyle Hidden`： 卡巴斯基把「隐藏窗口加编码命令」当恶意脚本，拒绝起进程，还会把本进程之后起的进程全拦下（在 nerv-win
+ * 上实测）；Java 起子进程本来就不开控制台窗口。对话的 Claude Code 进程跑在远程主机上、由托管脚本管着，Zeta 退出不影响，重开后照常接上。
  *
  * 安装的记录写到 [log]（msiexec 的 `/l`），装不上时看它。
  */
@@ -31,9 +32,11 @@ class WindowsMsiInstaller(private val log: File) : MsiInstaller {
                 MsiScript.relaunch(),
                 log.path,
             )
+        val file = File(msi.parentFile, SCRIPT)
         return try {
             log.parentFile?.mkdirs()
-            ProcessBuilder(MsiScript.powershell(System.getenv("SystemRoot"), script))
+            file.writeBytes(MsiScript.scriptFile(script))
+            ProcessBuilder(MsiScript.powershell(System.getenv("SystemRoot"), file.path))
                 .redirectInput(ProcessBuilder.Redirect.from(File("NUL")))
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
@@ -45,6 +48,11 @@ class WindowsMsiInstaller(private val log: File) : MsiInstaller {
     }
 
     private fun isWindows() = System.getProperty("os.name").orEmpty().startsWith("Windows")
+
+    private companion object {
+        /** 安装脚本的文件名，和 MSI 放在一起（下次启动清理下载目录时一并删掉）。 */
+        const val SCRIPT = "install.ps1"
+    }
 }
 
 /** [WindowsMsiInstaller] 用的命令和脚本，都是纯函数，测试在 Linux 上照 Windows 的写法核对。 */
@@ -134,10 +142,10 @@ object MsiScript {
     }
 
     /**
-     * 起 PowerShell 执行 [script] 的命令：脚本按 UTF-16LE 编成 base64 交给 `-EncodedCommand`。[systemRoot] 是
-     * %SystemRoot%。
+     * 起 PowerShell 执行脚本文件 [scriptPath] 的命令。[systemRoot] 是 %SystemRoot%。`-ExecutionPolicy Bypass`
+     * 只管这一次， 免得系统策略禁了本地脚本。
      */
-    fun powershell(systemRoot: String?, script: String): List<String> {
+    fun powershell(systemRoot: String?, scriptPath: String): List<String> {
         val exe =
             systemRoot
                 ?.takeIf { it.isNotBlank() }
@@ -146,16 +154,17 @@ object MsiScript {
         return listOf(
             exe,
             "-NoProfile",
-            "-NonInteractive",
-            "-WindowStyle",
-            "Hidden",
-            "-EncodedCommand",
-            encode(script),
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            scriptPath,
         )
     }
 
-    fun encode(script: String): String =
-        Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
+    /** 脚本文件的内容：UTF-8 带 BOM。Windows PowerShell 5.1 读不带 BOM 的文件按系统代码页解码，中文路径会乱。 */
+    fun scriptFile(script: String): ByteArray =
+        byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) +
+            script.toByteArray(Charsets.UTF_8)
 
     /** PowerShell 的单引号字符串：里面的单引号写两遍，别的字符都不转义。 */
     fun literal(text: String): String = "'" + text.replace("'", "''") + "'"

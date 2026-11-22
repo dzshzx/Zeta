@@ -86,9 +86,10 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 桌面版是 Windows 上的窗口程序，只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务的显示和手机上一样。
 
-- 安装：还没随 Releases 发布，先从源码打包（见「从源码构建」），得到 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员；自带 Java 运行时，不用另装。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
-- 第一次使用：点「连接远程设备」，填主机地址（`用户@主机`），把页面上显示的 Zeta 公钥加进那台主机的 `~/.ssh/authorized_keys`，再点连接。主机上要装好 Claude Code 并登录过。
-- 设置和密钥存在 `%APPDATA%\Zeta`。
+- 安装：从 Releases 下载 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员；自带 Java 运行时，不用另装。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
+- 更新：设置 › 关于里检查更新，有新版本时点「更新」，Zeta 下载安装包、核对校验值后退出，装好自动重新打开；也可以打开自动检查，每天第一次启动时查一次。
+- 第一次使用：点「连接远程设备」，从这台电脑的 `~/.ssh/config` 里选一台，或输入 `用户@主机[:端口]`。Zeta 用这台电脑的 OpenSSH 配置和 `~/.ssh` 里的密钥登录，不另生成密钥；设了口令的私钥和跳板机暂不支持。主机上要装好 Claude Code 并登录过。
+- 设置存在 `%APPDATA%\Zeta`。
 
 ## 权限说明
 

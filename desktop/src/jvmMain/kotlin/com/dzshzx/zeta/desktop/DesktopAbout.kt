@@ -24,7 +24,7 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
 /**
- * 设置里的「关于」：版本、检查更新、自动检查更新；有新版本时下面多出新版本一行（下载并安装）和更新说明。开发构建只显示版本。 [state] 是
+ * 设置里的「关于」：版本、检查更新、自动检查更新；有新版本时下面多出新版本一行（「更新」按钮）和更新说明。开发构建只显示版本。 [state] 是
  * [DesktopUpdates.state]，由调用的地方读好传进来，列表跟着它增减项。
  */
 fun LazyListScope.aboutItems(
@@ -160,7 +160,7 @@ private fun releaseSummary(state: DesktopUpdateState.Available): String {
 /** 按钮上的字、样子和进度。 */
 private fun capsule(step: DesktopUpdateStep, size: Long): Triple<String, InstallLoadState, Float> =
     when (step) {
-        DesktopUpdateStep.Ready -> Triple("下载并安装", InstallLoadState.Idle, 0f)
+        DesktopUpdateStep.Ready -> Triple("更新", InstallLoadState.Idle, 0f)
         is DesktopUpdateStep.Downloading -> {
             val fraction = (step.done.toFloat() / size).coerceIn(0f, 1f)
             Triple("${(fraction * 100).toInt()}%", InstallLoadState.Loading, fraction)

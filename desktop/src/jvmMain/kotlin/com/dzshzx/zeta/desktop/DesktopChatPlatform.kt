@@ -109,10 +109,9 @@ class DesktopChatPlatform : ChatPlatform {
     ) {
         val (title, text) =
             if (hub.settings.remoteHosts.isEmpty()) {
-                "还没有远程设备" to
-                    "Zeta 桌面版用远程设备上的 Claude Code。先添加一台：填它的地址，再把 Zeta 的公钥加进它的 ~/.ssh/authorized_keys。"
+                "还没有远程设备" to "添加一台安装了 Claude Code 的 Linux 设备后即可开始对话。Zeta 使用本机的 SSH 配置和密钥连接。"
             } else {
-                "这台设备用不了" to hub.unavailable(hub.current.backend)
+                "此设备暂不可用" to hub.unavailable(hub.current.backend)
             }
         SetupMessage(padding, title, text) { RemoteChoice(hub, onOpenRemoteHosts) }
     }

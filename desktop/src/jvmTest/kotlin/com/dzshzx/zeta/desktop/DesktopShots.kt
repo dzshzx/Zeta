@@ -130,7 +130,7 @@ class DesktopShots {
             RemoteHostScreen(hub, workstation.id, onBack = {}) {}
         }
 
-    // 设置「关于」：版本、检查更新的各个结果；有新版本时的下载并安装和更新说明
+    // 设置「关于」：版本、检查更新的各个结果；有新版本时的「更新」和更新说明
     @Test
     fun aboutDev() =
         about(
