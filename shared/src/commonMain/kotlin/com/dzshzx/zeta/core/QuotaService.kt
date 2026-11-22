@@ -8,18 +8,20 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * 一台主机（[backend]）上登录着的账号的订阅额度，那台上的对话共用一份；各台登录的可能是不同的账号，各有各的一份。数都是 Claude Code 给的，Zeta 不碰 OAuth
- * 令牌、不自己调接口：
- * - 对话进程里的 rate_limit_event：每次模型请求的响应头里带着 5 小时和每周窗口，数变了 Claude Code 就发一条；
- * - 控制请求 get_usage：Claude Code 自己去取 claude.ai 的额度（和 /usage 同一份），套餐有哪些窗口就有哪些。 新起对话进程时顺便问（隔 [AUTO_MS]
- *   才问一次），设置页和用量弹窗打开时也问；有开着的对话进程就借它问， 没有就单起一个只答这一个问题的 Claude Code（[QuotaProbe]）。 上次的数存在应用自己的
- *   SharedPreferences 里，下次打开先显示它；换账号时清掉。
+ * 一台主机（[backend]）上登录着的账号的订阅额度，那台上的对话共用一份；各台登录的可能是不同的账号，各有各的一份。数都是 Claude Code
+ * 给的，由那台上的核心接、存、读成额度（docs/core.md「账号与额度」：对话里的 rate_limit_event、起对话进程时顺便问的 get_usage）， 这里经
+ * `quota.watch` 订阅，照推来的 `quota.snapshot` 显示。订阅的开关同会话列表：界面用到额度时（[watch]）连上，退到后台断开，回到前台再连。
+ *
+ * 要马上刷新时（设置页、用量弹窗打开时数不够新，或者点了刷新）向 Claude Code 要一次 get_usage：有开着的对话进程就借它问（`conv.quota`， 应答经
+ * [usageAnswered] 回来），没有就单起一个只答这一个问题的 Claude Code（[QuotaProbe]）；应答原样交给核心的 `quota.usage`。
+ * 推来的数另存一份在应用自己的 SharedPreferences 里（核心给的原文），下次打开先显示它；换账号时清掉。
  */
 class QuotaService(private val hub: ConversationHub, private val backend: String) {
     private val prefs = hub.platform.prefs("quota")
@@ -28,7 +30,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
     private val key = HostKeys.key(backend, KEY)
     private val main = MainHandler()
 
-    var snapshot by mutableStateOf(Quota.decode(prefs.getString(key, null)))
+    var snapshot by mutableStateOf(Quota.fromSaved(prefs.getString(key, null)))
         private set
 
     var refreshing by mutableStateOf(false)
@@ -44,6 +46,21 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
     /** 单起的问额度的进程和换账号不能同时进行：换账号时要等所有 Claude Code 进程都退出。 */
     val probeLock = Any()
 
+    /** 订阅额度的那条到那台 `zeta-helper serve` 的连接；没订阅、退到后台时为 null。下面几项都只在主线程上碰。 */
+    private var serve: HelperServe? = null
+
+    /** [serve] 断着：第一次就没连上的不会自己重连，下次 [watch] 时重连。 */
+    private var broken = false
+
+    /** 这次连上以后核心推来过额度。推来之前显示的是本机存的那份，可能比核心的旧，够不够新等推来再判断（[staleCheck]）。 */
+    private var synced = false
+
+    /** 打开页面时还没推来：推来后再看数够不够新、要不要问。 */
+    private var staleCheck = false
+
+    /** 退到后台时断开了订阅（[pause]）：回到前台时再订阅（[resume]）。 */
+    private var paused = false
+
     private val giveUp = Runnable {
         if (refreshing) {
             refreshing = false
@@ -51,63 +68,123 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         }
     }
 
-    /** 对话进程的一条事件（主线程上）。只看 rate_limit_event。 */
-    fun observe(event: JsonObject) {
-        if (event.str("type") != "rate_limit_event") return
-        Quota.applyEvent(
-                snapshot,
-                event["rate_limit_info"] as? JsonObject,
-                System.currentTimeMillis(),
+    /** 订阅那台的额度：还没订阅或断着的连上，连上就推来一份。界面用到额度时调用，在主线程上。 */
+    fun watch() {
+        paused = false
+        if (serve != null && !broken) return
+        serve?.close()
+        serve = null
+        if (hub.shell(backend) == null) return
+        broken = false
+        synced = false
+        serve = connect()
+    }
+
+    private fun connect(): HelperServe {
+        lateinit var self: HelperServe
+        self =
+            HelperServe(
+                name = "quota-$backend",
+                open = {
+                    val shell =
+                        hub.shell(backend) ?: error(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
+                    HelperServe.open(shell, hub.helperProgram) {
+                        hub.linkProblem(backend, it.exitCode, it.stderr)
+                    }
+                },
+                subscriptions = listOf("quota.watch"),
+                onMessage = { o ->
+                    if (o.str("type") == "quota.snapshot") {
+                        val pushed = o["snapshot"] as? JsonObject
+                        main.post { if (serve === self) received(pushed) }
+                    }
+                },
+                onProblem = { why -> main.post { if (serve === self) broken = why != null } },
             )
-            ?.let { if (it != snapshot) publish(it) }
+        return self
     }
 
-    /** 借对话进程问的 get_usage 答了（control_response 里的 response 一项，主线程上）。答的是错误时不算数，等 [giveUp]。 */
-    fun usageAnswered(answer: JsonObject) {
-        Quota.parseUsage(answer.obj("response"), System.currentTimeMillis())?.let(::answered)
-    }
-
-    /** get_usage 的应答到了。 */
-    private fun answered(parsed: QuotaSnapshot) {
+    /** 界面退到后台：断开订阅，那边的 serve 随之退出，后台不留连接。在主线程上调用。 */
+    fun pause() {
+        val link = serve ?: return
+        serve = null
+        link.close()
+        paused = true
+        staleCheck = false
         main.removeCallbacks(giveUp)
         refreshing = false
-        val previous = snapshot
-        // Claude Code 这次没取到服务器的数（rate_limits 为 null）：已有的窗口留着，不当成新数据
-        if (
-            parsed.available &&
-                parsed.windows.isEmpty() &&
-                previous != null &&
-                previous.windows.isNotEmpty()
-        ) {
-            error = "这次没取到最新的额度，显示的是 ${Quota.ageText(previous.updatedAt, parsed.updatedAt)}的数"
+    }
+
+    /** 回到前台：退到后台时订阅着的话，重新订阅。在主线程上调用。 */
+    fun resume() {
+        if (paused) watch()
+    }
+
+    /** 这台主机删了：断开订阅。在主线程上调用。 */
+    fun close() {
+        serve?.close()
+        serve = null
+        paused = false
+    }
+
+    /** 核心给的额度（推来的，或 quota.usage 的结果里的）；null 是在用的账号还没有数。在主线程上调用。 */
+    fun received(core: JsonObject?) {
+        val next = Quota.fromCore(core)
+        snapshot = next
+        if (next == null) prefs.edit().remove(key).apply()
+        else prefs.edit().putString(key, core.toString()).apply()
+        if (synced) return
+        synced = true
+        if (staleCheck) {
+            staleCheck = false
+            refresh()
+        }
+    }
+
+    /** 借对话进程问的 get_usage 答了（`{"response": control_response 里的 response}`，主线程上）：交给核心读。 */
+    fun usageAnswered(answer: JsonObject) {
+        val response = answer["response"] ?: return
+        val link = serve ?: return
+        thread(name = "zeta-quota", isDaemon = true) {
+            val result = runCatching { usage(link, response) }
+            main.post { answered(result) }
+        }
+    }
+
+    /** 把 get_usage 的应答 [response] 交给核心（quota.usage），返回它的结果 `{snapshot, fresh}`。阻塞。 */
+    private fun usage(link: HelperServe, response: JsonElement): JsonObject? =
+        link.call("quota.usage", JsonObject(mapOf("response" to response))) as? JsonObject
+
+    /** 问 get_usage、交给核心这一趟做完了（主线程上）。 */
+    private fun answered(result: Result<JsonObject?>) {
+        if (paused) return
+        main.removeCallbacks(giveUp)
+        refreshing = false
+        val done = result.getOrElse {
+            // 自己抛的（Claude Code 没答、答了错误）和 serve 给的带原因；别的（进不了环境、管道断了）只说没取到
+            val why = (it as? IllegalStateException ?: it as? ServeError)?.message
+            error = "没取到最新的额度" + (why?.let { w -> "：$w" } ?: "") + "。"
             return
         }
-        error = null
-        // 被拒的状态只有事件里有：取到新数时沿用还没过期的
-        publish(
-            parsed
-                .copy(blocked = previous?.blocked == true, blockedUntil = previous?.blockedUntil)
-                .current(parsed.updatedAt),
-        )
-    }
-
-    private fun publish(next: QuotaSnapshot) {
-        snapshot = next
-        prefs.edit().putString(key, Quota.encode(next)).apply()
-    }
-
-    /** 新起的对话进程要不要顺便问一次。在主线程上调用。 */
-    fun claimAutoQuery(): Boolean {
-        val now = System.currentTimeMillis()
-        if (now - lastAsked < AUTO_MS) return false
-        lastAsked = now
-        return true
+        received(done?.obj("snapshot"))
+        val shown = snapshot
+        // Claude Code 这次没取到服务器的数：核心留着已有的窗口
+        error =
+            if (done?.bool("fresh") == false && shown != null)
+                "这次没取到最新的额度，显示的是 ${Quota.ageText(shown.updatedAt, System.currentTimeMillis())}的数"
+            else null
     }
 
     /** 设置页、用量弹窗打开时（[force] 为 false：数够新就不问），或者点了刷新。在主线程上调用。 */
     fun refresh(force: Boolean = false) {
-        val now = System.currentTimeMillis()
+        watch()
         if (refreshing) return
+        val link = serve ?: return
+        if (!force && !synced) {
+            staleCheck = true
+            return
+        }
+        val now = System.currentTimeMillis()
         val age = snapshot?.let { now - it.updatedAt } ?: Long.MAX_VALUE
         if (!force && age < STALE_MS) return
         if (now - lastAsked < MANUAL_MS) return
@@ -120,26 +197,10 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         if (hub.liveConversations.any { it.backend == backend && it.queryQuota() }) return
         val cwd = hub.defaultCwd(backend)
         thread(name = "zeta-quota", isDaemon = true) {
-            val body = runCatching {
-                synchronized(probeLock) { QuotaProbe.query(shell, cwd) }
+            val result = runCatching {
+                usage(link, synchronized(probeLock) { QuotaProbe.query(shell, cwd) })
             }
-            main.post {
-                val parsed =
-                    body.getOrNull()?.let { Quota.parseUsage(it, System.currentTimeMillis()) }
-                if (parsed != null) {
-                    answered(parsed)
-                } else {
-                    main.removeCallbacks(giveUp)
-                    refreshing = false
-                    // 自己抛的（Claude Code 没答、答了错误）带中文原因；别的（进不了环境、管道断了）只说没取到
-                    error =
-                        "没取到最新的额度" +
-                            ((body.exceptionOrNull() as? IllegalStateException)?.message?.let {
-                                "：$it"
-                            } ?: "") +
-                            "。"
-                }
-            }
+            main.post { answered(result) }
         }
     }
 
@@ -153,9 +214,6 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
 
     companion object {
         private const val KEY = "snapshot"
-
-        /** 新起对话进程时顺便问的最短间隔。 */
-        const val AUTO_MS = 5 * 60_000L
 
         /** 打开页面时，数比这旧才去问。 */
         const val STALE_MS = 2 * 60_000L

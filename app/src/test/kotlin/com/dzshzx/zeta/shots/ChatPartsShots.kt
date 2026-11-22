@@ -98,6 +98,7 @@ class ChatPartsShots : ShotTest() {
                                 0.12,
                                 now + 3 * 3_600_000 + 20 * 60_000,
                                 QuotaSeverity.Normal,
+                                label = "5 小时",
                             ),
                             QuotaWindow(
                                 "weekly_all",
@@ -107,6 +108,7 @@ class ChatPartsShots : ShotTest() {
                                 now + 2 * 86_400_000 + 9 * 3_600_000,
                                 QuotaSeverity.Warning,
                                 active = true,
+                                label = "每周 · 全部模型",
                             ),
                         ),
                     subscription = "max",

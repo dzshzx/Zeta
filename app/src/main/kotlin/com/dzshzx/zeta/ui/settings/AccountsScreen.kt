@@ -67,7 +67,9 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
         else hub.usable(backend)
     val now = rememberNow()
     val account = entryAccount(hub, backend, ready)
-    val headline = hub.quota(backend).snapshot?.current(now)?.headline
+    val quota = hub.quota(backend)
+    LaunchedEffect(backend, ready) { if (ready) quota.watch() }
+    val headline = quota.snapshot?.current(now)?.headline
     // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
         title = "账号与额度",

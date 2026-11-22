@@ -829,8 +829,6 @@ class Conversation(
     private fun noticeChanges(before: ConvState, next: ConvState, linkChanged: Boolean) {
         if (before.prompts.firstOrNull()?.requestId != next.prompts.firstOrNull()?.requestId)
             hub.onPendingChanged(this)
-        // TODO(核心)：核心起进程时自己问额度、接 rate_limit_event 以后去掉这一行
-        if (!before.process && next.process && hub.quota(backend).claimAutoQuery()) queryQuota()
         if (before.process && !next.process) phoneSession?.detach()
         if (!before.blocked && next.blocked) handoff.refresh()
         val runningBefore = before.tasks.count { it.running }

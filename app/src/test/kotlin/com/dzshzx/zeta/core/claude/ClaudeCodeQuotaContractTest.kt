@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.HelperProgram
-import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaProbe
 import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.waitUntil
@@ -12,10 +11,12 @@ import java.net.InetSocketAddress
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,16 +24,15 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * 额度显示和账号切换依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
- * [Quota]、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是应用里带的那份 claude-switch（构建出的本机架构那一份， 和应用里一样第一次用时装进临时
- * HOME）。
+ * 额度显示和账号切换依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败， 核心读额度的
+ * helper/accounts/quota.go、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是应用里带的那份
+ * claude-switch（构建出的本机架构那一份， 和应用里一样第一次用时装进临时 HOME）。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，用假的 claude.ai 登录（假令牌），连本机一个假的 Messages API：它在响应头里带上
  * anthropic-ratelimit-unified-*，并记下每次请求用的是哪个令牌。代理指到一个不通的端口，claude.ai 那边的接口（取用量、取账号资料）
@@ -295,6 +295,8 @@ class ClaudeCodeQuotaContractTest {
 
     private fun JsonObject.obj(key: String) = this[key] as? JsonObject
 
+    private fun JsonObject.num(key: String) = (this[key] as? JsonPrimitive)?.doubleOrNull
+
     @Test
     fun rateLimitEventsAndGetUsageCarryTheWindows() {
         assumeTrue(
@@ -307,12 +309,11 @@ class ClaudeCodeQuotaContractTest {
             claude.turn("hello")
             // 响应头里的 5 小时、每周窗口，原样（0～1 的比例、秒级重置时刻）出现在 rate_limit_event 的 unifiedWindows 里
             val event = claude.seen.last { it.str("type") == "rate_limit_event" }
-            val fromEvent = Quota.applyEvent(null, event.obj("rate_limit_info"), 0)!!
-            assertEquals(
-                listOf("session" to 0.25, "weekly_all" to 0.4),
-                fromEvent.windows.map { it.kind to it.used },
-            )
-            assertTrue(fromEvent.windows.all { it.resetsAt!! > System.currentTimeMillis() })
+            val unified = event.obj("rate_limit_info")!!.obj("unifiedWindows")!!
+            val windows = listOf("five_hour", "seven_day").map { unified.obj(it)!! }
+            assertEquals(0.25, windows[0].num("utilization")!!, 1e-9)
+            assertEquals(0.4, windows[1].num("utilization")!!, 1e-9)
+            assertTrue(windows.all { it.num("resetsAt")!! * 1000 > System.currentTimeMillis() })
 
             // 数变了才再发一条
             fiveHour = 0.35
@@ -328,12 +329,13 @@ class ClaudeCodeQuotaContractTest {
                     },
                 )
             assertEquals("success", usage.str("subtype"))
-            val parsed = Quota.parseUsage(usage.obj("response"), 0)!!
-            assertEquals("max", parsed.subscription)
-            assertEquals(
-                listOf("session" to 0.35, "weekly_all" to 0.4),
-                parsed.windows.map { it.kind to it.used },
-            )
+            val answer = usage.obj("response")!!
+            assertEquals("max", answer.str("subscription_type"))
+            val limits = answer.obj("rate_limits")!!
+            // 没有服务器的额度行（limits），退回 five_hour、seven_day 这几项
+            assertTrue(limits["limits"] !is JsonArray)
+            assertEquals(35.0, limits.obj("five_hour")!!.num("utilization")!!, 1e-6)
+            assertEquals(40.0, limits.obj("seven_day")!!.num("utilization")!!, 1e-6)
 
             // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），账号脚本据此说清是谁挡着；claude-switch 也认出它，不让换
             val procs = accounts().list().processes
@@ -355,10 +357,8 @@ class ClaudeCodeQuotaContractTest {
         login("a")
         val answer =
             QuotaProbe.query(ClaudeAccountsTest.localShell(home, env), File(home, "proj").path)
-        val parsed = Quota.parseUsage(answer, 0)
-        assertNotNull(parsed)
-        assertTrue(parsed!!.available)
-        assertEquals("max", parsed.subscription)
+        assertEquals("true", answer.str("rate_limits_available"))
+        assertEquals("max", answer.str("subscription_type"))
         // 不留会话记录；退出后 ~/.claude/sessions 里的登记也删了
         assertEquals(
             emptyList<String>(),

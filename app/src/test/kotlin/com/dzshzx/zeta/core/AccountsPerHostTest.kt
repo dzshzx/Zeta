@@ -24,9 +24,11 @@ class AccountsPerHostTest {
     private fun hub(): ConversationHub =
         Fixtures.readyHub(app).also { it.settings.remoteHosts = listOf(Fixtures.workstation) }
 
-    private fun usage(subscription: String) =
+    /** 那台核心推来的额度（quota.snapshot 里的 snapshot）。 */
+    private fun snapshot(subscription: String) =
         Json.parseToJsonElement(
-            """{"response":{"subscription_type":"$subscription","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":42.0,"resets_at":null}}}}""",
+            """{"windows":[{"kind":"session","group":"session","used":0.42,"severity":"normal","label":"5 小时"}],
+            "subscription":"$subscription","updatedAt":"2026-11-18T07:00:00Z"}""",
         ) as JsonObject
 
     @Test
@@ -37,8 +39,8 @@ class AccountsPerHostTest {
         assertNotSame(hub.accounts(Backends.LOCAL), hub.accounts(remote))
         hub.quota(Backends.LOCAL).forget()
         hub.quota(remote).forget()
-        hub.quota(Backends.LOCAL).usageAnswered(usage("max"))
-        hub.quota(remote).usageAnswered(usage("team"))
+        hub.quota(Backends.LOCAL).received(snapshot("max"))
+        hub.quota(remote).received(snapshot("team"))
         assertEquals("max", hub.quota(Backends.LOCAL).snapshot?.subscription)
         assertEquals("team", hub.quota(remote).snapshot?.subscription)
         // 存下来的也分开：重开应用后各读各的
@@ -49,5 +51,8 @@ class AccountsPerHostTest {
         reopened.quota(remote).forget()
         assertNull(reopened.quota(remote).snapshot)
         assertEquals("max", hub().quota(Backends.LOCAL).snapshot?.subscription)
+        // 核心说在用的账号还没有数：存着的也清掉
+        reopened.quota(Backends.LOCAL).received(null)
+        assertNull(hub().quota(Backends.LOCAL).snapshot)
     }
 }
