@@ -16,7 +16,7 @@ import (
 )
 
 // accountsHome 摆好一个临时 HOME：装上 claude-switch，登录 uuid-a。
-func accountsHome(t *testing.T) string {
+func accountsHome(t *testing.T) *env {
 	t.Helper()
 	out, err := exec.Command("go", "tool", "-n", "claude-switch").Output()
 	if err != nil {
@@ -27,8 +27,6 @@ func accountsHome(t *testing.T) string {
 		t.Fatal(err)
 	}
 	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("ZETA_NAME", "zeta")
 	path := filepath.Join(home, ".cache/zeta/bin/claude-switch-0123456789abcdef")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
@@ -37,7 +35,7 @@ func accountsHome(t *testing.T) string {
 		t.Fatal(err)
 	}
 	fakeLogin(t, home, "uuid-a", "a@example.com")
-	return home
+	return newEnvAt(home, "zeta")
 }
 
 func fakeLogin(t *testing.T, home, uuid, email string) {
@@ -49,9 +47,9 @@ func fakeLogin(t *testing.T, home, uuid, email string) {
 }
 
 // callAccounts 调一个方法，结果按 JSON 读回来（同客户端收到的样子）。
-func callAccounts(t *testing.T, method, params string) (obj, error) {
+func callAccounts(t *testing.T, e *env, method, params string) (obj, error) {
 	t.Helper()
-	result, err := handleAccounts(context.Background(), method, json.RawMessage(params))
+	result, err := handleAccounts(context.Background(), e, method, json.RawMessage(params))
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +64,9 @@ func callAccounts(t *testing.T, method, params string) (obj, error) {
 	return m, nil
 }
 
-func mustAccounts(t *testing.T, method, params string) obj {
+func mustAccounts(t *testing.T, e *env, method, params string) obj {
 	t.Helper()
-	m, err := callAccounts(t, method, params)
+	m, err := callAccounts(t, e, method, params)
 	if err != nil {
 		t.Fatalf("%s：%v", method, err)
 	}
@@ -84,51 +82,52 @@ func currentName(m obj) any {
 }
 
 func TestServeAccounts(t *testing.T) {
-	home := accountsHome(t)
-	list := mustAccounts(t, "accounts.list", `{"id":1,"method":"accounts.list"}`)
+	e := accountsHome(t)
+	home := e.home
+	list := mustAccounts(t, e, "accounts.list", `{"id":1,"method":"accounts.list"}`)
 	if currentName(list) != "claude" || len(list["accounts"].([]any)) != 1 || len(list["procs"].([]any)) != 0 {
 		t.Fatalf("list：%v", list)
 	}
-	if got := mustAccounts(t, "accounts.prepare_login", ``); got["name"] != "claude-b" {
+	if got := mustAccounts(t, e, "accounts.prepare_login", ``); got["name"] != "claude-b" {
 		t.Fatalf("prepare_login：%v", got)
 	}
 	fakeLogin(t, home, "uuid-b", "b@example.com")
-	mustAccounts(t, "accounts.switch", `{"name":"claude"}`)
-	list = mustAccounts(t, "accounts.list", ``)
+	mustAccounts(t, e, "accounts.switch", `{"name":"claude"}`)
+	list = mustAccounts(t, e, "accounts.list", ``)
 	if currentName(list) != "claude" || len(list["accounts"].([]any)) != 2 {
 		t.Fatalf("换回以后：%v", list)
 	}
-	mustAccounts(t, "accounts.remove", `{"name":"claude-b"}`)
+	mustAccounts(t, e, "accounts.remove", `{"name":"claude-b"}`)
 
 	// 认得出的出错带代号
-	_, err := callAccounts(t, "accounts.switch", `{"name":"claude-b"}`)
+	_, err := callAccounts(t, e, "accounts.switch", `{"name":"claude-b"}`)
 	var coded interface{ Code() string }
 	if !errors.As(err, &coded) || coded.Code() != "no_account" {
 		t.Fatalf("换到删掉的号：%v", err)
 	}
-	_, err = callAccounts(t, "accounts.list", `{"program":".cache/zeta/bin/claude-switch-ffffffffffffffff"}`)
+	_, err = callAccounts(t, e, "accounts.list", `{"program":".cache/zeta/bin/claude-switch-ffffffffffffffff"}`)
 	if !errors.As(err, &coded) || coded.Code() != "claude_switch_missing" {
 		t.Fatalf("客户端带的版本没装：%v", err)
 	}
-	if _, err := callAccounts(t, "accounts.nope", ``); err == nil || !strings.Contains(err.Error(), "unknown method") {
+	if _, err := callAccounts(t, e, "accounts.nope", ``); err == nil || !strings.Contains(err.Error(), "unknown method") {
 		t.Fatalf("不认识的方法：%v", err)
 	}
-	if _, err := callAccounts(t, "accounts.list", `[1]`); err == nil {
+	if _, err := callAccounts(t, e, "accounts.list", `[1]`); err == nil {
 		t.Fatal("参数不是对象时要报错")
 	}
 }
 
 // 入口可以并发调用（serve 把慢的请求放进 goroutine）。
 func TestServeAccountsConcurrent(t *testing.T) {
-	accountsHome(t)
+	e := accountsHome(t)
 	var wg sync.WaitGroup
 	errs := make(chan error, 8)
 	for range 8 {
 		wg.Go(func() {
-			if _, err := handleAccounts(context.Background(), "accounts.list", nil); err != nil {
+			if _, err := handleAccounts(context.Background(), e, "accounts.list", nil); err != nil {
 				errs <- err
 			}
-			if _, err := handleAccounts(context.Background(), "quota.get", nil); err != nil {
+			if _, err := handleAccounts(context.Background(), e, "quota.get", nil); err != nil {
 				errs <- err
 			}
 		})
@@ -144,29 +143,57 @@ const serveUsage = `{"subscription_type":"max","rate_limits_available":true,"rat
  {"kind":"weekly_all","group":"weekly","percent":86,"severity":"warning","resets_at":"2099-11-21T17:00:00Z","is_active":true}]}}`
 
 func TestServeQuota(t *testing.T) {
-	home := accountsHome(t)
-	if got := mustAccounts(t, "quota.get", ``); got["snapshot"] != nil {
+	e := accountsHome(t)
+	home := e.home
+	if got := mustAccounts(t, e, "quota.get", ``); got["snapshot"] != nil {
 		t.Fatalf("还没有数：%v", got)
 	}
-	got := mustAccounts(t, "quota.usage", `{"response":`+serveUsage+`}`)
+	got := mustAccounts(t, e, "quota.usage", `{"response":`+serveUsage+`}`)
 	snap, _ := got["snapshot"].(map[string]any)
 	if got["fresh"] != true || snap == nil || snap["subscription"] != "max" {
 		t.Fatalf("usage：%v", got)
 	}
-	windows := mustAccounts(t, "quota.get", ``)["snapshot"].(map[string]any)["windows"].([]any)
+	windows := mustAccounts(t, e, "quota.get", ``)["snapshot"].(map[string]any)["windows"].([]any)
 	if w := windows[0].(map[string]any); w["label"] != "每周 · 全部模型" || w["used"] != 0.86 || w["severity"] != "warning" {
 		t.Fatalf("get：%v", w)
 	}
-	got = mustAccounts(t, "quota.event", `{"info":{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":0.3,"resetsAt":1795057510,"status":"allowed"}}}}`)
+	got = mustAccounts(t, e, "quota.event", `{"info":{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":0.3,"resetsAt":1795057510,"status":"allowed"}}}}`)
 	if got["changed"] != true || len(got["snapshot"].(map[string]any)["windows"].([]any)) != 2 {
 		t.Fatalf("event：%v", got)
 	}
 	// 换了号读不到上一个号的
 	fakeLogin(t, home, "uuid-b", "b@example.com")
-	if got := mustAccounts(t, "quota.get", ``); got["snapshot"] != nil {
+	if got := mustAccounts(t, e, "quota.get", ``); got["snapshot"] != nil {
 		t.Fatalf("新号：%v", got)
 	}
-	if _, err := callAccounts(t, "quota.usage", `{"response":{"models":[]}}`); err == nil {
+	if _, err := callAccounts(t, e, "quota.usage", `{"response":{"models":[]}}`); err == nil {
 		t.Fatal("不是额度的应答要报错")
 	}
+}
+
+// 经 serve 走一遍：请求和 id、method 平级带参数，答的 zeta_reply 带 result；出错带 code；慢的请求不挡 ping。
+func TestServeAccountsOverServe(t *testing.T) {
+	e := accountsHome(t)
+	c := startServe(t, e, fastServe)
+	c.send(`{"id":1,"method":"accounts.list"}`)
+	c.send(`{"id":2,"method":"ping"}`)
+	got := map[string]obj{}
+	for len(got) < 2 {
+		r := c.next("zeta_reply")
+		got[string(r["id"].(json.Number))] = r
+	}
+	result, _ := got["1"]["result"].(map[string]any)
+	if got["1"]["ok"] != true || currentName(result) != "claude" {
+		t.Fatalf("accounts.list：%v", got["1"])
+	}
+	c.send(`{"id":3,"method":"accounts.switch","name":"nobody"}`)
+	if r := c.next("zeta_reply"); r["ok"] != false || r["code"] != "no_account" || r["error"] != "这个账号已经不在了" {
+		t.Fatalf("换到没有的号：%v", r)
+	}
+	c.send(`{"id":4,"method":"quota.get"}`)
+	if r := c.next("zeta_reply"); r["ok"] != true || r["result"].(map[string]any)["snapshot"] != nil {
+		t.Fatalf("quota.get：%v", r)
+	}
+	_ = c.in.Close()
+	c.exited()
 }

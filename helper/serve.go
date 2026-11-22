@@ -26,6 +26,8 @@ import (
 //	sessions.watch  订阅会话列表：先发一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只发变了的几项
 //	                （见 sessionWatch）；再发一次就再给一份整份的
 //
+// accounts. 和 quota. 开头的方法（账号与额度，见 docs/core.md「账号与额度」、serve_accounts.go）在各自的 goroutine 里做，做完再答。
+//
 // conv. 开头的方法（对话，见 docs/core.md「对话」）转给这个版本的核心进程 zeta-helper core（helper/core）：
 // 第一次收到时连上它的套接字（~/.cache/<ZETA_NAME>/core/<版本>.sock），没人在听就拉起一个、等它听上（约 5 秒为限），
 // 连不上时这个请求答出错，下一个 conv. 请求再试。请求原样转过去，核心的应答（可能带 result）和推送原样写回客户端，
@@ -195,6 +197,8 @@ func (s *serveSession) handle(line []byte) bool {
 		s.o.reply(req.ID, nil)
 	case strings.HasPrefix(req.Method, "conv."):
 		return s.forward(req.ID, line)
+	case strings.HasPrefix(req.Method, "accounts."), strings.HasPrefix(req.Method, "quota."):
+		go s.answerAccounts(req.ID, req.Method, line) // 慢（要跑 claude-switch），不挡后面的 ping
 	default:
 		s.o.reply(req.ID, errors.New("unknown method: "+req.Method))
 	}

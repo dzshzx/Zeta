@@ -64,6 +64,30 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - `conv.reply`：新的一条回复开始了（`message_id`，子代理的也算），只发给 `options.phone` 为真的客户端：手机工具的控件编号从这时起换成上一批结果里的那份。
 - `conv.phone_cancel`：这一轮被停了，只发给 `options.phone` 为真的客户端，那边把暂停、接管着的手机操作一并作废。
 
+## 账号与额度
+
+serve 自己答 `accounts.` 和 `quota.` 开头的方法（不经核心，逻辑在 `helper/accounts`，入口是 `helper/serve_accounts.go` 的 `handleAccounts`），每个请求在自己的 goroutine 里做、做完再答，不挡同一连接上的 ping。参数和 `id`、`method` 平级，结果在 `zeta_reply` 的 `result`；出错时 `ok` 为假，认得出的另带 `code`：`claude_switch_missing`（客户端把带着的 claude-switch 装上再试）、`busy`（有 Claude Code 开着，claude-switch 没换）、`no_account`（要换、要删的号不在了）。
+
+账号由 claude-switch 管（存档、换号、加号、删号），这一组只是替客户端跑它：令牌只在主机上由它搬，结果里只有账号名、邮箱、组织和套餐。改登录状态的请求一个一个来，先等开着的 Claude Code 退出（最多约 8 秒，调用方刚收掉的自己的对话要几秒），不管等没等到都交给 claude-switch，它自己会拒绝。客户端要先收掉自己闲着的对话。每个 `accounts.` 请求都可带 `program`：claude-switch 相对家目录的路径（客户端带的那个版本）；不带时在 `~/.cache/<ZETA_NAME>/bin` 下找 `claude-switch-<版本>`。这组请求要跑 claude-switch，慢。
+
+| 方法 | 参数 | 做什么 |
+|---|---|---|
+| `accounts.list` | | `result` 是 `{current, accounts, procs, blocker}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明 |
+| `accounts.switch` | `name` | 换成存着的这个号 |
+| `accounts.save` | | 在用的登录还没记过（在终端里登录了新号）时给它起个空闲的名字记下，`result` 是 `{name}` |
+| `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由客户端做，登录后的新号由 claude-switch 记成这个名字 |
+| `accounts.remove` | `name` | 删掉一个不在用的号在这台主机上的存档与记录（服务端仍是登录状态） |
+
+额度都是 Claude Code 给的。各账号最近一次的数存在 `~/.cache/zeta-quota/`（按 `~/.claude.json` 里的登录编号分开，同一台上各个包共用），换了号读到的就是新号的。要经正在跑的 Claude Code 取的 get_usage 归核心（`conv.quota`，应答原样交回）；客户端把那份应答交给 `quota.usage` 读成额度、存起来。这一组只读写小文件，快。
+
+| 方法 | 参数 | 做什么 |
+|---|---|---|
+| `quota.get` | | `result` 是 `{snapshot}`：在用的账号最近一次的额度，没有时为 `null` |
+| `quota.usage` | `response`（get_usage 的应答，control_response 的 `response.response`） | 读成额度并存起来，`result` 是 `{snapshot, fresh}`；Claude Code 这次没取到服务器的数而已有窗口时留着已有的，`fresh` 为假 |
+| `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}` |
+
+`snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
+
 ## 进度
 
 1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。

@@ -39,15 +39,34 @@ func (e codedError) Error() string { return e.err.Error() }
 func (e codedError) Code() string  { return e.code }
 func (e codedError) Unwrap() error { return e.err }
 
-// handleAccounts 处理一个 accounts.* 或 quota.* 请求，返回放进 reply 的 result。
-func handleAccounts(ctx context.Context, method string, params json.RawMessage) (any, error) {
+// answerAccounts 做一个 accounts.* 或 quota.* 请求（整行 line），答一行带 result 的 zeta_reply；出错时 ok 为假，
+// 认得出的出错另带 code（codedError）。在自己的 goroutine 里跑。
+func (s *serveSession) answerAccounts(id json.RawMessage, method string, line []byte) {
+	result, err := handleAccounts(context.Background(), s.e, method, line)
+	if len(id) == 0 {
+		id = json.RawMessage("null")
+	}
+	m := obj{"type": "zeta_reply", "id": id, "ok": err == nil}
+	if err != nil {
+		m["error"] = err.Error()
+		var c codedError
+		if errors.As(err, &c) {
+			m["code"] = c.Code()
+		}
+	} else {
+		m["result"] = result
+	}
+	_ = s.o.send(m)
+}
+
+// handleAccounts 处理一个 accounts.* 或 quota.* 请求（e 是这个 serve 的家目录和包），返回放进 reply 的 result。
+func handleAccounts(ctx context.Context, e *env, method string, params json.RawMessage) (any, error) {
 	var p accountsParams
 	if len(params) > 0 {
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, errors.New("bad params: " + err.Error())
 		}
 	}
-	e := newEnv()
 	if strings.HasPrefix(method, "quota.") {
 		return handleQuota(e, method, p)
 	}
