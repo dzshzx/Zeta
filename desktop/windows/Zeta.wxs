@@ -8,6 +8,9 @@
              Description="Zeta: Claude Code on remote hosts over SSH" />
     <Media Id="1" Cabinet="zeta.cab" EmbedCab="yes" />
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Zeta is already installed." />
+    <!-- 升级时旧版在新文件装上之前卸掉（wixl 不认 MajorUpgrade 的 Schedule），而装不装一个文件是卸旧版之前按版本号定的：
+         JRE 里版本号没变的 dll、exe 会被判成「已有、不用装」，接着被卸旧版删掉。a 让每个文件都照装；只装在本程序自己的目录里，不碰共用的文件。 -->
+    <Property Id="REINSTALLMODE" Value="amus" />
 
     <Icon Id="zeta.ico" SourceFile="$(var.SourceDir)/zeta.ico" />
     <Property Id="ARPPRODUCTICON" Value="zeta.ico" />
