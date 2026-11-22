@@ -24,6 +24,7 @@
 //	storage-sessions <项目目录> [<id>…]  存储页：一个项目里每个会话占的空间
 //	clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见 storage.go）
 //	phone-mcp <包名> [<标识>] 把标准输入输出接到这个包的 Zeta 手机工具（MCP），要 root，见 phonemcp.go
+//	serve                常驻连接：一行一个 JSON 的请求和推送（会话列表的订阅等），见 serve.go
 //	subagent <字节> <行> <tool_use id> <agent id|-> <会话 id>…
 //	                     子代理查看页：发起它的 Agent 调用对应的记录，从这个位置起增量读（见 subagent.go）
 //
@@ -50,7 +51,7 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
 	" | occupant <id> | handoff <id> | session-start" +
 	" | desk <id> <cwd> | desk-open <id> <cwd> | desk-close <id>…" +
-	" | phone-mcp <package> [<client key>]"
+	" | phone-mcp <package> [<client key>] | serve"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -64,6 +65,11 @@ func main() {
 	// phone-mcp 一直转发到连接断开，输出不能等到退出再写，不走 run 的缓冲
 	if len(os.Args) > 1 && os.Args[1] == "phone-mcp" {
 		os.Exit(runPhoneMCP(realPhoneBridge, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
+	// serve 一直跑到客户端走了，输出边推边写
+	if len(os.Args) == 2 && os.Args[1] == "serve" {
+		_ = cmdServe(newEnv(), defaultServeOptions, os.Stdin, os.Stdout)
+		os.Exit(0)
 	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }

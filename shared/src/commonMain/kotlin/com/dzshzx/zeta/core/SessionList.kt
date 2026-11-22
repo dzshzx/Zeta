@@ -4,11 +4,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * 侧栏的会话列表：侧栏列着的主机（[ConversationHub.listedBackends]：正看着的那台，或全部主机）上 Claude Code 存在 ~/.claude/projects
- * 下的会话， 经 zeta-helper 读、改名、归档、删除。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions]
- * 可观察，在主线程上读写；读写会话记录在后台线程上跑。 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
+ * 下的会话：列表经那边的 `zeta-helper serve` 订阅（[refresh]，那边一变就推来），改名、归档、删除、按 id 查各跑一次 zeta-helper
+ * 的子命令。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions] 可观察，在主线程上读写；读写会话记录在后台线程上跑。
+ * 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
  */
 class SessionList constructor(private val hub: ConversationHub) {
     private val main = MainHandler()
@@ -33,28 +37,105 @@ class SessionList constructor(private val hub: ConversationHub) {
             }
         }
 
-    /** 重读侧栏列着的各台主机（或只是其中的 [backends]）的整份列表，各读各的。没读成的那台留着原来的，不当作一个会话都没有。 */
+    /**
+     * 订阅着的各台主机（[HelperServe] 到那边的 `zeta-helper serve`）：订阅上就收到整份列表，之后那边的会话目录一变就推来变了的几项，
+     * 答完一轮、改名、删除、终端里开的会话都不用另外重读。只在主线程上碰。
+     */
+    private val watches = HashMap<String, HelperServe>()
+
+    /** 界面退到后台时断开了订阅（[pause]）：回到前台时再订阅（[resume]）。 */
+    private var paused = false
+
+    /**
+     * 让侧栏列着的各台主机（或只是其中的 [backends]）的列表跟上那边：还没订阅的订阅上，订阅着但连不上的马上重连（不等退避），不再列着的断开。
+     * 没读成的那台留着原来的，不当作一个会话都没有。在主线程上调用。
+     */
     fun refresh(backends: List<String> = hub.listedBackends) {
+        paused = false
+        val listed = hub.listedBackends
+        (watches.keys - listed.toSet()).forEach(::unwatch)
         for (backend in backends) {
+            if (backend !in listed) continue
             if (hub.shell(backend) == null) {
+                unwatch(backend)
                 noted(backend, hub.unavailable(backend))
                 continue
             }
-            thread(name = "zeta-sessions", isDaemon = true) {
-                val result = hub.helper("list", timeoutMs = 60_000, backend = backend)
-                main.post {
-                    // 读的时候侧栏已经不列这台主机了：这份不要
-                    if (backend !in hub.listedBackends) return@post
-                    when (result) {
-                        is HelperResult.Failed -> noted(backend, "没读到会话列表：" + result.reason)
-                        is HelperResult.Ok -> {
-                            noted(backend, null)
-                            listedOn(backend, parseSessionSummaries(result.output, backend))
-                        }
-                    }
-                }
-            }
+            if (live(backend)) continue
+            unwatch(backend)
+            watches[backend] = watch(backend)
         }
+    }
+
+    /** 主机 [backend] 的列表订阅着、而且连着：那边一变就会推来，不用自己去查。 */
+    private fun live(backend: String): Boolean = backend in watches && backend !in problems
+
+    private fun watch(backend: String): HelperServe {
+        lateinit var self: HelperServe
+        fun current() = watches[backend] === self && backend in hub.listedBackends
+        self =
+            HelperServe(
+                name = backend,
+                open = {
+                    val shell =
+                        hub.shell(backend) ?: error(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
+                    HelperServe.open(shell, hub.helperProgram) {
+                        hub.linkProblem(backend, it.exitCode, it.stderr)
+                    }
+                },
+                subscriptions = listOf("sessions.watch"),
+                onMessage = { o ->
+                    if (o.str("type") == "zeta_sessions") {
+                        val full = o.bool("full") == true
+                        val upsert =
+                            o.arr("upsert").orEmpty().mapNotNull { item ->
+                                (item as? JsonObject)?.let { sessionSummaryOf(it, backend) }
+                            }
+                        val remove =
+                            o.arr("remove").orEmpty().mapNotNull {
+                                (it as? JsonPrimitive)?.contentOrNull
+                            }
+                        main.post { if (current()) received(backend, full, upsert, remove) }
+                    }
+                },
+                onProblem = { why ->
+                    main.post {
+                        if (current()) noted(backend, why?.let { "没读到会话列表：$it" })
+                    }
+                },
+            )
+        return self
+    }
+
+    private fun unwatch(backend: String) {
+        watches.remove(backend)?.close()
+    }
+
+    /** 界面退到后台：断开全部订阅，那边的 serve 随之退出，后台不留连接。在主线程上调用。 */
+    fun pause() {
+        if (watches.isEmpty()) return
+        watches.keys.toList().forEach(::unwatch)
+        paused = true
+    }
+
+    /** 回到前台：退到后台时订阅着的话，重新订阅（重连后先收到整份）。在主线程上调用。 */
+    fun resume() {
+        if (paused) refresh()
+    }
+
+    /**
+     * 主机 [backend] 推来了列表：[full] 时是那台的整份（同 [listedOn]），否则 [upsert] 是新出现或变了的项、[remove] 是不再列出的
+     * id，那台别的项和别的主机的都留着。在主线程上调用。
+     */
+    fun received(
+        backend: String,
+        full: Boolean,
+        upsert: List<SessionSummary>,
+        remove: List<String>,
+    ) {
+        if (full) return listedOn(backend, upsert)
+        val dropped = remove.toHashSet().apply { upsert.mapTo(this) { it.id } }
+        listed(byTime(upsert + sessions.filterNot { it.backend == backend && it.id in dropped }))
     }
 
     private fun noted(backend: String, why: String?) {
@@ -70,6 +151,7 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /** 只留主机 [backend] 的：换成只列它时，已经读到的不用等重读。在主线程上调用。 */
     fun keepOnly(backend: String) {
+        (watches.keys - backend).forEach(::unwatch)
         sessions = sessions.filter { it.backend == backend }
         problems = problems.filterKeys { it == backend }
     }
@@ -86,11 +168,12 @@ class SessionList constructor(private val hub: ConversationHub) {
     }
 
     /**
-     * 侧栏列着的主机 [backend] 上的会话 [sessionId] 刚答完一轮：只重读这一项（新开的对话加进列表，时间、预览换新），不整份重读，
-     * 一轮只改了这一个会话。没查成就不动，下次打开侧栏时整份重读。在主线程上调用。
+     * 侧栏列着的主机 [backend] 上的会话 [sessionId] 刚答完一轮：订阅着的话那边已经推来了，什么也不做；没订阅着（界面在后台、
+     * 连不上）时只重读这一项（新开的对话加进列表，时间、预览换新），不整份重读。没查成就不动，下次打开侧栏时再订阅。在主线程上调用。
      */
     fun touched(sessionId: String, backend: String) {
-        if (hub.shell(backend) == null) return
+        // 订阅着的话那边已经推来了
+        if (live(backend) || hub.shell(backend) == null) return
         thread(name = "zeta-sessions", isDaemon = true) {
             val found = find(listOf(sessionId), backend) ?: return@thread
             main.post { if (backend in hub.listedBackends) merged(found) }
@@ -254,6 +337,7 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /** 换了环境或主机：原来的会话都不再列出。 */
     fun clear() {
+        watches.keys.toList().forEach(::unwatch)
         sessions = emptyList()
         problems = emptyMap()
     }

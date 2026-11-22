@@ -370,22 +370,25 @@ fun parseSessionSummaries(stdout: String, backend: String): List<SessionSummary>
     stdout
         .lineSequence()
         .mapNotNull { line ->
-            val o =
-                runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }.getOrNull()
-                    ?: return@mapNotNull null
-            SessionSummary(
-                id = o.str("id") ?: return@mapNotNull null,
-                file = o.str("file") ?: return@mapNotNull null,
-                cwd = o.str("cwd").orEmpty(),
-                title = o.str("title").orEmpty(),
-                preview = o.str("preview").orEmpty(),
-                updated = (o["updated"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
-                external = o.bool("external") == true,
-                archived = o.bool("archived") == true,
-                backend = backend,
-            )
+            runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }
+                .getOrNull()
+                ?.let { sessionSummaryOf(it, backend) }
         }
         .toList()
+
+/** 会话概要的一项（list、lookup 的一行，serve 推来的 zeta_sessions 里的一项）；缺 id 或文件的是 null。 */
+fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? =
+    SessionSummary(
+        id = o.str("id") ?: return null,
+        file = o.str("file") ?: return null,
+        cwd = o.str("cwd").orEmpty(),
+        title = o.str("title").orEmpty(),
+        preview = o.str("preview").orEmpty(),
+        updated = (o["updated"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
+        external = o.bool("external") == true,
+        archived = o.bool("archived") == true,
+        backend = backend,
+    )
 
 fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 

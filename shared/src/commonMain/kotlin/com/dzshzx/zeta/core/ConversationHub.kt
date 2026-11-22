@@ -376,12 +376,13 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 界面是否正在显示（可观察：胶囊据此避开正显示着同一对话的聊天页）。 按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。
-     * 切到后台时开始等当前对话闲下来再收掉进程，回到前台就不等了（[retireCurrentWhenIdle]）。
+     * 切到后台时开始等当前对话闲下来再收掉进程，回到前台就不等了（[retireCurrentWhenIdle]）；会话列表的订阅在后台断开、回来再接上。
      */
     var foreground: Boolean
         get() = shown
         set(value) {
             shown = value
+            if (value) sessionList.resume() else sessionList.pause()
             retireCurrentWhenIdle()
             platform.alerts.watchChanged()
         }

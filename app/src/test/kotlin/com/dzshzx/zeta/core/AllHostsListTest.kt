@@ -46,6 +46,35 @@ class AllHostsListTest {
         assertEquals(listOf("w3", "p2", "p1"), list.sessions.map { it.id })
     }
 
+    /** 一台推来的变化（zeta-helper serve）：只换、只删那台的项，别的主机上同 id 的不动，照时间排。 */
+    @Test
+    fun pushedChangesTouchOnlyTheirHost() {
+        val hub = hub()
+        hub.settings.paneAll = true
+        val list = hub.sessionList
+        list.received(
+            Backends.LOCAL,
+            true,
+            listOf(session("p2", Backends.LOCAL, 40), session("p1", Backends.LOCAL, 10)),
+            emptyList(),
+        )
+        list.received(
+            remote,
+            true,
+            listOf(session("w1", remote, 20), session("p1", remote, 5)),
+            emptyList(),
+        )
+        assertEquals(listOf("p2", "w1", "p1", "p1"), list.sessions.map { it.id })
+        list.received(
+            Backends.LOCAL,
+            false,
+            listOf(session("p1", Backends.LOCAL, 60)),
+            listOf("p2"),
+        )
+        assertEquals(listOf("p1", "w1", "p1"), list.sessions.map { it.id })
+        assertEquals(listOf(Backends.LOCAL, remote, remote), list.sessions.map { it.backend })
+    }
+
     @Test
     fun choosingOneHostLeavesAllHosts() {
         val hub = hub()
