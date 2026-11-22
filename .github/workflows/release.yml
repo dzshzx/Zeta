@@ -4,7 +4,8 @@ name: Release
 #   gh workflow run release.yml --ref master -f dry_run=true
 #   gh workflow run release.yml --ref master -f bump=patch
 # version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
-# gate：调 ci.yml 跑全量门禁（wt land 合入时的门禁不含截图测试，这里一个不落）。
+# gate：调 ci.yml 跑全量门禁（wt land 合入时的门禁不含截图测试，这里一个不落）；这个提交已经过了全量门禁就跳过：
+# dry run、每晚或手动的 CI 在它上面成功跑过。所以 dry run 之后的正式发版不再跑一遍。
 # build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
 # 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：建草稿、打 tag、发布，只有它能写仓库。
 # dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
@@ -22,7 +23,7 @@ on:
         type: boolean
         default: false
       runner:
-        description: 门禁和构建跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
+        description: 门禁（这个提交还没过全量门禁才跑）和构建跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
         type: choice
         options: [self-hosted, github-hosted]
         default: self-hosted
@@ -41,10 +42,12 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      actions: read # 查这个提交上有没有成功的 ci.yml、release.yml 运行
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       version_code: ${{ steps.version.outputs.version_code }}
+      gate_passed: ${{ steps.version.outputs.gate_passed }}
     steps:
       - name: 检出
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,7 +61,7 @@ jobs:
           go-version-file: tools/release/go.mod
           cache: false
 
-      - name: 算版本，查是否已发过版
+      - name: 算版本，查是否已发过版、是否已过全量门禁
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,12 +72,15 @@ jobs:
 
   gate:
     needs: version
+    if: needs.version.outputs.gate_passed != 'true'
     uses: ./.github/workflows/ci.yml
     with:
       gate_runner: ${{ inputs.runner }}
 
   build:
     needs: [version, gate]
+    # gate 跳过（这个提交已过全量门禁）也接着构建
+    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
     # 默认在本机 runner 上构建：它的 .env 给 ANDROID_HOME 和持久的 GRADLE_USER_HOME，这个 job 不碰 Secrets。
     runs-on: ${{ inputs.runner == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","nerv"]') }}
     timeout-minutes: 40

@@ -62,19 +62,50 @@ func TestPreviousTag(t *testing.T) {
 	}
 }
 
+func TestGatePassed(t *testing.T) {
+	ci, release := ".github/workflows/ci.yml", ".github/workflows/release.yml"
+	cases := []struct {
+		name  string
+		lines []string
+		want  bool
+	}{
+		{"a nightly CI run on this commit counts", []string{ci + "\tschedule\to/r"}, true},
+		{"an earlier dry run counts", []string{".github/workflows/other.yml\tpush\to/r", release + "\tworkflow_dispatch\to/r"}, true},
+		{"another workflow does not count", []string{".github/workflows/other.yml\tworkflow_dispatch\to/r"}, false},
+		{"a run a pull request started does not count", []string{ci + "\tpull_request\to/r"}, false},
+		{"a run from a fork does not count", []string{ci + "\tworkflow_dispatch\tmallory/r"}, false},
+		{"no successful run", []string{""}, false},
+	}
+	for _, c := range cases {
+		if got := gatePassed(c.lines, "o/r"); got != c.want {
+			t.Errorf("%s: %t", c.name, got)
+		}
+	}
+}
+
 func TestRunNextVersion(t *testing.T) {
 	for name, value := range map[string]string{"GITHUB_REF": "refs/heads/master", "GITHUB_SHA": "c0ffee",
 		"GITHUB_REPOSITORY": "o/r"} {
 		t.Setenv(name, value)
 	}
-	fakeCommands(t, map[string]string{
+	answers := map[string]string{
 		"git tag --list":       "v0.7.0\nv0.6.9",
 		"git tag --points-at":  "",
 		"git rev-list --count": "321",
-	})
-	out := captureStdout(t, func() error { return runNextVersion([]string{"-bump", "patch", "-branch", "master"}) })
-	if out != "version=0.7.1\ntag=v0.7.1\nversion_code=321\n" {
-		t.Errorf("outputs %q", out)
+	}
+	calls := fakeCommands(t, answers)
+	next := func() string {
+		return captureStdout(t, func() error { return runNextVersion([]string{"-bump", "patch", "-branch", "master"}) })
+	}
+	if out := next(); out != "version=0.7.1\ntag=v0.7.1\nversion_code=321\ngate_passed=false\n" {
+		t.Errorf("outputs without a full gate run %q", out)
+	}
+	if last := (*calls)[len(*calls)-1]; !strings.HasPrefix(last, "gh api repos/o/r/actions/runs?head_sha=c0ffee&status=success") {
+		t.Errorf("the successful runs on this commit are asked for: %q", last)
+	}
+	answers["gh api repos/o/r/actions/runs"] = ".github/workflows/release.yml\tworkflow_dispatch\to/r"
+	if out := next(); out != "version=0.7.1\ntag=v0.7.1\nversion_code=321\ngate_passed=true\n" {
+		t.Errorf("outputs after a dry run %q", out)
 	}
 	t.Setenv("GITHUB_REF", "refs/heads/task/x")
 	if err := runNextVersion([]string{"-bump", "patch", "-branch", "master"}); err == nil || !strings.Contains(err.Error(), "只在 master") {

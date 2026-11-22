@@ -96,7 +96,26 @@ func releaseVersion(tags, headTags []string, published func() ([]string, error),
 	return next.String(), note + "基线 v" + base.String() + "，升 " + bump, nil
 }
 
-// runNextVersion 在 GitHub Actions 里打印这次发版的 version、tag 和 version_code，供 $GITHUB_OUTPUT。
+// fullGateWorkflows 是跑全量门禁的 workflow：ci.yml 自己，和先调它再往下走的 release.yml（dry run 也算）。
+var fullGateWorkflows = []string{".github/workflows/ci.yml", ".github/workflows/release.yml"}
+
+// gatePassed 看这个提交是否已经过了全量门禁：本仓里手动或定时触发的 ci.yml、release.yml 在它上面有过成功的运行。
+// release.yml 要 gate 通过（或照这里的判断跳过）才往下走，它成功就说明这个提交过了全量门禁，所以 dry run 之后的
+// 正式发版不再跑一遍。lines 是 actions/runs 接口一行一条成功运行的「workflow 路径、触发事件、来源仓」。
+func gatePassed(lines []string, repo string) bool {
+	for _, line := range lines {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 3 || fields[2] != repo || !slices.Contains(fullGateWorkflows, fields[0]) {
+			continue
+		}
+		if fields[1] == "workflow_dispatch" || fields[1] == "schedule" {
+			return true
+		}
+	}
+	return false
+}
+
+// runNextVersion 在 GitHub Actions 里打印这次发版的 version、tag、version_code 和 gate_passed，供 $GITHUB_OUTPUT。
 func runNextVersion(args []string) error {
 	fs := flag.NewFlagSet("next-version", flag.ContinueOnError)
 	bump := fs.String("bump", "", "patch、minor 或 major")
@@ -134,7 +153,14 @@ func runNextVersion(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "发版 v%s（dry_run=%t）：%s；versionCode %s\n", version, *dryRun, note, count)
-	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\n", version, version, count)
+	runs, err := gh("api", "repos/"+repo+"/actions/runs?head_sha="+sha+"&status=success&per_page=100",
+		"--jq", ".workflow_runs[] | [.path, .event, .head_repository.full_name] | @tsv")
+	if err != nil {
+		return err
+	}
+	passed := gatePassed(strings.Split(runs, "\n"), repo)
+	fmt.Fprintf(os.Stderr, "发版 v%s（dry_run=%t）：%s；versionCode %s；这个提交%s过全量门禁\n",
+		version, *dryRun, note, count, map[bool]string{true: "已", false: "还没"}[passed])
+	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\ngate_passed=%t\n", version, version, count, passed)
 	return nil
 }
