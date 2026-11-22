@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -101,5 +102,35 @@ func TestHeaderFooterAndFrame(t *testing.T) {
 	first, _ := tt.Find("第 f0 个问题")
 	if head.Y >= first.Y {
 		t.Errorf("头部不在第一条上面：%v %v", head, first)
+	}
+}
+
+// Framed 时条目和 Footer 都画在卡片里：字左边是卡片的底色，窗口最左边（卡片两边让出的 16 里）是窗口的底色。
+// 暗色下两种底色不同（亮色下都是白的，看不出来）。
+func TestFramedDrawsTheCard(t *testing.T) {
+	ch := New()
+	ch.Footer = func(c *ui.Context) { ui.Text(c, "尾部") }
+	ch.Framed = true
+	ch.SetItems(longConversation("f", 2))
+	tt := newTester(ch, 900, 1200, true)
+	tt.Frame()
+	img := tt.Image()
+	colors := coui.For(true)
+	same := func(x, y float32, want ui.Color) bool {
+		p := img.RGBAAt(int(x), int(y))
+		return p.R == want.R && p.G == want.G && p.B == want.B
+	}
+	for _, s := range []string{"第 f0 个回答。", "尾部"} {
+		r, ok := tt.Find(s)
+		if !ok {
+			t.Fatalf("没有 %q：%q", s, tt.Texts())
+		}
+		y := r.Y + r.H/2
+		if !same(r.X-8, y, colors.Card) {
+			t.Errorf("%q 左边不是卡片的底色：%v", s, img.RGBAAt(int(r.X-8), int(y)))
+		}
+		if !same(4, y, colors.Window) {
+			t.Errorf("%q 那一行最左边不是窗口的底色：%v", s, img.RGBAAt(4, int(y)))
+		}
 	}
 }
