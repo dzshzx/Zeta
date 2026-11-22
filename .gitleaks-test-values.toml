@@ -52,3 +52,7 @@ value = "fake-token-1"
 [[values]]
 kind = "桌面版设备清单解码测试里的假主机指纹（remote/host_test.go）"
 value = "bm90IGEga2V5"
+
+[[values]]
+kind = "MCP 服务器测试里的假 Token（claudecfg/mcp_test.go）"
+value = "tok-secret-1234567890"
