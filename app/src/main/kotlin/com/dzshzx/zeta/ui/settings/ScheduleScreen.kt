@@ -772,16 +772,6 @@ internal fun ValueRow(title: String, value: String, onClick: () -> Unit) {
     BasicComponent(title = title, endActions = { PreferenceValue(value) }, onClick = onClick)
 }
 
-/** 编辑页最下面的“删除…”：错误色的标题，点了弹确认框。 */
-@Composable
-internal fun DangerRow(title: String, onClick: () -> Unit) {
-    BasicComponent(
-        title = title,
-        titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
-        onClick = onClick,
-    )
-}
-
 /** 编辑页里的一个输入框（COUI 的卡片输入 InputView，标题在卡片里）和它下面的说明， 左右和设置分组的卡片对齐，和下一张卡片隔 16dp。 */
 @Composable
 internal fun FieldCard(footer: String? = null, field: @Composable () -> Unit) {

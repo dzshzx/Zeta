@@ -139,7 +139,8 @@ private fun endConfirmSummary(external: Boolean): String =
 @Composable
 fun ChatScreen(
     hub: ConversationHub,
-    onOpenPane: () -> Unit,
+    /** 打开侧栏（历史对话）；侧栏一直开着时（桌面）是 null，顶栏不放这个钮。 */
+    onOpenPane: (() -> Unit)?,
     onOpenSettings: () -> Unit,
     onOpenInstall: () -> Unit,
     onOpenLogin: () -> Unit,
@@ -267,7 +268,7 @@ private fun ChatTopBar(
     models: List<ModelOption>,
     backdrop: LayerBackdrop?,
     listState: LazyListState?,
-    onOpenPane: () -> Unit,
+    onOpenPane: (() -> Unit)?,
     onNewChat: () -> Unit,
     /** 结束当前对话；没有可结束的（空的新对话）时为 null。 */
     onEnd: (() -> Unit)?,
@@ -305,7 +306,9 @@ private fun ChatTopBar(
             title = "",
             color = if (backdrop != null) Color.Transparent else colors.background,
             glow = glow,
-            navigationIcon = { IconActionButton(COUIIcons.Sidebar, "历史对话", onClick = onOpenPane) },
+            navigationIcon = {
+                onOpenPane?.let { IconActionButton(COUIIcons.Sidebar, "历史对话", onClick = it) }
+            },
             actions = {
                 OverflowMenu(
                     onNewChat = onNewChat,

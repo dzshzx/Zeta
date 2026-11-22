@@ -14,14 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
@@ -167,45 +165,6 @@ private fun LocalHostScreen(
             }
         }
     }
-}
-
-/** 「自定义设备名」一行：右边是设备现在的名字（没起名字时是设备自己的）。点了改名（[DeviceNameDialog]）。 */
-@Composable
-internal fun DeviceNameRow(hub: ConversationHub, backend: String, onClick: () -> Unit) {
-    ArrowPreference(
-        title = "自定义设备名",
-        endActions = { PreferenceValue(hub.backendName(backend)) },
-        onClick = onClick,
-    )
-}
-
-/** 给设备 [backend] 起名字：留空是不起，显示设备自己的名字；和别的设备重名、太长时不让确定。放在页面的 dialogs 里。 */
-@Composable
-internal fun DeviceNameDialog(
-    hub: ConversationHub,
-    backend: String,
-    show: Boolean,
-    onDismiss: () -> Unit,
-) {
-    var draft by remember(show) { mutableStateOf(hub.customName(backend).orEmpty()) }
-    val original = hub.originalName(backend)
-    val problem =
-        RemoteHosts.nameProblem(draft, hub.backends.filter { it != backend }.map(hub::backendName))
-    TextInputDialog(
-        show = show,
-        title = "自定义设备名",
-        summary = problem ?: "留空就用设备自己的名字「$original」",
-        value = draft,
-        onValueChange = { draft = it },
-        label = original,
-        confirmText = "确定",
-        confirmEnabled = problem == null,
-        onConfirm = {
-            hub.rename(backend, draft)
-            onDismiss()
-        },
-        onDismissRequest = onDismiss,
-    )
 }
 
 /** 手机的 Debian 现在怎样、要不要红字：就绪了是 Linux 用户名。 */

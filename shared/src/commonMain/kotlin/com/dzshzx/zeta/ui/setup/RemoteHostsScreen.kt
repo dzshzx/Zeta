@@ -53,11 +53,17 @@ private const val ViaFooter =
 
 private const val DirectOnlyFooter = "手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台设备，再输入地址。"
 
-private const val HostingFooter =
-    "那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。"
+/** 桌面上只有直连。 */
+private const val DesktopFooter = "Zeta 直连：先把下面的公钥加进那台设备，再输入地址。"
 
-private const val KeyFooter =
-    "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。" +
+/** 那台设备要什么、对话在哪跑；[device] 是 Zeta 所在的这台（手机、电脑）。 */
+private fun hostingFooter(device: String) =
+    "那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，${device}断网或 Zeta 被关掉时照样跑完，连上后接着看。"
+
+/** 直连用的密钥；[phone] 时私钥在手机的密钥库里，否则在这台电脑上 Zeta 的设置目录里。 */
+private fun keyFooter(phone: Boolean) =
+    "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。" +
+        (if (phone) "私钥在手机的密钥库里，取不出来。" else "私钥在这台电脑上 Zeta 的设置目录里，别交给别人。") +
         "加设备时记下对方的主机指纹，以后只认它。"
 
 private const val SshConfigFooter =
@@ -81,11 +87,13 @@ private class Probing(val target: String, val fromConfig: Boolean)
  * 点进去是它的主机页（[RemoteHostScreen]）。
  */
 @Composable
-internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
+fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     val hosts = hub.settings.remoteHosts
     val debian = hub.usable(Backends.LOCAL)
+    // 手机上才有本机的 Debian 和密钥库；桌面上没有，说明文字跟着换
+    val phone = hub.platform.local != null
     // Zeta 的密钥：第一次打开时从 Keystore 取（没有就生成），取不到时是原因
     var key by remember { mutableStateOf<Result<SshKey>?>(null) }
     var probing by remember { mutableStateOf<Probing?>(null) }
@@ -160,6 +168,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "add") {
             AddHostGroup(
                 debian = debian,
+                phone = phone,
                 adding = probing,
                 onChooseAlias = { choosingAlias = true },
                 onType = {
@@ -169,7 +178,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 },
             )
         }
-        item(key = "key") { KeyGroup(key, onShow = { showingKey = true }) }
+        item(key = "key") { KeyGroup(key, phone, onShow = { showingKey = true }) }
     }
     SlideInPage(choosingAlias, onBack = { choosingAlias = false }) {
         SshConfigHostsScreen(
@@ -184,7 +193,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 }
 
-/** 连上了：记下这台主机；手机本机用不了时，加的第一台直接用上。返回给用户看的结果。 */
+/** 连上了：记下这台主机；当前对话的主机用不了时（手机本机没配好，桌面版没有本机），直接用上加的这台。返回给用户看的结果。 */
 private fun addProbedHost(
     hub: ConversationHub,
     target: String,
@@ -203,8 +212,7 @@ private fun addProbedHost(
             probe.hostname,
         )
     hub.updateRemoteHosts(hub.settings.remoteHosts + host)
-    // 手机本机用不了时，加的第一台直接用上
-    if (!hub.usable(Backends.LOCAL) && hub.backend == Backends.LOCAL) hub.selectBackend(host.id)
+    if (!hub.usable(hub.current.backend)) hub.selectBackend(host.id)
     val fingerprint = host.fingerprint?.let { "\n主机指纹 $it" }.orEmpty()
     return ProbeNotice(
         "已加上「${host.name}」",
@@ -275,13 +283,19 @@ private fun TypeAddressDialog(
 @Composable
 private fun AddHostGroup(
     debian: Boolean,
+    phone: Boolean,
     adding: Probing?,
     onChooseAlias: () -> Unit,
     onType: () -> Unit,
 ) {
     PreferenceGroup(
         title = "加设备",
-        footer = (if (debian) ViaFooter else DirectOnlyFooter) + HostingFooter,
+        footer =
+            when {
+                debian -> ViaFooter
+                phone -> DirectOnlyFooter
+                else -> DesktopFooter
+            } + hostingFooter(if (phone) "手机" else "电脑"),
     ) {
         if (debian) {
             item {
@@ -311,8 +325,8 @@ private fun AddHostGroup(
 
 /** 「Zeta 直连用的密钥」一组：公钥的指纹，点开看整行、复制。 */
 @Composable
-private fun KeyGroup(key: Result<SshKey>?, onShow: () -> Unit) {
-    PreferenceGroup(title = "Zeta 直连用的密钥", footer = KeyFooter) {
+private fun KeyGroup(key: Result<SshKey>?, phone: Boolean, onShow: () -> Unit) {
+    PreferenceGroup(title = "Zeta 直连用的密钥", footer = keyFooter(phone)) {
         item {
             BasicComponent(
                 title = "Zeta 的公钥",
@@ -390,7 +404,7 @@ private fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
  * 下面是连接：自定义设备名、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录， 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
  */
 @Composable
-internal fun RemoteHostScreen(
+fun RemoteHostScreen(
     hub: ConversationHub,
     id: String,
     onBack: () -> Unit,

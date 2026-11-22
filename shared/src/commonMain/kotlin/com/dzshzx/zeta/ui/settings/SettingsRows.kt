@@ -1,0 +1,66 @@
+package com.dzshzx.zeta.ui.settings
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.RemoteHosts
+import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.theme.COUITheme
+
+// 设置里几处共用的行：删除行、设备名一行和改名对话框。手机和桌面的设置页都用。
+
+/** 编辑页最下面的“删除…”：错误色的标题，点了弹确认框。 */
+@Composable
+fun DangerRow(title: String, onClick: () -> Unit) {
+    BasicComponent(
+        title = title,
+        titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+        onClick = onClick,
+    )
+}
+
+/** 「自定义设备名」一行：右边是设备现在的名字（没起名字时是设备自己的）。点了改名（[DeviceNameDialog]）。 */
+@Composable
+fun DeviceNameRow(hub: ConversationHub, backend: String, onClick: () -> Unit) {
+    ArrowPreference(
+        title = "自定义设备名",
+        endActions = { PreferenceValue(hub.backendName(backend)) },
+        onClick = onClick,
+    )
+}
+
+/** 给设备 [backend] 起名字：留空是不起，显示设备自己的名字；和别的设备重名、太长时不让确定。放在页面的 dialogs 里。 */
+@Composable
+fun DeviceNameDialog(
+    hub: ConversationHub,
+    backend: String,
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    var draft by remember(show) { mutableStateOf(hub.customName(backend).orEmpty()) }
+    val original = hub.originalName(backend)
+    val problem =
+        RemoteHosts.nameProblem(draft, hub.backends.filter { it != backend }.map(hub::backendName))
+    TextInputDialog(
+        show = show,
+        title = "自定义设备名",
+        summary = problem ?: "留空就用设备自己的名字「$original」",
+        value = draft,
+        onValueChange = { draft = it },
+        label = original,
+        confirmText = "确定",
+        confirmEnabled = problem == null,
+        onConfirm = {
+            hub.rename(backend, draft)
+            onDismiss()
+        },
+        onDismissRequest = onDismiss,
+    )
+}
