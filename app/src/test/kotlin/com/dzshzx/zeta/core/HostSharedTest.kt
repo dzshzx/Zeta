@@ -318,6 +318,35 @@ class HostSharedTest {
         assertTrue("托管目录没删", waitUntil { !hostDir("kA").exists() })
     }
 
+    /**
+     * Claude Code 用客户端带来的 ZETA_LANG（连进来时那边的 LANG），主机上没装这个语言环境时用 C.UTF-8；托管脚本自己还是 C.UTF-8。 locale
+     * 换成替身，只列 C 和 zh_CN.utf8，结果不看这台机器装了什么。
+     */
+    @Test
+    fun claudeGetsTheHostLanguageWhenItIsInstalled() {
+        File(home, "bin/locale").apply {
+            writeText(
+                "#!/bin/sh\n[ \"\$1\" = -a ] && printf 'C\\nC.utf8\\nPOSIX\\nzh_CN.utf8\\n'\n",
+            )
+            setExecutable(true)
+        }
+        // 同一个会话再 start 会接上已有的进程：每种情况用自己的会话
+        fun langOf(key: String, lang: String): String {
+            Client(
+                listOf("start", key, home.path, "t", "-p", "--resume", SESSION.dropLast(2) + key),
+                mapOf("ZETA_LANG" to lang),
+            )
+            return File("/proc/${pidOf(key)}/environ")
+                .readText()
+                .split('\u0000')
+                .single { it.startsWith("LANG=") }
+                .removePrefix("LANG=")
+        }
+        assertEquals("zh_CN.UTF-8", langOf("kA", "zh_CN.UTF-8"))
+        assertEquals("没装的语言环境", "C.UTF-8", langOf("kB", "fr_FR.UTF-8"))
+        assertEquals("C.UTF-8", langOf("kC", "C"))
+    }
+
     private companion object {
         const val SESSION = "aaaaaaaa-1111-4222-8333-555555555555"
 

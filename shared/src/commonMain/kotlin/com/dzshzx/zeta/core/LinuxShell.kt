@@ -104,7 +104,7 @@ sealed class RemoteShell(
                 LinuxEnv.quote(linuxName) +
                 " TZ=" +
                 LinuxEnv.quote(timeZone) +
-                " LANG=C.UTF-8 TERM=dumb bash " +
+                " ZETA_LANG=\"\$LANG\" LANG=C.UTF-8 TERM=dumb bash " +
                 (if (login) "-lc " + LinuxEnv.quote("PATH=\"\$PATH:\$HOME/.local/bin\"; $command")
                 else "-c " + LinuxEnv.quote(command))
     }

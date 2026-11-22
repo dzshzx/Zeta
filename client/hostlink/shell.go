@@ -17,11 +17,12 @@ import (
 // Quote 给 shell 加单引号。
 func Quote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
-// RemoteCommand 是交给那边用户 shell（bash、zsh 都行）的一行：换成 bash 跑 command，带上 Zeta 的目录名和这台电脑的时区。
+// RemoteCommand 是交给那边用户 shell（bash、zsh、fish 都行）的一行：换成 bash 跑 command，带上 Zeta 的目录名和这台电脑的时区。
+// 命令一律在 C.UTF-8 下跑（输出要解析）；那边原来的 LANG 放进 ZETA_LANG，起 Claude Code 时用它（见 zeta_host.sh 的 host_lang）。
 // login 时是 bash 的登录 shell，PATH 再补上 ~/.local/bin（Claude Code 的安装程序放在那里，有的设备只在交互 shell 里加进
 // PATH）；不是时不读那边的登录配置（只用 bash、coreutils 和按绝对路径执行的 zeta-helper 的命令，省下登录配置的几十毫秒）。
 func RemoteCommand(command, linuxName, timeZone string, login bool) string {
-	prefix := "exec env ZETA_NAME=" + Quote(linuxName) + " TZ=" + Quote(timeZone) + " LANG=C.UTF-8 TERM=dumb bash "
+	prefix := "exec env ZETA_NAME=" + Quote(linuxName) + " TZ=" + Quote(timeZone) + ` ZETA_LANG="$LANG" LANG=C.UTF-8 TERM=dumb bash `
 	if login {
 		return prefix + "-lc " + Quote(`PATH="$PATH:$HOME/.local/bin"; `+command)
 	}

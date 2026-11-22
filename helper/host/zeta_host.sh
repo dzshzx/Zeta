@@ -57,6 +57,23 @@ set -u
 mode=$1
 D="$HOME/.cache/${ZETA_NAME:-zeta}/hosts/$2"
 
+# Claude Code 用的语言环境：和这台主机上终端里起的一样，一台主机一个（Zeta 自己跑的命令一律 C.UTF-8，它们的输出要解析）。
+# 先看客户端带来的 ZETA_LANG（客户端连进来那一刻登录环境里的 LANG，见 LinuxShell.remoteCommand、hostlink.RemoteCommand），
+# 没有就看主机的 /etc/default/locale（手机自带的 Debian 走这条）；都没有、是 C 或主机上没装这个语言环境时用 C.UTF-8
+# （硬设没装的会退回 C，中文就乱了）。
+host_lang() {
+  local l want
+  l=${ZETA_LANG:-}
+  [ -n "$l" ] || l=$(unset LANG; . /etc/default/locale 2>/dev/null; printf '%s' "${LANG-}")
+  case $l in '' | C | C.* | POSIX) echo C.UTF-8; return ;; esac
+  if command -v locale >/dev/null 2>&1; then
+    # locale -a 列的是 zh_CN.utf8 这种写法：比较时都转小写、去掉连字符
+    want=$(printf '%s' "$l" | tr 'A-Z' 'a-z' | tr -d '-')
+    locale -a 2>/dev/null | tr 'A-Z' 'a-z' | tr -d '-' | grep -qxF "$want" || { echo C.UTF-8; return; }
+  fi
+  echo "$l"
+}
+
 # 这一轮在不在进行：看最后一条开始或结束事件，是开始就在进行，一条都没有就是没在进行。
 # 开始是 system init（每一轮开头都有，后台任务做完后 Claude Code 自己起的一轮也只有它）和
 # command_lifecycle started（Zeta 发的消息被取走，插话并进这一轮时也有），结束是 result。
@@ -311,13 +328,14 @@ elif [ "$mode" = start ]; then
   fi
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。
   # 看门狗的两个判定函数和结束用的 end_claude（连同它用的 running、hosted_claude）写在上面，经第一个参数带进去（这一段在单引号里）
-  setsid bash -c '
+  ZETA_CLAUDE_LANG=$(host_lang) setsid bash -c '
     eval "$1"; D=$2; R=$3; shift 3
+    L=$ZETA_CLAUDE_LANG; unset ZETA_CLAUDE_LANG
     exec 3<>"$D/in"
     # 记号：Claude Code 归哪个包的哪个托管目录，包了几层都传得过去（见开头 pid 一项）
     N=${D%/hosts/*}
     export ZETA_HOST="${N##*/}/${D##*/}"
-    "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
+    LANG=$L "$R" "$@" <&3 >>"$D/out.jsonl" 2>>"$D/err.log" &
     P=$!
     echo $P > "$D/pid"
     # 进程起来以后就待在托管目录里（进程的工作目录在起它时已经定了）：同一个标识的目录随后被删掉重建时

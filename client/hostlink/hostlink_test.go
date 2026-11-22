@@ -53,11 +53,11 @@ func (b *box) session(t *testing.T, id, text string) {
 
 func TestRemoteCommandQuotesForBash(t *testing.T) {
 	got := RemoteCommand(`echo 'a b' "$HOME"`, "zeta", "Asia/Shanghai", true)
-	want := `exec env ZETA_NAME='zeta' TZ='Asia/Shanghai' LANG=C.UTF-8 TERM=dumb bash -lc 'PATH="$PATH:$HOME/.local/bin"; echo '\''a b'\'' "$HOME"'`
+	want := `exec env ZETA_NAME='zeta' TZ='Asia/Shanghai' ZETA_LANG="$LANG" LANG=C.UTF-8 TERM=dumb bash -lc 'PATH="$PATH:$HOME/.local/bin"; echo '\''a b'\'' "$HOME"'`
 	if got != want {
 		t.Errorf("got  %s\nwant %s", got, want)
 	}
-	if got := RemoteCommand("true", "zeta", "UTC", false); got != `exec env ZETA_NAME='zeta' TZ='UTC' LANG=C.UTF-8 TERM=dumb bash -c 'true'` {
+	if got := RemoteCommand("true", "zeta", "UTC", false); got != `exec env ZETA_NAME='zeta' TZ='UTC' ZETA_LANG="$LANG" LANG=C.UTF-8 TERM=dumb bash -c 'true'` {
 		t.Errorf("plain %s", got)
 	}
 }
@@ -66,8 +66,8 @@ func TestShellRunsInTheRemoteEnvironment(t *testing.T) {
 	b := newBox(t)
 	b.shell.TZ = "UTC"
 	b.file(t, ".local/bin/only-in-login", "#!/bin/sh\necho found\n", 0o755)
-	r, err := b.shell.Run(`echo "$ZETA_NAME $TZ $LANG"; only-in-login; echo 'it''s'`, nil, 10*time.Second, false)
-	if err != nil || r.Stdout != testName+" UTC C.UTF-8\nfound\nits\n" || r.Code != 0 {
+	r, err := b.shell.Run(`echo "$ZETA_NAME $TZ $LANG $ZETA_LANG"; only-in-login; echo 'it''s'`, nil, 10*time.Second, false)
+	if err != nil || r.Stdout != testName+" UTC C.UTF-8 C.UTF-8\nfound\nits\n" || r.Code != 0 {
 		t.Errorf("login: %v %+v", err, r)
 	}
 	r, _ = b.shell.Run("only-in-login", nil, 10*time.Second, true)
