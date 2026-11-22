@@ -2,6 +2,7 @@ package sshlink
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -35,14 +36,27 @@ func (e *HostKeyChangedError) Error() string {
 type Links struct {
 	auth Resolver
 	idle time.Duration
+	dial DialFunc
 
 	mu    sync.Mutex
 	links map[string]*link // 设备编号 → 它的连接
 }
 
-// NewLinks 用 auth 决定连到哪、用哪些私钥；最后一个通道关掉 idle 后断开连接。
+// DialFunc 连上 addr（主机:端口）的 TCP。
+type DialFunc func(ctx context.Context, addr string) (net.Conn, error)
+
+// NewLinks 用 auth 决定连到哪、用哪些私钥；最后一个通道关掉 idle 后断开连接。TCP 照系统的解析和路由连（SetDial 可以换）。
 func NewLinks(auth Resolver, idle time.Duration) *Links {
-	return &Links{auth: auth, idle: idle, links: map[string]*link{}}
+	return &Links{auth: auth, idle: idle, dial: systemDial, links: map[string]*link{}}
+}
+
+// SetDial 换掉连 TCP 的办法，在第一次用 l 之前调用。Android 上 Go 自己解析不了域名（没有 /etc/resolv.conf，又不用 cgo），
+// 交给应用经系统解析（见 sshbridge）。
+func (l *Links) SetDial(dial DialFunc) { l.dial = dial }
+
+func systemDial(ctx context.Context, addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext(ctx, "tcp", addr)
 }
 
 // Auth 是决定连到哪、用哪些私钥的那个。
@@ -51,6 +65,11 @@ func (l *Links) Auth() Resolver { return l.auth }
 // Start 在设备 h 上开一个通道跑 command（原样交给那边用户的 shell）。连接没有就先连（阻塞到连上或失败）；复用的连接刚好断了时换一条再试一次。
 // 连不上时返回的错误是一句给人看的话（Describe）。
 func (l *Links) Start(h Host, command string) (*Process, error) {
+	return l.StartContext(context.Background(), h, command)
+}
+
+// StartContext 同 Start；ctx 取消时不再连、也不再开通道（还在连的就此放弃，命令不会在那边跑起来），返回 ctx 的错误。
+func (l *Links) StartContext(ctx context.Context, h Host, command string) (*Process, error) {
 	if h.Via != ViaDirect {
 		return nil, Problem("「" + h.Name() + "」要经手机的 Debian 连，电脑上连不了")
 	}
@@ -59,14 +78,18 @@ func (l *Links) Start(h Host, command string) (*Process, error) {
 		return nil, Problem("「" + h.Name() + "」没有记下主机指纹")
 	}
 	lk := l.link(h, key.Marshal())
-	client, reused, err := lk.client()
+	client, reused, err := lk.client(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		lk.idleIfUnused(client)
 		return nil, err
 	}
 	p, err := lk.open(client, command)
 	if err != nil && reused {
 		lk.drop(client)
-		if client, _, err = lk.client(); err != nil {
+		if client, _, err = lk.client(ctx); err != nil {
 			return nil, err
 		}
 		p, err = lk.open(client, command)
@@ -88,7 +111,7 @@ func (l *Links) Probe(target, key, expected, command string, timeout time.Durati
 		}
 		want = k.Marshal()
 	}
-	client, blob, err := dial(l.auth, target, key, want)
+	client, blob, err := dial(context.Background(), l.auth, l.dial, target, key, want)
 	if blob != nil {
 		seen = base64.StdEncoding.EncodeToString(blob)
 	}
@@ -167,12 +190,13 @@ type link struct {
 
 	mu     sync.Mutex
 	conn   *ssh.Client
-	active int         // 开着的通道
-	idle   *time.Timer // 最后一个通道关掉后断开的定时器
+	gone   chan struct{} // conn 断了以后关掉
+	active int           // 开着的通道
+	idle   *time.Timer   // 最后一个通道关掉后断开的定时器
 }
 
 // client 是连着的连接，没有就连上。reused 是不是早就连着的（那样它可能刚好断了还没发现）。
-func (lk *link) client() (c *ssh.Client, reused bool, err error) {
+func (lk *link) client(ctx context.Context) (c *ssh.Client, reused bool, err error) {
 	lk.dialing.Lock()
 	defer lk.dialing.Unlock()
 	lk.mu.Lock()
@@ -181,14 +205,14 @@ func (lk *link) client() (c *ssh.Client, reused bool, err error) {
 	if c != nil {
 		return c, true, nil
 	}
-	c, _, err = dial(lk.owner.auth, lk.target, lk.key, lk.hostKey)
+	c, _, err = dial(ctx, lk.owner.auth, lk.owner.dial, lk.target, lk.key, lk.hostKey)
 	if err != nil {
 		return nil, false, err
 	}
 	lk.mu.Lock()
-	lk.conn = c
-	lk.mu.Unlock()
 	stop := make(chan struct{})
+	lk.conn, lk.gone = c, stop
+	lk.mu.Unlock()
 	go func() {
 		_ = c.Wait() // 连接断了、被关掉
 		close(stop)
@@ -201,7 +225,7 @@ func (lk *link) client() (c *ssh.Client, reused bool, err error) {
 
 // open 在连接 c 上开一个通道跑 command。
 func (lk *link) open(c *ssh.Client, command string) (*Process, error) {
-	session, err := c.NewSession()
+	session, err := lk.session(c)
 	if err != nil {
 		return nil, err
 	}
@@ -312,8 +336,9 @@ func (lk *link) close() {
 	}
 }
 
-// dial 连上地址 target：实际连到哪、用哪些私钥问 auth。认 expected 这一个主机公钥（nil 时谁都认），seen 是对方的主机公钥（握手到那一步才有）。
-func dial(auth Resolver, target, key string, expected []byte) (c *ssh.Client, seen []byte, err error) {
+// dial 连上地址 target：实际连到哪、用哪些私钥问 auth，TCP 经 tcp 连。认 expected 这一个主机公钥（nil 时谁都认），seen 是对方的主机公钥
+// （握手到那一步才有）。ctx 取消时放弃，返回 ctx 的错误。
+func dial(ctx context.Context, auth Resolver, tcp DialFunc, target, key string, expected []byte) (c *ssh.Client, seen []byte, err error) {
 	route, err := auth.Resolve(target, key)
 	if err != nil {
 		return nil, nil, err
@@ -331,15 +356,29 @@ func dial(auth Resolver, target, key string, expected []byte) (c *ssh.Client, se
 		HostKeyAlgorithms: hostKeyAlgorithms(expected),
 		Timeout:           dialTimeout,
 	}
-	conn, err := net.DialTimeout("tcp", route.Target.Addr(), dialTimeout)
+	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
+	defer cancel()
+	conn, err := tcp(dialCtx, route.Target.Addr())
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
 		return nil, nil, Problem(Describe(err))
 	}
-	// 握手也限时：对方接了 TCP 却不说话时不一直等
+	// 握手也限时：对方接了 TCP 却不说话时不一直等；ctx 取消时马上放弃
 	_ = conn.SetDeadline(time.Now().Add(dialTimeout))
+	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
 	sc, chans, reqs, err := ssh.NewClientConn(conn, route.Target.Addr(), config)
+	stop()
+	if err == nil && ctx.Err() != nil {
+		_ = sc.Close()
+		return nil, seen, ctx.Err()
+	}
 	if err != nil {
 		_ = conn.Close()
+		if ctx.Err() != nil {
+			return nil, seen, ctx.Err()
+		}
 		var changed *HostKeyChangedError
 		switch {
 		case errors.As(err, &changed):
@@ -449,5 +488,40 @@ func (p *Process) Capture(stdin []byte, timeout time.Duration) Result {
 		p.Close()
 		<-code
 		return Result{Code: ConnectionFailed, Stdout: stdout.String(), Stderr: stderr.String(), TimedOut: true}
+	}
+}
+
+// errGone：要开通道的那条连接已经断了。
+var errGone = errors.New("连接已经断了")
+
+// session 在连接 c 上开一个会话通道。c 恰好在断时，x/crypto 可能在它丢掉所有通道之后才登记这个新通道，等确认就会一直等下去；
+// 所以同时等 c 断掉，断了就当没开成（那个还在等的 goroutine 留着，万一开成了就关掉）。
+func (lk *link) session(c *ssh.Client) (*ssh.Session, error) {
+	lk.mu.Lock()
+	gone := lk.gone
+	current := lk.conn == c
+	lk.mu.Unlock()
+	if !current {
+		return nil, errGone
+	}
+	type opened struct {
+		s   *ssh.Session
+		err error
+	}
+	done := make(chan opened, 1)
+	go func() {
+		s, err := c.NewSession()
+		done <- opened{s, err}
+	}()
+	select {
+	case r := <-done:
+		return r.s, r.err
+	case <-gone:
+		go func() {
+			if r := <-done; r.s != nil {
+				_ = r.s.Close()
+			}
+		}()
+		return nil, errGone
 	}
 }
