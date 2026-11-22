@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"io"
 	"slices"
 	"sync"
@@ -40,8 +41,10 @@ type Devices struct {
 	// 答的错（方法名 → 错误）；Hostnames 是 Hostname 答的各台主机名（设备编号 → 名字，没列的答出错）。
 	Far map[string][]hostlink.Session
 	// Occupants、Handoffs 是 sessions.occupant、sessions.handoff 答的结果（会话号 → 结果 JSON）：没给的是没人占着、交出来了。
-	Occupants   map[string]string
-	Handoffs    map[string]string
+	Occupants map[string]string
+	Handoffs  map[string]string
+	// OnSearch 给了时由它答 sessions.search（l 是那条连接，id 是请求的编号，命中用 PushMatch 推），不照 SearchHits 答。
+	OnSearch    func(l *ChatLink, id int64, query string) (json.RawMessage, error)
 	SessionsErr map[string]error
 	Hostnames   map[string]string
 

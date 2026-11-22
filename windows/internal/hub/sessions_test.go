@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"slices"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
 // listed 推一份 box 上的整份列表：s1 今天、s2 归档的、s3 更早。
@@ -268,5 +270,59 @@ func TestHandOver(t *testing.T) {
 	f.hub.PollOccupant(now.Add(4*time.Second + handoffSettle))
 	if got := f.devices.SessionCalls(); len(got) != 2 {
 		t.Errorf("到点以后发出 %q", got)
+	}
+}
+
+// 同一条连接再发 sessions.search 时核心停掉上一个，上一个照样答一份 complete 为假的汇总；它停下前推来的命中、
+// 那份汇总都晚于新的一次到。侧栏只算最新那次的。
+func TestOnlyTheLatestSearchCounts(t *testing.T) {
+	d := hubtest.NewDevices()
+	s, err := settings.Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	posts := make(chan func(), 100)
+	h := New(s, d, func(f func()) { go f() }, func(f func()) { posts <- f })
+	h.SearchDelay = 0
+	x, err := h.AddHost("box", "", d.Found("box"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "stale", Updated: 2}, {ID: "fresh", Updated: 1}}})
+	drain := func() {
+		for {
+			select {
+			case f := <-posts:
+				f()
+			case <-time.After(50 * time.Millisecond):
+				return
+			}
+		}
+	}
+	drain()
+	oldStarted, release, oldDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	d.OnSearch = func(l *hubtest.ChatLink, id int64, query string) (json.RawMessage, error) {
+		if query == "old" {
+			close(oldStarted)
+			<-release // 核心收到新的一次才停掉这个
+			l.PushMatch(id, "stale", "old 的命中")
+			defer close(oldDone)
+			return json.RawMessage(`{"scanned":3,"total":300,"matched":1,"complete":false}`), nil
+		}
+		l.PushMatch(id, "fresh", "new 的命中")
+		return json.RawMessage(`{"scanned":300,"total":300,"matched":1,"complete":true}`), nil
+	}
+	h.SetQuery("old")
+	<-oldStarted
+	h.SetQuery("new")
+	for h.SearchProgress() != SearchDone {
+		(<-posts)()
+	}
+	close(release)
+	<-oldDone
+	drain()
+	r := h.Results(hostlink.Session{}, time.Now())
+	if len(r) != 1 || r[0].ID != "fresh" || h.Snippet(r[0]) != "new 的命中" || h.SearchProgress() != SearchDone {
+		t.Errorf("结果 %v，片段 %q，进度 %v", ids(r), h.Snippet(hostlink.Session{Backend: x.ID, ID: "stale"}), h.SearchProgress())
 	}
 }

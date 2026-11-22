@@ -38,6 +38,12 @@ func (d *Devices) answerSessions(l *ChatLink, id int64, c Call) (json.RawMessage
 	case "sessions.lookup":
 		result = d.lookup(host, c.Params["sessions"])
 	case "sessions.search":
+		d.mu.Lock()
+		onSearch := d.OnSearch
+		d.mu.Unlock()
+		if onSearch != nil {
+			return onSearch(l, id, c.Str("query"))
+		}
 		return d.search(l, id, c.Str("query"))
 	case "sessions.occupant":
 		return d.answer(d.Occupants, c.Str("session"), `{"status":null,"waiting_for":null,"hands_over":false}`)
@@ -103,12 +109,17 @@ func (d *Devices) search(l *ChatLink, id int64, query string) (json.RawMessage, 
 	matched := 0
 	for _, session := range slices.Sorted(maps.Keys(hits)) {
 		if strings.Contains(strings.ToLower(hits[session]), strings.ToLower(query)) {
-			line, _ := json.Marshal(map[string]any{"type": "sessions.match", "search": id, "id": session, "role": "user", "snippet": hits[session]})
-			l.Push(string(line))
+			l.PushMatch(id, session, hits[session])
 			matched++
 		}
 	}
 	return json.Marshal(map[string]any{"scanned": len(hits), "total": len(hits), "matched": matched, "complete": !partial})
+}
+
+// PushMatch 推一行编号 search 的搜索的命中（sessions.match）。
+func (l *ChatLink) PushMatch(search int64, session, snippet string) {
+	line, _ := json.Marshal(map[string]any{"type": "sessions.match", "search": search, "id": session, "role": "user", "snippet": snippet})
+	l.Push(string(line))
 }
 
 // SessionCalls 取走到现在发来的 sessions.* 请求（除了 sessions.search、sessions.image），每个是「设备编号 方法 参数 JSON」。
