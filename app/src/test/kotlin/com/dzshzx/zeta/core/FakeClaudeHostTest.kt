@@ -12,7 +12,7 @@ import org.junit.Test
 /**
  * 设备测试用的假 Claude（tools/fake-claude）怎么接进来：真的 zeta_host.sh 跑在临时 HOME 上。
  * 测试版（ZETA_NAME=zeta-dev）放了剧本才起假 Claude，正式版永远起真的 claude；剧本删掉后假 Claude 自己退出。 假 Claude 的输出和真 Claude
- * Code 对不对得上，见 FakeClaudeContractTest。
+ * Code 对不对得上，见 FakeClaudeContractTest。测试版起真的 claude 时，新开、没指定模型的对话补上 Haiku 5.5。
  */
 class FakeClaudeHostTest {
     private lateinit var home: File
@@ -22,6 +22,9 @@ class FakeClaudeHostTest {
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
     private val fakeDir
         get() = File(home, ".config/zeta-dev/fake-claude")
+
+    /** 测试里另起的测试版托管标识，tearDown 一并结束。 */
+    private val extraKeys = mutableListOf<String>()
 
     @Before
     fun setUp() {
@@ -35,7 +38,8 @@ class FakeClaudeHostTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         for ((name, key) in
-            listOf(dev to "k-dev", release to "k-release", null to "k-old")) runCatching {
+            listOf(dev to "k-dev", release to "k-release", null to "k-old") +
+                extraKeys.map { dev to it }) runCatching {
             run(name, "stop", key)
         }
         home.deleteRecursively()
@@ -56,7 +60,7 @@ class FakeClaudeHostTest {
     private fun run(name: String?, vararg arguments: String): String =
         HostTesting.run(home, listOf("bash", host.path) + arguments, HostTesting.named(name))
 
-    private fun start(name: String?, key: String) =
+    private fun start(name: String?, key: String, vararg extra: String) =
         run(
             name,
             "start",
@@ -68,6 +72,7 @@ class FakeClaudeHostTest {
             "stream-json",
             "--output-format",
             "stream-json",
+            *extra,
         )
 
     private fun hostDir(name: String?, key: String) =
@@ -115,6 +120,36 @@ class FakeClaudeHostTest {
         assertTrue("剧本删了，假 Claude 还在", waitUntil { !HostTesting.alive(pid) })
         start(dev, "k-dev")
         assertFalse(commandLine(pid(dev, "k-dev")).contains("fake-claude"))
+    }
+
+    @Test
+    fun devStartsNewConversationsOnHaikuUnlessAModelOrSessionIsGiven() {
+        val haiku = "--model claude-haiku-5-5"
+        // 每次另起一个标识（stop 在后台清理目录，紧接着用同一个标识会撞上），tearDown 统一结束
+        fun launched(vararg extra: String): String {
+            val key = "k-dev-${extraKeys.size}".also { extraKeys += it }
+            start(dev, key, *extra)
+            return commandLine(pid(dev, key))
+        }
+
+        assertTrue(
+            launched().let { it.contains("${home.path}/bin/claude") && it.endsWith("$haiku ") },
+        )
+        // 指定了的照指定的；接着旧会话、分支照会话记录
+        for (extra in
+            listOf(
+                arrayOf("--model", "sonnet"),
+                arrayOf("--resume", "0a1b2c3d-0000-4000-8000-000000000002"),
+                arrayOf("--resume", "0a1b2c3d-0000-4000-8000-000000000002", "--fork-session"),
+            )) {
+            val line = launched(*extra)
+            assertFalse(line, line.contains(haiku))
+        }
+        // 假 Claude 和正式版不补
+        installFake()
+        assertFalse(launched().contains(haiku))
+        start(release, "k-release")
+        assertFalse(commandLine(pid(release, "k-release")).contains(haiku))
     }
 
     @Test
