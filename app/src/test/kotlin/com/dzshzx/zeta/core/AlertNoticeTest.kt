@@ -11,8 +11,15 @@ class AlertNoticeTest {
     private fun question(vararg options: String, multi: Boolean = false) =
         Question("先改哪个？", "顺序", options.map { QuestionOption(it, "") }, multiSelect = multi)
 
+    /** 核心推来的提问：AskUserQuestion 是要用户回答的（asks_input）。 */
     private fun ask(vararg questions: Question) =
-        PermissionRequest("q", "AskUserQuestion", JsonObject(emptyMap()), questions.toList())
+        PermissionRequest(
+            "q",
+            "AskUserQuestion",
+            JsonObject(emptyMap()),
+            questions.toList(),
+            asksInput = true,
+        )
 
     @Test
     fun toolsGetAllowAndDeny() {
@@ -86,7 +93,14 @@ class AlertNoticeTest {
 
     @Test
     fun elicitationOnlyOpensTheConversation() {
-        val form = ElicitationRequest("e1", "deploy", "发布前确认几项", url = null, fields = emptyList())
+        // 那一句是核心写好的（helper/prompt）
+        val form =
+            ElicitationRequest(
+                "e1",
+                "deploy",
+                "发布前确认几项",
+                notice = "MCP 服务器 deploy 需要你填写信息",
+            )
         val notice = AlertNotice.waiting(form)
         assertEquals("MCP 服务器 deploy 需要你填写信息", notice.text)
         assertEquals("发布前确认几项", notice.detail)

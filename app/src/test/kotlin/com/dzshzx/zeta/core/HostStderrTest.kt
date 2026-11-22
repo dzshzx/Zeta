@@ -101,7 +101,8 @@ class HostStderrTest {
                 .map { Json.parseToJsonElement(it).jsonObject }
                 .single { it.str("type") == "zeta_exit" }
         assertEquals(3, report.int("code"))
-        assertEquals("出错了：\"引号\" \\ 反斜杠\n", hostExitStderr(report))
+        val stderr = java.util.Base64.getDecoder().decode(report.str("stderr_base64").orEmpty())
+        assertEquals("出错了：\"引号\" \\ 反斜杠\n", String(stderr, Charsets.UTF_8))
         assertTrue("报完删掉托管目录", !dir.exists())
     }
 
@@ -140,23 +141,6 @@ class HostStderrTest {
         // 收尾：新进程也结束，等它的那段做完再删临时目录
         File(dir, "in").appendText(HostTesting.END_SESSION)
         assertTrue("新进程的那段没做完", waitUntil { !HostTesting.alive(newRun) })
-    }
-
-    @Test
-    fun exitStderrDropsAHalfCharacterAtTheCut() {
-        val bytes = "好的".toByteArray()
-        val cut = java.util.Base64.getEncoder().encodeToString(bytes.copyOfRange(1, bytes.size))
-        assertEquals(
-            "的",
-            hostExitStderr(
-                Json.parseToJsonElement("""{"type":"zeta_exit","code":1,"stderr_base64":"$cut"}""")
-                    .jsonObject,
-            ),
-        )
-        assertEquals(
-            "",
-            hostExitStderr(Json.parseToJsonElement("""{"type":"zeta_exit","code":1}""").jsonObject),
-        )
     }
 
     @Test

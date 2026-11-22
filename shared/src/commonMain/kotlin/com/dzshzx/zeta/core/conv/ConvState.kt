@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.BackgroundTask
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.CodeRewind
+import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
 import com.dzshzx.zeta.core.ModelOption
@@ -13,7 +14,6 @@ import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.QuestionOption
 import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SlashCommand
-import com.dzshzx.zeta.core.SubagentMeta
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.TaskState
@@ -45,6 +45,8 @@ import kotlinx.serialization.json.intOrNull
  */
 @Immutable
 data class ConvState(
+    /** 这个对话在核心里的标识（整个核心里不重复），断线重连时按它重新打开；还没推来时是空串。 */
+    val key: String = "",
     /** 会话号；新对话第一条消息之前没有。 */
     val session: String? = null,
     val title: String = "",
@@ -111,6 +113,7 @@ private typealias FieldReader = (ConvState, JsonElement) -> ConvState
 /** conv.state 各字段怎么读，键是字段名。没列的字段（核心以后加的）不管。Go 一侧把空的模型、思考强度写成空串， 这里读成 null（用默认）。 */
 private val fieldReaders: Map<String, FieldReader> =
     mapOf(
+        "key" to { s, v -> s.copy(key = v.text().orEmpty()) },
         "session" to { s, v -> s.copy(session = v.text()) },
         "title" to { s, v -> s.copy(title = v.text().orEmpty()) },
         "cwd" to { s, v -> s.copy(cwd = v.text().orEmpty()) },
@@ -209,9 +212,7 @@ internal fun taskOutputOf(o: JsonObject): TaskOutput =
         error = o.textOrNull("error"),
     )
 
-/**
- * 用量（helper/usage/snapshot.go 的 Usage）。合计、费用、比例、提醒档位这几项是 Go 一侧由别的字段算出的，[ChatUsage] 照同样的算法自己算，不读。
- */
+/** 用量（helper/usage/snapshot.go 的 Usage）：合计、费用、比例、提醒档位都照核心算好的读。 */
 internal fun chatUsageOf(o: JsonObject): ChatUsage =
     ChatUsage(
         contextTokens = o.long("context_tokens"),
@@ -223,28 +224,37 @@ internal fun chatUsageOf(o: JsonObject): ChatUsage =
         appliedEffort = o.textOrNull("applied_effort"),
         autoCompact = o.bool("auto_compact"),
         compactAt = o.long("compact_at"),
+        total = tokensOf(o.obj("total")),
+        totalCost = o.double("total_cost"),
+        costPartial = o.bool("cost_partial") == true,
+        costEstimated = o.bool("cost_estimated") == true,
+        fraction = o.double("fraction")?.toFloat(),
+        compactFraction = o.double("compact_fraction")?.toFloat(),
+        level =
+            ContextLevel.entries.firstOrNull { it.name.lowercase() == o.str("level") }
+                ?: ContextLevel.Normal,
     )
 
-private fun turnUsageOf(o: JsonObject): TurnUsage {
-    val t = o.obj("tokens")
-    return TurnUsage(
-        tokens =
-            TokenCounts(
-                t?.long("input") ?: 0,
-                t?.long("output") ?: 0,
-                t?.long("cache_read") ?: 0,
-                t?.long("cache_write") ?: 0,
-            ),
+private fun tokensOf(t: JsonObject?): TokenCounts =
+    TokenCounts(
+        t?.long("input") ?: 0,
+        t?.long("output") ?: 0,
+        t?.long("cache_read") ?: 0,
+        t?.long("cache_write") ?: 0,
+        t?.long("total") ?: 0,
+    )
+
+private fun turnUsageOf(o: JsonObject): TurnUsage =
+    TurnUsage(
+        tokens = tokensOf(o.obj("tokens")),
         costUsd = o.double("cost_usd"),
         durationMs = o.long("duration_ms"),
         costEstimated = o.bool("cost_estimated") == true,
     )
-}
 
 /**
  * 等用户回应的请求（helper/prompt/prompt.go 的 Prompt）。notice、asks_input、is_plan、suggestion_lines、takes_notes
- * 这几项 Kotlin 一侧另有算法（[PermissionRequest.isPlan]、[Question.takesNotes]、describeSuggestions
- * 等），不读。认不出的种类是 null。
+ * 照核心给的读。认不出的种类是 null。
  */
 internal fun userPromptOf(o: JsonObject): UserPrompt? {
     val id = o.str("request_id") ?: return null
@@ -256,10 +266,13 @@ internal fun userPromptOf(o: JsonObject): UserPrompt? {
                 input = o.obj("input") ?: JsonObject(emptyMap()),
                 questions =
                     o.arr("questions").orEmpty().filterIsInstance<JsonObject>().map(::questionOf),
-                suggestions = o.arr("suggestions") ?: JsonArray(emptyList()),
+                suggestionLines = o.strings("suggestion_lines"),
                 reason = o.textOrNull("reason"),
                 agentId = o.textOrNull("agent_id"),
                 toolUseId = o.textOrNull("tool_use_id"),
+                isPlan = o.bool("is_plan") == true,
+                notice = o.str("notice").orEmpty(),
+                asksInput = o.bool("asks_input") == true,
             )
         "elicitation" ->
             ElicitationRequest(
@@ -269,6 +282,8 @@ internal fun userPromptOf(o: JsonObject): UserPrompt? {
                 url = o.textOrNull("url"),
                 fields =
                     o.arr("fields").orEmpty().filterIsInstance<JsonObject>().map(::elicitFieldOf),
+                notice = o.str("notice").orEmpty(),
+                asksInput = o.bool("asks_input") != false,
             )
         else -> null
     }
@@ -288,6 +303,7 @@ private fun questionOf(o: JsonObject): Question =
                 )
             },
         multiSelect = o.bool("multi_select") == true,
+        takesNotes = o.bool("takes_notes") == true,
     )
 
 private fun elicitFieldOf(o: JsonObject): ElicitField =
@@ -329,6 +345,21 @@ internal fun convTurnOf(o: JsonObject): ConvTurn =
         outcome = ConvTurn.Outcome.entries.firstOrNull { it.name.lowercase() == o.str("outcome") },
         text = o.str("text").orEmpty(),
     )
+
+/** conv.subagent 里的 meta：子代理记录旁 meta.json 里界面要的几项。 */
+@Immutable
+data class SubagentMeta(
+    val agentId: String,
+    val agentType: String? = null,
+    val description: String? = null,
+    val model: String? = null,
+    /** 做完了：Claude Code 在子代理结束时写 finished。 */
+    val finished: Boolean = false,
+    /** 被停下了：stoppedByUser。 */
+    val stopped: Boolean = false,
+    /** 起的时候放没放后台（requestShape）；不知道时为 null。 */
+    val background: Boolean? = null,
+)
 
 /** 看着的一个子代理（conv.subagent 合并到现在的样子）。条目以外的字段每次推送都是整份。 */
 @Immutable

@@ -152,6 +152,9 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
 
     internal fun call(method: String, params: JsonObject): JsonElement? = link.call(method, params)
 
+    internal fun call(method: String, params: JsonObject, timeoutMs: Long): JsonElement? =
+        link.call(method, params, timeoutMs)
+
     /** 订阅（[watch] 为真）或退订各会话的忙闲（conv.activity，经 [ConvListener.activity] 交来）；重连后照样再订阅。 */
     fun watchActivity(watch: Boolean) {
         synchronized(lock) { watchingActivity = watch }

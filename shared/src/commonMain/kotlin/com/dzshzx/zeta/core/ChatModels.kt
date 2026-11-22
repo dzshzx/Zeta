@@ -233,17 +233,6 @@ fun modelName(value: String, models: List<ModelOption>): String? {
     }
 }
 
-private val ModelName = Regex("([A-Z][a-z]+) (\\d+(?:\\.\\d{1,2})*)")
-
-/**
- * [readableModelId] 反过来：终端里 /model 打出来的显示名（Fable 5.2）对应的模型 ID（claude-fable-5-2）；不是这个样子的（别家的模型、带 1M
- * 之类说明的）是 null。
- */
-fun modelIdOfName(name: String): String? {
-    val (family, version) = ModelName.matchEntire(name)?.destructured ?: return null
-    return "claude-" + family.lowercase() + "-" + version.replace('.', '-')
-}
-
 private val ModelId = Regex("claude-([a-z]+)-(\\d+(?:-\\d{1,2})*)(?:-\\d{8})?(\\[1m])?")
 
 /**

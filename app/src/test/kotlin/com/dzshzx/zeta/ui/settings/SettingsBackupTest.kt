@@ -81,10 +81,11 @@ class SettingsBackupTest {
             // 以前的 Zeta 存的新对话默认值，现在用 Claude Code 自己的设置：还留在存储里也不导出
             "model" to "opus",
             "permissionMode" to "acceptEdits",
+            // 以前的 Zeta 记的各模型上下文窗口，现在用核心推来的：留在存储里也不导出
+            "contextWindows" to setOf("opus=200000"),
             // 这个版本没有的强调色设置：留在存储里也不导出
             "accent" to "teal",
             "commands" to "[{\"name\":\"compact\"}]",
-            "contextWindows" to setOf("opus=200000"),
             "mutedApps" to setOf("com.example.music=allow"),
             "phoneDisplay" to 7,
             "dark" to true,
@@ -136,6 +137,7 @@ class SettingsBackupTest {
         )
         assertFalse("model" in keys)
         assertFalse("permissionMode" in keys)
+        assertFalse("contextWindows" in keys)
         assertFalse("accent" in keys)
         assertFalse("apiToken" in keys)
         assertFalse(export(phone).contains("fake-token-1"))

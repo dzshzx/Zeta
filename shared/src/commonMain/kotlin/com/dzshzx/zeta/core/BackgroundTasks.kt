@@ -4,10 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.longOrNull
 
 /** 后台任务是什么：后台命令（Bash 的 run_in_background）、监视器（Monitor）、后台子代理，或别的种类。 */
 enum class TaskKind {
@@ -26,10 +22,7 @@ enum class TaskState {
     Ended,
 }
 
-/**
- * Claude Code 在一个对话里起的一个后台任务。字段取自 stream-json 的几种 system 事件（2.1.328 实测，见 ClaudeTaskContractTest）：
- * background_tasks_changed（当前在跑的完整清单）、task_started、task_progress、task_updated、task_notification。
- */
+/** Claude Code 在一个对话里起的一个后台任务：核心归约好、经 conv.state 的 tasks 推来的一项（见 docs/core.md「对话」）。 */
 @Immutable
 data class BackgroundTask(
     val id: String,
@@ -64,7 +57,7 @@ data class BackgroundTask(
     fun elapsedMs(now: Long): Long = ((endedAt ?: now) - startedAt).coerceAtLeast(0)
 }
 
-/** get_task_output 的应答：输出的最后至多 8 KiB。[error] 不为 null 时是没读成的原因。 */
+/** conv.task_output 的结果：输出的最后至多 8 KiB。[error] 不为 null 时是没读成的原因。 */
 @Immutable
 data class TaskOutput(
     val text: String,
@@ -72,297 +65,6 @@ data class TaskOutput(
     val truncated: Boolean,
     val error: String? = null,
 )
-
-/**
- * 把 Claude Code 的事件归约成后台任务清单。纯逻辑，不碰 Android，在主线程（或测试里）调用。
- *
- * 面板列的是进过 background_tasks_changed 清单的任务：前台跑着的（比如没放后台的子代理）只记下它的 task_started，
- * 等它转到后台进了清单再列出来。结束了的留最近 [keepFinished] 个，好让用户看结局和输出。
- */
-class TaskBoard(private val keepFinished: Int = 20) {
-    private class Started(val event: JsonObject, val at: Long)
-
-    private val entries = LinkedHashMap<String, BackgroundTask>()
-    private val started = LinkedHashMap<String, Started>()
-
-    /** 主对话最近发起的、可能成为后台任务的工具调用：tool_use id → 工具名和参数。命令要从这里取。 */
-    private val calls = LinkedHashMap<String, Pair<String, JsonObject?>>()
-
-    /** 在跑的排前面，各自按开始时间新的在前。 */
-    val tasks: List<BackgroundTask>
-        get() =
-            entries.values.sortedWith(
-                compareByDescending<BackgroundTask> { it.running }
-                    .thenByDescending { it.startedAt },
-            )
-
-    /** 处理一条 stream-json 事件，返回清单有没有变。[now] 是收到它的时间（毫秒）。 */
-    fun observe(event: JsonObject, now: Long): Boolean =
-        when (event.str("type")) {
-            "assistant" -> {
-                rememberCalls(event)
-                false
-            }
-            "system" ->
-                when (event.str("subtype")) {
-                    "task_started" -> started(event, now)
-                    "background_tasks_changed" -> listed(event, now)
-                    "task_progress" -> progressed(event)
-                    "task_updated" -> patched(event)
-                    "task_notification" -> notified(event, now)
-                    else -> false
-                }
-            else -> false
-        }
-
-    /** 用户叫停 [id]（或叫停没成，[stopping] 为 false）。返回清单有没有变。 */
-    fun markStopping(id: String, stopping: Boolean = true): Boolean {
-        val task = entries[id]?.takeIf { it.running && it.stopping != stopping } ?: return false
-        entries[id] = task.copy(stopping = stopping)
-        return true
-    }
-
-    /** Claude Code 进程没了：它的后台任务也都跟着没了。 */
-    fun processEnded(now: Long): Boolean {
-        var changed = false
-        for ((id, task) in entries) {
-            if (task.running) {
-                entries[id] = task.copy(state = TaskState.Ended, endedAt = now, stopping = false)
-                changed = true
-            }
-        }
-        started.clear()
-        return changed
-    }
-
-    /** 清掉已结束的。 */
-    fun clearFinished(): Boolean = entries.values.removeAll { !it.running }
-
-    private fun rememberCalls(event: JsonObject) {
-        // 子代理里的调用不是主对话的；它起的后台任务就只显示说明
-        if (event["parent_tool_use_id"].let { it != null && it !is JsonNull }) return
-        for (block in event.obj("message")?.arr("content").orEmpty()) {
-            val use = block as? JsonObject ?: continue
-            if (use.str("type") != "tool_use") continue
-            val name = use.str("name") ?: continue
-            if (name !in TASK_TOOLS) continue
-            remember(use.str("id") ?: continue, name, use.obj("input"))
-        }
-    }
-
-    private fun remember(id: String, name: String, input: JsonObject?) {
-        calls.remove(id)
-        calls[id] = name to input
-        while (calls.size > MAX_CALLS) calls.remove(calls.keys.first())
-    }
-
-    private fun started(event: JsonObject, now: Long): Boolean {
-        val id = event.str("task_id") ?: return false
-        // 接回后台进程时，助手脚本把发起它的工具调用一并带来（zeta_tool），开始时间是那时的记录时间（zeta_at）
-        event.obj("zeta_tool")?.let { tool ->
-            val use = event.str("tool_use_id")
-            if (use != null && use !in calls)
-                remember(use, tool.str("name").orEmpty(), tool.obj("input"))
-        }
-        val at = event.long("zeta_at") ?: now
-        val task = entries[id]
-        if (task == null) {
-            // 还没进后台清单（前台的，或者清单那条还没到）：先记着
-            started.remove(id)
-            started[id] = Started(event, at)
-            while (started.size > MAX_CALLS) started.remove(started.keys.first())
-            return false
-        }
-        entries[id] = enrich(task, event)
-        return true
-    }
-
-    /** 用 task_started 补全：发起它的调用、命令、子代理类型。 */
-    private fun enrich(task: BackgroundTask, start: JsonObject): BackgroundTask {
-        val use = start.str("tool_use_id") ?: task.toolUseId
-        val call = use?.let { calls[it] }
-        val type = task.type.ifBlank { start.str("task_type").orEmpty() }
-        return task.copy(
-            type = type,
-            kind = kindOf(type, call?.first),
-            toolUseId = use,
-            command = task.command ?: commandOf(call) ?: start.str("prompt"),
-            agentType = task.agentType ?: start.str("subagent_type"),
-            description = task.description.ifBlank { start.str("description").orEmpty() },
-        )
-    }
-
-    private fun listed(event: JsonObject, now: Long): Boolean {
-        val listed = HashSet<String>()
-        var changed = false
-        for (element in event.arr("tasks").orEmpty()) {
-            val item = element as? JsonObject ?: continue
-            val id = item.str("task_id") ?: continue
-            listed += id
-            val description = item.str("description").orEmpty()
-            val task = entries[id]
-            when {
-                task == null -> {
-                    val start = started.remove(id)
-                    val type = item.str("task_type").orEmpty()
-                    var created =
-                        BackgroundTask(
-                            id = id,
-                            type = type,
-                            kind = kindOf(type, null),
-                            description = description,
-                            command = null,
-                            agentType = item.str("subagent_type"),
-                            toolUseId = null,
-                            startedAt = start?.at ?: now,
-                        )
-                    if (start != null) created = enrich(created, start.event)
-                    entries[id] = created
-                    changed = true
-                }
-                // 结束了又回到清单（续跑的子代理）：重新算在跑
-                !task.running -> {
-                    entries[id] =
-                        task.copy(
-                            state = TaskState.Running,
-                            endedAt = null,
-                            stopping = false,
-                            summary = null,
-                            error = null,
-                        )
-                    changed = true
-                }
-                description.isNotBlank() && description != task.description -> {
-                    entries[id] = task.copy(description = description)
-                    changed = true
-                }
-            }
-        }
-        // 从清单里消失、又没收到结局的：结束了，但不知道怎么结束的
-        for ((id, task) in entries) {
-            if (task.running && id !in listed) {
-                entries[id] =
-                    task.copy(
-                        state = TaskState.Ended,
-                        endedAt = task.endedAt ?: now,
-                        stopping = false,
-                    )
-                changed = true
-            }
-        }
-        return trim() || changed
-    }
-
-    private fun progressed(event: JsonObject): Boolean {
-        val id = event.str("task_id") ?: return false
-        val task = entries[id] ?: return false
-        val updated =
-            task.copy(
-                progress = event.str("description")?.takeIf { it.isNotBlank() } ?: task.progress,
-                toolUses = event.obj("usage")?.int("tool_uses") ?: task.toolUses,
-            )
-        if (updated == task) return false
-        entries[id] = updated
-        return true
-    }
-
-    private fun patched(event: JsonObject): Boolean {
-        val id = event.str("task_id") ?: return false
-        val task = entries[id] ?: return false
-        val patch = event.obj("patch") ?: return false
-        val state = patch.str("status")?.let(::stateOf) ?: task.state
-        val updated =
-            task.copy(
-                state = state,
-                stopping = task.stopping && state == TaskState.Running,
-                endedAt =
-                    if (state == TaskState.Running) null
-                    else patch.long("end_time") ?: task.endedAt,
-                description =
-                    patch.str("description")?.takeIf { it.isNotBlank() } ?: task.description,
-                error = patch.str("error") ?: task.error,
-            )
-        if (updated == task) return false
-        entries[id] = updated
-        return true
-    }
-
-    private fun notified(event: JsonObject, now: Long): Boolean {
-        val id = event.str("task_id") ?: return false
-        val task = entries[id] ?: return false
-        val state =
-            when (event.str("status")) {
-                "completed" -> TaskState.Completed
-                "failed" -> TaskState.Failed
-                "stopped" -> TaskState.Stopped
-                else -> task.state
-            }
-        val summary =
-            event.str("summary")?.trim()?.takeIf { it.isNotEmpty() && it != task.description }
-        entries[id] =
-            task.copy(
-                state = state,
-                stopping = false,
-                endedAt = if (state == TaskState.Running) null else task.endedAt ?: now,
-                summary = summary ?: task.summary,
-            )
-        return trim() || entries[id] != task
-    }
-
-    /** 已结束的只留最近 [keepFinished] 个。 */
-    private fun trim(): Boolean {
-        val finished = entries.values.filter { !it.running }
-        if (finished.size <= keepFinished) return false
-        finished
-            .sortedByDescending { it.endedAt ?: it.startedAt }
-            .drop(keepFinished)
-            .forEach { entries.remove(it.id) }
-        return true
-    }
-
-    companion object {
-        /** 会起后台任务的工具。Task 是 Agent 的旧名。 */
-        private val TASK_TOOLS = setOf("Bash", "Monitor", "Agent", "Task")
-        private const val MAX_CALLS = 64
-
-        fun kindOf(type: String, tool: String?): TaskKind =
-            when {
-                type == "local_bash" ->
-                    if (tool == "Monitor") TaskKind.Monitor else TaskKind.Command
-                type == "local_agent" -> TaskKind.Agent
-                else -> TaskKind.Other
-            }
-
-        private fun commandOf(call: Pair<String, JsonObject?>?): String? {
-            val input = call?.second ?: return null
-            return when (call.first) {
-                "Bash" -> input.str("command")
-                "Monitor" -> input.str("command") ?: input.obj("ws")?.str("url")
-                else -> input.str("prompt")
-            }?.takeIf { it.isNotBlank() }
-        }
-
-        private fun stateOf(status: String): TaskState =
-            when (status) {
-                "completed" -> TaskState.Completed
-                "failed" -> TaskState.Failed
-                "killed" -> TaskState.Stopped
-                else -> TaskState.Running // pending、running、paused
-            }
-    }
-}
-
-/** get_task_output 应答（control_response 里的 response）。 */
-fun parseTaskOutput(response: JsonObject): TaskOutput {
-    if (response.str("subtype") == "error")
-        return TaskOutput("", 0, false, error = response.str("error") ?: "没有读到输出")
-    val body = response.obj("response") ?: JsonObject(emptyMap())
-    return TaskOutput(
-        text = body.str("output").orEmpty(),
-        totalBytes = (body["total_bytes"] as? JsonPrimitive)?.longOrNull ?: 0,
-        truncated = body.bool("truncated") == true,
-    )
-}
 
 /** 终端输出转成能直接显示的纯文本：去掉颜色等转义序列；回车覆盖的进度行只留最后一版。 */
 fun plainTerminalText(raw: String): String {
@@ -389,15 +91,17 @@ fun formatElapsed(ms: Long): String {
     }
 }
 
-/**
- * 一个对话的后台任务（可观察）：清单、读到的输出。状态只在主线程上改。 发控制请求由 [Conversation]
- * 做，应答按请求号交回这里（[outputAnswered]、[stopAnswered]）。
- */
-class BackgroundTasks {
-    private val board = TaskBoard()
+/** 一个对话的后台任务（可观察）：清单是核心推来的（[source]），读到的输出按任务记在这里。「清除已结束」只是这边不再列出它们。 状态只在主线程上改。 */
+class BackgroundTasks(private val source: () -> List<BackgroundTask>) {
+    /** 用户清掉的已结束任务。 */
+    private var cleared by mutableStateOf<Set<String>>(emptySet())
 
-    var list by mutableStateOf<List<BackgroundTask>>(emptyList())
-        private set
+    /** 在跑的排前面（核心排好的）。 */
+    val list: List<BackgroundTask>
+        get() =
+            source().let { all ->
+                if (cleared.isEmpty()) all else all.filterNot { it.id in cleared }
+            }
 
     /** 读到的输出，按任务 id。 */
     var outputs by mutableStateOf<Map<String, TaskOutput>>(emptyMap())
@@ -406,39 +110,15 @@ class BackgroundTasks {
     val running: Int
         get() = list.count { it.running }
 
-    fun observe(event: JsonObject, now: Long) {
-        if (board.observe(event, now)) publish()
-    }
-
-    /** get_task_output 的应答（control_response 里的 response 一项）到了：任务 [taskId] 读到的输出。 */
-    fun outputAnswered(taskId: String, response: JsonObject) {
-        outputs = outputs + (taskId to parseTaskOutput(response))
-    }
-
-    /** 发出了 stop_task：先显示“正在停止”。 */
-    fun stopRequested(taskId: String) {
-        if (board.markStopping(taskId)) publish()
-    }
-
-    /** stop_task 的应答到了。它对不认识的任务也答 success，真停没停看随后的 task_updated；答错时把“正在停止”撤掉。 */
-    fun stopAnswered(taskId: String, response: JsonObject) {
-        if (response.str("subtype") == "error" && board.markStopping(taskId, stopping = false))
-            publish()
-    }
-
-    fun processEnded(now: Long) {
-        if (board.processEnded(now)) publish()
+    /** conv.task_output 读到了任务 [taskId] 的输出。 */
+    fun outputRead(taskId: String, output: TaskOutput) {
+        outputs = outputs + (taskId to output)
     }
 
     fun clearFinished() {
-        if (board.clearFinished()) {
-            val kept = board.tasks.mapTo(HashSet()) { it.id }
-            outputs = outputs.filterKeys { it in kept }
-            publish()
-        }
-    }
-
-    private fun publish() {
-        list = board.tasks
+        val finished = list.filterNot { it.running }.map { it.id }
+        if (finished.isEmpty()) return
+        cleared = cleared + finished
+        outputs = outputs - finished.toSet()
     }
 }

@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
@@ -69,7 +68,7 @@ class EnvControllerTest {
         hub.environment.setDefaultCwd("/workspace/other")
         assertEquals("/workspace/other", hub.settings.env?.defaultCwd)
         assertEquals("/workspace/other", hub.current.cwd)
-        hub.current.force("items", listOf(UserItem("u1", "你好")))
+        hub.current.coreItems(listOf(UserItem("u1", "你好")))
         val started = hub.current
         hub.environment.setDefaultCwd("/workspace/claude")
         assertSame(started, hub.current)

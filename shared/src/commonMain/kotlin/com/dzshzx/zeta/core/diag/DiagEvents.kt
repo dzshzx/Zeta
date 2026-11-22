@@ -48,72 +48,6 @@ object DiagEvents {
         }
     }
 
-    /** 起或接上 Claude 进程（ClaudeProcess）。 */
-    fun claudeLaunched(hostKey: String, attach: Boolean, cwd: String?, arguments: List<String>) {
-        val key = hostKey.take(8)
-        if (attach) {
-            DiagLog.info(DiagTopic.Claude, "接上后台的 Claude 进程（$key）")
-        } else {
-            DiagLog.info(
-                DiagTopic.Claude,
-                "起 Claude 进程（$key）" +
-                    listOfNotNull(
-                            cwd?.let { "cwd $it" },
-                            describeArguments(arguments).ifEmpty { null },
-                        )
-                        .joinToString("，", "："),
-            )
-        }
-    }
-
-    /** 要起的进程（[requested]）没起：托管脚本接上了本包已在跑这个会话的进程 [joined]（ClaudeProcess）。 */
-    fun claudeJoined(requested: String, joined: String) =
-        DiagLog.info(
-            DiagTopic.Claude,
-            "会话已有进程在跑，接上它（${joined.take(8)}），不另起（${requested.take(8)}）",
-        )
-
-    /** Claude 进程结束或连接断开（ClaudeProcess）：退出码，带上标准错误输出的最后几行。 [stopped]：Zeta 自己关的（关掉对话、换会话），不算异常。 */
-    fun claudeExited(hostKey: String, code: Int, stderr: String, stopped: Boolean = false) {
-        val key = hostKey.take(8)
-        if (stopped) {
-            DiagLog.info(DiagTopic.Claude, "Zeta 结束了 Claude 进程（$key）")
-            return
-        }
-        val detail = tail(stderr)
-        val message =
-            "Claude 进程退出（$key），退出码 $code" +
-                when (code) {
-                    0 -> ""
-                    -1 -> "（连接断开）"
-                    143,
-                    137 -> "（被结束）"
-                    else -> ""
-                } +
-                if (detail.isEmpty()) "" else "\n$detail"
-        when (code) {
-            0,
-            143,
-            137 -> DiagLog.info(DiagTopic.Claude, message)
-            else -> DiagLog.warn(DiagTopic.Claude, message)
-        }
-    }
-
-    /** 和远程主机的连接断了（ClaudeProcess），第 [attempt] 次重连之前；[stderr] 是 ssh 说的原因。 */
-    fun claudeLinkLost(hostKey: String, attempt: Int, stderr: String) {
-        val detail = tail(stderr, lines = 2)
-        DiagLog.warn(
-            DiagTopic.Claude,
-            "和远程设备的连接断了（${hostKey.take(8)}），第 $attempt 次重连" +
-                if (detail.isEmpty()) "" else "：$detail",
-        )
-    }
-
-    /** 断了的连接又接上了（ClaudeProcess）。 */
-    fun claudeLinkRestored(hostKey: String) {
-        DiagLog.info(DiagTopic.Claude, "重新接上远程设备上的 Claude 进程（${hostKey.take(8)}）")
-    }
-
     /** 手机工具调用的结果（PhoneTools.handle）：失败的记下来。 */
     fun phoneTool(name: String, result: JsonObject) {
         val error = toolError(result) ?: return
@@ -130,25 +64,6 @@ object DiagEvents {
 
     /** [HelperProgram.command] 里执行装好的程序的那一段，子命令紧跟其后。 */
     private const val HELPER_EXEC = "exec \"\$f\" "
-
-    /** 起进程的参数里挑几项看得出这个进程是怎么起的：续哪个会话、模型、权限模式、开没开手机工具。 */
-    fun describeArguments(arguments: List<String>): String {
-        fun value(flag: String): String? =
-            arguments
-                .indexOf(flag)
-                .takeIf { it >= 0 && it + 1 < arguments.size }
-                ?.let { arguments[it + 1] }
-        return listOfNotNull(
-                value("--resume")?.let {
-                    "续 ${it.take(8)}" + if ("--fork-session" in arguments) " 分支" else ""
-                },
-                value("--model")?.let { "模型 $it" },
-                value("--permission-mode")?.let { "权限 $it" },
-                value("--effort")?.let { "强度 $it" },
-                if ("--mcp-config" in arguments) "手机工具" else null,
-            )
-            .joinToString("，")
-    }
 
     /** 工具结果是失败（isError）时取出第一段文字，截短；成功返回 null。 */
     fun toolError(result: JsonObject): String? {

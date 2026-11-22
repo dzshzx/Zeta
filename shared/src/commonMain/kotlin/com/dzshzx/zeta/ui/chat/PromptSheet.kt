@@ -25,7 +25,6 @@ import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.UserPrompt
-import com.dzshzx.zeta.core.describeSuggestions
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
@@ -41,7 +40,6 @@ import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
 import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.serialization.json.JsonObject
 
 /**
  * Claude Code 等用户回应时从底部弹出，和终端版的几个对话框一一对应（选项和交回去的应答见 core/Prompts.kt）： 工具确认、计划审批、AskUserQuestion，以及
@@ -52,7 +50,7 @@ import kotlinx.serialization.json.JsonObject
 fun PromptSheet(
     prompt: UserPrompt?,
     onReply: (PermissionRequest, PermissionReply) -> Unit,
-    onElicit: (ElicitationRequest, String, JsonObject?) -> Unit,
+    onElicit: ElicitAnswer,
     subagentLabel: (String) -> String? = { null },
 ) {
     // 关闭动画期间仍要显示上一条请求的内容
@@ -84,7 +82,7 @@ private fun ToolSheet(
     agent: String?,
 ) {
     val presentation = presentTool(request.toolName, request.input)
-    val always = remember(request.suggestions) { describeSuggestions(request.suggestions) }
+    val always = request.suggestionLines
     var remember by remember(request.requestId) { mutableStateOf(false) }
     var feedback by remember(request.requestId) { mutableStateOf("") }
     PageDialog(

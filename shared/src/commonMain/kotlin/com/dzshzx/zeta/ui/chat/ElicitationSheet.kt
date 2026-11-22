@@ -21,7 +21,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
-import com.dzshzx.zeta.core.elicitationContent
 import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.PageDialog
@@ -33,17 +32,23 @@ import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
 import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.serialization.json.JsonObject
 
 /**
- * MCP 服务器的 elicitation，和终端版一样两种：表单（按 schema 逐项填，提交前校验）和网址（去网页上做，点“打开网页”算同意）。 “拒绝”交回
- * decline；停止这一轮时由对话交回 cancel。
+ * 回应一个 MCP 表单：请求、action（accept、decline、cancel）、各项输入框里的字（网址模式和拒绝时为 null），
+ * 核心说填得不对的各项交给最后的回调（表单留着改了再交）。
+ */
+typealias ElicitAnswer =
+    (ElicitationRequest, String, Map<String, List<String>>?, (Map<String, String>) -> Unit) -> Unit
+
+/**
+ * MCP 服务器的 elicitation，和终端版一样两种：表单（按 schema 逐项填，交给核心校验）和网址（去网页上做，点“打开网页”算同意）。 “拒绝”交回
+ * decline；停止这一轮时由核心交回 cancel。
  */
 @Composable
 fun ElicitationSheet(
     visible: Boolean,
     request: ElicitationRequest,
-    onElicit: (ElicitationRequest, String, JsonObject?) -> Unit,
+    onElicit: ElicitAnswer,
 ) {
     val uris = LocalUriHandler.current
     val values =
@@ -77,20 +82,18 @@ fun ElicitationSheet(
     ) {
         DialogButtonBar(
             negative =
-                DialogButtonBarAction("拒绝", onClick = { onElicit(request, "decline", null) }),
+                DialogButtonBarAction(
+                    "拒绝",
+                    onClick = { onElicit(request, "decline", null) {} },
+                ),
             positive =
                 DialogButtonBarAction(
                     if (url != null) "打开网页" else "提交",
                     recommended = true,
                     onClick = {
                         if (url != null)
-                            openUrl(uris, url).also { onElicit(request, "accept", null) }
-                        else {
-                            val (content, problems) =
-                                elicitationContent(request.fields, values.toMap())
-                            if (content != null) onElicit(request, "accept", content)
-                            else errors = problems
-                        }
+                            openUrl(uris, url).also { onElicit(request, "accept", null) {} }
+                        else onElicit(request, "accept", values.toMap()) { errors = it }
                     },
                 ),
         )

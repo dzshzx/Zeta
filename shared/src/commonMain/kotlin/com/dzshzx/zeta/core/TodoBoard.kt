@@ -69,22 +69,45 @@ object TodoBoard {
         return board.list()
     }
 
-    /** 把 zeta-helper 给出的“没载入的历史里的清单工具调用”（assistant、user 两种事件）还原成工具步骤。 */
+    /**
+     * 把核心推来的 todo_seed（没载入的历史里的清单工具调用，原样的 assistant、user 事件）解成工具步骤：assistant 里的 tool_use 是一步，user
+     * 里同 id 的 tool_result 给出结果和成败。
+     */
     fun seedSteps(events: JsonArray?): List<ToolStep> {
         if (events.isNullOrEmpty()) return emptyList()
-        val reducer = TranscriptReducer("seed")
+        val steps = LinkedHashMap<String, ToolStep>()
         for (element in events) {
             val event = element as? JsonObject ?: continue
-            val message = event.obj("message") ?: continue
-            when (event.str("type")) {
-                "assistant" -> reducer.applyAssistant(message, history = true)
-                "user" -> reducer.applyUser(message, replay = false)
+            val type = event.str("type")
+            for (block in event.obj("message")?.arr("content").orEmpty()) {
+                val b = block as? JsonObject ?: continue
+                when {
+                    type == "assistant" && b.str("type") == "tool_use" -> {
+                        val id = b.str("id") ?: continue
+                        steps[id] =
+                            ToolStep(
+                                id,
+                                b.str("name").orEmpty(),
+                                b.obj("input"),
+                                ToolStatus.Running,
+                                null,
+                            )
+                    }
+                    type == "user" && b.str("type") == "tool_result" -> {
+                        val id = b.str("tool_use_id") ?: continue
+                        val step = steps[id] ?: continue
+                        steps[id] =
+                            step.copy(
+                                status =
+                                    if (b.bool("is_error") == true) ToolStatus.Failed
+                                    else ToolStatus.Success,
+                                result = b["content"].flattenText(),
+                            )
+                    }
+                }
             }
         }
-        return reducer.items
-            .filterIsInstance<WorkItem>()
-            .flatMap { it.steps }
-            .filterIsInstance<ToolStep>()
+        return steps.values.toList()
     }
 
     private class Board {

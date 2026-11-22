@@ -3,6 +3,8 @@ package com.dzshzx.zeta.ui.tasks
 import com.dzshzx.zeta.core.BackgroundTask
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.formatElapsed
+import com.dzshzx.zeta.core.plainTerminalText
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -83,5 +85,14 @@ class TaskLabelsTest {
         assertEquals("输出", TaskLabels.outputHeader(0, false))
         assertEquals("输出 · 21 B", TaskLabels.outputHeader(21, false))
         assertEquals("输出 · 共 1.5 MB，只显示最后 8 KB", TaskLabels.outputHeader(1_500_000, true))
+    }
+
+    @Test
+    fun terminalTextAndElapsed() {
+        assertEquals("red plain", plainTerminalText("\u001B[31mred\u001B[0m plain"))
+        assertEquals("100%\ndone", plainTerminalText("10%\r50%\r100%\r\ndone"))
+        assertEquals("3 秒", formatElapsed(3_400))
+        assertEquals("2 分 05 秒", formatElapsed(125_000))
+        assertEquals("1 小时 03 分", formatElapsed(3_780_000))
     }
 }

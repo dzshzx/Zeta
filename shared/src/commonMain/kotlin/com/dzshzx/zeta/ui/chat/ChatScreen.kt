@@ -670,7 +670,7 @@ private fun ConversationList(
         conversation.earlier?.let { earlier ->
             item(key = EarlierRowKey, contentType = EarlierRowKey) {
                 EarlierHistoryRow(
-                    skipped = earlier.skipped,
+                    skipped = earlier,
                     state = conversation.earlierState,
                     onLoad = {
                         follow.pause()

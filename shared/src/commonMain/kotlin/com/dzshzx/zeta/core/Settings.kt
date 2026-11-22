@@ -69,7 +69,7 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
         pref({ getStringSet(key, null)?.toSet().orEmpty() }, { putStringSet(key, it) }, commit)
 
     /** 存成“键=值”字符串集合的表。 */
-    private fun <V> keyValues(key: String, parse: (String) -> V?, format: (V) -> String) =
+    private fun keyValues(key: String) =
         pref(
             read = {
                 getStringSet(key, null)
@@ -78,12 +78,12 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
                         val parts =
                             entry.split('=', limit = 2).takeIf { it.size == 2 }
                                 ?: return@mapNotNull null
-                        parse(parts[1])?.let { parts[0] to it }
+                        parts[0] to parts[1]
                     }
                     .toMap()
             },
             write = { value ->
-                putStringSet(key, value.map { "${it.key}=${format(it.value)}" }.toSet())
+                putStringSet(key, value.map { "${it.key}=${it.value}" }.toSet())
             },
         )
 
@@ -222,17 +222,13 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
         )
 
     /** 远程主机上的自动压缩、压缩时机和自动标题（「主机编号/项=值」），读写经 [claude]；手机本机的是 [autoCompact] 等几项。 */
-    var remoteClaude: Map<String, String> by keyValues("remoteClaude", { it }, { it })
+    var remoteClaude: Map<String, String> by keyValues("remoteClaude")
 
     /** 主机 [backend] 上 Zeta 起的对话的自动压缩、压缩时机和自动标题。 */
     fun claude(backend: String) = HostClaude(this, backend)
 
     /** 还开着的 Claude Code 进程上用户的权限模式（进程键=模式），见 [ConversationHub.hostMode]。 */
-    var hostModes: Map<String, String> by keyValues("hostModes", { it }, { it })
-
-    /** 各台主机的 Claude Code 报过的各模型上下文窗口（键见 [HostKeys]）。旧会话重新打开、还没起进程时拿它算占比。 */
-    var contextWindows: Map<String, Long> by
-        keyValues("contextWindows", String::toLongOrNull, Long::toString)
+    var hostModes: Map<String, String> by keyValues("hostModes")
 
     /**
      * 每天最多自动检查一次新版本：手机正式版在回到前台时（app 的 core/update/AppUpdates.kt，只有正式发版证书签的包才查）， 桌面版在启动时（desktop 的

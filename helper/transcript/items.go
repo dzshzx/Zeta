@@ -1,7 +1,7 @@
 // Package transcript 把 Claude Code 的 stream-json 事件和会话记录归并成聊天列表的条目。条目的 JSON 就是
 // zeta-helper serve 推给客户端的格式（见 docs/core.md），客户端照字段名读，没写出的字段是它的零值。
 //
-// 对照用例在 ../testdata/transcript：期望结果由 Kotlin 版（app 的 TranscriptParityTest）录下，两边归约出的条目按值相同。
+// 对照用例在 ../testdata/transcript，期望结果的录法见 parity_test.go。
 package transcript
 
 import "encoding/json"

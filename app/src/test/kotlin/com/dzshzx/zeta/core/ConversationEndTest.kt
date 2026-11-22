@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -58,7 +57,7 @@ class ConversationEndTest {
     fun archivingARunningSessionLetsItFinishInTheBackground() {
         val hub = Fixtures.readyHub(app)
         val running = hub.opened("s-running")
-        running.force("busy", true)
+        running.core { it.copy(busy = true) }
         hub.sessionList.archive(summary("s-running"), true)
         assertNull(hub.current.sessionId)
         assertSame(running, hub.findConversation("s-running"))
@@ -79,12 +78,12 @@ class ConversationEndTest {
     @Test
     fun endingStopsARunningConversation() {
         val hub = Fixtures.readyHub(app)
-        hub.opened("s-left").force("busy", true)
+        hub.opened("s-left").core { it.copy(busy = true) }
         hub.startNew()
         assertTrue(hub.findConversation("s-left")?.busy == true)
 
         val ending = hub.opened("s-ended")
-        ending.force("busy", true)
+        ending.core { it.copy(busy = true) }
         hub.endCurrent()
         assertNull(hub.current.sessionId)
         assertNull(hub.findConversation("s-ended"))

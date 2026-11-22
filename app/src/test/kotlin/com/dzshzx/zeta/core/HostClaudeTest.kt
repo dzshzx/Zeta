@@ -84,11 +84,8 @@ class HostClaudeTest {
         NotifyRuleStore.update(app) {
             listOf(rule("phone", Backends.LOCAL), rule("station", remote))
         }
-        hub.settings.contextWindows =
-            mapOf("opus" to 400_000L, HostKeys.key(remote, "opus") to 500_000L)
         hub.updateRemoteHosts(emptyList())
         assertEquals(emptyMap<String, String>(), hub.settings.remoteClaude)
-        assertEquals(mapOf("opus" to 400_000L), hub.settings.contextWindows)
         assertEquals(listOf("phone"), ScheduleStore.load(app).map { it.id })
         assertEquals(listOf("phone"), NotifyRuleStore.load(app).map { it.id })
     }

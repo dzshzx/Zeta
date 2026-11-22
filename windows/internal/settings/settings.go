@@ -14,13 +14,12 @@ import (
 
 // 设置文件里的键，同 shared 的 Settings.kt。
 const (
-	keyHosts          = "remoteHosts"    // 设备清单（JSON 数组的字符串，见 sshlink.EncodeHosts）
-	keyBackend        = "backend"        // 侧栏正看着哪台设备
-	keyPaneAll        = "paneAll"        // 侧栏列全部设备的会话
-	keyPins           = "pinnedSessions" // 置顶的会话（PinKey）
-	keyRemoteClaude   = "remoteClaude"   // 各台设备的自动压缩、自动标题（「设备编号/项=值」）
-	keyContextWindows = "contextWindows" // 各台设备报过的模型上下文窗口（「设备编号/模型=值」）
-	keyCommands       = "commands"       // 各台设备报过的斜杠命令（JSON 对象，键是设备编号）
+	keyHosts        = "remoteHosts"    // 设备清单（JSON 数组的字符串，见 sshlink.EncodeHosts）
+	keyBackend      = "backend"        // 侧栏正看着哪台设备
+	keyPaneAll      = "paneAll"        // 侧栏列全部设备的会话
+	keyPins         = "pinnedSessions" // 置顶的会话（PinKey）
+	keyRemoteClaude = "remoteClaude"   // 各台设备的自动压缩、自动标题（「设备编号/项=值」）
+	keyCommands     = "commands"       // 各台设备报过的斜杠命令（JSON 对象，键是设备编号）
 )
 
 // Local 是手机本机那台的编号；桌面版没有这一台，存着它时当作没选。
@@ -57,7 +56,7 @@ func (s *Settings) Hosts() []sshlink.Host {
 	return sshlink.DecodeHosts(text)
 }
 
-// SetHosts 存设备清单；删掉的设备在别的设置里的项（自动压缩、上下文窗口、斜杠命令）一起去掉，同 Kotlin 版。
+// SetHosts 存设备清单；删掉的设备在别的设置里的项（自动压缩、斜杠命令）一起去掉，同 Kotlin 版。
 func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 	if err := s.store.SetString(keyHosts, sshlink.EncodeHosts(hosts)); err != nil {
 		return err
@@ -71,11 +70,7 @@ func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 
 // forgetHosts 去掉不在 kept 里的设备在各项里的记录。
 func (s *Settings) forgetHosts(kept map[string]bool) error {
-	for _, key := range []string{keyRemoteClaude, keyContextWindows} {
-		entries, ok := s.store.Strings(key)
-		if !ok {
-			continue
-		}
+	if entries, ok := s.store.Strings(keyRemoteClaude); ok {
 		var left []string
 		for _, entry := range entries {
 			name, _, _ := strings.Cut(entry, "=")
@@ -84,7 +79,7 @@ func (s *Settings) forgetHosts(kept map[string]bool) error {
 			}
 		}
 		if len(left) != len(entries) {
-			if err := s.store.SetStrings(key, left); err != nil {
+			if err := s.store.SetStrings(keyRemoteClaude, left); err != nil {
 				return err
 			}
 		}

@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Conversation
-import com.dzshzx.zeta.core.EarlierHistory
 import com.dzshzx.zeta.core.EarlierState
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
@@ -144,7 +143,7 @@ fun rememberEarlierPaging(
 ): NestedScrollConnection {
     // 用户真往上翻过才载入：数据插进来、重新排版、程序滚动（查找跳转、贴底跟随）都不算（照 Eta）。每载入一次用掉一次。
     // 记下是对哪段没载入的部分翻的：一页刚接上时，不能拿载入前的那次翻动再载一页
-    val demand = remember(conversation) { mutableStateOf<EarlierHistory?>(null) }
+    val demand = remember(conversation) { mutableStateOf<Int?>(null) }
     val latestOnLoad by rememberUpdatedState(onLoad)
     val connection =
         remember(demand) {

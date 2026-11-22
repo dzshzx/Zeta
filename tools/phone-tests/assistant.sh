@@ -1,7 +1,7 @@
 #!/bin/bash
 # 数字助理：服务、元数据和 ASSIST 入口注册上了；ASSIST 在测试屏上打开浮窗（预填问题），发出去新开对话、等到回答；
 # 点「在 Zeta 中继续」打开 Zeta 接着这个对话。会真跑一轮 Claude；测试建的会话收尾时删掉，接着它的后台进程一起结束。
-# 数字助理单独定的模型和思考强度：测试时临时设成 haiku、low，从 Zeta 诊断日志里这次起 Claude 进程的记录核对（vd stop 改回去）。
+# 数字助理单独定的模型和思考强度：测试时临时设成 haiku、low，从新会话记录里回答带的模型名核对模型（思考强度不进会话记录，核对不了；vd stop 改回去）。
 # 用法：ZETA_PHONE_OWNER=<任务名> ZETA_PHONE_RUN_TIMEOUT=300 tools/phone-run tools/phone-tests/assistant.sh（vd、android、$PKG、$DISPLAY_ID 由 phone-run 提供）。
 # 点按坐标按测试屏（1220×2656，没有系统栏）上浮窗的布局算，见 AssistantShots 的 assistant-entry 图。
 #
@@ -12,7 +12,6 @@ set -euo pipefail
 ROOTFS=/data/local/zeta/debian/rootfs
 MARK=/data/local/tmp/zeta-assistant-test.mark
 QUESTION='Reply with the single word OK. Do not use any tools.'
-EVENTS=/data/user/0/$PKG/files/diag/events.jsonl
 
 # 删掉标记 $1 之后新建、带屏幕内容的测试会话，并结束接着它的后台进程（后台进程的输出开头记着会话 ID）。
 # 只删会话文件不够：进程还在等确认或还在跑的话，测试版下次冷启动会把它接回来，别人的测试就停在这个对话上。
@@ -48,7 +47,6 @@ echo "服务、识别服务、ASSIST 入口都在"
 
 echo "== 数字助理单独定模型和思考强度：临时设成 haiku、low"
 vd prefs-set assistantModel=haiku assistantEffort=low
-since=$(($(android 'date +%s' | tr -d '\r') * 1000))
 echo "== ASSIST 打开浮窗，预填问题（测试屏 $DISPLAY_ID，不进最近任务）"
 android "am start --display $DISPLAY_ID -f 0x18800000 -a android.intent.action.ASSIST -n $PKG/com.dzshzx.zeta.assistant.AssistantActivity --es android.intent.extra.ASSIST_PACKAGE com.android.settings --es query '$QUESTION' >/dev/null"
 sleep 3
@@ -72,14 +70,11 @@ vd shot reply.png
 # 这一轮是出错结束的（比如网络被拦、额度用完）：先报出来，不往下核对
 error=$(grep '"is_error":true' <<<"$result" | head -n 1 || true)
 [[ -z $error ]] || { echo "Claude 这一轮出错了，不是数字助理的问题：$(jq -r '.result // .subtype' <<<"$error" | head -c 200)"; exit 1; }
-android "find $ROOTFS/home/*/.claude/projects -name '*.jsonl' -newer $MARK | xargs grep -l '<screen_context>'" | grep -q jsonl || { echo "没找到带屏幕内容的新会话"; exit 1; }
+session=$(android "find $ROOTFS/home/*/.claude/projects -name '*.jsonl' -newer $MARK | xargs grep -l '<screen_context>'" | tr -d '\r' | head -n 1)
+[[ $session == *.jsonl ]] || { echo "没找到带屏幕内容的新会话"; exit 1; }
 echo "新会话的第一条消息带着屏幕内容"
-# Zeta 每次起 Claude 进程都在诊断日志里记下启动参数（DiagEvents.claudeLaunched：「模型 haiku，强度 low」）。
-# 设备上只按英文的分类筛，中文交给 jq：模拟器上的 grep 匹配不了中文
-launches=$(android "grep '\"c\":\"claude\"' $EVENTS" |
-  jq -r --argjson since "$since" 'select(.t >= $since) | .m | select(startswith("起 Claude 进程"))')
-echo "这次起的 Claude 进程：$launches"
-grep -q '模型 haiku.*强度 low' <<<"$launches" || { echo "数字助理的对话没用上单独定的模型和思考强度"; exit 1; }
+# 回答记在会话记录里，带着模型名；思考强度不记，核对不了
+android "grep -c '\"model\":\"[^\"]*haiku' $session" | grep -qv '^0' || { echo "数字助理的对话没用上单独定的模型"; exit 1; }
 
 echo "== 点「在 Zeta 中继续」，打开 Zeta 接着这个对话"
 # 链接总在输入栏正上方靠右（发送键在 1062,2504）；有回答以后整列上推不再打开 Zeta，要在最高档从把手往上拉

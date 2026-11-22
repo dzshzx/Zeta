@@ -9,13 +9,14 @@ import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
+import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.PromptStore
 import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.core.TokenCounts
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserItem
-import com.dzshzx.zeta.shots.Fixtures.force
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
@@ -46,17 +47,32 @@ class PromptsCompactShots : ShotTest() {
             SavedPrompts.add(next, "p1", "", "检查 Git 状态和最近的提交，告诉我有哪些没提交的改动")
         }
         // 40 万压缩窗口，Zeta 设了 70%：压缩点 26.6 万
-        hub.current.force(
-            "usage",
-            ChatUsage(
-                contextTokens = 214_300,
-                contextWindow = 400_000,
-                model = "claude-opus-5-5",
-                turns = listOf(TurnUsage(TokenCounts(1200, 860, 205_000, 7_240), 0.41, 18_200)),
-                autoCompact = true,
-                compactAt = 266_000,
-            ),
-        )
+        hub.current.core {
+            it.copy(
+                usage =
+                    ChatUsage(
+                        contextTokens = 214_300,
+                        contextWindow = 400_000,
+                        model = "claude-opus-5-5",
+                        turns =
+                            listOf(
+                                TurnUsage(
+                                    TokenCounts(1200, 860, 205_000, 7_240, 214_300),
+                                    0.41,
+                                    18_200,
+                                ),
+                            ),
+                        autoCompact = true,
+                        compactAt = 266_000,
+                        // 下面几项是核心算好的
+                        total = TokenCounts(1200, 860, 205_000, 7_240, total = 214_300),
+                        totalCost = 0.41,
+                        fraction = 214_300f / 400_000,
+                        compactFraction = 266_000f / 400_000,
+                        level = ContextLevel.Warning,
+                    ),
+            )
+        }
         return hub
     }
 

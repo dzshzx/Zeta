@@ -17,8 +17,9 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DraftRecords
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.core
+import com.dzshzx.zeta.core.coreItems
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.ShotTest
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
@@ -33,7 +34,11 @@ class ComposerDraftScreenTest : ShotTest() {
     private fun ConversationHub.openSession(id: String, items: List<ChatItem> = emptyList()) {
         val conversation =
             Conversation(this, Fixtures.env.defaultCwd, id, "会话 $id", historyFile = null)
-        if (items.isNotEmpty()) conversation.force("items", items)
+        // 核心说能编辑、重新生成（没连核心，直接摆上）
+        if (items.isNotEmpty()) {
+            conversation.coreItems(items)
+            conversation.core { it.copy(canRewind = true) }
+        }
         park(conversation)
         openConversation(id)
     }

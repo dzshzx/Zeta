@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.TextRange
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
@@ -41,14 +40,8 @@ class ComposerDraftsTest {
 
     private fun ComposerDraft.type(text: String) = input.setTextAndPlaceCursorAtEnd(text)
 
-    /** Claude Code 报来了会话号（init 事件里的 session_id）。 */
-    private fun Conversation.receiveSessionId(id: String) {
-        Conversation::class
-            .java
-            .getDeclaredMethod("setSessionId", String::class.java)
-            .apply { isAccessible = true }
-            .invoke(this, id)
-    }
+    /** 核心报来了会话号（conv.state 的 session）。 */
+    private fun Conversation.receiveSessionId(id: String) = core { it.copy(session = id) }
 
     private val prefs
         get() = app.getSharedPreferences(ComposerDrafts.PREFS, Context.MODE_PRIVATE)
@@ -101,7 +94,7 @@ class ComposerDraftsTest {
         val started = hub.current
         val draft = hub.drafts.of(started)
         // 第一条发出去了（输入框清空），回答期间又写了半句；然后 Claude Code 报来了会话号
-        started.force("items", listOf(UserItem("u1", "第一条")))
+        started.coreItems(listOf(UserItem("u1", "第一条")))
         draft.type("接着想问")
         hub.drafts.save(draft)
         assertTrue("还没有会话号的不存盘", stored().isEmpty())

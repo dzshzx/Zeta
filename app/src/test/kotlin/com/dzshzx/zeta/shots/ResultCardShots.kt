@@ -20,6 +20,7 @@ import com.dzshzx.zeta.core.ResultCardPolicy
 import com.dzshzx.zeta.core.TurnResult
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.alerts
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.phone.ZetaAccessibilityService
 import com.dzshzx.zeta.shots.Fixtures.force
@@ -141,9 +142,9 @@ class ResultCardShots : ShotTest() {
         assertFalse("回到 Zeta", hub.alerts.keepsResultCard(card, locked = false))
         hub.foreground = false
 
-        hub.current.force("busy", true)
+        hub.current.core { it.copy(busy = true) }
         assertFalse("这个对话又开始一轮", hub.alerts.keepsResultCard(card, locked = false))
-        hub.current.force("busy", false)
+        hub.current.core { it.copy(busy = false) }
 
         // 出错提示比一轮结束晚一步进聊天列表：卡片跟着变成错误
         hub.showChat(

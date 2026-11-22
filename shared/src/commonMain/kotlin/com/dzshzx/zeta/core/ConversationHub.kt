@@ -29,6 +29,9 @@ class ConversationHub(val platform: HubPlatform) {
     /** Zeta 直连远程主机的 SSH 连接（[RemoteHost.Via.Direct]），和它用的密钥。 */
     val ssh = SshLinks(platform.sshAuth)
 
+    /** 各台主机上对话用的 serve 连接（每台一条），对话经它和主机上的核心说话。 */
+    val convLinks = ConvLinks(this)
+
     val settings: Settings
         get() = platform.settings
 
@@ -123,6 +126,8 @@ class ConversationHub(val platform: HubPlatform) {
         idle.forEach { it.leave() }
         parked.removeAll(idle.toSet())
         platform.prunePhones()
+        // 对话的连接是按原来的连法连的，下次按新的连
+        convLinks.reset(id)
         updateRemoteHosts(
             settings.remoteHosts.map {
                 if (it.id == id)
@@ -437,29 +442,23 @@ class ConversationHub(val platform: HubPlatform) {
     /** 不在眼前时答完了一轮、用户还没点开看的会话；只记在内存里，应用进程结束就没了。 */
     private val unread = mutableStateListOf<String>()
 
-    /**
-     * 会话列表里这个会话的状态；只是历史记录的没有。主机上的核心报的（[SessionList.activityOf]，别的客户端开的对话也在里面）和这边开着的对话
-     * 合起来看：还没改走核心的对话只有这边知道。
-     */
+    /** 会话列表里这个会话的状态；只是历史记录的没有。忙闲看主机上的核心报的（[SessionList.activityOf]，别的客户端开的对话也在里面）。 */
     fun sessionStatus(sessionId: String): SessionStatus? {
-        val conversation = findConversation(sessionId)
         val core = sessionList.activityOf(sessionId)
         return SessionStatus.of(
-            waiting =
-                conversation?.pending != null || core?.activity == SessionStatus.Activity.Waiting,
-            busy = conversation?.busy == true || core?.activity == SessionStatus.Activity.Answering,
-            tasks = maxOf(conversation?.backgroundTasks ?: 0, core?.tasks ?: 0),
+            waiting = core?.activity == SessionStatus.Activity.Waiting,
+            busy = core?.activity == SessionStatus.Activity.Answering,
+            tasks = core?.tasks ?: 0,
             unread = sessionId in unread,
-            alive = conversation?.isProcessAlive == true || core?.activity != null,
+            alive = core?.activity != null,
         )
     }
 
-    /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完（这边开着的，或主机上的核心报的）。批量删除跳过这些。 */
+    /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完（主机上的核心报的）。批量删除跳过这些。 */
     fun isActive(sessionId: String): Boolean =
-        findConversation(sessionId)?.active == true ||
-            sessionList.activityOf(sessionId)?.activity.let {
-                it != null && it != SessionStatus.Activity.Idle
-            }
+        sessionList.activityOf(sessionId)?.activity.let {
+            it != null && it != SessionStatus.Activity.Idle
+        }
 
     /** 主机上的核心说这几个会话各结束了一轮（可能是别的客户端开的）：不在眼前的记成有新回答。在主线程上调用。 */
     fun onTurnsEnded(sessions: List<String>) {
@@ -553,7 +552,6 @@ class ConversationHub(val platform: HubPlatform) {
         defaultsByBackend.keys.retainAll(ids)
         settings.commands = settings.commands.filterKeys { it in ids }
         settings.remoteClaude = settings.remoteClaude.filterKeys { HostKeys.hostOf(it) in ids }
-        settings.contextWindows = settings.contextWindows.filterKeys { HostKeys.hostOf(it) in ids }
         platform.hostsRemoved(ids)
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
@@ -607,8 +605,9 @@ class ConversationHub(val platform: HubPlatform) {
 
     /** 查到了主机 [backend] 上的托管进程（在主线程上）：在干活的接上，闲着的交给 [stopHosts]，结束了的进程的权限模式不再留。 */
     private fun onHostsListed(backend: String, shell: LinuxShell, hosts: List<HostInfo>) {
-        // 这个进程里已经接着的（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
-        val known = liveConversations.mapNotNullTo(HashSet()) { it.hostKey }
+        // 这个进程里已经开着的会话（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
+        val sessions = liveConversations.mapNotNullTo(HashSet()) { it.sessionId }
+        val known = hosts.filter { it.sessionId in sessions }.mapTo(HashSet()) { it.key }
         val others = hosts.filter { it.key !in known }
         // 这一轮结束了但后台任务还在跑的也接上，否则结束进程会把任务一起杀掉
         val active = others.filter { it.active }
@@ -646,14 +645,13 @@ class ConversationHub(val platform: HubPlatform) {
                 host.sessionId,
                 host.title,
                 host.historyFile,
-                attach = host,
                 backend = backend,
             )
         if (
             current.backend == backend &&
                 current.items.isEmpty() &&
                 current.sessionId == null &&
-                !current.isProcessAlive
+                !current.active
         ) {
             current = conversation
         } else {
@@ -732,34 +730,21 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * 从当前对话 [lastItemId] 所在那一轮之后分支：切到一个新对话，先显示到那一轮为止的内容，原对话不动。 新会话由 Claude Code
-     * 从原会话复制（--fork-session），发出第一条消息后才写出记录、出现在侧栏里。
+     * 从当前对话 [lastItemId] 所在那一轮之后分支：切到一个新对话，先显示到那一轮为止的内容，原对话不动（核心的 conv.fork）。 新会话由 Claude Code
+     * 从原会话复制，发出第一条消息后才写出记录、出现在侧栏里。
      */
     fun branch(lastItemId: String) {
         val source = current
-        val sourceId = source.sessionId ?: return
-        if (!source.canRewind) return
-        val plan = branchPlan(source.items, lastItemId) ?: return
-        val title = branchTitle(source.title, sessionList.sessions.map { it.title })
+        if (source.sessionId == null || !source.canRewind) return
         replaceCurrent(
             Conversation(
                 this,
                 source.cwd,
                 sessionId = null,
-                title = title,
+                title = "",
                 historyFile = null,
                 backend = source.backend,
-                fork =
-                    Fork(
-                        sourceId,
-                        plan.cut,
-                        plan.lastSeen,
-                        plan.items,
-                        source.earlier,
-                        source.shownModel,
-                        source.effort,
-                        source.permissionMode,
-                    ),
+                fork = Conversation.Fork(source, lastItemId),
             ),
         )
     }

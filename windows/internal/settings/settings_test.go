@@ -95,9 +95,6 @@ func TestRemovingAHostForgetsItsSettings(t *testing.T) {
 	if got, _ := s.store.Strings(keyRemoteClaude); !reflect.DeepEqual(got, []string{"r-2/autoCompact=true"}) {
 		t.Errorf("remoteClaude %v", got)
 	}
-	if got, ok := s.store.Strings(keyContextWindows); !ok || len(got) != 0 {
-		t.Errorf("contextWindows %v", got)
-	}
 	text, _ := s.store.String(keyCommands)
 	var commands map[string]any
 	_ = json.Unmarshal([]byte(text), &commands)

@@ -4,8 +4,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.ReportedModels
+import com.dzshzx.zeta.core.awaitCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
@@ -38,7 +41,7 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun chatMenuOlder() {
         val hub = hub()
-        hub.current.chooseModel("claude-opus-4-8")
+        hub.current.core { it.copy(model = "claude-opus-4-8") }
         shoot(
             "model-menu-older",
             prepare = {
@@ -60,6 +63,7 @@ class ModelMenuShots : ShotTest() {
     @Test
     fun choosingAnOlderModel() {
         val hub = hub()
+        val core = FakeCore().install(hub)
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
                 ChatScreen(
@@ -74,7 +78,9 @@ class ModelMenuShots : ShotTest() {
         compose.tap("Claude · Opus 5.5")
         compose.tap("更多模型")
         compose.tap("Opus 4.7")
-        assertEquals("claude-opus-4-7", hub.current.model)
+        assertEquals("claude-opus-4-7", core.next("conv.model").str("value"))
+        awaitCore { hub.current.model == "claude-opus-4-7" }
+        compose.waitForIdle()
         assertTrue(
             "顶栏换成 Opus 4.7",
             runCatching { compose.onNodeWithText("Claude · Opus 4.7").fetchSemanticsNode() }

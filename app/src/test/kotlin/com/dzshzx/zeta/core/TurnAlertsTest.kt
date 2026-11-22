@@ -8,7 +8,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -54,16 +56,50 @@ class TurnAlertsTest {
     private fun conversation(hub: ConversationHub, title: String) =
         Conversation(hub, "/workspace/claude", sessionId = null, title = title, historyFile = null)
 
-    /** Claude Code 要批准一次 Bash。 */
+    /** Claude Code 要批准一次 Bash（核心推来的样子）。 */
     private fun bash(id: String) =
-        """{"type":"control_request","request_id":"$id","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls","description":"列出文件"}}}"""
+        PermissionRequest(
+            requestId = id,
+            toolName = "Bash",
+            input =
+                buildJsonObject {
+                    put("command", "ls")
+                    put("description", "列出文件")
+                },
+            notice = "Claude 想用 Bash",
+        )
 
     /** Claude Code 问一道单选题。 */
-    private fun question(id: String) =
-        """{"type":"control_request","request_id":"$id","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"先改哪个？","header":"顺序","multiSelect":false,"options":[{"label":"界面","description":""},{"label":"文档","description":""}]}]}}}"""
+    private fun running(i: Int) =
+        BackgroundTask("t$i", "local_agent", TaskKind.Agent, "", null, null, null, startedAt = 0)
 
-    /** Claude Code 撤回请求 [id]。 */
-    private fun cancel(id: String) = """{"type":"control_cancel_request","request_id":"$id"}"""
+    private fun question(id: String) =
+        PermissionRequest(
+            requestId = id,
+            toolName = "AskUserQuestion",
+            input = JsonObject(emptyMap()),
+            questions =
+                listOf(
+                    Question(
+                        "先改哪个？",
+                        "顺序",
+                        listOf(QuestionOption("界面", ""), QuestionOption("文档", "")),
+                        multiSelect = false,
+                    ),
+                ),
+            notice = "Claude 有问题要问你",
+            asksInput = true,
+        )
+
+    /** 核心推来：多了一个等用户回应的请求。 */
+    private fun Conversation.ask(prompt: UserPrompt) = core {
+        it.copy(prompts = it.prompts + prompt)
+    }
+
+    /** 核心推来：请求 [id] 没了（Claude Code 撤回了）。 */
+    private fun Conversation.withdraw(id: String) = core { s ->
+        s.copy(prompts = s.prompts.filterNot { it.requestId == id })
+    }
 
     @Test
     fun completionAlertOnlyWhenNotWatching() {
@@ -98,12 +134,12 @@ class TurnAlertsTest {
         val hub = Fixtures.readyHub(app)
         hub.foreground = false
         val chat = hub.current
-        chat.force("backgroundTasks", 3)
+        chat.core { it.copy(tasks = List(3) { i -> running(i) }) }
         hub.alerts.turnFinished(chat, stopped = false)
         assertEquals("答完了，后台还有 3 个任务在跑", text(chat.openKey))
         assertEquals("后台还在跑，不响铃", "silent", notification(chat.openKey)!!.group)
 
-        chat.force("backgroundTasks", 0)
+        chat.core { it.copy(tasks = emptyList()) }
         hub.alerts.turnFinished(chat, stopped = false)
         assertEquals("已完成", text(chat.openKey))
         assertNotEquals("都做完了才响铃", "silent", notification(chat.openKey)!!.group)
@@ -113,11 +149,11 @@ class TurnAlertsTest {
     fun attentionAlertOnlyWhenNotWatching() {
         val hub = Fixtures.readyHub(app)
         hub.foreground = true
-        hub.current.receive(bash("r1"))
+        hub.current.ask(bash("r1"))
         assertEquals(emptyList<String>(), alerts())
-        hub.current.receive(cancel("r1"))
+        hub.current.withdraw("r1")
         hub.foreground = false
-        hub.current.receive(bash("r2"))
+        hub.current.ask(bash("r2"))
         assertEquals(listOf("需要你确认：列出文件"), alerts())
     }
 
@@ -126,7 +162,7 @@ class TurnAlertsTest {
     fun leavingAWaitingConversationAlerts() {
         val hub = Fixtures.readyHub(app)
         hub.foreground = true
-        hub.current.receive(bash("r1"))
+        hub.current.ask(bash("r1"))
         assertEquals(emptyList<String>(), alerts())
         hub.foreground = false
         assertEquals(listOf("需要你确认：列出文件"), alerts())
@@ -147,7 +183,7 @@ class TurnAlertsTest {
         val hub = Fixtures.readyHub(app)
         hub.foreground = false
         val other = conversation(hub, "别的")
-        hub.current.receive(bash("r1"))
+        hub.current.ask(bash("r1"))
         hub.alerts.turnFinished(other, stopped = false, text = "出错了")
         assertEquals(setOf("需要你确认：列出文件", "出错了"), alerts().toSet())
         assertEquals("出错了", text(other.openKey))
@@ -164,14 +200,14 @@ class TurnAlertsTest {
         hub.foreground = false
         val other = conversation(hub, "别的")
         hub.alerts.turnFinished(other, stopped = false)
-        hub.current.receive(bash("r1"))
-        hub.current.receive(cancel("r1"))
+        hub.current.ask(bash("r1"))
+        hub.current.withdraw("r1")
         assertNull(text(hub.current.openKey))
         assertEquals(listOf("已完成"), alerts())
-        hub.current.receive(bash("r2"))
-        (hub.current.pending as? PermissionRequest)?.let {
-            hub.current.reply(it, PermissionReply.Deny(null))
-        }
+        // 在这里回答了：核心收走它，推来的请求里没有了
+        hub.current.ask(bash("r2"))
+        assertEquals("需要你确认：列出文件", text(hub.current.openKey))
+        hub.current.withdraw("r2")
         assertNull(text(hub.current.openKey))
     }
 
@@ -193,18 +229,22 @@ class TurnAlertsTest {
     @Test
     fun replyFromTheAlert() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         hub.foreground = false
         val conversation = hub.current
-        conversation.receive(bash("r1"))
+        conversation.ask(bash("r1"))
         val actions = notification(conversation.openKey)!!.actions.toList()
         assertEquals(listOf("允许", "拒绝"), actions.map { it.title.toString() })
         assertEquals(listOf(true, false), actions.map { it.isAuthenticationRequired })
-        conversation.receive(cancel("r1"))
-        conversation.receive(bash("r2"))
+        conversation.withdraw("r1")
+        conversation.ask(bash("r2"))
         hub.alerts.reply(conversation.openKey, "r1", 0)
         assertEquals("过时的按钮不动新的请求", "r2", conversation.pending?.requestId)
         hub.alerts.reply(conversation.openKey, "r2", 1)
-        assertNull(conversation.pending)
+        val answered = core.next("conv.answer")
+        assertEquals("r2", answered.str("request_id"))
+        assertEquals("deny", answered.params.obj("reply")?.str("kind"))
+        awaitCore { conversation.pending == null }
         assertNull(text(conversation.openKey))
     }
 
@@ -212,14 +252,19 @@ class TurnAlertsTest {
     @Test
     fun singleChoiceQuestionHasOptionButtons() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         hub.foreground = false
         val conversation = hub.current
-        conversation.receive(question("q1"))
+        conversation.ask(question("q1"))
         val alert = notification(conversation.openKey)!!
         assertEquals("需要你回答：先改哪个？", alert.extras.getCharSequence(Notification.EXTRA_TEXT))
         assertEquals(listOf("界面", "文档"), alert.actions.map { it.title.toString() })
         hub.alerts.reply(conversation.openKey, "q1", 1)
-        assertNull(conversation.pending)
+        val answered = core.next("conv.answer")
+        assertEquals(
+            """{"kind":"answer","answers":{"先改哪个？":"文档"}}""",
+            answered.params.obj("reply").toString(),
+        )
     }
 
     /** 后台运行跑着的对话（挂着 [UnattendedRun]）：完成和确认由 ScheduleRunner 带任务名提醒，通用的这两条不发。 */
@@ -231,13 +276,13 @@ class TurnAlertsTest {
         hub.current.unattended = run
         assertSame("手机工具上同步挂着", run, hub.current.phone.unattended)
         hub.alerts.turnFinished(hub.current, stopped = false)
-        hub.current.receive(bash("r1"))
+        hub.current.ask(bash("r1"))
         assertEquals(emptyList<String>(), alerts())
-        hub.current.receive(cancel("r1"))
+        hub.current.withdraw("r1")
         // 跑完摘掉标记，就是普通对话了
         hub.current.unattended = null
         assertNull(hub.current.phone.unattended)
-        hub.current.receive(bash("r2"))
+        hub.current.ask(bash("r2"))
         assertEquals(listOf("需要你确认：列出文件"), alerts())
     }
 

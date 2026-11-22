@@ -302,9 +302,6 @@ class HelperHistoryTest {
         assertTrue(tail.header.skipped() > 2)
         assertEquals("claude-fable-5-2", tail.header.str("model"))
         assertEquals("max", tail.header.str("effort"))
-        val read = HistoryPaging.read(tail.joinToString("\n"), file.path, TranscriptReducer())
-        assertEquals("claude-fable-5-2", read.model)
-        assertEquals("max", read.effort)
     }
 
     /** 最后一次真实回答：跳过子代理和 Claude Code 合成的回答（出错提示等），照剪切记号去掉被剪的；老记录不带 effort。 */

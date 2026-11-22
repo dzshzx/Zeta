@@ -15,8 +15,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 条目的 JSON（[chatItemJson]、[chatItemOf]）：归约器对照用例的期望结果（helper/testdata/transcript 的
- * <名字>.items.json）读回来再写出去， 和原文件按值相同；Go 核心省掉零值的写法读出来也一样。
+ * 条目的 JSON（[chatItemJson]、[chatItemOf]）：Go 归约器对照用例的期望结果（helper/testdata/transcript 的
+ * <名字>.items.json，Go 的 parity_test 录下）读回来再写出去，和原文件按值相同；比之前两边都去掉零值（Go 写出时省掉 null、false、空串和空数组，Kotlin
+ * 全写）。
  */
 class ChatItemJsonTest {
     private val dir = File("../helper/testdata/transcript")
@@ -32,7 +33,7 @@ class ChatItemJsonTest {
         for (case in cases()) {
             val recorded = Json.parseToJsonElement(case.readText()).jsonArray
             val again = JsonArray(recorded.map { chatItemJson(chatItemOf(it.jsonObject)) })
-            assertEquals(case.name, recorded, again)
+            assertEquals(case.name, dropZero(recorded), dropZero(again))
         }
     }
 
@@ -43,7 +44,6 @@ class ChatItemJsonTest {
             val goForm = recorded.map { dropZero(it) as JsonObject }
             val read = goForm.map(::chatItemOf)
             // 比写出来的 JSON：InlineImage 不是 data class，条目本身按引用比
-            assertEquals(case.name, recorded, JsonArray(read.map(::chatItemJson)))
             assertEquals(case.name, goForm, read.map { dropZero(chatItemJson(it)) })
         }
     }

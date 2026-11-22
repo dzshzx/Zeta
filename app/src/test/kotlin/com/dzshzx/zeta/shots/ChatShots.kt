@@ -13,8 +13,8 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.core.voice.ReadAloud
-import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +60,7 @@ class ChatShots : ShotTest() {
     fun endRunningConversation() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("改 README 的构建命令", oneTurn)
-        hub.current.force("busy", true)
+        hub.current.core { it.copy(busy = true) }
         shoot(
             "chat-end-confirm",
             prepare = {

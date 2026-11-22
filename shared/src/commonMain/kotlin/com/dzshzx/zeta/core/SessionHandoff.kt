@@ -140,15 +140,10 @@ class SessionHandoff(
 }
 
 /**
- * 远程主机上「Zeta」tmux 会话里的窗口（zeta-helper desk-open、desk-close）：Zeta 跑过的对话每个一个窗口，回到电脑前 `tmux attach -t
- * zeta` 回车就在终端里接着。新会话拿到会话号时开，之后 Zeta 每次为它起进程或接上后台进程时再开一次（已经有就不动）：tmux
- * 服务器没了（主机重启、被停掉）丢掉的窗口，下次用到那个会话就回来。手机本机不开：人就在手机上。没有 tmux 的主机 desk-open 什么也不做。都在后台跑，不等结果。
+ * 远程主机上「Zeta」tmux 会话里的窗口：Zeta 跑过的对话每个一个窗口，回到电脑前 `tmux attach -t zeta` 回车就在终端里接着。 开窗口由核心做（对话选项
+ * desk）；这里只在删除、归档会话时关掉它们的窗口（zeta-helper desk-close），在后台跑，不等结果。
  */
 object DeskWindows {
-    /** 开窗口（已经有了就不动）。窗口名由窗口里的程序按会话记录里的标题改。 */
-    fun open(hub: ConversationHub, backend: String, sessionId: String, cwd: String) =
-        fire(hub, backend, "desk-open", listOf(sessionId, cwd))
-
     /** 关掉这些会话的窗口（删除、归档时）。 */
     fun close(hub: ConversationHub, backend: String, sessionIds: Collection<String>) {
         if (sessionIds.isNotEmpty()) fire(hub, backend, "desk-close", sessionIds.toList())

@@ -63,7 +63,7 @@ class EnvShell(private val config: LinuxEnvConfig) : LinuxShell {
 
 /**
  * 远程主机上的 shell：命令在那边用户的登录 shell 环境里跑（[remoteCommand]），连接断了的命令以 [CONNECTION_FAILED] 结束， 托管出去的 Claude
- * Code 进程不受影响（[ClaudeProcess] 据此重连）。两种连法：经手机 Debian 里的 OpenSSH（[DebianSshShell]）， 或 Zeta
+ * Code 进程不受影响（serve 连接由 [HelperServe] 据此重连）。两种连法：经手机 Debian 里的 OpenSSH（[DebianSshShell]）， 或 Zeta
  * 自己连（[DirectSshShell]），见 [RemoteHost.via]。
  */
 sealed class RemoteShell(
@@ -148,7 +148,7 @@ class DebianSshShell(
 
         /**
          * 在本地 Debian 里执行的那行：关掉到 [targets] 的主连接（ControlMaster）。挂在上面的命令随即以 255 结束（实测十几毫秒）， 和网络断了一样由
-         * [ClaudeProcess] 重连。手机换了网络时用：旧连接多半已经死了，不等保活包超时（约 45 秒）。 没有主连接的那台 ssh 报错退出，不碍事；整行总以 0 结束。
+         * [HelperServe] 重连。手机换了网络时用：旧连接多半已经死了，不等保活包超时（约 45 秒）。 没有主连接的那台 ssh 报错退出，不碍事；整行总以 0 结束。
          */
         fun closeMasters(targets: List<String>): String =
             targets.joinToString("") {

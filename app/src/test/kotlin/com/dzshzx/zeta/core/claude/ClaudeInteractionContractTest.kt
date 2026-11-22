@@ -1,15 +1,5 @@
 package com.dzshzx.zeta.core.claude
 
-import com.dzshzx.zeta.core.CodeRewind
-import com.dzshzx.zeta.core.ElicitField
-import com.dzshzx.zeta.core.ElicitationRequest
-import com.dzshzx.zeta.core.PermissionReply
-import com.dzshzx.zeta.core.PermissionRequest
-import com.dzshzx.zeta.core.REJECT_WITH_FEEDBACK
-import com.dzshzx.zeta.core.elicitationContent
-import com.dzshzx.zeta.core.elicitationResponse
-import com.dzshzx.zeta.core.parsePrompt
-import com.dzshzx.zeta.core.permissionResponse
 import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -39,10 +29,10 @@ import org.junit.Test
 
 /**
  * Zeta 对齐终端版（TUI）交互靠的 Claude Code 行为（2.1.330 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
- * core/Prompts.kt、Rewind.kt 的 CodeRewind、Conversation 的 `!` 命令和 zeta-helper 的 hosts 跟着改。
+ * 核心里对应的（helper/prompt、helper/conv 的还原代码和 `!` 命令）和 zeta-helper 的 hosts 跟着改。
  *
  * 真的 claude 命令行跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱），做法同 [ClaudeCodeContractTest]； 应答用的就是
- * Zeta 自己拼的（[permissionResponse]、[elicitationResponse]）。钉住的是：
+ * 照核心的写法手写的（ContractPrompts.kt）。钉住的是：
  * - 工具确认带着 permission_suggestions；“不再问”原样交回 updatedPermissions，规则写进项目的
  *   settings.local.json，下次同样的调用不再问。
  * - 不写理由的拒绝（interrupt）：模型看到 STOP 那句、这一轮以 aborted_tools 结束，不再请求模型；写了理由的：模型看到 TUI 那句加理由，接着做。
@@ -53,7 +43,7 @@ import org.junit.Test
  *   content 原样到服务器。
  * - bash_command（TUI 的 `!`）：直接执行，回放 <bash-input>、<bash-stdout> 两行，command_lifecycle completed
  *   收尾，不请求模型。
- * - rewind_files：起进程时设了 [CodeRewind.ENV] 才有快照；dry_run 报改过的文件，真还原把文件改回去；换个进程 --resume 照样能还原。
+ * - rewind_files：起进程时设了 [CODE_REWIND_ENV] 才有快照；dry_run 报改过的文件，真还原把文件改回去；换个进程 --resume 照样能还原。
  */
 class ClaudeInteractionContractTest {
     private lateinit var home: File
@@ -380,7 +370,7 @@ class ClaudeInteractionContractTest {
 
     private fun JsonObject.obj(key: String) = this[key] as? JsonObject
 
-    private fun permission(o: JsonObject) = parsePrompt(o) as? PermissionRequest
+    private fun permission(o: JsonObject) = askedOf(o)
 
     @Test
     fun toolPrompts() {
@@ -401,11 +391,11 @@ class ClaudeInteractionContractTest {
             )
         Claude().use { c ->
             c.user("go")
-            var asked: PermissionRequest? = null
+            var asked: Asked? = null
             c.turn { o ->
                 permission(o)?.let {
                     asked = it
-                    permissionResponse(it, PermissionReply.AllowAlways)
+                    allowAlways(it)
                 }
             }
             assertTrue("要有不再问的建议", asked!!.suggestions.isNotEmpty())
@@ -421,7 +411,7 @@ class ClaudeInteractionContractTest {
             c.turn { o ->
                 permission(o)?.let {
                     again++
-                    permissionResponse(it, PermissionReply.Allow)
+                    allow(it)
                 }
             }
             assertEquals("规则生效，不再问", 0, again)
@@ -429,14 +419,14 @@ class ClaudeInteractionContractTest {
             val before = mainRequests
             c.user("stop")
             val stopped = c.turn { o ->
-                permission(o)?.let { permissionResponse(it, PermissionReply.Deny(null)) }
+                permission(o)?.let { deny(null) }
             }
             assertEquals("aborted_tools", stopped.last().str("terminal_reason"))
             assertEquals("不写理由：调了工具就停，不再请求模型", before + 1, mainRequests)
 
             c.user("feedback")
             c.turn { o ->
-                permission(o)?.let { permissionResponse(it, PermissionReply.Deny("用 ls")) }
+                permission(o)?.let { deny("用 ls") }
             }
             assertEquals(REJECT_WITH_FEEDBACK + "用 ls", synchronized(seen) { seen.values.last() })
         }
@@ -450,13 +440,13 @@ class ClaudeInteractionContractTest {
         main += listOf(text("planned"))
         Claude("--permission-mode", "plan").use { c ->
             c.user("plan")
-            var asked: PermissionRequest? = null
+            var asked: Asked? = null
             val events = c.turn { o ->
                 permission(o)
                     ?.takeIf { it.isPlan }
                     ?.let {
                         asked = it
-                        permissionResponse(it, PermissionReply.ApprovePlan("acceptEdits"))
+                        approvePlan(it, "acceptEdits")
                     }
             }
             assertNotNull("计划模式的系统提醒里有计划文件", planPath)
@@ -481,13 +471,8 @@ class ClaudeInteractionContractTest {
             c.user("ask")
             c.turn { o ->
                 permission(o)
-                    ?.takeIf { it.questions.isNotEmpty() }
-                    ?.let {
-                        permissionResponse(
-                            it,
-                            PermissionReply.Answer(mapOf("用哪个？" to "A"), mapOf("用哪个？" to "要新版")),
-                        )
-                    }
+                    ?.takeIf { it.asksQuestions }
+                    ?.let { answerQuestion(it, "用哪个？", "A", "要新版") }
             }
             val answer = synchronized(seen) { seen.values.last() }
             assertTrue(
@@ -511,8 +496,8 @@ class ClaudeInteractionContractTest {
             c.user("first")
             val events = c.turn { o ->
                 permission(o)?.let {
-                    c.respond(it.requestId, permissionResponse(it, PermissionReply.Allow))
-                    permissionResponse(it, PermissionReply.Deny("第二份"))
+                    c.respond(it.requestId, allow(it))
+                    deny("第二份")
                 }
             }
             assertEquals("success", events.last().str("subtype"))
@@ -532,8 +517,8 @@ class ClaudeInteractionContractTest {
             c.user("second")
             val second = c.turn { o ->
                 permission(o)?.let {
-                    c.respond(it.requestId, permissionResponse(it, PermissionReply.Deny("先拒")))
-                    permissionResponse(it, PermissionReply.Allow)
+                    c.respond(it.requestId, deny("先拒"))
+                    allow(it)
                 }
             }
             assertEquals("success", second.last().str("subtype"))
@@ -561,7 +546,7 @@ class ClaudeInteractionContractTest {
         main += listOf(tool("m1", "Bash", """{"command":"touch m1"}"""))
         Claude().use { c ->
             c.user("go")
-            val asked = mutableListOf<PermissionRequest>()
+            val asked = mutableListOf<Asked>()
             c.until { o ->
                 permission(o)?.let { asked += it }
                 asked.size == 2
@@ -574,7 +559,7 @@ class ClaudeInteractionContractTest {
                     .toSet()
             assertEquals(asked.map { it.requestId }.toSet(), listed)
             asked.forEach {
-                c.respond(it.requestId, permissionResponse(it, PermissionReply.Deny("不用了")))
+                c.respond(it.requestId, deny("不用了"))
             }
         }
     }
@@ -610,22 +595,22 @@ class ClaudeInteractionContractTest {
             """{"mcpServers":{"eli":{"type":"stdio","command":"${script.path}","args":[]}}}"""
         Claude("--mcp-config", config, "--permission-mode", "bypassPermissions").use { c ->
             c.user("go")
-            var form: ElicitationRequest? = null
+            var form: JsonObject? = null
             c.turn { o ->
-                (parsePrompt(o) as? ElicitationRequest)?.let { request ->
+                elicitationOf(o)?.let { request ->
                     form = request
-                    elicitationResponse(
+                    elicitationReply(
                         "accept",
-                        elicitationContent(
-                                request.fields,
-                                mapOf("name" to listOf("svc"), "count" to listOf("2")),
-                            )
-                            .first,
+                        buildJsonObject {
+                            put("name", "svc")
+                            put("count", 2)
+                        },
                     )
-                } ?: permission(o)?.let { permissionResponse(it, PermissionReply.Allow) }
+                } ?: permission(o)?.let { allow(it) }
             }
-            assertEquals(listOf("name", "count"), form!!.fields.map { it.key })
-            assertEquals(ElicitField.Kind.Integer, form!!.fields[1].kind)
+            val properties = form!!.obj("requested_schema")!!.obj("properties")!!
+            assertEquals(listOf("name", "count"), properties.keys.toList())
+            assertEquals("integer", properties.obj("count")!!.str("type"))
             val result = synchronized(seen) { seen.values.last() }
             assertTrue(
                 result,
@@ -678,26 +663,24 @@ class ClaudeInteractionContractTest {
         main += listOf(text("edited"))
         val first = "11111111-1111-4111-8111-111111111111"
         var session = ""
-        Claude("--permission-mode", "acceptEdits", env = CodeRewind.ENV).use { c ->
+        Claude("--permission-mode", "acceptEdits", env = CODE_REWIND_ENV).use { c ->
             c.user("edit", first)
             session = c.turn().first { it.str("session_id") != null }.str("session_id")!!
         }
         assertEquals("v1\n", file.readText())
-        Claude("--resume", session, env = CodeRewind.ENV).use { c ->
-            val changes =
-                CodeRewind.changes(c.control(CodeRewind.request(first, dryRun = true).toString()))
-            assertEquals(listOf(file.path), changes?.files)
+        Claude("--resume", session, env = CODE_REWIND_ENV).use { c ->
             assertEquals(
-                null,
-                CodeRewind.failure(c.control(CodeRewind.request(first, dryRun = false).toString())),
+                listOf(file.path),
+                rewindFilesChanged(c.control(rewindFiles(first, dryRun = true))),
             )
+            assertTrue(rewindFilesDone(c.control(rewindFiles(first, dryRun = false))))
         }
         assertEquals("v0\n", file.readText())
         Claude("--resume", session).use { c ->
             assertEquals(
                 "没设环境变量的进程不留快照",
                 null,
-                CodeRewind.changes(c.control(CodeRewind.request(first, dryRun = true).toString())),
+                rewindFilesChanged(c.control(rewindFiles(first, dryRun = true))),
             )
         }
     }

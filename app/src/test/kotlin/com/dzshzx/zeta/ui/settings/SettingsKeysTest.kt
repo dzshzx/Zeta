@@ -79,7 +79,6 @@ class SettingsKeysTest {
             "setAutoCompact" to false,
             "setAutoCompactPercent" to 70,
             "setHostModes" to mapOf("k1" to "plan"),
-            "setContextWindows" to mapOf("opus" to 200_000L),
             "setRemoteHosts" to
                 listOf(
                     RemoteHost(

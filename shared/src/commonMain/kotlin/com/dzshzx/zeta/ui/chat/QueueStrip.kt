@@ -34,7 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dzshzx.zeta.core.QueuedMessage
+import com.dzshzx.zeta.core.conv.ConvMessage
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
@@ -52,11 +52,11 @@ private val Whitespace = Regex("\\s+")
 /** 输入卡片正上方的排队条（交互照 Eta 的 AgentChatQueueStrip）： 点正文撤回到输入框接着改，⚡ 立即插话，× 删掉。多条时默认只露第一条，点计数展开。 */
 @Composable
 fun QueueStrip(
-    queued: List<QueuedMessage>,
+    queued: List<ConvMessage>,
     steering: Boolean,
     onSteer: () -> Unit,
-    onRecall: (QueuedMessage) -> Unit,
-    onRemove: (QueuedMessage) -> Unit,
+    onRecall: (ConvMessage) -> Unit,
+    onRemove: (ConvMessage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (queued.isEmpty()) return
@@ -154,9 +154,9 @@ private fun QueueTitle(count: Int, steering: Boolean, expanded: Boolean, onToggl
 @Composable
 private fun QueuedRow(
     index: Int,
-    message: QueuedMessage,
-    onRecall: (QueuedMessage) -> Unit,
-    onRemove: (QueuedMessage) -> Unit,
+    message: ConvMessage,
+    onRecall: (ConvMessage) -> Unit,
+    onRemove: (ConvMessage) -> Unit,
 ) {
     val colors = COUITheme.colorScheme
     Row(
@@ -177,13 +177,13 @@ private fun QueuedRow(
 }
 
 @Composable
-private fun Preview(message: QueuedMessage, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val line = message.text.replace(Whitespace, " ").trim()
-    val extra = message.attachments.size + message.files.size
+    val extra = message.images.size + message.files.size
     val text =
         when {
             line.isNotEmpty() -> line
-            message.attachments.isNotEmpty() -> "[${message.attachments.size} 张图片]"
+            message.images.isNotEmpty() -> "[${message.images.size} 张图片]"
             else -> "[${message.files.size} 个文件]"
         }
     Row(

@@ -3,7 +3,7 @@ package com.dzshzx.zeta.assistant
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.Conversation
-import com.dzshzx.zeta.core.launchArgument
+import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -21,11 +21,15 @@ class AssistantPresetTest {
     @Test
     fun presetAppliesToThisConversationOnly() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         val conversation =
             Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         conversation.preset(model = "sonnet", effort = "low")
-        assertEquals("sonnet", conversation.model)
-        assertEquals("low", conversation.effort)
+        val opened = core.next("conv.open").conv
+        val preset = core.next("conv.preset")
+        assertEquals(opened, preset.conv)
+        assertEquals("sonnet", preset.str("model"))
+        assertEquals("low", preset.str("effort"))
         val other =
             Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         assertNull(other.model)
@@ -36,6 +40,7 @@ class AssistantPresetTest {
     @Test
     fun unsetFollowsClaudeCode() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         assertNull(hub.settings.assistantModel)
         assertNull(hub.settings.assistantEffort)
         val conversation =
@@ -44,7 +49,9 @@ class AssistantPresetTest {
             model = hub.settings.assistantModel,
             effort = hub.settings.assistantEffort,
         )
-        assertNull(conversation.launchArgument("--model"))
-        assertNull(conversation.launchArgument("--effort"))
+        core.next("conv.open")
+        val preset = core.next("conv.preset")
+        assertNull(preset.params["model"])
+        assertNull(preset.params["effort"])
     }
 }

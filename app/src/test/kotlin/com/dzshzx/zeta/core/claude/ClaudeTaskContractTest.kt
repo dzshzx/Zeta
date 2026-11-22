@@ -1,15 +1,5 @@
 package com.dzshzx.zeta.core.claude
 
-import com.dzshzx.zeta.core.AnswerItem
-import com.dzshzx.zeta.core.ChatItem
-import com.dzshzx.zeta.core.Conversation
-import com.dzshzx.zeta.core.SubagentTranscript
-import com.dzshzx.zeta.core.TaskBoard
-import com.dzshzx.zeta.core.TaskKind
-import com.dzshzx.zeta.core.TaskState
-import com.dzshzx.zeta.core.TestHelper
-import com.dzshzx.zeta.core.ToolStep
-import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -32,8 +22,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -41,15 +29,15 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 后台任务面板依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败， [TaskBoard]
- * 和面板跟着改。收到的真实事件也喂给 [TaskBoard]，看它归约出的样子。
+ * 后台任务面板和子代理查看页依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败，
+ * 核心里的归约（helper/tasks、helper/conv 的子代理）跟着改。
  *
  * - 后台任务进出都有 system 事件：background_tasks_changed（完整清单，先于 task_started）、task_started、
  *   task_progress（子代理）、task_updated（patch.status）、task_notification（completed / failed / stopped）。
  * - 控制请求 get_task_output 读后台命令和监视器输出的最后 8 KiB（子代理答 error）；stop_task 停一个任务， 对不认识的 id 也答
  *   success，所以停没停要看随后的事件。停后台命令不另起一轮；子代理结束（做完或被停）后 Claude Code 自己起一轮。
  * - 监视器（Monitor）的 task_type 也是 local_bash，靠发起它的工具调用区分。
- * - 子代理的记录（子代理查看页读的）：`<项目>/<会话 id>/subagents/agent-<id>.jsonl`，id 就是 task_started 的 task_id， 也在
+ * - 子代理的记录（核心读给子代理查看页的）：`<项目>/<会话 id>/subagents/agent-<id>.jsonl`，id 就是 task_started 的 task_id， 也在
  *   Agent 调用的结果（tool_use_result.agentId）里；旁边的 agent-<id>.meta.json 记着发起它的 Agent 调用（toolUseId）、
  *   前台还是后台（requestShape），做完加 finished，被停加 stoppedByUser。输出流里子代理内部的事件带 parent_tool_use_id，
  *   但前台子代理只送工具调用和结果、不送它说的话，所以以记录为准。Agent 默认放后台，前台要 run_in_background: false。
@@ -320,7 +308,7 @@ class ClaudeTaskContractTest {
                 }
             // [asZeta] 时发的就是 Zeta 发的那份 initialize（带着它的声明）
             control(
-                if (asZeta) Conversation.initializeRequest()
+                if (asZeta) Json.parseToJsonElement(INITIALIZE_REQUEST).jsonObject
                 else buildJsonObject { put("subtype", "initialize") },
             )
         }
@@ -410,9 +398,6 @@ class ClaudeTaskContractTest {
         it.str("type") == "system" && it.str("subtype") == subtype
     }
 
-    private fun board(events: List<JsonObject>): TaskBoard =
-        TaskBoard().also { board -> events.forEachIndexed { i, e -> board.observe(e, i.toLong()) } }
-
     @Test
     fun backgroundCommandOutputAndStop() {
         assumeTrue("没有 claude 命令", claudeAvailable())
@@ -486,12 +471,6 @@ class ClaudeTaskContractTest {
                     )
                     .str("subtype"),
             )
-
-            val task = board(claude.events).tasks.single()
-            assertEquals(TaskKind.Command, task.kind)
-            assertEquals(TaskState.Stopped, task.state)
-            assertEquals(command, task.command)
-            assertEquals("ticker in background", task.description)
         }
     }
 
@@ -519,13 +498,6 @@ class ClaudeTaskContractTest {
             val done = claude.events.system("task_notification").single()
             assertEquals("completed", done.str("status"))
             assertEquals("REPORT: all good", done.str("summary"))
-
-            val task = board(claude.events).tasks.single()
-            assertEquals(TaskKind.Agent, task.kind)
-            assertEquals(TaskState.Completed, task.state)
-            assertEquals("REPORT: all good", task.summary)
-            assertEquals("$SUBAGENT look around", task.command)
-            assertNotNull(task.progress)
         }
     }
 
@@ -561,7 +533,6 @@ class ClaudeTaskContractTest {
             // 和后台命令不同：子代理停下后 Claude Code 另起一轮处理这个结局
             if (claude.events.system("init").size == inits)
                 claude.until { it.str("type") == "system" && it.str("subtype") == "init" }
-            assertEquals(TaskState.Stopped, board(claude.events).tasks.single().state)
             // 记录的 meta 记着是被停下的，没有 finished。meta 是 Claude Code 另写的文件，和输出流没有先后：等它写上
             val session = claude.sessionId()
             var meta: JsonObject? = null
@@ -609,16 +580,10 @@ class ClaudeTaskContractTest {
                 "evt-1\nevt-2\nevt-3\n",
                 claude.awaitOutput(id, "evt-3").obj("response")!!.str("output"),
             )
-            claude.control(
-                buildJsonObject {
-                    put("subtype", "stop_task")
-                    put("task_id", id)
-                },
-            )
-            val task = board(claude.events).tasks.single()
-            assertEquals(TaskKind.Monitor, task.kind)
-            assertEquals(command, task.command)
-            assertEquals(TaskState.Stopped, task.state)
+            // 监视器靠发起它的工具调用认出来：task_started 的 tool_use_id 指向 Monitor 调用
+            val started = claude.events.system("task_started").single()
+            assertEquals(id, started.str("task_id"))
+            assertEquals("toolu_1", started.str("tool_use_id"))
         }
     }
 
@@ -659,17 +624,8 @@ class ClaudeTaskContractTest {
             assertEquals("toolu_0", meta.str("toolUseId"))
             assertEquals("foreground", meta.str("requestShape"))
             assertEquals("true", meta.str("finished"))
-            // 助手脚本照 Agent 调用找到记录：它说的话、它的步骤和报告都在；输出流里送来的已经都在记录里
-            val transcript = SubagentTranscript("toolu_0")
-            assertTrue(transcript.applyRead(subagentRead(transcript, "-", session)))
-            assertEquals("$SUBAGENT look around", transcript.prompt)
-            assertEquals(id, transcript.meta!!.agentId)
-            assertEquals(false, transcript.meta!!.background)
-            assertEquals(
-                listOf("checking first", "Bash:Success", "REPORT: all good"),
-                transcript.items(running = false).map(::label),
-            )
-            inner.forEach { assertFalse(it.toString(), transcript.observeLive(it)) }
+            // 记录里交给它的任务、它说的话、它的步骤和报告都在
+            assertEquals(fullRecord, record(session, id))
         }
     }
 
@@ -689,57 +645,29 @@ class ClaudeTaskContractTest {
                     "tool_result" in it.toString()
             }
             // 第一步做完、还没交报告：记录里已经有它说的话和这一步，meta 还没结束
-            val transcript = SubagentTranscript("toolu_0")
-            val deadline = System.currentTimeMillis() + 20_000
-            while (true) {
-                transcript.applyRead(subagentRead(transcript, id, session))
-                if (
-                    transcript.items(running = true).map(::label) ==
-                        listOf("checking first", "Bash:Success")
-                )
-                    break
-                assertTrue(
-                    transcript.items(running = true).map(::label).toString(),
-                    System.currentTimeMillis() < deadline,
-                )
-                Thread.sleep(200)
-            }
-            assertFalse(transcript.meta!!.ended)
-            assertEquals(true, transcript.meta!!.background)
-            val offset = transcript.offset
+            val firstStep = fullRecord.dropLast(1)
+            assertTrue(
+                record(session, id).toString(),
+                waitUntil(20) { record(session, id) == firstStep },
+            )
+            val running = subagentMeta(session, id)
+            assertNull(running["finished"])
+            assertNull(running["stoppedByUser"])
+            assertEquals("background", running.str("requestShape"))
 
             reportGate.countDown()
             claude.until { it.str("type") == "system" && it.str("subtype") == "task_notification" }
             // task_notification 到的时候，meta 的结局和最后那句报告都可能还没写进文件，先后也不一定
-            // （多数时候 meta 先、报告晚两百毫秒上下，机器忙时 meta 也会晚）。所以结束后要读到 meta 记着做完、
-            // 记录又停下来（settled）才停止读；接着上次的位置读，只读新写的，报告接在后面
-            transcript.applyRead(subagentRead(transcript, id, session))
-            val until = System.currentTimeMillis() + 20_000
-            while (transcript.meta?.finished != true || !transcript.settled) {
-                assertTrue(
-                    "meta.finished=${transcript.meta?.finished} settled=${transcript.settled}",
-                    System.currentTimeMillis() < until,
-                )
-                Thread.sleep(300)
-                transcript.applyRead(subagentRead(transcript, id, session))
-            }
-            assertTrue(transcript.offset > offset)
-            assertEquals(
-                listOf("checking first", "Bash:Success", "REPORT: all good"),
-                transcript.items(running = false).map(::label),
+            // （多数时候 meta 先、报告晚两百毫秒上下，机器忙时 meta 也会晚）：等两样都写上
+            assertTrue(
+                record(session, id).toString(),
+                waitUntil(20) {
+                    runCatching { subagentMeta(session, id) }.getOrNull()?.str("finished") ==
+                        "true" && record(session, id) == fullRecord
+                },
             )
         }
     }
-
-    private fun label(item: ChatItem): String =
-        when (item) {
-            is AnswerItem -> item.text
-            is WorkItem ->
-                item.steps.joinToString { step ->
-                    (step as ToolStep).let { it.name + ":" + it.status }
-                }
-            else -> item.toString()
-        }
 
     private fun Claude.sessionId(): String =
         events.first { it.str("type") == "result" }.str("session_id")!!
@@ -751,31 +679,51 @@ class ClaudeTaskContractTest {
             .jsonObject
     }
 
-    /** zeta-helper subagent：从 [transcript] 上次读到的地方接着读，和 Zeta 在手机上做的一样（这里在临时 HOME 上）。 */
-    private fun subagentRead(
-        transcript: SubagentTranscript,
-        hint: String,
-        session: String,
-    ): String {
-        val args =
-            listOf(
-                "subagent",
-                transcript.offset.toString(),
-                transcript.line.toString(),
-                transcript.toolUseId,
-                hint,
-                session,
-            )
-        val process =
-            ProcessBuilder(listOf(TestHelper.path) + args)
-                .apply { environment()["HOME"] = home.path }
-                .start()
-        process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        process.errorStream.readBytes()
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
-        assertEquals(out, 0, process.exitValue())
-        return out
+    /** 子代理做完时记录里的全部经过（见 [record]）。 */
+    private val fullRecord =
+        listOf(
+            "prompt:$SUBAGENT look around",
+            "checking first",
+            "tool:Bash",
+            "result",
+            "REPORT: all good",
+        )
+
+    /**
+     * 子代理记录 `<项目>/<会话 id>/subagents/agent-<id>.jsonl` 里它的经过：交给它的任务（`prompt:`，第一条用户消息的第一段；Claude
+     * Code 在后面附的提醒不算）、它说的话、调的工具（`tool:<名字>`）和工具结果（`result`）。文件还没有时为空，正在写的半行不算。
+     */
+    private fun record(session: String, id: String): List<String> {
+        val project =
+            File(home, ".claude/projects").listFiles()?.singleOrNull() ?: return emptyList()
+        val file = File(project, "$session/subagents/agent-$id.jsonl")
+        if (!file.exists()) return emptyList()
+        val events =
+            file.readLines().mapNotNull {
+                runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull()
+            }
+        val prompt = events.firstOrNull { it.str("type") == "user" }?.let(::promptOf)
+        return listOfNotNull(prompt?.let { "prompt:$it" }) + events.flatMap(::recordSteps)
+    }
+
+    private fun promptOf(event: JsonObject): String? =
+        when (val content = event.obj("message")?.get("content")) {
+            is JsonPrimitive -> content.content
+            is JsonArray -> content.firstNotNullOfOrNull { (it as? JsonObject)?.str("text") }
+            else -> null
+        }
+
+    private fun recordSteps(event: JsonObject): List<String> {
+        val assistant = event.str("type") == "assistant"
+        return (event.obj("message")?.get("content") as? JsonArray).orEmpty().mapNotNull { b ->
+            val block = b as? JsonObject
+            when (block?.str("type")) {
+                "text" -> if (assistant) block.str("text") else null
+                "tool_use" -> "tool:" + block.str("name")
+                "tool_result" -> "result"
+                else -> null
+            }
+        }
     }
 
     private fun bash(command: String, description: String, background: Boolean) =

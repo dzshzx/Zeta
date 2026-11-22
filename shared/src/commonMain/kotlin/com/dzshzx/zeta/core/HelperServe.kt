@@ -22,6 +22,10 @@ fun interface ServeRequests {
      * [ServeError]。
      */
     fun call(method: String, params: JsonObject): JsonElement?
+
+    /** 同 [call]，最多等 [timeoutMs]（比如载完整段历史这种慢的）；不分快慢的连接照 [call] 等。 */
+    fun call(method: String, params: JsonObject, timeoutMs: Long): JsonElement? =
+        call(method, params)
 }
 
 /**
@@ -87,7 +91,7 @@ class HelperServe(
      * 了，或第一次就没连上）时直接报最后的原因。连上加应答一共最多等 [timeoutMs]。阻塞：不能在 [onMessage]、[onProblem]
      * 里调（应答要靠那条线程读），也别在主线程上调。
      */
-    fun call(method: String, params: JsonObject, timeoutMs: Long): JsonElement? {
+    override fun call(method: String, params: JsonObject, timeoutMs: Long): JsonElement? {
         check(Thread.currentThread() !== reader) {
             "不能在 onMessage、onProblem 里等 serve 的应答：应答要靠这条线程读"
         }

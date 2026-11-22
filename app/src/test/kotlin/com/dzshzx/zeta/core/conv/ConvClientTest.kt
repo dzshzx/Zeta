@@ -205,7 +205,9 @@ class ConvClientTest {
         assertEquals("预览", permission.questions.single().options[0].preview)
         assertNull(permission.questions.single().options[1].preview)
         assertEquals("a1", permission.agentId)
-        assertEquals(1, permission.suggestions.size)
+        assertEquals(listOf("以后不再问"), permission.suggestionLines)
+        assertEquals("Claude 有问题要问你", permission.notice)
+        assertTrue(permission.asksInput)
         val form = s.prompts[1] as ElicitationRequest
         assertEquals("github", form.server)
         assertNull(form.url)
@@ -226,6 +228,7 @@ class ConvClientTest {
         assertEquals(3L, s.usage.total.total)
         assertEquals(0.5, s.usage.totalCost!!, 0.0)
         assertEquals(ContextLevel.Normal, s.usage.level)
+        assertEquals(0.005f, s.usage.fraction!!, 0.0001f)
         assertEquals(true, s.usage.autoCompact)
 
         assertEquals(
@@ -729,7 +732,7 @@ class ConvClientTest {
             "prompts":[
               {"kind":"permission","request_id":"r1","tool_name":"AskUserQuestion","input":{"questions":[]},
                "questions":[{"question":"用哪个？","header":"选","options":[{"label":"A","description":"甲","preview":"预览"},
-                 {"label":"B","description":"乙"}]}],
+                 {"label":"B","description":"乙"}],"takes_notes":true}],
                "suggestions":[{"type":"addRules"}],"suggestion_lines":["以后不再问"],"agent_id":"a1","tool_use_id":"tu9",
                "notice":"Claude 有问题要问你","asks_input":true},
               {"kind":"elicitation","request_id":"e1","server":"github","message":"填一下",

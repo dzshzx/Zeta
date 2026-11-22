@@ -48,8 +48,7 @@ internal object AlertNotice {
 
     /** 胶囊、实时通知和提醒共用的那一句：提问和 MCP 表单是“需要你回答”，别的是“需要你确认”。 */
     fun waitingStep(prompt: UserPrompt): Step =
-        if (prompt.asksForInput) Step("需要你回答", StepKind.ASKING)
-        else Step("需要你确认", StepKind.CONFIRMING)
+        if (prompt.asksInput) Step("需要你回答", StepKind.ASKING) else Step("需要你确认", StepKind.CONFIRMING)
 
     fun waiting(prompt: UserPrompt): WaitingNotice {
         val step = waitingStep(prompt).text

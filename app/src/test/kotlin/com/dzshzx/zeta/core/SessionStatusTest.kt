@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.SessionStatus.Activity
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -14,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 会话列表里各会话的状态：几样同时成立时报最要紧的；不在眼前时答完的记成有新回答，点开就不再记。 */
+/** 会话列表里各会话的状态：忙闲看主机上的核心报的，几样同时成立时报最要紧的；不在眼前时答完的记成有新回答，点开就不再记。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class SessionStatusTest {
@@ -46,15 +45,20 @@ class SessionStatusTest {
     fun turnFinishedOutOfSightIsUnreadUntilOpened() {
         val hub = Fixtures.readyHub(app)
         val chat = parked(hub, "s-bg")
-        chat.force("busy", true)
+        fun core(activity: Activity) =
+            hub.sessionList.activityReceived(
+                "local",
+                mapOf("s-bg" to SessionActivity(activity, 0, 0)),
+            )
+        core(Activity.Answering)
         assertEquals(Activity.Answering, hub.sessionStatus("s-bg")?.activity)
 
-        chat.force("busy", false)
+        core(Activity.Idle)
         hub.onTurnFinished(chat)
         assertEquals(Activity.Unread, hub.sessionStatus("s-bg")?.activity)
 
         hub.open(summary("s-bg"))
-        assertNull("点开看过就不再记", hub.sessionStatus("s-bg"))
+        assertEquals("点开看过就不再记", Activity.Idle, hub.sessionStatus("s-bg")?.activity)
     }
 
     @Test
@@ -109,16 +113,18 @@ class SessionStatusTest {
     }
 
     @Test
-    fun localAndCoreCombine() {
+    fun onlyTheCoreCounts() {
+        // 忙闲只看核心报的：这边的对话怎么说都不算（核心里同一个对话的状态就是它报的）
         val hub = Fixtures.readyHub(app)
         val chat = parked(hub, "s-both")
-        chat.force("busy", true)
+        chat.core { it.copy(busy = true) }
+        assertNull(hub.sessionStatus("s-both"))
         hub.sessionList.activityReceived(
             "local",
             mapOf("s-both" to SessionActivity(Activity.Background, 3, 0)),
         )
         val status = hub.sessionStatus("s-both")
-        assertEquals(Activity.Answering, status?.activity)
+        assertEquals(Activity.Background, status?.activity)
         assertEquals(3, status?.tasks)
     }
 }

@@ -188,7 +188,7 @@ class MessageActions(
             return
         }
         if (!pending.regenerate) {
-            if (withCode) conversation.restoreCode(user) { conversation.dropFrom(user) }
+            if (withCode) conversation.restoreCode(user, drop = true)
             else conversation.dropFrom(user)
             return
         }
@@ -205,7 +205,8 @@ class MessageActions(
             val resend = {
                 conversation.rewrite(user, user.text, images.filterNotNull(), user.files)
             }
-            if (withCode) conversation.restoreCode(user, resend) else resend()
+            // TODO(核心)：conv.restore_code 能带消息重发以后，还原代码和重发合成一个请求；现在只还原代码，重发留给用户
+            if (withCode) conversation.restoreCode(user) else resend()
         }
     }
 

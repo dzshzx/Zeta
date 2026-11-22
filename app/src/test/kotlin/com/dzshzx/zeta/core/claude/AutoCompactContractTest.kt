@@ -356,9 +356,9 @@ class AutoCompactContractTest {
         assumeTrue("没有 claude 命令", claudeAvailable())
         Claude(phoneSettings(), AutoCompact.env(enabled = true, percent = 60)).use { claude ->
             val usage = claude.contextUsage()
-            // get_context_usage 报的压缩点不含百分比，Zeta 自己算
+            // get_context_usage 报的压缩点不含百分比，核心自己算（helper/usage 的 compactThreshold）：6.7 万的 60% 档是 4.8
+            // 万
             assertEquals(67_000L, usage.long("autoCompactThreshold"))
-            assertEquals(48_000L, AutoCompact.threshold(67_000, 60))
             assertFalse(claude.turn(bigPrompt(0)).compacting())
             // 下一次请求约 5.8 万：过了 4.8 万，没到 6.7 万，照样开始压缩
             assertTrue(claude.turn(bigPrompt(1)).compacting())
@@ -417,9 +417,8 @@ class AutoCompactContractTest {
     @Test
     fun percentThresholdMatchesZetaFormula() {
         assumeTrue("没有 claude 命令", claudeAvailable())
-        // 手机上的压缩窗口是 40 万：默认 36.7 万，70% 是 ⌊38 万 × 0.7⌋
+        // 手机上的压缩窗口是 40 万：默认 36.7 万，70% 是 ⌊38 万 × 0.7⌋（核心的 compactThreshold 照这个算式）
         assertEquals(266_000L, loggedThreshold(400_000, 70))
-        assertEquals(AutoCompact.threshold(367_000, 70), 266_000L)
     }
 
     @Test

@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// 对照用例（../testdata/transcript）：每个 <名字>.ops.jsonl 一行一次调用，<名字>.items.json 是 Kotlin 的 TranscriptReducer
-// 跑完得出的条目（app 的 TranscriptParityTest 录下和核对）。Go 版跑同样的调用，条目要按值相同：Kotlin 版写出全部字段，
-// 这里没写出的是零值，所以比之前两边都去掉 null、false、空字符串和空数组。
+// 对照用例（../testdata/transcript）：每个 <名字>.ops.jsonl 一行一次调用，<名字>.items.json 是跑完得出的条目。改了归约器或加了
+// 用例后 ZETA_RECORD_TRANSCRIPT=1 跑一次 TestMatchesRecorded（重写各个 .items.json，这一次算失败），看过 git diff 再不带它跑一次。
+// 期望结果里有的写出了全部字段，Go 版省掉零值，所以比之前两边都去掉 null、false、空字符串和空数组。
 //
 // 一行的写法见 op：prefix（只能在第一行，换编号前缀）、stream、assistant、user、addUser、notice、shell、finish。
 type op struct {
@@ -107,23 +107,32 @@ func dropZero(v any) any {
 	return v
 }
 
-func TestMatchesKotlin(t *testing.T) {
+func TestMatchesRecorded(t *testing.T) {
+	record := os.Getenv("ZETA_RECORD_TRANSCRIPT") == "1"
 	cases, _ := filepath.Glob(filepath.Join(casesDir, "*.ops.jsonl"))
 	if len(cases) == 0 {
 		t.Fatalf("%s 下没有对照用例", casesDir)
 	}
 	for _, path := range cases {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".ops.jsonl"), func(t *testing.T) {
-			want, err := os.ReadFile(strings.TrimSuffix(path, ".ops.jsonl") + ".items.json")
-			if err != nil {
-				t.Fatalf("没有 Kotlin 一侧录下的期望结果（跑 app 的 TranscriptParityTest 录）：%v", err)
-			}
+			expected := strings.TrimSuffix(path, ".ops.jsonl") + ".items.json"
 			got, err := json.MarshalIndent(run(t, path).Items, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
+			if record {
+				if err := os.WriteFile(expected, append(got, '\n'), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				// 录制时不算通过：变量留在环境里的话，核对就什么也没核对
+				t.Fatal("已重写期望结果；去掉 ZETA_RECORD_TRANSCRIPT 再跑一次核对")
+			}
+			want, err := os.ReadFile(expected)
+			if err != nil {
+				t.Fatalf("没有期望结果（ZETA_RECORD_TRANSCRIPT=1 跑一次录下）：%v", err)
+			}
 			if !reflect.DeepEqual(normalized(t, got), normalized(t, want)) {
-				t.Errorf("和 Kotlin 不一样\nGo：\n%s\nKotlin：\n%s", got, want)
+				t.Errorf("和录下的不一样\n现在：\n%s\n录下的：\n%s", got, want)
 			}
 		})
 	}

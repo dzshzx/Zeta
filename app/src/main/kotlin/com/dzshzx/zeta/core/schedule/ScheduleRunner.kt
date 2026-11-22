@@ -15,7 +15,6 @@ import com.dzshzx.zeta.core.diag.DiagLevel
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.get
-import com.dzshzx.zeta.core.notice
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import java.time.Instant

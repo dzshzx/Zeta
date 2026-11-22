@@ -30,7 +30,7 @@
 #   attach.d/  接着的一方各一个记录：文件名是它的进程号，内容是它的启动时刻（/proc/<pid>/stat 第 22 项）。接上时写，离开时删自己的；
 #              进程已不在（或进程号被复用）的记录由看到它的人删（attachers）。看门狗据此知道还有没有应用接着；
 #              detach、stop 据此决定结不结束、删不删目录；zeta-helper（liveAttachers）的 hosts、存储页据此不删还有人接着的目录。
-#   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
+#   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给核心（helper/host 的 Link）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
 #   pid        起进程的那段起的进程号，那段写：通常就是 Claude Code；登录配置把 claude 包成 shell 函数或不 exec 的脚本时是外面那层，
@@ -169,7 +169,7 @@ write_line() {
 }
 
 # 接着的一方把标准输入一行行转进托管目录 $1 的输入管道，每行持着 lock 整行写进去；没有 flock 时原样转。
-# 连接断在一行中间时，那半行不写（应用没写完的那条留给重连后的连接重发，见 ClaudeProcess 的 writeOutbox）。
+# 连接断在一行中间时，那半行不写。
 pump() {
   local line
   exec 9>"$1/in" || return
@@ -372,7 +372,7 @@ stat_of "$P" && R=${STAT[1]}
 stat_of $$ && mkdir -p "$D/attach.d" && echo "${STAT[19]}" > "$D/attach.d/.$$" && mv -f "$D/attach.d/.$$" "$D/attach.d/$$"
 echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
-# 应用按这个数读到了第几行，远程主机的连接断了从下一行接着读（ClaudeProcess）；之前的行是登录 shell 打的别的东西。
+# 接着的一方按这个数记读到了第几行（helper/host 的 Link）；之前的行是登录 shell 打的别的东西。
 # key 是接上的托管目录（start 接上本包现成的进程时不是应用给的那个），attacher 是自己的进程号（detach 时交回来）
 echo "{\"type\":\"zeta_attached\",\"from\":$from,\"key\":\"${D##*/}\",\"attacher\":$$}"
 
@@ -391,7 +391,7 @@ if ! running "$P"; then
   while [ ! -f "$D/exit" ] && [ -d "$D" ] && running "$R"; do sleep 0.05; done
 fi
 if [ -f "$D/exit" ]; then
-  # 退出报告一行 JSON：退出码，标准错误输出的最后 2000 字节（base64，不用转义；应用那头解码，见 ClaudeProcess 的 hostExitStderr）。
+  # 退出报告一行 JSON：退出码，标准错误输出的最后 2000 字节（base64，不用转义；核心那头解码，见 helper/host 的 decodeStderr）。
   # 只用 coreutils，远程主机上不用装别的
   code=$(tr -cd '0-9' < "$D/exit")
   # reason：released 是会话交回终端接着了（见上面的 released 文件）；没起进程时的 held_elsewhere 在 start 里报

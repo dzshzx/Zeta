@@ -131,14 +131,15 @@ private fun checkLinux(
         hub.shell(conversation.backend)
             ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
     val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL }
-    var kind = PathCheck.check(shell, linuxPath, conversation.hostKey)
+    // TODO(核心)：conv.state 有了 host_key 以后传它，查对话进程的挂载里看不看得到（加共享文件夹后要不要重启）
+    var kind = PathCheck.check(shell, linuxPath, hostKey = null)
     if (
         config != null &&
             kind == PathKind.Denied &&
             linuxPath.startsWith(SharedFolders.LINUX_ROOT + "/") &&
             SharedFolders.ensureMediaGroup(config)
     ) {
-        kind = PathCheck.check(shell, linuxPath, conversation.hostKey)
+        kind = PathCheck.check(shell, linuxPath, hostKey = null)
     }
     return when (kind) {
         PathKind.Folder ->
@@ -209,7 +210,7 @@ private fun FolderAttachDialog(
         confirmEnabled =
             !browser.working &&
                 browser.browseError == null &&
-                folderConfirmAllowed(resolution, idle, conversation.hostKey),
+                folderConfirmAllowed(resolution, idle, conversation.isProcessAlive),
         onConfirm = {
             // 输入了路径却没按回车：先打开它，看清楚了再引用
             val typed = SharedFolders.normalize(browser.input)
@@ -236,11 +237,11 @@ private fun folderConfirmText(resolution: Resolution): String =
     }
 
 /** 按查到的结果能不能引用：要重启的得等这一轮结束；要共享的不能有问题，且（已在跑的进程要重启）得空闲。 */
-private fun folderConfirmAllowed(resolution: Resolution, idle: Boolean, hostKey: String?): Boolean =
+private fun folderConfirmAllowed(resolution: Resolution, idle: Boolean, running: Boolean): Boolean =
     when (resolution) {
         is Resolution.Ready -> true
         is Resolution.NeedsRestart -> idle
-        is Resolution.NeedsShare -> resolution.problem == null && (hostKey == null || idle)
+        is Resolution.NeedsShare -> resolution.problem == null && (!running || idle)
         else -> false
     }
 
@@ -292,7 +293,7 @@ private suspend fun shareAndAttach(
         return
     }
     // 已在跑的进程看不到新挂的目录：停下它，下次发送时带着新的挂载重新起来
-    if (conversation.hostKey != null) conversation.shutdown()
+    if (conversation.isProcessAlive) conversation.shutdown()
     AttachedPaths.linuxPathFor(browser.path, hub.settings.sharedFolders, hub.settings.env?.rootfs)
         ?.let { onAttach(AttachedPaths.reference(it, folder = true)) }
     onDismiss()
@@ -349,7 +350,7 @@ private fun FolderDialogContent(
         ) {
             folderEntries(browser)
         }
-        val status = folderStatus(resolution, idle, conversation.hostKey)
+        val status = folderStatus(resolution, idle, conversation.isProcessAlive)
         Text(
             text = status.first,
             style =
@@ -397,7 +398,7 @@ private fun LazyListScope.folderEntries(browser: AndroidFolderBrowser) {
 private fun folderStatus(
     resolution: Resolution,
     idle: Boolean,
-    hostKey: String?,
+    running: Boolean,
 ): Pair<String, Boolean> =
     when (resolution) {
         Resolution.Checking -> "正在查看 Linux 里能不能看到它…" to false
@@ -408,8 +409,8 @@ private fun folderStatus(
         is Resolution.NeedsShare ->
             (resolution.problem?.let { "Linux 里看不到这个文件夹，也不能共享：$it" }
                 ?: ("Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 ${SharedFolders.LINUX_ROOT}/${resolution.name} 读到它" +
-                    shareRestartHint(idle, hostKey))) to
-                (resolution.problem != null || (hostKey != null && !idle))
+                    shareRestartHint(idle, running))) to
+                (resolution.problem != null || (running && !idle))
         is Resolution.Problem -> resolution.message to true
     }
 
@@ -418,9 +419,9 @@ private fun restartHint(idle: Boolean): String =
     if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到"
 
 /** 加了共享文件夹以后，对话的 Claude Code 要不要重启、什么时候重启。 */
-private fun shareRestartHint(idle: Boolean, hostKey: String?): String =
+private fun shareRestartHint(idle: Boolean, running: Boolean): String =
     when {
-        hostKey == null -> "。"
+        !running -> "。"
         idle -> "；这个对话的 Claude Code 会重启一次（对话内容不变）。"
         else -> "；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。"
     }

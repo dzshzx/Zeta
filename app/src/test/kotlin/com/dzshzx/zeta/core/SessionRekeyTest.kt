@@ -35,21 +35,25 @@ class SessionRekeyTest {
     @Test
     fun registriesFollowTheSessionId() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         val chat =
             Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         hub.park(chat)
         chat.send("先问一句")
+        val open = core.next("conv.open")
+        core.next("conv.send")
         // 发出了、会话号还没来：草稿按对话的 key 放着
         val draft = hub.drafts.of(chat)
         assertSame(chat.phone, hub.phoneFor(chat.key, chat.backend))
 
-        chat.receive(
-            """{"type":"system","subtype":"init","session_id":"s-first","model":"claude-opus-5-5"}""",
-        )
+        // 核心报来会话号（新对话的第一轮）
+        core.push("""{"type":"conv.state","conv":"${open.conv}","session":"s-first"}""")
+        awaitCore { chat.sessionId == "s-first" }
         assertFoundUnder(hub, chat, draft, "s-first", chat.key)
 
         // /clear：换了新会话
-        chat.receive("""{"type":"conversation_reset","new_conversation_id":"s-second"}""")
+        core.push("""{"type":"conv.state","conv":"${open.conv}","session":"s-second"}""")
+        awaitCore { chat.sessionId == "s-second" }
         assertFoundUnder(hub, chat, draft, "s-second", "s-first")
     }
 }

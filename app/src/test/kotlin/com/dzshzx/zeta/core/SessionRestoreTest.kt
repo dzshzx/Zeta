@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.force
-import com.dzshzx.zeta.shots.Fixtures.showChat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,9 +15,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 接着已有会话时模型交给 Claude Code：不带 --model，它照会话记录恢复（行为由 ClaudeResumeContractTest 钉住），
- * 界面显示它报的模型；用户在这个对话里亲手选了才指定。Claude Code 不恢复思考强度，Zeta 照会话记录恢复。 新对话的默认值是 Claude Code
- * 自己的设置，这里都不动（[ClaudeDefaultsTest]）。
+ * 顶栏的模型：指定了的、Claude Code 报的、所在主机的默认模型，按这个先后显示。接着已有会话时恢复哪个模型、思考强度由核心定 （helper/conv，行为由
+ * ClaudeResumeContractTest 钉住）；这里只看这边怎么显示、分支怎么交给核心。新对话的默认值见 [ClaudeDefaultsTest]。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -27,29 +25,13 @@ class SessionRestoreTest {
 
     private fun hub(): ConversationHub = Fixtures.readyHub(app)
 
-    /** 已有会话的对话对象；不给记录文件，就不去载入历史。 */
-    private fun reopened(hub: ConversationHub) =
-        Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
-
-    private fun Conversation.modelArgument(): String? = launchArgument("--model")
-
     @Test
-    fun newConversationLeavesTheModelToClaudeCodeSettings() {
+    fun shownModelFollowsChoiceReportAndHostDefault() {
         val hub = hub()
         val conversation = hub.current
         assertNull(conversation.model)
-        assertNull(conversation.modelArgument())
         assertFalse(conversation.modelFromSession)
-        conversation.chooseModel("opus")
-        assertEquals("opus", conversation.modelArgument())
-        // 新对话选默认：不指定，Claude Code 照它自己的设置
-        conversation.receive(
-            """{"type":"system","subtype":"init","session_id":"s-new","model":"claude-opus-5-5"}""",
-        )
-        conversation.chooseModel("default")
-        assertNull(conversation.model)
-        assertNull(conversation.modelArgument())
-        // 不留上一轮 init 报的模型。顶栏写具体的模型：清单还没到时说不出默认是哪个，才写「默认」
+        // 什么都不知道：清单还没到时说不出默认是哪个，才写「默认」
         assertNull(conversation.shownModel)
         assertEquals("默认", conversation.shownModelName(hub.modelOptions(conversation.backend)))
         val options =
@@ -69,108 +51,49 @@ class SessionRestoreTest {
             ),
         )
         assertEquals("Fable 5.2", conversation.shownModelName(options))
-    }
-
-    /**
-     * 终端里 /model 换了模型、之后还没有回答的会话（比如刚从终端接管过来）：Claude Code 自己不认这次切换，Zeta 起进程时指定它，
-     * 顶栏先写它；显示名认不出是哪个模型的不指定。用户在这个对话里另选了就照用户选的。
-     */
-    @Test
-    fun aModelSwitchedInTheTerminalIsCarriedOver() {
-        val hub = hub()
-        val taken = reopened(hub)
-        taken.restoreModel(answered = "claude-opus-5-5", switched = "Fable 5.2")
-        assertEquals("claude-fable-5-2", taken.modelArgument())
-        assertEquals("Fable 5.2", taken.shownModelName(emptyList()))
-        // 没指定过模型：菜单不勾任何一项
-        assertNull(taken.model)
-        taken.chooseModel("opus")
-        assertEquals("opus", taken.modelArgument())
-
-        // 一个回答都没有、也没换过：Claude Code 用默认模型，不指定
-        val bare = reopened(hub)
-        bare.restoreModel(answered = null, switched = null)
-        assertNull(bare.modelArgument())
-        // 认不出的显示名：不指定，照 Claude Code 自己恢复的
-        val foreign = reopened(hub)
-        foreign.restoreModel(answered = "claude-opus-5-5", switched = "GPT-6-Astra · Codex")
-        assertNull(foreign.modelArgument())
-        assertEquals("Opus 5.5", foreign.shownModelName(emptyList()))
-    }
-
-    @Test
-    fun reopenedConversationLeavesTheModelToClaudeCode() {
-        val hub = hub()
-        val conversation = reopened(hub)
-        assertNull(conversation.model)
-        assertTrue(conversation.modelFromSession)
-        assertTrue("--resume" in conversation.launchArguments())
-        assertNull(conversation.modelArgument())
-        // Claude Code 起来后报的是它照会话记录恢复的那个
-        conversation.receive(
-            """{"type":"system","subtype":"init","session_id":"s-old","model":"claude-sonnet-5-5"}""",
-        )
+        // Claude Code 报了在用哪个
+        conversation.core { it.copy(reportedModel = "claude-sonnet-5-5") }
         assertEquals("claude-sonnet-5-5", conversation.shownModel)
         assertEquals("Sonnet 5.5", conversation.shownModelName(emptyList()))
-        // 思考强度 Claude Code 不恢复：照会话记录
-        conversation.restoreEffort("max")
-        assertEquals("max", conversation.effort)
-        assertEquals("max", conversation.launchArgument("--effort"))
-        conversation.restoreEffort("ultra")
-        assertEquals("max", conversation.effort)
+        // 这个对话指定了的优先
+        conversation.core { it.copy(model = "fable") }
+        assertEquals("fable", conversation.shownModel)
+        assertEquals("Fable 5.2", conversation.shownModelName(options))
     }
 
-    /** 用户在这个对话里亲手选了（或定时任务、数字助理定了）才指定；选默认也要明说，不然 Claude Code 会恢复原来的。 */
     @Test
-    fun aChoiceInThisConversationIsPassedOn() {
+    fun reopenedConversationTakesTheModelFromTheSession() {
         val hub = hub()
-        val chosen = reopened(hub)
-        chosen.chooseModel("fable")
-        assertEquals("fable", chosen.modelArgument())
-        assertEquals("fable", chosen.shownModel)
-        assertFalse(chosen.modelFromSession)
-        chosen.chooseModel("default")
-        assertEquals("default", chosen.modelArgument())
-        assertEquals("默认", chosen.shownModelName(emptyList()))
-
-        val preset = reopened(hub)
-        preset.preset(model = "haiku", effort = null)
-        assertEquals("haiku", preset.modelArgument())
-        val follow = reopened(hub)
-        follow.preset(model = null, effort = "high")
-        assertNull(follow.modelArgument())
+        FakeCore().install(hub)
+        val conversation =
+            Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
+        awaitMain { conversation.view.state.key.isNotEmpty() }
+        assertNull(conversation.model)
+        assertTrue(conversation.modelFromSession)
     }
 
-    /** 分支：--fork-session 复制出的会话同样由 Claude Code 接着用原来的模型；先显示原对话显示的，思考强度、权限模式接着用原对话的。 */
+    /** 分支：在原对话的请求队列里发 conv.fork（从哪一条之后），新对话由核心那边建好，这边还没有会话号。 */
     @Test
-    fun branchLeavesTheModelToClaudeCodeAndKeepsEffort() {
+    fun branchForksInTheCore() {
         val hub = hub()
-        val source = reopened(hub)
-        // 原对话显示着 Claude Code 报来的模型（真报来时它在回答，不能分支，这里直接摆上）
-        source.force("reportedModel", "claude-fable-5-2")
-        source.restoreEffort("max")
-        source.choosePermissionMode("plan")
+        val core = FakeCore().install(hub)
+        val source = Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
+        val opened = core.next("conv.open").conv
         hub.force("currentState", source)
-        hub.showChat(
-            "旧对话",
-            listOf(
-                UserItem("u1", "你好", uuid = "uuid-1"),
-                AnswerItem("a1", "你好！", streaming = false),
-            ),
+        core.push(
+            """{"type":"conv.items","conv":"$opened","full":true,"items":[""" +
+                """{"kind":"user","id":"u1","text":"你好","uuid":"uuid-1"},{"kind":"answer","id":"a1","text":"你好！"}]}""",
         )
+        core.state(opened, """"can_rewind":true""")
+        awaitCore { source.canRewind && source.items.size == 2 }
         hub.branch("a1")
         val branch = hub.current
         assertTrue(branch !== source)
         assertNull(branch.sessionId)
-        assertNull(branch.model)
-        assertTrue(branch.modelFromSession)
-        assertNull(branch.modelArgument())
-        assertTrue("--fork-session" in branch.launchArguments())
-        assertEquals("claude-fable-5-2", branch.shownModel)
-        assertEquals("max", branch.effort)
-        // 权限模式和思考强度一样接着用原对话的
-        assertEquals("plan", branch.permissionMode)
-        assertEquals("plan", branch.launchArgument("--permission-mode"))
+        val fork = core.next("conv.fork")
+        assertEquals(opened, fork.conv)
+        assertEquals("a1", fork.str("last"))
+        assertEquals("conv.close", core.next("conv.close").method)
     }
 
     @Test
@@ -195,10 +118,5 @@ class SessionRestoreTest {
         assertEquals("Opus 5.5", modelName("default", resolved))
         assertNull(modelName("default", options))
         assertEquals("Fable", modelName("fable", options))
-        // 终端里 /model 打出来的显示名换回模型 ID
-        assertEquals("claude-fable-5-2", modelIdOfName("Fable 5.2"))
-        assertEquals("claude-opus-5", modelIdOfName("Opus 5"))
-        assertNull(modelIdOfName("GPT-6-Astra · Codex"))
-        assertNull(modelIdOfName("Opus 5.5 (1M)"))
     }
 }

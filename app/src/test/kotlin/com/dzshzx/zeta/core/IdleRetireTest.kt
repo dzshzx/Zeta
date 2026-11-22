@@ -4,7 +4,6 @@ import android.app.Application
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import java.time.Duration
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,11 +28,29 @@ class IdleRetireTest {
 
     private fun elapse(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
 
+    private lateinit var core: FakeCore
+    private lateinit var conv: String
+
+    /** 当前对话在核心里打开着、接着进程。 */
+    private fun liveCurrent(hub: ConversationHub) {
+        core = FakeCore().install(hub)
+        hub.current.prepare()
+        conv = core.next("conv.open").conv
+        core.state(conv, """"process":true""")
+        awaitCore { hub.current.isProcessAlive }
+    }
+
+    /** 核心推来忙闲。 */
+    private fun busy(hub: ConversationHub, busy: Boolean) {
+        core.state(conv, """"busy":$busy""")
+        awaitCore { hub.current.busy == busy }
+    }
+
     @Test
     fun idleCurrentRetiresAfterZetaLeavesTheScreen() {
         val hub = Fixtures.readyHub(app)
         hub.foreground = true
-        hub.current.attachLiveProcess(hub)
+        liveCurrent(hub)
         elapse(limit * 2)
         assertTrue("看着时不收", hub.current.isProcessAlive)
 
@@ -50,13 +67,13 @@ class IdleRetireTest {
     @Test
     fun answeringCurrentWaitsForTheTurnToEnd() {
         val hub = Fixtures.readyHub(app)
-        hub.current.attachLiveProcess(hub)
-        hub.current.force("busy", true)
+        liveCurrent(hub)
+        busy(hub, true)
         hub.foreground = false
         elapse(limit * 2)
         assertTrue("还在回答的不收", hub.current.isProcessAlive)
 
-        hub.current.force("busy", false)
+        busy(hub, false)
         hub.onTurnFinished(hub.current)
         elapse(limit - 60_000)
         assertTrue("从这一轮结束时算起", hub.current.isProcessAlive)

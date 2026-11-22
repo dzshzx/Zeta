@@ -3,6 +3,7 @@ package com.dzshzx.zeta.phone
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.Conversation
+import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.core.phoneCallRunning
 import com.dzshzx.zeta.shots.Fixtures
@@ -30,6 +31,7 @@ class PhoneCallInFlightTest {
     @Test
     fun onlyACallInFlightCounts() {
         val hub = Fixtures.readyHub(app)
+        FakeCore().install(hub)
         val chat =
             Conversation(hub, "/workspace/claude", sessionId = null, title = "", historyFile = null)
         hub.park(chat)

@@ -241,27 +241,4 @@ class FileDiffTest {
         assertNull(fileChangeOf("Edit", null, null))
         assertNull(fileChangeOf("Edit", json("""{"file_path":"/a"}"""), null))
     }
-
-    @Test
-    fun reducerAttachesPatchFromToolUseResult() {
-        val reducer = TranscriptReducer()
-        reducer.applyAssistant(
-            json(
-                """{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"/a","old_string":"x","new_string":"y"}}]}""",
-            ),
-        )
-        reducer.applyUser(
-            json(
-                """{"content":[{"type":"tool_result","tool_use_id":"t1","content":"The file /a has been updated successfully."}]}""",
-            ),
-            replay = false,
-            toolUseResult =
-                json(
-                    """{"structuredPatch":[{"oldStart":7,"oldLines":1,"newStart":7,"newLines":1,"lines":["-x","+y"]}]}""",
-                ),
-        )
-        val step = (reducer.items.single() as WorkItem).steps.single() as ToolStep
-        assertEquals(ToolStatus.Success, step.status)
-        assertEquals(7, notNull(step.patch).hunks.single().lines.first().oldLine)
-    }
 }

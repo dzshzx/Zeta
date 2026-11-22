@@ -33,7 +33,6 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.get
-import com.dzshzx.zeta.core.notice
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.ui.MainActivity

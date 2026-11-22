@@ -18,12 +18,15 @@ import androidx.compose.ui.unit.width
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
+import com.dzshzx.zeta.core.ContextLevel
+import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.ElicitField
+import com.dzshzx.zeta.core.ElicitationRequest
 import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.QuestionOption
-import com.dzshzx.zeta.core.QueuedMessage
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
@@ -31,8 +34,11 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.UserPrompt
+import com.dzshzx.zeta.core.conv.ConvMessage
+import com.dzshzx.zeta.core.conv.ConvMode
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.core.environment
-import com.dzshzx.zeta.core.parsePrompt
 import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.shots.Fixtures.force
@@ -40,9 +46,6 @@ import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import java.io.InputStream
 import java.io.OutputStream
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -114,21 +117,22 @@ class ChatScreenPartsShots : ShotTest() {
     fun strips() {
         val hub = chatHub()
         val conversation = hub.current
-        conversation.force("busy", true)
         conversation.force("lastActivityAt", System.currentTimeMillis())
-        conversation.force("todoSeed", listOf(todos))
-        conversation.force(
-            "queued",
-            listOf(
-                QueuedMessage("q1", "顺便把 CLAUDE.md 里的构建命令也核对一遍", emptyList(), emptyList()),
-                QueuedMessage(
-                    "q2",
-                    "改完跑一下 tools/shots Chat",
-                    emptyList(),
-                    listOf("/workspace/claude/zeta/README.md"),
-                ),
-            ),
-        )
+        conversation.core {
+            it.copy(
+                busy = true,
+                todoSeed = listOf(todos),
+                queued =
+                    listOf(
+                        ConvMessage("q1", "顺便把 CLAUDE.md 里的构建命令也核对一遍"),
+                        ConvMessage(
+                            "q2",
+                            "改完跑一下 tools/shots Chat",
+                            files = listOf("/workspace/claude/zeta/README.md"),
+                        ),
+                    ),
+            )
+        }
         shoot(
             "chat-strips",
             prepare = {
@@ -178,19 +182,25 @@ class ChatScreenPartsShots : ShotTest() {
                 ),
             )
         val conversation = hub.current
-        conversation.force("busy", true)
         conversation.force("lastActivityAt", now)
-        conversation.choosePermissionMode("auto")
-        conversation.force("effort", "xhigh")
-        conversation.force(
-            "usage",
-            ChatUsage(
-                contextTokens = 214_300,
-                contextWindow = 400_000,
-                autoCompact = true,
-                compactAt = 266_000,
-            ),
-        )
+        conversation.core {
+            it.copy(
+                busy = true,
+                mode = ConvMode(user = "auto"),
+                effort = "xhigh",
+                // 核心算好的比例和档位：压缩点 26.6 万，过了它的八成要提醒
+                usage =
+                    ChatUsage(
+                        contextTokens = 214_300,
+                        contextWindow = 400_000,
+                        autoCompact = true,
+                        compactAt = 266_000,
+                        fraction = 214_300f / 400_000,
+                        compactFraction = 266_000f / 400_000,
+                        level = ContextLevel.Warning,
+                    ),
+            )
+        }
         shoot("chat-composer-crowded") { Chat(hub) }
 
         val screen = compose.onRoot().getBoundsInRoot()
@@ -234,8 +244,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun permission() {
         val hub = chatHub()
-        hub.current.force(
-            "promptsState",
+        hub.current.showPrompts(
             listOf(
                 PermissionRequest(
                     "r1",
@@ -244,10 +253,7 @@ class ChatScreenPartsShots : ShotTest() {
                         put("command", "tools/gradle :app:assembleDebug")
                         put("description", "构建 debug 包")
                     },
-                    suggestions =
-                        Json.parseToJsonElement(
-                            """[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"tools/gradle:*"}],"behavior":"allow","destination":"localSettings"}]""",
-                        ) as JsonArray,
+                    suggestionLines = listOf("允许 Bash(tools/gradle:*)"),
                 ),
             ),
         )
@@ -258,8 +264,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun plan() {
         val hub = chatHub()
-        hub.current.force(
-            "promptsState",
+        hub.current.showPrompts(
             listOf(
                 PermissionRequest(
                     "p1",
@@ -267,6 +272,7 @@ class ChatScreenPartsShots : ShotTest() {
                     buildJsonObject {
                         put("plan", "# 改构建命令\n\n1. 改 README\n2. 改 CLAUDE.md\n3. 跑一遍门禁")
                     },
+                    isPlan = true,
                 ),
             ),
         )
@@ -277,8 +283,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun question() {
         val hub = chatHub()
-        hub.current.force(
-            "promptsState",
+        hub.current.showPrompts(
             listOf(
                 PermissionRequest(
                     "r2",
@@ -297,6 +302,7 @@ class ChatScreenPartsShots : ShotTest() {
                                 QuestionOption("先不改", "只改 README"),
                             ),
                             multiSelect = false,
+                            takesNotes = true,
                         ),
                     ),
                 ),
@@ -310,17 +316,53 @@ class ChatScreenPartsShots : ShotTest() {
     fun elicitation() {
         val hub = chatHub()
         val request =
-            parsePrompt(
-                Json.parseToJsonElement(
-                    """{"type":"control_request","request_id":"e1","request":{"subtype":"elicitation","mcp_server_name":"deploy","message":"发布前确认几项",
-            "requested_schema":{"type":"object","required":["name"],"properties":{
-            "name":{"type":"string","title":"服务名","description":"小写字母和短横线"},
-            "count":{"type":"integer","title":"实例数","minimum":1,"maximum":5,"default":2},
-            "prod":{"type":"boolean","title":"发到生产环境","default":false},
-            "region":{"type":"string","title":"地区","enum":["cn","us"],"enumNames":["中国","美国"]}}}}}""",
-                ) as JsonObject,
-            )!!
-        hub.current.force("promptsState", listOf(request))
+            ElicitationRequest(
+                "e1",
+                "deploy",
+                "发布前确认几项",
+                fields =
+                    listOf(
+                        ElicitField(
+                            "name",
+                            "服务名",
+                            "小写字母和短横线",
+                            required = true,
+                            kind = ElicitField.Kind.Text,
+                        ),
+                        ElicitField(
+                            "count",
+                            "实例数",
+                            "",
+                            required = false,
+                            kind = ElicitField.Kind.Integer,
+                            default = listOf("2"),
+                            min = 1.0,
+                            max = 5.0,
+                        ),
+                        ElicitField(
+                            "prod",
+                            "发到生产环境",
+                            "",
+                            required = false,
+                            kind = ElicitField.Kind.Toggle,
+                            default = listOf("false"),
+                        ),
+                        ElicitField(
+                            "region",
+                            "地区",
+                            "",
+                            required = false,
+                            kind = ElicitField.Kind.Single,
+                            choices =
+                                listOf(
+                                    ElicitField.Choice("cn", "中国"),
+                                    ElicitField.Choice("us", "美国"),
+                                ),
+                        ),
+                    ),
+                notice = "MCP 服务器 deploy 需要你填写信息",
+            )
+        hub.current.showPrompts(listOf(request))
         shoot("chat-elicitation") { Chat(hub) }
     }
 
@@ -328,8 +370,7 @@ class ChatScreenPartsShots : ShotTest() {
     @Test
     fun promptWaitsForThePaneToClose() {
         val hub = chatHub()
-        hub.current.force(
-            "promptsState",
+        hub.current.showPrompts(
             listOf(PermissionRequest("r3", "Bash", buildJsonObject { put("command", "ls") })),
         )
         val paneOpen = androidx.compose.runtime.mutableStateOf(true)
@@ -390,9 +431,14 @@ class ChatScreenPartsShots : ShotTest() {
 
     private fun external(name: String, occupant: Occupant?) {
         val hub = chatHub()
-        hub.current.force("blockedByExternal", true)
+        hub.current.force("external", true)
         hub.current.handoff.force("occupant", occupant)
         shoot(name) { Chat(hub) }
+    }
+
+    /** 摆出核心推来的、等用户回应的请求。 */
+    private fun Conversation.showPrompts(prompts: List<UserPrompt>) = core {
+        it.copy(prompts = prompts)
     }
 
     @androidx.compose.runtime.Composable

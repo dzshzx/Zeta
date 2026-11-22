@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
+import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DiffHunk
 import com.dzshzx.zeta.core.DiffKind
@@ -121,9 +122,9 @@ class ChatPartsShots : ShotTest() {
             model = "claude-opus-5-5",
             turns =
                 listOf(
-                    TurnUsage(TokenCounts(1200, 860, 205_000, 7_240), 0.41, 18_200),
+                    TurnUsage(TokenCounts(1200, 860, 205_000, 7_240, 214_300), 0.41, 18_200),
                     TurnUsage(
-                        TokenCounts(300, 1_100, 190_000, 2_100),
+                        TokenCounts(300, 1_100, 190_000, 2_100, 193_500),
                         0.0778,
                         6_400,
                         costEstimated = true,
@@ -133,6 +134,13 @@ class ChatPartsShots : ShotTest() {
             autoCompact = true,
             compactAt = 266_000,
             compactions = 1,
+            // 下面几项是核心算好的
+            total = TokenCounts(1_500, 1_960, 395_000, 9_340, 407_800),
+            totalCost = 0.4878,
+            costEstimated = true,
+            fraction = 214_300f / 400_000,
+            compactFraction = 266_000f / 400_000,
+            level = ContextLevel.Warning,
         )
 
     /** 用户消息（正在编辑的描边、附件）、回答、通知、图片占位、附件标签、打字中。 */

@@ -1,8 +1,5 @@
 package com.dzshzx.zeta.core
 
-import android.app.Application
-import androidx.test.core.app.ApplicationProvider
-import com.dzshzx.zeta.shots.Fixtures
 import java.io.File
 import java.nio.file.Files
 import kotlinx.serialization.json.Json
@@ -18,9 +15,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 「这一轮在不在进行、有没有后台任务在跑」写在三处：聊天页的 [Conversation]（逐条收事件）、接回后台进程时的 zeta-helper hosts（scan_host
+ * 「这一轮在不在进行、有没有后台任务在跑」除了核心（helper/conv，逐条收事件，测试在 Go 那边），还写在两处：接回后台进程时的 zeta-helper hosts （scan_host
  * 读整份输出日志）、zeta_host.sh 的看门狗（turn_running、tasks_running，闲着十分钟就结束进程）。
- * 同一份输出日志每读完一行，三处的结论都要一样，也要和样本标的一样。口径写在 zeta_host.sh 的 turn_running 上面。
+ * 同一份输出日志每读完一行，两处的结论都要一样，也要和样本标的一样。口径写在 zeta_host.sh 的 turn_running 上面。
  *
  * 样本照 Claude Code 2.1.329 的真实输出删繁（临时 HOME 上的真 claude 连假的 Messages API 抓的），键序照真的： result 行的 type
  * 不在行首；子代理内部的行带 parent_tool_use_id，后台子代理的在这一轮的 result 之后才写来，也没有 stream_event。 Claude Code 那一侧的行为由
@@ -29,7 +26,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
 class HostTurnTest {
-    private val app = ApplicationProvider.getApplicationContext<Application>()
     private lateinit var home: File
     private val processes = mutableListOf<Process>()
     private val host = File("../helper/host/zeta_host.sh").absoluteFile
@@ -340,7 +336,7 @@ class HostTurnTest {
         HostTesting.run(home, command.toList(), env)
 
     @Test
-    fun conversationHelperAndWatchdogAgreeAfterEveryLine() {
+    fun helperAndWatchdogAgreeAfterEveryLine() {
         // 每份样本的每个前缀（含一行都没有）各放一个托管目录，挂同一个“活着的 Claude Code”：助手脚本认 cmdline 里有 claude 的
         val alive =
             ProcessBuilder("bash", "-c", "exec -a claude-fake sleep 300").start().also {
@@ -387,33 +383,13 @@ class HostTurnTest {
                     val (key, turn, tasks) = line.split(' ')
                     key to State(turn = turn == "turn=1", tasks = tasks == "tasks=1")
                 }
-        // Conversation：一行一行喂，和进程送来的一样走 handle
-        val conversationSays = HashMap<String, State>()
-        val hub = Fixtures.readyHub(app)
-        for (sample in samples) {
-            val chat =
-                Conversation(
-                    hub,
-                    "/workspace/claude",
-                    sessionId = null,
-                    title = "",
-                    historyFile = null,
-                )
-            conversationSays["${sample.key}-0"] = State(chat.busy, chat.backgroundTasks > 0)
-            sample.steps.forEachIndexed { i, (_, line) ->
-                chat.receive(line)
-                conversationSays["${sample.key}-${i + 1}"] =
-                    State(chat.busy, chat.backgroundTasks > 0)
-            }
-        }
-
         val wrong = expected.mapNotNull { (key, want) ->
-            val says = listOf(conversationSays[key], helperSays[key], watchdogSays[key])
+            val says = listOf(helperSays[key], watchdogSays[key])
             if (says.all { it == want }) return@mapNotNull null
             val sample = samples.first { key.startsWith(it.key + "-") }
             val n = key.substringAfterLast('-').toInt()
             "${sample.what}，第 $n 行（${sample.steps.getOrNull(n - 1)?.second?.take(90) ?: "一行都没有"}）：" +
-                "应为 $want，Conversation ${says[0]}，scan_host ${says[1]}，看门狗 ${says[2]}"
+                "应为 $want，scan_host ${says[0]}，看门狗 ${says[1]}"
         }
         assertTrue(wrong.joinToString("\n"), wrong.isEmpty())
     }

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.conv.ConvMode
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.settings.effortRows
 import com.dzshzx.zeta.ui.settings.effortSummary
@@ -19,8 +20,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 新对话的默认值是各台主机上 Claude Code 自己的设置（[ConversationHub.claudeDefaults]）：新对话起进程时不带模型、思考强度和权限模式；
- * 对话里选的只管那个对话，不改别的对话，也不改默认值。
+ * 新对话的默认值是各台主机上 Claude Code 自己的设置（[ConversationHub.claudeDefaults]）：新对话打开时不带模型、思考强度和权限模式；
+ * 对话里选的（conv.model、conv.effort、conv.mode）只管那个对话，不改别的对话，也不改默认值。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -33,36 +34,45 @@ class ClaudeDefaultsTest {
     @Test
     fun newConversationLeavesDefaultsToClaudeCode() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         hub.updateClaudeDefaults(
             Backends.LOCAL,
             ClaudeDefaults("opus", "auto", mapOf("claude-opus-5-5" to "xhigh"), null),
         )
         val chat = conversation(hub)
-        assertNull(chat.launchArgument("--model"))
-        assertNull(chat.launchArgument("--effort"))
-        assertNull(chat.launchArgument("--permission-mode"))
         // 还没选过：输入栏显示 Claude Code 的默认权限模式
         assertNull(chat.permissionMode)
         assertEquals("auto", chat.shownPermissionMode)
+        chat.send("你好")
+        val open = core.next("conv.open")
+        assertNull(open.params["model"])
+        assertNull(open.params["effort"])
+        assertNull(open.params["mode"])
+        assertEquals("你好", core.next("conv.send").str("text"))
     }
 
     @Test
     fun choicesStayInTheirConversation() {
         val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
         val defaults = ClaudeDefaults("opus", "auto", emptyMap(), null)
         hub.updateClaudeDefaults(Backends.LOCAL, defaults)
         val chat = conversation(hub)
         chat.chooseModel("fable")
         chat.chooseEffort("low")
         chat.choosePermissionMode("plan")
-        assertEquals("fable", chat.launchArgument("--model"))
-        assertEquals("low", chat.launchArgument("--effort"))
-        assertEquals("plan", chat.launchArgument("--permission-mode"))
+        val opened = core.next("conv.open").conv
+        val model = core.next("conv.model")
+        assertEquals(opened, model.conv)
+        assertEquals("fable", model.str("value"))
+        assertEquals("low", core.next("conv.effort").str("value"))
+        assertEquals("plan", core.next("conv.mode").str("value"))
+        chat.core { it.copy(mode = ConvMode(user = "plan")) }
         assertEquals("plan", chat.shownPermissionMode)
         // 别的对话、默认值都不动
         val other = conversation(hub)
-        assertNull(other.launchArgument("--model"))
-        assertNull(other.launchArgument("--effort"))
+        assertNull(other.model)
+        assertNull(other.effort)
         assertEquals("auto", other.shownPermissionMode)
         assertEquals(defaults, hub.claudeDefaults(Backends.LOCAL))
         assertEquals("auto", hub.defaultPermissionMode(Backends.LOCAL))

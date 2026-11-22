@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -168,11 +167,11 @@ class BackendSwitchTest {
         hub.selectBackend(direct.id)
         val target = RemoteHosts.targetFor(direct.target, RemoteHost.Via.Debian)!!
         assertEquals("ssh://$DIRECT_TARGET", target)
-        hub.current.force("busy", true)
+        hub.current.core { it.copy(busy = true) }
         assertTrue(hub.hostWorking(direct.id))
         assertFalse(hub.changeVia(direct.id, RemoteHost.Via.Debian, target, null))
         assertEquals(direct, hub.remoteHost(direct.id))
-        hub.current.force("busy", false)
+        hub.current.core { it.copy(busy = false) }
         assertTrue(hub.changeVia(direct.id, RemoteHost.Via.Debian, target, "ignored"))
         val changed = hub.remoteHost(direct.id)!!
         assertEquals(RemoteHost.Via.Debian, changed.via)

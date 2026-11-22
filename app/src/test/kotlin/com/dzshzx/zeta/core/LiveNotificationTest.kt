@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.shots.Fixtures
-import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.toolTitle
 import kotlinx.serialization.json.JsonObject
@@ -245,18 +244,28 @@ class LiveNotificationTest {
         hub.showChat("t", listOf(WorkItem("w", listOf(bash.copy(status = ToolStatus.Success)))))
         assertEquals(Step("正在思考", StepKind.THINKING), focus.stepInfo)
 
-        conversation.force("status", "正在压缩上下文")
+        conversation.core { it.copy(status = "正在压缩上下文") }
         assertEquals(Step("正在压缩上下文", StepKind.STATUS), focus.stepInfo)
 
-        conversation.force(
-            "promptsState",
-            listOf(PermissionRequest("r1", "Bash", JsonObject(emptyMap()))),
-        )
+        conversation.core {
+            // 请求号别和别的测试撞上：哪些请求响过铃记在全进程共用的地方
+            it.copy(prompts = listOf(PermissionRequest("step-r1", "Bash", JsonObject(emptyMap()))))
+        }
         assertEquals(Step("需要你确认", StepKind.CONFIRMING), focus.stepInfo)
-        conversation.force(
-            "promptsState",
-            listOf(PermissionRequest("r2", "AskUserQuestion", JsonObject(emptyMap()))),
-        )
+        // 提问要用户回答：核心标好的（asks_input）
+        conversation.core {
+            it.copy(
+                prompts =
+                    listOf(
+                        PermissionRequest(
+                            "step-r2",
+                            "AskUserQuestion",
+                            JsonObject(emptyMap()),
+                            asksInput = true,
+                        ),
+                    ),
+            )
+        }
         assertEquals(Step("需要你回答", StepKind.ASKING), focus.stepInfo)
     }
 }

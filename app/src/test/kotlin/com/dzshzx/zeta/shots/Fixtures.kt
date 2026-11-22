@@ -9,9 +9,11 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.ModelOption
+import com.dzshzx.zeta.core.NoCore
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.coreItems
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.ssh.SshKey
@@ -62,11 +64,15 @@ object Fixtures {
         )
     }
 
-    /** 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。 */
+    /**
+     * 一个环境已就绪、账号已登录的 hub，并装成全应用共用的那个（[ConversationHub.get] 拿到的就是它）。对话不连核心（[NoCore]）， 要连的测试另装
+     * [com.dzshzx.zeta.core.FakeCore]。
+     */
     fun readyHub(app: Application): ConversationHub {
         nameThePhone(app)
         Settings.of(app).env = env
         val hub = ConversationHub(app) { sshKey }
+        hub.convLinks.connect = NoCore
         install(hub)
         hub.environment.setup = SetupState.Ready
         hub.environment.account =
@@ -79,6 +85,7 @@ object Fixtures {
         nameThePhone(app)
         Settings.of(app).env = null
         val hub = ConversationHub(app) { sshKey }
+        hub.convLinks.connect = NoCore
         install(hub)
         hub.environment.setup = state
         return hub
@@ -92,7 +99,7 @@ object Fixtures {
     /** 把当前对话换成这些聊天内容（标题 [title]）。 */
     fun ConversationHub.showChat(title: String, items: List<ChatItem>) {
         current.title = title
-        current.force("items", items)
+        current.coreItems(items)
     }
 
     /**

@@ -51,6 +51,8 @@ internal constructor(
     /** 正在（重新）打开，[ConvClient.connected] 不再另开一次。 */
     private var reopening = false
     private var closed = false
+    /** 带 key 重开时核心说它已经不在了（conversation_gone）：之后照打开时的参数新开，不再带 key。 */
+    private var gone = false
     /** 条目和核心那份对不上了，在等整份：这期间的替换不套。 */
     private var staleItems = false
     /** 看着的子代理：发起它的 Agent 调用 → 合并到现在的样子（还没收到整份时没有）。 */
@@ -83,6 +85,11 @@ internal constructor(
                 client.call("conv.open", params)
             }
                 .exceptionOrNull()
+            if ((failure as? ServeError)?.code == GONE) {
+                // 核心里已经没有它了（核心重启过，或没人拿着时收掉了），也没有会话号可退：照打开时给的重新开一个
+                synchronized(client.lock) { gone = true }
+                continue
+            }
             val again = synchronized(client.lock) { settle(epoch, failure) }
             client.listener.changed(this)
             if (!again) {
@@ -111,12 +118,17 @@ internal constructor(
         return again
     }
 
-    /** conv.open 的参数：会话号用最新的（新对话第一轮以后、换了会话以后都和打开时不同）；会话号变了时原来的会话记录不再对得上，不带。 */
+    /**
+     * conv.open 的参数：重新打开时带上核心给的 key（还没发过消息的分支没有会话号，只能按它找回），核心里没有了再按会话号；
+     * 会话号用最新的（新对话第一轮以后、换了会话以后都和打开时不同）；会话号变了时原来的会话记录不再对得上，不带。
+     */
     private fun openParams(): JsonObject {
         val session = view.state.session ?: spec.session
+        val key = view.state.key.takeIf { opened && !gone && it.isNotEmpty() }
         return JsonObject(
             buildMap {
                 put("conv", JsonPrimitive(name))
+                key?.let { put("key", JsonPrimitive(it)) }
                 session?.let { put("session", JsonPrimitive(it)) }
                 spec.file
                     ?.takeIf { session == spec.session }
@@ -251,12 +263,15 @@ internal constructor(
     private fun request(
         method: String,
         params: Map<String, JsonElement> = emptyMap(),
+        timeoutMs: Long? = null,
     ): JsonElement? {
         synchronized(client.lock) {
             if (closed) throw ServeError("这个对话已经关了")
             if (!view.connected) throw ServeError(NOT_CONNECTED)
         }
-        return client.call(method, JsonObject(params + ("conv" to JsonPrimitive(name))))
+        val body = JsonObject(params + ("conv" to JsonPrimitive(name)))
+        return if (timeoutMs == null) client.call(method, body)
+        else client.call(method, body, timeoutMs)
     }
 
     /** 放开这个对话：之后不再收它的推送，重连后也不再打开。连接断着时不发（那条连接一断，核心那边就放开了）。 */
@@ -404,9 +419,16 @@ internal constructor(
         )
     }
 
-    /** 载入更早的一页接到最前面（[rest] 时载完剩下的全部），读完才返回；新的一页经推送来。 */
+    /**
+     * 载入更早的一页接到最前面（[rest] 时载完剩下的全部，等得久些），读完才返回；新的一页经推送来。没读成时抛的 [ServeError] 带核心给的 code（比如
+     * history_changed）。
+     */
     fun loadEarlier(rest: Boolean = false) {
-        request("conv.earlier", mapOf("rest" to JsonPrimitive(rest)))
+        request(
+            "conv.earlier",
+            mapOf("rest" to JsonPrimitive(rest)),
+            if (rest) REST_TIMEOUT_MS else PAGE_TIMEOUT_MS,
+        )
     }
 
     /** 编辑或重新生成：[target] 是那条用户消息的条目 id，剪掉它和之后的再发这条。 */
@@ -440,13 +462,21 @@ internal constructor(
         )
     }
 
-    /** 从条目 [last] 所在那一轮之后分支：新对话由这个客户端拿着（先登记名字，核心在应答前就推它的整份状态），原对话不动。 [options] 为 null 时沿用给原对话的。 */
-    fun fork(last: String, options: ConvOptions? = null): CoreConversation {
+    /**
+     * 从条目 [last] 所在那一轮之后分支：新对话由这个客户端拿着（先登记名字，核心在应答前就推它的整份状态，登记好就交给 [registered]）， 原对话不动。 [options]
+     * 为 null 时沿用给原对话的。
+     */
+    fun fork(
+        last: String,
+        options: ConvOptions? = null,
+        registered: (CoreConversation) -> Unit = {},
+    ): CoreConversation {
         val inherited =
             synchronized(client.lock) {
                 ConvSpec(cwd = view.state.cwd, options = options ?: spec.options)
             }
         val child = client.register(inherited)
+        registered(child)
         val epoch = synchronized(client.lock) { client.epoch }
         val params = buildMap {
             put("as", JsonPrimitive(child.name))
@@ -489,6 +519,13 @@ internal constructor(
 
     private companion object {
         const val NOT_CONNECTED = "和主机的连接断了，正在重连"
+
+        /** conv.open 带 key 而核心里已经没有那个对话时的 code。 */
+        const val GONE = "conversation_gone"
+
+        /** 载入更早的一页最多等多久；载完剩下的全部（对话内查找）可能要读整份很长的记录，另给长些。 */
+        const val PAGE_TIMEOUT_MS = 60_000L
+        const val REST_TIMEOUT_MS = 10 * 60_000L
 
         fun valueParams(value: String?): Map<String, JsonElement> =
             mapOf("value" to (value?.let(::JsonPrimitive) ?: JsonNull))

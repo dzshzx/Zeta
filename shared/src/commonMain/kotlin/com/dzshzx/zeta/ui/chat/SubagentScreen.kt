@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,11 +29,11 @@ import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.NoticeItem
-import com.dzshzx.zeta.core.SubagentLog
 import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
@@ -48,12 +47,6 @@ import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.preference.PreferenceCategory
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.coroutines.delay
-
-/** 运行中多久读一次子代理的记录；连着几次没有新内容就放慢。 */
-private const val PollMs = 1_500L
-private const val SlowPollMs = 4_000L
-private const val SettleMs = 700L
 
 /** 子代理的状态怎么说。[running] 优先；不在跑又不知道结局的，是进程没等它做完就没了。 */
 fun subagentState(running: Boolean, outcome: TaskState?): String =
@@ -76,7 +69,7 @@ private fun Conversation.agentCall(toolUseId: String): ToolStep? =
 
 /**
  * 子代理查看页：聊天里点开发起子代理的那一步、后台任务面板里点子代理进来。[conversationKey] 是所在对话的 key， [toolUseId]
- * 是发起子代理的那一步。页面开着、子代理还在跑时每隔一会儿增量读一次它的记录 （前台子代理的工具调用另由输出流及时送来）；它的步骤里又派了子代理时，可以接着点进去。
+ * 是发起子代理的那一步。页面开着时核心增量读它的记录、推过来（conv.subagent）；它的步骤里又派了子代理时，可以接着点进去。
  */
 @Composable
 fun SubagentScreen(
@@ -94,12 +87,10 @@ fun SubagentScreen(
         }
         return
     }
-    val log = remember(conversation, toolUseId) { conversation.subagent(toolUseId) }
-    DisposableEffect(log) {
-        conversation.watchSubagent(log, true)
-        onDispose { conversation.watchSubagent(log, false) }
+    DisposableEffect(conversation, toolUseId) {
+        conversation.watchSubagent(toolUseId, true)
+        onDispose { conversation.watchSubagent(toolUseId, false) }
     }
-    LaunchedEffect(log) { followSubagent(conversation, log) }
     var nested by remember { mutableStateOf<String?>(null) }
     val home = hub.home(conversation.backend)
     val imagesOf =
@@ -108,7 +99,7 @@ fun SubagentScreen(
         }
     CompositionLocalProvider(LocalBackend provides conversation.backend) {
         SubagentPage(
-            log,
+            conversation.subagent(toolUseId) ?: ConvSubagent(toolUseId),
             conversation.agentCall(toolUseId),
             onBack,
             imagesOf,
@@ -121,31 +112,10 @@ fun SubagentScreen(
     }
 }
 
-/** 增量读子代理的记录，直到它结束、记录也停下来；一阵没有新内容就读得慢些。 */
-private suspend fun followSubagent(conversation: Conversation, log: SubagentLog) {
-    var idle = 0
-    while (true) {
-        val before = log.items
-        conversation.refreshSubagent(log)
-        if (conversation.subagentHasMore(log)) continue
-        if (conversation.subagentSettled(log)) break
-        idle = if (log.items == before) idle + 1 else 0
-        delay(pollDelay(log.running, idle))
-    }
-}
-
-/** 下次读记录前等多久：结束了但最后几行可能还没写下，很快再看一眼；在跑时连着几次没新内容就放慢。 */
-private fun pollDelay(running: Boolean, idle: Int): Long =
-    when {
-        !running -> SettleMs
-        idle < 4 -> PollMs
-        else -> SlowPollMs
-    }
-
 /** 页面本身：概要、交给它的指令、它的步骤（和聊天里一样的条目），运行中最后一行在动。 */
 @Composable
 fun SubagentPage(
-    log: SubagentLog,
+    log: ConvSubagent,
     call: ToolStep?,
     onBack: () -> Unit,
     imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
@@ -157,7 +127,7 @@ fun SubagentPage(
     val description =
         meta?.description?.takeIf { it.isNotBlank() }
             ?: input?.str("description")?.takeIf { it.isNotBlank() }
-    val prompt = log.prompt ?: input?.str("prompt")
+    val prompt = log.prompt.ifEmpty { null } ?: input?.str("prompt")
     val listState = rememberLazyListState()
     val markdownCache = remember { StreamingMarkdownStateCache() }
     // 一开始停在概要上；拉到底以后跟着新步骤走，往上翻就不跟了
@@ -196,7 +166,12 @@ fun SubagentPage(
 
 /** 概要：说明、状态、子代理类型、模型和工具调用次数（知道的才列）。 */
 @Composable
-private fun SubagentSummary(log: SubagentLog, description: String?, type: String?, model: String?) {
+private fun SubagentSummary(
+    log: ConvSubagent,
+    description: String?,
+    type: String?,
+    model: String?,
+) {
     PreferenceGroup {
         item(key = "title") { BasicComponent(title = description ?: "子代理") }
         item(key = "state") {
@@ -233,7 +208,7 @@ private fun SubagentSummary(log: SubagentLog, description: String?, type: String
 
 /** 状态的颜色：在跑是主题色，完成绿色，失败红色，别的不另上色。 */
 @Composable
-private fun subagentStateColor(log: SubagentLog): Color {
+private fun subagentStateColor(log: ConvSubagent): Color {
     val colors = COUITheme.colorScheme
     return when {
         log.running -> colors.primary
@@ -244,7 +219,7 @@ private fun subagentStateColor(log: SubagentLog): Color {
 }
 
 /** 一步都还没有时的说明。 */
-private fun noStepsText(log: SubagentLog): String =
+private fun noStepsText(log: ConvSubagent): String =
     when {
         log.missing -> "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
         !log.loaded -> log.failure ?: "正在读取…"
