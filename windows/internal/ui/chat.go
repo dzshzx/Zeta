@@ -64,6 +64,7 @@ func (a *App) syncChat() {
 	if a.pane == nil || a.pane.src != c {
 		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
 		p.list.LoadEarlier = func() { a.loadEarlier(p) }
+		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 		a.pane = p
 	}
 	p := a.pane

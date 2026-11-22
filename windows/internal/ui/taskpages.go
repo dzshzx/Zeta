@@ -21,12 +21,14 @@ type pageKind int
 const (
 	pageTaskList pageKind = iota
 	pageTask
+	pageSubagent
 )
 
 // subpage 是盖着的一页：任务详情页的任务 id，子代理页看着的子代理。
 type subpage struct {
-	kind pageKind
-	task string
+	kind  pageKind
+	task  string
+	agent *subagentView
 }
 
 // chatPages 是盖在聊天窗格上的各页，后开的在上面；还有各任务读到的输出、停止的确认框。
@@ -60,13 +62,17 @@ func (p *chatPane) openTask(id string) {
 	p.pages.stack = append(p.pages.stack, subpage{kind: pageTask, task: id})
 }
 
-// back 退回上一页。
+// back 退回上一页；离开子代理页时不再看着它。
 func (a *App) back(p *chatPane) {
 	s := p.pages.stack
 	if len(s) == 0 {
 		return
 	}
+	top := s[len(s)-1]
 	p.pages.stack = s[:len(s)-1]
+	if top.kind == pageSubagent {
+		a.unwatchSubagent(p, top.agent)
+	}
 }
 
 // closePages 退回聊天。
@@ -90,6 +96,8 @@ func (a *App) chatSubpage(c *ui.Context, p *chatPane) bool {
 			a.taskListPage(c, p)
 		case pageTask:
 			a.taskPage(c, p, top.task)
+		case pageSubagent:
+			a.subagentPage(c, p, top.agent)
 		}
 	})
 	a.stopDialog(c, p)
@@ -252,7 +260,7 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 }
 
 // agentRows 是子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的记录。
-func (a *App) agentRows(l *coui.List, _ *chatPane, t tasks.Task) {
+func (a *App) agentRows(l *coui.List, p *chatPane, t tasks.Task) {
 	if t.AgentType != "" {
 		l.Row(coui.Row{Title: "子代理类型", Value: t.AgentType})
 	}
@@ -261,6 +269,9 @@ func (a *App) agentRows(l *coui.List, _ *chatPane, t tasks.Task) {
 	}
 	if t.Running() && t.Progress != "" {
 		l.Row(coui.Row{Title: "正在做", Summary: t.Progress})
+	}
+	if t.ToolUseID != "" {
+		l.Row(coui.Row{Title: "查看它的步骤", Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
 	}
 }
 

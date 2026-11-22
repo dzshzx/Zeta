@@ -39,6 +39,8 @@ type Chat struct {
 	LoadImage func(file, ref string) ([]byte, error)
 	// OpenSubagent：给了时，发起子代理的那一步点了调它（参数是那一步的 tool_use id），不在原地展开。
 	OpenSubagent func(toolUseID string)
+	// ExpandWork：思考与工具调用的卡片默认展开（子代理页看它的步骤时）。
+	ExpandWork bool
 	// OpenLink：回答里的链接点了调它；没给时 http、https、mailto 的链接交给系统打开。
 	OpenLink func(url string)
 	// LoadMarkdownImage 取回答的 Markdown 里写的图片（原文里的网址或路径），返回图片文件的内容；在单独的 goroutine 里调，

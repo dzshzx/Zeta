@@ -29,6 +29,8 @@ type Conversation struct {
 	forked bool
 	// pending 是上次 Take 以后的变化。
 	pending Update
+	// subagents 是看着的子代理（subagent.go），按发起它的 Agent 调用。
+	subagents map[string]*Subagent
 }
 
 // Update 是上次 Take 以后的变化，界面在主线程上照着改自己的样子。
@@ -120,6 +122,7 @@ func (c *Conversation) open(ctx context.Context) error {
 	c.mu.Lock()
 	c.connected, c.opened = true, true
 	c.mu.Unlock()
+	c.rewatch(ctx)
 	c.client.notify()
 	return nil
 }
@@ -145,6 +148,8 @@ func (c *Conversation) apply(kind string, line []byte) bool {
 		return c.applyState(line)
 	case "conv.items":
 		return c.applyItems(line)
+	case "conv.subagent":
+		return c.applySubagent(line)
 	case "conv.turn":
 		var t Turn
 		if json.Unmarshal(line, &t) != nil {

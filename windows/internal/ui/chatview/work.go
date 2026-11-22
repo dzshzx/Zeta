@@ -30,7 +30,7 @@ const collapsedCards = 3
 func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	k := inkOf(t)
-	open := ch.flag("work:"+it.ID, false)
+	open := ch.flag("work:"+it.ID, ch.ExpandWork)
 	running := lastRunning(it.Steps)
 	coui.Surface{Shape: coui.ShapeRow, Edge: k.border}.Paint(ui.Column(c)).FillWidth().MarginY(4).Clip().Children(func() {
 		p := ui.CollapsibleBase(c, open)
