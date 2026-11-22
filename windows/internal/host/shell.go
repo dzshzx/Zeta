@@ -10,10 +10,19 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
-// LinuxName 是 Zeta 在那边的目录名（ZETA_NAME）：桌面版算手机正式版同一个包，同一个会话可以电脑和手机同时接着。
-const LinuxName = "zeta"
+// LinuxName 是 Zeta 在那边的目录名（ZETA_NAME）：正式版是 zeta，和手机正式版是同一个包；别的构建（测试版、go run、测试）是
+// zeta-dev，和手机测试版是同一个包。同一个包在一台主机上只用一份 zeta-helper 和一个核心，几个客户端读的是同一份状态。
+var LinuxName = linuxName(update.Current().Release())
+
+func linuxName(release bool) string {
+	if release {
+		return "zeta"
+	}
+	return "zeta-dev"
+}
 
 // Quote 给 shell 加单引号。
 func Quote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
