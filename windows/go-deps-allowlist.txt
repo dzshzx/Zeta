@@ -1,0 +1,6 @@
+# 桌面版（windows/）链接的第三方模块：mygo 和它带进来的（纯 Go 调系统库、排字、图像、文字编码），门禁 gate_go_deps 按本清单核对，多一个都失败
+github.com/ebitengine/purego
+github.com/egoist/mygo
+github.com/go-text/typesetting
+golang.org/x/image
+golang.org/x/text

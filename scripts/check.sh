@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Zeta 的门禁，也是 wt land 合入前跑的检查。工作站和手机 Debian 里都能跑：bash scripts/check.sh
 # 核对仓里没有 Python；Kotlin 按 ktfmt 排版、函数认知复杂度不超过上限、文件不超过行数上限
-# （scripts/format.sh）；检查三个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具和 tools/vdisplay 的
+# （scripts/format.sh）；检查四个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具、windows/ 的 Go 桌面版和 tools/vdisplay 的
 # 虚拟屏驱动 tools/vd（版本、格式、
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）和桌面版（desktop/），
@@ -37,6 +37,7 @@ gradle_blind() {
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
     tools/shots | tools/vd | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
+    windows/*) ;;
     *) return 1 ;;
   esac
 }
@@ -79,7 +80,7 @@ check_go_module() {
     # go vet 已整体跑过；测试读临时目录和 /proc，缓存看不到这些输入，每次都真跑
     "$go_root/bin/go" test -count=1 -vet=off ./...
     gate_go_run "$GOCOGNIT" -over "$MAX_COGNITIVE" .
-    gate_go_deps go-deps-allowlist.txt .
+    gate_go_deps go-deps-allowlist.txt ./...
   )
   gate_no_marker 'gocognit:ignore' "$dir/*.go"
 }
@@ -88,6 +89,9 @@ check_go_module helper
 (cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
 check_go_module tools/vdisplay
+# 桌面版：先放好它要嵌进程序的 zeta-helper、claude-switch 和脚本（见 windows/scripts/assets.sh）
+windows/scripts/assets.sh
+check_go_module windows
 
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"
