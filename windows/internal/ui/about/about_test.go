@@ -224,7 +224,8 @@ func linked(t *testing.T, dir, goos string, patterns ...string) []string {
 	args := append([]string{"-f", "{{if not .Standard}}{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}}{{end}}{{end}}{{end}}"}, patterns...)
 	var out []string
 	for _, line := range strings.Split(goList(t, dir, goos, args...), "\n") {
-		if line != "" && !slices.Contains(out, line) {
+		// Zeta 自己的模块（经 replace 引用的 helper）算在仓根 LICENSE 里，同 assets.sh
+		if line != "" && !strings.HasPrefix(line, "github.com/dzshzx/Zeta/") && !slices.Contains(out, line) {
 			out = append(out, line)
 		}
 	}

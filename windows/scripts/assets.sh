@@ -20,7 +20,7 @@ cp "$root/helper/host/zeta_host.sh" "$out/"
 
 # 第三方许可证全文，关于页列它们（windows/internal/ui/about）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
 # 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件；
-# 两边都静态链接 Go 标准库和运行时，取 GOROOT 的 LICENSE；Zeta 自己的是仓根 LICENSE。index.tsv 一行一项：用在哪、模块、版本、文件名。
+# 两边都静态链接 Go 标准库和运行时，取 GOROOT 的 LICENSE；Zeta 自己的是仓根 LICENSE（windows/ 经 replace 引用的 helper 模块也是 Zeta 自己的，不另列）。index.tsv 一行一项：用在哪、模块、版本、文件名。
 lic=$out/licenses
 mkdir -p "$lic"
 cp "$root/LICENSE" "$lic/Zeta"
@@ -32,7 +32,7 @@ licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
   shift 3
   (cd "$dir" && GOOS=$goos GOARCH=amd64 CGO_ENABLED=0 go list -deps \
     -f '{{if not .Standard}}{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}}{{end}}{{end}}{{end}}' "$@") |
-    sed '/^$/d' | LC_ALL=C sort -u |
+    sed -e '/^$/d' -e '\#^github.com/dzshzx/Zeta/#d' | LC_ALL=C sort -u |
     while read -r path version moddir; do
       file=$(find "$moddir" -maxdepth 1 -type f \( -name 'LICENSE*' -o -name 'LICENCE*' -o -name 'COPYING*' \) | LC_ALL=C sort | head -1)
       [[ -n $file ]] || {
@@ -40,7 +40,8 @@ licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
         exit 1
       }
       name=$(tr / _ <<<"$path@$version")
-      cp "$file" "$lic/$name"
+      # 两边用同一个模块的同一个版本时文件只放一份（模块缓存里的文件只读，再 cp 一次会失败）
+      [[ -e $lic/$name ]] || cp "$file" "$lic/$name"
       printf '%s\t%s\t%s\t%s\n' "$where" "$path" "$version" "$name" >>"$lic/index.tsv"
     done
 }
