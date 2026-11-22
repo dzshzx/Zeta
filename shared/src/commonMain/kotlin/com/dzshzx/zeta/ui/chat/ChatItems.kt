@@ -61,6 +61,9 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.WorkStep
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
+import com.dzshzx.zeta.ui.components.FoldResize
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
@@ -390,7 +393,7 @@ fun WorkCard(
                 .fillMaxWidth()
                 .clip(WorkCardShape)
                 .border(0.5.dp, ink.border, WorkCardShape)
-                .animateContentSize(),
+                .animateContentSize(FoldResize),
     ) {
         Row(
             modifier =
@@ -453,7 +456,7 @@ fun WorkGroup(
     ) {
         // 折叠着也直接露出改了哪些文件
         if (!expanded) CollapsedFileChanges(item.steps, onShowAll = { expanded = true })
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(visible = expanded, enter = FoldEnter, exit = FoldExit) {
             Column(
                 modifier =
                     Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
@@ -496,10 +499,10 @@ fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {
         WorkStepHeader(step, summary, images.isNotEmpty(), expanded, subagent) {
             expanded = !expanded
         }
-        AnimatedVisibility(visible = expanded && detail.isNotBlank()) {
+        AnimatedVisibility(expanded && detail.isNotBlank(), enter = FoldEnter, exit = FoldExit) {
             SelectionContainer { WorkStepDetail(step, detail) }
         }
-        AnimatedVisibility(visible = expanded && images.isNotEmpty()) {
+        AnimatedVisibility(expanded && images.isNotEmpty(), enter = FoldEnter, exit = FoldExit) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(start = 25.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

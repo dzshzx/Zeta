@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Image
@@ -66,7 +68,7 @@ fun ImageGallery(refs: List<ImageRef>, modifier: Modifier = Modifier) {
         onToggle = { expanded = !expanded },
         modifier = modifier,
     ) {
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(visible = expanded, enter = FoldEnter, exit = FoldExit) {
             GalleryPager(refs, Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp))
         }
     }

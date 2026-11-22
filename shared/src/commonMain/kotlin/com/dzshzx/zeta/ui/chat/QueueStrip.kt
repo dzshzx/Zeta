@@ -3,10 +3,6 @@ package com.dzshzx.zeta.ui.chat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -39,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.QueuedMessage
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
@@ -92,8 +90,8 @@ fun QueueStrip(
         }
         AnimatedVisibility(
             visible = expanded && multiple,
-            enter = fadeIn(tween(150)) + expandVertically(tween(180)),
-            exit = fadeOut(tween(110)) + shrinkVertically(tween(150)),
+            enter = FoldEnter,
+            exit = FoldExit,
         ) {
             Column(
                 Modifier.fillMaxWidth()

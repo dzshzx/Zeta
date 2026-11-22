@@ -3,10 +3,6 @@ package com.dzshzx.zeta.ui.chat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +46,8 @@ import com.dzshzx.zeta.core.TodoEntry
 import com.dzshzx.zeta.core.TodoStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -140,8 +138,8 @@ fun TodoStrip(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = fadeIn(tween(150)) + expandVertically(tween(180)),
-            exit = fadeOut(tween(110)) + shrinkVertically(tween(150)),
+            enter = FoldEnter,
+            exit = FoldExit,
         ) {
             Column(
                 Modifier.fillMaxWidth()

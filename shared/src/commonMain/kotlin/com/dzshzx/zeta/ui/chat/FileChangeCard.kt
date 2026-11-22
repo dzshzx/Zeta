@@ -52,6 +52,8 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -119,7 +121,7 @@ fun FileEditStepRow(step: ToolStep, change: FileChange) {
             }
             Chevron(open)
         }
-        AnimatedVisibility(visible = open) {
+        AnimatedVisibility(visible = open, enter = FoldEnter, exit = FoldExit) {
             FileChangeCard(
                 change,
                 header = false,

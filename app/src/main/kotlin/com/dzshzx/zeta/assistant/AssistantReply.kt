@@ -49,6 +49,8 @@ import com.dzshzx.zeta.ui.chat.WorkStepRow
 import com.dzshzx.zeta.ui.chat.presentation
 import com.dzshzx.zeta.ui.chat.rememberWorkInk
 import com.dzshzx.zeta.ui.chat.workIcon
+import com.dzshzx.zeta.ui.components.FoldEnter
+import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
@@ -317,7 +319,7 @@ private fun WorkRow(item: WorkItem) {
             expanded = expanded,
             onClick = { expanded = !expanded },
         )
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(visible = expanded, enter = FoldEnter, exit = FoldExit) {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
                 item.steps.forEach { step -> WorkStepRow(step, onOpenSubagent = null) }
             }
