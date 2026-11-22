@@ -29,9 +29,10 @@ var oneShots = map[string]func(e *env, p oneShotParams) (any, error){
 	"files.ls":         lsMethod,
 	"files.read":       readMethod,
 	"images.file":      fileImageMethod,
+	"system.cpu":       systemCPUMethod,
 }
 
-// oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images." 上（newCoreHandler）。
+// oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images."、"system." 上（newCoreHandler）。
 type oneShotHandler struct{ e *env }
 
 func (h oneShotHandler) Request(_ *core.Client, r core.Request) (any, error) {

@@ -412,13 +412,13 @@ object ZetaIcons {
 
     /**
      * 刻度表：240° 的仪表弧上 [steps] 格刻度，亮几格是第几档（从 1 数），指针指着当前那格；[level] 为 0 是不知道档位，刻度全暗、指针朝上。
-     * 弧从左下（150°）经正上方到右下（30°）。圆心就在画布正中，和外面的圆形按钮同心（圆弧按圆心对齐，不按外接框）； 半径 8.9，连线宽外径 19.5，在输入栏 16dp 的图标位里是
-     * 13dp，和上下文圆环（UsageControls 的 RING_OUTER）一样大。 每次调用都新建，调用方自己缓存（思考强度按钮按档位建好一组）。
+     * 弧从左下（150°）经正上方到右下（30°）。圆心就在画布正中，和外面的圆形按钮同心（圆弧按圆心对齐，不按外接框）； 连线宽的外径是
+     * [ROUND_OUTER]，和输入栏的上下文圆环（UsageControls 的 ContextRing）一样大。每次调用都新建，调用方自己缓存（思考强度按钮按档位建好一组）。
      */
     fun gauge(level: Int, steps: Int): ImageVector = icon {
         val cx = 12f
         val cy = 12f
-        val radius = 8.9f
+        val radius = (ROUND_OUTER - STROKE) / 2
         val span = 240f
         val first = 150f
         val step = span / steps
@@ -447,6 +447,9 @@ object ZetaIcons {
     }
 
     private const val STROKE = 1.7f
+
+    /** 圆形图形（刻度表、输入栏的上下文圆环）连线宽的外径，在 24 的画布里：和盾牌这类图标看上去一样大。 */
+    const val ROUND_OUTER = 19.5f
 
     /** 描边：线宽 1.7，圆头圆角。 */
     private fun ImageVector.Builder.line(d: String) = line(addPathNodes(d))

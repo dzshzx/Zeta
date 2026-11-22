@@ -74,7 +74,7 @@ class ConversationCoreTest {
         assertEquals(JsonPrimitive(true), cancel.params["recall"])
     }
 
-    /** 还没发过消息的新对话也问得到所在主机的负载（借主机的连接问 system.cpu），不会因此在核心里打开对话。 */
+    /** 主机负载借那台主机的连接问 system.cpu（还没有连接就连上）：还没发过消息的新对话也问得到，也不会因此在核心里打开对话。 */
     @Test
     fun hostCpuWithoutOpening() {
         val hub = Fixtures.readyHub(app)
@@ -83,8 +83,8 @@ class ConversationCoreTest {
             if (call.method == "system.cpu") """{"percent":42,"cores":8}"""
             else core.defaultReply(call)
         }
-        val chat = newChat(hub)
-        assertEquals(HostCpu(42, 8), chat.hostCpu())
+        newChat(hub)
+        assertEquals(HostCpu(42, 8), hub.convLinks.hostCpu(Backends.LOCAL))
         assertEquals("system.cpu", core.calls.poll()?.method)
         assertNull("问负载时打开了对话", core.calls.poll())
     }

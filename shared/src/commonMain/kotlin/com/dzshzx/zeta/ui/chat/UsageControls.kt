@@ -143,14 +143,14 @@ fun UsageButton(usage: ChatUsage, onClick: () -> Unit) {
 }
 
 /**
- * 上下文圆环：画在底栏 16dp 的图标位正中，外径 [RING_OUTER]，和盾牌、刻度表这些图标看上去一样大；线宽 [RING_STROKE]， 比图标的线（1.7/24，约
- * 1.1dp）略粗，颜色才看得清。
+ * 上下文圆环：画在底栏图标位（[BarIconSize]）正中，外径按 [ZetaIcons.ROUND_OUTER] 折算，和思考强度的刻度表一样大、一样和按钮同心； 线宽
+ * [RING_STROKE]，比图标的线（1.7/24，约 1.1dp）略粗，颜色才看得清。
  */
 @Composable
 private fun ContextRing(fraction: Float, color: Color, track: Color) {
-    Canvas(Modifier.size(16.dp)) {
+    Canvas(Modifier.size(BarIconSize)) {
         val stroke = RING_STROKE.toPx()
-        val outer = RING_OUTER.toPx()
+        val outer = size.width * ZetaIcons.ROUND_OUTER / 24f
         val inset = (size.width - outer) / 2 + stroke / 2
         val arcSize = Size(outer - stroke, outer - stroke)
         drawArc(
@@ -429,6 +429,5 @@ private fun Note(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** 上下文圆环的外径和线宽（见 [ContextRing]）。外径和思考强度的刻度表（ZetaIcons.gauge）一样，两个都和按钮同心。 */
-private val RING_OUTER = 13.dp
+/** 上下文圆环的线宽（见 [ContextRing]）。 */
 private val RING_STROKE = 1.4.dp

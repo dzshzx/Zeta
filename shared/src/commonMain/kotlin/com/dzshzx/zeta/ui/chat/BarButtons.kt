@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import io.github.suqi8.coui.kmp.basic.ChipColors
 import io.github.suqi8.coui.kmp.basic.ChipDefaults
@@ -49,6 +50,9 @@ fun BarButton(
         )
     }
 }
+
+/** IconChip 给图标的位置（COUI 定的 16dp，超出的裁掉）：底栏上自己画的图形（上下文圆环、负载数字）按它算大小。 */
+val BarIconSize = 16.dp
 
 /** 点开是菜单的底栏按钮：自己管展开状态，菜单以按钮为锚。 */
 @Composable

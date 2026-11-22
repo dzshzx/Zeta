@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/dzshzx/Zeta/helper/core"
 )
 
 // system.cpu：这台主机整机的 CPU 忙碌百分比，聊天页输入栏上的负载标识隔几秒问一次（docs/core.md「主机」）。
@@ -32,8 +31,8 @@ func readCPUTimes(stat string) (cpuTimes, error) {
 	if err != nil {
 		return cpuTimes{}, err
 	}
-	line, _, _ := strings.Cut(string(data), "\n")
-	fields := strings.Fields(line)
+	line, _, _ := bytes.Cut(data, []byte("\n")) // 后面几行（intr 一行在多核机器上有几 KB）用不着
+	fields := strings.Fields(string(line))
 	if len(fields) < 9 || fields[0] != "cpu" {
 		return cpuTimes{}, errors.New("no cpu line in " + stat)
 	}
@@ -65,10 +64,9 @@ type cpuMeter struct {
 	sleep func(time.Duration)
 
 	mu   sync.Mutex
-	at   time.Time // 上一次读的时刻，零值是还没读过
-	last cpuTimes
-	pct  int
-	ok   bool // pct 算出来了
+	at   time.Time // 上一次算出数的时刻，零值是还没有
+	last cpuTimes  // 那时的读数
+	pct  int       // 那时算出的数
 }
 
 func newCPUMeter() *cpuMeter {
@@ -85,7 +83,7 @@ func (m *cpuMeter) percent() (pct int, ok bool) {
 	defer m.mu.Unlock()
 	now := m.now()
 	age := now.Sub(m.at)
-	if !m.at.IsZero() && age >= 0 && age < cpuMinWindow && m.ok {
+	if !m.at.IsZero() && age >= 0 && age < cpuMinWindow {
 		return m.pct, true
 	}
 	cur, err := m.read()
@@ -101,11 +99,13 @@ func (m *cpuMeter) percent() (pct int, ok bool) {
 		if cur, err = m.read(); err != nil {
 			return 0, false
 		}
-		pct, ok = cpuPct(prev, cur)
+		if pct, ok = cpuPct(prev, cur); !ok {
+			return 0, false
+		}
 		now = now.Add(cpuSample)
 	}
-	m.at, m.last, m.pct, m.ok = now, cur, pct, ok
-	return pct, ok
+	m.at, m.last, m.pct = now, cur, pct
+	return pct, true
 }
 
 // cpuReply 是 system.cpu 的结果：percent 读不了时为 null；cores 是这个进程能用的逻辑核数。
@@ -114,19 +114,14 @@ type cpuReply struct {
 	Cores   int  `json:"cores"`
 }
 
-// systemHandler 做 system.*（现在只有 system.cpu）。就地采样要等 0.1 秒，挂在 HandleAsync 上。
-type systemHandler struct{ cpu *cpuMeter }
+// hostCPU 是核心里的那一份读数：几个客户端共用（CPU 是整机的）。
+var hostCPU = newCPUMeter()
 
-func (h systemHandler) Request(_ *core.Client, r core.Request) (any, error) {
-	if r.Method != "system.cpu" {
-		return nil, errors.New("unknown method: " + r.Method)
-	}
+// systemCPUMethod 做 system.cpu（oneshots.go 的 oneShots 里登记），就地采样要等 0.1 秒。
+func systemCPUMethod(_ *env, _ oneShotParams) (any, error) {
 	reply := cpuReply{Cores: runtime.NumCPU()}
-	if pct, ok := h.cpu.percent(); ok {
+	if pct, ok := hostCPU.percent(); ok {
 		reply.Percent = &pct
 	}
 	return reply, nil
 }
-
-func (systemHandler) Gone(*core.Client) {}
-func (systemHandler) Idle() bool        { return true }

@@ -776,8 +776,7 @@ private fun ConversationInput(
     Column(modifier = modifier) {
         var viewingUsage by remember { mutableStateOf(false) }
         var viewingCpu by remember { mutableStateOf(false) }
-        // 打开说明时马上再问一次，不等下一个 5 秒
-        val hostCpu = rememberHostCpu(conversation, refresh = if (viewingCpu) 1 else 0)
+        val hostCpu = rememberHostCpu(hub, conversation.backend)
         ChatPlatform.current.ConversationStrip(hub, conversation, Modifier.padding(bottom = 6.dp))
         BackgroundTaskStrip(
             conversation,
@@ -841,7 +840,7 @@ private fun ConversationInput(
                 )
             },
             status = {
-                HostCpuButton(hostCpu, onClick = { viewingCpu = true })
+                HostCpuButton({ hostCpu.value }, onClick = { viewingCpu = true })
                 UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             voice = voice,
@@ -850,7 +849,7 @@ private fun ConversationInput(
         HostCpuDialog(
             visible = viewingCpu,
             host = hub.backendName(conversation.backend),
-            cpu = hostCpu,
+            cpu = { hostCpu.value },
             onDismissRequest = { viewingCpu = false },
         )
         UsageDialog(

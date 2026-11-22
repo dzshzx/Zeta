@@ -252,16 +252,16 @@ class ChatPartsShots : ShotTest() {
                     UsageButton(usage, onClick = {})
                     UsageButton(usage.copy(contextTokens = 260_000), onClick = {})
                 }
-                // 负载标识：还不知道、闲、忙、满，以及满载的三位数
+                // 负载标识：还不知道、闲、忙、满载（只放得下两位，写 99）
                 Row(
                     Modifier.padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    HostCpuButton(null, onClick = {})
-                    HostCpuButton(HostCpu(7, 8), onClick = {})
-                    HostCpuButton(HostCpu(76, 8), onClick = {})
-                    HostCpuButton(HostCpu(100, 8), onClick = {})
+                    HostCpuButton({ null }, onClick = {})
+                    HostCpuButton({ HostCpu(7, 8) }, onClick = {})
+                    HostCpuButton({ HostCpu(76, 8) }, onClick = {})
+                    HostCpuButton({ HostCpu(100, 8) }, onClick = {})
                     UsageButton(usage, onClick = {})
                 }
                 // 底栏上真实的一排：附件、权限模式、思考强度、负载、上下文，图形一样大、都在圆的正中
@@ -275,7 +275,7 @@ class ChatPartsShots : ShotTest() {
                     }
                     PermissionModeChip(mode = "auto", onChange = {})
                     EffortChip(effort = "high", applied = "high", onChange = {})
-                    HostCpuButton(HostCpu(23, 8), onClick = {})
+                    HostCpuButton({ HostCpu(23, 8) }, onClick = {})
                     UsageButton(usage.copy(contextTokens = 60_000), onClick = {})
                 }
             }

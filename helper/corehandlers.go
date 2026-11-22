@@ -37,19 +37,18 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	// 别的 sessions.* 是侧栏对会话的操作，见 sessionmethods.go
 	m.HandleAsync("sessions.", sessionOps{e: e, convs: convs.m, lists: sessions})
 	m.HandleAsync("sessions.end_elsewhere", endElsewhereHandler{e}) // 见 endelsewhere.go
-	// 存储页、文件浏览、按路径取图片：做完就答，见 oneshots.go
+	// 存储页、文件浏览、按路径取图片、主机负载：做完就答，见 oneshots.go
 	ops := oneShotHandler{e}
 	m.HandleAsync("storage.", ops)
 	m.HandleAsync("files.", ops)
 	m.HandleAsync("images.", ops)
+	m.HandleAsync("system.", ops) // 输入栏上的负载标识，见 cpu.go
 	// 要跑 claude-switch、等进程退出，慢：各在自己的 goroutine 里做，不挡同一个客户端后面的请求
 	accounts := accountsHandler{e, quota}
 	m.HandleAsync("accounts.", accounts)
 	m.HandleAsync("quota.", accounts)
 	// 标「慢」的几个要跑 claude、连 MCP 服务器，十几秒到一分钟
 	m.HandleAsync("config.", configHandler{claudecfg.New(e.home)})
-	// 输入栏上的负载标识：整机 CPU 忙碌百分比，见 cpu.go
-	m.HandleAsync("system.", systemHandler{newCPUMeter()})
 	return &m
 }
 
