@@ -22,6 +22,6 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 ## 进度
 
 1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。
-2. 对话：输出流归约（`TranscriptReducer`）、确认与提问（`Prompts`）、控制请求、子代理与后台任务搬进 serve。同一会话的几个客户端改成订阅同一份状态：一台主机上同一个包的 serve 只留一个常驻进程，各客户端起的 serve 只把自己的输入输出转给它。
+2. 对话：输出流归约（`TranscriptReducer`）、确认与提问（`Prompts`）、控制请求、子代理与后台任务搬进 serve。输出流归约的 Go 版已有（`helper/transcript`，和 Kotlin 版由对照用例钉成一样，条目的 JSON 就是要推给客户端的格式），还没接进 serve。同一会话的几个客户端改成订阅同一份状态：一台主机上同一个包的 serve 只留一个常驻进程，各客户端起的 serve 只把自己的输入输出转给它。
 3. Windows 客户端：用 mygo 写聊天、会话列表、设置、添加远程设备，替掉 `desktop/` 和它打包的 JRE，接进发版流程。
 4. Android：手机本机的连法、额度与账号、Claude Code 配置的读写搬完以后，删掉 `shared/` 里的逻辑，`shared/` 撤掉，界面搬回 `app/`；KMP 配置、JSch、BouncyCastle 一并去掉。

@@ -1,0 +1,90 @@
+[
+    {
+        "kind": "work",
+        "id": "w:sh-1",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "sh-1",
+                "name": "Bash",
+                "input": {
+                    "command": "ls -la\r\nsecond line",
+                    "description": "! ls -la"
+                },
+                "status": "failed",
+                "result": "out\nerr\n退出码 2",
+                "images": [],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "work",
+        "id": "w:sh-2",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "sh-2",
+                "name": "Bash",
+                "input": {
+                    "command": "",
+                    "description": "! "
+                },
+                "status": "success",
+                "result": "（没有输出）",
+                "images": [],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "work",
+        "id": "w:sh-3",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "sh-3",
+                "name": "Bash",
+                "input": {
+                    "command": "true",
+                    "description": "! true"
+                },
+                "status": "success",
+                "result": "ok",
+                "images": [],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "notice",
+        "id": "n-4",
+        "text": "已停止",
+        "error": false
+    },
+    {
+        "kind": "notice",
+        "id": "n-5",
+        "text": "出错了",
+        "error": true
+    },
+    {
+        "kind": "user",
+        "id": "u-6",
+        "text": "带附件",
+        "images": [],
+        "files": [
+            "/a",
+            "@/b/"
+        ],
+        "uuid": null
+    },
+    {
+        "kind": "user",
+        "id": "u-7",
+        "text": "",
+        "images": [],
+        "files": [],
+        "uuid": "u-9"
+    }
+]

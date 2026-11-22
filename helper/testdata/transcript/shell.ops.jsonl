@@ -1,0 +1,12 @@
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"<bash-stdout>没有命令在先</bash-stdout>"}]}}
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"  <bash-input>ls -la\r\nsecond line</bash-input>"}]}}
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"<bash-stdout>out\n\n</bash-stdout><bash-stderr>err  </bash-stderr><bash-exit-code> 2 </bash-exit-code>"}]}}
+{"op":"shell","text":"<bash-input></bash-input>"}
+{"op":"shell","text":"<bash-stderr></bash-stderr><bash-stdout></bash-stdout>"}
+{"op":"shell","text":"<bash-input>true"}
+{"op":"shell","text":"<bash-stdout>ok</bash-stdout><bash-exit-code>99999999999</bash-exit-code>"}
+{"op":"shell","text":"不是命令"}
+{"op":"notice","text":"已停止","error":false}
+{"op":"notice","text":"出错了","error":true}
+{"op":"addUser","text":"带附件","files":["/a","@/b/"],"uuid":null}
+{"op":"addUser","text":"","files":[],"uuid":"u-9"}

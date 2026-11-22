@@ -1,0 +1,15 @@
+{"op":"prefix","value":"h"}
+{"op":"user","replay":true,"uuid":"uuid-1","sessionFile":"/home/u/.claude/projects/-w/s.jsonl","message":{"content":[{"type":"text","text":"[Attached file: /home/u/.cache/zeta/files/a.txt]\n[Attached file: @\"/work/b c.md\"]\n[Attached folder: @\"/work/dir//\"]\n\n  看看这些文件  "}]}}
+{"op":"assistant","history":true,"message":{"content":[{"type":"thinking","thinking":"历史里的思考"},{"type":"text","text":"历史回答"},{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/work/x.png"}}]}}
+{"op":"user","replay":false,"sessionFile":"/home/u/.claude/projects/-w/s.jsonl","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"读到图片"},{"type":"image","ref":"12.0.1"},{"type":"image","source":{"type":"base64","data":"AAAA"}}]}]}}
+{"op":"user","replay":true,"uuid":"uuid-2","sessionFile":"/home/u/.claude/projects/-w/s.jsonl","message":{"content":[{"type":"image","ref":"14.0"},{"type":"text","text":"这张图呢"}]}}
+{"op":"assistant","history":true,"message":{"id":"m9","content":[{"type":"text","text":"同一段"},{"type":"tool_use","id":"t2","name":"Grep","input":{"pattern":"x"}}]}}
+{"op":"stream","now":9000,"event":{"type":"message_start","message":{"id":"m9"}}}
+{"op":"stream","now":9000,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}}
+{"op":"stream","now":9001,"event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"同一段"}}}
+{"op":"stream","now":9002,"event":{"type":"content_block_stop","index":0}}
+{"op":"assistant","message":{"id":"m9","content":[{"type":"text","text":"同一段"}]}}
+{"op":"stream","now":9003,"event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t2","name":"Grep"}}}
+{"op":"assistant","message":{"id":"m9","content":[{"type":"tool_use","id":"t2","name":"Grep","input":{"pattern":"y"}}]}}
+{"op":"assistant","message":{"id":"m9","content":[{"type":"text","text":"新的一段"}]}}
+{"op":"finish","keepRunningTools":true}

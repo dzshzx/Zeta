@@ -1,0 +1,97 @@
+[
+    {
+        "kind": "work",
+        "id": "w:t5",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "t5",
+                "name": "Edit",
+                "input": {
+                    "file_path": "/w/a.kt"
+                },
+                "status": "success",
+                "result": "改好了",
+                "images": [],
+                "patch": {
+                    "created": false,
+                    "hunks": [
+                        {
+                            "lines": [
+                                {
+                                    "kind": "context",
+                                    "text": "a",
+                                    "old": 3,
+                                    "new": 3
+                                },
+                                {
+                                    "kind": "removed",
+                                    "text": "b",
+                                    "old": 4,
+                                    "new": null
+                                },
+                                {
+                                    "kind": "added",
+                                    "text": "c",
+                                    "old": null,
+                                    "new": 4
+                                },
+                                {
+                                    "kind": "added",
+                                    "text": "d",
+                                    "old": null,
+                                    "new": 5
+                                },
+                                {
+                                    "kind": "context",
+                                    "text": "e",
+                                    "old": 5,
+                                    "new": 6
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "kind": "tool",
+                "id": "t6",
+                "name": "Write",
+                "input": {
+                    "file_path": "/w/b.kt"
+                },
+                "status": "success",
+                "result": "建好了",
+                "images": [],
+                "patch": null
+            },
+            {
+                "kind": "tool",
+                "id": "t7",
+                "name": "Edit",
+                "input": null,
+                "status": "failed",
+                "result": "失败一\n失败二",
+                "images": [],
+                "patch": null
+            },
+            {
+                "kind": "thinking",
+                "id": "m6:0",
+                "text": "还在想",
+                "running": false,
+                "seconds": null
+            },
+            {
+                "kind": "tool",
+                "id": "t8",
+                "name": "Bash",
+                "input": null,
+                "status": "success",
+                "result": "晚到的结果",
+                "images": [],
+                "patch": null
+            }
+        ]
+    }
+]

@@ -1,0 +1,20 @@
+{"op":"prefix","value":"e-"}
+{"op":"stream","now":1,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"没有 message_start 不算"}}}
+{"op":"stream","now":1,"event":{"type":"message_start","message":{}}}
+{"op":"stream","now":1,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"消息没有 id 也不算"}}}
+{"op":"stream","now":2,"event":{"type":"message_start","message":{"id":"m1"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_start","index":"0","content_block":{"type":"tool_use","name":"NoId"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"dup","name":"A"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"dup","name":"A"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_start","index":3,"content_block":{"type":"redacted_thinking","data":"x"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":"没有这一块"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"工具块收到文字不管"}}}
+{"op":"assistant","message":{"id":"m1","content":[{"type":"redacted_thinking"},{"type":"tool_use","name":"NoId","input":{"n":[1,2.50,{"k":null}]}},"不是对象",{"no_type":true},{"type":"tool_use","id":"dup","name":"A","input":{"x":true}}]}}
+{"op":"assistant","message":{"content":[{"type":"tool_use","id":"dup","name":"A","input":{"late":1}},{"type":"tool_use","name":"B"},{"type":"text","text":"   "},{"type":"thinking","thinking":"  "}]}}
+{"op":"user","replay":true,"message":{"content":"字符串内容不回放"}}
+{"op":"user","replay":true,"message":{"content":[{"type":"image","ref":"1.0"},{"type":"image","source":{"data":"QUJD"}},{"type":"image","source":{}},{"type":"text","text":"<bash-input>有图时不当命令</bash-input>"}]}}
+{"op":"user","replay":true,"uuid":"u-x","message":{"content":[{"type":"text","text":"[Attached file: ]\n[Attached folder: plain]\n剩下的"}]}}
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"[Attached file: /only]"}]}}
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"\u001f   \t"}]}}
+{"op":"user","replay":false,"message":{"content":[{"type":"tool_result","content":"没有 id"},{"type":"tool_result","tool_use_id":"nobody","content":"没有这一步"},{"type":"tool_result","tool_use_id":"dup","is_error":"true","content":12}]}}
+{"op":"finish","keepRunningTools":false}

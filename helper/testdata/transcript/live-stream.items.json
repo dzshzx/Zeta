@@ -1,0 +1,59 @@
+[
+    {
+        "kind": "work",
+        "id": "w:m1:0",
+        "steps": [
+            {
+                "kind": "thinking",
+                "id": "m1:0",
+                "text": "想一想，完整的",
+                "running": false,
+                "seconds": 2
+            }
+        ]
+    },
+    {
+        "kind": "answer",
+        "id": "m1:1",
+        "text": "你好，世界！",
+        "streaming": false
+    },
+    {
+        "kind": "work",
+        "id": "w:toolu_1",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "toolu_1",
+                "name": "Bash",
+                "input": {
+                    "command": "ls",
+                    "timeout": 1500.0
+                },
+                "status": "success",
+                "result": "a\nb",
+                "images": [],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "answer",
+        "id": "m2:0",
+        "text": "开头接着说完",
+        "streaming": false
+    },
+    {
+        "kind": "work",
+        "id": "w:m2:1",
+        "steps": [
+            {
+                "kind": "thinking",
+                "id": "m2:1",
+                "text": "后面又想",
+                "running": false,
+                "seconds": 1
+            }
+        ]
+    }
+]

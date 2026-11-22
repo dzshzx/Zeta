@@ -1,0 +1,106 @@
+[
+    {
+        "kind": "user",
+        "id": "hu-1",
+        "text": "看看这些文件",
+        "images": [],
+        "files": [
+            "/home/u/.cache/zeta/files/a.txt",
+            "@/work/b c.md",
+            "@/work/dir/"
+        ],
+        "uuid": "uuid-1"
+    },
+    {
+        "kind": "work",
+        "id": "w:hhm-2-3",
+        "steps": [
+            {
+                "kind": "thinking",
+                "id": "hhm-2-3",
+                "text": "历史里的思考",
+                "running": false,
+                "seconds": null
+            }
+        ]
+    },
+    {
+        "kind": "answer",
+        "id": "hhm-2-4",
+        "text": "历史回答",
+        "streaming": false
+    },
+    {
+        "kind": "work",
+        "id": "w:t1",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "t1",
+                "name": "Read",
+                "input": {
+                    "file_path": "/work/x.png"
+                },
+                "status": "success",
+                "result": "读到图片",
+                "images": [
+                    {
+                        "kind": "session",
+                        "file": "/home/u/.claude/projects/-w/s.jsonl",
+                        "ref": "12.0.1"
+                    },
+                    {
+                        "kind": "inline",
+                        "key": "ht1:2",
+                        "data": "AAAA"
+                    }
+                ],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "user",
+        "id": "hu-5",
+        "text": "这张图呢",
+        "images": [
+            {
+                "kind": "session",
+                "file": "/home/u/.claude/projects/-w/s.jsonl",
+                "ref": "14.0"
+            }
+        ],
+        "files": [],
+        "uuid": "uuid-2"
+    },
+    {
+        "kind": "answer",
+        "id": "hm9-6",
+        "text": "同一段",
+        "streaming": false
+    },
+    {
+        "kind": "work",
+        "id": "w:t2",
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "t2",
+                "name": "Grep",
+                "input": {
+                    "pattern": "x"
+                },
+                "status": "running",
+                "result": null,
+                "images": [],
+                "patch": null
+            }
+        ]
+    },
+    {
+        "kind": "answer",
+        "id": "hm9-7",
+        "text": "新的一段",
+        "streaming": false
+    }
+]

@@ -10,6 +10,9 @@ import kotlinx.serialization.json.put
  *
  * 实时会话同时收到两种东西：`stream_event`（逐字增量）和 `assistant`（一个内容块的完整终稿）。
  * 增量用来即时显示，终稿到达后覆盖同一位置的内容。历史记录只有终稿。纯逻辑，不依赖 Android。
+ *
+ * 它有一份 Go 版（helper/transcript），两边由 helper/testdata/transcript 下的对照用例钉成一样（TranscriptParityTest、
+ * helper/transcript/parity_test.go）：改了这里的行为，重录期望结果，Go 版跟着改到对照测试通过。
  */
 class TranscriptReducer(private val idPrefix: String = "") {
     val items = ArrayList<ChatItem>()

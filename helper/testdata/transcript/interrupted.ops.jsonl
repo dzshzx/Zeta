@@ -1,0 +1,10 @@
+{"op":"assistant","message":{"id":"m5","content":[{"type":"tool_use","id":"t5","name":"Edit","input":{"file_path":"/w/a.kt"}},{"type":"tool_use","id":"t6","name":"Write","input":{"file_path":"/w/b.kt"}},{"type":"tool_use","id":"t7","name":"Edit"}]}}
+{"op":"user","replay":false,"toolUseResult":{"type":"update","structuredPatch":[{"oldStart":3,"newStart":3,"lines":[" a","-b","+c","+d","\\ No newline at end of file"," e"]},{"oldStart":"x","newStart":1,"lines":["+z"]},{"oldStart":10,"newStart":11,"lines":["\\ only a note"]}]},"message":{"content":[{"type":"tool_result","tool_use_id":"t5","content":"改好了"}]}}
+{"op":"user","replay":false,"toolUseResult":{"type":"create","structuredPatch":[]},"message":{"content":[{"type":"tool_result","tool_use_id":"t6","content":"建好了"},{"type":"tool_result","tool_use_id":"t7","is_error":true,"content":[{"type":"text","text":"失败一"},{"type":"text","text":"失败二"},{"type":"other"}]}]}}
+{"op":"stream","now":100,"event":{"type":"message_start","message":{"id":"m6"}}}
+{"op":"stream","now":100,"event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"还在想"}}}
+{"op":"stream","now":200,"event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t8","name":"Bash"}}}
+{"op":"stream","now":300,"event":{"type":"content_block_start","index":2,"content_block":{"type":"text","text":"  "}}}
+{"op":"finish","keepRunningTools":false}
+{"op":"user","replay":false,"message":{"content":[{"type":"tool_result","tool_use_id":"t8","content":"晚到的结果"}]}}
+{"op":"finish","keepRunningTools":false}
