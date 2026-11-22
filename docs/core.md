@@ -9,7 +9,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 新的接手：helper 编进构建序号（`helper/` 最后一次提交的时间，`git log -1 --format=%ct -- helper`，经 `-ldflags` 写入），`zeta_hello` 带 `build`（序号）和 `version`（内容哈希）。serve 比在跑的核心新时发 `core.handover`：旧核心停止接新连接，关掉到全部托管进程的连接（不跑 `detach`，进程照跑），删套接字退出；serve 随即用自己的程序拉起核心，新核心扫托管进程，把在回答、等确认、有后台任务的接上，闲着的等客户端下次发消息时照常接回。serve 比核心旧、或序号相同（同一份 helper 源码的不同开发构建）时直接用在跑的核心，不交班。
 - 协议只做加法：新方法、新字段可以加，已有的不改不删；客户端忽略不认识的字段，核心对缺的字段按零值处理。非改不可的不兼容改动提升 `protocol`，比核心旧的客户端连上时明说「主机上的 Zeta 服务比这个客户端新，请更新」。
 - 托管层不动：`zeta_host.sh` 照旧托管 Claude Code 进程，serve 重启、升级或崩溃都不结束进行中的对话；serve 里存的只是能重建的状态。
-- 客户端：Android 是 Kotlin + COUI，只剩界面、手机工具、悬浮层、无障碍、虚拟屏、数字助理、语音、通知与前台服务、闹钟、应用内更新；Windows 是 Go + mygo 的原生界面，替掉现在的 Compose Desktop。客户端共用、和界面无关的 Go 代码在仓根 `client/`（SSH 直连 `client/sshlink`；在主机上跑命令、装 zeta-helper、到 serve 的连接 `client/hostlink`）：Windows 直接链接；Android 以后经随 APK 带的 Go 程序用，手机不装 Debian 也能直连远程主机。`shared/` 里的逻辑搬完后这个模块撤掉，界面回 `app/`。
+- 客户端：Android 只用 Kotlin（界面用 COUI）写 Android 原生层（界面、手机工具里调系统接口的部分、悬浮层、无障碍、虚拟屏、数字助理、语音、通知与前台服务、闹钟、应用内更新、进 Debian 的管道），加一层协议转换：核心推来的 JSON 换成界面状态、用户操作换成请求，不写业务规则，核心算好的值（用量的比例与档位、确认的种类与说明等）直接用；其余能用 Go 写的都用 Go；Windows 是 Go + mygo 的原生界面，替掉现在的 Compose Desktop。客户端共用、和界面无关的 Go 代码在仓根 `client/`（SSH 直连 `client/sshlink`；在主机上跑命令、装 zeta-helper、到 serve 的连接 `client/hostlink`）：Windows 直接链接；Android 以后经随 APK 带的 Go 程序用，手机不装 Debian 也能直连远程主机。`shared/` 里的逻辑搬完后这个模块撤掉，界面回 `app/`。
 - 手机工具：Claude 调手机工具时，serve 把请求转给给这个对话登记了手机能力的客户端（和现在 `PhoneBridge` 的做法一样）。
 - 测试：核心的测试都是 Go 测试，在 Linux 上跑；界面测试用录好的协议消息喂界面，不依赖真核心。
 
