@@ -35,8 +35,37 @@ tasks.named<ProcessResources>("jvmProcessResources") {
     from(app.layout.projectDirectory.dir("src/main/res/font")) { into("font") }
 }
 
+// 版本号和手机版同一份（根目录的 build.gradle.kts）。MSI 只认 X.Y.Z 三段数字，预发布（0.7.2-dev.3+gabc1234）取前面的 0.7.2
+val versionLabel: String by rootProject.extra
+
 compose.desktop {
     application {
         mainClass = "com.dzshzx.zeta.desktop.MainKt"
+        // Windows 安装包（MSI）：jpackage 只能在 Windows 上打，由 .github/workflows/desktop.yml 在 GitHub 的
+        // Windows 托管机上跑
+        // :desktop:packageMsi。装在用户自己的目录下，不要管理员权限；升级靠固定的 upgradeUuid 认出旧版本。
+        nativeDistributions {
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
+            packageName = "Zeta"
+            packageVersion = versionLabel.substringBefore('-')
+            description = "经 SSH 用远程主机上的 Claude Code"
+            vendor = "dzshzx"
+            // suggestRuntimeModules 从字节码推出的。不带 jdk.localedata（约 30 MB）：要中文的星期、月份名时自己查表，见
+            // core/Quota.kt
+            modules(
+                "java.instrument",
+                "java.naming",
+                "java.security.jgss",
+                "java.sql",
+                "jdk.unsupported",
+            )
+            windows {
+                iconFile.set(layout.projectDirectory.file("icons/zeta.ico"))
+                perUserInstall = true
+                menu = true
+                shortcut = true
+                upgradeUuid = "d73fe446-ddad-4182-b6f1-fc4f8ac025fb"
+            }
+        }
     }
 }

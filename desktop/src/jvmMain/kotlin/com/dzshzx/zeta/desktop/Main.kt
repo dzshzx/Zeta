@@ -8,6 +8,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -28,6 +30,7 @@ import com.dzshzx.zeta.ui.rememberPageStack
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
 import io.github.suqi8.coui.kmp.theme.ThemeController
+import org.jetbrains.skia.Image
 
 /** Zeta 桌面版的入口：一个窗口，左边是会话列表，右边是聊天，设置等页面盖在聊天这一侧。Esc 当返回键。 */
 fun main() = application {
@@ -37,6 +40,7 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "Zeta",
+        icon = remember { windowIcon() },
         state = rememberWindowState(size = DpSize(1280.dp, 860.dp)),
         onPreviewKeyEvent = { event ->
             val escape = event.key == Key.Escape && event.type == KeyEventType.KeyDown
@@ -85,4 +89,14 @@ fun DesktopTheme(hub: ConversationHub, content: @Composable () -> Unit) {
             )
         }
     COUITheme(controller = controller) { Box(Modifier.fillMaxSize()) { content() } }
+}
+
+/** 标题栏和任务栏上的图标：resources 里的 zeta.png，由 desktop/icons/render.sh 从 zeta.svg 生成。 */
+private fun windowIcon(): BitmapPainter {
+    val bytes =
+        checkNotNull(DesktopHubPlatform::class.java.getResourceAsStream("/zeta.png")) {
+                "缺 zeta.png"
+            }
+            .use { it.readAllBytes() }
+    return BitmapPainter(Image.makeFromEncoded(bytes).toComposeImageBitmap())
 }

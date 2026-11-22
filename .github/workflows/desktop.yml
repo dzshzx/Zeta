@@ -1,0 +1,63 @@
+name: Desktop
+
+# 桌面版的 Windows 安装包（MSI）。jpackage 只能在目标系统上打包，所以在 GitHub 的 Windows 托管机上构建；
+# 打出来的包未做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
+# 手动跑一次，包在本次运行的 desktop 构件里：
+#   gh workflow run desktop.yml --ref master
+# release.yml 发版时带上 tag 调用它，版本号就是这次的 X.Y.Z。
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: 发版的 tag（vX.Y.Z），在检出里打上它，版本名就是干净的 X.Y.Z；手动跑时不打
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 版本号从 git 推出（根目录的 build.gradle.kts）
+          persist-credentials: false
+
+      - name: 安装 JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      # 装进包里、在 Linux 主机上跑的 zeta-helper 和 claude-switch 在这里交叉编译
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: helper/go.mod
+          cache: false
+
+      - name: 在检出里打上这次的 tag
+        if: inputs.tag != ''
+        env:
+          TAG: ${{ inputs.tag }}
+        run: git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || git tag "$TAG"
+
+      - name: 打 MSI
+        run: ./gradlew --console=plain :desktop:packageMsi
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop
+          path: desktop/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: error
+          retention-days: 7

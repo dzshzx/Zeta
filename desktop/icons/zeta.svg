@@ -1,0 +1,24 @@
+<!-- Zeta 桌面版图标的源头：照手机启动图标（app/src/main/res/drawable/ic_launcher_*.xml）画成圆角方块。
+     zeta.ico 和窗口用的 zeta.png 由 desktop/icons/render.sh 从它生成，改了这里就重跑那个脚本。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="10 10 88 88">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="18" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5AA8FF"/>
+      <stop offset="1" stop-color="#0F5FEE"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="38" cy="32" r="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stroke" x1="54" y1="32.72" x2="54" y2="75.92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D9E8FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="88" height="88" rx="20" fill="url(#bg)"/>
+  <rect x="10" y="10" width="88" height="88" rx="20" fill="url(#shine)"/>
+  <g fill="none" stroke-width="5.92" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43.12,34.92 L63.12,34.92 C51.12,40.92 44.32,48.52 44.32,56.52 C44.32,62.92 49.12,66.12 56.32,66.12 C61.92,66.12 64.72,68.92 63.76,72.2 C62.96,74.92 59.6,76.36 55.44,75.4" stroke="#0B3EA8" stroke-opacity="0.3"/>
+    <path d="M43.12,33.52 L63.12,33.52 C51.12,39.52 44.32,47.12 44.32,55.12 C44.32,61.52 49.12,64.72 56.32,64.72 C61.92,64.72 64.72,67.52 63.76,70.8 C62.96,73.52 59.6,74.96 55.44,74" stroke="url(#stroke)"/>
+  </g>
+</svg>

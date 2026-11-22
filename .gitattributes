@@ -1,0 +1,2 @@
+# 文本文件在任何系统上检出都是 LF：Windows 上构建桌面版时，打进安装包、到 Linux 主机上跑的脚本（zeta_host.sh 等）不能变成 CRLF
+* text=auto eol=lf

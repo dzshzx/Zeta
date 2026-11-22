@@ -8,34 +8,9 @@ plugins {
     alias(libs.plugins.licensee)
 }
 
-// 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见 CLAUDE.md「发版与上线」）：
-// - versionCode 是 HEAD 的提交数：每合入一次自动加一；同一个提交编出的测试版和正式版相同，一对就知道是哪个提交。
-// - 发版时打的 tag（v0.7.1）上，版本名就是 0.7.1（release.yml 构建前先在检出里打上这个 tag，见 docs/release.md）。
-// - 别的提交是下一个版本的预发布：0.7.2-dev.3+gabc1234 = 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。
-//   按 SemVer 它排在 0.7.1 之后、0.7.2 之前；+ 后面是构建元数据，不参与比大小。还没有正式版 tag 时以 0.7.0 为目标。
-fun git(vararg args: String): String? {
-    val out = providers.exec {
-        commandLine("git", *args)
-        isIgnoreExitValue = true
-    }
-    return out.standardOutput.asText.get().trim().takeIf {
-        out.result.get().exitValue == 0 && it.isNotEmpty()
-    }
-}
-
-val commitCount = git("rev-list", "--count", "HEAD")?.toIntOrNull() ?: 1
-val versionLabel = run {
-    val hash = git("rev-parse", "--short=7", "HEAD") ?: "unknown"
-    val described =
-        git("describe", "--tags", "--long", "--match", "v[0-9]*.[0-9]*.[0-9]*") // v0.7.1-3-gabc1234
-    val m = described?.let { Regex("""v(\d+)\.(\d+)\.(\d+)-(\d+)-g[0-9a-f]+""").matchEntire(it) }
-    when {
-        m == null -> "0.7.0-dev.$commitCount+g$hash"
-        m.groupValues[4] == "0" -> "${m.groupValues[1]}.${m.groupValues[2]}.${m.groupValues[3]}"
-        else ->
-            "${m.groupValues[1]}.${m.groupValues[2]}.${m.groupValues[3].toInt() + 1}-dev.${m.groupValues[4]}+g$hash"
-    }
-}
+// 版本号（versionCode 是提交数，versionName 从 git tag 推出）在根目录的 build.gradle.kts 里算，桌面版也用它
+val commitCount: Int by rootProject.extra
+val versionLabel: String by rootProject.extra
 
 // 正式发版证书：release/signing-certs.txt 的最后一行（SHA-256，小写十六进制，见 docs/release.md「签名」）。
 // 应用内检查更新只在本包是这张证书签的时候才查（core/update/UpdateTrust.kt），测试版和别人自己编的包不查
