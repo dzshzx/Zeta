@@ -9,15 +9,19 @@ import (
 )
 
 // bgScenario 是假 Claude 的剧本：一轮里用 Bash 起一个后台命令（同真 Claude Code 的 background_tasks_changed、task_started），
-// 读它的输出得到 output，stop_task 停它时照真的那样报 killed、stopped。
+// 读它的输出得到 output，stop_task 停它时照真的那样报 killed、stopped。第二轮把它的输出换成多一行的。
 const bgScenario = `{"steps":[{"tool":"Bash","input":{"command":"while :; do echo tick; sleep 1; done","run_in_background":true,"description":"每秒报时"},"result":"Command running in background with ID: bfake01"},` +
 	`{"emit":{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"bfake01","task_type":"local_bash","description":"每秒报时"}]}},` +
 	`{"emit":{"type":"system","subtype":"task_started","task_id":"bfake01","tool_use_id":"@TOOL@","description":"每秒报时","task_type":"local_bash"},"output":"tick\ntick\n"},` +
 	`{"text":"放到后台了"}]}
+` +
+	`{"steps":[{"emit":{"type":"system","subtype":"task_started","task_id":"bfake01","tool_use_id":"@TOOL@","description":"每秒报时","task_type":"local_bash"},"output":"tick\ntick\ntick\n"},` +
+	`{"text":"又报了一次"}]}
 `
 
 // 整条链路：经 SSH（sshtest，命令在临时家目录里真跑 bash）起 zeta-helper serve 和核心，核心起假 Claude（tools/fake-claude）。
-// 发一条消息让它起一个后台命令：状态行出现「后台任务 1 个」，点进去看到它和它的输出，停止以后变成已停止。
+// 发一条消息让它起一个后台命令：状态行出现「后台任务 1 个」，点进去看到它和它的输出（核心推来的），输出变了跟着变，
+// 停止以后变成已停止。
 func TestBackgroundTaskThroughServe(t *testing.T) {
 	f := newCoreFixture(t, 900)
 	f.fakeClaude(t, bgScenario)
@@ -39,6 +43,12 @@ func TestBackgroundTaskThroughServe(t *testing.T) {
 	f.click(t, "每秒报时")
 	f.until(t, "读到输出", func() bool { return f.shows("tick\ntick") })
 	f.see(t, "运行中", "while :; do echo tick; sleep 1; done", "输出 · 10 B")
+	// 输出变了：看着时核心每秒问一次，变了推来，页面跟着变
+	h.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+		return conv.Send(ctx, chat.Outgoing{Text: "再报一次"})
+	}, nil)
+	f.until(t, "推来新的输出", func() bool { return f.shows("tick\ntick\ntick") })
+	f.see(t, "输出 · 15 B")
 
 	f.click(t, "停止这个任务")
 	f.clickButton(t, "停止", 0)
