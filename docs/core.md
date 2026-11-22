@@ -192,7 +192,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 ## 进度
 
-1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。侧栏的操作（改名、归档、删除、导出、查、搜索、看图、接管、tmux 窗口）也已挂成核心的 `sessions.` 方法（见「会话」，`helper/sessionmethods_test.go` 经真的 serve 和核心走一遍）；还剩客户端改走它们、删掉对应的子命令。
+1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。侧栏的操作（改名、归档、删除、导出、查、搜索、看图、接管、tmux 窗口）也已挂成核心的 `sessions.` 方法（见「会话」，`helper/sessionmethods_test.go` 经真的 serve 和核心走一遍）；客户端除 `SessionHandoff` 外已改走它们，还剩它和删掉对应的子命令。
 2. 对话（已做）：输出流归约、确认与提问、控制请求、子代理与后台任务都在核心里。第一批：常驻核心与 serve 转发、输出流归约（`helper/transcript`，对照用例在 `helper/testdata/transcript`）、确认与提问（`helper/prompt`）、后台任务（`helper/tasks`）、用量（`helper/usage`）、托管连接（`helper/host`）和对话状态机（`helper/conv`），上一节的方法都能用；`helper/conv_e2e_test.go` 从 serve 经核心、`zeta_host.sh` 到假 Claude 走通一轮。第二批已做：更早历史分页、编辑与重新生成、删除一轮、还原代码、分支、子代理查看、额度、核心起来时接回还在干活的托管进程、各会话的忙闲订阅、远程主机的 tmux 窗口，核心按方法前缀分发（`core.Mux`）。一个服务端也已做：每个包一个核心，新版本的 serve 让旧核心交班（`helper/handover_test.go`、`helper/conv_e2e_test.go` 钉住交班时进行中的一轮不断），serve 只转发，会话列表、配置、账号与额度都在核心里。Android 的对话也走这套协议：`Conversation` 是核心那份对话的镜像（`core/conv` 的 `ConvClient`、`CoreConversation`，带应答的请求经 `HelperServe.call`，端到端回归 `ConvEndToEndTest`、`ConversationEndToEndTest`），Kotlin 里的归约、起进程、确认与提问的解析都已删掉。
 3. Windows 客户端：用 mygo 写的全功能桌面版（`windows/`，设计和分段见 `docs/desktop.md`），对话直接用第 2 步的 serve 协议；功能对齐后替掉 `desktop/` 和它打包的 JRE，接进发版流程。
 4. Android：手机本机的连法搬完、Claude Code 配置和账号额度改用核心的方法（随核心一起做，不另搬）以后，删掉 `shared/` 里的逻辑，`shared/` 撤掉，界面搬回 `app/`；KMP 配置、JSch、BouncyCastle 一并去掉。
