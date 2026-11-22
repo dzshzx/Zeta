@@ -72,10 +72,12 @@ func subagentState(s chat.Subagent) (string, tone) {
 		return "读取失败", toneQuiet
 	case sessionproto.SubagentMissing:
 		return "没有记录", toneQuiet
-	case sessionproto.SubagentUnfinished:
-		return "未做完", toneQuiet
+	case sessionproto.SubagentLoading, "":
+		// 空串是第一次推送还没到
+		return "正在读取", toneQuiet
 	}
-	return "正在读取", toneQuiet
+	// unfinished 和认不出的值（核心以后加的）
+	return "未做完", toneQuiet
 }
 
 // noStepsText 是一步都还没有、又不在跑时的说明：failed 是这边没看上的原因，别的照核心给的状态说。

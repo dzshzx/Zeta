@@ -132,7 +132,7 @@ func TestSubagentPromptExpands(t *testing.T) {
 	f.see(t, "展开指令")
 }
 
-// 子代理的状态由核心定（conv.subagent 的 state），这边只换成文案；还没推来时是正在读取。没有步骤时的说明也照它说。
+// 子代理的状态由核心定（conv.subagent 的 state），这边只换成文案；还没推来时是正在读取，认不出的值当未做完。没有步骤时的说明也照它说。
 func TestSubagentStateText(t *testing.T) {
 	for _, c := range []struct {
 		state, want, empty string
@@ -147,6 +147,7 @@ func TestSubagentStateText(t *testing.T) {
 		{"failed", "失败", "还没有步骤", toneFailed},
 		{"stopped", "已停止", "还没有步骤", toneQuiet},
 		{"unfinished", "未做完", "还没有步骤", toneQuiet},
+		{"paused", "未做完", "还没有步骤", toneQuiet}, // 认不出的值（核心以后加的）
 	} {
 		// 别的字段故意和 state 对不上：只看 state
 		s := chat.Subagent{State: c.state, Failure: "读不了", Running: c.state != "running", Loaded: c.state == "loading", Outcome: "completed"}
