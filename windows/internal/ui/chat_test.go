@@ -361,7 +361,7 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.showTurn(t, false)
 		f.click(t, "默认权限")
 	},
-	// 附件：「+」的菜单、带两张图和一个文件的输入栏、输入路径、常用指令（和 Compose 版同样的内容）
+	// 附件：「+」的菜单、带两张图和一个文件的输入栏、输入路径、常用指令
 	"attach-menu": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
 		f.click(t, "添加附件")
@@ -403,7 +403,7 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		}
 		f.attach(t, "常用指令")
 	},
-	// 和 Compose 版对照用：同一段对话上弹出提问、计划审批
+	// 同一段对话上弹出提问、计划审批
 	"chat-ask": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
 		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"q1","tool_name":"AskUserQuestion","input":{},"asks_input":true,
@@ -460,7 +460,7 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 	},
 }
 
-// showTurn 摆出和 Compose 桌面版对照图（desktop 的截图测试）同样的一轮：用户消息、折叠着的步骤卡、带列表和代码块的回答；
+// showTurn 摆出一轮典型的对话：用户消息、折叠着的步骤卡、带列表和代码块的回答；
 // confirm 时再发一条、在跑一步命令，等着确认。侧栏多列两个会话。
 func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{

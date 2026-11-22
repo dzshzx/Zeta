@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * 界面线程（Compose 的状态只在它上面改）：手机上是 Android 的主线程，桌面上是 Swing 的事件线程。各平台的实现在
- * META-INF/services/com.dzshzx.zeta.core.MainLoop 里登记，第一次用时经 [ServiceLoader] 取，不用等哪个入口先初始化。
+ * 界面线程（Compose 的状态只在它上面改），即 Android 的主线程。实现在 META-INF/services/com.dzshzx.zeta.core.MainLoop
+ * 里登记，第一次用时经 [ServiceLoader] 取，不用等哪个入口先初始化。
  */
 interface MainLoop {
     fun isMainThread(): Boolean

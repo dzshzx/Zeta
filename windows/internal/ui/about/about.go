@@ -34,7 +34,7 @@ type Page struct {
 	loaded     bool
 }
 
-// View 画整页：照 Compose 桌面版设置里的「关于」，一组组白色圆角卡片。
+// View 画整页：一组组白色圆角卡片，同手机版设置里的「关于」。
 func (p *Page) View(c *ui.Context) ui.Element {
 	return ui.Column(c).FillWidth().Children(func() {
 		p.aboutSection(c)

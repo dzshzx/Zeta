@@ -16,9 +16,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 输入草稿（同 Compose 版的 ComposerDrafts）：每个对话输入框里没发的字和附件，切到别的对话再回来、重开 Zeta 都还在。
+// 输入草稿（同手机版的 ComposerDrafts）：每个对话输入框里没发的字和附件，切到别的对话再回来、重开 Zeta 都还在。
 // 按会话号保管；还没开始的新对话（没有会话号、也没有内容）共用一份，记在 drafts.NewKey 下，它拿到会话号时改记过去。
-// 已经开始、还没有会话号的对话不存。存盘和 Compose 版共用设置目录里的 zeta_drafts.json（见 settings.Drafts）。
+// 已经开始、还没有会话号的对话不存。存在设置目录里的 zeta_drafts.json（见 settings.Drafts）。
 //
 // 聊天窗格每换一个对话就是一个新的 chatPane：离开时把它的字和附件收进 live，进来时放回去（还在传的文件传完照样落进去）；
 // live 里没有的从存盘的那份恢复：字和附件说明马上就有，图片在后台读回来，传上去的文件在后台核对还在不在。
@@ -143,7 +143,7 @@ func (a *App) restoreDraft(p *chatPane, r drafts.Draft) {
 			if err != nil {
 				continue
 			}
-			// 编号沿用存着的（Compose 版存的也是），不重算
+			// 编号沿用存着的，不重算
 			d := &draftImage{image: chat.Image{MediaType: im.Type, Data: base64.StdEncoding.EncodeToString(data)}, hash: im.ID}
 			d.thumb, _ = ui.DecodeBitmap(data)
 			restored = append(restored, d)

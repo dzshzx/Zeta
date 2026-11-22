@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// composeDrafts 是 Compose 版（DraftRecords.encode）存的样子，带一条坏的、一条重复的、一条空的。
+// composeDrafts 是手机版（shared 的 DraftRecords.encode）存的样子，带一条坏的、一条重复的、一条空的。
 const composeDrafts = `{"version":1,"drafts":[` +
 	`{"key":"s1","text":"还没写完😀","selection":[2,3],"images":[{"id":"6f1c-aa","type":"image/png","bytes":12}],` +
 	`"files":[{"entry":"/home/zeta/.cache/zeta/files/x/a.txt","label":"a.txt"},{"entry":"@/srv/logs/"},{"entry":"相对路径"}],"at":5},` +

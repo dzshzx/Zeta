@@ -18,7 +18,8 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
 }
 
-// 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见 CLAUDE.md「发版与上线」），手机版和桌面版共用：
+// 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见
+// CLAUDE.md「发版与上线」）。桌面版（windows/installer/build.sh）照同一算法另算：
 // - commitCount（手机版的 versionCode）是 HEAD 的提交数：每合入一次自动加一；同一个提交编出的测试版和正式版相同，一对就知道是哪个提交。
 // - 发版时打的 tag（v0.7.1）上，versionLabel 就是 0.7.1（release.yml 构建前先在检出里打上这个 tag，见 docs/release.md）。
 // - 别的提交是下一个版本的预发布：0.7.2-dev.3+gabc1234 = 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。

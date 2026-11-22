@@ -21,7 +21,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 输入栏的附件（同 Compose 版的 IntakeSink、ComposerAttachments）：图片缩好、编成 JPEG 随消息发给模型看（attach.EncodeImage）；
+// 输入栏的附件（同手机版的 IntakeSink、ComposerAttachments）：图片缩好、编成 JPEG 随消息发给模型看（attach.EncodeImage）；
 // 别的文件、文件夹传到对话所在的设备上（~/.cache/zeta/files/…），消息里带那边的路径；「输入路径」引用设备上本来就有的。
 // 收不了的（太大、读不了、太多）攒在 problems 里，弹框说一次。
 
@@ -265,7 +265,7 @@ func encodeImage(data []byte) (*draftImage, error) {
 	return &draftImage{image: img, thumb: thumb}, nil
 }
 
-// addImageData 收一张内存里的图（粘贴的）：输入栏放得下时当图片附件，放不下的当文件传（同 Compose 版的截屏）。
+// addImageData 收一张内存里的图（粘贴的）：输入栏放得下时当图片附件，放不下的当文件传。
 func (a *App) addImageData(p *chatPane, data []byte, name string) {
 	if p.att.roomForImages() <= 0 {
 		a.uploadFile(p, host.Upload{Name: name, Data: data}, name, int64(len(data)))
@@ -403,7 +403,7 @@ func containsEntry(files []*draftFile, entry string) bool {
 const tooLargeAdvice = "太大的文件传到设备上要多占一份同样大的空间，Claude 也读不完。要让 Claude 处理它，可以先把它放到设备上，" +
 	"再从附件菜单的「输入路径」引用。"
 
-// attachProblems 告诉用户哪些没有加进来、为什么（同 Compose 版的 IntakeProblemsDialog）。
+// attachProblems 告诉用户哪些没有加进来、为什么（同手机版的 IntakeProblemsDialog）。
 func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	at := &p.att
 	open := len(at.problems) > 0

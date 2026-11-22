@@ -1,6 +1,6 @@
 #!/bin/bash
 # 在 Linux 上打 Go 桌面版的 Windows 安装包：build.sh [输出目录]，输出 <输出目录>/Zeta-v<版本>.msi（默认 windows/build/），最后一行打印它的路径。
-# 1. 版本从 git 推出来，算法同根目录 build.gradle.kts 的 commitCount、versionLabel（手机版和 Compose 桌面版用的那个）：
+# 1. 版本从 git 推出来，算法同根目录 build.gradle.kts 的 commitCount、versionLabel（手机版用的那个）：
 #    versionCode 是 HEAD 的提交数，发版 tag 上版本名是干净的 X.Y.Z，别的提交是 X.Y.(Z+1)-dev.N+g<提交号>；
 #    经 -ldflags -X 写进 internal/update（mygo build 把 MYGO_LDFLAGS 加在自己的 -ldflags 后面），程序靠它显示版本、决定查不查更新。
 # 2. go tool mygo build 编 windows/amd64 的 Zeta.exe（GUI 程序，图标取 mygo.json 的 installer/icon.png），不要 mygo 自己的 NSIS 安装包。

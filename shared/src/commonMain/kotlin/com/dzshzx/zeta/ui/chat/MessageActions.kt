@@ -224,7 +224,7 @@ fun TurnActionButtons(
     }
 }
 
-/** 回答下方复制键后面的朗读键（手机上用系统的朗读引擎念）；桌面没有。 */
+/** 回答下方复制键后面的朗读键（用系统的朗读引擎念）。 */
 @Composable fun ReadAloudButton(answer: AnswerItem) = ChatPlatform.current.ReadAloudButton(answer)
 
 /** 不以回答结尾的一轮（停在工具步骤或出错提示上），操作键单独占一行，和回答下方的对齐。 */

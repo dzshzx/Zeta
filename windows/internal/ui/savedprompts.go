@@ -10,7 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 常用指令（同 Compose 版的 SavedPromptsUi.kt）：附件菜单里点开列表，点一条填进输入框（空着就整个换上，有字就插在光标处），
+// 常用指令（同手机版 shared 的 SavedPromptsUi）：附件菜单里点开列表，点一条填进输入框（空着就整个换上，有字就插在光标处），
 // 每条的「更多操作」里编辑、上移、下移、删除；「新建」时输入框里正好有字就先填上。清单存在设置里（settings.SavedPrompt）。
 
 // promptsUI 是常用指令几个对话框的状态。

@@ -30,10 +30,7 @@ import kotlin.math.min
 /** 排好版的一个公式。共用代码只存着它，交回排出它的那个 [MathEngine] 去画（手机上包着 RaTeX 的 DisplayList）。 */
 interface MathLayout
 
-/**
- * 公式的排版和绘制。手机上是 RaTeX（app 的 ui/markdown/RaTeXMath.kt）；桌面没有排版引擎（[PlainMath]），公式都按 LaTeX 原文显示。 每个平台在
- * META-INF/services 里登记一个。
- */
+/** 公式的排版和绘制：RaTeX（app 的 ui/markdown/RaTeXMath.kt），登记在 META-INF/services 里。 */
 interface MathEngine {
     /** 排版；排不了（不认识的写法、引擎不可用）是 null，界面按原文显示。在后台线程上调用。 */
     fun layout(latex: String, displayMode: Boolean): MathLayout?
@@ -64,30 +61,6 @@ interface MathEngine {
             platformService<MathEngine>()
         }
     }
-}
-
-/** 没有排版引擎（桌面）：[layout] 都是 null，块级公式按原文显示，行内公式留在文字里。 */
-class PlainMath : MathEngine {
-    override fun layout(latex: String, displayMode: Boolean): MathLayout? = null
-
-    @Composable
-    override fun DisplayMath(
-        block: MarkdownMath,
-        layout: MathLayout,
-        style: MarkdownStyle,
-        inQuote: Boolean,
-        reveal: SmoothTextRevealCoordinator?,
-        modifier: Modifier,
-    ) = error("PlainMath 不排版，不会有排好的公式")
-
-    @Composable
-    override fun inlineContent(
-        text: AnnotatedString,
-        specs: List<InlineMathSpec>,
-        textStyle: TextStyle,
-        fallbackColor: Color,
-        maxInlineWidthDp: Dp?,
-    ): Map<String, InlineTextContent> = emptyMap()
 }
 
 /** 块级公式：排好版的交给 [MathEngine] 画；没排成的保留完整 LaTeX 原文，不丢字符，支持横向滚动与划词复制。 */

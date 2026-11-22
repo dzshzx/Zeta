@@ -1,5 +1,5 @@
 // Package update 是桌面版的自动更新：读最新正式版 Release 的 update.json，下载、核对 MSI，再起一个 PowerShell 等本程序退出后装上、
-// 重新打开。做法和手机正式版、Compose 桌面版一样（docs/release.md「应用内更新」）。
+// 重新打开。做法见 docs/release.md「应用内更新」。
 package update
 
 import (

@@ -11,7 +11,7 @@ import (
 )
 
 // 各对话没发出的输入草稿的存盘，存法同 shared 的 core/ComposerDrafts.kt：设置目录里单独的 zeta_drafts.json 的 drafts 项
-// （JSON 字符串，格式和上限见 client/drafts），图片另存在 drafts/<id>，Compose 版存的这一版读得出来，反过来也一样。
+// （JSON 字符串，格式和上限见 client/drafts），图片另存在 drafts/<id>。
 
 // 草稿存在哪。
 const (

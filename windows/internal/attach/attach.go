@@ -1,4 +1,4 @@
-// Package attach 是输入栏收附件的规矩，同 shared 的 Attachments、FileLimits 和桌面版的 DesktopFile：图片缩到长边 1568、
+// Package attach 是输入栏收附件的规矩，同 shared 的 Attachments、FileLimits：图片缩到长边 1568、
 // 编成 JPEG 随消息发给模型看；别的文件传到主机上（client/hostlink 的 Upload），太大的不收。
 package attach
 

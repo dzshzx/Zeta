@@ -1,9 +1,6 @@
 package com.dzshzx.zeta.core
 
-/**
- * 存设置的键值文件，接口照 Android 的 SharedPreferences：手机上就是它（app 的 SharedPrefStore），桌面上是用户目录下的一个文件。 [Settings]
- * 和各个清单存储经它读写。
- */
+/** 存设置的键值文件，接口照 Android 的 SharedPreferences：实现是 app 的 SharedPrefStore。 [Settings] 和各个清单存储经它读写。 */
 interface PrefStore {
     fun getString(key: String, default: String?): String?
 

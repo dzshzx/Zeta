@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * 应用级的单例：当前对话和切到后台还在跑的对话（打开、切换、分支、收掉，跟上核心里在跑的），界面前后台，各台主机，以及挂在它上面的几块： 设置 [settings]、会话列表
- * [sessionList]、额度 [quota]、账号 [accounts]。手机和桌面共用这一份；只属于一边的（手机本机的 Linux 环境、 各会话的手机工具、胶囊与提醒、前台服务）在平台
+ * [sessionList]、额度 [quota]、账号 [accounts]。碰 Android 的（手机本机的 Linux 环境、 各会话的手机工具、胶囊与提醒、前台服务）在平台
  * [platform] 里，见 [HubPlatform]。
  *
  * hub 是对话事件的入口：Conversation 的事件（一轮就要结束、结束了、等确认、后台任务做完、活动变化）都调 hub 上的 on… 方法， 由 hub

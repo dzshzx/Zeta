@@ -14,7 +14,7 @@ import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-// 设置里几处共用的行：删除行、设备名一行和改名对话框。手机和桌面的设置页都用。
+// 设置里几处共用的行：删除行、设备名一行和改名对话框。
 
 /** 编辑页最下面的“删除…”：错误色的标题，点了弹确认框。 */
 @Composable

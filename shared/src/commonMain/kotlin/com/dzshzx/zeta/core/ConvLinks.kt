@@ -10,7 +10,7 @@ import com.dzshzx.zeta.core.conv.CoreConversation
 import com.dzshzx.zeta.core.conv.HostCpu
 import kotlinx.serialization.json.JsonObject
 
-/** 对话用的一条 serve 连接：发请求，不用了关掉。手机和桌面是 [HelperServe]，测试里换成假的。 */
+/** 对话用的一条 serve 连接：发请求，不用了关掉。平时是 [HelperServe]，测试里换成假的。 */
 interface ConvConnection : ServeRequests {
     fun close()
 }

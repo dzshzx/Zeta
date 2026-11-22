@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Prefs 是客户端本地存的设置（%APPDATA%\Zeta 下和 Compose 版同格式的设置文件），方法和 *settings.Store 的一样，
+// Prefs 是客户端本地存的设置（%APPDATA%\Zeta 下的设置文件，格式见 settings 包），方法和 *settings.Store 的一样，
 // 可以直接把它传进来。键和取值照 shared/…/core/Settings.kt。
 type Prefs interface {
 	// Bool 是布尔值，没设过时 ok 为 false。

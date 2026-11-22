@@ -1,5 +1,5 @@
-// 手机和桌面共用的代码：Android 和桌面（JVM）两个目标，都跑在 JVM 上，所以 commonMain 里能直接用 JDK 和 Java 库。
-// 只属于一边的放 androidMain、desktopMain。
+// 对话与中枢、设置、远程主机和 SSH、共用界面（见 CLAUDE.md「模块」）：Kotlin Multiplatform 模块，只有 Android 一个目标，
+// 跑在 JVM 上，所以 commonMain 里能直接用 JDK 和 Java 库；要 Android 接口的放 androidMain。
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
@@ -15,7 +15,6 @@ kotlin {
         compileSdk = 37
         minSdk = 35
     }
-    jvm("desktop")
 
     sourceSets {
         commonMain.dependencies {

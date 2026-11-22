@@ -7,7 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// desktopFooter 是添加设备下面的说明（同 Compose 版的 DesktopFooter）。
+// desktopFooter 是添加设备下面的说明。
 const desktopFooter = "使用本机的 SSH 配置和密钥连接。设备需运行 Linux（arm64 或 x86-64）并已安装 Claude Code；对话在设备上运行，关闭 Zeta 不会中断。"
 
 // autoKey 是「SSH 密钥」里照 ~/.ssh/config 的那一项。

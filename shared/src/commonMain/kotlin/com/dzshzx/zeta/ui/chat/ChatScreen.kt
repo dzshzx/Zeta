@@ -139,7 +139,7 @@ private fun endConfirmSummary(external: Boolean): String =
 @Composable
 fun ChatScreen(
     hub: ConversationHub,
-    /** 打开侧栏（历史对话）；侧栏一直开着时（桌面）是 null，顶栏不放这个钮。 */
+    /** 打开侧栏（历史对话）；侧栏一直开着时是 null，顶栏不放这个钮。 */
     onOpenPane: (() -> Unit)?,
     onOpenSettings: () -> Unit,
     onOpenInstall: () -> Unit,

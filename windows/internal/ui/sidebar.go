@@ -12,7 +12,7 @@ import (
 // allHostsLabel 是设备菜单里列全部设备那一项的名字。
 const allHostsLabel = "全部设备"
 
-// sidebarWidth 同 Compose 桌面版的侧栏（DesktopApp.kt 的 PaneWidth）。
+// sidebarWidth 是侧栏的宽度。
 const sidebarWidth = 300
 
 // sidebar 是左边的侧栏（照手机版的 SessionPane）：灰底铺到窗口顶边，顶上一行品牌和新对话同时是标题栏（空白处拖动窗口），
@@ -80,7 +80,7 @@ func (a *App) sidebarTop(c *ui.Context) {
 	})
 }
 
-// settingsButton 是侧栏右下角的设置按钮（同 Compose 桌面版侧栏底下右边那个），进设置页。
+// settingsButton 是侧栏右下角的设置按钮，进设置页。
 func (a *App) settingsButton(c *ui.Context) {
 	coui.CircleButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageSettings) })
 }

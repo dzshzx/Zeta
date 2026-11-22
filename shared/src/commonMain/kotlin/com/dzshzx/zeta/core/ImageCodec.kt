@@ -5,8 +5,8 @@ import java.util.ServiceLoader
 import kotlin.math.roundToInt
 
 /**
- * 把图片文件的字节解成界面能画的图：手机上用 Android 的 ImageDecoder，桌面上用 Skia。各平台的实现登记在
- * META-INF/services/com.dzshzx.zeta.core.ImageCodec 里，第一次用时经 [ServiceLoader] 取。
+ * 把图片文件的字节解成界面能画的图：用 Android 的 ImageDecoder。实现登记在 META-INF/services/com.dzshzx.zeta.core.ImageCodec
+ * 里，第一次用时经 [ServiceLoader] 取。
  */
 interface ImageCodec {
     /** 解 [bytes]，长边超过 [edge] 像素时等比缩小到 [edge]。解不开就抛出。 */

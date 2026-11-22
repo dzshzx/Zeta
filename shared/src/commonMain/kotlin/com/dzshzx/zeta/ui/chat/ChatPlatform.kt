@@ -14,8 +14,8 @@ import com.dzshzx.zeta.ui.pane.SessionExporter
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 聊天页里只有某个平台才有的东西：手机上有手机工具、浏览器、按住说话；桌面上没有。 每个平台在 META-INF/services 里登记一个（手机是 app 的
- * ui/chat/AndroidChatPlatform.kt，桌面在 desktop 模块里）。
+ * 聊天页里碰 Android 的东西：手机工具、浏览器、按住说话等。实现是 app 的 ui/chat/AndroidChatPlatform.kt， 登记在 META-INF/services
+ * 里。
  */
 interface ChatPlatform {
     /** 手机工具 [tool]（`mcp__phone__` 后面那段）这一步的标题；认不出是 null，显示「手机 · 工具名」。 */
@@ -24,7 +24,7 @@ interface ChatPlatform {
     /** 工具这一步标题行末尾的钮（手机上浏览器工具那步是「在浏览器里查看」）；没有就什么都不画。 */
     @Composable fun ToolStepAction(step: ToolStep)
 
-    /** 回答下方复制键后面的朗读键；这个平台没有朗读（桌面）就什么都不画。 */
+    /** 回答下方复制键后面的朗读键；没有朗读就什么都不画。 */
     @Composable fun ReadAloudButton(answer: AnswerItem)
 
     /** 附件菜单里「图片」「文件」用的系统选择器：选好的图片交给 [onImages]（最多 [maxImages] 张），文件交给 [onFiles]。 */
@@ -41,12 +41,12 @@ interface ChatPlatform {
 
     /**
      * 引用文件夹对话框里「用系统选择器选」：返回的函数从路径 [startPath] 打开选择器，选好的文件夹在 Linux 里的路径交给 [onPicked] （选的不在内部存储里是
-     * null）。只有手机本机那台能引用手机上的文件夹，桌面上不会用到。
+     * null）。只有手机本机那台能引用手机上的文件夹。
      */
     @Composable
     fun rememberFolderTreePicker(onPicked: (String?) -> Unit): (startPath: String) -> Unit
 
-    /** 对话所在的主机用不了时占满聊天页的说明（手机上是 Debian 的检查、安装、root 提示；桌面上是去添加远程设备）。 */
+    /** 对话所在的主机用不了时占满聊天页的说明（Debian 的检查、安装、root 提示）。 */
     @Composable
     fun Unavailable(
         hub: ConversationHub,
@@ -66,7 +66,7 @@ interface ChatPlatform {
     /** 全屏看图底栏的「保存到相册」「分享」。 */
     @Composable fun rememberImageExporter(): ImageExporter
 
-    /** 按住说话用的识别；这个平台没有（桌面、手机上没有识别服务）是 null。 */
+    /** 按住说话用的识别；手机上没有识别服务时是 null。 */
     @Composable fun rememberTalkInput(): TalkInput?
 
     companion object {

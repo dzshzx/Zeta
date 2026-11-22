@@ -14,8 +14,8 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
-// composeFile 是 Compose 桌面版（FilePrefStore）写出来的样子：各种类型都有，还有这一版不用的项。
-func composeFile(t *testing.T) (dir string, hostKey string) {
+// sampleFile 是一份设置文件：各种类型都有，还有这一版不用的项。
+func sampleFile(t *testing.T) (dir string, hostKey string) {
 	t.Helper()
 	hostKey = sshlink.EncodeHostKey(sshtest.NewKey(t).PublicKey())
 	hosts := `[{"id":"r-1","name":"工作站","target":"box","home":"/home/zeta","cwd":"/home/zeta/src","via":"direct","hostKey":"` + hostKey + `"},` +
@@ -36,8 +36,8 @@ func composeFile(t *testing.T) (dir string, hostKey string) {
 	return dir, hostKey
 }
 
-func TestComposeSettingsAreRead(t *testing.T) {
-	dir, _ := composeFile(t)
+func TestSettingsFileIsRead(t *testing.T) {
+	dir, _ := sampleFile(t)
 	s, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestComposeSettingsAreRead(t *testing.T) {
 }
 
 func TestWritingKeepsWhatThisVersionDoesNotUse(t *testing.T) {
-	dir, _ := composeFile(t)
+	dir, _ := sampleFile(t)
 	s, _ := Load(dir)
 	if err := s.SetPins([]string{"r-1/aaa"}); err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestWritingKeepsWhatThisVersionDoesNotUse(t *testing.T) {
 		}
 	}
 	if _, ok := raw["broken"]; ok {
-		t.Error("an entry Compose cannot read was kept")
+		t.Error("an entry that is not {\"t\",\"v\"} was kept")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "zeta.json.tmp")); !os.IsNotExist(err) {
 		t.Error("temporary file left behind")
@@ -86,7 +86,7 @@ func TestWritingKeepsWhatThisVersionDoesNotUse(t *testing.T) {
 }
 
 func TestRemovingAHostForgetsItsSettings(t *testing.T) {
-	dir, _ := composeFile(t)
+	dir, _ := sampleFile(t)
 	s, _ := Load(dir)
 	if err := s.SetHosts(s.Hosts()[1:]); err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestMissingAndBrokenFiles(t *testing.T) {
 	if err == nil || s.Backend() != Local {
 		t.Errorf("broken file: %v", err)
 	}
-	// 坏了的照样能写，写完是好的（同 Compose 版）
+	// 坏了的照样能写，写完是好的
 	if err := s.SetBackend("r-1"); err != nil {
 		t.Fatal(err)
 	}
@@ -148,10 +148,10 @@ func readRaw(t *testing.T, dir string) map[string]json.RawMessage {
 // 关于页和自动更新用的设置就是这份。
 var _ update.Prefs = (*Settings)(nil)
 
-func TestUpdatePrefsUseComposeKeysAndTypes(t *testing.T) {
-	dir, _ := composeFile(t)
+func TestUpdatePrefsKeysAndTypes(t *testing.T) {
+	dir, _ := sampleFile(t)
 	s, _ := Load(dir)
-	// composeFile 里存过 updateCheckedAt（l）、updateNotified（i），没存过 autoUpdateCheck
+	// sampleFile 里存过 updateCheckedAt（l）、updateNotified（i），没存过 autoUpdateCheck
 	if !s.AutoUpdateCheck() || s.UpdateCheckedAt().UnixMilli() != 1700000000000 || s.UpdateNotified() != 7 {
 		t.Errorf("read %v %v %d", s.AutoUpdateCheck(), s.UpdateCheckedAt(), s.UpdateNotified())
 	}
@@ -174,8 +174,8 @@ func TestUpdatePrefsUseComposeKeysAndTypes(t *testing.T) {
 	}
 }
 
-// 外观同 Compose 版：键 dark 是布尔值，跟随系统时没有这个键。
-func TestDarkUsesComposeKey(t *testing.T) {
+// 外观：键 dark 是布尔值，跟随系统时没有这个键（同手机版）。
+func TestDarkKey(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Load(dir)
 	if err != nil {

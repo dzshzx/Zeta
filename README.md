@@ -84,11 +84,11 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## Windows 桌面版
 
-桌面版是 Windows 上的窗口程序，只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务的显示和手机上一样。
+桌面版是 Windows 上的原生窗口程序（Go 写的），只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务的显示和手机上一样。
 
-- 安装：从 Releases 下载 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员；自带 Java 运行时，不用另装。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
+- 安装：从 Releases 下载 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员，也不用另装运行时。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
 - 更新：设置 › 关于里检查更新，有新版本时点「更新」，Zeta 下载安装包、核对校验值后退出，装好自动重新打开；也可以打开自动检查，每天第一次启动时查一次。
-- 第一次使用：点「连接远程设备」，从这台电脑的 `~/.ssh/config` 里选一台，或输入 `用户@主机[:端口]`。Zeta 用这台电脑的 OpenSSH 配置和 `~/.ssh` 里的密钥登录，不另生成密钥；设了口令的私钥和跳板机暂不支持。主机上要装好 Claude Code 并登录过。
+- 第一次使用：点「添加设备」，从这台电脑的 SSH 配置里导入一台，或手动输入 `用户@主机[:端口]`。Zeta 用这台电脑的 OpenSSH 配置和 `~/.ssh` 里的密钥登录，不另生成密钥；每台设备也能另选 `~/.ssh` 里的一把私钥；设了口令的私钥和跳板机暂不支持。主机上要装好 Claude Code 并登录过。
 - 设置存在 `%APPDATA%\Zeta`。
 
 ## 权限说明
@@ -115,7 +115,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## 从源码构建
 
-要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。Windows 桌面版的安装包在 Linux 上打：`tools/gradle :desktop:packageWindows`，要 wixl（Debian/Ubuntu 的 `wixl` 包），产物是 `desktop/build/windows/Zeta-v<版本>.msi`。
+要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。Windows 桌面版（`windows/`）在 Linux 上开发和打包：先 `windows/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]`，要 wixl（Debian/Ubuntu 的 `wixl` 包），产物是 `Zeta-v<版本>.msi`（默认在 `windows/build/`）；设计和测试见 [docs/desktop.md](docs/desktop.md)。
 
 ## 反馈
 

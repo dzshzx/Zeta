@@ -6,7 +6,7 @@ name: Release
 # version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
 # gate：调 ci.yml 跑全量门禁（wt land 合入时的门禁不含截图测试，这里一个不落）；这个提交已经过了全量门禁就跳过：
 # dry run、每晚或手动的 CI 在它上面成功跑过。所以 dry run 之后的正式发版不再跑一遍。
-# build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）；desktop 同时在那里打桌面版的 MSI（不签名）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
+# build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）；desktop 同时在那里打 Go 桌面版（windows/）的 MSI（不签名）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
 # 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：建草稿、打 tag、发布，只有它能写仓库。
 # dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
 # 只放 master 时，别的分支到 sign 就停。
@@ -131,7 +131,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # 桌面版的 Windows 安装包，和 APK 一起发；全在 Linux 上打（desktop/windows/package.sh），没做代码签名。
+  # 桌面版（windows/，Go + mygo）的 Windows 安装包，和 APK 一起发；全在 Linux 上打（windows/installer/build.sh），没做代码签名。
   desktop:
     needs: [version, gate]
     if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
@@ -145,21 +145,14 @@ jobs:
       - name: 检出
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # 版本号从 git 推出（根目录的 build.gradle.kts）
+          fetch-depth: 0 # 版本号从 git 推出（算法见 windows/installer/build.sh 开头）
           persist-credentials: false
 
-      - name: 安装 JDK 25
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '25'
-          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}
-
-      # 装进包里、在 Linux 主机上跑的 zeta-helper 和 claude-switch 要编
+      # 编 Zeta.exe 和嵌进它、装到 Linux 主机上的 zeta-helper、claude-switch（helper/go.mod 是同一个 Go 版本）
       - name: 安装 Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: helper/go.mod
+          go-version-file: windows/go.mod
           cache: false
 
       - name: 托管机上装 wixl
@@ -176,14 +169,18 @@ jobs:
           got=$(git describe --tags --exact-match --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD)
           [ "$got" = "$TAG" ] || { echo "::error::HEAD 上的 tag 是 $got，不是 $TAG"; exit 1; }
 
+      # assets.sh 放好嵌进程序的 zeta-helper、claude-switch、托管脚本和许可证全文；build.sh 编 Zeta.exe、用 wixl 打 MSI
       - name: 打 MSI
-        run: tools/gradle --console=plain :desktop:packageWindows
+        run: |
+          set -euo pipefail
+          windows/scripts/assets.sh
+          windows/installer/build.sh "$RUNNER_TEMP/msi"
 
       - name: 上传安装包
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop
-          path: desktop/build/windows/Zeta-v${{ needs.version.outputs.version }}.msi
+          path: ${{ runner.temp }}/msi/Zeta-v${{ needs.version.outputs.version }}.msi
           if-no-files-found: error
           retention-days: 7
 

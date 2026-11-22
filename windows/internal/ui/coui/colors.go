@@ -1,5 +1,5 @@
 // Package coui 是桌面版的 COUI 2（ColorOS 17）外观：浅色、深色两套配色，字号，和界面常用的几样组件
-// （页面与卡片分组、列表行、开关、按钮、输入框、菜单、对话框、提示条）。数值照手机版和 Compose 桌面版：
+// （页面与卡片分组、列表行、开关、按钮、输入框、菜单、对话框、提示条）。数值照手机版：
 // COUI 2 库（io.github.suqi8.coui.kmp，https://github.com/suqi8/coui）的 lightColorScheme、darkColorScheme、
 // TextStyles 和各组件的默认值，Zeta 在 shared 的 ui/components/coui2、ui/chat、ui/pane 里补的，各处注释写着出处。
 //
@@ -25,7 +25,7 @@ type Colors struct {
 	// Hover 是悬停、菜单行按下（hover），Press 是按下（press）。
 	Tint, Chip, Hover, Press ui.Color
 	// Button 是次按钮的底色（secondaryButton）；DialogButton 是对话框里普通按钮的底色，DialogBlock 是对话框里
-	// 命令、代码块的底色（对照 Compose 桌面版截图取的值：对话框是灰底，按钮比它亮，代码块比它暗）。
+	// 命令、代码块的底色（自定的值：对话框是灰底，按钮比它亮，代码块比它暗）。
 	Button, DialogButton, DialogBlock ui.Color
 	// Field 是输入栏、排队条的面板（container4 叠在 background 上），Edge 是它的细边（container4）；
 	// CodeHeader、CodeBody 是代码块的语言栏和正文（fillThin、container4 各叠一层），CodeEdge 是代码块的边（container8）。
@@ -50,11 +50,11 @@ type Colors struct {
 	// Mask 是对话框后面的遮罩（mask），Shadow 是浮起元素的阴影色。
 	Mask, Shadow ui.Color
 	// 毛玻璃上叠的那层（手机上是 COUI 17 的材质模糊，MaterialBlur.kt，这里是高斯模糊加半透明底色，
-	// 落在白底、黑底上时和 Compose 版的不透明底色一样）：对话框、菜单、浮起的圆按钮和顶栏、输入栏。
+	// 落在白底、黑底上时等于不开毛玻璃时的不透明底色）：对话框、菜单、浮起的圆按钮和顶栏、输入栏。
 	DialogGlass, PopupGlass, BarGlass, FieldGlass ui.Color
 }
 
-// light、dark 是 COUI 2 的两套默认配色（Compose 桌面版没有改过任何槽位）。
+// light、dark 是 COUI 2 的两套默认配色，没有改过任何槽位。
 var (
 	light = &Colors{
 		Window:   ui.Hex("#FFFFFF"),

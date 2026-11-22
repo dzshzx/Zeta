@@ -12,7 +12,7 @@ const LatestURL = "https://github.com/dzshzx/Zeta/releases/latest/download/updat
 const (
 	// maxManifestBytes：清单只有一两 KB，比这大的不当它是清单。
 	maxManifestBytes = 256 << 10
-	// maxMSIBytes：MSI 大小的上限，挡住写错的清单把磁盘写满。Go 版的 MSI 只有十来 MB，Compose 版带着 JRE 约 115 MB。
+	// maxMSIBytes：MSI 大小的上限，挡住写错的清单把磁盘写满。MSI 只有二十来 MB，留足余量。
 	maxMSIBytes = 2 << 30
 )
 

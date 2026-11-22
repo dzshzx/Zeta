@@ -96,5 +96,5 @@ private fun TrackIme(connection: SwipeKeyboard) {
     SideEffect { connection.imeVisible = visible }
 }
 
-/** 屏幕上的输入法开着（手机）；桌面没有，总是 false。 */
+/** 屏幕上的输入法开着。 */
 @Composable expect fun imeVisible(): Boolean

@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Zeta"
 
-include(":app", ":shared", ":desktop")
+include(":app", ":shared")

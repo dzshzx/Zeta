@@ -13,7 +13,7 @@ import (
 // 脚本写成 MSI 旁边的 install.ps1（UTF-8 带 BOM：Windows PowerShell 5.1 读不带 BOM 的文件按系统代码页解码，中文路径会乱），
 // 用 powershell.exe -NoProfile -ExecutionPolicy Bypass -File 起。不用 -EncodedCommand、-WindowStyle Hidden：有的杀毒软件
 // （实测卡巴斯基）把「隐藏窗口加编码命令」当恶意脚本拒绝起进程，还会把本进程之后起的进程全拦下；控制台窗口由起进程时的
-// CREATE_NO_WINDOW 免掉，和 Compose 版经 Java 起的一样。对话的 Claude Code 进程在远程主机上由托管脚本管着，Zeta 退出不影响。
+// CREATE_NO_WINDOW 免掉。对话的 Claude Code 进程在远程主机上由托管脚本管着，Zeta 退出不影响。
 type Installer struct {
 	Log string // msiexec 的安装记录（/l），装不上时看它；放在设置目录的 diag/msi-install.log
 }

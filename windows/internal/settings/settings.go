@@ -28,7 +28,7 @@ type Settings struct {
 	store *Store
 }
 
-// Dir 是设置所在的目录：Windows 上是 %APPDATA%\Zeta（同 Compose 版），别的系统上是 $XDG_CONFIG_HOME/zeta-desktop。
+// Dir 是设置所在的目录：Windows 上是 %APPDATA%\Zeta，别的系统上是 $XDG_CONFIG_HOME/zeta-desktop。
 func Dir() (string, error) {
 	if runtime.GOOS == "windows" {
 		if appData := os.Getenv("APPDATA"); appData != "" {
@@ -42,7 +42,7 @@ func Dir() (string, error) {
 	return filepath.Join(config, "zeta-desktop"), nil
 }
 
-// Load 打开目录 dir 里的设置文件 zeta.json（同 Compose 版的 Settings.FILE）。读不成时给一份空的能用的设置，同时返回原因。
+// Load 打开目录 dir 里的设置文件 zeta.json。读不成时给一份空的能用的设置，同时返回原因。
 func Load(dir string) (*Settings, error) {
 	store, err := Open(filepath.Join(dir, "zeta.json"))
 	return &Settings{store: store}, err
@@ -122,7 +122,7 @@ func hostOf(key string) string {
 	return Local
 }
 
-// 更新用到的三项（update.Prefs），键同 Compose 版：手机、Compose 桌面版和这一版读写的是同一组。
+// 更新用到的三项（update.Prefs），键和手机版的一样。
 const (
 	keyAutoUpdateCheck = "autoUpdateCheck" // 每天最多自动检查一次新版本，默认开
 	keyUpdateCheckedAt = "updateCheckedAt" // 上次检查的时间（Unix 毫秒，Kotlin 的 Long）

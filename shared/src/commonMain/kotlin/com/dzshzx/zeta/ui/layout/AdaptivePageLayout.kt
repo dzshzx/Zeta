@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** 不受界面缩放影响的系统密度：判断宽屏布局时用它，免得缩放一改布局就跳。手机的 ZetaTheme 提供；桌面不缩放，没有它。 */
+/** 不受界面缩放影响的系统密度：判断宽屏布局时用它，免得缩放一改布局就跳。ZetaTheme 提供。 */
 val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 
 private val WideScreenMinWidth = 600.dp

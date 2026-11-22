@@ -35,7 +35,7 @@ class Mirrors(
 }
 
 /**
- * 取更新清单、下载安装包（手机的 APK、桌面版的 MSI）：每个地址按 [Mirrors] 给的顺序试，前一个连不上、超时、HTTP 出错或内容不对就换下一个。 都不行时抛
+ * 取更新清单、下载手机版的 APK：每个地址按 [Mirrors] 给的顺序试，前一个连不上、超时、HTTP 出错或内容不对就换下一个。 都不行时抛
  * [UpdateException]，原因里每个地址各一句。只用 [HttpURLConnection]，走系统的代理设置。
  */
 class UpdateHttp(

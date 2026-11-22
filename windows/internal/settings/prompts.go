@@ -7,7 +7,7 @@ import (
 )
 
 // 常用指令（用户存下来的提问），同 shared 的 SavedPrompts.kt：存在设置文件的 savedPrompts 下（JSON 数组的字符串），
-// 和 Compose 版、手机版的写法一样。顺序就是用户排的顺序，新加的放最前面。
+// 和手机版的写法一样。顺序就是用户排的顺序，新加的放最前面。
 
 const keyPrompts = "savedPrompts"
 

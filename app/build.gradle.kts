@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.licensee)
 }
 
-// 版本号（versionCode 是提交数，versionName 从 git tag 推出）在根目录的 build.gradle.kts 里算，桌面版也用它
+// 版本号（versionCode 是提交数，versionName 从 git tag 推出）在根目录的 build.gradle.kts 里算
 val commitCount: Int by rootProject.extra
 val versionLabel: String by rootProject.extra
 

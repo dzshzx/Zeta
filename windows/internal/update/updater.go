@@ -41,7 +41,7 @@ type Status struct {
 	Reason   string    // CheckFailed、Failed 的原因，给人看的一句话
 }
 
-// Prefs 是更新用到的三项设置，和手机、Compose 版共用同一组键：autoUpdateCheck（布尔，默认 true）、
+// Prefs 是更新用到的三项设置，键和手机版的一样：autoUpdateCheck（布尔，默认 true）、
 // updateCheckedAt（上次检查的时间，Unix 毫秒）、updateNotified（已提示过的 versionCode）。
 type Prefs interface {
 	AutoUpdateCheck() bool

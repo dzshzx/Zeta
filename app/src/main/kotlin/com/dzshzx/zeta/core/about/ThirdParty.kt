@@ -105,7 +105,7 @@ internal object ThirdParty {
         val url: String? = null,
     )
 
-    /** 从 Eta 拷来改写的文件（相对仓根）：手机和桌面共用的在 shared/，只在手机上的在 app/。主题、状态色和别的界面是照 Eta 的设计重写的，不在这里。 */
+    /** 从 Eta 拷来改写的文件（相对仓根），在 shared/ 或 app/ 里。主题、状态色和别的界面是照 Eta 的设计重写的，不在这里。 */
     val ETA_FILES: List<String> =
         listOf(
                 "ui/markdown/MarkdownMathParser.kt",

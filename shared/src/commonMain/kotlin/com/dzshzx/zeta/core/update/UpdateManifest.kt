@@ -13,8 +13,8 @@ class UpdateException(val reason: String) : Exception(reason)
 data class UpdatePackage(val file: String, val url: String, val size: Long, val sha256: String)
 
 /**
- * 每次发版 Release 里的 `update.json`（tools/release 的 package 写的，字段见 docs/release.md「Release
- * 的资产」），手机和桌面版共用。 只取应用内更新用得到的字段，不认识的忽略：以后加字段只加不改。
+ * 每次发版 Release 里的 `update.json`（tools/release 的 package 写的，字段见 docs/release.md「Release 的资产」）。
+ * 只取手机应用内更新用得到的字段，不认识的忽略（其中桌面版的 `msi` 那几项由 windows/internal/update 读）：以后加字段只加不改。
  */
 data class UpdateManifest(
     val versionCode: Int,
@@ -30,8 +30,6 @@ data class UpdateManifest(
     val sha256: String,
     /** 打包的时间（RFC 3339），旧的清单没有时为空。 */
     val publishedAt: String = "",
-    /** 桌面版的 MSI：`msi`、`msiUrl`、`msiSize`、`msiSha256` 四项都在且合规才有。v0.7.5 及更早的清单没有，手机不读它。 */
-    val msi: UpdatePackage? = null,
 ) {
     /** 手机版的安装包。 */
     val apkPackage: UpdatePackage
@@ -41,7 +39,7 @@ data class UpdateManifest(
     fun isNewerThan(installedCode: Int): Boolean = versionCode > installedCode
 
     companion object {
-        /** 最新正式版的清单：GitHub 把 latest 跳到最新发布的那个 Release。手机正式版和桌面版都读它。 */
+        /** 最新正式版的清单：GitHub 把 latest 跳到最新发布的那个 Release。手机正式版和桌面版（windows/internal/update）都读它。 */
         const val LATEST_URL = "https://github.com/dzshzx/Zeta/releases/latest/download/update.json"
 
         /** 清单只有一两 KB，比这大的不当它是清单。 */
@@ -50,16 +48,12 @@ data class UpdateManifest(
         /** APK 大小的上限：正式版约 13 MB，留足余量，挡住写错的清单把存储写满。 */
         private const val MAX_APK_BYTES = 512L * 1024 * 1024
 
-        /** MSI 大小的上限：带着 Windows 的 JRE，约 115 MB。 */
-        private const val MAX_MSI_BYTES = 2L * 1024 * 1024 * 1024
-
         private val json = Json { ignoreUnknownKeys = true }
         private val Hex64 = Regex("[0-9a-f]{64}")
         private val VersionName = Regex("""\d+\.\d+\.\d+""")
         private val ApkName = Regex("""[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.apk""")
-        private val MsiName = Regex("""[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.msi""")
 
-        /** 读 update.json 的文字；格式不对时抛 [UpdateException]，说哪一项不对。桌面版那几项不对时只是没有 [msi]，不算清单坏了。 */
+        /** 读 update.json 的文字；格式不对时抛 [UpdateException]，说哪一项不对。 */
         fun parse(text: String): UpdateManifest {
             val root =
                 runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject
@@ -89,17 +83,7 @@ data class UpdateManifest(
                 size = size,
                 sha256 = sha256,
                 publishedAt = fields.string("publishedAt").orEmpty(),
-                msi = msi(fields),
             )
-        }
-
-        /** 桌面版的四项；缺一项或哪项不合规就是 null。 */
-        private fun msi(fields: Fields): UpdatePackage? {
-            val file = fields.string("msi")?.takeIf { MsiName.matches(it) } ?: return null
-            val url = fields.string("msiUrl")?.takeIf(::isWebAddress) ?: return null
-            val size = fields.number("msiSize")?.takeIf { it in 1..MAX_MSI_BYTES } ?: return null
-            val sha256 = fields.string("msiSha256")?.takeIf { Hex64.matches(it) } ?: return null
-            return UpdatePackage(file, url, size, sha256)
         }
 
         private fun isWebAddress(url: String) =

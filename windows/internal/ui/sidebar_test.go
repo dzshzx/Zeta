@@ -64,11 +64,11 @@ func TestCurrentSessionCard(t *testing.T) {
 	f.see(t, "等你确认")
 }
 
-// sidebarScenes 是侧栏的预览（和 Compose 版同场景对照）：搜索中、正开着的会话在回答。
+// sidebarScenes 是侧栏的预览：搜索中、正开着的会话在回答。
 var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 	"sidebar-search": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
-		f.listLikeCompose()
+		f.listSample()
 		f.push(`"session":"s1"`)
 		f.devices.SearchHits = map[string]map[string]string{f.id: {"s3": "…日志里 README 的构建命令报错…"}}
 		f.app.query = "readme"
@@ -77,13 +77,13 @@ var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 	},
 	"sidebar-current": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
-		f.listLikeCompose()
+		f.listSample()
 		f.push(`"session":"s1","busy":true`)
 	},
 }
 
-// listLikeCompose 推一份和 Compose 版参照图一样的会话列表：正开着的 s1，今天的 s2，三天前的 s3。
-func (f *chatFixture) listLikeCompose() {
+// listSample 推一份会话列表：正开着的 s1，今天的 s2，三天前的 s3。
+func (f *chatFixture) listSample() {
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 		{ID: "s1", File: "/home/box/.claude/projects/-w/s1.jsonl", Title: "改 README 的构建命令", Cwd: "/home/box/project", Updated: at(14)},
 		{ID: "s2", File: "/home/box/.claude/projects/-w/s2.jsonl", Title: "修登录页", Cwd: "/home/box/web", Updated: at(13)},

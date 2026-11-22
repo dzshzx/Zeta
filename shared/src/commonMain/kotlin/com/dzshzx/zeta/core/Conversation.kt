@@ -276,7 +276,7 @@ class Conversation(
     val canRewind: Boolean
         get() = !released && state.canRewind
 
-    /** 这个会话的手机工具（各有各的后台屏幕）；没有手机工具的平台（桌面）是 null。向 hub 要：重新打开的会话接着用原来那份， 进程结束过屏幕也还在。 */
+    /** 这个会话的手机工具（各有各的后台屏幕）；没有时是 null。向 hub 要：重新打开的会话接着用原来那份， 进程结束过屏幕也还在。 */
     val phoneSession: PhoneSession? = hub.platform.phoneFor(openKey, backend)
 
     /** 平台给这个对话附的东西（手机上是顶部状态胶囊看到的这个对话），见 [HubPlatform.attachConversation]。 */

@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
  * 这里只管手势和提示。
  */
 
-/** 按住说话背后的识别。手机上是系统识别服务加麦克风权限；桌面没有。 */
+/** 按住说话背后的识别。系统识别服务加麦克风权限。 */
 interface TalkInput {
     val state: StateFlow<SpeechState>
 
@@ -77,7 +77,7 @@ class HoldToTalk(val input: TalkInput, private val toast: (String) -> Unit) {
     }
 }
 
-/** 平台有能用的识别时给一个 [HoldToTalk]，没有时（桌面、手机上没有识别服务）为 null，发送键照旧。离开聊天页时丢掉进行中的识别。 */
+/** 平台有能用的识别时给一个 [HoldToTalk]，没有时（手机上没有识别服务）为 null，发送键照旧。离开聊天页时丢掉进行中的识别。 */
 @Composable
 fun rememberHoldToTalk(): HoldToTalk? {
     val input = ChatPlatform.current.rememberTalkInput() ?: return null

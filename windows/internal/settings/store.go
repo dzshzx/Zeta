@@ -1,7 +1,8 @@
-// Package settings 读写桌面版的设置：%APPDATA%\Zeta 下和 Compose 版共用的 JSON 文件。
+// Package settings 读写桌面版的设置：%APPDATA%\Zeta 下的 JSON 文件。
 //
-// 文件格式同 desktop 的 FilePrefStore.kt：一个 JSON 对象，每项是 {"t":类型,"v":值}，类型是 s（字符串）、i、l（整数）、
-// f（小数）、b（真假）、set（字符串数组）。键和取值同 shared 的 Settings.kt，所以从旧版升上来，设备、置顶这些都还在。
+// 文件格式：一个 JSON 对象，每项是 {"t":类型,"v":值}，类型是 s（字符串）、i、l（整数：i 是 32 位，l 是 64 位）、
+// f（小数）、b（真假）、set（字符串数组）。不是这个样子的项读的时候跳过。键和取值和手机版的设置一样（shared 的 Settings.kt），
+// 比如设备清单 remoteHosts 是字符串类型的 JSON 数组，格式见 client/sshlink 的 DecodeHosts。
 package settings
 
 import (
@@ -31,14 +32,14 @@ type entry struct {
 }
 
 // Store 是一个设置文件：整份在内存里，改一项就整份重写（先写临时文件再换名，写到一半断电也不坏）。
-// 认不得的项原样留着，Compose 版存的、这一版还不用的设置不丢。哪个 goroutine 上读写都行。
+// 认不得的项原样留着，别的版本存的、这一版不用的设置不丢。哪个 goroutine 上读写都行。
 type Store struct {
 	path  string
 	mu    sync.Mutex
 	items map[string]entry
 }
 
-// Open 打开设置文件 path。文件不在是空的设置；读不了或坏了也给一份空的能用的 Store，同时返回原因（下次写会盖掉坏的那份，同 Compose 版）。
+// Open 打开设置文件 path。文件不在是空的设置；读不了或坏了也给一份空的能用的 Store，同时返回原因（下次写会盖掉坏的那份）。
 func Open(path string) (*Store, error) {
 	s := &Store{path: path, items: map[string]entry{}}
 	data, err := os.ReadFile(path)
@@ -54,7 +55,7 @@ func Open(path string) (*Store, error) {
 	}
 	for key, value := range raw {
 		var e entry
-		// 不是 {"t":…,"v":…} 的项 Compose 版也读不出来，跳过
+		// 不是 {"t":…,"v":…} 的项跳过
 		if json.Unmarshal(value, &e) == nil && e.T != "" && e.V != nil {
 			s.items[key] = e
 		}
@@ -90,7 +91,7 @@ func (s *Store) Bool(key string) (v bool, ok bool) {
 	return v, ok
 }
 
-// Int 是整数项 key（Compose 版的 Int 和 Long 都算）。
+// Int 是整数项 key（i、l 两种都算）。
 func (s *Store) Int(key string) (v int64, ok bool) {
 	ok = s.value(key, &v, typeInt, typeLong)
 	return v, ok
@@ -108,10 +109,10 @@ func (s *Store) SetString(key, v string) error { return s.put(key, typeString, v
 // SetBool 存真假项。
 func (s *Store) SetBool(key string, v bool) error { return s.put(key, typeBool, v) }
 
-// SetInt 存整数项（Compose 版的 Int）。
+// SetInt 存 32 位整数项（i）。
 func (s *Store) SetInt(key string, v int) error { return s.put(key, typeInt, v) }
 
-// SetLong 存整数项（Compose 版的 Long）。
+// SetLong 存 64 位整数项（l）。
 func (s *Store) SetLong(key string, v int64) error { return s.put(key, typeLong, v) }
 
 // SetStrings 存字符串集合项；nil 存成空集合。
@@ -164,7 +165,7 @@ func (s *Store) save() error {
 	return os.Rename(temp, s.path)
 }
 
-// marshal 同 json.Marshal，只是不把 <、>、& 写成 \u 转义（Compose 版也不转），末尾不带换行。
+// marshal 同 json.Marshal，只是不把 <、>、& 写成 \u 转义，末尾不带换行。
 func marshal(v any) ([]byte, error) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)

@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestPromptsSharedWithComposeVersion(t *testing.T) {
+func TestPromptsFileFormat(t *testing.T) {
 	dir := t.TempDir()
-	// Compose 版写的设置文件：savedPrompts 是字符串类型的 JSON 数组（一条坏的、一条重复的 id 跳过）
+	// 设置文件里的 savedPrompts 是字符串类型的 JSON 数组（一条坏的、一条重复的 id 跳过）
 	file := `{"savedPrompts":{"t":"s","v":` +
 		`"[{\"id\":\"a\",\"name\":\"\",\"text\":\"看看日志\"},{\"id\":\"b\",\"name\":\"审查\",\"text\":\"审查这次改动\"},` +
 		`{\"id\":\"c\",\"text\":\"  \"},{\"id\":\"a\",\"text\":\"重复\"}]"}}`
@@ -33,7 +33,7 @@ func TestPromptsSharedWithComposeVersion(t *testing.T) {
 		t.Errorf("存了再读 = %+v", got)
 	}
 	if v, ok := again.store.String(keyPrompts); !ok || !strings.HasPrefix(v, `[{"id":"n"`) {
-		t.Errorf("savedPrompts 应存成字符串类型的 JSON 数组，同 Compose 版：%q", v)
+		t.Errorf("savedPrompts 应存成字符串类型的 JSON 数组：%q", v)
 	}
 }
 

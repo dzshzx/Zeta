@@ -95,7 +95,7 @@ object Uploads {
 }
 
 /**
- * 用户选的、分享进来的一个文件：手机上是 content:// 地址（app 的 core/AttachmentsAndroid.kt），桌面上是本机的文件。
+ * 用户选的、分享进来的一个文件：content:// 地址（app 的 core/AttachmentsAndroid.kt）。
  * 输入栏据此决定当图片附件还是复制进对话所在的主机。各项都可能耗时，别在主线程调用。
  */
 interface PickedFile {

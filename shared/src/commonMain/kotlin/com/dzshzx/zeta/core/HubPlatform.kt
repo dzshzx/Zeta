@@ -5,8 +5,8 @@ import java.io.File
 import kotlinx.serialization.json.JsonObject
 
 /**
- * [ConversationHub] 要平台做的事。手机上（app 的 AndroidHubPlatform）有自带的 Debian、手机工具、通知和顶部胶囊；
- * 桌面上只有远程主机，这些都是空的。hub 建好后先调 [attach]，之后各项按需调用，都在主线程上，除非另外写明。
+ * [ConversationHub] 要平台做的事。实现是 app 的 AndroidHubPlatform：自带的 Debian、手机工具、通知和顶部胶囊。 hub 建好后先调
+ * [attach]，之后各项按需调用，都在主线程上，除非另外写明。
  */
 interface HubPlatform {
     /** hub 建出来了（它的各项还没初始化，只记下它，别调用它）。 */
@@ -30,22 +30,22 @@ interface HubPlatform {
     /** 这台机器自己的名字（手机是系统设置里的设备名），手机本机那台的显示名用它。 */
     val deviceName: String
 
-    /** Zeta 直连远程主机时地址连到哪、用哪些密钥：手机上是 Zeta 自己的密钥（第一次要时才进 Keystore 取），桌面上照这台电脑的 ~/.ssh 配置。 */
+    /** Zeta 直连远程主机时地址连到哪、用哪些密钥：Zeta 自己的密钥（第一次要时才进 Keystore 取）。 */
     val sshAuth: SshAuth
 
-    /** 追加给 Claude Code 的一句说明：对面是什么界面（手机还是桌面）、怎样把图片给用户看。 */
+    /** 追加给 Claude Code 的一句说明：对面是什么界面、怎样把图片给用户看。 */
     val clientHint: String
 
     /** 弹一句不用回应的提示（手机上是 Toast）。 */
     fun toast(text: String)
 
-    /** 手机本机这台的 Linux 环境（Debian）；没有这一台（桌面）是 null。 */
+    /** 手机本机这台的 Linux 环境（Debian）。 */
     val local: LocalEnvironment?
 
     /** 一轮的进展怎么提醒用户（完成、等确认、胶囊、实时通知）。 */
     val alerts: TurnEvents
 
-    /** 主机 [backend] 上会话 [key] 的手机工具：登记过就接着用原来那份；没有手机工具（桌面）是 null。 */
+    /** 主机 [backend] 上会话 [key] 的手机工具：登记过就接着用原来那份；没有时是 null。 */
     fun phoneFor(key: String, backend: String): PhoneSession?
 
     /** 对话的会话号从 [from] 换成了 [to]：按会话登记的手机工具跟着换键。 */
@@ -63,13 +63,13 @@ interface HubPlatform {
     /** 对话的活动变了（起进程、一轮开始结束、等确认）：前台服务、常驻通知、胶囊跟着更新。 */
     fun activityChanged()
 
-    /** 外面送进来的一个文件地址 [uri]（手机上是分享来的 content://，桌面上是 file://）。 */
+    /** 外面送进来的一个文件地址 [uri]（分享来的 content://）。 */
     fun sharedFile(uri: String): PickedFile
 
     /** 常用指令（聊天页输入框左边的“+”里）。 */
     val prompts: PromptList
 
-    /** 起了对话 [conversation]、还在跑的定时任务或通知触发规则叫什么；不是后台运行起的（桌面上都不是）为 null。 */
+    /** 起了对话 [conversation]、还在跑的定时任务或通知触发规则叫什么；不是后台运行起的为 null。 */
     fun unattendedName(conversation: Conversation): String?
 
     /** 远程主机清单变了：已经删掉的主机（不在 [ids] 里）名下的定时任务和通知触发规则一起删。 */

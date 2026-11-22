@@ -12,7 +12,7 @@ import (
 	"github.com/dzshzx/Zeta/client/testinput"
 )
 
-// upgradeCode 是 Compose 桌面版（desktop/windows/Zeta.wxs）的 UpgradeCode。装 Go 版的 MSI 时靠它认出已装的旧版并卸掉，不能改。
+// upgradeCode 是 Zeta 桌面版各个版本的 MSI 共用的 UpgradeCode（Zeta.wxs 里写的就是它）。装新版时靠它认出已装的旧版并卸掉，不能改。
 const upgradeCode = "{D73FE446-DDAD-4182-B6F1-FC4F8AC025FB}"
 
 // msi 用 msi.sh 拿一个假的 exe 打一个 MSI，返回它的路径和假 exe 的大小。
@@ -71,7 +71,7 @@ func properties(t *testing.T, msi string) map[string]string {
 	return props
 }
 
-// 预发布的版本只取 X.Y.Z；UpgradeCode、按用户安装、REINSTALLMODE=amus 和 Compose 版一样，所以装它直接替换旧版。
+// 预发布的版本只取 X.Y.Z；UpgradeCode 不变、按用户安装、REINSTALLMODE=amus，所以装它直接替换已装的旧版。
 func TestProduct(t *testing.T) {
 	m, _ := msi(t, "0.7.9-dev.3+gabc1234")
 	props := properties(t, m)
@@ -87,10 +87,10 @@ func TestProduct(t *testing.T) {
 		}
 	}
 	if !strings.EqualFold(props["UpgradeCode"], upgradeCode) {
-		t.Errorf("UpgradeCode %s, want the Compose version's %s", props["UpgradeCode"], upgradeCode)
+		t.Errorf("UpgradeCode %s, want %s", props["UpgradeCode"], upgradeCode)
 	}
 	if v, ok := props["ALLUSERS"]; ok {
-		t.Errorf("ALLUSERS = %q: the Compose version installs per user, and Windows only finds an old version in the same scope", v)
+		t.Errorf("ALLUSERS = %q: every version installs per user, and Windows only finds an old version in the same scope", v)
 	}
 	sum, err := exec.Command("msiinfo", "suminfo", m).Output()
 	if err != nil {
@@ -132,7 +132,7 @@ func TestUpgrade(t *testing.T) {
 	}
 }
 
-// 只装 Zeta.exe 一个文件，到 %LOCALAPPDATA%\Programs\Zeta（和 Compose 版同一个目录）；开始菜单的快捷方式起它。
+// 只装 Zeta.exe 一个文件，到 %LOCALAPPDATA%\Programs\Zeta；开始菜单的快捷方式起它。
 func TestFilesAndShortcut(t *testing.T) {
 	m, size := msi(t, "0.7.9")
 	files := table(t, m, "File")
@@ -155,22 +155,6 @@ func TestFilesAndShortcut(t *testing.T) {
 	if len(shortcuts) != 1 || shortcuts[0]["Directory_"] != "ProgramMenuFolder" || shortcuts[0]["Name"] != "Zeta" ||
 		shortcuts[0]["Target"] != "[INSTALLDIR]Zeta.exe" || shortcuts[0]["WkDir"] != "INSTALLDIR" {
 		t.Errorf("shortcuts %v", shortcuts)
-	}
-}
-
-// Zeta.wxs 写的就是 Compose 版的那个 UpgradeCode。Compose 版的经 windows/testdata 里指向 desktop/windows 的符号链接读
-// （模块目录外的路径 go test 的缓存不认）。Compose 版（desktop/）删掉时连同这条核对和那个符号链接一起删，上面的常量留着。
-func TestSameUpgradeCodeAsCompose(t *testing.T) {
-	re := regexp.MustCompile(`UpgradeCode="([0-9a-fA-F-]+)"`)
-	for _, path := range []string{"Zeta.wxs", "../testdata/desktop-windows/Zeta.wxs"} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		m := re.FindSubmatch(data)
-		if m == nil || !strings.EqualFold("{"+string(m[1])+"}", upgradeCode) {
-			t.Errorf("%s: UpgradeCode %q", path, m)
-		}
 	}
 }
 

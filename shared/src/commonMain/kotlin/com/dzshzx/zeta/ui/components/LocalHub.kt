@@ -3,7 +3,7 @@ package com.dzshzx.zeta.ui.components
 import androidx.compose.runtime.compositionLocalWithComputedDefaultOf
 import com.dzshzx.zeta.core.ConversationHub
 
-/** 本进程的那个 hub：手机上 AndroidHubPlatform 建出或装上（测试）时登记，桌面的窗口启动时登记。 */
+/** 本进程的那个 hub：AndroidHubPlatform 建出或装上（测试）时登记。 */
 object ProcessHub {
     @Volatile var current: ConversationHub? = null
 }

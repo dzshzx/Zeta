@@ -454,7 +454,7 @@ func logSave(err error) {
 	}
 }
 
-// Prompts 是常用指令（存在设置里，和 Compose 版共用）。
+// Prompts 是常用指令（存在设置里）。
 func (h *Hub) Prompts() []settings.SavedPrompt { return h.settings.Prompts() }
 
 // SetPrompts 存常用指令。
