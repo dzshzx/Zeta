@@ -561,3 +561,20 @@ func TestSubagentSummaryFromTheAgentCall(t *testing.T) {
 		return len(pushes) > 0 && pushes[len(pushes)-1]["meta"] == nil
 	})
 }
+
+func TestSubagentMetaGapsFromTheAgentCall(t *testing.T) {
+	fake := &fakeSubagent{reply: func(int, []string) ([]byte, error) {
+		head := foundHead(50, 1, false, 0)
+		head["meta"] = map[string]any{"requestShape": "background"} // 记录旁的 meta 读到了，说明和类型却是空的
+		return subagentRead(head, promptEvent), nil
+	}}
+	h, c, l := subagentHarness(t, fake)
+	h.feed(c, l, toolCall("m1", "agent-1", "Agent",
+		`{"description":"查代码","subagent_type":"Explore","prompt":"去查一下","run_in_background":true}`, "", false)...)
+	h.call(1, "conv.subagent", map[string]any{"conv": "a", "tool_use_id": "agent-1", "watch": true})
+	waitFor(t, "空着的用调用的参数补上", func() bool {
+		_, last := h.subagentView(1, "agent-1")
+		meta, _ := last["meta"].(map[string]any)
+		return meta["description"] == "查代码" && meta["agent_type"] == "Explore" && meta["agent_id"] == "a1"
+	})
+}

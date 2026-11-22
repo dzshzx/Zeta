@@ -2,6 +2,7 @@ package conv
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"slices"
 
@@ -89,15 +90,19 @@ type agentCall struct {
 	Prompt      string `json:"prompt"`
 }
 
-// fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它；还没读到时先用发起它的 Agent 调用的参数填上说明、类型，
-// 交给它的任务也一样，查看页一打开就有概要。
+// fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它，其中空着的说明、类型用发起它的 Agent 调用的参数补上；
+// 还没读到时先整份用调用的参数填，交给它的任务也一样，查看页一打开就有概要。
 func (c *Conversation) fillSubagentStatus(l *subagentLog, status *subagentStatus) {
+	call := c.agentCallOf(l)
 	if l.t.meta != nil {
 		meta := *l.t.meta
+		if call != nil {
+			meta.Description = cmp.Or(meta.Description, call.Description)
+			meta.AgentType = cmp.Or(meta.AgentType, call.AgentType)
+		}
 		status.Meta = &meta
 		return
 	}
-	call := c.agentCallOf(l)
 	if call == nil {
 		return
 	}
