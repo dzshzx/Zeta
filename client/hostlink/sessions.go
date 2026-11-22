@@ -84,3 +84,28 @@ func ParseSessions(line []byte, backend string) (SessionsUpdate, error) {
 	}
 	return u, nil
 }
+
+// Activity 是核心报的一个会话眼下的样子（conv.activity 推送里的一项，字段见 helper/conv/activity.go）。
+type Activity struct {
+	// State：waiting（等用户回应）、answering（这一轮在回答）、background（答完了，后台任务还在跑）、idle（进程开着、没在干活）；
+	// 进程没了时为空。
+	State string `json:"activity"`
+	// Tasks 是还在跑的后台任务数。
+	Tasks int `json:"tasks"`
+	// TurnEnd 是最后一轮结束的时刻（Unix 毫秒），这个核心里还没结束过一轮时为 0。
+	TurnEnd int64 `json:"turn_end"`
+}
+
+// ParseActivity 解一行 conv.activity：整份的会话号 → 样子。
+func ParseActivity(line []byte) (map[string]Activity, error) {
+	var msg struct {
+		Sessions map[string]Activity `json:"sessions"`
+	}
+	if err := json.Unmarshal(line, &msg); err != nil {
+		return nil, err
+	}
+	if msg.Sessions == nil {
+		msg.Sessions = map[string]Activity{}
+	}
+	return msg.Sessions, nil
+}

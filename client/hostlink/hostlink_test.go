@@ -1,6 +1,8 @@
 package hostlink
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -294,5 +296,38 @@ func TestSessionsDecodeOddFields(t *testing.T) {
 	}
 	if (Session{Cwd: ""}).Place() != "/" || (Session{Title: " ", Preview: "p"}).Label() != "p" {
 		t.Error("place or label")
+	}
+}
+
+func TestSearchStreamsHitsFromTheHelper(t *testing.T) {
+	b := newBox(t)
+	b.session(t, "aaaaaaaa-0000-0000-0000-000000000001", "改一下登录页的 NEEDLE 校验")
+	b.session(t, "aaaaaaaa-0000-0000-0000-000000000002", "别的事")
+	var hits []SearchHit
+	complete, err := b.shell.Search(context.Background(), testHelper(), "needle", func(h SearchHit) { hits = append(hits, h) })
+	if err != nil || !complete {
+		t.Fatalf("search: %v complete=%v", err, complete)
+	}
+	if len(hits) != 1 || hits[0].ID != "aaaaaaaa-0000-0000-0000-000000000001" || !strings.Contains(hits[0].Snippet, "NEEDLE") {
+		t.Errorf("hits %+v", hits)
+	}
+	// 空的关键词 helper 不收：报错，不当作没有结果
+	if _, err := b.shell.Search(context.Background(), testHelper(), " ", func(SearchHit) {}); err == nil {
+		t.Error("empty query searched")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := b.shell.Search(ctx, testHelper(), "needle", func(SearchHit) {}); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled search: %v", err)
+	}
+}
+
+func TestParseActivity(t *testing.T) {
+	got, err := ParseActivity([]byte(`{"type":"conv.activity","sessions":{"s1":{"activity":"answering","tasks":2,"turn_end":5},"s2":{"turn_end":9}}}`))
+	if err != nil || got["s1"] != (Activity{State: "answering", Tasks: 2, TurnEnd: 5}) || got["s2"] != (Activity{TurnEnd: 9}) {
+		t.Errorf("%v %+v", err, got)
+	}
+	if got, err := ParseActivity([]byte(`{"type":"conv.activity","sessions":{}}`)); err != nil || got == nil || len(got) != 0 {
+		t.Errorf("empty: %v %v", err, got)
 	}
 }

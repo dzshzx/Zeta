@@ -24,7 +24,9 @@ func newHubIn(t *testing.T, devices *hubtest.Devices) (*Hub, *settings.Settings,
 		t.Fatal(err)
 	}
 	sync := func(f func()) { f() }
-	return New(s, devices, sync, sync), s, dir
+	h := New(s, devices, sync, sync)
+	h.SearchDelay = 0
+	return h, s, dir
 }
 
 func ids(list []hostlink.Session) []string {
@@ -126,7 +128,7 @@ func TestGroupsAndPins(t *testing.T) {
 		{ID: "old", Updated: midnight - 2000},
 	}})
 	h.TogglePin(h.Sessions()[1])
-	g := h.Groups(now)
+	g := h.Groups(now, hostlink.Session{})
 	if !reflect.DeepEqual(ids(g.Pinned), []string{"pinned-old"}) || !reflect.DeepEqual(ids(g.Today), []string{"new"}) || !reflect.DeepEqual(ids(g.Earlier), []string{"old"}) {
 		t.Errorf("groups %v %v %v", ids(g.Pinned), ids(g.Today), ids(g.Earlier))
 	}
@@ -134,7 +136,7 @@ func TestGroupsAndPins(t *testing.T) {
 		t.Errorf("saved pins %v", s.Pins())
 	}
 	h.TogglePin(h.Sessions()[1])
-	if len(h.Groups(now).Pinned) != 0 || len(s.Pins()) != 0 {
+	if len(h.Groups(now, hostlink.Session{}).Pinned) != 0 || len(s.Pins()) != 0 {
 		t.Error("unpin")
 	}
 }

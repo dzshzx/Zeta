@@ -64,7 +64,8 @@ func (h *Hub) ChatLinkProblem() string {
 
 // OpenSession 在聊天窗格里打开会话 s，关掉原来的。已经开着它时什么也不做。
 func (h *Hub) OpenSession(s hostlink.Session) {
-	if c := h.chat; c != nil && c.Backend == s.Backend && s.ID != "" && (c.Session.ID == s.ID || c.Conv != nil && c.Conv.Session() == s.ID) {
+	h.seen(s)
+	if h.showing(s.Backend, s.ID) && s.ID != "" {
 		return
 	}
 	h.open(&Chat{Backend: s.Backend, Session: s},

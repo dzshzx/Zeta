@@ -26,8 +26,10 @@ import (
 type Devices interface {
 	// Probe 直连 target 查一次（见 host.Probe）。阻塞。
 	Probe(target, expected, key string) (host.Found, error)
-	// WatchSessions 订阅设备 h 的会话列表，回调在后台 goroutine 上；Close 后不再回调。
-	WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer
+	// WatchSessions 订阅设备 h 的会话列表和各会话的忙闲，回调在后台 goroutine 上；Close 后不再回调。
+	WatchSessions(h sshlink.Host, w host.SessionWatch) io.Closer
+	// Search 在设备 h 上的对话内容里找 query，边找边交给 hit；返回是不是全部搜完了。阻塞，ctx 取消时停（见 host.Devices.Search）。
+	Search(ctx context.Context, h sshlink.Host, query string, hit func(hostlink.SearchHit)) (bool, error)
 	// ConfigHosts 是这台电脑 ~/.ssh/config 里能选的主机。阻塞。
 	ConfigHosts() ([]string, error)
 	// Keys 是这台电脑 ~/.ssh 里能选的私钥。阻塞。
@@ -55,18 +57,25 @@ type Hub struct {
 
 	hosts    []sshlink.Host
 	pins     map[string]bool
-	watches  map[string]io.Closer // 订阅着的设备
-	sessions []hostlink.Session   // 列着的各台的会话，合在一起
-	problems map[string]string    // 各台没读成会话列表的原因
+	watches  map[string]io.Closer                    // 订阅着的设备
+	sessions []hostlink.Session                      // 列着的各台的会话，合在一起
+	problems map[string]string                       // 各台没读成会话列表的原因
+	activity map[string]map[string]hostlink.Activity // 各台的核心报的各会话忙闲：设备 → 会话号 → 样子
+	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按置顶键）
+	search   search                                  // 侧栏的搜索（search.go）
 
 	chat  *Chat                // 聊天窗格里的对话
 	conns map[string]*chatConn // 各台给对话用的 serve 连接
+
+	// SearchDelay 是关键词停下多久才去搜对话内容（打字时不必每个字都搜一次）；测试里设成 0。
+	SearchDelay time.Duration
 }
 
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
 func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
-		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}}
+		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{},
+		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay}
 	for _, pin := range s.Pins() {
 		h.pins[pin] = true
 	}
@@ -159,6 +168,11 @@ func (h *Hub) Refresh() {
 			delete(h.problems, id)
 		}
 	}
+	for id := range h.activity {
+		if !slices.Contains(listed, id) {
+			delete(h.activity, id)
+		}
+	}
 	for _, id := range listed {
 		if _, live := h.watches[id]; live && h.problems[id] == "" {
 			continue
@@ -173,15 +187,22 @@ func (h *Hub) watch(id string) {
 	x, _ := h.Host(id)
 	var w io.Closer
 	current := func() bool { return w != nil && h.watches[id] == w }
-	w = h.devices.WatchSessions(x,
-		func(u hostlink.SessionsUpdate) {
+	w = h.devices.WatchSessions(x, host.SessionWatch{
+		Update: func(u hostlink.SessionsUpdate) {
 			h.post(func() {
 				if current() {
 					h.received(id, u)
 				}
 			})
 		},
-		func(why string) {
+		Activity: func(a map[string]hostlink.Activity) {
+			h.post(func() {
+				if current() {
+					h.activityReceived(id, a)
+				}
+			})
+		},
+		Problem: func(why string) {
 			h.post(func() {
 				if !current() {
 					return
@@ -192,13 +213,15 @@ func (h *Hub) watch(id string) {
 					h.problems[id] = "没读到会话列表：" + why
 				}
 			})
-		})
+		},
+	})
 	h.watches[id] = w
 }
 
 func (h *Hub) unwatch(id string) {
 	if w, ok := h.watches[id]; ok {
 		delete(h.watches, id)
+		delete(h.activity, id) // 断开了就不留过时的忙闲
 		_ = w.Close()
 	}
 }
@@ -253,12 +276,13 @@ type Groups struct {
 	Pinned, Today, Earlier []hostlink.Session
 }
 
-// Groups 把列着的会话分组。
-func (h *Hub) Groups(now time.Time) Groups {
+// Groups 把列着的会话分组。current 是聊天窗格里开着的会话（没有会话号时不算）：列表里还没有它（新对话刚有了会话号、
+// 那边的列表还没推来，或在最近 300 个之外）时也放进来，正开着的那个一直找得到。
+func (h *Hub) Groups(now time.Time, current hostlink.Session) Groups {
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location()).UnixMilli()
 	var g Groups
-	for _, s := range h.sessions {
+	for _, s := range h.withCurrent(current, now) {
 		switch {
 		case s.Archived:
 		case h.Pinned(s):
@@ -270,6 +294,19 @@ func (h *Hub) Groups(now time.Time) Groups {
 		}
 	}
 	return g
+}
+
+// withCurrent 是列着的会话，加上列表里还没有的 current（排在最前，时间算作 now）。current 不在列着的设备上时不加。
+func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Session {
+	if current.ID == "" || !slices.Contains(h.Listed(), current.Backend) || slices.ContainsFunc(h.sessions, func(s hostlink.Session) bool {
+		return s.Backend == current.Backend && s.ID == current.ID
+	}) {
+		return h.sessions
+	}
+	if current.Updated == 0 {
+		current.Updated = now.UnixMilli()
+	}
+	return append([]hostlink.Session{current}, h.sessions...)
 }
 
 // Pinned：会话 s 置顶了。

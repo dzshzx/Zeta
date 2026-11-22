@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"io"
 	"log"
 
@@ -20,25 +21,45 @@ func (d *Devices) Probe(target, expected, key string) (Found, error) {
 	return Probe(d.Links, target, expected, key)
 }
 
-// WatchSessions 订阅设备 h 的会话列表：每推来一份交给 update，连上（空）、断开或连不上（原因）交给 problem，都在后台 goroutine 上调用。
-func (d *Devices) WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer {
+// SessionWatch 是会话列表订阅的回调，都在后台 goroutine 上调用：Update 是推来的列表，Activity 是核心报的各会话忙闲
+// （conv.activity，每次整份），Problem 是连上（空）、断开或连不上（原因）。
+type SessionWatch struct {
+	Update   func(hostlink.SessionsUpdate)
+	Activity func(map[string]hostlink.Activity)
+	Problem  func(string)
+}
+
+// WatchSessions 订阅设备 h 的会话列表和各会话的忙闲（同一条连接，同 Kotlin 版的 SessionList）。
+func (d *Devices) WatchSessions(h sshlink.Host, w SessionWatch) io.Closer {
 	shell := hostlink.NewShell(d.Links, h, LinuxName)
 	return hostlink.StartServe(hostlink.ServeOptions{
 		Open:          func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
-		Subscriptions: []string{"sessions.watch"},
+		Subscriptions: []string{"sessions.watch", "conv.activity"},
 		Message: func(kind string, line []byte) {
-			if kind != "zeta_sessions" {
-				return
+			switch kind {
+			case "zeta_sessions":
+				u, err := hostlink.ParseSessions(line, h.ID)
+				if err != nil {
+					log.Printf("zeta: 会话列表的推送解不开：%v", err)
+					return
+				}
+				w.Update(u)
+			case "conv.activity":
+				a, err := hostlink.ParseActivity(line)
+				if err != nil {
+					log.Printf("zeta: 会话忙闲的推送解不开：%v", err)
+					return
+				}
+				w.Activity(a)
 			}
-			u, err := hostlink.ParseSessions(line, h.ID)
-			if err != nil {
-				log.Printf("zeta: 会话列表的推送解不开：%v", err)
-				return
-			}
-			update(u)
 		},
-		Problem: problem,
+		Problem: w.Problem,
 	})
+}
+
+// Search 在设备 h 上的对话内容里找 query（zeta-helper search），边找边把命中交给 hit；返回是不是全部搜完了。阻塞，ctx 取消时停。
+func (d *Devices) Search(ctx context.Context, h sshlink.Host, query string, hit func(hostlink.SearchHit)) (bool, error) {
+	return hostlink.NewShell(d.Links, h, LinuxName).Search(ctx, d.Helper, query, hit)
 }
 
 // ConfigHosts 是这台电脑 ~/.ssh/config 里能选的主机。

@@ -2,10 +2,13 @@
 package hubtest
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"io"
+	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -29,6 +32,11 @@ type Devices struct {
 	UploadGate chan struct{}
 	// OnChat 在每起一条对话连接时调（比如先定好怎么应答）。
 	OnChat func(*ChatLink)
+	// Found 是各台设备上对话内容里找得到的：设备编号 → 会话号 → 片段（Search 照它答，片段里含关键词的算命中，不分大小写）；
+	// SearchErr 是没搜成的设备的原因，Partial 里的设备报只搜了一部分。
+	SearchHits map[string]map[string]string
+	SearchErr  map[string]error
+	Partial    map[string]bool
 
 	mu       sync.Mutex
 	hostKey  string
@@ -39,6 +47,7 @@ type Devices struct {
 	chats    []*ChatLink
 	checked  []string
 	uploaded []host.Upload
+	searched []string
 }
 
 // Probe 是一次探测的结果。
@@ -108,19 +117,18 @@ func (d *Devices) Retained() []string {
 }
 
 type watcher struct {
-	id      string
-	update  func(hostlink.SessionsUpdate)
-	problem func(string)
-	closed  bool
+	id     string
+	w      host.SessionWatch
+	closed bool
 }
 
 func (w *watcher) Close() error { w.closed = true; return nil }
 
 // WatchSessions 见 hub.Devices：记下回调，等测试推。
-func (d *Devices) WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer {
+func (d *Devices) WatchSessions(h sshlink.Host, sw host.SessionWatch) io.Closer {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	w := &watcher{id: h.ID, update: update, problem: problem}
+	w := &watcher{id: h.ID, w: sw}
 	d.watchers = append(d.watchers, w)
 	d.opened[h.ID]++
 	return w
@@ -162,21 +170,28 @@ func (d *Devices) last(id string, open bool) *watcher {
 // Push 替设备 id 开着的订阅推一份列表（会话的 Backend 填上 id）。
 func (d *Devices) Push(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, true); w != nil {
-		w.update(withBackend(u, id))
+		w.w.Update(withBackend(u, id))
+	}
+}
+
+// PushActivity 替设备 id 开着的订阅推一份各会话的忙闲（整份）。
+func (d *Devices) PushActivity(id string, a map[string]hostlink.Activity) {
+	if w := d.last(id, true); w != nil {
+		w.w.Activity(a)
 	}
 }
 
 // PushStale 替设备 id 已经关掉的订阅推一份（像断开前在路上的推送）。
 func (d *Devices) PushStale(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, false); w != nil {
-		w.update(withBackend(u, id))
+		w.w.Update(withBackend(u, id))
 	}
 }
 
 // Fail 替设备 id 开着的订阅报连上（why 是空）或断开的原因。
 func (d *Devices) Fail(id, why string) {
 	if w := d.last(id, true); w != nil {
-		w.problem(why)
+		w.w.Problem(why)
 	}
 }
 
@@ -186,4 +201,29 @@ func withBackend(u hostlink.SessionsUpdate, id string) hostlink.SessionsUpdate {
 		u.Upsert[i].Backend = id
 	}
 	return u
+}
+
+// Search 见 hub.Devices：照 SearchHits、SearchErr、Partial 答，记下搜过的「设备编号 关键词」。
+func (d *Devices) Search(_ context.Context, h sshlink.Host, query string, hit func(hostlink.SearchHit)) (bool, error) {
+	d.mu.Lock()
+	d.searched = append(d.searched, h.ID+" "+query)
+	hits, err, partial := d.SearchHits[h.ID], d.SearchErr[h.ID], d.Partial[h.ID]
+	d.mu.Unlock()
+	if err != nil {
+		return false, err
+	}
+	ids := slices.Sorted(maps.Keys(hits))
+	for _, id := range ids {
+		if strings.Contains(strings.ToLower(hits[id]), strings.ToLower(query)) {
+			hit(hostlink.SearchHit{ID: id, Snippet: hits[id]})
+		}
+	}
+	return !partial, nil
+}
+
+// Searched 是搜过的「设备编号 关键词」，按先后。
+func (d *Devices) Searched() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.searched)
 }

@@ -113,6 +113,7 @@ func TestParseProbe(t *testing.T) {
 type events struct {
 	mu       sync.Mutex
 	updates  []hostlink.SessionsUpdate
+	activity []map[string]hostlink.Activity
 	problems []string
 	changed  chan struct{}
 }
@@ -124,6 +125,17 @@ func (e *events) update(u hostlink.SessionsUpdate) {
 	e.updates = append(e.updates, u)
 	e.mu.Unlock()
 	e.changed <- struct{}{}
+}
+
+func (e *events) busy(a map[string]hostlink.Activity) {
+	e.mu.Lock()
+	e.activity = append(e.activity, a)
+	e.mu.Unlock()
+	e.changed <- struct{}{}
+}
+
+func (e *events) watch() SessionWatch {
+	return SessionWatch{Update: e.update, Activity: e.busy, Problem: e.problem}
 }
 
 func (e *events) problem(why string) {
@@ -161,9 +173,14 @@ func TestWatchSessionsFollowsTheDevice(t *testing.T) {
 	b.session(t, "11111111-2222-3333-4444-555555555555", "第一句")
 	ev := newEvents()
 	devices := &Devices{Links: b.links, Helper: program}
-	watch := devices.WatchSessions(b.host, ev.update, ev.problem)
+	watch := devices.WatchSessions(b.host, ev.watch())
 	defer watch.Close()
 	ev.waitFor(t, "the full list", func() bool { return len(ev.updates) == 1 })
+	// 同一条连接也订阅了各会话的忙闲：订阅上先收到整份（这时没有开着的对话，是空的）
+	ev.waitFor(t, "the activity", func() bool { return len(ev.activity) == 1 })
+	if len(ev.activity[0]) != 0 {
+		t.Errorf("activity %+v", ev.activity[0])
+	}
 	full := ev.updates[0]
 	if !full.Full || len(full.Upsert) != 1 || full.Upsert[0].Label() != "第一句" || full.Upsert[0].Place() != "proj" || full.Upsert[0].Backend != "r-test" {
 		t.Fatalf("full %+v", full)
