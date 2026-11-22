@@ -256,18 +256,16 @@ func (h *Hub) RunChatThen(do func(ctx context.Context, conv *chat.Conversation) 
 		return
 	}
 	conv := c.Conv
-	h.run(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
-		defer cancel()
+	h.background(chat.OpenTimeout, func(ctx context.Context) func() {
 		apply := do(ctx, conv)
 		if apply == nil {
-			return
+			return nil
 		}
-		h.post(func() {
+		return func() {
 			if h.chat == c && c.Conv == conv {
 				apply()
 			}
-		})
+		}
 	})
 }
 

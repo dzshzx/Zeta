@@ -51,7 +51,7 @@ func callers(list []hostlink.Session, open func(backend string) sessionsCaller) 
 	return calls
 }
 
-// background 在后台跑 work，它返回的函数交回主线程跑。timeout 是 work 的时限；为 0 时不设（work 做的事自己有时限）。
+// background 在后台跑 work，它返回的函数（不是 nil 时）交回主线程跑。timeout 是 work 的时限；为 0 时不设（work 做的事自己有时限）。
 func (h *Hub) background(timeout time.Duration, work func(ctx context.Context) func()) {
 	h.run(func() {
 		ctx := context.Background()
@@ -60,7 +60,9 @@ func (h *Hub) background(timeout time.Duration, work func(ctx context.Context) f
 			ctx, cancel = context.WithTimeout(ctx, timeout)
 			defer cancel()
 		}
-		h.post(work(ctx))
+		if then := work(ctx); then != nil {
+			h.post(then)
+		}
 	})
 }
 

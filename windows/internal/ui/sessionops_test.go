@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/egoist/mygo"
 )
 
 // opsFixture 是 box 上列着三个会话的侧栏：修登录页（今天）、看看日志（今天）、部署脚本（更早）。
@@ -140,16 +141,18 @@ func TestMultiSelect(t *testing.T) {
 
 func TestExportSavesWhereTheUserChose(t *testing.T) {
 	f := newOpsFixture(t)
-	dir := t.TempDir()
 	var asked []string
-	f.app.ops.save = func(name string) (string, error) {
-		asked = append(asked, name)
-		return filepath.Join(dir, "out.md"), nil
+	var data []byte
+	f.app.saveFile = func(title, name string, filters []mygo.FileFilter, content []byte) (string, error) {
+		if title != "导出对话" || len(filters) != 1 || filters[0].Extensions[0] != "md" {
+			t.Errorf("保存框 %q、%+v", title, filters)
+		}
+		asked, data = append(asked, name), content
+		return "out.md", nil
 	}
 	f.menu(t, "部署脚本", "导出")
-	data, err := os.ReadFile(filepath.Join(dir, "out.md"))
-	if err != nil || string(data) != "# 对话 s3\n\n正文\n" {
-		t.Fatalf("存下 %q、%v", data, err)
+	if string(data) != "# 对话 s3\n\n正文\n" {
+		t.Fatalf("存下 %q", data)
 	}
 	if len(asked) != 1 || asked[0] != "Zeta-对话 s3-20261122-1500.md" {
 		t.Errorf("建议的文件名 %q", asked)
@@ -162,7 +165,7 @@ func TestExportSavesWhereTheUserChose(t *testing.T) {
 	if len(asked) != 2 || asked[1] != "Zeta-2个对话-20261122-1500.md" || f.app.ops.selecting {
 		t.Errorf("导出几个：%q，多选 %v", asked, f.app.ops.selecting)
 	}
-	f.app.ops.save = func(string) (string, error) { return "", nil }
+	f.app.saveFile = func(string, string, []mygo.FileFilter, []byte) (string, error) { return "", nil }
 	f.menu(t, "部署脚本", "导出")
 	f.notSee(t, "导出没成功")
 }

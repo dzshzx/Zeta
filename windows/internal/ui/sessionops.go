@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"os"
 	"slices"
 	"strconv"
 
@@ -39,13 +38,6 @@ type sessionOps struct {
 		skipped int
 		open    bool
 	}
-	// save 让用户选导出存到哪（系统的保存对话框），取消时是空。阻塞，在后台调用；测试里换掉。
-	save func(name string) (string, error)
-}
-
-func systemSave(name string) (string, error) {
-	return mygo.Dialog.Save(mygo.SaveDialogOptions{Title: "导出对话", DefaultPath: name,
-		Filters: []mygo.FileFilter{{Name: "Markdown", Extensions: []string{"md"}}}})
 }
 
 // sessionMenu 是一行会话的右键菜单。
@@ -97,22 +89,15 @@ func (a *App) local(s hostlink.Session) hub.Local {
 	return hub.Local{Waiting: len(p.state.Prompts) > 0, Busy: p.state.Busy, Tasks: p.state.RunningTasks()}
 }
 
-// export 导出 list：中枢取来 Markdown，系统的保存对话框选好地方存下。几个一起导出、存好了退出多选。
+// export 导出 list：中枢取来 Markdown，经 saveFile 选好地方存下。几个一起导出、存好了退出多选。
 func (a *App) export(list []hostlink.Session) {
 	if len(list) == 0 {
 		return
 	}
-	save := a.ops.save
-	if save == nil {
-		save = systemSave
-	}
 	many := len(list) > 1
 	a.hub.Export(list, a.now(), func(e hub.Exported) {
 		a.async(func() func() {
-			path, err := save(e.Name)
-			if err == nil && path != "" {
-				err = os.WriteFile(path, []byte(e.Content), 0o644)
-			}
+			path, err := a.saveFile("导出对话", e.Name, []mygo.FileFilter{{Name: "Markdown", Extensions: []string{"md"}}}, []byte(e.Content))
 			return func() {
 				switch {
 				case err != nil:
