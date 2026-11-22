@@ -35,37 +35,58 @@ tasks.named<ProcessResources>("jvmProcessResources") {
     from(app.layout.projectDirectory.dir("src/main/res/font")) { into("font") }
 }
 
-// 版本号和手机版同一份（根目录的 build.gradle.kts）。MSI 只认 X.Y.Z 三段数字，预发布（0.7.2-dev.3+gabc1234）取前面的 0.7.2
-val versionLabel: String by rootProject.extra
+compose.desktop { application { mainClass = "com.dzshzx.zeta.desktop.MainKt" } }
 
-compose.desktop {
-    application {
-        mainClass = "com.dzshzx.zeta.desktop.MainKt"
-        // Windows 安装包（MSI）：jpackage 只能在 Windows 上打，由 .github/workflows/desktop.yml 在 GitHub 的
-        // Windows 托管机上跑
-        // :desktop:packageMsi。装在用户自己的目录下，不要管理员权限；升级靠固定的 upgradeUuid 认出旧版本。
-        nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
-            packageName = "Zeta"
-            packageVersion = versionLabel.substringBefore('-')
-            description = "经 SSH 用远程主机上的 Claude Code"
-            vendor = "dzshzx"
-            // suggestRuntimeModules 从字节码推出的。不带 jdk.localedata（约 30 MB）：要中文的星期、月份名时自己查表，见
-            // core/Quota.kt
-            modules(
-                "java.instrument",
-                "java.naming",
-                "java.security.jgss",
-                "java.sql",
-                "jdk.unsupported",
-            )
-            windows {
-                iconFile.set(layout.projectDirectory.file("icons/zeta.ico"))
-                perUserInstall = true
-                menu = true
-                shortcut = true
-                upgradeUuid = "d73fe446-ddad-4182-b6f1-fc4f8ac025fb"
-            }
+// Windows 安装包全在 Linux 上做，本机 runner 就能打（jpackage 只能在 Windows 上跑，所以不用它）：
+// windowsApp 把本模块的 jar 和运行时依赖放进一个目录，界面库的原生部分换成 Windows 的；
+// packageWindows 再交给 windows/package.sh 配上 Windows 的 JRE、用 wixl 打成 MSI，见那个脚本开头。
+val windowsRuntime: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    val jvmRuntime = configurations.getByName("jvmRuntimeClasspath")
+    extendsFrom(jvmRuntime)
+    // 用的是 jvmRuntimeClasspath 的依赖和属性，只把 Linux 的原生库换成 Windows 的
+    attributes {
+        jvmRuntime.attributes.keySet().forEach {
+            @Suppress("UNCHECKED_CAST")
+            attribute(it as Attribute<Any>, jvmRuntime.attributes.getAttribute(it)!!)
         }
     }
+    exclude(group = "org.jetbrains.compose.desktop", module = "desktop-jvm-linux-x64")
+    exclude(group = "org.jetbrains.skiko", module = "skiko-awt-runtime-linux-x64")
+}
+
+dependencies { windowsRuntime(compose.desktop.windows_x64) }
+
+val windowsApp by
+    tasks.registering(Sync::class) {
+        // 不同 group 下有同名的 jar（androidx 和 org.jetbrains.androidx 的 lifecycle），依赖的文件名前都加上 group
+        val groups =
+            windowsRuntime.incoming.artifacts.resolvedArtifacts.map { artifacts ->
+                artifacts.associate {
+                    it.file to (it.id.componentIdentifier as? ModuleComponentIdentifier)?.group
+                }
+            }
+        from(tasks.named("jvmJar"))
+        from(windowsRuntime) { eachFile { groups.get()[file]?.let { name = "$it.$name" } } }
+        into(layout.buildDirectory.dir("windows/app"))
+    }
+
+// 版本号和手机版同一份（根目录的 build.gradle.kts）
+val versionLabel: String by rootProject.extra
+
+tasks.register<Exec>("packageWindows") {
+    group = "distribution"
+    description = "打 Windows 安装包 build/windows/Zeta-v<版本>.msi（要 wixl）"
+    dependsOn(windowsApp)
+    val out = layout.buildDirectory.file("windows/Zeta-v$versionLabel.msi")
+    inputs.files(windowsApp)
+    inputs.dir(layout.projectDirectory.dir("windows"))
+    inputs.dir(layout.projectDirectory.dir("icons"))
+    outputs.file(out)
+    commandLine(
+        layout.projectDirectory.file("windows/package.sh").asFile.path,
+        layout.buildDirectory.dir("windows/app").get().asFile.path,
+        versionLabel,
+        out.get().asFile.path,
+    )
 }

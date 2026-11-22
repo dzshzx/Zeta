@@ -82,6 +82,14 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 终端里接着一个会话时，Zeta 那边闲着就退出；正在回答时终端里会提示先等它答完。
 
+## Windows 桌面版
+
+桌面版是 Windows 上的窗口程序，只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务的显示和手机上一样。
+
+- 安装：还没随 Releases 发布，先从源码打包（见「从源码构建」），得到 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员；自带 Java 运行时，不用另装。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
+- 第一次使用：点「连接远程设备」，填主机地址（`用户@主机`），把页面上显示的 Zeta 公钥加进那台主机的 `~/.ssh/authorized_keys`，再点连接。主机上要装好 Claude Code 并登录过。
+- 设置和密钥存在 `%APPDATA%\Zeta`。
+
 ## 权限说明
 
 | 权限 | 用来做什么 |
@@ -106,7 +114,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## 从源码构建
 
-要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。
+要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。Windows 桌面版的安装包在 Linux 上打：`tools/gradle :desktop:packageWindows`，要 wixl（Debian/Ubuntu 的 `wixl` 包），产物是 `desktop/build/windows/Zeta-v<版本>.msi`。
 
 ## 反馈
 

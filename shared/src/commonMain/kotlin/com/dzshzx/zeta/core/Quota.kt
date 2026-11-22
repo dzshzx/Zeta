@@ -292,10 +292,7 @@ object Quota {
             else -> {
                 val at = Instant.ofEpochMilli(resetsAt).atZone(zone)
                 val days = (left / 86_400_000).toInt()
-                // 星期自己查表：桌面版的运行时不带 jdk.localedata，Locale.CHINA 的 EEE 会退回英文
-                "周" +
-                    "一二三四五六日"[at.dayOfWeek.value - 1] +
-                    DateTimeFormatter.ofPattern(" HH:mm").format(at) +
+                DateTimeFormatter.ofPattern("EEE HH:mm", Locale.CHINA).format(at) +
                     " 重置" +
                     if (days >= 7) "（${days} 天后）" else ""
             }

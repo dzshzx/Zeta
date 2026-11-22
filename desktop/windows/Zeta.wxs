@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zeta 桌面版的 MSI，由 package.sh 交给 wixl。按用户安装，不要管理员；文件清单（AppFiles）由 wixl-heat 生成。
+     UpgradeCode 不能改：新版本靠它认出并替换已装的旧版本。MSI 里的字符串只用 ASCII，免得各语言的 Windows 上乱码。 -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Zeta" Language="1033" Version="$(var.Version)" Manufacturer="dzshzx"
+           UpgradeCode="d73fe446-ddad-4182-b6f1-fc4f8ac025fb">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
+             Description="Zeta: Claude Code on remote hosts over SSH" />
+    <Media Id="1" Cabinet="zeta.cab" EmbedCab="yes" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Zeta is already installed." />
+
+    <Icon Id="zeta.ico" SourceFile="$(var.SourceDir)/zeta.ico" />
+    <Property Id="ARPPRODUCTICON" Value="zeta.ico" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsDir" Name="Programs">
+          <Directory Id="INSTALLDIR" Name="Zeta" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <DirectoryRef Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="5d5da443-2d18-43e3-b92d-fa89d7324c07">
+        <Shortcut Id="ZetaShortcut" Name="Zeta" Description="Zeta"
+                  Target="[INSTALLDIR]runtime\bin\javaw.exe"
+                  Arguments="-cp &quot;[INSTALLDIR]app\*&quot; com.dzshzx.zeta.desktop.MainKt"
+                  WorkingDirectory="INSTALLDIR" Icon="zeta.ico" />
+        <RegistryValue Root="HKCU" Key="Software\dzshzx\Zeta" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Product>
+</Wix>
