@@ -1612,6 +1612,7 @@ class Conversation(
                         detail.contains("zeta: rootfs not found") ->
                             "找不到 Debian 环境，请到设置里检查 rootfs 路径"
                         detail.contains("zeta: busybox not found") -> "找不到 root 管理器自带的 BusyBox"
+                        detail.contains(CwdProblem.MARK) -> CwdProblem.notice(hub, backend, cwd)
                         code == 1 && detail.isEmpty() && sessionId == null ->
                             "Claude Code 没能启动。请确认已在 root 管理器里给 Zeta 授权"
                         code == 143 || code == 137 -> "Claude Code 进程被结束了"

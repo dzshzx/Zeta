@@ -79,4 +79,20 @@ class HandedAwayTest {
     private companion object {
         const val SESSION = "aaaaaaaa-1111-4222-8333-444444444444"
     }
+
+    /** 工作目录进不去（托管脚本没起进程）：说清没启动、是哪个目录、去哪改，不说成「进程已退出」。 */
+    @Test
+    fun aMissingWorkingDirectoryIsExplained() {
+        val hub = Fixtures.readyHub(app)
+        val chat = chat(hub)
+        chat.send("你好")
+        chat.exit(ProcessExit(97, "${CwdProblem.MARK} ${chat.cwd}"))
+        val notice = chat.items.filterIsInstance<NoticeItem>().single { it.error }.text
+        assertTrue(notice, notice.startsWith("Claude Code 没有启动"))
+        assertTrue(notice, chat.cwd in notice && "默认工作目录" in notice)
+        assertFalse(notice, "进程已退出" in notice)
+        // 托管脚本里的那句话和这里认的开头是同一句
+        val script = app.assets.open("zeta_host.sh").bufferedReader().use { it.readText() }
+        assertTrue(script.contains("echo \"${CwdProblem.MARK} \$cwd\""))
+    }
 }

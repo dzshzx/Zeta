@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.chat
 
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
@@ -76,6 +77,7 @@ import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ComposerDrafts
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.CwdProblem
 import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
@@ -119,9 +121,12 @@ import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 结束当前对话：还在进行的（会停掉在做的事）和正在别处运行的（会停掉那边的进程）先经 [confirm] 确认，别的直接结束。 */
 private fun requestEnd(hub: ConversationHub, conversation: Conversation, confirm: () -> Unit) {
@@ -1156,6 +1161,8 @@ private fun EmptyState(
     val colors = COUITheme.colorScheme
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.align(Alignment.Center).padding(bottom = 56.dp),
@@ -1268,8 +1275,16 @@ private fun EmptyState(
         confirmText = "确定",
         confirmEnabled = cwdDraft.trim().startsWith("/"),
         onConfirm = {
-            editingCwd = false
-            if (cwdDraft.trim() != cwd) onChangeCwd(cwdDraft.trim())
+            val path = cwdDraft.trim()
+            val backend = hub.current.backend
+            // 先看那台上进不进得去：进不去就留着对话框让用户改，不然发出消息才知道起不来
+            scope.launch {
+                val problem = withContext(Dispatchers.IO) { CwdProblem.check(hub, backend, path) }
+                if (problem == null) {
+                    editingCwd = false
+                    if (path != cwd) onChangeCwd(path)
+                } else Toast.makeText(context, problem, Toast.LENGTH_LONG).show()
+            }
         },
         onDismissRequest = { editingCwd = false },
     )

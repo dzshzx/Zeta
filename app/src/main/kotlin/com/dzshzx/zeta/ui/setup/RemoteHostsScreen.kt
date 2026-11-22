@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.setup
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.CwdProblem
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ssh.SshKey
@@ -404,6 +406,7 @@ internal fun RemoteHostScreen(
     claude: LazyListScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val host = hub.settings.remoteHosts.firstOrNull { it.id == id }
     val shown = rememberRetained(host) ?: return
     var renaming by remember { mutableStateOf(false) }
@@ -485,8 +488,17 @@ internal fun RemoteHostScreen(
                 confirmText = "确定",
                 confirmEnabled = cwd != null,
                 onConfirm = {
-                    cwdEditing = false
-                    cwd?.let { path -> save { it.copy(defaultCwd = path) } }
+                    // 先看那台上进不进得去：进不去就留着对话框让用户改，不存一个开不了对话的目录
+                    cwd?.let { path ->
+                        scope.launch {
+                            val problem =
+                                withContext(Dispatchers.IO) { CwdProblem.check(hub, id, path) }
+                            if (problem == null) {
+                                cwdEditing = false
+                                save { it.copy(defaultCwd = path) }
+                            } else Toast.makeText(context, problem, Toast.LENGTH_LONG).show()
+                        }
+                    }
                 },
                 onDismissRequest = { cwdEditing = false },
             )

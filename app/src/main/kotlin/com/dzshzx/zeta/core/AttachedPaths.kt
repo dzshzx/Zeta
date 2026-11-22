@@ -165,6 +165,31 @@ enum class PathKind {
     Unknown,
 }
 
+/** 对话的工作目录进不去（没有这个目录、不是目录或没有权限）：起进程前拦下时和托管脚本报出来时给用户的话。 */
+object CwdProblem {
+    /** 托管脚本（zeta_host.sh 的 start）进不去工作目录时在标准错误输出里写的开头。 */
+    const val MARK = "zeta: 进不去工作目录"
+
+    /** 进不去时聊天页上的提示：说清 Claude Code 没启动、是哪台上的哪个目录、去哪改。 */
+    fun notice(hub: ConversationHub, backend: String, cwd: String): String =
+        "Claude Code 没有启动：${where(hub, backend)}进不去工作目录 $cwd（没有这个目录，或没有权限）。" +
+            "新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。"
+
+    /** 要把 [path] 设成主机 [backend] 上的工作目录：进不去时返回给用户的原因，进得去（或那台这会儿查不了）返回 null。耗时，别在主线程调用。 */
+    fun check(hub: ConversationHub, backend: String, path: String): String? {
+        val shell = hub.shell(backend) ?: return null
+        return when (PathCheck.check(shell, path, null)) {
+            PathKind.Missing -> "${where(hub, backend)}没有 $path 这个目录"
+            PathKind.File -> "$path 是文件，不是目录"
+            PathKind.Denied -> "${where(hub, backend)}的 $path 没有权限进去"
+            else -> null
+        }
+    }
+
+    private fun where(hub: ConversationHub, backend: String): String =
+        if (backend == Backends.LOCAL) "Linux 环境里" else "「${hub.backendName(backend)}」上"
+}
+
 object PathCheck {
     /**
      * 参数：$1 对话的托管标识（可以为空），之后是要查的路径；每个路径输出一行 `zeta_path <种类>`，顺序同参数。 有在跑的 Claude Code 进程时经
