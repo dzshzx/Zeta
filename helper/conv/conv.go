@@ -50,8 +50,9 @@ type Conversation struct {
 	loadingHistory     bool
 	earlier            int             // 会话记录里还没载入的更早事件数
 	earlierAnchor      string          // 已载入那段之前的一行（uuid），要更早一页时交回去
-	earlierFile        string          // 还没载入的那段在哪份会话记录里
+	earlierFile        string          // 还没载入的那段在哪份会话记录里（分支是原会话的）
 	earlierLoading     bool            // 正在载入更早的一页（conv.earlier）
+	deferredEarlier    func()          // 剪的期间读回来的更早一页，剪完再接上
 	todoSeed           json.RawMessage // 没载入的更早历史里的清单工具调用
 	queued             []*outgoing
 	steering           bool
@@ -80,6 +81,11 @@ type Conversation struct {
 	openedSession string
 	sendNow       bool // 这个进程的 Claude Code 认 interrupt 的 send_now
 	autoName      autoTitle
+
+	// forkSource 是分支的原会话号（子代理的记录可能还在原会话下面）；不是分支时为空
+	forkSource string
+	fork       *forkState     // 还没发过消息的分支要做的剪切，见 fork.go
+	rewind     *pendingRewind // 在等 Claude Code 剪会话或还原代码；这期间不收新消息，见 rewind.go
 
 	options  map[int]Options // 各客户端给的设置
 	starter  int             // 起进程用谁的设置：最近一个发消息（或要起进程）的客户端

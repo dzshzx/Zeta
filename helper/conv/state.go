@@ -42,6 +42,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"commands":        nonNull(c.commands, "null"),
 		"models":          nonNull(c.models, "null"),
 		"usage":           raw(c.usageView()),
+		"can_rewind":      raw(c.canRewind()),
 	}
 }
 

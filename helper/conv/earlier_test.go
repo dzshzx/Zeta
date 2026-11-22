@@ -84,3 +84,39 @@ func waitLoaded(t *testing.T, h *harness, c *Conversation) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// 剪的期间读回来的更早一页等剪完再接上：接在剪完以后的列表前面。
+func TestEarlierWaitsForRewind(t *testing.T) {
+	h, c, l := twoTurns(t)
+	_, _ = c.Call(func() (any, error) {
+		c.earlier, c.earlierAnchor, c.earlierFile = 4, "u0", "/f.jsonl"
+		return nil, nil
+	})
+	h.mu.Lock()
+	h.history = []byte(`{"type":"zeta_history","skipped":0}
+{"type":"user","uuid":"u0","message":{"content":[{"type":"text","text":"早的问题"}]}}
+`)
+	h.mu.Unlock()
+	second := h.item(1, "user", "二")
+	h.call(1, "conv.drop", map[string]any{"conv": "a", "target": second["id"]})
+	_, id := waitRequest(t, l, "rewind_conversation", 1)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := h.m.Request(1, "conv.earlier", []byte(`{"conv":"a"}`))
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("剪完之前就接上了：%v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	h.respond(c, l, id, `{"rewound":true}`, "")
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	h.settle(c)
+	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:早的问题", "user:一", "answer:回答一"}) {
+		t.Fatalf("条目：%v", got)
+	}
+}

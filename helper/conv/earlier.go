@@ -38,7 +38,14 @@ func (c *Conversation) loadEarlier(rest bool) (<-chan error, error) {
 	done := make(chan error, 1)
 	go func() {
 		out, err := c.deps.History(args...)
-		c.do(func() { done <- c.applyEarlier(out, err, file, skipped) })
+		c.do(func() {
+			apply := func() { done <- c.applyEarlier(out, err, file, skipped) }
+			if c.rewind != nil {
+				c.deferredEarlier = apply
+				return
+			}
+			apply()
+		})
 	}()
 	return done, nil
 }

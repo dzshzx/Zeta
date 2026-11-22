@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -113,5 +114,25 @@ func TestSummaryCountsAnUnfinishedLastLine(t *testing.T) {
 		`{"type":"custom-title","customTitle":"没换行"}`)
 	if got := summaryOf(t, path); got["title"] != "没换行" {
 		t.Errorf("title %v", got["title"])
+	}
+}
+
+func TestSessionTitlesOfOneCwd(t *testing.T) {
+	e := testEnv(t)
+	record := func(id, cwd, title string) {
+		lines := []string{`{"type":"user","cwd":"` + cwd + `","message":{"content":"问"}}`}
+		if title != "" {
+			lines = append(lines, `{"type":"custom-title","customTitle":"`+title+`"}`)
+		}
+		writeLines(t, e.root+"/-p/"+id+".jsonl", lines...)
+	}
+	record("11111111-1111-1111-1111-111111111111", "/work", "分支 · 问题")
+	record("22222222-2222-2222-2222-222222222222", "/work", "问题")
+	record("33333333-3333-3333-3333-333333333333", "/work", "")
+	record("44444444-4444-4444-4444-444444444444", "/other", "分支 2 · 问题")
+	got := sessionTitles(e, "/work")
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"分支 · 问题", "问题"}) {
+		t.Fatalf("标题：%v", got)
 	}
 }

@@ -112,9 +112,8 @@ func (c *Conversation) phoneHolder() bool {
 func (c *Conversation) launchArgs(mode string, o Options) []string {
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
 		"--include-partial-messages", "--permission-prompt-tool", "stdio"}
-	if c.session != "" {
-		args = append(args, "--resume", c.session)
-	}
+	// 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
+	args = append(args, c.sessionArgs()...)
 	model := c.switchedInTerminal
 	if c.model != nil {
 		model = *c.model
@@ -276,6 +275,7 @@ func (c *Conversation) closeProcess(end bool) {
 		return
 	}
 	c.proc = nil
+	c.abortRewind("对话已关闭")
 	if end {
 		p.link.Stop()
 	} else {
@@ -309,6 +309,7 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		return
 	}
 	c.proc = nil
+	c.abortRewind("Claude Code 进程退出了")
 	// 连接意外断开时进程可能还活着：没有别的接着的一方就一并结束，免得留下没人管的后台进程
 	p.link.Detach()
 	if e.Reason == reasonReleased || e.Reason == reasonHeldElsewhere {
