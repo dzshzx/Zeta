@@ -37,13 +37,21 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"recalled":        raw(recalled),
 		"model":           raw(c.model),
 		"reported_model":  raw(c.reportedModel),
-		"effort":          raw(c.effort),
+		"effort":          raw(nilIfEmpty(c.effort)),
 		"mode":            raw(map[string]string{"user": c.modes.user, "process": c.modes.process}),
 		"commands":        nonNull(c.commands, "null"),
 		"models":          nonNull(c.models, "null"),
 		"usage":           raw(c.usageView()),
 		"can_rewind":      raw(c.canRewind()),
 	}
+}
+
+// nilIfEmpty：没选的（空串）编成 null，和 model 一样。
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func nonNull(v json.RawMessage, empty string) json.RawMessage {
@@ -92,7 +100,7 @@ func (p *publishedItems) delta(now []*transcript.Item) *itemsMsg {
 	if head == len(now) && head == len(p.items) {
 		return nil
 	}
-	d := &itemsMsg{At: head, Remove: len(p.items) - head - tail, Items: now[head : len(now)-tail]}
+	d := &itemsMsg{At: head, Remove: len(p.items) - head - tail, Items: nonNilSlice(now[head : len(now)-tail])}
 	p.items = append(p.items[:0], now...)
 	p.revs = p.revs[:0]
 	for _, it := range now {

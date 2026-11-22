@@ -37,7 +37,7 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 }
 
 // sessionsHandler 管会话列表的订阅：sessions.watch 先推一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只推变了的几项
-// （见 sessionWatch）；再发一次就再给一份整份的。
+// （见 sessionWatch）；再发一次就再给一份整份的。sessions.unwatch 退订，客户端断开时也退订。
 type sessionsHandler struct {
 	e    *env
 	opts watchOptions
@@ -47,7 +47,12 @@ type sessionsHandler struct {
 }
 
 func (h *sessionsHandler) Request(c *core.Client, r core.Request) (any, error) {
-	if r.Method != "sessions.watch" {
+	switch r.Method {
+	case "sessions.unwatch":
+		h.Gone(c)
+		return nil, nil
+	case "sessions.watch":
+	default:
 		return nil, errors.New("unknown method: " + r.Method)
 	}
 	h.mu.Lock()
@@ -73,7 +78,7 @@ func (h *sessionsHandler) Gone(c *core.Client) {
 // Idle：订阅不让核心留着，有客户端连着时核心本来就不退。
 func (h *sessionsHandler) Idle() bool { return true }
 
-// accountsHandler 做 accounts.* 和 quota.*（见 docs/core.md「账号与额度」、serve_accounts.go）。
+// accountsHandler 做 accounts.* 和 quota.*（见 docs/core.md「账号与额度」、accounts.go）。
 type accountsHandler struct{ e *env }
 
 func (h accountsHandler) Request(_ *core.Client, r core.Request) (any, error) {

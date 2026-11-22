@@ -221,6 +221,12 @@ func TestServeWatchPushesOnlyWhatChanged(t *testing.T) {
 	if got["full"] != true || !slices.Equal(ids(got["upsert"]), []string{sessionB}) {
 		t.Fatalf("again %v", got)
 	}
+
+	// 退订以后不再推
+	c.send(`{"id":3,"method":"sessions.unwatch"}`)
+	c.next("zeta_reply")
+	writeSession(t, e, sessionA, "退订以后")
+	c.quiet(200 * time.Millisecond)
 }
 
 // 连上时连 ~/.claude 都还没有（主机上还没跑过 Claude Code）：等它建出来，第一个会话照样推来。

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,21 +24,7 @@ func TestConversationThroughCore(t *testing.T) {
 	if pid := corePid(p); pid != 0 {
 		t.Fatalf("开始前就有核心：%d", pid)
 	}
-	fake := e.home + "/.config/zeta-dev/fake-claude"
-	script, err := os.ReadFile("../tools/fake-claude/fake-claude.sh")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(fake, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(fake+"/fake-claude.sh", script, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	scenario := `{"title":"假 Claude 起的标题","steps":[{"thinking":"想一想"},{"text":"你好，我是按剧本回话的假 Claude","chunk":4,"delay":5}]}` + "\n"
-	if err := os.WriteFile(fake+"/scenario.jsonl", []byte(scenario), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	fakeClaudeIn(t, e, `{"title":"假 Claude 起的标题","steps":[{"thinking":"想一想"},{"text":"你好，我是按剧本回话的假 Claude","chunk":4,"delay":5}]}`)
 
 	c := startServe(t, e, testIdle)
 	view := &convView{}
@@ -78,6 +65,26 @@ func TestConversationThroughCore(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// fakeClaudeIn 把假 Claude 和剧本放到测试版的目录里（tools/fake-claude），返回它的目录；测试版的托管脚本看到剧本就起它。
+func fakeClaudeIn(t *testing.T, e *env, scenario string) string {
+	t.Helper()
+	fake := e.home + "/.config/zeta-dev/fake-claude"
+	script, err := os.ReadFile("../tools/fake-claude/fake-claude.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(fake+"/marks", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fake+"/fake-claude.sh", script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fake+"/scenario.jsonl", []byte(scenario+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return fake
 }
 
 func quote(s string) string {
@@ -143,4 +150,52 @@ func (v *convView) texts() []string {
 		out = append(out, m["kind"].(string)+":"+text)
 	}
 	return out
+}
+
+// 交班时正在回答的对话不断：旧核心放开托管进程，新核心起来时接回它，这一轮在新核心里答完。
+func TestHandoverKeepsATurnRunning(t *testing.T) {
+	e0, p := coreEnv(t)
+	e := newEnvAt(e0.home, "zeta-dev")
+	t.Setenv("ZETA_NAME", e.name)
+	fake := fakeClaudeIn(t, e, `{"steps":[{"text":"前半","chunk":8,"delay":1},{"wait":"go","ms":20000},{"text":"后半","chunk":8,"delay":1}]}`)
+
+	useBuild(t, "5")
+	a := startServe(t, e, testIdle)
+	view := &convView{}
+	a.send(`{"id":1,"method":"conv.open","conv":"a","cwd":` + quote(e.home) + `}`)
+	view.until(t, a, func(m obj) bool { return m["type"] == "zeta_reply" })
+	a.send(`{"id":2,"method":"conv.send","conv":"a","text":"讲一段"}`)
+	view.until(t, a, func(obj) bool { return slices.Contains(view.texts(), "answer:前半") })
+	session, _ := view.state["session"].(string)
+	old := corePid(p)
+
+	// 新版本的 serve 连上来：旧核心交班，正在回答的那个由新核心接回
+	useBuild(t, "9")
+	b := startServe(t, e, testIdle)
+	activity := &convView{}
+	b.send(`{"id":1,"method":"conv.activity","watch":true}`)
+	answering := func(state string) func(obj) bool {
+		return func(m obj) bool {
+			s, _ := m["sessions"].(map[string]any)
+			x, _ := s[session].(map[string]any)
+			return m["type"] == "conv.activity" && x["activity"] == state
+		}
+	}
+	activity.until(t, b, answering("answering"))
+	a.exited()
+	if pid := corePid(p); pid == old || pid == 0 {
+		t.Fatalf("核心没换：旧 %d，现在 %d", old, pid)
+	}
+
+	// 放行剧本：这一轮在新核心里答完
+	if err := os.WriteFile(fake+"/marks/go", nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	activity.until(t, b, answering("idle"))
+	b.send(`{"id":2,"method":"conv.open","conv":"x","session":` + quote(session) + `,"cwd":` + quote(e.home) + `}`)
+	reopened := &convView{}
+	reopened.until(t, b, func(m obj) bool { return m["type"] == "zeta_reply" && m["id"] == json.Number("2") })
+	if !slices.ContainsFunc(reopened.texts(), func(s string) bool { return strings.Contains(s, "后半") }) || reopened.state["process"] != true {
+		t.Fatalf("接回以后的条目 %v，状态 %v", reopened.texts(), reopened.state)
+	}
 }

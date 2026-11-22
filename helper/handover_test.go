@@ -60,9 +60,7 @@ func TestNewerServeTakesOverTheCore(t *testing.T) {
 	if fresh == 0 || fresh == old {
 		t.Fatalf("核心没换：旧 %d，现在 %d", old, fresh)
 	}
-	if syscall.Kill(old, 0) == nil {
-		t.Fatalf("旧核心 %d 还在", old)
-	}
+	waitFor(t, func() bool { return syscall.Kill(old, 0) != nil }) // 旧核心退出了（关连接以后还要收尾一下）
 
 	useBuild(t, "5")
 	older := startServe(t, e, testIdle)

@@ -1,5 +1,5 @@
 // Package claudecfg 读写这台主机上 Claude Code 自己的配置：~/.claude 下的记忆、Skills、Subagent，settings.json 里的
-// 新对话默认和工具权限，以及经 claude mcp 管的 MCP 服务器。zeta-helper serve 的 config.* 方法（serve_config.go）用它，
+// 新对话默认和工具权限，以及经 claude mcp 管的 MCP 服务器。zeta-helper 核心的 config.* 方法（config.go）用它，
 // 手机版和桌面版都经那几个方法读写。行为照手机版原来的 shared/…/core/claude。
 //
 // 文件直接在本机读写（zeta-helper 以 Claude Code 所属的用户身份跑，文件的所有者自然是那个用户）；要用登录环境的
@@ -103,7 +103,7 @@ var storeMu sync.Mutex
 // expected 是读到时的 sha256：* 不检查直接覆盖，- 表示应当还不存在；现有内容对不上时返回 ErrConflict，什么都不改。
 // removeAfter 是写成以后要删掉的旧文件（Subagent 改名用）。返回新内容的 sha256。
 func store(path string, content []byte, expected, removeAfter string) (string, error) {
-	// 核对和改名之间不让本进程里别的请求插进来（serve 并发处理请求）；和 Claude Code 之间照旧是尽力而为
+	// 核对和改名之间不让本进程里别的请求插进来（核心并发处理请求）；和 Claude Code 之间照旧是尽力而为
 	storeMu.Lock()
 	defer storeMu.Unlock()
 	target := path
