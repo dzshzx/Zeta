@@ -21,6 +21,9 @@
 #                                                 （默认 60000，过了就提前结束这一轮）：剧本按脚本的动作往下走，不和固定的停顿赛跑
 #   {"error":"API Error: 500 …","status":500}     这一轮出错结束（result 的 is_error 为 true）
 #   {"emit":{…}}                                  原样输出一行（没写 session_id 的补上），用来造后台任务之类的事件
+#                                                 里面的 @TOOL@ 换成上一次工具调用的 id。emit 的是 task_started 时记下这个后台任务：
+#                                                 同一步的 "output" 是 get_task_output 读到的输出，stop_task 停它时照真 Claude Code
+#                                                 输出 task_updated（killed）、task_notification（stopped）和剩下的 background_tasks_changed
 #   {"exit":1}                                    进程立即退出，测进程意外结束
 # 剧本用完后再来的消息按出错结束。流文字、停顿、等工具时都能被 interrupt 打断，收尾和真 Claude Code 一样。
 # 控制请求（initialize、get_context_usage、set_model 等）随到随答；end_session 照真 Claude Code 结束会话：进行中的这一轮按打断收尾，然后退出。一轮进行中发来的消息排队（command_lifecycle queued），
@@ -71,7 +74,7 @@ case $SESSION in '' | *[!0-9a-fA-F-]*) SESSION='' ;; esac
 
 # ---- 读标准输入：控制请求随到随答，用户消息排队 ----
 
-declare -A AWAIT=() RESP=()
+declare -A AWAIT=() RESP=() TASKS=() TASK_OUT=()
 QUEUE=()
 BUF='' EOF='' BUSY='' INTERRUPTED='' REJECTED='' END_REPLY='' TITLE=''
 
@@ -215,7 +218,11 @@ control() {
         out "$(reply "$rid" "$(jq -c '{rewound: true, targetMessageUuid: .request.target_message_uuid, prefillText: "", precedingAssistantUuid: null}' <<<"$line")")"
       fi
       ;;
-    stop_task) out "$(reply "$rid" '{}')" ;;
+    stop_task)
+      value=$(jq -r '.request.task_id // ""' <<<"$line")
+      out "$(reply "$rid" '{}')"
+      [[ -n $value && -v TASKS[$value] ]] && stop_bg "$value"
+      ;;
     end_session)
       # 结束会话（zeta_host.sh 的 end_claude 发的）：闲着的答 success 后退出码 0；这一轮进行中的照打断收尾，
       # 应答放在打断时答 interrupt 的位置（手机工具调用中先发 notifications/cancelled），收完退出码 1
@@ -223,7 +230,14 @@ control() {
       END_REPLY=$(ok "$rid")
       if [ -n "$INTERRUPTED" ]; then out "$END_REPLY"; else INTERRUPTED=end_session; fi
       ;;
-    get_task_output) out "$(refuse "$rid" "get_task_output: no shell or Monitor task with that task_id in this session")" ;;
+    get_task_output)
+      value=$(jq -r '.request.task_id // ""' <<<"$line")
+      if [[ -n $value && -v TASK_OUT[$value] ]]; then
+        out "$(reply "$rid" "$(jq -nc --argjson o "${TASK_OUT[$value]}" '{output: $o, total_bytes: ($o | utf8bytelength), truncated: false}')")"
+      else
+        out "$(refuse "$rid" "get_task_output: no shell or Monitor task with that task_id in this session")"
+      fi
+      ;;
     *) out "$(refuse "$rid" "Unsupported control request subtype: $sub" unsupported_request)" ;;
   esac
 }
@@ -532,6 +546,29 @@ interrupted() {
   lifecycle "$CMD" cancelled
 }
 
+# 剧本的 emit 一步：原样输出（@TOOL@ 换成上一次工具调用的 id）；是 task_started 时记下这个后台任务和它的输出
+step_emit() {
+  local line=${1//@TOOL@/${TOOL_ID:-}} f
+  jq -c --arg s "$SESSION" '.emit | if has("session_id") then . else . + {session_id: $s} end' <<<"$line"
+  mapfile -t f < <(jq -r '.output as $o | .emit | select(.subtype == "task_started") | .task_id, (.description // ""), ($o // "" | tojson)' <<<"$line")
+  [ ${#f[@]} -eq 3 ] || return 0
+  TASKS[${f[0]}]=${f[1]} TASK_OUT[${f[0]}]=${f[2]}
+}
+
+# stop_task 停下剧本里起的后台任务 $1：事件照真 Claude Code 2.1.328 停后台命令时的样子（见 helper/tasks 的 board_test.go）
+stop_bg() {
+  local id=$1 desc=${TASKS[$1]} rest='' k
+  unset "TASKS[$id]"
+  for k in "${!TASKS[@]}"; do
+    rest+=$(jq -nc --arg id "$k" --arg d "${TASKS[$k]}" '{task_id: $id, task_type: "local_bash", description: $d}')
+  done
+  now
+  out "{\"type\":\"system\",\"subtype\":\"task_updated\",\"task_id\":\"$id\",\"patch\":{\"status\":\"killed\",\"end_time\":$NOW},\"session_id\":\"$SESSION\"}"
+  jq -nc --arg id "$id" --arg d "$desc" --arg s "$SESSION" \
+    '{type: "system", subtype: "task_notification", task_id: $id, status: "stopped", summary: $d, session_id: $s}'
+  jq -sc --arg s "$SESSION" '{type: "system", subtype: "background_tasks_changed", tasks: ., session_id: $s}' <<<"$rest"
+}
+
 # 剧本里下一轮是第几行（几个假 Claude 进程共用，按到来顺序）
 next_turn() {
   local n=0
@@ -586,7 +623,7 @@ turn() {
         BUSY='' INTERRUPTED=''
         return
         ;;
-      emit) jq -c --arg s "$SESSION" '.emit | if has("session_id") then . else . + {session_id: $s} end' <<<"${steps[i]}" ;;
+      emit) step_emit "${steps[i]}" ;;
       exit)
         echo "fake-claude: 剧本要求退出" >&2
         exit "$(jq -r '.exit' <<<"${steps[i]}")"

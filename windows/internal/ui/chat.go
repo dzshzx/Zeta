@@ -36,6 +36,8 @@ type chatPane struct {
 	acts msgActions
 	// todo 是输入栏上方的任务清单条（todostrip.go）。
 	todo todoStrip
+	// pages 是盖在聊天窗格上的后台任务页、子代理页（taskpages.go）。
+	pages chatPages
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -135,6 +137,9 @@ func (a *App) chatTitle(p *chatPane) string {
 // chatPage 是聊天窗格：中间聊天列表，顶上浮着标题栏（列表从它底下滚过去，透出来的是模糊的），底下输入栏一带。
 func (a *App) chatPage(c *ui.Context) {
 	p := a.pane
+	if a.chatSubpage(c, p) {
+		return
+	}
 	k := coui.Of(c)
 	page := ui.Column(c).Fill()
 	// 拖进窗口的文件、文件夹收成附件（同 Compose 版拖到聊天页上）
@@ -248,7 +253,7 @@ func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 		}
 		ui.Spacer(c)
 		if tasks > 0 {
-			ui.Text(c, "后台任务 "+strconv.Itoa(tasks)+" 个").FontSize(coui.SizeBodyS).TextColor(k.Secondary)
+			a.tasksLink(c, p, tasks)
 		}
 	})
 }
