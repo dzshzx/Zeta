@@ -33,6 +33,7 @@ type vd struct {
 	// 下面三个按测试版还是正式版定：包名、虚拟屏名字（VdHold 的第 5 个参数）、手机上的工作目录
 	pkg, name, work string
 	enterPushed     bool
+	settings        map[string]string // setting 读过的，一次调用里不再重复起 git
 }
 
 func newVD(dev bool) *vd {
@@ -67,8 +68,8 @@ func toolsDir() string {
 }
 
 func onPhone() bool {
-	release, _ := os.ReadFile("/proc/sys/kernel/osrelease")
-	return strings.Contains(string(release), "android")
+	kernel, _ := os.ReadFile("/proc/sys/kernel/osrelease")
+	return strings.Contains(string(kernel), "android")
 }
 
 // connect 选设备、拿租约、开模拟器。在 tools/phone-run 里（有 ZETA_PHONE_TICKET）时它已经开好模拟器、排队拿到了租约，这里不再重做。
@@ -126,10 +127,16 @@ func (v *vd) tool(name string, args ...string) {
 
 // setting 是本机的开发配置（同 tools/config.sh）：环境变量优先，其次是本仓的 git config zeta.<key>，都没有就是 def。
 func (v *vd) setting(env, key, def string) string {
-	value := os.Getenv(env)
-	if value == "" {
-		out, _ := exec.Command("git", "-C", v.tools, "config", "--get", "zeta."+key).Output()
-		value = strings.TrimSpace(string(out))
+	value, seen := v.settings[env]
+	if !seen {
+		if value = os.Getenv(env); value == "" {
+			out, _ := exec.Command("git", "-C", v.tools, "config", "--get", "zeta."+key).Output()
+			value = strings.TrimSpace(string(out))
+		}
+		if v.settings == nil {
+			v.settings = map[string]string{}
+		}
+		v.settings[env] = value
 	}
 	if value == "" {
 		return def
@@ -195,20 +202,15 @@ func (v *vd) run(cmd string, data []byte, seconds int) result {
 }
 
 // android 在 Android 一侧以 root 跑 cmd，返回标准输出；失败时退出。
-func (v *vd) android(cmd string, data ...[]byte) string {
-	return string(v.androidBytes(cmd, data...))
-}
+func (v *vd) android(cmd string) string { return v.androidIn(cmd, nil) }
 
-func (v *vd) androidBytes(cmd string, data ...[]byte) []byte {
-	var in []byte
-	if len(data) > 0 {
-		in = data[0]
-	}
-	r := v.run(cmd, in, 120)
+// androidIn 和 android 一样，data 经标准输入传过去。
+func (v *vd) androidIn(cmd string, data []byte) string {
+	r := v.run(cmd, data, 120)
 	if r.code != 0 {
 		die("android 命令失败（%d）：%s\n%s", r.code, cmd, strings.TrimSpace(string(r.stderr)))
 	}
-	return r.stdout
+	return string(r.stdout)
 }
 
 // try 和 android 一样，失败也只返回标准输出。
@@ -225,7 +227,7 @@ func (v *vd) debian(cmd string, data []byte) string {
 			if err != nil {
 				die("读不到进入脚本：%v", err)
 			}
-			v.android("cat > "+enterPath, enter)
+			v.androidIn("cat > "+enterPath, enter)
 			v.enterPushed = true
 		}
 		user := v.setting("ZETA_LINUX_USER", "linuxUser", "zeta")

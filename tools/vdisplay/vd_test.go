@@ -15,7 +15,7 @@ func TestParse(t *testing.T) {
 	good := [][]string{
 		{"build"}, {"start"}, {"start", "1220", "2656", "520"}, {"shot", "a.png"}, {"tap", "1", "2"},
 		{"swipe", "1", "2", "3", "4"}, {"swipe", "1", "2", "3", "4", "300"}, {"text", "hi"}, {"key", "KEYCODE_BACK"},
-		{"prefs", "a", "b_c"}, {"prefs-set", "cwd=/tmp", "phoneDisplay:int=3"}, {"fake", "x.jsonl"}, {"fake", "--off"},
+		{"prefs", "a", "b_c"}, {"prefs-set", "cwd=/tmp", "phoneDisplay:int=3"}, {"fake", "x.jsonl"}, {"fake", "--off"}, {"fake", "--mark", "paused"},
 		{"status"}, {"stop"}, {"--release", "stop"}, {"sh", "ls"}, {"sh", "--stdin", "cat"}, {"debian", "--stdin", "cat"},
 		{"nodes"}, {"nodes", "^继续$"}, {"tap-text", "结束"},
 	}
@@ -27,7 +27,7 @@ func TestParse(t *testing.T) {
 	bad := [][]string{
 		{}, {"nope"}, {"start", "1"}, {"start", "1", "2"}, {"tap", "1"}, {"tap", "1", "x"}, {"swipe", "1", "2", "3"},
 		{"key", "3; reboot"}, {"prefs"}, {"prefs", "a=b"}, {"prefs-set", "a b=c"}, {"prefs-set", "n:int=x"},
-		{"--release", "prefs-set", "a=b"}, {"--release", "fake", "x"}, {"sh"}, {"sh", "--stdin"}, {"sh", "a", "b"},
+		{"--release", "prefs-set", "a=b"}, {"--release", "fake", "x"}, {"fake", "--mark"}, {"fake", "x.jsonl", "y"}, {"fake", "--mark", "a b"}, {"sh"}, {"sh", "--stdin"}, {"sh", "a", "b"},
 		{"tap-text"}, {"nodes", "("}, {"--release", "nodes"}, {"status", "extra"},
 	}
 	for _, argv := range bad {
@@ -174,5 +174,27 @@ func TestParseNodes(t *testing.T) {
 		if _, err := parseNodes(bad); err == nil {
 			t.Errorf("%q should be rejected", bad)
 		}
+	}
+}
+
+func TestParseBroadcast(t *testing.T) {
+	out := "Broadcasting: Intent { flg=0x400000 cmp=com.dzshzx.zeta.dev/com.dzshzx.zeta.core.diag.UiNodes (has extras) }\n" +
+		"Broadcast completed: result=0, data=\"100\t200\t继续\t\n300\t400\t说 \"好\"\t按钮\n\"\n"
+	code, data, err := parseBroadcast(out)
+	if err != nil || code != 0 {
+		t.Fatalf("code=%d err=%v", code, err)
+	}
+	nodes, err := parseNodes(data)
+	if err != nil || len(nodes) != 2 || nodes[1].text != `说 "好"` || nodes[1].desc != "按钮" {
+		t.Fatalf("nodes=%+v err=%v", nodes, err)
+	}
+	if code, data, _ := parseBroadcast("Broadcast completed: result=1, data=\"连不上\"\n"); code != 1 || data != "连不上" {
+		t.Fatalf("code=%d data=%q", code, data)
+	}
+	if code, data, err := parseBroadcast("Broadcast completed: result=0\n"); err != nil || code != 0 || data != "" {
+		t.Fatalf("没有 data：code=%d data=%q err=%v", code, data, err)
+	}
+	if _, _, err := parseBroadcast("Error: no receiver\n"); err == nil {
+		t.Fatal("没等到结果应当报错")
 	}
 }

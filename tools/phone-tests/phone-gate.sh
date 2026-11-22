@@ -67,15 +67,10 @@ sleep 3
 # ---- 3：暂停、接管时下一次调用等着，继续后执行 ----
 # 剧本在每次 screen 之前等脚本放的标记（{"wait":…}），不和固定的停顿赛跑：设备忙时找、点按钮慢多少都不影响结果。
 # mark <名字>：放标记，剧本接着发出下一次调用
-mark() { vd debian "touch ~/.config/zeta-dev/fake-claude/$1" >/dev/null; }
-# gate_waiting <从什么时候起>：测试版的日志里有没有调用停在闸门前（ControlGate.await 打的那一行），最多等 30 秒
+mark() { vd fake --mark "$1" >/dev/null; }
+# gate_waiting <从什么时候起>：测试版的日志里有没有调用停在闸门前（ControlGate.await 打的那一行），在设备上每半秒看一次，最多等 30 秒
 gate_waiting() {
-  local i
-  for ((i = 0; i < 60; i++)); do
-    android "logcat -d -T '$1' --pid=\$(pidof $PKG) -s ZetaPhone:I" | grep -q 'gate: phone tool call waiting' && return 0
-    sleep 0.5
-  done
-  return 1
+  android "i=0; while [ \$i -lt 60 ]; do logcat -d -T '$1' --pid=\$(pidof $PKG) -s ZetaPhone:I | grep -q 'gate: phone tool call waiting' && exit 0; sleep 0.5; i=\$((i + 1)); done; exit 1"
 }
 # held <名字> <按钮正则> <已有几个结果> <标记>：点下按钮再放标记；下一次调用应该停在闸门前、没有结果；再点“继续”，它才执行
 held() {

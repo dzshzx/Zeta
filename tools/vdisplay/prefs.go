@@ -98,12 +98,13 @@ func applyPrefs(text string, assignments []string, orig map[string]*string) (str
 	return text, keys
 }
 
-// restorePrefs 把 orig 记下的键改回原值，phoneDisplay 指着刚关掉的屏，一律删掉。
+// restorePrefs 把 orig 记下的键改回原值。phoneDisplay 指着刚关掉的屏，一律删掉：它在 orig 里补成「原来没有」，调用方打印键名时也带上它。
 func restorePrefs(text string, orig map[string]*string) string {
+	orig["phoneDisplay"] = nil
 	for _, key := range slices.Sorted(maps.Keys(orig)) {
 		text = prefPut(text, key, orig[key])
 	}
-	return prefPut(text, "phoneDisplay", nil)
+	return text
 }
 
 func (v *vd) readOrig() map[string]*string {
@@ -121,7 +122,7 @@ func (v *vd) readOrig() map[string]*string {
 // 之后自己保存时会把这次写的冲掉；所以停、写、再停放在同一条命令里，下次启动读到的一定是新文件。
 // 原地写（不换文件）：属主和 SELinux 标签不变。
 func (v *vd) writePrefs(text string) {
-	v.android(fmt.Sprintf("am force-stop %[1]s; cat > %[2]s; am force-stop %[1]s", v.pkg, v.prefsFile()), []byte(text))
+	v.androidIn(fmt.Sprintf("am force-stop %[1]s; cat > %[2]s; am force-stop %[1]s", v.pkg, v.prefsFile()), []byte(text))
 }
 
 func (v *vd) prefsSet(assignments []string) {
@@ -138,7 +139,7 @@ func (v *vd) prefsSet(assignments []string) {
 	if err := enc.Encode(orig); err != nil {
 		die("%v", err)
 	}
-	v.android("cat > "+v.prefsOrigFile(), buf.Bytes())
+	v.androidIn("cat > "+v.prefsOrigFile(), buf.Bytes())
 	fmt.Println("改了 " + strings.Join(keys, "、"))
 }
 
@@ -149,12 +150,7 @@ func (v *vd) prefsRestore() {
 	if strings.Contains(text, "</map>") {
 		if changed := restorePrefs(text, orig); changed != text {
 			v.writePrefs(changed)
-			keys := slices.Sorted(maps.Keys(orig))
-			if !slices.Contains(keys, "phoneDisplay") {
-				keys = append(keys, "phoneDisplay")
-				slices.Sort(keys)
-			}
-			fmt.Println("设置改回测试前：" + strings.Join(keys, "、"))
+			fmt.Println("设置改回测试前：" + strings.Join(slices.Sorted(maps.Keys(orig)), "、"))
 		}
 	}
 	v.try("rm -f " + v.prefsOrigFile())

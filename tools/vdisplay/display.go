@@ -34,11 +34,14 @@ var bootEnv = map[string]bool{
 }
 
 var (
-	displayLine = []*regexp.Regexp{regexp.MustCompile(`Display id (\d+)`), regexp.MustCompile(`displayId[ =](\d+)`)}
-	readyLine   = regexp.MustCompile(`(?m)^VD_READY:(\d+)$`)
-	sizeLine    = regexp.MustCompile(`(\d+)x(\d+)`)
-	number      = regexp.MustCompile(`\d+`)
+	readyLine     = regexp.MustCompile(`(?m)^VD_READY:(\d+)$`)
+	sizeLine      = regexp.MustCompile(`(\d+)x(\d+)`)
+	number        = regexp.MustCompile(`\d+`)
+	buildToolsVer = regexp.MustCompile(`(?m)^\s*buildToolsVersion = "([0-9.]+)"`) // 同 tools/release 的 buildToolsLine
 )
+
+// noDisplay 是 onDisplay 里找不到虚拟屏时远端的退出码。
+const noDisplay = 97
 
 // do 执行一条已经核对过参数的命令。
 func (v *vd) do(c command) {
@@ -50,7 +53,7 @@ func (v *vd) do(c command) {
 	case "shot":
 		v.shot(c.args[0])
 	case "launch":
-		v.launch(v.needDisplay())
+		v.onDisplay(v.launchCmd(`"$d"`))
 	case "status":
 		if id, ok := v.displayID(); ok {
 			fmt.Printf("虚拟屏 %d\n", id)
@@ -59,19 +62,12 @@ func (v *vd) do(c command) {
 		}
 	case "stop":
 		v.stop()
-	default:
-		v.doMore(c)
-	}
-}
-
-func (v *vd) doMore(c command) {
-	switch c.name {
 	case "tap", "swipe":
-		v.android(fmt.Sprintf("input -d %d %s %s", v.needDisplay(), c.name, strings.Join(c.args, " ")))
+		v.onDisplay(`input -d "$d" ` + c.name + " " + strings.Join(c.args, " "))
 	case "text":
-		v.android(fmt.Sprintf("input -d %d text '%s'", v.needDisplay(), strings.ReplaceAll(c.args[0], "'", `'\''`)))
+		v.onDisplay(`input -d "$d" text ` + shQuote(c.args[0]))
 	case "key":
-		v.android(fmt.Sprintf("input -d %d keyevent %s", v.needDisplay(), c.args[0]))
+		v.onDisplay(`input -d "$d" keyevent ` + c.args[0])
 	case "nodes":
 		v.nodes(c.match)
 	case "tap-text":
@@ -81,7 +77,7 @@ func (v *vd) doMore(c command) {
 	case "prefs-set":
 		v.prefsSet(c.args)
 	case "fake":
-		v.fake(c.args[0])
+		v.fake(c.args[0], c.args[len(c.args)-1])
 	case "sh":
 		v.sh(c)
 	case "debian":
@@ -107,27 +103,29 @@ func (v *vd) sh(c command) {
 	os.Exit(r.code)
 }
 
-func (v *vd) displayID() (int, bool) {
-	for line := range strings.Lines(v.try("cmd display get-displays 2>/dev/null")) {
-		if !strings.Contains(line, `{"`+v.name+`"`) { // 带引号比整个名字：zeta-vd 不能认成别的屏
-			continue
-		}
-		for _, re := range displayLine {
-			if m := re.FindStringSubmatch(line); m != nil {
-				id, _ := strconv.Atoi(m[1])
-				return id, true
-			}
-		}
-	}
-	return 0, false
+// findDisplay 是一段远端脚本：把这块虚拟屏的屏号放进 $d，不在时 $d 为空。按 {"名字" 认：带引号比整个名字，
+// zeta-vd 不能认成别的屏。屏号和要做的事放在同一次远端调用里，不为查屏号多走一趟 ssh。
+func (v *vd) findDisplay() string {
+	return fmt.Sprintf(`d=$(cmd display get-displays 2>/dev/null | grep -F '{"%s"' | `+
+		`grep -oE 'Display id [0-9]+|displayId[ =][0-9]+' | head -n 1 | grep -oE '[0-9]+$'); `, v.name)
 }
 
-func (v *vd) needDisplay() int {
-	id, ok := v.displayID()
-	if !ok {
+// onDisplay 找到虚拟屏（$d）再跑 cmd，返回标准输出；屏不在、命令失败时退出。
+func (v *vd) onDisplay(cmd string) string {
+	r := v.run(v.findDisplay()+fmt.Sprintf(`[ -n "$d" ] || exit %d; `, noDisplay)+cmd, nil, 120)
+	switch r.code {
+	case 0:
+		return string(r.stdout)
+	case noDisplay:
 		die("虚拟屏不在：先运行 start")
 	}
-	return id
+	die("android 命令失败（%d）：%s\n%s", r.code, cmd, strings.TrimSpace(string(r.stderr)))
+	return ""
+}
+
+func (v *vd) displayID() (int, bool) {
+	id, err := strconv.Atoi(strings.TrimSpace(v.try(v.findDisplay() + `echo "$d"`)))
+	return id, err == nil
 }
 
 func (v *vd) dexPaths() (src, out, dex string) {
@@ -148,7 +146,12 @@ func (v *vd) buildDex() {
 	jdk := strings.TrimSpace(string(home))
 	passthrough(jdk+"/bin/javac", "--release", "11", "-Xlint:-options", "-d", out, src)
 	classes, _ := filepath.Glob(filepath.Join(out, "*.class"))
-	d8 := filepath.Join(v.sdk, "build-tools", "37.0.0", "lib", "d8.jar")
+	gradle, err := os.ReadFile(filepath.Join(v.tools, "..", "app", "build.gradle.kts"))
+	m := buildToolsVer.FindSubmatch(gradle)
+	if err != nil || m == nil {
+		die("app/build.gradle.kts 里读不到 buildToolsVersion：%v", err)
+	}
+	d8 := filepath.Join(v.sdk, "build-tools", string(m[1]), "lib", "d8.jar")
 	passthrough(jdk+"/bin/java", append([]string{"-cp", d8, "com.android.tools.r8.D8", "--min-api", "33", "--output", out}, classes...)...)
 	fmt.Println("built", dex)
 }
@@ -162,10 +165,11 @@ func passthrough(name string, args ...string) {
 	}
 }
 
-func (v *vd) launch(id int) {
+// launchCmd 是在屏 display（屏号或 "$d"）上冷启动 Zeta 的远端命令。
+func (v *vd) launchCmd(display string) string {
 	// NEW_TASK | MULTIPLE_TASK：在虚拟屏上另起一个任务，不把主屏上的那份挪过来；
 	// EXCLUDE_FROM_RECENTS：每次冷启动都是新任务，不加的话屏关掉后它们一条条留在用户的「最近任务」里
-	v.android(fmt.Sprintf("am start --user 0 --display %d -n '%s/%s' -f 0x18800000 >/dev/null 2>&1", id, v.pkg, activity))
+	return fmt.Sprintf("am start --user 0 --display %s -n '%s/%s' -f 0x18800000 >/dev/null 2>&1", display, v.pkg, activity)
 }
 
 // screenSize 是要建的虚拟屏尺寸：给了就用给的，模拟器上和手机一样大，手机上取主屏的。
@@ -227,16 +231,16 @@ func (v *vd) start(args []string) {
 		die("%v", err)
 	}
 	w := v.work
-	v.android(fmt.Sprintf("mkdir -p %[1]s/out && chmod 755 %[1]s && chown 1000:1000 %[1]s/out && chmod 700 %[1]s/out && "+
+	v.androidIn(fmt.Sprintf("mkdir -p %[1]s/out && chmod 755 %[1]s && chown 1000:1000 %[1]s/out && chmod 700 %[1]s/out && "+
 		"cat > %[1]s/vdhold.dex && chmod 644 %[1]s/vdhold.dex && cd %[1]s && rm -f ctl log out/*.png && "+
 		"mkfifo ctl && chmod 600 ctl && : > log", w), dex)
 	runner := fmt.Sprintf("cd %[1]s && exec 3<>ctl && %[2]s && export CLASSPATH=%[1]s/vdhold.dex && "+
 		"exec app_process / VdHold %[3]d %[4]d %[5]d 3600 %[6]s <&3 >>log 2>&1", w, exports, size[0], size[1], size[2], v.name)
-	v.android(`nohup sh -c "` + strings.ReplaceAll(runner, `"`, `\"`) + `" >/dev/null 2>&1 &`)
+	v.android("nohup sh -c " + shQuote(runner) + " >/dev/null 2>&1 &")
 	for range 40 {
 		if m := readyLine.FindStringSubmatch(v.android("cat " + w + "/log")); m != nil {
 			id, _ := strconv.Atoi(m[1])
-			v.launch(id)
+			v.android(v.launchCmd(m[1]))
 			fmt.Printf("虚拟屏 %d（%dx%d @%d）\n", id, size[0], size[1], size[2])
 			return
 		}
@@ -255,43 +259,26 @@ func stale(target, src string) bool {
 	return err == nil && t.ModTime().Before(s.ModTime())
 }
 
+// shot 在一次远端调用里做完：记下日志长度，叫 VdHold 截图，在设备上等日志里出现 VD_SHOT 再把 PNG 吐出来。
 func (v *vd) shot(path string) {
-	v.needDisplay()
-	log := v.work + "/log"
-	before := len(v.android("cat " + log))
-	v.android(fmt.Sprintf("echo 'shot %[1]s/out/shot.png' > %[1]s/ctl", v.work))
-	for range 40 {
-		text := v.android("cat " + log)
-		tail := text[min(before, len(text)):]
-		if strings.Contains(tail, "VD_SHOT:") {
-			png := v.androidBytes("cat " + v.work + "/out/shot.png")
-			if err := os.WriteFile(path, png, 0o644); err != nil {
-				die("%v", err)
-			}
-			fmt.Println(path)
-			return
-		}
-		if strings.Contains(tail, "VD_ERR:") {
-			die("%s", strings.TrimSpace(tail))
-		}
-		time.Sleep(250 * time.Millisecond)
+	png := v.onDisplay(fmt.Sprintf(`n=$(wc -c < %[1]s/log); echo 'shot %[1]s/out/shot.png' > %[1]s/ctl; i=0; `+
+		`while [ $i -lt 40 ]; do t=$(tail -c +$((n + 1)) %[1]s/log); `+
+		`case $t in *VD_SHOT:*) exec cat %[1]s/out/shot.png ;; *VD_ERR:*) echo "$t" >&2; exit 1 ;; esac; `+
+		`sleep 0.25; i=$((i + 1)); done; echo 截图超时 >&2; exit 1`, v.work))
+	if err := os.WriteFile(path, []byte(png), 0o644); err != nil {
+		die("%v", err)
 	}
-	die("截图超时")
+	fmt.Println(path)
 }
 
 func (v *vd) stop() {
-	var cmds []string
-	if _, ok := v.displayID(); ok {
-		cmds = append(cmds, "echo release > "+v.work+"/ctl")
-	}
+	cmds := []string{v.findDisplay() + `[ -z "$d" ] || echo release > ` + v.work + "/ctl"}
 	if v.dev {
 		// 测试版另外收拾干净；用户的正式版只关屏，不碰（force-stop 会让系统拿掉它的无障碍服务）。
 		// force-stop 放在关屏之后：先 force-stop 再关屏，测试版会被重新拉起来
 		cmds = append(cmds, "am force-stop "+v.pkg, strings.ReplaceAll(devCleanup, "@PKG@", v.pkg))
 	}
-	if len(cmds) > 0 {
-		fmt.Print(v.try(strings.Join(cmds, "\n")))
-	}
+	fmt.Print(v.try(strings.Join(cmds, "\n")))
 	if v.dev {
 		v.prefsRestore()
 		// 假 Claude 撤下：之后测试版起的都是真的 claude，闲着的假 Claude 看到剧本没了自己退出

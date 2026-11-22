@@ -57,9 +57,14 @@ func fakeArchive(script []byte, lines []string, mtime time.Time) []byte {
 }
 
 // fake 放上假 Claude 和剧本；--off 删掉。
-func (v *vd) fake(path string) {
-	if path == "--off" {
+// fake 换上剧本 path；--off 撤下，--mark 放下剧本里 {"wait":mark} 等的标记。
+func (v *vd) fake(path, mark string) {
+	switch path {
+	case "--off":
 		fmt.Print(v.debian("rm -rf "+fakeDir+" && echo 假 Claude 已撤下", nil))
+		return
+	case "--mark":
+		v.debian(fmt.Sprintf("[ -d %[1]s/marks ] && touch %[1]s/marks/%[2]s", fakeDir, mark), nil)
 		return
 	}
 	data, err := os.ReadFile(path)
@@ -75,6 +80,6 @@ func (v *vd) fake(path string) {
 		die("%v", err)
 	}
 	archive := fakeArchive(script, lines, time.Now())
-	v.debian(fmt.Sprintf("mkdir -p %[1]s && rm -f %[1]s/scenario.jsonl.turn && tar -xf - -C %[1]s --no-same-owner", fakeDir), archive)
+	v.debian(fmt.Sprintf("rm -rf %[1]s/marks %[1]s/scenario.jsonl.turn && mkdir -p %[1]s/marks && tar -xf - -C %[1]s --no-same-owner", fakeDir), archive)
 	fmt.Printf("假 Claude 已就位：剧本 %s，%d 轮；之后测试版起的对话都用它\n", filepath.Base(path), len(lines))
 }

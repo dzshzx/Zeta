@@ -17,11 +17,30 @@ func (n node) String() string {
 	return fmt.Sprintf("%d\t%d\t%s\t%s", n.x, n.y, n.text, n.desc)
 }
 
-// uiNodes 是测试版里写控件清单的组件（app/src/debug 登记，见 core/diag/UiNodes.kt）。经 Zeta 自己的无障碍服务读，
-// 含 Zeta 自己的悬浮层：那是无障碍服务画的窗口，系统不报给别的读取方，uiautomator 读不到。
+// uiNodes 是测试版里列控件的组件（app/src/debug 登记，见 core/diag/UiNodes.kt）。经 Zeta 自己的无障碍服务读，
+// 含 Zeta 自己的悬浮层：那是无障碍服务画的窗口，系统不报给别的读取方，uiautomator 读不到。清单在广播的结果里交回。
 const uiNodes = "com.dzshzx.zeta.core.diag.UiNodes"
 
-// parseNodes 解析 UiNodes 写的清单：一行一个控件，中心 x、y、文字、说明，以制表符分隔；最上层窗口的在前。
+// completed 是 am broadcast 等接收方做完后打的那一行（AOSP ActivityManagerShellCommand.IntentReceiver）。
+const completed = "Broadcast completed: result="
+
+// parseBroadcast 从 am broadcast 的输出里取结果码和结果数据（data="…" 里原样的文字，可以跨行）。
+func parseBroadcast(out string) (code int, data string, err error) {
+	_, rest, ok := strings.Cut(out, completed)
+	if !ok {
+		return 0, "", fmt.Errorf("am broadcast 没有等到结果：%s", strings.TrimSpace(out))
+	}
+	num, rest, _ := strings.Cut(rest, ",")
+	if code, err = strconv.Atoi(strings.TrimSpace(num)); err != nil {
+		return 0, "", fmt.Errorf("am broadcast 的结果码不是整数：%q", num)
+	}
+	if _, quoted, ok := strings.Cut(rest, ` data="`); ok {
+		data = strings.TrimSuffix(strings.TrimRight(quoted, "\r\n"), `"`)
+	}
+	return code, data, nil
+}
+
+// parseNodes 解析 UiNodes 交回的清单：一行一个控件，中心 x、y、文字、说明，以制表符分隔；最上层窗口的在前。
 func parseNodes(data string) ([]node, error) {
 	var out []node
 	for line := range strings.Lines(data) {
@@ -54,34 +73,37 @@ func matching(nodes []node, re *regexp.Regexp) []node {
 	return out
 }
 
-// screenNodes 让测试版写出屏 display 上的控件清单再读回来。am broadcast 等接收方做完才返回。
-func (v *vd) screenNodes(display int) []node {
-	file := "/data/user/0/" + v.pkg + "/files/ui-nodes.tsv"
-	r := v.run(fmt.Sprintf(`out=$(am broadcast -n %s/%s --ei display %d 2>&1); `+
-		`case $out in *"result=0"*) cat %s ;; *) echo "$out" >&2; exit 1 ;; esac`, v.pkg, uiNodes, display, file), nil, 60)
-	if r.code != 0 {
-		die("读不到控件：%s", strings.TrimSpace(string(r.stderr)))
+// screenNodes 在一次远端调用里找到虚拟屏、让测试版列出屏上的控件（am broadcast 等接收方做完才返回），交回屏号和控件。
+func (v *vd) screenNodes() (string, []node) {
+	display, out, _ := strings.Cut(v.onDisplay(fmt.Sprintf(`echo "$d"; am broadcast -n %s/%s --ei display "$d"`, v.pkg, uiNodes)), "\n")
+	code, data, err := parseBroadcast(out)
+	if err == nil && code != 0 {
+		err = fmt.Errorf("测试版读不到控件：%s", data)
 	}
-	nodes, err := parseNodes(string(r.stdout))
+	var nodes []node
+	if err == nil {
+		nodes, err = parseNodes(data)
+	}
 	if err != nil {
 		die("%s", err)
 	}
-	return nodes
+	return strings.TrimSpace(display), nodes
 }
 
 func (v *vd) nodes(re *regexp.Regexp) {
-	for _, n := range matching(v.screenNodes(v.needDisplay()), re) {
+	_, nodes := v.screenNodes()
+	for _, n := range matching(nodes, re) {
 		fmt.Println(n)
 	}
 }
 
 func (v *vd) tapText(re *regexp.Regexp) {
-	display := v.needDisplay()
-	found := matching(v.screenNodes(display), re)
+	display, nodes := v.screenNodes()
+	found := matching(nodes, re)
 	if len(found) == 0 {
 		die("虚拟屏上没有文字或说明对得上 %s 的控件", re)
 	}
 	n := found[0]
-	v.android(fmt.Sprintf("input -d %d tap %d %d", display, n.x, n.y))
+	v.android(fmt.Sprintf("input -d %s tap %d %d", display, n.x, n.y))
 	fmt.Printf("点了 %d %d：%s\n", n.x, n.y, strings.TrimSpace(n.text+" "+n.desc))
 }

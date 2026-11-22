@@ -39,7 +39,8 @@ const usage = `后台虚拟屏：在不占用主屏的情况下运行、截图�
   vd debian [--stdin] '命令' 在 Debian 里以 Linux 用户跑一条命令（手机经 ssh 登录，模拟器经进入脚本），原样输出；失败时退出码非 0。
                           带 --stdin 时把本地的标准输入交给它（比如往 Debian 里写文件：--stdin 'cat > 路径' < 文件）
   vd fake 剧本.jsonl       测试版之后起的对话换用按剧本回话的假 Claude（tools/fake-claude）：把它和剧本放到 Debian 的
-                           ~/.config/zeta-dev/fake-claude/，进度从第一轮算起；fake --off 或 stop 删掉，回到真的 claude
+                           ~/.config/zeta-dev/fake-claude/，进度从第一轮算起；fake --off 或 stop 删掉，回到真的 claude。
+                           fake --mark 标记名：放下剧本里 {"wait":"标记名"} 等的标记
   vd status | stop         stop 关掉虚拟屏（屏上的应用随屏销毁）；测试版另外 force-stop，撤销它的通知监听、改回 prefs-set 改过的设置，
                            并把它留在用户「最近任务」里的记录全部清掉，假 Claude 的剧本也删掉。
                            force-stop 会让系统把那个包的无障碍服务从启用列表里拿掉，所以不对正式版做`
@@ -62,7 +63,7 @@ var (
 var arity = map[string][2]int{
 	"build": {0, 0}, "start": {0, 3}, "shot": {1, 1}, "launch": {0, 0}, "prefs": {1, -1}, "prefs-set": {1, -1},
 	"tap": {2, 2}, "swipe": {4, 5}, "text": {1, 1}, "key": {1, 1}, "nodes": {0, 1}, "tap-text": {1, 1},
-	"fake": {1, 1}, "status": {0, 0}, "stop": {0, 0}, "sh": {1, 1}, "debian": {1, 1},
+	"fake": {1, 2}, "status": {0, 0}, "stop": {0, 0}, "sh": {1, 1}, "debian": {1, 1},
 }
 
 // parse 认出命令、核对参数，出错时返回给人看的说明。
@@ -87,7 +88,7 @@ func parse(argv []string) (command, error) {
 	if (c.name == "sh" || c.name == "debian") && len(c.args) > 0 && c.args[0] == "--stdin" {
 		c.stdin, c.args = true, c.args[1:]
 	}
-	if len(c.args) < n[0] || (n[1] >= 0 && len(c.args) > n[1]) || (c.name == "start" && len(c.args) == 1) {
+	if len(c.args) < n[0] || (n[1] >= 0 && len(c.args) > n[1]) {
 		return c, fmt.Errorf("vd %s 的参数不对\n\n%s", c.name, usage)
 	}
 	return c, c.check()
@@ -102,7 +103,7 @@ func (c *command) check() error {
 				return fmt.Errorf("vd %s 的参数要是整数：%s", c.name, a)
 			}
 		}
-		if c.name == "start" && len(c.args) == 2 {
+		if c.name == "start" && len(c.args) != 0 && len(c.args) != 3 {
 			return fmt.Errorf("vd start 要么不给尺寸，要么给全宽、高、dpi")
 		}
 	case "key":
@@ -119,6 +120,9 @@ func (c *command) check() error {
 	case "fake":
 		if c.release {
 			return fmt.Errorf("假 Claude 只给测试版用：去掉 --release")
+		}
+		if (c.args[0] == "--mark") != (len(c.args) == 2) || (len(c.args) == 2 && !keyName.MatchString(c.args[1])) {
+			return fmt.Errorf("用法：vd fake 剧本.jsonl | --off | --mark 标记名（标记名只含字母、数字、下划线）")
 		}
 	case "nodes", "tap-text":
 		if c.release {

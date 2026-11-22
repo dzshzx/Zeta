@@ -17,7 +17,7 @@
 #   {"tool":"Bash","input":{…},"result":"输出","is_error":false,"ms":0,"ask":false}
 #                                                 Claude Code 自己的工具：结果照剧本写，不经 Zeta；ms 是工具跑多久
 #   {"pause":1500}                                停顿（毫秒）
-#   {"wait":"标记名","ms":60000}                  等剧本旁边出现名为「标记名」的文件（设备脚本放的，用完删掉），最多 ms 毫秒
+#   {"wait":"标记名","ms":60000}                  等设备脚本用 vd fake --mark 标记名 放下标记（用完删掉），最多 ms 毫秒
 #                                                 （默认 60000，过了就提前结束这一轮）：剧本按脚本的动作往下走，不和固定的停顿赛跑
 #   {"error":"API Error: 500 …","status":500}     这一轮出错结束（result 的 is_error 为 true）
 #   {"emit":{…}}                                  原样输出一行（没写 session_id 的补上），用来造后台任务之类的事件
@@ -97,36 +97,27 @@ poll() {
   fi
 }
 
-# 停 $1 毫秒，其间照常处理输入；被打断返回 1
+# pause 毫秒 [标记]：停这么久，其间照常处理输入；被打断返回 1。给了标记时改成等剧本旁边 marks/ 下出现这个文件（vd fake --mark 放的，删掉它再往下走），
+# 每 200 毫秒看一次，到时间还没出现返回 1
 pause() {
+  local mark=${2:+${SCENARIO%/*}/marks/$2} left
   now
   local until=$((NOW + $1))
   while :; do
     [ -n "$INTERRUPTED" ] && return 1
-    now
-    ((NOW >= until)) && return 0
-    poll $((until - NOW))
-  done
-}
-
-# 等剧本旁边出现标记文件 $1（删掉它再往下走），最多 $2 毫秒，其间照常处理输入；被打断、超时返回 1
-await_mark() {
-  local mark=${SCENARIO%/*}/$1 left
-  now
-  local until=$((NOW + $2))
-  while :; do
-    [ -n "$INTERRUPTED" ] && return 1
-    if [ -e "$mark" ]; then
+    if [ -n "$mark" ] && [ -e "$mark" ]; then
       rm -f "$mark"
       return 0
     fi
     now
     left=$((until - NOW))
     if ((left <= 0)); then
-      echo "fake-claude: 等标记 $1 超时" >&2
+      [ -z "$mark" ] && return 0
+      echo "fake-claude: 等标记 $2 超时" >&2
       return 1
     fi
-    poll $((left < 200 ? left : 200))
+    [ -n "$mark" ] && ((left > 200)) && left=200
+    poll "$left"
   done
 }
 
@@ -589,7 +580,7 @@ turn() {
       phone) step_phone "${steps[i]}" || ended=1 ;;
       tool) step_tool "${steps[i]}" || ended=1 ;;
       pause) pause "$(jq -r '.pause' <<<"${steps[i]}")" || ended=1 ;;
-      wait) await_mark "$(jq -r '.wait' <<<"${steps[i]}")" "$(jq -r '.ms // 60000' <<<"${steps[i]}")" || ended=1 ;;
+      wait) pause "$(jq -r '.ms // 60000' <<<"${steps[i]}")" "$(jq -r '.wait' <<<"${steps[i]}")" || ended=1 ;;
       error)
         step_error "${steps[i]}"
         BUSY='' INTERRUPTED=''
