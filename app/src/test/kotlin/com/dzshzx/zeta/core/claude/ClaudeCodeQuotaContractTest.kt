@@ -397,36 +397,64 @@ class ClaudeCodeQuotaContractTest {
     }
 
     /**
-     * 为什么换账号前要等所有 Claude Code 进程退出：开着的进程（哪怕闲着）在凭据文件变了以后，会把它记着的 oauthAccount 写回
-     * ~/.claude.json，下一次请求却已经用新令牌了。哪天这条不成立了，claude-switch 的进程检查和 [ClaudeAccounts.blocker] 可以放宽。
+     * 绕过进程检查换成 [name]，和 claude-switch 一样拿着 Claude Code 的 ~/.claude.json.lock（一个目录，建成的拿着）改两个文件：先改
+     * ~/.claude.json 再改凭据，各自原子替换。Claude Code 自己改 ~/.claude.json
+     * 也是先拿这把锁再读改写，不拿锁的替换要是落在它读和写之间，就被它用读到的旧内容盖掉。
      */
-    @Test
-    fun anOpenProcessWritesItsAccountBack() {
-        login("a")
-        Claude().use { claude ->
-            claude.turn("hello")
-            // 绕过进程检查，直接换成 b（先改 ~/.claude.json 再改凭据）
+    private fun switchLogin(name: String) {
+        val lock = File(home, ".claude.json.lock")
+        assertTrue("~/.claude.json.lock 一直被占着", waitUntil { lock.mkdir() })
+        try {
             val config = json.parseToJsonElement(File(home, ".claude.json").readText()).jsonObject
             File(home, ".claude.json.tmp")
                 .writeText(
                     JsonObject(
-                            config + ("oauthAccount" to json.parseToJsonElement(oauthAccount("b"))),
+                            config +
+                                ("oauthAccount" to json.parseToJsonElement(oauthAccount(name))),
                         )
                         .toString(),
                 )
-            File(home, ".claude.json.tmp").renameTo(File(home, ".claude.json"))
-            File(home, ".claude/.credentials.json.tmp").writeText(credentials("b"))
-            File(home, ".claude/.credentials.json.tmp")
-                .renameTo(File(home, ".claude/.credentials.json"))
-            // 写回是它自己发现凭据变了以后另做的，和输出流没有先后：等它写回，限时只防卡死
-            waitUntil { configAccount() == "acc-a" }
-            assertEquals("acc-a", configAccount())
-            claude.turn("again")
-            assertEquals("a@example.com", claude.status("Email"))
+            assertTrue(File(home, ".claude.json.tmp").renameTo(File(home, ".claude.json")))
+            File(home, ".claude/.credentials.json.tmp").writeText(credentials(name))
+            assertTrue(
+                File(home, ".claude/.credentials.json.tmp")
+                    .renameTo(File(home, ".claude/.credentials.json")),
+            )
+        } finally {
+            lock.delete()
         }
-        assertEquals(
-            listOf("Bearer fake-token-a", "Bearer fake-token-b"),
-            synchronized(bearers) { bearers.toList() },
-        )
+    }
+
+    /**
+     * 开着的 Claude Code 进程（闲着的）碰上换号时怎样（2.1.330 实测）：
+     * - 每次请求前比对 ~/.claude/.credentials.json 的修改时间（stat 的 mtimeMs，精确到毫秒以下），变了才丢掉内存里的令牌重读，所以下一轮就用新令牌；
+     * - 凭据变了它不会把旧账号写回 ~/.claude.json，它记着的账号随它每秒一次看 ~/.claude.json 换成新的；
+     * - 它自己改 ~/.claude.json 都拿着 ~/.claude.json.lock 读改写，比如第一次收到回应后记
+     *   cachedExtraUsageDisabledReason（不等写完就输出 result）。claude-switch 拿着这把锁换号，不会被它盖掉。
+     *
+     * 以前这里不拿锁、第一轮一结束就换，测到的“写回”其实是正好撞上上面那次写；机器一忙就撞不上，等多久也等不到。哪天这几条不成立了（下一轮还用旧令牌、换过的账号被盖回去、它一直报旧账号），换号时怎么对待开着的进程要重新看：[ClaudeAccounts.blocker]
+     * 和 claude-switch 的进程检查。
+     */
+    @Test
+    fun anOpenProcessFollowsASwitchedLogin() {
+        login("a")
+        Claude().use { claude ->
+            claude.turn("hello")
+            // 第一轮刚结束：它那次读改写可能还没落盘，拿着锁换就和它排开了先后
+            switchLogin("b")
+            claude.turn("again")
+            assertEquals(
+                listOf("Bearer fake-token-a", "Bearer fake-token-b"),
+                synchronized(bearers) { bearers.toList() },
+            )
+            // 它记着的账号要等它下一次看 ~/.claude.json（每秒一次）才换；限时只防卡死
+            assertTrue(
+                "开着的进程一直报旧账号",
+                waitUntil { claude.status("Email") == "b@example.com" },
+            )
+            assertEquals("Org b", claude.status("Organization"))
+            assertEquals("acc-b", configAccount())
+        }
+        assertEquals("acc-b", configAccount())
     }
 }
