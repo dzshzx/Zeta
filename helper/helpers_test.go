@@ -47,7 +47,7 @@ func call(t *testing.T, e *env, args ...string) ([]obj, error) {
 	t.Helper()
 	var buf bytes.Buffer
 	o := newEmitter(&buf)
-	err := dispatch(e, o, args)
+	err := runCommand(e, o, args)
 	o.flush()
 	var out []obj
 	for _, line := range strings.Split(strings.TrimSpace(buf.String()), "\n") {

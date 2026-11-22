@@ -72,3 +72,21 @@ func TestNewerServeTakesOverTheCore(t *testing.T) {
 		t.Fatal("旧 serve 让新核心交班了")
 	}
 }
+
+// core-takeover：在跑的核心（版本一样也算）交班，本进程拉起新的；没有核心在跑时直接拉起一个。
+func TestCoreTakeoverReplacesTheCore(t *testing.T) {
+	e, p := coreEnv(t)
+	useBuild(t, "7")
+	got := mustCall(t, e, "core-takeover")[0]
+	if got["replaced"] != false || corePid(p) == 0 {
+		t.Fatalf("没有核心时该直接拉起一个：%v", got)
+	}
+	old := corePid(p)
+
+	got = mustCall(t, e, "core-takeover")[0]
+	fresh := corePid(p)
+	if got["replaced"] != true || fresh == 0 || fresh == old {
+		t.Fatalf("同版本的核心也该交班换新：%v，旧 %d，现在 %d", got, old, fresh)
+	}
+	waitFor(t, func() bool { return syscall.Kill(old, 0) != nil })
+}

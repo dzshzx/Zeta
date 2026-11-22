@@ -133,12 +133,17 @@ private class FolderPicker(start: String, private val existing: List<SharedFolde
     }
 }
 
-/** 查一遍源目录在不在、Linux 用户能不能读写（阻塞，在后台线程调）。内部存储的目录要靠 media_rw 组：读不了（或 [fixGroup]，刚加了一个）就补上组再查。 */
+/**
+ * 查一遍源目录在不在、Linux 用户能不能读写（阻塞，在后台线程调）。内部存储的目录要靠 media_rw 组：读不了（或 [fixGroup]，刚加了一个）就补上组再查。
+ * [changed]（刚增删过）时最后让主机上的核心换一个新进入的（`zeta-helper core-takeover`）：每次进 Debian 各有自己的挂载，常驻的核心 和它之后起的
+ * Claude Code 只看得到它启动时挂着的文件夹和组，换了才看得到这次的改动。
+ */
 private fun checkFolders(
     hub: ConversationHub,
     config: LinuxEnvConfig?,
     list: List<SharedFolder>,
     fixGroup: Boolean,
+    changed: Boolean,
 ): Pair<Map<String, Boolean>, Map<String, SharedAccess>> {
     val sources = SharedFolders.sourcesPresent(list)
     val helper: HelperRun = { s, a -> hub.helper(s, a, backend = Backends.LOCAL) }
@@ -152,6 +157,7 @@ private fun checkFolders(
         if (SharedFolders.ensureMediaGroup(config))
             states = SharedFolders.access(helper, list).orEmpty()
     }
+    if (changed && config != null) hub.helper("core-takeover", backend = Backends.LOCAL)
     return sources to states
 }
 
@@ -212,13 +218,13 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
 
     // 查一遍源目录在不在、Linux 用户能不能读写。内部存储的目录要靠 media_rw 组：读不了（或刚加了一个）就补上组再查
-    fun refresh(list: List<SharedFolder>, fixGroup: Boolean = false) {
+    fun refresh(list: List<SharedFolder>, fixGroup: Boolean = false, changed: Boolean = false) {
         checking = true
         val mine = ++generation[0]
         scope.launch {
             val config = hub.settings.env
             val (sources, states) =
-                withContext(Dispatchers.IO) { checkFolders(hub, config, list, fixGroup) }
+                withContext(Dispatchers.IO) { checkFolders(hub, config, list, fixGroup, changed) }
             if (mine != generation[0]) return@launch
             present = sources
             access = states
@@ -238,7 +244,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
         hub.settings.sharedFolders = updated
         folders = updated
         picker = null
-        refresh(updated, fixGroup = SharedFolders.isMediaStorage(source))
+        refresh(updated, fixGroup = SharedFolders.isMediaStorage(source), changed = true)
     }
 
     fun remove(target: SharedFolder) {
@@ -250,7 +256,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
             withContext(Dispatchers.IO) {
                 hub.settings.env?.rootfs?.let { SharedFolders.removeMountPoint(it, target.name) }
             }
-            refresh(updated)
+            refresh(updated, changed = true)
         }
     }
 

@@ -61,7 +61,7 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
 	" | occupant <id> | handoff <id> | session-start" +
 	" | desk <id> <cwd> | desk-open <id> <cwd> | desk-close <id>…" +
-	" | phone-mcp <package> [<client key>] | serve | core"
+	" | phone-mcp <package> [<client key>] | serve | core | core-takeover"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -124,13 +124,27 @@ func runCore(e *env, newHandler func(*env) core.Handler, idle time.Duration) int
 func run(args []string, stdout, stderr io.Writer) int {
 	e := newEnv()
 	o := newEmitter(stdout)
-	err := dispatch(e, o, args)
+	err := runCommand(e, o, args)
 	o.flush()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
 	return 0
+}
+
+// noArgCommands 是不带参数的子命令，先于 dispatch 查（dispatch 的分支已经够多了）。
+var noArgCommands = map[string]func(*env, *emitter) error{
+	"core-takeover": cmdCoreTakeover,
+}
+
+func runCommand(e *env, o *emitter, args []string) error {
+	if len(args) == 1 {
+		if cmd, ok := noArgCommands[args[0]]; ok {
+			return cmd(e, o)
+		}
+	}
+	return dispatch(e, o, args)
 }
 
 func dispatch(e *env, o *emitter, args []string) error {
