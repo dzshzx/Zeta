@@ -89,6 +89,8 @@ type Conversation struct {
 	turnEnd         int64    // 最后一轮结束的时刻（Unix 毫秒）
 	reported        Activity // 上次报给对话表的忙闲（conv.activity）
 	reportedSession string
+
+	attachAfterHistory *Hosted // 接回的托管进程，历史载完再接上
 }
 
 // Options 是客户端给的、起 Claude Code 进程用的设置（见 docs/core.md 的 options）。
@@ -109,6 +111,7 @@ type Spec struct {
 	File    string // 会话记录，载入历史用
 	Cwd     string
 	Title   string
+	attach  *Hosted // 接回的托管进程（Manager.Adopt）
 }
 
 // New 建一个对话并开始它的 goroutine；有会话记录时先在后台载入历史。
@@ -121,6 +124,9 @@ func New(id string, spec Spec, deps Deps, send Send) *Conversation {
 		usage: usage.New(), tasks: tasks.New(),
 	}
 	c.modes.claudeDefault = deps.DefaultMode
+	if spec.attach != nil {
+		c.adopt(spec.attach)
+	}
 	go c.loop()
 	if spec.File != "" {
 		c.loadingHistory = true

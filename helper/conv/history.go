@@ -79,7 +79,10 @@ func (read historyRead) usage() *usage.Tracker {
 func (c *Conversation) loadHistory(file string) {
 	out, err := c.deps.History(file)
 	c.do(func() {
-		read := readHistory(out, file, "h", c.proc != nil && c.busy)
+		attach := c.attachAfterHistory
+		c.attachAfterHistory = nil
+		// 载入后还要接着跟读进程时，最后那几步其实还在跑
+		read := readHistory(out, file, "h", c.busy && (c.proc != nil || attach != nil))
 		// 载入期间用户已经发了新消息的话，新内容接在历史后面
 		read.reducer.Items = append(read.reducer.Items, c.r.Items...)
 		c.r = read.reducer
@@ -90,8 +93,16 @@ func (c *Conversation) loadHistory(file string) {
 		if err != nil {
 			c.r.AddNotice("读取历史记录失败："+err.Error(), true)
 		} else {
-			c.restoreModel(read.header.Model, read.header.SwitchedModel)
+			// 接回还在跑的进程时模型以进程报的为准，终端里换的那次已经过去了
+			switched := read.header.SwitchedModel
+			if attach != nil {
+				switched = ""
+			}
+			c.restoreModel(read.header.Model, switched)
 			c.restoreEffort(read.header.Effort)
+		}
+		if attach != nil {
+			c.attach(attach)
 		}
 		c.changed()
 	})

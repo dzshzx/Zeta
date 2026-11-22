@@ -6,6 +6,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -70,12 +71,21 @@ type harness struct {
 	history     []byte
 	historyArgs [][]string
 	desks       chan string // 开过的 tmux 窗口：会话号 工作目录
+	attaches    []string    // 接上过的托管进程：标识@从第几行读起
 }
 
 func newHarness(t *testing.T) *harness {
 	h := &harness{t: t, clients: map[int]*fakeClient{}, desks: make(chan string, 16)}
 	deps := Deps{
 		Desk: func(session, cwd string) { h.desks <- session + " " + cwd },
+		Attach: func(key string, from int, ev Events) (Link, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			l := &fakeLink{key: key, events: ev}
+			h.links = append(h.links, l)
+			h.attaches = append(h.attaches, key+"@"+strconv.Itoa(from))
+			return l, nil
+		},
 		Start: func(o StartOptions, ev Events) (Link, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()

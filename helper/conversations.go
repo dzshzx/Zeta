@@ -10,6 +10,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
+	"github.com/dzshzx/Zeta/helper/host"
 	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -30,6 +31,7 @@ func newConversations(e *env) *conversations {
 	}
 	h.m = conv.NewManager(conv.Deps{
 		Start:       startHost(e),
+		Attach:      attachHost(e),
 		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode: func() string { return defaultPermissionMode(e) },
 		Windows:     windows,
@@ -39,7 +41,32 @@ func newConversations(e *env) *conversations {
 			}
 		},
 	}, h.send)
+	go adoptHosts(e, h.m)
 	return h
+}
+
+// adoptHosts：核心起来时扫一遍托管进程（zeta-helper hosts，在进程里直接跑），在干活的接上，闲着的断开（见 conv.Manager.Adopt）。
+func adoptHosts(e *env, m *conv.Manager) {
+	var buf bytes.Buffer
+	o := newEmitter(&buf)
+	err := cmdHosts(e, o)
+	o.flush()
+	if err != nil {
+		log.Print("扫托管进程：", err)
+		return
+	}
+	var hosted []conv.Hosted
+	for line := range bytes.Lines(buf.Bytes()) {
+		var h conv.Hosted
+		if json.Unmarshal(line, &h) != nil || h.Key == "" {
+			continue
+		}
+		if h.Cwd == "" {
+			h.Cwd = e.home
+		}
+		hosted = append(hosted, h)
+	}
+	m.Adopt(hosted, func(key string) { <-host.Release(key) })
 }
 
 func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {

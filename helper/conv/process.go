@@ -31,6 +31,10 @@ type controlResponse struct {
 
 func (r controlResponse) ok() bool { return r.Subtype == "success" }
 
+func newProcess() *process {
+	return &process{prefix: "zeta-" + newUUID()[:8] + "-", waiting: map[string]func(controlResponse){}}
+}
+
 // requestLine 给 body（control_request 的 request 一项）编上号，组成整行；onResponse 不为空时记下等应答。
 func (p *process) requestLine(body any, onResponse func(controlResponse)) []byte {
 	p.seq++
@@ -167,7 +171,7 @@ func (c *Conversation) ensureProcess(mode string) *process {
 	for k, v := range codeRewindEnv {
 		env[k] = v
 	}
-	p := &process{prefix: "zeta-" + newUUID()[:8] + "-", waiting: map[string]func(controlResponse){}}
+	p := newProcess()
 	var join [][]byte
 	for _, body := range c.joinRequests(mode) {
 		join = append(join, p.requestLine(body, nil))

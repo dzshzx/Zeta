@@ -11,6 +11,8 @@ type Deps struct {
 	// Start 起一个 Claude Code 进程并接上（zeta_host.sh start）。
 	// 事件在 Events 的回调里按到达顺序交回，回调在别的 goroutine 上。
 	Start func(StartOptions, Events) (Link, error)
+	// Attach 接上一个已在跑的托管进程（zeta_host.sh attach），从输出日志的第 from 行（从 1 起）读起
+	Attach func(key string, from int, ev Events) (Link, error)
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
 	History func(args ...string) ([]byte, error)
 	// DefaultMode 是这台主机上 Claude Code 设置里的默认权限模式（permissions.defaultMode），不知道时为空

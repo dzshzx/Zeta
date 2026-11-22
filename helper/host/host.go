@@ -65,6 +65,9 @@ func Attach(key string, from int) (*Link, error) {
 	return open(scriptCommand(context.Background(), "attach", key, strconv.Itoa(from)), key, nil)
 }
 
+// Release 断开一个没接着的托管进程（zeta_host.sh detach）：还有别的一方接着时什么也不做，没有时结束它。返回的通道在命令跑完时关上。
+func Release(key string) <-chan struct{} { return runScript("detach", key) }
+
 // scriptCommand 是用 bash 跑脚本子命令的进程（不读登录配置）。
 func scriptCommand(ctx context.Context, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, "bash", append([]string{"-c", Script, "zeta-host"}, args...)...)
