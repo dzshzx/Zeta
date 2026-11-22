@@ -83,6 +83,7 @@ func (a *App) View(c *ui.Context) {
 				a.chatPage(c)
 			default:
 				a.home(c)
+				coui.DragStrip(c)
 			}
 		})
 	})

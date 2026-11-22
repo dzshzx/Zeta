@@ -172,11 +172,11 @@ func (p *Page) noticeDialog(c *ui.Context) {
 
 // ---------- 和设备页同样子的小部件（COUI 的设置页：顶栏、卡片分组、列表行） ----------
 
-// pageTitle 是子页顶上的标题（coui.Header 的样子），左边是浮起的圆形返回键，右边是 actions 画的按钮
+// pageTitle 是子页顶上的标题（coui.Header 的样子，同时是标题栏），左边是浮起的圆形返回键，右边是 actions 画的按钮
 // （用 coui.SmallButton 这类小按钮）。
 func pageTitle(c *ui.Context, title string, back func(), actions func()) {
 	k := coui.Of(c)
-	ui.Row(c).Height(52).Padding(0, 40).Gap(10).AlignItems(ui.Center).Shrink(0).Children(func() {
+	coui.TitleRow(c).Children(func() {
 		coui.CircleButton(c, coui.IconBack, "返回").OnClick(back)
 		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(coui.Medium).TextColor(k.Text).SingleLine().Ellipsis("…").
 			Shrink(1)

@@ -11,6 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -38,9 +39,10 @@ func main() {
 	h := hub.New(prefs, devices, run, post)
 	app := zui.New(h, run, post)
 	mygo.App.WhenReady(func() {
-		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白
+		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
+		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和 COUI 顶栏一样高（见 coui/titlebar.go）
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, BackgroundColor: "light-dark(#ffffff, #000000)",
-			Content: ui.View(app.View)})
+			TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
 		// 回答完了而窗口不在前台时发通知，点通知回到窗口
 		app.Foreground = func() bool { return win.IsFocused() }
 		app.Notify = func(title, body string) {

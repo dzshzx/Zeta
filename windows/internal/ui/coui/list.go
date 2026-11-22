@@ -9,10 +9,10 @@ import "github.com/egoist/mygo/ui"
 // PageWidth 是设置页内容最宽多少（卡片 768，两边各留 16），窗口再宽也居中。
 const PageWidth = 768 + 32
 
-// Header 是页面顶上一行：有 back 时左边是浮起的圆形返回键，然后是标题（18 Medium）。
+// Header 是页面顶上一行，同时是标题栏（TitleRow）：有 back 时左边是浮起的圆形返回键，然后是标题（18 Medium）。
 func Header(c *ui.Context, title string, back func()) {
 	k := Of(c)
-	ui.Row(c).Height(52).Padding(0, 40).Gap(10).AlignItems(ui.Center).Shrink(0).Children(func() {
+	TitleRow(c).Children(func() {
 		if back != nil {
 			CircleButton(c, IconBack, "返回").OnClick(back)
 		}

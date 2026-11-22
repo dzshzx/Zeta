@@ -15,12 +15,13 @@ const allHostsLabel = "全部设备"
 // sidebarWidth 同 Compose 桌面版的侧栏（DesktopApp.kt 的 PaneWidth）。
 const sidebarWidth = 300
 
-// sidebar 是左边的侧栏（照手机版的 SessionPane）：品牌和新对话、设备切换，置顶/今天/更早几组会话（搜索时换成结果），
+// sidebar 是左边的侧栏（照手机版的 SessionPane）：灰底铺到窗口顶边，顶上一行品牌和新对话同时是标题栏（空白处拖动窗口），
+// 然后是设备切换，置顶/今天/更早几组会话（搜索时换成结果），
 // 底下左边是搜索框、右边是设置按钮。
 func (a *App) sidebar(c *ui.Context) {
 	k := coui.Of(c)
 	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(k.Sidebar).Children(func() {
-		ui.Row(c).Height(56).Padding(0, 12, 0, 20).Gap(10).AlignItems(ui.Center).Shrink(0).Children(func() {
+		ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 20).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
 			brand(c, 28)
 			ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM).FontWeight(600).TextColor(k.Text)
 			ui.Spacer(c)

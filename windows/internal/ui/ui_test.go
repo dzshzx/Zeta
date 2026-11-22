@@ -302,6 +302,7 @@ func TestNormalizeCwd(t *testing.T) {
 }
 
 // TestPreviews 在设了 ZETA_PREVIEW_DIR 时把几个场景画成 PNG（浅色、深色），给人看样子；不设时不画。
+// Context.TitleBar 照真窗口给，右上角画出系统按钮的示意（withCaptionButtons），看得出整窗的样子。
 func TestPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -340,6 +341,7 @@ func TestPreviews(t *testing.T) {
 	for name, setup := range all {
 		for _, dark := range []bool{false, true} {
 			f := setup(t)
+			f.tt.SetTitleBar(windowTitleBar)
 			f.tt.SetDark(dark)
 			f.tt.Advance(2 * time.Second) // 列表跟到底部的动画走完
 			f.tt.Frame()
@@ -351,7 +353,7 @@ func TestPreviews(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := png.Encode(out, f.tt.Image()); err != nil {
+			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), dark)); err != nil {
 				t.Fatal(err)
 			}
 			_ = out.Close()

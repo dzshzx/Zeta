@@ -171,12 +171,13 @@ func (a *App) chatPage(c *ui.Context) {
 // chatWidth 是输入栏一带最宽多少，和聊天列表的内容一样宽。
 const chatWidth = 860 + 24
 
-// headerHeight 是聊天页顶栏的高度。
-const headerHeight = 52
+// headerHeight 是聊天页顶栏的高度：它同时是标题栏。
+const headerHeight = coui.TitleBarHeight
 
 // chatHeader 是顶上的标题（同手机版聊天页的小顶栏）：居中的对话标题，下面一行小字是设备和工作目录，
 // 后面是模型，点开换模型。它浮在聊天列表上面，是一层毛玻璃（CouiBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
-// 列表没翻动时是透明的，内容滚到它底下时才透出模糊的一层。
+// 列表没翻动时是透明的，内容滚到它底下时才透出模糊的一层。它同时是标题栏：空白处拖动窗口，系统按钮浮在右边的毛玻璃上；
+// 两边空一样宽（右边让出按钮），标题按聊天区居中，窄了截断。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	cwd := p.state.Cwd
@@ -187,7 +188,9 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	if p.list.Scrolled() {
 		coui.Surface{Fill: k.Window.Alpha(0.8), Blur: coui.BlurBar}.Paint(bar)
 	}
-	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, 72).Justify(ui.Center).AlignItems(ui.Center).Gap(1).Children(func() {
+	side := coui.EndInset(c, 72)
+	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, side).Justify(ui.Center).AlignItems(ui.Center).Gap(1).
+		DragWindow().Children(func() {
 		ui.Text(c, a.chatTitle(p)).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…")
 		ui.Row(c).Gap(4).AlignItems(ui.Center).MaxWidth(720).Children(func() {
 			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().
