@@ -120,7 +120,7 @@ internal fun UpdateScreen(onBack: () -> Unit) {
 
 private const val INSTALL_NOTE =
     "下载后核对大小、sha256 和签名，不对就删掉。装新版本会关掉 Zeta 的界面，进行中的对话照样跑完；" +
-        "有对话正在回答时等它结束再装。有 root 时直接装，装好自动重新打开；没有 root 时交给系统安装，由你确认。"
+        "有手机操作正在执行时等这一步结束再装。有 root 时直接装，装好自动重新打开；没有 root 时交给系统安装，由你确认。"
 
 /** 新版本一行：标题是版本号，说明随步骤变（失败时红字写原因），右边胶囊按钮的字和进度见 [capsule]。 */
 @Composable
@@ -139,7 +139,7 @@ private fun ReleaseRow(updates: AppUpdates, available: UpdateState.Available) {
                     .joinToString(" · ")
             is UpdateStep.Downloading -> "下载中 ${formatBytes(step.done)} / $size"
             UpdateStep.Verifying -> "核对大小、sha256 和签名"
-            UpdateStep.WaitingIdle -> "有对话正在回答，结束后自动安装"
+            UpdateStep.WaitingIdle -> "有手机操作正在执行，这一步结束后自动安装"
             UpdateStep.NeedsPermission -> "没有 root：先允许 Zeta 安装未知应用，再点这里"
             UpdateStep.Downloaded -> "已下载并核对，点安装"
             is UpdateStep.Installing -> if (step.root) "正在安装，装好后 Zeta 自动重新打开" else "在系统的安装界面上确认"

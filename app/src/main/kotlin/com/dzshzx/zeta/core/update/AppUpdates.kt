@@ -54,7 +54,7 @@ internal sealed interface UpdateStep {
 
     data object Verifying : UpdateStep
 
-    /** 下好、核对过了，有对话正在回答，等它们都结束再装。 */
+    /** 下好、核对过了，有手机操作正在执行（或界面不在前台），等它结束再装。 */
     data object WaitingIdle : UpdateStep
 
     /** 没有 root，要用户先允许 Zeta「安装未知应用」。 */
@@ -74,7 +74,8 @@ internal sealed interface UpdateStep {
  * 有新版本发一条通知，点开到「版本更新」页。不常驻、不定时唤醒。
  *
  * 新版本的 APK 下载到应用缓存目录的 update/，核对大小、sha256（对清单）和包名、versionCode、签名（对已装的本应用，见 [ApkCheck]），
- * 哪一项不对都删掉文件、说原因。装包会结束本应用的界面：进行中的对话由托管脚本跑完，正在执行的手机工具调用却会失败， 所以有对话正在回答（手机工具只在一轮回答里被调用）时先不装，等都结束了再装。
+ * 哪一项不对都删掉文件、说原因。装包会结束本应用的界面：对话的 Claude Code
+ * 进程跑在各台设备上、由托管脚本管着，不受影响，装好重新接上；手机工具的调用却是本应用执行的，正在执行的那一次会失败，所以只等它结束（[ConversationHub.phoneCallRunning]）。对话正在回答、后台屏幕开着都不等。
  *
  * 全进程一份（[get]），状态是 mutableStateOf，界面读了跟着变。都在主线程上调用。
  */
@@ -246,7 +247,7 @@ internal class AppUpdates private constructor(private val app: Context) {
         return ApkCheck.verdict(ApkCheck.readArchive(app.packageManager, file), manifest, installed)
     }
 
-    /** 等到没有对话在回答、界面在前台时再装：在后台装的话，有 root 时新版本会盖到用户正用着的应用上面， 没有 root 时系统的确认界面又被后台启动的限制拦下。 */
+    /** 等到没有手机工具调用在执行、界面在前台时再装：在后台装的话，有 root 时新版本会盖到用户正用着的应用上面， 没有 root 时系统的确认界面又被后台启动的限制拦下。 */
     private suspend fun install(id: Int, file: File) {
         if (busy() || !foreground) {
             setStep(id, UpdateStep.WaitingIdle)
@@ -270,10 +271,9 @@ internal class AppUpdates private constructor(private val app: Context) {
             ?.let { setStep(id, UpdateStep.Failed(it)) }
     }
 
-    /** 有对话正在回答（含一轮里正在调用的手机工具）。 */
+    /** 有手机工具调用正在执行。 */
     private fun busy(): Boolean =
-        (app as? Application)?.let { ConversationHub.get(it).liveConversations.any { c -> c.busy } }
-            ?: false
+        (app as? Application)?.let { ConversationHub.get(it).phoneCallRunning() } ?: false
 
     /** 删掉 update/ 下的旧文件：装好以后剩下的、下到一半的。 */
     private fun cleanDownloads() {

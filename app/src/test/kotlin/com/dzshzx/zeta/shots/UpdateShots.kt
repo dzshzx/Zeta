@@ -60,7 +60,7 @@ class UpdateShots : ShotTest() {
 
     @Test fun downloading() = page("update-downloading", UpdateStep.Downloading(done = 5_960_000))
 
-    /** 下好、核对过了，有对话正在回答，等它结束再装。 */
+    /** 下好、核对过了，有手机操作正在执行，等它结束再装。 */
     @Test fun waitingIdle() = page("update-waiting", UpdateStep.WaitingIdle)
 
     /** 核对失败：签名和已装的不一致，文件已删掉，胶囊是「重试」。 */

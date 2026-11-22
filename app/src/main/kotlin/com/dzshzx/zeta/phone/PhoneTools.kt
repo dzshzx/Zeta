@@ -40,6 +40,7 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -212,6 +213,13 @@ class PhoneTools(
 
     /** 用户在后台屏幕上动过手：下一次看屏 / 动手时旧的控件编号作废，并告诉 Claude。 */
     private val touchedByUser = AtomicBoolean(false)
+
+    /** 正在处理的工具调用数（在闸门前等用户放行的也算）。 */
+    private val callsInFlight = AtomicInteger(0)
+
+    /** 有工具调用正在处理：这时结束本应用，这次调用会失败。任何线程上都可能读。 */
+    val inCall: Boolean
+        get() = callsInFlight.get() > 0
 
     /** 用户做了 Claude 不知道的事（比如把应用移到了主屏），下一次看屏 / 动手时附在结果前面。 */
     private val userNotes = ConcurrentLinkedQueue<String>()
@@ -482,12 +490,18 @@ class PhoneTools(
                     // Claude Code 在 _meta 里带上这次调用对应的 tool_use id，胶囊据此把描述对到聊天里正在跑的那一步
                     val toolUseId = params?.obj("_meta")?.str("claudecode/toolUseId")
                     if (name in ENGAGING) engage()
-                    runCatching {
-                        // 用户暂停或接管时先在这里等着
-                        gate.await()?.let { toolFailure(it) } ?: call(name, arguments, toolUseId)
+                    callsInFlight.incrementAndGet()
+                    try {
+                        runCatching {
+                            // 用户暂停或接管时先在这里等着
+                            gate.await()?.let { toolFailure(it) }
+                                ?: call(name, arguments, toolUseId)
+                        }
+                            .getOrElse { toolFailure(it.message ?: it.javaClass.simpleName) }
+                            .also { DiagEvents.phoneTool(name, it) }
+                    } finally {
+                        callsInFlight.decrementAndGet()
                     }
-                        .getOrElse { toolFailure(it.message ?: it.javaClass.simpleName) }
-                        .also { DiagEvents.phoneTool(name, it) }
                 }
                 "ping" -> JsonObject(emptyMap())
                 else -> null

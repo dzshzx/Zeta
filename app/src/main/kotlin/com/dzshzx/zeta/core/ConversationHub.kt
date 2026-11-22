@@ -964,6 +964,11 @@ class ConversationHub(
         prunePhones()
     }
 
+    /** 有手机工具调用正在处理（对话的，或 Zeta 之外的客户端的）：这时结束本应用，那次调用会失败。在主线程上调用。 */
+    internal fun phoneCallRunning(): Boolean =
+        synchronized(phones) { phones.values.any { it.inCall } } ||
+            bridgeFoci.any { it.phone.inCall }
+
     /** 主机 [backend] 上的会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */
     internal fun phoneFor(key: String, backend: String): PhoneTools =
         synchronized(phones) {
