@@ -28,6 +28,17 @@ func writeExec(t *testing.T, path, body string) {
 	}
 }
 
+// readScripts 读一遍测试要跑的 tools/ 下的脚本：它们在模块目录外，经 testdata 里指过去的符号链接读 go test 的缓存才认得。
+// 跑的时候照常用 ../ 下的路径：脚本按自己所在的位置找仓根。
+func readScripts(t *testing.T, names ...string) {
+	t.Helper()
+	for _, name := range names {
+		if _, err := os.ReadFile(filepath.Join("testdata", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // run 在环境 env 下跑 argv，返回退出码和合并的输出；命令没能跑起来时测试失败。
 func run(t *testing.T, env []string, argv ...string) (int, string) {
 	t.Helper()
@@ -65,6 +76,7 @@ func TestPhoneLockCheck(t *testing.T) {
 		{"emu", []string{owner + "task"}, false},
 		{"emu", []string{owner + "task", ticket}, true},
 	}
+	readScripts(t, "phone-lock")
 	for _, c := range cases {
 		cmd := exec.Command("../phone-lock", "--check", c.kind)
 		cmd.Env = lockEnv(c.env...)
@@ -110,6 +122,7 @@ func TestReleaseAsksPhoneLock(t *testing.T) {
 // 手机 Debian 里 install.sh 不拿租约，装正式版照样先过 phone-lock：没写明主会话就在下载之前停下（退出码 2），
 // 写明了才走到下载。uname 和 gh 换成假的：前者报手机的内核，后者一被调用就以 9 退出。
 func TestInstallReleaseOnPhoneAsksPhoneLock(t *testing.T) {
+	readScripts(t, "install.sh", "config.sh", "phone-lock")
 	bin := t.TempDir()
 	for name, body := range map[string]string{"uname": "echo 6.6.0-android15-8", "gh": "exit 9"} {
 		writeExec(t, filepath.Join(bin, name), body)

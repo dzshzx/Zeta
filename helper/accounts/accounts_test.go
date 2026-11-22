@@ -32,6 +32,12 @@ func TestMain(m *testing.M) {
 
 // switchProgram 是编好的 claude-switch，整个测试只问一次 go。
 var switchProgram = sync.OnceValues(func() (string, error) {
+	// 编哪一版由 helper 的 go.mod、go.sum 定；子进程读它们，go test 的缓存看不见，这里先读一遍
+	for _, f := range []string{"../go.mod", "../go.sum"} {
+		if _, err := os.ReadFile(f); err != nil {
+			return "", err
+		}
+	}
 	out, err := exec.Command("go", "tool", "-n", "claude-switch").Output()
 	if err != nil {
 		return "", fmt.Errorf("go tool -n claude-switch：%w", err)

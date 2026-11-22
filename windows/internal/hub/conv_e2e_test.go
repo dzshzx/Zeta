@@ -147,7 +147,8 @@ func newE2E(t *testing.T, scenario string) *e2e {
 	}
 	key := sshtest.NewKey(t)
 	server := sshtest.Start(t, t.TempDir(), key.PublicKey())
-	fake, err := os.ReadFile("../../../tools/fake-claude/fake-claude.sh")
+	// 经 windows/testdata 里指向 tools/fake-claude 的符号链接读：模块目录外的路径 go test 的缓存不认
+	fake, err := os.ReadFile("../../testdata/fake-claude/fake-claude.sh")
 	if err != nil {
 		t.Fatal(err)
 	}

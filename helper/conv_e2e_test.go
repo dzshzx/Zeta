@@ -85,7 +85,8 @@ func TestConversationThroughCore(t *testing.T) {
 func fakeClaudeIn(t *testing.T, e *env, scenario string) string {
 	t.Helper()
 	fake := e.home + "/.config/zeta-dev/fake-claude"
-	script, err := os.ReadFile("../tools/fake-claude/fake-claude.sh")
+	// 经 testdata 里指向 tools/fake-claude 的符号链接读：模块目录外的路径 go test 的缓存不认，改了它也照样取上次的结果
+	script, err := os.ReadFile("testdata/fake-claude/fake-claude.sh")
 	if err != nil {
 		t.Fatal(err)
 	}

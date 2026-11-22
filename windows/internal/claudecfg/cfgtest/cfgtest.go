@@ -1,5 +1,5 @@
 // Package cfgtest 是测试用的 claudecfg.Caller：在本机的临时 HOME 里起一个真的 zeta-helper serve（从仓里的 helper/
-// 源码编），经它的标准输入输出收发 config.* 请求。PATH 最前面放 helper 测试里冒充 claude 的那个程序，不碰本机真的
+// 源码编，经 windows/testdata 里指向它的符号链接找，go test 的缓存才认得，见 client/testinput），经它的标准输入输出收发 config.* 请求。PATH 最前面放 helper 测试里冒充 claude 的那个程序，不碰本机真的
 // claude。只给测试用。
 package cfgtest
 
@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/dzshzx/Zeta/client/testinput"
 )
 
 var (
@@ -30,6 +32,11 @@ func helper() (string, error) {
 	buildOnce.Do(func() {
 		src, err := helperSource()
 		if err != nil {
+			buildErr = err
+			return
+		}
+		// 打开一遍源码：编它的是子进程，go test 的缓存看不见
+		if err := testinput.Tree(src); err != nil {
 			buildErr = err
 			return
 		}
@@ -52,19 +59,19 @@ func helper() (string, error) {
 	return helperBin, buildErr
 }
 
-// helperSource 从测试的工作目录（包所在的目录）往上找仓里的 helper/。
+// helperSource 从测试的工作目录（包所在的目录）往上找 testdata/helper，它指向仓里的 helper/。
 func helperSource() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "helper", "go.mod")); err == nil {
-			return filepath.Join(dir, "helper"), nil
+		if _, err := os.Stat(filepath.Join(dir, "testdata", "helper", "go.mod")); err == nil {
+			return filepath.Join(dir, "testdata", "helper"), nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", errors.New("往上找不到仓里的 helper/")
+			return "", errors.New("往上找不到 testdata/helper（指向仓里的 helper/）")
 		}
 		dir = parent
 	}

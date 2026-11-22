@@ -42,6 +42,10 @@ func runTests(m *testing.M) int {
 // newHost 是一台新的“主机”：临时 HOME，登录配置（先打一行字；把 ~/.local/bin 放进 PATH，那里是假的 claude）。
 func newHost(t *testing.T) (string, *Store) {
 	t.Helper()
+	// 假的 claude 由 TestMain 编，那时 go test 的缓存还没开始记：这里打开它的源码目录，改了它测试才重跑
+	if _, err := os.ReadDir("testdata/fakeclaude"); err != nil {
+		t.Fatal(err)
+	}
 	home := t.TempDir()
 	write(t, filepath.Join(home, ".profile"), "echo 欢迎登录\nexport PATH=\"$HOME/.local/bin:$PATH\"\nexport TOOL_PREFIX=fake_\n")
 	bin := filepath.Join(home, ".local", "bin")

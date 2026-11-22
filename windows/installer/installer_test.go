@@ -30,6 +30,10 @@ func msi(t *testing.T, version string) (string, int) {
 	if err := os.WriteFile(exe, body, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// msi.sh 读本目录里的 Zeta.wxs、zeta.ico：子进程读的文件 go test 的缓存看不见，这里打开一遍本目录
+	if _, err := os.ReadDir("."); err != nil {
+		t.Fatal(err)
+	}
 	out := filepath.Join(dir, "Zeta.msi")
 	if b, err := exec.Command("./msi.sh", exe, version, out).CombinedOutput(); err != nil {
 		t.Fatalf("msi.sh: %v\n%s", err, b)
@@ -152,10 +156,11 @@ func TestFilesAndShortcut(t *testing.T) {
 	}
 }
 
-// Zeta.wxs 写的就是 Compose 版的那个 UpgradeCode。Compose 版（desktop/）删掉时连同这条核对一起删，上面的常量留着。
+// Zeta.wxs 写的就是 Compose 版的那个 UpgradeCode。Compose 版的经 windows/testdata 里指向 desktop/windows 的符号链接读
+// （模块目录外的路径 go test 的缓存不认）。Compose 版（desktop/）删掉时连同这条核对和那个符号链接一起删，上面的常量留着。
 func TestSameUpgradeCodeAsCompose(t *testing.T) {
 	re := regexp.MustCompile(`UpgradeCode="([0-9a-fA-F-]+)"`)
-	for _, path := range []string{"Zeta.wxs", "../../desktop/windows/Zeta.wxs"} {
+	for _, path := range []string{"Zeta.wxs", "../testdata/desktop-windows/Zeta.wxs"} {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

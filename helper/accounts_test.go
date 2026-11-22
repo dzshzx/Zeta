@@ -19,6 +19,12 @@ import (
 // accountsHome 摆好一个临时 HOME：装上 claude-switch，登录 uuid-a。
 func accountsHome(t *testing.T) *env {
 	t.Helper()
+	// 编哪一版 claude-switch 由 go.mod、go.sum 定；子进程读它们，go test 的缓存看不见，这里先读一遍
+	for _, f := range []string{"go.mod", "go.sum"} {
+		if _, err := os.ReadFile(f); err != nil {
+			t.Fatal(err)
+		}
+	}
 	out, err := exec.Command("go", "tool", "-n", "claude-switch").Output()
 	if err != nil {
 		t.Fatalf("要 go 编 claude-switch：%v", err)

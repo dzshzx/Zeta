@@ -8,7 +8,7 @@
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
 # 合入时（wt land）单元测试不跑截图测试（shots 包里类名以 Shots 结尾的，依据见 app/build.gradle.kts 的测试任务）。
 # 构建和单元测试在改动全落在它们读不到的路径里时整个跳过（见下面的 gradle_blind）。别的检查每次都跑。
-# ZETA_GATE_FULL=1 是全量：构建照跑，单元测试一个不落。每晚的 CI 和发版前跑的是它。
+# ZETA_GATE_FULL=1 是全量：构建照跑，单元测试一个不落，Go 的测试不取缓存。每晚的 CI 和发版前跑的是它。
 # 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -63,7 +63,12 @@ gate_python_allowlist # 没有清单文件：仓里不许有 .py
 scripts/format.sh --check
 scripts/format.sh --lint
 
-# Go 模块：版本只由各自 go.mod 的 go 行定；之后用这份工具链的绝对路径
+# Go 模块：版本只由各自 go.mod 的 go 行定；之后用这份工具链的绝对路径。
+# go test 用测试缓存，没变的包取上次的结果：缓存认测试进程读过的模块内文件和环境变量，测试经子进程或在模块目录外
+# 用到的本仓文件由测试自己先读一遍（见 client/testinput）。机器状态（/proc、本机工具）缓存认不到，
+# 全量（ZETA_GATE_FULL=1）不用缓存，全部重跑。
+go_test_count=()
+[[ ${ZETA_GATE_FULL:-} == 1 ]] && go_test_count=(-count=1)
 check_go_module() {
   local dir=$1 go_root unformatted
   gate_go_version "$dir"
@@ -77,8 +82,8 @@ check_go_module() {
     cd "$dir"
     "$go_root/bin/go" vet ./...
     gate_go_run "$STATICCHECK" ./...
-    # go vet 已整体跑过；测试读临时目录和 /proc，缓存看不到这些输入，每次都真跑
-    "$go_root/bin/go" test -count=1 -vet=off ./...
+    # go vet 已整体跑过
+    gate_test_tmpdir "$go_root/bin/go" test "${go_test_count[@]}" -vet=off ./...
     gate_go_run "$GOCOGNIT" -over "$MAX_COGNITIVE" .
     gate_go_deps go-deps-allowlist.txt ./...
   )

@@ -453,7 +453,8 @@ func TestLoadEarlier(t *testing.T) {
 
 // 核心没给「会话记录在别处改过」带 code，这边认原文：原文改了这里就失败，改成按 code 认。
 func TestEarlierStaleMatchesTheCore(t *testing.T) {
-	src, err := os.ReadFile("../../../helper/conv/earlier.go")
+	// 经 windows/testdata 里指向 helper/ 的符号链接读：模块目录外的路径 go test 的缓存不认
+	src, err := os.ReadFile("../../testdata/helper/conv/earlier.go")
 	if err != nil {
 		t.Fatal(err)
 	}

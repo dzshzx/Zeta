@@ -22,7 +22,8 @@ import (
 // 按文件名（去掉 .items.json）排。
 func helperFixtures(t *testing.T) map[string][]items.Item {
 	t.Helper()
-	paths, err := filepath.Glob("../../../../helper/testdata/transcript/*.items.json")
+	// 经 windows/testdata 里指向 helper/ 的符号链接读：模块目录外的路径 go test 的缓存不认
+	paths, err := filepath.Glob("../../../testdata/helper/testdata/transcript/*.items.json")
 	if err != nil {
 		t.Fatal(err)
 	}

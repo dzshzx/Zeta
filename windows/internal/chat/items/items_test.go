@@ -9,7 +9,8 @@ import (
 // fixtures 是 helper 的归约器对照用例产出的条目（helper/testdata/transcript），和 serve 推来的同一种 JSON。
 func fixtures(t *testing.T) map[string][]Item {
 	t.Helper()
-	paths, err := filepath.Glob("../../../../helper/testdata/transcript/*.items.json")
+	// 经 windows/testdata 里指向 helper/ 的符号链接读：模块目录外的路径 go test 的缓存不认
+	paths, err := filepath.Glob("../../../testdata/helper/testdata/transcript/*.items.json")
 	if err != nil {
 		t.Fatal(err)
 	}
