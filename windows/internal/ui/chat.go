@@ -34,6 +34,8 @@ type chatPane struct {
 	insert string
 	// acts 是消息操作（编辑、确认框，msgactions.go）。
 	acts msgActions
+	// todo 是输入栏上方的任务清单条（todostrip.go）。
+	todo todoStrip
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -165,6 +167,7 @@ func (a *App) chatPage(c *ui.Context) {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
 				a.promptCard(c, p)
+				a.todoStrip(c, p)
 				a.queueStrip(c, p)
 				a.editStrip(c, p)
 				a.chatStatus(c, p)
