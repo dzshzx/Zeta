@@ -393,10 +393,28 @@ func (e *env) hostDirOf(pid int, session any) (string, bool) {
 	return dir, true
 }
 
-// hostSessionNow 是托管目录 dir 的 Claude Code 现在的会话：输出里最后一个 session_id。同一个进程里会换会话（/clear），
-// 所以取最后的、不取开头的；每个事件行都带 session_id，读最后 64 KB 就够。还没有输出、读不了时是空串。
+// hostSessionNow 是托管目录 dir 的 Claude Code 现在的会话：输出里最后一个 session_id（lastSessionID）；
+// 还没有输出（第一条消息之前）时是 start 记下的要接着的会话（startedSession）。都没有时是空串。
 func hostSessionNow(dir string) string {
-	f, err := openFile(joinPath(dir, "out.jsonl"))
+	if s := lastSessionID(joinPath(dir, "out.jsonl")); s != "" {
+		return s
+	}
+	return startedSession(dir)
+}
+
+// startedSession 是 zeta_host.sh start 接着旧会话（--resume、不分支）时在托管目录 dir 里写下的会话号（session 文件）；
+// 没有、样子不对时是空串。
+func startedSession(dir string) string {
+	if s := readText(joinPath(dir, "session")); isSessionID(s) {
+		return s
+	}
+	return ""
+}
+
+// lastSessionID 是输出日志 path 里最后一个 session_id。同一个进程里会换会话（/clear），所以取最后的、不取开头的；
+// 每个事件行都带 session_id，读最后 64 KB 就够。还没有输出、读不了时是空串。
+func lastSessionID(path string) string {
+	f, err := openFile(path)
 	if err != nil {
 		return ""
 	}

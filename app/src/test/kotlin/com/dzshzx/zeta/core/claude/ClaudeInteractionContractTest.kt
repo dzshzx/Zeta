@@ -30,6 +30,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -495,6 +496,44 @@ class ClaudeInteractionContractTest {
                     answer.contains("PREVIEW-A") &&
                     answer.contains("要新版"),
             )
+        }
+    }
+
+    /** 同一个确认被答两次（几个客户端接着同一个进程时各答一次）：Claude Code 照第一份应答做，第二份（不管同意还是拒绝） 不报错、不改结果，工具只跑一次，进程照常接着下一轮。 */
+    @Test
+    fun aPromptAnsweredTwiceKeepsTheFirstAnswer() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        main += listOf(tool("d1", "Bash", """{"command":"echo once >> twice.txt"}"""))
+        main += listOf(text("ok"))
+        main += listOf(tool("d2", "Bash", """{"command":"echo denied >> twice.txt"}"""))
+        main += listOf(text("ok"))
+        Claude().use { c ->
+            c.user("first")
+            val events = c.turn { o ->
+                permission(o)?.let {
+                    c.respond(it.requestId, permissionResponse(it, PermissionReply.Allow))
+                    permissionResponse(it, PermissionReply.Deny("第二份"))
+                }
+            }
+            assertEquals("success", events.last().str("subtype"))
+            val first = synchronized(seen) { seen["d1"] }.orEmpty()
+            assertFalse("工具没照第一份跑：$first", first.contains("第二份"))
+            assertEquals(listOf("once"), File(home, "proj/twice.txt").readLines())
+            // 再一轮：先拒后同意，照拒绝的做
+            c.user("second")
+            val second = c.turn { o ->
+                permission(o)?.let {
+                    c.respond(it.requestId, permissionResponse(it, PermissionReply.Deny("先拒")))
+                    permissionResponse(it, PermissionReply.Allow)
+                }
+            }
+            assertEquals("success", second.last().str("subtype"))
+            assertEquals(REJECT_WITH_FEEDBACK + "先拒", synchronized(seen) { seen["d2"] })
+            assertEquals("拒绝了的没跑", listOf("once"), File(home, "proj/twice.txt").readLines())
+            val errors = (events + second).filter { it.str("type") == "control_response" }
+            assertTrue("多出来的应答有回话：$errors", errors.isEmpty())
+            // 进程还在、照常应答
+            assertEquals("success", c.control("""{"subtype":"get_context_usage"}""").str("subtype"))
         }
     }
 

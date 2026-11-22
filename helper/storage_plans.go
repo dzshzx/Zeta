@@ -33,11 +33,14 @@ func planZetaFiles(ctx *storageCtx) *plan {
 	return p
 }
 
-// planZetaHosts：后台对话的输出目录，进程和接入脚本都已经不在的。
+// planZetaHosts：后台对话的输出目录，进程和接入脚本都已经不在的。点开头的（zeta_host.sh start 用的锁 .lock）不是托管目录。
 func planZetaHosts(ctx *storageCtx) *plan {
 	p := newPlan(ctx)
 	root := ctx.e.hosts
 	for _, name := range children(root) {
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
 		path := joinPath(root, name)
 		u := p.count(path)
 		if ctx.now-u.newest >= freshSeconds && !hostAlive(path) {
@@ -47,26 +50,13 @@ func planZetaHosts(ctx *storageCtx) *plan {
 	return p
 }
 
-// hostAlive：Zeta 托管的一个对话还在：Claude Code 进程活着，或者应用那头的接入脚本还连着。
+// hostAlive：Zeta 托管的一个对话还在：Claude Code 进程活着，或者还有应用那头的接入脚本连着（liveAttachers）。
 func hostAlive(dir string) bool {
 	pid, known := readPid(joinPath(dir, "pid"))
 	if _, alive := claudeArgv(pid, known); alive {
 		return true
 	}
-	attach, known := readPid(joinPath(dir, "attach"))
-	if !known || attach == 0 {
-		return false
-	}
-	argv, ok := procArgv(attach)
-	if !ok {
-		return false
-	}
-	for _, a := range argv {
-		if string(a) == "zeta-host" {
-			return true
-		}
-	}
-	return false
+	return len(liveAttachers(dir)) > 0
 }
 
 // residuePlaces 是 Claude Code 按会话 id 存的东西：~/.claude 下的目录、名字的样子（第一组是会话 id）、是不是目录。

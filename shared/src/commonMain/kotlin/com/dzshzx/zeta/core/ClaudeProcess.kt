@@ -70,7 +70,7 @@ sealed interface ProcessLink {
 class ClaudeProcess(
     private val shell: LinuxShell,
     private val hostScript: String,
-    val hostKey: String,
+    hostKey: String,
     launch: Launch,
     private val onEvent: (JsonObject) -> Unit,
     private val onExit: (ProcessExit) -> Unit,
@@ -81,12 +81,17 @@ class ClaudeProcess(
     private val backoff: (attempt: Int) -> Long = ::reconnectDelay,
 ) {
     sealed interface Launch {
-        /** [env] 是只给这个 Claude Code 进程的环境变量（比如自动压缩的设置），进程脱离出去后也一直带着。 */
+        /**
+         * [env] 是只给这个 Claude Code 进程的环境变量（比如自动压缩的设置），进程脱离出去后也一直带着。 接着旧会话时托管脚本可能接上本包已在跑这个会话的进程、不另起
+         * （见 [hostKey]）：那个进程不是按 [arguments] 起的，[onJoin] 是这时要先发的控制请求（request 一项，带
+         * subtype），把它调成这边起进程时要的样子。
+         */
         class Start(
             val cwd: String,
             val title: String,
             val arguments: List<String>,
             val env: Map<String, String> = emptyMap(),
+            val onJoin: List<JsonObject> = emptyList(),
         ) : Launch
 
         class Attach(val fromLine: Int) : Launch
@@ -94,6 +99,20 @@ class ClaudeProcess(
 
     private val outbox = LinkedBlockingDeque<String>()
     private val requests = ControlRequests()
+
+    /**
+     * 托管标识（zeta_host.sh 的托管目录名）。起的时候是给的那个；start 接上了本包已在跑这个会话的进程时， 换成那个进程的（zeta_attached 报的
+     * key），之后重连、detach 都用它。
+     */
+    @Volatile
+    var hostKey: String = hostKey
+        private set
+
+    /** 托管脚本里接着的这一方的进程号（zeta_attached 报的 attacher）：[detach] 时交回去，不把自己算作别的接着的一方。还没接上时为 null。 */
+    @Volatile private var attacher: Int? = null
+
+    /** 接上本包现成的进程时要先发的控制请求（[Launch.Start.onJoin]）。 */
+    private val onJoin: List<JsonObject> = (launch as? Launch.Start)?.onJoin.orEmpty()
 
     @Volatile private var closed = false
     private val finished = AtomicBoolean(false)
@@ -228,9 +247,19 @@ class ClaudeProcess(
             runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull()
         else null
 
-    /** 托管脚本说接上了：从它报的行号接着数，放开写输入的线程；重连接上的报告一声。 */
+    /**
+     * 托管脚本说接上了：从它报的行号接着数，放开写输入的线程；重连接上的报告一声。 接上的是本包现成的进程（key 和给的不一样）时换成它的标识， [onJoin]
+     * 的请求排到发件箱最前面（写输入的线程这时还在等，顺序不会乱）。
+     */
     private fun onAttached(event: JsonObject, ready: CountDownLatch, attempt: Int) {
         event.int("from")?.let { nextLine = it }
+        event.int("attacher")?.let { attacher = it }
+        val key = event.str("key")
+        if (key != null && key != hostKey) {
+            DiagEvents.claudeJoined(hostKey, key)
+            hostKey = key
+            onJoin.asReversed().forEach { outbox.offerFirst(requests.build(it, null).toString()) }
+        }
         if (reconnect) retrying = true
         ready.countDown()
         if (attempt > 0) {
@@ -316,15 +345,21 @@ class ClaudeProcess(
     /** 还在等应答的、子类型为 [subtype] 的请求号；测试里扮 Claude Code 应答用。 */
     fun waitingFor(subtype: String): String? = requests.waitingFor(subtype)
 
-    /** 结束会话并清掉它的托管目录：zeta_host.sh stop 发 end_session，由 Claude Code 自己退出（等价于终端里的 /exit），立即返回。 */
-    fun stop() {
+    /**
+     * 结束会话并清掉它的托管目录：zeta_host.sh stop 发 end_session，由 Claude Code 自己退出（等价于终端里的 /exit），立即返回。
+     * 别的客户端还接着的话它们收到正常的 zeta_exit。
+     */
+    fun stop() = close(listOf("stop", hostKey))
+
+    /** 只断开这边：还有别的客户端接着这个进程时它照常跑，没有时照 [stop] 结束（zeta_host.sh detach），立即返回。 */
+    fun detach() = close(listOf("detach", hostKey) + listOfNotNull(attacher?.toString()))
+
+    private fun close(arguments: List<String>) {
         closed = true
         requests.clear()
         outbox.offer(POISON)
         thread(isDaemon = true) {
-            runCatching {
-                shell.run(hostCommand(listOf("stop", hostKey)), timeoutMs = 20_000, plain = true)
-            }
+            runCatching { shell.run(hostCommand(arguments), timeoutMs = 20_000, plain = true) }
         }
     }
 

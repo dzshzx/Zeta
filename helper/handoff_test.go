@@ -412,6 +412,42 @@ func TestAHostedProcessIsKnownAfterClearChangedItsSession(t *testing.T) {
 	}
 }
 
+// 刚起、还没有输出的托管进程（第一条消息之前）：按 start 记下的 session 认出它托管的会话。本包的不算别处占用，
+// hosts 列出它时带着这个会话，终端接回时照样让它退出；有了输出以后以输出里的为准，session 文件样子不对的不认。
+func TestAFreshHostedProcessIsKnownByItsStartedSession(t *testing.T) {
+	e := testEnv(t)
+	dir, _, done := hosted(t, e, "zeta", handoffID)
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != "idle" {
+		t.Fatalf("without a session file the fresh process is not ours yet: %v", got)
+	}
+	writeFile(t, filepath.Join(dir, "session"), handoffID)
+	if got := mustCall(t, e, "occupant", handoffID)[0]; got["status"] != nil {
+		t.Fatalf("our fresh process counts as elsewhere: %v", got)
+	}
+	if got := hostSessionNow(dir); got != handoffID {
+		t.Fatalf("session now %q", got)
+	}
+	const other = "ffffffff-1111-4222-8333-444444444444"
+	writeLines(t, filepath.Join(dir, "out.jsonl"), `{"type":"system","subtype":"init","session_id":"`+other+`"}`)
+	if got := hostSessionNow(dir); got != other {
+		t.Fatalf("output should win over the session file: %q", got)
+	}
+	writeLines(t, filepath.Join(dir, "out.jsonl"))
+	writeFile(t, filepath.Join(dir, "session"), "../x")
+	if got := hostSessionNow(dir); got != "" {
+		t.Fatalf("malformed session file taken: %q", got)
+	}
+	writeFile(t, filepath.Join(dir, "session"), handoffID)
+	scan, err := scanHost(dir)
+	if err != nil || scan.session != handoffID {
+		t.Fatalf("scan session %v, %v", scan.session, err)
+	}
+	if released, busy := e.releaseSession(handoffID, 0); released != 1 || busy {
+		t.Fatalf("released %d busy %v", released, busy)
+	}
+	<-done
+}
+
 // Zeta 托管的 Claude Code 起的子进程（Bash 工具里再起的 claude）继承了记号，但登记的是别的会话：它不是那个托管目录的进程。
 // 对本包来说它占着的会话在别处；终端接回它的会话时，不去结束它所在的那个 Zeta 对话。
 func TestAChildThatInheritedTheMarkIsNotTheHostedProcess(t *testing.T) {

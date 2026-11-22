@@ -4,17 +4,32 @@
 # 应用这一头只是“接上去”——把自己的标准输入转进管道、把日志跟读到标准输出。
 # 这样应用被系统回收或被划掉时，进行到一半的任务照常跑完，重新打开应用再接上即可。
 #
-#   start  <标识> <工作目录> <标题> <claude 参数…>   启动并接上
+#   start  <标识> <工作目录> <标题> <claude 参数…>   启动并接上；接着旧会话（--resume，不分支）而本包已有进程在跑这个会话时
+#                                                     不另起，接上那一个（zeta_attached 里的 key 是它的标识）
 #   attach <标识> <从第几行开始读>                    接上一个已在运行的
 #   stop   <标识>                                     结束会话（等价于终端里的 /exit）并清理，立即返回
+#   detach <标识> [接着的一方的进程号]                只断开自己：除了这个进程号（zeta_attached 报的 attacher），
+#                                                     还有别的接着的一方时什么也不做（输出 ended=0），没有时照 stop 结束（ended=1）
 #   state  <标识>                                     看门狗眼里的样子：输出 turn=1 表示这一轮在进行，tasks=1 表示有后台任务在跑
 #
 # 目录按包分开：ZETA_NAME 是 Zeta 自己的目录名（正式版 zeta，测试版 zeta-dev），由应用进环境时传进来。
-# 两个包看不到对方的后台进程，也就不会接管或结束对方的对话。
+# 两个包看不到对方的后台进程，也就不会接管或结束对方的对话。同一个包的几个客户端（比如两台手机连同一台主机）
+# 可以同时接着同一个托管目录：输出各自跟读，输入整行地写进同一个管道。
 #
-# 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；stop、接着的一方见到 exit、zeta-helper hosts 见到进程没了时删掉，
-# 存储页（zeta-helper clean）清掉进程和接着的一方都已不在的。
-#   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入转进来；stop 往里写 end_session。
+# 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；Claude Code 退出后由最后离开的接着的一方、stop（没人接着时）
+# 或 zeta-helper hosts（进程没了、也没人接着时）删掉，不抢在还接着的一方读到 exit 之前删；
+# 存储页（zeta-helper clean）清掉进程和接着的一方都已不在的。各版本的脚本随各自的 APK 带着，可能同时操作同一个目录：
+# 新版接旧版起的目录时没有 attach.d、session，退回看 attach；旧版接新版起的目录只认 attach，最坏是照旧版的行为（独占）。
+#   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入一行行转进来；
+#              stop、看门狗写 end_session，zeta-helper（releaseSession）写 zeta-release。写的一方都持着 lock 整行写（write_line、pump）。
+#   lock       写 in 的锁（flock），写的一方用时建，谁都不删它。几个写的一方各写各的大行（带图片的消息有几百 KB，管道一次收不下）
+#              不会互相插断。没有 flock（util-linux）的主机上不加锁。
+#   session    start 时要接着的会话号（--resume 的，不分支时才写）。Claude Code 还没输出（第一条消息之前）时，
+#              本脚本（host_session）和 zeta-helper（hostSessionNow、hosts）按它认出这个目录托管的是哪个会话；
+#              有了输出以输出里最新的 session_id 为准。
+#   attach.d/  接着的一方各一个记录：文件名是它的进程号，内容是它的启动时刻（/proc/<pid>/stat 第 22 项）。接上时写，离开时删自己的；
+#              进程已不在（或进程号被复用）的记录由看到它的人删（attachers）。看门狗据此知道还有没有应用接着；
+#              detach、stop 据此决定结不结束、删不删目录；zeta-helper（liveAttachers）的 hosts、存储页据此不删还有人接着的目录。
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给应用（ClaudeProcess）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              应用接回时据此建 HostInfo；zeta-helper 的存储页从开头取会话号。
@@ -24,14 +39,18 @@
 #              认哪个登记的进程是 Zeta 托管的不看它，看进程身上的记号：起进程的那段给 Claude Code 设环境变量 ZETA_HOST=<ZETA_NAME>/<标识>
 #              （host_mark 读，样子同 zeta-helper 的 hostMark）。记号会传给 Claude Code 起的子进程（Bash 工具里再起的 claude），
 #              所以还要会话对得上：托管目录输出里最新的会话（/clear 会换）就是登记的会话。held_elsewhere、zeta-helper（hostDirOf）都这样认。
-#   attach     正接着的那一方（本脚本 start、attach 之后的部分）的进程号，接上时写。看门狗据此知道有没有应用接着；
-#              zeta-helper 的存储页据此不清还连着的目录。
+#   attach     最近接上的那一方的进程号，接上时写；离开时还记着自己的，改记还接着的另一方，没有别人就删掉。
+#              旧版脚本只认它（旧版的看门狗、旧版接着的一方）；新版在 attach.d 之外也看它，认出只写它的旧版接着的一方
+#              （命令行里有 zeta-host 的进程）。
 #   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
 #   title      启动时的标题，start 写。zeta-helper hosts 在会话记录里没有标题时用；诊断页（DiagScripts.kt）列运行中的日志时带上。
-#   exit       Claude Code 的退出码，它退出后起进程的那段写。接着的一方见到它就报 zeta_exit 并删掉目录；zeta-helper hosts 见到它就当已结束。
+#   exit       Claude Code 的退出码，它退出后起进程的那段写。每个接着的一方见到它都报 zeta_exit；zeta-helper hosts 见到它就当已结束。
 #   released   zeta-helper 让出会话（终端里接着了，releaseSession）结束进程前留的记号：接着的一方报 zeta_exit 时带上 "reason":"released"。
 #   err.log    Claude Code 的标准错误输出，起进程的那段追加。诊断页读运行中的；Claude Code 退出时留一份到 ~/.cache/<ZETA_NAME>/stderr/；
 #              接着的一方报 zeta_exit 时带上最后一段，进程没起来时打出来。
+#
+# 托管目录旁边的 hosts/.lock：start 找现成的进程和起新进程之间持着它（flock），几个客户端同时 start 同一个会话时只起一个。
+# 谁都不删它；zeta-helper 列托管目录时跳过点开头的名字。
 set -u
 mode=$1
 D="$HOME/.cache/${ZETA_NAME:-zeta}/hosts/$2"
@@ -87,12 +106,79 @@ held_elsewhere() {
     stat_of "$pid" || continue
     grep -qF '"procStart"' "$f" && ! grep -qF "\"procStart\":\"${STAT[19]}\"" "$f" && continue
     m=$(host_mark "$pid")
-    [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] &&
-      [ "$(tail -c 65536 "${D%/*}/${m#*/}/out.jsonl" 2>/dev/null | grep -o '"session_id":"[^"]*"' | tail -n 1)" = "\"session_id\":\"$1\"" ] &&
-      continue
+    [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] && [ "$(host_session "${D%/*}/${m#*/}")" = "$1" ] && continue
     return 0
   done < <(grep -lsF "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json)
   return 1
+}
+
+# 托管目录 $1 的 Claude Code 现在的会话：输出里最新的 session_id（/clear 会换）；还没有输出时是 session 文件记的。
+# 同 zeta-helper 的 hostSessionNow。
+host_session() {
+  local s
+  s=$(tail -c 65536 "$1/out.jsonl" 2>/dev/null | grep -o '"session_id":"[^"]*"' | tail -n 1)
+  s=${s#\"session_id\":\"}
+  s=${s%\"}
+  [ -n "$s" ] || s=$(cat "$1/session" 2>/dev/null)
+  printf '%s' "$s"
+}
+
+# 本包另一个托管目录（不是 $D）里还在跑的 Claude Code 现在托管着会话 $1（host_session）时，输出那个目录的标识；没有时不输出。
+# start 据此接上它，不另起一个进程。
+hosted_for() {
+  local d
+  for d in "${D%/*}"/*/; do
+    d=${d%/}
+    [ "$d" != "$D" ] && [ ! -f "$d/exit" ] && running "$(cat "$d/pid" 2>/dev/null)" || continue
+    [ "$(host_session "$d")" = "$1" ] && { echo "${d##*/}"; return 0; }
+  done
+}
+
+# 托管目录 $1 里还接着的一方的进程号，一行一个；进程号 $2（可省）不算。看 attach.d 的记录（进程还在、启动时刻对得上），
+# 对不上的记录顺手删掉；再看 attach：它记的进程没有 attach.d 记录、命令行里有 zeta-host 时，是只写 attach 的旧版接着的一方。
+attachers() {
+  local d=$1 skip=${2:-} f p
+  local -a STAT
+  for f in "$d"/attach.d/*; do
+    p=${f##*/}
+    case $p in '' | *[!0-9]* | "$skip") continue ;; esac
+    if stat_of "$p" && [ "${STAT[0]}" != Z ] && [ "$(cat "$f" 2>/dev/null)" = "${STAT[19]}" ]; then
+      echo "$p"
+    else
+      rm -f "$f"
+    fi
+  done
+  p=$(cat "$d/attach" 2>/dev/null)
+  case $p in '' | *[!0-9]* | "$skip") return 0 ;; esac
+  [ -e "$d/attach.d/$p" ] && return 0
+  grep -qzxF zeta-host "/proc/$p/cmdline" 2>/dev/null && echo "$p"
+  return 0
+}
+
+# 往托管目录 $1 的输入管道写一整行 $2，持着 lock（见开头 lock 一项）。管道由起进程的那段以读写方式一直开着，写不会卡住；
+# 那段刚好不在了、或锁一直被占着时由 timeout 兜底，最多 2 秒。
+write_line() {
+  local w='printf "%s\n" "$1" > "$2"'
+  if command -v flock >/dev/null 2>&1; then
+    timeout 2 flock "$1/lock" bash -c "$w" zeta-write "$2" "$1/in"
+  else
+    timeout 2 bash -c "$w" zeta-write "$2" "$1/in"
+  fi 2>/dev/null
+}
+
+# 接着的一方把标准输入一行行转进托管目录 $1 的输入管道，每行持着 lock 整行写进去；没有 flock 时原样转。
+# 连接断在一行中间时，那半行不写（应用没写完的那条留给重连后的连接重发，见 ClaudeProcess 的 writeOutbox）。
+pump() {
+  local line
+  exec 9>"$1/in" || return
+  if command -v flock >/dev/null 2>&1 && exec 8>>"$1/lock"; then
+    while IFS= read -r line; do
+      flock 8 && printf '%s\n' "$line" >&9
+      flock -u 8
+    done
+  else
+    cat >&9
+  fi
 }
 
 # 托管目录 $1 的 Claude Code：~/.claude/sessions 里登记的、身上带着这个目录记号的进程，一行一个（它起的、也登记了的子进程也在内，
@@ -132,9 +218,7 @@ running() {
 end_claude() {
   local d=$1 p=$2 i
   running "$p" || return 0
-  # 管道由起进程的那段以读写方式一直开着，写不会卡住；那段刚好不在了时由 timeout 兜底
-  timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' zeta-end \
-    '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}' "$d/in" 2>/dev/null
+  write_line "$d" '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}'
   for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do running "$p" || return 0; sleep 0.2; done
   set -- "$p" $(hosted_claude "$d") # 一行一个进程号，按词分开
   kill "$@" 2>/dev/null
@@ -149,8 +233,15 @@ if [ "$mode" = state ]; then
   exit 0
 fi
 
-# 结束会话（end_claude）并删托管目录。整个放在单独的会话（setsid）里，本命令立即返回，Zeta 这时被杀也照样做完。
-if [ "$mode" = stop ]; then
+# detach：还有别的接着的一方时只断开自己（自己那条连接由应用关掉），什么也不做，输出 ended=0；没有时照 stop 结束，输出 ended=1。
+if [ "$mode" = detach ]; then
+  [ -n "$(attachers "$D" "${3:-}")" ] && { echo ended=0; exit 0; }
+  echo ended=1
+fi
+
+# 结束会话（end_claude），没人接着时删托管目录（还有人接着时由最后离开的那个在读到 exit 后删）。
+# 整个放在单独的会话（setsid）里，本命令立即返回，Zeta 这时被杀也照样做完。
+if [ "$mode" = stop ] || [ "$mode" = detach ]; then
   setsid bash -c '
     eval "$1"; D=$2; P=$3
     if [ -n "$P" ]; then
@@ -158,32 +249,49 @@ if [ "$mode" = stop ]; then
       # 等起进程的那段留下退出码和标准错误输出的副本（诊断页看）
       for _ in $(seq 10); do [ -f "$D/exit" ] && break; sleep 0.1; done
     fi
-    rm -rf "$D"
-  ' zeta-stop "$(declare -f stat_of running hosted_claude end_claude)" "$D" "$(cat "$D/pid" 2>/dev/null)" </dev/null >/dev/null 2>&1 &
+    [ -n "$(attachers "$D")" ] || rm -rf "$D"
+  ' zeta-stop "$(declare -f stat_of running hosted_claude write_line end_claude attachers)" "$D" "$(cat "$D/pid" 2>/dev/null)" \
+    </dev/null >/dev/null 2>&1 &
   exit 0
 fi
 
+joined=
 if [ "$mode" = start ]; then
   cwd=$3
   title=$4
   shift 4
   cd "$cwd" 2>/dev/null || { echo "zeta: 进不去工作目录 $cwd" >&2; exit 97; }
-  # 接着旧会话（--resume <id>，不是分支出新会话）时先看它是不是正被别处占着
+  # 接着旧会话（--resume <id>，不是分支出新会话）时先看本包是不是已经有进程在跑它，再看它是不是正被别处占着
   resume="" fork=0 prev=""
   for a in "$@"; do
     [ "$prev" = --resume ] && resume=$a
     [ "$a" = --fork-session ] && fork=1
     prev=$a
   done
-  if [ -n "$resume" ] && [ $fork = 0 ] && held_elsewhere "$resume"; then
+  [ $fork = 1 ] && resume=""
+  # 找现成的和起新的之间持着 hosts/.lock：几个客户端同时 start 同一个会话时，后来的找得到先来的起的那个（session 文件在放锁前写好）
+  mkdir -p "${D%/*}"
+  if command -v flock >/dev/null 2>&1 && exec 7>>"${D%/*}/.lock"; then flock -w 10 7; fi
+  [ -n "$resume" ] && joined=$(hosted_for "$resume")
+  if [ -n "$resume" ] && [ -z "$joined" ] && held_elsewhere "$resume"; then
     echo '{"type":"zeta_exit","code":0,"reason":"held_elsewhere","stderr_base64":""}'
     exit 0
   fi
+fi
+
+if [ -n "$joined" ]; then
+  # 接上本包已在跑这个会话的进程：从它现有输出的下一行读起（之前的内容应用从会话记录里读），不另起进程
+  exec 7>&-
+  D=${D%/*}/$joined
+  from=$(wc -l < "$D/out.jsonl" 2>/dev/null)
+  from=$((${from:-0} + 1))
+elif [ "$mode" = start ]; then
   rm -rf "$D"
   mkdir -p "$D" && mkfifo "$D/in" || { echo "zeta: 建不了 $D" >&2; exit 97; }
   : > "$D/out.jsonl"
   printf '%s' "$cwd" > "$D/cwd"
   printf '%s' "$title" > "$D/title"
+  [ -n "$resume" ] && printf '%s' "$resume" > "$D/session"
   # Claude Code 对新模型默认不开任务清单工具（TaskCreate、TaskUpdate 等），聊天页的任务清单面板靠它们，这里打开。
   # 环境变量或 settings.json 的 env 里明确设过的照那边的。
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
@@ -208,14 +316,13 @@ if [ "$mode" = start ]; then
     # （stop 后马上又 start），下面的 exit 写进的是已删掉的这一个、写不成，不会把新进程报成已结束
     mine=
     cd "$D" && mine=1
-    # 看门狗：没有应用接着、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
+    # 看门狗：没有应用接着（attachers 一个也没有）、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
     # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
     (
       n=0
       while [ -d "$D" ] && kill -0 $P 2>/dev/null; do
         sleep "${ZETA_IDLE_STEP:-60}"
-        A=$(cat "$D/attach" 2>/dev/null)
-        if [ -n "$A" ] && kill -0 "$A" 2>/dev/null; then
+        if [ -n "$(attachers "$D")" ]; then
           n=0
         # 这一轮结束了、也没有后台任务在跑才算闲着（在等用户确认时这一轮还没结束）
         elif ! turn_running "$D/out.jsonl" && ! tasks_running "$D/out.jsonl"; then
@@ -239,8 +346,10 @@ if [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -n "$mine" ] && echo $code > exit
-  ' zeta-run "$(declare -f turn_running tasks_running stat_of running hosted_claude end_claude)" "$D" "$run" "$@" </dev/null >/dev/null 2>&1 &
+  ' zeta-run "$(declare -f turn_running tasks_running stat_of running hosted_claude write_line end_claude attachers)" "$D" "$run" "$@" \
+    </dev/null >/dev/null 2>&1 7>&- &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
+  exec 7>&-
   from=1
 else
   from=$3
@@ -251,20 +360,23 @@ P=$(cat "$D/pid")
 # 起进程的那段（P 的父进程）：P 退出后由它写 exit，下面等它
 R=
 stat_of "$P" && R=${STAT[1]}
+# 登记自己是接着的一方（见开头 attach.d、attach 两项）：先写临时文件再改名，别人看到的记录总是写完了的
+stat_of $$ && mkdir -p "$D/attach.d" && echo "${STAT[19]}" > "$D/attach.d/.$$" && mv -f "$D/attach.d/.$$" "$D/attach.d/$$"
 echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
 # 应用按这个数读到了第几行，远程主机的连接断了从下一行接着读（ClaudeProcess）；之前的行是登录 shell 打的别的东西。
-echo "{\"type\":\"zeta_attached\",\"from\":$from}"
+# key 是接上的托管目录（start 接上本包现成的进程时不是应用给的那个），attacher 是自己的进程号（detach 时交回来）
+echo "{\"type\":\"zeta_attached\",\"from\":$from,\"key\":\"${D##*/}\",\"attacher\":$$}"
 
 # 两头任一结束就整体退出：应用没了（输入结束）只是断开；Claude Code 没了（跟读结束）则报告退出码。
 tail -n "+$from" --pid="$P" -f "$D/out.jsonl" &
 T=$!
-cat <&0 > "$D/in" &
+pump "$D" <&0 &
 C=$!
 wait -n
 kill "$T" "$C" 2>/dev/null
 # Claude Code 没了：那段先收尸、留标准错误输出的副本，再写 exit，跟读却在进程一没就结束了。等它写完（或它也不在了）再看，
-# 否则 exit 晚到一步就漏报 zeta_exit：应用拿不到退出码和 released，托管目录也没人删
+# 否则 exit 晚到一步就漏报 zeta_exit：应用拿不到退出码和 released
 if ! running "$P"; then
   while [ ! -f "$D/exit" ] && [ -d "$D" ] && running "$R"; do sleep 0.05; done
 fi
@@ -276,5 +388,13 @@ if [ -f "$D/exit" ]; then
   [ -f "$D/released" ] && reason='"released"' || reason=null
   printf '{"type":"zeta_exit","code":%s,"reason":%s,"stderr_base64":"%s"}\n' "${code:-1}" "$reason" \
     "$(tail -c 2000 "$D/err.log" 2>/dev/null | base64 | tr -d '\n')"
-  rm -rf "$D"
 fi
+# 离开：删自己的记录；attach 还记着自己时改记还接着的另一方（旧版的看门狗只看它），没有别人就删掉。
+# Claude Code 已经退出而别的接着的一方都走了时，删掉托管目录
+rm -f "$D/attach.d/$$"
+if [ "$(cat "$D/attach" 2>/dev/null)" = $$ ]; then
+  next=$(attachers "$D" $$ | head -n 1)
+  if [ -n "$next" ]; then echo "$next" > "$D/attach"; else rm -f "$D/attach"; fi
+fi
+[ -f "$D/exit" ] && [ -z "$(attachers "$D")" ] && rm -rf "$D"
+exit 0

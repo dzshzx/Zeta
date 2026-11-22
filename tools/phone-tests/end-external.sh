@@ -28,11 +28,22 @@ for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; 
   [[ -n $pid ]] || { echo "$name：假 claude 5 秒没登记上"; exit 1; }
   open_conversation $ID 4
   vd shot "$name-opened.png" >/dev/null
-  menu_item $END_X $END_Y
-  sleep 1.5
+  # 冷启动后头几秒的点按会丢：看菜单项、确认框真出来了再点，等不到就失败，不按固定的等待碰运气
+  local tries=0
+  until vd nodes '^结束对话$' | grep -q .; do
+    ((++tries <= 10)) || { echo "$name：点了 10 次“更多”，菜单里没出“结束对话”"; exit 1; }
+    vd tap $MORE_X $MORE_Y >/dev/null
+    sleep 1
+  done
+  vd tap-text '^结束对话$' >/dev/null
+  tries=0
+  until vd nodes '^结束$' | grep -q .; do
+    ((++tries <= 10)) || { echo "$name：点了“结束对话”，10 秒没出确认框"; exit 1; }
+    sleep 1
+  done
   vd shot "$name-confirm.png" >/dev/null
   vd debian "kill -0 $pid" >/dev/null 2>&1 || { echo "$name：还没确认，假 claude 就没了"; exit 1; }
-  vd tap $CONFIRM_X $CONFIRM_Y >/dev/null
+  vd tap-text '^结束$' >/dev/null
   # 15 秒内结束（zeta-helper end 先 SIGTERM，10 秒不退才 SIGKILL）
   result=$(vd debian "for _ in \$(seq 150); do kill -0 $pid 2>/dev/null || break; sleep 0.1; done
 if kill -0 $pid 2>/dev/null; then echo 还在跑; elif [ -e ~/.claude/sessions/$pid.json ]; then echo 进程没了但登记还在; else echo ended; fi" | tr -d '\r')

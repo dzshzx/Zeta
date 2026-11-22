@@ -973,6 +973,8 @@ class Conversation(
                 commands = parseSlashCommands(list).also { hub.settings.commands += backend to it }
             }
             response.str("current_permission_mode")?.let(modes::reportedAtStart)
+            // 用户在这个对话里的模式记在进程上（接回时恢复）：等接上了才知道进程的标识（可能接的是本包现成的进程）
+            modes.user?.let { hub.rememberHostMode(target.hostKey, it) }
             // 接回进程时：还在等的工具确认以 Claude Code 报的为准（输出日志里看不出答没答过，比如答了以后命令还在跑）。
             // MCP 表单不在这份清单里，照日志里读到的留着
             answer.arr("pending_permission_requests")?.let { listed ->
@@ -1186,13 +1188,23 @@ class Conversation(
     private fun publishSubagent(log: SubagentLog) =
         subagents.publish(log, active = process != null && (busy || backgroundTasks > 0))
 
-    /** 结束背后的进程，等价于终端里的 /exit（[ClaudeProcess.stop]）。对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下。 */
-    fun shutdown() {
+    /**
+     * 结束背后的进程，等价于终端里的 /exit（[ClaudeProcess.stop]）：用户结束对话、删会话、换账号、删主机这些要真结束的时候。
+     * 别的客户端还接着的话它们照常收到进程结束。对话内容保留，下次发送时用 --resume 接上；后台屏幕也留着，只是睡下。
+     */
+    fun shutdown() = close(end = true)
+
+    /**
+     * 这边不再接着背后的进程（[ClaudeProcess.detach]）：闲着收掉、切走、换连法、换环境时。别的客户端还接着它时进程照常跑，没人接着时和 [shutdown] 一样结束。
+     */
+    fun leave() = close(end = false)
+
+    private fun close(end: Boolean) {
         val current = process ?: return
         process = null
         offline = false
         finishRewind("对话已关闭")
-        current.stop()
+        if (end) current.stop() else current.detach()
         phoneSession?.detach()
         endTurnState()
         hub.onActivityChanged()
@@ -1226,6 +1238,7 @@ class Conversation(
                             arguments,
                             AutoCompact.env(claude.autoCompact, claude.autoCompactPercent) +
                                 CodeRewind.ENV,
+                            onJoin = joinRequests(mode),
                         ),
                     onEvent = { event -> enqueue(created, event) },
                     onExit = { exit -> main.post { onProcessExit(created, exit) } },
@@ -1237,7 +1250,6 @@ class Conversation(
                 return null
             }
         process = created
-        modes.user?.let { hub.rememberHostMode(created.hostKey, it) }
         forkCut = false
         initialize(created)
         meter.processStarted(
@@ -1248,6 +1260,22 @@ class Conversation(
         reopenDesk()
         hub.onActivityChanged()
         return created
+    }
+
+    /**
+     * 托管脚本没起新进程、接上了本包已在跑这个会话的进程时（[ClaudeProcess.Launch.Start.onJoin]）先发的请求： 起进程的参数里这个对话自己定的权限模式
+     * [mode]、用户选的模型和思考强度，在那个进程上照样定下来。
+     */
+    private fun joinRequests(mode: String?): List<JsonObject> = buildList {
+        mode?.let { add(controlBody("set_permission_mode") { put("mode", it) }) }
+        model?.let { add(controlBody("set_model") { put("model", it) }) }
+        effort?.let { value ->
+            add(
+                controlBody("apply_flag_settings") {
+                    putJsonObject("settings") { put("effortLevel", value) }
+                },
+            )
+        }
     }
 
     /**
@@ -1591,8 +1619,8 @@ class Conversation(
         process = null
         offline = false
         finishRewind("Claude Code 进程退出了")
-        // 连接意外断开时进程可能还活着：一并结束，免得留下没人管的后台进程
-        source.stop()
+        // 连接意外断开时进程可能还活着：没有别的客户端接着就一并结束，免得留下没人管的后台进程
+        source.detach()
         if (exit.reason == ProcessExit.RELEASED || exit.reason == ProcessExit.HELD_ELSEWHERE) {
             handedAway(released = exit.reason == ProcessExit.RELEASED)
             return

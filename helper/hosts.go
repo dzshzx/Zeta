@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +15,7 @@ var taskTools = map[string]bool{"Bash": true, "Monitor": true, "Agent": true, "T
 const maxTaskCalls = 64 // 记着最近这么多个发起后台任务的工具调用
 
 // cmdHosts 列出仍在运行的托管进程（应用被杀后重新接上用），顺手清掉已经结束的和过期的附件。
+// 结束了的托管目录还有人接着时不删（liveAttachers）：接着的一方还要读 exit 报 zeta_exit，最后离开的那个自己删。
 func cmdHosts(e *env, o *emitter) error {
 	e.pruneUploads()
 	dirs := globNames(e.hosts, false, nil)
@@ -24,7 +26,9 @@ func cmdHosts(e *env, o *emitter) error {
 	for _, dir := range dirs {
 		pid, known := readPid(joinPath(dir, "pid"))
 		if _, alive := claudeArgv(pid, known); !alive || existsFollow(joinPath(dir, "exit")) {
-			removeTree(dir)
+			if len(liveAttachers(dir)) == 0 {
+				removeTree(dir)
+			}
 			continue
 		}
 		scan, err := scanHost(dir)
@@ -61,6 +65,32 @@ func (e *env) hostItem(dir string, pid int, scan hostScan) obj {
 	return obj{"key": baseName(dir), "pid": pid, "cwd": readText(joinPath(dir, "cwd")), "title": title,
 		"session": scan.session, "file": file, "lines": scan.lines, "busy": scan.busy, "pending": scan.pending,
 		"mode": scan.mode, "tasks": scan.tasks, "task_events": scan.events}
+}
+
+// liveAttachers 是托管目录 dir 里还接着的一方（zeta_host.sh 的 attach 之后那段）的进程号，规矩同 zeta_host.sh 的 attachers：
+// attach.d/<进程号> 的记录内容是那个进程的启动时刻，进程还在跑、启动时刻对得上才算；attach 记的进程没有 attach.d 记录时，
+// 命令行里有 zeta-host 才算（只写 attach 的旧版脚本）。
+func liveAttachers(dir string) []int {
+	var out []int
+	records := joinPath(dir, "attach.d")
+	for _, name := range globNames(records, false, nil) {
+		pid, err := strconv.Atoi(name)
+		if err == nil && pid > 0 && running(pid, readText(joinPath(records, name))) {
+			out = append(out, pid)
+		}
+	}
+	pid, known := readPid(joinPath(dir, "attach"))
+	if !known || pid <= 0 || lexists(joinPath(records, strconv.Itoa(pid))) {
+		return out
+	}
+	if argv, ok := procArgv(pid); ok {
+		for _, a := range argv {
+			if string(a) == "zeta-host" {
+				return append(out, pid)
+			}
+		}
+	}
+	return out
 }
 
 func existsFollow(p string) bool {
@@ -159,7 +189,7 @@ type hostReader struct {
 }
 
 // scanHost 读 out.jsonl。这一轮的起止和 zeta_host.sh 的 turn_running 同一口径：system init、command_lifecycle started 开始，
-// result 结束，别的行不算。
+// result 结束，别的行不算。输出里还没有会话时，会话取 start 记下的（startedSession）。
 func scanHost(dir string) (hostScan, error) {
 	f, err := openFile(joinPath(dir, "out.jsonl"))
 	if err != nil {
@@ -188,6 +218,11 @@ func scanHost(dir string) (hostScan, error) {
 		r.pending = append(r.pending, w)
 	}
 	r.events = r.taskEvents()
+	if !truthy(r.session) {
+		if s := startedSession(dir); s != "" {
+			r.session = s
+		}
+	}
 	return r.hostScan, nil
 }
 

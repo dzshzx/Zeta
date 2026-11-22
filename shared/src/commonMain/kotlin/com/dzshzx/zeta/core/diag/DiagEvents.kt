@@ -66,6 +66,13 @@ object DiagEvents {
         }
     }
 
+    /** 要起的进程（[requested]）没起：托管脚本接上了本包已在跑这个会话的进程 [joined]（ClaudeProcess）。 */
+    fun claudeJoined(requested: String, joined: String) =
+        DiagLog.info(
+            DiagTopic.Claude,
+            "会话已有进程在跑，接上它（${joined.take(8)}），不另起（${requested.take(8)}）",
+        )
+
     /** Claude 进程结束或连接断开（ClaudeProcess）：退出码，带上标准错误输出的最后几行。 [stopped]：Zeta 自己关的（关掉对话、换会话），不算异常。 */
     fun claudeExited(hostKey: String, code: Int, stderr: String, stopped: Boolean = false) {
         val key = hostKey.take(8)

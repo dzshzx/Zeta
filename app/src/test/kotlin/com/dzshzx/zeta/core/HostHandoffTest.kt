@@ -99,15 +99,18 @@ class HostHandoffTest {
         assertTrue(hasProcess("k2"))
     }
 
+    /** 本包自己的进程占着会话不算别处：start 接上它（zeta_attached 的 key 是它的），不另起。 */
     @Test
-    fun aSessionHeldByThisPackagesOwnProcessIsNotElsewhere() {
+    fun aSessionHeldByThisPackagesOwnProcessIsJoinedNotElsewhere() {
         HostTesting.writeClaudeStandIn(home, prelude = HostTesting.registersAs(SESSION))
         start("k1")
         HostTesting.registeredPid(home)
         // 登记还在但进程没了的也不算
         register(999_999, SESSION)
-        start("k2", "--resume", SESSION)
-        assertTrue(hasProcess("k2"))
+        val out = start("k2", "--resume", SESSION)
+        assertFalse(out, out.contains("held_elsewhere"))
+        assertTrue(out, out.contains("\"key\":\"k1\""))
+        assertFalse("不该另起进程", hasProcess("k2"))
     }
 
     /**
@@ -124,7 +127,7 @@ class HostHandoffTest {
         assertTrue(out, out.contains("\"reason\":\"held_elsewhere\""))
     }
 
-    /** claude 被包了一层（[HostTesting.Wrapper]）时本包的进程照样认得：不算别处占着，账号脚本也认得它归本包。 */
+    /** claude 被包了一层（[HostTesting.Wrapper]）时本包的进程照样认得：不算别处占着（start 接上它），账号脚本也认得它归本包。 */
     @Test
     fun thisPackagesWrappedProcessIsNotElsewhere() {
         for (wrapper in HostTesting.Wrapper.entries) {
@@ -141,12 +144,8 @@ class HostHandoffTest {
                     env,
                 )
             assertFalse("$wrapper：$out", out.contains("held_elsewhere"))
-            assertTrue(hasProcess("k2"))
-            for (key in listOf("k1", "k2")) HostTesting.run(
-                home,
-                command("stop", key),
-                HostTesting.named(name),
-            )
+            assertTrue("$wrapper：该接上 k1：$out", out.contains("\"key\":\"k1\"") && !hasProcess("k2"))
+            HostTesting.run(home, command("stop", "k1"), HostTesting.named(name))
             assertTrue(
                 "$wrapper：没收掉",
                 waitUntil { !hostDir("k1").exists() && !hostDir("k2").exists() },

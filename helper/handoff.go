@@ -165,7 +165,7 @@ func endHosted(holders []registered) {
 	procs := map[int]string{}
 	for _, h := range holders {
 		_ = os.WriteFile(joinPath(h.host, releasedMark), nil, 0o644)
-		if err := writeFifo(joinPath(h.host, "in"),
+		if err := writeFifo(h.host,
 			`{"type":"control_request","request_id":"zeta-release","request":{"subtype":"end_session"}}`+"\n"); err != nil {
 			_ = syscall.Kill(h.pid, syscall.SIGTERM)
 		}
@@ -174,9 +174,17 @@ func endHosted(holders []registered) {
 	escalate(procs, releaseGrace, syscall.SIGTERM, syscall.SIGKILL)
 }
 
-// writeFifo 往命名管道写一行，不等读的一方：托管进程那段以读写方式一直开着它，没人开着时（进程刚好没了）报错而不是卡住。
-func writeFifo(path, line string) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+// writeFifo 往托管目录 dir 的输入管道 in 写一行，不等读的一方：托管进程那段以读写方式一直开着它，没人开着时（进程刚好没了）报错而不是卡住。
+// 和 zeta_host.sh 的 write_line 一样持着 dir/lock 写，不插进接着的一方正写着的大行中间；锁最多等 fifoLockWait，等不到也照写。
+func writeFifo(dir, line string) error {
+	if lock, err := os.OpenFile(joinPath(dir, "lock"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644); err == nil {
+		defer lock.Close()
+		deadline := time.Now().Add(fifoLockWait)
+		for syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+	f, err := os.OpenFile(joinPath(dir, "in"), os.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return err
 	}
@@ -187,6 +195,9 @@ func writeFifo(path, line string) error {
 	}
 	return err
 }
+
+// fifoLockWait 是 writeFifo 最多等写锁的时间（同 zeta_host.sh write_line 的 2 秒）。
+const fifoLockWait = 2 * time.Second
 
 // cmdSessionStart 是 Claude Code 的 SessionStart hook（在 matcher resume 上登记，写法见 README）：终端里接着一个会话时，
 // 让 Zeta 那边占着它的进程退出（releaseSession）。标准输入是 hook 的输入（session_id、source）。Zeta 那边正忙时不动它，

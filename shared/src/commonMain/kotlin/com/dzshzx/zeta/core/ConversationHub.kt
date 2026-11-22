@@ -120,7 +120,7 @@ class ConversationHub(val platform: HubPlatform) {
         val host = remoteHost(id) ?: return false
         if (hostWorking(id)) return false
         val idle = liveConversations.filter { it.backend == id }
-        idle.forEach { it.shutdown() }
+        idle.forEach { it.leave() }
         parked.removeAll(idle.toSet())
         platform.prunePhones()
         updateRemoteHosts(
@@ -544,7 +544,7 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 应用上次是被系统回收或划掉的话，主机 [backend] 上的 Claude Code 进程可能还在后台。
-     * 还在干活或等确认的重新接上；闲着的直接结束，省内存。每台主机查成一次就不再查；连不上的下次再查。在主线程上调用。
+     * 还在干活或等确认的重新接上；闲着的没有别的客户端接着就结束（[stopHosts]），省内存。每台主机查成一次就不再查；连不上的下次再查。在主线程上调用。
      */
     private fun reattachHosts(backend: String) {
         if (backend in hostsChecked) return
@@ -588,7 +588,7 @@ class ConversationHub(val platform: HubPlatform) {
             taskEvents = o.arr("task_events").orEmpty().filterIsInstance<JsonObject>(),
         )
 
-    /** 查到了主机 [backend] 上的托管进程（在主线程上）：在干活的接上，闲着的结束，结束了的进程的权限模式不再留。 */
+    /** 查到了主机 [backend] 上的托管进程（在主线程上）：在干活的接上，闲着的交给 [stopHosts]，结束了的进程的权限模式不再留。 */
     private fun onHostsListed(backend: String, shell: LinuxShell, hosts: List<HostInfo>) {
         // 这个进程里已经接着的（比如界面打开前定时任务起的对话）不再接一次，也不当闲着收掉；在主线程上看才不漏
         val known = liveConversations.mapNotNullTo(HashSet()) { it.hostKey }
@@ -607,12 +607,14 @@ class ConversationHub(val platform: HubPlatform) {
         onActivityChanged()
     }
 
-    /** 在后台线程上结束闲着的托管进程。 */
+    /**
+     * 在后台线程上收掉这个进程里没人接着的闲着的托管进程：别的客户端（同一个包装在别的设备上、连同一台主机的）还接着的照常跑， 没人接着的结束（zeta_host.sh detach）。
+     */
     private fun stopHosts(shell: LinuxShell, idle: List<HostInfo>) {
         thread(name = "zeta-hosts", isDaemon = true) {
             for (host in idle) {
                 runCatching {
-                    shell.run(hostCommandLine(hostScript, listOf("stop", host.key)), plain = true)
+                    shell.run(hostCommandLine(hostScript, listOf("detach", host.key)), plain = true)
                 }
             }
         }
@@ -665,7 +667,7 @@ class ConversationHub(val platform: HubPlatform) {
      */
     fun dropConversations() {
         val dropped = liveConversations.filter { needsDebian(it.backend) }
-        dropped.forEach { it.shutdown() }
+        dropped.forEach { it.leave() }
         parked.removeAll(dropped)
         if (current in dropped) current = blank()
         platform.dropPhones(liveConversations.mapNotNullTo(HashSet()) { it.phoneSession })
@@ -782,12 +784,15 @@ class ConversationHub(val platform: HubPlatform) {
         platform.prunePhones(ids)
     }
 
-    /** 换上 [next] 作当前对话。原来那个：[end] 时或闲着时收掉进程（省内存），还在进行的（包括有后台任务的）留在后台跑完。 在主线程上调用。 */
+    /**
+     * 换上 [next] 作当前对话。原来那个：[end] 时结束进程；闲着时不再接着（[Conversation.leave]，没有别的客户端接着就结束，省内存）；
+     * 还在进行的（包括有后台任务的）留在后台跑完。 在主线程上调用。
+     */
     private fun replaceCurrent(next: Conversation, end: Boolean = false) {
         val leaving = current
         if (end || !leaving.active) {
             parked.remove(leaving)
-            leaving.shutdown()
+            if (end) leaving.shutdown() else leaving.leave()
         } else {
             park(leaving)
         }
@@ -842,11 +847,12 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * Zeta 不在前台时，当前对话闲着（[Conversation.active] 为假）满 [IDLE_RETIRE_MS] 就收掉它背后的 Claude Code 进程，
-     * 内容不丢，下次发消息时用 --resume 接上。不收的话，这个进程和为它常驻的前台服务（[onActivityChanged]）互相保着， 用过一次 Zeta 就一直占着几百 MB
+     * Zeta 不在前台时，当前对话闲着（[Conversation.active] 为假）满 [IDLE_RETIRE_MS] 就不再接着它背后的 Claude Code 进程
+     * （[Conversation.leave]：没有别的客户端接着时进程随之结束），内容不丢，下次发消息时用 --resume
+     * 接上。不收的话，这个进程和为它常驻的前台服务（[onActivityChanged]）互相保着， 用过一次 Zeta 就一直占着几百 MB
      * 内存和一条常驻通知。切到后台、一轮结束、后台任务做完时重新计时，回到前台就不等了。 到点时还在进行的不收，等它这一轮结束再计时。
      */
-    private val retireCurrent = Runnable { if (!foreground && !current.active) current.shutdown() }
+    private val retireCurrent = Runnable { if (!foreground && !current.active) current.leave() }
 
     private fun retireCurrentWhenIdle() {
         main.removeCallbacks(retireCurrent)
@@ -862,7 +868,7 @@ class ConversationHub(val platform: HubPlatform) {
             {
                 if (conversation !== current && !conversation.active) {
                     parked.remove(conversation)
-                    conversation.shutdown()
+                    conversation.leave()
                     platform.prunePhones()
                 }
             },
