@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -109,5 +110,21 @@ func TestFindScrollsWithinALongAnswer(t *testing.T) {
 	f.see(t, "1/1")
 	if r, ok := f.tt.Find("藏在后面的暗号：青鸟。"); !ok || r.Y < 40 || r.Y > 780 {
 		t.Fatalf("没滚到命中的那段：%v %v", r, ok)
+	}
+}
+
+// 载不下去时只查载入了的，说明原因（和列表顶上的同一句），不反复去要。
+func TestFindSaysWhyEarlierRecordsAreMissing(t *testing.T) {
+	f := newChatFixture(t)
+	f.showTurn(t, false)
+	f.failOn("conv.earlier", chat.EarlierStale)
+	f.push(`"earlier":120`)
+	f.tt.Key(ui.Cmd, ui.KeyF)
+	f.tt.Type("没有的词")
+	f.tt.Frame()
+	f.tt.Frame()
+	f.see(t, "无结果", "查提问和回答，不含工具步骤和思考；没读到更早的记录："+chat.EarlierStale+"，更早的 120 条没查")
+	if got := f.sent("conv.earlier"); len(got) != 1 {
+		t.Fatalf("要了 %d 次：%v", len(got), got)
 	}
 }

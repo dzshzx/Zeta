@@ -69,7 +69,7 @@ func (a *App) syncChat() {
 	if a.pane == nil || a.pane.src != c {
 		a.leaveDraft(a.pane)
 		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
-		p.list.LoadEarlier = func() { a.loadEarlier(p) }
+		p.list.LoadEarlier = func() { a.loadEarlier(p, false) }
 		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 		a.pane = p
 		a.enterDraft(p)
@@ -353,15 +353,15 @@ func composerShadow(k *coui.Colors) ui.Color {
 	return ui.RGBA(0, 0, 0, 0.045)
 }
 
-// loadEarlier 载入更早的一页（列表往上翻到顶附近、或点了「载入更早的」时）。新的一页经推送从最前面插进来，
-// 列表保住正看着的位置。没读成时说原因；会话记录在别处改过的重试没用，不给重试。
-func (a *App) loadEarlier(p *chatPane) {
+// loadEarlier 载入更早的一页（列表往上翻到顶附近、或点了「载入更早的」时），rest 时一次载完（查找时）。新的经推送从最前面插进来，
+// 列表保住正看着的位置。没读成时说原因；会话记录在别处改过的重试没用，不给重试。正在载或不用再试时不发，返回 false。
+func (a *App) loadEarlier(p *chatPane, rest bool) bool {
 	if p.earlier.asked || p.earlier.stale {
-		return
+		return false
 	}
 	p.earlier.asked, p.earlier.failed = true, ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		err := conv.LoadEarlier(ctx, false)
+		err := conv.LoadEarlier(ctx, rest)
 		a.post(func() {
 			p.earlier.asked = false
 			if err != nil {
@@ -371,4 +371,5 @@ func (a *App) loadEarlier(p *chatPane) {
 		})
 		return nil
 	}, nil)
+	return true
 }

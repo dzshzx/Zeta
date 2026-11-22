@@ -3,6 +3,7 @@ package chatview
 import (
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -25,8 +26,11 @@ type Match struct {
 // finder 是聊天列表的查找状态。
 type finder struct {
 	query   string
+	lower   string // query 的小写（见 lowerSameWidth）
 	matches []Match
 	index   int
+	// byItem 是各条目的命中在 matches 里的区间 [lo, hi)（同一条目的命中挨在一起）。
+	byItem map[string][2]int
 	// dirty：条目换了，命中要重算；jump：当前那一处换了，要滚过去。
 	dirty, jump bool
 	// 当前那一处在回答里时，回答的 Markdown 还要滚到它所在的块：marked 是那个回答标好的原文，at 是当前那一处在里面的位置；
@@ -38,10 +42,20 @@ type finder struct {
 	texts map[string]*findText
 }
 
-// findText 是一个条目能查的文字：src 是它的原文，segments 是切好的段。
+// findText 是一个条目能查的文字：src 是它的原文，segments 是切好的段。mark 是上次标好命中的原文（回答用），
+// 查找词和当前那一处没变时照用，不每帧重拼。
 type findText struct {
 	src      string
 	segments []segment
+	mark     markedSource
+}
+
+// markedSource 是一个回答标好命中的原文：查找词是 query、当前那一处是这个回答里的第 cur 处（不在这个回答里是 -1）时，
+// 标好的是 text，当前那一处的 <mark><u> 在 text 的 at（没有时 -1）。
+type markedSource struct {
+	query   string
+	cur, at int
+	text    string
 }
 
 // segment 是一段能查的文字：Markdown 的一个段落、标题或表格单元格里的字（提问是整段正文）。pieces 记着这段里各截字在原文里的位置，
@@ -49,6 +63,7 @@ type findText struct {
 type segment struct {
 	block  int
 	text   string
+	lower  string // text 的小写，字节位置和 text 一一对应（见 lowerSameWidth）
 	pieces []piece
 }
 
@@ -66,10 +81,12 @@ func (ch *Chat) SetFind(query string) {
 	if query == ch.find.query {
 		return
 	}
-	ch.find.query = query
-	ch.find.dirty = true
+	f := &ch.find
+	f.query, f.lower = query, lowerSameWidth(query)
+	f.dirty = true
 	if query == "" {
-		ch.find.matches, ch.find.index = nil, -1
+		// 停止查找：命中和切好的段都不要了，不查的时候不花工夫
+		f.matches, f.byItem, f.index, f.texts = nil, nil, -1, nil
 	}
 }
 
@@ -96,7 +113,7 @@ func (ch *Chat) FindQuery() string { return ch.find.query }
 // 之前没停过的从最后一处开始：聊天里最新的在底部（同 ChatFind.reselect）。
 func (ch *Chat) refind() {
 	f := &ch.find
-	if !f.dirty {
+	if !f.dirty || f.query == "" {
 		return
 	}
 	f.dirty = false
@@ -111,6 +128,7 @@ func (ch *Chat) refind() {
 	order := map[string]int{}
 	var found []Match
 	kept := map[string]*findText{}
+	byItem := map[string][2]int{}
 	for row, it := range ch.items {
 		t := ch.findable(it)
 		if t == nil {
@@ -118,17 +136,16 @@ func (ch *Chat) refind() {
 		}
 		kept[it.ID] = t
 		order[it.ID] = row
-		if f.query == "" {
-			continue
-		}
+		lo := len(found)
 		for _, s := range t.segments {
-			for _, r := range occurrences(s.text, f.query) {
-				found = append(found, Match{Item: it.ID, Block: s.block, Start: r[0], End: r[1]})
-			}
+			found = appendOccurrences(found, it.ID, s, f.lower)
+		}
+		if len(found) > lo {
+			byItem[it.ID] = [2]int{lo, len(found)}
 		}
 	}
 	f.texts = kept // 删掉、剪掉的条目跟着丢掉
-	f.matches = found
+	f.matches, f.byItem = found, byItem
 	f.index = reselect(before, found, order)
 	if f.index >= 0 && (before == nil || *before != found[f.index]) {
 		f.jump = true
@@ -148,7 +165,7 @@ func (ch *Chat) findable(it items.Item) *findText {
 	}
 	t := &findText{src: it.Text}
 	if it.Kind == items.User {
-		t.segments = []segment{{text: it.Text, pieces: []piece{{n: len(it.Text), srcEnd: len(it.Text), exact: true}}}}
+		t.segments = []segment{{text: it.Text, lower: lowerSameWidth(it.Text), pieces: []piece{{n: len(it.Text), srcEnd: len(it.Text), exact: true}}}}
 	} else {
 		t.segments = markdownSegments(it.Text)
 	}
@@ -184,70 +201,46 @@ func markdownSegments(src string) []segment {
 			}
 		}
 		if s.text = text.String(); strings.TrimSpace(s.text) != "" {
+			s.lower = lowerSameWidth(s.text)
 			out = append(out, s)
 		}
 	}
 	return out
 }
 
-// occurrences 是 text 里 query 出现的地方（字节区间）：不分大小写，从前往后，互不重叠。
-func occurrences(text, query string) [][2]int {
-	if query == "" || len(text) < len(query) {
-		return nil
+// appendOccurrences 把段 s 里查找词出现的地方（字节区间，从前往后，互不重叠）作为条目 item 的命中接在 found 后面。
+// lower 是查找词的小写：比的是两边的小写，所以不分大小写。
+func appendOccurrences(found []Match, item string, s segment, lower string) []Match {
+	if lower == "" {
+		return found
 	}
-	var out [][2]int
-	if lt, ok := lowerSameWidth(text); ok {
-		lq := strings.ToLower(query)
-		for from := 0; ; {
-			i := strings.Index(lt[from:], lq)
-			if i < 0 {
-				return out
-			}
-			out = append(out, [2]int{from + i, from + i + len(lq)})
-			from += i + len(lq)
+	for from := 0; ; {
+		i := strings.Index(s.lower[from:], lower)
+		if i < 0 {
+			return found
 		}
+		from += i
+		found = append(found, Match{Item: item, Block: s.block, Start: from, End: from + len(lower)})
+		from += len(lower)
 	}
-	// 小写以后字节数会变的（少见）：逐个位置比
-	n := utf8.RuneCountInString(query)
-	for i := 0; i < len(text); {
-		end := i
-		for k := 0; k < n && end < len(text); k++ {
-			_, w := utf8.DecodeRuneInString(text[end:])
-			end += w
-		}
-		if strings.EqualFold(text[i:end], query) {
-			out = append(out, [2]int{i, end})
-			i = end
-			continue
-		}
-		_, w := utf8.DecodeRuneInString(text[i:])
-		i += w
-	}
-	return out
 }
 
-// lowerSameWidth 是 s 的小写；有字小写后字节数变了时 ok 为假（那样偏移对不上原文）。
-func lowerSameWidth(s string) (string, bool) {
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		l := lowerRune(r)
-		if utf8.RuneLen(l) != utf8.RuneLen(r) {
-			return "", false
+// lowerSameWidth 是 s 的小写，字节数和 s 一样、每个字的位置不变：小写以后字节数会变的字（少见，如 İ）保持原样，
+// 这样小写里找到的位置就是原文里的位置。
+func lowerSameWidth(s string) string {
+	for i, r := range s {
+		if l := unicode.ToLower(r); l != r && utf8.RuneLen(l) == utf8.RuneLen(r) {
+			return s[:i] + strings.Map(lowerRune, s[i:])
 		}
-		b.WriteRune(l)
 	}
-	return b.String(), true
+	return s // 没有要变的字：不另分配
 }
 
 func lowerRune(r rune) rune {
-	if r < utf8.RuneSelf {
-		if 'A' <= r && r <= 'Z' {
-			return r + 'a' - 'A'
-		}
-		return r
+	if l := unicode.ToLower(r); utf8.RuneLen(l) == utf8.RuneLen(r) {
+		return l
 	}
-	return []rune(strings.ToLower(string(r)))[0]
+	return r
 }
 
 // reselect 是命中换了以后停在哪（下标，没有命中是 -1），见 refind。order 是各条目在列表里的位置。
@@ -293,20 +286,15 @@ func findColors(k *coui.Colors) (soft, strong ui.Color) {
 
 // matchesIn 是条目 id 里的命中，和当前那一处是其中第几个（不在其中是 -1）。
 func (f *finder) matchesIn(id string) ([]Match, int) {
-	if f.query == "" {
+	r, ok := f.byItem[id]
+	if !ok {
 		return nil, -1
 	}
-	var out []Match
 	cur := -1
-	for i, m := range f.matches {
-		if m.Item == id {
-			if i == f.index {
-				cur = len(out)
-			}
-			out = append(out, m)
-		}
+	if r[0] <= f.index && f.index < r[1] {
+		cur = f.index - r[0]
 	}
-	return out, cur
+	return f.matches[r[0]:r[1]], cur
 }
 
 // bubbleText 是提问气泡里的字：查找时命中处加底色，当前那一处更深。
@@ -336,15 +324,28 @@ func (ch *Chat) bubbleText(c *ui.Context, it items.Item) ui.Element {
 }
 
 // answerSource 是回答要显示的 Markdown：查找时命中处包上 <mark>（当前那一处再加 <u>），没在查或没有命中时是原文。
-// 当前那一处在这个回答里时，顺带让 Markdown 滚到它所在的块。
+// 当前那一处在这个回答里时，顺带让 Markdown 滚到它所在的块。标好的按查找词和当前那一处记在条目上，没变时不重拼。
 func (ch *Chat) answerSource(c *ui.Context, it items.Item) string {
-	ms, cur := ch.find.matchesIn(it.ID)
-	t := ch.find.texts[it.ID]
+	f := &ch.find
+	ms, cur := f.matchesIn(it.ID)
+	t := f.texts[it.ID]
 	if len(ms) == 0 || t == nil || t.src != it.Text {
 		return it.Text
 	}
 	soft, _ := findColors(coui.Of(c))
 	ch.answerTheme.Mark = soft
+	if m := t.mark; m.text == "" || m.query != f.query || m.cur != cur {
+		text, at := markSource(t, ms, cur)
+		t.mark = markedSource{query: f.query, cur: cur, text: text, at: at}
+	}
+	if t.mark.at >= 0 {
+		f.marked, f.at = t.mark.text, t.mark.at
+	}
+	return t.mark.text
+}
+
+// markSource 在回答 t 的原文里给命中 ms 包上 <mark>（第 cur 处再加 <u>），返回标好的原文和第 cur 处的 <mark><u> 在里面的位置（没有时 -1）。
+func markSource(t *findText, ms []Match, cur int) (string, int) {
 	type insert struct {
 		at   int
 		text string
@@ -376,33 +377,33 @@ func (ch *Chat) answerSource(c *ui.Context, it items.Item) string {
 			}
 		}
 	}
-	// 从后往前插，前面的偏移不变；同一处先插开头的再插收尾的（后插的在前面），得到 </mark><mark>，不会搅在一起
+	// 按位置从前往后写；同一处先收尾再开头，得到 </mark><mark>，不会搅在一起
 	slices.SortStableFunc(ins, func(a, b insert) int {
 		if a.at != b.at {
-			return b.at - a.at
+			return a.at - b.at
 		}
-		if a.open != b.open {
-			if a.open {
-				return -1
-			}
+		switch {
+		case a.open == b.open:
+			return 0
+		case a.open:
 			return 1
 		}
-		return 0
+		return -1
 	})
-	src := it.Text
-	at := -1
+	src := t.src
+	var b strings.Builder
+	b.Grow(len(src) + len(ins)*len("</u></mark>"))
+	at, from := -1, 0
 	for _, x := range ins {
-		src = src[:x.at] + x.text + src[x.at:]
-		if x.text == "<mark><u>" {
-			at = x.at
-		} else if at >= 0 {
-			at += len(x.text) // 插在它前面的把它往后推
+		b.WriteString(src[from:x.at])
+		from = x.at
+		if x.text == "<mark><u>" && at < 0 {
+			at = b.Len()
 		}
+		b.WriteString(x.text)
 	}
-	if at >= 0 {
-		ch.find.marked, ch.find.at = src, at
-	}
-	return src
+	b.WriteString(src[from:])
+	return b.String(), at
 }
 
 func segmentOf(segments []segment, block int) *segment {

@@ -1,10 +1,8 @@
 package ui
 
 import (
-	"context"
 	"strconv"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -19,9 +17,8 @@ type findBar struct {
 	input string
 	// focus：下一帧把焦点放进输入框（刚打开、又按了 Ctrl+F）。
 	focus bool
-	// loading：正在载完更早的记录，asked：已经要过一次（核心读完才回话，那时更早的已经推来了）；failed 是载不下去的原因。
-	loading, asked bool
-	failed         string
+	// asked：已经要过一次载完更早的记录（核心读完才回话，那时更早的已经推来了）。在载、没载成的原因记在 chatPane.earlier。
+	asked bool
 }
 
 // findShortcuts 是聊天页上查找的快捷键：Ctrl+F 打开查找栏（开着时把焦点放回输入框），开着时 Esc 关掉。
@@ -38,33 +35,14 @@ func (p *chatPane) closeFind() {
 	p.list.SetFind("")
 }
 
-// loadAllEarlier 在查找栏开着、还有没载入的更早记录时一次载完（同 ChatScreen.kt 的 LoadEarlierWhileFinding）。
-func (a *App) loadAllEarlier(p *chatPane) {
-	f := &p.find
-	if f.asked || p.state.Earlier == 0 || p.src.Conv == nil {
-		return
-	}
-	f.loading, f.asked = true, true
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		err := conv.LoadEarlier(ctx, true)
-		a.post(func() {
-			f.loading = false
-			if err != nil {
-				f.failed = "没读到更早的记录"
-				if chat.IsEarlierStale(err) {
-					f.failed = chat.EarlierStale
-				}
-			}
-		})
-		return nil
-	}, nil)
-}
-
 // findBar 是查找栏。
 func (a *App) findBar(c *ui.Context, p *chatPane) {
 	f := &p.find
 	p.list.SetFind(f.input)
-	a.loadAllEarlier(p)
+	// 还有没载入的更早记录时一次载完（同 ChatScreen.kt 的 LoadEarlierWhileFinding）
+	if !f.asked && p.state.Earlier > 0 && p.src.Conv != nil {
+		f.asked = a.loadEarlier(p, true)
+	}
 	k := coui.Of(c)
 	index, count := p.list.FindCount()
 	left := p.state.Earlier
@@ -92,14 +70,14 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 				if count == 0 {
 					color = k.Tertiary
 				}
-				ui.Text(c, matchCount(index, count, left, f.failed)).FontSize(coui.SizeBodyS).TextColor(color).SingleLine().
+				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(coui.SizeBodyS).TextColor(color).SingleLine().
 					Margin(0, 2, 0, 8).Shrink(0)
 			}
 			coui.FlatButton(c, coui.IconChevronUp, "上一个", 36, 20).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
 			coui.FlatButton(c, coui.IconChevronDown, "下一个", 36, 20).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
 			coui.FlatButton(c, coui.IconClose, "关闭查找", 36, 20).OnClick(p.closeFind)
 		})
-		ui.Text(c, findScope(left, f.failed)).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 14)
+		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 14)
 	})
 }
 

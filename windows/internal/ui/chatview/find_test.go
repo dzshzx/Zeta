@@ -7,6 +7,15 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// occurrences 是 text 里 query 出现的地方（字节区间）。
+func occurrences(text, query string) [][2]int {
+	var out [][2]int
+	for _, m := range appendOccurrences(nil, "", segment{text: text, lower: lowerSameWidth(text)}, lowerSameWidth(query)) {
+		out = append(out, [2]int{m.Start, m.End})
+	}
+	return out
+}
+
 func TestOccurrencesIgnoreCase(t *testing.T) {
 	got := occurrences("Gradle gradlew GRADLE 构建 gradle", "gradle")
 	if len(got) != 4 || got[1] != [2]int{7, 13} || got[3][0] != len("Gradle gradlew GRADLE 构建 ") {
@@ -15,9 +24,18 @@ func TestOccurrencesIgnoreCase(t *testing.T) {
 	if got := occurrences("aaaa", "aa"); len(got) != 2 {
 		t.Fatalf("互不重叠：%v", got)
 	}
-	// 小写后字节数会变的字（İ）走逐个比的那条路
+	// 小写后字节数会变的字（İ）保持原样，位置还对得上
 	if got := occurrences("İx ix", "ix"); len(got) != 1 || got[0] != [2]int{len("İx "), len("İx ix")} {
 		t.Fatalf("İ：%v", got)
+	}
+	if got := occurrences("Xİx ix", "ix"); len(got) != 1 || got[0] != [2]int{len("Xİx "), len("Xİx ix")} {
+		t.Fatalf("İ 前面有要小写的字：%v", got)
+	}
+	if got := occurrences("ÄRGER über Ärger", "äRGer"); len(got) != 2 || got[1] != [2]int{len("ÄRGER über "), len("ÄRGER über Ärger")} {
+		t.Fatalf("非 ASCII 的大小写：%v", got)
+	}
+	if n := testing.AllocsPerRun(10, func() { lowerSameWidth("全是小写的中文 abc") }); n != 0 {
+		t.Errorf("没有要变的字时分配了 %v 次", n)
 	}
 }
 
@@ -84,5 +102,47 @@ func TestReselectKeepsPlace(t *testing.T) {
 	}
 	if got := reselect(&matches[1], matches, order); got != 1 {
 		t.Errorf("还在的不动：%d", got)
+	}
+}
+
+// 没在查找时不切段、不解析回答；标好的原文按查找词和当前那一处记着，没变时不重拼。
+func TestFindCostsNothingUntilAskedAndCachesMarks(t *testing.T) {
+	ch := New()
+	answer := items.Item{Kind: items.Answer, ID: "a1", Text: "先 **粗体**，再粗体"}
+	ch.SetItems([]items.Item{{Kind: items.User, ID: "u1", Text: "粗体"}, answer})
+	ch.findFrame()
+	if ch.find.texts != nil || ch.find.byItem != nil {
+		t.Fatalf("没在查找就切了段：%v", ch.find.texts)
+	}
+	ch.SetFind("粗体")
+	if _, count := ch.FindCount(); count != 3 {
+		t.Fatalf("共 %d 处", count)
+	}
+	if ms, cur := ch.find.matchesIn("a1"); len(ms) != 2 || cur != 1 {
+		t.Fatalf("回答里的：%v，当前第 %d 个", ms, cur)
+	}
+	var first, again string
+	tt := ui.NewTester(func(c *ui.Context) {
+		if first == "" {
+			first = ch.answerSource(c, answer)
+			ch.find.texts["a1"].mark.text = "记着的"
+			return
+		}
+		again = ch.answerSource(c, answer)
+	}, 400, 300)
+	tt.Frame()
+	tt.Frame()
+	if first != "先 **<mark>粗体</mark>**，再<mark><u>粗体</u></mark>" || again != "记着的" {
+		t.Fatalf("第一次 %q，第二次 %q", first, again)
+	}
+	if ch.find.at != len("先 **<mark>粗体</mark>**，再") {
+		t.Errorf("当前那一处在 %d", ch.find.at)
+	}
+	ch.FindStep(1) // 当前那一处换到提问里：回答重新标
+	ch.FindCount()
+	first, again = "x", ""
+	tt.Frame()
+	if again != "先 **<mark>粗体</mark>**，再<mark>粗体</mark>" {
+		t.Fatalf("换了当前那一处：%q", again)
 	}
 }
