@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // accountsHome 摆好一个临时 HOME：装上 claude-switch，登录 uuid-a。
@@ -197,4 +198,38 @@ func TestServeAccountsOverServe(t *testing.T) {
 	}
 	_ = c.in.Close()
 	c.exited()
+}
+
+// 对话交来的额度（conv.Deps.Quota）存进 quota.get 读的那份；起进程时顺便问的，五分钟里这台主机上只问一次。
+func TestQuotaSink(t *testing.T) {
+	home := t.TempDir()
+	fakeLogin(t, home, "uuid-a", "a@example.com")
+	e := newEnvAt(home, "zeta")
+	now := time.Date(2026, 11, 22, 8, 0, 0, 0, time.UTC)
+	q := newQuotaSink(e)
+	q.now = func() time.Time { return now }
+
+	if !q.ClaimQuery() || q.ClaimQuery() {
+		t.Fatal("头一次该问、紧接着不该再问")
+	}
+	now = now.Add(autoQuotaEvery - time.Second)
+	if q.ClaimQuery() {
+		t.Fatal("没过五分钟又问了")
+	}
+	now = now.Add(time.Second)
+	if !q.ClaimQuery() {
+		t.Fatal("过了五分钟没再问")
+	}
+
+	q.Usage(json.RawMessage(serveUsage))
+	q.RateLimit(json.RawMessage(`{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":0.3,"resetsAt":1795057510,"status":"allowed"}}}`))
+	q.Usage(json.RawMessage(`{"models":[]}`)) // 不是额度的应答：记进日志，存着的不动
+	snap := mustAccounts(t, e, "quota.get", ``)["snapshot"].(map[string]any)
+	var labels []string
+	for _, w := range snap["windows"].([]any) {
+		labels = append(labels, w.(map[string]any)["label"].(string))
+	}
+	if snap["subscription"] != "max" || strings.Join(labels, "|") != "5 小时|每周 · 全部模型" {
+		t.Fatalf("存下的额度：%v", snap)
+	}
 }

@@ -40,6 +40,7 @@ func newConversations(e *env) *conversations {
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 		Occupant:      e.occupancy,
 		Handoff:       e.handOff,
+		Quota:         newQuotaSink(e),
 		Desk: func(session, cwd string) {
 			if err := cmdDeskOpen(e, newEmitter(io.Discard), session, cwd); err != nil {
 				log.Print("开 tmux 窗口：", err)

@@ -49,6 +49,9 @@ type event struct {
 
 	// conversation_reset（/clear）
 	NewConversationID string `json:"new_conversation_id"`
+
+	// rate_limit_event：订阅额度，原样交给 Deps.Quota
+	RateLimitInfo json.RawMessage `json:"rate_limit_info"`
 }
 
 // receive 处理托管进程输出的一行。
@@ -126,6 +129,11 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 	case "control_response":
 		if e.Response != nil {
 			p.answer(*e.Response)
+		}
+	case "rate_limit_event":
+		// 模型请求的响应头里带着 5 小时和每周窗口的数，变了 Claude Code 就发一条（子代理的请求也算）
+		if c.deps.Quota != nil && len(e.RateLimitInfo) > 0 {
+			c.deps.Quota.RateLimit(e.RateLimitInfo)
 		}
 	}
 	return false

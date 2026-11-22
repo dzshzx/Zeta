@@ -199,3 +199,36 @@ func TestHandoverKeepsATurnRunning(t *testing.T) {
 		t.Fatalf("接回以后的条目 %v，状态 %v", reopened.texts(), reopened.state)
 	}
 }
+
+// conv.prepare 经核心只起进程、不发消息；之后那一轮里 Claude Code 报的 rate_limit_event 由核心存进额度，quota.get 直接读到。
+func TestPrepareAndRateLimitThroughCore(t *testing.T) {
+	e0, _ := coreEnv(t)
+	e := newEnvAt(e0.home, "zeta-dev")
+	t.Setenv("ZETA_NAME", e.name)
+	fakeLogin(t, e.home, "uuid-a", "a@example.com")
+	fakeClaudeIn(t, e, `{"steps":[{"emit":{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning",`+
+		`"unifiedWindows":{"five_hour":{"utilization":0.42,"resetsAt":4102444800,"status":"allowed"}}}}},{"text":"好"}]}`)
+
+	c := startServe(t, e, testIdle)
+	view := &convView{}
+	c.send(`{"id":1,"method":"conv.open","conv":"a","cwd":` + quote(e.home) + `}`)
+	view.until(t, c, func(m obj) bool { return m["type"] == "zeta_reply" })
+	c.send(`{"id":2,"method":"conv.prepare","conv":"a"}`)
+	view.until(t, c, func(obj) bool { return view.state["process"] == true })
+	if view.state["busy"] != false || len(view.items) != 0 {
+		t.Fatalf("预先起进程时发了消息：状态 %v，条目 %v", view.state, view.texts())
+	}
+
+	c.send(`{"id":3,"method":"conv.send","conv":"a","text":"你好"}`)
+	view.until(t, c, func(m obj) bool { return m["type"] == "conv.turn" && m["phase"] == "finished" })
+	c.send(`{"id":4,"method":"quota.get"}`)
+	reply := view.until(t, c, func(m obj) bool { return m["type"] == "zeta_reply" && m["id"] == json.Number("4") })
+	snap, _ := reply["result"].(map[string]any)["snapshot"].(map[string]any)
+	windows, _ := snap["windows"].([]any)
+	if len(windows) != 1 {
+		t.Fatalf("存下的额度：%v", reply)
+	}
+	if w := windows[0].(map[string]any); w["label"] != "5 小时" || w["used"] != json.Number("0.42") {
+		t.Fatalf("5 小时窗口：%v", w)
+	}
+}

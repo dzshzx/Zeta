@@ -48,6 +48,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.model`、`conv.effort`、`conv.mode` | `value` | 只管这个对话的模型、思考强度、权限模式；`null` 回到默认 |
 | `conv.preset` | `model`、`effort`、`hint` | 定时任务、数字助理给这个对话预设模型、思考强度，`hint` 追加进 `--append-system-prompt`（下次起进程时生效）；空的那项照旧 |
 | `conv.compact` | | 压缩上下文 |
+| `conv.prepare` | | 只起好进程、不发消息（不开一轮），`commands`、`models` 随 initialize 的应答到来，输入斜杠命令、看模型清单前用。按这个客户端的 `options` 起；已有进程、会话被别处占着（`blocked`）、历史还在载入、正在剪会话时什么也不做；起不来时同发消息时一样在列表里加一条「启动失败」。起好的进程闲着，没人拿着时照常满 30 秒断开 |
 | `conv.stop_task` | `task` | 停一个后台任务 |
 | `conv.task_output` | `task` | 读后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}` |
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
@@ -60,7 +61,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.code_changes` | `target` | 把文件改回这条消息之前会动到哪些（`rewind_files` 的 dry_run，只看不改），`result` 是 `{files, insertions, deletions}`，没有可还原的为 `null` |
 | `conv.restore_code` | `target`、`drop` | 把文件改回这条消息之前（终端 `/rewind` 的 Restore code）；`drop` 为真时还原成了再删这一轮。结果以列表里的提示告知 |
 | `conv.fork` | `as`、`last`、`options` | 从条目 `last` 所在那一轮之后分支：新对话由这个客户端以名字 `as` 拿着（同 `conv.open`，推整份；不带 `options` 时沿用这个客户端给原对话的），原对话不动。原对话还没有会话号、或下一轮剪不准时答出错。新对话先显示到那一轮为止的内容，标题是「分支 · 原标题」（重名时编号），发出第一条消息时 Claude Code 才从原会话复制出新会话（`--fork-session`）；从中间分支时先剪掉下一轮 |
-| `conv.quota` | | 借这个对话开着的进程问一次订阅额度（`get_usage`），`result` 是应答里的 `response` 原样（交给 `quota.usage`，见「账号与额度」）；没有进程时出错 |
+| `conv.quota` | | 借这个对话开着的进程问一次订阅额度（`get_usage`），`result` 是应答里的 `response` 原样（交给 `quota.usage`，见「账号与额度」）；没有进程时出错。核心自己也会存额度（见「账号与额度」），这个方法只在客户端要马上刷新时用 |
 | `conv.subagent` | `tool_use_id`、`watch` | 子代理查看页：`watch` 为真时开始给这个客户端推这个子代理（`tool_use_id` 是发起它的 Agent 调用）的 `conv.subagent`，为假时停；放开对话、断开时也停。有人看着时核心增量读它的记录 |
 | `conv.activity` | `watch` | 不带 `conv`。订阅（`watch` 省掉或为真，可以和 `sessions.watch` 一样只发方法名）或退订这个核心里各会话的忙闲，见推送 `conv.activity` |
 
@@ -130,13 +131,19 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由客户端做，登录后的新号由 claude-switch 记成这个名字 |
 | `accounts.remove` | `name` | 删掉一个不在用的号在这台主机上的存档与记录（服务端仍是登录状态） |
 
-额度都是 Claude Code 给的。各账号最近一次的数存在 `~/.cache/zeta-quota/`（按 `~/.claude.json` 里的登录编号分开，同一台上各个包共用），换了号读到的就是新号的。要经正在跑的 Claude Code 取的 get_usage 归核心（`conv.quota`，应答原样交回）；客户端把那份应答交给 `quota.usage` 读成额度、存起来。这一组只读写小文件，快。
+额度都是 Claude Code 给的。各账号最近一次的数存在 `~/.cache/zeta-quota/`（按 `~/.claude.json` 里的登录编号分开，同一台上各个包共用），换了号读到的就是新号的。这一组只读写小文件，快。数从三条路进来，存进同一份：
+
+- 对话输出里的 `rate_limit_event`（模型请求的响应头带着 5 小时和每周窗口，数变了 Claude Code 就发一条）：核心收到就把 `rate_limit_info` 并进存着的额度（`conv.Deps.Quota` → `helper/accounts.go` 的 `quotaSink` → `QuotaStore.Event`），客户端不用转交。
+- 核心起或接上对话进程时顺便问一次 get_usage（排在 initialize 之后），成功的应答存进去（`QuotaStore.Usage`）；这台主机上 5 分钟内只问一次（`autoQuotaEvery`），Claude Code 取额度的接口会限流。
+- 客户端要马上刷新时（打开额度页、点刷新）：`conv.quota` 借开着的进程问，应答交给 `quota.usage`；没有开着的进程时客户端自己单起一个只答这个问题的 Claude Code，同样交给 `quota.usage`。
+
+额度变了核心不推送，客户端要显示时用 `quota.get` 读。
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
 | `quota.get` | | `result` 是 `{snapshot}`：在用的账号最近一次的额度，没有时为 `null` |
 | `quota.usage` | `response`（get_usage 的应答，control_response 的 `response.response`） | 读成额度并存起来，`result` 是 `{snapshot, fresh}`；Claude Code 这次没取到服务器的数而已有窗口时留着已有的，`fresh` 为假 |
-| `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}` |
+| `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}`；核心接着的对话里的事件核心已经存了，不用再交 |
 
 `snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
 

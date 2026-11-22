@@ -326,6 +326,17 @@ func (c *Conversation) compact(client int) error {
 	return nil
 }
 
+// prepare 只把进程起好、不发消息，好让 commands、models 在第一次发消息前就有（输入斜杠命令、看模型清单时）。
+// 已有进程、会话被别处占着、历史还在载入、正在剪会话时什么也不做；起不来时和发消息时一样在列表里说明原因。
+// 起好的进程闲着，没人拿着时照常满 releaseAfter 断开。
+func (c *Conversation) prepare(client int) {
+	if c.proc != nil || c.blocked || c.loadingHistory || c.rewind != nil {
+		return
+	}
+	c.starter = client
+	c.ensureProcess(c.modes.forUser())
+}
+
 // stopTask 停掉后台任务 id；结果看随后的 task_updated、task_notification。
 func (c *Conversation) stopTask(id string) {
 	p := c.proc
@@ -359,6 +370,9 @@ func (c *Conversation) taskOutput(id string) <-chan answer {
 
 var errNoProcess = errors.New("这个对话没有开着的 Claude Code 进程")
 
+// usageRequest 是问订阅额度的控制请求：skip_behaviors 让 Claude Code 不去扫本机的会话记录，只取额度。
+func usageRequest() map[string]any { return control("get_usage", "skip_behaviors", true) }
+
 // queryQuota 借这个对话开着的进程问一次所在主机的订阅额度（get_usage），应答里的 response 原样交回客户端。
 func (c *Conversation) queryQuota() <-chan answer {
 	out := make(chan answer, 1)
@@ -367,7 +381,7 @@ func (c *Conversation) queryQuota() <-chan answer {
 		out <- answer{err: errNoProcess}
 		return out
 	}
-	p.request(control("get_usage", "skip_behaviors", true), func(r controlResponse) {
+	p.request(usageRequest(), func(r controlResponse) {
 		if !r.ok() {
 			out <- answer{err: errors.New("Claude Code 没有给额度：" + r.Error)}
 			return

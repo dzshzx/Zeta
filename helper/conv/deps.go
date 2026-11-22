@@ -1,6 +1,7 @@
 package conv
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/usage"
@@ -37,6 +38,20 @@ type Deps struct {
 	Occupant func(session string) Occupancy
 	// Handoff 把会话 session 从别处接过来（zeta-helper handoff），要等那边退出；可以是 nil，那时当已交出来
 	Handoff func(session string) Handoff
+	// Quota 收下 Claude Code 给的这台主机的订阅额度（核心里接到额度存储，quota.get 读的那份）；可以是 nil：
+	// 那样输出里的 rate_limit_event 不管，起进程时也不问额度
+	Quota Quota
+}
+
+// Quota 是订阅额度的去处，几个对话共用一份。方法在各对话自己的 goroutine 上调用，几个对话可能同时调。
+type Quota interface {
+	// RateLimit 收下输出里一条 rate_limit_event 的 rate_limit_info（原样）。
+	RateLimit(info json.RawMessage)
+	// ClaimQuery：刚起或刚接上进程，要不要顺便问一次 get_usage；返回 true 时算作问过了。
+	// 由它定多久问一次（Claude Code 取额度的接口会限流），对话只管问。
+	ClaimQuery() bool
+	// Usage 收下 get_usage 的应答（control_response 的 response.response，原样）。
+	Usage(response json.RawMessage)
 }
 
 // StartOptions 是起进程用的：托管标识、工作目录、标题、claude 的参数，和只给这个进程的环境变量。

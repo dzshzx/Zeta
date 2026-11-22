@@ -196,14 +196,29 @@ func (c *Conversation) events(p *process) Events {
 	}
 }
 
-// processStarted：刚起或刚接上的进程，要模型清单、斜杠命令清单，问用量。控制请求按顺序处理，之后发的都排在它后面。
+// processStarted：刚起或刚接上的进程，要模型清单、斜杠命令清单，问用量，顺便问订阅额度。控制请求按顺序处理，之后发的都排在它后面。
 func (c *Conversation) processStarted(p *process, fresh bool, compactPercent int) {
 	c.sendNow = false
 	c.openDesk()
 	p.request(initializeRequest(), func(r controlResponse) { c.initialized(r) })
 	c.usage.ProcessStarted(fresh, compactPercent)
 	c.queryUsage(p)
+	c.autoQueryQuota(p)
 	c.changed()
+}
+
+// autoQueryQuota：起进程时顺便问一次订阅额度，应答交给 Deps.Quota 存起来，客户端不用再问。多久问一次由 Deps.Quota 定；
+// 答的是错误（比如这种登录没有额度可查）时不算数。
+func (c *Conversation) autoQueryQuota(p *process) {
+	q := c.deps.Quota
+	if q == nil || !q.ClaimQuery() {
+		return
+	}
+	p.request(usageRequest(), func(r controlResponse) {
+		if r.ok() {
+			q.Usage(r.Response)
+		}
+	})
 }
 
 // initializeResponse 是 initialize 应答里用到的部分。

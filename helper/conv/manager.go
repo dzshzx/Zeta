@@ -221,6 +221,7 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 		return nil, nil
 	},
 	"conv.compact": func(c *Conversation, client int, _ request) (any, error) { return nil, c.compact(client) },
+	"conv.prepare": func(c *Conversation, client int, _ request) (any, error) { c.prepare(client); return nil, nil },
 	"conv.stop_task": func(c *Conversation, _ int, r request) (any, error) {
 		c.stopTask(r.Task)
 		return nil, nil

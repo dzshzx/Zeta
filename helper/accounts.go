@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
@@ -122,4 +124,44 @@ func handleQuota(e *env, method string, p accountsParams) (any, error) {
 		return map[string]any{"snapshot": snap, "changed": changed}, nil
 	}
 	return nil, errors.New("unknown method: " + method)
+}
+
+// autoQuotaEvery 是起对话进程时顺便问额度的最短间隔，这台主机上的对话共用：Claude Code 取额度的接口会限流。
+const autoQuotaEvery = 5 * time.Minute
+
+// quotaSink 是对话交来的额度的去处（conv.Deps.Quota）：输出里的 rate_limit_event、起进程时顺便问的 get_usage，
+// 和客户端经 quota.event、quota.usage 交来的一样存进额度存储，quota.get 读到的就是它们。
+type quotaSink struct {
+	store accounts.QuotaStore
+	now   func() time.Time
+
+	mu        sync.Mutex
+	lastAsked time.Time // 上次起进程时顺便问的时刻
+}
+
+func newQuotaSink(e *env) *quotaSink {
+	return &quotaSink{store: accounts.QuotaStore{Home: e.home}, now: time.Now}
+}
+
+func (q *quotaSink) RateLimit(info json.RawMessage) {
+	if _, _, err := q.store.Event(info, q.now()); err != nil {
+		log.Print("存额度（rate_limit_event）：", err)
+	}
+}
+
+func (q *quotaSink) ClaimQuery() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	now := q.now()
+	if !q.lastAsked.IsZero() && now.Sub(q.lastAsked) < autoQuotaEvery {
+		return false
+	}
+	q.lastAsked = now
+	return true
+}
+
+func (q *quotaSink) Usage(response json.RawMessage) {
+	if _, _, err := q.store.Usage(response, q.now()); err != nil {
+		log.Print("存额度（get_usage）：", err)
+	}
 }
