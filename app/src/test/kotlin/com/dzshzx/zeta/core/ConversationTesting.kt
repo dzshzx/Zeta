@@ -104,7 +104,8 @@ internal class FakeCore : ConvConnection {
             "conv.open" -> opened(call)
             "conv.model" -> push(stateOf(call, """"model":$value"""))
             "conv.effort" -> push(stateOf(call, """"effort":$value"""))
-            "conv.mode" -> push(stateOf(call, """"mode":{"user":$value,"process":""}"""))
+            "conv.mode" ->
+                push(stateOf(call, """"mode":{"user":$value,"process":"","shown":$value}"""))
         }
         return null
     }

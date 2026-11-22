@@ -204,7 +204,7 @@ class ConvClientTest {
         assertTrue(permission.questions.single().takesNotes)
         assertEquals("预览", permission.questions.single().options[0].preview)
         assertNull(permission.questions.single().options[1].preview)
-        assertEquals("a1", permission.agentId)
+        assertEquals("审查面板排版", permission.agentLabel)
         assertEquals(listOf("以后不再问"), permission.suggestionLines)
         assertEquals("Claude 有问题要问你", permission.notice)
         assertTrue(permission.asksInput)
@@ -236,7 +236,7 @@ class ConvClientTest {
             s.queued.single(),
         )
         assertEquals(ConvMessage("q0", "撤回的"), s.recalled)
-        assertEquals(ConvMode("plan", "default"), s.mode)
+        assertEquals(ConvMode("plan", "default", "plan"), s.mode)
         assertEquals("compact", s.commands.single().name)
         assertEquals("opus", s.models.single().value)
         assertEquals("claude-opus-5-5", s.reportedModel)
@@ -247,6 +247,10 @@ class ConvClientTest {
         assertTrue(s.steering)
         assertTrue(s.blocked)
         assertTrue(s.process)
+        assertTrue(s.rewinding)
+        assertEquals(1_700_000_001_000L, s.lastActivity)
+        assertTrue(s.modelFromSession)
+        assertEquals("h-7", s.hostKey)
         assertEquals("TodoWrite", s.todoSeed.single().name)
     }
 
@@ -490,6 +494,7 @@ class ConvClientTest {
                     conv.preset("opus", null, "按日报的格式写")
                 } to call("conv.preset", """"model":"opus","hint":"按日报的格式写""""),
                 { conv.compact() } to call("conv.compact", ""),
+                { conv.prepare() } to call("conv.prepare", ""),
                 { conv.stopTask("t1") } to call("conv.stop_task", """"task":"t1""""),
                 { conv.end() } to call("conv.end", ""),
                 {
@@ -504,6 +509,13 @@ class ConvClientTest {
                 {
                     conv.restoreCode("u3", drop = true)
                 } to call("conv.restore_code", """"target":"u3","drop":true"""),
+                {
+                    conv.restoreCode("u3", text = "再来", files = listOf("/h/b.md"))
+                } to
+                    call(
+                        "conv.restore_code",
+                        """"target":"u3","drop":false,"text":"再来","files":["/h/b.md"]""",
+                    ),
                 {
                     conv.watchSubagent("tu1", true)
                 } to call("conv.subagent", """"tool_use_id":"tu1","watch":true"""),
@@ -733,7 +745,7 @@ class ConvClientTest {
               {"kind":"permission","request_id":"r1","tool_name":"AskUserQuestion","input":{"questions":[]},
                "questions":[{"question":"用哪个？","header":"选","options":[{"label":"A","description":"甲","preview":"预览"},
                  {"label":"B","description":"乙"}],"takes_notes":true}],
-               "suggestions":[{"type":"addRules"}],"suggestion_lines":["以后不再问"],"agent_id":"a1","tool_use_id":"tu9",
+               "suggestions":[{"type":"addRules"}],"suggestion_lines":["以后不再问"],"agent_id":"a1","agent_label":"审查面板排版","tool_use_id":"tu9",
                "notice":"Claude 有问题要问你","asks_input":true},
               {"kind":"elicitation","request_id":"e1","server":"github","message":"填一下",
                "fields":[{"key":"tags","title":"标签","kind":"multi","choices":[{"value":"a","label":"甲"}],"default":["a"],"min":1}],
@@ -747,11 +759,12 @@ class ConvClientTest {
               "total_cost":0.5,"fraction":0.005,"level":"normal"},
             "queued":[{"uuid":"q1","text":"再看看","images":[{"media_type":"image/png","data":"AAA"}],"files":["/h/a.go"]}],
             "recalled":{"uuid":"q0","text":"撤回的","images":null,"files":null},
-            "mode":{"user":"plan","process":"default"},
+            "mode":{"user":"plan","process":"default","shown":"plan"},
             "commands":[{"name":"compact","description":"压缩","argumentHint":""}],
             "models":[{"value":"opus","displayName":"Opus","description":"最强","resolvedModel":"claude-opus-5-5"}],
             "reported_model":"claude-opus-5-5","effort":"high","earlier":120,"earlier_loading":true,"can_rewind":true,
             "steering":true,"blocked":true,"process":true,
+            "rewinding":true,"last_activity":1700000001000,"model_from_session":true,"host_key":"h-7",
             "todo_seed":[{"type":"assistant","message":{"id":"m0","role":"assistant","content":[
               {"type":"tool_use","id":"tw1","name":"TodoWrite","input":{"todos":[]}}]}}]}"""
     }

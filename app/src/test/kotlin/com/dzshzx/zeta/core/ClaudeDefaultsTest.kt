@@ -3,7 +3,6 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
-import com.dzshzx.zeta.core.conv.ConvMode
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.settings.effortRows
 import com.dzshzx.zeta.ui.settings.effortSummary
@@ -67,8 +66,8 @@ class ClaudeDefaultsTest {
         assertEquals("fable", model.str("value"))
         assertEquals("low", core.next("conv.effort").str("value"))
         assertEquals("plan", core.next("conv.mode").str("value"))
-        chat.core { it.copy(mode = ConvMode(user = "plan")) }
-        assertEquals("plan", chat.shownPermissionMode)
+        // 选了以后显示核心算好的（mode.shown）
+        awaitCore { chat.shownPermissionMode == "plan" }
         // 别的对话、默认值都不动
         val other = conversation(hub)
         assertNull(other.model)

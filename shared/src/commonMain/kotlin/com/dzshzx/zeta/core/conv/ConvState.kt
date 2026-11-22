@@ -38,6 +38,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 
 /**
  * 核心推来的一个对话的状态（conv.state 合并到现在的样子，字段见 docs/core.md「对话」、helper/conv/state.go 的 stateFields）。
@@ -89,10 +90,22 @@ data class ConvState(
     val usage: ChatUsage = ChatUsage(),
     /** 能还原到某条消息之前（核心第二批的字段，没推来时为 false）。 */
     val canRewind: Boolean = false,
+    /** 正在等 Claude Code 剪会话或还原代码（谁发起的都算）：这期间输入栏不收字。 */
+    val rewinding: Boolean = false,
+    /** 最近一次有动静的时刻（Unix 毫秒，取整到秒，主机的时钟），界面据此显示「已等待 N 秒」；0 是还没有过。 */
+    val lastActivity: Long = 0,
+    /** 模型由 Claude Code 照会话记录定（接着已有会话或是分支，又没在这个对话里指定模型）：模型菜单这时不勾任何一项。 */
+    val modelFromSession: Boolean = false,
+    /** 接着的托管进程的标识（托管目录 hosts/<它>），没接着进程时为 null。 */
+    val hostKey: String? = null,
 )
 
-/** 权限模式（conv.state 的 mode）：[user] 是用户选的，[process] 是进程此刻实际在用的（计划模式批准后等会变）；不知道时是空串。 */
-@Immutable data class ConvMode(val user: String = "", val process: String = "")
+/**
+ * 权限模式（conv.state 的 mode）：[user] 是用户选的，[process] 是进程此刻实际在用的（计划模式批准后等会变），[shown] 是输入栏显示的
+ * （[user]，没有时是 Claude Code 设置里的默认，核心算好的）；不知道时是空串。
+ */
+@Immutable
+data class ConvMode(val user: String = "", val process: String = "", val shown: String = "")
 
 /** 排队的、撤回的一条消息（helper/conv/state.go 的 messageView）。 */
 @Immutable
@@ -144,6 +157,13 @@ private val fieldReaders: Map<String, FieldReader> =
                 s.copy(usage = (v as? JsonObject)?.let(::chatUsageOf) ?: ChatUsage())
             },
         "can_rewind" to { s, v -> s.copy(canRewind = v.flag()) },
+        "rewinding" to { s, v -> s.copy(rewinding = v.flag()) },
+        "last_activity" to
+            { s, v ->
+                s.copy(lastActivity = (v as? JsonPrimitive)?.longOrNull ?: 0)
+            },
+        "model_from_session" to { s, v -> s.copy(modelFromSession = v.flag()) },
+        "host_key" to { s, v -> s.copy(hostKey = v.text()) },
     )
 
 /** 把一条 conv.state 里的字段放进 [base]（整份时 [base] 是空的 [ConvState]）。type、conv、full 这几个键不是字段，读的时候跳过。 */
@@ -167,7 +187,7 @@ private fun JsonObject.strings(key: String): List<String> =
 private fun JsonObject.textOrNull(key: String): String? = str(key)?.ifEmpty { null }
 
 private fun modeOf(o: JsonObject?): ConvMode =
-    ConvMode(o?.str("user").orEmpty(), o?.str("process").orEmpty())
+    ConvMode(o?.str("user").orEmpty(), o?.str("process").orEmpty(), o?.str("shown").orEmpty())
 
 internal fun convMessageOf(o: JsonObject): ConvMessage =
     ConvMessage(
@@ -268,7 +288,7 @@ internal fun userPromptOf(o: JsonObject): UserPrompt? {
                     o.arr("questions").orEmpty().filterIsInstance<JsonObject>().map(::questionOf),
                 suggestionLines = o.strings("suggestion_lines"),
                 reason = o.textOrNull("reason"),
-                agentId = o.textOrNull("agent_id"),
+                agentLabel = o.textOrNull("agent_label"),
                 toolUseId = o.textOrNull("tool_use_id"),
                 isPlan = o.bool("is_plan") == true,
                 notice = o.str("notice").orEmpty(),

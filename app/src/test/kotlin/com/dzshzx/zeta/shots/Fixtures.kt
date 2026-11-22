@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.NoCore
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.core.coreItems
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.of
@@ -98,7 +99,7 @@ object Fixtures {
 
     /** 把当前对话换成这些聊天内容（标题 [title]）。 */
     fun ConversationHub.showChat(title: String, items: List<ChatItem>) {
-        current.title = title
+        current.core { it.copy(title = title) }
         current.coreItems(items)
     }
 

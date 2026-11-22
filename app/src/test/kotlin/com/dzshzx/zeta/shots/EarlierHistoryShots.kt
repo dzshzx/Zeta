@@ -95,7 +95,7 @@ class EarlierHistoryShots : ShotTest() {
         val conversation = hub.current
         conversation.prepare()
         val conv = core.next("conv.open").conv
-        conversation.title = "长对话"
+        core.state(conv, """"title":"长对话"""")
         core.push(
             """{"type":"conv.items","conv":"$conv","full":true,"items":[""" +
                 """{"kind":"user","id":"h-u0","text":"第 0 轮的提问"},{"kind":"answer","id":"h-a0","text":"第 0 轮的回答。"}]}""",

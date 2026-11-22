@@ -396,6 +396,11 @@ internal constructor(
         request("conv.compact")
     }
 
+    /** 只起好进程、不发消息（conv.prepare）：斜杠命令和模型清单随后经推送来。已有进程、会话被别处占着时核心什么也不做。 */
+    fun prepare() {
+        request("conv.prepare")
+    }
+
     fun stopTask(task: String) {
         request("conv.stop_task", mapOf("task" to JsonPrimitive(task)))
     }
@@ -454,11 +459,21 @@ internal constructor(
         (request("conv.code_changes", mapOf("target" to JsonPrimitive(target))) as? JsonObject)
             ?.let(::codeChangesOf)
 
-    /** 把文件改回 [target] 这条消息之前；[drop] 时还原成了再删这一轮。结果以列表里的提示告知。 */
-    fun restoreCode(target: String, drop: Boolean) {
+    /**
+     * 把文件改回 [target] 这条消息之前，还原成了再接着做：带了新消息（[text] 不为 null，[images]、[files] 同 [rewrite]）时照 [rewrite]
+     * 剪掉这一轮再发它，没带、[drop] 时删这一轮。没还原成时不剪，带着的新消息放回输入框（[ConvState.recalled]）。结果以列表里的提示告知。
+     */
+    fun restoreCode(
+        target: String,
+        drop: Boolean = false,
+        text: String? = null,
+        images: List<ConvImage> = emptyList(),
+        files: List<String> = emptyList(),
+    ) {
+        val message = text?.let { messageParams(it, images, files) }.orEmpty()
         request(
             "conv.restore_code",
-            mapOf("target" to JsonPrimitive(target), "drop" to JsonPrimitive(drop)),
+            message + mapOf("target" to JsonPrimitive(target), "drop" to JsonPrimitive(drop)),
         )
     }
 

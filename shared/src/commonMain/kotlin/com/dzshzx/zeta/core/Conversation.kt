@@ -100,14 +100,12 @@ class Conversation(
     val sessionId: String?
         get() = state.session ?: initialSession
 
-    /** 用户在这边改的标题（改名、打开时列表里的），核心报了新标题就换成核心的。TODO(核心)：conv.title 合入后改名经它，这一项去掉。 */
-    private var localTitle by mutableStateOf(title.ifEmpty { null })
+    /** 打开时列表里的标题：核心报标题之前显示它。 */
+    private val initialTitle = title
 
-    var title: String
-        get() = localTitle ?: state.title
-        set(value) {
-            localTitle = value
-        }
+    /** 标题：核心报的（改名后核心推来新的），还没报时是打开时列表里的。 */
+    val title: String
+        get() = state.title.ifEmpty { initialTitle }
 
     /** 打开时列表说它在别处开着，等交接把它接过来。 */
     private var external by mutableStateOf(external)
@@ -192,12 +190,9 @@ class Conversation(
     val model: String?
         get() = state.model
 
-    /** 接着已有的会话（打开时有会话号，或是分支）。 */
-    private val resumed = sessionId != null || fork != null
-
-    /** 模型由 Claude Code 照会话记录定：接着已有的会话，用户也没在这个对话里指定过。TODO(核心)：改读 conv.state 的 model_from_session。 */
+    /** 模型由 Claude Code 照会话记录定：接着已有的会话，用户也没在这个对话里指定过（核心说的）。 */
     val modelFromSession: Boolean
-        get() = resumed && model == null
+        get() = state.modelFromSession
 
     /** Claude Code 报的、这个对话实际在用的模型；还不知道时是 null。 */
     val reportedModel: String?
@@ -218,9 +213,9 @@ class Conversation(
     val permissionMode: String?
         get() = state.mode.user.ifEmpty { null }
 
-    /** 输入栏显示的权限模式：这个对话的，没有时是 Claude Code 的默认。TODO(核心)：改读 conv.state mode 的 shown。 */
+    /** 输入栏显示的权限模式：核心算好的（这个对话的，没有时是 Claude Code 设置里的默认）。核心还没推来（新对话还没打开）、 或它读不到默认值时，用这边读到的那台主机的默认。 */
     val shownPermissionMode: String?
-        get() = permissionMode ?: hub.defaultPermissionMode(backend)
+        get() = state.mode.shown.ifEmpty { null } ?: hub.defaultPermissionMode(backend)
 
     /** 进程现在用的权限模式。 */
     val processMode: String?
@@ -272,18 +267,21 @@ class Conversation(
             reason?.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
     }
 
-    /** 最近一次收到核心的变化（或发出消息）的时间，界面据此显示“已等待多久”。TODO(核心)：改读 conv.state 的 last_activity。 */
-    @Volatile
-    var lastActivityAt = 0L
-        private set
+    /** 最近一次有动静的时刻（核心记的，Unix 毫秒），界面据此显示“已等待多久”。还没有过、或刚发出消息核心还没答（这时核心那份还是上一次的）时为 null。 */
+    val lastActivityAt: Long?
+        get() = state.lastActivity.takeIf { it > 0 && !sending }
 
-    /** 编辑、重新生成、删除一轮、还原代码的请求发出去了、核心还没答。TODO(核心)：改读 conv.state 的 rewinding。 */
-    var rewinding by mutableStateOf(false)
-        private set
+    /** 正在等 Claude Code 剪会话或还原代码（核心说的，谁发起的都算）：这期间输入栏不收字。 */
+    val rewinding: Boolean
+        get() = !released && state.rewinding
+
+    /** 接着的托管进程的标识（核心报的），没接着进程时为 null。 */
+    val hostKey: String?
+        get() = if (released) null else state.hostKey
 
     /** 现在能不能编辑、重新生成、删除一轮或分支（核心说的）。 */
     val canRewind: Boolean
-        get() = !released && !rewinding && state.canRewind
+        get() = !released && state.canRewind
 
     /** 这个会话的手机工具（各有各的后台屏幕）；没有手机工具的平台（桌面）是 null。向 hub 要：重新打开的会话接着用原来那份， 进程结束过屏幕也还在。 */
     val phoneSession: PhoneSession? = hub.platform.phoneFor(openKey, backend)
@@ -411,9 +409,16 @@ class Conversation(
         sentOptions = now
     }
 
-    /** 提前把核心那边的对话打开（用户开始输入斜杠命令时）。TODO(核心)：conv.prepare 合入后改发它，提前起进程拿到命令和模型清单。 */
+    /**
+     * 提前起好进程、不发消息（conv.prepare，用户开始输入斜杠命令、设置页等模型清单时）：命令和模型清单随 Claude Code 的初始化应答推来。
+     * 已有进程、历史还在载入时核心什么也不做；没起成的原因核心写在列表里，这边不另提示。
+     */
     fun prepare() {
-        if (!blockedByExternal) enqueue { open() }
+        if (blockedByExternal) return
+        call(failed = {}) {
+            syncOptions(it)
+            it.prepare()
+        }
     }
 
     /** 结束背后的进程，等价于终端里的 /exit（conv.end）：用户结束对话、删会话、换账号、删主机这些要真结束的时候。对话内容保留，下次发送时接上；后台屏幕也留着，只是睡下。 */
@@ -509,7 +514,6 @@ class Conversation(
         if (text.isBlank() && attachments.isEmpty() && files.isEmpty()) return
         localNotices = emptyList()
         sending = true
-        lastActivityAt = System.currentTimeMillis()
         hub.onActivityChanged()
         val images = attachments.map { ConvImage(it.mediaType, it.base64) }
         call(
@@ -583,18 +587,6 @@ class Conversation(
 
     // ---- 编辑、重新生成、删除、还原代码
 
-    private fun rewindCall(request: (CoreConversation) -> Unit) {
-        rewinding = true
-        call(
-            failed = { e ->
-                rewinding = false
-                notice(e.message ?: "没有做成")
-            },
-            done = { rewinding = false },
-            request = request,
-        )
-    }
-
     /** 编辑或重新生成：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。没剪成时核心把新消息放回输入框。 */
     fun rewrite(
         target: UserItem,
@@ -604,11 +596,11 @@ class Conversation(
     ) {
         if (text.isBlank() && attachments.isEmpty() && files.isEmpty()) return
         val images = attachments.map { ConvImage(it.mediaType, it.base64) }
-        rewindCall { it.rewrite(target.id, text, images, files) }
+        call { it.rewrite(target.id, text, images, files) }
     }
 
     /** 删除 [target] 开始的这一轮和之后的内容（只剪不发）。 */
-    fun dropFrom(target: UserItem) = rewindCall { it.drop(target.id) }
+    fun dropFrom(target: UserItem) = call { it.drop(target.id) }
 
     /** 还原 [target] 之前的代码会动到哪些文件（只看不改），结果交给 [onResult]（主线程）；没有可还原的、现在不能还原时给 null。 */
     fun previewCodeRewind(target: UserItem, onResult: (CodeRewind.Changes?) -> Unit) {
@@ -618,13 +610,23 @@ class Conversation(
         }
     }
 
-    /**
-     * 把文件改回 [target] 这条消息之前的样子（TUI /rewind 的 “Restore code”）；[drop] 时还原成了接着删这一轮。结果以列表里的提示告知。
-     *
-     * TODO(核心)：conv.restore_code 带 text、images、files（还原后接着重发）合入后，重新生成时连同代码一起还原改走它。
-     */
-    fun restoreCode(target: UserItem, drop: Boolean = false) = rewindCall {
+    /** 把文件改回 [target] 这条消息之前的样子（TUI /rewind 的 “Restore code”）；[drop] 时还原成了接着删这一轮。结果以列表里的提示告知。 */
+    fun restoreCode(target: UserItem, drop: Boolean = false) = call {
         it.restoreCode(target.id, drop)
+    }
+
+    /**
+     * 连同代码一起重新生成：把文件改回 [target] 这条消息之前，还原成了核心接着照 [rewrite] 剪掉这一轮、发这条新消息；没还原成时不剪，
+     * 新消息放回输入框。一个请求做完（conv.restore_code 带消息），结果以列表里的提示告知。
+     */
+    fun restoreCodeAndRewrite(
+        target: UserItem,
+        text: String,
+        attachments: List<Attachment> = emptyList(),
+        files: List<String> = emptyList(),
+    ) {
+        val images = attachments.map { ConvImage(it.mediaType, it.base64) }
+        call { it.restoreCode(target.id, text = text, images = images, files = files) }
     }
 
     // ---- 模型、思考强度、权限模式
@@ -665,10 +667,6 @@ class Conversation(
             errors = it.elicit(request.requestId, action, values)
         }
     }
-
-    /** 后台子代理 [agentId] 在界面上的叫法：后台任务清单里它的说明；找不到时为 null。TODO(核心)：改读 Prompt 的 agent_label。 */
-    fun subagentLabel(agentId: String): String? =
-        state.tasks.firstOrNull { it.id == agentId }?.description?.takeIf { it.isNotBlank() }
 
     // ---- 后台任务、更早的历史、额度、子代理
 
@@ -779,7 +777,6 @@ class Conversation(
 
     private fun turnStarted() {
         turnRunning = true
-        lastActivityAt = System.currentTimeMillis()
         hub.onActivityChanged()
     }
 
@@ -802,8 +799,6 @@ class Conversation(
         val before = view
         if (next === before) return
         view = next
-        if (next.items !== before.items || next.state.status != before.state.status)
-            lastActivityAt = System.currentTimeMillis()
         if (next.connected && !before.connected && !next.state.busy) turnRunning = false
         followSession()
         followTitle(before.state, next.state)
@@ -821,7 +816,6 @@ class Conversation(
 
     private fun followTitle(before: ConvState, next: ConvState) {
         if (next.title == before.title || next.title.isEmpty()) return
-        localTitle = null
         sessionId?.let { hub.sessionList.titled(it, next.title) }
     }
 

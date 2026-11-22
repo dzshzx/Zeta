@@ -117,9 +117,9 @@ class ChatScreenPartsShots : ShotTest() {
     fun strips() {
         val hub = chatHub()
         val conversation = hub.current
-        conversation.force("lastActivityAt", System.currentTimeMillis())
         conversation.core {
             it.copy(
+                lastActivity = System.currentTimeMillis(),
                 busy = true,
                 todoSeed = listOf(todos),
                 queued =
@@ -182,11 +182,11 @@ class ChatScreenPartsShots : ShotTest() {
                 ),
             )
         val conversation = hub.current
-        conversation.force("lastActivityAt", now)
         conversation.core {
             it.copy(
+                lastActivity = now,
                 busy = true,
-                mode = ConvMode(user = "auto"),
+                mode = ConvMode(user = "auto", shown = "auto"),
                 effort = "xhigh",
                 // 核心算好的比例和档位：压缩点 26.6 万，过了它的八成要提醒
                 usage =

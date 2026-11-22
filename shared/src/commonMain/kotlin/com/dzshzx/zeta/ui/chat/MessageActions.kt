@@ -202,11 +202,10 @@ class MessageActions(
                 toast("有图片取不回来，没法原样重发")
                 return@launch
             }
-            val resend = {
-                conversation.rewrite(user, user.text, images.filterNotNull(), user.files)
-            }
-            // TODO(核心)：conv.restore_code 能带消息重发以后，还原代码和重发合成一个请求；现在只还原代码，重发留给用户
-            if (withCode) conversation.restoreCode(user) else resend()
+            val attachments = images.filterNotNull()
+            if (withCode)
+                conversation.restoreCodeAndRewrite(user, user.text, attachments, user.files)
+            else conversation.rewrite(user, user.text, attachments, user.files)
         }
     }
 

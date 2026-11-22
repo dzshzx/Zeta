@@ -251,7 +251,7 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 主机 [backend] 上 Claude Code 的默认权限模式（settings.json 没设时是逐项确认）；还没读到时为 null。
-     * 对话还没定下模式时输入栏显示它（[Conversation.shownPermissionMode]）。
+     * 核心还没推来对话的状态（新对话还没打开）、或核心读不到默认值时，输入栏显示它（[Conversation.shownPermissionMode]）。
      */
     fun defaultPermissionMode(backend: String): String? =
         claudeDefaults(backend)?.let { it.permissionMode ?: "default" }

@@ -51,7 +51,6 @@ fun PromptSheet(
     prompt: UserPrompt?,
     onReply: (PermissionRequest, PermissionReply) -> Unit,
     onElicit: ElicitAnswer,
-    subagentLabel: (String) -> String? = { null },
 ) {
     // 关闭动画期间仍要显示上一条请求的内容
     val current = rememberRetained(prompt) ?: return
@@ -62,13 +61,7 @@ fun PromptSheet(
             when {
                 current.questions.isNotEmpty() -> QuestionSheet(visible, current, onReply)
                 current.isPlan -> PlanSheet(visible, current, onReply)
-                else ->
-                    ToolSheet(
-                        visible,
-                        current,
-                        onReply,
-                        current.agentId?.let { subagentLabel(it) ?: "后台子代理" },
-                    )
+                else -> ToolSheet(visible, current, onReply, current.agentLabel)
             }
     }
 }

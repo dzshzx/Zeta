@@ -61,17 +61,6 @@ class SessionRestoreTest {
         assertEquals("Fable 5.2", conversation.shownModelName(options))
     }
 
-    @Test
-    fun reopenedConversationTakesTheModelFromTheSession() {
-        val hub = hub()
-        FakeCore().install(hub)
-        val conversation =
-            Conversation(hub, "/workspace/claude", "s-old", "旧对话", historyFile = null)
-        awaitMain { conversation.view.state.key.isNotEmpty() }
-        assertNull(conversation.model)
-        assertTrue(conversation.modelFromSession)
-    }
-
     /** 分支：在原对话的请求队列里发 conv.fork（从哪一条之后），新对话由核心那边建好，这边还没有会话号。 */
     @Test
     fun branchForksInTheCore() {

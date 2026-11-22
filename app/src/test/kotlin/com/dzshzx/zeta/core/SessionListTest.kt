@@ -57,14 +57,13 @@ class SessionListTest {
     }
 
     @Test
-    fun renameAlsoRetitlesTheOpenConversation() {
+    fun renameShowsInTheListAtOnce() {
         val hub = Fixtures.readyHub(app)
         val list = hub.sessionList
         list.listed(listOf(summary("a"), summary("b")))
         hub.open(list.sessions.first())
         list.rename(list.sessions.first(), "  新的   名字 ")
         assertEquals(listOf("新的 名字", "会话 b"), list.sessions.map { it.title })
-        assertEquals("新的 名字", hub.current.title)
     }
 
     @Test

@@ -17,7 +17,7 @@ import kotlinx.serialization.json.put
  * 侧栏的会话列表：侧栏列着的主机（[ConversationHub.listedBackends]：正看着的那台，或全部主机）上 Claude Code 存在 ~/.claude/projects
  * 下的会话：列表经那边的 `zeta-helper serve` 订阅（[refresh]，那边一变就推来），改名、归档、删除、按 id 查调那边核心的方法
  * （[ConversationHub.callCore]，订阅着时借同一条连接）。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions]
- * 可观察，在主线程上读写；读写会话记录在后台线程上跑。 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
+ * 可观察，在主线程上读写；读写会话记录在后台线程上跑。 正开着的对话对象归 [hub] 管：改名后它的标题由核心推来，删除时先由 hub 收掉。
  */
 class SessionList constructor(private val hub: ConversationHub) {
     private val main = MainHandler()
@@ -263,8 +263,6 @@ class SessionList constructor(private val hub: ConversationHub) {
         if (clean.isEmpty()) return
         freshTitles.remove(summary.id)
         sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
-        val shown = hub.findConversation(summary.id)?.title
-        hub.findConversation(summary.id)?.title = clean
         write(
             "改名",
             summary.backend,
@@ -279,8 +277,6 @@ class SessionList constructor(private val hub: ConversationHub) {
                     if (it.id == summary.id && it.title == clean) it.copy(title = summary.title)
                     else it
                 }
-                if (shown != null)
-                    hub.findConversation(summary.id)?.takeIf { it.title == clean }?.title = shown
             },
         )
     }

@@ -45,8 +45,8 @@ data class PermissionRequest(
     val suggestionLines: List<String> = emptyList(),
     /** Claude Code 说明为什么要问（decision_reason），没有时为 null。 */
     val reason: String? = null,
-    /** 发起它的后台子代理（agent_id）；主对话发起的为 null。 */
-    val agentId: String? = null,
+    /** 后台子代理发起的：确认框上它的叫法（核心给的 agent_label，找不到说明时是「后台子代理」）；主对话发起的为 null。 */
+    val agentLabel: String? = null,
     /** 要批准的那次工具调用（tool_use_id）。 */
     val toolUseId: String? = null,
     /** 这是计划审批（ExitPlanMode）。 */

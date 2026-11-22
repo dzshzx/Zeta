@@ -230,7 +230,6 @@ fun ChatScreen(
                     prompt = conversation.pending.takeUnless { paneOpen },
                     onReply = conversation::reply,
                     onElicit = conversation::answerElicitation,
-                    subagentLabel = conversation::subagentLabel,
                 )
                 ConfirmDialog(
                     show = confirmingEnd,
@@ -651,9 +650,9 @@ private fun ConversationList(
             while (conversation.busy) {
                 delay(1000)
                 value =
-                    ((System.currentTimeMillis() - conversation.lastActivityAt) / 1000)
-                        .toInt()
-                        .takeIf { it >= IdleHintSeconds }
+                    conversation.lastActivityAt
+                        ?.let { ((System.currentTimeMillis() - it) / 1000).toInt() }
+                        ?.takeIf { it >= IdleHintSeconds }
             }
         }
     val statusText = conversation.status ?: idleSeconds?.let { "已等待 $it 秒" }
