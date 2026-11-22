@@ -75,6 +75,7 @@ func (c *Conversation) receive(p *process, line []byte) {
 	c.observeSubagents(e, line)
 	if c.handle(p, e, line) {
 		c.status = ""
+		c.lastActivity = now
 		c.changed()
 	}
 }
@@ -155,6 +156,7 @@ func (c *Conversation) handleSystem(p *process, e event, line []byte) bool {
 		}
 		if e.Status != nil && *e.Status == "compacting" {
 			c.status = "正在压缩上下文"
+			c.lastActivity = c.deps.now()
 		}
 		c.changed()
 	case "compact_boundary":
@@ -169,6 +171,7 @@ func (c *Conversation) handleSystem(p *process, e event, line []byte) bool {
 		}
 	case "api_retry":
 		c.status = "请求出错，正在重试"
+		c.lastActivity = c.deps.now()
 		if e.Attempt > 0 {
 			c.status += "（第 " + strconv.Itoa(e.Attempt) + " 次）"
 		}
@@ -337,6 +340,7 @@ func (c *Conversation) setBusy() {
 		return
 	}
 	c.busy = true
+	c.lastActivity = c.deps.now()
 	c.flush()
 	c.broadcast(func(name string) any { return &turnMsg{Type: "conv.turn", Conv: name, Phase: "started"} }, false)
 }

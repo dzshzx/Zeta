@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
@@ -35,7 +38,7 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 		SessionFile:   func(session string) string { return sessionFile(e, session) },
 		Subagent:      func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
 		History:       func(args ...string) ([]byte, error) { return historyOutput(e, args) },
-		DefaultMode:   func() string { return defaultPermissionMode(e) },
+		DefaultMode:   (&defaultModeCache{path: e.claude + "/settings.json"}).get,
 		Windows:       windows,
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 		Occupant:      e.occupancy,
@@ -46,6 +49,14 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 				log.Print("开 tmux 窗口：", err)
 			}
 		},
+		KeepMode: func(key, mode string) error {
+			err := e.keepHostMode(key, mode)
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				log.Print("记下用户的权限模式：", err)
+			}
+			return err
+		},
+		Rename: renameSession,
 	}, h.send)
 	go adoptHosts(e, h.m)
 	return h
@@ -142,10 +153,33 @@ func subagentOutput(e *env, args []string) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-// defaultPermissionMode 是这台主机上 Claude Code 设置里的默认权限模式（~/.claude/settings.json 的 permissions.defaultMode），没设时为空。
-func defaultPermissionMode(e *env) string {
-	data, err := os.ReadFile(e.claude + "/settings.json")
+// defaultModeCache 读这台主机上 Claude Code 设置里的默认权限模式（~/.claude/settings.json 的 permissions.defaultMode），没设时为空。
+// 每次推 conv.state 都要它（mode.shown），所以记着上次读到的，文件的大小和修改时刻没变就不重读。
+type defaultModeCache struct {
+	path string
+
+	mu   sync.Mutex
+	read bool
+	size int64
+	mod  time.Time
+	mode string
+}
+
+func (c *defaultModeCache) get() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	fi, err := os.Stat(c.path)
 	if err != nil {
+		c.read = false
+		return ""
+	}
+	if c.read && fi.Size() == c.size && fi.ModTime().Equal(c.mod) {
+		return c.mode
+	}
+	c.read, c.size, c.mod, c.mode = true, fi.Size(), fi.ModTime(), ""
+	data, err := os.ReadFile(c.path)
+	if err != nil {
+		c.read = false
 		return ""
 	}
 	var s struct {
@@ -154,7 +188,8 @@ func defaultPermissionMode(e *env) string {
 		} `json:"permissions"`
 	}
 	_ = json.Unmarshal(data, &s)
-	return s.Permissions.DefaultMode
+	c.mode = s.Permissions.DefaultMode
+	return c.mode
 }
 
 // Release：交班时断开全部托管进程（进程照跑），新核心起来后接回去（adoptHosts）。

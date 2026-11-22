@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -43,6 +44,19 @@ func TestConversationThroughCore(t *testing.T) {
 	}
 	if view.state["busy"] != false || view.state["process"] != true || view.state["session"] == "" {
 		t.Fatalf("状态：busy %v process %v session %v", view.state["busy"], view.state["process"], view.state["session"])
+	}
+
+	// 改名：核心照 zeta-helper rename 往会话记录里追加 custom-title，推新标题（假 Claude 不写会话记录，这里先摆一份）
+	session, _ := view.state["session"].(string)
+	transcript := filepath.Join(e.root, "-w", session+".jsonl")
+	writeLines(t, transcript, `{"type":"user","sessionId":`+quote(session)+`}`)
+	c.send(`{"id":4,"method":"conv.title","conv":"a","title":"  改过的\n名字 "}`)
+	view.until(t, c, func(m obj) bool { return m["type"] == "zeta_reply" && m["id"] == json.Number("4") })
+	if view.state["title"] != "改过的 名字" {
+		t.Fatalf("改名后的标题：%v", view.state["title"])
+	}
+	if data, _ := os.ReadFile(transcript); !strings.Contains(string(data), `{"type":"custom-title","customTitle":"改过的 名字","sessionId":`+quote(session)+`}`) {
+		t.Fatalf("会话记录：%s", data)
 	}
 
 	// 结束进程：托管目录随之清掉
@@ -164,7 +178,9 @@ func TestHandoverKeepsATurnRunning(t *testing.T) {
 	view := &convView{}
 	a.send(`{"id":1,"method":"conv.open","conv":"a","cwd":` + quote(e.home) + `}`)
 	view.until(t, a, func(m obj) bool { return m["type"] == "zeta_reply" })
-	a.send(`{"id":2,"method":"conv.send","conv":"a","text":"讲一段"}`)
+	// 用户选了计划模式，这一条是后台运行的（进程在 acceptEdits 上）：接回后用户的模式照记下的恢复
+	a.send(`{"id":5,"method":"conv.mode","conv":"a","value":"plan"}`)
+	a.send(`{"id":2,"method":"conv.send","conv":"a","text":"讲一段","mode":"acceptEdits"}`)
 	view.until(t, a, func(obj) bool { return slices.Contains(view.texts(), "answer:前半") })
 	session, _ := view.state["session"].(string)
 	old := corePid(p)
@@ -197,6 +213,9 @@ func TestHandoverKeepsATurnRunning(t *testing.T) {
 	reopened.until(t, b, func(m obj) bool { return m["type"] == "zeta_reply" && m["id"] == json.Number("2") })
 	if !slices.ContainsFunc(reopened.texts(), func(s string) bool { return strings.Contains(s, "后半") }) || reopened.state["process"] != true {
 		t.Fatalf("接回以后的条目 %v，状态 %v", reopened.texts(), reopened.state)
+	}
+	if mode, _ := reopened.state["mode"].(map[string]any); mode["user"] != "plan" || mode["process"] != "acceptEdits" {
+		t.Fatalf("接回以后的权限模式：%v", reopened.state["mode"])
 	}
 }
 

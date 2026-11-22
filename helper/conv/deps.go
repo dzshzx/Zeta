@@ -41,6 +41,11 @@ type Deps struct {
 	// Quota 收下 Claude Code 给的这台主机的订阅额度（核心里接到额度存储，quota.get 读的那份）；可以是 nil：
 	// 那样输出里的 rate_limit_event 不管，起进程时也不问额度
 	Quota Quota
+	// KeepMode 把用户在这个对话里的权限模式记到托管进程 key 上（托管目录的 user_mode），核心重启后接回时恢复；
+	// 没写成（比如托管脚本还没建好目录）时出错，下次推送时再写。可以是 nil
+	KeepMode func(key, mode string) error
+	// Rename 给会话记录 file 改名（追加一行 custom-title，同 zeta-helper rename），返回实际写下的标题；可以是 nil
+	Rename func(file, title string) (string, error)
 }
 
 // Quota 是订阅额度的去处，几个对话共用一份。方法在各对话自己的 goroutine 上调用，几个对话可能同时调。

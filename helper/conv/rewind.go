@@ -56,10 +56,10 @@ func (c *Conversation) rewindTarget(target string) (int, string, error) {
 // rewrite 编辑或重新生成：丢掉 target 这条用户消息和之后的内容，从那里用新消息接着跑，会话号不变。
 // 先请 Claude Code 剪会话，它答应了才把消息交出去；没答应就恢复原样，新消息放回输入框。
 func (c *Conversation) rewrite(client int, target string, m Message) error {
-	text := strings.TrimSpace(m.Text)
-	if text == "" && len(m.Images) == 0 && len(m.Files) == 0 {
+	if m.empty() {
 		return nil
 	}
+	text := strings.TrimSpace(m.Text)
 	i, uuid, err := c.rewindTarget(target)
 	if err != nil {
 		return err
@@ -135,9 +135,10 @@ func (c *Conversation) codeChanges(client int, target string) <-chan answer {
 	return out
 }
 
-// restoreCode 把文件改回 target 这条消息之前的样子；drop 时还原成了再接着删这一轮。
-// 先还原代码再剪会话：剪掉以后 Claude Code 就找不到这条消息了。没还原成就不删，在列表里说明原因。
-func (c *Conversation) restoreCode(client int, target string, drop bool) error {
+// restoreCode 把文件改回 target 这条消息之前的样子。还原成了再接着做：带了新消息 m 时照 rewrite 改写重发，
+// 否则 drop 时删这一轮。先还原代码再剪会话：剪掉以后 Claude Code 就找不到这条消息了。
+// 没还原成就不剪，在列表里说明原因；带着的新消息放回输入框（recalled）。
+func (c *Conversation) restoreCode(client int, target string, drop bool, m Message) error {
 	_, uuid, err := c.rewindTarget(target)
 	if err != nil {
 		return err
@@ -145,20 +146,39 @@ func (c *Conversation) restoreCode(client int, target string, drop bool) error {
 	c.starter = client
 	p := c.ensureProcess(c.modes.forUser())
 	if p == nil {
+		c.recall(m)
 		return nil
 	}
 	// 和剪会话一样占着 rewind：期间不收新消息，进程退出、对话关闭时按失败收掉
 	c.startRewind(p, rewindFiles(uuid, false), restoreFailure,
 		func() {
 			c.r.AddNotice("代码已还原到这条消息之前", false)
-			if drop {
+			switch {
+			case !m.empty():
+				if err := c.rewrite(client, target, m); err != nil {
+					c.r.AddNotice("没有发出："+err.Error(), true)
+					c.recall(m)
+				}
+			case drop:
 				if err := c.drop(client, target); err != nil {
 					c.r.AddNotice("没有删除："+err.Error(), true)
 				}
 			}
 		},
-		func(reason string) { c.r.AddNotice(reason, true) })
+		func(reason string) {
+			c.r.AddNotice(reason, true)
+			c.recall(m)
+		})
 	return nil
+}
+
+// recall：没能交出去的新消息放回输入框（还没开始这一轮，不推 conv.turn）。空消息什么也不做。
+func (c *Conversation) recall(m Message) {
+	if m.empty() {
+		return
+	}
+	c.recalled = merge(c.recalled, &outgoing{uuid: newUUID(), text: strings.TrimSpace(m.Text), images: m.Images, files: m.Files})
+	c.changed()
 }
 
 // abandon：没能发出的消息，这一轮作罢，文字和附件放回输入框。

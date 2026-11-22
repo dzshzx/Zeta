@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -64,7 +65,19 @@ func (e *env) hostItem(dir string, pid int, scan hostScan) obj {
 	}
 	return obj{"key": baseName(dir), "pid": pid, "cwd": readText(joinPath(dir, "cwd")), "title": title,
 		"session": scan.session, "file": file, "lines": scan.lines, "busy": scan.busy, "pending": scan.pending,
-		"mode": scan.mode, "tasks": scan.tasks, "task_events": scan.events}
+		"mode": scan.mode, "user_mode": readText(joinPath(dir, userModeFile)), "tasks": scan.tasks, "task_events": scan.events}
+}
+
+// userModeFile 是托管目录里记着用户在这个对话里的权限模式的文件（规矩见 zeta_host.sh 开头）。
+const userModeFile = "user_mode"
+
+// keepHostMode 把用户的权限模式 mode 记进托管进程 key 的托管目录：核心重启后接回时照它恢复（conv.Hosted.UserMode）。
+// 托管目录已经没了时什么也不写，不另建目录。
+func (e *env) keepHostMode(key, mode string) error {
+	if key == "" || strings.HasPrefix(key, ".") || strings.Contains(key, "/") {
+		return errors.New("托管标识不对：" + key)
+	}
+	return os.WriteFile(joinPath(joinPath(e.hosts, key), userModeFile), []byte(mode+"\n"), 0o644)
 }
 
 // liveAttachers 是托管目录 dir 里还接着的一方（zeta_host.sh 的 attach 之后那段）的进程号，规矩同 zeta_host.sh 的 attachers：

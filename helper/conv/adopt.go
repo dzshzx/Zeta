@@ -23,6 +23,8 @@ type Hosted struct {
 	Pending []json.RawMessage `json:"pending"`
 	// Mode 是进程现在的权限模式
 	Mode string `json:"mode"`
+	// UserMode 是用户在这个对话里的权限模式（核心记在托管目录的 user_mode，见 Deps.KeepMode）；没记过时为空
+	UserMode string `json:"user_mode"`
 	// Tasks 是还在跑的后台任务数；TaskEvents 是它们的事件（task_started、最后一条 background_tasks_changed、最近的 task_progress）
 	Tasks      int               `json:"tasks"`
 	TaskEvents []json.RawMessage `json:"task_events"`
@@ -79,10 +81,19 @@ func (c *Conversation) adopt(h *Hosted) {
 	c.busy = h.Busy
 	c.backgroundTasks = h.Tasks
 	now := c.deps.now()
-	for _, e := range h.TaskEvents {
-		c.tasks.Observe(e, now)
+	c.lastActivity = now
+	for _, line := range h.TaskEvents {
+		c.tasks.Observe(line, now)
+		// 后台子代理的 task_started：记下它是哪个 Agent 调用发起的（确认框上的叫法要用）
+		var e event
+		if json.Unmarshal(line, &e) == nil {
+			c.observeSubagents(e, line)
+		}
 	}
+	// 进程现在的模式可能是后台运行的，用户的另记在托管目录里
 	c.modes.process = h.Mode
+	c.modes.user = h.UserMode
+	c.modes.kept.key, c.modes.kept.mode = h.Key, h.UserMode
 	if h.File != "" {
 		c.attachAfterHistory = h
 		return

@@ -48,6 +48,8 @@
 #   released   zeta-helper 让出会话（终端里接着了，releaseSession）结束进程前留的记号：接着的一方报 zeta_exit 时带上 "reason":"released"。
 #   err.log    Claude Code 的标准错误输出，起进程的那段追加。诊断页读运行中的；Claude Code 退出时留一份到 ~/.cache/<ZETA_NAME>/stderr/；
 #              接着的一方报 zeta_exit 时带上最后一段，进程没起来时打出来。
+#   user_mode  用户在这个对话里的权限模式（进程现在的模式可能是定时任务等后台运行的），Go 核心（helper/conv 的 keepUserMode）
+#              变了就写，目录已经没了时不写；zeta-helper hosts 读，核心重启后接回进程时照它恢复。本脚本不读不写。
 #
 # 托管目录旁边的 hosts/.lock：start 找现成的进程和起新进程之间持着它（flock），几个客户端同时 start 同一个会话时只起一个。
 # 谁都不删它；zeta-helper 列托管目录时跳过点开头的名字。

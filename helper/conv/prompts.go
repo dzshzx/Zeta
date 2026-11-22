@@ -1,8 +1,10 @@
 package conv
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
@@ -16,8 +18,33 @@ func (c *Conversation) enqueuePrompt(p *prompt.Prompt) {
 	if slices.ContainsFunc(c.prompts, func(q *prompt.Prompt) bool { return q.RequestID == p.RequestID }) {
 		return
 	}
+	if p.AgentID != "" {
+		p.AgentLabel = c.subagentLabel(p.AgentID)
+	}
 	c.prompts = append(c.prompts, p)
 	c.changed()
+}
+
+// subagentLabel 是后台子代理 agentID 在确认框上的叫法：发起它的 Agent 调用写的说明，找不到时是「后台子代理」。
+// can_use_tool 的 agent_id 和 task_started 的 task_id、Agent 结果里的 agentId 是同一个值（子代理自己的 id），
+// 经 subagents.ids（Agent 调用 → 子代理 id）找回 Agent 调用，再在列表里找那一步的参数。
+func (c *Conversation) subagentLabel(agentID string) string {
+	if use := c.subagents.ids.keyOf(agentID); use != "" {
+		for _, it := range slices.Backward(c.r.Items) {
+			for _, s := range it.Steps {
+				if s.Kind != transcript.StepTool || s.ID != use {
+					continue
+				}
+				var input struct {
+					Description string `json:"description"`
+				}
+				if json.Unmarshal(s.Input, &input) == nil && strings.TrimSpace(input.Description) != "" {
+					return input.Description
+				}
+			}
+		}
+	}
+	return "后台子代理"
 }
 
 func (c *Conversation) dropPrompt(requestID string) {

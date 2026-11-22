@@ -291,20 +291,32 @@ func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
 	return nil
 }
 
-// cmdRename 给会话改名：追加一行 custom-title（与 Claude Code 自己的 /rename 写的一样，紧凑的 JSON），文件末尾没有换行时先补一个。
+// cmdRename 给会话改名（renameSession），报出实际写下的标题。
 func cmdRename(o *emitter, path, title string) error {
+	title, err := renameSession(path, title)
+	if err != nil {
+		return err
+	}
+	o.out(obj{"type": "zeta_renamed", "title": title})
+	return nil
+}
+
+// renameSession 给会话记录 path 改名：空白压成一个空格、最多 200 字，追加一行 custom-title
+// （与 Claude Code 自己的 /rename 写的一样，紧凑的 JSON），文件末尾没有换行时先补一个。返回实际写下的标题。
+// zeta-helper rename 和核心的 conv.title 都用它。
+func renameSession(path, title string) (string, error) {
 	title = runePrefix(squash(title), 200)
 	if title == "" {
-		return errors.New("empty title")
+		return "", errors.New("empty title")
 	}
 	f, err := openFile(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	needsNewline, err := lacksFinalNewline(f)
 	f.Close()
 	if err != nil {
-		return err
+		return "", err
 	}
 	line := []byte{}
 	if needsNewline {
@@ -317,17 +329,13 @@ func cmdRename(o *emitter, path, title string) error {
 	line = append(line, "}\n"...)
 	w, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o666)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if _, err := w.Write(line); err != nil {
 		w.Close()
-		return err
+		return "", err
 	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	o.out(obj{"type": "zeta_renamed", "title": title})
-	return nil
+	return title, w.Close()
 }
 
 func lacksFinalNewline(f *os.File) (bool, error) {

@@ -7,11 +7,47 @@ package conv
 //
 // 每条消息发出前把进程切到发的人的模式（switchTo）：后台运行（定时任务、通知触发）的按它自己的，用户的按 forUser，
 // 所以后台运行之后用户自己发下一条时自动切回，不用记上一条是谁发的。
+//
+// user 也记在托管进程上（托管目录的 user_mode，经 Deps.KeepMode）：核心重启后接回进程时照它恢复（Hosted.UserMode），
+// 否则只知道进程现在的模式，分不出那是用户的还是后台运行的。
 type modes struct {
 	user    string
 	process string
 	// claudeDefault 是 Claude Code 设置里的默认模式（settings.json 的 permissions.defaultMode），不知道时为空
 	claudeDefault func() string
+	// kept 是上次记到托管进程上的：哪个进程（托管标识）、什么模式
+	kept struct{ key, mode string }
+}
+
+// modeView 是 conv.state 的 mode：用户的、进程现在用的，和输入栏显示的（shown：用户的，没有时是 Claude Code 的默认）。
+// 不知道的是空串。
+type modeView struct {
+	User    string `json:"user"`
+	Process string `json:"process"`
+	Shown   string `json:"shown"`
+}
+
+func (m *modes) view() modeView {
+	shown := m.user
+	if shown == "" {
+		shown = m.defaultMode()
+	}
+	return modeView{User: m.user, Process: m.process, Shown: shown}
+}
+
+// keepUserMode 把用户的模式记到接着的托管进程上，变了才写（进程换了、接上了本包现成的进程也算变）；没写成的下次推送时再写：
+// 刚起的进程，托管脚本可能还没建好目录。
+func (c *Conversation) keepUserMode() {
+	if c.proc == nil || c.modes.user == "" || c.deps.KeepMode == nil {
+		return
+	}
+	key := c.proc.link.Key()
+	if c.modes.kept.key == key && c.modes.kept.mode == c.modes.user {
+		return
+	}
+	if c.deps.KeepMode(key, c.modes.user) == nil {
+		c.modes.kept.key, c.modes.kept.mode = key, c.modes.user
+	}
 }
 
 // forUser 是用户的消息用的模式。这个对话没有时：进程没指定模式就不指定（用 Claude Code 的默认）；

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,5 +163,55 @@ func TestStorageLeavesTheStartLockAlone(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "k-old" {
 		t.Fatalf("planned %v", names)
+	}
+}
+
+// 核心把用户的权限模式记进托管目录的 user_mode，hosts 列出来（接回时恢复）；目录没了不另建，标识不对的不写。
+func TestKeepHostModeIsListedByHosts(t *testing.T) {
+	e := testEnv(t)
+	dir := filepath.Join(e.hosts, "k1")
+	writeLines(t, filepath.Join(dir, "out.jsonl"), `{"type":"system","subtype":"init","session_id":"s","permissionMode":"acceptEdits"}`)
+	if err := e.keepHostMode("k1", "plan"); err != nil {
+		t.Fatal(err)
+	}
+	scan, err := scanHost(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := e.hostItem(dir, 0, scan)
+	if item["user_mode"] != "plan" || item["mode"] != "acceptEdits" {
+		t.Fatalf("user_mode %v，mode %v", item["user_mode"], item["mode"])
+	}
+	if err := e.keepHostMode("gone", "plan"); !errors.Is(err, fs.ErrNotExist) || lexists(filepath.Join(e.hosts, "gone")) {
+		t.Fatalf("目录没了时：%v", err)
+	}
+	for _, key := range []string{"", ".lock", "../x"} {
+		if err := e.keepHostMode(key, "plan"); err == nil {
+			t.Fatalf("标识 %q 也写了", key)
+		}
+	}
+}
+
+// settings.json 的默认权限模式：没变时用记着的，改了（大小或修改时刻变了）重读，删了为空。
+func TestDefaultModeCacheRereadsWhenSettingsChange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	c := &defaultModeCache{path: path}
+	if got := c.get(); got != "" {
+		t.Fatalf("没有设置文件：%q", got)
+	}
+	writeFile(t, path, `{"permissions":{"defaultMode":"plan"}}`)
+	if got := c.get(); got != "plan" {
+		t.Fatalf("读到：%q", got)
+	}
+	writeFile(t, path, `{"permissions":{"defaultMode":"acceptEdits"}}`)
+	age(t, path, time.Minute)
+	if got := c.get(); got != "acceptEdits" {
+		t.Fatalf("改了以后：%q", got)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := c.get(); got != "" {
+		t.Fatalf("删了以后：%q", got)
 	}
 }

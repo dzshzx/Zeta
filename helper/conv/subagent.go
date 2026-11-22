@@ -386,6 +386,16 @@ type recent struct {
 
 func (r *recent) get(key string) string { return r.values[key] }
 
+// keyOf 是值为 value 的那一项的键（几项都是时取最近放进去的）；没有时为空。
+func (r *recent) keyOf(value string) string {
+	for _, k := range slices.Backward(r.keys) {
+		if r.values[k] == value {
+			return k
+		}
+	}
+	return ""
+}
+
 // put 记下 key → value，算作最近的一项；超出上限时去掉最早的。
 func (r *recent) put(key, value string) {
 	if r.values == nil {

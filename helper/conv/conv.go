@@ -98,6 +98,9 @@ type Conversation struct {
 	reportedSession string
 
 	attachAfterHistory *Hosted // 接回的托管进程，历史载完再接上
+
+	// lastActivity 是最近一次有动静的时刻（Unix 毫秒）：发出消息、一轮开始、输出改了列表、重试、压缩。客户端据此显示「已等待 N 秒」
+	lastActivity int64
 }
 
 // Options 是客户端给的、起 Claude Code 进程用的设置（见 docs/core.md 的 options）。
@@ -203,6 +206,7 @@ func (c *Conversation) flush() {
 		c.flushTimer = nil
 	}
 	c.dirty = false
+	c.keepUserMode()
 	if fields := c.stateDelta(); len(fields) > 0 {
 		fields["type"] = raw("conv.state")
 		c.broadcast(func(name string) any { fields["conv"] = raw(name); return fields }, false)

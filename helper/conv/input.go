@@ -24,6 +24,11 @@ type Message struct {
 	Rules  json.RawMessage `json:"rules"`
 }
 
+// empty：没有字（只有空白也算没有）、没有图、没有文件。
+func (m Message) empty() bool {
+	return strings.TrimSpace(m.Text) == "" && len(m.Images) == 0 && len(m.Files) == 0
+}
+
 // sendMessage 发一条消息；回答进行中时排队，Claude Code 在下一个工具边界把它并进这一轮，没有可等的就在这一轮结束后另起一轮。
 func (c *Conversation) sendMessage(client int, m Message) error {
 	text := strings.TrimSpace(m.Text)
@@ -107,6 +112,8 @@ func (c *Conversation) stage(text string, images []Image, files []string) *outgo
 	}
 	c.interruptRequested = false
 	c.status = ""
+	// 回答进行中排队的也算有动静（setBusy 只管一轮开始）
+	c.lastActivity = c.deps.now()
 	c.setBusy()
 	c.changed()
 	return m

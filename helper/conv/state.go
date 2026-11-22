@@ -40,13 +40,21 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"model":           raw(c.model),
 		"reported_model":  raw(c.reportedModel),
 		"effort":          raw(nilIfEmpty(c.effort)),
-		"mode":            raw(map[string]string{"user": c.modes.user, "process": c.modes.process}),
+		"mode":            raw(c.modes.view()),
 		"commands":        nonNull(c.commands, "null"),
 		"models":          nonNull(c.models, "null"),
 		"usage":           raw(c.usageView()),
 		"can_rewind":      raw(c.canRewind()),
+
+		"rewinding":          raw(c.rewind != nil),
+		"last_activity":      raw(publishedActivity(c.lastActivity)),
+		"model_from_session": raw(c.resumed() && c.model == nil),
 	}
 }
+
+// publishedActivity 是推出去的 last_activity：取整到秒。流式回答时每批输出都更新最近活动的时刻，
+// 客户端只拿它算「已等待 N 秒」，取整以后最多每秒多推一次，不是每批输出都推。
+func publishedActivity(ms int64) int64 { return ms - ms%1000 }
 
 // nilIfEmpty：没选的（空串）编成 null，和 model 一样。
 func nilIfEmpty(s string) *string {

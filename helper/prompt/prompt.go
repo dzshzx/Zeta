@@ -49,6 +49,9 @@ type Prompt struct {
 	Reason string `json:"reason,omitempty"`
 	// AgentID 是发起它的后台子代理，主对话发起的为空。
 	AgentID string `json:"agent_id,omitempty"`
+	// AgentLabel 是确认框上这个后台子代理的叫法：发起它的 Agent 调用写的说明（description），找不到时是「后台子代理」。
+	// Parse 不填，由对话按它记着的 Agent 调用填（helper/conv）；主对话发起的为空。
+	AgentLabel string `json:"agent_label,omitempty"`
 	// ToolUseID 是要批准的那次工具调用。别的客户端答了以后，看到它的 tool_result 就收起。
 	ToolUseID string `json:"tool_use_id,omitempty"`
 	// IsPlan：这是计划审批（ExitPlanMode）。
