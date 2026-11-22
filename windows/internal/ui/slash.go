@@ -18,10 +18,9 @@ import (
 
 // slashMenu 是一个对话输入栏里斜杠命令提示的状态。
 type slashMenu struct {
-	// raw 是上次从对话状态里读到的 commands，list 是解出来的（或设置里存着的那份）。
-	raw    json.RawMessage
-	list   []chat.Command
-	cached bool // list 是设置里存着的那份
+	// raw 是上次读到的命令（对话状态里的 commands，或设置里存着的那份，原样的 JSON），list 是解出来的。
+	raw  json.RawMessage
+	list []chat.Command
 	// chosen 是选中第几条；dismissed 是按 Esc 收起时输入框里的字（字变了再出来）。
 	chosen    int
 	dismissed string
@@ -33,21 +32,25 @@ type slashMenu struct {
 }
 
 // commands 是输入栏提示的斜杠命令：这个对话报的（顺带存进设置，下次没起进程时用）；没报时是这台设备上次报的。
+// 按原样的 JSON 记着解出来的，没变时不重解。
 func (a *App) commands(p *chatPane) []chat.Command {
 	m := &p.slash
-	if raw := p.state.Commands; len(raw) > 0 && string(raw) != "null" {
-		if !bytes.Equal(raw, m.raw) || m.cached {
-			m.raw, m.list, m.cached = raw, chat.ParseCommands(raw), false
-			if len(m.list) > 0 {
-				if err := a.hub.Settings().SetCommands(p.src.Backend, raw); err != nil {
-					log.Printf("zeta: 存斜杠命令：%v", err)
-				}
-			}
+	raw := p.state.Commands
+	if len(raw) == 0 || string(raw) == "null" {
+		if m.raw == nil {
+			// 设置里没存时记成空的（不是 nil），不再每帧去读
+			m.raw = append(json.RawMessage{}, a.hub.Settings().Commands(p.src.Backend)...)
+			m.list = chat.ParseCommands(m.raw)
 		}
 		return m.list
 	}
-	if !m.cached {
-		m.list, m.cached = chat.ParseCommands(a.hub.Settings().Commands(p.src.Backend)), true
+	if !bytes.Equal(raw, m.raw) {
+		m.raw, m.list = raw, chat.ParseCommands(raw)
+		if len(m.list) > 0 {
+			if err := a.hub.Settings().SetCommands(p.src.Backend, raw); err != nil {
+				log.Printf("zeta: 存斜杠命令：%v", err)
+			}
+		}
 	}
 	return m.list
 }
