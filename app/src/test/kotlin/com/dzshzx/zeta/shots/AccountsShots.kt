@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
@@ -23,43 +24,44 @@ class AccountsShots : ShotTest() {
     private val now = System.currentTimeMillis()
 
     /** 一个快到上限的账号：每周 86%（服务器说要注意），按模型分的每周 78%，5 小时窗口刚用了一点。 */
-    private fun ConversationHub.fakeQuota() {
-        quota.force(
-            "snapshot",
-            QuotaSnapshot(
-                windows =
-                    listOf(
-                        QuotaWindow(
-                            "session",
-                            "session",
-                            null,
-                            0.12,
-                            now + 3 * 3_600_000 + 20 * 60_000,
-                            QuotaSeverity.Normal,
+    private fun ConversationHub.fakeQuota(backend: String = Backends.LOCAL) {
+        quota(backend)
+            .force(
+                "snapshot",
+                QuotaSnapshot(
+                    windows =
+                        listOf(
+                            QuotaWindow(
+                                "session",
+                                "session",
+                                null,
+                                0.12,
+                                now + 3 * 3_600_000 + 20 * 60_000,
+                                QuotaSeverity.Normal,
+                            ),
+                            QuotaWindow(
+                                "weekly_all",
+                                "weekly",
+                                null,
+                                0.86,
+                                now + 2 * 86_400_000 + 9 * 3_600_000,
+                                QuotaSeverity.Warning,
+                                active = true,
+                            ),
+                            QuotaWindow(
+                                "weekly_scoped",
+                                "weekly",
+                                "Fable",
+                                0.78,
+                                now + 2 * 86_400_000 + 9 * 3_600_000,
+                                QuotaSeverity.Warning,
+                            ),
                         ),
-                        QuotaWindow(
-                            "weekly_all",
-                            "weekly",
-                            null,
-                            0.86,
-                            now + 2 * 86_400_000 + 9 * 3_600_000,
-                            QuotaSeverity.Warning,
-                            active = true,
-                        ),
-                        QuotaWindow(
-                            "weekly_scoped",
-                            "weekly",
-                            "Fable",
-                            0.78,
-                            now + 2 * 86_400_000 + 9 * 3_600_000,
-                            QuotaSeverity.Warning,
-                        ),
-                    ),
-                subscription = "max",
-                // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
-                updatedAt = now - 60_000,
-            ),
-        )
+                    subscription = "max",
+                    // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
+                    updatedAt = now - 60_000,
+                ),
+            )
     }
 
     /** claude-switch 给的样子：id 是账号名。 */
@@ -104,12 +106,12 @@ class AccountsShots : ShotTest() {
         shoot(
             name,
             prepare = {
-                hub.accounts.force("state", state)
-                hub.accounts.force("problem", null)
+                hub.accounts(Backends.LOCAL).force("state", state)
+                hub.accounts(Backends.LOCAL).force("problem", null)
                 then()
             },
         ) {
-            AccountsScreen(hub = hub, onBack = {})
+            AccountsScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
         }
     }
 
@@ -166,6 +168,24 @@ class AccountsShots : ShotTest() {
                 onOpenInstall = {},
                 onOpenLogin = {},
             )
+        }
+    }
+
+    /** 远程设备的账号页：标题带设备名，那台上的账号和额度；不能在这里添加账号。 */
+    @Test
+    fun remoteHostAccounts() {
+        val hub = Fixtures.readyHub(app)
+        val remote = Fixtures.workstation.id
+        hub.settings.remoteHosts = listOf(Fixtures.workstation)
+        hub.fakeQuota(remote)
+        shoot(
+            "accounts-remote",
+            prepare = {
+                hub.accounts(remote).force("state", accountsState())
+                hub.accounts(remote).force("problem", null)
+            },
+        ) {
+            AccountsScreen(hub = hub, backend = remote, onBack = {})
         }
     }
 }

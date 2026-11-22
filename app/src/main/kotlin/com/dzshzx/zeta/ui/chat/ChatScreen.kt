@@ -924,7 +924,7 @@ private fun ConversationInput(
             },
             status = {
                 UsageButtons(
-                    hub.quota.snapshot,
+                    hub.quota(conversation.backend).snapshot,
                     conversation.usage,
                     onClick = { viewingUsage = true },
                 )
@@ -939,7 +939,7 @@ private fun ConversationInput(
             canCompact = !conversation.busy && !conversation.loadingHistory && items.isNotEmpty(),
             onCompact = conversation::compact,
             onDismissRequest = { viewingUsage = false },
-            quota = { QuotaDialogSection(hub, visible = viewingUsage) },
+            quota = { QuotaDialogSection(hub, conversation.backend, visible = viewingUsage) },
         )
     }
 }

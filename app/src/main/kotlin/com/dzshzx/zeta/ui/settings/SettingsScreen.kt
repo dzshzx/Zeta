@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
@@ -71,7 +72,8 @@ internal fun SettingsScreen(
                 SettingsSubPage.PermissionHealth ->
                     PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
                 SettingsSubPage.Phone -> PhoneScreen(hub = hub, onBack = close)
-                SettingsSubPage.Accounts -> AccountsScreen(hub = hub, onBack = close)
+                SettingsSubPage.Accounts ->
+                    AccountsScreen(hub = hub, backend = Backends.LOCAL, onBack = close)
                 SettingsSubPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = close)
                 // 打开某次运行的对话：设置页整个关掉，回到聊天页
                 SettingsSubPage.Schedules ->
@@ -151,7 +153,9 @@ private fun SettingsHome(
         }
         item(key = "claude") {
             PreferenceGroup(title = "Claude") {
-                item { AccountsEntry(hub) { onOpenSubPage(SettingsSubPage.Accounts) } }
+                item {
+                    AccountsEntry(hub, Backends.LOCAL) { onOpenSubPage(SettingsSubPage.Accounts) }
+                }
                 item { AutoCompactSwitch(hub) }
                 item { CompactTimingPreference(hub) }
                 item { AutoTitleSwitch(hub) }

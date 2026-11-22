@@ -418,11 +418,16 @@ class ConversationHub(
     /** 侧栏的会话列表。 */
     val sessionList = SessionList(this)
 
-    /** 当前账号的订阅额度（所有对话共用）。 */
-    val quota = QuotaService(this)
+    private val quotas = HashMap<String, QuotaService>()
+    private val accountServices = HashMap<String, AccountService>()
 
-    /** claude-switch 管着的 Claude 账号，和切换账号。 */
-    val accounts = AccountService(this)
+    /** 主机 [backend] 上登录着的账号的订阅额度（那台上的对话共用）：各台登录的可能是不同的账号，各记各的。在主线程上调用。 */
+    fun quota(backend: String): QuotaService =
+        quotas.getOrPut(backend) { QuotaService(this, backend) }
+
+    /** 主机 [backend] 上 claude-switch 管着的 Claude 账号，和切换账号。在主线程上调用。 */
+    fun accounts(backend: String): AccountService =
+        accountServices.getOrPut(backend) { AccountService(this, backend) }
 
     /** 界面是否在前台；不在前台时一轮结束或需要批准会发通知。 */
     private val startedActivities = HashSet<Activity>()
@@ -685,6 +690,8 @@ class ConversationHub(
         }
         hostsChecked.retainAll(ids)
         models = models.filterKeys { it in ids }
+        quotas.keys.retainAll(ids)
+        accountServices.keys.retainAll(ids)
         defaultsByBackend.keys.retainAll(ids)
         settings.commands = settings.commands.filterKeys { it in ids }
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
@@ -830,17 +837,23 @@ class ConversationHub(
         get() = liveConversations.any { it.active && needsDebian(it.backend) }
 
     /**
-     * 换 Claude 账号前：关掉闲着的对话背后的 Claude Code 进程（内容不丢，下次发消息时用 --resume 接上）。 有对话在进行时什么都不做，返回
-     * false。在主线程上调用。
+     * 主机 [backend] 上换 Claude 账号前：关掉那台上闲着的对话背后的 Claude Code 进程（内容不丢，下次发消息时用 --resume 接上）。
+     * 有对话在进行时什么都不做，返回 false。在主线程上调用。
      */
-    internal fun closeIdleConversations(): Boolean {
-        if (!environment.canSwitchEnvironment) return false
-        current.shutdown()
-        parked.toList().forEach { it.shutdown() }
-        parked.clear()
+    internal fun closeIdleConversations(backend: String): Boolean {
+        if (!canChangeLogin(backend)) return false
+        if (current.backend == backend) current.shutdown()
+        val there = parked.filter { it.backend == backend }
+        there.forEach { it.shutdown() }
+        parked.removeAll(there)
         prunePhones()
         return true
     }
+
+    /** 主机 [backend] 上没有对话在进行（手机本机还要没在装、换环境），能动那台的登录状态。 */
+    internal fun canChangeLogin(backend: String): Boolean =
+        liveConversations.none { it.active && it.backend == backend } &&
+            (backend != Backends.LOCAL || environment.canSwitchEnvironment)
 
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return

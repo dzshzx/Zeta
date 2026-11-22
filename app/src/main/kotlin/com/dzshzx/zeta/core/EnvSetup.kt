@@ -452,7 +452,7 @@ class LoginFlow(private val hub: ConversationHub) {
         val mine = ++generation
         state = LoginState.Starting
         // 登录会换掉凭据：闲着的对话进程先关掉（内容不丢），免得它们拦着下面的存档，或把旧账号写回 ~/.claude.json
-        hub.closeIdleConversations()
+        hub.closeIdleConversations(Backends.LOCAL)
         thread(name = "zeta-login", isDaemon = true) { login(config, mine) }
     }
 
@@ -466,7 +466,7 @@ class LoginFlow(private val hub: ConversationHub) {
     /** 在后台线程上跑完一次登录，把结果交回 [state]。 */
     private fun login(config: LinuxEnvConfig, mine: Int) {
         // 登录别的账号会顶掉当前的：先交给 claude-switch 存档并退出，账号页里还能换回来；存不下就不登录，免得丢了它的令牌
-        hub.accounts.prepareLoginBlocking()?.let {
+        hub.accounts(Backends.LOCAL).prepareLoginBlocking()?.let {
             post(mine, LoginState.Failed(it))
             return
         }
@@ -486,9 +486,9 @@ class LoginFlow(private val hub: ConversationHub) {
         process = null
         if (mine != generation) return
         if (code == 0) {
-            hub.accounts.recordCurrentBlocking()
+            hub.accounts(Backends.LOCAL).recordCurrentBlocking()
             post(mine, LoginState.Done)
-            main.post { hub.accounts.switched() }
+            main.post { hub.accounts(Backends.LOCAL).switched() }
         } else {
             post(mine, LoginState.Failed(failureMessage(attempt, code)))
         }

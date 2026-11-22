@@ -178,8 +178,12 @@ internal fun quotaFootnote(
 
 /** 用量弹窗顶上的“订阅额度”：打开时数不够新就去问一次。 */
 @Composable
-internal fun QuotaDialogSection(hub: com.dzshzx.zeta.core.ConversationHub, visible: Boolean) {
-    val quota = hub.quota
+internal fun QuotaDialogSection(
+    hub: com.dzshzx.zeta.core.ConversationHub,
+    backend: String,
+    visible: Boolean,
+) {
+    val quota = hub.quota(backend)
     val now = rememberNow()
     LaunchedEffect(visible) { if (visible) quota.refresh() }
     Row(

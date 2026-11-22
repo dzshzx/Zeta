@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DiffHunk
@@ -82,34 +83,35 @@ class ChatPartsShots : ShotTest() {
         }
     }
 
-    private fun ConversationHub.fakeQuota() {
-        quota.force(
-            "snapshot",
-            QuotaSnapshot(
-                windows =
-                    listOf(
-                        QuotaWindow(
-                            "session",
-                            "session",
-                            null,
-                            0.12,
-                            now + 3 * 3_600_000 + 20 * 60_000,
-                            QuotaSeverity.Normal,
+    private fun ConversationHub.fakeQuota(backend: String = Backends.LOCAL) {
+        quota(backend)
+            .force(
+                "snapshot",
+                QuotaSnapshot(
+                    windows =
+                        listOf(
+                            QuotaWindow(
+                                "session",
+                                "session",
+                                null,
+                                0.12,
+                                now + 3 * 3_600_000 + 20 * 60_000,
+                                QuotaSeverity.Normal,
+                            ),
+                            QuotaWindow(
+                                "weekly_all",
+                                "weekly",
+                                null,
+                                0.86,
+                                now + 2 * 86_400_000 + 9 * 3_600_000,
+                                QuotaSeverity.Warning,
+                                active = true,
+                            ),
                         ),
-                        QuotaWindow(
-                            "weekly_all",
-                            "weekly",
-                            null,
-                            0.86,
-                            now + 2 * 86_400_000 + 9 * 3_600_000,
-                            QuotaSeverity.Warning,
-                            active = true,
-                        ),
-                    ),
-                subscription = "max",
-                updatedAt = now - 60_000,
-            ),
-        )
+                    subscription = "max",
+                    updatedAt = now - 60_000,
+                ),
+            )
     }
 
     /** 已经被拒：到上限了，两小时后解除。 */
@@ -249,7 +251,7 @@ class ChatPartsShots : ShotTest() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    UsageButtons(hub.quota.snapshot, usage, onClick = {})
+                    UsageButtons(hub.quota(Backends.LOCAL).snapshot, usage, onClick = {})
                     UsageButtons(blocked, usage, onClick = {})
                     UsageButtons(null, usage.copy(contextTokens = 120_000), onClick = {})
                     UsageButtons(null, usage.copy(contextTokens = 380_000), onClick = {})
@@ -288,7 +290,7 @@ class ChatPartsShots : ShotTest() {
                     canCompact = true,
                     onCompact = {},
                     onDismissRequest = {},
-                    quota = { QuotaDialogSection(hub, visible = true) },
+                    quota = { QuotaDialogSection(hub, Backends.LOCAL, visible = true) },
                 )
             }
         }

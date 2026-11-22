@@ -118,12 +118,12 @@ class ControlResponsesTest {
     @Test
     fun quotaAnswerReachesTheQuotaService() {
         val (hub, chat) = started()
-        hub.quota.forget()
+        hub.quota(Backends.LOCAL).forget()
         // 新起的进程顺便问一次额度
         chat.answer(
             "get_usage",
             """{"subscription_type":"max","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":42.0,"resets_at":null}}}""",
         )
-        assertEquals("max", hub.quota.snapshot?.subscription)
+        assertEquals("max", hub.quota(Backends.LOCAL).snapshot?.subscription)
     }
 }

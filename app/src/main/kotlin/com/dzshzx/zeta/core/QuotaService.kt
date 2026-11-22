@@ -17,17 +17,21 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * 当前账号的订阅额度（应用级，所有对话共用一份）。数都是 Claude Code 给的，Zeta 不碰 OAuth 令牌、不自己调接口：
+ * 一台主机（[backend]）上登录着的账号的订阅额度，那台上的对话共用一份；各台登录的可能是不同的账号，各有各的一份。数都是 Claude Code 给的，Zeta 不碰 OAuth
+ * 令牌、不自己调接口：
  * - 对话进程里的 rate_limit_event：每次模型请求的响应头里带着 5 小时和每周窗口，数变了 Claude Code 就发一条；
  * - 控制请求 get_usage：Claude Code 自己去取 claude.ai 的额度（和 /usage 同一份），套餐有哪些窗口就有哪些。 新起对话进程时顺便问（隔 [AUTO_MS]
  *   才问一次），设置页和用量弹窗打开时也问；有开着的对话进程就借它问， 没有就单起一个只答这一个问题的 Claude Code（[QuotaProbe]）。 上次的数存在应用自己的
  *   SharedPreferences 里，下次打开先显示它；换账号时清掉。
  */
-class QuotaService(private val hub: ConversationHub) {
+class QuotaService(private val hub: ConversationHub, private val backend: String) {
     private val prefs = hub.context.getSharedPreferences("quota", Context.MODE_PRIVATE)
+
+    /** 存上次的数用的键：各台主机分开（[HostKeys]）。 */
+    private val key = HostKeys.key(backend, KEY)
     private val main = Handler(Looper.getMainLooper())
 
-    var snapshot by mutableStateOf(Quota.decode(prefs.getString(KEY, null)))
+    var snapshot by mutableStateOf(Quota.decode(prefs.getString(key, null)))
         private set
 
     var refreshing by mutableStateOf(false)
@@ -92,7 +96,7 @@ class QuotaService(private val hub: ConversationHub) {
 
     private fun publish(next: QuotaSnapshot) {
         snapshot = next
-        prefs.edit().putString(KEY, Quota.encode(next)).apply()
+        prefs.edit().putString(key, Quota.encode(next)).apply()
     }
 
     /** 新起的对话进程要不要顺便问一次。在主线程上调用。 */
@@ -110,16 +114,17 @@ class QuotaService(private val hub: ConversationHub) {
         val age = snapshot?.let { now - it.updatedAt } ?: Long.MAX_VALUE
         if (!force && age < STALE_MS) return
         if (now - lastAsked < MANUAL_MS) return
-        val config = hub.settings.env ?: return
+        val shell = hub.shell(backend) ?: return
         lastAsked = now
         refreshing = true
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
-        // 借开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
-        if (hub.liveConversations.any { it.queryQuota() }) return
+        // 借这台上开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
+        if (hub.liveConversations.any { it.backend == backend && it.queryQuota() }) return
+        val cwd = hub.defaultCwd(backend)
         thread(name = "zeta-quota", isDaemon = true) {
             val body = runCatching {
-                synchronized(probeLock) { QuotaProbe.query(EnvShell(config), config.defaultCwd) }
+                synchronized(probeLock) { QuotaProbe.query(shell, cwd) }
             }
             main.post {
                 val parsed =
@@ -146,7 +151,7 @@ class QuotaService(private val hub: ConversationHub) {
         snapshot = null
         error = null
         lastAsked = 0
-        prefs.edit().remove(KEY).apply()
+        prefs.edit().remove(key).apply()
     }
 
     companion object {

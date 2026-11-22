@@ -16,11 +16,11 @@ import kotlin.concurrent.thread
 private const val OwnConversationsBusy = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
 
 /**
- * 账号页背后的状态：claude-switch 管着哪些账号、当前是哪个、正在切换。切换和登录都会改 Linux 用户的 Claude Code 登录状态， 两个 Zeta 包和终端里的
- * claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做：claude-switch 自己会拒绝， 这里先看一遍是为了说清是谁挡着（见
- * [ClaudeAccounts.blocker]）。
+ * 一台主机（[backend]）的账号页背后的状态：那台上 claude-switch 管着哪些账号、当前是哪个、正在切换。切换和登录都会改那台上 Linux 用户的 Claude Code
+ * 登录状态， 两个 Zeta 包和终端里的 claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做：claude-switch 自己会拒绝，
+ * 这里先看一遍是为了说清是谁挡着（见 [ClaudeAccounts.blocker]）。
  */
-class AccountService(private val hub: ConversationHub) {
+class AccountService(private val hub: ConversationHub, private val backend: String) {
     private val main = Handler(Looper.getMainLooper())
     private val script: String by lazy {
         hub.context.assets.open("zeta_accounts.sh").bufferedReader().use { it.readText() }
@@ -46,8 +46,8 @@ class AccountService(private val hub: ConversationHub) {
         private set
 
     private fun accounts(): ClaudeAccounts? =
-        hub.settings.env?.let { config ->
-            ClaudeAccounts(ClaudeConfigClient { EnvShell(config) }, script, program)
+        hub.shell(backend)?.let { shell ->
+            ClaudeAccounts(ClaudeConfigClient { shell }, script, program)
         }
 
     fun refresh() = refresh {}
@@ -73,7 +73,7 @@ class AccountService(private val hub: ConversationHub) {
     internal fun prepareLoginBlocking(): String? {
         val client = accounts() ?: return null
         val outcome = runCatching {
-            synchronized(hub.quota.probeLock) { client.prepareLogin() }
+            synchronized(hub.quota(backend).probeLock) { client.prepareLogin() }
         }
             .getOrElse { SwitchOutcome.Failed(it.message ?: "没有成功") }
         return when (outcome) {
@@ -97,10 +97,11 @@ class AccountService(private val hub: ConversationHub) {
     private fun localBlocker(): String? =
         when {
             working != null -> "上一件事还没做完"
-            !hub.environment.canSwitchEnvironment -> OwnConversationsBusy
-            hub.environment.login.state.let {
-                it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed
-            } -> "正在登录，先完成或取消登录"
+            !hub.canChangeLogin(backend) -> OwnConversationsBusy
+            backend == Backends.LOCAL &&
+                hub.environment.login.state.let {
+                    it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed
+                } -> "正在登录，先完成或取消登录"
             else -> null
         }
 
@@ -136,14 +137,14 @@ class AccountService(private val hub: ConversationHub) {
     /** 在主线程上：关掉本包闲着的对话进程，关得掉就到后台去换账号。 */
     private fun closeAndSwitch(client: ClaudeAccounts, target: ClaudeAccount) {
         // 这一刻再看一次：查进程的这会儿可能有对话开始了
-        if (!hub.closeIdleConversations()) {
+        if (!hub.closeIdleConversations(backend)) {
             working = null
             problem = OwnConversationsBusy
             return
         }
         thread(name = "zeta-accounts", isDaemon = true) {
             val outcome = runCatching {
-                synchronized(hub.quota.probeLock) { client.switch(target.id) }
+                synchronized(hub.quota(backend).probeLock) { client.switch(target.id) }
             }
                 .getOrElse { SwitchOutcome.Failed(it.message ?: "没有成功") }
             // 换成了的话 switched() 会重读一遍账号，这里不用读
@@ -185,9 +186,11 @@ class AccountService(private val hub: ConversationHub) {
      * Code；缺了才去问它。在主线程上调用。
      */
     internal fun switched() {
-        hub.quota.forget()
-        hub.quota.refresh(force = true)
+        hub.quota(backend).forget()
+        hub.quota(backend).refresh(force = true)
         refresh { listed ->
+            // 设置首页顶部的账号状态是手机本机的
+            if (backend != Backends.LOCAL) return@refresh
             val current =
                 listed?.current?.takeIf {
                     listed.loggedIn && it.email.isNotBlank() && it.subscription.isNotBlank()
@@ -237,7 +240,7 @@ class AccountService(private val hub: ConversationHub) {
                 listed?.let { state = it }
                 when {
                     blocker != null -> problem = blocker
-                    !hub.closeIdleConversations() -> problem = OwnConversationsBusy
+                    !hub.closeIdleConversations(backend) -> problem = OwnConversationsBusy
                     else -> onReady()
                 }
             }

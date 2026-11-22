@@ -33,6 +33,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 主机页往下的一层：这台主机上的默认思考强度和 Claude Code 自己的配置。 */
 private enum class HostPage {
     DefaultEffort,
+    Accounts,
     Memory,
     Skills,
     Mcp,
@@ -70,6 +71,7 @@ internal fun HostSettingsScreen(
             when (shown) {
                 HostPage.DefaultEffort ->
                     DefaultEffortScreen(hub = hub, backend = backend, onBack = close)
+                HostPage.Accounts -> AccountsScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Memory -> ClaudeMemoryScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Skills -> ClaudeSkillsScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Mcp -> ClaudeMcpScreen(hub = hub, backend = backend, onBack = close)
@@ -96,6 +98,11 @@ private fun LazyListScope.claudeItems(
             item { CompactWindowPreference(hub, backend) }
         }
     }
+    // 手机本机的账号入口在设置首页；远程设备各登各的账号，入口在它自己这一页
+    if (backend != Backends.LOCAL)
+        item(key = "accounts") {
+            PreferenceGroup { item { AccountsEntry(hub, backend) { onOpen(HostPage.Accounts) } } }
+        }
     item(key = "config") {
         PreferenceGroup(title = "Claude Code 配置", footer = ConfigFooter) {
             fun entry(title: String, page: HostPage) = item {

@@ -994,23 +994,22 @@ class Conversation(
     private fun queryUsage(target: ClaudeProcess) {
         target.request(controlBody("get_context_usage")) { meter.contextUsageAnswered(it) }
         querySettings(target)
-        // 订阅额度（应用级，见 QuotaService）：隔几分钟才顺便问一次。只问手机本机的：远程主机上登录的可能是别的账号
-        if (backend == Backends.LOCAL && hub.quota.claimAutoQuery()) queryQuota(target)
+        // 所在主机的订阅额度（见 QuotaService）：隔几分钟才顺便问一次
+        if (hub.quota(backend).claimAutoQuery()) queryQuota(target)
     }
 
     private fun querySettings(target: ClaudeProcess) =
         target.request(controlBody("get_settings")) { meter.settingsAnswered(it) }
 
-    /** 借这个对话开着的进程问一次订阅额度，应答交给 QuotaService；没有进程、或在远程主机上（账号可能不同）时返回 false。 */
+    /** 借这个对话开着的进程问一次所在主机的订阅额度，应答交给那台的 QuotaService；没有进程时返回 false。 */
     internal fun queryQuota(): Boolean {
-        if (backend != Backends.LOCAL) return false
         queryQuota(process ?: return false)
         return true
     }
 
     private fun queryQuota(target: ClaudeProcess) =
         target.request(controlBody("get_usage") { put("skip_behaviors", true) }) {
-            hub.quota.usageAnswered(it)
+            hub.quota(backend).usageAnswered(it)
         }
 
     private fun publishUsage() {
@@ -1319,7 +1318,7 @@ class Conversation(
         for (event in events) {
             unsent.clear()
             meter.observe(event)
-            if (backend == Backends.LOCAL) hub.quota.observe(event)
+            hub.quota(backend).observe(event)
             changed = handle(event, now) || changed
         }
         if (meter.version != usageBefore) publishUsage()

@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Occupant
@@ -145,34 +146,35 @@ class ChatScreenPartsShots : ShotTest() {
     fun crowdedComposerBar() {
         val hub = chatHub()
         val now = System.currentTimeMillis()
-        hub.quota.force(
-            "snapshot",
-            QuotaSnapshot(
-                windows =
-                    listOf(
-                        QuotaWindow(
-                            "session",
-                            "session",
-                            null,
-                            0.31,
-                            now + 3 * 3_600_000,
-                            QuotaSeverity.Normal,
+        hub.quota(Backends.LOCAL)
+            .force(
+                "snapshot",
+                QuotaSnapshot(
+                    windows =
+                        listOf(
+                            QuotaWindow(
+                                "session",
+                                "session",
+                                null,
+                                0.31,
+                                now + 3 * 3_600_000,
+                                QuotaSeverity.Normal,
+                            ),
+                            QuotaWindow(
+                                "weekly_all",
+                                "weekly",
+                                null,
+                                0.95,
+                                now + 2 * 86_400_000,
+                                QuotaSeverity.Critical,
+                                active = true,
+                            ),
                         ),
-                        QuotaWindow(
-                            "weekly_all",
-                            "weekly",
-                            null,
-                            0.95,
-                            now + 2 * 86_400_000,
-                            QuotaSeverity.Critical,
-                            active = true,
-                        ),
-                    ),
-                subscription = "max",
-                // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
-                updatedAt = now - 60_000,
-            ),
-        )
+                    subscription = "max",
+                    // 一分钟前的数：打开页面时不去刷新（JVM 上进不了 Linux 环境）
+                    updatedAt = now - 60_000,
+                ),
+            )
         val conversation = hub.current
         conversation.force("busy", true)
         conversation.force("lastActivityAt", now)
