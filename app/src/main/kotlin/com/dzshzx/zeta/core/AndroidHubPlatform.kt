@@ -90,10 +90,17 @@ class AndroidHubPlatform(
             ?.ifEmpty { null } ?: Build.MODEL
     }
 
-    /** 直连远程主机经随 APK 带的 zeta-ssh：它以原生库的名字打进 APK，装好后在 nativeLibraryDir 里（应用自己的数据目录不许执行程序）。 */
+    /**
+     * 直连远程主机经随 APK 带的 zeta-ssh：它以原生库的名字打进 APK，装好后在 nativeLibraryDir 里（应用自己的数据目录不许执行程序）。 首选 ABI 是
+     * x86_64、又有测试版带的那份时用那份：x86_64 模拟器的 arm64 转译跑不了 Go 程序（见 [GoSshLinks.EMULATOR_LIBRARY]，
+     * 什么时候删也写在那里）。
+     */
     override val sshLinks: SshLinks =
         GoSshLinks(OwnKeyAuth(keyFactory)) {
-            File(app.applicationInfo.nativeLibraryDir.orEmpty(), GoSshLinks.LIBRARY)
+            val dir = File(app.applicationInfo.nativeLibraryDir.orEmpty())
+            File(dir, GoSshLinks.EMULATOR_LIBRARY).takeIf {
+                Build.SUPPORTED_ABIS.firstOrNull() == "x86_64" && it.isFile
+            } ?: File(dir, GoSshLinks.LIBRARY)
         }
 
     override val clientHint: String = clientHint("a chat app on their Android phone", "tap")

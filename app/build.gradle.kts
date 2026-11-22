@@ -123,7 +123,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
-            keepDebugSymbols += "**/libzeta_ssh.so"
+            keepDebugSymbols += listOf("**/libzeta_ssh.so", "**/libzeta_ssh_x86_64.so")
         }
     }
 
@@ -256,6 +256,31 @@ val zetaSsh =
         configureZetaSsh("android/arm64", "arm64-v8a/libzeta_ssh.so", "zeta-ssh")
     }
 
+// 测试版另带一份 x86_64 的，只给 x86_64 模拟器用（为什么、什么时候删见 GoSshLinks.EMULATOR_LIBRARY，文件名与它相同）：
+// linux/amd64 而不是 android/amd64，后者 Go 要求开 cgo；放 arm64-v8a/ 下是为了不让安装器把整个应用换成 x86_64。
+// 只接进 debug 变体，正式版的核对在下面 mergeReleaseNativeLibs 上。
+val zetaSshEmulatorLibrary = "libzeta_ssh_x86_64.so"
+val zetaSshEmulator =
+    tasks.register<GoProgramTask>("zetaSshEmulator") {
+        configureZetaSsh("linux/amd64", "arm64-v8a/$zetaSshEmulatorLibrary", "zeta-ssh-emulator")
+    }
+
+// 正式版的原生库里要有 zeta-ssh、不能有模拟器那份：免得哪天把 zetaSshEmulator 误接进所有变体，带进正式版
+tasks
+    .matching { it.name == "mergeReleaseNativeLibs" }
+    .configureEach {
+        // 配置缓存不收引用脚本对象的 doLast：用到的值先取到局部变量里
+        val merged = outputs.files
+        val emulator = zetaSshEmulatorLibrary
+        doLast {
+            val names = merged.asFileTree.files.map { it.name }.toSet()
+            check("libzeta_ssh.so" in names) {
+                "正式版的原生库里没有 libzeta_ssh.so：核对看错了地方，或者 zeta-ssh 没打进去（$names）"
+            }
+            check(emulator !in names) { "正式版的原生库里有 $emulator：它只给测试版用（见 zetaSshEmulator）" }
+        }
+    }
+
 val zetaSshHost =
     tasks.register<GoProgramTask>("zetaSshHost") {
         val arch =
@@ -361,6 +386,12 @@ androidComponents {
             variant.sources.assets?.addGeneratedSourceDirectory(it, GoProgramTask::outputDir)
         }
         variant.sources.jniLibs?.addGeneratedSourceDirectory(zetaSsh, GoProgramTask::outputDir)
+    }
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(
+            zetaSshEmulator,
+            GoProgramTask::outputDir,
+        )
     }
     // 正式版的文件名就是 Release 里的资产名 Zeta-v<版本名>.apk（只有 arm64 一个包）
     onVariants(selector().withBuildType("release")) { variant ->

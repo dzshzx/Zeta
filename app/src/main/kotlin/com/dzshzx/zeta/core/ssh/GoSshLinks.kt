@@ -512,6 +512,14 @@ class GoSshLinks(
         /** 手机上它在 APK 里的名字（lib/arm64-v8a/ 下）：装好后在应用的 nativeLibraryDir 里，那里的文件能执行。 */
         const val LIBRARY = "libzeta_ssh.so"
 
+        /**
+         * 测试版另带的 x86_64 那份（linux/amd64，也在 lib/arm64-v8a/ 下，见 app/build.gradle.kts 的
+         * zetaSshEmulator），只给 x86_64 模拟器用： 模拟器靠 arm64 转译跑本应用，转译能执行 arm64 的 C 程序，Go 编的 arm64 程序（开不开
+         * cgo 都一样）一启动就段错误。 换个名字放在同一个目录，是为了不新增 lib/x86_64/：有它安装器会把整个应用的 ABI 换成 x86_64，只有 arm64
+         * 的库就装不上了。 不再在 x86_64 模拟器上测直连时，连同 zetaSshEmulator 和正式版的核对一起删掉。
+         */
+        const val EMULATOR_LIBRARY = "libzeta_ssh_x86_64.so"
+
         /** 一段输入最多多少字节。 */
         private const val CHUNK = 32 * 1024
 
