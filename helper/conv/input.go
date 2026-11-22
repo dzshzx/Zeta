@@ -32,6 +32,8 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 		return nil
 	case c.blocked:
 		return errBlocked
+	case c.rewind != nil:
+		return errRewinding
 	}
 	c.starter = client
 	// ! 开头的一行：和终端版一样由 Claude Code 在会话的目录里直接执行，命令和输出记进会话，不让模型回答
@@ -47,7 +49,7 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 	if p == nil {
 		return nil
 	}
-	c.transmit(p, c.stage(text, m.Images, m.Files))
+	c.deliver(p, c.stage(text, m.Images, m.Files))
 	return nil
 }
 
@@ -144,7 +146,8 @@ func (c *Conversation) runShell(command, typed string) {
 func (c *Conversation) interrupt() {
 	c.cancelPhone()
 	p := c.proc
-	if p == nil || !c.busy {
+	// 改写的消息还在等 Claude Code 剪会话、没有交出去时，没有可打断的
+	if p == nil || !c.busy || c.rewind != nil {
 		return
 	}
 	for _, m := range c.queued {

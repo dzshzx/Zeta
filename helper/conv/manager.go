@@ -60,6 +60,10 @@ type request struct {
 	Model     string              `json:"model"`
 	Effort    string              `json:"effort"`
 	Hint      string              `json:"hint"`
+	Target    string              `json:"target"` // 条目 id：conv.rewrite、conv.drop、conv.code_changes、conv.restore_code 指的那条用户消息
+	Drop      bool                `json:"drop"`
+	As        string              `json:"as"`   // conv.fork：新对话在这个客户端里的名字
+	Last      string              `json:"last"` // conv.fork：从这一项所在那一轮之后分支
 	Message
 }
 
@@ -85,8 +89,11 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		m.release(client, r.Conv, c)
 		return nil, nil
 	}
-	if method == "conv.task_output" {
-		v, err := c.Call(func() (any, error) { return c.taskOutput(r.Task), nil })
+	if method == "conv.fork" {
+		return nil, m.fork(client, r, c)
+	}
+	if wait, ok := waiters[method]; ok {
+		v, err := c.Call(func() (any, error) { return wait(c, client, r), nil })
 		if err != nil {
 			return nil, err
 		}
@@ -102,6 +109,12 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		return nil, errors.New("不认识的方法 " + method)
 	}
 	return c.Call(func() (any, error) { return handler(c, client, r) })
+}
+
+// waiters 是要等 Claude Code 应答才回的请求：在对话的 goroutine 里发出、拿到一个通道，在外面等，最多 30 秒。
+var waiters = map[string]func(c *Conversation, client int, r request) <-chan any{
+	"conv.task_output":  func(c *Conversation, _ int, r request) <-chan any { return c.taskOutput(r.Task) },
+	"conv.code_changes": func(c *Conversation, client int, r request) <-chan any { return c.codeChanges(client, r.Target) },
 }
 
 // handlers 是各个只改一个对话的请求。
@@ -143,6 +156,13 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 	"conv.stop_task": func(c *Conversation, _ int, r request) (any, error) {
 		c.stopTask(r.Task)
 		return nil, nil
+	},
+	"conv.rewrite": func(c *Conversation, client int, r request) (any, error) {
+		return nil, c.rewrite(client, r.Target, r.Message)
+	},
+	"conv.drop": func(c *Conversation, client int, r request) (any, error) { return nil, c.drop(client, r.Target) },
+	"conv.restore_code": func(c *Conversation, client int, r request) (any, error) {
+		return nil, c.restoreCode(client, r.Target, r.Drop)
 	},
 	"conv.end": func(c *Conversation, _ int, _ request) (any, error) { c.closeProcess(true); return nil, nil },
 	"conv.mcp_reply": func(c *Conversation, _ int, r request) (any, error) {

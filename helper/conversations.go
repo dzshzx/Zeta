@@ -28,10 +28,11 @@ func newConversations(e *env) *conversations {
 		log.Print(err)
 	}
 	h.m = conv.NewManager(conv.Deps{
-		Start:       startHost(e),
-		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
-		DefaultMode: func() string { return defaultPermissionMode(e) },
-		Windows:     windows,
+		Start:         startHost(e),
+		History:       func(args ...string) ([]byte, error) { return historyOutput(e, args) },
+		DefaultMode:   func() string { return defaultPermissionMode(e) },
+		Windows:       windows,
+		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 	}, h.send)
 	return h
 }
@@ -61,6 +62,19 @@ func (h *conversations) send(client int, msg any) {
 	if c != nil {
 		_ = c.Send(msg)
 	}
+}
+
+// sessionTitles 是这台主机上工作目录 cwd 里各会话的标题（和会话列表一样只看最新的 listLimit 个），分支起标题时避开重名。
+func sessionTitles(e *env, cwd string) []string {
+	files := e.sessionFiles()
+	sortNewestFirst(files)
+	var titles []string
+	for _, path := range files[:min(len(files), listLimit)] {
+		if s, ok, err := summarize(path); err == nil && ok && s.cwd == any(cwd) && s.title != "" {
+			titles = append(titles, s.title)
+		}
+	}
+	return titles
 }
 
 // historyOutput 是 zeta-helper history 的输出，在核心进程里直接跑，不另起进程。

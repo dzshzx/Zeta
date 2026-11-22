@@ -19,6 +19,8 @@ type Deps struct {
 	Windows *usage.Windows
 	// Now 是现在的时刻，测试里换成假的；不给时用 time.Now
 	Now func() time.Time
+	// SessionTitles 是这台主机上工作目录 cwd 里已有会话的标题，分支起标题时避开重名；可以是 nil
+	SessionTitles func(cwd string) []string
 	// SessionChanged：对话拿到了（或换了）会话号；由 Manager 填
 	SessionChanged func(c *Conversation, before, after string)
 }
