@@ -259,7 +259,7 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
   四项才算新版本。
 - **下载和核对**：MSI 下到 `%LOCALAPPDATA%\Zeta\update`（别的系统上是设置目录下的 `update/`），镜像回退和手机一样，
   大小和 sha256 对不上清单就删掉、说原因。MSI 没做代码签名，最后靠 sha256 对清单把关。
-- **安装**：只在 Windows 上。起一个 PowerShell（脚本经 `-EncodedCommand` 传），它等 Zeta 的进程退出，
+- **安装**：只在 Windows 上。在 MSI 旁写一个 UTF-8 带 BOM 的 `install.ps1`，用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` 起（不用 `-EncodedCommand`、`-WindowStyle Hidden`，原因见 `MsiInstall.kt`），它等 Zeta 的进程退出，
   `msiexec /i <msi> /passive /norestart` 装完（记录在设置目录的 `diag/msi-install.log`），再用 Zeta 启动时的同一条
   命令重新打开（Windows 上取不到原来的参数，按 JVM 记的类路径拼回 `-cp "<安装目录>\app\*"`）；起好后 Zeta 退出。
   对话的 Claude Code 进程在远程主机上由托管脚本管着，不受影响，重开后照常接上。
