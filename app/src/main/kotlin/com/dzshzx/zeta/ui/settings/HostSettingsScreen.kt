@@ -93,6 +93,7 @@ private fun LazyListScope.claudeItems(
             item { DefaultModelPreference(hub, backend) }
             item { DefaultEffortEntry(hub, backend, onOpen = { onOpen(HostPage.DefaultEffort) }) }
             item { DefaultPermissionModePreference(hub, backend) }
+            item { CompactWindowPreference(hub, backend) }
         }
     }
     item(key = "config") {

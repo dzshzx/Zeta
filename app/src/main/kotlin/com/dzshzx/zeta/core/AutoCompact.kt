@@ -3,8 +3,10 @@ package com.dzshzx.zeta.core
 import kotlin.math.floor
 
 /**
- * Zeta 起的对话的自动压缩设置。只经环境变量交给 Zeta 起的 Claude Code 进程，不改 `~/.claude.json` 和 `~/.claude/settings.json`，
- * 所以只影响 Zeta 起的对话；环境变量只在进程启动时读，改了设置以后，已经在跑的进程照旧，下次起进程时生效。
+ * Zeta 起的对话的自动压缩开关和压缩时机（上下文窗口是各台主机 settings.json 的 autoCompactWindow，在主机页改，见
+ * [com.dzshzx.zeta.core.claude.ClaudeDefaults.compactWindow]）。只经环境变量交给 Zeta 起的 Claude Code 进程，不改
+ * `~/.claude.json` 和 `~/.claude/settings.json`， 所以只影响 Zeta
+ * 起的对话；环境变量只在进程启动时读，改了设置以后，已经在跑的进程照旧，下次起进程时生效。
  *
  * Claude Code 的做法（2.1.328 实测，见 AutoCompactContractTest）：
  * - 开关：`DISABLE_AUTO_COMPACT` 非空且不是 0/false 时关掉自动压缩，优先于 settings.json 的 `autoCompactEnabled`；手动

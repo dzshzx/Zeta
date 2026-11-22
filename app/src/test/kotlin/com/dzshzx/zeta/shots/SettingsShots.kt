@@ -1,6 +1,5 @@
 package com.dzshzx.zeta.shots
 
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -72,7 +71,7 @@ class SettingsShots : ShotTest() {
         val hub = hostsHub()
         shoot(
             "settings-device-name",
-            prepare = { onNodeWithText("自定义设备名").scrollIntoView().performClick() },
+            prepare = { scrollListTo("自定义设备名").performClick() },
         ) {
             HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
         }

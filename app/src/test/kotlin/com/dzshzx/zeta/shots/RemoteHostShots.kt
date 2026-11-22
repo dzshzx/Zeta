@@ -69,7 +69,13 @@ class RemoteHostShots : ShotTest() {
         hub.models = mapOf("r-00000001" to Fixtures.models)
         hub.updateClaudeDefaults(
             "r-00000001",
-            ClaudeDefaults("sonnet", "acceptEdits", mapOf("claude-sonnet-5-5" to "medium"), null),
+            ClaudeDefaults(
+                "sonnet",
+                "acceptEdits",
+                mapOf("claude-sonnet-5-5" to "medium"),
+                null,
+                500_000,
+            ),
         )
         shoot("remote-host") {
             HostSettingsScreen(hub = hub, backend = "r-00000001", onBack = {}, onOpenLinux = {})

@@ -11,6 +11,13 @@ fun ClaudeConfigClient.defaults(): ClaudeDefaults = ClaudeSettings.defaults(read
 fun ClaudeConfigClient.setDefaultModel(value: String?): ClaudeDefaults =
     ClaudeSettings.defaults(updateSettings { ClaudeSettings.withModel(it, value) })
 
+/** 上下文窗口（token 数）；null 是删掉，按模型本身的窗口。 */
+fun ClaudeConfigClient.setCompactWindow(tokens: Long?): ClaudeDefaults {
+    if (tokens != null && tokens < ClaudeSettings.MIN_COMPACT_WINDOW)
+        throw ClaudeConfigException("上下文窗口最小是 ${ClaudeSettings.MIN_COMPACT_WINDOW / 1000}K")
+    return ClaudeSettings.defaults(updateSettings { ClaudeSettings.withCompactWindow(it, tokens) })
+}
+
 /** 完全放行不能设成默认：Claude Code 自己也不肯存（只用于当前会话）。 */
 fun ClaudeConfigClient.setDefaultPermissionMode(mode: String): ClaudeDefaults {
     if (mode == BYPASS) throw ClaudeConfigException("完全放行不能设成默认，只能在对话里临时切换")

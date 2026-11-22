@@ -12,12 +12,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.dzshzx.zeta.ui.app.ZetaTheme
@@ -145,6 +149,20 @@ abstract class ShotTest {
             compose.mainClock.autoAdvance = false
         }
         return this
+    }
+
+    /**
+     * 把懒加载列表滚到文字是 [text] 的那一项（它还没滚进屏时不在界面树里，[scrollIntoView] 找不到），返回那个节点。和 [scrollIntoView]
+     * 一样只在滚动这一下让时钟自动走。
+     */
+    fun AndroidComposeTestRule<*, *>.scrollListTo(text: String): SemanticsNodeInteraction {
+        mainClock.autoAdvance = true
+        try {
+            onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText(text))
+        } finally {
+            mainClock.autoAdvance = false
+        }
+        return onNodeWithText(text)
     }
 
     /** 点文字是 [text] 的节点，再让时钟走过菜单、弹窗展开的动画；在 [shoot] 的 prepare 里或直接对 [compose] 用。 */

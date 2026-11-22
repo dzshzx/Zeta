@@ -390,6 +390,17 @@ abstract class ClaudeConfigClientTest {
                 is ClaudeConfigException,
         )
         assertEquals(before, run("cat \"$settings\""))
+        // 上下文窗口：autoCompactWindow 写成数字；太小的不写；跟随是删掉
+        assertNull(client.defaults().compactWindow)
+        assertEquals(500_000L, client.setCompactWindow(500_000).compactWindow)
+        assertTrue(run("cat \"$settings\"").contains("\"autoCompactWindow\": 500000\n"))
+        assertTrue(
+            runCatching { client.setCompactWindow(50_000) }.exceptionOrNull()
+                is ClaudeConfigException,
+        )
+        assertEquals(500_000L, client.defaults().compactWindow)
+        assertNull(client.setCompactWindow(null).compactWindow)
+        assertEquals(before, run("cat \"$settings\""))
         // 没有 permissions 时建出来
         run("printf '{}' > \"$settings\"")
         client.setDefaultPermissionMode("plan")

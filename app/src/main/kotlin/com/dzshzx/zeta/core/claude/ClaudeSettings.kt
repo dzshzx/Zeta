@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 
 /** ~/.claude/settings.json 里设置页关心的几项。 */
 data class MemorySettings(
@@ -31,6 +32,11 @@ data class ClaudeDefaults(
     val efforts: Map<String, String>,
     /** 顶层的 effortLevel：模型没有单独存时用它。 */
     val effort: String?,
+    /**
+     * autoCompactWindow：上下文窗口（token 数），自动压缩按它算，界面上的上下文占用也以它为满；null 是没设，按模型本身的窗口。 比模型的窗口大时 Claude
+     * Code 按模型的算。终端里 /autocompact 按模型存的（modelSettings.<模型>.autoCompactWindow）不在这里。
+     */
+    val compactWindow: Long? = null,
 )
 
 /**
@@ -93,7 +99,19 @@ object ClaudeSettings {
                     }
                     .toMap(),
             effort = settings.string("effortLevel"),
+            compactWindow =
+                (settings["autoCompactWindow"] as? JsonPrimitive)
+                    ?.takeIf { !it.isString }
+                    ?.longOrNull
+                    ?.takeIf { it >= MIN_COMPACT_WINDOW },
         )
+
+    /** Claude Code 肯认的最小上下文窗口（2.1.330 的设置校验），更小的值它当没设。 */
+    const val MIN_COMPACT_WINDOW = 100_000L
+
+    /** 上下文窗口（autoCompactWindow）；null 是删掉，按模型本身的窗口。 */
+    fun withCompactWindow(settings: JsonObject, tokens: Long?): JsonObject =
+        with(settings, "autoCompactWindow", tokens?.let(::JsonPrimitive))
 
     /** 默认模型；null 是删掉，回到 Claude Code 内置的默认。 */
     fun withModel(settings: JsonObject, value: String?): JsonObject =

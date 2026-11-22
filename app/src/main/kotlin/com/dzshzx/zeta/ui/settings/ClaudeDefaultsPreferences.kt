@@ -15,6 +15,7 @@ import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.claude.setCompactWindow
 import com.dzshzx.zeta.core.claude.setDefaultEffort
 import com.dzshzx.zeta.core.claude.setDefaultModel
 import com.dzshzx.zeta.core.claude.setDefaultPermissionMode
@@ -40,7 +41,7 @@ import io.github.suqi8.coui.kmp.preference.ArrowPreference
 /** 主机页「新对话默认」那一组的说明。 */
 internal const val ClaudeDefaultsFooter =
     "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
-        "对话里选的只管那个对话。思考强度按模型分别存。"
+        "对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。"
 
 /** 还没读到 Claude Code 的设置（环境没就绪、读失败）时三行灰着，写这一句。 */
 private const val NotRead = "还没读到 Claude Code 的设置"
@@ -83,6 +84,39 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
         enabled = defaults != null,
     ) { value ->
         write { setDefaultModel(value) }
+    }
+}
+
+/** 「上下文窗口」下拉里给的几档（token 数）。 */
+internal val CompactWindows: List<Long> =
+    listOf(200_000, 300_000, 400_000, 500_000, 600_000, 800_000, 1_000_000)
+
+/** 上下文窗口的写法：400K、1M，不是整千的照数字写。 */
+internal fun compactWindowLabel(tokens: Long): String =
+    when {
+        tokens % 1_000_000 == 0L -> "${tokens / 1_000_000}M"
+        tokens % 1_000 == 0L -> "${tokens / 1_000}K"
+        else -> tokens.toString()
+    }
+
+/**
+ * 「上下文窗口」：settings.json 的 autoCompactWindow，会话用到这么多 token 就算满，自动压缩按它算；跟随是删掉它，按模型本身的窗口。 设置里是别的数
+ * （终端里改的）时照样列出来。已经在跑的对话下次起进程时生效。
+ */
+@Composable
+internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
+    val write = rememberDefaultsWriter(hub, backend)
+    val defaults = hub.claudeDefaults(backend)
+    FollowDropdownPreference(
+        title = "上下文窗口",
+        choices = CompactWindows.map { it.toString() to compactWindowLabel(it) },
+        value = defaults?.compactWindow?.toString(),
+        unknown = { it.toLongOrNull()?.let(::compactWindowLabel) ?: it },
+        followLabel = "按模型的窗口",
+        summary = NotRead.takeIf { defaults == null },
+        enabled = defaults != null,
+    ) { value ->
+        write { setCompactWindow(value?.toLong()) }
     }
 }
 
