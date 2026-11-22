@@ -43,13 +43,7 @@ done
 [[ -n $session ]] || { echo "第 1 次运行 20 秒没拿到会话号：$(task)"; exit 1; }
 android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity -f 0x30000000 --es com.dzshzx.zeta.extra.CONVERSATION $session" >/dev/null
 # 等这个对话显示在屏上（看得到剧本的第一句）再让它跑完
-shown=''
-for _ in $(seq 20); do
-  shown=$(vd nodes '后台跑第一次')
-  [[ -n $shown ]] && break
-  sleep 0.5
-done
-[[ -n $shown ]] || { vd shot not-opened.png >/dev/null; echo "打开对话 $session 后 10 秒，屏上没有第 1 次运行的回答"; exit 1; }
+wait_text '后台跑第一次' 10 || { vd shot not-opened.png >/dev/null; echo "打开对话 $session 后 10 秒，屏上没有第 1 次运行的回答"; exit 1; }
 mark opened
 wait_run 1
 echo "第 1 次：$RUN"

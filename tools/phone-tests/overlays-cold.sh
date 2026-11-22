@@ -16,8 +16,8 @@ trap 'android "rm -f $MARK" >/dev/null 2>&1 || true' EXIT
 
 # 此刻的 Zeta 悬浮窗口（标题），空格分开
 overlays() { android "dumpsys window windows | grep -oE 'Zeta(Capsule|EdgeGlow|ResultCard)' | sort -u | tr '\n' ' '; true"; }
-# Zeta 自己的 Activity 窗口有几个（悬浮窗口不算）
-activities() { android "dumpsys window windows | grep -c 'Window{.* $PKG/'; true"; }
+# Zeta 自己的 Activity 窗口有几个（悬浮窗口不算；force-stop 后窗口还要挂几秒 EXITING 才撤掉，正在撤的也不算）
+activities() { android "dumpsys window windows | grep 'Window{.* $PKG/' | grep -vc EXITING; true"; }
 # 没等到时说明停在哪：定时任务这次跑没跑（运行记录、跳过次数）、假 Claude 起没起、日志里相关的几行
 explain() {
   echo "测试任务：$(task | jq -c '{lastRun, skips}' 2>/dev/null || echo 读不到)"
@@ -30,14 +30,11 @@ explain() {
 task_json='[{"id":"'$ID'","name":"假冷启动悬浮层","prompt":"fake-overlays-cold","rule":{"kind":"daily","time":"03:00"},"enabled":true,"newSession":true,"created":0}]'
 vd prefs-set "scheduledTasks=$task_json" >/dev/null
 vd fake "$HERE/fake/overlays-cold.jsonl" >/dev/null
-# 原来的进程要没了。测试版是默认数字助理时（模拟器上），系统在 force-stop 后马上为语音交互服务把它拉起来：
-# 那是个新进程，里面同样没有界面，照样算数
-old=$(android "pidof $PKG" | tr -d '\r' || true)
 android "am force-stop $PKG; touch $MARK"
 NEWER=$MARK
 sleep 1
-now=$(android "pidof $PKG" | tr -d '\r' || true)
-[[ -z $now || $now != "$old" ]] || { echo "force-stop 后还是原来的进程 $old"; exit 1; }
+# 界面窗口都没了才算数。进程本身可以在：测试版是默认数字助理时，系统会马上为语音交互服务把它拉起来
+(($(activities) == 0)) || { echo "force-stop 后还有 Zeta 的界面窗口"; exit 1; }
 # 接收器不导出，以 root 发；被 force-stop 的包要带 FLAG_INCLUDE_STOPPED_PACKAGES（0x20）才收得到
 android "am broadcast -f 0x20 -n $PKG/com.dzshzx.zeta.core.schedule.ScheduleReceiver -a $PKG.action.SCHEDULE_FIRE --es task $ID --el at $(date +%s)000" >/dev/null
 sleep 2

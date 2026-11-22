@@ -61,6 +61,16 @@ send() {
 # 设备忙时脚本慢多少都不影响结果
 mark() { vd fake --mark "$1" >/dev/null; }
 
+# wait_text <正则> <最多等几秒>：等测试屏上出现文字或说明对得上的控件（vd nodes）；没等到返回 1（要不要截图、退出由脚本定）
+wait_text() {
+  local i
+  for ((i = 0; i < $2 * 2; i++)); do
+    [[ -n $(vd nodes "$1") ]] && return 0
+    sleep 0.5
+  done
+  return 1
+}
+
 # 这次对话的托管日志放进 log：起的是假 Claude（init 里有 fake_claude）的、最新的那份。
 # NEWER 设成手机上的一个文件时，只看比它新的（先 android "touch <文件>"，别的测试留下的假 Claude 日志就不算）。还没有时 log 是空的。
 NEWER=''

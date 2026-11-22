@@ -162,13 +162,7 @@ echo "通过：回到前台后提醒撤掉"
 # 第二轮：单选题。等提问在聊天页上弹出来再离开：看着时来的请求，离开后也要提醒
 step 第二轮
 send "two"
-asked=''
-for _ in $(seq 40); do
-  asked=$(vd nodes '先改哪个')
-  [[ -n $asked ]] && break
-  sleep 0.5
-done
-[[ -n $asked ]] || { vd shot no-question.png >/dev/null; echo "20 秒了提问没在聊天页上弹出来"; exit 1; }
+wait_text '先改哪个' 20 || { vd shot no-question.png >/dev/null; echo "20 秒了提问没在聊天页上弹出来"; exit 1; }
 sleep 1.5 # 看着时不该发提醒：留一点时间，真发了能看到
 [[ -z $(alert) ]] || { echo "不对：看着这个对话时就发了提醒"; fail=1; }
 background
