@@ -65,6 +65,8 @@ type Options struct {
 	AutoTitle bool `json:"auto_title,omitempty"`
 	// CompactPercent 是自动压缩的百分比，用量条用；0 是没设。
 	CompactPercent int `json:"compact_percent,omitempty"`
+	// Desk：这台是远程主机。新会话拿到会话号时、之后每次起进程时，核心在那边 tmux 会话「zeta」里补开它的窗口（docs/core.md）。
+	Desk bool `json:"desk,omitempty"`
 }
 
 // Open 打开一个对话。核心里已有这个会话时拿到的就是它（别的客户端也开着时，大家看到的是同一份）。

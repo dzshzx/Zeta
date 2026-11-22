@@ -22,6 +22,7 @@ import (
 type ChatLink struct {
 	Host string
 
+	devices *Devices
 	mu      sync.Mutex
 	calls   []Call
 	onCall  func(Call) (json.RawMessage, error)
@@ -48,12 +49,16 @@ func (c Call) JSON() string {
 	return string(b)
 }
 
-// Call 见 host.ChatLink。
+// Call 见 host.ChatLink。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
 func (l *ChatLink) Call(_ context.Context, method string, params map[string]any) (json.RawMessage, error) {
 	l.mu.Lock()
 	if l.closed {
 		l.mu.Unlock()
 		return nil, errors.New("和 zeta-helper serve 的连接已关闭")
+	}
+	if strings.HasPrefix(method, "sessions.") {
+		l.mu.Unlock()
+		return l.devices.answerSessions(l.Host, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
 	l.calls = append(l.calls, c)
@@ -114,7 +119,7 @@ func (l *ChatLink) Drop(why string) { l.problem(why) }
 
 // OpenChat 见 hub.Devices：起一条假连接，记下来，测试用 Chat 拿到它。
 func (d *Devices) OpenChat(h sshlink.Host, push func([]byte), problem func(string)) host.ChatLink {
-	l := &ChatLink{Host: h.ID, push: push, problem: problem}
+	l := &ChatLink{Host: h.ID, devices: d, push: push, problem: problem}
 	d.mu.Lock()
 	d.chats = append(d.chats, l)
 	onOpen := d.OnChat
@@ -157,14 +162,6 @@ func (d *Devices) Checked() []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return slices.Clone(d.checked)
-}
-
-// Image 见 hub.Devices：都答 ImageData。
-func (d *Devices) Image(sshlink.Host, string, string) ([]byte, error) {
-	if d.ImageData == nil {
-		return nil, errors.New("没有这张图")
-	}
-	return d.ImageData, nil
 }
 
 //go:embed recorded

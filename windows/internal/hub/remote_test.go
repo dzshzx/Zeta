@@ -172,7 +172,7 @@ func TestOptionsFollowDeviceSettings(t *testing.T) {
 	}
 	f.hub.NewChat()
 	open := f.link().Took()[0]
-	if open.Method != "conv.open" || open.JSON() != `{"conv":"w1","cwd":"/home/box","options":{"env":{"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":"70"},"compact_percent":70}}` {
+	if open.Method != "conv.open" || open.JSON() != `{"conv":"w1","cwd":"/home/box","options":{"env":{"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":"70"},"compact_percent":70,"desk":true}}` {
 		t.Fatalf("打开：%s %s", open.Method, open.JSON())
 	}
 	if err := dev.SetAutoCompact(false); err != nil {
@@ -180,7 +180,7 @@ func TestOptionsFollowDeviceSettings(t *testing.T) {
 	}
 	f.hub.ApplyOptions(f.id)
 	got := f.link().Took()
-	if len(got) != 1 || got[0].Method != "conv.options" || got[0].JSON() != `{"conv":"w1","options":{"env":{"DISABLE_AUTO_COMPACT":"1"}}}` {
+	if len(got) != 1 || got[0].Method != "conv.options" || got[0].JSON() != `{"conv":"w1","options":{"env":{"DISABLE_AUTO_COMPACT":"1"},"desk":true}}` {
 		t.Fatalf("改了以后：%+v", got)
 	}
 }

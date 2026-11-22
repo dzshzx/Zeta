@@ -107,7 +107,7 @@ func TestOpeningASessionAndSwitching(t *testing.T) {
 	}
 	calls := f.link().Took()
 	if len(calls) != 1 || calls[0].Method != "conv.open" ||
-		calls[0].JSON() != `{"conv":"w1","cwd":"/w","file":"/home/zeta/.claude/projects/-w/s1.jsonl","options":{"auto_title":true},"session":"s1","title":"修 bug"}` {
+		calls[0].JSON() != `{"conv":"w1","cwd":"/w","file":"/home/zeta/.claude/projects/-w/s1.jsonl","options":{"auto_title":true,"desk":true},"session":"s1","title":"修 bug"}` {
 		t.Fatalf("打开的请求：%+v", calls)
 	}
 	if len(f.devices.Checked()) != 0 {
@@ -141,7 +141,7 @@ func TestNewChatChecksTheWorkingDirectory(t *testing.T) {
 	if c == nil || !c.Fresh() || c.Conv == nil || c.CwdProblem != "" || !slices.Equal(f.devices.Checked(), []string{x.Home}) {
 		t.Fatalf("新对话：%+v，查过 %v", c, f.devices.Checked())
 	}
-	if calls := f.link().Took(); len(calls) != 1 || calls[0].JSON() != `{"conv":"w1","cwd":"`+x.Home+`","options":{"auto_title":true}}` {
+	if calls := f.link().Took(); len(calls) != 1 || calls[0].JSON() != `{"conv":"w1","cwd":"`+x.Home+`","options":{"auto_title":true,"desk":true}}` {
 		t.Fatalf("新对话的打开：%+v", calls)
 	}
 	// 进不去时照样打开，原因留给输入栏上方

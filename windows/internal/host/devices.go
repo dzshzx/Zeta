@@ -1,7 +1,6 @@
 package host
 
 import (
-	"context"
 	"io"
 	"log"
 
@@ -57,11 +56,6 @@ func (d *Devices) WatchSessions(h sshlink.Host, w SessionWatch) io.Closer {
 		},
 		Problem: w.Problem,
 	})
-}
-
-// Search 在设备 h 上的对话内容里找 query（zeta-helper search），边找边把命中交给 hit；返回是不是全部搜完了。阻塞，ctx 取消时停。
-func (d *Devices) Search(ctx context.Context, h sshlink.Host, query string, hit func(hostlink.SearchHit)) (bool, error) {
-	return hostlink.NewShell(d.Links, h, LinuxName).Search(ctx, d.Helper, query, hit)
 }
 
 // ConfigHosts 是这台电脑 ~/.ssh/config 里能选的主机。

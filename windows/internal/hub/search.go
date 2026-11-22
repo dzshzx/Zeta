@@ -2,17 +2,17 @@ package hub
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// 侧栏的搜索（同 Kotlin 版 SessionPane 的搜索）：标题、首句当场比对；对话内容交给各台列着的设备上的 zeta-helper search，
-// 边找边出。换了关键词就把上一次的停掉。
+// 侧栏的搜索（同 Kotlin 版 SessionPane 的搜索）：标题、首句当场比对；对话内容交给各台列着的设备上的核心（sessions.search，
+// 10 秒、80 个为限），各台搜完一台出一台。换了关键词就把上一次的停掉。
 
 // searchDelay 是关键词停下多久才去搜对话内容。
 const searchDelay = 300 * time.Millisecond
@@ -70,18 +70,20 @@ func (h *Hub) SetQuery(q string) {
 	h.search.progress = SearchRunning
 	ctx, cancel := context.WithCancel(context.Background())
 	h.search.cancel = cancel
-	var hosts []sshlink.Host
+	calls := map[string]sessionsCaller{}
 	for _, id := range h.Listed() {
-		if x, ok := h.Host(id); ok {
-			hosts = append(hosts, x)
-		}
+		calls[id] = h.sessionsCall(id)
 	}
 	delay := h.SearchDelay
-	h.run(func() { h.searchHosts(ctx, hosts, needle, delay) })
+	h.run(func() { h.searchHosts(ctx, calls, needle, delay) })
 }
 
-// searchHosts 在后台各台同时搜 needle：命中经 post 交回主线程，都搜完了报结局。ctx 取消（换了关键词）后不再交回。
-func (h *Hub) searchHosts(ctx context.Context, hosts []sshlink.Host, needle string, delay time.Duration) {
+// searchTimeout 是一台搜一次最多等多久（核心自己限时 10 秒）。
+const searchTimeout = 30 * time.Second
+
+// searchHosts 在后台各台（calls：设备编号 → 发请求的办法）同时搜 needle：各台的命中经 post 交回主线程，都搜完了报结局。
+// ctx 取消（换了关键词）后不再交回。
+func (h *Hub) searchHosts(ctx context.Context, calls map[string]sessionsCaller, needle string, delay time.Duration) {
 	select {
 	case <-ctx.Done():
 		return
@@ -92,24 +94,26 @@ func (h *Hub) searchHosts(ctx context.Context, hosts []sshlink.Host, needle stri
 		mu       sync.Mutex
 		outcomes []searchOutcome
 	)
-	for _, x := range hosts {
+	for id, call := range calls {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			complete, err := h.devices.Search(ctx, x, needle, func(hit hostlink.SearchHit) {
-				key := pinKey(hostlink.Session{Backend: x.ID, ID: hit.ID})
-				// 几台同时在交：post 可能就地执行（测试里），一次只交一个
-				mu.Lock()
-				defer mu.Unlock()
-				h.post(func() {
-					if ctx.Err() == nil {
-						h.search.hits[key] = hit.Snippet
-					}
-				})
-			})
+			found, err := searchOne(ctx, call, needle)
+			// 几台同时在交：post 可能就地执行（测试里），一次只交一个
 			mu.Lock()
-			outcomes = append(outcomes, searchOutcome{complete, err == nil})
-			mu.Unlock()
+			defer mu.Unlock()
+			outcomes = append(outcomes, searchOutcome{found.Complete, err == nil})
+			if err != nil {
+				return
+			}
+			h.post(func() {
+				if ctx.Err() != nil {
+					return
+				}
+				for _, m := range found.Matches {
+					h.search.hits[pinKey(hostlink.Session{Backend: id, ID: m.ID})] = m.Snippet
+				}
+			})
 		}()
 	}
 	wg.Wait()
@@ -122,6 +126,26 @@ func (h *Hub) searchHosts(ctx context.Context, hosts []sshlink.Host, needle stri
 }
 
 type searchOutcome struct{ complete, ok bool }
+
+// searchResult 是 sessions.search 的结果：全部命中（会话号和命中处前后的一段），和是不是都搜完了（false 是到了时限或个数被截断）。
+type searchResult struct {
+	Matches []struct {
+		ID      string `json:"id"`
+		Snippet string `json:"snippet"`
+	} `json:"matches"`
+	Complete bool `json:"complete"`
+}
+
+func searchOne(ctx context.Context, call sessionsCaller, needle string) (searchResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, searchTimeout)
+	defer cancel()
+	var r searchResult
+	raw, err := call(ctx, "sessions.search", map[string]any{"query": needle})
+	if err == nil {
+		err = json.Unmarshal(raw, &r)
+	}
+	return r, err
+}
 
 // combined 把各台的结局合成一个：都没搜成是 SearchFailed，有一台没搜全或没搜成是 SearchPartial，都搜完了是 SearchDone。
 func combined(outcomes []searchOutcome) SearchProgress {

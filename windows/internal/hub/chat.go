@@ -3,6 +3,7 @@ package hub
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"time"
 
@@ -25,6 +26,8 @@ type Chat struct {
 	Problem string
 	// CwdProblem：新对话的工作目录在设备上进不去，起不了 Claude Code；给人看的原因。
 	CwdProblem string
+	// Handoff 是会话正在别处运行时「接管」的状态（handoff.go）。
+	Handoff Handoff
 }
 
 // Fresh：新对话（不是接着已有的会话打开的）。
@@ -188,11 +191,30 @@ func (h *Hub) closeConn(id string) {
 	}
 }
 
-// ImageLoader 是聊天列表取会话记录里图片的办法（在后台 goroutine 上调用）。
+// imageTimeout 是取一张图最多等多久（图可能有几十 MB）。
+const imageTimeout = 2 * time.Minute
+
+// ImageLoader 是聊天列表取会话记录里图片的办法（sessions.image；在后台 goroutine 上调用）。
 func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error) {
-	x, _ := h.Host(backend)
-	devices := h.devices
-	return func(file, ref string) ([]byte, error) { return devices.Image(x, file, ref) }
+	call := h.sessionsCall(backend)
+	return func(file, ref string) ([]byte, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), imageTimeout)
+		defer cancel()
+		raw, err := call(ctx, "sessions.image", map[string]any{"file": file, "ref": ref})
+		if err != nil {
+			return nil, err
+		}
+		var im struct {
+			Data []byte `json:"data"` // base64
+		}
+		if err := json.Unmarshal(raw, &im); err != nil {
+			return nil, err
+		}
+		if len(im.Data) == 0 {
+			return nil, errors.New("没取到图片")
+		}
+		return im.Data, nil
+	}
 }
 
 // Uploader 是往设备 backend 上传附件的办法（在后台 goroutine 上调用，见 Devices.Upload）。

@@ -6,9 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"io"
-	"maps"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -24,7 +22,7 @@ type Devices struct {
 	ConfigErr error
 	KeyList   []string
 	Probes    map[string]Probe
-	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 Image 答的图。
+	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 sessions.image 答的图。
 	DirProblems map[string]string
 	ImageData   []byte
 	// Paths 是 CheckPath 答的各路径的种类（没列的是没有）；UploadErr、UploadGate 管 Upload 怎么答（见 Upload）。
@@ -33,11 +31,16 @@ type Devices struct {
 	UploadGate chan struct{}
 	// OnChat 在每起一条对话连接时调（比如先定好怎么应答）。
 	OnChat func(*ChatLink)
-	// Found 是各台设备上对话内容里找得到的：设备编号 → 会话号 → 片段（Search 照它答，片段里含关键词的算命中，不分大小写）；
-	// SearchErr 是没搜成的设备的原因，Partial 里的设备报只搜了一部分。
+	// SearchHits 是各台设备上对话内容里找得到的：设备编号 → 会话号 → 片段（sessions.search 照它答，片段里含关键词的算命中，
+	// 不分大小写）；SearchErr 是没搜成的设备的原因，Partial 里的设备报只搜了一部分。
 	SearchHits map[string]map[string]string
 	SearchErr  map[string]error
 	Partial    map[string]bool
+	// Far 是各台 sessions.lookup 找得到的会话（不在列表里的置顶会话）：设备编号 → 会话；SessionsErr 是各个 sessions.* 方法
+	// 答的错（方法名 → 错误）；Hostnames 是 Hostname 答的各台主机名（设备编号 → 名字，没列的答出错）。
+	Far         map[string][]hostlink.Session
+	SessionsErr map[string]error
+	Hostnames   map[string]string
 
 	mu       sync.Mutex
 	hostKey  string
@@ -49,6 +52,7 @@ type Devices struct {
 	checked  []string
 	uploaded []host.Upload
 	searched []string
+	sessions []string
 }
 
 // Probe 是一次探测的结果。
@@ -202,24 +206,6 @@ func withBackend(u hostlink.SessionsUpdate, id string) hostlink.SessionsUpdate {
 		u.Upsert[i].Backend = id
 	}
 	return u
-}
-
-// Search 见 hub.Devices：照 SearchHits、SearchErr、Partial 答，记下搜过的「设备编号 关键词」。
-func (d *Devices) Search(_ context.Context, h sshlink.Host, query string, hit func(hostlink.SearchHit)) (bool, error) {
-	d.mu.Lock()
-	d.searched = append(d.searched, h.ID+" "+query)
-	hits, err, partial := d.SearchHits[h.ID], d.SearchErr[h.ID], d.Partial[h.ID]
-	d.mu.Unlock()
-	if err != nil {
-		return false, err
-	}
-	ids := slices.Sorted(maps.Keys(hits))
-	for _, id := range ids {
-		if strings.Contains(strings.ToLower(hits[id]), strings.ToLower(query)) {
-			hit(hostlink.SearchHit{ID: id, Snippet: hits[id]})
-		}
-	}
-	return !partial, nil
 }
 
 // Searched 是搜过的「设备编号 关键词」，按先后。

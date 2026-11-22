@@ -2,7 +2,6 @@ package host
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -74,31 +73,24 @@ func DirProblem(stdout, hostName, path string) string {
 	return ""
 }
 
-// imageTimeout 是取一张图最多等多久（图可能有几十 MB）。
-const imageTimeout = 2 * time.Minute
+// hostnameTimeout 是问一次主机名最多等多久。
+const hostnameTimeout = 15 * time.Second
 
-// Image 取设备 h 上会话记录 file 里位置 ref 的那张图（zeta-helper image），返回图片文件的内容。阻塞。
-func (d *Devices) Image(h sshlink.Host, file, ref string) ([]byte, error) {
-	out, err := hostlink.NewShell(d.Links, h, LinuxName).Helper(d.Helper, imageTimeout, "image", file, ref)
+// Hostname 是设备 h 报的主机名（uname -n）。连不上、没报时是错误。阻塞。
+func (d *Devices) Hostname(h sshlink.Host) (string, error) {
+	shell := hostlink.NewShell(d.Links, h, LinuxName)
+	r, err := shell.Run("uname -n", nil, hostnameTimeout, true)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return decodeImage(out)
-}
-
-// decodeImage 读 zeta-helper image 的输出：一行 {"type":"zeta_image","media_type":…,"data":<base64>}。
-func decodeImage(out string) ([]byte, error) {
-	for _, line := range strings.Split(out, "\n") {
-		var msg struct {
-			Type string `json:"type"`
-			Data string `json:"data"`
-		}
-		if json.Unmarshal([]byte(line), &msg) != nil || msg.Type != "zeta_image" {
-			continue
-		}
-		return base64.StdEncoding.DecodeString(msg.Data)
+	if problem := shell.LinkProblem(r); problem != "" {
+		return "", errors.New(problem)
 	}
-	return nil, errors.New("没取到图片")
+	name, _, _ := strings.Cut(strings.TrimSpace(r.Stdout), "\n")
+	if r.Code != 0 || strings.TrimSpace(name) == "" {
+		return "", errors.New("「" + h.Name() + "」没有报主机名")
+	}
+	return strings.TrimSpace(name), nil
 }
 
 // ChatLink 是 OpenChat 给的对话连接：发请求、关掉。界面测试里换成假的（hubtest）。

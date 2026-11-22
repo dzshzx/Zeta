@@ -1,10 +1,8 @@
 package host
 
 import (
-	"bytes"
+	"os"
 	"testing"
-
-	"github.com/dzshzx/Zeta/client/hostlink"
 )
 
 func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
@@ -26,21 +24,14 @@ func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
 	}
 }
 
-func TestImageReadsAPictureFromTheTranscript(t *testing.T) {
+func TestHostnameAsksTheDevice(t *testing.T) {
 	b := newBox(t)
-	program, err := LoadProgram(hostlink.ZetaHelper)
+	want, err := os.Hostname() // 测试的 SSH 服务器在本机上跑命令
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 第 0 行第 1 块是一张 PNG（数据是 "png!" 的 base64）
-	file := b.file(t, ".claude/projects/-w/s1.jsonl",
-		`{"type":"user","message":{"content":[{"type":"text","text":"看图"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"cG5nIQ=="}}]}}`+"\n", 0o644)
-	devices := &Devices{Links: b.links, Helper: program}
-	data, err := devices.Image(b.host, file, "0.1")
-	if err != nil || !bytes.Equal(data, []byte("png!")) {
-		t.Fatalf("取到 %q、%v", data, err)
-	}
-	if _, err := devices.Image(b.host, file, "0.0"); err == nil {
-		t.Error("不是图片的块也取到了")
+	got, err := (&Devices{Links: b.links}).Hostname(b.host)
+	if err != nil || got != want {
+		t.Errorf("主机名 %q、%v", got, err)
 	}
 }
