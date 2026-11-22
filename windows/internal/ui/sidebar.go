@@ -14,8 +14,15 @@ const sidebarWidth = 280
 func (a *App) sidebar(c *ui.Context) {
 	t := c.Theme()
 	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(t.Surface).Children(func() {
-		ui.Row(c).Height(56).Padding(0, 16).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Height(56).Padding(0, 12, 0, 16).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "Zeta").FontSize(18).Bold()
+			ui.Spacer(c)
+			if len(a.hub.Hosts()) > 0 {
+				ui.Button(c, "新对话").OnClick(func() {
+					a.page = pageHome
+					a.hub.NewChat()
+				})
+			}
 		})
 		if len(a.hub.Hosts()) > 0 {
 			ui.Row(c).Padding(0, 12, 8, 12).Children(func() { a.hostSwitcher(c) })
@@ -97,10 +104,18 @@ func (a *App) sessionGroup(c *ui.Context, title string, list []host.Session) {
 func (a *App) sessionRow(c *ui.Context, s host.Session) {
 	t := c.Theme()
 	pinned := a.hub.Pinned(s)
-	row := ui.Column(c.Key(s.Backend+"/"+s.ID)).Padding(6, 8).Radius(8).Gap(2).Focusable().Label(s.Label())
-	if row.Hovered() {
+	row := ui.Column(c.Key(s.Backend+"/"+s.ID)).Padding(6, 8).Radius(8).Gap(2).Focusable().Label(s.Label()).
+		Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	switch {
+	case a.showing(s):
+		row.Background(t.SurfacePressed)
+	case row.Hovered():
 		row.Background(t.SurfaceHover)
 	}
+	row.OnClick(func() {
+		a.page = pageHome
+		a.hub.OpenSession(s)
+	})
 	row.PopoverMenu(func(m *ui.Menu) {
 		pin := "置顶"
 		if pinned {
@@ -126,4 +141,13 @@ func (a *App) place(s host.Session) string {
 		place += " · 别处运行中"
 	}
 	return place
+}
+
+// showing：聊天窗格正开着会话 s（新对话第一轮以后也算它）。
+func (a *App) showing(s host.Session) bool {
+	c := a.hub.Chat()
+	if c == nil || a.page != pageHome || c.Backend != s.Backend {
+		return false
+	}
+	return c.Session.ID == s.ID || a.pane != nil && a.pane.src == c && a.pane.state.Session == s.ID
 }

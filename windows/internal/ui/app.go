@@ -29,6 +29,12 @@ type App struct {
 	notice *notice // 弹出的结果
 	add    adding
 	edit   editing
+	pane   *chatPane // 聊天窗格，跟着中枢的对话
+
+	// Notify 发一条系统通知（回答完了而窗口不在前台时），Foreground 报告窗口在不在前台。New 给的是不发、总在前台，
+	// 窗口起来后由入口换成真的。
+	Notify     func(title, body string)
+	Foreground func() bool
 }
 
 // notice 是一次操作的结果，弹个框说一声。
@@ -39,7 +45,7 @@ type notice struct {
 
 // New 建窗口的状态。run 把要等设备的事放到后台，post 把结果交回主线程（窗口的 Update）。
 func New(h *hub.Hub, run, post func(func())) *App {
-	return &App{hub: h, run: run, post: post, now: time.Now}
+	return &App{hub: h, run: run, post: post, now: time.Now, Notify: func(string, string) {}, Foreground: func() bool { return true }}
 }
 
 // Go 在后台跑 work，它返回的函数交回主线程跑。
@@ -52,16 +58,19 @@ func (a *App) async(work func() func()) {
 
 // View 是窗口的内容。
 func (a *App) View(c *ui.Context) {
+	a.syncChat()
 	t := c.Theme()
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		a.sidebar(c)
 		ui.Box(c).Width(1).Background(t.Border)
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			switch a.page {
-			case pageDevices:
+			switch {
+			case a.page == pageDevices:
 				a.devicesPage(c)
-			case pageDevice:
+			case a.page == pageDevice:
 				a.devicePage(c)
+			case a.pane != nil:
+				a.chatPage(c)
 			default:
 				a.home(c)
 			}

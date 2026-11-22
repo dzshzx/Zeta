@@ -163,3 +163,9 @@ func orDefault(s, def string) string {
 	}
 	return s
 }
+
+// DescribeTool 是一次工具调用（工具名 name、参数 input）的一行标题和说明，和列表里的说法一样；工具确认用。
+func DescribeTool(name string, input map[string]any) (title, detail string) {
+	look := lookOf(items.Step{Kind: items.Tool, Name: name, Input: input})
+	return look.title, look.detail
+}
