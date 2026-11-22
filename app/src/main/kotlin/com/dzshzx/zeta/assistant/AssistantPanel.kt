@@ -718,7 +718,7 @@ private fun ColumnScope.ReplyArea(
     }
 }
 
-/** 还没发时带上的屏幕：一个靠左的浮起胶囊，左边缩略图，中间应用名和会带什么，右边去掉或带上。 */
+/** 还没发时带上的屏幕：一个靠左的浮起胶囊，左边缩略图，中间应用名，右边去掉或带上。 */
 @Composable
 private fun ScreenRow(screen: ScreenChip, colors: AssistantColors, onToggle: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 4.dp)) {
@@ -730,37 +730,20 @@ private fun ScreenRow(screen: ScreenChip, colors: AssistantColors, onToggle: () 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ScreenThumbnail(screen.thumbnail.takeIf { !screen.removed }, colors)
-            Column(modifier = Modifier.weight(1f, fill = false).padding(horizontal = 10.dp)) {
-                Text(
-                    text = screen.app,
-                    color = if (screen.removed) colors.inputTertiary else colors.inputPrimary,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = screenCaption(screen),
-                    color = colors.inputSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 1,
-                )
-            }
+            Text(
+                text = screen.app,
+                color = if (screen.removed) colors.inputTertiary else colors.inputPrimary,
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(horizontal = 10.dp),
+            )
             ScreenToggle(screen.removed, colors, onToggle)
         }
     }
 }
-
-/** 带上的屏幕那一行下面的小字：会带什么。 */
-private fun screenCaption(screen: ScreenChip): String =
-    when {
-        screen.removed -> "不带屏幕内容，只发问题"
-        screen.waiting -> "正在读取屏幕…"
-        screen.textOnly -> "会带上应用信息"
-        else -> "会带上截屏和屏幕上的文字"
-    }
 
 /** 那一行最右边：去掉了是「带上」，带着是一个叉（32dp 的点按区里一个 22dp 的小圆底）。 */
 @Composable

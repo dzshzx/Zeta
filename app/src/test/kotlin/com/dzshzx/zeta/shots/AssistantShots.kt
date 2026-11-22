@@ -70,11 +70,9 @@ class AssistantShots : ShotTest() {
 
     private fun screen(removed: Boolean = false) =
         ScreenChip(
-            app = "设置（com.android.settings）",
+            app = "设置",
             thumbnail = thumbnail(),
-            waiting = false,
             removed = removed,
-            textOnly = false,
         )
 
     private val question = "这页讲了什么"

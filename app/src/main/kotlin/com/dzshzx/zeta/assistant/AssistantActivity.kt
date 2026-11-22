@@ -259,11 +259,10 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
     val screenChip: ScreenChip? by derivedStateOf {
         val capture = capture?.takeIf { !it.empty } ?: return@derivedStateOf null
         ScreenChip(
-            app = capture.focusedApp?.let(ScreenDigest::appName) ?: "当前屏幕",
+            // 只显示应用名：包名留在发给 Claude 的屏幕内容里（ScreenDigest.appName）
+            app = capture.focusedApp?.label?.trim()?.takeIf { it.isNotEmpty() } ?: "当前屏幕",
             thumbnail = capture.screenshot?.preview,
-            waiting = capture.waitingAssist || capture.waitingScreenshot,
             removed = !includeScreen,
-            textOnly = capture.screenshot == null && !capture.waitingScreenshot,
         )
     }
 

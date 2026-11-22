@@ -150,7 +150,7 @@ class ScreenDigestTest {
 
     @Test
     fun replyListsEveryTurnLikeEta() {
-        val screen = ScreenChip("设置", null, waiting = false, removed = false, textOnly = true)
+        val screen = ScreenChip("设置", null, removed = false)
         val asked = ScreenDigest.message("这页讲了什么", ScreenDigest.contextBlock(emptyList(), true))
         val items =
             listOf(
@@ -177,7 +177,7 @@ class ScreenDigestTest {
 
     @Test
     fun askingShowsBeforeTheConversationStarts() {
-        val screen = ScreenChip("设置", null, waiting = false, removed = false, textOnly = true)
+        val screen = ScreenChip("设置", null, removed = false)
         // 刚发出去、对话还没开起来：只有这一问（带着屏幕）和「正在分析任务」
         val view =
             AssistantReplies.view(emptyList(), true, null, screen = screen, asking = "这页讲了什么")

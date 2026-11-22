@@ -67,12 +67,8 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 internal data class ScreenChip(
     val app: String,
     val thumbnail: ImageBitmap?,
-    /** 还在等系统交来截图、应用内容。 */
-    val waiting: Boolean,
     /** 用户把它去掉了：发出去的只有问题。 */
     val removed: Boolean,
-    /** 没有截图（ASSIST intent 唤起，或者系统没给）。 */
-    val textOnly: Boolean,
 )
 
 /** 回答面板里的一行（照 Eta 浮窗里的对话列表）。 */
