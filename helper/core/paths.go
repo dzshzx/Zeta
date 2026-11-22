@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,39 +15,30 @@ import (
 // DirEnv 指定核心的目录（套接字、锁、日志放在里面），盖过默认的 ~/.cache/<ZETA_NAME>/core。测试用它把套接字放到短路径下。
 const DirEnv = "ZETA_CORE_DIR"
 
-// programPrefix 是装好的程序文件名在版本前面的部分（装到 ~/.cache/<ZETA_NAME>/bin/zeta-helper-<版本>）。
-const programPrefix = "zeta-helper-"
-
 // maxSocketPath 是 unix 套接字路径的上限：sun_path 108 字节，含结尾的 0。
 const maxSocketPath = 107
 
-var versionPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
-
-// ErrRunning 表示这个版本已经有一个核心在听，新起的不用再跑。
+// ErrRunning 表示已经有一个核心在听，新起的不用再跑。
 var ErrRunning = errors.New("another core is already listening")
 
 // lockWait 是锁被占着、套接字却连不上（那个核心正在起或正在退出）时最多等多久。
 var lockWait = 5 * time.Second
 
-// Paths 是一个版本的核心用的几个文件，都在同一个只有本人能进的目录里。
+// Paths 是核心用的几个文件，都在同一个只有本人能进的目录里。
 type Paths struct {
-	Socket string // <版本>.sock：核心在这里听
-	Lock   string // <版本>.lock：持着它的就是正在跑的那个核心，里面写着它的进程号
-	Log    string // <版本>.log：serve 拉起核心时，核心的标准错误追加到这里
+	Socket string // core.sock：核心在这里听
+	Lock   string // core.lock：持着它的就是正在跑的那个核心，里面写着它的进程号
+	Log    string // core.log：serve 拉起核心时，核心的标准错误追加到这里
 }
 
-// Locate 算出 exe 这个程序对应的核心文件。版本取程序文件名去掉 zeta-helper- 前缀（没有这个前缀时用整个文件名）；
-// 目录是 $ZETA_CORE_DIR，没设时是 home/.cache/name/core。套接字路径超过 unix 套接字的长度上限时报错。
-func Locate(home, name, exe string) (Paths, error) {
-	version := strings.TrimPrefix(filepath.Base(exe), programPrefix)
-	if !versionPattern.MatchString(version) {
-		return Paths{}, fmt.Errorf("cannot take a core version from program name %q", filepath.Base(exe))
-	}
+// Locate 算出一个包的核心文件：目录是 $ZETA_CORE_DIR，没设时是 home/.cache/name/core。每个用户、每个包只有一个核心，
+// 不按 helper 版本分（新版本的 serve 让旧核心交班，见 docs/core.md「目标」）。套接字路径超过 unix 套接字的长度上限时报错。
+func Locate(home, name string) (Paths, error) {
 	dir := os.Getenv(DirEnv)
 	if dir == "" {
 		dir = strings.TrimRight(home, "/") + "/.cache/" + name + "/core"
 	}
-	base := filepath.Join(dir, version)
+	base := filepath.Join(dir, "core")
 	p := Paths{Socket: base + ".sock", Lock: base + ".lock", Log: base + ".log"}
 	if n := len(p.Socket); n > maxSocketPath {
 		return Paths{}, fmt.Errorf("core socket path %s is %d bytes, over the %d-byte limit of unix sockets (%s can point to a shorter directory)",

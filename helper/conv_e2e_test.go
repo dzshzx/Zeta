@@ -5,11 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
-
-	"github.com/dzshzx/Zeta/helper/core"
 )
 
 // 整条链路：客户端经 serve 发 conv.*，核心起 zeta_host.sh，托管脚本起按剧本回话的假 Claude（tools/fake-claude），
@@ -41,9 +38,8 @@ func TestConversationThroughCore(t *testing.T) {
 	if err := os.WriteFile(fake+"/scenario.jsonl", []byte(scenario), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	stopCore(t, e)
 
-	c := startServe(t, e, fastServe)
+	c := startServe(t, e, testIdle)
 	view := &convView{}
 	c.send(`{"id":1,"method":"conv.open","conv":"a","cwd":` + quote(e.home) + `,"options":{"auto_title":true}}`)
 	view.until(t, c, func(m obj) bool { return m["type"] == "zeta_reply" && m["ok"] == true })
@@ -82,24 +78,6 @@ func TestConversationThroughCore(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-}
-
-// stopCore：测试结束时先关掉 serve、再结束核心（coreEnv 的收尾按核心的锁找它）。这里改了目录名，路径要按新名字重算。
-func stopCore(t *testing.T, e *env) {
-	t.Helper()
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := core.Locate(e.home, e.name, exe)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if pid := corePid(p); pid > 0 {
-			_ = syscall.Kill(pid, syscall.SIGKILL)
-		}
-	})
 }
 
 func quote(s string) string {

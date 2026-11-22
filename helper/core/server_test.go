@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -29,12 +30,11 @@ func TestMain(m *testing.M) {
 
 // runChild 是假核心：每个请求答自己的进程号。
 func runChild() int {
-	exe, _ := os.Executable()
-	p, err := Locate(os.Getenv("HOME"), "zeta", exe)
+	p, err := Locate(os.Getenv("HOME"), "zeta")
 	if err != nil {
 		return 1
 	}
-	s, err := Listen(p)
+	s, err := Listen(p, Info{Build: 7, Version: "v7"})
 	if errors.Is(err, ErrRunning) {
 		return 0
 	}
@@ -111,7 +111,7 @@ func testPaths(t *testing.T) Paths {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(DirEnv, dir+"/core")
-	p, err := Locate(os.Getenv("HOME"), "zeta", "/bin/zeta-helper-0123456789abcdef")
+	p, err := Locate(os.Getenv("HOME"), "zeta")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ type running struct {
 
 func serve(t *testing.T, p Paths, h Handler, idle time.Duration) *running {
 	t.Helper()
-	s, err := Listen(p)
+	s, err := Listen(p, Info{Build: 7, Version: "v7"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,6 +186,9 @@ func dial(t *testing.T, p Paths) *client {
 		}
 	}()
 	t.Cleanup(func() { _ = conn.Close() })
+	if hello := c.next(); hello["type"] != "core_hello" || hello["build"] != float64(7) || hello["version"] != "v7" {
+		t.Fatalf("连上先收到的：%v", hello)
+	}
 	return c
 }
 
@@ -351,7 +354,7 @@ func TestConnectedClientKeepsCoreAlive(t *testing.T) {
 func TestOnlyOneCoreListens(t *testing.T) {
 	p := testPaths(t)
 	serve(t, p, newFakeHandler(), time.Minute)
-	if _, err := Listen(p); !errors.Is(err, ErrRunning) {
+	if _, err := Listen(p, Info{Build: 7, Version: "v7"}); !errors.Is(err, ErrRunning) {
 		t.Fatalf("第二个核心：%v", err)
 	}
 	holder, err := os.ReadFile(p.Lock)
@@ -410,39 +413,32 @@ func TestListenWaitsForAHolderThatIsNotListening(t *testing.T) {
 	saved := lockWait
 	lockWait = 100 * time.Millisecond
 	defer func() { lockWait = saved }()
-	if _, err := Listen(q); err == nil || errors.Is(err, ErrRunning) || !strings.Contains(err.Error(), "nobody listens") {
+	if _, err := Listen(q, Info{}); err == nil || errors.Is(err, ErrRunning) || !strings.Contains(err.Error(), "nobody listens") {
 		t.Errorf("一直占着锁不听：%v", err)
 	}
 }
 
 func TestLocate(t *testing.T) {
 	t.Setenv(DirEnv, "")
-	p, err := Locate("/home/u/", "zeta-dev", "/home/u/.cache/zeta-dev/bin/zeta-helper-0123456789abcdef")
+	p, err := Locate("/home/u/", "zeta-dev")
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := Paths{
-		Socket: "/home/u/.cache/zeta-dev/core/0123456789abcdef.sock",
-		Lock:   "/home/u/.cache/zeta-dev/core/0123456789abcdef.lock",
-		Log:    "/home/u/.cache/zeta-dev/core/0123456789abcdef.log",
+		Socket: "/home/u/.cache/zeta-dev/core/core.sock",
+		Lock:   "/home/u/.cache/zeta-dev/core/core.lock",
+		Log:    "/home/u/.cache/zeta-dev/core/core.log",
 	}
 	if p != want {
 		t.Errorf("%+v", p)
 	}
-	// 不是装好的程序（没有版本前缀）：用整个文件名
-	if p, err := Locate("/h", "zeta", "/tmp/helper.test"); err != nil || p.Socket != "/h/.cache/zeta/core/helper.test.sock" {
-		t.Errorf("%+v %v", p, err)
-	}
-	if _, err := Locate("/h", "zeta", "/bin/zeta-helper-"); err == nil {
-		t.Error("空版本也认了")
-	}
 	t.Setenv(DirEnv, "/short")
-	if p, err := Locate("/h", "zeta", "/bin/zeta-helper-v1"); err != nil || p.Socket != "/short/v1.sock" {
+	if p, err := Locate("/h", "zeta"); err != nil || p.Socket != "/short/core.sock" {
 		t.Errorf("%+v %v", p, err)
 	}
 	t.Setenv(DirEnv, "")
 	long := "/home/" + strings.Repeat("u", 80)
-	if _, err := Locate(long, "zeta", "/bin/zeta-helper-0123456789abcdef"); err == nil || !strings.Contains(err.Error(), "limit of unix sockets") {
+	if _, err := Locate(long, "zeta"); err == nil || !strings.Contains(err.Error(), "limit of unix sockets") {
 		t.Errorf("路径太长：%v", err)
 	}
 }
@@ -455,7 +451,7 @@ func TestConnectStartsExactlyOneCore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := Locate(os.Getenv("HOME"), "zeta", exe)
+	p, err := Locate(os.Getenv("HOME"), "zeta")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,12 +461,16 @@ func TestConnectStartsExactlyOneCore(t *testing.T) {
 	errs := make(chan error, n)
 	for range n {
 		go func() {
-			conn, err := Connect(p, exe)
+			conn, info, err := Connect(p, exe)
 			if err != nil {
 				errs <- err
 				return
 			}
 			defer conn.Close()
+			if info.Build != 7 {
+				errs <- fmt.Errorf("core_hello：%+v", info)
+				return
+			}
 			if _, err := conn.Write([]byte(`{"id":1,"method":"conv.pid"}` + "\n")); err != nil {
 				errs <- err
 				return

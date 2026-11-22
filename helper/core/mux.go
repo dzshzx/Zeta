@@ -21,6 +21,22 @@ func (m *Mux) Handle(prefix string, h Handler) {
 	m.routes = append(m.routes, route{prefix, h})
 }
 
+// HandleAsync 同 Handle，只是这些请求各在自己的 goroutine 里跑、做完再答，不挡同一个客户端后面的请求（要等外部程序的慢请求用）。
+// 应答的先后因此不一定和请求一样。
+func (m *Mux) HandleAsync(prefix string, h Handler) {
+	m.Handle(prefix, async{h})
+}
+
+type async struct{ Handler }
+
+func (a async) Request(c *Client, r Request) (any, error) {
+	go func() {
+		result, err := a.Handler.Request(c, r)
+		c.Reply(r.ID, result, err)
+	}()
+	return Later, nil
+}
+
 func (m *Mux) Request(c *Client, r Request) (any, error) {
 	var best *route
 	for i, rt := range m.routes {
@@ -40,6 +56,15 @@ func (m *Mux) Gone(c *Client) {
 	}
 }
 
+// Release：交班时让各处理器放开它们接着的东西。
+func (m *Mux) Release() {
+	for _, rt := range m.routes {
+		if r, ok := rt.h.(Releaser); ok {
+			r.Release()
+		}
+	}
+}
+
 func (m *Mux) Idle() bool {
 	for _, rt := range m.routes {
 		if !rt.h.Idle() {
@@ -47,4 +72,10 @@ func (m *Mux) Idle() bool {
 		}
 	}
 	return true
+}
+
+func (a async) Release() {
+	if r, ok := a.Handler.(Releaser); ok {
+		r.Release()
+	}
 }

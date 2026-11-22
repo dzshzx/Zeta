@@ -153,6 +153,9 @@ func (l *Link) Detach() <-chan struct{} {
 	return runScript(args...)
 }
 
+// Leave 只关掉这条连接：不跑脚本的 detach，进程照跑（交班时新核心接回去；没人接回时看门狗约十分钟后收掉它）。
+func (l *Link) Leave() { l.close() }
+
 // close 让连接不再写新消息、不再交出事件。已经排着的消息在接上了时照样写完，再关上输入，连接进程随之离开。
 func (l *Link) close() {
 	l.mu.Lock()

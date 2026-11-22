@@ -1,13 +1,14 @@
 // Package core 是常驻核心进程 zeta-helper core 的服务端框架：在 unix 套接字上听，每条连接是一个客户端
 // （各客户端起的 zeta-helper serve），一行一个 JSON 的请求交给 Handler，应答和推送整行写回。对话逻辑在 Handler 里，不在这个包。
 //
-// 每台主机上每个 Linux 用户、每个包（ZETA_NAME）、每个 helper 版本只有一个核心：套接字是
-// ~/.cache/<ZETA_NAME>/core/<版本>.sock（见 Locate），同目录的 <版本>.lock 由正在跑的核心持着（flock）。
+// 每台主机上每个 Linux 用户、每个包（ZETA_NAME）只有一个核心：套接字是 ~/.cache/<ZETA_NAME>/core/core.sock（见 Locate），
+// 同目录的 core.lock 由正在跑的核心持着（flock）。新版本的 serve 连上后发 core.handover 让旧核心交班（见 Server.Serve）。
 //
 // 请求：{"id":<任意 JSON 值>,"method":"<方法>","conv":"<对话>",<其余参数平级>}。
 // 应答：每个请求一行 {"type":"zeta_reply","id":<原样>,"ok":true,"result":<结果，可省>}，
 // 出错时 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}。推送由 Handler 经 Client.Send、SendAll 随时发。
-// 核心连上时不打招呼：serve 已经给客户端发过 zeta_hello，核心发来的每一行都原样转给客户端。
+// 连上时核心先发一行 {"type":"core_hello","build":<构建序号>,"version":"<版本>"}（Info），serve 据此决定用它还是让它交班，
+// 这一行不转给客户端；之后核心发来的每一行都原样转给客户端。
 package core
 
 import (
@@ -43,7 +44,8 @@ type Request struct {
 // Handler 是挂在核心上的处理器（对话逻辑）。
 //
 // 同一个客户端的请求按到达顺序一个个交给 Request，上一个返回了才交下一个；不同客户端的请求会同时来，处理器自己加锁。
-// Request 返回的结果写成应答的 result（nil 时省掉），返回错误时应答 ok:false。Request 里推给这个客户端的消息排在应答前面。
+// Request 返回的结果写成应答的 result（nil 时省掉），返回错误时应答 ok:false，错误带 Code() string 时应答另带 code。
+// Request 里推给这个客户端的消息排在应答前面。要做很久的（不该挡住这个客户端后面的请求）返回 Later，做完再自己 Client.Reply。
 // 客户端断开后调一次 Gone，那时它的 Request 都已返回，往它 Send 只会得到 ErrGone。
 // Idle 隔一会儿被调一次（没有客户端连着时），说处理器是不是闲着（比如没有接着的对话）：没有客户端、又闲着满空闲时长，核心就退出。
 type Handler interface {
@@ -51,6 +53,26 @@ type Handler interface {
 	Gone(c *Client)
 	Idle() bool
 }
+
+// Releaser 是交班时要做事的处理器：Release 放开它接着的东西（托管进程照跑），新核心起来后接回去。
+type Releaser interface {
+	Release()
+}
+
+// Later 是 Request 的结果为「稍后应答」：核心这时不答，处理器做完后调 Client.Reply。
+var Later = &later{}
+
+type later struct{}
+
+// Info 是核心在 core_hello 里报的：Build 是构建序号（helper/ 最后一次提交的时刻，Unix 秒；开发构建没写入时为 0），
+// Version 是程序的版本（装好的文件名里的内容哈希）。
+type Info struct {
+	Build   int64  `json:"build"`
+	Version string `json:"version"`
+}
+
+// handoverMethod 是新版本的 serve 让核心交班的请求：核心答完就不再接新连接，放开托管进程，退出。
+const handoverMethod = "core.handover"
 
 // Client 是连着核心的一个客户端（一条连接）。可以当 map 的键，几个 goroutine 同时 Send 也是一行一行整行写出。
 type Client struct {
@@ -126,15 +148,22 @@ type reply struct {
 	OK     bool            `json:"ok"`
 	Result any             `json:"result,omitempty"`
 	Error  string          `json:"error,omitempty"`
+	Code   string          `json:"code,omitempty"`
 }
 
-func (c *Client) reply(id json.RawMessage, result any, err error) {
+// Reply 答请求 id：result 写成应答的 result，err 不为空时 ok:false（带 Code() string 的另带 code）。
+// 处理器的 Request 返回了 Later 时由它做完后调这个；客户端已经走了时什么也不做。
+func (c *Client) Reply(id json.RawMessage, result any, err error) {
 	if len(id) == 0 {
 		id = json.RawMessage("null")
 	}
 	r := reply{Type: "zeta_reply", ID: id, OK: err == nil, Result: result}
 	if err != nil {
 		r.Error = err.Error()
+		var coded interface{ Code() string }
+		if errors.As(err, &coded) {
+			r.Code = coded.Code()
+		}
 	}
 	line, err := encodeLine(r)
 	if err != nil { // 处理器给的 result 编不成 JSON
@@ -145,9 +174,12 @@ func (c *Client) reply(id json.RawMessage, result any, err error) {
 
 // Server 是持着锁、在套接字上听着的核心。由 Listen 得到，Serve 跑到退出。
 type Server struct {
-	paths Paths
-	lock  *os.File
-	ln    *net.UnixListener
+	paths    Paths
+	info     Info
+	lock     *os.File
+	ln       *net.UnixListener
+	handover chan struct{} // 收到 core.handover 时关上
+	once     sync.Once
 
 	mu      sync.Mutex
 	clients map[*Client]struct{}
@@ -157,9 +189,9 @@ type Server struct {
 	wg      sync.WaitGroup
 }
 
-// Listen 建好目录（只有本人能进）、持锁、清掉上一个核心崩溃时留下的套接字文件，在 p.Socket 上听。
-// 这个版本已经有核心在听时返回 ErrRunning，调用方直接退出就好。
-func Listen(p Paths) (*Server, error) {
+// Listen 建好目录（只有本人能进）、持锁、清掉上一个核心崩溃时留下的套接字文件，在 p.Socket 上听。info 是连上时 core_hello 报的。
+// 已经有核心在听时返回 ErrRunning，调用方直接退出就好。
+func Listen(p Paths, info Info) (*Server, error) {
 	if err := p.makeDir(); err != nil {
 		return nil, err
 	}
@@ -177,10 +209,11 @@ func Listen(p Paths) (*Server, error) {
 		_ = lock.Close()
 		return nil, err
 	}
-	return &Server{paths: p, lock: lock, ln: ln, clients: map[*Client]struct{}{}}, nil
+	return &Server{paths: p, info: info, lock: lock, ln: ln, clients: map[*Client]struct{}{}, handover: make(chan struct{})}, nil
 }
 
-// Serve 接客户端、把请求交给 h，跑到 ctx 结束（比如收到 SIGTERM），或者没有客户端、h 也闲着满 idle 为止，返回 nil。
+// Serve 接客户端、把请求交给 h，跑到 ctx 结束（比如收到 SIGTERM）、没有客户端且 h 也闲着满 idle、或者交班为止，返回 nil。
+// 交班（core.handover）：先不再接新连接，再让 h 放开托管进程（Releaser），之后和别的退出一样。
 // 返回前关掉所有连接（各调一次 Gone）、删掉套接字文件、放开锁。接不了连接时返回那个错误。
 func (s *Server) Serve(ctx context.Context, h Handler, idle time.Duration) error {
 	defer s.shutdown()
@@ -198,6 +231,12 @@ func (s *Server) Serve(ctx context.Context, h Handler, idle time.Duration) error
 			return nil
 		case err := <-acceptErr:
 			return err
+		case <-s.handover:
+			s.stopAccepting()
+			if r, ok := h.(Releaser); ok {
+				r.Release()
+			}
+			return nil
 		case now := <-tick.C:
 			if s.idleSince(h, now) >= idle {
 				return nil
@@ -248,6 +287,10 @@ func (s *Server) accept(h Handler) error {
 		s.clients[c] = struct{}{}
 		s.wg.Add(1)
 		s.mu.Unlock()
+		_ = c.Send(struct {
+			Type string `json:"type"`
+			Info
+		}{"core_hello", s.info})
 		go s.serveClient(h, c)
 	}
 }
@@ -259,7 +302,7 @@ func (s *Server) serveClient(h Handler, c *Client) {
 	sc.Buffer(make([]byte, 64<<10), MaxLine)
 	for sc.Scan() {
 		if line := sc.Bytes(); len(bytes.TrimSpace(line)) > 0 {
-			handle(h, c, bytes.Clone(line))
+			s.handle(h, c, bytes.Clone(line))
 		}
 	}
 	c.hangUp()
@@ -269,26 +312,41 @@ func (s *Server) serveClient(h Handler, c *Client) {
 	h.Gone(c)
 }
 
-func handle(h Handler, c *Client, line []byte) {
+func (s *Server) handle(h Handler, c *Client, line []byte) {
 	var r Request
 	if err := json.Unmarshal(line, &r); err != nil {
-		c.reply(r.ID, nil, errors.New("not a JSON request: "+err.Error()))
+		c.Reply(r.ID, nil, errors.New("not a JSON request: "+err.Error()))
+		return
+	}
+	if r.Method == handoverMethod {
+		c.Reply(r.ID, nil, nil)
+		s.once.Do(func() { close(s.handover) })
 		return
 	}
 	r.Raw = line
 	result, err := h.Request(c, r)
-	c.reply(r.ID, result, err)
+	if result == Later && err == nil {
+		return
+	}
+	c.Reply(r.ID, result, err)
+}
+
+// stopAccepting 不再接新连接：关掉监听（自己建的套接字文件，关的时候一起删掉）。
+func (s *Server) stopAccepting() {
+	s.mu.Lock()
+	s.closing = true
+	s.mu.Unlock()
+	_ = s.ln.Close()
 }
 
 // shutdown 不再接新连接、删掉套接字文件，断开所有客户端并等它们的 Gone 调完，最后放开锁。
 func (s *Server) shutdown() {
+	s.stopAccepting()
 	s.mu.Lock()
-	s.closing = true
 	for c := range s.clients {
 		_ = c.conn.Close()
 	}
 	s.mu.Unlock()
-	_ = s.ln.Close() // 自己建的套接字文件，关的时候一起删掉
 	s.wg.Wait()
 	_ = os.Remove(s.paths.Socket)
 	_ = s.lock.Close()
