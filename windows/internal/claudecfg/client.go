@@ -161,6 +161,9 @@ type Document struct {
 	Exists  bool   `json:"exists"`
 }
 
+// MaxDocument 是记忆页上的文件能写多大。
+const MaxDocument = 1 << 20
+
 // ReadFile 读记忆页上的一个文件。
 func (cl *Client) ReadFile(ctx context.Context, path string) (Document, error) {
 	var d Document

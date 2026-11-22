@@ -49,11 +49,14 @@ type ToolState struct {
 	Specific  []Rule   `json:"specific"`  // 带参数的规则
 }
 
-// ToolView 是一个工具一行；More 的收在“更多内置工具”里。
+// ToolView 是一个工具一行；More 的收在“更多内置工具”里。State 是生效的状态（MCP 工具算上整个服务器的设置），Own 是它
+// 自己那条规则（下拉里显示的），改的时候把 Rule 交给 SetToolPermission。
 type ToolView struct {
 	Name    string    `json:"name"`
 	Label   string    `json:"label"`
 	Example string    `json:"example"`
+	Rule    string    `json:"rule"`
+	Own     Behavior  `json:"own"`
 	More    bool      `json:"more"`
 	State   ToolState `json:"state"`
 }

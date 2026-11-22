@@ -1,5 +1,6 @@
 // Package cfgtest 是测试用的 claudecfg.Caller：在本机的临时 HOME 里起一个真的 zeta-helper serve（从仓里的 helper/
-// 源码编），经它的标准输入输出收发 config.* 请求。只给测试用。
+// 源码编），经它的标准输入输出收发 config.* 请求。PATH 最前面放 helper 测试里冒充 claude 的那个程序，不碰本机真的
+// claude。只给测试用。
 package cfgtest
 
 import (
@@ -20,6 +21,7 @@ import (
 var (
 	buildOnce sync.Once
 	helperBin string
+	binDir    string // 里面的 claude 是 helper/claudecfg/testdata/fakeclaude
 	buildErr  error
 )
 
@@ -36,10 +38,15 @@ func helper() (string, error) {
 			buildErr = err
 			return
 		}
-		helperBin = filepath.Join(dir, "zeta-helper")
+		helperBin, binDir = filepath.Join(dir, "zeta-helper"), filepath.Join(dir, "bin")
 		out, err := exec.Command("go", "build", "-C", src, "-o", helperBin, ".").CombinedOutput()
 		if err != nil {
 			buildErr = fmt.Errorf("编不出 zeta-helper：%v\n%s", err, out)
+			return
+		}
+		out, err = exec.Command("go", "build", "-C", src, "-o", filepath.Join(binDir, "claude"), "./claudecfg/testdata/fakeclaude").CombinedOutput()
+		if err != nil {
+			buildErr = fmt.Errorf("编不出冒充 claude 的程序：%v\n%s", err, out)
 		}
 	})
 	return helperBin, buildErr
@@ -89,7 +96,7 @@ func Start(t testing.TB) *Serve {
 	}
 	s := &Serve{Home: t.TempDir(), waiting: map[int]chan reply{}}
 	cmd := exec.Command(bin, "serve")
-	cmd.Env = []string{"HOME=" + s.Home, "PATH=" + os.Getenv("PATH"), "LANG=C.UTF-8"}
+	cmd.Env = []string{"HOME=" + s.Home, "PATH=" + binDir + string(os.PathListSeparator) + os.Getenv("PATH"), "LANG=C.UTF-8"}
 	cmd.Dir = s.Home
 	in, err := cmd.StdinPipe()
 	if err != nil {
