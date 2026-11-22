@@ -11,7 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// TestPreviews 把账号页和额度小控件的几个样子画成 PNG 写到 $ZETA_PREVIEW_DIR，改界面时人工看；没设时不画。
+// TestPreviews 把账号页和额度明细的几个样子画成 PNG 写到 $ZETA_PREVIEW_DIR，改界面时人工看；没设时不画。
 func TestPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -64,15 +64,6 @@ func TestPreviews(t *testing.T) {
 		f.until(t, tt, "读完", f.loaded)
 		shot("unknown", tt)
 
-		f = newFixture()
-		b := &QuotaButton{Quota: f.page.Quota}
-		tt = ui.NewTesterWith(func(c *ui.Context) {
-			c.SetTheme(coui.Theme(c.Theme().Dark))
-			ui.Row(c).Fill().Padding(16).AlignItems(ui.Start).Background(coui.Of(c).Window).Children(func() { b.View(c) })
-		}, 420, 360, ui.TesterOptions{Dark: dark})
-		f.page.Quota.Refresh(false)
-		f.until(t, tt, "取到额度", func() bool { return !f.page.Quota.Refreshing() })
-		shot("button", tt)
 		click(t, tt, "每周 · 全部模型 86%")
 		shot("popover", tt)
 	}

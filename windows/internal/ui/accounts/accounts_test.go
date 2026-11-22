@@ -1,6 +1,6 @@
 package accounts
 
-// 界面测试：账号页和额度小控件在无窗口的 ui.Tester 里画，点、看字。主机上的 serve 是假的，照 docs/core.md「账号与额度」
+// 界面测试：账号页和额度明细在无窗口的 ui.Tester 里画，点、看字。主机上的 serve 是假的，照 docs/core.md「账号与额度」
 // 回 JSON（方法本身在 helper 的测试里对着真的 claude-switch 跑）。邮箱都是 example.com 的假数据。
 
 import (
@@ -244,22 +244,6 @@ func TestUnknownLoginCanBeSaved(t *testing.T) {
 	})
 	if shows(tt, "记下") {
 		t.Fatal("记下以后不该再有这个按钮")
-	}
-}
-
-func TestQuotaButton(t *testing.T) {
-	f := newFixture()
-	b := &QuotaButton{Quota: f.page.Quota}
-	tt := ui.NewTester(b.View, 480, 400)
-	hasAll(t, tt, "额度")
-	f.page.Quota.Refresh(false)
-	f.until(t, tt, "取到额度", func() bool { return !f.page.Quota.Refreshing() })
-	hasAll(t, tt, "每周 · 全部模型 86%")
-	click(t, tt, "每周 · 全部模型 86%")
-	hasAll(t, tt, "订阅额度", "Max", "每周 · Fable", "40%", "刚刚更新", "刷新")
-	// 数是刚取的，展开时不再问
-	if f.src.asked.Load() != 1 {
-		t.Fatalf("问了 %d 次", f.src.asked.Load())
 	}
 }
 

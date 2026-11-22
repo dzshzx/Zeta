@@ -12,8 +12,8 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -58,7 +58,7 @@ func main() {
 	mygo.App.WhenReady(func() {
 		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
 		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和 COUI 顶栏一样高（见 coui/titlebar.go）
-		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, BackgroundColor: "light-dark(#ffffff, #000000)",
+		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, BackgroundColor: windowBackground(prefs),
 			TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
 		// 回答完了而窗口不在前台时发通知，点通知回到窗口
 		app.Foreground = func() bool { return win.IsFocused() }
@@ -86,5 +86,18 @@ func main() {
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// windowBackground 是窗口在界面画出来之前的底色：设置里选了浅色或深色就照它，没选时跟着系统（同 App 的主题）。
+func windowBackground(prefs *settings.Settings) string {
+	dark, set := prefs.Dark()
+	switch {
+	case !set:
+		return "light-dark(#ffffff, #000000)"
+	case dark:
+		return "#000000"
+	default:
+		return "#ffffff"
 	}
 }
