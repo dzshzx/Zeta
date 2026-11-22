@@ -136,10 +136,11 @@ check() { # check <说明> <实际> <期望>
   fi
 }
 
-# 第一轮：等批准
+# 第一轮：等批准。剧本先等标记，测试版退到后台了才来请求
 step 第一轮
 send "one"
 background
+mark away
 step 切到后台
 wait_waiting confirm "需要你确认：列出文件"
 step "等到了（$WHERE）"
@@ -158,10 +159,17 @@ vd launch >/dev/null
 wait_gone "回到前台"
 echo "通过：回到前台后提醒撤掉"
 
-# 第二轮：单选题。等提问在聊天页上弹出来（剧本停 4 秒）再离开：看着时来的请求，离开后也要提醒
+# 第二轮：单选题。等提问在聊天页上弹出来再离开：看着时来的请求，离开后也要提醒
 step 第二轮
 send "two"
-sleep 7
+asked=''
+for _ in $(seq 40); do
+  asked=$(vd nodes '先改哪个')
+  [[ -n $asked ]] && break
+  sleep 0.5
+done
+[[ -n $asked ]] || { vd shot no-question.png >/dev/null; echo "20 秒了提问没在聊天页上弹出来"; exit 1; }
+sleep 1.5 # 看着时不该发提醒：留一点时间，真发了能看到
 [[ -z $(alert) ]] || { echo "不对：看着这个对话时就发了提醒"; fail=1; }
 background
 step 切到后台
@@ -181,6 +189,7 @@ vd launch >/dev/null
 wait_gone "回到前台"
 send "three"
 background
+mark away # 剧本等到这里才让进程退出
 wait_alert interrupted "已中断"
 echo "通过：进程意外退出时提醒已中断"
 
