@@ -26,11 +26,15 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 	}
 	coui.Surface{Shape: coui.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(8, 10).Gap(2).
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
+		a.slashList(c, p)
 		a.composerAttachments(c, p)
 		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
 			Lines(1, 6).Padding(5, 6).FontSize(coui.SizeBodyXL).LineHeight(1.2).Disabled(!ready).
 			OnPaste(func(string) bool { return a.paste(c, p) }).
 			OnTextKey(func(tk ui.TextKey) bool {
+				if a.slashKey(p, tk) {
+					return true
+				}
 				if tk.Key != ui.KeyEnter || tk.Mods != 0 {
 					return false // Shift+Enter 换行
 				}
@@ -40,6 +44,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				return true
 			})
 		insertPending(in, p)
+		slashInsert(in, p)
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if ready {
 				a.attachMenu(c)

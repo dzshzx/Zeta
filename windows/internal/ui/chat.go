@@ -38,6 +38,8 @@ type chatPane struct {
 	todo todoStrip
 	// pages 是盖在聊天窗格上的后台任务页、子代理页（taskpages.go）。
 	pages chatPages
+	// slash 是斜杠命令提示（slash.go）。
+	slash slashMenu
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
