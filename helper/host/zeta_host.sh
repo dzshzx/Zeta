@@ -377,12 +377,14 @@ echo $$ > "$D/attach"
 echo "{\"type\":\"zeta_attached\",\"from\":$from,\"key\":\"${D##*/}\",\"attacher\":$$}"
 
 # 两头任一结束就整体退出：应用没了（输入结束）只是断开；Claude Code 没了（跟读结束）则报告退出码。
+# 只等跟读这一个进程，转输入的那段结束时顺手结束跟读。不用 wait -n：子进程恰好在它开始阻塞之前结束时 bash 会漏掉，
+# 一直等下去（bash 5.3 实测，负载高时约千分之一），接着的一方就挂着不走，看门狗也一直当还有人接着
 tail -n "+$from" --pid="$P" -f "$D/out.jsonl" &
 T=$!
-pump "$D" <&0 &
+{ pump "$D"; kill "$T" 2>/dev/null; } <&0 &
 C=$!
-wait -n
-kill "$T" "$C" 2>/dev/null
+wait "$T"
+kill "$C" 2>/dev/null
 # Claude Code 没了：那段先收尸、留标准错误输出的副本，再写 exit，跟读却在进程一没就结束了。等它写完（或它也不在了）再看，
 # 否则 exit 晚到一步就漏报 zeta_exit：应用拿不到退出码和 released
 if ! running "$P"; then
