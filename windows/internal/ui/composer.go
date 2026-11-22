@@ -9,6 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -379,7 +380,8 @@ func effortLevel(v string) int {
 	return 0
 }
 
-// usageButton 是用量：按钮上是上下文用了多少，点开是上下文、本对话累计和压缩上下文。
+// usageButton 是用量：按钮上是上下文用了多少，点开是这台的订阅额度（同手机版的用量弹框，打开时数不够新就问一次）、
+// 上下文、本对话累计和压缩上下文。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
 	k := coui.Of(c)
@@ -396,7 +398,12 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	case usage.LevelWarning:
 		color = k.Warning
 	}
-	button := coui.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() { p.usage = !p.usage })
+	button := coui.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() {
+		p.usage = !p.usage
+		if r := a.hub.Remote(p.src.Backend); p.usage && r != nil {
+			r.Quota.Refresh(false)
+		}
+	})
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
 		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() { a.usageDetails(c, p) })
 	})
@@ -404,6 +411,10 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 
 // usageDetails 是用量弹出框的内容。
 func (a *App) usageDetails(c *ui.Context, p *chatPane) {
+	if r := a.hub.Remote(p.src.Backend); r != nil {
+		uiacct.QuotaDetails(c, r.Quota)
+		ui.Divider(c)
+	}
 	u := p.state.Usage
 	t := c.Theme()
 	contextText := "发出第一条消息后显示"

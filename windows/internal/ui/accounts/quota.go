@@ -49,23 +49,28 @@ func (b *QuotaButton) View(c *ui.Context) {
 	ui.PopoverBase(c, button, &b.open, func(panel ui.Element) {
 		panel.Column().Width(300).Padding(16).Gap(12).Margin(6, 0, 0, 0)
 		coui.Surface{Shape: coui.ShapePopup, Fill: k.PopupGlass, Blur: coui.BlurPopup}.Paint(panel).Shadow(0, 6, 24, 0, k.Shadow)
-		panel.Children(func() {
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "订阅额度").FontSize(coui.SizeHeadlineXS).FontWeight(coui.Medium).TextColor(k.Text).Grow(1)
-				if ok && s.Subscription != "" {
-					ui.Text(c, acct.PlanName(s.Subscription)).FontSize(coui.SizeBodyM).TextColor(k.Tertiary)
-				}
-			})
-			if ok && !s.Unavailable && len(s.Windows) > 0 {
-				Windows(c, s, c.Now())
-			}
-			note(c, q.Footnote(c.Now()))
-			label := "刷新"
-			if q.Refreshing() {
-				label = "正在刷新"
-			}
-			coui.SmallButton(c.Key("quota-refresh"), label).Disabled(q.Refreshing()).AlignSelf(ui.Start).
-				OnClick(func() { q.Refresh(true) })
-		})
+		panel.Children(func() { QuotaDetails(c, q) })
 	})
+}
+
+// QuotaDetails 是额度的明细：标题和套餐、各个窗口、多久以前的数、刷新。额度小控件的弹出框和聊天页的用量弹出框里用。
+func QuotaDetails(c *ui.Context, q *acct.Quota) {
+	k := coui.Of(c)
+	s, ok := q.Snapshot()
+	ui.Row(c).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, "订阅额度").FontSize(coui.SizeHeadlineXS).FontWeight(coui.Medium).TextColor(k.Text).Grow(1)
+		if ok && s.Subscription != "" {
+			ui.Text(c, acct.PlanName(s.Subscription)).FontSize(coui.SizeBodyM).TextColor(k.Tertiary)
+		}
+	})
+	if ok && !s.Unavailable && len(s.Windows) > 0 {
+		Windows(c, s, c.Now())
+	}
+	note(c, q.Footnote(c.Now()))
+	label := "刷新"
+	if q.Refreshing() {
+		label = "正在刷新"
+	}
+	coui.SmallButton(c.Key("quota-refresh"), label).Disabled(q.Refreshing()).AlignSelf(ui.Start).
+		OnClick(func() { q.Refresh(true) })
 }

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -308,8 +309,10 @@ func TestModeModelEffortAndUsage(t *testing.T) {
 	f.click(t, "上下文 0%")
 	f.see(t, "本对话累计 · 1 轮", "12.3K", "18")
 	f.click(t, "压缩上下文")
-	if got := f.link().Methods(); len(got) != 1 || got[0] != "conv.compact" {
-		t.Fatalf("压缩：%v", got)
+	// 打开用量时顺带问了额度（conv.quota、quota.usage，在后台），这里只看压缩
+	got = slices.DeleteFunc(f.link().Took(), func(c hubtest.Call) bool { return strings.HasPrefix(c.Method, "quota.") || c.Method == "conv.quota" })
+	if len(got) != 1 || got[0].Method != "conv.compact" {
+		t.Fatalf("压缩：%+v", got)
 	}
 }
 

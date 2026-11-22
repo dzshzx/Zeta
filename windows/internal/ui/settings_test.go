@@ -40,7 +40,15 @@ func newSettingsFixture(t *testing.T) *settingsFixture {
 	d := hubtest.NewDevices()
 	d.OnChat = func(l *hubtest.ChatLink) {
 		l.Connect()
-		l.OnCall(f.answer)
+		l.OnCall(func(c hubtest.Call) (json.RawMessage, error) {
+			if c.Method == "conv.open" {
+				for _, line := range hubtest.Recorded("open", c.Conv()) {
+					l.Push(line)
+				}
+				return nil, nil
+			}
+			return f.answer(c)
+		})
 	}
 	run := func(fn func()) { fn() }
 	post := func(fn func()) { f.posts <- fn }
@@ -62,6 +70,8 @@ func (f *settingsFixture) answer(c hubtest.Call) (json.RawMessage, error) {
 		return json.RawMessage(`{"current":{"name":"claude","email":"a@example.com","subscription":"max","current":true},` +
 			`"accounts":[{"name":"claude","email":"a@example.com","subscription":"max","current":true},` +
 			`{"name":"claude-b","email":"b@example.com","subscription":"pro"}],"procs":[],"blocker":""}`), nil
+	case c.Method == "conv.quota":
+		return json.RawMessage(`{"rate_limits_available":true}`), nil
 	case c.Method == "quota.get", c.Method == "quota.usage":
 		at := time.Now() // 额度按 Tester 的时钟（起时的真实时刻）看
 		reset := at.Add(2 * time.Hour).UTC().Format(time.RFC3339)
@@ -233,6 +243,16 @@ func TestSettingsPreviews(t *testing.T) {
 			f.click(t, "设置")
 			f.click(t, "有新版本 0.9.0")
 		}},
+		{"chat-quota", 900, func(t *testing.T, f *settingsFixture) {
+			f.click(t, "新对话")
+			f.until(t, "打开新对话", func() bool { c := f.hub.Chat(); return c != nil && c.Conv != nil })
+			for _, line := range hubtest.Recorded("turn", f.hub.Chat().Conv.Name()) {
+				f.devices.Chat(f.hub.Chat().Backend).Push(line)
+			}
+			f.until(t, "答完一轮", func() bool { return f.shows("上下文 0%") })
+			f.click(t, "上下文 0%")
+			f.until(t, "额度", func() bool { return f.shows("刚刚更新") })
+		}},
 	}
 	for _, s := range scenes {
 		for _, dark := range []bool{false, true} {
@@ -273,4 +293,27 @@ func (f *settingsFixture) press(t *testing.T, name string) {
 		}
 	}
 	t.Fatalf("没有 %q；%q", name, f.tt.Texts())
+}
+
+// 聊天页的用量弹出框最上面是这台的订阅额度（同手机版），打开时借开着的进程问一次。
+func TestUsagePopoverShowsQuota(t *testing.T) {
+	f := newSettingsFixture(t)
+	x := f.withHosts(t, "box")[0]
+	f.click(t, "新对话")
+	f.until(t, "打开新对话", func() bool { c := f.hub.Chat(); return c != nil && c.Conv != nil })
+	for _, line := range hubtest.Recorded("turn", f.hub.Chat().Conv.Name()) {
+		f.devices.Chat(x.ID).Push(line)
+	}
+	f.until(t, "答完一轮", func() bool { return f.shows("上下文 0%") })
+	f.devices.Chat(x.ID).Took()
+	f.click(t, "上下文 0%")
+	f.until(t, "额度", func() bool { return f.shows("每周 · 全部模型") && f.shows("刚刚更新") })
+	f.see(t, "订阅额度", "Max", "86%", "上下文", "本对话累计 · 1 轮")
+	var methods []string
+	for _, c := range f.devices.Chat(x.ID).Took() {
+		methods = append(methods, c.Method)
+	}
+	if strings.Join(methods, " ") != "conv.quota quota.usage" {
+		t.Fatalf("问额度：%v", methods)
+	}
 }
