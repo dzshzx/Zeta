@@ -76,8 +76,8 @@ class SessionSelectionTest {
         val text =
             combineExports(
                 listOf(
-                    ExportedMarkdown("f1", "一", "# 一\n\n## 用户\n\nhi\n"),
-                    ExportedMarkdown("f2", "二", "# 二\n"),
+                    ExportedMarkdown("一", "# 一\n\n## 用户\n\nhi\n", "Zeta-一.md"),
+                    ExportedMarkdown("二", "# 二\n", "Zeta-二.md"),
                 ),
             )
         assertEquals("# 一\n\n## 用户\n\nhi\n\n---\n\n# 二\n", text)

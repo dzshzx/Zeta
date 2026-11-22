@@ -406,9 +406,7 @@ private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Atta
                     (imageMediaType(Base64.getMimeDecoder().decode(ref.base64)) ?: "image/jpeg") to
                         ref.base64
                 is SessionImage -> {
-                    val reply =
-                        ImageStore.fetch(hub, backend, "image", listOf(ref.file, ref.ref))
-                            ?: return null
+                    val reply = ImageStore.fetch(hub, backend, ref) ?: return null
                     (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
                 }
                 else -> return null

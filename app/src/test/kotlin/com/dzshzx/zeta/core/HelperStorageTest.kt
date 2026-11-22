@@ -3,10 +3,12 @@ package com.dzshzx.zeta.core
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -14,8 +16,9 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * zeta-helper 的 storage / storage-sessions / clean：在临时 HOME 和临时“/tmp”（ZETA_STORAGE_TEST_TMP）上
- * 用造出来的数据真跑，不碰任何人真实的 ~/.claude 和 /tmp。 重点是删除的边界：只删预期那一层、不跟符号链接（链接本身和它指向的外面都不动）、正在进行的会话的一律不删。
+ * 核心的 storage.scan / storage.sessions / storage.clean（经 zeta-helper serve，同手机上的调用）：在临时 HOME
+ * 和临时“/tmp”（ZETA_STORAGE_TEST_TMP）上 用造出来的数据真跑，不碰任何人真实的 ~/.claude 和 /tmp。
+ * 重点是删除的边界：只删预期那一层、不跟符号链接（链接本身和它指向的外面都不动）、正在进行的会话的一律不删。
  */
 class HelperStorageTest {
     private lateinit var home: File
@@ -53,6 +56,7 @@ class HelperStorageTest {
 
     @After
     fun tearDown() {
+        serve?.close()
         processes.forEach { it.destroyForcibly().waitFor(5, TimeUnit.SECONDS) }
         for (dir in
             listOf(
@@ -64,22 +68,65 @@ class HelperStorageTest {
         }
     }
 
-    private fun helper(vararg args: String): Pair<Int, String> {
-        val process =
-            ProcessBuilder(listOf(TestHelper.path) + args)
-                .apply {
-                    environment()["HOME"] = home.path
-                    environment()["ZETA_STORAGE_TEST_TMP"] = tmp.path
-                    environment().remove("ZETA_NAME")
-                }
-                .start()
-        process.outputStream.close()
-        val out = process.inputStream.bufferedReader().readText()
-        val err = process.errorStream.bufferedReader().readText()
-        assertTrue(process.waitFor(120, TimeUnit.SECONDS))
-        assertFalse("助手报错：$err", err.contains("Traceback"))
-        return process.exitValue() to out
-    }
+    /**
+     * 到临时 HOME 上 `zeta-helper serve` 的连接，第一次用时连上，[tearDown] 关掉；方法经它转给那边的核心，同手机上的
+     * [ConversationHub.callCore]。
+     */
+    private var serve: HelperServe? = null
+
+    private fun connected(): HelperServe =
+        serve
+            ?: HelperServe(
+                    name = "storage",
+                    open = {
+                        HelperServe.open(shell(), TestHelper.program(HelperProgram.ZETA_HELPER))
+                    },
+                    subscriptions = emptyList(),
+                    onMessage = {},
+                    onProblem = {},
+                )
+                .also { serve = it }
+
+    private fun shell(): LinuxShell =
+        object : LinuxShell {
+            override val home: String = this@HelperStorageTest.home.path
+
+            override fun start(command: String): Process =
+                ProcessBuilder("bash", "-c", command)
+                    .directory(this@HelperStorageTest.home)
+                    .apply {
+                        environment()["HOME"] = home
+                        environment()["ZETA_STORAGE_TEST_TMP"] = tmp.path
+                        environment().remove("ZETA_NAME")
+                    }
+                    .start()
+
+            override fun kill(process: Process) = process.destroy()
+        }
+
+    /** 调核心的方法 [method]，成了给出 result，没成抛 [ServeError]。 */
+    private fun core(method: String, params: JsonObject): JsonObject =
+        connected().call(method, params, 120_000) as JsonObject
+
+    private fun keep(vararg ids: String) = jsonStrings(ids.toList())
+
+    private fun scan(vararg keep: String): StorageReport =
+        Storage.parseReport(core("storage.scan", buildJsonObject { put("keep", keep(*keep)) }))
+
+    private fun clean(kind: String, vararg keep: String): CleanOutcome =
+        Storage.parseCleaned(
+            core(
+                "storage.clean",
+                buildJsonObject {
+                    put("kind", kind)
+                    put("keep", keep(*keep))
+                },
+            ),
+        )
+
+    /** 核心拒绝了 [method]（参数不合要求）。 */
+    private fun refused(method: String, params: JsonObject): Boolean =
+        runCatching { core(method, params) }.exceptionOrNull() is ServeError
 
     private fun write(file: File, text: String = "x".repeat(5000)): File {
         file.parentFile!!.mkdirs()
@@ -137,13 +184,11 @@ class HelperStorageTest {
         )
     }
 
-    private fun report(out: String, key: String): StorageUsage {
-        val usage = Storage.parseReport(out).linux[key]
+    private fun report(parsed: StorageReport, key: String): StorageUsage {
+        val usage = parsed.linux[key]
         assertNotNull("缺 $key", usage)
         return usage!!
     }
-
-    private fun cleaned(out: String): CleanOutcome = Storage.parseCleaned(out)!!
 
     @Test
     fun residueRemovesOnlyLeftoversOfDeletedSessions() {
@@ -171,9 +216,7 @@ class HelperStorageTest {
         // 刚写的不删
         write(File(claude, "file-history/$running/backup@v1"))
 
-        val (code, out) = helper("storage", kept)
-        assertEquals(0, code)
-        val residue = report(out, "claude-residue")
+        val residue = report(scan(kept), "claude-residue")
         assertEquals(7, residue.items)
         assertTrue(residue.freeable > 0)
         assertEquals(
@@ -181,9 +224,7 @@ class HelperStorageTest {
             residue.parts.map { it.name }.toSet(),
         )
 
-        val (cleanCode, cleanOut) = helper("clean", "claude-residue", kept)
-        assertEquals(0, cleanCode)
-        val outcome = cleaned(cleanOut)
+        val outcome = clean("claude-residue", kept)
         assertEquals(7, outcome.removed)
         assertEquals(0, outcome.failed)
         for (path in
@@ -220,13 +261,14 @@ class HelperStorageTest {
         // ~/.claude/session-env 整个被换成指到外面的链接：这一类一项都不删
         link(File(claude, "session-env"), outside)
         age(home, outside)
-        val (_, out) = helper("clean", "claude-residue")
-        assertEquals(0, cleaned(out).removed)
+        assertEquals(0, clean("claude-residue").removed)
         assertTrue(File(outside, "$gone/inside.txt").exists())
     }
 
     @Test
     fun liveSessionsAreProtectedEverywhere() {
+        // 先把核心拉起来：它起来时自己会清掉进程没了的托管目录（同 zeta-helper hosts），手机上它早就在跑
+        core("files.ls", buildJsonObject { put("path", home.path) })
         val pid = fakeProcess("claude")
         register(pid, running)
         write(File(claude, "session-env/$running/hook.sh"))
@@ -261,29 +303,29 @@ class HelperStorageTest {
         age(home)
         write(File(home, ".cache/zeta/files/12345678/just-attached.png"))
 
-        assertEquals(0, cleaned(helper("clean", "claude-residue").second).removed)
+        assertEquals(0, clean("claude-residue").removed)
         assertTrue(File(claude, "session-env/$running/hook.sh").exists())
 
-        assertEquals(1, cleaned(helper("clean", "claude-debug").second).removed)
+        assertEquals(1, clean("claude-debug").removed)
         assertTrue(File(claude, "debug/$running.txt").exists())
         assertFalse(File(claude, "debug/$gone.txt").exists())
         assertTrue(Files.isSymbolicLink(File(claude, "debug/latest").toPath()))
 
-        assertEquals(1, cleaned(helper("clean", "claude-image-cache").second).removed)
+        assertEquals(1, clean("claude-image-cache").removed)
         assertTrue(File(claude, "image-cache/$running/1.png").exists())
-        assertEquals(1, cleaned(helper("clean", "claude-telemetry").second).removed)
+        assertEquals(1, clean("claude-telemetry").removed)
         assertTrue(File(claude, "telemetry/1p_failed_events.$running.$alive.json").exists())
 
-        assertEquals(1, cleaned(helper("clean", "claude-snapshots").second).removed)
+        assertEquals(1, clean("claude-snapshots").removed)
         assertFalse(File(claude, "shell-snapshots/snapshot-bash-$before-abc123.sh").exists())
         assertTrue(File(claude, "shell-snapshots/snapshot-bash-$after-def456.sh").exists())
 
-        assertEquals(1, cleaned(helper("clean", "zeta-hosts").second).removed)
+        assertEquals(1, clean("zeta-hosts").removed)
         assertTrue(File(home, ".cache/zeta/hosts/live-host/out.jsonl").exists())
         assertFalse(File(home, ".cache/zeta/hosts/dead-host").exists())
         assertTrue(File(home, ".cache/zeta-dev/hosts/other/pid").exists())
 
-        assertEquals(1, cleaned(helper("clean", "zeta-files", kept).second).removed)
+        assertEquals(1, clean("zeta-files", kept).removed)
         assertTrue(File(home, ".cache/zeta/files/abcd1234/pic.png").exists())
         assertFalse(File(home, ".cache/zeta/files/0f0f0f0f").exists())
         assertTrue(File(home, ".cache/zeta/files/not-an-upload/x").exists())
@@ -316,9 +358,7 @@ class HelperStorageTest {
         fakeProcess("sleeper", cwd = File(tmp, "busy"))
         write(File(tmp, "new.txt"))
 
-        val (code, out) = helper("clean", "tmp")
-        assertEquals(0, code)
-        assertEquals(5, cleaned(out).removed)
+        assertEquals(5, clean("tmp").removed)
         for (gone in
             listOf(
                 "old.txt",
@@ -351,13 +391,13 @@ class HelperStorageTest {
         write(File(home, ".cache/pip/http-v2/a/b"))
         write(File(home, ".cache/pip/wheels/c.whl"))
         age(home)
-        assertEquals(2, cleaned(helper("clean", "pip").second).removed)
+        assertEquals(2, clean("pip").removed)
         assertFalse(File(home, ".cache/pip/http-v2").exists())
         assertTrue(File(home, ".cache/pip").isDirectory)
 
         // npm 刚启动时整类不清
         fakeProcess("npm")
-        val busy = cleaned(helper("clean", "npm").second)
+        val busy = clean("npm")
         assertEquals("npm", busy.busy)
         assertTrue(File(home, ".npm/_cacache/content-v2/sha512/aa").exists())
         processes.forEach { it.destroyForcibly().waitFor(5, TimeUnit.SECONDS) }
@@ -365,7 +405,7 @@ class HelperStorageTest {
 
         // 别的 HOME 下刚启动的 npm 用的不是这份缓存，不拦着（比如本机别的会话起的 MCP 服务）
         fakeProcess("npm", processHome = tmp)
-        assertEquals(2, cleaned(helper("clean", "npm").second).removed)
+        assertEquals(2, clean("npm").removed)
         assertFalse(File(home, ".npm/_cacache").exists())
         assertFalse(File(home, ".npm/_logs").exists())
         assertTrue(File(home, ".npm/_npx/123/node_modules/server/index.js").exists())
@@ -378,11 +418,9 @@ class HelperStorageTest {
             "{\"cleanupPeriodDays\": 7, \"env\": {\"API_KEY\": \"fake-token-1\"}}",
         )
         write(File(project, "$gone/tool-results/b.txt"))
-        val (code, out) = helper("storage")
-        assertEquals(0, code)
-        assertFalse("不输出设置里别的值", out.contains("fake-token-1"))
-        val parsed = Storage.parseReport(out)
-        assertTrue(parsed.complete)
+        val result = core("storage.scan", buildJsonObject {})
+        assertFalse("不输出设置里别的值", result.toString().contains("fake-token-1"))
+        val parsed = Storage.parseReport(result)
         assertEquals(7, parsed.cleanupPeriodDays)
         assertEquals(listOf("-workspace-test"), parsed.projects.map { it.dir })
         assertEquals("/workspace/test", parsed.projects.single().cwd)
@@ -398,9 +436,16 @@ class HelperStorageTest {
         write(File(project, "$alive/tool-results/a.txt"), "y".repeat(20000))
         write(File(project, "$kept.jsonl"), "{}\n")
         write(File(project, "memory/MEMORY.md"))
-        val (code, out) = helper("storage-sessions", "-workspace-test", kept)
-        assertEquals(0, code)
-        val (sessions, rest) = Storage.parseSessions(out)
+        val (sessions, rest) =
+            Storage.parseSessions(
+                core(
+                    "storage.sessions",
+                    buildJsonObject {
+                        put("project", "-workspace-test")
+                        put("keep", keep(kept))
+                    },
+                ),
+            )
         assertEquals(listOf(alive, kept), sessions.map { it.id })
         assertTrue(sessions[0].bytes > sessions[1].bytes)
         assertTrue(sessions.single { it.id == kept }.live)
@@ -412,17 +457,22 @@ class HelperStorageTest {
     fun badArgumentsAreRefusedAsAWhole() {
         write(File(outside, "x.jsonl"), "{}\n")
         link(File(claude, "projects/escape"), outside)
-        for (args in
+        fun sessionsOf(project: String) = buildJsonObject { put("project", project) }
+        fun cleaning(kind: String, vararg keep: String) = buildJsonObject {
+            put("kind", kind)
+            put("keep", keep(*keep))
+        }
+        for ((method, params) in
             listOf(
-                listOf("storage-sessions", ".."),
-                listOf("storage-sessions", "../../" + outside.name),
-                listOf("storage-sessions", "escape"),
-                listOf("clean", "apt"),
-                listOf("clean", "nope"),
-                listOf("clean", "tmp", "../x"),
-                listOf("storage", "\$(id)"),
+                "storage.sessions" to sessionsOf(".."),
+                "storage.sessions" to sessionsOf("../../" + outside.name),
+                "storage.sessions" to sessionsOf("escape"),
+                "storage.clean" to cleaning("apt"),
+                "storage.clean" to cleaning("nope"),
+                "storage.clean" to cleaning("tmp", "../x"),
+                "storage.scan" to buildJsonObject { put("keep", keep("\$(id)")) },
             )) {
-            assertNotEquals("应拒绝 $args", 0, helper(*args.toTypedArray()).first)
+            assertTrue("应拒绝 $method $params", refused(method, params))
         }
         assertTrue(File(outside, "x.jsonl").exists())
     }

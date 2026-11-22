@@ -256,7 +256,10 @@ object SharedFolders {
             .getOrDefault(false)
     }
 
-    /** 以 Linux 用户的身份看各个共享文件夹：挂上没有、能不能读写。查不了返回 null。 */
+    /**
+     * 以 Linux 用户的身份看各个共享文件夹：挂上没有、能不能读写。查不了返回 null。各起一次 zeta-helper 的 mounts、不经核心： 要看的正是新进 Debian
+     * 的进程挂得上、读写得了没有，而且在换核心（core-takeover）之前查，核心看到的还是旧的挂载和组（docs/core.md「存储与文件」）。
+     */
     fun access(helper: HelperRun, folders: List<SharedFolder>): Map<String, SharedAccess>? {
         if (folders.isEmpty()) return emptyMap()
         val output = helper("mounts", folders.map { it.name }).outputOrNull ?: return null

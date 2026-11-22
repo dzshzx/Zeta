@@ -2,6 +2,9 @@ package com.dzshzx.zeta.core
 
 import java.io.File
 import java.nio.file.Files
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,22 +31,24 @@ class StorageTest {
         outside.deleteRecursively()
     }
 
+    private fun json(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
+
     @Test
-    fun parsesReportLines() {
-        val out =
-            """
-            {"type":"zeta_storage","key":"claude-residue","bytes":9000,"files":3,"freeable":8000,"items":2,"busy":null,"parts":[{"name":"file-history","bytes":5000,"items":1},{"name":"projects","bytes":3000,"items":1}]}
-            {"type":"zeta_storage","key":"npm","bytes":100,"files":1,"freeable":100,"items":1,"busy":"npm","parts":[]}
-            {"type":"zeta_storage","key":"tmp","error":true}
-            {"type":"zeta_storage_project","dir":"-small","bytes":10,"files":1,"sessions":1,"cwd":"/small"}
-            {"type":"zeta_storage_project","dir":"-workspace-claude","bytes":1000,"files":9,"sessions":4,"cwd":"/workspace/claude"}
-            {"type":"zeta_storage_settings","cleanupPeriodDays":null}
-            not json
-            {"type":"zeta_storage_done"}
-            """
-                .trimIndent()
-        val report = Storage.parseReport(out)
-        assertTrue(report.complete)
+    fun parsesTheScanResult() {
+        val result =
+            json(
+                """
+                {"kinds":[
+                  {"key":"claude-residue","bytes":9000,"files":3,"freeable":8000,"items":2,"busy":null,"parts":[{"name":"file-history","bytes":5000,"items":1},{"name":"projects","bytes":3000,"items":1}]},
+                  {"key":"npm","bytes":100,"files":1,"freeable":100,"items":1,"busy":"npm","parts":[]},
+                  {"key":"tmp","bytes":0,"files":0,"freeable":0,"items":0,"busy":null,"parts":[],"error":true}],
+                 "projects":[
+                  {"dir":"-small","bytes":10,"files":1,"sessions":1,"cwd":"/small"},
+                  {"dir":"-workspace-claude","bytes":1000,"files":9,"sessions":4,"cwd":"/workspace/claude"}],
+                 "cleanupPeriodDays":null}
+                """,
+            )
+        val report = Storage.parseReport(result)
         assertNull(report.cleanupPeriodDays)
         val residue = report.linux.getValue("claude-residue")
         assertEquals(8000, residue.freeable)
@@ -61,24 +66,22 @@ class StorageTest {
                 0,
             )
         assertEquals("-tmp-claude-5000…e5e3-scratchpad", leftover.label)
-        assertEquals(
-            7,
-            Storage.parseReport("{\"type\":\"zeta_storage_settings\",\"cleanupPeriodDays\":7}")
-                .cleanupPeriodDays,
-        )
-        assertFalse(Storage.parseReport("").complete)
+        assertEquals(7, Storage.parseReport(json("""{"cleanupPeriodDays":7}""")).cleanupPeriodDays)
+        assertTrue(Storage.parseReport(json("{}")).linux.isEmpty())
     }
 
     @Test
     fun parsesSessionsBiggestFirst() {
-        val out =
-            """
-            {"type":"zeta_storage_session","id":"a","file":"/p/a.jsonl","bytes":10,"updated":2,"live":false}
-            {"type":"zeta_storage_session","id":"b","file":"/p/b.jsonl","bytes":30,"updated":1,"live":true}
-            {"type":"zeta_storage_rest","bytes":5}
-            """
-                .trimIndent()
-        val (sessions, rest) = Storage.parseSessions(out)
+        val result =
+            json(
+                """
+                {"sessions":[
+                  {"id":"a","file":"/p/a.jsonl","bytes":10,"updated":2,"live":false},
+                  {"id":"b","file":"/p/b.jsonl","bytes":30,"updated":1,"live":true}],
+                 "rest":5}
+                """,
+            )
+        val (sessions, rest) = Storage.parseSessions(result)
         assertEquals(listOf("b", "a"), sessions.map { it.id })
         assertTrue(sessions.first().live)
         assertEquals(5, rest)
@@ -88,10 +91,10 @@ class StorageTest {
     fun parsesCleanOutcome() {
         val outcome =
             Storage.parseCleaned(
-                "{\"type\":\"zeta_cleaned\",\"key\":\"tmp\",\"freed\":4096,\"removed\":2,\"failed\":1,\"busy\":null}",
-            )!!
+                json("""{"key":"tmp","freed":4096,"removed":2,"failed":1,"busy":null}"""),
+            )
         assertEquals(CleanOutcome(4096, 2, 1, null), outcome)
-        assertNull(Storage.parseCleaned("garbage"))
+        assertEquals("npm", Storage.parseCleaned(json("""{"key":"npm","busy":"npm"}""")).busy)
     }
 
     @Test
@@ -164,31 +167,6 @@ class StorageTest {
         )
         assertEquals("30 天（默认）", Storage.cleanupText(null))
         assertEquals("7 天", Storage.cleanupText(7))
-    }
-
-    @Test
-    fun everyLinuxKindHasAHelperPlan() {
-        // zeta-helper storage 对每一类都报一行（统计不成的也报，带 error）：在空的临时 HOME 上跑一次，看报出的类别
-        val home = java.nio.file.Files.createTempDirectory("zeta-storage-kinds").toFile()
-        try {
-            val process =
-                ProcessBuilder(TestHelper.path, "storage")
-                    .apply {
-                        environment()["HOME"] = home.path
-                        environment()["ZETA_STORAGE_TEST_TMP"] = home.path
-                    }
-                    .start()
-            process.outputStream.close()
-            val out = process.inputStream.bufferedReader().readText()
-            assertTrue(process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS))
-            val reported = Storage.parseReport(out).linux.keys
-            for (kind in StorageKind.entries.filter { it.inLinux }) assertTrue(
-                kind.key,
-                kind.key in reported,
-            )
-        } finally {
-            home.deleteRecursively()
-        }
     }
 
     private fun aged(file: File, ago: Long = 60 * 60 * 1000L): File {

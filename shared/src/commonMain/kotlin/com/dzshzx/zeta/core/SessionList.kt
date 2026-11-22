@@ -5,16 +5,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.conv.sessionActivitiesOf
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 /**
  * 侧栏的会话列表：侧栏列着的主机（[ConversationHub.listedBackends]：正看着的那台，或全部主机）上 Claude Code 存在 ~/.claude/projects
- * 下的会话：列表经那边的 `zeta-helper serve` 订阅（[refresh]，那边一变就推来），改名、归档、删除、按 id 查各跑一次 zeta-helper
- * 的子命令。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions] 可观察，在主线程上读写；读写会话记录在后台线程上跑。
- * 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
+ * 下的会话：列表经那边的 `zeta-helper serve` 订阅（[refresh]，那边一变就推来），改名、归档、删除、按 id 查调那边核心的方法
+ * （[ConversationHub.callCore]，订阅着时借同一条连接）。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions]
+ * 可观察，在主线程上读写；读写会话记录在后台线程上跑。 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
  */
 class SessionList constructor(private val hub: ConversationHub) {
     private val main = MainHandler()
@@ -51,9 +54,9 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /**
      * 订阅着的各台主机（[HelperServe] 到那边的 `zeta-helper serve`）：订阅上就收到整份列表，之后那边的会话目录一变就推来变了的几项，
-     * 答完一轮、改名、删除、终端里开的会话都不用另外重读。只在主线程上碰。
+     * 答完一轮、改名、删除、终端里开的会话都不用另外重读。只在主线程上改；别的线程经 [connection] 借它调核心的方法。
      */
-    private val watches = HashMap<String, HelperServe>()
+    private val watches = ConcurrentHashMap<String, HelperServe>()
 
     /** 界面退到后台时断开了订阅（[pause]）：回到前台时再订阅（[resume]）。 */
     private var paused = false
@@ -80,7 +83,12 @@ class SessionList constructor(private val hub: ConversationHub) {
     }
 
     /** 主机 [backend] 的列表订阅着、而且连着：那边一变就会推来，不用自己去查。 */
-    private fun live(backend: String): Boolean = backend in watches && backend !in problems
+    private fun live(backend: String): Boolean =
+        watches.containsKey(backend) && backend !in problems
+
+    /** 订阅主机 [backend] 的列表、而且连着的那条连接：调核心的方法时借它（[ConversationHub.callCore]）。哪个线程上都能调。 */
+    fun connection(backend: String): HelperServe? =
+        watches[backend]?.takeIf { backend !in problems }
 
     private fun watch(backend: String): HelperServe {
         lateinit var self: HelperServe
@@ -88,13 +96,7 @@ class SessionList constructor(private val hub: ConversationHub) {
         self =
             HelperServe(
                 name = backend,
-                open = {
-                    val shell =
-                        hub.shell(backend) ?: error(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
-                    HelperServe.open(shell, hub.helperProgram) {
-                        hub.linkProblem(backend, it.exitCode, it.stderr)
-                    }
-                },
+                open = hub.serveOpener(backend),
                 subscriptions = listOf("sessions.watch", "conv.activity"),
                 onMessage = { o -> pushed(backend, o) { current() } },
                 onProblem = { why ->
@@ -225,13 +227,19 @@ class SessionList constructor(private val hub: ConversationHub) {
     }
 
     /**
-     * 在主机 [backend] 上按 id 查会话概要：列表里可能没有（最近 300 个之外的，或者列表还没读出来）。返回找到的那些； 没查成（那台用不了、助手出错或超时、连不上）返回
-     * null，这时不能当作“都不在了”。耗时，别在主线程调用。
+     * 在主机 [backend] 上按 id 查会话概要（核心的 `sessions.lookup`）：列表里可能没有（最近 300 个之外的，或者列表还没读出来）。
+     * 返回找到的那些；没查成（那台用不了、出错或超时、连不上）返回 null，这时不能当作“都不在了”。界面在后台时也会调（答完一轮、定时任务），
+     * 那时没有订阅着的连接，[ConversationHub.callCore] 单起一条。耗时，别在主线程调用。
      */
-    fun find(ids: Collection<String>, backend: String): List<SessionSummary>? =
-        hub.helper("lookup", ids.toList(), timeoutMs = 60_000, backend = backend)
-            .outputOrNull
-            ?.let { parseSessionSummaries(it, backend) }
+    fun find(ids: Collection<String>, backend: String): List<SessionSummary>? = runCatching {
+        hub.callCore(
+            backend,
+            "sessions.lookup",
+            buildJsonObject { put("sessions", jsonStrings(ids)) },
+        )
+    }
+        .getOrNull()
+        ?.let { lookedUpSessions(it, backend) }
 
     /**
      * 按 id 查一个会话（列表里可能还没有，比如点通知冷启动、列表还没读出来）；查到了在主线程上交给 [then]。
@@ -260,8 +268,11 @@ class SessionList constructor(private val hub: ConversationHub) {
         write(
             "改名",
             summary.backend,
-            "rename",
-            listOf(summary.file, clean),
+            "sessions.rename",
+            buildJsonObject {
+                put("session", summary.id)
+                put("title", clean)
+            },
             undo = {
                 // 这期间又改过的不动
                 sessions = sessions.map {
@@ -291,21 +302,28 @@ class SessionList constructor(private val hub: ConversationHub) {
         }
     }
 
-    /** 把 [group]（都在 [backend] 上）的归档标记写到那台主机；没写成时只把这次改了的改回去。 */
+    /** 把 [group]（都在 [backend] 上）的归档标记一个个写到那台主机（`sessions.archive` 一次一个会话）；没写成的只把它这次改了的改回去。 */
     private fun writeArchived(backend: String, group: List<SessionSummary>, archived: Boolean) {
-        val changed = group.filter { it.archived != archived }.mapTo(HashSet()) { it.id }
-        write(
-            if (archived) "归档" else "取消归档",
-            backend,
-            "archive",
-            group.map { it.id }.distinct() + if (archived) "1" else "0",
-            undo = {
-                sessions = sessions.map {
-                    if (it.id in changed && it.archived == archived) it.copy(archived = !archived)
-                    else it
-                }
-            },
-        )
+        for (summary in group.distinctBy { it.id }) {
+            val changed = summary.archived != archived
+            write(
+                if (archived) "归档" else "取消归档",
+                backend,
+                "sessions.archive",
+                buildJsonObject {
+                    put("session", summary.id)
+                    put("archived", archived)
+                },
+                undo = {
+                    if (changed)
+                        sessions = sessions.map {
+                            if (it.id == summary.id && it.archived == archived)
+                                it.copy(archived = !archived)
+                            else it
+                        }
+                },
+            )
+        }
     }
 
     fun delete(summary: SessionSummary) = delete(listOf(summary))
@@ -324,11 +342,12 @@ class SessionList constructor(private val hub: ConversationHub) {
         // 开着的对话、置顶、草稿已经去掉，撤不回来；没删掉的会话由重读列表放回去。电脑那边的窗口一并关掉
         for ((backend, group) in summaries.groupBy { it.backend }) {
             DeskWindows.close(hub, backend, group.map { it.id })
-            write(
+            // sessions.delete 一次一个会话：核心里开着它的对话时要先等进程退出
+            for (id in group.map { it.id }.distinct()) write(
                 "删除",
                 backend,
-                "delete",
-                group.map { it.file },
+                "sessions.delete",
+                buildJsonObject { put("session", id) },
                 timeoutMs = 60_000,
                 done = ::refresh,
             )
@@ -336,31 +355,40 @@ class SessionList constructor(private val hub: ConversationHub) {
     }
 
     /**
-     * 结束 [backend] 上正占着会话 [sessionId] 的、Zeta 之外的 Claude Code 进程（zeta-helper end：先 SIGTERM，不退再
-     * SIGKILL）， 完了重读列表，侧栏不再标它在别处运行。
+     * 结束 [backend] 上正占着会话 [sessionId] 的、Zeta 之外的 Claude Code 进程（核心的 `sessions.end_elsewhere`：先
+     * SIGTERM， 不退再 SIGKILL，最多十几秒），完了重读列表，侧栏不再标它在别处运行。
      */
     fun endElsewhere(sessionId: String, backend: String) =
-        write("结束别处的 Claude Code", backend, "end", listOf(sessionId), done = ::refresh)
+        write(
+            "结束别处的 Claude Code",
+            backend,
+            "sessions.end_elsewhere",
+            buildJsonObject { put("session", sessionId) },
+            done = ::refresh,
+        )
 
     /**
-     * 把界面上已经改了的写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。 没写成时在主线程上做 [undo]（把界面改回去，和会话记录对上），Zeta
-     * 在前台时说一声“[what]没成功”和原因。 [done] 在写完（成没成都算）后在主线程上调用。
+     * 把界面上已经改了的经核心的方法 [method] 写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。没写成时在主线程上做 [undo]
+     * （把界面改回去，和会话记录对上），Zeta 在前台时说一声“[what]没成功”和原因。[done] 在写完（成没成都算）后在主线程上调用。
      */
     private fun write(
         what: String,
         backend: String,
-        subcommand: String,
-        arguments: List<String>,
+        method: String,
+        params: JsonObject,
         timeoutMs: Long = 30_000,
         undo: () -> Unit = {},
         done: () -> Unit = {},
     ) {
         thread(name = "zeta-sessions", isDaemon = true) {
-            val result = hub.helper(subcommand, arguments, timeoutMs, backend)
+            val failure = runCatching {
+                hub.callCore(backend, method, params, timeoutMs)
+            }
+                .exceptionOrNull()
             main.post {
-                if (result is HelperResult.Failed) {
+                if (failure != null) {
                     undo()
-                    if (hub.foreground) hub.platform.toast("${what}没成功：${result.reason}")
+                    if (hub.foreground) hub.platform.toast("${what}没成功：${failure.message}")
                 }
                 done()
             }

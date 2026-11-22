@@ -85,7 +85,7 @@ class DesktopChatPlatform : ChatPlatform {
                 scope.launch {
                     val exported =
                         withContext(Dispatchers.IO) {
-                            exportMarkdown(hub, session.backend, session.file)
+                            exportMarkdown(hub, session.backend, session.id)
                         }
                     val copied = exported?.also { clipboard.setText(AnnotatedString(it.markdown)) }
                     hub.platform.toast(if (copied == null) "导出失败" else "已把对话复制到剪贴板")
@@ -158,8 +158,7 @@ class DesktopChatPlatform : ChatPlatform {
 
         /** 把 [sessions] 导出成 Markdown 写进 [target]，返回导出成的会话数；一个都没成（或没写进文件）是 0。耗时，别在主线程调用。 */
         fun writeExports(hub: ConversationHub, sessions: List<SessionSummary>, target: File): Int {
-            val exported =
-                exportMarkdowns(hub, sessions[0].backend, sessions.map { it.file }).orEmpty()
+            val exported = exportMarkdowns(hub, sessions[0].backend, sessions.map { it.id })
             if (exported.isEmpty()) return 0
             val text = combineExports(exported)
             return if (runCatching { target.writeText(text) }.isSuccess) exported.size else 0

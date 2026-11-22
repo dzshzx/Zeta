@@ -61,7 +61,6 @@ class StorageShots : ShotTest() {
                         ),
                     projects = projects,
                     cleanupPeriodDays = null,
-                    complete = true,
                 ),
             appCache = StorageUsage(158_000, 130_000, 1),
             imageMemory = 23_000_000,

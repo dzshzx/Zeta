@@ -34,29 +34,29 @@ internal fun rememberAndroidSessionExporter(
 ): SessionExporter {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // 选保存位置时界面可能被系统重建：要导出的记录文件（一行一个）和是不是多选导出记在可保存的状态里
-    var savingFiles by rememberSaveable { mutableStateOf<String?>(null) }
+    // 选保存位置时界面可能被系统重建：要导出的会话号（一行一个）和是不是多选导出记在可保存的状态里
+    var savingSessions by rememberSaveable { mutableStateOf<String?>(null) }
     var savingBackend by rememberSaveable { mutableStateOf(Backends.LOCAL) }
     var savingBatch by rememberSaveable { mutableStateOf(false) }
     val saveLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("text/markdown"),
         ) { uri ->
-            val files = savingFiles?.split('\n')?.filter { it.isNotEmpty() }
+            val sessions = savingSessions?.split('\n')?.filter { it.isNotEmpty() }
             val batch = savingBatch
-            savingFiles = null
+            savingSessions = null
             savingBatch = false
-            if (uri == null || files.isNullOrEmpty()) return@rememberLauncherForActivityResult
+            if (uri == null || sessions.isNullOrEmpty()) return@rememberLauncherForActivityResult
             if (batch) onSavedMany()
             scope.launch {
                 val saved =
                     withContext(Dispatchers.IO) {
-                        saveExport(context, hub, savingBackend, files, uri)
+                        saveExport(context, hub, savingBackend, sessions, uri)
                     }
                 Toast.makeText(
                         context,
-                        exportedMessage(saved, files.size),
-                        if (saved == files.size) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
+                        exportedMessage(saved, sessions.size),
+                        if (saved == sessions.size) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
                     )
                     .show()
             }
@@ -64,10 +64,11 @@ internal fun rememberAndroidSessionExporter(
     fun launch(sessions: List<SessionSummary>, batch: Boolean) {
         if (sessions.isEmpty()) return
         // 一次导出的都在侧栏同一台主机上
-        savingFiles = sessions.joinToString("\n") { it.file }
+        savingSessions = sessions.joinToString("\n") { it.id }
         savingBackend = sessions[0].backend
         savingBatch = batch
-        runCatching { saveLauncher.launch(exportName(sessions)) }.onFailure { savingFiles = null }
+        runCatching { saveLauncher.launch(exportName(sessions)) }
+            .onFailure { savingSessions = null }
     }
     return SessionExporter(
         save = { session -> launch(listOf(session), batch = false) },
@@ -76,15 +77,15 @@ internal fun rememberAndroidSessionExporter(
     )
 }
 
-/** 导出 [files] 写进 [uri]，返回导出成的会话数；一个都没成（或没写进文件）返回 0。 */
+/** 导出会话 [sessions] 写进 [uri]，返回导出成的会话数；一个都没成（或没写进文件）返回 0。 */
 private fun saveExport(
     context: Context,
     hub: ConversationHub,
     backend: String,
-    files: List<String>,
+    sessions: List<String>,
     uri: Uri,
 ): Int {
-    val exported = exportMarkdowns(hub, backend, files).orEmpty()
+    val exported = exportMarkdowns(hub, backend, sessions)
     if (exported.isEmpty()) {
         // 一个都没导出来：系统已经建好的那个空文件也删掉，免得留下一个空的 .md
         context.discardDocument(uri)
@@ -95,8 +96,7 @@ private fun saveExport(
 }
 
 private suspend fun shareExport(context: Context, hub: ConversationHub, session: SessionSummary) {
-    val exported =
-        withContext(Dispatchers.IO) { exportMarkdown(hub, session.backend, session.file) }
+    val exported = withContext(Dispatchers.IO) { exportMarkdown(hub, session.backend, session.id) }
     when {
         exported == null -> Toast.makeText(context, "导出失败", Toast.LENGTH_LONG).show()
         exported.markdown.length > MaxShareChars ->

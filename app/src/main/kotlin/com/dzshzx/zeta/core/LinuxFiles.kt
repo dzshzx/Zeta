@@ -52,7 +52,12 @@ sealed interface LinuxPreview {
     data class Failed(val message: String) : LinuxPreview
 }
 
-/** 只读的文件浏览：列目录、读文本都经助手脚本、以 Linux 用户的身份做（看到的就是 Claude Code 看到的），输出有上限。 耗时，别在主线程调用。 */
+/**
+ * 只读的文件浏览：列目录、读文本都经 zeta-helper、以 Linux 用户的身份做（看到的就是新起的 Claude Code 看到的），输出有上限。 耗时，别在主线程调用。
+ *
+ * 每次各起一次 zeta-helper 的 ls、read，不走核心的 files.ls、files.read：核心只看得到它启动时挂着的共享文件夹（/mnt/shared 下）和组，
+ * 共享文件夹增删后才换（core-takeover）；单起的进程进 Debian 时现挂，看到的总是现在的（docs/core.md「存储与文件」）。
+ */
 object LinuxFiles {
     /** 文本预览最多读这么多（与 Eta 相同）。 */
     const val PREVIEW_BYTES = 256 * 1024

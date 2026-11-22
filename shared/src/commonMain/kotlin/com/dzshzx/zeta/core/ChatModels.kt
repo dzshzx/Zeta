@@ -349,23 +349,7 @@ object HostKeys {
     fun hostOf(key: String): String = key.substringBefore('/', Backends.LOCAL)
 }
 
-private val summaryJson = Json {
-    ignoreUnknownKeys = true
-    isLenient = true
-}
-
-/** zeta-helper 的 list / lookup 输出：一行一个会话概要，别的行跳过。[backend] 是在哪台主机上读的。 */
-fun parseSessionSummaries(stdout: String, backend: String): List<SessionSummary> =
-    stdout
-        .lineSequence()
-        .mapNotNull { line ->
-            runCatching { summaryJson.parseToJsonElement(line) as? JsonObject }
-                .getOrNull()
-                ?.let { sessionSummaryOf(it, backend) }
-        }
-        .toList()
-
-/** 会话概要的一项（list、lookup 的一行，serve 推来的 zeta_sessions 里的一项）；缺 id 或文件的是 null。 */
+/** 会话概要的一项（serve 推来的 zeta_sessions、核心的 sessions.lookup 里的一项）；缺 id 或文件的是 null。 */
 fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? =
     SessionSummary(
         id = o.str("id") ?: return null,
@@ -378,6 +362,12 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? =
         archived = o.bool("archived") == true,
         backend = backend,
     )
+
+/** 核心的 `sessions.lookup` 的结果（会话摘要的数组）里的会话（[backend] 是在哪台主机上查的）；结果不成样子时是 null。 */
+fun lookedUpSessions(result: JsonElement, backend: String): List<SessionSummary>? =
+    (result as? JsonArray)?.mapNotNull { item ->
+        (item as? JsonObject)?.let { sessionSummaryOf(it, backend) }
+    }
 
 fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 

@@ -8,8 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
-/** 聊天里图片的按需载入与缓存。会话记录和 Linux 里的图片经助手脚本从对话所在的主机（[Backends]）取回， 缓存按主机分开：两台主机上同一个路径是两张图。 */
+/** 聊天里图片的按需载入与缓存。会话记录和 Linux 里的图片从对话所在的主机（[Backends]）取回（[fetch]），缓存按主机分开：两台主机上同一个路径是两张图。 */
 object ImageStore {
     /** 显示用的长边上限；原图再大也只解到这么大。 */
     private const val MAX_EDGE = 2048
@@ -83,15 +85,14 @@ object ImageStore {
         return loaded.second
     }
 
-    /** 取一张图的原始字节：网络图下载，会话记录和文件里的经助手从主机取，内嵌的直接解 base64。阻塞。 */
+    /** 取一张图的原始字节：网络图下载，会话记录和文件里的从主机取（[fetch]），内嵌的直接解 base64。阻塞。 */
     private fun fetchBytes(hub: ConversationHub, ref: ImageRef, backend: String): ByteArray? {
         if (ref is RemoteImage) return download(ref.url)
         val data =
             when (ref) {
                 is InlineImage -> ref.base64
-                is SessionImage ->
-                    fetch(hub, backend, "image", listOf(ref.file, ref.ref))?.str("data")
-                is FileImage -> fetch(hub, backend, "file-image", listOf(ref.path))?.str("data")
+                is SessionImage,
+                is FileImage -> fetch(hub, backend, ref)?.str("data")
                 is RemoteImage -> null
             } ?: return null
         return Base64.getMimeDecoder().decode(data)
@@ -125,18 +126,47 @@ object ImageStore {
     }
 
     /**
-     * 让主机 [backend] 上的助手取一张图（[subcommand] 是 image 或 file-image）：它的应答，有 data、media_type；没取到是
-     * null。阻塞。
+     * 让主机 [backend] 取一张会话记录里的（[SessionImage]，核心的 `sessions.image`）或主机上文件里的（[FileImage]）图： 应答里有
+     * media_type 和 base64 的 data；没取到、别的种类是 null。阻塞。
+     *
+     * 手机本机的图片文件仍各起一次 zeta-helper 的 file-image：核心只看得到它启动时挂着的共享文件夹（/mnt/shared 下），增删后才换
+     * （core-takeover）；单起的进程进来时现挂，看到的总是现在的（docs/core.md「存储与文件」）。
      */
-    fun fetch(
+    fun fetch(hub: ConversationHub, backend: String, ref: ImageRef): JsonObject? =
+        when (ref) {
+            is SessionImage ->
+                fromCore(
+                    hub,
+                    backend,
+                    "sessions.image",
+                    buildJsonObject {
+                        put("file", ref.file)
+                        put("ref", ref.ref)
+                    },
+                )
+            is FileImage ->
+                if (backend == Backends.LOCAL) fromHelper(hub, "file-image", listOf(ref.path))
+                else
+                    fromCore(hub, backend, "images.file", buildJsonObject { put("path", ref.path) })
+            else -> null
+        }
+
+    private fun fromCore(
         hub: ConversationHub,
         backend: String,
+        method: String,
+        params: JsonObject,
+    ): JsonObject? =
+        runCatching { hub.callCore(backend, method, params) }.getOrNull() as? JsonObject
+
+    private fun fromHelper(
+        hub: ConversationHub,
         subcommand: String,
         arguments: List<String>,
     ): JsonObject? {
         val output =
-            hub.helper(subcommand, arguments, timeoutMs = 60_000, backend = backend).outputOrNull
-                ?: return null
+            hub.helper(subcommand, arguments, timeoutMs = 60_000, backend = Backends.LOCAL)
+                .outputOrNull ?: return null
         val line = output.lineSequence().firstOrNull { it.startsWith("{") } ?: return null
         return json.parseToJsonElement(line) as? JsonObject
     }

@@ -11,6 +11,8 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** 像 Claude Code 会话 id 的字符串（zeta-helper 那边同样校验）：存储清理要保护的会话、设置备份里的置顶会话都按它收。 */
 internal val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
@@ -173,8 +175,6 @@ class StorageReport(
     val linux: Map<String, StorageUsage>,
     val projects: List<ProjectUsage>,
     val cleanupPeriodDays: Int?,
-    /** 助手的输出走完了（有最后那一行）。 */
-    val complete: Boolean,
 ) {
     val projectBytes: Long
         get() = projects.sumOf { it.bytes }
@@ -188,100 +188,82 @@ data class CleanOutcome(
     val error: String? = null,
 )
 
-/** 存储页：解析助手的输出、拼确认框的文字（纯函数，有单元测试），以及在后台线程上做统计和清理。 */
+/** 存储页：读核心的 storage.* 方法的结果、拼确认框的文字（纯函数，有单元测试），以及在后台线程上做统计和清理。 */
 object Storage {
     /** Claude Code 的 cleanupPeriodDays 没设时的默认值（2.1.328 实测）。 */
     const val DEFAULT_CLEANUP_DAYS = 30
 
-    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-
-    private fun lines(stdout: String): Sequence<JsonObject> =
-        stdout
-            .lineSequence()
-            .filter { it.startsWith("{") }
-            .mapNotNull { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
-
     private fun JsonObject.count(key: String): Long = long(key) ?: 0L
 
-    fun parseReport(stdout: String): StorageReport {
+    private fun JsonObject.items(key: String): List<JsonObject> =
+        arr(key).orEmpty().mapNotNull { it as? JsonObject }
+
+    /** `storage.scan` 的结果。 */
+    fun parseReport(result: JsonObject): StorageReport {
         val linux = LinkedHashMap<String, StorageUsage>()
-        val projects = ArrayList<ProjectUsage>()
-        var days: Int? = null
-        var complete = false
-        for (o in lines(stdout)) {
-            when (o.str("type")) {
-                "zeta_storage" -> {
-                    val key = o.str("key") ?: continue
-                    linux[key] =
-                        if (o.bool("error") == true) StorageUsage(0, failed = true)
-                        else
-                            StorageUsage(
-                                bytes = o.count("bytes"),
-                                freeable = o.count("freeable"),
-                                items = o.count("items").toInt(),
-                                parts =
-                                    o.arr("parts").orEmpty().mapNotNull { part ->
-                                        val p = part as? JsonObject ?: return@mapNotNull null
-                                        StoragePart(
-                                            p.str("name") ?: return@mapNotNull null,
-                                            p.count("bytes"),
-                                            p.count("items").toInt(),
-                                        )
-                                    },
-                                busy = o.str("busy"),
-                            )
-                }
-                "zeta_storage_project" ->
-                    projects +=
-                        ProjectUsage(
-                            dir = o.str("dir") ?: continue,
-                            cwd = o.str("cwd").orEmpty(),
-                            bytes = o.count("bytes"),
-                            sessions = o.count("sessions").toInt(),
-                        )
-                "zeta_storage_settings" -> days = o.int("cleanupPeriodDays")
-                "zeta_storage_done" -> complete = true
-            }
+        for (o in result.items("kinds")) {
+            val key = o.str("key") ?: continue
+            linux[key] =
+                if (o.bool("error") == true) StorageUsage(0, failed = true)
+                else
+                    StorageUsage(
+                        bytes = o.count("bytes"),
+                        freeable = o.count("freeable"),
+                        items = o.count("items").toInt(),
+                        parts =
+                            o.items("parts").mapNotNull { p ->
+                                StoragePart(
+                                    p.str("name") ?: return@mapNotNull null,
+                                    p.count("bytes"),
+                                    p.count("items").toInt(),
+                                )
+                            },
+                        busy = o.str("busy"),
+                    )
         }
-        return StorageReport(linux, projects.sortedByDescending { it.bytes }, days, complete)
-    }
-
-    /** 一个项目里的会话（按占用从大到小）和不属于任何会话的那部分的大小。 */
-    fun parseSessions(stdout: String): Pair<List<SessionUsage>, Long> {
-        val sessions = ArrayList<SessionUsage>()
-        var rest = 0L
-        for (o in lines(stdout)) {
-            when (o.str("type")) {
-                "zeta_storage_session" ->
-                    sessions +=
-                        SessionUsage(
-                            id = o.str("id") ?: continue,
-                            file = o.str("file") ?: continue,
-                            bytes = o.count("bytes"),
-                            updated = o.count("updated"),
-                            live = o.bool("live") == true,
-                        )
-                "zeta_storage_rest" -> rest = o.count("bytes")
-            }
-        }
-        return sessions.sortedWith(
-            compareByDescending<SessionUsage> { it.bytes }.thenByDescending { it.updated },
-        ) to rest
-    }
-
-    fun parseCleaned(stdout: String): CleanOutcome? =
-        lines(stdout)
-            .firstOrNull { it.str("type") == "zeta_cleaned" }
-            ?.let {
-                CleanOutcome(
-                    it.count("freed"),
-                    it.count("removed").toInt(),
-                    it.count("failed").toInt(),
-                    it.str("busy"),
+        val projects =
+            result.items("projects").mapNotNull { o ->
+                ProjectUsage(
+                    dir = o.str("dir") ?: return@mapNotNull null,
+                    cwd = o.str("cwd").orEmpty(),
+                    bytes = o.count("bytes"),
+                    sessions = o.count("sessions").toInt(),
                 )
             }
+        return StorageReport(
+            linux,
+            projects.sortedByDescending { it.bytes },
+            result.int("cleanupPeriodDays"),
+        )
+    }
 
-    /** 给助手的“要保护的会话”参数：只要像会话 id 的（助手那边同样校验，不合的整条命令拒绝）。 */
+    /** `storage.sessions` 的结果：项目里的会话（按占用从大到小）和不属于任何会话的那部分的大小。 */
+    fun parseSessions(result: JsonObject): Pair<List<SessionUsage>, Long> {
+        val sessions =
+            result.items("sessions").mapNotNull { o ->
+                SessionUsage(
+                    id = o.str("id") ?: return@mapNotNull null,
+                    file = o.str("file") ?: return@mapNotNull null,
+                    bytes = o.count("bytes"),
+                    updated = o.count("updated"),
+                    live = o.bool("live") == true,
+                )
+            }
+        return sessions.sortedWith(
+            compareByDescending<SessionUsage> { it.bytes }.thenByDescending { it.updated },
+        ) to result.count("rest")
+    }
+
+    /** `storage.clean` 的结果。 */
+    fun parseCleaned(result: JsonObject): CleanOutcome =
+        CleanOutcome(
+            result.count("freed"),
+            result.count("removed").toInt(),
+            result.count("failed").toInt(),
+            result.str("busy"),
+        )
+
+    /** 交给核心的“要保护的会话”：只要像会话 id 的（核心那边同样校验，不合的整个请求拒绝）。 */
     fun keepArguments(ids: Collection<String>): List<String> =
         ids.filter { SessionIdPattern.matches(it) }.distinct().sorted()
 
@@ -353,29 +335,54 @@ object Storage {
                     .map { it.id },
         )
 
-    /** 统计 Linux 一侧的各类。耗时，别在主线程调用。 */
-    fun scan(hub: ConversationHub, keep: List<String>): StorageReport? =
-        hub.helper("storage", keep, 180_000, Backends.LOCAL).outputOrNull?.let(::parseReport)
+    /** 统计 Linux 一侧的各类（核心的 `storage.scan`）。没统计成是 null。耗时，别在主线程调用。 */
+    fun scan(hub: ConversationHub, keep: List<String>): StorageReport? = runCatching {
+        hub.callCore(
+            Backends.LOCAL,
+            "storage.scan",
+            buildJsonObject { put("keep", jsonStrings(keep)) },
+            180_000,
+        )
+    }
+        .getOrNull()
+        ?.let { (it as? JsonObject)?.let(::parseReport) }
 
-    /** 一个项目里各会话的占用。耗时，别在主线程调用。 */
+    /** 一个项目里各会话的占用（核心的 `storage.sessions`）。耗时，别在主线程调用。 */
     fun sessions(
         hub: ConversationHub,
         project: String,
         keep: List<String>,
-    ): Pair<List<SessionUsage>, Long>? =
-        hub.helper("storage-sessions", listOf(project) + keep, 120_000, Backends.LOCAL)
-            .outputOrNull
-            ?.let(::parseSessions)
-
-    /** 由助手清掉一类。耗时，别在主线程调用。 */
-    fun clean(hub: ConversationHub, kind: StorageKind, keep: List<String>): CleanOutcome {
-        return when (
-            val result = hub.helper("clean", listOf(kind.key) + keep, 300_000, Backends.LOCAL)
-        ) {
-            is HelperResult.Failed -> CleanOutcome(0, 0, error = result.reason)
-            is HelperResult.Ok -> parseCleaned(result.output) ?: CleanOutcome(0, 0, error = "没清理成")
-        }
+    ): Pair<List<SessionUsage>, Long>? = runCatching {
+        hub.callCore(
+            Backends.LOCAL,
+            "storage.sessions",
+            buildJsonObject {
+                put("project", project)
+                put("keep", jsonStrings(keep))
+            },
+            120_000,
+        )
     }
+        .getOrNull()
+        ?.let { (it as? JsonObject)?.let(::parseSessions) }
+
+    /** 由核心清掉一类（`storage.clean`）。耗时，别在主线程调用。 */
+    fun clean(hub: ConversationHub, kind: StorageKind, keep: List<String>): CleanOutcome =
+        runCatching {
+            hub.callCore(
+                Backends.LOCAL,
+                "storage.clean",
+                buildJsonObject {
+                    put("kind", kind.key)
+                    put("keep", jsonStrings(keep))
+                },
+                300_000,
+            )
+        }
+        .fold(
+            { (it as? JsonObject)?.let(::parseCleaned) ?: CleanOutcome(0, 0, error = "没清理成") },
+            { CleanOutcome(0, 0, error = it.message ?: "没清理成") },
+        )
 
     /**
      * 以 root 执行 apt-get clean，前后各量一次 /var/cache/apt。apt 自己拿锁，别的 apt、dpkg 在跑时它会拒绝。
