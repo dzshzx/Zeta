@@ -133,15 +133,15 @@ private fun checkLinux(
         hub.shell(conversation.backend)
             ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
     val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL }
-    // TODO(核心)：conv.state 有了 host_key 以后传它，查对话进程的挂载里看不看得到（加共享文件夹后要不要重启）
-    var kind = PathCheck.check(shell, linuxPath, hostKey = null)
+    // 按对话进程的挂载查看不看得到（加共享文件夹后要不要重启）；还没接着进程时查新进程会看到的
+    var kind = PathCheck.check(shell, linuxPath, hostKey = conversation.hostKey)
     if (
         config != null &&
             kind == PathKind.Denied &&
             linuxPath.startsWith(SharedFolders.LINUX_ROOT + "/") &&
             SharedFolders.ensureMediaGroup(config)
     ) {
-        kind = PathCheck.check(shell, linuxPath, hostKey = null)
+        kind = PathCheck.check(shell, linuxPath, hostKey = conversation.hostKey)
     }
     return when (kind) {
         PathKind.Folder ->
