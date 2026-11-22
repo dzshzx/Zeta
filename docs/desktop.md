@@ -21,7 +21,7 @@ windows/
   internal/chat/      对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
   internal/hub/       中枢：当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）
   internal/sshtest/   测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
-  internal/hubtest/   测试用：不连 SSH 的假设备，中枢和界面的测试用
+  internal/hubtest/   测试用：不连 SSH 的假设备和假 serve（对话的推送用 recorded/ 里从真 serve 和核心录的消息），中枢和界面的测试用
   internal/ui/        mygo 界面：窗口、侧栏、聊天、输入栏、各种确认、设置各页（Claude Code 配置、账号与额度这两页只调 serve 的 config.*、accounts.*、quota.*）
   installer/          MSI（wixl）
 ```
@@ -41,6 +41,6 @@ windows/
 
 ## 测试
 
-- 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`。
+- 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`（`internal/hub` 的 `TestConversationThroughCore`，设 `ZETA_RECORD_DIR` 时顺带重录 `hubtest/recorded`）。
 - 界面用 mygo 的无窗口测试（`ui.NewTester`）配 `internal/hubtest` 的假设备，按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时设 `ZETA_PREVIEW_DIR`，`internal/ui` 的 `TestPreviews` 把各场景画成 PNG 人工看（同 power-meter）。
 - 门禁在 Linux 上跑全部测试；真窗口在本机的 Windows 上装 MSI 看。
