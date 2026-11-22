@@ -69,6 +69,7 @@ func (c *Conversation) receive(p *process, line []byte) {
 	if json.Unmarshal(line, &e) != nil {
 		return
 	}
+	c.observeSubagents(e, line)
 	if c.handle(p, e, line) {
 		c.status = ""
 		c.changed()
@@ -117,6 +118,7 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 		c.dropPrompt(e.RequestID)
 	case "conversation_reset":
 		// /clear：Claude Code 换了一个新会话，之前的内容它已经看不到了
+		c.subagents.sessionCleared(c.session) // 之前的子代理记录在原来的会话目录里
 		c.setSession(e.NewConversationID)
 		c.title = ""
 		c.r.AddNotice("上下文已清空，下面是新的会话", false)

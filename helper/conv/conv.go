@@ -81,6 +81,7 @@ type Conversation struct {
 	openedSession string
 	sendNow       bool // 这个进程的 Claude Code 认 interrupt 的 send_now
 	autoName      autoTitle
+	subagents     subagentTracker // 子代理查看页（subagent.go）
 
 	// forkSource 是分支的原会话号（子代理的记录可能还在原会话下面）；不是分支时为空
 	forkSource string

@@ -69,8 +69,9 @@ type request struct {
 	Hint      string              `json:"hint"`
 	Target    string              `json:"target"` // 条目 id：conv.rewrite、conv.drop、conv.code_changes、conv.restore_code 指的那条用户消息
 	Drop      bool                `json:"drop"`
-	As        string              `json:"as"`   // conv.fork：新对话在这个客户端里的名字
-	Last      string              `json:"last"` // conv.fork：从这一项所在那一轮之后分支
+	As        string              `json:"as"`          // conv.fork：新对话在这个客户端里的名字
+	Last      string              `json:"last"`        // conv.fork：从这一项所在那一轮之后分支
+	ToolUseID string              `json:"tool_use_id"` // conv.subagent：发起这个子代理的 Agent 调用
 	Message
 }
 
@@ -201,6 +202,9 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 		c.mcpReply(r.RequestID, r.Response)
 		return nil, nil
 	},
+	"conv.subagent": func(c *Conversation, client int, r request) (any, error) {
+		return nil, c.watchSubagent(client, r.ToolUseID, r.Watch)
+	},
 }
 
 func value(r request) string {
@@ -252,6 +256,7 @@ func (m *Manager) release(client int, name string, c *Conversation) {
 	_, _ = c.Call(func() (any, error) {
 		delete(c.holders, client)
 		delete(c.options, client)
+		c.unwatchSubagents(client)
 		return nil, nil
 	})
 }

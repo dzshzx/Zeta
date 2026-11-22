@@ -300,6 +300,7 @@ func (c *Conversation) endTurnState() {
 	clear(c.shellCommands)
 	c.interruptRequested = false
 	c.r.FinishTurn(false)
+	c.subagentsProcessEnded()
 	c.changed()
 }
 
