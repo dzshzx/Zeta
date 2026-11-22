@@ -74,9 +74,9 @@ class ConversationCoreTest {
         assertEquals(JsonPrimitive(true), cancel.params["recall"])
     }
 
-    /** 主机负载借那台主机的连接问 system.cpu（还没有连接就连上）：还没发过消息的新对话也问得到，也不会因此在核心里打开对话。 */
+    /** 主机负载借那台主机的连接问 system.cpu（还没有连接就连上），只发这一个请求，不在核心里打开对话。 */
     @Test
-    fun hostCpuWithoutOpening() {
+    fun hostCpuAsksOnlySystemCpu() {
         val hub = Fixtures.readyHub(app)
         val core = FakeCore().install(hub)
         core.respond = { call ->

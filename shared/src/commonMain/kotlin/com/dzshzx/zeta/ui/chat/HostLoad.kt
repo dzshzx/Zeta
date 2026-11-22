@@ -42,15 +42,19 @@ private val DIGIT_SIZE = 11.5.dp
 private val DIGIT_RAISE = (-0.45).dp
 
 /**
- * 主机 [backend]（手机本机的 Debian 或远程主机）整机的 CPU 使用率：聊天页看得见（生命周期至少 STARTED）时每 [HOST_CPU_POLL_MS]
- * 问一次那台主机上的核心 （[com.dzshzx.zeta.core.ConvLinks.hostCpu]），看不见时不问。还没问到、问不成时为 null。交出去的是
- * State：只在读它的按钮和说明里重组。
+ * 主机 [backend]（手机本机的 Debian 或远程主机）整机的 CPU 使用率：[active]（对话里有了消息）且聊天页看得见（生命周期至少 STARTED）时 每
+ * [HOST_CPU_POLL_MS] 问一次那台主机上的核心（[com.dzshzx.zeta.core.ConvLinks.hostCpu]），别的时候不问。还没问到、问不成、不问时为
+ * null。 交出去的是 State：只在读它的按钮和说明里重组。
  */
 @Composable
-fun rememberHostCpu(hub: ConversationHub, backend: String): State<HostCpu?> {
+fun rememberHostCpu(hub: ConversationHub, backend: String, active: Boolean): State<HostCpu?> {
     val cpu = remember(backend) { mutableStateOf<HostCpu?>(null) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(backend, lifecycle) {
+    LaunchedEffect(backend, lifecycle, active) {
+        if (!active) {
+            cpu.value = null
+            return@LaunchedEffect
+        }
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 cpu.value = withContext(Dispatchers.IO) { hub.convLinks.hostCpu(backend) }

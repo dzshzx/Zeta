@@ -776,7 +776,9 @@ private fun ConversationInput(
     Column(modifier = modifier) {
         var viewingUsage by remember { mutableStateOf(false) }
         var viewingCpu by remember { mutableStateOf(false) }
-        val hostCpu = rememberHostCpu(hub, conversation.backend)
+        // 负载标识只在对话里有了消息以后显示、去问：还没发过消息的新对话不为它连主机
+        val hasMessages = items.isNotEmpty()
+        val hostCpu = rememberHostCpu(hub, conversation.backend, active = hasMessages)
         ChatPlatform.current.ConversationStrip(hub, conversation, Modifier.padding(bottom = 6.dp))
         BackgroundTaskStrip(
             conversation,
@@ -840,7 +842,7 @@ private fun ConversationInput(
                 )
             },
             status = {
-                HostCpuButton({ hostCpu.value }, onClick = { viewingCpu = true })
+                if (hasMessages) HostCpuButton({ hostCpu.value }, onClick = { viewingCpu = true })
                 UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             voice = voice,

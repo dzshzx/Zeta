@@ -41,7 +41,7 @@ class ConvLinks(private val hub: ConversationHub) {
 
     /**
      * 问一次主机 [backend] 整机的 CPU 使用率（输入栏上的负载标识）：借这台主机对话用的连接，没有就连上，用完照常空闲 [IDLE_CLOSE_MS]
-     * 后断开，所以还没发过消息的新对话也问得到。问不成时为 null。阻塞，别在主线程上调。
+     * 后断开（负载标识只在对话里有了消息以后才问，那时这条连接本来就开着）。问不成时为 null。阻塞，别在主线程上调。
      */
     fun hostCpu(backend: String): HostCpu? {
         val link = acquire(backend)
