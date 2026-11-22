@@ -7,7 +7,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 核心：`zeta-helper serve`，和现在的 zeta-helper 是同一个程序（`helper/`）。客户端经一条常驻连接和它说话：远程主机上是一条 SSH 通道（经手机 Debian 的 OpenSSH 或直连都一样），手机本机是进 Debian 的那条管道，不开端口。状态在它的内存里（会话列表、对话的输出流归约、确认与提问的排队、后台任务），会话目录用 inotify 盯着，只推送变了的。Claude Code 自身配置的读写（记忆、Skills、MCP、Subagent、工具权限、新对话的默认值）和账号与额度也在这里，几个客户端共用，不在各客户端里各写一份。
 - 一个服务端：所有平台的客户端读同一个服务端。每台主机、每个用户、每个包（`ZETA_NAME`：正式版 `zeta`，测试版 `zeta-dev`，各端的测试版同包）只有一个核心，套接字是 `~/.cache/<ZETA_NAME>/core/core.sock`，不按 helper 版本分。逻辑只在核心里一份：serve 只管连接、拉起核心和 ping，所有方法（含 `sessions.`、`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`）都转给核心，核心里按方法前缀分发（`core.Mux`，`helper/corehandlers.go`）。
 - 新的接手：helper 编进构建序号（`helper/` 最后一次提交的时间，`git log -1 --format=%ct -- helper`，经 `-ldflags` 写入），`zeta_hello` 带 `build`（序号）和 `version`（内容哈希）。serve 比在跑的核心新时发 `core.handover`：旧核心停止接新连接，关掉到全部托管进程的连接（不跑 `detach`，进程照跑），删套接字退出；serve 随即用自己的程序拉起核心，新核心扫托管进程，把在回答、等确认、有后台任务的接上，闲着的等客户端下次发消息时照常接回。serve 比核心旧、或序号相同（同一份 helper 源码的不同开发构建）时直接用在跑的核心，不交班。
-- 换一个看得到新挂载的核心：手机上每次进 Debian 都在一个新的私有挂载环境里（`zeta_enter.sh` 的 `unshare -m`），共享文件夹在进入时挂上，常驻的核心和它起的 Claude Code 只看得到核心启动那一刻的挂载和组。共享文件夹增删以后，客户端经一次新的进入跑 `zeta-helper core-takeover`：在跑的核心不论版本都交班，由这个进程拉起新核心（`helper/takeover.go`）。进行中的对话照「新的接手」接上；已经在跑、看不到新文件夹的 Claude Code 由客户端按 `host_key` 判断要不要重起。
+- 换一个看得到新挂载的核心：手机上每次进 Debian 都在一个新的私有挂载环境里（`zeta_enter.sh` 的 `unshare -m`），共享文件夹在进入时挂上，常驻的核心和它起的 Claude Code 只看得到核心启动那一刻的挂载和组。共享文件夹增删以后，客户端经一次新的进入跑 `zeta-helper core-takeover`：在跑的核心不论版本都交班，由这个进程拉起新核心（`helper/takeover.go`）。进行中的对话照「新的接手」接上；已经在跑、看不到新文件夹的 Claude Code 由客户端按 `host_key` 判断要不要重起：先结束它（`conv.end`），再跑 `core-takeover`，下次发消息时由新核心起。顺序不能反：新核心不接闲着的托管进程，先换核心的话结束不到它，下次 start 又会接回这个看不到的（Android 的引用文件夹、路径对话框，`ui/chat/AttachPathDialogs.kt`）。
 - 协议只做加法：新方法、新字段可以加，已有的不改不删；客户端忽略不认识的字段，核心对缺的字段按零值处理。非改不可的不兼容改动提升 `protocol`，比核心旧的客户端连上时明说「主机上的 Zeta 服务比这个客户端新，请更新」。
 - 托管层不动：`zeta_host.sh` 照旧托管 Claude Code 进程，serve 重启、升级或崩溃都不结束进行中的对话；serve 里存的只是能重建的状态。
 - 客户端：Android 只用 Kotlin（界面用 COUI）写 Android 原生层（界面、手机工具里调系统接口的部分、悬浮层、无障碍、虚拟屏、数字助理、语音、通知与前台服务、闹钟、应用内更新、进 Debian 的管道），加一层协议转换：核心推来的 JSON 换成界面状态、用户操作换成请求，不写业务规则，核心算好的值（用量的比例与档位、确认的种类与说明等）直接用；其余能用 Go 写的都用 Go；Windows 是 Go + mygo 的原生界面，替掉现在的 Compose Desktop。客户端共用、和界面无关的 Go 代码在仓根 `client/`（SSH 直连 `client/sshlink`；在主机上跑命令、装 zeta-helper、到 serve 的连接 `client/hostlink`）：Windows 直接链接；Android 以后经随 APK 带的 Go 程序用，手机不装 Debian 也能直连远程主机。`shared/` 里的逻辑搬完后这个模块撤掉，界面回 `app/`。
@@ -108,7 +108,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `sessions.desk_open` | `session` | 在 tmux 会话 `zeta` 里给它开窗口，已经有就不动（同 `zeta-helper desk-open`）；窗口的工作目录是会话记录里的 `cwd`，还没有记录时是家目录。`result` 是 `{window}`：tmux 的窗口号，主机上没有 tmux 时为 `null` |
 | `sessions.desk_close` | `session` | 关掉它的窗口（同 `zeta-helper desk-close`），`result` 是 `{closed}`：关掉了几个 |
 
-对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`、`SessionHandoff`）和 Windows 版的搜索（`client/hostlink` 的 `Search`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。
+对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`）和 Windows 版的搜索（`client/hostlink` 的 `Search`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。
 
 客户端改走这些方法时一并删掉各自重复写的规则：
 

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
+import java.util.concurrent.CopyOnWriteArrayList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -90,5 +91,28 @@ class ConversationEndTest {
         assertFalse(ending in hub.liveConversations)
         // 别的在后台跑的不受影响
         assertTrue(hub.findConversation("s-left")?.busy == true)
+    }
+
+    /** 结束进程后接着做的事（引用文件夹前换核心）：排在 conv.end 答了之后；没打开过的对话也照做。 */
+    @Test
+    fun shutdownRunsTheNextStepAfterTheEnd() {
+        val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
+        val order = CopyOnWriteArrayList<String>()
+        core.respond = { call ->
+            order += call.method
+            core.defaultReply(call)
+        }
+        val chat = Conversation(hub, cwd, "s-restart", "", historyFile = null)
+        awaitCore { chat.view.connected }
+        chat.shutdown { order += "after" }
+        assertTrue(waitUntil { "after" in order })
+        assertEquals(
+            listOf("conv.end", "conv.close", "after"),
+            order.dropWhile { it != "conv.end" },
+        )
+
+        Conversation(hub, cwd, null, "", historyFile = null).shutdown { order += "never opened" }
+        assertTrue(waitUntil { "never opened" in order })
     }
 }

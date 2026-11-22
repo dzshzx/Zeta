@@ -3,14 +3,16 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.conv.CoreConversation
 import kotlin.concurrent.thread
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 终端里开着的 Claude Code（比如 tmux 里的 claude）占着会话时，它现在的样子（zeta-helper occupant）。 [status] 是 Claude Code
- * 登记的忙闲：idle、waiting（在等确认，[waitingFor] 是在等什么）、busy（正在跑一轮）、shell（在跑 ! 命令）；旧版不报时是 unknown。
- * [handsOver]：现在能交给 Zeta（两轮之间），由 zeta-helper 判断（handoff.go 的 handsOver）。正跑着的一轮在那边的进程里，交接会丢掉它。
+ * Zeta 之外占着会话的 Claude Code（终端里的，或另一个包托管的）现在的样子：核心 conv.occupant 的 result（docs/core.md「对话」）。
+ * [status] 是 Claude Code 登记的忙闲：idle、waiting（在等确认，[waitingFor] 是在等什么）、busy（正在跑一轮）、shell（在跑 !
+ * 命令）；旧版不报时是 unknown。 [handsOver]：现在能交给 Zeta（两轮之间），由核心判断。正跑着的一轮在那边的进程里，交接会丢掉它。
  */
 data class Occupant(
     val status: String,
@@ -22,12 +24,20 @@ data class Occupant(
         const val WAITING = "waiting"
         const val UNKNOWN = "unknown"
         const val SHELL = "shell"
+
+        /** conv.occupant 的 result：`status` 为 null 是没人占着；看不懂的当作还占着、看不出忙闲（没人占着时卡片会去接管）。 */
+        fun of(result: JsonElement?): Occupant? {
+            val o = result as? JsonObject ?: return Occupant(UNKNOWN)
+            if (o["status"] is JsonNull) return null
+            val status = o.str("status") ?: return Occupant(UNKNOWN)
+            return Occupant(status, o.str("waiting_for"), handsOver = o.bool("hands_over") != false)
+        }
     }
 }
 
-/** 一次接过来（zeta-helper handoff）的结果。 */
+/** 一次接过来（核心的 conv.handoff）的结果。 */
 sealed interface HandoffResult {
-    /** 那边退出了（或本来就没人占着），可以在 Zeta 里接着。 */
+    /** 那边退出了（或本来就没人占着），核心解开了 blocked。 */
     data object Handed : HandoffResult
 
     /** 那边这时正忙，没动它。 */
@@ -36,49 +46,31 @@ sealed interface HandoffResult {
     /** 发了退出信号，那边过了一会儿还没退。 */
     data object Stuck : HandoffResult
 
-    /** 没跑成（连不上等），[reason] 给人看。 */
+    /** 没做成（连不上等），[reason] 给人看。 */
     data class Failed(val reason: String) : HandoffResult
-}
 
-/** zeta-helper 交接命令输出的解析：纯函数，单元测试直接测。 */
-object HandoffOutput {
-    private val json = Json { ignoreUnknownKeys = true }
-
-    private fun line(output: String): JsonObject? =
-        output
-            .lineSequence()
-            .map { it.trim() }
-            .lastOrNull { it.startsWith("{") }
-            ?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
-
-    /** occupant 的输出：没人占着是 null。解析不了的当作看不出忙闲（还占着）。 */
-    fun occupant(output: String): Occupant? {
-        val o = line(output) ?: return Occupant(Occupant.UNKNOWN)
-        val status = o.str("status") ?: return null
-        return Occupant(status, o.str("waiting_for"), handsOver = o.bool("hands_over") != false)
-    }
-
-    fun handoff(output: String): HandoffResult {
-        val o = line(output) ?: return HandoffResult.Failed("zeta-helper 的输出看不懂")
-        return when {
-            o.bool("handed") == true -> HandoffResult.Handed
-            o.str("status") == "stuck" -> HandoffResult.Stuck
-            else ->
-                HandoffResult.Busy(Occupant(o.str("status") ?: Occupant.UNKNOWN, handsOver = false))
+    companion object {
+        /** conv.handoff 的 result（`{handed, status}`）。 */
+        fun of(result: JsonElement?): HandoffResult {
+            val o = result as? JsonObject ?: return Failed("核心的应答看不懂")
+            return when {
+                o.bool("handed") == true -> Handed
+                o.str("status") == STUCK -> Stuck
+                else -> Busy(Occupant(o.str("status") ?: Occupant.UNKNOWN, handsOver = false))
+            }
         }
+
+        private const val STUCK = "stuck"
     }
 }
 
 /**
- * 一个对话的会话正被终端里的 Claude Code 占着时，聊天页「别处运行」卡片背后的状态：那边闲不闲（[occupant]，卡片开着时定时 [refresh]），
- * 和把会话接过来（[handOver]：那边闲着时让它照 /exit 那样退出）。那边不再占着了（自己退出或接过来了）就调 [onFreed]。 在主线程上调用，跑命令在后台线程。
+ * 对话的会话正被 Zeta 之外的 Claude Code 占着（核心的 conv.state 里 blocked
+ * 为真）时，聊天页「别处运行」卡片背后的状态：那边闲不闲（[occupant]，卡片开着时定时 [refresh]，经 conv.occupant），和把会话接过来（[handOver]，经
+ * conv.handoff：那边闲着时让它照 /exit 那样退出）。 接过来以后核心解开 blocked 并推 conv.state，卡片随之收起；那边自己退出了（查到没人占着）也经
+ * conv.handoff 让核心解开。 [core] 是对话现在打开着的核心对话。在主线程上调用，请求在后台线程上发。
  */
-class SessionHandoff(
-    private val hub: ConversationHub,
-    private val backend: String,
-    private val sessionId: () -> String?,
-    private val onFreed: () -> Unit,
-) {
+class SessionHandoff(private val core: () -> CoreConversation?) {
     private val main = MainHandler()
 
     /** 最近一次查到的占用；还没查过是 null。 */
@@ -95,41 +87,37 @@ class SessionHandoff(
 
     private var refreshing = false
 
-    /** 查一次那边的样子。 */
+    /** 查一次那边的样子；没人占着了就请核心解开。 */
     fun refresh() {
-        val id = sessionId() ?: return
+        val target = core() ?: return
         if (refreshing || handing) return
         refreshing = true
         thread(name = "zeta-occupant", isDaemon = true) {
-            val result = hub.helper("occupant", listOf(id), 15_000, backend)
+            val result = runCatching { target.occupant() }
             main.post {
                 refreshing = false
-                val output = result.outputOrNull ?: return@post
-                val now = HandoffOutput.occupant(output)
-                if (now == null) onFreed() else occupant = now
+                result.onSuccess { now -> if (now == null) handOver() else occupant = now }
             }
         }
     }
 
     /** 接过来；没成的原因记在 [problem]，那边正忙时 [occupant] 也跟着更新。 */
     fun handOver() {
-        val id = sessionId() ?: return
+        val target = core() ?: return
         if (handing) return
         handing = true
         problem = null
         thread(name = "zeta-handoff", isDaemon = true) {
             val result =
-                when (val run = hub.helper("handoff", listOf(id), 40_000, backend)) {
-                    is HelperResult.Ok -> HandoffOutput.handoff(run.output)
-                    is HelperResult.Failed -> HandoffResult.Failed(run.reason)
+                try {
+                    target.handoff()
+                } catch (e: Exception) {
+                    HandoffResult.Failed(e.message ?: "没有做成")
                 }
             main.post {
                 handing = false
                 when (result) {
-                    HandoffResult.Handed -> {
-                        occupant = null
-                        onFreed()
-                    }
+                    HandoffResult.Handed -> occupant = null
                     is HandoffResult.Busy -> occupant = result.occupant
                     HandoffResult.Stuck -> problem = "对方的 Claude Code 没有退出。如需强制结束，请使用右上角菜单中的「结束对话」。"
                     is HandoffResult.Failed -> problem = "接管失败：${result.reason}"

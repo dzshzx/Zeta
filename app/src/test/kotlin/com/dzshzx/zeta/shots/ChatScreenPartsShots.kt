@@ -431,7 +431,7 @@ class ChatScreenPartsShots : ShotTest() {
 
     private fun external(name: String, occupant: Occupant?) {
         val hub = chatHub()
-        hub.current.force("external", true)
+        hub.current.core { it.copy(blocked = true) }
         hub.current.handoff.force("occupant", occupant)
         shoot(name) { Chat(hub) }
     }

@@ -3,6 +3,8 @@ package com.dzshzx.zeta.core.conv
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.CodeRewind
+import com.dzshzx.zeta.core.HandoffResult
+import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.TaskOutput
@@ -415,6 +417,12 @@ internal constructor(
     fun end() {
         request("conv.end")
     }
+
+    /** Zeta 之外占着这个会话的进程的样子（conv.occupant）；没人占着是 null。 */
+    fun occupant(): Occupant? = Occupant.of(request("conv.occupant"))
+
+    /** 把会话从别处接过来（conv.handoff），要等那边退出，最多十几秒；交出来了核心就解开 blocked 并推 conv.state。 */
+    fun handoff(): HandoffResult = HandoffResult.of(request("conv.handoff"))
 
     /** 手机工具的应答（回 conv.mcp 的 request_id）。 */
     fun mcpReply(requestId: String, response: JsonElement) {

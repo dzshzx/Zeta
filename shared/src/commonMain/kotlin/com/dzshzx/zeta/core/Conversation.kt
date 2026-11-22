@@ -55,8 +55,6 @@ class Conversation(
     title: String,
     /** 会话记录在主机上的路径；可省，核心按会话号自己找。 */
     private val historyFile: String?,
-    /** 打开时这个会话正被别的 Claude Code 进程占用（比如终端里开着）：[blockedByExternal] 的初值。 */
-    external: Boolean = false,
     /** Claude Code 跑在哪台主机上（[Backends]）：手机里的 Debian 或某台远程主机。一个对话从头到尾都在同一台上。 */
     val backend: String = Backends.LOCAL,
     /** 从别的对话分支出来的新对话：核心那边由 conv.fork 打开。 */
@@ -107,20 +105,15 @@ class Conversation(
     val title: String
         get() = state.title.ifEmpty { initialTitle }
 
-    /** 打开时列表说它在别处开着，等交接把它接过来。 */
-    private var external by mutableStateOf(external)
-
-    /** 会话正被别处（比如终端里的 Claude Code）占着：不让发送，等用户把它接过来（[handoff]）或那边自己退出。 */
-    val blockedByExternal: Boolean
-        get() = external || state.blocked
-
     /**
-     * 占着会话的那边闲不闲、把会话接过来（「别处运行」卡片用）；那边退出了就放开输入栏。
-     *
-     * TODO(核心)：conv.occupant、conv.handoff 和 conv.open 按别处占用给 blocked 初值合入后改走它们，这里的 [external] 和
-     *   SessionHandoff 去掉。
+     * 会话正被别处（比如终端里的 Claude Code）占着：不让发送，等用户把它接过来（[handoff]）或那边自己退出。以核心 conv.state 的 blocked 为准：
+     * 打开时正被占着、起进程时才发现被占着都由核心置上，接过来以后由核心解开。
      */
-    val handoff = SessionHandoff(hub, backend, { sessionId }) { this.external = false }
+    val blockedByExternal: Boolean
+        get() = state.blocked
+
+    /** 占着会话的那边闲不闲、把会话接过来（「别处运行」卡片用），经这个对话的 conv.occupant、conv.handoff。 */
+    val handoff = SessionHandoff { core }
 
     /** 请求没成的提示（核心没收到，所以不在核心的条目里），接在条目后面。 */
     private var localNotices by mutableStateOf<List<NoticeItem>>(emptyList())
@@ -423,6 +416,12 @@ class Conversation(
 
     /** 结束背后的进程，等价于终端里的 /exit（conv.end）：用户结束对话、删会话、换账号、删主机这些要真结束的时候。对话内容保留，下次发送时接上；后台屏幕也留着，只是睡下。 */
     fun shutdown() = release(end = true)
+
+    /** 同 [shutdown]，结束进程的请求（conv.end）答了以后在请求线程上接着做 [after]（可以阻塞）。在主线程上调用。 */
+    fun shutdown(after: () -> Unit) {
+        release(end = true)
+        enqueue(after)
+    }
 
     /** 这边不再拿着核心里的对话（conv.close）：闲着收掉、切走、换连法、换环境时。核心那边没人拿着、闲下来后断开进程。 */
     fun leave() = release(end = false)

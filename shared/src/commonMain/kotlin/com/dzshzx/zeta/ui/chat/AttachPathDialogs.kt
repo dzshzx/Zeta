@@ -37,6 +37,7 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EnvShell
+import com.dzshzx.zeta.core.HelperResult
 import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.SharedFolder
@@ -52,6 +53,7 @@ import io.github.suqi8.coui.kmp.basic.appendLink
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.theme.COUITheme
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -245,7 +247,7 @@ private fun folderConfirmAllowed(resolution: Resolution, idle: Boolean, running:
         else -> false
     }
 
-/** 按下引用文件夹的确认键：看得到的直接引用，要重启的先停进程，要共享的先加共享文件夹。 */
+/** 按下引用文件夹的确认键：看得到的直接引用，要重启的先停进程、换核心，要共享的先加共享文件夹。 */
 private fun confirmFolder(
     resolution: Resolution,
     browser: AndroidFolderBrowser,
@@ -261,9 +263,11 @@ private fun confirmFolder(
             onDismiss()
         }
         is Resolution.NeedsRestart -> {
-            conversation.shutdown()
-            onAttach(AttachedPaths.reference(resolution.linuxPath, folder = true))
-            onDismiss()
+            browser.working = true
+            scope.launch {
+                browser.error = restartAndAttach(hub, conversation, resolution, onAttach, onDismiss)
+                browser.working = false
+            }
         }
         is Resolution.NeedsShare -> {
             browser.working = true
@@ -284,7 +288,10 @@ private suspend fun shareAndAttach(
     onAttach: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val failure = withContext(Dispatchers.IO) { shareAndCheck(hub, browser.path, name) }
+    val failure =
+        withContext(Dispatchers.IO) { shareAndCheck(hub, browser.path, name) }
+            // 核心和已在跑的进程都看不到新挂的目录：停下进程、换核心，下次发送时带着新的挂载重新起来
+            ?: renewCore(hub, conversation, end = conversation.isProcessAlive)
     browser.working = false
     if (failure != null) {
         browser.error = failure
@@ -292,8 +299,6 @@ private suspend fun shareAndAttach(
             withContext(Dispatchers.IO) { resolveFolder(hub, conversation, browser.path) }
         return
     }
-    // 已在跑的进程看不到新挂的目录：停下它，下次发送时带着新的挂载重新起来
-    if (conversation.isProcessAlive) conversation.shutdown()
     AttachedPaths.linuxPathFor(browser.path, hub.settings.sharedFolders, hub.settings.env?.rootfs)
         ?.let { onAttach(AttachedPaths.reference(it, folder = true)) }
     onDismiss()
@@ -426,6 +431,45 @@ private fun shareRestartHint(idle: Boolean, running: Boolean): String =
         else -> "；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。"
     }
 
+/**
+ * 让对话的 Claude Code 下次起来时看得到新挂上的共享文件夹：每次进 Debian 各有自己的挂载，常驻的核心和它起的 Claude Code
+ * 只看得到核心启动时挂着的（docs/core.md 「换一个看得到新挂载的核心」）。[end]
+ * 时先结束对话的进程（conv.end）：交班后的新核心不接闲着的进程，不先结束的话下次发消息会接回这个看不到的； 再经一次新的进入跑 `zeta-helper
+ * core-takeover`，让核心换成这次进入拉起的。都在后台线程上跑。成了返回 null，没成返回给人看的原因。
+ */
+private suspend fun renewCore(
+    hub: ConversationHub,
+    conversation: Conversation,
+    end: Boolean,
+): String? {
+    val done = CompletableDeferred<HelperResult>()
+    val takeover: () -> Unit = {
+        done.complete(
+            runCatching { hub.helper("core-takeover", backend = conversation.backend) }
+                .getOrElse { HelperResult.Failed(it.message ?: "没有跑成") },
+        )
+    }
+    if (end) conversation.shutdown(takeover) else withContext(Dispatchers.IO) { takeover() }
+    val failed = done.await() as? HelperResult.Failed ?: return null
+    return "没能让 Claude 看到新的共享文件夹：${failed.reason}"
+}
+
+/** 引用要重启才看得到的 [target]：先结束进程、换核心（[renewCore]），成了再引用并关掉对话框；没成返回原因，对话框留着。 */
+private suspend fun restartAndAttach(
+    hub: ConversationHub,
+    conversation: Conversation,
+    target: Resolution.NeedsRestart,
+    onAttach: (String) -> Unit,
+    onDismiss: () -> Unit,
+): String? {
+    renewCore(hub, conversation, end = true)?.let {
+        return it
+    }
+    onAttach(AttachedPaths.reference(target.linuxPath, target.folder))
+    onDismiss()
+    return null
+}
+
 /** 手机上的目录 [path] 在 Linux 里能不能被对话看到；看不到时给出共享它要用的名字。 */
 private fun resolveFolder(
     hub: ConversationHub,
@@ -475,6 +519,8 @@ private fun PathAttachDialog(
 ) {
     var input by remember(opens) { mutableStateOf("") }
     var resolution by remember(opens) { mutableStateOf<Resolution?>(null) }
+    var working by remember(opens) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val home = hub.home(conversation.backend)
     val remote = conversation.backend != Backends.LOCAL
     LaunchedEffect(visible, input) {
@@ -496,30 +542,47 @@ private fun PathAttachDialog(
                 "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
         confirmText = if (current is Resolution.NeedsRestart) "重启 Claude 并引用" else "引用",
         confirmEnabled =
-            current is Resolution.Ready || (current is Resolution.NeedsRestart && idle),
-        onConfirm = { confirmPath(current, conversation, onAttach, onDismiss) },
+            !working &&
+                (current is Resolution.Ready || (current is Resolution.NeedsRestart && idle)),
+        onConfirm = {
+            confirmPath(current, hub, conversation, scope, { working = it }, onAttach, onDismiss) {
+                resolution = Resolution.Problem(it)
+            }
+        },
         onDismissRequest = onDismiss,
     ) {
         PathDialogContent(current, input, { input = it }, home, idle, conversation.cwd)
     }
 }
 
-/** 按下引用路径的确认键：看得到的直接引用，要重启的先停进程；别的情况不动。 */
+/**
+ * 按下引用路径的确认键：看得到的直接引用；要重启的先结束进程、换核心（[restartAndAttach]），期间 [setWorking] 为真，没成时把原因交给 [onFailed]；
+ * 别的情况不动。
+ */
 private fun confirmPath(
     current: Resolution?,
+    hub: ConversationHub,
     conversation: Conversation,
+    scope: CoroutineScope,
+    setWorking: (Boolean) -> Unit,
     onAttach: (String) -> Unit,
     onDismiss: () -> Unit,
+    onFailed: (String) -> Unit,
 ) {
     when (current) {
-        is Resolution.Ready -> onAttach(AttachedPaths.reference(current.linuxPath, current.folder))
-        is Resolution.NeedsRestart -> {
-            conversation.shutdown()
+        is Resolution.Ready -> {
             onAttach(AttachedPaths.reference(current.linuxPath, current.folder))
+            onDismiss()
         }
-        else -> return
+        is Resolution.NeedsRestart -> {
+            setWorking(true)
+            scope.launch {
+                restartAndAttach(hub, conversation, current, onAttach, onDismiss)?.let(onFailed)
+                setWorking(false)
+            }
+        }
+        else -> Unit
     }
-    onDismiss()
 }
 
 /** 引用路径对话框的内容：输入框末尾跟着查到的结果，下面一行说明。 */

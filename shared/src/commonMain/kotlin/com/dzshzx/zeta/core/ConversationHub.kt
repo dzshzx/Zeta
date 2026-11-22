@@ -722,7 +722,6 @@ class ConversationHub(val platform: HubPlatform) {
                     summary.id,
                     summary.title.ifBlank { summary.preview.take(40) },
                     summary.file,
-                    external = summary.external,
                     backend = summary.backend,
                 ),
         )
