@@ -27,7 +27,7 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /** Zeta 直连远程主机的 SSH 连接（[RemoteHost.Via.Direct]），和它用的密钥。 */
-    val ssh = SshLinks(platform::sshKey)
+    val ssh = SshLinks(platform.sshAuth)
 
     val settings: Settings
         get() = platform.settings
@@ -130,6 +130,7 @@ class ConversationHub(val platform: HubPlatform) {
                         via = via,
                         target = target,
                         hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct },
+                        key = host.key.takeIf { via == RemoteHost.Via.Direct },
                     )
                 else it
             },
@@ -146,16 +147,17 @@ class ConversationHub(val platform: HubPlatform) {
         else null
 
     /**
-     * 连一次远程主机 [target] 看看（连法 [via]）：家目录、claude、CPU 架构。直连的只认 [expectedHostKey]，加主机时是 null（记下对方的）。
-     * 阻塞，别在主线程上调用。
+     * 连一次远程主机 [target] 看看（连法 [via]）：家目录、claude、CPU 架构。直连的只认 [expectedHostKey]，加主机时是 null（记下对方的）；
+     * 直连用私钥 [key]（[RemoteHost.key]）。 阻塞，别在主线程上调用。
      */
     fun probeRemote(
         target: String,
         via: RemoteHost.Via,
         expectedHostKey: String? = null,
+        key: String? = null,
     ): RemoteHosts.Probe =
         when (via) {
-            RemoteHost.Via.Direct -> RemoteHosts.probeDirect(ssh, target, expectedHostKey)
+            RemoteHost.Via.Direct -> RemoteHosts.probeDirect(ssh, target, expectedHostKey, key)
             RemoteHost.Via.Debian ->
                 shell(Backends.LOCAL)?.let { RemoteHosts.probeDebian(it, target) }
                     ?: RemoteHosts.Probe.Failed("手机里的 Linux 环境还没就绪")

@@ -60,10 +60,13 @@ class RemoteHostsTest {
                 key,
             )
         assertEquals(listOf(direct), RemoteHosts.decode(RemoteHosts.encode(listOf(direct))))
+        // 桌面版直连照这台电脑的 ~/.ssh 配置：地址可以是别名，私钥可以另选
+        val alias = direct.copy(id = "r-7", target = "dev-box", key = "~/.ssh/dev")
+        assertEquals(listOf(alias), RemoteHosts.decode(RemoteHosts.encode(listOf(alias))))
         val broken =
             """[
             {"id":"r-4","target":"me@example.com","home":"/h","via":"direct"},
-            {"id":"r-5","target":"dev-box","home":"/h","via":"direct","hostKey":"$key"},
+            {"id":"r-5","target":"dev box","home":"/h","via":"direct","hostKey":"$key"},
             {"id":"r-6","target":"me@example.com","home":"/h","via":"direct","hostKey":"not-a-key"}
         ]"""
         assertEquals(emptyList<RemoteHost>(), RemoteHosts.decode(broken))
@@ -149,6 +152,12 @@ class RemoteHostsTest {
         for (text in listOf("dev-box", "host.example:2222", "")) assertNull(
             text,
             RemoteHosts.targetFor(text, direct),
+        )
+        // 桌面版照这台电脑的 ~/.ssh 配置直连：别名也行，主机:端口、像选项的还是不行
+        assertEquals("dev-box", RemoteHosts.targetFor(" dev-box ", direct, aliases = true))
+        for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(
+            text,
+            RemoteHosts.targetFor(text, direct, aliases = true),
         )
         // 主机:端口 交给 OpenSSH 会被当成主机名的一部分；像选项的、带空白的不行
         for (text in listOf("host.example:2222", "-oProxyCommand=sh", "a b", "")) assertNull(

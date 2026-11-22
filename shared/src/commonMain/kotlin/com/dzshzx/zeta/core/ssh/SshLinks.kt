@@ -5,6 +5,8 @@ import com.dzshzx.zeta.core.LinuxEnv
 import com.jcraft.jsch.ChannelExec
 import com.jcraft.jsch.HostKey
 import com.jcraft.jsch.HostKeyRepository
+import com.jcraft.jsch.Identity
+import com.jcraft.jsch.IdentityRepository
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.JSchAlgoNegoFailException
 import com.jcraft.jsch.JSchChangedHostKeyException
@@ -18,6 +20,7 @@ import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.Vector
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -79,25 +82,29 @@ data class SshTarget(val user: String, val host: String, val port: Int) {
 }
 
 /**
- * Zeta 自己连远程主机的 SSH（JSch，用 [SshKey]）：每台主机一条连接，每个命令开一个通道，和 OpenSSH 的 ControlMaster 一样省握手。 连接断了（保活包
- * 45 秒左右没回音、对方关了），上面的命令都以 [CONNECTION_FAILED] 结束；下一个命令重新连。 最后一个通道关掉 [idleMs]
+ * Zeta 自己连远程主机的 SSH（JSch，地址实际连到哪、用哪些密钥看 [auth]）：每台主机一条连接，每个命令开一个通道，和 OpenSSH 的 ControlMaster 一样省握手。
+ * 连接断了（保活包 45 秒左右没回音、对方关了），上面的命令都以 [CONNECTION_FAILED] 结束；下一个命令重新连。 最后一个通道关掉 [idleMs]
  * 后断开，闲着时不发保活包，不让手机的网络一直醒着。 主机指纹在加主机时记下（[probe]），以后连接只认这一个，变了就拒绝。
  */
-class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
-    /** Zeta 的密钥；第一次用时从 Keystore 取（没有就生成）。 */
-    val key: SshKey by lazy(keyProvider)
-
-    private val jsch by lazy { JSch().apply { addIdentity(key, null) } }
+class SshLinks(val auth: SshAuth, private val idleMs: Long = 60_000) {
+    // 密钥按连接给（[connect]），这里不放
+    private val jsch = JSch()
     private val links = ConcurrentHashMap<String, Link>()
     private val timer = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "zeta-ssh-idle").apply { isDaemon = true }
     }
 
     /** 在主机上跑 [command]（交给那边的登录 shell）。马上返回，连接在后台建：连不上的进程以 [CONNECTION_FAILED] 结束，原因在标准错误里。 */
-    fun start(hostId: String, target: SshTarget, hostKey: ByteArray, command: String): Process {
+    fun start(
+        hostId: String,
+        target: String,
+        hostKey: ByteArray,
+        command: String,
+        key: String? = null,
+    ): Process {
         val process = SshProcess()
         thread(name = "zeta-ssh-open", isDaemon = true) {
-            val link = link(hostId, target, hostKey)
+            val link = link(hostId, target, key, hostKey)
             try {
                 open(link, command, process)
             } catch (e: Exception) {
@@ -157,15 +164,16 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
      * 返回对方的主机指纹和命令的结果。连接用完就断开，不进连接池。阻塞，别在主线程上调用。
      */
     fun probe(
-        target: SshTarget,
+        target: String,
         expectedHostKey: ByteArray?,
         command: String,
         timeoutMs: Long = 45_000,
+        key: String? = null,
     ): ProbeResult {
         var seen: ByteArray? = null
         val session =
             try {
-                connect(target, expectedHostKey) { seen = it }
+                connect(target, key, expectedHostKey) { seen = it }
             } catch (e: Exception) {
                 return ProbeResult(
                     seen,
@@ -204,25 +212,48 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
         links.values.forEach { it.drop() }
     }
 
-    private fun link(hostId: String, target: SshTarget, hostKey: ByteArray): Link =
+    private fun link(hostId: String, target: String, key: String?, hostKey: ByteArray): Link =
         synchronized(links) {
             val existing = links[hostId]
             if (
                 existing != null &&
                     existing.target == target &&
+                    existing.key == key &&
                     existing.hostKey.contentEquals(hostKey)
             )
                 return existing
             existing?.drop()
-            Link(target, hostKey).also { links[hostId] = it }
+            Link(target, key, hostKey).also { links[hostId] = it }
         }
 
+    /**
+     * 连上地址 [target]（私钥 [key]，null 照 [auth] 的默认）：实际的目的地和密钥问 [auth]（每次连都问，配置改了下次连接就照新的）；对方不认密钥时抛
+     * [SshProblem]。
+     */
     private fun connect(
-        target: SshTarget,
+        target: String,
+        key: String?,
         expectedHostKey: ByteArray?,
         seen: (ByteArray) -> Unit = {},
+    ): Session {
+        val route = auth.resolve(target, key)
+        try {
+            return connect(route, expectedHostKey, seen)
+        } catch (e: JSchException) {
+            val text = e.message.orEmpty()
+            if (text.contains("Auth fail") || text.contains("Auth cancel"))
+                throw SshProblem(auth.rejected(route))
+            throw e
+        }
+    }
+
+    private fun connect(
+        route: SshRoute,
+        expectedHostKey: ByteArray?,
+        seen: (ByteArray) -> Unit,
     ): Session =
-        jsch.getSession(target.user, target.host, target.port).apply {
+        jsch.getSession(route.target.user, route.target.host, route.target.port).apply {
+            setIdentityRepository(Identities(route.identities))
             BouncyCastleAlgorithms.forEach { (name, implementation) ->
                 setConfig(name, implementation)
             }
@@ -240,7 +271,7 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
         }
 
     /** 一台主机的连接：没连上或断了时，下一个要用的人去连（同一时间只连一次）。 */
-    private inner class Link(val target: SshTarget, val hostKey: ByteArray) {
+    private inner class Link(val target: String, val key: String?, val hostKey: ByteArray) {
         @Volatile private var session: Session? = null
         private val channels = AtomicInteger()
         @Volatile private var idle: ScheduledFuture<*>? = null
@@ -252,7 +283,7 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
                 ?.let {
                     return it
                 }
-            return connect(target, hostKey).also { session = it }
+            return connect(target, key, hostKey).also { session = it }
         }
 
         fun connected(): Boolean = session?.isConnected == true
@@ -318,6 +349,21 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
             getHostKey().filter { type == null || it.type == type }.toTypedArray()
     }
 
+    /** 一次连接登录时依次试的密钥（[SshRoute.identities]），不往里加、不删。 */
+    private class Identities(private val list: List<Identity>) : IdentityRepository {
+        override fun getName(): String = "zeta"
+
+        override fun getStatus(): Int = IdentityRepository.RUNNING
+
+        override fun getIdentities(): Vector<Identity> = Vector(list)
+
+        override fun add(identity: ByteArray?): Boolean = false
+
+        override fun remove(blob: ByteArray?): Boolean = false
+
+        override fun removeAll() = Unit
+    }
+
     /** 不问用户：没有密码、口令可答，主机密钥只按 [HostKeys] 判。 */
     private object NoPrompts : UserInfo {
         override fun getPassphrase(): String? = null
@@ -372,11 +418,14 @@ class SshLinks(keyProvider: () -> SshKey, private val idleMs: Long = 60_000) {
             val unreachable =
                 Regex("ENETUNREACH|EHOSTUNREACH|unreachable", RegexOption.IGNORE_CASE)
                     .containsMatchIn(text)
+            causes
+                .firstOrNull { it is SshProblem }
+                ?.let {
+                    return it.message.orEmpty()
+                }
             return when {
                 causes.any { it is JSchChangedHostKeyException } ->
                     "主机指纹和加设备时记下的不一样（设备重装过，或者连到了别的机器上）"
-                text.contains("Auth fail") || text.contains("Auth cancel") ->
-                    "对方不认 Zeta 的公钥：把它加进那台设备的 ~/.ssh/authorized_keys"
                 causes.any { it is UnknownHostException } -> "找不到这台设备（地址解析失败）"
                 causes.any { it is NoRouteToHostException } || unreachable -> "网络不通"
                 causes.any { it is SocketTimeoutException } ||

@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.claude.ClaudeAccountsTest
+import com.dzshzx.zeta.core.ssh.OwnKeyAuth
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.core.ssh.TestSshServer
@@ -263,8 +264,8 @@ class DirectRemoteLinkTest : RemoteLinkContract() {
     override fun connect(): RemoteShell {
         val key = SshKey.generate()
         server = TestSshServer(key, remoteHome)
-        links = SshLinks({ key })
-        val hostKey = checkNotNull(links.probe(server.target, null, "true").hostKey)
+        links = SshLinks(OwnKeyAuth { key })
+        val hostKey = checkNotNull(links.probe(server.target.toString(), null, "true").hostKey)
         val host =
             RemoteHost(
                 "r-test",

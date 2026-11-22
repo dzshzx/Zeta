@@ -1,6 +1,6 @@
 package com.dzshzx.zeta.core
 
-import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.core.ssh.SshAuth
 import java.io.File
 import kotlinx.serialization.json.JsonObject
 
@@ -30,8 +30,8 @@ interface HubPlatform {
     /** 这台机器自己的名字（手机是系统设置里的设备名），手机本机那台的显示名用它。 */
     val deviceName: String
 
-    /** Zeta 直连远程主机用的密钥。第一次要时才取（手机上要进 Keystore）。 */
-    fun sshKey(): SshKey
+    /** Zeta 直连远程主机时地址连到哪、用哪些密钥：手机上是 Zeta 自己的密钥（第一次要时才进 Keystore 取），桌面上照这台电脑的 ~/.ssh 配置。 */
+    val sshAuth: SshAuth
 
     /** 追加给 Claude Code 的一句说明：对面是什么界面（手机还是桌面）、怎样把图片给用户看。 */
     val clientHint: String

@@ -15,6 +15,8 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.ScheduleStore
+import com.dzshzx.zeta.core.ssh.OwnKeyAuth
+import com.dzshzx.zeta.core.ssh.SshAuth
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.keystore
 import com.dzshzx.zeta.phone.AccessibilityGuard
@@ -87,9 +89,7 @@ class AndroidHubPlatform(
             ?.ifEmpty { null } ?: Build.MODEL
     }
 
-    private val key: SshKey by lazy(keyFactory)
-
-    override fun sshKey(): SshKey = key
+    override val sshAuth: SshAuth = OwnKeyAuth(keyFactory)
 
     override val clientHint: String = clientHint("a chat app on their Android phone", "tap")
 

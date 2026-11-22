@@ -40,15 +40,6 @@ class DesktopPlatformTest {
     }
 
     @Test
-    fun keyIsCreatedOnceAndReadBack() {
-        val first = DesktopKey.loadOrCreate(dir, "zeta-desktop@test")
-        val second = DesktopKey.loadOrCreate(dir, "zeta-desktop@test")
-        assertEquals(first.authorizedKey, second.authorizedKey)
-        assertTrue(first.authorizedKey.startsWith("ssh-ed25519 "))
-        assertEquals(first.authorizedKey + "\n", dir.resolve("ssh_ed25519.pub").readText())
-    }
-
-    @Test
     fun hubHasOnlyRemoteHosts() {
         val platform = DesktopHubPlatform(dir)
         val hub = ConversationHub(platform)

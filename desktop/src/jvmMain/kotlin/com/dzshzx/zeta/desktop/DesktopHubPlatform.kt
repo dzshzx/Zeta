@@ -15,15 +15,15 @@ import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.TurnEvents
 import com.dzshzx.zeta.core.clientHint
 import com.dzshzx.zeta.core.diag.DiagLog
-import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.core.ssh.SshAuth
 import java.io.File
 import java.net.InetAddress
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 桌面上的 [HubPlatform]：只有远程主机（经 Zeta 自带的 SSH 直连），没有手机本机那台、手机工具和通知。 设置、密钥和诊断日志都放在 [filesDir]（Windows
- * 上是 %APPDATA%\Zeta）。
+ * 桌面上的 [HubPlatform]：只有远程主机（经 Zeta 自带的 SSH 直连，地址和密钥照这台电脑的 ~/.ssh 配置，见
+ * [OpenSshConfigAuth]），没有手机本机那台、手机工具和通知。 设置和诊断日志都放在 [filesDir]（Windows 上是 %APPDATA%\Zeta）。
  */
 class DesktopHubPlatform(override val filesDir: File = defaultDir()) : HubPlatform {
     override val settings: Settings by lazy { Settings.shared(this) { prefs(Settings.FILE) } }
@@ -53,11 +53,7 @@ class DesktopHubPlatform(override val filesDir: File = defaultDir()) : HubPlatfo
         runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.ifBlank { null } ?: "这台电脑"
     }
 
-    private val key: SshKey by lazy {
-        DesktopKey.loadOrCreate(filesDir, "zeta-desktop@" + deviceName)
-    }
-
-    override fun sshKey(): SshKey = key
+    override val sshAuth: SshAuth = OpenSshConfigAuth()
 
     override val clientHint: String = clientHint("a desktop chat app on their computer", "click")
 

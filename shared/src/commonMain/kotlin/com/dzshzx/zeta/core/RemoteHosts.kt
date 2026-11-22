@@ -16,10 +16,12 @@ import kotlinx.serialization.json.put
 /**
  * 一台远程主机：上面装着 Claude Code。怎么连见 [via]：经手机 Debian 里的 OpenSSH（[DebianSshShell]）， [target] 是 ssh
  * 认的目的地（~/.ssh/config 里的别名、host、user@host 或 ssh://user@host:port）；或 Zeta 直连（[DirectSshShell]），
- * [target] 是 `用户@主机[:端口]`（[SshTarget]），[hostKey] 是加主机时记下的主机公钥（SSH 线上格式的 base64），以后只认它。 加主机时手机
- * Debian 就绪就默认经 Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。 [home]
- * 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。 界面上叫它 [name]：用户起的 [customName]，没起时是它自己报的主机名
- * [hostname]（`uname -n`，连上时记下），还没记下时是地址。
+ * [target] 是 `用户@主机[:端口]`（[SshTarget]；桌面版也可以是这台电脑 ~/.ssh/config 里的别名），[hostKey] 是加主机时记下的主机公钥（SSH
+ * 线上格式的 base64），以后只认它。 加主机时手机 Debian 就绪就默认经
+ * Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。 [home]
+ * 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。直连的 [key] 是登录用的私钥（桌面版照这台电脑 ~/.ssh 的配置时能选，
+ * [com.dzshzx.zeta.core.ssh.SshAuth.keys]），null 是照 ~/.ssh/config 给这台配的。 界面上叫它 [name]：用户起的
+ * [customName]，没起时是它自己报的主机名 [hostname]（`uname -n`，连上时记下），还没记下时是地址。
  */
 data class RemoteHost(
     val id: String,
@@ -30,6 +32,7 @@ data class RemoteHost(
     val via: Via = Via.Debian,
     val hostKey: String? = null,
     val hostname: String? = null,
+    val key: String? = null,
 ) {
     /** 界面上的名字。 */
     val name: String
@@ -70,6 +73,7 @@ object RemoteHosts {
                 put("cwd", it.defaultCwd)
                 put("via", it.via.key)
                 it.hostKey?.let { key -> put("hostKey", key) }
+                it.key?.let { key -> put("key", key) }
             }
         }
     }
@@ -90,7 +94,8 @@ object RemoteHosts {
                 else RemoteHost.Via.Debian
             val target =
                 item.str("target")?.takeIf {
-                    if (via == RemoteHost.Via.Direct) SshTarget.parse(it) != null
+                    if (via == RemoteHost.Via.Direct)
+                        SshTarget.parse(it) != null || alias(it) != null
                     else DebianSshShell.validTarget(it)
                 } ?: continue
             val hostKey = item.str("hostKey")?.takeIf { decodeKey(it) != null }
@@ -113,6 +118,8 @@ object RemoteHosts {
                     via = via,
                     hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct },
                     hostname = item.str("hostname")?.trim()?.ifEmpty { null },
+                    key =
+                        item.str("key")?.ifEmpty { null }?.takeIf { via == RemoteHost.Via.Direct },
                 )
         }
         return hosts
@@ -210,15 +217,16 @@ object RemoteHosts {
     }
 
     /**
-     * Zeta 直连 [target] 查一次。[expectedHostKey] 是记下的主机公钥（重新检查时），加主机时为 null：谁都认，看到的放进结果。 阻塞，别在主线程上调用。
+     * Zeta 直连 [target]（用私钥 [key]，null 照 [com.dzshzx.zeta.core.ssh.SshAuth]
+     * 的默认）查一次。[expectedHostKey] 是记下的主机公钥（重新检查时），加主机时为 null：谁都认，看到的放进结果。 阻塞，别在主线程上调用。
      */
     fun probeDirect(
         links: SshLinks,
         target: String,
         expectedHostKey: String? = null,
+        key: String? = null,
         linuxName: String = AppVariant.current.linuxName,
     ): Probe {
-        val parsed = SshTarget.parse(target) ?: return Probe.Failed(DIRECT_TARGET_HINT)
         val command =
             RemoteShell.remoteCommand(
                 ProbeScript,
@@ -227,7 +235,7 @@ object RemoteHosts {
                 login = true,
             )
         val result = runCatching {
-            links.probe(parsed, expectedHostKey?.let(::decodeKey), command)
+            links.probe(target, expectedHostKey?.let(::decodeKey), command, key = key)
         }
             .getOrElse {
                 return Probe.Failed(SshLinks.problem(it))
@@ -244,23 +252,28 @@ object RemoteHosts {
     /** 经 Debian 连的地址的写法。 */
     const val DEBIAN_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名"
 
+    /** 桌面版直连地址的写法（照这台电脑的 ~/.ssh 配置，[com.dzshzx.zeta.core.ssh.SshAuth.aliases]）。 */
+    const val CONFIG_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是这台电脑 ~/.ssh/config 里的别名"
+
     /**
-     * 地址 [text]（用户输入的，或这台主机另一种连法用的）换成连法 [via] 的写法；这种连法用不了它时是 null。 直连只认写明用户的
-     * `用户@主机[:端口]`（[SshTarget]）；经 Debian 的交给 OpenSSH（[SshTarget.openSsh]）， 也认 ~/.ssh/config
-     * 里的别名和不带用户、端口的主机名（用户、端口照那边的配置）。
+     * 地址 [text]（用户输入的，或这台主机另一种连法用的）换成连法 [via] 的写法；这种连法用不了它时是 null。 直连认写明用户的
+     * `用户@主机[:端口]`（[SshTarget]），[aliases] 时（桌面版照这台电脑的 ~/.ssh
+     * 配置，[com.dzshzx.zeta.core.ssh.SshAuth.aliases]）也认别名；经 Debian 的交给
+     * OpenSSH（[SshTarget.openSsh]），也认 ~/.ssh/config 里的别名和不带用户、端口的主机名（用户、端口照那边的配置）。
      */
-    fun targetFor(text: String, via: RemoteHost.Via): String? {
+    fun targetFor(text: String, via: RemoteHost.Via, aliases: Boolean = false): String? {
         val parsed = SshTarget.parse(text)
         return when (via) {
-            RemoteHost.Via.Direct -> parsed?.toString()
-            RemoteHost.Via.Debian ->
-                parsed?.openSsh
-                    ?: text.trim().takeIf {
-                        DebianSshShell.validTarget(it) &&
-                            it.none { c -> c == '@' || c == ':' || c == '/' }
-                    }
+            RemoteHost.Via.Direct -> parsed?.toString() ?: alias(text)?.takeIf { aliases }
+            RemoteHost.Via.Debian -> parsed?.openSsh ?: alias(text)
         }
     }
+
+    /** [text] 当成 ~/.ssh/config 里的别名或不带用户、端口的主机名（交给 OpenSSH 解析）；不像的是 null。 */
+    fun alias(text: String): String? =
+        text.trim().takeIf {
+            DebianSshShell.validTarget(it) && it.none { c -> c == '@' || c == ':' || c == '/' }
+        }
 
     /** 给人看的地址：写明用户的按直连的写法（不带 ssh://），别名原样。 */
     fun displayTarget(target: String): String = SshTarget.parse(target)?.toString() ?: target

@@ -38,7 +38,7 @@ class SshLinksTest {
         home = Files.createTempDirectory("zeta-remote-home").toFile()
         key = SshKey.generate()
         server = TestSshServer(key, home)
-        links = SshLinks({ key }, idleMs = 500)
+        links = SshLinks(OwnKeyAuth { key }, idleMs = 500)
     }
 
     @After
@@ -50,7 +50,7 @@ class SshLinksTest {
 
     /** 加主机那一次：谁都认，把对方的主机公钥带回来。 */
     private fun hostKey(): ByteArray =
-        checkNotNull(links.probe(server.target, null, "true").hostKey)
+        checkNotNull(links.probe(server.target.toString(), null, "true").hostKey)
 
     private fun shell(hostKey: ByteArray = hostKey()) =
         DirectSshShell(
@@ -84,16 +84,16 @@ class SshLinksTest {
 
     @Test
     fun probeRunsTheCommandAndReportsTheHostKey() {
-        val result = links.probe(server.target, null, "echo hi; echo oops >&2; exit 3")
+        val result = links.probe(server.target.toString(), null, "echo hi; echo oops >&2; exit 3")
         assertNull(result.problem)
         assertEquals(3, result.output?.exitCode)
         assertEquals("hi\n", result.output?.stdout)
         val seen = checkNotNull(result.hostKey)
         assertEquals("ssh-ed25519", SshLinks.hostKey(seen)?.type)
         // 认着同一个主机公钥再连一次照样连上；换一个就拒绝
-        assertNull(links.probe(server.target, seen, "true").problem)
+        assertNull(links.probe(server.target.toString(), seen, "true").problem)
         val other = SshKey.generate().blob
-        val refused = links.probe(server.target, other, "true")
+        val refused = links.probe(server.target.toString(), other, "true")
         assertTrue(refused.hostKeyChanged)
         assertTrue(refused.problem, refused.problem!!.contains("主机指纹"))
         assertArrayEquals(seen, refused.hostKey)
@@ -102,7 +102,7 @@ class SshLinksTest {
     /** 手机上 Ed25519、curve25519、ML-KEM 都靠 BouncyCastle：对着优先给这几样的服务器，谈成的就是它们。 */
     @Test
     fun modernAlgorithmsAreNegotiated() {
-        val process = links.start("h", server.target, hostKey(), "echo up; sleep 5")
+        val process = links.start("h", server.target.toString(), hostKey(), "echo up; sleep 5")
         try {
             assertEquals("up", process.inputStream.bufferedReader().readLine())
             val negotiated = server.negotiated
@@ -126,7 +126,7 @@ class SshLinksTest {
     @Test
     fun compressionIsNegotiated() {
         val text = "{\"type\":\"assistant\"}".repeat(20_000)
-        val process = links.start("h", server.target, hostKey(), "cat")
+        val process = links.start("h", server.target.toString(), hostKey(), "cat")
         try {
             process.outputStream.use { it.write(text.toByteArray()) }
             assertEquals(text, process.inputStream.bufferedReader().readText())
@@ -156,8 +156,8 @@ class SshLinksTest {
 
     @Test
     fun anotherKeyIsNotLetIn() {
-        val stranger = SshLinks({ SshKey.generate() })
-        val result = stranger.probe(server.target, null, "true")
+        val stranger = SshLinks(OwnKeyAuth { SshKey.generate() })
+        val result = stranger.probe(server.target.toString(), null, "true")
         assertNull(result.output)
         assertTrue(result.problem, result.problem!!.contains("不认 Zeta 的公钥"))
     }
@@ -297,9 +297,6 @@ class SshLinksTest {
             "找不到这台设备（地址解析失败）",
             SshLinks.problem(wrapped(UnknownHostException("nope.invalid"))),
         )
-        assertTrue(
-            SshLinks.problem(JSchException("Auth fail for methods 'publickey'"))
-                .contains("不认 Zeta 的公钥"),
-        )
+        assertEquals("已经说清楚的原因", SshLinks.problem(wrapped(SshProblem("已经说清楚的原因"))))
     }
 }

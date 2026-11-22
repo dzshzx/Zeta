@@ -2,7 +2,6 @@ package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.ssh.SshLinks
-import com.dzshzx.zeta.core.ssh.SshTarget
 import java.util.TimeZone
 
 /**
@@ -180,7 +179,7 @@ class DebianSshShell(
 }
 
 /**
- * Zeta 直连的远程主机：不经手机的 Debian，用应用自带的 SSH（[SshLinks]）和 Zeta 自己的密钥连过去。 手机上没装 Debian 也能用。[start]
+ * Zeta 直连的远程主机：不经手机的 Debian，用应用自带的 SSH（[SshLinks]）连过去，密钥见 [SshLinks.auth]。 手机上没装 Debian 也能用。[start]
  * 马上返回，连接在后台建；结束进程是关掉那个通道。
  */
 class DirectSshShell(
@@ -189,10 +188,10 @@ class DirectSshShell(
     timeZone: String = TimeZone.getDefault().id,
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
-    private val target = checkNotNull(SshTarget.parse(host.target)) { "直连的地址不对：${host.target}" }
     private val hostKey = checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的设备没有记下指纹" }
 
-    override fun launch(remote: String): Process = links.start(host.id, target, hostKey, remote)
+    override fun launch(remote: String): Process =
+        links.start(host.id, host.target, hostKey, remote, host.key)
 
     override fun kill(process: Process) = process.destroy()
 }

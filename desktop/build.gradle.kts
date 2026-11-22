@@ -14,7 +14,10 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
         }
-        jvmTest.dependencies { implementation(libs.junit) }
+        jvmTest.dependencies {
+            implementation(libs.junit)
+            implementation(libs.apache.sshd.core)
+        }
     }
 }
 
