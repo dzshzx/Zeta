@@ -3,6 +3,8 @@ package host
 import (
 	"bytes"
 	"testing"
+
+	"github.com/dzshzx/Zeta/client/hostlink"
 )
 
 func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
@@ -26,7 +28,7 @@ func TestCheckDirExplainsWhyItCannotEnter(t *testing.T) {
 
 func TestImageReadsAPictureFromTheTranscript(t *testing.T) {
 	b := newBox(t)
-	program, err := LoadProgram(ZetaHelper)
+	program, err := LoadProgram(hostlink.ZetaHelper)
 	if err != nil {
 		t.Fatal(err)
 	}

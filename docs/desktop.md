@@ -13,20 +13,23 @@
 ## 结构
 
 ```
+client/               客户端共用、和界面无关的 Go 代码（仓根的模块，windows/go.mod 用 replace 指向 ../client）
+  sshlink/            设备：模型、OpenSSH 配置认证、SSH 连接（每台一条、每个命令一个通道、闲一分钟断、断线重连）、主机指纹
+  hostlink/           在一台主机上跑命令：remoteCommand 的写法、zeta-helper 按哈希安装与调用、serve 连接（出错应答的 code 见 ReplyError）、会话列表的格式
+  sshtest/            测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
 windows/
   cmd/zeta/           入口
   internal/settings/  设置文件（和 Compose 版同格式）、各项设置
-  internal/remote/    设备：模型、OpenSSH 配置认证、SSH 连接（每台一条、每个命令一个通道、闲一分钟断、断线重连）、主机指纹
-  internal/host/      在一台主机上跑命令：remoteCommand 的写法、zeta-helper 按哈希安装与调用、serve 连接、加设备时的探测、托管脚本
+  internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、查目录、取图）、加设备时的探测、
+                      Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）
   internal/chat/      对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
   internal/hub/       中枢：当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）
-  internal/sshtest/   测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
   internal/hubtest/   测试用：不连 SSH 的假设备和假 serve（对话的推送用 recorded/ 里从真 serve 和核心录的消息），中枢和界面的测试用
   internal/ui/        mygo 界面：窗口、侧栏、聊天、输入栏、各种确认、设置各页（Claude Code 配置、账号与额度这两页只调 serve 的 config.*、accounts.*、quota.*）
   installer/          MSI（wixl）
 ```
 
-主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`），客户端只有的（SSH、设置、界面）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法。serve 推来的确认、后台任务、用量直接解成 helper 里的类型（`helper/prompt`、`helper/tasks`、`helper/usage`，`windows/go.mod` 用 replace 指向 `../helper`），两边一起编、一起发，格式不会对不上；对话条目只依赖它的 JSON 格式（`internal/chat/items`）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
+主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`）。客户端一侧和界面无关的（SSH 直连、在主机上装程序和跑命令、到 serve 的连接）放 `client/`：Windows 链接它，Android 以后经随 APK 带的 Go 程序用它直连远程主机（见 `docs/core.md`）；只有桌面版要的（设置、界面、编进程序的 assets、目录名）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法。serve 推来的确认、后台任务、用量直接解成 helper 里的类型（`helper/prompt`、`helper/tasks`、`helper/usage`，`windows/go.mod` 用 replace 指向 `../helper`），两边一起编、一起发，格式不会对不上；对话条目只依赖它的 JSON 格式（`internal/chat/items`）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
 
 ## 分段
 

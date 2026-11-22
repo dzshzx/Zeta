@@ -8,16 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
 // OpenChat 起一条到设备 h 上 serve 的连接给对话用（和会话列表的订阅各用各的：对话开在哪台和侧栏列哪台无关）。
 // 推来的对话推送（type 以 conv. 开头的行）交给 push，连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
 // 请求用返回的连接（一个 *Serve）的 Call。第一次就没连上时 Serve 停掉，Call 返回那次的原因，要再用得重新 OpenChat。
-func (d *Devices) OpenChat(h remote.Host, push func(line []byte), problem func(why string)) ChatLink {
-	shell := NewShell(d.Links, h)
-	return StartServe(ServeOptions{
-		Open: func() (*remote.Process, error) { return OpenServe(shell, d.Helper) },
+func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) ChatLink {
+	shell := hostlink.NewShell(d.Links, h, LinuxName)
+	return hostlink.StartServe(hostlink.ServeOptions{
+		Open: func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Message: func(kind string, line []byte) {
 			if strings.HasPrefix(kind, "conv.") {
 				push(line)
@@ -32,8 +33,8 @@ const dirCheckTimeout = 20 * time.Second
 
 // CheckDir 看设备 h 上进不进得去目录 path（Claude Code 要在那里启动）：进不去时返回给人看的原因，进得去返回空。
 // 查不成（连不上、超时）时返回错误，调用方当作不知道，不拦。阻塞。
-func (d *Devices) CheckDir(h remote.Host, path string) (string, error) {
-	shell := NewShell(d.Links, h)
+func (d *Devices) CheckDir(h sshlink.Host, path string) (string, error) {
+	shell := hostlink.NewShell(d.Links, h, LinuxName)
 	r, err := shell.Run(DirCheckCommand(path), nil, dirCheckTimeout, true)
 	if err != nil {
 		return "", err
@@ -49,7 +50,7 @@ func (d *Devices) CheckDir(h remote.Host, path string) (string, error) {
 
 // DirCheckCommand 是查目录 path 的那一行：输出 zeta_dir 加 ok、denied（没有权限）、file（是文件）或 missing（没有）。
 func DirCheckCommand(path string) string {
-	return "p=" + Quote(path) + `; if [ -d "$p" ]; then if [ -r "$p" ] && [ -x "$p" ]; then k=ok; else k=denied; fi; ` +
+	return "p=" + hostlink.Quote(path) + `; if [ -d "$p" ]; then if [ -r "$p" ] && [ -x "$p" ]; then k=ok; else k=denied; fi; ` +
 		`elif [ -e "$p" ]; then k=file; else k=missing; fi; echo "zeta_dir $k"`
 }
 
@@ -77,8 +78,8 @@ func DirProblem(stdout, hostName, path string) string {
 const imageTimeout = 2 * time.Minute
 
 // Image 取设备 h 上会话记录 file 里位置 ref 的那张图（zeta-helper image），返回图片文件的内容。阻塞。
-func (d *Devices) Image(h remote.Host, file, ref string) ([]byte, error) {
-	out, err := NewShell(d.Links, h).Helper(d.Helper, imageTimeout, "image", file, ref)
+func (d *Devices) Image(h sshlink.Host, file, ref string) ([]byte, error) {
+	out, err := hostlink.NewShell(d.Links, h, LinuxName).Helper(d.Helper, imageTimeout, "image", file, ref)
 	if err != nil {
 		return nil, err
 	}

@@ -16,13 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/client/sshtest"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
-	"github.com/dzshzx/Zeta/windows/internal/sshtest"
 )
 
 // 整条链路：中枢经 SSH（sshtest，命令在临时家目录里真跑 bash）起 zeta-helper serve，serve 拉起核心，核心经 zeta_host.sh
@@ -140,7 +141,7 @@ type e2e struct {
 
 func newE2E(t *testing.T, scenario string) *e2e {
 	t.Helper()
-	program, err := host.LoadProgram(host.ZetaHelper)
+	program, err := host.LoadProgram(hostlink.ZetaHelper)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,17 +162,17 @@ func newE2E(t *testing.T, scenario string) *e2e {
 	if err := os.WriteFile(filepath.Join(bin, "scenario.jsonl"), []byte(scenario), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	x := remote.Host{ID: "r-e2e", Target: "zeta@127.0.0.1:" + strconv.Itoa(server.Port), Home: server.Home,
-		DefaultCwd: server.Home, Via: remote.ViaDirect, HostKey: remote.EncodeHostKey(server.HostKey.PublicKey())}
+	x := sshlink.Host{ID: "r-e2e", Target: "zeta@127.0.0.1:" + strconv.Itoa(server.Port), Home: server.Home,
+		DefaultCwd: server.Home, Via: sshlink.ViaDirect, HostKey: sshlink.EncodeHostKey(server.HostKey.PublicKey())}
 	s, err := settings.Load(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetHosts([]remote.Host{x}); err != nil {
+	if err := s.SetHosts([]sshlink.Host{x}); err != nil {
 		t.Fatal(err)
 	}
 	e := &e2e{server: server, posts: make(chan func(), 1000), recorded: map[string][]string{}}
-	devices := &teeDevices{Devices: &host.Devices{Links: remote.NewLinks(remote.KeyAuth{Signer: key}, time.Minute), Helper: program},
+	devices := &teeDevices{Devices: &host.Devices{Links: sshlink.NewLinks(sshlink.KeyAuth{Signer: key}, time.Minute), Helper: program},
 		tee: e.received}
 	e.hub = New(s, devices, func(f func()) { go f() }, func(f func()) { e.posts <- f })
 	t.Cleanup(func() { stopCore(t, server.Home, program) })
@@ -184,7 +185,7 @@ type teeDevices struct {
 	tee func(line []byte)
 }
 
-func (d *teeDevices) OpenChat(h remote.Host, push func([]byte), problem func(string)) host.ChatLink {
+func (d *teeDevices) OpenChat(h sshlink.Host, push func([]byte), problem func(string)) host.ChatLink {
 	return d.Devices.OpenChat(h, func(line []byte) { d.tee(line); push(line) }, problem)
 }
 
@@ -337,7 +338,7 @@ func (e *e2e) flush(t *testing.T) {
 }
 
 // stopCore 结束这台上的核心：它的进程号写在锁文件里（见 docs/core.md「对话」）。serve 跟着 SSH 关掉就退出。
-func stopCore(t *testing.T, home string, program *host.Program) {
+func stopCore(t *testing.T, home string, program *hostlink.Program) {
 	lock := filepath.Join(home, ".cache", host.LinuxName, "core", program.Version+".lock")
 	data, err := os.ReadFile(lock)
 	if err != nil {

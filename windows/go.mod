@@ -3,6 +3,7 @@ module github.com/dzshzx/Zeta/windows
 go 1.27.4
 
 require (
+	github.com/dzshzx/Zeta/client v0.0.0
 	github.com/dzshzx/Zeta/helper v0.0.0
 	github.com/egoist/mygo v0.10.0
 	golang.org/x/crypto v0.57.0
@@ -25,3 +26,5 @@ require (
 tool github.com/egoist/mygo/cmd/mygo
 
 replace github.com/dzshzx/Zeta/helper => ../helper
+
+replace github.com/dzshzx/Zeta/client => ../client

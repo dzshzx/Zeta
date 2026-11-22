@@ -1,4 +1,4 @@
-package host
+package hostlink
 
 import (
 	"encoding/json"
@@ -63,8 +63,8 @@ type SessionsUpdate struct {
 	Remove []string
 }
 
-// parseSessions 解一行 zeta_sessions；缺会话号或文件的项跳过，backend 填进每一项。
-func parseSessions(line []byte, backend string) (SessionsUpdate, error) {
+// ParseSessions 解一行 zeta_sessions；缺会话号或文件的项跳过，backend 填进每一项。
+func ParseSessions(line []byte, backend string) (SessionsUpdate, error) {
 	var msg struct {
 		Full   bool              `json:"full"`
 		Upsert []json.RawMessage `json:"upsert"`

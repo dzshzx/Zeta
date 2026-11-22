@@ -1,11 +1,11 @@
-package remote
+package sshlink
 
 import (
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/sshtest"
+	"github.com/dzshzx/Zeta/client/sshtest"
 	"golang.org/x/crypto/ssh"
 )
 

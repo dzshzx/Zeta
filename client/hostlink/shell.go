@@ -1,6 +1,8 @@
-// Package host 在一台远程设备上跑命令：交给那边 shell 的写法（同 shared 的 LinuxShell.kt 的 remoteCommand）、
-// zeta-helper 按内容哈希装到 ~/.cache/zeta/bin 再调用、到 zeta-helper serve 的常驻连接（会话列表的订阅），和加设备时的探测。
-package host
+// Package hostlink 在一台远程主机上跑命令：交给那边 shell 的写法（同 shared 的 LinuxShell.kt 的 remoteCommand）、
+// zeta-helper 这类程序按内容哈希装到 ~/.cache/<ZETA_NAME>/bin 再调用、到 zeta-helper serve 的常驻连接（会话列表的订阅、
+// 对话的请求），和会话列表的格式。连接经 sshlink；客户端共用（Windows 桌面版链接，Android 以后经随 APK 带的 Go 程序用），
+// 不碰界面，也不管是哪个客户端：Zeta 在那边的目录名、带着的程序由调用方给。
+package hostlink
 
 import (
 	"fmt"
@@ -9,20 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
-	"github.com/dzshzx/Zeta/windows/internal/update"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
-
-// LinuxName 是 Zeta 在那边的目录名（ZETA_NAME）：正式版是 zeta，和手机正式版是同一个包；别的构建（测试版、go run、测试）是
-// zeta-dev，和手机测试版是同一个包。同一个包在一台主机上只用一份 zeta-helper 和一个核心，几个客户端读的是同一份状态。
-var LinuxName = linuxName(update.Current().Release())
-
-func linuxName(release bool) string {
-	if release {
-		return "zeta"
-	}
-	return "zeta-dev"
-}
 
 // Quote 给 shell 加单引号。
 func Quote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
@@ -40,43 +30,44 @@ func RemoteCommand(command, linuxName, timeZone string, login bool) string {
 
 // Shell 在设备 Host 上跑命令，经 Links 的连接。
 type Shell struct {
-	Links *remote.Links
-	Host  remote.Host
+	Links *sshlink.Links
+	Host  sshlink.Host
+	Name  string // Zeta 在那边的目录名（ZETA_NAME）：同一个包的几个客户端用同一个，见 RemoteCommand
 	TZ    string // 交给那边的时区（TZ 环境变量）
 }
 
-// NewShell 是设备 h 上的 Shell，时区照这台电脑的。
-func NewShell(links *remote.Links, h remote.Host) Shell {
-	return Shell{Links: links, Host: h, TZ: LocalTimeZone()}
+// NewShell 是设备 h 上的 Shell，目录名是 name（ZETA_NAME），时区照这台电脑的。
+func NewShell(links *sshlink.Links, h sshlink.Host, name string) Shell {
+	return Shell{Links: links, Host: h, Name: name, TZ: LocalTimeZone()}
 }
 
 // Start 在那边的登录 shell 里起 command。
-func (s Shell) Start(command string) (*remote.Process, error) {
-	return s.Links.Start(s.Host, RemoteCommand(command, LinuxName, s.TZ, true))
+func (s Shell) Start(command string) (*sshlink.Process, error) {
+	return s.Links.Start(s.Host, RemoteCommand(command, s.Name, s.TZ, true))
 }
 
 // StartPlain 同 Start，只是不起登录 shell（见 RemoteCommand）。
-func (s Shell) StartPlain(command string) (*remote.Process, error) {
-	return s.Links.Start(s.Host, RemoteCommand(command, LinuxName, s.TZ, false))
+func (s Shell) StartPlain(command string) (*sshlink.Process, error) {
+	return s.Links.Start(s.Host, RemoteCommand(command, s.Name, s.TZ, false))
 }
 
 // Run 跑完 command 收齐输出：stdin 写进标准输入后关掉，到 timeout 还没结束就关掉通道、结果标成超时。plain 时经 StartPlain 起。
 // 连不上时返回错误（一句给人看的话）。
-func (s Shell) Run(command string, stdin []byte, timeout time.Duration, plain bool) (remote.Result, error) {
+func (s Shell) Run(command string, stdin []byte, timeout time.Duration, plain bool) (sshlink.Result, error) {
 	start := s.Start
 	if plain {
 		start = s.StartPlain
 	}
 	p, err := start(command)
 	if err != nil {
-		return remote.Result{}, err
+		return sshlink.Result{}, err
 	}
 	return p.Capture(stdin, timeout), nil
 }
 
 // LinkProblem：命令以 r 结束时是连接断了的话给一句话（「连不上「名字」：原因」），别的情况是空。
-func (s Shell) LinkProblem(r remote.Result) string {
-	if r.Code != remote.ConnectionFailed || r.TimedOut {
+func (s Shell) LinkProblem(r sshlink.Result) string {
+	if r.Code != sshlink.ConnectionFailed || r.TimedOut {
 		return ""
 	}
 	why := lastLine(r.Stderr)

@@ -1,4 +1,4 @@
-package host
+package hostlink
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，hang 不答直接退出（连接断了）。
+// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，stale 答出错带 code，nameless 答出错不带原因，hang 不答直接退出（连接断了）。
 const fakeServe = `echo '{"type":"zeta_hello","protocol":1}'
 while IFS= read -r l; do
   id=$(printf '%s' "$l" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
@@ -18,6 +18,8 @@ while IFS= read -r l; do
     *'"method":"good"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true,\"result\":{\"echo\":$(printf '%s' "$l" | sed -n 's/.*"n":\([0-9]*\).*/\1/p')}}" ;;
     *'"method":"empty"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true}" ;;
     *'"method":"bad"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"不认识的方法\"}" ;;
+    *'"method":"stale"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"会话记录变了\",\"code\":\"history_changed\"}" ;;
+    *'"method":"nameless"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"code\":\"busy\"}" ;;
     *'"method":"hang"'*) exit 3 ;;
   esac
 done`
@@ -26,7 +28,7 @@ func TestServeCallMatchesReplies(t *testing.T) {
 	b := newBox(t)
 	ev := newEvents()
 	s := StartServe(ServeOptions{
-		Open:    func() (*remote.Process, error) { return b.shell.StartPlain(fakeServe) },
+		Open:    func() (*sshlink.Process, error) { return b.shell.StartPlain(fakeServe) },
 		Message: func(string, []byte) {},
 		Problem: ev.problem,
 		Backoff: func(int) time.Duration { return 10 * time.Millisecond },
@@ -63,10 +65,34 @@ func TestServeCallMatchesReplies(t *testing.T) {
 	}
 }
 
+// 出错的应答带 code 时，Call 的错误能取到它（ReplyError），原因照旧是 error 字段，没有时是默认的一句。
+func TestServeCallKeepsTheReplyCode(t *testing.T) {
+	b := newBox(t)
+	s := StartServe(ServeOptions{
+		Open:    func() (*sshlink.Process, error) { return b.shell.StartPlain(fakeServe) },
+		Message: func(string, []byte) {},
+		Problem: func(string) {},
+	})
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	for method, want := range map[string][2]string{
+		"stale":    {"会话记录变了", "history_changed"},
+		"nameless": {"zeta-helper serve 拒绝了请求", "busy"},
+		"bad":      {"不认识的方法", ""},
+	} {
+		_, err := s.Call(ctx, method, nil)
+		var replyErr *ReplyError
+		if !errors.As(err, &replyErr) || err.Error() != want[0] || replyErr.Code() != want[1] {
+			t.Errorf("%s：%v（%T），要 %q、code %q", method, err, err, want[0], want[1])
+		}
+	}
+}
+
 func TestServeCallGivesUpWhenItNeverConnected(t *testing.T) {
 	ev := newEvents()
 	s := StartServe(ServeOptions{
-		Open:    func() (*remote.Process, error) { return nil, errors.New("连不上「测试机」：拒绝连接") },
+		Open:    func() (*sshlink.Process, error) { return nil, errors.New("连不上「测试机」：拒绝连接") },
 		Message: func(string, []byte) {},
 		Problem: ev.problem,
 	})

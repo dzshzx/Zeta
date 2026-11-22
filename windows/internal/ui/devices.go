@@ -1,8 +1,8 @@
 package ui
 
 import (
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -61,7 +61,7 @@ func (a *App) devicesPage(c *ui.Context) {
 }
 
 // hostRow 是一台加好的设备，点开改它。
-func (a *App) hostRow(c *ui.Context, x remote.Host) {
+func (a *App) hostRow(c *ui.Context, x sshlink.Host) {
 	t := c.Theme()
 	row := ui.Row(c.Key(x.ID)).MinHeight(48).Padding(6, 12).Gap(12).Radius(8).AlignItems(ui.Center).Focusable().Label(x.Name())
 	if row.Hovered() {
@@ -74,7 +74,7 @@ func (a *App) hostRow(c *ui.Context, x remote.Host) {
 	row.Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			ui.Text(c, x.Name()).SingleLine()
-			ui.Text(c, remote.DisplayTarget(x.Target)).FontSize(12).TextColor(t.TextMuted).SingleLine()
+			ui.Text(c, sshlink.DisplayTarget(x.Target)).FontSize(12).TextColor(t.TextMuted).SingleLine()
 		})
 		ui.Text(c, "›").TextColor(t.TextMuted)
 	})
@@ -108,13 +108,13 @@ func (a *App) addSection(c *ui.Context) {
 			})
 		}
 	})
-	target, valid := remote.TargetFor(a.add.draft)
+	target, valid := sshlink.TargetFor(a.add.draft)
 	submit := func() {
-		if t, ok := remote.TargetFor(a.add.draft); ok {
+		if t, ok := sshlink.TargetFor(a.add.draft); ok {
 			a.addHost(t)
 		}
 	}
-	section(c, "手动添加", remote.ConfigHint, func() {
+	section(c, "手动添加", sshlink.ConfigHint, func() {
 		ui.Row(c).Padding(6, 8).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.TextInput(c.Key("draft"), &a.add.draft).Placeholder("user@host 或主机名").Label("地址").Grow(1).OnSubmit(submit)
 			label := "添加"
@@ -137,9 +137,9 @@ func (a *App) addHost(target string) {
 		f, err := a.hub.Probe(target, "", key)
 		return func() {
 			a.add.probing = ""
-			shown := remote.DisplayTarget(target)
+			shown := sshlink.DisplayTarget(target)
 			if err != nil {
-				a.say("没有添加「"+shown+"」", remote.Describe(err))
+				a.say("没有添加「"+shown+"」", sshlink.Describe(err))
 				return
 			}
 			x, err := a.hub.AddHost(target, key, f)
@@ -158,9 +158,9 @@ func (a *App) addHost(target string) {
 func addedSummary(f host.Found, key string) string {
 	text := f.Summary()
 	if key != "" {
-		text += " · SSH 密钥 " + remote.KeyName(key)
+		text += " · SSH 密钥 " + sshlink.KeyName(key)
 	}
-	if fp := remote.Fingerprint(f.HostKey); fp != "" {
+	if fp := sshlink.Fingerprint(f.HostKey); fp != "" {
 		text += "\n主机指纹 " + fp
 	}
 	return text
@@ -192,7 +192,7 @@ func keyLabel(key string) string {
 	if key == "" {
 		return autoKey
 	}
-	return remote.KeyName(key)
+	return sshlink.KeyName(key)
 }
 
 func contains(list []string, s string) bool {

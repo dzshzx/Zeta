@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 )
@@ -15,7 +16,7 @@ type Chat struct {
 	// Backend 是对话在哪台设备上。
 	Backend string
 	// Session 是点开的会话（新对话时只有 Cwd 和 Backend）。
-	Session host.Session
+	Session hostlink.Session
 	// Conv 是打开成以后的对话；还在打开、没打开成时为 nil。
 	Conv *chat.Conversation
 	// Opening：正在打开（连设备、核心载入历史）。
@@ -62,7 +63,7 @@ func (h *Hub) ChatLinkProblem() string {
 }
 
 // OpenSession 在聊天窗格里打开会话 s，关掉原来的。已经开着它时什么也不做。
-func (h *Hub) OpenSession(s host.Session) {
+func (h *Hub) OpenSession(s hostlink.Session) {
 	if c := h.chat; c != nil && c.Backend == s.Backend && s.ID != "" && (c.Session.ID == s.ID || c.Conv != nil && c.Conv.Session() == s.ID) {
 		return
 	}
@@ -80,7 +81,7 @@ func (h *Hub) NewChat() {
 	if cwd == "" {
 		cwd = x.Home
 	}
-	h.open(&Chat{Backend: x.ID, Session: host.Session{Cwd: cwd, Backend: x.ID}},
+	h.open(&Chat{Backend: x.ID, Session: hostlink.Session{Cwd: cwd, Backend: x.ID}},
 		chat.Spec{Cwd: cwd, Options: chatOptions}, true)
 }
 
@@ -175,7 +176,7 @@ func (h *Hub) chatConn(id string) *chatConn {
 	return c
 }
 
-// dropDeadConn：一次都没连上的连接已经停了（见 host.Serve），丢掉，下次打开时重新连。
+// dropDeadConn：一次都没连上的连接已经停了（见 hostlink.Serve），丢掉，下次打开时重新连。
 func (h *Hub) dropDeadConn(id string, c *chatConn) {
 	if h.conns[id] == c && !c.ever {
 		h.closeConn(id)

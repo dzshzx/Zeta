@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
@@ -27,7 +27,7 @@ func newHubIn(t *testing.T, devices *hubtest.Devices) (*Hub, *settings.Settings,
 	return New(s, devices, sync, sync), s, dir
 }
 
-func ids(list []host.Session) []string {
+func ids(list []hostlink.Session) []string {
 	var out []string
 	for _, s := range list {
 		out = append(out, s.ID)
@@ -52,7 +52,7 @@ func TestAddingTheFirstHostShowsItsSessions(t *testing.T) {
 	if !reflect.DeepEqual(d.Watching(), []string{x.ID}) {
 		t.Fatalf("watching %v", d.Watching())
 	}
-	d.Push(x.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "b", Updated: 2}, {ID: "a", Updated: 1}}})
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "b", Updated: 2}, {ID: "a", Updated: 1}}})
 	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"b", "a"}) || h.Sessions()[0].Backend != x.ID {
 		t.Errorf("sessions %v", got)
 	}
@@ -73,17 +73,17 @@ func TestUpdatesMergeAndAllHostsListTogether(t *testing.T) {
 	a, _ := h.AddHost("a", "", d.Found("a"))
 	b, _ := h.AddHost("b", "", d.Found("b"))
 	h.Start()
-	d.Push(a.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "a2", Updated: 20}, {ID: "a1", Updated: 10}}})
+	d.Push(a.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "a2", Updated: 20}, {ID: "a1", Updated: 10}}})
 	h.ListAll()
 	if !h.AllHosts() || !reflect.DeepEqual(d.Watching(), []string{a.ID, b.ID}) {
 		t.Fatalf("watching %v", d.Watching())
 	}
-	d.Push(b.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "b1", Updated: 15}}})
+	d.Push(b.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "b1", Updated: 15}}})
 	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"a2", "b1", "a1"}) {
 		t.Errorf("merged %v", got)
 	}
 	// 增量：a1 变新、a2 删掉，b 的不动
-	d.Push(a.ID, host.SessionsUpdate{Upsert: []host.Session{{ID: "a1", Updated: 30}}, Remove: []string{"a2"}})
+	d.Push(a.ID, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "a1", Updated: 30}}, Remove: []string{"a2"}})
 	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"a1", "b1"}) {
 		t.Errorf("after update %v", got)
 	}
@@ -107,7 +107,7 @@ func TestUpdatesMergeAndAllHostsListTogether(t *testing.T) {
 		t.Errorf("watching %v, sessions %v", d.Watching(), ids(h.Sessions()))
 	}
 	// 断开以后那台再推来的不算
-	d.PushStale(a.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "late"}}})
+	d.PushStale(a.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "late"}}})
 	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"b1"}) {
 		t.Errorf("stale push landed: %v", got)
 	}
@@ -119,7 +119,7 @@ func TestGroupsAndPins(t *testing.T) {
 	a, _ := h.AddHost("a", "", d.Found("a"))
 	now := time.Date(2026, 11, 22, 15, 0, 0, 0, time.Local)
 	midnight := time.Date(2026, 11, 22, 0, 0, 0, 0, time.Local).UnixMilli()
-	d.Push(a.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{
+	d.Push(a.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 		{ID: "new", Updated: midnight + 1000},
 		{ID: "pinned-old", Updated: midnight - 1000},
 		{ID: "archived", Updated: midnight + 500, Archived: true},
@@ -145,7 +145,7 @@ func TestRemovingTheViewedHost(t *testing.T) {
 	a, _ := h.AddHost("a", "", d.Found("a"))
 	b, _ := h.AddHost("b", "", d.Found("b"))
 	h.Start()
-	d.Push(a.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "a1"}}})
+	d.Push(a.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "a1"}}})
 	if err := h.RemoveHost(a.ID); err != nil {
 		t.Fatal(err)
 	}

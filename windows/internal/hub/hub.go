@@ -15,8 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
@@ -25,7 +26,7 @@ type Devices interface {
 	// Probe 直连 target 查一次（见 host.Probe）。阻塞。
 	Probe(target, expected, key string) (host.Found, error)
 	// WatchSessions 订阅设备 h 的会话列表，回调在后台 goroutine 上；Close 后不再回调。
-	WatchSessions(h remote.Host, update func(host.SessionsUpdate), problem func(string)) io.Closer
+	WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer
 	// ConfigHosts 是这台电脑 ~/.ssh/config 里能选的主机。阻塞。
 	ConfigHosts() ([]string, error)
 	// Keys 是这台电脑 ~/.ssh 里能选的私钥。阻塞。
@@ -33,11 +34,11 @@ type Devices interface {
 	// Retain 只留下 ids 这几台的连接。
 	Retain(ids []string)
 	// OpenChat 起一条到设备 h 的 serve 连接给对话用：推送、连接的变化在后台 goroutine 上交给 push、problem（见 host.Devices.OpenChat）。
-	OpenChat(h remote.Host, push func(line []byte), problem func(why string)) host.ChatLink
+	OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) host.ChatLink
 	// CheckDir 看设备 h 上进不进得去目录 path：进不去时是原因，进得去是空，查不成时是错误。阻塞。
-	CheckDir(h remote.Host, path string) (string, error)
+	CheckDir(h sshlink.Host, path string) (string, error)
 	// Image 取设备 h 上会话记录 file 里位置 ref 的那张图。阻塞。
-	Image(h remote.Host, file, ref string) ([]byte, error)
+	Image(h sshlink.Host, file, ref string) ([]byte, error)
 }
 
 // Hub 见包的说明。
@@ -47,10 +48,10 @@ type Hub struct {
 	run      func(func())
 	post     func(func())
 
-	hosts    []remote.Host
+	hosts    []sshlink.Host
 	pins     map[string]bool
 	watches  map[string]io.Closer // 订阅着的设备
-	sessions []host.Session       // 列着的各台的会话，合在一起
+	sessions []hostlink.Session   // 列着的各台的会话，合在一起
 	problems map[string]string    // 各台没读成会话列表的原因
 
 	chat  *Chat                // 聊天窗格里的对话
@@ -71,13 +72,13 @@ func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 func (h *Hub) Start() { h.Refresh() }
 
 // Hosts 是设备清单。
-func (h *Hub) Hosts() []remote.Host { return h.hosts }
+func (h *Hub) Hosts() []sshlink.Host { return h.hosts }
 
 // Host 是编号 id 的设备。
-func (h *Hub) Host(id string) (remote.Host, bool) {
-	i := slices.IndexFunc(h.hosts, func(x remote.Host) bool { return x.ID == id })
+func (h *Hub) Host(id string) (sshlink.Host, bool) {
+	i := slices.IndexFunc(h.hosts, func(x sshlink.Host) bool { return x.ID == id })
 	if i < 0 {
-		return remote.Host{}, false
+		return sshlink.Host{}, false
 	}
 	return h.hosts[i], true
 }
@@ -147,7 +148,7 @@ func (h *Hub) Refresh() {
 			h.unwatch(id)
 		}
 	}
-	h.sessions = slices.DeleteFunc(h.sessions, func(s host.Session) bool { return !slices.Contains(listed, s.Backend) })
+	h.sessions = slices.DeleteFunc(h.sessions, func(s hostlink.Session) bool { return !slices.Contains(listed, s.Backend) })
 	for id := range h.problems {
 		if !slices.Contains(listed, id) {
 			delete(h.problems, id)
@@ -168,7 +169,7 @@ func (h *Hub) watch(id string) {
 	var w io.Closer
 	current := func() bool { return w != nil && h.watches[id] == w }
 	w = h.devices.WatchSessions(x,
-		func(u host.SessionsUpdate) {
+		func(u hostlink.SessionsUpdate) {
 			h.post(func() {
 				if current() {
 					h.received(id, u)
@@ -198,9 +199,9 @@ func (h *Hub) unwatch(id string) {
 }
 
 // received：设备 id 推来了列表。整份时换掉它的那些；否则 Upsert 是新出现或变了的、Remove 是不再列出的，别的都留着。
-func (h *Hub) received(id string, u host.SessionsUpdate) {
+func (h *Hub) received(id string, u hostlink.SessionsUpdate) {
 	if u.Full {
-		others := slices.DeleteFunc(slices.Clone(h.sessions), func(s host.Session) bool { return s.Backend == id })
+		others := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool { return s.Backend == id })
 		if len(others) == 0 {
 			h.sessions = u.Upsert // 只有这一台时照那边给的先后
 			return
@@ -215,17 +216,17 @@ func (h *Hub) received(id string, u host.SessionsUpdate) {
 	for _, s := range u.Upsert {
 		dropped[s.ID] = true
 	}
-	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s host.Session) bool { return s.Backend == id && dropped[s.ID] })
+	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool { return s.Backend == id && dropped[s.ID] })
 	h.sessions = byTime(append(slices.Clone(u.Upsert), kept...))
 }
 
-func byTime(list []host.Session) []host.Session {
+func byTime(list []hostlink.Session) []hostlink.Session {
 	sort.SliceStable(list, func(i, j int) bool { return list[i].Updated > list[j].Updated })
 	return list
 }
 
 // Sessions 是列着的各台的会话，新的在前。
-func (h *Hub) Sessions() []host.Session { return h.sessions }
+func (h *Hub) Sessions() []hostlink.Session { return h.sessions }
 
 // Problem 是没读成会话列表的原因；都读成了是空。列着几台时每条前面注明是哪台。
 func (h *Hub) Problem() string {
@@ -244,7 +245,7 @@ func (h *Hub) Problem() string {
 
 // Groups 是侧栏的分组：置顶、今天、更早（今天按 now 所在时区的零点算）。归档的不列。
 type Groups struct {
-	Pinned, Today, Earlier []host.Session
+	Pinned, Today, Earlier []hostlink.Session
 }
 
 // Groups 把列着的会话分组。
@@ -267,10 +268,10 @@ func (h *Hub) Groups(now time.Time) Groups {
 }
 
 // Pinned：会话 s 置顶了。
-func (h *Hub) Pinned(s host.Session) bool { return h.pins[settings.PinKey(s.Backend, s.ID)] }
+func (h *Hub) Pinned(s hostlink.Session) bool { return h.pins[settings.PinKey(s.Backend, s.ID)] }
 
 // TogglePin 置顶或取消置顶会话 s。只是 Zeta 这边的标记，会话记录不动。
-func (h *Hub) TogglePin(s host.Session) {
+func (h *Hub) TogglePin(s hostlink.Session) {
 	key := settings.PinKey(s.Backend, s.ID)
 	pins := h.settings.Pins()
 	if h.pins[key] {
@@ -298,8 +299,8 @@ func (h *Hub) ConfigHosts(known []string) ([]string, error) {
 func (h *Hub) Keys() []string { return h.devices.Keys() }
 
 // AddHost 记下探测过的设备（地址 target、私钥 key、查到的 f），返回它。还没有设备时侧栏换到它。
-func (h *Hub) AddHost(target, key string, f host.Found) (remote.Host, error) {
-	x := remote.Host{ID: remote.NewID(), Target: target, Home: f.Home, DefaultCwd: f.Home, Via: remote.ViaDirect,
+func (h *Hub) AddHost(target, key string, f host.Found) (sshlink.Host, error) {
+	x := sshlink.Host{ID: sshlink.NewID(), Target: target, Home: f.Home, DefaultCwd: f.Home, Via: sshlink.ViaDirect,
 		HostKey: f.HostKey, Hostname: f.Hostname, Key: key}
 	first := h.Backend() == ""
 	if err := h.setHosts(append(slices.Clone(h.hosts), x)); err != nil {
@@ -313,8 +314,8 @@ func (h *Hub) AddHost(target, key string, f host.Found) (remote.Host, error) {
 }
 
 // UpdateHost 存改过的设备 x（改名、默认工作目录、私钥、认新的指纹）。连法相关的变了时会话列表按新的重连。
-func (h *Hub) UpdateHost(x remote.Host) error {
-	i := slices.IndexFunc(h.hosts, func(o remote.Host) bool { return o.ID == x.ID })
+func (h *Hub) UpdateHost(x sshlink.Host) error {
+	i := slices.IndexFunc(h.hosts, func(o sshlink.Host) bool { return o.ID == x.ID })
 	if i < 0 {
 		return nil
 	}
@@ -338,7 +339,7 @@ func (h *Hub) UpdateHost(x remote.Host) error {
 
 // RemoveHost 删掉设备 id：只是 Zeta 不再连它，那边的会话记录不动。正看着它时侧栏换到剩下的第一台。
 func (h *Hub) RemoveHost(id string) error {
-	hosts := slices.DeleteFunc(slices.Clone(h.hosts), func(x remote.Host) bool { return x.ID == id })
+	hosts := slices.DeleteFunc(slices.Clone(h.hosts), func(x sshlink.Host) bool { return x.ID == id })
 	if len(hosts) == len(h.hosts) {
 		return nil
 	}
@@ -360,7 +361,7 @@ func (h *Hub) RemoveHost(id string) error {
 }
 
 // setHosts 换掉设备清单并存盘；存不上时内存里照样换（这次运行里能用），把原因交回去。
-func (h *Hub) setHosts(hosts []remote.Host) error {
+func (h *Hub) setHosts(hosts []sshlink.Host) error {
 	h.hosts = hosts
 	return h.settings.SetHosts(hosts)
 }

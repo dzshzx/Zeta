@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -64,9 +64,9 @@ func (a *App) devicePage(c *ui.Context) {
 }
 
 // connectionSection 是名称、地址、私钥、指纹、家目录、默认工作目录。
-func (a *App) connectionSection(c *ui.Context, x remote.Host) {
+func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 	t := c.Theme()
-	nameProblem := remote.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
+	nameProblem := sshlink.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
 	section(c, "连接", nameProblem, func() {
 		item(c, "名称", func() {
 			ui.TextInput(c.Key("name"), &a.edit.name).Placeholder(original(x)).Label("名称").Width(240)
@@ -76,7 +76,7 @@ func (a *App) connectionSection(c *ui.Context, x remote.Host) {
 				a.save(x)
 			})
 		})
-		valueItem(c, "地址", remote.DisplayTarget(x.Target))
+		valueItem(c, "地址", sshlink.DisplayTarget(x.Target))
 		item(c, "SSH 密钥", func() {
 			if a.edit.changing {
 				ui.Text(c, "正在连接…").TextColor(t.TextMuted)
@@ -100,7 +100,7 @@ func (a *App) connectionSection(c *ui.Context, x remote.Host) {
 }
 
 // original 是设备自己的名字（没起名字时显示的）。
-func original(x remote.Host) string {
+func original(x sshlink.Host) string {
 	x.CustomName = ""
 	return x.Name()
 }
@@ -120,14 +120,14 @@ func normalizeCwd(text, home string) (string, bool) {
 }
 
 // save 存改过的设备，存不上时说一声。
-func (a *App) save(x remote.Host) {
+func (a *App) save(x sshlink.Host) {
 	if err := a.hub.UpdateHost(x); err != nil {
 		a.say("没存上", err.Error())
 	}
 }
 
 // changeKey 改用私钥 key：先用它连一次，连上了才存。
-func (a *App) changeKey(x remote.Host, key string) {
+func (a *App) changeKey(x sshlink.Host, key string) {
 	a.edit.changing = true
 	name := keyLabel(key)
 	a.async(func() func() {
@@ -135,7 +135,7 @@ func (a *App) changeKey(x remote.Host, key string) {
 		return func() {
 			a.edit.changing = false
 			if err != nil {
-				a.say("无法改为 "+name, remote.Describe(err))
+				a.say("无法改为 "+name, sshlink.Describe(err))
 				return
 			}
 			current, ok := a.hub.Host(x.ID)
@@ -150,21 +150,21 @@ func (a *App) changeKey(x remote.Host, key string) {
 }
 
 // checkHost 照记下的指纹和私钥连一次，结果写在按钮下面。指纹变了的问用户认不认；家目录、主机名变了的跟着改。
-func (a *App) checkHost(x remote.Host) {
+func (a *App) checkHost(x sshlink.Host) {
 	a.edit.checking = true
 	a.edit.check = ""
 	a.async(func() func() {
 		f, err := a.hub.Probe(x.Target, x.HostKey, x.Key)
 		return func() {
 			a.edit.checking = false
-			var changed *remote.HostKeyChangedError
+			var changed *sshlink.HostKeyChangedError
 			switch {
 			case errors.As(err, &changed):
 				a.edit.check = "没连上：主机指纹和记下的不一样"
 				a.edit.changedKey = changed.Seen
 				a.edit.trusting = true
 			case err != nil:
-				a.edit.check = "没连上：" + remote.Describe(err)
+				a.edit.check = "没连上：" + sshlink.Describe(err)
 			default:
 				a.edit.check = "连上了：" + f.Summary()
 				if current, ok := a.hub.Host(x.ID); ok && (f.Home != current.Home || f.Hostname != current.Hostname) {
@@ -176,7 +176,7 @@ func (a *App) checkHost(x remote.Host) {
 }
 
 // refreshed：连上时家目录或主机名变了就跟着改，默认工作目录原来是家目录的一起换。
-func refreshed(x remote.Host, f host.Found) remote.Host {
+func refreshed(x sshlink.Host, f host.Found) sshlink.Host {
 	if x.DefaultCwd == x.Home {
 		x.DefaultCwd = f.Home
 	}
@@ -188,8 +188,8 @@ func refreshed(x remote.Host, f host.Found) remote.Host {
 }
 
 // deviceDialogs 是认不认新指纹、删不删两个确认框。
-func (a *App) deviceDialogs(c *ui.Context, x remote.Host) {
-	message := "记下的：" + x.Fingerprint() + "\n现在的：" + remote.Fingerprint(a.edit.changedKey) +
+func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
+	message := "记下的：" + x.Fingerprint() + "\n现在的：" + sshlink.Fingerprint(a.edit.changedKey) +
 		"\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。"
 	if ui.AlertDialog(c, &a.edit.trusting, "主机指纹变了", message, "取消", "改认新的") == 1 {
 		x.HostKey = a.edit.changedKey

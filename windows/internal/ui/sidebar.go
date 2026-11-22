@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -89,7 +89,7 @@ func paneMessage(c *ui.Context, text string) {
 }
 
 // sessionGroup 是一组会话：标题一行，下面各个会话；空的不列。
-func (a *App) sessionGroup(c *ui.Context, title string, list []host.Session) {
+func (a *App) sessionGroup(c *ui.Context, title string, list []hostlink.Session) {
 	if len(list) == 0 {
 		return
 	}
@@ -101,7 +101,7 @@ func (a *App) sessionGroup(c *ui.Context, title string, list []host.Session) {
 }
 
 // sessionRow 是一行会话：标题，下面是所在的目录（列着全部设备时前面是设备名）。右键菜单里置顶。
-func (a *App) sessionRow(c *ui.Context, s host.Session) {
+func (a *App) sessionRow(c *ui.Context, s hostlink.Session) {
 	t := c.Theme()
 	pinned := a.hub.Pinned(s)
 	row := ui.Column(c.Key(s.Backend+"/"+s.ID)).Padding(6, 8).Radius(8).Gap(2).Focusable().Label(s.Label()).
@@ -132,7 +132,7 @@ func (a *App) sessionRow(c *ui.Context, s host.Session) {
 }
 
 // place 是一行会话的小字：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明。
-func (a *App) place(s host.Session) string {
+func (a *App) place(s hostlink.Session) string {
 	place := s.Place()
 	if a.hub.AllHosts() {
 		place = a.hub.Name(s.Backend) + " · " + place
@@ -144,7 +144,7 @@ func (a *App) place(s host.Session) string {
 }
 
 // showing：聊天窗格正开着会话 s（新对话第一轮以后也算它）。
-func (a *App) showing(s host.Session) bool {
+func (a *App) showing(s hostlink.Session) bool {
 	c := a.hub.Chat()
 	if c == nil || a.page != pageHome || c.Backend != s.Backend {
 		return false

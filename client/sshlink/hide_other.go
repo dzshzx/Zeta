@@ -1,6 +1,6 @@
 //go:build !windows
 
-package remote
+package sshlink
 
 import "os/exec"
 

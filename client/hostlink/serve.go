@@ -1,4 +1,4 @@
-package host
+package hostlink
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
 // Protocol 和 helper/serve.go 的 serveProtocol 一致。
@@ -25,7 +25,7 @@ const PingEvery = 30 * time.Second
 // ServeOptions 是一条到 zeta-helper serve 的连接要的东西。
 type ServeOptions struct {
 	// Open 起 serve 进程；起不来时的错误是给人看的原因。
-	Open func() (*remote.Process, error)
+	Open func() (*sshlink.Process, error)
 	// Subscriptions 是连上、收到招呼后各发一次的方法（重连后也再发一遍，所以先收到的总是整份）。
 	Subscriptions []string
 	// Message 收到推来的每一行（type 不是 zeta_reply 的），在读的 goroutine 上调用。
@@ -46,9 +46,9 @@ type Serve struct {
 
 	mu      sync.Mutex
 	closed  bool
-	current *remote.Process
+	current *sshlink.Process
 	// conn 是收到招呼、能发请求的那个进程（current 连上以后）；changed 在 conn、ended 变了时关掉、换一个新的。
-	conn    *remote.Process
+	conn    *sshlink.Process
 	changed chan struct{}
 	// ended：不再重连了（Close 了，或第一次就没连上），why 是最后的原因。
 	ended   bool
@@ -129,8 +129,21 @@ type reply struct {
 	err    error
 }
 
+// ReplyError 是 serve 答了 ok 为假时 Call 返回的错误（用 errors.As 取）：Error() 是应答里的 error（给人看的原因，没有时是
+// 默认的一句），Code() 是应答里的 code，认得出的出错才带（比如 conv.earlier 的 history_changed、账号的 claude_switch_missing，
+// 见 docs/core.md），没带时是空。
+type ReplyError struct {
+	Message string
+	code    string
+}
+
+func (e *ReplyError) Error() string { return e.Message }
+
+// Code 是应答里的 code，没带时是空。
+func (e *ReplyError) Code() string { return e.code }
+
 // Call 发一个请求（params 的各项和 id、method 平级写出）并等它的 zeta_reply：ok 时返回 result（没有时为 nil），
-// 否则返回 serve 给的原因。还在连（第一次或重连）时等连上；连接在应答之前断了返回错误，不重发（请求可能已经生效）。
+// 否则返回 *ReplyError（serve 给的原因和 code）。还在连（第一次或重连）时等连上；连接在应答之前断了返回错误，不重发（请求可能已经生效）。
 // 不再重连了（Close 了，或第一次就没连上）时直接返回最后的原因。不能在 Message、Problem 回调里调：应答要靠那个 goroutine 读。
 func (s *Serve) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
 	p, err := s.connection(ctx)
@@ -154,7 +167,7 @@ func (s *Serve) Call(ctx context.Context, method string, params map[string]any) 
 var errDropped = errors.New("和 zeta-helper serve 的连接断了，没收到应答")
 
 // connection 等到能发请求的那个进程。
-func (s *Serve) connection(ctx context.Context) (*remote.Process, error) {
+func (s *Serve) connection(ctx context.Context) (*sshlink.Process, error) {
 	for {
 		s.mu.Lock()
 		p, changed, ended, why := s.conn, s.changed, s.ended, s.why
@@ -174,14 +187,14 @@ func (s *Serve) connection(ctx context.Context) (*remote.Process, error) {
 }
 
 // connect、disconnect 记下 p 能不能发请求。断开时等着应答的 Call 都返回 errDropped。
-func (s *Serve) connect(p *remote.Process) {
+func (s *Serve) connect(p *sshlink.Process) {
 	s.mu.Lock()
 	s.conn = p
 	s.broadcast()
 	s.mu.Unlock()
 }
 
-func (s *Serve) disconnect(p *remote.Process) {
+func (s *Serve) disconnect(p *sshlink.Process) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.conn != p {
@@ -268,14 +281,14 @@ func (s *Serve) connectOnce() (connected bool, why string) {
 	default:
 		why = fmt.Sprintf("和 zeta-helper serve 的连接断了（退出码 %d）", code)
 	}
-	if code == remote.ConnectionFailed {
+	if code == sshlink.ConnectionFailed {
 		why = "连接断了：" + why
 	}
 	return connected, why
 }
 
 // read 一行行读推来的消息：先等招呼，对上了就订阅、开始 ping，之后的交给 Message。对不上协议时返回原因。
-func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (refused string) {
+func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) (refused string) {
 	sc := bufio.NewScanner(p.Stdout)
 	sc.Buffer(make([]byte, 64*1024), 64*1024*1024)
 	for sc.Scan() {
@@ -286,6 +299,7 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 			ID       json.RawMessage `json:"id"`
 			OK       *bool           `json:"ok"`
 			Error    string          `json:"error"`
+			Code     string          `json:"code"`
 			Result   json.RawMessage `json:"result"`
 		}
 		if json.Unmarshal(line, &head) != nil {
@@ -293,7 +307,7 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 		}
 		switch {
 		case *connected && head.Type == "zeta_reply":
-			if s.answer(head.ID, head.OK != nil && *head.OK, head.Result, head.Error) {
+			if s.answer(head.ID, head.OK != nil && *head.OK, head.Result, head.Error, head.Code) {
 				continue
 			}
 			// 订阅、ping 不等应答：答 false 是那边不认这个方法，两边的版本对不上
@@ -318,7 +332,7 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 }
 
 // answer 把应答交给等着它的 Call；不是 Call 发的（订阅、ping）返回 false。
-func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, why string) bool {
+func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, why, code string) bool {
 	id, err := strconv.ParseInt(string(rawID), 10, 64)
 	if err != nil {
 		return false
@@ -331,7 +345,7 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 		return false
 	}
 	if !ok {
-		ch <- reply{err: errors.New(orDefault(why, "zeta-helper serve 拒绝了请求"))}
+		ch <- reply{err: &ReplyError{Message: orDefault(why, "zeta-helper serve 拒绝了请求"), code: code}}
 		return true
 	}
 	if string(result) == "null" {
@@ -342,11 +356,11 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 }
 
 // send 发一个不等应答的请求（订阅、ping）。
-func (s *Serve) send(p *remote.Process, method string) { s.write(p, method, nil, nil) }
+func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil) }
 
 // write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。
 // 写不出去时不管，读那边会发现断了，到时 ch 收到 errDropped。
-func (s *Serve) write(p *remote.Process, method string, params map[string]any, ch chan reply) int64 {
+func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, ch chan reply) int64 {
 	s.writing.Lock()
 	defer s.writing.Unlock()
 	s.mu.Lock()
@@ -366,7 +380,7 @@ func (s *Serve) write(p *remote.Process, method string, params map[string]any, c
 	msg["id"], msg["method"] = id, method
 	line, err := json.Marshal(msg)
 	if err != nil {
-		s.answer(json.RawMessage(strconv.FormatInt(id, 10)), false, nil, "请求写不成 JSON："+err.Error())
+		s.answer(json.RawMessage(strconv.FormatInt(id, 10)), false, nil, "请求写不成 JSON："+err.Error(), "")
 		return id
 	}
 	_, _ = p.Stdin.Write(append(line, '\n'))
@@ -374,7 +388,7 @@ func (s *Serve) write(p *remote.Process, method string, params map[string]any, c
 }
 
 // pings 每隔一会儿发一次 ping，直到这次连接结束。
-func (s *Serve) pings(p *remote.Process, done <-chan struct{}) {
+func (s *Serve) pings(p *sshlink.Process, done <-chan struct{}) {
 	tick := time.NewTicker(s.opts.Ping)
 	defer tick.Stop()
 	for {
@@ -390,8 +404,8 @@ func (s *Serve) pings(p *remote.Process, done <-chan struct{}) {
 }
 
 // OpenServe 在 shell 那台上起 serve：没装 zeta-helper 就先装上。装不上时的错误是给人看的原因。
-func OpenServe(shell Shell, program *Program) (*remote.Process, error) {
-	r, err := program.Ensure(shell.plainExec(time.Minute))
+func OpenServe(shell Shell, program *Program) (*sshlink.Process, error) {
+	r, err := program.Ensure(shell.plainExec(time.Minute), shell.Name)
 	if err != nil {
 		return nil, errors.New("连不上「" + shell.Host.Name() + "」：" + err.Error())
 	}
@@ -401,7 +415,7 @@ func OpenServe(shell Shell, program *Program) (*remote.Process, error) {
 	if r.Code != 0 {
 		return nil, errors.New(orDefault(tail(r.Stderr, 300), program.Name+" 没装上"))
 	}
-	p, err := shell.StartPlain(program.Command("serve"))
+	p, err := shell.StartPlain(program.Command(shell.Name, "serve"))
 	if err != nil {
 		return nil, errors.New("连不上「" + shell.Host.Name() + "」：" + err.Error())
 	}

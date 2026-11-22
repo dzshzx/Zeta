@@ -8,8 +8,9 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -51,7 +52,7 @@ func NewDevices() *Devices {
 	if err != nil {
 		panic(err)
 	}
-	return &Devices{Probes: map[string]Probe{}, hostKey: remote.EncodeHostKey(key), opened: map[string]int{}}
+	return &Devices{Probes: map[string]Probe{}, hostKey: sshlink.EncodeHostKey(key), opened: map[string]int{}}
 }
 
 // HostKey 是各台的主机公钥（base64）。
@@ -103,7 +104,7 @@ func (d *Devices) Retained() []string {
 
 type watcher struct {
 	id      string
-	update  func(host.SessionsUpdate)
+	update  func(hostlink.SessionsUpdate)
 	problem func(string)
 	closed  bool
 }
@@ -111,7 +112,7 @@ type watcher struct {
 func (w *watcher) Close() error { w.closed = true; return nil }
 
 // WatchSessions 见 hub.Devices：记下回调，等测试推。
-func (d *Devices) WatchSessions(h remote.Host, update func(host.SessionsUpdate), problem func(string)) io.Closer {
+func (d *Devices) WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	w := &watcher{id: h.ID, update: update, problem: problem}
@@ -154,14 +155,14 @@ func (d *Devices) last(id string, open bool) *watcher {
 }
 
 // Push 替设备 id 开着的订阅推一份列表（会话的 Backend 填上 id）。
-func (d *Devices) Push(id string, u host.SessionsUpdate) {
+func (d *Devices) Push(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, true); w != nil {
 		w.update(withBackend(u, id))
 	}
 }
 
 // PushStale 替设备 id 已经关掉的订阅推一份（像断开前在路上的推送）。
-func (d *Devices) PushStale(id string, u host.SessionsUpdate) {
+func (d *Devices) PushStale(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, false); w != nil {
 		w.update(withBackend(u, id))
 	}
@@ -174,7 +175,7 @@ func (d *Devices) Fail(id, why string) {
 	}
 }
 
-func withBackend(u host.SessionsUpdate, id string) host.SessionsUpdate {
+func withBackend(u hostlink.SessionsUpdate, id string) hostlink.SessionsUpdate {
 	u.Upsert = slices.Clone(u.Upsert)
 	for i := range u.Upsert {
 		u.Upsert[i].Backend = id

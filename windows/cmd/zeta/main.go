@@ -5,9 +5,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/egoist/mygo"
@@ -23,12 +24,12 @@ func main() {
 	if err != nil {
 		log.Printf("zeta: %v", err)
 	}
-	helper, err := host.LoadProgram(host.ZetaHelper)
+	helper, err := host.LoadProgram(hostlink.ZetaHelper)
 	if err != nil {
 		log.Fatalf("zeta: %v", err)
 	}
-	config := remote.NewOpenSSH()
-	devices := &host.Devices{Links: remote.NewLinks(config, time.Minute), Config: config, Helper: helper}
+	config := sshlink.NewOpenSSH()
+	devices := &host.Devices{Links: sshlink.NewLinks(config, time.Minute), Config: config, Helper: helper}
 
 	// 后台 goroutine 的结果经窗口的 Update 回到主线程，改完重画
 	var win *mygo.Window

@@ -1,0 +1,2 @@
+# 客户端共用的 Go 代码（client/）链接的模块：直连设备的 SSH（x/crypto）。门禁 gate_go_deps 按本清单核对，多一个都失败
+golang.org/x/crypto

@@ -4,14 +4,15 @@ import (
 	"io"
 	"log"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
 // Devices 是中枢碰设备的几样事的真实现：探测、会话列表的订阅，和这台电脑的 SSH 配置。
 type Devices struct {
-	Links  *remote.Links
-	Config *remote.OpenSSH
-	Helper *Program
+	Links  *sshlink.Links
+	Config *sshlink.OpenSSH
+	Helper *hostlink.Program
 }
 
 // Probe 见 host.Probe。
@@ -20,16 +21,16 @@ func (d *Devices) Probe(target, expected, key string) (Found, error) {
 }
 
 // WatchSessions 订阅设备 h 的会话列表：每推来一份交给 update，连上（空）、断开或连不上（原因）交给 problem，都在后台 goroutine 上调用。
-func (d *Devices) WatchSessions(h remote.Host, update func(SessionsUpdate), problem func(string)) io.Closer {
-	shell := NewShell(d.Links, h)
-	return StartServe(ServeOptions{
-		Open:          func() (*remote.Process, error) { return OpenServe(shell, d.Helper) },
+func (d *Devices) WatchSessions(h sshlink.Host, update func(hostlink.SessionsUpdate), problem func(string)) io.Closer {
+	shell := hostlink.NewShell(d.Links, h, LinuxName)
+	return hostlink.StartServe(hostlink.ServeOptions{
+		Open:          func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Subscriptions: []string{"sessions.watch"},
 		Message: func(kind string, line []byte) {
 			if kind != "zeta_sessions" {
 				return
 			}
-			u, err := parseSessions(line, h.ID)
+			u, err := hostlink.ParseSessions(line, h.ID)
 			if err != nil {
 				log.Printf("zeta: 会话列表的推送解不开：%v", err)
 				return

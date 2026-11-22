@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 )
 
 // ChatLink 是假的对话连接，扮主机上的 serve 和核心：记下发来的请求，按 OnCall 应答（没给时答成功、没有 result）；
@@ -109,7 +109,7 @@ func (l *ChatLink) Connect()        { l.problem("") }
 func (l *ChatLink) Drop(why string) { l.problem(why) }
 
 // OpenChat 见 hub.Devices：起一条假连接，记下来，测试用 Chat 拿到它。
-func (d *Devices) OpenChat(h remote.Host, push func([]byte), problem func(string)) host.ChatLink {
+func (d *Devices) OpenChat(h sshlink.Host, push func([]byte), problem func(string)) host.ChatLink {
 	l := &ChatLink{Host: h.ID, push: push, problem: problem}
 	d.mu.Lock()
 	d.chats = append(d.chats, l)
@@ -141,7 +141,7 @@ func (d *Devices) Chats() int {
 }
 
 // CheckDir 见 hub.Devices：照 DirProblems 答（没列的进得去）。
-func (d *Devices) CheckDir(_ remote.Host, path string) (string, error) {
+func (d *Devices) CheckDir(_ sshlink.Host, path string) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.checked = append(d.checked, path)
@@ -156,7 +156,7 @@ func (d *Devices) Checked() []string {
 }
 
 // Image 见 hub.Devices：都答 ImageData。
-func (d *Devices) Image(remote.Host, string, string) ([]byte, error) {
+func (d *Devices) Image(sshlink.Host, string, string) ([]byte, error) {
 	if d.ImageData == nil {
 		return nil, errors.New("没有这张图")
 	}

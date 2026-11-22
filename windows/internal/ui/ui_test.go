@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
-	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
@@ -42,9 +42,9 @@ func newFixture(t *testing.T) *fixture {
 }
 
 // withHosts 先加好名叫 names 的几台。
-func (f *fixture) withHosts(t *testing.T, names ...string) []remote.Host {
+func (f *fixture) withHosts(t *testing.T, names ...string) []sshlink.Host {
 	t.Helper()
-	var hosts []remote.Host
+	var hosts []sshlink.Host
 	for _, name := range names {
 		x, err := f.hub.AddHost(name, "", f.devices.Found(name))
 		if err != nil {
@@ -121,14 +121,14 @@ func TestFirstRunAddsADeviceFromTheSSHConfig(t *testing.T) {
 	if f.tt.HasText("还没有设备") {
 		t.Error("sidebar still empty")
 	}
-	f.devices.Push(x.ID, host.SessionsUpdate{Full: true})
+	f.devices.Push(x.ID, hostlink.SessionsUpdate{Full: true})
 	f.tt.Frame()
 	f.see(t, "还没有对话")
 }
 
 func TestManualAddExplainsWhatWentWrong(t *testing.T) {
 	f := newFixture(t)
-	f.devices.Probes["zeta@lab:2222"] = hubtest.Probe{Err: remote.Problem("对方拒绝连接（端口上没有 SSH 服务）")}
+	f.devices.Probes["zeta@lab:2222"] = hubtest.Probe{Err: sshlink.Problem("对方拒绝连接（端口上没有 SSH 服务）")}
 	f.app.open(pageDevices)
 	f.tt.Frame()
 	f.click(t, "地址")
@@ -151,7 +151,7 @@ func TestManualAddExplainsWhatWentWrong(t *testing.T) {
 func TestSidebarGroupsAndPins(t *testing.T) {
 	f := newFixture(t)
 	x := f.withHosts(t, "box")[0]
-	f.devices.Push(x.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{
+	f.devices.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 		{ID: "s1", Title: "修登录页", Cwd: "/home/box/web", Updated: at(14)},
 		{ID: "s2", Preview: "看看日志", Cwd: "/srv/logs/", Updated: at(14) - 25*3600*1000, External: true},
 		{ID: "s3", Title: "归档的", Updated: at(13), Archived: true},
@@ -179,7 +179,7 @@ func TestSidebarGroupsAndPins(t *testing.T) {
 func TestHostSwitcherListsAllDevices(t *testing.T) {
 	f := newFixture(t)
 	hosts := f.withHosts(t, "box", "lab")
-	f.devices.Push(hosts[0].ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "a", Title: "盒子上的", Cwd: "/w/proj", Updated: at(10)}}})
+	f.devices.Push(hosts[0].ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "a", Title: "盒子上的", Cwd: "/w/proj", Updated: at(10)}}})
 	f.tt.Frame()
 	f.see(t, "盒子上的", "proj")
 	f.click(t, "box")
@@ -187,7 +187,7 @@ func TestHostSwitcherListsAllDevices(t *testing.T) {
 	if !f.hub.AllHosts() {
 		t.Fatal("not listing all hosts")
 	}
-	f.devices.Push(hosts[1].ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{{ID: "b", Title: "实验室的", Cwd: "/x/exp", Updated: at(11)}}})
+	f.devices.Push(hosts[1].ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "b", Title: "实验室的", Cwd: "/x/exp", Updated: at(11)}}})
 	f.tt.Frame()
 	f.see(t, "box · proj", "lab · exp", "全部设备")
 	f.click(t, "全部设备")
@@ -246,12 +246,12 @@ func TestCheckingFindsAChangedHostKey(t *testing.T) {
 	f := newFixture(t)
 	x := f.withHosts(t, "box")[0]
 	fresh := hubtest.NewDevices().HostKey()
-	f.devices.Probes["box"] = hubtest.Probe{Err: &remote.HostKeyChangedError{Seen: fresh}}
+	f.devices.Probes["box"] = hubtest.Probe{Err: &sshlink.HostKeyChangedError{Seen: fresh}}
 	f.app.device = x.ID
 	f.app.open(pageDevice)
 	f.tt.Frame()
 	f.click(t, "检查连接")
-	f.see(t, "主机指纹变了", "现在的："+remote.Fingerprint(fresh))
+	f.see(t, "主机指纹变了", "现在的："+sshlink.Fingerprint(fresh))
 	f.click(t, "改认新的")
 	f.see(t, "已改认新的主机指纹，再检查一次连接")
 	if got, _ := f.hub.Host(x.ID); got.HostKey != fresh {
@@ -306,7 +306,7 @@ func TestPreviews(t *testing.T) {
 		"devices": func(_ *testing.T, f *fixture) { f.devices.Config = []string{"box", "lab"}; f.app.open(pageDevices) },
 		"sidebar": func(t *testing.T, f *fixture) {
 			x := f.withHosts(t, "box")[0]
-			f.devices.Push(x.ID, host.SessionsUpdate{Full: true, Upsert: []host.Session{
+			f.devices.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 				{ID: "s1", Title: "修登录页", Cwd: "/home/box/web", Updated: at(14)},
 				{ID: "s2", Preview: "看看日志", Cwd: "/srv/logs", Updated: at(1) - 3600*1000},
 			}})

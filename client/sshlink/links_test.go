@@ -1,4 +1,4 @@
-package remote
+package sshlink
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/sshtest"
+	"github.com/dzshzx/Zeta/client/sshtest"
 )
 
 // device 是测试服务器和一台记好指纹、直连它的设备。

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 )
 
@@ -99,7 +99,7 @@ func (f *chatFixture) run(do func(conv *chat.Conversation) error) {
 
 func TestOpeningASessionAndSwitching(t *testing.T) {
 	f := newChatFixture(t)
-	s := host.Session{ID: "s1", File: "/home/zeta/.claude/projects/-w/s1.jsonl", Cwd: "/w", Title: "修 bug", Backend: f.id}
+	s := hostlink.Session{ID: "s1", File: "/home/zeta/.claude/projects/-w/s1.jsonl", Cwd: "/w", Title: "修 bug", Backend: f.id}
 	f.hub.OpenSession(s)
 	c := f.hub.Chat()
 	if c == nil || c.Opening || c.Conv == nil || c.Problem != "" {
@@ -119,7 +119,7 @@ func TestOpeningASessionAndSwitching(t *testing.T) {
 		t.Fatalf("再点同一个发了 %v", m)
 	}
 	// 换一个：先关掉原来的，同一条连接上打开新的
-	f.hub.OpenSession(host.Session{ID: "s2", File: "/f2", Cwd: "/w", Backend: f.id})
+	f.hub.OpenSession(hostlink.Session{ID: "s2", File: "/f2", Cwd: "/w", Backend: f.id})
 	calls = f.link().Took()
 	if len(calls) != 2 || calls[0].Method != "conv.close" || calls[0].Conv() != "w1" || calls[1].Method != "conv.open" || calls[1].Str("session") != "s2" {
 		t.Fatalf("换会话：%+v", calls)
@@ -172,7 +172,7 @@ func TestStreamingTurn(t *testing.T) {
 		t.Fatalf("一轮的起止：%+v", f.turns)
 	}
 	f.link().Took()
-	f.hub.OpenSession(host.Session{ID: f.state.Session, Backend: f.id})
+	f.hub.OpenSession(hostlink.Session{ID: f.state.Session, Backend: f.id})
 	if m := f.link().Methods(); m != nil {
 		t.Fatalf("点开正开着的新会话发了 %v", m)
 	}
@@ -266,7 +266,7 @@ func TestOpenFailsWhenTheDeviceIsUnreachable(t *testing.T) {
 	}
 	h, _ := newHub(t, d)
 	x, _ := h.AddHost("box", "", d.Found("box"))
-	h.OpenSession(host.Session{ID: "s1", Backend: x.ID})
+	h.OpenSession(hostlink.Session{ID: "s1", Backend: x.ID})
 	if c := h.Chat(); c.Opening || c.Conv != nil || c.Problem != "打不开这个对话：连不上「box」：connection refused" {
 		t.Fatalf("打不开：%+v", c)
 	}
@@ -274,7 +274,7 @@ func TestOpenFailsWhenTheDeviceIsUnreachable(t *testing.T) {
 	if !first.Closed() {
 		t.Error("没连上的连接还留着")
 	}
-	h.OpenSession(host.Session{ID: "s2", Backend: x.ID})
+	h.OpenSession(hostlink.Session{ID: "s2", Backend: x.ID})
 	if d.Chats() != 2 {
 		t.Errorf("再打开时没重新连：%d 条", d.Chats())
 	}

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/egoist/mygo/ui"
 )
@@ -44,7 +44,7 @@ func newChatFixture(t *testing.T) *chatFixture {
 		})
 	}
 	f.id = f.withHosts(t, "box")[0].ID
-	f.devices.Push(f.id, host.SessionsUpdate{Full: true, Upsert: []host.Session{
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 		{ID: "s1", File: "/home/box/.claude/projects/-w/s1.jsonl", Title: "修登录页", Cwd: "/home/box/web", Updated: at(14)},
 	}})
 	f.tt.Frame()

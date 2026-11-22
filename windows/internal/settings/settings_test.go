@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
-	"github.com/dzshzx/Zeta/windows/internal/sshtest"
+	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/client/sshtest"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
 // composeFile 是 Compose 桌面版（FilePrefStore）写出来的样子：各种类型都有，还有这一版不用的项。
 func composeFile(t *testing.T) (dir string, hostKey string) {
 	t.Helper()
-	hostKey = remote.EncodeHostKey(sshtest.NewKey(t).PublicKey())
+	hostKey = sshlink.EncodeHostKey(sshtest.NewKey(t).PublicKey())
 	hosts := `[{"id":"r-1","name":"工作站","target":"box","home":"/home/zeta","cwd":"/home/zeta/src","via":"direct","hostKey":"` + hostKey + `"},` +
 		`{"id":"r-2","hostname":"lab","target":"zeta@lab:2222","home":"/root","cwd":"/root","via":"direct","hostKey":"` + hostKey + `","key":"~/.ssh/lab"}]`
 	encoded, _ := json.Marshal(hosts)

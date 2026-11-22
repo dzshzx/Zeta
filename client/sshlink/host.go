@@ -1,6 +1,6 @@
-// Package remote 是远程设备和到它们的 SSH：设备清单的格式（和手机版、Compose 桌面版同一份设置）、照这台电脑的
-// OpenSSH 配置认证、Zeta 自带的 SSH 直连（golang.org/x/crypto/ssh）和主机指纹。
-package remote
+// Package sshlink 是远程设备和到它们的 SSH：设备清单的格式（和手机版、Compose 桌面版同一份设置）、照这台电脑的
+// OpenSSH 配置认证、Zeta 自带的 SSH 直连（golang.org/x/crypto/ssh）和主机指纹。客户端共用，不碰界面（hostlink 在它上面跑命令）。
+package sshlink
 
 import (
 	"crypto/rand"

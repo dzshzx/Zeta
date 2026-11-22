@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
 // 设置文件里的键，同 shared 的 Settings.kt。
 const (
-	keyHosts          = "remoteHosts"    // 设备清单（JSON 数组的字符串，见 remote.EncodeHosts）
+	keyHosts          = "remoteHosts"    // 设备清单（JSON 数组的字符串，见 sshlink.EncodeHosts）
 	keyBackend        = "backend"        // 侧栏正看着哪台设备
 	keyPaneAll        = "paneAll"        // 侧栏列全部设备的会话
 	keyPins           = "pinnedSessions" // 置顶的会话（PinKey）
@@ -52,14 +52,14 @@ func Load(dir string) (*Settings, error) {
 }
 
 // Hosts 是设备清单。
-func (s *Settings) Hosts() []remote.Host {
+func (s *Settings) Hosts() []sshlink.Host {
 	text, _ := s.store.String(keyHosts)
-	return remote.DecodeHosts(text)
+	return sshlink.DecodeHosts(text)
 }
 
 // SetHosts 存设备清单；删掉的设备在别的设置里的项（自动压缩、上下文窗口、斜杠命令）一起去掉，同 Kotlin 版。
-func (s *Settings) SetHosts(hosts []remote.Host) error {
-	if err := s.store.SetString(keyHosts, remote.EncodeHosts(hosts)); err != nil {
+func (s *Settings) SetHosts(hosts []sshlink.Host) error {
+	if err := s.store.SetString(keyHosts, sshlink.EncodeHosts(hosts)); err != nil {
 		return err
 	}
 	kept := map[string]bool{Local: true}
