@@ -47,6 +47,10 @@ type Deps struct {
 	KeepMode func(key, mode string) error
 	// Rename 给会话记录 file 改名（追加一行 custom-title，同 zeta-helper rename），返回实际写下的标题；可以是 nil
 	Rename func(file, title string) (string, error)
+	// SessionImage 取回会话记录 file 里位置 ref 的一张图（同 sessions.image），重新生成时原样重发用；可以是 nil，那时会话记录里的图发不了
+	SessionImage func(file, ref string) (Image, error)
+	// Commands 记着这台主机上各工作目录最近一次拿到的斜杠命令，还没起进程时打开对话也给得出来；可以是 nil
+	Commands *CommandStore
 }
 
 // Quota 是订阅额度的去处，几个对话共用一份。方法在各对话自己的 goroutine 上调用，几个对话可能同时调。

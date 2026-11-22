@@ -88,7 +88,7 @@ func (c *Conversation) loadHistory(file string) {
 		c.r = read.reducer
 		c.usage.PrependHistory(read.usage())
 		c.earlier, c.earlierAnchor, c.earlierFile = read.header.Skipped, read.header.Anchor, file
-		c.todoSeed = read.header.TodoSeed
+		c.setTodoSeed(read.header.TodoSeed)
 		c.loadingHistory = false
 		if err != nil {
 			c.r.AddNotice("读取历史记录失败："+err.Error(), true)

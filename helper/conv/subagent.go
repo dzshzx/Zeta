@@ -64,6 +64,7 @@ type subagentLog struct {
 	idle     int         // 连着几次读完条目都没变
 	items    []json.RawMessage
 	readSeen []json.RawMessage // 上次读完时的条目，看这次读完变没变
+	call     *agentCall        // 发起它的 Agent 调用的参数，记录还没读到时先用它说话；还没找到时为 nil
 }
 
 // subagentWatcher 记着推给一个客户端的最后一份，下次只推变了的。
@@ -331,10 +332,7 @@ func (c *Conversation) publishSubagent(l *subagentLog) {
 		Prompt: l.t.prompt, ToolUses: l.t.toolUses(), Running: l.running, Loaded: l.t.loaded,
 		Missing: l.t.missing && l.t.meta == nil, Failure: l.failure, File: l.t.file, Skipped: l.t.skipped, Outcome: outcome,
 	}
-	if l.t.meta != nil {
-		meta := *l.t.meta
-		status.Meta = &meta
-	}
+	c.fillSubagentStatus(l, &status)
 	encoded := raw(status)
 	for client, w := range l.watchers {
 		name, ok := c.holders[client]

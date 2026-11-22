@@ -132,7 +132,8 @@ func (c *Conversation) startFork(plan *forkPlan) {
 	c.fork = &forkState{cut: plan.cut, lastSeen: plan.lastSeen}
 	// 接着原会话的记录：选默认模型时要明说 default（见 chooseModel）
 	c.openedSession = plan.source
-	c.earlier, c.earlierAnchor, c.earlierFile, c.todoSeed = plan.earlier, plan.earlierAnchor, plan.earlierFile, plan.todoSeed
+	c.earlier, c.earlierAnchor, c.earlierFile = plan.earlier, plan.earlierAnchor, plan.earlierFile
+	c.setTodoSeed(plan.todoSeed)
 	c.reportedModel, c.effort, c.modes.user = plan.shownModel, plan.effort, plan.mode
 	c.changed()
 }
@@ -140,7 +141,6 @@ func (c *Conversation) startFork(plan *forkPlan) {
 // branchEnd 找条目 last 所在那一轮的末尾（下一条用户消息的位置，没有下一轮时是列表长度）和要剪掉的下一条用户消息的 uuid。
 // 第一条用户消息之前的内容不属于任何一轮；下一条用户消息没有 uuid（剪不准）时 ok 为假。
 func branchEnd(items []*transcript.Item, last string) (end int, cut string, ok bool) {
-	isUser := func(it *transcript.Item) bool { return it.Kind == transcript.KindUser }
 	i := slices.IndexFunc(items, func(it *transcript.Item) bool { return it.ID == last })
 	if i < 0 || !slices.ContainsFunc(items[:i+1], isUser) {
 		return 0, "", false
@@ -148,9 +148,10 @@ func branchEnd(items []*transcript.Item, last string) (end int, cut string, ok b
 	end = len(items)
 	if next := slices.IndexFunc(items[i+1:], isUser); next >= 0 {
 		end = i + 1 + next
-		if cut = items[end].UUID; cut == "" {
+		if !cuttableAt(items, end) {
 			return 0, "", false
 		}
+		cut = items[end].UUID
 	}
 	return end, cut, true
 }

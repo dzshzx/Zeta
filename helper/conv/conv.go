@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/helper/transcript"
 	"github.com/dzshzx/Zeta/helper/usage"
@@ -46,14 +47,17 @@ type Conversation struct {
 
 	busy               bool
 	status             string
-	blocked            bool // 会话正被 Zeta 之外的 Claude Code 占着
+	blocked            bool                    // 会话正被 Zeta 之外的 Claude Code 占着
+	occupant           *sessionproto.Occupancy // blocked 时占着会话的那个进程的样子，还没查到时为 nil（occupant.go）
+	watchingOccupant   bool                    // 在盯着占着会话的进程
 	loadingHistory     bool
-	earlier            int             // 会话记录里还没载入的更早事件数
-	earlierAnchor      string          // 已载入那段之前的一行（uuid），要更早一页时交回去
-	earlierFile        string          // 还没载入的那段在哪份会话记录里（分支是原会话的）
-	earlierLoading     bool            // 正在载入更早的一页（conv.earlier）
-	deferredEarlier    func()          // 剪的期间读回来的更早一页，剪完再接上
-	todoSeed           json.RawMessage // 没载入的更早历史里的清单工具调用
+	earlier            int                // 会话记录里还没载入的更早事件数
+	earlierAnchor      string             // 已载入那段之前的一行（uuid），要更早一页时交回去
+	earlierFile        string             // 还没载入的那段在哪份会话记录里（分支是原会话的）
+	earlierLoading     bool               // 正在载入更早的一页（conv.earlier）
+	deferredEarlier    func()             // 剪的期间读回来的更早一页，剪完再接上
+	todoSeed           json.RawMessage    // 没载入的更早历史里的清单工具调用（弃用的 todo_seed 照原样推）
+	todoSeedSteps      []*transcript.Step // 它还原成的工具步骤，任务清单先套用它们
 	queued             []*outgoing
 	steering           bool
 	recalled           *outgoing
@@ -81,7 +85,8 @@ type Conversation struct {
 	openedSession string
 	sendNow       bool // 这个进程的 Claude Code 认 interrupt 的 send_now
 	autoName      autoTitle
-	subagents     subagentTracker // 子代理查看页（subagent.go）
+	subagents     subagentTracker             // 子代理查看页（subagent.go）
+	taskOutputs   map[string]*taskOutputWatch // 有客户端看着输出的后台任务（taskoutput.go）
 
 	// forkSource 是分支的原会话号（子代理的记录可能还在原会话下面）；不是分支时为空
 	forkSource string
@@ -117,12 +122,13 @@ type Options struct {
 
 // Spec 是打开一个对话时给的。
 type Spec struct {
-	Session string // 接着已有的会话时是它的会话号
-	File    string // 会话记录，载入历史用
-	Cwd     string
-	Title   string
-	Blocked bool    // 打开时会话正被 Zeta 之外的进程占着：输入栏先锁着，等 conv.handoff
-	attach  *Hosted // 接回的托管进程（Manager.Adopt）
+	Session  string // 接着已有的会话时是它的会话号
+	File     string // 会话记录，载入历史用
+	Cwd      string
+	Title    string
+	Blocked  bool                    // 打开时会话正被 Zeta 之外的进程占着：输入栏先锁着，等 conv.handoff 或那边自己退出
+	Occupant *sessionproto.Occupancy // Blocked 时已经查到的那边的样子
+	attach   *Hosted                 // 接回的托管进程（Manager.Adopt）
 }
 
 // New 建一个对话并开始它的 goroutine；有会话记录时先在后台载入历史。
@@ -130,12 +136,16 @@ func New(id string, spec Spec, deps Deps, send Send) *Conversation {
 	c := &Conversation{
 		ID: id, deps: deps, send: send, in: make(chan func(), 256), quit: make(chan struct{}),
 		cwd: spec.Cwd, title: spec.Title, session: spec.Session, file: spec.File, openedSession: spec.Session,
-		blocked: spec.Blocked,
-		r:       transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
+		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
 		options: map[int]Options{}, holders: map[int]string{},
 		usage: usage.New(), tasks: tasks.New(),
 	}
 	c.modes.claudeDefault = deps.DefaultMode
+	// 还没起进程时先给这台主机上记着的斜杠命令，起了进程换成它报的
+	c.commands = deps.Commands.Recall(spec.Cwd)
+	if spec.Blocked {
+		c.block(spec.Occupant)
+	}
 	if spec.attach != nil {
 		c.adopt(spec.attach)
 	}
@@ -207,6 +217,7 @@ func (c *Conversation) flush() {
 	}
 	c.dirty = false
 	c.keepUserMode()
+	c.markRounds()
 	if fields := c.stateDelta(); len(fields) > 0 {
 		fields["type"] = raw("conv.state")
 		c.broadcast(func(name string) any { fields["conv"] = raw(name); return fields }, false)

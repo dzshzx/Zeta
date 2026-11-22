@@ -191,7 +191,8 @@ func (h *harness) feed(c *Conversation, l *fakeLink, lines ...string) {
 func (h *harness) settle(c *Conversation) {
 	h.t.Helper()
 	var holders map[int]string
-	v, _ := c.Call(func() (any, error) { holders = maps.Clone(c.holders); return json.Marshal(c.r.Items) })
+	// 先把攒着的推出去：推之前核心才给各轮算好能做什么（markRounds）
+	v, _ := c.Call(func() (any, error) { c.flush(); holders = maps.Clone(c.holders); return json.Marshal(c.r.Items) })
 	var want []any
 	_ = json.Unmarshal(v.([]byte), &want)
 	h.mu.Lock()

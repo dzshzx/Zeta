@@ -26,6 +26,11 @@ type Item struct {
 	Files  []string `json:"files,omitempty"`  // user：随消息附带的路径（附件行，见 SplitAttachedFiles）
 	UUID   string   `json:"uuid,omitempty"`   // user：这条消息在会话记录里的 uuid
 
+	// user：这一轮能做什么。归约器不管，由核心按对话的规则算好（SetRound，见 docs/core.md 的 conv.items）
+	Rewindable bool   `json:"rewindable,omitempty"`
+	Forkable   bool   `json:"forkable,omitempty"`
+	RoundLast  string `json:"round_last,omitempty"`
+
 	Streaming bool `json:"streaming,omitempty"` // answer：还在逐字送来
 	Error     bool `json:"error,omitempty"`     // notice
 
@@ -36,6 +41,22 @@ type Item struct {
 
 // Rev 是这一项改过几次：归约器每改一次加一，推送时据此只送变了的项。
 func (it *Item) Rev() int { return it.rev }
+
+// Round 是用户消息所在这一轮能做什么（Item 的 Rewindable、Forkable、RoundLast）。
+type Round struct {
+	Rewindable bool
+	Forkable   bool
+	Last       string
+}
+
+// SetRound 记下这一轮能做什么；变了才算改过一次，推送时据此重推这一项。
+func (it *Item) SetRound(r Round) {
+	if it.Rewindable == r.Rewindable && it.Forkable == r.Forkable && it.RoundLast == r.Last {
+		return
+	}
+	it.Rewindable, it.Forkable, it.RoundLast = r.Rewindable, r.Forkable, r.Last
+	touch(it)
+}
 
 // Running：工作组里还有在跑的一步。
 func (it *Item) Running() bool {

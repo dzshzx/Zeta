@@ -235,7 +235,8 @@ func (c *Conversation) initialized(r controlResponse) {
 			c.models = raw(body.Models)
 		}
 		if len(body.Commands) > 0 {
-			c.commands = body.Commands
+			c.commands = visibleCommands(body.Commands)
+			c.deps.Commands.Remember(c.cwd, c.commands)
 		}
 		if body.CurrentPermissionMode != "" {
 			c.modes.reportedAtStart(body.CurrentPermissionMode)
@@ -316,6 +317,7 @@ func (c *Conversation) endTurnState() {
 	c.interruptRequested = false
 	c.r.FinishTurn(false)
 	c.subagentsProcessEnded()
+	c.taskOutputsProcessEnded()
 	c.changed()
 }
 
@@ -380,6 +382,5 @@ func (c *Conversation) handedAway(released bool) {
 	if released {
 		c.r.AddNotice("会话已转到电脑终端继续", false)
 	}
-	c.blocked = true
-	c.changed()
+	c.block(nil)
 }

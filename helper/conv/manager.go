@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // releaseAfter：没人拿着、又闲着的对话过这么久断开背后的进程（看门狗约十分钟后收掉它），也从核心里去掉。
@@ -79,6 +80,7 @@ type request struct {
 	As        string              `json:"as"`          // conv.fork：新对话在这个客户端里的名字
 	Last      string              `json:"last"`        // conv.fork：从这一项所在那一轮之后分支
 	ToolUseID string              `json:"tool_use_id"` // conv.subagent：发起这个子代理的 Agent 调用
+	Resend    bool                `json:"resend"`      // conv.rewrite、conv.restore_code：照 target 原样重发
 	Message
 }
 
@@ -102,11 +104,8 @@ func (m *Manager) Start(client int, method string, line []byte) (any, error) {
 	}
 	if method == "conv.activity" {
 		// 不带 watch 时是订阅：客户端可以把它和 sessions.watch 一样当作只发方法名的订阅
-		var p struct {
-			Watch *bool `json:"watch"`
-		}
-		_ = json.Unmarshal(line, &p)
-		m.watchActivity(client, p.Watch == nil || *p.Watch)
+		watch := watchParam(line)
+		m.watchActivity(client, watch == nil || *watch)
 		return nil, nil
 	}
 	if r.Conv == "" {
@@ -126,50 +125,91 @@ func (m *Manager) Start(client int, method string, line []byte) (any, error) {
 	if method == "conv.fork" {
 		return nil, m.fork(client, r, c)
 	}
-	switch method {
-	case "conv.earlier":
-		v, err := c.Call(func() (any, error) { return c.loadEarlier(r.Rest) })
-		if err != nil {
-			return nil, err
-		}
-		return Pending(func() (any, error) {
-			select {
-			case err := <-v.(<-chan error):
-				return nil, err
-			case <-c.quit:
-				return nil, errClosed
-			}
-		}), nil
-	case "conv.occupant":
-		v, err := c.Call(func() (any, error) { return c.session, nil })
-		if err != nil {
-			return nil, err
-		}
-		return Pending(func() (any, error) { return m.occupancy(v.(string)), nil }), nil
-	case "conv.handoff":
-		return m.handOff(c)
+	if v, handled, err := m.startSpecial(c, client, method, r, line); handled {
+		return v, err
 	}
 	if ask, ok := asks[method]; ok {
-		v, err := c.Call(func() (any, error) { return ask(c, client, r), nil })
-		if err != nil {
-			return nil, err
-		}
-		return Pending(func() (any, error) {
-			select {
-			case a := <-v.(<-chan answer):
-				return a.v, a.err
-			case <-c.quit:
-				return nil, errClosed
-			case <-time.After(30 * time.Second):
-				return nil, errors.New("等了 30 秒，Claude Code 没有回应")
-			}
-		}), nil
+		return startAsk(c, func() <-chan answer { return ask(c, client, r) })
 	}
 	handler, ok := handlers[method]
 	if !ok {
 		return nil, errors.New("不认识的方法 " + method)
 	}
 	return c.Call(func() (any, error) { return handler(c, client, r) })
+}
+
+// watchParam 是请求里的 watch：没写时为 nil。
+func watchParam(line []byte) *bool {
+	var p struct {
+		Watch *bool `json:"watch"`
+	}
+	_ = json.Unmarshal(line, &p)
+	return p.Watch
+}
+
+// startSpecial 处理不按 handlers、asks 的一般写法做的请求：要等别的事做完才有结果的，和按参数另走一条路的
+// （带 watch 的 conv.task_output、带 resend 的 conv.rewrite 和 conv.restore_code）。不是这些时 handled 为假。
+func (m *Manager) startSpecial(c *Conversation, client int, method string, r request, line []byte) (v any, handled bool, err error) {
+	switch method {
+	case "conv.earlier":
+		v, err = startEarlier(c, r.Rest)
+	case "conv.occupant":
+		v, err = c.Call(func() (any, error) { return c.session, nil })
+		if err == nil {
+			session := v.(string)
+			v = Pending(func() (any, error) { return m.occupancy(session), nil })
+		}
+	case "conv.handoff":
+		v, err = m.handOff(c)
+	case "conv.task_output":
+		watch := watchParam(line)
+		if watch == nil {
+			return nil, false, nil
+		}
+		v, err = c.Call(func() (any, error) { return nil, c.watchTaskOutput(client, r.Task, *watch) })
+	case "conv.rewrite", "conv.restore_code":
+		if !r.Resend {
+			return nil, false, nil
+		}
+		v, err = m.resend(c, client, method, r)
+	default:
+		return nil, false, nil
+	}
+	return v, true, err
+}
+
+// startEarlier 开始载入更早的一页（conv.earlier），接上以后 Pending 才给出结果。
+func startEarlier(c *Conversation, rest bool) (any, error) {
+	v, err := c.Call(func() (any, error) { return c.loadEarlier(rest) })
+	if err != nil {
+		return nil, err
+	}
+	return Pending(func() (any, error) {
+		select {
+		case err := <-v.(<-chan error):
+			return nil, err
+		case <-c.quit:
+			return nil, errClosed
+		}
+	}), nil
+}
+
+// startAsk 在对话的 goroutine 上发出要等 Claude Code 应答的请求，Pending 等应答，最多 30 秒。
+func startAsk(c *Conversation, ask func() <-chan answer) (any, error) {
+	v, err := c.Call(func() (any, error) { return ask(), nil })
+	if err != nil {
+		return nil, err
+	}
+	return Pending(func() (any, error) {
+		select {
+		case a := <-v.(<-chan answer):
+			return a.v, a.err
+		case <-c.quit:
+			return nil, errClosed
+		case <-time.After(30 * time.Second):
+			return nil, errors.New("等了 30 秒，Claude Code 没有回应")
+		}
+	}), nil
 }
 
 // answer 是要等 Claude Code 应答的请求的结果。
@@ -264,7 +304,11 @@ func (m *Manager) open(client int, r request) error {
 	m.mu.Lock()
 	known := m.bySession[r.Session] != nil
 	m.mu.Unlock()
-	blocked := !known && m.occupancy(r.Session).Status != nil
+	var occupant sessionproto.Occupancy
+	if !known {
+		occupant = m.occupancy(r.Session)
+	}
+	blocked := occupant.Status != nil
 	m.mu.Lock()
 	if m.byName[client][r.Conv] != nil {
 		m.mu.Unlock()
@@ -283,7 +327,7 @@ func (m *Manager) open(client int, r request) error {
 	}
 	if c == nil {
 		m.seq++
-		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title, Blocked: blocked}, m.deps, m.send)
+		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title, Blocked: blocked, Occupant: &occupant}, m.deps, m.send)
 		m.all[c] = true
 		if r.Session != "" {
 			m.bySession[r.Session] = c
@@ -326,6 +370,7 @@ func (m *Manager) release(client int, name string, c *Conversation) {
 		delete(c.holders, client)
 		delete(c.options, client)
 		c.unwatchSubagents(client)
+		c.unwatchTaskOutputs(client)
 		return nil, nil
 	})
 }

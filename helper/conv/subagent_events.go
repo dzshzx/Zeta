@@ -3,6 +3,9 @@ package conv
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
+
+	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
 // subagentSystem 是输出流里子代理开始（task_started）、结局（task_notification）用到的几项。
@@ -77,4 +80,50 @@ func (c *Conversation) subagentsProcessEnded() {
 			c.publishSubagent(l)
 		}
 	}
+}
+
+// agentCall 是发起子代理的 Agent 调用的参数里查看页用得着的几项。
+type agentCall struct {
+	Description string `json:"description"`
+	AgentType   string `json:"subagent_type"`
+	Prompt      string `json:"prompt"`
+}
+
+// fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它；还没读到时先用发起它的 Agent 调用的参数填上说明、类型，
+// 交给它的任务也一样，查看页一打开就有概要。
+func (c *Conversation) fillSubagentStatus(l *subagentLog, status *subagentStatus) {
+	if l.t.meta != nil {
+		meta := *l.t.meta
+		status.Meta = &meta
+		return
+	}
+	call := c.agentCallOf(l)
+	if call == nil {
+		return
+	}
+	status.Meta = &subagentMeta{AgentType: call.AgentType, Description: call.Description}
+	if status.Prompt == "" {
+		status.Prompt = call.Prompt
+	}
+}
+
+// agentCallOf 是列表里发起子代理 l 的那次调用的参数（参数收齐以后就不变，找到一次就记下）；不在已载入的列表里时为 nil。
+func (c *Conversation) agentCallOf(l *subagentLog) *agentCall {
+	if l.call != nil {
+		return l.call
+	}
+	for _, it := range slices.Backward(c.r.Items) {
+		for _, s := range it.Steps {
+			if s.ID != l.toolUseID || s.Kind != transcript.StepTool || s.Input == nil {
+				continue
+			}
+			var call agentCall
+			if json.Unmarshal(s.Input, &call) != nil {
+				return nil
+			}
+			l.call = &call
+			return l.call
+		}
+	}
+	return nil
 }

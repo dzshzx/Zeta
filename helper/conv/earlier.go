@@ -69,7 +69,7 @@ func (c *Conversation) applyEarlier(out []byte, err error, file string, skipped 
 	}
 	c.r.Items = append(read.reducer.Items, c.r.Items...)
 	c.earlier, c.earlierAnchor = read.header.Skipped, read.header.Anchor
-	c.todoSeed = read.header.TodoSeed
+	c.setTodoSeed(read.header.TodoSeed)
 	c.usage.PrependHistory(read.usage())
 	return nil
 }

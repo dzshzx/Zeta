@@ -31,8 +31,7 @@ func (m *Manager) handOffWith(session string, c *Conversation) (sessionproto.Han
 	}
 	if result.Handed && c != nil {
 		_, err := c.Call(func() (any, error) {
-			c.blocked = false
-			c.changed()
+			c.unblock()
 			return nil, nil
 		})
 		if err != nil {

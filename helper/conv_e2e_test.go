@@ -252,3 +252,53 @@ func TestPrepareAndRateLimitThroughCore(t *testing.T) {
 		t.Fatalf("5 小时窗口：%v", w)
 	}
 }
+
+// 核心替客户端算的规则走一遍真链路：接着一个会话记录里带图的旧会话，重新生成（resend）时核心自己从记录里取回原消息的字和图、
+// 剪掉那一轮再发；假 Claude 这一轮调 TodoWrite，任务清单经 conv.state 的 todos 推来。
+func TestConvRulesThroughCore(t *testing.T) {
+	e0, _ := coreEnv(t)
+	e := newEnvAt(e0.home, "zeta-dev")
+	t.Setenv("ZETA_NAME", e.name)
+	fakeClaudeIn(t, e, `{"steps":[{"tool":"TodoWrite","input":{"todos":[{"content":"看图","status":"in_progress","activeForm":"正在看图"},{"content":"回答","status":"pending"}]},"result":"Todos have been modified successfully"},{"text":"看完了"}]}`)
+	const session = "0c0ffee0-1234-4abc-8def-000000000001"
+	const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+	writeLines(t, filepath.Join(e.root, "-w", session+".jsonl"),
+		`{"type":"user","uuid":"aaaaaaaa-0000-4000-8000-000000000001","sessionId":"`+session+`","cwd":`+quote(e.home)+
+			`,"message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"`+png+`"}},{"type":"text","text":"这张图里是什么"}]}}`,
+		`{"type":"assistant","uuid":"aaaaaaaa-0000-4000-8000-000000000002","sessionId":"`+session+`","message":{"id":"msg_old","role":"assistant","content":[{"type":"text","text":"旧的回答"}]}}`)
+
+	c := startServe(t, e, testIdle)
+	view := &convView{}
+	c.send(`{"id":1,"method":"conv.open","conv":"a","session":"` + session + `","cwd":` + quote(e.home) + `}`)
+	view.until(t, c, func(obj) bool {
+		return view.state["loading_history"] == false && slices.Contains(view.texts(), "answer:旧的回答")
+	})
+	user, _ := view.items[0].(map[string]any)
+	if user["kind"] != "user" || user["rewindable"] != true || user["forkable"] != true {
+		t.Fatalf("旧会话的用户消息：%v", user)
+	}
+	if todos, _ := view.state["todos"].([]any); len(todos) != 0 {
+		t.Fatalf("还没有清单：%v", todos)
+	}
+
+	c.send(`{"id":2,"method":"conv.rewrite","conv":"a","target":` + quote(user["id"].(string)) + `,"resend":true}`)
+	finished := view.until(t, c, func(m obj) bool { return m["type"] == "conv.turn" && m["phase"] == "finished" })
+	if finished["outcome"] != "done" {
+		t.Fatalf("一轮的结局：%v", finished)
+	}
+	if got := view.texts(); strings.Join(got, "|") != "user:这张图里是什么|work:|answer:看完了" {
+		t.Fatalf("重新生成后的条目：%v", got)
+	}
+	again := view.items[0].(map[string]any)
+	images, _ := again["images"].([]any)
+	if len(images) != 1 || images[0].(map[string]any)["data"] != png {
+		t.Fatalf("重发的图：%v", again)
+	}
+	todos, _ := json.Marshal(view.state["todos"])
+	want := `[{"active_form":"正在看图","content":"看图","key":"todo-0","status":"in_progress"},{"active_form":"回答","content":"回答","key":"todo-1","status":"pending"}]`
+	if string(todos) != want {
+		t.Fatalf("任务清单：%s", todos)
+	}
+	c.send(`{"id":3,"method":"conv.end","conv":"a"}`)
+	view.until(t, c, func(obj) bool { return view.state["process"] == false })
+}

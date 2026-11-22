@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -55,7 +56,9 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 			}
 			return err
 		},
-		Rename: renameSession,
+		Rename:       renameSession,
+		SessionImage: func(file, ref string) (conv.Image, error) { return convImage(e, file, ref) },
+		Commands:     conv.NewCommandStore(commandsFile(e)),
 	}, h.send)
 	go adoptHosts(e, h.m)
 	return h
@@ -205,4 +208,30 @@ func sessionFile(e *env, session string) string {
 		return ""
 	}
 	return files[0]
+}
+
+// convImage 取回会话记录 file 里位置 ref 的一张图（同 sessions.image），重新生成时原样重发用。
+func convImage(e *env, file, ref string) (conv.Image, error) {
+	if !e.insideRoot(file) {
+		return conv.Image{}, errors.New("not a session record")
+	}
+	img, err := sessionImage(file, ref)
+	if err != nil {
+		return conv.Image{}, err
+	}
+	mediaType, _ := img.MediaType.(string)
+	data, _ := img.Data.(string)
+	if mediaType == "" || data == "" {
+		return conv.Image{}, errors.New("not an image")
+	}
+	return conv.Image{MediaType: mediaType, Data: data}, nil
+}
+
+// commandsFile 是核心记各工作目录斜杠命令的文件（conv.CommandStore），在核心的目录里，丢了只是少一份提示。
+func commandsFile(e *env) string {
+	p, err := core.Locate(e.home, e.name)
+	if err != nil {
+		return e.home + "/.cache/" + e.name + "/core/commands.json"
+	}
+	return filepath.Join(filepath.Dir(p.Socket), "commands.json")
 }

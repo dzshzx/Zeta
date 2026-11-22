@@ -45,9 +45,9 @@ func (c *Conversation) rewindTarget(target string) (int, string, error) {
 	}
 	i := slices.IndexFunc(c.r.Items, func(it *transcript.Item) bool { return it.ID == target })
 	switch {
-	case i < 0 || c.r.Items[i].Kind != transcript.KindUser:
+	case i < 0 || !isUser(c.r.Items[i]):
 		return 0, "", errNoTarget
-	case c.r.Items[i].UUID == "":
+	case !rewindable(c.r.Items[i]):
 		return 0, "", errUnknownMsg
 	}
 	return i, c.r.Items[i].UUID, nil
