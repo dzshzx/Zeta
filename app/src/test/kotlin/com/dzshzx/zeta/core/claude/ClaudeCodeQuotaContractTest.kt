@@ -432,8 +432,8 @@ class ClaudeCodeQuotaContractTest {
      * - 它自己改 ~/.claude.json 都拿着 ~/.claude.json.lock 读改写，比如第一次收到回应后记
      *   cachedExtraUsageDisabledReason（不等写完就输出 result）。claude-switch 拿着这把锁换号，不会被它盖掉。
      *
-     * 以前这里不拿锁、第一轮一结束就换，测到的“写回”其实是正好撞上上面那次写；机器一忙就撞不上，等多久也等不到。哪天这几条不成立了（下一轮还用旧令牌、换过的账号被盖回去、它一直报旧账号），换号时怎么对待开着的进程要重新看：[ClaudeAccounts.blocker]
-     * 和 claude-switch 的进程检查。
+     * 换号时要先拿这把锁：不拿锁、第一轮一结束就换，会正好撞上上面那次写，被它用读到的旧内容盖回旧账号。 有 Claude Code
+     * 开着时仍然不换号，原因不在这几条，在按账号统计用量（[ClaudeAccounts.blocker]，见 claude-switch 的 README「为什么是冷切换」）。
      */
     @Test
     fun anOpenProcessFollowsASwitchedLogin() {

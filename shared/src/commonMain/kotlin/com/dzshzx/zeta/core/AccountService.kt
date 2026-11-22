@@ -210,9 +210,9 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
     }
 
     /**
-     * 添加账号前的检查：和切换一样不能有别的 Claude Code 开着（登录前 claude-switch 要把在用的号存档并退出，开着的进程会拦着它， 也会把旧账号写回
-     * ~/.claude.json）。能开始时关掉本包闲着的对话进程，再在主线程上调 [onReady]；不能时把原因放进 [problem]。
-     * 真正的存档在用户点开始登录时做（[LoginFlow.start] 经 [prepareLoginBlocking]）。
+     * 添加账号前的检查：和切换一样不能有别的 Claude Code 开着（登录前 claude-switch 要把在用的号存档并退出，开着的进程会拦着它； 拦的原因见
+     * [com.dzshzx.zeta.core.claude.ClaudeAccounts.blocker]）。能开始时关掉本包闲着的对话进程，再在主线程上调
+     * [onReady]；不能时把原因放进 [problem]。 真正的存档在用户点开始登录时做（[LoginFlow.start] 经 [prepareLoginBlocking]）。
      */
     fun prepareLogin(onReady: () -> Unit) {
         localBlocker()?.let {

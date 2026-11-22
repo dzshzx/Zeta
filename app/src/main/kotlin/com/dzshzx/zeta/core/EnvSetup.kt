@@ -448,7 +448,7 @@ class LoginFlow(private val hub: ConversationHub) {
         cancel()
         val mine = ++generation
         state = LoginState.Starting
-        // 登录会换掉凭据：闲着的对话进程先关掉（内容不丢），免得它们拦着下面的存档，或把旧账号写回 ~/.claude.json
+        // 登录会换掉凭据：闲着的对话进程先关掉（内容不丢），免得它们拦着下面的存档（claude-switch 有 Claude Code 开着就不换）
         hub.closeIdleConversations(Backends.LOCAL)
         thread(name = "zeta-login", isDaemon = true) { login(config, mine) }
     }

@@ -294,7 +294,8 @@ class ClaudeAccounts(
         /**
          * 别的 Claude Code 进程挡着换账号的原因；能换时为 null。[mine] 是本包的目录名。本包自己的对话由调用方先看
          * （[com.dzshzx.zeta.core.AccountService]），闲着的 Zeta 自己会关掉，不算阻碍；别的 Claude Code 进程哪怕闲着也不行：
-         * 它们把令牌缓存在内存里，还会把旧账号写回 ~/.claude.json。claude-switch 自己也会拒绝，这里只是为了说清是谁挡着。
+         * 按账号统计用量的程序假定一个进程只属于一个账号，开着换号会把用量和额度读数分错账号（见 claude-switch 的
+         * README「为什么是冷切换」）。claude-switch 自己也会拒绝，这里只是为了说清是谁挡着。
          */
         fun blocker(
             processes: List<ClaudeProc>,

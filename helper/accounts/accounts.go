@@ -386,8 +386,8 @@ func withNames(m map[string]bool, extra ...string) map[string]bool {
 }
 
 // Blocker 说明别的 Claude Code 进程挡着换号；没有时为空。mine 是调用方的包：它自己的对话由它先收掉，闲着的不算阻碍；
-// 别的 Claude Code 进程哪怕闲着也不行，它们把令牌缓存在内存里，还会把旧账号写回 ~/.claude.json。claude-switch 自己也会
-// 拒绝，这里只是为了说清是谁挡着。
+// 别的 Claude Code 进程哪怕闲着也不行：按账号统计用量的程序假定一个进程只属于一个账号，开着换号会把用量和额度读数分错账号（见 claude-switch 的 README「为什么是冷切换」）。
+// claude-switch 自己也会拒绝，这里只是为了说清是谁挡着。
 func Blocker(procs []Proc, mine string) string {
 	var zeta, elsewhere []Proc
 	for _, p := range procs {
