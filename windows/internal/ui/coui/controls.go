@@ -238,23 +238,25 @@ func Input(c *ui.Context, value *string) ui.Element {
 // 是 color 色，从正上方顺时针走。
 func Ring(c *ui.Context, b ui.Element, label string, fraction float32, color ui.Color) ui.Element {
 	k := Of(c)
-	fraction = max(0, min(1, fraction))
 	b.Size(28, 28).Radius(14).Label(label).Tooltip(label).Cursor(ui.CursorPointer).Shrink(0).Justify(ui.Center).
 		AlignItems(ui.Center)
 	if b.Hovered() {
 		b.Background(k.Hover)
 	}
-	b.Children(func() {
-		ring := ui.Box(c).Size(18, 18).Radius(9).Border(2.2, k.Chip)
-		if fraction > 0 {
-			ring.BorderConicGradient(ui.ConicGradient{Stops: []ui.GradientStop{
-				{Color: color, At: 0}, {Color: color, At: fraction}, {Color: k.Track, At: fraction}, {Color: k.Track, At: 1},
-			}})
-		} else {
-			ring.Border(2.2, k.Track)
-		}
-	})
+	b.Children(func() { RingArc(c, 18, fraction, color) })
 	return b
+}
+
+// RingArc 是直径 size、线宽 2.2 的圆环：灰色的圈上，fraction（0 到 1）那么长一段是 color 色，从正上方顺时针走。
+func RingArc(c *ui.Context, size, fraction float32, color ui.Color) ui.Element {
+	k := Of(c)
+	ring := ui.Box(c).Size(size, size).Radius(size/2).Border(2.2, k.Track)
+	if f := max(0, min(1, fraction)); f > 0 {
+		ring.BorderConicGradient(ui.ConicGradient{Stops: []ui.GradientStop{
+			{Color: color, At: 0}, {Color: color, At: f}, {Color: k.Track, At: f}, {Color: k.Track, At: 1},
+		}})
+	}
+	return ring
 }
 
 // Dropdown 给菜单的触发器 trigger 设置行右边下拉值的样子（COUI 的 OverlayDropdownPreference）：

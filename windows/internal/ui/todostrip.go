@@ -94,10 +94,11 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 				}
 				ui.Text(c, todoPosition(l)).FontSize(coui.SizeBodyS).FontWeight(coui.Medium).FontFeatures("tnum").TextColor(tone)
 				ui.Text(c, summary).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Grow(1).MinWidth(0)
-				chevron := ui.Icon(c, coui.IconChevronDown).Size(16, 16).TextColor(k.Secondary).Shrink(0)
+				chevron := coui.IconChevronDown
 				if s.expanded {
-					chevron.Rotate(180)
+					chevron = coui.IconChevronUp
 				}
+				ui.Icon(c, chevron).Size(16, 16).TextColor(k.Secondary).Shrink(0)
 			})
 			head.OnClick(func() { s.expanded = !s.expanded })
 			coui.FlatButton(c, coui.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = sig })
@@ -156,16 +157,9 @@ func todoMark(c *ui.Context, s chat.TodoStatus) {
 
 // todoRing 是完成比例的小圆环（16）；全部做完时是绿底对勾。
 func todoRing(c *ui.Context, l chat.TodoList) {
-	k := coui.Of(c)
 	if l.AllDone() {
 		todoMark(c, chat.TodoCompleted)
 		return
 	}
-	ring := ui.Box(c).Size(16, 16).Radius(8).Border(2.2, k.Track).Shrink(0)
-	if done := l.Done(); done > 0 {
-		f := float32(done) / float32(len(l))
-		ring.BorderConicGradient(ui.ConicGradient{Stops: []ui.GradientStop{
-			{Color: k.Primary, At: 0}, {Color: k.Primary, At: f}, {Color: k.Track, At: f}, {Color: k.Track, At: 1},
-		}})
-	}
+	coui.RingArc(c, 16, float32(l.Done())/float32(len(l)), coui.Of(c).Primary).Shrink(0)
 }

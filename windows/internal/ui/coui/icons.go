@@ -51,6 +51,7 @@ var (
 	IconUnfold    = icon("unfold")        // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
 	IconContacts  = icon("contacts-book") // 设置里的账号与额度
 	IconTheme     = icon("theme")         // 设置里的外观
+	IconDownload  = icon("download")      // 看大图的保存
 )
 
 // Zeta 自己画的：
@@ -59,6 +60,8 @@ var (
 	IconArrowUp     = icon("arrow-up")
 	IconArrowDown   = icon("arrow-down")
 	IconChevronDown = icon("chevron-down")
+	IconChevronUp   = icon("chevron-up")   // IconChevronDown 倒过来：查找栏的「上一个」、收起
+	IconChevronBack = icon("chevron-back") // 行尾箭头左右翻过来：看大图的上一张
 	IconStop        = icon("stop")
 	IconPaperclip   = icon("paperclip")
 	IconSparkle     = icon("sparkle")
@@ -82,7 +85,8 @@ var (
 	IconHistory     = icon("history")
 	IconClock       = icon("clock")
 	IconCheckbox    = icon("checkbox-blank")
-	IconInfo        = icon("info") // 设置里的版本
+	IconInfo        = icon("info")    // 设置里的版本
+	IconArchive     = icon("archive") // 归档：侧栏底部看归档的入口（同 ZetaIcons.kt 的 Archive）
 )
 
 // 权限模式的盾牌：里面的字母是模式的头一个字母（同手机版 Composer 的 modeIcon）。
