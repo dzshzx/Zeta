@@ -48,3 +48,7 @@ value = "fake-token-9"
 [[values]]
 kind = "诊断包打码测试的假值（DiagScriptsTest）"
 value = "fake-token-1"
+
+[[values]]
+kind = "桌面版设备清单解码测试里的假主机指纹（remote/host_test.go）"
+value = "bm90IGEga2V5"
