@@ -8,9 +8,11 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/remote"
 	"github.com/dzshzx/Zeta/windows/internal/sshtest"
+	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
 // composeFile 是 Compose 桌面版（FilePrefStore）写出来的样子：各种类型都有，还有这一版不用的项。
@@ -156,4 +158,33 @@ func readRaw(t *testing.T, dir string) map[string]json.RawMessage {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+// 关于页和自动更新用的设置就是这份。
+var _ update.Prefs = (*Settings)(nil)
+
+func TestUpdatePrefsUseComposeKeysAndTypes(t *testing.T) {
+	dir, _ := composeFile(t)
+	s, _ := Load(dir)
+	// composeFile 里存过 updateCheckedAt（l）、updateNotified（i），没存过 autoUpdateCheck
+	if !s.AutoUpdateCheck() || s.UpdateCheckedAt().UnixMilli() != 1700000000000 || s.UpdateNotified() != 7 {
+		t.Errorf("read %v %v %d", s.AutoUpdateCheck(), s.UpdateCheckedAt(), s.UpdateNotified())
+	}
+	s.SetAutoUpdateCheck(false)
+	s.SetUpdateCheckedAt(time.UnixMilli(1800000000123))
+	s.SetUpdateNotified(42)
+	raw := readRaw(t, dir)
+	for key, want := range map[string]string{
+		"autoUpdateCheck": `{"t":"b","v":false}`,
+		"updateCheckedAt": `{"t":"l","v":1800000000123}`,
+		"updateNotified":  `{"t":"i","v":42}`,
+	} {
+		if got := string(raw[key]); got != want {
+			t.Errorf("%s = %s, want %s", key, got, want)
+		}
+	}
+	empty, _ := Load(t.TempDir())
+	if !empty.AutoUpdateCheck() || !empty.UpdateCheckedAt().IsZero() || empty.UpdateNotified() != 0 {
+		t.Error("defaults")
+	}
 }

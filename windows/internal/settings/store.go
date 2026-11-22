@@ -108,6 +108,9 @@ func (s *Store) SetString(key, v string) error { return s.put(key, typeString, v
 // SetBool 存真假项。
 func (s *Store) SetBool(key string, v bool) error { return s.put(key, typeBool, v) }
 
+// SetInt 存整数项（Compose 版的 Int）。
+func (s *Store) SetInt(key string, v int) error { return s.put(key, typeInt, v) }
+
 // SetLong 存整数项（Compose 版的 Long）。
 func (s *Store) SetLong(key string, v int64) error { return s.put(key, typeLong, v) }
 

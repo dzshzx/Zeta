@@ -2,10 +2,12 @@ package settings
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/remote"
 )
@@ -152,4 +154,54 @@ func hostOf(key string) string {
 		return id
 	}
 	return Local
+}
+
+// 更新用到的三项（update.Prefs），键同 Compose 版：手机、Compose 桌面版和这一版读写的是同一组。
+const (
+	keyAutoUpdateCheck = "autoUpdateCheck" // 每天最多自动检查一次新版本，默认开
+	keyUpdateCheckedAt = "updateCheckedAt" // 上次检查的时间（Unix 毫秒，Kotlin 的 Long）
+	keyUpdateNotified  = "updateNotified"  // 已经提示过的新版本（versionCode，Kotlin 的 Int）
+)
+
+// AutoUpdateCheck 是每天最多自动检查一次新版本，没设过是开着。
+func (s *Settings) AutoUpdateCheck() bool {
+	if v, ok := s.store.Bool(keyAutoUpdateCheck); ok {
+		return v
+	}
+	return true
+}
+
+// SetAutoUpdateCheck 存自动检查的开关。
+func (s *Settings) SetAutoUpdateCheck(on bool) { logSave(s.store.SetBool(keyAutoUpdateCheck, on)) }
+
+// UpdateCheckedAt 是上次检查更新的时间（手动、自动都算）；没查过是零值。
+func (s *Settings) UpdateCheckedAt() time.Time {
+	ms, ok := s.store.Int(keyUpdateCheckedAt)
+	if !ok || ms == 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(ms)
+}
+
+// SetUpdateCheckedAt 存上次检查更新的时间。
+func (s *Settings) SetUpdateCheckedAt(t time.Time) {
+	logSave(s.store.SetLong(keyUpdateCheckedAt, t.UnixMilli()))
+}
+
+// UpdateNotified 是已经提示过的新版本；0 是还没提示过。
+func (s *Settings) UpdateNotified() int {
+	v, _ := s.store.Int(keyUpdateNotified)
+	return int(v)
+}
+
+// SetUpdateNotified 存已经提示过的新版本。
+func (s *Settings) SetUpdateNotified(versionCode int) {
+	logSave(s.store.SetInt(keyUpdateNotified, versionCode))
+}
+
+// logSave 记下没存上的设置：这几项没存上只是下次多查一次、多提示一次，不打扰用户。
+func logSave(err error) {
+	if err != nil {
+		log.Printf("zeta: 设置没存上：%v", err)
+	}
 }
