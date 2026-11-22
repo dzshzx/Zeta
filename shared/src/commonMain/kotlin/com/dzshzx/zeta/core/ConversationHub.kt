@@ -432,13 +432,23 @@ class ConversationHub(val platform: HubPlatform) {
     private fun blank(backend: String = this.backend, cwd: String = defaultCwd(backend)) =
         Conversation(this, cwd, sessionId = null, title = "", historyFile = null, backend = backend)
 
-    fun isRunning(sessionId: String): Boolean = findConversation(sessionId)?.busy == true
+    /** 不在眼前时答完了一轮、用户还没点开看的会话；只记在内存里，应用进程结束就没了。 */
+    private val unread = mutableStateListOf<String>()
+
+    /** 会话列表里这个会话的状态；只是历史记录的没有。 */
+    fun sessionStatus(sessionId: String): SessionStatus? {
+        val conversation = findConversation(sessionId)
+        return SessionStatus.of(
+            waiting = conversation?.pending != null,
+            busy = conversation?.busy == true,
+            tasks = conversation?.backgroundTasks ?: 0,
+            unread = sessionId in unread,
+            alive = conversation?.isProcessAlive == true,
+        )
+    }
 
     /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
     fun isActive(sessionId: String): Boolean = findConversation(sessionId)?.active == true
-
-    /** 侧栏的“等你确认”标记：这个会话的对话正等着用户批准一次工具调用。 */
-    fun isWaiting(sessionId: String): Boolean = findConversation(sessionId)?.pending != null
 
     /**
      * 环境检查完、就绪了（[EnvController.checkSetup]）：侧栏正看着要靠 Debian 的主机的话读会话列表和 Claude Code 的默认值，
@@ -768,6 +778,7 @@ class ConversationHub(val platform: HubPlatform) {
             parked.remove(conversation)
             conversation.shutdown()
         }
+        unread.removeAll(ids)
         platform.prunePhones(ids)
     }
 
@@ -781,6 +792,7 @@ class ConversationHub(val platform: HubPlatform) {
             park(leaving)
         }
         parked.remove(next)
+        next.sessionId?.let(unread::remove)
         current = next
         platform.prunePhones()
     }
@@ -793,6 +805,7 @@ class ConversationHub(val platform: HubPlatform) {
     fun sessionChanged(conversation: Conversation, from: String, to: String) {
         conversation.phoneSession?.let { platform.rekeyPhone(it, from, to) }
         drafts.rekey(conversation, from, to)
+        if (unread.remove(from)) unread += to
     }
 
     /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态），[text] 是胶囊上停留的那一句（“已完成”）。在主线程上调用。 */
@@ -809,12 +822,18 @@ class ConversationHub(val platform: HubPlatform) {
         text: String = "已完成",
     ) {
         if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
+        if (conversation !== current && !stopped) markUnread(conversation)
         platform.alerts.turnFinished(conversation, stopped, text)
         // 侧栏列的是别的主机的话，这一轮没改到它
         if (conversation.backend !in listedBackends) return
         val session = conversation.sessionId
         if (session != null) sessionList.touched(session, conversation.backend)
         else sessionList.refresh()
+    }
+
+    private fun markUnread(conversation: Conversation) {
+        val session = conversation.sessionId ?: return
+        if (session !in unread) unread += session
     }
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */

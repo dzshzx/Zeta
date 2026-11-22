@@ -17,6 +17,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DraftImage
 import com.dzshzx.zeta.core.DraftRecord
 import com.dzshzx.zeta.core.DraftRecords
+import com.dzshzx.zeta.core.SessionStatus
+import com.dzshzx.zeta.core.SessionStatus.Activity
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
@@ -114,8 +116,18 @@ class SessionPaneShots : ShotTest() {
         return Fixtures.readyHub(app).also { it.settings.pinnedSessions = setOf("s4") }
     }
 
+    /** 各种状态各一行：在回答、正看着的闲着、等你确认、后台任务、有新回答；其余只是历史记录。 */
+    private val statuses =
+        mapOf(
+            "s1" to SessionStatus(Activity.Answering),
+            "s2" to SessionStatus(Activity.Idle),
+            "s3" to SessionStatus(Activity.Waiting),
+            "s4" to SessionStatus(Activity.Background, tasks = 2),
+            "s5" to SessionStatus(Activity.Unread),
+        )
+
     @Composable
-    private fun Pane() = PaneShot(sessions, currentSessionId = "s2", isRunning = { it == "s1" })
+    private fun Pane() = PaneShot(sessions, currentSessionId = "s2", statusOf = statuses::get)
 
     private fun AndroidComposeTestRule<*, *>.longPress(text: String) {
         onNodeWithText(text).performTouchInput { longClick() }
@@ -187,12 +199,12 @@ class SessionPaneShots : ShotTest() {
     }
 }
 
-/** 截图里展开的侧栏：会话列表 [sessions]，正看着 [currentSessionId]，[isRunning] 的在跑；回调都空着。 */
+/** 截图里展开的侧栏：会话列表 [sessions]，正看着 [currentSessionId]，各会话的状态取 [statusOf]；回调都空着。 */
 @Composable
 internal fun PaneShot(
     sessions: List<SessionSummary>,
     currentSessionId: String? = null,
-    isRunning: (String) -> Boolean = { false },
+    statusOf: (String) -> SessionStatus? = { null },
 ) {
     ConversationSidePaneScaffold(
         visible = true,
@@ -205,7 +217,7 @@ internal fun PaneShot(
                 sessions = sessions,
                 currentSessionId = currentSessionId,
                 revealed = revealed,
-                isRunning = isRunning,
+                statusOf = statusOf,
                 onNewChat = {},
                 onOpen = {},
                 onDelete = {},

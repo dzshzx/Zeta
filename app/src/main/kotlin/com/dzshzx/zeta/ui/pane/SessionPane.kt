@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -71,9 +70,9 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.get
-import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
@@ -148,7 +147,7 @@ internal fun SessionPane(
     sessions: List<SessionSummary>,
     currentSessionId: String?,
     revealed: Boolean,
-    isRunning: (String) -> Boolean,
+    statusOf: (String) -> SessionStatus?,
     onNewChat: () -> Unit,
     onOpen: (SessionSummary) -> Unit,
     onDelete: (SessionSummary) -> Unit,
@@ -268,7 +267,7 @@ internal fun SessionPane(
         RowContext(
             currentSessionId = currentSessionId,
             flash = flash,
-            isRunning = isRunning,
+            statusOf = statusOf,
             hub = hub,
             pins = pins,
             highlight = needle,
@@ -594,7 +593,7 @@ private suspend fun findRevealTarget(
 private class RowContext(
     val currentSessionId: String?,
     val flash: String?,
-    val isRunning: (String) -> Boolean,
+    val statusOf: (String) -> SessionStatus?,
     val hub: ConversationHub,
     val pins: Set<String>,
     val highlight: String,
@@ -609,9 +608,7 @@ private fun SessionItem(session: SessionSummary, rows: RowContext, snippet: Stri
     SessionRow(
         session = session,
         selected = current || session.id == rows.flash,
-        running = rows.isRunning(session.id),
-        // 正看着的对话，确认面板就在眼前，不必再标
-        waiting = !current && rows.hub.isWaiting(session.id),
+        status = rowStatus(rows.statusOf(session.id), current),
         // 正看着的对话，草稿就在输入框里
         draft = if (!current) rows.hub.drafts.preview(session.id) else null,
         pinned = session.pinKey in rows.pins,
@@ -1023,8 +1020,7 @@ private fun highlighted(text: String, needle: String, color: Color): AnnotatedSt
 private fun SessionRow(
     session: SessionSummary,
     selected: Boolean,
-    running: Boolean,
-    waiting: Boolean,
+    status: SessionStatus?,
     /** 没发出的草稿开头的一行；没有草稿时为 null。 */
     draft: String?,
     pinned: Boolean,
@@ -1069,8 +1065,8 @@ private fun SessionRow(
                         .padding(horizontal = RowHorizontalPadding, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SessionRowText(session, selected, waiting, draft, snippet, highlight)
-                SessionRowMark(waiting, running, pinned && !selecting)
+                SessionRowText(session, selected, draft, snippet, highlight)
+                SessionRowMark(status, pinned && !selecting)
                 if (selecting) {
                     Spacer(Modifier.width(10.dp))
                     // 只显示勾选状态，点哪里都由整行处理
@@ -1125,7 +1121,6 @@ private fun sessionMenu(
 private fun RowScope.SessionRowText(
     session: SessionSummary,
     selected: Boolean,
-    waiting: Boolean,
     draft: String?,
     snippet: String?,
     highlight: String,
@@ -1145,15 +1140,14 @@ private fun RowScope.SessionRowText(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        SessionSubtitle(session, waiting, draft, snippet, highlight)
+        SessionSubtitle(session, draft, snippet, highlight)
     }
 }
 
-/** 标题下面的一行：等你确认、搜到的片段、没发出的草稿，或者工作目录。 */
+/** 标题下面的一行：搜到的片段、没发出的草稿，或者工作目录。 */
 @Composable
 private fun SessionSubtitle(
     session: SessionSummary,
-    waiting: Boolean,
     draft: String?,
     snippet: String?,
     highlight: String,
@@ -1161,14 +1155,6 @@ private fun SessionSubtitle(
     val colors = COUITheme.colorScheme
     val subtitleStyle = COUITheme.textStyles.bodyXS
     when {
-        // 后台的对话在等你批准一次工具调用：比“在运行”的小圆点醒目得多，免得一直卡着没人管
-        waiting ->
-            Text(
-                text = "等你确认",
-                style = subtitleStyle.copy(fontWeight = FontWeight.Medium),
-                color = StatusWarning,
-                maxLines = 1,
-            )
         snippet != null ->
             Text(
                 text = highlighted(snippet, highlight, colors.primary),
@@ -1219,22 +1205,21 @@ private fun sessionPlace(session: SessionSummary, highlight: String, host: Strin
         (if (session.external) " · 别处运行中" else "") +
         (if (highlight.isNotEmpty() && session.archived) " · 已归档" else "")
 
-/** 行尾的记号：等你确认的醒目圆点、在运行的小圆点，或者（不在多选时）置顶的图钉。 */
+/** 正看着的对话，确认面板就在眼前，不标“等你确认”，照在回答的标。 */
+private fun rowStatus(status: SessionStatus?, current: Boolean): SessionStatus? =
+    if (current && status?.activity == SessionStatus.Activity.Waiting) {
+        status.copy(activity = SessionStatus.Activity.Answering)
+    } else {
+        status
+    }
+
+/** 行尾的记号：会话的状态（[SessionStatusLabel]），没有状态时（不在多选的话）是置顶的图钉。 */
 @Composable
-private fun SessionRowMark(waiting: Boolean, running: Boolean, showPin: Boolean) {
+private fun SessionRowMark(status: SessionStatus?, showPin: Boolean) {
     when {
-        waiting -> {
+        status != null -> {
             Spacer(Modifier.width(8.dp))
-            Box(
-                Modifier.size(14.dp).background(StatusWarning.copy(alpha = 0.22f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(Modifier.size(8.dp).background(StatusWarning, CircleShape))
-            }
-        }
-        running -> {
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(6.dp).background(COUITheme.colorScheme.primary, CircleShape))
+            SessionStatusLabel(status)
         }
         showPin -> {
             Spacer(Modifier.width(6.dp))

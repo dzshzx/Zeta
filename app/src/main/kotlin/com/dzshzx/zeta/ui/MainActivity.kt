@@ -232,7 +232,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 sessions = hub.sessionList.sessions,
                 currentSessionId = hub.current.sessionId,
                 revealed = revealed,
-                isRunning = hub::isRunning,
+                statusOf = hub::sessionStatus,
                 onNewChat = {
                     hub.startNew()
                     paneOpen = false

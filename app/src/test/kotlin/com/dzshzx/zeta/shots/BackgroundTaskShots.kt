@@ -152,7 +152,7 @@ class BackgroundTaskShots : ShotTest() {
                     sessions = emptyList(),
                     currentSessionId = null,
                     revealed = true,
-                    isRunning = { false },
+                    statusOf = { null },
                     onNewChat = {},
                     onOpen = {},
                     onDelete = {},
