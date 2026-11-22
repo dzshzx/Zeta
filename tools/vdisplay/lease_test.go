@@ -20,6 +20,30 @@ func lockEnv(extra ...string) []string {
 	return append(env, extra...)
 }
 
+// writeExec 在 path 写一个可执行的 sh 脚本，内容是 body。
+func writeExec(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// run 在环境 env 下跑 argv，返回退出码和合并的输出；命令没能跑起来时测试失败。
+func run(t *testing.T, env []string, argv ...string) (int, string) {
+	t.Helper()
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return exit.ExitCode(), string(out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return 0, string(out)
+}
+
 // 谁能碰哪个包由 tools/phone-lock 定。正式版只给写明了 ZETA_PHONE_OWNER=main 的调用：没设占用者的不算主会话，
 // phone-run 里（有排队号）也不给。测试版没设占用者时照常算主会话，子代理只在 phone-run 里拿得到。
 func TestPhoneLockCheck(t *testing.T) {
@@ -59,7 +83,7 @@ func TestReleaseAsksPhoneLock(t *testing.T) {
 		v.connect()
 		return
 	}
-	const refuse = "#!/bin/sh\necho \"$*\" >>\"$0.log\"\n[ \"$1\" = --check ] && exit 2\nexit 0\n"
+	const refuse = "echo \"$*\" >>\"$0.log\"\n[ \"$1\" = --check ] && exit 2\nexit 0"
 	cases := []struct {
 		name   string
 		env    []string
@@ -74,19 +98,8 @@ func TestReleaseAsksPhoneLock(t *testing.T) {
 	for _, c := range cases {
 		dir := t.TempDir()
 		lock := filepath.Join(dir, "phone-lock")
-		if err := os.WriteFile(lock, []byte(refuse), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		cmd := exec.Command(os.Args[0], "-test.run=^TestReleaseAsksPhoneLock$")
-		cmd.Env = append(lockEnv(c.env...), "VD_TEST_TOOLS="+dir)
-		out, err := cmd.CombinedOutput()
-		status := 0
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			status = exit.ExitCode()
-		} else if err != nil {
-			t.Fatal(err)
-		}
+		writeExec(t, lock, refuse)
+		status, out := run(t, append(lockEnv(c.env...), "VD_TEST_TOOLS="+dir), os.Args[0], "-test.run=^TestReleaseAsksPhoneLock$")
 		asked, _ := os.ReadFile(lock + ".log")
 		if status != c.status || string(asked) != c.asked {
 			t.Errorf("%s: exit %d after asking phone-lock %q, want exit %d after %q\n%s", c.name, status, asked, c.status, c.asked, out)
@@ -99,20 +112,15 @@ func TestReleaseAsksPhoneLock(t *testing.T) {
 func TestInstallReleaseOnPhoneAsksPhoneLock(t *testing.T) {
 	bin := t.TempDir()
 	for name, body := range map[string]string{"uname": "echo 6.6.0-android15-8", "gh": "exit 9"} {
-		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		writeExec(t, filepath.Join(bin, name), body)
 	}
 	for owner, want := range map[string]int{"": 2, "task": 2, "main": 9} {
-		cmd := exec.Command("../install.sh", "--release")
-		cmd.Env = append(lockEnv("PATH="+bin+":"+os.Getenv("PATH")), "ZETA_PHONE_OWNER="+owner)
-		if owner == "" {
-			cmd.Env = cmd.Env[:len(cmd.Env)-1]
+		env := []string{"PATH=" + bin + ":" + os.Getenv("PATH")}
+		if owner != "" {
+			env = append(env, "ZETA_PHONE_OWNER="+owner)
 		}
-		out, err := cmd.CombinedOutput()
-		var exit *exec.ExitError
-		if !errors.As(err, &exit) || exit.ExitCode() != want {
-			t.Errorf("install.sh --release on the phone with owner %q: %v, want exit %d\n%s", owner, err, want, out)
+		if status, out := run(t, lockEnv(env...), "../install.sh", "--release"); status != want {
+			t.Errorf("install.sh --release on the phone with owner %q: exit %d, want exit %d\n%s", owner, status, want, out)
 		}
 	}
 }

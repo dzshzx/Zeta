@@ -6,7 +6,7 @@
 #   main  手机上的正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd 带 --release 时）
 # 已经占着的再要就续租。tools/install.sh 和 tools/vd 在工作站上每次碰设备前都调它，拿不到就以退出码 75 失败；
 # 在 phone-run 里（有 ZETA_PHONE_TICKET）vd 不调，用 phone-run 拿到的这一份，装包时 install.sh 续一次。
-# 占用者名字取 ZETA_PHONE_OWNER，没设时算主会话（main）；15 分钟没动静的租约自动作废。
+# 占用者名字取 ZETA_PHONE_OWNER，没设时对测试版算主会话（main），正式版例外，见下面「谁能拿」那一段；15 分钟没动静的租约自动作废。
 # 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
 # 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。
 # 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release（顺带撤掉同名的模拟器登记）。只协调工作站上的会话。
