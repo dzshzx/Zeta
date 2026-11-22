@@ -22,19 +22,16 @@ type Conversation struct {
 	state     State
 	items     []json.RawMessage
 	connected bool
-	closed    bool
 	turns     []Turn
 }
 
-// View 是对话此刻的样子，界面照着画。各切片是副本，界面拿着不会被后来的推送改掉。
+// View 是对话此刻的样子，界面照着画、只读。界面拿着它不会被后来的推送改掉（Items 是副本，State 每次推送都是新解的）。
 type View struct {
 	State State
 	// Items 是聊天条目，每项是核心推来的 JSON（格式见 helper/transcript/items.go），由 chat/items 解码。
 	Items []json.RawMessage
 	// Connected：连接在、核心那边这个对话开着。断线重连期间为假，界面可以照旧显示，但操作会失败。
 	Connected bool
-	// Closed：核心说这个对话没了（conv.closed），界面丢掉它。
-	Closed bool
 }
 
 // Turn 是 conv.turn：一轮的起止，界面据此提醒（比如回答完了响一声）。
@@ -69,7 +66,7 @@ func (c *Conversation) Name() string { return c.name }
 func (c *Conversation) View() View {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return View{State: c.state.clone(), Items: slices.Clone(c.items), Connected: c.connected, Closed: c.closed}
+	return View{State: c.state, Items: slices.Clone(c.items), Connected: c.connected}
 }
 
 // TakeTurns 取走上次取走以后到的 conv.turn，按到达顺序。
@@ -130,14 +127,8 @@ func (c *Conversation) apply(kind string, line []byte) bool {
 		c.turns = append(c.turns, t)
 		c.mu.Unlock()
 		return true
-	case "conv.closed":
-		c.mu.Lock()
-		c.closed, c.connected = true, false
-		c.mu.Unlock()
-		c.client.forget(c)
-		return true
 	}
-	// conv.mcp 是手机工具的调用，只发给声明了手机能力的客户端；桌面版不声明，收不到。
+	// conv.mcp、conv.reply、conv.phone_cancel 只发给声明了手机能力的客户端；桌面版不声明，收不到。
 	return false
 }
 

@@ -26,7 +26,7 @@ windows/
   installer/          MSI（wixl）
 ```
 
-主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`），客户端只有的（SSH、设置、界面）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法；对话条目只依赖它的 JSON 格式（serve 推来的就是这个）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
+主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`），客户端只有的（SSH、设置、界面）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法。serve 推来的确认、后台任务、用量直接解成 helper 里的类型（`helper/prompt`、`helper/tasks`、`helper/usage`，`windows/go.mod` 用 replace 指向 `../helper`），两边一起编、一起发，格式不会对不上；对话条目只依赖它的 JSON 格式（`internal/chat/items`）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
 
 ## 分段
 

@@ -2,10 +2,14 @@ package chat
 
 import (
 	"encoding/json"
-	"slices"
+
+	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/tasks"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // State 是 conv.state 合并到现在的样子（字段见 docs/core.md「对话」）。核心没推来的字段是零值。
+// 每次推送都解出一份新的，界面拿到的 State 不会被后来的推送改掉；界面只读它。
 type State struct {
 	Session string `json:"session"`
 	Title   string `json:"title"`
@@ -31,16 +35,14 @@ type State struct {
 	Effort        *string `json:"effort"`
 	ReportedModel string  `json:"reported_model"`
 	Mode          Mode    `json:"mode"`
-	// Prompts 是等用户回应的请求，按到达顺序，界面弹第一个；格式见 helper/prompt 的 Prompt。
-	Prompts []json.RawMessage `json:"prompts"`
-	// Tasks 是后台任务，格式见 helper/tasks 的 Task。
-	Tasks []json.RawMessage `json:"tasks"`
-	// Usage 是用量与上下文，格式见 helper/usage 的 Usage。
-	Usage json.RawMessage `json:"usage"`
+	// Prompts 是等用户回应的请求，按到达顺序，界面弹第一个。
+	Prompts []prompt.Prompt `json:"prompts"`
+	Tasks   []tasks.Task    `json:"tasks"`
+	Usage   usage.Usage     `json:"usage"`
 	// Commands、Models 是 Claude Code 报的斜杠命令和可选模型，原样。
 	Commands json.RawMessage `json:"commands"`
 	Models   json.RawMessage `json:"models"`
-	// TodoSeed 是从会话记录里读到的任务清单，原样。
+	// TodoSeed 是没载入的更早历史里的待办清单工具调用，原样，界面拼出当前待办用。
 	TodoSeed json.RawMessage `json:"todo_seed"`
 }
 
@@ -72,35 +74,4 @@ func decodeState(fields map[string]json.RawMessage) (State, error) {
 	var s State
 	err = json.Unmarshal(b, &s)
 	return s, err
-}
-
-// clone 复制 State 里的切片和指针指向的，副本和原来的不共用。
-func (s State) clone() State {
-	s.Queued = slices.Clone(s.Queued)
-	for i := range s.Queued {
-		s.Queued[i] = s.Queued[i].clone()
-	}
-	if s.Recalled != nil {
-		m := s.Recalled.clone()
-		s.Recalled = &m
-	}
-	s.Model = clonePtr(s.Model)
-	s.Effort = clonePtr(s.Effort)
-	s.Prompts = slices.Clone(s.Prompts)
-	s.Tasks = slices.Clone(s.Tasks)
-	return s
-}
-
-func (m Message) clone() Message {
-	m.Images = slices.Clone(m.Images)
-	m.Files = slices.Clone(m.Files)
-	return m
-}
-
-func clonePtr[T any](p *T) *T {
-	if p == nil {
-		return nil
-	}
-	v := *p
-	return &v
 }

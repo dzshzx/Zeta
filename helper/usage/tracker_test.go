@@ -440,3 +440,22 @@ func TestMalformedLines(t *testing.T) {
 	observe(meter, `{"type":"stream_event","event":{"type":"message_delta","usage":{"input_tokens":"x","output_tokens":7}},"parent_tool_use_id":null}`)
 	eqPtr(t, "context", meter.Snapshot(nil).ContextTokens, 7)
 }
+
+// 客户端（桌面版）用同一个类型读 conv.state 的 usage：写出去再读回来要一样。
+func TestUsageRoundTripsThroughJSON(t *testing.T) {
+	cost := 0.25
+	u := Usage{ContextTokens: ptr(int64(1200)), Model: "claude-opus-5-5",
+		Turns: []Turn{{Tokens: Tokens{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4}, CostUSD: &cost}}}
+	u.fill()
+	b, err := json.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Usage
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(back, u) {
+		t.Fatalf("读回来是 %+v，要 %+v", back, u)
+	}
+}

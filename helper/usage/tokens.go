@@ -43,6 +43,21 @@ func (t Tokens) MarshalJSON() ([]byte, error) {
 	}{t.Input, t.Output, t.CacheRead, t.CacheWrite, t.Total()})
 }
 
+// UnmarshalJSON 读 MarshalJSON 写出的（客户端读 conv.state 的 usage 用）；total 是算出来的，不读。
+func (t *Tokens) UnmarshalJSON(data []byte) error {
+	var v struct {
+		Input      int64 `json:"input"`
+		Output     int64 `json:"output"`
+		CacheRead  int64 `json:"cache_read"`
+		CacheWrite int64 `json:"cache_write"`
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*t = Tokens{v.Input, v.Output, v.CacheRead, v.CacheWrite}
+	return nil
+}
+
 // apiUsage 是 API 的 usage 形状：assistant 消息、stream_event、result 行都是它。
 type apiUsage struct {
 	InputTokens              *int64 `json:"input_tokens"`

@@ -8,6 +8,9 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
 // 下面是用户对一个对话的操作，各发一个 conv.* 请求（参数见 docs/core.md「对话」）。
@@ -61,43 +64,10 @@ func (c *Conversation) TakeRecalled(ctx context.Context) (*Message, error) {
 	return &m, nil
 }
 
-// Reply 是对工具确认、计划审批、提问的回应（conv.answer 的 reply）。
-type Reply struct {
-	Kind ReplyKind `json:"kind"`
-	// Feedback 是拒绝的理由；不写时和终端里按 Esc 一样停下这一轮。
-	Feedback string `json:"feedback,omitempty"`
-	// Mode 是批准计划后的权限模式。
-	Mode string `json:"mode,omitempty"`
-	// Answers 是问题 → 回答（多选用 ", " 连起来），Notes 是问题 → 备注。
-	Answers map[string]string `json:"answers,omitempty"`
-	Notes   map[string]string `json:"notes,omitempty"`
-}
-
-// ReplyKind 是回应的种类。
-type ReplyKind string
-
-const (
-	ReplyAllow       ReplyKind = "allow"
-	ReplyAllowAlways ReplyKind = "allow_always" // 照建议以后不再问
-	ReplyDeny        ReplyKind = "deny"
-	ReplyApprovePlan ReplyKind = "approve_plan"
-	ReplyAnswer      ReplyKind = "answer"
-	ReplyClarify     ReplyKind = "clarify" // 先不回答，和 Claude 聊聊这些问题
-)
-
 // Answer 回应一个工具确认、计划审批或提问。
-func (c *Conversation) Answer(ctx context.Context, requestID string, r Reply) error {
+func (c *Conversation) Answer(ctx context.Context, requestID string, r prompt.Reply) error {
 	return c.call(ctx, "conv.answer", map[string]any{"request_id": requestID, "reply": r})
 }
-
-// ElicitAction 是对 MCP 表单或网址的回应。
-type ElicitAction string
-
-const (
-	ElicitAccept  ElicitAction = "accept"
-	ElicitDecline ElicitAction = "decline"
-	ElicitCancel  ElicitAction = "cancel"
-)
 
 // FormError 是 MCP 表单填得不对：键 → 那一项的问题。表单留着，改了再交。
 type FormError map[string]string
@@ -113,7 +83,7 @@ func (e FormError) Error() string {
 
 // Elicit 回应 MCP 表单或网址。values 是表单里填的：键 → 输入框里的字，多选是选中的各值，开关是 "true"/"false"。
 // 填得不对时返回 FormError。
-func (c *Conversation) Elicit(ctx context.Context, requestID string, action ElicitAction, values map[string][]string) error {
+func (c *Conversation) Elicit(ctx context.Context, requestID string, action prompt.ElicitAction, values map[string][]string) error {
 	params := map[string]any{"request_id": requestID, "action": action}
 	if values != nil {
 		params["values"] = values
@@ -161,17 +131,10 @@ func (c *Conversation) StopTask(ctx context.Context, task string) error {
 	return c.call(ctx, "conv.stop_task", map[string]any{"task": task})
 }
 
-// TaskOutput 是后台命令输出的最后至多 8 KiB，原样（含终端转义）。Error 不为空时是没读成的原因。
-type TaskOutput struct {
-	Text       string `json:"text"`
-	TotalBytes int64  `json:"total_bytes"`
-	Truncated  bool   `json:"truncated"`
-	Error      string `json:"error"`
-}
-
-// ReadTaskOutput 读一个后台命令的输出。
-func (c *Conversation) ReadTaskOutput(ctx context.Context, task string) (TaskOutput, error) {
-	var out TaskOutput
+// ReadTaskOutput 读一个后台命令输出的最后至多 8 KiB，原样（含终端转义，显示前用 tasks.PlainTerminalText）；
+// Error 不为空时是没读成的原因。
+func (c *Conversation) ReadTaskOutput(ctx context.Context, task string) (tasks.Output, error) {
+	var out tasks.Output
 	result, err := c.callResult(ctx, "conv.task_output", map[string]any{"task": task})
 	if err != nil {
 		return out, err

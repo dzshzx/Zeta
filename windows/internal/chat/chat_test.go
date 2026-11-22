@@ -9,6 +9,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
 // fakeLink 记下发出的请求，按方法给预先定好的应答；onCall 在应答之前跑，用来模拟核心在应答前推来的消息。
@@ -140,15 +143,12 @@ func TestStateMergesPartialAndReplacesFull(t *testing.T) {
 	}
 }
 
-func TestViewIsACopy(t *testing.T) {
+func TestViewItemsAreACopy(t *testing.T) {
 	_, client, conv, _ := opened(t)
-	client.Handle(line(`{"type":"conv.state","conv":"w1","queued":[{"uuid":"q1","text":"再看看","files":["/a"]}]}`))
 	v := conv.View()
-	v.State.Queued[0].Files[0] = "/改了"
-	v.Items[0] = nil
-	again := conv.View()
-	if again.State.Queued[0].Files[0] != "/a" || again.Items[0] == nil {
-		t.Fatal("改 View 的副本改到了对话里")
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":0,"remove":1,"items":[{"id":"新"}]}`))
+	if got := ids(t, v.Items); got != "a,b" {
+		t.Fatalf("拿着的 View 被后来的推送改成了 %s", got)
 	}
 }
 
@@ -199,7 +199,7 @@ func TestItemsOutOfRangeReopens(t *testing.T) {
 	}
 }
 
-func TestTurnsAndClosed(t *testing.T) {
+func TestTurns(t *testing.T) {
 	_, client, conv, _ := opened(t)
 	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"started"}`))
 	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"finished","outcome":"done","text":"已完成"}`))
@@ -209,18 +209,6 @@ func TestTurnsAndClosed(t *testing.T) {
 	}
 	if got := conv.TakeTurns(); got != nil {
 		t.Fatalf("取走后还有 %+v", got)
-	}
-	if !client.Handle(line(`{"type":"conv.closed","conv":"w1"}`)) {
-		t.Fatal("conv.closed 没认")
-	}
-	if v := conv.View(); !v.Closed || v.Connected {
-		t.Fatalf("关掉后 %+v", v)
-	}
-	if len(client.Conversations()) != 0 {
-		t.Fatal("关掉的对话还在 Client 里")
-	}
-	if !client.Handle(line(`{"type":"conv.state","conv":"w1","busy":true}`)) {
-		t.Fatal("已关掉的对话的推送也该算对话的推送")
 	}
 }
 
@@ -275,10 +263,10 @@ func TestRequests(t *testing.T) {
 		{func() error { return conv.Steer(ctx) }, call{"conv.steer", `{"conv":"w1"}`}},
 		{func() error { return conv.Cancel(ctx, "q1", true) }, call{"conv.cancel", `{"conv":"w1","recall":true,"uuid":"q1"}`}},
 		{func() error {
-			return conv.Answer(ctx, "r1", Reply{Kind: ReplyDeny, Feedback: "换个做法"})
+			return conv.Answer(ctx, "r1", prompt.Reply{Kind: prompt.ReplyDeny, Feedback: "换个做法"})
 		}, call{"conv.answer", `{"conv":"w1","reply":{"kind":"deny","feedback":"换个做法"},"request_id":"r1"}`}},
 		{func() error {
-			return conv.Answer(ctx, "r2", Reply{Kind: ReplyAnswer, Answers: map[string]string{"用哪个？": "A"}})
+			return conv.Answer(ctx, "r2", prompt.Reply{Kind: prompt.ReplyAnswer, Answers: map[string]string{"用哪个？": "A"}})
 		}, call{"conv.answer", `{"conv":"w1","reply":{"kind":"answer","answers":{"用哪个？":"A"}},"request_id":"r2"}`}},
 		{func() error { return conv.SetModel(ctx, &opus) }, call{"conv.model", `{"conv":"w1","value":"opus"}`}},
 		{func() error { return conv.SetMode(ctx, nil) }, call{"conv.mode", `{"conv":"w1","value":null}`}},
@@ -312,12 +300,12 @@ func TestRequestResults(t *testing.T) {
 
 	link.results["conv.task_output"] = `{"text":"ok\n","total_bytes":9000,"truncated":true}`
 	out, err := conv.ReadTaskOutput(ctx, "t1")
-	if err != nil || out != (TaskOutput{Text: "ok\n", TotalBytes: 9000, Truncated: true}) {
+	if err != nil || out != (tasks.Output{Text: "ok\n", TotalBytes: 9000, Truncated: true}) {
 		t.Fatalf("后台输出 %+v、%v", out, err)
 	}
 
 	link.results["conv.elicit"] = `{"errors":{"port":"要填整数","host":"必填"}}`
-	err = conv.Elicit(ctx, "e1", ElicitAccept, map[string][]string{"port": {"x"}})
+	err = conv.Elicit(ctx, "e1", prompt.ElicitAccept, map[string][]string{"port": {"x"}})
 	var fe FormError
 	if !errors.As(err, &fe) || fe["port"] != "要填整数" || err.Error() != "表单有几项不对：host：必填；port：要填整数" {
 		t.Fatalf("表单的问题 %v", err)
@@ -326,7 +314,7 @@ func TestRequestResults(t *testing.T) {
 		t.Fatalf("表单的请求 %v", got[len(got)-1])
 	}
 	link.results["conv.elicit"] = ""
-	if err := conv.Elicit(ctx, "e1", ElicitDecline, nil); err != nil {
+	if err := conv.Elicit(ctx, "e1", prompt.ElicitDecline, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -349,5 +337,23 @@ func TestCloseForgetsAndSends(t *testing.T) {
 	}
 	if err := conv.Send(context.Background(), Outgoing{Text: "x"}); !errors.Is(err, errNotConnected) {
 		t.Fatalf("关掉后还能发：%v", err)
+	}
+}
+
+func TestStateDecodesHelperTypes(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1",` +
+		`"prompts":[{"kind":"permission","request_id":"r1","tool_name":"Bash","input":{"command":"ls"},"notice":"要运行命令"}],` +
+		`"tasks":[{"id":"t1","type":"local_bash","kind":"bash","description":"跑测试","started_at":1,"state":"running","running":true,"readable":true}],` +
+		`"usage":{"context_tokens":1000,"context_window":200000,"total":{"input":1,"output":2,"cache_read":0,"cache_write":0,"total":3},"level":"normal"}}`))
+	s := conv.View().State
+	if len(s.Prompts) != 1 || s.Prompts[0].Kind != prompt.KindPermission || s.Prompts[0].ToolName != "Bash" {
+		t.Fatalf("确认没解对：%+v", s.Prompts)
+	}
+	if len(s.Tasks) != 1 || s.Tasks[0].ID != "t1" || !s.Tasks[0].Running() {
+		t.Fatalf("后台任务没解对：%+v", s.Tasks)
+	}
+	if s.Usage.ContextTokens == nil || *s.Usage.ContextTokens != 1000 || s.Usage.Total.Total() != 3 || s.Usage.Total.CacheRead != 0 {
+		t.Fatalf("用量没解对：%+v", s.Usage)
 	}
 }
