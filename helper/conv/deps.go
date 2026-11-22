@@ -48,9 +48,11 @@ type StartOptions struct {
 type Link interface {
 	// Send 写一行进 Claude Code 的标准输入；接上之前写的存着，接上后按序写
 	Send(line []byte)
-	// Stop 结束进程（等于终端里 /exit），Detach 只断开自己；都立即返回，之后不再回调
+	// Stop 结束进程（等于终端里 /exit）；Detach 断开自己，没有别的一方接着时进程也结束；
+	// Leave 只关掉这条连接、不动进程（交班时用，没人接回时看门狗约十分钟后收掉它）。都立即返回，之后不再回调
 	Stop()
 	Detach()
+	Leave()
 	// Key 是托管标识：接上本包现成的进程时换成那个进程的
 	Key() string
 }

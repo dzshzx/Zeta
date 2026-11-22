@@ -109,3 +109,25 @@ func (c *Conversation) attach(h *Hosted) {
 	}
 	c.changed()
 }
+
+// Release 交班时用：关掉每个对话到托管进程的连接（进程照跑，新核心起来时接回在干活的），关掉全部对话。
+func (m *Manager) Release() {
+	m.mu.Lock()
+	all := make([]*Conversation, 0, len(m.all))
+	for c := range m.all {
+		all = append(all, c)
+	}
+	clear(m.all)
+	clear(m.bySession)
+	m.mu.Unlock()
+	for _, c := range all {
+		_, _ = c.Call(func() (any, error) {
+			if c.proc != nil {
+				c.proc.link.Leave()
+				c.proc = nil
+			}
+			return nil, nil
+		})
+		c.close()
+	}
+}

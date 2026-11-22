@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,7 +20,10 @@ import (
 
 // serve：连上先打招呼，请求一一回复；会话列表先整份、再只推变了的；客户端走了就退出。
 
-var fastServe = serveOptions{idle: time.Minute, debounce: 20 * time.Millisecond, poll: time.Hour}
+// testIdle 是测试里 serve 等客户端的时长；fastWatch 是测试里会话列表订阅的节奏。
+const testIdle = time.Minute
+
+var fastWatch = watchOptions{debounce: 20 * time.Millisecond, poll: time.Hour}
 
 // serveClient 是测试里的客户端：往 serve 的输入写请求，从输出一行行读。
 type serveClient struct {
@@ -29,13 +33,13 @@ type serveClient struct {
 	done chan error
 }
 
-func startServe(t *testing.T, e *env, opts serveOptions) *serveClient {
+func startServe(t *testing.T, e *env, idle time.Duration) *serveClient {
 	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	c := &serveClient{t: t, in: inW, got: make(chan obj, 100), done: make(chan error, 1)}
 	go func() {
-		err := cmdServe(e, opts, inR, outW)
+		err := cmdServe(e, idle, inR, outW)
 		_ = outW.Close()
 		c.done <- err
 	}()
@@ -52,7 +56,7 @@ func startServe(t *testing.T, e *env, opts serveOptions) *serveClient {
 		}
 	}()
 	t.Cleanup(func() { _ = inW.Close() })
-	if hello := c.next("zeta_hello"); hello["protocol"] != json.Number("1") {
+	if hello := c.next("zeta_hello"); hello["protocol"] != json.Number("1") || hello["build"] == nil || hello["version"] == nil {
 		t.Fatalf("hello %v", hello)
 	}
 	return c
@@ -141,7 +145,9 @@ func writeSession(t *testing.T, e *env, id, text string) string {
 }
 
 func TestServeRepliesAndExitsWhenInputEnds(t *testing.T) {
-	c := startServe(t, testEnv(t), fastServe)
+	e := testEnv(t)
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":7,"method":"ping"}`)
 	if r := c.next("zeta_reply"); r["id"] != json.Number("7") || r["ok"] != true {
 		t.Errorf("ping %v", r)
@@ -160,9 +166,9 @@ func TestServeRepliesAndExitsWhenInputEnds(t *testing.T) {
 
 // 网络断了、输入却没结束：idle 内一行都没收到就自己退出。
 func TestServeExitsWhenTheClientGoesSilent(t *testing.T) {
-	opts := fastServe
-	opts.idle = 100 * time.Millisecond
-	c := startServe(t, testEnv(t), opts)
+	e := testEnv(t)
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, 100*time.Millisecond)
 	c.send(`{"id":1,"method":"sessions.watch"}`)
 	c.next("zeta_sessions")
 	c.exited()
@@ -172,7 +178,8 @@ func TestServeWatchPushesOnlyWhatChanged(t *testing.T) {
 	e := testEnv(t)
 	a := writeSession(t, e, sessionA, "第一句")
 	age(t, a, time.Hour)
-	c := startServe(t, e, fastServe)
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":1,"method":"sessions.watch"}`)
 	full := c.next("zeta_sessions")
 	if full["full"] != true || !slices.Equal(ids(full["upsert"]), []string{sessionA}) {
@@ -214,12 +221,19 @@ func TestServeWatchPushesOnlyWhatChanged(t *testing.T) {
 	if got["full"] != true || !slices.Equal(ids(got["upsert"]), []string{sessionB}) {
 		t.Fatalf("again %v", got)
 	}
+
+	// 退订以后不再推
+	c.send(`{"id":3,"method":"sessions.unwatch"}`)
+	c.next("zeta_reply")
+	writeSession(t, e, sessionA, "退订以后")
+	c.quiet(200 * time.Millisecond)
 }
 
 // 连上时连 ~/.claude 都还没有（主机上还没跑过 Claude Code）：等它建出来，第一个会话照样推来。
 func TestServeWatchWaitsForTheProjectsDirectory(t *testing.T) {
 	e := testEnv(t)
-	c := startServe(t, e, fastServe)
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":1,"method":"sessions.watch"}`)
 	if full := c.next("zeta_sessions"); len(asList(full["upsert"])) != 0 {
 		t.Fatalf("full %v", full)
@@ -242,9 +256,8 @@ func TestServeWatchWaitsForTheProjectsDirectory(t *testing.T) {
 func TestServeWatchCoalescesBursts(t *testing.T) {
 	e := testEnv(t)
 	a := writeSession(t, e, sessionA, "第一句")
-	opts := fastServe
-	opts.debounce = 300 * time.Millisecond
-	c := startServe(t, e, opts)
+	inProcessCore(t, e, watchOptions{debounce: 300 * time.Millisecond, poll: time.Hour})
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":1,"method":"sessions.watch"}`)
 	c.next("zeta_sessions")
 	f, err := os.OpenFile(a, os.O_APPEND|os.O_WRONLY, 0)
@@ -266,7 +279,11 @@ func TestServeWatchCoalescesBursts(t *testing.T) {
 // 参数 core 走到 main 里真的核心子命令。
 const testMainEnv = "ZETA_HELPER_TEST_MAIN"
 
+// testBuildEnv 给测试程序扮的 zeta-helper 指定构建序号（正式编的程序由 -ldflags 写入），交班的测试用。
+const testBuildEnv = "ZETA_HELPER_TEST_BUILD"
+
 func TestMain(m *testing.M) {
+	build = os.Getenv(testBuildEnv)
 	if os.Getenv(testMainEnv) == "1" {
 		main()
 	}
@@ -287,11 +304,7 @@ func coreEnv(t *testing.T) (*env, core.Paths) {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	t.Setenv(core.DirEnv, dir+"/core")
 	t.Setenv(testMainEnv, "1")
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := core.Locate(e.home, e.name, exe)
+	p, err := core.Locate(e.home, e.name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,6 +314,34 @@ func coreEnv(t *testing.T) (*env, core.Paths) {
 		}
 	})
 	return e, p
+}
+
+// inProcessCore 在测试进程里跑一个核心（会话列表的节奏是 watch），serve 连上的就是它，不另起子进程。测试结束时停掉。
+func inProcessCore(t *testing.T, e *env, watch watchOptions) {
+	t.Helper()
+	t.Setenv("HOME", e.home)
+	t.Setenv("ZETA_NAME", e.name)
+	dir, err := os.MkdirTemp("", "zs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Setenv(core.DirEnv, dir+"/core")
+	p, err := core.Locate(e.home, e.name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := core.Listen(p, buildInfo())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- s.Serve(ctx, newCoreHandler(e, watch), time.Hour) }()
+	t.Cleanup(func() {
+		stop()
+		<-done
+	})
 }
 
 // corePid 是持着锁的核心的进程号；没有核心持着锁时是 0。
@@ -330,8 +371,8 @@ func listening(p core.Paths) bool {
 // 两个客户端各起一个 serve：conv. 请求经 serve 到同一个核心再回来，ping 照旧由 serve 答；核心没了 serve 都退出。
 func TestServeForwardsConversationsToOneCore(t *testing.T) {
 	e, p := coreEnv(t)
-	a := startServe(t, e, fastServe)
-	b := startServe(t, e, fastServe)
+	a := startServe(t, e, testIdle)
+	b := startServe(t, e, testIdle)
 	if listening(p) {
 		t.Fatal("还没有 conv. 请求就有了核心")
 	}
@@ -378,7 +419,7 @@ func TestServeForwardsConversationsToOneCore(t *testing.T) {
 func TestServeReportsWhenTheCoreIsUnavailable(t *testing.T) {
 	e, _ := coreEnv(t)
 	t.Setenv(core.DirEnv, "/tmp/"+strings.Repeat("d", 120))
-	c := startServe(t, e, fastServe)
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":1,"method":"conv.open"}`)
 	if r := c.next("zeta_reply"); r["ok"] != false || !strings.HasPrefix(asString(r["error"]), "core unavailable: ") {
 		t.Fatalf("%v", r)

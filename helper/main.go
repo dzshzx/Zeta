@@ -24,9 +24,9 @@
 //	storage-sessions <项目目录> [<id>…]  存储页：一个项目里每个会话占的空间
 //	clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见 storage.go）
 //	phone-mcp <包名> [<标识>] 把标准输入输出接到这个包的 Zeta 手机工具（MCP），要 root，见 phonemcp.go
-//	serve                常驻连接：一行一个 JSON 的请求和推送（会话列表的订阅等），见 serve.go
-//	core                 常驻的核心进程：在 ~/.cache/<ZETA_NAME>/core/<版本>.sock 上听，管对话的状态（见 helper/core）；
-//	                     由 serve 拉起，不用手动起。这个版本已有核心在听时直接退出（退出码 0）
+//	serve                常驻连接：一行一个 JSON 的请求和推送，除 ping 外都转给核心，见 serve.go
+//	core                 常驻的核心进程：在 ~/.cache/<ZETA_NAME>/core/core.sock 上听，管对话、会话列表、配置、账号与额度（见 helper/core、corehandlers.go）；
+//	                     由 serve 拉起，不用手动起。已有核心在听时直接退出（退出码 0）
 //	subagent <字节> <行> <tool_use id> <agent id|-> <会话 id>…
 //	                     子代理查看页：发起它的 Agent 调用对应的记录，从这个位置起增量读（见 subagent.go）
 //
@@ -78,7 +78,7 @@ func main() {
 	}
 	// serve 一直跑到客户端走了，输出边推边写
 	if len(os.Args) == 2 && os.Args[1] == "serve" {
-		_ = cmdServe(newEnv(), defaultServeOptions, os.Stdin, os.Stdout)
+		_ = cmdServe(newEnv(), serveIdle, os.Stdin, os.Stdout)
 		os.Exit(0)
 	}
 	if len(os.Args) == 2 && os.Args[1] == "core" {
@@ -91,28 +91,17 @@ func main() {
 // coreIdle：核心没有连接、处理器也闲着这么久就退出。
 const coreIdle = 60 * time.Second
 
-// coreHandler 是核心上挂的处理器：按方法前缀分给各处。只在这个进程拿到核心的锁以后才建（建的时候会接回托管进程）。
-func coreHandler(e *env) core.Handler {
-	var m core.Mux
-	m.Handle("conv.", newConversations(e))
-	return &m
-}
-
 // runCore 跑核心进程，直到闲满 idle 或收到 SIGTERM，返回退出码。标准错误是拉起它的 serve 给的日志文件。
 // newHandler 在拿到锁、开始听以后才调：已有核心在跑时这个进程什么也不碰就退出。
 func runCore(e *env, newHandler func(*env) core.Handler, idle time.Duration) int {
 	log.SetPrefix(fmt.Sprintf("core[%d] ", os.Getpid()))
-	exe, err := os.Executable()
+	p, err := core.Locate(e.home, e.name)
 	if err != nil {
 		log.Print(err)
 		return 1
 	}
-	p, err := core.Locate(e.home, e.name, exe)
-	if err != nil {
-		log.Print(err)
-		return 1
-	}
-	s, err := core.Listen(p)
+	info := buildInfo()
+	s, err := core.Listen(p, info)
 	if errors.Is(err, core.ErrRunning) {
 		return 0
 	}
@@ -122,7 +111,7 @@ func runCore(e *env, newHandler func(*env) core.Handler, idle time.Duration) int
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	log.Print("listening on ", p.Socket)
+	log.Printf("listening on %s (build %d, version %s)", p.Socket, info.Build, info.Version)
 	if err := s.Serve(ctx, newHandler(e), idle); err != nil {
 		log.Print(err)
 		return 1

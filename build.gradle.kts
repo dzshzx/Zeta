@@ -34,6 +34,10 @@ fun git(vararg args: String): String? {
 }
 
 val commitCount by extra(git("rev-list", "--count", "HEAD")?.toIntOrNull() ?: 1)
+
+// zeta-helper 的构建序号：helper/ 最后一次提交的时刻（Unix 秒），编进程序（main.build）。主机上同一个包只留一个核心，
+// 构建序号大的 serve 让旧核心交班（见 docs/core.md「目标」）；手机版和桌面版从同一个提交编出来的相同。
+val helperBuild by extra(git("log", "-1", "--format=%ct", "--", "helper") ?: "0")
 val versionLabel by extra {
     val hash = git("rev-parse", "--short=7", "HEAD") ?: "unknown"
     val described =

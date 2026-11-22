@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,41 +17,31 @@ import (
 // serve：常驻连接。客户端（Zeta 的手机版、桌面版）起一个 zeta-helper serve，经它的标准输入输出说话，
 // 不用为每个操作各起一次命令；远程主机上是一条 SSH 通道，手机本机是进 Debian 的那条管道，不开端口。
 //
-// 协议一行一个 JSON。连上先收到 {"type":"zeta_hello","protocol":<版本>}。客户端发
+// 协议一行一个 JSON。连上先收到 {"type":"zeta_hello","protocol":<版本>,"build":<构建序号>,"version":"<版本>"}。客户端发
 // {"id":<任意 JSON 值>,"method":"<方法>"}，每个请求都回一行 {"type":"zeta_reply","id":<原样>,"ok":true}
 // 或 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}；客户端要按原因分别处理的错误另带 "code"
-// （认得的代号见各方法的说明，比如 docs/core.md「账号与额度」），没带 code 的只给人看。serve 自己处理的方法：
+// （认得的代号见各方法的说明，比如 docs/core.md「账号与额度」），没带 code 的只给人看。
 //
-//	ping            什么也不做：客户端隔一会儿发一次，证明自己还在
-//	sessions.watch  订阅会话列表：先发一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只发变了的几项
-//	                （见 sessionWatch）；再发一次就再给一份整份的
-//
-// accounts. 和 quota. 开头的方法（账号与额度，见 docs/core.md「账号与额度」、serve_accounts.go）在各自的 goroutine 里做，做完再答。
-// config. 开头的方法（Claude Code 的配置，见 docs/core.md「Claude Code 配置」）在 serve 里各起一个 goroutine 做，做完回复，
-// 回复带 result；慢的（要跑 claude、连 MCP 服务器的）不挡住同一客户端的 ping（serve_config.go）。
-//
-// conv. 开头的方法（对话，见 docs/core.md「对话」）转给这个版本的核心进程 zeta-helper core（helper/core）：
-// 第一次收到时连上它的套接字（~/.cache/<ZETA_NAME>/core/<版本>.sock），没人在听就拉起一个、等它听上（约 5 秒为限），
-// 连不上时这个请求答出错，下一个 conv. 请求再试。请求原样转过去，核心的应答（可能带 result）和推送原样写回客户端，
-// 和 serve 自己的消息一样一行一行整行写。核心的连接断了（核心退出、崩溃）时 serve 跟着退出，客户端重连、重新打开对话。
+// serve 自己只答 ping（什么也不做：客户端隔一会儿发一次，证明自己还在）。别的方法都原样转给这台主机上这个包唯一的核心进程
+// zeta-helper core（helper/core，方法见 docs/core.md）：第一次收到时连上它的套接字（~/.cache/<ZETA_NAME>/core/core.sock），
+// 没人在听就拉起一个、等它听上（约 5 秒为限），连不上时这个请求答出错，下一个请求再试。核心比自己旧（构建序号小）时先让它交班
+// （core.handover），再拉起自己这个版本的核心。核心的应答和推送原样写回客户端，和 serve 自己的消息一样一行一行整行写。
+// 核心的连接断了（核心退出、崩溃、交班）时 serve 跟着退出，客户端重连、重新订阅和打开对话。
 //
 // 进程活多久由客户端定：标准输入结束（客户端关掉、SSH 断开）就退出；网络断了而输入没结束时，
 // 客户端不再发 ping，idle 这么久没收到任何一行也退出，不在主机上留下没人用的进程。
-// 每个客户端各起一个 serve；对话的状态在核心里，同一个包、同一个 helper 版本的各个 serve 共用一个核心。
 
-// serveProtocol 是协议的版本：改了已有消息的含义时加一，只加新方法、新字段不加。
+// serveProtocol 是协议的版本：改了已有消息的含义时加一，只加新方法、新字段不加（见 docs/core.md「目标」）。
 const serveProtocol = 1
 
-type serveOptions struct {
-	idle     time.Duration // 这么久没收到客户端的任何一行就退出
-	debounce time.Duration // 会话目录变了以后等这么久再重读，其间的变化合成一次
-	poll     time.Duration // 盯不了目录（inotify 用不了）、或要盯的目录还没有时，隔这么久重读一次
-}
-
-var defaultServeOptions = serveOptions{idle: 90 * time.Second, debounce: 2 * time.Second, poll: 10 * time.Second}
+// serveIdle：这么久没收到客户端的任何一行就退出。
+const serveIdle = 90 * time.Second
 
 // coreWriteTimeout：往核心写一行这么久还没写完，就当核心没了。
 const coreWriteTimeout = 30 * time.Second
+
+// handoverWait：让旧核心交班后最多等它退出这么久。
+const handoverWait = 10 * time.Second
 
 // serveRequest 是客户端发来的一行。
 type serveRequest struct {
@@ -114,39 +103,38 @@ func (o *serveOut) reply(id json.RawMessage, err error) {
 	_ = o.send(m)
 }
 
-// serveSession 是一个客户端的这条连接：会话列表的订阅、到核心的连接都是用到时才开始。
+// serveSession 是一个客户端的这条连接：到核心的连接用到时才开始。
 type serveSession struct {
-	e     *env
-	opts  serveOptions
-	o     *serveOut
-	watch *sessionWatch
-	core  *coreLink
+	e    *env
+	o    *serveOut
+	core *coreLink
 }
 
 // cmdServe 跑到客户端走了（输入结束、写不出去、idle 内没有消息）或核心的连接断了为止，那时返回 nil。
-func cmdServe(e *env, opts serveOptions, in io.Reader, out io.Writer) error {
-	s := &serveSession{e: e, opts: opts, o: newServeOut(out)}
-	if err := s.o.send(obj{"type": "zeta_hello", "protocol": serveProtocol}); err != nil {
+func cmdServe(e *env, idle time.Duration, in io.Reader, out io.Writer) error {
+	s := &serveSession{e: e, o: newServeOut(out)}
+	info := buildInfo()
+	if err := s.o.send(obj{"type": "zeta_hello", "protocol": serveProtocol, "build": info.Build, "version": info.Version}); err != nil {
 		return nil
 	}
 	defer s.close()
 	lines := make(chan []byte)
 	go readRequests(in, lines)
-	idle := time.NewTimer(opts.idle)
-	defer idle.Stop()
+	timer := time.NewTimer(idle)
+	defer timer.Stop()
 	for {
 		select {
 		case line, ok := <-lines:
 			if !ok {
 				return nil
 			}
-			idle.Reset(opts.idle)
+			timer.Reset(idle)
 			if !s.handle(line) {
 				return nil
 			}
 		case <-s.coreGone():
 			return nil
-		case <-idle.C:
+		case <-timer.C:
 			return nil
 		case <-s.o.broken:
 			return nil
@@ -155,9 +143,6 @@ func cmdServe(e *env, opts serveOptions, in io.Reader, out io.Writer) error {
 }
 
 func (s *serveSession) close() {
-	if s.watch != nil {
-		s.watch.close()
-	}
 	if s.core != nil {
 		s.core.close()
 	}
@@ -188,29 +173,14 @@ func (s *serveSession) handle(line []byte) bool {
 		s.o.reply(nil, errors.New("not a JSON request"))
 		return true
 	}
-	switch {
-	case req.Method == "ping":
+	if req.Method == "ping" {
 		s.o.reply(req.ID, nil)
-	case req.Method == "sessions.watch":
-		if s.watch == nil {
-			s.watch = startSessionWatch(s.e, s.opts, s.o.send)
-		} else {
-			s.watch.resend()
-		}
-		s.o.reply(req.ID, nil)
-	case strings.HasPrefix(req.Method, "conv."):
-		return s.forward(req.ID, line)
-	case strings.HasPrefix(req.Method, "accounts."), strings.HasPrefix(req.Method, "quota."):
-		go s.answerAccounts(req.ID, req.Method, line) // 慢（要跑 claude-switch），不挡后面的 ping
-	case strings.HasPrefix(req.Method, "config."):
-		go s.config(req.ID, req.Method, line)
-	default:
-		s.o.reply(req.ID, errors.New("unknown method: "+req.Method))
+		return true
 	}
-	return true
+	return s.forward(req.ID, line)
 }
 
-// forward 把一行原样转给核心，还没连就先连上（必要时拉起它）。连不上时答出错；写不进去说明核心没了，返回 false。
+// forward 把一行原样转给核心，还没连就先连上（必要时拉起它、让旧的交班）。连不上时答出错；写不进去说明核心没了，返回 false。
 func (s *serveSession) forward(id json.RawMessage, line []byte) bool {
 	if s.core == nil {
 		link, err := dialCore(s.e, s.o)
@@ -229,23 +199,41 @@ type coreLink struct {
 	gone chan struct{} // 核心的连接断了（读不到了）或客户端写不进去时关掉
 }
 
-// dialCore 连上和本程序同一版本的核心（套接字路径见 core.Locate），没人在听就拉起一个。
+// dialCore 连上这个包的核心（套接字路径见 core.Locate），没人在听就用本程序拉起一个。在跑的核心比本程序旧时让它交班，
+// 再拉起自己的；别的旧 serve 抢先拉起了旧核心时再来一次，几次为限。
 func dialCore(e *env, o *serveOut) (*coreLink, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
-	p, err := core.Locate(e.home, e.name, exe)
+	p, err := core.Locate(e.home, e.name)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := core.Connect(p, exe)
-	if err != nil {
-		return nil, err
+	mine := buildInfo().Build
+	for range 3 {
+		conn, theirs, err := core.Connect(p, exe)
+		if err != nil {
+			return nil, err
+		}
+		if theirs.Build >= mine {
+			l := &coreLink{conn: conn, gone: make(chan struct{})}
+			go l.relay(o)
+			return l, nil
+		}
+		handOver(conn)
 	}
-	l := &coreLink{conn: conn, gone: make(chan struct{})}
-	go l.relay(o)
-	return l, nil
+	return nil, errors.New("an older core keeps coming back")
+}
+
+// handOver 让 conn 那头的核心交班，等它退出（连接读到头），最多 handoverWait。
+func handOver(conn net.Conn) {
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(handoverWait))
+	if _, err := conn.Write([]byte(`{"id":0,"method":"core.handover"}` + "\n")); err != nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, conn)
 }
 
 // relay 把核心发来的一行行原样写给客户端，直到核心的连接断了或客户端写不进去。

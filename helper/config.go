@@ -8,11 +8,11 @@ import (
 	"github.com/dzshzx/Zeta/helper/claudecfg"
 )
 
-// serve 的 config.* 方法：读写这台主机上 Claude Code 自己的配置（记忆、Skills、MCP、Subagent、工具权限、新对话默认），
+// 核心的 config.* 方法（挂在核心上，见 corehandlers.go）：读写这台主机上 Claude Code 自己的配置（记忆、Skills、MCP、Subagent、工具权限、新对话默认），
 // 逻辑在 claudecfg 包里。参数和 id、method 平级写在请求那一行里；成功时结果放在回复的 result 里，失败时 error 是给人看的
 // 中文说明（不含 Token）。方法清单和参数见 docs/core.md「Claude Code 配置」。
 //
-// handleConfig 不碰 serve 的共享状态，可以放进 goroutine 里并发调用：标“慢”的几个要跑 claude 或连 MCP 服务器，
+// handleConfig 没有共享状态，可以放进 goroutine 里并发调用：标“慢”的几个要跑 claude 或连 MCP 服务器，
 // 要十几秒到一分钟，别挡住同一客户端的 ping。
 
 var errConfigParams = errors.New("参数不对")
@@ -62,21 +62,7 @@ func handleConfig(ctx context.Context, method string, params json.RawMessage) (a
 	return handleConfigAt(ctx, claudecfg.New(userHome()), method, params)
 }
 
-// config 在自己的 goroutine 里做一个 config.* 请求，做完回一行带 result 的 zeta_reply。
-func (s *serveSession) config(id json.RawMessage, method string, line []byte) {
-	result, err := handleConfigAt(context.Background(), claudecfg.New(s.e.home), method, line)
-	if len(id) == 0 {
-		id = json.RawMessage("null")
-	}
-	m := obj{"type": "zeta_reply", "id": id, "ok": err == nil}
-	if err != nil {
-		m["error"] = err.Error()
-	} else if result != nil {
-		m["result"] = result
-	}
-	_ = s.o.send(m)
-}
-
+// handleConfigAt 同 handleConfig，配置在 s 那里。
 func handleConfigAt(ctx context.Context, s *claudecfg.Store, method string, params json.RawMessage) (any, error) {
 	f, ok := configMethods[method]
 	if !ok {

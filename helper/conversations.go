@@ -143,3 +143,6 @@ func defaultPermissionMode(e *env) string {
 	_ = json.Unmarshal(data, &s)
 	return s.Permissions.DefaultMode
 }
+
+// Release：交班时断开全部托管进程（进程照跑），新核心起来后接回去（adoptHosts）。
+func (h *conversations) Release() { h.m.Release() }

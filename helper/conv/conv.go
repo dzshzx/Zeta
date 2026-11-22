@@ -219,7 +219,7 @@ func (c *Conversation) Hold(client int, name string, opts Options) error {
 		state := maps.Clone(c.lastState)
 		state["type"], state["conv"], state["full"] = raw("conv.state"), raw(name), raw(true)
 		c.send(client, state)
-		c.send(client, &itemsMsg{Type: "conv.items", Conv: name, Full: true, Items: c.r.Items})
+		c.send(client, &itemsMsg{Type: "conv.items", Conv: name, Full: true, Items: nonNilSlice(c.r.Items)})
 		c.holders[client] = name
 		c.options[client] = opts
 		c.idleFrom = time.Time{}

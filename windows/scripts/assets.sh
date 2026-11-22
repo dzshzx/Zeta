@@ -8,11 +8,13 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 out=$root/windows/internal/assets/gen
 rm -rf "$out"
 mkdir -p "$out"
+# zeta-helper 的构建序号（main.build）：helper/ 最后一次提交的时刻，同 build.gradle.kts 的 helperBuild
+build=$(git -C "$root" log -1 --format=%ct -- helper 2>/dev/null || true)
 for arch in arm64 amd64; do
   (
     cd "$root/helper"
     export CGO_ENABLED=0 GOOS=linux GOARCH=$arch
-    go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$out/zeta-helper/linux-$arch" .
+    go build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X=main.build=${build:-0}" -o "$out/zeta-helper/linux-$arch" .
     go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$out/claude-switch/linux-$arch" github.com/dzshzx/claude-switch
   )
 done

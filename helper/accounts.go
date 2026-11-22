@@ -10,9 +10,9 @@ import (
 	"github.com/dzshzx/Zeta/helper/accounts"
 )
 
-// serve 的账号与额度：accounts.* 和 quota.* 方法都从 handleAccounts 进，方法与参数见 docs/core.md「账号与额度」。
+// 核心的账号与额度：accounts.* 和 quota.* 方法都从 handleAccounts 进（挂在核心上，见 corehandlers.go），方法与参数见 docs/core.md「账号与额度」。
 //
-// 不碰 serve 的共享状态，可以放进 goroutine 并发调用：accounts.* 要跑 claude-switch，改登录状态的还要先等开着的
+// 没有共享状态，可以放进 goroutine 并发调用：accounts.* 要跑 claude-switch，改登录状态的还要先等开着的
 // Claude Code 退出（最多约 8 秒），慢；quota.* 只读写家目录下的小文件，快。改登录状态的几个由 accounts 包一个一个来。
 
 // accountsTimeout 是一个账号请求最多做多久。
@@ -29,7 +29,7 @@ type accountsParams struct {
 	Info     json.RawMessage `json:"info"`
 }
 
-// codedError 是带代号的出错：serve 回 ok:false 时把代号放进 reply 的 code，客户端按它认出要做什么（比如先装 claude-switch）。
+// codedError 是带代号的出错：核心回 ok:false 时把代号放进 reply 的 code，客户端按它认出要做什么（比如先装 claude-switch）。
 type codedError struct {
 	code string
 	err  error
@@ -39,27 +39,7 @@ func (e codedError) Error() string { return e.err.Error() }
 func (e codedError) Code() string  { return e.code }
 func (e codedError) Unwrap() error { return e.err }
 
-// answerAccounts 做一个 accounts.* 或 quota.* 请求（整行 line），答一行带 result 的 zeta_reply；出错时 ok 为假，
-// 认得出的出错另带 code（codedError）。在自己的 goroutine 里跑。
-func (s *serveSession) answerAccounts(id json.RawMessage, method string, line []byte) {
-	result, err := handleAccounts(context.Background(), s.e, method, line)
-	if len(id) == 0 {
-		id = json.RawMessage("null")
-	}
-	m := obj{"type": "zeta_reply", "id": id, "ok": err == nil}
-	if err != nil {
-		m["error"] = err.Error()
-		var c codedError
-		if errors.As(err, &c) {
-			m["code"] = c.Code()
-		}
-	} else {
-		m["result"] = result
-	}
-	_ = s.o.send(m)
-}
-
-// handleAccounts 处理一个 accounts.* 或 quota.* 请求（e 是这个 serve 的家目录和包），返回放进 reply 的 result。
+// handleAccounts 处理一个 accounts.* 或 quota.* 请求（e 是家目录和包），返回放进 reply 的 result。
 func handleAccounts(ctx context.Context, e *env, method string, params json.RawMessage) (any, error) {
 	var p accountsParams
 	if len(params) > 0 {

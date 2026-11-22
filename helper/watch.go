@@ -21,7 +21,7 @@ import (
 // 重读时按文件大小和修改时刻认出没变的记录，只重新读变了的那几份的头尾（summarize）。
 type sessionWatch struct {
 	e     *env
-	opts  serveOptions
+	opts  watchOptions
 	send  func(any) error
 	again chan struct{} // 客户端又要一份整份的
 	stop  chan struct{}
@@ -55,7 +55,7 @@ const (
 	parentMask = syscall.IN_CREATE | syscall.IN_MOVED_TO | syscall.IN_DELETE_SELF | syscall.IN_MOVE_SELF
 )
 
-func startSessionWatch(e *env, opts serveOptions, send func(any) error) *sessionWatch {
+func startSessionWatch(e *env, opts watchOptions, send func(any) error) *sessionWatch {
 	w := &sessionWatch{
 		e: e, opts: opts, send: send,
 		again: make(chan struct{}, 1), stop: make(chan struct{}), done: make(chan struct{}),

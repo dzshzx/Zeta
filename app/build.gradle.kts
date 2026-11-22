@@ -155,6 +155,9 @@ abstract class GoProgramTask : DefaultTask() {
 
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
+    /** 编进程序的变量（-ldflags -X），比如 zeta-helper 的构建序号 main.build。 */
+    @get:Input abstract val linkVars: MapProperty<String, String>
+
     @get:Inject abstract val exec: ExecOperations
 
     @TaskAction
@@ -172,7 +175,10 @@ abstract class GoProgramTask : DefaultTask() {
                     "build",
                     "-trimpath",
                     "-buildvcs=false",
-                    "-ldflags=-s -w -buildid=",
+                    "-ldflags=" +
+                        (listOf("-s", "-w", "-buildid=") +
+                                linkVars.get().map { (name, value) -> "-X=$name=$value" })
+                            .joinToString(" "),
                     "-o",
                     File(out, "${program.get()}/linux-$arch").path,
                     pkg.get(),
@@ -199,6 +205,7 @@ val goPrograms: Map<String, TaskProvider<GoProgramTask>> =
             tasks.register<GoProgramTask>("zetaHelper") {
                 pkg.set(".")
                 sources.from(helperModule)
+                linkVars.put("main.build", rootProject.extra["helperBuild"].toString())
             },
         "claude-switch" to
             tasks.register<GoProgramTask>("claudeSwitch") {
@@ -212,6 +219,7 @@ goPrograms.forEach { (name, task) ->
         program.set(name)
         module.set(helperModule)
         outputDir.set(layout.buildDirectory.dir("generated/$name"))
+        linkVars.convention(emptyMap())
     }
 }
 

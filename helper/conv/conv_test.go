@@ -19,6 +19,7 @@ type fakeLink struct {
 	sent     [][]byte
 	stopped  bool
 	detached bool
+	left     bool
 	key      string
 	events   Events
 }
@@ -31,6 +32,7 @@ func (l *fakeLink) Send(line []byte) {
 
 func (l *fakeLink) Stop()       { l.mu.Lock(); l.stopped = true; l.mu.Unlock() }
 func (l *fakeLink) Detach()     { l.mu.Lock(); l.detached = true; l.mu.Unlock() }
+func (l *fakeLink) Leave()      { l.mu.Lock(); l.left = true; l.mu.Unlock() }
 func (l *fakeLink) Key() string { return l.key }
 
 // lines 是写进去的、type 为 kind 的各行（control_request 按 subtype 认：kind 写成 control_request/<subtype>）。

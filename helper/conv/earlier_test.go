@@ -61,7 +61,8 @@ func TestEarlierStaleAndRest(t *testing.T) {
 	h.mu.Lock()
 	h.history = []byte(`{"type":"zeta_history","stale":true,"skipped":0}` + "\n")
 	h.mu.Unlock()
-	if _, err := h.m.Request(1, "conv.earlier", []byte(`{"conv":"a","rest":true}`)); err != errEarlierStale {
+	_, err := h.m.Request(1, "conv.earlier", []byte(`{"conv":"a","rest":true}`))
+	if coded, ok := err.(interface{ Code() string }); !ok || coded.Code() != "history_changed" {
 		t.Fatalf("记录在别处改过：%v", err)
 	}
 	h.settle(c)
@@ -118,5 +119,23 @@ func TestEarlierWaitsForRewind(t *testing.T) {
 	h.settle(c)
 	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:早的问题", "user:一", "answer:回答一"}) {
 		t.Fatalf("条目：%v", got)
+	}
+}
+
+// 打开空的新对话：整份的条目是空数组，没选的思考强度是 null（和模型一样）。
+func TestEmptyConversationEncoding(t *testing.T) {
+	h := newHarness(t)
+	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, m := range h.client(1).msgs {
+		if m["type"] == "conv.items" {
+			if items, ok := m["items"].([]any); !ok || len(items) != 0 {
+				t.Fatalf("整份的条目：%#v", m["items"])
+			}
+		}
+	}
+	if v, ok := h.client(1).state["effort"]; !ok || v != nil {
+		t.Fatalf("没选的思考强度：%#v", v)
 	}
 }

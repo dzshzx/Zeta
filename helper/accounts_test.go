@@ -174,7 +174,8 @@ func TestServeQuota(t *testing.T) {
 // 经 serve 走一遍：请求和 id、method 平级带参数，答的 zeta_reply 带 result；出错带 code；慢的请求不挡 ping。
 func TestServeAccountsOverServe(t *testing.T) {
 	e := accountsHome(t)
-	c := startServe(t, e, fastServe)
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, testIdle)
 	c.send(`{"id":1,"method":"accounts.list"}`)
 	c.send(`{"id":2,"method":"ping"}`)
 	got := map[string]obj{}
