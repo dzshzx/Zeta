@@ -29,20 +29,26 @@ type editing struct {
 func (a *App) startEditing() {
 	x, _ := a.hub.Host(a.device)
 	a.edit = editing{name: x.CustomName, cwd: x.DefaultCwd}
+	a.startDeviceConfig(x)
 	a.async(func() func() {
 		keys := a.hub.Keys()
 		return func() { a.add.keys = keys }
 	})
 }
 
-// devicePage 是一台设备：名称、地址、SSH 密钥、指纹、家目录、默认工作目录，检查连接，删除。
+// devicePage 是一台设备：连接（名称、地址、SSH 密钥、指纹、家目录、默认工作目录）、检查连接，那台上的 Claude Code
+// （新对话默认、自动压缩与标题、Claude Code 配置的入口，点进去换成那一页），删除。
 func (a *App) devicePage(c *ui.Context) {
 	x, ok := a.hub.Host(a.device)
 	if !ok {
-		a.open(pageDevices)
+		a.open(pageSettings)
 		return
 	}
-	coui.Header(c, x.Name(), func() { a.open(pageDevices) })
+	if a.cfg != nil && a.cfg.Open() {
+		a.cfg.SubPage(c)
+		return
+	}
+	coui.Header(c, x.Name(), func() { a.open(pageSettings) })
 	coui.Body(c, "device", func() {
 		a.connectionSection(c, x)
 		coui.Group(c, "", a.edit.check, func(l *coui.List) {
@@ -56,6 +62,9 @@ func (a *App) devicePage(c *ui.Context) {
 			}
 			l.Row(row)
 		})
+		if a.cfg != nil {
+			a.cfg.Sections(c)
+		}
 		coui.Group(c, "", "", func(l *coui.List) {
 			l.Row(coui.Row{Title: "删除设备", Danger: true, OnClick: func() { a.edit.removing = true }})
 		})
@@ -208,6 +217,6 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 		if err := a.hub.RemoveHost(x.ID); err != nil {
 			a.say("没存上", err.Error())
 		}
-		a.open(pageDevices)
+		a.open(pageSettings)
 	}
 }

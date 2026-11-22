@@ -13,7 +13,7 @@ const desktopFooter = "使用本机的 SSH 配置和密钥连接。设备需运�
 // autoKey 是「SSH 密钥」里照 ~/.ssh/config 的那一项。
 const autoKey = "自动选择"
 
-// adding 是设备页上添加设备的状态。
+// adding 是添加远程设备页的状态。
 type adding struct {
 	keys       []string // 这台电脑 ~/.ssh 里能选的私钥
 	key        string   // 接下来加的设备用哪把，空是自动选择
@@ -24,7 +24,7 @@ type adding struct {
 	probing    string   // 正在连的地址；同一时间只连一个
 }
 
-// startAdding 打开设备页时读一遍这台电脑的 SSH 配置和私钥。
+// startAdding 打开添加远程设备页时读一遍这台电脑的 SSH 配置和私钥。
 func (a *App) startAdding() {
 	known := make([]string, 0, len(a.hub.Hosts()))
 	for _, x := range a.hub.Hosts() {
@@ -44,28 +44,9 @@ func (a *App) startAdding() {
 	})
 }
 
-// devicesPage 是设备页：加好的各台（点进去改），和添加设备。
+// devicesPage 是添加远程设备：私钥、从 SSH 配置导入、手动添加。加好的各台列在设置页上。
 func (a *App) devicesPage(c *ui.Context) {
-	coui.Header(c, "设备", nil)
-	coui.Body(c, "devices", func() {
-		if hosts := a.hub.Hosts(); len(hosts) > 0 {
-			coui.Group(c, "已添加", "", func(l *coui.List) {
-				for _, x := range hosts {
-					a.hostRow(l, x)
-				}
-			})
-		}
-		a.addSection(c)
-	})
-}
-
-// hostRow 是一台加好的设备，点开改它。
-func (a *App) hostRow(l *coui.List, x sshlink.Host) {
-	l.Row(coui.Row{Key: x.ID, Icon: coui.IconServer, IconColor: coui.Of(l.Context()).Blue, Title: x.Name(),
-		Summary: sshlink.DisplayTarget(x.Target), Arrow: true, OnClick: func() {
-			a.device = x.ID
-			a.open(pageDevice)
-		}})
+	a.subPage(c, "添加远程设备", "devices", func() { a.addSection(c) })
 }
 
 // addSection 是添加设备：私钥、从 SSH 配置导入、手动添加。

@@ -55,9 +55,9 @@ func (a *App) sidebar(c *ui.Context) {
 	})
 }
 
-// settingsButton 是侧栏右下角的设置按钮（同 Compose 桌面版侧栏底下右边那个），进设备页。
+// settingsButton 是侧栏右下角的设置按钮（同 Compose 桌面版侧栏底下右边那个），进设置页。
 func (a *App) settingsButton(c *ui.Context) {
-	coui.CircleButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageDevices) })
+	coui.CircleButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageSettings) })
 }
 
 // hostSwitcher 是换设备的胶囊和菜单：先是「全部设备」，然后是各台，最后是管理设备。
@@ -80,7 +80,7 @@ func (a *App) hostSwitcher(c *ui.Context) {
 		}
 		m.Separator()
 		if m.Item("管理设备") {
-			a.open(pageDevices)
+			a.open(pageSettings)
 		}
 	})
 }

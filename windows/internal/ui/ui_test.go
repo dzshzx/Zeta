@@ -204,9 +204,8 @@ func TestEditingADevice(t *testing.T) {
 	f := newFixture(t)
 	f.devices.KeyList = []string{"~/.ssh/k"}
 	hosts := f.withHosts(t, "box", "lab")
-	f.app.open(pageDevices)
-	f.tt.Frame()
-	// 侧栏的设备菜单上也写着 box：点设备页里那一行（按钮）
+	f.click(t, "设置")
+	// 侧栏的设备菜单上也写着 box：点设置页里那一行（按钮）
 	f.clickButton(t, "box", 0)
 	if f.app.page != pageDevice || f.app.device != hosts[0].ID {
 		t.Fatalf("page %q, device %q", f.app.page, f.app.device)
@@ -279,6 +278,7 @@ func TestCheckingFindsAChangedHostKey(t *testing.T) {
 
 func TestRemovingADevice(t *testing.T) {
 	f := newFixture(t)
+	f.tt.SetSize(1280, 1800) // 删除设备在设备页最下面
 	hosts := f.withHosts(t, "box", "lab")
 	f.app.device = hosts[0].ID
 	f.app.open(pageDevice)
@@ -286,7 +286,7 @@ func TestRemovingADevice(t *testing.T) {
 	f.click(t, "删除设备")
 	f.see(t, "删除「box」？")
 	f.click(t, "删除")
-	if len(f.hub.Hosts()) != 1 || f.app.page != pageDevices || f.hub.Backend() != hosts[1].ID {
+	if len(f.hub.Hosts()) != 1 || f.app.page != pageSettings || f.hub.Backend() != hosts[1].ID {
 		t.Errorf("hosts %v, page %q", f.hub.Hosts(), f.app.page)
 	}
 	f.see(t, "lab")
@@ -325,6 +325,7 @@ func TestPreviews(t *testing.T) {
 		"device-remove": func(t *testing.T, f *fixture) {
 			f.app.device = f.withHosts(t, "box")[0].ID
 			f.app.open(pageDevice)
+			f.tt.SetSize(1280, 1800) // 删除设备在设备页最下面
 			f.tt.Frame()
 			f.click(t, "删除设备")
 		},

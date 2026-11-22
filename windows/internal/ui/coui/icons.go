@@ -48,7 +48,9 @@ var (
 	IconFavorites = icon("favorites")
 	IconLink      = icon("link")
 	IconPin       = icon("pin")
-	IconUnfold    = icon("unfold") // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
+	IconUnfold    = icon("unfold")        // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
+	IconContacts  = icon("contacts-book") // 设置里的账号与额度
+	IconTheme     = icon("theme")         // 设置里的外观
 )
 
 // Zeta 自己画的：
@@ -80,6 +82,7 @@ var (
 	IconHistory     = icon("history")
 	IconClock       = icon("clock")
 	IconCheckbox    = icon("checkbox-blank")
+	IconInfo        = icon("info") // 设置里的版本
 )
 
 // 权限模式的盾牌：里面的字母是模式的头一个字母（同手机版 Composer 的 modeIcon）。
