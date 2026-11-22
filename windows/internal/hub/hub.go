@@ -66,6 +66,7 @@ type Hub struct {
 	search   search                                  // 侧栏的搜索（search.go）
 	far      map[string][]hostlink.Session           // 各台置顶、却不在列表里而单独取来的会话（sessions.go 的 syncFar）
 	farAsked map[string]bool                         // 问过的置顶键
+	naming   map[string]bool                         // 正在问主机名的设备（hostname.go）
 
 	chat    *Chat                // 聊天窗格里的对话
 	conns   map[string]*chatConn // 各台给对话用的 serve 连接
@@ -80,7 +81,7 @@ func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
 		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay,
-		far: map[string][]hostlink.Session{}, farAsked: map[string]bool{}}
+		far: map[string][]hostlink.Session{}, farAsked: map[string]bool{}, naming: map[string]bool{}}
 	for _, pin := range s.Pins() {
 		h.pins[pin] = true
 	}

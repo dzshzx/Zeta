@@ -22,6 +22,8 @@ type Options struct {
 	OpenZip func() (name string, data []byte, err error)
 	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单）；没有时列几个常用的别名。
 	Models []Model
+	// Loaded 在读到新对话默认后调（主线程上），可以没有：设备页拿它顺带补上没记的主机名。
+	Loaded func()
 }
 
 // Model 是一个可选的模型：Value 写进 settings.json，Label 给人看。
@@ -88,6 +90,9 @@ func (p *Page) Load() {
 				return
 			}
 			p.defaults = &d
+			if p.opts.Loaded != nil {
+				p.opts.Loaded()
+			}
 		}
 	})
 }
