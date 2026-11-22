@@ -26,28 +26,29 @@ func icon(name string) *ui.SVG {
 
 // 图标。COUI 2 自带的：
 var (
-	IconBack     = icon("back")
-	IconMore     = icon("more")
-	IconCopy     = icon("copy")
-	IconSearch   = icon("search")
-	IconSettings = icon("settings")
-	IconAdd      = icon("add")
-	IconForward  = icon("chevron-forward") // 行尾的箭头
-	IconExpand   = icon("expand-more")     // 下拉
-	IconOK       = icon("ok")
-	IconDelete   = icon("delete")
-	IconRefresh  = icon("refresh")
-	IconEdit     = icon("edit")
-	IconClose    = icon("close")
-	IconFile     = icon("file")
-	IconFolder   = icon("folder")
-	IconTodo     = icon("select-all")
-	IconAsk      = icon("reply-all")
-	IconTimer    = icon("timer")
-	IconImage    = icon("image")
-	IconLink     = icon("link")
-	IconPin      = icon("pin")
-	IconUnfold   = icon("unfold") // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
+	IconBack      = icon("back")
+	IconMore      = icon("more")
+	IconCopy      = icon("copy")
+	IconSearch    = icon("search")
+	IconSettings  = icon("settings")
+	IconAdd       = icon("add")
+	IconForward   = icon("chevron-forward") // 行尾的箭头
+	IconExpand    = icon("expand-more")     // 下拉
+	IconOK        = icon("ok")
+	IconDelete    = icon("delete")
+	IconRefresh   = icon("refresh")
+	IconEdit      = icon("edit")
+	IconClose     = icon("close")
+	IconFile      = icon("file")
+	IconFolder    = icon("folder")
+	IconTodo      = icon("select-all")
+	IconAsk       = icon("reply-all")
+	IconTimer     = icon("timer")
+	IconImage     = icon("image")
+	IconFavorites = icon("favorites")
+	IconLink      = icon("link")
+	IconPin       = icon("pin")
+	IconUnfold    = icon("unfold") // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
 )
 
 // Zeta 自己画的：

@@ -3,11 +3,15 @@ package ui
 import (
 	"encoding/json"
 	"errors"
+	"image/color"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -355,6 +359,48 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 	"chat-mode-menu": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
 		f.click(t, "默认权限")
+	},
+	// 附件：「+」的菜单、带两张图和一个文件的输入栏、输入路径、常用指令（和 Compose 版同样的内容）
+	"attach-menu": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.click(t, "添加附件")
+	},
+	"attach-composer": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		dir := t.TempDir()
+		for name, data := range map[string][]byte{
+			"海边.png":   picture(320, 200, color.NRGBA{0x28, 0x78, 0xDC, 255}, color.NRGBA{0xFA, 0xD2, 0x78, 255}),
+			"截图.png":   picture(200, 300, color.NRGBA{0x3C, 0xB4, 0x78, 255}, color.NRGBA{0x14, 0x28, 0x50, 255}),
+			"需求说明.pdf": []byte("%PDF-1.7"),
+		} {
+			if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		f.pickReturns(filepath.Join(dir, "需求说明.pdf"), filepath.Join(dir, "海边.png"), filepath.Join(dir, "截图.png"))
+		f.attach(t, "文件")
+		f.app.pane.draft = "看看这两张图和需求说明"
+	},
+	"attach-path": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.attach(t, "输入路径")
+	},
+	"attach-path-folder": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.devices.Paths = map[string]hostlink.PathKind{"/home/box/project/docs": hostlink.PathFolder}
+		f.attach(t, "输入路径")
+		f.app.path.input = "~/project/docs"
+	},
+	"attach-prompts": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		var list []settings.SavedPrompt
+		list = settings.AddPrompt(list, "p3", "", "审查这次改动，列出风险")
+		list = settings.AddPrompt(list, "p2", "周报", "把这周的提交整理成周报，按功能分组")
+		list = settings.AddPrompt(list, "p1", "", "先读一遍 README，再列出所有要改的地方")
+		if err := f.hub.SetPrompts(list); err != nil {
+			t.Fatal(err)
+		}
+		f.attach(t, "常用指令")
 	},
 	// 和 Compose 版对照用：同一段对话上弹出提问、计划审批
 	"chat-ask": func(t *testing.T, f *chatFixture) {

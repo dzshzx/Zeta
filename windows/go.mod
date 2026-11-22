@@ -7,6 +7,7 @@ require (
 	github.com/dzshzx/Zeta/helper v0.0.0
 	github.com/egoist/mygo v0.10.0
 	golang.org/x/crypto v0.57.0
+	golang.org/x/image v0.46.0
 )
 
 require (
@@ -17,7 +18,6 @@ require (
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	go.digitalxero.dev/rpm v0.3.4 // indirect
-	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.44.0 // indirect

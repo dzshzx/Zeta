@@ -29,6 +29,9 @@ type chatPane struct {
 	took   string
 	form   promptForm
 	usage  bool // 用量弹出框开着
+	// att 是输入栏里待发的图和文件；insert 是要插进输入框光标处的字（常用指令），下一帧建输入框时插进去。
+	att    attachments
+	insert string
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -84,7 +87,7 @@ func (a *App) syncChat() {
 			a.post(func() {
 				p.taking = false
 				if m != nil {
-					p.recall(m.Text)
+					p.putBack(*m)
 				}
 			})
 			return err
@@ -127,7 +130,15 @@ func (a *App) chatTitle(p *chatPane) string {
 func (a *App) chatPage(c *ui.Context) {
 	p := a.pane
 	k := coui.Of(c)
-	ui.Column(c).Fill().Children(func() {
+	page := ui.Column(c).Fill()
+	// 拖进窗口的文件、文件夹收成附件（同 Compose 版拖到聊天页上）
+	if files := page.DroppedFiles(); len(files) > 0 && p.src.Conv != nil && p.src.CwdProblem == "" {
+		a.addPaths(p, files, false)
+	}
+	page.Children(func() {
+		a.attachProblems(c, p)
+		a.pathDialog(c, p)
+		a.savedPrompts(c, p)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
 			switch {
 			case p.src.Opening:

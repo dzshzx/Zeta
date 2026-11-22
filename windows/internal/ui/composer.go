@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/usage"
@@ -12,8 +13,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// composer 是输入栏（同手机版 Composer.kt）：淡灰底的圆角面板，上面多行输入框（Enter 发送，Shift+Enter 换行；
-// 回答中发的进排队条），下面一排小圆钮：权限模式、思考强度，右边是上下文用量的圆环、停止和发送。
+// composer 是输入栏（同手机版 Composer.kt）：淡灰底的圆角面板，上面一排待发的附件，再是多行输入框（Enter 发送，
+// Shift+Enter 换行；回答中发的进排队条；粘贴图片、文件收成附件），下面一排小圆钮：添加附件、权限模式、思考强度，
+// 右边是上下文用量的圆环、停止和发送。
 func (a *App) composer(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	ready := p.src.Conv != nil && p.src.CwdProblem == ""
@@ -21,10 +23,12 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 	if p.state.Busy {
 		hint = "Claude 正在工作，可以接着发"
 	}
-	ui.Column(c).FillWidth().Padding(8, 10).Gap(2).Radius(24).Background(k.Field).Border(1, k.Edge).
+	coui.Surface{Shape: coui.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(8, 10).Gap(2).
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
-		ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
+		a.composerAttachments(c, p)
+		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
 			Lines(1, 6).Padding(5, 6).FontSize(coui.SizeBodyXL).LineHeight(1.2).Disabled(!ready).
+			OnPaste(func(string) bool { return a.paste(c, p) }).
 			OnTextKey(func(tk ui.TextKey) bool {
 				if tk.Key != ui.KeyEnter || tk.Mods != 0 {
 					return false // Shift+Enter 换行
@@ -34,7 +38,11 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				}
 				return true
 			})
+		insertPending(in, p)
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			if ready {
+				a.attachMenu(c)
+			}
 			if p.src.Conv != nil {
 				a.modeMenu(c, p)
 				a.effortMenu(c, p)
@@ -48,7 +56,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 				})
 			}
-			coui.SendButton(c, "发送", ready && strings.TrimSpace(p.draft) != "").OnClick(func() {
+			coui.SendButton(c, "发送", ready && sendable(p, p.draft)).OnClick(func() {
 				if a.send(p.draft) {
 					p.draft = ""
 				}
@@ -57,20 +65,126 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 	})
 }
 
-// send 发出输入框里的 text：空的、对话没打开或起不了进程时不发，返回 false（输入框不清）。没发出去时原因显示在输入栏上方，
-// 字放回输入框。
+// insertPending 把选的常用指令放进输入框：空着就整个换上，有字就插在光标处（替换选中的字）。
+func insertPending(in ui.Element, p *chatPane) {
+	if p.insert == "" {
+		return
+	}
+	if strings.TrimSpace(p.draft) == "" {
+		p.draft = p.insert
+	} else {
+		start, end := in.TextSelection()
+		in.ReplaceText(start, end, p.insert)
+	}
+	p.insert = ""
+}
+
+// sendable：有东西可发（字、图或传好的文件），并且没有还在传的文件（同 Composer.kt 的 hasSomethingToSend）。
+func sendable(p *chatPane, text string) bool {
+	at := &p.att
+	return !at.uploading() && (strings.TrimSpace(text) != "" || len(at.images) > 0 || len(at.entries()) > 0)
+}
+
+// attachMenu 是左下角的「+」（同 Composer.kt 的 attachMenu）：图片、文件、文件夹、输入路径一组，常用指令单独一组。
+func (a *App) attachMenu(c *ui.Context) {
+	coui.MenuButton(c.Key("attach"), func(t ui.Element) { coui.Chip(c, t, coui.IconAdd, "添加附件", ui.Color{}) }, func(m *coui.Menu) {
+		if m.Add(coui.Entry{Icon: coui.IconImage, Label: "图片"}) {
+			a.pickAttachments(true, false)
+		}
+		if m.Add(coui.Entry{Icon: coui.IconPaperclip, Label: "文件"}) {
+			a.pickAttachments(false, false)
+		}
+		if m.Add(coui.Entry{Icon: coui.IconFolder, Label: "文件夹"}) {
+			a.pickAttachments(false, true)
+		}
+		if m.Add(coui.Entry{Icon: coui.IconEdit, Label: "输入路径"}) {
+			a.openPathDialog()
+		}
+		m.Separator()
+		if m.Add(coui.Entry{Icon: coui.IconFavorites, Label: "常用指令"}) {
+			a.prompts.open()
+		}
+	})
+}
+
+// composerAttachments 是输入框上方一排待发的附件（同 Composer.kt 的 ComposerAttachments）：文件（正在传的带进度，
+// 没传成的注明）和图片缩略图，各带移除键，放不下时横着滚。
+func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
+	at := &p.att
+	if len(at.files) == 0 && len(at.images) == 0 && at.loading == 0 {
+		return
+	}
+	ui.ScrollHorizontal(c.Key("attachments")).FillWidth().Children(func() {
+		ui.Row(c).Padding(2, 4, 6, 4).Gap(8).AlignItems(ui.Center).Children(func() {
+			for _, f := range at.files {
+				attachedFile(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+			}
+			for _, im := range at.images {
+				attachedImage(c.Key("image/"+strconv.Itoa(im.id)), im, func() { at.removeImage(im.id) })
+			}
+			for i := range at.loading {
+				ui.Box(c.Key("loading/"+strconv.Itoa(i))).Size(64, 64).Radius(12).Background(coui.Of(c).Chip).Center().
+					Children(func() { ui.Spinner(c).Size(18, 18) })
+			}
+		})
+	})
+}
+
+// attachedFile 是一个待发文件的小标签：图标、名字（最宽 240），右边移除。没传成的把原因放在悬停提示里。
+func attachedFile(c *ui.Context, f *draftFile, remove func()) {
+	k := coui.Of(c)
+	icon := coui.IconFile
+	if f.folder {
+		icon = coui.IconFolder
+	}
+	// 同 Compose 的 FileChip：输入栏底色上一层淡淡的灰，主题色的文件图标
+	chip := coui.Surface{Shape: coui.Rounded(12, 2.5), Fill: k.Text.Alpha(0.055)}.Paint(ui.Row(c)).Height(36).MaxWidth(240).Padding(0, 4, 0, 10).
+		Gap(6).AlignItems(ui.Center)
+	if f.failed != "" {
+		chip.Tooltip(f.failed)
+	}
+	chip.Children(func() {
+		color := k.PrimaryText
+		if f.failed != "" {
+			color = k.Error
+		}
+		ui.Icon(c, icon).Size(16, 16).TextColor(color).Shrink(0)
+		ui.Text(c, f.label()).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+		coui.FlatButton(c, coui.IconClose, "移除", 28, 14).OnClick(remove)
+	})
+}
+
+// attachedImage 是一张待发图片的缩略图（64，12 的圆角），右上角是移除键。
+func attachedImage(c *ui.Context, im *draftImage, remove func()) {
+	k := coui.Of(c)
+	ui.Box(c).Size(64, 64).Shrink(0).Children(func() {
+		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label("图片附件")
+		if im.thumb != nil {
+			box.Children(func() { ui.Image(c, im.thumb).Size(64, 64).Fit(ui.Cover) })
+		}
+		x := ui.ButtonBase(c).Label("移除").Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
+			Cursor(ui.CursorPointer)
+		x.Children(func() { ui.Icon(c, coui.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })
+		x.OnClick(remove)
+	})
+}
+
+// send 发出输入框里的 text 和待发的附件：没东西可发、对话没打开或起不了进程时不发，返回 false（输入框不清）。
+// 发出去的附件从输入栏拿掉；没发出去时原因显示在输入栏上方，字和附件放回输入栏。
 func (a *App) send(text string) bool {
 	p := a.pane
-	if p == nil || p.src.Conv == nil || p.src.CwdProblem != "" || strings.TrimSpace(text) == "" {
+	if p == nil || p.src.Conv == nil || p.src.CwdProblem != "" || !sendable(p, text) {
 		return false
 	}
+	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
+	p.att.clear()
 	p.list.ScrollToEnd()
 	p.failed = ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Send(ctx, chat.Outgoing{Text: text})
+		return conv.Send(ctx, chat.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
 		p.failed = "没发出去：" + err.Error()
-		p.recall(text)
+		p.putBack(m)
 	})
 	return true
 }

@@ -41,15 +41,40 @@ func (m *Menu) Separator() {
 	ui.Box(m.c).Height(1).Margin(4, 20).Background(Of(m.c).Divider)
 }
 
+// Entry 是菜单的一项：前面的图标（可以没有）和名字；Disabled 时灰着点不了，Danger 时红字（删除这类）。
+type Entry struct {
+	Icon     *ui.SVG
+	Label    string
+	Disabled bool
+	Danger   bool
+}
+
+// Add 加一项，返回这一次是不是选了它。
+func (m *Menu) Add(e Entry) bool {
+	it := m.parts.Item().Disabled(e.Disabled)
+	return m.entry(e, it, false)
+}
+
 func (m *Menu) item(label string, it ui.Element, on bool) bool {
+	return m.entry(Entry{Label: label}, it, on)
+}
+
+func (m *Menu) entry(e Entry, it ui.Element, on bool) bool {
 	c := m.c
 	k := Of(c)
-	it.Label(label).MinHeight(40).Margin(0, 8).Radius(14).Padding(8, 12).Gap(12).AlignItems(ui.Center).Cursor(ui.CursorPointer)
-	if it.Highlighted() {
+	it.Label(e.Label).MinHeight(40).Margin(0, 8).Radius(14).Padding(8, 12).Gap(12).AlignItems(ui.Center).Cursor(ui.CursorPointer)
+	if it.Highlighted() && !e.Disabled {
 		it.Background(k.Hover)
 	}
+	color := k.Text
+	if e.Danger {
+		color = k.Error
+	}
 	it.Children(func() {
-		ui.Text(c, label).FontSize(SizeBodyL).TextColor(k.Text).Grow(1).SingleLine()
+		if e.Icon != nil {
+			ui.Icon(c, e.Icon).Size(20, 20).TextColor(color).Shrink(0)
+		}
+		ui.Text(c, e.Label).FontSize(SizeBodyL).TextColor(color).Grow(1).SingleLine()
 		if on {
 			ui.Icon(c, IconOK).Size(18, 18).TextColor(k.Primary)
 		}

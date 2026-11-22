@@ -23,6 +23,10 @@ type Devices struct {
 	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 Image 答的图。
 	DirProblems map[string]string
 	ImageData   []byte
+	// Paths 是 CheckPath 答的各路径的种类（没列的是没有）；UploadErr、UploadGate 管 Upload 怎么答（见 Upload）。
+	Paths      map[string]hostlink.PathKind
+	UploadErr  error
+	UploadGate chan struct{}
 	// OnChat 在每起一条对话连接时调（比如先定好怎么应答）。
 	OnChat func(*ChatLink)
 
@@ -34,6 +38,7 @@ type Devices struct {
 	probed   []string
 	chats    []*ChatLink
 	checked  []string
+	uploaded []host.Upload
 }
 
 // Probe 是一次探测的结果。

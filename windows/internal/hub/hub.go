@@ -8,6 +8,7 @@
 package hub
 
 import (
+	"context"
 	"io"
 	"log"
 	"slices"
@@ -39,6 +40,10 @@ type Devices interface {
 	CheckDir(h sshlink.Host, path string) (string, error)
 	// Image 取设备 h 上会话记录 file 里位置 ref 的那张图。阻塞。
 	Image(h sshlink.Host, file, ref string) ([]byte, error)
+	// Upload 把本机的文件、文件夹或一段内容传到设备 h 上，返回那边的路径（见 host.Devices.Upload）。阻塞。
+	Upload(ctx context.Context, h sshlink.Host, u host.Upload, progress func(int64)) (string, error)
+	// CheckPath 查设备 h 上的路径是什么。阻塞。
+	CheckPath(h sshlink.Host, path string) (hostlink.PathKind, error)
 }
 
 // Hub 见包的说明。
@@ -383,3 +388,9 @@ func logSave(err error) {
 		log.Printf("zeta: 设置没存上：%v", err)
 	}
 }
+
+// Prompts 是常用指令（存在设置里，和 Compose 版共用）。
+func (h *Hub) Prompts() []settings.SavedPrompt { return h.settings.Prompts() }
+
+// SetPrompts 存常用指令。
+func (h *Hub) SetPrompts(list []settings.SavedPrompt) error { return h.settings.SetPrompts(list) }

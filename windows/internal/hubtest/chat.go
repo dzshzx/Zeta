@@ -5,10 +5,14 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 )
@@ -184,3 +188,49 @@ func Recorded(name, conv string) []string {
 
 // RecordedConv 是录的时候的对话名。
 const RecordedConv = "w1"
+
+// Upload 见 hub.Devices：不连设备，内容读进 Uploaded，路径照真的格式编（/home/<名字>/.cache/zeta/files/<序号>/<名字>）。
+// UploadErr 给了时答它；UploadGate 给了时先等它关上（测试里看「正在传」的样子），ctx 取消时返回 ctx 的错误。
+func (d *Devices) Upload(ctx context.Context, h sshlink.Host, u host.Upload, progress func(int64)) (string, error) {
+	if d.UploadGate != nil {
+		select {
+		case <-d.UploadGate:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
+	name, size := u.Name, int64(len(u.Data))
+	if u.Local != "" {
+		name = filepath.Base(u.Local)
+		if st, err := os.Stat(u.Local); err == nil && !u.Folder {
+			size = st.Size()
+		}
+	}
+	if progress != nil {
+		progress(size)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.UploadErr != nil {
+		return "", d.UploadErr
+	}
+	d.uploaded = append(d.uploaded, u)
+	return fmt.Sprintf("%s/.cache/zeta/files/%08d/%s", h.Home, len(d.uploaded), hostlink.CleanName(name)), nil
+}
+
+// Uploaded 是传上去的东西，按传的先后。
+func (d *Devices) Uploaded() []host.Upload {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.uploaded)
+}
+
+// CheckPath 见 hub.Devices：照 Paths 答，没列的是没有。
+func (d *Devices) CheckPath(_ sshlink.Host, path string) (hostlink.PathKind, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if kind, ok := d.Paths[path]; ok {
+		return kind, nil
+	}
+	return hostlink.PathMissing, nil
+}

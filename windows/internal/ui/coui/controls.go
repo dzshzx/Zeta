@@ -142,8 +142,13 @@ func chipTint(k *Colors) float32 {
 // FlatButton 是平的圆形图标按钮（消息下面的复制这类，FlatIconButton）：size 的圆，没有底色，悬停时淡淡一层；
 // 图标 icon 大小 iconSize、次要文字色。
 func FlatButton(c *ui.Context, icon *ui.SVG, label string, size, iconSize float32) ui.Element {
+	return FlatButtonOf(c, ui.ButtonBase(c), icon, label, size, iconSize)
+}
+
+// FlatButtonOf 给按钮 b（ButtonBase，或菜单的触发器）FlatButton 的样子和图标。
+func FlatButtonOf(c *ui.Context, b ui.Element, icon *ui.SVG, label string, size, iconSize float32) ui.Element {
 	k := Of(c)
-	b := ui.ButtonBase(c).Size(size, size).Radius(size / 2).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
+	b.Size(size, size).Radius(size / 2).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
 		Cursor(ui.CursorPointer).Shrink(0)
 	switch {
 	case b.Pressed():

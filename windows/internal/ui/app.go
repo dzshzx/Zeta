@@ -32,6 +32,10 @@ type App struct {
 	edit   editing
 	pane   *chatPane // 聊天窗格，跟着中枢的对话
 
+	pick    picker     // 选本机的文件、文件夹（系统的对话框；测试里换掉）
+	path    pathAttach // 「输入路径」的对话框
+	prompts promptsUI  // 常用指令的对话框
+
 	// Notify 发一条系统通知（回答完了而窗口不在前台时），Foreground 报告窗口在不在前台。New 给的是不发、总在前台，
 	// 窗口起来后由入口换成真的。
 	Notify     func(title, body string)
@@ -46,7 +50,7 @@ type notice struct {
 
 // New 建窗口的状态。run 把要等设备的事放到后台，post 把结果交回主线程（窗口的 Update）。
 func New(h *hub.Hub, run, post func(func())) *App {
-	return &App{hub: h, run: run, post: post, now: time.Now, Notify: func(string, string) {}, Foreground: func() bool { return true }}
+	return &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, Notify: func(string, string) {}, Foreground: func() bool { return true }}
 }
 
 // Go 在后台跑 work，它返回的函数交回主线程跑。

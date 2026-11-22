@@ -198,6 +198,22 @@ func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error)
 	return func(file, ref string) ([]byte, error) { return devices.Image(x, file, ref) }
 }
 
+// Uploader 是往设备 backend 上传附件的办法（在后台 goroutine 上调用，见 Devices.Upload）。
+func (h *Hub) Uploader(backend string) func(ctx context.Context, u host.Upload, progress func(int64)) (string, error) {
+	x, _ := h.Host(backend)
+	devices := h.devices
+	return func(ctx context.Context, u host.Upload, progress func(int64)) (string, error) {
+		return devices.Upload(ctx, x, u, progress)
+	}
+}
+
+// PathChecker 是查设备 backend 上路径的办法（在后台 goroutine 上调用）。
+func (h *Hub) PathChecker(backend string) func(path string) (hostlink.PathKind, error) {
+	x, _ := h.Host(backend)
+	devices := h.devices
+	return func(path string) (hostlink.PathKind, error) { return devices.CheckPath(x, path) }
+}
+
 // RunChat 在后台对聊天窗格里的对话做一件事（发消息、停止、回应确认……），出错时把原因交回主线程的 failed。
 // 对话已经换走时什么也不做。
 func (h *Hub) RunChat(do func(ctx context.Context, conv *chat.Conversation) error, failed func(err error)) {
