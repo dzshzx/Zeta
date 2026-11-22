@@ -94,7 +94,7 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		case out := <-v.(<-chan any):
 			return out, nil
 		case <-time.After(30 * time.Second):
-			return nil, errors.New("Claude Code 没有回应")
+			return nil, errors.New("等了 30 秒，Claude Code 没有回应")
 		}
 	}
 	handler, ok := handlers[method]

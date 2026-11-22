@@ -29,7 +29,6 @@ func newConversations(e *env) *conversations {
 	}
 	h.m = conv.NewManager(conv.Deps{
 		Start:       startHost(e),
-		Attach:      attachHost(e),
 		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode: func() string { return defaultPermissionMode(e) },
 		Windows:     windows,

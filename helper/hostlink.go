@@ -23,17 +23,6 @@ func startHost(*env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
 	}
 }
 
-func attachHost(*env) func(string, int, conv.Events) (conv.Link, error) {
-	return func(key string, from int, ev conv.Events) (conv.Link, error) {
-		l, err := host.Attach(key, from)
-		if err != nil {
-			return nil, err
-		}
-		go pump(l, ev)
-		return hostLink{l}, nil
-	}
-}
-
 // pump 把托管连接的事件按到达顺序交给对话，直到连接结束。
 func pump(l *host.Link, ev conv.Events) {
 	for e := range l.Events() {

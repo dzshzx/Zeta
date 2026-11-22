@@ -176,21 +176,6 @@ func (c *Conversation) ensureProcess(mode string) *process {
 	return p
 }
 
-// attach 接上一个还在跑的托管进程（核心重启后打开它的会话时），从输出的第 from 行读起。
-func (c *Conversation) attach(key string, from int, mode string) {
-	p := &process{prefix: "zeta-" + newUUID()[:8] + "-", waiting: map[string]func(controlResponse){}}
-	link, err := c.deps.Attach(key, from, c.events(p))
-	if err != nil {
-		c.r.AddNotice("重新接上后台进程失败："+err.Error(), true)
-		c.changed()
-		return
-	}
-	p.link = link
-	c.proc = p
-	c.modes.process = mode
-	c.processStarted(p, false, c.launchOptions().CompactPercent)
-}
-
 // events 是交给托管连接的回调：都排进对话的 goroutine，只认还是这个对话的进程的。
 func (c *Conversation) events(p *process) Events {
 	return Events{

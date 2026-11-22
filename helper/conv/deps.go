@@ -8,10 +8,9 @@ import (
 
 // Deps 是对话用到的外部部件：核心进程里接上真的（托管进程经 zeta_host.sh、历史经 zeta-helper history），测试里换成假的。
 type Deps struct {
-	// Start 起一个 Claude Code 进程并接上（zeta_host.sh start）；Attach 接上一个已在跑的（zeta_host.sh attach，从第 from 行读起）。
+	// Start 起一个 Claude Code 进程并接上（zeta_host.sh start）。
 	// 事件在 Events 的回调里按到达顺序交回，回调在别的 goroutine 上。
-	Start  func(StartOptions, Events) (Link, error)
-	Attach func(key string, from int, ev Events) (Link, error)
+	Start func(StartOptions, Events) (Link, error)
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
 	History func(args ...string) ([]byte, error)
 	// DefaultMode 是这台主机上 Claude Code 设置里的默认权限模式（permissions.defaultMode），不知道时为空
