@@ -1,0 +1,6 @@
+{"busy":true,"conv":"w1","type":"conv.state"}
+{"type":"conv.items","conv":"w1","at":11,"remove":0,"items":[{"kind":"user","id":"u-6","text":"等一下","uuid":"00000000-0000-4000-8000-000000000005"}]}
+{"type":"conv.turn","conv":"w1","phase":"started"}
+{"busy":false,"conv":"w1","type":"conv.state"}
+{"type":"conv.items","conv":"w1","at":12,"remove":0,"items":[{"kind":"notice","id":"n-7","text":"已停止"}]}
+{"type":"conv.turn","conv":"w1","phase":"finished","outcome":"stopped","text":"已停止"}

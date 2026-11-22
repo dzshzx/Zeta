@@ -34,7 +34,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	d := hubtest.NewDevices()
 	sync := func(f func()) { f() }
-	h := hub.New(s, d, sync)
+	h := hub.New(s, d, sync, sync)
 	app := New(h, sync, sync)
 	app.now = func() time.Time { return now }
 	h.Start()

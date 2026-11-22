@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,8 +13,8 @@ import (
 
 // OpenChat 起一条到设备 h 上 serve 的连接给对话用（和会话列表的订阅各用各的：对话开在哪台和侧栏列哪台无关）。
 // 推来的对话推送（type 以 conv. 开头的行）交给 push，连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
-// 请求用返回的 Serve 的 Call。第一次就没连上时 Serve 停掉，Call 返回那次的原因，要再用得重新 OpenChat。
-func (d *Devices) OpenChat(h remote.Host, push func(line []byte), problem func(why string)) *Serve {
+// 请求用返回的连接（一个 *Serve）的 Call。第一次就没连上时 Serve 停掉，Call 返回那次的原因，要再用得重新 OpenChat。
+func (d *Devices) OpenChat(h remote.Host, push func(line []byte), problem func(why string)) ChatLink {
 	shell := NewShell(d.Links, h)
 	return StartServe(ServeOptions{
 		Open: func() (*remote.Process, error) { return OpenServe(shell, d.Helper) },
@@ -97,4 +98,10 @@ func decodeImage(out string) ([]byte, error) {
 		return base64.StdEncoding.DecodeString(msg.Data)
 	}
 	return nil, errors.New("没取到图片")
+}
+
+// ChatLink 是 OpenChat 给的对话连接：发请求、关掉。界面测试里换成假的（hubtest）。
+type ChatLink interface {
+	Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
+	Close() error
 }

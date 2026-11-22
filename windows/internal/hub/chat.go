@@ -1,0 +1,233 @@
+package hub
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"time"
+
+	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/host"
+)
+
+// Chat 是聊天窗格里的对话：侧栏点开的会话，或新对话。界面只读它的字段；条目、状态从 Conv 的 Take 取。
+type Chat struct {
+	// Backend 是对话在哪台设备上。
+	Backend string
+	// Session 是点开的会话（新对话时只有 Cwd 和 Backend）。
+	Session host.Session
+	// Conv 是打开成以后的对话；还在打开、没打开成时为 nil。
+	Conv *chat.Conversation
+	// Opening：正在打开（连设备、核心载入历史）。
+	Opening bool
+	// Problem 是没打开成的原因。
+	Problem string
+	// CwdProblem：新对话的工作目录在设备上进不去，起不了 Claude Code；给人看的原因。
+	CwdProblem string
+}
+
+// Fresh：新对话（不是接着已有的会话打开的）。
+func (c *Chat) Fresh() bool { return c.Session.ID == "" }
+
+// chatConn 是一台设备上给对话用的 serve 连接，和它上面的对话协议层。
+type chatConn struct {
+	link   host.ChatLink
+	client *chat.Client
+	// problem 是连接现在的问题（断了、连不上），空是连着；ever：连上过。只在主线程上读写。
+	problem string
+	ever    bool
+}
+
+// Call 把请求交给连接：Client 建在连接之前，经它转一手。
+func (c *chatConn) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	return c.link.Call(ctx, method, params)
+}
+
+// chatOptions 是起 Claude Code 进程用的设置。设备各自的自动标题、自动压缩是第 5 段的设置页，现在照 Kotlin 版的默认：
+// 自动标题开着，自动压缩照 Claude Code 自己的。
+var chatOptions = chat.Options{AutoTitle: true}
+
+// Chat 是聊天窗格里的对话；没有时是 nil。
+func (h *Hub) Chat() *Chat { return h.chat }
+
+// ChatLinkProblem 是对话所在设备的连接现在的问题（断了、正在重连），连着时是空。
+func (h *Hub) ChatLinkProblem() string {
+	if h.chat == nil {
+		return ""
+	}
+	if c := h.conns[h.chat.Backend]; c != nil {
+		return c.problem
+	}
+	return ""
+}
+
+// OpenSession 在聊天窗格里打开会话 s，关掉原来的。已经开着它时什么也不做。
+func (h *Hub) OpenSession(s host.Session) {
+	if c := h.chat; c != nil && c.Backend == s.Backend && s.ID != "" && (c.Session.ID == s.ID || c.Conv != nil && c.Conv.Session() == s.ID) {
+		return
+	}
+	h.open(&Chat{Backend: s.Backend, Session: s},
+		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: chatOptions}, false)
+}
+
+// NewChat 在侧栏正看着的设备上开一个新对话，工作目录是它的默认工作目录；先在设备上看进不进得去。
+func (h *Hub) NewChat() {
+	x, ok := h.Host(h.Backend())
+	if !ok {
+		return
+	}
+	cwd := x.DefaultCwd
+	if cwd == "" {
+		cwd = x.Home
+	}
+	h.open(&Chat{Backend: x.ID, Session: host.Session{Cwd: cwd, Backend: x.ID}},
+		chat.Spec{Cwd: cwd, Options: chatOptions}, true)
+}
+
+// open 换成对话 c：关掉原来的，在后台连设备、打开，结果回主线程填进 c。checkCwd 时先看工作目录进不进得去。
+func (h *Hub) open(c *Chat, spec chat.Spec, checkCwd bool) {
+	h.CloseChat()
+	x, ok := h.Host(c.Backend)
+	if !ok {
+		return
+	}
+	c.Opening = true
+	h.chat = c
+	conn := h.chatConn(c.Backend)
+	h.run(func() {
+		var cwdProblem string
+		if checkCwd {
+			// 查不成（连不上等）时不拦：打开时会报连不上
+			cwdProblem, _ = h.devices.CheckDir(x, spec.Cwd)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
+		defer cancel()
+		conv, err := conn.client.Open(ctx, spec)
+		h.post(func() {
+			if h.chat != c {
+				h.closeConv(conv) // 打开的时候已经换走了
+				return
+			}
+			c.Opening, c.Conv, c.CwdProblem = false, conv, cwdProblem
+			if err != nil {
+				c.Problem = "打不开这个对话：" + err.Error()
+				h.dropDeadConn(c.Backend, conn)
+			}
+		})
+	})
+}
+
+// CloseChat 关掉聊天窗格里的对话（conv.close：别的客户端没拿着、又闲着时核心会断开进程）。
+func (h *Hub) CloseChat() {
+	if h.chat == nil {
+		return
+	}
+	h.closeConv(h.chat.Conv)
+	h.chat = nil
+}
+
+// closeTimeout 是关掉一个对话最多等多久。
+const closeTimeout = 10 * time.Second
+
+func (h *Hub) closeConv(conv *chat.Conversation) {
+	if conv == nil {
+		return
+	}
+	h.run(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
+		defer cancel()
+		if err := conv.Close(ctx); err != nil {
+			log.Printf("zeta: 关掉对话：%v", err)
+		}
+	})
+}
+
+// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送和连接的变化在读的 goroutine 上来：推送交给协议层，
+// 连上时经 run 在后台让打开过的对话重新打开（Call 的应答要靠读的那个 goroutine 送回来，不能就地等），
+// 界面要重画的经 post 回主线程。
+func (h *Hub) chatConn(id string) *chatConn {
+	if c := h.conns[id]; c != nil {
+		return c
+	}
+	x, _ := h.Host(id)
+	c := &chatConn{}
+	c.client = chat.NewClient(c, func() { h.post(func() {}) })
+	c.link = h.devices.OpenChat(x,
+		func(line []byte) { c.client.Handle(line) },
+		func(why string) {
+			if why == "" {
+				h.run(func() {
+					ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
+					defer cancel()
+					if err := c.client.Reconnected(ctx); err != nil {
+						log.Printf("zeta: 重连后重新打开对话：%v", err)
+					}
+				})
+			} else {
+				c.client.Disconnected()
+			}
+			h.post(func() {
+				c.problem = why
+				c.ever = c.ever || why == ""
+			})
+		})
+	h.conns[id] = c
+	return c
+}
+
+// dropDeadConn：一次都没连上的连接已经停了（见 host.Serve），丢掉，下次打开时重新连。
+func (h *Hub) dropDeadConn(id string, c *chatConn) {
+	if h.conns[id] == c && !c.ever {
+		h.closeConn(id)
+	}
+}
+
+// closeConn 关掉设备 id 上给对话用的连接。
+func (h *Hub) closeConn(id string) {
+	if c := h.conns[id]; c != nil {
+		delete(h.conns, id)
+		_ = c.link.Close()
+	}
+}
+
+// ImageLoader 是聊天列表取会话记录里图片的办法（在后台 goroutine 上调用）。
+func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error) {
+	x, _ := h.Host(backend)
+	devices := h.devices
+	return func(file, ref string) ([]byte, error) { return devices.Image(x, file, ref) }
+}
+
+// RunChat 在后台对聊天窗格里的对话做一件事（发消息、停止、回应确认……），出错时把原因交回主线程的 failed。
+// 对话已经换走时什么也不做。
+func (h *Hub) RunChat(do func(ctx context.Context, conv *chat.Conversation) error, failed func(err error)) {
+	c := h.chat
+	if c == nil || c.Conv == nil {
+		return
+	}
+	conv := c.Conv
+	h.run(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
+		defer cancel()
+		if err := do(ctx, conv); err != nil {
+			h.post(func() {
+				if h.chat == c && failed != nil {
+					failed(err)
+				}
+			})
+		}
+	})
+}
+
+// reopen 在新的连接上重新打开对话 c（设备的连法改了）：接着它已经有的会话号。
+func (h *Hub) reopen(c *Chat) {
+	s := c.Session
+	if c.Conv != nil {
+		s.ID = c.Conv.Session()
+	}
+	h.chat = nil // 原来的连接已经关了，不再发 conv.close
+	if s.ID == "" {
+		h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Cwd: s.Cwd, Options: chatOptions}, true)
+		return
+	}
+	h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: chatOptions}, false)
+}

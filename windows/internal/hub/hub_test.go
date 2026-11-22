@@ -23,7 +23,8 @@ func newHubIn(t *testing.T, devices *hubtest.Devices) (*Hub, *settings.Settings,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(s, devices, func(f func()) { f() }), s, dir
+	sync := func(f func()) { f() }
+	return New(s, devices, sync, sync), s, dir
 }
 
 func ids(list []host.Session) []string {

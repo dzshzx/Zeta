@@ -19,6 +19,11 @@ type Devices struct {
 	ConfigErr error
 	KeyList   []string
 	Probes    map[string]Probe
+	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 Image 答的图。
+	DirProblems map[string]string
+	ImageData   []byte
+	// OnChat 在每起一条对话连接时调（比如先定好怎么应答）。
+	OnChat func(*ChatLink)
 
 	mu       sync.Mutex
 	hostKey  string
@@ -26,6 +31,8 @@ type Devices struct {
 	opened   map[string]int
 	retained []string
 	probed   []string
+	chats    []*ChatLink
+	checked  []string
 }
 
 // Probe 是一次探测的结果。

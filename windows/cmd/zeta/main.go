@@ -33,8 +33,9 @@ func main() {
 	// 后台 goroutine 的结果经窗口的 Update 回到主线程，改完重画
 	var win *mygo.Window
 	post := func(f func()) { win.Update(f) }
-	h := hub.New(prefs, devices, post)
-	app := zui.New(h, func(f func()) { go f() }, post)
+	run := func(f func()) { go f() }
+	h := hub.New(prefs, devices, run, post)
+	app := zui.New(h, run, post)
 	mygo.App.WhenReady(func() {
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, Content: ui.View(app.View)})
 		h.Start()

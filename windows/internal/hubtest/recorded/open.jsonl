@@ -1,0 +1,2 @@
+{"blocked":false,"busy":false,"commands":null,"conv":"w1","cwd":"/home/zeta","earlier":0,"effort":"","full":true,"loading_history":false,"mode":{"process":"","user":""},"model":null,"models":null,"process":false,"prompts":[],"queued":[],"recalled":null,"reported_model":"","session":"","status":"","steering":false,"tasks":[],"title":"","todo_seed":[],"type":"conv.state","usage":{"total":{"input":0,"output":0,"cache_read":0,"cache_write":0,"total":0},"level":"normal"}}
+{"type":"conv.items","conv":"w1","full":true,"at":0,"remove":0,"items":null}

@@ -215,3 +215,13 @@ func (c *Conversation) resync() {
 		c.client.notify()
 	}
 }
+
+// Session 是这个对话此刻的会话号：接着旧会话时是它；新对话第一轮以后才有，之前为空。
+func (c *Conversation) Session() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.state.Session != "" {
+		return c.state.Session
+	}
+	return c.spec.Session
+}

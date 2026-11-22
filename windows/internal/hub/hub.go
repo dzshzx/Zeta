@@ -1,8 +1,10 @@
 // Package hub 是桌面版的中枢：设备清单、侧栏看哪台设备（或全部设备）、各台的会话列表（订阅那边的 zeta-helper serve）和置顶。
 // 界面只读它的状态、调它的方法，不自己连设备。
 //
-// Hub 的方法都在主线程（界面线程）上调用；后台 goroutine 拿到的结果经 post 交回主线程再改状态（界面上是窗口的 Update，改完重画）。
-// 例外是 Probe、ConfigHosts、Keys：它们不碰状态、会阻塞，在后台 goroutine 上调用。
+// 聊天窗格里的对话也在这里：开哪个会话、新对话、给对话用的各台 serve 连接（见 chat.go）。
+//
+// Hub 的方法都在主线程（界面线程）上调用；要等设备的事经 run 放到后台，拿到的结果经 post 交回主线程再改状态
+// （界面上是窗口的 Update，改完重画）。例外是 Probe、ConfigHosts、Keys：它们不碰状态、会阻塞，在后台 goroutine 上调用。
 package hub
 
 import (
@@ -30,12 +32,19 @@ type Devices interface {
 	Keys() []string
 	// Retain 只留下 ids 这几台的连接。
 	Retain(ids []string)
+	// OpenChat 起一条到设备 h 的 serve 连接给对话用：推送、连接的变化在后台 goroutine 上交给 push、problem（见 host.Devices.OpenChat）。
+	OpenChat(h remote.Host, push func(line []byte), problem func(why string)) host.ChatLink
+	// CheckDir 看设备 h 上进不进得去目录 path：进不去时是原因，进得去是空，查不成时是错误。阻塞。
+	CheckDir(h remote.Host, path string) (string, error)
+	// Image 取设备 h 上会话记录 file 里位置 ref 的那张图。阻塞。
+	Image(h remote.Host, file, ref string) ([]byte, error)
 }
 
 // Hub 见包的说明。
 type Hub struct {
 	settings *settings.Settings
 	devices  Devices
+	run      func(func())
 	post     func(func())
 
 	hosts    []remote.Host
@@ -43,12 +52,15 @@ type Hub struct {
 	watches  map[string]io.Closer // 订阅着的设备
 	sessions []host.Session       // 列着的各台的会话，合在一起
 	problems map[string]string    // 各台没读成会话列表的原因
+
+	chat  *Chat                // 聊天窗格里的对话
+	conns map[string]*chatConn // 各台给对话用的 serve 连接
 }
 
-// New 建中枢：设置 s，设备 d，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
-func New(s *settings.Settings, d Devices, post func(func())) *Hub {
-	h := &Hub{settings: s, devices: d, post: post, hosts: s.Hosts(), pins: map[string]bool{},
-		watches: map[string]io.Closer{}, problems: map[string]string{}}
+// New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
+func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
+	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
+		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}}
 	for _, pin := range s.Pins() {
 		h.pins[pin] = true
 	}
@@ -315,6 +327,11 @@ func (h *Hub) UpdateHost(x remote.Host) error {
 	if old.Target != x.Target || old.Key != x.Key || old.HostKey != x.HostKey {
 		h.unwatch(x.ID)
 		h.Refresh()
+		// 对话也照新的连法重连：开着的那个在新连接上重新打开
+		h.closeConn(x.ID)
+		if c := h.chat; c != nil && c.Backend == x.ID {
+			h.reopen(c)
+		}
 	}
 	return nil
 }
@@ -335,6 +352,10 @@ func (h *Hub) RemoveHost(id string) error {
 	h.devices.Retain(ids)
 	h.unwatch(id)
 	h.Refresh()
+	if c := h.chat; c != nil && c.Backend == id {
+		h.CloseChat()
+	}
+	h.closeConn(id)
 	return nil
 }
 
