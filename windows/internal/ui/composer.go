@@ -8,29 +8,35 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
-// composer 是输入栏：多行输入框（Enter 发送，Shift+Enter 换行；回答中发的进排队条），下面一行是权限模式、模型、
-// 思考强度，右边是用量、停止和发送。
+// composer 是输入栏（同手机版 Composer.kt）：淡灰底的圆角面板，上面多行输入框（Enter 发送，Shift+Enter 换行；
+// 回答中发的进排队条），下面一排小圆钮：权限模式、思考强度，右边是上下文用量的圆环、停止和发送。
 func (a *App) composer(c *ui.Context, p *chatPane) {
-	t := c.Theme()
+	k := coui.Of(c)
 	ready := p.src.Conv != nil && p.src.CwdProblem == ""
-	ui.Column(c).FillWidth().Padding(10, 12, 8, 12).Gap(6).Radius(14).Background(t.Surface).Border(1, t.Border).Children(func() {
-		ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder("发消息").Label("消息").FillWidth().MinHeight(44).MaxHeight(220).
-			Disabled(!ready).OnTextKey(func(k ui.TextKey) bool {
-			if k.Key != ui.KeyEnter || k.Mods != 0 {
-				return false // Shift+Enter 换行
-			}
-			if a.send(k.Text()) {
-				k.SetText("")
-			}
-			return true
-		})
+	hint := "交给 Claude 去完成"
+	if p.state.Busy {
+		hint = "Claude 正在工作，可以接着发"
+	}
+	ui.Column(c).FillWidth().Padding(8, 10).Gap(2).Radius(24).Background(k.Field).Border(1, k.Edge).
+		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
+		ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
+			Lines(1, 6).Padding(5, 6).FontSize(coui.SizeBodyXL).LineHeight(1.2).Disabled(!ready).
+			OnTextKey(func(tk ui.TextKey) bool {
+				if tk.Key != ui.KeyEnter || tk.Mods != 0 {
+					return false // Shift+Enter 换行
+				}
+				if a.send(tk.Text()) {
+					tk.SetText("")
+				}
+				return true
+			})
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if p.src.Conv != nil {
 				a.modeMenu(c, p)
-				a.modelMenu(c, p)
 				a.effortMenu(c, p)
 			}
 			ui.Spacer(c)
@@ -38,12 +44,11 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
-				ui.Button(c, "停止").OnClick(func() {
+				coui.StopButton(c, "停止").OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 				})
 			}
-			send := ui.PrimaryButton(c, "发送").Disabled(!ready || strings.TrimSpace(p.draft) == "")
-			send.OnClick(func() {
+			coui.SendButton(c, "发送", ready && strings.TrimSpace(p.draft) != "").OnClick(func() {
 				if a.send(p.draft) {
 					p.draft = ""
 				}
@@ -97,14 +102,31 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 	if current == "" {
 		current = p.state.Mode.Process
 	}
-	ui.PopoverMenuButton(c.Key("mode"), modeLabel(current), func(m *ui.Menu) {
+	icon, tint := modeIcon(coui.Of(c), current)
+	coui.MenuButton(c.Key("mode"), func(t ui.Element) { coui.Chip(c, t, icon, modeLabel(current), tint) }, func(m *coui.Menu) {
 		for _, mode := range permissionModes {
-			if m.Item(mode.label).Radio(mode.value == current).Chosen() {
+			if m.Choice(mode.label, mode.value == current) {
 				value := mode.value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetMode(ctx, &value) })
 			}
 		}
-	}).Label("权限模式")
+	})
+}
+
+// modeIcon 是权限模式按钮上的盾牌和颜色（同手机版 PermissionModeChip）：逐项确认和没指定时是灰色的 M，
+// 计划模式青色的 P，自动接受编辑紫色的 E，自动判断蓝色的 A，完全放行红色的感叹号。
+func modeIcon(k *coui.Colors, mode string) (*ui.SVG, ui.Color) {
+	switch mode {
+	case "auto":
+		return coui.IconShieldAuto, k.Blue
+	case "plan":
+		return coui.IconShieldPlan, k.Cyan
+	case "acceptEdits":
+		return coui.IconShieldEdits, k.Purple
+	case "bypassPermissions":
+		return coui.IconShieldBypass, k.Error
+	}
+	return coui.IconShieldDefault, ui.Color{}
 }
 
 // fallbackModels 是进程还没起、Claude Code 还没报模型清单时给的几个常用别名（它自己认）。
@@ -120,20 +142,34 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	if p.state.Model != nil {
 		chosen = *p.state.Model
 	}
-	ui.PopoverMenuButton(c.Key("model"), modelLabel(p.state, models), func(m *ui.Menu) {
-		if m.Item("默认").Radio(chosen == "" || chosen == chat.DefaultModel).Chosen() {
+	label := modelLabel(p.state, models)
+	coui.MenuButton(c.Key("model"), func(t ui.Element) { modelTrigger(c, t, label) }, func(m *coui.Menu) {
+		if m.Choice("默认", chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
 		for _, o := range models {
 			if o.Value == chat.DefaultModel {
 				continue
 			}
-			if m.Item(optionName(o)).Radio(o.Value == chosen).Chosen() {
+			if m.Choice(optionName(o), o.Value == chosen) {
 				value := o.Value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, &value) })
 			}
 		}
-	}).Label("模型")
+	})
+}
+
+// modelTrigger 是顶栏小字里的模型（同手机版顶栏副标题「设备 · 模型」）：12 的次要文字色，后面一个小箭头。
+func modelTrigger(c *ui.Context, t ui.Element, label string) {
+	k := coui.Of(c)
+	t.Label(label).Gap(2).AlignItems(ui.Center).Padding(1, 4).Radius(8).Cursor(ui.CursorPointer)
+	if t.Hovered() {
+		t.Background(k.Hover)
+	}
+	t.Children(func() {
+		ui.Text(c, label).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine()
+		ui.Icon(c, coui.IconChevronDown).Size(12, 12).TextColor(k.Tertiary)
+	})
 }
 
 func optionName(o chat.ModelOption) string {
@@ -201,34 +237,52 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 	case p.state.Usage.AppliedEffort != "":
 		label = "思考：默认（" + effortLabel(p.state.Usage.AppliedEffort) + "）"
 	}
-	ui.PopoverMenuButton(c.Key("effort"), label, func(m *ui.Menu) {
-		if m.Item("默认").Radio(chosen == "").Chosen() {
+	level := effortLevel(chosen)
+	if chosen == "" {
+		level = effortLevel(p.state.Usage.AppliedEffort)
+	}
+	icon := coui.Gauge(level, len(effortLevels))
+	coui.MenuButton(c.Key("effort"), func(t ui.Element) { coui.Chip(c, t, icon, label, ui.Color{}) }, func(m *coui.Menu) {
+		if m.Choice("默认", chosen == "") {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, nil) })
 		}
 		for _, l := range effortLevels {
-			if m.Item(l.label).Radio(l.value == chosen).Chosen() {
+			if m.Choice(l.label, l.value == chosen) {
 				value := l.value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, &value) })
 			}
 		}
-	}).Label("思考强度")
+	})
+}
+
+// effortLevel 是思考强度 v 在表盘上亮几格：低是 1，最高是 5，认不出的是 0。
+func effortLevel(v string) int {
+	for i, l := range effortLevels {
+		if l.value == v {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // usageButton 是用量：按钮上是上下文用了多少，点开是上下文、本对话累计和压缩上下文。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
-	t := c.Theme()
+	k := coui.Of(c)
 	label := "上下文"
+	var fraction float32
 	if u.Fraction != nil {
 		label += fmt.Sprintf(" %d%%", int(*u.Fraction*100))
+		fraction = float32(*u.Fraction)
 	}
-	button := ui.Button(c.Key("usage"), label).OnClick(func() { p.usage = !p.usage })
+	color := k.Primary
 	switch u.Level {
 	case usage.LevelCritical:
-		button.TextColor(t.Danger)
+		color = k.Error
 	case usage.LevelWarning:
-		button.TextColor(t.Warning)
+		color = k.Warning
 	}
+	button := coui.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() { p.usage = !p.usage })
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
 		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() { a.usageDetails(c, p) })
 	})
@@ -279,7 +333,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 		}
 	}
 	statRow(c, "费用（按 API 标价）", cost)
-	ui.Button(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
+	coui.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
 		p.usage = false
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })
 	})

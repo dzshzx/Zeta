@@ -50,8 +50,8 @@ type Chat struct {
 	items []items.Item
 	list  ui.ListState
 	// answer、thinking 是回答和思考的 Markdown 设置；thinkingTheme 是思考用的淡色字。
-	answer, thinking markdown.Options
-	thinkingTheme    markdown.Theme
+	answer, thinking           markdown.Options
+	answerTheme, thinkingTheme markdown.Theme
 	// open 记着各张折叠卡展开没有（按「种类:id」），条目换掉后照样留着。
 	open map[string]*bool
 	// changes 是各步文件改动的对比（按步骤的 id），条目换掉时丢掉对应的。
@@ -71,6 +71,9 @@ func New() *Chat {
 	ch.list.FollowAnimation = &ui.Smooth
 	ch.list.Key = func(row int) any { return ch.items[row].ID }
 	ch.thinking.Theme = &ch.thinkingTheme
+	ch.answer.Theme = &ch.answerTheme
+	ch.answer.CodeBlock = codeBlock
+	ch.thinking.CodeBlock = codeBlock
 	ch.answer.LoadImage = ch.markdownImage
 	return ch
 }
@@ -136,11 +139,7 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 	}
 	ch.answer.OnLink = ch.OpenLink
 	ch.thinking.OnLink = ch.OpenLink
-	t := c.Theme()
-	ch.thinkingTheme.Text, ch.thinkingTheme.Strong = t.TextMuted, t.TextMuted
-	if t.FontSize > 0 {
-		ch.thinkingTheme.FontSize = t.FontSize - 0.5
-	}
+	styleMarkdown(c, &ch.answerTheme, &ch.thinkingTheme)
 	list := ui.List(c, &ch.list, len(ch.items), func(row int) {
 		if ch.paging.built(row) && ch.Earlier.idle() {
 			c.Invalidate()

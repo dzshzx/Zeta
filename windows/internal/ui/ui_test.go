@@ -205,8 +205,8 @@ func TestEditingADevice(t *testing.T) {
 	hosts := f.withHosts(t, "box", "lab")
 	f.app.open(pageDevices)
 	f.tt.Frame()
-	// 侧栏的设备菜单上也写着 box：点设备页里那一行的箭头
-	f.click(t, "›")
+	// 侧栏的设备菜单上也写着 box：点设备页里那一行（按钮）
+	f.clickButton(t, "box", 0)
 	if f.app.page != pageDevice || f.app.device != hosts[0].ID {
 		t.Fatalf("page %q, device %q", f.app.page, f.app.device)
 	}
@@ -314,6 +314,12 @@ func TestPreviews(t *testing.T) {
 		"device": func(t *testing.T, f *fixture) {
 			f.app.device = f.withHosts(t, "box")[0].ID
 			f.app.open(pageDevice)
+		},
+		"device-remove": func(t *testing.T, f *fixture) {
+			f.app.device = f.withHosts(t, "box")[0].ID
+			f.app.open(pageDevice)
+			f.tt.Frame()
+			f.click(t, "删除设备")
 		},
 	}
 	all := map[string]func(t *testing.T) *fixture{}

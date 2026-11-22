@@ -350,6 +350,12 @@ func (f *chatFixture) clickField(t *testing.T, name string) {
 
 // chatScenes 是预览图里聊天窗格的几个场景（TestPreviews 画）。
 var chatScenes = map[string]func(t *testing.T, f *chatFixture){
+	"chat-answer":  func(t *testing.T, f *chatFixture) { f.showTurn(t, false) },
+	"chat-confirm": func(t *testing.T, f *chatFixture) { f.showTurn(t, true) },
+	"chat-mode-menu": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.click(t, "默认权限")
+	},
 	"chat-history": func(t *testing.T, f *chatFixture) { f.click(t, "修登录页") },
 	"chat-streaming": func(t *testing.T, f *chatFixture) {
 		f.newChat(t)
@@ -395,4 +401,29 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.replay("turn")
 		f.click(t, "上下文 0%")
 	},
+}
+
+// showTurn 摆出和 Compose 桌面版对照图（desktop 的截图测试）同样的一轮：用户消息、折叠着的步骤卡、带列表和代码块的回答；
+// confirm 时再发一条、在跑一步命令，等着确认。侧栏多列两个会话。
+func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s2", Title: "看看日志", Cwd: "/srv/logs", Updated: at(1) - 3600*1000},
+	}})
+	f.newChat(t)
+	items := `{"kind":"user","id":"u1","text":"README 里的构建命令还是 ./gradlew，改成 tools/gradle，顺便看看 CLAUDE.md 要不要同步"},` +
+		`{"kind":"work","id":"w1","steps":[{"kind":"thinking","id":"t1","text":"先找出两个文件里所有直接调用 gradlew 的地方。","seconds":3},` +
+		`{"kind":"tool","id":"s1","name":"Bash","input":{"command":"grep -n gradlew README.md CLAUDE.md","description":"找出直接调用 gradlew 的地方"},"status":"success","result":"README.md:12:./gradlew :app:assembleDebug"},` +
+		`{"kind":"tool","id":"s2","name":"Read","input":{"file_path":"/home/box/project/README.md"},"status":"success","result":"（README.md 的内容）"}]},` +
+		`{"kind":"answer","id":"a1","text":"改好了：\n\n- **README.md**：构建命令换成 ` + "`tools/gradle`" + `\n- **CLAUDE.md**：没有直接调用，不用改\n\n在本机构建测试版：\n\n` +
+		"```bash\\ncd ~/project\\ntools/gradle :app:assembleDebug\\n```" + `\n\n第一次构建要下载依赖，之后几分钟就好。","streaming":false}`
+	if confirm {
+		items += `,{"kind":"user","id":"u2","text":"构建一下"},{"kind":"work","id":"w2","steps":[{"kind":"tool","id":"s9","name":"Bash",` +
+			`"input":{"command":"tools/gradle :app:assembleDebug","description":"构建 debug 包"},"status":"running"}]}`
+	}
+	f.link().Push(`{"type":"conv.items","conv":"w1","at":0,"remove":0,"items":[` + items + `]}`)
+	f.push(`"title":"改 README 的构建命令","reported_model":"claude-opus-5-5"`)
+	if confirm {
+		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"p1","tool_name":"Bash","input":{"command":"tools/gradle :app:assembleDebug","description":"构建 debug 包"},` +
+			`"suggestion_lines":["允许 Bash(tools/gradle:*)"],"notice":""}]`)
+	}
 }

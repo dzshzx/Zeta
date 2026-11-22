@@ -8,6 +8,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -125,24 +126,23 @@ func (a *App) chatTitle(p *chatPane) string {
 // chatPage 是聊天窗格：顶上标题，中间聊天列表，底下输入栏一带。
 func (a *App) chatPage(c *ui.Context) {
 	p := a.pane
-	t := c.Theme()
+	k := coui.Of(c)
 	ui.Column(c).Fill().Children(func() {
 		a.chatHeader(c, p)
-		ui.Box(c).Height(1).Background(t.Border)
 		switch {
 		case p.src.Opening:
 			ui.Row(c).Grow(1).Center().Gap(8).Children(func() {
 				ui.Spinner(c).Size(16, 16)
-				ui.Text(c, "正在打开").TextColor(t.TextMuted)
+				ui.Text(c, "正在打开").FontSize(coui.SizeBodyM).TextColor(k.Secondary)
 			})
 		case p.src.Conv == nil:
 			ui.Column(c).Grow(1).Center().Padding(32).Children(func() {
-				ui.Text(c, p.src.Problem).TextColor(t.TextMuted).MaxWidth(520).TextAlign(ui.Center)
+				ui.Text(c, p.src.Problem).FontSize(coui.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
 			})
 		default:
 			p.list.View(c).Grow(1).MinHeight(0)
 		}
-		ui.Column(c).FillWidth().MaxWidth(chatWidth).AlignSelf(ui.Center).Padding(0, 24, 16, 24).Gap(8).Children(func() {
+		ui.Column(c).FillWidth().MaxWidth(chatWidth).AlignSelf(ui.Center).Padding(4, 12, 12, 12).Gap(6).Children(func() {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
 				a.promptCard(c, p)
@@ -155,44 +155,43 @@ func (a *App) chatPage(c *ui.Context) {
 }
 
 // chatWidth 是输入栏一带最宽多少，和聊天列表的内容一样宽。
-const chatWidth = 860 + 48
+const chatWidth = 860 + 24
 
-// chatHeader 是顶上的标题：对话的标题，下面一行小字是设备和工作目录。
+// chatHeader 是顶上的标题（同手机版聊天页的小顶栏）：居中的对话标题，下面一行小字是设备和工作目录，
+// 后面是模型，点开换模型。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {
-	t := c.Theme()
+	k := coui.Of(c)
 	cwd := p.state.Cwd
 	if cwd == "" {
 		cwd = p.src.Session.Cwd
 	}
-	ui.Column(c).Height(56).Padding(0, 24).Justify(ui.Center).Gap(2).Children(func() {
-		ui.Text(c, a.chatTitle(p)).FontSize(16).Bold().SingleLine()
-		ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(12).TextColor(t.TextMuted).SingleLine()
+	ui.Column(c).Height(52).Padding(0, 72).Justify(ui.Center).AlignItems(ui.Center).Gap(1).Shrink(0).Children(func() {
+		ui.Text(c, a.chatTitle(p)).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…")
+		ui.Row(c).Gap(4).AlignItems(ui.Center).MaxWidth(720).Children(func() {
+			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+				Ellipsis("…").Shrink(1)
+			if p.src.Conv != nil {
+				ui.Text(c, "·").FontSize(coui.SizeBodyXS).TextColor(k.Secondary)
+				a.modelMenu(c, p)
+			}
+		})
 	})
 }
 
 // chatNotices 是输入栏上方的几句说明：工作目录进不去、连接断了、上次操作没成。
 func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	if why := p.src.CwdProblem; why != "" {
-		noticeText(c, "Claude Code 起不来："+why+"。在「设备」页改默认工作目录后再开新对话。", true)
+		coui.Notice(c, "Claude Code 起不来："+why+"。在「设备」页改默认工作目录后再开新对话。", coui.Failure)
 	}
 	if why := a.hub.ChatLinkProblem(); why != "" && p.src.Conv != nil {
-		noticeText(c, "正在重连："+why, false)
+		coui.Notice(c, "正在重连："+why, coui.Caution)
 	}
 	if p.state.Blocked {
-		noticeText(c, "这个会话正在别处运行", false)
+		coui.Notice(c, "这个会话正在别处运行", coui.Info)
 	}
 	if p.failed != "" {
-		noticeText(c, p.failed, true)
+		coui.Notice(c, p.failed, coui.Failure)
 	}
-}
-
-func noticeText(c *ui.Context, text string, bad bool) {
-	t := c.Theme()
-	color := t.TextMuted
-	if bad {
-		color = t.Danger
-	}
-	ui.Text(c, text).FontSize(13).TextColor(color).MaxLines(3)
 }
 
 // chatStatus 是等待指示一行：在回答时转圈和核心给的一句，有后台任务时说几个。
@@ -202,33 +201,34 @@ func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 	if !s.Busy && tasks == 0 {
 		return
 	}
-	t := c.Theme()
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(0, 4).Children(func() {
+	k := coui.Of(c)
+	ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(0, 8).Children(func() {
 		if s.Busy {
 			ui.Spinner(c).Size(14, 14)
 			status := s.Status
 			if status == "" {
 				status = "正在回答"
 			}
-			ui.Text(c, status).FontSize(13).TextColor(t.TextMuted).SingleLine()
+			ui.Text(c, status).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine()
 		}
 		ui.Spacer(c)
 		if tasks > 0 {
-			ui.Text(c, "后台任务 "+strconv.Itoa(tasks)+" 个").FontSize(13).TextColor(t.TextMuted)
+			ui.Text(c, "后台任务 "+strconv.Itoa(tasks)+" 个").FontSize(coui.SizeBodyS).TextColor(k.Secondary)
 		}
 	})
 }
 
-// queueStrip 是输入栏上方的排队条：回答中发的消息排在这里。点正文撤回到输入框接着改，「插话」把排队的马上送进这一轮，
-// 「删除」撤回不要。
+// queueStrip 是输入栏上方的排队条（同手机版 QueueStrip.kt）：回答中发的消息排在这里。点正文撤回到输入框接着改，
+// 「立即插话」把排队的马上送进这一轮，「删除」撤回不要。
 func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 	queued := p.state.Queued
 	if len(queued) == 0 {
 		return
 	}
-	t := c.Theme()
+	k := coui.Of(c)
 	panel(c, func() {
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Padding(3, 4, 3, 12).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
 			title := "排队中"
 			switch {
 			case p.state.Steering:
@@ -236,22 +236,34 @@ func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 			case len(queued) > 1:
 				title += " · " + strconv.Itoa(len(queued))
 			}
-			ui.Text(c, title).FontSize(13).Bold().TextColor(t.Accent)
+			ui.Text(c, title).FontSize(coui.SizeBodyS).TextColor(k.PrimaryText)
 			ui.Spacer(c)
 			if !p.state.Steering {
-				ui.Button(c, "立即插话").OnClick(func() {
+				steer := ui.ButtonBase(c).Label("立即插话").Padding(5, 10).Radius(999).Gap(4).AlignItems(ui.Center).
+					Cursor(ui.CursorPointer)
+				if steer.Hovered() {
+					steer.Background(k.Halftone)
+				}
+				steer.Children(func() {
+					ui.Icon(c, coui.IconBolt).Size(14, 14).TextColor(k.PrimaryText)
+					ui.Text(c, "立即插话").FontSize(coui.SizeBodyS).TextColor(k.PrimaryText)
+				})
+				steer.OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Steer(ctx) })
 				})
 			}
 		})
-		for _, m := range queued {
-			ui.Row(c.Key("queued/" + m.UUID)).Gap(8).AlignItems(ui.Center).Children(func() {
-				preview := ui.Text(c, queuedPreview(m)).SingleLine().Grow(1).MinWidth(0).Cursor(ui.CursorPointer).
-					Role(ui.RoleButton).Tooltip("撤回到输入框")
+		for i, m := range queued {
+			if i > 0 {
+				ui.Box(c).Height(1).Margin(0, 12).Background(k.Divider)
+			}
+			ui.Row(c.Key("queued/"+m.UUID)).Padding(2, 4, 2, 14).Gap(8).AlignItems(ui.Center).Children(func() {
+				preview := ui.Text(c, queuedPreview(m)).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").
+					Grow(1).MinWidth(0).Cursor(ui.CursorPointer).Role(ui.RoleButton).Tooltip("撤回到输入框")
 				preview.OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Cancel(ctx, m.UUID, true) })
 				})
-				ui.Button(c, "删除").OnClick(func() {
+				coui.FlatButton(c, coui.IconDelete, "删除", 32, 16).OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Cancel(ctx, m.UUID, false) })
 				})
 			})
@@ -274,10 +286,19 @@ func queuedPreview(m chat.Message) string {
 	return "[" + strconv.Itoa(len(m.Files)) + " 个文件]"
 }
 
-// panel 是输入栏一带的一块面板：浅底、细边、圆角。
+// panel 是输入栏一带的一块面板，和输入栏一样（Composer.kt）：淡灰底、细边、20 的圆角、淡淡的阴影。
 func panel(c *ui.Context, fn func()) {
-	t := c.Theme()
-	ui.Column(c).FillWidth().Padding(10, 14).Gap(6).Radius(12).Background(t.Surface).Border(1, t.Border).Children(fn)
+	k := coui.Of(c)
+	ui.Column(c).FillWidth().Padding(6, 0).Gap(2).Radius(20).Background(k.Field).Border(1, k.Edge).
+		Shadow(0, 2, 16, 0, composerShadow(k)).Children(fn)
+}
+
+// composerShadow 是输入栏的阴影色：浅色 4.5% 的黑，深色 22%。
+func composerShadow(k *coui.Colors) ui.Color {
+	if k.Dark {
+		return ui.RGBA(0, 0, 0, 0.22)
+	}
+	return ui.RGBA(0, 0, 0, 0.045)
 }
 
 // loadEarlier 载入更早的一页（列表往上翻到顶附近、或点了「载入更早的」时）。新的一页经推送从最前面插进来，

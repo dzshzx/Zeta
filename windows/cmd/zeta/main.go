@@ -38,7 +38,9 @@ func main() {
 	h := hub.New(prefs, devices, run, post)
 	app := zui.New(h, run, post)
 	mygo.App.WhenReady(func() {
-		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, Content: ui.View(app.View)})
+		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白
+		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, BackgroundColor: "light-dark(#ffffff, #000000)",
+			Content: ui.View(app.View)})
 		// 回答完了而窗口不在前台时发通知，点通知回到窗口
 		app.Foreground = func() bool { return win.IsFocused() }
 		app.Notify = func(title, body string) {

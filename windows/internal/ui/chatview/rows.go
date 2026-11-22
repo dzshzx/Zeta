@@ -5,20 +5,14 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
 
-// 用户消息的气泡：浅淡的蓝灰，和回答的底色分开（同手机版）。
-var (
-	bubbleLight = ui.Hex("#EEF2FA")
-	bubbleDark  = ui.Hex("#202634")
-)
-
 // userMessage 画用户发的一条消息，靠右：带的图（最多四张缩略图，只有一张时大些）、附带的文件和文字气泡。
 func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
-	t := c.Theme()
-	ui.Column(c).FillWidth().AlignItems(ui.End).Gap(6).Padding(14, 0, 6, 0).Children(func() {
+	ui.Column(c).FillWidth().AlignItems(ui.End).Gap(6).Padding(16, 0, 6, 0).Children(func() {
 		if len(it.Images) > 0 {
 			size := float32(76)
 			if len(it.Images) == 1 {
@@ -36,13 +30,11 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 		if it.Text == "" {
 			return
 		}
-		bg := bubbleLight
-		if t.Dark {
-			bg = bubbleDark
-		}
+		k := coui.Of(c)
 		text := it.Text
-		ui.Text(c, text).Selectable().LineHeight(1.55).MaxWidthPercent(78).Padding(10, 16).Radius(20, 20, 4, 20).
-			Background(bg).ContextMenu(func(m *ui.Menu) {
+		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
+		ui.Text(c, text).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
+			Padding(10.5, 16).Radius(22, 22, 4, 22).Background(k.Bubble).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
 			}
@@ -91,14 +83,9 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item) {
 	})
 }
 
-// copyButton 是回答下面的复制键。
+// copyButton 是回答下面的复制键：平的圆形图标按钮，30 的圆、15 的图标（同手机版 MessageActions.kt）。
 func copyButton(c *ui.Context, text string) {
-	t := c.Theme()
-	b := ui.ButtonBase(c).Size(28, 28).Radius(8).Center().Label("复制").Tooltip("复制").Cursor(ui.CursorPointer).MarginY(4)
-	if b.Hovered() {
-		b.Background(t.Text.Alpha(0.06))
-	}
-	b.Children(func() { ui.Icon(c, iconCopy).FontSize(15).TextColor(t.TextMuted) })
+	b := coui.FlatButton(c, iconCopy, "复制", 30, 15).Margin(6, 0, 0, -8)
 	if b.Clicked() {
 		c.Services().WriteClipboard(text)
 	}
@@ -132,11 +119,13 @@ func triangle(p float32) float32 {
 func noticeRow(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	if it.Error {
-		ui.Text(c, it.Text).Selectable().FontSize(13).LineHeight(1.45).TextColor(t.Danger).FillWidth().
-			Padding(10, 14).Radius(12).Background(t.Danger.Alpha(0.08)).MarginY(6)
+		coui.Notice(c, it.Text, coui.Failure).MarginY(6)
 		return
 	}
 	ui.Row(c).FillWidth().Justify(ui.Center).PaddingY(8).Children(func() {
 		ui.Text(c, it.Text).FontSize(12.5).TextColor(t.TextMuted)
 	})
 }
+
+// bubbleWidth 是用户消息的气泡最宽多少（手机上 316，桌面上宽一些）。
+const bubbleWidth = 480

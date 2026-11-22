@@ -11,6 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
@@ -68,7 +69,7 @@ func (a *App) promptCard(c *ui.Context, p *chatPane) {
 			f.values[field.Key] = slices.Clone(field.Default)
 		}
 	}
-	panel(c.Key("prompt/"+pr.RequestID), func() {
+	promptPanel(c.Key("prompt/"+pr.RequestID), func() {
 		switch {
 		case pr.Kind == prompt.KindElicitation:
 			a.elicitCard(c, p, pr)
@@ -95,8 +96,22 @@ func (a *App) answer(p *chatPane, pr prompt.Prompt, reply prompt.Reply) {
 	})
 }
 
+// promptPanel 是确认卡的样子：照 COUI 的对话框（DialogContentLayout），白底（深色是深灰）、28 的圆角、柔和的阴影，
+// 四周留 20、24；手机上它是弹出的对话框，桌面上放在输入栏上方，不挡着对话。
+func promptPanel(c *ui.Context, fn func()) {
+	k := coui.Of(c)
+	ui.Column(c).FillWidth().Padding(20, 20, 16, 20).Gap(10).Radius(28).Background(k.Dialog).Border(1, k.Edge).
+		Shadow(0, 6, 28, 0, k.Shadow).Children(fn)
+}
+
+// cardTitle 是确认卡的标题：居中、18、加粗（同 COUI 对话框的标题）。
 func cardTitle(c *ui.Context, text string) {
-	ui.Text(c, text).FontSize(15).Bold()
+	ui.Text(c, text).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(coui.Of(c).Text).TextAlign(ui.Center).FillWidth()
+}
+
+// cardNote 是标题下面居中的一句说明（13、次要文字色）。
+func cardNote(c *ui.Context, text string) {
+	ui.Text(c, text).FontSize(coui.SizeBodyS).TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
 }
 
 // detailBlock 是一段等宽的原文（命令、参数、预览），太长时在框里滚动。
@@ -107,9 +122,9 @@ func detailBlock(c *ui.Context, text string) {
 	if r := []rune(text); len(r) > 4000 {
 		text = string(r[:4000]) + "\n…"
 	}
-	t := c.Theme()
-	ui.Scroll(c).FillWidth().MaxHeight(200).Radius(8).Background(t.Background).Children(func() {
-		ui.Text(c, text).FontSize(12).Font("monospace").Padding(8, 10).Selectable()
+	k := coui.Of(c)
+	ui.Scroll(c).FillWidth().MaxHeight(220).Radius(12).Background(k.CodeBody).Children(func() {
+		ui.Text(c, text).FontSize(12).LineHeight(1.25).Font(coui.Mono).TextColor(k.Text.Alpha(0.8)).Padding(10, 12).Selectable()
 	})
 }
 
@@ -119,35 +134,36 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	var input map[string]any
 	_ = json.Unmarshal(pr.Input, &input)
 	title, detail := chatview.DescribeTool(pr.ToolName, input)
-	cardTitle(c, "允许这次操作？")
-	ui.Text(c, title).FontSize(13)
-	if pr.AgentID != "" {
-		ui.Text(c, "来自子代理").FontSize(12).TextColor(t.TextMuted)
-	}
-	if pr.Reason != "" {
-		ui.Text(c, pr.Reason).FontSize(12).TextColor(t.TextMuted)
-	}
+	ui.Column(c).FillWidth().Gap(4).Children(func() {
+		cardTitle(c, "允许这次操作？")
+		cardNote(c, title)
+		if pr.AgentID != "" {
+			cardNote(c, "来自子代理")
+		}
+		if pr.Reason != "" {
+			cardNote(c, pr.Reason)
+		}
+	})
 	detailBlock(c, detail)
 	if len(pr.SuggestionLines) > 0 {
-		ui.Text(c, "总是允许："+strings.Join(pr.SuggestionLines, "；")).FontSize(12).TextColor(t.TextMuted)
+		ui.Text(c, "总是允许："+strings.Join(pr.SuggestionLines, "；")).FontSize(coui.SizeBodyS).TextColor(t.TextMuted).Padding(0, 4)
 	}
 	f := &p.form
-	ui.TextInput(c.Key("feedback"), &f.feedback).Placeholder("拒绝时告诉 Claude 换个做法（可不填）").Label("拒绝的理由").FillWidth()
+	coui.Input(c.Key("feedback"), &f.feedback).Placeholder("拒绝时告诉 Claude 换个做法（可不填）").Label("拒绝的理由").FillWidth()
 	ui.Row(c).Gap(8).Children(func() {
-		ui.Spacer(c)
 		deny := "拒绝"
 		if strings.TrimSpace(f.feedback) != "" {
 			deny = "拒绝并告诉 Claude"
 		}
-		ui.Button(c, deny).Disabled(f.sending).OnClick(func() {
+		coui.Button(c, deny).Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
 		if len(pr.SuggestionLines) > 0 {
-			ui.Button(c, "总是允许").Disabled(f.sending).OnClick(func() {
+			coui.Button(c, "总是允许").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 				a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyAllowAlways})
 			})
 		}
-		ui.PrimaryButton(c, "允许").Disabled(f.sending).OnClick(func() {
+		coui.PrimaryButton(c, "允许").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyAllow})
 		})
 	})
@@ -171,13 +187,12 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		ui.Radio(c, &f.planMode, "acceptEdits", "批准，自动接受改动")
 		ui.Radio(c, &f.planMode, "default", "批准，改动逐项确认")
 	}).Label("批准以后")
-	ui.TextInput(c.Key("feedback"), &f.feedback).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么").FillWidth()
+	coui.Input(c.Key("feedback"), &f.feedback).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么").FillWidth()
 	ui.Row(c).Gap(8).Children(func() {
-		ui.Spacer(c)
-		ui.Button(c, "继续完善").Disabled(f.sending || strings.TrimSpace(f.feedback) == "").OnClick(func() {
+		coui.Button(c, "继续完善").Grow(1).Basis(0).Disabled(f.sending || strings.TrimSpace(f.feedback) == "").OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
-		ui.PrimaryButton(c, "批准").Disabled(f.sending).OnClick(func() {
+		coui.PrimaryButton(c, "批准").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyApprovePlan, Mode: f.planMode})
 		})
 	})
@@ -208,14 +223,13 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 		answers, notes := questionReplies(pr.Questions, f.answers)
-		ui.Button(c, "先和 Claude 聊聊").Disabled(f.sending).OnClick(func() {
+		coui.Button(c, "先和 Claude 聊聊").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyClarify, Answers: answers, Notes: notes})
 		})
-		ui.Spacer(c)
-		ui.Button(c, "跳过").Disabled(f.sending).OnClick(func() {
+		coui.Button(c, "跳过").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny})
 		})
-		ui.PrimaryButton(c, "确定").Disabled(f.sending || !complete).OnClick(func() {
+		coui.PrimaryButton(c, "确定").Grow(1).Basis(0).Disabled(f.sending || !complete).OnClick(func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyAnswer, Answers: answers, Notes: notes})
 		})
 	})
@@ -248,7 +262,7 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 		}
 	})
 	if qa.otherOn {
-		ui.TextInput(c.Key("other-text"), &qa.other).Placeholder("自己写").Label("自己写").FillWidth()
+		coui.Input(c.Key("other-text"), &qa.other).Placeholder("自己写").Label("自己写").FillWidth()
 		return
 	}
 	if q.MultiSelect || len(qa.chosen) == 0 {
@@ -259,29 +273,32 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 		detailBlock(c, *q.Options[i].Preview)
 	}
 	if q.TakesNotes {
-		ui.TextInput(c.Key("notes"), &qa.notes).Placeholder("备注（可不填）").Label("备注").FillWidth()
+		coui.Input(c.Key("notes"), &qa.notes).Placeholder("备注（可不填）").Label("备注").FillWidth()
 	}
 	_ = t
 }
 
-// choiceRow 是一个可以点选的选项：前面一个标记，单选是圆的，多选和开关（square）是方的，选中时填上主题色。
+// choiceRow 是一个可以点选的选项（COUI 的单选、复选框）：前面一个标记，单选是圆的，多选和开关（square）是圆角方块；
+// 选中时填上主题色、里面一个白色对勾。
 func choiceRow(c *ui.Context, label string, on, square bool, toggle func()) {
-	t := c.Theme()
-	row := ui.Row(c).Gap(8).Padding(4, 6).Radius(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Role(ui.RoleButton).
+	k := coui.Of(c)
+	row := ui.Row(c).Gap(10).Padding(7, 10).Radius(12).AlignItems(ui.Center).Cursor(ui.CursorPointer).Role(ui.RoleButton).
 		Label(label).Focusable()
 	if row.Hovered() {
-		row.Background(t.SurfaceHover)
+		row.Background(k.Hover)
 	}
 	row.OnClick(toggle)
 	row.Children(func() {
-		mark := ui.Box(c).Size(14, 14).Shrink(0).Radius(7).Border(1.5, t.TextMuted)
+		mark := ui.Box(c).Size(18, 18).Shrink(0).Radius(9).Border(1.5, k.Tertiary).Center()
 		if square {
-			mark.Radius(3)
+			mark.Radius(5)
 		}
 		if on {
-			mark.Background(t.Accent).Border(1.5, t.Accent)
+			mark.Background(k.Primary).Border(1.5, k.Primary).Children(func() {
+				ui.Icon(c, coui.IconOK).Size(12, 12).TextColor(k.OnPrimary)
+			})
 		}
-		ui.Text(c, label).FontSize(13).MaxLines(2)
+		ui.Text(c, label).FontSize(coui.SizeBodyM).TextColor(k.Text).MaxLines(2)
 	})
 }
 
@@ -318,16 +335,15 @@ func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		ui.Column(c.Key("field/" + field.Key)).Gap(4).Children(func() { elicitField(c, field, f) })
 	}
 	ui.Row(c).Gap(8).Children(func() {
-		ui.Spacer(c)
-		ui.Button(c, "拒绝").Disabled(f.sending).OnClick(func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
+		coui.Button(c, "拒绝").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
 		if pr.URL != "" {
-			ui.PrimaryButton(c, "打开网页").Disabled(f.sending).OnClick(func() {
+			coui.PrimaryButton(c, "打开网页").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 				c.OpenURL(pr.URL)
 				a.elicit(p, pr, prompt.ElicitAccept, nil)
 			})
 			return
 		}
-		ui.PrimaryButton(c, "提交").Disabled(f.sending).OnClick(func() {
+		coui.PrimaryButton(c, "提交").Grow(1).Basis(0).Disabled(f.sending).OnClick(func() {
 			a.elicit(p, pr, prompt.ElicitAccept, f.values)
 		})
 	})
@@ -377,7 +393,7 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 			f.texts[field.Key] = text
 		}
 		ui.Text(c, title).FontSize(13)
-		input := ui.TextInput(c.Key("text"), text).Placeholder(field.Description).Label(title).FillWidth()
+		input := coui.Input(c.Key("text"), text).Placeholder(field.Description).Label(title).FillWidth()
 		if input.Changed() {
 			delete(f.errors, field.Key)
 		}

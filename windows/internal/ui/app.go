@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -56,14 +57,18 @@ func (a *App) async(work func() func()) {
 	})
 }
 
-// View 是窗口的内容。
+// View 是窗口的内容：COUI 的配色（跟着系统的深浅色），左边侧栏，右边是在看的那一页。
 func (a *App) View(c *ui.Context) {
+	c.SetTheme(coui.Theme(c.Theme().Dark))
 	a.syncChat()
-	t := c.Theme()
+	k := coui.Of(c)
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		a.sidebar(c)
-		ui.Box(c).Width(1).Background(t.Border)
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+		main := ui.Column(c).Grow(1).MinWidth(0).Background(k.Window)
+		if a.page == pageDevices || a.page == pageDevice {
+			main.Background(k.Page)
+		}
+		main.Children(func() {
 			switch {
 			case a.page == pageDevices:
 				a.devicesPage(c)
@@ -92,14 +97,28 @@ func (a *App) open(page string) {
 
 // home 是没在看别的页时的主区域：还没有设备时请用户加一台。
 func (a *App) home(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Fill().Center().Gap(12).Padding(32).Children(func() {
-		ui.Text(c, "Zeta").FontSize(28).Bold()
+	k := coui.Of(c)
+	ui.Column(c).Fill().Center().Gap(14).Padding(32).Children(func() {
+		brand(c, 56)
+		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM + 4).FontWeight(600).TextColor(k.Text)
 		if len(a.hub.Hosts()) > 0 {
 			return
 		}
-		ui.Text(c, desktopFooter).TextColor(t.TextMuted).MaxWidth(420)
-		ui.PrimaryButton(c, "添加设备").OnClick(func() { a.open(pageDevices) })
+		ui.Text(c, desktopFooter).FontSize(coui.SizeBodyS).LineHeight(1.5).TextColor(k.Secondary).MaxWidth(420).
+			TextAlign(ui.Center)
+		coui.PrimaryButton(c, "添加设备").OnClick(func() { a.open(pageDevices) }).Margin(8, 0, 0, 0)
+	})
+}
+
+// brand 是品牌标：主题蓝的圆角方块（往下渐深），里面白色的 ζ（同手机版侧栏的 BrandMark）。
+func brand(c *ui.Context, size float32) {
+	k := coui.Of(c)
+	deep := k.Primary.Mix(ui.RGB(0, 0, 0), 0.12)
+	if k.Dark {
+		deep = k.Primary.Mix(ui.RGB(255, 255, 255), 0.12)
+	}
+	ui.Box(c).Size(size, size).Radius(size*0.29).Gradient(k.Primary, deep, 180).Center().Shrink(0).Children(func() {
+		ui.Icon(c, coui.IconBrand).Size(size*0.78, size*0.78).TextColor(k.OnPrimary)
 	})
 }
 
@@ -113,46 +132,8 @@ func (a *App) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	ui.AlertDialog(c, &n.open, n.title, n.message, "好")
+	coui.Alert(c, &n.open, n.title, n.message, coui.Action{Label: "好", Style: coui.Recommend})
 	if !n.open {
 		a.notice = nil
 	}
-}
-
-// pageTitle 是一页顶上的标题，有 back 时左边是返回。
-func pageTitle(c *ui.Context, title string, back func()) {
-	ui.Row(c).Height(56).Padding(0, 24).Gap(8).AlignItems(ui.Center).Children(func() {
-		if back != nil {
-			ui.Button(c, "返回").OnClick(back)
-		}
-		ui.Text(c, title).FontSize(20).Bold().SingleLine()
-	})
-}
-
-// section 是一组：小标题、内容，下面一行说明（空的不写）。
-func section(c *ui.Context, title, footer string, fn func()) {
-	t := c.Theme()
-	ui.Column(c).Gap(8).Children(func() {
-		if title != "" {
-			ui.Text(c, title).FontSize(13).Bold().TextColor(t.TextMuted)
-		}
-		ui.Column(c).Gap(2).Padding(4).Radius(10).Background(t.Surface).Children(fn)
-		if footer != "" {
-			ui.Text(c, footer).FontSize(12).TextColor(t.TextMuted)
-		}
-	})
-}
-
-// item 是一组里的一行：左边名字，右边 value 或 fn 画的东西。
-func item(c *ui.Context, label string, fn func()) {
-	ui.Row(c).MinHeight(40).Padding(6, 12).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).Shrink(0)
-		ui.Spacer(c)
-		fn()
-	})
-}
-
-// valueItem 是右边只是一段字的一行。
-func valueItem(c *ui.Context, label, value string) {
-	item(c, label, func() { ui.Text(c, value).TextColor(c.Theme().TextMuted).SingleLine().MinWidth(0).Shrink(1) })
 }

@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -139,7 +140,9 @@ func longConversation(prefix string, n int) []items.Item {
 
 // newTester 在无窗口的测试窗里画 ch；不要动画，排版每次一样。
 func newTester(ch *Chat, w, h int, dark bool) *ui.Tester {
+	// 和窗口里一样用 COUI 的主题
 	view := func(c *ui.Context) {
+		c.SetTheme(coui.Theme(c.Theme().Dark))
 		ui.Column(c).Fill().Background(c.Theme().Background).Children(func() {
 			ch.View(c).Grow(1).FillWidth()
 		})

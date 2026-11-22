@@ -5,20 +5,21 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
 
-// ink 是时间线里弱化的颜色：边框、标题字、图标，由主文字色调淡。
+// ink 是时间线里弱化的颜色：边框、标题字、图标，由主文字色调淡（数值同手机版 ChatItems.kt 的工作组卡片）。
 type ink struct {
 	border, muted, icon ui.Color
 }
 
 func inkOf(t *ui.Theme) ink {
 	if t.Dark {
-		return ink{t.Text.Alpha(0.10), t.Text.Alpha(0.56), t.Text.Alpha(0.50)}
+		return ink{ui.RGBA(255, 255, 255, 0.10), ui.RGBA(255, 255, 255, 0.56), ui.RGBA(255, 255, 255, 0.50)}
 	}
-	return ink{t.Text.Alpha(0.09), t.Text.Alpha(0.55), t.Text.Alpha(0.45)}
+	return ink{ui.RGBA(0, 0, 0, 0.065), ui.RGBA(0, 0, 0, 0.52), ui.RGBA(0, 0, 0, 0.45)}
 }
 
 // collapsedCards：工作组折叠时，在摘要下面直接露出的改动最多几处。
@@ -31,13 +32,13 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 	k := inkOf(t)
 	open := ch.flag("work:"+it.ID, false)
 	running := lastRunning(it.Steps)
-	ui.Column(c).FillWidth().MarginY(4).Radius(14).Border(1, k.border).Clip().Children(func() {
+	ui.Column(c).FillWidth().MarginY(4).Radius(16).Border(1, k.border).Clip().Children(func() {
 		p := ui.CollapsibleBase(c, open)
 		if p.Trigger.Changed() {
 			// 点开最后一张卡时，点的那一行留在原处，不跟着底部往上跑
 			ch.list.HoldPlace()
 		}
-		p.Trigger.MinHeight(40).Padding(0, 14).Gap(10).AlignItems(ui.Center).Cursor(ui.CursorPointer).Children(func() {
+		p.Trigger.MinHeight(42).Padding(0, 14).Gap(10).AlignItems(ui.Center).Cursor(ui.CursorPointer).Children(func() {
 			ic, tint := iconDone, k.icon
 			if running != nil {
 				ic, tint = stepIcon(*running), t.Accent
@@ -181,7 +182,7 @@ func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 		if t.Dark {
 			bg = t.Text.Alpha(0.06)
 		}
-		ui.Text(c, detail).Selectable().Font("monospace").FontSize(12).LineHeight(1.4).TextColor(t.Text.Alpha(0.78)).
+		ui.Text(c, detail).Selectable().Font(coui.Mono).FontSize(11.5).LineHeight(1.2).TextColor(t.Text.Alpha(0.78)).
 			FillWidth().Padding(8, 10).Radius(10).Background(bg)
 	}
 	for k, im := range s.Images {
@@ -212,7 +213,7 @@ func statusMark(c *ui.Context, s items.Step) {
 
 // chevron 是展开箭头：收着朝右，展开时转到朝下；progress 是展开到了哪（0 到 1）。
 func chevron(c *ui.Context, progress float32) {
-	ui.Icon(c, iconChevron).FontSize(16).TextColor(c.Theme().TextMuted.Alpha(0.7)).Rotate(-90 + 90*progress).Shrink(0)
+	ui.Icon(c, iconChevron).FontSize(17).TextColor(c.Theme().TextMuted.Alpha(0.7)).Rotate(-90 + 90*progress).Shrink(0)
 }
 
 // pulsingText 是一行标题；active（还在进行）时轻微呼吸。

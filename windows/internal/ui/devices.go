@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -45,67 +46,53 @@ func (a *App) startAdding() {
 
 // devicesPage 是设备页：加好的各台（点进去改），和添加设备。
 func (a *App) devicesPage(c *ui.Context) {
-	pageTitle(c, "设备", nil)
-	ui.Scroll(c.Key("devices")).Grow(1).Children(func() {
-		ui.Column(c).Padding(0, 24, 24, 24).Gap(20).MaxWidth(640).Children(func() {
-			if hosts := a.hub.Hosts(); len(hosts) > 0 {
-				section(c, "已添加", "", func() {
-					for _, x := range hosts {
-						a.hostRow(c, x)
-					}
-				})
-			}
-			a.addSection(c)
-		})
+	coui.Header(c, "设备", nil)
+	coui.Body(c, "devices", func() {
+		if hosts := a.hub.Hosts(); len(hosts) > 0 {
+			coui.Group(c, "已添加", "", func(l *coui.List) {
+				for _, x := range hosts {
+					a.hostRow(l, x)
+				}
+			})
+		}
+		a.addSection(c)
 	})
 }
 
 // hostRow 是一台加好的设备，点开改它。
-func (a *App) hostRow(c *ui.Context, x sshlink.Host) {
-	t := c.Theme()
-	row := ui.Row(c.Key(x.ID)).MinHeight(48).Padding(6, 12).Gap(12).Radius(8).AlignItems(ui.Center).Focusable().Label(x.Name())
-	if row.Hovered() {
-		row.Background(t.SurfaceHover)
-	}
-	row.OnClick(func() {
-		a.device = x.ID
-		a.open(pageDevice)
-	})
-	row.Children(func() {
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			ui.Text(c, x.Name()).SingleLine()
-			ui.Text(c, sshlink.DisplayTarget(x.Target)).FontSize(12).TextColor(t.TextMuted).SingleLine()
-		})
-		ui.Text(c, "›").TextColor(t.TextMuted)
-	})
+func (a *App) hostRow(l *coui.List, x sshlink.Host) {
+	l.Row(coui.Row{Key: x.ID, Icon: coui.IconServer, IconColor: coui.Of(l.Context()).Blue, Title: x.Name(),
+		Summary: sshlink.DisplayTarget(x.Target), Arrow: true, OnClick: func() {
+			a.device = x.ID
+			a.open(pageDevice)
+		}})
 }
 
 // addSection 是添加设备：私钥、从 SSH 配置导入、手动添加。
 func (a *App) addSection(c *ui.Context) {
-	t := c.Theme()
 	busy := a.add.probing != ""
-	section(c, "添加设备", desktopFooter, func() {
-		item(c, "SSH 密钥", func() {
+	coui.Group(c, "添加设备", desktopFooter, func(l *coui.List) {
+		l.Row(coui.Row{Title: "SSH 密钥", End: func() {
 			keyChoice(c, a.add.keys, a.add.key, busy, func(key string) { a.add.key = key })
-		})
+		}})
 	})
-	section(c, "从 SSH 配置导入", "已添加的设备不再列出。", func() {
+	coui.Group(c, "从 SSH 配置导入", "已添加的设备不再列出。", func(l *coui.List) {
 		switch {
 		case !a.add.configRead:
-			paneMessage(c, "正在读取 SSH 配置…")
+			l.Message("正在读取 SSH 配置…")
 		case a.add.configErr != "":
-			paneMessage(c, "无法读取 SSH 配置："+a.add.configErr)
+			l.Message("无法读取 SSH 配置：" + a.add.configErr)
 		case len(a.add.config) == 0:
-			paneMessage(c, "SSH 配置中没有可添加的设备")
+			l.Message("SSH 配置中没有可添加的设备")
 		}
 		for _, alias := range a.add.config {
-			item(c, alias, func() {
+			l.Row(coui.Row{Key: alias, Title: alias, End: func() {
 				if a.add.probing == alias {
-					ui.Text(c, "正在连接…").TextColor(t.TextMuted)
+					ui.Text(c, "正在连接…").FontSize(coui.SizeBodyS).TextColor(coui.Of(c).Secondary)
 					return
 				}
-				ui.Button(c.Key("add-"+alias), "添加").Disabled(busy).OnClick(func() { a.addHost(alias) })
-			})
+				coui.SmallButton(c.Key("add-"+alias), "添加").Disabled(busy).OnClick(func() { a.addHost(alias) })
+			}})
 		}
 	})
 	target, valid := sshlink.TargetFor(a.add.draft)
@@ -114,14 +101,14 @@ func (a *App) addSection(c *ui.Context) {
 			a.addHost(t)
 		}
 	}
-	section(c, "手动添加", sshlink.ConfigHint, func() {
-		ui.Row(c).Padding(6, 8).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.TextInput(c.Key("draft"), &a.add.draft).Placeholder("user@host 或主机名").Label("地址").Grow(1).OnSubmit(submit)
+	coui.Group(c, "手动添加", sshlink.ConfigHint, func(l *coui.List) {
+		l.Custom(func() {
+			coui.Input(c.Key("draft"), &a.add.draft).Placeholder("user@host 或主机名").Label("地址").Grow(1).OnSubmit(submit)
 			label := "添加"
 			if busy && a.add.probing == target {
 				label = "正在连接…"
 			}
-			ui.PrimaryButton(c, label).Disabled(!valid || busy).OnClick(submit)
+			coui.SmallPrimaryButton(c, label).Disabled(!valid || busy).OnClick(submit)
 		})
 	})
 }
@@ -173,15 +160,13 @@ func keyChoice(c *ui.Context, keys []string, chosen string, disabled bool, onCha
 	if chosen != "" && !contains(keys, chosen) {
 		options = append(options, chosen)
 	}
-	labels := make([]string, len(options))
-	for i, k := range options {
-		labels[i] = keyLabel(k)
-	}
-	selected := keyLabel(chosen)
-	ui.Select(c.Key("key"), &selected, labels).Label("SSH 密钥").Disabled(disabled).OnChange(func() {
-		for i, l := range labels {
-			if l == selected && options[i] != chosen {
-				onChange(options[i])
+	coui.MenuButton(c.Key("key"), func(t ui.Element) {
+		coui.Dropdown(c, t, keyLabel(chosen))
+		t.Description("SSH 密钥").Disabled(disabled)
+	}, func(m *coui.Menu) {
+		for _, key := range options {
+			if m.Choice(keyLabel(key), key == chosen) && key != chosen {
+				onChange(key)
 			}
 		}
 	})

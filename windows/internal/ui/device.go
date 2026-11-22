@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -39,25 +40,22 @@ func (a *App) devicePage(c *ui.Context) {
 		a.open(pageDevices)
 		return
 	}
-	back := func() { a.open(pageDevices) }
-	pageTitle(c, x.Name(), back)
-	ui.Scroll(c.Key("device")).Grow(1).Children(func() {
-		ui.Column(c).Padding(0, 24, 24, 24).Gap(20).MaxWidth(640).Children(func() {
-			a.connectionSection(c, x)
-			section(c, "", a.edit.check, func() {
-				label := "检查连接"
-				if a.edit.checking {
-					label = "正在连接…"
-				}
-				item(c, "连接", func() {
-					ui.Button(c, label).Disabled(a.edit.checking || a.edit.changing).OnClick(func() { a.checkHost(x) })
-				})
-			})
-			section(c, "", "", func() {
-				item(c, "设备", func() {
-					ui.Button(c, "删除设备").TextColor(c.Theme().Danger).OnClick(func() { a.edit.removing = true })
-				})
-			})
+	coui.Header(c, x.Name(), func() { a.open(pageDevices) })
+	coui.Body(c, "device", func() {
+		a.connectionSection(c, x)
+		coui.Group(c, "", a.edit.check, func(l *coui.List) {
+			title := "检查连接"
+			if a.edit.checking {
+				title = "正在连接…"
+			}
+			row := coui.Row{Title: title}
+			if !a.edit.checking && !a.edit.changing {
+				row.OnClick = func() { a.checkHost(x) }
+			}
+			l.Row(row)
+		})
+		coui.Group(c, "", "", func(l *coui.List) {
+			l.Row(coui.Row{Title: "删除设备", Danger: true, OnClick: func() { a.edit.removing = true }})
 		})
 	})
 	a.deviceDialogs(c, x)
@@ -65,37 +63,37 @@ func (a *App) devicePage(c *ui.Context) {
 
 // connectionSection 是名称、地址、私钥、指纹、家目录、默认工作目录。
 func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
-	t := c.Theme()
+	k := coui.Of(c)
 	nameProblem := sshlink.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
-	section(c, "连接", nameProblem, func() {
-		item(c, "名称", func() {
-			ui.TextInput(c.Key("name"), &a.edit.name).Placeholder(original(x)).Label("名称").Width(240)
+	coui.Group(c, "连接", nameProblem, func(l *coui.List) {
+		l.Row(coui.Row{Title: "名称", End: func() {
+			coui.Input(c.Key("name"), &a.edit.name).Placeholder(original(x)).Label("名称").Width(220)
 			changed := strings.TrimSpace(a.edit.name) != x.CustomName
-			ui.Button(c, "保存").Disabled(!changed || nameProblem != "").OnClick(func() {
+			coui.SmallButton(c, "保存").Disabled(!changed || nameProblem != "").OnClick(func() {
 				x.CustomName = strings.TrimSpace(a.edit.name)
 				a.save(x)
 			})
-		})
-		valueItem(c, "地址", sshlink.DisplayTarget(x.Target))
-		item(c, "SSH 密钥", func() {
+		}})
+		l.Row(coui.Row{Title: "地址", Value: sshlink.DisplayTarget(x.Target)})
+		l.Row(coui.Row{Title: "SSH 密钥", End: func() {
 			if a.edit.changing {
-				ui.Text(c, "正在连接…").TextColor(t.TextMuted)
+				ui.Text(c, "正在连接…").FontSize(coui.SizeBodyS).TextColor(k.Secondary)
 			}
 			keyChoice(c, a.add.keys, x.Key, a.edit.changing || a.edit.checking, func(key string) { a.changeKey(x, key) })
-		})
+		}})
 		if fp := x.Fingerprint(); fp != "" {
-			valueItem(c, "主机指纹", fp)
+			l.Row(coui.Row{Title: "主机指纹", Summary: fp})
 		}
-		valueItem(c, "家目录", x.Home)
+		l.Row(coui.Row{Title: "家目录", Value: x.Home})
 		cwd, cwdOK := normalizeCwd(a.edit.cwd, x.Home)
-		item(c, "默认工作目录", func() {
-			ui.TextInput(c.Key("cwd"), &a.edit.cwd).Placeholder(x.Home).Label("默认工作目录").Width(240)
-			ui.Button(c.Key("save-cwd"), "保存").Disabled(!cwdOK || cwd == x.DefaultCwd).OnClick(func() {
+		l.Row(coui.Row{Title: "默认工作目录", End: func() {
+			coui.Input(c.Key("cwd"), &a.edit.cwd).Placeholder(x.Home).Label("默认工作目录").Width(220)
+			coui.SmallButton(c.Key("save-cwd"), "保存").Disabled(!cwdOK || cwd == x.DefaultCwd).OnClick(func() {
 				x.DefaultCwd = cwd
 				a.edit.cwd = cwd
 				a.save(x)
 			})
-		})
+		}})
 	})
 }
 
@@ -191,7 +189,8 @@ func refreshed(x sshlink.Host, f host.Found) sshlink.Host {
 func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 	message := "记下的：" + x.Fingerprint() + "\n现在的：" + sshlink.Fingerprint(a.edit.changedKey) +
 		"\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。"
-	if ui.AlertDialog(c, &a.edit.trusting, "主机指纹变了", message, "取消", "改认新的") == 1 {
+	if coui.Alert(c, &a.edit.trusting, "主机指纹变了", message, coui.Action{Label: "取消"},
+		coui.Action{Label: "改认新的", Style: coui.Recommend}) == 1 {
 		x.HostKey = a.edit.changedKey
 		a.save(x)
 		a.edit.check = "已改认新的主机指纹，再检查一次连接"
@@ -199,8 +198,8 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 	if !a.edit.trusting {
 		a.edit.changedKey = ""
 	}
-	if ui.AlertDialog(c, &a.edit.removing, "删除「"+x.Name()+"」？",
-		"只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动。", "取消", "删除") == 1 {
+	if coui.Alert(c, &a.edit.removing, "删除「"+x.Name()+"」？", "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动。",
+		coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
 		if err := a.hub.RemoveHost(x.ID); err != nil {
 			a.say("没存上", err.Error())
 		}

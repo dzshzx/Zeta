@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 )
@@ -180,10 +181,10 @@ func changeCounts(c *ui.Context, v *changeView) {
 	added, removed := diffColors(c.Theme())
 	ui.Row(c).Gap(5).Shrink(0).Children(func() {
 		if v.added > 0 || v.removed == 0 {
-			ui.Text(c, "+"+strconv.Itoa(v.added)).Font("monospace").FontSize(12).FontWeight(500).TextColor(added)
+			ui.Text(c, "+"+strconv.Itoa(v.added)).Font(coui.Mono).FontSize(11.5).FontWeight(coui.Medium).TextColor(added)
 		}
 		if v.removed > 0 {
-			ui.Text(c, "−"+strconv.Itoa(v.removed)).Font("monospace").FontSize(12).FontWeight(500).TextColor(removed)
+			ui.Text(c, "−"+strconv.Itoa(v.removed)).Font(coui.Mono).FontSize(11.5).FontWeight(coui.Medium).TextColor(removed)
 		}
 	})
 }
