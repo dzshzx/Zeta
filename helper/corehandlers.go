@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/claudecfg"
 	"github.com/dzshzx/Zeta/helper/core"
 )
 
@@ -30,6 +31,8 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	accounts := accountsHandler{e}
 	m.HandleAsync("accounts.", accounts)
 	m.HandleAsync("quota.", accounts)
+	// 标「慢」的几个要跑 claude、连 MCP 服务器，十几秒到一分钟
+	m.HandleAsync("config.", configHandler{claudecfg.New(e.home)})
 	return &m
 }
 
@@ -79,3 +82,13 @@ func (h accountsHandler) Request(_ *core.Client, r core.Request) (any, error) {
 
 func (accountsHandler) Gone(*core.Client) {}
 func (accountsHandler) Idle() bool        { return true }
+
+// configHandler 做 config.*：读写这台主机上 Claude Code 自己的配置（见 docs/core.md「Claude Code 配置」、config.go）。
+type configHandler struct{ store *claudecfg.Store }
+
+func (h configHandler) Request(_ *core.Client, r core.Request) (any, error) {
+	return handleConfigAt(context.Background(), h.store, r.Method, r.Raw)
+}
+
+func (configHandler) Gone(*core.Client) {}
+func (configHandler) Idle() bool        { return true }
