@@ -313,10 +313,12 @@ class Settings private constructor(private val app: Context) {
 class HostClaude internal constructor(private val settings: Settings, private val backend: String) {
     private val local = backend == Backends.LOCAL
 
-    private fun remote(item: String): String? = settings.remoteClaude["$backend/$item"]
+    /** 远程设备上设过的值；手机本机的不存在这里，总是 null。 */
+    private fun remote(item: String): String? =
+        if (local) null else settings.remoteClaude[HostKeys.key(backend, item)]
 
     private fun store(item: String, value: String) {
-        settings.remoteClaude = settings.remoteClaude + ("$backend/$item" to value)
+        settings.remoteClaude = settings.remoteClaude + (HostKeys.key(backend, item) to value)
     }
 
     var autoCompact: Boolean
@@ -333,6 +335,10 @@ class HostClaude internal constructor(private val settings: Settings, private va
         set(value) =
             if (local) settings.autoCompactPercent = value
             else store(PERCENT, value?.toString() ?: DEFAULT_POINT)
+
+    /** 起进程时交给 Claude Code 的触发点：关着自动压缩时不带。 */
+    val compactPoint: Int?
+        get() = autoCompactPercent.takeIf { autoCompact }
 
     var autoTitle: Boolean
         get() = remote(TITLE)?.toBooleanStrictOrNull() ?: settings.autoTitle

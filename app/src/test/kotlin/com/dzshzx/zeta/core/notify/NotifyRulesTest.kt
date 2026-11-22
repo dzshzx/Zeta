@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.notify
 
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.TaskRun
 import java.time.Instant
@@ -230,7 +231,7 @@ class NotifyRulesTest {
     @Test
     fun newRulesDefaultToAModeThatAsks() {
         val draft = RuleDraft("快递", "com.example.express", "快递助手", "", null, "看看 {text}")
-        val r = NotifyRules.toRule(draft, now = 1)
+        val r = NotifyRules.toRule(draft, now = 1, backend = Backends.LOCAL)
         assertEquals("default", r.permissionMode)
         assertTrue(r.permissionMode in NotifyRules.SAFE_MODES)
         assertEquals(5, r.cooldownMinutes)

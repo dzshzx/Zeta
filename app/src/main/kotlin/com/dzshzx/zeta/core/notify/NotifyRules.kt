@@ -315,8 +315,8 @@ object NotifyRules {
     fun toRule(
         draft: RuleDraft,
         now: Long,
+        backend: String,
         id: String = newId(),
-        backend: String = Backends.LOCAL,
     ) =
         applyDraft(
             NotifyRule(

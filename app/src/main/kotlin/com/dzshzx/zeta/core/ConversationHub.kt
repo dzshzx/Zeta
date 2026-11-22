@@ -497,6 +497,8 @@ class ConversationHub(
                         PhoneTools(
                             app,
                             settings,
+                            // Zeta 之外的客户端都在手机本机上
+                            Backends.LOCAL,
                             beforeCreate = ::makeRoom,
                             isBusy = { busy() },
                             onChanged = ::onActivityChanged,
@@ -696,11 +698,10 @@ class ConversationHub(
         accountServices.keys.retainAll(ids)
         defaultsByBackend.keys.retainAll(ids)
         settings.commands = settings.commands.filterKeys { it in ids }
-        settings.remoteClaude = settings.remoteClaude.filterKeys { it.substringBefore('/') in ids }
-        if (ScheduleStore.load(app).any { it.backend !in ids })
-            ScheduleStore.update(app) { list -> list.filter { it.backend in ids } }
-        if (NotifyRuleStore.load(app).any { it.backend !in ids })
-            NotifyRuleStore.update(app) { list -> list.filter { it.backend in ids } }
+        settings.remoteClaude = settings.remoteClaude.filterKeys { HostKeys.hostOf(it) in ids }
+        settings.contextWindows = settings.contextWindows.filterKeys { HostKeys.hostOf(it) in ids }
+        ScheduleStore.update(app) { list -> list.filter { it.backend in ids } }
+        NotifyRuleStore.update(app) { list -> list.filter { it.backend in ids } }
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
     }
@@ -963,13 +964,14 @@ class ConversationHub(
         prunePhones()
     }
 
-    /** 会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */
-    internal fun phoneFor(key: String): PhoneTools =
+    /** 主机 [backend] 上的会话 [key]（sessionId，新对话用它的 key）的手机工具：登记过就接着用原来那份。在主线程上调用。 */
+    internal fun phoneFor(key: String, backend: String): PhoneTools =
         synchronized(phones) {
             phones.getOrPut(key) {
                 PhoneTools(
                     app,
                     settings,
+                    backend,
                     beforeCreate = ::makeRoom,
                     onScreenGone = ::prunePhones,
                     isBusy = ::phoneBusy,

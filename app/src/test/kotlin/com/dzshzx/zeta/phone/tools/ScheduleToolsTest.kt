@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.ScheduleRule
@@ -95,7 +96,7 @@ class ScheduleToolsTest {
     @Test
     fun callCarriesTheUnattendedRun() {
         val run = UnattendedRun(onlyOnChange = true)
-        val inRun = CallContext(app, run)
+        val inRun = CallContext(app, Backends.LOCAL, run)
         val create = """{"name":"x","prompt":"y","repeat":"daily","time":"08:00"}"""
         assertTrue(failed(ScheduleTools.call(inRun, "create_scheduled_task", args(create))))
         assertTrue(failed(ScheduleTools.call(inRun, "list_scheduled_tasks", args("{}"))))
@@ -111,7 +112,7 @@ class ScheduleToolsTest {
         )
         assertEquals(RunReport(changed = true, summary = "到货了"), run.report)
         // 平常的对话照常
-        val plain = CallContext(app)
+        val plain = CallContext(app, Backends.LOCAL)
         assertEquals("还没有定时任务", text(ScheduleTools.call(plain, "list_scheduled_tasks", args("{}"))))
         assertTrue(
             "不用上报" in
@@ -239,7 +240,7 @@ class ScheduleToolsTest {
     fun toolsReadAndWriteTheStore() {
         val created =
             ScheduleTools.call(
-                CallContext(app),
+                CallContext(app, Backends.LOCAL),
                 "create_scheduled_task",
                 args(
                     """{"name":"价格监控","prompt":"看看降价没有","repeat":"interval","every_hours":3,"only_on_change":true}""",
@@ -250,7 +251,7 @@ class ScheduleToolsTest {
         assertTrue(task.onlyOnChange)
         val updated =
             ScheduleTools.call(
-                CallContext(app),
+                CallContext(app, Backends.LOCAL),
                 "update_scheduled_task",
                 args("""{"id":"${task.id}","every_hours":6,"only_on_change":false}"""),
             )
@@ -263,7 +264,7 @@ class ScheduleToolsTest {
             "没有要改的" in
                 text(
                     ScheduleTools.call(
-                        CallContext(app),
+                        CallContext(app, Backends.LOCAL),
                         "update_scheduled_task",
                         args("""{"id":"${task.id}"}"""),
                     ),
@@ -272,7 +273,7 @@ class ScheduleToolsTest {
         assertTrue(
             failed(
                 ScheduleTools.call(
-                    CallContext(app),
+                    CallContext(app, Backends.LOCAL),
                     "update_scheduled_task",
                     args("""{"id":"nope","name":"x"}"""),
                 ),
@@ -281,7 +282,7 @@ class ScheduleToolsTest {
         assertTrue(
             failed(
                 ScheduleTools.call(
-                    CallContext(app),
+                    CallContext(app, Backends.LOCAL),
                     "run_scheduled_task",
                     args("""{"id":"nope"}"""),
                 ),
@@ -289,7 +290,13 @@ class ScheduleToolsTest {
         )
         assertTrue(
             "只在有变化时提醒" !in
-                text(ScheduleTools.call(CallContext(app), "list_scheduled_tasks", args("{}"))),
+                text(
+                    ScheduleTools.call(
+                        CallContext(app, Backends.LOCAL),
+                        "list_scheduled_tasks",
+                        args("{}"),
+                    ),
+                ),
         )
     }
 }

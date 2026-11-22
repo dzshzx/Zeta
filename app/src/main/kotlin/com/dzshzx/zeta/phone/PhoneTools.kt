@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.bool
@@ -76,6 +77,8 @@ import kotlinx.serialization.json.putJsonObject
 class PhoneTools(
     private val context: Context,
     private val settings: Settings,
+    /** 用这份手机工具的对话在哪台主机上（[Backends]）；随每次调用交给工具组。 */
+    private val backend: String,
     /** 要新建后台屏幕之前调用（工具线程上，持着本对象的屏幕锁）：全应用的后台屏幕有上限，满了由登记处先腾出一块。 */
     beforeCreate: (PhoneTools) -> Unit = {},
     /** 后台屏幕没了（在主线程上调用）：登记处据此丢掉没有屏、也没有对话在用的那些。 */
@@ -87,9 +90,6 @@ class PhoneTools(
 ) {
     /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile var unattended: UnattendedRun? = null
-
-    /** 用这份手机工具的对话在哪台主机上（[com.dzshzx.zeta.core.Backends]），对话建好时定；随每次调用交给工具组。 */
-    @Volatile var backend: String = com.dzshzx.zeta.core.Backends.LOCAL
 
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
@@ -507,7 +507,7 @@ class PhoneTools(
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject =
         PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
-            group.call(CallContext(context, unattended, backend), name, a)
+            group.call(CallContext(context, backend, unattended), name, a)
         } ?: synchronized(lock) { callScreenTool(name, a, toolUseId) }
 
     /** 屏幕这一套工具的一次调用。只在持着 [lock] 时调用。 */

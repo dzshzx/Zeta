@@ -28,7 +28,7 @@ class SessionRekeyTest {
     ) {
         assertSame("后台对话", chat, hub.findConversation(id))
         assertNull("旧号下不再登记", hub.findConversation(old))
-        assertSame("手机工具", chat.phone, hub.phoneFor(id))
+        assertSame("手机工具", chat.phone, hub.phoneFor(id, chat.backend))
         assertSame("输入栏草稿", draft, hub.drafts.of(chat))
     }
 
@@ -41,7 +41,7 @@ class SessionRekeyTest {
         chat.send("先问一句")
         // 发出了、会话号还没来：草稿按对话的 key 放着
         val draft = hub.drafts.of(chat)
-        assertSame(chat.phone, hub.phoneFor(chat.key))
+        assertSame(chat.phone, hub.phoneFor(chat.key, chat.backend))
 
         chat.receive(
             """{"type":"system","subtype":"init","session_id":"s-first","model":"claude-opus-5-5"}""",

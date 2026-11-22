@@ -189,7 +189,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
         hub.quota(backend).forget()
         hub.quota(backend).refresh(force = true)
         refresh { listed ->
-            // 设置首页顶部的账号状态是手机本机的
+            // 环境那份账号状态（聊天页的登录提示、手机设备页的账号入口读它）是手机本机的
             if (backend != Backends.LOCAL) return@refresh
             val current =
                 listed?.current?.takeIf {

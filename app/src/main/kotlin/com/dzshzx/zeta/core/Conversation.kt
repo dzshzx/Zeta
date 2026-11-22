@@ -311,7 +311,7 @@ class Conversation(
      * 这个会话的手机工具（各有各的后台屏幕）。向 hub 要：重新打开的会话接着用原来那份，进程结束过屏幕也还在。 后台屏幕要知道对话忙不忙时由 hub 按
      * [busy]、[backgroundTasks] 查（[ConversationHub.phoneFor]）。
      */
-    val phone = hub.phoneFor(openKey).also { it.backend = backend }
+    val phone = hub.phoneFor(openKey, backend)
 
     /** 顶部状态胶囊看到的这个对话。 */
     internal val overlay = ConversationFocus(hub, this)
@@ -366,10 +366,7 @@ class Conversation(
         // 接上的进程是以前起的，不知道当时给的百分比，按现在的设置算（设置在那之后改过才会对不上）
         meter.processStarted(
             fresh = false,
-            compactPercent =
-                hub.settings.claude(backend).let { c ->
-                    c.autoCompactPercent.takeIf { c.autoCompact }
-                },
+            compactPercent = hub.settings.claude(backend).compactPoint,
         )
         queryUsage(created)
         host.pending.forEach { handle(it, System.currentTimeMillis()) }
@@ -1218,8 +1215,7 @@ class Conversation(
             return null
         }
         val arguments = launchArguments(mode)
-        val autoCompact = hub.settings.claude(backend).autoCompact
-        val compactPercent = hub.settings.claude(backend).autoCompactPercent
+        val claude = hub.settings.claude(backend)
         lateinit var created: ClaudeProcess
         created =
             try {
@@ -1232,7 +1228,8 @@ class Conversation(
                             cwd,
                             title,
                             arguments,
-                            AutoCompact.env(autoCompact, compactPercent) + CodeRewind.ENV,
+                            AutoCompact.env(claude.autoCompact, claude.autoCompactPercent) +
+                                CodeRewind.ENV,
                         ),
                     onEvent = { event -> enqueue(created, event) },
                     onExit = { exit -> main.post { onProcessExit(created, exit) } },
@@ -1249,7 +1246,7 @@ class Conversation(
         initialize(created)
         meter.processStarted(
             fresh = sessionId == null,
-            compactPercent = compactPercent.takeIf { autoCompact },
+            compactPercent = claude.compactPoint,
         )
         queryUsage(created)
         hub.onActivityChanged()

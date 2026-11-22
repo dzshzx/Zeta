@@ -57,7 +57,7 @@ private fun entryAccount(hub: ConversationHub, backend: String, ready: Boolean):
     return service.state?.let { EntryAccount(it.loggedIn, it.current?.email?.ifBlank { null }) }
 }
 
-/** 设置首页（手机本机的）和各台设备页上的入口：那台上当前的账号，和最要紧的一个额度窗口。 */
+/** 各台设备页上的入口：那台上当前的账号，和最要紧的一个额度窗口。 */
 @Composable
 internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
     val ready =

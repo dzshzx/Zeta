@@ -355,6 +355,9 @@ internal object HostKeys {
     fun nameOn(key: String, backend: String): String? =
         if (backend == Backends.LOCAL) key.takeIf { '/' !in it }
         else key.removePrefix("$backend/").takeIf { it.length < key.length }
+
+    /** 键 [key] 是哪台主机的。 */
+    fun hostOf(key: String): String = key.substringBefore('/', Backends.LOCAL)
 }
 
 private val summaryJson = Json {

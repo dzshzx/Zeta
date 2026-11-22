@@ -218,8 +218,8 @@ object Schedules {
     fun toTask(
         draft: TaskDraft,
         now: Long,
+        backend: String,
         id: String = newId(),
-        backend: String = Backends.LOCAL,
     ) =
         applyDraft(
             ScheduledTask(

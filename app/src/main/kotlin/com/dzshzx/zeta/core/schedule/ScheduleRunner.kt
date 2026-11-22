@@ -160,7 +160,7 @@ internal object ScheduleRunner {
             val found = hub.sessionList.find(listOf(session), backend)
             main.post {
                 starting.remove(key)
-                launchResumed(app, hub, records, spec, manual, now, found, defaultCwd)
+                launchResumed(app, hub, records, spec, manual, now, found)
             }
         }
         return null
@@ -175,7 +175,6 @@ internal object ScheduleRunner {
         manual: Boolean,
         now: Long,
         found: List<SessionSummary>?,
-        defaultCwd: String,
     ) {
         val named = spec.copy(name = records.name(app, spec.id) ?: return)
         // 没查成不等于被删了：这次不跑，下次再查，不另开对话
@@ -188,7 +187,7 @@ internal object ScheduleRunner {
             if (summary != null) {
                 Conversation(
                     hub,
-                    summary.cwd.ifBlank { spec.cwd ?: defaultCwd },
+                    summary.cwd.ifBlank { spec.cwd ?: hub.defaultCwd(spec.backend) },
                     summary.id,
                     named.name,
                     summary.file,
@@ -198,7 +197,7 @@ internal object ScheduleRunner {
                 // 原来的会话找不到了（被删了）：另开一个，以后接着新的这个
                 Conversation(
                     hub,
-                    spec.cwd ?: defaultCwd,
+                    spec.cwd ?: hub.defaultCwd(spec.backend),
                     sessionId = null,
                     title = named.name,
                     historyFile = null,
