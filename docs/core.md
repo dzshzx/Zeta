@@ -52,11 +52,11 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
 | `conv.mcp_reply` | `request_id`、`response` | 手机工具的应答（见 `conv.mcp`） |
 | `conv.earlier` | `rest` | 载入更早的一页接到最前面（`rest` 为真时载完剩下的全部，对话内查找用）。新的一页经 `conv.items` 推成一次替换（`at` 0、`remove` 0），不推整份，客户端据此保住正看着的位置；读完才回应答。同一时间只读一页，正在读时答出错。会话记录在别处被改过（比如终端里剪到了更早的地方）时答出错「会话记录在别处改过，重新打开这个对话再看更早的内容」，重试没用 |
-| `conv.rewrite` | `target`、`text`、`images`、`files` | 编辑或重新生成：`target` 是那条用户消息的条目 `id`。请 Claude Code 剪掉它和之后的内容（`rewind_conversation`，会话号不变），剪成了再发新消息；没剪成时列表恢复原样、新消息放回 `recalled`，列表里加一条出错提示 |
+| `conv.rewrite` | `target`、`text`、`images`、`files` | 编辑或重新生成：`target` 是那条用户消息的条目 `id`。请 Claude Code 剪掉它和之后的内容（`rewind_conversation`，会话号不变），剪成了再发新消息；没剪成时列表恢复原样、新消息放回 `recalled`，列表里加一条出错提示，这一轮以 `failed` 结束。`can_rewind` 为假、找不到这一项时答出错；剪的期间 `conv.send` 也答出错，客户端把字留在输入框里 |
 | `conv.drop` | `target` | 删掉这一轮和之后的（只剪不发），没剪成时恢复并提示原因 |
 | `conv.code_changes` | `target` | 把文件改回这条消息之前会动到哪些（`rewind_files` 的 dry_run，只看不改），`result` 是 `{files, insertions, deletions}`，没有可还原的为 `null` |
 | `conv.restore_code` | `target`、`drop` | 把文件改回这条消息之前（终端 `/rewind` 的 Restore code）；`drop` 为真时还原成了再删这一轮。结果以列表里的提示告知 |
-| `conv.fork` | `as`、`last` | 从条目 `last` 所在那一轮之后分支：新对话由这个客户端以名字 `as` 拿着（同 `conv.open`，推整份），原对话不动。新对话先显示到那一轮为止的内容，标题是「分支 · 原标题」（重名时编号），发出第一条消息时 Claude Code 才从原会话复制出新会话（`--fork-session`）；从中间分支时先剪掉下一轮 |
+| `conv.fork` | `as`、`last`、`options` | 从条目 `last` 所在那一轮之后分支：新对话由这个客户端以名字 `as` 拿着（同 `conv.open`，推整份；不带 `options` 时沿用这个客户端给原对话的），原对话不动。原对话还没有会话号、或下一轮剪不准时答出错。新对话先显示到那一轮为止的内容，标题是「分支 · 原标题」（重名时编号），发出第一条消息时 Claude Code 才从原会话复制出新会话（`--fork-session`）；从中间分支时先剪掉下一轮 |
 | `conv.quota` | | 借这个对话开着的进程问一次订阅额度（`get_usage`），`result` 是应答里的 `response` 原样（交给 `quota.usage`，见「账号与额度」）；没有进程时出错 |
 | `conv.subagent` | `tool_use_id`、`watch` | 子代理查看页：`watch` 为真时开始给这个客户端推这个子代理（`tool_use_id` 是发起它的 Agent 调用）的 `conv.subagent`，为假时停；放开对话、断开时也停。有人看着时核心增量读它的记录 |
 | `conv.activity` | `watch` | 不带 `conv`。订阅（`watch` 为真）或退订这个核心里各会话的忙闲，见推送 `conv.activity` |
@@ -75,7 +75,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。
 - `conv.reply`：新的一条回复开始了（`message_id`，子代理的也算），只发给 `options.phone` 为真的客户端：手机工具的控件编号从这时起换成上一批结果里的那份。
 - `conv.phone_cancel`：这一轮被停了，只发给 `options.phone` 为真的客户端，那边把暂停、接管着的手机操作一并作废。
-- `conv.subagent`：看着的那个子代理（`tool_use_id`）的记录，只发给用 `conv.subagent` 看着它的客户端。条目和 `conv.items` 同格式、同增量规则（第一次 `full`）；另有 `meta`（`{agent_id, agent_type, description, model, finished, stopped, background}`）、`prompt`（交给它的任务）、`tool_uses`、`running`、`loaded`、`missing`（记录文件还没有）、`failure`（读失败的原因）、`file`、`skipped`（只留最近一段，前面略去了几条）。
+- `conv.subagent`：看着的那个子代理（`tool_use_id`）的记录，只发给用 `conv.subagent` 看着它的客户端。条目和 `conv.items` 同格式、同增量规则（第一次 `full`）；另有 `meta`（`{agent_id, agent_type, description, model, finished, stopped, background}`，还没读到时为 `null`）、`outcome`（`completed`、`failed`、`stopped`，还没结束时省掉）、`prompt`（交给它的任务）、`tool_uses`、`running`、`loaded`、`missing`（记录文件还没有）、`failure`（读失败的原因）、`file`、`skipped`（只留最近一段，前面略去了几条）。条目以外的字段每次都是整份；只有那些字段变了时条目部分是空的替换（`at` 0、`remove` 0、`items` 空）。对同一个子代理再发一次 `watch` 为真时从整份重新推。
 - `conv.activity`（不带 `conv`，只发给订阅了的客户端）：`{sessions: {会话号: {activity, tasks, turn_end}}}`，每次变了推整份，订阅时先给一份。`activity` 是 `waiting`（等用户回应）、`answering`（在回答）、`background`（这一轮答完了，后台任务还在跑）、`idle`（进程开着、没在干活），进程没了时省掉；`tasks` 是还在跑的后台任务数；`turn_end` 是最后一轮结束的时刻（Unix 毫秒），客户端拿它算「不在眼前时答完了一轮、还没看」。只报这个核心里的对话：现在核心还按 helper 版本分，别的版本的核心接着的由那边报（「一个服务端」做完后就是全部）。
 
 ## 账号与额度
@@ -105,6 +105,6 @@ serve 自己答 `accounts.` 和 `quota.` 开头的方法（不经核心，逻辑
 ## 进度
 
 1. 会话列表（已做）：`sessions.watch` 订阅，先整份、再只推变了的（`helper/watch.go`）。客户端是 `core/HelperServe`，`SessionList` 在界面前台时订阅侧栏列着的各台主机，退到后台断开；答完一轮、改名、删除、终端里开的会话都不用另外重读。设备回归 `tools/phone-tests/session-list-live.sh`。
-2. 对话：输出流归约（`TranscriptReducer`）、确认与提问（`Prompts`）、控制请求、子代理与后台任务搬进 serve。第一批已做：常驻核心与 serve 转发、输出流归约（`helper/transcript`，和 Kotlin 版由对照用例钉成一样）、确认与提问（`helper/prompt`）、后台任务（`helper/tasks`）、用量（`helper/usage`）、托管连接（`helper/host`）和对话状态机（`helper/conv`），上一节的方法都能用；`helper/conv_e2e_test.go` 从 serve 经核心、`zeta_host.sh` 到假 Claude 走通一轮。第二批：更早历史分页、改写与撤回、子代理查看、额度、打开时接上还在跑的托管进程、会话列表的进行中与等待标记。之后 Android 改用这套协议，删掉 Kotlin 里的对应逻辑。
+2. 对话：输出流归约（`TranscriptReducer`）、确认与提问（`Prompts`）、控制请求、子代理与后台任务搬进 serve。第一批已做：常驻核心与 serve 转发、输出流归约（`helper/transcript`，和 Kotlin 版由对照用例钉成一样）、确认与提问（`helper/prompt`）、后台任务（`helper/tasks`）、用量（`helper/usage`）、托管连接（`helper/host`）和对话状态机（`helper/conv`），上一节的方法都能用；`helper/conv_e2e_test.go` 从 serve 经核心、`zeta_host.sh` 到假 Claude 走通一轮。第二批已做：更早历史分页、编辑与重新生成、删除一轮、还原代码、分支、子代理查看、额度、核心起来时接回还在干活的托管进程、各会话的忙闲订阅、远程主机的 tmux 窗口，核心按方法前缀分发（`core.Mux`）。还剩：按「目标」做成一个服务端（每个包一个核心、新版本接手、serve 只转发，`sessions.watch` 搬进核心）；Android 改用这套协议，删掉 Kotlin 里的对应逻辑。
 3. Windows 客户端：用 mygo 写的全功能桌面版（`windows/`，设计和分段见 `docs/desktop.md`），对话直接用第 2 步的 serve 协议；功能对齐后替掉 `desktop/` 和它打包的 JRE，接进发版流程。
 4. Android：手机本机的连法搬完、Claude Code 配置和账号额度改用核心的方法（随核心一起做，不另搬）以后，删掉 `shared/` 里的逻辑，`shared/` 撤掉，界面搬回 `app/`；KMP 配置、JSch、BouncyCastle 一并去掉。
