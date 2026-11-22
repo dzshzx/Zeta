@@ -83,7 +83,7 @@ func main() {
 	}
 	if len(os.Args) == 2 && os.Args[1] == "core" {
 		e := newEnv()
-		os.Exit(runCore(e, newConversations(e), coreIdle))
+		os.Exit(runCore(e, coreHandler, coreIdle))
 	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -91,8 +91,16 @@ func main() {
 // coreIdle：核心没有连接、处理器也闲着这么久就退出。
 const coreIdle = 60 * time.Second
 
+// coreHandler 是核心上挂的处理器：按方法前缀分给各处。只在这个进程拿到核心的锁以后才建（建的时候会接回托管进程）。
+func coreHandler(e *env) core.Handler {
+	var m core.Mux
+	m.Handle("conv.", newConversations(e))
+	return &m
+}
+
 // runCore 跑核心进程，直到闲满 idle 或收到 SIGTERM，返回退出码。标准错误是拉起它的 serve 给的日志文件。
-func runCore(e *env, h core.Handler, idle time.Duration) int {
+// newHandler 在拿到锁、开始听以后才调：已有核心在跑时这个进程什么也不碰就退出。
+func runCore(e *env, newHandler func(*env) core.Handler, idle time.Duration) int {
 	log.SetPrefix(fmt.Sprintf("core[%d] ", os.Getpid()))
 	exe, err := os.Executable()
 	if err != nil {
@@ -115,7 +123,7 @@ func runCore(e *env, h core.Handler, idle time.Duration) int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	log.Print("listening on ", p.Socket)
-	if err := s.Serve(ctx, h, idle); err != nil {
+	if err := s.Serve(ctx, newHandler(e), idle); err != nil {
 		log.Print(err)
 		return 1
 	}
