@@ -148,7 +148,7 @@ func TestEditBringsBackImages(t *testing.T) {
 	f := openedForActions(t)
 	shot := testImagePNG(t)
 	f.devices.ImageData = shot
-	f.link().Push(`{"type":"conv.items","conv":"w1","full":true,"items":[{"kind":"user","id":"u-1","uuid":"x1","text":"看这张图",
+	f.link().Push(`{"type":"conv.items","conv":"w1","full":true,"items":[{"kind":"user","id":"u-1","uuid":"x1","rewindable":true,"text":"看这张图",
 		"images":[{"kind":"session","file":"/s.jsonl","ref":"3.0"}]},{"kind":"answer","id":"a1","text":"是一张渐变图"}]}`)
 	f.tt.Frame()
 	_ = f.tt.RightClick("看这张图")
@@ -167,7 +167,7 @@ func TestEditBringsBackImages(t *testing.T) {
 	}
 }
 
-// 重新生成：先问会改到的文件，勾着「同时还原代码」时经 conv.restore_code 带上原消息，否则 conv.rewrite。
+// 重新生成：先问会改到的文件，勾着「同时还原代码」时经 conv.restore_code，否则 conv.rewrite；都只带 resend，原消息由核心取。
 func TestRegenerate(t *testing.T) {
 	f := openedForActions(t)
 	f.answers["conv.code_changes"] = `{"files":["/home/zeta/a.go"],"insertions":3,"deletions":1}`
@@ -177,7 +177,7 @@ func TestRegenerate(t *testing.T) {
 		t.Fatalf("问改动：%v", got)
 	}
 	f.clickButton(t, "重新生成", 0) // 对话框里的：开着对话框时后面的都不算
-	if got := f.sent("conv.restore_code"); len(got) != 1 || got[0] != `{"conv":"w1","target":"u-1","text":"你好，介绍一下自己"}` {
+	if got := f.sent("conv.restore_code"); len(got) != 1 || got[0] != `{"conv":"w1","resend":true,"target":"u-1"}` {
 		t.Fatalf("重新生成：%v", got)
 	}
 	f.notSee(t, "重新生成回复？")
@@ -186,7 +186,7 @@ func TestRegenerate(t *testing.T) {
 	f.clickButton(t, "重新生成", 1)
 	f.click(t, "同时还原代码")
 	f.clickButton(t, "重新生成", 0)
-	if got := f.sent("conv.rewrite"); len(got) != 1 || got[0] != `{"conv":"w1","target":"u-2","text":"看看有什么文件"}` {
+	if got := f.sent("conv.rewrite"); len(got) != 1 || got[0] != `{"conv":"w1","resend":true,"target":"u-2"}` {
 		t.Fatalf("重新生成：%v", got)
 	}
 }
@@ -260,9 +260,10 @@ func TestForkFromAnAnswer(t *testing.T) {
 		}
 		return nil, nil
 	})
+	first := f.app.pane.list.Items()[0] // 第一轮的提问：分支挂在核心给的 round_last 下面
 	f.clickButton(t, "分支", 0)
 	got := l.Took()
-	if len(got) != 2 || got[0].Method != "conv.fork" || got[0].JSON() != `{"as":"w2","conv":"w1","last":"msg_fake_104149c223c84749adf81d5a:1"}` ||
+	if first.RoundLast == "" || len(got) != 2 || got[0].Method != "conv.fork" || got[0].JSON() != `{"as":"w2","conv":"w1","last":"`+first.RoundLast+`"}` ||
 		got[1].Method != "conv.close" {
 		t.Fatalf("分支：%v", got)
 	}

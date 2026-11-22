@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,7 +18,6 @@ const (
 	keyPaneAll      = "paneAll"        // 侧栏列全部设备的会话
 	keyPins         = "pinnedSessions" // 置顶的会话（PinKey）
 	keyRemoteClaude = "remoteClaude"   // 各台设备的自动压缩、自动标题（「设备编号/项=值」）
-	keyCommands     = "commands"       // 各台设备报过的斜杠命令（JSON 对象，键是设备编号）
 )
 
 // Local 是手机本机那台的编号；桌面版没有这一台，存着它时当作没选。
@@ -56,7 +54,7 @@ func (s *Settings) Hosts() []sshlink.Host {
 	return sshlink.DecodeHosts(text)
 }
 
-// SetHosts 存设备清单；删掉的设备在别的设置里的项（自动压缩、斜杠命令）一起去掉，同 Kotlin 版。
+// SetHosts 存设备清单；删掉的设备在别的设置里的项（自动压缩）一起去掉，同 Kotlin 版。
 func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 	if err := s.store.SetString(keyHosts, sshlink.EncodeHosts(hosts)); err != nil {
 		return err
@@ -84,26 +82,7 @@ func (s *Settings) forgetHosts(kept map[string]bool) error {
 			}
 		}
 	}
-	text, ok := s.store.String(keyCommands)
-	var commands map[string]json.RawMessage
-	if !ok || json.Unmarshal([]byte(text), &commands) != nil {
-		return nil
-	}
-	changed := false
-	for id := range commands {
-		if !kept[id] {
-			delete(commands, id)
-			changed = true
-		}
-	}
-	if !changed {
-		return nil
-	}
-	data, err := marshal(commands)
-	if err != nil {
-		return err
-	}
-	return s.store.SetString(keyCommands, string(data))
+	return nil
 }
 
 // Backend 是侧栏正看着的设备编号；没存过是 Local。

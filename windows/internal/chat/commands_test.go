@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"encoding/json"
 	"testing"
 )
 
@@ -18,7 +17,9 @@ func TestSlashQuery(t *testing.T) {
 }
 
 func TestSuggestOrdersPrefixFirst(t *testing.T) {
-	list := ParseCommands(json.RawMessage(`[{"name":"review"},{"name":"compact","description":"压缩"},{"name":""},{"name":"__x"},{"name":"Code"}]`))
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1","commands":[{"name":"review"},{"name":"compact","description":"压缩"},{"name":""},{"name":"Code"}]}`))
+	list := conv.Take().State.Commands
 	if len(list) != 4 || list[1].Description != "压缩" {
 		t.Fatalf("解出 %+v", list)
 	}
@@ -32,7 +33,7 @@ func TestSuggestOrdersPrefixFirst(t *testing.T) {
 	if got := Suggest(list, "e"); len(got) != 2 || got[0].Name != "review" || got[1].Name != "Code" {
 		t.Fatalf("含 e：%+v", got)
 	}
-	if ParseCommands(json.RawMessage(`null`)) != nil || ParseCommands(json.RawMessage(`{}`)) != nil {
-		t.Error("不是数组时应为空")
+	if got := Suggest(list, ""); len(got) != 3 {
+		t.Fatalf("没有名字的不列：%+v", got)
 	}
 }

@@ -53,9 +53,10 @@ type Chat struct {
 	Earlier Earlier
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
 	Top float32
-	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项下面的操作排、正在编辑的那条。
+	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项（用户消息的 RoundLast）下面的操作排、
+	// 正在编辑的那条。Actions 拿到这一轮的用户消息，last 是它是最后一轮。
 	UserMenu func(m *ui.Menu, it items.Item)
-	Actions  func(c *ui.Context, id string)
+	Actions  func(c *ui.Context, user items.Item, last bool)
 	Editing  string
 
 	items []items.Item
@@ -188,7 +189,7 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 			if row == 0 && ch.Earlier.shown() {
 				ch.earlierRow(c)
 			}
-			ch.item(c, ch.items[row])
+			ch.item(c, row)
 		})
 	})
 	list.Children(func() {
@@ -260,19 +261,20 @@ func (ch *Chat) earlierRow(c *ui.Context) {
 	}
 }
 
-// item 画一个条目；不认识的种类不画。
-func (ch *Chat) item(c *ui.Context, it items.Item) {
+// item 画第 row 个条目；不认识的种类不画。
+func (ch *Chat) item(c *ui.Context, row int) {
+	it := ch.items[row]
 	switch it.Kind {
 	case items.User:
 		ch.userMessage(c, it)
 	case items.Answer:
-		ch.answerBlock(c, it)
+		ch.answerBlock(c, it, row)
 	case items.Notice:
 		noticeRow(c, it)
-		ch.actionRow(c, it.ID)
+		ch.actionRow(c, row)
 	case items.Work:
 		ch.workGroup(c, it)
-		ch.actionRow(c, it.ID)
+		ch.actionRow(c, row)
 	}
 }
 

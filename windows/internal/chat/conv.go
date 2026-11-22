@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -31,6 +32,8 @@ type Conversation struct {
 	pending Update
 	// subagents 是看着的子代理（subagent.go），按发起它的 Agent 调用。
 	subagents map[string]*Subagent
+	// outputs 是看着的后台命令的输出（taskoutput.go），按任务；还没推来时为 nil。
+	outputs map[string]*tasks.Output
 }
 
 // Update 是上次 Take 以后的变化，界面在主线程上照着改自己的样子。
@@ -150,6 +153,8 @@ func (c *Conversation) apply(kind string, line []byte) bool {
 		return c.applyItems(line)
 	case "conv.subagent":
 		return c.applySubagent(line)
+	case "conv.task_output":
+		return c.applyTaskOutput(line)
 	case "conv.turn":
 		var t Turn
 		if json.Unmarshal(line, &t) != nil {

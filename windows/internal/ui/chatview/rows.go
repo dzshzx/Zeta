@@ -67,8 +67,8 @@ func fileChip(c *ui.Context, entry string) {
 	})
 }
 
-// answerBlock 画一段回答：还在送来时逐字显现，送完、显现完以后下面有复制键。
-func (ch *Chat) answerBlock(c *ui.Context, it items.Item) {
+// answerBlock 画一段回答（第 row 个条目）：还在送来时逐字显现，送完、显现完以后下面有复制键。
+func (ch *Chat) answerBlock(c *ui.Context, it items.Item, row int) {
 	ui.Column(c).FillWidth().Padding(4, 0, 6, 0).Children(func() {
 		if it.Streaming && strings.TrimSpace(it.Text) == "" {
 			typingDots(c)
@@ -84,7 +84,7 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item) {
 		if !it.Streaming && strings.TrimSpace(it.Text) != "" && markdown.Revealed(md) {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				copyButton(c, it.Text)
-				ch.actions(c, it.ID)
+				ch.actions(c, row)
 			})
 		}
 	})

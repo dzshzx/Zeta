@@ -7,10 +7,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// slashCommands 是测试里 Claude Code 报的几个命令。
+// slashCommands 是测试里核心报的几个命令（还没起进程时是它记着的那份）。
 const slashCommands = `"commands":[{"name":"compact","description":"压缩上下文","argumentHint":"<说明>"},` +
-	`{"name":"clear","description":"清空对话","argumentHint":""},{"name":"review","description":"审查改动","argumentHint":""},` +
-	`{"name":"__internal","description":"","argumentHint":""}]`
+	`{"name":"clear","description":"清空对话","argumentHint":""},{"name":"review","description":"审查改动","argumentHint":""}]`
 
 func TestSlashCommandsFilterAndInsert(t *testing.T) {
 	f := newChatFixture(t)
@@ -19,9 +18,8 @@ func TestSlashCommandsFilterAndInsert(t *testing.T) {
 	f.click(t, "消息")
 	f.tt.Type("/")
 	f.see(t, "/compact", "/clear", "/review", "压缩上下文", "<说明>")
-	f.notSee(t, "/__internal")
-	if got := f.link().Methods(); len(got) != 1 || got[0] != "conv.prepare" {
-		t.Fatalf("打 / 时先起好进程：%v", got)
+	if got := f.link().Methods(); len(got) != 0 {
+		t.Fatalf("打 / 时不用另外请求：%v", got)
 	}
 	// 以 c 开头的排前面，名字里含 c 的跟在后面
 	f.tt.Type("c")
@@ -54,18 +52,4 @@ func TestSlashCommandsFilterAndInsert(t *testing.T) {
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
 	f.notSee(t, "/review")
-}
-
-func TestSlashCommandsRememberedPerDevice(t *testing.T) {
-	f := newChatFixture(t)
-	f.newChat(t)
-	f.push(slashCommands)
-	f.click(t, "消息")
-	f.tt.Type("/co")
-	f.see(t, "/compact")
-	// 换到别的对话：进程还没起，提示这台上次报的
-	f.click(t, "修登录页")
-	f.click(t, "消息")
-	f.tt.Type("/re")
-	f.see(t, "/review", "审查改动")
 }

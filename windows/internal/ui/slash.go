@@ -1,10 +1,6 @@
 package ui
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"log"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
@@ -14,58 +10,26 @@ import (
 
 // 斜杠命令（同 Composer.kt 的 SlashSuggestions）：输入框里只有「/名字」、还没打空白时，输入框上方列出 Claude Code 报的命令，
 // 按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把「/命令 」填进输入框，Esc 收起（再打字又出来）。
-// 命令是这个对话的 conv.state 报的；还没起过进程时用这台设备上次报的那份（设置里存着），并请核心先起好进程（conv.prepare）。
+// 命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有。
 
 // slashMenu 是一个对话输入栏里斜杠命令提示的状态。
 type slashMenu struct {
-	// raw 是上次读到的命令（对话状态里的 commands，或设置里存着的那份，原样的 JSON），list 是解出来的。
-	raw  json.RawMessage
-	list []chat.Command
 	// chosen 是选中第几条；dismissed 是按 Esc 收起时输入框里的字（字变了再出来）。
 	chosen    int
 	dismissed string
-	// prepared：已经请核心起好进程；pick 是点了的那条，下一帧建输入框时填进去。
-	prepared bool
-	pick     string
+	// pick 是点了的那条，下一帧建输入框时填进去。
+	pick string
 	// reveal：选中的换了，把它滚进视野。
 	reveal bool
 }
 
-// commands 是输入栏提示的斜杠命令：这个对话报的（顺带存进设置，下次没起进程时用）；没报时是这台设备上次报的。
-// 按原样的 JSON 记着解出来的，没变时不重解。
-func (a *App) commands(p *chatPane) []chat.Command {
-	m := &p.slash
-	raw := p.state.Commands
-	if len(raw) == 0 || string(raw) == "null" {
-		if m.raw == nil {
-			// 设置里没存时记成空的（不是 nil），不再每帧去读
-			m.raw = append(json.RawMessage{}, a.hub.Settings().Commands(p.src.Backend)...)
-			m.list = chat.ParseCommands(m.raw)
-		}
-		return m.list
-	}
-	if !bytes.Equal(raw, m.raw) {
-		m.raw, m.list = raw, chat.ParseCommands(raw)
-		if len(m.list) > 0 {
-			if err := a.hub.Settings().SetCommands(p.src.Backend, raw); err != nil {
-				log.Printf("zeta: 存斜杠命令：%v", err)
-			}
-		}
-	}
-	return m.list
-}
-
-// suggestions 是输入框里是 text 时要列的命令；不该列时为空。头一次要列时请核心先起好进程，命令随它的 initialize 应答来。
+// suggestions 是输入框里是 text 时要列的命令；不该列时为空。
 func (a *App) suggestions(p *chatPane, text string) []chat.Command {
 	prefix, ok := chat.SlashQuery(text)
 	if !ok || text == p.slash.dismissed || p.src.Conv == nil {
 		return nil
 	}
-	if !p.slash.prepared {
-		p.slash.prepared = true
-		a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error { return conv.Prepare(ctx) }, nil)
-	}
-	return chat.Suggest(a.commands(p), prefix)
+	return chat.Suggest(p.state.Commands, prefix)
 }
 
 // slashKey 是输入框里按下的键先给斜杠命令提示看：列着命令时上下键换选中的、回车和 Tab 填进去、Esc 收起，返回 true 表示用掉了。

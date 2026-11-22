@@ -1,51 +1,30 @@
 package ui
 
 import (
-	"bytes"
-	"encoding/json"
+	"slices"
 	"strconv"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
 // todoStrip 是输入栏上方的任务清单条的界面状态（同手机版 TodoStrip.kt）：一行显示做到第几项、正在做哪一项，
 // 点开是整份清单；全部做完、这一轮也结束了就不再显示；× 把这一份收掉，清单再有变化时重新出来。
+// 清单是核心归并好的（conv.state 的 todos）。
 type todoStrip struct {
 	expanded bool
-	// dismissed 是收掉的那一份清单的签名（TodoList.Signature）。
-	dismissed string
-	// seedRaw、seed 是上次解开的 todo_seed：它只在载入更早的历史时才变，原文没变就不再解。
-	seedRaw json.RawMessage
-	seed    []items.Step
-	// todos、sig 是按条目的版本 rev、seedRaw 和在不在回答（busy）算出的清单和它的签名，三样都没变就不重算；
-	// 全部做完、这一轮也结束了时为空。零值正好是空列表、没有 seed 时算出来的。
-	rev   int
-	busy  bool
-	todos chat.TodoList
-	sig   string
+	// dismissed 是收掉的那一份清单。
+	dismissed chat.TodoList
 }
 
-// list 是现在要显示的清单和它的签名；不显示时清单为 nil。
-func (s *todoStrip) list(entries *chatview.Chat, state chat.State) (chat.TodoList, string) {
-	seedChanged := !bytes.Equal(s.seedRaw, state.TodoSeed)
-	if seedChanged || entries.Rev() != s.rev || state.Busy != s.busy {
-		if seedChanged {
-			s.seedRaw, s.seed = state.TodoSeed, chat.TodoSeed(state.TodoSeed)
-		}
-		s.rev, s.busy = entries.Rev(), state.Busy
-		s.todos, s.sig = nil, ""
-		if l := chat.Todos(entries.Items(), s.seed); l != nil && (!l.AllDone() || state.Busy) {
-			s.todos, s.sig = l, l.Signature()
-		}
+// list 是现在要显示的清单；不显示时为 nil。
+func (s *todoStrip) list(state chat.State) chat.TodoList {
+	l := state.Todos
+	if len(l) == 0 || l.AllDone() && !state.Busy || slices.Equal(l, s.dismissed) {
+		return nil
 	}
-	if s.todos == nil || s.sig == s.dismissed {
-		return nil, ""
-	}
-	return s.todos, s.sig
+	return l
 }
 
 // todoSummary 是清单条一行里的说法：正在做的那一项，没在做的时候是下一项。
@@ -71,7 +50,7 @@ func todoPosition(l chat.TodoList) string {
 // todoStrip 画任务清单条，样子照排队条（输入栏一带的面板）。
 func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 	s := &p.todo
-	l, sig := s.list(p.list, p.state)
+	l := s.list(p.state)
 	if l == nil {
 		return
 	}
@@ -101,7 +80,7 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 				ui.Icon(c, chevron).Size(16, 16).TextColor(k.Secondary).Shrink(0)
 			})
 			head.OnClick(func() { s.expanded = !s.expanded })
-			coui.FlatButton(c, coui.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = sig })
+			coui.FlatButton(c, coui.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = l })
 		})
 		if !s.expanded {
 			return

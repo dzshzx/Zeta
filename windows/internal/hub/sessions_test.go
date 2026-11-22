@@ -228,48 +228,22 @@ func TestImagesComeFromTheCore(t *testing.T) {
 func TestHandOver(t *testing.T) {
 	f := newChatFixture(t)
 	f.hub.OpenSession(hostlink.Session{Backend: f.id, ID: "s1"})
-	f.devices.Occupants = map[string]string{"s1": `{"status":"busy","waiting_for":null,"hands_over":false}`}
 	f.devices.Handoffs = map[string]string{"s1": `{"handed":false,"status":"busy"}`}
-	now := time.Now()
-	if wait := f.hub.PollOccupant(now); wait != OccupantPoll {
-		t.Errorf("下次 %v", wait)
-	}
 	ho := &f.hub.Chat().Handoff
-	if ho.Occupant == nil || ho.Occupant.Status != "busy" || ho.Occupant.HandsOver {
-		t.Fatalf("占着的 %+v", ho.Occupant)
-	}
-	if wait := f.hub.PollOccupant(now.Add(time.Second)); wait != 2*time.Second {
-		t.Errorf("没到时候：%v", wait)
-	}
 	f.hub.HandOver()
-	if ho.Problem != "" || ho.Occupant.Status != "busy" {
-		t.Errorf("正忙：%+v %q", ho.Occupant, ho.Problem)
+	if ho.Problem != "" || ho.Handing {
+		t.Errorf("正忙：%+v", ho)
 	}
 	f.devices.Handoffs["s1"] = `{"handed":false,"status":"stuck"}`
 	f.hub.HandOver()
 	if !strings.Contains(ho.Problem, "没有退出") {
 		t.Errorf("没退：%q", ho.Problem)
 	}
-	// 那边自己退出了：接过来，好让核心解开 blocked
-	f.devices.Occupants, f.devices.Handoffs = nil, nil
-	f.devices.SessionCalls()
-	f.hub.PollOccupant(now.Add(4 * time.Second))
-	want := []string{f.id + ` sessions.occupant {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`}
-	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) || ho.Occupant != nil || ho.Problem != "" || !ho.Handed {
-		t.Errorf("发出 %q，%+v %q", got, ho.Occupant, ho.Problem)
-	}
-	// 交出来了：等核心推 conv.state 解开 blocked，这期间不再查、不再接
-	for _, later := range []time.Duration{7 * time.Second, 10 * time.Second, 18 * time.Second} {
-		f.hub.PollOccupant(now.Add(later))
-		f.hub.HandOver()
-	}
-	if got := f.devices.SessionCalls(); len(got) != 0 {
-		t.Errorf("交出来以后又发 %q", got)
-	}
-	// 等满 handoffSettle 还没解开（推送丢了）：再查一次
-	f.hub.PollOccupant(now.Add(4*time.Second + handoffSettle))
-	if got := f.devices.SessionCalls(); len(got) != 2 {
-		t.Errorf("到点以后发出 %q", got)
+	f.devices.Handoffs = nil
+	f.hub.HandOver()
+	want := []string{f.id + ` sessions.handoff {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`}
+	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) || ho.Problem != "" {
+		t.Errorf("发出 %q，%+v", got, ho)
 	}
 }
 

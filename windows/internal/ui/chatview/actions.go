@@ -30,19 +30,21 @@ func (ch *Chat) editingEdge(c *ui.Context, it items.Item) ui.Color {
 	return ui.Color{}
 }
 
-// actions 画挂在条目 id 下面的那一轮的操作（回答的画在复制键后面）。
-func (ch *Chat) actions(c *ui.Context, id string) {
-	if ch.Actions != nil {
-		ch.Actions(c, id)
+// actions 画挂在第 row 个条目下面的那一轮的操作（回答的画在复制键后面）：这一项是它那一轮用户消息的 round_last 时才有。
+func (ch *Chat) actions(c *ui.Context, row int) {
+	u := items.RoundOf(ch.items, row)
+	if ch.Actions == nil || u < 0 || ch.items[u].RoundLast != ch.items[row].ID {
+		return
 	}
+	ch.Actions(c, ch.items[u], items.LastRound(ch.items, row))
 }
 
 // actionRow 是不以回答结尾的一轮（停在工作过程或出错提示上）的操作排：单占一行，和回答下面的对齐。
-func (ch *Chat) actionRow(c *ui.Context, id string) {
+func (ch *Chat) actionRow(c *ui.Context, row int) {
 	if ch.Actions == nil {
 		return
 	}
-	ui.Row(c).AlignItems(ui.Center).Margin(0, 0, 4, 0).Children(func() { ch.Actions(c, id) })
+	ui.Row(c).AlignItems(ui.Center).Margin(0, 0, 4, 0).Children(func() { ch.actions(c, row) })
 }
 
 // ActionButton 是回答下面那排的一个操作键，和复制键一个样子：30 的平圆钮、15 的次要色图标。

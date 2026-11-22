@@ -161,7 +161,7 @@ func (c *Client) Handle(line []byte) bool {
 
 func isConvPush(t string) bool {
 	switch t {
-	case "conv.state", "conv.items", "conv.turn", "conv.subagent", "conv.mcp", "conv.reply", "conv.phone_cancel":
+	case "conv.state", "conv.items", "conv.turn", "conv.subagent", "conv.task_output", "conv.mcp", "conv.reply", "conv.phone_cancel":
 		return true
 	}
 	return false

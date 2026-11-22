@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"maps"
 	"slices"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -87,19 +88,21 @@ func (c *Conversation) Subagent(toolUseID string) (s Subagent, ok bool) {
 	return Subagent{}, false
 }
 
-// rewatch 在重新打开对话以后把看着的子代理重新看上（核心从整份推起）。
+// rewatch 在重新打开对话以后把看着的子代理、后台命令的输出重新看上（核心从整份推起）。
 func (c *Conversation) rewatch(ctx context.Context) {
 	c.mu.Lock()
-	ids := make([]string, 0, len(c.subagents))
-	for id := range c.subagents {
-		ids = append(ids, id)
-	}
+	agents, outputs := slices.Sorted(maps.Keys(c.subagents)), slices.Sorted(maps.Keys(c.outputs))
 	c.mu.Unlock()
-	slices.Sort(ids)
-	for _, id := range ids {
+	for _, id := range agents {
 		params := map[string]any{"conv": c.name, "tool_use_id": id, "watch": true}
 		if _, err := c.client.link.Call(ctx, "conv.subagent", params); err != nil {
 			log.Printf("chat: %s 重新看子代理 %s 没成：%v", c.name, id, err)
+		}
+	}
+	for _, id := range outputs {
+		params := map[string]any{"conv": c.name, "task": id, "watch": true}
+		if _, err := c.client.link.Call(ctx, "conv.task_output", params); err != nil {
+			log.Printf("chat: %s 重新看后台任务 %s 的输出没成：%v", c.name, id, err)
 		}
 	}
 }

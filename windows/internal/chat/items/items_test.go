@@ -161,3 +161,27 @@ func TestImageCacheKey(t *testing.T) {
 		t.Errorf("缓存键：%q %q", a.CacheKey(), b.CacheKey())
 	}
 }
+
+func TestRounds(t *testing.T) {
+	list, err := Decode([]byte(`[{"kind":"notice","id":"n0"},
+		{"kind":"user","id":"u1","uuid":"x1","rewindable":true,"round_last":"a1"},{"kind":"work","id":"w1"},{"kind":"answer","id":"a1"},
+		{"kind":"user","id":"u2","forkable":true,"round_last":"e2"},{"kind":"notice","id":"e2","error":true},
+		{"kind":"user","id":"u3","uuid":"x3","rewindable":true,"forkable":true}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := list[1]; !u.Rewindable || u.Forkable || u.RoundLast != "a1" {
+		t.Fatalf("第一轮：%+v", u)
+	}
+	for i, want := range []int{-1, 1, 1, 1, 4, 4, 6} {
+		if got := RoundOf(list, i); got != want {
+			t.Errorf("第 %d 项在第 %d 项开始的那一轮，应为 %d", i, got, want)
+		}
+	}
+	if LaterRounds(list, 1) != 2 || LaterRounds(list, 4) != 1 || LaterRounds(list, 6) != 0 {
+		t.Error("之后几轮数错了")
+	}
+	if LastRound(list, 3) || !LastRound(list, 6) {
+		t.Error("最后一轮认错了")
+	}
+}

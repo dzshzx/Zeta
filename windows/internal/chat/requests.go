@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
-	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
 // 下面是用户对一个对话的操作，各发一个 conv.* 请求（参数见 docs/core.md「对话」）。
@@ -135,20 +134,6 @@ func (c *Conversation) Compact(ctx context.Context) error {
 // StopTask 停一个后台任务。
 func (c *Conversation) StopTask(ctx context.Context, task string) error {
 	return c.call(ctx, "conv.stop_task", map[string]any{"task": task})
-}
-
-// ReadTaskOutput 读一个后台命令输出的最后至多 8 KiB，原样（含终端转义，显示前用 tasks.PlainTerminalText）；
-// Error 不为空时是没读成的原因。
-func (c *Conversation) ReadTaskOutput(ctx context.Context, task string) (tasks.Output, error) {
-	var out tasks.Output
-	result, err := c.callResult(ctx, "conv.task_output", map[string]any{"task": task})
-	if err != nil {
-		return out, err
-	}
-	if err := json.Unmarshal(result, &out); err != nil {
-		return out, fmt.Errorf("后台任务的输出解不开：%w", err)
-	}
-	return out, nil
 }
 
 // End 结束 Claude Code 进程（等于终端里的 /exit）；对话内容留着，下次发消息时接上。

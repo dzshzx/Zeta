@@ -191,8 +191,7 @@ func TestSessionOpsPreviews(t *testing.T) {
 		"session-handoff": func(t *testing.T, f *chatFixture) {
 			f.click(t, "修登录页")
 			f.tt.Frame()
-			f.devices.Occupants = map[string]string{f.hub.Chat().Conv.Session(): `{"status":"waiting","waiting_for":"Bash","hands_over":true}`}
-			f.push(`"blocked":true`)
+			f.push(`"blocked":true,"can_rewind":false,"occupant":{"status":"waiting","waiting_for":"Bash","hands_over":true}`)
 		},
 	}
 	for name, setup := range scenes {

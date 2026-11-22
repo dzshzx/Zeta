@@ -48,8 +48,6 @@ func (d *Devices) answerSessions(l *ChatLink, id int64, c Call) (json.RawMessage
 			return onSearch(l, id, c.Str("query"))
 		}
 		return d.search(l, id, c.Str("query"))
-	case "sessions.occupant":
-		return d.answer(d.Occupants, c.Str("session"), `{"status":null,"waiting_for":null,"hands_over":false}`)
 	case "sessions.handoff":
 		return d.answer(d.Handoffs, c.Str("session"), `{"handed":true,"status":null}`)
 	case "sessions.image":

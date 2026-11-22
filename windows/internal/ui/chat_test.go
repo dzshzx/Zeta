@@ -467,14 +467,19 @@ func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 		{ID: "s2", Title: "看看日志", Cwd: "/srv/logs", Updated: at(1) - 3600*1000},
 	}})
 	f.newChat(t)
-	items := `{"kind":"user","id":"u1","text":"README 里的构建命令还是 ./gradlew，改成 tools/gradle，顺便看看 CLAUDE.md 要不要同步"},` +
+	// 用户消息上的 forkable、round_last 照核心的算法写：没有 uuid，改不了；最后一轮能分支，后面还有一轮时下一条也没有 uuid，分支不了
+	u1 := `"forkable":true,"round_last":"a1"`
+	if confirm {
+		u1 = `"round_last":"a1"`
+	}
+	items := `{"kind":"user","id":"u1",` + u1 + `,"text":"README 里的构建命令还是 ./gradlew，改成 tools/gradle，顺便看看 CLAUDE.md 要不要同步"},` +
 		`{"kind":"work","id":"w1","steps":[{"kind":"thinking","id":"t1","text":"先找出两个文件里所有直接调用 gradlew 的地方。","seconds":3},` +
 		`{"kind":"tool","id":"s1","name":"Bash","input":{"command":"grep -n gradlew README.md CLAUDE.md","description":"找出直接调用 gradlew 的地方"},"status":"success","result":"README.md:12:./gradlew :app:assembleDebug"},` +
 		`{"kind":"tool","id":"s2","name":"Read","input":{"file_path":"/home/box/project/README.md"},"status":"success","result":"（README.md 的内容）"}]},` +
 		`{"kind":"answer","id":"a1","text":"改好了：\n\n- **README.md**：构建命令换成 ` + "`tools/gradle`" + `\n- **CLAUDE.md**：没有直接调用，不用改\n\n在本机构建测试版：\n\n` +
 		"```bash\\ncd ~/project\\ntools/gradle :app:assembleDebug\\n```" + `\n\n第一次构建要下载依赖，之后几分钟就好。","streaming":false}`
 	if confirm {
-		items += `,{"kind":"user","id":"u2","text":"构建一下"},{"kind":"work","id":"w2","steps":[{"kind":"tool","id":"s9","name":"Bash",` +
+		items += `,{"kind":"user","id":"u2","forkable":true,"round_last":"w2","text":"构建一下"},{"kind":"work","id":"w2","steps":[{"kind":"tool","id":"s9","name":"Bash",` +
 			`"input":{"command":"tools/gradle :app:assembleDebug","description":"构建 debug 包"},"status":"running"}]}`
 	}
 	f.link().Push(`{"type":"conv.items","conv":"w1","at":0,"remove":0,"items":[` + items + `]}`)

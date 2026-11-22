@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -320,7 +321,8 @@ func (e *e2e) flush(t *testing.T) {
 		return
 	}
 	ids := map[string]string{}
-	for name, lines := range e.recorded {
+	for _, name := range slices.Sorted(maps.Keys(e.recorded)) {
+		lines := e.recorded[name]
 		var b bytes.Buffer
 		for _, line := range lines {
 			line = strings.ReplaceAll(line, e.server.Home, "/home/zeta")

@@ -3,8 +3,8 @@ package ui
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,21 +20,21 @@ import (
 //   - 用户消息右键：复制、编辑、还原代码，删除单独一组。编辑时原文和附件放回输入栏，被编辑的消息描边、之后的内容先藏起来，
 //     发出后替换（conv.rewrite）；输入栏上方一条提示，× 取消编辑，输入栏放回开始编辑前的样子。
 //   - 一轮最后一段回答下面：复制、重新生成、删除、分支；最后一轮还在进行时不出现，别的事在进行时（can_rewind 为假）变灰。
+// 各轮能做什么（能不能编辑、分支，操作排挂在哪一项下面）由核心算好放在用户条目上，这里照着显示。
 // 重新生成、删除、还原代码先确认；这条消息之后改过文件时（conv.code_changes），重新生成、删除可以同时还原代码，
-// 还原代码可以同时删除这一轮。分支由中枢做（hub.Fork），聊天窗格换到新对话。核心没做成时照它的提示显示在输入栏上方。
+// 还原代码可以同时删除这一轮。重新生成由核心照原消息重发（resend）。分支由中枢做（hub.Fork），聊天窗格换到新对话。
+// 核心没做成时照它的提示显示在输入栏上方。
 
 // msgActions 是一个对话的消息操作状态，随聊天窗格换。
 type msgActions struct {
-	// rounds 是列表里的各轮，按条目的版本 rev（chatview.Chat.Rev）算的。
-	rounds  chat.Rounds
-	rev     int
 	editing *edit // 正在编辑的那一轮
 	confirm *confirm
 }
 
-// edit 是正在编辑的那一轮，和开始编辑前输入栏里的（取消编辑时放回去）。
+// edit 是正在编辑的那条用户消息、它之后还有几轮，和开始编辑前输入栏里的（取消编辑时放回去）。
 type edit struct {
-	chat.Round
+	user  items.Item
+	later int
 	saved composerSnapshot
 }
 
@@ -47,10 +47,11 @@ const (
 	confirmRestore
 )
 
-// confirm 是等确认的重新生成、删除或还原代码。changes 是还原代码会动到的文件（问过核心才知道）。
+// confirm 是等确认的重新生成、删除或还原代码：对哪条用户消息，之后还有几轮。changes 是还原代码会动到的文件（问过核心才知道）。
 type confirm struct {
 	kind  confirmKind
-	round chat.Round
+	user  items.Item
+	later int
 	open  bool
 	// asked：核心答过了（changes 为 nil 是没有可还原的）；failed 是没问成的原因。
 	asked   bool
@@ -60,23 +61,18 @@ type confirm struct {
 	code, drop bool
 }
 
-// syncMessageActions 在每一帧开头跟上列表：条目变了时重算各轮，把编辑中的那条交给列表。列表的菜单和操作排在建窗格时接上
-// （messageCallbacks）。
+// syncMessageActions 在每一帧开头把编辑中的那条交给列表。列表的菜单和操作排在建窗格时接上（messageCallbacks）。
 func (a *App) syncMessageActions(p *chatPane) {
-	x := &p.acts
-	if rev := p.list.Rev(); rev != x.rev {
-		x.rounds, x.rev = chat.RoundsOf(p.list.Items()), rev
-	}
 	p.list.Editing = ""
-	if x.editing != nil {
-		p.list.Editing = x.editing.User.ID
+	if x := p.acts.editing; x != nil {
+		p.list.Editing = x.user.ID
 	}
 }
 
 // messageCallbacks 给新窗格的列表接上用户消息的菜单和一轮下面的操作排。
 func (a *App) messageCallbacks(p *chatPane) {
 	p.list.UserMenu = func(m *ui.Menu, it items.Item) { a.userMenu(m, p, it) }
-	p.list.Actions = func(c *ui.Context, id string) { a.roundActions(c, p, id) }
+	p.list.Actions = func(c *ui.Context, user items.Item, last bool) { a.roundActions(c, p, user, last) }
 }
 
 // canRewind：现在能改写、删除、还原代码、分支（核心说能，连接在，也没在编辑别的）。
@@ -84,51 +80,58 @@ func (p *chatPane) canRewind() bool {
 	return p.connected && p.state.CanRewind && p.acts.editing == nil
 }
 
+// laterRounds 是用户消息 id 之后还有几轮：数它后面的用户消息。
+func (p *chatPane) laterRounds(id string) int {
+	list := p.list.Items()
+	if i := slices.IndexFunc(list, func(it items.Item) bool { return it.ID == id }); i >= 0 {
+		return items.LaterRounds(list, i)
+	}
+	return 0
+}
+
 // userMenu 是用户消息右键菜单里「复制」后面的项：Claude Code 认得这条消息时才有。
 func (a *App) userMenu(m *ui.Menu, p *chatPane, it items.Item) {
-	r, ok := p.acts.rounds.ByUser(it.ID)
-	if !ok || !r.Rewindable() {
+	if !it.Rewindable {
 		return
 	}
 	off := !p.canRewind()
 	if m.Item("编辑").Disabled(off).Chosen() {
-		a.beginEdit(p, r)
+		a.beginEdit(p, it)
 	}
 	if m.Item("还原代码").Disabled(off).Chosen() {
-		a.ask(p, confirmRestore, r)
+		a.ask(p, confirmRestore, it)
 	}
 	m.Separator()
 	if m.Item("删除").Disabled(off).Danger().Chosen() {
-		a.ask(p, confirmDrop, r)
+		a.ask(p, confirmDrop, it)
 	}
 }
 
-// roundActions 是挂在条目 id 下面的那一轮的操作键：重新生成、删除、分支（同手机版 TurnActionButtons）。
-func (a *App) roundActions(c *ui.Context, p *chatPane, id string) {
-	rs := p.acts.rounds
-	r, ok := rs.ByLast(id)
-	if !ok || rs.IsLast(r) && (p.state.Busy || p.state.Rewinding) {
+// roundActions 是用户消息 user 开始的那一轮的操作键：重新生成、删除、分支（同手机版 TurnActionButtons）。
+// last 是最后一轮：还在进行时不出现。
+func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, last bool) {
+	if last && (p.state.Busy || p.state.Rewinding) {
 		return
 	}
 	on := p.canRewind()
-	if r.Rewindable() {
-		chatview.ActionButton(c, coui.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, r) })
-		chatview.ActionButton(c, coui.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, r) })
+	if user.Rewindable {
+		chatview.ActionButton(c, coui.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user) })
+		chatview.ActionButton(c, coui.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user) })
 	}
-	if r.Branchable() && p.state.Session != "" {
+	if user.Forkable {
 		chatview.ActionButton(c, coui.IconBranch, "分支", on).OnClick(func() {
 			p.failed = ""
-			a.hub.Fork(r.Last, p.fail)
+			a.hub.Fork(user.RoundLast, p.fail)
 		})
 	}
 }
 
 // ask 弹出确认框，同时问核心还原代码会动到哪些文件。
-func (a *App) ask(p *chatPane, kind confirmKind, r chat.Round) {
-	cf := &confirm{kind: kind, round: r, open: true, code: true}
+func (a *App) ask(p *chatPane, kind confirmKind, user items.Item) {
+	cf := &confirm{kind: kind, user: user, later: p.laterRounds(user.ID), open: true, code: true}
 	p.acts.confirm = cf
 	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
-		changes, err := conv.CodeChanges(ctx, r.User.ID)
+		changes, err := conv.CodeChanges(ctx, user.ID)
 		return func() {
 			cf.asked, cf.changes = true, changes
 			if err != nil {
@@ -139,42 +142,29 @@ func (a *App) ask(p *chatPane, kind confirmKind, r chat.Round) {
 }
 
 // confirmed 照确认框里选的做。
-func (a *App) confirmed(p *chatPane, cf *confirm) {
-	target := cf.round.User.ID
+func (a *App) confirmed(cf *confirm) {
+	target := cf.user.ID
 	withCode := cf.changes != nil && cf.code
 	switch cf.kind {
 	case confirmRestore:
 		drop := cf.drop
 		a.act(func(ctx context.Context, conv *chat.Conversation) error {
-			return conv.RestoreCode(ctx, target, drop, nil)
+			return conv.RestoreCode(ctx, target, drop)
 		})
 	case confirmDrop:
 		a.act(func(ctx context.Context, conv *chat.Conversation) error {
 			if withCode {
-				return conv.RestoreCode(ctx, target, true, nil)
+				return conv.RestoreCode(ctx, target, true)
 			}
 			return conv.Drop(ctx, target)
 		})
 	case confirmRegenerate:
-		// 原样重发这一轮的提问：文字、附件路径，还有图片（会话记录里的要再取回来）
-		load := a.hub.ImageLoader(p.src.Backend)
-		user := cf.round.User
+		// 原样重发这一轮的提问：文字、图片和附件路径都由核心从那条消息取
 		a.act(func(ctx context.Context, conv *chat.Conversation) error {
-			images, lost := reattach(user.Images, load)
-			if lost > 0 {
-				return errLostImages
-			}
-			m := chat.Outgoing{Text: user.Text, Images: images, Files: user.Files}
-			if withCode {
-				return conv.RestoreCode(ctx, target, false, &m)
-			}
-			return conv.Rewrite(ctx, target, m)
+			return conv.Regenerate(ctx, target, withCode)
 		})
 	}
 }
-
-// errLostImages：消息里有图取不回来，没法原样重发。
-var errLostImages = errors.New("有图片取不回来，没法原样重发")
 
 // reattach 把消息里的图还原成能再发出去的附件（几张同时取，顺序照旧），返回取回来的和取不回来的张数。阻塞，在后台调用。
 func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) ([]chat.Image, int) {
@@ -199,20 +189,20 @@ func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) (
 }
 
 // beginEdit 开始编辑一条消息：输入栏里原有的收起来，换成这条的字、附件路径和图（图在后台取回）。
-func (a *App) beginEdit(p *chatPane, r chat.Round) {
+func (a *App) beginEdit(p *chatPane, user items.Item) {
 	if !p.canRewind() {
 		return
 	}
 	x := &p.acts
-	x.editing = &edit{Round: r, saved: p.snapshot()}
+	x.editing = &edit{user: user, later: p.laterRounds(user.ID), saved: p.snapshot()}
 	p.restore(composerSnapshot{})
-	p.putBack(chat.Message{Text: r.User.Text, Files: r.User.Files})
-	if len(r.User.Images) == 0 {
+	p.putBack(chat.Message{Text: user.Text, Files: user.Files})
+	if len(user.Images) == 0 {
 		return
 	}
 	editing, load := x.editing, a.hub.ImageLoader(p.src.Backend)
 	a.async(func() func() {
-		images, lost := reattach(r.User.Images, load)
+		images, lost := reattach(user.Images, load)
 		return func() {
 			if x.editing != editing {
 				return
@@ -248,14 +238,14 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 		p.failed = "等这一轮结束再发"
 		return false
 	}
-	r := p.acts.editing
+	target := p.acts.editing.user.ID
 	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
 	p.acts.editing = nil
 	p.list.ScrollToEnd()
 	p.failed = ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Rewrite(ctx, r.User.ID, chat.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
+		return conv.Rewrite(ctx, target, chat.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
 		p.failed = "没发出去：" + err.Error()
 		p.putBack(m)
@@ -275,7 +265,7 @@ func (a *App) editStrip(c *ui.Context, p *chatPane) {
 			ui.Icon(c, coui.IconEdit).Size(14, 14).TextColor(k.PrimaryText)
 			ui.Text(c, "编辑消息").FontSize(coui.SizeBodyS).FontWeight(coui.Medium).TextColor(k.PrimaryText)
 			hint := "发送后将替换这条消息和它的回复"
-			if r.Later > 0 {
+			if r.later > 0 {
 				hint = "发送后将替换这条消息及之后的内容"
 			}
 			ui.Text(c, hint).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Grow(1).MinWidth(0).
@@ -307,7 +297,7 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 		case cf.changes == nil:
 		case cf.kind == confirmRestore:
 			label := "同时删除这一轮"
-			if cf.round.Later > 0 {
+			if cf.later > 0 {
 				label = "同时删除这一轮及之后的"
 			}
 			coui.Choice(c, label, "", coui.MarkCheck, cf.drop).OnClick(func() { cf.drop = !cf.drop })
@@ -334,7 +324,7 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 		})
 	})
 	if ok {
-		a.confirmed(p, cf)
+		a.confirmed(cf)
 	}
 	if !cf.open {
 		p.acts.confirm = nil
@@ -343,7 +333,7 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 
 // confirmTexts 是确认框的标题、说明和确认键（同手机版 confirmSummary）：会丢掉哪些对话，这条消息之后改过文件时说改了多少。
 func confirmTexts(cf *confirm) (title, summary, button string) {
-	later := cf.round.Later
+	later := cf.later
 	files := ""
 	if ch := cf.changes; ch != nil {
 		files = "这条消息之后改过 " + strconv.Itoa(len(ch.Files)) + " 个文件（+" + strconv.Itoa(ch.Insertions) + " −" +

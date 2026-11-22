@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 )
@@ -128,17 +129,16 @@ func TestSessionOperationsThroughCore(t *testing.T) {
 		return len(files) == 0 && syscall.Kill(pid, 0) != nil && byID(live).ID == ""
 	})
 
-	// 别处的 Claude Code 占着：打开时 blocked，查到它闲着，接管后它退出、核心解开 blocked（卡片收起）
+	// 别处的 Claude Code 占着：打开时 blocked，核心查到它闲着推来，接管后它退出、核心解开 blocked（卡片收起）
 	outside, outsideDone := terminalClaude(t, e.server.Home, held)
 	h.OpenSession(byID(held))
 	e.until(t, "打开占着的会话", func() bool { c := h.Chat(); return c != nil && !c.Opening && e.state.Blocked })
-	e.until(t, "查到它闲着", func() bool {
-		h.PollOccupant(time.Now())
-		o := h.Chat().Handoff.Occupant
-		return o != nil && o.Status == OccupantIdle && o.HandsOver
+	e.until(t, "核心推来它闲着", func() bool {
+		o := e.state.Occupant
+		return o != nil && o.Status == sessionproto.StatusIdle && o.HandsOver
 	})
 	h.HandOver()
-	e.until(t, "接管后解开 blocked", func() bool { return h.Chat().Handoff.Handed && !e.state.Blocked })
+	e.until(t, "接管后解开 blocked", func() bool { return !e.state.Blocked && e.state.Occupant == nil })
 	select {
 	case <-outsideDone:
 	case <-time.After(30 * time.Second):

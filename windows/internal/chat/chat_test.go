@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
-	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -330,14 +329,8 @@ func TestRequestResults(t *testing.T) {
 		t.Fatalf("撤回的消息 %+v、%v", m, err)
 	}
 
-	link.results["conv.task_output"] = `{"text":"ok\n","total_bytes":9000,"truncated":true}`
-	out, err := conv.ReadTaskOutput(ctx, "t1")
-	if err != nil || out != (tasks.Output{Text: "ok\n", TotalBytes: 9000, Truncated: true}) {
-		t.Fatalf("后台输出 %+v、%v", out, err)
-	}
-
 	link.results["conv.elicit"] = `{"errors":{"port":"要填整数","host":"必填"}}`
-	err = conv.Elicit(ctx, "e1", prompt.ElicitAccept, map[string][]string{"port": {"x"}})
+	err := conv.Elicit(ctx, "e1", prompt.ElicitAccept, map[string][]string{"port": {"x"}})
 	var fe FormError
 	if !errors.As(err, &fe) || fe["port"] != "要填整数" || err.Error() != "表单有几项不对：host：必填；port：要填整数" {
 		t.Fatalf("表单的问题 %v", err)

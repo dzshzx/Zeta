@@ -15,44 +15,45 @@ import (
 // 聊天窗格里点进去的几页：后台任务列表、一个任务的详情、子代理的记录（同手机版 BackgroundTasksScreen.kt、SubagentScreen.kt）。
 // 它们盖住聊天窗格，返回键一层层退回去；跟着窗格走，换了对话就都关掉。
 
-// subpage 是盖着的一页：agent 是子代理页看着的子代理，task 是任务详情页的任务 id，两样都没有时是任务列表。
+// subpage 是盖着的一页：agent 是子代理页看着的子代理，task 是任务详情页，两样都没有时是任务列表。
 type subpage struct {
-	task  string
+	task  *taskView
 	agent *subagentView
 }
 
-// chatPages 是盖在聊天窗格上的各页，后开的在上面；还有各任务读到的输出、停止的确认框。
+// taskView 是任务详情页：id 是任务；watching：看着它的输出（后台命令、监视器才有），failed 是没看上的原因。
+type taskView struct {
+	id       string
+	watching bool
+	failed   string
+}
+
+// chatPages 是盖在聊天窗格上的各页，后开的在上面；还有停止的确认框。
 type chatPages struct {
-	stack   []subpage
-	outputs map[string]*taskOutput
-	stop    struct {
+	stack []subpage
+	stop  struct {
 		open bool
 		task tasks.Task
 	}
 }
-
-// taskOutput 是一个后台命令读到的输出，和读的进度。
-type taskOutput struct {
-	out tasks.Output
-	// read：读到过；reading：正在读；at 是上次读完的时刻（界面的时钟），running 是上次发出时任务还在跑。
-	read, reading, running bool
-	at                     time.Time
-}
-
-// outputPoll 是任务在跑时多久读一次输出。
-const outputPoll = 2 * time.Second
 
 // openTasks 打开后台任务列表（状态行的「后台任务」点了）。
 func (p *chatPane) openTasks() {
 	p.pages.stack = append(p.pages.stack, subpage{})
 }
 
-// openTask 打开一个任务的详情。
-func (p *chatPane) openTask(id string) {
-	p.pages.stack = append(p.pages.stack, subpage{task: id})
+// openTask 打开一个任务的详情；后台命令、监视器开始看着它的输出（核心变了就推，不定时拉）。
+func (a *App) openTask(p *chatPane, t tasks.Task) {
+	v := &taskView{id: t.ID, watching: t.Readable()}
+	p.pages.stack = append(p.pages.stack, subpage{task: v})
+	if v.watching {
+		a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+			return conv.WatchTaskOutput(ctx, t.ID, true)
+		}, func(err error) { v.failed = err.Error() })
+	}
 }
 
-// back 退回上一页；离开子代理页时不再看着它。
+// back 退回上一页；离开子代理页、任务详情页时不再看着它。
 func (a *App) back(p *chatPane) {
 	s := p.pages.stack
 	if len(s) == 0 {
@@ -60,8 +61,11 @@ func (a *App) back(p *chatPane) {
 	}
 	top := s[len(s)-1]
 	p.pages.stack = s[:len(s)-1]
-	if top.agent != nil {
+	switch {
+	case top.agent != nil:
 		a.unwatchSubagent(p, top.agent)
+	case top.task != nil && top.task.watching:
+		a.unwatchOutput(p, top.task.id)
 	}
 }
 
@@ -84,7 +88,7 @@ func (a *App) chatSubpage(c *ui.Context, p *chatPane) bool {
 		switch {
 		case top.agent != nil:
 			a.subagentPage(c, p, top.agent)
-		case top.task != "":
+		case top.task != nil:
 			a.taskPage(c, p, top.task)
 		default:
 			a.taskListPage(c, p)
@@ -132,7 +136,7 @@ func (a *App) taskListPage(c *ui.Context, p *chatPane) {
 			for _, t := range list {
 				running = running || t.Running()
 				row := coui.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
-					OnClick: func() { p.openTask(t.ID) }}
+					OnClick: func() { a.openTask(p, t) }}
 				switch {
 				case t.State == tasks.StateFailed:
 					row.SummaryColor = k.Error
@@ -160,8 +164,8 @@ func findTask(s chat.State, id string) (tasks.Task, bool) {
 
 // taskPage 是一个任务：说明、状态、用时（子代理还有类型、工具调用、在做什么和进它的记录）、所属对话、停止，
 // 下面是出错的原因、命令（子代理是交给它的指令）、结果（子代理是报告）和后台命令的输出。
-func (a *App) taskPage(c *ui.Context, p *chatPane, id string) {
-	t, ok := findTask(p.state, id)
+func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
+	t, ok := findTask(p.state, v.id)
 	if !ok {
 		coui.Header(c, "后台任务", func() { a.back(p) })
 		coui.Body(c, "task-gone", func() {
@@ -170,10 +174,6 @@ func (a *App) taskPage(c *ui.Context, p *chatPane, id string) {
 		return
 	}
 	coui.Header(c, taskPageTitle(t), func() { a.back(p) })
-	var out *taskOutput
-	if t.Readable() {
-		out = a.followOutput(c, p, t)
-	}
 	coui.Body(c, "task/"+t.ID, func() {
 		a.taskInfo(c, p, t)
 		agent := t.Kind == tasks.KindAgent
@@ -194,8 +194,8 @@ func (a *App) taskPage(c *ui.Context, p *chatPane, id string) {
 			}
 			textBlock(c, title, t.Summary, false)
 		}
-		if out != nil {
-			outputBlock(c, out, p.state.Process)
+		if v.watching {
+			a.outputBlock(c, p, v)
 		}
 	})
 	if t.Running() {
@@ -267,53 +267,39 @@ func (a *App) stopDialog(c *ui.Context, p *chatPane) {
 	}
 }
 
-// followOutput 跟着读后台命令的输出：先读一次，运行中每两秒再读，结束时再读最后一次；进程没了就不读。
-func (a *App) followOutput(c *ui.Context, p *chatPane, t tasks.Task) *taskOutput {
-	if p.pages.outputs == nil {
-		p.pages.outputs = map[string]*taskOutput{}
-	}
-	o := p.pages.outputs[t.ID]
-	if o == nil {
-		o = &taskOutput{}
-		p.pages.outputs[t.ID] = o
-	}
-	now := c.Now()
-	due := !o.read || (t.Running() && now.Sub(o.at) >= outputPoll) || (o.running && !t.Running())
-	if o.reading || !due || !p.state.Process || p.src.Conv == nil {
-		if t.Running() && o.read {
-			c.After(max(outputPoll-now.Sub(o.at), 0))
+// unwatchOutput 离开任务详情页：下面的页里没有看着同一个任务的，就不再看着它的输出（conv.task_output 的 watch 为假）。
+func (a *App) unwatchOutput(p *chatPane, id string) {
+	for _, s := range p.pages.stack {
+		if s.task != nil && s.task.id == id && s.task.watching {
+			return
 		}
-		return o
 	}
-	o.reading, o.running = true, t.Running()
-	id := t.ID
-	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
-		out, err := conv.ReadTaskOutput(ctx, id)
-		if err != nil {
-			out = tasks.Output{Error: err.Error()}
-		}
-		return func() {
-			o.out, o.read, o.reading, o.at = out, true, false, now
-			c.Invalidate()
-		}
-	})
-	return o
+	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+		return conv.WatchTaskOutput(ctx, id, false)
+	}, nil)
 }
 
-// outputBlock 是后台命令、监视器的输出（最多 8 KiB）；还没读到、读不到或还没有输出时说明。
-func outputBlock(c *ui.Context, o *taskOutput, process bool) {
-	text := strings.TrimRight(o.out.Text, " \t\r\n")
+// outputBlock 是后台命令、监视器的输出（最多 8 KiB，核心推来的最近一份）；还没推来、读不到或还没有输出时说明。
+func (a *App) outputBlock(c *ui.Context, p *chatPane, v *taskView) {
+	var out tasks.Output
+	got := false
+	if p.src.Conv != nil {
+		out, got = p.src.Conv.TaskOutput(v.id)
+	}
+	text := strings.TrimRight(out.Text, " \t\r\n")
 	switch {
-	case !o.read && !process:
+	case v.failed != "":
+		textBlock(c, "输出", "没读到："+v.failed, false)
+	case !got && !p.state.Process:
 		textBlock(c, "输出", "进程已经结束，读不到输出了", false)
-	case !o.read:
+	case !got:
 		textBlock(c, "输出", "正在读取…", false)
-	case o.out.Error != "":
-		textBlock(c, "输出", "没读到："+o.out.Error, false)
+	case out.Error != "":
+		textBlock(c, "输出", "没读到："+out.Error, false)
 	case text == "":
-		textBlock(c, outputHeader(o.out), "（还没有输出）", false)
+		textBlock(c, outputHeader(out), "（还没有输出）", false)
 	default:
-		textBlock(c, outputHeader(o.out), text, true)
+		textBlock(c, outputHeader(out), text, true)
 	}
 }
 

@@ -34,8 +34,15 @@ func TestSubagentPageFromTheChat(t *testing.T) {
 	if got := f.sent("conv.subagent"); len(got) != 1 || got[0] != `{"conv":"w1","tool_use_id":"toolu_a1","watch":true}` {
 		t.Fatalf("看：%v", got)
 	}
-	// 记录还没推来：说明、类型、指令先取自聊天里发起它的那一步
-	f.see(t, "子代理", "查找读配置的地方", "正在读取", "子代理类型 Explore", "交给它的指令", "正在读取…")
+	// 还什么都没推来：只有占位的说法
+	f.see(t, "子代理", "正在读取", "正在读取…")
+	f.notSee(t, "查找读配置的地方", "交给它的指令")
+	// 记录还没读到：核心先用发起它的 Agent 调用的参数填上说明、类型、指令
+	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"items":[],
+		"meta":{"agent_id":"","agent_type":"Explore","description":"查找读配置的地方","model":"","finished":false,"stopped":false,"background":null},
+		"prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0}`)
+	f.tt.Frame()
+	f.see(t, "查找读配置的地方", "正在读取", "子代理类型 Explore", "交给它的指令", "正在读取…")
 	f.link().Push(agentLog)
 	f.tt.Frame()
 	f.see(t, "运行中", "子代理类型 Explore · 模型 claude-haiku-4-5 · 工具调用 2 次", "找到 config.go 和 main.go 两处，server.go 交给另一个子代理细看。", "正在工作")
@@ -46,6 +53,10 @@ func TestSubagentPageFromTheChat(t *testing.T) {
 	if got := f.sent("conv.subagent"); len(got) != 1 || got[0] != `{"conv":"w1","tool_use_id":"toolu_n1","watch":true}` {
 		t.Fatalf("看里面那个：%v", got)
 	}
+	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_n1","full":true,"items":[],
+		"meta":{"agent_id":"","agent_type":"","description":"细看 server.go","model":"","finished":false,"stopped":false,"background":null},
+		"prompt":"读 server.go","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0}`)
+	f.tt.Frame()
 	f.see(t, "细看 server.go", "读 server.go")
 	f.click(t, "返回")
 	if got := f.sent("conv.subagent"); len(got) != 1 || got[0] != `{"conv":"w1","tool_use_id":"toolu_n1","watch":false}` {
@@ -114,8 +125,9 @@ func TestSubagentPromptExpands(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
 	long := strings.Repeat("一行很长的指令。", 30)
-	f.pushItems(strings.Replace(agentItems, "找出所有直接读 config 文件的地方，列出文件和行号", long, 1))
+	f.pushItems(agentItems)
 	f.app.openSubagent(f.app.pane, "toolu_a1")
+	f.link().Push(strings.Replace(agentLog, "找出所有直接读 config 文件的地方，列出文件和行号", long, 1))
 	f.tt.Frame()
 	f.click(t, "展开指令")
 	f.click(t, "收起")

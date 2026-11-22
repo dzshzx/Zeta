@@ -18,9 +18,7 @@ import (
 // 它的记录用聊天列表画（条目和聊天里的一样，它又派的子代理也能点进去）。
 type subagentView struct {
 	toolUseID string
-	// call 是发起它的那一步（参数里有说明、类型、指令），打开时在聊天和开着的子代理页里找的；没找到时是零值。
-	call items.Step
-	list *chatview.Chat
+	list      *chatview.Chat
 	// rev 是套给列表的那一版（chat.Subagent.Rev）；failed 是没看上的原因。
 	rev    int
 	failed string
@@ -30,7 +28,7 @@ type subagentView struct {
 
 // openSubagent 打开子代理页（聊天里点了发起子代理的那一步、任务详情里点了查看它的步骤）：开始看着它。
 func (a *App) openSubagent(p *chatPane, toolUseID string) {
-	v := &subagentView{toolUseID: toolUseID, call: p.agentCall(toolUseID), list: chatview.New()}
+	v := &subagentView{toolUseID: toolUseID, list: chatview.New()}
 	v.list.LoadImage, v.list.LoadMarkdownImage, v.list.OpenLink = p.list.LoadImage, p.list.LoadMarkdownImage, p.list.OpenLink
 	v.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
@@ -102,26 +100,6 @@ func noStepsText(s chat.Subagent, failed string) string {
 	return "还没有步骤"
 }
 
-// agentCall 是发起子代理 toolUseID 的那一步：在聊天里，或在开着的子代理页的记录里（它又派的）；没找到时是零值。
-func (p *chatPane) agentCall(toolUseID string) items.Step {
-	lists := [][]items.Item{p.list.Items()}
-	for _, s := range p.pages.stack {
-		if s.agent != nil {
-			lists = append(lists, s.agent.list.Items())
-		}
-	}
-	for _, list := range lists {
-		for _, it := range list {
-			for _, st := range it.Steps {
-				if st.Kind == items.Tool && st.ID == toolUseID {
-					return st
-				}
-			}
-		}
-	}
-	return items.Step{}
-}
-
 // subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
 // 和聊天里的条目一样画；运行中最后一行在转。
 func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
@@ -132,17 +110,16 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	if s.Rev != v.rev {
 		v.follow(s)
 	}
-	call := v.call
-	description, kind, model, prompt := call.Str("description"), call.Str("subagent_type"), "", s.Prompt
+	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上
+	var description, kind, model string
 	if m := s.Meta; m != nil {
-		description, kind, model = cmp.Or(m.Description, description), cmp.Or(m.AgentType, kind), m.Model
+		description, kind, model = m.Description, m.AgentType, m.Model
 	}
-	prompt = cmp.Or(prompt, call.Str("prompt"))
 	coui.Header(c, "子代理", func() { a.back(p) })
 	ui.Column(c).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center).Grow(1).MinHeight(0).Padding(4, 0, 16, 0).Children(func() {
 		subagentSummary(c, s, cmp.Or(description, "子代理"), kind, model)
-		if prompt != "" {
-			promptBlock(c, v, prompt)
+		if s.Prompt != "" {
+			promptBlock(c, v, s.Prompt)
 		}
 		subagentSteps(c, v, s)
 	})

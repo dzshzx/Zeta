@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -94,17 +93,6 @@ func TestRemovingAHostForgetsItsSettings(t *testing.T) {
 	}
 	if got, _ := s.store.Strings(keyRemoteClaude); !reflect.DeepEqual(got, []string{"r-2/autoCompact=true"}) {
 		t.Errorf("remoteClaude %v", got)
-	}
-	text, _ := s.store.String(keyCommands)
-	var commands map[string]any
-	_ = json.Unmarshal([]byte(text), &commands)
-	var ids []string
-	for id := range commands {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	if !reflect.DeepEqual(ids, []string{"r-2"}) {
-		t.Errorf("commands %s", text)
 	}
 	// 置顶不跟着删，同 Kotlin 版
 	if len(s.Pins()) != 2 {
