@@ -33,8 +33,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 
 ## 两端开发
 
-- 工作站（x86-64 的 Linux）是主开发处：改动在任务树里做，用 `wt land` 跑门禁并合入 master。
-- 手机 Debian 里也可以留一份仓，用来临时开发和实机测试，能编、能装、能测。开工前先 `git pull`。要留下的改动提交到分支、推到 GitHub，再在工作站上用 `wt land` 合入；手机上没有 `wt`，不直接推 master。
+- 工作站（x86-64 的 Linux）和手机 Debian 上各有一份仓，都能编、能装、能测。改动在任务树里做，用 `wt land` 跑门禁并合入 master。
 - 两边都只经 GitHub 的 `origin` 同步。
 - 工作站进手机：`ssh <手机 Debian 的 ssh 别名>` 进 Debian（别名见「本机配置」的 `zeta.phoneSsh`），`sudo nsenter -t 1 -m -- /system/bin/sh -c '<命令>'` 以 root 进 Android 一侧。`/workspace` 是 Android 的 `/data/local/zeta/workspace` 挂进来的；从 chroot 里看不到 `/data/local/zeta`，要经 `nsenter` 看。
 
