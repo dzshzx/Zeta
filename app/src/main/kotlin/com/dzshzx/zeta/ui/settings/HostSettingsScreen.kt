@@ -111,6 +111,7 @@ private fun LazyListScope.claudeItems(
             item { AutoCompactSwitch(hub, backend) }
             item { CompactTimingPreference(hub, backend) }
             item { AutoTitleSwitch(hub, backend) }
+            item { IdleEndPreference(hub, backend, ready) }
             item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
             item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }
         }

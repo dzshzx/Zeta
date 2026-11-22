@@ -155,6 +155,18 @@ hosted_for() {
 
 # 托管目录 $1 里还接着的一方的进程号，一行一个；进程号 $2（可省）不算。看 attach.d 的记录（进程还在、启动时刻对得上），
 # 对不上的记录顺手删掉；再看 attach：它记的进程没有 attach.d 记录、命令行里有 zeta-host 时，是只写 attach 的旧版接着的一方。
+# idle_limit <托管目录>：看门狗闲置多少轮（每轮 ZETA_IDLE_STEP 秒，默认 60，所以就是分钟数）就结束进程，0 是不自动结束。
+# 每台主机一份，在 ~/.config/<ZETA_NAME>/idle-minutes（设置页经核心的 system.set_idle 写，见 helper/idle.go），每轮重读，改了马上生效；
+# 没有或不是整数时用 ZETA_IDLE_LIMIT（测试用），再没有是 10。
+idle_limit() {
+  local n=${1%/hosts/*} v
+  v=$(cat "${n%/.cache/*}/.config/${n##*/}/idle-minutes" 2>/dev/null) || v=
+  case $v in
+    '' | *[!0-9]*) echo "${ZETA_IDLE_LIMIT:-10}" ;;
+    *) echo "$v" ;;
+  esac
+}
+
 attachers() {
   local d=$1 skip=${2:-} f p
   local -a STAT
@@ -342,8 +354,8 @@ elif [ "$mode" = start ]; then
     # （stop 后马上又 start），下面的 exit 写进的是已删掉的这一个、写不成，不会把新进程报成已结束
     mine=
     cd "$D" && mine=1
-    # 看门狗：没有应用接着（attachers 一个也没有）、这一轮又已经结束的进程，闲置约十分钟后照 stop 那样结束（end_claude），
-    # 免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
+    # 看门狗：没有应用接着（attachers 一个也没有）、这一轮又已经结束的进程，闲置满 idle_limit 轮（默认十分钟，每台主机可设）后
+    # 照 stop 那样结束（end_claude），免得应用被杀之后它一直占着内存。还在干活、在等用户确认或还有后台任务在跑的不动。
     (
       n=0
       while [ -d "$D" ] && kill -0 $P 2>/dev/null; do
@@ -353,7 +365,8 @@ elif [ "$mode" = start ]; then
         # 这一轮结束了、也没有后台任务在跑才算闲着（在等用户确认时这一轮还没结束）
         elif ! turn_running "$D/out.jsonl" && ! tasks_running "$D/out.jsonl"; then
           n=$((n + 1))
-          [ $n -ge "${ZETA_IDLE_LIMIT:-10}" ] && end_claude "$D" $P
+          limit=$(idle_limit "$D")
+          [ "$limit" -gt 0 ] && [ $n -ge "$limit" ] && end_claude "$D" $P
         else
           n=0
         fi
@@ -372,7 +385,7 @@ elif [ "$mode" = start ]; then
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi
     [ -n "$mine" ] && echo $code > exit
-  ' zeta-run "$(declare -f turn_running tasks_running stat_of running hosted_claude write_line end_claude attachers)" "$D" "$run" "$@" \
+  ' zeta-run "$(declare -f turn_running tasks_running stat_of running hosted_claude write_line end_claude attachers idle_limit)" "$D" "$run" "$@" \
     </dev/null >/dev/null 2>&1 7>&- &
   for _ in $(seq 100); do [ -s "$D/pid" ] && break; sleep 0.05; done
   exec 7>&-

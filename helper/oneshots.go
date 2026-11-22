@@ -19,6 +19,7 @@ type oneShotParams struct {
 	Kind    string   `json:"kind"`
 	Path    string   `json:"path"`
 	Bytes   int64    `json:"bytes"`
+	Minutes *int     `json:"minutes"` // system.set_idle：闲置多少分钟结束进程，0 是不自动结束
 }
 
 // oneShots 是这一组的方法。参数不合要求时整个请求出错，什么也不做（同子命令）。
@@ -30,6 +31,8 @@ var oneShots = map[string]func(e *env, p oneShotParams) (any, error){
 	"files.read":       readMethod,
 	"images.file":      fileImageMethod,
 	"system.cpu":       systemCPUMethod,
+	"system.idle":      systemIdleMethod,
+	"system.set_idle":  systemSetIdleMethod,
 }
 
 // oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images."、"system." 上（newCoreHandler）。

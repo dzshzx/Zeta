@@ -268,6 +268,22 @@ class HostSharedTest {
         assertTrue("最后一个离开后闲着也没结束", waitUntil { !alive(pid) })
     }
 
+    /**
+     * 看门狗每轮读这台主机设的闲置上限（~/.config/<包>/idle-minutes，设置页经核心写）：它压过测试用的 ZETA_IDLE_LIMIT，
+     * 没人接着、闲着满这么多轮就结束进程。
+     */
+    @Test
+    fun theWatchdogUsesTheHostsIdleLimit() {
+        File(home, ".config/$name/idle-minutes").apply {
+            parentFile.mkdirs()
+            writeText("2\n")
+        }
+        val a = start("kA", env = mapOf("ZETA_IDLE_LIMIT" to "1000"))
+        val pid = pidOf("kA")
+        a.leave()
+        assertTrue("按这台主机设的 2 轮，闲着没人接着却一直没结束", waitUntil { !alive(pid) })
+    }
+
     /** detach 时没有别人接着：和 stop 一样结束进程、删掉托管目录。 */
     @Test
     fun detachingTheLastAttacherEndsTheProcess() {

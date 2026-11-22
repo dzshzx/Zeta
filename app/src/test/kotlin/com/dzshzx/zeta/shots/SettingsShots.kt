@@ -6,6 +6,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
@@ -92,6 +93,26 @@ class SettingsShots : ShotTest() {
     fun phoneHost() {
         val hub = hostsHub()
         shoot("settings-host-phone") {
+            HostSettingsScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
+        }
+    }
+
+    /** 设置 › 手机 ›「闲置超时」：值从这台主机上的核心读（system.idle），这里是假的核心答 30 分钟。 */
+    @Test
+    fun idleEnd() {
+        val hub = hostsHub()
+        val core = FakeCore().install(hub)
+        core.respond = { call ->
+            if (call.method == "system.idle") """{"minutes":30,"default":10}"""
+            else core.defaultReply(call)
+        }
+        shoot("settings-host-idle", prepare = { scrollListTo("闲置超时") }) {
             HostSettingsScreen(
                 hub = hub,
                 backend = Backends.LOCAL,

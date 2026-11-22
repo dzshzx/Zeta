@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -585,6 +586,21 @@ class ConvClientTest {
         assertEquals(HostCpu(37, 8), client.hostCpu())
         link.results["system.cpu"] = """{"percent":null,"cores":8}"""
         assertEquals(HostCpu(null, 8), client.hostCpu())
+
+        // 闲置超时：读、改都借这条连接；改的时候带上 minutes
+        link.results["system.idle"] = """{"minutes":30,"default":10}"""
+        assertEquals(30, client.idleMinutes())
+        link.results["system.set_idle"] = """{"minutes":0,"default":10}"""
+        assertEquals(0, client.setIdleMinutes(0))
+        assertEquals(
+            JsonPrimitive(0),
+            link.took().last { it.method == "system.set_idle" }.params["minutes"],
+        )
+        link.results.remove("system.idle")
+        try {
+            client.idleMinutes()
+            fail("核心没答值却当成了一个数")
+        } catch (_: ServeError) {}
 
         link.errors["conv.compact"] = "没有打开这个对话"
         try {
