@@ -26,15 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
-import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.TaskState
-import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
-import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -57,15 +54,6 @@ fun subagentState(running: Boolean, outcome: TaskState?): String =
         outcome == TaskState.Stopped -> "已停止"
         else -> "未做完"
     }
-
-/** 对话里发起子代理的那一步（参数里有说明、类型、指令）；找不到时为 null。 */
-private fun Conversation.agentCall(toolUseId: String): ToolStep? =
-    items
-        .asSequence()
-        .filterIsInstance<WorkItem>()
-        .flatMap { it.steps.asSequence() }
-        .filterIsInstance<ToolStep>()
-        .firstOrNull { it.id == toolUseId }
 
 /**
  * 子代理查看页：聊天里点开发起子代理的那一步、后台任务面板里点子代理进来。[conversationKey] 是所在对话的 key， [toolUseId]
@@ -100,7 +88,6 @@ fun SubagentScreen(
     CompositionLocalProvider(LocalBackend provides conversation.backend) {
         SubagentPage(
             conversation.subagent(toolUseId) ?: ConvSubagent(toolUseId),
-            conversation.agentCall(toolUseId),
             onBack,
             imagesOf,
             onOpenSubagent = { nested = it },
@@ -112,22 +99,18 @@ fun SubagentScreen(
     }
 }
 
-/** 页面本身：概要、交给它的指令、它的步骤（和聊天里一样的条目），运行中最后一行在动。 */
+/**
+ * 页面本身：概要、交给它的指令、它的步骤（和聊天里一样的条目），运行中最后一行在动。记录还没读到时，说明、类型和指令由核心先用发起它的 Agent 调用的参数填上（conv.subagent 的
+ * meta、prompt）。
+ */
 @Composable
 fun SubagentPage(
     log: ConvSubagent,
-    call: ToolStep?,
     onBack: () -> Unit,
     imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
     onOpenSubagent: ((String) -> Unit)? = null,
 ) {
-    val meta = log.meta
-    val input = call?.input
-    val type = meta?.agentType ?: input?.str("subagent_type")
-    val description =
-        meta?.description?.takeIf { it.isNotBlank() }
-            ?: input?.str("description")?.takeIf { it.isNotBlank() }
-    val prompt = log.prompt.ifEmpty { null } ?: input?.str("prompt")
+    val prompt = log.prompt.ifEmpty { null }
     val listState = rememberLazyListState()
     val markdownCache = remember { StreamingMarkdownStateCache() }
     // 一开始停在概要上；拉到底以后跟着新步骤走，往上翻就不跟了
@@ -135,7 +118,7 @@ fun SubagentPage(
     // 子代理还在跑时步骤随时变；界面看不见时这一页不跟着重组、测量
     val items = whileStarted { log.items }
     CouiPage(title = "子代理", onBack = onBack, listState = listState) {
-        item(key = "info") { SubagentSummary(log, description, type, meta?.model) }
+        item(key = "info") { SubagentSummary(log) }
         prompt?.let { text -> item(key = "prompt") { PromptBlock(text) } }
         item(key = "steps-title") { PreferenceCategory(title = "步骤") }
         if (log.skipped > 0)
@@ -166,14 +149,12 @@ fun SubagentPage(
 
 /** 概要：说明、状态、子代理类型、模型和工具调用次数（知道的才列）。 */
 @Composable
-private fun SubagentSummary(
-    log: ConvSubagent,
-    description: String?,
-    type: String?,
-    model: String?,
-) {
+private fun SubagentSummary(log: ConvSubagent) {
+    val meta = log.meta
     PreferenceGroup {
-        item(key = "title") { BasicComponent(title = description ?: "子代理") }
+        item(key = "title") {
+            BasicComponent(title = meta?.description?.takeIf { it.isNotBlank() } ?: "子代理")
+        }
         item(key = "state") {
             BasicComponent(
                 title = "状态",
@@ -186,12 +167,12 @@ private fun SubagentSummary(
                 },
             )
         }
-        type?.let { value ->
+        meta?.agentType?.let { value ->
             item(key = "type") {
                 BasicComponent(title = "子代理类型", endActions = { PreferenceValue(value) })
             }
         }
-        model?.let { value ->
+        meta?.model?.let { value ->
             item(key = "model") {
                 BasicComponent(title = "模型", endActions = { PreferenceValue(value) })
             }

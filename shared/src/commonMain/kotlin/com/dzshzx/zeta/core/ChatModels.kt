@@ -22,7 +22,12 @@ sealed interface ChatItem {
     val id: String
 }
 
-/** [files] 是随消息送进 Linux 环境的附件路径。[uuid] 是这条消息在会话记录里的 uuid，改写和分支时用；不知道时为 null。 */
+/**
+ * [files] 是随消息送进 Linux 环境的附件路径。[uuid] 是这条消息在会话记录里的 uuid；不知道时为 null。
+ *
+ * 这一轮能做什么由核心算好（docs/core.md 的 conv.items）：[rewindable] 能编辑、重新生成、删除这一轮、还原代码；[forkable]
+ * 能从这一轮之后分支；[roundLast] 是这一轮的操作行挂在哪一项下面，为 null 时只能从这条消息的菜单操作。真能做还要 conv.state 的 can_rewind。
+ */
 @Immutable
 data class UserItem(
     override val id: String,
@@ -30,6 +35,9 @@ data class UserItem(
     val images: List<ImageRef> = emptyList(),
     val files: List<String> = emptyList(),
     val uuid: String? = null,
+    val rewindable: Boolean = false,
+    val forkable: Boolean = false,
+    val roundLast: String? = null,
 ) : ChatItem
 
 /** 聊天里的一张图片，显示时才载入；[key] 兼作缓存键。 */
@@ -382,11 +390,3 @@ fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.bool
 fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
 
 fun JsonObject.double(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull
-
-/** 工具结果的 content：字符串，或若干 text 块。 */
-fun JsonElement?.flattenText(): String =
-    when (this) {
-        is JsonPrimitive -> contentOrNull.orEmpty()
-        is JsonArray -> mapNotNull { (it as? JsonObject)?.str("text") }.joinToString("\n")
-        else -> ""
-    }

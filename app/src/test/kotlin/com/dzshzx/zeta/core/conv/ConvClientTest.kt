@@ -14,6 +14,9 @@ import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.TodoEntry
+import com.dzshzx.zeta.core.TodoList
+import com.dzshzx.zeta.core.TodoStatus
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -251,7 +254,15 @@ class ConvClientTest {
         assertEquals(1_700_000_001_000L, s.lastActivity)
         assertTrue(s.modelFromSession)
         assertEquals("h-7", s.hostKey)
-        assertEquals("TodoWrite", s.todoSeed.single().name)
+        assertEquals(
+            TodoList(
+                listOf(
+                    TodoEntry("1", "跑测试", "正在跑测试", TodoStatus.InProgress),
+                    TodoEntry("2", "提交", "提交", TodoStatus.Pending),
+                ),
+            ),
+            s.todos,
+        )
     }
 
     @Test
@@ -505,17 +516,16 @@ class ConvClientTest {
                 {
                     conv.rewrite("u3", "改一下", files = listOf("/h/b.md"))
                 } to call("conv.rewrite", """"target":"u3","text":"改一下","files":["/h/b.md"]"""),
+                {
+                    conv.resend("u3")
+                } to call("conv.rewrite", """"target":"u3","resend":true"""),
                 { conv.drop("u3") } to call("conv.drop", """"target":"u3""""),
                 {
                     conv.restoreCode("u3", drop = true)
                 } to call("conv.restore_code", """"target":"u3","drop":true"""),
                 {
-                    conv.restoreCode("u3", text = "再来", files = listOf("/h/b.md"))
-                } to
-                    call(
-                        "conv.restore_code",
-                        """"target":"u3","drop":false,"text":"再来","files":["/h/b.md"]""",
-                    ),
+                    conv.restoreCode("u3", resend = true)
+                } to call("conv.restore_code", """"target":"u3","drop":false,"resend":true"""),
                 {
                     conv.watchSubagent("tu1", true)
                 } to call("conv.subagent", """"tool_use_id":"tu1","watch":true"""),
@@ -771,7 +781,7 @@ class ConvClientTest {
             "reported_model":"claude-opus-5-5","effort":"high","earlier":120,"earlier_loading":true,"can_rewind":true,
             "steering":true,"blocked":true,"process":true,
             "rewinding":true,"last_activity":1700000001000,"model_from_session":true,"host_key":"h-7",
-            "todo_seed":[{"type":"assistant","message":{"id":"m0","role":"assistant","content":[
-              {"type":"tool_use","id":"tw1","name":"TodoWrite","input":{"todos":[]}}]}}]}"""
+            "todos":[{"key":"1","content":"跑测试","active_form":"正在跑测试","status":"in_progress"},
+              {"key":"2","content":"提交","active_form":"提交","status":"pending"}]}"""
     }
 }

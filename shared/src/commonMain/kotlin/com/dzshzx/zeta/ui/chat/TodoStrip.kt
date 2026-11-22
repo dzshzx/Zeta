@@ -40,11 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dzshzx.zeta.core.ChatItem
-import com.dzshzx.zeta.core.TodoBoard
 import com.dzshzx.zeta.core.TodoEntry
+import com.dzshzx.zeta.core.TodoList
 import com.dzshzx.zeta.core.TodoStatus
-import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
@@ -61,17 +59,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 输入卡片上方的任务清单（样子照排队条）：一行显示做到第几项、正在做哪一项，点开是整份清单。 清单来自对话里 Claude 的清单工具调用，重新打开旧会话时从历史里还原。
- * 全部做完、这一轮也结束了就不再显示；× 把这一份收掉，清单再有变化时重新出来。
+ * 输入卡片上方的任务清单（样子照排队条）：一行显示做到第几项、正在做哪一项，点开是整份清单。 清单是核心从 Claude 的清单工具调用归并好的（conv.state 的
+ * todos），旧会话里更早建的也在。 全部做完、这一轮也结束了就不再显示；× 把这一份收掉，清单再有变化时重新出来。
  */
 @Composable
-fun TodoStrip(
-    items: List<ChatItem>,
-    seed: List<ToolStep>,
-    busy: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val list = remember(items, seed) { TodoBoard.from(items, seed) } ?: return
+fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
+    list ?: return
     val signature =
         remember(list) {
             list.entries

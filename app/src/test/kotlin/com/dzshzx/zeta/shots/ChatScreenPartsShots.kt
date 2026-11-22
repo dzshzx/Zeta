@@ -31,8 +31,9 @@ import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.core.SetupState
-import com.dzshzx.zeta.core.ToolStatus
-import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.core.TodoEntry
+import com.dzshzx.zeta.core.TodoList
+import com.dzshzx.zeta.core.TodoStatus
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.UserPrompt
 import com.dzshzx.zeta.core.conv.ConvMessage
@@ -46,10 +47,8 @@ import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import java.io.InputStream
 import java.io.OutputStream
-import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -121,7 +120,7 @@ class ChatScreenPartsShots : ShotTest() {
             it.copy(
                 lastActivity = System.currentTimeMillis(),
                 busy = true,
-                todoSeed = listOf(todos),
+                todos = todos,
                 queued =
                     listOf(
                         ConvMessage("q1", "顺便把 CLAUDE.md 里的构建命令也核对一遍"),
@@ -490,30 +489,22 @@ class ChatScreenPartsShots : ShotTest() {
     }
 
     private val todos =
-        ToolStep(
-            "todo",
-            "TodoWrite",
-            buildJsonObject {
-                putJsonArray("todos") {
-                    addJsonObject {
-                        put("content", "找出直接调用 gradlew 的地方")
-                        put("activeForm", "正在找直接调用 gradlew 的地方")
-                        put("status", "completed")
-                    }
-                    addJsonObject {
-                        put("content", "改 README 的构建命令")
-                        put("activeForm", "正在改 README 的构建命令")
-                        put("status", "in_progress")
-                    }
-                    addJsonObject {
-                        put("content", "核对 CLAUDE.md")
-                        put("activeForm", "正在核对 CLAUDE.md")
-                        put("status", "pending")
-                    }
-                }
-            },
-            ToolStatus.Success,
-            "",
+        TodoList(
+            listOf(
+                TodoEntry(
+                    "todo-0",
+                    "找出直接调用 gradlew 的地方",
+                    "正在找直接调用 gradlew 的地方",
+                    TodoStatus.Completed,
+                ),
+                TodoEntry(
+                    "todo-1",
+                    "改 README 的构建命令",
+                    "正在改 README 的构建命令",
+                    TodoStatus.InProgress,
+                ),
+                TodoEntry("todo-2", "核对 CLAUDE.md", "正在核对 CLAUDE.md", TodoStatus.Pending),
+            ),
         )
 
     private val chat =

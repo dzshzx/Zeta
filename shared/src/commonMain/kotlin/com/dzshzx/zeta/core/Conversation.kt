@@ -155,9 +155,9 @@ class Conversation(
     var earlierState by mutableStateOf<EarlierState>(EarlierState.Idle)
         private set
 
-    /** 没载入的更早历史里的清单工具调用，任务清单面板据此接上更早建的清单。 */
-    val todoSeed: List<ToolStep>
-        get() = state.todoSeed
+    /** Claude 当前的任务清单（核心归并好的，连同没载入的更早历史）；没有清单时为 null。 */
+    val todos: TodoList?
+        get() = state.todos
 
     /** 在等用户回应的请求（工具确认、计划审批、问题、MCP 表单），按到达顺序，界面一次弹第一个（[pending]）。 */
     val prompts: List<UserPrompt>
@@ -586,7 +586,7 @@ class Conversation(
 
     // ---- 编辑、重新生成、删除、还原代码
 
-    /** 编辑或重新生成：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。没剪成时核心把新消息放回输入框。 */
+    /** 编辑：丢掉 [target] 这条用户消息和之后的内容，从那里用新消息接着跑。没剪成时核心把新消息放回输入框。 */
     fun rewrite(
         target: UserItem,
         text: String,
@@ -615,17 +615,11 @@ class Conversation(
     }
 
     /**
-     * 连同代码一起重新生成：把文件改回 [target] 这条消息之前，还原成了核心接着照 [rewrite] 剪掉这一轮、发这条新消息；没还原成时不剪，
-     * 新消息放回输入框。一个请求做完（conv.restore_code 带消息），结果以列表里的提示告知。
+     * 重新生成：照 [target] 原样重发（resend：文字、图片、附件路径都由核心从那条消息取，图从会话记录里取回），丢掉它之后的内容。 [withCode]
+     * 时先把文件改回这条消息之前，还原成了才剪、才发；没还原成时不剪。结果以列表里的提示告知。
      */
-    fun restoreCodeAndRewrite(
-        target: UserItem,
-        text: String,
-        attachments: List<Attachment> = emptyList(),
-        files: List<String> = emptyList(),
-    ) {
-        val images = attachments.map { ConvImage(it.mediaType, it.base64) }
-        call { it.restoreCode(target.id, text = text, images = images, files = files) }
+    fun regenerate(target: UserItem, withCode: Boolean = false) = call {
+        if (withCode) it.restoreCode(target.id, resend = true) else it.resend(target.id)
     }
 
     // ---- 模型、思考强度、权限模式

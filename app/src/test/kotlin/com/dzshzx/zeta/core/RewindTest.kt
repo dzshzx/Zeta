@@ -1,65 +1,59 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.ui.chat.TurnIndex
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** 各轮的操作：能做什么、挂在哪一项照核心标在用户消息上的（conv.items 的 rewindable、forkable、round_last），之后还有几轮由客户端数。 */
 class RewindTest {
-    private val stopped = NoticeItem("n-stop", "已停止", error = false)
-
-    /** 一段典型的对话：载入提示、三轮，第二轮停在工具步骤上，第三轮末尾是“已停止”。 */
+    /** 核心推来的一段：载入提示、三轮；第二轮停在工具步骤上，第三轮的用户消息 Claude Code 还不认得、只有灰色提示。 */
     private val items =
-        listOf(
-            NoticeItem("n-0", "上下文已压缩", error = false),
-            UserItem("u-1", "first", uuid = "uuid-1"),
-            AnswerItem("a-1", "one", streaming = false),
-            UserItem("u-2", "second", uuid = "uuid-2"),
-            AnswerItem("a-2", "two", streaming = false),
-            WorkItem("w-2", emptyList()),
-            UserItem("u-3", "third", uuid = "uuid-3"),
-            AnswerItem("a-3", "three", streaming = false),
-            stopped,
-        )
-
-    @Test
-    fun turnsStartAtUserMessages() {
-        assertEquals(listOf(Turn(1, 3), Turn(3, 6), Turn(6, 9)), turnsOf(items))
-        assertEquals(emptyList<Turn>(), turnsOf(listOf(NoticeItem("n", "x", error = false))))
-    }
-
-    @Test
-    fun actionsHangUnderTheLastAnswerOrStep() {
-        val turns = turnActions(items)
-        assertEquals(listOf("a-1", "w-2", "a-3"), turns.map { it.lastItemId })
-        assertEquals(listOf(2, 1, 0), turns.map { it.laterTurns })
-        assertEquals(listOf("uuid-2", "uuid-3", null), turns.map { it.branchCut })
-        assertTrue(turns.all { it.rewindable && it.branchable })
-    }
-
-    @Test
-    fun turnWithOnlyPlainNoticesHasNoActionRow() {
-        val only = listOf(UserItem("u", "hi", uuid = "x"), stopped)
-        assertNull(turnActions(only).single().lastItemId)
-        val failed =
-            listOf(UserItem("u", "hi", uuid = "x"), NoticeItem("e", "出错了", error = true), stopped)
-        assertEquals("e", turnActions(failed).single().lastItemId)
-    }
-
-    @Test
-    fun messagesWithoutUuidCannotBeCutAt() {
-        val mixed =
-            listOf(
-                UserItem("u-1", "first", uuid = "uuid-1"),
-                AnswerItem("a-1", "one", streaming = false),
-                UserItem("u-2", "queued"),
-                AnswerItem("a-2", "two", streaming = false),
+        Json.parseToJsonElement(
+                """[{"kind":"notice","id":"n-0","text":"上下文已压缩"},
+                {"kind":"user","id":"u-1","text":"first","uuid":"uuid-1","rewindable":true,"forkable":true,"round_last":"a-1"},
+                {"kind":"answer","id":"a-1","text":"one"},
+                {"kind":"user","id":"u-2","text":"second","uuid":"uuid-2","rewindable":true,"forkable":true,"round_last":"w-2"},
+                {"kind":"answer","id":"a-2","text":"two"},
+                {"kind":"work","id":"w-2","steps":[]},
+                {"kind":"user","id":"u-3","text":"third","forkable":true},
+                {"kind":"notice","id":"n-3","text":"已停止"}]""",
             )
-        val turns = turnActions(mixed)
-        assertTrue(turns[0].rewindable)
-        assertFalse(turns[0].branchable)
-        assertFalse(turns[1].rewindable)
-        assertTrue(turns[1].branchable)
+            .jsonArray
+            .map { chatItemOf(it.jsonObject) }
+
+    @Test
+    fun readsWhatTheCoreMarkedOnUserMessages() {
+        val users = items.filterIsInstance<UserItem>()
+        assertEquals(listOf(true, true, false), users.map { it.rewindable })
+        assertTrue(users.all { it.forkable })
+        assertEquals(listOf("a-1", "w-2", null), users.map { it.roundLast })
+        // 没标的是零值：核心省掉了 false 和空串
+        val bare = chatItemOf(Json.parseToJsonElement("""{"kind":"user","id":"u"}""").jsonObject)
+        assertEquals(UserItem("u", ""), bare)
+    }
+
+    @Test
+    fun turnsCountTheRoundsAfterThem() {
+        val turns = userTurns(items)
+        assertEquals(listOf("u-1", "u-2", "u-3"), turns.map { it.user.id })
+        assertEquals(listOf(2, 1, 0), turns.map { it.laterTurns })
+        assertEquals(emptyList<Turn>(), userTurns(listOf(NoticeItem("n", "x", error = false))))
+    }
+
+    @Test
+    fun actionRowHangsWhereTheCoreSaid() {
+        val index = TurnIndex(userTurns(items))
+        assertEquals(setOf("a-1", "w-2"), index.byLast.keys)
+        assertEquals("u-2", index.byLast.getValue("w-2").user.id)
+        assertSame(index.byUser.getValue("u-3"), index.last)
+        assertNull(index.byLast["n-3"])
+        assertFalse(index.last!!.user.rewindable)
     }
 }

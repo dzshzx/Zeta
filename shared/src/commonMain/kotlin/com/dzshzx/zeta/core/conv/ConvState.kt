@@ -17,9 +17,10 @@ import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.TaskState
-import com.dzshzx.zeta.core.TodoBoard
+import com.dzshzx.zeta.core.TodoEntry
+import com.dzshzx.zeta.core.TodoList
+import com.dzshzx.zeta.core.TodoStatus
 import com.dzshzx.zeta.core.TokenCounts
-import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserPrompt
 import com.dzshzx.zeta.core.arr
@@ -65,8 +66,8 @@ data class ConvState(
     val earlier: Int = 0,
     /** 正在载入更早的一段（核心第二批的字段，没推来时为 false）。 */
     val earlierLoading: Boolean = false,
-    /** 没载入的更早历史里的待办清单工具调用，界面拼出当前待办用（[TodoBoard.from] 的 seed）。 */
-    val todoSeed: List<ToolStep> = emptyList(),
+    /** Claude 当前的任务清单（核心归并好的）；没有清单时为 null。 */
+    val todos: TodoList? = null,
     val tasks: List<BackgroundTask> = emptyList(),
     /** 排队等发的消息。 */
     val queued: List<ConvMessage> = emptyList(),
@@ -137,7 +138,7 @@ private val fieldReaders: Map<String, FieldReader> =
         "loading_history" to { s, v -> s.copy(loadingHistory = v.flag()) },
         "earlier" to { s, v -> s.copy(earlier = (v as? JsonPrimitive)?.intOrNull ?: 0) },
         "earlier_loading" to { s, v -> s.copy(earlierLoading = v.flag()) },
-        "todo_seed" to { s, v -> s.copy(todoSeed = TodoBoard.seedSteps(v as? JsonArray)) },
+        "todos" to { s, v -> s.copy(todos = todoListOf(v.objects())) },
         "tasks" to { s, v -> s.copy(tasks = v.objects().map(::backgroundTaskOf)) },
         "queued" to { s, v -> s.copy(queued = v.objects().map(::convMessageOf)) },
         "steering" to { s, v -> s.copy(steering = v.flag()) },
@@ -199,6 +200,25 @@ internal fun convMessageOf(o: JsonObject): ConvMessage =
             },
         files = o.strings("files"),
     )
+
+/** 任务清单（helper/conv/todos.go 的 todo）；空的是没有清单。认不出的状态当作还没做。 */
+private fun todoListOf(entries: List<JsonObject>): TodoList? =
+    entries
+        .map {
+            TodoEntry(
+                key = it.str("key").orEmpty(),
+                content = it.str("content").orEmpty(),
+                activeForm = it.str("active_form").orEmpty(),
+                status =
+                    when (it.str("status")) {
+                        "in_progress" -> TodoStatus.InProgress
+                        "completed" -> TodoStatus.Completed
+                        else -> TodoStatus.Pending
+                    },
+            )
+        }
+        .ifEmpty { null }
+        ?.let(::TodoList)
 
 /** 后台任务（helper/tasks/task.go 的 Task）。running、readable 两项 [BackgroundTask] 自己算，不读。 */
 internal fun backgroundTaskOf(o: JsonObject): BackgroundTask =

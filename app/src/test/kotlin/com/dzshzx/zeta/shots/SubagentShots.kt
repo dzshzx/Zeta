@@ -102,19 +102,30 @@ class SubagentShots : ShotTest() {
     @Test
     fun running() {
         val log = log(done = false)
-        shoot("subagent-running") { SubagentPage(log, call, onBack = {}) }
+        shoot("subagent-running") { SubagentPage(log, onBack = {}) }
     }
 
     @Test
     fun finished() {
         val log = log(done = true)
-        shoot("subagent-done") { SubagentPage(log, call, onBack = {}) }
+        shoot("subagent-done") { SubagentPage(log, onBack = {}) }
     }
 
-    /** 记录还没读到时：用发起它的那一步里的说明和指令先顶上。 */
+    /** 记录还没读到时：核心先用发起它的那次 Agent 调用的说明、类型和指令填上（agent_id 为空）。 */
     @Test
     fun loading() {
-        shoot("subagent-loading") { SubagentPage(ConvSubagent("toolu_A"), call, onBack = {}) }
+        val log =
+            ConvSubagent(
+                toolUseId = "toolu_A",
+                meta =
+                    SubagentMeta(
+                        agentId = "",
+                        agentType = "general-purpose",
+                        description = "审查面板排版",
+                    ),
+                prompt = "看看后台任务面板的排版，列出不对齐和文字溢出的地方。只读代码，不要改。",
+            )
+        shoot("subagent-loading") { SubagentPage(log, onBack = {}) }
     }
 
     /** 聊天里发起子代理的那一步：右边是进入的箭头，不在原地展开。 */

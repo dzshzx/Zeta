@@ -34,7 +34,7 @@ import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
 import com.dzshzx.zeta.core.SessionImage
-import com.dzshzx.zeta.core.TurnActions
+import com.dzshzx.zeta.core.Turn
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -64,16 +64,16 @@ import kotlinx.coroutines.withContext
  * 聊天页的消息操作，交互照 Eta：
  * - 用户消息长按：复制、收藏为常用指令（见 SavedPromptsUi.kt）、编辑、删除。编辑时原文放回输入框，被编辑的消息描边，它之后的内容先藏起来，发出后替换；
  * - 每段回答下方：复制、朗读；一轮的最后一段回答还有重新生成、删除这一轮、分支。
- * 改写和删除都在原会话上剪（会话号不变），分支另开新会话；做法见 core/Rewind.kt。
+ * 改写和删除都在原会话上剪（会话号不变），分支另开新会话，都由核心做；哪一轮能做什么、操作行挂在哪一项照核心标在用户消息上的（见 core/Rewind.kt）。
  */
 
 /** 各轮的操作，按用户消息和操作行所在的那一项查。 */
 @Immutable
-class TurnIndex(list: List<TurnActions>) {
-    val byUser: Map<String, TurnActions> = list.associateBy { it.user.id }
-    val byLast: Map<String, TurnActions> =
-        list.mapNotNull { turn -> turn.lastItemId?.let { it to turn } }.toMap()
-    val last: TurnActions? = list.lastOrNull()
+class TurnIndex(list: List<Turn>) {
+    val byUser: Map<String, Turn> = list.associateBy { it.user.id }
+    val byLast: Map<String, Turn> =
+        list.mapNotNull { turn -> turn.user.roundLast?.let { it to turn } }.toMap()
+    val last: Turn? = list.lastOrNull()
 }
 
 /**
@@ -81,7 +81,7 @@ class TurnIndex(list: List<TurnActions>) {
  * 一样可以一起还原代码（[code]），删除时也可以只还原代码（[codeOnly]）。
  */
 @Stable
-class PendingConfirm(val turn: TurnActions, val regenerate: Boolean) {
+class PendingConfirm(val turn: Turn, val regenerate: Boolean) {
     var changes by mutableStateOf<CodeRewind.Changes?>(null)
     var code by mutableStateOf(true)
     var codeOnly by mutableStateOf(false)
@@ -96,7 +96,7 @@ class MessageActions(
     private val scope: CoroutineScope,
 ) {
     /** 正在编辑的那一轮。 */
-    var editing by mutableStateOf<TurnActions?>(null)
+    var editing by mutableStateOf<Turn?>(null)
         private set
 
     var confirm by mutableStateOf<PendingConfirm?>(null)
@@ -118,7 +118,7 @@ class MessageActions(
         return if (index < 0) items else items.subList(0, index + 1)
     }
 
-    fun beginEdit(turn: TurnActions) {
+    fun beginEdit(turn: Turn) {
         if (!conversation.canRewind) return
         if (editing != null) cancelEdit()
         saved =
@@ -165,9 +165,9 @@ class MessageActions(
         return true
     }
 
-    fun askRegenerate(turn: TurnActions) = ask(PendingConfirm(turn, regenerate = true))
+    fun askRegenerate(turn: Turn) = ask(PendingConfirm(turn, regenerate = true))
 
-    fun askDelete(turn: TurnActions) = ask(PendingConfirm(turn, regenerate = false))
+    fun askDelete(turn: Turn) = ask(PendingConfirm(turn, regenerate = false))
 
     private fun ask(pending: PendingConfirm) {
         confirm = pending
@@ -192,26 +192,12 @@ class MessageActions(
             else conversation.dropFrom(user)
             return
         }
-        // 原样重发这一轮的提问：文字、附件路径，还有图片（历史里的要从会话记录取回）
-        scope.launch {
-            val images =
-                withContext(Dispatchers.IO) {
-                    user.images.map { reattach(hub, conversation.backend, it) }
-                }
-            if (images.any { it == null }) {
-                toast("有图片取不回来，没法原样重发")
-                return@launch
-            }
-            val attachments = images.filterNotNull()
-            if (withCode)
-                conversation.restoreCodeAndRewrite(user, user.text, attachments, user.files)
-            else conversation.rewrite(user, user.text, attachments, user.files)
-        }
+        // 原样重发这一轮的提问：文字、图片、附件路径都由核心从那条消息取
+        conversation.regenerate(user, withCode)
     }
 
-    fun branch(turn: TurnActions) {
-        turn.lastItemId?.let(hub::branch)
-    }
+    /** 从这一轮之后分支（conv.fork 认这一轮里的任何一项）。 */
+    fun branch(turn: Turn) = hub.branch(turn.user.id)
 
     private fun toast(text: String) {
         hub.platform.toast(text)
@@ -229,11 +215,11 @@ fun TurnActionButtons(
     val turn = turns.byLast[itemId] ?: return
     if (turn === turns.last && (conversation.busy || conversation.rewinding)) return
     val enabled = conversation.canRewind && actions.editing == null
-    if (turn.rewindable) {
+    if (turn.user.rewindable) {
         ActionButton(COUIIcons.Refresh, "重新生成", enabled) { actions.askRegenerate(turn) }
         ActionButton(COUIIcons.Delete, "删除这一轮", enabled) { actions.askDelete(turn) }
     }
-    if (turn.branchable && conversation.sessionId != null) {
+    if (turn.user.forkable) {
         ActionButton(ZetaIcons.Branch, "从这里分支到新对话", enabled) { actions.branch(turn) }
     }
 }
@@ -278,7 +264,7 @@ private fun ActionButton(
 
 /** 输入卡片上方的编辑提示条（样子同排队条）：说明发出后会替换什么，× 取消编辑。 */
 @Composable
-fun EditStrip(turn: TurnActions, onCancel: () -> Unit, modifier: Modifier = Modifier) {
+fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     Row(

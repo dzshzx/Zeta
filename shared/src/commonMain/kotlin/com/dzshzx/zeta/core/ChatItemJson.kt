@@ -25,6 +25,9 @@ fun chatItemJson(item: ChatItem): JsonObject =
                 put("images", JsonArray(item.images.map(::imageRefJson)))
                 put("files", JsonArray(item.files.map(::JsonPrimitive)))
                 put("uuid", item.uuid)
+                put("rewindable", item.rewindable)
+                put("forkable", item.forkable)
+                put("round_last", item.roundLast)
             }
         is AnswerItem ->
             buildJsonObject {
@@ -129,6 +132,9 @@ fun chatItemOf(o: JsonObject): ChatItem {
                 images = imagesOf(o),
                 files = o.arr("files").orEmpty().mapNotNull { (it as? JsonPrimitive)?.content },
                 uuid = o.str("uuid")?.ifEmpty { null },
+                rewindable = o.bool("rewindable") == true,
+                forkable = o.bool("forkable") == true,
+                roundLast = o.str("round_last")?.ifEmpty { null },
             )
         "answer" -> AnswerItem(id, o.str("text").orEmpty(), o.bool("streaming") == true)
         "work" ->

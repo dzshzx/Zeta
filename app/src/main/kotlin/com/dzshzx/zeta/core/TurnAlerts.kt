@@ -303,7 +303,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         return LiveUpdate.status(
             chosen,
             answering.size,
-            TodoBoard.from(conversation.items, conversation.todoSeed),
+            conversation.todos,
         )
     }
 

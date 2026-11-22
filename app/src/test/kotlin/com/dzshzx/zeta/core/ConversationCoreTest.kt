@@ -8,7 +8,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -89,7 +88,7 @@ class ConversationCoreTest {
         assertNull("问负载时打开了对话", core.calls.poll())
     }
 
-    /** 提前起进程走 conv.prepare（打开在前）；连同代码重新生成是一个 conv.restore_code，带着要重发的消息。 */
+    /** 提前起进程走 conv.prepare（打开在前）；连同代码重新生成是一个带 resend 的 conv.restore_code，不带原消息（核心自己取）。 */
     @Test
     fun prepareAndRestoreWithResend() {
         val hub = Fixtures.readyHub(app)
@@ -98,14 +97,11 @@ class ConversationCoreTest {
         chat.prepare()
         val conv = core.next("conv.open").conv
         assertEquals(conv, core.next("conv.prepare").conv)
-        chat.restoreCodeAndRewrite(UserItem("u1", "再来一次"), "再来一次", files = listOf("/h/a.md"))
+        chat.regenerate(UserItem("u1", "再来一次", files = listOf("/h/a.md")), withCode = true)
         val restore = core.next("conv.restore_code")
         assertEquals("u1", restore.str("target"))
-        assertEquals("再来一次", restore.str("text"))
-        assertEquals(
-            listOf("/h/a.md"),
-            restore.params["files"]!!.jsonArray.map { it.jsonPrimitive.content },
-        )
+        assertEquals(JsonPrimitive(true), restore.params["resend"])
+        assertEquals(setOf("target", "drop", "resend"), restore.params.keys - "conv")
     }
 
     /** 核心推来的确认弹给用户，回答走 conv.answer；核心收走后不再弹。 */

@@ -444,7 +444,7 @@ internal constructor(
         )
     }
 
-    /** 编辑或重新生成：[target] 是那条用户消息的条目 id，剪掉它和之后的再发这条。 */
+    /** 编辑：[target] 是那条用户消息的条目 id，剪掉它和之后的再发这条。 */
     fun rewrite(
         target: String,
         text: String,
@@ -454,6 +454,14 @@ internal constructor(
         request(
             "conv.rewrite",
             messageParams(text, images, files) + ("target" to JsonPrimitive(target)),
+        )
+    }
+
+    /** 重新生成：剪掉 [target] 和之后的，照它原样重发（resend，文字、图片、附件路径都由核心取）。 */
+    fun resend(target: String) {
+        request(
+            "conv.rewrite",
+            mapOf("target" to JsonPrimitive(target), "resend" to JsonPrimitive(true)),
         )
     }
 
@@ -468,20 +476,14 @@ internal constructor(
             ?.let(::codeChangesOf)
 
     /**
-     * 把文件改回 [target] 这条消息之前，还原成了再接着做：带了新消息（[text] 不为 null，[images]、[files] 同 [rewrite]）时照 [rewrite]
-     * 剪掉这一轮再发它，没带、[drop] 时删这一轮。没还原成时不剪，带着的新消息放回输入框（[ConvState.recalled]）。结果以列表里的提示告知。
+     * 把文件改回 [target] 这条消息之前，还原成了再接着做：[resend] 时剪掉这一轮、照原样重发（同 conv.rewrite 带 resend），否则 [drop]
+     * 时删这一轮。 没还原成时不剪。结果以列表里的提示告知。
      */
-    fun restoreCode(
-        target: String,
-        drop: Boolean = false,
-        text: String? = null,
-        images: List<ConvImage> = emptyList(),
-        files: List<String> = emptyList(),
-    ) {
-        val message = text?.let { messageParams(it, images, files) }.orEmpty()
+    fun restoreCode(target: String, drop: Boolean = false, resend: Boolean = false) {
+        val params = mapOf("target" to JsonPrimitive(target), "drop" to JsonPrimitive(drop))
         request(
             "conv.restore_code",
-            message + mapOf("target" to JsonPrimitive(target), "drop" to JsonPrimitive(drop)),
+            if (resend) params + ("resend" to JsonPrimitive(true)) else params,
         )
     }
 

@@ -78,7 +78,7 @@ import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
-import com.dzshzx.zeta.core.turnActions
+import com.dzshzx.zeta.core.userTurns
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -443,7 +443,7 @@ private fun ConversationBody(
     SaveDraft(hub.drafts, draft, actions)
     val prompts = rememberPromptsUi(input)
     // 按值比较：回答逐字增长时各轮能做的操作不变，TurnIndex 还是原来那个，屏幕上别的消息不跟着重组
-    val turnList = remember(items) { turnActions(items) }
+    val turnList = remember(items) { userTurns(items) }
     val turns = remember(turnList) { TurnIndex(turnList) }
     val shown = actions.visible(items)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
@@ -701,7 +701,7 @@ private fun ChatRow(item: ChatItem, rows: ChatRows) {
         is UserItem -> {
             val turn =
                 turns.byUser[item.id]?.takeIf {
-                    it.rewindable && conversation.canRewind && actions.editing == null
+                    it.user.rewindable && conversation.canRewind && actions.editing == null
                 }
             UserBubble(
                 item,
@@ -786,8 +786,7 @@ private fun ConversationInput(
             modifier = Modifier.padding(bottom = 6.dp),
         )
         TodoStrip(
-            items,
-            conversation.todoSeed,
+            conversation.todos,
             conversation.busy,
             Modifier.padding(bottom = 6.dp),
         )
