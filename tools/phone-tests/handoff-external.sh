@@ -12,21 +12,26 @@ set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 DIR=/tmp/zeta-handoff-external
-ID=$(cat /proc/sys/kernel/random/uuid)
+IDS=()
 # 卡片上「接管会话」按钮的中心（按 JVM 截图 chat-external-idle 量的，按钮贴着卡片底边，说明几行都不影响它）
 HANDOFF_X=300 HANDOFF_Y=2512
 
-trap 'drop_session $ID $DIR' EXIT
+drop_sessions() { for id in "${IDS[@]}"; do drop_session "$id" $DIR; done; }
+trap drop_sessions EXIT
 
 vd fake "$HERE/fake/text.jsonl" >/dev/null
 vd debian --stdin "mkdir -p $DIR && cat > $DIR/claude && chmod +x $DIR/claude" <"$HERE/fake/external-claude.sh" >/dev/null
-seed_session $ID $DIR "handoff probe" "probe reply"
 
 alive() { vd debian "kill -0 $1" >/dev/null 2>&1; }
 
 # handoff <情形>：起一个正忙的假 claude，打开会话，点灰按钮不该动它；改成闲着，等卡片查到后点按钮，核对它退出、卡片收起、接着答一轮
 handoff() {
   local name=$1 pid result
+  # 每遍一个新会话：上一遍接过来的会话背后还接着 Zeta 自己的进程（没人拿着时核心 30 秒后才断开，看门狗约十分钟后收掉），
+  # 真的终端里 --resume 时 SessionStart hook 会让那个进程退出，这里假的 claude 不跑 hook，共用会话号就成了两个进程同占一个会话
+  ID=$(cat /proc/sys/kernel/random/uuid)
+  IDS+=("$ID")
+  seed_session $ID $DIR "handoff probe" "probe reply"
   # 后台起的命令 SIGINT 是忽略的，忽略的信号脚本里 trap 不回来：用 env 恢复成默认，像终端里起的 claude 那样收得到 SIGINT
   pid=$(vd debian "setsid env --default-signal=INT nohup $DIR/claude $ID busy </dev/null >/dev/null 2>&1 & p=\$!; \
 for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; sleep 0.1; done" | tr -d '\r')
