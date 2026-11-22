@@ -633,10 +633,10 @@ class ConversationHub(val platform: HubPlatform) {
         )
 
     /**
-     * 从当前对话 [lastItemId] 所在那一轮之后分支：切到一个新对话，先显示到那一轮为止的内容，原对话不动（核心的 conv.fork）。 新会话由 Claude Code
-     * 从原会话复制，发出第一条消息后才写出记录、出现在侧栏里。
+     * 从当前对话 [turnItemId] 所在那一轮之后分支（这一轮里的任何一项都行，界面传用户消息的）：切到一个新对话，先显示到那一轮为止的内容，原对话不动（核心的 conv.fork）。
+     * 新会话由 Claude Code 从原会话复制，发出第一条消息后才写出记录、出现在侧栏里。
      */
-    fun branch(lastItemId: String) {
+    fun branch(turnItemId: String) {
         val source = current
         if (source.sessionId == null || !source.canRewind) return
         replaceCurrent(
@@ -647,7 +647,7 @@ class ConversationHub(val platform: HubPlatform) {
                 title = "",
                 historyFile = null,
                 backend = source.backend,
-                fork = Conversation.Fork(source, lastItemId),
+                fork = Conversation.Fork(source, turnItemId),
             ),
         )
     }
