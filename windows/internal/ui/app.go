@@ -110,6 +110,7 @@ func (a *App) View(c *ui.Context) {
 				a.home(c)
 				coui.DragStrip(c)
 			}
+			a.updateBar(c)
 		})
 	})
 	a.noticeDialog(c)

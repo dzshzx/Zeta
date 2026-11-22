@@ -243,6 +243,9 @@ func TestSettingsPreviews(t *testing.T) {
 			f.click(t, "设置")
 			f.click(t, "有新版本 0.9.0")
 		}},
+		{"update-notice", 860, func(_ *testing.T, f *settingsFixture) {
+			f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+		}},
 		{"chat-quota", 900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "新对话")
 			f.until(t, "打开新对话", func() bool { c := f.hub.Chat(); return c != nil && c.Conv != nil })
@@ -316,4 +319,23 @@ func TestUsagePopoverShowsQuota(t *testing.T) {
 	if strings.Join(methods, " ") != "conv.quota quota.usage" {
 		t.Fatalf("问额度：%v", methods)
 	}
+}
+
+// 自动检查查到新版本时窗口底部提示一句，点「查看」进关于页；关掉就不再显示。
+func TestUpdateNotice(t *testing.T) {
+	f := newSettingsFixture(t)
+	f.updates.available = true
+	f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+	f.tt.Frame()
+	f.see(t, "Zeta 0.9.0 已发布，可在设置中更新", "查看")
+	f.click(t, "查看")
+	if f.app.page != pageAbout {
+		t.Fatalf("没进关于页：%q", f.app.page)
+	}
+	f.notSee(t, "Zeta 0.9.0 已发布，可在设置中更新")
+	f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+	f.tt.Frame()
+	f.clickButton(t, "关闭提示", 0)
+	f.tt.Frame()
+	f.notSee(t, "Zeta 0.9.0 已发布，可在设置中更新")
 }

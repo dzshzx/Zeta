@@ -275,3 +275,26 @@ func defaultAbout(h *hub.Hub) *about.Page {
 	v := update.Current()
 	return &about.Page{Version: v, Updates: &update.Updater{Version: v, Prefs: h.Settings()}, Prefs: h.Settings()}
 }
+
+// ShowUpdate 在窗口底部提示一句（自动检查查到了新版本），点「查看」进关于页。主线程上调用。
+func (a *App) ShowUpdate(text string) { a.updateNote = text }
+
+// updateBar 是窗口底部的提示条：一句话、查看、关掉。
+func (a *App) updateBar(c *ui.Context) {
+	if a.updateNote == "" {
+		return
+	}
+	k := coui.Of(c)
+	bar := ui.Row(c.Key("update-bar")).Margin(0, 16, 12, 16).Padding(8, 8, 8, 20).Gap(10).AlignItems(ui.Center).Shrink(0).
+		AlignSelf(ui.Center).MaxWidth(coui.PageWidth - 32)
+	coui.Shadow(coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(bar), k)
+	bar.Children(func() {
+		ui.Box(c).Size(6, 6).Radius(3).Background(k.Error).Shrink(0)
+		ui.Text(c, a.updateNote).FontSize(coui.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
+		coui.SmallPrimaryButton(c, "查看").OnClick(func() {
+			a.updateNote = ""
+			a.open(pageAbout)
+		})
+		coui.FlatButton(c, coui.IconClose, "关闭提示", 32, 18).OnClick(func() { a.updateNote = "" })
+	})
+}
