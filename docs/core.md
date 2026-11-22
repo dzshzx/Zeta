@@ -18,11 +18,13 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 一行一个 JSON，写法和方法清单以 `helper/serve.go` 开头为准。要点：
 
-- 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`。改已有消息的含义时加一，只加方法、字段不加。
+- 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`，以及主机名 `hostname`（`os.Hostname`，和 `uname -n` 同一个值；查不到时是空串）。`protocol` 在改已有消息的含义时加一，只加方法、字段不加。客户端每次连上时拿 `hostname` 补设备的主机名（界面上没起名字的设备就叫它），不用另跑 `uname -n`：Kotlin 的 `ConversationHub.hostnameOf` 和 `onDefaultsRead` 里顺带问主机名的那段随之删掉；加设备时的检查（`RemoteHosts.ProbeScript`、Windows 的 `host.Probe`）在装 zeta-helper 之前跑，照旧自己查。
+- 客户端认得这些新方法、新字段，就说明它连的核心也有：客户端起的是自己带的那个版本的 serve，核心不比 serve 旧（见下一条和「目标」的新的接手）。所以客户端不用先探测核心支不支持。
 - 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
-- 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。
+- 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。每一项是 `{id, file, cwd, title, preview, updated, external, archived, pinned}`；列的是最新的 300 个会话，加上置顶了却不在这 300 个里的（排在最后），所以置顶的总在列表里。
+- 协议里的类型和客户端也要照着做的规则（导出文件名、标题怎么清理、接管的类型与状态、错误代号）在 `helper/sessionproto`：只放类型、常量和纯函数，不依赖核心的其余部分，核心和 Go 写的客户端（Windows）都导入它，不各写一份。
 
 ## 对话
 
@@ -53,8 +55,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.stop_task` | `task` | 停一个后台任务 |
 | `conv.task_output` | `task` | 读后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}` |
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
-| `conv.occupant` | | Zeta 之外占着这个会话的进程（终端里的 Claude Code，或另一个包托管的）的样子，「别处运行」卡片照它说话：`result` 是 `{status, waiting_for, hands_over}`（`helper/conv/handoff.go` 的 `Occupancy`），没人占着时 `status` 为 `null` |
-| `conv.handoff` | | 把会话从别处接过来（同 `zeta-helper handoff`：那边闲着或在等确认时让它退出，正忙时不动），要等那边退出，最多十几秒。`result` 是 `{handed, status}`（`Handoff`）；交出来了（没人占着也算）就解开 `blocked` 并推 `conv.state`，没交出来时 `status` 是那边的状态，发了中断还不退的是 `stuck` |
+| `conv.occupant` | | Zeta 之外占着这个会话的进程（终端里的 Claude Code，或另一个包托管的）的样子，「别处运行」卡片照它说话：`result` 是 `{status, waiting_for, hands_over}`（`helper/sessionproto` 的 `Occupancy`），没人占着时 `status` 为 `null` |
+| `conv.handoff` | | 把会话从别处接过来（同 `zeta-helper handoff`：那边闲着或在等确认时让它退出，正忙时不动），要等那边退出，最多十几秒。`result` 是 `{handed, status}`（`sessionproto.Handoff`）；交出来了（没人占着也算）就解开 `blocked` 并推 `conv.state`，没交出来时 `status` 是那边的状态，发了中断还不退的是 `stuck` |
 | `conv.mcp_reply` | `request_id`、`response` | 手机工具的应答（见 `conv.mcp`） |
 | `conv.earlier` | `rest` | 载入更早的一页接到最前面（`rest` 为真时载完剩下的全部，对话内查找用）。新的一页经 `conv.items` 推成一次替换（`at` 0、`remove` 0），不推整份，客户端据此保住正看着的位置；读完才回应答。同一时间只读一页，正在读时答出错。会话记录在别处被改过（比如终端里剪到了更早的地方）时答出错，`code` 为 `history_changed`（「会话记录在别处改过，重新打开这个对话再看更早的内容」），重试没用 |
 | `conv.rewrite` | `target`、`text`、`images`、`files` | 编辑或重新生成：`target` 是那条用户消息的条目 `id`。请 Claude Code 剪掉它和之后的内容（`rewind_conversation`，会话号不变），剪成了再发新消息；没剪成时列表恢复原样、新消息放回 `recalled`，列表里加一条出错提示，这一轮以 `failed` 结束。`can_rewind` 为假、找不到这一项时答出错；剪的期间 `conv.send` 也答出错，客户端把字留在输入框里 |
@@ -88,16 +90,17 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 侧栏对会话的操作（改名、归档、删除、导出、按会话号查、搜索、看图、别处占用与接管、远程主机上的 tmux 窗口）都是核心的 `sessions.` 方法（`helper/sessionmethods.go`），几个客户端读写同一份，改完的结果经 `sessions.watch` 推给所有订阅的客户端，不用另外重读。参数和 `id`、`method` 平级，不带 `conv`；结果在 `zeta_reply` 的 `result`。`session` 是会话号（会话记录的文件名去掉 `.jsonl`），样子不对时答出错。除订阅外都异步应答：各自做完再答，不挡同一条连接后面的请求。改名、接管、删除的会话在核心里开着对话时，核心自己经那个对话做（同 `conv.title`、`conv.handoff`、`conv.end`），客户端不用先调 `conv.*`。
 
-出错时认得出的另带 `code`：`no_session`（这个会话号没有会话记录，或 `sessions.image` 给的记录已经不在：会话在别处被删了，客户端把它从列表里拿掉）。
+出错时认得出的另带 `code`（常量在 `helper/sessionproto`）：`no_session`（这个会话号没有会话记录，或 `sessions.image` 给的记录已经不在：会话在别处被删了，客户端把它从列表里拿掉）、`active`（`sessions.delete` 要删的会话正在进行，见那一行）。
 
 | 方法 | 参数 | 结果 |
 |---|---|---|
-| `sessions.rename` | `session`、`title` | 照 `zeta-helper rename` 往会话记录末尾追加一行 custom-title（空白压成一个空格、最多 200 字；同一个会话号在几个项目目录里都有记录时写最新的那份）。`result` 是 `{title}`：实际写下的标题。压完是空的答出错。核心里开着这个会话的对话时同 `conv.title`：对话的标题跟着变，开着的 Claude Code 也改名 |
+| `sessions.rename` | `session`、`title` | 照 `zeta-helper rename` 往会话记录末尾追加一行 custom-title（`sessionproto.CleanTitle`：空白压成一个空格、最多 200 字；同一个会话号在几个项目目录里都有记录时写最新的那份）。`result` 是 `{title}`：实际写下的标题。压完是空的答出错。核心里开着这个会话的对话时同 `conv.title`：对话的标题跟着变，开着的 Claude Code 也改名 |
 | `sessions.archive` | `session`、`archived` | 归档（`archived` 为真）或取消归档（为假）：只是列表里不显示，记录不动，标记在 `~/.config/<ZETA_NAME>/archived`（同 `zeta-helper archive`，顺手清掉记录已经不在的；改这个文件时持着同目录的 `archived.lock`）。归档时顺手关掉它在 tmux 会话 `zeta` 里的窗口。`result` 是 `{archived}` |
-| `sessions.delete` | `session` | 核心里开着这个会话的对话时先结束它的进程（同 `conv.end`，对话留着）、等进程退出，再删掉这个会话号的会话记录（各项目目录里同名的都删），连同 Claude Code 存在同名目录里的东西（同 `zeta-helper delete`，目录里的符号链接只删链接），再关掉它在 tmux 会话 `zeta` 里的窗口。`result` 是 `{deleted: [{file, dir}], closed}`：删掉的每份记录和它的同名目录删没删掉，`closed` 是关掉的窗口数。已经没有记录时 `deleted` 为空，不算出错 |
-| `sessions.export` | `session` | 把会话导出成 Markdown（同 `zeta-helper export`，照 Eta 的格式）。`result` 是 `{title, markdown, file_name}`：`file_name` 是建议的文件名 `Zeta-<标题>-<年月日>-<时分>.md`（标题去掉文件名里不能用的字符、最多 40 字，时刻按主机的本地时间），客户端自己存到本地 |
-| `sessions.lookup` | `sessions`（会话号的数组） | `result` 是会话摘要的数组，每项和 `zeta_sessions` 推送里 `upsert` 的一项相同（`{id, file, cwd, title, preview, updated, external, archived}`），按请求的顺序，找不到的不在里面。取回不在最近 300 个里的置顶会话用 |
-| `sessions.search` | `query` | 在最近 300 个会话里找用户和 Claude 说的话（同 `zeta-helper search`：每个会话取第一处命中，10 秒、80 个为限）。命中只经推送给：边找边推 `{"type":"sessions.match","search":<这个请求的 id>,"id":<会话号>,"role":"user"\|"assistant","snippet":…}`；找完答汇总 `{scanned, total, matched, complete}`，`complete` 为假是到了时限、个数被截断，或被取消。同一条连接再发 `sessions.search` 时取消上一个还在跑的（上一个照样答汇总，`complete` 为假），客户端断开时也停；客户端按推送的 `search` 只认最新那次的命中。关键词是空白时答出错 |
+| `sessions.pin` | `session`、`pinned` | 置顶（`pinned` 为真）或取消置顶（为假）：只是 Zeta 的标记，记录不动。标记在 `~/.config/<ZETA_NAME>/pinned`，做法同归档（一行一个会话号，顺手清掉记录已经不在的，改时持着 `pinned.lock`），所以置顶按主机、按包分开，几个客户端看到的是同一份。`zeta_sessions` 和 `sessions.lookup` 的每一项带 `pinned`；置顶的会话不在最新的 300 个里时也列出来。`result` 是 `{pinned}` |
+| `sessions.delete` | `session` | 会话正在进行时不删，答出错，`code` 为 `active`（「对话正在进行，结束后再删」）。正在进行指：核心里开着它的对话在回答、等确认或还有后台任务（`conv.activity` 的 `answering`、`waiting`、`background`）；Zeta 之外的进程占着它（列表里 `external` 为真）；本包托管、核心没接着的进程在 `~/.claude/sessions` 登记着它，状态是 busy、waiting 或 shell。不在进行时：核心里开着这个会话的对话先结束它的进程（同 `conv.end`，对话留着）、等进程退出，再删掉这个会话号的会话记录（各项目目录里同名的都删），连同 Claude Code 存在同名目录里的东西（同 `zeta-helper delete`，目录里的符号链接只删链接），再关掉它在 tmux 会话 `zeta` 里的窗口。`result` 是 `{deleted: [{file, dir}], closed}`：删掉的每份记录和它的同名目录删没删掉，`closed` 是关掉的窗口数。已经没有记录时 `deleted` 为空，不算出错 |
+| `sessions.export` | `session` 或 `sessions`（会话号的数组）、`utc_offset` | 把会话导出成 Markdown（同 `zeta-helper export`，照 Eta 的格式）。`result` 是 `{title, markdown, file_name}`：`file_name` 是建议的文件名 `Zeta-<标题>-<年月日>-<时分>.md`（`sessionproto.ExportFileName`：标题去掉文件名里不能用的字符、最多 40 字）。时刻按 `utc_offset`：客户端所在时区比 UTC 快多少分钟（东八区是 480，西五区是 -300）；不带时按主机的本地时间。带 `sessions`（至少一个，带了就不看 `session`）时同一台主机上的几个会话由核心合成一份：按给的顺序，导不出来的跳过；只导出成一个时和单个导出一样，几个时 `title` 是「N个对话」（N 是导出成的个数），`markdown` 是各自的导出去掉末尾空白、各补一个换行，中间用 `\n---\n\n` 隔开。这时 `result` 另带 `exported`、`failed`（导出成的、没导出成的会话号）。一个都没导出成时答出错，都是因为记录不在时 `code` 为 `no_session`。客户端自己把结果存到本地 |
+| `sessions.lookup` | `sessions`（会话号的数组） | `result` 是会话摘要的数组，每项和 `zeta_sessions` 推送里 `upsert` 的一项相同（`{id, file, cwd, title, preview, updated, external, archived, pinned}`），按请求的顺序，找不到的不在里面 |
+| `sessions.search` | `query`、`search` | 在最近 300 个会话里找用户和 Claude 说的话（同 `zeta-helper search`：每个会话取第一处命中，10 秒、80 个为限）。命中只经推送给：边找边推 `{"type":"sessions.match","search":<名字>,"id":<会话号>,"role":"user"\|"assistant","snippet":…}`；`search` 是客户端给这次搜索起的名字（任意 JSON 值，原样带回），所以客户端在写出请求之前就知道该认哪些命中；没带时是这个请求的 `id`。找完答汇总 `{scanned, total, matched, complete}`，`complete` 为假是到了时限、个数被截断，或被取消。同一条连接再发 `sessions.search` 时取消上一个还在跑的（上一个照样答汇总，`complete` 为假），客户端断开时也停；客户端按推送的 `search` 只认最新那次的命中。关键词是空白时答出错 |
 | `sessions.image` | `file`（会话记录的路径，在 `~/.claude/projects` 里）、`ref`（`conv.items` 里图片的位置，`行号.块序号[.内层序号]`） | `result` 是 `{media_type, data}`（base64）。位置不对、那一块不是图时答出错 |
 | `sessions.occupant` | `session` | Zeta 之外占着这个会话的进程的样子（同 `conv.occupant`）：`{status, waiting_for, hands_over}`，没人占着时 `status` 为 `null` |
 | `sessions.handoff` | `session` | 最多十几秒。把会话从别处接过来（同 `conv.handoff`）：`{handed, status}`。核心里开着这个会话的对话时，交出来了就解开它的 `blocked` 并推 `conv.state` |
@@ -105,7 +108,17 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `sessions.desk_open` | `session` | 在 tmux 会话 `zeta` 里给它开窗口，已经有就不动（同 `zeta-helper desk-open`）；窗口的工作目录是会话记录里的 `cwd`，还没有记录时是家目录。`result` 是 `{window}`：tmux 的窗口号，主机上没有 tmux 时为 `null` |
 | `sessions.desk_close` | `session` | 关掉它的窗口（同 `zeta-helper desk-close`），`result` 是 `{closed}`：关掉了几个 |
 
-对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`、`SessionHandoff`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。Kotlin 一侧随之不用的：`shared/.../ui/pane/SessionTools.kt` 的 `exportFileName` 不再给单个会话起名（改用 `sessions.export` 的 `file_name`），只剩几个会话一起导出（`SessionExporter`）和设置备份在用。
+对应的 zeta-helper 子命令（`delete`、`rename`、`archive`、`export`、`lookup`、`search`、`image`、`occupant`、`handoff`、`desk-open`、`desk-close`）先留着：手机版的 Kotlin（`SessionList`、`SessionTools`、`ImageStore`、`SessionHandoff`）和 Windows 版的搜索（`client/hostlink` 的 `Search`）还在经 shell 调它们。各客户端都改走这些方法以后删掉子命令，连同 `main.go` 里的用法说明和它们的测试。
+
+客户端改走这些方法时一并删掉各自重复写的规则：
+
+- 置顶：Kotlin 的 `Settings.pinnedSessions`（连同 `SessionSummary.pinKey`、设置备份里的 `pinnedSessions` 一项）、侧栏取回不在最近 300 个里的置顶会话的 `missingPinned`、`syncFarPinned` 和 `farPinned`（`withFarSessions` 留给存储页定位用）、`SessionList.delete` 里去掉置顶的那段；Windows 的 `settings.Pins`、`SetPins`、`PinKey`（未读标记还在用的话换成别的键）和 `Hub.pins`。置顶看列表项的 `pinned`，点置顶发 `sessions.pin`。
+- 本地置顶一次性迁过来：客户端每次连上一台设备（收到 `zeta_hello`）时，本地设置里还有这台的置顶键（手机本机的就是会话号，远程设备的是 `<设备编号>/<会话号>`）就逐个发 `sessions.pin`（`pinned` 为真），答成功或答 `no_session` 的从本地设置里删掉这个键，别的出错留着下次连上再迁；还没迁完时列表里的置顶取 `pinned` 和本地键的并集，取消置顶也同时删本地键。本地没有键了就不再做什么。这段迁移代码在带它的手机正式版和 Windows 版都发出以后的下一次发版时删掉，连同读旧键的代码：到那时没连过的设备上的置顶会丢，只是标记，会话不丢。
+- 导出：Kotlin 的 `exportMarkdown`、`exportMarkdowns`、`combineExports`、`exportName` 改成发 `sessions.export`（多选时带 `sessions` 和 `utc_offset`），存文件用 `file_name`；`SessionTools.kt` 的 `exportFileName` 只剩设置备份在用。
+- 删除：Kotlin 的 `deletable` 和 `confirmedDeletion` 里按「正在进行」的筛选、`DeletePrompt.Blocked` 的判断改成看 `sessions.delete` 是不是答 `active`：答了就提示「对话正在进行，结束后再删」，批量删除时其余照删。
+- 搜索：客户端给每次搜索起名字（比如递增的序号）放进 `search`，只认推送里 `search` 等于最新名字的命中。各客户端都带 `search` 以后，核心里没带时用请求 `id` 的那条退路（`sessionSearches.Request` 里的 `searchName`）可以删掉，这一行文档同时改掉。
+- 主机名：见「协议」里 `zeta_hello` 的 `hostname`。
+- Go 写的客户端（Windows）用到导出文件名、标题清理、接管的 `Occupancy`、`Handoff` 和状态时导入 `helper/sessionproto`，不自己写。
 
 ## Claude Code 配置
 
