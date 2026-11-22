@@ -12,6 +12,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/markdown"
 )
 
 // promptForm 是输入栏上方那张确认卡里填的东西，跟着一个请求（id），换了请求就重来。
@@ -24,6 +25,8 @@ type promptForm struct {
 	answers  []questionAnswer
 	// values、errors 是 MCP 表单各项填的（键 → 输入框里的字，多选是选中的各值）和核心说不对的原因。
 	values map[string][]string
+	// texts 是表单里输入框的字（键 → 字），输入框直接改它；交出去时并进 values。
+	texts  map[string]*string
 	errors map[string]string
 	// sending：回应发出去了，等核心收起这个请求。
 	sending bool
@@ -60,7 +63,7 @@ func (a *App) promptCard(c *ui.Context, p *chatPane) {
 	f := &p.form
 	if f.id != pr.RequestID {
 		*f = promptForm{id: pr.RequestID, planMode: "acceptEdits", answers: make([]questionAnswer, len(pr.Questions)),
-			values: map[string][]string{}, errors: map[string]string{}}
+			values: map[string][]string{}, texts: map[string]*string{}, errors: map[string]string{}}
 		for _, field := range pr.Fields {
 			f.values[field.Key] = slices.Clone(field.Default)
 		}
@@ -150,6 +153,9 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	})
 }
 
+// planMarkdown 是计划审批里排计划用的 Markdown 设置（只在界面线程上用）。
+var planMarkdown markdown.Options
+
 // planCard 是计划审批：批准后自动接受改动或逐项确认；不批准就写下要改什么，Claude 接着完善计划。
 func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	var input struct {
@@ -158,7 +164,9 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	_ = json.Unmarshal(pr.Input, &input)
 	f := &p.form
 	cardTitle(c, "按这个计划执行？")
-	detailBlock(c, input.Plan)
+	ui.Scroll(c.Key("plan")).FillWidth().MaxHeight(320).Children(func() {
+		markdown.View(c, input.Plan, &planMarkdown).FillWidth()
+	})
 	ui.RadioGroup(c.Key("plan-mode"), func() {
 		ui.Radio(c, &f.planMode, "acceptEdits", "批准，自动接受改动")
 		ui.Radio(c, &f.planMode, "default", "批准，改动逐项确认")
@@ -222,7 +230,7 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 		if o.Description != "" {
 			label += " —— " + o.Description
 		}
-		choiceRow(c.Key("option/"+strconv.Itoa(i)), label, on, func() {
+		choiceRow(c.Key("option/"+strconv.Itoa(i)), label, on, q.MultiSelect, func() {
 			switch {
 			case !q.MultiSelect:
 				qa.chosen, qa.otherOn = []string{o.Label}, false
@@ -233,14 +241,14 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 			}
 		})
 	}
-	choiceRow(c.Key("other"), "其他", qa.otherOn, func() {
+	choiceRow(c.Key("other"), "其他", qa.otherOn, q.MultiSelect, func() {
 		qa.otherOn = !q.MultiSelect || !qa.otherOn
 		if !q.MultiSelect {
 			qa.chosen = nil
 		}
 	})
 	if qa.otherOn {
-		ui.TextInput(c.Key("other-text"), &qa.other).Placeholder("自己写").Label("其他").FillWidth()
+		ui.TextInput(c.Key("other-text"), &qa.other).Placeholder("自己写").Label("自己写").FillWidth()
 		return
 	}
 	if q.MultiSelect || len(qa.chosen) == 0 {
@@ -256,13 +264,9 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 	_ = t
 }
 
-// choiceRow 是一个可以点选的选项：前面一个圈（选中时实心）。
-func choiceRow(c *ui.Context, label string, on bool, toggle func()) {
+// choiceRow 是一个可以点选的选项：前面一个标记，单选是圆的，多选和开关（square）是方的，选中时填上主题色。
+func choiceRow(c *ui.Context, label string, on, square bool, toggle func()) {
 	t := c.Theme()
-	mark := "○"
-	if on {
-		mark = "●"
-	}
 	row := ui.Row(c).Gap(8).Padding(4, 6).Radius(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Role(ui.RoleButton).
 		Label(label).Focusable()
 	if row.Hovered() {
@@ -270,11 +274,13 @@ func choiceRow(c *ui.Context, label string, on bool, toggle func()) {
 	}
 	row.OnClick(toggle)
 	row.Children(func() {
-		color := t.TextMuted
-		if on {
-			color = t.Accent
+		mark := ui.Box(c).Size(14, 14).Shrink(0).Radius(7).Border(1.5, t.TextMuted)
+		if square {
+			mark.Radius(3)
 		}
-		ui.Text(c, mark).TextColor(color)
+		if on {
+			mark.Background(t.Accent).Border(1.5, t.Accent)
+		}
 		ui.Text(c, label).FontSize(13).MaxLines(2)
 	})
 }
@@ -345,12 +351,12 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 	switch field.Kind {
 	case prompt.FieldToggle:
 		on := len(value) > 0 && value[0] == "true"
-		choiceRow(c.Key("toggle"), title, on, func() { set([]string{strconv.FormatBool(!on)}) })
+		choiceRow(c.Key("toggle"), title, on, true, func() { set([]string{strconv.FormatBool(!on)}) })
 	case prompt.FieldSingle, prompt.FieldMulti:
 		ui.Text(c, title).FontSize(13)
 		for i, ch := range field.Choices {
 			on := slices.Contains(value, ch.Value)
-			choiceRow(c.Key("choice/"+strconv.Itoa(i)), ch.Label, on, func() {
+			choiceRow(c.Key("choice/"+strconv.Itoa(i)), ch.Label, on, field.Kind == prompt.FieldMulti, func() {
 				switch {
 				case field.Kind == prompt.FieldSingle:
 					set([]string{ch.Value})
@@ -362,15 +368,18 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 			})
 		}
 	default:
-		text := ""
-		if len(value) > 0 {
-			text = value[0]
+		text := f.texts[field.Key]
+		if text == nil {
+			text = new(string)
+			if len(value) > 0 {
+				*text = value[0]
+			}
+			f.texts[field.Key] = text
 		}
-		before := text
 		ui.Text(c, title).FontSize(13)
-		ui.TextInput(c.Key("text"), &text).Placeholder(field.Description).Label(title).FillWidth()
-		if text != before {
-			set([]string{text})
+		input := ui.TextInput(c.Key("text"), text).Placeholder(field.Description).Label(title).FillWidth()
+		if input.Changed() {
+			delete(f.errors, field.Key)
 		}
 	}
 	if field.Description != "" && (field.Kind == prompt.FieldToggle || field.Kind == prompt.FieldSingle || field.Kind == prompt.FieldMulti) {
@@ -387,6 +396,11 @@ func (a *App) elicit(p *chatPane, pr prompt.Prompt, action prompt.ElicitAction, 
 	p.failed = ""
 	id := pr.RequestID
 	values = cloneValues(values)
+	for k, text := range p.form.texts {
+		if values != nil {
+			values[k] = []string{*text}
+		}
+	}
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Elicit(ctx, id, action, values)
 	}, func(err error) {

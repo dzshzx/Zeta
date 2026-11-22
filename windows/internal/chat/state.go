@@ -25,6 +25,8 @@ type State struct {
 	LoadingHistory bool `json:"loading_history"`
 	// Earlier 是会话记录里还没载入的更早事件数，0 是全载入了。
 	Earlier int `json:"earlier"`
+	// EarlierLoading：正在载入更早的一页（conv.earlier）。
+	EarlierLoading bool `json:"earlier_loading"`
 	// Queued 是排队等发的消息，Recalled 是撤回放回输入框、还没取走的那条。
 	Queued   []Message `json:"queued"`
 	Recalled *Message  `json:"recalled"`

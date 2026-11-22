@@ -273,7 +273,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	statRow(c, "输出", tokens(u.Total.Output))
 	cost := "—"
 	if u.TotalCost != nil {
-		cost = fmt.Sprintf("$%.4f", *u.TotalCost)
+		cost = formatCost(*u.TotalCost)
 		if u.CostEstimated {
 			cost = "≈" + cost
 		}
@@ -311,4 +311,15 @@ func tokens(n int64) string {
 		return trim(fmt.Sprintf("%.1f", float64(n)/1e3)) + "K"
 	}
 	return fmt.Sprint(max(n, 0))
+}
+
+// formatCost 是费用的写法：不到 1 美元留四位小数，再多留两位，没花钱写 $0。
+func formatCost(usd float64) string {
+	switch {
+	case usd <= 0:
+		return "$0"
+	case usd < 1:
+		return fmt.Sprintf("$%.4f", usd)
+	}
+	return fmt.Sprintf("$%.2f", usd)
 }

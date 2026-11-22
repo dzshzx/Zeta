@@ -197,3 +197,20 @@ func isNull(v json.RawMessage) bool {
 	s := strings.TrimSpace(string(v))
 	return s == "" || s == "null"
 }
+
+// LoadEarlier 载入更早的一页接到最前面（rest 时载完剩下的全部）：新的一页经 conv.items 推来（从 0 起插入），读完才返回。
+// 会话记录在别处改过时返回 ErrEarlierStale 那样的错误，重试没用，要重新打开对话。
+func (c *Conversation) LoadEarlier(ctx context.Context, rest bool) error {
+	params := map[string]any{}
+	if rest {
+		params["rest"] = true
+	}
+	return c.call(ctx, "conv.earlier", params)
+}
+
+// EarlierStale 是核心说「会话记录在别处改过」的那句（helper/conv 的 errEarlierStale）：这样的错误重试没用。
+// 核心那边没给这个错误带 code，只能认原文；TestEarlierStaleMatchesTheCore 核对它还在核心的源码里。
+const EarlierStale = "会话记录在别处改过"
+
+// IsEarlierStale：err 是 conv.earlier 因为会话记录在别处改过而没读成，重试没用。
+func IsEarlierStale(err error) bool { return err != nil && strings.Contains(err.Error(), EarlierStale) }

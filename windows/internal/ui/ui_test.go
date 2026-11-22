@@ -316,11 +316,18 @@ func TestPreviews(t *testing.T) {
 			f.app.open(pageDevice)
 		},
 	}
+	all := map[string]func(t *testing.T) *fixture{}
 	for name, setup := range scenes {
+		all[name] = func(t *testing.T) *fixture { f := newFixture(t); setup(t, f); return f }
+	}
+	for name, setup := range chatScenes {
+		all[name] = func(t *testing.T) *fixture { f := newChatFixture(t); setup(t, f); return f.fixture }
+	}
+	for name, setup := range all {
 		for _, dark := range []bool{false, true} {
-			f := newFixture(t)
-			setup(t, f)
+			f := setup(t)
 			f.tt.SetDark(dark)
+			f.tt.Advance(2 * time.Second) // 列表跟到底部的动画走完
 			f.tt.Frame()
 			suffix := "light"
 			if dark {

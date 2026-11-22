@@ -38,6 +38,23 @@ func main() {
 	app := zui.New(h, run, post)
 	mygo.App.WhenReady(func() {
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, Content: ui.View(app.View)})
+		// 回答完了而窗口不在前台时发通知，点通知回到窗口
+		app.Foreground = func() bool { return win.IsFocused() }
+		app.Notify = func(title, body string) {
+			if !mygo.NotificationsSupported() {
+				return
+			}
+			n := mygo.NewNotification(mygo.NotificationOptions{ID: "zeta-turn", Title: title, Body: body})
+			n.OnClick(func() {
+				win.Restore()
+				win.Focus()
+			})
+			go func() {
+				if err := n.Show(); err != nil {
+					log.Printf("zeta: 通知没发出去：%v", err)
+				}
+			}()
+		}
 		h.Start()
 	})
 	if err := mygo.App.Run(); err != nil {

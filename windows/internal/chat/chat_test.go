@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -424,5 +425,39 @@ func TestReconnectOnlyReopensOpenedConversations(t *testing.T) {
 	calls := link.took()
 	if len(calls) != 1 || !strings.Contains(calls[0].params, `"conv":"`+second.Name()+`"`) {
 		t.Fatalf("重连后打开的：%v", calls)
+	}
+}
+
+func TestLoadEarlier(t *testing.T) {
+	link, client, conv, _ := opened(t)
+	ctx := context.Background()
+	if err := conv.LoadEarlier(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := conv.LoadEarlier(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := link.took(); len(got) != 2 || got[0] != (call{"conv.earlier", `{"conv":"w1"}`}) || got[1] != (call{"conv.earlier", `{"conv":"w1","rest":true}`}) {
+		t.Fatalf("请求 %v", got)
+	}
+	// 新的一页从 0 起插进来，状态里是还剩多少、在不在读
+	client.Handle(line(`{"type":"conv.state","conv":"w1","earlier":120,"earlier_loading":true}`))
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":0,"remove":0,"items":[{"kind":"user","id":"old"}]}`))
+	if u := conv.Take(); u.State.Earlier != 120 || !u.State.EarlierLoading || ids(t, conv.Items()) != "old,a,b" {
+		t.Fatalf("更早的一页：%+v %s", u.State, ids(t, conv.Items()))
+	}
+	if !IsEarlierStale(errors.New("会话记录在别处改过，重新打开这个对话再看更早的内容")) || IsEarlierStale(errors.New("正在读")) {
+		t.Error("认不出会话记录在别处改过")
+	}
+}
+
+// 核心没给「会话记录在别处改过」带 code，这边认原文：原文改了这里就失败，改成按 code 认。
+func TestEarlierStaleMatchesTheCore(t *testing.T) {
+	src, err := os.ReadFile("../../../helper/conv/earlier.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), `errors.New("`+EarlierStale) {
+		t.Fatalf("helper/conv/earlier.go 里没有 %q 开头的错误了", EarlierStale)
 	}
 }

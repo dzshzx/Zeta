@@ -23,16 +23,22 @@ type chatPane struct {
 	draft string
 	// failed 是上次操作没成的原因，下次操作成了或换了对话时清掉。
 	failed string
-	// taking：正在取撤回放回输入框的那条。
+	// taking：正在取撤回放回输入框的那条；took 是取过的最后一条（uuid）。
 	taking bool
+	took   string
 	form   promptForm
 	usage  bool // 用量弹出框开着
+	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
+	earlier struct {
+		asked  bool
+		failed string
+		stale  bool
+	}
 }
 
 func newChatPane(c *hub.Chat, loadImage func(file, ref string) ([]byte, error)) *chatPane {
 	list := chatview.New()
 	list.LoadImage = loadImage
-	// 往上翻载入更早的（conv.earlier）协议里还没定，先只显示还有多少条没载入；定下来以后在这里接上 LoadEarlier
 	return &chatPane{src: c, list: list}
 }
 
@@ -45,7 +51,9 @@ func (a *App) syncChat() {
 		return
 	}
 	if a.pane == nil || a.pane.src != c {
-		a.pane = newChatPane(c, a.hub.ImageLoader(c.Backend))
+		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
+		p.list.LoadEarlier = func() { a.loadEarlier(p) }
+		a.pane = p
 	}
 	p := a.pane
 	if c.Conv == nil {
@@ -60,14 +68,16 @@ func (a *App) syncChat() {
 			p.list.SetItems(c.Conv.Items()) // 对不上了（不该发生）：整份重来
 		}
 	}
-	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier}
+	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
+		Failed: p.earlier.failed, Retry: !p.earlier.stale}
 	for _, t := range u.Turns {
 		if t.Phase == chat.TurnFinished && !a.Foreground() {
 			a.Notify(a.chatTitle(p), t.Text)
 		}
 	}
-	if u.State.Recalled != nil && !p.taking {
-		p.taking = true
+	// 同一条只取一次：取走以后核心推来 recalled 为空之前，这一条还挂在状态里
+	if r := u.State.Recalled; r != nil && !p.taking && r.UUID != p.took {
+		p.taking, p.took = true, r.UUID
 		a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 			m, err := conv.TakeRecalled(ctx)
 			a.post(func() {
@@ -268,4 +278,24 @@ func queuedPreview(m chat.Message) string {
 func panel(c *ui.Context, fn func()) {
 	t := c.Theme()
 	ui.Column(c).FillWidth().Padding(10, 14).Gap(6).Radius(12).Background(t.Surface).Border(1, t.Border).Children(fn)
+}
+
+// loadEarlier 载入更早的一页（列表往上翻到顶附近、或点了「载入更早的」时）。新的一页经推送从最前面插进来，
+// 列表保住正看着的位置。没读成时说原因；会话记录在别处改过的重试没用，不给重试。
+func (a *App) loadEarlier(p *chatPane) {
+	if p.earlier.asked || p.earlier.stale {
+		return
+	}
+	p.earlier.asked, p.earlier.failed = true, ""
+	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+		err := conv.LoadEarlier(ctx, false)
+		a.post(func() {
+			p.earlier.asked = false
+			if err != nil {
+				p.earlier.failed = "没读到更早的记录：" + err.Error()
+				p.earlier.stale = chat.IsEarlierStale(err)
+			}
+		})
+		return nil
+	}, nil)
 }
