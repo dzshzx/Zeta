@@ -38,14 +38,14 @@ func handoffText(o *hub.Occupant, handing bool, problem string) (summary, button
 	return summary, "等待对方空闲", false
 }
 
-// handoffCard 是会话正在别处运行时换掉输入栏的说明卡：显示着时每隔几秒查一次那边闲不闲（那边自己退出了就接过来，卡片收起），
-// 闲着时一键接过来。
+// handoffCard 是会话正在别处运行时换掉输入栏的说明卡：显示着时每隔几秒查一次那边闲不闲（那边自己退出了就接过来），
+// 闲着时一键接过来。接过来以后等核心推来解开 blocked，卡片收起。
 func (a *App) handoffCard(c *ui.Context, p *chatPane) {
 	if wait := a.hub.PollOccupant(a.now()); wait > 0 {
 		c.After(wait)
 	}
 	ho := p.src.Handoff
-	summary, button, enabled := handoffText(ho.Occupant, ho.Handing, ho.Problem)
+	summary, button, enabled := handoffText(ho.Occupant, ho.Handing || ho.Handed, ho.Problem)
 	k := coui.Of(c)
 	panel(c, func() {
 		ui.Column(c).Padding(8, 16, 8, 16).Gap(4).Children(func() {

@@ -48,6 +48,9 @@ func TestHandoffCardReplacesTheComposer(t *testing.T) {
 	if got := f.devices.SessionCalls(); len(got) != 2 || !strings.Contains(got[1], `sessions.handoff {"session":"`+session+`"}`) {
 		t.Errorf("发出 %q", got)
 	}
+	// 交出来了：等核心推来解开 blocked，按钮停在「正在接管…」
+	f.tt.Frame()
+	f.see(t, "正在接管…")
 	// 核心解开 blocked：卡片收起
 	f.push(`"blocked":false`)
 	f.tt.Frame()
