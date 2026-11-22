@@ -105,39 +105,46 @@ internal object ThirdParty {
         val url: String? = null,
     )
 
-    /** 从 Eta 拷来改写的文件（相对仓根）。主题、状态色和别的界面是照 Eta 的设计重写的，不在这里。 */
+    /** 从 Eta 拷来改写的文件（相对仓根）：手机和桌面共用的在 shared/，只在手机上的在 app/。主题、状态色和别的界面是照 Eta 的设计重写的，不在这里。 */
     val ETA_FILES: List<String> =
         listOf(
-                "ui/markdown/ChatMarkdown.kt",
-                "ui/markdown/MarkdownContent.kt",
-                "ui/markdown/MarkdownDocumentBuilder.kt",
-                "ui/markdown/MarkdownInline.kt",
-                "ui/markdown/MarkdownMathContent.kt",
-                "ui/markdown/MarkdownMathEngine.kt",
                 "ui/markdown/MarkdownMathParser.kt",
-                "ui/markdown/MarkdownModel.kt",
-                "ui/markdown/MarkdownStyle.kt",
                 "ui/markdown/SmoothTextReveal.kt",
-                "ui/markdown/StaticMarkdownDocumentCache.kt",
-                "ui/markdown/StreamingGfmParser.kt",
                 "ui/markdown/StreamingMarkdownRestoreState.kt",
-                "ui/markdown/StreamingMarkdownState.kt",
-                "ui/markdown/StreamingMarkdownStateCache.kt",
                 "ui/markdown/TexMathDelimiters.kt",
-                "ui/components/ConversationSidePaneScaffold.kt",
                 "ui/components/ConversationPaneState.kt",
                 "ui/components/ConversationPaneMotion.kt",
-                "ui/layout/AdaptivePageLayout.kt",
-                "ui/components/MonoFont.kt",
-                "ui/components/coui2/Dialogs.kt",
-                "assistant/AssistantPanel.kt",
-                "assistant/AssistantSurface.kt",
-                "assistant/AssistantComposer.kt",
-                "assistant/AssistantSuggestionRow.kt",
-                "assistant/AssistantEdgeGlow.kt",
-                "assistant/AssistantReply.kt",
             )
-            .map { "app/src/main/kotlin/com/dzshzx/zeta/$it" }
+            .map { SHARED_SOURCES + it } +
+            listOf(
+                    "ui/markdown/ChatMarkdown.kt",
+                    "ui/markdown/MarkdownContent.kt",
+                    "ui/markdown/MarkdownDocumentBuilder.kt",
+                    "ui/markdown/MarkdownInline.kt",
+                    "ui/markdown/MarkdownMathContent.kt",
+                    "ui/markdown/MarkdownMathEngine.kt",
+                    "ui/markdown/MarkdownModel.kt",
+                    "ui/markdown/MarkdownStyle.kt",
+                    "ui/markdown/StaticMarkdownDocumentCache.kt",
+                    "ui/markdown/StreamingGfmParser.kt",
+                    "ui/markdown/StreamingMarkdownState.kt",
+                    "ui/markdown/StreamingMarkdownStateCache.kt",
+                    "ui/components/ConversationSidePaneScaffold.kt",
+                    "ui/layout/AdaptivePageLayout.kt",
+                    "ui/components/MonoFont.kt",
+                    "ui/components/coui2/Dialogs.kt",
+                    "assistant/AssistantPanel.kt",
+                    "assistant/AssistantSurface.kt",
+                    "assistant/AssistantComposer.kt",
+                    "assistant/AssistantSuggestionRow.kt",
+                    "assistant/AssistantEdgeGlow.kt",
+                    "assistant/AssistantReply.kt",
+                )
+                .map { APP_SOURCES + it }
+
+    /** 两个模块的 Kotlin 源码目录（相对仓根）。 */
+    const val SHARED_SOURCES = "shared/src/commonMain/kotlin/com/dzshzx/zeta/"
+    const val APP_SOURCES = "app/src/main/kotlin/com/dzshzx/zeta/"
 
     /**
      * RaTeX 的版本（gradle/libs.versions.toml 的 ratex）：下面 KaTeX 字体和 Rust 依赖两条照这个版本核对过，升级 RaTeX 时一起重核。

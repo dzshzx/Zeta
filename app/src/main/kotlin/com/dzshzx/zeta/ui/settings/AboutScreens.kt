@@ -230,7 +230,8 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
                     item {
                         TextBlock(
                             component.files.map {
-                                it.removePrefix("app/src/main/kotlin/com/dzshzx/zeta/")
+                                it.removePrefix(ThirdParty.APP_SOURCES)
+                                    .removePrefix(ThirdParty.SHARED_SOURCES)
                             },
                         )
                     }

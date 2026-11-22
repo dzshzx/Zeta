@@ -327,6 +327,7 @@ androidComponents {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.coui2.ui)
     implementation(libs.coui2.preference)
     implementation(libs.coui2.icons)

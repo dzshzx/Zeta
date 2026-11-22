@@ -25,25 +25,25 @@ Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局
 
 文件：
 
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathParser.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/SmoothTextReveal.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownRestoreState.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/TexMathDelimiters.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneState.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneMotion.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/ChatMarkdown.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownContent.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownDocumentBuilder.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownInline.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathContent.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathEngine.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathParser.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownModel.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownStyle.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/SmoothTextReveal.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StaticMarkdownDocumentCache.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingGfmParser.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownRestoreState.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownState.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownStateCache.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/TexMathDelimiters.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/components/ConversationSidePaneScaffold.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneState.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneMotion.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/layout/AdaptivePageLayout.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/components/MonoFont.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/components/coui2/Dialogs.kt`
@@ -208,10 +208,10 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Compose Util | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-util`<br>`androidx.compose.ui:ui-util-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Core | 1.18.0 | Apache-2.0 | `androidx.core:core` | https://cs.android.com/androidx/platform/frameworks/support |
 | Core Kotlin Extensions | 1.18.0 | Apache-2.0 | `androidx.core:core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| coui-blur | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-blur-android` | https://github.com/suqi8/coui |
+| coui-blur | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-blur`<br>`io.github.suqi8.coui.kmp:coui-blur-android` | https://github.com/suqi8/coui |
 | coui-core | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-core`<br>`io.github.suqi8.coui.kmp:coui-core-android` | https://github.com/suqi8/coui |
-| coui-icons | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-icons-android` | https://github.com/suqi8/coui |
-| coui-preference | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-preference-android` | https://github.com/suqi8/coui |
+| coui-icons | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-icons`<br>`io.github.suqi8.coui.kmp:coui-icons-android` | https://github.com/suqi8/coui |
+| coui-preference | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-preference`<br>`io.github.suqi8.coui.kmp:coui-preference-android` | https://github.com/suqi8/coui |
 | coui-shader | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-shader`<br>`io.github.suqi8.coui.kmp:coui-shader-android` | https://github.com/suqi8/coui |
 | coui-squircle | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-squircle`<br>`io.github.suqi8.coui.kmp:coui-squircle-android` | https://github.com/suqi8/coui |
 | coui-ui | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-ui`<br>`io.github.suqi8.coui.kmp:coui-ui-android` | https://github.com/suqi8/coui |

@@ -94,14 +94,15 @@ private fun McpServer.target(): String =
     if (type == "stdio") (listOf(command) + args).joinToString(" ") else url
 
 /** 列表和详情里显示的状态：被同名服务器盖住的不会被用到，不看健康检查的结果。 */
-private fun McpStatus?.of(server: McpServer, failed: Boolean): McpState? =
-    when {
-        server.shadowedBy != null ->
-            McpState("shadowed", "被“${scopeLabel(server.shadowedBy)}”里的同名服务器盖住")
+private fun McpStatus?.of(server: McpServer, failed: Boolean): McpState? {
+    val shadowedBy = server.shadowedBy
+    return when {
+        shadowedBy != null -> McpState("shadowed", "被“${scopeLabel(shadowedBy)}”里的同名服务器盖住")
         else ->
             this?.statuses?.get(McpConfig.statusKey(server.scope, server.name))
                 ?: if (failed || this != null) McpState("unknown", "") else null
     }
+}
 
 /** 把一行参数拆开：空白分隔，单双引号里的空白不拆。 */
 internal fun splitArgs(line: String): List<String> {

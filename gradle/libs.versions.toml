@@ -18,6 +18,8 @@ libxposedApi = "102.0.0"
 jsch = "2.28.8"
 # JSch 在 Android 上做 Ed25519、curve25519 和抗量子的密钥交换要它（系统的加密库没有 Ed25519）；JSch 只用它的轻量接口，不注册成系统的加密提供者
 bouncycastle = "1.86"
+# 桌面版（desktop/）和手机、桌面共用的模块（shared/）用的 Compose Multiplatform；Android 一侧映射到 androidx 的 Compose，版本跟 COUI 2 用的一致
+compose-multiplatform = "1.11.1"
 junit = "4.13.2"
 # 测试里的 SSH 服务器：在 JVM 里起一个，直连的远程主机连它
 apache-sshd = "2.20.1"
@@ -39,6 +41,15 @@ coui2-ui = { group = "io.github.suqi8.coui.kmp", name = "coui-ui-android", versi
 coui2-preference = { group = "io.github.suqi8.coui.kmp", name = "coui-preference-android", version.ref = "coui2" }
 coui2-icons = { group = "io.github.suqi8.coui.kmp", name = "coui-icons-android", version.ref = "coui2" }
 coui2-blur = { group = "io.github.suqi8.coui.kmp", name = "coui-blur-android", version.ref = "coui2" }
+# 共用模块和桌面版按 Gradle 元数据各取各的平台变体
+coui2-ui-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-ui", version.ref = "coui2" }
+coui2-preference-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-preference", version.ref = "coui2" }
+coui2-icons-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-icons", version.ref = "coui2" }
+coui2-blur-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-blur", version.ref = "coui2" }
+compose-mp-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "compose-multiplatform" }
+compose-mp-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "compose-multiplatform" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
@@ -62,6 +73,9 @@ androidx-test-core = { group = "androidx.test", name = "core", version.ref = "an
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
 
 [plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

@@ -4,7 +4,7 @@
 # （scripts/format.sh）；检查三个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具和 tools/vdisplay 的
 # 虚拟屏驱动 tools/vd（版本、格式、
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
-# 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
+# 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）和桌面版（desktop/），
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
 # 合入时（wt land）单元测试不跑截图测试（shots 包里类名以 Shots 结尾的，依据见 app/build.gradle.kts 的测试任务）。
 # 构建和单元测试在改动全落在它们读不到的路径里时整个跳过（见下面的 gradle_blind）。别的检查每次都跑。
@@ -28,7 +28,7 @@ changed_files() {
 }
 
 # Gradle 构建（含编进 assets 的 Go 程序）和单元测试都读不到的路径：只有设备流程、发版、文档和 CI 用。
-# 构建读 app/、helper/、gradle/、gradlew、根目录的 *.gradle.kts 与 gradle.properties、LICENSE、release/，
+# 构建读 app/、shared/、desktop/、helper/、gradle/、gradlew、根目录的 *.gradle.kts 与 gradle.properties、LICENSE、release/，
 # 经 tools/gradle、tools/java-home、tools/own-scope.sh 启动；单元测试另读 tools/fake-claude/、THIRD_PARTY.md。
 # 这些和拿不准的路径都不往这里加：不在这里的一律当作会影响构建。
 gradle_blind() {
@@ -92,7 +92,7 @@ check_go_module tools/vdisplay
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"
 elif [[ ${ZETA_GATE_FULL:-} == 1 ]]; then
-  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
+  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest :desktop:jvmTest
   # 截图测试只在这里跑，所以核对它们真的跑了：有结果、一个都没被跳过。对不上就是哪里把它们排除掉了
   shots=$(cat app/build/test-results/testDebugUnitTest/TEST-com.dzshzx.zeta.shots.*Shots.xml 2>/dev/null || true)
   ran=$(grep -c '<testcase ' <<<"$shots" || true)
@@ -103,7 +103,7 @@ elif [[ ${ZETA_GATE_FULL:-} == 1 ]]; then
   fi
 else
   echo "gate: 合入门禁不跑截图测试，ZETA_GATE_FULL=1 时全跑"
-  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest -Pzeta.gate=fast
+  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest -Pzeta.gate=fast :desktop:jvmTest
 fi
 
 if [[ "$(tracked_state)" != "$before" ]]; then

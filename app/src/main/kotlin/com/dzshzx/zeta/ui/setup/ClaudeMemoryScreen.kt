@@ -210,12 +210,13 @@ private fun CardListGroupScope.memoryLocationRows(
     home: String?,
     onSelectProject: (String) -> Unit,
 ) {
-    if (o.customDir != null) {
+    val customDir = o.customDir
+    if (customDir != null) {
         // settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
         item {
             BasicComponent(
                 title = "记忆目录",
-                summary = shortPath(o.customDir, home),
+                summary = shortPath(customDir, home),
                 endActions = { PreferenceValue("所有项目共用") },
             )
         }
