@@ -262,12 +262,10 @@ if [ "$mode" = start ]; then
   shift 4
   cd "$cwd" 2>/dev/null || { echo "zeta: 进不去工作目录 $cwd" >&2; exit 97; }
   # 接着旧会话（--resume <id>，不是分支出新会话）时先看本包是不是已经有进程在跑它，再看它是不是正被别处占着
-  resume="" fork=0 prev="" resumed=0 model=0
+  resume="" fork=0 model=0 prev=""
   for a in "$@"; do
     [ "$prev" = --resume ] && resume=$a
-    [ "$a" = --fork-session ] && fork=1
-    [ "$a" = --resume ] && resumed=1
-    [ "$a" = --model ] && model=1
+    case $a in --fork-session) fork=1 ;; --model) model=1 ;; esac
     prev=$a
   done
   [ $fork = 1 ] && resume=""
@@ -299,14 +297,13 @@ elif [ "$mode" = start ]; then
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
   # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude，参数原样。
   # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd fake 放进来，vd stop 删掉）。
-  # 测试版起真的 claude 时，新开的对话没指定模型就用 Haiku 5.5（测试真跑一轮验的是链路，省额度也快）。
-  # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测），
-  # 顶栏就对不上了。所以接着旧会话（含分支）照记录；指定了模型的（对话里选的、数字助理、定时任务）照指定的。
+  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 CLAUDE.md「真跑用 Haiku 5.5」。
+  # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测）。
   run=claude
   if [ "${ZETA_NAME:-zeta}" = zeta-dev ]; then
     if [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
       run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
-    elif [ $resumed = 0 ] && [ $model = 0 ]; then
+    elif [ -z "$resume" ] && [ $fork = 0 ] && [ $model = 0 ]; then
       set -- "$@" --model claude-haiku-5-5
     fi
   fi

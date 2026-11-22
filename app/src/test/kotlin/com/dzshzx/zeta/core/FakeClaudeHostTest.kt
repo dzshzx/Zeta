@@ -12,7 +12,7 @@ import org.junit.Test
 /**
  * 设备测试用的假 Claude（tools/fake-claude）怎么接进来：真的 zeta_host.sh 跑在临时 HOME 上。
  * 测试版（ZETA_NAME=zeta-dev）放了剧本才起假 Claude，正式版永远起真的 claude；剧本删掉后假 Claude 自己退出。 假 Claude 的输出和真 Claude
- * Code 对不对得上，见 FakeClaudeContractTest。测试版起真的 claude 时，新开、没指定模型的对话补上 Haiku 5.5。
+ * Code 对不对得上，见 FakeClaudeContractTest。
  */
 class FakeClaudeHostTest {
     private lateinit var home: File
@@ -22,9 +22,6 @@ class FakeClaudeHostTest {
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
     private val fakeDir
         get() = File(home, ".config/zeta-dev/fake-claude")
-
-    /** 测试里另起的测试版托管标识，tearDown 一并结束。 */
-    private val extraKeys = mutableListOf<String>()
 
     @Before
     fun setUp() {
@@ -38,10 +35,10 @@ class FakeClaudeHostTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         for ((name, key) in
-            listOf(dev to "k-dev", release to "k-release", null to "k-old") +
-                extraKeys.map { dev to it }) runCatching {
+            listOf(dev to "k-dev", release to "k-release", null to "k-old")) runCatching {
             run(name, "stop", key)
         }
+        for (name in listOf(dev, release)) HostTesting.killHosts(home, name)
         home.deleteRecursively()
     }
 
@@ -125,11 +122,12 @@ class FakeClaudeHostTest {
     @Test
     fun devStartsNewConversationsOnHaikuUnlessAModelOrSessionIsGiven() {
         val haiku = "--model claude-haiku-5-5"
+        var started = 0
         // 每次另起一个标识（stop 在后台清理目录，紧接着用同一个标识会撞上），tearDown 统一结束
-        fun launched(vararg extra: String): String {
-            val key = "k-dev-${extraKeys.size}".also { extraKeys += it }
-            start(dev, key, *extra)
-            return commandLine(pid(dev, key))
+        fun launched(vararg extra: String, name: String = dev): String {
+            val key = "k-${started++}"
+            start(name, key, *extra)
+            return commandLine(pid(name, key))
         }
 
         assertTrue(
@@ -148,8 +146,7 @@ class FakeClaudeHostTest {
         // 假 Claude 和正式版不补
         installFake()
         assertFalse(launched().contains(haiku))
-        start(release, "k-release")
-        assertFalse(commandLine(pid(release, "k-release")).contains(haiku))
+        assertFalse(launched(name = release).contains(haiku))
     }
 
     @Test
