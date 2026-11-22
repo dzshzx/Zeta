@@ -214,8 +214,12 @@ class UsageTrackerTest {
         assertEquals(400_000L, restored.contextWindow)
         assertEquals(2, restored.turns.size)
         assertEquals(TokenCounts(3, 45, 250, 30), restored.turns[0].tokens)
-        assertNull(restored.totalCost)
-        assertTrue(restored.costPartial)
+        // 记录里没有费用：按各条消息的模型和 token 数估，缓存写入按 1 小时档
+        assertEquals(1202e-6, restored.turns[0].costUsd!!, 1e-12)
+        assertEquals(142e-6, restored.turns[1].costUsd!!, 1e-12)
+        assertTrue(restored.turns.all { it.costEstimated })
+        assertTrue(restored.costEstimated)
+        assertFalse(restored.costPartial)
 
         // 压缩之后记录里只有压缩提示，占用取压缩后的大小
         val compacted = UsageTracker()

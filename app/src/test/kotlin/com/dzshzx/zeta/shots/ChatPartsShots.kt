@@ -142,7 +142,12 @@ class ChatPartsShots : ShotTest() {
             turns =
                 listOf(
                     TurnUsage(TokenCounts(1200, 860, 205_000, 7_240), 0.41, 18_200),
-                    TurnUsage(TokenCounts(300, 1_100, 190_000, 2_100), null, 6_400),
+                    TurnUsage(
+                        TokenCounts(300, 1_100, 190_000, 2_100),
+                        0.0778,
+                        6_400,
+                        costEstimated = true,
+                    ),
                 ),
             appliedEffort = "high",
             autoCompact = true,

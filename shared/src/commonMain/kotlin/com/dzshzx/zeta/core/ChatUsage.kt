@@ -73,9 +73,17 @@ data class TokenCounts(
     }
 }
 
-/** 一轮（用户发一次、到 result 为止）的用量。[costUsd] 是按 API 标价折算的费用，算不出来时为 null。 */
+/**
+ * 一轮（用户发一次、到 result 为止）的用量。[costUsd] 是按 API 标价折算的费用，算不出来时为 null；[costEstimated] 时它不是 Claude Code
+ * 报的，是按 token 数和价目表（[ApiPrices]）估的，不含子代理。
+ */
 @Immutable
-data class TurnUsage(val tokens: TokenCounts, val costUsd: Double?, val durationMs: Long? = null)
+data class TurnUsage(
+    val tokens: TokenCounts,
+    val costUsd: Double?,
+    val durationMs: Long? = null,
+    val costEstimated: Boolean = false,
+)
 
 enum class ContextLevel {
     Normal,
@@ -116,9 +124,13 @@ data class ChatUsage(
     val totalCost: Double?
         get() = turns.mapNotNull { it.costUsd }.takeIf { it.isNotEmpty() }?.sum()
 
-    /** 有些轮次（从会话记录恢复的、接上后台进程后的第一轮）没有费用数据。 */
+    /** 有些轮次连估都估不出费用（模型不在价目表里）。 */
     val costPartial: Boolean
         get() = turns.any { it.costUsd == null }
+
+    /** 有些轮次（从会话记录恢复的、接上后台进程后的第一轮）的费用是估的。 */
+    val costEstimated: Boolean
+        get() = turns.any { it.costEstimated }
 
     val fraction: Float?
         get() {
@@ -166,7 +178,7 @@ data class ChatUsage(
  * - 每轮用量：result 行的 modelUsage 和 total_cost_usd 是这个进程启动以来的累计（含子代理和压缩请求），相邻两个 result 相减就是这一轮。
  *   全新会话的进程从零开始累计；用 `--resume` 续上旧会话时 Claude Code 会把上次进程的累计带过来，接上后台进程时也不知道之前读到哪，
  *   这两种情况第一轮的基线未知：token 改用 result.usage（只含这一轮），费用只在累计与这一轮完全对得上时才算。
- * - 会话记录里没有费用，从记录恢复的轮次只有 token。
+ * - 会话记录里没有费用，从记录恢复的轮次按各条消息的模型和 token 数估（[ApiPrices]）；实时的一轮算不出来时也这样估。
  */
 class UsageTracker {
     private var contextTokens: Long? = null
@@ -186,7 +198,10 @@ class UsageTracker {
     private var baseCost: Double? = null
 
     /** 从会话记录读到的、还没结束的一轮：消息 id → 这条消息的 usage（一条消息按内容块拆成几行，每行都带同一份 usage）。 */
-    private val historyTurn = LinkedHashMap<String, TokenCounts>()
+    private val historyTurn = LinkedHashMap<String, HistoryMessage>()
+
+    /** 会话记录里一条消息的 token 数和估出来的费用。 */
+    private class HistoryMessage(val tokens: TokenCounts, val cost: Double?)
 
     /** 每次有变化加一，调用方据此决定要不要刷新界面。 */
     var version = 0
@@ -284,8 +299,19 @@ class UsageTracker {
         if (cost != null) baseCost = cost
         windowOf(modelUsage)?.let { modelWindow = it }
         // 斜杠命令（/context 之类）也会出一个 result，但没有请求模型
+        // 基线未知的一轮：token 用的是 result.usage（只含主对话这一轮），照它估
+        val estimate =
+            if (turnCost == null && tokens === own) ApiPrices.cost(model, event.obj("usage"))
+            else null
         if (tokens.total > 0 || (turnCost ?: 0.0) > 0.0)
-            turns.add(TurnUsage(tokens, turnCost, event.long("duration_ms")))
+            turns.add(
+                TurnUsage(
+                    tokens,
+                    turnCost ?: estimate,
+                    event.long("duration_ms"),
+                    costEstimated = turnCost == null && estimate != null,
+                ),
+            )
         return changed()
     }
 
@@ -346,7 +372,11 @@ class UsageTracker {
                 val message = event.obj("message") ?: return
                 message.str("model")?.let { model = it }
                 val usage = TokenCounts.ofApi(message.obj("usage")) ?: return
-                historyTurn[message.str("id") ?: "m${historyTurn.size}"] = usage
+                historyTurn[message.str("id") ?: "m${historyTurn.size}"] =
+                    HistoryMessage(
+                        usage,
+                        ApiPrices.cost(message.str("model"), message.obj("usage")),
+                    )
                 if (usage.total > 0) {
                     contextTokens = usage.total
                     estimated = false
@@ -368,9 +398,13 @@ class UsageTracker {
 
     private fun flushHistoryTurn() {
         if (historyTurn.isEmpty()) return
-        val tokens = historyTurn.values.fold(TokenCounts.Zero) { sum, it -> sum + it }
+        val tokens = historyTurn.values.fold(TokenCounts.Zero) { sum, it -> sum + it.tokens }
+        // 有一条消息估不出来，这一轮就不报费用
+        val costs = historyTurn.values.map { it.cost }
+        val cost = if (costs.all { it != null }) costs.filterNotNull().sum() else null
         historyTurn.clear()
-        if (tokens.total > 0) turns.add(TurnUsage(tokens, costUsd = null))
+        if (tokens.total > 0)
+            turns.add(TurnUsage(tokens, costUsd = cost, costEstimated = cost != null))
     }
 
     /** 把载入的历史接到前面：历史的轮次在前；上下文占用、模型以已经收到的实时数据为准。 */

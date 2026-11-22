@@ -257,10 +257,14 @@ private fun TotalsSection(usage: ChatUsage, skippedHistory: Int) {
         StatRow("缓存读取", "${formatExactTokens(total.cacheRead)} tok")
         StatRow("缓存写入", "${formatExactTokens(total.cacheWrite)} tok")
         StatRow("输出", "${formatExactTokens(total.output)} tok")
-        StatRow("费用（按 API 标价）", usage.totalCost?.let(::formatCost) ?: "—")
+        StatRow(
+            "费用（按 API 标价）",
+            usage.totalCost?.let { costLabel(it, usage.costEstimated) } ?: "—",
+        )
     }
     val notes = buildList {
-        if (usage.costPartial) add("会话记录里没有费用，从记录恢复的轮次只计 token。")
+        if (usage.costEstimated) add("带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。")
+        if (usage.costPartial) add("有些轮次用的模型不在价目表里，费用没有计入。")
         if (skippedHistory > 0) add("更早的记录没有载入，也没有计入。")
     }
     if (notes.isNotEmpty()) Note(notes.joinToString(""), Modifier.padding(top = 8.dp))
@@ -428,6 +432,10 @@ private fun StatRow(label: String, value: String) {
     }
 }
 
+/** 费用的写法：估出来的前面加 ≈。 */
+private fun costLabel(usd: Double, estimated: Boolean): String =
+    (if (estimated) "≈" else "") + formatCost(usd)
+
 @Composable
 private fun TurnRow(number: Int, turn: TurnUsage) {
     val colors = COUITheme.colorScheme
@@ -441,7 +449,7 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = turn.costUsd?.let(::formatCost) ?: "—",
+                text = turn.costUsd?.let { costLabel(it, turn.costEstimated) } ?: "—",
                 style =
                     COUITheme.textStyles.bodyS.copy(
                         fontSize = 12.5.sp,
