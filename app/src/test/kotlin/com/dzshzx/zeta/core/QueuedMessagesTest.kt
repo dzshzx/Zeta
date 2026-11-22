@@ -124,4 +124,92 @@ class QueuedMessagesTest {
         chat.result()
         assertFalse(chat.busy)
     }
+
+    /** 回答中的对话，排着一条插话；[capabilities] 是 init 报的能力。 */
+    private fun steeringChat(vararg capabilities: String): Conversation {
+        val chat =
+            Conversation(
+                Fixtures.readyHub(app),
+                "/workspace/claude",
+                sessionId = null,
+                title = "",
+                historyFile = null,
+            )
+        chat.send("改一下 README")
+        val list = capabilities.joinToString(",") { "\"$it\"" }
+        chat.receive(
+            """{"type":"system","subtype":"init","session_id":"s1","model":"claude-opus-5-5","capabilities":[$list]}""",
+        )
+        chat.started(chat.items.filterIsInstance<UserItem>().single().uuid!!)
+        chat.send("顺便改 CLAUDE.md")
+        return chat
+    }
+
+    private val Conversation.process
+        get() =
+            Conversation::class
+                .java
+                .getDeclaredField("process")
+                .apply { isAccessible = true }
+                .get(this) as ClaudeProcess
+
+    /** Claude Code 回 ⚡ 发出的 send now 请求。 */
+    private fun Conversation.sendNowAnswered(outcome: String) {
+        val id = process.waitingFor("interrupt")!!
+        receive(
+            """{"type":"control_response","response":{"subtype":"success","request_id":"$id","response":{"still_queued":[],"send_now":"$outcome"}}}""",
+        )
+    }
+
+    private val Conversation.notices
+        get() = items.filterIsInstance<NoticeItem>().map { it.text }
+
+    /** ⚡ 同终端的 send now：工具挪到后台、插话并进这一轮时，这一轮照常结束，不算打断（真 Claude Code 由 ClaudeCodeContractTest 钉住）。 */
+    @Test
+    fun sendNowDeliveredKeepsTheTurn() {
+        val chat = steeringChat("interrupt_send_now_v1")
+        chat.steerNow()
+        assertTrue(chat.steering)
+        chat.sendNowAnswered("delivering")
+        chat.started(chat.queued.single().uuid)
+        assertFalse(chat.steering)
+        chat.result()
+        assertFalse(chat.busy)
+        assertEquals(emptyList<String>(), chat.notices)
+    }
+
+    /** 工具挪不到后台：Claude Code 停下这一轮，插话接着开始，这时才提示已打断。 */
+    @Test
+    fun sendNowThatStopsTheTurnSaysSo() {
+        val chat = steeringChat("interrupt_send_now_v1")
+        chat.steerNow()
+        chat.sendNowAnswered("stopped")
+        chat.result()
+        assertEquals(listOf("已打断，先处理插话"), chat.notices)
+        assertTrue("插话还没开始，这一轮没完", chat.busy)
+        chat.started(chat.queued.single().uuid)
+        chat.result()
+        assertFalse(chat.busy)
+    }
+
+    /** 插话在应答前已被取走：什么都不用做，⚡ 恢复。 */
+    @Test
+    fun sendNowWithNothingWaiting() {
+        val chat = steeringChat("interrupt_send_now_v1")
+        chat.send("再改一下 docs")
+        chat.steerNow()
+        chat.sendNowAnswered("nothing_waiting")
+        assertFalse(chat.steering)
+        assertEquals(2, chat.queued.size)
+    }
+
+    /** 不认 send_now 的 Claude Code：只能发普通的 interrupt，这一轮停下。 */
+    @Test
+    fun withoutSendNowSteeringInterrupts() {
+        val chat = steeringChat()
+        chat.steerNow()
+        assertEquals("普通的 interrupt 不等应答", null, chat.process.waitingFor("interrupt"))
+        chat.result()
+        assertEquals(listOf("已打断，先处理插话"), chat.notices)
+    }
 }

@@ -600,4 +600,94 @@ class ClaudeCodeContractTest {
             assertEquals("两条消息只出一个 result", 1, events.count { it.str("type") == "result" })
         }
     }
+
+    /**
+     * 立即插话（终端排队提示上的 send now，Zeta 排队条的 ⚡）：interrupt 带 send_now 和排队消息的 uuid。init 的 capabilities 带
+     * interrupt_send_now_v1 才认，Conversation.steerNow 据此决定发哪种。正在跑的命令能挪到后台（还要
+     * background_tasks_moves_bash_v1）时不停这一轮：命令挪走，排队的消息并进这一轮，这一轮照常以 success 结束，应答 delivering；
+     * 挪不了就停下这一轮（应答 stopped），排队的消息留在队里、接着另起一轮。两种都不用等那条命令跑完。
+     */
+    @Test
+    fun sendNowDeliversWithoutWaitingForTheTool() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        // 单独一条 sleep 会被 Claude Code 拦下（要等待得用 Monitor），换一条同样一直跑的
+        script = listOf(bash("timeout 40 tail -f /dev/null"))
+        val first = "11111111-2222-4333-8444-666666666666"
+        val second = "33333333-2222-4333-8444-666666666666"
+        Claude("bypassPermissions", "{}").use { claude ->
+            claude.user(first, "run the tools")
+            val events =
+                claude
+                    .until { o ->
+                        o.str("type") == "assistant" &&
+                            "\"tool_use\"" in o.obj("message")?.get("content").toString()
+                    }
+                    .toMutableList()
+            val capabilities =
+                events
+                    .first { it.str("type") == "system" && it.str("subtype") == "init" }[
+                        "capabilities"]
+                    .toString()
+            assertTrue(
+                "init 声明了 interrupt_send_now_v1",
+                "\"interrupt_send_now_v1\"" in capabilities,
+            )
+            val movesAside = "\"background_tasks_moves_bash_v1\"" in capabilities
+            // send now 只认已经在 Claude Code 队列里的消息
+            claude.user(second, "then say done")
+            events += claude.until { o ->
+                o.str("type") == "command_lifecycle" &&
+                    o.str("command_uuid") == second &&
+                    o.str("state") == "queued"
+            }
+            val asked = System.currentTimeMillis()
+            claude.send(
+                buildJsonObject {
+                    put("type", "control_request")
+                    put("request_id", "send-now")
+                    putJsonObject("request") {
+                        put("subtype", "interrupt")
+                        put("send_now", true)
+                        put("message_uuid", second)
+                    }
+                },
+            )
+            events += claude.until { it.str("type") == "result" }
+            val waited = System.currentTimeMillis() - asked
+            assertTrue("没等那条 40 秒的命令跑完（等了 $waited 毫秒）", waited < 25_000)
+            val answer =
+                events
+                    .first {
+                        it.str("type") == "control_response" &&
+                            it.obj("response")?.str("request_id") == "send-now"
+                    }
+                    .obj("response")
+                    ?.obj("response")
+            val result = events.last()
+            fun startedAt(uuid: String) = events.indexOfFirst {
+                it.str("type") == "command_lifecycle" &&
+                    it.str("command_uuid") == uuid &&
+                    it.str("state") == "started"
+            }
+            if (movesAside) {
+                assertEquals("delivering", answer?.str("send_now"))
+                assertEquals("这一轮没被打断", "success", result.str("subtype"))
+                assertTrue("插话并进了这一轮", startedAt(second) in 0 until events.indexOf(result))
+                assertTrue(
+                    "命令挪到了后台",
+                    events.any {
+                        it.str("type") == "system" &&
+                            it.str("subtype") == "background_tasks_changed" &&
+                            it["tasks"].toString() != "[]"
+                    },
+                )
+            } else {
+                assertEquals("stopped", answer?.str("send_now"))
+                assertEquals("排队的消息还在", "[\"$second\"]", answer?.get("still_queued").toString())
+                assertEquals(-1, startedAt(second))
+                events += claude.until { it.str("type") == "result" }
+                assertTrue("插话接着另起一轮", startedAt(second) >= 0)
+            }
+        }
+    }
 }

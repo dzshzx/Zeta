@@ -235,7 +235,7 @@ class Conversation(
     var queued by mutableStateOf<List<QueuedMessage>>(emptyList())
         private set
 
-    /** 用户点了“立即插话”：当前这一轮已叫停，等排队的消息开始。 */
+    /** 用户点了“立即插话”：已请 Claude Code 立即交出排队的消息，等它开始。 */
     var steering by mutableStateOf(false)
         private set
 
@@ -292,6 +292,12 @@ class Conversation(
     /** 撤回时要放回输入框的消息（其余的撤回直接丢弃）。 */
     private val recalling = HashSet<String>()
     private var interruptRequested = false
+
+    /**
+     * 这个进程的 Claude Code 认 interrupt 的 send_now（init 的 capabilities 带 interrupt_send_now_v1），见
+     * [steerNow]。
+     */
+    private var sendNowSupported = false
     private val main = MainHandler()
     private val inbox = ConcurrentLinkedQueue<JsonObject>()
 
@@ -852,14 +858,40 @@ class Conversation(
         dismissPrompts()
     }
 
-    /** 立即插话：叫停当前这一轮，排队的消息随即开始，不必等手上的工具跑完。 */
+    /**
+     * 立即插话，同终端里排队提示上的 send now（Ctrl+X Ctrl+S）：排队的消息马上交给 Claude Code，不必等手上的工具跑完。Claude Code 认
+     * send_now 时由它决定怎么交：正在跑的工具能挪到后台就挪走，消息并进这一轮，这一轮不停（应答 delivering）；挪不了就停下这一轮，
+     * 排队的消息接着开始（stopped、interrupted），这时才提示“已打断”。不认 send_now 的旧版本只能发普通的 interrupt。
+     */
     fun steerNow() {
         val process = process ?: return
         if (!busy || queued.isEmpty() || steering) return
-        phoneSession?.cancelWaiting()
         steering = true
+        if (!sendNowSupported) {
+            stopForSteer()
+            process.request(controlBody("interrupt"))
+            return
+        }
+        val body =
+            controlBody("interrupt") {
+                put("send_now", true)
+                put("message_uuid", queued.first().uuid)
+            }
+        process.request(body) { response ->
+            when (response.obj("response")?.str("send_now")) {
+                "delivering" -> Unit
+                "stopped",
+                "interrupted" -> if (busy) stopForSteer()
+                // nothing_waiting（已经开始了，或已被撤回）、出错
+                else -> steering = false
+            }
+        }
+    }
+
+    /** 插话停下了这一轮：这一轮以“已打断，先处理插话”收尾；等着的确认和手机操作一并作废。 */
+    private fun stopForSteer() {
+        phoneSession?.cancelWaiting()
         interruptRequested = true
-        process.request(controlBody("interrupt"))
         dismissPrompts()
     }
 
@@ -1425,6 +1457,10 @@ class Conversation(
         event.str("model")?.takeIf { it.isNotBlank() }?.let { reportedModel = it }
         // 起进程时没指定模式才要 init 报的（指定了的报来的就是指定的那个）；之后的变化看 status
         event.str("permissionMode")?.let(modes::reportedAtStart)
+        sendNowSupported =
+            event.arr("capabilities")?.any {
+                (it as? JsonPrimitive)?.contentOrNull == "interrupt_send_now_v1"
+            } == true
         // 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
         // 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
         if (!busy) {
