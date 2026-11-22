@@ -17,7 +17,48 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）。改已有消息的含义时加一，只加方法、字段不加。
 - 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
-- 版本并存：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），彼此不共享状态，手机正式版、测试版和桌面版各用各的。几个客户端共用同一份状态要等对话搬进来时再做（下面第 2 步）。
+- 版本并存：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`）。对话状态放在常驻的核心进程里（见下一节），同一个包、同一个 helper 版本的客户端共用一个；版本不同的各用各的核心，经 `zeta_host.sh` 的多方接着同一个托管进程。
+
+## 对话
+
+对话的状态在核心进程 `zeta-helper core` 里：每台主机上每个 Linux 用户、每个包（`ZETA_NAME`）、每个 helper 版本一个，监听 `~/.cache/<ZETA_NAME>/core/<版本>.sock`（目录只有本人能进）。客户端不直接连它：serve 收到 `conv.` 开头的请求时连上核心（没有就起一个，几个 serve 同时起时由锁保证只起一个），把这类请求原样转过去，核心的应答和推送原样写回客户端。核心没了（崩溃、被结束）时 serve 跟着退出，客户端照常重连，重新打开它的对话。
+
+- 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：下次打开时载入会话记录、接上还在跑的进程。
+- 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒，核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话满 60 秒就退出。
+- 同一个会话在一个核心里只有一份状态：几个客户端打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。
+
+请求都带 `conv`（`conv.open` 除外），参数和 `id`、`method` 平级：
+
+| 方法 | 参数 | 做什么 |
+|---|---|---|
+| `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，载入历史用）、`cwd`、`title`、`options` | 打开一个对话，应答的 `result` 带 `conv`。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items` |
+| `conv.close` | | 这个客户端放开它 |
+| `conv.options` | `options` | 改起进程用的设置（见下），下次起进程时生效 |
+| `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
+| `conv.interrupt` | | 停止这一轮，排队的消息撤回 |
+| `conv.steer` | | 立即插话：排队的第一条马上开始 |
+| `conv.cancel` | `uuid`、`recall` | 撤回一条排队的消息；`recall` 时放回输入框（`recalled`） |
+| `conv.take_recalled` | | 输入框取走了 `recalled` |
+| `conv.answer` | `request_id`、`reply` | 回应工具确认、计划审批、提问（`reply` 见下） |
+| `conv.elicit` | `request_id`、`action`、`content` | 回应 MCP 表单（accept、decline、cancel） |
+| `conv.model`、`conv.effort`、`conv.mode` | `value` | 只管这个对话的模型、思考强度、权限模式；`null` 回到默认 |
+| `conv.compact` | | 压缩上下文 |
+| `conv.stop_task` | `task` | 停一个后台任务 |
+| `conv.task_output` | `task` | 读后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}` |
+| `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
+| `conv.mcp_reply` | `request_id`、`response` | 手机工具的应答（见 `conv.mcp`） |
+
+`options`（都可省）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）。
+
+`reply`：`{"kind":"allow"}`、`{"kind":"allow_always"}`（照建议以后不再问）、`{"kind":"deny","feedback":…}`（不写理由时和终端里按 Esc 一样停下这一轮）、`{"kind":"approve_plan","mode":…}`、`{"kind":"answer","answers":{问题:回答},"notes":{问题:备注}}`、`{"kind":"clarify","answers":…,"notes":…}`。
+
+推送（都带 `conv`）：
+
+- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`、`mode`（`{user, process}`）、`commands`、`models`、`usage`、`loading_history`、`blocked`（会话正被 Zeta 之外的进程占着）。
+- `conv.items`：聊天条目（格式见 `helper/transcript/items.go`）。`full` 为真时 `items` 是整份；否则是一次替换：从下标 `at` 起去掉 `remove` 项、换成 `items`。流式回答时通常只换最后一两项。
+- `conv.turn`：一轮的起止，客户端据此提醒。`phase` 是 `started` 或 `finished`；结束时带 `outcome`（`done`、`stopped`、`failed`、`interrupted`：进程意外没了）和一句 `text`。
+- `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。
+- `conv.closed`：对话在核心里没了（结束、换了会话号以外的原因），客户端丢掉它。
 
 ## 进度
 
