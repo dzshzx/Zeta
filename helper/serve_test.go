@@ -2,12 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"os"
+	"os/exec"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/core"
 )
 
 // serve：连上先打招呼，请求一一回复；会话列表先整份、再只推变了的；客户端走了就退出。
@@ -253,4 +260,164 @@ func TestServeWatchCoalescesBursts(t *testing.T) {
 	}
 	c.next("zeta_sessions")
 	c.quiet(500 * time.Millisecond)
+}
+
+// 测试程序带上 testMainEnv=1 运行时就是 zeta-helper 本身：serve 拉起核心时执行的是测试程序自己（os.Executable），
+// 参数 core 走到 main 里真的核心子命令。
+const testMainEnv = "ZETA_HELPER_TEST_MAIN"
+
+func TestMain(m *testing.M) {
+	if os.Getenv(testMainEnv) == "1" {
+		main()
+	}
+	os.Exit(m.Run())
+}
+
+// coreEnv 给这个测试一个临时家目录和一个短的核心目录（套接字路径有长度上限），返回 env 和这个版本核心的文件。
+// 测试结束时结束还持着锁的核心。
+func coreEnv(t *testing.T) (*env, core.Paths) {
+	t.Helper()
+	e := testEnv(t)
+	t.Setenv("HOME", e.home)
+	t.Setenv("ZETA_NAME", e.name)
+	dir, err := os.MkdirTemp("", "zs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Setenv(core.DirEnv, dir+"/core")
+	t.Setenv(testMainEnv, "1")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := core.Locate(e.home, e.name, exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if pid := corePid(p); pid > 0 {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+	})
+	return e, p
+}
+
+// corePid 是持着锁的核心的进程号；没有核心持着锁时是 0。
+func corePid(p core.Paths) int {
+	f, err := os.Open(p.Lock)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	if syscall.Flock(int(f.Fd()), syscall.LOCK_SH|syscall.LOCK_NB) == nil {
+		return 0
+	}
+	data, _ := os.ReadFile(p.Lock)
+	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
+	return pid
+}
+
+func listening(p core.Paths) bool {
+	c, err := net.Dial("unix", p.Socket)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
+}
+
+// 两个客户端各起一个 serve：conv. 请求经 serve 到同一个核心再回来，ping 照旧由 serve 答；核心没了 serve 都退出。
+func TestServeForwardsConversationsToOneCore(t *testing.T) {
+	e, p := coreEnv(t)
+	a := startServe(t, e, fastServe)
+	b := startServe(t, e, fastServe)
+	if listening(p) {
+		t.Fatal("还没有 conv. 请求就有了核心")
+	}
+
+	a.send(`{"id":1,"method":"conv.open","cwd":"/w"}`)
+	r := a.next("zeta_reply")
+	if r["id"] != json.Number("1") || r["ok"] != false || r["error"] != "no such method yet: conv.open" {
+		t.Fatalf("经核心的应答 %v", r)
+	}
+	pid := corePid(p)
+	if pid == 0 {
+		t.Fatal("核心没持锁")
+	}
+	if sid, _, errno := syscall.RawSyscall(syscall.SYS_GETSID, uintptr(pid), 0, 0); errno != 0 || int(sid) != pid {
+		t.Errorf("核心不在自己的会话里：sid %d %v", sid, errno)
+	}
+
+	b.send(`{"id":"x","method":"conv.send","conv":"c1","text":"你好"}`)
+	if r := b.next("zeta_reply"); r["id"] != "x" || r["error"] != "no such method yet: conv.send" {
+		t.Fatalf("b 经核心的应答 %v", r)
+	}
+	if corePid(p) != pid {
+		t.Error("第二个 serve 又起了一个核心")
+	}
+	a.send(`{"id":2,"method":"ping"}`)
+	if r := a.next("zeta_reply"); r["id"] != json.Number("2") || r["ok"] != true {
+		t.Errorf("ping %v", r)
+	}
+	if log, err := os.ReadFile(p.Log); err != nil || !strings.Contains(string(log), "listening on "+p.Socket) {
+		t.Errorf("日志 %q %v", log, err)
+	}
+
+	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+		t.Fatal(err)
+	}
+	a.exited()
+	b.exited()
+}
+
+// 核心起不来（这里是套接字路径太长）：这个请求答出错，serve 照常在。
+func TestServeReportsWhenTheCoreIsUnavailable(t *testing.T) {
+	e, _ := coreEnv(t)
+	t.Setenv(core.DirEnv, "/tmp/"+strings.Repeat("d", 120))
+	c := startServe(t, e, fastServe)
+	c.send(`{"id":1,"method":"conv.open"}`)
+	if r := c.next("zeta_reply"); r["ok"] != false || !strings.HasPrefix(asString(r["error"]), "core unavailable: ") {
+		t.Fatalf("%v", r)
+	}
+	c.send(`{"id":2,"method":"ping"}`)
+	if r := c.next("zeta_reply"); r["ok"] != true {
+		t.Fatalf("ping %v", r)
+	}
+}
+
+// zeta-helper core：已有核心在听时新起的直接退出；收到 SIGTERM 时退出码 0、删掉套接字文件。
+func TestCoreSubcommandIsSingleAndExitsOnSigterm(t *testing.T) {
+	_, p := coreEnv(t)
+	exe, _ := os.Executable()
+	first := exec.Command(exe, "core")
+	if err := first.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return listening(p) })
+
+	second := exec.Command(exe, "core")
+	if out, err := second.CombinedOutput(); err != nil {
+		t.Fatalf("第二个核心：%v %s", err, out)
+	}
+	if corePid(p) != first.Process.Pid || !listening(p) {
+		t.Fatal("第二个核心顶掉了第一个")
+	}
+
+	if err := first.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- first.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("SIGTERM 后 %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("SIGTERM 后 5 秒没退出")
+	}
+	if _, err := os.Lstat(p.Socket); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("套接字文件还在：%v", err)
+	}
 }
