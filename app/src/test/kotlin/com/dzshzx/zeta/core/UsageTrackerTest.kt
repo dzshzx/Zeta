@@ -280,4 +280,17 @@ class UsageTrackerTest {
             ),
         )
     }
+
+    /** 窗口按主机分开记：远程主机上学到的不给手机用，手机上的也不给远程主机用。 */
+    @Test
+    fun knownWindowsAreKeptPerHost() {
+        val all =
+            mapOf(
+                KnownWindows.key(Backends.LOCAL, "claude-fable-5-2") to 400_000L,
+                KnownWindows.key("r-00000001", "claude-fable-5-2") to 500_000L,
+            )
+        assertEquals(mapOf("claude-fable-5-2" to 400_000L), KnownWindows.on(Backends.LOCAL, all))
+        assertEquals(mapOf("claude-fable-5-2" to 500_000L), KnownWindows.on("r-00000001", all))
+        assertEquals(emptyMap<String, Long>(), KnownWindows.on("r-00000002", all))
+    }
 }

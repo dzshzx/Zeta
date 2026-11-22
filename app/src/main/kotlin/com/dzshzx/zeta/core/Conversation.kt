@@ -1016,9 +1016,10 @@ class Conversation(
     private fun publishUsage() {
         meter.learnedWindow?.let { (name, window) ->
             val known = hub.settings.contextWindows
-            if (known[name] != window) hub.settings.contextWindows = known + (name to window)
+            val key = KnownWindows.key(backend, name)
+            if (known[key] != window) hub.settings.contextWindows = known + (key to window)
         }
-        usage = meter.snapshot(hub.settings.contextWindows)
+        usage = meter.snapshot(KnownWindows.on(backend, hub.settings.contextWindows))
     }
 
     /** 之后启动进程时追加给 Claude Code 的说明（定时任务告诉它这是后台自动发的）。 */
