@@ -15,7 +15,8 @@ type Session struct {
 	Updated  int64  `json:"updated"`  // 毫秒
 	External bool   `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
 	Archived bool   `json:"archived"`
-	Backend  string `json:"-"` // 在哪台设备上，读的一方填
+	Pinned   bool   `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
+	Backend  string `json:"-"`      // 在哪台设备上，读的一方填
 }
 
 // Place 是工作目录的最后一级。

@@ -3,16 +3,16 @@ package hostlink
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，stream 先推一行带这个请求 id 的 match 再答，bad 答出错，stale 答出错带 code，nameless 答出错不带原因，hang 不答直接退出（连接断了）。
-const fakeServe = `echo '{"type":"zeta_hello","protocol":1}'
+// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，stale 答出错带 code，nameless 答出错不带原因，hang 不答直接退出（连接断了）。
+const fakeServe = `echo '{"type":"zeta_hello","protocol":1,"build":7,"version":"0.7.2","hostname":"box"}'
 while IFS= read -r l; do
   id=$(printf '%s' "$l" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
   case "$l" in
@@ -21,7 +21,6 @@ while IFS= read -r l; do
     *'"method":"bad"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"不认识的方法\"}" ;;
     *'"method":"stale"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"会话记录变了\",\"code\":\"history_changed\"}" ;;
     *'"method":"nameless"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"code\":\"busy\"}" ;;
-    *'"method":"stream"'*) echo "{\"type\":\"match\",\"search\":$id}"; echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true}" ;;
     *'"method":"hang"'*) exit 3 ;;
   esac
 done`
@@ -106,27 +105,23 @@ func TestServeCallGivesUpWhenItNeverConnected(t *testing.T) {
 	}
 }
 
-// CallTagged 在写出请求之前交出 id：应答之前推来的、用 id 指回请求的那行对得上。
-func TestServeCallTaggedGivesTheIDBeforeSending(t *testing.T) {
+// 每次连上都把招呼里的主机名交给 Hello，在报连上之前。
+func TestServeHelloGivesTheHostname(t *testing.T) {
 	b := newBox(t)
-	pushed := make(chan string, 1)
+	hellos := make(chan string, 1)
+	var greeted atomic.Bool
 	s := StartServe(ServeOptions{
-		Open: func() (*sshlink.Process, error) { return b.shell.StartPlain(fakeServe) },
-		Message: func(kind string, line []byte) {
-			if kind == "match" {
-				pushed <- string(line)
+		Open:    func() (*sshlink.Process, error) { return b.shell.StartPlain(fakeServe) },
+		Hello:   func(h Hello) { greeted.Store(true); hellos <- h.Hostname },
+		Message: func(string, []byte) {},
+		Problem: func(why string) {
+			if why == "" && !greeted.Load() {
+				t.Error("报连上时还没交出招呼")
 			}
 		},
-		Problem: func(string) {},
 	})
 	defer s.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	var tagged int64
-	if _, err := s.CallTagged(ctx, "stream", nil, func(id int64) { tagged = id }); err != nil {
-		t.Fatal(err)
-	}
-	if got := <-pushed; tagged == 0 || got != `{"type":"match","search":`+strconv.FormatInt(tagged, 10)+`}` {
-		t.Errorf("id %d，推来 %s", tagged, got)
+	if got := <-hellos; got != "box" {
+		t.Errorf("主机名 %q", got)
 	}
 }

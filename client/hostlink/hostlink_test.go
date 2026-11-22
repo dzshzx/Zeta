@@ -288,8 +288,9 @@ func TestReconnectDelay(t *testing.T) {
 }
 
 func TestSessionsDecodeOddFields(t *testing.T) {
-	u, err := ParseSessions([]byte(`{"type":"zeta_sessions","full":false,"upsert":[{"id":"a","file":"/f","cwd":null,"updated":5},{"id":"b","file":"/g","cwd":7},{"file":"/x"},{"id":"c","file":"/h","cwd":"/w/"}],"remove":["z"]}`), "r-1")
-	if err != nil || len(u.Upsert) != 3 || u.Upsert[0].Cwd != "" || u.Upsert[1].Cwd != "7" || u.Upsert[2].Place() != "w" || u.Remove[0] != "z" || u.Upsert[0].Updated != 5 {
+	u, err := ParseSessions([]byte(`{"type":"zeta_sessions","full":false,"upsert":[{"id":"a","file":"/f","cwd":null,"updated":5},{"id":"b","file":"/g","cwd":7},{"file":"/x"},{"id":"c","file":"/h","cwd":"/w/","pinned":true}],"remove":["z"]}`), "r-1")
+	if err != nil || len(u.Upsert) != 3 || u.Upsert[0].Cwd != "" || u.Upsert[1].Cwd != "7" || u.Upsert[2].Place() != "w" || u.Remove[0] != "z" || u.Upsert[0].Updated != 5 ||
+		u.Upsert[0].Pinned || !u.Upsert[2].Pinned {
 		t.Errorf("%+v %v", u, err)
 	}
 	if (Session{Cwd: ""}).Place() != "/" || (Session{Title: " ", Preview: "p"}).Label() != "p" {

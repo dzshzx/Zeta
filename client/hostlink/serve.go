@@ -28,6 +28,8 @@ type ServeOptions struct {
 	Open func() (*sshlink.Process, error)
 	// Subscriptions 是连上、收到招呼后各发一次的方法（重连后也再发一遍，所以先收到的总是整份）。
 	Subscriptions []string
+	// Hello 每次连上（收到对得上协议的 zeta_hello）时调，在读的 goroutine 上、Problem 报连上之前；可以是 nil。
+	Hello func(Hello)
 	// Message 收到推来的每一行（type 不是 zeta_reply 的），在读的 goroutine 上调用。
 	Message func(kind string, line []byte)
 	// Problem 每次连上（空）或断开、连不上（给人看的原因）时调用一次，在读的 goroutine 上。
@@ -36,6 +38,12 @@ type ServeOptions struct {
 	Backoff func(attempt int) time.Duration
 	// Ping 是多久发一次 ping；0 时是 PingEvery。
 	Ping time.Duration
+}
+
+// Hello 是 serve 连上时先发来的招呼（zeta_hello）里客户端要用的。
+type Hello struct {
+	// Hostname 是那台的主机名（同 uname -n）；查不到时是空。
+	Hostname string `json:"hostname"`
 }
 
 // Serve 是到一台设备上 zeta-helper serve 的常驻连接（协议见 helper/serve.go），不为每个操作各起一次命令。
@@ -137,6 +145,11 @@ type ReplyError struct {
 	code    string
 }
 
+// NewReplyError 是 serve 答出错、带 code 时 Call 返回的错误（测试里扮 serve 用）。
+func NewReplyError(message, code string) *ReplyError {
+	return &ReplyError{Message: message, code: code}
+}
+
 func (e *ReplyError) Error() string { return e.Message }
 
 // Code 是应答里的 code，没带时是空。
@@ -146,18 +159,12 @@ func (e *ReplyError) Code() string { return e.code }
 // 否则返回 *ReplyError（serve 给的原因和 code）。还在连（第一次或重连）时等连上；连接在应答之前断了返回错误，不重发（请求可能已经生效）。
 // 不再重连了（Close 了，或第一次就没连上）时直接返回最后的原因。不能在 Message、Problem 回调里调：应答要靠那个 goroutine 读。
 func (s *Serve) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
-	return s.CallTagged(ctx, method, params, nil)
-}
-
-// CallTagged 同 Call，只是写出请求之前把它的 id 交给 tag（tag 可以是 nil）：有的方法边做边推、推送里用 id 指回请求
-// （比如 sessions.search 推来的 sessions.match），先记下 id，推送来时才对得上。
-func (s *Serve) CallTagged(ctx context.Context, method string, params map[string]any, tag func(id int64)) (json.RawMessage, error) {
 	p, err := s.connection(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ch := make(chan reply, 1)
-	id := s.write(p, method, params, ch, tag)
+	id := s.write(p, method, params, ch)
 	select {
 	case r := <-ch:
 		return r.result, r.err
@@ -329,6 +336,11 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			}
 			go s.pings(p, done)
 			s.connect(p)
+			if s.opts.Hello != nil {
+				var hello Hello
+				_ = json.Unmarshal(line, &hello) // 上面已经解得开
+				s.opts.Hello(hello)
+			}
 			s.opts.Problem("")
 		default:
 			return clip("zeta-helper serve 的协议对不上："+string(line), 300)
@@ -362,11 +374,11 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 }
 
 // send 发一个不等应答的请求（订阅、ping）。
-func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil, nil) }
+func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil) }
 
-// write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。tag 不为空时写出之前把 id 交给它。
+// write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。
 // 写不出去时不管，读那边会发现断了，到时 ch 收到 errDropped。
-func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, ch chan reply, tag func(int64)) int64 {
+func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, ch chan reply) int64 {
 	s.writing.Lock()
 	defer s.writing.Unlock()
 	s.mu.Lock()
@@ -381,9 +393,6 @@ func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, 
 		s.pending[id] = ch
 	}
 	s.mu.Unlock()
-	if tag != nil {
-		tag(id)
-	}
 	msg := make(map[string]any, len(params)+2)
 	maps.Copy(msg, params)
 	msg["id"], msg["method"] = id, method
