@@ -90,7 +90,7 @@ private val UserBubbleShape =
 private val WorkCardShape = RoundedCornerShape(16.dp)
 
 /**
- * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈强调色边，表示正在编辑它。 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2
+ * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈主题色边，表示正在编辑它。 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2
  * 的 Scaffold 里才显示。
  */
 @Composable
@@ -152,7 +152,7 @@ private fun UserImages(item: UserItem) {
     }
 }
 
-/** 用户消息的文字气泡；[editing] 时描一圈强调色边。 */
+/** 用户消息的文字气泡；[editing] 时描一圈主题色边。 */
 @Composable
 private fun UserTextBubble(item: UserItem, editing: Boolean) {
     val colors = COUITheme.colorScheme

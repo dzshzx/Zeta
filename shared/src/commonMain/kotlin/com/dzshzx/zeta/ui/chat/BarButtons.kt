@@ -74,7 +74,7 @@ fun BarMenuButton(
 }
 
 /**
- * 底栏按钮的配色：[tone] 为 null 是中性的灰；有颜色时是它的淡底加同色图标， 透明度照 COUI 半透明主题底的比例（浅色 15%，深色 25%）。跟着强调色变的用
+ * 底栏按钮的配色：[tone] 为 null 是中性的灰；有颜色时是它的淡底加同色图标， 透明度照 COUI 半透明主题底的比例（浅色 15%，深色 25%）。主题色的用
  * [barChipThemeColors]。
  */
 @Composable
@@ -90,7 +90,7 @@ fun barChipColors(tone: Color?): ChipColors {
     }
 }
 
-/** 主题色的底栏按钮：COUI 的半透明主题底加主题色图标，跟着强调色变。 */
+/** 主题色的底栏按钮：COUI 的半透明主题底加主题色图标。 */
 @Composable
 fun barChipThemeColors(): ChipColors =
     ChipDefaults.chipColors(

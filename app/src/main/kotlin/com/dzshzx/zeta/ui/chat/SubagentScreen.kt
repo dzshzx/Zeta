@@ -231,7 +231,7 @@ private fun SubagentSummary(log: SubagentLog, description: String?, type: String
     }
 }
 
-/** 状态的颜色：在跑是强调色，完成绿色，失败红色，别的不另上色。 */
+/** 状态的颜色：在跑是主题色，完成绿色，失败红色，别的不另上色。 */
 @Composable
 private fun subagentStateColor(log: SubagentLog): Color {
     val colors = COUITheme.colorScheme

@@ -107,13 +107,13 @@ class SettingsTest {
     fun restoreRereadsEveryPref() {
         val settings = Settings.of(app)
         settings.keepScreenOn = true
-        settings.accent = "coui"
+        settings.darkTheme = null
         val folders = listOf(SharedFolder("Download", "/storage/emulated/0/Download"))
         assertTrue(
             settings.restore(
                 mapOf(
                     "keepScreenOn" to false,
-                    "accent" to "teal",
+                    "dark" to true,
                     "interfaceScale" to 0.9f,
                     "assistantModel" to "opus",
                     "sharedFolders" to SharedFolders.encode(folders),
@@ -122,7 +122,7 @@ class SettingsTest {
             ),
         )
         assertFalse(settings.keepScreenOn)
-        assertEquals("teal", settings.accent)
+        assertEquals(true, settings.darkTheme)
         assertEquals(0.9f, settings.interfaceScale)
         assertEquals("opus", settings.assistantModel)
         assertEquals(folders, settings.sharedFolders)

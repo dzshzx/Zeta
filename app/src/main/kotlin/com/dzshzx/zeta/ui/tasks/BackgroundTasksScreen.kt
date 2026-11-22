@@ -372,7 +372,7 @@ private fun TaskInfoGroup(
     }
 }
 
-/** 状态的颜色：在跑是强调色，完成绿色，失败红色。 */
+/** 状态的颜色：在跑是主题色，完成绿色，失败红色。 */
 @Composable
 private fun taskStateColor(state: TaskState): Color =
     when (state) {

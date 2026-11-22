@@ -81,12 +81,13 @@ class SettingsBackupTest {
             // 以前的 Zeta 存的新对话默认值，现在用 Claude Code 自己的设置：还留在存储里也不导出
             "model" to "opus",
             "permissionMode" to "acceptEdits",
+            // 这个版本没有的强调色设置：留在存储里也不导出
+            "accent" to "teal",
             "commands" to "[{\"name\":\"compact\"}]",
             "contextWindows" to setOf("opus=200000"),
             "mutedApps" to setOf("com.example.music=allow"),
             "phoneDisplay" to 7,
             "dark" to true,
-            "accent" to "teal",
             "interfaceScale" to 0.9f,
             "pinnedSessions" to setOf("0a1b2c3d-0000-4000-8000-000000000001"),
             "sharedFolders" to
@@ -135,6 +136,7 @@ class SettingsBackupTest {
         )
         assertFalse("model" in keys)
         assertFalse("permissionMode" in keys)
+        assertFalse("accent" in keys)
         assertFalse("apiToken" in keys)
         assertFalse(export(phone).contains("fake-token-1"))
         // 常用指令导出时不带这台手机上的 id
@@ -177,7 +179,6 @@ class SettingsBackupTest {
         assertEquals(JsonNull, settings["assistantModel"])
         assertEquals(JsonPrimitive(true), settings["phoneTools"])
         assertEquals(JsonPrimitive(false), settings["autoLoadRemoteImages"])
-        assertEquals(JsonPrimitive("coui"), settings["accent"])
         assertEquals(JsonPrimitive(1f), settings["interfaceScale"])
         assertEquals(JsonPrimitive(true), settings["autoCompact"])
         assertEquals(JsonNull, settings["autoCompactPercent"])
@@ -210,7 +211,6 @@ class SettingsBackupTest {
         assertEquals("90%", changed.getValue("interfaceScale").to)
         val writes = SettingsBackup.writes(backup, plan)
         assertEquals(true, writes["dark"])
-        assertEquals("teal", writes["accent"])
         assertEquals(0.9f, writes["interfaceScale"])
         assertEquals(false, writes["keepScreenOn"])
         assertEquals(false, writes["autoCompact"])
@@ -453,7 +453,8 @@ class SettingsBackupTest {
                         put("autoLoadRemoteImages", true)
                         // 去掉了的设置项（旧版的纯黑背景开关）：跳过，不报错
                         put("pureBlack", true)
-                        put("accent", "yellow")
+                        // 去掉了的强调色设置，带的是当时有效的值：同样跳过
+                        put("accent", "teal")
                         put("interfaceScale", 5.0)
                         put("assistantModel", "opus; rm -rf /")
                         put("assistantEffort", "xhigh")
@@ -522,7 +523,7 @@ class SettingsBackupTest {
             skipped.keys,
         )
         assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
-        for (gone in listOf("somethingNew", "pureBlack", "permissionMode")) {
+        for (gone in listOf("somethingNew", "pureBlack", "permissionMode", "accent")) {
             assertTrue(skipped.getValue(gone).reason.startsWith("这个版本的 Zeta 没有这一项"))
         }
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))

@@ -673,8 +673,8 @@ private enum class SendFace {
 private val IdleTalk: StateFlow<SpeechInput.State> = MutableStateFlow(SpeechInput.State())
 
 /**
- * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定、不跟强调色变（选红色强调色时也分得清「完全放行」）。 逐项确认和没指定时是灰色的 M，计划模式青色的 P，自动接受编辑紫色的
- * E，自动判断蓝色的 A，完全放行红色的感叹号。 模式名在读屏说明、长按提示和点开的单选菜单里。
+ * 权限模式按钮：一面盾牌，里面的字母和颜色看模式，颜色固定。 逐项确认和没指定时是灰色的 M，计划模式青色的 P，自动接受编辑紫色的 E，自动判断蓝色的 A，完全放行红色的感叹号。
+ * 模式名在读屏说明、长按提示和点开的单选菜单里。
  */
 @Composable
 internal fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {

@@ -31,7 +31,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.dzshzx.zeta.phone.OverlayPhase
 import io.github.suqi8.coui.kmp.squircle.addSquircleRect
 
-// 照 Eta：流光取强调色和相邻的冷暖色，不用高饱和彩虹，免得在浅色页面上喧宾夺主。
+// 照 Eta：流光取蓝色和相邻的冷暖色，不用高饱和彩虹，免得在浅色页面上喧宾夺主。
 // 这是一条渐变光带的配色（相当于美术素材），不是界面配色，所以不取主题色
 private val EdgeLightColors =
     intArrayOf(

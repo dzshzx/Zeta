@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 // 拷自 Eta 的 agent/voice/CouiAssistantSurface.kt 和 ui/components/coui/CouiMotion.kt（GPL-3.0），
 // 去掉了语音那几样（声波球、语音和键盘图标）和 Miuix 外观的分支，配色只按 COUI 取。
 
-/** 浮窗用的一组颜色（照 Eta 的 EtaVoicePanelColors）：面板、输入栏、胶囊、遮罩和托底；强调色和错误色取 COUI 主题。 */
+/** 浮窗用的一组颜色（照 Eta 的 EtaVoicePanelColors）：面板、输入栏、胶囊、遮罩和托底；主题色和错误色取 COUI 主题。 */
 @Immutable
 internal data class AssistantColors(
     val dark: Boolean,
@@ -171,7 +171,7 @@ internal enum class AssistantCapsuleElevation {
 /**
  * 悬浮胶囊表面：硬件加速画布上启用投影，软件画布或窗口切换期回退为同轮廓纯色填充与细描边。
  *
- * [surface] 和 [highlight]（聚焦时那圈强调色描边的进度）只在绘制阶段读，跟着动画变时只重画、不重组。
+ * [surface] 和 [highlight]（聚焦时那圈主题色描边的进度）只在绘制阶段读，跟着动画变时只重画、不重组。
  */
 @Composable
 internal fun Modifier.couiAssistantCapsule(

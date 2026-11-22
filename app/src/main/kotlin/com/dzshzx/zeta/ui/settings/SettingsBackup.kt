@@ -11,7 +11,6 @@ import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduledTask
 import com.dzshzx.zeta.core.schedule.Schedules
-import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
@@ -148,19 +147,6 @@ internal object SettingsBackup {
                         true -> "深色"
                         false -> "浅色"
                     }
-                },
-            ),
-            BackupItem(
-                key = "accent",
-                label = "强调色",
-                read = { prefs ->
-                    JsonPrimitive(AccentChoice.from(prefs["accent"] as? String).key)
-                },
-                check = { v -> choice(v, AccentChoice.entries.map { it.key }) },
-                write = { v -> v.text() },
-                show = { v ->
-                    AccentChoice.entries.firstOrNull { it.key == v.text() }?.label
-                        ?: v.text().orEmpty()
                 },
             ),
             BackupItem(

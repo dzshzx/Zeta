@@ -193,7 +193,7 @@ private fun TodoRow(entry: TodoEntry) {
     }
 }
 
-/** 完成：绿底对勾；进行中：强调色圆圈里一个实心点；待做：空心圆圈。 */
+/** 完成：绿底对勾；进行中：主题色圆圈里一个实心点；待做：空心圆圈。 */
 @Composable
 private fun StatusMark(status: TodoStatus) {
     val colors = COUITheme.colorScheme

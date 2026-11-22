@@ -72,7 +72,6 @@ class SettingsKeysTest {
             "setAutoReadAnswers" to true,
             "setAutoTitle" to false,
             "setPinnedSessions" to setOf("0a1b2c3d-0000-4000-8000-000000000001"),
-            "setAccent" to "teal",
             "setInterfaceScale" to 0.9f,
             "setKeepScreenOn" to false,
             "setAssistantModel" to "opus",

@@ -29,8 +29,8 @@ internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 /**
  * Zeta 的主题：COUI 2（ColorOS 17）的配色和文字样式。
  *
- * 外观设置（强调色、界面缩放）从 [Settings] 读，改了立即生效。强调色映射到 COUI 的主题色族（[accentThemeColor]）。 COUI
- * 深色的页面底色本来就是纯黑，Zeta 不另设纯黑开关。 界面缩放和屏幕常亮只作用于 Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
+ * 主题色用 COUI 默认的蓝。界面缩放从 [Settings] 读，改了立即生效。 COUI 深色的页面底色本来就是纯黑，Zeta 不另设纯黑开关。 界面缩放和屏幕常亮只作用于
+ * Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
  *
  * [windowBackdrop] 为 false 时关掉毛玻璃，弹出的东西用不透明底色：只给 JVM 截图测试用，那里模糊既慢又会错位。
  */
@@ -45,10 +45,6 @@ fun ZetaTheme(
     val settings = remember(context) { Settings.of(context) }
     val activity = remember(context) { context.findActivity() }
     val isDark = darkTheme ?: isSystemInDarkTheme()
-    val accent = AccentChoice.from(settings.accent)
-    // 壁纸换了，系统会推一次配置变化，这里跟着重新取 Monet 色
-    val monet =
-        remember(context, configuration, isDark, accent) { monetAccent(context, isDark, accent) }
 
     // —— 界面缩放（照 Eta）：以 densityDpi / 160 为 100% 基准，乘上缩放比例 ——
     val initialDensity = remember(context) { context.resources.displayMetrics.density }
@@ -79,10 +75,9 @@ fun ZetaTheme(
         }
 
     val controller =
-        remember(isDark, accent, monet) {
+        remember(isDark) {
             ThemeController(
                 colorSchemeMode = if (isDark) ColorSchemeMode.Dark else ColorSchemeMode.Light,
-                themeColor = accentThemeColor(accent, monet),
             )
         }
     CompositionLocalProvider(
@@ -97,11 +92,6 @@ fun ZetaTheme(
     }
     if (activity != null) KeepScreenOnWhileRunning(activity, settings)
 }
-
-/** 跟随系统时取壁纸的 Monet 色，取不到或不跟随系统时为 null。 */
-private fun monetAccent(context: android.content.Context, isDark: Boolean, accent: AccentChoice) =
-    if (accent == AccentChoice.System) runCatching { systemAccent(context, isDark) }.getOrNull()
-    else null
 
 /** 100% 缩放的基准密度：densityDpi / 160，配置里没有 densityDpi 时用初始密度。 */
 private fun baseDensity(densityDpi: Int, initialDensity: Float) =

@@ -9,7 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.ui.app.AccentChoice
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
@@ -20,11 +19,10 @@ import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.SliderPreference
 import kotlin.math.roundToInt
 
-/** 外观与主题：深浅色、强调色、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
+/** 外观与主题：深浅色、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
 @Composable
 internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
     val settings = hub.settings
-    val accent = AccentChoice.from(settings.accent)
     val interfaceScale = normalizeInterfaceScale(settings.interfaceScale)
     // 拖动时只改草稿，松手才写入：每一档都重排整个界面太晃
     var scaleDraft by remember(interfaceScale) { mutableFloatStateOf(interfaceScale * 100f) }
@@ -39,7 +37,6 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     val themeModes = listOf<Boolean?>(null, false, true)
-    val accents = AccentChoice.entries
     CouiPage(
         title = "外观与主题",
         onBack = onBack,
@@ -62,7 +59,7 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
             )
         },
     ) {
-        // 三行都管外观，一组就够，不分类
+        // 两行都管外观，一组就够，不分类
         item(key = "appearance") {
             PreferenceGroup {
                 item {
@@ -73,18 +70,6 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                         onSelectedIndexChange = { index ->
                             if (index in themeModes.indices)
                                 hub.settings.darkTheme = themeModes[index]
-                        },
-                    )
-                }
-                item {
-                    // 「系统取色」是跟随壁纸的系统动态取色（Monet）
-                    OverlayDropdownPreference(
-                        title = "强调色",
-                        summary = if (accent == AccentChoice.System) "跟随壁纸取色" else null,
-                        items = accents.map { it.label },
-                        selectedIndex = accents.indexOf(accent),
-                        onSelectedIndexChange = { index ->
-                            accents.getOrNull(index)?.let { settings.accent = it.key }
                         },
                     )
                 }

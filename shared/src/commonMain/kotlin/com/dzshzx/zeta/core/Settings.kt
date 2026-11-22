@@ -193,9 +193,6 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
     var pinnedSessions: Set<String> by stringSet("pinnedSessions")
 
-    /** 外观：强调色。coui 是 COUI 默认蓝，monet 跟随壁纸取色，其余是预设色的名字（见 AccentChoice）。 */
-    var accent: String by pref("accent", "coui")
-
     /** 外观：界面缩放比例（1 为系统默认大小）。界面读写时按 normalizeInterfaceScale 收到允许的范围里。 */
     var interfaceScale: Float by pref("interfaceScale", 1f)
 
