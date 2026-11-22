@@ -235,6 +235,9 @@ object ZetaIcons {
         }
     }
 
+    /** 加号：添加。COUI 的加号线细，放在输入栏底栏上和别的图标粗细不一，底栏用这个。 */
+    val Plus: ImageVector by lazy { icon { line("M12 4.5v15M4.5 12h15") } }
+
     /** 芯片：设备状况。 */
     val Chip: ImageVector by lazy {
         icon {
@@ -408,18 +411,21 @@ object ZetaIcons {
     }
 
     /**
-     * 刻度表：半圆上 [steps] 格刻度，亮几格是第几档（从 1 数），指针指着当前那格；[level] 为 0 是不知道档位，刻度全暗、指针朝上。
-     * 每次调用都新建，调用方自己缓存（思考强度按钮按档位建好一组）。
+     * 刻度表：240° 的仪表弧上 [steps] 格刻度，亮几格是第几档（从 1 数），指针指着当前那格；[level] 为 0 是不知道档位，刻度全暗、指针朝上。
+     * 弧从左下（150°）经正上方到右下（30°）。圆心就在画布正中，和外面的圆形按钮同心（圆弧按圆心对齐，不按外接框）； 半径 8.9，连线宽外径 19.5，在输入栏 16dp 的图标位里是
+     * 13dp，和上下文圆环（UsageControls 的 RING_OUTER）一样大。 每次调用都新建，调用方自己缓存（思考强度按钮按档位建好一组）。
      */
     fun gauge(level: Int, steps: Int): ImageVector = icon {
         val cx = 12f
-        val cy = 16.2f
-        val radius = 8.6f
-        val step = 180f / steps
-        val gap = 4.5f * 5 / steps
+        val cy = 12f
+        val radius = 8.9f
+        val span = 240f
+        val first = 150f
+        val step = span / steps
+        val gap = 6f * 5 / steps
         repeat(steps) { i ->
-            val start = 180f + i * step + gap
-            val end = 180f + (i + 1) * step - gap
+            val start = first + i * step + gap
+            val end = first + (i + 1) * step - gap
             val (x0, y0) = polar(cx, cy, radius, start)
             val (x1, y1) = polar(cx, cy, radius, end)
             val arc =
@@ -429,8 +435,8 @@ object ZetaIcons {
                     .nodes
             line(arc, alpha = if (i < level) 1f else 0.4f)
         }
-        val angle = if (level == 0) 270f else 180f + (level.coerceAtMost(steps) - 0.5f) * step
-        val (nx, ny) = polar(cx, cy, 5f, angle)
+        val angle = if (level == 0) 270f else first + (level.coerceAtMost(steps) - 0.5f) * step
+        val (nx, ny) = polar(cx, cy, 5.5f, angle)
         line(PathBuilder().moveTo(cx, cy).lineTo(nx, ny).nodes)
         solid("M$cx ${cy}m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0Z")
     }

@@ -562,6 +562,12 @@ class ConvClientTest {
         link.results["conv.quota"] = """{"five_hour":{"utilization":12}}"""
         assertEquals(obj("""{"five_hour":{"utilization":12}}"""), conv.quota())
 
+        // 主机负载借这条连接问 system.cpu；主机读不了 /proc/stat 时 percent 为 null
+        link.results["system.cpu"] = """{"percent":37,"cores":8}"""
+        assertEquals(HostCpu(37, 8), conv.hostCpu())
+        link.results["system.cpu"] = """{"percent":null,"cores":8}"""
+        assertEquals(HostCpu(null, 8), conv.hostCpu())
+
         link.errors["conv.compact"] = "没有打开这个对话"
         try {
             conv.compact()

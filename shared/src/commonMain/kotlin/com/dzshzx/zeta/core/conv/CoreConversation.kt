@@ -526,6 +526,13 @@ internal constructor(
     /** 借这个对话开着的进程问一次订阅额度，返回应答里的 response 原样（交给 quota.usage）。 */
     fun quota(): JsonElement? = request("conv.quota")
 
+    /** 问一次这台主机整机的 CPU 使用率（system.cpu，和对话无关，借这条连接）。连接断着时抛 [ServeError]。 */
+    fun hostCpu(): HostCpu {
+        synchronized(client.lock) { if (!view.connected) throw ServeError(NOT_CONNECTED) }
+        val reply = client.call("system.cpu", JsonObject(emptyMap())) as? JsonObject
+        return HostCpu(percent = reply?.int("percent"), cores = reply?.int("cores") ?: 0)
+    }
+
     /** 开始（[watch] 为真）或停止看一个子代理（[toolUseId] 是发起它的 Agent 调用），变化经 [ConvListener.subagent] 交来。 */
     fun watchSubagent(toolUseId: String, watch: Boolean) {
         synchronized(client.lock) {

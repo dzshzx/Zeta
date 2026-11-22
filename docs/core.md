@@ -5,7 +5,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 ## 目标
 
 - 核心：`zeta-helper serve`，和现在的 zeta-helper 是同一个程序（`helper/`）。客户端经一条常驻连接和它说话：远程主机上是一条 SSH 通道（经手机 Debian 的 OpenSSH 或直连都一样），手机本机是进 Debian 的那条管道，不开端口。状态在它的内存里（会话列表、对话的输出流归约、确认与提问的排队、后台任务），会话目录用 inotify 盯着，只推送变了的。Claude Code 自身配置的读写（记忆、Skills、MCP、Subagent、工具权限、新对话的默认值）和账号与额度也在这里，几个客户端共用，不在各客户端里各写一份。
-- 一个服务端：所有平台的客户端读同一个服务端。每台主机、每个用户、每个包（`ZETA_NAME`：正式版 `zeta`，测试版 `zeta-dev`，各端的测试版同包）只有一个核心，套接字是 `~/.cache/<ZETA_NAME>/core/core.sock`，不按 helper 版本分。逻辑只在核心里一份：serve 只管连接、拉起核心和 ping，所有方法（含 `sessions.`、`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`）都转给核心，核心里按方法前缀分发（`core.Mux`，`helper/corehandlers.go`）。
+- 一个服务端：所有平台的客户端读同一个服务端。每台主机、每个用户、每个包（`ZETA_NAME`：正式版 `zeta`，测试版 `zeta-dev`，各端的测试版同包）只有一个核心，套接字是 `~/.cache/<ZETA_NAME>/core/core.sock`，不按 helper 版本分。逻辑只在核心里一份：serve 只管连接、拉起核心和 ping，所有方法（含 `sessions.`、`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`、`system.`）都转给核心，核心里按方法前缀分发（`core.Mux`，`helper/corehandlers.go`）。
 - 新的接手：helper 编进构建序号（`helper/` 最后一次提交的时间，`git log -1 --format=%ct -- helper`，经 `-ldflags` 写入），`zeta_hello` 带 `build`（序号）和 `version`（内容哈希）。serve 比在跑的核心新时发 `core.handover`：旧核心停止接新连接，关掉到全部托管进程的连接（不跑 `detach`，进程照跑），删套接字退出；serve 随即用自己的程序拉起核心，新核心扫托管进程，把在回答、等确认、有后台任务的接上，闲着的等客户端下次发消息时照常接回。serve 比核心旧、或序号相同（同一份 helper 源码的不同开发构建）时直接用在跑的核心，不交班。
 - 换一个看得到新挂载的核心：手机上每次进 Debian 都在一个新的私有挂载环境里（`zeta_enter.sh` 的 `unshare -m`），共享文件夹在进入时挂上，常驻的核心和它起的 Claude Code 只看得到核心启动那一刻的挂载和组。共享文件夹增删以后，客户端经一次新的进入跑 `zeta-helper core-takeover`：在跑的核心不论版本都交班，由这个进程拉起新核心（`helper/takeover.go`）。进行中的对话照「新的接手」接上；已经在跑、看不到新文件夹的 Claude Code 由客户端按 `host_key` 判断要不要重起：先结束它（`conv.end`），再跑 `core-takeover`，下次发消息时由新核心起。顺序不能反：新核心不接闲着的托管进程，先换核心的话结束不到它，下次 start 又会接回这个看不到的（Android 的引用文件夹、路径对话框，`ui/chat/AttachPathDialogs.kt`）。
 - 协议只做加法：新方法、新字段可以加，已有的不改不删；客户端忽略不认识的字段，核心对缺的字段按零值处理。非改不可的不兼容改动提升 `protocol`，比核心旧的客户端连上时明说「主机上的 Zeta 服务比这个客户端新，请更新」。
@@ -20,7 +20,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 - 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`，以及主机名 `hostname`（`os.Hostname`，和 `uname -n` 同一个值；查不到时是空串）。`protocol` 在改已有消息的含义时加一，只加方法、字段不加。客户端每次连上时拿 `hostname` 补设备的主机名（界面上没起名字的设备就叫它），不用另跑 `uname -n`：Kotlin 的 `ConversationHub.hostnameOf` 和 `onDefaultsRead` 里顺带问主机名的那段随之删掉；加设备时的检查（`RemoteHosts.ProbeScript`、Windows 的 `host.Probe`）在装 zeta-helper 之前跑，照旧自己查。
 - 客户端认得这些新方法、新字段，就说明它连的核心也有：客户端起的是自己带的那个版本的 serve，核心不比 serve 旧（见下一条和「目标」的新的接手）。所以客户端不用先探测核心支不支持。
-- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
+- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`、`system.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
 - 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。每一项是 `{id, file, cwd, title, preview, updated, external, archived, pinned}`；列的是最新的 300 个会话，加上置顶了却不在这 300 个里的（排在最后），所以置顶的总在列表里。
@@ -202,6 +202,14 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 `files.ls`、`files.read` 读不了时答出错，`code` 是 `missing`（不存在）、`not_dir`（不是目录）、`not_file`（不是普通文件）、`denied`（没有权限）或 `error`。
 
 看到的是核心进程自己的文件系统。手机上核心只看得到它启动那一刻挂着的共享文件夹和组，共享文件夹页增删以后才换一个新的（`core-takeover`，见「目标」）；单起的子命令每次进 Debian 时现挂，总是现在的样子。所以手机客户端浏览本机文件、读本机的图片文件仍各起一次子命令，不依赖换核心是否及时；查共享文件夹（`zeta-helper mounts`）要看的正是新进入的进程挂不挂得上，而且在换核心之前做，也走子命令，核心里不设 `files.mounts`。远程主机上没有这回事。
+
+## 主机
+
+| 方法 | 参数 | 结果 |
+|---|---|---|
+| `system.cpu` | 无 | `{percent, cores}`：这台主机整机的 CPU 忙碌百分比（0～100 的整数，读不了 `/proc/stat` 时为 `null`）和逻辑核数。最多等 0.1 秒 |
+
+算法和 Claude Code 状态栏常用的 cpu% 一样（`helper/cpu.go`）：两次读 `/proc/stat` 汇总行，忙碌占比是 1 减去空闲增量除以总增量，空闲含 iowait。上一次的读数在核心的内存里，几个客户端共用；离上一次不到 0.5 秒直接答上一次的数，没有上一次或上一次超过 5 分钟时就地采样 0.1 秒。聊天页输入栏上的负载标识（`ui/chat/HostLoad.kt`）在聊天页看得见时每 5 秒借对话的连接问一次，所以显示的是对话所在那台主机（手机本机的 Debian 或远程主机）的负载；问不到时显示一道横线。
 
 ## 进度
 

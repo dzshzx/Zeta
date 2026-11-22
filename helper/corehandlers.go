@@ -48,6 +48,8 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	m.HandleAsync("quota.", accounts)
 	// 标「慢」的几个要跑 claude、连 MCP 服务器，十几秒到一分钟
 	m.HandleAsync("config.", configHandler{claudecfg.New(e.home)})
+	// 输入栏上的负载标识：整机 CPU 忙碌百分比，见 cpu.go
+	m.HandleAsync("system.", systemHandler{newCPUMeter()})
 	return &m
 }
 

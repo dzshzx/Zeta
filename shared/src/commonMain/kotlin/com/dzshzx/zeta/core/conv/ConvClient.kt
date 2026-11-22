@@ -34,6 +34,9 @@ interface ConvListener {
     fun activity(sessions: Map<String, SessionActivity>) {}
 }
 
+/** system.cpu 的结果：主机整机的 CPU 忙碌百分比（读不了时为 null）和逻辑核数。 */
+@Immutable data class HostCpu(val percent: Int?, val cores: Int)
+
 /** 打开对话时给核心的（conv.open 的参数）。 */
 @Immutable
 data class ConvSpec(

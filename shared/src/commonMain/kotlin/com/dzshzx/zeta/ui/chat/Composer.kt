@@ -79,7 +79,6 @@ import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
 import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
@@ -216,7 +215,7 @@ fun Composer(
                 val attachEntries =
                     attachMenu(onPickImages, onPickFiles, onPickFolder, onEnterPath, onOpenPrompts)
                 BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
-                    Icon(COUIIcons.Add, contentDescription = null)
+                    Icon(ZetaIcons.Plus, contentDescription = null)
                 }
                 tools()
                 Spacer(Modifier.weight(1f))

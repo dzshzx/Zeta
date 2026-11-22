@@ -44,12 +44,15 @@ import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.awaitMain
+import com.dzshzx.zeta.core.conv.HostCpu
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.AttachPathDialogs
+import com.dzshzx.zeta.ui.chat.BarButton
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.chat.EffortChip
 import com.dzshzx.zeta.ui.chat.FileChip
+import com.dzshzx.zeta.ui.chat.HostCpuButton
 import com.dzshzx.zeta.ui.chat.NoticeRow
 import com.dzshzx.zeta.ui.chat.PathAttach
 import com.dzshzx.zeta.ui.chat.PermissionModeChip
@@ -60,7 +63,9 @@ import com.dzshzx.zeta.ui.chat.UsageButton
 import com.dzshzx.zeta.ui.chat.UsageDialog
 import com.dzshzx.zeta.ui.chat.UserBubble
 import com.dzshzx.zeta.ui.chat.WorkGroup
+import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.serialization.json.buildJsonObject
@@ -246,6 +251,32 @@ class ChatPartsShots : ShotTest() {
                     UsageButton(usage.copy(contextTokens = 120_000), onClick = {})
                     UsageButton(usage, onClick = {})
                     UsageButton(usage.copy(contextTokens = 260_000), onClick = {})
+                }
+                // 负载标识：还不知道、闲、忙、满，以及满载的三位数
+                Row(
+                    Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    HostCpuButton(null, onClick = {})
+                    HostCpuButton(HostCpu(7, 8), onClick = {})
+                    HostCpuButton(HostCpu(76, 8), onClick = {})
+                    HostCpuButton(HostCpu(100, 8), onClick = {})
+                    UsageButton(usage, onClick = {})
+                }
+                // 底栏上真实的一排：附件、权限模式、思考强度、负载、上下文，图形一样大、都在圆的正中
+                Row(
+                    Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BarButton("添加附件", onClick = {}) {
+                        Icon(ZetaIcons.Plus, contentDescription = null)
+                    }
+                    PermissionModeChip(mode = "auto", onChange = {})
+                    EffortChip(effort = "high", applied = "high", onChange = {})
+                    HostCpuButton(HostCpu(23, 8), onClick = {})
+                    UsageButton(usage.copy(contextTokens = 60_000), onClick = {})
                 }
             }
         }

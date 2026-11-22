@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.ConvTurn
 import com.dzshzx.zeta.core.conv.ConvView
 import com.dzshzx.zeta.core.conv.CoreConversation
+import com.dzshzx.zeta.core.conv.HostCpu
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -718,6 +719,9 @@ class Conversation(
         }
         return true
     }
+
+    /** 问一次所在主机的 CPU 使用率（输入栏上的负载标识用）；对话还没打开、连接断着或主机上的核心太旧时为 null。会阻塞，别在主线程上调。 */
+    fun hostCpu(): HostCpu? = core?.let { runCatching { it.hostCpu() }.getOrNull() }
 
     /** 子代理查看页要看的那个子代理（[toolUseId] 是发起它的 Agent 调用）此刻的样子；还没推来时为 null。可观察。 */
     fun subagent(toolUseId: String): ConvSubagent? = subagents[toolUseId]
