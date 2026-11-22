@@ -12,7 +12,7 @@
 COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一份；要加新的共用件就加在这里。
 
 - `CouiPage`（列表页）、`CouiPageScaffold`（内容随意）：页面骨架。顶栏带 COUI 17 光晕，页面录进背景图给弹出的东西做毛玻璃，宽屏时内容居中、顶栏变小，键盘弹出时让位。
-- `CouiBlur.kt`：毛玻璃接线。页面骨架用 `rememberPageBlur()` 建这一页的毛玻璃，`Modifier.pageBlurSource(blur)` 标出录进背景图的范围，`PageBlurHost(blur) { }` 包住要弹东西的槽位（顶栏、内容），四处骨架（`CouiPageScaffold`、聊天页、侧栏容器、浏览器）都这么接；盖在录制范围上面的栏用 `PageBarHost(blur) { }`，它另给 coui-ui 自带材质的组件（悬浮工具栏、按钮）提供 `LocalMaterialBackdrop`，看大图的顶栏和底栏这么接；`LocalCouiBlurEnabled`（截图测试里关掉）、`panelBlur(...)`（对话框、底部面板的面板模糊）。
+- `CouiBlur.kt`：毛玻璃接线。页面骨架用 `rememberPageBlur()` 建这一页的毛玻璃，`Modifier.pageBlurSource(blur)` 标出录进背景图的范围，`PageBlurHost(blur) { }` 包住要弹东西的槽位（顶栏、内容），四处骨架（`CouiPageScaffold`、聊天页、侧栏容器、浏览器）都这么接；盖在录制范围上面、从屏幕底边往上淡掉的毛玻璃用 `Modifier.bottomBarGlass(backdrop, isDark)`（和顶栏光晕 `TopAppBarGlow` 对称，看大图的底栏这么画）；`LocalCouiBlurEnabled`（截图测试里关掉）、`panelBlur(...)`（对话框、底部面板的面板模糊）。
 - `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。
 - `SettingsIcon(图标, SettingsHue.*)`：设置首页行首的彩色图标，放进行的 `startAction`；颜色按这一行管的东西分四类，见下面「设置页」。
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时自己给 `dividerStart`。
@@ -42,8 +42,8 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 ## 聊天页的图片
 
 - 回答里用 Markdown 引用的图片（本机路径、网络地址、内嵌的 data:）由 `answerImages`（`ui/chat/ChatImage.kt`）从正文里取出，排在正文下面，每段回答最多 12 张，同一张只显示一次。取出时按原文分组：只隔着空白的几张连成一组，被正文隔开的各成一组。分组只管显示：聊天内查找用的是取掉图片后的正文，复制、朗读用的是原文。
-- 一组只有一张时照原样铺开（`ChatImage`）。两张及以上是图片组（`ImageGallery`，`ui/chat/ImageGallery.kt`）：外形和标题行照思考与工具调用的一组（`WorkGroup`），标题写「N 张图片」，点了收起或展开，默认展开。展开后横向翻页，一次一张，高度跟着当前这张的比例，最高 360dp，更高的等比缩进去；右下角标「2 / 6」。组按第一张图认，流式输出时组里多了图，翻到的页和展开与否都留着。
-- 点图全屏看（`ImageViewer`，`ui/chat/ImageViewer.kt`，单张、图片组和用户消息里的缩略图共用）：照 ColorOS 相册的看图页，COUI 没有现成的看图页，用 Compose 的 Dialog 搭。黑底铺满整屏，铺进刘海区域，状态栏和导航栏透明、图标浅色；里面固定用 COUI 的深色配色（`darkColorScheme`，主色跟着外面），不随外面的深浅色变。图片层是毛玻璃的录制范围（`pageBlurSource`），上面两条栏包在 `PageBarHost` 里，取的都是 COUI 17 的底栏材质（`FloatingEditToolbarDefaults.backdropSpec`）；毛玻璃关着时（截图测试）是半透明的栏色。顶上是 COUI 的 `SmallTopAppBar`，底色透明：左边返回钮（`IconActionButton` 加 `COUIIcons.Back`，和别的页一样），多张时标题是「2 / 6」。底部是 COUI 的悬浮工具栏 `FloatingEditToolbar`，两项「保存到相册」「分享」（图标在上、文字在下），多张时上方是圆点页码 `PageIndicator`。点一下图，两条栏一起淡出或淡入，打开时露着；双指缩放、双击放大、放大后拖动；没放大时左右滑换一张，放大时不翻页。进出都淡入淡出（关掉了系统的窗口动画）。从图片组打开时从点的那张开始，关掉后组停在最后看的那张。
+- 一组只有一张时照原样铺开（`ChatImage`）。两张及以上是图片组（`ImageGallery`，`ui/chat/ImageGallery.kt`）：和思考与工具调用的一组（`WorkGroup`）是同一张卡片（`WorkCard`），标题写「N 张图片」，点了收起或展开，默认展开。展开后横向翻页，一次一张，高度跟着当前这张的比例，最高 360dp，更高的等比缩进去；右下角标「2 / 6」。组按第一张图认，流式输出时组里多了图，翻到的页和展开与否都留着。
+- 点图全屏看（`ImageViewer`，`ui/chat/ImageViewer.kt`，单张、图片组和用户消息里的缩略图共用）：照 ColorOS 相册的看图页，COUI 没有现成的看图页，用 Compose 的 Dialog 搭。黑底铺满整屏，铺进刘海区域，状态栏和导航栏透明、图标浅色；里面固定用 COUI 的深色配色（`darkColorScheme`，主色跟着外面），不随外面的深浅色变。图片层是毛玻璃的录制范围（`pageBlurSource`），上面两条栏包在 `PageBlurHost` 里，后面都是往图片中间渐渐淡掉的毛玻璃，没有分明的边：顶栏是聊天页顶栏那种 COUI 17 光晕（`TopAppBarGlow`），底栏是 `bottomBarGlass`（COUI 17 的底栏材质）；毛玻璃关着时（截图测试）是从屏幕边往中间淡掉的渐变压暗。顶上是 COUI 的 `SmallTopAppBar`，底色透明：左边返回钮（`IconActionButton` 加 `COUIIcons.Back`，和别的页一样），多张时标题是「2 / 6」。底部是两项「保存到相册」「分享」（图标在上、文字在下），直接落在毛玻璃上、不垫胶囊，多张时上方是圆点页码 `PageIndicator`。点一下图，两条栏一起淡出或淡入，打开时露着；双指缩放、双击放大、放大后拖动；没放大时左右滑换一张，放大时不翻页。进出都淡入淡出（关掉了系统的窗口动画）。从图片组打开时从点的那张开始，关掉后组停在最后看的那张。
 - 保存和分享用的是查看器显示这张图的那份原始字节：`ImageStore` 取图时把解码前的字节和解码后的图按同一个键各缓存一份（`ImageStore.original`），不重新下载或再找主机要。字节拿不到（还没取到、取不到、已被挤出缓存）或按文件头认不出类型时，两项置灰。类型、文件名在 `core/ImageExport.kt`：文件名用原文件名或网络地址里的文件名，扩展名跟着内容走，取不出名字时是 `Zeta_年月日_时分秒`。保存写进系统相册的 Pictures/Zeta（MediaStore，自己建的条目不用存储权限），成没成都弹一句 Toast；分享把图写到缓存的 `shared_images/`，经本包的 FileProvider（authority `<包名>.images`，只开放这一个目录）交给系统分享面板。
 - 网络图片在没开「自动加载网络图片」时，单张和组里的每一页都是「加载图片」按钮，点了才取。
 

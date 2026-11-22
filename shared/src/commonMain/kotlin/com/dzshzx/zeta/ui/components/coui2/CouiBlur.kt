@@ -6,7 +6,14 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import io.github.suqi8.coui.kmp.basic.FloatingEditToolbarDefaults
 import io.github.suqi8.coui.kmp.blur.Backdrop
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.MaterialBlendMode
@@ -17,9 +24,7 @@ import io.github.suqi8.coui.kmp.blur.couiViewBlur
 import io.github.suqi8.coui.kmp.blur.isRuntimeShaderSupported
 import io.github.suqi8.coui.kmp.blur.layerBackdrop
 import io.github.suqi8.coui.kmp.blur.rememberLayerBackdrop
-import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.effect.LocalPopupMaterialBlur
-import io.github.suqi8.coui.kmp.effect.MaterialBackdropProvider
 import io.github.suqi8.coui.kmp.effect.MaterialBlurBlendMode
 import io.github.suqi8.coui.kmp.effect.MaterialBlurProvider
 import io.github.suqi8.coui.kmp.effect.MaterialBlurSpec
@@ -74,44 +79,35 @@ fun PageBlurHost(blur: PageBlur, content: @Composable () -> Unit) {
 }
 
 /**
- * 盖在录制范围上面的栏（比如看大图的顶栏和底部工具栏）拿 [blur] 做毛玻璃：除了 [PageBlurHost] 给的两样，还给 coui-ui 自带材质的组件（悬浮工具栏、按钮）提供
- * LocalMaterialBackdrop。只包录制范围之外的兄弟节点：包在录制范围里面，组件会模糊到自己。
+ * 从屏幕底边往上渐渐淡掉的毛玻璃（COUI 17 悬浮工具栏的底栏材质），和顶栏光晕 TopAppBarGlow 对称：整块模糊画出来，再按从上到下由透明到不透明的渐变（上沿 60%
+ * 的高度内）留下，没有分明的边。铺在录制范围之外的栏后面（铺在里面会模糊到自己）；[backdrop] 取 [LocalPageBackdrop]，毛玻璃关掉时那里是 null，由调用方画替代。
  */
-@Composable
-fun PageBarHost(blur: PageBlur, content: @Composable () -> Unit) {
-    val material = rememberMaterialBackdrop(blur.backdrop)
-    CompositionLocalProvider(
-        LocalPageBackdrop provides blur.backdrop,
-        LocalPopupMaterialBlur provides blur.popup,
-        LocalMaterialBackdrop provides material,
-        content = content,
-    )
-}
-
-/** 交给 coui-ui 的 LocalMaterialBackdrop（悬浮工具栏、按钮的 COUI 17 材质）。 */
-@Composable
-private fun rememberMaterialBackdrop(backdrop: Backdrop?): MaterialBackdropProvider? {
-    val active = LocalCouiBlurEnabled.current && backdrop != null && isRuntimeShaderSupported()
-    return remember(backdrop, active) {
-        if (active && backdrop != null) {
-            MaterialBackdropProvider { spec, shape ->
-                Modifier.couiViewBlur(
-                    backdrop = backdrop,
-                    style =
-                        ViewBlurStyle(
-                            blurRadiusPx = spec.blurRadiusPx,
-                            layer1 = spec.layer1,
-                            mode1 = spec.mode1,
-                            layer2 = spec.layer2,
-                            mode2 = spec.mode2,
-                        ),
-                    shape = shape,
+fun Modifier.bottomBarGlass(backdrop: Backdrop, isDark: Boolean): Modifier {
+    val spec = FloatingEditToolbarDefaults.backdropSpec(isDark)
+    return graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithCache {
+            val fade =
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black),
+                    endY = size.height * 0.6f,
                 )
+            onDrawWithContent {
+                drawContent()
+                drawRect(fade, blendMode = BlendMode.DstIn)
             }
-        } else {
-            null
         }
-    }
+        .couiViewBlur(
+            backdrop = backdrop,
+            style =
+                ViewBlurStyle(
+                    blurRadiusPx = spec.blurRadiusPx,
+                    layer1 = spec.layer1,
+                    mode1 = spec.mode1,
+                    layer2 = spec.layer2,
+                    mode2 = spec.mode2,
+                ),
+            shape = RectangleShape,
+        )
 }
 
 /** 把页面录在窗口底色上的背景图；毛玻璃关掉时为 null。 */

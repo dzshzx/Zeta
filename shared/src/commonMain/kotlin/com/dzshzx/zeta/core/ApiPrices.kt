@@ -12,37 +12,32 @@ import kotlinx.serialization.json.JsonObject
 object ApiPrices {
     private class Price(val input: Double, val output: Double, val cacheRead: Double)
 
-    /** 模型号的前缀 → 价格；前缀长的排前面，免得 claude-opus-5-5 被当成 claude-opus-5。 */
-    private val table: List<Pair<String, Price>> =
-        listOf(
-                "claude-fable-5-2" to Price(8.0, 40.0, 0.20),
-                "claude-mythos-5-2" to Price(8.0, 40.0, 0.20),
-                "claude-fable-5-1" to Price(10.0, 50.0, 0.25),
-                "claude-mythos-5-1" to Price(10.0, 50.0, 0.25),
-                "claude-fable-5" to Price(10.0, 50.0, 1.0),
-                "claude-mythos-5" to Price(10.0, 50.0, 1.0),
-                "claude-opus-5-5" to Price(4.0, 20.0, 0.20),
-                "claude-opus-5" to Price(5.0, 25.0, 0.5),
-                "claude-opus-4-8" to Price(5.0, 25.0, 0.5),
-                "claude-opus-4-7" to Price(5.0, 25.0, 0.5),
-                "claude-opus-4-6" to Price(5.0, 25.0, 0.5),
-                "claude-sonnet-5-5" to Price(2.0, 10.0, 0.10),
-                "claude-sonnet-5" to Price(2.0, 10.0, 0.2),
-                "claude-sonnet-4-6" to Price(3.0, 15.0, 0.3),
-                "claude-haiku-5-5" to Price(0.1, 0.5, 0.01),
-                "claude-haiku-4-5" to Price(1.0, 5.0, 0.1),
-            )
-            .sortedByDescending { it.first.length }
+    /** 不带日期、不带窗口标记的模型号 → 价格。 */
+    private val table: Map<String, Price> =
+        mapOf(
+            "claude-fable-5-2" to Price(8.0, 40.0, 0.20),
+            "claude-mythos-5-2" to Price(8.0, 40.0, 0.20),
+            "claude-fable-5-1" to Price(10.0, 50.0, 0.25),
+            "claude-mythos-5-1" to Price(10.0, 50.0, 0.25),
+            "claude-fable-5" to Price(10.0, 50.0, 1.0),
+            "claude-mythos-5" to Price(10.0, 50.0, 1.0),
+            "claude-opus-5-5" to Price(4.0, 20.0, 0.20),
+            "claude-opus-5" to Price(5.0, 25.0, 0.5),
+            "claude-opus-4-8" to Price(5.0, 25.0, 0.5),
+            "claude-opus-4-7" to Price(5.0, 25.0, 0.5),
+            "claude-opus-4-6" to Price(5.0, 25.0, 0.5),
+            "claude-sonnet-5-5" to Price(2.0, 10.0, 0.10),
+            "claude-sonnet-5" to Price(2.0, 10.0, 0.2),
+            "claude-sonnet-4-6" to Price(3.0, 15.0, 0.3),
+            "claude-haiku-5-5" to Price(0.1, 0.5, 0.01),
+            "claude-haiku-4-5" to Price(1.0, 5.0, 0.1),
+        )
 
-    private val dated = Regex("""-\d{8}""")
+    private val dated = Regex("""-\d{8}$""")
 
     /** [model] 是表里的某个模型号，后面至多带日期（-20261001）或方括号里的窗口标记（[1m]）。 */
-    private fun priceOf(model: String): Price? {
-        val bare = model.substringBefore('[')
-        return table
-            .firstOrNull { (id, _) -> bare == id || dated.matches(bare.removePrefix(id)) }
-            ?.second
-    }
+    private fun priceOf(model: String): Price? =
+        table[model.substringBefore('[').replace(dated, "")]
 
     /** 模型 [model] 的一次请求按标价要多少美元；[usage] 是 API 的 usage 形状。模型不在表里、usage 是空的时返回 null。 */
     fun cost(model: String?, usage: JsonObject?): Double? {

@@ -8,7 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -83,12 +83,14 @@ fun SessionStatusLabel(status: SessionStatus) {
 /** 状态的记号：同一个圆，在回答的缺口转着，其余的圆里各画一样东西；有新回答是实心的。 */
 @Composable
 private fun StatusMark(activity: Activity, color: Color) {
-    val turn = if (activity == Activity.Answering) spin() else 0f
+    // 转着的角度只在画的时候读：每帧只重画这个记号，不重组
+    val turn = if (activity == Activity.Answering) spin() else null
     Canvas(Modifier.size(MarkSize)) {
         val stroke = MarkStroke.toPx()
         val line = Stroke(stroke, cap = StrokeCap.Round)
         val radius = (size.minDimension - stroke) / 2
         val c = center
+        fun ring(tint: Color = color) = drawCircle(tint, radius, style = line)
         fun bar(x1: Dp, y1: Dp, x2: Dp, y2: Dp) =
             drawLine(
                 color,
@@ -100,10 +102,10 @@ private fun StatusMark(activity: Activity, color: Color) {
         when (activity) {
             Activity.Unread -> drawCircle(color)
             Activity.Answering -> {
-                drawCircle(color.copy(alpha = 0.25f), radius, style = line)
+                ring(color.copy(alpha = 0.25f))
                 drawArc(
                     color,
-                    turn - 90f,
+                    (turn?.value ?: 0f) - 90f,
                     250f,
                     false,
                     Offset(stroke / 2, stroke / 2),
@@ -111,39 +113,34 @@ private fun StatusMark(activity: Activity, color: Color) {
                     style = line,
                 )
             }
-            else -> {
-                drawCircle(color, radius, style = line)
-                when (activity) {
-                    // 感叹号
-                    Activity.Waiting -> {
-                        bar(0.dp, (-2.6).dp, 0.dp, 0.4.dp)
-                        bar(0.dp, 2.6.dp, 0.dp, 2.6.dp)
-                    }
-                    // 钟面的两根针
-                    Activity.Background -> {
-                        bar(0.dp, (-2.8).dp, 0.dp, 0.dp)
-                        bar(0.dp, 0.dp, 2.2.dp, 0.dp)
-                    }
-                    // 暂停的两竖
-                    else -> {
-                        bar((-1.4).dp, (-2.dp), (-1.4).dp, 2.dp)
-                        bar(1.4.dp, (-2.dp), 1.4.dp, 2.dp)
-                    }
-                }
+            // 感叹号
+            Activity.Waiting -> {
+                ring()
+                bar(0.dp, (-2.6).dp, 0.dp, 0.4.dp)
+                bar(0.dp, 2.6.dp, 0.dp, 2.6.dp)
+            }
+            // 钟面的两根针
+            Activity.Background -> {
+                ring()
+                bar(0.dp, (-2.8).dp, 0.dp, 0.dp)
+                bar(0.dp, 0.dp, 2.2.dp, 0.dp)
+            }
+            // 暂停的两竖
+            Activity.Idle -> {
+                ring()
+                bar((-1.4).dp, (-2.dp), (-1.4).dp, 2.dp)
+                bar(1.4.dp, (-2.dp), 1.4.dp, 2.dp)
             }
         }
     }
 }
 
 @Composable
-private fun spin(): Float {
-    val turn by
-        rememberInfiniteTransition(label = "status")
-            .animateFloat(
-                0f,
-                360f,
-                infiniteRepeatable(tween(1000, easing = LinearEasing)),
-                label = "status-spin",
-            )
-    return turn
-}
+private fun spin(): State<Float> =
+    rememberInfiniteTransition(label = "status")
+        .animateFloat(
+            0f,
+            360f,
+            infiniteRepeatable(tween(1000, easing = LinearEasing)),
+            label = "status-spin",
+        )

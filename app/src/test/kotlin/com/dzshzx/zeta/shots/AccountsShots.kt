@@ -127,26 +127,6 @@ class AccountsShots : ShotTest() {
             onNodeWithText("work@example.invalid").performClick()
         }
 
-    /** 额度快到上限时输入栏右边仍只有上下文圆环：额度在点开它的用量弹窗里看。 */
-    @Test
-    fun chatQuotaChip() {
-        val hub = Fixtures.readyHub(app)
-        hub.fakeQuota()
-        hub.showChat(
-            "额度",
-            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "点输入栏右边的圆环看。", streaming = false)),
-        )
-        shoot("chat-quota-chip") {
-            ChatScreen(
-                hub = hub,
-                onOpenPane = {},
-                onOpenSettings = {},
-                onOpenInstall = {},
-                onOpenLogin = {},
-            )
-        }
-    }
-
     @Test
     fun chatQuotaChipAndUsageDialog() {
         val hub = Fixtures.readyHub(app)

@@ -114,26 +114,6 @@ class ChatPartsShots : ShotTest() {
             )
     }
 
-    /** 已经被拒：到上限了，两小时后解除。 */
-    private val blocked =
-        QuotaSnapshot(
-            windows =
-                listOf(
-                    QuotaWindow(
-                        "session",
-                        "session",
-                        null,
-                        1.0,
-                        now + 2 * 3_600_000,
-                        QuotaSeverity.Critical,
-                        active = true,
-                    ),
-                ),
-            blocked = true,
-            blockedUntil = now + 2 * 3_600_000,
-            updatedAt = now - 60_000,
-        )
-
     private val usage =
         ChatUsage(
             contextTokens = 214_300,
@@ -232,8 +212,7 @@ class ChatPartsShots : ShotTest() {
     /** 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）； 用量按钮：上下文圆环，够用、快满、马上要压缩三档各一个颜色。 */
     @Test
     fun usageChips() {
-        val hub = Fixtures.readyHub(app)
-        hub.fakeQuota()
+        Fixtures.readyHub(app)
         shoot("chat-parts-chips") {
             Host {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

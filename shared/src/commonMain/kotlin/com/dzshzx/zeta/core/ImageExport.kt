@@ -25,17 +25,17 @@ class ImageExport(val bytes: ByteArray, val mime: String, val fileName: String) 
             return ImageExport(bytes, mime, fileName(ref, mime, now))
         }
 
-        /** 按文件头认图片类型；认不出返回 null。 */
+        /**
+         * 按文件头认图片类型；认不出返回 null。API 也收的四种照 [imageMediaType]，另认 API 不收、相册收的 BMP 和 HEIF 一族（不加进
+         * imageMediaType：它的结果当发给 API 的 media type 用）。
+         */
         fun mimeOf(bytes: ByteArray): String? =
-            when {
-                bytes.startsWith(0x89, 'P'.code, 'N'.code, 'G'.code) -> "image/png"
-                bytes.startsWith(0xFF, 0xD8, 0xFF) -> "image/jpeg"
-                bytes.ascii(0, 4) == "GIF8" -> "image/gif"
-                bytes.ascii(0, 4) == "RIFF" && bytes.ascii(8, 4) == "WEBP" -> "image/webp"
-                bytes.ascii(0, 2) == "BM" -> "image/bmp"
-                bytes.ascii(4, 4) == "ftyp" -> isoImageMime(bytes.ascii(8, 4))
-                else -> null
-            }
+            imageMediaType(bytes)
+                ?: when {
+                    bytes.ascii(0, 2) == "BM" -> "image/bmp"
+                    bytes.ascii(4, 4) == "ftyp" -> isoImageMime(bytes.ascii(8, 4))
+                    else -> null
+                }
 
         /** HEIF 一族（ftyp 盒子）按主品牌分 AVIF 和 HEIC。 */
         private fun isoImageMime(brand: String): String? =
@@ -84,9 +84,6 @@ class ImageExport(val bytes: ByteArray, val mime: String, val fileName: String) 
                     .ifEmpty { "Zeta_" + now.format(Stamp) }
             return base + "." + extension(mime)
         }
-
-        private fun ByteArray.startsWith(vararg prefix: Int): Boolean =
-            size >= prefix.size && prefix.indices.all { (this[it].toInt() and 0xFF) == prefix[it] }
 
         private fun ByteArray.ascii(from: Int, length: Int): String =
             if (size < from + length) "" else String(this, from, length, Charsets.ISO_8859_1)

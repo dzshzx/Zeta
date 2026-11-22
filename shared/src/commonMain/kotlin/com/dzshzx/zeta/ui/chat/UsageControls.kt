@@ -112,12 +112,12 @@ private fun levelColor(level: ContextLevel): Color =
         ContextLevel.Normal -> COUITheme.colorScheme.success
     }
 
-/** 发送键左边的用量按钮：上下文圆环，点开是用量弹窗（订阅额度、上下文、累计）。上下文用量还不知道时是空环，照样点得开。 */
-@Composable fun UsageButton(usage: ChatUsage, onClick: () -> Unit) = ContextMeter(usage, onClick)
-
-/** 上下文圆环，颜色按用了多少分三档（[levelColor]），快满时底色跟着变；百分比在读屏说明和用量弹窗里。 */
+/**
+ * 发送键左边的用量按钮：上下文圆环，颜色按用了多少分三档（[levelColor]），快满时底色跟着变；百分比在读屏说明和用量弹窗里。点开是用量弹窗（订阅额度、上下文、累计）。
+ * 上下文用量还不知道时是空环，照样点得开。
+ */
 @Composable
-private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
+fun UsageButton(usage: ChatUsage, onClick: () -> Unit) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val ink = colors.labelPrimary
@@ -143,13 +143,8 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ContextRing(
-    fraction: Float,
-    color: Color,
-    track: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier = modifier.size(16.dp)) {
+private fun ContextRing(fraction: Float, color: Color, track: Color) {
+    Canvas(Modifier.size(16.dp)) {
         val stroke = 2.dp.toPx()
         val inset = stroke / 2
         val arcSize = Size(size.width - stroke, size.height - stroke)
@@ -303,23 +298,21 @@ private fun ContextSection(usage: ChatUsage) {
 
 /** 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。上下文和订阅额度共用。 */
 @Composable
-fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
+fun UsageBar(fraction: Float, color: Color) {
     val ink = COUITheme.colorScheme.labelPrimary
     val dark = COUITheme.colorScheme.isDark
-    Box(modifier = modifier.fillMaxWidth().height(6.dp)) {
+    Box(
+        Modifier.fillMaxWidth()
+            .height(6.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(ink.copy(alpha = if (dark) 0.12f else 0.07f)),
+    ) {
         Box(
-            modifier =
-                Modifier.matchParentSize()
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(ink.copy(alpha = if (dark) 0.12f else 0.07f)),
-        ) {
-            Box(
-                Modifier.fillMaxWidth(fraction.coerceIn(0.01f, 1f))
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(color),
-            )
-        }
+            Modifier.fillMaxWidth(fraction.coerceIn(0.01f, 1f))
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(color),
+        )
     }
 }
 

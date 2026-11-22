@@ -306,7 +306,7 @@ class UsageTracker {
                     tokens,
                     turnCost ?: estimate,
                     event.long("duration_ms"),
-                    costEstimated = turnCost == null && estimate != null,
+                    costEstimated = estimate != null,
                 ),
             )
         return changed()

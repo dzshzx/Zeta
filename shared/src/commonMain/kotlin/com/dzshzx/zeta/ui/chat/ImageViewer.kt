@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -42,14 +43,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -65,16 +62,15 @@ import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.RemoteImage
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.PageBarHost
+import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
+import com.dzshzx.zeta.ui.components.coui2.bottomBarGlass
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
-import io.github.suqi8.coui.kmp.basic.FloatingEditToolbarDefaults
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.PageIndicator
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
-import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
 import io.github.suqi8.coui.kmp.icon.extended.Download
@@ -100,7 +96,10 @@ private val GlowReveal = 30.dp
 fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
     val pager = rememberPagerState(initialPage = start) { refs.size }
     val zooms = remember { HashMap<Int, ZoomState>() }
-    val zoom = zooms.getOrPut(pager.currentPage) { ZoomState() }
+    // 只在当前这张跨过原大时变：缩放手势每帧改 scale、翻页改 currentPage，都不让整页重组
+    val zoomed by remember {
+        derivedStateOf { zooms.getOrPut(pager.currentPage) { ZoomState() }.zoomed }
+    }
     // 翻走的那张回到原大
     LaunchedEffect(pager.settledPage) {
         zooms.forEach { (page, state) -> if (page != pager.settledPage) state.reset() }
@@ -132,7 +131,7 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
                             state = pager,
                             modifier = Modifier.fillMaxSize(),
                             pageSpacing = 16.dp,
-                            userScrollEnabled = !zoom.zoomed,
+                            userScrollEnabled = !zoomed,
                             key = { page -> refs[page].key },
                         ) { page ->
                             ViewerPage(
@@ -143,9 +142,9 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
                             )
                         }
                     }
-                    PageBarHost(blur) {
+                    PageBlurHost(blur) {
                         val page = pager.currentPage
-                        ViewerBars(chrome, pager, refs[page], originals[page], refs.size, close)
+                        ViewerBars(chrome, pager, refs[page], originals[page], close)
                     }
                 }
             }
@@ -160,9 +159,9 @@ private fun ViewerBars(
     pager: PagerState,
     ref: ImageRef,
     bytes: ByteArray?,
-    count: Int,
     onBack: () -> Unit,
 ) {
+    val count = pager.pageCount
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible,
@@ -178,7 +177,7 @@ private fun ViewerBars(
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(200)),
         ) {
-            ViewerBottomBar(pager, count, ref, bytes)
+            ViewerBottomBar(pager, ref, bytes)
         }
     }
 }
@@ -233,44 +232,23 @@ private fun ViewerTopBar(title: String, onBack: () -> Unit) {
  * 底栏：多张时上面是圆点页码，下面是保存到相册、分享两项。后面和顶栏对称： 从屏幕底边往上渐渐淡掉的毛玻璃（COUI 17 底栏材质），毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。
  */
 @Composable
-private fun ViewerBottomBar(pager: PagerState, count: Int, ref: ImageRef, bytes: ByteArray?) {
+private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?) {
     val exporter = ChatPlatform.current.rememberImageExporter()
     val export = remember(ref, bytes) { ImageExport.of(ref, bytes, LocalDateTime.now()) }
-    val glass =
-        LocalMaterialBackdrop.current?.materialBackdrop(
-            FloatingEditToolbarDefaults.backdropSpec(true),
-            RectangleShape,
-        )
+    val backdrop = LocalPageBackdrop.current
     Box(Modifier.fillMaxWidth()) {
         Box(
             Modifier.matchParentSize()
                 .then(
-                    if (glass != null) {
-                        // 毛玻璃整块画出来，再按从上到下由透明到不透明的渐变留下：上沿淡进图里
-                        Modifier.graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Transparent, Color.Black),
-                                        endY = size.height * 0.6f,
-                                    ),
-                                    blendMode = BlendMode.DstIn,
-                                )
-                            }
-                            .then(glass)
-                    } else {
-                        Modifier.background(scrim(true))
-                    },
+                    if (backdrop != null) Modifier.bottomBarGlass(backdrop, isDark = true)
+                    else Modifier.background(scrim(true)),
                 ),
         )
         Column(
             Modifier.fillMaxWidth().padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (count > 1) {
+            if (pager.pageCount > 1) {
                 PageIndicator(pagerState = pager, modifier = Modifier.padding(bottom = 4.dp))
             }
             // 两项直接落在渐变的毛玻璃上，不垫胶囊

@@ -331,15 +331,7 @@ class ClaudeTaskContractTest {
         }
 
         fun turn(prompt: String) {
-            send(
-                buildJsonObject {
-                    put("type", "user")
-                    putJsonObject("message") {
-                        put("role", "user")
-                        put("content", prompt)
-                    }
-                },
-            )
+            send(userMessage(prompt))
             until { it.str("type") == "result" }
         }
 
@@ -425,15 +417,7 @@ class ClaudeTaskContractTest {
     fun backgroundCommandOutputAndStop() {
         assumeTrue("没有 claude 命令", claudeAvailable())
         val command = "echo hello-bg; sleep 0.3; echo second-line; sleep 300"
-        script =
-            listOf(
-                "Bash" to
-                    buildJsonObject {
-                        put("command", command)
-                        put("description", "ticker in background")
-                        put("run_in_background", true)
-                    },
-            )
+        script = listOf(bash(command, "ticker in background", background = true))
         Claude().use { claude ->
             claude.turn("go")
             val listed =

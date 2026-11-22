@@ -1,19 +1,13 @@
 package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.RemoteImage
-import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Image
@@ -58,44 +51,21 @@ private val GalleryMaxHeight = 360.dp
 private val GalleryPlaceholderHeight = 120.dp
 
 /**
- * 回答里连着的几张图（[answerImages] 分的组）：样子照思考与工具调用的一组（[WorkGroup]），标题行写「N 张图片」，点了收起或展开，
+ * 回答里连着的几张图（[answerImages] 分的组）：和思考与工具调用的一组是同一张卡片（[WorkCard]），标题行写「N 张图片」，点了收起或展开，
  * 默认展开。展开是横向翻页，一次一张，角上标第几张；点图全屏看，在那里也能左右翻到组里别的图。
  */
 @Composable
 fun ImageGallery(refs: List<ImageRef>, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(true) }
-    val ink = rememberWorkInk()
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(WorkCardShape)
-                .border(0.5.dp, ink.border, WorkCardShape)
-                .animateContentSize(),
+    WorkCard(
+        icon = COUIIcons.Image,
+        iconTint = rememberWorkInk().icon,
+        title = "${refs.size} 张图片",
+        active = false,
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        modifier = modifier,
     ) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .heightIn(min = 42.dp)
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = COUIIcons.Image,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = ink.icon,
-            )
-            Spacer(Modifier.width(10.dp))
-            PulsingText(
-                text = "${refs.size} 张图片",
-                active = false,
-                color = ink.muted,
-                modifier = Modifier.weight(1f),
-            )
-            Chevron(expanded)
-        }
         AnimatedVisibility(visible = expanded) {
             GalleryPager(refs, Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp))
         }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -368,6 +369,57 @@ fun rememberWorkInk(): WorkInk {
 }
 
 /**
+ * 思考与工具调用一组（[WorkGroup]）的卡片：圆角细边框，最小 42dp 高的标题行（图标、标题、展开箭头），点标题行收起或展开，高度变化有动画。[content] 是标题行下面的部分，按
+ * [expanded] 自己决定画什么。图片组（[ImageGallery]）也是这张卡片。
+ */
+@Composable
+fun WorkCard(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    active: Boolean,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val ink = rememberWorkInk()
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(WorkCardShape)
+                .border(0.5.dp, ink.border, WorkCardShape)
+                .animateContentSize(),
+    ) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .heightIn(min = 42.dp)
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = iconTint,
+            )
+            Spacer(Modifier.width(10.dp))
+            PulsingText(
+                text = title,
+                active = active,
+                color = ink.muted,
+                modifier = Modifier.weight(1f),
+            )
+            Chevron(expanded)
+        }
+        content()
+    }
+}
+
+/**
  * 一组连续的思考与工具调用：默认折叠成一行摘要，点开是逐步的时间线（[expandedByDefault] 时一开始就展开）。 给了 [onOpenSubagent]
  * 时，发起子代理的那一步点了进子代理查看页（参数是那一步的 tool_use id）。
  */
@@ -390,38 +442,15 @@ fun WorkGroup(
             running is ThinkingStep -> "正在思考"
             else -> if (toolCount > 0) "已完成 $toolCount 个步骤" else "思考已完成"
         }
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp)
-                .clip(WorkCardShape)
-                .border(0.5.dp, ink.border, WorkCardShape)
-                .animateContentSize(),
+    WorkCard(
+        icon = workIcon(running),
+        iconTint = if (running != null) colors.primary else ink.icon,
+        title = headerText,
+        active = running != null,
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        modifier = modifier.padding(horizontal = 20.dp, vertical = 4.dp),
     ) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .heightIn(min = 42.dp)
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = workIcon(running),
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = if (running != null) colors.primary else ink.icon,
-            )
-            Spacer(Modifier.width(10.dp))
-            PulsingText(
-                text = headerText,
-                active = running != null,
-                color = ink.muted,
-                modifier = Modifier.weight(1f),
-            )
-            Chevron(expanded)
-        }
         // 折叠着也直接露出改了哪些文件
         if (!expanded) CollapsedFileChanges(item.steps, onShowAll = { expanded = true })
         AnimatedVisibility(visible = expanded) {

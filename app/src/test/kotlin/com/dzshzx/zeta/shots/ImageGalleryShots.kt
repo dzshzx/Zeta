@@ -108,15 +108,7 @@ class ImageGalleryShots : ShotTest() {
         val text = galleryAnswer()
         shoot(
             "chat-image-gallery-second",
-            prepare = {
-                awaitImages()
-                onAllNodesWithContentDescription("图片").onFirst().performTouchInput { swipeLeft() }
-                mainClock.advanceTimeBy(1_000)
-                awaitMain(5_000) {
-                    mainClock.advanceTimeByFrame()
-                    onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
-                }
-            },
+            prepare = { swipeToSecond() },
         ) {
             Answer(text)
         }
@@ -151,8 +143,8 @@ class ImageGalleryShots : ShotTest() {
         }
     }
 
-    /** 在图片组里翻到第二张，点开全屏看，等顶栏的返回钮出来、保存和分享拿到这张图的字节可以点。 */
-    private fun AndroidComposeTestRule<*, *>.openSecondInViewer() {
+    /** 等图都取到，在图片组里左滑一页，等角上标出「2 / 3」。 */
+    private fun AndroidComposeTestRule<*, *>.swipeToSecond() {
         awaitImages()
         onAllNodesWithContentDescription("图片").onFirst().performTouchInput { swipeLeft() }
         mainClock.advanceTimeBy(1_000)
@@ -160,6 +152,11 @@ class ImageGalleryShots : ShotTest() {
             mainClock.advanceTimeByFrame()
             onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    /** 在图片组里翻到第二张，点开全屏看，等顶栏的返回钮出来、保存和分享拿到这张图的字节可以点。 */
+    private fun AndroidComposeTestRule<*, *>.openSecondInViewer() {
+        swipeToSecond()
         onAllNodesWithContentDescription("图片").onLast().performClick()
         awaitMain(5_000) {
             mainClock.advanceTimeByFrame()
