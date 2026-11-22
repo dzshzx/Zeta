@@ -9,3 +9,5 @@ CLAUDE.local.md
 /helper/helper
 # windows/scripts/assets.sh 放进去、桌面版编进程序的东西
 /windows/internal/assets/gen/
+# go tool mygo build 在入口目录旁生成的
+windows/cmd/zeta/dist/

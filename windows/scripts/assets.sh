@@ -16,7 +16,7 @@ for arch in arm64 amd64; do
     go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$out/claude-switch/linux-$arch" github.com/dzshzx/claude-switch
   )
 done
-cp "$root/helper/host/zeta_host.sh" "$root/app/src/main/assets/zeta_accounts.sh" "$out/"
+cp "$root/helper/host/zeta_host.sh" "$out/"
 
 # 第三方许可证全文，关于页列它们（windows/internal/ui/about）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
 # 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件；

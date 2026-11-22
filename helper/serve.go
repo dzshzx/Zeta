@@ -20,7 +20,8 @@ import (
 //
 // 协议一行一个 JSON。连上先收到 {"type":"zeta_hello","protocol":<版本>}。客户端发
 // {"id":<任意 JSON 值>,"method":"<方法>"}，每个请求都回一行 {"type":"zeta_reply","id":<原样>,"ok":true}
-// 或 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}。serve 自己处理的方法：
+// 或 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}；客户端要按原因分别处理的错误另带 "code"
+// （认得的代号见各方法的说明，比如 docs/core.md「账号与额度」），没带 code 的只给人看。serve 自己处理的方法：
 //
 //	ping            什么也不做：客户端隔一会儿发一次，证明自己还在
 //	sessions.watch  订阅会话列表：先发一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只发变了的几项
