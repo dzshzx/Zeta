@@ -50,6 +50,8 @@ type Conversation struct {
 	loadingHistory     bool
 	earlier            int             // 会话记录里还没载入的更早事件数
 	earlierAnchor      string          // 已载入那段之前的一行（uuid），要更早一页时交回去
+	earlierFile        string          // 还没载入的那段在哪份会话记录里
+	earlierLoading     bool            // 正在载入更早的一页（conv.earlier）
 	todoSeed           json.RawMessage // 没载入的更早历史里的清单工具调用
 	queued             []*outgoing
 	steering           bool

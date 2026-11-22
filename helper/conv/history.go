@@ -65,6 +65,16 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 	return read
 }
 
+// usage 是这段历史的用量。
+func (read historyRead) usage() *usage.Tracker {
+	t := usage.New()
+	for _, line := range read.lines {
+		t.ObserveHistory(line)
+	}
+	t.FinishHistory()
+	return t
+}
+
 // loadHistory 在后台读会话记录（最近的一段），读完排回对话的 goroutine 接到列表前面。
 func (c *Conversation) loadHistory(file string) {
 	out, err := c.deps.History(file)
@@ -73,13 +83,8 @@ func (c *Conversation) loadHistory(file string) {
 		// 载入期间用户已经发了新消息的话，新内容接在历史后面
 		read.reducer.Items = append(read.reducer.Items, c.r.Items...)
 		c.r = read.reducer
-		earlier := usage.New()
-		for _, line := range read.lines {
-			earlier.ObserveHistory(line)
-		}
-		earlier.FinishHistory()
-		c.usage.PrependHistory(earlier)
-		c.earlier, c.earlierAnchor = read.header.Skipped, read.header.Anchor
+		c.usage.PrependHistory(read.usage())
+		c.earlier, c.earlierAnchor, c.earlierFile = read.header.Skipped, read.header.Anchor, file
 		c.todoSeed = read.header.TodoSeed
 		c.loadingHistory = false
 		if err != nil {

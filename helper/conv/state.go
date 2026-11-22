@@ -28,6 +28,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"blocked":         raw(c.blocked),
 		"loading_history": raw(c.loadingHistory),
 		"earlier":         raw(c.earlier),
+		"earlier_loading": raw(c.earlierLoading),
 		"todo_seed":       nonNull(c.todoSeed, "[]"),
 		"tasks":           raw(nonNilSlice(c.tasks.Tasks())),
 		"queued":          raw(queued),

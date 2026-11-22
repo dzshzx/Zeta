@@ -50,6 +50,7 @@ type request struct {
 	Options   *Options            `json:"options"`
 	UUID      string              `json:"uuid"`
 	Recall    bool                `json:"recall"`
+	Rest      bool                `json:"rest"`
 	RequestID string              `json:"request_id"`
 	Reply     prompt.Reply        `json:"reply"`
 	Action    prompt.ElicitAction `json:"action"`
@@ -85,14 +86,28 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		m.release(client, r.Conv, c)
 		return nil, nil
 	}
-	if method == "conv.task_output" {
-		v, err := c.Call(func() (any, error) { return c.taskOutput(r.Task), nil })
+	if method == "conv.earlier" {
+		v, err := c.Call(func() (any, error) { return c.loadEarlier(r.Rest) })
 		if err != nil {
 			return nil, err
 		}
 		select {
-		case out := <-v.(<-chan any):
-			return out, nil
+		case err := <-v.(<-chan error):
+			return nil, err
+		case <-c.quit:
+			return nil, errClosed
+		}
+	}
+	if ask, ok := asks[method]; ok {
+		v, err := c.Call(func() (any, error) { return ask(c, r), nil })
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case a := <-v.(<-chan answer):
+			return a.v, a.err
+		case <-c.quit:
+			return nil, errClosed
 		case <-time.After(30 * time.Second):
 			return nil, errors.New("等了 30 秒，Claude Code 没有回应")
 		}
@@ -102,6 +117,18 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		return nil, errors.New("不认识的方法 " + method)
 	}
 	return c.Call(func() (any, error) { return handler(c, client, r) })
+}
+
+// answer 是要等 Claude Code 应答的请求的结果。
+type answer struct {
+	v   any
+	err error
+}
+
+// asks 是要等 Claude Code 应答才回的请求：在对话的 goroutine 上发出控制请求，返回等应答的 channel。
+var asks = map[string]func(c *Conversation, r request) <-chan answer{
+	"conv.task_output": func(c *Conversation, r request) <-chan answer { return c.taskOutput(r.Task) },
+	"conv.quota":       func(c *Conversation, _ request) <-chan answer { return c.queryQuota() },
 }
 
 // handlers 是各个只改一个对话的请求。

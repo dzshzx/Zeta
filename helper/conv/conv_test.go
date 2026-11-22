@@ -60,13 +60,14 @@ type fakeClient struct {
 }
 
 type harness struct {
-	t       *testing.T
-	m       *Manager
-	mu      sync.Mutex
-	clients map[int]*fakeClient
-	links   []*fakeLink
-	starts  []StartOptions
-	history []byte
+	t           *testing.T
+	m           *Manager
+	mu          sync.Mutex
+	clients     map[int]*fakeClient
+	links       []*fakeLink
+	starts      []StartOptions
+	history     []byte
+	historyArgs [][]string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -80,7 +81,12 @@ func newHarness(t *testing.T) *harness {
 			h.starts = append(h.starts, o)
 			return l, nil
 		},
-		History: func(args ...string) ([]byte, error) { return h.history, nil },
+		History: func(args ...string) ([]byte, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			h.historyArgs = append(h.historyArgs, args)
+			return h.history, nil
+		},
 	}
 	h.m = NewManager(deps, func(client int, msg any) {
 		b, err := json.Marshal(msg)

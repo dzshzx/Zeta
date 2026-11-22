@@ -339,17 +339,37 @@ func (c *Conversation) stopTask(id string) {
 }
 
 // taskOutput 读后台命令、监视器 id 输出的最后 8 KiB；应答到了从返回的通道里给出来（进程不在时马上给 nil）。
-func (c *Conversation) taskOutput(id string) <-chan any {
-	out := make(chan any, 1)
+func (c *Conversation) taskOutput(id string) <-chan answer {
+	out := make(chan answer, 1)
 	p := c.proc
 	if p == nil {
-		out <- nil
+		out <- answer{}
 		return out
 	}
 	p.request(control("get_task_output", "task_id", id), func(r controlResponse) {
 		o := tasks.ParseOutput(raw(r))
 		o.Text = tasks.PlainTerminalText(o.Text)
-		out <- o
+		out <- answer{v: o}
+	})
+	return out
+}
+
+var errNoProcess = errors.New("这个对话没有开着的 Claude Code 进程")
+
+// queryQuota 借这个对话开着的进程问一次所在主机的订阅额度（get_usage），应答里的 response 原样交回客户端。
+func (c *Conversation) queryQuota() <-chan answer {
+	out := make(chan answer, 1)
+	p := c.proc
+	if p == nil {
+		out <- answer{err: errNoProcess}
+		return out
+	}
+	p.request(control("get_usage", "skip_behaviors", true), func(r controlResponse) {
+		if !r.ok() {
+			out <- answer{err: errors.New("Claude Code 没有给额度：" + r.Error)}
+			return
+		}
+		out <- answer{v: r.Response}
 	})
 	return out
 }
