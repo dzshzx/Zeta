@@ -184,6 +184,9 @@ abstract class GoProgramTask : DefaultTask() {
 
 val helperModule: Directory = rootProject.layout.projectDirectory.dir("helper")
 
+/** 托管脚本 zeta_host.sh：放在 helper/host（zeta-helper 编进程序里），由 hostScript 任务拷进 assets。 */
+val hostScriptFile: RegularFile = helperModule.file("host/zeta_host.sh")
+
 /**
  * APK 里带的 Linux 程序，程序名 → 编它的任务：
  * - zeta-helper：仓根 helper/ 本身，Zeta 在 Linux 一侧读写会话记录用。
@@ -222,11 +225,15 @@ val noRootPath =
         providers.environmentVariable("PATH").getOrElse("")
 
 tasks.withType<Test>().configureEach {
-    // 有的测试在临时 HOME 上真跑 assets 里的脚本（zeta_host.sh 等）：只改脚本时也要重跑，不能当成已是最新
+    // 有的测试在临时 HOME 上真跑 assets 里的脚本和托管脚本 zeta_host.sh：只改脚本时也要重跑，不能当成已是最新
     inputs
         .dir("src/main/assets")
         .withPropertyName("assetScripts")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .file(hostScriptFile)
+        .withPropertyName("hostScript")
+        .withPathSensitivity(PathSensitivity.NONE)
     // zeta-helper、claude-switch 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]），
     // 目录经 zeta.programs.<程序名> 传进去
     goPrograms.forEach { (name, task) ->
@@ -355,12 +362,17 @@ licensee {
     androidAssetReportPath = "licenses/artifacts.json"
 }
 
-/** 把仓根的 LICENSE（GPL-3.0 全文）拷成 assets 的 licenses/GPL-3.0-only.txt，设置「许可证」页显示它，仓里不另放一份。 */
+/**
+ * 把仓里别处的一个文件拷进 assets 的 [target]，仓里只放一份：
+ * - zetaLicense：仓根的 LICENSE（GPL-3.0 全文）拷成 licenses/GPL-3.0-only.txt，设置「许可证」页显示它。
+ * - hostScript：托管脚本 helper/host/zeta_host.sh（zeta-helper 也把它编进程序里），拷成 zeta_host.sh。
+ */
 @CacheableTask
-abstract class LicenseAssetTask : DefaultTask() {
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val license: RegularFileProperty
+abstract class AssetFileTask : DefaultTask() {
+    @get:InputFile @get:PathSensitive(PathSensitivity.NONE) abstract val source: RegularFileProperty
+
+    /** 在 assets 里的路径。 */
+    @get:Input abstract val target: Property<String>
 
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
@@ -368,21 +380,28 @@ abstract class LicenseAssetTask : DefaultTask() {
     fun copy() {
         val out = outputDir.get().asFile
         out.deleteRecursively()
-        license.get().asFile.copyTo(File(out, "licenses/GPL-3.0-only.txt"))
+        source.get().asFile.copyTo(File(out, target.get()))
     }
 }
 
-val zetaLicense =
-    tasks.register<LicenseAssetTask>("zetaLicense") {
-        license.set(rootProject.layout.projectDirectory.file("LICENSE"))
-        outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
-    }
+val assetFiles: List<TaskProvider<AssetFileTask>> =
+    listOf(
+        tasks.register<AssetFileTask>("zetaLicense") {
+            source.set(rootProject.layout.projectDirectory.file("LICENSE"))
+            target.set("licenses/GPL-3.0-only.txt")
+            outputDir.set(layout.buildDirectory.dir("generated/zeta-license"))
+        },
+        tasks.register<AssetFileTask>("hostScript") {
+            source.set(hostScriptFile)
+            target.set("zeta_host.sh")
+            outputDir.set(layout.buildDirectory.dir("generated/host-script"))
+        },
+    )
 
 androidComponents {
     onVariants { variant ->
-        variant.sources.assets?.addGeneratedSourceDirectory(
-            zetaLicense,
-            LicenseAssetTask::outputDir,
-        )
+        assetFiles.forEach {
+            variant.sources.assets?.addGeneratedSourceDirectory(it, AssetFileTask::outputDir)
+        }
     }
 }
