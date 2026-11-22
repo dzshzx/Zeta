@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -24,7 +25,7 @@ func TestTodosThroughCore(t *testing.T) {
 	f.tt.Type("把登录页修好")
 	f.tt.Key(0, ui.KeyEnter)
 	f.until(t, "清单条出现", func() bool { return f.shows("2/3") && f.shows("正在修表单校验") })
-	if l := app.pane.state.Todos; len(l) != 3 || l.Current() == nil || l.Current().Content != "修表单校验" {
+	if l := app.pane.state.Todos; len(l) != 3 || todoAt(l, sessionproto.TodoInProgress) != 1 || l[1].Content != "修表单校验" {
 		t.Fatalf("核心给的清单：%+v", l)
 	}
 	f.click(t, "展开任务清单")

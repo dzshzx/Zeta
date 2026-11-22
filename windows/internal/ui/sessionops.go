@@ -69,8 +69,8 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 		h.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(archive+"没成功"))
 	}
 	m.Separator()
-	// 正在进行的置灰；能不能删以核心的应答为准
-	if m.Item("删除").Danger().Disabled(h.Active(s, a.local(s))).Chosen() {
+	// 正在进行的也不置灰：能不能删以核心的应答为准（hub.Delete）
+	if m.Item("删除").Danger().Chosen() {
 		a.ops.deleting.target, a.ops.deleting.open = s, true
 	}
 }
@@ -87,15 +87,6 @@ func (a *App) deleteFailed(err error) {
 		title = "这个对话正在进行"
 	}
 	a.say(title, err.Error())
-}
-
-// local 是聊天窗格里开着的对话的样子，s 不是它时是零值（判断能不能删用）。
-func (a *App) local(s hostlink.Session) hub.Local {
-	p := a.pane
-	if p == nil || !a.showing(s) {
-		return hub.Local{}
-	}
-	return hub.Local{Waiting: len(p.state.Prompts) > 0, Busy: p.state.Busy, Tasks: p.state.RunningTasks()}
 }
 
 // export 导出 list：中枢取来 Markdown，经 saveFile 选好地方存下。几个一起导出、存好了退出多选。
@@ -220,9 +211,7 @@ func (a *App) selectionActions(c *ui.Context, chosen []hostlink.Session) {
 			a.exitSelection()
 		})
 		coui.SmallButton(c, "导出").Grow(1).Basis(0).Disabled(none).OnClick(func() { a.export(chosen) })
-		// 选中的都在进行时置灰；能不能删以核心的应答为准
-		allActive := !slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !a.hub.Active(s, a.local(s)) })
-		coui.SmallDangerButton(c, "删除").Grow(1).Basis(0).Disabled(none || allActive).OnClick(func() {
+		coui.SmallDangerButton(c, "删除").Grow(1).Basis(0).Disabled(none).OnClick(func() {
 			a.ops.batch.list, a.ops.batch.open = chosen, true
 		})
 	})

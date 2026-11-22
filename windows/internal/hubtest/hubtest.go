@@ -37,9 +37,9 @@ type Devices struct {
 	SearchHits map[string]map[string]string
 	SearchErr  map[string]error
 	Partial    map[string]bool
-	// SessionsErr 是各个 sessions.* 方法答的错（方法名 → 错误）；SessionErrs 是对各个会话的 sessions.* 答的错（会话号 → 错误，
-	// 比如 hostlink.NewReplyError 带的 code）。
-	SessionErrs map[string]error
+	// SessionsErr 是各个 sessions.* 方法答的错（方法名 → 错误）；ErrBySession 是对各个会话的 sessions.* 答的错（会话号 → 错误，
+	// 比如 Refuse 带的 code）。
+	ErrBySession map[string]error
 	// Handoffs 是 sessions.handoff 答的结果（会话号 → 结果 JSON）：没给的是交出来了。
 	Handoffs map[string]string
 	// OnSearch 给了时由它答 sessions.search（l 是那条连接，search 是客户端给这次搜索起的名字，命中用 PushMatch 推），不照 SearchHits 答。
@@ -236,3 +236,11 @@ type program struct{}
 
 func (program) Path() string                  { return "" }
 func (program) Install(context.Context) error { return nil }
+
+// Refuse 是假核心答出错时的错误：message 是给人看的原因，code 是应答里的 code（和真连接答的一样，hostlink.ReplyCode 认得出）。
+func Refuse(message, code string) error { return refusal{message, code} }
+
+type refusal struct{ message, code string }
+
+func (r refusal) Error() string { return r.message }
+func (r refusal) Code() string  { return r.code }

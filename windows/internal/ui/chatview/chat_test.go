@@ -478,21 +478,3 @@ func TestAnswerLinksAndImages(t *testing.T) {
 		t.Error("没有取 Markdown 里的图")
 	}
 }
-
-// Rev 在条目每换一次时加一，没换成的 Splice 不算。
-func TestRev(t *testing.T) {
-	ch := New()
-	if ch.Rev() != 0 {
-		t.Fatalf("新的：%d", ch.Rev())
-	}
-	ch.SetItems(longConversation("r", 2))
-	if err := ch.Splice(1, 1, nil); err != nil {
-		t.Fatal(err)
-	}
-	if ch.Rev() != 2 {
-		t.Fatalf("换了两次：%d", ch.Rev())
-	}
-	if ch.Splice(99, 1, nil) == nil || ch.Rev() != 2 {
-		t.Fatalf("越界的 Splice：%d", ch.Rev())
-	}
-}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/dzshzx/Zeta/client/hostlink"
 )
 
 // opTimeout 是一件事（读账号、换号、记下、移除）最多等多久：换号前主机那边还要等进程退出（约 8 秒）。
@@ -27,8 +29,7 @@ func (cl client) call(ctx context.Context, method string, params map[string]any,
 		params["program"] = cl.program.Path()
 	}
 	raw, err := cl.caller.Call(ctx, method, params)
-	var c coded
-	if errors.As(err, &c) && c.Code() == "claude_switch_missing" && cl.program != nil {
+	if code, _ := hostlink.ReplyCode(err); code == "claude_switch_missing" && cl.program != nil {
 		if err := cl.program.Install(ctx); err != nil {
 			return errors.New("装不上 claude-switch：" + err.Error())
 		}

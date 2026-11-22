@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,8 +70,8 @@ func (a *App) syncMessageActions(p *chatPane) {
 
 // messageCallbacks 给新窗格的列表接上用户消息的菜单和一轮下面的操作排。
 func (a *App) messageCallbacks(p *chatPane) {
-	p.list.UserMenu = func(m *ui.Menu, it items.Item) { a.userMenu(m, p, it) }
-	p.list.Actions = func(c *ui.Context, user items.Item, last bool) { a.roundActions(c, p, user, last) }
+	p.list.UserMenu = func(m *ui.Menu, user items.Item, later int) { a.userMenu(m, p, user, later) }
+	p.list.Actions = func(c *ui.Context, user items.Item, later int) { a.roundActions(c, p, user, later) }
 }
 
 // canRewind：现在能改写、删除、还原代码、分支（核心说能，连接在，也没在编辑别的）。
@@ -80,43 +79,34 @@ func (p *chatPane) canRewind() bool {
 	return p.connected && p.state.CanRewind && p.acts.editing == nil
 }
 
-// laterRounds 是用户消息 id 之后还有几轮：数它后面的用户消息。
-func (p *chatPane) laterRounds(id string) int {
-	list := p.list.Items()
-	if i := slices.IndexFunc(list, func(it items.Item) bool { return it.ID == id }); i >= 0 {
-		return items.LaterRounds(list, i)
-	}
-	return 0
-}
-
-// userMenu 是用户消息右键菜单里「复制」后面的项：Claude Code 认得这条消息时才有。
-func (a *App) userMenu(m *ui.Menu, p *chatPane, it items.Item) {
+// userMenu 是用户消息右键菜单里「复制」后面的项：Claude Code 认得这条消息时才有。later 是它之后还有几轮。
+func (a *App) userMenu(m *ui.Menu, p *chatPane, it items.Item, later int) {
 	if !it.Rewindable {
 		return
 	}
 	off := !p.canRewind()
 	if m.Item("编辑").Disabled(off).Chosen() {
-		a.beginEdit(p, it)
+		a.beginEdit(p, it, later)
 	}
 	if m.Item("还原代码").Disabled(off).Chosen() {
-		a.ask(p, confirmRestore, it)
+		a.ask(p, confirmRestore, it, later)
 	}
 	m.Separator()
 	if m.Item("删除").Disabled(off).Danger().Chosen() {
-		a.ask(p, confirmDrop, it)
+		a.ask(p, confirmDrop, it, later)
 	}
 }
 
 // roundActions 是用户消息 user 开始的那一轮的操作键：重新生成、删除、分支（同手机版 TurnActionButtons）。
-// last 是最后一轮：还在进行时不出现。
-func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, last bool) {
-	if last && (p.state.Busy || p.state.Rewinding) {
+// later 是之后还有几轮：最后一轮（0）还在进行时不出现。
+func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, later int) {
+	if later == 0 && (p.state.Busy || p.state.Rewinding) {
 		return
 	}
 	on := p.canRewind()
 	if user.Rewindable {
-		chatview.ActionButton(c, coui.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user) })
-		chatview.ActionButton(c, coui.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user) })
+		chatview.ActionButton(c, coui.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user, later) })
+		chatview.ActionButton(c, coui.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user, later) })
 	}
 	if user.Forkable {
 		chatview.ActionButton(c, coui.IconBranch, "分支", on).OnClick(func() {
@@ -126,9 +116,9 @@ func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, last boo
 	}
 }
 
-// ask 弹出确认框，同时问核心还原代码会动到哪些文件。
-func (a *App) ask(p *chatPane, kind confirmKind, user items.Item) {
-	cf := &confirm{kind: kind, user: user, later: p.laterRounds(user.ID), open: true, code: true}
+// ask 弹出确认框（later 是这一轮之后还有几轮），同时问核心还原代码会动到哪些文件。
+func (a *App) ask(p *chatPane, kind confirmKind, user items.Item, later int) {
+	cf := &confirm{kind: kind, user: user, later: later, open: true, code: true}
 	p.acts.confirm = cf
 	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 		changes, err := conv.CodeChanges(ctx, user.ID)
@@ -188,13 +178,13 @@ func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) (
 	return out, len(list) - len(out)
 }
 
-// beginEdit 开始编辑一条消息：输入栏里原有的收起来，换成这条的字、附件路径和图（图在后台取回）。
-func (a *App) beginEdit(p *chatPane, user items.Item) {
+// beginEdit 开始编辑一条消息（later 是它之后还有几轮）：输入栏里原有的收起来，换成这条的字、附件路径和图（图在后台取回）。
+func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 	if !p.canRewind() {
 		return
 	}
 	x := &p.acts
-	x.editing = &edit{user: user, later: p.laterRounds(user.ID), saved: p.snapshot()}
+	x.editing = &edit{user: user, later: later, saved: p.snapshot()}
 	p.restore(composerSnapshot{})
 	p.putBack(chat.Message{Text: user.Text, Files: user.Files})
 	if len(user.Images) == 0 {

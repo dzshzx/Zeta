@@ -16,7 +16,7 @@ func TestSubagentWatchAndPushes(t *testing.T) {
 		t.Fatal("没看着的子代理也收下了")
 	}
 
-	if err := conv.WatchSubagent(ctx, "toolu_1", true); err != nil {
+	if err := conv.Watch(ctx, SubagentTarget("toolu_1"), true); err != nil {
 		t.Fatal(err)
 	}
 	if got := link.took(); len(got) != 1 || got[0].method != "conv.subagent" || got[0].params != `{"conv":"w1","tool_use_id":"toolu_1","watch":true}` {
@@ -76,7 +76,7 @@ func TestSubagentWatchAndPushes(t *testing.T) {
 	}
 
 	// 不看了：不再收它的推送
-	if err := conv.WatchSubagent(ctx, "toolu_1", false); err != nil {
+	if err := conv.Watch(ctx, SubagentTarget("toolu_1"), false); err != nil {
 		t.Fatal(err)
 	}
 	if got := link.took(); len(got) != 1 || got[0].params != `{"conv":"w1","tool_use_id":"toolu_1","watch":false}` {
@@ -90,7 +90,7 @@ func TestSubagentWatchAndPushes(t *testing.T) {
 // ChangesSince 交出从某一版起的条目变化，依次套上就是现在的条目；整份推来时从整份记起，差得太多时说没记着。
 func TestSubagentChangesSince(t *testing.T) {
 	_, client, conv, _ := opened(t)
-	if err := conv.WatchSubagent(context.Background(), "toolu_1", true); err != nil {
+	if err := conv.Watch(context.Background(), SubagentTarget("toolu_1"), true); err != nil {
 		t.Fatal(err)
 	}
 	push := func(change string) {

@@ -128,28 +128,13 @@ func TestOperationsOnTheOpenChat(t *testing.T) {
 	}
 }
 
-// Active 只是界面上置灰的依据。
-func TestActiveSessions(t *testing.T) {
-	f := newChatFixture(t)
-	f.listed()
-	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}, "s3": {State: "idle"}})
-	if !f.hub.Active(find(f.hub, "s1"), Local{}) || f.hub.Active(find(f.hub, "s3"), Local{}) {
-		t.Error("核心报的忙闲")
-	}
-	if !f.hub.Active(hostlink.Session{Backend: f.id, ID: "x", External: true}, Local{}) {
-		t.Error("别处开着的不算")
-	}
-	if !f.hub.Active(find(f.hub, "s3"), Local{Busy: true}) {
-		t.Error("这边在回答的不算")
-	}
-}
-
-// 能不能删以核心的应答为准：这边不筛，核心答 active 的是 ErrActive，放回列表，开着的不关；其余照删。
+// 能不能删以核心的应答为准：这边不筛，核心答 active 的是 ErrActive，照原样放回列表原处、不重订，开着的不关；其余照删。
 func TestDeletingAnActiveSessionIsRefusedByTheCore(t *testing.T) {
 	f := newChatFixture(t)
 	f.listed()
+	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
 	f.hub.OpenSession(find(f.hub, "s1"))
-	f.devices.SessionErrs = map[string]error{"s1": hostlink.NewReplyError("对话正在进行，结束后再删", sessionproto.CodeActive)}
+	f.devices.ErrBySession = map[string]error{"s1": hubtest.Refuse("对话正在进行，结束后再删", sessionproto.CodeActive)}
 	opened := f.devices.Opened(f.id)
 	var why error
 	f.hub.Delete([]hostlink.Session{find(f.hub, "s1"), find(f.hub, "s3")}, func(err error) { why = err })
@@ -159,11 +144,14 @@ func TestDeletingAnActiveSessionIsRefusedByTheCore(t *testing.T) {
 	if got := f.devices.SessionCalls(); len(got) != 2 {
 		t.Errorf("发出 %q", got)
 	}
-	if f.hub.Chat() == nil || f.devices.Opened(f.id) != opened+1 {
-		t.Errorf("开着的关了，或没重读列表（订阅 %d 次）", f.devices.Opened(f.id))
+	if f.hub.Chat() == nil || f.devices.Opened(f.id) != opened {
+		t.Errorf("开着的关了，或重订了列表（订阅 %d 次）", f.devices.Opened(f.id)-opened)
+	}
+	if got := ids(f.hub.Sessions()); !reflect.DeepEqual(got, []string{"s1", "s2"}) || find(f.hub, "s1").Title != "修登录页" {
+		t.Errorf("放回去的列表 %v", f.hub.Sessions())
 	}
 	// 核心说已经没有的算删成了
-	f.devices.SessionErrs = map[string]error{"s1": hostlink.NewReplyError("没有这个会话", sessionproto.CodeNoSession)}
+	f.devices.ErrBySession = map[string]error{"s1": hubtest.Refuse("没有这个会话", sessionproto.CodeNoSession)}
 	why = nil
 	f.hub.Delete([]hostlink.Session{{Backend: f.id, ID: "s1"}}, func(err error) { why = err })
 	if why != nil || f.hub.Chat() != nil {
@@ -171,7 +159,20 @@ func TestDeletingAnActiveSessionIsRefusedByTheCore(t *testing.T) {
 	}
 }
 
-// 同一台的几个交给核心合成一份（带 sessions 和这边的 utc_offset），文件名用核心起的；几台的这边接起来。
+// 别的原因没删成的不知道删到哪一步：收尾时那台重订一次列表拿整份对上，几个没成也只订一次。
+func TestFailedDeletesRewatchEachDeviceOnce(t *testing.T) {
+	f := newChatFixture(t)
+	f.listed()
+	f.devices.SessionsErr = map[string]error{"sessions.delete": errors.New("没有权限")}
+	opened := f.devices.Opened(f.id)
+	var why error
+	f.hub.Delete([]hostlink.Session{find(f.hub, "s1"), find(f.hub, "s2"), find(f.hub, "s3")}, func(err error) { why = err })
+	if why == nil || why.Error() != "3 个没成功：没有权限" || f.devices.Opened(f.id) != opened+1 {
+		t.Errorf("原因 %v，重订 %d 次", why, f.devices.Opened(f.id)-opened)
+	}
+}
+
+// 每台发一次带 sessions 和这边 utc_offset 的请求，各会话的导出照选中的先后合成，文件名的时刻是这边的。
 func TestExport(t *testing.T) {
 	f := newChatFixture(t)
 	list := f.listed()
@@ -180,18 +181,18 @@ func TestExport(t *testing.T) {
 	done := func(e Exported) { got = append(got, e) }
 	fail := func(err error) { t.Error(err) }
 	f.hub.Export(list[:1], now, done, fail)
-	f.hub.Export(list, now, done, fail)
+	f.hub.Export([]hostlink.Session{list[2], list[0]}, now, done, fail)
 	want := []string{
 		f.id + ` sessions.export {"sessions":["s1"],"utc_offset":345}`,
-		f.id + ` sessions.export {"sessions":["s1","s2","s3"],"utc_offset":345}`,
+		f.id + ` sessions.export {"sessions":["s3","s1"],"utc_offset":345}`,
 	}
 	if calls := f.devices.SessionCalls(); !reflect.DeepEqual(calls, want) {
 		t.Errorf("发出 %q", calls)
 	}
-	if len(got) != 2 || got[0].Name != "Zeta-对话 s1-20261122-1500.md" || got[0].Content != "# 对话 s1\n\n正文\n" {
+	if len(got) != 2 || got[0].Name != "Zeta-对话 s1-20261122-0905.md" || got[0].Content != "# 对话 s1\n\n正文\n" {
 		t.Fatalf("一个：%+v", got)
 	}
-	if got[1].Name != "Zeta-3个对话-20261122-1500.md" || strings.Count(got[1].Content, "\n---\n\n") != 2 {
+	if got[1].Name != "Zeta-2个对话-20261122-0905.md" || got[1].Content != "# 对话 s3\n\n正文\n\n---\n\n# 对话 s1\n\n正文\n" {
 		t.Errorf("几个：%+v", got[1])
 	}
 	f.devices.SessionsErr = map[string]error{"sessions.export": errors.New("读不了")}
@@ -233,8 +234,9 @@ func TestPinsGoThroughTheCore(t *testing.T) {
 	}
 }
 
-// 本机设置里从前记的置顶：每次连上那台（会话列表的订阅或对话连接收到招呼）逐个发 sessions.pin，答成功或 no_session 的从本机删掉，
-// 别的出错留着下次再迁；迁完之前置顶取 pinned 和本机记的并集，取消置顶也删本机记的。别的设备的不动。
+// 本机设置里从前记的置顶：会话列表的订阅连上那台（收到招呼）时逐个发 sessions.pin，答成功或 no_session 的从本机删掉，
+// 别的出错留着；同一个进程里每台只迁一次，没迁成的等下次启动。对话连接的招呼不迁。迁完之前置顶取 pinned 和本机记的并集，
+// 取消置顶也删本机记的。别的设备的不动。
 func TestLocalPinsMoveToTheCore(t *testing.T) {
 	d := hubtest.NewDevices()
 	h, s := newHub(t, d)
@@ -258,9 +260,15 @@ func TestLocalPinsMoveToTheCore(t *testing.T) {
 		t.Errorf("取消后本机还记着 %v", s.Pins())
 	}
 	d.SessionCalls()
-	d.SessionErrs = map[string]error{
-		"gone":  hostlink.NewReplyError("没有这个会话", sessionproto.CodeNoSession),
-		"later": hostlink.NewReplyError("写不进去", ""), // 别的出错：留着下次再迁
+	// 对话连接的招呼只补主机名
+	h.chatConn(x.ID)
+	d.Chat(x.ID).Greet("")
+	if got := d.SessionCalls(); len(got) != 0 {
+		t.Errorf("对话连接的招呼也迁了：%q", got)
+	}
+	d.ErrBySession = map[string]error{
+		"gone":  hubtest.Refuse("没有这个会话", sessionproto.CodeNoSession),
+		"later": hubtest.Refuse("写不进去", ""), // 别的出错：留着下次启动再迁
 	}
 	d.Greet(x.ID, "")
 	want := []string{
@@ -276,13 +284,18 @@ func TestLocalPinsMoveToTheCore(t *testing.T) {
 	if !reflect.DeepEqual(s.Pins(), []string{keys[2], other}) || !find(h, "ok").Pinned || !h.Pinned(find(h, "later")) {
 		t.Errorf("迁过以后本机记的 %v，列表 %+v", s.Pins(), h.Sessions())
 	}
-	// 下次连上（这回是对话连接）再迁剩下的；迁完了不再发
-	d.SessionErrs = nil
-	h.chatConn(x.ID)
-	d.Chat(x.ID).Greet("")
+	// 同一个进程里再连上也不再试
+	d.ErrBySession = nil
+	d.Greet(x.ID, "")
+	if got := d.SessionCalls(); len(got) != 0 {
+		t.Errorf("没迁成的又试了：%q", got)
+	}
+	// 下次启动再迁剩下的；迁完了不再发
+	h.pins = loadPins(s)
+	d.Greet(x.ID, "")
 	d.Greet(x.ID, "")
 	if got := d.SessionCalls(); !reflect.DeepEqual(got, []string{x.ID + ` sessions.pin {"pinned":true,"session":"later"}`}) {
-		t.Errorf("再连上发出 %q", got)
+		t.Errorf("再启动发出 %q", got)
 	}
 	if !reflect.DeepEqual(s.Pins(), []string{other}) {
 		t.Errorf("迁完本机记的 %v", s.Pins())

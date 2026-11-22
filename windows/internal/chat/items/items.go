@@ -179,35 +179,3 @@ func Splice(list []Item, at, remove int, add []Item) ([]Item, error) {
 	out = append(out, add...)
 	return append(out, list[at+remove:]...), nil
 }
-
-// RoundOf 是第 i 项所在那一轮的用户消息的下标：往前找最近的一条用户消息；在第一条用户消息之前时为 -1。
-// 一轮从一条用户消息起，到下一条用户消息之前。
-func RoundOf(list []Item, i int) int {
-	for ; i >= 0; i-- {
-		if list[i].Kind == User {
-			return i
-		}
-	}
-	return -1
-}
-
-// LaterRounds 是第 i 项之后还有几轮（之后的用户消息数），确认时说会一起丢掉多少。
-func LaterRounds(list []Item, i int) int {
-	n := 0
-	for _, it := range list[i+1:] {
-		if it.Kind == User {
-			n++
-		}
-	}
-	return n
-}
-
-// LastRound：第 i 项在最后一轮里（之后没有用户消息了）。
-func LastRound(list []Item, i int) bool {
-	for _, it := range list[i+1:] {
-		if it.Kind == User {
-			return false
-		}
-	}
-	return true
-}

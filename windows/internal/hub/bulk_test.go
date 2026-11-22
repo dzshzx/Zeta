@@ -150,7 +150,8 @@ func TestBatchesRunFourAtATimePerHost(t *testing.T) {
 	}
 }
 
-// 几台设备的一起导出：每台一个请求、带它的几个；先答完的不排到前面，照各台在选中里第一次出现的先后接起来。
+// 几台设备的一起导出：每台一个请求、带它的几个；各台答来的 parts 照选中的先后排好再合成（先答完的不排到前面，
+// 也不按设备分堆）。
 func TestExportKeepsTheOrder(t *testing.T) {
 	d := hubtest.NewDevices()
 	h, _ := newHub(t, d)
@@ -174,7 +175,7 @@ func TestExportKeepsTheOrder(t *testing.T) {
 	for _, part := range strings.Split(got.Content, "\n---\n\n") {
 		order = append(order, strings.TrimPrefix(strings.SplitN(part, "\n", 2)[0], "# 对话 "))
 	}
-	if fmt.Sprint(order) != "[b0 b1 a0]" || got.Name != "Zeta-3个对话-20261122-0905.md" {
+	if fmt.Sprint(order) != "[b0 a0 b1]" || got.Name != "Zeta-3个对话-20261122-0905.md" {
 		t.Errorf("接起来的先后 %v，文件名 %q", order, got.Name)
 	}
 	if calls := d.SessionCalls(); len(calls) != 2 {

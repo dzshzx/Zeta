@@ -3,6 +3,7 @@ package hostlink
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -87,6 +88,10 @@ func TestServeCallKeepsTheReplyCode(t *testing.T) {
 		if !errors.As(err, &replyErr) || err.Error() != want[0] || replyErr.Code() != want[1] {
 			t.Errorf("%s：%v（%T），要 %q、code %q", method, err, err, want[0], want[1])
 		}
+		// 包了一层也认得
+		if code, ok := ReplyCode(fmt.Errorf("包着：%w", err)); !ok || code != want[1] {
+			t.Errorf("%s 的 ReplyCode：%q %v", method, code, ok)
+		}
 	}
 }
 
@@ -123,5 +128,14 @@ func TestServeHelloGivesTheHostname(t *testing.T) {
 	defer s.Close()
 	if got := <-hellos; got != "box" {
 		t.Errorf("主机名 %q", got)
+	}
+}
+
+// 不是 serve 答的出错（连不上、超时）没有 code，ok 为假。
+func TestReplyCodeOfOtherErrors(t *testing.T) {
+	for _, err := range []error{nil, errors.New("连不上"), context.DeadlineExceeded} {
+		if code, ok := ReplyCode(err); ok || code != "" {
+			t.Errorf("%v：%q %v", err, code, ok)
+		}
 	}
 }

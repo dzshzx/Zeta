@@ -156,3 +156,35 @@ func init() {
 		f.pushOutput("b1", `"text":"[build] 编译 23 个包\n[build] ok  github.com/dzshzx/Zeta/windows/internal/chat  0.41s\n[build] ok  github.com/dzshzx/Zeta/windows/internal/ui  3.02s\n[watch] 等待改动…\n","total_bytes":20480,"truncated":true`)
 	}
 }
+
+// 叠着的几页看着同一样东西（同一个子代理、同一个任务的输出）时，退掉上面那页还接着看，最下面那页也退了才不看；
+// 不看输出的页（任务列表、子代理的任务详情）退了什么也不发。
+func TestBackUnwatchesWhenNoPageBelowWatches(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"busy":true,` + twoTasks)
+	p := f.app.pane
+	tasks := f.app.pane.state.Tasks
+	p.openTasks()
+	f.app.openTask(p, tasks[0])
+	f.app.openSubagent(p, "toolu_a1")
+	f.app.openTask(p, tasks[0])
+	f.app.openSubagent(p, "toolu_a1")
+	f.app.openTask(p, tasks[1]) // 子代理的任务：不看输出
+	f.tt.Frame()
+	f.sent("conv.task_output")
+	var unwatched []string
+	for range 6 {
+		f.app.back(p)
+		f.tt.Frame()
+		for _, c := range f.link().Took() {
+			if strings.Contains(c.JSON(), `"watch":false`) {
+				unwatched = append(unwatched, c.Method)
+			}
+		}
+		unwatched = append(unwatched, "|")
+	}
+	if got := strings.Join(unwatched, " "); got != "| | | conv.subagent | conv.task_output | |" {
+		t.Errorf("每退一页发出的停止：%s", got)
+	}
+}

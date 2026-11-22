@@ -18,9 +18,9 @@ func TestSlashQuery(t *testing.T) {
 
 func TestSuggestOrdersPrefixFirst(t *testing.T) {
 	_, client, conv, _ := opened(t)
-	client.Handle(line(`{"type":"conv.state","conv":"w1","commands":[{"name":"review"},{"name":"compact","description":"压缩"},{"name":""},{"name":"Code"}]}`))
+	client.Handle(line(`{"type":"conv.state","conv":"w1","commands":[{"name":"review"},{"name":"compact","description":"压缩"},{"name":"Code"}]}`))
 	list := conv.Take().State.Commands
-	if len(list) != 4 || list[1].Description != "压缩" {
+	if len(list) != 3 || list[1].Description != "压缩" {
 		t.Fatalf("解出 %+v", list)
 	}
 	var names []string
@@ -34,6 +34,6 @@ func TestSuggestOrdersPrefixFirst(t *testing.T) {
 		t.Fatalf("含 e：%+v", got)
 	}
 	if got := Suggest(list, ""); len(got) != 3 {
-		t.Fatalf("没有名字的不列：%+v", got)
+		t.Fatalf("前缀是空的全列：%+v", got)
 	}
 }

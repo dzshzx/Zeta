@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"maps"
 	"slices"
 	"sync"
 
-	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -20,20 +18,17 @@ type Conversation struct {
 	spec   Spec
 
 	mu sync.Mutex
-	// fields 是核心推来的 conv.state 合并到现在的各字段，state 是它解码成的样子。
-	fields map[string]json.RawMessage
-	state  State
-	items  []items.Item
+	// state 是核心推来的 conv.state 合并到现在的样子（applyState）。
+	state State
+	items []items.Item
 	// connected：连接在、核心那边这个对话开着；opened：打开成过（重连后要重新打开的只有这些）。
 	connected, opened bool
 	// forked：这是分支（conv.fork 来的），还没有会话号时按 key 重新打开。
 	forked bool
 	// pending 是上次 Take 以后的变化。
 	pending Update
-	// subagents 是看着的子代理（subagent.go），按发起它的 Agent 调用。
-	subagents map[string]*Subagent
-	// outputs 是看着的后台命令的输出（taskoutput.go），按任务；还没推来时为 nil。
-	outputs map[string]*tasks.Output
+	// watched 是看着的东西（watch.go）和它们最近推来的样子（*Subagent、*tasks.Output），还没推来时为 nil。
+	watched map[Target]any
 }
 
 // Update 是上次 Take 以后的变化，界面在主线程上照着改自己的样子。
@@ -78,7 +73,7 @@ const (
 )
 
 func newConversation(client *Client, name string, spec Spec) *Conversation {
-	return &Conversation{client: client, name: name, spec: spec, fields: map[string]json.RawMessage{}}
+	return &Conversation{client: client, name: name, spec: spec, watched: map[Target]any{}}
 }
 
 // Name 是这个对话在这条连接上的名字（conv）。
@@ -173,21 +168,12 @@ func (c *Conversation) applyState(line []byte) bool {
 	var msg struct {
 		Full bool `json:"full"`
 	}
-	var fields map[string]json.RawMessage
-	if json.Unmarshal(line, &msg) != nil || json.Unmarshal(line, &fields) != nil {
+	if json.Unmarshal(line, &msg) != nil {
 		return false
-	}
-	for _, k := range []string{"type", "conv", "full"} {
-		delete(fields, k)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if msg.Full {
-		c.fields = fields
-	} else {
-		maps.Copy(c.fields, fields)
-	}
-	state, err := decodeState(c.fields)
+	state, err := applyState(c.state, line, msg.Full)
 	if err != nil {
 		log.Printf("chat: %s 的 conv.state 解不开：%v", c.name, err)
 		return false

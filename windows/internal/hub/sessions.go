@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -31,8 +32,7 @@ func (h *Hub) sessionsCall(backend string) sessionsCaller {
 	conn := h.chatConn(backend)
 	return func(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
 		raw, err := conn.Call(ctx, method, params)
-		var reply *hostlink.ReplyError
-		if err != nil && !errors.As(err, &reply) {
+		if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
 			h.post(func() { h.dropDeadConn(backend, conn) })
 		}
 		return raw, err
@@ -81,24 +81,29 @@ func (h *Hub) patch(s hostlink.Session, change func(x *hostlink.Session)) {
 	h.changed()
 }
 
-// forget 把会话 s 从列表和新回答的标记里去掉。
-func (h *Hub) forget(s hostlink.Session) {
-	h.sessions = slices.DeleteFunc(h.sessions, func(x hostlink.Session) bool { return sameSession(x, s) })
+// forget 把会话 s 从列表和新回答的标记里去掉，返回把它照原样放回原处的办法（核心没删时用；这期间列表里又有了它就不动）。
+func (h *Hub) forget(s hostlink.Session) (restore func()) {
+	same := func(x hostlink.Session) bool { return sameSession(x, s) }
+	at := slices.IndexFunc(h.sessions, same)
+	key := Key(s)
+	unread := h.unread[key]
+	var old hostlink.Session
+	if at >= 0 {
+		old = h.sessions[at]
+		h.sessions = slices.Delete(h.sessions, at, at+1)
+	}
+	delete(h.unread, key)
 	h.changed()
-	delete(h.unread, Key(s))
-}
-
-// Active：会话 s 正在进行（在回答、等确认、后台任务没完，这边开着的或核心报的），或正被别处的 Claude Code 开着。
-// 只给界面把删除置灰用：能不能删以核心的应答为准（Delete）。
-func (h *Hub) Active(s hostlink.Session, local Local) bool {
-	if s.External {
-		return true
+	return func() {
+		if at < 0 || slices.ContainsFunc(h.sessions, same) {
+			return
+		}
+		h.sessions = slices.Insert(h.sessions, min(at, len(h.sessions)), old)
+		if unread {
+			h.unread[key] = true
+		}
+		h.changed()
 	}
-	switch h.Status(s, local).Activity {
-	case Waiting, Answering, Background:
-		return true
-	}
-	return false
 }
 
 // Rename 给会话 s 改名（sessions.rename；核心里开着它的对话，标题由核心跟着改）。先显示 title 原样，核心答了换成它实际写下的
@@ -162,19 +167,22 @@ func (h *Hub) SetArchived(list []hostlink.Session, archived bool, failed func(er
 var ErrActive = errors.New("对话正在进行，结束后再删")
 
 // Delete 删掉 list 里的会话：会话记录连同 Claude Code 存在同名目录里的东西（核心顺手结束开着它的进程、关掉 tmux 里的窗口）。
-// 能不能删由核心定：正在进行的它不删，答 active，这边换成 ErrActive。列表里、新回答的标记马上去掉，删成了的聊天窗格开着时关掉；
-// 没删成的由重读那台的列表放回去，原因交给 failed（几个里有没删成的时包着第一个原因）。
+// 能不能删由核心定，这边不预先筛（docs/core.md「会话」的 sessions.delete）：正在进行的它不删，答 active，这边换成 ErrActive。
+// 列表里、新回答的标记马上去掉，删成了的聊天窗格开着时关掉；答 active 的核心没动，照原样放回列表；别的没删成的不知道删到哪一步，
+// 收尾时那几台各重订一次列表、拿整份对上。原因交给 failed（几个里有没删成的时包着第一个原因）。
 func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 	list = slices.DeleteFunc(slices.Clone(list), func(s hostlink.Session) bool { return s.ID == "" })
 	if len(list) == 0 {
 		return
 	}
+	restore := map[string]func(){}
 	for _, s := range list {
-		h.forget(s)
+		restore[Key(s)] = h.forget(s)
 	}
+	stale := map[string]bool{} // 要重订列表的设备
 	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
 		_, err := call(ctx, "sessions.delete", map[string]any{"session": s.ID})
-		switch replyCode(err) {
+		switch code, _ := hostlink.ReplyCode(err); code {
 		case sessionproto.CodeNoSession:
 			return nil // 已经不在了
 		case sessionproto.CodeActive:
@@ -183,12 +191,20 @@ func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 		return err
 	}, func(s hostlink.Session, err error) {
 		switch {
+		case errors.Is(err, ErrActive):
+			restore[Key(s)]()
 		case err != nil:
-			h.rewatch(s.Backend)
+			stale[s.Backend] = true
 		case h.chat != nil && h.showing(s.Backend, s.ID):
 			h.CloseChat()
 		}
-	}, failed)
+	}, func(err error) {
+		// 各个的结果都交过 settle 才到这里
+		for _, id := range slices.Sorted(maps.Keys(stale)) {
+			h.rewatch(id)
+		}
+		failed(err)
+	})
 }
 
 // each 在后台对 list 里的会话各做一次 do（见 fanOut），每个的结果交给主线程上的 settle，最后把没成的说成一个错误交给 failed。
@@ -257,17 +273,9 @@ type Exported struct {
 	Name, Content string
 }
 
-// export 是 sessions.export 的结果。
-type export struct {
-	Title    string   `json:"title"`
-	Markdown string   `json:"markdown"`
-	FileName string   `json:"file_name"` // 核心按 utc_offset 起的文件名
-	Exported []string `json:"exported"`  // 导出成的会话号
-}
-
-// Export 把 list 导出成 Markdown（照 Eta 的格式），交给主线程上的 done。同一台设备上的几个交给那台的核心按 list 的先后合成一份
-// （sessions.export 带 sessions），文件名用核心起的，时刻按 now 所在的时区（utc_offset）；几台设备的再在这边照同样的格式接起来
-// （按各台在 list 里第一次出现的先后），文件名写「N个对话」。导不出来的跳过，一个都没导出来时把原因交给 failed。
+// Export 把 list 导出成 Markdown（照 Eta 的格式），交给主线程上的 done。每台设备发一次 sessions.export（带 sessions），
+// 各台答来的各个会话的导出（parts）按 list 的先后排好，用 sessionproto.CombineExports 合成，文件名用 sessionproto.ExportFileName，
+// 时刻是 now（utc_offset 也照它的时区）。只选了一台、一个会话时也是这样。导不出来的跳过，一个都没导出来时把原因交给 failed。
 func (h *Hub) Export(list []hostlink.Session, now time.Time, done func(Exported), failed func(error)) {
 	if len(list) == 0 {
 		return
@@ -284,47 +292,44 @@ func (h *Hub) Export(list []hostlink.Session, now time.Time, done func(Exported)
 	calls := callers(heads, h.bulkCall)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
 		type result struct {
-			export
-			err error
+			parts []sessionproto.ExportPart
+			err   error
 		}
 		results := fanOut(heads, func(s hostlink.Session) (r result) {
 			raw, err := calls[s.Backend](ctx, "sessions.export", map[string]any{"sessions": ids[s.Backend], "utc_offset": offset / 60})
+			var answer struct {
+				Parts []sessionproto.ExportPart `json:"parts"`
+			}
 			if err == nil {
-				err = json.Unmarshal(raw, &r.export)
+				err = json.Unmarshal(raw, &answer)
 			}
-			r.err = err
-			return r
+			return result{answer.Parts, err}
 		})
-		var parts []export
+		got := map[string]sessionproto.ExportPart{} // Key → 那个会话的导出
 		var first error
-		for _, r := range results {
-			if r.err != nil {
-				first = cmp.Or(first, r.err)
-				continue
+		for i, r := range results {
+			first = cmp.Or(first, r.err)
+			for _, p := range r.parts {
+				got[Key(hostlink.Session{Backend: heads[i].Backend, ID: p.Session})] = p
 			}
-			parts = append(parts, r.export)
+		}
+		var parts []sessionproto.ExportPart
+		for _, s := range list {
+			if p, ok := got[Key(s)]; ok {
+				parts = append(parts, p)
+				delete(got, Key(s)) // 同一个只算一次
+			}
 		}
 		return func() {
 			if len(parts) == 0 {
-				failed(first)
+				failed(cmp.Or(first, error(errNothingExported)))
 				return
 			}
-			done(joinExports(parts, now))
+			title, markdown := sessionproto.CombineExports(parts)
+			done(Exported{Name: sessionproto.ExportFileName(title, now), Content: markdown})
 		}
 	})
 }
 
-// joinExports 把几台设备各自的导出接成一个文件，格式同核心合成同一台的几个（docs/core.md「会话」的 sessions.export）：
-// 各自去掉末尾空白、补一个换行，中间用分隔线隔开，文件名写「N个对话」（N 是一共导出成的个数），时刻是 now。只有一份时原样用它。
-func joinExports(parts []export, now time.Time) Exported {
-	if len(parts) == 1 {
-		return Exported{Name: parts[0].FileName, Content: parts[0].Markdown}
-	}
-	n := 0
-	texts := make([]string, len(parts))
-	for i, p := range parts {
-		n += len(p.Exported)
-		texts[i] = strings.TrimRight(p.Markdown, " \t\r\n") + "\n"
-	}
-	return Exported{Name: sessionproto.ExportFileName(fmt.Sprintf("%d个对话", n), now), Content: strings.Join(texts, "\n---\n\n")}
-}
+// errNothingExported：几台都答了，可一个会话都没导出来（不该发生：核心一个都导不出来时自己答出错）。
+var errNothingExported = errors.New("没有导出任何对话")

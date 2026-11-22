@@ -10,8 +10,8 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 )
 
-// userMessage 画用户发的一条消息，靠右：带的图（最多四张缩略图，只有一张时大些）、附带的文件和文字气泡。
-func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
+// userMessage 画用户发的一条消息（第 row 个条目），靠右：带的图（最多四张缩略图，只有一张时大些）、附带的文件和文字气泡。
+func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 	ui.Column(c).FillWidth().AlignItems(ui.End).Gap(6).Padding(16, 0, 6, 0).Children(func() {
 		if len(it.Images) > 0 {
 			size := float32(76)
@@ -40,7 +40,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 				c.Services().WriteClipboard(text)
 			}
 			if ch.UserMenu != nil {
-				ch.UserMenu(m, it)
+				ch.UserMenu(m, it, ch.laterThan(row))
 			}
 		})
 	})

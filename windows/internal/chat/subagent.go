@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"maps"
-	"slices"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
@@ -16,6 +14,8 @@ type Subagent struct {
 	Meta *SubagentMeta `json:"meta"`
 	// Outcome 是结局：completed、failed、stopped，还没结束时为空。
 	Outcome string `json:"outcome"`
+	// State 是核心给的查看页状态（sessionproto 的 Subagent*），还没推来时为空。
+	State string `json:"state"`
 	// Prompt 是交给它的任务。
 	Prompt   string `json:"prompt"`
 	ToolUses int    `json:"tool_uses"`
@@ -60,51 +60,15 @@ type SubagentMeta struct {
 	Background *bool `json:"background"`
 }
 
-// WatchSubagent 开始（watch 为真）或停止看着 Agent 调用 toolUseID 发起的子代理：看着时核心推来它的记录，用 Subagent 取。
-// 断线重连后重新打开对话时，看着的会重新看上。
-func (c *Conversation) WatchSubagent(ctx context.Context, toolUseID string, watch bool) error {
-	c.mu.Lock()
-	if c.subagents == nil {
-		c.subagents = map[string]*Subagent{}
-	}
-	if watch {
-		if c.subagents[toolUseID] == nil {
-			c.subagents[toolUseID] = &Subagent{}
-		}
-	} else {
-		delete(c.subagents, toolUseID)
-	}
-	c.mu.Unlock()
-	return c.call(ctx, "conv.subagent", map[string]any{"tool_use_id": toolUseID, "watch": watch})
-}
-
-// Subagent 是看着的子代理此刻的样子；没在看着时 ok 为假。
+// Subagent 是看着的子代理（SubagentTarget）此刻的样子，还没推来时是零值；没在看着时 ok 为假。
 func (c *Conversation) Subagent(toolUseID string) (s Subagent, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if p := c.subagents[toolUseID]; p != nil {
-		return *p, true
+	p, ok := watchedAs[Subagent](c, SubagentTarget(toolUseID))
+	if p != nil {
+		s = *p
 	}
-	return Subagent{}, false
-}
-
-// rewatch 在重新打开对话以后把看着的子代理、后台命令的输出重新看上（核心从整份推起）。
-func (c *Conversation) rewatch(ctx context.Context) {
-	c.mu.Lock()
-	agents, outputs := slices.Sorted(maps.Keys(c.subagents)), slices.Sorted(maps.Keys(c.outputs))
-	c.mu.Unlock()
-	for _, id := range agents {
-		params := map[string]any{"conv": c.name, "tool_use_id": id, "watch": true}
-		if _, err := c.client.link.Call(ctx, "conv.subagent", params); err != nil {
-			log.Printf("chat: %s 重新看子代理 %s 没成：%v", c.name, id, err)
-		}
-	}
-	for _, id := range outputs {
-		params := map[string]any{"conv": c.name, "task": id, "watch": true}
-		if _, err := c.client.link.Call(ctx, "conv.task_output", params); err != nil {
-			log.Printf("chat: %s 重新看后台任务 %s 的输出没成：%v", c.name, id, err)
-		}
-	}
+	return s, ok
 }
 
 // applySubagent 合并一条 conv.subagent 推送，有变化时返回 true。没在看着的子代理的推送不要。
@@ -120,9 +84,13 @@ func (c *Conversation) applySubagent(line []byte) bool {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	cur := c.subagents[msg.ToolUseID]
-	if cur == nil {
+	target := SubagentTarget(msg.ToolUseID)
+	cur, ok := watchedAs[Subagent](c, target)
+	if !ok {
 		return false
+	}
+	if cur == nil {
+		cur = &Subagent{}
 	}
 	list := msg.ItemsChange.Items
 	if !msg.Full {
@@ -133,7 +101,7 @@ func (c *Conversation) applySubagent(line []byte) bool {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), OpenTimeout)
 				defer cancel()
-				_ = c.call(ctx, "conv.subagent", map[string]any{"tool_use_id": msg.ToolUseID, "watch": true})
+				_ = c.call(ctx, target.Method, target.params(true))
 			}()
 			return false
 		}
@@ -146,6 +114,6 @@ func (c *Conversation) applySubagent(line []byte) bool {
 	}
 	next := msg.Subagent
 	next.Items, next.Rev, next.changes = list, cur.Rev+1, kept[max(0, len(kept)-keptChanges):]
-	*cur = next
+	c.watched[target] = &next
 	return true
 }

@@ -349,9 +349,7 @@ func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Se
 }
 
 // Key 是会话 s 在各台设备之间不重的键（多选、新回答的标记、搜索的命中都用它）：设备编号/会话号。
-func Key(s hostlink.Session) string { return key(s.Backend, s.ID) }
-
-func key(backend, session string) string { return backend + "/" + session }
+func Key(s hostlink.Session) string { return s.Backend + "/" + s.ID }
 
 // Probe、ConfigHosts、Keys 见 Devices；在后台 goroutine 上调用。
 func (h *Hub) Probe(target, expected, key string) (host.Found, error) {

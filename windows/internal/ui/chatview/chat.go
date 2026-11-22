@@ -54,18 +54,23 @@ type Chat struct {
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
 	Top float32
 	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项（用户消息的 RoundLast）下面的操作排、
-	// 正在编辑的那条。Actions 拿到这一轮的用户消息，last 是它是最后一轮。
-	UserMenu func(m *ui.Menu, it items.Item)
-	Actions  func(c *ui.Context, user items.Item, last bool)
+	// 正在编辑的那条。都拿到这一轮的用户消息和之后还有几轮（later，0 是最后一轮）。
+	UserMenu func(m *ui.Menu, user items.Item, later int)
+	Actions  func(c *ui.Context, user items.Item, later int)
 	Editing  string
-	// Row 给了时每一行经它画：draw 画这一行本来的内容，它可以在前后加东西、给内容套外框，和条目一起滚动
-	// （子代理页在第一行上面画概要、把条目装进一张卡片）。没给时直接画。
-	Row func(c *ui.Context, row int, draw func())
+	// Header 画在第一条上面，和条目一起滚动（没有条目时也画）；「更早的记录」画在它下面。Footer 画在最后一条下面。
+	// Framed：条目连成一张卡片，只有第一段画上面的圆角、最后一段画下面的圆角（Footer 也在卡片里）。
+	// Width 是内容最宽多少，没设时是 contentWidth。子代理页用它们在步骤上面画概要、把步骤装进卡片。
+	Header, Footer func(c *ui.Context)
+	Framed         bool
+	Width          float32
 
 	items []items.Item
-	// rev 是条目的版本：SetItems、Splice 一次加一（Rev）。
-	rev  int
-	list ui.ListState
+	// users 是各条用户消息的下标，按先后；rounds 是各轮操作排挂在哪一项下面（用户消息的 RoundLast → 它在 users 里是第几条）。
+	// 条目一换就重算（indexRounds），画的时候不再往前往后找。
+	users  []int
+	rounds map[string]int
+	list   ui.ListState
 	// answer、thinking 是回答和思考的 Markdown 设置；thinkingTheme 是思考用的淡色字。
 	answer, thinking           markdown.Options
 	answerTheme, thinkingTheme markdown.Theme
@@ -87,7 +92,7 @@ const loadAhead = 3
 // New 返回一个空的聊天列表：一打开就在底部，跟着新内容走。每个对话用一个，换对话时换一个新的
 // （列表的位置、折叠卡的展开与否、取过的图都跟着对话走）。
 func New() *Chat {
-	ch := &Chat{open: map[string]*bool{}, changes: map[string]*changeView{}}
+	ch := &Chat{open: map[string]*bool{}, changes: map[string]*changeView{}, rounds: map[string]int{}}
 	ch.list.FollowEnd = true
 	ch.list.FollowAnimation = &ui.Smooth
 	ch.list.Key = func(row int) any { return ch.items[row].ID }
@@ -114,13 +119,10 @@ func (ch *Chat) markdownImage(url string) (ui.ImageSource, error) {
 // Items 返回现在显示的条目。
 func (ch *Chat) Items() []items.Item { return ch.items }
 
-// Rev 是条目的版本，条目每换一次（SetItems、Splice）加一：调用方按它的变化决定要不要重算由条目推出来的东西。
-func (ch *Chat) Rev() int { return ch.rev }
-
 // SetItems 整份换掉条目（打开会话、重新取了一份时）。折叠卡展开与否按 id 留着。
 func (ch *Chat) SetItems(list []items.Item) {
 	ch.items = list
-	ch.rev++
+	ch.indexRounds()
 	ch.find.dirty = true
 	clear(ch.changes)
 }
@@ -140,7 +142,7 @@ func (ch *Chat) Splice(at, remove int, add []items.Item) error {
 	}
 	ch.find.dirty = true
 	ch.items = next
-	ch.rev++
+	ch.indexRounds()
 	return nil
 }
 
@@ -182,29 +184,15 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 		if ch.paging.built(row) && ch.Earlier.idle() {
 			c.Invalidate()
 		}
-		e := ui.Column(c).FillWidth().MaxWidth(contentWidth).AlignSelf(ui.Center)
+		e := ch.column(c)
 		if row == 0 {
 			top = e.Bounds().Y
 		}
-		draw := func() {
-			// 「更早的记录」画在第一条的上面、同一行里，不单占一行：列表按看得见的第一行记位置，
-			// 它要是单占一行，翻到最顶上时就是它，接上的一页会把正看着的那条往下推走
-			if row == 0 && ch.Earlier.shown() {
-				ch.earlierRow(c)
-			}
-			ch.item(c, row)
-		}
-		e.Children(func() {
-			if ch.Row != nil {
-				ch.Row(c, row, draw)
-			} else {
-				draw()
-			}
-		})
+		e.Children(func() { ch.row(c, row, rows) })
 	})
 	list.Children(func() {
-		if len(ch.items) == 0 && ch.Earlier.shown() {
-			ui.Column(c).FillWidth().Children(func() { ch.earlierRow(c) })
+		if rows == 0 && (ch.Header != nil || ch.Earlier.shown()) {
+			ch.column(c).Children(func() { ch.header(c) })
 		}
 	})
 	first, last := ch.list.Visible()
@@ -276,7 +264,7 @@ func (ch *Chat) item(c *ui.Context, row int) {
 	it := ch.items[row]
 	switch it.Kind {
 	case items.User:
-		ch.userMessage(c, it)
+		ch.userMessage(c, it, row)
 	case items.Answer:
 		ch.answerBlock(c, it, row)
 	case items.Notice:

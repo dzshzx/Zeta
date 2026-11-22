@@ -70,7 +70,7 @@ func (h *Hub) activityReceived(id string, sessions map[string]hostlink.Activity)
 	before := h.activity[id]
 	for session, now := range sessions {
 		if was, ok := before[session]; ok && now.TurnEnd > was.TurnEnd && !h.showing(id, session) {
-			h.unread[key(id, session)] = true
+			h.unread[Key(hostlink.Session{Backend: id, ID: session})] = true
 		}
 	}
 	h.activity[id] = sessions

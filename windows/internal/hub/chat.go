@@ -149,7 +149,7 @@ func (h *Hub) closeConv(conv *chat.Conversation) {
 	})
 }
 
-// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 交给 greeted，
+// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 补上主机名（setHostname），
 // 连上时经 run 在后台让打开过的对话重新打开（Call 的应答要靠读的那个 goroutine 送回来，不能就地等），
 // 界面要重画的经 post 回主线程。
 func (h *Hub) chatConn(id string) *chatConn {
@@ -164,7 +164,7 @@ func (h *Hub) chatConn(id string) *chatConn {
 		func(hello hostlink.Hello) {
 			h.post(func() {
 				if h.conns[id] == c {
-					h.greeted(id, hello)
+					h.setHostname(id, hello.Hostname)
 				}
 			})
 		},

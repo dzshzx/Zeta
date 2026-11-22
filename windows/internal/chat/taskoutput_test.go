@@ -17,7 +17,7 @@ func TestTaskOutputWatchAndPushes(t *testing.T) {
 	if _, ok := conv.TaskOutput("t1"); ok || *notified != 0 {
 		t.Fatal("没看着的输出也收下了")
 	}
-	if err := conv.WatchTaskOutput(ctx, "t1", true); err != nil {
+	if err := conv.Watch(ctx, OutputTarget("t1"), true); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := conv.TaskOutput("t1"); ok {
@@ -37,7 +37,7 @@ func TestTaskOutputWatchAndPushes(t *testing.T) {
 	if err := client.Reconnected(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := conv.WatchTaskOutput(ctx, "t1", false); err != nil {
+	if err := conv.Watch(ctx, OutputTarget("t1"), false); err != nil {
 		t.Fatal(err)
 	}
 	var got []call
@@ -56,5 +56,36 @@ func TestTaskOutputWatchAndPushes(t *testing.T) {
 	}
 	if _, ok := conv.TaskOutput("t1"); ok {
 		t.Fatal("不看了还留着输出")
+	}
+}
+
+// 子代理和后台输出记在同一个集合里：重连后每样各重新看一次，看了两次的也只一次；停了的不再看。
+func TestRewatchSendsEachTargetOnce(t *testing.T) {
+	link, client, conv, _ := opened(t)
+	ctx := context.Background()
+	for _, target := range []Target{OutputTarget("t1"), SubagentTarget("toolu_1"), OutputTarget("t1"), OutputTarget("t2")} {
+		if err := conv.Watch(ctx, target, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := conv.Watch(ctx, OutputTarget("t2"), false); err != nil {
+		t.Fatal(err)
+	}
+	link.took()
+	client.Disconnected()
+	if err := client.Reconnected(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want := []call{
+		{"conv.open", ""},
+		{"conv.subagent", `{"conv":"w1","tool_use_id":"toolu_1","watch":true}`},
+		{"conv.task_output", `{"conv":"w1","task":"t1","watch":true}`},
+	}
+	got := link.took()
+	if len(got) > 0 && got[0].method == "conv.open" {
+		got[0].params = ""
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("重连后：\n%v\n要的是\n%v", got, want)
 	}
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,7 +23,7 @@ const agentLog = `{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","
   {"kind":"tool","id":"toolu_n1","name":"Agent","status":"running","input":{"description":"细看 server.go","prompt":"读 server.go"}}]},
  {"kind":"answer","id":"s2","text":"找到 config.go 和 main.go 两处，server.go 交给另一个子代理细看。"}],
  "meta":{"agent_id":"ag1","agent_type":"Explore","description":"查找读配置的地方","model":"claude-haiku-4-5","finished":false,"stopped":false,"background":false},
- "prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":2,"running":true,"loaded":true,"missing":false,"file":"/home/box/.claude/a.jsonl","skipped":0}`
+ "prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":2,"running":true,"loaded":true,"missing":false,"file":"/home/box/.claude/a.jsonl","skipped":0,"state":"running"}`
 
 func TestSubagentPageFromTheChat(t *testing.T) {
 	f := newChatFixture(t)
@@ -41,7 +42,7 @@ func TestSubagentPageFromTheChat(t *testing.T) {
 	// 记录还没读到：核心先用发起它的 Agent 调用的参数填上说明、类型、指令
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"items":[],
 		"meta":{"agent_id":"","agent_type":"Explore","description":"查找读配置的地方","model":"","finished":false,"stopped":false,"background":null},
-		"prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0}`)
+		"prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0,"state":"loading"}`)
 	f.tt.Frame()
 	f.see(t, "查找读配置的地方", "正在读取", "子代理类型 Explore", "交给它的指令", "正在读取…")
 	f.link().Push(agentLog)
@@ -56,7 +57,7 @@ func TestSubagentPageFromTheChat(t *testing.T) {
 	}
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_n1","full":true,"items":[],
 		"meta":{"agent_id":"","agent_type":"","description":"细看 server.go","model":"","finished":false,"stopped":false,"background":null},
-		"prompt":"读 server.go","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0}`)
+		"prompt":"读 server.go","tool_uses":0,"running":false,"loaded":false,"missing":false,"file":"","skipped":0,"state":"loading"}`)
 	f.tt.Frame()
 	f.see(t, "细看 server.go", "读 server.go")
 	f.click(t, "返回")
@@ -67,7 +68,7 @@ func TestSubagentPageFromTheChat(t *testing.T) {
 
 	// 做完了：增量只换状态
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","at":0,"remove":0,"items":[],"meta":null,
-		"prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":3,"running":false,"loaded":true,"outcome":"completed","file":"x","skipped":4}`)
+		"prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":3,"running":false,"loaded":true,"outcome":"completed","file":"x","skipped":4,"state":"completed"}`)
 	f.tt.Frame()
 	f.see(t, "已完成", "步骤 · 更早的 4 条记录未载入")
 	f.notSee(t, "正在工作")
@@ -90,7 +91,7 @@ func TestSubagentPageFromATask(t *testing.T) {
 	}
 	// 发起它的那一步不在载入的聊天里、记录也还没有：说明和指令取自它的 meta
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"items":[],"meta":null,"prompt":"",
-		"tool_uses":0,"running":false,"loaded":false,"missing":true,"file":"","skipped":0}`)
+		"tool_uses":0,"running":false,"loaded":true,"missing":true,"file":"","skipped":0,"state":"missing"}`)
 	f.tt.Frame()
 	f.see(t, "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了")
 	f.click(t, "返回")
@@ -106,19 +107,15 @@ func TestSubagentPageSplicesPushes(t *testing.T) {
 	f.link().Push(agentLog)
 	f.tt.Frame()
 	v := f.app.pane.pages.stack[0].agent
-	rev := v.list.Rev()
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","at":2,"remove":0,"items":[{"kind":"answer","id":"s3","text":"再看 server.go。"}],
-		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0}`)
+		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0,"state":"running"}`)
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","at":3,"remove":0,"items":[{"kind":"answer","id":"s4","text":"看完了。"}],
-		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0}`)
+		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0,"state":"running"}`)
 	f.tt.Frame()
 	f.see(t, "再看 server.go。", "看完了。")
-	if got := v.list.Rev() - rev; got != 2 {
-		t.Fatalf("两段增量套了 %d 次", got)
-	}
 	s, _ := f.app.pane.src.Conv.Subagent("toolu_a1")
-	if len(v.list.Items()) != len(s.Items) || v.rev != s.Rev {
-		t.Fatalf("列表 %d 条、第 %d 版，协议层 %d 条、第 %d 版", len(v.list.Items()), v.rev, len(s.Items), s.Rev)
+	if !reflect.DeepEqual(v.list.Items(), s.Items) || len(s.Items) != 4 || v.rev != s.Rev {
+		t.Fatalf("列表 %+v（第 %d 版），协议层 %+v（第 %d 版）", v.list.Items(), v.rev, s.Items, s.Rev)
 	}
 }
 
@@ -135,23 +132,33 @@ func TestSubagentPromptExpands(t *testing.T) {
 	f.see(t, "展开指令")
 }
 
+// 子代理的状态由核心定（conv.subagent 的 state），这边只换成文案；还没推来时是正在读取。没有步骤时的说明也照它说。
 func TestSubagentStateText(t *testing.T) {
 	for _, c := range []struct {
-		s    chat.Subagent
-		want string
-		tone tone
+		state, want, empty string
+		tone               tone
 	}{
-		{chat.Subagent{}, "正在读取", toneQuiet},
-		{chat.Subagent{Running: true}, "运行中", toneRunning},
-		{chat.Subagent{Loaded: true, Outcome: "completed"}, "已完成", toneDone},
-		{chat.Subagent{Loaded: true, Outcome: "failed"}, "失败", toneFailed},
-		{chat.Subagent{Loaded: true, Outcome: "stopped"}, "已停止", toneQuiet},
-		{chat.Subagent{Loaded: true}, "未做完", toneQuiet},
-		{chat.Subagent{Running: true, Outcome: "completed"}, "运行中", toneRunning},
+		{"", "正在读取", "正在读取…", toneQuiet},
+		{"loading", "正在读取", "正在读取…", toneQuiet},
+		{"read_failed", "读取失败", "读不了", toneQuiet},
+		{"missing", "没有记录", "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了", toneQuiet},
+		{"running", "运行中", "还没有步骤", toneRunning},
+		{"completed", "已完成", "还没有步骤", toneDone},
+		{"failed", "失败", "还没有步骤", toneFailed},
+		{"stopped", "已停止", "还没有步骤", toneQuiet},
+		{"unfinished", "未做完", "还没有步骤", toneQuiet},
 	} {
-		if got, tone := subagentState(c.s); got != c.want || tone != c.tone {
-			t.Errorf("subagentState(%+v) = %q %d，应为 %q %d", c.s, got, tone, c.want, c.tone)
+		// 别的字段故意和 state 对不上：只看 state
+		s := chat.Subagent{State: c.state, Failure: "读不了", Running: c.state != "running", Loaded: c.state == "loading", Outcome: "completed"}
+		if got, tone := subagentState(s); got != c.want || tone != c.tone {
+			t.Errorf("subagentState(%q) = %q %d，应为 %q %d", c.state, got, tone, c.want, c.tone)
 		}
+		if got := noStepsText(s, ""); got != c.empty {
+			t.Errorf("noStepsText(%q) = %q，应为 %q", c.state, got, c.empty)
+		}
+	}
+	if got := noStepsText(chat.Subagent{State: "missing"}, "断了"); got != "没看上：断了" {
+		t.Errorf("没看上：%q", got)
 	}
 }
 
@@ -200,7 +207,7 @@ func longAgentLog(n int) string {
 	}
 	return `{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"at":0,"remove":0,"items":[` + strings.Join(list, ",") + `],
  "meta":{"agent_id":"ag1","agent_type":"Explore","description":"查找读配置的地方","model":"claude-haiku-4-5","finished":false,"stopped":false,"background":false},
- "prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":` + strconv.Itoa(2*n) + `,"running":true,"loaded":true,"missing":false,"file":"x","skipped":0}`
+ "prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":` + strconv.Itoa(2*n) + `,"running":true,"loaded":true,"missing":false,"file":"x","skipped":0,"state":"running"}`
 }
 
 // openSubagentWith 在聊天里点进子代理页，推来记录 log，等列表跟到底部的动画走完。

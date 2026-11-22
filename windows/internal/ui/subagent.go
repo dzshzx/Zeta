@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -33,22 +34,12 @@ func (a *App) openSubagent(p *chatPane, toolUseID string) {
 	v.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
 	v.list.ExpandWork = true
+	// 内容最宽同设置页，步骤连成一张卡片
+	v.list.Width, v.list.Framed = coui.PageWidth, true
 	p.pages.stack = append(p.pages.stack, subpage{agent: v})
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.WatchSubagent(ctx, toolUseID, true)
+		return conv.Watch(ctx, chat.SubagentTarget(toolUseID), true)
 	}, func(err error) { v.failed = err.Error() })
-}
-
-// unwatchSubagent 离开子代理页：下面的页里没有看着同一个的，就不再看着它。
-func (a *App) unwatchSubagent(p *chatPane, v *subagentView) {
-	for _, s := range p.pages.stack {
-		if s.agent != nil && s.agent.toolUseID == v.toolUseID {
-			return
-		}
-	}
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.WatchSubagent(ctx, v.toolUseID, false)
-	}, nil)
 }
 
 // follow 把列表跟到子代理 s 这一版：照协议层收到的增量一段段换（文件改动的对比只丢换掉的那几步），
@@ -69,32 +60,34 @@ func (v *subagentView) follow(s chat.Subagent) {
 	v.rev = s.Rev
 }
 
-// subagentState 是子代理的状态，照任务的状态说（taskState）：在跑优先；还没读到记录时是「正在读取」；
-// 不在跑又不知道结局的，是进程没等它做完就没了。
+// subagentState 是概要卡片上的状态：核心给的结论（conv.subagent 的 state）换成文案，在跑和结局照任务的说法（taskState）。
+// 还没推来时是正在读取。
 func subagentState(s chat.Subagent) (string, tone) {
-	switch {
-	case s.Running:
+	switch s.State {
+	case sessionproto.SubagentRunning:
 		return taskState(tasks.StateRunning, false)
-	case !s.Loaded:
-		return "正在读取", toneQuiet
+	case sessionproto.SubagentCompleted, sessionproto.SubagentFailed, sessionproto.SubagentStopped:
+		return taskState(tasks.State(s.State), false)
+	case sessionproto.SubagentReadFailed:
+		return "读取失败", toneQuiet
+	case sessionproto.SubagentMissing:
+		return "没有记录", toneQuiet
+	case sessionproto.SubagentUnfinished:
+		return "未做完", toneQuiet
 	}
-	switch outcome := tasks.State(s.Outcome); outcome {
-	case tasks.StateCompleted, tasks.StateFailed, tasks.StateStopped:
-		return taskState(outcome, false)
-	}
-	return "未做完", toneQuiet
+	return "正在读取", toneQuiet
 }
 
-// noStepsText 是一步都还没有时的说明。
+// noStepsText 是一步都还没有、又不在跑时的说明：failed 是这边没看上的原因，别的照核心给的状态说。
 func noStepsText(s chat.Subagent, failed string) string {
 	switch {
 	case failed != "":
 		return "没看上：" + failed
-	case s.Missing:
+	case s.State == sessionproto.SubagentMissing:
 		return "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
-	case !s.Loaded && s.Failure != "":
+	case s.State == sessionproto.SubagentReadFailed:
 		return s.Failure
-	case !s.Loaded:
+	case s.State == sessionproto.SubagentLoading, s.State == "":
 		return "正在读取…"
 	}
 	return "还没有步骤"
@@ -102,7 +95,7 @@ func noStepsText(s chat.Subagent, failed string) string {
 
 // subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
 // 和聊天里的条目一样画，装在一张白色卡片里，卡片跟着步骤的多少长；运行中最后一行在转。整页一起滚动（同手机版）：
-// 有步骤时概要和指令画在聊天列表的第一行上面，还没有步骤时是一页普通的滚动内容。
+// 概要和指令是聊天列表的头部（Header），还没有步骤时头部下面是说明卡片。
 func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	var s chat.Subagent
 	if p.src.Conv != nil {
@@ -112,39 +105,19 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 		v.follow(s)
 	}
 	coui.Header(c, "子代理", func() { a.back(p) })
-	n := len(v.list.Items())
-	if n == 0 {
-		// 和聊天列表留一样的边：上 12、下 20、两边 24
-		ui.Scroll(c.Key("subagent/page")).Grow(1).MinHeight(0).Children(func() {
-			ui.Column(c).FillWidth().Padding(12, 24, 20, 24).Children(func() {
-				subagentColumn(c).Children(func() {
-					subagentHead(c, v, s)
-					noSteps(c, v, s)
-				})
-			})
-		})
-		return
+	// 每一帧照这一版的 s 重设
+	l := v.list
+	l.Header = func(c *ui.Context) {
+		subagentHead(c, v, s)
+		if len(l.Items()) == 0 {
+			noSteps(c, v, s)
+		}
 	}
-	// 每一帧照这一版的 s 重设：第一行上面是概要，每一行是步骤卡片的一段
-	v.list.Row = func(c *ui.Context, row int, draw func()) {
-		subagentColumn(c).Children(func() {
-			if row == 0 {
-				subagentHead(c, v, s)
-			}
-			stepSegment(c, row == 0, row == n-1, func() {
-				draw()
-				if row == n-1 && s.Running {
-					working(c).Padding(10, 0, 14, 0)
-				}
-			})
-		})
+	l.Footer = nil
+	if s.State == sessionproto.SubagentRunning {
+		l.Footer = func(c *ui.Context) { working(c).Padding(10, 0, 14, 0) }
 	}
-	v.list.View(c).Grow(1).MinHeight(0)
-}
-
-// subagentColumn 是子代理页内容的那一列：居中，最宽同设置页。
-func subagentColumn(c *ui.Context) ui.Element {
-	return ui.Column(c).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center)
+	l.View(c).Grow(1).MinHeight(0)
 }
 
 // subagentHead 是步骤上面的部分：概要、交给它的指令和「步骤」这个分组标题。
@@ -214,31 +187,12 @@ func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 	})
 }
 
-// stepSegment 是步骤卡片里一行的那一段：白底，只有第一段画上面的圆角、最后一段画下面的圆角，几段连成一张卡片。
-// 卡片里边上 12、下 16、两边 24（同原先列表在卡片里的边）。
-func stepSegment(c *ui.Context, first, last bool, draw func()) {
-	shape := coui.ShapeCard
-	var top, bottom float32
-	if first {
-		top = 12
-	} else {
-		shape.Radii[0], shape.Radii[1] = 0, 0
-	}
-	if last {
-		bottom = 16
-	} else {
-		shape.Radii[2], shape.Radii[3] = 0, 0
-	}
-	card := coui.Surface{Shape: shape, Fill: coui.Of(c).Card}.Paint(ui.Column(c)).Margin(0, 16).Clip()
-	card.Padding(top, 24, bottom, 24).Children(draw)
-}
-
 // noSteps 是一步都还没有时的卡片：在跑时是「正在工作」，不然说明为什么没有。
 func noSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
 	k := coui.Of(c)
 	card := coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16)
 	card.Children(func() {
-		if s.Running {
+		if s.State == sessionproto.SubagentRunning {
 			working(c).Padding(14, 24)
 			return
 		}

@@ -10,14 +10,14 @@ import (
 	"errors"
 )
 
-// Caller 向一台主机上的 serve 发一个请求：params 的各个键和 id、method 平级放进请求那一行，返回 reply 的 result 原文。
-// serve 回 ok:false 时 err 的 Error() 是它的 error；reply 带 code 时 err 还要有方法 Code() string 返回它。
-// 由 internal/host 实现；阻塞，ctx 到期时放弃。
 // Loop 是界面线程的两头：Run 把要等主机的事放到后台，Post 把函数交回界面线程跑。测试里可以都就地执行。
 type Loop struct {
 	Run, Post func(func())
 }
 
+// Caller 向一台主机上的 serve 发一个请求：params 的各个键和 id、method 平级放进请求那一行，返回 reply 的 result 原文。
+// serve 回 ok:false 时 err 的 Error() 是它的 error；reply 带 code 时 err 还要有方法 Code() string 返回它（hostlink.ReplyCode 认得出）。
+// 由 internal/host 实现；阻塞，ctx 到期时放弃。
 type Caller interface {
 	Call(ctx context.Context, method string, params any) (json.RawMessage, error)
 }
@@ -47,6 +47,3 @@ type UsageSource interface {
 
 // ErrNoProcess 是 UsageSource 在那台上没有开着的 Claude Code 进程可借时返回的：Quota 这时只读主机上存着的数。
 var ErrNoProcess = errors.New("没有开着的 Claude Code 进程")
-
-// coded 是带 code 的 serve 出错（见 Caller）。
-type coded interface{ Code() string }

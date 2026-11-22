@@ -16,7 +16,7 @@ const (
 	keyHosts        = "remoteHosts"    // 设备清单（JSON 数组的字符串，见 sshlink.EncodeHosts）
 	keyBackend      = "backend"        // 侧栏正看着哪台设备
 	keyPaneAll      = "paneAll"        // 侧栏列全部设备的会话
-	keyPins         = "pinnedSessions" // 置顶的会话（PinKey）
+	keyPins         = "pinnedSessions" // 从前置顶的会话（PinKey），只剩迁到核心用，删的时机见 hub/pins.go
 	keyRemoteClaude = "remoteClaude"   // 各台设备的自动压缩、自动标题（「设备编号/项=值」）
 )
 
@@ -63,26 +63,18 @@ func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 	for _, h := range hosts {
 		kept[h.ID] = true
 	}
-	return s.forgetHosts(kept)
-}
-
-// forgetHosts 去掉不在 kept 里的设备在各项里的记录。
-func (s *Settings) forgetHosts(kept map[string]bool) error {
-	if entries, ok := s.store.Strings(keyRemoteClaude); ok {
-		var left []string
-		for _, entry := range entries {
-			name, _, _ := strings.Cut(entry, "=")
-			if kept[hostOf(name)] {
-				left = append(left, entry)
-			}
-		}
-		if len(left) != len(entries) {
-			if err := s.store.SetStrings(keyRemoteClaude, left); err != nil {
-				return err
-			}
+	entries, _ := s.store.Strings(keyRemoteClaude)
+	var left []string
+	for _, entry := range entries {
+		name, _, _ := strings.Cut(entry, "=")
+		if kept[hostOf(name)] {
+			left = append(left, entry)
 		}
 	}
-	return nil
+	if len(left) == len(entries) {
+		return nil
+	}
+	return s.store.SetStrings(keyRemoteClaude, left)
 }
 
 // Backend 是侧栏正看着的设备编号；没存过是 Local。

@@ -46,19 +46,10 @@ func (c Call) Conv() string { s, _ := c.Params["conv"].(string); return s }
 // Str 是参数 key 的字符串值。
 func (c Call) Str(key string) string { s, _ := c.Params[key].(string); return s }
 
-// Strs 是参数 key 的字符串列表（[]string，或解过 JSON 的 []any）；没有时是 nil。
+// Strs 是参数 key 的字符串列表（客户端给的 []string）；没有时是 nil。
 func (c Call) Strs(key string) []string {
-	switch v := c.Params[key].(type) {
-	case []string:
-		return v
-	case []any:
-		out := make([]string, len(v))
-		for i, x := range v {
-			out[i], _ = x.(string)
-		}
-		return out
-	}
-	return nil
+	v, _ := c.Params[key].([]string)
+	return v
 }
 
 // JSON 是参数的 JSON，键按字母排好。

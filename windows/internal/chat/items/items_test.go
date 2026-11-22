@@ -162,6 +162,7 @@ func TestImageCacheKey(t *testing.T) {
 	}
 }
 
+// 用户条目上核心算好的这一轮能做什么照原样解出来。
 func TestRounds(t *testing.T) {
 	list, err := Decode([]byte(`[{"kind":"notice","id":"n0"},
 		{"kind":"user","id":"u1","uuid":"x1","rewindable":true,"round_last":"a1"},{"kind":"work","id":"w1"},{"kind":"answer","id":"a1"},
@@ -173,15 +174,7 @@ func TestRounds(t *testing.T) {
 	if u := list[1]; !u.Rewindable || u.Forkable || u.RoundLast != "a1" {
 		t.Fatalf("第一轮：%+v", u)
 	}
-	for i, want := range []int{-1, 1, 1, 1, 4, 4, 6} {
-		if got := RoundOf(list, i); got != want {
-			t.Errorf("第 %d 项在第 %d 项开始的那一轮，应为 %d", i, got, want)
-		}
-	}
-	if LaterRounds(list, 1) != 2 || LaterRounds(list, 4) != 1 || LaterRounds(list, 6) != 0 {
-		t.Error("之后几轮数错了")
-	}
-	if LastRound(list, 3) || !LastRound(list, 6) {
-		t.Error("最后一轮认错了")
+	if u := list[4]; u.Rewindable || !u.Forkable || u.RoundLast != "e2" {
+		t.Fatalf("第二轮：%+v", u)
 	}
 }

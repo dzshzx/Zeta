@@ -2,6 +2,8 @@ package chat
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
@@ -47,7 +49,7 @@ type State struct {
 	// Commands 是斜杠命令：Claude Code 报的，还没起进程时是核心记着的这个工作目录（或这台主机）上次那份；内部命令已滤掉。
 	Commands []Command `json:"commands"`
 	// Todos 是 Claude 当前的任务清单（核心归并好的），没有时为空。
-	Todos TodoList `json:"todos"`
+	Todos []sessionproto.Todo `json:"todos"`
 	// Occupant 是会话被别处占着（Blocked）时那个进程的样子，核心盯着、变了才推；不占着或还没查到时为 nil。
 	Occupant *sessionproto.Occupancy `json:"occupant"`
 	// Key 是这个对话在核心里的标识：还没有会话号的分支断线重连时按它重新打开。
@@ -77,13 +79,35 @@ type Mode struct {
 	Process string `json:"process"`
 }
 
-func decodeState(fields map[string]json.RawMessage) (State, error) {
-	b, err := json.Marshal(fields)
-	if err != nil {
-		return State{}, err
+// stateFields 是 State 各字段的 json 名 → 字段下标（applyState 清掉增量里出现的字段用）。
+var stateFields = func() map[string]int {
+	t := reflect.TypeFor[State]()
+	m := make(map[string]int, t.NumField())
+	for i := range t.NumField() {
+		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
+		m[name] = i
 	}
-	var s State
-	err = json.Unmarshal(b, &s)
+	return m
+}()
+
+// applyState 把一条 conv.state 推送 line 合到 s 上，返回新的一份：full 时从零值解，否则先把增量里出现的字段清成零值
+// （切片、指针、结构体都换成新解出来的，不往旧的里面写：旧的那份界面可能还拿着），再只解这一行。
+func applyState(s State, line []byte, full bool) (State, error) {
+	if full {
+		s = State{}
+	} else {
+		var present map[string]json.RawMessage
+		if err := json.Unmarshal(line, &present); err != nil {
+			return State{}, err
+		}
+		v := reflect.ValueOf(&s).Elem()
+		for name := range present {
+			if i, ok := stateFields[name]; ok {
+				v.Field(i).SetZero()
+			}
+		}
+	}
+	err := json.Unmarshal(line, &s)
 	return s, err
 }
 

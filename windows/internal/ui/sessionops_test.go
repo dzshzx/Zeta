@@ -12,6 +12,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/egoist/mygo"
 )
 
@@ -92,18 +93,9 @@ func TestDeleteAsksFirst(t *testing.T) {
 		t.Errorf("发出 %q", got)
 	}
 
-	// 知道正在进行的：删除置灰
-	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s2": {State: "answering"}})
-	f.tt.Frame()
-	if err := f.tt.RightClick("看看日志"); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.tt.ChooseMenuItem("删除"); err == nil {
-		t.Error("正在进行的删除没置灰")
-	}
-	f.tt.CloseMenu()
-	// 这边不知道、核心说正在进行的：没删，说一声
-	f.devices.SessionErrs = map[string]error{"s1": hostlink.NewReplyError("对话正在进行，结束后再删", sessionproto.CodeActive)}
+	// 正在进行的也不置灰，交给核心：它说正在进行的没删，放回列表，说一声
+	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
+	f.devices.ErrBySession = map[string]error{"s1": hubtest.Refuse("对话正在进行，结束后再删", sessionproto.CodeActive)}
 	f.menu(t, "修登录页", "删除")
 	f.clickNamed(t, "删除", 0)
 	f.tt.Frame()
@@ -111,6 +103,8 @@ func TestDeleteAsksFirst(t *testing.T) {
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.delete {"session":"s1"}`) {
 		t.Errorf("发出 %q", got)
 	}
+	f.click(t, "好")
+	f.see(t, "修登录页")
 }
 
 func TestMultiSelect(t *testing.T) {
@@ -128,7 +122,7 @@ func TestMultiSelect(t *testing.T) {
 	f.click(t, "全选")
 	f.see(t, "已选 3 个", "全不选")
 	// 删除：这边不筛，都交给核心；它说正在进行的（等确认的 s1）没删，说一声，其余照删
-	f.devices.SessionErrs = map[string]error{"s1": hostlink.NewReplyError("对话正在进行，结束后再删", sessionproto.CodeActive)}
+	f.devices.ErrBySession = map[string]error{"s1": hubtest.Refuse("对话正在进行，结束后再删", sessionproto.CodeActive)}
 	f.clickNamed(t, "删除", 0)
 	f.see(t, "删除 3 个对话？")
 	f.clickNamed(t, "删除", 0) // 对话框开着时只有它的按钮
@@ -140,21 +134,16 @@ func TestMultiSelect(t *testing.T) {
 	}
 	f.see(t, "这个对话正在进行", "1 个没成功：对话正在进行，结束后再删")
 	f.click(t, "好")
-	// 核心推来的列表里它还在（没删成时重读了那台的列表）
-	f.devices.Push(f.id, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
-		{ID: "s1", File: "/home/box/.claude/projects/-w/s1.jsonl", Title: "修登录页", Cwd: "/home/box/web", Updated: at(14)},
-	}})
-	f.tt.Frame()
+	// 核心没删的照原样放回列表
 	f.see(t, "修登录页", "搜索对话")
 	f.notSee(t, "看看日志", "部署脚本", "已选")
 
-	f.devices.SessionErrs = nil
-	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "waiting"}}) // 重读列表时忙闲重来
+	f.devices.ErrBySession = nil
 	// 批量归档后退出多选
 	f.menu(t, "修登录页", "选择")
-	f.clickNamed(t, "删除", 0) // 选中的都在进行：删除置灰
-	f.tt.Frame()
-	f.notSee(t, "删除 1 个对话？")
+	f.clickNamed(t, "删除", 0) // 选中的都在进行也不置灰
+	f.see(t, "删除 1 个对话？")
+	f.clickNamed(t, "取消", 0)
 	f.click(t, "归档")
 	f.tt.Frame()
 	f.notSee(t, "修登录页", "已选")

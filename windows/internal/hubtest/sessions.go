@@ -3,7 +3,6 @@ package hubtest
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -22,7 +21,7 @@ func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
 	d.sessions = append(d.sessions, host+" "+c.Method+" "+c.JSON())
 	err, hook := d.SessionsErr[c.Method], d.OnSessions
 	if err == nil {
-		err = d.SessionErrs[c.Str("session")]
+		err = d.ErrBySession[c.Str("session")]
 	}
 	d.mu.Unlock()
 	if hook != nil {
@@ -64,25 +63,20 @@ func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
 	return json.Marshal(result)
 }
 
-// export 照核心的格式答 sessions.export：每个会话的导出是「# 对话 <会话号>」加一行正文；带 sessions 时按给的顺序合成一份，
-// 不止一个时标题是「N个对话」。文件名的时刻是 utc_offset 那个时区里的 2026-11-22 15:00（不管偏多少都是 1500）。
+// export 照核心的格式答 sessions.export（带 sessions）：每个会话的导出是「# 对话 <会话号>」加一行正文，标题是「对话 <会话号>」；
+// 按给的顺序合成一份（sessionproto.CombineExports），各自的放在 parts 里。文件名的时刻是 utc_offset 那个时区里的
+// 2026-11-22 15:00（不管偏多少都是 1500）。
 func (d *Devices) export(c Call) (json.RawMessage, error) {
 	ids := c.Strs("sessions")
-	if ids == nil {
-		ids = []string{c.Str("session")}
-	}
-	title := "对话 " + ids[0]
-	texts := make([]string, len(ids))
+	parts := make([]sessionproto.ExportPart, len(ids))
 	for i, id := range ids {
-		texts[i] = "# 对话 " + id + "\n\n正文\n"
+		parts[i] = sessionproto.ExportPart{Session: id, Title: "对话 " + id, Markdown: "# 对话 " + id + "\n\n正文\n"}
 	}
-	if len(ids) > 1 {
-		title = fmt.Sprintf("%d个对话", len(ids))
-	}
+	title, markdown := sessionproto.CombineExports(parts)
 	offset, _ := c.Params["utc_offset"].(int)
 	at := time.Date(2026, 11, 22, 15, 0, 0, 0, time.FixedZone("", offset*60))
-	return json.Marshal(map[string]any{"title": title, "markdown": strings.Join(texts, "\n---\n\n"),
-		"file_name": sessionproto.ExportFileName(title, at), "exported": ids, "failed": []string{}})
+	return json.Marshal(map[string]any{"title": title, "markdown": markdown,
+		"file_name": sessionproto.ExportFileName(title, at), "exported": ids, "failed": []string{}, "parts": parts})
 }
 
 // answer 是 results 里给会话 session 的结果，没给时是 fallback。

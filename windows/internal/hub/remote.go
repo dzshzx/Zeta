@@ -3,7 +3,6 @@ package hub
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"strconv"
 
@@ -60,8 +59,7 @@ func (c *remoteCaller) Call(ctx context.Context, method string, params any) (jso
 		return nil, err
 	}
 	raw, err := c.conn.Call(ctx, method, m)
-	var reply *hostlink.ReplyError
-	if err != nil && !errors.As(err, &reply) {
+	if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
 		c.dead()
 	}
 	return raw, err

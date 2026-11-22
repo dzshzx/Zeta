@@ -30,22 +30,48 @@ func (ch *Chat) editingEdge(c *ui.Context, it items.Item) ui.Color {
 	return ui.Color{}
 }
 
-// actions 画挂在第 row 个条目下面的那一轮的操作（回答的画在复制键后面）：这一项是它那一轮用户消息的 round_last 时才有。
-func (ch *Chat) actions(c *ui.Context, row int) {
-	u := items.RoundOf(ch.items, row)
-	if ch.Actions == nil || u < 0 || ch.items[u].RoundLast != ch.items[row].ID {
-		return
+// roundAt 是挂在第 row 个条目下面的那一轮：这一项是那一轮用户消息的 round_last、调用方给了 Actions 时 ok 为真，
+// user 是那条用户消息，later 是之后还有几轮。
+func (ch *Chat) roundAt(row int) (user items.Item, later int, ok bool) {
+	if ch.Actions == nil {
+		return items.Item{}, 0, false
 	}
-	ch.Actions(c, ch.items[u], items.LastRound(ch.items, row))
+	k, ok := ch.rounds[ch.items[row].ID]
+	if !ok {
+		return items.Item{}, 0, false
+	}
+	return ch.items[ch.users[k]], len(ch.users) - 1 - k, true
 }
 
-// actionRow 是不以回答结尾的一轮（停在工作过程或出错提示上）的操作排：单占一行，和回答下面的对齐。
+// laterThan 是第 row 个条目（一条用户消息）之后还有几轮。
+func (ch *Chat) laterThan(row int) int {
+	k, _ := slices.BinarySearch(ch.users, row)
+	return len(ch.users) - 1 - k
+}
+
+// actions 画挂在第 row 个条目下面的那一轮的操作（回答的画在复制键后面）。
+func (ch *Chat) actions(c *ui.Context, row int) {
+	if user, later, ok := ch.roundAt(row); ok {
+		ch.Actions(c, user, later)
+	}
+}
+
+// actionRow 是不以回答结尾的一轮（停在工作过程或出错提示上）的操作排：单占一行，和回答下面的对齐，下面留 actionGap。
+// 有消息操作的列表里，不挂操作的工作过程、提示下面也留这么多，不为它建一行空的操作排。
 func (ch *Chat) actionRow(c *ui.Context, row int) {
 	if ch.Actions == nil {
 		return
 	}
-	ui.Row(c).AlignItems(ui.Center).Margin(0, 0, 4, 0).Children(func() { ch.actions(c, row) })
+	user, later, ok := ch.roundAt(row)
+	if !ok {
+		ui.Box(c).Height(actionGap)
+		return
+	}
+	ui.Row(c).AlignItems(ui.Center).Margin(0, 0, actionGap, 0).Children(func() { ch.Actions(c, user, later) })
 }
+
+// actionGap 是操作排下面留的空。
+const actionGap = 4
 
 // ActionButton 是回答下面那排的一个操作键，和复制键一个样子：30 的平圆钮、15 的次要色图标。
 func ActionButton(c *ui.Context, icon *ui.SVG, label string, enabled bool) ui.Element {

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
@@ -15,33 +16,33 @@ import (
 type todoStrip struct {
 	expanded bool
 	// dismissed 是收掉的那一份清单。
-	dismissed chat.TodoList
+	dismissed []sessionproto.Todo
 }
 
 // list 是现在要显示的清单；不显示时为 nil。
-func (s *todoStrip) list(state chat.State) chat.TodoList {
+func (s *todoStrip) list(state chat.State) []sessionproto.Todo {
 	l := state.Todos
-	if len(l) == 0 || l.AllDone() && !state.Busy || slices.Equal(l, s.dismissed) {
+	if len(l) == 0 || todosDone(l) == len(l) && !state.Busy || slices.Equal(l, s.dismissed) {
 		return nil
 	}
 	return l
 }
 
 // todoSummary 是清单条一行里的说法：正在做的那一项，没在做的时候是下一项。
-func todoSummary(l chat.TodoList) string {
-	if cur := l.Current(); cur != nil && !l.AllDone() {
-		return cur.ActiveForm
+func todoSummary(l []sessionproto.Todo) string {
+	if cur := todoAt(l, sessionproto.TodoInProgress); cur >= 0 && todosDone(l) < len(l) {
+		return l[cur].ActiveForm
 	}
-	if next := l.Next(); next != nil {
-		return "下一项：" + next.Content
+	if next := todoAt(l, sessionproto.TodoPending); next >= 0 {
+		return "下一项：" + l[next].Content
 	}
 	return "全部完成"
 }
 
 // todoPosition 是「第几项/共几项」：做完的加上正在做的那一项。
-func todoPosition(l chat.TodoList) string {
-	n := l.Done()
-	if l.Current() != nil {
+func todoPosition(l []sessionproto.Todo) string {
+	n := todosDone(l)
+	if todoAt(l, sessionproto.TodoInProgress) >= 0 {
 		n++
 	}
 	return strconv.Itoa(min(n, len(l))) + "/" + strconv.Itoa(len(l))
@@ -64,11 +65,11 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 			}
 			head := ui.ButtonBase(c).Label(label).Grow(1).MinWidth(0).Padding(8, 4, 8, 12).Gap(8).AlignItems(ui.Center).
 				Cursor(ui.CursorPointer).Expanded(s.expanded).
-				Tooltip("已完成 " + strconv.Itoa(l.Done()) + " 项，共 " + strconv.Itoa(len(l)) + " 项")
+				Tooltip("已完成 " + strconv.Itoa(todosDone(l)) + " 项，共 " + strconv.Itoa(len(l)) + " 项")
 			head.Children(func() {
 				todoRing(c, l)
 				tone := k.PrimaryText
-				if l.AllDone() {
+				if todosDone(l) == len(l) {
 					tone = k.Success
 				}
 				ui.Text(c, todoPosition(l)).FontSize(coui.SizeBodyS).FontWeight(coui.Medium).FontFeatures("tnum").TextColor(tone)
@@ -97,19 +98,19 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 }
 
 // todoRow 是展开后清单里的一项：状态记号和这一项（进行中的用进行中的说法、加粗，做完的划掉、淡色）。
-func todoRow(c *ui.Context, t chat.Todo) {
+func todoRow(c *ui.Context, t sessionproto.Todo) {
 	k := coui.Of(c)
 	ui.Row(c).FillWidth().Padding(6, 14, 2, 14).Gap(9).AlignItems(ui.Start).Children(func() {
 		ui.Box(c).Size(16, 16).Margin(2, 0, 0, 0).Center().Shrink(0).Children(func() { todoMark(c, t.Status) })
 		shown := t.Content
-		if t.Status == chat.TodoInProgress {
+		if t.Status == sessionproto.TodoInProgress {
 			shown = t.ActiveForm
 		}
 		text := ui.Text(c, shown).FontSize(coui.SizeBodyS).LineHeight(1.4).Grow(1).MinWidth(0)
 		switch t.Status {
-		case chat.TodoCompleted:
+		case sessionproto.TodoCompleted:
 			text.TextColor(k.Tertiary).Strikethrough()
-		case chat.TodoInProgress:
+		case sessionproto.TodoInProgress:
 			text.TextColor(k.Text).FontWeight(coui.Medium)
 		default:
 			text.TextColor(k.Text.Alpha(0.85))
@@ -118,14 +119,14 @@ func todoRow(c *ui.Context, t chat.Todo) {
 }
 
 // todoMark 是一项的状态：做完是绿底对勾，进行中是主题色圆圈里一个实心点，待做是空心圆圈。
-func todoMark(c *ui.Context, s chat.TodoStatus) {
+func todoMark(c *ui.Context, s string) {
 	k := coui.Of(c)
 	switch s {
-	case chat.TodoCompleted:
+	case sessionproto.TodoCompleted:
 		ui.Box(c).Size(15, 15).Radius(7.5).Background(k.Success).Center().Label("已完成").Children(func() {
 			ui.Icon(c, coui.IconOK).Size(11, 11).TextColor(k.OnPrimary)
 		})
-	case chat.TodoInProgress:
+	case sessionproto.TodoInProgress:
 		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.5, k.Primary).Center().Label("进行中").Children(func() {
 			ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
 		})
@@ -135,10 +136,27 @@ func todoMark(c *ui.Context, s chat.TodoStatus) {
 }
 
 // todoRing 是完成比例的小圆环（16）；全部做完时是绿底对勾。
-func todoRing(c *ui.Context, l chat.TodoList) {
-	if l.AllDone() {
-		todoMark(c, chat.TodoCompleted)
+func todoRing(c *ui.Context, l []sessionproto.Todo) {
+	done := todosDone(l)
+	if done == len(l) {
+		todoMark(c, sessionproto.TodoCompleted)
 		return
 	}
-	coui.RingArc(c, 16, float32(l.Done())/float32(len(l)), coui.Of(c).Primary).Shrink(0)
+	coui.RingArc(c, 16, float32(done)/float32(len(l)), coui.Of(c).Primary).Shrink(0)
+}
+
+// todosDone 是清单里做完了几项。
+func todosDone(l []sessionproto.Todo) int {
+	n := 0
+	for _, t := range l {
+		if t.Status == sessionproto.TodoCompleted {
+			n++
+		}
+	}
+	return n
+}
+
+// todoAt 是清单里第一项状态是 status 的下标，没有时为 -1。
+func todoAt(l []sessionproto.Todo, status string) int {
+	return slices.IndexFunc(l, func(t sessionproto.Todo) bool { return t.Status == status })
 }

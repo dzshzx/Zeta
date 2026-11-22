@@ -455,3 +455,21 @@ func TestEarlierStaleMatchesTheCore(t *testing.T) {
 		t.Fatalf("helper/conv/earlier.go 里没有 %q 开头的错误了", EarlierStale)
 	}
 }
+
+// 增量只解变了的字段：拿走的那份不会被后来的推送改掉（切片、指针、结构体都是新解的），推来的结构体整个换、不和旧的合并。
+func TestStateIncrementsDoNotTouchTakenStates(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1","model":"opus","mode":{"user":"plan","process":"default"},
+		"queued":[{"uuid":"q1","text":"一"},{"uuid":"q2","text":"二"}],"todos":[{"key":"1","content":"读代码","active_form":"读代码","status":"pending"}]}`))
+	old := conv.Take().State
+	client.Handle(line(`{"type":"conv.state","conv":"w1","model":"haiku","mode":{"user":"default"},
+		"queued":[{"uuid":"q3","text":"三"}],"todos":[{"key":"1","content":"读代码","active_form":"读代码","status":"completed"}]}`))
+	s := conv.Take().State
+	if *old.Model != "opus" || old.Mode.User != "plan" || len(old.Queued) != 2 || old.Queued[0].Text != "一" || old.Todos[0].Status != "pending" {
+		t.Fatalf("拿走的那份被改了：%+v", old)
+	}
+	if *s.Model != "haiku" || s.Mode != (Mode{User: "default"}) || len(s.Queued) != 1 || s.Queued[0].Text != "三" ||
+		s.Todos[0].Status != "completed" || s.Title != "修 bug" {
+		t.Fatalf("新的一份：%+v", s)
+	}
+}

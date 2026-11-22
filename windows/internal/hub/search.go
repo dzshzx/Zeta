@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -107,8 +106,7 @@ func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needl
 					}
 				}
 			})
-			var reply *hostlink.ReplyError
-			if err != nil && !errors.As(err, &reply) && ctx.Err() == nil {
+			if _, replied := hostlink.ReplyCode(err); err != nil && !replied && ctx.Err() == nil {
 				posts <- func() { h.dropDeadConn(id, conn) }
 			}
 			results <- searchOutcome{complete, err == nil}

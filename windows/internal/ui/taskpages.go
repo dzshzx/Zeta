@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -48,12 +49,23 @@ func (a *App) openTask(p *chatPane, t tasks.Task) {
 	p.pages.stack = append(p.pages.stack, subpage{task: v})
 	if v.watching {
 		a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-			return conv.WatchTaskOutput(ctx, t.ID, true)
+			return conv.Watch(ctx, chat.OutputTarget(t.ID), true)
 		}, func(err error) { v.failed = err.Error() })
 	}
 }
 
-// back 退回上一页；离开子代理页、任务详情页时不再看着它。
+// watching 是这一页看着的东西：子代理页看着子代理，后台命令、监视器的详情页看着输出；别的页没有。
+func (s subpage) watching() (chat.Target, bool) {
+	switch {
+	case s.agent != nil:
+		return chat.SubagentTarget(s.agent.toolUseID), true
+	case s.task != nil && s.task.watching:
+		return chat.OutputTarget(s.task.id), true
+	}
+	return chat.Target{}, false
+}
+
+// back 退回上一页；离开的那页看着的东西，下面的页里没有再看着同一个的，就不再看着它。
 func (a *App) back(p *chatPane) {
 	s := p.pages.stack
 	if len(s) == 0 {
@@ -61,12 +73,16 @@ func (a *App) back(p *chatPane) {
 	}
 	top := s[len(s)-1]
 	p.pages.stack = s[:len(s)-1]
-	switch {
-	case top.agent != nil:
-		a.unwatchSubagent(p, top.agent)
-	case top.task != nil && top.task.watching:
-		a.unwatchOutput(p, top.task.id)
+	target, ok := top.watching()
+	if !ok || slices.ContainsFunc(p.pages.stack, func(below subpage) bool {
+		t, ok := below.watching()
+		return ok && t == target
+	}) {
+		return
 	}
+	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+		return conv.Watch(ctx, target, false)
+	}, nil)
 }
 
 // closePages 退回聊天。
@@ -265,18 +281,6 @@ func (a *App) stopDialog(c *ui.Context, p *chatPane) {
 		coui.Action{Label: "取消"}, coui.Action{Label: "停止", Style: coui.Destructive}) == 1 {
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.StopTask(ctx, t.ID) })
 	}
-}
-
-// unwatchOutput 离开任务详情页：下面的页里没有看着同一个任务的，就不再看着它的输出（conv.task_output 的 watch 为假）。
-func (a *App) unwatchOutput(p *chatPane, id string) {
-	for _, s := range p.pages.stack {
-		if s.task != nil && s.task.id == id && s.task.watching {
-			return
-		}
-	}
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.WatchTaskOutput(ctx, id, false)
-	}, nil)
 }
 
 // outputBlock 是后台命令、监视器的输出（最多 8 KiB，核心推来的最近一份）；还没推来、读不到或还没有输出时说明。

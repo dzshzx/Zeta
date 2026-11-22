@@ -3,7 +3,6 @@ package hub
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
@@ -47,8 +46,7 @@ func (b *bulkLink) Call(ctx context.Context, method string, params map[string]an
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.busy--
-	var reply *hostlink.ReplyError
-	if err != nil && ctx.Err() == nil && !errors.As(err, &reply) && b.link == link {
+	if _, replied := hostlink.ReplyCode(err); err != nil && ctx.Err() == nil && !replied && b.link == link {
 		b.link = nil
 		go link.Close() // 拿着 mu，不在这里等
 	}

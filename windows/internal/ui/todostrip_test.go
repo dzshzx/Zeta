@@ -2,6 +2,8 @@ package ui
 
 import (
 	"testing"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // todoList 是核心归并好的清单（conv.state 的 todos）：三项里做完一项、正在做一项。
@@ -64,5 +66,27 @@ func init() {
 		f.push(`"busy":true,` + todoList)
 		f.pushItems(todoItems[:len(todoItems)-1] + `,{"kind":"answer","id":"a1","text":"先看了登录页的代码，表单校验漏掉了邮箱为空的情况，正在补上。"}]`)
 		f.click(t, "展开任务清单")
+	}
+}
+
+// 清单条一行里的说法和「第几项/共几项」：正在做的那一项优先，没在做时是下一项，全部做完是「全部完成」。
+func TestTodoSummaryAndPosition(t *testing.T) {
+	todo := func(status string) sessionproto.Todo {
+		return sessionproto.Todo{Content: status, ActiveForm: "正在 " + status, Status: status}
+	}
+	for _, c := range []struct {
+		list              []sessionproto.Todo
+		summary, position string
+	}{
+		{[]sessionproto.Todo{todo("completed"), todo("in_progress"), todo("pending")}, "正在 in_progress", "2/3"},
+		{[]sessionproto.Todo{todo("completed"), todo("pending")}, "下一项：pending", "1/2"},
+		{[]sessionproto.Todo{todo("completed"), todo("completed")}, "全部完成", "2/2"},
+	} {
+		if s, p := todoSummary(c.list), todoPosition(c.list); s != c.summary || p != c.position {
+			t.Errorf("%+v：%q %q", c.list, s, p)
+		}
+	}
+	if todosDone(nil) != 0 || todoAt(nil, sessionproto.TodoPending) != -1 {
+		t.Error("空清单")
 	}
 }

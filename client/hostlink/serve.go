@@ -145,11 +145,6 @@ type ReplyError struct {
 	code    string
 }
 
-// NewReplyError 是 serve 答出错、带 code 时 Call 返回的错误（测试里扮 serve 用）。
-func NewReplyError(message, code string) *ReplyError {
-	return &ReplyError{Message: message, code: code}
-}
-
 func (e *ReplyError) Error() string { return e.Message }
 
 // Code 是应答里的 code，没带时是空。
@@ -314,6 +309,7 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			Error    string          `json:"error"`
 			Code     string          `json:"code"`
 			Result   json.RawMessage `json:"result"`
+			Hello                    // zeta_hello 里客户端要用的，招呼行只解这一次
 		}
 		if json.Unmarshal(line, &head) != nil {
 			continue
@@ -337,9 +333,7 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			go s.pings(p, done)
 			s.connect(p)
 			if s.opts.Hello != nil {
-				var hello Hello
-				_ = json.Unmarshal(line, &hello) // 上面已经解得开
-				s.opts.Hello(hello)
+				s.opts.Hello(head.Hello)
 			}
 			s.opts.Problem("")
 		default:
@@ -476,4 +470,14 @@ func clip(s string, n int) string {
 		return string(r[:n])
 	}
 	return s
+}
+
+// ReplyCode 是 serve 答出错时带的 code：err 的链上有带 Code() string 的错误（Call 返回的 *ReplyError 就是）时 ok 为真，
+// code 是它的 code（没带时为空）；ok 为假时 err 不是 serve 答的出错（连不上、断了、超时）。
+func ReplyCode(err error) (code string, ok bool) {
+	var reply interface{ Code() string }
+	if errors.As(err, &reply) {
+		return reply.Code(), true
+	}
+	return "", false
 }
