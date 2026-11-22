@@ -1,0 +1,353 @@
+package chat
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"reflect"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+// fakeLink 记下发出的请求，按方法给预先定好的应答；onCall 在应答之前跑，用来模拟核心在应答前推来的消息。
+type fakeLink struct {
+	mu      sync.Mutex
+	calls   []call
+	results map[string]string
+	errs    map[string]error
+	onCall  func(method string, params map[string]any)
+}
+
+type call struct {
+	method string
+	params string // params 的 JSON，键按字母排好
+}
+
+func (l *fakeLink) Call(_ context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	b, _ := json.Marshal(params)
+	l.mu.Lock()
+	l.calls = append(l.calls, call{method, string(b)})
+	onCall := l.onCall
+	result, err := l.results[method], l.errs[method]
+	l.mu.Unlock()
+	if onCall != nil {
+		onCall(method, params)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if result == "" {
+		return nil, nil
+	}
+	return json.RawMessage(result), nil
+}
+
+func (l *fakeLink) took() []call {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	c := l.calls
+	l.calls = nil
+	return c
+}
+
+// opened 起一个 Client，打开一个对话：核心在应答之前推来整份的状态（会话 s1、两条条目）。
+func opened(t *testing.T) (*fakeLink, *Client, *Conversation, *int) {
+	t.Helper()
+	link := &fakeLink{results: map[string]string{}, errs: map[string]error{}}
+	notified := 0
+	client := NewClient(link, func() { notified++ })
+	link.onCall = func(method string, params map[string]any) {
+		if method == "conv.open" {
+			name := params["conv"].(string)
+			client.Handle(line(`{"type":"conv.state","conv":"` + name + `","full":true,"session":"s1","title":"修 bug","busy":false,"mode":{"user":"default","process":"default"},"queued":[]}`))
+			client.Handle(line(`{"type":"conv.items","conv":"` + name + `","full":true,"at":0,"remove":0,"items":[{"kind":"user","id":"a"},{"kind":"answer","id":"b"}]}`))
+		}
+	}
+	conv, err := client.Open(context.Background(), Spec{Session: "s1", File: "/h/.claude/projects/p/s1.jsonl", Cwd: "/h/p",
+		Options: Options{AutoTitle: true, CompactPercent: 80}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link.took()
+	return link, client, conv, &notified
+}
+
+func line(s string) []byte { return []byte(s) }
+
+func ids(t *testing.T, items []json.RawMessage) string {
+	t.Helper()
+	out := make([]string, len(items))
+	for i, it := range items {
+		var v struct{ ID string }
+		if err := json.Unmarshal(it, &v); err != nil {
+			t.Fatal(err)
+		}
+		out[i] = v.ID
+	}
+	return strings.Join(out, ",")
+}
+
+func TestOpenSendsSpecAndKeepsPushesBeforeReply(t *testing.T) {
+	link := &fakeLink{}
+	client := NewClient(link, nil)
+	link.onCall = func(_ string, params map[string]any) {
+		client.Handle(line(`{"type":"conv.state","conv":"` + params["conv"].(string) + `","full":true,"session":"s9"}`))
+	}
+	conv, err := client.Open(context.Background(), Spec{Cwd: "/h/p", Options: Options{AutoTitle: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []call{{"conv.open", `{"conv":"w1","cwd":"/h/p","options":{"auto_title":true}}`}}
+	if got := link.took(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("请求 %v，要 %v", got, want)
+	}
+	if v := conv.View(); v.State.Session != "s9" || !v.Connected {
+		t.Fatalf("应答前推来的状态丢了：%+v", v)
+	}
+}
+
+func TestOpenFailureForgetsConversation(t *testing.T) {
+	link := &fakeLink{errs: map[string]error{"conv.open": errors.New("这条连接已经有叫 w1 的对话")}}
+	client := NewClient(link, nil)
+	if _, err := client.Open(context.Background(), Spec{}); err == nil {
+		t.Fatal("打开失败没报错")
+	}
+	if n := len(client.Conversations()); n != 0 {
+		t.Fatalf("打开失败的对话还留着 %d 个", n)
+	}
+}
+
+func TestStateMergesPartialAndReplacesFull(t *testing.T) {
+	_, client, conv, notified := opened(t)
+	before := *notified
+	client.Handle(line(`{"type":"conv.state","conv":"w1","busy":true,"status":"正在重试","model":"opus"}`))
+	s := conv.View().State
+	if !s.Busy || s.Status != "正在重试" || s.Title != "修 bug" || s.Session != "s1" || s.Model == nil || *s.Model != "opus" {
+		t.Fatalf("部分更新没合进去或丢了别的字段：%+v", s)
+	}
+	if *notified != before+1 {
+		t.Fatalf("合并后没通知界面")
+	}
+	client.Handle(line(`{"type":"conv.state","conv":"w1","model":null}`))
+	if s := conv.View().State; s.Model != nil {
+		t.Fatalf("model 推成 null 后还是 %v", *s.Model)
+	}
+	client.Handle(line(`{"type":"conv.state","conv":"w1","full":true,"session":"s1"}`))
+	if s := conv.View().State; s.Busy || s.Title != "" {
+		t.Fatalf("整份没替掉旧字段：%+v", s)
+	}
+}
+
+func TestViewIsACopy(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1","queued":[{"uuid":"q1","text":"再看看","files":["/a"]}]}`))
+	v := conv.View()
+	v.State.Queued[0].Files[0] = "/改了"
+	v.Items[0] = nil
+	again := conv.View()
+	if again.State.Queued[0].Files[0] != "/a" || again.Items[0] == nil {
+		t.Fatal("改 View 的副本改到了对话里")
+	}
+}
+
+func TestItemsSplice(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	steps := []struct{ push, want string }{
+		// 流式回答：换掉最后一项。
+		{`{"at":1,"remove":1,"items":[{"kind":"answer","id":"b2"}]}`, "a,b2"},
+		// 接着加一项。
+		{`{"at":2,"remove":0,"items":[{"kind":"work","id":"c"}]}`, "a,b2,c"},
+		// 往前载入更早的：在开头插入。
+		{`{"at":0,"remove":0,"items":[{"kind":"user","id":"z"}]}`, "z,a,b2,c"},
+		// 删除一轮：去掉中间两项。
+		{`{"at":1,"remove":2,"items":[]}`, "z,c"},
+		// 整份。
+		{`{"full":true,"items":[{"kind":"user","id":"x"}]}`, "x"},
+	}
+	for _, s := range steps {
+		client.Handle(line(`{"type":"conv.items","conv":"w1",` + s.push[1:]))
+		if got := ids(t, conv.View().Items); got != s.want {
+			t.Fatalf("推 %s 后是 %s，要 %s", s.push, got, s.want)
+		}
+	}
+}
+
+func TestItemsOutOfRangeReopens(t *testing.T) {
+	link, client, conv, _ := opened(t)
+	done := make(chan struct{})
+	link.onCall = func(method string, params map[string]any) {
+		if method == "conv.open" {
+			client.Handle(line(`{"type":"conv.items","conv":"w1","full":true,"items":[{"id":"fresh"}]}`))
+			close(done)
+		}
+	}
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":1,"remove":5,"items":[]}`))
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("对不上以后没重新打开")
+	}
+	calls := link.took()
+	if len(calls) != 2 || calls[0].method != "conv.close" || calls[1].method != "conv.open" ||
+		!strings.Contains(calls[1].params, `"session":"s1"`) {
+		t.Fatalf("重新打开的请求不对：%v", calls)
+	}
+	if got := ids(t, conv.View().Items); got != "fresh" {
+		t.Fatalf("重新打开后条目是 %s", got)
+	}
+}
+
+func TestTurnsAndClosed(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"started"}`))
+	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"finished","outcome":"done","text":"已完成"}`))
+	want := []Turn{{Phase: TurnStarted}, {Phase: TurnFinished, Outcome: OutcomeDone, Text: "已完成"}}
+	if got := conv.TakeTurns(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("一轮的起止 %+v，要 %+v", got, want)
+	}
+	if got := conv.TakeTurns(); got != nil {
+		t.Fatalf("取走后还有 %+v", got)
+	}
+	if !client.Handle(line(`{"type":"conv.closed","conv":"w1"}`)) {
+		t.Fatal("conv.closed 没认")
+	}
+	if v := conv.View(); !v.Closed || v.Connected {
+		t.Fatalf("关掉后 %+v", v)
+	}
+	if len(client.Conversations()) != 0 {
+		t.Fatal("关掉的对话还在 Client 里")
+	}
+	if !client.Handle(line(`{"type":"conv.state","conv":"w1","busy":true}`)) {
+		t.Fatal("已关掉的对话的推送也该算对话的推送")
+	}
+}
+
+func TestHandleLeavesOtherPushes(t *testing.T) {
+	client := NewClient(&fakeLink{}, nil)
+	for _, l := range []string{`{"type":"zeta_sessions","full":true}`, `{"type":"zeta_hello","protocol":2}`, `不是 JSON`} {
+		if client.Handle(line(l)) {
+			t.Fatalf("%s 被当成了对话的推送", l)
+		}
+	}
+}
+
+func TestDisconnectAndReconnect(t *testing.T) {
+	link, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1","session":"s2"}`)) // 比如压缩后换了会话号
+	client.Disconnected()
+	if conv.View().Connected {
+		t.Fatal("断线后还标着连上")
+	}
+	if err := conv.Interrupt(context.Background()); !errors.Is(err, errNotConnected) {
+		t.Fatalf("断线时的请求：%v", err)
+	}
+	if len(link.took()) != 0 {
+		t.Fatal("断线时还发了请求")
+	}
+	if err := client.Reconnected(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	calls := link.took()
+	if len(calls) != 1 || calls[0].method != "conv.open" || !strings.Contains(calls[0].params, `"session":"s2"`) ||
+		!strings.Contains(calls[0].params, `"conv":"w1"`) || !strings.Contains(calls[0].params, `"compact_percent":80`) {
+		t.Fatalf("重连后的打开：%v", calls)
+	}
+	if !conv.View().Connected {
+		t.Fatal("重连后没标回连上")
+	}
+}
+
+func TestRequests(t *testing.T) {
+	link, _, conv, _ := opened(t)
+	ctx := context.Background()
+	opus := "opus"
+	run := []struct {
+		do   func() error
+		want call
+	}{
+		{func() error {
+			return conv.Send(ctx, Outgoing{Text: "看图", Images: []Image{{MediaType: "image/png", Data: "AAA"}}, Files: []string{"/h/a.go"}})
+		}, call{"conv.send", `{"conv":"w1","files":["/h/a.go"],"images":[{"media_type":"image/png","data":"AAA"}],"text":"看图"}`}},
+		{func() error { return conv.Send(ctx, Outgoing{Text: "好"}) }, call{"conv.send", `{"conv":"w1","text":"好"}`}},
+		{func() error { return conv.Interrupt(ctx) }, call{"conv.interrupt", `{"conv":"w1"}`}},
+		{func() error { return conv.Steer(ctx) }, call{"conv.steer", `{"conv":"w1"}`}},
+		{func() error { return conv.Cancel(ctx, "q1", true) }, call{"conv.cancel", `{"conv":"w1","recall":true,"uuid":"q1"}`}},
+		{func() error {
+			return conv.Answer(ctx, "r1", Reply{Kind: ReplyDeny, Feedback: "换个做法"})
+		}, call{"conv.answer", `{"conv":"w1","reply":{"kind":"deny","feedback":"换个做法"},"request_id":"r1"}`}},
+		{func() error {
+			return conv.Answer(ctx, "r2", Reply{Kind: ReplyAnswer, Answers: map[string]string{"用哪个？": "A"}})
+		}, call{"conv.answer", `{"conv":"w1","reply":{"kind":"answer","answers":{"用哪个？":"A"}},"request_id":"r2"}`}},
+		{func() error { return conv.SetModel(ctx, &opus) }, call{"conv.model", `{"conv":"w1","value":"opus"}`}},
+		{func() error { return conv.SetMode(ctx, nil) }, call{"conv.mode", `{"conv":"w1","value":null}`}},
+		{func() error { return conv.SetEffort(ctx, nil) }, call{"conv.effort", `{"conv":"w1","value":null}`}},
+		{func() error { return conv.SetOptions(ctx, Options{AutoTitle: true}) }, call{"conv.options", `{"conv":"w1","options":{"auto_title":true}}`}},
+		{func() error { return conv.Compact(ctx) }, call{"conv.compact", `{"conv":"w1"}`}},
+		{func() error { return conv.StopTask(ctx, "t1") }, call{"conv.stop_task", `{"conv":"w1","task":"t1"}`}},
+		{func() error { return conv.End(ctx) }, call{"conv.end", `{"conv":"w1"}`}},
+	}
+	for _, r := range run {
+		if err := r.do(); err != nil {
+			t.Fatal(err)
+		}
+		if got := link.took(); len(got) != 1 || got[0] != r.want {
+			t.Fatalf("发出 %v，要 %v", got, r.want)
+		}
+	}
+}
+
+func TestRequestResults(t *testing.T) {
+	link, _, conv, _ := opened(t)
+	ctx := context.Background()
+
+	if m, err := conv.TakeRecalled(ctx); err != nil || m != nil {
+		t.Fatalf("没有撤回的消息时 %v、%v", m, err)
+	}
+	link.results["conv.take_recalled"] = `{"uuid":"q1","text":"再看看","images":null,"files":null}`
+	if m, err := conv.TakeRecalled(ctx); err != nil || m == nil || m.Text != "再看看" {
+		t.Fatalf("撤回的消息 %+v、%v", m, err)
+	}
+
+	link.results["conv.task_output"] = `{"text":"ok\n","total_bytes":9000,"truncated":true}`
+	out, err := conv.ReadTaskOutput(ctx, "t1")
+	if err != nil || out != (TaskOutput{Text: "ok\n", TotalBytes: 9000, Truncated: true}) {
+		t.Fatalf("后台输出 %+v、%v", out, err)
+	}
+
+	link.results["conv.elicit"] = `{"errors":{"port":"要填整数","host":"必填"}}`
+	err = conv.Elicit(ctx, "e1", ElicitAccept, map[string][]string{"port": {"x"}})
+	var fe FormError
+	if !errors.As(err, &fe) || fe["port"] != "要填整数" || err.Error() != "表单有几项不对：host：必填；port：要填整数" {
+		t.Fatalf("表单的问题 %v", err)
+	}
+	if got := link.took(); got[len(got)-1] != (call{"conv.elicit", `{"action":"accept","conv":"w1","request_id":"e1","values":{"port":["x"]}}`}) {
+		t.Fatalf("表单的请求 %v", got[len(got)-1])
+	}
+	link.results["conv.elicit"] = ""
+	if err := conv.Elicit(ctx, "e1", ElicitDecline, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	link.errs["conv.compact"] = errors.New("没有打开这个对话")
+	if err := conv.Compact(ctx); err == nil || err.Error() != "没有打开这个对话" {
+		t.Fatalf("核心拒绝的原因没带回来：%v", err)
+	}
+}
+
+func TestCloseForgetsAndSends(t *testing.T) {
+	link, client, conv, _ := opened(t)
+	if err := conv.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := link.took(); len(got) != 1 || got[0] != (call{"conv.close", `{"conv":"w1"}`}) {
+		t.Fatalf("关掉时发出 %v", got)
+	}
+	if len(client.Conversations()) != 0 {
+		t.Fatal("关掉后还在")
+	}
+	if err := conv.Send(context.Background(), Outgoing{Text: "x"}); !errors.Is(err, errNotConnected) {
+		t.Fatalf("关掉后还能发：%v", err)
+	}
+}
