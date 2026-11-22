@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
+import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.SubagentTranscript
 import com.dzshzx.zeta.core.TaskBoard
 import com.dzshzx.zeta.core.TaskKind
@@ -271,7 +272,7 @@ class ClaudeTaskContractTest {
     }
 
     /** 一个 stream-json 的 claude 进程，和 Zeta 起的一样。收到的每条事件按顺序记在 [events]。 */
-    private inner class Claude : AutoCloseable {
+    private inner class Claude(asZeta: Boolean = false) : AutoCloseable {
         private val process: Process
         private val lines = LinkedBlockingQueue<String>()
         val events = mutableListOf<JsonObject>()
@@ -317,7 +318,11 @@ class ClaudeTaskContractTest {
                     isDaemon = true
                     start()
                 }
-            control(buildJsonObject { put("subtype", "initialize") })
+            // [asZeta] 时发的就是 Zeta 发的那份 initialize（带着它的声明）
+            control(
+                if (asZeta) Conversation.initializeRequest()
+                else buildJsonObject { put("subtype", "initialize") },
+            )
         }
 
         fun send(o: JsonObject) {
@@ -787,6 +792,95 @@ class ClaudeTaskContractTest {
         assertTrue(process.waitFor(30, TimeUnit.SECONDS))
         assertEquals(out, 0, process.exitValue())
         return out
+    }
+
+    private fun bash(command: String, description: String, background: Boolean) =
+        "Bash" to
+            buildJsonObject {
+                put("command", command)
+                put("description", description)
+                if (background) put("run_in_background", true)
+            }
+
+    private fun userMessage(text: String) = buildJsonObject {
+        put("type", "user")
+        putJsonObject("message") {
+            put("role", "user")
+            put("content", text)
+        }
+    }
+
+    /** 一轮进行中（前台命令在跑），后台有一个命令和一个子代理，这时停止这一轮（interrupt）。返回 interrupt 之后 8 秒里的事件。 */
+    private fun interruptWithBackgroundWork(claude: Claude): List<JsonObject> {
+        claude.send(userMessage("go"))
+        claude.until { it.str("type") == "assistant" && "toolu_2" in it.toString() }
+        // 前台命令起来以后再停
+        Thread.sleep(1500)
+        val before = claude.events.size
+        val answer = claude.control(buildJsonObject { put("subtype", "interrupt") })
+        assertEquals("success", answer.str("subtype"))
+        claude.poll(8) { false }
+        return claude.events.drop(before)
+    }
+
+    private fun backgroundWorkScript() =
+        listOf(
+            bash("sleep 300", "bg sleeper", background = true),
+            "Agent" to agentInput(),
+            bash("sleep 60", "foreground sleeper", background = false),
+        )
+
+    /** 不声明有逐个停止的按钮时，停止一轮会把后台子代理一起结束（后台命令留着）。 */
+    @Test
+    fun interruptKillsBackgroundSubagentsWhenUndeclared() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        subagentWaits = true
+        script = backgroundWorkScript()
+        Claude().use { claude ->
+            val since = interruptWithBackgroundWork(claude)
+            val agent =
+                claude.events.system("task_started").first { it.str("task_type") == "local_agent" }
+            val killed = since.system("task_updated").single()
+            assertEquals(agent.str("task_id"), killed.str("task_id"))
+            assertEquals("killed", killed.obj("patch")!!.str("status"))
+            assertEquals("stopped", since.system("task_notification").single().str("status"))
+            // 清单里只剩后台命令
+            val left = since.system("background_tasks_changed").last().arr("tasks")!!
+            assertEquals(listOf("local_bash"), left.map { it.jsonObject.str("task_type") })
+        }
+    }
+
+    /** 用 Zeta 发的那份 initialize（里面声明了）：停止一轮只停这一轮，后台子代理和后台命令都接着跑，之后还能逐个停。 */
+    @Test
+    fun interruptSparesBackgroundSubagentsWhenDeclared() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        subagentWaits = true
+        script = backgroundWorkScript()
+        Claude(asZeta = true).use { claude ->
+            val since = interruptWithBackgroundWork(claude)
+            // 这一轮停了
+            assertTrue(since.any { it.str("type") == "result" })
+            // 后台的两样都没动
+            assertEquals(emptyList<JsonObject>(), since.system("task_updated"))
+            assertEquals(emptyList<JsonObject>(), since.system("task_notification"))
+            val agent =
+                claude.events.system("task_started").first { it.str("task_type") == "local_agent" }
+            val before = claude.events.size
+            claude.control(
+                buildJsonObject {
+                    put("subtype", "stop_task")
+                    put("task_id", agent.str("task_id"))
+                },
+            )
+            if (claude.events.drop(before).system("task_notification").isEmpty())
+                claude.until {
+                    it.str("type") == "system" && it.str("subtype") == "task_notification"
+                }
+            assertEquals(
+                "stopped",
+                claude.events.drop(before).system("task_notification").single().str("status"),
+            )
+        }
     }
 
     private fun agentInput(background: Boolean = true) = buildJsonObject {

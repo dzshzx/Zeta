@@ -957,7 +957,7 @@ class Conversation(
      * 等都排在它后面。
      */
     private fun initialize(target: ClaudeProcess) =
-        target.request(controlBody("initialize")) { answer ->
+        target.request(initializeRequest()) { answer ->
             val response = answer.obj("response") ?: return@request
             // 两样都按主机记：各台主机上的 Claude Code 版本、装的 Skills 和命令不一样
             response.arr("models")?.let { list ->
@@ -1643,6 +1643,13 @@ class Conversation(
     companion object {
         /** 选择器里 Claude Code 默认模型那一项的值，也是 set_model、--model 认的写法。 */
         const val DEFAULT_MODEL = "default"
+
+        /**
+         * initialize 请求。里面声明后台任务页有逐个停止的按钮（接 stop_task）：声明了，停止一轮（interrupt）只停这一轮， 后台子代理接着跑；不声明时
+         * Claude Code 会把后台子代理一起结束。一个进程只认第一次 initialize 里的声明。
+         */
+        fun initializeRequest(): JsonObject =
+            controlBody("initialize") { put("perTaskStopAffordance", true) }
 
         /** 进程意外退出时这一轮结束的那一句。 */
         private const val INTERRUPTED = "已中断"
