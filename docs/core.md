@@ -25,18 +25,18 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 - 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：下次打开时载入会话记录、接上还在跑的进程。
 - 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒，核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话满 60 秒就退出。
-- 同一个会话在一个核心里只有一份状态：几个客户端打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。
+- 同一个会话在一个核心里只有一份状态：几个客户端打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。不同 helper 版本的核心（比如手机和电脑装的版本不同）可以同时各有一份同一个会话的状态，各自接着同一个托管进程，行为和现在两个客户端同时接着一样（见 `zeta_host.sh` 开头）。
 
 请求都带 `conv`（`conv.open` 除外），参数和 `id`、`method` 平级：
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
-| `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，载入历史用）、`cwd`、`title`、`options` | 打开一个对话，应答的 `result` 带 `conv`。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items` |
+| `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，载入历史用）、`cwd`、`title`、`options` | 打开一个对话，应答的 `result` 带 `conv`。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items`。历史只载入最近一段（约 800 条事件），更早的有多少记在 `earlier` |
 | `conv.close` | | 这个客户端放开它 |
 | `conv.options` | `options` | 改起进程用的设置（见下），下次起进程时生效 |
-| `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
+| `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`（主机上的路径：客户端自己先把本地文件传到主机上）、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
 | `conv.interrupt` | | 停止这一轮，排队的消息撤回 |
-| `conv.steer` | | 立即插话：排队的第一条马上开始 |
+| `conv.steer` | | 立即插话，同终端的 send now：Claude Code 认 `interrupt_send_now_v1`（init 的 capabilities）时发带 `send_now` 和排队第一条 `message_uuid` 的 interrupt。应答 `delivering` 时正在跑的工具挪到后台、消息并进这一轮，这一轮不停；`stopped`、`interrupted` 时这一轮以「已打断，先处理插话」收尾、排队的消息接着开始；`nothing_waiting` 时什么也不做。不认时发普通的 interrupt |
 | `conv.cancel` | `uuid`、`recall` | 撤回一条排队的消息；`recall` 时放回输入框（`recalled`） |
 | `conv.take_recalled` | | 输入框取走了 `recalled` |
 | `conv.answer` | `request_id`、`reply` | 回应工具确认、计划审批、提问（`reply` 见下） |
@@ -50,11 +50,13 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 `options`（都可省）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）。
 
+`options` 按客户端分开记：起进程时用发起这次起进程的那个客户端的（发消息、压缩等），`mcp_config` 只在有声明 `phone` 的客户端拿着这个对话时才带上。
+
 `reply`：`{"kind":"allow"}`、`{"kind":"allow_always"}`（照建议以后不再问）、`{"kind":"deny","feedback":…}`（不写理由时和终端里按 Esc 一样停下这一轮）、`{"kind":"approve_plan","mode":…}`、`{"kind":"answer","answers":{问题:回答},"notes":{问题:备注}}`、`{"kind":"clarify","answers":…,"notes":…}`。
 
 推送（都带 `conv`）：
 
-- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`、`mode`（`{user, process}`）、`commands`、`models`、`usage`、`loading_history`、`blocked`（会话正被 Zeta 之外的进程占着）。
+- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`、`mode`（`{user, process}`）、`commands`、`models`、`usage`、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`blocked`（会话正被 Zeta 之外的进程占着）。
 - `conv.items`：聊天条目（格式见 `helper/transcript/items.go`）。`full` 为真时 `items` 是整份；否则是一次替换：从下标 `at` 起去掉 `remove` 项、换成 `items`。流式回答时通常只换最后一两项。
 - `conv.turn`：一轮的起止，客户端据此提醒。`phase` 是 `started` 或 `finished`；结束时带 `outcome`（`done`、`stopped`、`failed`、`interrupted`：进程意外没了）和一句 `text`。
 - `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。
