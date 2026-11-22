@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-// sessionWatch 是 serve 里会话列表的订阅：和 list 同样的范围、同样的每一项（最新的 listLimit 个会话），
+// sessionWatch 是 serve 里会话列表的订阅：和 list 同样的范围、同样的每一项（最新的 listLimit 个会话，加上不在里面的置顶会话，见 listedFiles），
 // 先发整份，之后只发变了的。
 //
 // 发给客户端的一行：{"type":"zeta_sessions","full":<是否整份>,"upsert":[<项>…],"remove":[<id>…]}。
 // 整份时 upsert 是全部、按时间从新到旧，remove 为空；不是整份时 upsert 是新出现或有字段变了的项，
-// remove 是不再列出的（删了、挤出了最新的 listLimit 个）。同一个 id 只算最新的那一份记录。
+// remove 是不再列出的（删了、挤出了最新的 listLimit 个又没置顶）。同一个 id 只算最新的那一份记录。
 //
 // 什么时候重读：用 inotify 盯着会话目录（~/.claude/projects 和其下各项目）、Claude Code 的进程登记
-// （~/.claude/sessions，决定 external）和归档文件所在的目录；任何变化之后等 debounce 再重读，其间的变化合成一次。
+// （~/.claude/sessions，决定 external）和归档、置顶文件所在的目录；任何变化之后等 debounce 再重读，其间的变化合成一次。
 // 要盯的目录还不在时盯它最近的、已有的上级目录，等它建出来；inotify 用不了时每 poll 重读一次。
 // 重读时按文件大小和修改时刻认出没变的记录，只重新读变了的那几份的头尾（summarize）。
 type sessionWatch struct {
@@ -230,12 +230,8 @@ func (w *sessionWatch) ensureWatches() {
 
 // snapshot 是现在要列出的各项，按时间从新到旧，同一个 id 只留最新的那份。
 func (w *sessionWatch) snapshot() []obj {
-	e := w.e
-	files := e.sessionFiles()
-	sortNewestFirst(files)
-	files = files[:min(len(files), listLimit)]
-	external := e.externalSessions()
-	archived := e.archivedSessions()
+	marks := w.e.sessionMarks()
+	files := listedFiles(w.e, marks.pinned)
 	seen := map[string]bool{}
 	kept := make(map[string]cached, len(files))
 	var items []obj
@@ -249,7 +245,7 @@ func (w *sessionWatch) snapshot() []obj {
 			continue
 		}
 		seen[c.s.id] = true
-		items = append(items, c.s.item(external, archived))
+		items = append(items, c.s.item(marks))
 	}
 	w.cache = kept
 	return items

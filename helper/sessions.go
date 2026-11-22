@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 const listLimit = 300 // list、search 只看最新的这么多个会话
@@ -26,9 +28,10 @@ type summary struct {
 	updated int64
 }
 
-func (s summary) item(external, archived map[string]bool) obj {
+// item 是列表里的这一项（zeta_sessions 的 upsert、sessions.lookup 的每一项），带上 marks 里它的标记。
+func (s summary) item(marks sessionMarks) obj {
 	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "updated": s.updated,
-		"external": external[s.id], "archived": archived[s.id]}
+		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id]}
 }
 
 // summaryScan 是读一份记录时攒下的东西。
@@ -209,17 +212,37 @@ func previewText(text string) string {
 }
 
 func cmdList(e *env, o *emitter) error {
-	files := e.sessionFiles()
-	sortNewestFirst(files)
-	external := e.externalSessions()
-	archived := e.archivedSessions()
-	for _, path := range files[:min(len(files), listLimit)] {
+	marks := e.sessionMarks()
+	for _, path := range listedFiles(e, marks.pinned) {
 		s, ok, err := summarize(path)
 		if err == nil && ok {
-			o.out(s.item(external, archived))
+			o.out(s.item(marks))
 		}
 	}
 	return nil
+}
+
+// listedFiles 是列表要列的记录：最新的 listLimit 份，加上置顶了（pinned）却不在里面的会话各自最新的那份，
+// 都按时间从新到旧，置顶的排在后面。同一个会话号的几份由读的一方只认第一份。
+func listedFiles(e *env, pinned map[string]bool) []string {
+	files := e.sessionFiles()
+	sortNewestFirst(files)
+	files = files[:min(len(files), listLimit)]
+	listed := make(map[string]bool, len(files))
+	for _, path := range files {
+		listed[dropRunes(baseName(path), 6)] = true
+	}
+	var far []string
+	for id := range pinned {
+		if listed[id] {
+			continue
+		}
+		if path := sessionFile(e, id); path != "" {
+			far = append(far, path)
+		}
+	}
+	sortNewestFirst(far)
+	return append(files, far...)
 }
 
 func cmdLookup(e *env, o *emitter, ids []string) error {
@@ -232,14 +255,13 @@ func cmdLookup(e *env, o *emitter, ids []string) error {
 // lookupSessions 按 id 取会话概要（形状同 list 的每一项），按 ids 的顺序，找不到的不在里面。
 // zeta-helper lookup 和核心的 sessions.lookup 都用它。
 func lookupSessions(e *env, ids []string) []obj {
-	external := e.externalSessions()
-	archived := e.archivedSessions()
+	marks := e.sessionMarks()
 	items := []obj{}
 	for _, id := range ids {
 		for _, path := range e.sessionFilesNamed(id) {
 			s, ok, err := summarize(path)
 			if err == nil && ok {
-				items = append(items, s.item(external, archived))
+				items = append(items, s.item(marks))
 				break
 			}
 		}
@@ -247,10 +269,27 @@ func lookupSessions(e *env, ids []string) []obj {
 	return items
 }
 
-// archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着；文件里一行一个 id。
-func (e *env) archivedSessions() map[string]bool {
+// sessionMarks 是列表每一项要带的几样标记，按会话 id。
+type sessionMarks struct {
+	external map[string]bool // 正被别的 Claude Code 进程占着（externalSessions）
+	archived map[string]bool // 归档了
+	pinned   map[string]bool // 置顶了
+}
+
+func (e *env) sessionMarks() sessionMarks {
+	return sessionMarks{external: e.externalSessions(), archived: e.archivedSessions(), pinned: e.pinnedSessions()}
+}
+
+// archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着。
+func (e *env) archivedSessions() map[string]bool { return readMarks(e.archive) }
+
+// pinnedSessions 是置顶的会话 id。置顶只是 Zeta 的标记，记录文件不动；置顶的总在列表里（listedFiles）。
+func (e *env) pinnedSessions() map[string]bool { return readMarks(e.pinned) }
+
+// readMarks 读一份标记文件（归档、置顶）：一行一个会话 id。读不了时是空的。
+func readMarks(path string) map[string]bool {
 	ids := map[string]bool{}
-	data, err := os.ReadFile(e.archive)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return ids
 	}
@@ -272,15 +311,24 @@ func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
 	return nil
 }
 
-// archiveSessions 把这些会话记成归档（on）或取消归档，顺手清掉记录文件已经不在的；先写临时文件再改名换上。
-// 读、改、换整个过程持着同目录的 archived.lock（flock）：核心里几个客户端同时改，和 zeta-helper archive 子命令
-// 在另一个进程里改，都一个一个来（同一个进程里各自打开的锁文件也互相挡着）。
-// zeta-helper archive 和核心的 sessions.archive 都用它。
+// archiveSessions 把这些会话记成归档（on）或取消归档（markSessions）。zeta-helper archive 和核心的 sessions.archive 都用它。
 func archiveSessions(e *env, sessions []string, on bool) error {
-	if err := os.MkdirAll(dirName(e.archive), 0o777); err != nil {
+	return markSessions(e, e.archive, sessions, on)
+}
+
+// pinSessions 把这些会话置顶（on）或取消置顶（markSessions）。核心的 sessions.pin 用它。
+func pinSessions(e *env, sessions []string, on bool) error {
+	return markSessions(e, e.pinned, sessions, on)
+}
+
+// markSessions 在标记文件 path（归档、置顶）里记上（on）或去掉这些会话，顺手清掉记录文件已经不在的；先写临时文件再改名换上。
+// 读、改、换整个过程持着同目录的 <文件名>.lock（flock）：核心里几个客户端同时改，和 zeta-helper archive 子命令
+// 在另一个进程里改，都一个一个来（同一个进程里各自打开的锁文件也互相挡着）。
+func markSessions(e *env, path string, sessions []string, on bool) error {
+	if err := os.MkdirAll(dirName(path), 0o777); err != nil {
 		return err
 	}
-	lock, err := os.OpenFile(e.archive+".lock", os.O_RDWR|os.O_CREATE, 0o666)
+	lock, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		return err
 	}
@@ -289,7 +337,7 @@ func archiveSessions(e *env, sessions []string, on bool) error {
 		return err
 	}
 	keep := map[string]bool{}
-	for id := range e.archivedSessions() {
+	for id := range readMarks(path) {
 		// 顺手清掉记录文件已经不在的
 		if len(e.sessionFilesNamed(id)) > 0 {
 			keep[id] = true
@@ -311,10 +359,10 @@ func archiveSessions(e *env, sessions []string, on bool) error {
 	for _, id := range ids {
 		b.WriteString(id + "\n")
 	}
-	if err := os.WriteFile(e.archive+".tmp", []byte(b.String()), 0o666); err != nil {
+	if err := os.WriteFile(path+".tmp", []byte(b.String()), 0o666); err != nil {
 		return err
 	}
-	return os.Rename(e.archive+".tmp", e.archive)
+	return os.Rename(path+".tmp", path)
 }
 
 // cmdRename 给会话改名（renameSession），报出实际写下的标题。
@@ -327,11 +375,11 @@ func cmdRename(o *emitter, path, title string) error {
 	return nil
 }
 
-// renameSession 给会话记录 path 改名：空白压成一个空格、最多 200 字，追加一行 custom-title
+// renameSession 给会话记录 path 改名：标题照 sessionproto.CleanTitle（空白压成一个空格、最多 200 字），追加一行 custom-title
 // （与 Claude Code 自己的 /rename 写的一样，紧凑的 JSON），文件末尾没有换行时先补一个。返回实际写下的标题。
 // zeta-helper rename 和核心的 conv.title 都用它。
 func renameSession(path, title string) (string, error) {
-	title = runePrefix(squash(title), 200)
+	title = sessionproto.CleanTitle(title)
 	if title == "" {
 		return "", errors.New("empty title")
 	}

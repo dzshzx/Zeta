@@ -1,27 +1,13 @@
 package conv
 
-// Occupancy 是 Zeta 之外占着一个会话的 Claude Code 进程的样子（终端里开着的，或另一个包托管的），「别处运行」卡片照它说话。
-type Occupancy struct {
-	// Status：没有别处的进程占着时为 null；有时是 idle、waiting、busy、shell，旧版 Claude Code 不报状态时是 unknown
-	Status *string `json:"status"`
-	// WaitingFor：在等确认时等的是什么（Claude Code 报了才有）
-	WaitingFor *string `json:"waiting_for"`
-	// HandsOver：现在能交给 Zeta（闲着、在等确认，或看不出忙闲）
-	HandsOver bool `json:"hands_over"`
-}
+import "github.com/dzshzx/Zeta/helper/sessionproto"
 
-// Handoff 是把会话从别处接过来的结果。
-type Handoff struct {
-	// Handed：交出来了（没人占着也算）
-	Handed bool `json:"handed"`
-	// Status：没交出来时那边的状态（同 Occupancy.Status），发了中断还不退的是 stuck
-	Status *string `json:"status"`
-}
+// 别处占用与接管的结果（sessionproto.Occupancy、sessionproto.Handoff）是协议的一部分，客户端也用，所以放在 helper/sessionproto。
 
 // occupancy 问一次别处占用；没接上这个能力（Deps.Occupant 为 nil）或还没有会话号时当没人占着。
-func (m *Manager) occupancy(session string) Occupancy {
+func (m *Manager) occupancy(session string) sessionproto.Occupancy {
 	if session == "" || m.deps.Occupant == nil {
-		return Occupancy{HandsOver: true}
+		return sessionproto.Occupancy{HandsOver: true}
 	}
 	return m.deps.Occupant(session)
 }
@@ -38,8 +24,8 @@ func (m *Manager) handOff(c *Conversation) (any, error) {
 
 // handOffWith 把会话 session 从别处接过来，没人占着也算交出来了。交出来了、核心里又开着它的对话 c（可以是 nil）时
 // 解开 c 的输入栏（blocked），推给拿着它的客户端。conv.handoff 和 sessions.handoff（HandOffSession）都走这里。
-func (m *Manager) handOffWith(session string, c *Conversation) (Handoff, error) {
-	result := Handoff{Handed: true}
+func (m *Manager) handOffWith(session string, c *Conversation) (sessionproto.Handoff, error) {
+	result := sessionproto.Handoff{Handed: true}
 	if session != "" && m.deps.Handoff != nil {
 		result = m.deps.Handoff(session)
 	}

@@ -241,20 +241,6 @@ func TestSessionsDeskOpenWithoutTmux(t *testing.T) {
 	}
 }
 
-func TestExportFileName(t *testing.T) {
-	at := time.Date(2026, 11, 22, 9, 5, 0, 0, time.Local)
-	for title, want := range map[string]string{
-		"  a/b:c*?\"<>|\t d\x01 ":     "Zeta-abc d-20261122-0905.md",
-		"":                            "Zeta-对话-20261122-0905.md",
-		"/:*":                         "Zeta-对话-20261122-0905.md",
-		strings.Repeat("长", 50) + "x": "Zeta-" + strings.Repeat("长", 40) + "-20261122-0905.md",
-	} {
-		if got := exportFileName(title, at); got != want {
-			t.Errorf("%q：%q，要 %q", title, got, want)
-		}
-	}
-}
-
 // endlessRecord 把会话记录 path 做成读不完的管道：每来一个读的一方，就一直往里写不会命中的行，直到它不读了（关掉）。
 // 每有一个开始读往 opened 发一次，读的一方都走了往 closed 发一次。
 func endlessRecord(t *testing.T, path string) (opened, closed <-chan struct{}) {

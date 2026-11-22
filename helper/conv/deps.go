@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -35,9 +36,9 @@ type Deps struct {
 	// ActivityChanged：对话的会话号或忙闲变了（conv.activity）；由 Manager 填
 	ActivityChanged func(c *Conversation, session string, a Activity)
 	// Occupant 查 Zeta 之外有没有进程占着会话 session（zeta-helper occupant）；可以是 nil，那时当没人占着
-	Occupant func(session string) Occupancy
+	Occupant func(session string) sessionproto.Occupancy
 	// Handoff 把会话 session 从别处接过来（zeta-helper handoff），要等那边退出；可以是 nil，那时当已交出来
-	Handoff func(session string) Handoff
+	Handoff func(session string) sessionproto.Handoff
 	// Quota 收下 Claude Code 给的这台主机的订阅额度（核心里接到额度存储，quota.get 读的那份）；可以是 nil：
 	// 那样输出里的 rate_limit_event 不管，起进程时也不问额度
 	Quota Quota

@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 核心的 sessions.* 方法里订阅（sessions.watch、sessions.unwatch，见 corehandlers.go）以外的：侧栏对会话的操作，
@@ -29,9 +28,12 @@ type sessionParams struct {
 	Session  string   `json:"session"`
 	Title    string   `json:"title"`
 	Archived bool     `json:"archived"`
+	Pinned   bool     `json:"pinned"`
 	Sessions []string `json:"sessions"`
 	File     string   `json:"file"`
 	Ref      string   `json:"ref"`
+	// UTCOffset 是客户端所在时区比 UTC 快多少分钟（sessions.export 起文件名用）；没带时按主机的本地时间
+	UTCOffset *int `json:"utc_offset"`
 }
 
 // sessionMethod 是一个方法怎么做；session 为真的要带样子对的会话号。
@@ -44,8 +46,9 @@ var sessionMethods = map[string]sessionMethod{
 	"sessions.rename":     {run: sessionOps.rename, session: true},
 	"sessions.occupant":   {run: sessionOps.occupant, session: true},
 	"sessions.archive":    {run: sessionOps.archive, session: true},
+	"sessions.pin":        {run: sessionOps.pin, session: true},
 	"sessions.delete":     {run: sessionOps.deleteSession, session: true},
-	"sessions.export":     {run: sessionOps.export, session: true},
+	"sessions.export":     {run: sessionOps.export},
 	"sessions.handoff":    {run: sessionOps.handoff, session: true},
 	"sessions.desk_open":  {run: sessionOps.deskOpen, session: true},
 	"sessions.desk_close": {run: sessionOps.deskClose, session: true},
@@ -54,7 +57,13 @@ var sessionMethods = map[string]sessionMethod{
 }
 
 // errNoSession：这个会话号没有会话记录（或给的记录已经不在）。
-var errNoSession = codedError{code: "no_session", err: errors.New("这个会话的记录已经不在了")}
+var errNoSession = codedError{code: sessionproto.CodeNoSession, err: errors.New("这个会话的记录已经不在了")}
+
+// errActive：sessions.delete 要删的会话正在进行（activeSession），没删。
+var errActive = codedError{code: sessionproto.CodeActive, err: errors.New("对话正在进行，结束后再删")}
+
+// errBadSession：会话号的样子不对。
+var errBadSession = errors.New("bad session id")
 
 func (h sessionOps) Request(_ *core.Client, r core.Request) (any, error) {
 	m, ok := sessionMethods[r.Method]
@@ -66,7 +75,7 @@ func (h sessionOps) Request(_ *core.Client, r core.Request) (any, error) {
 		return nil, errors.New("bad params: " + err.Error())
 	}
 	if m.session && !isSessionID(p.Session) {
-		return nil, errors.New("bad session id")
+		return nil, errBadSession
 	}
 	return m.run(h, p)
 }
@@ -95,14 +104,17 @@ func newSessionSearches(e *env) *sessionSearches {
 func (s *sessionSearches) Request(c *core.Client, r core.Request) (any, error) {
 	var p struct {
 		Query string `json:"query"`
+		// Search 是客户端给这次搜索起的名字，推送的 sessions.match 原样带回
+		Search json.RawMessage `json:"search"`
 	}
 	if err := json.Unmarshal(r.Raw, &p); err != nil {
 		return nil, errors.New("bad params: " + err.Error())
 	}
+	name := searchName(p.Search, r.ID)
 	ctx, run := s.start(c)
 	go func() {
 		done, err := searchSessions(ctx, s.e, p.Query, func(m searchMatch) {
-			_ = c.Send(obj{"type": "sessions.match", "search": r.ID, "id": m.ID, "role": m.Role, "snippet": m.Snippet})
+			_ = c.Send(obj{"type": "sessions.match", "search": name, "id": m.ID, "role": m.Role, "snippet": m.Snippet})
 		})
 		s.finish(c, run)
 		if err != nil {
@@ -112,6 +124,16 @@ func (s *sessionSearches) Request(c *core.Client, r core.Request) (any, error) {
 		c.Reply(r.ID, done, nil)
 	}()
 	return core.Later, nil
+}
+
+// searchName 是推送的 sessions.match 带的 search：客户端起的名字 named；没给时是请求的 id。
+//
+// 没给名字时用 id 是给还没改的客户端留的退路：各客户端都带 search 以后删掉它，连同 docs/core.md「会话」里那一句。
+func searchName(named, id json.RawMessage) json.RawMessage {
+	if len(named) == 0 || string(named) == "null" {
+		return id
+	}
+	return named
 }
 
 // start 取消客户端 c 上一个还在跑的搜索，登记新的这个。
@@ -187,7 +209,17 @@ func (h sessionOps) archive(q sessionParams) (any, error) {
 	return obj{"archived": q.Archived}, nil
 }
 
+func (h sessionOps) pin(q sessionParams) (any, error) {
+	if err := pinSessions(h.e, []string{q.Session}, q.Pinned); err != nil {
+		return nil, err
+	}
+	return obj{"pinned": q.Pinned}, nil
+}
+
 func (h sessionOps) deleteSession(q sessionParams) (any, error) {
+	if h.activeSession(q.Session) {
+		return nil, errActive
+	}
 	// 开着的进程先结束、等它退出：不然 Claude Code 还会把删掉的记录写出来
 	if h.convs.EndSession(q.Session) {
 		h.e.waitOwnHostGone(q.Session, releaseGrace+6*time.Second)
@@ -206,37 +238,99 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 	return obj{"deleted": deleted, "closed": deskClose([]string{q.Session})}, nil
 }
 
+// activeSession：会话 session 正在进行，sessions.delete 不删它。正在进行指：核心里开着它的对话在回答、等确认或有后台任务；
+// Zeta 之外的进程占着它（列表里的 external）；本包托管、核心没接着的进程登记着它，正忙（busy、shell）或在等确认。
+func (h sessionOps) activeSession(session string) bool {
+	if state := h.convs.SessionActivity(session).State; state != "" && state != "idle" {
+		return true
+	}
+	for _, r := range h.e.registeredSessions() {
+		if r.session == session && (!h.e.ownHost(r) || busyStatus(r.status)) {
+			return true
+		}
+	}
+	return false
+}
+
+// busyStatus：Claude Code 在 ~/.claude/sessions 登记的这个忙闲算正在进行。
+func busyStatus(status string) bool {
+	return status == sessionproto.StatusBusy || status == sessionproto.StatusShell || status == sessionproto.StatusWaiting
+}
+
 func (h sessionOps) export(q sessionParams) (any, error) {
-	path, err := h.record(q.Session)
+	at := time.Now()
+	if q.UTCOffset != nil {
+		at = sessionproto.AtOffset(at, *q.UTCOffset)
+	}
+	if len(q.Sessions) > 0 {
+		if !allOf(q.Sessions, isSessionID) {
+			return nil, errBadSession
+		}
+		return h.exportMany(q.Sessions, at)
+	}
+	if !isSessionID(q.Session) {
+		return nil, errBadSession
+	}
+	ex, err := h.exportOne(q.Session)
 	if err != nil {
 		return nil, err
+	}
+	return obj{"title": ex.title, "markdown": ex.markdown, "file_name": sessionproto.ExportFileName(ex.title, at)}, nil
+}
+
+// exportOne 导出一个会话；记录不在时是 errNoSession。
+func (h sessionOps) exportOne(session string) (exported, error) {
+	path, err := h.record(session)
+	if err != nil {
+		return exported{}, err
 	}
 	markdown, title, err := exportSession(path)
 	if err != nil {
 		if isNotExist(err) {
-			return nil, errNoSession
+			return exported{}, errNoSession
 		}
-		return nil, err
+		return exported{}, err
 	}
-	return obj{"title": title, "markdown": markdown, "file_name": exportFileName(title, time.Now())}, nil
+	return exported{title: title, markdown: markdown}, nil
 }
 
-// fileNameUnsafe 是文件名里不能用的字符（Windows 的保留字符和控制字符）。
-var fileNameUnsafe = regexp.MustCompile(`[\\/:*?"<>|\p{C}]`)
-
-// exportFileName 是导出文件的建议名字，照 Eta：Zeta-标题-年月日-时分.md；标题去掉不能用的字符、最多 40 字，空了是「对话」。
-func exportFileName(title string, now time.Time) string {
-	clean := strings.TrimSpace(fileNameUnsafe.ReplaceAllString(squash(title), ""))
-	clean = strings.TrimSpace(runePrefix(clean, 40))
-	if clean == "" {
-		clean = "对话"
+// exportMany 把这几个会话（同一台主机上的）导出、合成一份（combineExports），同一个会话号只导一次，导不出来的跳过。
+// 一个都没导出成时出错：都是因为记录不在时是 errNoSession，否则是别的原因里的第一个。
+func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
+	var parts []exported
+	done, failed := []string{}, []string{}
+	var problem error
+	seen := map[string]bool{}
+	for _, id := range sessions {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		ex, err := h.exportOne(id)
+		if err != nil {
+			failed = append(failed, id)
+			if problem == nil && !errors.Is(err, errNoSession) {
+				problem = err
+			}
+			continue
+		}
+		parts = append(parts, ex)
+		done = append(done, id)
 	}
-	return "Zeta-" + clean + "-" + now.Format("20060102-1504") + ".md"
+	if len(parts) == 0 {
+		if problem != nil {
+			return nil, problem
+		}
+		return nil, errNoSession
+	}
+	title, markdown := combineExports(parts)
+	return obj{"title": title, "markdown": markdown, "file_name": sessionproto.ExportFileName(title, at),
+		"exported": done, "failed": failed}, nil
 }
 
 func (h sessionOps) lookup(q sessionParams) (any, error) {
 	if !allOf(q.Sessions, isSessionID) {
-		return nil, errors.New("bad session id")
+		return nil, errBadSession
 	}
 	return lookupSessions(h.e, q.Sessions), nil
 }

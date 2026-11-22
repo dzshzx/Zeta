@@ -20,6 +20,7 @@ type env struct {
 	hosts    string // ~/.cache/<name>/hosts：Zeta 托管的后台对话
 	uploads  string // ~/.cache/<name>/files：应用送进来的附件
 	archive  string // ~/.config/<name>/archived：归档的会话 id
+	pinned   string // ~/.config/<name>/pinned：置顶的会话 id
 	aptRoot  string // apt 的缓存，存储页只统计
 }
 
@@ -42,6 +43,7 @@ func newEnvAt(home, name string) *env {
 		hosts:    home + "/.cache/" + name + "/hosts",
 		uploads:  home + "/.cache/" + name + "/files",
 		archive:  home + "/.config/" + name + "/archived",
+		pinned:   home + "/.config/" + name + "/pinned",
 		aptRoot:  "/var/cache/apt",
 	}
 }

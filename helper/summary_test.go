@@ -20,7 +20,7 @@ func summaryOf(t *testing.T, path string) obj {
 	if err != nil || !ok {
 		t.Fatalf("summarize %s: %v %v", path, ok, err)
 	}
-	return s.item(nil, nil)
+	return s.item(sessionMarks{})
 }
 
 func TestSummaryReadsOnlyHeadAndTail(t *testing.T) {

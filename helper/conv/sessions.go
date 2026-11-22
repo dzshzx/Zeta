@@ -1,6 +1,10 @@
 package conv
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
+)
 
 // 按会话号操作的入口：侧栏的 sessions.rename、sessions.handoff、sessions.delete 不知道哪个客户端开着这个会话，
 // 由核心看它这里开着没有。开着就走对话自己的改名、接管、结束（和 conv.title、conv.handoff、conv.end 同一条路），
@@ -35,7 +39,7 @@ func (m *Manager) RenameSession(session, title string) (written string, open boo
 
 // HandOffSession 把会话 session 从别处接过来（同 conv.handoff）：核心里开着这个会话时，交出来了就解开它的输入栏。
 // 要等那边退出，最多十几秒。
-func (m *Manager) HandOffSession(session string) (Handoff, error) {
+func (m *Manager) HandOffSession(session string) (sessionproto.Handoff, error) {
 	result, err := m.handOffWith(session, m.openSession(session))
 	if errors.Is(err, errClosed) {
 		// 对话正好收掉了，没有输入栏要解开
@@ -59,4 +63,16 @@ func (c *Conversation) end() bool {
 	had := c.proc != nil
 	c.closeProcess(true)
 	return had
+}
+
+// SessionActivity 是核心里开着的会话 session 眼下的忙闲（同 conv.activity 推的那一项）；没开着时是零值。
+func (m *Manager) SessionActivity(session string) Activity {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range m.activity {
+		if s.session == session {
+			return s.Activity
+		}
+	}
+	return Activity{}
 }

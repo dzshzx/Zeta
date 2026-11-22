@@ -59,7 +59,9 @@ func startServe(t *testing.T, e *env, idle time.Duration) *serveClient {
 		}
 	}()
 	t.Cleanup(func() { _ = inW.Close() })
-	if hello := c.next("zeta_hello"); hello["protocol"] != json.Number("1") || hello["build"] == nil || hello["version"] == nil {
+	hostname, _ := os.Hostname()
+	if hello := c.next("zeta_hello"); hello["protocol"] != json.Number("1") || hello["build"] == nil || hello["version"] == nil ||
+		hello["hostname"] != hostname {
 		t.Fatalf("hello %v", hello)
 	}
 	return c

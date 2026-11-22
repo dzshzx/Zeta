@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -315,4 +316,23 @@ func errorText(content any) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// exported 是一个会话的导出：标题和 Markdown。
+type exported struct {
+	title    string
+	markdown string
+}
+
+// combineExports 把几个会话的导出合成一份（sessions.export 带 sessions 时，照 Kotlin 的 combineExports、exportName）：
+// 只有一个时原样；几个时标题是「N个对话」，正文是各自去掉末尾空白、补一个换行，中间用分隔线隔开。
+func combineExports(parts []exported) (title, markdown string) {
+	if len(parts) == 1 {
+		return parts[0].title, parts[0].markdown
+	}
+	bodies := make([]string, len(parts))
+	for i, p := range parts {
+		bodies[i] = strings.TrimRightFunc(p.markdown, unicode.IsSpace) + "\n"
+	}
+	return fmt.Sprintf("%d个对话", len(parts)), strings.Join(bodies, "\n---\n\n")
 }

@@ -17,7 +17,8 @@ import (
 // serve：常驻连接。客户端（Zeta 的手机版、桌面版）起一个 zeta-helper serve，经它的标准输入输出说话，
 // 不用为每个操作各起一次命令；远程主机上是一条 SSH 通道，手机本机是进 Debian 的那条管道，不开端口。
 //
-// 协议一行一个 JSON。连上先收到 {"type":"zeta_hello","protocol":<版本>,"build":<构建序号>,"version":"<版本>"}。客户端发
+// 协议一行一个 JSON。连上先收到 {"type":"zeta_hello","protocol":<版本>,"build":<构建序号>,"version":"<版本>","hostname":"<主机名>"}
+// （主机名同 uname -n，查不到时是空串；客户端拿它补设备的名字）。客户端发
 // {"id":<任意 JSON 值>,"method":"<方法>"}，每个请求都回一行 {"type":"zeta_reply","id":<原样>,"ok":true}
 // 或 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}；客户端要按原因分别处理的错误另带 "code"
 // （认得的代号见各方法的说明，比如 docs/core.md「账号与额度」），没带 code 的只给人看。
@@ -114,7 +115,9 @@ type serveSession struct {
 func cmdServe(e *env, idle time.Duration, in io.Reader, out io.Writer) error {
 	s := &serveSession{e: e, o: newServeOut(out)}
 	info := buildInfo()
-	if err := s.o.send(obj{"type": "zeta_hello", "protocol": serveProtocol, "build": info.Build, "version": info.Version}); err != nil {
+	hostname, _ := os.Hostname()
+	hello := obj{"type": "zeta_hello", "protocol": serveProtocol, "build": info.Build, "version": info.Version, "hostname": hostname}
+	if err := s.o.send(hello); err != nil {
 		return nil
 	}
 	defer s.close()
