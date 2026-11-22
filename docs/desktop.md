@@ -16,10 +16,12 @@
 windows/
   cmd/zeta/           入口
   internal/settings/  设置文件（和 Compose 版同格式）、各项设置
-  internal/remote/    设备：模型、OpenSSH 配置认证、SSH 连接（每台一条、每个命令一个通道、闲一分钟断、断线重连）、加设备时的探测
-  internal/host/      在一台主机上跑命令：remoteCommand 的写法、zeta-helper 按哈希安装与调用、serve 连接、托管脚本
+  internal/remote/    设备：模型、OpenSSH 配置认证、SSH 连接（每台一条、每个命令一个通道、闲一分钟断、断线重连）、主机指纹
+  internal/host/      在一台主机上跑命令：remoteCommand 的写法、zeta-helper 按哈希安装与调用、serve 连接、加设备时的探测、托管脚本
   internal/chat/      对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
-  internal/hub/       中枢：当前对话与后台对话、会话列表、设备切换、账号
+  internal/hub/       中枢：当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）
+  internal/sshtest/   测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
+  internal/hubtest/   测试用：不连 SSH 的假设备，中枢和界面的测试用
   internal/claudecfg/ Claude Code 的配置（记忆、Skills、MCP、Subagent、权限、新对话默认）
   internal/ui/        mygo 界面：窗口、侧栏、聊天、输入栏、各种确认、设置各页
   installer/          MSI（wixl）
@@ -41,5 +43,5 @@ windows/
 ## 测试
 
 - 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`。
-- 界面用 mygo 的无窗口测试（`ui.NewTester`）按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时按环境变量把各场景画成 PNG 人工看（同 power-meter 的 `TestPreviews`）。
+- 界面用 mygo 的无窗口测试（`ui.NewTester`）配 `internal/hubtest` 的假设备，按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时设 `ZETA_PREVIEW_DIR`，`internal/ui` 的 `TestPreviews` 把各场景画成 PNG 人工看（同 power-meter）。
 - 门禁在 Linux 上跑全部测试；真窗口在本机的 Windows 上装 MSI 看。
