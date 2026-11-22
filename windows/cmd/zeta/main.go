@@ -1,24 +1,45 @@
-// Command zeta 是 Zeta 的 Windows 桌面版：经 SSH 用远程主机上的 Claude Code（见 docs/desktop.md）。
+// Command zeta 是 Zeta 的 Windows 桌面版：经 SSH 用远程设备上的 Claude Code（见 docs/desktop.md）。
 package main
 
 import (
 	"log"
+	"time"
 
+	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
+	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
 func main() {
+	dir, err := settings.Dir()
+	if err != nil {
+		log.Fatalf("zeta: 找不到放设置的目录：%v", err)
+	}
+	prefs, err := settings.Load(dir)
+	if err != nil {
+		log.Printf("zeta: %v", err)
+	}
+	helper, err := host.LoadProgram(host.ZetaHelper)
+	if err != nil {
+		log.Fatalf("zeta: %v", err)
+	}
+	config := remote.NewOpenSSH()
+	devices := &host.Devices{Links: remote.NewLinks(config, time.Minute), Config: config, Helper: helper}
+
+	// 后台 goroutine 的结果经窗口的 Update 回到主线程，改完重画
+	var win *mygo.Window
+	post := func(f func()) { win.Update(f) }
+	h := hub.New(prefs, devices, post)
+	app := zui.New(h, func(f func()) { go f() }, post)
 	mygo.App.WhenReady(func() {
-		mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, Content: ui.View(view)})
+		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, Content: ui.View(app.View)})
+		h.Start()
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func view(c *ui.Context) {
-	ui.Column(c).Fill().Center().Children(func() {
-		ui.Text(c, "Zeta").FontSize(28).Bold()
-	})
 }
