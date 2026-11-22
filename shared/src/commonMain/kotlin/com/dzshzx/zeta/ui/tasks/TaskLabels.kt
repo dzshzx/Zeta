@@ -28,17 +28,16 @@ object TaskLabels {
             }
             .ifBlank { kind(task) }
 
-    fun state(task: BackgroundTask): String =
-        when {
-            task.stopping -> "正在停止"
-            else ->
-                when (task.state) {
-                    TaskState.Running -> "运行中"
-                    TaskState.Completed -> "已完成"
-                    TaskState.Failed -> "失败"
-                    TaskState.Stopped -> "已停止"
-                    TaskState.Ended -> "已结束"
-                }
+    fun state(task: BackgroundTask): String = if (task.stopping) "正在停止" else state(task.state)
+
+    /** 任务状态的说法；子代理查看页在跑和结局也照它说（SubagentScreen）。 */
+    fun state(state: TaskState): String =
+        when (state) {
+            TaskState.Running -> "运行中"
+            TaskState.Completed -> "已完成"
+            TaskState.Failed -> "失败"
+            TaskState.Stopped -> "已停止"
+            TaskState.Ended -> "已结束"
         }
 
     /** 列表里的说明行：“后台命令 · 已运行 2 分 05 秒”“子代理 · 已完成 · 用时 6 秒”。 */

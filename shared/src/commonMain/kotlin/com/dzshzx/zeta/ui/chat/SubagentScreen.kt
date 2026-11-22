@@ -32,6 +32,7 @@ import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
+import com.dzshzx.zeta.core.conv.SubagentState
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -39,21 +40,13 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.tasks.TaskLabels
+import com.dzshzx.zeta.ui.tasks.taskStateColor
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.preference.PreferenceCategory
 import io.github.suqi8.coui.kmp.theme.COUITheme
-
-/** 子代理的状态怎么说。[running] 优先；不在跑又不知道结局的，是进程没等它做完就没了。 */
-fun subagentState(running: Boolean, outcome: TaskState?): String =
-    when {
-        running -> "运行中"
-        outcome == TaskState.Completed -> "已完成"
-        outcome == TaskState.Failed -> "失败"
-        outcome == TaskState.Stopped -> "已停止"
-        else -> "未做完"
-    }
 
 /**
  * 子代理查看页：聊天里点开发起子代理的那一步、后台任务面板里点子代理进来。[conversationKey] 是所在对话的 key， [toolUseId]
@@ -125,7 +118,7 @@ fun SubagentPage(
             item(key = "skipped") {
                 NoticeRow(NoticeItem("skipped", "更早的 ${log.skipped} 条记录未载入", error = false))
             }
-        val tail = log.running
+        val tail = log.state == SubagentState.Running
         val count = items.size + if (tail) 1 else 0
         if (count == 0) {
             item(key = "empty") { PagerFooterPreference(summary = noStepsText(log)) }
@@ -159,11 +152,8 @@ private fun SubagentSummary(log: ConvSubagent) {
             BasicComponent(
                 title = "状态",
                 endActions = {
-                    PreferenceValue(
-                        if (log.loaded || log.running) subagentState(log.running, log.outcome)
-                        else "正在读取",
-                        color = subagentStateColor(log),
-                    )
+                    val (text, color) = stateLabel(log.state)
+                    PreferenceValue(text, color = color)
                 },
             )
         }
@@ -187,23 +177,32 @@ private fun SubagentSummary(log: ConvSubagent) {
     }
 }
 
-/** 状态的颜色：在跑是主题色，完成绿色，失败红色，别的不另上色。 */
+/**
+ * 状态的说法和颜色：核心给的结论（conv.subagent 的 state）换成文案。在跑和结局照后台任务的说法和颜色（[TaskLabels.state]、
+ * [taskStateColor]），别的不另上色；和 Windows 版一样。
+ */
 @Composable
-private fun subagentStateColor(log: ConvSubagent): Color {
-    val colors = COUITheme.colorScheme
-    return when {
-        log.running -> colors.primary
-        log.outcome == TaskState.Completed -> colors.success
-        log.outcome == TaskState.Failed -> colors.error
-        else -> Color.Unspecified
+private fun stateLabel(state: SubagentState): Pair<String, Color> =
+    when (state) {
+        SubagentState.Running -> taskLabel(TaskState.Running)
+        SubagentState.Completed -> taskLabel(TaskState.Completed)
+        SubagentState.Failed -> taskLabel(TaskState.Failed)
+        SubagentState.Stopped -> taskLabel(TaskState.Stopped)
+        SubagentState.Loading -> "正在读取" to Color.Unspecified
+        SubagentState.ReadFailed -> "读取失败" to Color.Unspecified
+        SubagentState.Missing -> "没有记录" to Color.Unspecified
+        SubagentState.Unfinished -> "未做完" to Color.Unspecified
     }
-}
 
-/** 一步都还没有时的说明。 */
+@Composable
+private fun taskLabel(state: TaskState) = TaskLabels.state(state) to taskStateColor(state)
+
+/** 一步都还没有、又不在跑时的说明：读失败时是原因。 */
 private fun noStepsText(log: ConvSubagent): String =
-    when {
-        log.missing -> "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
-        !log.loaded -> log.failure ?: "正在读取…"
+    when (log.state) {
+        SubagentState.Missing -> "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
+        SubagentState.ReadFailed -> log.failure ?: "读取失败"
+        SubagentState.Loading -> "正在读取…"
         else -> "还没有步骤"
     }
 

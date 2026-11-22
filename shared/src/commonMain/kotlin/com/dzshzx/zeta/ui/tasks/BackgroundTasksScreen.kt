@@ -361,9 +361,9 @@ private fun TaskInfoGroup(
     }
 }
 
-/** 状态的颜色：在跑是主题色，完成绿色，失败红色。 */
+/** 状态的颜色：在跑是主题色，完成绿色，失败红色，别的不另上色；子代理查看页在跑和结局也照它上色（SubagentScreen）。 */
 @Composable
-private fun taskStateColor(state: TaskState): Color =
+internal fun taskStateColor(state: TaskState): Color =
     when (state) {
         TaskState.Running -> COUITheme.colorScheme.primary
         TaskState.Completed -> COUITheme.colorScheme.success

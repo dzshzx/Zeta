@@ -3,13 +3,13 @@ package com.dzshzx.zeta.shots
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
-import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.SubagentMeta
+import com.dzshzx.zeta.core.conv.SubagentState
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.SubagentPage
@@ -19,7 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.junit.Test
 
-/** 子代理：聊天里发起它的那一步（点了进查看页），查看页本身（跑着的、做完的）。 */
+/** 子代理：聊天里发起它的那一步（点了进查看页），查看页本身在核心给的各个 state 下的样子。 */
 class SubagentShots : ShotTest() {
     private val call =
         ToolStep(
@@ -43,8 +43,9 @@ class SubagentShots : ShotTest() {
             result,
         )
 
-    /** 照核心推来的 conv.subagent 摆一份：先说一句，读文件、搜索、跑命令，[done] 时交回报告。 */
-    private fun log(done: Boolean): ConvSubagent {
+    /** 照核心推来的 conv.subagent 摆一份：先说一句，读文件、搜索、跑命令；不在跑时命令跑完了，完成时交回报告。 */
+    private fun log(state: SubagentState): ConvSubagent {
+        val done = state != SubagentState.Running
         val steps =
             listOf(
                 step(
@@ -69,7 +70,7 @@ class SubagentShots : ShotTest() {
         val items = buildList {
             add(AnswerItem("m1", "先读面板的代码，再对着截图看。", streaming = false))
             add(WorkItem("w-s1", steps))
-            if (done)
+            if (state == SubagentState.Completed)
                 add(
                     AnswerItem(
                         "m4",
@@ -86,46 +87,81 @@ class SubagentShots : ShotTest() {
                     agentType = "general-purpose",
                     description = "审查面板排版",
                     model = "claude-opus-5-5",
-                    finished = done,
+                    finished = state == SubagentState.Completed,
+                    stopped = state == SubagentState.Stopped,
                     background = true,
                 ),
-            outcome = if (done) TaskState.Completed else null,
+            state = state,
             prompt = "看看后台任务面板的排版，列出不对齐和文字溢出的地方。只读代码，不要改。",
             toolUses = 3,
-            running = !done,
-            loaded = true,
             file = "/home/u/.claude/projects/p/s/subagents/agent-a1.jsonl",
             items = items,
         )
     }
 
+    /** 记录还没读到时：核心先用发起它的那次 Agent 调用的说明、类型和指令填上（agent_id 为空），一步都没有。 */
+    private fun unread(state: SubagentState, failure: String? = null) =
+        ConvSubagent(
+            toolUseId = "toolu_A",
+            meta =
+                SubagentMeta(agentId = "", agentType = "general-purpose", description = "审查面板排版"),
+            state = state,
+            prompt = "看看后台任务面板的排版，列出不对齐和文字溢出的地方。只读代码，不要改。",
+            failure = failure,
+        )
+
     @Test
     fun running() {
-        val log = log(done = false)
+        val log = log(SubagentState.Running)
         shoot("subagent-running") { SubagentPage(log, onBack = {}) }
     }
 
     @Test
     fun finished() {
-        val log = log(done = true)
+        val log = log(SubagentState.Completed)
         shoot("subagent-done") { SubagentPage(log, onBack = {}) }
     }
 
-    /** 记录还没读到时：核心先用发起它的那次 Agent 调用的说明、类型和指令填上（agent_id 为空）。 */
+    @Test
+    fun failed() {
+        val log = log(SubagentState.Failed)
+        shoot("subagent-failed") { SubagentPage(log, onBack = {}) }
+    }
+
+    @Test
+    fun stopped() {
+        val log = log(SubagentState.Stopped)
+        shoot("subagent-stopped") { SubagentPage(log, onBack = {}) }
+    }
+
+    /** 不在跑又不知道结局：进程没等它做完就没了。 */
+    @Test
+    fun unfinished() {
+        val log = log(SubagentState.Unfinished)
+        shoot("subagent-unfinished") { SubagentPage(log, onBack = {}) }
+    }
+
     @Test
     fun loading() {
-        val log =
-            ConvSubagent(
-                toolUseId = "toolu_A",
-                meta =
-                    SubagentMeta(
-                        agentId = "",
-                        agentType = "general-purpose",
-                        description = "审查面板排版",
-                    ),
-                prompt = "看看后台任务面板的排版，列出不对齐和文字溢出的地方。只读代码，不要改。",
-            )
+        val log = unread(SubagentState.Loading)
         shoot("subagent-loading") { SubagentPage(log, onBack = {}) }
+    }
+
+    /** 读失败：状态说读取失败，步骤处显示核心给的原因。 */
+    @Test
+    fun readFailed() {
+        val log =
+            unread(
+                SubagentState.ReadFailed,
+                failure = "zeta-helper subagent: exit status 1: permission denied",
+            )
+        shoot("subagent-read-failed") { SubagentPage(log, onBack = {}) }
+    }
+
+    @Test
+    fun missing() {
+        val log = unread(SubagentState.Missing)
+        shoot("subagent-missing") { SubagentPage(log, onBack = {}) }
     }
 
     /** 聊天里发起子代理的那一步：右边是进入的箭头，不在原地展开。 */

@@ -405,6 +405,24 @@ data class SubagentMeta(
     val background: Boolean? = null,
 )
 
+/**
+ * 子代理查看页显示的状态（conv.subagent 的 state，helper/sessionproto 的 Subagent*）：核心按先后定好，界面只把它换成文案。
+ * [Unfinished] 是不在跑又不知道结局（进程没等它做完就没了）。
+ */
+enum class SubagentState(val wire: String) {
+    Running("running"),
+    /** 还没读到记录。 */
+    Loading("loading"),
+    /** 还没读到记录、读失败了，原因在 [ConvSubagent.failure]。 */
+    ReadFailed("read_failed"),
+    /** 记录文件没有。 */
+    Missing("missing"),
+    Completed("completed"),
+    Failed("failed"),
+    Stopped("stopped"),
+    Unfinished("unfinished"),
+}
+
 /** 看着的一个子代理（conv.subagent 合并到现在的样子）。条目以外的字段每次推送都是整份。 */
 @Immutable
 data class ConvSubagent(
@@ -412,16 +430,12 @@ data class ConvSubagent(
     val toolUseId: String,
     /** 记录旁 meta.json 里的几项，还没读到时为 null。 */
     val meta: SubagentMeta? = null,
-    /** 结局：Completed、Failed、Stopped；还没结束时为 null。 */
-    val outcome: TaskState? = null,
+    /** 核心给的状态；第一次推送到之前是正在读取。 */
+    val state: SubagentState = SubagentState.Loading,
     /** 交给它的任务。 */
     val prompt: String = "",
     val toolUses: Int = 0,
-    val running: Boolean = false,
-    val loaded: Boolean = false,
-    /** 记录文件还没有。 */
-    val missing: Boolean = false,
-    /** 读失败的原因。 */
+    /** 读失败的原因（[SubagentState.ReadFailed] 时显示）。 */
     val failure: String? = null,
     val file: String = "",
     /** 只留最近一段，前面略去了几条。 */
@@ -429,17 +443,19 @@ data class ConvSubagent(
     val items: List<ChatItem> = emptyList(),
 )
 
-/** conv.subagent 里条目以外的字段；条目由调用方按整份或替换合并后给 [items]。 */
+/**
+ * conv.subagent 里条目以外的字段；条目由调用方按整份或替换合并后给 [items]。state 认不出或缺时照协议「都不是时」当
+ * [SubagentState.Unfinished]。
+ */
 internal fun convSubagentOf(toolUseId: String, o: JsonObject, items: List<ChatItem>): ConvSubagent =
     ConvSubagent(
         toolUseId = toolUseId,
         meta = o.obj("meta")?.let(::subagentMetaOf),
-        outcome = TaskState.entries.firstOrNull { it.name.lowercase() == o.str("outcome") },
+        state =
+            o.str("state").let { wire -> SubagentState.entries.firstOrNull { it.wire == wire } }
+                ?: SubagentState.Unfinished,
         prompt = o.str("prompt").orEmpty(),
         toolUses = o.int("tool_uses") ?: 0,
-        running = o.bool("running") == true,
-        loaded = o.bool("loaded") == true,
-        missing = o.bool("missing") == true,
         failure = o.textOrNull("failure"),
         file = o.str("file").orEmpty(),
         skipped = o.int("skipped") ?: 0,

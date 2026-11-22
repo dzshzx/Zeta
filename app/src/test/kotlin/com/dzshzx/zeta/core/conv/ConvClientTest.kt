@@ -690,15 +690,21 @@ class ConvClientTest {
         assertEquals("s0", ids(first.items))
         assertEquals("a7", first.meta!!.agentId)
         assertEquals(true, first.meta!!.background)
-        assertEquals(TaskState.Completed, first.outcome)
+        // 状态只看核心给的 state，不看 outcome、running 这些
+        assertEquals(SubagentState.Running, first.state)
         assertEquals(4, first.toolUses)
-        assertTrue(first.running)
         assertEquals("看看测试", first.prompt)
         push(subagent(at = 1, remove = 0, items = """[{"kind":"answer","id":"s1","text":"好"}]"""))
         assertEquals("s0,s1", ids(events.subagents.poll(1, TimeUnit.SECONDS)!!.items))
         // 只有条目以外的字段变了：空的替换
-        push(subagent(at = 0, remove = 0, items = "[]"))
-        assertEquals("s0,s1", ids(events.subagents.poll(1, TimeUnit.SECONDS)!!.items))
+        push(subagent(at = 0, remove = 0, items = "[]", state = "read_failed", failure = "权限不够"))
+        val failed = events.subagents.poll(1, TimeUnit.SECONDS)!!
+        assertEquals("s0,s1", ids(failed.items))
+        assertEquals(SubagentState.ReadFailed, failed.state)
+        assertEquals("权限不够", failed.failure)
+        // 认不出的 state 照协议「都不是时」当未做完
+        push(subagent(at = 0, remove = 0, items = "[]", state = "paused"))
+        assertEquals(SubagentState.Unfinished, events.subagents.poll(1, TimeUnit.SECONDS)!!.state)
         push(subagent(at = 5, remove = 1, items = "[]"))
         assertEquals(
             Call("conv.subagent", obj("""{"conv":"k1","tool_use_id":"tu1","watch":true}""")),
@@ -755,12 +761,15 @@ class ConvClientTest {
         at: Int = 0,
         remove: Int = 0,
         items: String,
+        state: String = "running",
+        failure: String? = null,
     ): String =
         """{"type":"conv.subagent","conv":"k1","tool_use_id":"tu1",""" +
             (if (full) """"full":true,""" else "") +
+            (if (failure != null) """"failure":"$failure",""" else "") +
             """"at":$at,"remove":$remove,"items":$items,"meta":{"agent_id":"a7","agent_type":"general-purpose",""" +
             """"finished":true,"stopped":false,"background":true},"outcome":"completed","prompt":"看看测试","tool_uses":4,""" +
-            """"running":true,"loaded":true,"missing":false,"file":"/h/a.jsonl","skipped":0}"""
+            """"running":true,"loaded":true,"missing":false,"file":"/h/a.jsonl","skipped":0,"state":"$state"}"""
 
     @Test
     fun activityIsDecodedAndResubscribedAfterReconnecting() {
