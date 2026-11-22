@@ -35,6 +35,7 @@ func newFixture(t *testing.T) *fixture {
 	d := hubtest.NewDevices()
 	sync := func(f func()) { f() }
 	h := hub.New(s, d, sync, sync)
+	h.SearchDelay = 0
 	app := New(h, sync, sync)
 	app.now = func() time.Time { return now }
 	h.Start()
@@ -331,8 +332,10 @@ func TestPreviews(t *testing.T) {
 	for name, setup := range scenes {
 		all[name] = func(t *testing.T) *fixture { f := newFixture(t); setup(t, f); return f }
 	}
-	for name, setup := range chatScenes {
-		all[name] = func(t *testing.T) *fixture { f := newChatFixture(t); setup(t, f); return f.fixture }
+	for _, scenes := range []map[string]func(t *testing.T, f *chatFixture){chatScenes, sidebarScenes} {
+		for name, setup := range scenes {
+			all[name] = func(t *testing.T) *fixture { f := newChatFixture(t); setup(t, f); return f.fixture }
+		}
 	}
 	for name, setup := range all {
 		for _, dark := range []bool{false, true} {

@@ -31,6 +31,7 @@ type App struct {
 	add    adding
 	edit   editing
 	pane   *chatPane // 聊天窗格，跟着中枢的对话
+	query  string    // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
 
 	pick    picker     // 选本机的文件、文件夹（系统的对话框；测试里换掉）
 	path    pathAttach // 「输入路径」的对话框

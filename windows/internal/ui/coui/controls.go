@@ -288,3 +288,29 @@ func LineInput(c *ui.Context, value *string, lines int) ui.Element {
 	}
 	return in.BorderWidth(0, 0, 1, 0).BorderColor(line)
 }
+
+// SearchField 是浮起的搜索胶囊（COUI 的 InputField，侧栏底下的「搜索对话」）：40 高的毛玻璃胶囊带阴影，左边放大镜，
+// 有字时右边是清除键。label 是占位字和读屏名字。返回输入框。
+func SearchField(c *ui.Context, value *string, label string) ui.Element {
+	k := Of(c)
+	var in ui.Element
+	box := ui.Row(c).Height(40).Grow(1).MinWidth(0).Padding(0, 6, 0, 12).Gap(6).AlignItems(ui.Center)
+	Shadow(Surface{Shape: Rounded(20, 2), Fill: k.BarGlass, Blur: BlurBar}.Paint(box), k)
+	box.Children(func() {
+		ui.Icon(c, IconSearch).Size(18, 18).TextColor(k.Secondary).Shrink(0)
+		in = ui.TextInputBase(c, value).Grow(1).MinWidth(0).FontSize(SizeBodyL).Placeholder(label).Label(label).
+			PlaceholderColor(k.Tertiary).TextColor(k.Text).FocusRing(false)
+		if *value != "" {
+			// 清除键：淡灰的实心小圆里一个白叉（同 COUI InputField 的清除键）
+			clear := ui.ButtonBase(c).Size(28, 28).Justify(ui.Center).AlignItems(ui.Center).Label("清除").Tooltip("清除").
+				Cursor(ui.CursorPointer).Shrink(0)
+			clear.Children(func() {
+				ui.Box(c).Size(18, 18).Radius(9).Background(k.Tertiary).Center().Children(func() {
+					ui.Icon(c, IconClose).Size(11, 11).TextColor(ui.RGBA(255, 255, 255, 1))
+				})
+			})
+			clear.OnClick(func() { *value = "" })
+		}
+	})
+	return in
+}
