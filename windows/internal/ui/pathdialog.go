@@ -155,7 +155,7 @@ func (a *App) attachPath(p *chatPane) {
 	}
 	entry := hostlink.Reference(r.path, r.folder)
 	if !containsEntry(p.att.files, entry) {
-		p.att.files = append(p.att.files, &draftFile{id: p.att.id(), name: entryName(entry), size: -1, folder: r.folder, entry: entry})
+		p.att.files = append(p.att.files, p.att.newEntryFile(entry, ""))
 	}
 	d.open = false
 }

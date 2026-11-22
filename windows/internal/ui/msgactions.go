@@ -26,18 +26,15 @@ import (
 
 // msgActions 是一个对话的消息操作状态，随聊天窗格换。
 type msgActions struct {
-	rounds chat.Rounds // 这一帧列表里的各轮
-	// editing 是正在编辑的那一轮，saved 是开始编辑前输入栏里的。
-	editing *chat.Round
-	saved   *savedDraft
+	rounds  chat.Rounds // 这一帧列表里的各轮
+	editing *edit       // 正在编辑的那一轮
 	confirm *confirm
 }
 
-// savedDraft 是开始编辑前输入栏里的字和附件，取消编辑时放回去。
-type savedDraft struct {
-	text   string
-	images []*draftImage
-	files  []*draftFile
+// edit 是正在编辑的那一轮，和开始编辑前输入栏里的（取消编辑时放回去）。
+type edit struct {
+	chat.Round
+	saved composerSnapshot
 }
 
 // confirmKind 是等确认的是哪样操作。
@@ -215,9 +212,8 @@ func (a *App) beginEdit(p *chatPane, r chat.Round) {
 		return
 	}
 	x := &p.acts
-	x.editing = &r
-	x.saved = &savedDraft{text: p.draft, images: p.att.images, files: p.att.files}
-	p.draft, p.att.images, p.att.files = "", nil, nil
+	x.editing = &edit{Round: r, saved: p.snapshot()}
+	p.restore(composerSnapshot{})
 	p.putBack(chat.Message{Text: r.User.Text, Files: r.User.Files})
 	if len(r.User.Images) == 0 {
 		return
@@ -229,26 +225,12 @@ func (a *App) beginEdit(p *chatPane, r chat.Round) {
 			if x.editing != editing {
 				return
 			}
-			p.addImages(images)
+			p.putBack(chat.Message{Images: images})
 			if lost > 0 {
 				p.failed = "有图片取不回来，没有放进输入框"
 			}
 		}
 	})
-}
-
-// addImages 把图放进输入栏，放不下的不要。
-func (p *chatPane) addImages(list []chat.Image) {
-	for _, img := range list {
-		if p.att.roomForImages() <= 0 {
-			return
-		}
-		im := &draftImage{id: p.att.id(), image: img}
-		if data, err := base64.StdEncoding.DecodeString(img.Data); err == nil {
-			im.thumb, _ = ui.DecodeBitmap(data)
-		}
-		p.att.images = append(p.att.images, im)
-	}
 }
 
 // cancelEdit 不编辑了：输入栏放回开始编辑前的样子。
@@ -257,14 +239,14 @@ func (p *chatPane) cancelEdit() {
 	if x.editing == nil {
 		return
 	}
-	s := x.saved
-	x.editing, x.saved = nil, nil
+	saved := x.editing.saved
+	x.editing = nil
 	for _, f := range p.att.files {
 		if f.cancel != nil {
 			f.cancel()
 		}
 	}
-	p.draft, p.att.images, p.att.files = s.text, s.images, s.files
+	p.restore(saved)
 }
 
 // submitEdit 发出改好的消息（输入栏的 text 和附件）：剪掉被编辑的那条和之后的，再发它。现在还不能改（这一轮没结束之类）时
@@ -277,7 +259,7 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 	r := p.acts.editing
 	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
-	p.acts.editing, p.acts.saved = nil, nil
+	p.acts.editing = nil
 	p.list.ScrollToEnd()
 	p.failed = ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {

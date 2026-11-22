@@ -60,6 +60,8 @@ func main() {
 		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和 COUI 顶栏一样高（见 coui/titlebar.go）
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, BackgroundColor: windowBackground(prefs),
 			TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
+		// 关窗口时没存的草稿马上存盘（平时输入停下约一秒才存）
+		win.OnClose(func(*mygo.CloseEvent) { app.SaveDrafts() })
 		// 回答完了而窗口不在前台时发通知，点通知回到窗口
 		app.Foreground = func() bool { return win.IsFocused() }
 		// 看大图是黑底：系统按钮画浅色字形，关上后回到跟着主题

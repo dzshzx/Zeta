@@ -90,6 +90,7 @@ func (a *App) async(work func() func()) {
 func (a *App) View(c *ui.Context) {
 	c.SetTheme(coui.Theme(a.dark(c.Theme().Dark)))
 	a.syncChat()
+	a.saveDraftsWhenDue(c)
 	if a.shown == pageDevice && a.page != pageDevice {
 		a.hub.ApplyOptions(a.device) // 设备页上改过的自动压缩、自动标题
 	}

@@ -2,10 +2,11 @@ package ui
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,6 +30,17 @@ type draftImage struct {
 	id    int
 	image chat.Image
 	thumb *ui.Bitmap // 解不开时是 nil，画一块灰
+	// hash 是内容的编号（草稿里存图的文件名），见 contentHash。
+	hash string
+}
+
+// contentHash 是图的内容编号：内容的哈希，同一张图在草稿里只存一份。第一次用时算好记着；从草稿恢复的沿用存着的编号。
+func (d *draftImage) contentHash() string {
+	if d.hash == "" {
+		sum := sha256.Sum256([]byte(d.image.Data))
+		d.hash = hex.EncodeToString(sum[:16])
+	}
+	return d.hash
 }
 
 // draftFile 是输入栏里一个待发的文件或文件夹：正在传、传好了（entry 是消息里带的附件说明）或没传成。
@@ -107,6 +119,24 @@ func (at *attachments) pictures() []chat.Image {
 		out = append(out, im.image)
 	}
 	return out
+}
+
+// composerSnapshot 是输入栏里的字和附件（图、文件），收起来以后能原样放回：离开对话时收着的草稿，开始编辑消息前输入栏里的。
+type composerSnapshot struct {
+	text string
+	att  attachments
+}
+
+// snapshot 收起输入栏现在的字和附件。正在读的图和还没说的问题不算：它们落回的是当时的输入栏。
+func (p *chatPane) snapshot() composerSnapshot {
+	return composerSnapshot{text: p.draft, att: attachments{images: p.att.images, files: p.att.files, next: p.att.next}}
+}
+
+// restore 把输入栏的字和附件换成 s（正在读的图、还没说的问题照旧）。附件的编号接着 s 的往后排，不和放回来的重号。
+func (p *chatPane) restore(s composerSnapshot) {
+	p.draft = s.text
+	p.att.images, p.att.files = s.att.images, s.att.files
+	p.att.next = max(p.att.next, s.att.next)
 }
 
 // clear 发出去以后清掉图和文件（没收进来的说明留着）。
@@ -320,7 +350,9 @@ func (a *App) paste(c *ui.Context, p *chatPane) bool {
 
 // putBack 把撤回的、没发出去的一条放回输入栏：文字接在已有的前面，图补上放得下的，附件说明补上没有的。
 func (p *chatPane) putBack(m chat.Message) {
-	p.recall(m.Text)
+	if m.Text != "" {
+		p.recall(m.Text)
+	}
 	for _, img := range m.Images {
 		if p.att.roomForImages() <= 0 {
 			break
@@ -333,10 +365,17 @@ func (p *chatPane) putBack(m chat.Message) {
 	}
 	for _, entry := range m.Files {
 		if !containsEntry(p.att.files, entry) {
-			p.att.files = append(p.att.files, &draftFile{id: p.att.id(), name: entryName(entry), size: -1,
-				folder: strings.HasPrefix(entry, "@") && strings.HasSuffix(entry, "/"), entry: entry})
+			p.att.files = append(p.att.files, p.att.newEntryFile(entry, ""))
 		}
 	}
+}
+
+// newEntryFile 是一个已经在设备上的附件（传好了的路径或引用）：name 是小标签上的名字，空着时按路径取。
+func (at *attachments) newEntryFile(entry, name string) *draftFile {
+	if name == "" {
+		name = attach.EntryName(entry)
+	}
+	return &draftFile{id: at.id(), name: name, size: -1, folder: strings.HasPrefix(entry, "@") && strings.HasSuffix(entry, "/"), entry: entry}
 }
 
 func containsEntry(files []*draftFile, entry string) bool {
@@ -346,15 +385,6 @@ func containsEntry(files []*draftFile, entry string) bool {
 		}
 	}
 	return false
-}
-
-// entryName 是附件说明的显示名：路径的最后一段（同 AttachedPaths.label）。
-func entryName(entry string) string {
-	name := path.Base(strings.TrimRight(strings.TrimPrefix(entry, "@"), "/"))
-	if name == "." || name == "" {
-		return "/"
-	}
-	return name
 }
 
 // tooLargeAdvice 跟在「太大没收」的说明后面。

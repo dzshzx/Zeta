@@ -13,6 +13,7 @@ import (
 	_ "image/gif" // 解码时认得这几种
 	"image/jpeg"
 	_ "image/png"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -96,6 +97,15 @@ func FitWithin(w, h, edge int) (int, int) {
 func Label(name string, size int64) string {
 	if size >= NoteBytes {
 		return name + " · " + FormatBytes(size)
+	}
+	return name
+}
+
+// EntryName 是附件说明（/路径，或 @路径、@文件夹/ 的引用）的显示名：路径的最后一段，根目录是 /（同 AttachedPaths.label）。
+func EntryName(entry string) string {
+	name := path.Base(strings.TrimRight(strings.TrimPrefix(entry, "@"), "/"))
+	if name == "." || name == "/" {
+		return "/"
 	}
 	return name
 }

@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
@@ -41,7 +43,7 @@ func TestDraftsFollowEachConversation(t *testing.T) {
 	if f.app.pane.draft != "" {
 		t.Fatalf("发出后的新对话：%q", f.app.pane.draft)
 	}
-	saved := settings.DecodeDrafts(draftsOnDisk(t, f))
+	saved := drafts.Decode(draftsOnDisk(t, f))
 	if len(saved) != 1 || saved[0].Key != "s1" || saved[0].Text != "登录页的按钮" {
 		t.Fatalf("存盘的：%+v", saved)
 	}
@@ -56,9 +58,10 @@ func TestDraftsSurviveRestart(t *testing.T) {
 	jpeg := picture(40, 30, color.NRGBA{0x28, 0x78, 0xDC, 255}, color.NRGBA{0xFA, 0xD2, 0x78, 255})
 	f.app.pane.att.images = append(f.app.pane.att.images, &draftImage{id: f.app.pane.att.id(), image: chat.Image{MediaType: "image/png", Data: base64.StdEncoding.EncodeToString(jpeg)}})
 	for _, entry := range []string{"/home/box/.cache/zeta/files/a/报告.pdf", "/home/box/.cache/zeta/files/b/已清掉.txt", "@/home/box/web/src/"} {
-		f.app.pane.att.files = append(f.app.pane.att.files, &draftFile{id: f.app.pane.att.id(), name: entryName(entry), size: -1, entry: entry})
+		f.app.pane.att.files = append(f.app.pane.att.files, &draftFile{id: f.app.pane.att.id(), name: attach.EntryName(entry), size: -1, entry: entry})
 	}
 	f.tt.Frame()
+	f.tt.Advance(draftSaveDelay)
 	images, err := os.ReadDir(filepath.Join(f.hub.Settings().DraftsDir(), "drafts"))
 	if err != nil || len(images) != 1 {
 		t.Fatalf("图片文件：%v %v", images, err)
@@ -83,7 +86,8 @@ func TestDraftsSurviveRestart(t *testing.T) {
 	p.att.clear()
 	p.draft = ""
 	f.tt.Frame()
-	if saved := settings.DecodeDrafts(draftsOnDisk(t, f)); len(saved) != 0 {
+	f.tt.Advance(draftSaveDelay)
+	if saved := drafts.Decode(draftsOnDisk(t, f)); len(saved) != 0 {
 		t.Fatalf("清空后还存着：%+v", saved)
 	}
 	if images, _ := os.ReadDir(filepath.Join(f.hub.Settings().DraftsDir(), "drafts")); len(images) != 0 {
@@ -100,4 +104,59 @@ func draftsOnDisk(t *testing.T, f *chatFixture) string {
 	}
 	text, _ := store.String("drafts")
 	return text
+}
+
+// 打字时不是每个字都存盘：停下约一秒才存一次；切到别的对话时马上存。
+func TestDraftsSaveAfterTypingStops(t *testing.T) {
+	f := newChatFixture(t)
+	f.click(t, "修登录页")
+	f.click(t, "消息")
+	for _, r := range "登录页的按钮再大一点" {
+		f.tt.Type(string(r))
+		f.tt.Advance(draftSaveDelay / 5)
+		if text := draftsOnDisk(t, f); text != "" {
+			t.Fatalf("还在打字就存了：%s", text)
+		}
+	}
+	f.tt.Advance(draftSaveDelay)
+	if saved := drafts.Decode(draftsOnDisk(t, f)); len(saved) != 1 || saved[0].Text != "登录页的按钮再大一点" {
+		t.Fatalf("停下以后存的：%+v", saved)
+	}
+	f.tt.Type("，颜色也换")
+	f.newChat(t)
+	if saved := drafts.Decode(draftsOnDisk(t, f)); len(saved) != 1 || saved[0].Text != "登录页的按钮再大一点，颜色也换" {
+		t.Fatalf("切走时存的：%+v", saved)
+	}
+	// 关窗口时也马上存
+	f.click(t, "消息")
+	f.tt.Type("新对话里的")
+	f.app.SaveDrafts()
+	if saved := drafts.Decode(draftsOnDisk(t, f)); len(saved) != 2 {
+		t.Fatalf("关窗口时存的：%+v", saved)
+	}
+}
+
+// 编辑消息时存的草稿是开始编辑前输入栏里的，不是编辑中的字；切走时编辑作废，输入栏放回原样。
+func TestDraftsIgnoreMessageBeingEdited(t *testing.T) {
+	f := openedForActions(t)
+	f.click(t, "消息")
+	f.tt.Type("还没发的草稿")
+	if err := f.tt.RightClick("看看有什么文件"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.tt.ChooseMenuItem("编辑"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	f.app.pane.draft = "看看有什么 Go 文件"
+	f.tt.Frame()
+	f.tt.Advance(draftSaveDelay)
+	if saved := drafts.Decode(draftsOnDisk(t, f)); len(saved) != 1 || saved[0].Text != "还没发的草稿" {
+		t.Fatalf("编辑时存的：%+v", saved)
+	}
+	f.newChat(t)
+	f.click(t, "修登录页")
+	if f.app.pane.draft != "还没发的草稿" || f.app.pane.acts.editing != nil {
+		t.Fatalf("回来后输入栏：%q", f.app.pane.draft)
+	}
 }

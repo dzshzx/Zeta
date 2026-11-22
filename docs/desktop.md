@@ -17,10 +17,11 @@ client/               客户端共用、和界面无关的 Go 代码（仓根的
   sshlink/            设备：模型、OpenSSH 配置认证、SSH 连接（每台一条、每个命令一个通道、闲一分钟断、断线重连）、主机指纹
   hostlink/           在一台主机上跑命令：remoteCommand 的写法、zeta-helper 按哈希安装与调用、serve 连接（出错应答的 code 见 ReplyError）、会话列表的格式、
                       附件的上传（~/.cache/<ZETA_NAME>/files/<随机>/，同 Kotlin 的 Uploads）与路径核对
+  drafts/             输入草稿的规矩：上限、超出时丢哪些、存盘的 JSON 格式（同 Kotlin 的 DraftRecords；存在哪由各端自己定）
   sshtest/            测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
 windows/
   cmd/zeta/           入口
-  internal/settings/  设置文件（和 Compose 版同格式）、各项设置（含常用指令）
+  internal/settings/  设置文件（和 Compose 版同格式）、各项设置（含常用指令）、草稿的存盘
   internal/attach/    输入栏收附件的规矩：图片缩到长边 1568 编成 JPEG、文件大小上限与说明
   internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、查目录、传附件、查路径、问主机名）、加设备时的探测、
                       Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）

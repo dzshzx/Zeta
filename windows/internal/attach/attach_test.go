@@ -84,6 +84,11 @@ func TestLabelsAndSizes(t *testing.T) {
 	if Label("a.zip", 9_999_999) != "a.zip" || Label("a.zip", 25_000_000) != "a.zip · 25 MB" || Label("a.zip", -1) != "a.zip" {
 		t.Error("Label")
 	}
+	for entry, want := range map[string]string{"/home/box/报告.pdf": "报告.pdf", "@/srv/logs/": "logs", "@/": "/", "/": "/", "@src": "src"} {
+		if got := EntryName(entry); got != want {
+			t.Errorf("EntryName(%q) = %q, want %q", entry, got, want)
+		}
+	}
 	if !TooLarge(MaxBytes+1) || TooLarge(-1) {
 		t.Error("TooLarge")
 	}
