@@ -85,6 +85,10 @@ type Conversation struct {
 	starter  int             // 起进程用谁的设置：最近一个发消息（或要起进程）的客户端
 	holders  map[int]string  // 拿着这个对话的客户端 → 它给这个对话起的名字（推送里的 conv）
 	idleFrom time.Time       // 没人拿着、又闲着的起点；不是这样时为零
+
+	turnEnd         int64    // 最后一轮结束的时刻（Unix 毫秒）
+	reported        Activity // 上次报给对话表的忙闲（conv.activity）
+	reportedSession string
 }
 
 // Options 是客户端给的、起 Claude Code 进程用的设置（见 docs/core.md 的 options）。
@@ -95,6 +99,8 @@ type Options struct {
 	Phone          bool              `json:"phone"`
 	AutoTitle      bool              `json:"auto_title"`
 	CompactPercent int               `json:"compact_percent"`
+	// Desk：这台主机是远程主机（不是客户端所在的设备），核心给会话在远程的「Zeta」tmux 会话里开窗口，回到电脑前在终端里接着
+	Desk bool `json:"desk"`
 }
 
 // Spec 是打开一个对话时给的。
@@ -190,6 +196,7 @@ func (c *Conversation) flush() {
 		d.Type = "conv.items"
 		c.broadcast(func(name string) any { d.Conv = name; return d }, false)
 	}
+	c.reportActivity()
 }
 
 // Hold：客户端 client 拿起这个对话。先把攒着的变化推给已经拿着的，再给它整份的状态和条目，之后它和别人收到一样的增量。

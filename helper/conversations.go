@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -32,6 +33,11 @@ func newConversations(e *env) *conversations {
 		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode: func() string { return defaultPermissionMode(e) },
 		Windows:     windows,
+		Desk: func(session, cwd string) {
+			if err := cmdDeskOpen(e, newEmitter(io.Discard), session, cwd); err != nil {
+				log.Print("开 tmux 窗口：", err)
+			}
+		},
 	}, h.send)
 	return h
 }

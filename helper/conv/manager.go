@@ -25,13 +25,18 @@ type Manager struct {
 	all       map[*Conversation]bool
 	bySession map[string]*Conversation
 	byName    map[int]map[string]*Conversation // 客户端 → 它起的名字 → 对话
+
+	activity         map[*Conversation]sessionActivity // 有会话号、有东西可报的对话的忙闲
+	activityWatchers map[int]bool                      // 订阅了 conv.activity 的客户端
 }
 
 // NewManager 建一个空的对话表，并开始定时收掉没人拿着的闲对话。
 func NewManager(deps Deps, send Send) *Manager {
 	m := &Manager{deps: deps, send: send, all: map[*Conversation]bool{}, bySession: map[string]*Conversation{},
-		byName: map[int]map[string]*Conversation{}}
+		byName: map[int]map[string]*Conversation{}, activity: map[*Conversation]sessionActivity{},
+		activityWatchers: map[int]bool{}}
 	m.deps.SessionChanged = m.sessionChanged
+	m.deps.ActivityChanged = m.activityChanged
 	go func() {
 		for range time.Tick(5 * time.Second) {
 			m.sweep()
@@ -51,6 +56,7 @@ type request struct {
 	UUID      string              `json:"uuid"`
 	Recall    bool                `json:"recall"`
 	Rest      bool                `json:"rest"`
+	Watch     bool                `json:"watch"`
 	RequestID string              `json:"request_id"`
 	Reply     prompt.Reply        `json:"reply"`
 	Action    prompt.ElicitAction `json:"action"`
@@ -71,6 +77,10 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 	var r request
 	if err := json.Unmarshal(line, &r); err != nil {
 		return nil, err
+	}
+	if method == "conv.activity" {
+		m.watchActivity(client, r.Watch)
+		return nil, nil
 	}
 	if r.Conv == "" {
 		return nil, errors.New("缺 conv")
@@ -236,6 +246,7 @@ func (m *Manager) Gone(client int) {
 	m.mu.Lock()
 	held := m.byName[client]
 	delete(m.byName, client)
+	delete(m.activityWatchers, client)
 	m.mu.Unlock()
 	for name, c := range held {
 		m.release(client, name, c)
@@ -267,6 +278,10 @@ func (m *Manager) sweep() {
 		delete(m.all, c)
 		if m.bySession[c.session] == c {
 			delete(m.bySession, c.session)
+		}
+		if _, ok := m.activity[c]; ok {
+			delete(m.activity, c)
+			m.pushActivity()
 		}
 		m.mu.Unlock()
 		c.close()

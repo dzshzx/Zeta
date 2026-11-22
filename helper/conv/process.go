@@ -84,6 +84,15 @@ func (c *Conversation) launchOptions() Options {
 	return Options{}
 }
 
+// openDesk：远程主机上给这个会话在「Zeta」tmux 会话里开窗口。新会话拿到会话号时开，之后每次起进程、接上进程时再开一次（已经有就不动），
+// 这样 tmux 服务器没了（主机重启、被停掉）丢掉的窗口，下次用到那个会话就回来。在后台跑，不等结果。
+func (c *Conversation) openDesk() {
+	if c.session == "" || c.deps.Desk == nil || !c.launchOptions().Desk {
+		return
+	}
+	go c.deps.Desk(c.session, c.cwd)
+}
+
 // phoneHolder：有声明处理手机工具的客户端拿着这个对话。
 func (c *Conversation) phoneHolder() bool {
 	for client := range c.holders {
@@ -187,6 +196,7 @@ func (c *Conversation) events(p *process) Events {
 // processStarted：刚起或刚接上的进程，要模型清单、斜杠命令清单，问用量。控制请求按顺序处理，之后发的都排在它后面。
 func (c *Conversation) processStarted(p *process, fresh bool, compactPercent int) {
 	c.sendNow = false
+	c.openDesk()
 	p.request(initializeRequest(), func(r controlResponse) { c.initialized(r) })
 	c.usage.ProcessStarted(fresh, compactPercent)
 	c.queryUsage(p)

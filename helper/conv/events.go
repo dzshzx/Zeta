@@ -341,6 +341,7 @@ func (c *Conversation) endTurn(outcome string) {
 
 // turnFinished 先把状态推出去（客户端据此判断结束的是哪个对话），再说这一轮结束了。
 func (c *Conversation) turnFinished(outcome string) {
+	c.turnEnd = c.deps.now()
 	c.flush()
 	c.broadcast(func(name string) any {
 		return &turnMsg{Type: "conv.turn", Conv: name, Phase: "finished", Outcome: outcome, Text: outcomeText[outcome]}
@@ -365,6 +366,9 @@ func (c *Conversation) setSession(id string) {
 	}
 	before := c.session
 	c.session = id
+	if before == "" {
+		c.openDesk()
+	}
 	if c.deps.SessionChanged != nil {
 		c.deps.SessionChanged(c, before, id)
 	}

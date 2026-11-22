@@ -3,6 +3,7 @@ package conv
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -68,11 +69,13 @@ type harness struct {
 	starts      []StartOptions
 	history     []byte
 	historyArgs [][]string
+	desks       chan string // 开过的 tmux 窗口：会话号 工作目录
 }
 
 func newHarness(t *testing.T) *harness {
-	h := &harness{t: t, clients: map[int]*fakeClient{}}
+	h := &harness{t: t, clients: map[int]*fakeClient{}, desks: make(chan string, 16)}
 	deps := Deps{
+		Desk: func(session, cwd string) { h.desks <- session + " " + cwd },
 		Start: func(o StartOptions, ev Events) (Link, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
@@ -175,12 +178,16 @@ func (h *harness) feed(c *Conversation, l *fakeLink, lines ...string) {
 
 func (h *harness) settle(c *Conversation) {
 	h.t.Helper()
-	v, _ := c.Call(func() (any, error) { return json.Marshal(c.r.Items) })
+	var holders map[int]string
+	v, _ := c.Call(func() (any, error) { holders = maps.Clone(c.holders); return json.Marshal(c.r.Items) })
 	var want []any
 	_ = json.Unmarshal(v.([]byte), &want)
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for id, cl := range h.clients {
+		if _, ok := holders[id]; !ok { // 只核对拿着这个对话的客户端
+			continue
+		}
 		if want == nil {
 			want = []any{}
 		}

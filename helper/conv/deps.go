@@ -21,6 +21,10 @@ type Deps struct {
 	Now func() time.Time
 	// SessionChanged：对话拿到了（或换了）会话号；由 Manager 填
 	SessionChanged func(c *Conversation, before, after string)
+	// Desk 在这台主机的「Zeta」tmux 会话里给会话开窗口（zeta-helper desk-open，已经有就不动）；可以是 nil
+	Desk func(session, cwd string)
+	// ActivityChanged：对话的会话号或忙闲变了（conv.activity）；由 Manager 填
+	ActivityChanged func(c *Conversation, session string, a Activity)
 }
 
 // StartOptions 是起进程用的：托管标识、工作目录、标题、claude 的参数，和只给这个进程的环境变量。
