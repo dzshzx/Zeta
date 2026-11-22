@@ -11,9 +11,6 @@ import (
 	"strings"
 )
 
-// gateContext 是 wt land 在门禁通过后写到提交上的 commit status。
-const gateContext = "wt-land/gate"
-
 var releaseTag = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)$`)
 
 // semver 是正式版的版本：major、minor、patch。
@@ -99,19 +96,7 @@ func releaseVersion(tags, headTags []string, published func() ([]string, error),
 	return next.String(), note + "基线 v" + base.String() + "，升 " + bump, nil
 }
 
-// gatePassed 看 wt land 合入时是否已在这个提交上跑过门禁：只认仓库所有者写的 wt-land/gate，取最新的一条。
-// lines 是 statuses 接口一行一条的「context、state、写的人」（新的在前）。
-func gatePassed(lines []string, owner string) bool {
-	for _, line := range lines {
-		fields := strings.Split(line, "\t")
-		if len(fields) == 3 && fields[0] == gateContext && fields[2] == owner {
-			return fields[1] == "success"
-		}
-	}
-	return false
-}
-
-// runNextVersion 在 GitHub Actions 里打印这次发版的 version、tag、version_code 和 gate_passed，供 $GITHUB_OUTPUT。
+// runNextVersion 在 GitHub Actions 里打印这次发版的 version、tag 和 version_code，供 $GITHUB_OUTPUT。
 func runNextVersion(args []string) error {
 	fs := flag.NewFlagSet("next-version", flag.ContinueOnError)
 	bump := fs.String("bump", "", "patch、minor 或 major")
@@ -120,7 +105,7 @@ func runNextVersion(args []string) error {
 	if err := parse(fs, args, "bump", "branch"); err != nil {
 		return err
 	}
-	env, err := actionsEnv("GITHUB_REF", "GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_REPOSITORY_OWNER")
+	env, err := actionsEnv("GITHUB_REF", "GITHUB_SHA", "GITHUB_REPOSITORY")
 	if err != nil {
 		return err
 	}
@@ -149,14 +134,7 @@ func runNextVersion(args []string) error {
 	if err != nil {
 		return err
 	}
-	statuses, err := gh("api", "repos/"+repo+"/commits/"+sha+"/statuses?per_page=100",
-		"--jq", ".[] | [.context, .state, .creator.login] | @tsv")
-	if err != nil {
-		return err
-	}
-	passed := gatePassed(strings.Split(statuses, "\n"), env["GITHUB_REPOSITORY_OWNER"])
-	fmt.Fprintf(os.Stderr, "发版 v%s（dry_run=%t）：%s；versionCode %s；合入时%s过门禁\n",
-		version, *dryRun, note, count, map[bool]string{true: "已", false: "没有"}[passed])
-	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\ngate_passed=%t\n", version, version, count, passed)
+	fmt.Fprintf(os.Stderr, "发版 v%s（dry_run=%t）：%s；versionCode %s\n", version, *dryRun, note, count)
+	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\n", version, version, count)
 	return nil
 }

@@ -6,8 +6,9 @@
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch）、
 # 跑单元测试；跑完后已跟踪文件须与开始时一致。
-# 构建和单元测试只在改动全落在它们读不到的路径里时跳过（见下面的 gradle_blind），别的检查每次都跑。
-# ZETA_GATE_FULL=1 时照样全跑。
+# 合入时（wt land）单元测试不跑截图测试（标了 FullGateOnly 的，依据见 app/src/test/kotlin/com/dzshzx/zeta/FullGateOnly.kt）。
+# 构建和单元测试在改动全落在它们读不到的路径里时整个跳过（见下面的 gradle_blind）。别的检查每次都跑。
+# ZETA_GATE_FULL=1 是全量：构建照跑，单元测试一个不落。每晚的 CI 和发版前跑的是它。
 # 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -90,8 +91,19 @@ check_go_module tools/vdisplay
 
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"
-else
+elif [[ ${ZETA_GATE_FULL:-} == 1 ]]; then
   tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
+  # 截图测试只在这里跑，所以核对它们真的跑了：有结果、一个都没被跳过。对不上就是哪里把它们排除掉了
+  shots=$(cat app/build/test-results/testDebugUnitTest/TEST-com.dzshzx.zeta.shots.*Shots.xml 2>/dev/null || true)
+  ran=$(grep -c '<testcase ' <<<"$shots" || true)
+  skipped=$(grep -c '<skipped' <<<"$shots" || true)
+  if ((ran == 0 || skipped > 0)); then
+    echo "gate: 全量门禁里截图测试没有都跑到：有结果的 $ran 个，其中跳过 $skipped 个" >&2
+    exit 1
+  fi
+else
+  echo "gate: 合入门禁不跑截图测试，ZETA_GATE_FULL=1 时全跑"
+  tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest -Pzeta.gate=fast
 fi
 
 if [[ "$(tracked_state)" != "$before" ]]; then

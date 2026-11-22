@@ -3,7 +3,7 @@
 //
 //	next-version -bump patch|minor|major -branch <默认分支> [-dry-run]
 //	    这次发版的版本：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就续发。
-//	    同时给出 versionCode 和合入时是否已过门禁（commit status wt-land/gate），按 $GITHUB_OUTPUT 的格式打印
+//	    同时给出 versionCode，按 $GITHUB_OUTPUT 的格式打印
 //	sign -apk <未签名的包> -keystore <密钥库> -alias <别名> -out <签好的包>
 //	    用正式发版密钥加 release/lineage.bin 只签 APK 签名方案 v3，签完核对签名
 //	verify -apk <包> -version X.Y.Z -version-code N

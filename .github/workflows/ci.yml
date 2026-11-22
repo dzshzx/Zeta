@@ -1,7 +1,7 @@
 name: CI
 
-# 门禁 bash scripts/check.sh。每个提交只跑一次：wt land 推送前在这个提交上跑过（通过后记成 commit status
-# wt-land/gate），所以推送不触发这里。手动、每天定时和 release.yml 调用时在这里跑，定时的也兜住没经 wt land 推上来的提交。
+# 全量门禁 ZETA_GATE_FULL=1 bash scripts/check.sh。wt land 合入时跑的门禁不含截图测试，这里一个不落。
+# 推送不触发；手动、每天定时和 release.yml 调用时跑，定时的也兜住没经 wt land 推上来的提交。
 # 默认在本机 runner 上；本机 runner 不在线时 gate_runner=github-hosted 改到 GitHub 托管机：
 #   gh workflow run ci.yml -f gate_runner=github-hosted
 # 不设 pull_request 触发：公开仓的 PR 不能在本机 runner 上跑代码。装机与真机验收不在这里，见 CLAUDE.md「构建与测试」。
@@ -62,5 +62,7 @@ jobs:
           go-version-file: helper/go.mod
           cache: false
 
-      - name: 门禁
+      - name: 全量门禁
+        env:
+          ZETA_GATE_FULL: '1'
         run: bash scripts/check.sh

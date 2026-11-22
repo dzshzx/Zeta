@@ -30,6 +30,11 @@ class BackendSwitchTest {
     private fun hub(): ConversationHub =
         Fixtures.readyHub(app).also { it.settings.remoteHosts = listOf(remote) }
 
+    private companion object {
+        /** 直连主机的地址：本机一个没人听的端口，连它立刻被拒绝。选中直连主机后 hub 会在后台去连（读默认值、会话列表）， 写成外网的名字，测试就真的往外连，还要等满连接超时。 */
+        const val DIRECT_TARGET = "me@127.0.0.1:1"
+    }
+
     @Test
     fun selectingAHostStartsTheNewConversationThere() {
         val hub = hub()
@@ -76,7 +81,7 @@ class BackendSwitchTest {
             RemoteHost(
                 "r-00000002",
                 "vps",
-                "me@example.com:2222",
+                DIRECT_TARGET,
                 "/root",
                 "/root",
                 RemoteHost.Via.Direct,
@@ -103,7 +108,7 @@ class BackendSwitchTest {
             RemoteHost(
                 "r-00000002",
                 "vps",
-                "me@example.com:2222",
+                DIRECT_TARGET,
                 "/root",
                 "/root",
                 RemoteHost.Via.Direct,
@@ -153,7 +158,7 @@ class BackendSwitchTest {
             RemoteHost(
                 "r-00000002",
                 "vps",
-                "me@example.com:2222",
+                DIRECT_TARGET,
                 "/root",
                 "/root",
                 RemoteHost.Via.Direct,
@@ -162,7 +167,7 @@ class BackendSwitchTest {
         hub.settings.remoteHosts = listOf(remote, direct)
         hub.selectBackend(direct.id)
         val target = RemoteHosts.targetFor(direct.target, RemoteHost.Via.Debian)!!
-        assertEquals("ssh://me@example.com:2222", target)
+        assertEquals("ssh://$DIRECT_TARGET", target)
         hub.current.force("busy", true)
         assertTrue(hub.hostWorking(direct.id))
         assertFalse(hub.changeVia(direct.id, RemoteHost.Via.Debian, target, null))

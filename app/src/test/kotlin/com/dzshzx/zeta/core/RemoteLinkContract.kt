@@ -25,8 +25,9 @@ import org.robolectric.annotation.Config
 /**
  * 远程主机上的对话怎么接：真的 zeta_host.sh 经 [RemoteShell] 跑在“远端”（HOME 是临时目录，PATH 是系统默认的： 远端自己的 claude 在
  * ~/.local/bin，由 [RemoteShell.remoteCommand] 补进 PATH；不换的话会先找到这台机器上真的 claude）。
- * 连接断了时那条连接上的命令一起结束，托管的进程不受影响。远端的 claude 是个回声：每读到一行就输出 {"type":"echo","n":第几行}。
- * 两种连法各跑一遍：[DebianRemoteLinkTest]（假 ssh）和 [DirectRemoteLinkTest]（Zeta 直连 JVM 里的 SSH 服务器）。
+ * 连接断了时那条连接上的命令一起结束，托管的进程不受影响。远端的 claude 是个回声：每读到一行就输出 {"type":"echo","n":第几行}， 读到 end_session
+ * 就退出（和 Claude Code 一样，收尾的 stop 不用等满宽限期）。 两种连法各跑一遍：[DebianRemoteLinkTest]（假 ssh）和
+ * [DirectRemoteLinkTest]（Zeta 直连 JVM 里的 SSH 服务器）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -66,7 +67,7 @@ abstract class RemoteLinkContract {
         File(remoteHome, ".local/bin/claude").apply {
             parentFile!!.mkdirs()
             writeText(
-                "#!/bin/bash\nn=0\nwhile IFS= read -r line; do n=${'$'}((n + 1)); printf '{\"type\":\"echo\",\"n\":%d}\\n' \"${'$'}n\"; done\n",
+                "#!/bin/bash\nn=0\nwhile IFS= read -r line; do case ${'$'}line in *end_session*) exit 0 ;; esac; n=${'$'}((n + 1)); printf '{\"type\":\"echo\",\"n\":%d}\\n' \"${'$'}n\"; done\n",
             )
             setExecutable(true)
         }

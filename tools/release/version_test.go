@@ -62,37 +62,18 @@ func TestPreviousTag(t *testing.T) {
 	}
 }
 
-func TestGatePassed(t *testing.T) {
-	cases := []struct {
-		name  string
-		lines []string
-		want  bool
-	}{
-		{"the newest gate status by the owner counts", []string{"ci\tfailure\to", "wt-land/gate\tsuccess\to", "wt-land/gate\tfailure\to"}, true},
-		{"a newer failure wins", []string{"wt-land/gate\tfailure\to", "wt-land/gate\tsuccess\to"}, false},
-		{"someone else's status does not count", []string{"wt-land/gate\tsuccess\tmallory"}, false},
-		{"no status", []string{""}, false},
-	}
-	for _, c := range cases {
-		if got := gatePassed(c.lines, "o"); got != c.want {
-			t.Errorf("%s: %t", c.name, got)
-		}
-	}
-}
-
 func TestRunNextVersion(t *testing.T) {
 	for name, value := range map[string]string{"GITHUB_REF": "refs/heads/master", "GITHUB_SHA": "c0ffee",
-		"GITHUB_REPOSITORY": "o/r", "GITHUB_REPOSITORY_OWNER": "o"} {
+		"GITHUB_REPOSITORY": "o/r"} {
 		t.Setenv(name, value)
 	}
 	fakeCommands(t, map[string]string{
-		"git tag --list":         "v0.7.0\nv0.6.9",
-		"git tag --points-at":    "",
-		"git rev-list --count":   "321",
-		"gh api repos/o/r/commi": "wt-land/gate\tsuccess\to",
+		"git tag --list":       "v0.7.0\nv0.6.9",
+		"git tag --points-at":  "",
+		"git rev-list --count": "321",
 	})
 	out := captureStdout(t, func() error { return runNextVersion([]string{"-bump", "patch", "-branch", "master"}) })
-	if out != "version=0.7.1\ntag=v0.7.1\nversion_code=321\ngate_passed=true\n" {
+	if out != "version=0.7.1\ntag=v0.7.1\nversion_code=321\n" {
 		t.Errorf("outputs %q", out)
 	}
 	t.Setenv("GITHUB_REF", "refs/heads/task/x")

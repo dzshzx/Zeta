@@ -284,7 +284,12 @@ tasks.withType<Test>().configureEach {
     // 因此碎得厉害）。实测每个进程峰值从约 1.7G 降到约 1.1G，测试阶段没变慢
     jvmArgs("-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC")
     environment("MALLOC_ARENA_MAX", "2")
-    // 截图测试（app/src/test/kotlin/com/dzshzx/zeta/shots）每次都把图写到 app/build/shots（不进 Git），门禁因此也真的画一遍，
+    // 合入门禁（scripts/check.sh，没设 ZETA_GATE_FULL=1 时）传 -Pzeta.gate=fast：不跑标了 FullGateOnly 的测试
+    // （现在是截图测试，依据见那个接口的说明）。不传时全跑
+    val gate = providers.gradleProperty("zeta.gate").orNull
+    require(gate == null || gate == "fast") { "zeta.gate 只认 fast（现在是 $gate）" }
+    useJUnit { if (gate == "fast") excludeCategories("com.dzshzx.zeta.FullGateOnly") }
+    // 截图测试（app/src/test/kotlin/com/dzshzx/zeta/shots）每次都把图写到 app/build/shots（不进 Git），全量门禁因此也真的画一遍，
     // 渲染崩溃会让测试失败。同时和上一次的同名图比：变了就在旁边多写一张 <名字>_compare.png
     systemProperty("roborazzi.test.record", "true")
     systemProperty("roborazzi.test.compare", "true")
