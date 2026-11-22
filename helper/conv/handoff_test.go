@@ -101,3 +101,30 @@ func TestStateHostKey(t *testing.T) {
 	}
 	waitFor(t, "接着进程时是托管标识", func() bool { return h.state(1, "host_key") == key })
 }
+
+// 核心里已有的对话再被打开时，背后没有自己的进程就再查一次别处占用：结束了的对话，终端里又接着它（claude --resume），
+// 再打开就锁上，已经拿着它的客户端也跟着锁上。接着自己进程的不查：别处接回时 SessionStart hook 会让这边的进程退出。
+func TestReopenChecksOccupant(t *testing.T) {
+	h := newHarness(t)
+	idle := "idle"
+	var occupant *string
+	h.m.deps.Occupant = func(session string) sessionproto.Occupancy {
+		if session != "s1" || occupant == nil {
+			return sessionproto.Occupancy{HandsOver: true}
+		}
+		return sessionproto.Occupancy{Status: occupant, HandsOver: true}
+	}
+	h.call(1, "conv.open", map[string]any{"conv": "a", "session": "s1", "cwd": "/w"})
+	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "一"})
+	occupant = &idle
+	h.call(2, "conv.open", map[string]any{"conv": "b", "session": "s1", "cwd": "/w"})
+	waitFor(t, "接着自己进程的不锁", func() bool { return h.state(2, "blocked") == false })
+
+	h.call(1, "conv.end", map[string]any{"conv": "a"})
+	h.call(3, "conv.open", map[string]any{"conv": "c", "session": "s1", "cwd": "/w"})
+	waitFor(t, "没进程了再打开就锁上", func() bool { return h.state(3, "blocked") == true })
+	waitFor(t, "拿着它的客户端也锁上", func() bool { return h.state(1, "blocked") == true && h.state(2, "blocked") == true })
+	if o, ok := h.state(3, "occupant").(map[string]any); !ok || o["status"] != idle {
+		t.Fatalf("占用：%v", h.state(3, "occupant"))
+	}
+}

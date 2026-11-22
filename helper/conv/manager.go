@@ -300,12 +300,13 @@ func (m *Manager) open(client int, r request) error {
 	if r.File == "" && r.Session != "" && m.deps.SessionFile != nil {
 		r.File = m.deps.SessionFile(r.Session)
 	}
-	// 核心里还没有这个会话时才要看：已有的对话自己知道有没有被占着
+	// 核心里还没有这个会话、或已有的对话背后没有自己的进程时要看别处占用。接着自己进程的不用看：终端里 --resume 接回时
+	// SessionStart hook 让这边的进程退出，核心随之锁上（handedAway）；没进程的（结束了、还没发过消息）不知道别处后来又开了它
 	m.mu.Lock()
-	known := m.bySession[r.Session] != nil
+	existing := m.bySession[r.Session]
 	m.mu.Unlock()
 	var occupant sessionproto.Occupancy
-	if !known {
+	if existing == nil || existing.withoutProcess() {
 		occupant = m.occupancy(r.Session)
 	}
 	blocked := occupant.Status != nil
@@ -338,6 +339,11 @@ func (m *Manager) open(client int, r request) error {
 	}
 	m.byName[client][r.Conv] = c
 	m.mu.Unlock()
+	if blocked && c == existing {
+		if err := c.blockReopened(occupant); err != nil {
+			return err
+		}
+	}
 	var opts Options
 	if r.Options != nil {
 		opts = *r.Options
