@@ -186,7 +186,7 @@ func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 			FillWidth().Padding(8, 10).Radius(10).Background(bg)
 	}
 	for k, im := range s.Images {
-		ui.Box(c.Key(k)).Children(func() { ch.picture(c, im) })
+		ch.opensImage(ui.Box(c.Key(k)), s.Images, k).Children(func() { ch.picture(c, im) })
 	}
 }
 

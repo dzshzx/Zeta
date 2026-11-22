@@ -20,7 +20,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 			}
 			ui.Row(c).Gap(6).Children(func() {
 				for k, im := range it.Images[:min(len(it.Images), 4)] {
-					ui.Box(c.Key(k)).Children(func() { ch.thumbnail(c, im, size) })
+					ch.opensImage(ui.Box(c.Key(k)), it.Images, k).Children(func() { ch.thumbnail(c, im, size) })
 				}
 			})
 		}
@@ -33,10 +33,14 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item) {
 		k := coui.Of(c)
 		text := it.Text
 		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
-		coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble}.Paint(ui.Text(c, text)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
+		bubble := coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
+		bubble.Paint(ui.Text(c, text)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
+			}
+			if ch.UserMenu != nil {
+				ch.UserMenu(m, it)
 			}
 		})
 	})
@@ -78,7 +82,10 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item) {
 		}
 		md.FillWidth()
 		if !it.Streaming && strings.TrimSpace(it.Text) != "" && markdown.Revealed(md) {
-			copyButton(c, it.Text)
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				copyButton(c, it.Text)
+				ch.actions(c, it.ID)
+			})
 		}
 	})
 }

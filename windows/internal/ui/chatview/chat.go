@@ -48,6 +48,13 @@ type Chat struct {
 	Earlier Earlier
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
 	Top float32
+	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项下面的操作排、正在编辑的那条、
+	// 看大图时的保存（viewer.go）。
+	UserMenu  func(m *ui.Menu, it items.Item)
+	Actions   func(c *ui.Context, id string)
+	Editing   string
+	SaveImage func(data []byte, name string) (saved string, err error)
+	viewer    viewer
 
 	items []items.Item
 	list  ui.ListState
@@ -144,14 +151,15 @@ const contentWidth = 860
 
 // View 画聊天列表，返回列表的元素，由调用方定大小（通常 Grow(1)）。
 func (ch *Chat) View(c *ui.Context) ui.Element {
-	if ch.paging.next(len(ch.items)) && ch.Earlier.idle() && ch.LoadEarlier != nil {
+	rows := ch.shownRows()
+	if ch.paging.next(rows) && ch.Earlier.idle() && ch.LoadEarlier != nil {
 		ch.LoadEarlier()
 	}
 	ch.answer.OnLink = ch.OpenLink
 	ch.thinking.OnLink = ch.OpenLink
 	styleMarkdown(c, &ch.answerTheme, &ch.thinkingTheme)
 	top := float32(math.Inf(1)) // 第一条上一帧的顶端（窗口坐标），没建它时是无穷大
-	list := ui.List(c, &ch.list, len(ch.items), func(row int) {
+	list := ui.List(c, &ch.list, rows, func(row int) {
 		if ch.paging.built(row) && ch.Earlier.idle() {
 			c.Invalidate()
 		}
@@ -173,6 +181,7 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 			ui.Column(c).FillWidth().Children(func() { ch.earlierRow(c) })
 		}
 	})
+	ch.viewImages(c)
 	first, last := ch.list.Visible()
 	ch.scrolled = last >= first && (first > 0 || top < list.Bounds().Y+listTop+ch.Top-0.5)
 	// 照 Compose 从顶上往下排；内容多了跟到底部靠 FollowEnd
@@ -246,8 +255,10 @@ func (ch *Chat) item(c *ui.Context, it items.Item) {
 		ch.answerBlock(c, it)
 	case items.Notice:
 		noticeRow(c, it)
+		ch.actionRow(c, it.ID)
 	case items.Work:
 		ch.workGroup(c, it)
+		ch.actionRow(c, it.ID)
 	}
 }
 
