@@ -768,10 +768,12 @@ class FakeClaudeContractTest {
 
         fun play(): Run {
             val initialize = control(obj("subtype" to "initialize"))
-            control(obj("subtype" to "get_context_usage"))
-            control(obj("subtype" to "get_settings"))
+            val contextUsage = control(obj("subtype" to "get_context_usage"))
+            val settings = control(obj("subtype" to "get_settings"))
             control(obj("subtype" to "get_usage", "skip_behaviors" to JsonPrimitive(true)))
-            until(60_000, response(initialize))
+            // 启动时问的几样都答了才开始这一轮：答得晚（机器忙时真 Claude Code 可能过一秒多才答）会混进这一轮的事件。
+            // get_usage 不等，它的应答不计入比较（shapes 滤掉了）
+            for (id in listOf(initialize, contextUsage, settings)) until(60_000, response(id))
             settle(1500)
             user("11111111-2222-4333-8444-555555555555", "hi")
             when (mode) {
