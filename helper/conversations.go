@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 	"sync"
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
+	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
 // conversations 把对话（helper/conv）挂到核心进程上：conv.* 请求交给对话表，对话的推送按客户端编号找到那条连接写出去。
@@ -20,11 +22,17 @@ type conversations struct {
 
 func newConversations(e *env) *conversations {
 	h := &conversations{clients: map[int]*core.Client{}}
+	// 学到的各模型上下文窗口：文件坏了也照用（当空的），原因记进日志
+	windows, err := ctxusage.LoadWindows(e.home + "/.config/" + e.name + "/context-windows.json")
+	if err != nil {
+		log.Print(err)
+	}
 	h.m = conv.NewManager(conv.Deps{
 		Start:       startHost(e),
 		Attach:      attachHost(e),
 		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode: func() string { return defaultPermissionMode(e) },
+		Windows:     windows,
 	}, h.send)
 	return h
 }

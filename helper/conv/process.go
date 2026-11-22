@@ -214,7 +214,7 @@ func (c *Conversation) events(p *process, attached func(joined bool)) Events {
 func (c *Conversation) processStarted(p *process, fresh bool, compactPercent int) {
 	c.sendNow = false
 	p.request(initializeRequest(), func(r controlResponse) { c.initialized(r) })
-	c.usage.processStarted(fresh, compactPercent)
+	c.usage.ProcessStarted(fresh, compactPercent)
 	c.queryUsage(p)
 	c.changed()
 }
@@ -266,7 +266,7 @@ func (c *Conversation) initialized(r controlResponse) {
 // queryUsage 问 Claude Code 上下文窗口和实际生效的思考强度。
 func (c *Conversation) queryUsage(p *process) {
 	p.request(control("get_context_usage"), func(r controlResponse) {
-		if c.usage.contextUsageAnswered(raw(r)) {
+		if c.usage.ContextUsageAnswered(raw(r)) {
 			c.changed()
 		}
 	})
@@ -275,7 +275,7 @@ func (c *Conversation) queryUsage(p *process) {
 
 func (c *Conversation) querySettings(p *process) {
 	p.request(control("get_settings"), func(r controlResponse) {
-		if c.usage.settingsAnswered(raw(r)) {
+		if c.usage.SettingsAnswered(raw(r)) {
 			c.changed()
 		}
 	})
@@ -306,7 +306,7 @@ func (c *Conversation) endTurnState() {
 	c.steering = false
 	c.busy = false
 	c.backgroundTasks = 0
-	c.tasks.processEnded(c.deps.now())
+	c.tasks.ProcessEnded(c.deps.now())
 	c.status = ""
 	c.prompts = nil
 	clear(c.shellCommands)

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/helper/transcript"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // publishDelay：托管进程的输出攒多久推一次。流式回答时每推一次客户端就要重排一次版，
@@ -66,8 +68,8 @@ type Conversation struct {
 	modes              modes
 	commands           json.RawMessage
 	models             json.RawMessage
-	usage              usageTracker
-	tasks              taskBoard
+	usage              *usage.Tracker
+	tasks              *tasks.Board
 	backgroundTasks    int
 
 	proc      *process
@@ -108,7 +110,7 @@ func New(id string, spec Spec, deps Deps, send Send) *Conversation {
 		cwd: spec.Cwd, title: spec.Title, session: spec.Session, file: spec.File, openedSession: spec.Session,
 		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
 		options: map[int]Options{}, holders: map[int]string{},
-		usage: deps.newUsage(), tasks: deps.newTasks(),
+		usage: usage.New(), tasks: tasks.New(),
 	}
 	c.modes.claudeDefault = deps.DefaultMode
 	go c.loop()

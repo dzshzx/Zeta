@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/dzshzx/Zeta/helper/transcript"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // historyHeader 是 zeta-helper history 输出的第一行。
@@ -22,12 +23,11 @@ type historyHeader struct {
 
 // historyLine 是 zeta-helper history 输出的一条消息。
 type historyLine struct {
-	Type            string                    `json:"type"`
-	Subtype         string                    `json:"subtype"`
-	UUID            string                    `json:"uuid"`
-	Message         *transcript.Message       `json:"message"`
-	ToolUseResult   *transcript.ToolUseResult `json:"tool_use_result"`
-	CompactMetadata json.RawMessage           `json:"compact_metadata"`
+	Type          string                    `json:"type"`
+	Subtype       string                    `json:"subtype"`
+	UUID          string                    `json:"uuid"`
+	Message       *transcript.Message       `json:"message"`
+	ToolUseResult *transcript.ToolUseResult `json:"tool_use_result"`
 }
 
 // historyRead 是读出来的一段历史。
@@ -53,9 +53,7 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 		read.lines = append(read.lines, bytes.Clone(line))
 		switch {
 		case h.Type == "system" && h.Subtype == "compact_boundary":
-			var e event
-			_ = json.Unmarshal(line, &e)
-			r.AddNotice(compactNotice(e), false)
+			r.AddNotice(usage.CompactNotice(line), false)
 		case h.Type == "assistant" && h.Message != nil:
 			r.ApplyAssistant(*h.Message, true)
 		case h.Type == "user" && h.Message != nil:
@@ -75,7 +73,12 @@ func (c *Conversation) loadHistory(file string) {
 		// 载入期间用户已经发了新消息的话，新内容接在历史后面
 		read.reducer.Items = append(read.reducer.Items, c.r.Items...)
 		c.r = read.reducer
-		c.usage.prependHistory(read.lines)
+		earlier := usage.New()
+		for _, line := range read.lines {
+			earlier.ObserveHistory(line)
+		}
+		earlier.FinishHistory()
+		c.usage.PrependHistory(earlier)
 		c.earlier, c.earlierAnchor = read.header.Skipped, read.header.Anchor
 		c.todoSeed = read.header.TodoSeed
 		c.loadingHistory = false

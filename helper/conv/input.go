@@ -6,6 +6,8 @@ import (
 	"path"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
 var (
@@ -327,9 +329,9 @@ func (c *Conversation) stopTask(id string) {
 	if p == nil {
 		return
 	}
-	c.tasks.stopping(id)
+	c.tasks.StopRequested(id)
 	p.request(control("stop_task", "task_id", id), func(r controlResponse) {
-		if c.tasks.stopAnswered(id, raw(r)) {
+		if c.tasks.StopAnswered(id, raw(r)) {
 			c.changed()
 		}
 	})
@@ -344,6 +346,10 @@ func (c *Conversation) taskOutput(id string) <-chan any {
 		out <- nil
 		return out
 	}
-	p.request(control("get_task_output", "task_id", id), func(r controlResponse) { out <- taskOutputView(raw(r)) })
+	p.request(control("get_task_output", "task_id", id), func(r controlResponse) {
+		o := tasks.ParseOutput(raw(r))
+		o.Text = tasks.PlainTerminalText(o.Text)
+		out <- o
+	})
 	return out
 }

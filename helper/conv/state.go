@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/dzshzx/Zeta/helper/transcript"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // stateFields 是 conv.state 的各个字段（见 docs/core.md）。每个字段都写出来，变成零值时客户端也收得到。
@@ -28,7 +29,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"loading_history": raw(c.loadingHistory),
 		"earlier":         raw(c.earlier),
 		"todo_seed":       nonNull(c.todoSeed, "[]"),
-		"tasks":           raw(c.tasks.view()),
+		"tasks":           raw(nonNilSlice(c.tasks.Tasks())),
 		"queued":          raw(queued),
 		"steering":        raw(c.steering),
 		"prompts":         raw(nonNilSlice(c.prompts)),
@@ -39,7 +40,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"mode":            raw(map[string]string{"user": c.modes.user, "process": c.modes.process}),
 		"commands":        nonNull(c.commands, "null"),
 		"models":          nonNull(c.models, "null"),
-		"usage":           raw(c.usage.view()),
+		"usage":           raw(c.usageView()),
 	}
 }
 
@@ -96,4 +97,14 @@ func (p *publishedItems) delta(now []*transcript.Item) *itemsMsg {
 		p.revs = append(p.revs, it.Rev())
 	}
 	return d
+}
+
+// usageView 是用量快照：Claude Code 报了上下文窗口就记进这台主机学到的那份（别的对话、下次进程还没报时用）。
+func (c *Conversation) usageView() usage.Usage {
+	if c.deps.Windows != nil {
+		if model, window, ok := c.usage.LearnedWindow(); ok {
+			_ = c.deps.Windows.Learn(model, window)
+		}
+	}
+	return c.usage.Snapshot(c.deps.Windows)
 }

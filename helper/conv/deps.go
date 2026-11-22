@@ -1,8 +1,9 @@
 package conv
 
 import (
-	"encoding/json"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // Deps 是对话用到的外部部件：核心进程里接上真的（托管进程经 zeta_host.sh、历史经 zeta-helper history），测试里换成假的。
@@ -15,8 +16,8 @@ type Deps struct {
 	History func(args ...string) ([]byte, error)
 	// DefaultMode 是这台主机上 Claude Code 设置里的默认权限模式（permissions.defaultMode），不知道时为空
 	DefaultMode func() string
-	// Windows 是学到的各模型的上下文窗口（用量条用），由核心按主机记
-	Windows windowStore
+	// Windows 是这台主机上学到的各模型的上下文窗口（用量条用），几个对话共用；可以是 nil
+	Windows *usage.Windows
 	// Now 是现在的时刻，测试里换成假的；不给时用 time.Now
 	Now func() time.Time
 	// SessionChanged：对话拿到了（或换了）会话号；由 Manager 填
@@ -63,30 +64,6 @@ const (
 	reasonReleased      = "released"       // 终端里接回去了，zeta-helper 让出会话时结束了这边的进程
 	reasonHeldElsewhere = "held_elsewhere" // 要接着的会话正被 Zeta 之外的 Claude Code 占着，托管脚本没起进程
 )
-
-// windowStore 是学到的上下文窗口。
-type windowStore interface {
-	Get(model string) (int64, bool)
-	Learn(model string, window int64)
-}
-
-// usageTracker、taskBoard 是对话用到的用量、后台任务清单的那几样（helper/usage、helper/tasks）。
-type usageTracker interface {
-	processStarted(fresh bool, compactPercent int)
-	observe(line []byte) bool
-	prependHistory(lines [][]byte)
-	contextUsageAnswered(resp json.RawMessage) bool
-	settingsAnswered(resp json.RawMessage) bool
-	view() any
-}
-
-type taskBoard interface {
-	observe(line []byte, now int64) bool
-	stopping(id string)
-	stopAnswered(id string, resp json.RawMessage) bool
-	processEnded(now int64) bool
-	view() any
-}
 
 // now 是现在的时刻（毫秒）。
 func (d Deps) now() int64 {

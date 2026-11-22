@@ -8,6 +8,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 // event 是 Claude Code 输出（stream-json）的一行里对话用到的部分；各类型只用到自己那几项。
@@ -16,18 +17,14 @@ type event struct {
 	Subtype string `json:"subtype"`
 
 	// system init、status 等
-	SessionID       string            `json:"session_id"`
-	Model           string            `json:"model"`
-	PermissionMode  string            `json:"permissionMode"`
-	Capabilities    []string          `json:"capabilities"`
-	Status          *string           `json:"status"`
-	Title           string            `json:"title"`
-	Attempt         int               `json:"attempt"`
-	Tasks           []json.RawMessage `json:"tasks"`
-	CompactMetadata *struct {
-		Trigger   string `json:"trigger"`
-		PreTokens *int64 `json:"pre_tokens"`
-	} `json:"compact_metadata"`
+	SessionID      string            `json:"session_id"`
+	Model          string            `json:"model"`
+	PermissionMode string            `json:"permissionMode"`
+	Capabilities   []string          `json:"capabilities"`
+	Status         *string           `json:"status"`
+	Title          string            `json:"title"`
+	Attempt        int               `json:"attempt"`
+	Tasks          []json.RawMessage `json:"tasks"`
 
 	// stream_event、assistant、user
 	Event           *transcript.StreamEvent   `json:"event"`
@@ -62,10 +59,10 @@ func (c *Conversation) receive(p *process, line []byte) {
 	// 进程有了输出：交给它的消息已经送到了
 	c.unsent = nil
 	now := c.deps.now()
-	if c.usage.observe(line) {
+	if c.usage.Observe(line) {
 		c.changed()
 	}
-	if c.tasks.observe(line, now) {
+	if c.tasks.Observe(line, now) {
 		c.changed()
 	}
 	var e event
@@ -84,7 +81,7 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 	fromSubagent := e.ParentToolUseID != ""
 	switch e.Type {
 	case "system":
-		return c.handleSystem(p, e)
+		return c.handleSystem(p, e, line)
 	case "stream_event":
 		if e.Event == nil {
 			return false
@@ -132,7 +129,7 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 	return false
 }
 
-func (c *Conversation) handleSystem(p *process, e event) bool {
+func (c *Conversation) handleSystem(p *process, e event, line []byte) bool {
 	switch e.Subtype {
 	case "init":
 		c.handleInit(e)
@@ -151,7 +148,7 @@ func (c *Conversation) handleSystem(p *process, e event) bool {
 		}
 		c.changed()
 	case "compact_boundary":
-		c.r.AddNotice(compactNotice(e), false)
+		c.r.AddNotice(usage.CompactNotice(line), false)
 		// 压缩后的 post_tokens 不含系统提示和工具，问 Claude Code 要含这些的估算
 		c.queryUsage(p)
 		return true
@@ -185,19 +182,6 @@ func (c *Conversation) handleInit(e event) {
 	// 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
 	c.setBusy()
 	c.changed()
-}
-
-// compactNotice 是压缩完成时列表里的那句。
-func compactNotice(e event) string {
-	label := "上下文已压缩"
-	m := e.CompactMetadata
-	if m != nil && m.Trigger == "auto" {
-		label = "上下文已自动压缩"
-	}
-	if m != nil && m.PreTokens != nil {
-		return label + "（压缩前 " + formatTokens(*m.PreTokens) + "）"
-	}
-	return label
 }
 
 func (c *Conversation) handleUser(e event, fromSubagent bool) bool {
