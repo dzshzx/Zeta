@@ -82,13 +82,19 @@ func TestSessionsExportSeveral(t *testing.T) {
 
 	got := asObj(c.ok("sessions.export", `"sessions":["`+sessionB+`","`+gone+`","`+sessionA+`","`+sessionB+`"],"utc_offset":-720`))
 	one, _, _ := exportSession(e.root + "/-w/" + sessionB + ".jsonl")
-	two, _, _ := exportSession(e.root + "/-w/" + sessionA + ".jsonl")
+	two, twoTitle, _ := exportSession(e.root + "/-w/" + sessionA + ".jsonl")
 	want := strings.TrimRight(one, "\n") + "\n\n---\n\n" + strings.TrimRight(two, "\n") + "\n"
 	if got["markdown"] != want || got["title"] != "2个对话" {
 		t.Fatalf("合成的：%q，要 %q（%v）", got["markdown"], want, got["title"])
 	}
 	if strs(got["exported"])[0] != sessionB || len(strs(got["exported"])) != 2 || !slices.Equal(strs(got["failed"]), []string{gone}) {
 		t.Fatalf("导出成的、没导出成的：%v %v", got["exported"], got["failed"])
+	}
+	// 各自的导出按给的先后另放在 parts 里，客户端拿它们按用户选的先后重新合成
+	parts := asList(got["parts"])
+	if len(parts) != 2 || asObj(parts[0])["session"] != sessionB || asObj(parts[0])["markdown"] != one ||
+		asObj(parts[1])["session"] != sessionA || asObj(parts[1])["markdown"] != two || asObj(parts[1])["title"] != twoTitle {
+		t.Fatalf("parts：%v", parts)
 	}
 	day := time.Now().UTC().Add(-12 * time.Hour).Format("20060102-1504")
 	if name := asString(got["file_name"]); name != "Zeta-2个对话-"+day+".md" {
@@ -108,16 +114,6 @@ func TestSessionsExportSeveral(t *testing.T) {
 	}
 	if r := c.call("sessions.export", `"sessions":["`+sessionA+`","../x"]`); r["ok"] != false || r["code"] != nil {
 		t.Fatalf("坏的会话号：%v", r)
-	}
-}
-
-func TestCombineExports(t *testing.T) {
-	if title, md := combineExports([]exported{{"一", "# 一\n\n正文\n\n"}}); title != "一" || md != "# 一\n\n正文\n\n" {
-		t.Fatalf("一个：%q %q", title, md)
-	}
-	title, md := combineExports([]exported{{"一", "# 一\n \n"}, {"二", "# 二"}, {"三", "# 三\n"}})
-	if title != "3个对话" || md != "# 一\n\n---\n\n# 二\n\n---\n\n# 三\n" {
-		t.Fatalf("几个：%q %q", title, md)
 	}
 }
 

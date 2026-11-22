@@ -396,9 +396,9 @@ func TestCommandsAreRememberedPerCwd(t *testing.T) {
 	h.call(1, "conv.prepare", map[string]any{"conv": "a"})
 	c, l := h.conv(1, "a"), h.link(0)
 	_, id := waitRequest(t, l, "initialize", 1)
-	h.respond(c, l, id, `{"commands":[{"name":"review","description":"审查"},{"name":"__internal"},{"name":"compact"}]}`, "")
+	h.respond(c, l, id, `{"commands":[{"name":"review","description":"审查"},{"name":"__internal"},{"name":""},{"description":"没名字"},{"name":"compact"}]}`, "")
 	if got := commandNames(h, 1); !reflect.DeepEqual(got, []string{"review", "compact"}) {
-		t.Fatalf("内部命令没滤掉：%v", got)
+		t.Fatalf("内部命令、没有名字的没滤掉：%v", got)
 	}
 
 	// 换一个核心（新的一份存储读同一个文件）：还没起进程，打开同一目录、别的目录都直接给

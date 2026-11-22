@@ -1,5 +1,5 @@
-// Package sessionproto 是核心的会话方法（sessions.*、conv.occupant、conv.handoff）里客户端也要用的类型、常量和规则：
-// 导出文件名、标题怎么清理、接管的结果与状态、错误代号。只放类型和纯函数，不依赖核心的其余部分，
+// Package sessionproto 是核心的会话方法（sessions.*、conv.occupant、conv.handoff）和对话推送里客户端也要用的类型、常量和规则：
+// 导出文件名与合成、标题怎么清理、接管的结果与状态、错误代号、任务清单的项、子代理页的状态。只放类型和纯函数，不依赖核心的其余部分，
 // 核心（helper 的 package main、helper/conv）和 Go 写的客户端（windows/）都导入它，不各写一份。协议见 docs/core.md「会话」。
 package sessionproto
 

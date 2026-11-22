@@ -282,29 +282,30 @@ func (h sessionOps) export(q sessionParams) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return obj{"title": ex.title, "markdown": ex.markdown, "file_name": sessionproto.ExportFileName(ex.title, at)}, nil
+	return obj{"title": ex.Title, "markdown": ex.Markdown, "file_name": sessionproto.ExportFileName(ex.Title, at)}, nil
 }
 
 // exportOne 导出一个会话；记录不在时是 errNoSession。
-func (h sessionOps) exportOne(session string) (exported, error) {
+func (h sessionOps) exportOne(session string) (sessionproto.ExportPart, error) {
 	path, err := h.record(session)
 	if err != nil {
-		return exported{}, err
+		return sessionproto.ExportPart{}, err
 	}
 	markdown, title, err := exportSession(path)
 	if err != nil {
 		if isNotExist(err) {
-			return exported{}, errNoSession
+			return sessionproto.ExportPart{}, errNoSession
 		}
-		return exported{}, err
+		return sessionproto.ExportPart{}, err
 	}
-	return exported{title: title, markdown: markdown}, nil
+	return sessionproto.ExportPart{Session: session, Title: title, Markdown: markdown}, nil
 }
 
-// exportMany 把这几个会话（同一台主机上的）导出、合成一份（combineExports），同一个会话号只导一次，导不出来的跳过。
+// exportMany 把这几个会话（同一台主机上的）按给的先后导出、合成一份（sessionproto.CombineExports），同一个会话号只导一次，
+// 导不出来的跳过。各自的导出另放在 parts 里：客户端合成几台设备的时按用户选的先后重排。
 // 一个都没导出成时出错：都是因为记录不在时是 errNoSession，否则是别的原因里的第一个。
 func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
-	var parts []exported
+	var parts []sessionproto.ExportPart
 	done, failed := []string{}, []string{}
 	var problem error
 	seen := map[string]bool{}
@@ -330,9 +331,9 @@ func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
 		}
 		return nil, errNoSession
 	}
-	title, markdown := combineExports(parts)
+	title, markdown := sessionproto.CombineExports(parts)
 	return obj{"title": title, "markdown": markdown, "file_name": sessionproto.ExportFileName(title, at),
-		"exported": done, "failed": failed}, nil
+		"exported": done, "failed": failed, "parts": parts}, nil
 }
 
 func (h sessionOps) lookup(q sessionParams) (any, error) {

@@ -58,3 +58,13 @@ func TestHandsOver(t *testing.T) {
 		}
 	}
 }
+
+func TestCombineExports(t *testing.T) {
+	if title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n\n正文\n\n"}}); title != "一" || md != "# 一\n\n正文\n\n" {
+		t.Fatalf("一个：%q %q", title, md)
+	}
+	title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n \n"}, {Title: "二", Markdown: "# 二"}, {Title: "三", Markdown: "# 三\n"}})
+	if title != "3个对话" || md != "# 一\n\n---\n\n# 二\n\n---\n\n# 三\n" {
+		t.Fatalf("几个：%q %q", title, md)
+	}
+}

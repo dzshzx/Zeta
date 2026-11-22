@@ -187,7 +187,7 @@ func TestSubagentWatchReadsIncrementally(t *testing.T) {
 		t.Fatalf("接着读的参数：%v", got)
 	}
 	pushes := h.subagentPushes(1, "toolu_1")
-	if pushes[0]["full"] != true || pushes[0]["conv"] != "a" || pushes[0]["loaded"] != false {
+	if pushes[0]["full"] != true || pushes[0]["conv"] != "a" || pushes[0]["loaded"] != false || pushes[0]["state"] != "running" {
 		t.Fatalf("开始看时先推整份（还没读到）：%v", pushes[0])
 	}
 	for _, p := range pushes[1:] {
@@ -208,7 +208,7 @@ func TestSubagentWatchReadsIncrementally(t *testing.T) {
 		t.Fatalf("meta：%v", meta)
 	}
 	if last["prompt"] != "去查一下" || last["tool_uses"] != 1.0 || last["running"] != true || last["loaded"] != true ||
-		last["missing"] != false || last["file"] != testFile || last["skipped"] != 0.0 {
+		last["missing"] != false || last["file"] != testFile || last["skipped"] != 0.0 || last["state"] != "running" {
 		t.Fatalf("概要：%v", last)
 	}
 	if _, ok := last["failure"]; ok {
@@ -499,5 +499,27 @@ func TestSubagentTrackerKeepsRecentLogs(t *testing.T) {
 	}
 	if l := s.log("new"); s.logs["new"] != l || len(s.logs) != subagentMaxLogs+1 {
 		t.Fatalf("有人看着的被收掉了：%d 个", len(s.logs))
+	}
+}
+
+// 查看页的状态由核心按先后定：在跑优先，没读到记录时正在读取或读失败，记录文件没有，结局，最后是没做完。
+func TestSubagentState(t *testing.T) {
+	for _, c := range []struct {
+		s    subagentStatus
+		want string
+	}{
+		{subagentStatus{Running: true, Missing: true, Outcome: "completed"}, "running"},
+		{subagentStatus{}, "loading"},
+		{subagentStatus{Failure: "读不了", Outcome: "completed"}, "read_failed"},
+		{subagentStatus{Loaded: true, Missing: true, Outcome: "completed"}, "missing"},
+		{subagentStatus{Loaded: true, Outcome: "completed"}, "completed"},
+		{subagentStatus{Loaded: true, Outcome: "failed"}, "failed"},
+		{subagentStatus{Loaded: true, Outcome: "stopped"}, "stopped"},
+		{subagentStatus{Loaded: true, Failure: "上次读不了"}, "unfinished"},
+		{subagentStatus{Loaded: true, Outcome: "别的"}, "unfinished"},
+	} {
+		if got := subagentState(c.s); got != c.want {
+			t.Errorf("%+v：%q，要 %q", c.s, got, c.want)
+		}
 	}
 }

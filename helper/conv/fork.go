@@ -85,7 +85,7 @@ type forkPlan struct {
 	earlier       int
 	earlierAnchor string
 	earlierFile   string
-	todoSeed      json.RawMessage
+	todoSeed      []*transcript.Step
 
 	shownModel string
 	effort     string
@@ -133,7 +133,7 @@ func (c *Conversation) startFork(plan *forkPlan) {
 	// 接着原会话的记录：选默认模型时要明说 default（见 chooseModel）
 	c.openedSession = plan.source
 	c.earlier, c.earlierAnchor, c.earlierFile = plan.earlier, plan.earlierAnchor, plan.earlierFile
-	c.setTodoSeed(plan.todoSeed)
+	c.todoSeed = plan.todoSeed
 	c.reportedModel, c.effort, c.modes.user = plan.shownModel, plan.effort, plan.mode
 	c.changed()
 }

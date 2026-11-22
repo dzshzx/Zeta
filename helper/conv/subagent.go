@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strconv"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 子代理查看页：客户端发 conv.subagent {tool_use_id, watch} 开始或停止看一个子代理，核心在有客户端看着时
@@ -87,6 +89,8 @@ type subagentStatus struct {
 	Skipped  int           `json:"skipped"`
 	// Outcome 是结局：completed、failed、stopped；还没结束时省掉
 	Outcome string `json:"outcome,omitempty"`
+	// State 是查看页显示的状态（sessionproto 的 Subagent*），见 subagentState
+	State string `json:"state"`
 }
 
 // subagentMsg 是 conv.subagent 推送：条目同 conv.items（Full 时整份，否则从 At 起去掉 Remove 项、换成 Items）。
@@ -332,6 +336,7 @@ func (c *Conversation) publishSubagent(l *subagentLog) {
 		Prompt: l.t.prompt, ToolUses: l.t.toolUses(), Running: l.running, Loaded: l.t.loaded,
 		Missing: l.t.missing && l.t.meta == nil, Failure: l.failure, File: l.t.file, Skipped: l.t.skipped, Outcome: outcome,
 	}
+	status.State = subagentState(status)
 	c.fillSubagentStatus(l, &status)
 	encoded := raw(status)
 	for client, w := range l.watchers {
@@ -408,4 +413,24 @@ func (r *recent) put(key, value string) {
 		delete(r.values, r.keys[0])
 		r.keys = r.keys[1:]
 	}
+}
+
+// subagentState 是查看页显示的状态（sessionproto 的 Subagent*），客户端只把它换成文案：在跑优先；还没读到记录时是正在读取，
+// 读失败了是 read_failed；记录文件没有时是 missing；再看结局；不在跑又不知道结局的，是进程没等它做完就没了。
+func subagentState(s subagentStatus) string {
+	switch {
+	case s.Running:
+		return sessionproto.SubagentRunning
+	case !s.Loaded && s.Failure != "":
+		return sessionproto.SubagentReadFailed
+	case !s.Loaded:
+		return sessionproto.SubagentLoading
+	case s.Missing:
+		return sessionproto.SubagentMissing
+	}
+	switch s.Outcome {
+	case sessionproto.SubagentCompleted, sessionproto.SubagentFailed, sessionproto.SubagentStopped:
+		return s.Outcome
+	}
+	return sessionproto.SubagentUnfinished
 }

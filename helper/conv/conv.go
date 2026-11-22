@@ -56,8 +56,7 @@ type Conversation struct {
 	earlierFile        string             // 还没载入的那段在哪份会话记录里（分支是原会话的）
 	earlierLoading     bool               // 正在载入更早的一页（conv.earlier）
 	deferredEarlier    func()             // 剪的期间读回来的更早一页，剪完再接上
-	todoSeed           json.RawMessage    // 没载入的更早历史里的清单工具调用（弃用的 todo_seed 照原样推）
-	todoSeedSteps      []*transcript.Step // 它还原成的工具步骤，任务清单先套用它们
+	todoSeed           []*transcript.Step // 没载入的更早历史里的清单工具调用（zeta-helper history 的 todo_seed）还原成的工具步骤，任务清单先套用它们
 	queued             []*outgoing
 	steering           bool
 	recalled           *outgoing

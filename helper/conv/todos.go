@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -19,21 +20,7 @@ import (
 // 归并照 Claude Code 自己给远程会话还原清单的做法：任务工具的清单不空就用它，否则用最后一次 TodoWrite。
 // 另加一条：旧清单全部做完后又新建任务，算开了一份新清单，旧的那些不再显示。
 // 接着旧会话时，没载入的更早历史里的清单工具调用由 zeta-helper history 给出（todo_seed），先套用它们。
-
-// 清单里一项的状态。
-const (
-	todoPending    = "pending"
-	todoInProgress = "in_progress"
-	todoCompleted  = "completed"
-)
-
-// todo 是清单里的一项。ActiveForm 是进行中时的说法（「正在运行测试」），没有时同 Content。
-type todo struct {
-	Key        string `json:"key"`
-	Content    string `json:"content"`
-	ActiveForm string `json:"active_form"`
-	Status     string `json:"status"`
-}
+// 清单的一项是 sessionproto.Todo，客户端照它解。
 
 // todoTools 是清单工具。
 var todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpdate": true}
@@ -42,7 +29,7 @@ var todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpda
 var createdID = regexp.MustCompile(`^Task #(\S+) created successfully`)
 
 // todosOf 是 seed（没载入的历史里的清单工具调用）接上列表 items 以后最新的清单；没有清单时是空的。
-func todosOf(seed []*transcript.Step, items []*transcript.Item) []todo {
+func todosOf(seed []*transcript.Step, items []*transcript.Item) []sessionproto.Todo {
 	var b todoBoard
 	for _, s := range seed {
 		b.apply(s)
@@ -92,10 +79,10 @@ func seedSteps(raw json.RawMessage) []*transcript.Step {
 
 // todoBoard 按先后套用清单工具调用。
 type todoBoard struct {
-	tasks    map[string]todo // 已拿到编号的任务
-	order    []string        // 它们新建的先后
-	creating []todo          // 发出了、还没拿到编号的 TaskCreate（键是工具调用的 id）
-	written  []todo          // 最后一次 TodoWrite 的整份清单
+	tasks    map[string]sessionproto.Todo // 已拿到编号的任务
+	order    []string                     // 它们新建的先后
+	creating []sessionproto.Todo          // 发出了、还没拿到编号的 TaskCreate（键是工具调用的 id）
+	written  []sessionproto.Todo          // 最后一次 TodoWrite 的整份清单
 }
 
 func (b *todoBoard) apply(s *transcript.Step) {
@@ -113,17 +100,17 @@ func (b *todoBoard) apply(s *transcript.Step) {
 	}
 }
 
-func todoWrite(input map[string]any) []todo {
+func todoWrite(input map[string]any) []sessionproto.Todo {
 	all, _ := input["todos"].([]any)
-	list := []todo{}
+	list := []sessionproto.Todo{}
 	for i, v := range all {
 		item, _ := v.(map[string]any)
 		content := str(item, "content")
 		if content == "" {
 			continue
 		}
-		list = append(list, todo{Key: "todo-" + strconv.Itoa(i), Content: content,
-			ActiveForm: or(str(item, "activeForm"), content), Status: or(todoStatus(str(item, "status")), todoPending)})
+		list = append(list, sessionproto.Todo{Key: "todo-" + strconv.Itoa(i), Content: content,
+			ActiveForm: or(str(item, "activeForm"), content), Status: or(todoStatus(str(item, "status")), sessionproto.TodoPending)})
 	}
 	return list
 }
@@ -133,7 +120,7 @@ func (b *todoBoard) create(s *transcript.Step, input map[string]any) {
 	if subject == "" {
 		return
 	}
-	t := todo{Content: subject, ActiveForm: or(str(input, "activeForm"), str(input, "active_form"), subject), Status: todoPending}
+	t := sessionproto.Todo{Content: subject, ActiveForm: or(str(input, "activeForm"), str(input, "active_form"), subject), Status: sessionproto.TodoPending}
 	// 上一份清单已经全部做完：这是一份新清单
 	if len(b.creating) == 0 && len(b.order) > 0 && b.allDone() {
 		b.tasks, b.order = nil, nil
@@ -168,13 +155,13 @@ func (b *todoBoard) update(input map[string]any) {
 	if active == "" && known && (subject == "" || old.ActiveForm != old.Content) {
 		active = old.ActiveForm
 	}
-	b.put(todo{Key: id, Content: content, ActiveForm: or(active, content),
-		Status: or(todoStatus(requested), old.Status, todoPending)})
+	b.put(sessionproto.Todo{Key: id, Content: content, ActiveForm: or(active, content),
+		Status: or(todoStatus(requested), old.Status, sessionproto.TodoPending)})
 }
 
-func (b *todoBoard) put(t todo) {
+func (b *todoBoard) put(t sessionproto.Todo) {
 	if b.tasks == nil {
-		b.tasks = map[string]todo{}
+		b.tasks = map[string]sessionproto.Todo{}
 	}
 	if _, ok := b.tasks[t.Key]; !ok {
 		b.order = append(b.order, t.Key)
@@ -197,7 +184,7 @@ func (b *todoBoard) remove(id string) {
 
 func (b *todoBoard) allDone() bool {
 	for _, t := range b.tasks {
-		if t.Status != todoCompleted {
+		if t.Status != sessionproto.TodoCompleted {
 			return false
 		}
 	}
@@ -205,8 +192,8 @@ func (b *todoBoard) allDone() bool {
 }
 
 // list 是现在的清单：任务工具的不空就用它，否则用最后一次 TodoWrite。
-func (b *todoBoard) list() []todo {
-	out := []todo{}
+func (b *todoBoard) list() []sessionproto.Todo {
+	out := []sessionproto.Todo{}
 	for _, k := range b.order {
 		out = append(out, b.tasks[k])
 	}
@@ -219,7 +206,7 @@ func (b *todoBoard) list() []todo {
 
 func todoStatus(s string) string {
 	switch s {
-	case todoPending, todoInProgress, todoCompleted:
+	case sessionproto.TodoPending, sessionproto.TodoInProgress, sessionproto.TodoCompleted:
 		return s
 	}
 	return ""
@@ -244,8 +231,7 @@ func or(values ...string) string {
 	return ""
 }
 
-// setTodoSeed 换上没载入的历史里的清单工具调用（载入历史、往前翻一页、分支时），顺手还原成步骤。
+// setTodoSeed 换上没载入的历史里的清单工具调用（载入历史、往前翻一页时，zeta-helper history 的 todo_seed），还原成步骤。
 func (c *Conversation) setTodoSeed(raw json.RawMessage) {
-	c.todoSeed = raw
-	c.todoSeedSteps = seedSteps(raw)
+	c.todoSeed = seedSteps(raw)
 }

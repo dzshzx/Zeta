@@ -117,7 +117,7 @@ func (s *CommandStore) save() error {
 	return os.Rename(tmp, s.path)
 }
 
-// visibleCommands 是 initialize 应答里的命令去掉 __ 开头的内部命令（客户端不列它们）。不是数组时原样返回。
+// visibleCommands 是 initialize 应答里的命令去掉 __ 开头的内部命令和没有名字的项（客户端不列它们）。不是数组时原样返回。
 func visibleCommands(list json.RawMessage) json.RawMessage {
 	var all []json.RawMessage
 	if json.Unmarshal(list, &all) != nil {
@@ -127,7 +127,7 @@ func visibleCommands(list json.RawMessage) json.RawMessage {
 		var c struct {
 			Name string `json:"name"`
 		}
-		return json.Unmarshal(item, &c) == nil && strings.HasPrefix(c.Name, "__")
+		return json.Unmarshal(item, &c) != nil || c.Name == "" || strings.HasPrefix(c.Name, "__")
 	})
 	return raw(nonNilSlice(kept))
 }
