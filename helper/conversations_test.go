@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 // 核心读子代理记录走的是进程内的 zeta-helper subagent：参数和输出同命令行。
@@ -24,5 +25,21 @@ func TestSubagentOutputInProcess(t *testing.T) {
 	}
 	if _, err := subagentOutput(e, []string{"0", "0", "toolu_1"}); !errors.Is(err, errUsage) {
 		t.Fatalf("参数不全时应报用法不对：%v", err)
+	}
+}
+
+// 按会话号找会话记录：几个项目目录里都有时取最新的；不像会话号的、找不到的为空。
+func TestSessionFile(t *testing.T) {
+	e := testEnv(t)
+	older := e.root + "/-a/" + sessionA + ".jsonl"
+	newer := e.root + "/-b/" + sessionA + ".jsonl"
+	writeLines(t, older, `{"type":"user","cwd":"/a","message":{"content":"旧"}}`)
+	writeLines(t, newer, `{"type":"user","cwd":"/b","message":{"content":"新"}}`)
+	age(t, older, time.Hour)
+	if got := sessionFile(e, sessionA); got != newer {
+		t.Fatalf("找到的：%q", got)
+	}
+	if sessionFile(e, sessionB) != "" || sessionFile(e, "../x") != "" {
+		t.Fatal("没有的、不像会话号的也找到了")
 	}
 }

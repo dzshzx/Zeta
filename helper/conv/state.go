@@ -19,6 +19,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		recalled = &v
 	}
 	return map[string]json.RawMessage{
+		"key":             raw(c.ID),
 		"session":         raw(c.session),
 		"title":           raw(c.title),
 		"cwd":             raw(c.cwd),

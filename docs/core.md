@@ -28,14 +28,14 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 对话的状态在核心进程 `zeta-helper core` 里（服务端框架在 `helper/core`，对话逻辑是挂在上面的处理器 `helper/conv`）：每台主机上每个 Linux 用户、每个包（`ZETA_NAME`）一个，监听 `~/.cache/<ZETA_NAME>/core/core.sock`（目录只有本人能进；测试用环境变量 `ZETA_CORE_DIR` 换个目录）。只起一个靠同目录的 `core.lock`：正在跑的核心持着它（flock，里面写着进程号），已有核心在听时新起的直接退出，上一个崩溃留下的套接字文件由拿到锁的那个清掉再听。连上时核心先发一行 `core_hello`（`build`、`version`），serve 读掉它决定用这个核心还是让它交班，不转给客户端。客户端不直接连核心：serve 收到 ping 以外的第一个请求时连上它，没人在听就用自己的程序拉起一个（`core` 子命令，自成一个会话，标准错误追加到同目录的 `core.log`），等它听上，约 5 秒为限，连不上时这个请求答出错；几个 serve 同时拉起时由锁保证只留一个。之后请求原样转过去，核心的应答和推送原样写回客户端。核心没了（崩溃、被结束、交班）时 serve 跟着退出，客户端照常重连，重新订阅、打开它的对话。
 
 - 托管不变：核心经 `zeta_host.sh`（随 zeta-helper 编进程序里，`helper/host/`）起和接 Claude Code 进程，自己算一个接着的一方。核心重启、升级、崩溃都不结束进行中的对话：核心起来时扫一遍托管进程（`zeta-helper hosts`），在回答、等确认、有后台任务的接上（有会话记录的先载入历史，从输出日志的下一行读起，还没答的确认重新排上），闲着的断开；客户端之后打开同一个会话号拿到的就是接上的那个。闲着被断开的，下次发消息时 `zeta_host.sh start` 照常接回同一个进程。
-- 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒，核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话（处理器说自己闲着）满 60 秒就退出；收到 SIGTERM 时也干净退出，都会删掉自己的套接字文件。
+- 谁接着：一个对话被打开它的客户端「拿着」（`conv.open` 到 `conv.close`，连接断了也算放开）。没人拿着、又闲着（不在回答、不在等确认、没有后台任务）满 30 秒（还没发过消息的分支满 10 分钟：它没有会话号，收掉就没了，客户端断线重连时按 `key` 重开），核心断开那个托管进程（`detach`，看门狗约十分钟后收掉进程）；没人拿着但还在进行的，核心接着归约，进行完了再这样断开。核心没有连接、也没有接着的对话（处理器说自己闲着）满 60 秒就退出；收到 SIGTERM 时也干净退出，都会删掉自己的套接字文件。
 - 同一个会话只有一份状态：几个客户端（手机、电脑）打开同一个会话号拿到的是同一个对话，各自收到同样的推送，谁发的消息、谁答的确认都对所有人生效。
 
 请求都带 `conv`：客户端自己给对话起的名字，在这条连接里不重复，`conv.open` 时起好，之后的请求和推送都用它（名字先定下来，打开后紧跟着的推送就不会比应答先到却对不上号）。参数和 `id`、`method` 平级，请求的写法以 `helper/conv/manager.go` 的 `request` 为准：
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
-| `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，载入历史用）、`cwd`、`title`、`options` | 打开一个对话。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items`。历史只载入最近一段（约 800 条事件），更早的有多少记在 `earlier` |
+| `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，可省：只给会话号时核心自己找）、`key`、`cwd`、`title`、`options` | 打开一个对话。带 `key`（`conv.state` 里的）时重新打开核心里的那个对话，它已经不在时：带了会话号就按会话号打开，没带就答出错，`code` 为 `conversation_gone`。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items`。历史只载入最近一段（约 800 条事件），更早的有多少记在 `earlier` |
 | `conv.close` | | 这个客户端放开它 |
 | `conv.options` | `options` | 改起进程用的设置（见下），下次起进程时生效 |
 | `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`（主机上的路径：客户端自己先把本地文件传到主机上，核心照终端版在消息前加 `@"路径"`）、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
@@ -70,7 +70,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 推送（都带 `conv`）：
 
-- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`（没选时为 `null`，同 `model`）、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`earlier_loading`（正在载入更早的一页）、`can_rewind`（现在能不能编辑、重新生成、删除一轮、还原代码、分支：这一轮结束了，没有等确认、排队的消息，没在剪、没在载入历史，会话没被别处占着）、`blocked`（会话正被 Zeta 之外的进程占着）。
+- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`key`（这个对话在核心里的标识，整个核心里不重复，`conv.open` 可带它重开）、`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`（没选时为 `null`，同 `model`）、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`earlier_loading`（正在载入更早的一页）、`can_rewind`（现在能不能编辑、重新生成、删除一轮、还原代码、分支：这一轮结束了，没有等确认、排队的消息，没在剪、没在载入历史，会话没被别处占着）、`blocked`（会话正被 Zeta 之外的进程占着）。
 - `conv.items`：聊天条目（格式见 `helper/transcript/items.go`）。`full` 为真时 `items` 是整份；否则是一次替换：从下标 `at` 起去掉 `remove` 项、换成 `items`。流式回答时通常只换最后一两项。
 - `conv.turn`：一轮的起止，客户端据此提醒。`phase` 是 `started` 或 `finished`；结束时带 `outcome`（`done`、`stopped`、`failed`、`interrupted`：进程意外没了）和一句 `text`。
 - `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。

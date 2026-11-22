@@ -32,6 +32,7 @@ func newConversations(e *env) *conversations {
 	h.m = conv.NewManager(conv.Deps{
 		Start:         startHost(e),
 		Attach:        attachHost(e),
+		SessionFile:   func(session string) string { return sessionFile(e, session) },
 		Subagent:      func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
 		History:       func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode:   func() string { return defaultPermissionMode(e) },
@@ -146,3 +147,16 @@ func defaultPermissionMode(e *env) string {
 
 // Release：交班时断开全部托管进程（进程照跑），新核心起来后接回去（adoptHosts）。
 func (h *conversations) Release() { h.m.Release() }
+
+// sessionFile 是会话号 session 的会话记录：各项目目录里找，几份时取最新的；没有时为空。
+func sessionFile(e *env, session string) string {
+	if !sessionIDPattern.MatchString(session) {
+		return ""
+	}
+	files := e.sessionFilesNamed(session)
+	sortNewestFirst(files)
+	if len(files) == 0 {
+		return ""
+	}
+	return files[0]
+}

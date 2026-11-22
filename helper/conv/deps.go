@@ -13,6 +13,8 @@ type Deps struct {
 	Start func(StartOptions, Events) (Link, error)
 	// Attach 接上一个已在跑的托管进程（zeta_host.sh attach），从输出日志的第 from 行（从 1 起）读起
 	Attach func(key string, from int, ev Events) (Link, error)
+	// SessionFile 是会话号 session 的会话记录（几份时取最新的），没有时为空；可以是 nil
+	SessionFile func(session string) string
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
 	History func(args ...string) ([]byte, error)
 	// Subagent 跑 zeta-helper subagent 的参数（子代理查看页增量读记录），返回它的输出（第一行 zeta_subagent，之后一行一个事件）

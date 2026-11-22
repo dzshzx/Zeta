@@ -12,7 +12,13 @@ import (
 )
 
 // releaseAfter：没人拿着、又闲着的对话过这么久断开背后的进程（看门狗约十分钟后收掉它），也从核心里去掉。
-const releaseAfter = 30 * time.Second
+// 还没发过消息的分支没有会话号、会话记录里也没有它，收掉就没了：留 forkReleaseAfter，客户端断线重连时按 key 重新打开。
+const (
+	releaseAfter     = 30 * time.Second
+	forkReleaseAfter = 10 * time.Minute
+)
+
+var errGone = codedError{"conversation_gone", "这个对话已经不在核心里了"}
 
 // Manager 是核心进程里的全部对话。客户端用自己起的名字（请求里的 conv）指一个对话，只在它那条连接里有效；
 // 几个客户端打开同一个会话号拿到的是同一个对话。
@@ -57,6 +63,7 @@ type request struct {
 	Recall    bool                `json:"recall"`
 	Rest      bool                `json:"rest"`
 	Watch     bool                `json:"watch"`
+	Key       string              `json:"key"` // conv.open：重新打开核心里标识为 key 的对话（conv.state 的 key）
 	RequestID string              `json:"request_id"`
 	Reply     prompt.Reply        `json:"reply"`
 	Action    prompt.ElicitAction `json:"action"`
@@ -216,13 +223,27 @@ func value(r request) string {
 
 // open 打开一个对话：有会话号且核心里已有这个会话时拿到的就是它，否则新建（有会话记录时载入历史）。
 func (m *Manager) open(client int, r request) error {
+	// 只给会话号时核心自己找它的会话记录，客户端不用拼路径
+	if r.File == "" && r.Session != "" && m.deps.SessionFile != nil {
+		r.File = m.deps.SessionFile(r.Session)
+	}
 	m.mu.Lock()
 	if m.byName[client][r.Conv] != nil {
 		m.mu.Unlock()
 		return errors.New("这条连接已经有叫 " + r.Conv + " 的对话")
 	}
 	c := m.bySession[r.Session]
-	if r.Session == "" || c == nil {
+	if r.Key != "" {
+		c = m.byKey(r.Key)
+		if c == nil && r.Session == "" {
+			m.mu.Unlock()
+			return errGone
+		}
+		if c == nil {
+			c = m.bySession[r.Session]
+		}
+	}
+	if c == nil {
 		m.seq++
 		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title}, m.deps, m.send)
 		m.all[c] = true
@@ -240,6 +261,16 @@ func (m *Manager) open(client int, r request) error {
 		opts = *r.Options
 	}
 	return c.Hold(client, r.Conv, opts)
+}
+
+// byKey 是标识为 key 的对话（conv.state 的 key）；持着 m.mu 调用。
+func (m *Manager) byKey(key string) *Conversation {
+	for c := range m.all {
+		if c.ID == key {
+			return c
+		}
+	}
+	return nil
 }
 
 func (m *Manager) find(client int, name string) *Conversation {
@@ -317,7 +348,11 @@ func (c *Conversation) releasable(now time.Time) bool {
 	if c.idleFrom.IsZero() {
 		c.idleFrom = now
 	}
-	if now.Sub(c.idleFrom) < releaseAfter {
+	after := releaseAfter
+	if c.forkSource != "" && c.session == "" {
+		after = forkReleaseAfter
+	}
+	if now.Sub(c.idleFrom) < after {
 		return false
 	}
 	c.closeProcess(false)
