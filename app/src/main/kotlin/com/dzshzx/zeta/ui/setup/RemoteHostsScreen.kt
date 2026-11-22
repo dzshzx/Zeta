@@ -1,9 +1,5 @@
 package com.dzshzx.zeta.ui.setup
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AttachedPaths
@@ -86,7 +83,7 @@ private class Probing(val target: String, val fromConfig: Boolean)
 @Composable
 internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     val hosts = hub.settings.remoteHosts
     val debian = hub.usable(Backends.LOCAL)
     // Zeta 的密钥：第一次打开时从 Keystore 取（没有就生成），取不到时是原因
@@ -148,7 +145,7 @@ internal fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
                 confirmText = "复制",
                 onConfirm = {
                     showingKey = false
-                    authorized?.let { copyText(context, "ssh", it) }
+                    authorized?.let { clipboard.setText(AnnotatedString(it)) }
                 },
                 onDismissRequest = { showingKey = false },
             )
@@ -216,12 +213,6 @@ private fun addProbedHost(
             via.label +
             fingerprint +
             "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台设备里。",
-    )
-}
-
-private fun copyText(context: Context, label: String, text: String) {
-    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
-        ClipData.newPlainText(label, text),
     )
 }
 
@@ -406,7 +397,6 @@ internal fun RemoteHostScreen(
     claude: LazyListScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val host = hub.settings.remoteHosts.firstOrNull { it.id == id }
     val shown = rememberRetained(host) ?: return
     var renaming by remember { mutableStateOf(false) }
@@ -496,7 +486,7 @@ internal fun RemoteHostScreen(
                             if (problem == null) {
                                 cwdEditing = false
                                 save { it.copy(defaultCwd = path) }
-                            } else Toast.makeText(context, problem, Toast.LENGTH_LONG).show()
+                            } else hub.platform.toast(problem)
                         }
                     }
                 },

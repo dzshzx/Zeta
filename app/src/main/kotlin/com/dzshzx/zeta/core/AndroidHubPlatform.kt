@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -19,6 +20,7 @@ import com.dzshzx.zeta.core.ssh.keystore
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneBridge
 import com.dzshzx.zeta.phone.PhoneTools
+import com.dzshzx.zeta.ui.components.ProcessHub
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -45,6 +47,17 @@ class AndroidHubPlatform(
     private lateinit var hub: ConversationHub
 
     override val settings: Settings = Settings.of(app)
+
+    override val prompts: PromptList =
+        object : PromptList {
+            override val observed: List<SavedPrompt>
+                get() = PromptStore.observed
+
+            override fun load(): List<SavedPrompt> = PromptStore.load(app)
+
+            override fun update(change: (List<SavedPrompt>) -> List<SavedPrompt>) =
+                PromptStore.update(app, change)
+        }
 
     override fun attach(hub: ConversationHub) {
         this.hub = hub
@@ -332,6 +345,11 @@ class AndroidHubPlatform(
         alerts.syncAll()
     }
 
+    override fun unattendedName(conversation: Conversation): String? =
+        ScheduleRunner.taskName(conversation)
+
+    override fun sharedFile(uri: String): PickedFile = UriFile(app, Uri.parse(uri))
+
     override fun hostsRemoved(ids: Set<String>) {
         ScheduleStore.update(app) { list -> list.filter { it.backend in ids } }
         NotifyRuleStore.update(app) { list -> list.filter { it.backend in ids } }
@@ -346,18 +364,16 @@ class AndroidHubPlatform(
         /** Zeta 直连用的公钥那一行（authorized_keys 的写法），在应用私有目录 files/ 下；密钥第一次用时写出。 */
         const val PUBLIC_KEY_FILE = "zeta_ssh.pub"
 
-        @Volatile private var instance: ConversationHub? = null
-
-        /** 本进程的那个 hub。 */
+        /** 本进程的那个 hub，登记在 [ProcessHub]（界面的 LocalHub 也从那里取）。 */
         fun hub(app: Application): ConversationHub =
-            instance
+            ProcessHub.current
                 ?: synchronized(this) {
-                    instance ?: ConversationHub(app).also { instance = it }
+                    ProcessHub.current ?: ConversationHub(app).also { ProcessHub.current = it }
                 }
 
         /** 换掉全应用共用的 hub（单元测试里每个用例开始时清空或装上自己建的）。 */
         internal fun install(hub: ConversationHub?) {
-            instance = hub
+            ProcessHub.current = hub
         }
     }
 }

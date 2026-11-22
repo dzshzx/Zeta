@@ -1,0 +1,94 @@
+package com.dzshzx.zeta.core
+
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+/**
+ * 看大图时要保存到相册或分享的一张图：查看器显示它用的那份原始字节（[ImageStore.original]），按字节认出的类型和据此起的文件名。 存进系统相册的
+ * Pictures/Zeta（Android 10 起应用写自己的条目不用存储权限）；分享经本包的 FileProvider（authority 是 `<包名>.images`，只开放缓存里的
+ * [ShareDir]）交给系统分享面板。
+ */
+class ImageExport(val bytes: ByteArray, val mime: String, val fileName: String) {
+    companion object {
+        /** 分享时把图写到缓存里的这个目录，FileProvider 只开放它（`res/xml/zeta_shared_images.xml`）。 */
+        const val ShareDir = "shared_images"
+
+        /** 相册里放 Zeta 存的图的目录（Environment.DIRECTORY_PICTURES 下的 Zeta）。 */
+        const val GalleryDir = "Pictures/Zeta"
+
+        private val Stamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+
+        /** 拿不到字节（还没取到、取不到）或认不出是哪种图时为 null，查看器的保存、分享按钮置灰。 */
+        fun of(ref: ImageRef, bytes: ByteArray?, now: LocalDateTime): ImageExport? {
+            if (bytes == null || bytes.isEmpty()) return null
+            val mime = mimeOf(bytes) ?: return null
+            return ImageExport(bytes, mime, fileName(ref, mime, now))
+        }
+
+        /** 按文件头认图片类型；认不出返回 null。 */
+        fun mimeOf(bytes: ByteArray): String? =
+            when {
+                bytes.startsWith(0x89, 'P'.code, 'N'.code, 'G'.code) -> "image/png"
+                bytes.startsWith(0xFF, 0xD8, 0xFF) -> "image/jpeg"
+                bytes.ascii(0, 4) == "GIF8" -> "image/gif"
+                bytes.ascii(0, 4) == "RIFF" && bytes.ascii(8, 4) == "WEBP" -> "image/webp"
+                bytes.ascii(0, 2) == "BM" -> "image/bmp"
+                bytes.ascii(4, 4) == "ftyp" -> isoImageMime(bytes.ascii(8, 4))
+                else -> null
+            }
+
+        /** HEIF 一族（ftyp 盒子）按主品牌分 AVIF 和 HEIC。 */
+        private fun isoImageMime(brand: String): String? =
+            when (brand) {
+                "avif",
+                "avis" -> "image/avif"
+                "heic",
+                "heix",
+                "hevc",
+                "heim",
+                "heis",
+                "mif1",
+                "msf1" -> "image/heic"
+                else -> null
+            }
+
+        /** 文件的扩展名，跟着认出的类型走（文件自带的扩展名可能和内容对不上）。 */
+        fun extension(mime: String): String =
+            when (mime) {
+                "image/jpeg" -> "jpg"
+                else -> mime.substringAfter('/')
+            }
+
+        /**
+         * 保存、分享用的文件名：本机或主机上的文件用文件自己的名字，网络图用地址里的文件名，换上按内容认出的扩展名； 取不出名字（内嵌的图、会话记录里的图、地址里没有文件名）时是
+         * `Zeta_年月日_时分秒`。
+         */
+        fun fileName(ref: ImageRef, mime: String, now: LocalDateTime): String {
+            val raw =
+                when (ref) {
+                    is FileImage -> ref.path.substringAfterLast('/')
+                    is RemoteImage ->
+                        ref.url
+                            .substringBefore('#')
+                            .substringBefore('?')
+                            .substringAfter("://")
+                            .substringAfter('/', "")
+                            .substringAfterLast('/')
+                    else -> ""
+                }
+            val base =
+                raw.substringBeforeLast('.')
+                    .replace(Regex("""[\\/:*?"<>|\s\p{Cntrl}]+"""), "_")
+                    .trim('_', '.', ' ')
+                    .take(80)
+                    .ifEmpty { "Zeta_" + now.format(Stamp) }
+            return base + "." + extension(mime)
+        }
+
+        private fun ByteArray.startsWith(vararg prefix: Int): Boolean =
+            size >= prefix.size && prefix.indices.all { (this[it].toInt() and 0xFF) == prefix[it] }
+
+        private fun ByteArray.ascii(from: Int, length: Int): String =
+            if (size < from + length) "" else String(this, from, length, Charsets.ISO_8859_1)
+    }
+}

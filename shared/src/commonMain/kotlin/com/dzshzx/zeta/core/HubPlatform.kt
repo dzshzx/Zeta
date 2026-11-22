@@ -63,6 +63,15 @@ interface HubPlatform {
     /** 对话的活动变了（起进程、一轮开始结束、等确认）：前台服务、常驻通知、胶囊跟着更新。 */
     fun activityChanged()
 
+    /** 外面送进来的一个文件地址 [uri]（手机上是分享来的 content://，桌面上是 file://）。 */
+    fun sharedFile(uri: String): PickedFile
+
+    /** 常用指令（聊天页输入框左边的“+”里）。 */
+    val prompts: PromptList
+
+    /** 起了对话 [conversation]、还在跑的定时任务或通知触发规则叫什么；不是后台运行起的（桌面上都不是）为 null。 */
+    fun unattendedName(conversation: Conversation): String?
+
     /** 远程主机清单变了：已经删掉的主机（不在 [ids] 里）名下的定时任务和通知触发规则一起删。 */
     fun hostsRemoved(ids: Set<String>)
 }
@@ -77,6 +86,9 @@ interface LocalEnvironment {
 
     /** 没在装、换环境，能动手机本机的登录状态。 */
     val canSwitchEnvironment: Boolean
+
+    /** 查过登录状态、手机上的 Claude Code 没登录（聊天页的空对话里给登录入口）。 */
+    val loggedOut: Boolean
 
     /** 正在登录 Claude 账号（登录流程开始了、还没完成或取消）。 */
     val loggingIn: Boolean

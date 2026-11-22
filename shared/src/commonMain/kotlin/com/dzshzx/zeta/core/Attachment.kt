@@ -93,3 +93,25 @@ object Uploads {
         }
     }
 }
+
+/**
+ * 用户选的、分享进来的一个文件：手机上是 content:// 地址（app 的 core/AttachmentsAndroid.kt），桌面上是本机的文件。
+ * 输入栏据此决定当图片附件还是复制进对话所在的主机。各项都可能耗时，别在主线程调用。
+ */
+interface PickedFile {
+    /** 文件名（已去掉斜杠和控制字符，拿不到时是 "file"）和类型（问不到是 null）。 */
+    fun describe(): Pair<String, String?>
+
+    /** 多大；问不到是 null。 */
+    fun size(): Long?
+
+    /** 打开读内容；打不开是 null。 */
+    fun open(): InputStream?
+
+    /** 读成一张图片附件（缩小、编码好）；读不了是 null。 */
+    fun loadImage(): Attachment?
+}
+
+/** 文件名里不能有的字符换掉，限长；空了用 "file"。 */
+fun Uploads.cleanName(name: String): String =
+    name.replace(Regex("[/\\u0000-\\u001f]"), "_").trim().take(120).ifBlank { "file" }

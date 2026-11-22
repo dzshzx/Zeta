@@ -121,3 +121,14 @@ object SavedPrompts {
     private fun JsonObject.text(key: String): String? =
         (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 }
+
+/** 常用指令存在哪：手机上是设置文件里的一份清单（app 的 core/PromptStore.kt），桌面上在桌面版的设置文件里。见 [HubPlatform.prompts]。 */
+interface PromptList {
+    /** 界面看的那份（可观察），在主线程上更新。先 [load] 过才有内容。 */
+    val observed: List<SavedPrompt>
+
+    fun load(): List<SavedPrompt>
+
+    /** 改清单并存盘。返回改后的清单。 */
+    fun update(change: (List<SavedPrompt>) -> List<SavedPrompt>): List<SavedPrompt>
+}

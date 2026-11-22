@@ -10,7 +10,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -19,12 +18,10 @@ import androidx.compose.ui.unit.Density
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
+import com.dzshzx.zeta.ui.layout.LocalPlatformDensity
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
 import io.github.suqi8.coui.kmp.theme.ThemeController
-
-/** 不受界面缩放影响的系统密度：判断宽屏布局时用它，免得缩放一改布局就跳。 */
-internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }
 
 /**
  * Zeta 的主题：COUI 2（ColorOS 17）的配色和文字样式。

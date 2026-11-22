@@ -14,10 +14,13 @@
 # LSPosed 按 resources/META-INF/xposed/java_init.list 里的类名加载模块
 -keep class com.dzshzx.zeta.xposed.ZetaModule { <init>(); }
 
-# 界面线程、本包包名和图片解码的实现由 ServiceLoader 按 resources/META-INF/services 里的类名加载（core/MainThread.kt、core/AppVariant.kt、core/ImageCodec.kt）
+# 界面线程、本包包名、图片解码、字体、公式引擎和聊天页平台部分的实现由 ServiceLoader 按 resources/META-INF/services 里的类名加载（core/MainThread.kt、core/AppVariant.kt、core/ImageCodec.kt、ui/components/MonoFont.kt、ui/markdown/MathDisplay.kt、ui/chat/ChatPlatform.kt）
 -keep class com.dzshzx.zeta.core.AndroidMainLoop { <init>(); }
 -keep class com.dzshzx.zeta.core.AndroidAppPackage { <init>(); }
 -keep class com.dzshzx.zeta.core.AndroidImageCodec { <init>(); }
+-keep class com.dzshzx.zeta.ui.components.AndroidFonts { <init>(); }
+-keep class com.dzshzx.zeta.ui.markdown.RaTeXMathEngine { <init>(); }
+-keep class com.dzshzx.zeta.ui.chat.AndroidChatPlatform { <init>(); }
 
 # JSch 按配置里的类名反射创建每个算法（它自己的默认配置和 SshLinks 指定的 BouncyCastle 实现）
 -keep class com.jcraft.jsch.** { *; }

@@ -8,13 +8,17 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.HubPlatform
 import com.dzshzx.zeta.core.LocalEnvironment
 import com.dzshzx.zeta.core.PhoneSession
+import com.dzshzx.zeta.core.PickedFile
 import com.dzshzx.zeta.core.PrefStore
+import com.dzshzx.zeta.core.PromptList
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.TurnEvents
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.ssh.SshKey
 import java.io.File
 import java.net.InetAddress
+import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 桌面上的 [HubPlatform]：只有远程主机（经 Zeta 自带的 SSH 直连），没有手机本机那台、手机工具和通知。 设置、密钥和诊断日志都放在 [dir]（Windows 上是
@@ -39,7 +43,13 @@ class DesktopHubPlatform(val dir: File = defaultDir()) : HubPlatform {
         checkNotNull(javaClass.getResourceAsStream("/assets/$name")) { "桌面版里没有 $name" }
             .use { it.readBytes() }
 
-    override fun prefs(name: String): PrefStore = FilePrefStore(File(dir, "$name.json"))
+    private val stores = ConcurrentHashMap<String, PrefStore>()
+
+    /** 同一个名字只开一份：几处各开一份就会各自缓存、互相盖掉。 */
+    override fun prefs(name: String): PrefStore =
+        stores.computeIfAbsent(name) { FilePrefStore(File(dir, "$it.json")) }
+
+    override val prompts: PromptList by lazy { PrefsPromptList(prefs(Settings.FILE)) }
 
     override val filesDir: File
         get() = dir
@@ -92,6 +102,10 @@ class DesktopHubPlatform(val dir: File = defaultDir()) : HubPlatform {
     override fun activityChanged() = Unit
 
     override fun hostsRemoved(ids: Set<String>) = Unit
+
+    override fun sharedFile(uri: String): PickedFile = DesktopFile(File(URI(uri)))
+
+    override fun unattendedName(conversation: Conversation): String? = null
 
     companion object {
         /** Windows 上是 %APPDATA%\Zeta，别的系统上是 $XDG_CONFIG_HOME/zeta-desktop（默认 ~/.config）。 */

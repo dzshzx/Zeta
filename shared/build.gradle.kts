@@ -30,6 +30,9 @@ kotlin {
             api(libs.intellij.markdown)
             api(libs.jsch)
             api(libs.bcprov)
+            api(libs.androidx.navigationevent)
+            api(libs.jetbrains.lifecycle.runtime.compose)
+            api(libs.compose.mp.resources)
         }
     }
 }

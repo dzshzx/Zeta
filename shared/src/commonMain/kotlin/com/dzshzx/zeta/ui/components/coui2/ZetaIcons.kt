@@ -21,6 +21,22 @@ import kotlin.math.sin
  *   } }`，`IconsShots` 按反射列出来，不用登记。
  */
 object ZetaIcons {
+    /** 品牌标 ζ：和启动图标、通知小图标（app 的 res/drawable/ic_stat_zeta.xml）同一笔，线比别的图标粗。 */
+    val Brand: ImageVector by lazy {
+        icon {
+            addPath(
+                addPathNodes(
+                    "M7.1,2.78 L16.1,2.78 C10.7,5.48 7.64,8.9 7.64,12.5 C7.64,15.38 9.8,16.82 13.04,16.82 " +
+                        "C15.56,16.82 16.82,18.08 16.39,19.56 C16.03,20.78 14.52,21.43 12.65,21",
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2.3f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            )
+        }
+    }
+
     /** 向上的箭头：发送、上移。 */
     val ArrowUp: ImageVector by lazy {
         icon {

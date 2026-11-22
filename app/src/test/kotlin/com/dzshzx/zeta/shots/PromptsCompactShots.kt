@@ -77,7 +77,9 @@ class PromptsCompactShots : ShotTest() {
     /** “+”菜单和长按菜单不在这里点，对话框由测试直接打开。 */
     private fun withPrompts(hub: ConversationHub, open: PromptsUi.() -> Unit) =
         @Composable {
-            val ui = remember { PromptsUi(app, TextFieldState()).apply(open) }
+            val ui = remember {
+                PromptsUi(hub.platform.prompts, hub.platform::toast, TextFieldState()).apply(open)
+            }
             Scaffold {
                 ChatScreen(
                     hub = hub,

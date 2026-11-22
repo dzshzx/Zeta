@@ -81,6 +81,10 @@ interface AppPackage {
     val androidUser: Int
         get() = 0
 
+    /** 给人看的应用名（侧栏顶部）：手机上和桌面上的图标名一样，测试版是「Zeta 测试」。 */
+    val appName: String
+        get() = "Zeta"
+
     companion object {
         val current: AppPackage by lazy {
             ServiceLoader.load(AppPackage::class.java, AppPackage::class.java.classLoader)

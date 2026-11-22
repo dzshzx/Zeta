@@ -8,10 +8,11 @@ import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.compose.ui.graphics.asImageBitmap
 import java.io.File
+import java.io.InputStream
 import java.util.Base64
 import java.util.UUID
 
-// 手机上读附件：从 content:// 地址、截屏的 Bitmap 读图，问文件名、类型和大小。数据类和上传在 shared 的 Attachment.kt。
+// 手机上读附件：从 content:// 地址（[UriFile]）、截屏的 Bitmap 读图，问文件名、类型和大小。数据类和上传在 shared 的 Attachment.kt。
 
 /** 读取并压缩一张图片；读不了返回 null。耗时，别在主线程调用。 */
 fun Attachments.load(context: Context, uri: Uri): Attachment? = runCatching {
@@ -53,7 +54,7 @@ fun Uploads.describe(context: Context, uri: Uri): Pair<String, String?> {
                 }
         }
             .getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: "file"
-    val clean = name.replace(Regex("[/\\u0000-\\u001f]"), "_").trim().take(120).ifBlank { "file" }
+    val clean = Uploads.cleanName(name)
     // file:// 这类地址问不到类型，按扩展名猜
     val type =
         runCatching { context.contentResolver.getType(uri) }.getOrNull()
@@ -75,15 +76,13 @@ fun Uploads.size(context: Context, uri: Uri): Long? = runCatching {
     .getOrNull()
     ?.takeIf { it >= 0 }
 
-/**
- * 把文件复制进 [shell] 那台机器（对话所在的主机）的 ~/.cache/zeta/files/<随机>/<文件名>（测试版是 ~/.cache/zeta-dev，见
- * [AppVariant]）。 放在各自的随机目录里，同名文件互不覆盖；助手脚本会清掉七天前的。远程主机经 ssh 的标准输入传过去。 超过 [limit]
- * 字节就停下（事先问不到大小的文件只能边读边数）。耗时，别在主线程调用。
- */
-fun Uploads.copy(
-    context: Context,
-    shell: LinuxShell,
-    uri: Uri,
-    name: String,
-    limit: Long = Long.MAX_VALUE,
-): Uploads.Copied = copyFrom(shell, name, limit) { context.contentResolver.openInputStream(uri) }
+/** 手机上选的、分享来的一个文件：content://（或 file://）地址 [uri]。 */
+class UriFile(private val context: Context, val uri: Uri) : PickedFile {
+    override fun describe(): Pair<String, String?> = Uploads.describe(context, uri)
+
+    override fun size(): Long? = Uploads.size(context, uri)
+
+    override fun open(): InputStream? = context.contentResolver.openInputStream(uri)
+
+    override fun loadImage(): Attachment? = Attachments.load(context, uri)
+}

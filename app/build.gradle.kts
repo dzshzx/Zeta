@@ -77,6 +77,7 @@ android {
         // 应用内更新的调试覆盖（清单地址、信任的证书，tools/vd prefs-set 设）只在测试版里打开；正式版里这是常量 false，
         // 读覆盖的分支连同设置键一起被 R8 去掉
         buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "false")
+        buildConfigField("String", "APP_NAME", "\"Zeta\"")
     }
 
     signingConfigs {
@@ -112,6 +113,7 @@ android {
         debug {
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Zeta 测试")
+            buildConfigField("String", "APP_NAME", "\"Zeta 测试\"")
             resValue("string", "capture_tile", "截屏给 Zeta 测试")
             buildConfigField("boolean", "UPDATE_DEV_OVERRIDE", "true")
             if (providers.environmentVariable("ZETA_R8").isPresent) {

@@ -16,7 +16,6 @@ import com.dzshzx.zeta.core.FileLimits
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.UserItem
-import com.dzshzx.zeta.core.context
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
@@ -99,7 +98,6 @@ class IntakeShots : ShotTest() {
         val sink = remember {
             IntakeSink(
                     hub,
-                    hub.context,
                     scope,
                     ComposerDraft(),
                     maxImages = 4,

@@ -6,6 +6,8 @@ import com.dzshzx.zeta.BuildConfig
 class AndroidAppPackage : AppPackage {
     override val packageName: String = BuildConfig.APPLICATION_ID
 
+    override val appName: String = BuildConfig.APP_NAME
+
     /** uid 按 Android 用户分段，一段 UserHandle.PER_USER_RANGE 个。 */
     override val androidUser: Int
         get() = android.os.Process.myUid() / 100_000

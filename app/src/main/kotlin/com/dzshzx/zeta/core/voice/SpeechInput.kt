@@ -32,26 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * 识别期间把识别服务所在的进程提到前台（[ProcessBoost]），否则 HyperOS 上小米的服务录不了音。
  */
 class SpeechInput(private val context: Context, private val backend: SpeechBackend? = null) {
-    enum class Phase {
-        Idle,
-        Starting,
-        Listening,
-        Finishing,
-    }
-
-    data class State(
-        val phase: Phase = Phase.Idle,
-        /** 到目前为止识别出的文字（已说完的几句加上正在说的这句）。 */
-        val text: String = "",
-        /** 0 到 1 的音量，画波纹用。 */
-        val level: Float = 0f,
-    ) {
-        val active: Boolean
-            get() = phase != Phase.Idle
-    }
-
-    private val mutableState = MutableStateFlow(State())
-    val state: StateFlow<State> = mutableState.asStateFlow()
+    private val mutableState = MutableStateFlow(SpeechState())
+    val state: StateFlow<SpeechState> = mutableState.asStateFlow()
 
     private val main = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
@@ -62,7 +44,7 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
     /** 识别服务正在听（startListening 之后、结果或出错之前）。 */
     private var listening = false
     private val relisten = Runnable {
-        if (mutableState.value.phase == Phase.Listening) recognizer?.let(::listen)
+        if (mutableState.value.phase == SpeechPhase.Listening) recognizer?.let(::listen)
     }
     private var onResult: ((String) -> Unit)? = null
     private var onError: ((SpeechInputError) -> Unit)? = null
@@ -103,7 +85,7 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         recognizer = created
         segments = SpeechSegments()
         restarts = 0
-        mutableState.value = State(Phase.Starting)
+        mutableState.value = SpeechState(SpeechPhase.Starting)
         val id = ++session
         created.setRecognitionListener(Listener(id))
         boost.bind((chosen as? SpeechBackend.Service)?.component?.packageName) {
@@ -115,13 +97,13 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
     /** 松手：停止收音，等识别服务交回最后一句。服务一直不回时几秒后用已有的文字收尾。 服务还没准备好就松手的，什么也没录到，直接交空串。 */
     fun finish() {
         val current = mutableState.value
-        if (!current.active || current.phase == Phase.Finishing) return
+        if (!current.active || current.phase == SpeechPhase.Finishing) return
         // 还没准备好，或一句刚结束、正等着接着听：没有在录的，直接用已有的文字收尾
-        if (current.phase == Phase.Starting || !listening) {
+        if (current.phase == SpeechPhase.Starting || !listening) {
             deliver()
             return
         }
-        mutableState.value = current.copy(phase = Phase.Finishing, level = 0f)
+        mutableState.value = current.copy(phase = SpeechPhase.Finishing, level = 0f)
         runCatching { recognizer?.stopListening() }
         main.postDelayed(finishTimeout, FINISH_TIMEOUT_MS)
     }
@@ -141,7 +123,7 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         onResult = null
         onError = null
         segments = SpeechSegments()
-        mutableState.value = State()
+        mutableState.value = SpeechState()
     }
 
     private fun listen(target: SpeechRecognizer) {
@@ -182,14 +164,14 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             if (!live) return
             DiagLog.info(DiagTopic.App, "语音识别：可以说话了")
             val current = mutableState.value
-            if (current.phase == Phase.Starting)
-                mutableState.value = current.copy(phase = Phase.Listening)
+            if (current.phase == SpeechPhase.Starting)
+                mutableState.value = current.copy(phase = SpeechPhase.Listening)
         }
 
         override fun onBeginningOfSpeech() = Unit
 
         override fun onRmsChanged(rmsdB: Float) {
-            if (!live || mutableState.value.phase != Phase.Listening) return
+            if (!live || mutableState.value.phase != SpeechPhase.Listening) return
             mutableState.value = mutableState.value.copy(level = SpeechSegments.level(rmsdB))
         }
 
@@ -207,7 +189,7 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             if (!live) return
             listening = false
             segments.close(results.best())
-            if (mutableState.value.phase == Phase.Finishing) {
+            if (mutableState.value.phase == SpeechPhase.Finishing) {
                 deliver()
             } else {
                 // 服务认为这句说完了，用户还按着：接着听下一句
@@ -219,7 +201,7 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
         override fun onError(error: Int) {
             if (!live) return
             listening = false
-            val finishing = mutableState.value.phase == Phase.Finishing
+            val finishing = mutableState.value.phase == SpeechPhase.Finishing
             when {
                 // 没听到话：松手后就用已有的文字收尾，还按着就接着听
                 error == SpeechRecognizer.ERROR_NO_MATCH ||

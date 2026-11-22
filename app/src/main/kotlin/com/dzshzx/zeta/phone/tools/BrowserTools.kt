@@ -2,11 +2,12 @@ package com.dzshzx.zeta.phone.tools
 
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserRequest
+import com.dzshzx.zeta.ui.chat.BROWSER_TOOL
 import kotlinx.serialization.json.JsonObject
 
 /** Zeta 内置浏览器：一个工具，用 action 区分动作（照 Eta 的 browser_use）。实现在 [AgentBrowser]。 */
 internal object BrowserTools : PhoneToolGroup {
-    const val NAME = "browser"
+    const val NAME = BROWSER_TOOL
 
     override val tools: List<PhoneTool> =
         listOf(

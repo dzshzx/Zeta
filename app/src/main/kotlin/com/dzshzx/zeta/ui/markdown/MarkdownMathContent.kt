@@ -2,7 +2,6 @@ package com.dzshzx.zeta.ui.markdown
 
 import android.graphics.Typeface
 import android.text.TextPaint
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -20,16 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -51,10 +43,10 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.suqi8.coui.kmp.basic.Text
+import io.ratex.DisplayList
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
 
 @Immutable
 internal data class InlineMathBoxMetrics(
@@ -208,10 +200,10 @@ internal fun rememberInlineMathContentMap(
                 val spanColor = text.resolveSpanColor(spec.rangeStart, spec.rangeEnd) ?: baseColor
                 val metrics =
                     computeInlineMathBoxMetrics(
-                        displayListWidthEm = spec.displayList.width,
-                        displayListHeightEm = spec.displayList.height,
-                        displayListDepthEm = spec.displayList.depth,
-                        hasItems = spec.displayList.items.isNotEmpty(),
+                        displayListWidthEm = spec.raTeX.width,
+                        displayListHeightEm = spec.raTeX.height,
+                        displayListDepthEm = spec.raTeX.depth,
+                        hasItems = spec.raTeX.items.isNotEmpty(),
                         textFontSizePx = textFontSizePx,
                         fontAscentPx = fm.ascent,
                         fontDescentPx = fm.descent,
@@ -219,7 +211,7 @@ internal fun rememberInlineMathContentMap(
                         trailingSpaceEm = spec.trailingSpaceEm,
                         maxAvailableWidthPx = maxWidthPx,
                     )
-                val colored = spec.displayList.bindDefaultColor(spanColor)
+                val colored = spec.raTeX.bindDefaultColor(spanColor)
                 val renderer =
                     RaTeXRenderer(
                         colored,
@@ -321,39 +313,16 @@ private fun DrawScope.drawInlineMath(
     }
 }
 
+/** RaTeX 排好的块级公式 [displayList]（[block] 的）。 */
 @Composable
-internal fun MarkdownDisplayMathBlock(
+internal fun RaTeXDisplayMath(
     block: MarkdownMath,
+    displayList: DisplayList,
     style: MarkdownStyle,
     inQuote: Boolean,
     reveal: SmoothTextRevealCoordinator?,
     modifier: Modifier = Modifier,
 ) {
-    val displayList = block.displayList
-    if (displayList == null) {
-        // 解析失败保留完整 LaTeX 原文，不丢字符，支持横向滚动与划词复制。
-        val fallbackParagraph =
-            remember(block.offset, block.rawSource) {
-                MarkdownParagraph(offset = block.offset, text = AnnotatedString(block.rawSource))
-            }
-        val scrollState = rememberScrollState()
-        Box(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .mathHorizontalOverflowFade(scrollState)
-                    .horizontalScroll(scrollState)
-                    .padding(vertical = 2.dp),
-        ) {
-            MarkdownMathFallbackText(
-                block = fallbackParagraph,
-                textStyle = style.code.copy(color = style.secondaryColor),
-                reveal = reveal,
-            )
-        }
-        return
-    }
-
     val fontsReady = RaTeXFontRegistry.rememberFontsReady()
     val density = LocalDensity.current
     val baseFontSizeSp =
@@ -454,72 +423,6 @@ internal fun MarkdownDisplayMathBlock(
         }
     }
 }
-
-@Composable
-private fun MarkdownMathFallbackText(
-    block: MarkdownParagraph,
-    textStyle: TextStyle,
-    reveal: SmoothTextRevealCoordinator?,
-) {
-    if (reveal == null || block.text.isEmpty()) {
-        Text(text = block.text, style = textStyle, softWrap = false)
-        return
-    }
-    val revealState = rememberSmoothTextRevealState(block.revealKey, reveal)
-    val animatedStyle = remember(textStyle) { textStyle.copy(textMotion = TextMotion.Animated) }
-    Text(
-        text = block.text,
-        style = animatedStyle,
-        softWrap = false,
-        modifier = Modifier.smoothTextReveal(revealState),
-        onTextLayout = { layout -> revealState.onTextLayout(block.text.text, layout) },
-    )
-}
-
-/** 仅在公式实际超出视口可横向滚动时启用离屏图层与边缘渐隐提示，常态短公式保持零离屏开销。 滚动偏移只在绘制期读取，拖动中不触发组合重组。 */
-internal fun Modifier.mathHorizontalOverflowFade(scrollState: ScrollState): Modifier =
-    this.graphicsLayer {
-            compositingStrategy =
-                if (scrollState.maxValue > 0) {
-                    CompositingStrategy.Offscreen
-                } else {
-                    CompositingStrategy.Auto
-                }
-        }
-        .drawWithContent {
-            drawContent()
-            val maxScroll = scrollState.maxValue
-            if (maxScroll <= 0 || size.width <= 0f) return@drawWithContent
-            val maxFadePx = min(16.dp.toPx(), size.width * 0.12f)
-            val leftFadePx = min(scrollState.value.toFloat(), maxFadePx)
-            if (leftFadePx > 0.5f) {
-                drawRect(
-                    brush =
-                        Brush.horizontalGradient(
-                            colors = listOf(Color.Transparent, Color.Black),
-                            startX = 0f,
-                            endX = leftFadePx,
-                        ),
-                    size = Size(leftFadePx, size.height),
-                    blendMode = BlendMode.DstIn,
-                )
-            }
-            val rightFadePx = min((maxScroll - scrollState.value).toFloat(), maxFadePx)
-            if (rightFadePx > 0.5f) {
-                val startX = size.width - rightFadePx
-                drawRect(
-                    brush =
-                        Brush.horizontalGradient(
-                            colors = listOf(Color.Black, Color.Transparent),
-                            startX = startX,
-                            endX = size.width,
-                        ),
-                    topLeft = Offset(startX, 0f),
-                    size = Size(rightFadePx, size.height),
-                    blendMode = BlendMode.DstIn,
-                )
-            }
-        }
 
 private fun AnnotatedString.resolveSpanColor(start: Int, end: Int): Color? =
     spanStyles

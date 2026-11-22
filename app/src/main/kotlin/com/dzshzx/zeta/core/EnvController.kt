@@ -24,6 +24,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     override val ready: Boolean
         get() = setup == SetupState.Ready
 
+    override val loggedOut: Boolean
+        get() = account?.loggedIn == false
+
     override val loggingIn: Boolean
         get() =
             login.state.let {

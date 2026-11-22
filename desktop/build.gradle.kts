@@ -29,7 +29,11 @@ val linuxAssets =
         app.tasks.named("claudeSwitch"),
     )
 
-tasks.named<ProcessResources>("jvmProcessResources") { from(linuxAssets) { into("assets") } }
+// 等宽字体也用手机版 res/font 里的那份（MonoFont）
+tasks.named<ProcessResources>("jvmProcessResources") {
+    from(linuxAssets) { into("assets") }
+    from(app.layout.projectDirectory.dir("src/main/res/font")) { into("font") }
+}
 
 compose.desktop {
     application {

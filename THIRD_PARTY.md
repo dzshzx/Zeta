@@ -31,22 +31,24 @@ Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/TexMathDelimiters.kt`
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneState.kt`
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationPaneMotion.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/ChatMarkdown.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownContent.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownDocumentBuilder.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownInline.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/ChatMarkdown.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownContent.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownDocumentBuilder.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownInline.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathLayoutCache.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MathDisplay.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownModel.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownStyle.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/StaticMarkdownDocumentCache.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/StreamingGfmParser.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownState.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownStateCache.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationSidePaneScaffold.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/layout/AdaptivePageLayout.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/MonoFont.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/coui2/Dialogs.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathContent.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathEngine.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownModel.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownStyle.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StaticMarkdownDocumentCache.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingGfmParser.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownState.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/StreamingMarkdownStateCache.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/components/ConversationSidePaneScaffold.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/layout/AdaptivePageLayout.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/components/MonoFont.kt`
-- `app/src/main/kotlin/com/dzshzx/zeta/ui/components/coui2/Dialogs.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/RaTeXMath.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantPanel.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantSurface.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantComposer.kt`
@@ -239,18 +241,13 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Lifecycle LiveData | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle LiveData Core | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata-core` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle Process | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-process` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle Runtime | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime`<br>`androidx.lifecycle:lifecycle-runtime-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle Runtime | 2.9.6 | Apache-2.0 | `org.jetbrains.androidx.lifecycle:lifecycle-runtime` | https://github.com/JetBrains/compose-jb |
-| Lifecycle Runtime Compose | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime-compose`<br>`androidx.lifecycle:lifecycle-runtime-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle Runtime Compose | 2.9.6 | Apache-2.0 | `org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose` | https://github.com/JetBrains/compose-jb |
-| Lifecycle ViewModel | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel`<br>`androidx.lifecycle:lifecycle-viewmodel-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle ViewModel | 2.9.6 | Apache-2.0 | `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel` | https://github.com/JetBrains/compose-jb |
+| Lifecycle Runtime | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime`<br>`androidx.lifecycle:lifecycle-runtime-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Lifecycle Runtime Compose | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime-compose`<br>`androidx.lifecycle:lifecycle-runtime-compose-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Lifecycle ViewModel | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel`<br>`androidx.lifecycle:lifecycle-viewmodel-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle ViewModel Compose | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-compose`<br>`androidx.lifecycle:lifecycle-viewmodel-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle ViewModel Kotlin Extensions | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle ViewModel with SavedState | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle ViewModel with SavedState | 2.9.6 | Apache-2.0 | `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate` | https://github.com/JetBrains/compose-jb |
-| Lifecycle-Common | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-common`<br>`androidx.lifecycle:lifecycle-common-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle-Common | 2.9.6 | Apache-2.0 | `org.jetbrains.androidx.lifecycle:lifecycle-common` | https://github.com/JetBrains/compose-jb |
+| Lifecycle ViewModel with SavedState | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`androidx.lifecycle:lifecycle-viewmodel-savedstate-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Lifecycle-Common | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-common`<br>`androidx.lifecycle:lifecycle-common-jvm`<br>`org.jetbrains.androidx.lifecycle:lifecycle-common`<br>`org.jetbrains.androidx.lifecycle:lifecycle-common-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
 | LiveData Core Kotlin Extensions | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata-core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
 | markdown | 0.7.18 | Apache-2.0 | `org.jetbrains:markdown`<br>`org.jetbrains:markdown-jvm` | https://github.com/JetBrains/markdown |
 | MaterialKolor | 5.0.0 | MIT | `com.materialkolor:material-color-utilities`<br>`com.materialkolor:material-color-utilities-android` | https://github.com/jordond/materialkolor |
@@ -259,6 +256,7 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Poko Annotations | 0.23.1 | Apache-2.0 | `dev.drewhamilton.poko:poko-annotations`<br>`dev.drewhamilton.poko:poko-annotations-jvm` | https://github.com/drewhamilton/Poko/tree/main |
 | Profile Installer | 1.4.0 | Apache-2.0 | `androidx.profileinstaller:profileinstaller` | https://cs.android.com/androidx/platform/frameworks/support |
 | RaTeX Android | 0.1.16 | MIT | `io.github.erweixin:ratex-android` | https://github.com/erweixin/RaTeX |
+| Resources for Compose JB | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.components:components-resources`<br>`org.jetbrains.compose.components:components-resources-android` | https://github.com/JetBrains/compose-multiplatform |
 | Saved State | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate` | https://github.com/JetBrains/compose-jb |
 | Saved State | 1.4.0 | Apache-2.0 | `androidx.savedstate:savedstate`<br>`androidx.savedstate:savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Saved State Compose | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate-compose` | https://github.com/JetBrains/compose-jb |
