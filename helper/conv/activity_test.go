@@ -20,7 +20,7 @@ func (h *harness) activityOf(client int) map[string]any {
 
 func TestActivity(t *testing.T) {
 	h := newHarness(t)
-	h.call(9, "conv.activity", map[string]any{"watch": true})
+	h.call(9, "conv.activity", map[string]any{}) // 不带 watch 也是订阅
 	if got := h.activityOf(9); got == nil || len(got) != 0 {
 		t.Fatalf("订阅时先给一份整份：%v", got)
 	}

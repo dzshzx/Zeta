@@ -22,6 +22,16 @@ class SessionList constructor(private val hub: ConversationHub) {
     /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
     private val freshTitles = HashMap<String, String>()
 
+    /**
+     * 各台主机的核心报的会话忙闲（[SessionActivity]）：主机 → 会话号 → 样子。和列表同一条连接订阅（`conv.activity`），推来就整份换掉，
+     * 断开订阅时去掉那台的（不留过时的）。会话列表的进行中、等确认、有新回答这些标记用它（[ConversationHub.sessionStatus]）。
+     */
+    private var activity by mutableStateOf<Map<String, Map<String, SessionActivity>>>(emptyMap())
+
+    /** 会话 [sessionId] 在核心那边的样子；侧栏列着的主机上没有它时为 null。可观察。 */
+    fun activityOf(sessionId: String): SessionActivity? =
+        activity.values.firstNotNullOfOrNull { it[sessionId] }
+
     /** 各台主机没读成的原因（远程主机连不上之类），读成了的不在里面。 */
     private var problems by mutableStateOf<Map<String, String>>(emptyMap())
 
@@ -83,21 +93,8 @@ class SessionList constructor(private val hub: ConversationHub) {
                         hub.linkProblem(backend, it.exitCode, it.stderr)
                     }
                 },
-                subscriptions = listOf("sessions.watch"),
-                onMessage = { o ->
-                    if (o.str("type") == "zeta_sessions") {
-                        val full = o.bool("full") == true
-                        val upsert =
-                            o.arr("upsert").orEmpty().mapNotNull { item ->
-                                (item as? JsonObject)?.let { sessionSummaryOf(it, backend) }
-                            }
-                        val remove =
-                            o.arr("remove").orEmpty().mapNotNull {
-                                (it as? JsonPrimitive)?.contentOrNull
-                            }
-                        main.post { if (current()) received(backend, full, upsert, remove) }
-                    }
-                },
+                subscriptions = listOf("sessions.watch", "conv.activity"),
+                onMessage = { o -> pushed(backend, o) { current() } },
                 onProblem = { why ->
                     main.post {
                         if (current()) noted(backend, why?.let { "没读到会话列表：$it" })
@@ -107,8 +104,36 @@ class SessionList constructor(private val hub: ConversationHub) {
         return self
     }
 
+    /** 主机 [backend] 的订阅推来一条（在连接自己的线程上）：解析后交到主线程，那时这条订阅还 [current] 才用。 */
+    private fun pushed(backend: String, o: JsonObject, current: () -> Boolean) {
+        when (o.str("type")) {
+            "conv.activity" -> {
+                val sessions = SessionActivity.parse(o)
+                main.post { if (current()) activityReceived(backend, sessions) }
+            }
+            "zeta_sessions" -> {
+                val full = o.bool("full") == true
+                val upsert =
+                    o.arr("upsert").orEmpty().mapNotNull { item ->
+                        (item as? JsonObject)?.let { sessionSummaryOf(it, backend) }
+                    }
+                val remove =
+                    o.arr("remove").orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                main.post { if (current()) received(backend, full, upsert, remove) }
+            }
+        }
+    }
+
     private fun unwatch(backend: String) {
         watches.remove(backend)?.close()
+        activity = activity - backend
+    }
+
+    /** 主机 [backend] 的核心推来了各会话的忙闲（整份）：换掉那台的，结束了一轮的交给 hub 记成有新回答（不在眼前的才记）。在主线程上调用。 */
+    fun activityReceived(backend: String, sessions: Map<String, SessionActivity>) {
+        val ended = SessionActivity.turnsEnded(activity[backend].orEmpty(), sessions)
+        activity = activity + (backend to sessions)
+        if (ended.isNotEmpty()) hub.onTurnsEnded(ended)
     }
 
     /** 界面退到后台：断开全部订阅，那边的 serve 随之退出，后台不留连接。在主线程上调用。 */

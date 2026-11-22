@@ -91,7 +91,12 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 		return nil, err
 	}
 	if method == "conv.activity" {
-		m.watchActivity(client, r.Watch)
+		// 不带 watch 时是订阅：客户端可以把它和 sessions.watch 一样当作只发方法名的订阅
+		var p struct {
+			Watch *bool `json:"watch"`
+		}
+		_ = json.Unmarshal(line, &p)
+		m.watchActivity(client, p.Watch == nil || *p.Watch)
 		return nil, nil
 	}
 	if r.Conv == "" {

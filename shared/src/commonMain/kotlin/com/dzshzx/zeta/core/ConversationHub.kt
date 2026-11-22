@@ -437,20 +437,32 @@ class ConversationHub(val platform: HubPlatform) {
     /** 不在眼前时答完了一轮、用户还没点开看的会话；只记在内存里，应用进程结束就没了。 */
     private val unread = mutableStateListOf<String>()
 
-    /** 会话列表里这个会话的状态；只是历史记录的没有。 */
+    /**
+     * 会话列表里这个会话的状态；只是历史记录的没有。主机上的核心报的（[SessionList.activityOf]，别的客户端开的对话也在里面）和这边开着的对话
+     * 合起来看：还没改走核心的对话只有这边知道。
+     */
     fun sessionStatus(sessionId: String): SessionStatus? {
         val conversation = findConversation(sessionId)
+        val core = sessionList.activityOf(sessionId)
         return SessionStatus.of(
-            waiting = conversation?.pending != null,
-            busy = conversation?.busy == true,
-            tasks = conversation?.backgroundTasks ?: 0,
+            waiting = conversation?.pending != null || core?.state == SessionActivity.WAITING,
+            busy = conversation?.busy == true || core?.state == SessionActivity.ANSWERING,
+            tasks = maxOf(conversation?.backgroundTasks ?: 0, core?.tasks ?: 0),
             unread = sessionId in unread,
-            alive = conversation?.isProcessAlive == true,
+            alive = conversation?.isProcessAlive == true || core?.state != null,
         )
     }
 
-    /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完。批量删除跳过这些。 */
-    fun isActive(sessionId: String): Boolean = findConversation(sessionId)?.active == true
+    /** 这个会话的对话还在进行：在跑、等确认，或者后台任务没做完（这边开着的，或主机上的核心报的）。批量删除跳过这些。 */
+    fun isActive(sessionId: String): Boolean =
+        findConversation(sessionId)?.active == true ||
+            sessionList.activityOf(sessionId)?.active == true
+
+    /** 主机上的核心说这几个会话各结束了一轮（可能是别的客户端开的）：不在眼前的记成有新回答。在主线程上调用。 */
+    fun onTurnsEnded(sessions: List<String>) {
+        for (session in sessions) if (session != current.sessionId && session !in unread)
+            unread += session
+    }
 
     /**
      * 环境检查完、就绪了（[EnvController.checkSetup]）：侧栏正看着要靠 Debian 的主机的话读会话列表和 Claude Code 的默认值，
