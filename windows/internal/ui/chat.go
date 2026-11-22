@@ -32,6 +32,8 @@ type chatPane struct {
 	// att 是输入栏里待发的图和文件；insert 是要插进输入框光标处的字（常用指令），下一帧建输入框时插进去。
 	att    attachments
 	insert string
+	// acts 是消息操作（编辑、确认框，msgactions.go）。
+	acts msgActions
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -72,6 +74,7 @@ func (a *App) syncChat() {
 			p.list.SetItems(c.Conv.Items()) // 对不上了（不该发生）：整份重来
 		}
 	}
+	a.syncMessageActions(p)
 	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
 		Failed: p.earlier.failed, Retry: !p.earlier.stale}
 	for _, t := range u.Turns {
@@ -139,6 +142,7 @@ func (a *App) chatPage(c *ui.Context) {
 		a.attachProblems(c, p)
 		a.pathDialog(c, p)
 		a.savedPrompts(c, p)
+		a.messageDialogs(c, p)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
 			switch {
 			case p.src.Opening:
@@ -161,6 +165,7 @@ func (a *App) chatPage(c *ui.Context) {
 			if p.src.Conv != nil {
 				a.promptCard(c, p)
 				a.queueStrip(c, p)
+				a.editStrip(c, p)
 				a.chatStatus(c, p)
 			}
 			if p.state.Blocked && p.src.Conv != nil {

@@ -177,6 +177,9 @@ func (a *App) send(text string) bool {
 	if p == nil || p.src.Conv == nil || p.src.CwdProblem != "" || !sendable(p, text) {
 		return false
 	}
+	if p.acts.editing != nil {
+		return a.submitEdit(p, text)
+	}
 	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
 	p.list.ScrollToEnd()

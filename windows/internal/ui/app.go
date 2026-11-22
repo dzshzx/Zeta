@@ -52,6 +52,9 @@ type App struct {
 	path    pathAttach // 「输入路径」的对话框
 	prompts promptsUI  // 常用指令的对话框
 
+	// saveAs 换掉看大图保存时的系统保存对话框（测试用）；nil 是系统的。
+	saveAs func(name string) (string, error)
+
 	// Notify 发一条系统通知（回答完了而窗口不在前台时），Foreground 报告窗口在不在前台。New 给的是不发、总在前台，
 	// 窗口起来后由入口换成真的。
 	Notify     func(title, body string)

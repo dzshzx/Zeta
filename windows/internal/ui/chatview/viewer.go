@@ -54,7 +54,7 @@ func (v *viewer) step(d int) {
 
 // 看大图页上下留给两条栏的高度，左右留给翻页键的宽度。
 const (
-	viewerBottom = 104
+	viewerBottom = 128
 	viewerSide   = 76
 )
 
@@ -113,20 +113,19 @@ func (ch *Chat) viewerImage(c *ui.Context, im items.Image) {
 	})
 }
 
-// viewerTop 是顶栏（同时是标题栏）：左边返回，中间多张时是「第几张 / 共几张」，右边让出系统按钮。
+// viewerTop 是顶栏（同时是标题栏，空白处拖动窗口）：左边返回，多张时按整个窗口居中写「第几张 / 共几张」。
 func (ch *Chat) viewerTop(c *ui.Context) {
 	k := coui.Of(c)
 	v := &ch.viewer
-	ui.Row(c).Absolute().Left(0).Right(0).Top(0).Height(coui.TitleBarHeight).Padding(0, coui.EndInset(c, 16), 0, 16).
-		AlignItems(ui.Center).DragWindow().Children(func() {
-		coui.CircleButton(c, coui.IconBack, "返回").OnClick(func() { v.open, v.saving = false, nil })
-		title := ""
+	ui.Row(c).Absolute().Left(0).Right(0).Top(0).Height(coui.TitleBarHeight).Justify(ui.Center).AlignItems(ui.Center).
+		DragWindow().Children(func() {
 		if len(v.images) > 1 {
-			title = strconv.Itoa(v.index+1) + " / " + strconv.Itoa(len(v.images))
+			ui.Text(c, strconv.Itoa(v.index+1)+" / "+strconv.Itoa(len(v.images))).FontSize(coui.SizeHeadlineS).FontWeight(600).
+				TextColor(k.Text)
 		}
-		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).Grow(1).TextAlign(ui.Center).
-			Margin(0, 40, 0, 0)
 	})
+	coui.CircleButton(c, coui.IconBack, "返回").Absolute().Left(16).Top((coui.TitleBarHeight - 40) / 2).
+		OnClick(func() { v.open, v.saving = false, nil })
 }
 
 // pageButton 是两边竖直居中的翻页键（浮起的圆钮）；到头的那边变灰。
@@ -165,14 +164,16 @@ func (ch *Chat) viewerBottom(c *ui.Context) {
 			done, n := s.result()
 			busy, note = !done, n
 		}
-		save := ui.ButtonBase(c).Label("保存").MinWidth(88).Radius(16).Padding(8, 12).Gap(4).AlignItems(ui.Center).
+		save := ui.ButtonBase(c).Label("保存").MinWidth(88).Radius(16).Padding(8, 12).
 			Cursor(ui.CursorPointer).Disabled(ch.SaveImage == nil || bmp == nil || busy)
 		if save.Hovered() {
 			save.Background(k.Hover)
 		}
 		save.Children(func() {
-			ui.Icon(c, coui.IconDownload).Size(24, 24).TextColor(k.Text)
-			ui.Text(c, "保存").FontSize(coui.SizeBodyXS).TextColor(k.Text)
+			ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, coui.IconDownload).Size(24, 24).TextColor(k.Text)
+				ui.Text(c, "保存").FontSize(coui.SizeBodyXS).TextColor(k.Text)
+			})
 		})
 		save.OnClick(func() { ch.save(c, v.images[v.index]) })
 		ui.Text(c, note).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
