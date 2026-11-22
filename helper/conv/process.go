@@ -352,7 +352,7 @@ func exitNotice(e Exit, fresh bool, cwd string) string {
 const cwdProblemMark = "zeta: 进不去工作目录"
 
 // handedAway：会话到了别处（终端里接回去了，或要起进程时它正被别处占着）。没送到的消息放回输入框，输入栏锁住，
-// 等客户端经交接把会话接过来（解锁见 Unblock）。
+// 等客户端经交接把会话接过来（conv.handoff，见 handOff）。
 func (c *Conversation) handedAway(released bool) {
 	c.endTurnState()
 	for _, m := range c.unsent {

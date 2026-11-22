@@ -38,6 +38,8 @@ func newConversations(e *env) *conversations {
 		DefaultMode:   func() string { return defaultPermissionMode(e) },
 		Windows:       windows,
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
+		Occupant:      e.occupancy,
+		Handoff:       e.handOff,
 		Desk: func(session, cwd string) {
 			if err := cmdDeskOpen(e, newEmitter(io.Discard), session, cwd); err != nil {
 				log.Print("开 tmux 窗口：", err)
@@ -77,7 +79,16 @@ func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {
 	h.mu.Lock()
 	h.clients[id] = c
 	h.mu.Unlock()
-	return h.m.Request(id, r.Method, r.Raw)
+	v, err := h.m.Start(id, r.Method, r.Raw)
+	if p, ok := v.(conv.Pending); ok && err == nil {
+		// 要等的在别的 goroutine 里等，这条连接接着处理后面的请求
+		go func() {
+			v, err := p()
+			c.Reply(r.ID, v, err)
+		}()
+		return core.Later, nil
+	}
+	return v, err
 }
 
 func (h *conversations) Gone(c *core.Client) {

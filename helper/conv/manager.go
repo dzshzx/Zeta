@@ -84,8 +84,18 @@ type request struct {
 
 var errUnknownConv = errors.New("没有打开这个对话")
 
-// Request 处理客户端 client 的一个 conv.* 请求，返回应答的 result。
+// Request 处理客户端 client 的一个 conv.* 请求，等到应答的 result 为止。
 func (m *Manager) Request(client int, method string, line []byte) (any, error) {
+	v, err := m.Start(client, method, line)
+	if p, ok := v.(Pending); ok && err == nil {
+		return p()
+	}
+	return v, err
+}
+
+// Start 同 Request，只是要等的请求（等 Claude Code 应答的、载入更早历史、从别处接过会话）在请求的顺序里发出去后返回 Pending，
+// 不在这里等：服务端一条连接的请求是一个一个处理的，在这里等会挡住这个客户端后面的请求（比如等后台任务输出时发不了消息）。
+func (m *Manager) Start(client int, method string, line []byte) (any, error) {
 	var r request
 	if err := json.Unmarshal(line, &r); err != nil {
 		return nil, err
@@ -116,31 +126,44 @@ func (m *Manager) Request(client int, method string, line []byte) (any, error) {
 	if method == "conv.fork" {
 		return nil, m.fork(client, r, c)
 	}
-	if method == "conv.earlier" {
+	switch method {
+	case "conv.earlier":
 		v, err := c.Call(func() (any, error) { return c.loadEarlier(r.Rest) })
 		if err != nil {
 			return nil, err
 		}
-		select {
-		case err := <-v.(<-chan error):
+		return Pending(func() (any, error) {
+			select {
+			case err := <-v.(<-chan error):
+				return nil, err
+			case <-c.quit:
+				return nil, errClosed
+			}
+		}), nil
+	case "conv.occupant":
+		v, err := c.Call(func() (any, error) { return c.session, nil })
+		if err != nil {
 			return nil, err
-		case <-c.quit:
-			return nil, errClosed
 		}
+		return Pending(func() (any, error) { return m.occupancy(v.(string)), nil }), nil
+	case "conv.handoff":
+		return m.handOff(c)
 	}
 	if ask, ok := asks[method]; ok {
 		v, err := c.Call(func() (any, error) { return ask(c, client, r), nil })
 		if err != nil {
 			return nil, err
 		}
-		select {
-		case a := <-v.(<-chan answer):
-			return a.v, a.err
-		case <-c.quit:
-			return nil, errClosed
-		case <-time.After(30 * time.Second):
-			return nil, errors.New("等了 30 秒，Claude Code 没有回应")
-		}
+		return Pending(func() (any, error) {
+			select {
+			case a := <-v.(<-chan answer):
+				return a.v, a.err
+			case <-c.quit:
+				return nil, errClosed
+			case <-time.After(30 * time.Second):
+				return nil, errors.New("等了 30 秒，Claude Code 没有回应")
+			}
+		}), nil
 	}
 	handler, ok := handlers[method]
 	if !ok {
@@ -232,6 +255,11 @@ func (m *Manager) open(client int, r request) error {
 	if r.File == "" && r.Session != "" && m.deps.SessionFile != nil {
 		r.File = m.deps.SessionFile(r.Session)
 	}
+	// 核心里还没有这个会话时才要看：已有的对话自己知道有没有被占着
+	m.mu.Lock()
+	known := m.bySession[r.Session] != nil
+	m.mu.Unlock()
+	blocked := !known && m.occupancy(r.Session).Status != nil
 	m.mu.Lock()
 	if m.byName[client][r.Conv] != nil {
 		m.mu.Unlock()
@@ -250,7 +278,7 @@ func (m *Manager) open(client int, r request) error {
 	}
 	if c == nil {
 		m.seq++
-		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title}, m.deps, m.send)
+		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title, Blocked: blocked}, m.deps, m.send)
 		m.all[c] = true
 		if r.Session != "" {
 			m.bySession[r.Session] = c

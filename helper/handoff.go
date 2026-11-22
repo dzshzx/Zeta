@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"github.com/dzshzx/Zeta/helper/conv"
 	"io"
 	"os"
 	"syscall"
@@ -68,29 +69,38 @@ func orText(s, fallback string) string {
 	return s
 }
 
-// cmdOccupant 输出一行 {"status": …, "waiting_for": …, "hands_over": …}：没有别处的进程占着时 status 是 null；
-// 有时是 idle、waiting、busy、shell，旧版不报状态时是 unknown。hands_over：现在能交给 Zeta（handsOver）。
+// cmdOccupant 输出一行 occupancy 的结果（conv.Occupancy）。
 func cmdOccupant(e *env, o *emitter, id string) error {
-	holders, status, waiting := e.occupied(id)
-	if len(holders) == 0 {
-		o.out(obj{"status": nil, "waiting_for": nil, "hands_over": true})
-		return nil
-	}
-	var waitingFor any
-	if status == "waiting" && waiting != "" {
-		waitingFor = waiting
-	}
-	o.out(obj{"status": status, "waiting_for": waitingFor, "hands_over": handsOver(status)})
+	o.out(e.occupancy(id))
 	return nil
 }
 
-// cmdHandoff 输出一行 {"handed": 交没交出来, "status": …}：没人占着也算交出来了；那边正忙时 handed 为假、status 是它的状态；
-// 发了 SIGINT 过了 handoffGrace 还不退的 status 是 stuck（不再升级成 SIGKILL：要强行停掉走 end）。
+// occupancy：Zeta 之外占着会话 id 的进程的样子（conv.Occupancy）：没有时 status 是 null；有时是 idle、waiting、busy、shell，
+// 旧版不报状态时是 unknown。hands_over：现在能交给 Zeta（handsOver）。核心的 conv.occupant 也用它。
+func (e *env) occupancy(id string) conv.Occupancy {
+	holders, status, waiting := e.occupied(id)
+	if len(holders) == 0 {
+		return conv.Occupancy{HandsOver: true}
+	}
+	result := conv.Occupancy{Status: &status, HandsOver: handsOver(status)}
+	if status == "waiting" && waiting != "" {
+		result.WaitingFor = &waiting
+	}
+	return result
+}
+
+// cmdHandoff 输出一行 handOff 的结果（conv.Handoff）。
 func cmdHandoff(e *env, o *emitter, id string) error {
+	o.out(e.handOff(id))
+	return nil
+}
+
+// handOff 把会话 id 从别处接过来（conv.Handoff）：没人占着也算交出来了；那边正忙时 handed 为假、status 是它的状态；
+// 发了 SIGINT 过了 handoffGrace 还不退的 status 是 stuck（不再升级成 SIGKILL：要强行停掉走 end）。核心的 conv.handoff 也用它。
+func (e *env) handOff(id string) conv.Handoff {
 	holders, status, _ := e.occupied(id)
 	if len(holders) > 0 && !handsOver(status) {
-		o.out(obj{"handed": false, "status": status})
-		return nil
+		return conv.Handoff{Status: &status}
 	}
 	// 终端里的发 SIGINT；另一个包托管的进程照 Zeta 自己的规矩结束（end_session），两边一起等
 	var terminal, others []registered
@@ -104,11 +114,10 @@ func cmdHandoff(e *env, o *emitter, id string) error {
 	signaled := signalHolders(terminal, syscall.SIGINT)
 	endHosted(others)
 	if len(waitGone(signaled, handoffGrace)) > 0 {
-		o.out(obj{"handed": false, "status": "stuck"})
-		return nil
+		stuck := "stuck"
+		return conv.Handoff{Status: &stuck}
 	}
-	o.out(obj{"handed": true, "status": nil})
-	return nil
+	return conv.Handoff{Handed: true}
 }
 
 // hostedHolders 是两个包托管的进程里占着会话 id 的那些（登记着、认得出托管目录的，见 hostDirOf）。

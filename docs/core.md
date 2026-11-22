@@ -18,7 +18,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 一行一个 JSON，写法和方法清单以 `helper/serve.go` 开头为准。要点：
 
 - 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`。改已有消息的含义时加一，只加方法、字段不加。
-- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`）各自做完再答，应答的先后不一定和请求一样。
+- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
 - 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。
@@ -51,6 +51,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.stop_task` | `task` | 停一个后台任务 |
 | `conv.task_output` | `task` | 读后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}` |
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
+| `conv.occupant` | | Zeta 之外占着这个会话的进程（终端里的 Claude Code，或另一个包托管的）的样子，「别处运行」卡片照它说话：`result` 是 `{status, waiting_for, hands_over}`（`helper/conv/handoff.go` 的 `Occupancy`），没人占着时 `status` 为 `null` |
+| `conv.handoff` | | 把会话从别处接过来（同 `zeta-helper handoff`：那边闲着或在等确认时让它退出，正忙时不动），要等那边退出，最多十几秒。`result` 是 `{handed, status}`（`Handoff`）；交出来了（没人占着也算）就解开 `blocked` 并推 `conv.state`，没交出来时 `status` 是那边的状态，发了中断还不退的是 `stuck` |
 | `conv.mcp_reply` | `request_id`、`response` | 手机工具的应答（见 `conv.mcp`） |
 | `conv.earlier` | `rest` | 载入更早的一页接到最前面（`rest` 为真时载完剩下的全部，对话内查找用）。新的一页经 `conv.items` 推成一次替换（`at` 0、`remove` 0），不推整份，客户端据此保住正看着的位置；读完才回应答。同一时间只读一页，正在读时答出错。会话记录在别处被改过（比如终端里剪到了更早的地方）时答出错，`code` 为 `history_changed`（「会话记录在别处改过，重新打开这个对话再看更早的内容」），重试没用 |
 | `conv.rewrite` | `target`、`text`、`images`、`files` | 编辑或重新生成：`target` 是那条用户消息的条目 `id`。请 Claude Code 剪掉它和之后的内容（`rewind_conversation`，会话号不变），剪成了再发新消息；没剪成时列表恢复原样、新消息放回 `recalled`，列表里加一条出错提示，这一轮以 `failed` 结束。`can_rewind` 为假、找不到这一项时答出错；剪的期间 `conv.send` 也答出错，客户端把字留在输入框里 |
@@ -70,7 +72,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 推送（都带 `conv`）：
 
-- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`key`（这个对话在核心里的标识，整个核心里不重复，`conv.open` 可带它重开）、`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`（没选时为 `null`，同 `model`）、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`earlier_loading`（正在载入更早的一页）、`can_rewind`（现在能不能编辑、重新生成、删除一轮、还原代码、分支：这一轮结束了，没有等确认、排队的消息，没在剪、没在载入历史，会话没被别处占着）、`blocked`（会话正被 Zeta 之外的进程占着）。
+- `conv.state`：对话的状态。`full` 为真时是整份，否则只有变了的字段。字段：`key`（这个对话在核心里的标识，整个核心里不重复，`conv.open` 可带它重开）、`session`、`title`、`cwd`、`process`（有没有接着进程）、`busy`、`status`（等待指示旁的一句，比如正在重试）、`tasks`（后台任务清单，每项是 `helper/tasks/task.go` 的 `Task`）、`queued`（排队的消息）、`steering`、`prompts`（等用户回应的请求，按到达顺序，界面弹第一个；每项是 `helper/prompt/prompt.go` 的 `Prompt`，`kind` 为 `permission` 或 `elicitation`）、`recalled`、`model`（这个对话指定的）、`reported_model`（Claude Code 报的）、`effort`（没选时为 `null`，同 `model`）、`mode`（`{user, process}`）、`commands`、`models`、`usage`（用量条，`helper/usage/snapshot.go` 的 `Usage`）、`todo_seed`（没载入的更早历史里的待办清单工具调用，界面拼出当前待办用）、`loading_history`、`earlier`（会话记录里还没载入的更早事件数，0 是全载入了）、`earlier_loading`（正在载入更早的一页）、`can_rewind`（现在能不能编辑、重新生成、删除一轮、还原代码、分支：这一轮结束了，没有等确认、排队的消息，没在剪、没在载入历史，会话没被别处占着）、`blocked`（会话正被 Zeta 之外的进程占着：打开时核心里还没有这个会话、又有别处的进程占着就为真，起进程时才发现被占着也会变真；为真时发消息、压缩答出错，`conv.handoff` 接过来后解开）、`host_key`（接着的托管进程的标识，托管目录是 `~/.cache/<ZETA_NAME>/hosts/<host_key>`，客户端拿它找那个进程，比如看新挂上的共享文件夹它看不看得到；没接着进程时为空）。
 - `conv.items`：聊天条目（格式见 `helper/transcript/items.go`）。`full` 为真时 `items` 是整份；否则是一次替换：从下标 `at` 起去掉 `remove` 项、换成 `items`。流式回答时通常只换最后一两项。
 - `conv.turn`：一轮的起止，客户端据此提醒。`phase` 是 `started` 或 `finished`；结束时带 `outcome`（`done`、`stopped`、`failed`、`interrupted`：进程意外没了）和一句 `text`。
 - `conv.mcp`：Claude Code 调了手机工具（`request_id`、`message`），只发给 `options.phone` 为真的客户端；那边处理完用 `conv.mcp_reply` 答。没有这样的客户端时核心直接答出错。

@@ -118,6 +118,7 @@ type Spec struct {
 	File    string // 会话记录，载入历史用
 	Cwd     string
 	Title   string
+	Blocked bool    // 打开时会话正被 Zeta 之外的进程占着：输入栏先锁着，等 conv.handoff
 	attach  *Hosted // 接回的托管进程（Manager.Adopt）
 }
 
@@ -126,7 +127,8 @@ func New(id string, spec Spec, deps Deps, send Send) *Conversation {
 	c := &Conversation{
 		ID: id, deps: deps, send: send, in: make(chan func(), 256), quit: make(chan struct{}),
 		cwd: spec.Cwd, title: spec.Title, session: spec.Session, file: spec.File, openedSession: spec.Session,
-		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
+		blocked: spec.Blocked,
+		r:       transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
 		options: map[int]Options{}, holders: map[int]string{},
 		usage: usage.New(), tasks: tasks.New(),
 	}

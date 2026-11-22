@@ -27,6 +27,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"busy":            raw(c.busy),
 		"status":          raw(c.status),
 		"blocked":         raw(c.blocked),
+		"host_key":        raw(c.hostKey()),
 		"loading_history": raw(c.loadingHistory),
 		"earlier":         raw(c.earlier),
 		"earlier_loading": raw(c.earlierLoading),
@@ -118,4 +119,13 @@ func (c *Conversation) usageView() usage.Usage {
 		}
 	}
 	return c.usage.Snapshot(c.deps.Windows)
+}
+
+// hostKey 是接着的托管进程的标识（zeta_host.sh 的 key，托管目录 ~/.cache/<ZETA_NAME>/hosts/<key>）；没接着进程时为空。
+// 客户端拿它找进程（比如看新挂上的共享文件夹进程看不看得到）。
+func (c *Conversation) hostKey() string {
+	if c.proc == nil {
+		return ""
+	}
+	return c.proc.link.Key()
 }

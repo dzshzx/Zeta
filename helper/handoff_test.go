@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -509,5 +510,48 @@ func TestSessionStartDoesNotEndTheClaudeThatIsResuming(t *testing.T) {
 	}
 	if ancestors(pid)[pid] {
 		t.Fatal("a process is its own ancestor")
+	}
+}
+
+// 经核心接管会话：打开时输入栏锁着；接管要等终端那边退出，等的时候同一条连接上后面的请求照样先答。
+// 终端那边不肯退（忽略 SIGINT），接管答 stuck，输入栏还锁着。
+func TestHandoffThroughCoreDoesNotHoldTheConnection(t *testing.T) {
+	old := handoffGrace
+	handoffGrace = 2 * time.Second
+	t.Cleanup(func() { handoffGrace = old })
+	e := testEnv(t)
+	inProcessCore(t, e, fastWatch)
+	pid, done := tui(t, true)
+	t.Cleanup(func() {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		<-done
+	})
+	registerStatus(t, e, pid, handoffID, "idle", "")
+
+	c := startServe(t, e, testIdle)
+	c.send(`{"id":1,"method":"conv.open","conv":"a","session":"` + handoffID + `","cwd":` + quote(e.home) + `}`)
+	// 打开时先推整份状态，再答
+	if s := c.next("conv.state"); s["blocked"] != true {
+		t.Fatalf("会话被终端占着，打开时输入栏该锁着：%v", s["blocked"])
+	}
+	if r := c.next("zeta_reply"); r["ok"] != true {
+		t.Fatalf("打开：%v", r)
+	}
+	c.send(`{"id":2,"method":"conv.handoff","conv":"a"}`)
+	c.send(`{"id":3,"method":"conv.occupant","conv":"a"}`)
+	first := c.next("zeta_reply")
+	if fmt.Sprint(first["id"]) != "3" {
+		t.Fatalf("接管还在等终端退出，后面的请求却排在它后面：先答的是 %v", first)
+	}
+	if occ := first["result"].(obj); occ["status"] != "idle" || occ["hands_over"] != true {
+		t.Fatalf("占用：%v", occ)
+	}
+	second := c.next("zeta_reply")
+	if handed := second["result"].(obj); fmt.Sprint(second["id"]) != "2" || handed["handed"] != false || handed["status"] != "stuck" {
+		t.Fatalf("接管：%v", second)
+	}
+	c.send(`{"id":4,"method":"conv.send","conv":"a","text":"一"}`)
+	if r := c.next("zeta_reply"); r["ok"] != false {
+		t.Fatalf("没接过来却能发消息：%v", r)
 	}
 }
