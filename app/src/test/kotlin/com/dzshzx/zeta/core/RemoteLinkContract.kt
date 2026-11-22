@@ -36,7 +36,7 @@ abstract class RemoteLinkContract {
     protected lateinit var root: File
     protected lateinit var remoteHome: File
     private lateinit var shell: RemoteShell
-    private val hostScript = File("src/main/assets/zeta_host.sh").absoluteFile.readText()
+    private val hostScript = File("../helper/host/zeta_host.sh").absoluteFile.readText()
 
     private val events = LinkedBlockingQueue<JsonObject>()
     private val links = LinkedBlockingQueue<ProcessLink>()

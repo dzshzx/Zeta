@@ -32,7 +32,7 @@ class HostTurnTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private lateinit var home: File
     private val processes = mutableListOf<Process>()
-    private val host = File("src/main/assets/zeta_host.sh").absoluteFile
+    private val host = File("../helper/host/zeta_host.sh").absoluteFile
 
     @Before
     fun setUp() {
