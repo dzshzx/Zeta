@@ -1,0 +1,176 @@
+// Package hubtest 是测试用的假设备（hub.Devices）：不连 SSH，探测照预先给的结果答，会话列表由测试推。只给测试用。
+package hubtest
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"io"
+	"slices"
+	"sync"
+
+	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/remote"
+	"golang.org/x/crypto/ssh"
+)
+
+// Devices 是假设备。Config 是 ~/.ssh/config 里的主机，KeyList 是 ~/.ssh 里的私钥，Probes 是各地址探测的结果（没给的照 Found 答成功）。
+type Devices struct {
+	Config    []string
+	ConfigErr error
+	KeyList   []string
+	Probes    map[string]Probe
+
+	mu       sync.Mutex
+	hostKey  string
+	watchers []*watcher
+	opened   map[string]int
+	retained []string
+	probed   []string
+}
+
+// Probe 是一次探测的结果。
+type Probe struct {
+	Found host.Found
+	Err   error
+}
+
+// NewDevices 建一套假设备，各台的主机公钥都是同一把新生成的。
+func NewDevices() *Devices {
+	public, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	key, err := ssh.NewPublicKey(public)
+	if err != nil {
+		panic(err)
+	}
+	return &Devices{Probes: map[string]Probe{}, hostKey: remote.EncodeHostKey(key), opened: map[string]int{}}
+}
+
+// HostKey 是各台的主机公钥（base64）。
+func (d *Devices) HostKey() string { return d.hostKey }
+
+// Found 是名叫 name 的一台连上后查到的样子。
+func (d *Devices) Found(name string) host.Found {
+	return host.Found{Home: "/home/" + name, Claude: "2.1.330", System: "Linux x86_64", Hostname: name, HostKey: d.hostKey}
+}
+
+// Probe 见 hub.Devices。
+func (d *Devices) Probe(target, _, _ string) (host.Found, error) {
+	d.mu.Lock()
+	d.probed = append(d.probed, target)
+	p, ok := d.Probes[target]
+	d.mu.Unlock()
+	if !ok {
+		return d.Found(target), nil
+	}
+	return p.Found, p.Err
+}
+
+// Probed 是探测过的地址，按先后。
+func (d *Devices) Probed() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.probed)
+}
+
+// ConfigHosts 见 hub.Devices。
+func (d *Devices) ConfigHosts() ([]string, error) { return slices.Clone(d.Config), d.ConfigErr }
+
+// Keys 见 hub.Devices。
+func (d *Devices) Keys() []string { return slices.Clone(d.KeyList) }
+
+// Retain 见 hub.Devices。
+func (d *Devices) Retain(ids []string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.retained = slices.Clone(ids)
+}
+
+// Retained 是上次 Retain 留下的。
+func (d *Devices) Retained() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.retained
+}
+
+type watcher struct {
+	id      string
+	update  func(host.SessionsUpdate)
+	problem func(string)
+	closed  bool
+}
+
+func (w *watcher) Close() error { w.closed = true; return nil }
+
+// WatchSessions 见 hub.Devices：记下回调，等测试推。
+func (d *Devices) WatchSessions(h remote.Host, update func(host.SessionsUpdate), problem func(string)) io.Closer {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	w := &watcher{id: h.ID, update: update, problem: problem}
+	d.watchers = append(d.watchers, w)
+	d.opened[h.ID]++
+	return w
+}
+
+// Watching 是正订阅着的设备，按订阅的先后；没有是 nil。
+func (d *Devices) Watching() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var ids []string
+	for _, w := range d.watchers {
+		if !w.closed {
+			ids = append(ids, w.id)
+		}
+	}
+	return ids
+}
+
+// Opened 是设备 id 一共订阅过几次。
+func (d *Devices) Opened(id string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.opened[id]
+}
+
+// last 是设备 id 最近的订阅；open 时只找还开着的。
+func (d *Devices) last(id string, open bool) *watcher {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i := len(d.watchers) - 1; i >= 0; i-- {
+		w := d.watchers[i]
+		if w.id == id && (!open || !w.closed) {
+			return w
+		}
+	}
+	return nil
+}
+
+// Push 替设备 id 开着的订阅推一份列表（会话的 Backend 填上 id）。
+func (d *Devices) Push(id string, u host.SessionsUpdate) {
+	if w := d.last(id, true); w != nil {
+		w.update(withBackend(u, id))
+	}
+}
+
+// PushStale 替设备 id 已经关掉的订阅推一份（像断开前在路上的推送）。
+func (d *Devices) PushStale(id string, u host.SessionsUpdate) {
+	if w := d.last(id, false); w != nil {
+		w.update(withBackend(u, id))
+	}
+}
+
+// Fail 替设备 id 开着的订阅报连上（why 是空）或断开的原因。
+func (d *Devices) Fail(id, why string) {
+	if w := d.last(id, true); w != nil {
+		w.problem(why)
+	}
+}
+
+func withBackend(u host.SessionsUpdate, id string) host.SessionsUpdate {
+	u.Upsert = slices.Clone(u.Upsert)
+	for i := range u.Upsert {
+		u.Upsert[i].Backend = id
+	}
+	return u
+}
