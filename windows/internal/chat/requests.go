@@ -121,6 +121,12 @@ func (c *Conversation) SetOptions(ctx context.Context, o Options) error {
 	return c.call(ctx, "conv.options", map[string]any{"options": o})
 }
 
+// Preset 给这个对话预设模型、思考强度，hint 追加进 --append-system-prompt，下次起进程时生效；空的那项照旧。
+// 定时任务这类后台起的对话用它。
+func (c *Conversation) Preset(ctx context.Context, model, effort, hint string) error {
+	return c.call(ctx, "conv.preset", map[string]any{"model": model, "effort": effort, "hint": hint})
+}
+
 // Compact 压缩上下文。
 func (c *Conversation) Compact(ctx context.Context) error {
 	return c.call(ctx, "conv.compact", nil)
@@ -150,13 +156,19 @@ func (c *Conversation) End(ctx context.Context) error {
 	return c.call(ctx, "conv.end", nil)
 }
 
-// Close 放开这个对话：核心里没人拿着、又闲着时会断开进程。之后这个 Conversation 不再收到推送。
+// Close 放开这个对话：核心里没人拿着、又闲着时会断开进程。之后这个 Conversation 不再收到推送，重连后也不再打开。
+// 连接断着时不发：那条连接一断，核心那边就放开了。
 func (c *Conversation) Close(ctx context.Context) error {
 	c.client.forget(c)
 	c.mu.Lock()
-	c.connected = false
+	connected := c.connected
+	c.connected, c.opened = false, false
 	c.mu.Unlock()
-	return c.call(ctx, "conv.close", nil)
+	if !connected {
+		return nil
+	}
+	_, err := c.client.link.Call(ctx, "conv.close", map[string]any{"conv": c.name})
+	return err
 }
 
 // errNotConnected：对话现在没连上（断线等重连、已关掉），请求不发。
@@ -171,7 +183,7 @@ func (c *Conversation) callResult(ctx context.Context, method string, params map
 	c.mu.Lock()
 	connected := c.connected
 	c.mu.Unlock()
-	if !connected && method != "conv.close" {
+	if !connected {
 		return nil, errNotConnected
 	}
 	if params == nil {

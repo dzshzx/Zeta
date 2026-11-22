@@ -39,9 +39,10 @@ type State struct {
 	Prompts []prompt.Prompt `json:"prompts"`
 	Tasks   []tasks.Task    `json:"tasks"`
 	Usage   usage.Usage     `json:"usage"`
-	// Commands、Models 是 Claude Code 报的斜杠命令和可选模型，原样。
+	// Models 是 Claude Code 报的可选模型，进程还没起过时为空。
+	Models []ModelOption `json:"models"`
+	// Commands 是 Claude Code 报的斜杠命令，原样（斜杠命令是第 4 段）。
 	Commands json.RawMessage `json:"commands"`
-	Models   json.RawMessage `json:"models"`
 	// TodoSeed 是没载入的更早历史里的待办清单工具调用，原样，界面拼出当前待办用。
 	TodoSeed json.RawMessage `json:"todo_seed"`
 }
@@ -75,3 +76,26 @@ func decodeState(fields map[string]json.RawMessage) (State, error) {
 	err = json.Unmarshal(b, &s)
 	return s, err
 }
+
+// RunningTasks 是还在跑的后台任务数。
+func (s State) RunningTasks() int {
+	n := 0
+	for _, t := range s.Tasks {
+		if t.Running() {
+			n++
+		}
+	}
+	return n
+}
+
+// ModelOption 是模型菜单里的一项：Claude Code 的 initialize 应答里 models 的一项，原样转来（键是它的驼峰写法）。
+type ModelOption struct {
+	Value       string `json:"value"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	// ResolvedModel 是这一项现在对应的完整模型 ID，没报时为空。
+	ResolvedModel string `json:"resolvedModel"`
+}
+
+// DefaultModel 是模型菜单里「默认」那一项的值（Claude Code 认的写法）。
+const DefaultModel = "default"

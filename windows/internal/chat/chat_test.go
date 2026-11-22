@@ -12,6 +12,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/tasks"
+	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
 // fakeLink 记下发出的请求，按方法给预先定好的应答；onCall 在应答之前跑，用来模拟核心在应答前推来的消息。
@@ -79,15 +80,11 @@ func opened(t *testing.T) (*fakeLink, *Client, *Conversation, *int) {
 
 func line(s string) []byte { return []byte(s) }
 
-func ids(t *testing.T, items []json.RawMessage) string {
+func ids(t *testing.T, list []items.Item) string {
 	t.Helper()
-	out := make([]string, len(items))
-	for i, it := range items {
-		var v struct{ ID string }
-		if err := json.Unmarshal(it, &v); err != nil {
-			t.Fatal(err)
-		}
-		out[i] = v.ID
+	out := make([]string, len(list))
+	for i, it := range list {
+		out[i] = it.ID
 	}
 	return strings.Join(out, ",")
 }
@@ -106,7 +103,7 @@ func TestOpenSendsSpecAndKeepsPushesBeforeReply(t *testing.T) {
 	if got := link.took(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("请求 %v，要 %v", got, want)
 	}
-	if v := conv.View(); v.State.Session != "s9" || !v.Connected {
+	if v := conv.Take(); v.State.Session != "s9" || !v.Connected {
 		t.Fatalf("应答前推来的状态丢了：%+v", v)
 	}
 }
@@ -126,7 +123,7 @@ func TestStateMergesPartialAndReplacesFull(t *testing.T) {
 	_, client, conv, notified := opened(t)
 	before := *notified
 	client.Handle(line(`{"type":"conv.state","conv":"w1","busy":true,"status":"正在重试","model":"opus"}`))
-	s := conv.View().State
+	s := conv.Take().State
 	if !s.Busy || s.Status != "正在重试" || s.Title != "修 bug" || s.Session != "s1" || s.Model == nil || *s.Model != "opus" {
 		t.Fatalf("部分更新没合进去或丢了别的字段：%+v", s)
 	}
@@ -134,21 +131,54 @@ func TestStateMergesPartialAndReplacesFull(t *testing.T) {
 		t.Fatalf("合并后没通知界面")
 	}
 	client.Handle(line(`{"type":"conv.state","conv":"w1","model":null}`))
-	if s := conv.View().State; s.Model != nil {
+	if s := conv.Take().State; s.Model != nil {
 		t.Fatalf("model 推成 null 后还是 %v", *s.Model)
 	}
 	client.Handle(line(`{"type":"conv.state","conv":"w1","full":true,"session":"s1"}`))
-	if s := conv.View().State; s.Busy || s.Title != "" {
+	if s := conv.Take().State; s.Busy || s.Title != "" {
 		t.Fatalf("整份没替掉旧字段：%+v", s)
 	}
 }
 
-func TestViewItemsAreACopy(t *testing.T) {
+func TestItemsAreACopy(t *testing.T) {
 	_, client, conv, _ := opened(t)
-	v := conv.View()
+	v := conv.Items()
 	client.Handle(line(`{"type":"conv.items","conv":"w1","at":0,"remove":1,"items":[{"id":"新"}]}`))
-	if got := ids(t, v.Items); got != "a,b" {
-		t.Fatalf("拿着的 View 被后来的推送改成了 %s", got)
+	if got := ids(t, v); got != "a,b" {
+		t.Fatalf("拿着的条目被后来的推送改成了 %s", got)
+	}
+}
+
+// 界面按 Take 交来的变化依次套上，和协议层的整份一样；整份的那次之前的变化丢掉。
+func TestTakeHandsOverChangesInOrder(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	first := conv.Take()
+	if len(first.Items) != 1 || !first.Items[0].Full || ids(t, first.Items[0].Items) != "a,b" {
+		t.Fatalf("打开后的第一份：%+v", first.Items)
+	}
+	shown := first.Items[0].Items
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":1,"remove":1,"items":[{"kind":"answer","id":"b2"}]}`))
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":2,"remove":0,"items":[{"kind":"work","id":"c"}]}`))
+	u := conv.Take()
+	if len(u.Items) != 2 {
+		t.Fatalf("两次增量交来 %d 次", len(u.Items))
+	}
+	for _, ch := range u.Items {
+		var err error
+		if shown, err = items.Splice(shown, ch.At, ch.Remove, ch.Items); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ids(t, shown) != ids(t, conv.Items()) {
+		t.Fatalf("套上增量后是 %s，协议层是 %s", ids(t, shown), ids(t, conv.Items()))
+	}
+	client.Handle(line(`{"type":"conv.items","conv":"w1","at":0,"remove":0,"items":[{"id":"z"}]}`))
+	client.Handle(line(`{"type":"conv.items","conv":"w1","full":true,"items":[{"id":"x"}]}`))
+	if u := conv.Take(); len(u.Items) != 1 || !u.Items[0].Full {
+		t.Fatalf("整份之前的增量没丢：%+v", u.Items)
+	}
+	if u := conv.Take(); u.Items != nil || u.State.Session != "s1" {
+		t.Fatalf("取走后：%+v", u)
 	}
 }
 
@@ -168,7 +198,7 @@ func TestItemsSplice(t *testing.T) {
 	}
 	for _, s := range steps {
 		client.Handle(line(`{"type":"conv.items","conv":"w1",` + s.push[1:]))
-		if got := ids(t, conv.View().Items); got != s.want {
+		if got := ids(t, conv.Items()); got != s.want {
 			t.Fatalf("推 %s 后是 %s，要 %s", s.push, got, s.want)
 		}
 	}
@@ -194,7 +224,7 @@ func TestItemsOutOfRangeReopens(t *testing.T) {
 		!strings.Contains(calls[1].params, `"session":"s1"`) {
 		t.Fatalf("重新打开的请求不对：%v", calls)
 	}
-	if got := ids(t, conv.View().Items); got != "fresh" {
+	if got := ids(t, conv.Items()); got != "fresh" {
 		t.Fatalf("重新打开后条目是 %s", got)
 	}
 }
@@ -204,10 +234,10 @@ func TestTurns(t *testing.T) {
 	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"started"}`))
 	client.Handle(line(`{"type":"conv.turn","conv":"w1","phase":"finished","outcome":"done","text":"已完成"}`))
 	want := []Turn{{Phase: TurnStarted}, {Phase: TurnFinished, Outcome: OutcomeDone, Text: "已完成"}}
-	if got := conv.TakeTurns(); !reflect.DeepEqual(got, want) {
+	if got := conv.Take().Turns; !reflect.DeepEqual(got, want) {
 		t.Fatalf("一轮的起止 %+v，要 %+v", got, want)
 	}
-	if got := conv.TakeTurns(); got != nil {
+	if got := conv.Take().Turns; got != nil {
 		t.Fatalf("取走后还有 %+v", got)
 	}
 }
@@ -225,7 +255,7 @@ func TestDisconnectAndReconnect(t *testing.T) {
 	link, client, conv, _ := opened(t)
 	client.Handle(line(`{"type":"conv.state","conv":"w1","session":"s2"}`)) // 比如压缩后换了会话号
 	client.Disconnected()
-	if conv.View().Connected {
+	if conv.Take().Connected {
 		t.Fatal("断线后还标着连上")
 	}
 	if err := conv.Interrupt(context.Background()); !errors.Is(err, errNotConnected) {
@@ -242,7 +272,7 @@ func TestDisconnectAndReconnect(t *testing.T) {
 		!strings.Contains(calls[0].params, `"conv":"w1"`) || !strings.Contains(calls[0].params, `"compact_percent":80`) {
 		t.Fatalf("重连后的打开：%v", calls)
 	}
-	if !conv.View().Connected {
+	if !conv.Take().Connected {
 		t.Fatal("重连后没标回连上")
 	}
 }
@@ -272,6 +302,7 @@ func TestRequests(t *testing.T) {
 		{func() error { return conv.SetMode(ctx, nil) }, call{"conv.mode", `{"conv":"w1","value":null}`}},
 		{func() error { return conv.SetEffort(ctx, nil) }, call{"conv.effort", `{"conv":"w1","value":null}`}},
 		{func() error { return conv.SetOptions(ctx, Options{AutoTitle: true}) }, call{"conv.options", `{"conv":"w1","options":{"auto_title":true}}`}},
+		{func() error { return conv.Preset(ctx, "opus", "", "按日报的格式写") }, call{"conv.preset", `{"conv":"w1","effort":"","hint":"按日报的格式写","model":"opus"}`}},
 		{func() error { return conv.Compact(ctx) }, call{"conv.compact", `{"conv":"w1"}`}},
 		{func() error { return conv.StopTask(ctx, "t1") }, call{"conv.stop_task", `{"conv":"w1","task":"t1"}`}},
 		{func() error { return conv.End(ctx) }, call{"conv.end", `{"conv":"w1"}`}},
@@ -346,7 +377,7 @@ func TestStateDecodesHelperTypes(t *testing.T) {
 		`"prompts":[{"kind":"permission","request_id":"r1","tool_name":"Bash","input":{"command":"ls"},"notice":"要运行命令"}],` +
 		`"tasks":[{"id":"t1","type":"local_bash","kind":"bash","description":"跑测试","started_at":1,"state":"running","running":true,"readable":true}],` +
 		`"usage":{"context_tokens":1000,"context_window":200000,"total":{"input":1,"output":2,"cache_read":0,"cache_write":0,"total":3},"level":"normal"}}`))
-	s := conv.View().State
+	s := conv.Take().State
 	if len(s.Prompts) != 1 || s.Prompts[0].Kind != prompt.KindPermission || s.Prompts[0].ToolName != "Bash" {
 		t.Fatalf("确认没解对：%+v", s.Prompts)
 	}
@@ -355,5 +386,43 @@ func TestStateDecodesHelperTypes(t *testing.T) {
 	}
 	if s.Usage.ContextTokens == nil || *s.Usage.ContextTokens != 1000 || s.Usage.Total.Total() != 3 || s.Usage.Total.CacheRead != 0 {
 		t.Fatalf("用量没解对：%+v", s.Usage)
+	}
+}
+
+// 连接第一次连上时，还在等 conv.open 应答的对话不能被 Reconnected 再开一次（核心会说名字重了）；
+// 关掉的对话重连后也不再打开，断线时关掉不发请求。
+func TestReconnectOnlyReopensOpenedConversations(t *testing.T) {
+	link := &fakeLink{}
+	client := NewClient(link, nil)
+	reopened := make(chan error, 1)
+	link.onCall = func(method string, _ map[string]any) {
+		if method == "conv.open" && len(client.Conversations()) == 1 {
+			// 应答之前连接报了连上：Reconnected 不能再开这一个
+			reopened <- client.Reconnected(context.Background())
+		}
+	}
+	first, err := client.Open(context.Background(), Spec{Cwd: "/h"})
+	if err != nil || <-reopened != nil {
+		t.Fatal(err)
+	}
+	if calls := link.took(); len(calls) != 1 {
+		t.Fatalf("同一个对话开了 %d 次：%v", len(calls), calls)
+	}
+	link.onCall = nil
+	second, err := client.Open(context.Background(), Spec{Cwd: "/h"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Disconnected()
+	if err := first.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	link.took()
+	if err := client.Reconnected(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	calls := link.took()
+	if len(calls) != 1 || !strings.Contains(calls[0].params, `"conv":"`+second.Name()+`"`) {
+		t.Fatalf("重连后打开的：%v", calls)
 	}
 }

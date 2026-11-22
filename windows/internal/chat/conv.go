@@ -7,9 +7,11 @@ import (
 	"maps"
 	"slices"
 	"sync"
+
+	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
-// Conversation 是 Client 上打开的一个对话。View 给界面读；别的方法把用户的操作发给核心，
+// Conversation 是 Client 上打开的一个对话。界面用 Take 取走推送带来的变化；别的方法把用户的操作发给核心，
 // 结果照样经推送回来（发出的消息、改了的模式都从 conv.state、conv.items 里看到）。
 type Conversation struct {
 	client *Client
@@ -18,23 +20,36 @@ type Conversation struct {
 
 	mu sync.Mutex
 	// fields 是核心推来的 conv.state 合并到现在的各字段，state 是它解码成的样子。
-	fields    map[string]json.RawMessage
-	state     State
-	items     []json.RawMessage
-	connected bool
-	turns     []Turn
+	fields map[string]json.RawMessage
+	state  State
+	items  []items.Item
+	// connected：连接在、核心那边这个对话开着；opened：打开成过（重连后要重新打开的只有这些）。
+	connected, opened bool
+	// pending 是上次 Take 以后的变化。
+	pending Update
 }
 
-// View 是对话此刻的样子，界面照着画、只读。界面拿着它不会被后来的推送改掉（Items 是副本，State 每次推送都是新解的）。
-type View struct {
+// Update 是上次 Take 以后的变化，界面在主线程上照着改自己的样子。
+type Update struct {
+	// State 是此刻的状态（整份，每次推送都是新解的，界面拿着不会被后来的推送改掉；只读）。
 	State State
-	// Items 是聊天条目，每项是核心推来的 JSON（格式见 helper/transcript/items.go），由 chat/items 解码。
-	Items []json.RawMessage
-	// Connected：连接在、核心那边这个对话开着。断线重连期间为假，界面可以照旧显示，但操作会失败。
+	// Connected：连接在、核心那边这个对话开着。断线重连期间为假，界面照旧显示，但操作会失败。
 	Connected bool
+	// Items 是这期间条目的变化，按到达的先后，界面依次套上；有整份的那次时它是第一项，之前的都已丢掉。
+	Items []ItemsChange
+	// Turns 是这期间到的 conv.turn，按到达的先后。
+	Turns []Turn
 }
 
-// Turn 是 conv.turn：一轮的起止，界面据此提醒（比如回答完了响一声）。
+// ItemsChange 是条目的一次变化（conv.items）：Full 时 Items 是整份，否则从 At 起去掉 Remove 项、换成 Items。
+type ItemsChange struct {
+	Full   bool         `json:"full"`
+	At     int          `json:"at"`
+	Remove int          `json:"remove"`
+	Items  []items.Item `json:"items"`
+}
+
+// Turn 是 conv.turn：一轮的起止，界面据此提醒（比如回答完了而窗口不在前台时发通知）。
 type Turn struct {
 	// Phase 是 TurnStarted 或 TurnFinished。
 	Phase string `json:"phase"`
@@ -62,20 +77,21 @@ func newConversation(client *Client, name string, spec Spec) *Conversation {
 // Name 是这个对话在这条连接上的名字（conv）。
 func (c *Conversation) Name() string { return c.name }
 
-// View 返回对话此刻的样子。
-func (c *Conversation) View() View {
+// Take 取走上次取走以后的变化。Items、Turns 只有新到的；State、Connected 总是此刻的。
+func (c *Conversation) Take() Update {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return View{State: c.state, Items: slices.Clone(c.items), Connected: c.connected}
+	u := c.pending
+	c.pending = Update{}
+	u.State, u.Connected = c.state, c.connected
+	return u
 }
 
-// TakeTurns 取走上次取走以后到的 conv.turn，按到达顺序。
-func (c *Conversation) TakeTurns() []Turn {
+// Items 是此刻的整份条目（副本）。界面和推送对不上时用它整份重来。
+func (c *Conversation) Items() []items.Item {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	t := c.turns
-	c.turns = nil
-	return t
+	return slices.Clone(c.items)
 }
 
 // open 发 conv.open。重连后再发一次时，接着的是此前收到的会话号（新对话第一轮以后才有）。
@@ -94,7 +110,9 @@ func (c *Conversation) open(ctx context.Context) error {
 	if _, err := c.client.link.Call(ctx, "conv.open", params); err != nil {
 		return err
 	}
-	c.setConnected(true)
+	c.mu.Lock()
+	c.connected, c.opened = true, true
+	c.mu.Unlock()
 	c.client.notify()
 	return nil
 }
@@ -105,10 +123,12 @@ func putNonEmpty(m map[string]any, key, value string) {
 	}
 }
 
-func (c *Conversation) setConnected(v bool) {
+// disconnected 标成没连上，返回它打开成过没有（重连后要不要重新打开）。
+func (c *Conversation) disconnected() bool {
 	c.mu.Lock()
-	c.connected = v
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+	c.connected = false
+	return c.opened
 }
 
 // apply 合并一条推送，有变化时返回 true。
@@ -124,7 +144,7 @@ func (c *Conversation) apply(kind string, line []byte) bool {
 			return false
 		}
 		c.mu.Lock()
-		c.turns = append(c.turns, t)
+		c.pending.Turns = append(c.pending.Turns, t)
 		c.mu.Unlock()
 		return true
 	}
@@ -159,44 +179,39 @@ func (c *Conversation) applyState(line []byte) bool {
 	return true
 }
 
-// itemsMsg 是 conv.items：Full 时 Items 是整份，否则从 At 起去掉 Remove 项、换成 Items。
-type itemsMsg struct {
-	Full   bool              `json:"full"`
-	At     int               `json:"at"`
-	Remove int               `json:"remove"`
-	Items  []json.RawMessage `json:"items"`
-}
-
 func (c *Conversation) applyItems(line []byte) bool {
-	var msg itemsMsg
-	if json.Unmarshal(line, &msg) != nil {
+	var msg ItemsChange
+	if err := json.Unmarshal(line, &msg); err != nil {
+		log.Printf("chat: %s 的 conv.items 解不开：%v", c.name, err)
 		return false
 	}
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if msg.Full {
 		c.items = msg.Items
-		c.mu.Unlock()
+		c.pending.Items = []ItemsChange{msg}
 		return true
 	}
-	if msg.At < 0 || msg.Remove < 0 || msg.At+msg.Remove > len(c.items) {
-		// 和核心那份对不上了（不该发生）：重新打开，核心再推一份整份的。
-		log.Printf("chat: %s 的 conv.items 越界（at %d、remove %d、现有 %d 项），重新打开", c.name, msg.At, msg.Remove, len(c.items))
-		c.mu.Unlock()
+	next, err := items.Splice(c.items, msg.At, msg.Remove, msg.Items)
+	if err != nil {
+		// 和核心那份对不上了（不该发生）：重新打开，核心再推一份整份的
+		log.Printf("chat: %s：%v，重新打开", c.name, err)
 		go c.resync()
 		return false
 	}
-	c.items = slices.Replace(c.items, msg.At, msg.At+msg.Remove, msg.Items...)
-	c.mu.Unlock()
+	c.items = next
+	c.pending.Items = append(c.pending.Items, msg)
 	return true
 }
 
 // resync 关掉再打开这个对话，拿到整份的状态和条目。
 func (c *Conversation) resync() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), OpenTimeout)
+	defer cancel()
 	_, _ = c.client.link.Call(ctx, "conv.close", map[string]any{"conv": c.name})
 	if err := c.open(ctx); err != nil {
 		log.Printf("chat: %s 重新打开失败：%v", c.name, err)
-		c.setConnected(false)
+		c.disconnected()
 		c.client.notify()
 	}
 }

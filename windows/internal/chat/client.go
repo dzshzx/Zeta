@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"sync"
+	"time"
 )
 
 // Link 是到 serve 的连接。
@@ -19,6 +20,9 @@ type Link interface {
 	// ok 时返回 result（没有时为 nil），否则返回带 serve 给的原因的错误。
 	Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
 }
+
+// OpenTimeout 是打开一个对话最多等多久（核心可能要先拉起来、载入历史）。
+const OpenTimeout = 30 * time.Second
 
 // Client 管一条 serve 连接上打开的各个对话。方法可以在任何 goroutine 里调。
 type Client struct {
@@ -30,8 +34,8 @@ type Client struct {
 	convs map[string]*Conversation
 }
 
-// NewClient 建一个 Client。notify 在任何对话有了变化以后调（在收推送的 goroutine 里），
-// 界面据此在主线程上重读 View、重画；它不能阻塞，也不能回头调 Client 的方法等结果。
+// NewClient 建一个 Client。notify 在任何对话有了变化以后调（在收推送或发请求的 goroutine 里），
+// 界面据此在主线程上 Take、重画；它不能阻塞，也不能回头调 Client 的方法等结果。
 func NewClient(link Link, notify func()) *Client {
 	if notify == nil {
 		notify = func() {}
@@ -95,16 +99,20 @@ func (c *Client) Conversations() []*Conversation {
 // Disconnected：连接断了。各对话标成没连上，等 Reconnected。
 func (c *Client) Disconnected() {
 	for _, conv := range c.Conversations() {
-		conv.setConnected(false)
+		conv.disconnected()
 	}
 	c.notify()
 }
 
-// Reconnected：连接重新连上了（新的 serve 进程）。各对话按原来的名字重新打开，核心推来整份状态和条目；
-// 连接断开期间核心也可能重启过，这样都能接上。打不开的对话留着、标成没连上，返回遇到的第一个错误。
+// Reconnected：连接重新连上了（新的 serve 进程）。打开成过的对话按原来的名字重新打开，核心推来整份状态和条目；
+// 连接断开期间核心也可能重启过，这样都能接上。还在第一次打开的不动：它自己的 conv.open 正等着这条连接。
+// 打不开的对话留着、标成没连上，返回遇到的第一个错误。
 func (c *Client) Reconnected(ctx context.Context) error {
 	var first error
 	for _, conv := range c.Conversations() {
+		if !conv.disconnected() {
+			continue
+		}
 		if err := conv.open(ctx); err != nil && first == nil {
 			first = err
 		}
