@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.ColorSchemeMode

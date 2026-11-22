@@ -6,6 +6,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.SshStatus
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen

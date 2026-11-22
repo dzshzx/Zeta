@@ -2,8 +2,6 @@ package com.dzshzx.zeta.core
 
 import android.content.Context
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
@@ -187,7 +185,7 @@ object LinuxTransfers {
     var imports by mutableIntStateOf(0)
         private set
 
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
     @Volatile private var process: Process? = null
     @Volatile private var cancelled = false
     @Volatile private var lastPost = 0L

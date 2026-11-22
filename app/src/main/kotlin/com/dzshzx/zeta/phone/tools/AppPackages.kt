@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.of
 import java.io.File
 
 /**

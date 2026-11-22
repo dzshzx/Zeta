@@ -22,7 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.PhoneSession
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.Unattended
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.clipLine
@@ -88,9 +90,12 @@ class PhoneTools(
     isBusy: (PhoneTools) -> Boolean = { false },
     /** 后台屏幕有了、没了或换了应用（在主线程上调用）。 */
     onChanged: () -> Unit = {},
-) {
+) : PhoneSession {
+    override val mcpConfig: String
+        get() = MCP_CONFIG
+
     /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
-    @Volatile var unattended: UnattendedRun? = null
+    @Volatile override var unattended: Unattended? = null
 
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
@@ -145,7 +150,7 @@ class PhoneTools(
         get() = slot.agentDisplay
 
     /** 后台屏幕上最近打开的应用名（界面用）。 */
-    val agentDisplayApp: String?
+    override val agentDisplayApp: String?
         get() = slot.agentDisplayApp
 
     /** 工具线程看到的后台屏幕。 */
@@ -242,7 +247,10 @@ class PhoneTools(
     fun resumeByUser() = gate.set(pause = false, control = false)
 
     /** 停止这一轮（或别的原因 [reason]）：闸门前等着的调用作废，暂停和接管都解除。等着用户交还浏览器的调用也一并作废。 */
-    fun cancelWaiting(reason: String = STOPPED) {
+    override fun cancelWaiting() = cancelWaiting(STOPPED)
+
+    /** 等着的调用不再等，交给模型的原因是 [reason]。 */
+    fun cancelWaiting(reason: String) {
         gate.set(pause = false, control = false, cancel = reason)
         com.dzshzx.zeta.phone.browser.AgentBrowser.cancelWaiting()
     }
@@ -352,7 +360,7 @@ class PhoneTools(
     }
 
     /** Claude 开始了一条新回复（消息 id 变了）：上一批工具结果它已经看到了，从这里起按其中最新的控件列表编号。 */
-    fun onReply(messageId: String) {
+    override fun onReply(messageId: String) {
         if (messageId == replyId) return
         replyId = messageId
         seen = latest
@@ -461,7 +469,7 @@ class PhoneTools(
     // ---- MCP ----
 
     /** 处理一条 MCP 消息，返回要送回去的应答（通知类消息没有应答，返回空对象）。 */
-    fun handle(message: JsonObject): JsonObject {
+    override fun handle(message: JsonObject): JsonObject {
         val id = message["id"] ?: return JsonObject(emptyMap())
         slot.lastUse = System.currentTimeMillis()
         val result: JsonObject? =
@@ -521,7 +529,7 @@ class PhoneTools(
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject =
         PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
-            group.call(CallContext(context, backend, unattended), name, a)
+            group.call(CallContext(context, backend, unattended as UnattendedRun?), name, a)
         } ?: synchronized(lock) { callScreenTool(name, a, toolUseId) }
 
     /** 屏幕这一套工具的一次调用。只在持着 [lock] 时调用。 */
@@ -1654,13 +1662,13 @@ class PhoneTools(
     fun closeAgentDisplayByUser() = slot.releaseAsync()
 
     /** 一轮结束：清掉这一轮的悬浮层状态；过一阵还没再用就让后台屏幕休眠。 */
-    fun onTurnEnded() {
+    override fun onTurnEnded() {
         resetOverlay()
         slot.onTurnEnded()
     }
 
     /** 对话的进程结束了：后台屏幕和上面的应用留着，只让它睡下，用 --resume 接着的 Claude 还在原来那块屏上。 控件编号跟着上一个进程作废。 */
-    fun detach() {
+    override fun detach() {
         slot.detach { forget() }
         resetOverlay()
     }

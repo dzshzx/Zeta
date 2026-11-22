@@ -1,8 +1,7 @@
 package com.dzshzx.zeta.ui.pane
 
-import android.os.Handler
-import android.os.Looper
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.MainHandler
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.str
 import java.text.SimpleDateFormat
@@ -35,7 +34,7 @@ internal class ContentSearch(
     onHit: (id: String, snippet: String) -> Unit,
     onDone: (complete: Boolean?) -> Unit,
 ) {
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
     private var process: Process? = null
     private var cancelled = false
 

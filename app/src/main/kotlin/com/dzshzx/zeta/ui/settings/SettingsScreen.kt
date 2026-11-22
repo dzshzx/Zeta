@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage

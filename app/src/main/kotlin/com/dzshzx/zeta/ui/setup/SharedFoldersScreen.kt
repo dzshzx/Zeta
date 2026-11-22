@@ -41,6 +41,7 @@ import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.SharedAccess
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
+import com.dzshzx.zeta.core.fromTreeUri
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage

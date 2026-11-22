@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.core
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -21,15 +19,28 @@ enum class SetupState {
  * Linux 环境这一摊：检查 root 和环境、识别 Linux 用户、安装、修复与可选工具、SSH 服务、Claude 账号的登录状态。
  * 状态都可观察，在主线程上读写；查询和命令在后台线程上跑，结果投递回主线程。 和对话有关的事交回 [hub]：环境就绪后读会话列表、接回进程，换环境前收掉对话。
  */
-class EnvController
-internal constructor(private val hub: ConversationHub, assets: (String) -> String) {
+class EnvController constructor(private val hub: ConversationHub, assets: (String) -> String) :
+    LocalEnvironment {
+    override val ready: Boolean
+        get() = setup == SetupState.Ready
+
+    override val loggingIn: Boolean
+        get() =
+            login.state.let {
+                it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed
+            }
+
+    override fun showAccount(email: String, plan: String) {
+        account = AccountStatus(loggedIn = true, email = email, plan = plan)
+    }
+
     private val settings
         get() = hub.settings
 
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
 
     var setup by mutableStateOf(SetupState.Checking)
-        internal set
+        set
 
     /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
@@ -44,7 +55,7 @@ internal constructor(private val hub: ConversationHub, assets: (String) -> Strin
 
     /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
     var ssh by mutableStateOf<SshStatus?>(null)
-        internal set
+        set
 
     var sshWorking by mutableStateOf(false)
         private set
@@ -57,10 +68,10 @@ internal constructor(private val hub: ConversationHub, assets: (String) -> Strin
 
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
     var account by mutableStateOf<AccountStatus?>(null)
-        internal set
+        set
 
     var health by mutableStateOf<EnvHealth?>(null)
-        internal set
+        set
 
     var healthChecking by mutableStateOf(false)
         private set
@@ -74,13 +85,13 @@ internal constructor(private val hub: ConversationHub, assets: (String) -> Strin
     )
 
     var maintenance by mutableStateOf<Maintenance?>(null)
-        internal set
+        set
 
     /** 在装环境或做维护：前台服务据此保持。 */
-    internal val working: Boolean
+    override val working: Boolean
         get() = installer.running || maintenance?.running == true
 
-    fun checkSetup() {
+    override fun checkSetup() {
         setup = SetupState.Checking
         thread(name = "zeta-setup", isDaemon = true) {
             val saved = settings.env
@@ -138,11 +149,11 @@ internal constructor(private val hub: ConversationHub, assets: (String) -> Strin
     }
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
-    val canSwitchEnvironment: Boolean
+    override val canSwitchEnvironment: Boolean
         get() = !hub.conversationsWorking && !installer.running
 
     /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */
-    internal fun onEnvironmentInstalled() {
+    fun onEnvironmentInstalled() {
         thread(isDaemon = true) {
             val own = installer.status()
             main.post {
@@ -153,7 +164,7 @@ internal constructor(private val hub: ConversationHub, assets: (String) -> Strin
         }
     }
 
-    fun refreshAccount() {
+    override fun refreshAccount() {
         val config = settings.env ?: return
         thread(name = "zeta-account", isDaemon = true) {
             val result =

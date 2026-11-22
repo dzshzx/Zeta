@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.Settings as ZetaSettings
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage

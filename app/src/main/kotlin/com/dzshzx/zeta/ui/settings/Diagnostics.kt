@@ -14,6 +14,7 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagScripts
 import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.exitsWithin
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import java.time.ZoneId

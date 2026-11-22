@@ -27,6 +27,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleStore

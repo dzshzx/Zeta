@@ -31,7 +31,9 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.parsePrompt
+import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat

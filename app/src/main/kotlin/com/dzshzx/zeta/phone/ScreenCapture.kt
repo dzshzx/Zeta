@@ -15,6 +15,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.fromBitmap
+import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.ui.MainActivity
 import java.util.concurrent.atomic.AtomicBoolean

@@ -1,8 +1,6 @@
 package com.dzshzx.zeta.core
 
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -65,10 +63,10 @@ private val AnsiEscape =
     Regex("\u001B\\[[0-9;?]*[A-Za-z]|\u001B\\][^\u0007\u001B]*(\u0007|\u001B\\\\)|\r")
 
 /** 脚本输出的一行，去掉终端控制符。 */
-internal fun cleanLine(line: String): String = AnsiEscape.replace(line, "").trim()
+fun cleanLine(line: String): String = AnsiEscape.replace(line, "").trim()
 
 /** 安装脚本的进度行「@zeta progress <已完成> <总数>」折成 0 到 1；数不对、总数不是正数时是 null。 */
-internal fun progressFraction(line: String): Float? {
+fun progressFraction(line: String): Float? {
     val parts = line.split(" ")
     val current = parts.getOrNull(2)?.toFloatOrNull() ?: return null
     val total = parts.getOrNull(3)?.toFloatOrNull() ?: return null
@@ -103,7 +101,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     var finished by mutableStateOf(false)
         private set
 
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
     @Volatile private var process: Process? = null
     @Volatile private var cancelled = false
     private val androidScript by lazy { assets("zeta_setup_android.sh") }
@@ -440,9 +438,9 @@ sealed interface LoginState {
 /** 登录 Claude 账号。`claude auth login` 不需要终端：它打印一个授权链接，然后从标准输入读授权码。 这里把链接交给界面去打开，再把用户贴回来的授权码写进去。 */
 class LoginFlow(private val hub: ConversationHub) {
     var state by mutableStateOf<LoginState>(LoginState.Idle)
-        internal set
+        set
 
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
     @Volatile private var process: Process? = null
     @Volatile private var generation = 0
 

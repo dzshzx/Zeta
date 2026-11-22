@@ -33,6 +33,7 @@ import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.SshStatus
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.core.optionalName
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog

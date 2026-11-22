@@ -36,6 +36,7 @@ import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
 import com.dzshzx.zeta.core.diag.Redact
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning

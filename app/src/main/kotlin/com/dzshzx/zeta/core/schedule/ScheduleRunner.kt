@@ -9,9 +9,12 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.core.alerts
+import com.dzshzx.zeta.core.context
 import com.dzshzx.zeta.core.diag.DiagLevel
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.notice
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.phone.tools.ScheduleTools
@@ -29,7 +32,7 @@ import kotlin.concurrent.thread
  * 这次的权限模式和拦管理定时任务工具的权限规则（[ScheduleTools.unattendedRules]）随指令下发给进程，只管后台运行发的这几条：
  * 用户自己在这个对话里发下一条消息时换回用户的。接着已经开着的进程时不重起，这次的说明附在指令后面一起发。
  */
-internal object ScheduleRunner {
+object ScheduleRunner {
     private val main = Handler(Looper.getMainLooper())
 
     private class Run(

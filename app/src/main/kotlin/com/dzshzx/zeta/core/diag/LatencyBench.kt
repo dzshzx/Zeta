@@ -10,6 +10,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DebianSshShell
 import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.RemoteHost
+import com.dzshzx.zeta.core.get
 import java.util.Locale
 import kotlin.concurrent.thread
 

@@ -3,6 +3,8 @@ package com.dzshzx.zeta.phone
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.Conversation
+import com.dzshzx.zeta.core.phone
+import com.dzshzx.zeta.core.phoneCallRunning
 import com.dzshzx.zeta.shots.Fixtures
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json

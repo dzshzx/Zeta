@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.of
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.formatBytes
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.core.update.UpdateInstaller
 import com.dzshzx.zeta.core.update.UpdateState

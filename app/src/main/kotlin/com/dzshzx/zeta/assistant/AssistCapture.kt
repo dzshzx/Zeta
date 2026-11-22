@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.Attachments
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.core.fromBitmap
 import java.util.UUID
 import kotlin.concurrent.thread
 import kotlinx.coroutines.flow.first

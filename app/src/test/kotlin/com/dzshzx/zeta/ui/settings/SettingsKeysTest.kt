@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleStore
@@ -205,11 +206,11 @@ class SettingsKeysTest {
     @Test
     fun everyWriterOfTheSettingsFileIsExercised() {
         val sources =
-            File("src/main/kotlin")
-                .walk()
+            listOf(File("src/main/kotlin"), File("../shared/src/commonMain/kotlin"))
+                .flatMap { it.walk() }
                 .filter { it.isFile && it.extension == "kt" }
                 .associate { it.name to it.readText() }
-        val opener = Regex("getSharedPreferences\\((\\w+\\.)?FILE\\b")
+        val opener = Regex("(getSharedPreferences|SharedPrefStore)\\((\\w+, )?(\\w+\\.)?FILE\\b")
         val writers =
             sources
                 .filter { (_, text) ->
@@ -226,7 +227,7 @@ class SettingsKeysTest {
                 "PromptStore.kt",
                 "ScheduleAlarms.kt",
                 "ScheduleStore.kt",
-                "Settings.kt",
+                "SettingsOf.kt",
             ),
             writers,
         )

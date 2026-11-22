@@ -17,6 +17,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import io.github.suqi8.coui.kmp.effect.LocalCOUIMaterialEffectEnabled
 

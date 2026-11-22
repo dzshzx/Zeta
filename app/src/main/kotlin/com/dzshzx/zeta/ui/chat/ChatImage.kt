@@ -51,6 +51,7 @@ import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text

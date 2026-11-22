@@ -28,6 +28,8 @@ kotlin {
             api(libs.coui2.icons.kmp)
             api(libs.coui2.blur.kmp)
             api(libs.intellij.markdown)
+            api(libs.jsch)
+            api(libs.bcprov)
         }
     }
 }

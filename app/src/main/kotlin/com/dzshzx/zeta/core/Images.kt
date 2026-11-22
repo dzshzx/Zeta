@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.ImageDecoder
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import kotlin.math.roundToInt
 
 /**
  * 图片的解码、缩小、压 JPEG：附件、聊天里显示的图、手机工具看照片和聊天图片都走这里。 不碰 Context，root
@@ -17,13 +16,8 @@ object Images {
     class Decoded(val bitmap: Bitmap, val sourceWidth: Int, val sourceHeight: Int)
 
     /** 把 [width]×[height] 等比缩到最长边不超过 [edge]，不放大；四舍五入，至少 1。 */
-    fun fitWithin(width: Int, height: Int, edge: Int): Pair<Int, Int> {
-        val longest = maxOf(width, height)
-        if (longest <= edge || longest <= 0) return width to height
-        val scale = edge.toDouble() / longest
-        return (width * scale).roundToInt().coerceAtLeast(1) to
-            (height * scale).roundToInt().coerceAtLeast(1)
-    }
+    fun fitWithin(width: Int, height: Int, edge: Int): Pair<Int, Int> =
+        ImageCodec.fitWithin(width, height, edge)
 
     /** 解码并缩到最长边不超过 [edge]：解码时就按目标大小解，不先解出整张原图。动图取第一帧。解不开抛出异常。 */
     fun decodeWithin(source: ImageDecoder.Source, edge: Int): Decoded {
@@ -69,7 +63,7 @@ object Images {
 }
 
 /** 从图片数据的开头认出类型（image/jpeg、image/png、image/gif、image/webp）；认不出返回 null。 */
-internal fun imageMediaType(bytes: ByteArray): String? {
+fun imageMediaType(bytes: ByteArray): String? {
     fun at(index: Int) = bytes.getOrNull(index)?.toInt()?.and(0xFF)
     fun ascii(index: Int, text: String) = text.indices.all { at(index + it) == text[it].code }
     return when {

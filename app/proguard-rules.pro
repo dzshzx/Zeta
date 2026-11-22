@@ -14,6 +14,11 @@
 # LSPosed 按 resources/META-INF/xposed/java_init.list 里的类名加载模块
 -keep class com.dzshzx.zeta.xposed.ZetaModule { <init>(); }
 
+# 界面线程、本包包名和图片解码的实现由 ServiceLoader 按 resources/META-INF/services 里的类名加载（core/MainThread.kt、core/AppVariant.kt、core/ImageCodec.kt）
+-keep class com.dzshzx.zeta.core.AndroidMainLoop { <init>(); }
+-keep class com.dzshzx.zeta.core.AndroidAppPackage { <init>(); }
+-keep class com.dzshzx.zeta.core.AndroidImageCodec { <init>(); }
+
 # JSch 按配置里的类名反射创建每个算法（它自己的默认配置和 SshLinks 指定的 BouncyCastle 实现）
 -keep class com.jcraft.jsch.** { *; }
 # 它的可选依赖（Windows 的 Pageant、日志库、Kerberos、Unix socket）Zeta 都不带，用不到这几样

@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaService
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.claude.ClaudeAccount
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
 import com.dzshzx.zeta.ui.chat.severityColor

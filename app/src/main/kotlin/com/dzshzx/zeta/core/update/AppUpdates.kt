@@ -13,6 +13,9 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.get
+import com.dzshzx.zeta.core.of
+import com.dzshzx.zeta.core.phoneCallRunning
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage

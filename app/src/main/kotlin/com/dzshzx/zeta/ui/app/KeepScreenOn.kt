@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.get
 
 internal tailrec fun Context.findActivity(): Activity? =
     when (this) {

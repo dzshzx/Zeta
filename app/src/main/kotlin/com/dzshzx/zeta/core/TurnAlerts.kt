@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.core
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,11 +15,11 @@ import com.dzshzx.zeta.ui.overlay.ScreenLock
  * 需要确认的提醒、回答自动朗读，以及常驻通知提升成实时通知时显示哪个对话（[liveStatus]）。 对话的事件由 [hub]
  * 转过来（一轮就要结束、结束了、等确认）；挑对话只读可观察的状态，在主线程上调用。
  */
-class TurnAlerts internal constructor(private val hub: ConversationHub) {
+class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEvents {
     private val app
         get() = hub.context
 
-    private val main = Handler(Looper.getMainLooper())
+    private val main = MainHandler()
 
     /**
      * 顶部状态胶囊要显示的对话或外部客户端：正在用手机工具的那个（几个都在用时取最近操作的），没有时为 null。
@@ -83,7 +81,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
         linger?.takeIf { it.focus === focus && !focus.conversation.busy }?.text
 
     /** 对话的这一轮就要结束（还没清 busy 和手机工具的状态）。正显示在胶囊上的话，先停留一会儿显示 [text]（“已完成”）。 */
-    internal fun turnEnding(conversation: Conversation, text: String) {
+    override fun turnEnding(conversation: Conversation, text: String) {
         endingWithPhone = conversation.takeIf { it.phone.engagedThisTurn }
         val focus = conversation.overlay
         if (focusState.value !== focus) return
@@ -96,7 +94,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
      * 一轮结束了：弹不弹结果卡片、要不要提醒、念不念回答。[text] 是结束的那一句（“已完成”“出错了”“已中断”），提醒上也写它。
      * [stopped]：这一轮是用户叫停的（聊天页或通知栏），不再提醒。
      */
-    internal fun turnFinished(conversation: Conversation, stopped: Boolean, text: String = "已完成") {
+    override fun turnFinished(conversation: Conversation, stopped: Boolean, text: String) {
         val showed =
             offerResultCard(
                 conversation,
@@ -117,7 +115,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     private val waitingShown = HashMap<String, String>()
 
     /** 对话等着的请求变了（来了一个、处理掉了、Claude Code 撤回了、进程没了）。来了就照 [syncWaiting] 提醒，没了就撤掉这个对话的提醒。 */
-    internal fun pendingChanged(conversation: Conversation) {
+    override fun pendingChanged(conversation: Conversation) {
         if (conversation.pending != null) {
             syncWaiting(conversation)
             return
@@ -129,7 +127,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) {
     }
 
     /** 用户看着的对话变了（回到前台、切到后台、切了对话）：看着的那个的提醒不必留着；没看着、还在等用户的对话照 [syncWaiting] 提醒。 */
-    internal fun watchChanged() {
+    override fun watchChanged() {
         if (hub.foreground) clearAlert(hub.current.openKey)
         syncAll()
     }

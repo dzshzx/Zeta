@@ -27,6 +27,9 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.core.fromIntent
+import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.ui.app.ZetaTheme

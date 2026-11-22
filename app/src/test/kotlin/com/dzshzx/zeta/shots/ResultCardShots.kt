@@ -19,6 +19,8 @@ import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ResultCardPolicy
 import com.dzshzx.zeta.core.TurnResult
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.core.alerts
+import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.phone.ZetaAccessibilityService
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.shots
 import android.app.Application
 import androidx.compose.runtime.MutableState
 import com.dzshzx.zeta.core.AccountStatus
+import com.dzshzx.zeta.core.AndroidHubPlatform
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
@@ -11,6 +12,8 @@ import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SetupState
+import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.ssh.SshKey
 
 /**
@@ -83,11 +86,7 @@ object Fixtures {
 
     /** 换掉全应用共用的 hub；每个测试开始时清空，免得拿到上一个测试（上一个 Application）留下的那个。 */
     fun install(hub: ConversationHub?) {
-        ConversationHub::class
-            .java
-            .getDeclaredField("instance")
-            .apply { isAccessible = true }
-            .set(null, hub)
+        AndroidHubPlatform.install(hub)
     }
 
     /** 把当前对话换成这些聊天内容（标题 [title]）。 */

@@ -1,10 +1,11 @@
 package com.dzshzx.zeta.core.schedule
 
 import android.content.Context
+import com.dzshzx.zeta.core.Unattended
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 
 /** 一项后台运行的运行记录：上次运行、跳过次数，以及接着同一个对话时用的会话。 */
-internal data class RunRecord(
+data class RunRecord(
     val lastRun: TaskRun?,
     val skips: Int,
     val lastSkip: Long?,
@@ -12,7 +13,7 @@ internal data class RunRecord(
 )
 
 /** 后台运行从哪来：定时任务，或通知触发的规则。[ScheduleRunner] 经它把运行记录写回各自的清单。 */
-internal interface RunRecords {
+interface RunRecords {
     /** 来源的名字。进行中运行的键、通知的 tag 都是“[kind]:<id>”，两种来源的 id 撞不上。 */
     val kind: String
 
@@ -27,7 +28,7 @@ internal interface RunRecords {
 }
 
 /** 这一次要跑什么。 */
-internal data class RunSpec(
+data class RunSpec(
     val id: String,
     val name: String,
     /** 发给 Claude 的指令（通知触发的已经填好了通知内容）。 */
@@ -56,7 +57,7 @@ internal data class RunSpec(
  * 管理定时任务的工具在后台运行里拦两道：Claude Code 的权限规则让模型调不到（见 ScheduleTools.unattendedRules）， 漏过来的调用再由
  * ScheduleTools.refusal 看它拒掉。
  */
-class UnattendedRun(val onlyOnChange: Boolean) {
+class UnattendedRun(val onlyOnChange: Boolean) : Unattended {
     @Volatile var report: RunReport? = null
 
     /** 最近一次发过「需要你确认」提醒的确认请求的请求号；没停下来等过确认时为 null。在主线程上读写。 */
@@ -71,7 +72,7 @@ class UnattendedRun(val onlyOnChange: Boolean) {
         Schedules.settle(raw, answer, onlyOnChange, report, asked)
 
     /** 这一轮跑完不提醒（Claude 上报了没有变化）：屏幕底部也不弹结果卡片。 */
-    val quiet: Boolean
+    override val quiet: Boolean
         get() = !settle(RunOutcome.Done, "").notify
 }
 
@@ -79,7 +80,7 @@ class UnattendedRun(val onlyOnChange: Boolean) {
  * 后台运行加在系统提示词后面的说明（接着开着的进程时附在指令后面）：[intro] 说这一轮是怎么来的，接着说结果先看通知里那一段；
  * 只在有变化时提醒的再说怎么上报（手机工具关着时没有上报的工具，照常提醒）。定时任务和通知触发共用。
  */
-internal fun unattendedHint(intro: String, onlyOnChange: Boolean): String =
+fun unattendedHint(intro: String, onlyOnChange: Boolean): String =
     "$intro The user first sees the opening of your final reply (about ${Schedules.MAX_SUMMARY} characters) in a phone notification, " +
         "so lead with the result." +
         if (onlyOnChange) " $ONLY_ON_CHANGE_HINT" else ""
@@ -92,7 +93,7 @@ private const val ONLY_ON_CHANGE_HINT =
         "If you do not report, the user is notified as usual. Messages the user types themselves need no report."
 
 /** 定时任务的运行记录写在任务清单里。 */
-internal object ScheduleRecords : RunRecords {
+object ScheduleRecords : RunRecords {
     override val kind = "schedule"
     override val fallbackName = "定时任务"
 

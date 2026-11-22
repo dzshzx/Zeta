@@ -26,6 +26,7 @@ import com.dzshzx.zeta.core.StorageGroup
 import com.dzshzx.zeta.core.StorageKind
 import com.dzshzx.zeta.core.StorageReport
 import com.dzshzx.zeta.core.StorageUsage
+import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage

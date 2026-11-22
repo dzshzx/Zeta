@@ -4,6 +4,7 @@ import android.content.Context
 import com.dzshzx.zeta.core.CommandResult
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.Settings
+import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.phone.tools.rootShell
 import kotlin.concurrent.thread
 

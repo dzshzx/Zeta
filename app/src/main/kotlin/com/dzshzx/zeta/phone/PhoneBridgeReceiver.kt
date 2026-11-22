@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.get
 
 /**
  * 叫起 [PhoneBridge]：`zeta-helper phone-mcp` 连之前先以 root 发一条指名的广播到这里。应用没在跑时系统因此拉起进程，进程被冻结着时因此解冻； 这里只要把
