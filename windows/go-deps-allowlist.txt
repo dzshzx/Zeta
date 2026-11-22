@@ -1,5 +1,6 @@
-# 桌面版（windows/）链接的模块：仓里的 client（SSH 与主机连接）和 helper（serve 协议的消息类型），都经 go.mod 的 replace 用仓里的目录；
-# mygo 和它带进来的（纯 Go 调系统库、排字、图像、文字编码），直连设备的 SSH（x/crypto）。门禁 gate_go_deps 按本清单核对，多一个都失败
+# 桌面版（windows/）按 Windows 构建时链接的模块：仓里的 client（SSH 与主机连接）和 helper（serve 协议的消息类型），都经 go.mod 的 replace 用仓里的目录；
+# mygo 和它带进来的（纯 Go 调系统库、排字、图像、文字编码，Windows 后端用的公共后缀表 x/net），直连设备的 SSH（x/crypto）。
+# 门禁 gate_go_deps -goos windows 按本清单核对，多一个都失败
 github.com/dzshzx/Zeta/client
 github.com/dzshzx/Zeta/helper
 github.com/ebitengine/purego
@@ -7,4 +8,5 @@ github.com/egoist/mygo
 github.com/go-text/typesetting
 golang.org/x/crypto
 golang.org/x/image
+golang.org/x/net
 golang.org/x/text
