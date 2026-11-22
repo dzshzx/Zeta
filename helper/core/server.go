@@ -152,7 +152,7 @@ type Server struct {
 	mu      sync.Mutex
 	clients map[*Client]struct{}
 	nextID  uint64
-	quietAt time.Time // 最后一个客户端走的时刻（还没有过客户端时是开始听的时刻）
+	quietAt time.Time // 第一次看到没有客户端、处理器也闲着的时刻；不是这样时为零
 	closing bool
 	wg      sync.WaitGroup
 }
@@ -177,7 +177,7 @@ func Listen(p Paths) (*Server, error) {
 		_ = lock.Close()
 		return nil, err
 	}
-	return &Server{paths: p, lock: lock, ln: ln, clients: map[*Client]struct{}{}, quietAt: time.Now()}, nil
+	return &Server{paths: p, lock: lock, ln: ln, clients: map[*Client]struct{}{}}, nil
 }
 
 // Serve 接客户端、把请求交给 h，跑到 ctx 结束（比如收到 SIGTERM），或者没有客户端、h 也闲着满 idle 为止，返回 nil。
@@ -206,24 +206,21 @@ func (s *Server) Serve(ctx context.Context, h Handler, idle time.Duration) error
 	}
 }
 
-// idleSince 是没有客户端、处理器也闲着已经多久了；有客户端或处理器不闲时是 0。
-// 问处理器时不持着 s.mu，免得和处理器自己的锁绕在一起。
+// idleSince 是没有客户端、处理器也闲着已经多久了：从第一次看到这样算起，有客户端或处理器不闲时清零、返回 0。
+// 所以退出总在真正闲下来之后满 idle，不会因为查得稀早退一个间隔。问处理器时不持着 s.mu，免得和处理器自己的锁绕在一起。
 func (s *Server) idleSince(h Handler, now time.Time) time.Duration {
 	s.mu.Lock()
 	connected := len(s.clients) > 0
 	s.mu.Unlock()
-	if connected {
-		return 0
-	}
-	idle := h.Idle()
+	idle := !connected && h.Idle()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.clients) > 0 { // 问的时候刚连上一个
+	if !idle || len(s.clients) > 0 { // 问的时候刚连上一个也算不闲
+		s.quietAt = time.Time{}
 		return 0
 	}
-	if !idle {
+	if s.quietAt.IsZero() {
 		s.quietAt = now
-		return 0
 	}
 	return now.Sub(s.quietAt)
 }
@@ -268,9 +265,6 @@ func (s *Server) serveClient(h Handler, c *Client) {
 	c.hangUp()
 	s.mu.Lock()
 	delete(s.clients, c)
-	if len(s.clients) == 0 {
-		s.quietAt = time.Now()
-	}
 	s.mu.Unlock()
 	h.Gone(c)
 }

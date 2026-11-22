@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -55,7 +56,7 @@ type Conversation struct {
 	interruptRequested bool
 	shellCommands      map[string]bool // 在跑的 ! 命令（bash_command 的 uuid）：它们没有 result
 	unsent             []*outgoing     // 交给了新起的进程、还没见它有任何输出的消息
-	prompts            []*Prompt
+	prompts            []*prompt.Prompt
 	launchHint         string
 
 	model              *string // 这个对话指定的模型；nil 是不指定

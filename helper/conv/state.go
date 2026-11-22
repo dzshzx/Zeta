@@ -17,10 +17,6 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		v := c.recalled.view()
 		recalled = &v
 	}
-	prompts := make([]json.RawMessage, len(c.prompts))
-	for i, p := range c.prompts {
-		prompts[i] = p.view
-	}
 	return map[string]json.RawMessage{
 		"session":         raw(c.session),
 		"title":           raw(c.title),
@@ -35,7 +31,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"tasks":           raw(c.tasks.view()),
 		"queued":          raw(queued),
 		"steering":        raw(c.steering),
-		"prompts":         raw(prompts),
+		"prompts":         raw(nonNilSlice(c.prompts)),
 		"recalled":        raw(recalled),
 		"model":           raw(c.model),
 		"reported_model":  raw(c.reportedModel),

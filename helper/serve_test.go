@@ -336,9 +336,12 @@ func TestServeForwardsConversationsToOneCore(t *testing.T) {
 		t.Fatal("还没有 conv. 请求就有了核心")
 	}
 
-	a.send(`{"id":1,"method":"conv.open","cwd":"/w"}`)
+	a.send(`{"id":1,"method":"conv.open","conv":"c1","cwd":"/w"}`)
+	if s := a.next("conv.state"); s["conv"] != "c1" || s["full"] != true {
+		t.Fatalf("打开后的整份状态 %v", s)
+	}
 	r := a.next("zeta_reply")
-	if r["id"] != json.Number("1") || r["ok"] != false || r["error"] != "no such method yet: conv.open" {
+	if r["id"] != json.Number("1") || r["ok"] != true {
 		t.Fatalf("经核心的应答 %v", r)
 	}
 	pid := corePid(p)
@@ -350,7 +353,7 @@ func TestServeForwardsConversationsToOneCore(t *testing.T) {
 	}
 
 	b.send(`{"id":"x","method":"conv.send","conv":"c1","text":"你好"}`)
-	if r := b.next("zeta_reply"); r["id"] != "x" || r["error"] != "no such method yet: conv.send" {
+	if r := b.next("zeta_reply"); r["id"] != "x" || r["error"] != "没有打开这个对话" {
 		t.Fatalf("b 经核心的应答 %v", r)
 	}
 	if corePid(p) != pid {

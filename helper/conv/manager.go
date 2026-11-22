@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/prompt"
 )
 
 // releaseAfter：没人拿着、又闲着的对话过这么久断开背后的进程（看门狗约十分钟后收掉它），也从核心里去掉。
@@ -49,8 +51,8 @@ type request struct {
 	UUID      string              `json:"uuid"`
 	Recall    bool                `json:"recall"`
 	RequestID string              `json:"request_id"`
-	Reply     json.RawMessage     `json:"reply"`
-	Action    string              `json:"action"`
+	Reply     prompt.Reply        `json:"reply"`
+	Action    prompt.ElicitAction `json:"action"`
 	Values    map[string][]string `json:"values"`
 	Value     *string             `json:"value"`
 	Task      string              `json:"task"`
@@ -110,7 +112,9 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 		}
 		return nil, nil
 	},
-	"conv.send":      func(c *Conversation, client int, r request) (any, error) { return nil, c.sendMessage(client, r.Message) },
+	"conv.send": func(c *Conversation, client int, r request) (any, error) {
+		return nil, c.sendMessage(client, r.Message)
+	},
 	"conv.interrupt": func(c *Conversation, _ int, _ request) (any, error) { c.interrupt(); return nil, nil },
 	"conv.steer":     func(c *Conversation, _ int, _ request) (any, error) { c.steer(); return nil, nil },
 	"conv.cancel": func(c *Conversation, _ int, r request) (any, error) {

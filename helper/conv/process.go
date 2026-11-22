@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/prompt"
 )
 
 var errClosed = errors.New("对话已关闭")
@@ -240,16 +242,16 @@ func (c *Conversation) initialized(r controlResponse) {
 	// 接回进程时：还在等的工具确认以 Claude Code 报的为准（输出里看不出答没答过）。MCP 表单不在这份清单里，照读到的留着
 	if r.PendingPermissionRequests != nil {
 		listed := map[string]bool{}
-		var waiting []*Prompt
+		var waiting []*prompt.Prompt
 		for _, line := range r.PendingPermissionRequests {
-			if p := parsePrompt(line); p != nil && p.permission {
-				listed[p.requestID] = true
+			if p := prompt.Parse(line); p != nil && p.Kind == prompt.KindPermission {
+				listed[p.RequestID] = true
 				waiting = append(waiting, p)
 			}
 		}
 		kept := c.prompts[:0]
 		for _, p := range c.prompts {
-			if !p.permission || listed[p.requestID] {
+			if p.Kind != prompt.KindPermission || listed[p.RequestID] {
 				kept = append(kept, p)
 			}
 		}

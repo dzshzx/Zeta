@@ -82,7 +82,8 @@ func main() {
 		os.Exit(0)
 	}
 	if len(os.Args) == 2 && os.Args[1] == "core" {
-		os.Exit(runCore(newEnv(), noConversations{}, coreIdle))
+		e := newEnv()
+		os.Exit(runCore(e, newConversations(e), coreIdle))
 	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -121,15 +122,6 @@ func runCore(e *env, h core.Handler, idle time.Duration) int {
 	log.Print("exiting")
 	return 0
 }
-
-// noConversations 是对话逻辑接上之前的占位处理器：什么方法都还没有，总是闲着。
-type noConversations struct{}
-
-func (noConversations) Request(_ *core.Client, r core.Request) (any, error) {
-	return nil, errors.New("no such method yet: " + r.Method)
-}
-func (noConversations) Gone(*core.Client) {}
-func (noConversations) Idle() bool        { return true }
 
 // run 跑一个命令，返回退出码。输出先进缓冲，退出前写出（search、storage 边做边写）。
 func run(args []string, stdout, stderr io.Writer) int {

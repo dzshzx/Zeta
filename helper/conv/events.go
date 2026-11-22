@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -388,7 +389,7 @@ func (c *Conversation) setSession(id string) {
 
 // handleControlRequest：要用户回应的请求进队；手机工具的调用转给处理手机工具的客户端。
 func (c *Conversation) handleControlRequest(e event, line []byte) {
-	if p := parsePrompt(line); p != nil {
+	if p := prompt.Parse(line); p != nil {
 		c.enqueuePrompt(p)
 		return
 	}

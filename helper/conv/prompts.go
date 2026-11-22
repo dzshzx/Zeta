@@ -1,26 +1,19 @@
 package conv
 
 import (
-	"encoding/json"
 	"errors"
 	"slices"
 
+	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
-// Prompt 是一个等用户回应的请求（工具确认、计划审批、提问、MCP 表单），按到达顺序排队，客户端一次弹第一个。
+// 等用户回应的请求（工具确认、计划审批、提问、MCP 表单）按到达顺序排在 c.prompts 里，客户端一次弹第一个。
 // 主对话和后台子代理可能同时各有一个在等。
-type Prompt struct {
-	requestID  string
-	toolUseID  string
-	permission bool            // can_use_tool；不是的是 elicitation
-	view       json.RawMessage // 推给客户端的样子
-	parsed     parsedPrompt
-}
 
 // enqueuePrompt：同一个号已经在等（接回进程时重放过来的）就不再排一次。
-func (c *Conversation) enqueuePrompt(p *Prompt) {
-	if slices.ContainsFunc(c.prompts, func(q *Prompt) bool { return q.requestID == p.requestID }) {
+func (c *Conversation) enqueuePrompt(p *prompt.Prompt) {
+	if slices.ContainsFunc(c.prompts, func(q *prompt.Prompt) bool { return q.RequestID == p.RequestID }) {
 		return
 	}
 	c.prompts = append(c.prompts, p)
@@ -29,7 +22,7 @@ func (c *Conversation) enqueuePrompt(p *Prompt) {
 
 func (c *Conversation) dropPrompt(requestID string) {
 	n := len(c.prompts)
-	c.prompts = slices.DeleteFunc(c.prompts, func(p *Prompt) bool { return p.requestID == requestID })
+	c.prompts = slices.DeleteFunc(c.prompts, func(p *prompt.Prompt) bool { return p.RequestID == requestID })
 	if len(c.prompts) != n {
 		c.changed()
 	}
@@ -48,7 +41,9 @@ func (c *Conversation) dropAnsweredPrompts(m *transcript.Message) {
 		return
 	}
 	n := len(c.prompts)
-	c.prompts = slices.DeleteFunc(c.prompts, func(p *Prompt) bool { return p.permission && done[p.toolUseID] })
+	c.prompts = slices.DeleteFunc(c.prompts, func(p *prompt.Prompt) bool {
+		return p.Kind == prompt.KindPermission && done[p.ToolUseID]
+	})
 	if len(c.prompts) != n {
 		c.changed()
 	}
@@ -56,8 +51,8 @@ func (c *Conversation) dropAnsweredPrompts(m *transcript.Message) {
 
 var errNoPrompt = errors.New("没有在等这个请求")
 
-func (c *Conversation) findPrompt(requestID string) *Prompt {
-	i := slices.IndexFunc(c.prompts, func(p *Prompt) bool { return p.requestID == requestID })
+func (c *Conversation) findPrompt(requestID string, kind prompt.Kind) *prompt.Prompt {
+	i := slices.IndexFunc(c.prompts, func(p *prompt.Prompt) bool { return p.RequestID == requestID && p.Kind == kind })
 	if i < 0 {
 		return nil
 	}
@@ -65,33 +60,33 @@ func (c *Conversation) findPrompt(requestID string) *Prompt {
 }
 
 // answer 回应一次 can_use_tool（工具确认、计划审批、提问）。
-func (c *Conversation) answer(requestID string, reply json.RawMessage) error {
-	p := c.findPrompt(requestID)
-	if p == nil || !p.permission {
+func (c *Conversation) answer(requestID string, reply prompt.Reply) error {
+	p := c.findPrompt(requestID, prompt.KindPermission)
+	if p == nil {
 		return errNoPrompt
 	}
-	response, stops, err := permissionResponse(p, reply)
+	response, err := p.Respond(reply)
 	if err != nil {
 		return err
 	}
 	// 不写理由的拒绝和终端里按 Esc 一样叫停这一轮：结局算已停止，不算出错
-	if stops {
+	if reply.StopsTurn() {
 		c.interruptRequested = true
 	}
 	c.respond(requestID, response)
 	return nil
 }
 
-// elicit 回应一次 MCP 表单：action 是 accept、decline 或 cancel；接受表单时 values 是各项填的（键 → 输入框里的字，多选是选中的值）。
+// elicit 回应一次 MCP 表单：接受表单时 values 是各项填的（键 → 输入框里的字，多选是选中的值）。
 // 填得不对时返回各项的错误（键 → 说明），不交给 Claude Code。
-func (c *Conversation) elicit(requestID, action string, values map[string][]string) (map[string]string, error) {
-	p := c.findPrompt(requestID)
-	if p == nil || p.permission {
+func (c *Conversation) elicit(requestID string, action prompt.ElicitAction, values map[string][]string) (map[string]string, error) {
+	p := c.findPrompt(requestID, prompt.KindElicitation)
+	if p == nil {
 		return nil, errNoPrompt
 	}
-	response, problems := elicitationResponse(p, action, values)
-	if len(problems) > 0 {
-		return problems, nil
+	response, problems, err := p.Elicit(action, values)
+	if err != nil || len(problems) > 0 {
+		return problems, err
 	}
 	c.respond(requestID, response)
 	return nil, nil
@@ -108,10 +103,10 @@ func (c *Conversation) respond(requestID string, response any) {
 // dismissPrompts：停止时把在等的都答掉。工具确认按 Esc 那样拒绝（这一轮停下），MCP 表单取消。
 func (c *Conversation) dismissPrompts() {
 	for _, p := range slices.Clone(c.prompts) {
-		if p.permission {
-			_ = c.answer(p.requestID, json.RawMessage(`{"kind":"deny"}`))
+		if p.Kind == prompt.KindPermission {
+			_ = c.answer(p.RequestID, prompt.Reply{Kind: prompt.ReplyDeny})
 		} else {
-			_, _ = c.elicit(p.requestID, "cancel", nil)
+			_, _ = c.elicit(p.RequestID, prompt.ElicitCancel, nil)
 		}
 	}
 }
