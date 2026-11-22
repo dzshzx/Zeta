@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
 
-const (
+// searchTime、searchLimit 是一次搜索最多找多久、最多几个命中；测试里改。
+var (
 	searchTime  = 10 * time.Second
 	searchLimit = 80
 )
+
+// searchCheckEvery：一份记录里每读这么多行看一次搜索是不是该停了。
+const searchCheckEvery = 256
 
 // spokenText 是一条记录里用户或 Claude 亲口说的话和说话的角色；工具调用、工具结果、系统注入的内容的文字是空串。
 func spokenText(o obj) (role, text string) {
@@ -63,16 +68,16 @@ func snippet(text string, at, length int) string {
 
 // searcher 在一份份记录里找关键词。
 type searcher struct {
-	needle  string // 小写的关键词
-	escaped string // 关键词在 JSON 字符串里的样子：记录里的字符串是转义过的，按行粗筛时用它比
+	ctx     context.Context // 取消或到了时限就不再往下读
+	needle  string          // 小写的关键词
+	escaped string          // 关键词在 JSON 字符串里的样子：记录里的字符串是转义过的，按行粗筛时用它比
 }
 
 // cmdSearch 边找边输出 zeta_match，最后一行是汇总 zeta_search_done（见 searchSessions）。
 func cmdSearch(e *env, o *emitter, query string) error {
-	done, err := searchSessions(e, query, func(m searchMatch) bool {
+	done, err := searchSessions(context.Background(), e, query, func(m searchMatch) {
 		o.out(obj{"type": "zeta_match", "id": m.ID, "role": m.Role, "snippet": m.Snippet})
 		o.flush()
-		return true
 	})
 	if err != nil {
 		return err
@@ -88,7 +93,7 @@ type searchMatch struct {
 	Snippet string `json:"snippet"`
 }
 
-// searchDone 是一次搜索的汇总：看了几份、一共几份、命中几个；Complete 为假是到了时限、个数，或被叫停。
+// searchDone 是一次搜索的汇总：看了几份、一共几份、命中几个；Complete 为假是到了时限、个数，或被取消。
 type searchDone struct {
 	Scanned  int  `json:"scanned"`
 	Total    int  `json:"total"`
@@ -97,38 +102,41 @@ type searchDone struct {
 }
 
 // searchSessions 在最新的 listLimit 个会话里找关键词，只看用户和 Claude 说的话。逐行先按子串粗筛（工具结果、请求快照这类大行不解析），
-// 每个会话取第一处命中就换下一个，命中一个就交给 found；found 返回假时不再找。限时限量，免得几百 MB 的记录把手机拖住。
+// 每个会话取第一处命中就换下一个，命中一个就交给 found。限时（searchTime）限量，免得几百 MB 的记录把手机拖住；
+// ctx 取消时也停，每读完一份记录、一份里每读 searchCheckEvery 行看一次。停下时照样给出汇总，Complete 为假。
 // zeta-helper search 和核心的 sessions.search 都用它。
-func searchSessions(e *env, query string, found func(searchMatch) bool) (searchDone, error) {
+func searchSessions(ctx context.Context, e *env, query string, found func(searchMatch)) (searchDone, error) {
 	needle := strings.ToLower(strings.TrimSpace(query))
 	if needle == "" {
 		return searchDone{}, errors.New("empty query")
 	}
+	ctx, cancel := context.WithTimeout(ctx, searchTime)
+	defer cancel()
 	quoted := appendQuoted(nil, needle)
-	s := searcher{needle: needle, escaped: string(quoted[1 : len(quoted)-1])}
+	s := searcher{ctx: ctx, needle: needle, escaped: string(quoted[1 : len(quoted)-1])}
 	files := e.sessionFiles()
 	sortNewestFirst(files)
 	files = files[:min(len(files), listLimit)]
-	deadline := time.Now().Add(searchTime)
 	done := searchDone{Total: len(files), Complete: true}
 	for _, path := range files {
-		if time.Now().After(deadline) || done.Matched >= searchLimit {
+		if ctx.Err() != nil || done.Matched >= searchLimit {
 			done.Complete = false
 			break
 		}
 		done.Scanned++
 		if role, snip, ok := s.file(path); ok {
 			done.Matched++
-			if !found(searchMatch{ID: dropRunes(baseName(path), 6), Role: role, Snippet: snip}) {
-				done.Complete = false
-				break
-			}
+			found(searchMatch{ID: dropRunes(baseName(path), 6), Role: role, Snippet: snip})
 		}
+	}
+	if ctx.Err() != nil {
+		// 最后一份读到一半停下的
+		done.Complete = false
 	}
 	return done, nil
 }
 
-// file 在一份记录里找第一处命中。
+// file 在一份记录里找第一处命中；搜索该停时不再往下读，当没找到。
 func (s searcher) file(path string) (role, snip string, found bool) {
 	f, err := openFile(path)
 	if err != nil {
@@ -136,7 +144,11 @@ func (s searcher) file(path string) (role, snip string, found bool) {
 	}
 	defer f.Close()
 	lr := newLineReader(f)
+	n := 0
 	for line, ok := lr.next(); ok; line, ok = lr.next() {
+		if n++; n%searchCheckEvery == 0 && s.ctx.Err() != nil {
+			return "", "", false
+		}
 		if role, snip, found := s.line(line); found {
 			return role, snip, true
 		}

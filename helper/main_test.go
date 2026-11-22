@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -88,5 +90,28 @@ func TestArchiveKeepsOnlyExistingSessions(t *testing.T) {
 	mustCall(t, e, "archive", a, "0")
 	if data, _ := os.ReadFile(e.archive); string(data) != "" {
 		t.Errorf("after unarchive %q", data)
+	}
+}
+
+// 几处同时改归档（核心里几个客户端、另一个进程里的子命令）一个一个来，谁归档的都不丢。
+func TestArchiveConcurrentWritersKeepAll(t *testing.T) {
+	e := testEnv(t)
+	var ids []string
+	for i := range 20 {
+		id := fmt.Sprintf("%08d-0000-0000-0000-000000000000", i)
+		writeLines(t, e.root+"/-p/"+id+".jsonl", `{}`)
+		ids = append(ids, id)
+	}
+	var wg sync.WaitGroup
+	for _, id := range ids {
+		wg.Go(func() {
+			if err := archiveSessions(e, []string{id}, true); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+	if got := e.archivedSessions(); len(got) != len(ids) {
+		t.Fatalf("归档了 %d 个，文件里只有 %d 个", len(ids), len(got))
 	}
 }

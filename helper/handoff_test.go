@@ -521,11 +521,7 @@ func TestHandoffThroughCoreDoesNotHoldTheConnection(t *testing.T) {
 	t.Cleanup(func() { handoffGrace = old })
 	e := testEnv(t)
 	inProcessCore(t, e, fastWatch)
-	pid, done := tui(t, true)
-	t.Cleanup(func() {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-		<-done
-	})
+	pid, _ := tui(t, true)
 	registerStatus(t, e, pid, handoffID, "idle", "")
 
 	c := startServe(t, e, testIdle)

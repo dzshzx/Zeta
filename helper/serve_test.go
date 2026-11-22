@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -25,12 +26,14 @@ const testIdle = time.Minute
 
 var fastWatch = watchOptions{debounce: 20 * time.Millisecond, poll: time.Hour}
 
-// serveClient 是测试里的客户端：往 serve 的输入写请求，从输出一行行读。
+// serveClient 是测试里的客户端：往 serve 的输入写请求，从输出一行行读。call 等应答时途中推来的消息先攒着，next 先从攒着的里找。
 type serveClient struct {
-	t    *testing.T
-	in   *io.PipeWriter
-	got  chan obj
-	done chan error
+	t     *testing.T
+	in    *io.PipeWriter
+	got   chan obj
+	done  chan error
+	stash []obj
+	seq   int // call 用过的最大请求 id
 }
 
 func startServe(t *testing.T, e *env, idle time.Duration) *serveClient {
@@ -72,6 +75,19 @@ func (c *serveClient) send(line string) {
 // next 等下一行类型是 kind 的消息（别的类型跳过）。
 func (c *serveClient) next(kind string) obj {
 	c.t.Helper()
+	return c.nextWhere(kind, func(obj) bool { return true })
+}
+
+// nextWhere 等下一条类型是 kind、又合 want 的消息（攒着的先看），别的丢掉。
+func (c *serveClient) nextWhere(kind string, want func(obj) bool) obj {
+	c.t.Helper()
+	for len(c.stash) > 0 {
+		m := c.stash[0]
+		c.stash = c.stash[1:]
+		if m["type"] == kind && want(m) {
+			return m
+		}
+	}
 	deadline := time.After(5 * time.Second)
 	for {
 		select {
@@ -79,13 +95,64 @@ func (c *serveClient) next(kind string) obj {
 			if !ok {
 				c.t.Fatalf("serve 没等到 %s 就关了输出", kind)
 			}
-			if m["type"] == kind {
+			if m["type"] == kind && want(m) {
 				return m
 			}
 		case <-deadline:
-			c.t.Fatalf("5 秒内没等到 %s", kind)
+			c.t.Fatalf("5 秒内没等到合要求的 %s", kind)
 		}
 	}
+}
+
+// call 发一个请求（params 是参数的 JSON 片段，可以是空串；id 自动编），等它的应答，途中推来的攒着。
+func (c *serveClient) call(method, params string) obj {
+	c.t.Helper()
+	c.seq++
+	id := c.seq
+	line := fmt.Sprintf(`{"id":%d,"method":%q`, id, method)
+	if params != "" {
+		line += "," + params
+	}
+	c.send(line + "}")
+	deadline := time.After(30 * time.Second)
+	for {
+		select {
+		case m, ok := <-c.got:
+			if !ok {
+				c.t.Fatalf("%s：serve 没答就关了输出", method)
+			}
+			if m["type"] == "zeta_reply" && fmt.Sprint(m["id"]) == fmt.Sprint(id) {
+				return m
+			}
+			c.stash = append(c.stash, m)
+		case <-deadline:
+			c.t.Fatalf("%s：30 秒内没有应答", method)
+		}
+	}
+}
+
+// ok 同 call，要求应答成功，给出 result。
+func (c *serveClient) ok(method, params string) any {
+	c.t.Helper()
+	r := c.call(method, params)
+	if r["ok"] != true {
+		c.t.Fatalf("%s 没成：%v", method, r)
+	}
+	return r["result"]
+}
+
+// stashed 取出攒着的类型是 kind 的消息，按到达的顺序。
+func (c *serveClient) stashed(kind string) []obj {
+	var out, rest []obj
+	for _, m := range c.stash {
+		if m["type"] == kind {
+			out = append(out, m)
+		} else {
+			rest = append(rest, m)
+		}
+	}
+	c.stash = rest
+	return out
 }
 
 // quiet 确认这段时间里没有推来会话列表。

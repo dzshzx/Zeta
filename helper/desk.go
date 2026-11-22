@@ -91,7 +91,8 @@ func cmdDeskOpen(e *env, o *emitter, id, cwd string) error {
 }
 
 // deskOpen 给会话 id 在 tmux 会话 zeta 里开窗口，已经有就不动；给出窗口 id，这台机器没有 tmux 时是 nil。
-// 窗口名先是会话 id 的前 8 位，desk 读到标题后改。zeta-helper desk-open 和核心的 sessions.desk_open 都用它。
+// 窗口名先是会话 id 的前 8 位，desk 读到标题后改。zeta-helper desk-open、核心的 sessions.desk_open，
+// 和对话起进程时（conv.Deps.Desk，见 newConversations）都用它。
 func deskOpen(e *env, id, cwd string) (*string, error) {
 	if !tmuxPresent() {
 		return nil, nil

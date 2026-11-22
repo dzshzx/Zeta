@@ -123,26 +123,26 @@ var (
 	errRenameNoFile    = errors.New("找不到这个会话的会话记录，改不了名")
 )
 
-// rename 是用户给这个对话改名（conv.title）：照 zeta-helper rename 往会话记录里追加一行 custom-title，写成了才换标题。
-// 这是用户起的名字，之后不再自动起标题。还没有会话号的（新对话没发过消息、分支还没发出第一条）没有会话记录可写，
-// 答出错，同 Kotlin 版只在会话列表里改名。
+// rename 是用户给这个对话改名（conv.title、sessions.rename）：照 zeta-helper rename 往会话记录里追加一行 custom-title，
+// 写成了才换标题，返回实际写下的标题。这是用户起的名字，之后不再自动起标题。还没有会话号的（新对话没发过消息、分支还没发出第一条）
+// 没有会话记录可写，答出错，同 Kotlin 版只在会话列表里改名。
 //
 // 进程开着时另请 Claude Code 自己也改名（rename_session）：它把名字记在内存里，之后补写会话记录的元数据、
 // 起标题的应答都用它记着的那个，不跟着改就可能把旧名字又写回去。
-func (c *Conversation) rename(title string) error {
+func (c *Conversation) rename(title string) (string, error) {
 	if c.session == "" {
-		return errRenameNoSession
+		return "", errRenameNoSession
 	}
 	var file string
 	if c.deps.SessionFile != nil {
 		file = c.deps.SessionFile(c.session)
 	}
 	if file == "" || c.deps.Rename == nil {
-		return errRenameNoFile
+		return "", errRenameNoFile
 	}
 	written, err := c.deps.Rename(file, title)
 	if err != nil {
-		return err
+		return "", err
 	}
 	c.title = written
 	c.autoName = autoTitle{}
@@ -150,7 +150,7 @@ func (c *Conversation) rename(title string) error {
 		p.request(control("rename_session", "title", written), nil)
 	}
 	c.changed()
-	return nil
+	return written, nil
 }
 
 var modelName = regexp.MustCompile(`^([A-Z][a-z]+) (\d+(?:\.\d{1,2})*)$`)

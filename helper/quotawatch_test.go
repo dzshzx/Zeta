@@ -4,26 +4,15 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 )
 
-// upTo 收到应答 id 为止，返回途中推来的额度（quota.snapshot 的 snapshot，几条就几个）和应答。
-func upTo(t *testing.T, c *serveClient, id int) (pushes []any, reply obj) {
-	t.Helper()
-	deadline := time.After(5 * time.Second)
-	for {
-		select {
-		case m := <-c.got:
-			switch {
-			case m["type"] == "quota.snapshot":
-				pushes = append(pushes, m["snapshot"])
-			case m["type"] == "zeta_reply" && fmt.Sprint(m["id"]) == fmt.Sprint(id):
-				return pushes, m
-			}
-		case <-deadline:
-			t.Fatalf("5 秒内没等到应答 %d", id)
-		}
+// snapshots 是 call 途中推来的额度（quota.snapshot 的 snapshot，几条就几个）。
+func snapshots(c *serveClient) []any {
+	var out []any
+	for _, m := range c.stashed("quota.snapshot") {
+		out = append(out, m["snapshot"])
 	}
+	return out
 }
 
 // 订阅额度：先推一份现在的；别的客户端存了数也推（带着新的窗口）；只读的请求不推；退订以后不推。
@@ -39,29 +28,23 @@ func TestQuotaWatch(t *testing.T) {
 		return fmt.Sprintf(`"info":{"status":"allowed","resetsAt":1795057510,"rateLimitType":"five_hour","isUsingOverage":false,`+
 			`"unifiedWindows":{"five_hour":{"utilization":%d,"resetsAt":1795057510,"status":"allowed"}}}`, five)
 	}
-	c.send(`{"id":1,"method":"quota.watch"}`)
-	if pushes, r := upTo(t, c, 1); r["ok"] != true || len(pushes) != 1 || pushes[0] != nil {
+	r := c.call("quota.watch", "")
+	if pushes := snapshots(c); r["ok"] != true || len(pushes) != 1 || pushes[0] != nil {
 		t.Fatalf("订阅时该先推一份（还没有数，是 null）：%v %v", pushes, r)
 	}
-	other.send(`{"id":1,"method":"quota.event",` + event(30) + `}`)
-	if _, r := upTo(t, other, 1); r["ok"] != true {
-		t.Fatalf("quota.event：%v", r)
-	}
-	c.send(`{"id":2,"method":"quota.get"}`)
-	pushes, _ := upTo(t, c, 2)
-	if len(pushes) != 1 || !strings.Contains(fmt.Sprint(pushes[0]), "used:30") {
+	other.ok("quota.event", event(30))
+	c.call("quota.get", "")
+	if pushes := snapshots(c); len(pushes) != 1 || !strings.Contains(fmt.Sprint(pushes[0]), "used:30") {
 		t.Fatalf("别的客户端存了新数，该推一次、带着 5 小时窗口：%v", pushes)
 	}
-	c.send(`{"id":3,"method":"quota.get"}`)
-	if pushes, _ := upTo(t, c, 3); len(pushes) != 0 {
+	c.call("quota.get", "")
+	if pushes := snapshots(c); len(pushes) != 0 {
 		t.Fatalf("只读了一下却推了：%v", pushes)
 	}
-	c.send(`{"id":4,"method":"quota.watch","watch":false}`)
-	upTo(t, c, 4)
-	other.send(`{"id":3,"method":"quota.event",` + event(60) + `}`)
-	upTo(t, other, 3)
-	c.send(`{"id":5,"method":"quota.get"}`)
-	if pushes, _ := upTo(t, c, 5); len(pushes) != 0 {
+	c.call("quota.watch", `"watch":false`)
+	other.ok("quota.event", event(60))
+	c.call("quota.get", "")
+	if pushes := snapshots(c); len(pushes) != 0 {
 		t.Fatalf("退订了还推：%v", pushes)
 	}
 }

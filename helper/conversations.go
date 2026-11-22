@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -45,7 +44,7 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 		Handoff:       e.handOff,
 		Quota:         newQuotaSink(e, quota.changed),
 		Desk: func(session, cwd string) {
-			if err := cmdDeskOpen(e, newEmitter(io.Discard), session, cwd); err != nil {
+			if _, err := deskOpen(e, session, cwd); err != nil {
 				log.Print("开 tmux 窗口：", err)
 			}
 		},

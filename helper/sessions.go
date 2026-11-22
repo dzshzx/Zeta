@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"unicode/utf8"
 )
 
@@ -272,13 +273,25 @@ func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
 }
 
 // archiveSessions 把这些会话记成归档（on）或取消归档，顺手清掉记录文件已经不在的；先写临时文件再改名换上。
+// 读、改、换整个过程持着同目录的 archived.lock（flock）：核心里几个客户端同时改，和 zeta-helper archive 子命令
+// 在另一个进程里改，都一个一个来（同一个进程里各自打开的锁文件也互相挡着）。
 // zeta-helper archive 和核心的 sessions.archive 都用它。
 func archiveSessions(e *env, sessions []string, on bool) error {
-	// 顺手清掉记录文件已经不在的
-	alive := e.sessionIDs()
+	if err := os.MkdirAll(dirName(e.archive), 0o777); err != nil {
+		return err
+	}
+	lock, err := os.OpenFile(e.archive+".lock", os.O_RDWR|os.O_CREATE, 0o666)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
 	keep := map[string]bool{}
 	for id := range e.archivedSessions() {
-		if alive[id] {
+		// 顺手清掉记录文件已经不在的
+		if len(e.sessionFilesNamed(id)) > 0 {
 			keep[id] = true
 		}
 	}
@@ -297,9 +310,6 @@ func archiveSessions(e *env, sessions []string, on bool) error {
 	var b strings.Builder
 	for _, id := range ids {
 		b.WriteString(id + "\n")
-	}
-	if err := os.MkdirAll(dirName(e.archive), 0o777); err != nil {
-		return err
 	}
 	if err := os.WriteFile(e.archive+".tmp", []byte(b.String()), 0o666); err != nil {
 		return err

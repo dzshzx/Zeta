@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -26,8 +27,15 @@ func coreHandler(e *env) core.Handler { return newCoreHandler(e, defaultWatchOpt
 func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	var m core.Mux
 	quota := newQuotaWatch(e)
-	m.Handle("conv.", newConversations(e, quota))
-	m.Handle("sessions.", &sessionsHandler{e: e, opts: watch, watches: map[*core.Client]*sessionWatch{}})
+	convs := newConversations(e, quota)
+	m.Handle("conv.", convs)
+	// 会话列表的订阅在请求的顺序里做。同一个处理器挂了两个前缀，断开时 Gone 来两次，第二次已经没有它的订阅，什么也不做
+	sessions := &sessionsHandler{e: e, opts: watch, watches: map[*core.Client]*sessionWatch{}}
+	m.Handle("sessions.watch", sessions)
+	m.Handle("sessions.unwatch", sessions)
+	m.Handle("sessions.search", newSessionSearches(e))
+	// 别的 sessions.* 是侧栏对会话的操作，见 sessionmethods.go
+	m.HandleAsync("sessions.", sessionOps{e, convs.m})
 	// 要跑 claude-switch、等进程退出，慢：各在自己的 goroutine 里做，不挡同一个客户端后面的请求
 	accounts := accountsHandler{e, quota}
 	m.HandleAsync("accounts.", accounts)
@@ -39,15 +47,12 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 
 // sessionsHandler 管会话列表的订阅：sessions.watch 先推一行整份的 zeta_sessions（full 为真），之后会话目录有变化时只推变了的几项
 // （见 sessionWatch）；再发一次就再给一份整份的。sessions.unwatch 退订，客户端断开时也退订。
-// 别的 sessions.* 是侧栏对会话的操作（改名、归档、删除等），见 sessionmethods.go。
 type sessionsHandler struct {
 	e    *env
 	opts watchOptions
 
 	mu      sync.Mutex
 	watches map[*core.Client]*sessionWatch
-
-	archiveMu sync.Mutex // 改归档文件的一个一个来
 }
 
 func (h *sessionsHandler) Request(c *core.Client, r core.Request) (any, error) {
@@ -57,7 +62,7 @@ func (h *sessionsHandler) Request(c *core.Client, r core.Request) (any, error) {
 		return nil, nil
 	case "sessions.watch":
 	default:
-		return h.call(c, r)
+		return nil, errors.New("unknown method: " + r.Method)
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()

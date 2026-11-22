@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
-	"github.com/dzshzx/Zeta/helper/conv"
 	"io"
 	"os"
+	"slices"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/conv"
 )
 
 // 同一个会话在终端的 Claude Code 和 Zeta 之间交接。同一时刻只能有一个进程写会话记录，所以交接就是一边先退出、另一边再 --resume：
@@ -130,6 +132,14 @@ func (e *env) hostedHolders(id string) []registered {
 		}
 	}
 	return out
+}
+
+// waitOwnHostGone 等本包托管、占着会话 id 的进程都退出，最多 wait（sessions.delete 结束了开着的进程以后，删记录之前）。
+func (e *env) waitOwnHostGone(id string, wait time.Duration) {
+	deadline := time.Now().Add(wait)
+	for slices.ContainsFunc(e.hostedHolders(id), e.ownHost) && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // hostBusy：托管的进程这一轮还在进行（含等着用户批准）或还有后台任务在跑，同 zeta_host.sh 的看门狗。读不了日志时当它忙。

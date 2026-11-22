@@ -233,8 +233,11 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 	"conv.restore_code": func(c *Conversation, client int, r request) (any, error) {
 		return nil, c.restoreCode(client, r.Target, r.Drop, r.Message)
 	},
-	"conv.title": func(c *Conversation, _ int, r request) (any, error) { return nil, c.rename(r.Title) },
-	"conv.end":   func(c *Conversation, _ int, _ request) (any, error) { c.closeProcess(true); return nil, nil },
+	"conv.title": func(c *Conversation, _ int, r request) (any, error) {
+		_, err := c.rename(r.Title)
+		return nil, err
+	},
+	"conv.end": func(c *Conversation, _ int, _ request) (any, error) { c.end(); return nil, nil },
 	"conv.mcp_reply": func(c *Conversation, _ int, r request) (any, error) {
 		c.mcpReply(r.RequestID, r.Response)
 		return nil, nil
