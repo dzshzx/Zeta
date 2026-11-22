@@ -59,7 +59,7 @@ func UploadCommand(id, name string, folder bool) string {
 }
 
 // Upload 把 src 的内容传成主机上的文件 name（先过 CleanName），返回那边的路径。progress 不为空时每写一块报一次已传的字节数。
-// 超过 limit 字节返回 ErrTooLarge；ctx 取消时关掉通道、返回 ctx 的错误；这两种和别的失败都删掉传了一半的。阻塞。
+// 超过 limit 字节返回 ErrTooLarge；ctx 取消时不再传、返回 ctx 的错误；这两种和别的失败都删掉传了一半的。阻塞。
 func (s Shell) Upload(ctx context.Context, name string, src io.Reader, limit int64, progress func(int64)) (string, error) {
 	return s.upload(ctx, CleanName(name), false, src, limit, progress)
 }
@@ -148,7 +148,10 @@ func (s Shell) upload(ctx context.Context, name string, folder bool, src io.Read
 	if err != nil {
 		return "", err
 	}
-	stop := context.AfterFunc(ctx, p.Close)
+	// 传不下去（取消、超限、读不出来）时只关标准输入：那边的 cat、tar 读到结尾自己退出，等它退出了再删传了一半的，
+	// 删在它之后才不会又被它建出来。过了 abortGrace 那边还没退（连接僵住、磁盘卡住）才关通道。
+	abort, settled := abortAfter(func() { _ = p.Stdin.Close() }, p.Close, abortGrace)
+	stop := context.AfterFunc(ctx, abort)
 	var stdout, stderr bytes.Buffer
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -156,11 +159,12 @@ func (s Shell) upload(ctx context.Context, name string, folder bool, src io.Read
 	go func() { defer wg.Done(); _, _ = io.Copy(&stderr, p.Stderr) }()
 	over, werr := copyLimited(p.Stdin, src, limit, progress)
 	if over || werr != nil {
-		p.Close()
+		abort()
 	} else {
 		_ = p.Stdin.Close() // 标准输入关了 cat、tar 才结束
 	}
 	code := p.Wait()
+	settled()
 	wg.Wait()
 	stop()
 	path := uploadedPath(stdout.String())
@@ -178,6 +182,29 @@ func (s Shell) upload(ctx context.Context, name string, folder bool, src io.Read
 	}
 	s.removeUpload(id)
 	return "", err
+}
+
+// abortGrace 是不传了以后等那边的命令自己退出多久，过了就关通道。
+const abortGrace = 3 * time.Second
+
+// abortAfter 给出两个函数：abort 先调 gentle，过了 grace 再调 hard；settled 表示已经结束了，之后不再调 hard。
+// abort 可以调多次、可以并发调，只有第一次算数。
+func abortAfter(gentle, hard func(), grace time.Duration) (abort, settled func()) {
+	done := make(chan struct{})
+	var once, end sync.Once
+	abort = func() {
+		once.Do(func() {
+			gentle()
+			go func() {
+				select {
+				case <-done:
+				case <-time.After(grace):
+					hard()
+				}
+			}()
+		})
+	}
+	return abort, func() { end.Do(func() { close(done) }) }
 }
 
 // uploadProblem 是没传成的原因：连接断了时说连不上，否则是那边的报错。

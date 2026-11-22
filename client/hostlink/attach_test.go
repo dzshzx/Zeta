@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNormalizePath(t *testing.T) {
@@ -170,5 +171,24 @@ func assertNoUploads(t *testing.T, b *box) {
 	}
 	if len(entries) > 0 {
 		t.Errorf("留下了传了一半的：%v", entries)
+	}
+}
+
+// 不传了：先来软的，过了时限还没结束才来硬的；已经结束了就不来硬的。
+func TestAbortAfter(t *testing.T) {
+	calls := make(chan string, 4)
+	abort, _ := abortAfter(func() { calls <- "gentle" }, func() { calls <- "hard" }, 20*time.Millisecond)
+	abort()
+	abort()
+	if a, b := <-calls, <-calls; a != "gentle" || b != "hard" {
+		t.Errorf("先后是 %s、%s，应是 gentle、hard", a, b)
+	}
+	abort, settled := abortAfter(func() { calls <- "gentle" }, func() { calls <- "hard" }, 20*time.Millisecond)
+	abort()
+	settled()
+	settled()
+	time.Sleep(60 * time.Millisecond)
+	if got := <-calls; got != "gentle" || len(calls) != 0 {
+		t.Errorf("已经结束了还来硬的：%s，余 %d", got, len(calls))
 	}
 }
