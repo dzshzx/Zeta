@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"cmp"
 	"encoding/json"
 	"regexp"
 	"strconv"
@@ -178,17 +179,17 @@ func todoWrite(s items.Step) TodoList {
 		if status == "" {
 			status = TodoPending
 		}
-		list = append(list, Todo{Key: "todo-" + strconv.Itoa(i), Content: content, ActiveForm: or(str(todo, "activeForm"), content), Status: status})
+		list = append(list, Todo{Key: "todo-" + strconv.Itoa(i), Content: content, ActiveForm: cmp.Or(str(todo, "activeForm"), content), Status: status})
 	}
 	return list
 }
 
 func (b *todoBoard) create(s items.Step) {
-	subject := or(str(s.Input, "subject"), str(s.Input, "title"), str(s.Input, "name"))
+	subject := cmp.Or(str(s.Input, "subject"), str(s.Input, "title"), str(s.Input, "name"))
 	if subject == "" {
 		return
 	}
-	active := or(str(s.Input, "activeForm"), str(s.Input, "active_form"), subject)
+	active := cmp.Or(str(s.Input, "activeForm"), str(s.Input, "active_form"), subject)
 	// 上一份清单已经全部做完：这是一份新清单
 	if len(b.creating) == 0 && len(b.order) > 0 && b.allDone() {
 		b.tasks, b.order = nil, nil
@@ -207,7 +208,7 @@ func (b *todoBoard) create(s items.Step) {
 }
 
 func (b *todoBoard) update(s items.Step) {
-	id := or(str(s.Input, "taskId"), str(s.Input, "task_id"), str(s.Input, "id"))
+	id := cmp.Or(str(s.Input, "taskId"), str(s.Input, "task_id"), str(s.Input, "id"))
 	if id == "" {
 		return
 	}
@@ -218,8 +219,8 @@ func (b *todoBoard) update(s items.Step) {
 	}
 	old, known := b.tasks[id]
 	subject := str(s.Input, "subject")
-	content := or(subject, old.Content, "任务 #"+id)
-	active := or(str(s.Input, "activeForm"), str(s.Input, "active_form"))
+	content := cmp.Or(subject, old.Content, "任务 #"+id)
+	active := cmp.Or(str(s.Input, "activeForm"), str(s.Input, "active_form"))
 	// 原来的进行中说法就是旧标题（没单写过）时，换了标题它也跟着换
 	if active == "" && known && !(subject != "" && old.ActiveForm == old.Content) {
 		active = old.ActiveForm
@@ -231,7 +232,7 @@ func (b *todoBoard) update(s items.Step) {
 	if status == "" {
 		status = TodoPending
 	}
-	b.put(Todo{Key: id, Content: content, ActiveForm: or(active, content), Status: status})
+	b.put(Todo{Key: id, Content: content, ActiveForm: cmp.Or(active, content), Status: status})
 }
 
 func (b *todoBoard) put(t Todo) {
@@ -296,14 +297,4 @@ func str(m map[string]any, key string) string {
 		return ""
 	}
 	return s
-}
-
-// or 是第一个不空的。
-func or(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

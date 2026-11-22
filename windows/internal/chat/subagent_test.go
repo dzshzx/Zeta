@@ -86,3 +86,48 @@ func TestSubagentWatchAndPushes(t *testing.T) {
 		t.Fatal("不看以后还留着")
 	}
 }
+
+// ChangesSince 交出从某一版起的条目变化，依次套上就是现在的条目；整份推来时从整份记起，差得太多时说没记着。
+func TestSubagentChangesSince(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	if err := conv.WatchSubagent(context.Background(), "toolu_1", true); err != nil {
+		t.Fatal(err)
+	}
+	push := func(change string) {
+		client.Handle(line(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_1",` + change + `,"running":true,"loaded":true}`))
+	}
+	push(`"full":true,"items":[{"kind":"work","id":"w"}]`)
+	push(`"at":1,"remove":0,"items":[{"kind":"answer","id":"a"}]`)
+	push(`"at":1,"remove":1,"items":[{"kind":"answer","id":"a2"}]`)
+	s, _ := conv.Subagent("toolu_1")
+	if got, ok := s.ChangesSince(s.Rev); !ok || len(got) != 0 {
+		t.Fatalf("同一版：%v %v", got, ok)
+	}
+	got, ok := s.ChangesSince(1)
+	if !ok || len(got) != 2 || got[0].At != 1 || got[0].Remove != 0 || got[1].Remove != 1 || got[1].Items[0].ID != "a2" {
+		t.Fatalf("从第 1 版起：%+v %v", got, ok)
+	}
+	if got, ok := s.ChangesSince(0); !ok || len(got) != 3 || !got[0].Full {
+		t.Fatalf("从头：%+v %v", got, ok)
+	}
+	// 整份推来以后，之前的版本都要整份换
+	push(`"full":true,"items":[{"kind":"answer","id":"z"}]`)
+	s, _ = conv.Subagent("toolu_1")
+	if _, ok := s.ChangesSince(2); ok {
+		t.Fatal("整份推来以前的版本不该还能接上")
+	}
+	if got, ok := s.ChangesSince(3); !ok || len(got) != 1 || !got[0].Full {
+		t.Fatalf("上一版：%+v %v", got, ok)
+	}
+	// 只记最近 keptChanges 次
+	for range keptChanges + 1 {
+		push(`"at":0,"remove":1,"items":[{"kind":"answer","id":"z"}]`)
+	}
+	s, _ = conv.Subagent("toolu_1")
+	if _, ok := s.ChangesSince(s.Rev - keptChanges - 1); ok {
+		t.Fatal("差得太多还说接得上")
+	}
+	if got, ok := s.ChangesSince(s.Rev - keptChanges); !ok || len(got) != keptChanges {
+		t.Fatalf("刚好记着的：%d %v", len(got), ok)
+	}
+}

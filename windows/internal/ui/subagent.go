@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
@@ -17,7 +18,9 @@ import (
 // 它的记录用聊天列表画（条目和聊天里的一样，它又派的子代理也能点进去）。
 type subagentView struct {
 	toolUseID string
-	list      *chatview.Chat
+	// call 是发起它的那一步（参数里有说明、类型、指令），打开时在聊天和开着的子代理页里找的；没找到时是零值。
+	call items.Step
+	list *chatview.Chat
 	// rev 是套给列表的那一版（chat.Subagent.Rev）；failed 是没看上的原因。
 	rev    int
 	failed string
@@ -27,11 +30,12 @@ type subagentView struct {
 
 // openSubagent 打开子代理页（聊天里点了发起子代理的那一步、任务详情里点了查看它的步骤）：开始看着它。
 func (a *App) openSubagent(p *chatPane, toolUseID string) {
-	v := &subagentView{toolUseID: toolUseID, list: chatview.New()}
+	v := &subagentView{toolUseID: toolUseID, call: p.agentCall(toolUseID), list: chatview.New()}
 	v.list.LoadImage, v.list.LoadMarkdownImage, v.list.OpenLink = p.list.LoadImage, p.list.LoadMarkdownImage, p.list.OpenLink
 	v.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
+	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
 	v.list.ExpandWork = true
-	p.pages.stack = append(p.pages.stack, subpage{kind: pageSubagent, agent: v})
+	p.pages.stack = append(p.pages.stack, subpage{agent: v})
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.WatchSubagent(ctx, toolUseID, true)
 	}, func(err error) { v.failed = err.Error() })
@@ -40,7 +44,7 @@ func (a *App) openSubagent(p *chatPane, toolUseID string) {
 // unwatchSubagent 离开子代理页：下面的页里没有看着同一个的，就不再看着它。
 func (a *App) unwatchSubagent(p *chatPane, v *subagentView) {
 	for _, s := range p.pages.stack {
-		if s.kind == pageSubagent && s.agent.toolUseID == v.toolUseID {
+		if s.agent != nil && s.agent.toolUseID == v.toolUseID {
 			return
 		}
 	}
@@ -49,21 +53,38 @@ func (a *App) unwatchSubagent(p *chatPane, v *subagentView) {
 	}, nil)
 }
 
-// subagentState 是子代理的状态：在跑优先；不在跑又不知道结局的，是进程没等它做完就没了。
-func subagentState(s chat.Subagent) string {
-	switch {
-	case !s.Loaded && !s.Running:
-		return "正在读取"
-	case s.Running:
-		return "运行中"
-	case s.Outcome == "completed":
-		return "已完成"
-	case s.Outcome == "failed":
-		return "失败"
-	case s.Outcome == "stopped":
-		return "已停止"
+// follow 把列表跟到子代理 s 这一版：照协议层收到的增量一段段换（文件改动的对比只丢换掉的那几步），
+// 整份推来过、差得太多或对不上时整份换。
+func (v *subagentView) follow(s chat.Subagent) {
+	changes, ok := s.ChangesSince(v.rev)
+	for _, ch := range changes {
+		if ch.Full {
+			v.list.SetItems(ch.Items)
+		} else if v.list.Splice(ch.At, ch.Remove, ch.Items) != nil {
+			ok = false
+			break
+		}
 	}
-	return "未做完"
+	if !ok {
+		v.list.SetItems(s.Items)
+	}
+	v.rev = s.Rev
+}
+
+// subagentState 是子代理的状态，照任务的状态说（taskState）：在跑优先；还没读到记录时是「正在读取」；
+// 不在跑又不知道结局的，是进程没等它做完就没了。
+func subagentState(s chat.Subagent) (string, tone) {
+	switch {
+	case s.Running:
+		return taskState(tasks.StateRunning, false)
+	case !s.Loaded:
+		return "正在读取", toneQuiet
+	}
+	switch outcome := tasks.State(s.Outcome); outcome {
+	case tasks.StateCompleted, tasks.StateFailed, tasks.StateStopped:
+		return taskState(outcome, false)
+	}
+	return "未做完", toneQuiet
 }
 
 // noStepsText 是一步都还没有时的说明。
@@ -81,11 +102,11 @@ func noStepsText(s chat.Subagent, failed string) string {
 	return "还没有步骤"
 }
 
-// agentCall 是发起子代理的那一步（参数里有说明、类型、指令）：在聊天里，或在开着的子代理页的记录里（它又派的）。
-func (p *chatPane) agentCall(toolUseID string) (items.Step, bool) {
+// agentCall 是发起子代理 toolUseID 的那一步：在聊天里，或在开着的子代理页的记录里（它又派的）；没找到时是零值。
+func (p *chatPane) agentCall(toolUseID string) items.Step {
 	lists := [][]items.Item{p.list.Items()}
 	for _, s := range p.pages.stack {
-		if s.kind == pageSubagent {
+		if s.agent != nil {
 			lists = append(lists, s.agent.list.Items())
 		}
 	}
@@ -93,12 +114,12 @@ func (p *chatPane) agentCall(toolUseID string) (items.Step, bool) {
 		for _, it := range list {
 			for _, st := range it.Steps {
 				if st.Kind == items.Tool && st.ID == toolUseID {
-					return st, true
+					return st
 				}
 			}
 		}
 	}
-	return items.Step{}, false
+	return items.Step{}
 }
 
 // subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
@@ -109,10 +130,9 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 		s, _ = p.src.Conv.Subagent(v.toolUseID)
 	}
 	if s.Rev != v.rev {
-		v.list.SetItems(s.Items)
-		v.rev = s.Rev
+		v.follow(s)
 	}
-	call, _ := p.agentCall(v.toolUseID)
+	call := v.call
 	description, kind, model, prompt := call.Str("description"), call.Str("subagent_type"), "", s.Prompt
 	if m := s.Meta; m != nil {
 		description, kind, model = cmp.Or(m.Description, description), cmp.Or(m.AgentType, kind), m.Model
@@ -150,16 +170,8 @@ func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model st
 					ui.Text(c, strings.Join(facts, " · ")).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
 				}
 			})
-			color := k.Tertiary
-			switch {
-			case s.Running:
-				color = k.PrimaryText
-			case s.Outcome == "completed":
-				color = k.Success
-			case s.Outcome == "failed":
-				color = k.Error
-			}
-			ui.Text(c, subagentState(s)).FontSize(coui.SizeBodyM).TextColor(color).Shrink(0)
+			state, tone := subagentState(s)
+			ui.Text(c, state).FontSize(coui.SizeBodyM).TextColor(tone.color(k)).Shrink(0)
 		})
 	})
 }

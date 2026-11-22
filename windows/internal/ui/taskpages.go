@@ -15,18 +15,8 @@ import (
 // 聊天窗格里点进去的几页：后台任务列表、一个任务的详情、子代理的记录（同手机版 BackgroundTasksScreen.kt、SubagentScreen.kt）。
 // 它们盖住聊天窗格，返回键一层层退回去；跟着窗格走，换了对话就都关掉。
 
-// pageKind 是聊天窗格上盖着的一页。
-type pageKind int
-
-const (
-	pageTaskList pageKind = iota
-	pageTask
-	pageSubagent
-)
-
-// subpage 是盖着的一页：任务详情页的任务 id，子代理页看着的子代理。
+// subpage 是盖着的一页：agent 是子代理页看着的子代理，task 是任务详情页的任务 id，两样都没有时是任务列表。
 type subpage struct {
-	kind  pageKind
 	task  string
 	agent *subagentView
 }
@@ -54,12 +44,12 @@ const outputPoll = 2 * time.Second
 
 // openTasks 打开后台任务列表（状态行的「后台任务」点了）。
 func (p *chatPane) openTasks() {
-	p.pages.stack = append(p.pages.stack, subpage{kind: pageTaskList})
+	p.pages.stack = append(p.pages.stack, subpage{})
 }
 
 // openTask 打开一个任务的详情。
 func (p *chatPane) openTask(id string) {
-	p.pages.stack = append(p.pages.stack, subpage{kind: pageTask, task: id})
+	p.pages.stack = append(p.pages.stack, subpage{task: id})
 }
 
 // back 退回上一页；离开子代理页时不再看着它。
@@ -70,7 +60,7 @@ func (a *App) back(p *chatPane) {
 	}
 	top := s[len(s)-1]
 	p.pages.stack = s[:len(s)-1]
-	if top.kind == pageSubagent {
+	if top.agent != nil {
 		a.unwatchSubagent(p, top.agent)
 	}
 }
@@ -91,13 +81,13 @@ func (a *App) chatSubpage(c *ui.Context, p *chatPane) bool {
 	top := s[len(s)-1]
 	k := coui.Of(c)
 	ui.Column(c.Key(len(s))).Fill().Background(k.Page).Children(func() {
-		switch top.kind {
-		case pageTaskList:
-			a.taskListPage(c, p)
-		case pageTask:
-			a.taskPage(c, p, top.task)
-		case pageSubagent:
+		switch {
+		case top.agent != nil:
 			a.subagentPage(c, p, top.agent)
+		case top.task != "":
+			a.taskPage(c, p, top.task)
+		default:
+			a.taskListPage(c, p)
 		}
 	})
 	a.stopDialog(c, p)
@@ -223,24 +213,13 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 			row.Summary = t.Description
 		}
 		l.Row(row)
-		state := taskState(t)
-		l.Row(coui.Row{Title: "状态", End: func() {
-			color := k.Tertiary
-			switch t.State {
-			case tasks.StateRunning:
-				color = k.PrimaryText
-			case tasks.StateCompleted:
-				color = k.Success
-			case tasks.StateFailed:
-				color = k.Error
-			}
-			ui.Text(c, state).FontSize(coui.SizeBodyM).TextColor(color)
-		}})
+		state, tone := taskState(t.State, t.Stopping)
+		l.Row(coui.Row{Title: "状态", End: func() { ui.Text(c, state).FontSize(coui.SizeBodyM).TextColor(tone.color(k)) }})
 		elapsed := "用时"
 		if t.Running() {
 			elapsed = "已运行"
 		}
-		l.Row(coui.Row{Title: elapsed, Value: formatElapsed(t.ElapsedMs(a.now().UnixMilli()))})
+		l.Row(coui.Row{Title: elapsed, Value: tasks.FormatElapsed(t.ElapsedMs(a.now().UnixMilli()))})
 		if t.Kind == tasks.KindAgent {
 			a.agentRows(l, p, t)
 		}
@@ -308,17 +287,16 @@ func (a *App) followOutput(c *ui.Context, p *chatPane, t tasks.Task) *taskOutput
 	}
 	o.reading, o.running = true, t.Running()
 	id := t.ID
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 		out, err := conv.ReadTaskOutput(ctx, id)
 		if err != nil {
 			out = tasks.Output{Error: err.Error()}
 		}
-		a.post(func() {
+		return func() {
 			o.out, o.read, o.reading, o.at = out, true, false, now
 			c.Invalidate()
-		})
-		return nil
-	}, nil)
+		}
+	})
 	return o
 }
 

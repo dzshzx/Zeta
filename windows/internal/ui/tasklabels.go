@@ -1,11 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/egoist/mygo/ui"
 )
 
 // 后台任务页上的说法（同手机版 TaskLabels.kt）。
@@ -50,47 +51,57 @@ func taskTitle(t tasks.Task) string {
 	return taskKind(t)
 }
 
-// taskState 是状态的说法。
-func taskState(t tasks.Task) string {
-	if t.Stopping {
-		return "正在停止"
+// tone 是状态文字的颜色档位。
+type tone int
+
+const (
+	toneQuiet   tone = iota // 已停止、已结束这类：淡色
+	toneRunning             // 运行中
+	toneDone                // 已完成
+	toneFailed              // 失败
+)
+
+// color 是这一档的文字色。
+func (t tone) color(k *coui.Colors) ui.Color {
+	switch t {
+	case toneRunning:
+		return k.PrimaryText
+	case toneDone:
+		return k.Success
+	case toneFailed:
+		return k.Error
 	}
-	switch t.State {
-	case tasks.StateRunning:
-		return "运行中"
-	case tasks.StateCompleted:
-		return "已完成"
-	case tasks.StateFailed:
-		return "失败"
-	case tasks.StateStopped:
-		return "已停止"
+	return k.Tertiary
+}
+
+// taskState 是任务状态的说法和颜色档位（子代理页照它说，见 subagentState）。stopping：正在停止。
+func taskState(s tasks.State, stopping bool) (string, tone) {
+	switch {
+	case stopping:
+		return "正在停止", toneRunning
+	case s == tasks.StateRunning:
+		return "运行中", toneRunning
+	case s == tasks.StateCompleted:
+		return "已完成", toneDone
+	case s == tasks.StateFailed:
+		return "失败", toneFailed
+	case s == tasks.StateStopped:
+		return "已停止", toneQuiet
 	}
-	return "已结束"
+	return "已结束", toneQuiet
 }
 
 // taskSummary 是列表里的说明行：「后台命令 · 已运行 2 分 05 秒」「子代理 · 已完成 · 用时 6 秒」。now 是毫秒。
 func taskSummary(t tasks.Task, now int64) string {
-	elapsed := formatElapsed(t.ElapsedMs(now))
+	elapsed := tasks.FormatElapsed(t.ElapsedMs(now))
 	switch {
 	case t.Stopping:
 		return taskKind(t) + " · 正在停止 · 已运行 " + elapsed
 	case t.Running():
 		return taskKind(t) + " · 已运行 " + elapsed
 	}
-	return taskKind(t) + " · " + taskState(t) + " · 用时 " + elapsed
-}
-
-// formatElapsed 是用时：「45 秒」「2 分 05 秒」「1 小时 03 分」。
-func formatElapsed(ms int64) string {
-	s := max(ms/1000, 0)
-	h, m := s/3600, s%3600/60
-	switch {
-	case h > 0:
-		return fmt.Sprintf("%d 小时 %02d 分", h, m)
-	case m > 0:
-		return fmt.Sprintf("%d 分 %02d 秒", m, s%60)
-	}
-	return fmt.Sprintf("%d 秒", s)
+	state, _ := taskState(t.State, false)
+	return taskKind(t) + " · " + state + " · 用时 " + elapsed
 }
 
 // outputHeader 是输出上方的一句：读到多少、是不是只显示了最后一段。

@@ -28,8 +28,23 @@ type Subagent struct {
 	Skipped int `json:"skipped"`
 	// Items 是它的记录，和聊天条目同格式。每次推送换成新的切片，拿到的不会被后来的推送改掉；只读。
 	Items []items.Item `json:"-"`
-	// Rev 每收到一次推送加一：界面据此知道要不要换条目。
+	// Rev 每收到一次推送加一：界面据此知道要不要换条目（ChangesSince）。
 	Rev int `json:"-"`
+	// changes 是最近几次推送带来的条目变化，最后一项把条目带到 Rev 这一版；整份推来时从它重记。
+	changes []ItemsChange
+}
+
+// keptChanges 是 Subagent 最多记着最近几次的条目变化。
+const keptChanges = 64
+
+// ChangesSince 是从 rev 那一版到现在的条目变化，依次套上（Full 的整份换，别的 Splice）就是 Items；
+// ok 为假时差得太多、已经没记着了，调用方整份换成 Items。
+func (s Subagent) ChangesSince(rev int) (changes []ItemsChange, ok bool) {
+	behind := s.Rev - rev
+	if behind < 0 || behind > len(s.changes) {
+		return nil, false
+	}
+	return s.changes[len(s.changes)-behind:], true
 }
 
 // SubagentMeta 是子代理记录旁边的说明（Claude Code 写的 meta）。
@@ -121,8 +136,13 @@ func (c *Conversation) applySubagent(line []byte) bool {
 		}
 		list = next
 	}
+	// 记下这次的变化，好让界面照着改它那份（拿到的旧切片不受影响：只往后加、从前面截）
+	kept := append(cur.changes, msg.ItemsChange)
+	if msg.Full {
+		kept = []ItemsChange{msg.ItemsChange}
+	}
 	next := msg.Subagent
-	next.Items, next.Rev = list, cur.Rev+1
+	next.Items, next.Rev, next.changes = list, cur.Rev+1, kept[max(0, len(kept)-keptChanges):]
 	*cur = next
 	return true
 }

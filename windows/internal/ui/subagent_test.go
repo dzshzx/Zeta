@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 )
 
@@ -84,6 +85,31 @@ func TestSubagentPageFromATask(t *testing.T) {
 	f.see(t, "查看它的步骤")
 }
 
+// 子代理页照推来的增量一段段改列表（不整份换，换掉的那几步以外的对比留着），两帧之间来了几段就套几段。
+func TestSubagentPageSplicesPushes(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.pushItems(agentItems)
+	f.app.openSubagent(f.app.pane, "toolu_a1")
+	f.link().Push(agentLog)
+	f.tt.Frame()
+	v := f.app.pane.pages.stack[0].agent
+	rev := v.list.Rev()
+	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","at":2,"remove":0,"items":[{"kind":"answer","id":"s3","text":"再看 server.go。"}],
+		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0}`)
+	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","at":3,"remove":0,"items":[{"kind":"answer","id":"s4","text":"看完了。"}],
+		"meta":null,"prompt":"","tool_uses":2,"running":true,"loaded":true,"file":"x","skipped":0}`)
+	f.tt.Frame()
+	f.see(t, "再看 server.go。", "看完了。")
+	if got := v.list.Rev() - rev; got != 2 {
+		t.Fatalf("两段增量套了 %d 次", got)
+	}
+	s, _ := f.app.pane.src.Conv.Subagent("toolu_a1")
+	if len(v.list.Items()) != len(s.Items) || v.rev != s.Rev {
+		t.Fatalf("列表 %d 条、第 %d 版，协议层 %d 条、第 %d 版", len(v.list.Items()), v.rev, len(s.Items), s.Rev)
+	}
+}
+
 func TestSubagentPromptExpands(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
@@ -100,17 +126,39 @@ func TestSubagentStateText(t *testing.T) {
 	for _, c := range []struct {
 		s    chat.Subagent
 		want string
+		tone tone
 	}{
-		{chat.Subagent{}, "正在读取"},
-		{chat.Subagent{Running: true}, "运行中"},
-		{chat.Subagent{Loaded: true, Outcome: "completed"}, "已完成"},
-		{chat.Subagent{Loaded: true, Outcome: "failed"}, "失败"},
-		{chat.Subagent{Loaded: true, Outcome: "stopped"}, "已停止"},
-		{chat.Subagent{Loaded: true}, "未做完"},
-		{chat.Subagent{Running: true, Outcome: "completed"}, "运行中"},
+		{chat.Subagent{}, "正在读取", toneQuiet},
+		{chat.Subagent{Running: true}, "运行中", toneRunning},
+		{chat.Subagent{Loaded: true, Outcome: "completed"}, "已完成", toneDone},
+		{chat.Subagent{Loaded: true, Outcome: "failed"}, "失败", toneFailed},
+		{chat.Subagent{Loaded: true, Outcome: "stopped"}, "已停止", toneQuiet},
+		{chat.Subagent{Loaded: true}, "未做完", toneQuiet},
+		{chat.Subagent{Running: true, Outcome: "completed"}, "运行中", toneRunning},
 	} {
-		if got := subagentState(c.s); got != c.want {
-			t.Errorf("subagentState(%+v) = %q，应为 %q", c.s, got, c.want)
+		if got, tone := subagentState(c.s); got != c.want || tone != c.tone {
+			t.Errorf("subagentState(%+v) = %q %d，应为 %q %d", c.s, got, tone, c.want, c.tone)
+		}
+	}
+}
+
+// 任务的状态：正在停止的照运行中的颜色，不知道结局的说已结束。
+func TestTaskStateText(t *testing.T) {
+	for _, c := range []struct {
+		state    tasks.State
+		stopping bool
+		want     string
+		tone     tone
+	}{
+		{tasks.StateRunning, false, "运行中", toneRunning},
+		{tasks.StateRunning, true, "正在停止", toneRunning},
+		{tasks.StateCompleted, false, "已完成", toneDone},
+		{tasks.StateFailed, false, "失败", toneFailed},
+		{tasks.StateStopped, false, "已停止", toneQuiet},
+		{tasks.StateEnded, false, "已结束", toneQuiet},
+	} {
+		if got, tone := taskState(c.state, c.stopping); got != c.want || tone != c.tone {
+			t.Errorf("taskState(%s, %v) = %q %d，应为 %q %d", c.state, c.stopping, got, tone, c.want, c.tone)
 		}
 	}
 }
