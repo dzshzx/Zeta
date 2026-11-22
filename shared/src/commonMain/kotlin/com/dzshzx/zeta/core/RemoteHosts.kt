@@ -92,12 +92,7 @@ object RemoteHosts {
             val via =
                 if (item.str("via") == RemoteHost.Via.Direct.key) RemoteHost.Via.Direct
                 else RemoteHost.Via.Debian
-            val target =
-                item.str("target")?.takeIf {
-                    if (via == RemoteHost.Via.Direct)
-                        SshTarget.parse(it) != null || alias(it) != null
-                    else DebianSshShell.validTarget(it)
-                } ?: continue
+            val target = item.str("target")?.takeIf { validTarget(it, via) } ?: continue
             val hostKey = item.str("hostKey")?.takeIf { decodeKey(it) != null }
             if (via == RemoteHost.Via.Direct && hostKey == null) continue
             val home = item.str("home")?.takeIf { it.startsWith("/") } ?: continue
@@ -245,6 +240,11 @@ object RemoteHosts {
         val output = result.output ?: return Probe.Failed(result.problem ?: "没有连上")
         return parseProbe(output, seen)
     }
+
+    /** 存着的地址 [target] 合连法 [via] 的规矩：直连的是 `用户@主机[:端口]` 或别名（桌面版），经 Debian 的交给 OpenSSH 认得的。 */
+    private fun validTarget(target: String, via: RemoteHost.Via): Boolean =
+        if (via == RemoteHost.Via.Direct) SshTarget.parse(target) != null || alias(target) != null
+        else DebianSshShell.validTarget(target)
 
     /** 直连地址的写法。 */
     const val DIRECT_TARGET_HINT = "地址写成 用户@主机，端口不是 22 的写成 用户@主机:端口"

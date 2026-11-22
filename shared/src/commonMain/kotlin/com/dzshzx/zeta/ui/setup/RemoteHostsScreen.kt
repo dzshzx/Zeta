@@ -66,13 +66,6 @@ private const val KeyFooter =
     "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。" +
         "加设备时记下对方的主机指纹，以后只认它。"
 
-/** 「从 ~/.ssh/config 选」的说明；[config] 时是这台电脑的配置（桌面直连），否则是手机 Debian 的。 */
-private fun sshConfigFooter(config: Boolean) =
-    if (config) "已添加的设备不再列出。"
-    else
-        "手机 Debian 里 ~/.ssh/config 和 config.local 的 Host 行里的主机，带通配符的、已经加过的不列。" +
-            "选一台，经 Debian 的 OpenSSH 连一次，连上了才加。"
-
 private const val BusyMessage = "这台设备上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。"
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
@@ -329,23 +322,14 @@ private fun AddHostGroup(
     keyChoice: @Composable () -> Unit,
     onType: () -> Unit,
 ) {
-    PreferenceGroup(
-        title = "加设备",
-        footer =
-            when {
-                !phone -> DesktopFooter
-                debian -> ViaFooter + HostingFooter
-                else -> DirectOnlyFooter + HostingFooter
-            },
-    ) {
+    val words = configWords(config)
+    PreferenceGroup(title = "加设备", footer = addFooter(phone, debian)) {
         if (config) item { keyChoice() }
         if (debian || config) {
             item {
                 ArrowPreference(
-                    title = configTitle(config),
-                    summary =
-                        if (adding?.fromConfig == true) "正在连接 ${adding.target}…"
-                        else if (config) null else RemoteHost.Via.Debian.label,
+                    title = words.title,
+                    summary = connecting(adding, fromConfig = true) ?: words.rowSummary,
                     enabled = adding == null,
                     onClick = onChooseAlias,
                 )
@@ -354,10 +338,7 @@ private fun AddHostGroup(
         item {
             ArrowPreference(
                 title = if (config) "手动添加" else "输入地址",
-                summary =
-                    if (adding != null && !adding.fromConfig)
-                        "正在连接 ${RemoteHosts.displayTarget(adding.target)}…"
-                    else null,
+                summary = connecting(adding, fromConfig = false),
                 enabled = adding == null,
                 onClick = onType,
             )
@@ -365,8 +346,56 @@ private fun AddHostGroup(
     }
 }
 
-/** 「从 ~/.ssh/config 选」那一行和那一页的标题；[config] 时（桌面）说成 SSH 配置。 */
-private fun configTitle(config: Boolean) = if (config) "从 SSH 配置导入" else "从 ~/.ssh/config 选"
+/** 「加设备」下面的说明：桌面一句；手机按有没有 Debian 讲连法，再说设备要什么。 */
+private fun addFooter(phone: Boolean, debian: Boolean): String =
+    when {
+        !phone -> DesktopFooter
+        debian -> ViaFooter + HostingFooter
+        else -> DirectOnlyFooter + HostingFooter
+    }
+
+/** 正在从那一行（[fromConfig]：从 ~/.ssh/config 选的，还是输入的）加的设备：「正在连接 …」；不是这一行时是 null。 */
+private fun connecting(adding: Probing?, fromConfig: Boolean): String? =
+    adding
+        ?.takeIf { it.fromConfig == fromConfig }
+        ?.let { "正在连接 ${RemoteHosts.displayTarget(it.target)}…" }
+
+/** 「从 ~/.ssh/config 选」那一行和那一页的文字。 */
+private class ConfigWords(
+    val title: String,
+    val rowSummary: String?,
+    val reading: String,
+    val unreadable: String,
+    val empty: String,
+    val footer: String,
+)
+
+/** 桌面：这台电脑的 SSH 配置，Zeta 照它直连。 */
+private val DesktopConfigWords =
+    ConfigWords(
+        title = "从 SSH 配置导入",
+        rowSummary = null,
+        reading = "正在读取 SSH 配置…",
+        unreadable = "无法读取 SSH 配置",
+        empty = "SSH 配置中没有可添加的设备",
+        footer = "已添加的设备不再列出。",
+    )
+
+/** 手机：Debian 里的 ~/.ssh/config，经 Debian 的 OpenSSH 连。 */
+private val DebianConfigWords =
+    ConfigWords(
+        title = "从 ~/.ssh/config 选",
+        rowSummary = RemoteHost.Via.Debian.label,
+        reading = "正在读 ~/.ssh/config…",
+        unreadable = "读不到 ~/.ssh/config",
+        empty = "~/.ssh/config 里没有别的主机",
+        footer =
+            "手机 Debian 里 ~/.ssh/config 和 config.local 的 Host 行里的主机，带通配符的、已经加过的不列。" +
+                "选一台，经 Debian 的 OpenSSH 连一次，连上了才加。",
+    )
+
+/** [config] 时（桌面）是这台电脑的 SSH 配置，否则是手机 Debian 的。 */
+private fun configWords(config: Boolean) = if (config) DesktopConfigWords else DebianConfigWords
 
 /** 照这台电脑 ~/.ssh 配置直连时（[config]，桌面）能选的私钥（[com.dzshzx.zeta.core.ssh.SshAuth.keys]）；读之前、不能选时是空的。 */
 @Composable
@@ -400,7 +429,10 @@ private fun KeyChoice(
         items = options.map { it?.let(hub.ssh.auth::keyName) ?: "自动选择" },
         selectedIndex = options.indexOf(chosen),
         enabled = enabled,
-        onSelectedIndexChange = { index -> if (index in options.indices) onChange(options[index]) },
+        onSelectedIndexChange = { index ->
+            // 选的还是原来那把：不用再连一次
+            if (index in options.indices && options[index] != chosen) onChange(options[index])
+        },
     )
 }
 
@@ -425,6 +457,29 @@ private fun KeyGroup(key: Result<SshKey>?, onShow: () -> Unit) {
     }
 }
 
+/** 能选的主机（[config] 时这台电脑的 SSH 配置，否则手机 Debian 的 ~/.ssh/config）：读之前是 null，读不到时是原因。 */
+@Composable
+private fun rememberConfigHosts(hub: ConversationHub, config: Boolean): Result<List<String>>? {
+    val local = hub.shell(Backends.LOCAL)?.takeIf { hub.usable(Backends.LOCAL) }
+    var hosts by remember { mutableStateOf<Result<List<String>>?>(null) }
+    LaunchedEffect(local != null) {
+        hosts =
+            withContext(Dispatchers.IO) {
+                when {
+                    config -> runCatching { hub.ssh.auth.configHosts() }
+                    local == null ->
+                        Result.failure(
+                            IllegalStateException(
+                                hub.unavailable(Backends.LOCAL) ?: "手机上的 Debian 没就绪",
+                            ),
+                        )
+                    else -> runCatching { RemoteHosts.readAliases(local) }
+                }
+            }
+    }
+    return hosts
+}
+
 /**
  * 从 ~/.ssh/config 里选一台：手机上是 Debian 里的（经 Debian 的 OpenSSH 连），[config] 时是这台电脑的（Zeta 照它直连）。 Host
  * 行里的具体主机，[known] 里已经加过的不列。
@@ -437,49 +492,24 @@ private fun SshConfigHostsScreen(
     onPick: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val local = hub.shell(Backends.LOCAL)?.takeIf { hub.usable(Backends.LOCAL) }
-    // 读之前是 null，读不到时是原因
-    var aliases by remember { mutableStateOf<Result<List<String>>?>(null) }
-    LaunchedEffect(local != null) {
-        aliases =
-            if (config) {
-                withContext(Dispatchers.IO) { runCatching { hub.ssh.auth.configHosts() } }
-            } else if (local == null) {
-                Result.failure(
-                    IllegalStateException(hub.unavailable(Backends.LOCAL) ?: "手机上的 Debian 没就绪"),
-                )
-            } else {
-                withContext(Dispatchers.IO) { runCatching { RemoteHosts.readAliases(local) } }
-            }
-    }
-    CouiPage(title = configTitle(config), onBack = onBack) {
+    val words = configWords(config)
+    val read = rememberConfigHosts(hub, config)
+    CouiPage(title = words.title, onBack = onBack) {
         item(key = "aliases") {
-            val read = aliases
             val choices = read?.getOrNull()?.filter { it !in known && it != "localhost" }
-            PreferenceGroup(footer = sshConfigFooter(config)) {
+            PreferenceGroup(footer = words.footer) {
                 when {
-                    read == null ->
-                        item {
-                            BasicComponent(
-                                title = if (config) "正在读取 SSH 配置…" else "正在读 ~/.ssh/config…",
-                                enabled = false,
-                            )
-                        }
+                    read == null -> item { BasicComponent(title = words.reading, enabled = false) }
                     choices == null ->
                         item {
                             BasicComponent(
-                                title = if (config) "无法读取 SSH 配置" else "读不到 ~/.ssh/config",
+                                title = words.unreadable,
                                 summary = read.exceptionOrNull()?.message,
                                 enabled = false,
                             )
                         }
                     choices.isEmpty() ->
-                        item {
-                            BasicComponent(
-                                title = if (config) "SSH 配置中没有可添加的设备" else "~/.ssh/config 里没有别的主机",
-                                enabled = false,
-                            )
-                        }
+                        item { BasicComponent(title = words.empty, enabled = false) }
                     else ->
                         choices.forEach { alias ->
                             item { ArrowPreference(title = alias, onClick = { onPick(alias) }) }
@@ -518,10 +548,10 @@ fun RemoteHostScreen(
     var check by remember { mutableStateOf<String?>(null) }
     // 正在试着改成的连法
     var switching by remember { mutableStateOf<RemoteHost.Via?>(null) }
-    // 照这台电脑 ~/.ssh 配置直连时（桌面）：能选的私钥，和正在试着改用的那把（照 ~/.ssh/config 的是 ""）
+    // 照这台电脑 ~/.ssh 配置直连时（桌面）：能选的私钥，和是不是正在试着改用另一把
     val config = hub.ssh.auth.aliases
     val keys = rememberKeys(hub, config)
-    var changingKey by remember { mutableStateOf<String?>(null) }
+    var changingKey by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<ProbeNotice?>(null) }
     val lastNotice = rememberRetained(notice)
     // 直连时对方现在的主机公钥（和记下的不一样），等用户决定认不认
@@ -550,24 +580,16 @@ fun RemoteHostScreen(
     }
 
     fun changeKey(key: String?) {
-        if (key == shown.key) return
-        val name = key?.let(hub.ssh.auth::keyName) ?: "自动选择"
-        changingKey = key.orEmpty()
+        changingKey = true
         scope.launch {
             val probe =
                 withContext(Dispatchers.IO) {
                     hub.probeRemote(shown.target, shown.via, shown.hostKey, key)
                 }
-            changingKey = null
+            changingKey = false
             notice =
-                when (probe) {
-                    is RemoteHosts.Probe.Ok -> {
-                        save { it.copy(key = key).refreshedBy(probe) }
-                        ProbeNotice("SSH 密钥已改为 $name", probeSummary(probe))
-                    }
-                    is RemoteHosts.Probe.Failed -> ProbeNotice("无法改为 $name", probe.reason)
-                    is RemoteHosts.Probe.HostKeyChanged ->
-                        ProbeNotice("无法改为 $name", "服务器身份与之前记录的不一致")
+                keyChangeNotice(keyLabel(hub, key), probe) { ok ->
+                    save { it.copy(key = key).refreshedBy(ok) }
                 }
         }
     }
@@ -670,19 +692,9 @@ fun RemoteHostScreen(
                 checking = checking,
                 onRename = { renaming = true },
                 onSwitch = ::switchTo,
-                keyChoice =
-                    if (config) {
-                        {
-                            KeyChoice(
-                                hub,
-                                keys,
-                                shown.key,
-                                enabled = changingKey == null && !checking,
-                                summary = changingKey?.let { "正在连接…" },
-                                onChange = ::changeKey,
-                            )
-                        }
-                    } else null,
+                keys = keys.takeIf { config },
+                changingKey = changingKey,
+                onChangeKey = ::changeKey,
                 onEditCwd = {
                     draft = shown.defaultCwd
                     cwdEditing = true
@@ -693,7 +705,7 @@ fun RemoteHostScreen(
             CheckGroup(
                 check = check,
                 checking = checking,
-                switching = switching != null || changingKey != null,
+                switching = switching != null || changingKey,
                 onCheck = ::checkConnection,
             )
         }
@@ -749,6 +761,25 @@ private fun List<RemoteHost>.replacing(id: String, change: (RemoteHost) -> Remot
     if (it.id == id) change(it) else it
 }
 
+/** 私钥 [key]（[com.dzshzx.zeta.core.ssh.SshAuth.keys] 里的一项）给人看的名字；null 是自动选择。 */
+private fun keyLabel(hub: ConversationHub, key: String?): String =
+    key?.let(hub.ssh.auth::keyName) ?: "自动选择"
+
+/** 改用私钥 [name] 时连了一次的结果：连上了交给 [onOk] 存下，给用户看的话。 */
+private fun keyChangeNotice(
+    name: String,
+    probe: RemoteHosts.Probe,
+    onOk: (RemoteHosts.Probe.Ok) -> Unit,
+): ProbeNotice =
+    when (probe) {
+        is RemoteHosts.Probe.Ok -> {
+            onOk(probe)
+            ProbeNotice("SSH 密钥已改为 $name", probeSummary(probe))
+        }
+        is RemoteHosts.Probe.Failed -> ProbeNotice("无法改为 $name", probe.reason)
+        is RemoteHosts.Probe.HostKeyChanged -> ProbeNotice("无法改为 $name", "服务器身份与之前记录的不一致")
+    }
+
 /** 检查连接的结果，显示在那一组下面。指纹变了交给 [onKeyChanged] 等用户决定；连上了而家目录或主机名变了交给 [onRefresh] 跟着改。 */
 private fun checkMessage(
     probe: RemoteHosts.Probe,
@@ -791,6 +822,26 @@ private fun RemoteHost.refreshedBy(probe: RemoteHosts.Probe.Ok): RemoteHost =
         hostname = probe.hostname ?: hostname,
     )
 
+/** 「连接方式」下拉：经手机 Debian 或 Zeta 直连；[switching] 是正在试着改成的。 */
+@Composable
+private fun ViaChoice(
+    host: RemoteHost,
+    switching: RemoteHost.Via?,
+    enabled: Boolean,
+    onSwitch: (RemoteHost.Via) -> Unit,
+) {
+    OverlayDropdownPreference(
+        title = "连接方式",
+        summary = switching?.let { "正在${it.label}连接…" },
+        items = Vias.map { it.label },
+        selectedIndex = Vias.indexOf(host.via),
+        enabled = enabled,
+        onSelectedIndexChange = { index ->
+            Vias.getOrNull(index)?.takeIf { it != host.via }?.let(onSwitch)
+        },
+    )
+}
+
 /** 主机页的「连接」一组：自定义设备名、地址、连接方式、主机指纹、家目录、默认工作目录。 */
 @Composable
 private fun ConnectionGroup(
@@ -800,7 +851,9 @@ private fun ConnectionGroup(
     checking: Boolean,
     onRename: () -> Unit,
     onSwitch: (RemoteHost.Via) -> Unit,
-    keyChoice: (@Composable () -> Unit)?,
+    keys: List<String>?,
+    changingKey: Boolean,
+    onChangeKey: (String?) -> Unit,
     onEditCwd: () -> Unit,
 ) {
     PreferenceGroup(title = "连接") {
@@ -811,21 +864,19 @@ private fun ConnectionGroup(
                 endActions = { PreferenceValue(RemoteHosts.displayTarget(host.target)) },
             )
         }
-        // 照这台电脑 ~/.ssh 配置直连的（桌面）只有直连一种，换成选私钥
-        if (keyChoice != null) item { keyChoice() }
-        else
-            item {
-                OverlayDropdownPreference(
-                    title = "连接方式",
-                    summary = switching?.let { "正在${it.label}连接…" },
-                    items = Vias.map { it.label },
-                    selectedIndex = Vias.indexOf(host.via),
-                    enabled = switching == null && !checking,
-                    onSelectedIndexChange = { index ->
-                        Vias.getOrNull(index)?.takeIf { it != host.via }?.let(onSwitch)
-                    },
+        // 照这台电脑 ~/.ssh 配置直连的（桌面，[keys] 不是 null）只有直连一种，换成选私钥
+        item {
+            if (keys != null)
+                KeyChoice(
+                    hub,
+                    keys,
+                    host.key,
+                    enabled = !changingKey && !checking,
+                    summary = if (changingKey) "正在连接…" else null,
+                    onChange = onChangeKey,
                 )
-            }
+            else ViaChoice(host, switching, enabled = switching == null && !checking, onSwitch)
+        }
         host.fingerprint?.let { fingerprint ->
             item { BasicComponent(title = "主机指纹", summary = fingerprint) }
         }
