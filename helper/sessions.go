@@ -222,18 +222,28 @@ func cmdList(e *env, o *emitter) error {
 }
 
 func cmdLookup(e *env, o *emitter, ids []string) error {
+	for _, item := range lookupSessions(e, ids) {
+		o.out(item)
+	}
+	return nil
+}
+
+// lookupSessions 按 id 取会话概要（形状同 list 的每一项），按 ids 的顺序，找不到的不在里面。
+// zeta-helper lookup 和核心的 sessions.lookup 都用它。
+func lookupSessions(e *env, ids []string) []obj {
 	external := e.externalSessions()
 	archived := e.archivedSessions()
+	items := []obj{}
 	for _, id := range ids {
 		for _, path := range e.sessionFilesNamed(id) {
 			s, ok, err := summarize(path)
 			if err == nil && ok {
-				o.out(s.item(external, archived))
+				items = append(items, s.item(external, archived))
 				break
 			}
 		}
 	}
-	return nil
+	return items
 }
 
 // archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着；文件里一行一个 id。
@@ -252,6 +262,18 @@ func (e *env) archivedSessions() map[string]bool {
 }
 
 func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
+	if err := archiveSessions(e, sessions, on); err != nil {
+		return err
+	}
+	for _, id := range sessions {
+		o.out(obj{"type": "zeta_archived", "id": id, "archived": on})
+	}
+	return nil
+}
+
+// archiveSessions 把这些会话记成归档（on）或取消归档，顺手清掉记录文件已经不在的；先写临时文件再改名换上。
+// zeta-helper archive 和核心的 sessions.archive 都用它。
+func archiveSessions(e *env, sessions []string, on bool) error {
 	// 顺手清掉记录文件已经不在的
 	alive := e.sessionIDs()
 	keep := map[string]bool{}
@@ -282,13 +304,7 @@ func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
 	if err := os.WriteFile(e.archive+".tmp", []byte(b.String()), 0o666); err != nil {
 		return err
 	}
-	if err := os.Rename(e.archive+".tmp", e.archive); err != nil {
-		return err
-	}
-	for _, id := range sessions {
-		o.out(obj{"type": "zeta_archived", "id": id, "archived": on})
-	}
-	return nil
+	return os.Rename(e.archive+".tmp", e.archive)
 }
 
 // cmdRename 给会话改名（renameSession），报出实际写下的标题。
@@ -350,21 +366,37 @@ func lacksFinalNewline(f *os.File) (bool, error) {
 	return last[0] != '\n', nil
 }
 
-// cmdDelete 删会话记录和它的同名目录。目录用 removeTree，删到符号链接只删链接本身，不跟进去。
+// cmdDelete 删这些会话记录（deleteRecord），每份输出一行 zeta_deleted。
 func cmdDelete(e *env, o *emitter, paths []string) error {
 	for _, path := range paths {
-		dir, hasDir := e.sessionDir(path)
-		if err := unlinkFile(path); err != nil && !isNotExist(err) {
+		d, err := deleteRecord(e, path)
+		if err != nil {
 			return err
 		}
-		cleaned := false
-		if hasDir {
-			removeTree(dir)
-			cleaned = !lexists(dir)
-		}
-		o.out(obj{"type": "zeta_deleted", "file": path, "dir": cleaned})
+		o.out(obj{"type": "zeta_deleted", "file": d.File, "dir": d.Dir})
 	}
 	return nil
+}
+
+// deletedRecord 是删掉的一份会话记录；Dir 是它的同名目录删掉了（没有同名目录时为假）。
+type deletedRecord struct {
+	File string `json:"file"`
+	Dir  bool   `json:"dir"`
+}
+
+// deleteRecord 删会话记录 path 和它的同名目录（工具结果、子代理记录等）。目录用 removeTree，删到符号链接只删链接本身，不跟进去。
+// 记录已经不在不算出错。zeta-helper delete 和核心的 sessions.delete 都用它。
+func deleteRecord(e *env, path string) (deletedRecord, error) {
+	dir, hasDir := e.sessionDir(path)
+	if err := unlinkFile(path); err != nil && !isNotExist(err) {
+		return deletedRecord{}, err
+	}
+	cleaned := false
+	if hasDir {
+		removeTree(dir)
+		cleaned = !lexists(dir)
+	}
+	return deletedRecord{File: path, Dir: cleaned}, nil
 }
 
 // registered 是 Claude Code 某个进程登记的会话。

@@ -14,30 +14,46 @@ var imageTypes = map[string]string{".png": "image/png", ".jpg": "image/jpeg", ".
 
 const maxImageBytes = 30 * 1024 * 1024
 
-// cmdImage 按 history 给出的位置（行号.块序号[.内层序号]）取回一张图片。记录只追加不改写，所以行号是稳定的。
+// cmdImage 输出一行 zeta_image（见 sessionImage）。
 func cmdImage(o *emitter, path, position string) error {
+	img, err := sessionImage(path, position)
+	if err != nil {
+		return err
+	}
+	o.out(obj{"type": "zeta_image", "media_type": img.MediaType, "data": img.Data})
+	return nil
+}
+
+// recordImage 是会话记录里的一张图片，Data 是 base64。
+type recordImage struct {
+	MediaType any `json:"media_type"`
+	Data      any `json:"data"`
+}
+
+// sessionImage 按 history 给出的位置（行号.块序号[.内层序号]）取回会话记录 path 里的一张图片。记录只追加不改写，所以行号是稳定的。
+// zeta-helper image 和核心的 sessions.image 都用它。
+func sessionImage(path, position string) (recordImage, error) {
 	var index []int
 	for _, part := range strings.Split(position, ".") {
 		n, err := strconv.Atoi(part)
 		if err != nil {
-			return fmt.Errorf("bad position: %q", position)
+			return recordImage{}, fmt.Errorf("bad position: %q", position)
 		}
 		index = append(index, n)
 	}
 	line, err := lineAt(path, index[0])
 	if err != nil {
-		return err
+		return recordImage{}, err
 	}
 	block, err := imageBlock(line, index)
 	if err != nil {
-		return err
+		return recordImage{}, err
 	}
 	source := asObj(block["source"])
 	if block["type"] != "image" || source["type"] != "base64" {
-		return errors.New("not an image")
+		return recordImage{}, errors.New("not an image")
 	}
-	o.out(obj{"type": "zeta_image", "media_type": source["media_type"], "data": source["data"]})
-	return nil
+	return recordImage{MediaType: source["media_type"], Data: source["data"]}, nil
 }
 
 // lineAt 是记录的第 number 行（从 0 数）。

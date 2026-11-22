@@ -67,12 +67,42 @@ type searcher struct {
 	escaped string // 关键词在 JSON 字符串里的样子：记录里的字符串是转义过的，按行粗筛时用它比
 }
 
-// cmdSearch 只看用户和 Claude 说的话。逐行先按子串粗筛（工具结果、请求快照这类大行不解析），每个会话取第一处命中就换下一个；
-// 限时限量，免得几百 MB 的记录把手机拖住。
+// cmdSearch 边找边输出 zeta_match，最后一行是汇总 zeta_search_done（见 searchSessions）。
 func cmdSearch(e *env, o *emitter, query string) error {
+	done, err := searchSessions(e, query, func(m searchMatch) bool {
+		o.out(obj{"type": "zeta_match", "id": m.ID, "role": m.Role, "snippet": m.Snippet})
+		o.flush()
+		return true
+	})
+	if err != nil {
+		return err
+	}
+	o.out(obj{"type": "zeta_search_done", "scanned": done.Scanned, "total": done.Total, "matched": done.Matched, "complete": done.Complete})
+	return nil
+}
+
+// searchMatch 是一个会话里的第一处命中。
+type searchMatch struct {
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	Snippet string `json:"snippet"`
+}
+
+// searchDone 是一次搜索的汇总：看了几份、一共几份、命中几个；Complete 为假是到了时限、个数，或被叫停。
+type searchDone struct {
+	Scanned  int  `json:"scanned"`
+	Total    int  `json:"total"`
+	Matched  int  `json:"matched"`
+	Complete bool `json:"complete"`
+}
+
+// searchSessions 在最新的 listLimit 个会话里找关键词，只看用户和 Claude 说的话。逐行先按子串粗筛（工具结果、请求快照这类大行不解析），
+// 每个会话取第一处命中就换下一个，命中一个就交给 found；found 返回假时不再找。限时限量，免得几百 MB 的记录把手机拖住。
+// zeta-helper search 和核心的 sessions.search 都用它。
+func searchSessions(e *env, query string, found func(searchMatch) bool) (searchDone, error) {
 	needle := strings.ToLower(strings.TrimSpace(query))
 	if needle == "" {
-		return errors.New("empty query")
+		return searchDone{}, errors.New("empty query")
 	}
 	quoted := appendQuoted(nil, needle)
 	s := searcher{needle: needle, escaped: string(quoted[1 : len(quoted)-1])}
@@ -80,22 +110,22 @@ func cmdSearch(e *env, o *emitter, query string) error {
 	sortNewestFirst(files)
 	files = files[:min(len(files), listLimit)]
 	deadline := time.Now().Add(searchTime)
-	scanned, matched := 0, 0
-	complete := true
+	done := searchDone{Total: len(files), Complete: true}
 	for _, path := range files {
-		if time.Now().After(deadline) || matched >= searchLimit {
-			complete = false
+		if time.Now().After(deadline) || done.Matched >= searchLimit {
+			done.Complete = false
 			break
 		}
-		scanned++
+		done.Scanned++
 		if role, snip, ok := s.file(path); ok {
-			matched++
-			o.out(obj{"type": "zeta_match", "id": dropRunes(baseName(path), 6), "role": role, "snippet": snip})
-			o.flush()
+			done.Matched++
+			if !found(searchMatch{ID: dropRunes(baseName(path), 6), Role: role, Snippet: snip}) {
+				done.Complete = false
+				break
+			}
 		}
 	}
-	o.out(obj{"type": "zeta_search_done", "scanned": scanned, "total": len(files), "matched": matched, "complete": complete})
-	return nil
+	return done, nil
 }
 
 // file 在一份记录里找第一处命中。

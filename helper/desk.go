@@ -80,15 +80,24 @@ func deskTitle(title, id string) string {
 // shellQuote 给 sh 用的单引号写法。
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
-// cmdDeskOpen 输出一行 {"window": 窗口 id}；这台机器没有 tmux 时是 null。窗口名先是会话 id 的前 8 位，desk 读到标题后改。
+// cmdDeskOpen 输出一行 {"window": 窗口 id}；这台机器没有 tmux 时是 null（见 deskOpen）。
 func cmdDeskOpen(e *env, o *emitter, id, cwd string) error {
+	window, err := deskOpen(e, id, cwd)
+	if err != nil {
+		return err
+	}
+	o.out(obj{"window": window})
+	return nil
+}
+
+// deskOpen 给会话 id 在 tmux 会话 zeta 里开窗口，已经有就不动；给出窗口 id，这台机器没有 tmux 时是 nil。
+// 窗口名先是会话 id 的前 8 位，desk 读到标题后改。zeta-helper desk-open 和核心的 sessions.desk_open 都用它。
+func deskOpen(e *env, id, cwd string) (*string, error) {
 	if !tmuxPresent() {
-		o.out(obj{"window": nil})
-		return nil
+		return nil, nil
 	}
 	if window, ok := deskWindows()[id]; ok {
-		o.out(obj{"window": window})
-		return nil
+		return &window, nil
 	}
 	command := shellQuote(e.home+"/.cache/"+e.name+"/bin/zeta-helper") + " desk " + shellQuote(id) + " " + shellQuote(cwd)
 	args := []string{"new-session", "-d", "-s", deskSession}
@@ -98,17 +107,23 @@ func cmdDeskOpen(e *env, o *emitter, id, cwd string) error {
 	args = append(args, "-P", "-F", "#{window_id}", "-n", deskTitle("", id), "-c", cwd, command)
 	window, err := tmuxRun(args...)
 	if err != nil {
-		return fmt.Errorf("tmux 开不了窗口：%w", err)
+		return nil, fmt.Errorf("tmux 开不了窗口：%w", err)
 	}
 	// 窗口名不跟着里面跑的程序变（claude 起来后不会改成“claude”）
 	_, _ = tmuxRun("set-option", "-w", "-t", window, "@zeta_session", id)
 	_, _ = tmuxRun("set-option", "-w", "-t", window, "automatic-rename", "off")
-	o.out(obj{"window": window})
-	return nil
+	return &window, nil
 }
 
 // cmdDeskClose 输出一行 {"closed": 关了几个}。
 func cmdDeskClose(o *emitter, ids []string) error {
+	o.out(obj{"closed": deskClose(ids)})
+	return nil
+}
+
+// deskClose 关掉这些会话在 tmux 会话 zeta 里的窗口，给出关了几个；没有 tmux、没有窗口时是 0。
+// zeta-helper desk-close 和核心的 sessions.delete、sessions.archive、sessions.desk_close 都用它。
+func deskClose(ids []string) int {
 	windows := deskWindows()
 	closed := 0
 	for _, id := range ids {
@@ -118,8 +133,7 @@ func cmdDeskClose(o *emitter, ids []string) error {
 			}
 		}
 	}
-	o.out(obj{"closed": closed})
-	return nil
+	return closed
 }
 
 // deskGone：会话记录没了，或很久没动过（deskStale），窗口就不用留了。记录要在第一条消息之后才写出来，
