@@ -92,7 +92,7 @@ class OpenSshConfigAuthTest {
     fun keyTheHostDoesNotTrustIsExplained() {
         val result = SshLinks(auth).probe("other", null, "anything")
         assertNull(result.output)
-        assertTrue(result.problem, result.problem!!.contains("不认这台电脑 ~/.ssh 里的私钥（stranger）"))
+        assertTrue(result.problem, result.problem!!.contains("服务器拒绝了 SSH 密钥 stranger"))
     }
 
     @Test
@@ -106,11 +106,11 @@ class OpenSshConfigAuthTest {
         assertEquals("ok\n", chosen.output?.stdout)
         // 选了对方不认的那把：配置里的好钥匙也不再试
         val wrong = links.probe("box", null, "anything", key = "~/.ssh/stranger")
-        assertTrue(wrong.problem, wrong.problem!!.contains("（stranger）"))
+        assertTrue(wrong.problem, wrong.problem!!.contains("SSH 密钥 stranger"))
         assertTrue(
             assertThrows(SshProblem::class.java) { auth.resolve("box", "~/.ssh/gone") }
                 .message!!
-                .contains("选的私钥 gone 不在了"),
+                .contains("找不到 SSH 密钥 gone"),
         )
     }
 
@@ -119,7 +119,7 @@ class OpenSshConfigAuthTest {
         assertTrue(
             assertThrows(SshProblem::class.java) { auth.resolve("nokey", null) }
                 .message!!
-                .contains("没有「nokey」要用的私钥"),
+                .contains("没有可用于 nokey 的 SSH 密钥"),
         )
         assertTrue(
             assertThrows(SshProblem::class.java) { auth.resolve("jump", null) }
@@ -129,7 +129,7 @@ class OpenSshConfigAuthTest {
         assertTrue(
             assertThrows(SshProblem::class.java) { auth.resolve("bad name", null) }
                 .message!!
-                .contains("~/.ssh/config 里的别名"),
+                .contains("SSH 配置中的主机名"),
         )
     }
 

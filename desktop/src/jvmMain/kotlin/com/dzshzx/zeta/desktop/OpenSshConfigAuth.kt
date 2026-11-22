@@ -42,18 +42,16 @@ class OpenSshConfigAuth(
         val options = parse(run(listOf("-G") + args))
         val first = { name: String -> options[name]?.firstOrNull() }
         listOf("proxyjump", "proxycommand").forEach { name ->
-            first(name)
-                ?.takeIf { it != "none" }
-                ?.let { throw SshProblem("~/.ssh/config 给「$target」配了 $name，Zeta 直连还不支持跳板") }
+            first(name)?.takeIf { it != "none" }?.let { throw SshProblem("暂不支持通过跳板机连接（$target）") }
         }
-        val host = first("hostname") ?: throw SshProblem("ssh -G 没给出「$target」的主机名")
-        val user = first("user") ?: throw SshProblem("ssh -G 没给出「$target」的用户名")
+        val host = first("hostname") ?: throw SshProblem("SSH 配置中缺少 $target 的 HostName")
+        val user = first("user") ?: throw SshProblem("SSH 配置中缺少 $target 的 User")
         val port = first("port")?.toIntOrNull() ?: 22
         val files =
             if (key != null)
                 listOf(
                     expand(key, host, user).takeIf { it.isFile }
-                        ?: throw SshProblem("选的私钥 ${keyName(key)} 不在了"),
+                        ?: throw SshProblem("找不到 SSH 密钥 ${keyName(key)}"),
                 )
             else
                 options["identityfile"]
@@ -61,16 +59,14 @@ class OpenSshConfigAuth(
                     .map { expand(it, host, user) }
                     .filter { it.isFile }
                     .distinct()
-        if (files.isEmpty())
-            throw SshProblem("这台电脑的 ~/.ssh 里没有「$target」要用的私钥（IdentityFile 指的文件都不在），在设备页里选一把")
+        if (files.isEmpty()) throw SshProblem("没有可用于 $target 的 SSH 密钥，请选择一个")
         val identities = files.flatMap(::load)
         if (identities.isEmpty())
-            throw SshProblem("读不了「$target」的私钥 ${files.joinToString { it.name }}（设了口令的 Zeta 用不了）")
+            throw SshProblem("无法读取 SSH 密钥 ${files.joinToString { it.name }}（暂不支持有密码保护的密钥）")
         return SshRoute(SshTarget(user, host, port), identities, files.joinToString { it.name })
     }
 
-    override fun rejected(route: SshRoute) =
-        "对方不认这台电脑 ~/.ssh 里的私钥（${route.keys}）：在命令行里 ssh 一次看看，或在设备页里换一把"
+    override fun rejected(route: SshRoute) = "服务器拒绝了 SSH 密钥 ${route.keys}"
 
     /** ~/.ssh/config 和同目录的 config.local 里 Host 行列的主机；两个都不在时是空的。 */
     override fun configHosts(): List<String> {
@@ -100,7 +96,7 @@ class OpenSshConfigAuth(
             try {
                 ProcessBuilder(command).start()
             } catch (e: Exception) {
-                throw SshProblem("这台电脑上找不到 OpenSSH 客户端（$ssh）：${e.message.orEmpty().take(120)}")
+                throw SshProblem("未找到 OpenSSH 客户端（$ssh）：${e.message.orEmpty().take(120)}")
             }
         process.outputStream.close()
         // 标准错误只有一两行（不是终端的提示、配置错在哪），等标准输出读完再读不会堵住
@@ -108,12 +104,11 @@ class OpenSshConfigAuth(
         val errors = process.errorStream.bufferedReader().use { it.readText() }
         if (!process.waitFor(10, TimeUnit.SECONDS)) {
             process.destroyForcibly()
-            throw SshProblem("ssh -G 没有响应")
+            throw SshProblem("读取 SSH 配置超时")
         }
         if (process.exitValue() != 0)
             throw SshProblem(
-                "ssh -G 读不了 ~/.ssh/config：" +
-                    errors.trim().lines().lastOrNull().orEmpty().take(200),
+                "SSH 配置有误：" + errors.trim().lines().lastOrNull().orEmpty().take(200),
             )
         return output
     }

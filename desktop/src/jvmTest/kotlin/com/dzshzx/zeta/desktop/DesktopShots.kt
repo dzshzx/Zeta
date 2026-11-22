@@ -69,7 +69,7 @@ class DesktopShots {
     /** 设置：加过的设备和「添加远程设备」。 */
     @Test fun settings() = shoot("desktop-settings", listOf(workstation), AppPage.Settings)
 
-    /** 添加远程设备：输入地址、Zeta 的公钥。 */
+    /** 添加远程设备：SSH 密钥、从 SSH 配置导入、手动添加。 */
     @Test fun addHost() = shoot("desktop-add-host", emptyList(), AppPage.RemoteHosts)
 
     private companion object {

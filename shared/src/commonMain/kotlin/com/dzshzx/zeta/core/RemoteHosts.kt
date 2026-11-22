@@ -253,7 +253,7 @@ object RemoteHosts {
     const val DEBIAN_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名"
 
     /** 桌面版直连地址的写法（照这台电脑的 ~/.ssh 配置，[com.dzshzx.zeta.core.ssh.SshAuth.aliases]）。 */
-    const val CONFIG_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是这台电脑 ~/.ssh/config 里的别名"
+    const val CONFIG_TARGET_HINT = "输入 SSH 配置中的主机名，或 用户@主机[:端口]。"
 
     /**
      * 地址 [text]（用户输入的，或这台主机另一种连法用的）换成连法 [via] 的写法；这种连法用不了它时是 null。 直连认写明用户的

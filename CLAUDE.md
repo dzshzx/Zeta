@@ -121,7 +121,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 上线指把正式版装成最新发布的版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才做：master 上有没发版的提交就先发版，再在主 checkout 上跑 `ZETA_PHONE_OWNER=main tools/install.sh --release`（装指定版本时加 tag，如 `ZETA_PHONE_OWNER=main tools/install.sh --release v0.7.1`）。它用 `gh release download` 取 Release 的 APK，核对 sha256、签名证书（`release/signing-certs.txt` 登记的）、包名和版本后装到手机，不在本机构建。装完在正式版的测试屏上验一遍（`ZETA_PHONE_OWNER=main tools/vd --release` 带 start、launch、shot，验完 stop）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
 
-桌面版和手机正式版共用远程主机上的托管目录，两边各自发版，新旧版本的托管脚本会同时操作同一个目录（规矩见 `zeta_host.sh` 开头）：改托管脚本的协议时新旧两边都要能接着用。手机正式版 v0.7.3 及更早的不找本包现成的进程，会对同一会话另起一个，所以桌面版要等用户手机上的正式版升过 v0.7.3 之后再发；用户的正式版升过之后删这一句。
+桌面版和手机正式版共用远程主机上的托管目录，两边各自发版，新旧版本的托管脚本会同时操作同一个目录（规矩见 `zeta_host.sh` 开头）：改托管脚本的协议时新旧两边都要能接着用。
 
 正式版自己也检查更新（设置「关于」，回到前台时每天最多一次）：读最新 Release 的 `update.json`，核对后经 root 的 `pm install -r` 或系统的安装界面装，有手机工具调用正在执行时等这一次结束（对话在回答、后台屏幕开着都不等）。只有正式发版证书签的包才查；做法和在模拟器上用测试版试的办法见 `docs/release.md`「应用内更新」。
 
