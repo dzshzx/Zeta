@@ -146,12 +146,18 @@ func (e *ReplyError) Code() string { return e.code }
 // 否则返回 *ReplyError（serve 给的原因和 code）。还在连（第一次或重连）时等连上；连接在应答之前断了返回错误，不重发（请求可能已经生效）。
 // 不再重连了（Close 了，或第一次就没连上）时直接返回最后的原因。不能在 Message、Problem 回调里调：应答要靠那个 goroutine 读。
 func (s *Serve) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	return s.CallTagged(ctx, method, params, nil)
+}
+
+// CallTagged 同 Call，只是写出请求之前把它的 id 交给 tag（tag 可以是 nil）：有的方法边做边推、推送里用 id 指回请求
+// （比如 sessions.search 推来的 sessions.match），先记下 id，推送来时才对得上。
+func (s *Serve) CallTagged(ctx context.Context, method string, params map[string]any, tag func(id int64)) (json.RawMessage, error) {
 	p, err := s.connection(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ch := make(chan reply, 1)
-	id := s.write(p, method, params, ch)
+	id := s.write(p, method, params, ch, tag)
 	select {
 	case r := <-ch:
 		return r.result, r.err
@@ -356,11 +362,11 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 }
 
 // send 发一个不等应答的请求（订阅、ping）。
-func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil) }
+func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil, nil) }
 
-// write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。
+// write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。tag 不为空时写出之前把 id 交给它。
 // 写不出去时不管，读那边会发现断了，到时 ch 收到 errDropped。
-func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, ch chan reply) int64 {
+func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, ch chan reply, tag func(int64)) int64 {
 	s.writing.Lock()
 	defer s.writing.Unlock()
 	s.mu.Lock()
@@ -375,6 +381,9 @@ func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, 
 		s.pending[id] = ch
 	}
 	s.mu.Unlock()
+	if tag != nil {
+		tag(id)
+	}
 	msg := make(map[string]any, len(params)+2)
 	maps.Copy(msg, params)
 	msg["id"], msg["method"] = id, method

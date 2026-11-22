@@ -12,14 +12,14 @@ import (
 )
 
 // OpenChat 起一条到设备 h 上 serve 的连接给对话用（和会话列表的订阅各用各的：对话开在哪台和侧栏列哪台无关）。
-// 推来的对话推送（type 以 conv. 开头的行）交给 push，连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
+// 推来的对话推送（type 以 conv. 开头的行）和搜索的命中（sessions.match）交给 push，连上（空）、断开或连不上（原因）交给 problem，都在读的 goroutine 上调用；
 // 请求用返回的连接（一个 *Serve）的 Call。第一次就没连上时 Serve 停掉，Call 返回那次的原因，要再用得重新 OpenChat。
 func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) ChatLink {
 	shell := hostlink.NewShell(d.Links, h, LinuxName)
 	return hostlink.StartServe(hostlink.ServeOptions{
 		Open: func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Message: func(kind string, line []byte) {
-			if strings.HasPrefix(kind, "conv.") {
+			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" {
 				push(line)
 			}
 		},
@@ -96,5 +96,7 @@ func (d *Devices) Hostname(h sshlink.Host) (string, error) {
 // ChatLink 是 OpenChat 给的对话连接：发请求、关掉。界面测试里换成假的（hubtest）。
 type ChatLink interface {
 	Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
+	// CallTagged 同 Call，写出之前把请求的 id 交给 tag（见 hostlink.Serve.CallTagged）。
+	CallTagged(ctx context.Context, method string, params map[string]any, tag func(id int64)) (json.RawMessage, error)
 	Close() error
 }

@@ -38,7 +38,10 @@ type Devices struct {
 	Partial    map[string]bool
 	// Far 是各台 sessions.lookup 找得到的会话（不在列表里的置顶会话）：设备编号 → 会话；SessionsErr 是各个 sessions.* 方法
 	// 答的错（方法名 → 错误）；Hostnames 是 Hostname 答的各台主机名（设备编号 → 名字，没列的答出错）。
-	Far         map[string][]hostlink.Session
+	Far map[string][]hostlink.Session
+	// Occupants、Handoffs 是 sessions.occupant、sessions.handoff 答的结果（会话号 → 结果 JSON）：没给的是没人占着、交出来了。
+	Occupants   map[string]string
+	Handoffs    map[string]string
 	SessionsErr map[string]error
 	Hostnames   map[string]string
 

@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"slices"
@@ -90,22 +89,22 @@ func TestOperationsOnTheOpenChat(t *testing.T) {
 	f.link().Took()
 	fail := func(err error) { t.Error(err) }
 
-	// 开着的改名经对话（conv.title），不发 sessions.rename
+	// 开着的也走 sessions.rename（核心跟着改开着的对话的标题）；聊天窗格的标题先换上
 	f.hub.Rename(list[0], "新名字", fail)
-	if got := f.link().Methods(); !reflect.DeepEqual(got, []string{"conv.title"}) || len(f.devices.SessionCalls()) != 0 {
-		t.Errorf("改名发出 %v", got)
+	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], "sessions.rename") {
+		t.Errorf("改名发出 %q", got)
 	}
 	if f.hub.Chat().Session.Title != "新名字" {
 		t.Errorf("聊天窗格的标题 %q", f.hub.Chat().Session.Title)
 	}
 
-	// 删开着的：先结束进程、放开，再删
+	// 删开着的：聊天窗格关掉它（放开），进程由核心结束
 	f.hub.Delete([]hostlink.Session{find(f.hub, "s1")}, fail)
 	if f.hub.Chat() != nil {
 		t.Error("删了还开着")
 	}
-	if got := f.link().Methods(); !reflect.DeepEqual(got, []string{"conv.end", "conv.close"}) {
-		t.Errorf("删除前发出 %v", got)
+	if got := f.link().Methods(); !reflect.DeepEqual(got, []string{"conv.close"}) {
+		t.Errorf("删除时发出 %v", got)
 	}
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], "sessions.delete") {
 		t.Errorf("发出 %q", got)
@@ -227,17 +226,8 @@ func TestImagesComeFromTheCore(t *testing.T) {
 func TestHandOver(t *testing.T) {
 	f := newChatFixture(t)
 	f.hub.OpenSession(hostlink.Session{Backend: f.id, ID: "s1"})
-	occupant := `{"status":"busy","waiting_for":null,"hands_over":false}`
-	handoff := `{"handed":false,"status":"busy"}`
-	f.link().OnCall(func(c hubtest.Call) (json.RawMessage, error) {
-		switch c.Method {
-		case "conv.occupant":
-			return json.RawMessage(occupant), nil
-		case "conv.handoff":
-			return json.RawMessage(handoff), nil
-		}
-		return nil, nil
-	})
+	f.devices.Occupants = map[string]string{"s1": `{"status":"busy","waiting_for":null,"hands_over":false}`}
+	f.devices.Handoffs = map[string]string{"s1": `{"handed":false,"status":"busy"}`}
 	now := time.Now()
 	if wait := f.hub.PollOccupant(now); wait != OccupantPoll {
 		t.Errorf("下次 %v", wait)
@@ -253,16 +243,17 @@ func TestHandOver(t *testing.T) {
 	if ho.Problem != "" || ho.Occupant.Status != "busy" {
 		t.Errorf("正忙：%+v %q", ho.Occupant, ho.Problem)
 	}
-	handoff = `{"handed":false,"status":"stuck"}`
+	f.devices.Handoffs["s1"] = `{"handed":false,"status":"stuck"}`
 	f.hub.HandOver()
 	if !strings.Contains(ho.Problem, "没有退出") {
 		t.Errorf("没退：%q", ho.Problem)
 	}
 	// 那边自己退出了：接过来，好让核心解开 blocked
-	occupant, handoff = `{"status":null}`, `{"handed":true,"status":null}`
-	f.link().Took()
+	f.devices.Occupants, f.devices.Handoffs = nil, nil
+	f.devices.SessionCalls()
 	f.hub.PollOccupant(now.Add(4 * time.Second))
-	if got := f.link().Methods(); !reflect.DeepEqual(got, []string{"conv.occupant", "conv.handoff"}) || ho.Occupant != nil || ho.Problem != "" {
-		t.Errorf("发出 %v，%+v %q", got, ho.Occupant, ho.Problem)
+	want := []string{f.id + ` sessions.occupant {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`}
+	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) || ho.Occupant != nil || ho.Problem != "" {
+		t.Errorf("发出 %q，%+v %q", got, ho.Occupant, ho.Problem)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 )
 
 // 侧栏对会话的操作（同 Kotlin 版的 SessionList、SessionTools）：改名、归档、删除、导出，和取回不在最近 300 个里的置顶会话。
@@ -116,8 +115,7 @@ func CleanTitle(title string) string {
 	return strings.TrimSpace(string(runes))
 }
 
-// Rename 给会话 s 改名：聊天窗格正开着它时经那个对话（conv.title，标题跟着变），否则 sessions.rename。
-// 没改成时改回去，原因交给 failed（主线程上）。
+// Rename 给会话 s 改名（sessions.rename；核心里开着它的对话，标题由核心跟着改）。没改成时改回去，原因交给 failed（主线程上）。
 func (h *Hub) Rename(s hostlink.Session, title string, failed func(error)) {
 	clean := CleanTitle(title)
 	if clean == "" || s.ID == "" {
@@ -133,18 +131,9 @@ func (h *Hub) Rename(s hostlink.Session, title string, failed func(error)) {
 		})
 		failed(err)
 	}
-	var conv *chat.Conversation
-	if c := h.chat; c != nil && c.Conv != nil && h.showing(s.Backend, s.ID) {
-		conv = c.Conv
-	}
 	call := h.sessionsCall(s.Backend)
 	h.background(func(ctx context.Context) func() {
-		var err error
-		if conv != nil {
-			err = conv.Retitle(ctx, clean)
-		} else {
-			_, err = call(ctx, "sessions.rename", map[string]any{"session": s.ID, "title": clean})
-		}
+		_, err := call(ctx, "sessions.rename", map[string]any{"session": s.ID, "title": clean})
 		return func() {
 			if err != nil {
 				undo(err)
@@ -174,33 +163,19 @@ func (h *Hub) SetArchived(list []hostlink.Session, archived bool, failed func(er
 	}, failed)
 }
 
-// Delete 删掉 list 里的会话：会话记录连同 Claude Code 存在同名目录里的东西（核心顺手关掉 tmux 里的窗口）。正在进行的
-// （Active）调用方先筛掉。聊天窗格正开着的先结束它的进程（conv.end）再删。列表里、置顶、新回答的标记马上去掉；
+// Delete 删掉 list 里的会话：会话记录连同 Claude Code 存在同名目录里的东西（核心顺手结束开着它的进程、关掉 tmux 里的窗口）。
+// 正在进行的（Active）调用方先筛掉。聊天窗格正开着的关掉；列表里、置顶、新回答的标记马上去掉；
 // 没删成的由重读那台的列表放回去，原因交给 failed。
 func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 	list = slices.DeleteFunc(slices.Clone(list), func(s hostlink.Session) bool { return s.ID == "" })
 	if len(list) == 0 {
 		return
 	}
-	var open *chat.Conversation
 	for _, s := range list {
-		if c := h.chat; c != nil && h.showing(s.Backend, s.ID) {
-			open = c.Conv
-			h.chat = nil // 下面在后台先结束、放开它
+		if h.chat != nil && h.showing(s.Backend, s.ID) {
+			h.CloseChat()
 		}
 		h.forget(s)
-	}
-	if open != nil {
-		h.run(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
-			defer cancel()
-			if err := open.End(ctx); err != nil {
-				log.Printf("zeta: 删除前结束对话进程：%v", err)
-			}
-			if err := open.Close(ctx); err != nil {
-				log.Printf("zeta: 删除前关掉对话：%v", err)
-			}
-		})
 	}
 	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
 		_, err := call(ctx, "sessions.delete", map[string]any{"session": s.ID})

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -40,6 +41,9 @@ type chatConn struct {
 	// problem 是连接现在的问题（断了、连不上），空是连着；ever：连上过。只在主线程上读写。
 	problem string
 	ever    bool
+	// searches 是这条连接上在搜的（sessions.search 的请求 id → 收命中的），推来的 sessions.match 照 id 交过去（search.go）。
+	searchMu sync.Mutex
+	searches map[int64]func(session, snippet string)
 }
 
 // Call 把请求交给连接：Client 建在连接之前，经它转一手。
@@ -154,7 +158,7 @@ func (h *Hub) chatConn(id string) *chatConn {
 	c := &chatConn{}
 	c.client = chat.NewClient(c, func() { h.post(func() {}) })
 	c.link = h.devices.OpenChat(x,
-		func(line []byte) { c.client.Handle(line) },
+		c.received,
 		func(why string) {
 			if why == "" {
 				h.run(func() {

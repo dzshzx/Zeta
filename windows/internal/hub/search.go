@@ -1,8 +1,10 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -70,20 +72,20 @@ func (h *Hub) SetQuery(q string) {
 	h.search.progress = SearchRunning
 	ctx, cancel := context.WithCancel(context.Background())
 	h.search.cancel = cancel
-	calls := map[string]sessionsCaller{}
+	conns := map[string]*chatConn{}
 	for _, id := range h.Listed() {
-		calls[id] = h.sessionsCall(id)
+		conns[id] = h.chatConn(id)
 	}
 	delay := h.SearchDelay
-	h.run(func() { h.searchHosts(ctx, calls, needle, delay) })
+	h.run(func() { h.searchHosts(ctx, conns, needle, delay) })
 }
 
 // searchTimeout 是一台搜一次最多等多久（核心自己限时 10 秒）。
 const searchTimeout = 30 * time.Second
 
-// searchHosts 在后台各台（calls：设备编号 → 发请求的办法）同时搜 needle：各台的命中经 post 交回主线程，都搜完了报结局。
+// searchHosts 在后台各台（conns：设备编号 → 给对话用的连接）同时搜 needle：命中边找边经 post 交回主线程，都搜完了报结局。
 // ctx 取消（换了关键词）后不再交回。
-func (h *Hub) searchHosts(ctx context.Context, calls map[string]sessionsCaller, needle string, delay time.Duration) {
+func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needle string, delay time.Duration) {
 	select {
 	case <-ctx.Done():
 		return
@@ -94,26 +96,28 @@ func (h *Hub) searchHosts(ctx context.Context, calls map[string]sessionsCaller, 
 		mu       sync.Mutex
 		outcomes []searchOutcome
 	)
-	for id, call := range calls {
+	for id, conn := range conns {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			found, err := searchOne(ctx, call, needle)
-			// 几台同时在交：post 可能就地执行（测试里），一次只交一个
-			mu.Lock()
-			defer mu.Unlock()
-			outcomes = append(outcomes, searchOutcome{found.Complete, err == nil})
-			if err != nil {
-				return
-			}
-			h.post(func() {
-				if ctx.Err() != nil {
-					return
-				}
-				for _, m := range found.Matches {
-					h.search.hits[pinKey(hostlink.Session{Backend: id, ID: m.ID})] = m.Snippet
-				}
+			complete, err := conn.search(ctx, needle, func(session, snippet string) {
+				key := pinKey(hostlink.Session{Backend: id, ID: session})
+				// 几台同时在交：post 可能就地执行（测试里），一次只交一个
+				mu.Lock()
+				defer mu.Unlock()
+				h.post(func() {
+					if ctx.Err() == nil {
+						h.search.hits[key] = snippet
+					}
+				})
 			})
+			var reply *hostlink.ReplyError
+			if err != nil && !errors.As(err, &reply) && ctx.Err() == nil {
+				h.post(func() { h.dropDeadConn(id, conn) })
+			}
+			mu.Lock()
+			outcomes = append(outcomes, searchOutcome{complete, err == nil})
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -127,24 +131,51 @@ func (h *Hub) searchHosts(ctx context.Context, calls map[string]sessionsCaller, 
 
 type searchOutcome struct{ complete, ok bool }
 
-// searchResult 是 sessions.search 的结果：全部命中（会话号和命中处前后的一段），和是不是都搜完了（false 是到了时限或个数被截断）。
-type searchResult struct {
-	Matches []struct {
+// received 是连接推来的一行：搜索的命中交给在搜的那次，别的（对话推送）交给协议层。在读的 goroutine 上。
+func (c *chatConn) received(line []byte) {
+	var m struct {
+		Type    string `json:"type"`
+		Search  int64  `json:"search"`
 		ID      string `json:"id"`
 		Snippet string `json:"snippet"`
-	} `json:"matches"`
-	Complete bool `json:"complete"`
+	}
+	if !bytes.Contains(line, []byte(`"sessions.match"`)) || json.Unmarshal(line, &m) != nil || m.Type != "sessions.match" {
+		c.client.Handle(line)
+		return
+	}
+	c.searchMu.Lock()
+	hit := c.searches[m.Search]
+	c.searchMu.Unlock()
+	if hit != nil && m.ID != "" {
+		hit(m.ID, m.Snippet)
+	}
 }
 
-func searchOne(ctx context.Context, call sessionsCaller, needle string) (searchResult, error) {
+// search 在这条连接的核心里搜 needle（sessions.search）：边找边推来的命中交给 hit（在读的 goroutine 上），搜完返回
+// 是不是都搜完了（false 是到了时限或个数被截断）。同一个客户端发新的搜索时核心取消上一个。在后台调用。
+func (c *chatConn) search(ctx context.Context, needle string, hit func(session, snippet string)) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, searchTimeout)
 	defer cancel()
-	var r searchResult
-	raw, err := call(ctx, "sessions.search", map[string]any{"query": needle})
+	var id int64
+	raw, err := c.link.CallTagged(ctx, "sessions.search", map[string]any{"query": needle}, func(n int64) {
+		id = n
+		c.searchMu.Lock()
+		if c.searches == nil {
+			c.searches = map[int64]func(string, string){}
+		}
+		c.searches[n] = hit
+		c.searchMu.Unlock()
+	})
+	c.searchMu.Lock()
+	delete(c.searches, id)
+	c.searchMu.Unlock()
+	var r struct {
+		Complete bool `json:"complete"`
+	}
 	if err == nil {
 		err = json.Unmarshal(raw, &r)
 	}
-	return r, err
+	return r.Complete, err
 }
 
 // combined 把各台的结局合成一个：都没搜成是 SearchFailed，有一台没搜全或没搜成是 SearchPartial，都搜完了是 SearchDone。

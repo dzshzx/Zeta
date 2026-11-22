@@ -23,6 +23,7 @@ type ChatLink struct {
 	Host string
 
 	devices *Devices
+	seq     int64
 	mu      sync.Mutex
 	calls   []Call
 	onCall  func(Call) (json.RawMessage, error)
@@ -49,16 +50,26 @@ func (c Call) JSON() string {
 	return string(b)
 }
 
-// Call 见 host.ChatLink。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
-func (l *ChatLink) Call(_ context.Context, method string, params map[string]any) (json.RawMessage, error) {
+// Call 见 host.ChatLink。
+func (l *ChatLink) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	return l.CallTagged(ctx, method, params, nil)
+}
+
+// CallTagged 见 host.ChatLink：请求依次编号。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
+func (l *ChatLink) CallTagged(_ context.Context, method string, params map[string]any, tag func(int64)) (json.RawMessage, error) {
 	l.mu.Lock()
 	if l.closed {
 		l.mu.Unlock()
 		return nil, errors.New("和 zeta-helper serve 的连接已关闭")
 	}
+	l.seq++
+	id := l.seq
+	if tag != nil {
+		tag(id)
+	}
 	if strings.HasPrefix(method, "sessions.") {
 		l.mu.Unlock()
-		return l.devices.answerSessions(l.Host, Call{Method: method, Params: params})
+		return l.devices.answerSessions(l, id, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
 	l.calls = append(l.calls, c)

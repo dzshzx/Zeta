@@ -14,8 +14,9 @@ import (
 // 假核心的 sessions.* 方法（docs/core.md「会话」）：照 Devices 上预先给的答，结果的样子和真的一样。
 // 改名、归档、删除只答成功，不改列表（真核心改完经 sessions.watch 推来，测试要的话自己 Push）。
 
-// answerSessions 答设备 host 上发来的 sessions.* 请求，记下「设备编号 方法 参数 JSON」。
-func (d *Devices) answerSessions(host string, c Call) (json.RawMessage, error) {
+// answerSessions 答连接 l 上编号 id 的 sessions.* 请求，记下「设备编号 方法 参数 JSON」。
+func (d *Devices) answerSessions(l *ChatLink, id int64, c Call) (json.RawMessage, error) {
+	host := l.Host
 	d.mu.Lock()
 	d.sessions = append(d.sessions, host+" "+c.Method+" "+c.JSON())
 	err := d.SessionsErr[c.Method]
@@ -32,12 +33,16 @@ func (d *Devices) answerSessions(host string, c Call) (json.RawMessage, error) {
 	case "sessions.delete":
 		result = map[string]any{"deleted": []any{}, "closed": 0}
 	case "sessions.export":
-		id := c.Str("session")
-		result = map[string]any{"title": "对话 " + id, "markdown": "# 对话 " + id + "\n\n正文\n", "file_name": "Zeta-对话 " + id + "-20261122-1500.md"}
+		sid := c.Str("session")
+		result = map[string]any{"title": "对话 " + sid, "markdown": "# 对话 " + sid + "\n\n正文\n", "file_name": "Zeta-对话 " + sid + "-20261122-1500.md"}
 	case "sessions.lookup":
 		result = d.lookup(host, c.Params["sessions"])
 	case "sessions.search":
-		return d.search(host, c.Str("query"))
+		return d.search(l, id, c.Str("query"))
+	case "sessions.occupant":
+		return d.answer(d.Occupants, c.Str("session"), `{"status":null,"waiting_for":null,"hands_over":false}`)
+	case "sessions.handoff":
+		return d.answer(d.Handoffs, c.Str("session"), `{"handed":true,"status":null}`)
 	case "sessions.image":
 		if d.ImageData == nil {
 			return nil, errors.New("没有这张图")
@@ -74,8 +79,20 @@ func asSlice(v any) []any {
 	return s
 }
 
-// search 照 SearchHits、SearchErr、Partial 答一次 sessions.search，记下「设备编号 关键词」。
-func (d *Devices) search(host, query string) (json.RawMessage, error) {
+// answer 是 results 里给会话 session 的结果，没给时是 fallback。
+func (d *Devices) answer(results map[string]string, session, fallback string) (json.RawMessage, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if r, ok := results[session]; ok {
+		return json.RawMessage(r), nil
+	}
+	return json.RawMessage(fallback), nil
+}
+
+// search 照 SearchHits、SearchErr、Partial 答连接 l 上编号 id 的 sessions.search：命中一个个推 sessions.match，
+// 再答个数和搜没搜完。记下「设备编号 关键词」。
+func (d *Devices) search(l *ChatLink, id int64, query string) (json.RawMessage, error) {
+	host := l.Host
 	d.mu.Lock()
 	d.searched = append(d.searched, host+" "+query)
 	hits, err, partial := d.SearchHits[host], d.SearchErr[host], d.Partial[host]
@@ -83,18 +100,15 @@ func (d *Devices) search(host, query string) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	type match struct {
-		ID      string `json:"id"`
-		Role    string `json:"role"`
-		Snippet string `json:"snippet"`
-	}
-	matches := []match{}
-	for _, id := range slices.Sorted(maps.Keys(hits)) {
-		if strings.Contains(strings.ToLower(hits[id]), strings.ToLower(query)) {
-			matches = append(matches, match{id, "user", hits[id]})
+	matched := 0
+	for _, session := range slices.Sorted(maps.Keys(hits)) {
+		if strings.Contains(strings.ToLower(hits[session]), strings.ToLower(query)) {
+			line, _ := json.Marshal(map[string]any{"type": "sessions.match", "search": id, "id": session, "role": "user", "snippet": hits[session]})
+			l.Push(string(line))
+			matched++
 		}
 	}
-	return json.Marshal(map[string]any{"matches": matches, "complete": !partial, "matched": len(matches)})
+	return json.Marshal(map[string]any{"scanned": len(hits), "total": len(hits), "matched": matched, "complete": !partial})
 }
 
 // SessionCalls 取走到现在发来的 sessions.* 请求（除了 sessions.search、sessions.image），每个是「设备编号 方法 参数 JSON」。
