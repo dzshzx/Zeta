@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.schedule
 
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.UserItem
@@ -134,6 +135,8 @@ data class ScheduledTask(
     /** 到点时上一次还没跑完、跳过了几次，以及最近一次跳过的时间。 */
     val skips: Int = 0,
     val lastSkip: Long? = null,
+    /** 在哪台主机上跑（[Backends]）：闹钟都由手机排，到点在这台上起对话。建的时候定，之后不改。 */
+    val backend: String = Backends.LOCAL,
 )
 
 /** 新建、编辑时用户填的那些；[toTask] 时再补上 id 和运行记录。 */
@@ -212,7 +215,12 @@ object Schedules {
             sessionId = if (draft.newSession != task.newSession) null else task.sessionId,
         )
 
-    fun toTask(draft: TaskDraft, now: Long, id: String = newId()) =
+    fun toTask(
+        draft: TaskDraft,
+        now: Long,
+        id: String = newId(),
+        backend: String = Backends.LOCAL,
+    ) =
         applyDraft(
             ScheduledTask(
                 id = id,
@@ -221,6 +229,7 @@ object Schedules {
                 rule = draft.rule,
                 newSession = draft.newSession,
                 created = now,
+                backend = backend,
             ),
             draft,
         )
@@ -471,6 +480,7 @@ object Schedules {
         put("enabled", task.enabled)
         task.cwd?.let { put("cwd", it) }
         task.model?.let { put("model", it) }
+        if (task.backend != Backends.LOCAL) put("backend", task.backend)
         put("permissionMode", task.permissionMode)
         put("newSession", task.newSession)
         task.sessionId?.let { put("sessionId", it) }
@@ -557,6 +567,7 @@ object Schedules {
             newSession = o.bool("newSession") ?: true,
             sessionId = o.str("sessionId")?.takeIf { it.isNotBlank() },
             onlyOnChange = o.bool("onlyOnChange") == true,
+            backend = o.str("backend")?.takeIf { it.isNotBlank() } ?: Backends.LOCAL,
             created = o.long("created") ?: 0L,
             lastRun = decodeRun(o.obj("lastRun")),
             skips = (o.int("skips") ?: 0).coerceAtLeast(0),

@@ -313,6 +313,7 @@ class NotifyRulesTest {
                     appLabel = "微信",
                     prompt = "hi",
                     enabled = false,
+                    backend = "r-00000001",
                 ),
                 NotifyRule(
                     id = "c",

@@ -103,7 +103,13 @@ class ModelMenuShots : ShotTest() {
                 tap("更多模型")
             },
         ) {
-            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 

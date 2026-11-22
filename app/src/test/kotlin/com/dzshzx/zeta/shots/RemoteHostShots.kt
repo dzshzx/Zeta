@@ -78,7 +78,13 @@ class RemoteHostShots : ShotTest() {
             ),
         )
         shoot("remote-host") {
-            HostSettingsScreen(hub = hub, backend = "r-00000001", onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = "r-00000001",
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 
@@ -87,7 +93,13 @@ class RemoteHostShots : ShotTest() {
     fun hostConnection() {
         val hub = hub()
         shoot("remote-host-connection", prepare = { toBottom() }) {
-            HostSettingsScreen(hub = hub, backend = "r-00000001", onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = "r-00000001",
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 
@@ -96,7 +108,13 @@ class RemoteHostShots : ShotTest() {
     fun directHostPage() {
         val hub = hub()
         shoot("remote-host-direct", prepare = { toBottom() }) {
-            HostSettingsScreen(hub = hub, backend = "r-00000002", onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = "r-00000002",
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 
@@ -111,7 +129,13 @@ class RemoteHostShots : ShotTest() {
                 onNodeWithText("连接方式").performClick()
             },
         ) {
-            HostSettingsScreen(hub = hub, backend = "r-00000002", onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = "r-00000002",
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 

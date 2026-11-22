@@ -77,14 +77,14 @@ import kotlinx.coroutines.withContext
 
 /** 列表页的说明。没写进去的：后台对话不打断正在看的对话；跑完的通知是任务名加回答的开头，点它打开那次的对话； 同一个任务上一次还没跑完时跳过这一次（编辑页的“跳过了 N 次”会列出来）。 */
 private const val ListFooter =
-    "到点时在后台开一个对话运行，跑完发通知；Zeta 没开着也照常运行。" + "也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
+    "到点时在这台设备上开一个对话在后台运行，跑完发通知；Zeta 没开着也照常运行。" + "也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
 
-/** 设置首页的入口：开着几个、下一次什么时候。 */
+/** 设备页上的入口：主机 [backend] 上的定时任务开着几个、下一次什么时候。 */
 @Composable
-internal fun ScheduleEntry(onOpen: () -> Unit) {
+internal fun ScheduleEntry(backend: String, onOpen: () -> Unit) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { ScheduleStore.load(context) } }
-    val tasks = ScheduleStore.observed
+    val tasks = ScheduleStore.observed.filter { it.backend == backend }
     val zone = ZoneId.systemDefault()
     val now = Instant.now()
     val enabled = tasks.filter { it.enabled }
@@ -104,17 +104,20 @@ internal fun ScheduleEntry(onOpen: () -> Unit) {
 /** 正在编辑哪个任务；[id] 为 null 是新建。 */
 private class EditTarget(val id: String?)
 
-/** “定时任务”：列出、开关；点一个进去编辑、立即运行、删除。 */
+/** 主机 [backend] 上的“定时任务”：列出、开关；点一个进去编辑、立即运行、删除。闹钟都由手机排，到点在那台上起对话。 */
 @Composable
 internal fun ScheduleScreen(
     hub: ConversationHub,
+    backend: String,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { ScheduleStore.load(app) } }
-    val tasks = ScheduleStore.observed
+    // 上限按全部设备的任务一起算
+    val total = ScheduleStore.observed.size
+    val tasks = ScheduleStore.observed.filter { it.backend == backend }
     val snapshot = rememberPermissionSnapshot()
     var editing by remember { mutableStateOf<EditTarget?>(null) }
     val zone = ZoneId.systemDefault()
@@ -124,7 +127,7 @@ internal fun ScheduleScreen(
         title = "定时任务",
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Add, "新建定时任务", enabled = tasks.size < Schedules.MAX_TASKS) {
+            IconActionButton(COUIIcons.Add, "新建定时任务", enabled = total < Schedules.MAX_TASKS) {
                 editing = EditTarget(null)
             }
         },
@@ -184,6 +187,7 @@ internal fun ScheduleScreen(
         key(target) {
             TaskEditor(
                 hub = hub,
+                backend = backend,
                 original = target.id?.let { id -> tasks.firstOrNull { it.id == id } },
                 onBack = { editing = null },
                 onOpenConversation = onOpenConversation,
@@ -216,6 +220,7 @@ private enum class EditorDialog {
 @Composable
 private fun TaskEditor(
     hub: ConversationHub,
+    backend: String,
     original: ScheduledTask?,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
@@ -260,11 +265,11 @@ private fun TaskEditor(
         )
     val problem = edited.problem
     val next = Schedules.nextTrigger(draftRule, now, zone)
-    val defaultCwd = hub.settings.env?.defaultCwd ?: "/workspace"
+    val defaultCwd = hub.defaultCwd(backend)
 
     fun save() {
         if (problem != null) return
-        saveTask(app, original, edited, now)
+        saveTask(app, backend, original, edited, now)
         onBack()
     }
 
@@ -341,6 +346,7 @@ private fun TaskEditor(
         item(key = "run") {
             TaskRunGroup(
                 hub = hub,
+                backend = backend,
                 cwd = cwd,
                 defaultCwd = defaultCwd,
                 model = model,
@@ -392,9 +398,17 @@ private fun ruleOf(
     }
 
 /** 存下任务：新建的加进去，编辑的照草稿改。 */
-private fun saveTask(app: Application, original: ScheduledTask?, edited: Edited, now: Instant) {
+private fun saveTask(
+    app: Application,
+    backend: String,
+    original: ScheduledTask?,
+    edited: Edited,
+    now: Instant,
+) {
     if (original == null) {
-        ScheduleStore.update(app) { it + Schedules.toTask(edited.draft, now.toEpochMilli()) }
+        ScheduleStore.update(app) {
+            it + Schedules.toTask(edited.draft, now.toEpochMilli(), backend = backend)
+        }
     } else {
         ScheduleStore.updateTask(app, original.id) { Schedules.applyDraft(it, edited.draft) }
     }
@@ -536,6 +550,7 @@ private fun TaskTimeGroup(
 @Composable
 private fun TaskRunGroup(
     hub: ConversationHub,
+    backend: String,
     cwd: String,
     defaultCwd: String,
     model: String?,
@@ -559,7 +574,7 @@ private fun TaskRunGroup(
                 onClick = onPickCwd,
             )
         }
-        item { ModelPreference(hub, model, onModel) }
+        item { ModelPreference(hub, backend, model, onModel) }
         item { PermissionModePreference(mode, onMode) }
         item {
             SwitchPreference(
@@ -656,7 +671,7 @@ internal fun CwdDialog(
     TextInputDialog(
         show = visible,
         title = "工作目录",
-        summary = "Linux 环境里的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
+        summary = "这台设备上的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
         value = input,
         onValueChange = { input = it },
         label = defaultCwd,

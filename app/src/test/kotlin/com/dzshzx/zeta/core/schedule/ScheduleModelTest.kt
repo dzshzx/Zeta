@@ -163,6 +163,7 @@ class ScheduleModelTest {
                     rule = ScheduleRule.Interval(6, LocalDateTime.parse("2026-11-19T00:00")),
                     onlyOnChange = true,
                     lastRun = TaskRun(20, RunOutcome.NoChange, "s-2", "价格还是 2999"),
+                    backend = "r-00000001",
                 ),
                 ScheduledTask(
                     id = "d4",

@@ -63,6 +63,7 @@ internal object NotifyTriggers {
             id = rule.id,
             name = rule.name,
             prompt = NotifyRules.render(rule.prompt, n, rule.appLabel, NotifyRules.nonce()),
+            backend = rule.backend,
             cwd = rule.cwd,
             model = rule.model,
             permissionMode = rule.permissionMode,

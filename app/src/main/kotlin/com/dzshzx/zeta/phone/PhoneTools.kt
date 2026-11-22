@@ -88,6 +88,9 @@ class PhoneTools(
     /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile var unattended: UnattendedRun? = null
 
+    /** 用这份手机工具的对话在哪台主机上（[com.dzshzx.zeta.core.Backends]），对话建好时定；随每次调用交给工具组。 */
+    @Volatile var backend: String = com.dzshzx.zeta.core.Backends.LOCAL
+
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
 
@@ -504,7 +507,7 @@ class PhoneTools(
     private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject =
         PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
-            group.call(CallContext(context, unattended), name, a)
+            group.call(CallContext(context, unattended, backend), name, a)
         } ?: synchronized(lock) { callScreenTool(name, a, toolUseId) }
 
     /** 屏幕这一套工具的一次调用。只在持着 [lock] 时调用。 */

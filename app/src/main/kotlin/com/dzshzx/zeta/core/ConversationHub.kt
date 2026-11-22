@@ -17,7 +17,9 @@ import com.dzshzx.zeta.core.claude.ClaudeConfigClient
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.claude.defaults
 import com.dzshzx.zeta.core.diag.DiagLog
+import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.phone.AccessibilityGuard
@@ -676,7 +678,7 @@ class ConversationHub(
     }
 
     /**
-     * 远程主机清单变了：删掉的主机上的对话收掉，Claude Code 在那台上报的模型和斜杠命令一起删；正看着的那台删了就回到手机本机；
+     * 远程主机清单变了：删掉的主机上的对话收掉，Claude Code 在那台上报的模型和斜杠命令、那台上的定时任务和通知触发规则一起删； 正看着的那台删了就回到手机本机；
      * 还没开始的新对话按（可能改过的）默认工作目录重建。在主线程上调用。
      */
     private fun onRemoteHostsChanged() {
@@ -694,6 +696,11 @@ class ConversationHub(
         accountServices.keys.retainAll(ids)
         defaultsByBackend.keys.retainAll(ids)
         settings.commands = settings.commands.filterKeys { it in ids }
+        settings.remoteClaude = settings.remoteClaude.filterKeys { it.substringBefore('/') in ids }
+        if (ScheduleStore.load(app).any { it.backend !in ids })
+            ScheduleStore.update(app) { list -> list.filter { it.backend in ids } }
+        if (NotifyRuleStore.load(app).any { it.backend !in ids })
+            NotifyRuleStore.update(app) { list -> list.filter { it.backend in ids } }
         ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
     }

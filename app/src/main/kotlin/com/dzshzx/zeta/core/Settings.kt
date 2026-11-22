@@ -190,7 +190,7 @@ class Settings private constructor(private val app: Context) {
     /** 一轮回答完了自动朗读（见 core/voice/ReadAloud.kt）。 */
     var autoReadAnswers: Boolean by pref("autoReadAnswers", false)
 
-    /** 新对话第一轮结束后请 Claude Code 起一个简短标题，代替第一句话。每次要起标题时读，关掉后还没起的也不再起。 */
+    /** 手机本机上：新对话第一轮结束后请 Claude Code 起一个简短标题，代替第一句话。每次要起标题时读，关掉后还没起的也不再起。 */
     var autoTitle: Boolean by pref("autoTitle", true)
 
     /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
@@ -211,10 +211,10 @@ class Settings private constructor(private val app: Context) {
     /** 数字助理新开的对话用的思考强度；null 表示跟随 Claude Code（按模型存的默认）。只影响数字助理开的对话。 */
     var assistantEffort: String? by optionalString("assistantEffort")
 
-    /** Zeta 起的对话是否让 Claude Code 自动压缩上下文（见 [AutoCompact]）。起进程时带上，已经在跑的对话下次起进程时生效。 */
+    /** 手机本机上 Zeta 起的对话是否让 Claude Code 自动压缩上下文（见 [AutoCompact]）。起进程时带上，已经在跑的对话下次起进程时生效。 */
     var autoCompact: Boolean by pref("autoCompact", true)
 
-    /** 自动压缩的触发点（有效窗口的百分比）；null 用 Claude Code 自己的（快满时）。 */
+    /** 手机本机上自动压缩的触发点（有效窗口的百分比）；null 用 Claude Code 自己的（快满时）。 */
     var autoCompactPercent: Int? by
         pref(
             read = {
@@ -226,6 +226,12 @@ class Settings private constructor(private val app: Context) {
                 if (it == null) remove("autoCompactPercent") else putInt("autoCompactPercent", it)
             },
         )
+
+    /** 远程主机上的自动压缩、压缩时机和自动标题（「主机编号/项=值」），读写经 [claude]；手机本机的是 [autoCompact] 等几项。 */
+    var remoteClaude: Map<String, String> by keyValues("remoteClaude", { it }, { it })
+
+    /** 主机 [backend] 上 Zeta 起的对话的自动压缩、压缩时机和自动标题。 */
+    fun claude(backend: String) = HostClaude(this, backend)
 
     /** 还开着的 Claude Code 进程上用户的权限模式（进程键=模式），见 [ConversationHub.hostMode]。 */
     var hostModes: Map<String, String> by keyValues("hostModes", { it }, { it })
@@ -297,5 +303,47 @@ class Settings private constructor(private val app: Context) {
                 shared?.takeIf { it.app === app } ?: Settings(app).also { shared = it }
             }
         }
+    }
+}
+
+/**
+ * 一台主机（[backend]）上 Zeta 起的对话的自动压缩、压缩时机和自动标题，各台各设各的：手机本机的存在 [Settings.autoCompact] 等几项里， 远程主机的存在
+ * [Settings.remoteClaude] 里，没设过的项照手机的。
+ */
+class HostClaude internal constructor(private val settings: Settings, private val backend: String) {
+    private val local = backend == Backends.LOCAL
+
+    private fun remote(item: String): String? = settings.remoteClaude["$backend/$item"]
+
+    private fun store(item: String, value: String) {
+        settings.remoteClaude = settings.remoteClaude + ("$backend/$item" to value)
+    }
+
+    var autoCompact: Boolean
+        get() = remote(COMPACT)?.toBooleanStrictOrNull() ?: settings.autoCompact
+        set(value) = if (local) settings.autoCompact = value else store(COMPACT, value.toString())
+
+    /** 自动压缩的触发点（有效窗口的百分比）；null 用 Claude Code 自己的（快满时）。 */
+    var autoCompactPercent: Int?
+        get() =
+            when (val stored = remote(PERCENT)) {
+                null -> settings.autoCompactPercent
+                else -> stored.toIntOrNull()?.takeIf { it in 1..100 }
+            }
+        set(value) =
+            if (local) settings.autoCompactPercent = value
+            else store(PERCENT, value?.toString() ?: DEFAULT_POINT)
+
+    var autoTitle: Boolean
+        get() = remote(TITLE)?.toBooleanStrictOrNull() ?: settings.autoTitle
+        set(value) = if (local) settings.autoTitle = value else store(TITLE, value.toString())
+
+    private companion object {
+        const val COMPACT = "autoCompact"
+        const val PERCENT = "autoCompactPercent"
+        const val TITLE = "autoTitle"
+
+        /** 压缩时机明确设成 Claude Code 自己的默认点时存的值（没设过的不存，照手机的）。 */
+        const val DEFAULT_POINT = "default"
     }
 }

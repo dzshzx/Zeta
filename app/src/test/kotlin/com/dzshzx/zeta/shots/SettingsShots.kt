@@ -52,7 +52,9 @@ class SettingsShots : ShotTest() {
         // 定时任务、通知触发的清单存在进程级的单例里，别的截图测试先跑会留下规则：清空，入口的说明才每次一样
         ScheduleStore.update(app) { emptyList() }
         NotifyRuleStore.update(app) { emptyList() }
-        shoot("settings") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
+        shoot("settings") {
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
+        }
     }
 
     /** 手机上没装 Debian：手机那一行红字「未安装」，经 Debian 连的主机「Debian 未就绪」。 */
@@ -62,7 +64,9 @@ class SettingsShots : ShotTest() {
         hub.settings.remoteHosts = listOf(workstation)
         ScheduleStore.update(app) { emptyList() }
         NotifyRuleStore.update(app) { emptyList() }
-        shoot("settings-bare") { SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
+        shoot("settings-bare") {
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
+        }
     }
 
     /** 设置 › 手机 › 自定义设备名：留空就用系统里的设备名。 */
@@ -73,7 +77,13 @@ class SettingsShots : ShotTest() {
             "settings-device-name",
             prepare = { scrollListTo("自定义设备名").performClick() },
         ) {
-            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 
@@ -82,7 +92,13 @@ class SettingsShots : ShotTest() {
     fun phoneHost() {
         val hub = hostsHub()
         shoot("settings-host-phone") {
-            HostSettingsScreen(hub = hub, backend = Backends.LOCAL, onBack = {}, onOpenLinux = {})
+            HostSettingsScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 
@@ -94,7 +110,7 @@ class SettingsShots : ShotTest() {
             "settings-bottom",
             prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } },
         ) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {})
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
         }
     }
 

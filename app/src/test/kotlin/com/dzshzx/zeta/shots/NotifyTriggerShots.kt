@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.notify.NotifyRules
@@ -59,7 +60,12 @@ class NotifyTriggerShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seed()
         shoot("notify-triggers") {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -68,7 +74,12 @@ class NotifyTriggerShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seed()
         shoot("notify-trigger-editor", prepare = { onNodeWithText("快递取件提醒").performClick() }) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -90,7 +101,12 @@ class NotifyTriggerShots : ShotTest() {
                 }
             },
         ) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -107,7 +123,12 @@ class NotifyTriggerShots : ShotTest() {
                 repeat(2) { onRoot().performTouchInput { swipeUp() } }
             },
         ) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -135,7 +156,12 @@ class NotifyTriggerShots : ShotTest() {
                 repeat(4) { onRoot().performTouchInput { swipeUp() } }
             },
         ) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -145,7 +171,12 @@ class NotifyTriggerShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seed()
         shoot("notify-trigger-apps", prepare = { openPicker() }) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -164,7 +195,12 @@ class NotifyTriggerShots : ShotTest() {
                 onNode(hasSetTextAction() and hasText("搜索应用名或包名")).performTextInput("com.example")
             },
         ) {
-            NotifyTriggerScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            NotifyTriggerScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 

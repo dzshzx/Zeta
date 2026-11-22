@@ -5,10 +5,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.LinuxEnvConfig
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.diag.DiagLevel
@@ -118,9 +116,17 @@ internal object ScheduleRunner {
         // 上一次其实已经结束、只是还没轮到检查：先收尾，别误判成没跑完
         runs[key]?.let { if (idle(it.conversation)) finish(it) }
         if (isRunning(records, spec.id)) return skip(app, records, spec.id, "上一次还没跑完，这次跳过了")
-        val config =
-            hub.settings.env
-                ?: return fail(app, records, spec, manual, now, "还没有配置 Linux 环境，到设置里检查")
+        val backend = spec.backend
+        if (hub.shell(backend) == null)
+            return fail(
+                app,
+                records,
+                spec,
+                manual,
+                now,
+                hub.unavailable(backend) ?: "这台设备现在用不了",
+            )
+        val defaultCwd = hub.defaultCwd(backend)
         keepAwake(app)
         val session = spec.sessionId
         if (spec.newSession || session == null) {
@@ -132,10 +138,11 @@ internal object ScheduleRunner {
                 now,
                 Conversation(
                     hub,
-                    spec.cwd ?: config.defaultCwd,
+                    spec.cwd ?: defaultCwd,
                     sessionId = null,
                     title = spec.name,
                     historyFile = null,
+                    backend = backend,
                 ),
                 fresh = true,
             )
@@ -150,10 +157,10 @@ internal object ScheduleRunner {
         // 接着原来的会话：先查出记录在哪、当时的工作目录（--resume 在原目录下才找得到），历史也一并载入
         starting.add(key)
         thread(name = "zeta-schedule", isDaemon = true) {
-            val found = hub.sessionList.find(listOf(session), Backends.LOCAL)
+            val found = hub.sessionList.find(listOf(session), backend)
             main.post {
                 starting.remove(key)
-                launchResumed(app, hub, records, spec, manual, now, found, config)
+                launchResumed(app, hub, records, spec, manual, now, found, defaultCwd)
             }
         }
         return null
@@ -168,12 +175,12 @@ internal object ScheduleRunner {
         manual: Boolean,
         now: Long,
         found: List<SessionSummary>?,
-        config: LinuxEnvConfig,
+        defaultCwd: String,
     ) {
         val named = spec.copy(name = records.name(app, spec.id) ?: return)
         // 没查成不等于被删了：这次不跑，下次再查，不另开对话
         if (found == null) {
-            fail(app, records, named, manual, now, "查不到原来的对话（Linux 环境没有响应）")
+            fail(app, records, named, manual, now, "查不到原来的对话（那台设备没有响应）")
             return
         }
         val summary = found.firstOrNull()
@@ -181,19 +188,21 @@ internal object ScheduleRunner {
             if (summary != null) {
                 Conversation(
                     hub,
-                    summary.cwd.ifBlank { spec.cwd ?: config.defaultCwd },
+                    summary.cwd.ifBlank { spec.cwd ?: defaultCwd },
                     summary.id,
                     named.name,
                     summary.file,
+                    backend = spec.backend,
                 )
             } else {
                 // 原来的会话找不到了（被删了）：另开一个，以后接着新的这个
                 Conversation(
                     hub,
-                    spec.cwd ?: config.defaultCwd,
+                    spec.cwd ?: defaultCwd,
                     sessionId = null,
                     title = named.name,
                     historyFile = null,
+                    backend = spec.backend,
                 )
             }
         launch(hub, records, named, manual, now, conversation, fresh = summary == null)

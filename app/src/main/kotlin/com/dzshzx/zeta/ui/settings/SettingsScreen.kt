@@ -11,7 +11,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
@@ -64,6 +63,11 @@ internal fun SettingsScreen(
                 backend = id,
                 onBack = { host = null },
                 onOpenLinux = onOpenLinux,
+                // 打开某次运行的对话：设置页整个关掉，回到聊天页
+                onShowChat = {
+                    host = null
+                    onShowChat()
+                },
             )
         }
         SlideInPage(subPage, onBack = close) { page ->
@@ -72,28 +76,7 @@ internal fun SettingsScreen(
                 SettingsSubPage.PermissionHealth ->
                     PermissionHealthScreen(hub = hub, onBack = close, onOpenLinux = onOpenLinux)
                 SettingsSubPage.Phone -> PhoneScreen(hub = hub, onBack = close)
-                SettingsSubPage.Accounts ->
-                    AccountsScreen(hub = hub, backend = Backends.LOCAL, onBack = close)
                 SettingsSubPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = close)
-                // 打开某次运行的对话：设置页整个关掉，回到聊天页
-                SettingsSubPage.Schedules ->
-                    ScheduleScreen(
-                        hub = hub,
-                        onBack = close,
-                        onOpenConversation = {
-                            subPage = null
-                            onShowChat()
-                        },
-                    )
-                SettingsSubPage.NotifyTriggers ->
-                    NotifyTriggerScreen(
-                        hub = hub,
-                        onBack = close,
-                        onOpenConversation = {
-                            subPage = null
-                            onShowChat()
-                        },
-                    )
                 SettingsSubPage.Diagnostics -> DiagnosticsScreen(hub = hub, onBack = close)
                 SettingsSubPage.License -> LicenseScreen(onBack = close)
                 SettingsSubPage.OpenSource -> OpenSourceScreen(onBack = close)
@@ -149,18 +132,6 @@ private fun SettingsHome(
                         onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
                     )
                 }
-            }
-        }
-        item(key = "claude") {
-            PreferenceGroup(title = "Claude") {
-                item {
-                    AccountsEntry(hub, Backends.LOCAL) { onOpenSubPage(SettingsSubPage.Accounts) }
-                }
-                item { AutoCompactSwitch(hub) }
-                item { CompactTimingPreference(hub) }
-                item { AutoTitleSwitch(hub) }
-                item { ScheduleEntry { onOpenSubPage(SettingsSubPage.Schedules) } }
-                item { NotifyTriggerEntry { onOpenSubPage(SettingsSubPage.NotifyTriggers) } }
             }
         }
         item(key = "phone") {
@@ -310,16 +281,5 @@ private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
             )
         },
         onClick = onOpen,
-    )
-}
-
-/** 自动标题的开关：新对话第一轮回答后，由 Claude Code 用它的快速模型（Haiku）起个简短标题；改过名的不动。 */
-@Composable
-private fun AutoTitleSwitch(hub: ConversationHub) {
-    SwitchPreference(
-        title = "自动生成对话标题",
-        startAction = { SettingsIcon(ZetaIcons.Sparkle, SettingsHue.Claude) },
-        checked = hub.settings.autoTitle,
-        onCheckedChange = { hub.settings.autoTitle = it },
     )
 }

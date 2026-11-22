@@ -109,12 +109,12 @@ internal fun notificationListenerItem(
     }
 }
 
-/** 设置首页的入口：几条规则开着。 */
+/** 设备页上的入口：主机 [backend] 上的规则几条开着。 */
 @Composable
-internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
+internal fun NotifyTriggerEntry(backend: String, onOpen: () -> Unit) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NotifyRuleStore.load(context) } }
-    val rules = NotifyRuleStore.observed
+    val rules = NotifyRuleStore.observed.filter { it.backend == backend }
     val enabled = rules.count { it.enabled }
     ArrowPreference(
         title = "通知触发",
@@ -129,16 +129,19 @@ internal fun NotifyTriggerEntry(onOpen: () -> Unit) {
 /** 正在编辑哪条规则；[id] 为 null 是新建。 */
 private class RuleTarget(val id: String?)
 
-/** “通知触发”：列出规则、开关；点一条进去编辑、删除。 */
+/** 主机 [backend] 上的“通知触发”：列出规则、开关；点一条进去编辑、删除。通知都在手机上收，命中后在那台上起对话。 */
 @Composable
 internal fun NotifyTriggerScreen(
     hub: ConversationHub,
+    backend: String,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as Application
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NotifyRuleStore.load(app) } }
-    val rules = NotifyRuleStore.observed
+    // 上限按全部设备的规则一起算
+    val total = NotifyRuleStore.observed.size
+    val rules = NotifyRuleStore.observed.filter { it.backend == backend }
     val snapshot = rememberPermissionSnapshot()
     var editing by remember { mutableStateOf<RuleTarget?>(null) }
     val now = System.currentTimeMillis()
@@ -148,7 +151,7 @@ internal fun NotifyTriggerScreen(
         title = "通知触发",
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Add, "新建规则", enabled = rules.size < NotifyRules.MAX_RULES) {
+            IconActionButton(COUIIcons.Add, "新建规则", enabled = total < NotifyRules.MAX_RULES) {
                 editing = RuleTarget(null)
             }
         },
@@ -165,6 +168,7 @@ internal fun NotifyTriggerScreen(
         key(target) {
             RuleEditor(
                 hub = hub,
+                backend = backend,
                 original = target.id?.let { id -> rules.firstOrNull { it.id == id } },
                 onBack = { editing = null },
                 onOpenConversation = onOpenConversation,
@@ -248,6 +252,7 @@ private enum class RuleDialog {
 @Composable
 private fun RuleEditor(
     hub: ConversationHub,
+    backend: String,
     original: NotifyRule?,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
@@ -271,12 +276,12 @@ private fun RuleEditor(
     val nonce = remember { NotifyRules.nonce() }
 
     val problem = NotifyRules.problem(draft)
-    val defaultCwd = hub.settings.env?.defaultCwd ?: "/workspace"
+    val defaultCwd = hub.defaultCwd(backend)
     val now = System.currentTimeMillis()
 
     fun save() {
         if (problem != null) return
-        saveRule(app, original, draft, now)
+        saveRule(app, backend, original, draft, now)
         onBack()
     }
 
@@ -334,7 +339,7 @@ private fun RuleEditor(
         }
         item(key = "limits") { RuleLimitsGroup(draft, update) }
         item(key = "run") {
-            RuleRunGroup(hub, draft, defaultCwd, update) { dialog = RuleDialog.Cwd }
+            RuleRunGroup(hub, backend, draft, defaultCwd, update) { dialog = RuleDialog.Cwd }
         }
         item(key = "alert") {
             OnlyOnChangeGroup(hub, draft.onlyOnChange) { on -> update { copy(onlyOnChange = on) } }
@@ -364,9 +369,15 @@ private fun draftStarted(draft: RuleDraft): Boolean =
     draft.name.isNotBlank() || draft.prompt.isNotBlank()
 
 /** 存下规则：新建的加进去，编辑的照草稿改。 */
-private fun saveRule(app: Application, original: NotifyRule?, draft: RuleDraft, now: Long) {
+private fun saveRule(
+    app: Application,
+    backend: String,
+    original: NotifyRule?,
+    draft: RuleDraft,
+    now: Long,
+) {
     if (original == null) {
-        NotifyRuleStore.update(app) { it + NotifyRules.toRule(draft, now) }
+        NotifyRuleStore.update(app) { it + NotifyRules.toRule(draft, now, backend = backend) }
     } else {
         NotifyRuleStore.updateRule(app, original.id) { NotifyRules.applyDraft(it, draft) }
     }
@@ -597,6 +608,7 @@ private fun RuleLimitsGroup(draft: RuleDraft, update: (RuleDraft.() -> RuleDraft
 @Composable
 private fun RuleRunGroup(
     hub: ConversationHub,
+    backend: String,
     draft: RuleDraft,
     defaultCwd: String,
     update: (RuleDraft.() -> RuleDraft) -> Unit,
@@ -614,7 +626,7 @@ private fun RuleRunGroup(
             )
         }
         item(key = "model") {
-            ModelPreference(hub, draft.model) { model -> update { copy(model = model) } }
+            ModelPreference(hub, backend, draft.model) { model -> update { copy(model = model) } }
         }
         val mode = draft.permissionMode
         item(key = "mode") {

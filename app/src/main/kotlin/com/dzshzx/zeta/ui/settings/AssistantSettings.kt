@@ -16,6 +16,7 @@ import com.dzshzx.zeta.assistant.AssistantRole
 import com.dzshzx.zeta.assistant.PowerKeyLog
 import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.core.AppVariant
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -100,7 +101,7 @@ internal fun AssistantSettingsScreen(
                 footer = "选「跟随 Claude Code」时和新对话一样，用 Claude Code 设置里的默认（设置首页能看到）。单独选的不影响新对话。",
             ) {
                 item {
-                    ModelPreference(hub, model) { value ->
+                    ModelPreference(hub, Backends.LOCAL, model) { value ->
                         model = value
                         hub.settings.assistantModel = value
                     }

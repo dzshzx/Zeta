@@ -226,7 +226,7 @@ internal object ScheduleTools : PhoneToolGroup {
             ?: toolCall {
                 val context = call.context
                 when (name) {
-                    CREATE -> create(context, input)
+                    CREATE -> create(context, input, call.backend)
                     LIST -> toolText(list(context))
                     UPDATE -> update(context, input)
                     DELETE -> delete(context, input)
@@ -254,7 +254,7 @@ internal object ScheduleTools : PhoneToolGroup {
 
     private fun short(text: String) = text.clipChars(12, "…")
 
-    private fun create(context: Context, input: JsonObject): JsonObject {
+    private fun create(context: Context, input: JsonObject, backend: String): JsonObject {
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
         val draft =
@@ -272,7 +272,8 @@ internal object ScheduleTools : PhoneToolGroup {
         Schedules.problem(draft, now, zone)?.let { throw BadInput(it + localNote(now, zone)) }
         if (ScheduleStore.load(context).size >= Schedules.MAX_TASKS)
             throw BadInput("最多 ${Schedules.MAX_TASKS} 个定时任务，先删掉一些")
-        val task = Schedules.toTask(draft, now.toEpochMilli())
+        // 建在调用它的对话所在的那台主机上：工作目录、模型都是那台的
+        val task = Schedules.toTask(draft, now.toEpochMilli(), backend = backend)
         ScheduleStore.update(context) { it + task }
         val next = Schedules.nextTrigger(task.rule, now, zone)
         return toolText(

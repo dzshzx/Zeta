@@ -94,6 +94,7 @@ class SettingsKeysTest {
             "setLocalName" to "我的手机",
             "setAutoUpdateCheck" to false,
             "setPaneAll" to true,
+            "setRemoteClaude" to mapOf("r-00000001/autoCompact" to "false"),
             "setUpdateCheckedAt" to 1_795_000_300_000L,
             "setUpdateNotified" to 905,
         )

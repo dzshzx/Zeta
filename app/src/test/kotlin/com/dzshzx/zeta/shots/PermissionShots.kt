@@ -10,7 +10,9 @@ class PermissionShots : ShotTest() {
     @Test
     fun page() {
         val hub = Fixtures.readyHub(app)
-        shoot("permissions") { PermissionHealthScreen(hub = hub, onBack = {}, onOpenLinux = {}) }
+        shoot("permissions") {
+            PermissionHealthScreen(hub = hub, onBack = {}, onOpenLinux = {})
+        }
     }
 
     @Test

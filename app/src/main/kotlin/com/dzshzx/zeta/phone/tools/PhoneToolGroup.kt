@@ -25,7 +25,12 @@ internal class PhoneTool(val label: String, val definition: JsonObject) {
 /**
  * 一次调用所在的对话给的东西：Android 的 [context]，这个对话正在跑的无人值守后台运行 [unattended] （定时任务、通知触发跑起来的那一轮；平常的对话是 null）。
  */
-internal class CallContext(val context: Context, val unattended: UnattendedRun? = null)
+internal class CallContext(
+    val context: Context,
+    val unattended: UnattendedRun? = null,
+    /** 调用所在的对话在哪台主机上（[com.dzshzx.zeta.core.Backends]）；Zeta 之外的客户端是手机本机。 */
+    val backend: String = com.dzshzx.zeta.core.Backends.LOCAL,
+)
 
 /**
  * 一组不碰屏幕的手机工具：设备状态、闹钟、日历、通知、个人数据这一类。 PhoneTools 把各组的定义并进 MCP 的

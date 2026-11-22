@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleStore
@@ -66,7 +67,14 @@ class ScheduleShots : ShotTest() {
     fun list() {
         val hub = Fixtures.readyHub(app)
         seed()
-        shoot("schedules") { ScheduleScreen(hub = hub, onBack = {}, onOpenConversation = {}) }
+        shoot("schedules") {
+            ScheduleScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
+        }
     }
 
     /** 编辑页上半：名称、指令、每周的星期选择。 */
@@ -75,7 +83,12 @@ class ScheduleShots : ShotTest() {
         val hub = Fixtures.readyHub(app)
         seed()
         shoot("schedule-editor", prepare = { onNodeWithText("周报").performClick() }) {
-            ScheduleScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            ScheduleScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -91,7 +104,12 @@ class ScheduleShots : ShotTest() {
                 repeat(2) { onRoot().performTouchInput { swipeUp() } }
             },
         ) {
-            ScheduleScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            ScheduleScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -107,7 +125,12 @@ class ScheduleShots : ShotTest() {
                 repeat(3) { onRoot().performTouchInput { swipeUp() } }
             },
         ) {
-            ScheduleScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            ScheduleScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 
@@ -125,7 +148,12 @@ class ScheduleShots : ShotTest() {
                 onNodeWithText("08:00").performClick()
             },
         ) {
-            ScheduleScreen(hub = hub, onBack = {}, onOpenConversation = {})
+            ScheduleScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenConversation = {},
+            )
         }
     }
 }

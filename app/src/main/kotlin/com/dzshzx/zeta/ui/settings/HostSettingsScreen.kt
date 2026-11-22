@@ -30,10 +30,12 @@ import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/** 主机页往下的一层：这台主机上的默认思考强度和 Claude Code 自己的配置。 */
+/** 主机页往下的一层：这台主机上的默认思考强度、账号、定时任务、通知触发和 Claude Code 自己的配置。 */
 private enum class HostPage {
     DefaultEffort,
     Accounts,
+    Schedules,
+    NotifyTriggers,
     Memory,
     Skills,
     Mcp,
@@ -47,9 +49,10 @@ private const val LinuxFooter =
     "手机上的 Claude Code 跑在手机里的 Debian 上：安装、体检、可选工具、文件、SSH 服务，" + "以及 Claude Code 的版本和登录都在这里。"
 
 /**
- * 设置 › 一台主机（手机或一台远程主机）。上面两组是这台上的 Claude Code：新对话的默认值（模型、思考强度、权限模式， 存在那台的
- * ~/.claude/settings.json，所以每台各是各的），和 Claude Code 自己的配置（记忆、Skills、MCP、Subagent、工具权限）； 下面手机是 Linux
- * 环境的入口，远程主机是连接（[RemoteHostScreen]）。读写的都是 [backend] 这台，和侧栏正看着哪台无关。
+ * 设置 › 一台主机（手机或一台远程主机）。上面三组是这台上的 Claude Code：新对话的默认值（模型、思考强度、权限模式， 存在那台的
+ * ~/.claude/settings.json，所以每台各是各的），账号、压缩、标题和在这台上跑的定时任务、通知触发，Claude Code
+ * 自己的配置（记忆、Skills、MCP、Subagent、工具权限）； 下面手机是 Linux 环境的入口，远程主机是连接（[RemoteHostScreen]）。读写的都是 [backend]
+ * 这台，和侧栏正看着哪台无关。[onShowChat] 收起设置页回到聊天页：打开某次后台运行的对话时用。
  */
 @Composable
 internal fun HostSettingsScreen(
@@ -57,6 +60,7 @@ internal fun HostSettingsScreen(
     backend: String,
     onBack: () -> Unit,
     onOpenLinux: () -> Unit,
+    onShowChat: () -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf<HostPage?>(null) }
     val close = { page = null }
@@ -72,6 +76,9 @@ internal fun HostSettingsScreen(
                 HostPage.DefaultEffort ->
                     DefaultEffortScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Accounts -> AccountsScreen(hub = hub, backend = backend, onBack = close)
+                HostPage.Schedules -> ScheduleScreen(hub, backend, onBack = close, onShowChat)
+                HostPage.NotifyTriggers ->
+                    NotifyTriggerScreen(hub, backend, onBack = close, onShowChat)
                 HostPage.Memory -> ClaudeMemoryScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Skills -> ClaudeSkillsScreen(hub = hub, backend = backend, onBack = close)
                 HostPage.Mcp -> ClaudeMcpScreen(hub = hub, backend = backend, onBack = close)
@@ -83,7 +90,7 @@ internal fun HostSettingsScreen(
     }
 }
 
-/** 主机页上面两组：新对话默认、Claude Code 配置。这台用不了（[ready] 为 false）时灰着。 */
+/** 主机页上面三组：新对话默认、Claude、Claude Code 配置。这台用不了（[ready] 为 false）时配置一组灰着。 */
 private fun LazyListScope.claudeItems(
     hub: ConversationHub,
     backend: String,
@@ -98,11 +105,17 @@ private fun LazyListScope.claudeItems(
             item { CompactWindowPreference(hub, backend) }
         }
     }
-    // 手机本机的账号入口在设置首页；远程设备各登各的账号，入口在它自己这一页
-    if (backend != Backends.LOCAL)
-        item(key = "accounts") {
-            PreferenceGroup { item { AccountsEntry(hub, backend) { onOpen(HostPage.Accounts) } } }
+    // 每台各登各的账号、各设各的压缩和标题；定时任务、通知触发由手机到点或收到通知时在这台上起对话
+    item(key = "claude") {
+        PreferenceGroup(title = "Claude") {
+            item { AccountsEntry(hub, backend) { onOpen(HostPage.Accounts) } }
+            item { AutoCompactSwitch(hub, backend) }
+            item { CompactTimingPreference(hub, backend) }
+            item { AutoTitleSwitch(hub, backend) }
+            item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
+            item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }
         }
+    }
     item(key = "config") {
         PreferenceGroup(title = "Claude Code 配置", footer = ConfigFooter) {
             fun entry(title: String, page: HostPage) = item {
@@ -117,7 +130,7 @@ private fun LazyListScope.claudeItems(
     }
 }
 
-/** 设置 › 手机：Claude Code 的两组，下面是这台手机的自定义设备名和 Linux 环境（手机里的 Debian）的入口。 */
+/** 设置 › 手机：Claude Code 的三组，下面是这台手机的自定义设备名和 Linux 环境（手机里的 Debian）的入口。 */
 @Composable
 private fun LocalHostScreen(
     hub: ConversationHub,

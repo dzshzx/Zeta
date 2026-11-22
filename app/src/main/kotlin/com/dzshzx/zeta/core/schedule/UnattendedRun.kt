@@ -32,7 +32,9 @@ internal data class RunSpec(
     val name: String,
     /** 发给 Claude 的指令（通知触发的已经填好了通知内容）。 */
     val prompt: String,
-    /** 工作目录；null 用运行那一刻的默认工作目录。 */
+    /** 在哪台主机上跑（[com.dzshzx.zeta.core.Backends]）。 */
+    val backend: String,
+    /** 工作目录；null 用运行那一刻那台主机的默认工作目录。 */
     val cwd: String?,
     /** null 用 Claude Code 的默认模型。 */
     val model: String?,
@@ -113,6 +115,7 @@ internal object ScheduleRecords : RunRecords {
             id = task.id,
             name = task.name,
             prompt = task.prompt,
+            backend = task.backend,
             cwd = task.cwd,
             model = task.model,
             permissionMode = task.permissionMode,

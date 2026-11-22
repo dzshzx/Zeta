@@ -3,10 +3,12 @@ package com.dzshzx.zeta.core.schedule
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.awaitMain
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -37,6 +39,29 @@ class ScheduleResumeTest {
 
     @Before fun reset() = Fixtures.install(null)
 
+    /** 任务所在的设备已经不在清单里：不落到手机上跑，直接报原因。 */
+    @Test
+    fun unknownHostFailsInsteadOfRunningOnThePhone() {
+        Fixtures.readyHub(app)
+        val records =
+            MemoryRecords(RunRecord(lastRun = null, skips = 0, lastSkip = null, sessionId = null))
+        val spec =
+            RunSpec(
+                id = "t",
+                name = "工作站上的任务",
+                prompt = "看一下",
+                backend = "r-0000dead",
+                cwd = null,
+                model = null,
+                permissionMode = "default",
+                newSession = true,
+                sessionId = null,
+                hint = "",
+            )
+        assertNotNull(ScheduleRunner.start(app, records, spec, manual = true))
+        assertEquals(RunOutcome.Failed, records.record.lastRun?.outcome)
+    }
+
     @Test
     fun lookupFailureKeepsTheOriginalSession() {
         Fixtures.readyHub(app)
@@ -49,6 +74,7 @@ class ScheduleResumeTest {
                 id = "t",
                 name = "接着原对话的任务",
                 prompt = "看一下",
+                backend = Backends.LOCAL,
                 cwd = null,
                 model = null,
                 permissionMode = "default",
