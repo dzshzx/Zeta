@@ -24,8 +24,9 @@ type Colors struct {
 	// Tint 是淡淡的一层（labelPrimary 的 5%）：设备胶囊。Chip 是输入栏下面那排小圆钮（container8），
 	// Hover 是悬停、菜单行按下（hover），Press 是按下（press）。
 	Tint, Chip, Hover, Press ui.Color
-	// Button 是次按钮、对话框普通按钮的底色（secondaryButton）。
-	Button ui.Color
+	// Button 是次按钮的底色（secondaryButton）；DialogButton 是对话框里普通按钮的底色，DialogBlock 是对话框里
+	// 命令、代码块的底色（对照 Compose 桌面版截图取的值：对话框是灰底，按钮比它亮，代码块比它暗）。
+	Button, DialogButton, DialogBlock ui.Color
 	// Field 是输入栏、排队条的面板（container4 叠在 background 上），Edge 是它的细边（container4）；
 	// CodeHeader、CodeBody 是代码块的语言栏和正文（fillThin、container4 各叠一层），CodeEdge 是代码块的边（container8）。
 	Field, Edge, CodeHeader, CodeBody, CodeEdge ui.Color
@@ -40,8 +41,6 @@ type Colors struct {
 	// Primary 是主题蓝（primary）：主按钮、开着的开关；PrimaryText 是主题色的字和图标（primaryText）；
 	// OnPrimary 是蓝底上的字；Halftone 是主题色淡底（containerThemeHalftone）。
 	Primary, PrimaryText, OnPrimary, Halftone ui.Color
-	// Disabled、DisabledText 是不能点的主按钮的底色和字（disable、disabledOnPrimaryButton）。
-	Disabled, DisabledText ui.Color
 	// Track 是关着的开关的轨道（dragHandle）。
 	Track ui.Color
 	// Error 是出错的红（error），Warning 是要注意的黄（Zeta 的 StatusColors），Success 是成功的绿（success）。
@@ -50,6 +49,9 @@ type Colors struct {
 	Red, Orange, Yellow, Green, Blue, Cyan, Purple ui.Color
 	// Mask 是对话框后面的遮罩（mask），Shadow 是浮起元素的阴影色。
 	Mask, Shadow ui.Color
+	// 毛玻璃上叠的那层（手机上是 COUI 17 的材质模糊，MaterialBlur.kt，这里是高斯模糊加半透明底色，
+	// 落在白底、黑底上时和 Compose 版的不透明底色一样）：对话框、菜单、浮起的圆按钮和顶栏、输入栏。
+	DialogGlass, PopupGlass, BarGlass, FieldGlass ui.Color
 }
 
 // light、dark 是 COUI 2 的两套默认配色（Compose 桌面版没有改过任何槽位）。
@@ -64,11 +66,13 @@ var (
 		Dialog:   ui.Hex("#FFFFFF"),
 		Bar:      ui.Hex("#FAFAFA"),
 
-		Tint:   argb(0x0D000000),
-		Chip:   argb(0x14000000),
-		Hover:  argb(0x14000000),
-		Press:  argb(0x1F000000),
-		Button: ui.Hex("#EBEBEB"),
+		Tint:         argb(0x0D000000),
+		Chip:         argb(0x14000000),
+		Hover:        argb(0x14000000),
+		Press:        argb(0x1F000000),
+		Button:       ui.Hex("#EBEBEB"),
+		DialogButton: ui.Hex("#FAFAFA"),
+		DialogBlock:  ui.Hex("#E7E7E7"),
 
 		Field:      ui.Hex("#F5F5F5"),
 		Edge:       argb(0x0A000000),
@@ -83,13 +87,11 @@ var (
 		Tertiary:   argb(0x42000000),
 		Quaternary: argb(0x14000000),
 
-		Primary:      ui.Hex("#0080FF"),
-		PrimaryText:  ui.Hex("#0080FF"),
-		OnPrimary:    ui.Hex("#FFFFFF"),
-		Halftone:     argb(0x260080FF),
-		Disabled:     argb(0x4D0080FF),
-		DisabledText: argb(0x8AFFFFFF),
-		Track:        argb(0x29000000),
+		Primary:     ui.Hex("#0080FF"),
+		PrimaryText: ui.Hex("#0080FF"),
+		OnPrimary:   ui.Hex("#FFFFFF"),
+		Halftone:    argb(0x260080FF),
+		Track:       argb(0x29000000),
 
 		Error:   ui.Hex("#DB382C"),
 		Warning: ui.Hex("#A36200"),
@@ -104,6 +106,11 @@ var (
 
 		Mask:   argb(0x33000000),
 		Shadow: ui.RGBA(0, 0, 0, 30.0/255),
+
+		DialogGlass: ui.RGBA(248, 248, 248, 0.87),
+		PopupGlass:  ui.RGBA(246, 246, 246, 0.86),
+		BarGlass:    ui.RGBA(250, 250, 250, 0.78),
+		FieldGlass:  ui.RGBA(245, 245, 245, 0.9),
 	}
 	dark = &Colors{
 		Dark:     true,
@@ -116,11 +123,13 @@ var (
 		Dialog:   ui.Hex("#262626"),
 		Bar:      ui.Hex("#2A2A2A"),
 
-		Tint:   argb(0x0DFFFFFF),
-		Chip:   argb(0x1AFFFFFF),
-		Hover:  argb(0x26FFFFFF),
-		Press:  argb(0x33FFFFFF),
-		Button: ui.Hex("#353535"),
+		Tint:         argb(0x0DFFFFFF),
+		Chip:         argb(0x1AFFFFFF),
+		Hover:        argb(0x26FFFFFF),
+		Press:        argb(0x33FFFFFF),
+		Button:       ui.Hex("#353535"),
+		DialogButton: ui.Hex("#4F4F4F"),
+		DialogBlock:  ui.Hex("#3B3B3B"),
 
 		Field:      ui.Hex("#1A1A1A"),
 		Edge:       argb(0x1AFFFFFF),
@@ -135,13 +144,11 @@ var (
 		Tertiary:   argb(0x4DFFFFFF),
 		Quaternary: argb(0x26FFFFFF),
 
-		Primary:      ui.Hex("#1A8CFF"),
-		PrimaryText:  ui.Hex("#5C9DFF"),
-		OnPrimary:    ui.Hex("#FFFFFF"),
-		Halftone:     argb(0x401A8CFF),
-		Disabled:     argb(0x4D1A8CFF),
-		DisabledText: argb(0x29FFFFFF),
-		Track:        argb(0x40FFFFFF),
+		Primary:     ui.Hex("#1A8CFF"),
+		PrimaryText: ui.Hex("#5C9DFF"),
+		OnPrimary:   ui.Hex("#FFFFFF"),
+		Halftone:    argb(0x401A8CFF),
+		Track:       argb(0x40FFFFFF),
 
 		Error:   ui.Hex("#FF6C61"),
 		Warning: ui.Hex("#E5A100"),
@@ -156,6 +163,11 @@ var (
 
 		Mask:   argb(0x99000000),
 		Shadow: ui.RGBA(0, 0, 0, 0.5),
+
+		DialogGlass: ui.RGBA(42, 42, 42, 0.9),
+		PopupGlass:  ui.RGBA(51, 51, 51, 0.88),
+		BarGlass:    ui.RGBA(42, 42, 42, 0.82),
+		FieldGlass:  ui.RGBA(26, 26, 26, 0.9),
 	}
 )
 

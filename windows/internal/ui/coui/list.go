@@ -6,9 +6,6 @@ import "github.com/egoist/mygo/ui"
 // 数值照 COUI 的 SmallTopAppBar、PreferenceCategory、Card、BasicComponent、ArrowPreference、PagerFooterPreference
 // 和 Zeta 的 PreferenceGroup（卡片离两边 16、离下一张 16）。
 
-// CardRadius 是卡片的圆角：COUI 是 24 的平滑圆角（超椭圆），看上去和 18 的普通圆角差不多。
-const CardRadius = 18
-
 // PageWidth 是设置页内容最宽多少（卡片 768，两边各留 16），窗口再宽也居中。
 const PageWidth = 768 + 32
 
@@ -38,7 +35,8 @@ func Group(c *ui.Context, title, footer string, rows func(l *List)) {
 			ui.Text(c, title).FontSize(SizeBodyXS).FontWeight(Medium).TextColor(k.Secondary).Padding(8, 32, 8, 32)
 		}
 		l := &List{c: c}
-		ui.Column(c).Margin(0, 16).Radius(CardRadius).Background(k.Card).Clip().Padding(2, 0).Children(func() { rows(l) })
+		card := Surface{Shape: ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16).Clip().Padding(2, 0)
+		card.Children(func() { rows(l) })
 		if footer != "" {
 			ui.Text(c, footer).FontSize(SizeBodyXS).LineHeight(1.4).TextColor(k.Secondary).Padding(8, 32, 0, 32)
 		}
@@ -65,8 +63,9 @@ type Row struct {
 	// Icon 是行首的图标（24，颜色 IconColor），没有就不画。
 	Icon      *ui.SVG
 	IconColor ui.Color
-	// Title 是标题（16），Summary 是下面一行小字（13，次要文字色）。
+	// Title 是标题（16），Summary 是下面一行小字（13，次要文字色；SummaryColor 不是零值时用它，像出错原因用 Error）。
 	Title, Summary string
+	SummaryColor   ui.Color
 	// Value 是右边的值（14，淡）。
 	Value string
 	// Arrow：右边画箭头（点进下一页）。
@@ -111,16 +110,7 @@ func (l *List) Row(r Row) ui.Element {
 		if r.Icon != nil {
 			ui.Icon(c, r.Icon).Size(24, 24).TextColor(r.IconColor).Shrink(0)
 		}
-		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
-			title := k.Text
-			if r.Danger {
-				title = k.Error
-			}
-			ui.Text(c, r.Title).FontSize(SizeHeadlineXS).TextColor(title).SingleLine().Ellipsis("…")
-			if r.Summary != "" {
-				ui.Text(c, r.Summary).FontSize(SizeBodyS).TextColor(k.Secondary).MaxLines(3).Selectable()
-			}
-		})
+		r.texts(c, k)
 		if r.Value != "" || r.End != nil || r.Arrow {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 				if r.Value != "" {
@@ -136,6 +126,23 @@ func (l *List) Row(r Row) ui.Element {
 		}
 	})
 	return row
+}
+
+// texts 是一行左边的标题和下面的小字。
+func (r Row) texts(c *ui.Context, k *Colors) {
+	title, summary := k.Text, k.Secondary
+	if r.Danger {
+		title = k.Error
+	}
+	if r.SummaryColor.A > 0 {
+		summary = r.SummaryColor
+	}
+	ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
+		ui.Text(c, r.Title).FontSize(SizeHeadlineXS).TextColor(title).SingleLine().Ellipsis("…")
+		if r.Summary != "" {
+			ui.Text(c, r.Summary).FontSize(SizeBodyS).TextColor(summary).MaxLines(3).Selectable()
+		}
+	})
 }
 
 // Custom 加一行自己排的内容（比如一行输入框和按钮），左右留 16、上下留 8，前面照样画分隔线。

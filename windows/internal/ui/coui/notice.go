@@ -24,6 +24,6 @@ func Notice(c *ui.Context, text string, tone Tone) ui.Element {
 	case Failure:
 		ink, fill = k.Error, k.Error.Alpha(0.08)
 	}
-	return ui.Text(c, text).FontSize(SizeBodyS).LineHeight(1.45).TextColor(ink).MaxLines(3).FillWidth().
-		Padding(10, 14).Radius(14).Background(fill).Selectable()
+	t := ui.Text(c, text).FontSize(SizeBodyS).LineHeight(1.45).TextColor(ink).MaxLines(3).FillWidth().Padding(10, 14).Selectable()
+	return Surface{Shape: Rounded(14, 2.5), Fill: fill}.Paint(t)
 }

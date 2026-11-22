@@ -21,7 +21,7 @@ done
 cp "$root/helper/host/zeta_host.sh" "$out/"
 
 # 第三方许可证全文，关于页列它们（windows/internal/ui/about）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
-# 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件；
+# 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件（包所在目录里另有许可证的，那个包单列一项）；
 # 两边都静态链接 Go 标准库和运行时，取 GOROOT 的 LICENSE；Zeta 自己的是仓根 LICENSE（windows/ 经 replace 引用的 helper 模块也是 Zeta 自己的，不另列）。index.tsv 一行一项：用在哪、模块、版本、文件名。
 lic=$out/licenses
 mkdir -p "$lic"
@@ -32,15 +32,17 @@ printf '%s\tGo\t%s\tGo\n' app "$go_version" host "$go_version" >"$lic/index.tsv"
 licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
   local where=$1 dir=$2 goos=$3
   shift 3
+  # 每个模块一行（一定要有许可证）；包所在目录不是模块根目录的，那个包也一行（目录里另有许可证时单列，像 mygo 的 internal/shader 是 Apache-2.0）
   (cd "$dir" && GOOS=$goos GOARCH=amd64 CGO_ENABLED=0 go list -deps \
-    -f '{{if not .Standard}}{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}}{{end}}{{end}}{{end}}' "$@") |
+    -f '{{if not .Standard}}{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}} module{{if ne .Dir $.Dir}}{{"\n"}}{{$.ImportPath}} {{.Version}} {{$.Dir}} package{{end}}{{end}}{{end}}{{end}}' "$@") |
     sed -e '/^$/d' -e '\#^github.com/dzshzx/Zeta/#d' | LC_ALL=C sort -u |
-    while read -r path version moddir; do
-      file=$(find "$moddir" -maxdepth 1 -type f \( -name 'LICENSE*' -o -name 'LICENCE*' -o -name 'COPYING*' \) | LC_ALL=C sort | head -1)
-      [[ -n $file ]] || {
+    while read -r path version from kind; do
+      file=$(find "$from" -maxdepth 1 -type f \( -name 'LICENSE*' -o -name 'LICENCE*' -o -name 'COPYING*' \) | LC_ALL=C sort | head -1)
+      if [[ -z $file ]]; then
+        [[ $kind == package ]] && continue
         echo "assets.sh: $path $version 里没有许可证文件" >&2
         exit 1
-      }
+      fi
       name=$(tr / _ <<<"$path@$version")
       # 两边用同一个模块的同一个版本时文件只放一份（模块缓存里的文件只读，再 cp 一次会失败）
       [[ -e $lic/$name ]] || cp "$file" "$lic/$name"

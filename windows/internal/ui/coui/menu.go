@@ -21,8 +21,9 @@ func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) 
 		trigger(parts.Trigger)
 		parts.Popup(func(panel ui.Element) {
 			k := Of(c)
-			panel.MinWidth(168).MaxWidth(256).Padding(8, 0).Radius(20).Background(k.Popup).Margin(6, 0, 0, 0).
-				Shadow(0, 8, 32, 0, k.Shadow).Border(1, k.Edge)
+			// 阴影照 ListPopup：浅色是很淡、很散的一圈
+			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Blur: BlurPopup}.Paint(panel).MinWidth(168).MaxWidth(256).Padding(8, 0).
+				Margin(6, 0, 0, 0).Shadow(0, 6, 24, 0, popupShadow(k))
 			build(&Menu{c: c, parts: parts})
 		})
 	})
@@ -54,4 +55,12 @@ func (m *Menu) item(label string, it ui.Element, on bool) bool {
 		}
 	})
 	return it.Clicked()
+}
+
+// popupShadow 是菜单的阴影色（ListPopup 的光斑层：浅色约 4%，深色约 11%，再加一点让它在白底上看得出来）。
+func popupShadow(k *Colors) ui.Color {
+	if k.Dark {
+		return ui.RGBA(0, 0, 0, 0.3)
+	}
+	return ui.RGBA(0, 0, 0, 0.1)
 }

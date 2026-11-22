@@ -35,13 +35,26 @@ const (
 	kindPlain buttonKind = iota
 	kindPrimary
 	kindDanger
+	kindDialog       // 对话框里的普通按钮
+	kindDialogDanger // 对话框里的危险操作
 )
 
+// DialogButton 是对话框底下的按钮：Recommend 是主按钮，Destructive 是红字，Plain 是比对话框亮一点的灰底。
+func DialogButton(c *ui.Context, label string, style Style) ui.Element {
+	switch style {
+	case Recommend:
+		return button(c, label, kindPrimary, true)
+	case Destructive:
+		return button(c, label, kindDialogDanger, true)
+	}
+	return button(c, label, kindDialog, true)
+}
+
 func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element {
-	primary := kind == kindPrimary
 	k := Of(c)
-	b := ui.ButtonBase(c).Label(label).Radius(999).Justify(ui.Center).AlignItems(ui.Center).Cursor(ui.CursorPointer).
-		DimDisabled(false)
+	// 不能点时 mygo 在画的时候把整个按钮调到一半不透明（同 COUI 的 disabled 透明度）：调用方往往是建好按钮以后才设
+	// Disabled，这里建按钮时还看不出来
+	b := ui.ButtonBase(c).Label(label).Radius(999).Justify(ui.Center).AlignItems(ui.Center).Cursor(ui.CursorPointer)
 	size := float32(SizeBodyM)
 	if large {
 		b.MinWidth(96).MinHeight(44).Padding(8, 20)
@@ -55,12 +68,12 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 		fill, text = k.Primary, k.OnPrimary
 	case kindDanger:
 		text = k.Error
+	case kindDialog:
+		fill = k.DialogButton
+	case kindDialogDanger:
+		fill, text = k.DialogButton, k.Error
 	}
 	switch {
-	case b.IsDisabled() && primary:
-		fill, text = k.Disabled, k.DisabledText
-	case b.IsDisabled():
-		b.Opacity(0.4)
 	case b.Pressed():
 		fill = fill.Mix(k.Text, 0.12)
 	case b.Hovered():
@@ -79,14 +92,16 @@ func TextColor(b ui.Element, color ui.Color) ui.Element { return b.TextColor(col
 // 图标 22、正文色。label 是读屏名字和悬停提示。
 func CircleButton(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 	k := Of(c)
-	b := ui.ButtonBase(c).Size(40, 40).Radius(20).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
-		Cursor(ui.CursorPointer).Shrink(0).Background(k.Bar).Shadow(0, 3.2, 16, 0, k.Shadow)
+	b := ui.ButtonBase(c).Size(40, 40).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
+		Cursor(ui.CursorPointer).Shrink(0)
+	fill := k.BarGlass
 	switch {
 	case b.Pressed():
-		b.Background(k.Bar.Mix(k.Text, 0.12))
+		fill = fill.Mix(k.Text, 0.12)
 	case b.Hovered():
-		b.Background(k.Bar.Mix(k.Text, 0.05))
+		fill = fill.Mix(k.Text, 0.05)
 	}
+	Shadow(Surface{Shape: Rounded(20, 2), Fill: fill, Blur: BlurBar}.Paint(b), k)
 	b.Children(func() { ui.Icon(c, icon).Size(22, 22).TextColor(k.Text) })
 	return b
 }
@@ -201,16 +216,17 @@ func Switch(c *ui.Context, on *bool) ui.Element {
 	return s
 }
 
-// Input 是一行输入框：淡灰底、10 的圆角，有焦点时一圈主题色细边（COUI 的 TextField 只画线，桌面上留个底色好认）。
-// 占位、读屏名字、提交照 mygo 的写法接着调。
+// Input 是一行输入框（COUI TextField 的 Rectangle 模式）：淡灰底、10 的平滑圆角，有焦点时一圈主题色细边。
+// 占位、读屏名字、提交照 mygo 的写法接着调。对话框里用 LineInput。
 func Input(c *ui.Context, value *string) ui.Element {
 	k := Of(c)
-	in := ui.TextInputBase(c, value).Padding(8, 12).Radius(10).Background(k.Edge).MinHeight(36).FontSize(SizeBodyM).
-		PlaceholderColor(k.Tertiary).FocusRing(false)
+	in := ui.TextInputBase(c, value).Padding(8, 12).MinHeight(36).FontSize(SizeBodyM).PlaceholderColor(k.Tertiary).
+		FocusRing(false)
+	surface := Surface{Shape: ShapeField, Fill: k.Edge}
 	if in.Focused() {
-		in.Border(1, k.Primary)
+		surface.Edge = k.Primary
 	}
-	return in
+	return surface.Paint(in)
 }
 
 // Ring 给按钮 b 画成 28 的圆环（输入栏右边的上下文用量，UsageControls.kt）：灰色的圈上，fraction（0 到 1）那么长一段
@@ -248,4 +264,22 @@ func Dropdown(c *ui.Context, trigger ui.Element, value string) {
 		ui.Text(c, value).FontSize(SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Shrink(1)
 		ui.Icon(c, IconUnfold).Size(16, 16).TextColor(k.Tertiary)
 	})
+}
+
+// LineInput 是对话框里的输入框（COUI TextField 的 Line 模式，Zeta 的 DialogTextField）：没有底色，下面一条分隔线，
+// 有焦点时线变成主题色；字 16，最少 48 高。lines 大于 1 时是多行，最多 lines 行。
+func LineInput(c *ui.Context, value *string, lines int) ui.Element {
+	k := Of(c)
+	var in ui.Element
+	if lines > 1 {
+		in = ui.TextAreaBase(c, value).Lines(1, lines)
+	} else {
+		in = ui.TextInputBase(c, value)
+	}
+	in.Padding(13, 0).MinHeight(48).FontSize(SizeBodyXL).PlaceholderColor(k.Tertiary).FocusRing(false).FillWidth()
+	line := k.Divider
+	if in.Focused() {
+		line = k.Primary
+	}
+	return in.BorderWidth(0, 0, 1, 0).BorderColor(line)
 }

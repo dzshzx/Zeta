@@ -204,17 +204,26 @@ func TestLicensesCoverLinkedModules(t *testing.T) {
 	}
 }
 
-// 许可证文件只取模块根目录的：链接的包所在目录里另有许可证（像 mygo 的 internal/shader 是 Apache-2.0）时这里失败，到时把它也列进关于页。
-func TestNoPackageLicenses(t *testing.T) {
-	out := goList(t, "../../..", "windows", "-f", "{{if not .Standard}}{{with .Module}}{{if not .Main}}{{$.Dir}}\t{{.Dir}}{{end}}{{end}}{{end}}", "./...")
+// 包所在目录里另有许可证的（像 mygo 的 internal/shader 是 Apache-2.0），那个包也列在关于页里。
+func TestPackageLicenses(t *testing.T) {
+	list, err := licenses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := map[string]bool{}
+	for _, l := range list {
+		have[l.Where+" "+l.Module+" "+l.Version] = true
+	}
+	out := goList(t, "../../..", "windows", "-f",
+		"{{if not .Standard}}{{with .Module}}{{if not .Main}}{{$.ImportPath}}\t{{.Version}}\t{{$.Dir}}\t{{.Dir}}{{end}}{{end}}{{end}}", "./...")
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		pkg, mod, _ := strings.Cut(line, "\t")
-		if pkg == mod {
+		f := strings.Split(line, "\t")
+		if len(f) != 4 || f[2] == f[3] {
 			continue
 		}
-		for _, pattern := range []string{"LICENSE*", "LICENCE*", "COPYING*", "NOTICE*"} {
-			if matches, _ := filepath.Glob(filepath.Join(pkg, pattern)); len(matches) > 0 {
-				t.Errorf("%s has its own licence %q", pkg, matches)
+		for _, pattern := range []string{"LICENSE*", "LICENCE*", "COPYING*"} {
+			if matches, _ := filepath.Glob(filepath.Join(f[2], pattern)); len(matches) > 0 && !have["app "+f[0]+" "+f[1]] {
+				t.Errorf("%s has its own licence %q, missing from the licenses; run windows/scripts/assets.sh", f[0], matches)
 			}
 		}
 	}
