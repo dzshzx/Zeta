@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"image/png"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 )
@@ -161,4 +163,53 @@ func TestExportSavesWhereTheUserChose(t *testing.T) {
 	f.app.ops.save = func(string) (string, error) { return "", nil }
 	f.menu(t, "部署脚本", "导出")
 	f.notSee(t, "导出没成功")
+}
+
+// TestSessionOpsPreviews 在设了 ZETA_PREVIEW_DIR 时把侧栏的右键菜单、多选、删除确认和接管卡片画成 PNG（浅色、深色）。
+func TestSessionOpsPreviews(t *testing.T) {
+	dir := os.Getenv("ZETA_PREVIEW_DIR")
+	if dir == "" {
+		t.Skip("ZETA_PREVIEW_DIR 没设，不画预览")
+	}
+	scenes := map[string]func(t *testing.T, f *chatFixture){
+		"session-menu": func(t *testing.T, f *chatFixture) {
+			if err := f.tt.RightClick("看看日志"); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"session-select": func(t *testing.T, f *chatFixture) {
+			f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
+			f.menu(t, "看看日志", "选择")
+			f.click(t, "部署脚本")
+		},
+		"session-delete": func(t *testing.T, f *chatFixture) { f.menu(t, "部署脚本", "删除") },
+		"session-handoff": func(t *testing.T, f *chatFixture) {
+			f.click(t, "修登录页")
+			f.tt.Frame()
+			f.devices.Occupants = map[string]string{f.hub.Chat().Conv.Session(): `{"status":"waiting","waiting_for":"Bash","hands_over":true}`}
+			f.push(`"blocked":true`)
+		},
+	}
+	for name, setup := range scenes {
+		for _, dark := range []bool{false, true} {
+			f := newOpsFixture(t)
+			f.tt.SetTitleBar(windowTitleBar)
+			f.tt.SetDark(dark)
+			setup(t, f)
+			f.tt.Advance(2 * time.Second)
+			f.tt.Frame()
+			suffix := "light"
+			if dark {
+				suffix = "dark"
+			}
+			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), dark)); err != nil {
+				t.Fatal(err)
+			}
+			_ = out.Close()
+		}
+	}
 }
