@@ -282,6 +282,8 @@ func TestViewAndSaveImage(t *testing.T) {
 	f.devices.ImageData = shot
 	dir := t.TempDir()
 	f.app.saveAs = func(name string) (string, error) { return filepath.Join(dir, name), nil }
+	var buttons []bool
+	f.app.WindowButtonsOverDark = func(on bool) { buttons = append(buttons, on) }
 	f.link().Push(`{"type":"conv.items","conv":"w1","full":true,"items":[{"kind":"user","id":"u-1","uuid":"x1","text":"看这张图",
 		"images":[{"kind":"session","file":"/s.jsonl","ref":"3.0"}]}]}`)
 	f.tt.Frame()
@@ -289,6 +291,9 @@ func TestViewAndSaveImage(t *testing.T) {
 	f.click(t, "图片")
 	if _, _, open := f.app.pane.list.Viewing(); !open {
 		t.Fatal("没打开看大图")
+	}
+	if !slices.Equal(buttons, []bool{true}) {
+		t.Fatalf("看大图时系统按钮没换成深色底的画法：%v", buttons)
 	}
 	f.click(t, "保存")
 	waitFor(t, f, func() bool {
@@ -301,6 +306,12 @@ func TestViewAndSaveImage(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, files[0].Name()))
 	if !bytes.Equal(data, shot) {
 		t.Fatal("存下的不是原图")
+	}
+	// 关上以后系统按钮回到跟着主题
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if !slices.Equal(buttons, []bool{true, false}) {
+		t.Fatalf("关上后系统按钮：%v", buttons)
 	}
 }
 

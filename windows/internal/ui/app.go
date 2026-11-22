@@ -54,6 +54,10 @@ type App struct {
 
 	// saveAs 换掉看大图保存时的系统保存对话框（测试用）；nil 是系统的。
 	saveAs func(name string) (string, error)
+	// WindowButtonsOverDark 让系统的最小化、最大化、关闭按钮按深色底画（on），或回到跟着主题（看大图时用，入口接上真窗口）；
+	// buttonsOverDark 是上次交代的。
+	WindowButtonsOverDark func(on bool)
+	buttonsOverDark       bool
 
 	// Notify 发一条系统通知（回答完了而窗口不在前台时），Foreground 报告窗口在不在前台。New 给的是不发、总在前台，
 	// 窗口起来后由入口换成真的。

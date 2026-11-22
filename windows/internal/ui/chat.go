@@ -51,6 +51,7 @@ func newChatPane(c *hub.Chat, loadImage func(file, ref string) ([]byte, error)) 
 // syncChat 在每一帧开头跟上中枢的对话：换了对话换一个新的窗格；取走协议层的变化，套给聊天列表；
 // 一轮结束而窗口不在前台时发通知；有撤回放回输入框的消息时取过来。
 func (a *App) syncChat() {
+	defer a.syncWindowButtons()
 	c := a.hub.Chat()
 	if c == nil {
 		a.pane = nil

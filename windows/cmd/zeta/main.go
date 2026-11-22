@@ -62,6 +62,14 @@ func main() {
 			TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
 		// 回答完了而窗口不在前台时发通知，点通知回到窗口
 		app.Foreground = func() bool { return win.IsFocused() }
+		// 看大图是黑底：系统按钮画浅色字形，关上后回到跟着主题
+		app.WindowButtonsOverDark = func(on bool) {
+			if on {
+				win.SetWindowButtonsTheme(mygo.ThemeDark)
+			} else {
+				win.SetWindowButtonsTheme(mygo.ThemeSystem)
+			}
+		}
 		app.Notify = func(title, body string) {
 			if !mygo.NotificationsSupported() {
 				return

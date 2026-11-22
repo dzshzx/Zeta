@@ -55,6 +55,8 @@ func TestMessageActionPreviews(t *testing.T) {
 	for name, setup := range scenes {
 		for _, dark := range []bool{false, true} {
 			f := openedForActions(t)
+			buttonsOverDark := false
+			f.app.WindowButtonsOverDark = func(on bool) { buttonsOverDark = on }
 			// 右键菜单画在窗口里，预览里看得到
 			f.tt = ui.NewTester(func(c *ui.Context) { c.SetMenuPresentation(ui.PopoverMenus); f.app.View(c) }, 1280, 860)
 			f.tt.SetTitleBar(windowTitleBar)
@@ -72,7 +74,7 @@ func TestMessageActionPreviews(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), dark)); err != nil {
+			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), dark || buttonsOverDark)); err != nil {
 				t.Fatal(err)
 			}
 			_ = out.Close()

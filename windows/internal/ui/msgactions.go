@@ -445,3 +445,16 @@ func (a *App) saveImage(data []byte, name string) (string, error) {
 func systemSaveAs(name string) (string, error) {
 	return mygo.Dialog.Save(mygo.SaveDialogOptions{Title: "保存图片", DefaultPath: name})
 }
+
+// syncWindowButtons 在看大图（黑底）时让系统按钮画浅色的字形，关上后回到跟着主题；只在变了时交代。
+func (a *App) syncWindowButtons() {
+	on := false
+	if p := a.pane; p != nil {
+		_, _, on = p.list.Viewing()
+	}
+	if on == a.buttonsOverDark || a.WindowButtonsOverDark == nil {
+		return
+	}
+	a.buttonsOverDark = on
+	a.WindowButtonsOverDark(on)
+}
