@@ -24,7 +24,7 @@ func cmdImage(o *emitter, path, position string) error {
 	return nil
 }
 
-// recordImage 是会话记录里的一张图片，Data 是 base64。
+// recordImage 是取回的一张图片（会话记录里的或主机上的文件），Data 是 base64。
 type recordImage struct {
 	MediaType any `json:"media_type"`
 	Data      any `json:"data"`
@@ -115,20 +115,30 @@ func nth(list any, i int) (any, error) {
 	return l[i], nil
 }
 
-// cmdFileImage 读 Linux 环境里的一个图片文件（按扩展名认类型，最大 30 MB）。
+// cmdFileImage 输出一行 zeta_image（见 fileImage）。
 func cmdFileImage(e *env, o *emitter, path string) error {
+	img, err := fileImage(e, path)
+	if err != nil {
+		return err
+	}
+	o.out(obj{"type": "zeta_image", "media_type": img.MediaType, "data": img.Data})
+	return nil
+}
+
+// fileImage 读 Linux 环境里的一个图片文件（按扩展名认类型，最大 30 MB；~ 开头的从家目录算）。
+// zeta-helper file-image 和核心的 images.file 都用它。
+func fileImage(e *env, path string) (recordImage, error) {
 	path = e.expandUser(path)
 	kind := imageTypes[strings.ToLower(extension(path))]
 	fi, err := os.Stat(path)
 	if kind == "" || err != nil || !fi.Mode().IsRegular() || fi.Size() > maxImageBytes {
-		return errors.New("not a readable image")
+		return recordImage{}, errors.New("not a readable image")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return recordImage{}, err
 	}
-	o.out(obj{"type": "zeta_image", "media_type": kind, "data": base64.StdEncoding.EncodeToString(data)})
-	return nil
+	return recordImage{MediaType: kind, Data: base64.StdEncoding.EncodeToString(data)}, nil
 }
 
 // extension 是文件名的扩展名（含点）；以点开头的名字（.png）没有扩展名。

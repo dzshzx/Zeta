@@ -237,7 +237,7 @@ type plan struct {
 	bytes, files int64
 	items        []candidate
 	parts        map[string][2]int64
-	busy         any         // 包管理器正在跑时整类不删：它的名字
+	busy         string      // 包管理器正在跑时整类不删：它的名字
 	prune        [][2]string // 清完以后试着删掉的空目录（根目录, 名字）
 }
 
@@ -261,7 +261,35 @@ func (p *plan) add(root, name string, dir bool, size int64, part string) {
 	}
 }
 
-func (p *plan) report(key string) obj {
+// storageKind 是存储页的一类（storage 的 zeta_storage 行、核心的 storage.scan 的 kinds）：一共占多少、几个文件，能清掉多少、几项，
+// 按来源的小计；Busy 是正在运行、这一类先不清的工具的名字（没有时为 null）；Error 是这一类没统计成（别的字段都是 0）。
+type storageKind struct {
+	Key      string        `json:"key"`
+	Bytes    int64         `json:"bytes"`
+	Files    int64         `json:"files"`
+	Freeable int64         `json:"freeable"`
+	Items    int           `json:"items"`
+	Busy     *string       `json:"busy"`
+	Parts    []storagePart `json:"parts"`
+	Error    bool          `json:"error,omitempty"`
+}
+
+// storagePart 是一类里按来源的小计。
+type storagePart struct {
+	Name  string `json:"name"`
+	Bytes int64  `json:"bytes"`
+	Items int64  `json:"items"`
+}
+
+// nonEmpty：空串是 nil（JSON 里写成 null）。
+func nonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func (p *plan) report(key string) storageKind {
 	var freeable int64
 	for _, c := range p.items {
 		freeable += c.size
@@ -271,12 +299,11 @@ func (p *plan) report(key string) obj {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	parts := []any{}
+	parts := []storagePart{}
 	for _, name := range names {
-		parts = append(parts, obj{"name": name, "bytes": p.parts[name][0], "items": p.parts[name][1]})
+		parts = append(parts, storagePart{Name: name, Bytes: p.parts[name][0], Items: p.parts[name][1]})
 	}
-	return obj{"type": "zeta_storage", "key": key, "bytes": p.bytes, "files": p.files, "freeable": freeable,
-		"items": len(p.items), "busy": p.busy, "parts": parts}
+	return storageKind{Key: key, Bytes: p.bytes, Files: p.files, Freeable: freeable, Items: len(p.items), Busy: nonEmpty(p.busy), Parts: parts}
 }
 
 // removeCandidate 删一个候选，删之前再核一遍。目录按文件描述符逐层删，不跟进符号链接，删到一半被人换成链接也删不到外面去。
@@ -336,11 +363,49 @@ func findPlan(key string) func(*storageCtx) *plan {
 // cleanable：能清的类别（apt 要 root 删，由应用以 root 执行 apt-get clean，这里只统计）。
 func cleanable(key string) bool { return key != "apt" && findPlan(key) != nil }
 
+// storageReport 是存储页的统计（核心的 storage.scan）：各类（顺序同 storagePlans）、~/.claude/projects 下的各项目，
+// 和 settings.json 里的 cleanupPeriodDays（没设时为 null）。
+type storageReport struct {
+	Kinds             []storageKind    `json:"kinds"`
+	Projects          []storageProject `json:"projects"`
+	CleanupPeriodDays *json.Number     `json:"cleanupPeriodDays"`
+}
+
+// storageProject 是 ~/.claude/projects 下的一个项目目录：占多少、几个文件、几个会话记录，和它对应的工作目录（看不出来时是空串）。
+type storageProject struct {
+	Dir      string `json:"dir"`
+	Bytes    int64  `json:"bytes"`
+	Files    int64  `json:"files"`
+	Sessions int    `json:"sessions"`
+	Cwd      string `json:"cwd"`
+}
+
+// cmdStorage 输出 scanStorage 的结果：每类一行 zeta_storage，每个项目一行 zeta_storage_project，再是 zeta_storage_settings 和
+// 收尾的 zeta_storage_done。
 func cmdStorage(e *env, o *emitter, keep []string) {
+	r := scanStorage(e, keep)
+	for _, k := range r.Kinds {
+		o.out(struct {
+			Type string `json:"type"`
+			storageKind
+		}{"zeta_storage", k})
+	}
+	for _, p := range r.Projects {
+		o.out(struct {
+			Type string `json:"type"`
+			storageProject
+		}{"zeta_storage_project", p})
+	}
+	o.out(obj{"type": "zeta_storage_settings", "cleanupPeriodDays": r.CleanupPeriodDays})
+	o.out(obj{"type": "zeta_storage_done"})
+}
+
+// scanStorage 统计各类和各项目；keep 是客户端认为正在进行、要保护的会话。storage 和核心的 storage.scan 共用。
+func scanStorage(e *env, keep []string) storageReport {
 	ctx := newStorageCtx(e, keep)
+	r := storageReport{Kinds: []storageKind{}, Projects: []storageProject{}, CleanupPeriodDays: cleanupPeriod(e)}
 	for _, p := range storagePlans {
-		o.out(safeReport(ctx, p.key, p.plan))
-		o.flush()
+		r.Kinds = append(r.Kinds, safeReport(ctx, p.key, p.plan))
 	}
 	for _, project := range children(e.root) {
 		path := joinPath(e.root, project)
@@ -354,33 +419,32 @@ func cmdStorage(e *env, o *emitter, keep []string) {
 				sessions = append(sessions, n)
 			}
 		}
-		o.out(obj{"type": "zeta_storage_project", "dir": project, "bytes": u.bytes, "files": u.files, "sessions": len(sessions),
-			"cwd": projectCwd(path, sessions)})
+		r.Projects = append(r.Projects, storageProject{Dir: project, Bytes: u.bytes, Files: u.files, Sessions: len(sessions),
+			Cwd: projectCwd(path, sessions)})
 	}
-	o.out(obj{"type": "zeta_storage_settings", "cleanupPeriodDays": cleanupPeriod(e)})
-	o.out(obj{"type": "zeta_storage_done"})
+	return r
 }
 
 // safeReport 统计一类；一类没统计成不影响别的。
-func safeReport(ctx *storageCtx, key string, planOf func(*storageCtx) *plan) (report obj) {
+func safeReport(ctx *storageCtx, key string, planOf func(*storageCtx) *plan) (report storageKind) {
 	defer func() {
 		if recover() != nil {
-			report = obj{"type": "zeta_storage", "key": key, "error": true}
+			report = storageKind{Key: key, Parts: []storagePart{}, Error: true}
 		}
 	}()
 	return planOf(ctx).report(key)
 }
 
 // cleanupPeriod 是 ~/.claude/settings.json 里的 cleanupPeriodDays（只取这一项，要是整数）；没设或读不了是 nil。
-func cleanupPeriod(e *env) any {
+func cleanupPeriod(e *env) *json.Number {
 	if n, ok := readJSONObject(joinPath(e.claude, "settings.json"))["cleanupPeriodDays"].(json.Number); ok && isIntegerLiteral(n) {
-		return n
+		return &n
 	}
 	return nil
 }
 
-// projectCwd 是项目对应的工作目录：最新那个会话记录开头的 cwd 字段。
-func projectCwd(dir string, sessions []string) any {
+// projectCwd 是项目对应的工作目录：最新那个会话记录开头的 cwd 字段；找不到时是空串。
+func projectCwd(dir string, sessions []string) string {
 	paths := make([]string, len(sessions))
 	for i, n := range sessions {
 		paths[i] = joinPath(dir, n)
@@ -409,10 +473,41 @@ func projectCwd(dir string, sessions []string) any {
 	return ""
 }
 
+// sessionUsage 是项目里的一个会话：记录文件加同名目录一共占多少，修改时刻（毫秒），Live 是它正在进行（这时不能删）。
+type sessionUsage struct {
+	ID      string `json:"id"`
+	File    string `json:"file"`
+	Bytes   int64  `json:"bytes"`
+	Updated int64  `json:"updated"`
+	Live    bool   `json:"live"`
+}
+
+// projectUsage 是一个项目里各会话的占用（核心的 storage.sessions），Rest 是不属于任何会话的那部分。
+type projectUsage struct {
+	Sessions []sessionUsage `json:"sessions"`
+	Rest     int64          `json:"rest"`
+}
+
 func cmdStorageSessions(e *env, o *emitter, project string, keep []string) error {
+	u, err := storageSessions(e, project, keep)
+	if err != nil {
+		return err
+	}
+	for _, s := range u.Sessions {
+		o.out(struct {
+			Type string `json:"type"`
+			sessionUsage
+		}{"zeta_storage_session", s})
+	}
+	o.out(obj{"type": "zeta_storage_rest", "bytes": u.Rest})
+	return nil
+}
+
+// storageSessions 量 ~/.claude/projects 下的项目目录 project 里每个会话的占用。storage-sessions 和核心的 storage.sessions 共用。
+func storageSessions(e *env, project string, keep []string) (projectUsage, error) {
 	dir, ok := safeChild(e.root, project, true)
 	if !ok {
-		return errors.New("no such project")
+		return projectUsage{}, errors.New("no such project")
 	}
 	ctx := newStorageCtx(e, keep)
 	names := children(dir)
@@ -422,7 +517,7 @@ func cmdStorageSessions(e *env, o *emitter, project string, keep []string) error
 			sessions[stem] = true
 		}
 	}
-	var rest int64
+	u := projectUsage{Sessions: []sessionUsage{}}
 	for _, name := range names {
 		path := joinPath(dir, name)
 		stem := dropRunes(name, 6)
@@ -433,33 +528,51 @@ func cmdStorageSessions(e *env, o *emitter, project string, keep []string) error
 			if _, ok := e.sessionDir(file); ok {
 				size += measure(joinPath(dir, stem), ctx.seen).bytes
 			}
-			o.out(obj{"type": "zeta_storage_session", "id": stem, "file": file, "bytes": size,
-				"updated": millis(mtimeFollow(path)), "live": ctx.keep[stem]})
+			u.Sessions = append(u.Sessions, sessionUsage{ID: stem, File: file, Bytes: size, Updated: millis(mtimeFollow(path)),
+				Live: ctx.keep[stem]})
 		case !sessions[name]:
-			rest += measure(path, ctx.seen).bytes
+			u.Rest += measure(path, ctx.seen).bytes
 		}
 	}
-	o.out(obj{"type": "zeta_storage_rest", "bytes": rest})
-	return nil
+	return u, nil
+}
+
+// cleaned 是清掉一类的结果（clean、核心的 storage.clean）：腾出多少字节、删了几项、几项核对不过没删；Busy 不为 null 时那个工具
+// 正在运行，这次整类没清。
+type cleaned struct {
+	Key     string  `json:"key"`
+	Freed   int64   `json:"freed"`
+	Removed int64   `json:"removed"`
+	Failed  int64   `json:"failed"`
+	Busy    *string `json:"busy"`
 }
 
 func cmdClean(e *env, o *emitter, key string, keep []string) {
+	o.out(struct {
+		Type string `json:"type"`
+		cleaned
+	}{"zeta_cleaned", cleanStorage(e, key, keep)})
+}
+
+// cleanStorage 清掉一类（key 要是 cleanable 的）里能安全删的。clean 和核心的 storage.clean 共用。
+func cleanStorage(e *env, key string, keep []string) cleaned {
 	p := findPlan(key)(newStorageCtx(e, keep))
-	var freed, removed, failed int64
-	if p.busy == nil {
-		for _, c := range p.items {
-			if done, ok := removeCandidate(c); ok {
-				freed += done
-				removed++
-			} else {
-				failed++
-			}
-		}
-		for _, pr := range p.prune {
-			if _, ok := safeChild(pr[0], pr[1], true); ok && len(children(joinPath(pr[0], pr[1]))) == 0 {
-				_ = syscall.Rmdir(joinPath(pr[0], pr[1]))
-			}
+	r := cleaned{Key: key, Busy: nonEmpty(p.busy)}
+	if p.busy != "" {
+		return r
+	}
+	for _, c := range p.items {
+		if done, ok := removeCandidate(c); ok {
+			r.Freed += done
+			r.Removed++
+		} else {
+			r.Failed++
 		}
 	}
-	o.out(obj{"type": "zeta_cleaned", "key": key, "freed": freed, "removed": removed, "failed": failed, "busy": p.busy})
+	for _, pr := range p.prune {
+		if _, ok := safeChild(pr[0], pr[1], true); ok && len(children(joinPath(pr[0], pr[1]))) == 0 {
+			_ = syscall.Rmdir(joinPath(pr[0], pr[1]))
+		}
+	}
+	return r
 }

@@ -17,6 +17,17 @@ var endGrace = 10 * time.Second
 const endPoll = 100 * time.Millisecond
 
 func cmdEnd(e *env, o *emitter, id string) error {
+	o.out(endedResult{Ended: endElsewhere(e, id)})
+	return nil
+}
+
+// endedResult 是 end 和核心的 sessions.end_elsewhere 的结果：结束了几个进程。
+type endedResult struct {
+	Ended int `json:"ended"`
+}
+
+// endElsewhere 结束 Zeta 之外正占着会话 id 的 Claude Code 进程（见上），给出结束了几个。最多要 endGrace 再加几秒。
+func endElsewhere(e *env, id string) int {
 	var holders []registered
 	for _, r := range e.outsideRegistrations() {
 		if r.session == id {
@@ -25,8 +36,7 @@ func cmdEnd(e *env, o *emitter, id string) error {
 	}
 	signaled := signalHolders(holders, syscall.SIGTERM)
 	escalate(signaled, endGrace, syscall.SIGKILL)
-	o.out(obj{"ended": len(signaled)})
-	return nil
+	return len(signaled)
 }
 
 // signalHolders 给这些登记的进程里还在跑、命令行里有 claude 的发 sig；给出发出去的（pid → 启动时刻）。

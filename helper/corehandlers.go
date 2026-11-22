@@ -36,6 +36,12 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	m.Handle("sessions.search", newSessionSearches(e))
 	// 别的 sessions.* 是侧栏对会话的操作，见 sessionmethods.go
 	m.HandleAsync("sessions.", sessionOps{e, convs.m})
+	m.HandleAsync("sessions.end_elsewhere", endElsewhereHandler{e}) // 见 endelsewhere.go
+	// 存储页、文件浏览、按路径取图片：做完就答，见 oneshots.go
+	ops := oneShotHandler{e}
+	m.HandleAsync("storage.", ops)
+	m.HandleAsync("files.", ops)
+	m.HandleAsync("images.", ops)
 	// 要跑 claude-switch、等进程退出，慢：各在自己的 goroutine 里做，不挡同一个客户端后面的请求
 	accounts := accountsHandler{e, quota}
 	m.HandleAsync("accounts.", accounts)

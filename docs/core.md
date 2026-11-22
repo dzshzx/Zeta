@@ -5,7 +5,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 ## 目标
 
 - 核心：`zeta-helper serve`，和现在的 zeta-helper 是同一个程序（`helper/`）。客户端经一条常驻连接和它说话：远程主机上是一条 SSH 通道（经手机 Debian 的 OpenSSH 或直连都一样），手机本机是进 Debian 的那条管道，不开端口。状态在它的内存里（会话列表、对话的输出流归约、确认与提问的排队、后台任务），会话目录用 inotify 盯着，只推送变了的。Claude Code 自身配置的读写（记忆、Skills、MCP、Subagent、工具权限、新对话的默认值）和账号与额度也在这里，几个客户端共用，不在各客户端里各写一份。
-- 一个服务端：所有平台的客户端读同一个服务端。每台主机、每个用户、每个包（`ZETA_NAME`：正式版 `zeta`，测试版 `zeta-dev`，各端的测试版同包）只有一个核心，套接字是 `~/.cache/<ZETA_NAME>/core/core.sock`，不按 helper 版本分。逻辑只在核心里一份：serve 只管连接、拉起核心和 ping，所有方法（含 `sessions.`、`config.`、`accounts.`、`quota.`）都转给核心，核心里按方法前缀分发（`core.Mux`，`helper/corehandlers.go`）。
+- 一个服务端：所有平台的客户端读同一个服务端。每台主机、每个用户、每个包（`ZETA_NAME`：正式版 `zeta`，测试版 `zeta-dev`，各端的测试版同包）只有一个核心，套接字是 `~/.cache/<ZETA_NAME>/core/core.sock`，不按 helper 版本分。逻辑只在核心里一份：serve 只管连接、拉起核心和 ping，所有方法（含 `sessions.`、`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`）都转给核心，核心里按方法前缀分发（`core.Mux`，`helper/corehandlers.go`）。
 - 新的接手：helper 编进构建序号（`helper/` 最后一次提交的时间，`git log -1 --format=%ct -- helper`，经 `-ldflags` 写入），`zeta_hello` 带 `build`（序号）和 `version`（内容哈希）。serve 比在跑的核心新时发 `core.handover`：旧核心停止接新连接，关掉到全部托管进程的连接（不跑 `detach`，进程照跑），删套接字退出；serve 随即用自己的程序拉起核心，新核心扫托管进程，把在回答、等确认、有后台任务的接上，闲着的等客户端下次发消息时照常接回。serve 比核心旧、或序号相同（同一份 helper 源码的不同开发构建）时直接用在跑的核心，不交班。
 - 换一个看得到新挂载的核心：手机上每次进 Debian 都在一个新的私有挂载环境里（`zeta_enter.sh` 的 `unshare -m`），共享文件夹在进入时挂上，常驻的核心和它起的 Claude Code 只看得到核心启动那一刻的挂载和组。共享文件夹增删以后，客户端经一次新的进入跑 `zeta-helper core-takeover`：在跑的核心不论版本都交班，由这个进程拉起新核心（`helper/takeover.go`）。进行中的对话照「新的接手」接上；已经在跑、看不到新文件夹的 Claude Code 由客户端按 `host_key` 判断要不要重起。
 - 协议只做加法：新方法、新字段可以加，已有的不改不删；客户端忽略不认识的字段，核心对缺的字段按零值处理。非改不可的不兼容改动提升 `protocol`，比核心旧的客户端连上时明说「主机上的 Zeta 服务比这个客户端新，请更新」。
@@ -19,7 +19,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 一行一个 JSON，写法和方法清单以 `helper/serve.go` 开头为准。要点：
 
 - 连上先收到 `zeta_hello`，带协议版本 `protocol`（`helper/serve.go` 的 `serveProtocol`，Kotlin 一侧是 `HelperServe.PROTOCOL`）、这个 serve 的构建序号 `build` 和版本 `version`。改已有消息的含义时加一，只加方法、字段不加。
-- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
+- 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
 - 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。
@@ -101,6 +101,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `sessions.image` | `file`（会话记录的路径，在 `~/.claude/projects` 里）、`ref`（`conv.items` 里图片的位置，`行号.块序号[.内层序号]`） | `result` 是 `{media_type, data}`（base64）。位置不对、那一块不是图时答出错 |
 | `sessions.occupant` | `session` | Zeta 之外占着这个会话的进程的样子（同 `conv.occupant`）：`{status, waiting_for, hands_over}`，没人占着时 `status` 为 `null` |
 | `sessions.handoff` | `session` | 最多十几秒。把会话从别处接过来（同 `conv.handoff`）：`{handed, status}`。核心里开着这个会话的对话时，交出来了就解开它的 `blocked` 并推 `conv.state` |
+| `sessions.end_elsewhere` | `session` | 最多十几秒。结束 Zeta 之外占着这个会话的 Claude Code 进程（同 `zeta-helper end`：先 SIGTERM，十秒不退 SIGKILL），不管那边闲不闲；`sessions.handoff` 只接管闲着（或在等确认）的。`result` 是 `{ended}`：结束了几个，没有时是 0 |
 | `sessions.desk_open` | `session` | 在 tmux 会话 `zeta` 里给它开窗口，已经有就不动（同 `zeta-helper desk-open`）；窗口的工作目录是会话记录里的 `cwd`，还没有记录时是家目录。`result` 是 `{window}`：tmux 的窗口号，主机上没有 tmux 时为 `null` |
 | `sessions.desk_close` | `session` | 关掉它的窗口（同 `zeta-helper desk-close`），`result` 是 `{closed}`：关掉了几个 |
 
@@ -171,6 +172,23 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}`；核心接着的对话里的事件核心已经存了，不用再交 |
 
 `snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
+
+## 存储与文件
+
+设置里的存储页、文件浏览和按路径取图片，做完就答（`helper/oneshots.go`），各在自己的 goroutine 里做，慢的不挡同一条连接后面的请求。每个和同名的子命令共用一份实现（`storage`、`storage-sessions`、`clean`、`ls`、`read`、`file-image`）。参数和 `id`、`method` 平级；不合要求（会话号不像会话号、路径不是绝对路径、类别不认识）时整个请求出错，什么也不做。
+
+| 方法 | 参数 | 结果 |
+|---|---|---|
+| `storage.scan` | `keep`（客户端认为正在进行、要保护的会话号） | `{kinds, projects, cleanupPeriodDays}`：各类（`{key, bytes, files, freeable, items, busy, parts: [{name, bytes, items}], error}`，`busy` 是正在运行、这类先不清的工具，`error` 为真是这一类没统计成）、`~/.claude/projects` 下各项目（`{dir, bytes, files, sessions, cwd}`）、settings.json 的 `cleanupPeriodDays`（没设为 `null`）。慢，几秒到几分钟 |
+| `storage.sessions` | `project`、`keep` | `{sessions: [{id, file, bytes, updated, live}], rest}`：一个项目里每个会话（记录加同名目录）占多少，`rest` 是不属于任何会话的 |
+| `storage.clean` | `kind`（`storage.scan` 的 `key`，`apt` 除外：它要 root）、`keep` | `{key, freed, removed, failed, busy}`：清掉这类里能安全删的（规矩见 `helper/storage.go` 开头），`busy` 不为 `null` 时整类没清 |
+| `files.ls` | `path`（绝对路径） | `{path, total, truncated, entries}`：目录在前、再按名字排，只给前 2000 项；每项 `{name, dir, kind, size, mtime, target, broken}`（`kind` 是 dir、file、link、other；`dir` 为真的能点进去；`target`、`broken` 只有符号链接有） |
+| `files.read` | `path`、`bytes`（读多少，省掉是 256 KiB，最多 4 MiB） | `{size, truncated, text}`；看着像二进制时 `{size, binary: true}` |
+| `images.file` | `path`（`~` 开头的从家目录算） | `{media_type, data}`：主机上的一个图片文件（按扩展名认类型，最大 30 MB），`data` 是 base64 |
+
+`files.ls`、`files.read` 读不了时答出错，`code` 是 `missing`（不存在）、`not_dir`（不是目录）、`not_file`（不是普通文件）、`denied`（没有权限）或 `error`。
+
+看到的是核心进程自己的文件系统。手机上核心只看得到它启动那一刻挂着的共享文件夹和组，共享文件夹页增删以后才换一个新的（`core-takeover`，见「目标」）；单起的子命令每次进 Debian 时现挂，总是现在的样子。所以手机客户端浏览本机文件、读本机的图片文件仍各起一次子命令，不依赖换核心是否及时；查共享文件夹（`zeta-helper mounts`）要看的正是新进入的进程挂不挂得上，而且在换核心之前做，也走子命令，核心里不设 `files.mounts`。远程主机上没有这回事。
 
 ## 进度
 
