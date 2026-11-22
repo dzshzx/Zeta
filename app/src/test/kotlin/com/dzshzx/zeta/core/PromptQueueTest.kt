@@ -64,6 +64,25 @@ class PromptQueueTest {
         assertNull(chat.pending)
     }
 
+    private fun toolResult(toolUseId: String, parent: String? = null) =
+        """{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ok","tool_use_id":"$toolUseId"}]},"parent_tool_use_id":${parent?.let { "\"$it\"" } ?: "null"},"session_id":"s1"}"""
+
+    /** 电脑和手机接着同一个进程时，一边答了确认，Claude Code 不通知另一边：另一边看到那次工具调用的结果（主对话的，或子代理那一行里的）就收起确认框， 别的照旧排着。 */
+    @Test
+    fun promptsAnsweredElsewhereCloseOnTheirToolResult() {
+        val chat = busyChat()
+        chat.receive(ask("main"))
+        chat.receive(ask("sub", agent = "a1"))
+        chat.receive(ask("later"))
+        chat.receive(toolResult("t-unrelated"))
+        assertEquals(listOf("main", "sub", "later"), chat.prompts.map { it.requestId })
+        chat.receive(toolResult("t-main"))
+        assertEquals(listOf("sub", "later"), chat.prompts.map { it.requestId })
+        chat.receive(toolResult("t-sub", parent = "toolu_task"))
+        assertEquals(listOf("later"), chat.prompts.map { it.requestId })
+        assertEquals("later", chat.pending?.requestId)
+    }
+
     /** 不写理由的拒绝：和终端里按 Esc 一样这一轮停下，算“已停止”，不当成出错；事件顺序照真 Claude Code（ClaudeInteractionContractTest）。 */
     @Test
     fun denyWithoutReasonStopsTheTurn() {

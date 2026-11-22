@@ -1464,7 +1464,30 @@ class Conversation(
         return true
     }
 
+    /**
+     * 别的客户端（电脑、另一台手机）答了的确认：Claude Code 不通知没答的这边，这边看到那次工具调用有了结果（同意后跑完、拒绝后的说明）就把确认框收起。
+     * 同意的工具跑得久时，结果出来前这边的确认框还在，这时再答一次 Claude Code 照先到的那份做、不回话（ClaudeInteractionContractTest）。
+     * 子代理发起的确认，结果在子代理那一行里，所以子代理的行也要看。
+     */
+    private fun dropAnsweredPrompts(event: JsonObject) {
+        if (prompts.none { it is PermissionRequest && it.toolUseId != null }) return
+        val done =
+            event
+                .obj("message")
+                ?.arr("content")
+                .orEmpty()
+                .mapNotNull { block ->
+                    (block as? JsonObject)
+                        ?.takeIf { it.str("type") == "tool_result" }
+                        ?.str("tool_use_id")
+                }
+                .toSet()
+        if (done.isEmpty()) return
+        prompts = prompts.filterNot { it is PermissionRequest && it.toolUseId in done }
+    }
+
     private fun handleUser(event: JsonObject, fromSubagent: Boolean): Boolean {
+        dropAnsweredPrompts(event)
         if (fromSubagent) return false
         // Zeta 不让 Claude Code 回放用户消息，回放出来的只有 `!` 命令和它的输出
         if (event.bool("isReplay") == true) {

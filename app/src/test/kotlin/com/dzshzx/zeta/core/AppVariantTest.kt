@@ -44,6 +44,15 @@ class AppVariantTest {
         assertEquals("zeta-dev-x", AppVariant("com.dzshzx.zeta.dev.x").linuxName)
     }
 
+    /** 桌面版和手机正式版在远程主机上算同一个包（同一个目录），电脑、手机能同时接着同一个托管进程；测试版仍是自己的。 */
+    @Test
+    fun desktopSharesTheReleaseDirectory() {
+        val desktop = AppVariant(AppVariant.DESKTOP_PACKAGE)
+        assertEquals("zeta", desktop.linuxName)
+        assertEquals(release.linuxName, desktop.linuxName)
+        assertTrue(desktop.linuxName != dev.linuxName)
+    }
+
     @Test
     fun recognisesBothZetaPackages() {
         assertTrue(AppVariant.isZetaPackage("com.dzshzx.zeta"))

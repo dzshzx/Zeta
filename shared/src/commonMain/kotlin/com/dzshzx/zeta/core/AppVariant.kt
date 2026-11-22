@@ -16,12 +16,13 @@ class AppVariant(val packageName: String) {
 
     /**
      * Linux 里 Zeta 自己的目录名：`~/.cache/<它>`（后台对话 hosts、附件 files）和 `~/.config/<它>`（归档）。 正式版是
-     * `zeta`（沿用一直以来的位置，升级后照样接得回原来的后台对话），测试版是 `zeta-dev`。
+     * `zeta`（沿用一直以来的位置，升级后照样接得回原来的后台对话），测试版是 `zeta-dev`。桌面版和手机正式版用同一个：在同一台远程主机上两边算同一个包，
+     * 可以同时接着同一个托管进程，电脑、手机一起用一个会话（见 zeta_host.sh 开头）。
      */
     val linuxName: String
         get() =
             when {
-                !isDev -> "zeta"
+                !isDev || packageName == DESKTOP_PACKAGE -> "zeta"
                 packageName.startsWith("$RELEASE_PACKAGE.") ->
                     "zeta-" + packageName.removePrefix("$RELEASE_PACKAGE.").replace('.', '-')
                 else -> packageName.replace(Regex("[^A-Za-z0-9_-]"), "-")
@@ -56,6 +57,9 @@ class AppVariant(val packageName: String) {
 
     companion object {
         const val RELEASE_PACKAGE = "com.dzshzx.zeta"
+
+        /** 桌面版的包名。 */
+        const val DESKTOP_PACKAGE = "com.dzshzx.zeta.desktop"
 
         /** 交给 Linux 一侧（zeta_host.sh、zeta-helper）的环境变量，值是 [linuxName]。 */
         const val LINUX_NAME_ENV = "ZETA_NAME"

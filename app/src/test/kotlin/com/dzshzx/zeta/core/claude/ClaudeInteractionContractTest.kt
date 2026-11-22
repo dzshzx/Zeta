@@ -516,6 +516,15 @@ class ClaudeInteractionContractTest {
                 }
             }
             assertEquals("success", events.last().str("subtype"))
+            // 没答的那边靠 tool_use_id 认出答过了（Conversation.dropAnsweredPrompts）：请求里带着，和那次工具调用的结果是同一个号
+            val asked = events.firstNotNullOf { permission(it) }
+            assertEquals("d1", asked.toolUseId)
+            assertTrue(
+                "没见到 d1 的结果",
+                events.any {
+                    it.str("type") == "user" && "\"tool_use_id\":\"d1\"" in it.toString()
+                },
+            )
             val first = synchronized(seen) { seen["d1"] }.orEmpty()
             assertFalse("工具没照第一份跑：$first", first.contains("第二份"))
             assertEquals(listOf("once"), File(home, "proj/twice.txt").readLines())

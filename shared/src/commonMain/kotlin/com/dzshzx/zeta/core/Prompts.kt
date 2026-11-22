@@ -59,6 +59,11 @@ data class PermissionRequest(
     val reason: String? = null,
     /** 发起它的后台子代理（agent_id）；主对话发起的为 null。 */
     val agentId: String? = null,
+    /**
+     * 要批准的那次工具调用（tool_use_id）。几个客户端接着同一个进程时，别的客户端答了，这边看到它的 tool_result
+     * 就收起（Conversation.handleUser）。
+     */
+    val toolUseId: String? = null,
 ) : UserPrompt {
     val isPlan: Boolean
         get() = toolName == "ExitPlanMode"
@@ -130,6 +135,7 @@ fun parsePrompt(event: JsonObject): UserPrompt? {
                         it.isNotBlank()
                     } ?: request.obj("decision_reason")?.str("reason")?.takeIf { it.isNotBlank() },
                 agentId = request.str("agent_id"),
+                toolUseId = request.str("tool_use_id"),
             )
         }
         "elicitation" ->

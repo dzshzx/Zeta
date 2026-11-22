@@ -56,7 +56,8 @@ class DesktopPlatformTest {
         assertFalse(hub.usable(hub.backend))
         assertEquals("还没有添加远程设备，请到设置里添加", hub.unavailable(Backends.LOCAL))
         assertNull(hub.current.phoneSession)
-        assertEquals("zeta-desktop", AppVariant.current.linuxName)
+        // 和手机正式版同一个目录：电脑、手机同时接着同一个托管进程
+        assertEquals("zeta", AppVariant.current.linuxName)
         // 托管脚本从 jar 里的 assets/ 读
         assertTrue(hub.hostScript.startsWith("# Zeta "))
     }
