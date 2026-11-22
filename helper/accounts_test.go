@@ -206,7 +206,7 @@ func TestQuotaSink(t *testing.T) {
 	fakeLogin(t, home, "uuid-a", "a@example.com")
 	e := newEnvAt(home, "zeta")
 	now := time.Date(2026, 11, 22, 8, 0, 0, 0, time.UTC)
-	q := newQuotaSink(e)
+	q := newQuotaSink(e, nil)
 	q.now = func() time.Time { return now }
 
 	if !q.ClaimQuery() || q.ClaimQuery() {

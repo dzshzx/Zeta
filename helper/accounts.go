@@ -132,20 +132,29 @@ const autoQuotaEvery = 5 * time.Minute
 // quotaSink 是对话交来的额度的去处（conv.Deps.Quota）：输出里的 rate_limit_event、起进程时顺便问的 get_usage，
 // 和客户端经 quota.event、quota.usage 交来的一样存进额度存储，quota.get 读到的就是它们。
 type quotaSink struct {
-	store accounts.QuotaStore
-	now   func() time.Time
+	store   accounts.QuotaStore
+	now     func() time.Time
+	changed func() // 存了以后调（推给订阅的客户端，见 quotaWatch）；可以是 nil
 
 	mu        sync.Mutex
 	lastAsked time.Time // 上次起进程时顺便问的时刻
 }
 
-func newQuotaSink(e *env) *quotaSink {
-	return &quotaSink{store: accounts.QuotaStore{Home: e.home}, now: time.Now}
+func newQuotaSink(e *env, changed func()) *quotaSink {
+	return &quotaSink{store: accounts.QuotaStore{Home: e.home}, now: time.Now, changed: changed}
+}
+
+func (q *quotaSink) stored() {
+	if q.changed != nil {
+		q.changed()
+	}
 }
 
 func (q *quotaSink) RateLimit(info json.RawMessage) {
-	if _, _, err := q.store.Event(info, q.now()); err != nil {
+	if _, changed, err := q.store.Event(info, q.now()); err != nil {
 		log.Print("存额度（rate_limit_event）：", err)
+	} else if changed {
+		q.stored()
 	}
 }
 
@@ -163,5 +172,7 @@ func (q *quotaSink) ClaimQuery() bool {
 func (q *quotaSink) Usage(response json.RawMessage) {
 	if _, _, err := q.store.Usage(response, q.now()); err != nil {
 		log.Print("存额度（get_usage）：", err)
+	} else {
+		q.stored()
 	}
 }

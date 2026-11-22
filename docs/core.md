@@ -137,11 +137,12 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 核心起或接上对话进程时顺便问一次 get_usage（排在 initialize 之后），成功的应答存进去（`QuotaStore.Usage`）；这台主机上 5 分钟内只问一次（`autoQuotaEvery`），Claude Code 取额度的接口会限流。
 - 客户端要马上刷新时（打开额度页、点刷新）：`conv.quota` 借开着的进程问，应答交给 `quota.usage`；没有开着的进程时客户端自己单起一个只答这个问题的 Claude Code，同样交给 `quota.usage`。
 
-额度变了核心不推送，客户端要显示时用 `quota.get` 读。
+要跟着变的客户端发 `quota.watch` 订阅（不带 `watch` 或为真；`watch` 为假时退订，断开连接也退订）：先推一行 `{"type":"quota.snapshot","snapshot":…}`（同 `quota.get` 的 `snapshot`），之后这个核心存了新的数（上面三条路）或换了号时，存着的额度（连同 `updatedAt`）和上次推的不一样就再推一行。别的包的核心、终端里的 claude-switch 改的推不到，只读一次的用 `quota.get`。
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
 | `quota.get` | | `result` 是 `{snapshot}`：在用的账号最近一次的额度，没有时为 `null` |
+| `quota.watch` | `watch` | 订阅（省掉或为真）、退订（为假）额度的推送 `quota.snapshot`，见上 |
 | `quota.usage` | `response`（get_usage 的应答，control_response 的 `response.response`） | 读成额度并存起来，`result` 是 `{snapshot, fresh}`；Claude Code 这次没取到服务器的数而已有窗口时留着已有的，`fresh` 为假 |
 | `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}`；核心接着的对话里的事件核心已经存了，不用再交 |
 

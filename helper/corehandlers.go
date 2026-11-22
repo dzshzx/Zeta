@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -25,10 +26,11 @@ func coreHandler(e *env) core.Handler { return newCoreHandler(e, defaultWatchOpt
 
 func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	var m core.Mux
-	m.Handle("conv.", newConversations(e))
+	quota := newQuotaWatch(e)
+	m.Handle("conv.", newConversations(e, quota))
 	m.Handle("sessions.", &sessionsHandler{e: e, opts: watch, watches: map[*core.Client]*sessionWatch{}})
 	// 要跑 claude-switch、等进程退出，慢：各在自己的 goroutine 里做，不挡同一个客户端后面的请求
-	accounts := accountsHandler{e}
+	accounts := accountsHandler{e, quota}
 	m.HandleAsync("accounts.", accounts)
 	m.HandleAsync("quota.", accounts)
 	// 标「慢」的几个要跑 claude、连 MCP 服务器，十几秒到一分钟
@@ -79,14 +81,37 @@ func (h *sessionsHandler) Gone(c *core.Client) {
 func (h *sessionsHandler) Idle() bool { return true }
 
 // accountsHandler 做 accounts.* 和 quota.*（见 docs/core.md「账号与额度」、accounts.go）。
-type accountsHandler struct{ e *env }
-
-func (h accountsHandler) Request(_ *core.Client, r core.Request) (any, error) {
-	return handleAccounts(context.Background(), h.e, r.Method, r.Raw)
+// quota.watch 在这里订阅；存了额度、换了号以后告诉 quota，由它推给订阅的客户端。
+type accountsHandler struct {
+	e     *env
+	quota *quotaWatch
 }
 
-func (accountsHandler) Gone(*core.Client) {}
-func (accountsHandler) Idle() bool        { return true }
+func (h accountsHandler) Request(c *core.Client, r core.Request) (any, error) {
+	if r.Method == "quota.watch" {
+		// 不带 watch 时是订阅，同 conv.activity
+		var p struct {
+			Watch *bool `json:"watch"`
+		}
+		_ = json.Unmarshal(r.Raw, &p)
+		h.quota.watch(c, p.Watch == nil || *p.Watch)
+		return nil, nil
+	}
+	v, err := handleAccounts(context.Background(), h.e, r.Method, r.Raw)
+	if err == nil && changesQuota[r.Method] {
+		h.quota.changed()
+	}
+	return v, err
+}
+
+// changesQuota 是做完以后在用账号的额度可能变了的方法：存了新的数，或换了在用的号。
+var changesQuota = map[string]bool{
+	"quota.usage": true, "quota.event": true,
+	"accounts.switch": true, "accounts.prepare_login": true, "accounts.save": true, "accounts.remove": true,
+}
+
+func (h accountsHandler) Gone(c *core.Client) { h.quota.gone(c) }
+func (accountsHandler) Idle() bool            { return true }
 
 // configHandler 做 config.*：读写这台主机上 Claude Code 自己的配置（见 docs/core.md「Claude Code 配置」、config.go）。
 type configHandler struct{ store *claudecfg.Store }

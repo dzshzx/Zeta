@@ -22,7 +22,7 @@ type conversations struct {
 	clients map[int]*core.Client
 }
 
-func newConversations(e *env) *conversations {
+func newConversations(e *env, quota *quotaWatch) *conversations {
 	h := &conversations{clients: map[int]*core.Client{}}
 	// 学到的各模型上下文窗口：文件坏了也照用（当空的），原因记进日志
 	windows, err := ctxusage.LoadWindows(e.home + "/.config/" + e.name + "/context-windows.json")
@@ -40,7 +40,7 @@ func newConversations(e *env) *conversations {
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 		Occupant:      e.occupancy,
 		Handoff:       e.handOff,
-		Quota:         newQuotaSink(e),
+		Quota:         newQuotaSink(e, quota.changed),
 		Desk: func(session, cwd string) {
 			if err := cmdDeskOpen(e, newEmitter(io.Discard), session, cwd); err != nil {
 				log.Print("开 tmux 窗口：", err)
