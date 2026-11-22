@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.conv.HostCpu
 import com.dzshzx.zeta.shots.Fixtures
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -71,6 +72,21 @@ class ConversationCoreTest {
         val cancel = core.next("conv.cancel")
         assertEquals("q1", cancel.str("uuid"))
         assertEquals(JsonPrimitive(true), cancel.params["recall"])
+    }
+
+    /** 还没发过消息的新对话也问得到所在主机的负载（借主机的连接问 system.cpu），不会因此在核心里打开对话。 */
+    @Test
+    fun hostCpuWithoutOpening() {
+        val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
+        core.respond = { call ->
+            if (call.method == "system.cpu") """{"percent":42,"cores":8}"""
+            else core.defaultReply(call)
+        }
+        val chat = newChat(hub)
+        assertEquals(HostCpu(42, 8), chat.hostCpu())
+        assertEquals("system.cpu", core.calls.poll()?.method)
+        assertNull("问负载时打开了对话", core.calls.poll())
     }
 
     /** 提前起进程走 conv.prepare（打开在前）；连同代码重新生成是一个 conv.restore_code，带着要重发的消息。 */

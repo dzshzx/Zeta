@@ -564,9 +564,9 @@ class ConvClientTest {
 
         // 主机负载借这条连接问 system.cpu；主机读不了 /proc/stat 时 percent 为 null
         link.results["system.cpu"] = """{"percent":37,"cores":8}"""
-        assertEquals(HostCpu(37, 8), conv.hostCpu())
+        assertEquals(HostCpu(37, 8), client.hostCpu())
         link.results["system.cpu"] = """{"percent":null,"cores":8}"""
-        assertEquals(HostCpu(null, 8), conv.hostCpu())
+        assertEquals(HostCpu(null, 8), client.hostCpu())
 
         link.errors["conv.compact"] = "没有打开这个对话"
         try {

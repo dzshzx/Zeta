@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.conv.ConvSpec
 import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.ConvTurn
 import com.dzshzx.zeta.core.conv.CoreConversation
+import com.dzshzx.zeta.core.conv.HostCpu
 import kotlinx.serialization.json.JsonObject
 
 /** 对话用的一条 serve 连接：发请求，不用了关掉。手机和桌面是 [HelperServe]，测试里换成假的。 */
@@ -37,6 +38,19 @@ class ConvLinks(private val hub: ConversationHub) {
 
     /** 主机 [backend] 的连接断着时的原因（正在重连）；连着、没有连接时为 null。 */
     fun problem(backend: String): String? = synchronized(lock) { links[backend]?.problem }
+
+    /**
+     * 问一次主机 [backend] 整机的 CPU 使用率（输入栏上的负载标识）：借这台主机对话用的连接，没有就连上，用完照常空闲 [IDLE_CLOSE_MS]
+     * 后断开，所以还没发过消息的新对话也问得到。问不成时为 null。阻塞，别在主线程上调。
+     */
+    fun hostCpu(backend: String): HostCpu? {
+        val link = acquire(backend)
+        return try {
+            runCatching { link.client.hostCpu() }.getOrNull()
+        } finally {
+            release(link)
+        }
+    }
 
     /** 为 [owner] 在它的主机上打开一个对话（conv.open），阻塞到核心答了。打不开时抛 [ServeError]。别在主线程上调。 */
     fun open(owner: Conversation, spec: ConvSpec): CoreConversation {

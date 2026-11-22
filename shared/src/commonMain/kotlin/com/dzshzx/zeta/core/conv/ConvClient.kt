@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.conv
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeRequests
+import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonElement
@@ -33,6 +34,9 @@ interface ConvListener {
     /** conv.activity：这个核心里各会话的忙闲，每次整份（[ConvClient.watchActivity] 订阅以后才有）。 */
     fun activity(sessions: Map<String, SessionActivity>) {}
 }
+
+/** [ConvClient.hostCpu] 最多等多久：负载标识每 5 秒问一次，一次问不到就等下一次。 */
+const val HOST_CPU_TIMEOUT_MS = 10_000L
 
 /** system.cpu 的结果：主机整机的 CPU 忙碌百分比（读不了时为 null）和逻辑核数。 */
 @Immutable data class HostCpu(val percent: Int?, val cores: Int)
@@ -157,6 +161,16 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
 
     internal fun call(method: String, params: JsonObject, timeoutMs: Long): JsonElement? =
         link.call(method, params, timeoutMs)
+
+    /**
+     * 问一次这台主机整机的 CPU 使用率（system.cpu，和对话无关）。还在连时等连上，一共最多等 [HOST_CPU_TIMEOUT_MS]； 连不上、核心不认得这个方法时抛
+     * [com.dzshzx.zeta.core.ServeError]。阻塞，别在主线程上调。
+     */
+    fun hostCpu(): HostCpu {
+        val reply =
+            link.call("system.cpu", JsonObject(emptyMap()), HOST_CPU_TIMEOUT_MS) as? JsonObject
+        return HostCpu(percent = reply?.int("percent"), cores = reply?.int("cores") ?: 0)
+    }
 
     /** 订阅（[watch] 为真）或退订各会话的忙闲（conv.activity，经 [ConvListener.activity] 交来）；重连后照样再订阅。 */
     fun watchActivity(watch: Boolean) {
