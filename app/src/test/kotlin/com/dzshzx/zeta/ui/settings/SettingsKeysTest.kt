@@ -93,6 +93,7 @@ class SettingsKeysTest {
             "setBackend" to "r-00000001",
             "setLocalName" to "我的手机",
             "setAutoUpdateCheck" to false,
+            "setPaneAll" to true,
             "setUpdateCheckedAt" to 1_795_000_300_000L,
             "setUpdateNotified" to 905,
         )

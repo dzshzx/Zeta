@@ -9,8 +9,8 @@ import androidx.compose.runtime.setValue
 import kotlin.concurrent.thread
 
 /**
- * 侧栏的会话列表：侧栏正看着的那台主机（[ConversationHub.backend]）上 Claude Code 存在 ~/.claude/projects 下的会话， 经
- * zeta-helper 读、改名、归档、删除。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions]
+ * 侧栏的会话列表：侧栏列着的主机（[ConversationHub.listedBackends]：正看着的那台，或全部主机）上 Claude Code 存在 ~/.claude/projects
+ * 下的会话， 经 zeta-helper 读、改名、归档、删除。改名、归档、删除按会话自己所在的主机（[SessionSummary.backend]）做。 [sessions]
  * 可观察，在主线程上读写；读写会话记录在后台线程上跑。 正开着的对话对象归 [hub] 管：改名时它的标题跟着换，删除时先由 hub 收掉。
  */
 class SessionList internal constructor(private val hub: ConversationHub) {
@@ -22,31 +22,53 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
     private val freshTitles = HashMap<String, String>()
 
-    /** 没读成的原因（远程主机连不上之类），读成了是 null。可观察。 */
-    var problem by mutableStateOf<String?>(null)
-        private set
+    /** 各台主机没读成的原因（远程主机连不上之类），读成了的不在里面。 */
+    private var problems by mutableStateOf<Map<String, String>>(emptyMap())
 
-    /** 重读侧栏那台主机的整份列表。没读成时留着原来的列表，不当作一个会话都没有。 */
-    fun refresh() {
-        val backend = hub.backend
-        if (hub.shell(backend) == null) {
-            problem = hub.unavailable(backend)
-            return
+    /** 没读成的原因，都读成了是 null；列着几台主机时每条前面注明是哪台。可观察。 */
+    val problem: String?
+        get() {
+            val listed = hub.listedBackends
+            val mine = listed.mapNotNull { b -> problems[b]?.let { b to it } }
+            return when {
+                mine.isEmpty() -> null
+                listed.size == 1 -> mine.single().second
+                else -> mine.joinToString("\n") { (b, why) -> hub.backendName(b) + "：" + why }
+            }
         }
-        thread(name = "zeta-sessions", isDaemon = true) {
-            val result = hub.helper("list", timeoutMs = 60_000, backend = backend)
-            main.post {
-                // 读的时候侧栏已经换到别的主机了：这份不要
-                if (backend != hub.backend) return@post
-                when (result) {
-                    is HelperResult.Failed -> problem = "没读到会话列表：" + result.reason
-                    is HelperResult.Ok -> {
-                        problem = null
-                        listed(parseSessionSummaries(result.output, backend))
+
+    /** 重读侧栏列着的各台主机的整份列表，各读各的。没读成的那台留着原来的，不当作一个会话都没有。 */
+    fun refresh() {
+        for (backend in hub.listedBackends) {
+            if (hub.shell(backend) == null) {
+                noted(backend, hub.unavailable(backend))
+                continue
+            }
+            thread(name = "zeta-sessions", isDaemon = true) {
+                val result = hub.helper("list", timeoutMs = 60_000, backend = backend)
+                main.post {
+                    // 读的时候侧栏已经不列这台主机了：这份不要
+                    if (backend !in hub.listedBackends) return@post
+                    when (result) {
+                        is HelperResult.Failed -> noted(backend, "没读到会话列表：" + result.reason)
+                        is HelperResult.Ok -> {
+                            noted(backend, null)
+                            listedOn(backend, parseSessionSummaries(result.output, backend))
+                        }
                     }
                 }
             }
         }
+    }
+
+    private fun noted(backend: String, why: String?) {
+        problems = if (why == null) problems - backend else problems + (backend to why)
+    }
+
+    /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着，合起来按时间从新到旧排。在主线程上调用。 */
+    internal fun listedOn(backend: String, list: List<SessionSummary>) {
+        val others = sessions.filter { it.backend != backend }
+        listed(if (others.isEmpty()) list else (list + others).sortedByDescending { it.updated })
     }
 
     /** 读到了整份列表。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。 */
@@ -59,15 +81,14 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     }
 
     /**
-     * 侧栏那台主机上的会话 [sessionId] 刚答完一轮：只重读这一项（新开的对话加进列表，时间、预览换新），不整份重读，
+     * 侧栏列着的主机 [backend] 上的会话 [sessionId] 刚答完一轮：只重读这一项（新开的对话加进列表，时间、预览换新），不整份重读，
      * 一轮只改了这一个会话。没查成就不动，下次打开侧栏时整份重读。在主线程上调用。
      */
-    internal fun touched(sessionId: String) {
-        val backend = hub.backend
+    internal fun touched(sessionId: String, backend: String) {
         if (hub.shell(backend) == null) return
         thread(name = "zeta-sessions", isDaemon = true) {
             val found = find(listOf(sessionId), backend) ?: return@thread
-            main.post { if (backend == hub.backend) merged(found) }
+            main.post { if (backend in hub.listedBackends) merged(found) }
         }
     }
 
@@ -235,6 +256,6 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     /** 换了环境或主机：原来的会话都不再列出。 */
     internal fun clear() {
         sessions = emptyList()
-        problem = null
+        problems = emptyMap()
     }
 }

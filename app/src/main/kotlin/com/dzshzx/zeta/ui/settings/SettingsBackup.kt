@@ -127,6 +127,7 @@ internal object SettingsBackup {
             "remoteHosts" to
                 "远程设备靠这台手机的密钥连过去（Debian 里 ~/.ssh 的，或 Zeta 直连用的、存在这台手机里的），换手机后先让那些设备认新手机的公钥再加",
             "backend" to "侧栏正看着哪台设备，跟着远程设备的清单走",
+            "paneAll" to "侧栏列不列全部设备的对话，跟着远程设备的清单走",
             "localName" to "给这台手机起的名字，换手机后按新手机的名字显示",
             ScheduleAlarms.ARMED to "定时任务在这台手机上排过的闹钟，重排时据此取消已删掉的任务的闹钟；导入定时任务后会重新排",
         )

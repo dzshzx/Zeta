@@ -33,8 +33,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -291,12 +293,14 @@ internal fun SessionPane(
         } else {
             PaneTop(hub, searching, onNewChat, onOpenBackgroundTasks)
         }
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            state = listState,
-            contentPadding = PaddingValues(bottom = 12.dp),
-        ) {
-            paneItems(searching, results, search, groups, hub.sessionList.problem, rows)
+        CompositionLocalProvider(LocalHostName provides rowHostName(hub)) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(bottom = 12.dp),
+            ) {
+                paneItems(searching, results, search, groups, hub.sessionList.problem, rows)
+            }
         }
 
         if (selecting) {
@@ -396,7 +400,9 @@ private fun missingPinned(
     }
 }
 
-/** 把不在 [sessions] 里的置顶会话单独取来交给 [onFound]（取不到时不动）；确实已经不在了（别处删掉的）就把置顶去掉。 别的主机上的置顶不管：在这台上查不到不等于没了。 */
+/**
+ * 把不在 [sessions] 里的置顶会话单独取来交给 [onFound]（取不到时不动）；确实已经不在了（别处删掉的）就把置顶去掉。 只管列着的各台主机上的置顶：没列的主机查不到不等于没了。
+ */
 private suspend fun syncFarPinned(
     hub: ConversationHub,
     sessions: List<SessionSummary>,
@@ -404,17 +410,20 @@ private suspend fun syncFarPinned(
     onFound: (List<SessionSummary>) -> Unit,
     savePins: (Set<String>) -> Unit,
 ) {
-    val backend = sessions.firstOrNull()?.backend
-    val missing = missingPinned(sessions, pins, backend)
-    if (backend == null || missing.isEmpty()) {
-        onFound(emptyList())
-        return
+    val far = ArrayList<SessionSummary>()
+    val gone = HashSet<String>()
+    for (backend in sessions.map { it.backend }.distinct()) {
+        val missing = missingPinned(sessions, pins, backend)
+        if (missing.isEmpty()) continue
+        val found =
+            withContext(Dispatchers.IO) { hub.sessionList.find(missing, backend) } ?: continue
+        far += found
+        (missing - found.mapTo(HashSet()) { it.id }).mapTo(gone) {
+            SessionSummary.pinKey(backend, it)
+        }
     }
-    val found = withContext(Dispatchers.IO) { hub.sessionList.find(missing, backend) } ?: return
-    onFound(found)
-    val gone = missing - found.mapTo(HashSet()) { it.id }
-    if (gone.isNotEmpty())
-        savePins(pins - gone.mapTo(HashSet()) { SessionSummary.pinKey(backend, it) })
+    onFound(far)
+    if (gone.isNotEmpty()) savePins(pins - gone)
 }
 
 /** 对话内容的搜索：内容里找到的会话（id → 片段）和搜到哪了。 */
@@ -466,19 +475,32 @@ private suspend fun searchContent(
     onHit: (String, String) -> Unit,
     onProgress: (SearchProgress) -> Unit,
 ) {
-    val search =
+    // 列着几台主机就各搜各的；都搜完才算完，有一台只列了一部分或没搜成就照它报
+    val backends = hub.listedBackends
+    val outcomes = ArrayList<Boolean?>()
+    val searches = backends.map { backend ->
         ContentSearch(
             hub,
+            backend,
             needle,
             onHit = onHit,
-            onDone = { complete -> onProgress(searchOutcome(complete)) },
+            onDone = { complete ->
+                outcomes += complete
+                if (outcomes.size == backends.size)
+                    onProgress(searchOutcome(combinedOutcome(outcomes)))
+            },
         )
+    }
     try {
         awaitCancellation()
     } finally {
-        search.cancel()
+        searches.forEach { it.cancel() }
     }
 }
+
+/** 几台主机各自的搜索结局合成一个：都没搜成是 null，有一台没搜全（或没搜成）是 false，都找完了是 true。 */
+internal fun combinedOutcome(outcomes: List<Boolean?>): Boolean? =
+    if (outcomes.all { it == null }) null else outcomes.all { it == true }
 
 /** 内容搜索的结局：找完了、只列了一部分、没搜成（null）。 */
 private fun searchOutcome(complete: Boolean?): SearchProgress =
@@ -703,6 +725,7 @@ private fun PaneTop(
     PaneBrandHeader(onNewChat)
     HostSwitcher(
         hub,
+        forList = true,
         modifier =
             Modifier.padding(
                 start = PaneHorizontalPadding,
@@ -1152,7 +1175,12 @@ private fun SessionSubtitle(
             )
         else ->
             Text(
-                text = sessionPlace(session, highlight),
+                text =
+                    sessionPlace(
+                        session,
+                        highlight,
+                        LocalHostName.current?.invoke(session.backend),
+                    ),
                 style = subtitleStyle,
                 color = colors.labelSecondary,
                 maxLines = 1,
@@ -1161,9 +1189,16 @@ private fun SessionSubtitle(
     }
 }
 
-/** 工作目录的最后一级；别处在运行、（搜索时）已归档的注明。 */
-private fun sessionPlace(session: SessionSummary, highlight: String): String =
-    session.cwd.trimEnd('/').substringAfterLast('/').ifBlank { "/" } +
+/** 列着全部设备时各行要注明的设备名（主机 → 名字）；只列一台时是 null，不注明。 */
+private val LocalHostName = compositionLocalOf<((String) -> String)?> { null }
+
+private fun rowHostName(hub: ConversationHub): ((String) -> String)? =
+    if (hub.allHosts) hub::backendName else null
+
+/** 工作目录的最后一级，列着全部设备时前面是所在设备的名字 [host]；别处在运行、（搜索时）已归档的注明。 */
+private fun sessionPlace(session: SessionSummary, highlight: String, host: String?): String =
+    (host?.let { "$it · " } ?: "") +
+        session.cwd.trimEnd('/').substringAfterLast('/').ifBlank { "/" } +
         (if (session.external) " · 别处运行中" else "") +
         (if (highlight.isNotEmpty() && session.archived) " · 已归档" else "")
 

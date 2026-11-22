@@ -34,17 +34,21 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /**
  * 换主机的小胶囊：显示侧栏正看着的主机（[ConversationHub.backend]），点开列出手机和各台远程主机，选一台就换过去 （会话列表、新对话都跟着换，见
  * [ConversationHub.selectBackend]；各台主机的设置在设置首页里分开列）。还没加远程主机时不显示。 侧栏顶部和新对话的空白页上各有一个。
+ * 侧栏顶部那个（[forList]）管会话列表列哪台的：多一项「全部设备」，各台的会话合在一起列（[ConversationHub.selectAllHosts]），
+ * 选着它时胶囊上写「全部设备」；空白页上那个只管新对话开在哪台，不改列表列哪些。
  */
 @Composable
 internal fun HostSwitcher(
     hub: ConversationHub,
     modifier: Modifier = Modifier,
+    forList: Boolean = false,
     onSelected: () -> Unit = {},
 ) {
     val hosts = hub.settings.remoteHosts
     if (hosts.isEmpty()) return
     val colors = COUITheme.colorScheme
     val current = hub.backend
+    val all = forList && hub.allHosts
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         Row(
@@ -56,14 +60,14 @@ internal fun HostSwitcher(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = hostIcon(current),
+                imageVector = if (all) ZetaIcons.Globe else hostIcon(current),
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
                 tint = colors.primary,
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = hub.backendName(current),
+                text = if (all) AllHostsLabel else hub.backendName(current),
                 style = COUITheme.textStyles.buttonM,
                 color = colors.labelPrimary,
                 maxLines = 1,
@@ -83,10 +87,26 @@ internal fun HostSwitcher(
             listOf(
                 Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY),
             ) + hosts.map { Triple(it.id, it.name, it.target) }
+        val allEntry =
+            DropdownEntry(
+                items =
+                    listOf(
+                        menuItem(
+                                AllHostsLabel,
+                                ZetaIcons.Globe,
+                                onClick = {
+                                    hub.selectAllHosts()
+                                    onSelected()
+                                },
+                            )
+                            .copy(selected = all, summary = "各台设备的对话列在一起"),
+                    ),
+            )
         AnchoredMenu(
             show = open,
             entries =
-                listOf(
+                listOfNotNull(
+                    allEntry.takeIf { forList },
                     DropdownEntry(
                         items =
                             items.map { (id, name, summary) ->
@@ -94,11 +114,11 @@ internal fun HostSwitcher(
                                         name,
                                         hostIcon(id),
                                         onClick = {
-                                            hub.selectBackend(id)
+                                            hub.selectBackend(id, keepAllHosts = !forList)
                                             onSelected()
                                         },
                                     )
-                                    .copy(selected = id == current, summary = summary)
+                                    .copy(selected = id == current && !all, summary = summary)
                             },
                     ),
                 ),
@@ -106,6 +126,9 @@ internal fun HostSwitcher(
         )
     }
 }
+
+/** 设备胶囊里列全部设备那一项的名字。 */
+internal const val AllHostsLabel = "全部设备"
 
 /** 主机 [backend] 的图标：手机或服务器。换主机的菜单和设置首页的主机一组都用它。 */
 internal fun hostIcon(backend: String) =

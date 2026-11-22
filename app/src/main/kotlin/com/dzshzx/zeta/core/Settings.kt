@@ -146,6 +146,9 @@ class Settings private constructor(private val app: Context) {
      */
     var backend: String by pref("backend", Backends.LOCAL)
 
+    /** 侧栏的会话列表列全部设备的（[ConversationHub.allHosts]），不只列 [backend] 那台。 */
+    var paneAll: Boolean by pref("paneAll", false)
+
     /** 用户给这台手机在 Zeta 里起的名字；null 是没起，用系统设置里的设备名（[ConversationHub.backendName]）。 */
     var localName: String? by optionalString("localName")
 

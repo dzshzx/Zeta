@@ -253,8 +253,35 @@ class RemoteHostShots : ShotTest() {
     @Test
     fun paneUnreachable() {
         val hub = hub()
-        hub.sessionList.force("problem", "连不上「工作站」：网络不通")
+        hub.sessionList.force("problems", mapOf("r-00000001" to "连不上「工作站」：网络不通"))
         shoot("remote-pane-unreachable") { PaneShot(emptyList()) }
+    }
+
+    /** 设备胶囊选了「全部设备」：各台的对话列在一起，每行注明在哪台；胶囊上写「全部设备」。 */
+    @Test
+    fun paneAllHosts() {
+        val hub = hub()
+        hub.settings.paneAll = true
+        val local =
+            SessionSummary(
+                "p1",
+                "/home/zeta/.claude/projects/-p/p1.jsonl",
+                "/workspace/claude",
+                "整理相册",
+                "",
+                System.currentTimeMillis() - 3_600_000L,
+            )
+        shoot("remote-pane-all") { PaneShot(sessions + local) }
+    }
+
+    /** 列着全部设备时点开胶囊：第一项「全部设备」勾着。 */
+    @Test
+    fun paneAllHostsMenu() {
+        val hub = hub()
+        hub.settings.paneAll = true
+        shoot("remote-pane-all-menu", prepare = { onNodeWithText("全部设备").performClick() }) {
+            PaneShot(sessions)
+        }
     }
 
     /** 远程主机上的新对话：空白页上是主机胶囊和那台上的工作目录。 */

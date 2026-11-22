@@ -30,6 +30,7 @@ private fun parseLine(line: String): JsonObject? = runCatching {
  */
 internal class ContentSearch(
     hub: ConversationHub,
+    backend: String,
     query: String,
     onHit: (id: String, snippet: String) -> Unit,
     onDone: (complete: Boolean?) -> Unit,
@@ -38,8 +39,7 @@ internal class ContentSearch(
     private var process: Process? = null
     private var cancelled = false
 
-    // 侧栏正看着的那台主机上的会话
-    private val shell = hub.shell(hub.backend)
+    private val shell = hub.shell(backend)
 
     init {
         val shell = shell
