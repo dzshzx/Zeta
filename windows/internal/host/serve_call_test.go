@@ -1,0 +1,79 @@
+package host
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/dzshzx/Zeta/windows/internal/remote"
+)
+
+// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，hang 不答直接退出（连接断了）。
+const fakeServe = `echo '{"type":"zeta_hello","protocol":1}'
+while IFS= read -r l; do
+  id=$(printf '%s' "$l" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  case "$l" in
+    *'"method":"good"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true,\"result\":{\"echo\":$(printf '%s' "$l" | sed -n 's/.*"n":\([0-9]*\).*/\1/p')}}" ;;
+    *'"method":"empty"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true}" ;;
+    *'"method":"bad"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"不认识的方法\"}" ;;
+    *'"method":"hang"'*) exit 3 ;;
+  esac
+done`
+
+func TestServeCallMatchesReplies(t *testing.T) {
+	b := newBox(t)
+	ev := newEvents()
+	s := StartServe(ServeOptions{
+		Open:    func() (*remote.Process, error) { return b.shell.StartPlain(fakeServe) },
+		Message: func(string, []byte) {},
+		Problem: ev.problem,
+		Backoff: func(int) time.Duration { return 10 * time.Millisecond },
+	})
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// 刚起就发：等连上再发。
+	got, err := s.Call(ctx, "good", map[string]any{"n": 7})
+	if err != nil || string(got) != `{"echo":7}` {
+		t.Fatalf("good: %s, %v", got, err)
+	}
+	if got, err := s.Call(ctx, "empty", nil); err != nil || got != nil {
+		t.Fatalf("empty: %s, %v", got, err)
+	}
+	if _, err := s.Call(ctx, "bad", nil); err == nil || err.Error() != "不认识的方法" {
+		t.Fatalf("bad: %v", err)
+	}
+	if _, err := s.Call(ctx, "hang", nil); !errors.Is(err, errDropped) {
+		t.Fatalf("hang: %v", err)
+	}
+	// 断了以后重连上，照样能发。
+	if got, err := s.Call(ctx, "good", map[string]any{"n": 8}); err != nil || string(got) != `{"echo":8}` {
+		t.Fatalf("重连后 good: %s, %v", got, err)
+	}
+	if len(ev.problems) != 0 && strings.Contains(strings.Join(ev.problems, ""), "拒绝") {
+		t.Errorf("Call 的出错应答不该报成连接的问题：%q", ev.problems)
+	}
+
+	_ = s.Close()
+	if _, err := s.Call(ctx, "good", nil); err == nil || !strings.Contains(err.Error(), "已关闭") {
+		t.Fatalf("Close 后：%v", err)
+	}
+}
+
+func TestServeCallGivesUpWhenItNeverConnected(t *testing.T) {
+	ev := newEvents()
+	s := StartServe(ServeOptions{
+		Open:    func() (*remote.Process, error) { return nil, errors.New("连不上「测试机」：拒绝连接") },
+		Message: func(string, []byte) {},
+		Problem: ev.problem,
+	})
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := s.Call(ctx, "good", nil); err == nil || err.Error() != "连不上「测试机」：拒绝连接" {
+		t.Fatalf("%v", err)
+	}
+}

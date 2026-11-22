@@ -2,10 +2,13 @@ package host
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,8 +47,15 @@ type Serve struct {
 	mu      sync.Mutex
 	closed  bool
 	current *remote.Process
+	// conn 是收到招呼、能发请求的那个进程（current 连上以后）；changed 在 conn、ended 变了时关掉、换一个新的。
+	conn    *remote.Process
+	changed chan struct{}
+	// ended：不再重连了（Close 了，或第一次就没连上），why 是最后的原因。
+	ended   bool
+	why     string
 	nextID  int64
-	writing sync.Mutex // 写请求时拿着（不和 mu 合用：写卡住时 Close 不跟着卡）
+	pending map[int64]chan reply // 发出去还没收到应答的 Call
+	writing sync.Mutex           // 写请求时拿着（不和 mu 合用：写卡住时 Close 不跟着卡）
 	stop    chan struct{}
 }
 
@@ -57,7 +67,7 @@ func StartServe(opts ServeOptions) *Serve {
 	if opts.Ping == 0 {
 		opts.Ping = PingEvery
 	}
-	s := &Serve{opts: opts, stop: make(chan struct{})}
+	s := &Serve{opts: opts, stop: make(chan struct{}), changed: make(chan struct{}), pending: map[int64]chan reply{}}
 	go s.loop()
 	return s
 }
@@ -92,7 +102,97 @@ func (s *Serve) Close() error {
 	if p != nil {
 		p.Close()
 	}
+	s.end("和 zeta-helper serve 的连接已关闭")
 	return nil
+}
+
+// end：不再重连了，等着连上的 Call 返回 why。
+func (s *Serve) end(why string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ended {
+		return
+	}
+	s.ended, s.why = true, why
+	s.broadcast()
+}
+
+// broadcast 叫醒等连接的 Call。拿着 mu 时调。
+func (s *Serve) broadcast() {
+	close(s.changed)
+	s.changed = make(chan struct{})
+}
+
+// reply 是一次 Call 的结果。
+type reply struct {
+	result json.RawMessage
+	err    error
+}
+
+// Call 发一个请求（params 的各项和 id、method 平级写出）并等它的 zeta_reply：ok 时返回 result（没有时为 nil），
+// 否则返回 serve 给的原因。还在连（第一次或重连）时等连上；连接在应答之前断了返回错误，不重发（请求可能已经生效）。
+// 不再重连了（Close 了，或第一次就没连上）时直接返回最后的原因。不能在 Message、Problem 回调里调：应答要靠那个 goroutine 读。
+func (s *Serve) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	p, err := s.connection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ch := make(chan reply, 1)
+	id := s.write(p, method, params, ch)
+	select {
+	case r := <-ch:
+		return r.result, r.err
+	case <-ctx.Done():
+		s.mu.Lock()
+		delete(s.pending, id)
+		s.mu.Unlock()
+		return nil, ctx.Err()
+	}
+}
+
+// errDropped：请求发出去以后、应答之前连接断了。
+var errDropped = errors.New("和 zeta-helper serve 的连接断了，没收到应答")
+
+// connection 等到能发请求的那个进程。
+func (s *Serve) connection(ctx context.Context) (*remote.Process, error) {
+	for {
+		s.mu.Lock()
+		p, changed, ended, why := s.conn, s.changed, s.ended, s.why
+		s.mu.Unlock()
+		switch {
+		case ended:
+			return nil, errors.New(orDefault(why, "和 zeta-helper serve 的连接已关闭"))
+		case p != nil:
+			return p, nil
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// connect、disconnect 记下 p 能不能发请求。断开时等着应答的 Call 都返回 errDropped。
+func (s *Serve) connect(p *remote.Process) {
+	s.mu.Lock()
+	s.conn = p
+	s.broadcast()
+	s.mu.Unlock()
+}
+
+func (s *Serve) disconnect(p *remote.Process) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.conn != p {
+		return
+	}
+	s.conn = nil
+	for id, ch := range s.pending {
+		ch <- reply{err: errDropped}
+		delete(s.pending, id)
+	}
+	s.broadcast()
 }
 
 func (s *Serve) isClosed() bool {
@@ -120,6 +220,7 @@ func (s *Serve) loop() {
 		everConnected = everConnected || connected
 		// 一次都没连上（地址不对、设备关着）：报了原因就停，等调用方下次要时再新建
 		if !everConnected {
+			s.end(why)
 			return
 		}
 		if connected {
@@ -150,6 +251,7 @@ func (s *Serve) connectOnce() (connected bool, why string) {
 	done := make(chan struct{})
 	refused := s.read(p, done, &connected)
 	close(done)
+	s.disconnect(p)
 	s.mu.Lock()
 	if s.current == p {
 		s.current = nil
@@ -179,17 +281,22 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 	for sc.Scan() {
 		line := sc.Bytes()
 		var head struct {
-			Type     string `json:"type"`
-			Protocol int    `json:"protocol"`
-			OK       *bool  `json:"ok"`
-			Error    string `json:"error"`
+			Type     string          `json:"type"`
+			Protocol int             `json:"protocol"`
+			ID       json.RawMessage `json:"id"`
+			OK       *bool           `json:"ok"`
+			Error    string          `json:"error"`
+			Result   json.RawMessage `json:"result"`
 		}
 		if json.Unmarshal(line, &head) != nil {
 			continue
 		}
 		switch {
 		case *connected && head.Type == "zeta_reply":
-			// 只有订阅这类请求才会答 false：那边不认这个方法，是两边的版本对不上
+			if s.answer(head.ID, head.OK != nil && *head.OK, head.Result, head.Error) {
+				continue
+			}
+			// 订阅、ping 不等应答：答 false 是那边不认这个方法，两边的版本对不上
 			if head.OK != nil && !*head.OK {
 				s.opts.Problem(orDefault(head.Error, "zeta-helper serve 拒绝了请求"))
 			}
@@ -201,6 +308,7 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 				s.send(p, method)
 			}
 			go s.pings(p, done)
+			s.connect(p)
 			s.opts.Problem("")
 		default:
 			return clip("zeta-helper serve 的协议对不上："+string(line), 300)
@@ -209,13 +317,60 @@ func (s *Serve) read(p *remote.Process, done <-chan struct{}, connected *bool) (
 	return ""
 }
 
-// send 发一个请求；写不出去时不管，读那边会发现断了。
-func (s *Serve) send(p *remote.Process, method string) {
+// answer 把应答交给等着它的 Call；不是 Call 发的（订阅、ping）返回 false。
+func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, why string) bool {
+	id, err := strconv.ParseInt(string(rawID), 10, 64)
+	if err != nil {
+		return false
+	}
+	s.mu.Lock()
+	ch, waiting := s.pending[id]
+	delete(s.pending, id)
+	s.mu.Unlock()
+	if !waiting {
+		return false
+	}
+	if !ok {
+		ch <- reply{err: errors.New(orDefault(why, "zeta-helper serve 拒绝了请求"))}
+		return true
+	}
+	if string(result) == "null" {
+		result = nil
+	}
+	ch <- reply{result: result}
+	return true
+}
+
+// send 发一个不等应答的请求（订阅、ping）。
+func (s *Serve) send(p *remote.Process, method string) { s.write(p, method, nil, nil) }
+
+// write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。
+// 写不出去时不管，读那边会发现断了，到时 ch 收到 errDropped。
+func (s *Serve) write(p *remote.Process, method string, params map[string]any, ch chan reply) int64 {
 	s.writing.Lock()
 	defer s.writing.Unlock()
+	s.mu.Lock()
 	s.nextID++
-	line, _ := json.Marshal(map[string]any{"id": s.nextID, "method": method})
+	id := s.nextID
+	if ch != nil {
+		if s.conn != p {
+			s.mu.Unlock()
+			ch <- reply{err: errDropped}
+			return id
+		}
+		s.pending[id] = ch
+	}
+	s.mu.Unlock()
+	msg := make(map[string]any, len(params)+2)
+	maps.Copy(msg, params)
+	msg["id"], msg["method"] = id, method
+	line, err := json.Marshal(msg)
+	if err != nil {
+		s.answer(json.RawMessage(strconv.FormatInt(id, 10)), false, nil, "请求写不成 JSON："+err.Error())
+		return id
+	}
 	_, _ = p.Stdin.Write(append(line, '\n'))
+	return id
 }
 
 // pings 每隔一会儿发一次 ping，直到这次连接结束。
