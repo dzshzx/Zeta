@@ -1123,7 +1123,7 @@ private fun RowScope.SessionRowText(
     val ended = !session.live
     Column(
         modifier =
-            Modifier.weight(1f).semantics(mergeDescendants = false) {
+            Modifier.weight(1f).semantics {
                 if (ended) stateDescription = "已结束"
             },
     ) {
@@ -1154,7 +1154,7 @@ private fun SessionSubtitle(
     val colors = COUITheme.colorScheme
     val subtitleStyle = COUITheme.textStyles.bodyXS
     // 已结束的会话这一行也灰着（草稿的红字照旧：没发出的东西要显眼）
-    val subtitleColor = if (session.live) colors.labelSecondary else colors.labelTertiary
+    val subtitleColor = if (!session.live) colors.labelTertiary else colors.labelSecondary
     when {
         snippet != null ->
             Text(

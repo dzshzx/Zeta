@@ -355,3 +355,11 @@ func unlinkFile(p string) error {
 }
 
 func isNotExist(err error) bool { return errors.Is(err, fs.ErrNotExist) }
+
+// writeFileAtomic 先写 path.tmp 再改名成 path：读的一方看到的是旧的或新的整份，不会是写了一半的。
+func writeFileAtomic(path string, data []byte) error {
+	if err := os.WriteFile(path+".tmp", data, 0o666); err != nil {
+		return err
+	}
+	return os.Rename(path+".tmp", path)
+}

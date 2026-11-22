@@ -588,9 +588,9 @@ class ConvClientTest {
         assertEquals(HostCpu(null, 8), client.hostCpu())
 
         // 闲置超时：读、改都借这条连接；改的时候带上 minutes
-        link.results["system.idle"] = """{"minutes":30,"default":10}"""
+        link.results["system.idle"] = """{"minutes":30}"""
         assertEquals(30, client.idleMinutes())
-        link.results["system.set_idle"] = """{"minutes":0,"default":10}"""
+        link.results["system.set_idle"] = """{"minutes":0}"""
         assertEquals(0, client.setIdleMinutes(0))
         assertEquals(
             JsonPrimitive(0),

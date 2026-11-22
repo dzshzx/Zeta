@@ -21,6 +21,7 @@ type env struct {
 	uploads  string // ~/.cache/<name>/files：应用送进来的附件
 	archive  string // ~/.config/<name>/archived：归档的会话 id
 	pinned   string // ~/.config/<name>/pinned：置顶的会话 id
+	idle     string // ~/.config/<name>/idle-minutes：闲置超时（idle.go）
 	aptRoot  string // apt 的缓存，存储页只统计
 }
 
@@ -44,6 +45,7 @@ func newEnvAt(home, name string) *env {
 		uploads:  home + "/.cache/" + name + "/files",
 		archive:  home + "/.config/" + name + "/archived",
 		pinned:   home + "/.config/" + name + "/pinned",
+		idle:     home + "/.config/" + name + "/idle-minutes",
 		aptRoot:  "/var/cache/apt",
 	}
 }

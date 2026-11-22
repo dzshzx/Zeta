@@ -43,7 +43,7 @@ type sessionWatch struct {
 	cache   map[string]cached // 记录文件 → 上次读到的概要
 	shown   map[string]string // 上次发出去的：id → 那一项的 JSON
 	blind   bool              // 有要盯的目录盯不上（没有已有的上级、inotify 加不上）：靠定时重读
-	live    string            // 上次核对时有活着的进程的会话（env.liveKey）
+	live    string            // 上次重读时有活着的进程的会话（liveKey）
 }
 
 type watch struct {
@@ -123,7 +123,6 @@ func (w *sessionWatch) run() {
 	}()
 	// 先盯上再读，读的时候改了的也不会漏
 	w.ensureWatches()
-	w.live = w.e.liveKey()
 	if w.publish(true) != nil {
 		return
 	}
@@ -148,7 +147,7 @@ func (w *sessionWatch) run() {
 		case <-w.now:
 			// 等着的 settle 留着：到时再看一遍，没有新的差异就不发
 		case <-poll.C:
-			if !w.blind && !w.liveChanged() {
+			if !w.blind && liveKey(w.e.liveSessions()) == w.live {
 				continue
 			}
 		case <-w.again:
@@ -270,6 +269,7 @@ func (w *sessionWatch) ensureWatches() {
 // snapshot 是现在要列出的各项，按时间从新到旧，同一个 id 只留最新的那份。
 func (w *sessionWatch) snapshot() []obj {
 	marks := w.e.sessionMarks()
+	w.live = liveKey(marks.live)
 	files := listedFiles(w.e, marks.pinned)
 	seen := map[string]bool{}
 	kept := make(map[string]cached, len(files))
@@ -350,12 +350,4 @@ func unlisted(next, shown map[string]string, forced map[string]bool) []string {
 	}
 	sort.Strings(remove)
 	return remove
-}
-
-// liveChanged：登记的进程里有起来或结束的（和上次核对时比），记下这次的。
-func (w *sessionWatch) liveChanged() bool {
-	live := w.e.liveKey()
-	changed := live != w.live
-	w.live = live
-	return changed
 }

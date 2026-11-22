@@ -13,12 +13,12 @@ import (
 const (
 	defaultsFooter = "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
 		"对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。"
-	claudeFooter = "只管 Zeta 在这台设备上起的对话，下次起进程时生效。"
+	claudeFooter = "只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。"
 	configFooter = "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。"
 	notRead      = "还没读到 Claude Code 的设置"
 )
 
-// Sections 是设备页上的三组：新对话默认、Claude（自动压缩、压缩时机、自动标题）、Claude Code 配置的入口。
+// Sections 是设备页上的三组：新对话默认、Claude（自动压缩、压缩时机、自动标题、闲置超时）、Claude Code 配置的入口。
 func (p *Page) Sections(c *ui.Context) {
 	p.defaultsSection(c)
 	p.claudeSection(c)
@@ -175,7 +175,7 @@ func effortSummary(d cfg.Defaults) string {
 	return strings.Join(parts, "，")
 }
 
-// claudeSection 是自动压缩、压缩时机、自动标题（存在这台电脑上，每台设备各设各的）。
+// claudeSection 是自动压缩、压缩时机、自动标题（存在这台电脑上，每台设备各设各的）和闲置超时（存在那台主机上）。
 func (p *Page) claudeSection(c *ui.Context) {
 	dev := p.opts.Device
 	coui.Group(c, "Claude", claudeFooter, func(l *coui.List) {
@@ -204,6 +204,39 @@ func (p *Page) claudeSection(c *ui.Context) {
 			if coui.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
 				p.saveDevice(dev.SetAutoTitle(title))
 			}
+		})
+		p.idleRow(l)
+	})
+}
+
+// idleRow 是「闲置超时」：存着的值不在几档里时（在别的客户端上设的）也列出来；还没读到时灰着。
+func (p *Page) idleRow(l *coui.List) {
+	c := l.Context()
+	points := slices.Clone(cfg.IdleChoices)
+	selected := -1
+	if p.idle != nil {
+		if !slices.Contains(points, *p.idle) {
+			points = append(points, *p.idle)
+		}
+		selected = slices.Index(points, *p.idle)
+	}
+	var labels []string
+	for _, m := range points {
+		labels = append(labels, cfg.IdleLabel(m))
+	}
+	item(l, "闲置超时", "", func() {
+		choice(c, "闲置超时", labels, selected, p.idle == nil, func(i int) {
+			minutes := points[i]
+			p.async(func(ctx context.Context) func() {
+				m, err := p.opts.Client.SetIdleMinutes(ctx, minutes)
+				return func() {
+					if err != nil {
+						p.failed("没有改成", err)
+						return
+					}
+					p.idle = &m
+				}
+			})
 		})
 	})
 }

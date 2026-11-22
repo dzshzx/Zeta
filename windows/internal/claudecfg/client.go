@@ -1,6 +1,6 @@
 // Package claudecfg 是一台设备上 Claude Code 配置的薄客户端：调那边 zeta-helper serve 的 config.* 方法（逻辑在
 // helper/claudecfg，方法和参数见 docs/core.md「Claude Code 配置」），把结果解成结构体给界面；另管客户端本地存的每台设备的
-// 自动压缩、自动标题（device.go）。方法都是阻塞的网络调用，界面在后台 goroutine 里调。
+// 自动压缩、自动标题（device.go），和存在那台主机上的闲置超时（idle.go）。方法都是阻塞的网络调用，界面在后台 goroutine 里调。
 package claudecfg
 
 import (

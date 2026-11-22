@@ -109,8 +109,7 @@ class SettingsShots : ShotTest() {
         val hub = hostsHub()
         val core = FakeCore().install(hub)
         core.respond = { call ->
-            if (call.method == "system.idle") """{"minutes":30,"default":10}"""
-            else core.defaultReply(call)
+            if (call.method == "system.idle") """{"minutes":30}""" else core.defaultReply(call)
         }
         shoot("settings-host-idle", prepare = { scrollListTo("闲置超时") }) {
             HostSettingsScreen(

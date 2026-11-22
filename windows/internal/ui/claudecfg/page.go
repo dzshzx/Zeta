@@ -53,6 +53,7 @@ type Page struct {
 	defaults    *cfg.Defaults
 	defaultsErr string
 	working     bool // 正在改新对话默认
+	idle        *int // 这台主机的闲置超时（分钟），还没读到时是 nil
 
 	notice *notice
 
@@ -77,7 +78,7 @@ func New(opts Options) *Page {
 	return &Page{opts: opts}
 }
 
-// Load 读这台的新对话默认（可能在那边的终端里改过）：打开设备页时调。
+// Load 读这台的新对话默认（可能在那边的终端里改过）和闲置超时：打开设备页时调。读不到闲置超时（那边的 Zeta 服务比这个旧）时那一项灰着。
 func (p *Page) Load() {
 	p.defaultsErr = ""
 	p.async(func(ctx context.Context) func() {
@@ -88,6 +89,14 @@ func (p *Page) Load() {
 				return
 			}
 			p.defaults = &d
+		}
+	})
+	p.async(func(ctx context.Context) func() {
+		m, err := p.opts.Client.IdleMinutes(ctx)
+		return func() {
+			if err == nil {
+				p.idle = &m
+			}
 		}
 	})
 }

@@ -15,7 +15,7 @@ func TestSystemIdleThroughServe(t *testing.T) {
 	e := testEnv(t)
 	c := startSessions(t, e)
 	got := asObj(c.ok("system.idle", ""))
-	if num(t, got["minutes"]) != defaultIdleMinutes || num(t, got["default"]) != defaultIdleMinutes {
+	if num(t, got["minutes"]) != defaultIdleMinutes {
 		t.Fatalf("没设时：%v", got)
 	}
 	if got := asObj(c.ok("system.set_idle", `"minutes":30`)); num(t, got["minutes"]) != 30 {
@@ -47,21 +47,21 @@ func TestIdleLimitFallsBack(t *testing.T) {
 	if got := idleLimitInScript(t, e); got != "10" {
 		t.Fatalf("没设：%q", got)
 	}
-	writeFile(t, e.idleFile(), "半小时\n")
+	writeFile(t, e.idle, "半小时\n")
 	if got := idleLimitInScript(t, e); got != "10" || e.idleMinutes() != defaultIdleMinutes {
 		t.Fatalf("写坏了：%q %d", got, e.idleMinutes())
 	}
 }
 
-// idleLimitInScript 从托管脚本里取出 idle_limit 函数，对 e 的一个托管目录跑一次，给出它的输出。
+// idleLimitInScript 从托管脚本里取出 idle_limit 函数，在 e 的家目录和包名下跑一次，给出它的输出。
 func idleLimitInScript(t *testing.T, e *env) string {
 	t.Helper()
 	fn := regexp.MustCompile(`(?ms)^idle_limit\(\) \{.*?^\}`).FindString(host.Script)
 	if fn == "" {
 		t.Fatal("zeta_host.sh 里没有 idle_limit")
 	}
-	cmd := exec.Command("bash", "-c", fn+"\nidle_limit \"$1\"", "bash", e.hosts+"/k1")
-	cmd.Env = append(os.Environ(), "ZETA_IDLE_LIMIT=")
+	cmd := exec.Command("bash", "-c", fn+"\nidle_limit")
+	cmd.Env = append(os.Environ(), "ZETA_IDLE_LIMIT=", "HOME="+e.home, "ZETA_NAME="+e.name)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatal(err)

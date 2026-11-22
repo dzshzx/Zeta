@@ -129,6 +129,16 @@ func TestDefaultsAndDeviceSettings(t *testing.T) {
 	if got != "dev1/autoCompact=false,dev1/autoTitle=false" {
 		t.Errorf("remoteClaude %q", got)
 	}
+
+	// 闲置超时存在那台主机上：没设时是 10 分钟，选了写进那边的文件，别的客户端设的不在几档里的值也列出来
+	f.see("10 分钟")
+	f.pick("闲置超时", "不自动结束")
+	if got := f.serve.Read(".config/zeta/idle-minutes"); got != "0\n" {
+		t.Errorf("idle-minutes %q", got)
+	}
+	f.serve.Write(t, ".config/zeta/idle-minutes", "45\n")
+	f.page.Load()
+	f.see("45 分钟")
 }
 
 func TestMemoryEditorAsksBeforeOverwriting(t *testing.T) {

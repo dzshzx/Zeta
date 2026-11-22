@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"slices"
@@ -294,17 +295,20 @@ func (e *env) sessionMarks() sessionMarks {
 	return sessionMarks{external: external, live: live, archived: e.archivedSessions(), pinned: e.pinnedSessions()}
 }
 
-// liveKey 是有活着的进程的会话 id，排好序连成一串：会话列表的订阅拿它看进程有没有起来、结束（sessionWatch.liveChanged）。
-func (e *env) liveKey() string {
-	var ids []string
-	for _, r := range e.registeredSessions() {
+// liveSessions 是有活着的进程的会话 id。不查进程归哪个托管目录（那要读进程的环境和记录末尾）：
+// 会话列表的订阅每 poll 拿它核对进程有没有起来、结束（sessionWatch.run）。
+func (e *env) liveSessions() map[string]bool {
+	live := map[string]bool{}
+	for _, r := range e.registrations(false) {
 		if id, ok := r.session.(string); ok {
-			ids = append(ids, id)
+			live[id] = true
 		}
 	}
-	sort.Strings(ids)
-	return strings.Join(slices.Compact(ids), " ")
+	return live
 }
+
+// liveKey 是 live 里的会话 id 排好序连成的一串，比两次核对的结果用。
+func liveKey(live map[string]bool) string { return strings.Join(slices.Sorted(maps.Keys(live)), " ") }
 
 // archivedSessions 是归档的会话 id。归档的会话只是不在列表里显示，记录文件原样留着。
 func (e *env) archivedSessions() map[string]bool { return readMarks(e.archive) }
@@ -385,10 +389,7 @@ func markSessions(e *env, path string, sessions []string, on bool) error {
 	for _, id := range ids {
 		b.WriteString(id + "\n")
 	}
-	if err := os.WriteFile(path+".tmp", []byte(b.String()), 0o666); err != nil {
-		return err
-	}
-	return os.Rename(path+".tmp", path)
+	return writeFileAtomic(path, []byte(b.String()))
 }
 
 // cmdRename 给会话改名（renameSession），报出实际写下的标题。
@@ -567,7 +568,10 @@ func (e *env) ownHost(r registered) bool {
 
 // registeredSessions：Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
 // 给出进程还活着的；pid 被别的进程复用了（启动时刻对不上）的不算。
-func (e *env) registeredSessions() []registered {
+func (e *env) registeredSessions() []registered { return e.registrations(true) }
+
+// registrations 同 registeredSessions；withHost 为假时不查 host（进程归哪个托管目录）。
+func (e *env) registrations(withHost bool) []registered {
 	var out []registered
 	for _, name := range globNames(e.sessions, false, func(n string) bool { return strings.HasSuffix(n, ".json") }) {
 		info := readJSONObject(joinPath(e.sessions, name))
@@ -582,7 +586,10 @@ func (e *env) registeredSessions() []registered {
 		if mark := info["procStart"]; truthy(mark) && plainText(mark) != started {
 			continue
 		}
-		host, _ := e.hostDirOf(pid, info["sessionId"])
+		var host string
+		if withHost {
+			host, _ = e.hostDirOf(pid, info["sessionId"])
+		}
 		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
 			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host})
 	}

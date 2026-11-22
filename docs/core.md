@@ -209,7 +209,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | 方法 | 参数 | 结果 |
 |---|---|---|
 | `system.cpu` | 无 | `{percent, cores}`：这台主机整机的 CPU 忙碌百分比（0～100 的整数，读不了 `/proc/stat` 时为 `null`）和逻辑核数。最多等 0.1 秒 |
-| `system.idle` | 无 | `{minutes, default}`：这台主机设的闲置超时（多久结束进程，分钟，0 是不自动结束），没设时是 `default`（10） |
+| `system.idle` | 无 | `{minutes}`：这台主机设的闲置超时（多久结束进程，分钟，0 是不自动结束），没设时是 10 |
 | `system.set_idle` | `minutes`（0～1440 的整数） | 写下这台主机的闲置时长，结果同 `system.idle`；不合要求时出错、不写 |
 
 闲置时长存在主机上的 `~/.config/<ZETA_NAME>/idle-minutes`（`helper/idle.go`），托管脚本的看门狗每轮（一分钟）重读（`zeta_host.sh` 的 `idle_limit`）：没有客户端接着、又闲着的 Claude Code 进程数满这么多分钟就结束，改了对已经在跑的进程马上生效；几个客户端连同一台主机看到的是同一个值。设置页每台主机一项「闲置超时」。注意手机或电脑上的 Zeta 切到后台时，它对正看着的那个对话还会再拿着十分钟才放开（`ConversationHub.IDLE_RETIRE_MS`），放开后才开始数。

@@ -155,12 +155,12 @@ hosted_for() {
 
 # 托管目录 $1 里还接着的一方的进程号，一行一个；进程号 $2（可省）不算。看 attach.d 的记录（进程还在、启动时刻对得上），
 # 对不上的记录顺手删掉；再看 attach：它记的进程没有 attach.d 记录、命令行里有 zeta-host 时，是只写 attach 的旧版接着的一方。
-# idle_limit <托管目录>：看门狗闲置多少轮（每轮 ZETA_IDLE_STEP 秒，默认 60，所以就是分钟数）就结束进程，0 是不自动结束。
+# idle_limit：看门狗闲置多少轮（每轮 ZETA_IDLE_STEP 秒，默认 60，所以就是分钟数）就结束进程，0 是不自动结束。
 # 每台主机一份，在 ~/.config/<ZETA_NAME>/idle-minutes（设置页经核心的 system.set_idle 写，见 helper/idle.go），每轮重读，改了马上生效；
 # 没有或不是整数时用 ZETA_IDLE_LIMIT（测试用），再没有是 10。
 idle_limit() {
-  local n=${1%/hosts/*} v
-  v=$(cat "${n%/.cache/*}/.config/${n##*/}/idle-minutes" 2>/dev/null) || v=
+  local v
+  v=$(cat "$HOME/.config/${ZETA_NAME:-zeta}/idle-minutes" 2>/dev/null) || v=
   case $v in
     '' | *[!0-9]*) echo "${ZETA_IDLE_LIMIT:-10}" ;;
     *) echo "$v" ;;
@@ -365,7 +365,7 @@ elif [ "$mode" = start ]; then
         # 这一轮结束了、也没有后台任务在跑才算闲着（在等用户确认时这一轮还没结束）
         elif ! turn_running "$D/out.jsonl" && ! tasks_running "$D/out.jsonl"; then
           n=$((n + 1))
-          limit=$(idle_limit "$D")
+          limit=$(idle_limit)
           [ "$limit" -gt 0 ] && [ $n -ge "$limit" ] && end_claude "$D" $P
         else
           n=0
