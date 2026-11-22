@@ -62,6 +62,21 @@ func handleConfig(ctx context.Context, method string, params json.RawMessage) (a
 	return handleConfigAt(ctx, claudecfg.New(userHome()), method, params)
 }
 
+// config 在自己的 goroutine 里做一个 config.* 请求，做完回一行带 result 的 zeta_reply。
+func (s *serveSession) config(id json.RawMessage, method string, line []byte) {
+	result, err := handleConfigAt(context.Background(), claudecfg.New(s.e.home), method, line)
+	if len(id) == 0 {
+		id = json.RawMessage("null")
+	}
+	m := obj{"type": "zeta_reply", "id": id, "ok": err == nil}
+	if err != nil {
+		m["error"] = err.Error()
+	} else if result != nil {
+		m["result"] = result
+	}
+	_ = s.o.send(m)
+}
+
 func handleConfigAt(ctx context.Context, s *claudecfg.Store, method string, params json.RawMessage) (any, error) {
 	f, ok := configMethods[method]
 	if !ok {

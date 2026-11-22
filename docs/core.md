@@ -78,6 +78,41 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - `conv.subagent`：看着的那个子代理（`tool_use_id`）的记录，只发给用 `conv.subagent` 看着它的客户端。条目和 `conv.items` 同格式、同增量规则（第一次 `full`）；另有 `meta`（`{agent_id, agent_type, description, model, finished, stopped, background}`，还没读到时为 `null`）、`outcome`（`completed`、`failed`、`stopped`，还没结束时省掉）、`prompt`（交给它的任务）、`tool_uses`、`running`、`loaded`、`missing`（记录文件还没有）、`failure`（读失败的原因）、`file`、`skipped`（只留最近一段，前面略去了几条）。条目以外的字段每次都是整份；只有那些字段变了时条目部分是空的替换（`at` 0、`remove` 0、`items` 空）。对同一个子代理再发一次 `watch` 为真时从整份重新推。
 - `conv.activity`（不带 `conv`，只发给订阅了的客户端）：`{sessions: {会话号: {activity, tasks, turn_end}}}`，每次变了推整份，订阅时先给一份。`activity` 是 `waiting`（等用户回应）、`answering`（在回答）、`background`（这一轮答完了，后台任务还在跑）、`idle`（进程开着、没在干活），进程没了时省掉；`tasks` 是还在跑的后台任务数；`turn_end` 是最后一轮结束的时刻（Unix 毫秒），客户端拿它算「不在眼前时答完了一轮、还没看」。只报这个核心里的对话：现在核心还按 helper 版本分，别的版本的核心接着的由那边报（「一个服务端」做完后就是全部）。
 
+## Claude Code 配置
+
+设置里各设备页上的新对话默认和「Claude Code 配置」各页（记忆、Skills、MCP、Subagent、工具权限）读写的是那台主机上 Claude Code 自己的配置（`~/.claude`、`~/.claude.json`），那边终端里的 `claude` 同样生效。逻辑在 `helper/claudecfg`，serve 的 `config.` 方法（`helper/serve_config.go`）把它交给客户端：serve 自己答，不经核心，每个请求在自己的 goroutine 里做，做完回复，结果在应答的 `result` 里；失败时 `error` 是给人看的中文说明（不含 Token）。参数和 `id`、`method` 平级。`cwd` 是默认工作目录，省掉时是家目录。标「慢」的要跑 `claude` 或连 MCP 服务器，十几秒到一分钟。
+
+| 方法 | 参数 | 结果 |
+|---|---|---|
+| `config.defaults.read` | | 新对话默认 `{model, permissionMode, efforts: [{model, level}], effort, compactWindow}`（settings.json 的 model、permissions.defaultMode、modelSettings.*.effortLevel、effortLevel、autoCompactWindow；没设的是空串、0） |
+| `config.defaults.setModel` | `value`（空串是删掉） | 同上 |
+| `config.defaults.setPermissionMode` | `value`（不能是 bypassPermissions） | 同上 |
+| `config.defaults.setEffort` | `model`（完整模型 ID，空串是顶层那一档）、`value`（空串是删掉） | 同上 |
+| `config.defaults.setCompactWindow` | `value`（token 数，0 是删掉，最小 100000） | 同上 |
+| `config.memory.read` | `cwd`、`project` | 记忆页：自动记忆开关、CLAUDE.md、可选的项目（默认工作目录所在的排第一，worktree 算主仓库）、选中项目的 MEMORY.md 和每条记忆 |
+| `config.memory.readFile` | `path` | `{content, sha, exists}`；只认 CLAUDE.md 和记忆目录里的 .md |
+| `config.memory.writeFile` | `path`、`content`、`sha`（读到时的；原来不存在时空串）、`force` | `{sha}`；编辑期间被别人改过时 `{conflict: true}`，什么都不写 |
+| `config.memory.delete` | `path` | 删一条记忆，连同 MEMORY.md 里指向它的那一行 |
+| `config.memory.setAuto` | `on` | |
+| `config.skills.list` | | `{user: [{name, title, description, enabled, valid}], synced: [{name, description, enabled}]}` |
+| `config.skills.import` | `fileName`、`zip`（base64）、`replace` | `{name, exists, existingDescription, replaced, enabled}`；同名的已有又没 `replace` 时 `exists` 为真，什么都不装 |
+| `config.skills.setEnabled` | `name`、`title`、`enabled` | 写 skillOverrides |
+| `config.skills.delete` | `name` | |
+| `config.agents.list` | | `[{file, name, description, model, tools, prompt, extraKeys, sha}]`（`tools` 为 null 是全部工具） |
+| `config.agents.save` | `original`（编辑时是读到的那一项，新建为 null）、`draft`（`{name, description, model, tools, prompt}`） | `{file}`；改名时旧文件删掉，不认识的前言键原样留着 |
+| `config.agents.delete` | `file` | |
+| `config.permissions.read` | `cwd`、`server`、`tools` | 工具权限页：`rules`、`builtin`（每个内置工具的状态）、`builtinBulk`、`servers`（每个 MCP 服务器整体的状态和一键开关会加删的规则）；给了 `server` 时 `serverTools` 是它这几个工具的状态 |
+| `config.permissions.setTool` | `tool`、`behavior`（allow、ask、deny，空串是去掉），和 read 的参数 | 同 read |
+| `config.permissions.add`、`config.permissions.remove` | `behavior`、`rule`，和 read 的参数 | 同 read |
+| `config.permissions.replace` | `old`、`new`（各是 `{behavior, rule}`），和 read 的参数 | 同 read；`old` 已经不在了时出错 |
+| `config.permissions.bulk` | `group`（`{tools}` 或 `{server}`）、`enable`，和 read 的参数 | 同 read |
+| `config.mcp.list` | `cwd` | `[{name, scope, type, url, command, args, envKeys, headerKeys, bearer, authHeader, oauth, shadowedBy}]`，密钥只说有没有 |
+| `config.mcp.status` | `cwd` | 慢。`claude mcp list` 的结果 `{servers: {"范围/名字": {state, issue}}, connectors}` |
+| `config.mcp.tools` | `cwd`、`scope`、`name` | 慢。连上服务器取工具清单 `[{name, description}]`：HTTP、SSE 从主机连，stdio 经登录 shell 起 |
+| `config.mcp.addHttp` | `name`、`type`（http、sse）、`url`、`token` | 慢。加到用户配置（`claude mcp add-json`，Token 只走标准输入） |
+| `config.mcp.addStdio` | `name`、`command`、`args`、`env` | 慢。同上 |
+| `config.mcp.remove` | `cwd`、`scope`、`name` | 慢 |
+| `config.mcp.setToken` | `cwd`、`scope`（user、local）、`name`、`token`（空串是去掉） | 慢。删掉重加，重加失败时放回原样 |
 ## 账号与额度
 
 serve 自己答 `accounts.` 和 `quota.` 开头的方法（不经核心，逻辑在 `helper/accounts`，入口是 `helper/serve_accounts.go` 的 `handleAccounts`），每个请求在自己的 goroutine 里做、做完再答，不挡同一连接上的 ping。参数和 `id`、`method` 平级，结果在 `zeta_reply` 的 `result`；出错时 `ok` 为假，认得出的另带 `code`：`claude_switch_missing`（客户端把带着的 claude-switch 装上再试）、`busy`（有 Claude Code 开着，claude-switch 没换）、`no_account`（要换、要删的号不在了）。

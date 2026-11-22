@@ -165,3 +165,22 @@ func readFileString(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// 经 serve：config. 的请求各自回复，结果在 result 里。
+func TestServeRoutesConfig(t *testing.T) {
+	e := testEnv(t)
+	c := startServe(t, e, fastServe)
+	c.send(`{"id":"a","method":"config.defaults.setModel","value":"sonnet"}`)
+	r := c.next("zeta_reply")
+	res, _ := r["result"].(obj)
+	if r["id"] != "a" || r["ok"] != true || res["model"] != "sonnet" {
+		t.Fatalf("reply %v", r)
+	}
+	if !strings.Contains(readFileString(t, filepath.Join(e.home, ".claude", "settings.json")), `"model": "sonnet"`) {
+		t.Error("settings not written under the serve's HOME")
+	}
+	c.send(`{"id":2,"method":"config.memory.readFile","path":"/etc/passwd"}`)
+	if r := c.next("zeta_reply"); r["ok"] != false || !strings.Contains(asString(r["error"]), "只能编辑") {
+		t.Errorf("error reply %v", r)
+	}
+}
