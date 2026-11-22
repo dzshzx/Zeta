@@ -163,7 +163,11 @@ func (a *App) chatPage(c *ui.Context) {
 				a.queueStrip(c, p)
 				a.chatStatus(c, p)
 			}
-			a.composer(c, p)
+			if p.state.Blocked && p.src.Conv != nil {
+				a.handoffCard(c, p) // 别处运行：输入栏换成接管的卡片（handoff.go）
+			} else {
+				a.composer(c, p)
+			}
 		})
 	})
 }
@@ -203,16 +207,13 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	})
 }
 
-// chatNotices 是输入栏上方的几句说明：工作目录进不去、连接断了、上次操作没成。
+// chatNotices 是输入栏上方的几句说明：工作目录进不去、连接断了、上次操作没成。会话在别处运行时输入栏换成卡片（handoffCard）。
 func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	if why := p.src.CwdProblem; why != "" {
 		coui.Notice(c, "Claude Code 起不来："+why+"。在「设备」页改默认工作目录后再开新对话。", coui.Failure)
 	}
 	if why := a.hub.ChatLinkProblem(); why != "" && p.src.Conv != nil {
 		coui.Notice(c, "正在重连："+why, coui.Caution)
-	}
-	if p.state.Blocked {
-		coui.Notice(c, "这个会话正在别处运行", coui.Info)
 	}
 	if p.failed != "" {
 		coui.Notice(c, p.failed, coui.Failure)
