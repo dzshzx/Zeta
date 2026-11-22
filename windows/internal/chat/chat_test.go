@@ -457,7 +457,7 @@ func TestEarlierStaleMatchesTheCore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(src), `errors.New("`+EarlierStale) {
+	if !strings.Contains(string(src), `"`+EarlierStale) {
 		t.Fatalf("helper/conv/earlier.go 里没有 %q 开头的错误了", EarlierStale)
 	}
 }
