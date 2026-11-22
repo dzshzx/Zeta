@@ -127,14 +127,14 @@ class AccountsShots : ShotTest() {
             onNodeWithText("work@example.invalid").performClick()
         }
 
-    /** 输入栏右边的用量按钮在额度快到上限时换成额度提醒。 */
+    /** 额度快到上限时输入栏右边仍只有上下文圆环：额度在点开它的用量弹窗里看。 */
     @Test
     fun chatQuotaChip() {
         val hub = Fixtures.readyHub(app)
         hub.fakeQuota()
         hub.showChat(
             "额度",
-            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)),
+            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "点输入栏右边的圆环看。", streaming = false)),
         )
         shoot("chat-quota-chip") {
             ChatScreen(
@@ -153,12 +153,14 @@ class AccountsShots : ShotTest() {
         hub.fakeQuota()
         hub.showChat(
             "额度",
-            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "看输入栏右边的提醒。", streaming = false)),
+            listOf(UserItem("u1", "还剩多少额度？"), AnswerItem("a1", "点输入栏右边的圆环看。", streaming = false)),
         )
         shoot(
             "chat-quota",
             prepare = {
-                onAllNodes(hasContentDescription("订阅额度", substring = true)).onFirst().performClick()
+                onAllNodes(hasContentDescription("上下文用量", substring = true))
+                    .onFirst()
+                    .performClick()
             },
         ) {
             ChatScreen(

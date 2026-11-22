@@ -55,7 +55,7 @@ import com.dzshzx.zeta.ui.chat.PermissionModeChip
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.QuotaDialogSection
 import com.dzshzx.zeta.ui.chat.TypingIndicator
-import com.dzshzx.zeta.ui.chat.UsageButtons
+import com.dzshzx.zeta.ui.chat.UsageButton
 import com.dzshzx.zeta.ui.chat.UsageDialog
 import com.dzshzx.zeta.ui.chat.UserBubble
 import com.dzshzx.zeta.ui.chat.WorkGroup
@@ -229,9 +229,7 @@ class ChatPartsShots : ShotTest() {
         }
     }
 
-    /**
-     * 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）； 用量按钮：额度快满和已达上限时额度提醒和上下文圆环并排，额度没事时只有圆环（平时、快满）。
-     */
+    /** 输入栏底栏的控件：权限模式按钮（没指定和五种模式各自的字母、颜色）；思考强度（默认、指定）； 用量按钮：上下文圆环，够用、快满、马上要压缩三档各一个颜色。 */
     @Test
     fun usageChips() {
         val hub = Fixtures.readyHub(app)
@@ -256,10 +254,9 @@ class ChatPartsShots : ShotTest() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    UsageButtons(hub.quota(Backends.LOCAL).snapshot, usage, onClick = {})
-                    UsageButtons(blocked, usage, onClick = {})
-                    UsageButtons(null, usage.copy(contextTokens = 120_000), onClick = {})
-                    UsageButtons(null, usage.copy(contextTokens = 380_000), onClick = {})
+                    UsageButton(usage.copy(contextTokens = 120_000), onClick = {})
+                    UsageButton(usage, onClick = {})
+                    UsageButton(usage.copy(contextTokens = 260_000), onClick = {})
                 }
             }
         }

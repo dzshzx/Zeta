@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.EffortLevels
-import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.TurnUsage
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.core.formatCost
@@ -48,7 +47,6 @@ import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -105,33 +103,27 @@ internal val EffortGauges: List<ImageVector> by lazy {
     (0..EffortLevels.size).map { ZetaIcons.gauge(it, EffortLevels.size) }
 }
 
+/** 上下文用了多少的颜色，三档固定：够用绿色，快满是 [StatusWarning]，马上要压缩或发不出去了红色。圆环和用量弹窗里的条共用。 */
 @Composable
-private fun levelColor(level: ContextLevel, normal: Color): Color =
+private fun levelColor(level: ContextLevel): Color =
     when (level) {
         ContextLevel.Critical -> COUITheme.colorScheme.error
         ContextLevel.Warning -> StatusWarning
-        ContextLevel.Normal -> normal
+        ContextLevel.Normal -> COUITheme.colorScheme.success
     }
 
-/**
- * 发送键左边的用量按钮，点开都是用量弹窗（订阅额度、上下文、累计）：订阅额度快到上限或已被拒时有额度提醒（[QuotaAlarm]），
- * 上下文用量知道了就有上下文圆环。两样各占一个按钮，额度报警时上下文快满也看得见；都没有时不占地方。
- */
+/** 发送键左边的用量按钮：上下文圆环，点开是用量弹窗（订阅额度、上下文、累计）。上下文用量还不知道时是空环，照样点得开。 */
 @Composable
-internal fun UsageButtons(quota: QuotaSnapshot?, usage: ChatUsage, onClick: () -> Unit) {
-    val now = rememberNow()
-    quota?.current(now)?.let { QuotaAlarm(it, now, onClick) }
-    if (usage.known) ContextMeter(usage, onClick)
-}
+internal fun UsageButton(usage: ChatUsage, onClick: () -> Unit) = ContextMeter(usage, onClick)
 
-/** 上下文圆环，快满时变色、底色跟着变；百分比在读屏说明和用量弹窗里。 */
+/** 上下文圆环，颜色按用了多少分三档（[levelColor]），快满时底色跟着变；百分比在读屏说明和用量弹窗里。 */
 @Composable
 private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     val ink = colors.labelPrimary
     val level = usage.level
-    val color = levelColor(level, ink.copy(alpha = if (dark) 0.52f else 0.46f))
+    val color = levelColor(level)
     val percent = usage.fraction?.let { (it * 100).toInt() }
     val loud = level != ContextLevel.Normal && percent != null
     BarButton(
@@ -147,21 +139,16 @@ private fun ContextMeter(usage: ChatUsage, onClick: () -> Unit) {
             fraction = usage.fraction ?: 0f,
             color = color,
             track = ink.copy(alpha = if (dark) 0.14f else 0.09f),
-            mark = usage.compactFraction,
-            markColor = ink.copy(alpha = if (dark) 0.62f else 0.5f),
         )
     }
 }
 
-/** [mark] 是自动压缩点在圆环上的位置（0..1），画一道短刻度；快到窗口尽头的不画，和起点挤在一起看不清。 */
 @Composable
 private fun ContextRing(
     fraction: Float,
     color: Color,
     track: Color,
     modifier: Modifier = Modifier,
-    mark: Float? = null,
-    markColor: Color = track,
 ) {
     Canvas(modifier = modifier.size(16.dp)) {
         val stroke = 2.dp.toPx()
@@ -185,21 +172,6 @@ private fun ContextRing(
                 topLeft = Offset(inset, inset),
                 size = arcSize,
                 style = Stroke(stroke, cap = StrokeCap.Round),
-            )
-        }
-        // 刻度画在最上面，用量越过它时也看得见
-        if (mark != null && mark in 0.02f..0.97f) {
-            val angle = Math.toRadians((-90.0 + 360.0 * mark))
-            val radius = (size.width - stroke) / 2
-            val center = Offset(size.width / 2, size.height / 2)
-            val direction =
-                Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
-            drawLine(
-                markColor,
-                start = center + direction * (radius - stroke * 1.1f),
-                end = center + direction * (radius + stroke * 0.5f),
-                strokeWidth = 1.2.dp.toPx(),
-                cap = StrokeCap.Round,
             )
         }
     }
@@ -297,9 +269,8 @@ private fun ContextSection(usage: ChatUsage) {
         },
     )
     usage.fraction?.let { fraction ->
-        val color = levelColor(usage.level, colors.primary)
-        // 上下各留 3dp，给压缩点的刻度伸出去
-        UsageBar(fraction, color, Modifier.padding(vertical = 3.dp), mark = usage.compactFraction)
+        val color = levelColor(usage.level)
+        UsageBar(fraction, color)
         Spacer(Modifier.height(8.dp))
     }
     val compactAt = usage.compactAt
@@ -318,7 +289,7 @@ private fun ContextSection(usage: ChatUsage) {
         if (compactAt != null && usage.autoCompact != false) {
             add(
                 "自动压缩点：${formatTokens(compactAt)}" +
-                    (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%，条上的刻度）" } ?: "") +
+                    (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%）" } ?: "") +
                     "。",
             )
         }
@@ -331,17 +302,9 @@ private fun ContextSection(usage: ChatUsage) {
     Note(detail.joinToString("\n"))
 }
 
-/**
- * 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。[mark] 处画一道竖线（比如自动压缩点）， 上下各伸出条外
- * 3dp，要的话调用方自己留出这点空。上下文和订阅额度共用。
- */
+/** 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。上下文和订阅额度共用。 */
 @Composable
-internal fun UsageBar(
-    fraction: Float,
-    color: Color,
-    modifier: Modifier = Modifier,
-    mark: Float? = null,
-) {
+internal fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
     val ink = COUITheme.colorScheme.labelPrimary
     val dark = COUITheme.colorScheme.isDark
     Box(modifier = modifier.fillMaxWidth().height(6.dp)) {
@@ -357,20 +320,6 @@ internal fun UsageBar(
                     .clip(RoundedCornerShape(3.dp))
                     .background(color),
             )
-        }
-        if (mark != null) {
-            val markColor = ink.copy(alpha = if (dark) 0.6f else 0.5f)
-            Canvas(Modifier.matchParentSize()) {
-                val x = (size.width * mark).coerceIn(1.dp.toPx(), size.width - 1.dp.toPx())
-                val reach = 3.dp.toPx()
-                drawLine(
-                    markColor,
-                    Offset(x, -reach),
-                    Offset(x, size.height + reach),
-                    strokeWidth = 2.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
-            }
         }
     }
 }

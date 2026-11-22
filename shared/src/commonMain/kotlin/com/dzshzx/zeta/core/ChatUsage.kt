@@ -164,9 +164,6 @@ data class ChatUsage(
                 else -> ContextLevel.Normal
             }
         }
-
-    val known: Boolean
-        get() = contextTokens != null || turns.isNotEmpty()
 }
 
 /**

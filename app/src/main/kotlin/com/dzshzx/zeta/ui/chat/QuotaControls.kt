@@ -21,13 +21,10 @@ import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberNow
-import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Timer
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/** 额度严重程度的颜色：严重红色，警告是 [StatusWarning]，平时用 [normal]。额度提醒、额度窗口、设置首页的账号摘要共用。 */
+/** 额度严重程度的颜色：严重红色，警告是 [StatusWarning]，平时用 [normal]。额度窗口、各台设备页的账号摘要共用。 */
 @Composable
 internal fun severityColor(severity: QuotaSeverity, normal: Color): Color =
     when (severity) {
@@ -35,31 +32,6 @@ internal fun severityColor(severity: QuotaSeverity, normal: Color): Color =
         QuotaSeverity.Warning -> StatusWarning
         QuotaSeverity.Normal -> normal
     }
-
-/**
- * 额度提醒（见 [UsageButtons]）：快到上限（服务器说要注意，或用了八成以上）或已经被拒时是一个沙漏，按严重程度着色；
- * 没到这一步时不占地方。用了多少、是哪个窗口写在读屏说明和长按提示里，点开的用量弹窗里有全部窗口。 [current] 是按 [now]
- * 折算过的额度（[QuotaSnapshot.current]）。
- */
-@Composable
-internal fun QuotaAlarm(current: QuotaSnapshot, now: Long, onClick: () -> Unit) {
-    val window = current.alarming ?: return
-    val severity =
-        if (current.blocked) QuotaSeverity.Critical
-        else maxOf(window.severity, Quota.severityOf(window.used))
-    BarButton(
-        description =
-            if (current.blocked) {
-                "订阅额度已达上限" + (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "")
-            } else {
-                "订阅额度（${window.label}）已用 ${window.percent}%"
-            },
-        onClick = onClick,
-        colors = barChipColors(severityColor(severity, StatusWarning)),
-    ) {
-        Icon(imageVector = COUIIcons.Timer, contentDescription = null)
-    }
-}
 
 /** 各个额度窗口：名字、已用比例、进度条、什么时候重置。用量弹窗和设置里的账号页共用。 */
 @Composable

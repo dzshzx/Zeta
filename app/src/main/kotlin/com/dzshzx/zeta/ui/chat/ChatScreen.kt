@@ -932,11 +932,7 @@ private fun ConversationInput(
                 )
             },
             status = {
-                UsageButtons(
-                    hub.quota(conversation.backend).snapshot,
-                    conversation.usage,
-                    onClick = { viewingUsage = true },
-                )
+                UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             voice = voice,
             focus = composerFocus,

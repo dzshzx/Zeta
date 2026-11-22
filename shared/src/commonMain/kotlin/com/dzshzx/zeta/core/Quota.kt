@@ -101,15 +101,6 @@ data class QuotaSnapshot(
                 else -> windows.firstOrNull { it.active } ?: windows.maxByOrNull { it.used }
             }
 
-    /** 聊天页要不要提醒：被拒了，或者有窗口快满了。 */
-    val alarming: QuotaWindow?
-        get() =
-            if (blocked) headline
-            else
-                windows
-                    .filter { it.severity != QuotaSeverity.Normal || it.used >= WARN_AT }
-                    .maxByOrNull { it.used }
-
     companion object {
         /** 服务器没给严重程度时，自己按比例折算的门槛。 */
         const val WARN_AT = 0.8

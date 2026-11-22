@@ -141,7 +141,7 @@ class ChatScreenPartsShots : ShotTest() {
     }
 
     /**
-     * 窄屏（约 375dp）上输入栏底栏最挤的时候：本周额度用了 95%、对话正在运行（发送键换成停止）、上下文用量已知（额度提醒和圆环并排），
+     * 窄屏（约 375dp）上输入栏底栏最挤的时候：本周额度用了 95%、对话正在运行（发送键换成停止）、上下文用量已知（底栏有上下文圆环），
      * 权限是“自动判断”、思考是“超高”。底栏只有图标按钮，停止键要按原尺寸整个露在屏内。
      */
     @Test
@@ -200,8 +200,6 @@ class ChatScreenPartsShots : ShotTest() {
             "停止键露出了屏幕：$stop，屏幕 $screen",
             stop.left >= screen.left && stop.right <= screen.right,
         )
-        // 额度报警时上下文圆环也在，不被额度提醒顶掉
-        compose.onNodeWithContentDescription("订阅额度（每周 · 全部模型）已用 95%").assertExists()
         compose.onNodeWithContentDescription("上下文用量：53%").assertExists()
         compose.onNodeWithContentDescription("权限模式：自动判断").assertExists()
     }

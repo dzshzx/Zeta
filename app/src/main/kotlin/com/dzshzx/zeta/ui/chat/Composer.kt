@@ -150,7 +150,7 @@ internal fun Composer(
     modifier: Modifier = Modifier,
     /** 附件键后面的底栏按钮（权限模式、思考强度）。 */
     tools: @Composable () -> Unit = {},
-    /** 发送键左边的底栏按钮（额度提醒、上下文圆环）。 */
+    /** 发送键左边的底栏按钮（上下文圆环）。 */
     status: @Composable () -> Unit = {},
     /** 按住说话（见 HoldToTalk.kt）；手机上没有识别服务时为 null。 */
     voice: HoldToTalk? = null,

@@ -52,7 +52,6 @@ class QuotaTest {
         assertFalse(s.extra!!.enabled)
         // 服务器挑的那一行是头条；86% 是“要注意”
         assertEquals("weekly_all", s.headline!!.kind)
-        assertEquals("weekly_all", s.alarming!!.kind)
         assertEquals("每周 · 全部模型", s.headline!!.label)
     }
 
@@ -76,7 +75,6 @@ class QuotaTest {
         )
         assertEquals(0.25, s.windows[0].used, 1e-9)
         assertNull(s.windows[3].resetsAt)
-        assertNull(s.alarming)
         // 没有服务器挑的：最满的那个
         assertEquals("weekly_all", s.headline!!.kind)
     }
@@ -138,7 +136,6 @@ class QuotaTest {
             )!!
         assertTrue(rejected.blocked)
         assertEquals(1_795_057_510_000L, rejected.blockedUntil)
-        assertEquals("session", rejected.alarming!!.kind)
         // 过了解除时刻：不再算被拒，5 小时窗口从零开始
         val later = rejected.current(1_795_057_510_001L)
         assertFalse(later.blocked)
