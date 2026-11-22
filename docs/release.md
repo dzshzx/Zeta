@@ -177,6 +177,10 @@ keytool -genkeypair -keystore "$work/zeta-release.p12" -storetype PKCS12 -storep
 | `Zeta-vX.Y.Z.apk` | 签好名的正式版，只有 arm64-v8a 一个包 |
 | `Zeta-vX.Y.Z.apk.sha256` | `sha256sum` 的格式：`<sha256>  Zeta-vX.Y.Z.apk` |
 | `update.json` | 应用内检查更新读的，格式见下 |
+| `Zeta-vX.Y.Z.msi` | Windows 桌面版的安装包（`desktop/windows/package.sh` 打的，未做代码签名），按用户装到 `%LOCALAPPDATA%\Programs\Zeta` |
+| `Zeta-vX.Y.Z.msi.sha256` | 同上的格式 |
+
+`tools/install.sh --release` 和 `check-download` 只取、只核对手机的前三个。
 
 `update.json` 是一个 JSON 对象，最新版的固定地址是
 `https://github.com/dzshzx/Zeta/releases/latest/download/update.json`：

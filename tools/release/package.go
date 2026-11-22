@@ -19,9 +19,16 @@ var checksumEntry = regexp.MustCompile(`^([0-9a-f]{64})  (.+)$`)
 
 func apkAsset(version string) string { return "Zeta-v" + version + ".apk" }
 
-// assetNames 是一次 Release 的全部资产，按名字排好。
-func assetNames(version string) []string {
+// msiAsset 是 Windows 桌面版的安装包（未做代码签名）。
+func msiAsset(version string) string { return "Zeta-v" + version + ".msi" }
+
+// assetNames 是一次 Release 的资产，按名字排好：手机的 APK、它的 .sha256 和 update.json；desktop 时再加桌面版的
+// MSI 和它的 .sha256（发布时是全套；tools/install.sh 只下手机的那几个）。
+func assetNames(version string, desktop bool) []string {
 	names := []string{apkAsset(version), apkAsset(version) + ".sha256", updateFile}
+	if desktop {
+		names = append(names, msiAsset(version), msiAsset(version)+".sha256")
+	}
 	slices.Sort(names)
 	return names
 }
@@ -66,9 +73,12 @@ func commitTitles(previous, commit string) ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
-// writeAssets 把签好的包拷成 Zeta-vX.Y.Z.apk，写出它的 .sha256（sha256sum 的格式）和 update.json。
-// u 里与文件有关的字段（apk、url、size、sha256）由这里填。
-func writeAssets(dir, apk, repo string, u update) (update, error) {
+// writeAssets 把签好的包拷成 Zeta-vX.Y.Z.apk，桌面版的 msi 拷成 Zeta-vX.Y.Z.msi，各写一个 .sha256（sha256sum 的格式），
+// 再写 update.json。u 里与 APK 有关的字段（apk、url、size、sha256）由这里填。
+func writeAssets(dir, apk, msi, repo string, u update) (update, error) {
+	if err := copyWithChecksum(msi, filepath.Join(dir, msiAsset(u.VersionName))); err != nil {
+		return u, err
+	}
 	u.APK = apkAsset(u.VersionName)
 	u.URL = "https://github.com/" + repo + "/releases/download/" + u.Tag + "/" + u.APK
 	path := filepath.Join(dir, u.APK)
@@ -93,9 +103,21 @@ func writeAssets(dir, apk, repo string, u update) (update, error) {
 	return u, os.WriteFile(filepath.Join(dir, updateFile), append(data, '\n'), 0o644)
 }
 
-// checkAssets 核对一套资产：正好是 assetNames 那几个文件，.sha256 对得上，update.json 写的版本、文件名、大小、
-// sha256 与文件相符。返回读到的 update.json。
-func checkAssets(dir, version string) (update, error) {
+// copyWithChecksum 把 src 拷到 dst，旁边写 dst.sha256。
+func copyWithChecksum(src, dst string) error {
+	if err := copyFile(src, dst); err != nil {
+		return err
+	}
+	sum, err := fileHash(dst)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst+".sha256", []byte(sum+"  "+filepath.Base(dst)+"\n"), 0o644)
+}
+
+// checkAssets 核对一套资产：正好是 assetNames 那几个文件（desktop 时含桌面版的 MSI），各个 .sha256 对得上，
+// update.json 写的版本、文件名、大小、sha256 与 APK 相符。返回读到的 update.json。
+func checkAssets(dir, version string, desktop bool) (update, error) {
 	var u update
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -106,8 +128,13 @@ func checkAssets(dir, version string) (update, error) {
 		names = append(names, e.Name())
 	}
 	slices.Sort(names)
-	if want := assetNames(version); !slices.Equal(names, want) {
+	if want := assetNames(version, desktop); !slices.Equal(names, want) {
 		return u, fmt.Errorf("%s 里是 %v，应该正好是 %v", dir, names, want)
+	}
+	if desktop {
+		if _, err := checkChecksum(filepath.Join(dir, msiAsset(version))); err != nil {
+			return u, err
+		}
 	}
 	apk := filepath.Join(dir, apkAsset(version))
 	sum, err := checkChecksum(apk)
@@ -165,10 +192,11 @@ func checkChecksum(path string) (string, error) {
 	return got, nil
 }
 
-// releaseBody 是 Release 的说明：版本、源提交、证书，和上一个正式版以来的提交标题。
+// releaseBody 是 Release 的说明：版本、源提交、证书、桌面版的安装包，和上一个正式版以来的提交标题。
 func releaseBody(u update) string {
-	return fmt.Sprintf("Zeta %s（versionCode %d）\n\n- source_commit: `%s`\n- 签名证书 SHA-256：`%s`\n\n## 改动\n\n%s\n",
-		u.VersionName, u.VersionCode, u.SourceCommit, u.Certificate, u.Notes)
+	return fmt.Sprintf("Zeta %s（versionCode %d）\n\n- source_commit: `%s`\n- 签名证书 SHA-256：`%s`\n"+
+		"- Windows 桌面版：`%s`（未做代码签名，第一次运行时 Windows 会提示）\n\n## 改动\n\n%s\n",
+		u.VersionName, u.VersionCode, u.SourceCommit, u.Certificate, msiAsset(u.VersionName), u.Notes)
 }
 
 // assetSummary 是写进运行摘要的一段：版本、源提交、每个资产的大小和 sha256，再加发布说明。
@@ -178,7 +206,7 @@ func assetSummary(dir string, u update) (string, error) {
 		"- source_commit: `" + u.SourceCommit + "`",
 		"- 签名证书 SHA-256：`" + u.Certificate + "`", "",
 		"| 资产 | 字节 | sha256 |", "| --- | --- | --- |"}
-	for _, name := range assetNames(u.VersionName) {
+	for _, name := range assetNames(u.VersionName, true) {
 		path := filepath.Join(dir, name)
 		info, err := os.Stat(path)
 		if err != nil {
@@ -198,12 +226,13 @@ func assetSummary(dir string, u update) (string, error) {
 func runPackage(args []string) error {
 	fs := flag.NewFlagSet("package", flag.ContinueOnError)
 	apk := fs.String("apk", "", "签好的包")
+	msi := fs.String("msi", "", "桌面版的 Windows 安装包（未做代码签名）")
 	version := fs.String("version", "", "这次的版本 X.Y.Z")
 	code := fs.Int("version-code", 0, "这次的 versionCode")
 	commit := fs.String("commit", "", "源提交（完整的提交号）")
 	repo := fs.String("repo", "", "GitHub 仓库 owner/name，用来写下载地址")
 	out := fs.String("out", "", "空目录，只放这次的资产")
-	if err := parse(fs, args, "apk", "version", "commit", "repo", "out"); err != nil {
+	if err := parse(fs, args, "apk", "msi", "version", "commit", "repo", "out"); err != nil {
 		return err
 	}
 	if *code <= 0 {
@@ -235,7 +264,7 @@ func runPackage(args []string) error {
 	if err != nil {
 		return err
 	}
-	u, err := writeAssets(*out, *apk, *repo, update{
+	u, err := writeAssets(*out, *apk, *msi, *repo, update{
 		VersionCode: facts.VersionCode, VersionName: facts.VersionName, Tag: "v" + *version,
 		PublishedAt: time.Now().UTC().Format(time.RFC3339), Notes: formatNotes(titles),
 		Certificate: facts.Signers[0], SourceCommit: *commit,
@@ -243,7 +272,7 @@ func runPackage(args []string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := checkAssets(*out, *version); err != nil {
+	if _, err := checkAssets(*out, *version, true); err != nil {
 		return err
 	}
 	summary, err := assetSummary(*out, u)
@@ -254,7 +283,7 @@ func runPackage(args []string) error {
 	return stepSummary(summary)
 }
 
-// runCheckDownload 核对 gh release download 下来的资产：资产本身一致，包的签名证书是本仓登记的正式证书，
+// runCheckDownload 核对 gh release download 下来的手机那几个资产（不含桌面版的 MSI）：资产本身一致，包的签名证书是本仓登记的正式证书，
 // 版本与 update.json 相符。通过后在标准输出打印 APK 的路径。
 func runCheckDownload(args []string) error {
 	fs := flag.NewFlagSet("check-download", flag.ContinueOnError)
@@ -270,7 +299,7 @@ func runCheckDownload(args []string) error {
 	if err := json.Unmarshal(data, &head); err != nil {
 		return fmt.Errorf("%s 读不了：%w", updateFile, err)
 	}
-	u, err := checkAssets(*dir, head.VersionName)
+	u, err := checkAssets(*dir, head.VersionName, false)
 	if err != nil {
 		return err
 	}

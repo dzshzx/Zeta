@@ -125,7 +125,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 正式版自己也检查更新（设置「关于」，回到前台时每天最多一次）：读最新 Release 的 `update.json`，核对后经 root 的 `pm install -r` 或系统的安装界面装，有手机工具调用正在执行时等这一次结束（对话在回答、后台屏幕开着都不等）。只有正式发版证书签的包才查；做法和在模拟器上用测试版试的办法见 `docs/release.md`「应用内更新」。
 
-桌面版（`desktop/`）：在工作站上 `tools/gradle :desktop:run` 起窗口，`:desktop:jvmTest` 里的 `DesktopShots` 把整个窗口画进 `desktop/build/shots/`。Windows 安装包全在 Linux 上打：`tools/gradle :desktop:packageWindows` 出 `desktop/build/windows/Zeta-v<版本>.msi`（要 wixl；Windows 的 JRE、打包步骤见 `desktop/windows/package.sh`），CI 上手动跑 `gh workflow run desktop.yml --ref master`，默认在本机 runner 上。MSI 按用户安装到 `%LOCALAPPDATA%\Programs\Zeta`，不要管理员，没做代码签名。在本机的 Windows（nerv-win）上试：把 MSI 拷到 Windows 那边，`msiexec /i <msi> /qn` 静默装，从开始菜单起 Zeta。桌面版还没接进 `release.yml`，不随正式版发布。
+桌面版（`desktop/`）：在工作站上 `tools/gradle :desktop:run` 起窗口，`:desktop:jvmTest` 里的 `DesktopShots` 把整个窗口画进 `desktop/build/shots/`。Windows 安装包全在 Linux 上打：`tools/gradle :desktop:packageWindows` 出 `desktop/build/windows/Zeta-v<版本>.msi`（要 wixl；Windows 的 JRE、打包步骤见 `desktop/windows/package.sh`）。MSI 按用户安装到 `%LOCALAPPDATA%\Programs\Zeta`，不要管理员，没做代码签名。在本机的 Windows（nerv-win）上试：把 MSI 拷到 Windows 那边，`msiexec /i <msi> /qn` 静默装，从开始菜单起 Zeta。桌面版和手机版一起发：`release.yml` 的 desktop 任务打 MSI，作为 `Zeta-vX.Y.Z.msi` 和 APK 放在同一个 Release 里；只要一个分支的 MSI 时跑那个分支的 dry run，包在运行的 desktop 构件里。
 
 ## 边界
 

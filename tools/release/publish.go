@@ -21,7 +21,7 @@ func runPublish(args []string) error {
 	if err != nil {
 		return err
 	}
-	u, err := checkAssets(*assets, *version)
+	u, err := checkAssets(*assets, *version, true)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func runPublish(args []string) error {
 		return fmt.Errorf("资产出自 %s，不是这次的 %s", u.SourceCommit, sha)
 	}
 	var files []string
-	for _, name := range assetNames(*version) {
+	for _, name := range assetNames(*version, true) {
 		files = append(files, filepath.Join(*assets, name))
 	}
 	if err := publishRelease(repo, u.Tag, sha, files, releaseBody(u)); err != nil {

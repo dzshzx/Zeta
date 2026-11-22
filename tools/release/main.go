@@ -8,12 +8,12 @@
 //	    用正式发版密钥加 release/lineage.bin 只签 APK 签名方案 v3，签完核对签名
 //	verify -apk <包> -version X.Y.Z -version-code N
 //	    核对签名、证书、对齐、包名、版本名和 versionCode
-//	package -apk <签好的包> -version X.Y.Z -version-code N -commit <提交> -repo <owner/name> -out <空目录>
-//	    核对后写出 Release 的全部资产：APK、它的 .sha256 和应用内更新用的 update.json，并写运行摘要
+//	package -apk <签好的包> -msi <桌面版安装包> -version X.Y.Z -version-code N -commit <提交> -repo <owner/name> -out <空目录>
+//	    核对后写出 Release 的全部资产：APK、桌面版的 MSI、各自的 .sha256 和应用内更新用的 update.json，并写运行摘要
 //	publish -version X.Y.Z -assets <package 的输出目录>
 //	    删同名旧草稿、建含全部资产的草稿、经 API 在本提交上打附注 tag、发布并设为最新；失败后重跑能续上
 //	check-download -dir <目录>
-//	    核对 gh release download 下来的一套资产（tools/install.sh --release 用），打印 APK 的路径
+//	    核对 gh release download 下来的手机那几个资产（tools/install.sh --release 用），打印 APK 的路径
 //
 // apksigner、aapt2、zipalign 取 $ANDROID_HOME/build-tools/<app/build.gradle.kts 的 buildToolsVersion>；
 // 设了 JAVA_HOME 时把它的 bin 放到子进程 PATH 的最前（apksigner 用 PATH 上的 java）。

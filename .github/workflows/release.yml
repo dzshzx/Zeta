@@ -6,7 +6,7 @@ name: Release
 # version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
 # gate：调 ci.yml 跑全量门禁（wt land 合入时的门禁不含截图测试，这里一个不落）；这个提交已经过了全量门禁就跳过：
 # dry run、每晚或手动的 CI 在它上面成功跑过。所以 dry run 之后的正式发版不再跑一遍。
-# build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
+# build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）；desktop 同时在那里打桌面版的 MSI（不签名）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
 # 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：建草稿、打 tag、发布，只有它能写仓库。
 # dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
 # 只放 master 时，别的分支到 sign 就停。
@@ -131,9 +131,65 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # 桌面版的 Windows 安装包，和 APK 一起发；全在 Linux 上打（desktop/windows/package.sh），没做代码签名。
+  desktop:
+    needs: [version, gate]
+    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
+    # 本机 runner 的主机装着 wixl；托管机上现装
+    runs-on: ${{ inputs.runner == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","nerv"]') }}
+    timeout-minutes: 40
+    steps:
+      - name: 每个 job 用新的 HOME
+        run: mkdir -p "$RUNNER_TEMP/home" && echo "HOME=$RUNNER_TEMP/home" >> "$GITHUB_ENV"
+
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 版本号从 git 推出（根目录的 build.gradle.kts）
+          persist-credentials: false
+
+      - name: 安装 JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}
+
+      # 装进包里、在 Linux 主机上跑的 zeta-helper 和 claude-switch 要编
+      - name: 安装 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: helper/go.mod
+          cache: false
+
+      - name: 托管机上装 wixl
+        if: runner.environment == 'github-hosted'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq wixl
+
+      # 同 build：本地 tag 让版本名是干净的 X.Y.Z，安装包就叫 Zeta-vX.Y.Z.msi
+      - name: 在检出里打上这次的 tag
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || git tag "$TAG"
+          got=$(git describe --tags --exact-match --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD)
+          [ "$got" = "$TAG" ] || { echo "::error::HEAD 上的 tag 是 $got，不是 $TAG"; exit 1; }
+
+      - name: 打 MSI
+        run: tools/gradle --console=plain :desktop:packageWindows
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop
+          path: desktop/build/windows/Zeta-v${{ needs.version.outputs.version }}.msi
+          if-no-files-found: error
+          retention-days: 7
+
   sign:
-    needs: [version, build]
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    needs: [version, build, desktop]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.desktop.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release # 正式发版密钥的 Secrets 只在这里
@@ -178,6 +234,12 @@ jobs:
           name: unsigned
           path: ${{ runner.temp }}/unsigned
 
+      - name: 取桌面版的安装包
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desktop
+          path: ${{ runner.temp }}/desktop
+
       # 密钥库只在这一步的临时目录里，用完就删；口令经环境变量交给 apksigner，不进命令行
       - name: 签名
         env:
@@ -200,11 +262,11 @@ jobs:
       - name: 核对签名、证书、包名和版本
         run: '"$RUNNER_TEMP/release" verify -apk "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk" -version "$VERSION" -version-code "$VERSION_CODE"'
 
-      # 资产目录里只放 Release 的资产：APK、.sha256、update.json；运行摘要列出各自的 sha256
+      # 资产目录里只放 Release 的资产：APK、MSI、各自的 .sha256、update.json；运行摘要列出各自的 sha256
       - name: 打包
         run: |
-          "$RUNNER_TEMP/release" package -apk "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk" -version "$VERSION" \
-            -version-code "$VERSION_CODE" -commit "$GITHUB_SHA" -repo "$GITHUB_REPOSITORY" -out "$RUNNER_TEMP/assets"
+          "$RUNNER_TEMP/release" package -apk "$RUNNER_TEMP/signed/Zeta-v$VERSION.apk" -msi "$RUNNER_TEMP/desktop/Zeta-v$VERSION.msi" \
+            -version "$VERSION" -version-code "$VERSION_CODE" -commit "$GITHUB_SHA" -repo "$GITHUB_REPOSITORY" -out "$RUNNER_TEMP/assets"
 
       - name: dry run 到此为止
         if: inputs.dry_run
