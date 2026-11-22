@@ -27,12 +27,6 @@ func (l *fakeLink) Send(line []byte) {
 	l.sent = append(l.sent, line)
 }
 
-func (l *fakeLink) SendFirst(lines [][]byte) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.sent = append(append([][]byte{}, lines...), l.sent...)
-}
-
 func (l *fakeLink) Stop()       { l.mu.Lock(); l.stopped = true; l.mu.Unlock() }
 func (l *fakeLink) Detach()     { l.mu.Lock(); l.detached = true; l.mu.Unlock() }
 func (l *fakeLink) Key() string { return l.key }

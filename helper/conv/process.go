@@ -159,18 +159,12 @@ func (c *Conversation) ensureProcess(mode string) *process {
 		env[k] = v
 	}
 	p := &process{prefix: "zeta-" + newUUID()[:8] + "-", waiting: map[string]func(controlResponse){}}
-	join := c.joinRequests(mode)
-	link, err := c.deps.Start(StartOptions{Key: newUUID(), Cwd: c.cwd, Title: c.title, Args: c.launchArgs(mode, o), Env: env},
-		c.events(p, func(joined bool) {
-			if !joined {
-				return
-			}
-			lines := make([][]byte, len(join))
-			for i, body := range join {
-				lines[i] = p.requestLine(body, nil)
-			}
-			p.link.SendFirst(lines)
-		}))
+	var join [][]byte
+	for _, body := range c.joinRequests(mode) {
+		join = append(join, p.requestLine(body, nil))
+	}
+	link, err := c.deps.Start(StartOptions{Key: newUUID(), Cwd: c.cwd, Title: c.title, Args: c.launchArgs(mode, o), Env: env,
+		OnJoin: join}, c.events(p))
 	if err != nil {
 		c.r.AddNotice("启动失败："+err.Error(), true)
 		c.changed()
@@ -185,7 +179,7 @@ func (c *Conversation) ensureProcess(mode string) *process {
 // attach 接上一个还在跑的托管进程（核心重启后打开它的会话时），从输出的第 from 行读起。
 func (c *Conversation) attach(key string, from int, mode string) {
 	p := &process{prefix: "zeta-" + newUUID()[:8] + "-", waiting: map[string]func(controlResponse){}}
-	link, err := c.deps.Attach(key, from, c.events(p, nil))
+	link, err := c.deps.Attach(key, from, c.events(p))
 	if err != nil {
 		c.r.AddNotice("重新接上后台进程失败："+err.Error(), true)
 		c.changed()
@@ -198,13 +192,8 @@ func (c *Conversation) attach(key string, from int, mode string) {
 }
 
 // events 是交给托管连接的回调：都排进对话的 goroutine，只认还是这个对话的进程的。
-func (c *Conversation) events(p *process, attached func(joined bool)) Events {
+func (c *Conversation) events(p *process) Events {
 	return Events{
-		Attached: func(joined bool) {
-			if attached != nil {
-				c.do(func() { attached(joined) })
-			}
-		},
 		Line: func(line []byte) { c.do(func() { c.receive(p, line) }) },
 		Exit: func(e Exit) { c.do(func() { c.onExit(p, e) }) },
 	}

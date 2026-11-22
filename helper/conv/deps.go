@@ -31,14 +31,14 @@ type StartOptions struct {
 	Title string
 	Args  []string
 	Env   map[string]string
+	// OnJoin 是接上了本包已在跑这个会话的进程时先写的几行（排在别的消息前面），把那个进程调成这边要的样子
+	OnJoin [][]byte
 }
 
 // Link 是和一个托管进程的连接。
 type Link interface {
 	// Send 写一行进 Claude Code 的标准输入；接上之前写的存着，接上后按序写
 	Send(line []byte)
-	// SendFirst 把几行排到还没写出去的那些前面（接上了本包现成的进程时，先把它调成这边要的样子）
-	SendFirst(lines [][]byte)
 	// Stop 结束进程（等于终端里 /exit），Detach 只断开自己；都立即返回，之后不再回调
 	Stop()
 	Detach()
@@ -48,9 +48,8 @@ type Link interface {
 
 // Events 是托管连接交回的事件。
 type Events struct {
-	Attached func(joined bool) // 接上了；joined 是接上的是本包已在跑这个会话的进程
-	Line     func(line []byte) // Claude Code 输出的一行
-	Exit     func(Exit)        // 连接到此为止（只来一次）
+	Line func(line []byte) // Claude Code 输出的一行
+	Exit func(Exit)        // 连接到此为止（只来一次）
 }
 
 // Exit 是托管进程的结局：退出码、标准错误输出的最后一段，和会话去了别处的原因（released、held_elsewhere）。
