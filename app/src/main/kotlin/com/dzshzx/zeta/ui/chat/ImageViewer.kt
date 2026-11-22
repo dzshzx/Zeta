@@ -11,17 +11,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,16 +47,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -58,14 +76,16 @@ import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.RemoteImage
 import com.dzshzx.zeta.ui.app.findActivity
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
+import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.PageBarHost
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
-import io.github.suqi8.coui.kmp.basic.FloatingEditToolbar
 import io.github.suqi8.coui.kmp.basic.FloatingEditToolbarDefaults
-import io.github.suqi8.coui.kmp.basic.FloatingEditToolbarItem
+import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.PageIndicator
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
 import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
@@ -80,13 +100,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 毛玻璃关着时（截图测试里）顶栏和底栏的底色不透明度：半透明的深色，看得出底下的图。 */
-private const val BarFallbackAlpha = 0.85f
+/** 毛玻璃关着时（截图测试里）顶栏和底栏后面渐变压暗最深处的不透明度。 */
+private const val BarFallbackAlpha = 0.7f
+
+/** 顶栏光晕全部显出要的滚动距离（COUI 17 是 30dp）：看图页没有滚动，直接按全显画。 */
+private val GlowReveal = 30.dp
 
 /**
- * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条 COUI 的栏： 顶上是 COUI
- * 顶栏（返回钮，多张时标题是第几张），底部是 COUI 的悬浮工具栏（保存到相册、分享），多张时上方是圆点页码；两条栏都取图片层的 COUI 17
- * 底栏材质。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放、双击放大、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色， 里面都用 COUI
+ * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条栏： 顶上是 COUI
+ * 顶栏（返回钮，多张时标题是第几张），底部是保存到相册、分享两项，多张时上方是圆点页码；两条栏后面都是往图片中间渐渐淡掉的毛玻璃，
+ * 和聊天页顶栏一个样子，没有分明的边。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放、双击放大、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色， 里面都用 COUI
  * 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
  */
 @Composable
@@ -177,22 +200,41 @@ private fun ViewerBars(
     }
 }
 
-/** 栏的底：有毛玻璃时是 COUI 17 底栏材质（和底部工具栏同一种），关着时是半透明的栏色。 */
+/** 毛玻璃关着时栏后面的渐变压暗：靠屏幕边的一头是 [BarFallbackAlpha] 的底色，往图片中间淡到透明。 */
 @Composable
-private fun barBackground(): Modifier =
-    LocalMaterialBackdrop.current?.materialBackdrop(
-        FloatingEditToolbarDefaults.backdropSpec(COUITheme.colorScheme.isDark),
-        RectangleShape,
-    ) ?: Modifier.background(COUITheme.colorScheme.bar.copy(alpha = BarFallbackAlpha))
+private fun scrim(towardsBottom: Boolean): Brush {
+    val edge = COUITheme.colorScheme.background.copy(alpha = BarFallbackAlpha)
+    return Brush.verticalGradient(
+        if (towardsBottom) listOf(Color.Transparent, edge) else listOf(edge, Color.Transparent),
+    )
+}
 
-/** 顶栏：透明底的 COUI 顶栏，垫在毛玻璃上，从状态栏下面铺起。 */
+/** 顶栏：透明底的 COUI 顶栏，后面是聊天页顶栏那种 COUI 17 光晕（往下渐渐淡掉的毛玻璃），没有一条分明的边。 */
 @Composable
 private fun ViewerTopBar(title: String, onBack: () -> Unit) {
-    Box(Modifier.fillMaxWidth().then(barBackground())) {
+    val backdrop = LocalPageBackdrop.current
+    val base = COUITheme.colorScheme.background
+    val reveal = with(LocalDensity.current) { GlowReveal.toPx() }
+    val glow: (@Composable BoxScope.() -> Unit)? = backdrop?.let {
+        {
+            TopAppBarGlow(
+                backdrop = it,
+                scrollOffsetPx = reveal,
+                isDark = true,
+                baseColor = base,
+                enabled = true,
+            )
+        }
+    }
+    Box(
+        Modifier.fillMaxWidth()
+            .then(if (backdrop == null) Modifier.background(scrim(false)) else Modifier),
+    ) {
         SmallTopAppBar(
             title = title,
             color = Color.Transparent,
             showDivider = false,
+            glow = glow,
             navigationIcon = {
                 IconActionButton(
                     COUIIcons.Back,
@@ -204,34 +246,81 @@ private fun ViewerTopBar(title: String, onBack: () -> Unit) {
     }
 }
 
-/** 底栏：多张时上面是圆点页码，下面是 COUI 的悬浮工具栏（保存到相册、分享）。这张图的字节还拿不到时两项都置灰。 */
+/**
+ * 底栏：多张时上面是圆点页码，下面是保存到相册、分享两项。后面和顶栏对称： 从屏幕底边往上渐渐淡掉的毛玻璃（COUI 17 底栏材质），毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。
+ */
 @Composable
 private fun ViewerBottomBar(pager: PagerState, count: Int, ref: ImageRef, bytes: ByteArray?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val export = remember(ref, bytes) { ImageExport.of(ref, bytes, LocalDateTime.now()) }
-    val glass = LocalMaterialBackdrop.current != null
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (count > 1) PageIndicator(pagerState = pager, modifier = Modifier.padding(bottom = 4.dp))
-        FloatingEditToolbar(
-            color =
-                FloatingEditToolbarDefaults.color().let {
-                    if (glass) it else it.copy(alpha = BarFallbackAlpha)
-                },
+    val glass =
+        LocalMaterialBackdrop.current?.materialBackdrop(
+            FloatingEditToolbarDefaults.backdropSpec(true),
+            RectangleShape,
+        )
+    Box(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier.matchParentSize()
+                .then(
+                    if (glass != null) {
+                        // 毛玻璃整块画出来，再按从上到下由透明到不透明的渐变留下：上沿淡进图里
+                        Modifier.graphicsLayer {
+                                compositingStrategy = CompositingStrategy.Offscreen
+                            }
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Transparent, Color.Black),
+                                        endY = size.height * 0.6f,
+                                    ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            }
+                            .then(glass)
+                    } else {
+                        Modifier.background(scrim(true))
+                    },
+                ),
+        )
+        Column(
+            Modifier.fillMaxWidth().padding(top = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            FloatingEditToolbarItem(
-                onClick = { export?.let { scope.saveImage(context, it) } },
-                icon = COUIIcons.Download,
-                label = "保存到相册",
-                enabled = export != null,
-            )
-            FloatingEditToolbarItem(
-                onClick = { export?.let { scope.shareImage(context, it) } },
-                icon = COUIIcons.Share,
-                label = "分享",
-                enabled = export != null,
-            )
+            if (count > 1) {
+                PageIndicator(pagerState = pager, modifier = Modifier.padding(bottom = 4.dp))
+            }
+            // 两项直接落在渐变的毛玻璃上，不垫胶囊
+            Row(
+                Modifier.navigationBarsPadding().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                BarAction(COUIIcons.Download, "保存到相册", export != null) {
+                    export?.let { scope.saveImage(context, it) }
+                }
+                BarAction(COUIIcons.Share, "分享", export != null) {
+                    export?.let { scope.shareImage(context, it) }
+                }
+            }
         }
+    }
+}
+
+/** 底栏里的一项：图标在上、字在下，用不了时变淡。 */
+@Composable
+private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val tint = COUITheme.colorScheme.labelPrimary.copy(alpha = if (enabled) 1f else 0.35f)
+    Column(
+        Modifier.widthIn(min = 88.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, null, Modifier.size(24.dp), tint = tint)
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = COUITheme.textStyles.bodyXS, color = tint, maxLines = 1)
     }
 }
 
