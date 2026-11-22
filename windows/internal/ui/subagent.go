@@ -101,7 +101,8 @@ func noStepsText(s chat.Subagent, failed string) string {
 }
 
 // subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
-// 和聊天里的条目一样画；运行中最后一行在转。
+// 和聊天里的条目一样画，装在一张白色卡片里，卡片跟着步骤的多少长；运行中最后一行在转。整页一起滚动（同手机版）：
+// 有步骤时概要和指令画在聊天列表的第一行上面，还没有步骤时是一页普通的滚动内容。
 func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	var s chat.Subagent
 	if p.src.Conv != nil {
@@ -110,23 +111,62 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	if s.Rev != v.rev {
 		v.follow(s)
 	}
+	coui.Header(c, "子代理", func() { a.back(p) })
+	n := len(v.list.Items())
+	if n == 0 {
+		// 和聊天列表留一样的边：上 12、下 20、两边 24
+		ui.Scroll(c.Key("subagent/page")).Grow(1).MinHeight(0).Children(func() {
+			ui.Column(c).FillWidth().Padding(12, 24, 20, 24).Children(func() {
+				subagentColumn(c).Children(func() {
+					subagentHead(c, v, s)
+					noSteps(c, v, s)
+				})
+			})
+		})
+		return
+	}
+	// 每一帧照这一版的 s 重设：第一行上面是概要，每一行是步骤卡片的一段
+	v.list.Row = func(c *ui.Context, row int, draw func()) {
+		subagentColumn(c).Children(func() {
+			if row == 0 {
+				subagentHead(c, v, s)
+			}
+			stepSegment(c, row == 0, row == n-1, func() {
+				draw()
+				if row == n-1 && s.Running {
+					working(c).Padding(10, 0, 14, 0)
+				}
+			})
+		})
+	}
+	v.list.View(c).Grow(1).MinHeight(0)
+}
+
+// subagentColumn 是子代理页内容的那一列：居中，最宽同设置页。
+func subagentColumn(c *ui.Context) ui.Element {
+	return ui.Column(c).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center)
+}
+
+// subagentHead 是步骤上面的部分：概要、交给它的指令和「步骤」这个分组标题。
+func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上
 	var description, kind, model string
 	if m := s.Meta; m != nil {
 		description, kind, model = m.Description, m.AgentType, m.Model
 	}
-	coui.Header(c, "子代理", func() { a.back(p) })
-	ui.Column(c).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center).Grow(1).MinHeight(0).Padding(4, 0, 16, 0).Children(func() {
-		subagentSummary(c, s, cmp.Or(description, "子代理"), kind, model)
-		if s.Prompt != "" {
-			promptBlock(c, v, s.Prompt)
-		}
-		subagentSteps(c, v, s)
-	})
+	subagentSummary(c, s, cmp.Or(description, "子代理"), kind, model)
+	if s.Prompt != "" {
+		promptBlock(c, v, s.Prompt)
+	}
+	title := "步骤"
+	if s.Skipped > 0 {
+		title += " · 更早的 " + strconv.Itoa(s.Skipped) + " 条记录未载入"
+	}
+	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Secondary).Padding(8, 32, 8, 32)
 }
 
 // subagentSummary 是概要卡片：第一行说明和状态，第二行类型、模型、工具调用次数（知道的才列）。手机版一项一行，
-// 桌面版的步骤列表要留够高度，压成两行。
+// 桌面版宽，压成两行。
 func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model string) {
 	k := coui.Of(c)
 	var facts []string
@@ -174,26 +214,42 @@ func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 	})
 }
 
-// subagentSteps 是它的步骤：白色卡片里的聊天列表，占满剩下的高度。
-func subagentSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
-	k := coui.Of(c)
-	title := "步骤"
-	if s.Skipped > 0 {
-		title += " · 更早的 " + strconv.Itoa(s.Skipped) + " 条记录未载入"
+// stepSegment 是步骤卡片里一行的那一段：白底，只有第一段画上面的圆角、最后一段画下面的圆角，几段连成一张卡片。
+// 卡片里边上 12、下 16、两边 24（同原先列表在卡片里的边）。
+func stepSegment(c *ui.Context, first, last bool, draw func()) {
+	shape := coui.ShapeCard
+	var top, bottom float32
+	if first {
+		top = 12
+	} else {
+		shape.Radii[0], shape.Radii[1] = 0, 0
 	}
-	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(k.Secondary).Padding(8, 32, 8, 32)
-	card := coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16).Clip().Grow(1).MinHeight(0)
+	if last {
+		bottom = 16
+	} else {
+		shape.Radii[2], shape.Radii[3] = 0, 0
+	}
+	card := coui.Surface{Shape: shape, Fill: coui.Of(c).Card}.Paint(ui.Column(c)).Margin(0, 16).Clip()
+	card.Padding(top, 24, bottom, 24).Children(draw)
+}
+
+// noSteps 是一步都还没有时的卡片：在跑时是「正在工作」，不然说明为什么没有。
+func noSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
+	k := coui.Of(c)
+	card := coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16)
 	card.Children(func() {
-		if len(v.list.Items()) == 0 && !s.Running {
-			ui.Text(c, noStepsText(s, v.failed)).FontSize(coui.SizeBodyS).TextColor(k.Secondary).Padding(14, 16)
+		if s.Running {
+			working(c).Padding(14, 24)
 			return
 		}
-		v.list.View(c).Grow(1).MinHeight(0)
-		if s.Running {
-			ui.Row(c).Padding(10, 24, 14, 24).Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Spinner(c).Size(14, 14)
-				ui.Text(c, "正在工作").FontSize(coui.SizeBodyS).TextColor(k.Secondary)
-			})
-		}
+		ui.Text(c, noStepsText(s, v.failed)).FontSize(coui.SizeBodyS).TextColor(k.Secondary).Padding(14, 16)
+	})
+}
+
+// working 是在跑时步骤末尾转着的那一行，边距由调用方定。
+func working(c *ui.Context) ui.Element {
+	return ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+		ui.Spinner(c).Size(14, 14)
+		ui.Text(c, "正在工作").FontSize(coui.SizeBodyS).TextColor(coui.Of(c).Secondary)
 	})
 }

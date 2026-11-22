@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -177,14 +178,76 @@ func TestTaskStateText(t *testing.T) {
 
 func init() {
 	// 预览：子代理页（在跑，聊天里点进来的）
-	chatScenes["subagent"] = func(t *testing.T, f *chatFixture) {
-		f.newChat(t)
-		f.pushItems(agentItems)
-		f.click(t, "已完成 1 个步骤")
-		f.tt.Advance(time.Second) // 展开的动画走完
-		f.tt.Frame()
-		f.click(t, "子代理：查找读配置的地方")
-		f.link().Push(agentLog)
-		f.tt.Frame()
+	chatScenes["subagent"] = func(t *testing.T, f *chatFixture) { f.openSubagentWith(t, agentLog) }
+	// 预览：子代理页，步骤多到超过窗口（跟到了底部，概要已滚上去）
+	chatScenes["subagent-long"] = func(t *testing.T, f *chatFixture) { f.openSubagentWith(t, longAgentLog(20)) }
+	// 预览：同上，翻回顶上
+	chatScenes["subagent-long-top"] = func(t *testing.T, f *chatFixture) {
+		f.openSubagentWith(t, longAgentLog(20))
+		scrollToTop(f)
 	}
+}
+
+// longAgentLog 是一份步骤很多的子代理记录（在跑）：n 轮，每轮一组两个工具调用和一段回答。
+func longAgentLog(n int) string {
+	var list []string
+	for i := range n {
+		id := strconv.Itoa(i)
+		list = append(list, `{"kind":"work","id":"w`+id+`","steps":[`+
+			`{"kind":"tool","id":"r`+id+`","name":"Read","status":"success","input":{"file_path":"/src/pkg`+id+`/config.go"},"result":"package pkg"},`+
+			`{"kind":"tool","id":"g`+id+`","name":"Grep","status":"success","input":{"pattern":"config\\.Load"},"result":"pkg`+id+`/main.go:30"}]}`,
+			`{"kind":"answer","id":"a`+id+`","text":"第 `+strconv.Itoa(i+1)+` 个包看完了：读配置都经 config.Load。"}`)
+	}
+	return `{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"at":0,"remove":0,"items":[` + strings.Join(list, ",") + `],
+ "meta":{"agent_id":"ag1","agent_type":"Explore","description":"查找读配置的地方","model":"claude-haiku-4-5","finished":false,"stopped":false,"background":false},
+ "prompt":"找出所有直接读 config 文件的地方，列出文件和行号","tool_uses":` + strconv.Itoa(2*n) + `,"running":true,"loaded":true,"missing":false,"file":"x","skipped":0}`
+}
+
+// openSubagentWith 在聊天里点进子代理页，推来记录 log，等列表跟到底部的动画走完。
+func (f *chatFixture) openSubagentWith(t *testing.T, log string) {
+	t.Helper()
+	f.newChat(t)
+	f.pushItems(agentItems)
+	f.click(t, "已完成 1 个步骤")
+	f.tt.Advance(time.Second) // 展开的动画走完
+	f.tt.Frame()
+	f.click(t, "子代理：查找读配置的地方")
+	f.link().Push(log)
+	f.tt.Frame()
+	f.tt.Advance(2 * time.Second)
+	f.tt.Frame()
+}
+
+// 步骤卡片跟着内容长：步骤少时「正在工作」紧跟在最后一条下面，不拉到窗口底；步骤多时整页一起滚，概要跟着滚上去。
+func TestSubagentStepsCardFitsItsContent(t *testing.T) {
+	f := newChatFixture(t)
+	f.openSubagentWith(t, agentLog)
+	answer, _ := f.tt.Find("找到 config.go 和 main.go 两处，server.go 交给另一个子代理细看。")
+	busy, ok := f.tt.Find("正在工作")
+	if !ok || busy.Y-answer.Y > 120 || busy.Y > 600 {
+		t.Fatalf("步骤少：回答在 %v，正在工作在 %v（窗口高 860）", answer, busy)
+	}
+
+	f = newChatFixture(t)
+	f.openSubagentWith(t, longAgentLog(20))
+	busy, ok = f.tt.Find("正在工作")
+	if !ok || busy.Y+busy.H > 860 {
+		t.Fatalf("步骤多：跟到底部时正在工作在 %v", busy)
+	}
+	if r, ok := f.tt.Find("查找读配置的地方"); ok && r.Y+r.H > 60 {
+		t.Fatalf("步骤多：跟到底部时概要还在 %v，应已滚上去", r)
+	}
+	scrollToTop(f)
+	if r, ok := f.tt.Find("查找读配置的地方"); !ok || r.Y > 120 {
+		t.Fatalf("步骤多：翻到顶上时概要在 %v（%v）", r, ok)
+	}
+	f.notSee(t, "正在工作")
+}
+
+// scrollToTop 在页面中间往上翻到顶。
+func scrollToTop(f *chatFixture) {
+	for range 40 {
+		f.tt.Scroll(800, 400, 0, -400)
+	}
+	f.tt.Frame()
 }

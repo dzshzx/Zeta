@@ -58,6 +58,9 @@ type Chat struct {
 	UserMenu func(m *ui.Menu, it items.Item)
 	Actions  func(c *ui.Context, user items.Item, last bool)
 	Editing  string
+	// Row 给了时每一行经它画：draw 画这一行本来的内容，它可以在前后加东西、给内容套外框，和条目一起滚动
+	// （子代理页在第一行上面画概要、把条目装进一张卡片）。没给时直接画。
+	Row func(c *ui.Context, row int, draw func())
 
 	items []items.Item
 	// rev 是条目的版本：SetItems、Splice 一次加一（Rev）。
@@ -183,13 +186,20 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 		if row == 0 {
 			top = e.Bounds().Y
 		}
-		e.Children(func() {
+		draw := func() {
 			// 「更早的记录」画在第一条的上面、同一行里，不单占一行：列表按看得见的第一行记位置，
 			// 它要是单占一行，翻到最顶上时就是它，接上的一页会把正看着的那条往下推走
 			if row == 0 && ch.Earlier.shown() {
 				ch.earlierRow(c)
 			}
 			ch.item(c, row)
+		}
+		e.Children(func() {
+			if ch.Row != nil {
+				ch.Row(c, row, draw)
+			} else {
+				draw()
+			}
 		})
 	})
 	list.Children(func() {
