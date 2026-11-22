@@ -8,6 +8,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -49,10 +53,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -78,6 +87,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Share
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.darkColorScheme
 import java.time.LocalDateTime
+import kotlin.math.abs
 import kotlinx.coroutines.flow.first
 
 /** 毛玻璃关着时（截图测试里）顶栏和底栏后面渐变压暗最深处的不透明度。 */
@@ -89,8 +99,8 @@ private val GlowReveal = 30.dp
 /**
  * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条栏： 顶上是 COUI
  * 顶栏（返回钮，多张时标题是第几张），底部是保存到相册、分享两项，多张时上方是圆点页码；两条栏后面都是往图片中间渐渐淡掉的毛玻璃，
- * 和聊天页顶栏一个样子，没有分明的边。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放、双击放大、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色， 里面都用 COUI
- * 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
+ * 和聊天页顶栏一个样子，没有分明的边。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放（能缩到比铺满屏幕小）、双击放大或还原、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色，
+ * 里面都用 COUI 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
  */
 @Composable
 fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
@@ -126,7 +136,11 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
             val blur = rememberPageBlur()
             AnimatedVisibility(shown, enter = fadeIn(tween(220)), exit = fadeOut(tween(180))) {
                 Box(Modifier.fillMaxSize().background(COUITheme.colorScheme.background)) {
-                    Box(Modifier.fillMaxSize().pageBlurSource(blur)) {
+                    Box(
+                        Modifier.fillMaxSize().pageBlurSource(blur).pointerInput(pager) {
+                            pinchGestures { zooms.getOrPut(pager.currentPage) { ZoomState() } }
+                        },
+                    ) {
                         HorizontalPager(
                             state = pager,
                             modifier = Modifier.fillMaxSize(),
@@ -326,16 +340,53 @@ class ZoomState {
         scale = 1f
         offset = Offset.Zero
     }
+
+    /** 缩放 [factor] 倍、平移 [pan]：倍数夹在 [MinScale]、[MaxScale] 之间，没放大时不平移。 */
+    fun transform(factor: Float, pan: Offset) {
+        scale = (scale * factor).coerceIn(MinScale, MaxScale)
+        offset = if (zoomed) offset + pan else Offset.Zero
+    }
+
+    /** 两指松开：离原大不到 [SnapToFit] 就落回原大。 */
+    fun settle() {
+        if (scale != 1f && abs(scale - 1f) < SnapToFit) reset()
+    }
 }
 
-/** 全屏看的一张图：双指缩放，放大后拖动，双击在原大和 2.5 倍之间切换，点一下交给 [onTap]。没放大时单指拖动不归它，留给外面左右翻页。 */
+/**
+ * 两指缩放，放在翻页外面、比翻页先拿到触摸（[PointerEventPass.Initial]）：有两根以上手指按着时由这里缩放 [zoom] 给的那张图，并把移动吃掉，
+ * 翻页就不会把捏拢当成左右滑走（不然原大时捏拢缩不了）。一根手指的不管，留给翻页和放大后的拖动。手指全抬起时 [ZoomState.settle]。
+ */
+private suspend fun PointerInputScope.pinchGestures(zoom: () -> ZoomState) = awaitEachGesture {
+    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    var pinched = false
+    do {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        if (event.changes.count { it.pressed } >= 2) {
+            pinched = true
+            zoom().transform(event.calculateZoom(), event.calculatePan())
+            event.changes.forEach { if (it.positionChanged()) it.consume() }
+        }
+    } while (event.changes.any { it.pressed })
+    if (pinched) zoom().settle()
+}
+
+/** 双指缩放的范围：最小缩到原大（铺满屏幕的大小）的一半，最大放大 6 倍。 */
+private const val MinScale = 0.5f
+private const val MaxScale = 6f
+
+/** 松手时离原大不到这么多就落回原大：捏回去时停在 0.98 这样的倍数上，双击、翻页都按没缩放算才顺手。 */
+private const val SnapToFit = 0.05f
+
+/**
+ * 全屏看的一张图：双指缩放（可以缩到比原大小，见 [MinScale]），放大后拖动，双击回到原大（已经是原大时放大到 2.5 倍），点一下交给 [onTap]。
+ * 没放大时单指拖动不归它，留给外面左右翻页。
+ */
 @Composable
 private fun ZoomableImage(bitmap: ImageBitmap, zoom: ZoomState, onTap: () -> Unit) {
     val tap by rememberUpdatedState(onTap)
-    val transform = rememberTransformableState { factor, pan, _ ->
-        zoom.scale = (zoom.scale * factor).coerceIn(1f, 6f)
-        zoom.offset = if (zoom.scale == 1f) Offset.Zero else zoom.offset + pan
-    }
+    // 两指的缩放由外面的 pinchGestures 做；这里剩放大后一根手指的拖动
+    val transform = rememberTransformableState { factor, pan, _ -> zoom.transform(factor, pan) }
     Box(
         modifier =
             Modifier.fillMaxSize()
@@ -343,7 +394,7 @@ private fun ZoomableImage(bitmap: ImageBitmap, zoom: ZoomState, onTap: () -> Uni
                     detectTapGestures(
                         onTap = { tap() },
                         onDoubleTap = {
-                            zoom.scale = if (zoom.zoomed) 1f else 2.5f
+                            zoom.scale = if (zoom.scale != 1f) 1f else 2.5f
                             zoom.offset = Offset.Zero
                         },
                     )
@@ -356,15 +407,26 @@ private fun ZoomableImage(bitmap: ImageBitmap, zoom: ZoomState, onTap: () -> Uni
             contentDescription = "图片",
             contentScale = ContentScale.Fit,
             modifier =
-                Modifier.fillMaxSize().graphicsLayer {
-                    scaleX = zoom.scale
-                    scaleY = zoom.scale
-                    translationX = zoom.offset.x
-                    translationY = zoom.offset.y
-                },
+                Modifier.fillMaxSize()
+                    // 读屏报现在放大了多少，测试也照它核对
+                    .semantics { stateDescription = zoomText(zoom.scale) }
+                    .graphicsLayer {
+                        scaleX = zoom.scale
+                        scaleY = zoom.scale
+                        translationX = zoom.offset.x
+                        translationY = zoom.offset.y
+                    },
         )
     }
 }
+
+/** 读屏报的缩放：原大，或放大、缩小到几倍（一位小数）。 */
+fun zoomText(scale: Float): String =
+    when {
+        scale == 1f -> "原大"
+        scale > 1f -> "放大 ${"%.1f".format(scale)} 倍"
+        else -> "缩小到 ${"%.1f".format(scale)} 倍"
+    }
 
 /** 全屏看图的对话框：铺满窗口（手机上还铺进系统栏下面）。 */
 expect fun fullScreenDialogProperties(): DialogProperties
