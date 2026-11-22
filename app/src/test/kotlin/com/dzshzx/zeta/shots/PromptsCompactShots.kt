@@ -5,9 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatUsage
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.PromptStore
@@ -20,7 +20,7 @@ import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
 import com.dzshzx.zeta.ui.chat.SavedPromptsDialogs
-import com.dzshzx.zeta.ui.settings.SettingsScreen
+import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import org.junit.Test
 
@@ -145,8 +145,14 @@ class PromptsCompactShots : ShotTest() {
     fun settingsGroup() {
         val hub = Fixtures.readyHub(app)
         hub.settings.autoCompactPercent = 70
-        shoot("settings-compact", prepare = { onNodeWithText("压缩时机").scrollIntoView() }) {
-            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
+        shoot("settings-compact", prepare = { scrollListTo("压缩时机") }) {
+            HostSettingsScreen(
+                hub = hub,
+                backend = Backends.LOCAL,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
         }
     }
 }
