@@ -359,7 +359,13 @@ class Conversation(
         )
         queryUsage(created)
         host.pending.forEach { handle(it, System.currentTimeMillis()) }
+        reopenDesk()
         hub.onActivityChanged()
+    }
+
+    /** 已有会话号的对话起了进程或接上了后台进程：远程主机上它在「Zeta」tmux 会话里的窗口丢了就补回来（[DeskWindows]）。 */
+    private fun reopenDesk() {
+        sessionId?.let { DeskWindows.open(hub, backend, it, cwd) }
     }
 
     private fun loadHistory(file: String, attach: HostInfo?) {
@@ -1239,6 +1245,7 @@ class Conversation(
             compactPercent = claude.compactPoint,
         )
         queryUsage(created)
+        reopenDesk()
         hub.onActivityChanged()
         return created
     }

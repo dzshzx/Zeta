@@ -140,8 +140,9 @@ class SessionHandoff(
 }
 
 /**
- * 远程主机上「Zeta」tmux 会话里的窗口（zeta-helper desk-open、desk-close）：Zeta 起的对话每个一个窗口，回到电脑前 `tmux attach -t
- * zeta` 回车就在终端里接着。手机本机不开：人就在手机上。没有 tmux 的主机 desk-open 什么也不做。都在后台跑，不等结果。
+ * 远程主机上「Zeta」tmux 会话里的窗口（zeta-helper desk-open、desk-close）：Zeta 跑过的对话每个一个窗口，回到电脑前 `tmux attach -t
+ * zeta` 回车就在终端里接着。新会话拿到会话号时开，之后 Zeta 每次为它起进程或接上后台进程时再开一次（已经有就不动）：tmux
+ * 服务器没了（主机重启、被停掉）丢掉的窗口，下次用到那个会话就回来。手机本机不开：人就在手机上。没有 tmux 的主机 desk-open 什么也不做。都在后台跑，不等结果。
  */
 object DeskWindows {
     /** 开窗口（已经有了就不动）。窗口名由窗口里的程序按会话记录里的标题改。 */
@@ -153,15 +154,21 @@ object DeskWindows {
         if (sessionIds.isNotEmpty()) fire(hub, backend, "desk-close", sessionIds.toList())
     }
 
+    /** 在主机 backend 上跑 helper 子命令 command：平时在后台线程上跑、不等结果；单元测试换成记下发了什么。 */
+    var run:
+        (hub: ConversationHub, backend: String, command: String, arguments: List<String>) -> Unit =
+        { hub, backend, command, arguments ->
+            thread(name = "zeta-desk", isDaemon = true) {
+                hub.helper(command, arguments, 15_000, backend)
+            }
+        }
+
     private fun fire(
         hub: ConversationHub,
         backend: String,
         command: String,
         arguments: List<String>,
     ) {
-        if (backend == Backends.LOCAL) return
-        thread(name = "zeta-desk", isDaemon = true) {
-            hub.helper(command, arguments, 15_000, backend)
-        }
+        if (backend != Backends.LOCAL) run(hub, backend, command, arguments)
     }
 }
