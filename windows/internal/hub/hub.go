@@ -37,6 +37,8 @@ type Devices interface {
 	Retain(ids []string)
 	// OpenChat 起一条到设备 h 的 serve 连接给对话用：推送、连接的变化在后台 goroutine 上交给 push、problem（见 host.Devices.OpenChat）。
 	OpenChat(h sshlink.Host, push func(line []byte), problem func(why string)) host.ChatLink
+	// OpenBulk 另起一条到设备 h 的 serve 连接，只取大块数据（见 host.Devices.OpenBulk）。
+	OpenBulk(h sshlink.Host) host.ChatLink
 	// CheckDir 看设备 h 上进不进得去目录 path：进不去时是原因，进得去是空，查不成时是错误。阻塞。
 	CheckDir(h sshlink.Host, path string) (string, error)
 	// Hostname 是设备 h 报的主机名（uname -n）。阻塞。
@@ -59,21 +61,25 @@ type Hub struct {
 	hosts    []sshlink.Host
 	pins     map[string]bool
 	watches  map[string]io.Closer                    // 订阅着的设备
-	sessions []hostlink.Session                      // 列着的各台的会话，合在一起
+	sessions []hostlink.Session                      // 列着的各台的会话（连同单独取来的置顶会话），合在一起，新的在前
 	problems map[string]string                       // 各台没读成会话列表的原因
 	activity map[string]map[string]hostlink.Activity // 各台的核心报的各会话忙闲：设备 → 会话号 → 样子
 	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按置顶键）
 	search   search                                  // 侧栏的搜索（search.go）
-	far      map[string][]hostlink.Session           // 各台置顶、却不在列表里而单独取来的会话（sessions.go 的 syncFar）
-	farAsked map[string]bool                         // 问过的置顶键
+	far      map[string]map[string]bool              // 各台置顶、却不在列表里而单独取来的会话：设备 → 会话号（sessions.go 的 syncFar）
+	farAsked map[string]map[string]bool              // 各台问过的置顶会话：设备 → 会话号
 	naming   map[string]bool                         // 正在问主机名的设备（hostname.go）
+	view     view                                    // 侧栏的分组和归档，算好的（Groups）
 
 	chat    *Chat                // 聊天窗格里的对话
 	conns   map[string]*chatConn // 各台给对话用的 serve 连接
+	bulks   map[string]*bulkLink // 各台取大块数据的 serve 连接（bulk.go）
 	remotes map[string]*Remote   // 设置里各台的 Claude Code 配置、账号与额度（remote.go）
 
 	// SearchDelay 是关键词停下多久才去搜对话内容（打字时不必每个字都搜一次）；测试里设成 0。
 	SearchDelay time.Duration
+	// bulkIdle 是取大块数据的连接闲多久关掉；测试里改短。
+	bulkIdle time.Duration
 }
 
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
@@ -81,7 +87,8 @@ func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 	h := &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: map[string]bool{},
 		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay,
-		far: map[string][]hostlink.Session{}, farAsked: map[string]bool{}, naming: map[string]bool{}}
+		far: map[string]map[string]bool{}, farAsked: map[string]map[string]bool{}, naming: map[string]bool{},
+		bulks: map[string]*bulkLink{}, bulkIdle: bulkIdle}
 	for _, pin := range s.Pins() {
 		h.pins[pin] = true
 	}
@@ -184,11 +191,12 @@ func (h *Hub) Refresh() {
 			delete(h.far, id)
 		}
 	}
-	for key := range h.farAsked {
-		if id, _, _ := strings.Cut(key, "/"); !slices.Contains(listed, id) {
-			delete(h.farAsked, key)
+	for id := range h.farAsked {
+		if !slices.Contains(listed, id) {
+			delete(h.farAsked, id)
 		}
 	}
+	h.changed()
 	for _, id := range listed {
 		if _, live := h.watches[id]; live && h.problems[id] == "" {
 			continue
@@ -243,27 +251,28 @@ func (h *Hub) unwatch(id string) {
 }
 
 // received：设备 id 推来了列表。整份时换掉它的那些，再取回不在里面的置顶会话；否则 Upsert 是新出现或变了的、
-// Remove 是不再列出的，别的都留着。
+// Remove 是不再列出的，别的都留着。单独取来的置顶会话（far）不因为不在列表里拿掉，列表里有它时换成列表里的样子。
 func (h *Hub) received(id string, u hostlink.SessionsUpdate) {
-	if u.Full {
-		others := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool { return s.Backend == id })
-		if len(others) == 0 {
-			h.sessions = u.Upsert // 只有这一台时照那边给的先后
-		} else {
-			h.sessions = byTime(append(u.Upsert, others...))
-		}
-		h.syncFar(id)
-		return
-	}
+	defer h.changed()
+	far := h.far[id]
 	dropped := map[string]bool{}
-	for _, sid := range u.Remove {
-		dropped[sid] = true
-	}
 	for _, s := range u.Upsert {
 		dropped[s.ID] = true
 	}
-	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool { return s.Backend == id && dropped[s.ID] })
-	h.sessions = byTime(append(slices.Clone(u.Upsert), kept...))
+	for _, sid := range u.Remove {
+		dropped[sid] = dropped[sid] || !far[sid]
+	}
+	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool {
+		return s.Backend == id && (dropped[s.ID] || u.Full && !far[s.ID])
+	})
+	if u.Full && len(kept) == 0 {
+		h.sessions = u.Upsert // 只有这一台时照那边给的先后
+	} else {
+		h.sessions = byTime(append(slices.Clone(u.Upsert), kept...))
+	}
+	if u.Full {
+		h.syncFar(id)
+	}
 }
 
 func byTime(list []hostlink.Session) []hostlink.Session {
@@ -271,8 +280,8 @@ func byTime(list []hostlink.Session) []hostlink.Session {
 	return list
 }
 
-// Sessions 是列着的各台的会话（连同单独取来的置顶会话），新的在前。
-func (h *Hub) Sessions() []hostlink.Session { return h.all() }
+// Sessions 是列着的各台的会话（连同单独取来的置顶会话），新的在前。只读。
+func (h *Hub) Sessions() []hostlink.Session { return h.sessions }
 
 // Problem 是没读成会话列表的原因；都读成了是空。列着几台时每条前面注明是哪台。
 func (h *Hub) Problem() string {
@@ -294,58 +303,77 @@ type Groups struct {
 	Pinned, Today, Earlier []hostlink.Session
 }
 
+// view 是按列表算好的侧栏分组和归档：列表、置顶、列哪几台变了（changed）、开着的会话换了或过了零点才重算，
+// 侧栏每帧取它不必每次都分一遍。
+type view struct {
+	fresh    bool
+	today    int64
+	current  hostlink.Session
+	groups   Groups
+	archived []hostlink.Session
+}
+
+// changed：列表、置顶或列哪几台变了，侧栏的分组要重算。
+func (h *Hub) changed() { h.view.fresh = false }
+
 // Groups 把列着的会话分组。current 是聊天窗格里开着的会话（没有会话号时不算）：列表里还没有它（新对话刚有了会话号、
-// 那边的列表还没推来，或在最近 300 个之外）时也放进来，正开着的那个一直找得到。
+// 那边的列表还没推来，或在最近 300 个之外）时也放进来，正开着的那个一直找得到。结果只读。
 func (h *Hub) Groups(now time.Time, current hostlink.Session) Groups {
+	return h.sorted(now, current).groups
+}
+
+// Archived 是列着的会话里归档了的（current 同 Groups），新的在前。结果只读。
+func (h *Hub) Archived(now time.Time, current hostlink.Session) []hostlink.Session {
+	return h.sorted(now, current).archived
+}
+
+// sorted 是算好的分组和归档，没算过或过时了先算。
+func (h *Hub) sorted(now time.Time, current hostlink.Session) *view {
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location()).UnixMilli()
-	var g Groups
+	v := &h.view
+	if v.fresh && v.today == today && v.current == current {
+		return v
+	}
+	*v = view{fresh: true, today: today, current: current}
 	for _, s := range h.withCurrent(current, now) {
 		switch {
 		case s.Archived:
+			v.archived = append(v.archived, s)
 		case h.Pinned(s):
-			g.Pinned = append(g.Pinned, s)
+			v.groups.Pinned = append(v.groups.Pinned, s)
 		case s.Updated >= today:
-			g.Today = append(g.Today, s)
+			v.groups.Today = append(v.groups.Today, s)
 		default:
-			g.Earlier = append(g.Earlier, s)
+			v.groups.Earlier = append(v.groups.Earlier, s)
 		}
 	}
-	return g
+	return v
 }
 
 // withCurrent 是列着的会话（连同单独取来的置顶会话），加上列表里还没有的 current（排在最前，时间算作 now）。
 // current 不在列着的设备上时不加。
 func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Session {
-	all := h.all()
-	if current.ID == "" || !slices.Contains(h.Listed(), current.Backend) || slices.ContainsFunc(all, func(s hostlink.Session) bool {
-		return s.Backend == current.Backend && s.ID == current.ID
-	}) {
-		return all
+	if current.ID == "" || !slices.Contains(h.Listed(), current.Backend) ||
+		slices.ContainsFunc(h.sessions, func(s hostlink.Session) bool { return sameSession(s, current) }) {
+		return h.sessions
 	}
 	if current.Updated == 0 {
 		current.Updated = now.UnixMilli()
 	}
-	return append([]hostlink.Session{current}, all...)
-}
-
-// Archived 是列着的会话里归档了的（current 同 Groups），新的在前。
-func (h *Hub) Archived(now time.Time, current hostlink.Session) []hostlink.Session {
-	var out []hostlink.Session
-	for _, s := range h.withCurrent(current, now) {
-		if s.Archived {
-			out = append(out, s)
-		}
-	}
-	return out
+	return append([]hostlink.Session{current}, h.sessions...)
 }
 
 // Pinned：会话 s 置顶了。
-func (h *Hub) Pinned(s hostlink.Session) bool { return h.pins[settings.PinKey(s.Backend, s.ID)] }
+func (h *Hub) Pinned(s hostlink.Session) bool { return h.pins[Key(s)] }
+
+// Key 是会话 s 在各台设备之间不重的键（置顶、多选、新回答的标记都用它，同 settings.PinKey）。
+func Key(s hostlink.Session) string { return settings.PinKey(s.Backend, s.ID) }
 
 // TogglePin 置顶或取消置顶会话 s。只是 Zeta 这边的标记，会话记录不动。
 func (h *Hub) TogglePin(s hostlink.Session) {
-	key := settings.PinKey(s.Backend, s.ID)
+	defer h.changed()
+	key := Key(s)
 	pins := h.settings.Pins()
 	if h.pins[key] {
 		delete(h.pins, key)
@@ -403,6 +431,7 @@ func (h *Hub) UpdateHost(x sshlink.Host) error {
 		h.Refresh()
 		// 对话也照新的连法重连：开着的那个在新连接上重新打开
 		h.closeConn(x.ID)
+		h.closeBulk(x.ID)
 		if c := h.chat; c != nil && c.Backend == x.ID {
 			h.reopen(c)
 		}
@@ -430,6 +459,7 @@ func (h *Hub) RemoveHost(id string) error {
 		h.CloseChat()
 	}
 	h.closeConn(id)
+	h.closeBulk(id)
 	delete(h.remotes, id)
 	return nil
 }

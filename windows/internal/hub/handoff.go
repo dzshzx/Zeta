@@ -73,7 +73,7 @@ func (h *Hub) PollOccupant(now time.Time) time.Duration {
 	}
 	ho.checking, ho.checked = true, now
 	call := h.sessionsCall(c.Backend)
-	h.background(func(ctx context.Context) func() {
+	h.background(sessionsTimeout, func(ctx context.Context) func() {
 		var o Occupant
 		raw, err := call(ctx, "sessions.occupant", map[string]any{"session": session})
 		if err == nil {
@@ -115,7 +115,7 @@ func (h *Hub) HandOver() {
 	ho := &c.Handoff
 	ho.Handing, ho.Problem = true, ""
 	call := h.sessionsCall(c.Backend)
-	h.background(func(ctx context.Context) func() {
+	h.background(sessionsTimeout, func(ctx context.Context) func() {
 		var r struct {
 			Handed bool   `json:"handed"`
 			Status string `json:"status"`

@@ -47,6 +47,8 @@ type Devices struct {
 	OnSearch    func(l *ChatLink, id int64, query string) (json.RawMessage, error)
 	SessionsErr map[string]error
 	Hostnames   map[string]string
+	// OnSessions 给了时在答每个 sessions.* 请求之前调（h 是设备编号），可以在这里等着，扮慢的核心。
+	OnSessions func(h string, c Call)
 
 	mu       sync.Mutex
 	hostKey  string
@@ -55,6 +57,7 @@ type Devices struct {
 	retained []string
 	probed   []string
 	chats    []*ChatLink
+	bulks    []*ChatLink
 	checked  []string
 	uploaded []host.Upload
 	searched []string

@@ -7,7 +7,6 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -53,7 +52,7 @@ func systemSave(name string) (string, error) {
 func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	h := a.hub
 	if m.Item("选择").Chosen() {
-		a.ops.selecting, a.ops.selected = true, map[string]bool{settings.PinKey(s.Backend, s.ID): true}
+		a.ops.selecting, a.ops.selected = true, map[string]bool{hub.Key(s): true}
 	}
 	pin := "置顶"
 	if h.Pinned(s) {
@@ -141,23 +140,26 @@ func (a *App) visible() []hostlink.Session {
 	return slices.Concat(g.Pinned, g.Today, g.Earlier)
 }
 
-// chosen 是选中的会话，按列表里的先后；已经不在的不算。
+// chosen 是选中的会话，按列表里的先后（开着的会话还不在列表里时排在最后）；已经不在的不算。侧栏每帧算一次，传给要用的地方。
 func (a *App) chosen() []hostlink.Session {
 	var out []hostlink.Session
 	seen := map[string]bool{}
-	for _, s := range append(slices.Clone(a.hub.Sessions()), a.currentSession()) {
-		key := settings.PinKey(s.Backend, s.ID)
-		if s.ID != "" && a.ops.selected[key] && !seen[key] {
+	pick := func(s hostlink.Session) {
+		if key := hub.Key(s); s.ID != "" && a.ops.selected[key] && !seen[key] {
 			seen[key] = true
 			out = append(out, s)
 		}
 	}
+	for _, s := range a.hub.Sessions() {
+		pick(s)
+	}
+	pick(a.currentSession())
 	return out
 }
 
 // toggle 勾上或去掉会话 s。
 func (a *App) toggle(s hostlink.Session) {
-	key := settings.PinKey(s.Backend, s.ID)
+	key := hub.Key(s)
 	if a.ops.selected == nil {
 		a.ops.selected = map[string]bool{}
 	}
@@ -171,19 +173,19 @@ func (a *App) toggle(s hostlink.Session) {
 // allSelected：眼前这份都选上了。
 func (a *App) allSelected(scope []hostlink.Session) bool {
 	return len(scope) > 0 && !slices.ContainsFunc(scope, func(s hostlink.Session) bool {
-		return !a.ops.selected[settings.PinKey(s.Backend, s.ID)]
+		return !a.ops.selected[hub.Key(s)]
 	})
 }
 
-// selectionHeader 是多选时侧栏的顶上一行（同时是标题栏）：退出多选、已选几个、全选或全不选（别处选中的不动）。
-func (a *App) selectionHeader(c *ui.Context) {
+// selectionHeader 是多选时侧栏的顶上一行（同时是标题栏）：退出多选、已选几个（chosen）、全选或全不选（别处选中的不动）。
+func (a *App) selectionHeader(c *ui.Context, chosen []hostlink.Session) {
 	k := coui.Of(c)
 	scope := a.visible()
 	all := a.allSelected(scope)
 	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 16).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
 		coui.CircleButton(c, coui.IconClose, "退出多选").OnClick(a.exitSelection)
 		title := "选择对话"
-		if n := len(a.chosen()); n > 0 {
+		if n := len(chosen); n > 0 {
 			title = "已选 " + strconv.Itoa(n) + " 个"
 		}
 		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).Grow(1).SingleLine()
@@ -198,7 +200,7 @@ func (a *App) selectionHeader(c *ui.Context) {
 		b.Children(func() { ui.Text(c, label).FontSize(coui.SizeBodyL).FontWeight(coui.Medium).TextColor(k.PrimaryText) })
 		b.OnClick(func() {
 			for _, s := range scope {
-				key := settings.PinKey(s.Backend, s.ID)
+				key := hub.Key(s)
 				if all {
 					delete(a.ops.selected, key)
 				} else {
@@ -209,9 +211,9 @@ func (a *App) selectionHeader(c *ui.Context) {
 	})
 }
 
-// selectionActions 是多选时侧栏底下一排：归档或取消归档（选中的全是归档的才是取消归档）、导出、删除（红字）。没选中时都点不了。
-func (a *App) selectionActions(c *ui.Context) {
-	chosen := a.chosen()
+// selectionActions 是多选时侧栏底下一排，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、删除（红字）。
+// 没选中时都点不了。
+func (a *App) selectionActions(c *ui.Context, chosen []hostlink.Session) {
 	archive := len(chosen) == 0 || slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
 	label := "归档"
 	if !archive {

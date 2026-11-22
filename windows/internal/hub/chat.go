@@ -198,9 +198,9 @@ func (h *Hub) closeConn(id string) {
 // imageTimeout 是取一张图最多等多久（图可能有几十 MB）。
 const imageTimeout = 2 * time.Minute
 
-// ImageLoader 是聊天列表取会话记录里图片的办法（sessions.image；在后台 goroutine 上调用）。
+// ImageLoader 是聊天列表取会话记录里图片的办法（sessions.image，走取大块数据的连接，见 bulk.go；在后台 goroutine 上调用）。
 func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error) {
-	call := h.sessionsCall(backend)
+	call := h.bulkCall(backend)
 	return func(file, ref string) ([]byte, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), imageTimeout)
 		defer cancel()

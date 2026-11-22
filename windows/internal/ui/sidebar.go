@@ -5,7 +5,6 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -21,9 +20,13 @@ const sidebarWidth = 300
 // 底下左边是搜索框、右边是归档的入口和设置按钮。多选时顶上一行和底下换成多选的（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
 	k := coui.Of(c)
+	var chosen []hostlink.Session
+	if a.ops.selecting {
+		chosen = a.chosen()
+	}
 	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(k.Sidebar).Children(func() {
 		if a.ops.selecting {
-			a.selectionHeader(c)
+			a.selectionHeader(c, chosen)
 		} else {
 			a.sidebarTop(c)
 		}
@@ -43,7 +46,7 @@ func (a *App) sidebar(c *ui.Context) {
 			})
 		})
 		if a.ops.selecting {
-			a.selectionActions(c)
+			a.selectionActions(c, chosen)
 			return
 		}
 		ui.Row(c).Padding(10, 16).Gap(8).Shrink(0).AlignItems(ui.Center).Children(func() {
@@ -226,7 +229,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 			ui.Icon(c, coui.IconPin).Size(16, 16).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
 		}
 		if selecting {
-			coui.MarkLook(c, coui.MarkCheck, a.ops.selected[settings.PinKey(s.Backend, s.ID)])
+			coui.MarkLook(c, coui.MarkCheck, a.ops.selected[hub.Key(s)])
 		}
 	})
 }

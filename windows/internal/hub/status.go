@@ -60,7 +60,7 @@ func (h *Hub) Status(s hostlink.Session, local Local) Status {
 		local.Waiting || core.State == "waiting",
 		local.Busy || core.State == "answering",
 		max(local.Tasks, core.Tasks),
-		h.unread[pinKey(s)],
+		h.unread[Key(s)],
 		known && core.State != "",
 	)
 }
@@ -84,7 +84,4 @@ func (h *Hub) showing(backend, session string) bool {
 }
 
 // seen：点开了会话 s，有新回答的标记去掉。
-func (h *Hub) seen(s hostlink.Session) { delete(h.unread, pinKey(s)) }
-
-// pinKey 是会话 s 在各台设备之间不重的键（同置顶用的）。
-func pinKey(s hostlink.Session) string { return settings.PinKey(s.Backend, s.ID) }
+func (h *Hub) seen(s hostlink.Session) { delete(h.unread, Key(s)) }

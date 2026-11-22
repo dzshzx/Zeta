@@ -190,3 +190,38 @@ func TestConfigHostsSkipKnownAndLocalhost(t *testing.T) {
 		t.Errorf("config hosts %v %v", got, err)
 	}
 }
+
+// 分组算好存着：列表、置顶、开着的会话变了或过了零点才重算，侧栏每帧取到的是同一份。
+func TestGroupsFollowChanges(t *testing.T) {
+	d := hubtest.NewDevices()
+	h, _ := newHub(t, d)
+	x, _ := h.AddHost("box", "", d.Found("box"))
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.Local)
+	today := now.Add(-time.Hour).UnixMilli()
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
+		{ID: "a", Updated: today}, {ID: "b", Updated: today - 1}, {ID: "c", Updated: 1, Archived: true},
+	}})
+	g := h.Groups(now, hostlink.Session{})
+	if again := h.Groups(now, hostlink.Session{}); &again.Today[0] != &g.Today[0] {
+		t.Error("没变却重算了")
+	}
+	check := func(what string, now time.Time, current hostlink.Session, pinned, todays, earlier, archived []string) {
+		t.Helper()
+		g := h.Groups(now, current)
+		got := [][]string{ids(g.Pinned), ids(g.Today), ids(g.Earlier), ids(h.Archived(now, current))}
+		if want := [][]string{pinned, todays, earlier, archived}; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s：%v，要 %v", what, got, want)
+		}
+	}
+	check("起头", now, hostlink.Session{}, nil, []string{"a", "b"}, nil, []string{"c"})
+	h.TogglePin(hostlink.Session{Backend: x.ID, ID: "b"})
+	check("置顶", now, hostlink.Session{}, []string{"b"}, []string{"a"}, nil, []string{"c"})
+	h.SetArchived([]hostlink.Session{{Backend: x.ID, ID: "a"}}, true, func(err error) { t.Error(err) })
+	check("归档", now, hostlink.Session{}, []string{"b"}, nil, nil, []string{"a", "c"})
+	d.Push(x.ID, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "n", Updated: today + 1}}})
+	check("推来新的", now, hostlink.Session{}, []string{"b"}, []string{"n"}, nil, []string{"a", "c"})
+	check("开着的不在列表里", now, hostlink.Session{Backend: x.ID, ID: "new"}, []string{"b"}, []string{"new", "n"}, nil, []string{"a", "c"})
+	check("过了零点", now.Add(24*time.Hour), hostlink.Session{}, []string{"b"}, nil, []string{"n"}, []string{"a", "c"})
+	h.ListOnly(x.ID) // 列哪几台没变，照样重算
+	check("刷新", now.Add(24*time.Hour), hostlink.Session{}, []string{"b"}, nil, []string{"n"}, []string{"a", "c"})
+}

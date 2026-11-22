@@ -16,11 +16,9 @@ func (h *Hub) Fork(last string, failed func(err error)) {
 		return
 	}
 	src := c.Conv
-	h.run(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
-		defer cancel()
+	h.background(chat.OpenTimeout, func(ctx context.Context) func() {
 		fork, err := src.Fork(ctx, last)
-		h.post(func() {
+		return func() {
 			switch {
 			case err != nil:
 				if h.chat == c && failed != nil {
@@ -36,6 +34,6 @@ func (h *Hub) Fork(last string, failed func(err error)) {
 				h.CloseChat()
 				h.chat = &Chat{Backend: c.Backend, Session: hostlink.Session{Cwd: cwd, Backend: c.Backend}, Conv: fork}
 			}
-		})
+		}
 	})
 }

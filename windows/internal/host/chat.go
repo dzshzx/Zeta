@@ -27,6 +27,12 @@ func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), problem func(
 	})
 }
 
+// OpenBulk 另起一条到设备 h 上 serve 的连接，只取大块数据（sessions.image、sessions.export）：应答是一整行，几 MB 的
+// 和对话的推送挤在 OpenChat 那条上时，流式输出要排在它后面。两条是同一个 SSH 连接上的两个通道，各走各的。不收推送。
+func (d *Devices) OpenBulk(h sshlink.Host) ChatLink {
+	return d.OpenChat(h, func([]byte) {}, func(string) {})
+}
+
 // dirCheckTimeout 是查一个目录最多等多久。
 const dirCheckTimeout = 20 * time.Second
 

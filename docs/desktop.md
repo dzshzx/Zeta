@@ -23,7 +23,7 @@ windows/
   cmd/zeta/           入口
   internal/settings/  设置文件（和 Compose 版同格式）、各项设置（含常用指令）、草稿的存盘
   internal/attach/    输入栏收附件的规矩：图片缩到长边 1568 编成 JPEG、文件大小上限与说明
-  internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、查目录、传附件、查路径、问主机名）、加设备时的探测、
+  internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、取图和导出另用的连接、查目录、传附件、查路径、问主机名）、加设备时的探测、
                       Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）
   internal/chat/      对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
   internal/hub/       中枢：当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）

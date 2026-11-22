@@ -19,11 +19,13 @@ import (
 
 // ChatLink 是假的对话连接，扮主机上的 serve 和核心：记下发来的请求，按 OnCall 应答（没给时答成功、没有 result）；
 // 推送、连接的变化由测试经 Push、Connect、Drop 送来，像 serve 那样在调用者的 goroutine 上交给中枢。
+// 像 serve 那条连接上一行行写出那样，sessions.image 的应答没写完时，推送等着它（wire）。
 type ChatLink struct {
 	Host string
 
 	devices *Devices
 	seq     int64
+	wire    sync.Mutex
 	mu      sync.Mutex
 	calls   []Call
 	onCall  func(Call) (json.RawMessage, error)
@@ -69,6 +71,10 @@ func (l *ChatLink) CallTagged(_ context.Context, method string, params map[strin
 	}
 	if strings.HasPrefix(method, "sessions.") {
 		l.mu.Unlock()
+		if method == "sessions.image" {
+			l.wire.Lock()
+			defer l.wire.Unlock()
+		}
 		return l.devices.answerSessions(l, id, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
@@ -122,7 +128,11 @@ func (l *ChatLink) Methods() []string {
 }
 
 // Push 推来一行（serve 原样转来的核心推送）。
-func (l *ChatLink) Push(line string) { l.push([]byte(line)) }
+func (l *ChatLink) Push(line string) {
+	l.wire.Lock()
+	defer l.wire.Unlock()
+	l.push([]byte(line))
+}
 
 // Connect 报连上了（serve 收到招呼）；Drop 报断开了，why 是原因。
 func (l *ChatLink) Connect()        { l.problem("") }
@@ -151,6 +161,22 @@ func (d *Devices) Chat(id string) *ChatLink {
 		}
 	}
 	return nil
+}
+
+// OpenBulk 见 hub.Devices：起一条假连接，只答 sessions.*，不收推送；记下来，测试用 Bulks 拿到。
+func (d *Devices) OpenBulk(h sshlink.Host) host.ChatLink {
+	l := &ChatLink{Host: h.ID, devices: d, push: func([]byte) {}, problem: func(string) {}}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.bulks = append(d.bulks, l)
+	return l
+}
+
+// Bulks 是起过的取大块数据的连接，按先后。
+func (d *Devices) Bulks() []*ChatLink {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.bulks)
 }
 
 // Chats 是起过的对话连接数。

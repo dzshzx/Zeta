@@ -326,3 +326,44 @@ func TestOnlyTheLatestSearchCounts(t *testing.T) {
 		t.Errorf("结果 %v，片段 %q，进度 %v", ids(r), h.Snippet(hostlink.Session{Backend: x.ID, ID: "stale"}), h.SearchProgress())
 	}
 }
+
+// 单独取来的置顶会话并在列表里：那台推来的列表不把它拿掉，列表里有它时换成列表里的样子；不再列那台时连同问过的记号一起清掉。
+func TestFarSessionsStayInTheList(t *testing.T) {
+	d := hubtest.NewDevices()
+	h, _ := newHub(t, d)
+	x, _ := h.AddHost("box", "", d.Found("box"))
+	y, _ := h.AddHost("lab", "", d.Found("lab"))
+	h.TogglePin(hostlink.Session{Backend: x.ID, ID: "old"})
+	d.Far = map[string][]hostlink.Session{x.ID: {{ID: "old", Title: "三个月前的", Updated: 1}}}
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "s1", Updated: 50}}})
+	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"s1", "old"}) {
+		t.Fatalf("取回后 %v", got)
+	}
+	// 增量里的 Remove、再推整份都不拿掉它
+	d.Push(x.ID, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "s2", Updated: 60}}, Remove: []string{"old", "s1"}})
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "s2", Updated: 60}}})
+	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"s2", "old"}) {
+		t.Errorf("推了列表后 %v", got)
+	}
+	// 列表里有了它：用列表里的样子，只算一次
+	d.Push(x.ID, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "old", Title: "又聊了", Updated: 70}}})
+	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"old", "s2"}) || h.Sessions()[0].Title != "又聊了" {
+		t.Errorf("列表里有了 %+v", h.Sessions())
+	}
+	// 改名：列表里的那份跟着改
+	h.Rename(hostlink.Session{Backend: x.ID, ID: "old"}, "改过的", func(err error) { t.Error(err) })
+	if find(h, "old").Title != "改过的" {
+		t.Errorf("改名后 %+v", h.Sessions())
+	}
+	// 只列另一台：这台的单独取来的和问过的都清掉；再列回来重新问
+	d.SessionCalls()
+	h.ListOnly(y.ID)
+	if len(h.far) != 0 || len(h.farAsked) != 0 {
+		t.Errorf("没清掉：far %v，asked %v", h.far, h.farAsked)
+	}
+	h.ListOnly(x.ID)
+	d.Push(x.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "s2", Updated: 60}}})
+	if got := d.SessionCalls(); !reflect.DeepEqual(got, []string{x.ID + ` sessions.lookup {"sessions":["old"]}`}) {
+		t.Errorf("列回来后发出 %q", got)
+	}
+}

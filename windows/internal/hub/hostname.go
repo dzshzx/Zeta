@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"log"
 	"slices"
 
@@ -15,9 +16,10 @@ func (h *Hub) FillHostname(id string) {
 		return
 	}
 	h.naming[id] = true
-	h.run(func() {
-		name, err := h.devices.Hostname(x)
-		h.post(func() {
+	devices := h.devices
+	h.background(0, func(context.Context) func() { // Hostname 自己有时限
+		name, err := devices.Hostname(x)
+		return func() {
 			delete(h.naming, id)
 			if err != nil {
 				log.Printf("zeta: 没问到「%s」的主机名：%v", x.Name(), err)
@@ -30,6 +32,6 @@ func (h *Hub) FillHostname(id string) {
 			hosts := slices.Clone(h.hosts)
 			hosts[i].Hostname = name
 			logSave(h.setHosts(hosts))
-		})
+		}
 	})
 }

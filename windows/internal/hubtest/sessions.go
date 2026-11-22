@@ -19,8 +19,11 @@ func (d *Devices) answerSessions(l *ChatLink, id int64, c Call) (json.RawMessage
 	host := l.Host
 	d.mu.Lock()
 	d.sessions = append(d.sessions, host+" "+c.Method+" "+c.JSON())
-	err := d.SessionsErr[c.Method]
+	err, hook := d.SessionsErr[c.Method], d.OnSessions
 	d.mu.Unlock()
+	if hook != nil {
+		hook(host, c)
+	}
 	if err != nil {
 		return nil, err
 	}

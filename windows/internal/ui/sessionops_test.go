@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -120,6 +121,7 @@ func TestMultiSelect(t *testing.T) {
 	f.clickNamed(t, "删除", 0) // 对话框开着时只有它的按钮
 	f.tt.Frame()
 	got := f.devices.SessionCalls()
+	slices.Sort(got) // 几个一起发，先后不定
 	if len(got) != 2 || !strings.Contains(got[0], `"s2"`) || !strings.Contains(got[1], `"s3"`) {
 		t.Errorf("发出 %q", got)
 	}

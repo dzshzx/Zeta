@@ -101,7 +101,7 @@ func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needl
 		go func() {
 			defer wg.Done()
 			complete, err := conn.search(ctx, needle, func(session, snippet string) {
-				key := pinKey(hostlink.Session{Backend: id, ID: session})
+				key := Key(hostlink.Session{Backend: id, ID: session})
 				// 几台同时在交：post 可能就地执行（测试里），一次只交一个
 				mu.Lock()
 				defer mu.Unlock()
@@ -198,7 +198,7 @@ func (h *Hub) Results(current hostlink.Session, now time.Time) []hostlink.Sessio
 	}
 	var out []hostlink.Session
 	for _, s := range h.withCurrent(current, now) {
-		_, hit := h.search.hits[pinKey(s)]
+		_, hit := h.search.hits[Key(s)]
 		if hit || strings.Contains(strings.ToLower(s.Title), needle) || strings.Contains(strings.ToLower(s.Preview), needle) {
 			out = append(out, s)
 		}
@@ -207,4 +207,4 @@ func (h *Hub) Results(current hostlink.Session, now time.Time) []hostlink.Sessio
 }
 
 // Snippet 是会话 s 的对话内容里命中处的片段；内容里没找到时是空。
-func (h *Hub) Snippet(s hostlink.Session) string { return h.search.hits[pinKey(s)] }
+func (h *Hub) Snippet(s hostlink.Session) string { return h.search.hits[Key(s)] }
