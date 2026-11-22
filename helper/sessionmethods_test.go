@@ -347,3 +347,108 @@ func TestSessionsMethodsReachOpenConversation(t *testing.T) {
 	}
 	c.nextWhere("conv.state", func(m obj) bool { return m["process"] == false })
 }
+
+// 侧栏的写操作写完马上推给所有订阅的客户端，不等防抖：A 置顶、B 在防抖期内改回去，
+// 两边最后看到的都和核心一致。客户端照界面的做法，自己的写操作先在本地改上。
+func TestSessionsWritesPushAtOnce(t *testing.T) {
+	e := testEnv(t)
+	fakeTmux(t, true, func([]string) (string, error) { return "", nil })
+	writeSession(t, e, sessionA, "一")
+	writeSession(t, e, sessionB, "二")
+	// 防抖长得等不到：推来的只能是写操作马上推的
+	inProcessCore(t, e, watchOptions{debounce: time.Hour, poll: time.Hour})
+	a, b := startServe(t, e, testIdle), startServe(t, e, testIdle)
+	views := map[*serveClient]map[string]obj{a: {}, b: {}}
+	// follow 让 c 一条条收推送、记进它的列表，直到 want
+	follow := func(c *serveClient, want func(map[string]obj) bool) {
+		t.Helper()
+		c.nextWhere("zeta_sessions", func(m obj) bool {
+			applyPush(views[c], m)
+			return want(views[c])
+		})
+	}
+	both := func(want func(map[string]obj) bool) {
+		t.Helper()
+		follow(a, want)
+		follow(b, want)
+	}
+	field := func(key string, value any) func(map[string]obj) bool {
+		return func(v map[string]obj) bool { return v[sessionA] != nil && v[sessionA][key] == value }
+	}
+	for _, c := range []*serveClient{a, b} {
+		c.ok("sessions.watch", "")
+		follow(c, func(v map[string]obj) bool { return len(v) == 2 })
+	}
+
+	a.ok("sessions.pin", `"session":"`+sessionA+`","pinned":true`)
+	views[a][sessionA]["pinned"] = true
+	b.ok("sessions.pin", `"session":"`+sessionA+`","pinned":false`)
+	views[b][sessionA]["pinned"] = false
+	both(field("pinned", false))
+
+	b.ok("sessions.rename", `"session":"`+sessionA+`","title":"新名字"`)
+	both(field("title", "新名字"))
+	a.ok("sessions.archive", `"session":"`+sessionA+`","archived":true`)
+	both(field("archived", true))
+
+	// 两边的列表和新订阅拿到的整份一样
+	fresh := map[string]obj{}
+	c := startServe(t, e, testIdle)
+	c.ok("sessions.watch", "")
+	applyPush(fresh, c.nextWhere("zeta_sessions", func(m obj) bool { return m["full"] == true }))
+	for _, v := range []map[string]obj{views[a], views[b]} {
+		if compactJSON(v) != compactJSON(fresh) {
+			t.Fatalf("客户端的列表 %v，核心的 %v", v, fresh)
+		}
+	}
+
+	b.ok("sessions.delete", `"session":"`+sessionA+`"`)
+	both(func(v map[string]obj) bool { return v[sessionA] == nil })
+}
+
+// applyPush 把一行 zeta_sessions 记进客户端的列表 view：整份时先清空。
+func applyPush(view map[string]obj, m obj) {
+	if m["full"] == true {
+		clear(view)
+	}
+	for _, it := range asList(m["upsert"]) {
+		item := asObj(it)
+		view[asString(item["id"])] = item
+	}
+	for _, id := range strs(m["remove"]) {
+		delete(view, id)
+	}
+}
+
+// force 过的项不管和上次发的同不同都发，不在列表里的发 remove；只发一次。
+func TestSessionWatchForcedItems(t *testing.T) {
+	e := testEnv(t)
+	writeSession(t, e, sessionA, "一")
+	var sent []obj
+	w := &sessionWatch{e: e, send: func(v any) error {
+		sent = append(sent, v.(obj))
+		return nil
+	}}
+	gone := "cccccccc-0000-0000-0000-000000000003"
+	for _, step := range []func(){
+		func() { _ = w.publish(true) },
+		func() { _ = w.publish(false) }, // 没变：不发
+		func() {
+			w.force([]string{sessionA, gone})
+			_ = w.publish(false)
+		},
+		func() { _ = w.publish(false) }, // 发过了：不再发
+	} {
+		step()
+	}
+	if len(sent) != 2 {
+		t.Fatalf("发了 %d 次：%v", len(sent), sent)
+	}
+	got := sent[1]
+	// 没经 JSON，是 publish 里的原样
+	upsert, _ := got["upsert"].([]obj)
+	remove, _ := got["remove"].([]string)
+	if len(upsert) != 1 || upsert[0]["id"] != sessionA || !slices.Equal(remove, []string{gone}) {
+		t.Fatalf("force 后发的：%v", got)
+	}
+}

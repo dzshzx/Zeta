@@ -35,7 +35,7 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	m.Handle("sessions.unwatch", sessions)
 	m.Handle("sessions.search", newSessionSearches(e))
 	// 别的 sessions.* 是侧栏对会话的操作，见 sessionmethods.go
-	m.HandleAsync("sessions.", sessionOps{e, convs.m})
+	m.HandleAsync("sessions.", sessionOps{e: e, convs: convs.m, lists: sessions})
 	m.HandleAsync("sessions.end_elsewhere", endElsewhereHandler{e}) // 见 endelsewhere.go
 	// 存储页、文件浏览、按路径取图片：做完就答，见 oneshots.go
 	ops := oneShotHandler{e}
@@ -94,6 +94,15 @@ func (h *sessionsHandler) Gone(c *core.Client) {
 
 // Idle：订阅不让核心留着，有客户端连着时核心本来就不退。
 func (h *sessionsHandler) Idle() bool { return true }
+
+// push 让各订阅者马上推 ids 这几项，不管变没变（sessionWatch.force）：侧栏的写操作写完以后调。
+func (h *sessionsHandler) push(ids ...string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, w := range h.watches {
+		w.force(ids)
+	}
+}
 
 // accountsHandler 做 accounts.* 和 quota.*（见 docs/core.md「账号与额度」、accounts.go）。
 // quota.watch 在这里订阅；存了额度、换了号以后告诉 quota，由它推给订阅的客户端。

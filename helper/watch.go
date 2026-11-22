@@ -4,6 +4,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -19,13 +20,21 @@ import (
 // （~/.claude/sessions，决定 external）和归档、置顶文件所在的目录；任何变化之后等 debounce 再重读，其间的变化合成一次。
 // 要盯的目录还不在时盯它最近的、已有的上级目录，等它建出来；inotify 用不了时每 poll 重读一次。
 // 重读时按文件大小和修改时刻认出没变的记录，只重新读变了的那几份的头尾（summarize）。
+//
+// 侧栏的写操作（改名、归档、置顶、删除）写完由 force 叫它马上重读，不等 debounce，那几项不管和上次发的同不同都发：
+// 不在列表里的发 remove。两个客户端在一次推送之前先后改同一项时，先改的那边界面上已经是自己改的样子，
+// 只发差异的话它收不到改回去的这一项。
 type sessionWatch struct {
 	e     *env
 	opts  watchOptions
 	send  func(any) error
 	again chan struct{} // 客户端又要一份整份的
+	now   chan struct{} // 有 force 的项要马上发
 	stop  chan struct{}
 	done  chan struct{}
+
+	mu     sync.Mutex
+	forced map[string]bool // 下次发的时候不管变没变都要发的 id
 
 	// 下面的只在 run 的 goroutine 里碰
 	notify  *os.File          // inotify；用不了时是 nil
@@ -58,16 +67,41 @@ const (
 func startSessionWatch(e *env, opts watchOptions, send func(any) error) *sessionWatch {
 	w := &sessionWatch{
 		e: e, opts: opts, send: send,
-		again: make(chan struct{}, 1), stop: make(chan struct{}), done: make(chan struct{}),
+		again: make(chan struct{}, 1), now: make(chan struct{}, 1), stop: make(chan struct{}), done: make(chan struct{}),
 		watched: map[string]watch{}, cache: map[string]cached{},
 	}
 	go w.run()
 	return w
 }
 
-func (w *sessionWatch) resend() {
+func (w *sessionWatch) resend() { wake(w.again) }
+
+// force 让 ids 这几项马上发一次，不管和上次发的同不同（见 sessionWatch）。
+func (w *sessionWatch) force(ids []string) {
+	w.mu.Lock()
+	if w.forced == nil {
+		w.forced = map[string]bool{}
+	}
+	for _, id := range ids {
+		w.forced[id] = true
+	}
+	w.mu.Unlock()
+	wake(w.now)
+}
+
+// takeForced 取走 force 记下的 id。
+func (w *sessionWatch) takeForced() map[string]bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	forced := w.forced
+	w.forced = nil
+	return forced
+}
+
+// wake 往 ch 放一个信号；已经有一个没取走时不再放。
+func wake(ch chan<- struct{}) {
 	select {
-	case w.again <- struct{}{}:
+	case ch <- struct{}{}:
 	default:
 	}
 }
@@ -108,6 +142,8 @@ func (w *sessionWatch) run() {
 			continue
 		case <-settle:
 			settle = nil
+		case <-w.now:
+			// 等着的 settle 留着：到时再看一遍，没有新的差异就不发
 		case <-poll.C:
 			if !w.blind {
 				continue
@@ -268,8 +304,10 @@ func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	return cached{size: size, mtime: mtime, s: s, ok: ok}, true
 }
 
-// publish 重读一遍，发给客户端：full 时发整份，否则只发和上次不同的，没有不同就不发。
+// publish 重读一遍，发给客户端：full 时发整份，否则只发和上次不同的和 force 过的，都没有就不发。
 func (w *sessionWatch) publish(full bool) error {
+	// 先取走再重读：写操作在 force 之前就写完了，重读看得到
+	forced := w.takeForced()
 	items := w.snapshot()
 	next := make(map[string]string, len(items))
 	upsert := []obj{}
@@ -277,22 +315,36 @@ func (w *sessionWatch) publish(full bool) error {
 		id := it["id"].(string)
 		j := compactJSON(it)
 		next[id] = j
-		if full || w.shown[id] != j {
+		if full || forced[id] || w.shown[id] != j {
 			upsert = append(upsert, it)
 		}
 	}
 	remove := []string{}
 	if !full {
-		for id := range w.shown {
-			if _, ok := next[id]; !ok {
-				remove = append(remove, id)
-			}
-		}
-		sort.Strings(remove)
+		remove = unlisted(next, w.shown, forced)
 	}
 	w.shown = next
 	if !full && len(upsert) == 0 && len(remove) == 0 {
 		return nil
 	}
 	return w.send(obj{"type": "zeta_sessions", "full": full, "upsert": upsert, "remove": remove})
+}
+
+// unlisted 是上次发过的（shown）和 force 过的（forced）里这次不在列表（next）里的 id，排好序。
+func unlisted(next, shown map[string]string, forced map[string]bool) []string {
+	gone := map[string]bool{}
+	for id := range shown {
+		gone[id] = true
+	}
+	for id := range forced {
+		gone[id] = true
+	}
+	remove := []string{}
+	for id := range gone {
+		if _, ok := next[id]; !ok {
+			remove = append(remove, id)
+		}
+	}
+	sort.Strings(remove)
+	return remove
 }

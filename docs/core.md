@@ -89,7 +89,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 ## 会话
 
-侧栏对会话的操作（改名、归档、删除、导出、按会话号查、搜索、看图、别处占用与接管、远程主机上的 tmux 窗口）都是核心的 `sessions.` 方法（`helper/sessionmethods.go`），几个客户端读写同一份，改完的结果经 `sessions.watch` 推给所有订阅的客户端，不用另外重读。参数和 `id`、`method` 平级，不带 `conv`；结果在 `zeta_reply` 的 `result`。`session` 是会话号（会话记录的文件名去掉 `.jsonl`），样子不对时答出错。除订阅外都异步应答：各自做完再答，不挡同一条连接后面的请求。改名、接管、删除的会话在核心里开着对话时，核心自己经那个对话做（同 `conv.title`、`conv.handoff`、`conv.end`），客户端不用先调 `conv.*`。
+侧栏对会话的操作（改名、归档、删除、导出、按会话号查、搜索、看图、别处占用与接管、远程主机上的 tmux 窗口）都是核心的 `sessions.` 方法（`helper/sessionmethods.go`），几个客户端读写同一份，改完的结果经 `sessions.watch` 推给所有订阅的客户端，不用另外重读：改名、归档、置顶、删除做成以后核心马上推这个会话（删除推 `remove`），不等 2 秒的防抖，也不管和上次推过的同不同，两个客户端先后改同一个会话时先改的那边才收得到改回去的这一项。参数和 `id`、`method` 平级，不带 `conv`；结果在 `zeta_reply` 的 `result`。`session` 是会话号（会话记录的文件名去掉 `.jsonl`），样子不对时答出错。除订阅外都异步应答：各自做完再答，不挡同一条连接后面的请求。改名、接管、删除的会话在核心里开着对话时，核心自己经那个对话做（同 `conv.title`、`conv.handoff`、`conv.end`），客户端不用先调 `conv.*`。
 
 出错时认得出的另带 `code`（常量在 `helper/sessionproto`）：`no_session`（这个会话号没有会话记录，或 `sessions.image` 给的记录已经不在：会话在别处被删了，客户端把它从列表里拿掉）、`active`（`sessions.delete` 要删的会话正在进行，见那一行）。
 

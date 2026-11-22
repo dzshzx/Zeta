@@ -18,9 +18,11 @@ import (
 // sessionOps 做 sessions.search 以外的会话操作。挂在 HandleAsync 上：各在自己的 goroutine 里做、做完再答，
 // 不挡同一个客户端后面的请求（要读写会话记录、关 tmux 窗口、等别处的进程退出）。
 // 改名、接管、删除先看核心里开着这个会话没有（convs），开着就走对话自己的那条路。
+// 改名、归档、置顶、删除写完叫会话列表的订阅（lists）马上推这一项。
 type sessionOps struct {
 	e     *env
 	convs *conv.Manager
+	lists *sessionsHandler
 }
 
 // sessionParams 是 sessions.* 请求的参数：和 id、method 平级。
@@ -36,18 +38,19 @@ type sessionParams struct {
 	UTCOffset *int `json:"utc_offset"`
 }
 
-// sessionMethod 是一个方法怎么做；session 为真的要带样子对的会话号。
+// sessionMethod 是一个方法怎么做；session 为真的要带样子对的会话号，push 为真的做成以后马上把这个会话推给订阅的客户端。
 type sessionMethod struct {
 	run     func(sessionOps, sessionParams) (any, error)
 	session bool
+	push    bool
 }
 
 var sessionMethods = map[string]sessionMethod{
-	"sessions.rename":     {run: sessionOps.rename, session: true},
+	"sessions.rename":     {run: sessionOps.rename, session: true, push: true},
 	"sessions.occupant":   {run: sessionOps.occupant, session: true},
-	"sessions.archive":    {run: sessionOps.archive, session: true},
-	"sessions.pin":        {run: sessionOps.pin, session: true},
-	"sessions.delete":     {run: sessionOps.deleteSession, session: true},
+	"sessions.archive":    {run: sessionOps.archive, session: true, push: true},
+	"sessions.pin":        {run: sessionOps.pin, session: true, push: true},
+	"sessions.delete":     {run: sessionOps.deleteSession, session: true, push: true},
 	"sessions.export":     {run: sessionOps.export},
 	"sessions.handoff":    {run: sessionOps.handoff, session: true},
 	"sessions.desk_open":  {run: sessionOps.deskOpen, session: true},
@@ -77,7 +80,11 @@ func (h sessionOps) Request(_ *core.Client, r core.Request) (any, error) {
 	if m.session && !isSessionID(p.Session) {
 		return nil, errBadSession
 	}
-	return m.run(h, p)
+	result, err := m.run(h, p)
+	if err == nil && m.push {
+		h.lists.push(p.Session)
+	}
+	return result, err
 }
 
 func (sessionOps) Gone(*core.Client) {}
