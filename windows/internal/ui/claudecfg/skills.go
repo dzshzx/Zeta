@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -86,13 +87,13 @@ func (p *Page) skillsPage(c *ui.Context) {
 	s := &p.skills
 	pageTitle(c, "Skills", p.back, nil)
 	body(c, "skills", func() {
-		section(c, "", "", func() {
+		coui.Group(c, "", "", func(l *coui.List) {
 			summary := "选一个含 SKILL.md 的 Skill 包"
 			if s.importing {
 				summary = "正在检查并安装…"
 			}
-			item(c, "从 ZIP 导入", summary, func() {
-				ui.Button(c, "选择文件").Disabled(s.importing).OnClick(p.pickZip)
+			item(l, "从 ZIP 导入", summary, func() {
+				coui.SmallPrimaryButton(c, "选择文件").Disabled(s.importing).OnClick(p.pickZip)
 			})
 		})
 		p.userSkills(c)
@@ -103,16 +104,16 @@ func (p *Page) skillsPage(c *ui.Context) {
 
 func (p *Page) userSkills(c *ui.Context) {
 	s := &p.skills
-	section(c, "用户安装 · "+itoa(p.userSkillCount()), "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。", func() {
+	coui.Group(c, "用户安装 · "+itoa(p.userSkillCount()), "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。", func(l *coui.List) {
 		switch {
 		case s.data == nil:
-			loadingRow(c, "正在读取…")
+			loadingRow(l, "正在读取…")
 			return
 		case len(s.data.User) == 0:
-			emptyRow(c, "还没有 Skill", "从 ZIP 导入，或让 Claude 写一个")
+			emptyRow(l, "还没有 Skill", "从 ZIP 导入，或让 Claude 写一个")
 		}
 		for _, sk := range s.data.User {
-			ui.Column(c.Key(sk.Name)).Children(func() { p.skillRow(c, sk) })
+			ui.Column(c.Key(sk.Name)).Children(func() { p.skillRow(l, sk) })
 		}
 	})
 }
@@ -123,11 +124,11 @@ func (p *Page) syncedSkills(c *ui.Context) {
 	if s.data == nil || len(s.data.Synced) == 0 {
 		return
 	}
-	section(c, "账号同步 · "+itoa(len(s.data.Synced)), "在 claude.ai 上管理，这里只能看。", func() {
+	coui.Group(c, "账号同步 · "+itoa(len(s.data.Synced)), "在 claude.ai 上管理，这里只能看。", func(l *coui.List) {
 		for _, sk := range s.data.Synced {
-			item(c, sk.Name, clipLine(orNone(sk.Description), 90), func() {
+			item(l, sk.Name, clipLine(orNone(sk.Description), 90), func() {
 				if !sk.Enabled {
-					ui.Text(c, "已停用").TextColor(c.Theme().TextMuted)
+					ui.Text(c, "已停用").FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Tertiary)
 				}
 			})
 		}
@@ -148,7 +149,8 @@ func orNone(s string) string {
 	return s
 }
 
-func (p *Page) skillRow(c *ui.Context, sk cfg.Skill) {
+func (p *Page) skillRow(l *coui.List, sk cfg.Skill) {
+	c := l.Context()
 	title := sk.Name
 	if sk.Title != "" && sk.Title != sk.Name {
 		title = sk.Title + "（" + sk.Name + "）"
@@ -157,15 +159,15 @@ func (p *Page) skillRow(c *ui.Context, sk cfg.Skill) {
 	if !sk.Valid {
 		summary = "缺少 SKILL.md"
 	}
-	item(c, title, summary, func() {
+	item(l, title, summary, func() {
 		description := orNone(sk.Description)
 		if !sk.Valid {
 			description = "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。"
 		}
-		ui.Button(c, "说明").Label("说明：" + sk.Name).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
-		ui.Button(c, "删除").Label("删除：" + sk.Name).OnClick(func() { p.skills.deleting = &sk })
+		coui.SmallButton(c, "说明").Label("说明：" + sk.Name).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
+		coui.SmallDangerButton(c, "删除").Label("删除：" + sk.Name).OnClick(func() { p.skills.deleting = &sk })
 		on := sk.Enabled
-		if ui.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
+		if coui.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
 			p.async(func(ctx context.Context) func() {
 				err := p.opts.Client.SetSkillEnabled(ctx, sk, on)
 				return func() {
@@ -187,7 +189,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	s := &p.skills
 	if pz := s.pending; pz != nil {
 		message := "已经有一个叫“" + pz.name + "”的 Skill。替换会覆盖它当前的全部文件。"
-		if ui.AlertDialog(c, &pz.open, "替换 Skill？", message, "取消", "替换") == 1 {
+		if alert(c, &pz.open, "替换 Skill？", message, coui.Destructive, "取消", "替换") == 1 {
 			s.importing = true
 			p.async(func(ctx context.Context) func() {
 				res, err := p.opts.Client.ImportSkill(ctx, pz.file, pz.data, true)
@@ -200,7 +202,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	}
 	if d := s.deleting; d != nil {
 		open := true
-		switch ui.AlertDialog(c, &open, "删除 Skill", "删除“"+d.Name+"”的整个文件夹，之后需要重新导入才能恢复。", "取消", "删除") {
+		switch alert(c, &open, "删除 Skill", "删除“"+d.Name+"”的整个文件夹，之后需要重新导入才能恢复。", coui.Destructive, "取消", "删除") {
 		case 1:
 			name := d.Name
 			p.async(func(ctx context.Context) func() {
@@ -218,7 +220,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		}
 	}
 	if n := s.showing; n != nil {
-		ui.AlertDialog(c, &n.open, n.title, n.message, "关闭")
+		alert(c, &n.open, n.title, n.message, coui.Recommend, "关闭")
 		if !n.open {
 			s.showing = nil
 		}

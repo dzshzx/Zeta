@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -127,16 +128,16 @@ func (p *Page) reloadAgents() {
 func (p *Page) agentsPage(c *ui.Context) {
 	a := &p.agents
 	pageTitle(c, "Subagent", p.back, func() {
-		ui.Button(c, "新建").Label("新建 Subagent").OnClick(func() { p.openAgent(nil) })
+		coui.SmallPrimaryButton(c, "新建").Label("新建 Subagent").OnClick(func() { p.openAgent(nil) })
 	})
 	body(c, "agents", func() {
 		footer := "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
-		section(c, "自定义 Subagent · "+itoa(len(a.list)), footer, func() {
+		coui.Group(c, "自定义 Subagent · "+itoa(len(a.list)), footer, func(l *coui.List) {
 			switch {
 			case !a.loaded:
-				loadingRow(c, "正在读取…")
+				loadingRow(l, "正在读取…")
 			case len(a.list) == 0:
-				emptyRow(c, "还没有自定义 Subagent", "让 Claude 写一个，或点右上角的“新建”")
+				emptyRow(l, "还没有自定义 Subagent", "让 Claude 写一个，或点右上角的“新建”")
 			}
 			for i := range a.list {
 				ag := a.list[i]
@@ -145,7 +146,7 @@ func (p *Page) agentsPage(c *ui.Context) {
 					name = ag.File
 				}
 				ui.Column(c.Key(ag.File)).Children(func() {
-					entry(c, name, clipLine(ag.Description, 90), agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
+					entry(l, name, clipLine(ag.Description, 90), agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
 				})
 			}
 		})
@@ -180,7 +181,6 @@ func (p *Page) saveAgent() {
 func (p *Page) agentPage(c *ui.Context) {
 	a := &p.agents
 	d := &a.draft
-	t := c.Theme()
 	missing := d.missing()
 	dirty := a.editing == nil || !agentDraftEqual(*d, draftOf(a.editing))
 	title := "新建 Subagent"
@@ -196,34 +196,38 @@ func (p *Page) agentPage(c *ui.Context) {
 	}
 	pageTitle(c, title, leave, func() {
 		if a.editing != nil {
-			ui.Button(c, "删除").TextColor(t.Danger).Disabled(a.saving).OnClick(func() { a.delete = true })
+			coui.SmallDangerButton(c, "删除").Disabled(a.saving).OnClick(func() { a.delete = true })
 		}
 		label := "保存"
 		if a.saving {
 			label = "保存中"
 		}
-		ui.PrimaryButton(c, label).Disabled(a.saving || missing != "").OnClick(p.saveAgent)
+		coui.SmallPrimaryButton(c, label).Disabled(a.saving || missing != "").OnClick(p.saveAgent)
 	})
 	body(c, "agent", func() {
-		section(c, "名称", "小写字母、数字和连字符，比如 code-reviewer。", func() {
-			ui.TextInput(c.Key("name"), &d.name).Placeholder("code-reviewer").Label("名称").Disabled(a.saving)
+		coui.Group(c, "名称", "小写字母、数字和连字符，比如 code-reviewer。", func(l *coui.List) {
+			field(l, "name", &d.name, "名称", "code-reviewer", a.saving)
 		})
-		section(c, "什么时候用", "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。", func() {
-			ui.TextArea(c.Key("description"), &d.description).Placeholder("比如：改完代码后用它审查改动，找出 bug 和不清楚的地方").
-				Label("什么时候用").Lines(2, 6).Disabled(a.saving)
+		coui.Group(c, "什么时候用", "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。", func(l *coui.List) {
+			l.Custom(func() {
+				area(c.Key("description"), &d.description, 2, 6).Placeholder("比如：改完代码后用它审查改动，找出 bug 和不清楚的地方").Label("什么时候用").
+					Disabled(a.saving).Grow(1)
+			})
 		})
 		p.agentModelSection(c)
 		p.agentToolsSection(c)
-		section(c, "系统提示词", "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。", func() {
-			ui.TextArea(c.Key("prompt"), &d.prompt).Placeholder("你是一名代码审查员……").Label("系统提示词").Lines(8, 24).Disabled(a.saving)
+		coui.Group(c, "系统提示词", "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。", func(l *coui.List) {
+			l.Custom(func() {
+				area(c.Key("prompt"), &d.prompt, 8, 24).Placeholder("你是一名代码审查员……").Label("系统提示词").Disabled(a.saving).Grow(1)
+			})
 		})
 		if a.problem != "" {
-			ui.Text(c, a.problem).FontSize(12).TextColor(t.Danger)
+			problemText(c, a.problem).Padding(0, 32)
 		} else if missing != "" && (d.name != "" || d.description != "") {
-			ui.Text(c, missing).FontSize(12).TextColor(t.TextMuted)
+			muted(c, missing)
 		}
 		if a.editing != nil && len(a.editing.ExtraKeys) > 0 {
-			ui.Text(c, "另外还设了 "+strings.Join(a.editing.ExtraKeys, "、")+"，保存时原样保留。").FontSize(12).TextColor(t.TextMuted)
+			muted(c, "另外还设了 "+strings.Join(a.editing.ExtraKeys, "、")+"，保存时原样保留。")
 		}
 	})
 	p.agentDialogs(c)
@@ -247,8 +251,8 @@ func (p *Page) agentModelSection(c *ui.Context) {
 		values, labels = append(values, d.model), append(labels, d.model)
 		selected = len(values) - 1
 	}
-	section(c, "模型", "默认时跟随主对话的模型。", func() {
-		item(c, "模型", "", func() {
+	coui.Group(c, "模型", "默认时跟随主对话的模型。", func(l *coui.List) {
+		item(l, "模型", "", func() {
 			choice(c, "模型", labels, selected, p.agents.saving, func(i int) { d.model = values[i] })
 		})
 	})
@@ -258,37 +262,37 @@ func (p *Page) agentToolsSection(c *ui.Context) {
 	d := &p.agents.draft
 	saving := p.agents.saving
 	footer := "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。"
-	section(c, "工具", footer, func() {
-		item(c, "全部工具", "包括 MCP 工具", func() {
-			ui.Switch(c.Key("all-tools"), &d.allTools).Label("全部工具").Disabled(saving)
+	coui.Group(c, "工具", footer, func(l *coui.List) {
+		item(l, "全部工具", "包括 MCP 工具", func() {
+			coui.Switch(c.Key("all-tools"), &d.allTools).Label("全部工具").Disabled(saving)
 		})
 		if d.allTools {
 			return
 		}
 		for _, tool := range commonTools {
 			on := d.checked[tool.name]
-			item(c, tool.label, tool.name, func() {
-				if ui.Checkbox(c.Key("tool-"+tool.name), &on, "").Label(tool.label).Disabled(saving).Changed() {
-					d.checked[tool.name] = on
-				}
-			})
+			row := coui.Row{Key: "tool-" + tool.name, Title: tool.label, Summary: tool.name, End: func() { coui.MarkLook(c, coui.MarkCheck, on) }}
+			if !saving {
+				row.OnClick = func() { d.checked[tool.name] = !on }
+			}
+			l.Row(row).Role(ui.RoleCheckBox).Checked(on)
 		}
-		item(c, "其他工具", "", func() {
-			ui.TextInput(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label("其他工具").Disabled(saving).Width(320)
+		item(l, "其他工具", "", func() {
+			coui.Input(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label("其他工具").Disabled(saving).Width(320)
 		})
 	})
 }
 
 func (p *Page) agentDialogs(c *ui.Context) {
 	a := &p.agents
-	if ui.AlertDialog(c, &a.leaving, "放弃未保存的更改？", "", "取消", "放弃") == 1 {
+	if alert(c, &a.leaving, "放弃未保存的更改？", "", coui.Destructive, "取消", "放弃") == 1 {
 		p.back()
 	}
 	if a.editing == nil {
 		return
 	}
 	file, name := a.editing.File, a.editing.Name
-	if ui.AlertDialog(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", "取消", "删除") == 1 {
+	if alert(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", coui.Destructive, "取消", "删除") == 1 {
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Client.DeleteAgent(ctx, file)
 			return func() {

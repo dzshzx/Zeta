@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo/ui"
 )
@@ -28,8 +29,10 @@ func TestPreviews(t *testing.T) {
 			u := &updates{enabled: true, status: st}
 			p := &Page{Version: release, Updates: u, Prefs: &prefs{auto: true}}
 			tt := ui.NewTesterWith(func(c *ui.Context) {
-				ui.Scroll(c).Fill().Padding(24).Background(c.Theme().Background).Children(func() { p.View(c) })
-			}, 640, 900, ui.TesterOptions{Dark: dark})
+				// 和设置页里一样：COUI 的主题，卡片后面是浅灰的页面底
+				c.SetTheme(coui.Theme(c.Theme().Dark))
+				ui.Scroll(c).Fill().Padding(16, 0).Background(coui.Of(c).Page).Children(func() { p.View(c) })
+			}, 800, 900, ui.TesterOptions{Dark: dark})
 			tt.Frame()
 			look := "light"
 			if dark {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -163,102 +164,146 @@ func (p *Page) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	ui.AlertDialog(c, &n.open, n.title, n.message, "知道了")
+	coui.Alert(c, &n.open, n.title, n.message, coui.Action{Label: "知道了", Style: coui.Recommend})
 	if !n.open {
 		p.notice = nil
 	}
 }
 
-// ---------- 和设备页同样子的小部件 ----------
+// ---------- 和设备页同样子的小部件（COUI 的设置页：顶栏、卡片分组、列表行） ----------
 
-// pageTitle 是子页顶上的标题，左边是返回，右边是 actions 画的按钮。
+// pageTitle 是子页顶上的标题（coui.Header 的样子），左边是浮起的圆形返回键，右边是 actions 画的按钮
+// （用 coui.SmallButton 这类小按钮）。
 func pageTitle(c *ui.Context, title string, back func(), actions func()) {
-	ui.Row(c).Height(56).Padding(0, 24).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Button(c, "返回").OnClick(back)
-		ui.Text(c, title).FontSize(20).Bold().SingleLine()
+	k := coui.Of(c)
+	ui.Row(c).Height(52).Padding(0, 40).Gap(10).AlignItems(ui.Center).Shrink(0).Children(func() {
+		coui.CircleButton(c, coui.IconBack, "返回").OnClick(back)
+		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(coui.Medium).TextColor(k.Text).SingleLine().Ellipsis("…").
+			Shrink(1)
 		ui.Spacer(c)
 		if actions != nil {
-			actions()
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(0).Children(actions)
 		}
 	})
 }
 
-// body 是子页的内容：可以滚动，一列分组。
+// body 是子页的内容：卡片后面的浅灰底，能滚动，一组组卡片。
 func body(c *ui.Context, key string, fn func()) {
-	ui.Scroll(c.Key(key)).Grow(1).Children(func() {
-		ui.Column(c).Padding(0, 24, 24, 24).Gap(20).MaxWidth(720).Children(fn)
-	})
-}
-
-// section 是一组：小标题、内容，下面一行说明（空的不写）。
-func section(c *ui.Context, title, footer string, fn func()) {
-	t := c.Theme()
-	ui.Column(c).Gap(8).Children(func() {
-		if title != "" {
-			ui.Text(c, title).FontSize(13).Bold().TextColor(t.TextMuted)
-		}
-		ui.Column(c).Gap(2).Padding(4).Radius(10).Background(t.Surface).Children(fn)
-		if footer != "" {
-			ui.Text(c, footer).FontSize(12).TextColor(t.TextMuted)
-		}
-	})
+	coui.Body(c, key, fn)
 }
 
 // item 是一组里的一行：左边名字（summary 不空时下面一行小字），右边 fn 画的东西。
-func item(c *ui.Context, label, summary string, fn func()) {
-	t := c.Theme()
-	ui.Row(c).MinHeight(40).Padding(6, 12).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
-			ui.Text(c, label)
-			if summary != "" {
-				ui.Text(c, summary).FontSize(12).TextColor(t.TextMuted)
-			}
-		})
-		if fn != nil {
-			fn()
-		}
-	})
+func item(l *coui.List, label, summary string, fn func()) {
+	l.Row(coui.Row{Title: label, Summary: summary, End: fn})
 }
 
 // valueItem 是右边只是一段字的一行。
-func valueItem(c *ui.Context, label, value string) {
-	item(c, label, "", func() { ui.Text(c, value).TextColor(c.Theme().TextMuted).SingleLine().MinWidth(0).Shrink(1) })
+func valueItem(l *coui.List, label, value string) {
+	l.Row(coui.Row{Title: label, Value: value})
 }
 
-// entry 是点了进下一页的一行：右边是 value 和一个打开按钮。
-func entry(c *ui.Context, label, summary, value string, enabled bool, open func()) {
-	item(c, label, summary, func() {
-		if value != "" {
-			ui.Text(c, value).TextColor(c.Theme().TextMuted).SingleLine()
-		}
-		ui.Button(c.Key(label), "打开").Label("打开" + label).Disabled(!enabled).OnClick(open)
-	})
+// entry 是点了进下一页的一行：右边是 value 和箭头，整行能点，读屏名字是「打开」加名字。
+func entry(l *coui.List, label, summary, value string, enabled bool, open func()) {
+	r := coui.Row{Key: label, Title: label, Summary: summary, Value: value, Arrow: true}
+	if enabled {
+		r.OnClick = open
+	}
+	l.Row(r).Label("打开" + label)
 }
 
 // emptyRow 是一组里没有东西时的一行。
-func emptyRow(c *ui.Context, title, summary string) {
-	item(c, title, summary, nil)
+func emptyRow(l *coui.List, title, summary string) {
+	l.Row(coui.Row{Title: title, Summary: summary})
 }
 
 // loadingRow 是“正在读取”的一行，右边转圈。
-func loadingRow(c *ui.Context, text string) {
-	item(c, text, "", func() { ui.Spinner(c) })
+func loadingRow(l *coui.List, text string) {
+	c := l.Context()
+	l.Row(coui.Row{Title: text, End: func() { ui.Spinner(c).Size(18, 18).Label(text) }})
 }
 
-// choice 是一个下拉：labels 是给人看的，选了第 i 个交给 pick。
+// choice 是行右边的下拉（COUI 的下拉行）：labels 是给人看的，选了第 i 个交给 pick。key 是读屏名字。
 func choice(c *ui.Context, key string, labels []string, selected int, disabled bool, pick func(int)) {
 	cur := ""
 	if selected >= 0 && selected < len(labels) {
 		cur = labels[selected]
 	}
-	chosen := cur
-	ui.Select(c.Key(key), &chosen, labels).Label(key).Disabled(disabled)
-	if chosen != cur {
+	coui.MenuButton(c.Key(key), func(t ui.Element) {
+		coui.Dropdown(c, t, cur)
+		t.Label(key).Disabled(disabled)
+	}, func(m *coui.Menu) {
 		for i, l := range labels {
-			if l == chosen {
+			if m.Choice(l, i == selected) && i != selected {
 				pick(i)
-				break
 			}
 		}
+	})
+}
+
+// muted 是卡片外面一段说明（和分组下面的说明一样：12，次要文字色，离两边 32）。
+func muted(c *ui.Context, text string) ui.Element {
+	return ui.Text(c, text).FontSize(coui.SizeBodyXS).LineHeight(1.4).TextColor(coui.Of(c).Secondary).Padding(0, 32, 12, 32)
+}
+
+// field 是卡片里的一个输入框（一行），占满一行。
+func field(l *coui.List, key string, value *string, label, placeholder string, disabled bool) ui.Element {
+	c := l.Context()
+	var in ui.Element
+	l.Custom(func() {
+		in = coui.Input(c.Key(key), value).Placeholder(placeholder).Label(label).Disabled(disabled).Grow(1)
+	})
+	return in
+}
+
+// area 是多行的输入框（coui.Input 的样子：淡灰底、平滑圆角，有焦点时主题色细边），最少 min 行、最多 max 行。
+func area(c *ui.Context, value *string, minLines, maxLines int) ui.Element {
+	k := coui.Of(c)
+	in := ui.TextAreaBase(c, value).Lines(minLines, maxLines).Padding(8, 12).FontSize(coui.SizeBodyM).LineHeight(1.5).
+		PlaceholderColor(k.Tertiary).FocusRing(false)
+	surface := coui.Surface{Shape: coui.ShapeField, Fill: k.Edge}
+	if in.Focused() {
+		surface.Edge = k.Primary
 	}
+	return surface.Paint(in)
+}
+
+// dialog 是填表的对话框（coui.Dialog）：标题、fn 排的内容（离两边 24），底下 buttons 画的一排按钮
+// （coui.Button、coui.PrimaryButton，各自一样宽）。
+func dialog(c *ui.Context, open *bool, title string, fn, buttons func()) {
+	coui.Dialog(c, open, func() {
+		k := coui.Of(c)
+		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 8, coui.DialogPadding).Gap(12).Children(func() {
+			ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).AlignSelf(ui.Center)
+			fn()
+		})
+		coui.ButtonBar(c, buttons)
+	})
+}
+
+// dialogButton 是对话框底下的一个按钮，和别的一样宽。
+func dialogButton(b ui.Element) ui.Element { return b.Grow(1).Basis(0) }
+
+// labeled 是对话框里带名字的一行：左边 label，右边 fn 画的（下拉这类）。
+func labeled(c *ui.Context, label string, fn func()) {
+	ui.Row(c).FillWidth().MinHeight(40).Gap(12).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, label).FontSize(coui.SizeHeadlineXS).TextColor(coui.Of(c).Text).Grow(1)
+		fn()
+	})
+}
+
+// problemText 是对话框、编辑页里没做成或还差什么的一句（12，红）。
+func problemText(c *ui.Context, text string) ui.Element {
+	return ui.Text(c, text).FontSize(coui.SizeBodyXS).LineHeight(1.4).TextColor(coui.Of(c).Error)
+}
+
+// alert 是确认对话框（coui.Alert）：最后一个按钮是 last 的样子，前面的普通。
+func alert(c *ui.Context, open *bool, title, message string, last coui.Style, labels ...string) int {
+	actions := make([]coui.Action, len(labels))
+	for i, l := range labels {
+		actions[i] = coui.Action{Label: l}
+	}
+	if len(actions) > 0 {
+		actions[len(actions)-1].Style = last
+	}
+	return coui.Alert(c, open, title, message, actions...)
 }

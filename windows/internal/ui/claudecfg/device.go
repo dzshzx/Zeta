@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -21,7 +22,7 @@ const (
 func (p *Page) Sections(c *ui.Context) {
 	p.defaultsSection(c)
 	p.claudeSection(c)
-	section(c, "Claude Code 配置", configFooter, func() {
+	coui.Group(c, "Claude Code 配置", configFooter, func(l *coui.List) {
 		for _, e := range []struct {
 			label string
 			v     view
@@ -33,7 +34,7 @@ func (p *Page) Sections(c *ui.Context) {
 			{"Subagent", viewAgents, p.openAgents},
 			{"工具权限", viewPermissions, p.openPermissions},
 		} {
-			entry(c, e.label, "", "", true, func() {
+			entry(l, e.label, "", "", true, func() {
 				p.push(e.v)
 				e.open()
 			})
@@ -71,9 +72,9 @@ func (p *Page) defaultsSection(c *ui.Context) {
 	if p.defaultsErr != "" {
 		footer = "读取失败：" + p.defaultsErr + "\n\n" + footer
 	}
-	section(c, "新对话默认", footer, func() {
+	coui.Group(c, "新对话默认", footer, func(l *coui.List) {
 		if d == nil {
-			emptyRow(c, notRead, "")
+			emptyRow(l, notRead, "")
 			return
 		}
 		disabled := p.working
@@ -90,7 +91,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 				selected = i + 1
 			}
 		}
-		item(c, "默认模型", "", func() {
+		item(l, "默认模型", "", func() {
 			choice(c, "默认模型", labels, selected, disabled, func(i int) {
 				value := ""
 				if i > 0 {
@@ -99,13 +100,14 @@ func (p *Page) defaultsSection(c *ui.Context) {
 				p.setDefaults(func(ctx context.Context) (cfg.Defaults, error) { return p.opts.Client.SetDefaultModel(ctx, value) })
 			})
 		})
-		entry(c, "默认思考强度", effortSummary(*d), "", true, func() { p.push(viewEffort) })
-		p.permissionModeRow(c, *d, disabled)
-		p.compactWindowRow(c, *d, disabled)
+		entry(l, "默认思考强度", effortSummary(*d), "", true, func() { p.push(viewEffort) })
+		p.permissionModeRow(l, *d, disabled)
+		p.compactWindowRow(l, *d, disabled)
 	})
 }
 
-func (p *Page) permissionModeRow(c *ui.Context, d cfg.Defaults, disabled bool) {
+func (p *Page) permissionModeRow(l *coui.List, d cfg.Defaults, disabled bool) {
+	c := l.Context()
 	var labels []string
 	selected := 0
 	for i, m := range permissionModes {
@@ -118,7 +120,7 @@ func (p *Page) permissionModeRow(c *ui.Context, d cfg.Defaults, disabled bool) {
 		labels = append(labels, permissionModeLabel(d.PermissionMode))
 		selected = len(labels) - 1
 	}
-	item(c, "默认权限模式", "", func() {
+	item(l, "默认权限模式", "", func() {
 		choice(c, "默认权限模式", labels, selected, disabled, func(i int) {
 			if i >= len(permissionModes) {
 				return
@@ -131,7 +133,8 @@ func (p *Page) permissionModeRow(c *ui.Context, d cfg.Defaults, disabled bool) {
 	})
 }
 
-func (p *Page) compactWindowRow(c *ui.Context, d cfg.Defaults, disabled bool) {
+func (p *Page) compactWindowRow(l *coui.List, d cfg.Defaults, disabled bool) {
+	c := l.Context()
 	windows := slices.Clone(compactWindows)
 	if d.CompactWindow != 0 && !slices.Contains(windows, d.CompactWindow) {
 		windows = append(windows, d.CompactWindow)
@@ -144,7 +147,7 @@ func (p *Page) compactWindowRow(c *ui.Context, d cfg.Defaults, disabled bool) {
 			selected = i + 1
 		}
 	}
-	item(c, "上下文窗口", "", func() {
+	item(l, "上下文窗口", "", func() {
 		choice(c, "上下文窗口", labels, selected, disabled, func(i int) {
 			var tokens int64
 			if i > 0 {
@@ -175,10 +178,10 @@ func effortSummary(d cfg.Defaults) string {
 // claudeSection 是自动压缩、压缩时机、自动标题（存在这台电脑上，每台设备各设各的）。
 func (p *Page) claudeSection(c *ui.Context) {
 	dev := p.opts.Device
-	section(c, "Claude", claudeFooter, func() {
+	coui.Group(c, "Claude", claudeFooter, func(l *coui.List) {
 		on := dev.AutoCompact()
-		item(c, "自动压缩上下文", "", func() {
-			if ui.Switch(c.Key("auto-compact"), &on).Label("自动压缩上下文").Changed() {
+		item(l, "自动压缩上下文", "", func() {
+			if coui.Switch(c.Key("auto-compact"), &on).Label("自动压缩上下文").Changed() {
 				p.saveDevice(dev.SetAutoCompact(on))
 			}
 		})
@@ -191,14 +194,14 @@ func (p *Page) claudeSection(c *ui.Context) {
 		for _, pt := range points {
 			labels = append(labels, cfg.CompactPercentLabel(pt))
 		}
-		item(c, "压缩时机", "", func() {
+		item(l, "压缩时机", "", func() {
 			choice(c, "压缩时机", labels, slices.Index(points, percent), !on, func(i int) {
 				p.saveDevice(dev.SetCompactPercent(points[i]))
 			})
 		})
 		title := dev.AutoTitle()
-		item(c, "自动生成对话标题", "第一轮回答后由 Claude Code 起个简短标题，改过名的不动", func() {
-			if ui.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
+		item(l, "自动生成对话标题", "第一轮回答后由 Claude Code 起个简短标题，改过名的不动", func() {
+			if coui.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
 				p.saveDevice(dev.SetAutoTitle(title))
 			}
 		})
@@ -234,9 +237,9 @@ func (p *Page) effortRows(d cfg.Defaults) []effortRow {
 func (p *Page) effortPage(c *ui.Context) {
 	pageTitle(c, "默认思考强度", p.back, nil)
 	body(c, "effort", func() {
-		section(c, "", "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。", func() {
+		coui.Group(c, "", "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。", func(l *coui.List) {
 			if p.defaults == nil {
-				emptyRow(c, notRead, p.defaultsErr)
+				emptyRow(l, notRead, p.defaultsErr)
 				return
 			}
 			labels := []string{"跟随 Claude Code"}
@@ -250,7 +253,7 @@ func (p *Page) effortPage(c *ui.Context) {
 						selected = i + 1
 					}
 				}
-				item(c, row.title, "", func() {
+				item(l, row.title, "", func() {
 					choice(c, row.title, labels, selected, p.working, func(i int) {
 						level := ""
 						if i > 0 {
