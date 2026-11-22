@@ -132,7 +132,8 @@ class ComposerDraftScreenTest : ShotTest() {
         val hub = Fixtures.readyHub(app)
         val chat =
             listOf(
-                UserItem("u1", "原来的问题", uuid = "uuid-1"),
+                // 能不能编辑看核心标的 rewindable
+                UserItem("u1", "原来的问题", uuid = "uuid-1", rewindable = true),
                 AnswerItem("a1", "原来的回答", streaming = false),
             )
         compose.runOnUiThread { hub.openSession("s-a", chat) }
