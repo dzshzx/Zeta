@@ -25,22 +25,32 @@
 //	clean <类别> [<id>…]  存储页：清掉一类里能安全删的（规矩见 storage.go）
 //	phone-mcp <包名> [<标识>] 把标准输入输出接到这个包的 Zeta 手机工具（MCP），要 root，见 phonemcp.go
 //	serve                常驻连接：一行一个 JSON 的请求和推送（会话列表的订阅等），见 serve.go
+//	core                 常驻的核心进程：在 ~/.cache/<ZETA_NAME>/core/<版本>.sock 上听，管对话的状态（见 helper/core）；
+//	                     由 serve 拉起，不用手动起。这个版本已有核心在听时直接退出（退出码 0）
 //	subagent <字节> <行> <tool_use id> <agent id|-> <会话 id>…
 //	                     子代理查看页：发起它的 Agent 调用对应的记录，从这个位置起增量读（见 subagent.go）
 //
 // 参数不对时把用法写到标准错误、退出码 1；命令自己出错（文件不在等）也是退出码 1。
 // 用到的环境变量：HOME，ZETA_NAME（Zeta 自己的目录名，正式版 zeta、测试版 zeta-dev，默认 zeta），
+// ZETA_CORE_DIR（核心的套接字、锁、日志放在哪个目录，盖过 ~/.cache/<ZETA_NAME>/core，测试用），
 // ZETA_STORAGE_TEST_TMP（测试用的假 /tmp，见 storage.go）。
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
+	"syscall"
+	"time"
+
+	"github.com/dzshzx/Zeta/helper/core"
 )
 
 const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
@@ -51,7 +61,7 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
 	" | occupant <id> | handoff <id> | session-start" +
 	" | desk <id> <cwd> | desk-open <id> <cwd> | desk-close <id>…" +
-	" | phone-mcp <package> [<client key>] | serve"
+	" | phone-mcp <package> [<client key>] | serve | core"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -71,7 +81,46 @@ func main() {
 		_ = cmdServe(newEnv(), defaultServeOptions, os.Stdin, os.Stdout)
 		os.Exit(0)
 	}
+	if len(os.Args) == 2 && os.Args[1] == "core" {
+		e := newEnv()
+		os.Exit(runCore(e, newConversations(e), coreIdle))
+	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// coreIdle：核心没有连接、处理器也闲着这么久就退出。
+const coreIdle = 60 * time.Second
+
+// runCore 跑核心进程，直到闲满 idle 或收到 SIGTERM，返回退出码。标准错误是拉起它的 serve 给的日志文件。
+func runCore(e *env, h core.Handler, idle time.Duration) int {
+	log.SetPrefix(fmt.Sprintf("core[%d] ", os.Getpid()))
+	exe, err := os.Executable()
+	if err != nil {
+		log.Print(err)
+		return 1
+	}
+	p, err := core.Locate(e.home, e.name, exe)
+	if err != nil {
+		log.Print(err)
+		return 1
+	}
+	s, err := core.Listen(p)
+	if errors.Is(err, core.ErrRunning) {
+		return 0
+	}
+	if err != nil {
+		log.Print(err)
+		return 1
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	log.Print("listening on ", p.Socket)
+	if err := s.Serve(ctx, h, idle); err != nil {
+		log.Print(err)
+		return 1
+	}
+	log.Print("exiting")
+	return 0
 }
 
 // run 跑一个命令，返回退出码。输出先进缓冲，退出前写出（search、storage 边做边写）。

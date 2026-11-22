@@ -16,7 +16,7 @@ import org.junit.Test
  */
 class FakeClaudeHostTest {
     private lateinit var home: File
-    private val host = File("src/main/assets/zeta_host.sh").absoluteFile
+    private val host = File("../helper/host/zeta_host.sh").absoluteFile
     private val fake = File("../tools/fake-claude/fake-claude.sh").absoluteFile
     private val release = AppVariant(AppVariant.RELEASE_PACKAGE).linuxName
     private val dev = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName

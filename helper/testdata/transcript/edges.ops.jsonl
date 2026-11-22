@@ -3,7 +3,7 @@
 {"op":"stream","now":1,"event":{"type":"message_start","message":{}}}
 {"op":"stream","now":1,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"消息没有 id 也不算"}}}
 {"op":"stream","now":2,"event":{"type":"message_start","message":{"id":"m1"}}}
-{"op":"stream","now":2,"event":{"type":"content_block_start","index":"0","content_block":{"type":"tool_use","name":"NoId"}}}
+{"op":"stream","now":2,"event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"NoId"}}}
 {"op":"stream","now":2,"event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"dup","name":"A"}}}
 {"op":"stream","now":2,"event":{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"dup","name":"A"}}}
 {"op":"stream","now":2,"event":{"type":"content_block_start","index":3,"content_block":{"type":"redacted_thinking","data":"x"}}}
@@ -15,6 +15,6 @@
 {"op":"user","replay":true,"message":{"content":[{"type":"image","ref":"1.0"},{"type":"image","source":{"data":"QUJD"}},{"type":"image","source":{}},{"type":"text","text":"<bash-input>有图时不当命令</bash-input>"}]}}
 {"op":"user","replay":true,"uuid":"u-x","message":{"content":[{"type":"text","text":"[Attached file: ]\n[Attached folder: plain]\n剩下的"}]}}
 {"op":"user","replay":true,"message":{"content":[{"type":"text","text":"[Attached file: /only]"}]}}
-{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"\u001f   \t"}]}}
-{"op":"user","replay":false,"message":{"content":[{"type":"tool_result","content":"没有 id"},{"type":"tool_result","tool_use_id":"nobody","content":"没有这一步"},{"type":"tool_result","tool_use_id":"dup","is_error":"true","content":12}]}}
+{"op":"user","replay":true,"message":{"content":[{"type":"text","text":"   \t"}]}}
+{"op":"user","replay":false,"message":{"content":[{"type":"tool_result","content":"没有 id"},{"type":"tool_result","tool_use_id":"nobody","content":"没有这一步"},{"type":"tool_result","tool_use_id":"dup","is_error":true,"content":"12"}]}}
 {"op":"finish","keepRunningTools":false}

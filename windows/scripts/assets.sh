@@ -1,7 +1,7 @@
 #!/bin/bash
 # 把桌面版要带到主机上的程序和脚本放进 windows/internal/assets/gen（go:embed 读它，不进 Git）：
 # zeta-helper 和 claude-switch 的 linux arm64、amd64 两份，编法同 app/build.gradle.kts 的 GoProgramTask，
-# 所以和 APK 里的逐字节一样，主机上按内容哈希装的是同一份；托管脚本和账号脚本照抄 app/src/main/assets；还有关于页列的开源许可全文（见文件末尾）。
+# 所以和 APK 里的逐字节一样，主机上按内容哈希装的是同一份；托管脚本照抄 helper/host，账号脚本照抄 app/src/main/assets；还有关于页列的开源许可全文（见文件末尾）。
 # 门禁在检查 windows/ 之前跑它；改了 helper/、这几个脚本或 windows/ 的依赖后，本地跑 windows/ 的测试前也先跑一次。
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -16,7 +16,7 @@ for arch in arm64 amd64; do
     go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$out/claude-switch/linux-$arch" github.com/dzshzx/claude-switch
   )
 done
-cp "$root/app/src/main/assets/zeta_host.sh" "$root/app/src/main/assets/zeta_accounts.sh" "$out/"
+cp "$root/helper/host/zeta_host.sh" "$root/app/src/main/assets/zeta_accounts.sh" "$out/"
 
 # 第三方许可证全文，关于页列它们（windows/internal/ui/about）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
 # 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件；

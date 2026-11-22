@@ -18,7 +18,7 @@ import org.junit.Test
  */
 class HostHandoffTest {
     private lateinit var home: File
-    private val host = File("src/main/assets/zeta_host.sh").absoluteFile
+    private val host = File("../helper/host/zeta_host.sh").absoluteFile
     private val name = AppVariant(AppVariant.RELEASE_PACKAGE + ".dev").linuxName
     private val started = mutableListOf<Process>()
 

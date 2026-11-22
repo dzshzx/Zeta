@@ -22,11 +22,11 @@ kotlin {
 }
 
 // 在 Linux 一侧跑的东西和手机版是同一份，放进 jar 的 assets/（DesktopHubPlatform.asset 按名字读）：
-// 托管脚本、账号脚本从 app 的 assets 取，zeta-helper 和 claude-switch 用 app 里编它们的任务的输出
+// 托管脚本取 helper/host 里的，账号脚本从 app 的 assets 取，zeta-helper 和 claude-switch 用 app 里编它们的任务的输出
 val app = project(":app")
 val linuxAssets =
     files(
-        app.layout.projectDirectory.file("src/main/assets/zeta_host.sh"),
+        rootProject.layout.projectDirectory.file("helper/host/zeta_host.sh"),
         app.layout.projectDirectory.file("src/main/assets/zeta_accounts.sh"),
         app.tasks.named("zetaHelper"),
         app.tasks.named("claudeSwitch"),

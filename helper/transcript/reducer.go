@@ -1,409 +1,310 @@
 package transcript
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // Reducer 把 stream-json 事件归并成 Items。
 //
-// 实时会话同时收到两种东西：stream_event（逐字增量）和 assistant（一个内容块的完整终稿）。
-// 增量用来即时显示，终稿到达后覆盖同一位置的内容。历史记录只有终稿。
+// 实时会话同时收到两种东西：stream_event（逐字增量）和 assistant（一个内容块的完整终稿）。增量用来即时显示，
+// 终稿到达后覆盖同一位置的内容。会话记录里只有终稿。条目都是指针，归约器原地改，改一次 Rev 加一。
 type Reducer struct {
-	Items []Item
+	Items []*Item
 
-	prefix          string
-	streamMessageID *string
-	liveByIndex     map[int]*live
-	liveOrder       map[string][]*live
-	finalizedCount  map[string]int
-	localSeq        int
-	// 从历史记录载入的内容（消息 id → 文字块），重新接上进程时用来丢掉日志里重复送来的块
+	prefix string
+	seq    int
+
+	message string                  // 正在流式送来的消息的 id；没有时为空
+	live    map[int]*liveBlock      // 这条消息里各下标的增量块
+	order   map[string][]*liveBlock // 各条消息的增量块，按到达顺序：终稿按种类依次认领
+	claimed map[string]int          // 各条消息的终稿已经认领到第几个增量块
+
+	tools map[string]stepRef // 工具调用 id → 它那一步
+	// 会话记录里载入的回答（消息 id → 文字）：重新接上进程时，输出日志会把同样的块再送一遍
 	historyTexts map[string]map[string]bool
-	knownToolIDs map[string]bool
-	// 上一条 ! 命令那一步：等它的输出那行填结果
-	shellStep *string
+	shell        *stepRef // 上一条 ! 命令那一步，等它的输出那行填结果
 }
 
-type live struct {
-	kind      string
-	itemID    string
-	stepID    string
-	startedAt int64
+type liveBlock struct {
+	kind    string // text、thinking、tool_use
+	item    *Item
+	step    *Step // thinking、tool_use
+	started int64 // thinking：开始的时刻（毫秒）
+}
+
+type stepRef struct {
+	item *Item
+	step *Step
 }
 
 // New 建一个归约器；条目编号都以 prefix 开头（同一列表里几段分别归约时彼此错开）。
 func New(prefix string) *Reducer {
-	return &Reducer{prefix: prefix, liveByIndex: map[int]*live{}, liveOrder: map[string][]*live{},
-		finalizedCount: map[string]int{}, historyTexts: map[string]map[string]bool{}, knownToolIDs: map[string]bool{}}
+	return &Reducer{prefix: prefix, live: map[int]*liveBlock{}, order: map[string][]*liveBlock{},
+		claimed: map[string]int{}, tools: map[string]stepRef{}, historyTexts: map[string]map[string]bool{}}
 }
 
 func (r *Reducer) nextID(kind string) string {
-	r.localSeq++
-	return r.prefix + kind + "-" + intToString(r.localSeq)
+	r.seq++
+	return r.prefix + kind + "-" + strconv.Itoa(r.seq)
 }
 
-// AddUser 加一条用户消息，返回它的编号。
-func (r *Reducer) AddUser(text string, images []Image, files []string, uuid *string) string {
-	id := r.nextID("u")
-	r.Items = append(r.Items, UserItem{ID: id, Text: text, Images: images, Files: files, UUID: uuid})
-	return id
+func touch(it *Item) { it.rev++ }
+
+// AddUser 加一条用户消息。
+func (r *Reducer) AddUser(text string, images []Image, files []string, uuid string) *Item {
+	it := &Item{Kind: KindUser, ID: r.nextID("u"), Text: text, Images: images, Files: files, UUID: uuid}
+	r.Items = append(r.Items, it)
+	return it
 }
 
 // AddNotice 加一条提示。
-func (r *Reducer) AddNotice(text string, isError bool) {
-	r.Items = append(r.Items, NoticeItem{ID: r.nextID("n"), Text: text, Error: isError})
+func (r *Reducer) AddNotice(text string, isError bool) *Item {
+	it := &Item{Kind: KindNotice, ID: r.nextID("n"), Text: text, Error: isError}
+	r.Items = append(r.Items, it)
+	return it
 }
 
-// ApplyShell 处理用户在输入栏执行的命令（TUI 的 !）：Claude Code 记成两条用户消息，
-// <bash-input>命令</bash-input> 和 <bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr><bash-exit-code>N</bash-exit-code>，
-// 画成单独一组里的一个命令步骤。不是这两种的返回 false。
-func (r *Reducer) ApplyShell(text string) bool {
-	trimmed := trim(text)
-	switch {
-	case strings.HasPrefix(trimmed, "<bash-input>"):
-		command, _ := tagged(trimmed, "bash-input")
-		id := r.nextID("sh")
-		step := ToolStep{ID: id, Name: "Bash", Status: ToolRunning,
-			Input: obj{"command": command, "description": "! " + firstLine(command)}}
-		r.Items = append(r.Items, WorkItem{ID: "w:" + id, Steps: []Step{step}})
-		r.shellStep = &id
-	case strings.HasPrefix(trimmed, "<bash-stdout>") || strings.HasPrefix(trimmed, "<bash-stderr>"):
-		if r.shellStep == nil {
-			return true
-		}
-		id := *r.shellStep
-		r.shellStep = nil
-		r.finishShell(id, trimmed)
-	default:
-		return false
+// appendStep 把一步并进末尾的工作组（末尾不是工作组时新开一组），返回所在的组。
+func (r *Reducer) appendStep(s *Step) *Item {
+	if n := len(r.Items); n > 0 && r.Items[n-1].Kind == KindWork {
+		last := r.Items[n-1]
+		last.Steps = append(last.Steps, s)
+		touch(last)
+		return last
 	}
-	return true
-}
-
-func (r *Reducer) finishShell(id, text string) {
-	out, _ := tagged(text, "bash-stdout")
-	errText, _ := tagged(text, "bash-stderr")
-	code := 0
-	if raw, ok := tagged(text, "bash-exit-code"); ok {
-		if n, ok := integer(obj{"v": trim(raw)}, "v"); ok {
-			code = n
-		}
-	}
-	var parts []string
-	for _, p := range []string{trimEnd(out), trimEnd(errText)} {
-		if p != "" {
-			parts = append(parts, p)
-		}
-	}
-	result := strings.Join(parts, "\n")
-	if result == "" {
-		result = "（没有输出）"
-	}
-	status := ToolSuccess
-	if code != 0 {
-		result += "\n退出码 " + intToString(code)
-		status = ToolFailed
-	}
-	r.updateToolStep(id, func(s ToolStep) ToolStep {
-		s.Status, s.Result = status, &result
-		return s
-	})
-}
-
-// tagged 是 <tag> 之后到 </tag> 之前的文字（没有 </tag> 就到结尾）；没有 <tag> 时 ok 为假。
-func tagged(text, tag string) (string, bool) {
-	_, after, ok := strings.Cut(text, "<"+tag+">")
-	if !ok {
-		return "", false
-	}
-	before, _, _ := strings.Cut(after, "</"+tag+">")
-	return before, true
+	it := &Item{Kind: KindWork, ID: "w:" + s.ID, Steps: []*Step{s}}
+	r.Items = append(r.Items, it)
+	return it
 }
 
 // ApplyStream 处理 stream_event 里的一个事件；now 是收到它的时刻（毫秒），思考用了几秒按它算。
-func (r *Reducer) ApplyStream(event obj, now int64) {
-	switch strOr(event, "type") {
+func (r *Reducer) ApplyStream(e StreamEvent, now int64) {
+	switch e.Type {
 	case "message_start":
-		r.streamMessageID = nil
-		if id, ok := str(object(event, "message"), "id"); ok {
-			r.streamMessageID = &id
+		r.message = ""
+		if e.Message != nil {
+			r.message = e.Message.ID
 		}
-		clear(r.liveByIndex)
+		clear(r.live)
 	case "content_block_start":
-		r.startBlock(event, now)
+		r.startBlock(e, now)
 	case "content_block_delta":
-		r.deltaBlock(event)
+		r.deltaBlock(e)
 	case "content_block_stop":
-		r.stopBlock(event, now)
+		r.stopBlock(e, now)
 	}
 }
 
-func (r *Reducer) startBlock(event obj, now int64) {
-	if r.streamMessageID == nil {
+func (r *Reducer) startBlock(e StreamEvent, now int64) {
+	if r.message == "" || e.Index == nil || e.ContentBlock == nil {
 		return
 	}
-	messageID := *r.streamMessageID
-	index, ok := integer(event, "index")
-	block := object(event, "content_block")
-	if !ok || block == nil {
-		return
-	}
-	at := messageID + ":" + intToString(index)
-	var l *live
-	switch strOr(block, "type") {
+	b := e.ContentBlock
+	at := r.message + ":" + strconv.Itoa(*e.Index)
+	var lb *liveBlock
+	switch b.Type {
 	case "text":
-		r.Items = append(r.Items, AnswerItem{ID: at, Text: strOr(block, "text"), Streaming: true})
-		l = &live{kind: "text", itemID: at}
+		it := &Item{Kind: KindAnswer, ID: at, Text: b.Text, Streaming: true}
+		r.Items = append(r.Items, it)
+		lb = &liveBlock{kind: b.Type, item: it}
 	case "thinking":
-		itemID := r.appendStep(ThinkingStep{ID: at, Text: strOr(block, "thinking"), Running: true})
-		l = &live{kind: "thinking", itemID: itemID, stepID: at, startedAt: now}
+		s := &Step{Kind: StepThinking, ID: at, Text: b.Thinking, Running: true}
+		lb = &liveBlock{kind: b.Type, item: r.appendStep(s), step: s, started: now}
 	case "tool_use":
-		stepID, ok := str(block, "id")
-		if !ok {
-			stepID = at
+		id := b.ID
+		if id == "" {
+			id = at
 		}
-		if r.knownToolIDs[stepID] {
+		if _, known := r.tools[id]; known {
 			return
 		}
-		r.knownToolIDs[stepID] = true
-		itemID := r.appendStep(ToolStep{ID: stepID, Name: strOr(block, "name"), Status: ToolRunning})
-		l = &live{kind: "tool_use", itemID: itemID, stepID: stepID}
+		s := &Step{Kind: StepTool, ID: id, Name: b.Name, Status: ToolRunning}
+		lb = &liveBlock{kind: b.Type, item: r.appendStep(s), step: s}
+		r.tools[id] = stepRef{lb.item, s}
 	default:
 		return
 	}
-	r.liveByIndex[index] = l
-	r.liveOrder[messageID] = append(r.liveOrder[messageID], l)
+	r.live[*e.Index] = lb
+	r.order[r.message] = append(r.order[r.message], lb)
 }
 
-func (r *Reducer) liveAt(event obj) *live {
-	index, ok := integer(event, "index")
-	if !ok {
+func (r *Reducer) liveAt(e StreamEvent) *liveBlock {
+	if e.Index == nil {
 		return nil
 	}
-	return r.liveByIndex[index]
+	return r.live[*e.Index]
 }
 
-func (r *Reducer) deltaBlock(event obj) {
-	l := r.liveAt(event)
-	delta := object(event, "delta")
-	if l == nil || delta == nil {
+func (r *Reducer) deltaBlock(e StreamEvent) {
+	lb := r.liveAt(e)
+	if lb == nil || e.Delta == nil {
 		return
-	}
-	switch strOr(delta, "type") {
-	case "text_delta":
-		r.updateAnswer(l.itemID, func(a AnswerItem) AnswerItem {
-			a.Text += strOr(delta, "text")
-			return a
-		})
-	case "thinking_delta":
-		r.updateStep(l, func(s Step) Step {
-			if t, ok := s.(ThinkingStep); ok {
-				t.Text += strOr(delta, "thinking")
-				return t
-			}
-			return s
-		})
-	}
-}
-
-func (r *Reducer) stopBlock(event obj, now int64) {
-	l := r.liveAt(event)
-	if l == nil {
-		return
-	}
-	switch l.kind {
-	case "text":
-		r.updateAnswer(l.itemID, func(a AnswerItem) AnswerItem {
-			a.Streaming = false
-			return a
-		})
-	case "thinking":
-		r.updateStep(l, func(s Step) Step {
-			t, ok := s.(ThinkingStep)
-			if !ok || !t.Running {
-				return s
-			}
-			t.Running = false
-			t.Seconds = ptr(max(int((now-l.startedAt)/1000), 1))
-			return t
-		})
-	}
-}
-
-// ApplyAssistant 处理一条完整的 assistant 消息（实时模式下每个内容块各来一条）。history 表示来自会话记录；
-// 之后实时送来的同一块内容会被认出来并丢掉。
-func (r *Reducer) ApplyAssistant(message obj, history bool) {
-	messageID, ok := str(message, "id")
-	if !ok {
-		messageID = r.nextID("m")
-	}
-	order, hasOrder := r.liveOrder[messageID]
-	for _, e := range array(message, "content") {
-		block, ok := e.(map[string]any)
-		if !ok {
-			continue
-		}
-		kind, ok := str(block, "type")
-		if !ok {
-			continue
-		}
-		var l *live
-		if hasOrder {
-			l = r.claimLive(messageID, order, kind)
-		}
-		switch kind {
-		case "text":
-			r.finalizeText(messageID, block, l, history)
-		case "thinking":
-			r.finalizeThinking(messageID, block, l)
-		case "tool_use":
-			r.finalizeToolUse(messageID, block, l)
-		}
-	}
-}
-
-// claimLive 是这条消息里下一个还没收到终稿、类型为 kind 的增量块；找到就记下已经对到了哪里。
-func (r *Reducer) claimLive(messageID string, list []*live, kind string) *live {
-	cursor := r.finalizedCount[messageID]
-	for cursor < len(list) && list[cursor].kind != kind {
-		cursor++
-	}
-	if cursor >= len(list) {
-		return nil
-	}
-	r.finalizedCount[messageID] = cursor + 1
-	return list[cursor]
-}
-
-func (r *Reducer) finalizeText(messageID string, block obj, l *live, history bool) {
-	text := strOr(block, "text")
-	duplicate := !history && r.historyTexts[messageID][text]
-	if history {
-		if r.historyTexts[messageID] == nil {
-			r.historyTexts[messageID] = map[string]bool{}
-		}
-		r.historyTexts[messageID][text] = true
 	}
 	switch {
-	case l != nil && duplicate:
-		r.removeItems(l.itemID)
-	case l != nil:
-		r.updateAnswer(l.itemID, func(a AnswerItem) AnswerItem {
-			a.Text, a.Streaming = text, false
-			return a
-		})
-	case !isBlank(text) && !duplicate:
-		r.Items = append(r.Items, AnswerItem{ID: r.nextID(messageID), Text: text})
-	}
-}
-
-func (r *Reducer) finalizeThinking(messageID string, block obj, l *live) {
-	text := strOr(block, "thinking")
-	if l != nil {
-		r.updateStep(l, func(s Step) Step {
-			if t, ok := s.(ThinkingStep); ok && text != "" {
-				t.Text = text
-				return t
-			}
-			return s
-		})
-	} else if !isBlank(text) {
-		r.appendStep(ThinkingStep{ID: r.nextID(messageID), Text: text})
-	}
-}
-
-func (r *Reducer) finalizeToolUse(messageID string, block obj, l *live) {
-	input := object(block, "input")
-	if l != nil {
-		r.updateStep(l, func(s Step) Step {
-			if t, ok := s.(ToolStep); ok {
-				t.Input = input
-				return t
-			}
-			return s
-		})
+	case e.Delta.Type == "text_delta" && lb.kind == "text":
+		lb.item.Text += e.Delta.Text
+	case e.Delta.Type == "thinking_delta" && lb.kind == "thinking":
+		lb.step.Text += e.Delta.Thinking
+	default:
 		return
 	}
-	stepID, ok := str(block, "id")
-	if !ok {
-		stepID = r.nextID(messageID)
-	}
-	if !r.knownToolIDs[stepID] {
-		r.knownToolIDs[stepID] = true
-		r.appendStep(ToolStep{ID: stepID, Name: strOr(block, "name"), Input: input, Status: ToolRunning})
+	touch(lb.item)
+}
+
+func (r *Reducer) stopBlock(e StreamEvent, now int64) {
+	lb := r.liveAt(e)
+	switch {
+	case lb == nil:
+		return
+	case lb.kind == "text":
+		lb.item.Streaming = false
+	case lb.kind == "thinking" && lb.step.Running:
+		lb.step.Running = false
+		lb.step.Seconds = max(int((now-lb.started)/1000), 1)
+	default:
 		return
 	}
-	r.updateToolStep(stepID, func(t ToolStep) ToolStep {
-		if t.Input == nil {
-			t.Input = input
+	touch(lb.item)
+}
+
+// ApplyAssistant 处理一条完整的 assistant 消息（实时会话里每个内容块各来一条）。history 表示来自会话记录：
+// 之后实时送来的同一块内容会被认出来丢掉。
+func (r *Reducer) ApplyAssistant(m Message, history bool) {
+	id := m.ID
+	if id == "" {
+		id = r.nextID("m")
+	}
+	order := r.order[id]
+	for _, b := range m.Content.Blocks {
+		lb := r.claim(id, order, b.Type)
+		switch b.Type {
+		case "text":
+			r.finalizeText(id, b, lb, history)
+		case "thinking":
+			r.finalizeThinking(id, b, lb)
+		case "tool_use":
+			r.finalizeToolUse(id, b, lb)
 		}
-		return t
-	})
-}
-
-// UserOptions 是 ApplyUser 的可选参数：SessionFile 是这条消息所在的会话记录（历史里的图片只带位置，要靠它去取），
-// UUID 是它在记录里的 uuid，ToolUseResult 是事件上的 tool_use_result（改文件的工具带 structuredPatch）。
-type UserOptions struct {
-	SessionFile   *string
-	UUID          *string
-	ToolUseResult obj
-}
-
-// ApplyUser 处理一条 user 消息：工具结果回填到对应步骤；replay 时文字内容是用户当时的输入。
-func (r *Reducer) ApplyUser(message obj, replay bool, opts UserOptions) {
-	blocks := array(message, "content")
-	// 结构化结果是整条消息的；只有一个工具结果时才知道它属于谁
-	var patch *EditPatch
-	if p := parsePatch(opts.ToolUseResult); p != nil && countToolResults(blocks) == 1 {
-		patch = p
 	}
+}
+
+// claim 是这条消息里下一个还没收到终稿、种类为 kind 的增量块；找到就记下认领到了哪里。
+func (r *Reducer) claim(id string, order []*liveBlock, kind string) *liveBlock {
+	for i := r.claimed[id]; i < len(order); i++ {
+		if order[i].kind == kind {
+			r.claimed[id] = i + 1
+			return order[i]
+		}
+	}
+	return nil
+}
+
+func (r *Reducer) finalizeText(id string, b Block, lb *liveBlock, history bool) {
+	duplicate := !history && r.historyTexts[id][b.Text]
+	if history {
+		if r.historyTexts[id] == nil {
+			r.historyTexts[id] = map[string]bool{}
+		}
+		r.historyTexts[id][b.Text] = true
+	}
+	switch {
+	case lb != nil && duplicate:
+		r.Remove(lb.item)
+	case lb != nil:
+		lb.item.Text, lb.item.Streaming = b.Text, false
+		touch(lb.item)
+	case !duplicate && strings.TrimSpace(b.Text) != "":
+		r.Items = append(r.Items, &Item{Kind: KindAnswer, ID: r.nextID(id), Text: b.Text})
+	}
+}
+
+func (r *Reducer) finalizeThinking(id string, b Block, lb *liveBlock) {
+	switch {
+	case lb != nil && b.Thinking != "":
+		lb.step.Text = b.Thinking
+		touch(lb.item)
+	case lb == nil && strings.TrimSpace(b.Thinking) != "":
+		r.appendStep(&Step{Kind: StepThinking, ID: r.nextID(id), Text: b.Thinking})
+	}
+}
+
+func (r *Reducer) finalizeToolUse(id string, b Block, lb *liveBlock) {
+	input := b.input()
+	if lb != nil {
+		lb.step.Input = input
+		touch(lb.item)
+		return
+	}
+	stepID := b.ID
+	if stepID == "" {
+		stepID = r.nextID(id)
+	}
+	ref, known := r.tools[stepID]
+	switch {
+	case !known:
+		s := &Step{Kind: StepTool, ID: stepID, Name: b.Name, Input: input, Status: ToolRunning}
+		r.tools[stepID] = stepRef{r.appendStep(s), s}
+	case ref.step.Input == nil:
+		ref.step.Input = input
+		touch(ref.item)
+	}
+}
+
+// UserOptions 是 ApplyUser 的可选参数。
+type UserOptions struct {
+	SessionFile string         // 这条消息所在的会话记录：历史里的图片只带位置，要靠它去取
+	UUID        string         // 这条消息在记录里的 uuid
+	Result      *ToolUseResult // 事件上的 tool_use_result
+}
+
+// ApplyUser 处理一条 user 消息：工具结果回填到对应的那一步；replay（会话记录里的）时文字内容是用户当时的输入。
+func (r *Reducer) ApplyUser(m Message, replay bool, opts UserOptions) {
+	blocks := m.Content.Blocks
 	if replay && r.replayUser(blocks, opts) {
 		return
 	}
-	for _, e := range blocks {
-		block, ok := e.(map[string]any)
-		if !ok || strOr(block, "type") != "tool_result" {
+	// 结构化的改动是整条消息的，只有一个工具结果时才知道它属于谁
+	var patch *Patch
+	if countResults(blocks) == 1 {
+		patch = parsePatch(opts.Result)
+	}
+	for _, b := range blocks {
+		if b.Type != "tool_result" || b.ToolUseID == "" {
 			continue
 		}
-		toolUseID, ok := str(block, "tool_use_id")
+		ref, ok := r.tools[b.ToolUseID]
 		if !ok {
 			continue
 		}
-		failed, _ := boolean(block, "is_error")
-		result := flattenText(block["content"])
 		var images []Image
-		inner, _ := block["content"].([]any)
-		for index, e := range inner {
-			b, _ := e.(map[string]any)
-			if im := r.imageRef(b, opts.SessionFile, toolUseID+":"+intToString(index)); im != nil {
+		for i, inner := range b.Content.Blocks {
+			if im := r.image(inner, opts.SessionFile, b.ToolUseID+":"+strconv.Itoa(i)); im != nil {
 				images = append(images, *im)
 			}
 		}
-		status := ToolSuccess
-		if failed {
-			status = ToolFailed
+		s := ref.step
+		s.Status, s.Result, s.Images, s.Patch = ToolSuccess, b.Content.Flatten(), images, patch
+		if b.IsError {
+			s.Status = ToolFailed
 		}
-		r.updateToolStep(toolUseID, func(t ToolStep) ToolStep {
-			t.Status, t.Result, t.Images, t.Patch = status, &result, images, patch
-			return t
-		})
+		touch(ref.item)
 	}
 }
 
-// replayUser 把会话记录里用户当时的输入加成一条用户消息；是 ! 命令的那两行时画成命令步骤，返回 true（这条消息到此为止）。
-func (r *Reducer) replayUser(blocks []any, opts UserOptions) bool {
+// replayUser 把会话记录里用户当时的输入加成一条用户消息；是 ! 命令的那两行时画成命令那一步，返回 true（这条消息到此为止）。
+func (r *Reducer) replayUser(blocks []Block, opts UserOptions) bool {
 	var images []Image
 	var texts []string
-	for _, e := range blocks {
-		b, _ := e.(map[string]any)
-		if im := r.imageRef(b, opts.SessionFile, ""); im != nil {
+	for _, b := range blocks {
+		if im := r.image(b, opts.SessionFile, ""); im != nil {
 			images = append(images, *im)
 		}
-		if b != nil && strOr(b, "type") == "text" {
-			if t, ok := str(b, "text"); ok {
-				texts = append(texts, t)
-			}
+		if b.Type == "text" {
+			texts = append(texts, b.Text)
 		}
 	}
-	raw := trim(strings.Join(texts, "\n"))
+	raw := strings.TrimSpace(strings.Join(texts, "\n"))
 	if len(images) == 0 && r.ApplyShell(raw) {
 		return true
 	}
@@ -414,157 +315,73 @@ func (r *Reducer) replayUser(blocks []any, opts UserOptions) bool {
 	return false
 }
 
-func countToolResults(blocks []any) int {
+func countResults(blocks []Block) int {
 	n := 0
-	for _, e := range blocks {
-		if b, ok := e.(map[string]any); ok && strOr(b, "type") == "tool_result" {
+	for _, b := range blocks {
+		if b.Type == "tool_result" {
 			n++
 		}
 	}
 	return n
 }
 
-// imageRef：历史里的图片块只有位置（要知道会话记录才取得到），实时事件里的带着数据。
-func (r *Reducer) imageRef(block obj, sessionFile *string, liveKey string) *Image {
-	if block == nil || strOr(block, "type") != "image" {
+// image：会话记录里的图片块只有位置（知道是哪份记录才取得到），实时事件里的带着数据。
+func (r *Reducer) image(b Block, sessionFile, liveKey string) *Image {
+	switch {
+	case b.Type != "image":
 		return nil
-	}
-	if ref, ok := str(block, "ref"); ok {
-		if sessionFile == nil {
+	case b.Ref != "":
+		if sessionFile == "" {
 			return nil
 		}
-		return &Image{File: *sessionFile, Ref: ref}
+		return &Image{Kind: "session", File: sessionFile, Ref: b.Ref}
+	case b.Source.Data != "":
+		return &Image{Kind: "inline", Key: r.prefix + liveKey, Data: b.Source.Data}
 	}
-	data, ok := str(object(block, "source"), "data")
-	if !ok {
-		return nil
-	}
-	return &Image{Inline: true, Key: r.prefix + liveKey, Data: data}
+	return nil
 }
 
-// FinishTurn：一轮结束（或进程退出），把还显示为进行中的内容收口。keepRunningTools 用于载入历史后还要接着跟读的情况：
-// 最后那几步其实还在跑。
+// FinishTurn：一轮结束（或进程退出），把还显示为进行中的内容收口，去掉空的回答。keepRunningTools 用于载入历史后
+// 还要接着跟读进程的情况：最后那几步其实还在跑。
 func (r *Reducer) FinishTurn(keepRunningTools bool) {
-	for i, item := range r.Items {
-		switch it := item.(type) {
-		case AnswerItem:
-			it.Streaming = false
-			r.Items[i] = it
-		case WorkItem:
-			if it.Running() {
-				steps := make([]Step, len(it.Steps))
-				for j, s := range it.Steps {
-					steps[j] = finishStep(s, keepRunningTools)
-				}
-				it.Steps = steps
-				r.Items[i] = it
-			}
-		}
-	}
 	kept := r.Items[:0]
-	for _, item := range r.Items {
-		if a, ok := item.(AnswerItem); ok && isBlank(a.Text) {
+	for _, it := range r.Items {
+		switch {
+		case it.Kind == KindAnswer && it.Streaming:
+			it.Streaming = false
+			touch(it)
+		case it.Kind == KindWork && it.Running():
+			for _, s := range it.Steps {
+				finishStep(s, keepRunningTools)
+			}
+			touch(it)
+		}
+		if it.Kind == KindAnswer && strings.TrimSpace(it.Text) == "" {
 			continue
 		}
-		kept = append(kept, item)
+		kept = append(kept, it)
 	}
+	clear(r.Items[len(kept):])
 	r.Items = kept
 }
 
 // finishStep 收口一步：思考停下；还在跑的工具算中断（keepRunningTools 时不动）。
-func finishStep(s Step, keepRunningTools bool) Step {
-	switch t := s.(type) {
-	case ThinkingStep:
-		t.Running = false
-		return t
-	case ToolStep:
-		if t.Status == ToolRunning && !keepRunningTools {
-			t.Status = ToolFailed
-			if t.Result == nil {
-				t.Result = ptr("已中断")
-			}
-		}
-		return t
-	}
-	return s
-}
-
-// appendStep 把步骤并入末尾的工作组（没有就新开一组），返回所在工作组的编号。
-func (r *Reducer) appendStep(s Step) string {
-	if n := len(r.Items); n > 0 {
-		if last, ok := r.Items[n-1].(WorkItem); ok {
-			last.Steps = append(append([]Step(nil), last.Steps...), s)
-			r.Items[n-1] = last
-			return last.ID
+func finishStep(s *Step, keepRunningTools bool) {
+	s.Running = false
+	if s.Status == ToolRunning && !keepRunningTools {
+		s.Status = ToolFailed
+		if s.Result == "" {
+			s.Result = "已中断"
 		}
 	}
-	id := "w:" + s.StepID()
-	r.Items = append(r.Items, WorkItem{ID: id, Steps: []Step{s}})
-	return id
 }
 
-func (r *Reducer) removeItems(id string) {
-	kept := r.Items[:0]
-	for _, item := range r.Items {
-		if item.ItemID() != id {
-			kept = append(kept, item)
-		}
-	}
-	r.Items = kept
-}
-
-func (r *Reducer) updateAnswer(itemID string, transform func(AnswerItem) AnswerItem) {
-	for i := len(r.Items) - 1; i >= 0; i-- {
-		if a, ok := r.Items[i].(AnswerItem); ok && a.ID == itemID {
-			r.Items[i] = transform(a)
+// Remove 从列表里去掉 it。
+func (r *Reducer) Remove(it *Item) {
+	for i, x := range r.Items {
+		if x == it {
+			r.Items = append(r.Items[:i], r.Items[i+1:]...)
 			return
 		}
 	}
-}
-
-func (r *Reducer) updateStep(l *live, transform func(Step) Step) {
-	for i := len(r.Items) - 1; i >= 0; i-- {
-		w, ok := r.Items[i].(WorkItem)
-		if !ok || w.ID != l.itemID {
-			continue
-		}
-		steps := make([]Step, len(w.Steps))
-		for j, s := range w.Steps {
-			if s.StepID() == l.stepID {
-				s = transform(s)
-			}
-			steps[j] = s
-		}
-		w.Steps = steps
-		r.Items[i] = w
-		return
-	}
-}
-
-func (r *Reducer) updateToolStep(toolUseID string, transform func(ToolStep) ToolStep) {
-	for i := len(r.Items) - 1; i >= 0; i-- {
-		w, ok := r.Items[i].(WorkItem)
-		if !ok || !hasStep(w, toolUseID) {
-			continue
-		}
-		steps := make([]Step, len(w.Steps))
-		for j, s := range w.Steps {
-			if t, ok := s.(ToolStep); ok && t.ID == toolUseID {
-				s = transform(t)
-			}
-			steps[j] = s
-		}
-		w.Steps = steps
-		r.Items[i] = w
-		return
-	}
-}
-
-func hasStep(w WorkItem, id string) bool {
-	for _, s := range w.Steps {
-		if s.StepID() == id {
-			return true
-		}
-	}
-	return false
 }
