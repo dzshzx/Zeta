@@ -618,41 +618,48 @@ class ConversationHub(
     }
 
     /**
-     * [keepAllHosts]：列着全部主机时不改回只列一台，只换新对话开在哪台（新对话空白页上的设备胶囊）。
-     *
-     * 侧栏换到主机 [backend]：会话列表、Claude Code 的默认值都换成它的，当前对话还没开始的话换成它上面的新对话，
-     * 那台主机上还在跑的进程接回来（之前没接上的话）。别的主机上正在进行的对话留在后台照常跑完。在主线程上调用。
+     * 侧栏换到主机 [backend]：Claude Code 的默认值换成它的，会话列表也换成它的（列着全部主机时列表不变），当前对话还没开始的话换成它上面的新对话，
+     * 那台主机上还在跑的进程接回来（之前没接上的话）。别的主机上正在进行的对话留在后台照常跑完。列不列全部主机不归它管，见 [listOnly]、
+     * [selectAllHosts]。在主线程上调用。
      */
-    fun selectBackend(backend: String, keepAllHosts: Boolean = false) {
+    fun selectBackend(backend: String) {
         if (backend !in backends) return
-        if (allHosts && !keepAllHosts) {
-            // 从全部主机换回只列一台：列表重来
-            settings.paneAll = false
-            sessionList.clear()
-            if (backend == settings.backend) sessionList.refresh()
-        }
         // 和存着的比，不和 [this.backend] 比：存着的那台刚删掉时它已经是手机本机，但列表、默认值还是那台的
         if (backend == settings.backend && current.backend == backend) return
         followBackend(backend)
         if (current.backend != backend) startNew()
     }
 
+    /** 侧栏的会话列表只列主机 [backend] 的，侧栏也换到它（[selectBackend]）。在主线程上调用。 */
+    fun listOnly(backend: String) {
+        if (backend !in backends) return
+        val wasAll = allHosts
+        settings.paneAll = false
+        // 换到别的主机时 followBackend 会换列表；还是这台就在这里收窄
+        if (wasAll && backend == settings.backend) relist(backend)
+        selectBackend(backend)
+    }
+
     /** 侧栏的会话列表改成列全部主机的：各台还没接过的后台进程接回来。新对话仍开在 [backend] 上，当前对话不动。在主线程上调用。 */
     fun selectAllHosts() {
         if (allHosts || settings.remoteHosts.isEmpty()) return
+        val listed = listedBackends
         settings.paneAll = true
-        sessionList.refresh()
+        sessionList.refresh(backends - listed)
         backends.forEach(::reattachHosts)
+    }
+
+    /** 会话列表换成只列主机 [backend] 的：已经读到的它的那些先留着，再重读。 */
+    private fun relist(backend: String) {
+        sessionList.keepOnly(backend)
+        sessionList.refresh()
     }
 
     /** 侧栏换成主机 [backend] 的：Claude Code 的默认值，没接过的后台进程接回来，会话列表换成它的（列着全部主机时列表不用换）。 当前对话不动。 */
     private fun followBackend(backend: String) {
         if (backend == settings.backend) return
         settings.backend = backend
-        if (!allHosts) {
-            sessionList.clear()
-            sessionList.refresh()
-        }
+        if (!allHosts) relist(backend)
         refreshClaudeDefaults(backend)
         reattachHosts(backend)
     }

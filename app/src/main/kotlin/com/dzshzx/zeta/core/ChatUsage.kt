@@ -84,18 +84,11 @@ enum class ContextLevel {
 }
 
 /**
- * Claude Code 报过的上下文窗口怎么按主机分开记（[Settings.contextWindows]）：窗口跟着那台 Claude Code
- * 的设置（autoCompactWindow）走， 同一个模型在各台主机上不一样。手机本机的键就是模型，远程主机的是「主机编号/模型」。
+ * 主机 [backend] 上各模型的上下文窗口，从各台记在一起的那份（[Settings.contextWindows]，键见 [HostKeys]）里取：窗口跟着那台 Claude Code
+ * 的设置（autoCompactWindow）走，同一个模型在各台主机上不一样。
  */
-internal object KnownWindows {
-    fun key(backend: String, model: String): String =
-        if (backend == Backends.LOCAL) model else "$backend/$model"
-
-    /** 主机 [backend] 上各模型的窗口。 */
-    fun on(backend: String, all: Map<String, Long>): Map<String, Long> =
-        if (backend == Backends.LOCAL) all.filterKeys { '/' !in it }
-        else all.filterKeys { it.startsWith("$backend/") }.mapKeys { it.key.substringAfter('/') }
-}
+internal fun windowsOn(backend: String, all: Map<String, Long>): Map<String, Long> =
+    all.mapNotNull { (key, window) -> HostKeys.nameOn(key, backend)?.let { it to window } }.toMap()
 
 /** 界面要显示的一个对话的用量。 */
 @Immutable

@@ -83,52 +83,60 @@ internal fun HostSwitcher(
             )
         }
         // 编号、名字、菜单里的小字
-        val items =
-            listOf(
-                Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY),
-            ) + hosts.map { Triple(it.id, it.name, it.target) }
-        val allEntry =
-            DropdownEntry(
-                items =
-                    listOf(
-                        menuItem(
-                                AllHostsLabel,
-                                ZetaIcons.Globe,
-                                onClick = {
-                                    hub.selectAllHosts()
-                                    onSelected()
-                                },
-                            )
-                            .copy(selected = all, summary = "各台设备的对话列在一起"),
-                    ),
-            )
         AnchoredMenu(
             show = open,
-            entries =
-                listOfNotNull(
-                    allEntry.takeIf { forList },
-                    DropdownEntry(
-                        items =
-                            items.map { (id, name, summary) ->
-                                menuItem(
-                                        name,
-                                        hostIcon(id),
-                                        onClick = {
-                                            hub.selectBackend(id, keepAllHosts = !forList)
-                                            onSelected()
-                                        },
-                                    )
-                                    .copy(selected = id == current && !all, summary = summary)
-                            },
-                    ),
-                ),
+            entries = hostMenu(hub, forList, all, onSelected),
             onDismiss = { open = false },
         )
     }
 }
 
+/** 设备胶囊的菜单：[forList] 时先是「全部设备」，然后是手机和各台远程主机（名字下面的小字是地址）。 */
+private fun hostMenu(
+    hub: ConversationHub,
+    forList: Boolean,
+    all: Boolean,
+    onSelected: () -> Unit,
+): List<DropdownEntry> {
+    val pick: (String) -> Unit = if (forList) hub::listOnly else hub::selectBackend
+    val items =
+        listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) +
+            hub.settings.remoteHosts.map { Triple(it.id, it.name, it.target) }
+    val hosts =
+        DropdownEntry(
+            items =
+                items.map { (id, name, summary) ->
+                    menuItem(
+                            name,
+                            hostIcon(id),
+                            onClick = {
+                                pick(id)
+                                onSelected()
+                            },
+                        )
+                        .copy(selected = id == hub.backend && !all, summary = summary)
+                },
+        )
+    val allHosts =
+        allHostsEntry(all) {
+            hub.selectAllHosts()
+            onSelected()
+        }
+    return if (forList) listOf(allHosts, hosts) else listOf(hosts)
+}
+
 /** 设备胶囊里列全部设备那一项的名字。 */
 internal const val AllHostsLabel = "全部设备"
+
+/** 菜单里「全部设备」那一组；[selected] 是正列着全部设备。 */
+private fun allHostsEntry(selected: Boolean, onClick: () -> Unit) =
+    DropdownEntry(
+        items =
+            listOf(
+                menuItem(AllHostsLabel, ZetaIcons.Globe, onClick = onClick)
+                    .copy(selected = selected, summary = "各台设备的对话列在一起"),
+            ),
+    )
 
 /** 主机 [backend] 的图标：手机或服务器。换主机的菜单和设置首页的主机一组都用它。 */
 internal fun hostIcon(backend: String) =

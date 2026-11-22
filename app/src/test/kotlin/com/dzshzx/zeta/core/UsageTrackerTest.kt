@@ -286,11 +286,11 @@ class UsageTrackerTest {
     fun knownWindowsAreKeptPerHost() {
         val all =
             mapOf(
-                KnownWindows.key(Backends.LOCAL, "claude-fable-5-2") to 400_000L,
-                KnownWindows.key("r-00000001", "claude-fable-5-2") to 500_000L,
+                HostKeys.key(Backends.LOCAL, "claude-fable-5-2") to 400_000L,
+                HostKeys.key("r-00000001", "claude-fable-5-2") to 500_000L,
             )
-        assertEquals(mapOf("claude-fable-5-2" to 400_000L), KnownWindows.on(Backends.LOCAL, all))
-        assertEquals(mapOf("claude-fable-5-2" to 500_000L), KnownWindows.on("r-00000001", all))
-        assertEquals(emptyMap<String, Long>(), KnownWindows.on("r-00000002", all))
+        assertEquals(mapOf("claude-fable-5-2" to 400_000L), windowsOn(Backends.LOCAL, all))
+        assertEquals(mapOf("claude-fable-5-2" to 500_000L), windowsOn("r-00000001", all))
+        assertEquals(emptyMap<String, Long>(), windowsOn("r-00000002", all))
     }
 }

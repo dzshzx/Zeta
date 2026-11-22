@@ -918,10 +918,6 @@ class Conversation(
     }
 
     /**
-     * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。 不是 Claude Code
-     * 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑； 载入期间用户改不了（思考强度胶囊这时不能点）。
-     */
-    /**
      * 载入历史后照会话记录定模型：[answered] 是最后一次真实回答用的，Claude Code 接着会话时自己恢复它，这里只是先显示；[switched] 是那之后终端里 /model
      * 换成的（显示名），认得出是哪个模型就记进 [switchedInTerminal]、显示它。
      */
@@ -930,6 +926,10 @@ class Conversation(
         if (reportedModel == null) reportedModel = switchedInTerminal ?: answered
     }
 
+    /**
+     * 载入历史以后：思考强度照这个对话主线上最后一次真实回答用的（[recorded]）恢复，只改这个对话，不动新对话的默认值。 不是 Claude Code
+     * 认的那几档就照旧。进程已经起来了（定时任务、数字助理不等历史载完就发出消息）不改，它已经按当时的设置在跑； 载入期间用户改不了（思考强度胶囊这时不能点）。
+     */
     internal fun restoreEffort(recorded: String?) {
         if (process != null) return
         recorded?.takeIf { value -> EffortLevels.any { it.first == value } }?.let { effort = it }
@@ -1016,10 +1016,10 @@ class Conversation(
     private fun publishUsage() {
         meter.learnedWindow?.let { (name, window) ->
             val known = hub.settings.contextWindows
-            val key = KnownWindows.key(backend, name)
+            val key = HostKeys.key(backend, name)
             if (known[key] != window) hub.settings.contextWindows = known + (key to window)
         }
-        usage = meter.snapshot(KnownWindows.on(backend, hub.settings.contextWindows))
+        usage = meter.snapshot(windowsOn(backend, hub.settings.contextWindows))
     }
 
     /** 之后启动进程时追加给 Claude Code 的说明（定时任务告诉它这是后台自动发的）。 */

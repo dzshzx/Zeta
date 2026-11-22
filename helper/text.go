@@ -134,7 +134,7 @@ var (
 	commandArgs = regexp.MustCompile(`(?s)<command-args>` + space + `*(.*?)` + space + `*</command-args>`)
 	commandOut  = regexp.MustCompile(`(?s)<local-command-(?:stdout|stderr)>(.*?)</local-command-(?:stdout|stderr)>`)
 	// 终端里 /model 的输出（2.1.330）：Set model to `Fable 5.2` for this session only，后面的说法随存不存成默认、带不带思考强度而变
-	modelSet   = regexp.MustCompile("^<local-command-stdout>Set model to `([^`]+)`")
+	modelSet   = regexp.MustCompile("^Set model to `([^`]+)`")
 	bashInput  = regexp.MustCompile(`(?s)<bash-input>(.*?)</bash-input>`)
 	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 	// 消息开头的附件行（见 Kotlin 的 AttachedPaths）：复制进来的文件 [Attached file: 路径]，

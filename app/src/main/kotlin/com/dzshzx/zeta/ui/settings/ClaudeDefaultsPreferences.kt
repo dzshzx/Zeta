@@ -20,6 +20,7 @@ import com.dzshzx.zeta.core.claude.setDefaultEffort
 import com.dzshzx.zeta.core.claude.setDefaultModel
 import com.dzshzx.zeta.core.claude.setDefaultPermissionMode
 import com.dzshzx.zeta.core.effortLabel
+import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.core.modelName
 import com.dzshzx.zeta.core.readableModelId
@@ -91,14 +92,6 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
 internal val CompactWindows: List<Long> =
     listOf(200_000, 300_000, 400_000, 500_000, 600_000, 800_000, 1_000_000)
 
-/** 上下文窗口的写法：400K、1M，不是整千的照数字写。 */
-internal fun compactWindowLabel(tokens: Long): String =
-    when {
-        tokens % 1_000_000 == 0L -> "${tokens / 1_000_000}M"
-        tokens % 1_000 == 0L -> "${tokens / 1_000}K"
-        else -> tokens.toString()
-    }
-
 /**
  * 「上下文窗口」：settings.json 的 autoCompactWindow，会话用到这么多 token 就算满，自动压缩按它算；跟随是删掉它，按模型本身的窗口。 设置里是别的数
  * （终端里改的）时照样列出来。已经在跑的对话下次起进程时生效。
@@ -109,9 +102,9 @@ internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
     val defaults = hub.claudeDefaults(backend)
     FollowDropdownPreference(
         title = "上下文窗口",
-        choices = CompactWindows.map { it.toString() to compactWindowLabel(it) },
+        choices = CompactWindows.map { it.toString() to formatTokens(it) },
         value = defaults?.compactWindow?.toString(),
-        unknown = { it.toLongOrNull()?.let(::compactWindowLabel) ?: it },
+        unknown = { it.toLongOrNull()?.let(::formatTokens) ?: it },
         followLabel = "按模型的窗口",
         summary = NotRead.takeIf { defaults == null },
         enabled = defaults != null,

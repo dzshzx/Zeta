@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.formatTokens
+
 /*
  * 设置页的「默认模型」「默认权限模式」「默认思考强度」：读写 ~/.claude/settings.json，和 Claude Code 的 /model、/effort 存为默认一样
  * （用户级设置，所有项目生效）。
@@ -14,7 +16,7 @@ fun ClaudeConfigClient.setDefaultModel(value: String?): ClaudeDefaults =
 /** 上下文窗口（token 数）；null 是删掉，按模型本身的窗口。 */
 fun ClaudeConfigClient.setCompactWindow(tokens: Long?): ClaudeDefaults {
     if (tokens != null && tokens < ClaudeSettings.MIN_COMPACT_WINDOW)
-        throw ClaudeConfigException("上下文窗口最小是 ${ClaudeSettings.MIN_COMPACT_WINDOW / 1000}K")
+        throw ClaudeConfigException("上下文窗口最小是 " + formatTokens(ClaudeSettings.MIN_COMPACT_WINDOW))
     return ClaudeSettings.defaults(updateSettings { ClaudeSettings.withCompactWindow(it, tokens) })
 }
 

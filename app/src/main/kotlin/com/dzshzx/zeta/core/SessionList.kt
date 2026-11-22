@@ -37,9 +37,9 @@ class SessionList internal constructor(private val hub: ConversationHub) {
             }
         }
 
-    /** 重读侧栏列着的各台主机的整份列表，各读各的。没读成的那台留着原来的，不当作一个会话都没有。 */
-    fun refresh() {
-        for (backend in hub.listedBackends) {
+    /** 重读侧栏列着的各台主机（或只是其中的 [backends]）的整份列表，各读各的。没读成的那台留着原来的，不当作一个会话都没有。 */
+    fun refresh(backends: List<String> = hub.listedBackends) {
+        for (backend in backends) {
             if (hub.shell(backend) == null) {
                 noted(backend, hub.unavailable(backend))
                 continue
@@ -68,8 +68,17 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着，合起来按时间从新到旧排。在主线程上调用。 */
     internal fun listedOn(backend: String, list: List<SessionSummary>) {
         val others = sessions.filter { it.backend != backend }
-        listed(if (others.isEmpty()) list else (list + others).sortedByDescending { it.updated })
+        // 只有这一台时照助手给的顺序，不重排
+        if (others.isEmpty()) listed(list) else listed(byTime(list + others))
     }
+
+    /** 只留主机 [backend] 的：换成只列它时，已经读到的不用等重读。在主线程上调用。 */
+    internal fun keepOnly(backend: String) {
+        sessions = sessions.filter { it.backend == backend }
+        problems = problems.filterKeys { it == backend }
+    }
+
+    private fun byTime(list: List<SessionSummary>) = list.sortedByDescending { it.updated }
 
     /** 读到了整份列表。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。 */
     internal fun listed(list: List<SessionSummary>) {
@@ -95,7 +104,7 @@ class SessionList internal constructor(private val hub: ConversationHub) {
     /** 重读了其中几项（[found]）：换掉列表里的同一会话，没有的加进去，照旧按时间从新到旧排。在主线程上调用。 */
     internal fun merged(found: List<SessionSummary>) {
         val ids = found.mapTo(HashSet()) { it.id }
-        listed((found + sessions.filterNot { it.id in ids }).sortedByDescending { it.updated })
+        listed(byTime(found + sessions.filterNot { it.id in ids }))
     }
 
     /** Claude Code 给会话 [sessionId] 起好了标题（已经写进会话记录）：列表里只改这一项，不整份重读。在主线程上调用。 */

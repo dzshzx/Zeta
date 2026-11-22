@@ -209,7 +209,7 @@ func (r *historyReader) user(o obj, content any, number int, row any) {
 	if truthy(o["isCompactSummary"]) {
 		return
 	}
-	if m := modelSet.FindStringSubmatch(rawUserText(content)); m != nil {
+	if m := modelSet.FindStringSubmatch(commandOutput(rawUserText(content))); m != nil {
 		r.switches = append(r.switches, modelSwitch{len(r.events), m[1]})
 		return
 	}

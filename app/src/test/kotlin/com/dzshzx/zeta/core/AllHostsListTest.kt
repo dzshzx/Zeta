@@ -52,15 +52,21 @@ class AllHostsListTest {
         hub.settings.paneAll = true
         hub.sessionList.listedOn(remote, listOf(session("w1", remote, 20)))
         // 新对话空白页上的胶囊只换新对话开在哪台，列表照旧列全部
-        hub.selectBackend(remote, keepAllHosts = true)
+        hub.selectBackend(remote)
         assertTrue(hub.allHosts)
         assertEquals(remote, hub.backend)
         assertEquals(listOf("w1"), hub.sessionList.sessions.map { it.id })
-        // 侧栏的胶囊选一台：只列那台，列表重来
-        hub.selectBackend(Backends.LOCAL)
+        // 侧栏的胶囊选一台：只列那台，别的主机的那些不留
+        hub.listOnly(Backends.LOCAL)
         assertFalse(hub.allHosts)
         assertEquals(listOf(Backends.LOCAL), hub.listedBackends)
         assertTrue(hub.sessionList.sessions.isEmpty())
+        // 选的就是侧栏正看着的那台：它已经读到的那些留着
+        hub.settings.paneAll = true
+        hub.sessionList.listedOn(Backends.LOCAL, listOf(session("p1", Backends.LOCAL, 10)))
+        hub.sessionList.listedOn(remote, listOf(session("w1", remote, 20)))
+        hub.listOnly(Backends.LOCAL)
+        assertEquals(listOf("p1"), hub.sessionList.sessions.map { it.id })
     }
 
     /** 没有远程设备了，存着的「全部设备」不算数。 */

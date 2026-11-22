@@ -142,13 +142,17 @@ abstract class ShotTest {
      * 所以只在滚动这一下让时钟自动走，滚完再停住；页面上有转圈这类无限动画也照样滚得完。
      */
     fun SemanticsNodeInteraction.scrollIntoView(): SemanticsNodeInteraction {
+        withAutoAdvance { performScrollTo() }
+        return this
+    }
+
+    private fun withAutoAdvance(scroll: () -> Unit) {
         compose.mainClock.autoAdvance = true
         try {
-            performScrollTo()
+            scroll()
         } finally {
             compose.mainClock.autoAdvance = false
         }
-        return this
     }
 
     /**
@@ -156,11 +160,8 @@ abstract class ShotTest {
      * 一样只在滚动这一下让时钟自动走。
      */
     fun AndroidComposeTestRule<*, *>.scrollListTo(text: String): SemanticsNodeInteraction {
-        mainClock.autoAdvance = true
-        try {
+        withAutoAdvance {
             onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText(text))
-        } finally {
-            mainClock.autoAdvance = false
         }
         return onNodeWithText(text)
     }

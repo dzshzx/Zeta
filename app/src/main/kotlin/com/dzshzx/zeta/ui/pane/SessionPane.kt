@@ -103,7 +103,10 @@ import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -180,11 +183,14 @@ internal fun SessionPane(
     // 置顶存在设置里，各台主机的都在一起（[SessionSummary.pinKey]）；从备份导入设置时也会变，所以用 hub 上那份可观察的
     val pins = hub.settings.pinnedSessions
     val savePins: (Set<String>) -> Unit = { hub.settings.pinnedSessions = it }
-    // 列着的这台主机上置顶的会话不在 list 给的最近 300 个里时单独取来；确实已经不在了（别处删掉的）就把置顶去掉。
-    // 别的主机上的置顶不管：在这台上查不到不等于没了
+    // 列着的各台主机上置顶的会话不在 list 给的最近 300 个里时单独取来（[syncFarPinned]）。按缺的那些来触发：
+    // 列表只是时间、预览变了时不重取
     var farPinned by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
-    LaunchedEffect(sessions, pins) {
-        syncFarPinned(hub, sessions, pins, onFound = { farPinned = it }, savePins = savePins)
+    val missingPins = remember(sessions, pins) { missingPinned(sessions, pins) }
+    LaunchedEffect(missingPins) {
+        syncFarPinned(hub, missingPins, onFound = { farPinned = it }) { gone ->
+            savePins(hub.settings.pinnedSessions - gone)
+        }
     }
     // 存储页要定位的会话不在最近 300 个里时，也单独取来放进列表
     var farRevealed by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
@@ -388,42 +394,52 @@ private fun withFarSessions(
     return if (extra.isEmpty()) sessions else (sessions + extra).sortedByDescending { it.updated }
 }
 
-/** 列着的这台主机上置顶的会话里，不在 [sessions] 里的那些的 id。 */
+/** 列着的各台主机（[sessions] 里出现的）上置顶的会话里，不在 [sessions] 里的那些的 id，按主机；没有缺的主机不在里面。 */
 private fun missingPinned(
     sessions: List<SessionSummary>,
     pins: Set<String>,
-    backend: String?,
-): List<String> {
+): Map<String, List<String>> {
     val listed = sessions.mapTo(HashSet()) { it.id }
-    return pins.mapNotNull { key ->
-        SessionSummary.pinnedId(key, backend ?: return@mapNotNull null)?.takeIf { it !in listed }
-    }
+    return sessions
+        .map { it.backend }
+        .distinct()
+        .associateWith { backend ->
+            pins.mapNotNull { key ->
+                SessionSummary.pinnedId(key, backend)?.takeIf { it !in listed }
+            }
+        }
+        .filterValues { it.isNotEmpty() }
 }
 
 /**
- * 把不在 [sessions] 里的置顶会话单独取来交给 [onFound]（取不到时不动）；确实已经不在了（别处删掉的）就把置顶去掉。 只管列着的各台主机上的置顶：没列的主机查不到不等于没了。
+ * 把各台主机上缺的置顶会话（[missing]：主机 → id，见 [missingPinned]）单独取来交给 [onFound]，各台同时取，取不到的那台不动；
+ * 确实已经不在了（别处删掉的）就把它们的置顶键交给 [dropPins] 去掉。
  */
 private suspend fun syncFarPinned(
     hub: ConversationHub,
-    sessions: List<SessionSummary>,
-    pins: Set<String>,
+    missing: Map<String, List<String>>,
     onFound: (List<SessionSummary>) -> Unit,
-    savePins: (Set<String>) -> Unit,
+    dropPins: (Set<String>) -> Unit,
 ) {
-    val far = ArrayList<SessionSummary>()
-    val gone = HashSet<String>()
-    for (backend in sessions.map { it.backend }.distinct()) {
-        val missing = missingPinned(sessions, pins, backend)
-        if (missing.isEmpty()) continue
-        val found =
-            withContext(Dispatchers.IO) { hub.sessionList.find(missing, backend) } ?: continue
-        far += found
-        (missing - found.mapTo(HashSet()) { it.id }).mapTo(gone) {
-            SessionSummary.pinKey(backend, it)
-        }
+    val results = coroutineScope {
+        missing
+            .map { (backend, ids) ->
+                async(Dispatchers.IO) { backend to hub.sessionList.find(ids, backend) }
+            }
+            .awaitAll()
     }
-    onFound(far)
-    if (gone.isNotEmpty()) savePins(pins - gone)
+    onFound(results.flatMap { it.second.orEmpty() })
+    val gone = HashSet<String>()
+    for ((backend, found) in results) {
+        val there = found?.mapTo(HashSet()) { it.id } ?: continue
+        missing
+            .getValue(backend)
+            .filterNot { it in there }
+            .mapTo(gone) {
+                SessionSummary.pinKey(backend, it)
+            }
+    }
+    if (gone.isNotEmpty()) dropPins(gone)
 }
 
 /** 对话内容的搜索：内容里找到的会话（id → 片段）和搜到哪了。 */

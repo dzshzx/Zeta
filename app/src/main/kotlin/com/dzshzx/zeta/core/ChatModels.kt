@@ -226,9 +226,11 @@ fun modelLabel(value: String?, models: List<ModelOption>): String =
  */
 fun modelName(value: String, models: List<ModelOption>): String? {
     val option = models.firstOrNull { it.value == value }
-    return option?.resolvedModel?.let(::readableModelId)
-        ?: if (value == Conversation.DEFAULT_MODEL) null
-        else option?.displayName?.ifBlank { null } ?: readableModelId(value)
+    return when {
+        option?.resolvedModel != null -> readableModelId(option.resolvedModel)
+        value == Conversation.DEFAULT_MODEL -> null
+        else -> option?.displayName?.ifBlank { null } ?: readableModelId(value)
+    }
 }
 
 private val ModelName = Regex("([A-Z][a-z]+) (\\d+(?:\\.\\d{1,2})*)")
@@ -336,15 +338,23 @@ data class SessionSummary(
         get() = pinKey(backend, id)
 
     companion object {
-        /** 置顶记的键：手机本机的就是会话号，远程主机的前面加主机编号和 /，各台主机的置顶分得开。 */
-        fun pinKey(backend: String, id: String): String =
-            if (backend == Backends.LOCAL) id else "$backend/$id"
+        /** 置顶记的键（[HostKeys]），各台主机的置顶分得开。 */
+        fun pinKey(backend: String, id: String): String = HostKeys.key(backend, id)
 
         /** 置顶的键 [key] 是主机 [backend] 上的会话的话，那个会话号；别的主机的是 null。 */
-        fun pinnedId(key: String, backend: String): String? =
-            if (backend == Backends.LOCAL) key.takeIf { '/' !in it }
-            else key.removePrefix("$backend/").takeIf { it.length < key.length }
+        fun pinnedId(key: String, backend: String): String? = HostKeys.nameOn(key, backend)
     }
+}
+
+/** 各台主机的东西记在同一份设置里时用的键（置顶的会话、各模型的上下文窗口）：手机本机的就是名字本身，远程主机的前面加主机编号和 /。 */
+internal object HostKeys {
+    fun key(backend: String, name: String): String =
+        if (backend == Backends.LOCAL) name else "$backend/$name"
+
+    /** 键 [key] 是主机 [backend] 的话，去掉主机那一段的名字；别的主机的是 null。 */
+    fun nameOn(key: String, backend: String): String? =
+        if (backend == Backends.LOCAL) key.takeIf { '/' !in it }
+        else key.removePrefix("$backend/").takeIf { it.length < key.length }
 }
 
 private val summaryJson = Json {
