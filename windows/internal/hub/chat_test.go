@@ -290,3 +290,21 @@ func TestRemovingTheDeviceClosesItsChat(t *testing.T) {
 		t.Fatal("删了设备，对话和连接还在")
 	}
 }
+
+// RunChatThen 交回主线程的那一步只在对话没换走时跑。
+func TestRunChatThenSkipsWhenTheChatChanged(t *testing.T) {
+	f := newChatFixture(t)
+	f.hub.OpenSession(hostlink.Session{ID: "s1", File: "/f1", Cwd: "/w", Backend: f.id})
+	ran := 0
+	f.hub.RunChatThen(func(context.Context, *chat.Conversation) func() { return func() { ran++ } })
+	if ran != 1 {
+		t.Fatalf("对话没换：跑了 %d 次", ran)
+	}
+	f.hub.RunChatThen(func(context.Context, *chat.Conversation) func() {
+		f.hub.OpenSession(hostlink.Session{ID: "s2", File: "/f2", Cwd: "/w", Backend: f.id}) // 做的时候换走了
+		return func() { ran++ }
+	})
+	if ran != 1 {
+		t.Fatal("对话换走了，结果还交给了新对话")
+	}
+}

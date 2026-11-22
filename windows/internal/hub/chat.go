@@ -240,6 +240,17 @@ func (h *Hub) PathChecker(backend string) func(path string) (hostlink.PathKind, 
 // RunChat 在后台对聊天窗格里的对话做一件事（发消息、停止、回应确认……），出错时把原因交回主线程的 failed。
 // 对话已经换走时什么也不做。
 func (h *Hub) RunChat(do func(ctx context.Context, conv *chat.Conversation) error, failed func(err error)) {
+	h.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
+		if err := do(ctx, conv); err != nil && failed != nil {
+			return func() { failed(err) }
+		}
+		return nil
+	})
+}
+
+// RunChatThen 在后台对聊天窗格里的对话做一件事，do 返回的函数（可以是 nil）交回主线程跑；那时对话已经换走了就不跑，
+// 结果不会落到别的对话上。对话已经换走时什么也不做。
+func (h *Hub) RunChatThen(do func(ctx context.Context, conv *chat.Conversation) func()) {
 	c := h.chat
 	if c == nil || c.Conv == nil {
 		return
@@ -248,13 +259,15 @@ func (h *Hub) RunChat(do func(ctx context.Context, conv *chat.Conversation) erro
 	h.run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
 		defer cancel()
-		if err := do(ctx, conv); err != nil {
-			h.post(func() {
-				if h.chat == c && failed != nil {
-					failed(err)
-				}
-			})
+		apply := do(ctx, conv)
+		if apply == nil {
+			return
 		}
+		h.post(func() {
+			if h.chat == c && c.Conv == conv {
+				apply()
+			}
+		})
 	})
 }
 

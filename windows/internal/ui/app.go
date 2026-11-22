@@ -5,11 +5,14 @@ package ui
 import (
 	"time"
 
+	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
+	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -52,19 +55,35 @@ type App struct {
 	pick    picker     // 选本机的文件、文件夹（系统的对话框；测试里换掉）
 	path    pathAttach // 「输入路径」的对话框
 	prompts promptsUI  // 常用指令的对话框
+	// saveFile 弹系统的保存对话框（标题 title、默认文件名 name、可选的类型 filters），把 data 写到选好的地方，
+	// 返回存到哪，取消了是空的。阻塞，在后台调用；New 给的是系统的（systemSaveFile），测试里换掉。
+	saveFile func(title, name string, filters []mygo.FileFilter, data []byte) (path string, err error)
 
-	// saveAs 换掉看大图保存时的系统保存对话框（测试用）；nil 是系统的。
-	saveAs func(name string) (string, error)
-	// WindowButtonsOverDark 让系统的最小化、最大化、关闭按钮按深色底画（on），或回到跟着主题（看大图时用，入口接上真窗口）；
-	// buttonsOverDark 是上次交代的。
-	WindowButtonsOverDark func(on bool)
-	buttonsOverDark       bool
+	// viewer 是开着的看大图（盖住整个窗口），没开时为 nil；buttonsOverDark 是上次交代给窗口的系统按钮深浅。
+	viewer          *chatview.Viewer
+	buttonsOverDark bool
 
-	// Notify 发一条系统通知（回答完了而窗口不在前台时），Foreground 报告窗口在不在前台。New 给的是不发、总在前台，
+	// Window 是真窗口（在不在前台、通知、系统按钮）。New 给的是窗口起来之前的（总在前台、什么也不做），
 	// 窗口起来后由入口换成真的。
-	Notify     func(title, body string)
-	Foreground func() bool
+	Window Window
 }
+
+// Window 是 App 碰真窗口的几样。
+type Window interface {
+	// Foreground 报告窗口在不在前台。
+	Foreground() bool
+	// Notify 发一条系统通知（回答完了而窗口不在前台时）。
+	Notify(title, body string)
+	// ButtonsOverDark 让系统的最小化、最大化、关闭按钮按深色底画（on，看大图时），或回到跟着主题。
+	ButtonsOverDark(on bool)
+}
+
+// noWindow 是窗口起来之前的：总在前台，不发通知，系统按钮不管。
+type noWindow struct{}
+
+func (noWindow) Foreground() bool      { return true }
+func (noWindow) Notify(string, string) {}
+func (noWindow) ButtonsOverDark(bool)  {}
 
 // notice 是一次操作的结果，弹个框说一声。
 type notice struct {
@@ -74,7 +93,7 @@ type notice struct {
 
 // New 建窗口的状态。run 把要等设备的事放到后台，post 把结果交回主线程（窗口的 Update）。
 func New(h *hub.Hub, run, post func(func())) *App {
-	return &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, Notify: func(string, string) {}, Foreground: func() bool { return true },
+	return &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, saveFile: systemSaveFile, Window: noWindow{},
 		About: defaultAbout(h)}
 }
 
@@ -124,6 +143,25 @@ func (a *App) View(c *ui.Context) {
 		})
 	})
 	a.noticeDialog(c)
+	a.viewImages(c)
+}
+
+// openImages 打开看大图：从 list 的第 index 张看起，图从发出它的列表 from 里取；保存经保存对话框。
+func (a *App) openImages(from *chatview.Chat, list []items.Image, index int) {
+	v := chatview.NewViewer(from, list, index)
+	v.Save = func(data []byte, name string) (string, error) { return a.saveFile("保存图片", name, nil, data) }
+	a.viewer = v
+}
+
+// viewImages 画开着的看大图，关上了丢掉。看大图是黑底：开着时系统按钮画浅色字形，关上后回到跟着主题（只在变了时交代）。
+func (a *App) viewImages(c *ui.Context) {
+	if a.viewer != nil && !a.viewer.View(c) {
+		a.viewer = nil
+	}
+	if on := a.viewer != nil; on != a.buttonsOverDark {
+		a.buttonsOverDark = on
+		a.Window.ButtonsOverDark(on)
+	}
 }
 
 // open 换到一页。

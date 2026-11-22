@@ -178,6 +178,18 @@ func systemPicker(title string, images, folder bool) []string {
 	return paths
 }
 
+// systemSaveFile 是 App.saveFile 的系统实现：弹系统的保存对话框，把 data 写到选好的地方。
+func systemSaveFile(title, name string, filters []mygo.FileFilter, data []byte) (string, error) {
+	path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{Title: title, DefaultPath: name, Filters: filters})
+	if path == "" || err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
 // pickAttachments 是附件菜单的「图片」「文件」「文件夹」：弹系统的对话框，选好的收进输入栏。
 func (a *App) pickAttachments(images, folder bool) {
 	p := a.pane

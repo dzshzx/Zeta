@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
@@ -56,14 +57,13 @@ func newChatPane(c *hub.Chat, loadImage func(file, ref string) ([]byte, error)) 
 	return &chatPane{src: c, list: list}
 }
 
-// syncChat 在每一帧开头跟上中枢的对话：换了对话换一个新的窗格；取走协议层的变化，套给聊天列表；
+// syncChat 在每一帧开头跟上中枢的对话：换了对话换一个新的窗格（开着的看大图一起关上）；取走协议层的变化，套给聊天列表；
 // 一轮结束而窗口不在前台时发通知；有撤回放回输入框的消息时取过来。
 func (a *App) syncChat() {
-	defer a.syncWindowButtons()
 	c := a.hub.Chat()
 	if c == nil {
 		a.leaveDraft(a.pane)
-		a.pane = nil
+		a.pane, a.viewer = nil, nil
 		return
 	}
 	if a.pane == nil || a.pane.src != c {
@@ -71,7 +71,9 @@ func (a *App) syncChat() {
 		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
 		p.list.LoadEarlier = func() { a.loadEarlier(p, false) }
 		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
-		a.pane = p
+		p.list.OpenImages = func(list []items.Image, index int) { a.openImages(p.list, list, index) }
+		a.messageCallbacks(p)
+		a.pane, a.viewer = p, nil
 		a.enterDraft(p)
 	}
 	p := a.pane
@@ -92,23 +94,25 @@ func (a *App) syncChat() {
 	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
 		Failed: p.earlier.failed, Retry: !p.earlier.stale}
 	for _, t := range u.Turns {
-		if t.Phase == chat.TurnFinished && !a.Foreground() {
-			a.Notify(a.chatTitle(p), t.Text)
+		if t.Phase == chat.TurnFinished && !a.Window.Foreground() {
+			a.Window.Notify(a.chatTitle(p), t.Text)
 		}
 	}
 	// 同一条只取一次：取走以后核心推来 recalled 为空之前，这一条还挂在状态里
 	if r := u.State.Recalled; r != nil && !p.taking && r.UUID != p.took {
 		p.taking, p.took = true, r.UUID
-		a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+		a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 			m, err := conv.TakeRecalled(ctx)
-			a.post(func() {
+			return func() {
 				p.taking = false
 				if m != nil {
 					p.putBack(*m)
 				}
-			})
-			return err
-		}, p.fail)
+				if err != nil {
+					p.fail(err)
+				}
+			}
+		})
 	}
 }
 
@@ -360,16 +364,15 @@ func (a *App) loadEarlier(p *chatPane, rest bool) bool {
 		return false
 	}
 	p.earlier.asked, p.earlier.failed = true, ""
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 		err := conv.LoadEarlier(ctx, rest)
-		a.post(func() {
+		return func() {
 			p.earlier.asked = false
 			if err != nil {
 				p.earlier.failed = "没读到更早的记录：" + err.Error()
 				p.earlier.stale = chat.IsEarlierStale(err)
 			}
-		})
-		return nil
-	}, nil)
+		}
+	})
 	return true
 }

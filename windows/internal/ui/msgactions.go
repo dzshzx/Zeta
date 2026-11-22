@@ -5,15 +5,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -26,8 +25,10 @@ import (
 
 // msgActions 是一个对话的消息操作状态，随聊天窗格换。
 type msgActions struct {
-	rounds  chat.Rounds // 这一帧列表里的各轮
-	editing *edit       // 正在编辑的那一轮
+	// rounds 是列表里的各轮，按条目的版本 rev（chatview.Chat.Rev）算的。
+	rounds  chat.Rounds
+	rev     int
+	editing *edit // 正在编辑的那一轮
 	confirm *confirm
 }
 
@@ -59,20 +60,23 @@ type confirm struct {
 	code, drop bool
 }
 
-// syncMessageActions 在每一帧开头跟上列表：算各轮，把编辑中的那条交给列表；第一次时给列表接上菜单、操作排和保存图片。
+// syncMessageActions 在每一帧开头跟上列表：条目变了时重算各轮，把编辑中的那条交给列表。列表的菜单和操作排在建窗格时接上
+// （messageCallbacks）。
 func (a *App) syncMessageActions(p *chatPane) {
 	x := &p.acts
-	x.rounds = chat.RoundsOf(p.list.Items())
+	if rev := p.list.Rev(); rev != x.rev {
+		x.rounds, x.rev = chat.RoundsOf(p.list.Items()), rev
+	}
 	p.list.Editing = ""
 	if x.editing != nil {
 		p.list.Editing = x.editing.User.ID
 	}
-	if p.list.Actions != nil {
-		return
-	}
+}
+
+// messageCallbacks 给新窗格的列表接上用户消息的菜单和一轮下面的操作排。
+func (a *App) messageCallbacks(p *chatPane) {
 	p.list.UserMenu = func(m *ui.Menu, it items.Item) { a.userMenu(m, p, it) }
 	p.list.Actions = func(c *ui.Context, id string) { a.roundActions(c, p, id) }
-	p.list.SaveImage = a.saveImage
 }
 
 // canRewind：现在能改写、删除、还原代码、分支（核心说能，连接在，也没在编辑别的）。
@@ -123,16 +127,15 @@ func (a *App) roundActions(c *ui.Context, p *chatPane, id string) {
 func (a *App) ask(p *chatPane, kind confirmKind, r chat.Round) {
 	cf := &confirm{kind: kind, round: r, open: true, code: true}
 	p.acts.confirm = cf
-	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
+	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 		changes, err := conv.CodeChanges(ctx, r.User.ID)
-		a.post(func() {
+		return func() {
 			cf.asked, cf.changes = true, changes
 			if err != nil {
 				cf.failed = err.Error()
 			}
-		})
-		return nil
-	}, nil)
+		}
+	})
 }
 
 // confirmed 照确认框里选的做。
@@ -157,10 +160,11 @@ func (a *App) confirmed(p *chatPane, cf *confirm) {
 		load := a.hub.ImageLoader(p.src.Backend)
 		user := cf.round.User
 		a.act(func(ctx context.Context, conv *chat.Conversation) error {
-			m, err := resend(user, load)
-			if err != nil {
-				return err
+			images, lost := reattach(user.Images, load)
+			if lost > 0 {
+				return errLostImages
 			}
+			m := chat.Outgoing{Text: user.Text, Images: images, Files: user.Files}
 			if withCode {
 				return conv.RestoreCode(ctx, target, false, &m)
 			}
@@ -172,38 +176,26 @@ func (a *App) confirmed(p *chatPane, cf *confirm) {
 // errLostImages：消息里有图取不回来，没法原样重发。
 var errLostImages = errors.New("有图片取不回来，没法原样重发")
 
-// resend 是原样重发用户消息 it 要带的：文字、附件路径和图（会话记录里的经 load 取回）。阻塞，在后台调用。
-func resend(it items.Item, load func(file, ref string) ([]byte, error)) (chat.Outgoing, error) {
-	images, lost := reattach(it.Images, load)
-	if lost > 0 {
-		return chat.Outgoing{}, errLostImages
-	}
-	return chat.Outgoing{Text: it.Text, Images: images, Files: it.Files}, nil
-}
-
-// reattach 把消息里的图还原成能再发出去的附件，返回取回来的和取不回来的张数。阻塞，在后台调用。
+// reattach 把消息里的图还原成能再发出去的附件（几张同时取，顺序照旧），返回取回来的和取不回来的张数。阻塞，在后台调用。
 func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) ([]chat.Image, int) {
-	var out []chat.Image
-	lost := 0
-	for _, im := range list {
-		var data []byte
-		var err error
-		switch im.Kind {
-		case items.Inline:
-			data, err = base64.StdEncoding.DecodeString(im.Data)
-		case items.Session:
-			data, err = load(im.File, im.Ref)
-		default:
-			err = errors.New("不认识的图片")
-		}
-		kind := http.DetectContentType(data)
-		if err != nil || !strings.HasPrefix(kind, "image/") {
-			lost++
-			continue
-		}
-		out = append(out, chat.Image{MediaType: kind, Data: base64.StdEncoding.EncodeToString(data)})
+	got := make([]*chat.Image, len(list))
+	var wg sync.WaitGroup
+	for i, im := range list {
+		wg.Go(func() {
+			data, err := chatview.ImageBytes(im, load)
+			if kind := http.DetectContentType(data); err == nil && strings.HasPrefix(kind, "image/") {
+				got[i] = &chat.Image{MediaType: kind, Data: base64.StdEncoding.EncodeToString(data)}
+			}
+		})
 	}
-	return out, lost
+	wg.Wait()
+	var out []chat.Image
+	for _, im := range got {
+		if im != nil {
+			out = append(out, *im)
+		}
+	}
+	return out, len(list) - len(out)
 }
 
 // beginEdit 开始编辑一条消息：输入栏里原有的收起来，换成这条的字、附件路径和图（图在后台取回）。
@@ -405,38 +397,4 @@ func changedFiles(c *ui.Context, ch *chat.CodeChanges, cwd string) {
 				FillWidth()
 		}
 	})
-}
-
-// saveImage 是看大图的保存：系统的保存对话框选好位置，写进去，返回存到哪（取消了是空的）。在后台调用。
-func (a *App) saveImage(data []byte, name string) (string, error) {
-	saveAs := a.saveAs
-	if saveAs == nil {
-		saveAs = systemSaveAs
-	}
-	path, err := saveAs(name)
-	if path == "" || err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
-// systemSaveAs 弹系统的保存对话框，默认文件名 name；取消了是空的。阻塞，在后台调用。测试里换掉。
-func systemSaveAs(name string) (string, error) {
-	return mygo.Dialog.Save(mygo.SaveDialogOptions{Title: "保存图片", DefaultPath: name})
-}
-
-// syncWindowButtons 在看大图（黑底）时让系统按钮画浅色的字形，关上后回到跟着主题；只在变了时交代。
-func (a *App) syncWindowButtons() {
-	on := false
-	if p := a.pane; p != nil {
-		_, _, on = p.list.Viewing()
-	}
-	if on == a.buttonsOverDark || a.WindowButtonsOverDark == nil {
-		return
-	}
-	a.buttonsOverDark = on
-	a.WindowButtonsOverDark(on)
 }

@@ -2,19 +2,18 @@ package ui
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"image/color"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -275,59 +274,72 @@ func TestForkFromAnAnswer(t *testing.T) {
 	}
 }
 
-// 点用户消息里的图看大图，保存写到选的位置。
+// 点用户消息里的图看大图（盖住整个窗口，系统按钮换成深色底的画法），保存把原图交给保存对话框；换了对话时一起关上。
 func TestViewAndSaveImage(t *testing.T) {
 	f := openedForActions(t)
 	shot := testImagePNG(t)
 	f.devices.ImageData = shot
-	dir := t.TempDir()
-	f.app.saveAs = func(name string) (string, error) { return filepath.Join(dir, name), nil }
-	var buttons []bool
-	f.app.WindowButtonsOverDark = func(on bool) { buttons = append(buttons, on) }
+	type saved struct {
+		title, name string
+		data        []byte
+	}
+	var got []saved
+	f.app.saveFile = func(title, name string, filters []mygo.FileFilter, data []byte) (string, error) {
+		got = append(got, saved{title, name, data})
+		return `C:\Users\me\Pictures\` + name, nil
+	}
 	f.link().Push(`{"type":"conv.items","conv":"w1","full":true,"items":[{"kind":"user","id":"u-1","uuid":"x1","text":"看这张图",
 		"images":[{"kind":"session","file":"/s.jsonl","ref":"3.0"}]}]}`)
 	f.tt.Frame()
 	waitFor(t, f, func() bool { _, ok := f.tt.Access("图片"); return ok })
 	f.click(t, "图片")
-	if _, _, open := f.app.pane.list.Viewing(); !open {
+	if f.app.viewer == nil {
 		t.Fatal("没打开看大图")
 	}
-	if !slices.Equal(buttons, []bool{true}) {
-		t.Fatalf("看大图时系统按钮没换成深色底的画法：%v", buttons)
+	if !slices.Equal(f.win.buttons, []bool{true}) {
+		t.Fatalf("看大图时系统按钮没换成深色底的画法：%v", f.win.buttons)
 	}
 	f.click(t, "保存")
 	waitFor(t, f, func() bool {
 		return slices.ContainsFunc(f.tt.Texts(), func(s string) bool { return strings.HasPrefix(s, "已保存到 ") })
 	})
-	files, _ := os.ReadDir(dir)
-	if len(files) != 1 {
-		t.Fatalf("存下 %d 个文件", len(files))
-	}
-	data, _ := os.ReadFile(filepath.Join(dir, files[0].Name()))
-	if !bytes.Equal(data, shot) {
-		t.Fatal("存下的不是原图")
+	if len(got) != 1 || got[0].title != "保存图片" || !strings.HasPrefix(got[0].name, "Zeta_") || !bytes.Equal(got[0].data, shot) {
+		t.Fatalf("保存：%+v", got)
 	}
 	// 关上以后系统按钮回到跟着主题
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
-	if !slices.Equal(buttons, []bool{true, false}) {
-		t.Fatalf("关上后系统按钮：%v", buttons)
+	if f.app.viewer != nil || !slices.Equal(f.win.buttons, []bool{true, false}) {
+		t.Fatalf("关上后：开着 %v，系统按钮 %v", f.app.viewer != nil, f.win.buttons)
+	}
+	// 再打开，换了对话：看大图一起关上，系统按钮回来
+	f.click(t, "图片")
+	f.hub.CloseChat()
+	f.tt.Frame()
+	if f.app.viewer != nil || !slices.Equal(f.win.buttons, []bool{true, false, true, false}) {
+		t.Fatalf("换了对话：开着 %v，系统按钮 %v", f.app.viewer != nil, f.win.buttons)
 	}
 }
 
-func TestResend(t *testing.T) {
+// reattach 同时取几张图，顺序照旧；取不到的、不是图的算丢了。
+func TestReattach(t *testing.T) {
 	shot := testImagePNG(t)
-	user := items.Item{Kind: items.User, Text: "看图", Files: []string{"@/srv/a.txt"}, Images: []items.Image{
+	list := []items.Image{
 		{Kind: items.Session, File: "/s.jsonl", Ref: "1"},
-	}}
-	m, err := resend(user, func(file, ref string) ([]byte, error) { return shot, nil })
-	if err != nil || m.Text != "看图" || len(m.Files) != 1 || len(m.Images) != 1 || m.Images[0].MediaType != "image/png" {
-		t.Fatalf("重发：%+v %v", m, err)
+		{Kind: items.Session, File: "/s.jsonl", Ref: "gone"},
+		{Kind: items.Inline, Data: base64.StdEncoding.EncodeToString([]byte("不是图"))},
+		{Kind: items.Inline, Data: base64.StdEncoding.EncodeToString(shot)},
 	}
-	if _, err := resend(user, func(file, ref string) ([]byte, error) { return nil, errors.New("没有") }); !errors.Is(err, errLostImages) {
-		t.Fatalf("取不回图：%v", err)
+	load := func(file, ref string) ([]byte, error) {
+		if ref == "gone" {
+			return nil, errors.New("没有")
+		}
+		return shot, nil
 	}
-	var _ chat.Outgoing = m
+	got, lost := reattach(list, load)
+	if lost != 2 || len(got) != 2 || got[0].MediaType != "image/png" || got[1].Data != base64.StdEncoding.EncodeToString(shot) {
+		t.Fatalf("取回 %d 张，丢了 %d 张", len(got), lost)
+	}
 }
 
 // waitFor 等后台做完的事，最多几秒。

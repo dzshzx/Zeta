@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -20,18 +21,31 @@ type todoStrip struct {
 	// seedRaw、seed 是上次解开的 todo_seed：它只在载入更早的历史时才变，原文没变就不再解。
 	seedRaw json.RawMessage
 	seed    []items.Step
+	// todos、sig 是按条目的版本 rev、seedRaw 和在不在回答（busy）算出的清单和它的签名，三样都没变就不重算；
+	// 全部做完、这一轮也结束了时为空。零值正好是空列表、没有 seed 时算出来的。
+	rev   int
+	busy  bool
+	todos chat.TodoList
+	sig   string
 }
 
-// list 是现在要显示的清单；不显示时为 nil。
-func (s *todoStrip) list(entries []items.Item, state chat.State) chat.TodoList {
-	if !bytes.Equal(s.seedRaw, state.TodoSeed) {
-		s.seedRaw, s.seed = state.TodoSeed, chat.TodoSeed(state.TodoSeed)
+// list 是现在要显示的清单和它的签名；不显示时清单为 nil。
+func (s *todoStrip) list(entries *chatview.Chat, state chat.State) (chat.TodoList, string) {
+	seedChanged := !bytes.Equal(s.seedRaw, state.TodoSeed)
+	if seedChanged || entries.Rev() != s.rev || state.Busy != s.busy {
+		if seedChanged {
+			s.seedRaw, s.seed = state.TodoSeed, chat.TodoSeed(state.TodoSeed)
+		}
+		s.rev, s.busy = entries.Rev(), state.Busy
+		s.todos, s.sig = nil, ""
+		if l := chat.Todos(entries.Items(), s.seed); l != nil && (!l.AllDone() || state.Busy) {
+			s.todos, s.sig = l, l.Signature()
+		}
 	}
-	l := chat.Todos(entries, s.seed)
-	if l == nil || l.Signature() == s.dismissed || (l.AllDone() && !state.Busy) {
-		return nil
+	if s.todos == nil || s.sig == s.dismissed {
+		return nil, ""
 	}
-	return l
+	return s.todos, s.sig
 }
 
 // todoSummary 是清单条一行里的说法：正在做的那一项，没在做的时候是下一项。
@@ -57,7 +71,7 @@ func todoPosition(l chat.TodoList) string {
 // todoStrip 画任务清单条，样子照排队条（输入栏一带的面板）。
 func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 	s := &p.todo
-	l := s.list(p.list.Items(), p.state)
+	l, sig := s.list(p.list, p.state)
 	if l == nil {
 		return
 	}
@@ -86,7 +100,6 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 				}
 			})
 			head.OnClick(func() { s.expanded = !s.expanded })
-			sig := l.Signature()
 			coui.FlatButton(c, coui.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = sig })
 		})
 		if !s.expanded {

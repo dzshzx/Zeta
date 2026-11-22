@@ -62,31 +62,8 @@ func main() {
 			TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
 		// 关窗口时没存的草稿马上存盘（平时输入停下约一秒才存）
 		win.OnClose(func(*mygo.CloseEvent) { app.SaveDrafts() })
-		// 回答完了而窗口不在前台时发通知，点通知回到窗口
-		app.Foreground = func() bool { return win.IsFocused() }
-		// 看大图是黑底：系统按钮画浅色字形，关上后回到跟着主题
-		app.WindowButtonsOverDark = func(on bool) {
-			if on {
-				win.SetWindowButtonsTheme(mygo.ThemeDark)
-			} else {
-				win.SetWindowButtonsTheme(mygo.ThemeSystem)
-			}
-		}
-		app.Notify = func(title, body string) {
-			if !mygo.NotificationsSupported() {
-				return
-			}
-			n := mygo.NewNotification(mygo.NotificationOptions{ID: "zeta-turn", Title: title, Body: body})
-			n.OnClick(func() {
-				win.Restore()
-				win.Focus()
-			})
-			go func() {
-				if err := n.Show(); err != nil {
-					log.Printf("zeta: 通知没发出去：%v", err)
-				}
-			}()
-		}
+		// 回答完了而窗口不在前台时发通知，看大图时系统按钮换深浅（window.go）
+		app.Window = desktopWindow{win}
 		// 更新的状态在后台变：重画；查到新版本时窗口底部提示；安装程序起好后退出
 		updater.Changed = func() { win.Update(func() {}) }
 		updater.Notify = func(text string) { win.Update(func() { app.ShowUpdate(text) }) }

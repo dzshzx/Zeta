@@ -50,9 +50,11 @@ func ActionButton(c *ui.Context, icon *ui.SVG, label string, enabled bool) ui.El
 	return coui.FlatButton(c, icon, label, 30, 15).Margin(6, 0, 0, 0).Disabled(!enabled)
 }
 
-// opensImage 让 e 点了打开看大图：从 list 的第 index 张看起，左右能翻到同一组的别的图。返回 e。
+// opensImage 让 e 点了交给 OpenImages 打开看大图：从 list 的第 index 张看起，左右能翻到同一组的别的图。返回 e。
 func (ch *Chat) opensImage(e ui.Element, list []items.Image, index int) ui.Element {
-	return e.Cursor(ui.CursorPointer).OnClick(func() {
-		ch.viewer = viewer{images: slices.Clone(list), index: index, open: true}
-	})
+	open := ch.OpenImages
+	if open == nil {
+		return e
+	}
+	return e.Cursor(ui.CursorPointer).OnClick(func() { open(slices.Clone(list), index) })
 }

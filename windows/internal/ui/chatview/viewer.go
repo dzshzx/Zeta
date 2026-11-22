@@ -1,8 +1,8 @@
 package chatview
 
 import (
-	"encoding/base64"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,17 +13,27 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 全屏看大图（同手机版 ImageViewer.kt、ImageGallery.kt）：点聊天里的图打开，黑底铺满窗口，不管外面是浅色深色都用
-// COUI 的深色配色。顶上是返回和「第几张 / 共几张」，多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点和保存。
-// Esc 关上。保存交给调用方给的 SaveImage（系统的保存对话框）。
+// 全屏看大图（同手机版 ImageViewer.kt、ImageGallery.kt）：点聊天里的图时列表发出 OpenImages，调用方建一个 Viewer、
+// 每帧画在窗口最上层。黑底铺满窗口，不管外面是浅色深色都用 COUI 的深色配色。顶上是返回和「第几张 / 共几张」，
+// 多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点和保存。Esc 关上。保存交给调用方给的 Save。
 
-// viewer 是看大图的状态：看的是哪一组图、第几张。
-type viewer struct {
+// Viewer 是一次看大图：看的是哪一组图、第几张。图从发出 OpenImages 的那个列表的缓存里取，不再取一遍。
+type Viewer struct {
+	// Save 存一张图（data 是原始数据，name 是建议的文件名），返回存到哪，取消了是空的。在后台 goroutine 上调；
+	// 没给时保存是灰的。
+	Save func(data []byte, name string) (saved string, err error)
+
+	from *Chat
+	// images 是这一组图，关上后为空。
 	images []items.Image
 	index  int
-	open   bool
 	// saving 是正在保存的那次（取图、等用户选位置、写文件），done 了之后 note 是结果。
 	saving *saving
+}
+
+// NewViewer 从 list 的第 index 张看起；图是列表 from 里的（OpenImages 发出来的那组）。
+func NewViewer(from *Chat, list []items.Image, index int) *Viewer {
+	return &Viewer{from: from, images: slices.Clone(list), index: index}
 }
 
 // saving 是一次保存：在后台 goroutine 上做完，结果给界面线程读。
@@ -39,17 +49,19 @@ func (s *saving) result() (bool, string) {
 	return s.done, s.note
 }
 
-// Viewing 报告是否开着看大图、看的是第几张（从 0 数）、共几张。
-func (ch *Chat) Viewing() (index, count int, open bool) {
-	v := ch.viewer
-	return v.index, len(v.images), v.open
-}
+// close 关上看大图。
+func (v *Viewer) close() { v.images, v.saving = nil, nil }
 
 // step 翻到上一张（-1）或下一张（1），到头了不动。
-func (v *viewer) step(d int) {
+func (v *Viewer) step(d int) {
 	if n := v.index + d; n >= 0 && n < len(v.images) {
 		v.index, v.saving = n, nil
 	}
+}
+
+// bitmap 是一张图在来源列表缓存里的载入结果。
+func (v *Viewer) bitmap(c *ui.Context, im items.Image) (*ui.Bitmap, bool, error) {
+	return v.from.images.get(c, im, v.from.LoadImage)
 }
 
 // 看大图页上下留给两条栏的高度，左右留给翻页键的宽度。
@@ -58,44 +70,44 @@ const (
 	viewerSide   = 76
 )
 
-// viewImages 在开着看大图时把它画在窗口最上层。
-func (ch *Chat) viewImages(c *ui.Context) {
-	v := &ch.viewer
-	if !v.open || len(v.images) == 0 {
-		return
+// View 把看大图画在窗口最上层；返回还开着没有（关上了调用方丢掉它）。
+func (v *Viewer) View(c *ui.Context) bool {
+	if len(v.images) == 0 {
+		return false
 	}
 	v.index = min(max(v.index, 0), len(v.images)-1)
 	ui.Overlay(c, func() {
 		page := ui.Themed(c, coui.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(coui.For(true).Window).
 			Modal().Role(ui.RoleDialog).Label("看大图")
 		page.Children(func() {
-			ch.viewerImage(c, v.images[v.index])
-			ch.viewerTop(c)
+			v.image(c, v.images[v.index])
+			v.top(c)
 			if len(v.images) > 1 {
 				pageButton(c, coui.IconChevronBack, "上一张", v.index > 0, true).OnClick(func() { v.step(-1) })
 				pageButton(c, coui.IconForward, "下一张", v.index < len(v.images)-1, false).OnClick(func() { v.step(1) })
 			}
-			ch.viewerBottom(c)
+			v.bottom(c)
 		})
 		switch {
 		case page.OverlayShortcut(0, ui.KeyEscape):
-			v.open, v.saving = false, nil
+			v.close()
 		case page.OverlayShortcut(0, ui.KeyLeft):
 			v.step(-1)
 		case page.OverlayShortcut(0, ui.KeyRight):
 			v.step(1)
 		}
 	})
+	return len(v.images) > 0
 }
 
-// viewerImage 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍；还在取时转圈，取不到时说一声。
-func (ch *Chat) viewerImage(c *ui.Context, im items.Image) {
+// image 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍；还在取时转圈，取不到时说一声。
+func (v *Viewer) image(c *ui.Context, im items.Image) {
 	k := coui.Of(c)
 	w, h := c.Size()
 	room := ui.Rect{W: w - 2*viewerSide, H: h - coui.TitleBarHeight - viewerBottom}
 	box := ui.Column(c.Key("image/" + im.CacheKey())).Absolute().Left(viewerSide).Right(viewerSide).Top(coui.TitleBarHeight).
 		Bottom(viewerBottom).Center()
-	bmp, done, err := ch.images.get(c, im, ch.LoadImage)
+	bmp, done, err := v.bitmap(c, im)
 	box.Children(func() {
 		switch {
 		case bmp != nil:
@@ -113,10 +125,9 @@ func (ch *Chat) viewerImage(c *ui.Context, im items.Image) {
 	})
 }
 
-// viewerTop 是顶栏（同时是标题栏，空白处拖动窗口）：左边返回，多张时按整个窗口居中写「第几张 / 共几张」。
-func (ch *Chat) viewerTop(c *ui.Context) {
+// top 是顶栏（同时是标题栏，空白处拖动窗口）：左边返回，多张时按整个窗口居中写「第几张 / 共几张」。
+func (v *Viewer) top(c *ui.Context) {
 	k := coui.Of(c)
-	v := &ch.viewer
 	ui.Row(c).Absolute().Left(0).Right(0).Top(0).Height(coui.TitleBarHeight).Justify(ui.Center).AlignItems(ui.Center).
 		DragWindow().Children(func() {
 		if len(v.images) > 1 {
@@ -125,7 +136,7 @@ func (ch *Chat) viewerTop(c *ui.Context) {
 		}
 	})
 	coui.CircleButton(c, coui.IconBack, "返回").Absolute().Left(16).Top((coui.TitleBarHeight - 40) / 2).
-		OnClick(func() { v.open, v.saving = false, nil })
+		OnClick(v.close)
 }
 
 // pageButton 是两边竖直居中的翻页键（浮起的圆钮）；到头的那边变灰。
@@ -140,11 +151,10 @@ func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) u
 	return b.Disabled(!enabled)
 }
 
-// viewerBottom 是底栏：多张时上面一排页码圆点，下面是保存（图标在上、字在下，同手机版的 BarAction），
+// bottom 是底栏：多张时上面一排页码圆点，下面是保存（图标在上、字在下，同手机版的 BarAction），
 // 保存过后旁边一句结果。
-func (ch *Chat) viewerBottom(c *ui.Context) {
+func (v *Viewer) bottom(c *ui.Context) {
 	k := coui.Of(c)
-	v := &ch.viewer
 	ui.Column(c).Absolute().Left(0).Right(0).Bottom(0).Height(viewerBottom).AlignItems(ui.Center).Justify(ui.End).
 		Padding(0, 0, 12, 0).Gap(6).Children(func() {
 		if len(v.images) > 1 {
@@ -158,14 +168,14 @@ func (ch *Chat) viewerBottom(c *ui.Context) {
 				}
 			})
 		}
-		bmp, _, _ := ch.images.get(c, v.images[v.index], ch.LoadImage)
+		bmp, _, _ := v.bitmap(c, v.images[v.index])
 		busy, note := false, ""
 		if s := v.saving; s != nil {
 			done, n := s.result()
 			busy, note = !done, n
 		}
 		save := ui.ButtonBase(c).Label("保存").MinWidth(88).Radius(16).Padding(8, 12).
-			Cursor(ui.CursorPointer).Disabled(ch.SaveImage == nil || bmp == nil || busy)
+			Cursor(ui.CursorPointer).Disabled(v.Save == nil || bmp == nil || busy)
 		if save.Hovered() {
 			save.Background(k.Hover)
 		}
@@ -175,22 +185,22 @@ func (ch *Chat) viewerBottom(c *ui.Context) {
 				ui.Text(c, "保存").FontSize(coui.SizeBodyXS).TextColor(k.Text)
 			})
 		})
-		save.OnClick(func() { ch.save(c, v.images[v.index]) })
+		save.OnClick(func() { v.save(c, v.images[v.index]) })
 		ui.Text(c, note).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
 	})
 }
 
-// save 在后台取这张图的原始数据，交给 SaveImage 存，结果记在 viewer 上。
-func (ch *Chat) save(c *ui.Context, im items.Image) {
+// save 在后台取这张图的原始数据，交给 Save 存，结果记在看大图上。
+func (v *Viewer) save(c *ui.Context, im items.Image) {
 	s := &saving{}
-	ch.viewer.saving = s
-	saveImage, load, services := ch.SaveImage, ch.LoadImage, c.Services()
+	v.saving = s
+	save, load, services := v.Save, v.from.LoadImage, c.Services()
 	go func() {
 		note := ""
-		data, err := imageData(im, load)
+		data, err := ImageBytes(im, load)
 		if err == nil {
 			var saved string
-			saved, err = saveImage(data, imageFileName(data, time.Now()))
+			saved, err = save(data, imageFileName(data, time.Now()))
 			if saved != "" {
 				note = "已保存到 " + saved
 			}
@@ -203,17 +213,6 @@ func (ch *Chat) save(c *ui.Context, im items.Image) {
 		s.mu.Unlock()
 		services.Invalidate()
 	}()
-}
-
-// imageData 是一张图的原始数据：实时收到的带着 base64，会话记录里的再取一次。
-func imageData(im items.Image, load func(file, ref string) ([]byte, error)) ([]byte, error) {
-	if im.Kind == items.Inline {
-		return base64.StdEncoding.DecodeString(im.Data)
-	}
-	if load == nil {
-		return nil, errNoLoader
-	}
-	return load(im.File, im.Ref)
 }
 
 // imageFileName 是保存时建议的文件名（同手机版 ImageExport.fileName 取不出名字时）：Zeta_年月日_时分秒，

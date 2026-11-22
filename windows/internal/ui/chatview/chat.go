@@ -1,5 +1,6 @@
 // Package chatview 画聊天列表：用户消息、回答（Markdown，流式时逐字显现）、提示、思考与工具调用的折叠卡、
-// 文件改动的红绿对比和图片。条目和各个回调由调用方给，组件自己不碰网络和文件；都在界面线程上用。
+// 文件改动的红绿对比和图片，以及点图打开的看大图（Viewer，由调用方画在窗口最上层）。条目和各个回调由调用方给，
+// 组件自己不碰网络和文件；都在界面线程上用。
 package chatview
 
 import (
@@ -43,6 +44,8 @@ type Chat struct {
 	ExpandWork bool
 	// OpenLink：回答里的链接点了调它；没给时 http、https、mailto 的链接交给系统打开。
 	OpenLink func(url string)
+	// OpenImages：点了图时调它（同一组的图、点的是第几张），由调用方打开看大图（NewViewer）；没给时图点不开。
+	OpenImages func(list []items.Image, index int)
 	// LoadMarkdownImage 取回答的 Markdown 里写的图片（原文里的网址或路径），返回图片文件的内容；在单独的 goroutine 里调，
 	// 同一个地址只调一次。没给时这些图显示为它们的说明文字。显示前设好，之后不再换。
 	LoadMarkdownImage func(url string) ([]byte, error)
@@ -50,16 +53,15 @@ type Chat struct {
 	Earlier Earlier
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
 	Top float32
-	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项下面的操作排、正在编辑的那条、
-	// 看大图时的保存（viewer.go）。
-	UserMenu  func(m *ui.Menu, it items.Item)
-	Actions   func(c *ui.Context, id string)
-	Editing   string
-	SaveImage func(data []byte, name string) (saved string, err error)
-	viewer    viewer
+	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项下面的操作排、正在编辑的那条。
+	UserMenu func(m *ui.Menu, it items.Item)
+	Actions  func(c *ui.Context, id string)
+	Editing  string
 
 	items []items.Item
-	list  ui.ListState
+	// rev 是条目的版本：SetItems、Splice 一次加一（Rev）。
+	rev  int
+	list ui.ListState
 	// answer、thinking 是回答和思考的 Markdown 设置；thinkingTheme 是思考用的淡色字。
 	answer, thinking           markdown.Options
 	answerTheme, thinkingTheme markdown.Theme
@@ -108,9 +110,13 @@ func (ch *Chat) markdownImage(url string) (ui.ImageSource, error) {
 // Items 返回现在显示的条目。
 func (ch *Chat) Items() []items.Item { return ch.items }
 
+// Rev 是条目的版本，条目每换一次（SetItems、Splice）加一：调用方按它的变化决定要不要重算由条目推出来的东西。
+func (ch *Chat) Rev() int { return ch.rev }
+
 // SetItems 整份换掉条目（打开会话、重新取了一份时）。折叠卡展开与否按 id 留着。
 func (ch *Chat) SetItems(list []items.Item) {
 	ch.items = list
+	ch.rev++
 	ch.find.dirty = true
 	clear(ch.changes)
 }
@@ -130,6 +136,7 @@ func (ch *Chat) Splice(at, remove int, add []items.Item) error {
 	}
 	ch.find.dirty = true
 	ch.items = next
+	ch.rev++
 	return nil
 }
 
@@ -189,7 +196,6 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 			ui.Column(c).FillWidth().Children(func() { ch.earlierRow(c) })
 		}
 	})
-	ch.viewImages(c)
 	first, last := ch.list.Visible()
 	ch.scrolled = last >= first && (first > 0 || top < list.Bounds().Y+listTop+ch.Top-0.5)
 	// 照 Compose 从顶上往下排；内容多了跟到底部靠 FollowEnd

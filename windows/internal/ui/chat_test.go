@@ -22,15 +22,13 @@ type chatFixture struct {
 	*fixture
 	id      string
 	answers map[string]string
-	notes   []string // 发出的通知
-	front   bool
+	win     *testWindow
 }
 
 func newChatFixture(t *testing.T) *chatFixture {
 	t.Helper()
-	f := &chatFixture{fixture: newFixture(t), answers: map[string]string{}, front: true}
-	f.app.Notify = func(title, body string) { f.notes = append(f.notes, title+"："+body) }
-	f.app.Foreground = func() bool { return f.front }
+	f := &chatFixture{fixture: newFixture(t), answers: map[string]string{}, win: &testWindow{front: true}}
+	f.app.Window = f.win
 	f.devices.OnChat = func(l *hubtest.ChatLink) {
 		l.Connect()
 		l.OnCall(func(c hubtest.Call) (json.RawMessage, error) {
@@ -274,10 +272,10 @@ func TestNewChatInAMissingDirectory(t *testing.T) {
 func TestReconnectAndNotify(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
-	f.front = false
+	f.win.front = false
 	f.replay("turn")
-	if len(f.notes) != 1 || f.notes[0] != "假 Claude 起的标题：已完成" {
-		t.Fatalf("通知：%v", f.notes)
+	if len(f.win.notes) != 1 || f.win.notes[0] != "假 Claude 起的标题：已完成" {
+		t.Fatalf("通知：%v", f.win.notes)
 	}
 	f.link().Drop("连接断了：EOF")
 	f.tt.Frame()
@@ -486,3 +484,14 @@ func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 			`"suggestion_lines":["允许 Bash(tools/gradle:*)"],"notice":""}]`)
 	}
 }
+
+// testWindow 是测试里的窗口：前台与否由测试定，记下发出的通知和交代过的系统按钮深浅。
+type testWindow struct {
+	front   bool
+	notes   []string
+	buttons []bool
+}
+
+func (w *testWindow) Foreground() bool          { return w.front }
+func (w *testWindow) Notify(title, body string) { w.notes = append(w.notes, title+"："+body) }
+func (w *testWindow) ButtonsOverDark(on bool)   { w.buttons = append(w.buttons, on) }

@@ -57,21 +57,23 @@ func (ic *imageCache) get(c *ui.Context, im items.Image, load func(file, ref str
 	return e.result()
 }
 
-// loadImage 取一张图的数据并解码：实时收到的带着 base64，会话记录里的经调用方给的 load 取。
-func loadImage(im items.Image, load func(file, ref string) ([]byte, error)) (*ui.Bitmap, error) {
-	var data []byte
-	var err error
+// ImageBytes 是一张图的原始数据：实时收到的带着 base64，会话记录里的经调用方给的 load 取（阻塞，在后台调用）。
+func ImageBytes(im items.Image, load func(file, ref string) ([]byte, error)) ([]byte, error) {
 	switch im.Kind {
 	case items.Inline:
-		data, err = base64.StdEncoding.DecodeString(im.Data)
+		return base64.StdEncoding.DecodeString(im.Data)
 	case items.Session:
 		if load == nil {
 			return nil, errNoLoader
 		}
-		data, err = load(im.File, im.Ref)
-	default:
-		return nil, fmt.Errorf("不认识的图片种类 %q", im.Kind)
+		return load(im.File, im.Ref)
 	}
+	return nil, fmt.Errorf("不认识的图片种类 %q", im.Kind)
+}
+
+// loadImage 取一张图的数据并解码。
+func loadImage(im items.Image, load func(file, ref string) ([]byte, error)) (*ui.Bitmap, error) {
+	data, err := ImageBytes(im, load)
 	if err != nil {
 		return nil, err
 	}
