@@ -20,11 +20,11 @@ const (
 //   - quota.get、quota.event：主机上存着的上一次的数，和对话里 rate_limit_event 并进去的变化，不用起 Claude Code；
 //   - UsageSource（conv.quota）：向 Claude Code 要一次 get_usage，应答交给 quota.usage 读成额度、存起来。
 //
-// 方法和读状态都在界面线程上；后台的事做完经 post 回到界面线程改状态。
+// 方法和读状态都在界面线程上；后台的事（loop.Run）做完经 loop.Post 回到界面线程改状态。
 type Quota struct {
 	caller Caller
 	source UsageSource
-	post   func(func())
+	loop   Loop
 	now    func() time.Time
 
 	snapshot   *Snapshot
@@ -34,11 +34,11 @@ type Quota struct {
 }
 
 // NewQuota 返回一台主机的额度。source 为 nil 时只读主机上存着的数；now 为 nil 时用 time.Now。
-func NewQuota(caller Caller, source UsageSource, post func(func()), now func() time.Time) *Quota {
+func NewQuota(caller Caller, source UsageSource, loop Loop, now func() time.Time) *Quota {
 	if now == nil {
 		now = time.Now
 	}
-	return &Quota{caller: caller, source: source, post: post, now: now}
+	return &Quota{caller: caller, source: source, loop: loop, now: now}
 }
 
 // Snapshot 是收到的额度，界面按自己的时刻看（Snapshot.At）；还没有时 ok 为 false。
@@ -75,12 +75,12 @@ func (q *Quota) Refresh(force bool) {
 		q.lastAsked = now
 	}
 	q.refreshing = true
-	go func() {
+	q.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), askTimeout)
 		defer cancel()
 		r, err := q.fetch(ctx, ask)
-		q.post(func() { q.received(r, err) })
-	}()
+		q.loop.Post(func() { q.received(r, err) })
+	})
 }
 
 func (q *Quota) fetch(ctx context.Context, ask bool) (quotaResult, error) {
@@ -136,15 +136,15 @@ func (q *Quota) Observe(event []byte) {
 	if json.Unmarshal(event, &ev) != nil || ev.Type != "rate_limit_event" || ev.Info == nil {
 		return
 	}
-	go func() {
+	q.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), askTimeout)
 		defer cancel()
 		var r quotaResult
 		if q.call(ctx, "quota.event", map[string]any{"info": ev.Info}, &r) != nil || !r.Changed || r.Snapshot == nil {
 			return
 		}
-		q.post(func() { q.snapshot = r.Snapshot })
-	}()
+		q.loop.Post(func() { q.snapshot = r.Snapshot })
+	})
 }
 
 // switched：换了号，上一个号的数不再显示，向 Claude Code 重要一次。

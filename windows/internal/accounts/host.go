@@ -1,7 +1,7 @@
 // Package accounts 是桌面版这边一台主机的账号与额度：调主机上 zeta-helper serve 的 accounts.*、quota.* 方法（逻辑都在
 // helper/accounts，方法见 docs/core.md「账号与额度」），把结果整理成界面要的状态。这里不碰主机上的文件和令牌。
 //
-// Service 和 Quota 的状态只在界面线程上读写：后台 goroutine 做完事后经构造时给的 post（窗口的 Update）改状态。
+// Service 和 Quota 的状态只在界面线程上读写：要等主机的事经构造时给的 Loop.Run 放到后台，做完经 Loop.Post（窗口的 Update）改状态。
 package accounts
 
 import (
@@ -13,6 +13,11 @@ import (
 // Caller 向一台主机上的 serve 发一个请求：params 的各个键和 id、method 平级放进请求那一行，返回 reply 的 result 原文。
 // serve 回 ok:false 时 err 的 Error() 是它的 error；reply 带 code 时 err 还要有方法 Code() string 返回它。
 // 由 internal/host 实现；阻塞，ctx 到期时放弃。
+// Loop 是界面线程的两头：Run 把要等主机的事放到后台，Post 把函数交回界面线程跑。测试里可以都就地执行。
+type Loop struct {
+	Run, Post func(func())
+}
+
 type Caller interface {
 	Call(ctx context.Context, method string, params any) (json.RawMessage, error)
 }

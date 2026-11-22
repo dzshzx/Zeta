@@ -35,10 +35,11 @@ func (h *Hub) Remote(id string) *Remote {
 	}
 	conn := h.chatConn(id)
 	caller := &remoteCaller{conn: conn, dead: func() { h.post(func() { h.dropDeadConn(id, conn) }) }}
-	q := accounts.NewQuota(caller, usageSource{conn}, h.post, nil)
+	loop := accounts.Loop{Run: h.run, Post: h.post}
+	q := accounts.NewQuota(caller, usageSource{conn}, loop, nil)
 	r := &Remote{
 		Config:   claudecfg.New(caller, x.DefaultCwd),
-		Accounts: accounts.NewService(caller, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, h.post),
+		Accounts: accounts.NewService(caller, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
 		Quota:    q,
 		conn:     conn,
 	}

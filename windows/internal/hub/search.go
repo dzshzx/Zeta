@@ -91,36 +91,41 @@ func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needl
 		return
 	case <-time.After(delay):
 	}
-	var (
-		wg       sync.WaitGroup
-		mu       sync.Mutex
-		outcomes []searchOutcome
-	)
+	// 各台的命中和断线都经 posts 交给这个 goroutine，由它一个个 post：交回主线程的只有这一处，post 就地执行时（测试里）也不会两个同时跑
+	posts := make(chan func())
+	results := make(chan searchOutcome, len(conns))
+	var wg sync.WaitGroup
 	for id, conn := range conns {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			complete, err := conn.search(ctx, needle, func(session, snippet string) {
 				key := Key(hostlink.Session{Backend: id, ID: session})
-				// 几台同时在交：post 可能就地执行（测试里），一次只交一个
-				mu.Lock()
-				defer mu.Unlock()
-				h.post(func() {
+				posts <- func() {
 					if ctx.Err() == nil {
 						h.search.hits[key] = snippet
 					}
-				})
+				}
 			})
 			var reply *hostlink.ReplyError
 			if err != nil && !errors.As(err, &reply) && ctx.Err() == nil {
-				h.post(func() { h.dropDeadConn(id, conn) })
+				posts <- func() { h.dropDeadConn(id, conn) }
 			}
-			mu.Lock()
-			outcomes = append(outcomes, searchOutcome{complete, err == nil})
-			mu.Unlock()
+			results <- searchOutcome{complete, err == nil}
 		}()
 	}
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		close(posts)
+	}()
+	for f := range posts {
+		h.post(f)
+	}
+	close(results)
+	var outcomes []searchOutcome
+	for o := range results {
+		outcomes = append(outcomes, o)
+	}
 	progress := combined(outcomes)
 	h.post(func() {
 		if ctx.Err() == nil {

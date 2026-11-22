@@ -172,6 +172,9 @@ type loop struct{ ch chan func() }
 
 func newLoop() *loop          { return &loop{ch: make(chan func(), 64)} }
 func (l *loop) post(f func()) { l.ch <- f }
+
+// accounts 是 Service、Quota 用的 Loop：后台的事真在后台跑，交回的排进 ch，until 里跑。
+func (l *loop) accounts() Loop { return Loop{Run: func(f func()) { go f() }, Post: l.post} }
 func (l *loop) until(t *testing.T, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.After(10 * time.Second)
@@ -198,8 +201,8 @@ type fixture struct {
 func newFixture() *fixture {
 	f := &fixture{serve: newServe(), convs: &fakeConvs{}, src: &source{}, loop: newLoop()}
 	f.prog = &program{serve: f.serve}
-	f.quota = NewQuota(f.serve, f.src, f.loop.post, nil)
-	f.svc = NewService(f.serve, f.prog, f.convs, f.quota, f.loop.post)
+	f.quota = NewQuota(f.serve, f.src, f.loop.accounts(), nil)
+	f.svc = NewService(f.serve, f.prog, f.convs, f.quota, f.loop.accounts())
 	return f
 }
 
@@ -293,7 +296,7 @@ func TestSaveAndRemove(t *testing.T) {
 
 func TestUnreachableHost(t *testing.T) {
 	l := newLoop()
-	svc := NewService(callerFunc(func() error { return errors.New("连不上") }), nil, &fakeConvs{}, nil, l.post)
+	svc := NewService(callerFunc(func() error { return errors.New("连不上") }), nil, &fakeConvs{}, nil, l.accounts())
 	svc.Refresh()
 	l.until(t, "读完", func() bool { return svc.Problem() != "" })
 	if svc.Problem() != "读不了账号：连不上" {
@@ -347,7 +350,7 @@ func TestQuotaWithoutSourceAndEvents(t *testing.T) {
 	l := newLoop()
 	serve := newServe()
 	serve.quota = snapshotJSON(40)
-	q := NewQuota(serve, nil, l.post, nil)
+	q := NewQuota(serve, nil, l.accounts(), nil)
 	q.Refresh(true)
 	l.until(t, "读完", func() bool { return !q.Refreshing() })
 	s, ok := q.Snapshot()

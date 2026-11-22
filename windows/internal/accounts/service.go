@@ -53,12 +53,12 @@ func (cl client) list(ctx context.Context) (State, error) {
 // 换号和记下账号都改那台上 Linux 用户的 Claude Code 登录状态，两个 Zeta 和终端里的 claude 共用这一份，所以只在没有
 // 别的 Claude Code 进程开着时做（accounts.list 的 blocker）。
 //
-// 方法和读状态都在界面线程上；后台的事做完经 post 回到界面线程改状态。
+// 方法和读状态都在界面线程上；后台的事（loop.Run）做完经 loop.Post 回到界面线程改状态。
 type Service struct {
 	cl    client
 	convs Conversations
 	quota *Quota
-	post  func(func())
+	loop  Loop
 
 	state   *State
 	working string
@@ -66,9 +66,9 @@ type Service struct {
 }
 
 // NewService 返回一台主机的账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil）；
-// post 把函数交给界面线程执行（窗口的 Update）。
-func NewService(caller Caller, program Program, convs Conversations, quota *Quota, post func(func())) *Service {
-	return &Service{cl: client{caller, program}, convs: convs, quota: quota, post: post}
+// loop 是界面线程的两头（见 Loop）。
+func NewService(caller Caller, program Program, convs Conversations, quota *Quota, loop Loop) *Service {
+	return &Service{cl: client{caller, program}, convs: convs, quota: quota, loop: loop}
 }
 
 // State 是读到的账号；还没读到时 ok 为 false。
@@ -90,18 +90,18 @@ func (s *Service) DismissProblem() { s.problem = "" }
 
 // Refresh 重读一遍账号。
 func (s *Service) Refresh() {
-	go func() {
+	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		st, err := s.cl.list(ctx)
-		s.post(func() {
+		s.loop.Post(func() {
 			if err == nil {
 				s.state = &st
 			} else if s.working == "" {
 				s.problem = "读不了账号：" + err.Error()
 			}
 		})
-	}()
+	})
 }
 
 // Switch 换成存着的 target：先看有没有别的 Claude Code 进程开着，再收掉本客户端闲着的对话进程，然后在主机上换。
@@ -119,7 +119,7 @@ func (s *Service) Remove(target Account) {
 		return
 	}
 	s.problem, s.working = "", "正在移除 "+target.Title()
-	go func() {
+	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		err := s.cl.call(ctx, "accounts.remove", map[string]any{"name": target.Name}, nil)
@@ -127,7 +127,7 @@ func (s *Service) Remove(target Account) {
 			err = errors.New("没有移除：" + err.Error())
 		}
 		s.finish(ctx, err)
-	}()
+	})
 }
 
 // change 做一件改登录状态的事：本客户端有对话在进行、别的 Claude Code 开着时不做，说清原因；能做时先收掉本客户端闲着的
@@ -142,19 +142,19 @@ func (s *Service) change(working, method string, params map[string]any) {
 		return
 	}
 	s.problem, s.working = "", working
-	go func() {
+	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		st, err := s.cl.list(ctx)
 		cancel()
 		switch {
 		case err != nil:
-			s.post(func() { s.working, s.problem = "", "读不了账号："+err.Error() })
+			s.loop.Post(func() { s.working, s.problem = "", "读不了账号："+err.Error() })
 		case st.Blocker != "":
-			s.post(func() { s.working, s.problem, s.state = "", st.Blocker, &st })
+			s.loop.Post(func() { s.working, s.problem, s.state = "", st.Blocker, &st })
 		default:
-			s.post(func() { s.closeAndChange(method, params) })
+			s.loop.Post(func() { s.closeAndChange(method, params) })
 		}
-	}()
+	})
 }
 
 // closeAndChange 在界面线程上收掉本客户端闲着的对话进程，收得掉就请主机去改。
@@ -164,21 +164,21 @@ func (s *Service) closeAndChange(method string, params map[string]any) {
 		s.working, s.problem = "", ownBusy
 		return
 	}
-	go func() {
+	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		err := s.cl.call(ctx, method, params, nil)
 		if err == nil && s.quota != nil {
-			s.post(s.quota.switched)
+			s.loop.Post(s.quota.switched)
 		}
 		s.finish(ctx, err)
-	}()
+	})
 }
 
 // finish 收下一件事的结果（err 为 nil 是做成了），重读账号。
 func (s *Service) finish(ctx context.Context, err error) {
 	st, listErr := s.cl.list(ctx)
-	s.post(func() {
+	s.loop.Post(func() {
 		s.working = ""
 		if listErr == nil {
 			s.state = &st

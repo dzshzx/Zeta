@@ -127,9 +127,9 @@ func newFixture() *fixture {
 		src:   &source{},
 		posts: make(chan func(), 64),
 	}
-	post := func(fn func()) { f.posts <- fn }
-	q := acct.NewQuota(f.host, f.src, post, nil)
-	f.page = &Page{Accounts: acct.NewService(f.host, nil, f.convs, q, post), Quota: q}
+	loop := acct.Loop{Run: func(fn func()) { go fn() }, Post: func(fn func()) { f.posts <- fn }}
+	q := acct.NewQuota(f.host, f.src, loop, nil)
+	f.page = &Page{Accounts: acct.NewService(f.host, nil, f.convs, q, loop), Quota: q}
 	return f
 }
 
