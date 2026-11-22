@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/dzshzx/Zeta/client/testinput"
 )
 
 // upgradeCode 是 Compose 桌面版（desktop/windows/Zeta.wxs）的 UpgradeCode。装 Go 版的 MSI 时靠它认出已装的旧版并卸掉，不能改。
@@ -31,7 +33,7 @@ func msi(t *testing.T, version string) (string, int) {
 		t.Fatal(err)
 	}
 	// msi.sh 读本目录里的 Zeta.wxs、zeta.ico：子进程读的文件 go test 的缓存看不见，这里打开一遍本目录
-	if _, err := os.ReadDir("."); err != nil {
+	if err := testinput.Tree("."); err != nil {
 		t.Fatal(err)
 	}
 	out := filepath.Join(dir, "Zeta.msi")

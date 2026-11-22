@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/dzshzx/Zeta/client/testinput"
 )
 
 func TestInstallPlan(t *testing.T) {
@@ -102,7 +104,7 @@ func TestVetForWindows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("要 PATH 上的 go：%v", err)
 	}
-	if _, err := os.ReadDir("."); err != nil {
+	if err := testinput.Tree("."); err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range []string{"../../go.mod", "../../go.sum"} {

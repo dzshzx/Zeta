@@ -191,20 +191,17 @@ const abortGrace = 3 * time.Second
 // abort 可以调多次、可以并发调，只有第一次算数。
 func abortAfter(gentle, hard func(), grace time.Duration) (abort, settled func()) {
 	done := make(chan struct{})
-	var once, end sync.Once
-	abort = func() {
-		once.Do(func() {
-			gentle()
-			go func() {
-				select {
-				case <-done:
-				case <-time.After(grace):
-					hard()
-				}
-			}()
-		})
-	}
-	return abort, func() { end.Do(func() { close(done) }) }
+	abort = sync.OnceFunc(func() {
+		gentle()
+		go func() {
+			select {
+			case <-done:
+			case <-time.After(grace):
+				hard()
+			}
+		}()
+	})
+	return abort, sync.OnceFunc(func() { close(done) })
 }
 
 // uploadProblem 是没传成的原因：连接断了时说连不上，否则是那边的报错。
