@@ -49,8 +49,6 @@ class SharedPrefStore(private val prefs: SharedPreferences) : PrefStore {
 
         override fun remove(key: String) = apply { editor.remove(key) }
 
-        override fun clear() = apply { editor.clear() }
-
         override fun apply() = editor.apply()
 
         override fun commit(): Boolean = editor.commit()

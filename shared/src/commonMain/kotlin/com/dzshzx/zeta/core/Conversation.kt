@@ -65,7 +65,6 @@ class Conversation(
         }
 
     var title by mutableStateOf(title)
-        set
 
     /** 会话正被别处（比如终端里的 Claude Code）占着：不让发送，等用户把它接过来（[handOver]）或那边自己退出。 */
     var blockedByExternal by mutableStateOf(external)

@@ -438,7 +438,6 @@ sealed interface LoginState {
 /** 登录 Claude 账号。`claude auth login` 不需要终端：它打印一个授权链接，然后从标准输入读授权码。 这里把链接交给界面去打开，再把用户贴回来的授权码写进去。 */
 class LoginFlow(private val hub: ConversationHub) {
     var state by mutableStateOf<LoginState>(LoginState.Idle)
-        set
 
     private val main = MainHandler()
     @Volatile private var process: Process? = null

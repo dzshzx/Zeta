@@ -91,11 +91,7 @@ class AndroidHubPlatform(
 
     override fun sshKey(): SshKey = key
 
-    override val clientHint: String =
-        "The user is reading this conversation in Zeta, a chat app on their Android phone. It renders Markdown. " +
-            "To show the user an image file from this machine, include it in your reply as a Markdown image with an absolute path, " +
-            "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user taps them. " +
-            "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."
+    override val clientHint: String = clientHint("a chat app on their Android phone", "tap")
 
     override fun toast(text: String) = Toast.makeText(app, text, Toast.LENGTH_LONG).show()
 

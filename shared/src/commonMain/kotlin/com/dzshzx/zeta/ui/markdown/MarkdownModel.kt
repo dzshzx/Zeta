@@ -37,7 +37,7 @@ data class InlineMathSpec(
     val id: String,
     val latex: String,
     val rawSource: String,
-    val displayList: MathLayout,
+    val layout: MathLayout,
     /** 在 [MarkdownTextBlock.text] 中的字符区间，逐字显现将其视为单个不可分割原子步。 */
     val rangeStart: Int,
     val rangeEnd: Int,
@@ -69,14 +69,14 @@ data class MarkdownCode(
 /**
  * 独立块级数学公式（`$$...$$` 或 `\[...\]`）。
  *
- * [displayList] 由后台线程经 RaTeX 预排版；解析失败或原生引擎不可用时为 `null`， 界面退回按原文显示 [rawSource]，确保公式内容不丢失且始终可复制。
+ * [layout] 由后台线程经 [MathEngine] 预排版；解析失败或本平台没有公式引擎时为 `null`， 界面退回按原文显示 [rawSource]，确保公式内容不丢失且始终可复制。
  */
 @Immutable
 data class MarkdownMath(
     override val offset: Int,
     val latex: String,
     val rawSource: String,
-    val displayList: MathLayout?,
+    val layout: MathLayout?,
 ) : MarkdownBlock {
     val revealKey: RevealBlockKey
         get() = RevealBlockKey(offset)

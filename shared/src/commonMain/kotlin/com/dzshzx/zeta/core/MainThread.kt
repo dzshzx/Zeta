@@ -23,8 +23,7 @@ interface MainLoop {
 
     companion object {
         val current: MainLoop by lazy {
-            ServiceLoader.load(MainLoop::class.java, MainLoop::class.java.classLoader).firstOrNull()
-                ?: error("没有登记界面线程的实现：META-INF/services/${MainLoop::class.java.name}")
+            platformService<MainLoop>()
         }
     }
 }

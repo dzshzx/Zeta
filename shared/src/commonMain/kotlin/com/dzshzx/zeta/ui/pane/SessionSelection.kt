@@ -72,9 +72,10 @@ fun confirmedDeletion(
         deletable(listOf(it), isActive).isNotEmpty()
     }
 
-/** 几个会话导出到一个 Markdown 文件：各自的导出照原样，中间用分隔线隔开。 */
+/** 导出存成的文件内容：一个会话是它的导出原样；几个会话各自照原样，中间用分隔线隔开。 */
 fun combineExports(parts: List<ExportedMarkdown>): String =
-    parts.joinToString("\n---\n\n") { it.markdown.trimEnd() + "\n" }
+    parts.singleOrNull()?.markdown
+        ?: parts.joinToString("\n---\n\n") { it.markdown.trimEnd() + "\n" }
 
 /** 多选时的顶部：退出多选、已选几个、全选 / 全不选。 */
 @Composable

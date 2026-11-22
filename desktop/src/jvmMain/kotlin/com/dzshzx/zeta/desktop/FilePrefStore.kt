@@ -54,7 +54,6 @@ class FilePrefStore(private val file: File) : PrefStore {
 
     private inner class Editor : PrefStore.Editor {
         private val changes = LinkedHashMap<String, Any?>()
-        private var clear = false
 
         private fun put(key: String, value: Any?) = apply { changes[key] = value }
 
@@ -72,8 +71,6 @@ class FilePrefStore(private val file: File) : PrefStore {
 
         override fun remove(key: String) = put(key, null)
 
-        override fun clear() = apply { clear = true }
-
         override fun apply() {
             val snapshot = change()
             writer.execute { write(snapshot) }
@@ -84,7 +81,6 @@ class FilePrefStore(private val file: File) : PrefStore {
         /** 改内存里的那份，返回改后的整份（写盘用）。 */
         private fun change(): Map<String, Any> =
             synchronized(lock) {
-                if (clear) values.clear()
                 for ((key, value) in changes) if (value == null) values.remove(key)
                 else values[key] = value
                 HashMap(values)

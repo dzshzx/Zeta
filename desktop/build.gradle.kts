@@ -69,6 +69,11 @@ val windowsApp by
         from(tasks.named("jvmJar"))
         from(windowsRuntime) { eachFile { groups.get()[file]?.let { name = "$it.$name" } } }
         into(layout.buildDirectory.dir("windows/app"))
+        // 上面按名字去掉的 Linux 原生库换了名字（升级 Compose、换构建机的架构）时，这里报错，不让它悄悄打进 MSI
+        doLast {
+            val linux = destinationDir.list().orEmpty().filter { "linux" in it }
+            check(linux.isEmpty()) { "Windows 安装包里混进了 Linux 的原生库：$linux" }
+        }
     }
 
 // 版本号和手机版同一份（根目录的 build.gradle.kts）

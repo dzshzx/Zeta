@@ -1,17 +1,19 @@
 package com.dzshzx.zeta.desktop
 
+import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.toAwtImage
+import com.dzshzx.zeta.core.SkiaImageCodec
 import java.awt.Image
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
-import javax.imageio.ImageIO
 
 /** 把一张图放进系统剪贴板（桌面上的「分享」）。 */
 object ImageClipboard {
-    /** [bytes] 是图片文件的字节；ImageIO 解不开（比如 WebP）时抛出。 */
+    /** [bytes] 是图片文件的字节，和看图时一样经 Skia 解码；解不开时抛出。耗时，别在界面线程上调用。 */
     fun copy(bytes: ByteArray) {
-        val image = checkNotNull(ImageIO.read(bytes.inputStream())) { "认不出这种图片" }
+        val image = SkiaImageCodec.decode(bytes, Int.MAX_VALUE).asComposeImageBitmap().toAwtImage()
         Toolkit.getDefaultToolkit().systemClipboard.setContents(Selection(image), null)
     }
 

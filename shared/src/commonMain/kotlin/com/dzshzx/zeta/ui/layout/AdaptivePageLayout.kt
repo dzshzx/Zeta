@@ -1,14 +1,7 @@
 package com.dzshzx.zeta.ui.layout
 
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -53,12 +46,3 @@ fun WidePageContent(
         content(sidePadding)
     }
 }
-
-/** 二级页内容只补水平方向的屏幕缺口与手势区；顶部由 TopAppBar、底部由页面末尾留白负责。 */
-@Composable
-fun Modifier.horizontalCutoutPadding(): Modifier =
-    windowInsetsPadding(
-        WindowInsets.displayCutout
-            .union(WindowInsets.navigationBars)
-            .only(WindowInsetsSides.Horizontal),
-    )

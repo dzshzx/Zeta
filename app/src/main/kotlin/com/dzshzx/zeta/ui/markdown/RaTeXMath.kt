@@ -141,7 +141,7 @@ internal class RaTeXLayout(val list: DisplayList) : MathLayout
 
 /** 行内公式排好的版（手机上都是 RaTeX 排的）。 */
 internal val InlineMathSpec.raTeX: DisplayList
-    get() = (displayList as RaTeXLayout).list
+    get() = (layout as RaTeXLayout).list
 
 /** 手机上的公式引擎：RaTeX 排版、画。登记在 app 的 META-INF/services 里。 */
 class RaTeXMathEngine : MathEngine {

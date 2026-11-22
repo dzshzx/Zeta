@@ -256,7 +256,6 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 | Poko Annotations | 0.23.1 | Apache-2.0 | `dev.drewhamilton.poko:poko-annotations`<br>`dev.drewhamilton.poko:poko-annotations-jvm` | https://github.com/drewhamilton/Poko/tree/main |
 | Profile Installer | 1.4.0 | Apache-2.0 | `androidx.profileinstaller:profileinstaller` | https://cs.android.com/androidx/platform/frameworks/support |
 | RaTeX Android | 0.1.16 | MIT | `io.github.erweixin:ratex-android` | https://github.com/erweixin/RaTeX |
-| Resources for Compose JB | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.components:components-resources`<br>`org.jetbrains.compose.components:components-resources-android` | https://github.com/JetBrains/compose-multiplatform |
 | Saved State | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate` | https://github.com/JetBrains/compose-jb |
 | Saved State | 1.4.0 | Apache-2.0 | `androidx.savedstate:savedstate`<br>`androidx.savedstate:savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Saved State Compose | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate-compose` | https://github.com/JetBrains/compose-jb |

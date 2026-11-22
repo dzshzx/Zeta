@@ -4,18 +4,11 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
- * 看大图时要保存到相册或分享的一张图：查看器显示它用的那份原始字节（[ImageStore.original]），按字节认出的类型和据此起的文件名。 存进系统相册的
- * Pictures/Zeta（Android 10 起应用写自己的条目不用存储权限）；分享经本包的 FileProvider（authority 是 `<包名>.images`，只开放缓存里的
- * [ShareDir]）交给系统分享面板。
+ * 看大图时要保存或分享的一张图：查看器显示它用的那份原始字节（[ImageStore.original]），按字节认出的类型和据此起的文件名。 怎么存、怎么分享看平台
+ * （[com.dzshzx.zeta.ui.chat.ChatPlatform.rememberImageExporter]）。
  */
 class ImageExport(val bytes: ByteArray, val mime: String, val fileName: String) {
     companion object {
-        /** 分享时把图写到缓存里的这个目录，FileProvider 只开放它（`res/xml/zeta_shared_images.xml`）。 */
-        const val ShareDir = "shared_images"
-
-        /** 相册里放 Zeta 存的图的目录（Environment.DIRECTORY_PICTURES 下的 Zeta）。 */
-        const val GalleryDir = "Pictures/Zeta"
-
         private val Stamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
 
         /** 拿不到字节（还没取到、取不到）或认不出是哪种图时为 null，查看器的保存、分享按钮置灰。 */

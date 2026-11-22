@@ -357,7 +357,7 @@ class MarkdownInlineBuilder(
                 id = id,
                 latex = latex,
                 rawSource = rawSource,
-                displayList = displayList,
+                layout = displayList,
                 rangeStart = rangeStart,
                 rangeEnd = rangeEnd,
                 leadingSpaceEm = leadingEm,

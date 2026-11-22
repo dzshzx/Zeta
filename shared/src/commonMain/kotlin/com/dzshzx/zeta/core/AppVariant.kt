@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.core
 
-import java.util.ServiceLoader
-
 /**
  * 正式版（`com.dzshzx.zeta`，用户日常用的）和测试版（`com.dzshzx.zeta.dev`，开发测试装的）可以同时装在手机上。
  * 两个包里要互相区分的名字都从包名推出来，不写死：组件名、Provider 的 authority、广播 action、 Linux 里 Zeta 自己的目录。
@@ -91,8 +89,7 @@ interface AppPackage {
 
     companion object {
         val current: AppPackage by lazy {
-            ServiceLoader.load(AppPackage::class.java, AppPackage::class.java.classLoader)
-                .firstOrNull() ?: error("没有登记本包：META-INF/services/${AppPackage::class.java.name}")
+            platformService<AppPackage>()
         }
     }
 }

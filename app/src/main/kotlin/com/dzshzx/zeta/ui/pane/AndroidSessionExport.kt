@@ -90,7 +90,7 @@ private fun saveExport(
         context.discardDocument(uri)
         return 0
     }
-    val text = if (exported.size == 1) exported[0].markdown else combineExports(exported)
+    val text = combineExports(exported)
     return if (context.writeText(uri, text)) exported.size else 0
 }
 

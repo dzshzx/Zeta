@@ -40,8 +40,6 @@ interface PrefStore {
 
         fun remove(key: String): Editor
 
-        fun clear(): Editor
-
         fun apply()
 
         fun commit(): Boolean

@@ -9,8 +9,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.ImageExport
 import com.dzshzx.zeta.core.PickedFile
 import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.core.platformService
 import com.dzshzx.zeta.ui.pane.SessionExporter
-import java.util.ServiceLoader
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -71,9 +71,7 @@ interface ChatPlatform {
 
     companion object {
         val current: ChatPlatform by lazy {
-            ServiceLoader.load(ChatPlatform::class.java, ChatPlatform::class.java.classLoader)
-                .firstOrNull()
-                ?: error("没有登记聊天页的平台实现：META-INF/services/${ChatPlatform::class.java.name}")
+            platformService<ChatPlatform>()
         }
     }
 }

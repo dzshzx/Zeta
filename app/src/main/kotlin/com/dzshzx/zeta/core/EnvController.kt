@@ -43,7 +43,6 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     private val main = MainHandler()
 
     var setup by mutableStateOf(SetupState.Checking)
-        set
 
     /** 还没识别出环境时，设置页里显示和下次检测要用的 rootfs 路径。 */
     var rootfsHint by mutableStateOf(LinuxEnv.OWN_ROOTFS)
@@ -58,7 +57,6 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
     var ssh by mutableStateOf<SshStatus?>(null)
-        set
 
     var sshWorking by mutableStateOf(false)
         private set
@@ -71,10 +69,8 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
     var account by mutableStateOf<AccountStatus?>(null)
-        set
 
     var health by mutableStateOf<EnvHealth?>(null)
-        set
 
     var healthChecking by mutableStateOf(false)
         private set
@@ -88,7 +84,6 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     )
 
     var maintenance by mutableStateOf<Maintenance?>(null)
-        set
 
     /** 在装环境或做维护：前台服务据此保持。 */
     override val working: Boolean

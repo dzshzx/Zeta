@@ -150,3 +150,10 @@ interface PhoneSession {
     /** 对话的进程没了：放开暂停、接管这些和进程连着的状态。 */
     fun detach()
 }
+
+/** [HubPlatform.clientHint] 的写法：两端只差 [app]（什么设备上的什么应用）和看远程图片的动作 [tap]。 */
+fun clientHint(app: String, tap: String): String =
+    "The user is reading this conversation in Zeta, $app. It renders Markdown. " +
+        "To show the user an image file from this machine, include it in your reply as a Markdown image with an absolute path, " +
+        "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user ${tap}s them. " +
+        "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."

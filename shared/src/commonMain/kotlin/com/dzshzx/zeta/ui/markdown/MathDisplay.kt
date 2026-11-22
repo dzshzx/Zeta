@@ -23,8 +23,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.core.platformService
 import io.github.suqi8.coui.kmp.basic.Text
-import java.util.ServiceLoader
 import kotlin.math.min
 
 /** 排好版的一个公式。共用代码只存着它，交回排出它的那个 [MathEngine] 去画（手机上包着 RaTeX 的 DisplayList）。 */
@@ -61,8 +61,7 @@ interface MathEngine {
 
     companion object {
         val current: MathEngine by lazy {
-            ServiceLoader.load(MathEngine::class.java, MathEngine::class.java.classLoader)
-                .firstOrNull() ?: error("没有登记公式引擎：META-INF/services/${MathEngine::class.java.name}")
+            platformService<MathEngine>()
         }
     }
 }
@@ -100,7 +99,7 @@ fun MarkdownDisplayMathBlock(
     reveal: SmoothTextRevealCoordinator?,
     modifier: Modifier = Modifier,
 ) {
-    val layout = block.displayList
+    val layout = block.layout
     if (layout != null) {
         MathEngine.current.DisplayMath(block, layout, style, inQuote, reveal, modifier)
         return

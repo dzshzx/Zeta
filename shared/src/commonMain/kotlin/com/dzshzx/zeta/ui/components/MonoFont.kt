@@ -1,7 +1,7 @@
 package com.dzshzx.zeta.ui.components
 
 import androidx.compose.ui.text.font.FontFamily
-import java.util.ServiceLoader
+import com.dzshzx.zeta.core.platformService
 
 /**
  * 随包的等宽字体（JetBrains Mono），代码块、命令、路径、日志都用它。不用 [FontFamily.Monospace]： 部分系统会把它换成比例字体。CJK
@@ -16,8 +16,7 @@ interface Fonts {
 
     companion object {
         val current: Fonts by lazy {
-            ServiceLoader.load(Fonts::class.java, Fonts::class.java.classLoader).firstOrNull()
-                ?: error("没有登记字体的实现：META-INF/services/${Fonts::class.java.name}")
+            platformService<Fonts>()
         }
     }
 }

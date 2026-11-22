@@ -332,7 +332,6 @@ class ConversationHub(val platform: HubPlatform) {
      * 按模型存的默认思考强度要以正开着的进程报的为准。还没起过进程的主机没有，见 [modelOptions]；删主机时一起删。
      */
     var models by mutableStateOf<Map<String, List<ModelOption>>>(emptyMap())
-        set
 
     /** 主机 [backend] 上选择器里的模型：那台的 Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
     fun modelOptions(backend: String): List<ModelOption> =

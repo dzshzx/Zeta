@@ -23,9 +23,7 @@ interface ImageCodec {
         }
 
         val current: ImageCodec by lazy {
-            ServiceLoader.load(ImageCodec::class.java, ImageCodec::class.java.classLoader)
-                .firstOrNull()
-                ?: error("没有登记图片解码的实现：META-INF/services/${ImageCodec::class.java.name}")
+            platformService<ImageCodec>()
         }
     }
 }

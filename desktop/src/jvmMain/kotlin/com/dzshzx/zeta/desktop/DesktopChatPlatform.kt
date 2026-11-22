@@ -107,19 +107,14 @@ class DesktopChatPlatform : ChatPlatform {
         onOpenRemoteHosts: () -> Unit,
         onOpenSettings: () -> Unit,
     ) {
-        if (hub.settings.remoteHosts.isEmpty()) {
-            SetupMessage(
-                padding,
-                "还没有远程设备",
-                "Zeta 桌面版用远程设备上的 Claude Code。先添加一台：填它的地址，再把 Zeta 的公钥加进它的 ~/.ssh/authorized_keys。",
-            ) {
-                RemoteChoice(hub, onOpenRemoteHosts)
+        val (title, text) =
+            if (hub.settings.remoteHosts.isEmpty()) {
+                "还没有远程设备" to
+                    "Zeta 桌面版用远程设备上的 Claude Code。先添加一台：填它的地址，再把 Zeta 的公钥加进它的 ~/.ssh/authorized_keys。"
+            } else {
+                "这台设备用不了" to hub.unavailable(hub.current.backend)
             }
-        } else {
-            SetupMessage(padding, "这台设备用不了", hub.unavailable(hub.current.backend)) {
-                RemoteChoice(hub, onOpenRemoteHosts)
-            }
-        }
+        SetupMessage(padding, title, text) { RemoteChoice(hub, onOpenRemoteHosts) }
     }
 
     @Composable
@@ -135,18 +130,23 @@ class DesktopChatPlatform : ChatPlatform {
     @Composable
     override fun rememberImageExporter(): ImageExporter {
         val hub = LocalHub.current
-        return remember(hub) {
+        val scope = rememberCoroutineScope()
+        // 写文件、解码大图放到 IO 线程，提示回界面线程再弹
+        fun inBackground(done: String, failed: String, work: () -> Unit) {
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) { runCatching(work).isSuccess }
+                hub.platform.toast(if (ok) done else failed)
+            }
+        }
+        return remember(hub, scope) {
             object : ImageExporter {
                 override fun save(image: ImageExport) {
                     val target = saveFile("保存图片", image.fileName) ?: return
-                    val saved = runCatching { target.writeBytes(image.bytes) }.isSuccess
-                    hub.platform.toast(if (saved) "已保存" else "保存失败")
+                    inBackground("已保存", "保存失败") { target.writeBytes(image.bytes) }
                 }
 
-                override fun share(image: ImageExport) {
-                    val copied = runCatching { ImageClipboard.copy(image.bytes) }.isSuccess
-                    hub.platform.toast(if (copied) "已把图片复制到剪贴板" else "复制失败")
-                }
+                override fun share(image: ImageExport) =
+                    inBackground("已把图片复制到剪贴板", "复制失败") { ImageClipboard.copy(image.bytes) }
             }
         }
     }
@@ -154,6 +154,7 @@ class DesktopChatPlatform : ChatPlatform {
     @Composable override fun rememberTalkInput(): TalkInput? = null
 
     private companion object {
+        // 选图时只列 Skia 解得开的（聊天里认图片链接的 ImageSuffixes 还多 heic、avif，那两种桌面上解不开）
         val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
 
         /** 把 [sessions] 导出成 Markdown 写进 [target]，返回导出成的会话数；一个都没成（或没写进文件）是 0。耗时，别在主线程调用。 */
@@ -161,7 +162,7 @@ class DesktopChatPlatform : ChatPlatform {
             val exported =
                 exportMarkdowns(hub, sessions[0].backend, sessions.map { it.file }).orEmpty()
             if (exported.isEmpty()) return 0
-            val text = if (exported.size == 1) exported[0].markdown else combineExports(exported)
+            val text = combineExports(exported)
             return if (runCatching { target.writeText(text) }.isSuccess) exported.size else 0
         }
 

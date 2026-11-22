@@ -325,7 +325,6 @@ class SubagentLog constructor(val toolUseId: String) {
 
     /** 上次没读成的原因；读成了为 null。 */
     var failure by mutableStateOf<String?>(null)
-        set
 
     /** 还在跑（[Conversation] 每次更新时按记录和事件判断）。 */
     var running by mutableStateOf(false)

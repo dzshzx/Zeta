@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.PrefStore
 import com.dzshzx.zeta.core.PromptList
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.TurnEvents
+import com.dzshzx.zeta.core.clientHint
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.ssh.SshKey
 import java.io.File
@@ -21,17 +22,14 @@ import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 桌面上的 [HubPlatform]：只有远程主机（经 Zeta 自带的 SSH 直连），没有手机本机那台、手机工具和通知。 设置、密钥和诊断日志都放在 [dir]（Windows 上是
- * %APPDATA%\Zeta）。
+ * 桌面上的 [HubPlatform]：只有远程主机（经 Zeta 自带的 SSH 直连），没有手机本机那台、手机工具和通知。 设置、密钥和诊断日志都放在 [filesDir]（Windows
+ * 上是 %APPDATA%\Zeta）。
  */
-class DesktopHubPlatform(val dir: File = defaultDir()) : HubPlatform {
-    private lateinit var hub: ConversationHub
-
+class DesktopHubPlatform(override val filesDir: File = defaultDir()) : HubPlatform {
     override val settings: Settings by lazy { Settings.shared(this) { prefs(Settings.FILE) } }
 
     override fun attach(hub: ConversationHub) {
-        this.hub = hub
-        DiagLog.init(File(dir, "diag/events.jsonl")) { level, text ->
+        DiagLog.init(File(filesDir, "diag/events.jsonl")) { level, text ->
             System.err.println("zeta $level $text")
         }
     }
@@ -47,26 +45,21 @@ class DesktopHubPlatform(val dir: File = defaultDir()) : HubPlatform {
 
     /** 同一个名字只开一份：几处各开一份就会各自缓存、互相盖掉。 */
     override fun prefs(name: String): PrefStore =
-        stores.computeIfAbsent(name) { FilePrefStore(File(dir, "$it.json")) }
+        stores.computeIfAbsent(name) { FilePrefStore(File(filesDir, "$it.json")) }
 
     override val prompts: PromptList by lazy { PrefsPromptList(prefs(Settings.FILE)) }
-
-    override val filesDir: File
-        get() = dir
 
     override val deviceName: String by lazy {
         runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.ifBlank { null } ?: "这台电脑"
     }
 
-    private val key: SshKey by lazy { DesktopKey.loadOrCreate(dir, "zeta-desktop@" + deviceName) }
+    private val key: SshKey by lazy {
+        DesktopKey.loadOrCreate(filesDir, "zeta-desktop@" + deviceName)
+    }
 
     override fun sshKey(): SshKey = key
 
-    override val clientHint: String =
-        "The user is reading this conversation in Zeta, a desktop chat app on their computer. It renders Markdown. " +
-            "To show the user an image file from this machine, include it in your reply as a Markdown image with an absolute path, " +
-            "for example ![chart](/home/user/out/chart.png); the app displays it inline. Remote (http/https) Markdown images are shown too, after the user clicks them. " +
-            "Lines of the form [Attached file: /path] at the start of a user message are files the user attached; read them with your tools."
+    override val clientHint: String = clientHint("a desktop chat app on their computer", "click")
 
     /** 界面上要弹的那一句提示（可观察），界面显示一会儿后清掉。 */
     var notice by mutableStateOf<String?>(null)

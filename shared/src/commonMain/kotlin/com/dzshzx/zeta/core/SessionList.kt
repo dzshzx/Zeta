@@ -14,7 +14,6 @@ class SessionList constructor(private val hub: ConversationHub) {
     private val main = MainHandler()
 
     var sessions by mutableStateOf<List<SessionSummary>>(emptyList())
-        set
 
     /** 刚自动起好、列表可能还没读到的标题，按会话。在主线程上用。 */
     private val freshTitles = HashMap<String, String>()

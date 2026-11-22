@@ -136,7 +136,7 @@ private class BlockConverter(
             offset = blockOffset,
             latex = extracted.latex,
             rawSource = extracted.rawSource,
-            displayList = displayList,
+            layout = displayList,
         )
     }
 
