@@ -30,6 +30,7 @@ type Host struct {
 	HostKey    string // 加设备时记下的主机公钥（SSH 线上格式的 base64），以后只认它
 	Hostname   string // 它报的主机名（uname -n），还没记下是空
 	Key        string // 登录用的私钥（~/.ssh/名字），空是照 ~/.ssh/config
+	Off        bool   // 设备页的「连接」关着：Zeta 不连它，它上面的对话在那边照样跑
 }
 
 // Name 是界面上的名字：用户起的，没起时是它报的主机名，还没记下时是地址。
@@ -56,6 +57,7 @@ type hostJSON struct {
 	Cwd      string `json:"cwd"`
 	Via      string `json:"via"`
 	HostKey  string `json:"hostKey,omitempty"`
+	Off      bool   `json:"off,omitempty"`
 	Key      string `json:"key,omitempty"`
 }
 
@@ -65,10 +67,10 @@ func EncodeHosts(hosts []Host) string {
 	for _, h := range hosts {
 		items = append(items, hostJSON{
 			ID: h.ID, Name: h.CustomName, Hostname: h.Hostname, Target: h.Target, Home: h.Home,
-			Cwd: h.DefaultCwd, Via: h.Via, HostKey: h.HostKey, Key: h.Key,
+			Cwd: h.DefaultCwd, Via: h.Via, HostKey: h.HostKey, Off: h.Off, Key: h.Key,
 		})
 	}
-	data, _ := json.Marshal(items) // 只有字符串，不会失败
+	data, _ := json.Marshal(items) // 只有字符串和布尔值，不会失败
 	return string(data)
 }
 
@@ -109,7 +111,7 @@ func (item hostJSON) host() (Host, bool) {
 		return Host{}, false
 	}
 	h := Host{ID: item.ID, Target: item.Target, Home: item.Home, DefaultCwd: item.Home, Via: via,
-		Hostname: strings.TrimSpace(item.Hostname)}
+		Hostname: strings.TrimSpace(item.Hostname), Off: item.Off}
 	// 早先没起名字时存的是地址：那不算用户起的
 	if name := strings.TrimSpace(item.Name); name != item.Target && name != DisplayTarget(item.Target) {
 		h.CustomName = name

@@ -286,7 +286,7 @@ func TestSettingsPreviews(t *testing.T) {
 }
 
 // press 点无障碍名字是 name 的那个控件（开关、下拉这类，不算同名的一段字）。
-func (f *settingsFixture) press(t *testing.T, name string) {
+func (f *fixture) press(t *testing.T, name string) {
 	t.Helper()
 	for _, a := range f.tt.AccessAll() {
 		if a.Name == name && a.Role != ui.RoleText {

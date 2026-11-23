@@ -98,8 +98,11 @@ func (h *Hub) open(c *Chat, spec chat.Spec, checkCwd bool) {
 	if !ok {
 		return
 	}
-	c.Opening = true
 	h.chat = c
+	if x.Off {
+		return // 聊天窗格说已断开，打开连接时再打开（SetConnected）
+	}
+	c.Opening = true
 	conn := h.chatConn(c.Backend)
 	h.run(func() {
 		var cwdProblem string
@@ -149,7 +152,7 @@ func (h *Hub) closeConv(conv *chat.Conversation) {
 	})
 }
 
-// chatConn 是设备 id 上给对话用的连接，没有就起一条。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 补上主机名（setHostname），
+// chatConn 是设备 id 上给对话用的连接，没有就起一条；「连接」关着时是不连设备、每个请求都答已断开的一条（不留着）。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 补上主机名（setHostname），
 // 连上时经 run 在后台让打开过的对话重新打开（Call 的应答要靠读的那个 goroutine 送回来，不能就地等），
 // 界面要重画的经 post 回主线程。
 func (h *Hub) chatConn(id string) *chatConn {
@@ -157,6 +160,11 @@ func (h *Hub) chatConn(id string) *chatConn {
 		return c
 	}
 	x, _ := h.Host(id)
+	if x.Off {
+		c := &chatConn{link: offLink{h.offline(id)}, problem: h.offline(id).Error()}
+		c.client = chat.NewClient(c, func() {})
+		return c
+	}
 	c := &chatConn{}
 	c.client = chat.NewClient(c, func() { h.post(func() {}) })
 	c.link = h.devices.OpenChat(x,
@@ -233,8 +241,11 @@ func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error)
 // Uploader 是往设备 backend 上传附件的办法（在后台 goroutine 上调用，见 Devices.Upload）。
 func (h *Hub) Uploader(backend string) func(ctx context.Context, u host.Upload, progress func(int64)) (string, error) {
 	x, _ := h.Host(backend)
-	devices := h.devices
+	devices, off := h.devices, h.offline(backend)
 	return func(ctx context.Context, u host.Upload, progress func(int64)) (string, error) {
+		if x.Off {
+			return "", off
+		}
 		return devices.Upload(ctx, x, u, progress)
 	}
 }
@@ -242,8 +253,13 @@ func (h *Hub) Uploader(backend string) func(ctx context.Context, u host.Upload, 
 // PathChecker 是查设备 backend 上路径的办法（在后台 goroutine 上调用）。
 func (h *Hub) PathChecker(backend string) func(path string) (hostlink.PathKind, error) {
 	x, _ := h.Host(backend)
-	devices := h.devices
-	return func(path string) (hostlink.PathKind, error) { return devices.CheckPath(x, path) }
+	devices, off := h.devices, h.offline(backend)
+	return func(path string) (hostlink.PathKind, error) {
+		if x.Off {
+			return 0, off
+		}
+		return devices.CheckPath(x, path)
+	}
 }
 
 // RunChat 在后台对聊天窗格里的对话做一件事（发消息、停止、回应确认……），出错时把原因交回主线程的 failed。

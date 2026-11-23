@@ -22,10 +22,13 @@ const unofficial = "Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的�
 // themeLabels 是外观的三档，下标对应 themeOf 的结果。
 var themeLabels = []string{"跟随系统", "浅色", "深色"}
 
-// startSettings 打开设置页：各台还没读过账号的读一遍（账号一行的副标题），额度没有时取一次存着的。
+// startSettings 打开设置页：各台还没读过账号的读一遍（账号一行的副标题），额度没有时取一次存着的；「连接」关着的不读。
 func (a *App) startSettings() {
 	for _, x := range a.hub.Hosts() {
 		r := a.hub.Remote(x.ID)
+		if r == nil {
+			continue
+		}
 		if _, ok := r.Accounts.State(); !ok && r.Accounts.Working() == "" {
 			r.Accounts.Refresh()
 		}
@@ -58,16 +61,25 @@ func (a *App) devicesSection(c *ui.Context) {
 	})
 }
 
+// offLabel 是「连接」关着的设备在设置首页和侧栏设备菜单里注明的字；开着时是空。
+func offLabel(x sshlink.Host) string {
+	if x.Off {
+		return "已断开"
+	}
+	return ""
+}
+
 // hostRow 是一台加好的设备，点开设备页。
 func (a *App) hostRow(l *coui.List, x sshlink.Host) {
 	l.Row(coui.Row{Key: x.ID, Icon: coui.IconServer, IconColor: coui.Of(l.Context()).Orange, Title: x.Name(),
-		Summary: sshlink.DisplayTarget(x.Target), Arrow: true, OnClick: func() {
+		Summary: sshlink.DisplayTarget(x.Target), Value: offLabel(x), Arrow: true, OnClick: func() {
 			a.device = x.ID
 			a.open(pageDevice)
 		}})
 }
 
 // claudeSection 是各台的账号与额度：副标题是那台在用的账号，右边是最要紧的额度窗口用了多少。几台设备时标题前写设备名。
+// 「连接」关着的那台写已断开，点不进去。
 func (a *App) claudeSection(c *ui.Context) {
 	hosts := a.hub.Hosts()
 	if len(hosts) == 0 {
@@ -84,6 +96,11 @@ func (a *App) claudeSection(c *ui.Context) {
 				}}
 			if len(hosts) > 1 {
 				row.Title = x.Name() + " · 账号与额度"
+			}
+			if r == nil {
+				row.Summary, row.Arrow, row.OnClick = "已断开", false, nil
+				l.Row(row)
+				continue
 			}
 			row.Summary, row.SummaryColor = accountSummary(r.Accounts, k)
 			if h, ok := headline(r.Quota, c.Now()); ok {

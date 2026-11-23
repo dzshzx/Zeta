@@ -355,6 +355,16 @@ func (f *chatFixture) clickField(t *testing.T, name string) {
 
 // chatScenes 是预览图里聊天窗格的几个场景（TestPreviews 画）。
 var chatScenes = map[string]func(t *testing.T, f *chatFixture){
+	// 「连接」关着：聊天窗格说已断开、给「连接」；设备页的开关关着
+	"chat-disconnected": func(t *testing.T, f *chatFixture) {
+		f.click(t, "修登录页")
+		_ = f.hub.SetConnected(f.id, false)
+	},
+	"device-disconnected": func(t *testing.T, f *chatFixture) {
+		_ = f.hub.SetConnected(f.id, false)
+		f.app.device = f.id
+		f.app.open(pageDevice)
+	},
 	"chat-answer":  func(t *testing.T, f *chatFixture) { f.showTurn(t, false) },
 	"chat-confirm": func(t *testing.T, f *chatFixture) { f.showTurn(t, true) },
 	"chat-mode-menu": func(t *testing.T, f *chatFixture) {

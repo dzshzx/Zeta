@@ -99,7 +99,11 @@ func (a *App) hostSwitcher(c *ui.Context) {
 		}
 		m.Separator()
 		for _, x := range h.Hosts() {
-			if m.Choice(x.Name(), !all && x.ID == h.Backend()) {
+			name := x.Name()
+			if off := offLabel(x); off != "" {
+				name += " · " + off
+			}
+			if m.Choice(name, !all && x.ID == h.Backend()) {
 				h.ListOnly(x.ID)
 			}
 		}

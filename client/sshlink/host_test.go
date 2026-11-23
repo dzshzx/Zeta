@@ -98,9 +98,13 @@ func TestEncodeHostsRoundTripsInKotlinOrder(t *testing.T) {
 	key := hostKey(t)
 	hosts := []Host{
 		{ID: "r-1", CustomName: "工作站", Target: "zeta@box:2222", Home: "/home/zeta", DefaultCwd: "/home/zeta/src", Via: ViaDirect, HostKey: key, Hostname: "box", Key: "~/.ssh/k"},
-		{ID: "r-2", Target: "box", Home: "/root", DefaultCwd: "/root", Via: ViaDirect, HostKey: key},
+		{ID: "r-2", Target: "box", Home: "/root", DefaultCwd: "/root", Via: ViaDirect, HostKey: key, Off: true},
 	}
 	text := EncodeHosts(hosts)
+	// 「连接」开着是默认，不写出；关着的写 off，同 Kotlin 版
+	if strings.Count(text, `"off":true`) != 1 || strings.Contains(text, `"off":false`) {
+		t.Errorf("off written as %s", text)
+	}
 	if !strings.HasPrefix(text, `[{"id":"r-1","name":"工作站","hostname":"box","target":"zeta@box:2222","home":"/home/zeta","cwd":"/home/zeta/src","via":"direct","hostKey":"`) {
 		t.Errorf("encoded %s", text)
 	}

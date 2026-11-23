@@ -21,6 +21,7 @@ type editing struct {
 	changedKey string // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
 	trusting   bool   // 正问着认不认新的指纹
 	removing   bool   // 正问着删不删
+	cutting    bool   // 正问着断不断开（那台上有对话在进行）
 	naming     bool   // 正在改名（对话框开着）
 	moving     bool   // 正在改默认工作目录（对话框开着）
 }
@@ -72,10 +73,20 @@ func (a *App) devicePage(c *ui.Context) {
 	a.deviceDialogs(c, x)
 }
 
-// connectionSection 是名称、地址、私钥、指纹、家目录、默认工作目录。
+// connectionSection 是「连接」开关、名称、地址、私钥、指纹、家目录、默认工作目录。
 func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 	k := coui.Of(c)
 	coui.Group(c, "连接", "", func(l *coui.List) {
+		on := !x.Off
+		summary := "用到这台设备时连上，断了自动重连"
+		if x.Off {
+			summary = "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑"
+		}
+		l.Row(coui.Row{Title: "连接", Summary: summary, End: func() {
+			if coui.Switch(c.Key("connect"), &on).Label("连接").Changed() {
+				a.connect(x, on)
+			}
+		}})
 		l.Row(coui.Row{Title: "自定义设备名", Value: x.Name(), Arrow: true, OnClick: func() {
 			a.edit.name, a.edit.naming = x.CustomName, true
 		}})
@@ -94,6 +105,25 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 			a.edit.cwd, a.edit.moving = x.DefaultCwd, true
 		}})
 	})
+}
+
+// connect 拨了「连接」开关：那台上有对话在进行时先问再断开。
+func (a *App) connect(x sshlink.Host, on bool) {
+	if !on && a.hub.Working(x.ID) {
+		a.edit.cutting = true
+		return
+	}
+	a.setConnected(x.ID, on)
+}
+
+// setConnected 照做，设备页上 Claude Code 那几组跟着换（断开时没有，连上时重新读）。
+func (a *App) setConnected(id string, on bool) {
+	if err := a.hub.SetConnected(id, on); err != nil {
+		a.say("没存上", err.Error())
+	}
+	if x, ok := a.hub.Host(id); ok && a.page == pageDevice && a.device == id {
+		a.startDeviceConfig(x)
+	}
 }
 
 // original 是设备自己的名字（没起名字时显示的）。
@@ -211,6 +241,11 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 	}
 	if !a.edit.trusting {
 		a.edit.changedKey = ""
+	}
+	if coui.Alert(c, &a.edit.cutting, "断开「"+x.Name()+"」？",
+		"这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。",
+		coui.Action{Label: "取消"}, coui.Action{Label: "断开", Style: coui.Recommend}) == 1 {
+		a.setConnected(x.ID, false)
 	}
 	if coui.Alert(c, &a.edit.removing, "删除「"+x.Name()+"」？", "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动。",
 		coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {

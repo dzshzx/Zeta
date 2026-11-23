@@ -147,6 +147,18 @@ func (a *App) chatTitle(p *chatPane) string {
 	return "新对话"
 }
 
+// disconnected 是对话所在的设备「连接」关着时聊天窗格中间的说明，点「连接」马上连回去、接着看这个对话。
+func (a *App) disconnected(c *ui.Context, p *chatPane) {
+	k := coui.Of(c)
+	id := p.src.Backend
+	ui.Column(c).Grow(1).Center().Gap(10).Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
+		ui.Text(c, "「"+a.hub.Name(id)+"」已断开").FontSize(coui.SizeHeadlineS).TextColor(k.Text)
+		ui.Text(c, "Zeta 现在不连这台设备，它上面的对话在那边照样跑。连上后接着看。").FontSize(coui.SizeBodyM).
+			TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
+		coui.PrimaryButton(c, "连接").OnClick(func() { a.setConnected(id, true) }).Margin(12, 0, 0, 0)
+	})
+}
+
 // chatPage 是聊天窗格：中间聊天列表，顶上浮着标题栏（列表从它底下滚过去，透出来的是模糊的），底下输入栏一带。
 func (a *App) chatPage(c *ui.Context) {
 	p := a.pane
@@ -167,6 +179,8 @@ func (a *App) chatPage(c *ui.Context) {
 		a.messageDialogs(c, p)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
 			switch {
+			case a.hub.Off(p.src.Backend):
+				a.disconnected(c, p)
 			case p.src.Opening:
 				ui.Row(c).Grow(1).Center().Gap(8).Margin(headerHeight, 0, 0, 0).Children(func() {
 					ui.Spinner(c).Size(16, 16)

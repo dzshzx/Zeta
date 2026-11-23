@@ -23,10 +23,10 @@ type Remote struct {
 	conn *chatConn
 }
 
-// Remote 是设备 id 的那几样；没有这台时是 nil。连接换过（改了连法、第一次就没连上被丢掉）时按新的连接重建。主线程上调用。
+// Remote 是设备 id 的那几样；没有这台、或它的「连接」关着时是 nil。连接换过（改了连法、第一次就没连上被丢掉）时按新的连接重建。主线程上调用。
 func (h *Hub) Remote(id string) *Remote {
 	x, ok := h.Host(id)
-	if !ok {
+	if !ok || x.Off {
 		return nil
 	}
 	if r := h.remotes[id]; r != nil && h.conns[id] == r.conn {
