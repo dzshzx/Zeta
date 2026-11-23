@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
@@ -188,12 +189,12 @@ func (a *App) send(text string) bool {
 	if p.acts.editing != nil {
 		return a.submitEdit(p, text)
 	}
-	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
+	m := coreapi.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
 	p.list.ScrollToEnd()
 	p.failed = ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Send(ctx, chat.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
+		return conv.Send(ctx, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
 		p.failed = "没发出去：" + err.Error()
 		p.putBack(m)

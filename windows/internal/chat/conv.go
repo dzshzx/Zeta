@@ -111,7 +111,7 @@ func (c *Conversation) open(ctx context.Context) error {
 		key = c.state.Key
 	}
 	c.mu.Unlock()
-	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: coreapi.Options(spec.Options)}
+	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: spec.Options}
 	if err := c.api.Open(ctx, open); err != nil {
 		return err
 	}

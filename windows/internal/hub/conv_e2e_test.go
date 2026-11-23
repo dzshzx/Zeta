@@ -20,6 +20,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/client/sshtest"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -313,7 +314,7 @@ func (e *e2e) do(t *testing.T, f func(conv *chat.Conversation) error) {
 
 func (e *e2e) send(t *testing.T, text string) {
 	t.Helper()
-	e.do(t, func(conv *chat.Conversation) error { return conv.Send(e.ctx(), chat.Outgoing{Text: text}) })
+	e.do(t, func(conv *chat.Conversation) error { return conv.Send(e.ctx(), coreapi.Outgoing{Text: text}) })
 }
 
 // sessionLike 是录下的推送里每次不同的会话号、消息号这类 UUID。

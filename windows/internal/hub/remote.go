@@ -112,9 +112,9 @@ func (d deviceConvs) CloseIdle() bool {
 
 // options 是在设备 backend 上起 Claude Code 进程用的设置：那台的自动标题、自动压缩和压缩时机（设置里各台各设各的，
 // 环境变量的写法同 Kotlin 版的 AutoCompact.env）。桌面版只连远程主机，都在那边的 tmux 里开窗口（Desk）。
-func (h *Hub) options(backend string) chat.Options {
+func (h *Hub) options(backend string) coreapi.Options {
 	d := claudecfg.DeviceSettings(h.settings.Store(), backend)
-	o := chat.Options{AutoTitle: d.AutoTitle(), Desk: true}
+	o := coreapi.Options{AutoTitle: d.AutoTitle(), Desk: true}
 	switch p := d.CompactPercent(); {
 	case !d.AutoCompact():
 		o.Env = map[string]string{"DISABLE_AUTO_COMPACT": "1"}

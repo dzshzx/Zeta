@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -233,7 +234,7 @@ func TestReconnectReopensTheConversation(t *testing.T) {
 	}
 	var failed error
 	f.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Send(ctx, chat.Outgoing{Text: "在吗"})
+		return conv.Send(ctx, coreapi.Outgoing{Text: "在吗"})
 	},
 		func(err error) { failed = err })
 	if failed == nil || f.link().Methods() != nil {

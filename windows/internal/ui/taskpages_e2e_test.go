@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 )
 
@@ -45,7 +46,7 @@ func TestBackgroundTaskThroughServe(t *testing.T) {
 	f.see(t, "运行中", "while :; do echo tick; sleep 1; done", "输出 · 10 B")
 	// 输出变了：看着时核心每秒问一次，变了推来，页面跟着变
 	h.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Send(ctx, chat.Outgoing{Text: "再报一次"})
+		return conv.Send(ctx, coreapi.Outgoing{Text: "再报一次"})
 	}, nil)
 	f.until(t, "推来新的输出", func() bool { return f.shows("tick\ntick\ntick") })
 	f.see(t, "输出 · 15 B")

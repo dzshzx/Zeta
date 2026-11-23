@@ -13,7 +13,7 @@ func TestRewindRequests(t *testing.T) {
 	link, _, conv, _ := opened(t)
 	ctx := context.Background()
 	img := []coreapi.Image{{MediaType: "image/png", Data: []byte("hi")}}
-	if err := conv.Rewrite(ctx, "u1", Outgoing{Text: "改好的", Images: img, Files: []string{"/h/a.txt"}}); err != nil {
+	if err := conv.Rewrite(ctx, "u1", coreapi.Outgoing{Text: "改好的", Images: img, Files: []string{"/h/a.txt"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := conv.Drop(ctx, "u1"); err != nil {

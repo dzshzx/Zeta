@@ -13,7 +13,6 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo"
@@ -361,7 +360,7 @@ func (a *App) paste(c *ui.Context, p *chatPane) bool {
 }
 
 // putBack 把撤回的、没发出去的一条放回输入栏：文字接在已有的前面，图补上放得下的，附件说明补上没有的。
-func (p *chatPane) putBack(m chat.Message) {
+func (p *chatPane) putBack(m coreapi.Message) {
 	if m.Text != "" {
 		p.recall(m.Text)
 	}

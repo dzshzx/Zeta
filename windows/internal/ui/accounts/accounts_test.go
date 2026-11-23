@@ -47,6 +47,21 @@ func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 		h.current, h.unknown = "claude-c", nil
 	case "accounts.remove":
 		h.accounts = slices.DeleteFunc(h.accounts, func(a coreapi.Account) bool { return a.Name == name })
+	case "accounts.login_start":
+		h.current = ""
+		out = map[string]any{"url": "https://claude.ai/oauth/authorize?state=fake", "name": "claude-c"}
+	case "accounts.login_code":
+		switch code, _ := p["code"].(string); code {
+		case "good#code":
+			h.accounts = append(h.accounts, coreapi.Account{Name: "claude-c", Email: "c@example.com", Subscription: "pro"})
+			h.current = "claude-c"
+			out = map[string]any{"name": "claude-c"}
+		case "half#":
+			return nil, replyErr{coreapi.CodeLoginIncomplete, "授权码不完整：要连中间的 # 和它后面的部分一起复制"}
+		default:
+			return nil, errors.New("授权码没有被接受")
+		}
+	case "accounts.login_cancel":
 	case "quota.get":
 		if !h.quota {
 			return json.RawMessage(`{"snapshot":null}`), nil
@@ -60,6 +75,12 @@ func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 	}
 	return json.Marshal(out)
 }
+
+// replyErr 是核心答的带 code 的出错（同 hostlink.ReplyError）。
+type replyErr struct{ code, msg string }
+
+func (e replyErr) Error() string { return e.msg }
+func (e replyErr) Code() string  { return e.code }
 
 func (h *fakeServe) state() coreapi.AccountList {
 	st := coreapi.AccountList{Current: h.unknown}
@@ -238,3 +259,56 @@ func TestUnknownLoginCanBeSaved(t *testing.T) {
 
 // shows 报告界面上有没有正好是 s 的一段字（HasText 也认包含它的长句）。
 func shows(tt *ui.Tester, s string) bool { return slices.Contains(tt.Texts(), s) }
+
+// 添加账号：点「添加」后主机把在用的号存档、给出授权网址；缺 # 的码不发，不完整的码退回、登录接着等，对的码登录成新号。
+func TestAddAccount(t *testing.T) {
+	f := newFixture()
+	tt := ui.NewTester(f.page.View, 560, 1200)
+	f.until(t, tt, "读完", f.loaded)
+	click(t, tt, "添加")
+	f.until(t, tt, "拿到授权网址", func() bool { _, ok := f.page.Accounts.Login(); return ok && f.page.Accounts.Working() == "" })
+	hasAll(t, tt, "登录新账号", "打开授权网页", "复制网址")
+	if l, _ := f.page.Accounts.Login(); l.URL != "https://claude.ai/oauth/authorize?state=fake" {
+		t.Fatalf("授权网址：%q", l.URL)
+	}
+
+	f.page.code = "abc"
+	tt.Frame()
+	click(t, tt, "登录")
+	hasAll(t, tt, "授权码不完整")
+	if f.host.called("accounts.login_code") {
+		t.Fatal("缺 # 的码不该发")
+	}
+
+	f.page.code = "half#"
+	tt.Frame()
+	click(t, tt, "登录")
+	f.until(t, tt, "退回", func() bool { l, _ := f.page.Accounts.Login(); return l.Notice != "" && f.page.Accounts.Working() == "" })
+	if _, ok := f.page.Accounts.Login(); !ok {
+		t.Fatal("不完整的码退回后登录该接着等")
+	}
+
+	f.page.code = "good#code"
+	tt.Frame()
+	click(t, tt, "登录")
+	f.until(t, tt, "登录成", func() bool {
+		st, _ := f.page.Accounts.State()
+		_, logging := f.page.Accounts.Login()
+		return !logging && f.page.Accounts.Working() == "" && st.Current != nil && st.Current.Name == "claude-c"
+	})
+	hasAll(t, tt, "c@example.com", "添加")
+}
+
+// 登录中途取消：登录结束，回到能再添加的样子。
+func TestAddAccountCancel(t *testing.T) {
+	f := newFixture()
+	tt := ui.NewTester(f.page.View, 560, 1200)
+	f.until(t, tt, "读完", f.loaded)
+	click(t, tt, "添加")
+	f.until(t, tt, "拿到授权网址", func() bool { _, ok := f.page.Accounts.Login(); return ok && f.page.Accounts.Working() == "" })
+	click(t, tt, "取消")
+	f.until(t, tt, "取消做完", func() bool { return f.host.called("accounts.login_cancel") && f.page.Accounts.Working() == "" })
+	if _, ok := f.page.Accounts.Login(); ok || shows(tt, "登录新账号") {
+		t.Fatalf("取消后还在登录：%q", tt.Texts())
+	}
+}

@@ -71,7 +71,7 @@ func opened(t *testing.T) (*fakeLink, *Client, *Conversation, *int) {
 		}
 	}
 	conv, err := client.Open(context.Background(), Spec{Session: "s1", File: "/h/.claude/projects/p/s1.jsonl", Cwd: "/h/p",
-		Options: Options{AutoTitle: true, CompactPercent: 80}})
+		Options: coreapi.Options{AutoTitle: true, CompactPercent: 80}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestOpenSendsSpecAndKeepsPushesBeforeReply(t *testing.T) {
 	link.onCall = func(_ string, params map[string]any) {
 		client.Handle(line(`{"type":"conv.state","conv":"` + params["conv"].(string) + `","full":true,"session":"s9"}`))
 	}
-	conv, err := client.Open(context.Background(), Spec{Cwd: "/h/p", Options: Options{AutoTitle: true}})
+	conv, err := client.Open(context.Background(), Spec{Cwd: "/h/p", Options: coreapi.Options{AutoTitle: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,9 +287,9 @@ func TestRequests(t *testing.T) {
 		want call
 	}{
 		{func() error {
-			return conv.Send(ctx, Outgoing{Text: "看图", Images: []coreapi.Image{{MediaType: "image/png", Data: []byte("hi")}}, Files: []string{"/h/a.go"}})
+			return conv.Send(ctx, coreapi.Outgoing{Text: "看图", Images: []coreapi.Image{{MediaType: "image/png", Data: []byte("hi")}}, Files: []string{"/h/a.go"}})
 		}, call{"conv.send", `{"conv":"w1","files":["/h/a.go"],"images":[{"media_type":"image/png","data":"aGk="}],"text":"看图"}`}},
-		{func() error { return conv.Send(ctx, Outgoing{Text: "好"}) }, call{"conv.send", `{"conv":"w1","text":"好"}`}},
+		{func() error { return conv.Send(ctx, coreapi.Outgoing{Text: "好"}) }, call{"conv.send", `{"conv":"w1","text":"好"}`}},
 		{func() error { return conv.Interrupt(ctx) }, call{"conv.interrupt", `{"conv":"w1"}`}},
 		{func() error { return conv.Steer(ctx) }, call{"conv.steer", `{"conv":"w1"}`}},
 		{func() error { return conv.Cancel(ctx, "q1", true) }, call{"conv.cancel", `{"conv":"w1","recall":true,"uuid":"q1"}`}},
@@ -302,7 +302,7 @@ func TestRequests(t *testing.T) {
 		{func() error { return conv.SetModel(ctx, &opus) }, call{"conv.model", `{"conv":"w1","value":"opus"}`}},
 		{func() error { return conv.SetMode(ctx, nil) }, call{"conv.mode", `{"conv":"w1","value":null}`}},
 		{func() error { return conv.SetEffort(ctx, nil) }, call{"conv.effort", `{"conv":"w1","value":null}`}},
-		{func() error { return conv.SetOptions(ctx, Options{AutoTitle: true}) }, call{"conv.options", `{"conv":"w1","options":{"auto_title":true}}`}},
+		{func() error { return conv.SetOptions(ctx, coreapi.Options{AutoTitle: true}) }, call{"conv.options", `{"conv":"w1","options":{"auto_title":true}}`}},
 		{func() error { return conv.Compact(ctx) }, call{"conv.compact", `{"conv":"w1"}`}},
 		{func() error { return conv.StopTask(ctx, "t1") }, call{"conv.stop_task", `{"conv":"w1","task":"t1"}`}},
 		{func() error { return conv.End(ctx) }, call{"conv.end", `{"conv":"w1"}`}},
@@ -360,7 +360,7 @@ func TestCloseForgetsAndSends(t *testing.T) {
 	if len(client.Conversations()) != 0 {
 		t.Fatal("关掉后还在")
 	}
-	if err := conv.Send(context.Background(), Outgoing{Text: "x"}); !errors.Is(err, errNotConnected) {
+	if err := conv.Send(context.Background(), coreapi.Outgoing{Text: "x"}); !errors.Is(err, errNotConnected) {
 		t.Fatalf("关掉后还能发：%v", err)
 	}
 }

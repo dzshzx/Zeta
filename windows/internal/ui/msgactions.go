@@ -186,7 +186,7 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 	x := &p.acts
 	x.editing = &edit{user: user, later: later, saved: p.snapshot()}
 	p.restore(composerSnapshot{})
-	p.putBack(chat.Message{Text: user.Text, Files: user.Files})
+	p.putBack(coreapi.Message{Text: user.Text, Files: user.Files})
 	if len(user.Images) == 0 {
 		return
 	}
@@ -197,7 +197,7 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 			if x.editing != editing {
 				return
 			}
-			p.putBack(chat.Message{Images: images})
+			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
 				p.failed = "有图片取不回来，没有放进输入框"
 			}
@@ -229,13 +229,13 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 		return false
 	}
 	target := p.acts.editing.user.ID
-	m := chat.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
+	m := coreapi.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
 	p.acts.editing = nil
 	p.list.ScrollToEnd()
 	p.failed = ""
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
-		return conv.Rewrite(ctx, target, chat.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
+		return conv.Rewrite(ctx, target, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
 		p.failed = "没发出去：" + err.Error()
 		p.putBack(m)

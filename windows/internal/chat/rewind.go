@@ -13,8 +13,8 @@ import (
 // 这里只发请求；各轮能做什么由核心算好，放在用户条目上（items.Item 的 Rewindable、Forkable、RoundLast）。
 
 // Rewrite 编辑：剪掉 target（那条用户消息的条目 id）和之后的内容，再发 m。
-func (c *Conversation) Rewrite(ctx context.Context, target string, m Outgoing) error {
-	return c.do(func(v coreapi.Conv) error { return v.Rewrite(ctx, target, coreapi.Outgoing(m)) })
+func (c *Conversation) Rewrite(ctx context.Context, target string, m coreapi.Outgoing) error {
+	return c.do(func(v coreapi.Conv) error { return v.Rewrite(ctx, target, m) })
 }
 
 // Drop 删掉 target 开始的这一轮和之后的（只剪不发）。

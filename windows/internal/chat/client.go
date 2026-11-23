@@ -48,12 +48,8 @@ type Spec struct {
 	Cwd   string
 	Title string
 	// Options 是起 Claude Code 进程用的设置，打开以后可以用 SetOptions 改。
-	Options Options
+	Options coreapi.Options
 }
-
-// Options 是起 Claude Code 进程用的设置（各项见 coreapi.Options）。
-// 过渡：hub/remote.go 还写 chat.Options，它改用 coreapi.Options 以后删掉这个类型，Spec.Options 直接用 coreapi 的。
-type Options coreapi.Options
 
 // Open 打开一个对话。核心里已有这个会话时拿到的就是它（别的客户端也开着时，大家看到的是同一份）。
 // 返回时第一份整份的状态和条目通常已经到了。

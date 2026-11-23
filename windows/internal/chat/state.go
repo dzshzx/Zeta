@@ -32,8 +32,8 @@ type State struct {
 	// EarlierLoading：正在载入更早的一页（conv.earlier）。
 	EarlierLoading bool `json:"earlier_loading"`
 	// Queued 是排队等发的消息，Recalled 是撤回放回输入框、还没取走的那条。
-	Queued   []Message `json:"queued"`
-	Recalled *Message  `json:"recalled"`
+	Queued   []coreapi.Message `json:"queued"`
+	Recalled *coreapi.Message  `json:"recalled"`
 	// Steering：立即插话发出去了，还没有结果。
 	Steering bool `json:"steering"`
 	// Model、Effort 是这个对话指定的（nil 是用默认），ReportedModel 是 Claude Code 报的。
@@ -59,10 +59,6 @@ type State struct {
 	CanRewind bool `json:"can_rewind"`
 	Rewinding bool `json:"rewinding"`
 }
-
-// Message 是排队的、撤回的一条消息（各项见 coreapi.Message）。
-// 过渡：ui 的 chat.go、composer.go 还写 chat.Message，它们改用 coreapi.Message 以后删掉这个类型，State 直接用 coreapi 的。
-type Message coreapi.Message
 
 // Mode 是权限模式：User 是用户选的，Process 是进程此刻实际在用的（计划模式批准后等会变）。
 type Mode struct {

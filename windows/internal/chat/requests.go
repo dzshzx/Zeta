@@ -16,13 +16,9 @@ import (
 // 这里只加客户端自己的事：连接断着时不发（errNotConnected），关掉时忘掉这个对话。
 // 返回的错误是没发成或核心拒绝的原因；成了以后的效果经推送回来。
 
-// Outgoing 是要发的一条消息（各项见 coreapi.Outgoing）。
-// 过渡：ui 的 composer.go 还写 chat.Outgoing，它改用 coreapi.Outgoing 以后删掉这个类型，Send、Rewrite 直接收 coreapi 的。
-type Outgoing coreapi.Outgoing
-
 // Send 发一条消息；回答进行中时核心让它排队。
-func (c *Conversation) Send(ctx context.Context, m Outgoing) error {
-	return c.do(func(v coreapi.Conv) error { return v.Send(ctx, coreapi.Outgoing(m)) })
+func (c *Conversation) Send(ctx context.Context, m coreapi.Outgoing) error {
+	return c.do(func(v coreapi.Conv) error { return v.Send(ctx, m) })
 }
 
 // Interrupt 停止这一轮，排队的消息撤回。
@@ -41,12 +37,12 @@ func (c *Conversation) Cancel(ctx context.Context, uuid string, recall bool) err
 }
 
 // TakeRecalled 取走撤回放回输入框的那条，输入框把它填进去。没有时返回 nil。
-func (c *Conversation) TakeRecalled(ctx context.Context) (*Message, error) {
+func (c *Conversation) TakeRecalled(ctx context.Context) (*coreapi.Message, error) {
 	if err := c.ready(); err != nil {
 		return nil, err
 	}
 	m, err := c.api.TakeRecalled(ctx)
-	return (*Message)(m), err
+	return m, err
 }
 
 // Answer 回应一个工具确认、计划审批或提问。
@@ -96,11 +92,11 @@ func (c *Conversation) SetMode(ctx context.Context, value *string) error {
 }
 
 // SetOptions 改起进程用的设置，下次起进程时生效；重连后重新打开时也用它。
-func (c *Conversation) SetOptions(ctx context.Context, o Options) error {
+func (c *Conversation) SetOptions(ctx context.Context, o coreapi.Options) error {
 	c.mu.Lock()
 	c.spec.Options = o
 	c.mu.Unlock()
-	return c.do(func(v coreapi.Conv) error { return v.SetOptions(ctx, coreapi.Options(o)) })
+	return c.do(func(v coreapi.Conv) error { return v.SetOptions(ctx, o) })
 }
 
 // Compact 压缩上下文。

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
@@ -341,7 +342,7 @@ func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 }
 
 // queuedPreview 是一条排队消息的一行：正文（空白并成一个空格），没有字时说带了几张图、几个文件。
-func queuedPreview(m chat.Message) string {
+func queuedPreview(m coreapi.Message) string {
 	line := strings.Join(strings.Fields(m.Text), " ")
 	extra := len(m.Images) + len(m.Files)
 	switch {
