@@ -38,7 +38,7 @@ func TestConversationThroughCore(t *testing.T) {
 	}
 	view.until(t, c, func(obj) bool { return view.state["title"] == "假 Claude 起的标题" })
 	got := view.texts()
-	want := []string{"user:你好，介绍一下自己", "work:", "answer:你好，我是按剧本回话的假 Claude"}
+	want := []string{"user:你好，介绍一下自己", "thought:想一想", "answer:你好，我是按剧本回话的假 Claude"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("拼出来的条目：%v", got)
 	}
