@@ -213,12 +213,12 @@ func (h *Hub) End(list []hostlink.Session, failed func(error)) {
 	if len(list) == 0 {
 		return
 	}
-	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
-		method := "sessions.end"
+	h.each(list, func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error {
 		if s.External {
-			method = "sessions.end_elsewhere"
+			_, err := core.EndElsewhere(ctx, s.ID)
+			return err
 		}
-		_, err := call(ctx, method, map[string]any{"session": s.ID})
+		_, err := core.EndSession(ctx, s.ID)
 		return err
 	}, func(s hostlink.Session, err error) {
 		if err == nil {

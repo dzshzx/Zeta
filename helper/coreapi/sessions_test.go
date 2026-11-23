@@ -99,6 +99,8 @@ func TestSessionsMethods(t *testing.T) {
 		{"handoff", func(cl *Client) (any, error) { return cl.HandOffSession(ctx, "s1") },
 			"sessions.handoff", `{"session":"s1"}`, `{"handed":false,"status":"stuck"}`,
 			sessionproto.Handoff{Status: &stuck}},
+		{"end", func(cl *Client) (any, error) { return cl.EndSession(ctx, "s1") },
+			"sessions.end", `{"session":"s1"}`, `{"ended":1}`, 1},
 		{"end elsewhere", func(cl *Client) (any, error) { return cl.EndElsewhere(ctx, "s1") },
 			"sessions.end_elsewhere", `{"session":"s1"}`, `{"ended":2}`, 2},
 		{"desk open", func(cl *Client) (any, error) { return cl.OpenDeskWindow(ctx, "s1") },

@@ -129,6 +129,15 @@ func (cl *Client) HandOffSession(ctx context.Context, session string) (sessionpr
 	return get[sessionproto.Handoff](ctx, cl.c, "sessions.handoff", params{"session": session})
 }
 
+// EndSession 结束本包占着会话的 Claude Code 进程（sessions.end，等于终端里 /exit），返回结束了几个；
+// 对话内容留着，下次发消息时 --resume 接上。Zeta 之外占着的不管，那是 EndElsewhere。
+func (cl *Client) EndSession(ctx context.Context, session string) (int, error) {
+	r, err := get[struct {
+		Ended int `json:"ended"`
+	}](ctx, cl.c, "sessions.end", params{"session": session})
+	return r.Ended, err
+}
+
 // EndElsewhere 结束 Zeta 之外占着会话的 Claude Code 进程（sessions.end_elsewhere），不管那边闲不闲，返回结束了几个。
 func (cl *Client) EndElsewhere(ctx context.Context, session string) (int, error) {
 	r, err := get[struct {
