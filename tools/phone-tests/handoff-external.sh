@@ -38,6 +38,8 @@ for _ in \$(seq 50); do [ -f ~/.claude/sessions/\$p.json ] && echo \$p && exit; 
   [[ -n $pid ]] || { echo "$name：假 claude 5 秒没登记上"; exit 1; }
   open_conversation $ID 6
   vd shot "$name-busy.png" >/dev/null
+  # 卡片标题说是终端（模拟器上 vd debian 不经 ssh，是本机终端；手机上经 ssh 来，是工作站的名字）
+  wait_text '^会话正在.*终端里运行$' 10 || { vd nodes '^会话正在' >"$name-title.txt" || true; echo "$name：卡片标题没说是终端"; exit 1; }
   vd tap $HANDOFF_X $HANDOFF_Y >/dev/null
   sleep 2
   alive "$pid" || { echo "$name：那边正忙，点了灰按钮却把它停了"; exit 1; }
