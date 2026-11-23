@@ -82,11 +82,11 @@ func (d *Devices) export(c Call) (json.RawMessage, error) {
 	for i, id := range ids {
 		parts[i] = sessionproto.ExportPart{Session: id, Title: "对话 " + id, Markdown: "# 对话 " + id + "\n\n正文\n"}
 	}
-	title, markdown := sessionproto.CombineExports(parts)
+	title, markdown := sessionproto.CombineExports(parts, "")
 	offset, _ := c.Params["utc_offset"].(int)
 	at := time.Date(2026, 11, 22, 15, 0, 0, 0, time.FixedZone("", offset*60))
 	return json.Marshal(map[string]any{"title": title, "markdown": markdown,
-		"file_name": sessionproto.ExportFileName(title, at), "exported": ids, "failed": []string{}, "parts": parts})
+		"file_name": sessionproto.ExportFileName(title, at, ""), "exported": ids, "failed": []string{}, "parts": parts})
 }
 
 // answer 是 results 里给会话 session 的结果，没给时是 fallback。

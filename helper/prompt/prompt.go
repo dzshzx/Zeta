@@ -12,6 +12,8 @@ package prompt
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Kind 是请求的种类。
@@ -43,8 +45,10 @@ type Prompt struct {
 	// Suggestions 是 Claude Code 建议的「以后不再问」要做的改动（permission_suggestions），每项原样保留，
 	// 选了就原样交回去；空的时候界面不给这个选项。
 	Suggestions []json.RawMessage `json:"suggestions,omitempty"`
-	// SuggestionLines 是 Suggestions 逐条写成的大白话，界面直接列出来。
+	// SuggestionLines 是 Suggestions 逐条写成的大白话（源语言），给不认 SuggestionMsgs 的旧客户端。
 	SuggestionLines []string `json:"suggestion_lines,omitempty"`
+	// SuggestionMsgs 是同样的几句：核心文字表的种类码和参数（{code, args}），客户端按自己的语言出字（SuggestionLinesIn）。
+	SuggestionMsgs []locales.Msg `json:"suggestion_msgs,omitempty"`
 	// Reason 是 Claude Code 说明为什么要问（decision_reason）。
 	Reason string `json:"reason,omitempty"`
 	// AgentID 是发起它的后台子代理，主对话发起的为空。
@@ -52,6 +56,8 @@ type Prompt struct {
 	// AgentLabel 是确认框上这个后台子代理的叫法：发起它的 Agent 调用写的说明（description），找不到时是「后台子代理」。
 	// Parse 不填，由对话按它记着的 Agent 调用填（helper/conv）；主对话发起的为空。
 	AgentLabel string `json:"agent_label,omitempty"`
+	// AgentLabelCode 是 AgentLabel 用了兜底叫法时它的种类码（AgentLabelIn）；用的是 Agent 调用的说明（原文）时为空。
+	AgentLabelCode string `json:"agent_label_code,omitempty"`
 	// ToolUseID 是要批准的那次工具调用。别的客户端答了以后，看到它的 tool_result 就收起。
 	ToolUseID string `json:"tool_use_id,omitempty"`
 	// IsPlan：这是计划审批（ExitPlanMode）。
@@ -67,8 +73,11 @@ type Prompt struct {
 
 	// 两种都有的。
 
-	// Notice 是通知里的一句：在等什么。
-	Notice string `json:"notice"`
+	// Notice 是通知里的一句：在等什么（源语言，给不认 NoticeCode 的旧客户端）。NoticeCode、NoticeArgs 是它的种类码和参数，
+	// 客户端按自己的语言出字（NoticeIn）。
+	Notice     string         `json:"notice"`
+	NoticeCode string         `json:"notice_code,omitempty"`
+	NoticeArgs map[string]any `json:"notice_args,omitempty"`
 	// AsksInput：要用户回答（提问、MCP 表单），不只是点允许或拒绝。界面据此说「需要你回答」还是「需要你确认」。
 	AsksInput bool `json:"asks_input,omitempty"`
 }
@@ -144,7 +153,8 @@ func Parse(line []byte) *Prompt {
 		return nil
 	}
 	p.RequestID = *event.RequestID
-	p.Notice = p.notice()
+	notice := p.notice()
+	p.Notice, p.NoticeCode, p.NoticeArgs = notice.String(), notice.Key, notice.Args
 	return p
 }
 
@@ -168,7 +178,10 @@ func permission(r *requestBody) *Prompt {
 	// 这类请求 TUI 不给「不再问」那一行（规则会比这次要做的宽）
 	if !r.SuppressAlwaysAllowRule {
 		p.Suggestions = r.PermissionSuggestions
-		p.SuggestionLines = describeSuggestions(p.Suggestions)
+		p.SuggestionMsgs = describeSuggestions(p.Suggestions)
+		for _, m := range p.SuggestionMsgs {
+			p.SuggestionLines = append(p.SuggestionLines, m.String())
+		}
 	}
 	return p
 }
@@ -208,19 +221,47 @@ func elicitation(r *requestBody) *Prompt {
 	return p
 }
 
-func (p *Prompt) notice() string {
+func (p *Prompt) notice() locales.Msg {
 	switch {
 	case p.Kind == KindElicitation && p.URL != "":
-		return "MCP 服务器 " + p.Server + " 需要你去网页上操作"
+		return locales.M("promptMcpUrl", "server", p.Server)
 	case p.Kind == KindElicitation:
-		return "MCP 服务器 " + p.Server + " 需要你填写信息"
+		return locales.M("promptMcpForm", "server", p.Server)
 	case p.IsPlan:
-		return "Claude 交来了计划，等你审批"
+		return locales.M("promptPlan")
 	case p.ToolName == toolAskUserQuestion:
-		return "Claude 有问题要问你"
+		return locales.M("promptQuestion")
 	default:
-		return "Claude 想用 " + p.ToolName
+		return locales.M("promptTool", "tool", p.ToolName)
 	}
+}
+
+// NoticeIn 是 Notice 在语言 lang 里怎么说；旧核心没给种类码时是 Notice。
+func (p *Prompt) NoticeIn(lang string) string {
+	if p.NoticeCode == "" {
+		return p.Notice
+	}
+	return locales.Msg{Key: p.NoticeCode, Args: p.NoticeArgs}.In(lang)
+}
+
+// SuggestionLinesIn 是 SuggestionLines 在语言 lang 里怎么说；旧核心没给种类码时是 SuggestionLines。
+func (p *Prompt) SuggestionLinesIn(lang string) []string {
+	if len(p.SuggestionMsgs) == 0 {
+		return p.SuggestionLines
+	}
+	lines := make([]string, len(p.SuggestionMsgs))
+	for i, m := range p.SuggestionMsgs {
+		lines[i] = m.In(lang)
+	}
+	return lines
+}
+
+// AgentLabelIn 是 AgentLabel 在语言 lang 里怎么说：用了兜底叫法时按种类码出字，否则是原文。
+func (p *Prompt) AgentLabelIn(lang string) string {
+	if p.AgentLabelCode == "" {
+		return p.AgentLabel
+	}
+	return locales.Msg{Key: p.AgentLabelCode}.In(lang)
 }
 
 // notBlank：去掉首尾空白后还有字。

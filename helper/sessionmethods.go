@@ -10,6 +10,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
@@ -37,6 +38,8 @@ type sessionParams struct {
 	Ref      string   `json:"ref"`
 	// UTCOffset 是客户端所在时区比 UTC 快多少分钟（sessions.export 起文件名用）；没带时按主机的本地时间
 	UTCOffset *int `json:"utc_offset"`
+
+	lang string // 发请求的客户端的语言（core.Client.Lang）：导出里核心自己写的字用它
 }
 
 // sessionMethod 是一个方法怎么做；session 为真的要带样子对的会话号，push 为真的做成以后马上把这个会话推给订阅的客户端。
@@ -62,15 +65,15 @@ var sessionMethods = map[string]sessionMethod{
 }
 
 // errNoSession：这个会话号没有会话记录（或给的记录已经不在）。
-var errNoSession = codedError{code: sessionproto.CodeNoSession, err: errors.New("这个会话的记录已经不在了")}
+var errNoSession = codedError{code: sessionproto.CodeNoSession, err: locales.Err("errNoSession")}
 
 // errActive：sessions.delete 要删的会话正在进行（activeSession），没删。
-var errActive = codedError{code: sessionproto.CodeActive, err: errors.New("对话正在进行，结束后再删")}
+var errActive = codedError{code: sessionproto.CodeActive, err: locales.Err("errSessionActive")}
 
 // errBadSession：会话号的样子不对。
 var errBadSession = errors.New("bad session id")
 
-func (h sessionOps) Request(_ *core.Client, r core.Request) (any, error) {
+func (h sessionOps) Request(c *core.Client, r core.Request) (any, error) {
 	m, ok := sessionMethods[r.Method]
 	if !ok {
 		return nil, errors.New("unknown method: " + r.Method)
@@ -82,6 +85,7 @@ func (h sessionOps) Request(_ *core.Client, r core.Request) (any, error) {
 	if m.session && !isSessionID(p.Session) {
 		return nil, errBadSession
 	}
+	p.lang = c.Lang()
 	result, err := m.run(h, p)
 	if err == nil && m.push {
 		h.lists.push(p.Session)
@@ -122,7 +126,7 @@ func (s *sessionSearches) Request(c *core.Client, r core.Request) (any, error) {
 	name := searchName(p.Search, r.ID)
 	ctx, run := s.start(c)
 	go func() {
-		done, err := searchSessions(ctx, s.e, p.Query, func(m searchMatch) {
+		done, err := searchSessions(ctx, s.e, p.Query, c.Lang(), func(m searchMatch) {
 			_ = c.Send(obj{"type": "sessions.match", "search": name, "id": m.ID, "role": m.Role, "snippet": m.Snippet})
 		})
 		s.finish(c, run)
@@ -288,25 +292,25 @@ func (h sessionOps) export(q sessionParams) (any, error) {
 		if !allOf(q.Sessions, isSessionID) {
 			return nil, errBadSession
 		}
-		return h.exportMany(q.Sessions, at)
+		return h.exportMany(q.Sessions, at, q.lang)
 	}
 	if !isSessionID(q.Session) {
 		return nil, errBadSession
 	}
-	ex, err := h.exportOne(q.Session)
+	ex, err := h.exportOne(q.Session, q.lang)
 	if err != nil {
 		return nil, err
 	}
-	return obj{"title": ex.Title, "markdown": ex.Markdown, "file_name": sessionproto.ExportFileName(ex.Title, at)}, nil
+	return obj{"title": ex.Title, "markdown": ex.Markdown, "file_name": sessionproto.ExportFileName(ex.Title, at, q.lang)}, nil
 }
 
 // exportOne 导出一个会话；记录不在时是 errNoSession。
-func (h sessionOps) exportOne(session string) (sessionproto.ExportPart, error) {
+func (h sessionOps) exportOne(session, lang string) (sessionproto.ExportPart, error) {
 	path, err := h.record(session)
 	if err != nil {
 		return sessionproto.ExportPart{}, err
 	}
-	markdown, title, err := exportSession(path)
+	markdown, title, err := exportSession(path, lang)
 	if err != nil {
 		if isNotExist(err) {
 			return sessionproto.ExportPart{}, errNoSession
@@ -319,7 +323,7 @@ func (h sessionOps) exportOne(session string) (sessionproto.ExportPart, error) {
 // exportMany 把这几个会话（同一台主机上的）按给的先后导出、合成一份（sessionproto.CombineExports），同一个会话号只导一次，
 // 导不出来的跳过。各自的导出另放在 parts 里：客户端合成几台设备的时按用户选的先后重排。
 // 一个都没导出成时出错：都是因为记录不在时是 errNoSession，否则是别的原因里的第一个。
-func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
+func (h sessionOps) exportMany(sessions []string, at time.Time, lang string) (any, error) {
 	var parts []sessionproto.ExportPart
 	done, failed := []string{}, []string{}
 	var problem error
@@ -329,7 +333,7 @@ func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
 			continue
 		}
 		seen[id] = true
-		ex, err := h.exportOne(id)
+		ex, err := h.exportOne(id, lang)
 		if err != nil {
 			failed = append(failed, id)
 			if problem == nil && !errors.Is(err, errNoSession) {
@@ -346,8 +350,8 @@ func (h sessionOps) exportMany(sessions []string, at time.Time) (any, error) {
 		}
 		return nil, errNoSession
 	}
-	title, markdown := sessionproto.CombineExports(parts)
-	return obj{"title": title, "markdown": markdown, "file_name": sessionproto.ExportFileName(title, at),
+	title, markdown := sessionproto.CombineExports(parts, lang)
+	return obj{"title": title, "markdown": markdown, "file_name": sessionproto.ExportFileName(title, at, lang),
 		"exported": done, "failed": failed, "parts": parts}, nil
 }
 

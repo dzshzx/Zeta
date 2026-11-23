@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Claude Code（2.1.327）给项目算目录的办法：会话记录在 ~/.claude/projects/<key>/，自动记忆在 …/<key>/memory/。
@@ -209,27 +211,27 @@ func agentsDir(home string) string    { return claudeDir(home) + "/agents" }
 func memoryDir(home, key string) string { return projectsDir(home) + "/" + key + "/memory" }
 
 // editableProblem：设置页能读写的文件只有 ~/.claude/CLAUDE.md、各项目 memory 目录里的 .md，以及设了
-// autoMemoryDirectory 时那个目录里的 .md。可以时返回空串，否则是原因。
-func editableProblem(path, home, customDir string) string {
+// autoMemoryDirectory 时那个目录里的 .md。可以时返回 nil，否则是原因。
+func editableProblem(path, home, customDir string) error {
 	if path != resolve("/", path) {
-		return "路径不对"
+		return locales.Err("cfgBadPath")
 	}
 	if path == instructions(home) {
-		return ""
+		return nil
 	}
 	if !isMemoryFileName(baseName(path)) {
-		return "只能编辑记忆目录里的 .md 文件"
+		return locales.Err("cfgOnlyMemoryFiles")
 	}
 	dir := parentDir(path)
 	if customDir != "" && dir == customDir {
-		return ""
+		return nil
 	}
 	if rest, ok := strings.CutPrefix(dir, projectsDir(home)+"/"); ok {
 		if key, ok := strings.CutSuffix(rest, "/memory"); ok && keyName.MatchString(key) {
-			return ""
+			return nil
 		}
 	}
-	return "不能编辑这个文件"
+	return locales.Err("cfgNotEditable")
 }
 
 // customMemoryDir 是 settings.json 的 autoMemoryDirectory 展开后的路径：~/ 开头的接到家目录上，去掉末尾的 /；

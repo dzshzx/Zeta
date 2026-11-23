@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 账号与额度：accounts.* 和 quota.*（docs/core.md「账号与额度」，核心里的实现在 helper/accounts.go 与 helper/accounts）。
@@ -192,8 +194,17 @@ type QuotaWindow struct {
 	Severity Severity  `json:"severity"`
 	// Active：服务器挑的「只能显示一个时显示这个」。
 	Active bool `json:"active,omitempty"`
-	// Label 是界面上的名字。
-	Label string `json:"label"`
+	// Label 是界面上的名字（源语言）；LabelCode 是它的种类码（核心文字表的键，参数 scope 就是 Scope），按界面语言出字用 LabelIn。
+	Label     string `json:"label"`
+	LabelCode string `json:"labelCode,omitempty"`
+}
+
+// LabelIn 是窗口的名字用界面语言 locale 说出来的文字；核心没给种类码时（服务器给的原文、旧核心）是 Label。
+func (w QuotaWindow) LabelIn(locale string) string {
+	if w.LabelCode == "" {
+		return w.Label
+	}
+	return locales.Msg{Key: w.LabelCode, Args: map[string]any{"scope": w.Scope}}.In(locale)
 }
 
 // Percent 是已用的百分数，取整。

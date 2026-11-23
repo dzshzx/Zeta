@@ -100,7 +100,7 @@ func TestAccountsLoginRejected(t *testing.T) {
 
 	mustAccounts(t, e, "accounts.login_start", ``)
 	_, err := callAccounts(t, e, "accounts.login_code", `{"code":"bad#code"}`)
-	if err == nil || loginCode(t, err) != "" || !strings.Contains(err.Error(), "没有被接受") {
+	if code := loginCode(t, err); err == nil || code == codeLoginIncomplete || code == codeNoLogin || !strings.Contains(err.Error(), "没有被接受") {
 		t.Fatalf("码不对：%v", err)
 	}
 	if logins.active() {

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"unicode/utf8"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
@@ -32,9 +33,20 @@ type summary struct {
 
 // item 是列表里的这一项（zeta_sessions 的 upsert、sessions.lookup 的每一项），带上 marks 里它的标记。
 func (s summary) item(marks sessionMarks) obj {
-	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "updated": s.updated,
+	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "preview_code": s.previewCode(), "updated": s.updated,
 		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id],
 		"live": marks.live[s.id]}
+}
+
+// imagePreview 是只发了图的那条消息在预览里的样子（源语言）；推给客户端时另带种类码 previewImage，客户端按自己的语言出字。
+var imagePreview = locales.M("previewImage").String()
+
+// previewCode 是 preview 是核心写的「[图片]」时它的种类码（preview_code），否则为空：预览是用户的原话，不翻译。
+func (s summary) previewCode() string {
+	if s.preview == imagePreview {
+		return "previewImage"
+	}
+	return ""
 }
 
 // summaryScan 是读一份记录时攒下的东西。
@@ -181,7 +193,7 @@ func (s *summaryScan) user(line []byte) {
 	content := asObj(o["message"])["content"]
 	text := userText(content)
 	if text == "" && imageCount(content) > 0 {
-		text = "[图片]"
+		text = imagePreview
 	}
 	if text == "" {
 		return

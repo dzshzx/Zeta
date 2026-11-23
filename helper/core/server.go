@@ -224,8 +224,7 @@ func (c *Client) Reply(id json.RawMessage, result any, err error) {
 		if errors.As(err, &coded) {
 			r.Code = coded.Code()
 		}
-		var said locales.Error
-		if errors.As(err, &said) {
+		if said, ok := errors.AsType[*locales.Error](err); ok {
 			r.Error, r.Args = said.In(c.Lang()), said.Args
 		}
 	}

@@ -129,7 +129,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			sameJSON(t, c.name, marshal(t, Parse([]byte(c.line))), c.want)
+			sameJSON(t, c.name, withoutCodes(t, marshal(t, Parse([]byte(c.line)))), c.want)
 		})
 	}
 }
@@ -139,13 +139,17 @@ func TestDescribeSuggestions(t *testing.T) {
 		name string
 		list string
 		want []string
+		en   []string
 	}{
-		{"三种都认", bashSuggestions, []string{"允许 Bash(touch a)", "允许访问 /w/proj（只在这个对话里）", "这个对话里自动接受改动"}},
+		{"三种都认", bashSuggestions, []string{"允许 Bash(touch a)", "允许访问 /w/proj（只在这个对话里）", "这个对话里自动接受改动"},
+			[]string{"Allow Bash(touch a)", "Allow access to /w/proj (this conversation only)", "Auto-accept edits in this conversation"}},
 		{"规则的去向和行为", `[{"type":"addRules","rules":[{"toolName":"Read"},{"ruleContent":"没有工具名的跳过"},{"toolName":"Bash","ruleContent":"ls"}],
 			"behavior":"deny","destination":"userSettings"},{"type":"addRules","rules":[{"toolName":"Edit"}],"behavior":"ask","destination":"projectSettings"}]`,
-			[]string{"一律拒绝 Read（所有项目）", "一律拒绝 Bash(ls)（所有项目）", "每次都问 Edit（这个项目，进 Git）"}},
+			[]string{"一律拒绝 Read（所有项目）", "一律拒绝 Bash(ls)（所有项目）", "每次都问 Edit（这个项目，进 Git）"},
+			[]string{"Always deny Read (all projects)", "Always deny Bash(ls) (all projects)", "Always ask for Edit (this project, checked into Git)"}},
 		{"模式与认不出的类型", `[{"type":"setMode","mode":"plan"},{"type":"setMode","mode":"dontAsk"},{"type":"replaceRules"},"不是对象"]`,
-			[]string{"这个对话切到计划模式", "这个对话切到 dontAsk 模式", "replaceRules"}},
+			[]string{"这个对话切到计划模式", "这个对话切到 dontAsk 模式", "replaceRules"},
+			[]string{"Switch this conversation to plan mode", "Switch this conversation to dontAsk mode", "replaceRules"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -153,8 +157,12 @@ func TestDescribeSuggestions(t *testing.T) {
 			if err := json.Unmarshal([]byte(c.list), &list); err != nil {
 				t.Fatal(err)
 			}
-			if got := describeSuggestions(list); !reflect.DeepEqual(got, c.want) {
+			p := Prompt{SuggestionMsgs: describeSuggestions(list)}
+			if got := p.SuggestionLinesIn(""); !reflect.DeepEqual(got, c.want) {
 				t.Errorf("得到 %q，期望 %q", got, c.want)
+			}
+			if got := p.SuggestionLinesIn("en"); !reflect.DeepEqual(got, c.en) {
+				t.Errorf("英文得到 %q，期望 %q", got, c.en)
 			}
 		})
 	}
@@ -279,7 +287,7 @@ func TestContent(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			content, problems := Content(fields, c.values)
+			content, problems := Content(fields, c.values, "")
 			if !reflect.DeepEqual(problems, c.problems) {
 				t.Errorf("错误 %v，期望 %v", problems, c.problems)
 			}
@@ -318,8 +326,8 @@ func TestContentChecks(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			value, problem := c.field.value(c.raw)
-			if problem != c.error {
-				t.Errorf("错误 %q，期望 %q", problem, c.error)
+			if problem.String() != c.error {
+				t.Errorf("错误 %q，期望 %q", problem.String(), c.error)
 			}
 			if string(value) != c.want {
 				t.Errorf("值 %s，期望 %s", value, c.want)
@@ -347,7 +355,7 @@ func TestElicit(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			resp, problems, err := c.prompt.Elicit(c.action, c.values)
+			resp, problems, err := c.prompt.Elicit(c.action, c.values, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -363,10 +371,10 @@ func TestElicit(t *testing.T) {
 			sameJSON(t, c.name, marshal(t, resp), c.want)
 		})
 	}
-	if _, _, err := form.Elicit("later", nil); err == nil {
+	if _, _, err := form.Elicit("later", nil, ""); err == nil {
 		t.Error("认不出的回应应该出错")
 	}
-	if _, _, err := mustParse(t, bashLine).Elicit(ElicitAccept, nil); err == nil {
+	if _, _, err := mustParse(t, bashLine).Elicit(ElicitAccept, nil, ""); err == nil {
 		t.Error("工具确认不能当 MCP 表单回应")
 	}
 }
@@ -385,5 +393,52 @@ func TestRejectWithFeedbackText(t *testing.T) {
 	want := "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said:\n"
 	if RejectWithFeedback != want {
 		t.Errorf("交给模型的话和 TUI 的不一样：%q", RejectWithFeedback)
+	}
+}
+
+// withoutCodes 去掉 got 里的种类码字段（notice_code、notice_args、suggestion_msgs）：TestParse 照 Kotlin 版按值对照，
+// 种类码由 TestNoticeCodes 和 TestDescribeSuggestions 核对。
+func withoutCodes(t *testing.T, got []byte) []byte {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal(got, &m); err != nil {
+		t.Fatal(err)
+	}
+	delete(m, "notice_code")
+	delete(m, "notice_args")
+	delete(m, "suggestion_msgs")
+	return marshal(t, m)
+}
+
+// 通知那一句带种类码：客户端按自己的语言出字，Notice 仍是源语言；旧核心没给种类码时照 Notice。
+func TestNoticeCodes(t *testing.T) {
+	cases := []struct{ line, zh, en string }{
+		{bashLine, "Claude 想用 Bash", "Claude wants to use Bash"},
+		{planLine, "Claude 交来了计划，等你审批", "Claude has a plan for you to review"},
+		{askLine, "Claude 有问题要问你", "Claude has a question for you"},
+		{formLine, "MCP 服务器 eli 需要你填写信息", "MCP server eli needs some information from you"},
+		{urlLine, "MCP 服务器 eli 需要你去网页上操作", "MCP server eli needs you to do something on a web page"},
+	}
+	for _, c := range cases {
+		p := Parse([]byte(c.line))
+		if p.Notice != c.zh || p.NoticeIn("") != c.zh || p.NoticeIn("en") != c.en {
+			t.Errorf("%q %q %q，期望 %q %q", p.Notice, p.NoticeIn(""), p.NoticeIn("en"), c.zh, c.en)
+		}
+	}
+	old := Prompt{Notice: "旧核心的话"}
+	if old.NoticeIn("en") != "旧核心的话" {
+		t.Errorf("旧核心：%q", old.NoticeIn("en"))
+	}
+}
+
+// 表单各项的错误用回应的那个客户端的语言写，个数照英文的单复数。
+func TestContentInEnglish(t *testing.T) {
+	length, two := 1, 2.0
+	fields := []Field{{Key: "a", Kind: FieldText, Required: true}, {Key: "b", Kind: FieldText, MaxLength: &length},
+		{Key: "c", Kind: FieldMulti, Min: &two}}
+	_, problems := Content(fields, map[string][]string{"b": {"xy"}, "c": {"x"}}, "en")
+	want := map[string]string{"a": "Required", "b": "At most 1 character", "c": "Choose at least 2"}
+	if !reflect.DeepEqual(problems, want) {
+		t.Errorf("%q，期望 %q", problems, want)
 	}
 }

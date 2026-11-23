@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 直接按 MCP 协议连上服务器要工具清单（initialize → tools/list）：Claude Code 本身不提供这个查询。HTTP、SSE 从这台主机连
@@ -78,7 +80,7 @@ func rpcReply(data []byte, id int) (json.RawMessage, bool, error) {
 			continue
 		}
 		if m.Error != nil {
-			return nil, true, fail("%s", clip(m.Error.Message, 300))
+			return nil, true, rawError(clip(m.Error.Message, 300))
 		}
 		if len(m.Result) == 0 {
 			return json.RawMessage("{}"), true, nil
@@ -128,7 +130,7 @@ func (s *Store) McpTools(ctx context.Context, scope, name, cwd string) ([]McpToo
 		return nil, err
 	}
 	if e.config.obj("oauth") != nil {
-		return nil, fail("这个服务器用 OAuth 登录，Zeta 取不到它的工具")
+		return nil, locales.Err("cfgMcpOAuth")
 	}
 	values, err := s.envValues(ctx, referencedVars(e.config))
 	if err != nil {
@@ -144,7 +146,7 @@ func (s *Store) McpTools(ctx context.Context, scope, name, cwd string) ([]McpToo
 	case "http", "sse":
 		u, _ := cfg.str("url")
 		if u == "" {
-			return nil, fail("配置里没有地址")
+			return nil, locales.Err("cfgMcpNoURL")
 		}
 		headers := map[string]string{}
 		if h := cfg.obj("headers"); h != nil {
@@ -163,14 +165,10 @@ func (s *Store) McpTools(ctx context.Context, scope, name, cwd string) ([]McpToo
 	case "stdio":
 		tools, err = s.stdioTools(ctx, cfg, cwd, secrets)
 	default:
-		return nil, fail("这种类型（%s）的服务器看不了工具", e.typ())
+		return nil, locales.Err("cfgMcpTypeNoTools", "type", e.typ())
 	}
 	if err != nil {
-		var cfgErr *Error
-		if errors.As(err, &cfgErr) {
-			return nil, fail("%s", mask(cfgErr.msg, secrets))
-		}
-		return nil, err
+		return nil, maskErr(err, secrets)
 	}
 	if tools == nil {
 		tools = []McpTool{}
@@ -251,11 +249,11 @@ func (s *Store) envValues(ctx context.Context, names []string) (map[string]strin
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
-		return nil, fail("读不了登录环境里的变量")
+		return nil, locales.Err("cfgMcpEnvUnreadable")
 	}
 	_, body, ok := strings.Cut(out.String(), "\n@zeta\x00")
 	if !ok {
-		return nil, fail("读不了登录环境里的变量")
+		return nil, locales.Err("cfgMcpEnvUnreadable")
 	}
 	fields := strings.Split(body, "\x00")
 	for i := 0; i+1 < len(fields); i += 2 {
@@ -275,7 +273,7 @@ cd -- "$1" 2>/dev/null || cd; shift; exec "$@"`
 func (s *Store) stdioTools(ctx context.Context, cfg *object, cwd string, secrets []string) ([]McpTool, error) {
 	command, _ := cfg.str("command")
 	if strings.TrimSpace(command) == "" {
-		return nil, fail("配置里没有命令")
+		return nil, locales.Err("cfgMcpNoCommand")
 	}
 	var env []string
 	if e := cfg.obj("env"); e != nil {
@@ -291,16 +289,16 @@ func (s *Store) stdioTools(ctx context.Context, cfg *object, cwd string, secrets
 	cmd := s.loginCommand(ctx, stdioScript, append([]string{cwd, command}, argStrings(cfg)...), env)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fail("启动不了")
+		return nil, locales.Err("cfgMcpCantStart")
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fail("启动不了")
+		return nil, locales.Err("cfgMcpCantStart")
 	}
 	stderr := &tailBuffer{keep: 4096}
 	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
-		return nil, fail("启动不了")
+		return nil, locales.Err("cfgMcpCantStart")
 	}
 	defer func() {
 		stdin.Close()
@@ -318,7 +316,7 @@ func (s *Store) stdioTools(ctx context.Context, cfg *object, cwd string, secrets
 	tools, err := sess.tools()
 	if err != nil {
 		if detail := lastLine(stderr.String()); detail != "" {
-			return nil, fail("%v：%s", err, clip(mask(detail, secrets), 200))
+			return nil, locales.Err("cfgMcpFailedDetail", "reason", locales.ErrArg(err), "detail", clip(mask(detail, secrets), 200))
 		}
 		return nil, err
 	}
@@ -334,7 +332,7 @@ type stdioSession struct {
 
 func (s *stdioSession) send(b []byte) error {
 	if _, err := s.in.Write(append(b, '\n')); err != nil {
-		return fail("服务器进程退出了")
+		return locales.Err("cfgMcpExited")
 	}
 	return nil
 }
@@ -355,9 +353,9 @@ func (s *stdioSession) call(method string, params any) (json.RawMessage, error) 
 		}
 	}
 	if s.ctx.Err() != nil {
-		return nil, fail("服务器没有在 60 秒内回应")
+		return nil, locales.Err("cfgMcpTimeout")
 	}
-	return nil, fail("服务器进程退出了")
+	return nil, locales.Err("cfgMcpExited")
 }
 
 func (s *stdioSession) tools() ([]McpTool, error) {
@@ -407,7 +405,7 @@ var mcpClient = &http.Client{Timeout: 30 * time.Second}
 func (h *mcpHTTP) do(method, target string, body []byte, extra map[string]string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(h.ctx, method, target, bytes.NewReader(body))
 	if err != nil {
-		return nil, fail("地址不对")
+		return nil, locales.Err("cfgMcpBadURL")
 	}
 	for k, v := range h.headers {
 		req.Header.Set(k, v)
@@ -424,10 +422,10 @@ func (h *mcpHTTP) do(method, target string, body []byte, extra map[string]string
 		return resp, nil
 	case resp.StatusCode == 401 || resp.StatusCode == 403:
 		resp.Body.Close()
-		return nil, fail("服务器要求登录或 Token 不对（HTTP %d）", resp.StatusCode)
+		return nil, locales.Err("cfgMcpUnauthorized", "status", strconv.Itoa(resp.StatusCode))
 	}
 	resp.Body.Close()
-	return nil, fail("服务器返回 HTTP %d", resp.StatusCode)
+	return nil, locales.Err("cfgMcpHTTPStatus", "status", strconv.Itoa(resp.StatusCode))
 }
 
 // networkError 换成给人看的说明，不带地址（地址里可能有密钥）。
@@ -435,11 +433,11 @@ func networkError(err error) error {
 	var ue *url.Error
 	if errors.As(err, &ue) {
 		if ue.Timeout() {
-			return fail("连接超时")
+			return locales.Err("cfgMcpConnectTimeout")
 		}
 		err = ue.Err
 	}
-	return fail("连不上：%s", urlPattern.ReplaceAllString(err.Error(), "…"))
+	return locales.Err("cfgMcpUnreachable", "detail", urlPattern.ReplaceAllString(err.Error(), "…"))
 }
 
 // post 发一条 Streamable HTTP 的消息；是请求时读它的回应（JSON 或一段事件流）。
@@ -471,7 +469,7 @@ func (h *mcpHTTP) post(body []byte, id int) (json.RawMessage, error) {
 	}
 	result, ok, err := rpcReply(data, id)
 	if !ok && err == nil {
-		return nil, fail("服务器的回应里没有这次请求的结果")
+		return nil, locales.Err("cfgMcpNoResult")
 	}
 	return result, err
 }
@@ -508,13 +506,13 @@ func (h *mcpHTTP) toolsSSE() ([]McpTool, error) {
 	for endpoint == "" {
 		ev, ok := events.next()
 		if !ok {
-			return nil, fail("服务器没有给出消息地址")
+			return nil, locales.Err("cfgMcpNoEndpoint")
 		}
 		if ev.event == "endpoint" {
 			base, _ := url.Parse(h.url)
 			ref, err := url.Parse(strings.TrimSpace(ev.data))
 			if err != nil {
-				return nil, fail("服务器给的消息地址不对")
+				return nil, locales.Err("cfgMcpBadEndpoint")
 			}
 			endpoint = base.ResolveReference(ref).String()
 		}
@@ -584,7 +582,7 @@ func awaitSSE(r *sseReader, id int) (json.RawMessage, error) {
 	for {
 		ev, ok := r.next()
 		if !ok {
-			return nil, fail("服务器没有回应就断开了")
+			return nil, locales.Err("cfgMcpClosed")
 		}
 		if ev.event != "message" {
 			continue

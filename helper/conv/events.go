@@ -2,10 +2,10 @@ package conv
 
 import (
 	"encoding/json"
-	"github.com/dzshzx/Zeta/helper/locales"
 	"slices"
-	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
@@ -76,7 +76,7 @@ func (c *Conversation) receive(p *process, line []byte) {
 	}
 	c.observeSubagents(e, line)
 	if c.handle(p, e, line) {
-		c.status = ""
+		c.status = locales.Msg{}
 		c.lastActivity = now
 		c.changed()
 	}
@@ -127,7 +127,7 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 		c.subagents.sessionCleared(c.session) // 之前的子代理记录在原来的会话目录里
 		c.setSession(e.NewConversationID)
 		c.title = ""
-		c.r.AddNotice("上下文已清空，下面是新的会话", false)
+		c.r.AddNoticeMsg(locales.M("noticeContextCleared"), false)
 		return true
 	case "control_response":
 		if e.Response != nil {
@@ -157,12 +157,12 @@ func (c *Conversation) handleSystem(p *process, e event, line []byte) bool {
 			c.modes.reported(e.PermissionMode)
 		}
 		if e.Status != nil && *e.Status == "compacting" {
-			c.status = "正在压缩上下文"
+			c.status = locales.M("statusCompacting")
 			c.lastActivity = c.deps.now()
 		}
 		c.changed()
 	case "compact_boundary":
-		c.r.AddNotice(usage.CompactNotice(line), false)
+		c.r.AddNoticeMsg(usage.CompactNotice(line), false)
 		// 压缩后的 post_tokens 不含系统提示和工具，问 Claude Code 要含这些的估算
 		c.queryUsage(p)
 		return true
@@ -172,11 +172,8 @@ func (c *Conversation) handleSystem(p *process, e event, line []byte) bool {
 			c.changed()
 		}
 	case "api_retry":
-		c.status = "请求出错，正在重试"
+		c.status = locales.M("statusRetrying", "attempt", max(e.Attempt, 0))
 		c.lastActivity = c.deps.now()
-		if e.Attempt > 0 {
-			c.status += "（第 " + strconv.Itoa(e.Attempt) + " 次）"
-		}
 		c.changed()
 	}
 	return false
@@ -322,7 +319,7 @@ func (c *Conversation) handleResult(e event) bool {
 	case c.interruptRequested:
 		c.r.AddNoticeMsg(locales.M("noticeStopped"), false)
 	case failed:
-		c.r.AddNotice(resultFailure(e), true)
+		c.addFailure(e)
 	}
 	stopped := c.interruptRequested
 	c.interruptRequested = false
@@ -340,8 +337,17 @@ func (c *Conversation) handleResult(e event) bool {
 	return true
 }
 
-// resultFailure 是一轮出错结束时说的：result 的文字，没有就把 errors 连起来，都没有就报 subtype。
-func resultFailure(e event) string {
+// addFailure 加一轮出错结束时的提示：result 的文字，没有就把 errors 连起来（都是 Claude Code 的原文），都没有就报 subtype。
+func (c *Conversation) addFailure(e event) {
+	if text := failureText(e); text != "" {
+		c.r.AddNotice(text, true)
+		return
+	}
+	c.r.AddNoticeMsg(locales.M("noticeTurnAbnormal", "subtype", e.Subtype), true)
+}
+
+// failureText 是一轮出错结束时 Claude Code 给的原文：result 的文字，没有就把 errors 连起来；都没有时为空。
+func failureText(e event) string {
 	var text string
 	if json.Unmarshal(e.Result, &text) == nil && strings.TrimSpace(text) != "" {
 		return text
@@ -356,7 +362,7 @@ func resultFailure(e event) string {
 	if joined := strings.Join(parts, "\n"); strings.TrimSpace(joined) != "" {
 		return joined
 	}
-	return "这一轮没有正常结束（" + e.Subtype + "）"
+	return ""
 }
 
 // 一轮的结局（conv.turn 的 outcome）和结束的那一句。
@@ -367,8 +373,9 @@ const (
 	outcomeInterrupted = "interrupted" // 进程意外没了
 )
 
-var outcomeText = map[string]string{outcomeDone: "已完成", outcomeStopped: "已停止", outcomeFailed: "出错了",
-	outcomeInterrupted: "已中断"}
+// outcomeSaid 是各结局的那一句。
+var outcomeSaid = map[string]locales.Msg{outcomeDone: locales.M("turnDone"), outcomeStopped: locales.M("turnStopped"),
+	outcomeFailed: locales.M("turnFailed"), outcomeInterrupted: locales.M("turnInterrupted")}
 
 // turnMsg 是 conv.turn。
 type turnMsg struct {
@@ -376,7 +383,9 @@ type turnMsg struct {
 	Conv    string `json:"conv"`
 	Phase   string `json:"phase"`
 	Outcome string `json:"outcome,omitempty"`
-	Text    string `json:"text,omitempty"`
+	// Text 是结局那一句的源语言，给不认 Code 的旧客户端；Code 是它的种类码，客户端按自己的语言出字
+	Text string `json:"text,omitempty"`
+	Code string `json:"code,omitempty"`
 }
 
 // setBusy：这一轮开始了（没在进行时才算开始）。
@@ -403,7 +412,8 @@ func (c *Conversation) turnFinished(outcome string) {
 	c.turnEnd = c.deps.now()
 	c.flush()
 	c.broadcast(func(name string) any {
-		return &turnMsg{Type: "conv.turn", Conv: name, Phase: "finished", Outcome: outcome, Text: outcomeText[outcome]}
+		return &turnMsg{Type: "conv.turn", Conv: name, Phase: "finished", Outcome: outcome,
+			Text: outcomeSaid[outcome].String(), Code: outcomeSaid[outcome].Key}
 	}, false)
 }
 

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 新对话的默认值：settings.json 里 Claude Code 的 /model、/effort 存为默认时写的那几项（2.1.329，用户级，所有项目生效）。
@@ -84,7 +86,7 @@ func (st *Store) SetDefaultModel(model string) (Defaults, error) {
 // SetCompactWindow 设上下文窗口（token 数）；0 是删掉，按模型本身的窗口。
 func (st *Store) SetCompactWindow(tokens int64) (Defaults, error) {
 	if tokens != 0 && tokens < MinCompactWindow {
-		return Defaults{}, fail("上下文窗口最小是 %s", FormatTokens(MinCompactWindow))
+		return Defaults{}, locales.Err("cfgCompactWindowMin", "min", FormatTokens(MinCompactWindow))
 	}
 	return st.editDefaults(func(s *object) error {
 		var v any
@@ -100,7 +102,7 @@ func (st *Store) SetCompactWindow(tokens int64) (Defaults, error) {
 // 完全放行不能设成默认：Claude Code 自己也不肯存（只用于当前会话）。
 func (st *Store) SetDefaultPermissionMode(mode string) (Defaults, error) {
 	if mode == bypassPermissions {
-		return Defaults{}, fail("完全放行不能设成默认，只能在对话里临时切换")
+		return Defaults{}, locales.Err("cfgBypassNotDefault")
 	}
 	return st.editDefaults(func(s *object) error {
 		p, err := childObject(s, "permissions", errInvalidPermissions)
@@ -120,7 +122,7 @@ func (st *Store) SetDefaultEffort(model, level string) (Defaults, error) {
 			setOrDelete(s, "effortLevel", optional(level))
 			return nil
 		}
-		bad := fail("settings.json 里的 modelSettings 不是对象，先在终端里修好它")
+		bad := locales.Err("cfgModelSettingsInvalid")
 		all, err := childObject(s, "modelSettings", bad)
 		if err != nil {
 			return err

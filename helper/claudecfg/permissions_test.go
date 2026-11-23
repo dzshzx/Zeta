@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 func TestParseRule(t *testing.T) {
@@ -24,7 +26,7 @@ func TestParseRule(t *testing.T) {
 			t.Errorf("%s: %+v, want %+v", rule, got, want)
 		}
 	}
-	if RuleProblem(" Bash") == "" || RuleProblem("Bash(") == "" || RuleProblem("") == "" || RuleProblem("Read(./.env)") != "" {
+	if RuleProblem(" Bash") == nil || RuleProblem("Bash(") == nil || RuleProblem("") == nil || RuleProblem("Read(./.env)") != nil {
 		t.Error("rule problems")
 	}
 }
@@ -164,5 +166,21 @@ func TestDefaults(t *testing.T) {
 	}
 	if FormatTokens(400_000) != "400K" || FormatTokens(1_000_000) != "1M" || FormatTokens(1234) != "1.2K" {
 		t.Error(FormatTokens(400_000), FormatTokens(1_000_000), FormatTokens(1234))
+	}
+}
+
+// 工具权限页的说明是 Zeta 自己写的，按发请求的客户端的语言写；出错是 *locales.Error，由核心按连接的语言出字。
+func TestPermissionsViewInClientLanguage(t *testing.T) {
+	home := t.TempDir()
+	en := New(home).In("en").PermissionsView(nil, "", "", nil)
+	zh := New(home).PermissionsView(nil, "", "", nil)
+	if en.Builtin[0].Name != "Bash" || en.Builtin[0].Label != "Run commands" || zh.Builtin[0].Label != "运行命令" {
+		t.Fatalf("英文 %+v，中文 %+v", en.Builtin[0], zh.Builtin[0])
+	}
+	if got := locales.Said(RuleProblem("Bash("), "en"); got != "Unbalanced parentheses. Write Tool or Tool(argument)." {
+		t.Errorf("英文的出错：%q", got)
+	}
+	if got := locales.Said(RuleProblem("Bash("), ""); got != "括号不配对，写成 工具名 或 工具名(参数)" {
+		t.Errorf("中文的出错：%q", got)
 	}
 }

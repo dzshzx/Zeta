@@ -1,48 +1,63 @@
 package claudecfg
 
-// ToolInfo 是权限页上列出的一个工具：规则里写的名字、一句中文说明、带参数的写法举例。
+import "github.com/dzshzx/Zeta/helper/locales"
+
+// ToolInfo 是权限页上列出的一个工具：规则里写的名字、一句说明、带参数的写法举例。
+// 说明是 Zeta 自己写的，只回给发请求的客户端：PermissionsView 按 Store 的语言（Store.In）填 Label。
 type ToolInfo struct {
 	Name    string `json:"name"`
 	Label   string `json:"label"`
 	Example string `json:"example"`
+
+	said locales.Msg // Label 那句话
+}
+
+func tool(name string, said locales.Msg, example string) ToolInfo {
+	return ToolInfo{Name: name, Example: example, said: said}
+}
+
+// in 是说明按语言 lang 填好的这一项。
+func (t ToolInfo) in(lang string) ToolInfo {
+	t.Label = t.said.In(lang)
+	return t
 }
 
 // CommonTools 和 OtherTools 是 Claude Code 2.1.327 的内置工具（照 system init 的 tools 核对过）。不在这里的工具也能在
 // “规则”里手写；以后 Claude Code 加了新工具，往这里补一行。
 var CommonTools = []ToolInfo{
-	{"Bash", "运行命令", "Bash(git push:*)"},
-	{"Read", "读文件，也管按名字找文件和搜内容", "Read(./.env)"},
+	tool("Bash", locales.M("toolBash"), "Bash(git push:*)"),
+	tool("Read", locales.M("toolRead"), "Read(./.env)"),
 	// 带路径的 Edit 规则对新建、覆盖文件（Write）同样生效
-	{"Edit", "修改文件；带路径的规则也管 Write", "Edit(src/**)"},
-	{"Write", "新建或覆盖文件", ""},
-	{"NotebookEdit", "修改 Jupyter 笔记本", ""},
-	{"WebFetch", "抓取网页", "WebFetch(domain:github.com)"},
-	{"WebSearch", "网页搜索", ""},
-	{"Agent", "派出 Subagent（旧名 Task）", "Agent(Explore)"},
-	{"Skill", "调用 Skill", "Skill(pdf)"},
-	{"Glob", "按文件名找文件（Bash 被拒时才有）", ""},
-	{"Grep", "在文件里搜内容（Bash 被拒时才有）", ""},
+	tool("Edit", locales.M("toolEdit"), "Edit(src/**)"),
+	tool("Write", locales.M("toolWrite"), ""),
+	tool("NotebookEdit", locales.M("toolNotebookEdit"), ""),
+	tool("WebFetch", locales.M("toolWebFetch"), "WebFetch(domain:github.com)"),
+	tool("WebSearch", locales.M("toolWebSearch"), ""),
+	tool("Agent", locales.M("toolAgent"), "Agent(Explore)"),
+	tool("Skill", locales.M("toolSkill"), "Skill(pdf)"),
+	tool("Glob", locales.M("toolGlob"), ""),
+	tool("Grep", locales.M("toolGrep"), ""),
 }
 
 // OtherTools 是收起来的那些。
 var OtherTools = []ToolInfo{
-	{"Monitor", "盯着后台命令的输出", ""},
-	{"Workflow", "运行编排多个 Subagent 的工作流脚本", ""},
-	{"CronCreate", "新建定时任务", ""},
-	{"CronDelete", "删除定时任务", ""},
-	{"CronList", "列出定时任务", ""},
-	{"ScheduleWakeup", "/loop 里过一会儿再接着做", ""},
-	{"SendMessage", "给 Subagent 或别的会话发消息", ""},
-	{"ListAgents", "列出能发消息的 Subagent 和会话", ""},
-	{"TaskStop", "停掉后台任务", ""},
-	{"EnterWorktree", "进入 git worktree", ""},
-	{"ExitWorktree", "离开 git worktree", ""},
-	{"EnterPlanMode", "进入计划模式", ""},
-	{"ExitPlanMode", "交出计划、退出计划模式", ""},
-	{"AskUserQuestion", "向你提选择题", ""},
-	{"ToolSearch", "按需加载其余工具，拒绝后都用不了", ""},
-	{"ReportFindings", "按格式汇报代码审查的发现", ""},
-	{"DesignSync", "读写 Claude Design 里的项目文件", ""},
+	tool("Monitor", locales.M("toolMonitor"), ""),
+	tool("Workflow", locales.M("toolWorkflow"), ""),
+	tool("CronCreate", locales.M("toolCronCreate"), ""),
+	tool("CronDelete", locales.M("toolCronDelete"), ""),
+	tool("CronList", locales.M("toolCronList"), ""),
+	tool("ScheduleWakeup", locales.M("toolScheduleWakeup"), ""),
+	tool("SendMessage", locales.M("toolSendMessage"), ""),
+	tool("ListAgents", locales.M("toolListAgents"), ""),
+	tool("TaskStop", locales.M("toolTaskStop"), ""),
+	tool("EnterWorktree", locales.M("toolEnterWorktree"), ""),
+	tool("ExitWorktree", locales.M("toolExitWorktree"), ""),
+	tool("EnterPlanMode", locales.M("toolEnterPlanMode"), ""),
+	tool("ExitPlanMode", locales.M("toolExitPlanMode"), ""),
+	tool("AskUserQuestion", locales.M("toolAskUserQuestion"), ""),
+	tool("ToolSearch", locales.M("toolToolSearch"), ""),
+	tool("ReportFindings", locales.M("toolReportFindings"), ""),
+	tool("DesignSync", locales.M("toolDesignSync"), ""),
 }
 
 // BuiltinGroup 是一键开启、关闭时的“内置工具”一组：常用的加上收起来的。

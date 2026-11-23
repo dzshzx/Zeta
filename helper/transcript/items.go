@@ -4,7 +4,11 @@
 // 对照用例在 ../testdata/transcript，期望结果的录法见 parity_test.go。
 package transcript
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/dzshzx/Zeta/helper/locales"
+)
 
 // Kind 是条目的种类。
 type Kind string
@@ -109,8 +113,12 @@ type Step struct {
 	Clipped bool       `json:"clipped,omitempty"`
 	Status  ToolStatus `json:"status,omitempty"` // tool
 	Result  string     `json:"result,omitempty"` // tool：结果的文字，status 不是 running 时才有意义
-	Images  []Image    `json:"images,omitempty"` // tool：结果里的图
-	Patch   *Patch     `json:"patch,omitempty"`  // tool：改文件的工具给出的改动
+	// ResultCode、ResultArgs：结果是核心自己写的（已中断、! 命令没有输出或退出码不为 0）时，核心文字表里的种类码和参数
+	// （docs/i18n.md），客户端按自己的语言出字；Result 是源语言，给不认这个码的旧客户端
+	ResultCode string         `json:"result_code,omitempty"`
+	ResultArgs map[string]any `json:"result_args,omitempty"`
+	Images     []Image        `json:"images,omitempty"` // tool：结果里的图
+	Patch      *Patch         `json:"patch,omitempty"`  // tool：改文件的工具给出的改动
 }
 
 // Image 是聊天里的一张图：实时收到的带着数据，会话记录里的只有位置。
@@ -139,4 +147,9 @@ type DiffLine struct {
 	Text string `json:"text"`
 	Old  int    `json:"old,omitempty"`
 	New  int    `json:"new,omitempty"`
+}
+
+// setResult 把核心自己写的结果 m 记成这一步的结果：Result 是源语言，另带种类码和参数。
+func (s *Step) setResult(m locales.Msg) {
+	s.Result, s.ResultCode, s.ResultArgs = m.String(), m.Key, m.Args
 }

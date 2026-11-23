@@ -7,15 +7,18 @@ import (
 
 // Session 是会话列表里的一项：zeta-helper list、lookup 的一行，serve 推来的 zeta_sessions 里的一项（字段见 helper/sessions.go）。
 type Session struct {
-	ID       string `json:"id"`
-	File     string `json:"file"`
-	Cwd      string `json:"cwd"`
-	Title    string `json:"title"`
-	Preview  string `json:"preview"`
-	Updated  int64  `json:"updated"`  // 毫秒
-	External bool   `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
-	Archived bool   `json:"archived"`
-	Pinned   bool   `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
+	ID      string `json:"id"`
+	File    string `json:"file"`
+	Cwd     string `json:"cwd"`
+	Title   string `json:"title"`
+	Preview string `json:"preview"`
+	// PreviewCode 是 Preview 是核心写的占位（只发了图时的「[图片]」）时它的种类码（核心文字表的键，docs/i18n.md），
+	// 界面按自己的语言出字；预览是用户原话时为空
+	PreviewCode string `json:"preview_code"`
+	Updated     int64  `json:"updated"`  // 毫秒
+	External    bool   `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
+	Archived    bool   `json:"archived"`
+	Pinned      bool   `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
 	// Ended：没有活着的 Claude Code 进程登记着它（核心给的 live 为假）。核心比客户端旧、没给 live 时，
 	// 和客户端自己拼的会话一样是零值，当作还在运行。
 	Ended   bool   `json:"-"`

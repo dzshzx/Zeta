@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Claude Code 的两种长期记忆：用户写给它的指令 ~/.claude/CLAUDE.md，每次对话都载入；它自己记的自动记忆，每个项目一个目录
@@ -228,10 +230,7 @@ func sampleCwd(raw string) string {
 
 func (s *Store) checkEditable(path string) error {
 	custom := customMemoryDir(memorySettingsOf(s.lenientSettings()).customDir, s.Home())
-	if p := editableProblem(path, s.Home(), custom); p != "" {
-		return fail("%s", p)
-	}
-	return nil
+	return editableProblem(path, s.Home(), custom)
 }
 
 // ReadDocument 读记忆页上的一个文件（CLAUDE.md、MEMORY.md、一条记忆）。
@@ -249,7 +248,7 @@ func (s *Store) WriteDocument(path, content, expectedSHA string, force bool) (st
 		return "", err
 	}
 	if len(content) > MaxText {
-		return "", fail("内容超过 1 MiB")
+		return "", locales.Err("cfgContentTooBig")
 	}
 	expected := cmp.Or(expectedSHA, "-")
 	if force {
@@ -265,10 +264,10 @@ func (s *Store) DeleteMemory(path string) error {
 	}
 	name := baseName(path)
 	if name == "MEMORY.md" || path == instructions(s.Home()) {
-		return fail("不能删除这个文件")
+		return locales.Err("cfgCantDelete")
 	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return fail("删不掉：%s", pathReason(err))
+		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
 	}
 	index := parentDir(path) + "/MEMORY.md"
 	for range 3 {

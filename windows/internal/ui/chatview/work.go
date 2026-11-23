@@ -130,7 +130,7 @@ func (ch *Chat) stepRow(c *ui.Context, s items.Step) {
 	}
 	t := c.Theme()
 	k := inkOf(t)
-	title, detail := stepText(s)
+	title, detail := stepText(s, c.Locale())
 	header := func(progress float32, expandable bool) {
 		tint := k.icon
 		if s.Running() {
@@ -174,8 +174,8 @@ func (ch *Chat) stepRow(c *ui.Context, s items.Step) {
 	}
 }
 
-// stepText 是一步的标题和展开后的详情。
-func stepText(s items.Step) (title, detail string) {
+// stepText 是一步的标题和展开后的详情（核心写的结果按界面语言 locale 出字）。
+func stepText(s items.Step, locale string) (title, detail string) {
 	if s.Kind == items.Thinking {
 		switch {
 		case s.Thinking:
@@ -188,7 +188,7 @@ func stepText(s items.Step) (title, detail string) {
 		return title, s.Text
 	}
 	look := lookOf(s)
-	return look.title, stepDetail(look, s.Result)
+	return look.title, stepDetail(look, s.ResultSaid(locale))
 }
 
 // stepDetailView 是一步展开后的样子：思考按 Markdown 排成淡色字，工具调用是等宽字的灰底块（结果里的图在卡片下面，见 workImages）。

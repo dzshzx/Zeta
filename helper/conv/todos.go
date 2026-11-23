@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
@@ -149,14 +150,21 @@ func (b *todoBoard) update(input map[string]any) {
 	}
 	old, known := b.tasks[id]
 	subject := str(input, "subject")
-	content := or(subject, old.Content, "任务 #"+id)
+	content, code := or(subject, old.Content), ""
+	switch {
+	case content == "":
+		fallback := locales.M("todoUntitled", "id", id)
+		content, code = fallback.String(), fallback.Key
+	case subject == "":
+		code = old.ContentCode
+	}
 	active := or(str(input, "activeForm"), str(input, "active_form"))
 	// 原来的进行中说法就是旧标题（没单写过）时，换了标题它也跟着换
 	if active == "" && known && (subject == "" || old.ActiveForm != old.Content) {
 		active = old.ActiveForm
 	}
 	b.put(sessionproto.Todo{Key: id, Content: content, ActiveForm: or(active, content),
-		Status: or(todoStatus(requested), old.Status, sessionproto.TodoPending)})
+		Status: or(todoStatus(requested), old.Status, sessionproto.TodoPending), ContentCode: code})
 }
 
 func (b *todoBoard) put(t sessionproto.Todo) {

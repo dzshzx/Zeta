@@ -1,9 +1,9 @@
 package conv
 
 import (
-	"errors"
 	"strconv"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
@@ -13,16 +13,20 @@ import (
 // 客户端只能重新打开对话。
 
 var (
-	errNoEarlier    = errors.New("没有更早的记录了")
-	errEarlierBusy  = errors.New("正在载入更早的记录")
-	errEarlierStale = codedError{sessionproto.CodeHistoryChanged, "会话记录在别处改过，重新打开这个对话再看更早的内容"}
+	errNoEarlier    = locales.Err("errNoEarlier")
+	errEarlierBusy  = locales.Err("errEarlierBusy")
+	errEarlierStale = codedError{sessionproto.CodeHistoryChanged, locales.Err("errEarlierStale")}
 )
 
-// codedError 是带代号的出错：应答里另带 code（见 core.Client.Reply），客户端按代号认，不按原文。
-type codedError struct{ code, msg string }
+// codedError 是带代号的出错：应答里另带 code（见 core.Client.Reply），客户端按代号认，不按原文；err 是给人看的那句。
+type codedError struct {
+	code string
+	err  *locales.Error
+}
 
-func (e codedError) Error() string { return e.msg }
+func (e codedError) Error() string { return e.err.Error() }
 func (e codedError) Code() string  { return e.code }
+func (e codedError) Unwrap() error { return e.err }
 
 // loadEarlier 开始载入更早的一页（rest 时一次载完剩下的全部，对话内查找用），返回的 channel 在接上（或没接上）后给出结果。
 // 同一时间只有一个请求在读，所以读回来的正是现在没载入的那段。在对话的 goroutine 上调用。
@@ -63,7 +67,7 @@ func (c *Conversation) applyEarlier(out []byte, err error, file string, skipped 
 	c.earlierLoading = false
 	defer c.changed()
 	if err != nil {
-		return errors.New("没有读到更早的记录：" + err.Error())
+		return locales.Err("errEarlierReadFailed", "detail", err.Error())
 	}
 	read := readHistory(out, file, "p"+strconv.Itoa(skipped)+"-", false)
 	if read.header.Stale {

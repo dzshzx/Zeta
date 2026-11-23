@@ -2,10 +2,10 @@ package conv
 
 import (
 	"encoding/json"
-	"errors"
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
@@ -19,16 +19,17 @@ func (c *Conversation) enqueuePrompt(p *prompt.Prompt) {
 		return
 	}
 	if p.AgentID != "" {
-		p.AgentLabel = c.subagentLabel(p.AgentID)
+		p.AgentLabel, p.AgentLabelCode = c.subagentLabel(p.AgentID)
 	}
 	c.prompts = append(c.prompts, p)
 	c.changed()
 }
 
-// subagentLabel 是后台子代理 agentID 在确认框上的叫法：发起它的 Agent 调用写的说明，找不到时是「后台子代理」。
+// subagentLabel 是后台子代理 agentID 在确认框上的叫法：发起它的 Agent 调用写的说明（code 为空），找不到时是「后台子代理」
+// （源语言，code 是它的种类码）。
 // can_use_tool 的 agent_id 和 task_started 的 task_id、Agent 结果里的 agentId 是同一个值（子代理自己的 id），
 // 经 subagents.ids（Agent 调用 → 子代理 id）找回 Agent 调用，再在列表里找那一步的参数。
-func (c *Conversation) subagentLabel(agentID string) string {
+func (c *Conversation) subagentLabel(agentID string) (label, code string) {
 	if use := c.subagents.ids.keyOf(agentID); use != "" {
 		for _, it := range slices.Backward(c.r.Items) {
 			for _, s := range it.Steps {
@@ -39,12 +40,13 @@ func (c *Conversation) subagentLabel(agentID string) string {
 					Description string `json:"description"`
 				}
 				if json.Unmarshal(s.Input, &input) == nil && strings.TrimSpace(input.Description) != "" {
-					return input.Description
+					return input.Description, ""
 				}
 			}
 		}
 	}
-	return "后台子代理"
+	fallback := locales.M("promptBackgroundSubagent")
+	return fallback.String(), fallback.Key
 }
 
 func (c *Conversation) dropPrompt(requestID string) {
@@ -76,7 +78,7 @@ func (c *Conversation) dropAnsweredPrompts(m *transcript.Message) {
 	}
 }
 
-var errNoPrompt = errors.New("没有在等这个请求")
+var errNoPrompt = locales.Err("errNoPrompt")
 
 func (c *Conversation) findPrompt(requestID string, kind prompt.Kind) *prompt.Prompt {
 	i := slices.IndexFunc(c.prompts, func(p *prompt.Prompt) bool { return p.RequestID == requestID && p.Kind == kind })
@@ -106,12 +108,12 @@ func (c *Conversation) answer(requestID string, reply prompt.Reply) error {
 
 // elicit 回应一次 MCP 表单：接受表单时 values 是各项填的（键 → 输入框里的字，多选是选中的值）。
 // 填得不对时返回各项的错误（键 → 说明），不交给 Claude Code。
-func (c *Conversation) elicit(requestID string, action prompt.ElicitAction, values map[string][]string) (map[string]string, error) {
+func (c *Conversation) elicit(client int, requestID string, action prompt.ElicitAction, values map[string][]string) (map[string]string, error) {
 	p := c.findPrompt(requestID, prompt.KindElicitation)
 	if p == nil {
 		return nil, errNoPrompt
 	}
-	response, problems, err := p.Elicit(action, values)
+	response, problems, err := p.Elicit(action, values, c.deps.langOf(client))
 	if err != nil || len(problems) > 0 {
 		return problems, err
 	}
@@ -133,7 +135,7 @@ func (c *Conversation) dismissPrompts() {
 		if p.Kind == prompt.KindPermission {
 			_ = c.answer(p.RequestID, prompt.Reply{Kind: prompt.ReplyDeny})
 		} else {
-			_, _ = c.elicit(p.RequestID, prompt.ElicitCancel, nil)
+			_, _ = c.elicit(0, p.RequestID, prompt.ElicitCancel, nil)
 		}
 	}
 }

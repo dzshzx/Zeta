@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // searchTime、searchLimit 是一次搜索最多找多久、最多几个命中；测试里改。
@@ -18,7 +20,7 @@ var (
 const searchCheckEvery = 256
 
 // spokenText 是一条记录里用户或 Claude 亲口说的话和说话的角色；工具调用、工具结果、系统注入的内容的文字是空串。
-func spokenText(o obj) (role, text string) {
+func spokenText(o obj, lang string) (role, text string) {
 	if truthy(o["isSidechain"]) || truthy(o["isMeta"]) {
 		return "", ""
 	}
@@ -30,7 +32,7 @@ func spokenText(o obj) (role, text string) {
 			return "", ""
 		}
 		if name, body, ok := peerMessage(attachment); ok {
-			return "user", "来自会话 " + name + "：" + body // 片段里也认得出是别的会话发来的
+			return "user", locales.M("searchPeerMessage", "name", name, "body", body).In(lang) // 片段里也认得出是别的会话发来的
 		}
 		return "user", userText(attachment["prompt"])
 	case "user":
@@ -74,11 +76,12 @@ type searcher struct {
 	ctx     context.Context // 取消或到了时限就不再往下读
 	needle  string          // 小写的关键词
 	escaped string          // 关键词在 JSON 字符串里的样子：记录里的字符串是转义过的，按行粗筛时用它比
+	lang    string          // 片段里核心自己加的字（来自会话、附件）用这个语言写，是发起搜索的客户端的语言
 }
 
 // cmdSearch 边找边输出 zeta_match，最后一行是汇总 zeta_search_done（见 searchSessions）。
 func cmdSearch(e *env, o *emitter, query string) error {
-	done, err := searchSessions(context.Background(), e, query, func(m searchMatch) {
+	done, err := searchSessions(context.Background(), e, query, "", func(m searchMatch) {
 		o.out(obj{"type": "zeta_match", "id": m.ID, "role": m.Role, "snippet": m.Snippet})
 		o.flush()
 	})
@@ -108,7 +111,7 @@ type searchDone struct {
 // 每个会话取第一处命中就换下一个，命中一个就交给 found。限时（searchTime）限量，免得几百 MB 的记录把手机拖住；
 // ctx 取消时也停，每读完一份记录、一份里每读 searchCheckEvery 行看一次。停下时照样给出汇总，Complete 为假。
 // zeta-helper search 和核心的 sessions.search 都用它。
-func searchSessions(ctx context.Context, e *env, query string, found func(searchMatch)) (searchDone, error) {
+func searchSessions(ctx context.Context, e *env, query, lang string, found func(searchMatch)) (searchDone, error) {
 	needle := strings.ToLower(strings.TrimSpace(query))
 	if needle == "" {
 		return searchDone{}, errors.New("empty query")
@@ -116,7 +119,7 @@ func searchSessions(ctx context.Context, e *env, query string, found func(search
 	ctx, cancel := context.WithTimeout(ctx, searchTime)
 	defer cancel()
 	quoted := appendQuoted(nil, needle)
-	s := searcher{ctx: ctx, needle: needle, escaped: string(quoted[1 : len(quoted)-1])}
+	s := searcher{ctx: ctx, needle: needle, escaped: string(quoted[1 : len(quoted)-1]), lang: lang}
 	files := e.sessionFiles()
 	sortNewestFirst(files)
 	files = files[:min(len(files), listLimit)]
@@ -179,13 +182,13 @@ func (s searcher) line(line []byte) (role, snip string, found bool) {
 	if !ok {
 		return "", "", false
 	}
-	role, text := spokenText(o)
+	role, text := spokenText(o, s.lang)
 	if strings.Contains(text, "[Attached ") {
 		// 附件行只留文件名，摘要里不出现一长串路径
 		lines := strings.Split(text, "\n")
 		for i, l := range lines {
 			if name, ok := attachedName(l); ok {
-				lines[i] = "附件 " + name
+				lines[i] = locales.M("searchAttachment", "name", name).In(s.lang)
 			}
 		}
 		text = strings.Join(lines, "\n")

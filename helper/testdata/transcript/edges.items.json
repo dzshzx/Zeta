@@ -17,7 +17,8 @@
           ]
         },
         "status": "failed",
-        "result": "已中断"
+        "result": "已中断",
+        "result_code": "stepInterrupted"
       },
       {
         "kind": "tool",
@@ -34,7 +35,8 @@
         "id": "e-e-m-1-2",
         "name": "B",
         "status": "failed",
-        "result": "已中断"
+        "result": "已中断",
+        "result_code": "stepInterrupted"
       }
     ]
   },

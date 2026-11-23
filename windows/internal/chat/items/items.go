@@ -104,6 +104,18 @@ type Step struct {
 	Patch  *Patch         `json:"patch"`
 	// Clipped：参数里有长字符串被核心截断了（会话记录里读来的，截断处是 "\n…"），改文件的对比只画得出一部分。
 	Clipped bool `json:"clipped"`
+	// ResultCode、ResultArgs：结果是核心自己写的（已中断、! 命令没有输出或退出码不为 0）时它的种类码和参数，
+	// 按界面语言出字（ResultSaid）；Result 是源语言
+	ResultCode string         `json:"result_code"`
+	ResultArgs map[string]any `json:"result_args"`
+}
+
+// ResultSaid 是结果用界面语言 locale 说出来的文字：核心给了种类码时从核心的文字表取，没有时是 Result（工具的原文）。
+func (s Step) ResultSaid(locale string) string {
+	if s.ResultCode == "" {
+		return s.Result
+	}
+	return locales.Msg{Key: s.ResultCode, Args: s.ResultArgs}.In(locale)
 }
 
 // Running 报告这一步还在进行：思考还在想，或工具还在跑。

@@ -43,8 +43,8 @@ func (e codedError) Error() string { return e.err.Error() }
 func (e codedError) Code() string  { return e.code }
 func (e codedError) Unwrap() error { return e.err }
 
-// handleAccounts 处理一个 accounts.* 或 quota.* 请求（e 是家目录和包），返回放进 reply 的 result。
-func handleAccounts(ctx context.Context, e *env, method string, params json.RawMessage) (any, error) {
+// handleAccounts 处理一个 accounts.* 或 quota.* 请求（e 是家目录和包，lang 是发请求的客户端的语言），返回放进 reply 的 result。
+func handleAccounts(ctx context.Context, e *env, method, lang string, params json.RawMessage) (any, error) {
 	var p accountsParams
 	if len(params) > 0 {
 		if err := json.Unmarshal(params, &p); err != nil {
@@ -67,7 +67,7 @@ func handleAccounts(ctx context.Context, e *env, method string, params json.RawM
 	if err != nil {
 		return nil, accountsError(err)
 	}
-	h := &accounts.Host{Home: e.home, Package: e.name, Program: program, EndIdle: func() { endIdleHosted(e) }}
+	h := &accounts.Host{Home: e.home, Lang: lang, Package: e.name, Program: program, EndIdle: func() { endIdleHosted(e) }}
 	var result any
 	switch method {
 	case "accounts.list":

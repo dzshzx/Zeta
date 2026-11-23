@@ -213,6 +213,8 @@ func TestTerminalTextAndElapsed(t *testing.T) {
 	eq(t, "3 秒", FormatElapsed(3_400), "3 秒")
 	eq(t, "2 分", FormatElapsed(125_000), "2 分 05 秒")
 	eq(t, "1 小时", FormatElapsed(3_780_000), "1 小时 03 分")
+	eq(t, "1 h", FormatElapsedIn("en", 3_780_000), "1 h 03 min")
+	eq(t, "2 min", FormatElapsedIn("en", 125_000), "2 min 05 s")
 }
 
 // 接回后台进程时，zeta-helper hosts 从输出日志里摘出还在跑的后台任务的事件（task_events），重放后和实时收到时一样：

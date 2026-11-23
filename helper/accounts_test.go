@@ -56,7 +56,7 @@ func fakeLogin(t *testing.T, home, uuid, email string) {
 // callAccounts 调一个方法，结果按 JSON 读回来（同客户端收到的样子）。
 func callAccounts(t *testing.T, e *env, method, params string) (obj, error) {
 	t.Helper()
-	result, err := handleAccounts(context.Background(), e, method, json.RawMessage(params))
+	result, err := handleAccounts(context.Background(), e, method, "", json.RawMessage(params))
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +131,10 @@ func TestServeAccountsConcurrent(t *testing.T) {
 	errs := make(chan error, 8)
 	for range 8 {
 		wg.Go(func() {
-			if _, err := handleAccounts(context.Background(), e, "accounts.list", nil); err != nil {
+			if _, err := handleAccounts(context.Background(), e, "accounts.list", "", nil); err != nil {
 				errs <- err
 			}
-			if _, err := handleAccounts(context.Background(), e, "quota.get", nil); err != nil {
+			if _, err := handleAccounts(context.Background(), e, "quota.get", "", nil); err != nil {
 				errs <- err
 			}
 		})

@@ -3,22 +3,26 @@ package usage
 import (
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // CompactNotice 是 compact_boundary 事件（一整行）在聊天里显示的提示。只写压缩前的大小：它是实测数；
 // post_tokens 不含系统提示和工具，写成「→ 7.6K」会让人以为上下文只剩这么多。压缩后的占用看用量弹窗。
-func CompactNotice(line []byte) string {
+func CompactNotice(line []byte) locales.Msg {
 	var e event
 	decode(line, &e)
-	label := "上下文已压缩"
 	m := e.CompactMetadata
-	if m != nil && m.Trigger == "auto" {
-		label = "上下文已自动压缩"
+	auto := m != nil && m.Trigger == "auto"
+	switch {
+	case m != nil && m.PreTokens != nil && auto:
+		return locales.M("noticeAutoCompactedFrom", "tokens", FormatTokens(*m.PreTokens))
+	case m != nil && m.PreTokens != nil:
+		return locales.M("noticeCompactedFrom", "tokens", FormatTokens(*m.PreTokens))
+	case auto:
+		return locales.M("noticeAutoCompacted")
 	}
-	if m == nil || m.PreTokens == nil {
-		return label
-	}
-	return label + "（压缩前 " + FormatTokens(*m.PreTokens) + "）"
+	return locales.M("noticeCompacted")
 }
 
 // FormatTokens：1234 → 1.2K，26618 → 26.6K，123456 → 123K，1234567 → 1.23M。十万以内留一位小数，压缩前后差几百也看得出来。

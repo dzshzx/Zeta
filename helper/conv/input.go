@@ -2,17 +2,17 @@ package conv
 
 import (
 	"encoding/json"
-	"errors"
 	"path"
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
 var (
-	errBlocked = errors.New("这个会话正被别处的 Claude Code 占着，先把它接过来")
-	errLoading = errors.New("历史还在载入")
+	errBlocked = locales.Err("errConvBlocked")
+	errLoading = locales.Err("errHistoryLoading")
 )
 
 // Message 是 conv.send 的参数。Mode、Rules 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带。
@@ -58,7 +58,7 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 		return nil
 	}
 	if strings.TrimSpace(c.title) == "" {
-		c.title = placeholderTitle(text, m)
+		c.title = placeholderTitle(text, m, c.deps.langOf(client))
 		c.autoName.arm(c.title)
 	}
 	p := c.authorize(m.Mode, m.Rules)
@@ -69,8 +69,8 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 	return nil
 }
 
-// placeholderTitle 是新对话第一句话截出来的临时标题，等 Claude Code 起好标题再换。
-func placeholderTitle(text string, m Message) string {
+// placeholderTitle 是新对话第一句话截出来的临时标题，等 Claude Code 起好标题再换。只有图时用发消息的客户端的语言 lang 写「图片」。
+func placeholderTitle(text string, m Message, lang string) string {
 	first, _, _ := strings.Cut(text, "\n")
 	if r := []rune(first); len(r) > 40 {
 		first = string(r[:40])
@@ -81,7 +81,7 @@ func placeholderTitle(text string, m Message) string {
 	case len(m.Files) > 0:
 		return path.Base(strings.TrimSuffix(strings.TrimPrefix(m.Files[0], "@"), "/"))
 	}
-	return "图片"
+	return locales.M("convImageTitle").In(lang)
 }
 
 // authorize：这一条按发的人的权限跑。后台运行的切到它的权限模式、加上它的规则；用户自己的切到用户的、撤掉规则。
@@ -122,7 +122,7 @@ func (c *Conversation) stage(text string, images []Image, files []string) *outgo
 		m.item = c.r.AddUser(text, m.inlineImages(), files, m.uuid)
 	}
 	c.interruptRequested = false
-	c.status = ""
+	c.status = locales.Msg{}
 	// 回答进行中排队的也算有动静（setBusy 只管一轮开始）
 	c.lastActivity = c.deps.now()
 	c.setBusy()
@@ -140,14 +140,17 @@ func (c *Conversation) transmit(p *process, m *outgoing) {
 
 // runShell 执行输入栏里 ! 开头的命令（stream-json 的 bash_command）。回答进行中不收，原样放回输入框。
 func (c *Conversation) runShell(command, typed string) {
-	refuse := map[bool]string{true: "回答进行中不能直接执行命令，等这一轮结束再发"}[c.busy]
-	// Claude Code 同时只跑一条 ! 命令，第二条它答「Not run」：先在这里拦下，免得两条的命令和输出配错对
-	if refuse == "" && c.shellInput != "" {
-		refuse = "上一条 ! 命令还在跑，等它出结果再发"
+	var refuse locales.Msg
+	switch {
+	case c.busy:
+		refuse = locales.M("noticeShellWhileBusy")
+	case c.shellInput != "":
+		// Claude Code 同时只跑一条 ! 命令，第二条它答「Not run」：先在这里拦下，免得两条的命令和输出配错对
+		refuse = locales.M("noticeShellRunning")
 	}
-	if refuse != "" {
+	if refuse.Key != "" {
 		c.recalled = merge(c.recalled, &outgoing{uuid: newUUID(), text: typed})
-		c.r.AddNotice(refuse, true)
+		c.r.AddNoticeMsg(refuse, true)
 		c.changed()
 		return
 	}
@@ -158,7 +161,7 @@ func (c *Conversation) runShell(command, typed string) {
 	id := newUUID()
 	c.shellCommands[id] = true
 	c.interruptRequested = false
-	c.status = ""
+	c.status = locales.Msg{}
 	c.setBusy()
 	b, _ := json.Marshal(map[string]string{"type": "bash_command", "uuid": id, "command": command})
 	p.link.Send(b)
@@ -342,7 +345,7 @@ func (c *Conversation) compact(client int) error {
 		return nil
 	}
 	c.interruptRequested = false
-	c.status = "正在压缩上下文"
+	c.status = locales.M("statusCompacting")
 	c.setBusy()
 	p.link.Send(userLine(newUUID(), []map[string]string{{"type": "text", "text": "/compact"}}))
 	c.changed()
@@ -391,7 +394,7 @@ func (c *Conversation) taskOutput(id string) <-chan answer {
 	return out
 }
 
-var errNoProcess = errors.New("这个对话没有开着的 Claude Code 进程")
+var errNoProcess = locales.Err("errNoProcess")
 
 // usageRequest 是问订阅额度的控制请求：skip_behaviors 让 Claude Code 不去扫本机的会话记录，只取额度。
 func usageRequest() map[string]any { return control("get_usage", "skip_behaviors", true) }
@@ -406,7 +409,7 @@ func (c *Conversation) queryQuota() <-chan answer {
 	}
 	p.request(usageRequest(), func(r controlResponse) {
 		if !r.ok() {
-			out <- answer{err: errors.New("Claude Code 没有给额度：" + r.Error)}
+			out <- answer{err: locales.Err("errNoQuotaAnswer", "detail", r.Error)}
 			return
 		}
 		out <- answer{v: r.Response}

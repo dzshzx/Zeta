@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 这台主机上的 Claude Code：查版本（system.claude）和更新（system.claude_update），设置页每台主机一组（docs/core.md「主机」）。
@@ -39,7 +41,7 @@ func claudeCommand(e *env, timeout time.Duration, args ...string) (string, int, 
 	err := cmd.Run()
 	text := strings.TrimSpace(out.String())
 	if ctx.Err() != nil {
-		return text, -1, errors.New("超时没跑完")
+		return text, -1, locales.Err("errClaudeUpdateTimeout")
 	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -75,7 +77,7 @@ func systemClaudeMethod(e *env, _ oneShotParams) (any, error) {
 // 已在跑的 Claude Code 进程不受影响，下次起的用新版本。
 func systemClaudeUpdateMethod(e *env, _ oneShotParams) (any, error) {
 	if !claudeUpdating.TryLock() {
-		return nil, errors.New("这台主机上正在更新 Claude Code")
+		return nil, locales.Err("errClaudeUpdating")
 	}
 	defer claudeUpdating.Unlock()
 	before := claudeVersion(e)

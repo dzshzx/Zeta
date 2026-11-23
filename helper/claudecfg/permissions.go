@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Claude Code（2.1.327 实测）的工具权限：settings.json 的 permissions.allow / ask / deny 三张表（用户级，所有项目生效）。
@@ -18,24 +20,8 @@ const (
 	Deny  Behavior = "deny"
 )
 
-// Label 是界面上的叫法。
-func (b Behavior) Label() string {
-	switch b {
-	case Allow:
-		return "允许"
-	case Ask:
-		return "询问"
-	case Deny:
-		return "拒绝"
-	}
-	return "未设置"
-}
-
 // behaviors 按“拒绝 > 询问 > 允许”排：列规则、取最严的都按这个顺序。
 var behaviors = []Behavior{Deny, Ask, Allow}
-
-// PermissionSemantics 是页面上告诉用户的规则语义（用临时 HOME 和假的 API 实测出来的）。
-const PermissionSemantics = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
 
 // Rule 是一条规则和它所在的表。
 type Rule struct {
@@ -125,25 +111,25 @@ func lastUnescaped(s string, c byte) int {
 	return -1
 }
 
-// RuleProblem 是用户输入的一条规则有什么问题；没问题时为空。
-func RuleProblem(rule string) string {
+// RuleProblem 是用户输入的一条规则有什么问题；没问题时为 nil。
+func RuleProblem(rule string) error {
 	switch {
 	case strings.TrimSpace(rule) == "":
-		return "规则不能是空的"
+		return locales.Err("cfgRuleEmpty")
 	case rule != strings.TrimSpace(rule):
-		return "规则前后不能有空格"
+		return locales.Err("cfgRuleSpaces")
 	case strings.ContainsAny(rule, "\n\r\t"):
-		return "规则里不能有换行"
+		return locales.Err("cfgRuleNewline")
 	case parseRule(rule).malformed:
-		return "括号不配对，写成 工具名 或 工具名(参数)"
+		return locales.Err("cfgRuleMalformed")
 	}
-	return ""
+	return nil
 }
 
 // RuleMalformed：括号不配对，Claude Code 认不出这条。
 func RuleMalformed(rule string) bool { return parseRule(rule).malformed }
 
-var errInvalidPermissions = fail("settings.json 里的 permissions 不是一个对象，先在终端里修好它")
+var errInvalidPermissions = locales.Err("cfgPermissionsInvalid")
 
 func permissionsOf(s *object) (*object, error) {
 	v, ok := s.get("permissions")
@@ -345,7 +331,7 @@ func withoutRule(s *object, b Behavior, rule string) error {
 	})
 }
 
-var errRuleChanged = fail("这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取")
+var errRuleChanged = locales.Err("cfgRuleChanged")
 
 // replaceRule 把 b 表里的 rule 换成 nb 表里的 nr；同一张表时留在原位（同一条的其余几处、原有的 nr 去掉）。
 // 原来那条已经不在了（别人改过文件）时报错，让界面重新读。
@@ -523,15 +509,15 @@ func checkBehavior(b Behavior, allowEmpty bool) error {
 	if b == Allow || b == Ask || b == Deny || (allowEmpty && b == "") {
 		return nil
 	}
-	return fail("不认识的权限：%s", b)
+	return locales.Err("cfgUnknownBehavior", "behavior", string(b))
 }
 
 func checkRule(r Rule) error {
 	if err := checkBehavior(r.Behavior, false); err != nil {
 		return err
 	}
-	if p := RuleProblem(r.Text); p != "" {
-		return fail("%s", p)
+	if err := RuleProblem(r.Text); err != nil {
+		return err
 	}
 	return nil
 }

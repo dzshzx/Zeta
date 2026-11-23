@@ -6,12 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // ~/.claude/settings.json：只动要改的那一个键，别的键和顺序原样保留；写回的格式和 Claude Code 自己写的一样
 // （两格缩进、末尾换行）。文件不是有效的 JSON 时不碰它。
 
-var errInvalidSettings = fail("~/.claude/settings.json 不是有效的 JSON，先在终端里修好它")
+var errInvalidSettings = locales.Err("cfgSettingsInvalid")
 
 // parseSettings：不存在或是空的给空对象；不是 JSON 对象时报错。
 func parseSettings(text []byte, exists bool) (*object, error) {
@@ -80,7 +82,7 @@ func (s *Store) updateSettings(edit func(*object) error) (*object, error) {
 			return nil, err
 		}
 	}
-	return nil, fail("settings.json 一直在被改动，稍后再试")
+	return nil, locales.Err("cfgSettingsBusy")
 }
 
 // childObject 是 parent 里 key 处的对象，没有时新建一个放进去；不是对象时报 bad。

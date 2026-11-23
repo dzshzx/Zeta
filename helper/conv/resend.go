@@ -2,12 +2,11 @@ package conv
 
 import (
 	"encoding/base64"
-	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -46,12 +45,12 @@ func (d Deps) originalMessage(it transcript.Item) (Message, error) {
 	for _, im := range it.Images {
 		img, err := d.imageOf(im)
 		if err != nil {
-			return Message{}, fmt.Errorf("取不回原消息里的图片：%w", err)
+			return Message{}, locales.Err("errResendImage", "reason", locales.ErrArg(err))
 		}
 		m.Images = append(m.Images, img)
 	}
 	if m.empty() {
-		return Message{}, errors.New("这条消息没有内容可以重发")
+		return Message{}, locales.Err("errResendEmpty")
 	}
 	return m, nil
 }
@@ -62,9 +61,9 @@ func (d Deps) imageOf(im transcript.Image) (Image, error) {
 	case im.Kind == "session" && d.SessionImage != nil:
 		return d.SessionImage(im.File, im.Ref)
 	case im.Kind == "session":
-		return Image{}, errors.New("这台主机取不了会话记录里的图片")
+		return Image{}, locales.Err("errSessionImageUnsupported")
 	case im.Data == "":
-		return Image{}, errors.New("这张图没有数据")
+		return Image{}, locales.Err("errImageNoData")
 	}
 	mediaType, err := sniffImage(im.Data)
 	return Image{MediaType: mediaType, Data: im.Data}, err
@@ -76,11 +75,11 @@ func sniffImage(data string) (string, error) {
 	head = head[:len(head)/4*4]
 	b, err := base64.StdEncoding.DecodeString(head)
 	if err != nil {
-		return "", errors.New("图片的数据不是 base64")
+		return "", locales.Err("errImageNotBase64")
 	}
 	mediaType := http.DetectContentType(b)
 	if !strings.HasPrefix(mediaType, "image/") {
-		return "", errors.New("认不出图片的格式")
+		return "", locales.Err("errImageFormat")
 	}
 	return mediaType, nil
 }

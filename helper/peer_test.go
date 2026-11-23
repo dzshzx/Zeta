@@ -56,7 +56,7 @@ func TestPeerMessageSearchAndExport(t *testing.T) {
 	if !strings.Contains(snippet, "会话 home-repo-e8：") || !strings.Contains(snippet, "needle") || strings.Contains(snippet, "cross-session") {
 		t.Errorf("片段 %q", snippet)
 	}
-	markdown, _, err := exportSession(file)
+	markdown, _, err := exportSession(file, "")
 	if err != nil {
 		t.Fatal(err)
 	}

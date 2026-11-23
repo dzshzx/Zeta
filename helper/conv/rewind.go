@@ -13,24 +13,24 @@ package conv
 import (
 	"cmp"
 	"encoding/json"
-	"errors"
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
 var (
-	errRewinding  = errors.New("正在等 Claude Code 剪会话，等它剪完再发")
-	errNotNow     = errors.New("现在不能改：等这一轮结束、回应完等着的请求再试")
-	errNoTarget   = errors.New("找不到这条消息")
-	errUnknownMsg = errors.New("这条消息 Claude Code 不认得（还没有 uuid），改不了")
+	errRewinding  = locales.Err("errRewinding")
+	errNotNow     = locales.Err("errRewindNotNow")
+	errNoTarget   = locales.Err("errRewindNoTarget")
+	errUnknownMsg = locales.Err("errRewindUnknownMessage")
 )
 
 // pendingRewind 是在等 Claude Code 应答的一次剪会话或还原代码：答应了做 done，没答应做 failed。
 type pendingRewind struct {
 	done   func()
-	failed func(reason string)
+	failed func(reason locales.Msg)
 }
 
 // canRewind：现在能编辑、重新生成、删除一轮、还原代码或分支。这一轮已经结束，也没有别的事在等。
@@ -79,7 +79,7 @@ func (c *Conversation) rewrite(client int, target string, m Message) error {
 			c.forkCutDone(p)
 			c.transmit(p, msg)
 		},
-		func(reason string) {
+		func(reason locales.Msg) {
 			c.r.Items = before
 			c.abandon(msg, reason)
 		})
@@ -103,9 +103,9 @@ func (c *Conversation) drop(client int, target string) error {
 	c.changed()
 	c.startRewind(p, rewindConversation(uuid, lastSeen), rewindFailure,
 		func() { c.forkCutDone(p) },
-		func(reason string) {
+		func(reason locales.Msg) {
 			c.r.Items = before
-			c.r.AddNotice("没有删除："+reason, true)
+			c.r.AddNoticeMsg(locales.M("noticeNotDeleted", "reason", reason), true)
 		})
 	return nil
 }
@@ -152,21 +152,21 @@ func (c *Conversation) restoreCode(client int, target string, drop bool, m Messa
 	// 和剪会话一样占着 rewind：期间不收新消息，进程退出、对话关闭时按失败收掉
 	c.startRewind(p, rewindFiles(uuid, false), restoreFailure,
 		func() {
-			c.r.AddNotice("代码已还原到这条消息之前", false)
+			c.r.AddNoticeMsg(locales.M("noticeCodeRestored"), false)
 			switch {
 			case !m.empty():
 				if err := c.rewrite(client, target, m); err != nil {
-					c.r.AddNotice("没有发出："+err.Error(), true)
+					c.r.AddNoticeMsg(locales.M("noticeNotSent", "reason", locales.ErrArg(err)), true)
 					c.recall(m)
 				}
 			case drop:
 				if err := c.drop(client, target); err != nil {
-					c.r.AddNotice("没有删除："+err.Error(), true)
+					c.r.AddNoticeMsg(locales.M("noticeNotDeleted", "reason", locales.ErrArg(err)), true)
 				}
 			}
 		},
-		func(reason string) {
-			c.r.AddNotice(reason, true)
+		func(reason locales.Msg) {
+			c.r.AddNoticeMsg(reason, true)
 			c.recall(m)
 		})
 	return nil
@@ -181,30 +181,30 @@ func (c *Conversation) recall(m Message) {
 	c.changed()
 }
 
-// abandon：没能发出的消息，这一轮作罢，文字和附件放回输入框。
-func (c *Conversation) abandon(m *outgoing, reason string) {
+// abandon：没能发出的消息，这一轮作罢，文字和附件放回输入框。reason 是原因：一句话（locales.Msg）或原文。
+func (c *Conversation) abandon(m *outgoing, reason any) {
 	c.busy = false
 	c.recalled = merge(c.recalled, m)
-	c.r.AddNotice("没有发出："+reason, true)
+	c.r.AddNoticeMsg(locales.M("noticeNotSent", "reason", reason), true)
 	c.turnFinished(outcomeFailed)
 	c.changed()
 }
 
 // startRewind 发出 body，等 Claude Code 应答；failure 从应答里读出没成的原因（成了为空）。
-func (c *Conversation) startRewind(p *process, body any, failure func(controlResponse) string, done func(), failed func(reason string)) {
+func (c *Conversation) startRewind(p *process, body any, failure func(controlResponse) locales.Msg, done func(), failed func(reason locales.Msg)) {
 	pending := &pendingRewind{done: done, failed: failed}
 	c.rewind = pending
 	p.request(body, func(r controlResponse) { c.finishRewind(pending, failure(r)) })
 	c.changed()
 }
 
-// finishRewind：pending 有了结果，reason 是没成的原因（成了为空）。已经按失败收掉的（进程退出、对话关闭）不再处理。
-func (c *Conversation) finishRewind(pending *pendingRewind, reason string) {
+// finishRewind：pending 有了结果，reason 是没成的原因（成了时 Key 为空）。已经按失败收掉的（进程退出、对话关闭）不再处理。
+func (c *Conversation) finishRewind(pending *pendingRewind, reason locales.Msg) {
 	if pending == nil || pending != c.rewind {
 		return
 	}
 	c.rewind = nil
-	if reason == "" {
+	if reason.Key == "" {
 		pending.done()
 	} else {
 		pending.failed(reason)
@@ -217,7 +217,7 @@ func (c *Conversation) finishRewind(pending *pendingRewind, reason string) {
 }
 
 // abortRewind：进程没了，还在等的剪切按失败收掉，原因是 reason。
-func (c *Conversation) abortRewind(reason string) {
+func (c *Conversation) abortRewind(reason locales.Msg) {
 	c.finishRewind(c.rewind, reason)
 }
 
@@ -277,31 +277,37 @@ type rewindAnswer struct {
 	Error   string `json:"error"`
 }
 
-// rewindFailure 读 rewind_conversation 的应答：没剪成时是给用户看的原因，剪成了为空。
-func rewindFailure(r controlResponse) string {
+// rewindFailure 读 rewind_conversation 的应答：没剪成时是给用户看的原因，剪成了时 Key 为空。
+func rewindFailure(r controlResponse) locales.Msg {
 	if !r.ok() {
-		return "Claude Code 拒绝了这次操作：" + cmp.Or(r.Error, "未知错误")
+		if r.Error == "" {
+			return locales.M("rewindRefusedUnknown")
+		}
+		return locales.M("rewindRefused", "detail", r.Error)
 	}
 	var a rewindAnswer
 	if !decodeAnswer(r, &a) {
-		return "Claude Code 没有说剪没剪"
+		return locales.M("rewindNoAnswer")
 	}
 	if a.Rewound {
-		return ""
+		return locales.Msg{}
 	}
 	switch a.Reason {
 	case "turn_running", "commands_queued", "prompt_pending":
-		return "Claude 还在处理消息，等这一轮结束再试"
+		return locales.M("rewindTurnRunning")
 	case "target_not_found":
-		return "会话记录里找不到这条消息（上下文压缩之前的消息改不了）"
+		return locales.M("rewindTargetNotFound")
 	case "stale_target", "unseen_later_turn", "state_changed":
-		return "这个会话在别处有了新内容，重新打开它再试"
+		return locales.M("rewindStale")
 	case "target_splits_tool_call", "poll_tool_result_target":
-		return "这条消息在工具调用中间，不能从这里改"
+		return locales.M("rewindSplitsToolCall")
 	case "persist_failed":
-		return "写不进会话记录"
+		return locales.M("rewindPersistFailed")
 	}
-	return "Claude Code 没有剪：" + cmp.Or(a.Error, a.Reason, "未知原因")
+	if detail := cmp.Or(a.Error, a.Reason); detail != "" {
+		return locales.M("rewindNotDone", "detail", detail)
+	}
+	return locales.M("rewindNotDoneUnknown")
 }
 
 // filesAnswer 是 rewind_files 应答的 response 一项。
@@ -329,19 +335,25 @@ func dryRunChanges(r controlResponse) *CodeChanges {
 	return &CodeChanges{Files: a.FilesChanged, Insertions: a.Insertions, Deletions: a.Deletions}
 }
 
-// restoreFailure 读真还原的应答：没还原成时是给用户看的原因，成了为空。
-func restoreFailure(r controlResponse) string {
+// restoreFailure 读真还原的应答：没还原成时是给用户看的原因，成了时 Key 为空。
+func restoreFailure(r controlResponse) locales.Msg {
 	if !r.ok() {
-		return "Claude Code 拒绝了：" + cmp.Or(r.Error, "未知错误")
+		if r.Error == "" {
+			return locales.M("restoreRefusedUnknown")
+		}
+		return locales.M("restoreRefused", "detail", r.Error)
 	}
 	var a filesAnswer
 	if !decodeAnswer(r, &a) {
-		return "Claude Code 没有说还原没还原"
+		return locales.M("restoreNoAnswer")
 	}
 	if a.CanRewind {
-		return ""
+		return locales.Msg{}
 	}
-	return "没有还原代码：" + cmp.Or(a.Error, "没有这条消息之前的快照")
+	if a.Error != "" {
+		return locales.M("restoreNotDone", "detail", a.Error)
+	}
+	return locales.M("restoreNoSnapshot")
 }
 
 // decodeAnswer 把应答的 response 一项解进 v；没有这一项或解不开时返回 false。

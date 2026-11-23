@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // conv.state 里替客户端算好的几项（rewinding、last_activity、mode.shown、model_from_session、确认的 agent_label），
@@ -96,6 +98,11 @@ func TestLastActivity(t *testing.T) {
 	h.feed(c, l, `{"type":"system","subtype":"api_retry","attempt":2}`)
 	if got := h.state(1, "last_activity"); got != float64(31_000) || h.state(1, "status") != "请求出错，正在重试（第 2 次）" {
 		t.Fatalf("重试：%v，%v", got, h.state(1, "status"))
+	}
+	// 状态行另带种类码和参数，客户端按自己的语言出字
+	if code, args := h.state(1, "status_code"), h.state(1, "status_args"); code != "statusRetrying" ||
+		(locales.Msg{Key: code.(string), Args: args.(map[string]any)}).In("en") != "Request failed, retrying (attempt 2)" {
+		t.Fatalf("重试的种类码：%v %v", code, args)
 	}
 	clock.set(40_000)
 	h.feed(c, l, `{"type":"system","subtype":"status","status":"compacting"}`)

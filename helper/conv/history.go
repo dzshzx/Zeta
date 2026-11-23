@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"slices"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 	"github.com/dzshzx/Zeta/helper/usage"
 )
@@ -54,7 +55,7 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 		read.lines = append(read.lines, bytes.Clone(line))
 		switch {
 		case h.Type == "system" && h.Subtype == "compact_boundary":
-			r.AddNotice(usage.CompactNotice(line), false)
+			r.AddNoticeMsg(usage.CompactNotice(line), false)
 		case h.Type == "assistant" && h.Message != nil:
 			r.ApplyAssistant(*h.Message, true)
 		case h.Type == "user" && h.Message != nil:
@@ -92,7 +93,7 @@ func (c *Conversation) loadHistory(file string) {
 		c.setTodoSeed(read.header.TodoSeed)
 		c.loadingHistory = false
 		if err != nil {
-			c.r.AddNotice("读取历史记录失败："+err.Error(), true)
+			c.r.AddNoticeMsg(locales.M("noticeHistoryFailed", "reason", locales.ErrArg(err)), true)
 		} else {
 			// 接回还在跑的进程时模型以进程报的为准，终端里换的那次已经过去了
 			switched := read.header.SwitchedModel

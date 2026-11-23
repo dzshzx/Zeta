@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // ~/.claude/skills 下每个含 SKILL.md 的文件夹是一个 Skill。开关写的是 Claude Code 自己的设置：settings.json 的
@@ -84,7 +86,7 @@ func (s *Store) Skills() Skills {
 
 func checkSkillName(name string) error {
 	if name == "" || strings.Contains(name, "/") || strings.HasPrefix(name, ".") || name == "synced" || hasControl(name) {
-		return fail("名字不对")
+		return locales.Err("cfgSkillBadName")
 	}
 	return nil
 }
@@ -127,16 +129,16 @@ func (s *Store) DeleteSkill(name string) error {
 	st, err := os.Lstat(path)
 	switch {
 	case err != nil:
-		return fail("找不到这个 Skill，可能已经被删了")
+		return locales.Err("cfgSkillNotFound")
 	case st.Mode()&os.ModeSymlink != 0:
 		err = os.Remove(path)
 	case st.IsDir():
 		err = os.RemoveAll(path)
 	default:
-		return fail("找不到这个 Skill，可能已经被删了")
+		return locales.Err("cfgSkillNotFound")
 	}
 	if err != nil {
-		return fail("删不掉：%s", pathReason(err))
+		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
 	}
 	_, err = s.updateSettings(func(settings *object) error {
 		if o := settings.obj("skillOverrides"); o != nil {
@@ -175,15 +177,15 @@ func (s *Store) ImportSkill(fileName string, zipData []byte, replace bool) (Skil
 		return out, nil
 	}
 	if err := os.MkdirAll(root, 0o777); err != nil {
-		return SkillImport{}, fail("建不了目录：%s", pathReason(err))
+		return SkillImport{}, locales.Err("cfgMkdirFailed", "reason", pathReason(err))
 	}
 	stage, err := os.MkdirTemp(s.claudeDir(), ".zeta-skill-")
 	if err != nil {
-		return SkillImport{}, fail("建不了目录：%s", pathReason(err))
+		return SkillImport{}, locales.Err("cfgMkdirFailed", "reason", pathReason(err))
 	}
 	defer os.RemoveAll(stage)
 	if err := os.Chmod(stage, 0o755); err != nil {
-		return SkillImport{}, fail("建不了目录：%s", pathReason(err))
+		return SkillImport{}, locales.Err("cfgMkdirFailed", "reason", pathReason(err))
 	}
 	if err := pkg.unpack(stage); err != nil {
 		return SkillImport{}, err
@@ -193,7 +195,7 @@ func (s *Store) ImportSkill(fileName string, zipData []byte, replace bool) (Skil
 	if replaced {
 		old = stage + ".old"
 		if err := os.Rename(dest, old); err != nil {
-			return SkillImport{}, fail("换不下原来的 Skill")
+			return SkillImport{}, locales.Err("cfgSkillReplaceOld")
 		}
 		defer os.RemoveAll(old)
 	}
@@ -201,7 +203,7 @@ func (s *Store) ImportSkill(fileName string, zipData []byte, replace bool) (Skil
 		if old != "" {
 			_ = os.Rename(old, dest)
 		}
-		return SkillImport{}, fail("换不上新的 Skill")
+		return SkillImport{}, locales.Err("cfgSkillReplaceNew")
 	}
 	return SkillImport{Name: pkg.name, Replaced: replaced, Enabled: skillOverride(s.lenientSettings(), pkg.name) != "off"}, nil
 }

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // MCP 服务器的配置：~/.claude.json 的 mcpServers（user，所有项目）、它的 projects 里这个项目的 mcpServers（local）、
@@ -94,7 +96,7 @@ func (s *Store) scanMcp(cwd string) ([]mcpEntry, error) {
 	cwd = cmp.Or(cwd, s.Home())
 	claudeJSON, size, _ := readHead(s.Home()+"/.claude.json", 16<<20)
 	if int64(len(claudeJSON)) < size {
-		return nil, fail("~/.claude.json 太大，读不了")
+		return nil, locales.Err("cfgClaudeJSONTooBig")
 	}
 	// 本地配置按项目路径存：cwd 本身，或者它所在的 git 仓库的根
 	real, g := probeGit(cwd)
@@ -408,8 +410,10 @@ func (s *Store) claude(ctx context.Context, timeout time.Duration, cwd string, a
 		return "", err
 	}
 	if code != 0 {
-		line := cmp.Or(lastLine(text), "claude 返回了 "+strconv.Itoa(code))
-		return "", fail("%s", clip(mask(line, secrets), 300))
+		if line := lastLine(text); line != "" {
+			return "", rawError(clip(mask(line, secrets), 300))
+		}
+		return "", locales.Err("cfgClaudeExit", "code", strconv.Itoa(code))
 	}
 	return text, nil
 }
@@ -458,14 +462,14 @@ func (s *Store) addJSON(ctx context.Context, cwd, scope, name string, cfg *objec
 
 func (s *Store) addServer(ctx context.Context, name string, cfg *object) error {
 	if !ValidMcpName(name) {
-		return fail("名称只能用字母、数字、下划线和连字符")
+		return locales.Err("cfgMcpBadName")
 	}
 	entries, err := s.scanMcp(s.Home())
 	if err != nil {
 		return err
 	}
 	if slices.ContainsFunc(entries, func(e mcpEntry) bool { return e.name == name && e.scope == "user" }) {
-		return fail("已经有一个叫 %s 的服务器了", name)
+		return locales.Err("cfgMcpExists", "name", name)
 	}
 	return s.addJSON(ctx, s.Home(), "user", name, cfg)
 }
@@ -514,7 +518,7 @@ func (s *Store) AddStdioServer(ctx context.Context, name, command string, args [
 // RemoveMcp 删掉一个服务器（claude mcp remove）。
 func (s *Store) RemoveMcp(ctx context.Context, scope, name, cwd string) error {
 	if !slices.Contains(mcpScopes, scope) {
-		return fail("范围不对")
+		return locales.Err("cfgMcpBadScope")
 	}
 	_, err := s.claude(ctx, defaultTimeout, cmp.Or(cwd, s.Home()), []string{"mcp", "remove", "-s", scope, name}, nil, nil)
 	return err
@@ -531,13 +535,13 @@ func (s *Store) entry(scope, name, cwd string) (mcpEntry, error) {
 			return e, nil
 		}
 	}
-	return mcpEntry{}, fail("找不到这个服务器，可能已经被删了")
+	return mcpEntry{}, locales.Err("cfgMcpNotFound")
 }
 
 // SetMcpToken 换掉 Bearer Token；空串是去掉身份认证。经 claude mcp 删掉重加，重加失败时把原样放回去。
 func (s *Store) SetMcpToken(ctx context.Context, scope, name, cwd, token string) error {
 	if scope != "user" && scope != "local" {
-		return fail("只能修改用户配置或本地配置里的服务器")
+		return locales.Err("cfgMcpNotEditable")
 	}
 	cwd = cmp.Or(cwd, s.Home())
 	original, err := s.entry(scope, name, cwd)
@@ -545,7 +549,7 @@ func (s *Store) SetMcpToken(ctx context.Context, scope, name, cwd, token string)
 		return err
 	}
 	if original.typ() == "stdio" {
-		return fail("命令行启动的服务器没有 Token")
+		return locales.Err("cfgMcpStdioNoToken")
 	}
 	updated := withToken(original.config, strings.TrimSpace(token))
 	if _, err := s.claude(ctx, defaultTimeout, cwd, []string{"mcp", "remove", "-s", scope, name}, nil, nil); err != nil {

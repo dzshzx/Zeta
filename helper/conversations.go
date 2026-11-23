@@ -57,6 +57,7 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 			return err
 		},
 		ClientDevice: h.device,
+		ClientLang:   h.lang,
 		KeepDevice:   e.keepHostClient,
 		Rename:       renameSession,
 		SessionImage: func(file, ref string) (conv.Image, error) { return convImage(e, file, ref) },
@@ -135,6 +136,17 @@ func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {
 		return core.Later, nil
 	}
 	return v, err
+}
+
+// lang 是客户端 client 界面的语言；连接已经走了时为空（源语言）。
+func (h *conversations) lang(client int) string {
+	h.mu.Lock()
+	c := h.clients[client]
+	h.mu.Unlock()
+	if c == nil {
+		return ""
+	}
+	return c.Lang()
 }
 
 // device 是客户端 client 是哪台设备（clientDevice）；连接已经走了时不知道。

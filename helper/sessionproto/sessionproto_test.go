@@ -15,7 +15,7 @@ func TestExportFileName(t *testing.T) {
 		"多行\n\n标题":                    "Zeta-多行 标题-20261122-0905.md",
 		strings.Repeat("长", 50) + "x": "Zeta-" + strings.Repeat("长", ExportTitleMax) + "-20261122-0905.md",
 	} {
-		if got := ExportFileName(title, at); got != want {
+		if got := ExportFileName(title, at, ""); got != want {
 			t.Errorf("%q：%q，要 %q", title, got, want)
 		}
 	}
@@ -30,7 +30,7 @@ func TestExportFileNameAtOffset(t *testing.T) {
 		0:    "Zeta-t-20261122-2030.md",
 		330:  "Zeta-t-20261123-0200.md", // 半小时的时区
 	} {
-		if got := ExportFileName("t", AtOffset(at, offset)); got != want {
+		if got := ExportFileName("t", AtOffset(at, offset), ""); got != want {
 			t.Errorf("utc_offset %d：%q，要 %q", offset, got, want)
 		}
 	}
@@ -60,11 +60,19 @@ func TestHandsOver(t *testing.T) {
 }
 
 func TestCombineExports(t *testing.T) {
-	if title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n\n正文\n\n"}}); title != "一" || md != "# 一\n\n正文\n\n" {
+	if title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n\n正文\n\n"}}, ""); title != "一" || md != "# 一\n\n正文\n\n" {
 		t.Fatalf("一个：%q %q", title, md)
 	}
-	title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n \n"}, {Title: "二", Markdown: "# 二"}, {Title: "三", Markdown: "# 三\n"}})
+	title, md := CombineExports([]ExportPart{{Title: "一", Markdown: "# 一\n \n"}, {Title: "二", Markdown: "# 二"}, {Title: "三", Markdown: "# 三\n"}}, "")
 	if title != "3个对话" || md != "# 一\n\n---\n\n# 二\n\n---\n\n# 三\n" {
 		t.Fatalf("几个：%q %q", title, md)
+	}
+	// 标题用发起导出的那一方的语言；空标题的文件名也是
+	if title, _ := CombineExports([]ExportPart{{Title: "一"}, {Title: "二"}}, "en"); title != "2 conversations" {
+		t.Errorf("英文：%q", title)
+	}
+	at := time.Date(2026, 1, 2, 3, 4, 0, 0, time.UTC)
+	if got := ExportFileName(" ", at, "en"); got != "Zeta-Conversation-20260102-0304.md" {
+		t.Errorf("英文的空标题：%q", got)
 	}
 }

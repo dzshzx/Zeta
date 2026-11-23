@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Severity 是一个额度窗口有多紧张。
@@ -68,26 +70,45 @@ type Window struct {
 	Severity Severity  `json:"severity"`
 	// Active：服务器挑的「只能显示一个时显示这个」。
 	Active bool `json:"active,omitempty"`
-	// Label 是窗口的名字（labelOf），给界面直接用。
-	Label string `json:"label"`
+	// Label 是窗口的名字（labelOf，源语言），给不认 LabelCode 的旧客户端。LabelCode 是它的种类码（docs/i18n.md），
+	// 参数只有 scope（就是 Scope），客户端按自己的语言出字（LabelIn）；名字是服务器给的原文（按模型分的窗口的显示名）时为空。
+	// 不另带 args：Window 要能用 == 比较（Event 据此判断变没变）。
+	Label     string `json:"label"`
+	LabelCode string `json:"labelCode,omitempty"`
 }
 
-// labelOf 是窗口的名字：5 小时、每周 · 全部模型、每周 · Opus……
-func labelOf(w Window) string {
+// LabelIn 是窗口的名字在语言 lang 里怎么说。
+func (w Window) LabelIn(lang string) string {
+	if w.LabelCode == "" {
+		return w.Label
+	}
+	return locales.Msg{Key: w.LabelCode, Args: map[string]any{"scope": w.Scope}}.In(lang)
+}
+
+// labelOf 是窗口的名字：5 小时、每周 · 全部模型、每周 · Opus……；名字就是服务器给的原文时 Key 为空，raw 是它。
+func labelOf(w Window) (said locales.Msg, raw string) {
 	switch {
 	case w.Kind == "session" || (w.Group == "session" && w.Scope == ""):
-		return "5 小时"
+		return locales.M("quotaSession"), ""
 	case w.Kind == "weekly_all":
-		return "每周 · 全部模型"
+		return locales.M("quotaWeeklyAll"), ""
+	case (w.Group == "weekly" || strings.HasPrefix(w.Kind, "weekly")) && w.Scope != "":
+		return locales.M("quotaWeeklyScoped", "scope", w.Scope), ""
 	case w.Group == "weekly" || strings.HasPrefix(w.Kind, "weekly"):
-		if w.Scope != "" {
-			return "每周 · " + w.Scope
-		}
-		return "每周"
+		return locales.M("quotaWeekly"), ""
 	case w.Scope != "":
-		return w.Scope
+		return locales.Msg{}, w.Scope
 	}
-	return w.Kind
+	return locales.Msg{}, w.Kind
+}
+
+// setLabel 填上窗口的名字（Label、LabelCode、LabelArgs）。
+func (w *Window) setLabel() {
+	said, raw := labelOf(*w)
+	w.Label, w.LabelCode = raw, said.Key
+	if said.Key != "" {
+		w.Label = said.String()
+	}
 }
 
 // Percent 是已用的百分数，取整。
@@ -339,7 +360,7 @@ func eventToWindow(w *eventWindow, kind, group string) (Window, bool) {
 		sev = max(sev, Warning)
 	}
 	nw := Window{Kind: kind, Group: group, Used: used, ResetsAt: seconds(w.ResetsAt), Severity: sev}
-	nw.Label = labelOf(nw)
+	nw.setLabel()
 	return nw, true
 }
 
@@ -367,6 +388,6 @@ func seconds(v *float64) time.Time {
 // label 给每个窗口填上名字。
 func label(windows []Window) {
 	for i := range windows {
-		windows[i].Label = labelOf(windows[i])
+		windows[i].setLabel()
 	}
 }

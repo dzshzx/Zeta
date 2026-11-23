@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
@@ -19,7 +20,7 @@ const (
 	forkReleaseAfter = 10 * time.Minute
 )
 
-var errGone = codedError{"conversation_gone", "这个对话已经不在核心里了"}
+var errGone = codedError{"conversation_gone", locales.Err("errConvGone")}
 
 // Manager 是核心进程里的全部对话。客户端用自己起的名字（请求里的 conv）指一个对话，只在它那条连接里有效；
 // 几个客户端打开同一个会话号拿到的是同一个对话。
@@ -85,7 +86,7 @@ type request struct {
 	Message
 }
 
-var errUnknownConv = errors.New("没有打开这个对话")
+var errUnknownConv = locales.Err("errConvNotOpen")
 
 // Request 处理客户端 client 的一个 conv.* 请求，等到应答的 result 为止。
 func (m *Manager) Request(client int, method string, line []byte) (any, error) {
@@ -211,7 +212,7 @@ func startAsk(c *Conversation, ask func() <-chan answer) (any, error) {
 		case <-c.quit:
 			return nil, errClosed
 		case <-time.After(30 * time.Second):
-			return nil, errors.New("等了 30 秒，Claude Code 没有回应")
+			return nil, locales.Err("errClaudeNoAnswer")
 		}
 	}), nil
 }
@@ -250,8 +251,8 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 	"conv.answer": func(c *Conversation, _ int, r request) (any, error) {
 		return nil, c.answer(r.RequestID, r.Reply)
 	},
-	"conv.elicit": func(c *Conversation, _ int, r request) (any, error) {
-		problems, err := c.elicit(r.RequestID, r.Action, r.Values)
+	"conv.elicit": func(c *Conversation, client int, r request) (any, error) {
+		problems, err := c.elicit(client, r.RequestID, r.Action, r.Values)
 		if problems != nil {
 			return map[string]any{"errors": problems}, err
 		}

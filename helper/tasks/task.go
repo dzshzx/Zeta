@@ -9,6 +9,8 @@ package tasks
 import (
 	"encoding/json"
 	"errors"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Kind 是后台任务是什么：后台命令（Bash 的 run_in_background）、监视器（Monitor）、后台子代理，或别的种类。
@@ -106,6 +108,17 @@ type Output struct {
 	TotalBytes int64  `json:"total_bytes"`
 	Truncated  bool   `json:"truncated"`
 	Error      string `json:"error,omitempty"`
+	// ErrorCode 是 Error 是核心自己写的（Claude Code 没给原因）时它的种类码（docs/i18n.md），客户端按自己的语言出字（ErrorIn）；
+	// Error 是 Claude Code 的原文时为空
+	ErrorCode string `json:"error_code,omitempty"`
+}
+
+// ErrorIn 是 Error 在语言 lang 里怎么说。
+func (o Output) ErrorIn(lang string) string {
+	if o.ErrorCode == "" {
+		return o.Error
+	}
+	return locales.Msg{Key: o.ErrorCode}.In(lang)
 }
 
 // ParseOutput 解 get_task_output 的应答（control_response 里的 response 一项）。
@@ -121,11 +134,11 @@ func ParseOutput(answer []byte) Output {
 	}
 	decode(answer, &a)
 	if a.Subtype == "error" {
-		reason := "没有读到输出"
 		if a.Error != nil {
-			reason = *a.Error
+			return Output{Error: *a.Error}
 		}
-		return Output{Error: reason}
+		noOutput := locales.M("taskNoOutput")
+		return Output{Error: noOutput.String(), ErrorCode: noOutput.Key}
 	}
 	if a.Response == nil {
 		return Output{}

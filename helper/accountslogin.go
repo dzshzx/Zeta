@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 在这台主机上登录一个新的 Claude 账号（accounts.login_start、accounts.login_code、accounts.login_cancel，见 docs/core.md
@@ -89,10 +90,10 @@ func (f *loginFlow) start(ctx context.Context, e *env, h *accounts.Host) (map[st
 		run.life = time.AfterFunc(loginLife, func() { f.end(run) })
 		return map[string]string{"url": url, "name": name}, nil
 	case <-run.done:
-		return nil, errors.New(run.failure("登录命令没给出授权网址就退出了"))
+		return nil, run.failure(locales.Err("errLoginNoURL"))
 	case <-time.After(loginURLWait):
 		run.kill()
-		return nil, errors.New("登录命令 30 秒没给出授权网址")
+		return nil, locales.Err("errLoginURLTimeout")
 	}
 }
 
@@ -102,18 +103,18 @@ func (f *loginFlow) submit(ctx context.Context, h *accounts.Host, code string) (
 	run := f.cur
 	f.mu.Unlock()
 	if run == nil {
-		return nil, codedError{codeNoLogin, errors.New("登录已经结束了，请重新开始")}
+		return nil, codedError{codeNoLogin, locales.Err("errLoginEnded")}
 	}
 	code = strings.TrimSpace(code)
 	if !strings.Contains(code, "#") {
-		return nil, codedError{codeLoginIncomplete, errors.New(incompleteCode)}
+		return nil, codedError{codeLoginIncomplete, errLoginIncomplete}
 	}
 	for len(run.complaints) > 0 { // 上一次交的码留下的抱怨不算这一次的
 		<-run.complaints
 	}
 	if _, err := io.WriteString(run.stdin, code+"\n"); err != nil {
 		f.end(run)
-		return nil, codedError{codeNoLogin, errors.New("登录命令已经退出了，请重新开始")}
+		return nil, codedError{codeNoLogin, locales.Err("errLoginExited")}
 	}
 	select {
 	case <-run.done:
@@ -122,15 +123,15 @@ func (f *loginFlow) submit(ctx context.Context, h *accounts.Host, code string) (
 		select {
 		case <-run.done:
 		case <-time.After(complaintSettle):
-			return nil, codedError{codeLoginIncomplete, errors.New(explainLogin(line))}
+			return nil, codedError{codeLoginIncomplete, explainLogin(line)}
 		}
 	case <-time.After(loginCodeWait):
 		f.end(run)
-		return nil, errors.New("交了授权码一分钟没有结果，请重新开始")
+		return nil, locales.Err("errLoginCodeTimeout")
 	}
 	f.end(run)
 	if run.cmd.ProcessState.ExitCode() != 0 {
-		return nil, errors.New(run.failure("登录没有成功"))
+		return nil, run.failure(locales.Err("errLoginFailed"))
 	}
 	name, err := h.Save(ctx)
 	if err != nil {
@@ -186,7 +187,7 @@ func startLogin(e *env) (*loginRun, error) {
 		return nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, errors.New("起不了登录命令：" + err.Error())
+		return nil, locales.Err("errLoginStart", "detail", err.Error())
 	}
 	run := &loginRun{
 		cmd: cmd, stdin: stdin,
@@ -243,7 +244,7 @@ func (r *loginRun) readErrors(errOut io.Reader) {
 }
 
 // failure 是登录命令失败时给人看的原因：错误输出的最后一句（常见的换成中文），没有时用 fallback。
-func (r *loginRun) failure(fallback string) string {
+func (r *loginRun) failure(fallback error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.lastErr == "" {
@@ -258,15 +259,15 @@ func (r *loginRun) kill() {
 	}
 }
 
-const incompleteCode = "授权码不完整：要连中间的 # 和它后面的部分一起复制"
+var errLoginIncomplete = locales.Err("errLoginIncomplete")
 
-// explainLogin 把登录命令几句常见的英文提示换成中文，别的原样给出。
-func explainLogin(line string) string {
+// explainLogin 把登录命令几句常见的英文提示换成核心文字表里的话（按客户端的语言出字），别的原样给出。
+func explainLogin(line string) error {
 	switch {
 	case strings.Contains(line, "full code"):
-		return incompleteCode
+		return errLoginIncomplete
 	case strings.Contains(line, "wasn't accepted"):
-		return "授权码没有被接受，可能已经过期或者复制错了。请重新开始登录"
+		return locales.Err("errLoginRejected")
 	}
-	return line
+	return errors.New(line)
 }

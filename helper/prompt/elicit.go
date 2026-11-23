@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // ElicitAction 是对 MCP 表单或网址的回应：接受、拒绝或取消。
@@ -27,8 +29,8 @@ type ElicitResponse struct {
 
 // Elicit 把用户对 MCP 表单或网址的回应拼成 response。values 是表单里填的，写法见 Content。
 // 接受表单而有没填对的项时，response 为零值，problems 是每一项的错误（键 → 说明），这时不应答，把错误交回客户端。
-// p 不是 elicitation、action 认不出时返回错误。
-func (p *Prompt) Elicit(action ElicitAction, values map[string][]string) (resp ElicitResponse, problems map[string]string, err error) {
+// p 不是 elicitation、action 认不出时返回错误。错误的说明用语言 lang（回应的那个客户端的语言）写。
+func (p *Prompt) Elicit(action ElicitAction, values map[string][]string, lang string) (resp ElicitResponse, problems map[string]string, err error) {
 	if p.Kind != KindElicitation {
 		return ElicitResponse{}, nil, errors.New("这个请求不是 MCP 表单，不能这样回应")
 	}
@@ -39,7 +41,7 @@ func (p *Prompt) Elicit(action ElicitAction, values map[string][]string) (resp E
 		if p.URL != "" {
 			return ElicitResponse{Action: action}, nil, nil
 		}
-		content, problems := Content(p.Fields, values)
+		content, problems := Content(p.Fields, values, lang)
 		if len(problems) > 0 {
 			return ElicitResponse{}, problems, nil
 		}
@@ -50,8 +52,8 @@ func (p *Prompt) Elicit(action ElicitAction, values map[string][]string) (resp E
 }
 
 // Content 把表单里填的（键 → 输入框里的字；多选是选中的值，开关是 "true"/"false"）换成要交回去的 content，
-// 顺带按 schema 校验。返回 content 和每一项的错误（键 → 说明）；有错误时 content 为 nil。没填的可选项不交。
-func Content(fields []Field, values map[string][]string) (json.RawMessage, map[string]string) {
+// 顺带按 schema 校验。返回 content 和每一项的错误（键 → 说明，用语言 lang 写）；有错误时 content 为 nil。没填的可选项不交。
+func Content(fields []Field, values map[string][]string, lang string) (json.RawMessage, map[string]string) {
 	var content object
 	problems := map[string]string{}
 	for _, f := range fields {
@@ -59,8 +61,8 @@ func Content(fields []Field, values map[string][]string) (json.RawMessage, map[s
 		if value != nil {
 			content.set(f.Key, value)
 		}
-		if problem != "" {
-			problems[f.Key] = problem
+		if problem.Key != "" {
+			problems[f.Key] = problem.In(lang)
 		}
 	}
 	if len(problems) > 0 {
@@ -71,8 +73,8 @@ func Content(fields []Field, values map[string][]string) (json.RawMessage, map[s
 	return raw, problems
 }
 
-// value 是这一项要交的值（没填的可选项是 nil）和校验没过的说明。
-func (f *Field) value(raw []string) (json.RawMessage, string) {
+// value 是这一项要交的值（没填的可选项是 nil）和校验没过的说明（过了时 Key 为空）。
+func (f *Field) value(raw []string) (json.RawMessage, locales.Msg) {
 	text := ""
 	if len(raw) > 0 {
 		text = strings.TrimSpace(raw[0])
@@ -80,7 +82,7 @@ func (f *Field) value(raw []string) (json.RawMessage, string) {
 	switch f.Kind {
 	case FieldToggle:
 		// 开关没有「没填」：没动就是关
-		return json.RawMessage(strconv.FormatBool(text == "true")), ""
+		return json.RawMessage(strconv.FormatBool(text == "true")), locales.Msg{}
 	case FieldMulti:
 		if len(raw) == 0 {
 			return nil, f.missing()
@@ -99,34 +101,34 @@ func (f *Field) value(raw []string) (json.RawMessage, string) {
 	}
 }
 
-func (f *Field) missing() string {
+func (f *Field) missing() locales.Msg {
 	if f.Required {
-		return "必填"
+		return locales.M("formRequired")
 	}
-	return ""
+	return locales.Msg{}
 }
 
-func (f *Field) textValue(text string) (json.RawMessage, string) {
+func (f *Field) textValue(text string) (json.RawMessage, locales.Msg) {
 	value, _ := json.Marshal(text)
 	n := utf8.RuneCountInString(text)
 	switch {
 	case f.MinLength != nil && n < *f.MinLength:
-		return value, fmt.Sprintf("至少 %d 个字", *f.MinLength)
+		return value, locales.M("formMinLength", "n", *f.MinLength)
 	case f.MaxLength != nil && n > *f.MaxLength:
-		return value, fmt.Sprintf("最多 %d 个字", *f.MaxLength)
+		return value, locales.M("formMaxLength", "n", *f.MaxLength)
 	default:
-		return value, ""
+		return value, locales.Msg{}
 	}
 }
 
-func (f *Field) numberValue(text string) (json.RawMessage, string) {
+func (f *Field) numberValue(text string) (json.RawMessage, locales.Msg) {
 	integer := f.Kind == FieldInteger
 	n, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(n) || math.IsInf(n, 0) || integer && n != math.Trunc(n) {
 		if integer {
-			return nil, "要填整数"
+			return nil, locales.M("formInteger")
 		}
-		return nil, "要填数字"
+		return nil, locales.M("formNumber")
 	}
 	var value json.RawMessage
 	if integer {
@@ -136,24 +138,24 @@ func (f *Field) numberValue(text string) (json.RawMessage, string) {
 	}
 	switch {
 	case f.Min != nil && n < *f.Min:
-		return value, "不能小于 " + plain(*f.Min)
+		return value, locales.M("formMin", "min", plain(*f.Min))
 	case f.Max != nil && n > *f.Max:
-		return value, "不能大于 " + plain(*f.Max)
+		return value, locales.M("formMax", "max", plain(*f.Max))
 	default:
-		return value, ""
+		return value, locales.Msg{}
 	}
 }
 
-func (f *Field) multiValue(raw []string) (json.RawMessage, string) {
+func (f *Field) multiValue(raw []string) (json.RawMessage, locales.Msg) {
 	value, _ := json.Marshal(raw)
 	n := float64(len(raw))
 	switch {
 	case f.Min != nil && n < *f.Min:
-		return value, "至少选 " + plain(*f.Min) + " 项"
+		return value, locales.M("formMinChoices", "min", plain(*f.Min))
 	case f.Max != nil && n > *f.Max:
-		return value, "最多选 " + plain(*f.Max) + " 项"
+		return value, locales.M("formMaxChoices", "max", plain(*f.Max))
 	default:
-		return value, ""
+		return value, locales.Msg{}
 	}
 }
 

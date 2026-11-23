@@ -14,7 +14,9 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/egoist/mygo/i18n"
 )
 
 // 侧栏对会话的操作（同 Kotlin 版的 SessionList、SessionTools）：置顶（pins.go）、改名、归档、删除、导出。
@@ -339,11 +341,21 @@ func (h *Hub) Export(list []hostlink.Session, now time.Time, done func(Exported)
 				failed(cmp.Or(first, error(errNothingExported)))
 				return
 			}
-			title, markdown := sessionproto.CombineExports(parts)
-			done(Exported{Name: sessionproto.ExportFileName(title, now), Content: markdown})
+			// 几台合成的标题、空标题的文件名用界面的语言
+			title, markdown := sessionproto.CombineExports(parts, i18n.Locale())
+			done(Exported{Name: sessionproto.ExportFileName(title, now, i18n.Locale()), Content: markdown})
 		}
 	})
 }
 
 // errNothingExported：几台都答了，可一个会话都没导出来（不该发生：核心一个都导不出来时自己答出错）。
 var errNothingExported = errors.New("没有导出任何对话")
+
+// SessionLabel 是侧栏、标题栏里会话 s 的叫法，用界面语言 locale 说：有标题时是标题，没有时是第一句话；
+// 第一句话是核心写的占位（只发了图时的「[图片]」，preview_code）时按核心的文字表出字。
+func SessionLabel(s hostlink.Session, locale string) string {
+	if strings.TrimSpace(s.Title) == "" && s.PreviewCode != "" {
+		return locales.Msg{Key: s.PreviewCode}.In(locale)
+	}
+	return s.Label()
+}

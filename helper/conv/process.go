@@ -2,14 +2,14 @@ package conv
 
 import (
 	"encoding/json"
-	"errors"
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
 )
 
-var errClosed = errors.New("对话已关闭")
+var errClosed = locales.Err("errConvClosed")
 
 // process 是对话背后接着的那个 Claude Code 进程：托管连接，和这条连接上发出、还在等应答的控制请求。
 type process struct {
@@ -178,7 +178,7 @@ func (c *Conversation) ensureProcess(mode string) *process {
 	link, err := c.deps.Start(StartOptions{Key: newUUID(), Cwd: c.cwd, Title: c.title, Args: c.launchArgs(mode, o), Env: env,
 		OnJoin: join}, c.events(p))
 	if err != nil {
-		c.r.AddNotice("启动失败："+err.Error(), true)
+		c.r.AddNoticeMsg(locales.M("noticeStartFailed", "reason", locales.ErrArg(err)), true)
 		c.changed()
 		return nil
 	}
@@ -291,7 +291,7 @@ func (c *Conversation) closeProcess(end bool) {
 		return
 	}
 	c.proc = nil
-	c.abortRewind("对话已关闭")
+	c.abortRewind(errClosed.Msg)
 	if end {
 		p.link.Stop()
 	} else {
@@ -311,7 +311,7 @@ func (c *Conversation) endTurnState() {
 	c.busy = false
 	c.backgroundTasks = 0
 	c.tasks.ProcessEnded(c.deps.now())
-	c.status = ""
+	c.status = locales.Msg{}
 	c.prompts = nil
 	clear(c.shellCommands)
 	clear(c.contextNotes)
@@ -329,7 +329,7 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		return
 	}
 	c.proc = nil
-	c.abortRewind("Claude Code 进程退出了")
+	c.abortRewind(locales.M("rewindProcessExited"))
 	// 连接意外断开时进程可能还活着：照样留给看门狗按闲置超时收
 	p.link.Leave()
 	if e.Reason == reasonReleased || e.Reason == reasonHeldElsewhere {
@@ -342,29 +342,28 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		c.turnFinished(outcomeInterrupted)
 	}
 	if wasBusy || e.Code != 0 {
-		c.r.AddNotice(exitNotice(e, c.session == "", c.cwd), true)
+		c.r.AddNoticeMsg(exitNotice(e, c.session == "", c.cwd), true)
 	}
 	c.changed()
 }
 
 // exitNotice 是进程意外退出时列表里的那句。
-func exitNotice(e Exit, fresh bool, cwd string) string {
+func exitNotice(e Exit, fresh bool, cwd string) locales.Msg {
 	detail := strings.TrimSpace(e.Stderr)
 	if n := len([]rune(detail)); n > 600 {
 		detail = string([]rune(detail)[n-600:])
 	}
 	switch {
 	case strings.Contains(detail, cwdProblemMark):
-		return "Claude Code 没有启动：进不去工作目录 " + cwd + "（没有这个目录，或没有权限）。" +
-			"新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。"
+		return locales.M("noticeNoWorkDir", "cwd", cwd)
 	case e.Code == 1 && detail == "" && fresh:
-		return "Claude Code 没能启动"
+		return locales.M("noticeClaudeNotStarted")
 	case e.Code == 143 || e.Code == 137:
-		return "Claude Code 进程被结束了"
+		return locales.M("noticeClaudeKilled")
 	case detail != "":
-		return "Claude Code 进程已退出（" + strconv.Itoa(e.Code) + "）\n" + detail
+		return locales.M("noticeClaudeExitedDetail", "code", strconv.Itoa(e.Code), "detail", detail)
 	}
-	return "Claude Code 进程已退出（" + strconv.Itoa(e.Code) + "）"
+	return locales.M("noticeClaudeExited", "code", strconv.Itoa(e.Code))
 }
 
 // cwdProblemMark 是 zeta_host.sh 进不去工作目录时报的那句的开头。
@@ -382,7 +381,7 @@ func (c *Conversation) handedAway(released bool) {
 	}
 	c.unsent = nil
 	if released {
-		c.r.AddNotice("会话已转到电脑终端继续", false)
+		c.r.AddNoticeMsg(locales.M("noticeHandedToTerminal"), false)
 	}
 	c.block(nil)
 }

@@ -32,3 +32,11 @@ func (c *Conversation) keepDevice() {
 		c.keptDev.key, c.keptDev.device = key, c.device
 	}
 }
+
+// langOf 是客户端 client 界面的语言（Deps.ClientLang），不知道时为空（源语言）。
+func (d Deps) langOf(client int) string {
+	if d.ClientLang == nil {
+		return ""
+	}
+	return d.ClientLang(client)
+}

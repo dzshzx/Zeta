@@ -578,3 +578,29 @@ func TestSubagentMetaGapsFromTheAgentCall(t *testing.T) {
 		return meta["description"] == "查代码" && meta["agent_type"] == "Explore" && meta["agent_id"] == "a1"
 	})
 }
+
+// Claude 没给标题的任务用核心起的兜底标题，另带种类码，客户端按自己的语言出字；之后给了标题就不再带。
+func TestUntitledTodoCarriesCode(t *testing.T) {
+	h := newHarness(t)
+	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
+	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "开工"})
+	c, l := h.conv(1, "a"), h.link(0)
+	h.feed(c, l, initLine("s1"))
+	h.feed(c, l, toolCall("m1", "t1", "TaskUpdate", `{"taskId":"9","status":"in_progress"}`, "ok", false)...)
+	todos := h.state(1, "todos").([]any)
+	var todo sessionproto.Todo
+	b, _ := json.Marshal(todos[0])
+	if err := json.Unmarshal(b, &todo); err != nil {
+		t.Fatal(err)
+	}
+	if todo.Content != "任务 #9" || todo.ContentCode != "todoUntitled" || todo.ContentIn("en") != "Task #9" || todo.ActiveFormIn("en") != "Task #9" {
+		t.Fatalf("兜底标题：%+v %q", todo, todo.ContentIn("en"))
+	}
+	h.feed(c, l, toolCall("m2", "t2", "TaskUpdate", `{"taskId":"9","subject":"写代码"}`, "ok", false)...)
+	b, _ = json.Marshal(h.state(1, "todos").([]any)[0])
+	todo = sessionproto.Todo{}
+	_ = json.Unmarshal(b, &todo)
+	if todo.Content != "写代码" || todo.ContentCode != "" || todo.ContentIn("en") != "写代码" {
+		t.Fatalf("给了标题以后：%+v", todo)
+	}
+}

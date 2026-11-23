@@ -388,12 +388,22 @@ func TestSwitchWaitsForOwnConversations(t *testing.T) {
 }
 
 func TestBlockerIgnoresOwnPackage(t *testing.T) {
-	if got := Blocker([]Proc{{PID: 1, Owner: "zeta", Status: "busy"}}, "zeta"); got != "" {
+	if got := Blocker([]Proc{{PID: 1, Owner: "zeta", Status: "busy"}}, "zeta"); got.Key != "" {
 		t.Fatalf("本包的进程不算：%q", got)
 	}
 	got := Blocker([]Proc{{PID: 1, Owner: "zeta", Status: "idle"}, {PID: 2, Owner: "zeta", Status: "idle"}}, "zeta-dev")
-	if got != "另一个 Zeta（正式版）开着 2 个对话，在那边结束对话或关掉它。" {
-		t.Fatalf("%q", got)
+	if got.String() != "另一个 Zeta（正式版）开着 2 个对话，在那边结束对话或关掉它。" {
+		t.Fatalf("%q", got.String())
+	}
+	// 按客户端的语言说：包的叫法、个数的单复数跟着换
+	got = Blocker([]Proc{{PID: 1, Owner: "zeta", Status: "busy"}, {PID: 2, Owner: "zeta-dev", Status: "idle"}, {PID: 3, Status: "idle"}}, "mine")
+	if en := got.In("en"); en != "Another Zeta (release, dev) has 2 conversations open, 1 in progress. End them there or close it. "+
+		"1 Claude Code is also open elsewhere (such as claude in a terminal). Exit them first." {
+		t.Fatalf("英文：%q", en)
+	}
+	if zh := got.String(); zh != "另一个 Zeta（正式版、测试版）开着 2 个对话，其中 1 个在进行，在那边结束对话或关掉它；"+
+		"还有 1 个别处开着的 Claude Code（比如终端里的 claude），先退出它们。" {
+		t.Fatalf("中文：%q", zh)
 	}
 	if e := (&BusyError{Own: true, Message: "x"}); e.Error() != "这里的对话进程还没退出" {
 		t.Fatalf("只剩自己的：%q", e.Error())

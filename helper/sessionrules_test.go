@@ -81,8 +81,8 @@ func TestSessionsExportSeveral(t *testing.T) {
 	c := startSessions(t, e)
 
 	got := asObj(c.ok("sessions.export", `"sessions":["`+sessionB+`","`+gone+`","`+sessionA+`","`+sessionB+`"],"utc_offset":-720`))
-	one, _, _ := exportSession(e.root + "/-w/" + sessionB + ".jsonl")
-	two, twoTitle, _ := exportSession(e.root + "/-w/" + sessionA + ".jsonl")
+	one, _, _ := exportSession(e.root+"/-w/"+sessionB+".jsonl", "")
+	two, twoTitle, _ := exportSession(e.root+"/-w/"+sessionA+".jsonl", "")
 	want := strings.TrimRight(one, "\n") + "\n\n---\n\n" + strings.TrimRight(two, "\n") + "\n"
 	if got["markdown"] != want || got["title"] != "2个对话" {
 		t.Fatalf("合成的：%q，要 %q（%v）", got["markdown"], want, got["title"])
@@ -181,5 +181,24 @@ func TestSessionsSearchNamedByClient(t *testing.T) {
 	c.ok("sessions.search", `"query":"天气","search":null`)
 	if m := c.stashed("sessions.match"); len(m) != 1 || fmt.Sprint(m[0]["search"]) != fmt.Sprint(c.seq) {
 		t.Fatalf("没带名字的：%v", m)
+	}
+}
+
+// 报了英文界面的客户端：导出里核心自己写的字和出错应答都按它的语言写，种类码照旧。
+func TestSessionsExportInClientLanguage(t *testing.T) {
+	e := testEnv(t)
+	writeSession(t, e, sessionA, "说说天气")
+	writeSession(t, e, sessionB, "另一个话题")
+	c := startSessions(t, e)
+	c.ok("core.client", `"lang":"en"`)
+
+	got := asObj(c.ok("sessions.export", `"sessions":["`+sessionA+`","`+sessionB+`"]`))
+	if got["title"] != "2 conversations" || !strings.Contains(asString(got["markdown"]), "## User\n\n说说天气") ||
+		!strings.HasPrefix(asString(got["file_name"]), "Zeta-2 conversations-") {
+		t.Fatalf("英文的导出：%v %q %v", got["title"], got["markdown"], got["file_name"])
+	}
+	gone := "cccccccc-0000-0000-0000-000000000003"
+	if r := c.call("sessions.export", `"session":"`+gone+`"`); r["error"] != "This session's transcript no longer exists" || r["code"] != "no_session" {
+		t.Fatalf("英文的出错：%v", r)
 	}
 }

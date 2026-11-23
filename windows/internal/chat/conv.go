@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -62,8 +63,17 @@ type Turn struct {
 	Phase string `json:"phase"`
 	// Outcome 是结束时的结局：OutcomeDone、OutcomeStopped、OutcomeFailed、OutcomeInterrupted。
 	Outcome string `json:"outcome"`
-	// Text 是结局的一句话（已完成、已停止……）。
+	// Text 是结局的一句话（已完成、已停止……，源语言）；Code 是它的种类码，按界面语言出字用 Said。
 	Text string `json:"text"`
+	Code string `json:"code"`
+}
+
+// Said 是结局那句用界面语言 locale 说出来的文字：核心给了种类码时从核心的文字表取，旧核心没给时是 Text。
+func (t Turn) Said(locale string) string {
+	if t.Code == "" {
+		return t.Text
+	}
+	return locales.Msg{Key: t.Code}.In(locale)
 }
 
 // conv.turn 的 phase 和 outcome。

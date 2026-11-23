@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // QuotaStore 是一台主机上各账号最近一次的额度，存在 ~/.cache/zeta-quota/<账号>.json：登录状态本来就是这台上各个 Zeta 包、
@@ -39,7 +41,7 @@ func (s QuotaStore) account() (string, error) {
 		} `json:"oauthAccount"`
 	}
 	if err := json.Unmarshal(data, &config); err != nil {
-		return "", errors.New("读不懂 ~/.claude.json")
+		return "", locales.Err("errClaudeJSON")
 	}
 	if config.OAuth == nil {
 		return "", nil

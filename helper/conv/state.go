@@ -3,6 +3,7 @@ package conv
 import (
 	"encoding/json"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 	"github.com/dzshzx/Zeta/helper/usage"
 )
@@ -25,7 +26,9 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 		"cwd":             raw(c.cwd),
 		"process":         raw(c.proc != nil),
 		"busy":            raw(c.busy),
-		"status":          raw(c.status),
+		"status":          raw(statusText(c.status)),
+		"status_code":     raw(c.status.Key),
+		"status_args":     raw(c.status.Args),
 		"blocked":         raw(c.blocked),
 		"host_key":        raw(c.hostKey()),
 		"loading_history": raw(c.loadingHistory),
@@ -137,4 +140,12 @@ func (c *Conversation) hostKey() string {
 		return ""
 	}
 	return c.proc.link.Key()
+}
+
+// statusText 是 conv.state 的 status：源语言的那句，给不认 status_code 的旧客户端；没有时为空。
+func statusText(m locales.Msg) string {
+	if m.Key == "" {
+		return ""
+	}
+	return m.String()
 }

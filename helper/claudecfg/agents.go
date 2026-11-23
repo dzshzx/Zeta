@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // ~/.claude/agents 下的 Subagent 文件：前言写 name、description、model、tools，正文是系统提示词。改写时只重写这四个键，
@@ -107,15 +109,15 @@ func parseAgent(file, text string) Subagent {
 	return a
 }
 
-// DraftProblem 是草稿的名字和说明的问题；没问题时为空。
-func DraftProblem(d SubagentDraft) string {
+// DraftProblem 是草稿的名字和说明的问题；没问题时为 nil。
+func DraftProblem(d SubagentDraft) error {
 	switch {
 	case !ValidAgentName(d.Name):
-		return "名称只能用小写字母、数字和连字符，并以字母或数字开头"
+		return locales.Err("cfgAgentBadName")
 	case strings.TrimSpace(d.Description) == "":
-		return "请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent"
+		return locales.Err("cfgAgentNoDescription")
 	}
-	return ""
+	return nil
 }
 
 // relativeProblem：相对路径不出 agents 目录、以 .md 结尾才能动。
@@ -127,7 +129,7 @@ func relativeProblem(file string) error {
 		}
 	}
 	if bad {
-		return fail("不能改这个文件")
+		return locales.Err("cfgAgentNotEditable")
 	}
 	return nil
 }
@@ -173,8 +175,8 @@ func renderAgent(d SubagentDraft, original string) string {
 // SaveAgent 保存一个 Subagent，original 为 nil 是新建；改了名字时旧文件删掉。返回保存后的文件（相对 ~/.claude/agents）。
 func (s *Store) SaveAgent(original *Subagent, d SubagentDraft) (string, error) {
 	d.Name = strings.TrimSpace(d.Name)
-	if p := DraftProblem(d); p != "" {
-		return "", fail("%s", p)
+	if err := DraftProblem(d); err != nil {
+		return "", err
 	}
 	if original != nil {
 		if err := relativeProblem(original.File); err != nil {
@@ -192,7 +194,7 @@ func (s *Store) SaveAgent(original *Subagent, d SubagentDraft) (string, error) {
 			return "", err
 		}
 		if doc.Exists && original.SHA != "" && doc.SHA != original.SHA {
-			return "", fail("这个 Subagent 在你编辑时被改过了（可能是 Claude 改的）。返回列表重新打开再改。")
+			return "", locales.Err("cfgAgentChanged")
 		}
 		originalText = doc.Content
 		if target == original.File {
@@ -203,7 +205,7 @@ func (s *Store) SaveAgent(original *Subagent, d SubagentDraft) (string, error) {
 	}
 	_, err := store(dir+"/"+target, []byte(renderAgent(d, originalText)), expected, removeAfter)
 	if err == ErrConflict {
-		return "", fail("已经有一个叫 %s 的 Subagent 了", d.Name)
+		return "", locales.Err("cfgAgentExists", "name", d.Name)
 	}
 	return target, err
 }
@@ -214,7 +216,7 @@ func (s *Store) DeleteAgent(file string) error {
 		return err
 	}
 	if err := os.Remove(agentsDir(s.Home()) + "/" + file); err != nil && !os.IsNotExist(err) {
-		return fail("删不掉：%s", pathReason(err))
+		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
 	}
 	return nil
 }

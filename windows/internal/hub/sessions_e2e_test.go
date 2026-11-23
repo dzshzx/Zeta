@@ -184,7 +184,7 @@ func (s *sessionsE2E) export(t *testing.T) {
 	if exported == nil || !strings.Contains(exported.Content, "NEEDLE") || !strings.Contains(exported.Content, "\n---\n\n") {
 		t.Fatalf("导出 %+v，没成的 %q", exported, s.failures)
 	}
-	names := []string{sessionproto.ExportFileName("2个对话", before), sessionproto.ExportFileName("2个对话", after)}
+	names := []string{sessionproto.ExportFileName("2个对话", before, ""), sessionproto.ExportFileName("2个对话", after, "")}
 	if !slices.Contains(names, exported.Name) {
 		t.Errorf("文件名 %q，要 %q", exported.Name, names)
 	}

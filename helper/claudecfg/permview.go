@@ -59,7 +59,7 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 	}
 	for i, t := range append(slices.Clone(CommonTools), OtherTools...) {
 		st := rs.Tool(t.Name)
-		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t, Rule: t.Name, Own: st.Behavior, More: i >= len(CommonTools), State: st})
+		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t.in(s.lang), Rule: t.Name, Own: st.Behavior, More: i >= len(CommonTools), State: st})
 	}
 	v.BuiltinBulk = bulkPair(rs, BuiltinGroup())
 	var seen []string

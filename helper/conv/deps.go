@@ -47,6 +47,9 @@ type Deps struct {
 	KeepMode func(key, mode string) error
 	// ClientDevice 是客户端 client 是哪台设备（按它的 core.client 定），没报过时是零值；可以是 nil
 	ClientDevice func(client int) Device
+	// ClientLang 是客户端 client 界面的语言（core.client 报的 lang，没报过时为空）：会存下来的字（分支标题、新对话的临时标题）
+	// 按发起操作的那个客户端的语言写；可以是 nil，那时用源语言
+	ClientLang func(client int) string
 	// KeepDevice 把设备记到托管进程 key 上（托管目录的 client），另一个包查别处占用时说「在哪」；
 	// 没写成（托管脚本还没建好目录）时出错，下次推送时再写。可以是 nil
 	KeepDevice func(key string, d Device) error

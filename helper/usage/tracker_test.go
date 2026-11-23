@@ -264,8 +264,8 @@ func TestLevelsAndFormatting(t *testing.T) {
 	eq(t, "FormatExactTokens", FormatExactTokens(26852), "26,852")
 	eq(t, "FormatCost", FormatCost(0.0933242), "$0.0933")
 	eq(t, "FormatCost", FormatCost(1.5), "$1.50")
-	eq(t, "CompactNotice", CompactNotice([]byte(boundary)), "上下文已压缩（压缩前 26.9K）")
-	eq(t, "CompactNotice auto", CompactNotice([]byte(`{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"auto"}}`)), "上下文已自动压缩")
+	eq(t, "CompactNotice", CompactNotice([]byte(boundary)).String(), "上下文已压缩（压缩前 26.9K）")
+	eq(t, "CompactNotice auto", CompactNotice([]byte(`{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"auto"}}`)).String(), "上下文已自动压缩")
 }
 
 // 进位照 Java 的 String.format：最短十进制写法上逢五进一。

@@ -164,7 +164,7 @@ func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 			note(c, text).TextColor(k.Error)
 		}
 		for _, w := range s.Windows {
-			line(c, w.Label, percent(w.Percent()), &w.Used, w.Severity, acct.ResetText(w.ResetsAt, now))
+			line(c, w.LabelIn(c.Locale()), percent(w.Percent()), &w.Used, w.Severity, acct.ResetText(w.ResetsAt, now))
 		}
 		if e := s.Extra; e != nil && e.Enabled {
 			var amounts []string

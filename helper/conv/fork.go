@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -61,11 +62,11 @@ func (c *Conversation) deliver(p *process, m *outgoing) {
 			c.forkCutDone(p)
 			c.transmit(p, m)
 		},
-		func(reason string) {
+		func(reason locales.Msg) {
 			if m.item != nil {
 				c.r.Remove(m.item)
 			}
-			c.abandon(m, "分支没有建成："+reason)
+			c.abandon(m, locales.M("forkFailed", "reason", reason))
 		})
 }
 
@@ -94,8 +95,8 @@ type forkPlan struct {
 }
 
 var (
-	errForkNoSession = errors.New("这个对话还没有会话记录，不能分支")
-	errForkHere      = errors.New("不能从这里分支：找不到这一项，或下一轮的消息 Claude Code 不认得")
+	errForkNoSession = locales.Err("errForkNoSession")
+	errForkHere      = locales.Err("errForkHere")
 )
 
 // forkPlan 从条目 last 所在那一轮的末尾分支：那一轮之后的内容丢掉。
@@ -127,7 +128,7 @@ func (c *Conversation) startFork(plan *forkPlan) {
 	// 新内容的编号要和原对话带来的那些错开
 	c.r = transcript.New("b" + newUUID()[:8] + "-")
 	c.r.Items = plan.items
-	c.r.AddNotice("从这里分支出的新对话，原对话不变。发出消息后保存", false)
+	c.r.AddNoticeMsg(locales.M("noticeForkStarted"), false)
 	c.forkSource = plan.source
 	c.fork = &forkState{cut: plan.cut, lastSeen: plan.lastSeen}
 	// 接着原会话的记录：选默认模型时要明说 default（见 chooseModel）
@@ -169,16 +170,18 @@ func copyItems(items []*transcript.Item) []*transcript.Item {
 	return out
 }
 
-var branchPrefix = regexp.MustCompile(`^分支(?: \d+)? · `)
+// branchPrefix 认标题前的分支标记：两种语言的都认（forkTitle、forkTitleNumbered），从别的语言的分支再分支也不叠前缀。
+var branchPrefix = regexp.MustCompile(`^(?:分支|Branch)(?: \d+)? · `)
 
 // branchTitle 是分支的标题：原标题前加「分支 · 」，和 taken 里的重名时编号成「分支 2 · 」；从分支再分支不叠前缀
 // （Claude Code 自己的 /branch 也是这样）。标记放在前面，是因为侧栏和标题栏都窄，长标题的尾巴会被省略号吃掉。
-func branchTitle(title string, taken []string) string {
-	base := cmp.Or(strings.TrimSpace(branchPrefix.ReplaceAllString(strings.TrimSpace(title), "")), "新对话")
+// 标题会存进会话记录，用发起分支的客户端的语言 lang 写。
+func branchTitle(title string, taken []string, lang string) string {
+	base := cmp.Or(strings.TrimSpace(branchPrefix.ReplaceAllString(strings.TrimSpace(title), "")), locales.M("convUntitled").In(lang))
 	for n := 1; ; n++ {
-		t := "分支 · " + base
+		t := locales.M("forkTitle", "title", base).In(lang)
 		if n > 1 {
-			t = "分支 " + strconv.Itoa(n) + " · " + base
+			t = locales.M("forkTitleNumbered", "n", strconv.Itoa(n), "title", base).In(lang)
 		}
 		if !slices.Contains(taken, t) {
 			return t
@@ -205,7 +208,7 @@ func (m *Manager) fork(client int, r request, src *Conversation) error {
 	m.seq++
 	id := "c" + strconv.Itoa(m.seq)
 	m.mu.Unlock()
-	c := New(id, Spec{Cwd: plan.cwd, Title: branchTitle(plan.title, taken)}, m.deps, m.send)
+	c := New(id, Spec{Cwd: plan.cwd, Title: branchTitle(plan.title, taken, m.deps.langOf(client))}, m.deps, m.send)
 	if _, err := c.Call(func() (any, error) { c.startFork(plan); return nil, nil }); err != nil {
 		return err
 	}

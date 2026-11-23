@@ -2,10 +2,10 @@ package conv
 
 import (
 	"encoding/json"
-	"errors"
 	"regexp"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -119,8 +119,8 @@ func (c *Conversation) requestTitle() {
 }
 
 var (
-	errRenameNoSession = errors.New("这个对话还没有保存，发出第一条消息后再改名")
-	errRenameNoFile    = errors.New("找不到这个会话的会话记录，改不了名")
+	errRenameNoSession = locales.Err("errRenameNoSession")
+	errRenameNoFile    = locales.Err("errRenameNoFile")
 )
 
 // rename 是用户给这个对话改名（conv.title、sessions.rename）：照 zeta-helper rename 往会话记录里追加一行 custom-title，

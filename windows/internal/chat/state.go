@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -22,8 +23,10 @@ type State struct {
 	Process bool `json:"process"`
 	// Busy：在回答。
 	Busy bool `json:"busy"`
-	// Status 是等待指示旁的一句，比如正在重试。
-	Status string `json:"status"`
+	// Status 是等待指示旁的一句，比如正在重试（源语言）；StatusCode、StatusArgs 是它的种类码和参数，按界面语言出字用 StatusIn。
+	Status     string         `json:"status"`
+	StatusCode string         `json:"status_code"`
+	StatusArgs map[string]any `json:"status_args"`
 	// Blocked：会话正被 Zeta 之外的进程占着。
 	Blocked        bool `json:"blocked"`
 	LoadingHistory bool `json:"loading_history"`
@@ -99,6 +102,14 @@ func applyState(s State, line []byte, full bool) (State, error) {
 	}
 	err := json.Unmarshal(line, &s)
 	return s, err
+}
+
+// StatusIn 是等待指示旁的那句用界面语言 locale 说出来的文字：核心给了种类码时从核心的文字表取，旧核心没给时是 Status。
+func (s State) StatusIn(locale string) string {
+	if s.StatusCode == "" {
+		return s.Status
+	}
+	return locales.Msg{Key: s.StatusCode, Args: s.StatusArgs}.In(locale)
 }
 
 // RunningTasks 是还在跑的后台任务数。

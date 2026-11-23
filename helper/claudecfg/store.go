@@ -13,7 +13,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"math/rand/v2"
@@ -24,14 +23,39 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
-// Error 是一次操作没成功，Error() 是给人看的中文说明（不含 Token）。
+// 没成功的操作：Zeta 自己说的是 *locales.Error（核心按发请求的客户端的语言出字），claude、MCP 服务器原样给的话是 *Error。
+// 两种都不含 Token（maskErr）。
+
+// Error 是 claude 或 MCP 服务器原样给的出错（不翻译）。
 type Error struct{ msg string }
 
 func (e *Error) Error() string { return e.msg }
 
-func fail(format string, args ...any) error { return &Error{fmt.Sprintf(format, args...)} }
+func rawError(text string) error { return &Error{text} }
+
+// maskErr 把 err 里出现的 secrets 打码：原话的 *Error 和 *locales.Error 的字符串参数；别的出错原样返回。
+func maskErr(err error, secrets []string) error {
+	var raw *Error
+	if errors.As(err, &raw) {
+		return rawError(mask(raw.msg, secrets))
+	}
+	if said, ok := errors.AsType[*locales.Error](err); ok {
+		masked := *said
+		masked.Args = make(map[string]any, len(said.Args))
+		for k, v := range said.Args {
+			if s, ok := v.(string); ok {
+				v = mask(s, secrets)
+			}
+			masked.Args[k] = v
+		}
+		return &masked
+	}
+	return err
+}
 
 // ErrConflict：文件在读到之后被别人改过（多半是 Claude 在对话里改的），这次没写。
 var ErrConflict = errors.New("文件已经被改过了")
@@ -44,10 +68,15 @@ const defaultTimeout = time.Minute
 // Store 是家目录 home 下的 Claude Code 配置。
 type Store struct {
 	home string
+	lang string // 结果里 Zeta 自己写的说明（工具权限页的工具说明）用这个语言，见 In
 }
 
 // New 是家目录 home 下的配置。
 func New(home string) *Store { return &Store{home: strings.TrimRight(home, "/")} }
+
+// In 是同一份配置，结果里 Zeta 自己写的说明用语言 lang（发请求的客户端的语言，core.Client.Lang）。出错不用它：
+// 出错是 *locales.Error，由核心按连接的语言出字。
+func (s *Store) In(lang string) *Store { return &Store{home: s.home, lang: lang} }
 
 // Home 是家目录。
 func (s *Store) Home() string {
@@ -91,7 +120,7 @@ func load(path string, limit int) (Document, error) {
 		return Document{}, nil
 	}
 	if len(data) > limit {
-		return Document{}, fail("文件超过 %d MiB，请在终端里编辑", limit>>20)
+		return Document{}, locales.Err("cfgFileTooBig", "mib", limit>>20)
 	}
 	return Document{Content: string(data), SHA: sha256Hex(data), Exists: true}, nil
 }
@@ -112,7 +141,7 @@ func store(path string, content []byte, expected, removeAfter string) (string, e
 	}
 	dir := filepath.Dir(target)
 	if err := os.MkdirAll(dir, 0o777); err != nil {
-		return "", fail("建不了目录或删不掉")
+		return "", locales.Err("cfgDirOrDelete")
 	}
 	st, statErr := os.Stat(target)
 	if expected != "*" {
@@ -120,7 +149,7 @@ func store(path string, content []byte, expected, removeAfter string) (string, e
 		if statErr == nil {
 			data, err := os.ReadFile(target)
 			if err != nil {
-				return "", fail("读不了 %s", filepath.Base(target))
+				return "", locales.Err("cfgCantRead", "name", filepath.Base(target))
 			}
 			cur = sha256Hex(data)
 		}
@@ -131,7 +160,7 @@ func store(path string, content []byte, expected, removeAfter string) (string, e
 	tmp := filepath.Join(dir, "."+filepath.Base(target)+".zeta-"+strconv.Itoa(os.Getpid())+"-"+strconv.FormatUint(rand.Uint64(), 36))
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
-		return "", fail("写入失败：%s", pathReason(err))
+		return "", locales.Err("cfgWriteFailed", "reason", pathReason(err))
 	}
 	defer os.Remove(tmp)
 	_, err = f.Write(content)
@@ -139,13 +168,13 @@ func store(path string, content []byte, expected, removeAfter string) (string, e
 		err = cerr
 	}
 	if err != nil {
-		return "", fail("写入失败，可能是存储空间不足")
+		return "", locales.Err("cfgWriteFailedSpace")
 	}
 	if statErr == nil {
 		_ = os.Chmod(tmp, st.Mode().Perm())
 	}
 	if err := os.Rename(tmp, target); err != nil {
-		return "", fail("换不上新文件")
+		return "", locales.Err("cfgReplaceFailed")
 	}
 	if removeAfter != "" && removeAfter != path {
 		_ = os.Remove(removeAfter)
@@ -153,14 +182,15 @@ func store(path string, content []byte, expected, removeAfter string) (string, e
 	return sha256Hex(content), nil
 }
 
-func pathReason(err error) string {
+// pathReason 是读写文件没成的原因，放进出错那句话的参数里。
+func pathReason(err error) locales.Msg {
 	switch {
 	case errors.Is(err, fs.ErrPermission):
-		return "没有权限"
+		return locales.M("cfgNoPermission")
 	case errors.Is(err, fs.ErrNotExist):
-		return "目录不在"
+		return locales.M("cfgNoDirectory")
 	}
-	return "存储空间不足或目录不可写"
+	return locales.M("cfgNoSpace")
 }
 
 func sha256Hex(b []byte) string {
@@ -221,14 +251,14 @@ func run(ctx context.Context, cmd *exec.Cmd, stdin []byte) (string, int, error) 
 	}
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		return "", -1, fail("等了太久没有结果")
+		return "", -1, locales.Err("cfgTimeout")
 	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		return out.String(), exit.ExitCode(), nil
 	}
 	if err != nil {
-		return "", -1, fail("起不了 bash：%v", err)
+		return "", -1, locales.Err("cfgBashFailed", "detail", err.Error())
 	}
 	return out.String(), 0, nil
 }

@@ -183,7 +183,16 @@ data class ToolStep(
     val patch: EditPatch? = null,
     /** 参数里有长字符串被核心截断了（会话记录里读来的，截断处是 "\n…"），改文件的对比只画得出一部分。 */
     val clipped: Boolean = false,
+    /** [result] 是核心写的话（已中断、命令没输出）时的种类码和参数（docs/i18n.md 的核心种类码清单），按界面语言出字用。 */
+    val resultCode: String = "",
+    val resultArgs: JsonObject? = null,
 ) : WorkStep {
+    /** 结果用界面语言说出来：核心写的按种类码出字，Claude Code 给的原样。 */
+    fun resultSaid(): String? =
+        resultCode
+            .takeIf { it.isNotEmpty() }
+            ?.let { CoreStrings.catalog.sayOrNull(it, jsonArgs(resultArgs)) } ?: result
+
     override val running: Boolean
         get() = status == ToolStatus.Running
 }

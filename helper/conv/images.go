@@ -2,9 +2,9 @@ package conv
 
 import (
 	"encoding/base64"
-	"errors"
 	"net/http"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
@@ -12,7 +12,7 @@ import (
 // 重新打开）和每次重推一组工作过程都会把它们全带上：一个截了几十张图的对话一推就是几十 MB。声明了 options.image_refs
 // 的客户端收到的条目里这些图只有 key，画到时再用 conv.image 按 key 取原文；没声明的照旧收到原文。
 
-var errNoImage = errors.New("这个对话里没有这张图")
+var errNoImage = locales.Err("errNoImage")
 
 // itemsFor 是推给 opts 这个客户端的条目：声明了 image_refs 时去掉实时图片的原文（见 withoutImageData）。
 func itemsFor(opts Options, list []*transcript.Item) []*transcript.Item {

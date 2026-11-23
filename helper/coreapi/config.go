@@ -3,6 +3,8 @@ package coreapi
 import (
 	"context"
 	"errors"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 这一组是 docs/core.md「Claude Code 配置」的 config.* 方法：读写那台主机上 Claude Code 自己的配置（~/.claude、~/.claude.json），
@@ -197,7 +199,7 @@ func (cl *Client) Skills(ctx context.Context) (Skills, error) {
 // ImportSkill 从 ZIP 装一个 Skill；replace 时替换同名的（config.skills.import）。超过 MaxSkillZip 的不发。
 func (cl *Client) ImportSkill(ctx context.Context, fileName string, zip []byte, replace bool) (SkillImport, error) {
 	if len(zip) > MaxSkillZip {
-		return SkillImport{}, errors.New("文件超过 45 MB，不像是一个 Skill 包")
+		return SkillImport{}, locales.Err("errSkillZipTooBig")
 	}
 	return get[SkillImport](ctx, cl.c, "config.skills.import", params{"fileName": fileName, "zip": zip, "replace": replace})
 }

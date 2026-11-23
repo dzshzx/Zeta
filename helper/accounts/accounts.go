@@ -15,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Account 是 claude-switch 记下的一个账号：身份和套餐，没有令牌。字段照 `claude-switch --json`。
@@ -82,6 +83,8 @@ type State struct {
 type Host struct {
 	// Home 是家目录。
 	Home string
+	// Lang 是发请求的客户端的语言：只回给它的字（State.Blocker）用它写；空是源语言。
+	Lang string
 	// Package 是调用方所属的 Zeta 包（ZETA_NAME）：它自己的对话由它先收掉，不算阻碍。
 	Package string
 	// Program 是 claude-switch 的路径（Find）。
@@ -93,7 +96,7 @@ type Host struct {
 }
 
 // ErrNoProgram 是 claude-switch 还没装上：调用方装上（同 zeta-helper，按内容哈希装在 ~/.cache/<包>/bin）再试。
-var ErrNoProgram = errors.New("claude-switch 还没装上")
+var ErrNoProgram = locales.Err("errSwitchMissing")
 
 // Find 找装好的 claude-switch：rel 不空时是它相对家目录的路径（客户端知道自己带的版本）；空时在 ~/.cache/<pkg>/bin 下
 // 找 claude-switch-<版本>（装新版时会删掉旧的，所以通常只有一个；有几个时取最新的）。都没有时是 ErrNoProgram。
@@ -156,7 +159,7 @@ func (h *Host) run(ctx context.Context, args ...string) (result, error) {
 	err := cmd.Run()
 	var exit *exec.ExitError
 	if err != nil && !errors.As(err, &exit) {
-		return result{}, fmt.Errorf("跑不了 claude-switch：%w", err)
+		return result{}, locales.Err("errSwitchRun", "detail", err.Error())
 	}
 	code := 0
 	if exit != nil {
@@ -165,35 +168,54 @@ func (h *Host) run(ctx context.Context, args ...string) (result, error) {
 	return result{code: code, stdout: stdout.Bytes(), stderr: stderr.Bytes()}, nil
 }
 
-// message 是 claude-switch 的提示去掉前缀；没有提示时说退出码。
+// message 是 claude-switch 的提示去掉前缀（原话，不翻译）；没有提示时为空。
 func (r result) message() string {
-	m := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(r.stderr)), prefix))
-	if m == "" {
-		return fmt.Sprintf("没有成功（claude-switch 退出码 %d）", r.code)
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(r.stderr)), prefix))
+}
+
+// failure 是这次运行没成功的出错：claude-switch 的原话，没有原话时说退出码。
+func (r result) failure() error {
+	if m := r.message(); m != "" {
+		return errors.New(m)
 	}
-	return m
+	return locales.Err("errSwitchFailed", "code", strconv.Itoa(r.code))
 }
 
 // BusyError 是还有 Claude Code 进程开着、claude-switch 没有动。
 type BusyError struct {
-	// Blocker 是能认出的挡着的进程（Blocker），Message 是 claude-switch 的原话（列着它看到的进程）。
-	Blocker string
+	// Blocker 是能认出的挡着的进程（Blocker），认不出时 Key 为空；Message 是 claude-switch 的原话（列着它看到的进程）。
+	Blocker locales.Msg
 	Message string
 	Own     bool // 只剩调用方自己的对话进程还没退出
 }
 
 func (e *BusyError) Error() string {
-	switch {
-	case e.Blocker != "":
-		return e.Blocker
-	case e.Own || e.Message == "":
-		return "这里的对话进程还没退出"
+	if said := e.said(); said != nil {
+		return said.Error()
 	}
 	return e.Message
 }
 
+// Unwrap 是核心自己说的那句（core.Client.Reply 按客户端的语言出字），说的是 claude-switch 的原话时为 nil。
+func (e *BusyError) Unwrap() error {
+	if said := e.said(); said != nil {
+		return said
+	}
+	return nil
+}
+
+func (e *BusyError) said() *locales.Error {
+	switch {
+	case e.Blocker.Key != "":
+		return &locales.Error{Msg: e.Blocker}
+	case e.Own || e.Message == "":
+		return locales.Err("errSwitchOwnBusy")
+	}
+	return nil
+}
+
 // ErrMissing 是要换、要删的号已经不在了。
-var ErrMissing = errors.New("这个账号已经不在了")
+var ErrMissing = locales.Err("errAccountMissing")
 
 // err 把这次运行的结果换成错误：成功是 nil，被进程挡着是 *BusyError，号不在了是 ErrMissing。
 func (h *Host) err(r result) error {
@@ -206,7 +228,7 @@ func (h *Host) err(r result) error {
 	case r.code == 2 && strings.Contains(string(r.stderr), missingMark):
 		return ErrMissing
 	}
-	return errors.New(r.message())
+	return r.failure()
 }
 
 // switchStatus 是 `claude-switch --json` 的输出。
@@ -223,7 +245,7 @@ type switchStatus struct {
 func parseStatus(out []byte) (State, error) {
 	var st switchStatus
 	if err := json.Unmarshal(out, &st); err != nil {
-		return State{}, errors.New("读不懂 claude-switch 的输出")
+		return State{}, locales.Err("errSwitchOutput")
 	}
 	state := State{Current: st.Live, Accounts: []Account{}, Procs: []Proc{}, taken: map[string]bool{}}
 	var saved []Account
@@ -257,7 +279,7 @@ func (h *Host) List(ctx context.Context) (State, error) {
 		return State{}, err
 	}
 	if r.code != 0 {
-		return State{}, errors.New(r.message())
+		return State{}, r.failure()
 	}
 	st, err := parseStatus(r.stdout)
 	if err != nil {
@@ -266,7 +288,9 @@ func (h *Host) List(ctx context.Context) (State, error) {
 	if procs != nil {
 		st.Procs = procs
 	}
-	st.Blocker = Blocker(procs, h.Package)
+	if b := Blocker(procs, h.Package); b.Key != "" {
+		st.Blocker = b.In(h.Lang)
+	}
 	return st, nil
 }
 
@@ -395,10 +419,10 @@ func withNames(m map[string]bool, extra ...string) map[string]bool {
 	return out
 }
 
-// Blocker 说明别的 Claude Code 进程挡着换号；没有时为空。mine 是调用方的包：它自己的对话由它先收掉，闲着的不算阻碍；
+// Blocker 说明别的 Claude Code 进程挡着换号；没有时 Key 为空。mine 是调用方的包：它自己的对话由它先收掉，闲着的不算阻碍；
 // 别的 Claude Code 进程哪怕闲着也不行：按账号统计用量的程序假定一个进程只属于一个账号，开着换号会把用量和额度读数分错账号（见 claude-switch 的 README「为什么是冷切换」）。
 // claude-switch 自己也会拒绝，这里只是为了说清是谁挡着、怎么让开。
-func Blocker(procs []Proc, mine string) string {
+func Blocker(procs []Proc, mine string) locales.Msg {
 	var zeta, elsewhere []Proc
 	for _, p := range procs {
 		switch {
@@ -409,47 +433,46 @@ func Blocker(procs []Proc, mine string) string {
 			elsewhere = append(elsewhere, p)
 		}
 	}
-	var reasons []string
-	if len(zeta) > 0 {
-		var names []string
-		for _, p := range zeta {
-			if n := zetaName(p.Owner); !slices.Contains(names, n) {
-				names = append(names, n)
-			}
+	var names []locales.Msg
+	var owners []string
+	for _, p := range zeta {
+		if !slices.Contains(owners, p.Owner) {
+			owners = append(owners, p.Owner)
+			names = append(names, zetaName(p.Owner))
 		}
-		reasons = append(reasons, fmt.Sprintf("另一个 Zeta（%s）开着 %d 个对话", strings.Join(names, "、"), len(zeta))+busyCount(zeta)+"，在那边结束对话或关掉它")
 	}
-	if len(elsewhere) > 0 {
-		reasons = append(reasons, fmt.Sprintf("还有 %d 个别处开着的 Claude Code（比如终端里的 claude）", len(elsewhere))+busyCount(elsewhere)+"，先退出它们")
+	switch {
+	case len(zeta) > 0 && len(elsewhere) > 0:
+		return locales.M("errSwitchBlockedBoth", "apps", names, "count", len(zeta), "busy", busyCount(zeta),
+			"others", len(elsewhere), "othersBusy", busyCount(elsewhere))
+	case len(zeta) > 0:
+		return locales.M("errSwitchBlockedZeta", "apps", names, "count", len(zeta), "busy", busyCount(zeta))
+	case len(elsewhere) > 0:
+		return locales.M("errSwitchBlockedElsewhere", "others", len(elsewhere), "othersBusy", busyCount(elsewhere))
 	}
-	if len(reasons) == 0 {
-		return ""
-	}
-	return strings.Join(reasons, "；") + "。"
+	return locales.Msg{}
 }
 
-func busyCount(procs []Proc) string {
+// busyCount 是 procs 里有几个在忙。
+func busyCount(procs []Proc) int {
 	n := 0
 	for _, p := range procs {
 		if p.Busy() {
 			n++
 		}
 	}
-	if n == 0 {
-		return ""
-	}
-	return fmt.Sprintf("，其中 %d 个在进行", n)
+	return n
 }
 
-// zetaName 是 Zeta 包的叫法：zeta 是正式版，zeta-dev 是测试版。
-func zetaName(owner string) string {
+// zetaName 是 Zeta 包的叫法：zeta 是正式版，zeta-dev 是测试版（后面多出的照原样），别的照包名。
+func zetaName(owner string) locales.Msg {
 	switch {
 	case owner == "zeta":
-		return "正式版"
+		return locales.M("zetaRelease")
 	case strings.HasPrefix(owner, "zeta-dev"):
-		return "测试版" + strings.TrimPrefix(owner, "zeta-dev")
+		return locales.M("zetaDev", "suffix", strings.TrimPrefix(owner, "zeta-dev"))
 	}
-	return owner
+	return locales.M("zetaOther", "name", owner)
 }
 
 // ---------- 开着的 Claude Code 进程 ----------

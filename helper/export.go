@@ -1,10 +1,12 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 导出：照 Eta 的会话导出，标题，然后按顺序是用户和助手的话；工具调用只留一行摘要，思考过程折叠起来，图片只记张数。
@@ -13,6 +15,7 @@ import (
 type exportBlock struct {
 	kind   string // user、peer（另一个会话发来的，name 是发信会话）、notice、text、thinking、tool
 	text   string
+	notice locales.Msg // notice：核心自己写的那句，导出时按请求的语言出字
 	images int
 	toolID any
 	name   string
@@ -27,7 +30,7 @@ var toolDetailKeys = map[string][]string{"Bash": {"command"}, "Read": {"file_pat
 
 func cmdExport(e *env, o *emitter, paths []string) {
 	for _, path := range paths {
-		md, title, err := exportSession(path)
+		md, title, err := exportSession(path, "")
 		if err != nil { // 一个会话导不出来不影响别的
 			o.out(obj{"type": "zeta_export_failed", "file": path})
 			continue
@@ -36,24 +39,28 @@ func cmdExport(e *env, o *emitter, paths []string) {
 	}
 }
 
-func exportSession(path string) (markdown, title string, err error) {
+// exportSession 导出会话记录 path：标题和 Markdown。核心自己写的字用语言 lang（发起导出的客户端的语言）。
+func exportSession(path, lang string) (markdown, title string, err error) {
 	s, _, err := summarize(path)
 	if err != nil {
 		return "", "", err
 	}
 	title = s.title
+	if title == "" && s.previewCode() != "" {
+		title = locales.M("previewImage").In(lang)
+	}
 	if title == "" {
 		title = runePrefix(s.preview, 40)
 	}
 	if title == "" {
-		title = "对话"
+		title = locales.M("exportUntitled").In(lang)
 	}
 	title = squash(title)
 	blocks, results, err := exportBlocks(path)
 	if err != nil {
 		return "", "", err
 	}
-	return renderExport(title, blocks, results), title, nil
+	return renderExport(title, blocks, results, lang), title, nil
 }
 
 // exportReader 攒下导出要的块；results 是各工具调用的结果（按调用的 id）。
@@ -103,7 +110,7 @@ func (r *exportReader) record(o obj, line []byte) {
 	switch {
 	case kind == "system":
 		if o["subtype"] == "compact_boundary" {
-			r.add(exportBlock{kind: "notice", text: "上下文已压缩"})
+			r.add(exportBlock{kind: "notice", notice: locales.M("noticeCompacted")})
 		}
 	case kind == "user" && hasToolResult(content):
 		for _, b := range asList(content) {
@@ -120,7 +127,7 @@ func (r *exportReader) record(o obj, line []byte) {
 			}
 			return
 		}
-		if _, text := spokenText(o); text != "" {
+		if _, text := spokenText(o, ""); text != "" { // 另一个会话发来的在上面，这里没有核心加的字
 			r.add(exportBlock{kind: "user", text: text, images: imageCount(asObj(o["attachment"])["prompt"])})
 		}
 	case kind == "assistant":
@@ -131,7 +138,7 @@ func (r *exportReader) record(o obj, line []byte) {
 func (r *exportReader) user(content any, line []byte) {
 	raw := userText(content)
 	if raw == "" && has(line, `"[Request interrupted`) {
-		r.add(exportBlock{kind: "notice", text: "已停止"})
+		r.add(exportBlock{kind: "notice", notice: locales.M("noticeStopped")})
 		return
 	}
 	if images := imageCount(content); raw != "" || images > 0 {
@@ -156,10 +163,7 @@ func (r *exportReader) assistant(content []any, line []byte) {
 			if inputs == nil {
 				inputs = rawInputs(line)
 			}
-			name := asString(m["name"])
-			if name == "" {
-				name = "工具"
-			}
+			name := asString(m["name"]) // 空的导出时写「工具」
 			var raw json.RawMessage
 			if index < len(inputs) {
 				raw = inputs[index]
@@ -230,42 +234,43 @@ func quoteBlock(lines []string) string {
 	return strings.Join(parts, "\n")
 }
 
-func renderExport(title string, blocks []exportBlock, results map[string]obj) string {
+// renderExport 把块写成 Markdown；导出里核心自己写的字（标题、状态）用语言 lang。
+func renderExport(title string, blocks []exportBlock, results map[string]obj, lang string) string {
 	parts := []string{"# " + title}
 	answering := false
 	for _, b := range blocks {
 		switch b.kind {
 		case "user":
-			parts = append(parts, renderUser(b))
+			parts = append(parts, renderUser(b, lang))
 			answering = false
 			continue
 		case "peer":
-			parts = append(parts, "## 来自会话 "+b.name+"\n\n"+b.text)
+			parts = append(parts, "## "+locales.M("exportPeer", "name", b.name).In(lang)+"\n\n"+b.text)
 			answering = false
 			continue
 		case "notice":
-			parts = append(parts, quoteBlock([]string{b.text}))
+			parts = append(parts, quoteBlock([]string{b.notice.In(lang)}))
 			answering = false
 			continue
 		}
 		// 一轮回答里的文字、思考和工具调用归在同一个“助手”标题下
 		if !answering {
-			parts = append(parts, "## 助手")
+			parts = append(parts, "## "+locales.M("exportAssistant").In(lang))
 			answering = true
 		}
 		switch b.kind {
 		case "text":
 			parts = append(parts, b.text)
 		case "thinking":
-			parts = append(parts, "<details>\n<summary>思考过程</summary>\n\n"+b.text+"\n\n</details>")
+			parts = append(parts, "<details>\n<summary>"+locales.M("exportThinking").In(lang)+"</summary>\n\n"+b.text+"\n\n</details>")
 		default:
-			parts = append(parts, renderTool(b, results))
+			parts = append(parts, renderTool(b, results, lang))
 		}
 	}
 	return strings.Join(parts, "\n\n") + "\n"
 }
 
-func renderUser(b exportBlock) string {
+func renderUser(b exportBlock, lang string) string {
 	var files, body []string
 	for _, l := range strings.Split(b.text, "\n") {
 		if p, ok := attachedPath(l); ok {
@@ -274,7 +279,7 @@ func renderUser(b exportBlock) string {
 			body = append(body, l)
 		}
 	}
-	block := "## 用户"
+	block := "## " + locales.M("exportUser").In(lang)
 	if text := strings.TrimSpace(strings.Join(body, "\n")); text != "" {
 		block += "\n\n" + text
 	}
@@ -283,27 +288,28 @@ func renderUser(b exportBlock) string {
 	}
 	if b.images > 0 {
 		// 图片本体太大，只记张数
-		block += fmt.Sprintf("\n\n_图片：%d 张_", b.images)
+		block += "\n\n_" + locales.M("exportImages", "count", b.images).In(lang) + "_"
 	}
 	return block
 }
 
-func renderTool(b exportBlock, results map[string]obj) string {
+func renderTool(b exportBlock, results map[string]obj, lang string) string {
 	result, known := results[valueKey(b.toolID)]
-	status := "结果未知"
-	if known {
-		status = "已完成"
-		if truthy(result["is_error"]) {
-			status = "失败"
-		}
+	status := locales.M("exportToolUnknown")
+	switch {
+	case known && truthy(result["is_error"]):
+		status = locales.M("exportToolFailed")
+	case known:
+		status = locales.M("exportToolDone")
 	}
-	lines := []string{fmt.Sprintf("工具：%s（%s）", b.name, status)}
+	name := cmp.Or(b.name, locales.M("exportToolNameless").In(lang))
+	lines := []string{locales.M("exportTool", "name", name, "status", status).In(lang)}
 	if b.detail != "" {
-		lines = append(lines, "参数："+b.detail)
+		lines = append(lines, locales.M("exportToolInput", "detail", b.detail).In(lang))
 	}
 	if known && truthy(result["is_error"]) {
 		if text := errorText(result["content"]); squash(text) != "" {
-			lines = append(lines, "结果："+oneLine(ansiEscape.ReplaceAllString(text, ""), 120))
+			lines = append(lines, locales.M("exportToolResult", "detail", oneLine(ansiEscape.ReplaceAllString(text, ""), 120)).In(lang))
 		}
 	}
 	return quoteBlock(lines)

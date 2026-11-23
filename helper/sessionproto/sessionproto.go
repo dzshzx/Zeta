@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 客户端要按原因分别处理的错误代号（zeta_reply 的 code）。
@@ -33,12 +35,12 @@ const ExportTitleMax = 40
 var fileNameUnsafe = regexp.MustCompile(`[\\/:*?"<>|\p{C}]`)
 
 // ExportFileName 是导出文件的建议名字，照 Eta：Zeta-<标题>-<年月日>-<时分>.md，时刻照 at 自己的时区。
-// 标题压掉多余空白、去掉文件名里不能用的字符，最多 ExportTitleMax 个字；空了是「对话」。
-func ExportFileName(title string, at time.Time) string {
+// 标题压掉多余空白、去掉文件名里不能用的字符，最多 ExportTitleMax 个字；空了是「对话」（用语言 lang 写）。
+func ExportFileName(title string, at time.Time, lang string) string {
 	clean := strings.TrimSpace(fileNameUnsafe.ReplaceAllString(squash(title), ""))
 	clean = strings.TrimSpace(runePrefix(clean, ExportTitleMax))
 	if clean == "" {
-		clean = "对话"
+		clean = locales.M("exportUntitled").In(lang)
 	}
 	return "Zeta-" + clean + "-" + at.Format("20060102-1504") + ".md"
 }

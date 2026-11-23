@@ -336,6 +336,7 @@ func (r *Reducer) ApplyUser(m Message, replay bool, opts UserOptions) {
 		}
 		s := ref.step
 		s.Status, s.Result, s.Images, s.Patch = ToolSuccess, b.Content.Flatten(), images, patch
+		s.ResultCode, s.ResultArgs = "", nil // 晚到的结果盖掉核心写的「已中断」
 		if b.IsError {
 			s.Status = ToolFailed
 		}
@@ -422,7 +423,7 @@ func finishStep(s *Step, keepRunningTools bool) {
 	if s.Status == ToolRunning && !keepRunningTools {
 		s.Status = ToolFailed
 		if s.Result == "" {
-			s.Result = "已中断"
+			s.setResult(locales.M("stepInterrupted"))
 		}
 	}
 }

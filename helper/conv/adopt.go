@@ -3,6 +3,8 @@ package conv
 import (
 	"encoding/json"
 	"strconv"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 核心起来时接回还在干活的托管进程：上一个核心崩溃、被结束，或升级换了核心时，zeta_host.sh 托管的 Claude Code 进程还在跑。
@@ -103,7 +105,7 @@ func (c *Conversation) attach(h *Hosted) {
 	link, err := c.deps.Attach(h.Key, h.Lines+1, c.events(p))
 	if err != nil {
 		c.endTurnState()
-		c.r.AddNotice("重新接上后台进程失败："+err.Error(), true)
+		c.r.AddNoticeMsg(locales.M("noticeReattachFailed", "reason", locales.ErrArg(err)), true)
 		c.changed()
 		return
 	}

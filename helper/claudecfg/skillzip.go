@@ -10,8 +10,11 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Skill 的 ZIP 包在这边查：不许绝对路径、..、反斜杠、符号链接、加密；限制项数和解压后的总大小。挑出 SKILL.md 所在那一层的
@@ -54,10 +57,10 @@ type skillPackage struct {
 func openSkillZip(data []byte, fileName string) (*skillPackage, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil && !errors.Is(err, zip.ErrInsecurePath) {
-		return nil, fail("这不是一个有效的 ZIP 文件")
+		return nil, locales.Err("cfgZipInvalid")
 	}
 	if len(zr.File) > maxZipEntries {
-		return nil, fail("ZIP 里的文件太多（超过 %d 个）", maxZipEntries)
+		return nil, locales.Err("cfgZipTooManyFiles", "max", maxZipEntries)
 	}
 	var usable []*zip.File
 	var total uint64
@@ -69,11 +72,11 @@ func openSkillZip(data []byte, fileName string) (*skillPackage, error) {
 		total += f.UncompressedSize64
 	}
 	if total > maxZipTotal {
-		return nil, fail("ZIP 解压后太大（超过 %d MiB）", maxZipTotal>>20)
+		return nil, locales.Err("cfgZipTooBig", "mib", maxZipTotal>>20)
 	}
 	skillMD := shallowestSkillMD(usable)
 	if skillMD == nil {
-		return nil, fail("包里没有 SKILL.md（应放在根目录或第一层文件夹里）")
+		return nil, locales.Err("cfgZipNoSkill")
 	}
 	prefix := strings.TrimSuffix(skillMD.Name, "SKILL.md")
 	text, err := readZipFile(skillMD, maxSkillMD)
@@ -81,13 +84,13 @@ func openSkillZip(data []byte, fileName string) (*skillPackage, error) {
 		return nil, err
 	}
 	if !utf8.Valid(text) {
-		return nil, fail("SKILL.md 不是 UTF-8 文本")
+		return nil, locales.Err("cfgZipSkillNotUTF8")
 	}
 	frontText, _, ok := splitFront(string(text))
 	meta := parseFront(frontText)
 	pkg := &skillPackage{description: strings.TrimSpace(meta.get("description"))}
 	if !ok || pkg.description == "" {
-		return nil, fail("SKILL.md 开头缺少带 description 的前言（--- 包起来的 name、description），Claude 不知道什么时候该用它")
+		return nil, locales.Err("cfgZipNoDescription")
 	}
 	for _, candidate := range []string{meta.get("name"), strings.Trim(prefix, "/"), strings.TrimSuffix(fileName, path.Ext(fileName))} {
 		if n := toSkillName(candidate); isSkillName(n) {
@@ -96,7 +99,7 @@ func openSkillZip(data []byte, fileName string) (*skillPackage, error) {
 		}
 	}
 	if pkg.name == "" {
-		return nil, fail("认不出 Skill 的名字：请在 SKILL.md 里写上 name（小写字母、数字和连字符）")
+		return nil, locales.Err("cfgZipNoName")
 	}
 	for _, f := range usable {
 		m, ok, err := memberOf(f, prefix)
@@ -144,14 +147,14 @@ func memberOf(f *zip.File, prefix string) (skillMember, bool, error) {
 		}
 	}
 	if unsafePath(rel, parts) {
-		return skillMember{}, false, fail("ZIP 里有不安全的路径：%s", f.Name)
+		return skillMember{}, false, locales.Err("cfgZipUnsafePath", "name", f.Name)
 	}
 	mode := f.Mode()
 	if mode&fs.ModeSymlink != 0 {
-		return skillMember{}, false, fail("ZIP 里有符号链接，不支持：%s", f.Name)
+		return skillMember{}, false, locales.Err("cfgZipSymlink", "name", f.Name)
 	}
 	if f.Flags&1 != 0 {
-		return skillMember{}, false, fail("不支持加密的 ZIP：%s", f.Name)
+		return skillMember{}, false, locales.Err("cfgZipEncrypted", "name", f.Name)
 	}
 	m := skillMember{path: strings.Join(parts, "/"), dir: strings.HasSuffix(f.Name, "/")}
 	if !m.dir {
@@ -185,9 +188,9 @@ func extract(f *zip.File, w io.Writer) error {
 	rc, err := f.Open()
 	if err != nil {
 		if errors.Is(err, zip.ErrAlgorithm) {
-			return fail("不支持这种压缩方式（%d）：%s", f.Method, f.Name)
+			return locales.Err("cfgZipMethod", "method", strconv.Itoa(int(f.Method)), "name", f.Name)
 		}
-		return fail("ZIP 文件已损坏：%s", f.Name)
+		return locales.Err("cfgZipCorrupt", "name", f.Name)
 	}
 	defer rc.Close()
 	n, err := io.Copy(w, rc)
@@ -196,14 +199,14 @@ func extract(f *zip.File, w io.Writer) error {
 		if errors.As(err, &cfg) {
 			return err
 		}
-		return fail("ZIP 文件已损坏：%s", f.Name)
+		return locales.Err("cfgZipCorrupt", "name", f.Name)
 	}
 	return nil
 }
 
 func readZipFile(f *zip.File, limit int) ([]byte, error) {
 	if f.UncompressedSize64 > uint64(limit) {
-		return nil, fail("%s 太大", f.Name)
+		return nil, locales.Err("cfgZipFileTooBig", "name", f.Name)
 	}
 	var b bytes.Buffer
 	if err := extract(f, &b); err != nil {
@@ -218,12 +221,12 @@ func (p *skillPackage) unpack(dir string) error {
 		target := filepath.Join(dir, filepath.FromSlash(m.path))
 		if m.dir {
 			if err := os.MkdirAll(target, 0o755); err != nil {
-				return fail("解包失败：%s", pathReason(err))
+				return locales.Err("cfgUnpackFailed", "reason", pathReason(err))
 			}
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return fail("解包失败：%s", pathReason(err))
+			return locales.Err("cfgUnpackFailed", "reason", pathReason(err))
 		}
 		mode := os.FileMode(0o644)
 		if m.exec {
@@ -231,11 +234,11 @@ func (p *skillPackage) unpack(dir string) error {
 		}
 		f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 		if err != nil {
-			return fail("解包失败：%s", pathReason(err))
+			return locales.Err("cfgUnpackFailed", "reason", pathReason(err))
 		}
 		err = extract(m.file, f)
 		if cerr := f.Close(); err == nil && cerr != nil {
-			err = fail("写入失败，可能是存储空间不足")
+			err = locales.Err("cfgWriteFailedSpace")
 		}
 		if err != nil {
 			return err

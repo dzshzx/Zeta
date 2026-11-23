@@ -612,22 +612,28 @@ func TestBranchEnd(t *testing.T) {
 	}
 }
 
+// 分支标题用发起分支的客户端的语言写；两种语言的分支标记都认，从别的语言的分支再分支也不叠前缀。
 func TestBranchTitle(t *testing.T) {
 	cases := []struct {
 		title string
 		taken []string
+		lang  string
 		want  string
 	}{
-		{"问题", nil, "分支 · 问题"},
-		{"  问题 ", []string{"分支 · 问题"}, "分支 2 · 问题"},
-		{"问题", []string{"分支 · 问题", "分支 2 · 问题"}, "分支 3 · 问题"},
-		{"分支 2 · 问题", []string{"分支 · 问题"}, "分支 2 · 问题"},
-		{"分支 · 分支 · x", nil, "分支 · 分支 · x"},
-		{"", nil, "分支 · 新对话"},
+		{"问题", nil, "", "分支 · 问题"},
+		{"  问题 ", []string{"分支 · 问题"}, "", "分支 2 · 问题"},
+		{"问题", []string{"分支 · 问题", "分支 2 · 问题"}, "", "分支 3 · 问题"},
+		{"分支 2 · 问题", []string{"分支 · 问题"}, "", "分支 2 · 问题"},
+		{"分支 · 分支 · x", nil, "", "分支 · 分支 · x"},
+		{"", nil, "", "分支 · 新对话"},
+		{"Question", []string{"Branch · Question"}, "en", "Branch 2 · Question"},
+		{"分支 2 · 问题", nil, "en", "Branch · 问题"},
+		{"Branch 3 · x", nil, "zh-Hans", "分支 · x"},
+		{"", nil, "en", "Branch · New conversation"},
 	}
 	for _, tc := range cases {
-		if got := branchTitle(tc.title, tc.taken); got != tc.want {
-			t.Errorf("branchTitle(%q, %v) = %q，要 %q", tc.title, tc.taken, got, tc.want)
+		if got := branchTitle(tc.title, tc.taken, tc.lang); got != tc.want {
+			t.Errorf("branchTitle(%q, %v, %q) = %q，要 %q", tc.title, tc.taken, tc.lang, got, tc.want)
 		}
 	}
 }

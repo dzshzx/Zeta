@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -46,7 +47,7 @@ type Conversation struct {
 	flushTimer *time.Timer
 
 	busy               bool
-	status             string
+	status             locales.Msg             // 等待指示旁的一句（正在压缩、正在重试），没有时 Key 为空；推送见 stateFields
 	blocked            bool                    // 会话正被 Zeta 之外的 Claude Code 占着
 	occupant           *sessionproto.Occupancy // blocked 时占着会话的那个进程的样子，还没查到时为 nil（occupant.go）
 	watchingOccupant   bool                    // 在盯着占着会话的进程

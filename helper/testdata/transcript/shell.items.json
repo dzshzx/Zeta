@@ -12,7 +12,12 @@
           "description": "! ls -la"
         },
         "status": "failed",
-        "result": "out\nerr\n退出码 2"
+        "result": "out\nerr\n退出码 2",
+        "result_code": "stepShellExit",
+        "result_args": {
+          "code": "2",
+          "output": "out\nerr"
+        }
       }
     ]
   },
@@ -29,7 +34,8 @@
           "description": "! "
         },
         "status": "success",
-        "result": "（没有输出）"
+        "result": "（没有输出）",
+        "result_code": "stepShellNoOutput"
       }
     ]
   },

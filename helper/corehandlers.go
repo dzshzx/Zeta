@@ -121,7 +121,7 @@ func (h accountsHandler) Request(c *core.Client, r core.Request) (any, error) {
 		h.quota.watch(c, p.Watch == nil || *p.Watch)
 		return nil, nil
 	}
-	v, err := handleAccounts(context.Background(), h.e, r.Method, r.Raw)
+	v, err := handleAccounts(context.Background(), h.e, r.Method, c.Lang(), r.Raw)
 	if err == nil && changesQuota[r.Method] {
 		h.quota.changed()
 	}
@@ -143,8 +143,9 @@ func (accountsHandler) Idle() bool { return !logins.active() }
 // configHandler 做 config.*：读写这台主机上 Claude Code 自己的配置（见 docs/core.md「Claude Code 配置」、config.go）。
 type configHandler struct{ store *claudecfg.Store }
 
-func (h configHandler) Request(_ *core.Client, r core.Request) (any, error) {
-	return handleConfigAt(context.Background(), h.store, r.Method, r.Raw)
+func (h configHandler) Request(c *core.Client, r core.Request) (any, error) {
+	// 工具权限页的说明这类 Zeta 自己写的字只回给这个客户端，按它的语言写
+	return handleConfigAt(context.Background(), h.store.In(c.Lang()), r.Method, r.Raw)
 }
 
 func (configHandler) Gone(*core.Client) {}

@@ -3,6 +3,8 @@ package transcript
 import (
 	"encoding/json"
 	"strconv"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 	"strings"
 	"unicode"
 )
@@ -40,17 +42,26 @@ func finishShell(ref *stepRef, text string) {
 			parts = append(parts, strings.TrimRightFunc(out, unicode.IsSpace))
 		}
 	}
-	result := strings.Join(parts, "\n")
-	if result == "" {
-		result = "（没有输出）"
-	}
+	output := strings.Join(parts, "\n")
 	status := ToolSuccess
+	var said locales.Msg
 	raw, _ := tagged(text, "bash-exit-code")
-	if code, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 32); err == nil && code != 0 {
-		result += "\n退出码 " + strconv.FormatInt(code, 10)
+	code, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 32)
+	switch failed := err == nil && code != 0; {
+	case failed && output == "":
+		said = locales.M("stepShellNoOutputExit", "code", strconv.FormatInt(code, 10))
+	case failed:
+		said = locales.M("stepShellExit", "output", output, "code", strconv.FormatInt(code, 10))
+	case output == "":
+		said = locales.M("stepShellNoOutput")
+	}
+	if err == nil && code != 0 {
 		status = ToolFailed
 	}
-	ref.step.Status, ref.step.Result = status, result
+	ref.step.Status, ref.step.Result, ref.step.ResultCode, ref.step.ResultArgs = status, output, "", nil
+	if said.Key != "" {
+		ref.step.setResult(said)
+	}
 	touch(ref.item)
 }
 

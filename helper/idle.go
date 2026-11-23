@@ -1,11 +1,12 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // 闲置超时（docs/core.md「主机」）：没有客户端接着、又闲着的 Claude Code 进程，托管脚本的看门狗数满这么多分钟就结束它
@@ -38,7 +39,7 @@ func systemIdleMethod(e *env, _ oneShotParams) (any, error) {
 // systemSetIdleMethod 做 system.set_idle {minutes}：整份换掉，看门狗读到的是旧值或新值。
 func systemSetIdleMethod(e *env, p oneShotParams) (any, error) {
 	if p.Minutes == nil || *p.Minutes < 0 || *p.Minutes > maxIdleMinutes {
-		return nil, errors.New("minutes 要是 0～" + strconv.Itoa(maxIdleMinutes) + " 的整数")
+		return nil, locales.Err("errIdleMinutes", "max", strconv.Itoa(maxIdleMinutes))
 	}
 	if err := os.MkdirAll(filepath.Dir(e.idle), 0o777); err != nil {
 		return nil, err
