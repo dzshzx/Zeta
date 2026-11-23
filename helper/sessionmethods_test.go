@@ -479,9 +479,13 @@ func TestSessionsEndEndsTheOpenConversation(t *testing.T) {
 // 核心里没开着、本包托管的进程还在时（客户端都放开了），sessions.end 直接结束它；另一个包托管的不动。
 func TestSessionsEndEndsAnOwnHostedProcess(t *testing.T) {
 	e := testEnv(t)
-	c := startSessions(t, e)
-	_, _, done := hosted(t, e, e.name, handoffID, turnDone...)
+	// 先搭好托管进程、再起核心：核心起来时扫一遍托管目录（adoptHosts），pid 不是还在跑的 claude 的目录当作结束了删掉，
+	// 和这里的搭建赛跑。pid 改记假 Claude 自己，核心看到的就是一个闲着的托管进程：不删，也不接回（闲着的留给看门狗），
+	// sessions.end 走的就是核心没开着它的那条路
+	dir, pid, done := hosted(t, e, e.name, handoffID, turnDone...)
+	writeFile(t, joinPath(dir, "pid"), fmt.Sprint(pid))
 	_, _, otherDone := hosted(t, e, "zeta-dev", handoffID, turnDone...)
+	c := startSessions(t, e)
 	if got := asObj(c.ok("sessions.end", `"session":"`+handoffID+`"`)); num(t, got["ended"]) != 1 || !exited(done) {
 		t.Fatalf("结束：%v", got)
 	}
