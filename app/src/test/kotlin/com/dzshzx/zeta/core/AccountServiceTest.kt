@@ -198,7 +198,7 @@ class AccountServiceTest {
             ".claude/sessions/${other.pid()}.json",
             """{"pid":${other.pid()},"procStart":"$start","sessionId":"s-1","kind":"interactive","status":"busy"}""",
         )
-        val blocker = "还有 1 个别处开着的 Claude Code（比如终端里的 claude），其中 1 个在进行"
+        val blocker = "还有 1 个别处开着的 Claude Code（比如终端里的 claude），其中 1 个在进行，先退出它们。"
         service.switchTo(ClaudeAccount("claude-b", "", "", "", "", null))
         awaitIdle()
         assertEquals(blocker, service.problem)
