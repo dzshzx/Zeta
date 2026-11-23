@@ -280,7 +280,9 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 - 签名一步报 lineage 或证书对不上：`release/lineage.bin`、`release/signing-certs.txt` 和 Secrets 里的密钥不是同一套，
   按上面「生成正式发版密钥」核对。
 
-## 装到手机上（上线）
+## 装到手机上（用户要你装时）
+
+上线只发版，不装：用户在正式版里点应用内更新（见「应用内更新」）。用户说要你装时才用下面的命令，规矩见 CLAUDE.md「发版与上线」。
 
 ```sh
 ZETA_PHONE_OWNER=main tools/install.sh --release          # 最新的 Release

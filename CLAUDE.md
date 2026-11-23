@@ -113,24 +113,9 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 ## 发版与上线
 
-一件事一个提交，合入不改版本号。版本照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（`app/build.gradle.kts`），不手写：
-
-- versionCode 是 HEAD 的提交数，每合入一次自动加一。同一个提交编出的测试版和正式版相同，设置页「关于」和诊断页的「版本名（versionCode）」一对就知道是哪个提交。
-- 正式版在发版时打的 tag（`v0.7.1`）上，版本名就是 `0.7.1`。
-- 别的提交是下一个版本的预发布：`0.7.2-dev.3+gabc1234` 是 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。按 SemVer 它排在 0.7.1 之后、0.7.2 之前，`+` 后面的构建元数据不参与比大小。测试版装的都是这种。
-- tag 只标正式版，由 release.yml 经 GitHub API 在发版的提交上打附注 tag，本机不打；推上去后不移动、不删除、不复用。每个 tag 对应一个 GitHub Release，资产是签好的 `Zeta-vX.Y.Z.apk`、桌面版的 `Zeta-vX.Y.Z.msi`、各自的 `.sha256` 和应用内更新用的 `update.json`（格式见 `docs/release.md`）。
-
-合入：功能分支交回前自己变基到最新的 origin/master、解决冲突、压成一个提交。负责合入的会话用 `wt land` 合入，门禁里的 `AppStartTest` 查装上能不能起来（清单登记的类都在、冷启动画得出界面），不用再上设备跑冒烟测试；改动涉及设备上的行为时，合入前用 `tools/phone-run` 跑 `tools/phone-tests/` 下与它有关的脚本。合入不发版、不装正式版。
-
-发版指在 GitHub 上把 master 的最新提交做成 Release，只有一条命令：在主 checkout 上跑 `go -C tools/release run . ship`（用户说升 minor 时加 `-bump minor`；本机 runner 不在线时加 `-runner github-hosted`）。它触发 `.github/workflows/release.yml`，同时在本机让测试版照正式版那样经 R8 构建、冷启动一次（合入时不经 R8，只有这里查得到 R8 误删的类），工作流等这个测试通过才发布；发完下载资产核对。工作流算版本（这个提交已发过版就失败）、门禁（已过全量门禁的跳过）、在本机 runner 上构建、在 GitHub 托管机上签名（签名要读发版密钥，本机 runner 的 job 不带密钥）、核对、发布。用户说上线时直接 `ship`，不先 dry run；只想先看会发什么用 `ship -preview`（几秒），要提前确认能走通时才手动 dry run。失败了修好后重跑 `ship` 能续上，不手工删 tag 或草稿。步骤、签名、Secrets 和出错后怎么办见 `docs/release.md`。
-
-上线指把正式版装成最新发布的版本。正式版是用户日常在用的，开发再快它也要稳定，所以合入的版本先只在测试版上，用户在 Zeta 的语境里说「上线」时才做：master 上有没发版的提交就先发版，再在主 checkout 上跑 `ZETA_PHONE_OWNER=main tools/install.sh --release`（装指定版本时加 tag，如 `ZETA_PHONE_OWNER=main tools/install.sh --release v0.7.1`）。它用 `gh release download` 取 Release 的 APK，核对 sha256、签名证书（`release/signing-certs.txt` 登记的）、包名和版本后装到手机，不在本机构建。装完在正式版的测试屏上验一遍（`ZETA_PHONE_OWNER=main tools/vd --release` 带 start、launch、shot，验完 stop）。重装会结束正式版的界面，进行中的对话照样跑完，但正在执行的手机工具调用会失败。
-
-桌面版和手机正式版共用远程主机上的托管目录，两边各自发版，新旧版本的托管脚本会同时操作同一个目录（规矩见 `zeta_host.sh` 开头）：改托管脚本的协议时新旧两边都要能接着用。
-
-正式版自己也检查更新（设置「关于」，回到前台时每天最多一次）：读最新 Release 的 `update.json`，核对后经 root 的 `pm install -r` 或系统的安装界面装，有手机工具调用正在执行时等这一次结束（对话在回答、后台屏幕开着都不等）。只有正式发版证书签的包才查；做法和在模拟器上用测试版试的办法见 `docs/release.md`「应用内更新」。桌面版也自己检查更新（设置「关于」，启动时每天最多一次）：只有正式发版打的包（构建时写进程序的版本名是干净的 X.Y.Z）才查，读同一份 `update.json` 里的 MSI，下载核对后起一个 PowerShell 等 Zeta 退出、`msiexec` 覆盖安装、再重新打开 Zeta（`windows/internal/update`，做法见同一节的桌面版部分）。
-
-桌面版（`windows/`）：测试和看界面的做法见 `docs/desktop.md`「测试」。Windows 安装包全在 Linux 上打：先 `windows/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]` 出 `Zeta-v<版本>.msi`（默认在 `windows/build/`，最后一行打印路径；要 wixl，测试版还要 jq；版本算法见脚本开头）。MSI 只装一个 exe，按用户安装，不要管理员，没做代码签名；双击是标准安装向导（能改安装位置，位置记下来、升级沿用），`/qn`、`/passive` 照旧不弹界面（`windows/installer/ZetaUI.wxs`）。版本名是干净 X.Y.Z 的是正式版 Zeta（`%LOCALAPPDATA%\Programs\Zeta`）；别的构建是测试版「Zeta Dev」，同手机测试版，是和正式版并存的另一个应用（自己的 UpgradeCode、安装目录、设置目录、identifier、橙色图标，各项见 `docs/desktop.md`「测试版」），装它不替换、不碰用户在用的正式版。在本机的 Windows（nerv-win）上试：任务分支上打出的就是测试版，把 MSI 拷到 Windows 那边，`msiexec /i <msi> /qn` 静默装，从开始菜单起「Zeta Dev」，卸掉用 `msiexec /x <msi> /qn`；正式版照常开着，不用关。桌面版和手机版一起发：`release.yml` 的 desktop 任务打 MSI，作为 `Zeta-vX.Y.Z.msi` 和 APK 放在同一个 Release 里。release.yml 的 dry run 先在检出里打上这次的 tag，打出的是正式版身份的包，装它会替换正式版，所以试分支不用它，用本机 `build.sh` 打的测试版。
+- 合入：`wt land`，不改版本号、不发版；改了设备上的行为，先用 `tools/phone-run` 跑相关的 `tools/phone-tests/`。
+- 上线（用户对这个版本说了才做）：在主 checkout 上跑 `go -C tools/release run . ship`，失败修好后重跑。
+- 其余见 `docs/release.md`。
 
 ## 边界
 
