@@ -9,20 +9,32 @@ export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 # 并行开发时几棵任务树会同时构建：最多同时跑 ZETA_GRADLE_SLOTS 个（默认 2），其余排队，免得内存撑爆。
 # 一次门禁构建（assembleDebug 加 testDebugUnitTest）内存峰值约 6G（守护进程约 2.5G，4 个测试进程各约 1.1G）；
 # 两个构建加上共用的模拟器（约 7G）和各会话自身，放得进 agent 会话合计的内存上限。
-# 锁挂在 gradlew 进程上，它结束就释放；Gradle 守护进程不继承这个文件描述符。
+# 先来先得：拿名额前先拿队列锁。拿着队列锁的那个轮流试各个名额，哪个先空出来就拿哪个，拿到后放开队列锁，下一个再上来；
+# 后来的拿不到队列锁，插不到排着的前面（合入门禁就不会被后到的本地构建一再挤掉）。
+# 名额的锁挂在 gradlew 进程上，它结束就释放；Gradle 守护进程不继承这个文件描述符。
 slots=${ZETA_GRADLE_SLOTS:-2}
 lockdir=${XDG_RUNTIME_DIR:-/tmp}/zeta-gradle
 mkdir -p "$lockdir"
-got=
-for ((i = 1; i <= slots; i++)); do
-  exec 9>"$lockdir/slot$i"
-  if flock -n 9; then got=1; break; fi
+waiting=
+wait_note() {
+  [[ -n $waiting ]] || echo "tools/gradle: 已有 $slots 个构建在跑，排队等待" >&2
+  waiting=1
+}
+take_slot() {
+  local i
+  for ((i = 1; i <= slots; i++)); do
+    exec 9>"$lockdir/slot$i"
+    flock -n 9 && return 0
+  done
+  return 1
+}
+exec 8>"$lockdir/queue"
+flock -n 8 || { wait_note && flock 8; }
+until take_slot; do
+  wait_note
+  sleep 0.2
 done
-if [[ -z $got ]]; then
-  echo "tools/gradle: 已有 $slots 个构建在跑，排队等待" >&2
-  exec 9>"$lockdir/slot$(($$ % slots + 1))"
-  flock 9
-fi
+exec 8>&-
 # 这次要起的守护进程和它派生的测试进程单独一个分组（见 tools/own-scope.sh）。已有空闲守护进程时构建在它那里跑，
 # 用量记在它的分组上；一个守护进程同时只跑一个构建，上限按单个构建的峰值定。
 source tools/own-scope.sh
