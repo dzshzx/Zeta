@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/egoist/mygo/ui"
@@ -22,17 +23,16 @@ import (
 // fakeServe 回答 accounts.* 和 quota.*：账号是 accounts，在用的是 current（为空时是认不出的 unknown）。
 type fakeServe struct {
 	mu       sync.Mutex
-	accounts []acct.Account
+	accounts []coreapi.Account
 	current  string
-	unknown  *acct.Account
+	unknown  *coreapi.Account
 	quota    bool // 主机上存着额度
 	calls    []string
 }
 
-func (h *fakeServe) Call(_ context.Context, method string, params any) (json.RawMessage, error) {
+func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (json.RawMessage, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	p, _ := params.(map[string]any)
 	name, _ := p["name"].(string)
 	h.calls = append(h.calls, strings.TrimSpace(method+" "+name))
 	var out any = struct{}{}
@@ -46,7 +46,7 @@ func (h *fakeServe) Call(_ context.Context, method string, params any) (json.Raw
 		h.accounts = append(h.accounts, *h.unknown)
 		h.current, h.unknown = "claude-c", nil
 	case "accounts.remove":
-		h.accounts = slices.DeleteFunc(h.accounts, func(a acct.Account) bool { return a.Name == name })
+		h.accounts = slices.DeleteFunc(h.accounts, func(a coreapi.Account) bool { return a.Name == name })
 	case "quota.get":
 		if !h.quota {
 			return json.RawMessage(`{"snapshot":null}`), nil
@@ -61,8 +61,8 @@ func (h *fakeServe) Call(_ context.Context, method string, params any) (json.Raw
 	return json.Marshal(out)
 }
 
-func (h *fakeServe) state() acct.State {
-	st := acct.State{Current: h.unknown}
+func (h *fakeServe) state() coreapi.AccountList {
+	st := coreapi.AccountList{Current: h.unknown}
 	if h.unknown != nil {
 		st.Accounts = append(st.Accounts, *h.unknown)
 	}
@@ -70,7 +70,7 @@ func (h *fakeServe) state() acct.State {
 		if a.Name == h.current {
 			live := a
 			st.Current = &live
-			st.Accounts = append([]acct.Account{a}, st.Accounts...)
+			st.Accounts = append([]coreapi.Account{a}, st.Accounts...)
 		} else {
 			st.Accounts = append(st.Accounts, a)
 		}
@@ -120,7 +120,7 @@ type fixture struct {
 
 func newFixture() *fixture {
 	f := &fixture{
-		host: &fakeServe{current: "claude", accounts: []acct.Account{
+		host: &fakeServe{current: "claude", accounts: []coreapi.Account{
 			{Name: "claude", Email: "a@example.com", Organization: "Org A", Subscription: "max"},
 			{Name: "claude-b", Email: "b@example.com", Subscription: "pro"},
 		}},
@@ -129,8 +129,8 @@ func newFixture() *fixture {
 		posts: make(chan func(), 64),
 	}
 	loop := acct.Loop{Run: func(fn func()) { go fn() }, Post: func(fn func()) { f.posts <- fn }}
-	q := acct.NewQuota(f.host, f.src, loop, nil)
-	f.page = &Page{Accounts: acct.NewService(f.host, nil, f.convs, q, loop), Quota: q}
+	q := acct.NewQuota(coreapi.New(f.host), f.src, loop, nil)
+	f.page = &Page{Accounts: acct.NewService(coreapi.New(f.host), nil, f.convs, q, loop), Quota: q}
 	return f
 }
 
@@ -222,7 +222,7 @@ func TestProblemIsShown(t *testing.T) {
 func TestUnknownLoginCanBeSaved(t *testing.T) {
 	f := newFixture()
 	f.host.current = ""
-	f.host.unknown = &acct.Account{Email: "x@example.com", Subscription: "pro"}
+	f.host.unknown = &coreapi.Account{Email: "x@example.com", Subscription: "pro"}
 	tt := ui.NewTester(f.page.View, 560, 900)
 	f.until(t, tt, "读完", f.loaded)
 	hasAll(t, tt, "x@example.com", "Pro · 还没记下名字", "记下")

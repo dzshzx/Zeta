@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -59,7 +59,7 @@ func TestPreviews(t *testing.T) {
 
 		f = newFixture()
 		f.host.current = ""
-		f.host.unknown = &acct.Account{Email: "x@example.com", Subscription: "pro"}
+		f.host.unknown = &coreapi.Account{Email: "x@example.com", Subscription: "pro"}
 		tt = page(f)
 		f.until(t, tt, "读完", f.loaded)
 		shot("unknown", tt)

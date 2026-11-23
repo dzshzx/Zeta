@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/claudecfg"
@@ -34,11 +35,12 @@ func (h *Hub) Remote(id string) *Remote {
 	}
 	conn := h.chatConn(id)
 	caller := &remoteCaller{conn: conn, dead: func() { h.post(func() { h.dropDeadConn(id, conn) }) }}
+	core := coreapi.New(caller)
 	loop := accounts.Loop{Run: h.run, Post: h.post}
-	q := accounts.NewQuota(caller, usageSource{conn}, loop, nil)
+	q := accounts.NewQuota(core, usageSource{conn}, loop, nil)
 	r := &Remote{
-		Config:   claudecfg.New(caller, x.DefaultCwd),
-		Accounts: accounts.NewService(caller, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
+		Config:   claudecfg.New(cfgCaller{caller}, x.DefaultCwd),
+		Accounts: accounts.NewService(core, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
 		Quota:    q,
 		conn:     conn,
 	}
@@ -46,39 +48,28 @@ func (h *Hub) Remote(id string) *Remote {
 	return r
 }
 
-// remoteCaller 把设置的请求交给对话连接（claudecfg.Caller、accounts.Caller）。不是 serve 答的出错（连不上）时，
+// remoteCaller 把设置的请求交给对话连接（coreapi.Caller）。不是 serve 答的出错（连不上）时，
 // 一次都没连上的连接丢掉，下次打开设置页时重新连。
 type remoteCaller struct {
 	conn *chatConn
 	dead func()
 }
 
-func (c *remoteCaller) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	m, err := asMap(params)
-	if err != nil {
-		return nil, err
-	}
-	raw, err := c.conn.Call(ctx, method, m)
+func (c *remoteCaller) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	raw, err := c.conn.Call(ctx, method, params)
 	if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
 		c.dead()
 	}
 	return raw, err
 }
 
-// asMap 把请求的参数换成连接要的 map（claudecfg、accounts 给的本来就是）。
-func asMap(params any) (map[string]any, error) {
-	switch p := params.(type) {
-	case nil:
-		return map[string]any{}, nil
-	case map[string]any:
-		return p, nil
-	}
-	data, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
-	}
-	var m map[string]any
-	return m, json.Unmarshal(data, &m)
+// cfgCaller 让参数还是 any 的 claudecfg.Caller 用 remoteCaller（claudecfg 给的本来就是 map）。claudecfg 改走 coreapi 后删掉，
+// 直接给 remoteCaller。
+type cfgCaller struct{ c *remoteCaller }
+
+func (c cfgCaller) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	m, _ := params.(map[string]any)
+	return c.c.Call(ctx, method, m)
 }
 
 // usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；都没开着进程时是 accounts.ErrNoProcess。

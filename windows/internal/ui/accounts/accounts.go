@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
@@ -19,7 +20,7 @@ type Page struct {
 	Accounts *acct.Service
 	Quota    *acct.Quota
 
-	switching, removing  acct.Account
+	switching, removing  coreapi.Account
 	askSwitch, askRemove bool
 }
 
@@ -95,7 +96,7 @@ func (p *Page) accounts(c *ui.Context) {
 }
 
 // row 是一个账号：在用的右边写「当前」（还没记下名字的给「记下」），别的给「切换」「移除」。
-func (p *Page) row(l *coui.List, a acct.Account, current bool, now time.Time) {
+func (p *Page) row(l *coui.List, a coreapi.Account, current bool, now time.Time) {
 	c := l.Context()
 	idle := p.Accounts.Working() == ""
 	row := coui.Row{Key: "account:" + a.Name, Title: a.Title(), Summary: summary(a, now)}
@@ -114,7 +115,7 @@ func (p *Page) row(l *coui.List, a acct.Account, current bool, now time.Time) {
 }
 
 // summary 是账号一行的说明：名字（和终端里 claude-switch 列的一样）、组织、套餐、过期了没有。
-func summary(a acct.Account, now time.Time) string {
+func summary(a coreapi.Account, now time.Time) string {
 	var parts []string
 	for _, s := range []string{a.Name, a.Organization, a.Plan()} {
 		if s != "" {
@@ -137,7 +138,7 @@ func note(c *ui.Context, text string) ui.Element {
 
 // Windows 画各个额度窗口（同手机版 QuotaControls 的 QuotaWindows）：名字、已用比例、细进度条、什么时候重置；
 // 被拒时先说一句，开了额外用量时最后一行。页面和小控件共用。
-func Windows(c *ui.Context, s acct.Snapshot, now time.Time) {
+func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 	s = s.At(now)
 	k := coui.Of(c)
 	ui.Column(c).FillWidth().Gap(12).Children(func() {
@@ -162,12 +163,12 @@ func Windows(c *ui.Context, s acct.Snapshot, now time.Time) {
 			if value == "" {
 				value = "已开启"
 			}
-			line(c, "额外用量（本月）", value, e.Used, acct.Normal, "")
+			line(c, "额外用量（本月）", value, e.Used, coreapi.SeverityNormal, "")
 		}
 	})
 }
 
-func line(c *ui.Context, label, value string, used *float64, sev acct.Severity, detail string) {
+func line(c *ui.Context, label, value string, used *float64, sev coreapi.Severity, detail string) {
 	t := c.Theme()
 	k := coui.Of(c)
 	ink := k.Text.Alpha(0.88 * float32(k.Text.A) / 255)
@@ -200,11 +201,11 @@ func usageBar(c *ui.Context, fraction float32, color ui.Color) ui.Element {
 }
 
 // Color 是紧张程度的颜色：紧张用 Danger，要注意用 Warning，平时用 normal。
-func Color(t *ui.Theme, sev acct.Severity, normal ui.Color) ui.Color {
+func Color(t *ui.Theme, sev coreapi.Severity, normal ui.Color) ui.Color {
 	switch sev {
-	case acct.Critical:
+	case coreapi.SeverityCritical:
 		return t.Danger
-	case acct.Warning:
+	case coreapi.SeverityWarning:
 		return t.Warning
 	}
 	return normal

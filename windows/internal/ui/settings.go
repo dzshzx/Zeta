@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
@@ -136,14 +137,14 @@ func offLabel(x sshlink.Host) string {
 }
 
 // headline 是额度里最要紧的那个窗口；没有数、这种登录没有订阅额度时 ok 为 false。
-func headline(q *acct.Quota, now time.Time) (acct.Window, bool) {
+func headline(q *acct.Quota, now time.Time) (coreapi.QuotaWindow, bool) {
 	s, ok := q.Snapshot()
 	if !ok {
-		return acct.Window{}, false
+		return coreapi.QuotaWindow{}, false
 	}
 	s = s.At(now)
 	if s.Unavailable {
-		return acct.Window{}, false
+		return coreapi.QuotaWindow{}, false
 	}
 	return s.Headline()
 }
