@@ -162,6 +162,7 @@ private fun SettingsHome(
         }
         item(key = "general") {
             PreferenceGroup(title = "通用") {
+                item { LanguageRow() }
                 item {
                     ArrowPreference(
                         title = "外观与主题",

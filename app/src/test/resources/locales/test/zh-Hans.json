@@ -1,0 +1,9 @@
+{
+  "@@locale": "zh-Hans",
+  "files": "{host} 上选了 {count, plural, other {# 个文件}}",
+  "@files": { "description": "试复数和命名参数。", "placeholders": { "count": { "type": "int" }, "host": {} } },
+  "onlyChinese": "只有中文",
+  "@onlyChinese": { "description": "英文里没有，退回中文。" },
+  "quoted": "写成 '{'名字'}' 的是字面",
+  "@quoted": { "description": "ICU 的转义：引号里的花括号照写。" }
+}

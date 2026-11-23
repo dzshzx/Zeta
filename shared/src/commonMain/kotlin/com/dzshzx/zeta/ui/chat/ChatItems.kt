@@ -492,7 +492,7 @@ fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
             modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
         ) {
             Text(
-                text = item.text,
+                text = item.said(),
                 style = COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, lineHeight = 19.sp),
                 color = colors.error,
                 modifier =
@@ -508,7 +508,7 @@ fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = item.text,
+                text = item.said(),
                 style = COUITheme.textStyles.bodyS,
                 color = colors.labelSecondary,
             )

@@ -176,6 +176,9 @@ object Schedules {
     /** 通知里那段摘要（回答的开头、Claude 上报的结论）最多多少字。 */
     const val MAX_SUMMARY = 200
 
+    /** 用户停止了这一轮时核心加的提示的种类码（核心文字表的键）：按它认，不比对文字。 */
+    private const val STOPPED_NOTICE = "noticeStopped"
+
     /**
      * 没选权限模式的任务按自动判断跑：没人确认，由 Claude Code 判断每一步放不放行，一般不用停下来等用户。
      * 通知触发的规则不同，默认逐项确认（NotifyRules.DEFAULT_MODE）：通知谁都能发。
@@ -394,9 +397,9 @@ object Schedules {
         val answer =
             tail.filterIsInstance<AnswerItem>().lastOrNull { it.text.isNotBlank() }?.text.orEmpty()
         val notices = tail.filterIsInstance<NoticeItem>()
-        val error = notices.lastOrNull { it.error }?.text
+        val error = notices.lastOrNull { it.error }?.said()
         return when {
-            notices.any { !it.error && it.text.startsWith("已停止") } ->
+            notices.any { it.code == STOPPED_NOTICE } ->
                 RunOutcome.Stopped to (Schedules.preview(answer).ifBlank { "已停止" })
             error != null -> RunOutcome.Failed to Schedules.preview(error)
             mine < 0 -> RunOutcome.Failed to "指令没有发出去"

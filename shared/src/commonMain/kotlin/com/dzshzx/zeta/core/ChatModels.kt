@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.CoreStrings
+import com.dzshzx.zeta.i18n.jsonArgs
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -130,8 +132,23 @@ data class WorkItem(override val id: String, val steps: List<WorkStep>) : ChatIt
         get() = steps.any { it.running }
 }
 
+/**
+ * 一条提示（出错、已停止等）。[code]、[args] 是核心自己说的提示的种类码和参数（核心文字表的键，docs/i18n.md），有码时按界面语言出字（[said]）； [text]
+ * 是核心附带的源语言文字，没有码（Claude Code 给的原文）或这边不认识这个码时显示它。
+ */
 @Immutable
-data class NoticeItem(override val id: String, val text: String, val error: Boolean) : ChatItem
+data class NoticeItem(
+    override val id: String,
+    val text: String,
+    val error: Boolean,
+    val code: String = "",
+    val args: JsonObject? = null,
+) : ChatItem {
+    /** 用界面语言说出来的文字。 */
+    fun said(): String =
+        code.takeIf { it.isNotEmpty() }?.let { CoreStrings.catalog.sayOrNull(it, jsonArgs(args)) }
+            ?: text
+}
 
 @Immutable
 sealed interface WorkStep {

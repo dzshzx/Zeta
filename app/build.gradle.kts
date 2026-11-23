@@ -476,6 +476,7 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.icu4j)
     robolectricRuntime(libs.robolectric.android.all)
     constraints {
         // 测试代码不直接用 Espresso，ui-test 把它带进来时才抬版本；它自己带上新版以后这条就不起作用了
@@ -532,5 +533,50 @@ androidComponents {
         assetFiles.forEach {
             variant.sources.assets?.addGeneratedSourceDirectory(it, AssetFileTask::outputDir)
         }
+    }
+}
+
+/**
+ * 文字表（docs/i18n.md）放进包里：[catalogs] 的每个目录里的 <语言>.json 放成 Java 资源 locales/<名字>/<语言>.json，shared 的
+ * Catalog 经类加载器读。两份文字表的文件同名（zh-Hans.json、en.json），所以按名字分目录放，不能把两个目录直接设成资源目录。用 Java 资源而不用
+ * assets：读它不要 Context，不带 Robolectric 的单元测试里也读得到（类路径上有）。
+ */
+abstract class CatalogResourcesTask : DefaultTask() {
+    /** 名字 → 文字表目录（只取其中的 .json；Go 代码等别的文件不放进去）。 */
+    @get:Internal abstract val catalogs: MapProperty<String, Directory>
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val files: ConfigurableFileCollection
+
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        for ((name, dir) in catalogs.get()) {
+            val json = dir.asFile.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+            check(json.isNotEmpty()) { "文字表目录 $dir 里没有 .json" }
+            json.forEach { it.copyTo(File(out, "locales/$name/${it.name}")) }
+        }
+    }
+}
+
+val catalogResources =
+    tasks.register<CatalogResourcesTask>("catalogResources") {
+        // 名字和 helper/cmd/ktlocales 的 catalogs 一致（生成的取字对象按它找文件）
+        catalogs.put("core", helperModule.dir("locales"))
+        catalogs.put("app", layout.projectDirectory.dir("src/main/locales"))
+        files.from(catalogs.map { dirs -> dirs.values.map { fileTree(it) { include("*.json") } } })
+        outputDir.set(layout.buildDirectory.dir("generated/catalogs"))
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.resources?.addGeneratedSourceDirectory(
+            catalogResources,
+            CatalogResourcesTask::outputDir,
+        )
     }
 }

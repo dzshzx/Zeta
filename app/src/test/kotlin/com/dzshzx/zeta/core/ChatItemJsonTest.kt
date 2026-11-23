@@ -73,6 +73,27 @@ class ChatItemJsonTest {
         assertEquals(listOf(CoreImage("c3", "t:0")), tool.images)
     }
 
+    /** 核心自己说的提示带种类码和参数（docs/i18n.md）：读出来、写回去不丢，按界面语言出字；别的种类的条目不读这两项。 */
+    @Test
+    fun noticesKeepTheirCodeAndArgs() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"kind":"notice","id":"n-1","text":"已停止","code":"noticeStopped","args":{"n":2}}""",
+                )
+                .jsonObject
+        val notice = chatItemOf(o) as NoticeItem
+        assertEquals("noticeStopped", notice.code)
+        assertEquals(o["args"], notice.args)
+        assertEquals("已停止", notice.said())
+        assertEquals(o, dropZero(chatItemJson(notice)))
+        val unknown =
+            Json.parseToJsonElement(
+                    """{"kind":"later","id":"x","text":"t","code":"noticeStopped"}""",
+                )
+                .jsonObject
+        assertEquals("", (chatItemOf(unknown) as NoticeItem).code)
+    }
+
     /** 另一个会话发来的消息（会话互通）：读出发信会话的名字，写回去还是同一个 peer；空串和没写都是自己发的。 */
     @Test
     fun peerMessagesKeepTheSender() {

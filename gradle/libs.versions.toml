@@ -30,6 +30,8 @@ compose-ui-test = "1.11.2"
 # ui-test 1.11 带进来的 Espresso 3.5 调 InputManager.getInstance()，SDK 37 的镜像里已经没有这个方法，测试一跑就崩：app 里用版本约束抬到 3.7。
 androidx-test-espresso = "3.7.0"
 androidx-test-core = "1.7.0"
+# 只在测试里用：单元测试出字用的 ICU（android.icu 在不带 Robolectric 的测试里是空壳），跟 Robolectric 带进来的同一版
+icu4j = "79.1"
 # 构建时从运行时依赖生成第三方清单（组件、版本、许可证、上游地址）打进 assets，许可证不在 app/build.gradle.kts 的允许名单里就构建失败
 licensee = "1.14.1"
 
@@ -66,6 +68,7 @@ roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "compose-ui-test" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
+icu4j = { group = "com.ibm.icu", name = "icu4j", version.ref = "icu4j" }
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
 
 # Compose Multiplatform 带进来的多平台版生命周期（JetBrains 发布）：在 Android 上映射到 androidx 的那份，直接写上是为了把它对齐到 androidx-lifecycle 的版本

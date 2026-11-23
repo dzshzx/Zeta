@@ -1,0 +1,5 @@
+{
+  "@@locale": "en",
+  "files": "{count, plural, one {# file} other {# files}} selected on {host}",
+  "quoted": "'{'name'}' is literal"
+}

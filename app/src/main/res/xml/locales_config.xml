@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 界面能用的语言（docs/i18n.md），系统设置的「应用语言」里列出它们；和 UiLanguage.supported 一致 -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="zh-Hans" />
+    <locale android:name="en" />
+</locale-config>

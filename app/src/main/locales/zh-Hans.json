@@ -1,0 +1,11 @@
+{
+  "@@locale": "zh-Hans",
+  "settingsLanguage": "语言",
+  "@settingsLanguage": {
+    "description": "设置首页「通用」一组里选界面语言的那一行。"
+  },
+  "settingsLanguageSystem": "跟随系统",
+  "@settingsLanguageSystem": {
+    "description": "语言选项：用系统语言，系统语言不是简体中文和英文时用简体中文。"
+  }
+}

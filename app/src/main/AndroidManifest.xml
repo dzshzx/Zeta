@@ -53,10 +53,12 @@
         </intent>
     </queries>
     <application
+        android:name=".ZetaApp"
         android:allowBackup="false"
         android:description="@string/xposed_description"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Zeta">
@@ -124,6 +126,7 @@
             android:name=".phone.ZetaAccessibilityService"
             android:exported="true"
             android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -178,6 +181,7 @@
             android:name=".core.notify.ZetaNotificationListener"
             android:exported="true"
             android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

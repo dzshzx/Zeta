@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.JsonObject
@@ -125,15 +126,44 @@ class HelperServeCallTest {
         )
     }
 
-    /** 给了设备名时连上先发 core.client 报它，排在别的请求前面（假 serve 的 first 答回它收到的第一行）；它的应答不算问题。 */
+    /** 连上先发 core.client 报设备名和界面语言，排在别的请求前面（假 serve 的 first 答回它收到的第一行）；它的应答不算问题。 */
     @Test
-    fun reportsTheDeviceFirst() {
+    fun reportsTheDeviceAndLanguageFirst() {
         val s = serve(device = "Xiaomi 17")
         val first = s.call("first", JsonObject(emptyMap())) as JsonObject
         assertEquals("core.client", first.str("method"))
         assertEquals("Xiaomi 17", first.str("device"))
+        assertEquals(UiLanguage.SOURCE, first.str("lang"))
         assertEquals("", problems.poll(5, TimeUnit.SECONDS))
         assertNull(problems.poll())
+    }
+
+    /** 没有设备名的连接（会话列表这类）也报语言，只是不带 device：核心只更新语言，不算报了设备。 */
+    @Test
+    fun reportsTheLanguageWithoutADevice() {
+        val first = serve().call("first", JsonObject(emptyMap())) as JsonObject
+        assertEquals("core.client", first.str("method"))
+        assertNull(first["device"])
+        assertEquals(UiLanguage.SOURCE, first.str("lang"))
+    }
+
+    /** 换了界面语言：[HelperServe.introduceAll] 让开着的连接马上再报一次（假 serve 的 client 答回它收到的最后一个 core.client）。 */
+    @Test
+    fun introduceAllReportsTheNewLanguage() {
+        val s = serve(device = "Xiaomi 17")
+        assertEquals(
+            UiLanguage.SOURCE,
+            (s.call("client", JsonObject(emptyMap())) as JsonObject).str("lang"),
+        )
+        try {
+            UiLanguage.current = "en"
+            HelperServe.introduceAll()
+            val again = s.call("client", JsonObject(emptyMap())) as JsonObject
+            assertEquals("en", again.str("lang"))
+            assertEquals("Xiaomi 17", again.str("device"))
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
     }
 
     @Test
@@ -160,8 +190,10 @@ class HelperServeCallTest {
             while IFS= read -r line; do
               id=${'$'}{line#*\"id\":}; id=${'$'}{id%%,*}
               [ -n "${'$'}first" ] || first=${'$'}line
+              case ${'$'}line in *'"method":"core.client"'*) client=${'$'}line ;; esac
               case ${'$'}line in
                 *'"method":"first"'*) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":%s}\n' "${'$'}id" "${'$'}first" ;;
+                *'"method":"client"'*) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":%s}\n' "${'$'}id" "${'$'}client" ;;
                 *'"method":"echo"'*) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":%s}\n' "${'$'}id" "${'$'}line" ;;
                 *'"method":"fail"'*)
                   printf '{"type":"zeta_reply","id":%s,"ok":false,"error":"不行","code":"nope"}\n' "${'$'}id"

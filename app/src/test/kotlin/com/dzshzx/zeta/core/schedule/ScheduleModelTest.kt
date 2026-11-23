@@ -461,9 +461,17 @@ class ScheduleModelTest {
             RunOutcome.Failed to "Claude Code 进程已退出（1）",
             Schedules.outcomeOf(failed, prompt),
         )
+        // 停止按核心给的种类码认，不比对文字
         val stopped =
-            earlier + listOf(UserItem("u1", prompt), NoticeItem("n1", "已停止", error = false))
+            earlier +
+                listOf(
+                    UserItem("u1", prompt),
+                    NoticeItem("n1", "Stopped", error = false, code = "noticeStopped"),
+                )
         assertEquals(RunOutcome.Stopped to "已停止", Schedules.outcomeOf(stopped, prompt))
+        val saysStopped =
+            earlier + listOf(UserItem("u1", prompt), NoticeItem("n1", "已停止", error = false))
+        assertEquals(RunOutcome.Done, Schedules.outcomeOf(saysStopped, prompt).first)
         // 进程没起来，消息根本没进列表：不能把上一次的回答当成这次的
         val unsent = earlier + NoticeItem("n1", "启动失败：no su", error = true)
         assertEquals(RunOutcome.Failed to "启动失败：no su", Schedules.outcomeOf(unsent, prompt))

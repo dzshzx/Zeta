@@ -71,7 +71,7 @@ internal object ResultCardPolicy {
         for (item in items.asReversed()) {
             when (item) {
                 is UserItem -> break
-                is NoticeItem -> if (item.error) return Outcome(item.text, failed = true)
+                is NoticeItem -> if (item.error) return Outcome(item.said(), failed = true)
                 is AnswerItem ->
                     if (item.text.isNotBlank()) return Outcome(item.text.trim(), failed = false)
                 else -> Unit

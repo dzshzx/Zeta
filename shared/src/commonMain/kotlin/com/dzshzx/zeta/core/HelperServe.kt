@@ -1,7 +1,9 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -31,7 +33,7 @@ fun interface ServeRequests {
 /**
  * 到一台主机上 `zeta-helper serve` 的常驻连接（协议见 `helper/serve.go`）：一条连接收那边推来的消息，不为每个操作各起一次命令。
  *
- * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后交给 [onHello]（每次连上都给，在读线程上调用），给了 [device] 时先报设备名，把
+ * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后交给 [onHello]（每次连上都给，在读线程上调用），先发 core.client 报设备名和界面语言，把
  * [subscriptions] 里的方法各发一次，之后每行推来的消息交给 [onMessage] （在读线程上调用）。连上过以后断了（网络、那边的进程没了）按 [backoff]
  * 隔一会儿重连，重连后照样再订阅一遍， 所以 [onMessage] 先收到的总是整份的；第一次就没连上的不重试，报了原因就停。每次连上或断开都经 [onProblem] 报一声：连上是
  * null， 断开、连不上是给人看的原因。 每 [pingMs] 发一次 ping，那边 90 秒收不到任何一行就自己退出（网络断了而 SSH 还没发觉时，不在主机上留下没人用的进程）。
@@ -47,12 +49,17 @@ class HelperServe(
     private val onProblem: (String?) -> Unit,
     private val onHello: (JsonObject) -> Unit = {},
     /**
-     * 这个客户端是哪台设备（手机是系统设置里的设备名）：不为 null 时每次连上都先发 core.client 报给核心，排在订阅和别的请求前面。核心记下最近是哪台在用哪个对话，
-     * 别的包看到这个对话被占着时说得出在哪台设备上（docs/core.md「协议」）。核心不比这边的 serve 旧（serve 让旧核心交班），总认得它。
+     * 这个客户端是哪台设备（手机是系统设置里的设备名）：每次连上都先发 core.client 报给核心，排在订阅和别的请求前面。核心记下最近是哪台在用哪个对话，
+     * 别的包看到这个对话被占着时说得出在哪台设备上（docs/core.md「协议」）；为 null 时不报设备，只报语言。核心不比这边的 serve 旧（serve
+     * 让旧核心交班），总认得它。
      */
     private val device: String? = null,
     private val backoff: (attempt: Int) -> Long = ::reconnectDelay,
     private val pingMs: Long = PING_MS,
+    /**
+     * 界面现在的语言，和 [device] 一起在 core.client 里报（docs/i18n.md）：核心给这条连接的应答按它出字。换语言后 [introduceAll] 再报一次。
+     */
+    private val lang: () -> String = { UiLanguage.current },
 ) : ServeRequests {
     /** 起好的 serve 进程和结束它的办法（连同那边派生的进程）。 */
     class Opened(val process: Process, val kill: (Process) -> Unit)
@@ -71,11 +78,21 @@ class HelperServe(
     @Volatile private var closed = false
     private var nextId = 0L
 
-    /** 读线程：[onMessage]、[onProblem] 都在它上面调，应答也靠它读，所以它不能等应答。 */
-    private val reader: Thread = thread(name = "zeta-serve-$name", isDaemon = true) { loop() }
+    /** 读线程：[onMessage]、[onProblem] 都在它上面调，应答也靠它读，所以它不能等应答。不再重连时从 [live] 里拿掉。 */
+    private val reader: Thread =
+        live.add(this).let {
+            thread(name = "zeta-serve-$name", isDaemon = true) {
+                try {
+                    loop()
+                } finally {
+                    live.remove(this)
+                }
+            }
+        }
 
     /** 不再要这条连接：结束那边的 serve（它读到输入结束也会自己退出），之后不再回调。等着应答的 [call] 都报错。 */
     fun close() {
+        live.remove(this)
         val opened =
             synchronized(lock) {
                 closed = true
@@ -223,15 +240,30 @@ class HelperServe(
 
     /** 收到招呼：订阅、开始 ping，之后这个进程能接 [call] 的请求。 */
     private fun greet(process: Process) {
-        device?.let {
-            send(process, "core.client", JsonObject(mapOf("device" to JsonPrimitive(it))))
-        }
+        // 排在能 call 之前：这条连接上的第一条消息就记在这台设备名下、按这个语言出字
+        send(process, "core.client", introduction())
         subscriptions.forEach { send(process, it) }
         startPings(process)
         synchronized(lock) {
             if (!closed) ready = process
             lock.notifyAll()
         }
+    }
+
+    /** core.client 的参数：设备名（给了的话）和界面语言。 */
+    private fun introduction(): JsonObject =
+        JsonObject(
+            listOfNotNull(
+                    device?.let { "device" to JsonPrimitive(it) },
+                    "lang" to JsonPrimitive(lang()),
+                )
+                .toMap(),
+        )
+
+    /** 再报一次 core.client（界面换了语言时）：连着时马上发，没连着时等下次连上照常报。写连接可能卡在网络上，别在主线程上调。 */
+    fun introduce() {
+        val process = synchronized(lock) { ready } ?: return
+        send(process, "core.client", introduction())
     }
 
     private fun handle(o: JsonObject) {
@@ -300,6 +332,12 @@ class HelperServe(
         const val CALL_TIMEOUT_MS = 60_000L
 
         private const val DROPPED = "和 zeta-helper serve 的连接断了，没收到应答"
+
+        /** 还会重连的连接：换了界面语言时 [introduceAll] 让它们都再报一次 core.client。 */
+        private val live: MutableSet<HelperServe> = ConcurrentHashMap.newKeySet()
+
+        /** 让所有还会重连的连接再报一次 core.client（界面换了语言时调）。会写连接，别在主线程上调。 */
+        fun introduceAll() = live.forEach { it.introduce() }
 
         private val json = Json {
             ignoreUnknownKeys = true

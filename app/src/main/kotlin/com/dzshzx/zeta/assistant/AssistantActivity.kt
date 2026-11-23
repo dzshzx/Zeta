@@ -331,7 +331,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             pending = null
             if (!started.busy) {
                 problem =
-                    started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.text
+                    started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.said()
                         ?: "没有发出去"
                 return@launch
             }

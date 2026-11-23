@@ -50,6 +50,8 @@ fun chatItemJson(item: ChatItem): JsonObject =
                 put("id", item.id)
                 put("text", item.text)
                 put("error", item.error)
+                put("code", item.code)
+                put("args", item.args ?: JsonNull)
             }
         is WorkItem ->
             buildJsonObject {
@@ -160,6 +162,14 @@ fun chatItemOf(o: JsonObject, conv: String = ""): ChatItem {
                 o.arr("steps").orEmpty().mapNotNull {
                     (it as? JsonObject)?.let { s -> workStepOf(s, conv) }
                 },
+            )
+        "notice" ->
+            NoticeItem(
+                id,
+                o.str("text").orEmpty(),
+                o.bool("error") == true,
+                code = o.str("code").orEmpty(),
+                args = o["args"] as? JsonObject,
             )
         else -> NoticeItem(id, o.str("text").orEmpty(), o.bool("error") == true)
     }

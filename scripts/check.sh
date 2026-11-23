@@ -111,19 +111,27 @@ check_go_module windows windows
 
 # 文字表（docs/i18n.md）：mygo 的核对只把解析不了、占位对不上算错，英文缺了某句只警告、界面显示中文，这里警告也算失败；
 # 再重新生成取字代码，和文字表对不上时最后的「已跟踪文件不变」会报出来。mygo 命令是桌面版的 tool，从 windows/ 调。
+# check_catalogs <目录> [go]：目录里的 mygo.json 指着文字表；带 go 时再用 mygo 重新生成 Go 的取字代码。
 check_catalogs() {
   local out
   if ! out=$(cd windows && go tool mygo i18n check "../$1" 2>&1) || grep -q 'warning:' <<<"$out"; then
     printf 'gate: %s 的文字表没过核对：\n%s\n' "$1" "$out" >&2
     exit 1
   fi
+  [[ ${2:-} == go ]] || return 0
   if ! out=$(cd windows && go tool mygo generate "../$1" 2>&1); then
     printf 'gate: %s 的取字代码生成失败：\n%s\n' "$1" "$out" >&2
     exit 1
   fi
 }
-check_catalogs windows
-check_catalogs helper
+check_catalogs windows go
+check_catalogs helper go
+check_catalogs app
+# 手机版的 Kotlin 取字代码（核心的和手机版自己的文字表各一份，生成到 shared 的 com.dzshzx.zeta.i18n）
+if ! out=$(cd helper && go run ./cmd/ktlocales 2>&1); then
+  printf 'gate: 手机版的取字代码生成失败：\n%s\n' "$out" >&2
+  exit 1
+fi
 
 results=app/build/test-results/testDebugUnitTest
 if [[ -n $skip_gradle ]]; then

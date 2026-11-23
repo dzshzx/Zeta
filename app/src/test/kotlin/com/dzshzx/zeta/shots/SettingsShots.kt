@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -10,6 +11,8 @@ import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import com.dzshzx.zeta.ui.settings.SettingsBackupScreen
@@ -149,6 +152,22 @@ class SettingsShots : ShotTest() {
         shoot(
             "settings-bottom",
             prepare = { repeat(6) { onRoot().performTouchInput { swipeUp() } } },
+        ) {
+            SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
+        }
+    }
+
+    /** 设置首页「通用」一组最上面的「语言」：简体中文和英文界面各一张（英文时这一行和核心的字换成英文，别的字还没进文字表）。 */
+    @Test fun languageChinese() = shootLanguage(UiLanguage.SOURCE)
+
+    @Test fun languageEnglish() = shootLanguage(UiLanguage.ENGLISH)
+
+    private fun shootLanguage(lang: String) {
+        val hub = Fixtures.readyHub(app)
+        UiLanguage.current = lang
+        shoot(
+            "settings-language-$lang",
+            prepare = { onNodeWithText(Strings.settingsLanguage()).scrollIntoView() },
         ) {
             SettingsScreen(hub = hub, onBack = {}, onOpenLinux = {}, onShowChat = {})
         }
