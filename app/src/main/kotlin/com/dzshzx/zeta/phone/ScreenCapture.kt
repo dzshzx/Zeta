@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.fromBitmap
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.offerIntake
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.MainActivity
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -53,7 +54,10 @@ object ScreenCapture {
                     "display=$display shot=${shot?.width}x${shot?.height} attached=${attachment != null}",
                 )
                 if (attachment == null) {
-                    main.post { Toast.makeText(app, "截屏没有成功", Toast.LENGTH_SHORT).show() }
+                    main.post {
+                        Toast.makeText(app, Strings.phoneScreenshotFailed(), Toast.LENGTH_SHORT)
+                            .show()
+                    }
                     return@thread
                 }
                 // 先挂上，再打开界面：主线程上这一条排在界面启动之前

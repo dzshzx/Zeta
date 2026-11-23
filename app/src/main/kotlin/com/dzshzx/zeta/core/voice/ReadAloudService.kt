@@ -15,6 +15,7 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Notifier
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.i18n.Strings
 
 /** 朗读期间的前台服务（媒体播放类）：只在出声期间存在，Zeta 退到后台、锁屏后朗读不被系统冻结。 朗读本身由 [ReadAloud] 管，通知上的“停止”交回给它。 */
 class ReadAloudService : Service() {
@@ -43,7 +44,11 @@ class ReadAloudService : Service() {
     private fun notification(): Notification {
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(
-                NotificationChannel(CHANNEL, "朗读", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(
+                    CHANNEL,
+                    Strings.voiceReadAloudChannel(),
+                    NotificationManager.IMPORTANCE_LOW,
+                ),
             )
         val stop =
             PendingIntent.getService(
@@ -54,14 +59,14 @@ class ReadAloudService : Service() {
             )
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setContentTitle(AppVariant.current.notificationTitle("正在朗读回答"))
+            .setContentTitle(AppVariant.current.notificationTitle(Strings.voiceReadingAnswer()))
             .setContentIntent(Notifier.openAppIntent(this))
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .addAction(
                 Notification.Action.Builder(
                         Icon.createWithResource(this, R.drawable.ic_stat_zeta),
-                        "停止",
+                        Strings.voiceStop(),
                         stop,
                     )
                     .build(),

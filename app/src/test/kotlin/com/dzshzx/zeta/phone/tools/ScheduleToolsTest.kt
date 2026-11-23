@@ -8,8 +8,10 @@ import com.dzshzx.zeta.core.schedule.RunReport
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.core.schedule.ScheduledTask
+import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDateTime
@@ -21,6 +23,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -124,6 +127,30 @@ class ScheduleToolsTest {
                     ),
                 ),
         )
+    }
+
+    /** 界面是英文时，交给 Claude 的结果里借用的规则说明仍是源语言（UiLanguage.forClaude）。 */
+    @Test
+    fun repliesToClaudeStayInTheSourceLanguage() {
+        ScheduleStore.update(app) { listOf(daily) }
+        val zh = Schedules.describe(daily.rule)
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            val en = Schedules.describe(daily.rule)
+            assertNotEquals(zh, en)
+            val listed =
+                text(
+                    ScheduleTools.call(
+                        CallContext(app, Backends.LOCAL),
+                        "list_scheduled_tasks",
+                        args("{}"),
+                    ),
+                )
+            assertTrue(listed, zh in listed && en !in listed)
+            assertEquals(UiLanguage.ENGLISH, UiLanguage.current)
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
     }
 
     @Test

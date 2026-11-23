@@ -24,6 +24,7 @@ import com.dzshzx.zeta.core.CwdProblem
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -45,29 +46,6 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** 「加主机」下面的说明：两种连法各要什么、多花什么，默认用哪种。数是真机上量的（每条命令：tools/phone-tests/remote-latency.sh；ssh 进程）。 */
-private const val ViaFooter =
-    "两种连法：经手机 Debian，用那边 ~/.ssh 的密钥和配置（别名、跳板），不用往设备上另加公钥，" +
-        "每条命令多约 50 毫秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台设备。" +
-        "有 Debian 时默认经 Debian，加好以后在设备页里能改。"
-
-private const val DirectOnlyFooter = "手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台设备，再输入地址。"
-
-/** 那台设备要什么、对话在哪跑。 */
-private const val HostingFooter =
-    "那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。"
-
-/** 手机上直连用的密钥：私钥在手机的密钥库里。 */
-private const val KeyFooter =
-    "Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。" +
-        "加设备时记下对方的主机指纹，以后只认它。"
-
-private const val BusyMessage = "这台设备上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。"
-
-/** 断开时这台设备上有对话在进行：它们在那边接着跑。 */
-private const val DisconnectBusyMessage =
-    "这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。"
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
 
@@ -116,16 +94,20 @@ fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
             probing = null
             notice =
                 when (probe) {
-                    is RemoteHosts.Probe.Failed -> ProbeNotice("没有加上「$shownTarget」", probe.reason)
+                    is RemoteHosts.Probe.Failed ->
+                        ProbeNotice(Strings.setupRemoteAddFailed(shownTarget), probe.reason)
                     is RemoteHosts.Probe.HostKeyChanged ->
-                        ProbeNotice("没有加上「$shownTarget」", "主机指纹不对")
+                        ProbeNotice(
+                            Strings.setupRemoteAddFailed(shownTarget),
+                            Strings.setupRemoteFingerprintMismatch(),
+                        )
                     is RemoteHosts.Probe.Ok -> addProbedHost(hub, target, via, probe)
                 }
         }
     }
 
     CouiPage(
-        title = "添加远程设备",
+        title = Strings.setupRemoteAddTitle(),
         onBack = onBack,
         dialogs = {
             TypeAddressDialog(
@@ -146,9 +128,9 @@ fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
             val authorized = key?.getOrNull()?.authorizedKey
             ConfirmDialog(
                 show = showingKey,
-                title = "Zeta 的公钥",
+                title = Strings.setupRemotePublicKey(),
                 summary = authorized,
-                confirmText = "复制",
+                confirmText = Strings.setupRemoteCopy(),
                 onConfirm = {
                     showingKey = false
                     authorized?.let { clipboard.setText(AnnotatedString(it)) }
@@ -210,14 +192,16 @@ private fun addProbedHost(
         )
     hub.updateRemoteHosts(hub.settings.remoteHosts + host)
     if (!hub.usable(hub.current.backend)) hub.selectBackend(host.id)
-    val fingerprint = host.fingerprint?.let { "\n主机指纹 $it" }.orEmpty()
+    val fingerprint =
+        host.fingerprint?.let { "\n" + Strings.setupRemoteFingerprintLine(it) }.orEmpty()
     return ProbeNotice(
-        "已加上「${host.name}」",
+        Strings.setupRemoteAdded(host.name),
         probeSummary(probe) +
             " · " +
             via.label +
             fingerprint +
-            "\n在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台设备里。",
+            "\n" +
+            Strings.setupRemoteAddedHint(),
     )
 }
 
@@ -239,15 +223,14 @@ private fun TypeAddressDialog(
     val viaDebian = via == RemoteHost.Via.Debian
     ConfirmDialog(
         show = show,
-        title = "输入地址",
+        title = Strings.setupRemoteTypeAddress(),
         summary =
             when {
-                viaDebian ->
-                    "经手机 Debian 的 OpenSSH 连，用那边 ~/.ssh 的密钥。" + RemoteHosts.DEBIAN_TARGET_HINT
-                keyReady -> "Zeta 用自己的密钥直连，先把它的公钥加进那台设备。" + RemoteHosts.DIRECT_TARGET_HINT
-                else -> "读不到 Zeta 的密钥，直连用不了。"
+                viaDebian -> Strings.setupRemoteTypeViaDebian(RemoteHosts.DEBIAN_TARGET_HINT)
+                keyReady -> Strings.setupRemoteTypeDirect(RemoteHosts.DIRECT_TARGET_HINT)
+                else -> Strings.setupRemoteNoKey()
             },
-        confirmText = "连接并添加",
+        confirmText = Strings.setupRemoteConnectAndAdd(),
         confirmEnabled = target != null && idle && (viaDebian || keyReady),
         onConfirm = { onConfirm(target) },
         onDismissRequest = onDismiss,
@@ -269,7 +252,7 @@ private fun TypeAddressDialog(
             DialogTextField(
                 value = draft,
                 onValueChange = onDraftChange,
-                hint = if (viaDebian) "user@example.com 或别名" else "user@example.com",
+                hint = if (viaDebian) Strings.setupRemoteAddressHintAlias() else "user@example.com",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
         }
@@ -285,13 +268,14 @@ private fun AddHostGroup(
     onType: () -> Unit,
 ) {
     PreferenceGroup(
-        title = "加设备",
-        footer = (if (debian) ViaFooter else DirectOnlyFooter) + HostingFooter,
+        title = Strings.setupRemoteAddGroup(),
+        footer =
+            if (debian) Strings.setupRemoteAddFooterVia() else Strings.setupRemoteAddFooterDirect(),
     ) {
         if (debian) {
             item {
                 ArrowPreference(
-                    title = CONFIG_TITLE,
+                    title = Strings.setupRemoteFromConfig(),
                     summary = connecting(adding, fromConfig = true) ?: RemoteHost.Via.Debian.label,
                     enabled = adding == null,
                     onClick = onChooseAlias,
@@ -300,7 +284,7 @@ private fun AddHostGroup(
         }
         item {
             ArrowPreference(
-                title = "输入地址",
+                title = Strings.setupRemoteTypeAddress(),
                 summary = connecting(adding, fromConfig = false),
                 enabled = adding == null,
                 onClick = onType,
@@ -313,23 +297,25 @@ private fun AddHostGroup(
 private fun connecting(adding: Probing?, fromConfig: Boolean): String? =
     adding
         ?.takeIf { it.fromConfig == fromConfig }
-        ?.let { "正在连接 ${RemoteHosts.displayTarget(it.target)}…" }
-
-/** 「从 ~/.ssh/config 选」那一行和那一页的标题。 */
-private const val CONFIG_TITLE = "从 ~/.ssh/config 选"
+        ?.let { Strings.setupRemoteConnectingTo(RemoteHosts.displayTarget(it.target)) }
 
 /** 「Zeta 直连用的密钥」一组：公钥的指纹，点开看整行、复制。 */
 @Composable
 private fun KeyGroup(key: Result<SshKey>?, onShow: () -> Unit) {
-    PreferenceGroup(title = "Zeta 直连用的密钥", footer = KeyFooter) {
+    PreferenceGroup(
+        title = Strings.setupRemoteKeyGroup(),
+        footer = Strings.setupRemoteKeyFooter(),
+    ) {
         item {
             BasicComponent(
-                title = "Zeta 的公钥",
+                title = Strings.setupRemotePublicKey(),
                 summary =
                     when {
-                        key == null -> "正在读…"
+                        key == null -> Strings.setupRemoteReading()
                         key.isFailure ->
-                            "读不到 Zeta 的密钥：" + key.exceptionOrNull()?.message.orEmpty().take(120)
+                            Strings.setupRemoteKeyError(
+                                key.exceptionOrNull()?.message.orEmpty().take(120),
+                            )
                         else -> SshKey.ALGORITHM + " · " + key.getOrNull()?.fingerprint
                     },
                 enabled = key?.isSuccess == true,
@@ -349,7 +335,9 @@ private fun rememberConfigHosts(hub: ConversationHub): Result<List<String>>? {
             withContext(Dispatchers.IO) {
                 if (local == null)
                     Result.failure(
-                        IllegalStateException(hub.unavailable(Backends.LOCAL) ?: "手机上的 Debian 没就绪"),
+                        IllegalStateException(
+                            hub.unavailable(Backends.LOCAL) ?: Strings.setupRemoteDebianNotReady(),
+                        ),
                     )
                 else runCatching { RemoteHosts.readAliases(local) }
             }
@@ -366,27 +354,33 @@ private fun SshConfigHostsScreen(
     onBack: () -> Unit,
 ) {
     val read = rememberConfigHosts(hub)
-    CouiPage(title = CONFIG_TITLE, onBack = onBack) {
+    CouiPage(title = Strings.setupRemoteFromConfig(), onBack = onBack) {
         item(key = "aliases") {
             val choices = read?.getOrNull()?.filter { it !in known && it != "localhost" }
-            PreferenceGroup(
-                footer =
-                    "手机 Debian 里 ~/.ssh/config 和 config.local 的 Host 行里的主机，带通配符的、已经加过的不列。" +
-                        "选一台，经 Debian 的 OpenSSH 连一次，连上了才加。",
-            ) {
+            PreferenceGroup(footer = Strings.setupRemoteConfigFooter()) {
                 when {
                     read == null ->
-                        item { BasicComponent(title = "正在读 ~/.ssh/config…", enabled = false) }
+                        item {
+                            BasicComponent(
+                                title = Strings.setupRemoteConfigReading(),
+                                enabled = false,
+                            )
+                        }
                     choices == null ->
                         item {
                             BasicComponent(
-                                title = "读不到 ~/.ssh/config",
+                                title = Strings.setupRemoteConfigUnreadable(),
                                 summary = read.exceptionOrNull()?.message,
                                 enabled = false,
                             )
                         }
                     choices.isEmpty() ->
-                        item { BasicComponent(title = "~/.ssh/config 里没有别的主机", enabled = false) }
+                        item {
+                            BasicComponent(
+                                title = Strings.setupRemoteConfigEmpty(),
+                                enabled = false,
+                            )
+                        }
                     else ->
                         choices.forEach { alias ->
                             item { ArrowPreference(title = alias, onClick = { onPick(alias) }) }
@@ -443,7 +437,7 @@ fun RemoteHostScreen(
         val target = RemoteHosts.targetFor(shown.target, via)
         val refused = switchRefusal(hub, id, shown.target, target, via)
         if (refused != null || target == null) {
-            notice = ProbeNotice("没有改成${via.label}", refused.orEmpty())
+            notice = ProbeNotice(Strings.setupRemoteSwitchFailed(via.label), refused.orEmpty())
             return
         }
         switching = via
@@ -478,7 +472,7 @@ fun RemoteHostScreen(
         changedKey = null
         if (fresh != null) {
             save { it.copy(hostKey = fresh) }
-            check = "已改认新的主机指纹，再检查一次连接"
+            check = Strings.setupRemoteTrusted()
         }
     }
 
@@ -490,12 +484,12 @@ fun RemoteHostScreen(
             DeviceNameDialog(hub, id, show = renaming, onDismiss = { renaming = false })
             TextInputDialog(
                 show = cwdEditing,
-                title = "默认工作目录",
-                summary = "在这台设备上开新对话时的工作目录，~ 是 ${shown.home}",
+                title = Strings.setupDefaultCwd(),
+                summary = Strings.setupRemoteCwdSummary(shown.home),
                 value = draft,
                 onValueChange = { draft = it },
                 label = shown.home,
-                confirmText = "确定",
+                confirmText = Strings.setupOk(),
                 confirmEnabled = cwd != null,
                 onConfirm = {
                     // 先看那台上进不进得去：进不去就留着对话框让用户改，不存一个开不了对话的目录
@@ -514,11 +508,13 @@ fun RemoteHostScreen(
             )
             ConfirmDialog(
                 show = changedKey != null,
-                title = "主机指纹变了",
+                title = Strings.setupRemoteFingerprintChanged(),
                 summary =
-                    "记下的：${shown.fingerprint}\n现在的：${lastChangedKey?.let(RemoteHosts::fingerprint)}\n" +
-                        "确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。",
-                confirmText = "改认新的",
+                    Strings.setupRemoteFingerprintChangedSummary(
+                        "${shown.fingerprint}",
+                        "${lastChangedKey?.let(RemoteHosts::fingerprint)}",
+                    ),
+                confirmText = Strings.setupRemoteTrustNew(),
                 destructive = true,
                 onConfirm = ::trustChangedKey,
                 onDismissRequest = { changedKey = null },
@@ -526,9 +522,9 @@ fun RemoteHostScreen(
             DisconnectDialog(hub, shown, show = disconnecting) { disconnecting = false }
             ConfirmDialog(
                 show = removing,
-                title = "删掉「${shown.name}」？",
-                summary = "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动；它上面正开着的对话会断开。",
-                confirmText = "删掉",
+                title = Strings.setupRemoteRemoveTitle(shown.name),
+                summary = Strings.setupRemoteRemoveSummary(),
+                confirmText = Strings.setupRemoteRemove(),
                 destructive = true,
                 onConfirm = {
                     removing = false
@@ -569,7 +565,9 @@ fun RemoteHostScreen(
             )
         }
         item(key = "remove") {
-            PreferenceGroup { item { DangerRow("删掉这台设备") { removing = true } } }
+            PreferenceGroup {
+                item { DangerRow(Strings.setupRemoteRemoveRow()) { removing = true } }
+            }
         }
     }
 }
@@ -589,9 +587,9 @@ private fun DisconnectDialog(
 ) {
     ConfirmDialog(
         show = show,
-        title = "断开「${host.name}」？",
-        summary = DisconnectBusyMessage,
-        confirmText = "断开",
+        title = Strings.setupRemoteDisconnectTitle(host.name),
+        summary = Strings.setupRemoteDisconnectBusy(),
+        confirmText = Strings.setupRemoteDisconnect(),
         onConfirm = {
             onDismiss()
             hub.setConnected(host.id, false)
@@ -609,12 +607,10 @@ private fun switchRefusal(
     via: RemoteHost.Via,
 ): String? =
     when {
-        target == null ->
-            "「$current」是手机 Debian 的 ~/.ssh/config 里的别名，Zeta 直连不读那份配置。" +
-                "要直连，回上一页用「输入地址」另加一台，地址写成 用户@主机[:端口]。"
+        target == null -> Strings.setupRemoteAliasNoDirect(current)
         via == RemoteHost.Via.Debian && !hub.usable(Backends.LOCAL) ->
-            hub.unavailable(Backends.LOCAL) ?: "手机上的 Debian 没就绪"
-        hub.hostWorking(id) -> BusyMessage
+            hub.unavailable(Backends.LOCAL) ?: Strings.setupRemoteDebianNotReady()
+        hub.hostWorking(id) -> Strings.setupRemoteBusy()
         else -> null
     }
 
@@ -630,16 +626,28 @@ private fun switchNotice(
         is RemoteHosts.Probe.Ok ->
             if (hub.changeVia(id, via, target, probe.hostKey)) {
                 ProbeNotice(
-                    "已改成${via.label}",
+                    Strings.setupRemoteSwitched(via.label),
                     probeSummary(probe) +
-                        probe.hostKey?.let { "\n主机指纹 " + RemoteHosts.fingerprint(it) }.orEmpty() +
-                        "\n这台设备上闲着的对话，下次发消息时经新的连法接上。",
+                        probe.hostKey
+                            ?.let(RemoteHosts::fingerprint)
+                            ?.let { "\n" + Strings.setupRemoteFingerprintLine(it) }
+                            .orEmpty() +
+                        "\n" +
+                        Strings.setupRemoteSwitchedIdle(),
                 )
             } else {
-                ProbeNotice("没有改成${via.label}", BusyMessage)
+                ProbeNotice(Strings.setupRemoteSwitchFailed(via.label), Strings.setupRemoteBusy())
             }
-        is RemoteHosts.Probe.Failed -> ProbeNotice("没有改成${via.label}", "按新的连法没连上：" + probe.reason)
-        is RemoteHosts.Probe.HostKeyChanged -> ProbeNotice("没有改成${via.label}", "主机指纹不对")
+        is RemoteHosts.Probe.Failed ->
+            ProbeNotice(
+                Strings.setupRemoteSwitchFailed(via.label),
+                Strings.setupRemoteSwitchUnreachable(probe.reason),
+            )
+        is RemoteHosts.Probe.HostKeyChanged ->
+            ProbeNotice(
+                Strings.setupRemoteSwitchFailed(via.label),
+                Strings.setupRemoteFingerprintMismatch(),
+            )
     }
 
 private fun List<RemoteHost>.replacing(id: String, change: (RemoteHost) -> RemoteHost) = map {
@@ -654,15 +662,15 @@ private fun checkMessage(
     onRefresh: (RemoteHosts.Probe.Ok) -> Unit,
 ): String =
     when (probe) {
-        is RemoteHosts.Probe.Failed -> "没连上：" + probe.reason
+        is RemoteHosts.Probe.Failed -> Strings.setupRemoteCheckFailed(probe.reason)
         is RemoteHosts.Probe.HostKeyChanged -> {
             onKeyChanged(probe.hostKey)
-            "没连上：主机指纹和记下的不一样"
+            Strings.setupRemoteCheckFingerprint()
         }
         is RemoteHosts.Probe.Ok -> {
             // 家目录变了（换了用户）就跟着改，默认工作目录还在原来家目录下的一起换；主机名变了（改过名、重装过）也跟着改
             if (probe.home != host.home || probe.hostname != host.hostname) onRefresh(probe)
-            "连上了：" + probeSummary(probe)
+            Strings.setupRemoteCheckOk(probeSummary(probe))
         }
     }
 
@@ -672,7 +680,8 @@ private fun CheckGroup(check: String?, checking: Boolean, switching: Boolean, on
     PreferenceGroup(footer = check) {
         item {
             BasicComponent(
-                title = if (checking) "正在连接…" else "检查连接",
+                title =
+                    if (checking) Strings.setupRemoteConnecting() else Strings.setupRemoteCheck(),
                 enabled = !checking && !switching,
                 onClick = onCheck,
             )
@@ -697,8 +706,8 @@ private fun ViaChoice(
     onSwitch: (RemoteHost.Via) -> Unit,
 ) {
     OverlayDropdownPreference(
-        title = "连接方式",
-        summary = switching?.let { "正在${it.label}连接…" },
+        title = Strings.setupRemoteVia(),
+        summary = switching?.let { Strings.setupRemoteSwitching(it.label) },
         items = Vias.map { it.label },
         selectedIndex = Vias.indexOf(host.via),
         enabled = enabled,
@@ -720,11 +729,13 @@ private fun ConnectionGroup(
     onSwitch: (RemoteHost.Via) -> Unit,
     onEditCwd: () -> Unit,
 ) {
-    PreferenceGroup(title = "连接") {
+    PreferenceGroup(title = Strings.setupRemoteConnectionGroup()) {
         item {
             SwitchPreference(
-                title = "连接",
-                summary = if (host.connected) "用到这台设备时连上，断了自动重连" else "已断开：" + RemoteHosts.OFF_NOTE,
+                title = Strings.setupRemoteConnect(),
+                summary =
+                    if (host.connected) Strings.setupRemoteConnectOn()
+                    else Strings.setupRemoteConnectOff(RemoteHosts.OFF_NOTE),
                 checked = host.connected,
                 onCheckedChange = onConnect,
             )
@@ -732,18 +743,23 @@ private fun ConnectionGroup(
         item { DeviceNameRow(hub, host.id) { onRename() } }
         item {
             BasicComponent(
-                title = "地址",
+                title = Strings.setupRemoteAddress(),
                 endActions = { PreferenceValue(RemoteHosts.displayTarget(host.target)) },
             )
         }
         item { ViaChoice(host, switching, enabled = switching == null && !checking, onSwitch) }
         host.fingerprint?.let { fingerprint ->
-            item { BasicComponent(title = "主机指纹", summary = fingerprint) }
+            item { BasicComponent(title = Strings.setupRemoteFingerprint(), summary = fingerprint) }
         }
-        item { BasicComponent(title = "家目录", endActions = { PreferenceValue(host.home) }) }
+        item {
+            BasicComponent(
+                title = Strings.setupRemoteHome(),
+                endActions = { PreferenceValue(host.home) },
+            )
+        }
         item {
             ArrowPreference(
-                title = "默认工作目录",
+                title = Strings.setupDefaultCwd(),
                 summary = host.defaultCwd,
                 onClick = onEditCwd,
             )

@@ -21,6 +21,7 @@ import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
 import com.dzshzx.zeta.core.claude.SyncedSkill
 import com.dzshzx.zeta.core.clipLine
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
@@ -62,7 +63,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
         scope.runConfig({ client.skills() }) { result ->
             result
                 .onSuccess { list = it }
-                .onFailure { notice = ConfigNotice("读取 Skills 失败", it.problem()) }
+                .onFailure { notice = ConfigNotice(Strings.setupSkillsLoadFailed(), it.problem()) }
         }
     }
     val reload: () -> Unit = { reloads++ }
@@ -81,7 +82,9 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
                         }
                     }
                 }
-                .onFailure { notice = ConfigNotice("没有装上", it.problem()) }
+                .onFailure {
+                    notice = ConfigNotice(Strings.setupSkillsInstallFailed(), it.problem())
+                }
         }
     }
 
@@ -93,7 +96,9 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
                 importing = false
                 result
                     .onSuccess { install(it, replace = false) }
-                    .onFailure { notice = ConfigNotice("没有装上", it.problem()) }
+                    .onFailure {
+                        notice = ConfigNotice(Strings.setupSkillsInstallFailed(), it.problem())
+                    }
             }
         }
     val pick = {
@@ -107,7 +112,12 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
         scope.runConfig({ client.setSkillEnabled(skill, enabled) }) { result ->
             busy = null
             result.onFailure {
-                notice = ConfigNotice(if (enabled) "没有启用" else "没有停用", it.problem())
+                notice =
+                    ConfigNotice(
+                        if (enabled) Strings.setupSkillsEnableFailed()
+                        else Strings.setupSkillsDisableFailed(),
+                        it.problem(),
+                    )
             }
             reload()
         }
@@ -117,7 +127,9 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
         busy = skill.name
         scope.runConfig({ client.deleteSkill(skill.name) }) { result ->
             busy = null
-            result.onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+            result.onFailure {
+                notice = ConfigNotice(Strings.setupClaudeDeleteFailed(), it.problem())
+            }
             reload()
         }
     }
@@ -134,14 +146,14 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
                 show = describing != null,
                 title = shownDescription?.first,
                 summary = shownDescription?.second,
-                closeText = "知道了",
+                closeText = Strings.setupClaudeGotIt(),
                 onDismissRequest = { describing = null },
             )
             ConfirmDialog(
                 show = pending != null,
-                title = "替换 Skill？",
-                summary = shownPending?.let { "已经有一个叫“${it.second.name}”的 Skill。替换会覆盖它当前的全部文件。" },
-                confirmText = "替换",
+                title = Strings.setupSkillsReplaceTitle(),
+                summary = shownPending?.let { Strings.setupSkillsReplaceSummary(it.second.name) },
+                confirmText = Strings.setupSkillsReplace(),
                 confirmEnabled = !operating,
                 onConfirm = {
                     pending?.let { install(it.first, replace = true) }
@@ -151,9 +163,9 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
             )
             ConfirmDialog(
                 show = deleting != null,
-                title = "删除 Skill",
-                summary = shownDeleting?.let { "删除“${it.name}”的整个文件夹，之后需要重新导入才能恢复。" },
-                confirmText = "删除",
+                title = Strings.setupSkillsDeleteTitle(),
+                summary = shownDeleting?.let { Strings.setupSkillsDeleteSummary(it.name) },
+                confirmText = Strings.setupClaudeDelete(),
                 confirmEnabled = !operating,
                 destructive = true,
                 onConfirm = {
@@ -183,7 +195,10 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
             item(key = "synced") {
                 SyncedSkillsGroup(
                     synced,
-                    onDescribe = { describing = it.name to it.description.ifBlank { "无描述" } },
+                    onDescribe = {
+                        describing =
+                            it.name to it.description.ifBlank { Strings.setupSkillsNoDescription() }
+                    },
                 )
             }
         }
@@ -201,24 +216,26 @@ private fun readPickedZip(context: Context, uri: Uri): PickedZip {
         resolver.openInputStream(uri)?.use { input ->
             val data = input.readNBytes(ClaudeConfigCore.MAX_SKILL_ZIP + 1)
             if (data.size > ClaudeConfigCore.MAX_SKILL_ZIP)
-                throw IOException("文件超过 ${ClaudeConfigCore.MAX_SKILL_ZIP shr 20} MB，不像是一个 Skill 包")
+                throw IOException(
+                    Strings.setupSkillsZipTooLarge(ClaudeConfigCore.MAX_SKILL_ZIP shr 20),
+                )
             data
-        } ?: throw IOException("读不了这个文件")
+        } ?: throw IOException(Strings.setupSkillsZipUnreadable())
     return PickedZip(name, bytes)
 }
 
 private fun installedNotice(installed: SkillImport.Installed): ConfigNotice =
     ConfigNotice(
-        if (installed.replaced) "已替换" else "已安装",
+        if (installed.replaced) Strings.setupSkillsReplaced() else Strings.setupSkillsInstalled(),
         // 没启用：settings.json 的 skillOverrides 里早就把这个名字关掉了
-        "“${installed.name}”" +
-            if (installed.enabled) "装好了，Claude 会按需调用它。" else "装好了，但它被设成停用，打开开关后才能用。",
+        if (installed.enabled) Strings.setupSkillsInstalledOn(installed.name)
+        else Strings.setupSkillsInstalledOff(installed.name),
     )
 
 /** 说明对话框里的正文：没写说明时说无描述，不是 Skill 的文件夹说明原因。 */
 private fun skillDescription(skill: SkillInfo): String =
     skill.description.ifBlank {
-        if (skill.valid) "无描述" else "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。"
+        if (skill.valid) Strings.setupSkillsNoDescription() else Strings.setupSkillsNotSkill()
     }
 
 /** 从 ZIP 导入的入口，导入中显示转圈。 */
@@ -227,8 +244,10 @@ private fun ImportGroup(importing: Boolean, enabled: Boolean, onPick: () -> Unit
     PreferenceGroup {
         item {
             BasicComponent(
-                title = "从 ZIP 导入",
-                summary = if (importing) "正在检查并安装…" else "选一个含 SKILL.md 的 Skill 包",
+                title = Strings.setupSkillsImport(),
+                summary =
+                    if (importing) Strings.setupSkillsImporting()
+                    else Strings.setupSkillsImportHint(),
                 endActions = if (importing) ({ InfiniteProgressIndicator(size = 20.dp) }) else null,
                 enabled = enabled,
                 onClick = onPick,
@@ -249,12 +268,13 @@ private fun UserSkillsGroup(
     onDelete: (SkillInfo) -> Unit,
 ) {
     PreferenceGroup(
-        title = "用户安装 · ${skills.size}",
-        footer = "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。",
+        title = Strings.setupSkillsUser(skills.size),
+        footer = Strings.setupSkillsUserFooter(),
     ) {
         when {
             !loaded -> item { ConfigLoadingRow() }
-            skills.isEmpty() -> item { ConfigEmptyRow("还没有 Skill", "从 ZIP 导入，或让 Claude 写一个") }
+            skills.isEmpty() ->
+                item { ConfigEmptyRow(Strings.setupSkillsNone(), Strings.setupSkillsNoneSummary()) }
             else ->
                 skills.forEach { skill ->
                     item(key = skill.name) {
@@ -276,15 +296,17 @@ private fun UserSkillsGroup(
 @Composable
 private fun SyncedSkillsGroup(synced: List<SyncedSkill>, onDescribe: (SyncedSkill) -> Unit) {
     PreferenceGroup(
-        title = "账号同步 · ${synced.size}",
-        footer = "在 claude.ai 上管理，这里只能看。",
+        title = Strings.setupSkillsSynced(synced.size),
+        footer = Strings.setupClaudeManagedOnline(),
     ) {
         synced.forEach { skill ->
             item(key = skill.name) {
                 BasicComponent(
                     title = skill.name,
                     summary = skill.description.clipLine(90).ifBlank { null },
-                    endActions = if (skill.enabled) null else ({ PreferenceValue("已停用") }),
+                    endActions =
+                        if (skill.enabled) null
+                        else ({ PreferenceValue(Strings.setupClaudeDisabled()) }),
                     onClick = { onDescribe(skill) },
                 )
             }
@@ -305,8 +327,8 @@ private fun SkillRow(
     val canToggle = enabled && skill.valid
     val description =
         when {
-            !skill.valid -> "缺少 SKILL.md"
-            skill.description.isBlank() -> "无描述"
+            !skill.valid -> Strings.setupSkillsMissingFile()
+            skill.description.isBlank() -> Strings.setupSkillsNoDescription()
             // 说明往往是一大段，列表里只放开头
             else -> skill.description.clipLine(90)
         }
@@ -314,24 +336,31 @@ private fun SkillRow(
         checked = skill.enabled,
         onCheckedChange = onToggle,
         title =
-            skill.title.takeIf { it.isNotBlank() && it != skill.name }?.let { "$it（${skill.name}）" }
-                ?: skill.name,
+            skill.title
+                .takeIf { it.isNotBlank() && it != skill.name }
+                ?.let { Strings.setupSkillsTitleWithName(it, skill.name) } ?: skill.name,
         summary = description,
         isLoading = working,
         enabled = canToggle,
         endActions = {
             RowMoreMenu(
-                contentDescription = "更多：" + skill.name,
+                contentDescription = Strings.setupClaudeMoreFor(skill.name),
                 entries =
                     listOf(
                         DropdownEntry(
-                            items = listOf(DropdownItem(text = "查看说明", onClick = onDescribe)),
+                            items =
+                                listOf(
+                                    DropdownItem(
+                                        text = Strings.setupSkillsShowDescription(),
+                                        onClick = onDescribe,
+                                    ),
+                                ),
                         ),
                         DropdownEntry(
                             items =
                                 listOf(
                                     DropdownItem(
-                                        text = "删除",
+                                        text = Strings.setupClaudeDelete(),
                                         enabled = enabled,
                                         alert = true,
                                         onClick = { if (enabled) onDelete() },

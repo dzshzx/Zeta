@@ -54,6 +54,7 @@ import com.dzshzx.zeta.core.LinuxListing
 import com.dzshzx.zeta.core.LinuxPreview
 import com.dzshzx.zeta.core.LinuxTransfers
 import com.dzshzx.zeta.core.TransferState
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -143,7 +144,9 @@ private fun timeText(seconds: Long): String {
 
 private fun entrySummary(context: Context, entry: LinuxEntry): String =
     listOfNotNull(
-            entry.link?.let { "→ $it" + if (entry.broken) "（不存在）" else "" },
+            entry.link?.let {
+                if (entry.broken) Strings.setupLinuxFilesBrokenLink(it) else "→ $it"
+            },
             if (entry.regular) Formatter.formatShortFileSize(context, entry.size) else null,
             timeText(entry.mtime).ifEmpty { null },
         )
@@ -219,7 +222,7 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
     val shown = preview
     // 列表和预览共用一个页面骨架（顶栏标题随之变），列表状态分开记，从预览回来还在原来的位置
     CouiPage(
-        title = shown?.entry?.name ?: "Linux 文件",
+        title = shown?.entry?.name ?: Strings.setupLinuxFilesTitle(),
         onBack = back,
         listState = if (shown != null) previewState else listState,
         actions = {
@@ -297,7 +300,7 @@ private fun exportFile(
 
 /** 当前目录的列表；Linux 环境还没配好时是一条错误。 */
 private suspend fun loadListing(hub: ConversationHub, path: String): LinuxListing {
-    if (hub.settings.env == null) return LinuxListing.Failed("Linux 环境还不可用")
+    if (hub.settings.env == null) return LinuxListing.Failed(Strings.setupLinuxFilesUnavailable())
     return withContext(Dispatchers.IO) {
         LinuxFiles.list({ s, a -> hub.helper(s, a, backend = Backends.LOCAL) }, path)
     }
@@ -328,25 +331,36 @@ private fun BrowserMenu(
                 items =
                     listOf(
                         menuItem(
-                            "导入文件到这里",
+                            Strings.setupLinuxFilesImportHere(),
                             COUIIcons.Import,
                             onImport,
                             enabled = !LinuxTransfers.running,
                         ),
-                        menuItem("刷新", COUIIcons.Refresh, onRefresh),
+                        menuItem(Strings.setupLinuxFilesRefresh(), COUIIcons.Refresh, onRefresh),
                     ),
             ),
             DropdownEntry(
                 items =
                     listOf(
-                        menuItem("工作目录", ZetaIcons.FolderStar, { onGo(start) }),
-                        menuItem("主目录", ZetaIcons.Home, { onGo(home) }),
+                        menuItem(
+                            Strings.setupLinuxFilesWorkDir(),
+                            ZetaIcons.FolderStar,
+                            { onGo(start) },
+                        ),
+                        menuItem(Strings.setupLinuxFilesHome(), ZetaIcons.Home, { onGo(home) }),
                         menuItem("/workspace", COUIIcons.GridView, { onGo("/workspace") }),
-                        menuItem("根目录", ZetaIcons.Storage, { onGo("/") }),
+                        menuItem(Strings.setupLinuxFilesRoot(), ZetaIcons.Storage, { onGo("/") }),
                     ),
             ),
             DropdownEntry(
-                items = listOf(menuItem("复制当前路径", COUIIcons.Copy, onCopyPath)),
+                items =
+                    listOf(
+                        menuItem(
+                            Strings.setupLinuxFilesCopyCurrentPath(),
+                            COUIIcons.Copy,
+                            onCopyPath,
+                        ),
+                    ),
             ),
         ),
     )
@@ -361,13 +375,13 @@ private fun PreviewMenu(exportable: Boolean, onExport: () -> Unit, onCopyPath: (
                 items =
                     listOfNotNull(
                         menuItem(
-                                "导出到手机",
+                                Strings.setupLinuxFilesExport(),
                                 COUIIcons.Download,
                                 onExport,
                                 enabled = !LinuxTransfers.running,
                             )
                             .takeIf { exportable },
-                        menuItem("复制路径", COUIIcons.Copy, onCopyPath),
+                        menuItem(Strings.setupLinuxFilesCopyPath(), COUIIcons.Copy, onCopyPath),
                     ),
             ),
         ),
@@ -391,7 +405,7 @@ private fun LazyListScope.browserItems(
         item(key = "..") {
             CardListSegment(index = 0, count = count, dividerStart = RowDividerStartWithIcon) {
                 ArrowPreference(
-                    title = "上级目录",
+                    title = Strings.setupLinuxFilesParent(),
                     summary = parent,
                     startAction = { RowIcon(ZetaIcons.FolderOpen, COUITheme.colorScheme.primary) },
                     onClick = { onNavigate(parent) },
@@ -403,7 +417,7 @@ private fun LazyListScope.browserItems(
         null -> item(key = "loading") { Loading() }
         is LinuxListing.Failed -> item(key = "error") { Hint(listing.message, error = true) }
         is LinuxListing.Entries -> {
-            if (entries.isEmpty()) item(key = "empty") { Hint("该目录为空") }
+            if (entries.isEmpty()) item(key = "empty") { Hint(Strings.setupLinuxFilesEmpty()) }
             // 名字里有非 UTF-8 字节的会被替换成同样的字符，可能重名，键里带上序号
             itemsIndexed(entries, key = { index, entry -> "e$index:" + entry.name }) { index, entry
                 ->
@@ -423,7 +437,9 @@ private fun LazyListScope.browserItems(
                 }
             }
             if (listing.truncated)
-                item(key = "truncated") { Hint("只列出了前 ${entries.size} 项（共 ${listing.total} 项）") }
+                item(key = "truncated") {
+                    Hint(Strings.setupLinuxFilesTruncated(entries.size, listing.total))
+                }
         }
     }
 }
@@ -455,7 +471,7 @@ private fun LazyListScope.previewItems(
     if (LinuxFiles.isImage(shown.entry.name)) {
         item(key = "image") {
             if (shown.entry.size > LinuxFiles.MAX_PREVIEW_IMAGE) {
-                Hint("图片太大，无法预览，可以导出到手机查看")
+                Hint(Strings.setupLinuxFilesImageTooLarge())
             } else {
                 // 与聊天里的图片同一套载入和缓存，点一下全屏查看
                 ChatImage(FileImage(shown.path), modifier = Modifier.padding(horizontal = 16.dp))
@@ -466,12 +482,14 @@ private fun LazyListScope.previewItems(
     when (content) {
         null -> item(key = "loading") { Loading() }
         is LinuxPreview.Failed -> item(key = "error") { Hint(content.message, error = true) }
-        is LinuxPreview.Binary -> item(key = "binary") { Hint("二进制文件，无法预览，可以导出到手机查看") }
+        is LinuxPreview.Binary -> item(key = "binary") { Hint(Strings.setupLinuxFilesBinary()) }
         is LinuxPreview.Text -> {
             if (content.truncated)
-                item(key = "truncated") { Hint("内容较大，只显示开头 ${LinuxFiles.PREVIEW_BYTES / 1024} KB") }
+                item(key = "truncated") {
+                    Hint(Strings.setupLinuxFilesPreviewTruncated(LinuxFiles.PREVIEW_BYTES / 1024))
+                }
             val parts = chunks(content.text)
-            if (parts.isEmpty()) item(key = "blank") { Hint("空文件") }
+            if (parts.isEmpty()) item(key = "blank") { Hint(Strings.setupLinuxFilesEmptyFile()) }
             itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
                 // 几段连成一张卡片，中间不画分隔线
                 CardListSegment(index = index, count = parts.size, dividerStart = null) {
@@ -587,9 +605,14 @@ private fun EntryRow(
         }
     val actions =
         listOfNotNull(
-            menuItem("复制路径", COUIIcons.Copy, onCopyPath),
+            menuItem(Strings.setupLinuxFilesCopyPath(), COUIIcons.Copy, onCopyPath),
             onExport?.let {
-                menuItem("导出到手机", COUIIcons.Download, it, enabled = !LinuxTransfers.running)
+                menuItem(
+                    Strings.setupLinuxFilesExport(),
+                    COUIIcons.Download,
+                    it,
+                    enabled = !LinuxTransfers.running,
+                )
             },
         )
     val startAction: @Composable () -> Unit = {
@@ -619,10 +642,13 @@ private fun EntryRow(
 @Composable
 private fun TransferGroup(state: TransferState) {
     val context = LocalContext.current
-    PreferenceGroup(title = if (state.export) "导出到手机" else "从手机导入") {
+    PreferenceGroup(
+        title =
+            if (state.export) Strings.setupLinuxFilesExport() else Strings.setupLinuxFilesImport(),
+    ) {
         if (state.running) {
             item { TransferProgressRow(state, context) }
-            item { BasicComponent(title = "取消", onClick = LinuxTransfers::cancel) }
+            item { BasicComponent(title = Strings.setupCancel(), onClick = LinuxTransfers::cancel) }
         } else {
             item {
                 BasicComponent(
@@ -630,7 +656,7 @@ private fun TransferGroup(state: TransferState) {
                     titleColor =
                         if (state.ok) BasicComponentDefaults.titleColor()
                         else BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
-                    summary = "点按收起",
+                    summary = Strings.setupLinuxFilesTapToDismiss(),
                     onClick = LinuxTransfers::dismiss,
                 )
             }
@@ -655,10 +681,13 @@ private fun TransferProgressRow(state: TransferState, context: Context) {
     )
 }
 
-private fun transferTitle(state: TransferState): String =
-    (if (state.export) "正在导出 " else "正在导入 ") +
-        state.name.ifEmpty { "…" } +
-        if (state.count > 1) "（${state.index}/${state.count}）" else ""
+private fun transferTitle(state: TransferState): String {
+    val name = state.name.ifEmpty { "…" }
+    val shown =
+        if (state.count > 1) Strings.setupLinuxFilesNthOf(name, state.index, state.count) else name
+    return if (state.export) Strings.setupLinuxFilesExporting(shown)
+    else Strings.setupLinuxFilesImporting(shown)
+}
 
 /** 卡片之间的一句说明或报错。 */
 @Composable

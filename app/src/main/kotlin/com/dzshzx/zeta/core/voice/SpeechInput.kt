@@ -18,6 +18,7 @@ import android.speech.SpeechRecognizer
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,12 +64,12 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
                 PackageManager.PERMISSION_GRANTED
         ) {
-            fail(SpeechInputError(SpeechInputError.NO_PERMISSION, "没有麦克风权限，到设置的权限页一键授予"))
+            fail(SpeechInputError(SpeechInputError.NO_PERMISSION, Strings.voiceNoMicPermission()))
             return
         }
         val chosen = backend ?: SpeechBackend.pick(context)
         if (chosen == null) {
-            fail(SpeechInputError(SpeechInputError.NO_SERVICE, "手机上没有可用的语音识别服务"))
+            fail(SpeechInputError(SpeechInputError.NO_SERVICE, Strings.voiceNoRecognizer()))
             return
         }
         val created = runCatching {
@@ -79,7 +80,9 @@ class SpeechInput(private val context: Context, private val backend: SpeechBacke
             }
             .getOrNull()
         if (created == null) {
-            fail(SpeechInputError(SpeechInputError.NO_SERVICE, "语音识别服务用不了"))
+            fail(
+                SpeechInputError(SpeechInputError.NO_SERVICE, Strings.voiceRecognizerUnavailable()),
+            )
             return
         }
         recognizer = created
@@ -338,19 +341,20 @@ data class SpeechInputError(val code: Int, val message: String) {
         fun describe(code: Int): String =
             when (code) {
                 SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
-                SpeechRecognizer.ERROR_NETWORK -> "识别服务连不上网络"
-                SpeechRecognizer.ERROR_AUDIO -> "麦克风录不了音，可能正被别的应用占用"
+                SpeechRecognizer.ERROR_NETWORK -> Strings.voiceErrorNetwork()
+                SpeechRecognizer.ERROR_AUDIO -> Strings.voiceErrorAudio()
                 SpeechRecognizer.ERROR_SERVER,
-                SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> "识别服务出错了"
-                SpeechRecognizer.ERROR_CLIENT -> "识别服务中途断开了"
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "识别服务说没有麦克风权限"
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务正忙，稍后再试"
-                SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> "识别请求太频繁，稍后再试"
+                SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> Strings.voiceErrorServer()
+                SpeechRecognizer.ERROR_CLIENT -> Strings.voiceErrorClient()
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> Strings.voiceErrorPermission()
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> Strings.voiceErrorBusy()
+                SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> Strings.voiceErrorTooMany()
                 SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
-                SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "识别服务不支持当前语言"
+                SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> Strings.voiceErrorLanguage()
                 SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT,
-                SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS -> "识别服务不可用"
-                else -> "语音识别失败（$code）"
+                SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS ->
+                    Strings.voiceErrorUnavailable()
+                else -> Strings.voiceErrorOther(code.toString())
             }
     }
 }

@@ -159,14 +159,14 @@ class DeviceToolsTest {
 
     @Test
     fun spokenChinese() {
-        assertEquals("30 秒", DeviceTools.spokenZh(30))
-        assertEquals("5 分钟", DeviceTools.spokenZh(300))
-        assertEquals("1 小时", DeviceTools.spokenZh(3600))
-        assertEquals("2 分钟 5 秒", DeviceTools.spokenZh(125))
-        assertEquals("0 秒", DeviceTools.spokenZh(0))
-        assertEquals("1 小时 30 分", DeviceTools.spokenZh(5400))
-        assertEquals("1 小时 1 秒", DeviceTools.spokenZh(3601))
-        assertEquals("2 小时 1 分 5 秒", DeviceTools.spokenZh(7265))
+        assertEquals("30 秒", DeviceTools.spoken(30))
+        assertEquals("5 分钟", DeviceTools.spoken(300))
+        assertEquals("1 小时", DeviceTools.spoken(3600))
+        assertEquals("2 分钟 5 秒", DeviceTools.spoken(125))
+        assertEquals("0 秒", DeviceTools.spoken(0))
+        assertEquals("1 小时 30 分", DeviceTools.spoken(5400))
+        assertEquals("1 小时 1 秒", DeviceTools.spoken(3601))
+        assertEquals("2 小时 1 分 5 秒", DeviceTools.spoken(7265))
     }
 }
 

@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.InstalledApps
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -33,7 +34,7 @@ internal object DeviceTools : PhoneToolGroup {
         listOf(
             tool(
                 FIND_APPS,
-                "查找已装的应用",
+                { Strings.phoneToolFindApps() },
                 "List installed apps that can be launched, with their package names. Empty query lists all.",
                 readOnly = true,
             ) {
@@ -41,7 +42,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 SHELL,
-                "以 root 在 Android 一侧执行命令",
+                { Strings.phoneToolShell() },
                 "Run a shell command as root on the Android side (not inside the Linux environment): pm, am, cmd, settings, dumpsys, getprop, logcat, input, screencap, etc. Returns stdout, stderr and the exit code.",
             ) {
                 schema(required = listOf("command")) {
@@ -55,7 +56,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "device_state",
-                "查看、切换 WLAN、蓝牙、亮度等",
+                { Strings.phoneToolDeviceState() },
                 "Read or change phone switches and levels. get without target lists them all. " +
                     "Turning off wifi or mobile_data, or turning on airplane_mode, can cut this conversation's connection; do it only when the user asks.",
             ) {
@@ -72,7 +73,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "media",
-                "音量、响铃、音频输出和媒体播放",
+                { Strings.phoneToolMedia() },
                 "Volumes, ringer, audio output and what is playing (status); set a stream's volume; play/pause/skip the current media.",
             ) {
                 schema(required = listOf("action")) {
@@ -87,7 +88,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "clock",
-                "时钟应用的闹钟和倒计时",
+                { Strings.phoneToolClock() },
                 "Alarms and the countdown timer of the Clock app, without opening it. list_alarms shows the alarm_id that update_alarm and delete_alarm need.",
             ) {
                 schema(required = listOf("action")) {
@@ -108,7 +109,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "system_setting",
-                "读写 Android 系统设置",
+                { Strings.phoneToolSystemSetting() },
                 "Read or write Android settings (the system, secure and global tables of the `settings` command).",
             ) {
                 schema(required = listOf("action", "namespace")) {
@@ -121,7 +122,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "app_control",
-                "安装、卸载、冻结应用，看使用时长",
+                { Strings.phoneToolAppControl() },
                 "Installed apps: info (version, install, state, permissions), force_stop, freeze (disable), unfreeze, " +
                     "install (an .apk file), uninstall, clear_data (wipe its data), usage (foreground time per app) and recent (apps opened, newest first) over the last hours.",
             ) {
@@ -144,7 +145,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "device_info",
-                "电池、温度、内存、网络等手机状况",
+                { Strings.phoneToolDeviceInfo() },
                 "Phone facts: overview (battery, temperatures, memory, storage, network, screen), location (last known fix), " +
                     "top_memory and top_storage (heaviest apps), wifi_passwords (saved networks with passwords; share only with the user who asked).",
                 readOnly = true,
@@ -161,7 +162,7 @@ internal object DeviceTools : PhoneToolGroup {
             },
             tool(
                 "logcat",
-                "读最近的 Android 日志",
+                { Strings.phoneToolLogcat() },
                 "Read recent Android logs (threadtime format, newest last), narrowed by package, tag, level, text or time.",
                 readOnly = true,
             ) {
@@ -744,84 +745,76 @@ internal object DeviceTools : PhoneToolGroup {
     override fun title(name: String, input: JsonObject): String =
         when (name) {
             FIND_APPS ->
-                input.str("query")?.takeIf { it.isNotBlank() }?.let { "查找应用 " + it.clipLine(16) }
-                    ?: "查看已装的应用"
+                input
+                    .str("query")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { Strings.phoneTitleFindApp(it.clipLine(16)) }
+                    ?: Strings.phoneTitleListApps()
             SHELL ->
                 input
                     .str("command")
                     ?.lineSequence()
                     ?.firstOrNull { it.isNotBlank() }
-                    ?.let { "Android：" + it.clipLine(40) } ?: "Android：执行命令"
+                    ?.let { Strings.phoneTitleShell(it.clipLine(40)) }
+                    ?: Strings.phoneTitleShellAny()
             "device_state" -> stateTitle(input)
             "media" -> mediaTitle(input)
             "clock" -> clockTitle(input)
             "system_setting" -> {
                 val key = input.str("key")?.let { " $it" }.orEmpty()
                 when (input.str("action")) {
-                    "put" -> "修改系统设置$key"
-                    "delete" -> "删除系统设置$key"
-                    "list" -> "列出系统设置"
-                    else -> "读取系统设置$key"
+                    "put" -> Strings.phoneTitleSettingPut(key)
+                    "delete" -> Strings.phoneTitleSettingDelete(key)
+                    "list" -> Strings.phoneTitleSettingList()
+                    else -> Strings.phoneTitleSettingGet(key)
                 }
             }
             "app_control" -> appTitle(input)
-            "device_info" ->
-                when (input.str("what")) {
-                    "location" -> "查看当前位置"
-                    "top_memory" -> "查看内存占用"
-                    "top_storage" -> "查看存储占用"
-                    "wifi_passwords" -> "读取已保存的 Wi-Fi 密码"
-                    else -> "查看电池、存储与温度"
-                }
+            "device_info" -> Strings.phoneTitleDeviceInfo(input.str("what").orEmpty())
             "logcat" ->
-                "读取系统日志" + (input.str("package") ?: input.str("tag"))?.let { " $it" }.orEmpty()
+                Strings.phoneTitleLogcat(
+                    (input.str("package") ?: input.str("tag"))?.let { " $it" }.orEmpty(),
+                )
             else -> name
         }
 
     /** app_control：对哪个应用做什么。 */
     private fun appTitle(input: JsonObject): String {
-        val p = input.str("package")?.let { " $it" }.orEmpty()
-        return when (input.str("action")) {
-            "info" -> "查看应用信息$p"
-            "force_stop" -> "强行停止$p"
-            "freeze" -> "冻结$p"
-            "unfreeze" -> "解冻$p"
-            "install" ->
-                "安装" +
-                    (input
-                        .str("path")
-                        ?.substringAfterLast('/')
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let {
-                            " " + it.clipLine(24)
-                        } ?: "应用")
-            "uninstall" -> "卸载$p"
-            "clear_data" -> "清除数据$p"
-            "usage" -> "查看应用使用时长"
-            "recent" -> "查看最近打开的应用"
-            else -> "管理应用$p"
+        val action = input.str("action")
+        if (action == "install") {
+            return input
+                .str("path")
+                ?.substringAfterLast('/')
+                ?.takeIf { it.isNotBlank() }
+                ?.let { Strings.phoneTitleInstallFile(it.clipLine(24)) }
+                ?: Strings.phoneTitleInstallApp()
         }
+        return Strings.phoneTitleAppAction(
+            action.orEmpty(),
+            input.str("package")?.let { " $it" }.orEmpty(),
+        )
     }
 
     /** device_state：查看或设置哪一项。 */
     private fun stateTitle(input: JsonObject): String {
-        val target = input.str("target")
-        val what = DeviceSwitches.NAMES[target] ?: target
-        if (input.str("action") == "set" && target != null)
-            return setTitle(target, what ?: target, anyString(input, "value"))
-        return what?.let { "查看$it" } ?: "查看手机开关状态"
+        val target = input.str("target") ?: return Strings.phoneTitleViewSwitches()
+        val what = Strings.phoneSwitchName(target)
+        if (input.str("action") == "set") return setTitle(target, what, anyString(input, "value"))
+        return Strings.phoneTitleViewSwitch(what)
     }
 
     /** media：调音量、看状态，或者按哪个播放键。 */
     private fun mediaTitle(input: JsonObject): String =
         when (val action = input.str("action")) {
             "set_volume" ->
-                (DeviceAudio.STREAM_NAMES[input.str("stream")] ?: "") +
-                    "音量调到 " +
-                    (input.int("percent")?.let { "$it%" } ?: "")
+                Strings.phoneTitleSetVolume(
+                        input.str("stream").orEmpty(),
+                        input.int("percent")?.let { "$it%" }.orEmpty(),
+                    )
+                    .trim()
             null,
-            "status" -> "查看音量与播放"
-            else -> DeviceAudio.KEY_NAMES[action] ?: "控制播放"
+            "status" -> Strings.phoneTitleMediaStatus()
+            else -> Strings.phoneTitleMediaKey(action)
         }
 
     /** clock：闹钟和倒计时的各个动作。 */
@@ -831,65 +824,62 @@ internal object DeviceTools : PhoneToolGroup {
                 String.format(Locale.ROOT, "%02d:%02d", h, input.int("minute") ?: 0)
             }
         return when (input.str("action")) {
-            "list_alarms" -> "查看闹钟"
-            "add_alarm" -> "新建闹钟" + (time?.let { " $it" } ?: "")
+            "list_alarms" -> Strings.phoneTitleAlarms()
+            "add_alarm" ->
+                time?.let { Strings.phoneTitleAddAlarmAt(it) } ?: Strings.phoneTitleAddAlarm()
             "update_alarm" ->
                 when (input.bool("enabled")) {
-                    true -> "打开闹钟"
-                    false -> "关闭闹钟"
-                    null -> "修改闹钟" + (time?.let { " 为 $it" } ?: "")
+                    true -> Strings.phoneTitleAlarmOn()
+                    false -> Strings.phoneTitleAlarmOff()
+                    null ->
+                        time?.let { Strings.phoneTitleEditAlarmTo(it) }
+                            ?: Strings.phoneTitleEditAlarm()
                 }
-            "delete_alarm" -> "删除闹钟"
-            "start_timer" -> "开始倒计时" + (input.int("seconds")?.let { " " + spokenZh(it) } ?: "")
-            "pause_timer" -> "暂停倒计时"
-            "resume_timer" -> "继续倒计时"
-            "cancel_timer" -> "取消倒计时"
-            "timer_status" -> "查看倒计时"
-            else -> "时钟"
+            "delete_alarm" -> Strings.phoneTitleDeleteAlarm()
+            "start_timer" ->
+                input.int("seconds")?.let { Strings.phoneTitleStartTimerFor(spoken(it)) }
+                    ?: Strings.phoneTitleStartTimer()
+            "pause_timer" -> Strings.phoneTitlePauseTimer()
+            "resume_timer" -> Strings.phoneTitleResumeTimer()
+            "cancel_timer" -> Strings.phoneTitleCancelTimer()
+            "timer_status" -> Strings.phoneTitleTimerStatus()
+            else -> Strings.phoneTitleClock()
         }
     }
 
     private fun setTitle(target: String, what: String, value: String?): String {
         if (target in DeviceSwitches.SWITCHES) {
             return when (DeviceSwitches.switchValue(value)) {
-                true -> "打开$what"
-                false -> "关闭$what"
-                null -> "设置$what"
+                true -> Strings.phoneTitleSwitchOn(what)
+                false -> Strings.phoneTitleSwitchOff(what)
+                null -> Strings.phoneTitleSetWhat(what)
             }
         }
         val v = value?.trim().orEmpty()
         return when (target) {
-            "brightness" -> "亮度调到 ${v.removeSuffix("%")}%"
+            "brightness" -> Strings.phoneTitleBrightness(v.removeSuffix("%"))
             "screen_timeout" ->
-                "熄屏时间设为 " + (v.toIntOrNull()?.let { spokenZh(it) } ?: if (v == "never") "永不" else v)
-            "do_not_disturb" ->
-                when (v) {
-                    "off" -> "关闭勿扰模式"
-                    "alarms" -> "勿扰模式设为仅闹钟"
-                    "silence",
-                    "none" -> "勿扰模式设为完全静音"
-                    else -> "打开勿扰模式"
-                }
-            "ringer_mode" ->
-                "响铃模式设为" +
-                    when (v) {
-                        "vibrate" -> "振动"
-                        "silent" -> "静音"
-                        else -> "响铃"
-                    }
-            else -> "设置$what"
+                Strings.phoneTitleScreenTimeout(
+                    v.toIntOrNull()?.let { spoken(it) }
+                        ?: if (v == "never") Strings.phoneTitleNever() else v,
+                )
+            "do_not_disturb" -> Strings.phoneTitleDoNotDisturb(v)
+            "ringer_mode" -> Strings.phoneTitleRingerMode(v)
+            else -> Strings.phoneTitleSetWhat(what)
         }
     }
 
-    /** 秒数说成「5 分钟」「1 小时 30 分」。 */
-    internal fun spokenZh(seconds: Int): String {
+    /** 秒数说成「5 分钟」「1 小时 30 分」（按界面语言）。 */
+    internal fun spoken(seconds: Int): String {
         val h = seconds / 3600
         val m = (seconds % 3600) / 60
         val s = seconds % 60
         val parts = ArrayList<String>()
-        if (h > 0) parts += "$h 小时"
-        if (m > 0) parts += "$m " + if (h > 0) "分" else "分钟"
-        if (s > 0 || parts.isEmpty()) parts += "$s 秒"
+        if (h > 0) parts += Strings.phoneDurationHours(h)
+        if (m > 0)
+            parts +=
+                if (h > 0) Strings.phoneDurationMinutesShort(m) else Strings.phoneDurationMinutes(m)
+        if (s > 0 || parts.isEmpty()) parts += Strings.phoneDurationSeconds(s)
         return parts.joinToString(" ")
     }
 

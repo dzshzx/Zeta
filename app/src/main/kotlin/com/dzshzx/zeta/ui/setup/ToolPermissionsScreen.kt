@@ -29,6 +29,7 @@ import com.dzshzx.zeta.core.claude.ServerView
 import com.dzshzx.zeta.core.claude.ToolState
 import com.dzshzx.zeta.core.claude.ToolView
 import com.dzshzx.zeta.core.clipLine
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -60,21 +61,39 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
  * Bash(git push:*) 又对 Bash 设了询问，git push
  * 照样要问）；完全放行（bypassPermissions）下允许规则没有用处，询问和拒绝照样生效：设了询问的会弹出确认，整个工具被拒绝时 Claude 根本拿不到这个工具。
  */
-internal const val PermissionSemantics = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
+internal val PermissionSemantics: String
+    get() = Strings.setupToolPermSemantics()
 
 /** 下拉里的四个选项：没写规则（按权限模式走）、允许、询问、拒绝。 */
 private val Choices: List<PermissionBehavior?> =
     listOf(null, PermissionBehavior.Allow, PermissionBehavior.Ask, PermissionBehavior.Deny)
-private val ChoiceLabels = listOf("未设置", "允许", "询问", "拒绝")
+private val ChoiceLabels: List<String>
+    get() = listOf(Strings.setupToolPermUnset()) + PermissionBehavior.entries.map(::behaviorLabel)
+
+/** 允许、询问、拒绝在界面上的叫法（核心的 [PermissionBehavior.label] 是固定的中文）。 */
+private fun behaviorLabel(b: PermissionBehavior): String =
+    when (b) {
+        PermissionBehavior.Allow -> Strings.setupToolPermAllow()
+        PermissionBehavior.Ask -> Strings.setupToolPermAsk()
+        PermissionBehavior.Deny -> Strings.setupToolPermDeny()
+    }
 
 /** 页面上改规则时的回调：交给后台线程跑（拿到这一页的查询），跑完拿到核心算好的新页面。 */
 private typealias ApplyRules = (ClaudeConfigCore.(PermissionsQuery) -> PermissionsView) -> Unit
 
 /** 一行的摘要，只放一行：有从服务器继承来的设置、带参数的规则时写这些状态，没有时写工具的中文说明。 带参数的规则本身列在页面下面的“规则”里。 */
-private fun toolSummary(label: String?, state: ToolState, serverLabel: String = "整个服务器"): String? =
+private fun toolSummary(
+    label: String?,
+    state: ToolState,
+    serverLabel: String = Strings.setupToolPermWholeServer(),
+): String? =
     listOfNotNull(
-            state.behavior?.takeIf { state.inherited }?.let { "跟随$serverLabel：${it.label}" },
-            state.specific.takeIf { it.isNotEmpty() }?.let { "另有 ${it.size} 条带参数的规则" },
+            state.behavior
+                ?.takeIf { state.inherited }
+                ?.let { Strings.setupToolPermInherited(serverLabel, behaviorLabel(it)) },
+            state.specific
+                .takeIf { it.isNotEmpty() }
+                ?.let { Strings.setupToolPermSpecific(it.size) },
         )
         .joinToString(" · ")
         .ifBlank { label?.ifBlank { null } }
@@ -146,7 +165,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
             result
                 .onSuccess { view = it }
                 .onFailure {
-                    notice = ConfigNotice("没有改成", it.problem())
+                    notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
                     reloads++
                 }
         }
@@ -156,13 +175,18 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
 
     val shownDelete = rememberRetained(deleting)
     CouiPage(
-        title = "工具权限",
+        title = Strings.setupToolPermTitle(),
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Refresh, "重新读取", enabled = !working, onClick = { reloads++ })
+            IconActionButton(
+                COUIIcons.Refresh,
+                Strings.setupToolPermReload(),
+                enabled = !working,
+                onClick = { reloads++ },
+            )
             IconActionButton(
                 COUIIcons.Add,
-                "添加规则",
+                Strings.setupToolPermAddRule(),
                 enabled = editable,
                 onClick = { editor = RuleDraft(null, PermissionBehavior.Ask, "") },
             )
@@ -194,9 +218,12 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
             )
             ConfirmDialog(
                 show = deleting != null,
-                title = "删除规则",
-                summary = shownDelete?.let { "删除${it.behavior.label}规则 ${it.rule}？" },
-                confirmText = "删除",
+                title = Strings.setupToolPermDeleteRule(),
+                summary =
+                    shownDelete?.let {
+                        Strings.setupToolPermDeleteRuleSummary(behaviorLabel(it.behavior), it.rule)
+                    },
+                confirmText = Strings.setupClaudeDelete(),
                 destructive = true,
                 onConfirm = {
                     val target = deleting
@@ -211,9 +238,9 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
         item(key = "semantics") {
             PagerFooterPreference(
                 summary =
-                    PermissionSemantics +
-                        "改动对所有项目、之后新开始的对话生效。" +
-                        (loadError?.let { "\n\n读取失败：$it" } ?: ""),
+                    Strings.setupToolPermIntro(PermissionSemantics) +
+                        (loadError?.let { "\n\n" + Strings.setupToolPermLoadFailedDetail(it) }
+                            ?: ""),
             )
         }
         item(key = "builtin") {
@@ -229,7 +256,7 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
         }
         if (showMore && current != null) {
             item(key = "builtin-more") {
-                PreferenceGroup(title = "更多内置工具") {
+                PreferenceGroup(title = Strings.setupToolPermMoreBuiltin()) {
                     toolRows(current.builtin.filter { it.more }, editable, apply)
                 }
             }
@@ -295,15 +322,24 @@ private fun BuiltinToolsGroup(
     apply: ApplyRules,
     onBulk: (BulkRequest) -> Unit,
 ) {
-    PreferenceGroup(title = "内置工具") {
+    PreferenceGroup(title = Strings.setupToolPermBuiltin()) {
         if (view == null) {
-            item { if (loadError == null) ConfigLoadingRow() else ConfigEmptyRow("读不出规则") }
+            item {
+                if (loadError == null) ConfigLoadingRow()
+                else ConfigEmptyRow(Strings.setupToolPermCantRead())
+            }
             return@PreferenceGroup
         }
         item {
             BulkButtons(view.builtinBulk, editable) { enable, change ->
                 onBulk(
-                    BulkRequest("内置工具", view.builtinGroup, enable, change, warnNoTools = !enable),
+                    BulkRequest(
+                        Strings.setupToolPermBulkBuiltin(),
+                        view.builtinGroup,
+                        enable,
+                        change,
+                        warnNoTools = !enable,
+                    ),
                 )
             }
         }
@@ -311,8 +347,12 @@ private fun BuiltinToolsGroup(
         if (!showMore) {
             item(key = "more") {
                 BasicComponent(
-                    title = "更多内置工具",
-                    endActions = { PreferenceValue("${view.builtin.count { it.more }} 个") },
+                    title = Strings.setupToolPermMoreBuiltin(),
+                    endActions = {
+                        PreferenceValue(
+                            Strings.setupToolPermMoreCount(view.builtin.count { it.more }),
+                        )
+                    },
                     onClick = onShowMore,
                 )
             }
@@ -346,15 +386,15 @@ private fun PhoneToolsGroup(
     onBulk: (BulkRequest) -> Unit,
 ) {
     PreferenceGroup(
-        title = "手机工具",
-        footer = if (phoneToolsOn) null else "手机操作现在关着，Claude 拿不到这些工具。",
+        title = Strings.setupToolPermPhone(),
+        footer = if (phoneToolsOn) null else Strings.setupToolPermPhoneOff(),
     ) {
         val focus = view?.focus
         item {
             BulkButtons(focus?.bulk, editable) { enable, change ->
                 onBulk(
                     BulkRequest(
-                        "手机工具",
+                        Strings.setupToolPermBulkPhone(),
                         PermissionGroup(server = PhoneTools.SERVER),
                         enable,
                         change,
@@ -364,14 +404,21 @@ private fun PhoneToolsGroup(
         }
         item(key = "whole") {
             val rule = focus?.rule ?: McpNames.server(PhoneTools.SERVER)
-            ToolRow("全部手机工具", rule, focus?.state?.behavior, editable) { b ->
+            ToolRow(Strings.setupToolPermAllPhone(), rule, focus?.state?.behavior, editable) { b ->
                 apply { setToolPermission(it, rule, b) }
             }
         }
         val states = view?.serverTools.orEmpty().associateBy { it.name }
         tools.forEach { (name, label) ->
             item(key = name) {
-                McpToolRow(name, label, states[name], "全部手机工具", editable, apply)
+                McpToolRow(
+                    name,
+                    label,
+                    states[name],
+                    Strings.setupToolPermAllPhone(),
+                    editable,
+                    apply,
+                )
             }
         }
     }
@@ -404,18 +451,21 @@ private fun McpServersGroup(
     loadError: String?,
     onOpen: (ServerView) -> Unit,
 ) {
-    PreferenceGroup(title = "MCP 服务器") {
+    PreferenceGroup(title = Strings.setupMcpTitle()) {
         when {
             servers == null && loadError == null -> item { ConfigLoadingRow() }
-            servers == null -> item { ConfigEmptyRow("读不出规则") }
-            servers.isEmpty() -> item { ConfigEmptyRow("没有配置 MCP 服务器") }
+            servers == null -> item { ConfigEmptyRow(Strings.setupToolPermCantRead()) }
+            servers.isEmpty() -> item { ConfigEmptyRow(Strings.setupToolPermNoServers()) }
             else ->
                 servers.forEach { server ->
                     item(key = server.name) {
                         ArrowPreference(
                             title = server.name,
                             endActions = {
-                                PreferenceValue(server.state.behavior?.label ?: "未设置")
+                                PreferenceValue(
+                                    server.state.behavior?.let(::behaviorLabel)
+                                        ?: Strings.setupToolPermUnset(),
+                                )
                             },
                             onClick = { onOpen(server) },
                         )
@@ -436,13 +486,19 @@ private fun RulesGroup(
     onDelete: (PermissionRule) -> Unit,
 ) {
     PreferenceGroup(
-        title = "规则 · ${view?.rules?.size ?: 0}",
-        footer = "带参数的规则只在这里改，上面的下拉不动它们。",
+        title = Strings.setupToolPermRules(view?.rules?.size ?: 0),
+        footer = Strings.setupToolPermRulesFooter(),
     ) {
         when {
             view == null && loadError == null -> item { ConfigLoadingRow() }
-            view == null -> item { ConfigEmptyRow("读不出规则") }
-            view.rules.isEmpty() -> item { ConfigEmptyRow("还没有规则", "点右上角的 + 添加") }
+            view == null -> item { ConfigEmptyRow(Strings.setupToolPermCantRead()) }
+            view.rules.isEmpty() ->
+                item {
+                    ConfigEmptyRow(
+                        Strings.setupToolPermNoRules(),
+                        Strings.setupClaudeTapPlusToAdd(),
+                    )
+                }
             else ->
                 view.rules.forEach { rule ->
                     item(key = rule.behavior.name + ":" + rule.rule) {
@@ -478,7 +534,7 @@ private fun RuleRow(
                     items =
                         PermissionBehavior.entries.map {
                             DropdownItem(
-                                text = it.label,
+                                text = behaviorLabel(it),
                                 selected = it == rule.behavior,
                                 onClick = { if (it != rule.behavior) onMove(it) },
                             )
@@ -487,13 +543,13 @@ private fun RuleRow(
                 DropdownEntry(
                     items =
                         listOf(
-                            DropdownItem(text = "编辑…", onClick = onEdit),
-                            DropdownItem(text = "删除", onClick = onDelete),
+                            DropdownItem(text = Strings.setupToolPermEditMenu(), onClick = onEdit),
+                            DropdownItem(text = Strings.setupClaudeDelete(), onClick = onDelete),
                         ),
                 ),
             ),
         title = rule.rule,
-        summary = if (malformed) "括号不配对，Claude Code 认不出这条" else null,
+        summary = if (malformed) Strings.setupToolPermMalformed() else null,
         enabled = enabled,
         collapseOnSelection = true,
     )
@@ -528,9 +584,11 @@ private fun RuleEditorDialog(
     }
     ConfirmDialog(
         show = draft != null,
-        title = if (shown?.original == null) "添加规则" else "编辑规则",
+        title =
+            if (shown?.original == null) Strings.setupToolPermAddRule()
+            else Strings.setupToolPermEditRule(),
         summary = null,
-        confirmText = if (saving) "正在保存…" else "保存",
+        confirmText = if (saving) Strings.setupToolPermSaving() else Strings.setupClaudeSave(),
         confirmEnabled = !saving,
         onConfirm = {
             val current = shown
@@ -551,7 +609,7 @@ private fun RuleEditorDialog(
         ) {
             val behaviors = PermissionBehavior.entries
             SegmentButton(
-                items = behaviors.map { it.label },
+                items = behaviors.map(::behaviorLabel),
                 selectedIndex = behaviors.indexOf(behavior),
                 onSelectedIndexChange = { index ->
                     behaviors.getOrNull(index)?.let { behavior = it }
@@ -564,13 +622,12 @@ private fun RuleEditorDialog(
             DialogTextField(
                 value = text,
                 onValueChange = { text = it },
-                title = "规则",
+                title = Strings.setupToolPermRule(),
                 hint = "Bash(git push:*)",
                 enabled = !saving,
             )
             Text(
-                text =
-                    "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。",
+                text = Strings.setupToolPermRuleHelp(),
                 style = COUITheme.textStyles.bodyS,
                 color = COUITheme.colorScheme.labelSecondary,
             )
@@ -616,7 +673,9 @@ private fun McpPermissionDetail(
     // 取到工具清单以后再算一遍，各工具的状态才在里面
     LaunchedEffect(query, reloads) {
         scope.runConfig({ client.permissions(query) }) { result ->
-            result.onSuccess { view = it }.onFailure { notice = ConfigNotice("读取失败", it.problem()) }
+            result
+                .onSuccess { view = it }
+                .onFailure { notice = ConfigNotice(Strings.setupClaudeLoadFailed(), it.problem()) }
         }
     }
     val apply: ApplyRules = { block ->
@@ -626,7 +685,7 @@ private fun McpPermissionDetail(
             result
                 .onSuccess { view = it }
                 .onFailure {
-                    notice = ConfigNotice("没有改成", it.problem())
+                    notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
                     reloads++
                 }
         }
@@ -638,7 +697,12 @@ private fun McpPermissionDetail(
         title = server.name,
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Refresh, "刷新工具", enabled = !loading, onClick = ::load)
+            IconActionButton(
+                COUIIcons.Refresh,
+                Strings.setupMcpRefreshTools(),
+                enabled = !loading,
+                onClick = ::load,
+            )
         },
         dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
@@ -649,12 +713,12 @@ private fun McpPermissionDetail(
     ) {
         item(key = "whole") {
             val focus = view?.focus ?: server
-            PreferenceGroup(footer = "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。") {
+            PreferenceGroup(footer = Strings.setupToolPermServerFooter()) {
                 item {
                     BulkButtons(view?.focus?.bulk, editable) { enable, change ->
                         bulk =
                             BulkRequest(
-                                "${server.name} 的工具",
+                                Strings.setupToolPermBulkServer(server.name),
                                 PermissionGroup(server = server.name),
                                 enable,
                                 change,
@@ -662,7 +726,12 @@ private fun McpPermissionDetail(
                     }
                 }
                 item {
-                    ToolRow("整个服务器", focus.rule, focus.state.behavior, editable) { b ->
+                    ToolRow(
+                        Strings.setupToolPermWholeServer(),
+                        focus.rule,
+                        focus.state.behavior,
+                        editable,
+                    ) { b ->
                         apply { setToolPermission(it, focus.rule, b) }
                     }
                 }
@@ -681,7 +750,7 @@ private fun McpPermissionDetail(
                     tool.name,
                     tool.description.clipLine(60),
                     states[tool.name],
-                    "整个服务器",
+                    Strings.setupToolPermWholeServer(),
                     editable,
                     apply,
                 )
@@ -701,23 +770,31 @@ private fun McpToolsGroup(
     row: @Composable (McpTool) -> Unit,
 ) {
     PreferenceGroup(
-        title = tools?.let { "工具 · ${it.size}" } ?: "工具",
-        footer = if (server.oauth) "要按工具设置，在上一页的“规则”里手写 ${server.rule}__工具名。" else null,
+        title = tools?.let { Strings.setupClaudeToolsCount(it.size) } ?: Strings.setupClaudeTools(),
+        footer = if (server.oauth) Strings.setupToolPermOauthFooter(server.rule) else null,
     ) {
         when {
-            loading -> item { ConfigLoadingRow("正在连接…") }
+            loading -> item { ConfigLoadingRow(Strings.setupClaudeConnecting()) }
             error != null ->
-                item { BasicComponent(title = "取不到工具清单", summary = error, onClick = onLoad) }
+                item {
+                    BasicComponent(
+                        title = Strings.setupClaudeToolsError(),
+                        summary = error,
+                        onClick = onLoad,
+                    )
+                }
             tools == null ->
                 item {
                     BasicComponent(
-                        title = "列出工具",
-                        summary = if (server.oauth) "用 OAuth 登录的服务器取不到" else "连上服务器取工具清单",
+                        title = Strings.setupClaudeListTools(),
+                        summary =
+                            if (server.oauth) Strings.setupClaudeListToolsOauth()
+                            else Strings.setupClaudeListToolsHint(),
                         enabled = !server.oauth,
                         onClick = onLoad,
                     )
                 }
-            tools.isEmpty() -> item { ConfigEmptyRow("没有工具") }
+            tools.isEmpty() -> item { ConfigEmptyRow(Strings.setupClaudeNoTools()) }
             else -> tools.forEach { tool -> item(key = tool.name) { row(tool) } }
         }
     }
@@ -745,13 +822,13 @@ private fun BulkButtons(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CompactButton(
-            text = "全部开启",
+            text = Strings.setupToolPermEnableAll(),
             onClick = { pair?.let { onRequest(true, it.enable) } },
             enabled = editable && pair?.enable?.isEmpty == false,
             modifier = Modifier.weight(1f),
         )
         CompactButton(
-            text = "全部关闭",
+            text = Strings.setupToolPermDisableAll(),
             onClick = { pair?.let { onRequest(false, it.disable) } },
             enabled = editable && pair?.disable?.isEmpty == false,
             modifier = Modifier.weight(1f),
@@ -768,9 +845,15 @@ private fun BulkConfirmDialog(
     val shown = rememberRetained(request)
     ConfirmDialog(
         show = request != null,
-        title = shown?.let { (if (it.enable) "全部开启" else "全部关闭") + it.label + "？" },
+        title =
+            shown?.let {
+                if (it.enable) Strings.setupToolPermEnableAllTitle(it.label)
+                else Strings.setupToolPermDisableAllTitle(it.label)
+            },
         summary = shown?.let { bulkMessage(it.change, warnNoTools = it.warnNoTools) },
-        confirmText = if (shown?.enable == false) "全部关闭" else "全部开启",
+        confirmText =
+            if (shown?.enable == false) Strings.setupToolPermDisableAll()
+            else Strings.setupToolPermEnableAll(),
         destructive = shown?.enable == false,
         onConfirm = {
             val target = request
@@ -786,13 +869,27 @@ internal fun bulkMessage(change: BulkChange, warnNoTools: Boolean): String = bui
     PermissionBehavior.entries.forEach { b ->
         val rules = change.add.filter { it.behavior == b }.map { it.rule }
         if (rules.isNotEmpty())
-            append("加到${b.label}（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
+            append(
+                    Strings.setupToolPermBulkAdd(
+                        behaviorLabel(b),
+                        rules.size,
+                        rules.joinToString(Strings.setupListSeparator()),
+                    ),
+                )
+                .append("\n")
     }
     PermissionBehavior.entries.forEach { b ->
         val rules = change.remove.filter { it.behavior == b }.map { it.rule }
         if (rules.isNotEmpty())
-            append("从${b.label}里删（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
+            append(
+                    Strings.setupToolPermBulkRemove(
+                        behaviorLabel(b),
+                        rules.size,
+                        rules.joinToString(Strings.setupListSeparator()),
+                    ),
+                )
+                .append("\n")
     }
-    if (warnNoTools) append("\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。")
+    if (warnNoTools) append("\n").append(Strings.setupToolPermNoToolsWarning())
 }
     .trimEnd()

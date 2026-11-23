@@ -15,10 +15,13 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * 交给 Claude 的一个手机工具：MCP 定义 [definition]，加上工具权限页上的中文名字 [label]（手机宽度下要一行放得下）。
- * 这一步做了什么的一句中文（聊天里的步骤、顶部胶囊）由所在的组给（[PhoneToolGroup.title]）。用 [tool] 写。
+ * 交给 Claude 的一个手机工具：MCP 定义 [definition]，加上工具权限页上的名字 [label]（按界面语言出字，手机宽度下要一行放得下）。
+ * 这一步做了什么的一句话（聊天里的步骤、顶部胶囊）由所在的组给（[PhoneToolGroup.title]）。用 [tool] 写。
  */
-internal class PhoneTool(val label: String, val definition: JsonObject) {
+internal class PhoneTool(private val labelText: () -> String, val definition: JsonObject) {
+    val label: String
+        get() = labelText()
+
     val name: String = (definition["name"] as JsonPrimitive).content
 }
 
@@ -105,10 +108,10 @@ internal inline fun toolCall(block: () -> JsonObject): JsonObject =
         toolFailure("执行失败：" + (e.message ?: e.javaClass.simpleName))
     }
 
-/** 一个工具：[label] 是工具权限页上的中文名字，[description] 和 [build] 写的参数是交给 Claude 的英文定义。 */
+/** 一个工具：[label] 取工具权限页上的名字（文字表里的取字函数），[description] 和 [build] 写的参数是交给 Claude 的英文定义。 */
 internal fun tool(
     name: String,
-    label: String,
+    label: () -> String,
     description: String,
     readOnly: Boolean = false,
     build: JsonObjectBuilder.() -> Unit,

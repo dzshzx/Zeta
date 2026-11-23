@@ -34,6 +34,7 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.offerIntake
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.app.ZetaTheme
@@ -260,7 +261,9 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
         val capture = capture?.takeIf { !it.empty } ?: return@derivedStateOf null
         ScreenChip(
             // 只显示应用名：包名留在发给 Claude 的屏幕内容里（ScreenDigest.appName）
-            app = capture.focusedApp?.label?.trim()?.takeIf { it.isNotEmpty() } ?: "当前屏幕",
+            app =
+                capture.focusedApp?.label?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: Strings.assistantCurrentScreen(),
             thumbnail = capture.screenshot?.preview,
             removed = !includeScreen,
         )
@@ -304,7 +307,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
         val config =
             hub.settings.env
                 ?: run {
-                    problem = "Zeta 还没有配置 Linux 环境，先打开 Zeta 设置好"
+                    problem = Strings.assistantNoEnv()
                     return
                 }
         pending = question
@@ -332,7 +335,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             if (!started.busy) {
                 problem =
                     started.items.filterIsInstance<NoticeItem>().lastOrNull { it.error }?.said()
-                        ?: "没有发出去"
+                        ?: Strings.assistantNotSent()
                 return@launch
             }
             hub.park(started)

@@ -6,6 +6,7 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.InstalledApps
 import java.time.ZoneId
 import kotlinx.serialization.json.JsonObject
@@ -36,7 +37,7 @@ internal object PersonalTools : PhoneToolGroup {
         listOf(
             tool(
                 SEARCH,
-                "只读搜索日历、短信、相册等",
+                { Strings.phoneToolSearchPersonal() },
                 "Search the user's personal data on this phone (read-only). Sources: calendar (events in a window, default next 7 days), " +
                     "calendars (ids, writable or not), notifications (current plus recently dismissed), codes (verification codes from SMS and " +
                     "notifications, default last hour), sms, calls, contacts, photos (incl. screenshots), videos, photo_content (photos and " +
@@ -70,7 +71,7 @@ internal object PersonalTools : PhoneToolGroup {
             },
             tool(
                 VIEW,
-                "查看照片、截图、视频或聊天图片",
+                { Strings.phoneToolViewMedia() },
                 "Look at a photo, screenshot, video (its preview frame) or chat image found by search_personal.",
                 readOnly = true,
             ) {
@@ -90,7 +91,7 @@ internal object PersonalTools : PhoneToolGroup {
             },
             tool(
                 EDIT,
-                "新建、修改、删除日程",
+                { Strings.phoneToolEditCalendar() },
                 "Create, update or delete a calendar event, then read it back. Recurring events cannot be updated; " +
                     "deleting one removes the whole series and needs series: true.",
             ) {
@@ -145,16 +146,18 @@ internal object PersonalTools : PhoneToolGroup {
                 val query =
                     input.str("query")?.trim()?.takeIf { it.isNotEmpty() }?.clipChars(12, "…")
                 when {
-                    source == PersonalSource.Codes -> "找验证码"
-                    source == null -> "查个人数据"
-                    query != null -> "在${source.label}里找「$query」"
-                    source == PersonalSource.Calendars -> "查看日历列表"
-                    else -> "查看${source.label}"
+                    source == PersonalSource.Codes -> Strings.phoneTitleFindCodes()
+                    source == null -> Strings.phoneTitleSearchPersonal()
+                    query != null ->
+                        Strings.phoneTitleSearchIn(Strings.phoneSourceName(source.key), query)
+                    source == PersonalSource.Calendars -> Strings.phoneTitleViewCalendars()
+                    else -> Strings.phoneTitleViewSource(Strings.phoneSourceName(source.key))
                 }
             }
             VIEW ->
                 ChatImages.viewTitle(input.str("kind"))
-                    ?: if (input.str("kind") == "video") "看视频画面" else "看照片"
+                    ?: if (input.str("kind") == "video") Strings.phoneTitleViewVideo()
+                    else Strings.phoneTitleViewPhoto()
             EDIT ->
                 when (input.str("action")) {
                     "create" ->
@@ -162,10 +165,11 @@ internal object PersonalTools : PhoneToolGroup {
                             .str("title")
                             ?.trim()
                             ?.takeIf { it.isNotEmpty() }
-                            ?.let { "新建日程「" + it.clipChars(12, "…") + "」" } ?: "新建日程"
-                    "update" -> "修改日程"
-                    "delete" -> "删除日程"
-                    else -> "改日程"
+                            ?.let { Strings.phoneTitleCreateEventNamed(it.clipChars(12, "…")) }
+                            ?: Strings.phoneTitleCreateEvent()
+                    "update" -> Strings.phoneTitleUpdateEvent()
+                    "delete" -> Strings.phoneTitleDeleteEvent()
+                    else -> Strings.phoneTitleEditEvent()
                 }
             else -> name
         }

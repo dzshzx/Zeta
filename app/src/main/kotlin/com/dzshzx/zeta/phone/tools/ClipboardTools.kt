@@ -5,6 +5,7 @@ import android.content.Context
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
 import kotlinx.serialization.json.JsonObject
 
@@ -14,7 +15,7 @@ internal object ClipboardTools : PhoneToolGroup {
         listOf(
             tool(
                 "clipboard",
-                "读写剪贴板",
+                { Strings.phoneToolClipboard() },
                 "Read the phone's clipboard, or replace it with text. Works while Zeta and the apps are in the background, but Android refuses reads while the phone is locked. " +
                     "To paste into a field afterwards use press_key paste; for plain typing type_text is simpler.",
             ) {
@@ -69,14 +70,15 @@ internal object ClipboardTools : PhoneToolGroup {
 
     override fun title(name: String, input: JsonObject): String =
         when (val text = input.str("text")) {
-            null -> "读取剪贴板"
-            "" -> "清空剪贴板"
+            null -> Strings.phoneTitleReadClipboard()
+            "" -> Strings.phoneTitleClearClipboard()
             else ->
                 text
                     .lineSequence()
                     .firstOrNull { it.isNotBlank() }
                     ?.trim()
-                    ?.let { "写入剪贴板「" + it.clipChars(16, "…") + "」" } ?: "写入剪贴板"
+                    ?.let { Strings.phoneTitleWriteClipboardText(it.clipChars(16, "…")) }
+                    ?: Strings.phoneTitleWriteClipboard()
         }
 
     /** 以 root 起辅助进程，返回它的标准输出和标准错误（结果和失败原因都打在标准输出上）。 */

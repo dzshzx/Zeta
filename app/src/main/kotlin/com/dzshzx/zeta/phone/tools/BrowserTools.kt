@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.phone.tools
 
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserRequest
 import com.dzshzx.zeta.ui.chat.BROWSER_TOOL
@@ -13,7 +14,7 @@ internal object BrowserTools : PhoneToolGroup {
         listOf(
             tool(
                 NAME,
-                "内置浏览器，在屏幕外操作网页",
+                { Strings.phoneToolBrowser() },
                 "Zeta's built-in web browser (Android WebView), driven off-screen; the user can watch it in Zeta and take over. " +
                     "Use it instead of WebFetch when a page needs JavaScript, a login or interaction. Cookies stay inside Zeta. " +
                     "open, click, type, scroll, back, forward, reload and wait return a page view: numbered interactive elements in or just below the viewport, plus the visible text. " +

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SshStatus
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
@@ -29,17 +30,17 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
     LaunchedEffect(env?.rootfs) { hub.environment.refreshSsh() }
 
     CouiPage(
-        title = "SSH 服务",
+        title = Strings.setupSshTitle(),
         onBack = onBack,
         dialogs = {
             TextInputDialog(
                 show = adding,
-                title = "添加公钥",
-                summary = "形如 ssh-ed25519 AAAA… 的一整行",
+                title = Strings.setupSshAddKey(),
+                summary = Strings.setupSshAddKeyHint(),
                 value = keyDraft,
                 onValueChange = { keyDraft = it },
                 label = "ssh-ed25519 AAAA…",
-                confirmText = "添加",
+                confirmText = Strings.setupAdd(),
                 confirmEnabled = Regex("(ssh-|ecdsa-|sk-)\\S+\\s+\\S+.*").matches(keyDraft.trim()),
                 onConfirm = {
                     hub.environment.addSshKey(keyDraft)
@@ -75,17 +76,17 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
 /** 「服务」一组：状态；没装时是安装，装了是监听地址、启停和开机自启。 */
 @Composable
 private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Boolean) {
-    PreferenceGroup(title = "服务", footer = "停止后不再接受新连接，已连上的会话不受影响。") {
+    PreferenceGroup(title = Strings.setupSshService(), footer = Strings.setupSshServiceFooter()) {
         item {
             BasicComponent(
-                title = "状态",
+                title = Strings.setupStatus(),
                 endActions = {
                     PreferenceValue(
                         when {
-                            status == null -> "检查中"
-                            !status.installed -> "未安装"
-                            status.running -> "运行中"
-                            else -> "未运行"
+                            status == null -> Strings.setupStateChecking()
+                            !status.installed -> Strings.setupNotInstalled()
+                            status.running -> Strings.setupSshRunning()
+                            else -> Strings.setupSshNotRunning()
                         },
                     )
                 },
@@ -94,9 +95,9 @@ private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Bool
         if (status != null && !status.installed) {
             item {
                 BasicComponent(
-                    title = "安装并配置",
+                    title = Strings.setupSshInstall(),
                     // 安装 openssh-server
-                    summary = "只在本机 8022 端口监听，只认公钥",
+                    summary = Strings.setupSshInstallSummary(),
                     enabled = !busy,
                     onClick = hub.environment::setupSsh,
                 )
@@ -115,13 +116,15 @@ private fun CardListGroupScope.installedRows(
 ) {
     item {
         BasicComponent(
-            title = "监听地址",
-            endActions = { PreferenceValue(status.listen.ifBlank { "端口 " + status.port }) },
+            title = Strings.setupSshListen(),
+            endActions = {
+                PreferenceValue(status.listen.ifBlank { Strings.setupSshPort(status.port) })
+            },
         )
     }
     item {
         BasicComponent(
-            title = if (status.running) "停止" else "启动",
+            title = if (status.running) Strings.setupSshStop() else Strings.setupSshStart(),
             enabled = !busy,
             onClick = if (status.running) hub.environment::stopSsh else hub.environment::startSsh,
         )
@@ -130,7 +133,7 @@ private fun CardListGroupScope.installedRows(
         SwitchPreference(
             checked = status.autostart,
             onCheckedChange = hub.environment::setSshAutostart,
-            title = "开机自动启动",
+            title = Strings.setupSshAutostart(),
             enabled = !busy,
         )
     }
@@ -140,26 +143,31 @@ private fun CardListGroupScope.installedRows(
 @Composable
 private fun SshLoginGroup(status: SshStatus, user: String?, busy: Boolean, onAddKey: () -> Unit) {
     PreferenceGroup(
-        title = "登录",
-        footer =
-            "本机用 ssh -p ${status.port.ifBlank { "8022" }} ${user ?: "用户名"}@127.0.0.1 连接，" +
-                (if (status.passwordLogin) "注意当前配置允许密码登录。" else "只认公钥。") +
-                "别的设备要经 Tailscale 之类转到这个端口。",
+        title = Strings.setupSshLogin(),
+        footer = sshLoginFooter(status, user),
     ) {
         item {
             BasicComponent(
-                title = "已授权的公钥",
-                endActions = { PreferenceValue("${status.keys} 条") },
+                title = Strings.setupSshAuthorizedKeys(),
+                endActions = { PreferenceValue(Strings.setupSshKeyCount(status.keys)) },
             )
         }
         item {
             BasicComponent(
-                title = "添加公钥",
+                title = Strings.setupSshAddKey(),
                 // 加进 ~/.ssh/authorized_keys
-                summary = "粘贴一条公钥",
+                summary = Strings.setupSshPasteKey(),
                 enabled = !busy,
                 onClick = onAddKey,
             )
         }
     }
+}
+
+/** 「登录」一组下面的说明：本机怎么连、认不认密码。 */
+private fun sshLoginFooter(status: SshStatus, user: String?): String {
+    val port = status.port.ifBlank { "8022" }
+    val name = user ?: Strings.setupSshUserPlaceholder()
+    return if (status.passwordLogin) Strings.setupSshLoginFooterPassword(port, name)
+    else Strings.setupSshLoginFooterKeys(port, name)
 }

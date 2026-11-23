@@ -16,16 +16,6 @@ internal object DeviceAudio {
             "system" to 1,
         )
 
-    val STREAM_NAMES =
-        mapOf(
-            "media" to "媒体",
-            "ring" to "铃声",
-            "notification" to "通知",
-            "alarm" to "闹钟",
-            "call" to "通话",
-            "system" to "系统",
-        )
-
     /** 工具里的媒体动作 → `cmd media_session dispatch` 的键名。 */
     val KEYS =
         linkedMapOf(
@@ -35,16 +25,6 @@ internal object DeviceAudio {
             "next" to "next",
             "previous" to "previous",
             "stop" to "stop",
-        )
-
-    val KEY_NAMES =
-        mapOf(
-            "play" to "播放",
-            "pause" to "暂停播放",
-            "play_pause" to "播放或暂停",
-            "next" to "下一首",
-            "previous" to "上一首",
-            "stop" to "停止播放",
         )
 
     /** 各路音量那几行，由 [parseVolumes] 解读。 */

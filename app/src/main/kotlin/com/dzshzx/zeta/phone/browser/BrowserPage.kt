@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.safeCut
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.net.URI
 import java.net.URLEncoder
 import kotlin.math.max
@@ -480,33 +481,37 @@ internal data class BrowserRequest(
             val element = input.int("element")?.let { "[$it]" }
             return when (input.str("action")?.lowercase()) {
                 "open" ->
-                    "打开网页 " +
-                        (input.str("url")?.let {
+                    Strings.phoneTitleBrowserOpen(
+                        input.str("url")?.let {
                             BrowserUrls.host(BrowserUrls.forAgent(it).first ?: it).ifEmpty {
                                 BrowserPage.clip(it, 40)
                             }
-                        } ?: "")
-                "read" -> "读网页全文"
+                        } ?: "",
+                    )
+                "read" -> Strings.phoneTitleBrowserRead()
                 "click" ->
-                    "点按网页里的" +
-                        (element
+                    Strings.phoneTitleBrowserClick(
+                        element
                             ?: input.int("x")?.let { "(${it}, ${input.int("y") ?: 0})" }
-                            ?: "元素")
+                            ?: Strings.phoneBrowserElement(),
+                    )
                 "type" ->
-                    "在网页里输入“" +
-                        BrowserPage.clip(input.str("text").orEmpty(), 24) +
-                        "”" +
-                        if (input.bool("submit") == true) "并提交" else ""
+                    Strings.phoneTitleBrowserType(
+                        BrowserPage.clip(input.str("text").orEmpty(), 24),
+                        (input.bool("submit") == true).toString(),
+                    )
                 "scroll" ->
-                    if (element != null) "网页滚到 $element"
-                    else if (input.str("direction") == "up") "网页向上滚动" else "网页向下滚动"
-                "back" -> "网页后退"
-                "forward" -> "网页前进"
-                "reload" -> "刷新网页"
-                "screenshot" -> "网页截图"
+                    if (element != null) Strings.phoneTitleBrowserScrollTo(element)
+                    else Strings.phoneTitleBrowserScroll(input.str("direction").orEmpty())
+                "back" -> Strings.phoneTitleBrowserBack()
+                "forward" -> Strings.phoneTitleBrowserForward()
+                "reload" -> Strings.phoneTitleBrowserReload()
+                "screenshot" -> Strings.phoneTitleBrowserScreenshot()
                 "wait" ->
-                    input.str("text")?.let { "等网页出现「" + BrowserPage.clip(it, 20) + "」" }
-                        ?: ("等待网页 " +
+                    input.str("text")?.let {
+                        Strings.phoneTitleBrowserWaitText(BrowserPage.clip(it, 20))
+                    }
+                        ?: Strings.phoneTitleBrowserWait(
                             "%.1f"
                                 .format(
                                     ((input.int("ms") ?: 1000).coerceIn(
@@ -514,9 +519,9 @@ internal data class BrowserRequest(
                                         BrowserLimits.WAIT_MS,
                                     )) / 1000.0,
                                 )
-                                .removeSuffix(".0") +
-                            " 秒")
-                else -> "浏览器"
+                                .removeSuffix(".0"),
+                        )
+                else -> Strings.phoneTitleBrowser()
             }.trim()
         }
     }

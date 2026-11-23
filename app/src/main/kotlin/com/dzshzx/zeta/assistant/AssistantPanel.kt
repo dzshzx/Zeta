@@ -86,6 +86,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import io.github.suqi8.coui.kmp.anim.COUIOutEaseEasing
@@ -633,7 +634,7 @@ private fun DragHandle(
             modifier
                 .fillMaxWidth()
                 .height(38.dp)
-                .semantics { contentDescription = "在 Zeta 中继续" }
+                .semantics { contentDescription = Strings.assistantContinueInZeta() }
                 .clickable(
                     interactionSource = null,
                     indication = null,
@@ -658,7 +659,7 @@ private fun DragHandle(
 @Composable
 private fun BoxScope.HandoffHint(ready: Boolean, colors: AssistantColors, alpha: () -> Float) {
     Text(
-        text = if (ready) "松手进入 Zeta" else "继续上拉进入 Zeta",
+        text = if (ready) Strings.assistantReleaseToOpen() else Strings.assistantPullToOpen(),
         color = if (ready) colors.accent else colors.inputSecondary,
         fontSize = 11.sp,
         lineHeight = 14.sp,
@@ -713,7 +714,7 @@ private fun ColumnScope.ReplyArea(
             modifier = Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.End,
         ) {
-            TextAction("在 Zeta 中继续", COUITheme.colorScheme.primary, onOpen)
+            TextAction(Strings.assistantContinueInZeta(), COUITheme.colorScheme.primary, onOpen)
         }
     }
 }
@@ -749,12 +750,12 @@ private fun ScreenRow(screen: ScreenChip, colors: AssistantColors, onToggle: () 
 @Composable
 private fun ScreenToggle(removed: Boolean, colors: AssistantColors, onToggle: () -> Unit) {
     if (removed) {
-        TextAction("带上", colors.accent, onToggle)
+        TextAction(Strings.assistantIncludeScreen(), colors.accent, onToggle)
         return
     }
     FlatIconButton(
         icon = COUIIcons.Close,
-        contentDescription = "不带屏幕内容",
+        contentDescription = Strings.assistantExcludeScreen(),
         size = 32.dp,
         iconSize = 12.dp,
         modifier = Modifier.drawBehind { drawCircle(colors.controlSurface, radius = 11.dp.toPx()) },

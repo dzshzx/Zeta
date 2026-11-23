@@ -15,8 +15,30 @@ object UiLanguage {
     /** 界面能用的语言（BCP 47），源语言在前；每种在文字表目录里都有 <语言>.json。 */
     val supported: List<String> = listOf(SOURCE, ENGLISH)
 
-    /** 界面现在的语言，[supported] 之一。 */
-    @Volatile var current: String = SOURCE
+    /** 界面现在的语言，[supported] 之一；在 [forClaude] 里是源语言。 */
+    var current: String
+        get() = claudeScope.get() ?: chosen
+        set(value) {
+            chosen = value
+        }
+
+    @Volatile private var chosen: String = SOURCE
+
+    private val claudeScope = ThreadLocal<String?>()
+
+    /**
+     * 在这个线程上跑 [block] 时取字固定用源语言：交给 Claude 的文字（工具结果）不随界面语言变（docs/i18n.md「哪些不翻译」）。
+     * 手机工具借用界面那边的取字结果（定时任务的规则说明、运行结果的叫法）写进工具结果时，整个调用包在这里面。
+     */
+    fun <T> forClaude(block: () -> T): T {
+        val outer = claudeScope.get()
+        claudeScope.set(SOURCE)
+        try {
+            return block()
+        } finally {
+            claudeScope.set(outer)
+        }
+    }
 
     /**
      * 读者的语言 [preferred]（BCP 47，最想要的在前）里第一种界面能用的；都不能用时是简体中文。照 mygo 的 i18n.Match（桌面版用它）：

@@ -37,6 +37,7 @@ import com.dzshzx.zeta.core.SshStatus
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.core.optionalName
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
@@ -55,9 +56,9 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private fun locationName(rootfs: String?): String =
     when (rootfs) {
-        null -> "未选择"
-        LinuxEnv.OWN_ROOTFS -> "Zeta 自带的环境"
-        else -> "自定义位置"
+        null -> Strings.setupLocationNone()
+        LinuxEnv.OWN_ROOTFS -> Strings.setupLocationOwn()
+        else -> Strings.setupLocationCustom()
     }
 
 private enum class LinuxEdit {
@@ -95,7 +96,7 @@ internal fun LinuxScreen(
     }
 
     CouiPage(
-        title = "Linux 环境",
+        title = Strings.setupLinuxTitle(),
         onBack = onBack,
         dialogs = {
             LinuxEditDialog(
@@ -117,9 +118,9 @@ internal fun LinuxScreen(
             )
             ConfirmDialog(
                 show = removing != null,
-                title = "卸载 " + optionalName(lastRemoving) + "？",
-                summary = removeOptionalSummary(lastRemoving) + "以后可以在这里再装回来。",
-                confirmText = "卸载",
+                title = Strings.setupRemoveOptionalTitle(optionalName(lastRemoving)),
+                summary = Strings.setupRemoveOptionalSummary(removeOptionalSummary(lastRemoving)),
+                confirmText = Strings.setupUninstall(),
                 destructive = true,
                 onConfirm = {
                     removing?.let(hub.environment::removeOptional)
@@ -129,9 +130,9 @@ internal fun LinuxScreen(
             )
             ConfirmDialog(
                 show = confirmLogout,
-                title = "退出登录",
-                summary = "退出后要重新登录才能继续使用 Claude Code。",
-                confirmText = "退出",
+                title = Strings.setupLogout(),
+                summary = Strings.setupLogoutSummary(),
+                confirmText = Strings.setupLogoutConfirm(),
                 onConfirm = {
                     confirmLogout = false
                     hub.environment.logout()
@@ -191,12 +192,12 @@ private fun LinuxEditDialog(
     val rootfs = kind == LinuxEdit.Rootfs
     TextInputDialog(
         show = show,
-        title = if (rootfs) "自定义路径" else "默认工作目录",
-        summary = if (rootfs) "Debian 根目录在 Android 里的路径" else "新对话默认在这个目录下开始",
+        title = if (rootfs) Strings.setupCustomPath() else Strings.setupDefaultCwd(),
+        summary = if (rootfs) Strings.setupRootfsHint() else Strings.setupCwdHint(),
         value = draft,
         onValueChange = onDraftChange,
         label = if (rootfs) LinuxEnv.OWN_ROOTFS else home ?: "/workspace",
-        confirmText = "确定",
+        confirmText = Strings.setupOk(),
         confirmEnabled = draft.trim().startsWith("/"),
         onConfirm = onConfirm,
         onDismissRequest = onDismiss,
@@ -206,35 +207,33 @@ private fun LinuxEditDialog(
 /** 卸载一样可选工具前说明会删掉什么、留下什么。 */
 private fun removeOptionalSummary(name: String): String =
     when (name) {
-        "go" -> "删除 /usr/local/go 和 Zeta 为它写的配置。~/go 里下载过的模块、装过的程序不动。"
-        "node" -> "删除 /usr/local/node 和 Zeta 为它写的配置。~/.npm-global 里装过的全局包不动，但没有 Node.js 就跑不起来了。"
-        "apk" ->
-            "删除 /opt/zeta/apk-analysis 里的 jadx、apktool、smali/baksmali。Java 只有当初是 Zeta 为它装的才会一起卸掉，环境里原有的（比如 Android 构建用的）不动。"
-        else ->
-            "删除 uv、它管理的各个 Python 版本和用 uv tool 装的命令。项目里的虚拟环境会因为没有了 Python 而用不了；系统自带的 python3 不受影响。"
+        "go" -> Strings.setupRemoveGo()
+        "node" -> Strings.setupRemoveNode()
+        "apk" -> Strings.setupRemoveApk()
+        else -> Strings.setupRemovePython()
     }
 
 private fun setupStateText(state: SetupState): String =
     when (state) {
-        SetupState.Checking -> "检查中"
-        SetupState.NoRoot -> "没有 root 权限"
-        SetupState.NoEnvironment -> "未找到环境"
-        SetupState.Ready -> "可用"
+        SetupState.Checking -> Strings.setupStateChecking()
+        SetupState.NoRoot -> Strings.setupStateNoRoot()
+        SetupState.NoEnvironment -> Strings.setupStateNoEnv()
+        SetupState.Ready -> Strings.setupStateReady()
     }
 
 /** 自带环境还没装完时的入口。 */
 @Composable
 private fun InstallGroup(running: Boolean, own: EnvStatus?, onOpenInstall: () -> Unit) {
-    PreferenceGroup(footer = "卸载 Zeta 不会删掉这个环境。") {
+    PreferenceGroup(footer = Strings.setupInstallFooter()) {
         item {
             ArrowPreference(
                 title =
                     when {
-                        running -> "正在安装…"
-                        own?.base == true -> "继续安装 Debian 环境"
-                        else -> "安装 Debian 环境"
+                        running -> Strings.setupInstallRunning()
+                        own?.base == true -> Strings.setupInstallContinueDebian()
+                        else -> Strings.setupInstallDebian()
                     },
-                summary = "含常用工具和 Claude Code，约占 1 GB",
+                summary = Strings.setupInstallPitch(),
                 onClick = onOpenInstall,
             )
         }
@@ -249,10 +248,10 @@ private fun EnvGroup(
     current: String,
     onEdit: (LinuxEdit, String) -> Unit,
 ) {
-    PreferenceGroup(title = "环境", footer = "有对话在进行时不能切换位置。") {
+    PreferenceGroup(title = Strings.setupEnvGroup(), footer = Strings.setupEnvFooter()) {
         item {
             BasicComponent(
-                title = "状态",
+                title = Strings.setupStatus(),
                 endActions = { PreferenceValue(setupStateText(hub.environment.setup)) },
             )
         }
@@ -261,7 +260,7 @@ private fun EnvGroup(
                 if (target != env?.rootfs) hub.environment.redetect(target)
             }
             DropdownValuePreference(
-                title = "位置",
+                title = Strings.setupLocation(),
                 value = locationName(current),
                 // 有对话正在进行时不能切换
                 enabled = hub.environment.canSwitchEnvironment,
@@ -271,12 +270,12 @@ private fun EnvGroup(
                             items =
                                 listOf(
                                     DropdownItem(
-                                        text = "Zeta 自带的环境",
+                                        text = Strings.setupLocationOwn(),
                                         selected = current == LinuxEnv.OWN_ROOTFS,
                                         onClick = { choose(LinuxEnv.OWN_ROOTFS) },
                                     ),
                                     DropdownItem(
-                                        text = "自定义路径…",
+                                        text = Strings.setupCustomPathMenu(),
                                         selected = current != LinuxEnv.OWN_ROOTFS,
                                         onClick = { onEdit(LinuxEdit.Rootfs, current) },
                                     ),
@@ -285,17 +284,17 @@ private fun EnvGroup(
                     ),
             )
         }
-        item { BasicComponent(title = "路径", summary = current) }
+        item { BasicComponent(title = Strings.setupPath(), summary = current) }
         if (env != null) {
             item {
                 BasicComponent(
-                    title = "运行用户",
+                    title = Strings.setupRunUser(),
                     endActions = { PreferenceValue("${env.user} (${env.uid})") },
                 )
             }
             item {
                 BasicComponent(
-                    title = "默认工作目录",
+                    title = Strings.setupDefaultCwd(),
                     summary = env.defaultCwd,
                     onClick = { onEdit(LinuxEdit.Cwd, env.defaultCwd) },
                 )
@@ -303,8 +302,8 @@ private fun EnvGroup(
         }
         item {
             BasicComponent(
-                title = "重新检测",
-                summary = "重新检查 root 和环境里的用户",
+                title = Strings.setupRedetect(),
+                summary = Strings.setupRedetectSummary(),
                 onClick = { hub.environment.redetect(current) },
             )
         }
@@ -327,12 +326,15 @@ private fun LazyListScope.readyItems(
     // Go 顺带配好 ~/go/bin；Python 是 uv 管理的最新版，带 pip；Node.js 的全局包装在 ~/.npm-global；
     // APK 分析包括 jadx、apktool、smali/baksmali，环境里没有 Java 时一并装上 OpenJDK。
     item(key = "optional") {
-        PreferenceGroup(title = "可选工具", footer = "Zeta 只更新、卸载自己装的；环境里原有的只显示版本，不会动。") {
+        PreferenceGroup(
+            title = Strings.setupOptionalTools(),
+            footer = Strings.setupOptionalFooter(),
+        ) {
             listOf(
-                    "go" to "官方最新稳定版，配好国内模块代理",
-                    "python" to "uv 和最新的 Python，设为 python3",
-                    "node" to "官方最新 LTS 版，带 npm",
-                    "apk" to "jadx、apktool 等，反编译和检查 APK",
+                    "go" to Strings.setupPitchGo(),
+                    "python" to Strings.setupPitchPython(),
+                    "node" to Strings.setupPitchNode(),
+                    "apk" to Strings.setupPitchApk(),
                 )
                 .forEach { (name, pitch) ->
                     item(key = name) {
@@ -357,18 +359,18 @@ private fun LazyListScope.readyItems(
 /** 「体检」一组：检查环境的结果和修复。 */
 @Composable
 private fun HealthGroup(hub: ConversationHub, health: EnvHealth?, maintenanceRunning: Boolean) {
-    PreferenceGroup(title = "体检") {
+    PreferenceGroup(title = Strings.setupHealth()) {
         item {
             BasicComponent(
-                title = "检查环境",
+                title = Strings.setupCheckEnv(),
                 summary = healthSummary(hub.environment.healthChecking, health),
                 onClick = hub.environment::checkHealth,
             )
         }
         item {
             BasicComponent(
-                title = "修复",
-                summary = "修好软件包数据库，补齐常用工具",
+                title = Strings.setupRepair(),
+                summary = Strings.setupRepairSummary(),
                 enabled = !maintenanceRunning,
                 onClick = hub.environment::repairEnvironment,
             )
@@ -378,19 +380,20 @@ private fun HealthGroup(hub: ConversationHub, health: EnvHealth?, maintenanceRun
 
 private fun healthSummary(checking: Boolean, health: EnvHealth?): String =
     when {
-        checking -> "检查中…"
-        health == null -> "核心命令、工作目录、网络与剩余空间"
+        checking -> Strings.setupCheckingEllipsis()
+        health == null -> Strings.setupHealthIdle()
         else -> healthFindings(health).joinToString(" · ")
     }
 
 /** 体检结果的各条：先列问题（没有就是环境正常），再是 Debian 版本和剩余空间。 */
 private fun healthFindings(health: EnvHealth): List<String> = buildList {
-    if (health.missing.isNotEmpty()) add("缺少 " + health.missing.joinToString("、"))
-    if (!health.workspaceWritable) add("默认工作目录不可写")
-    if (!health.network) add("解析不了域名，可能没有网络")
-    if (isEmpty()) add("环境正常")
+    if (health.missing.isNotEmpty())
+        add(Strings.setupHealthMissing(health.missing.joinToString(Strings.setupListSeparator())))
+    if (!health.workspaceWritable) add(Strings.setupHealthCwdNotWritable())
+    if (!health.network) add(Strings.setupHealthNoNetwork())
+    if (isEmpty()) add(Strings.setupHealthOk())
     if (health.debian.isNotBlank()) add("Debian ${health.debian}")
-    add("剩余 ${formatBytes(health.freeBytes)}")
+    add(Strings.setupHealthFree(formatBytes(health.freeBytes)))
 }
 
 /** 「文件与远程访问」一组：文件浏览、共享文件夹、SSH 服务。 */
@@ -400,33 +403,38 @@ private fun FilesGroup(
     onOpenFiles: (LinuxFilesPage) -> Unit,
     onOpenSsh: () -> Unit,
 ) {
-    PreferenceGroup(title = "文件与远程访问") {
+    PreferenceGroup(title = Strings.setupFilesGroup()) {
         item {
             ArrowPreference(
-                title = "文件浏览",
-                summary = "浏览、预览文件，和手机之间导入导出",
+                title = Strings.setupFileBrowser(),
+                summary = Strings.setupFileBrowserSummary(),
                 onClick = { onOpenFiles(LinuxFilesPage.Browser) },
             )
         }
         item {
             ArrowPreference(
-                title = "共享文件夹",
-                summary = "把 Android 目录挂载到 Linux 环境",
+                title = Strings.setupSharedFolders(),
+                summary = Strings.setupSharedFoldersSummary(),
                 onClick = { onOpenFiles(LinuxFilesPage.Shared) },
             )
         }
         item {
-            ArrowPreference(title = "SSH 服务", summary = sshSummary(ssh), onClick = onOpenSsh)
+            ArrowPreference(
+                title = Strings.setupSshTitle(),
+                summary = sshSummary(ssh),
+                onClick = onOpenSsh,
+            )
         }
     }
 }
 
 private fun sshSummary(ssh: SshStatus?): String =
     when {
-        ssh == null -> "从终端应用或别的设备连进这个环境"
-        !ssh.installed -> "未安装"
-        ssh.running -> "运行中 · " + ssh.listen.ifBlank { "端口 " + ssh.port }
-        else -> "未运行"
+        ssh == null -> Strings.setupSshSummaryIdle()
+        !ssh.installed -> Strings.setupNotInstalled()
+        ssh.running ->
+            Strings.setupSshRunningAt(ssh.listen.ifBlank { Strings.setupSshPort(ssh.port) })
+        else -> Strings.setupSshNotRunning()
     }
 
 /** 「Claude Code」一组：版本、更新、账号、退出登录。 */
@@ -442,22 +450,24 @@ private fun ClaudeGroup(
     PreferenceGroup(title = "Claude Code") {
         item {
             BasicComponent(
-                title = "版本",
-                endActions = { PreferenceValue(health?.claude?.ifBlank { "未安装" } ?: "…") },
+                title = Strings.setupVersion(),
+                endActions = {
+                    PreferenceValue(health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…")
+                },
             )
         }
         item {
             BasicComponent(
-                title = "更新",
+                title = Strings.setupUpdate(),
                 // 运行 claude update
-                summary = "更新到最新版",
+                summary = Strings.setupUpdateLatest(),
                 enabled = !maintenanceRunning,
                 onClick = hub.environment::updateClaude,
             )
         }
         item {
             ArrowPreference(
-                title = "账号",
+                title = Strings.setupAccount(),
                 summary = accountSummary(account),
                 onClick = onOpenLogin,
             )
@@ -465,7 +475,7 @@ private fun ClaudeGroup(
         if (account?.loggedIn == true) {
             item {
                 BasicComponent(
-                    title = "退出登录",
+                    title = Strings.setupLogout(),
                     enabled = !maintenanceRunning,
                     onClick = onLogout,
                 )
@@ -476,9 +486,12 @@ private fun ClaudeGroup(
 
 private fun accountSummary(account: AccountStatus?): String =
     when {
-        account == null -> "正在查询…"
-        !account.loggedIn -> "未登录"
-        else -> listOfNotNull(account.email, account.plan).joinToString(" · ").ifBlank { "已登录" }
+        account == null -> Strings.setupQuerying()
+        !account.loggedIn -> Strings.setupNotLoggedIn()
+        else ->
+            listOfNotNull(account.email, account.plan).joinToString(" · ").ifBlank {
+                Strings.setupLoggedIn()
+            }
     }
 
 /** 正在做或刚做完的维护（修复、更新、装卸可选工具、SSH 的操作）：做完了点一下收起。 */
@@ -489,9 +502,9 @@ internal fun MaintenanceGroup(maintenance: EnvController.Maintenance, onDismiss:
             BasicComponent(
                 title =
                     when {
-                        maintenance.running -> "进行中…"
-                        maintenance.ok -> "已完成"
-                        else -> "没有成功"
+                        maintenance.running -> Strings.setupMaintenanceRunning()
+                        maintenance.ok -> Strings.setupMaintenanceDone()
+                        else -> Strings.setupMaintenanceFailed()
                     },
                 summary = maintenance.detail.ifBlank { null },
                 onClick = if (maintenance.running) null else onDismiss,
@@ -513,17 +526,17 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
     val complete = installer.finished || own?.complete == true
 
     CouiPage(
-        title = "安装 Debian 环境",
+        title = Strings.setupInstallDebian(),
         onBack = onBack,
         dialogs = {
             TextInputDialog(
                 show = editingName,
-                title = "用户名",
-                summary = "小写字母开头，只含小写字母、数字、下划线和连字符",
+                title = Strings.setupUserName(),
+                summary = Strings.setupUserNameHint(),
                 value = nameDraft,
                 onValueChange = { nameDraft = it },
                 label = "zeta",
-                confirmText = "确定",
+                confirmText = Strings.setupOk(),
                 confirmEnabled = Regex("[a-z_][a-z0-9_-]{0,30}").matches(nameDraft.trim()),
                 onConfirm = {
                     userName = nameDraft.trim()
@@ -535,14 +548,14 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
     ) {
         item(key = "prepare") {
             PreferenceGroup(
-                title = "准备",
+                title = Strings.setupInstallPrepare(),
                 // 装在 LinuxEnv.OWN_BASE
-                footer = "先下载约 35 MB 的基础系统，再联网装常用工具和 Claude Code，装完约占 1 GB。要几分钟，可以切到后台。",
+                footer = Strings.setupInstallPrepareFooter(),
             ) {
                 item {
                     BasicComponent(
-                        title = "用户名",
-                        summary = "Claude Code 以这个 Linux 用户的身份运行",
+                        title = Strings.setupUserName(),
+                        summary = Strings.setupUserNameSummary(),
                         endActions = { PreferenceValue(existingUser ?: userName) },
                         onClick =
                             if (existingUser == null && !installer.running && !complete) {
@@ -558,7 +571,7 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
             }
         }
         item(key = "steps") {
-            PreferenceGroup(title = "步骤") {
+            PreferenceGroup(title = Strings.setupInstallSteps()) {
                 for (step in InstallStep.entries) {
                     item(key = step) { InstallStepRow(step, installer, complete) }
                 }
@@ -599,9 +612,10 @@ private fun installStepValue(
     current: Boolean,
 ): String =
     when {
-        step in installer.done || complete -> "完成"
-        current -> installer.progress?.let { "${(it * 100).toInt()}%" } ?: "进行中"
-        installer.error != null && installer.step == step -> "失败"
+        step in installer.done || complete -> Strings.setupStepDone()
+        current ->
+            installer.progress?.let { "${(it * 100).toInt()}%" } ?: Strings.setupStepRunning()
+        installer.error != null && installer.step == step -> Strings.setupStepFailed()
         else -> ""
     }
 
@@ -623,22 +637,22 @@ private fun InstallActions(
         when {
             installer.running ->
                 TextButton(
-                    text = "取消",
+                    text = Strings.setupCancel(),
                     onClick = installer::cancel,
                     modifier = Modifier.fillMaxWidth(),
                 )
             complete -> {
                 if (hub.settings.env?.rootfs != LinuxEnv.OWN_ROOTFS) {
                     PrimaryButton(
-                        text = "切换到这个环境",
+                        text = Strings.setupSwitchToEnv(),
                         onClick = { hub.environment.redetect(LinuxEnv.OWN_ROOTFS) },
                         enabled = hub.environment.canSwitchEnvironment,
                     )
                 } else if (hub.environment.account?.loggedIn != true) {
-                    PrimaryButton(text = "登录 Claude 账号", onClick = onOpenLogin)
+                    PrimaryButton(text = Strings.setupSignInClaude(), onClick = onOpenLogin)
                 }
                 TextButton(
-                    text = "完成",
+                    text = Strings.setupFinish(),
                     onClick = onBack,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -647,8 +661,8 @@ private fun InstallActions(
                 PrimaryButton(
                     text =
                         if (installer.error != null || hub.environment.ownStatus?.base == true)
-                            "继续安装"
-                        else "开始安装",
+                            Strings.setupContinueInstall()
+                        else Strings.setupStartInstall(),
                     onClick = onStart,
                     enabled = startEnabled,
                 )
@@ -670,8 +684,9 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
     }
     // 远程设备的名字放在「当前状态」上：标题再加设备名就放不下了
     val statusTitle =
-        if (backend == Backends.LOCAL) "当前状态" else "当前状态 · " + hub.backendName(backend)
-    CouiPage(title = "登录 Claude 账号", onBack = leave) {
+        if (backend == Backends.LOCAL) Strings.setupLoginStatus()
+        else Strings.setupLoginStatusOn(hub.backendName(backend))
+    CouiPage(title = Strings.setupSignInClaude(), onBack = leave) {
         item(key = "status") { LoginStatusGroup(account, statusTitle) }
         when (state) {
             LoginState.Idle,
@@ -681,7 +696,9 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
                 item(key = "start") {
                     Buttons {
                         PrimaryButton(
-                            text = if (account?.loggedIn == true) "换一个账号登录" else "开始登录",
+                            text =
+                                if (account?.loggedIn == true) Strings.setupLoginAnother()
+                                else Strings.setupLoginStart(),
                             onClick = {
                                 code = ""
                                 flow.start()
@@ -690,7 +707,7 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
                     }
                 }
             }
-            LoginState.Starting -> item(key = "starting") { Notice("正在准备登录…") }
+            LoginState.Starting -> item(key = "starting") { Notice(Strings.setupLoginPreparing()) }
             is LoginState.WaitingCode,
             LoginState.Verifying ->
                 loginCodeItems(
@@ -705,8 +722,10 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
                     onSubmit = { flow.submit(code) },
                 )
             LoginState.Done -> {
-                item(key = "done") { Notice("登录成功") }
-                item(key = "finish") { Buttons { PrimaryButton(text = "完成", onClick = leave) } }
+                item(key = "done") { Notice(Strings.setupLoginSuccess()) }
+                item(key = "finish") {
+                    Buttons { PrimaryButton(text = Strings.setupFinish(), onClick = leave) }
+                }
             }
         }
     }
@@ -735,9 +754,9 @@ private fun LoginStatusGroup(account: AccountStatus?, title: String) {
             BasicComponent(
                 title =
                     when {
-                        account == null -> "正在查询…"
-                        account.loggedIn -> "已登录"
-                        else -> "未登录"
+                        account == null -> Strings.setupQuerying()
+                        account.loggedIn -> Strings.setupLoggedIn()
+                        else -> Strings.setupNotLoggedIn()
                     },
                 summary =
                     account
@@ -762,20 +781,20 @@ private fun LazyListScope.loginCodeItems(
     val url = (state as? LoginState.WaitingCode)?.url
     item(key = "step1") {
         PreferenceGroup(
-            title = "第一步",
-            footer = "在浏览器里登录并同意授权，页面最后会给出一串授权码。",
+            title = Strings.setupLoginStep1(),
+            footer = Strings.setupLoginStep1Footer(),
         ) {
             item {
                 ArrowPreference(
-                    title = "打开登录页",
+                    title = Strings.setupLoginOpenPage(),
                     enabled = url != null,
                     onClick = { url?.let(onOpen) },
                 )
             }
             item {
                 BasicComponent(
-                    title = "复制链接",
-                    summary = "想在别的设备上登录时用",
+                    title = Strings.setupLoginCopyLink(),
+                    summary = Strings.setupLoginCopyLinkSummary(),
                     enabled = url != null,
                     onClick = { url?.let(onCopy) },
                 )
@@ -783,12 +802,12 @@ private fun LazyListScope.loginCodeItems(
         }
     }
     item(key = "step2") {
-        PreferenceGroup(title = "第二步") {
+        PreferenceGroup(title = Strings.setupLoginStep2()) {
             item {
                 InputPreference(
                     value = code,
                     onValueChange = onCodeChange,
-                    hint = "把授权码粘贴到这里",
+                    hint = Strings.setupLoginCodeHint(),
                     enabled = state is LoginState.WaitingCode,
                 )
             }
@@ -800,7 +819,9 @@ private fun LazyListScope.loginCodeItems(
     item(key = "submit") {
         Buttons {
             PrimaryButton(
-                text = if (state is LoginState.Verifying) "正在验证…" else "完成登录",
+                text =
+                    if (state is LoginState.Verifying) Strings.setupLoginVerifying()
+                    else Strings.setupLoginFinish(),
                 onClick = onSubmit,
                 enabled = state is LoginState.WaitingCode && code.isNotBlank(),
             )
@@ -878,23 +899,29 @@ private fun OptionalToolRow(
             BasicComponent(
                 title = title,
                 summary = pitch,
-                endActions = { PreferenceValue("安装") },
+                endActions = { PreferenceValue(Strings.setupOptionalInstall()) },
                 enabled = enabled,
                 onClick = onInstall,
             )
         name in health.zetaOwned ->
             DropdownValuePreference(
                 title = title,
-                summary = "$label · Zeta 装的",
-                value = "管理",
+                summary = Strings.setupOptionalZetaOwned(label),
+                value = Strings.setupOptionalManage(),
                 enabled = enabled,
                 entries =
                     listOf(
                         DropdownEntry(
                             items =
                                 listOf(
-                                    DropdownItem(text = "更新到最新版", onClick = onInstall),
-                                    DropdownItem(text = "卸载", onClick = onRemove),
+                                    DropdownItem(
+                                        text = Strings.setupUpdateLatest(),
+                                        onClick = onInstall,
+                                    ),
+                                    DropdownItem(
+                                        text = Strings.setupUninstall(),
+                                        onClick = onRemove,
+                                    ),
                                 ),
                         ),
                     ),
@@ -902,8 +929,8 @@ private fun OptionalToolRow(
         else ->
             BasicComponent(
                 title = title,
-                summary = "$label · 环境里原有的",
-                endActions = { PreferenceValue("已安装") },
+                summary = Strings.setupOptionalPreinstalled(label),
+                endActions = { PreferenceValue(Strings.setupInstalled()) },
             )
     }
 }

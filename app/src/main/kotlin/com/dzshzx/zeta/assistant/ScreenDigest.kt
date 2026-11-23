@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.assistant
 
 import com.dzshzx.zeta.core.clipLine
+import com.dzshzx.zeta.i18n.Strings
 
 /** 唤起助理时前台的一个应用：系统给的 AssistStructure、AssistContent 里读出来的东西， 或者 ASSIST intent 里带的包名（那时没有界面文字）。 */
 data class ScreenApp(
@@ -147,7 +148,12 @@ object ScreenDigest {
 
 /** 浮窗上给的几个建议问题（照 Eta 三个短标签，一行放得下）。没带屏幕内容时不给（问“这页”没有意义）。 */
 object AssistantSuggestions {
-    private val forScreen = listOf("这页讲了什么", "总结要点", "翻译成中文")
-
-    fun forContext(hasScreen: Boolean): List<String> = if (hasScreen) forScreen else emptyList()
+    fun forContext(hasScreen: Boolean): List<String> =
+        if (hasScreen)
+            listOf(
+                Strings.assistantSuggestAbout(),
+                Strings.assistantSuggestSummary(),
+                Strings.assistantSuggestTranslate(),
+            )
+        else emptyList()
 }

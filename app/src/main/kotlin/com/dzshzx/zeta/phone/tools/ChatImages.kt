@@ -4,6 +4,7 @@ import android.util.Base64
 import com.dzshzx.zeta.core.Images
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.imageMediaType
+import com.dzshzx.zeta.i18n.Strings
 import java.security.MessageDigest
 import java.time.ZoneId
 import kotlinx.serialization.json.JsonObject
@@ -370,8 +371,8 @@ internal object ChatImages {
 
     fun viewTitle(kind: String?): String? =
         when (kind) {
-            WECHAT -> "看微信图片"
-            QQ -> "看 QQ 图片"
+            WECHAT -> Strings.phoneTitleViewWechatImage()
+            QQ -> Strings.phoneTitleViewQqImage()
             else -> null
         }
 

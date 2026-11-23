@@ -14,6 +14,7 @@ import com.dzshzx.zeta.core.Settings as ZetaSettings
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.of
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
@@ -245,7 +246,11 @@ object AccessibilityGuard {
             DiagTopic.Accessibility,
             "无障碍服务 ${GuardPolicy.WINDOW_MS / 60_000} 分钟里被关掉 ${GuardPolicy.MAX_RESTORES} 次以上，不再自动加回（$reason）",
         )
-        notice(context, "无障碍服务被反复关掉", "Zeta 不再自动打开它，点这里查看权限健康")
+        notice(
+            context,
+            Strings.phoneAccessibilityRepeatedOffTitle(),
+            Strings.phoneAccessibilityRepeatedOffText(),
+        )
     }
 
     /** 把被关掉的服务加回去；加不回时报一次、发通知。持着 [lock] 调用。 */
@@ -263,12 +268,20 @@ object AccessibilityGuard {
             AppendResult.NoRoot ->
                 failOnce {
                     DiagLog.warn(DiagTopic.Accessibility, "没有 root，没法自动加回无障碍服务，已发通知")
-                    notice(context, "无障碍服务被关掉了", "Zeta 没有 root，没法自动打开。点这里到权限健康页处理")
+                    notice(
+                        context,
+                        Strings.phoneAccessibilityOffTitle(),
+                        Strings.phoneAccessibilityOffNoRootText(),
+                    )
                 }
             is AppendResult.Failed ->
                 failOnce {
                     DiagLog.error(DiagTopic.Accessibility, "加回无障碍服务没有成功：${result.reason}")
-                    notice(context, "无障碍服务被关掉了", "Zeta 没能自动打开它。点这里到权限健康页处理")
+                    notice(
+                        context,
+                        Strings.phoneAccessibilityOffTitle(),
+                        Strings.phoneAccessibilityOffFailedText(),
+                    )
                 }
         }
     }

@@ -24,6 +24,7 @@ import com.dzshzx.zeta.core.claude.McpState
 import com.dzshzx.zeta.core.claude.McpStatus
 import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.core.clipLine
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -46,17 +47,17 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private fun stateLabel(state: McpState?): String =
     when (state?.state) {
-        null -> "检查中…"
-        "connected" -> "已连接"
-        "partial" -> "已连接 · 取工具出错"
-        "failed" -> "连不上"
-        "auth" -> "需要登录"
-        "pending" -> "等待批准"
-        "rejected" -> "已拒绝"
-        "disabled" -> "已停用"
-        "unconfigured" -> "未配置"
-        "shadowed" -> "未生效"
-        else -> "未知"
+        null -> Strings.setupMcpStateChecking()
+        "connected" -> Strings.setupMcpStateConnected()
+        "partial" -> Strings.setupMcpStatePartial()
+        "failed" -> Strings.setupMcpStateFailed()
+        "auth" -> Strings.setupMcpStateAuth()
+        "pending" -> Strings.setupMcpStatePending()
+        "rejected" -> Strings.setupMcpStateRejected()
+        "disabled" -> Strings.setupClaudeDisabled()
+        "unconfigured" -> Strings.setupMcpStateUnconfigured()
+        "shadowed" -> Strings.setupMcpStateShadowed()
+        else -> Strings.setupMcpStateUnknown()
     }
 
 /** 服务器状态在设置行右边的颜色：连上、连不上、要登录各有颜色，其余是普通值的颜色。 */
@@ -75,7 +76,7 @@ private fun typeLabel(type: String): String =
     when (type) {
         "http" -> "HTTP"
         "sse" -> "SSE"
-        "stdio" -> "命令"
+        "stdio" -> Strings.setupMcpTypeCommand()
         "ws" -> "WebSocket"
         else -> type
     }
@@ -83,9 +84,9 @@ private fun typeLabel(type: String): String =
 /** 配置的范围：user 是用户配置，local 是默认工作目录的本地配置（claude mcp add --scope 的叫法）。 */
 private fun scopeLabel(scope: String): String =
     when (scope) {
-        "user" -> "所有项目"
-        "local" -> "只在默认工作目录"
-        "project" -> "项目的 .mcp.json"
+        "user" -> Strings.setupMcpScopeUser()
+        "local" -> Strings.setupMcpScopeLocal()
+        "project" -> Strings.setupMcpScopeProject()
         else -> scope
     }
 
@@ -96,7 +97,8 @@ private fun McpServer.target(): String =
 private fun McpStatus?.of(server: McpServer, failed: Boolean): McpState? {
     val shadowedBy = server.shadowedBy
     return when {
-        shadowedBy != null -> McpState("shadowed", "被“${scopeLabel(shadowedBy)}”里的同名服务器盖住")
+        shadowedBy != null ->
+            McpState("shadowed", Strings.setupMcpShadowedBy(scopeLabel(shadowedBy)))
         else ->
             this?.of(server.scope, server.name)
                 ?: if (failed || this != null) McpState("unknown", "") else null
@@ -155,7 +157,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -
         scope.runConfig({ client.mcpServers(cwd) }) { result ->
             result
                 .onSuccess { servers = it }
-                .onFailure { notice = ConfigNotice("读取 MCP 配置失败", it.problem()) }
+                .onFailure { notice = ConfigNotice(Strings.setupMcpLoadFailed(), it.problem()) }
         }
         status = null
         statusError = null
@@ -166,16 +168,16 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -
     val reload: () -> Unit = { reloads++ }
 
     CouiPage(
-        title = "MCP 服务器",
+        title = Strings.setupMcpTitle(),
         onBack = onBack,
         actions = {
             IconActionButton(
                 COUIIcons.Refresh,
-                "重新检查",
+                Strings.setupMcpRecheck(),
                 enabled = status != null || statusError != null,
                 onClick = reload,
             )
-            IconActionButton(COUIIcons.Add, "添加服务器", onClick = { showAdd = true })
+            IconActionButton(COUIIcons.Add, Strings.setupMcpAdd(), onClick = { showAdd = true })
         },
         dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
@@ -229,12 +231,15 @@ private fun ServersGroup(
     onOpen: (McpServer) -> Unit,
 ) {
     PreferenceGroup(
-        title = "服务器 · ${list?.size ?: 0}",
-        footer = "新加的服务器所有项目都能用，改动对之后新开始的对话生效。" + (statusError?.let { "\n\n检查状态没有成功：$it" } ?: ""),
+        title = Strings.setupMcpServers(list?.size ?: 0),
+        footer =
+            Strings.setupMcpServersFooter() +
+                (statusError?.let { "\n\n" + Strings.setupMcpStatusFailed(it) } ?: ""),
     ) {
         when {
             list == null -> item { ConfigLoadingRow() }
-            list.isEmpty() -> item { ConfigEmptyRow("还没有 MCP 服务器", "点右上角的 + 添加") }
+            list.isEmpty() ->
+                item { ConfigEmptyRow(Strings.setupMcpNone(), Strings.setupClaudeTapPlusToAdd()) }
             else ->
                 list.forEach { server ->
                     item(key = server.scope + "/" + server.name) {
@@ -262,7 +267,10 @@ private fun serverSummary(server: McpServer): String =
 /** 「Claude 账号的连接器」一组，只能看。 */
 @Composable
 private fun ConnectorsGroup(connectors: List<McpConnector>) {
-    PreferenceGroup(title = "Claude 账号的连接器", footer = "在 claude.ai 上管理，这里只能看。") {
+    PreferenceGroup(
+        title = Strings.setupMcpConnectors(),
+        footer = Strings.setupClaudeManagedOnline(),
+    ) {
         connectors.forEach {
             item(key = it.name) {
                 BasicComponent(
@@ -325,11 +333,12 @@ private fun AddServerDialog(
         val envLines = env.lines().map { it.trim() }.filter { it.isNotEmpty() }
         error =
             when {
-                !ServerName.matches(name.trim()) -> "名称只能用字母、数字、下划线和连字符"
+                !ServerName.matches(name.trim()) -> Strings.setupMcpNameInvalid()
                 type != "stdio" && !Regex("https?://\\S+").matches(url.trim()) ->
-                    "地址要以 http:// 或 https:// 开头"
-                type == "stdio" && command.isBlank() -> "请输入要运行的命令"
-                type == "stdio" && envLines.any { !EnvLine.matches(it) } -> "环境变量每行一个，写成 KEY=VALUE"
+                    Strings.setupMcpUrlInvalid()
+                type == "stdio" && command.isBlank() -> Strings.setupMcpCommandMissing()
+                type == "stdio" && envLines.any { !EnvLine.matches(it) } ->
+                    Strings.setupMcpEnvInvalid()
                 else -> null
             }
         if (error == null) {
@@ -355,12 +364,12 @@ private fun AddServerDialog(
             }
         }
     }
-    val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to "命令")
+    val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to Strings.setupMcpTypeCommand())
     ConfirmDialog(
         show = visible,
-        title = "添加服务器",
+        title = Strings.setupMcpAdd(),
         summary = null,
-        confirmText = if (working) "正在添加…" else "添加",
+        confirmText = if (working) Strings.setupMcpAdding() else Strings.setupAdd(),
         confirmEnabled = !working,
         onConfirm = confirm,
         onDismissRequest = { if (!working) onDismiss() },
@@ -383,29 +392,29 @@ private fun AddServerDialog(
             DialogTextField(
                 value = name,
                 onValueChange = { name = it },
-                title = "名称",
-                hint = "比如 github",
+                title = Strings.setupMcpName(),
+                hint = Strings.setupMcpNameHint(),
                 enabled = !working,
             )
             if (type == "stdio") {
                 DialogTextField(
                     value = command,
                     onValueChange = { command = it },
-                    title = "命令",
-                    hint = "比如 npx",
+                    title = Strings.setupMcpTypeCommand(),
+                    hint = Strings.setupMcpCommandHint(),
                     enabled = !working,
                 )
                 DialogTextField(
                     value = args,
                     onValueChange = { args = it },
-                    title = "参数（可选，空格分开）",
+                    title = Strings.setupMcpArgs(),
                     hint = "-y @modelcontextprotocol/server-everything",
                     enabled = !working,
                 )
                 DialogTextField(
                     value = env,
                     onValueChange = { env = it },
-                    title = "环境变量（可选，每行一个 KEY=VALUE）",
+                    title = Strings.setupMcpEnv(),
                     singleLine = false,
                     minLines = 2,
                     maxLines = 4,
@@ -415,7 +424,7 @@ private fun AddServerDialog(
                 DialogTextField(
                     value = url,
                     onValueChange = { url = it },
-                    title = "服务器地址",
+                    title = Strings.setupMcpUrl(),
                     hint = "https://",
                     enabled = !working,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -423,7 +432,7 @@ private fun AddServerDialog(
                 DialogTextField(
                     value = token,
                     onValueChange = { token = it },
-                    title = "Bearer Token（可选）",
+                    title = Strings.setupMcpTokenOptional(),
                     enabled = !working,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -486,7 +495,9 @@ private fun McpServerDetail(
                     onChanged()
                     loadTools()
                 }
-                .onFailure { notice = ConfigNotice("没有改成", it.problem()) }
+                .onFailure {
+                    notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
+                }
         }
     }
 
@@ -497,7 +508,9 @@ private fun McpServerDetail(
             working = false
             result
                 .onSuccess { onRemoved() }
-                .onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                .onFailure {
+                    notice = ConfigNotice(Strings.setupClaudeDeleteFailed(), it.problem())
+                }
         }
     }
     // 项目里的 .mcp.json 可能来自别人的仓库，不自动替它启动命令；要看工具时手动点
@@ -509,7 +522,7 @@ private fun McpServerDetail(
         actions = {
             IconActionButton(
                 COUIIcons.Refresh,
-                "刷新工具",
+                Strings.setupMcpRefreshTools(),
                 enabled = !loadingTools,
                 onClick = ::loadTools,
             )
@@ -518,9 +531,9 @@ private fun McpServerDetail(
             ConfigNoticeDialog(notice) { notice = null }
             ConfirmDialog(
                 show = showToken,
-                title = "身份认证",
-                summary = "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。",
-                confirmText = "保存",
+                title = Strings.setupMcpAuth(),
+                summary = Strings.setupMcpAuthSummary(),
+                confirmText = Strings.setupClaudeSave(),
                 onConfirm = ::saveToken,
                 onDismissRequest = {
                     token = ""
@@ -537,9 +550,9 @@ private fun McpServerDetail(
             }
             ConfirmDialog(
                 show = confirmDelete,
-                title = "删除服务器",
-                summary = "删除 ${server.name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。",
-                confirmText = "删除",
+                title = Strings.setupMcpDelete(),
+                summary = Strings.setupMcpDeleteSummary(server.name),
+                confirmText = Strings.setupClaudeDelete(),
                 destructive = true,
                 onConfirm = ::remove,
                 onDismissRequest = { confirmDelete = false },
@@ -572,7 +585,7 @@ private fun McpServerDetail(
             PreferenceGroup {
                 item {
                     BasicComponent(
-                        title = "删除服务器",
+                        title = Strings.setupMcpDelete(),
                         // 经 claude mcp remove 从配置里移除
                         titleColor =
                             BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
@@ -595,23 +608,23 @@ private fun ServerInfoGroup(
     working: Boolean,
     onEditToken: () -> Unit,
 ) {
-    PreferenceGroup(title = "服务器") {
+    PreferenceGroup(title = Strings.setupMcpServer()) {
         item {
             BasicComponent(
-                title = "状态",
+                title = Strings.setupStatus(),
                 summary = state?.issue?.ifBlank { null },
                 endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) },
             )
         }
         item {
             BasicComponent(
-                title = "范围",
+                title = Strings.setupMcpScope(),
                 endActions = { PreferenceValue(scopeLabel(server.scope)) },
             )
         }
         item {
             BasicComponent(
-                title = "类型",
+                title = Strings.setupMcpType(),
                 endActions = { PreferenceValue(typeLabel(server.type)) },
             )
         }
@@ -624,13 +637,13 @@ private fun ServerInfoGroup(
 }
 
 private fun CardListGroupScope.stdioRows(server: McpServer) {
-    item { BasicComponent(title = "命令", summary = server.target()) }
+    item { BasicComponent(title = Strings.setupMcpTypeCommand(), summary = server.target()) }
     if (server.envKeys.isNotEmpty()) {
         item {
             BasicComponent(
-                title = "环境变量",
-                summary = server.envKeys.joinToString("、"),
-                endActions = { PreferenceValue("值已隐藏") },
+                title = Strings.setupMcpEnvKeys(),
+                summary = server.envKeys.joinToString(Strings.setupListSeparator()),
+                endActions = { PreferenceValue(Strings.setupMcpValuesHidden()) },
             )
         }
     }
@@ -643,21 +656,24 @@ private fun CardListGroupScope.remoteRows(
     working: Boolean,
     onEditToken: () -> Unit,
 ) {
-    item { BasicComponent(title = "地址", summary = server.url) }
+    item { BasicComponent(title = Strings.setupMcpAddress(), summary = server.url) }
     if (server.headerKeys.isNotEmpty()) {
         item {
             BasicComponent(
-                title = "其他请求头",
-                summary = server.headerKeys.joinToString("、"),
-                endActions = { PreferenceValue("值已隐藏") },
+                title = Strings.setupMcpHeaders(),
+                summary = server.headerKeys.joinToString(Strings.setupListSeparator()),
+                endActions = { PreferenceValue(Strings.setupMcpValuesHidden()) },
             )
         }
     }
     // 照 Eta：身份认证是“服务器”组里的一行。项目的 .mcp.json 可能来自别人的仓库，不替它改
     item {
         BasicComponent(
-            title = "身份认证",
-            summary = authSummary(auth, server.oauth) + if (tokenEditable) "" else " · 在项目里改",
+            title = Strings.setupMcpAuth(),
+            summary =
+                authSummary(auth, server.oauth).let {
+                    if (tokenEditable) it else Strings.setupMcpAuthInProject(it)
+                },
             enabled = tokenEditable && !working,
             onClick = if (tokenEditable) onEditToken else null,
         )
@@ -668,9 +684,9 @@ private fun CardListGroupScope.remoteRows(
 private fun authSummary(auth: Pair<Boolean, Boolean>, oauth: Boolean): String =
     when {
         auth.first -> "Bearer Token"
-        auth.second -> "Authorization 请求头"
-        oauth -> "OAuth：在终端用 claude 的 /mcp 登录"
-        else -> "未配置"
+        auth.second -> Strings.setupMcpAuthHeader()
+        oauth -> Strings.setupMcpAuthOauth()
+        else -> Strings.setupMcpStateUnconfigured()
     }
 
 /** 详情里的「工具」一组：连接中、出错、还没取（可以手动取）、空的，或者工具清单。 */
@@ -683,23 +699,31 @@ private fun ToolsGroup(
     onLoad: () -> Unit,
 ) {
     // Zeta 自己按 MCP 协议连上去取工具清单，和 Claude Code 连接时看到的一样；要 OAuth 登录的取不到
-    PreferenceGroup(title = tools?.let { "工具 · ${it.size}" } ?: "工具") {
+    PreferenceGroup(
+        title = tools?.let { Strings.setupClaudeToolsCount(it.size) } ?: Strings.setupClaudeTools(),
+    ) {
         when {
-            loading -> item { ConfigLoadingRow("正在连接…") }
+            loading -> item { ConfigLoadingRow(Strings.setupClaudeConnecting()) }
             error != null ->
                 item {
-                    BasicComponent(title = "取不到工具清单", summary = error, onClick = onLoad)
+                    BasicComponent(
+                        title = Strings.setupClaudeToolsError(),
+                        summary = error,
+                        onClick = onLoad,
+                    )
                 }
             tools == null ->
                 item {
                     BasicComponent(
-                        title = "列出工具",
-                        summary = if (oauth) "用 OAuth 登录的服务器取不到" else "连上服务器取工具清单",
+                        title = Strings.setupClaudeListTools(),
+                        summary =
+                            if (oauth) Strings.setupClaudeListToolsOauth()
+                            else Strings.setupClaudeListToolsHint(),
                         enabled = !oauth,
                         onClick = onLoad,
                     )
                 }
-            tools.isEmpty() -> item { ConfigEmptyRow("没有工具") }
+            tools.isEmpty() -> item { ConfigEmptyRow(Strings.setupClaudeNoTools()) }
             else ->
                 tools.forEach { tool ->
                     item(key = tool.name) {

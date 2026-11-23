@@ -42,6 +42,7 @@ import com.dzshzx.zeta.core.SharedAccess
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.fromTreeUri
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -67,7 +68,6 @@ import kotlinx.coroutines.withContext
  * 内部存储里的目录实际绑定的是底层的 /data/media，Zeta 会把 Linux 用户加入 media_rw 组以便读写；
  * 在 Linux 里新建的文件属于这个用户，图库等应用要等系统重新扫描后才看得到。
  */
-private const val Footer = "挂载到 Linux 的 /mnt/shared/<挂载名>。改动对新开的对话生效，进行中的对话看不到新加的；经 SSH 连进来的会话不挂载。"
 
 /** 添加共享文件夹时的选择状态：照 Eta，用 root 列出 Android 侧的子文件夹一层层点进去，也可以直接输入路径或用系统选择器。 */
 @Stable
@@ -84,7 +84,7 @@ private class FolderPicker(start: String, private val existing: List<SharedFolde
         val normalized =
             SharedFolders.normalize(target)
                 ?: run {
-                    formError = "目录路径无效"
+                    formError = Strings.setupSharedInvalidPath()
                     return
                 }
         path = normalized
@@ -97,7 +97,7 @@ private class FolderPicker(start: String, private val existing: List<SharedFolde
     /** 系统选择器选回来的目录：只认内部存储里的。 */
     fun useTreeUri(uri: Uri) {
         val picked = SharedFolders.fromTreeUri(uri)
-        if (picked == null) formError = "只支持内部存储里的文件夹" else navigate(picked)
+        if (picked == null) formError = Strings.setupSharedInternalOnly() else navigate(picked)
     }
 
     /** 列出当前目录下的子文件夹；打不开时记下原因。 */
@@ -105,7 +105,7 @@ private class FolderPicker(start: String, private val existing: List<SharedFolde
         entries = null
         val found = withContext(Dispatchers.IO) { SharedFolders.subfolders(path) }
         entries = found.orEmpty()
-        browseError = if (found == null) "无法打开该目录" else null
+        browseError = if (found == null) Strings.setupSharedCantOpen() else null
     }
 
     /** 点「添加」时先核对：输入了别的路径就先打开它让用户看清楚；路径、名字有问题时写进 [formError]。都没问题时返回 true。 */
@@ -113,12 +113,12 @@ private class FolderPicker(start: String, private val existing: List<SharedFolde
         // 输入了路径却没按回车：先打开它，看清楚了再添加
         val typed = SharedFolders.normalize(input)
         if (typed == null) {
-            formError = "目录路径无效"
+            formError = Strings.setupSharedInvalidPath()
             return false
         }
         if (typed != path) {
             navigate(typed)
-            formError = "已打开输入的目录，确认无误后再点“添加”"
+            formError = Strings.setupSharedOpenedTyped()
             return false
         }
         val problem =
@@ -169,13 +169,13 @@ private fun folderState(
     checking: Boolean,
 ): String =
     when {
-        present[folder.name] == false -> "源目录不存在"
-        access[folder.name] == SharedAccess.ReadWrite -> "可读写"
-        access[folder.name] == SharedAccess.ReadOnly -> "只读"
-        access[folder.name] == SharedAccess.Denied -> "没有权限"
-        access[folder.name] == SharedAccess.NotMounted -> "没有挂上"
-        checking -> "检查中"
-        else -> "未知"
+        present[folder.name] == false -> Strings.setupSharedMissing()
+        access[folder.name] == SharedAccess.ReadWrite -> Strings.setupSharedReadWrite()
+        access[folder.name] == SharedAccess.ReadOnly -> Strings.setupSharedReadOnly()
+        access[folder.name] == SharedAccess.Denied -> Strings.setupSharedDenied()
+        access[folder.name] == SharedAccess.NotMounted -> Strings.setupSharedNotMounted()
+        checking -> Strings.setupStateChecking()
+        else -> Strings.setupSharedUnknown()
     }
 
 /** 系统文件选择器从哪里开始：当前选到的内部存储目录。 */
@@ -261,14 +261,14 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 
     CouiPage(
-        title = "共享文件夹",
+        title = Strings.setupSharedFolders(),
         onBack = onBack,
         dialogs = {
             ConfirmDialog(
                 show = picker != null,
-                title = "添加共享文件夹",
+                title = Strings.setupSharedAdd(),
                 summary = null,
-                confirmText = "添加",
+                confirmText = Strings.setupAdd(),
                 onConfirm = { picker?.let(::add) },
                 onDismissRequest = { picker = null },
             ) {
@@ -283,9 +283,10 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
             }
             ConfirmDialog(
                 show = removing != null,
-                title = "移除共享文件夹",
-                summary = lastRemoving?.let { "移除“${it.name}”（${it.source}）？源目录中的文件不会被删除。" },
-                confirmText = "移除",
+                title = Strings.setupSharedRemove(),
+                summary =
+                    lastRemoving?.let { Strings.setupSharedRemoveSummary(it.name, it.source) },
+                confirmText = Strings.setupSharedRemoveConfirm(),
                 destructive = true,
                 onConfirm = { removing?.let(::remove) },
                 onDismissRequest = { removing = null },
@@ -293,9 +294,9 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
         },
     ) {
         item(key = "folders") {
-            PreferenceGroup(footer = Footer) {
+            PreferenceGroup(footer = Strings.setupSharedFooter()) {
                 if (folders.isEmpty()) {
-                    item { BasicComponent(title = "还没有共享文件夹") }
+                    item { BasicComponent(title = Strings.setupSharedNone()) }
                 }
                 folders.forEach { folder ->
                     item(key = folder.name) {
@@ -310,13 +311,13 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                                         items =
                                             listOf(
                                                 DropdownItem(
-                                                    text = "复制挂载点路径",
+                                                    text = Strings.setupSharedCopyMountPoint(),
                                                     onClick = {
                                                         copyLinuxPath(context, folder.mountPoint)
                                                     },
                                                 ),
                                                 DropdownItem(
-                                                    text = "移除",
+                                                    text = Strings.setupSharedRemoveConfirm(),
                                                     onClick = { removing = folder },
                                                 ),
                                             ),
@@ -327,7 +328,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                 }
                 item(key = "add") {
                     BasicComponent(
-                        title = "添加共享文件夹",
+                        title = Strings.setupSharedAdd(),
                         titleColor =
                             BasicComponentDefaults.titleColor(
                                 color = COUITheme.colorScheme.primary,
@@ -349,13 +350,13 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
         DialogTextField(
             value = current.input,
             onValueChange = { current.input = it },
-            title = "目录",
+            title = Strings.setupSharedFolder(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { current.navigate(current.input) }),
         )
         // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作，三个按钮竖排还会挤掉下面的挂载名
         Text(
-            text = "用系统文件选择器选择",
+            text = Strings.setupSharedSystemPicker(),
             style = COUITheme.textStyles.bodyS,
             color = colors.primary,
             modifier =
@@ -384,7 +385,7 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
                         }
                     }
                 entries.isEmpty() && current.browseError == null ->
-                    item(key = "empty") { PickerNote("此处没有子文件夹") }
+                    item(key = "empty") { PickerNote(Strings.setupSharedNoSubfolders()) }
                 else ->
                     items(entries, key = { it }) { entry ->
                         PickerRow(entry) {
@@ -394,7 +395,7 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
             }
         }
         Text(
-            text = "挂载目录：" + current.path,
+            text = Strings.setupSharedMountSource(current.path),
             style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
             color = colors.labelSecondary,
             modifier = Modifier.padding(top = 8.dp),
@@ -406,7 +407,7 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
                 current.nameTouched = true
                 current.formError = null
             },
-            title = "挂载名",
+            title = Strings.setupSharedMountName(),
             modifier = Modifier.padding(top = 8.dp),
         )
         current.formError?.let { PickerNote(it, error = true) }

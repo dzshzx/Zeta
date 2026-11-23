@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
@@ -75,7 +76,8 @@ import kotlinx.coroutines.flow.first
 private val StopIconSize = 10.8.dp
 
 /** 输入框空着时的提示（照 Eta 的「发消息问 Eta…」）。 */
-internal const val InputHint = "问问 Claude"
+internal val InputHint: String
+    get() = Strings.assistantInputHint()
 
 /**
  * 输入栏：浮起的胶囊，左边输入框，右边圆形按钮。能发时是主色的发送键，空着时是灰的；这一轮还在进行时（[busy]）是停止键，输入框暂时不能输入。
@@ -135,7 +137,7 @@ internal fun AssistantInputBar(
                     .padding(end = 8.dp, top = 9.dp, bottom = 9.dp)
                     .onFocusChanged { textFocused = it.isFocused }
                     .focusRequester(focusRequester)
-                    .semantics { contentDescription = "输入问题" },
+                    .semantics { contentDescription = Strings.assistantInputDescription() },
             enabled = inputEnabled,
             textStyle =
                 TextStyle(color = colors.inputPrimary, fontSize = 15.5.sp, lineHeight = 22.sp),
@@ -214,7 +216,7 @@ private fun TrailingButton(
                 .clip(CircleShape)
                 .background(containerColor, CircleShape)
                 .trailingButtonInput(
-                    description = if (busy) "停止" else "发送",
+                    description = if (busy) Strings.assistantStop() else Strings.assistantSend(),
                     enabled = canSubmit || busy,
                     press = press,
                     action = { currentClick() },

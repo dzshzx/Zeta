@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -28,7 +29,7 @@ internal object AppTools : PhoneToolGroup {
         listOf(
             tool(
                 LIST,
-                "查看系统应用自带的工具",
+                { Strings.phoneToolAppTools() },
                 "List the tools that the phone's system apps expose to HyperOS's built-in assistant, e.g. Calendar birthdays, " +
                     "anniversaries, countdowns and public holidays, Recorder (record, search, transcripts), Gallery (search photos by content, " +
                     "albums, favourites), Notes folders, to-dos and cards, Weather, call controls, XiaoAi (operate third-party apps, translate, " +
@@ -46,7 +47,7 @@ internal object AppTools : PhoneToolGroup {
             },
             tool(
                 CALL,
-                "调用系统应用自带的工具",
+                { Strings.phoneToolAppTool() },
                 "Call one of the system apps' tools listed by app_tools. The app does the work itself, as when its own assistant asks; " +
                     "the result is the app's reply.",
             ) {
@@ -81,13 +82,14 @@ internal object AppTools : PhoneToolGroup {
         val apps = AppToolCall.known().mapNotNull(AppToolDefs::offered)
         return when (name) {
             LIST ->
-                query?.let { q -> "查看" + (AppToolDefs.find(apps, q)?.label ?: q) + "的工具" }
-                    ?: "查看系统应用的工具"
+                query?.let { q ->
+                    Strings.phoneTitleAppToolsOf(AppToolDefs.find(apps, q)?.label ?: q)
+                } ?: Strings.phoneTitleAppTools()
             CALL -> {
                 val toolName = input.str("tool").orEmpty()
                 val owner = AppToolDefs.owners(apps, query, toolName).singleOrNull()
                 AppToolDefs.title(
-                    owner?.label ?: query ?: "系统应用",
+                    owner?.label ?: query ?: Strings.phoneSystemApp(),
                     owner?.tools?.firstOrNull { it.name == toolName },
                     toolName,
                 )

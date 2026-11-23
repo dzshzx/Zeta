@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.TextDocument
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
@@ -87,7 +88,8 @@ internal fun <T> CoroutineScope.runConfig(block: () -> T, done: (Result<T>) -> U
     }
 }
 
-internal fun Throwable.problem(): String = message?.takeIf { it.isNotBlank() } ?: "没有成功"
+internal fun Throwable.problem(): String =
+    message?.takeIf { it.isNotBlank() } ?: Strings.setupClaudeFailed()
 
 internal data class ConfigNotice(val title: String, val message: String)
 
@@ -99,7 +101,7 @@ internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
         show = notice != null,
         title = shown?.title,
         summary = shown?.message,
-        closeText = "知道了",
+        closeText = Strings.setupClaudeGotIt(),
         onDismissRequest = onDismiss,
     )
 }
@@ -119,7 +121,7 @@ internal fun ConfigEmptyRow(title: String, summary: String? = null) {
 
 /** 列表里的一行“正在读取”，右边转圈。放在 PreferenceGroup 的 item 里。 */
 @Composable
-internal fun ConfigLoadingRow(text: String = "正在读取…") {
+internal fun ConfigLoadingRow(text: String = Strings.setupClaudeLoading()) {
     BasicComponent(title = text, endActions = { InfiniteProgressIndicator(size = 20.dp) })
 }
 
@@ -181,7 +183,7 @@ internal fun ConfigDocumentEditor(
                     savedSha = it.baseSha()
                     mode = initialMode(it.content)
                 }
-                .onFailure { notice = ConfigNotice("读取失败", it.problem()) }
+                .onFailure { notice = ConfigNotice(Strings.setupClaudeLoadFailed(), it.problem()) }
             loading = false
         }
     }
@@ -202,7 +204,7 @@ internal fun ConfigDocumentEditor(
                         onSaved()
                     }
                 }
-                .onFailure { notice = ConfigNotice("保存失败", it.problem()) }
+                .onFailure { notice = ConfigNotice(Strings.setupClaudeSaveFailed(), it.problem()) }
         }
     }
 
@@ -312,18 +314,18 @@ private fun EditorConfirmDialogs(
 ) {
     ConfirmDialog(
         show = conflict,
-        title = "文件已经变了",
-        summary = "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
-        confirmText = "仍然保存",
+        title = Strings.setupClaudeConflictTitle(),
+        summary = Strings.setupClaudeConflictSummary(),
+        confirmText = Strings.setupClaudeSaveAnyway(),
         destructive = true,
         onConfirm = onForceSave,
         onDismissRequest = onDismissConflict,
     )
     ConfirmDialog(
         show = confirmLeave,
-        title = "放弃未保存的更改？",
+        title = Strings.setupClaudeDiscardTitle(),
         summary = null,
-        confirmText = "放弃",
+        confirmText = Strings.setupClaudeDiscard(),
         destructive = true,
         onConfirm = onLeave,
         onDismissRequest = onDismissLeave,
@@ -333,7 +335,7 @@ private fun EditorConfirmDialogs(
             show = confirmDelete,
             title = deleteTitle,
             summary = deleteMessage,
-            confirmText = "删除",
+            confirmText = Strings.setupClaudeDelete(),
             destructive = true,
             onConfirm = onDelete,
             onDismissRequest = onDismissDelete,
@@ -411,13 +413,13 @@ private fun DocumentCardHeader(
                 maxLines = 1,
             )
             Text(
-                text = if (overLimit) "$sizeLine · 超过上限" else sizeLine,
+                text = if (overLimit) Strings.setupClaudeOverLimit(sizeLine) else sizeLine,
                 style = COUITheme.textStyles.bodyXS,
                 color = if (overLimit) colors.error else colors.labelSecondary,
             )
         }
         SegmentButton(
-            items = listOf("预览", "编辑"),
+            items = listOf(Strings.setupClaudePreview(), Strings.setupClaudeEdit()),
             selectedIndex = DocumentMode.entries.indexOf(mode),
             onSelectedIndexChange = { index ->
                 DocumentMode.entries.getOrNull(index)?.let(onModeChange)
@@ -465,7 +467,7 @@ private fun DocumentPreview(content: String, placeholder: String, onStartEditing
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = "还没有内容",
+                text = Strings.setupClaudeEmptyDoc(),
                 style = COUITheme.textStyles.bodyXL,
                 fontWeight = FontWeight.Medium,
                 color = COUITheme.colorScheme.labelPrimary,
@@ -539,9 +541,13 @@ private fun SaveBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             UnsavedHint(overLimit, Modifier.weight(1f))
-            CompactButton(text = "放弃", enabled = !saving, onClick = onDiscard)
             CompactButton(
-                text = if (saving) "保存中" else "保存",
+                text = Strings.setupClaudeDiscard(),
+                enabled = !saving,
+                onClick = onDiscard,
+            )
+            CompactButton(
+                text = if (saving) Strings.setupClaudeSaving() else Strings.setupClaudeSave(),
                 enabled = !saving && !overLimit,
                 onClick = onSave,
                 primary = true,
@@ -562,7 +568,8 @@ private fun UnsavedHint(overLimit: Boolean, modifier: Modifier) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = if (overLimit) "已超过 1 MiB 上限，请删减" else "未保存的更改",
+            text =
+                if (overLimit) Strings.setupClaudeOverLimitHint() else Strings.setupClaudeUnsaved(),
             style = COUITheme.textStyles.bodyS,
             color = if (overLimit) colors.error else colors.labelSecondary,
             maxLines = 2,

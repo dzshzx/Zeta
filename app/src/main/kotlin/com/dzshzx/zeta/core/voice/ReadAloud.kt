@@ -14,6 +14,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -88,12 +89,13 @@ object ReadAloud {
                 }
             if (current != session) return@launch
             if (chunks.isEmpty()) {
-                fail(appContext, "这条回答没有能念的文字")
+                fail(appContext, Strings.voiceNothingToRead())
                 return@launch
             }
             withEngine(appContext) { ready ->
                 if (current != session) return@withEngine
-                if (!ready) fail(appContext, "系统的朗读引擎用不了") else start(appContext, current, chunks)
+                if (!ready) fail(appContext, Strings.voiceTtsUnavailable())
+                else start(appContext, current, chunks)
             }
         }
     }
@@ -130,7 +132,7 @@ object ReadAloud {
                 )
                 .build()
         if (audio.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            fail(context, "现在放不了声音（可能正在通话）")
+            fail(context, Strings.voiceNoAudioFocus())
             return
         }
         focus = request
@@ -149,7 +151,7 @@ object ReadAloud {
             val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             val id = if (index == chunks.lastIndex) "$current:last" else "$current:$index"
             if (tts.speak(chunk, mode, null, id) != TextToSpeech.SUCCESS) {
-                fail(context, "朗读引擎不接这段文字")
+                fail(context, Strings.voiceTtsRejected())
                 return
             }
         }
@@ -209,7 +211,8 @@ object ReadAloud {
 
         override fun onError(utteranceId: String, errorCode: Int) {
             main.post {
-                if (sessionOf(utteranceId) == session) app?.let { fail(it, "朗读出错了（$errorCode）") }
+                if (sessionOf(utteranceId) == session)
+                    app?.let { fail(it, Strings.voiceTtsError(errorCode.toString())) }
             }
         }
     }

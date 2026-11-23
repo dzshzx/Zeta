@@ -30,27 +30,6 @@ internal object DeviceSwitches {
             "ringer_mode",
         )
 
-    /** 中文名，给聊天里的标题用。 */
-    val NAMES =
-        mapOf(
-            "wifi" to "Wi-Fi",
-            "bluetooth" to "蓝牙",
-            "mobile_data" to "移动数据",
-            "airplane_mode" to "飞行模式",
-            "hotspot" to "个人热点",
-            "location" to "定位",
-            "nfc" to "NFC",
-            "flashlight" to "手电筒",
-            "dark_mode" to "深色模式",
-            "battery_saver" to "省电模式",
-            "auto_rotate" to "自动旋转",
-            "auto_brightness" to "自动亮度",
-            "brightness" to "亮度",
-            "screen_timeout" to "熄屏时间",
-            "do_not_disturb" to "勿扰模式",
-            "ringer_mode" to "响铃模式",
-        )
-
     /** 只有开和关两种状态的项。 */
     val SWITCHES =
         setOf(

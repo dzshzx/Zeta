@@ -20,6 +20,8 @@ import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskDraft
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.phone.PhoneTools
 import java.time.Instant
 import java.time.LocalDateTime
@@ -84,7 +86,7 @@ internal object ScheduleTools : PhoneToolGroup {
         listOf(
             tool(
                 CREATE,
-                "新建定时任务，到点让 Claude 做事",
+                { Strings.phoneToolCreateScheduledTask() },
                 "Schedule a prompt for Claude to run later in the background on this phone, once or repeatedly. At each run Zeta starts " +
                     "a conversation with the prompt and notifies the user with the start of the answer. Times are the phone's local time " +
                     "(the Linux environment may use another time zone). " +
@@ -97,7 +99,7 @@ internal object ScheduleTools : PhoneToolGroup {
             },
             tool(
                 LIST,
-                "列出定时任务",
+                { Strings.phoneToolListScheduledTasks() },
                 "List the scheduled tasks with their ids, schedules, next and last runs.",
                 readOnly = true,
             ) {
@@ -105,7 +107,7 @@ internal object ScheduleTools : PhoneToolGroup {
             },
             tool(
                 UPDATE,
-                "修改定时任务的时间、指令、开关等",
+                { Strings.phoneToolUpdateScheduledTask() },
                 "Change a scheduled task; only the fields you pass change. To change when it runs, pass just what changes: " +
                     "time alone keeps a daily or weekly repeat, days alone keeps the time, every_hours alone keeps the start; " +
                     "switching repeat needs that kind's fields. Changing the schedule turns a disabled task back on unless enabled is given. " +
@@ -119,14 +121,14 @@ internal object ScheduleTools : PhoneToolGroup {
             },
             tool(
                 DELETE,
-                "删除定时任务",
+                { Strings.phoneToolDeleteScheduledTask() },
                 "Delete a scheduled task and its alarm. Get the id from list_scheduled_tasks.",
             ) {
                 schema(required = listOf("id")) { prop("id", "string", "Task id.") }
             },
             tool(
                 RUN,
-                "立即在后台运行一次定时任务",
+                { Strings.phoneToolRunScheduledTask() },
                 "Run a scheduled task once now in the background with its saved settings, like Run once now in Zeta's settings; " +
                     "its schedule is unchanged. Returns as soon as the run starts; the result arrives as the task's own notification, " +
                     "not in this conversation. Skipped while the task's previous run is still going. Get the id from list_scheduled_tasks.",
@@ -135,7 +137,7 @@ internal object ScheduleTools : PhoneToolGroup {
             },
             tool(
                 REPORT,
-                "后台运行上报这次有没有变化",
+                { Strings.phoneToolReportScheduledRun() },
                 "Report the conclusion of this automatic run of a scheduled task or notification rule that notifies the user only on changes. " +
                     "Call it once before your final reply. no_change: nothing worth telling the user; no notification is sent and the run is only logged. " +
                     "deliver: there is something to tell; summary becomes the notification text.",
@@ -220,19 +222,25 @@ internal object ScheduleTools : PhoneToolGroup {
         )
     }
 
-    /** 后台运行里调到管理定时任务的工具时不执行（[refusal]，第二道）；上报记在这次调用所在的运行上。 */
+    /**
+     * 后台运行里调到管理定时任务的工具时不执行（[refusal]，第二道）；上报记在这次调用所在的运行上。 结果借用了设置页那边的取字（规则说明
+     * [Schedules.describe]、时间、运行结果的叫法、校验的问题），交给 Claude 的固定用源语言
+     * （[UiLanguage.forClaude]，只管这个工具线程；立即运行在主线程上起，不受它影响）。
+     */
     override fun call(call: CallContext, name: String, input: JsonObject): JsonObject =
         refusal(name, call.unattended)
-            ?: toolCall {
-                val context = call.context
-                when (name) {
-                    CREATE -> create(context, input, call.backend)
-                    LIST -> toolText(list(context))
-                    UPDATE -> update(context, input)
-                    DELETE -> delete(context, input)
-                    RUN -> runNow(context, input)
-                    REPORT -> report(input, call.unattended)
-                    else -> toolFailure("没有这个工具：$name")
+            ?: UiLanguage.forClaude {
+                toolCall {
+                    val context = call.context
+                    when (name) {
+                        CREATE -> create(context, input, call.backend)
+                        LIST -> toolText(list(context))
+                        UPDATE -> update(context, input)
+                        DELETE -> delete(context, input)
+                        RUN -> runNow(context, input)
+                        REPORT -> report(input, call.unattended)
+                        else -> toolFailure("没有这个工具：$name")
+                    }
                 }
             }
 
@@ -243,12 +251,15 @@ internal object ScheduleTools : PhoneToolGroup {
                     .str("name")
                     ?.trim()
                     ?.takeIf { it.isNotEmpty() }
-                    ?.let { "新建定时任务「" + short(it) + "」" } ?: "新建定时任务"
-            LIST -> "查看定时任务"
-            UPDATE -> "修改定时任务"
-            DELETE -> "删除定时任务"
-            RUN -> "立即运行定时任务"
-            REPORT -> if (input.str("outcome") == "no_change") "上报：没有变化" else "上报：有结果"
+                    ?.let { Strings.phoneTitleCreateTaskNamed(short(it)) }
+                    ?: Strings.phoneTitleCreateTask()
+            LIST -> Strings.phoneTitleListTasks()
+            UPDATE -> Strings.phoneTitleUpdateTask()
+            DELETE -> Strings.phoneTitleDeleteTask()
+            RUN -> Strings.phoneTitleRunTask()
+            REPORT ->
+                if (input.str("outcome") == "no_change") Strings.phoneTitleReportNoChange()
+                else Strings.phoneTitleReportResult()
             else -> name
         }
 

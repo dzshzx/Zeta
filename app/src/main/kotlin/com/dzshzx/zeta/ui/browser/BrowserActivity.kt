@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.get
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
@@ -205,14 +206,14 @@ internal fun BrowserScreen(onExit: () -> Unit) {
         }
         ConfirmDialog(
             show = confirmClear,
-            title = "清除浏览数据",
-            summary = "Cookie、登录状态、网站存储和缓存都会删掉，当前页面也会关闭。在这个浏览器里登录过的网站都要重新登录。",
-            confirmText = "清除",
+            title = Strings.browserClearData(),
+            summary = Strings.browserClearDataSummary(),
+            confirmText = Strings.browserClear(),
             destructive = true,
             onConfirm = {
                 confirmClear = false
                 AgentBrowser.clearDataByUser(context) {
-                    Toast.makeText(context, "已清除浏览数据", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, Strings.browserCleared(), Toast.LENGTH_SHORT).show()
                 }
             },
             onDismissRequest = { confirmClear = false },
@@ -264,7 +265,7 @@ private fun BrowserToolbar(
                     items =
                         listOf(
                             DropdownItem(
-                                text = "清除浏览数据",
+                                text = Strings.browserClearData(),
                                 onClick = onClearData,
                             ),
                         ),
@@ -280,7 +281,8 @@ private fun BackForwardButtons(onExit: () -> Unit) {
     Row {
         IconActionButton(
             icon = COUIIcons.Back,
-            contentDescription = if (AgentBrowser.canGoBack) "后退" else "关闭浏览器",
+            contentDescription =
+                if (AgentBrowser.canGoBack) Strings.browserBack() else Strings.browserClose(),
             onClick = {
                 if (AgentBrowser.canGoBack) AgentBrowser.backByUser() else onExit()
             },
@@ -288,7 +290,7 @@ private fun BackForwardButtons(onExit: () -> Unit) {
         // COUI 没有“前进”箭头，用后退箭头左右翻过来，两个箭头一个样式
         IconActionButton(
             COUIIcons.Back,
-            "前进",
+            Strings.browserForward(),
             iconModifier = Modifier.graphicsLayer { scaleX = -1f },
             enabled = AgentBrowser.canGoForward,
         ) {
@@ -302,7 +304,8 @@ private fun BackForwardButtons(onExit: () -> Unit) {
 private fun ReloadOrStopButton() {
     IconActionButton(
         icon = if (AgentBrowser.loading) COUIIcons.Close else COUIIcons.Refresh,
-        contentDescription = if (AgentBrowser.loading) "停止加载" else "刷新",
+        contentDescription =
+            if (AgentBrowser.loading) Strings.browserStop() else Strings.browserReload(),
         enabled = AgentBrowser.hasPage(),
     ) {
         AgentBrowser.reloadOrStopByUser()
@@ -321,7 +324,7 @@ private fun BrowserPage(modifier: Modifier) {
         )
         if (!AgentBrowser.hasPage() && !AgentBrowser.loading) {
             Text(
-                text = "还没有打开网页\nClaude 用浏览器时，页面会显示在这里；也可以在上面输入网址",
+                text = Strings.browserEmpty(),
                 style = COUITheme.textStyles.bodyM,
                 color = colors.labelSecondary,
                 textAlign = TextAlign.Center,
@@ -379,7 +382,9 @@ private fun StatusPill(modifier: Modifier = Modifier) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(colors.primary))
         Spacer(Modifier.width(8.dp))
         Text(
-            text = if (controlling) "你在操作，Claude 先等着" else "Claude 正在操作：$action",
+            text =
+                if (controlling) Strings.browserUserControlling()
+                else Strings.browserClaudeActing(action.orEmpty()),
             style = COUITheme.textStyles.bodyS,
             color = colors.labelPrimary,
             maxLines = 1,
@@ -388,7 +393,7 @@ private fun StatusPill(modifier: Modifier = Modifier) {
         )
         if (controlling) {
             Text(
-                text = "交还 Claude",
+                text = Strings.browserHandBack(),
                 style = COUITheme.textStyles.bodyS.copy(fontWeight = FontWeight.Medium),
                 color = colors.primaryTextOnPopup,
                 modifier =
@@ -442,7 +447,7 @@ private fun AddressField(
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.text.isEmpty()) {
                 Text(
-                    "搜索或输入网址",
+                    Strings.browserAddressHint(),
                     style = COUITheme.textStyles.bodyM,
                     color = colors.labelSecondary,
                     maxLines = 1,
@@ -469,7 +474,7 @@ internal fun BrowserStepButton() {
     val context = LocalContext.current
     FlatIconButton(
         icon = COUIIcons.Forward,
-        contentDescription = "在浏览器里查看",
+        contentDescription = Strings.browserViewInBrowser(),
         size = 26.dp,
         iconSize = 16.dp,
         modifier = Modifier.padding(start = 6.dp),

@@ -42,6 +42,7 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.Chevron
 import com.dzshzx.zeta.ui.chat.NoticeRow
@@ -127,23 +128,24 @@ internal data class ReplyView(
 
 /** 工作过程那一行（照 Eta 的 AgentWorkHeader）的文字。 */
 internal object WorkSummary {
-    const val ANALYZING = "正在分析任务"
+    val ANALYZING: String
+        get() = Strings.assistantAnalyzing()
 
     fun text(item: WorkItem): String {
         val running = item.steps.lastOrNull { it.running }
         val tools = item.steps.filterIsInstance<ToolStep>()
         if (running is ToolStep) {
-            return "正在处理 · 第 ${tools.size} 步 · " + running.presentation().title
+            return Strings.assistantWorkingStep(tools.size, running.presentation().title)
         }
         if (running != null) return ANALYZING
         val parts = buildList {
             val thinking = item.steps.count { it is ThinkingStep }
-            if (thinking > 0) add("思考 $thinking 次")
-            if (tools.isNotEmpty()) add("调用 ${tools.size} 个工具")
+            if (thinking > 0) add(Strings.assistantThoughtTimes(thinking))
+            if (tools.isNotEmpty()) add(Strings.assistantToolCalls(tools.size))
             val failed = tools.count { it.status == ToolStatus.Failed }
-            if (failed > 0) add("$failed 个失败")
+            if (failed > 0) add(Strings.assistantToolsFailed(failed))
         }
-        return parts.joinToString(" · ").ifEmpty { "已完成分析" }
+        return parts.joinToString(" · ").ifEmpty { Strings.assistantAnalyzed() }
     }
 }
 
@@ -194,7 +196,7 @@ internal object AssistantReplies {
             waitingFor != null ->
                 ReplyEntry.Status(
                     "status",
-                    "等你处理：$waitingFor，到 Zeta 里处理",
+                    Strings.assistantWaitingFor(waitingFor),
                     active = false,
                     attention = true,
                 )
@@ -204,7 +206,7 @@ internal object AssistantReplies {
                 !(last is ReplyEntry.Work && last.item.running) ->
                 ReplyEntry.Status("status", WorkSummary.ANALYZING, active = true)
             !busy && tail.none { it is ReplyEntry.Answer || it is ReplyEntry.Problem } ->
-                ReplyEntry.Status("status", "这一轮没有回答", active = false)
+                ReplyEntry.Status("status", Strings.assistantNoAnswer(), active = false)
             else -> null
         }
     }
@@ -300,7 +302,7 @@ internal fun ScreenThumbnail(thumbnail: ImageBitmap?, colors: AssistantColors) {
         if (thumbnail != null) {
             Image(
                 bitmap = thumbnail,
-                contentDescription = "屏幕截图",
+                contentDescription = Strings.assistantScreenshot(),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

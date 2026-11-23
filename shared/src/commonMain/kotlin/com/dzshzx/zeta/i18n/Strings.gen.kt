@@ -6131,4 +6131,4890 @@ object Strings {
      * 工具权限规则的一种：拒绝。 ¦
      */
     fun coreBehaviorDeny(): String = catalog.say("coreBehaviorDeny")
+
+    /**
+     * 「Linux 环境」
+     *
+     * 设置里 Linux 环境管理页的标题。
+     */
+    fun setupLinuxTitle(): String = catalog.say("setupLinuxTitle")
+
+    /**
+     * 「未选择」
+     *
+     * Linux 环境页「位置」一行：还没选环境。
+     */
+    fun setupLocationNone(): String = catalog.say("setupLocationNone")
+
+    /**
+     * 「Zeta 自带的环境」
+     *
+     * Linux 环境页「位置」的值和下拉选项：Zeta 自己装的 Debian。
+     */
+    fun setupLocationOwn(): String = catalog.say("setupLocationOwn")
+
+    /**
+     * 「自定义位置」
+     *
+     * Linux 环境页「位置」的值：用户指定的 Debian 根目录。
+     */
+    fun setupLocationCustom(): String = catalog.say("setupLocationCustom")
+
+    /**
+     * 「卸载 {name}？」
+     *
+     * 卸载可选工具（Go、Python 等）前确认框的标题。
+     */
+    fun setupRemoveOptionalTitle(name: String): String = catalog.say("setupRemoveOptionalTitle", mapOf("name" to name))
+
+    /**
+     * 「{detail}以后可以在这里再装回来。」
+     *
+     * 卸载可选工具确认框的说明；detail 是删掉什么、留下什么的一两句。
+     */
+    fun setupRemoveOptionalSummary(detail: String): String = catalog.say("setupRemoveOptionalSummary", mapOf("detail" to detail))
+
+    /**
+     * 「卸载」
+     *
+     * 卸载可选工具的确认按钮和菜单项。
+     */
+    fun setupUninstall(): String = catalog.say("setupUninstall")
+
+    /**
+     * 「删除 /usr/local/go 和 Zeta 为它写的配置。~/go 里下载过的模块、装过的程序不动。」
+     *
+     * 卸载 Go 前的说明。
+     */
+    fun setupRemoveGo(): String = catalog.say("setupRemoveGo")
+
+    /**
+     * 「删除 /usr/local/node 和 Zeta 为它写的配置。~/.npm-global 里装过的全局包不动，但没有 Node.js 就跑不起来了。」
+     *
+     * 卸载 Node.js 前的说明。
+     */
+    fun setupRemoveNode(): String = catalog.say("setupRemoveNode")
+
+    /**
+     * 「删除 /opt/zeta/apk-analysis 里的 jadx、apktool、smali/baksmali。Java 只有当初是 Zeta 为它装的才会一起卸掉，环境里原有的（比如 Android 构建用的）不动。」
+     *
+     * 卸载 APK 分析工具前的说明。
+     */
+    fun setupRemoveApk(): String = catalog.say("setupRemoveApk")
+
+    /**
+     * 「删除 uv、它管理的各个 Python 版本和用 uv tool 装的命令。项目里的虚拟环境会因为没有了 Python 而用不了；系统自带的 python3 不受影响。」
+     *
+     * 卸载 Python（uv）前的说明。
+     */
+    fun setupRemovePython(): String = catalog.say("setupRemovePython")
+
+    /**
+     * 「退出登录」
+     *
+     * Linux 环境页 Claude Code 一组的一行和确认框标题：退出 Claude 账号。
+     */
+    fun setupLogout(): String = catalog.say("setupLogout")
+
+    /**
+     * 「退出后要重新登录才能继续使用 Claude Code。」
+     *
+     * 退出登录确认框的说明。
+     */
+    fun setupLogoutSummary(): String = catalog.say("setupLogoutSummary")
+
+    /**
+     * 「退出」
+     *
+     * 退出登录确认框的确认按钮。
+     */
+    fun setupLogoutConfirm(): String = catalog.say("setupLogoutConfirm")
+
+    /**
+     * 「自定义路径」
+     *
+     * 改 Debian 根目录的输入框标题。
+     */
+    fun setupCustomPath(): String = catalog.say("setupCustomPath")
+
+    /**
+     * 「自定义路径…」
+     *
+     * Linux 环境页「位置」下拉里的选项，点了弹输入框。
+     */
+    fun setupCustomPathMenu(): String = catalog.say("setupCustomPathMenu")
+
+    /**
+     * 「默认工作目录」
+     *
+     * Linux 环境页的一行和改它的输入框标题。
+     */
+    fun setupDefaultCwd(): String = catalog.say("setupDefaultCwd")
+
+    /**
+     * 「Debian 根目录在 Android 里的路径」
+     *
+     * 改 Debian 根目录输入框的说明。
+     */
+    fun setupRootfsHint(): String = catalog.say("setupRootfsHint")
+
+    /**
+     * 「新对话默认在这个目录下开始」
+     *
+     * 改默认工作目录输入框的说明。
+     */
+    fun setupCwdHint(): String = catalog.say("setupCwdHint")
+
+    /**
+     * 「确定」
+     *
+     * 输入框的确认按钮。
+     */
+    fun setupOk(): String = catalog.say("setupOk")
+
+    /**
+     * 「检查中」
+     *
+     * 状态值：正在检查（Linux 环境、SSH 服务、共享文件夹）。
+     */
+    fun setupStateChecking(): String = catalog.say("setupStateChecking")
+
+    /**
+     * 「没有 root 权限」
+     *
+     * Linux 环境的状态值。
+     */
+    fun setupStateNoRoot(): String = catalog.say("setupStateNoRoot")
+
+    /**
+     * 「未找到环境」
+     *
+     * Linux 环境的状态值。
+     */
+    fun setupStateNoEnv(): String = catalog.say("setupStateNoEnv")
+
+    /**
+     * 「可用」
+     *
+     * Linux 环境的状态值。
+     */
+    fun setupStateReady(): String = catalog.say("setupStateReady")
+
+    /**
+     * 「卸载 Zeta 不会删掉这个环境。」
+     *
+     * Linux 环境页安装入口下面的说明。
+     */
+    fun setupInstallFooter(): String = catalog.say("setupInstallFooter")
+
+    /**
+     * 「正在安装…」
+     *
+     * Linux 环境页安装入口：安装进行中。
+     */
+    fun setupInstallRunning(): String = catalog.say("setupInstallRunning")
+
+    /**
+     * 「继续安装 Debian 环境」
+     *
+     * Linux 环境页安装入口：上次没装完。
+     */
+    fun setupInstallContinueDebian(): String = catalog.say("setupInstallContinueDebian")
+
+    /**
+     * 「安装 Debian 环境」
+     *
+     * Linux 环境页的安装入口和安装向导页的标题。
+     */
+    fun setupInstallDebian(): String = catalog.say("setupInstallDebian")
+
+    /**
+     * 「含常用工具和 Claude Code，约占 1 GB」
+     *
+     * Linux 环境页安装入口的说明。
+     */
+    fun setupInstallPitch(): String = catalog.say("setupInstallPitch")
+
+    /**
+     * 「环境」
+     *
+     * Linux 环境页「环境」一组的标题。
+     */
+    fun setupEnvGroup(): String = catalog.say("setupEnvGroup")
+
+    /**
+     * 「有对话在进行时不能切换位置。」
+     *
+     * Linux 环境页「环境」一组下面的说明。
+     */
+    fun setupEnvFooter(): String = catalog.say("setupEnvFooter")
+
+    /**
+     * 「状态」
+     *
+     * 一行的标题：状态（Linux 环境、SSH 服务）。
+     */
+    fun setupStatus(): String = catalog.say("setupStatus")
+
+    /**
+     * 「位置」
+     *
+     * Linux 环境页：用哪个 Debian 环境。
+     */
+    fun setupLocation(): String = catalog.say("setupLocation")
+
+    /**
+     * 「路径」
+     *
+     * Linux 环境页：Debian 根目录的路径。
+     */
+    fun setupPath(): String = catalog.say("setupPath")
+
+    /**
+     * 「运行用户」
+     *
+     * Linux 环境页：Claude Code 以哪个 Linux 用户运行。
+     */
+    fun setupRunUser(): String = catalog.say("setupRunUser")
+
+    /**
+     * 「重新检测」
+     *
+     * Linux 环境页的一行。
+     */
+    fun setupRedetect(): String = catalog.say("setupRedetect")
+
+    /**
+     * 「重新检查 root 和环境里的用户」
+     *
+     * 「重新检测」的说明。
+     */
+    fun setupRedetectSummary(): String = catalog.say("setupRedetectSummary")
+
+    /**
+     * 「可选工具」
+     *
+     * Linux 环境页一组的标题：按需安装的 Go、Python 等。
+     */
+    fun setupOptionalTools(): String = catalog.say("setupOptionalTools")
+
+    /**
+     * 「Zeta 只更新、卸载自己装的；环境里原有的只显示版本，不会动。」
+     *
+     * 「可选工具」一组下面的说明。
+     */
+    fun setupOptionalFooter(): String = catalog.say("setupOptionalFooter")
+
+    /**
+     * 「官方最新稳定版，配好国内模块代理」
+     *
+     * 可选工具 Go 的说明。
+     */
+    fun setupPitchGo(): String = catalog.say("setupPitchGo")
+
+    /**
+     * 「uv 和最新的 Python，设为 python3」
+     *
+     * 可选工具 Python 的说明。
+     */
+    fun setupPitchPython(): String = catalog.say("setupPitchPython")
+
+    /**
+     * 「官方最新 LTS 版，带 npm」
+     *
+     * 可选工具 Node.js 的说明。
+     */
+    fun setupPitchNode(): String = catalog.say("setupPitchNode")
+
+    /**
+     * 「jadx、apktool 等，反编译和检查 APK」
+     *
+     * 可选工具 APK 分析的说明。
+     */
+    fun setupPitchApk(): String = catalog.say("setupPitchApk")
+
+    /**
+     * 「体检」
+     *
+     * Linux 环境页一组的标题：检查和修复环境。
+     */
+    fun setupHealth(): String = catalog.say("setupHealth")
+
+    /**
+     * 「检查环境」
+     *
+     * 「体检」一组的一行。
+     */
+    fun setupCheckEnv(): String = catalog.say("setupCheckEnv")
+
+    /**
+     * 「修复」
+     *
+     * 「体检」一组的一行。
+     */
+    fun setupRepair(): String = catalog.say("setupRepair")
+
+    /**
+     * 「修好软件包数据库，补齐常用工具」
+     *
+     * 「修复」的说明。
+     */
+    fun setupRepairSummary(): String = catalog.say("setupRepairSummary")
+
+    /**
+     * 「检查中…」
+     *
+     * 「检查环境」的说明：正在检查。
+     */
+    fun setupCheckingEllipsis(): String = catalog.say("setupCheckingEllipsis")
+
+    /**
+     * 「核心命令、工作目录、网络与剩余空间」
+     *
+     * 「检查环境」的说明：还没检查过时说查什么。
+     */
+    fun setupHealthIdle(): String = catalog.say("setupHealthIdle")
+
+    /**
+     * 「缺少 {names}」
+     *
+     * 体检结果的一条：缺哪些命令，names 用 setupListSeparator 连起来。
+     */
+    fun setupHealthMissing(names: String): String = catalog.say("setupHealthMissing", mapOf("names" to names))
+
+    /**
+     * 「、」
+     *
+     * 把几个名字连成一串时用的分隔符（体检缺少的命令）。
+     */
+    fun setupListSeparator(): String = catalog.say("setupListSeparator")
+
+    /**
+     * 「默认工作目录不可写」
+     *
+     * 体检结果的一条。
+     */
+    fun setupHealthCwdNotWritable(): String = catalog.say("setupHealthCwdNotWritable")
+
+    /**
+     * 「解析不了域名，可能没有网络」
+     *
+     * 体检结果的一条。
+     */
+    fun setupHealthNoNetwork(): String = catalog.say("setupHealthNoNetwork")
+
+    /**
+     * 「环境正常」
+     *
+     * 体检结果：没有问题。
+     */
+    fun setupHealthOk(): String = catalog.say("setupHealthOk")
+
+    /**
+     * 「剩余 {size}」
+     *
+     * 体检结果的一条：剩余空间，size 是格式化好的大小。
+     */
+    fun setupHealthFree(size: String): String = catalog.say("setupHealthFree", mapOf("size" to size))
+
+    /**
+     * 「文件与远程访问」
+     *
+     * Linux 环境页一组的标题。
+     */
+    fun setupFilesGroup(): String = catalog.say("setupFilesGroup")
+
+    /**
+     * 「文件浏览」
+     *
+     * Linux 环境页的一行：进文件浏览页。
+     */
+    fun setupFileBrowser(): String = catalog.say("setupFileBrowser")
+
+    /**
+     * 「浏览、预览文件，和手机之间导入导出」
+     *
+     * 「文件浏览」的说明。
+     */
+    fun setupFileBrowserSummary(): String = catalog.say("setupFileBrowserSummary")
+
+    /**
+     * 「共享文件夹」
+     *
+     * Linux 环境页的一行和共享文件夹页的标题。
+     */
+    fun setupSharedFolders(): String = catalog.say("setupSharedFolders")
+
+    /**
+     * 「把 Android 目录挂载到 Linux 环境」
+     *
+     * 「共享文件夹」的说明。
+     */
+    fun setupSharedFoldersSummary(): String = catalog.say("setupSharedFoldersSummary")
+
+    /**
+     * 「SSH 服务」
+     *
+     * Linux 环境页的一行和 SSH 服务页的标题。
+     */
+    fun setupSshTitle(): String = catalog.say("setupSshTitle")
+
+    /**
+     * 「从终端应用或别的设备连进这个环境」
+     *
+     * 「SSH 服务」一行的说明：还不知道状态时。
+     */
+    fun setupSshSummaryIdle(): String = catalog.say("setupSshSummaryIdle")
+
+    /**
+     * 「未安装」
+     *
+     * 状态值：SSH 服务、Claude Code 没装。
+     */
+    fun setupNotInstalled(): String = catalog.say("setupNotInstalled")
+
+    /**
+     * 「运行中 · {address}」
+     *
+     * 「SSH 服务」一行的说明：在运行，address 是监听地址或端口。
+     */
+    fun setupSshRunningAt(address: String): String = catalog.say("setupSshRunningAt", mapOf("address" to address))
+
+    /**
+     * 「运行中」
+     *
+     * SSH 服务的状态值。
+     */
+    fun setupSshRunning(): String = catalog.say("setupSshRunning")
+
+    /**
+     * 「未运行」
+     *
+     * SSH 服务的状态值。
+     */
+    fun setupSshNotRunning(): String = catalog.say("setupSshNotRunning")
+
+    /**
+     * 「端口 {port}」
+     *
+     * SSH 的监听地址：只知道端口时。
+     */
+    fun setupSshPort(port: String): String = catalog.say("setupSshPort", mapOf("port" to port))
+
+    /**
+     * 「版本」
+     *
+     * Linux 环境页 Claude Code 一组的一行。
+     */
+    fun setupVersion(): String = catalog.say("setupVersion")
+
+    /**
+     * 「更新」
+     *
+     * Linux 环境页 Claude Code 一组的一行。
+     */
+    fun setupUpdate(): String = catalog.say("setupUpdate")
+
+    /**
+     * 「更新到最新版」
+     *
+     * 「更新」的说明，也是可选工具菜单里的一项。
+     */
+    fun setupUpdateLatest(): String = catalog.say("setupUpdateLatest")
+
+    /**
+     * 「账号」
+     *
+     * Linux 环境页 Claude Code 一组的一行：进登录页。
+     */
+    fun setupAccount(): String = catalog.say("setupAccount")
+
+    /**
+     * 「正在查询…」
+     *
+     * 账号状态还没查到时。
+     */
+    fun setupQuerying(): String = catalog.say("setupQuerying")
+
+    /**
+     * 「未登录」
+     *
+     * Claude 账号的状态。
+     */
+    fun setupNotLoggedIn(): String = catalog.say("setupNotLoggedIn")
+
+    /**
+     * 「已登录」
+     *
+     * Claude 账号的状态。
+     */
+    fun setupLoggedIn(): String = catalog.say("setupLoggedIn")
+
+    /**
+     * 「进行中…」
+     *
+     * 维护（修复、更新、装卸工具）进行中。
+     */
+    fun setupMaintenanceRunning(): String = catalog.say("setupMaintenanceRunning")
+
+    /**
+     * 「已完成」
+     *
+     * 维护做完了。
+     */
+    fun setupMaintenanceDone(): String = catalog.say("setupMaintenanceDone")
+
+    /**
+     * 「没有成功」
+     *
+     * 维护失败了。
+     */
+    fun setupMaintenanceFailed(): String = catalog.say("setupMaintenanceFailed")
+
+    /**
+     * 「用户名」
+     *
+     * 安装向导的一行和改用户名输入框的标题：Debian 里的 Linux 用户名。
+     */
+    fun setupUserName(): String = catalog.say("setupUserName")
+
+    /**
+     * 「小写字母开头，只含小写字母、数字、下划线和连字符」
+     *
+     * 改用户名输入框的说明。
+     */
+    fun setupUserNameHint(): String = catalog.say("setupUserNameHint")
+
+    /**
+     * 「Claude Code 以这个 Linux 用户的身份运行」
+     *
+     * 安装向导「用户名」一行的说明。
+     */
+    fun setupUserNameSummary(): String = catalog.say("setupUserNameSummary")
+
+    /**
+     * 「准备」
+     *
+     * 安装向导第一组的标题。
+     */
+    fun setupInstallPrepare(): String = catalog.say("setupInstallPrepare")
+
+    /**
+     * 「先下载约 35 MB 的基础系统，再联网装常用工具和 Claude Code，装完约占 1 GB。要几分钟，可以切到后台。」
+     *
+     * 安装向导「准备」一组下面的说明。
+     */
+    fun setupInstallPrepareFooter(): String = catalog.say("setupInstallPrepareFooter")
+
+    /**
+     * 「步骤」
+     *
+     * 安装向导列出各步的一组的标题。
+     */
+    fun setupInstallSteps(): String = catalog.say("setupInstallSteps")
+
+    /**
+     * 「完成」
+     *
+     * 安装向导一步的状态值：做完了。
+     */
+    fun setupStepDone(): String = catalog.say("setupStepDone")
+
+    /**
+     * 「进行中」
+     *
+     * 安装向导一步的状态值：正在做，没有进度。
+     */
+    fun setupStepRunning(): String = catalog.say("setupStepRunning")
+
+    /**
+     * 「失败」
+     *
+     * 安装向导一步的状态值：失败了。
+     */
+    fun setupStepFailed(): String = catalog.say("setupStepFailed")
+
+    /**
+     * 「取消」
+     *
+     * 取消按钮（安装向导、文件导入导出）。
+     */
+    fun setupCancel(): String = catalog.say("setupCancel")
+
+    /**
+     * 「切换到这个环境」
+     *
+     * 安装完成后的按钮：改用 Zeta 自带的环境。
+     */
+    fun setupSwitchToEnv(): String = catalog.say("setupSwitchToEnv")
+
+    /**
+     * 「登录 Claude 账号」
+     *
+     * 安装完成后的按钮和登录页的标题。
+     */
+    fun setupSignInClaude(): String = catalog.say("setupSignInClaude")
+
+    /**
+     * 「完成」
+     *
+     * 页面底部的按钮：完成并返回（安装向导、登录页）。
+     */
+    fun setupFinish(): String = catalog.say("setupFinish")
+
+    /**
+     * 「继续安装」
+     *
+     * 安装向导底部的按钮：接着上次没做完的。
+     */
+    fun setupContinueInstall(): String = catalog.say("setupContinueInstall")
+
+    /**
+     * 「开始安装」
+     *
+     * 安装向导底部的按钮。
+     */
+    fun setupStartInstall(): String = catalog.say("setupStartInstall")
+
+    /**
+     * 「当前状态」
+     *
+     * 登录页顶部一组的标题。
+     */
+    fun setupLoginStatus(): String = catalog.say("setupLoginStatus")
+
+    /**
+     * 「当前状态 · {device}」
+     *
+     * 登录页顶部一组的标题：登录的是远程设备，device 是设备名。
+     */
+    fun setupLoginStatusOn(device: String): String = catalog.say("setupLoginStatusOn", mapOf("device" to device))
+
+    /**
+     * 「换一个账号登录」
+     *
+     * 登录页的按钮：已登录时。
+     */
+    fun setupLoginAnother(): String = catalog.say("setupLoginAnother")
+
+    /**
+     * 「开始登录」
+     *
+     * 登录页的按钮：没登录时。
+     */
+    fun setupLoginStart(): String = catalog.say("setupLoginStart")
+
+    /**
+     * 「正在准备登录…」
+     *
+     * 登录页的提示：在起登录命令。
+     */
+    fun setupLoginPreparing(): String = catalog.say("setupLoginPreparing")
+
+    /**
+     * 「登录成功」
+     *
+     * 登录页的提示：登录完成。
+     */
+    fun setupLoginSuccess(): String = catalog.say("setupLoginSuccess")
+
+    /**
+     * 「第一步」
+     *
+     * 登录页一组的标题：打开登录页。
+     */
+    fun setupLoginStep1(): String = catalog.say("setupLoginStep1")
+
+    /**
+     * 「在浏览器里登录并同意授权，页面最后会给出一串授权码。」
+     *
+     * 登录页第一步下面的说明。
+     */
+    fun setupLoginStep1Footer(): String = catalog.say("setupLoginStep1Footer")
+
+    /**
+     * 「打开登录页」
+     *
+     * 登录页第一步的一行。
+     */
+    fun setupLoginOpenPage(): String = catalog.say("setupLoginOpenPage")
+
+    /**
+     * 「复制链接」
+     *
+     * 登录页第一步的一行：复制登录页的链接。
+     */
+    fun setupLoginCopyLink(): String = catalog.say("setupLoginCopyLink")
+
+    /**
+     * 「想在别的设备上登录时用」
+     *
+     * 「复制链接」的说明。
+     */
+    fun setupLoginCopyLinkSummary(): String = catalog.say("setupLoginCopyLinkSummary")
+
+    /**
+     * 「第二步」
+     *
+     * 登录页一组的标题：贴回授权码。
+     */
+    fun setupLoginStep2(): String = catalog.say("setupLoginStep2")
+
+    /**
+     * 「把授权码粘贴到这里」
+     *
+     * 登录页授权码输入框的占位。
+     */
+    fun setupLoginCodeHint(): String = catalog.say("setupLoginCodeHint")
+
+    /**
+     * 「正在验证…」
+     *
+     * 登录页底部按钮：正在验证授权码。
+     */
+    fun setupLoginVerifying(): String = catalog.say("setupLoginVerifying")
+
+    /**
+     * 「完成登录」
+     *
+     * 登录页底部按钮：提交授权码。
+     */
+    fun setupLoginFinish(): String = catalog.say("setupLoginFinish")
+
+    /**
+     * 「安装」
+     *
+     * 可选工具一行右边：没装，点一下安装。
+     */
+    fun setupOptionalInstall(): String = catalog.say("setupOptionalInstall")
+
+    /**
+     * 「{label} · Zeta 装的」
+     *
+     * 可选工具一行的说明：Zeta 装的，label 是名字和版本。
+     */
+    fun setupOptionalZetaOwned(label: String): String = catalog.say("setupOptionalZetaOwned", mapOf("label" to label))
+
+    /**
+     * 「管理」
+     *
+     * 可选工具一行右边：Zeta 装的，点了出菜单。
+     */
+    fun setupOptionalManage(): String = catalog.say("setupOptionalManage")
+
+    /**
+     * 「{label} · 环境里原有的」
+     *
+     * 可选工具一行的说明：环境里原来就有，label 是名字和版本。
+     */
+    fun setupOptionalPreinstalled(label: String): String = catalog.say("setupOptionalPreinstalled", mapOf("label" to label))
+
+    /**
+     * 「已安装」
+     *
+     * 可选工具一行右边：环境里原来就有。
+     */
+    fun setupInstalled(): String = catalog.say("setupInstalled")
+
+    /**
+     * 「添加公钥」
+     *
+     * SSH 服务页「登录」一组的一行和添加公钥输入框的标题。
+     */
+    fun setupSshAddKey(): String = catalog.say("setupSshAddKey")
+
+    /**
+     * 「形如 ssh-ed25519 AAAA… 的一整行」
+     *
+     * 添加公钥输入框的说明。
+     */
+    fun setupSshAddKeyHint(): String = catalog.say("setupSshAddKeyHint")
+
+    /**
+     * 「添加」
+     *
+     * 对话框的确认按钮：添加（公钥、共享文件夹）。
+     */
+    fun setupAdd(): String = catalog.say("setupAdd")
+
+    /**
+     * 「服务」
+     *
+     * SSH 服务页一组的标题。
+     */
+    fun setupSshService(): String = catalog.say("setupSshService")
+
+    /**
+     * 「停止后不再接受新连接，已连上的会话不受影响。」
+     *
+     * SSH 服务页「服务」一组下面的说明。
+     */
+    fun setupSshServiceFooter(): String = catalog.say("setupSshServiceFooter")
+
+    /**
+     * 「安装并配置」
+     *
+     * SSH 服务页的一行：装 openssh-server。
+     */
+    fun setupSshInstall(): String = catalog.say("setupSshInstall")
+
+    /**
+     * 「只在本机 8022 端口监听，只认公钥」
+     *
+     * 「安装并配置」的说明。
+     */
+    fun setupSshInstallSummary(): String = catalog.say("setupSshInstallSummary")
+
+    /**
+     * 「监听地址」
+     *
+     * SSH 服务页的一行。
+     */
+    fun setupSshListen(): String = catalog.say("setupSshListen")
+
+    /**
+     * 「停止」
+     *
+     * SSH 服务页的一行：停止 sshd。
+     */
+    fun setupSshStop(): String = catalog.say("setupSshStop")
+
+    /**
+     * 「启动」
+     *
+     * SSH 服务页的一行：启动 sshd。
+     */
+    fun setupSshStart(): String = catalog.say("setupSshStart")
+
+    /**
+     * 「开机自动启动」
+     *
+     * SSH 服务页的开关。
+     */
+    fun setupSshAutostart(): String = catalog.say("setupSshAutostart")
+
+    /**
+     * 「登录」
+     *
+     * SSH 服务页一组的标题：怎么连进来、公钥。
+     */
+    fun setupSshLogin(): String = catalog.say("setupSshLogin")
+
+    /**
+     * 「本机用 ssh -p {port} {user}@127.0.0.1 连接，只认公钥。别的设备要经 Tailscale 之类转到这个端口。」
+     *
+     * SSH 服务页「登录」一组下面的说明（不允许密码登录时）。
+     */
+    fun setupSshLoginFooterKeys(port: String, user: String): String = catalog.say("setupSshLoginFooterKeys", mapOf("port" to port, "user" to user))
+
+    /**
+     * 「本机用 ssh -p {port} {user}@127.0.0.1 连接，注意当前配置允许密码登录。别的设备要经 Tailscale 之类转到这个端口。」
+     *
+     * SSH 服务页「登录」一组下面的说明（配置允许密码登录时）。
+     */
+    fun setupSshLoginFooterPassword(port: String, user: String): String = catalog.say("setupSshLoginFooterPassword", mapOf("port" to port, "user" to user))
+
+    /**
+     * 「用户名」
+     *
+     * SSH 连接命令里不知道 Linux 用户名时代替它的字。
+     */
+    fun setupSshUserPlaceholder(): String = catalog.say("setupSshUserPlaceholder")
+
+    /**
+     * 「已授权的公钥」
+     *
+     * SSH 服务页的一行。
+     */
+    fun setupSshAuthorizedKeys(): String = catalog.say("setupSshAuthorizedKeys")
+
+    /**
+     * 「{count, plural, other {# 条}}」
+     *
+     * 「已授权的公钥」右边的条数。
+     */
+    fun setupSshKeyCount(count: Int): String = catalog.say("setupSshKeyCount", mapOf("count" to count))
+
+    /**
+     * 「粘贴一条公钥」
+     *
+     * 「添加公钥」一行的说明。
+     */
+    fun setupSshPasteKey(): String = catalog.say("setupSshPasteKey")
+
+    /**
+     * 「→ {target}（不存在）」
+     *
+     * Linux 文件列表里符号链接的说明：指向的东西不存在。
+     */
+    fun setupLinuxFilesBrokenLink(target: String): String = catalog.say("setupLinuxFilesBrokenLink", mapOf("target" to target))
+
+    /**
+     * 「Linux 文件」
+     *
+     * 文件浏览页在根上时的标题。
+     */
+    fun setupLinuxFilesTitle(): String = catalog.say("setupLinuxFilesTitle")
+
+    /**
+     * 「Linux 环境还不可用」
+     *
+     * 文件浏览页：环境没配好时的报错。
+     */
+    fun setupLinuxFilesUnavailable(): String = catalog.say("setupLinuxFilesUnavailable")
+
+    /**
+     * 「导入文件到这里」
+     *
+     * 文件浏览页右上角菜单项。
+     */
+    fun setupLinuxFilesImportHere(): String = catalog.say("setupLinuxFilesImportHere")
+
+    /**
+     * 「刷新」
+     *
+     * 文件浏览页右上角菜单项。
+     */
+    fun setupLinuxFilesRefresh(): String = catalog.say("setupLinuxFilesRefresh")
+
+    /**
+     * 「工作目录」
+     *
+     * 文件浏览页右上角菜单项：跳到默认工作目录。
+     */
+    fun setupLinuxFilesWorkDir(): String = catalog.say("setupLinuxFilesWorkDir")
+
+    /**
+     * 「主目录」
+     *
+     * 文件浏览页右上角菜单项：跳到用户主目录。
+     */
+    fun setupLinuxFilesHome(): String = catalog.say("setupLinuxFilesHome")
+
+    /**
+     * 「根目录」
+     *
+     * 文件浏览页右上角菜单项：跳到 /。
+     */
+    fun setupLinuxFilesRoot(): String = catalog.say("setupLinuxFilesRoot")
+
+    /**
+     * 「复制当前路径」
+     *
+     * 文件浏览页右上角菜单项。
+     */
+    fun setupLinuxFilesCopyCurrentPath(): String = catalog.say("setupLinuxFilesCopyCurrentPath")
+
+    /**
+     * 「导出到手机」
+     *
+     * 文件的菜单项，也是导出进度一组的标题。
+     */
+    fun setupLinuxFilesExport(): String = catalog.say("setupLinuxFilesExport")
+
+    /**
+     * 「复制路径」
+     *
+     * 文件和预览页的菜单项。
+     */
+    fun setupLinuxFilesCopyPath(): String = catalog.say("setupLinuxFilesCopyPath")
+
+    /**
+     * 「上级目录」
+     *
+     * 文件浏览列表第一行：回上一级。
+     */
+    fun setupLinuxFilesParent(): String = catalog.say("setupLinuxFilesParent")
+
+    /**
+     * 「该目录为空」
+     *
+     * 文件浏览：目录里没东西。
+     */
+    fun setupLinuxFilesEmpty(): String = catalog.say("setupLinuxFilesEmpty")
+
+    /**
+     * 「只列出了前 {shown} 项（共 {total} 项）」
+     *
+     * 文件浏览：目录太大，只列了一部分。
+     */
+    fun setupLinuxFilesTruncated(shown: Int, total: Int): String = catalog.say("setupLinuxFilesTruncated", mapOf("shown" to shown, "total" to total))
+
+    /**
+     * 「图片太大，无法预览，可以导出到手机查看」
+     *
+     * 文件预览：图片太大。
+     */
+    fun setupLinuxFilesImageTooLarge(): String = catalog.say("setupLinuxFilesImageTooLarge")
+
+    /**
+     * 「二进制文件，无法预览，可以导出到手机查看」
+     *
+     * 文件预览：二进制文件。
+     */
+    fun setupLinuxFilesBinary(): String = catalog.say("setupLinuxFilesBinary")
+
+    /**
+     * 「内容较大，只显示开头 {kb} KB」
+     *
+     * 文件预览：只显示了开头。
+     */
+    fun setupLinuxFilesPreviewTruncated(kb: Int): String = catalog.say("setupLinuxFilesPreviewTruncated", mapOf("kb" to kb))
+
+    /**
+     * 「空文件」
+     *
+     * 文件预览：文件是空的。
+     */
+    fun setupLinuxFilesEmptyFile(): String = catalog.say("setupLinuxFilesEmptyFile")
+
+    /**
+     * 「从手机导入」
+     *
+     * 导入进度一组的标题。
+     */
+    fun setupLinuxFilesImport(): String = catalog.say("setupLinuxFilesImport")
+
+    /**
+     * 「点按收起」
+     *
+     * 导入导出结束后那一行的说明。
+     */
+    fun setupLinuxFilesTapToDismiss(): String = catalog.say("setupLinuxFilesTapToDismiss")
+
+    /**
+     * 「正在导出 {name}」
+     *
+     * 导出进度一行的标题，name 是文件名（多个时带第几个）。
+     */
+    fun setupLinuxFilesExporting(name: String): String = catalog.say("setupLinuxFilesExporting", mapOf("name" to name))
+
+    /**
+     * 「正在导入 {name}」
+     *
+     * 导入进度一行的标题，name 是文件名（多个时带第几个）。
+     */
+    fun setupLinuxFilesImporting(name: String): String = catalog.say("setupLinuxFilesImporting", mapOf("name" to name))
+
+    /**
+     * 「{name}（{index}/{count}）」
+     *
+     * 导入导出多个文件时：文件名加第几个、共几个。
+     */
+    fun setupLinuxFilesNthOf(name: String, index: Int, count: Int): String = catalog.say("setupLinuxFilesNthOf", mapOf("name" to name, "index" to index, "count" to count))
+
+    /**
+     * 「挂载到 Linux 的 /mnt/shared/<挂载名>。改动对新开的对话生效，进行中的对话看不到新加的；经 SSH 连进来的会话不挂载。」
+     *
+     * 共享文件夹页列表下面的说明。
+     */
+    fun setupSharedFooter(): String = catalog.say("setupSharedFooter")
+
+    /**
+     * 「目录路径无效」
+     *
+     * 添加共享文件夹时的报错。
+     */
+    fun setupSharedInvalidPath(): String = catalog.say("setupSharedInvalidPath")
+
+    /**
+     * 「只支持内部存储里的文件夹」
+     *
+     * 添加共享文件夹时的报错：系统选择器选了别处。
+     */
+    fun setupSharedInternalOnly(): String = catalog.say("setupSharedInternalOnly")
+
+    /**
+     * 「无法打开该目录」
+     *
+     * 添加共享文件夹时的报错：列不出子文件夹。
+     */
+    fun setupSharedCantOpen(): String = catalog.say("setupSharedCantOpen")
+
+    /**
+     * 「已打开输入的目录，确认无误后再点“添加”」
+     *
+     * 添加共享文件夹：输入了路径没按回车就点添加时。
+     */
+    fun setupSharedOpenedTyped(): String = catalog.say("setupSharedOpenedTyped")
+
+    /**
+     * 「源目录不存在」
+     *
+     * 共享文件夹的状态。
+     */
+    fun setupSharedMissing(): String = catalog.say("setupSharedMissing")
+
+    /**
+     * 「可读写」
+     *
+     * 共享文件夹的状态。
+     */
+    fun setupSharedReadWrite(): String = catalog.say("setupSharedReadWrite")
+
+    /**
+     * 「只读」
+     *
+     * 共享文件夹的状态。
+     */
+    fun setupSharedReadOnly(): String = catalog.say("setupSharedReadOnly")
+
+    /**
+     * 「没有权限」
+     *
+     * 共享文件夹的状态。
+     */
+    fun setupSharedDenied(): String = catalog.say("setupSharedDenied")
+
+    /**
+     * 「没有挂上」
+     *
+     * 共享文件夹的状态。
+     */
+    fun setupSharedNotMounted(): String = catalog.say("setupSharedNotMounted")
+
+    /**
+     * 「未知」
+     *
+     * 共享文件夹的状态：还没查到。
+     */
+    fun setupSharedUnknown(): String = catalog.say("setupSharedUnknown")
+
+    /**
+     * 「添加共享文件夹」
+     *
+     * 共享文件夹页的一行和添加对话框的标题。
+     */
+    fun setupSharedAdd(): String = catalog.say("setupSharedAdd")
+
+    /**
+     * 「移除共享文件夹」
+     *
+     * 移除共享文件夹确认框的标题。
+     */
+    fun setupSharedRemove(): String = catalog.say("setupSharedRemove")
+
+    /**
+     * 「移除“{name}”（{source}）？源目录中的文件不会被删除。」
+     *
+     * 移除共享文件夹确认框的说明。
+     */
+    fun setupSharedRemoveSummary(name: String, source: String): String = catalog.say("setupSharedRemoveSummary", mapOf("name" to name, "source" to source))
+
+    /**
+     * 「移除」
+     *
+     * 移除共享文件夹的确认按钮和菜单项。
+     */
+    fun setupSharedRemoveConfirm(): String = catalog.say("setupSharedRemoveConfirm")
+
+    /**
+     * 「还没有共享文件夹」
+     *
+     * 共享文件夹页：一个都没有时。
+     */
+    fun setupSharedNone(): String = catalog.say("setupSharedNone")
+
+    /**
+     * 「复制挂载点路径」
+     *
+     * 共享文件夹的菜单项。
+     */
+    fun setupSharedCopyMountPoint(): String = catalog.say("setupSharedCopyMountPoint")
+
+    /**
+     * 「目录」
+     *
+     * 添加共享文件夹对话框：输入路径的框。
+     */
+    fun setupSharedFolder(): String = catalog.say("setupSharedFolder")
+
+    /**
+     * 「用系统文件选择器选择」
+     *
+     * 添加共享文件夹对话框里的链接。
+     */
+    fun setupSharedSystemPicker(): String = catalog.say("setupSharedSystemPicker")
+
+    /**
+     * 「此处没有子文件夹」
+     *
+     * 添加共享文件夹对话框：当前目录没有子文件夹。
+     */
+    fun setupSharedNoSubfolders(): String = catalog.say("setupSharedNoSubfolders")
+
+    /**
+     * 「挂载目录：{path}」
+     *
+     * 添加共享文件夹对话框：当前选的目录。
+     */
+    fun setupSharedMountSource(path: String): String = catalog.say("setupSharedMountSource", mapOf("path" to path))
+
+    /**
+     * 「挂载名」
+     *
+     * 添加共享文件夹对话框：挂载名的输入框。
+     */
+    fun setupSharedMountName(): String = catalog.say("setupSharedMountName")
+
+    /**
+     * 「没有成功」
+     *
+     * Claude Code 配置页读写出错、又没有具体原因时的说明。
+     */
+    fun setupClaudeFailed(): String = catalog.say("setupClaudeFailed")
+
+    /**
+     * 「知道了」
+     *
+     * Claude Code 配置页出错告知框的关闭按钮。
+     */
+    fun setupClaudeGotIt(): String = catalog.say("setupClaudeGotIt")
+
+    /**
+     * 「正在读取…」
+     *
+     * Claude Code 配置页列表里正在读取的一行。
+     */
+    fun setupClaudeLoading(): String = catalog.say("setupClaudeLoading")
+
+    /**
+     * 「读取失败」
+     *
+     * Claude Code 配置页读文件或配置出错时告知框的标题。
+     */
+    fun setupClaudeLoadFailed(): String = catalog.say("setupClaudeLoadFailed")
+
+    /**
+     * 「保存失败」
+     *
+     * Claude Code 配置页保存文件出错时告知框的标题。
+     */
+    fun setupClaudeSaveFailed(): String = catalog.say("setupClaudeSaveFailed")
+
+    /**
+     * 「文件已经变了」
+     *
+     * 编辑 CLAUDE.md、记忆等文件时，保存前发现文件被别人改过，确认框的标题。
+     */
+    fun setupClaudeConflictTitle(): String = catalog.say("setupClaudeConflictTitle")
+
+    /**
+     * 「编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。」
+     *
+     * 文件冲突确认框的说明。
+     */
+    fun setupClaudeConflictSummary(): String = catalog.say("setupClaudeConflictSummary")
+
+    /**
+     * 「仍然保存」
+     *
+     * 文件冲突确认框的确认按钮。
+     */
+    fun setupClaudeSaveAnyway(): String = catalog.say("setupClaudeSaveAnyway")
+
+    /**
+     * 「放弃未保存的更改？」
+     *
+     * 编辑文件时有未保存的改动又要离开，确认框的标题。
+     */
+    fun setupClaudeDiscardTitle(): String = catalog.say("setupClaudeDiscardTitle")
+
+    /**
+     * 「放弃」
+     *
+     * 放弃未保存改动的按钮（确认框和编辑页底部的保存条）。
+     */
+    fun setupClaudeDiscard(): String = catalog.say("setupClaudeDiscard")
+
+    /**
+     * 「删除」
+     *
+     * Claude Code 配置页里的删除按钮、菜单项和确认框的确认按钮。
+     */
+    fun setupClaudeDelete(): String = catalog.say("setupClaudeDelete")
+
+    /**
+     * 「{size} · 超过上限」
+     *
+     * 编辑文件页顶部的大小一行，文件超过 1 MiB 上限时。
+     */
+    fun setupClaudeOverLimit(size: String): String = catalog.say("setupClaudeOverLimit", mapOf("size" to size))
+
+    /**
+     * 「预览」
+     *
+     * 编辑文件页的分段按钮：看渲染后的 Markdown。
+     */
+    fun setupClaudePreview(): String = catalog.say("setupClaudePreview")
+
+    /**
+     * 「编辑」
+     *
+     * 编辑文件页的分段按钮、各配置页的编辑按钮。
+     */
+    fun setupClaudeEdit(): String = catalog.say("setupClaudeEdit")
+
+    /**
+     * 「还没有内容」
+     *
+     * 编辑文件页预览模式下文件是空的时，点一下开始写。
+     */
+    fun setupClaudeEmptyDoc(): String = catalog.say("setupClaudeEmptyDoc")
+
+    /**
+     * 「保存中」
+     *
+     * 保存按钮在保存时的字。
+     */
+    fun setupClaudeSaving(): String = catalog.say("setupClaudeSaving")
+
+    /**
+     * 「保存」
+     *
+     * Claude Code 配置页的保存按钮。
+     */
+    fun setupClaudeSave(): String = catalog.say("setupClaudeSave")
+
+    /**
+     * 「已超过 1 MiB 上限，请删减」
+     *
+     * 编辑文件页底部保存条：内容超过上限。
+     */
+    fun setupClaudeOverLimitHint(): String = catalog.say("setupClaudeOverLimitHint")
+
+    /**
+     * 「未保存的更改」
+     *
+     * 编辑文件页底部保存条左边的提示。
+     */
+    fun setupClaudeUnsaved(): String = catalog.say("setupClaudeUnsaved")
+
+    /**
+     * 「没有改成」
+     *
+     * Claude Code 配置页改设置出错时告知框的标题。
+     */
+    fun setupClaudeChangeFailed(): String = catalog.say("setupClaudeChangeFailed")
+
+    /**
+     * 「删除失败」
+     *
+     * Claude Code 配置页删除出错时告知框的标题。
+     */
+    fun setupClaudeDeleteFailed(): String = catalog.say("setupClaudeDeleteFailed")
+
+    /**
+     * 「关于你」
+     *
+     * 记忆的类型：关于用户本人的。
+     */
+    fun setupMemoryTypeUser(): String = catalog.say("setupMemoryTypeUser")
+
+    /**
+     * 「反馈」
+     *
+     * 记忆的类型：用户给的反馈、纠正。
+     */
+    fun setupMemoryTypeFeedback(): String = catalog.say("setupMemoryTypeFeedback")
+
+    /**
+     * 「项目」
+     *
+     * 记忆的类型：项目背景。
+     */
+    fun setupMemoryTypeProject(): String = catalog.say("setupMemoryTypeProject")
+
+    /**
+     * 「参考」
+     *
+     * 记忆的类型：参考资料的位置。
+     */
+    fun setupMemoryTypeReference(): String = catalog.say("setupMemoryTypeReference")
+
+    /**
+     * 「读取记忆失败」
+     *
+     * 记忆页读取出错时告知框的标题。
+     */
+    fun setupMemoryLoadFailed(): String = catalog.say("setupMemoryLoadFailed")
+
+    /**
+     * 「记忆」
+     *
+     * 设置里「记忆」页的标题。
+     */
+    fun setupMemoryTitle(): String = catalog.say("setupMemoryTitle")
+
+    /**
+     * 「删除这条记忆」
+     *
+     * 编辑一条记忆时删除确认框的标题。
+     */
+    fun setupMemoryDeleteTitle(): String = catalog.say("setupMemoryDeleteTitle")
+
+    /**
+     * 「删除 {file}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。」
+     *
+     * 删除一条记忆的确认框说明；file 是记忆的文件名。
+     */
+    fun setupMemoryDeleteMessage(file: String): String = catalog.say("setupMemoryDeleteMessage", mapOf("file" to file))
+
+    /**
+     * 「用户指令」
+     *
+     * 记忆页「用户指令」一组的标题，也是编辑 ~/.claude/CLAUDE.md 页的标题。
+     */
+    fun setupMemoryInstructions(): String = catalog.say("setupMemoryInstructions")
+
+    /**
+     * 「~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。」
+     *
+     * 记忆页「用户指令」一组下面的说明。
+     */
+    fun setupMemoryInstructionsFooter(): String = catalog.say("setupMemoryInstructionsFooter")
+
+    /**
+     * 「还没有创建，点开就能写」
+     *
+     * CLAUDE.md 一行：文件还不存在。
+     */
+    fun setupMemoryInstructionsMissing(): String = catalog.say("setupMemoryInstructionsMissing")
+
+    /**
+     * 「比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改」
+     *
+     * 编辑 CLAUDE.md 时空白处的示例提示。
+     */
+    fun setupMemoryInstructionsHint(): String = catalog.say("setupMemoryInstructionsHint")
+
+    /**
+     * 「自动记忆」
+     *
+     * 记忆页「自动记忆」一组的标题。
+     */
+    fun setupMemoryAuto(): String = catalog.say("setupMemoryAuto")
+
+    /**
+     * 「Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。」
+     *
+     * 「自动记忆」一组下面的说明。
+     */
+    fun setupMemoryAutoFooter(): String = catalog.say("setupMemoryAutoFooter")
+
+    /**
+     * 「启用自动记忆」
+     *
+     * 「自动记忆」开关。
+     */
+    fun setupMemoryAutoEnable(): String = catalog.say("setupMemoryAutoEnable")
+
+    /**
+     * 「被环境变量关掉了，这里改不了」
+     *
+     * 自动记忆开关的说明：settings.json 的 env 设了 CLAUDE_CODE_DISABLE_AUTO_MEMORY。
+     */
+    fun setupMemoryAutoForcedOff(): String = catalog.say("setupMemoryAutoForcedOff")
+
+    /**
+     * 「记忆目录」
+     *
+     * 自动记忆用了自定义目录时的一行。
+     */
+    fun setupMemoryDir(): String = catalog.say("setupMemoryDir")
+
+    /**
+     * 「所有项目共用」
+     *
+     * 「记忆目录」一行右边的值。
+     */
+    fun setupMemorySharedDir(): String = catalog.say("setupMemorySharedDir")
+
+    /**
+     * 「项目」
+     *
+     * 自动记忆里选看哪个项目的记忆的下拉一行。
+     */
+    fun setupMemoryProject(): String = catalog.say("setupMemoryProject")
+
+    /**
+     * 「{path}（默认工作目录）」
+     *
+     * 项目下拉一行的说明：选中的是默认工作目录。
+     */
+    fun setupMemoryProjectDefault(path: String): String = catalog.say("setupMemoryProjectDefault", mapOf("path" to path))
+
+    /**
+     * 「{count, plural, other {# 条}}」
+     *
+     * 项目下拉一行右边的值：这个项目有几条记忆。
+     */
+    fun setupMemoryCount(count: Int): String = catalog.say("setupMemoryCount", mapOf("count" to count))
+
+    /**
+     * 「{path}（默认）」
+     *
+     * 项目下拉菜单里默认工作目录那一项。
+     */
+    fun setupMemoryProjectItemDefault(path: String): String = catalog.say("setupMemoryProjectItemDefault", mapOf("path" to path))
+
+    /**
+     * 「{path} · {count, plural, other {# 条}}」
+     *
+     * 项目下拉菜单里的一项：项目目录和记忆条数。
+     */
+    fun setupMemoryProjectItem(path: String, count: Int): String = catalog.say("setupMemoryProjectItem", mapOf("path" to path, "count" to count))
+
+    /**
+     * 「记忆的索引」
+     *
+     * MEMORY.md 一行的说明。
+     */
+    fun setupMemoryIndex(): String = catalog.say("setupMemoryIndex")
+
+    /**
+     * 「记忆的索引，还没有」
+     *
+     * MEMORY.md 一行的说明：文件还不存在。
+     */
+    fun setupMemoryIndexMissing(): String = catalog.say("setupMemoryIndexMissing")
+
+    /**
+     * 「一行一条记忆：- [标题](文件名.md) — 一句话说明」
+     *
+     * 编辑 MEMORY.md 时空白处的格式提示。
+     */
+    fun setupMemoryIndexHint(): String = catalog.say("setupMemoryIndexHint")
+
+    /**
+     * 「记忆 · {count}」
+     *
+     * 记忆页「记忆」一组的标题，带条数。
+     */
+    fun setupMemoryFiles(count: Int): String = catalog.say("setupMemoryFiles", mapOf("count" to count))
+
+    /**
+     * 「这个项目还没有记忆」
+     *
+     * 「记忆」一组是空的时的一行。
+     */
+    fun setupMemoryNone(): String = catalog.say("setupMemoryNone")
+
+    /**
+     * 「让 Claude 记住的东西会出现在这里」
+     *
+     * 「记忆」一组是空的时那一行的说明。
+     */
+    fun setupMemoryNoneSummary(): String = catalog.say("setupMemoryNoneSummary")
+
+    /**
+     * 「读取 Skills 失败」
+     *
+     * Skills 页读取出错时告知框的标题。
+     */
+    fun setupSkillsLoadFailed(): String = catalog.say("setupSkillsLoadFailed")
+
+    /**
+     * 「没有装上」
+     *
+     * 从 ZIP 导入 Skill 出错时告知框的标题。
+     */
+    fun setupSkillsInstallFailed(): String = catalog.say("setupSkillsInstallFailed")
+
+    /**
+     * 「没有启用」
+     *
+     * 启用 Skill 出错时告知框的标题。
+     */
+    fun setupSkillsEnableFailed(): String = catalog.say("setupSkillsEnableFailed")
+
+    /**
+     * 「没有停用」
+     *
+     * 停用 Skill 出错时告知框的标题。
+     */
+    fun setupSkillsDisableFailed(): String = catalog.say("setupSkillsDisableFailed")
+
+    /**
+     * 「替换 Skill？」
+     *
+     * 导入的 Skill 和已有的同名时，确认框的标题。
+     */
+    fun setupSkillsReplaceTitle(): String = catalog.say("setupSkillsReplaceTitle")
+
+    /**
+     * 「已经有一个叫“{name}”的 Skill。替换会覆盖它当前的全部文件。」
+     *
+     * 替换 Skill 确认框的说明。
+     */
+    fun setupSkillsReplaceSummary(name: String): String = catalog.say("setupSkillsReplaceSummary", mapOf("name" to name))
+
+    /**
+     * 「替换」
+     *
+     * 替换 Skill 确认框的确认按钮。
+     */
+    fun setupSkillsReplace(): String = catalog.say("setupSkillsReplace")
+
+    /**
+     * 「删除 Skill」
+     *
+     * 删除 Skill 确认框的标题。
+     */
+    fun setupSkillsDeleteTitle(): String = catalog.say("setupSkillsDeleteTitle")
+
+    /**
+     * 「删除“{name}”的整个文件夹，之后需要重新导入才能恢复。」
+     *
+     * 删除 Skill 确认框的说明。
+     */
+    fun setupSkillsDeleteSummary(name: String): String = catalog.say("setupSkillsDeleteSummary", mapOf("name" to name))
+
+    /**
+     * 「无描述」
+     *
+     * Skill 没写说明时，列表和说明对话框里的字。
+     */
+    fun setupSkillsNoDescription(): String = catalog.say("setupSkillsNoDescription")
+
+    /**
+     * 「文件超过 {mb} MB，不像是一个 Skill 包」
+     *
+     * 从 ZIP 导入时选的文件太大。
+     */
+    fun setupSkillsZipTooLarge(mb: Int): String = catalog.say("setupSkillsZipTooLarge", mapOf("mb" to mb))
+
+    /**
+     * 「读不了这个文件」
+     *
+     * 从 ZIP 导入时选的文件打不开。
+     */
+    fun setupSkillsZipUnreadable(): String = catalog.say("setupSkillsZipUnreadable")
+
+    /**
+     * 「已替换」
+     *
+     * 导入 Skill 后告知框的标题：替换了同名的。
+     */
+    fun setupSkillsReplaced(): String = catalog.say("setupSkillsReplaced")
+
+    /**
+     * 「已安装」
+     *
+     * 导入 Skill 后告知框的标题。
+     */
+    fun setupSkillsInstalled(): String = catalog.say("setupSkillsInstalled")
+
+    /**
+     * 「“{name}”装好了，Claude 会按需调用它。」
+     *
+     * 导入 Skill 后告知框的说明。
+     */
+    fun setupSkillsInstalledOn(name: String): String = catalog.say("setupSkillsInstalledOn", mapOf("name" to name))
+
+    /**
+     * 「“{name}”装好了，但它被设成停用，打开开关后才能用。」
+     *
+     * 导入 Skill 后告知框的说明：settings.json 里早把这个名字关掉了。
+     */
+    fun setupSkillsInstalledOff(name: String): String = catalog.say("setupSkillsInstalledOff", mapOf("name" to name))
+
+    /**
+     * 「这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。」
+     *
+     * Skill 说明对话框：文件夹里没有 SKILL.md。
+     */
+    fun setupSkillsNotSkill(): String = catalog.say("setupSkillsNotSkill")
+
+    /**
+     * 「从 ZIP 导入」
+     *
+     * Skills 页导入 Skill 包的一行。
+     */
+    fun setupSkillsImport(): String = catalog.say("setupSkillsImport")
+
+    /**
+     * 「正在检查并安装…」
+     *
+     * 「从 ZIP 导入」一行导入中的说明。
+     */
+    fun setupSkillsImporting(): String = catalog.say("setupSkillsImporting")
+
+    /**
+     * 「选一个含 SKILL.md 的 Skill 包」
+     *
+     * 「从 ZIP 导入」一行的说明。
+     */
+    fun setupSkillsImportHint(): String = catalog.say("setupSkillsImportHint")
+
+    /**
+     * 「用户安装 · {count}」
+     *
+     * Skills 页「用户安装」一组的标题，带个数。
+     */
+    fun setupSkillsUser(count: Int): String = catalog.say("setupSkillsUser", mapOf("count" to count))
+
+    /**
+     * 「装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。」
+     *
+     * 「用户安装」一组下面的说明。
+     */
+    fun setupSkillsUserFooter(): String = catalog.say("setupSkillsUserFooter")
+
+    /**
+     * 「还没有 Skill」
+     *
+     * 「用户安装」一组是空的时的一行。
+     */
+    fun setupSkillsNone(): String = catalog.say("setupSkillsNone")
+
+    /**
+     * 「从 ZIP 导入，或让 Claude 写一个」
+     *
+     * 「用户安装」一组是空的时那一行的说明。
+     */
+    fun setupSkillsNoneSummary(): String = catalog.say("setupSkillsNoneSummary")
+
+    /**
+     * 「账号同步 · {count}」
+     *
+     * Skills 页「账号同步」一组的标题：claude.ai 同步下来的 Skill，带个数。
+     */
+    fun setupSkillsSynced(count: Int): String = catalog.say("setupSkillsSynced", mapOf("count" to count))
+
+    /**
+     * 「在 claude.ai 上管理，这里只能看。」
+     *
+     * 账号同步的 Skill、Claude 账号的连接器这些组下面的说明。
+     */
+    fun setupClaudeManagedOnline(): String = catalog.say("setupClaudeManagedOnline")
+
+    /**
+     * 「已停用」
+     *
+     * Skill、MCP 服务器被停用时右边的值或状态。
+     */
+    fun setupClaudeDisabled(): String = catalog.say("setupClaudeDisabled")
+
+    /**
+     * 「缺少 SKILL.md」
+     *
+     * Skill 列表一行的说明：文件夹里没有 SKILL.md。
+     */
+    fun setupSkillsMissingFile(): String = catalog.say("setupSkillsMissingFile")
+
+    /**
+     * 「{title}（{name}）」
+     *
+     * Skill 列表一行的标题：显示名和文件夹名不同时。
+     */
+    fun setupSkillsTitleWithName(title: String, name: String): String = catalog.say("setupSkillsTitleWithName", mapOf("title" to title, "name" to name))
+
+    /**
+     * 「更多：{name}」
+     *
+     * 列表一行「更多」菜单按钮的无障碍说明。
+     */
+    fun setupClaudeMoreFor(name: String): String = catalog.say("setupClaudeMoreFor", mapOf("name" to name))
+
+    /**
+     * 「查看说明」
+     *
+     * Skill 一行「更多」菜单里看说明的项。
+     */
+    fun setupSkillsShowDescription(): String = catalog.say("setupSkillsShowDescription")
+
+    /**
+     * 「默认」
+     *
+     * Subagent 模型选项：不写 model。
+     */
+    fun setupAgentsModelDefault(): String = catalog.say("setupAgentsModelDefault")
+
+    /**
+     * 「跟随主对话」
+     *
+     * Subagent 模型选项：inherit。
+     */
+    fun setupAgentsModelInherit(): String = catalog.say("setupAgentsModelInherit")
+
+    /**
+     * 「读文件」
+     *
+     * Subagent 可用的内置工具 Read 的说明。
+     */
+    fun setupAgentsToolRead(): String = catalog.say("setupAgentsToolRead")
+
+    /**
+     * 「修改文件」
+     *
+     * 内置工具 Edit 的说明。
+     */
+    fun setupAgentsToolEdit(): String = catalog.say("setupAgentsToolEdit")
+
+    /**
+     * 「新建、覆盖文件」
+     *
+     * 内置工具 Write 的说明。
+     */
+    fun setupAgentsToolWrite(): String = catalog.say("setupAgentsToolWrite")
+
+    /**
+     * 「按文件名查找」
+     *
+     * 内置工具 Glob 的说明。
+     */
+    fun setupAgentsToolGlob(): String = catalog.say("setupAgentsToolGlob")
+
+    /**
+     * 「在文件里搜索」
+     *
+     * 内置工具 Grep 的说明。
+     */
+    fun setupAgentsToolGrep(): String = catalog.say("setupAgentsToolGrep")
+
+    /**
+     * 「执行命令」
+     *
+     * 内置工具 Bash 的说明。
+     */
+    fun setupAgentsToolBash(): String = catalog.say("setupAgentsToolBash")
+
+    /**
+     * 「抓取网页」
+     *
+     * 内置工具 WebFetch 的说明。
+     */
+    fun setupAgentsToolWebFetch(): String = catalog.say("setupAgentsToolWebFetch")
+
+    /**
+     * 「网络搜索」
+     *
+     * 内置工具 WebSearch 的说明。
+     */
+    fun setupAgentsToolWebSearch(): String = catalog.say("setupAgentsToolWebSearch")
+
+    /**
+     * 「编辑 Jupyter 笔记本」
+     *
+     * 内置工具 NotebookEdit 的说明。
+     */
+    fun setupAgentsToolNotebookEdit(): String = catalog.say("setupAgentsToolNotebookEdit")
+
+    /**
+     * 「使用 Skill」
+     *
+     * 内置工具 Skill 的说明。
+     */
+    fun setupAgentsToolSkill(): String = catalog.say("setupAgentsToolSkill")
+
+    /**
+     * 「读取 Subagent 失败」
+     *
+     * Subagent 页读取出错时告知框的标题。
+     */
+    fun setupAgentsLoadFailed(): String = catalog.say("setupAgentsLoadFailed")
+
+    /**
+     * 「新建 Subagent」
+     *
+     * Subagent 页右上角新建按钮的无障碍说明，也是新建页的标题。
+     */
+    fun setupAgentsNew(): String = catalog.say("setupAgentsNew")
+
+    /**
+     * 「关闭」
+     *
+     * Subagent 详情框的关闭按钮。
+     */
+    fun setupClaudeClose(): String = catalog.say("setupClaudeClose")
+
+    /**
+     * 「删除 Subagent」
+     *
+     * 删除 Subagent 确认框的标题。
+     */
+    fun setupAgentsDeleteTitle(): String = catalog.say("setupAgentsDeleteTitle")
+
+    /**
+     * 「删除“{name}”？删了就找不回来。」
+     *
+     * 删除 Subagent 确认框的说明。
+     */
+    fun setupAgentsDeleteSummary(name: String): String = catalog.say("setupAgentsDeleteSummary", mapOf("name" to name))
+
+    /**
+     * 「自定义 Subagent · {count}」
+     *
+     * Subagent 页列表一组的标题，带个数。
+     */
+    fun setupAgentsCustom(count: Int): String = catalog.say("setupAgentsCustom", mapOf("count" to count))
+
+    /**
+     * 「存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。」
+     *
+     * Subagent 列表一组下面的说明。
+     */
+    fun setupAgentsCustomFooter(): String = catalog.say("setupAgentsCustomFooter")
+
+    /**
+     * 「还没有自定义 Subagent」
+     *
+     * Subagent 列表是空的时的一行。
+     */
+    fun setupAgentsNone(): String = catalog.say("setupAgentsNone")
+
+    /**
+     * 「让 Claude 写一个，或点右上角 + 新建」
+     *
+     * Subagent 列表是空的时那一行的说明。
+     */
+    fun setupAgentsNoneSummary(): String = catalog.say("setupAgentsNoneSummary")
+
+    /**
+     * 「没有写什么时候用」
+     *
+     * Subagent 详情：description 是空的。
+     */
+    fun setupAgentsNoWhen(): String = catalog.say("setupAgentsNoWhen")
+
+    /**
+     * 「模型：{model} · 工具」
+     *
+     * Subagent 详情里模型和工具清单上面的一行。
+     */
+    fun setupAgentsModelTools(model: String): String = catalog.say("setupAgentsModelTools", mapOf("model" to model))
+
+    /**
+     * 「（没有工具）」
+     *
+     * Subagent 详情的工具清单：tools 写了空列表。
+     */
+    fun setupAgentsNoTools(): String = catalog.say("setupAgentsNoTools")
+
+    /**
+     * 「全部工具」
+     *
+     * Subagent 详情的工具清单：没限制工具；编辑页「全部工具」开关。
+     */
+    fun setupAgentsAllTools(): String = catalog.say("setupAgentsAllTools")
+
+    /**
+     * 「另外还设了 {keys}，编辑时原样保留。」
+     *
+     * Subagent 详情：前言里还有 Zeta 不认识的键。
+     */
+    fun setupAgentsExtraKeys(keys: String): String = catalog.say("setupAgentsExtraKeys", mapOf("keys" to keys))
+
+    /**
+     * 「编辑 Subagent」
+     *
+     * 编辑 Subagent 页的标题。
+     */
+    fun setupAgentsEdit(): String = catalog.say("setupAgentsEdit")
+
+    /**
+     * 「名称」
+     *
+     * 编辑 Subagent 页「名称」一组的标题。
+     */
+    fun setupAgentsName(): String = catalog.say("setupAgentsName")
+
+    /**
+     * 「小写字母、数字和连字符，比如 code-reviewer。」
+     *
+     * 「名称」一组下面的说明。
+     */
+    fun setupAgentsNameFooter(): String = catalog.say("setupAgentsNameFooter")
+
+    /**
+     * 「什么时候用」
+     *
+     * 编辑 Subagent 页「什么时候用」（description）一组的标题。
+     */
+    fun setupAgentsWhen(): String = catalog.say("setupAgentsWhen")
+
+    /**
+     * 「Claude 靠这段话决定要不要交给它，写清楚它擅长什么。」
+     *
+     * 「什么时候用」一组下面的说明。
+     */
+    fun setupAgentsWhenFooter(): String = catalog.say("setupAgentsWhenFooter")
+
+    /**
+     * 「比如：改完代码后用它审查改动，找出 bug 和不清楚的地方」
+     *
+     * 「什么时候用」输入框的示例提示。
+     */
+    fun setupAgentsWhenHint(): String = catalog.say("setupAgentsWhenHint")
+
+    /**
+     * 「系统提示词」
+     *
+     * 编辑 Subagent 页「系统提示词」一组的标题。
+     */
+    fun setupAgentsPrompt(): String = catalog.say("setupAgentsPrompt")
+
+    /**
+     * 「写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。」
+     *
+     * 「系统提示词」一组下面的说明。
+     */
+    fun setupAgentsPromptFooter(): String = catalog.say("setupAgentsPromptFooter")
+
+    /**
+     * 「你是一名代码审查员……」
+     *
+     * 「系统提示词」输入框的示例提示。
+     */
+    fun setupAgentsPromptHint(): String = catalog.say("setupAgentsPromptHint")
+
+    /**
+     * 「名称只能用小写字母、数字和连字符，并以字母或数字开头」
+     *
+     * 保存按钮灰着时的提示：名称不合规。
+     */
+    fun setupAgentsNameInvalid(): String = catalog.say("setupAgentsNameInvalid")
+
+    /**
+     * 「写上什么时候用它才能保存」
+     *
+     * 保存按钮灰着时的提示：没写什么时候用。
+     */
+    fun setupAgentsWhenMissing(): String = catalog.say("setupAgentsWhenMissing")
+
+    /**
+     * 「“默认”一般和“跟随主对话”一样，用当前对话的模型。」
+     *
+     * 编辑 Subagent 页模型一组下面的说明。
+     */
+    fun setupAgentsModelFooter(): String = catalog.say("setupAgentsModelFooter")
+
+    /**
+     * 「模型」
+     *
+     * 编辑 Subagent 页选模型的一行。
+     */
+    fun setupAgentsModel(): String = catalog.say("setupAgentsModel")
+
+    /**
+     * 「工具」
+     *
+     * 编辑 Subagent 页「工具」一组的标题。
+     */
+    fun setupAgentsTools(): String = catalog.say("setupAgentsTools")
+
+    /**
+     * 「关掉“全部工具”后，它只能用勾选的和“其他工具”里写的，多个用逗号分开。」
+     *
+     * 「工具」一组下面的说明。
+     */
+    fun setupAgentsToolsFooter(): String = catalog.say("setupAgentsToolsFooter")
+
+    /**
+     * 「和主对话一样，包括 MCP 工具」
+     *
+     * 「全部工具」开关的说明。
+     */
+    fun setupAgentsAllToolsSummary(): String = catalog.say("setupAgentsAllToolsSummary")
+
+    /**
+     * 「其他工具」
+     *
+     * 编辑 Subagent 页补写别的工具名的输入行。
+     */
+    fun setupAgentsOtherTools(): String = catalog.say("setupAgentsOtherTools")
+
+    /**
+     * 「检查中…」
+     *
+     * MCP 服务器状态：还在检查。
+     */
+    fun setupMcpStateChecking(): String = catalog.say("setupMcpStateChecking")
+
+    /**
+     * 「已连接」
+     *
+     * MCP 服务器状态。
+     */
+    fun setupMcpStateConnected(): String = catalog.say("setupMcpStateConnected")
+
+    /**
+     * 「已连接 · 取工具出错」
+     *
+     * MCP 服务器状态：连上了但取工具清单出错。
+     */
+    fun setupMcpStatePartial(): String = catalog.say("setupMcpStatePartial")
+
+    /**
+     * 「连不上」
+     *
+     * MCP 服务器状态。
+     */
+    fun setupMcpStateFailed(): String = catalog.say("setupMcpStateFailed")
+
+    /**
+     * 「需要登录」
+     *
+     * MCP 服务器状态：要 OAuth 登录。
+     */
+    fun setupMcpStateAuth(): String = catalog.say("setupMcpStateAuth")
+
+    /**
+     * 「等待批准」
+     *
+     * MCP 服务器状态：项目的 .mcp.json 里的服务器还没批准。
+     */
+    fun setupMcpStatePending(): String = catalog.say("setupMcpStatePending")
+
+    /**
+     * 「已拒绝」
+     *
+     * MCP 服务器状态：项目的 .mcp.json 里的服务器被拒绝。
+     */
+    fun setupMcpStateRejected(): String = catalog.say("setupMcpStateRejected")
+
+    /**
+     * 「未配置」
+     *
+     * MCP 服务器状态；身份认证一行没设时也用它。
+     */
+    fun setupMcpStateUnconfigured(): String = catalog.say("setupMcpStateUnconfigured")
+
+    /**
+     * 「未生效」
+     *
+     * MCP 服务器状态：被别处的同名服务器盖住。
+     */
+    fun setupMcpStateShadowed(): String = catalog.say("setupMcpStateShadowed")
+
+    /**
+     * 「未知」
+     *
+     * MCP 服务器状态：不认识。
+     */
+    fun setupMcpStateUnknown(): String = catalog.say("setupMcpStateUnknown")
+
+    /**
+     * 「命令」
+     *
+     * MCP 服务器类型 stdio（本机运行的命令），也是添加服务器框和详情里「命令」一行。
+     */
+    fun setupMcpTypeCommand(): String = catalog.say("setupMcpTypeCommand")
+
+    /**
+     * 「所有项目」
+     *
+     * MCP 服务器的配置范围 user。
+     */
+    fun setupMcpScopeUser(): String = catalog.say("setupMcpScopeUser")
+
+    /**
+     * 「只在默认工作目录」
+     *
+     * MCP 服务器的配置范围 local。
+     */
+    fun setupMcpScopeLocal(): String = catalog.say("setupMcpScopeLocal")
+
+    /**
+     * 「项目的 .mcp.json」
+     *
+     * MCP 服务器的配置范围 project。
+     */
+    fun setupMcpScopeProject(): String = catalog.say("setupMcpScopeProject")
+
+    /**
+     * 「被“{scope}”里的同名服务器盖住」
+     *
+     * MCP 服务器状态一行的说明：scope 是盖住它的那个范围的名字。
+     */
+    fun setupMcpShadowedBy(scope: String): String = catalog.say("setupMcpShadowedBy", mapOf("scope" to scope))
+
+    /**
+     * 「读取 MCP 配置失败」
+     *
+     * MCP 页读取出错时告知框的标题。
+     */
+    fun setupMcpLoadFailed(): String = catalog.say("setupMcpLoadFailed")
+
+    /**
+     * 「MCP 服务器」
+     *
+     * 设置里 MCP 页的标题；工具权限页 MCP 一组的标题。
+     */
+    fun setupMcpTitle(): String = catalog.say("setupMcpTitle")
+
+    /**
+     * 「重新检查」
+     *
+     * MCP 页右上角刷新按钮的无障碍说明：重新检查各服务器状态。
+     */
+    fun setupMcpRecheck(): String = catalog.say("setupMcpRecheck")
+
+    /**
+     * 「添加服务器」
+     *
+     * MCP 页右上角添加按钮的无障碍说明，也是添加框的标题。
+     */
+    fun setupMcpAdd(): String = catalog.say("setupMcpAdd")
+
+    /**
+     * 「服务器 · {count}」
+     *
+     * MCP 页服务器列表一组的标题，带个数。
+     */
+    fun setupMcpServers(count: Int): String = catalog.say("setupMcpServers", mapOf("count" to count))
+
+    /**
+     * 「新加的服务器所有项目都能用，改动对之后新开始的对话生效。」
+     *
+     * MCP 页服务器列表下面的说明。
+     */
+    fun setupMcpServersFooter(): String = catalog.say("setupMcpServersFooter")
+
+    /**
+     * 「检查状态没有成功：{error}」
+     *
+     * MCP 页服务器列表说明后面另起一段：检查状态出错，error 是原因。
+     */
+    fun setupMcpStatusFailed(error: String): String = catalog.say("setupMcpStatusFailed", mapOf("error" to error))
+
+    /**
+     * 「还没有 MCP 服务器」
+     *
+     * MCP 服务器列表是空的时的一行。
+     */
+    fun setupMcpNone(): String = catalog.say("setupMcpNone")
+
+    /**
+     * 「点右上角的 + 添加」
+     *
+     * 空列表一行的说明（MCP 服务器、工具权限规则）。
+     */
+    fun setupClaudeTapPlusToAdd(): String = catalog.say("setupClaudeTapPlusToAdd")
+
+    /**
+     * 「Claude 账号的连接器」
+     *
+     * MCP 页 claude.ai 账号连接器一组的标题。
+     */
+    fun setupMcpConnectors(): String = catalog.say("setupMcpConnectors")
+
+    /**
+     * 「名称只能用字母、数字、下划线和连字符」
+     *
+     * 添加 MCP 服务器框的错误提示。
+     */
+    fun setupMcpNameInvalid(): String = catalog.say("setupMcpNameInvalid")
+
+    /**
+     * 「地址要以 http:// 或 https:// 开头」
+     *
+     * 添加 MCP 服务器框的错误提示。
+     */
+    fun setupMcpUrlInvalid(): String = catalog.say("setupMcpUrlInvalid")
+
+    /**
+     * 「请输入要运行的命令」
+     *
+     * 添加 MCP 服务器框的错误提示。
+     */
+    fun setupMcpCommandMissing(): String = catalog.say("setupMcpCommandMissing")
+
+    /**
+     * 「环境变量每行一个，写成 KEY=VALUE」
+     *
+     * 添加 MCP 服务器框的错误提示。
+     */
+    fun setupMcpEnvInvalid(): String = catalog.say("setupMcpEnvInvalid")
+
+    /**
+     * 「正在添加…」
+     *
+     * 添加 MCP 服务器框的确认按钮在添加中。
+     */
+    fun setupMcpAdding(): String = catalog.say("setupMcpAdding")
+
+    /**
+     * 「名称」
+     *
+     * 添加 MCP 服务器框的名称输入框。
+     */
+    fun setupMcpName(): String = catalog.say("setupMcpName")
+
+    /**
+     * 「比如 github」
+     *
+     * 名称输入框的示例。
+     */
+    fun setupMcpNameHint(): String = catalog.say("setupMcpNameHint")
+
+    /**
+     * 「比如 npx」
+     *
+     * 命令输入框的示例。
+     */
+    fun setupMcpCommandHint(): String = catalog.say("setupMcpCommandHint")
+
+    /**
+     * 「参数（可选，空格分开）」
+     *
+     * 添加 MCP 服务器框的参数输入框。
+     */
+    fun setupMcpArgs(): String = catalog.say("setupMcpArgs")
+
+    /**
+     * 「环境变量（可选，每行一个 KEY=VALUE）」
+     *
+     * 添加 MCP 服务器框的环境变量输入框。
+     */
+    fun setupMcpEnv(): String = catalog.say("setupMcpEnv")
+
+    /**
+     * 「服务器地址」
+     *
+     * 添加 MCP 服务器框的地址输入框。
+     */
+    fun setupMcpUrl(): String = catalog.say("setupMcpUrl")
+
+    /**
+     * 「Bearer Token（可选）」
+     *
+     * 添加 MCP 服务器框的 Token 输入框。
+     */
+    fun setupMcpTokenOptional(): String = catalog.say("setupMcpTokenOptional")
+
+    /**
+     * 「刷新工具」
+     *
+     * MCP 服务器详情页右上角刷新按钮的无障碍说明；工具权限页 MCP 服务器页也用。
+     */
+    fun setupMcpRefreshTools(): String = catalog.say("setupMcpRefreshTools")
+
+    /**
+     * 「身份认证」
+     *
+     * MCP 服务器详情的身份认证一行，也是改 Token 框的标题。
+     */
+    fun setupMcpAuth(): String = catalog.say("setupMcpAuth")
+
+    /**
+     * 「输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。」
+     *
+     * 改 Token 框的说明。
+     */
+    fun setupMcpAuthSummary(): String = catalog.say("setupMcpAuthSummary")
+
+    /**
+     * 「删除服务器」
+     *
+     * MCP 服务器详情页的删除一行和确认框的标题。
+     */
+    fun setupMcpDelete(): String = catalog.say("setupMcpDelete")
+
+    /**
+     * 「删除 {name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。」
+     *
+     * 删除 MCP 服务器确认框的说明。
+     */
+    fun setupMcpDeleteSummary(name: String): String = catalog.say("setupMcpDeleteSummary", mapOf("name" to name))
+
+    /**
+     * 「服务器」
+     *
+     * MCP 服务器详情页的第一组标题。
+     */
+    fun setupMcpServer(): String = catalog.say("setupMcpServer")
+
+    /**
+     * 「范围」
+     *
+     * MCP 服务器详情：配置范围一行。
+     */
+    fun setupMcpScope(): String = catalog.say("setupMcpScope")
+
+    /**
+     * 「类型」
+     *
+     * MCP 服务器详情：类型一行。
+     */
+    fun setupMcpType(): String = catalog.say("setupMcpType")
+
+    /**
+     * 「环境变量」
+     *
+     * MCP 服务器详情：环境变量一行（只列名字）。
+     */
+    fun setupMcpEnvKeys(): String = catalog.say("setupMcpEnvKeys")
+
+    /**
+     * 「值已隐藏」
+     *
+     * MCP 服务器详情：环境变量、请求头一行右边，值不显示。
+     */
+    fun setupMcpValuesHidden(): String = catalog.say("setupMcpValuesHidden")
+
+    /**
+     * 「地址」
+     *
+     * MCP 服务器详情：地址一行。
+     */
+    fun setupMcpAddress(): String = catalog.say("setupMcpAddress")
+
+    /**
+     * 「其他请求头」
+     *
+     * MCP 服务器详情：其他请求头一行（只列名字）。
+     */
+    fun setupMcpHeaders(): String = catalog.say("setupMcpHeaders")
+
+    /**
+     * 「{auth} · 在项目里改」
+     *
+     * 身份认证一行：项目的 .mcp.json 里的服务器，Zeta 不替它改。
+     */
+    fun setupMcpAuthInProject(auth: String): String = catalog.say("setupMcpAuthInProject", mapOf("auth" to auth))
+
+    /**
+     * 「Authorization 请求头」
+     *
+     * 身份认证一行：用 Authorization 请求头。
+     */
+    fun setupMcpAuthHeader(): String = catalog.say("setupMcpAuthHeader")
+
+    /**
+     * 「OAuth：在终端用 claude 的 /mcp 登录」
+     *
+     * 身份认证一行：要 OAuth 登录。
+     */
+    fun setupMcpAuthOauth(): String = catalog.say("setupMcpAuthOauth")
+
+    /**
+     * 「工具」
+     *
+     * MCP 服务器详情和工具权限页里「工具」一组的标题（还没取到清单时）。
+     */
+    fun setupClaudeTools(): String = catalog.say("setupClaudeTools")
+
+    /**
+     * 「工具 · {count}」
+     *
+     * 「工具」一组的标题，带个数。
+     */
+    fun setupClaudeToolsCount(count: Int): String = catalog.say("setupClaudeToolsCount", mapOf("count" to count))
+
+    /**
+     * 「正在连接…」
+     *
+     * 「工具」一组正在连 MCP 服务器取工具清单。
+     */
+    fun setupClaudeConnecting(): String = catalog.say("setupClaudeConnecting")
+
+    /**
+     * 「取不到工具清单」
+     *
+     * 「工具」一组取清单出错，点一下重试。
+     */
+    fun setupClaudeToolsError(): String = catalog.say("setupClaudeToolsError")
+
+    /**
+     * 「列出工具」
+     *
+     * 「工具」一组还没取清单时的一行。
+     */
+    fun setupClaudeListTools(): String = catalog.say("setupClaudeListTools")
+
+    /**
+     * 「用 OAuth 登录的服务器取不到」
+     *
+     * 「列出工具」一行的说明：服务器要 OAuth。
+     */
+    fun setupClaudeListToolsOauth(): String = catalog.say("setupClaudeListToolsOauth")
+
+    /**
+     * 「连上服务器取工具清单」
+     *
+     * 「列出工具」一行的说明。
+     */
+    fun setupClaudeListToolsHint(): String = catalog.say("setupClaudeListToolsHint")
+
+    /**
+     * 「没有工具」
+     *
+     * 「工具」一组：服务器没有工具。
+     */
+    fun setupClaudeNoTools(): String = catalog.say("setupClaudeNoTools")
+
+    /**
+     * 「规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。」
+     *
+     * 工具权限页顶部说明的第一句：规则的优先级（ClaudeCodeContractTest 钉住的语义）。
+     */
+    fun setupToolPermSemantics(): String = catalog.say("setupToolPermSemantics")
+
+    /**
+     * 「未设置」
+     *
+     * 工具权限下拉的选项：没写规则，按权限模式走。
+     */
+    fun setupToolPermUnset(): String = catalog.say("setupToolPermUnset")
+
+    /**
+     * 「允许」
+     *
+     * 工具权限的一种：允许（下拉选项、规则编辑框的分段按钮、确认框里的表名）。
+     */
+    fun setupToolPermAllow(): String = catalog.say("setupToolPermAllow")
+
+    /**
+     * 「询问」
+     *
+     * 工具权限的一种：询问。
+     */
+    fun setupToolPermAsk(): String = catalog.say("setupToolPermAsk")
+
+    /**
+     * 「拒绝」
+     *
+     * 工具权限的一种：拒绝。
+     */
+    fun setupToolPermDeny(): String = catalog.say("setupToolPermDeny")
+
+    /**
+     * 「整个服务器」
+     *
+     * MCP 服务器页里管整个服务器的一行；工具行说明里继承来源的名字。
+     */
+    fun setupToolPermWholeServer(): String = catalog.say("setupToolPermWholeServer")
+
+    /**
+     * 「跟随{source}：{behavior}」
+     *
+     * 工具一行的说明：这个工具的设置继承自整个服务器；source 是「整个服务器」或「全部手机工具」，behavior 是允许、询问、拒绝之一。
+     */
+    fun setupToolPermInherited(source: String, behavior: String): String = catalog.say("setupToolPermInherited", mapOf("source" to source, "behavior" to behavior))
+
+    /**
+     * 「另有 {count, plural, other {# 条}}带参数的规则」
+     *
+     * 工具一行的说明：这个工具还有几条带参数的规则。
+     */
+    fun setupToolPermSpecific(count: Int): String = catalog.say("setupToolPermSpecific", mapOf("count" to count))
+
+    /**
+     * 「工具权限」
+     *
+     * 设置里工具权限页的标题。
+     */
+    fun setupToolPermTitle(): String = catalog.say("setupToolPermTitle")
+
+    /**
+     * 「重新读取」
+     *
+     * 工具权限页右上角刷新按钮的无障碍说明。
+     */
+    fun setupToolPermReload(): String = catalog.say("setupToolPermReload")
+
+    /**
+     * 「添加规则」
+     *
+     * 工具权限页右上角添加按钮的无障碍说明，也是添加规则框的标题。
+     */
+    fun setupToolPermAddRule(): String = catalog.say("setupToolPermAddRule")
+
+    /**
+     * 「删除规则」
+     *
+     * 删除一条规则的确认框标题。
+     */
+    fun setupToolPermDeleteRule(): String = catalog.say("setupToolPermDeleteRule")
+
+    /**
+     * 「删除{behavior}规则 {rule}？」
+     *
+     * 删除规则确认框的说明；behavior 是允许、询问、拒绝之一，rule 是规则原文。
+     */
+    fun setupToolPermDeleteRuleSummary(behavior: String, rule: String): String = catalog.say("setupToolPermDeleteRuleSummary", mapOf("behavior" to behavior, "rule" to rule))
+
+    /**
+     * 「{semantics}改动对所有项目、之后新开始的对话生效。」
+     *
+     * 工具权限页顶部的说明：semantics 是规则优先级那句（setupToolPermSemantics），后面接什么时候生效。
+     */
+    fun setupToolPermIntro(semantics: String): String = catalog.say("setupToolPermIntro", mapOf("semantics" to semantics))
+
+    /**
+     * 「读取失败：{error}」
+     *
+     * 工具权限页顶部说明后另起一段：读规则出错。
+     */
+    fun setupToolPermLoadFailedDetail(error: String): String = catalog.say("setupToolPermLoadFailedDetail", mapOf("error" to error))
+
+    /**
+     * 「更多内置工具」
+     *
+     * 工具权限页里展开不常用内置工具的一行，也是展开后那一组的标题。
+     */
+    fun setupToolPermMoreBuiltin(): String = catalog.say("setupToolPermMoreBuiltin")
+
+    /**
+     * 「内置工具」
+     *
+     * 工具权限页「内置工具」一组的标题。
+     */
+    fun setupToolPermBuiltin(): String = catalog.say("setupToolPermBuiltin")
+
+    /**
+     * 「读不出规则」
+     *
+     * 工具权限页各组：读规则出错。
+     */
+    fun setupToolPermCantRead(): String = catalog.say("setupToolPermCantRead")
+
+    /**
+     * 「内置工具」
+     *
+     * 「全部开启/全部关闭」确认框标题里的对象：内置工具（英文小写，放在句中）。
+     */
+    fun setupToolPermBulkBuiltin(): String = catalog.say("setupToolPermBulkBuiltin")
+
+    /**
+     * 「手机工具」
+     *
+     * 「全部开启/全部关闭」确认框标题里的对象：手机工具（英文小写，放在句中）。
+     */
+    fun setupToolPermBulkPhone(): String = catalog.say("setupToolPermBulkPhone")
+
+    /**
+     * 「{name} 的工具」
+     *
+     * 「全部开启/全部关闭」确认框标题里的对象：某个 MCP 服务器的工具。
+     */
+    fun setupToolPermBulkServer(name: String): String = catalog.say("setupToolPermBulkServer", mapOf("name" to name))
+
+    /**
+     * 「{count, plural, other {# 个}}」
+     *
+     * 「更多内置工具」一行右边的值：还有几个。
+     */
+    fun setupToolPermMoreCount(count: Int): String = catalog.say("setupToolPermMoreCount", mapOf("count" to count))
+
+    /**
+     * 「手机工具」
+     *
+     * 工具权限页「手机工具」一组的标题。
+     */
+    fun setupToolPermPhone(): String = catalog.say("setupToolPermPhone")
+
+    /**
+     * 「手机操作现在关着，Claude 拿不到这些工具。」
+     *
+     * 「手机工具」一组下面的说明：设置里手机操作关着。
+     */
+    fun setupToolPermPhoneOff(): String = catalog.say("setupToolPermPhoneOff")
+
+    /**
+     * 「全部手机工具」
+     *
+     * 「手机工具」一组里管整个 phone 服务器的一行；工具行说明里继承来源的名字。
+     */
+    fun setupToolPermAllPhone(): String = catalog.say("setupToolPermAllPhone")
+
+    /**
+     * 「没有配置 MCP 服务器」
+     *
+     * 工具权限页「MCP 服务器」一组是空的。
+     */
+    fun setupToolPermNoServers(): String = catalog.say("setupToolPermNoServers")
+
+    /**
+     * 「规则 · {count}」
+     *
+     * 工具权限页「规则」一组的标题，带条数。
+     */
+    fun setupToolPermRules(count: Int): String = catalog.say("setupToolPermRules", mapOf("count" to count))
+
+    /**
+     * 「带参数的规则只在这里改，上面的下拉不动它们。」
+     *
+     * 「规则」一组下面的说明。
+     */
+    fun setupToolPermRulesFooter(): String = catalog.say("setupToolPermRulesFooter")
+
+    /**
+     * 「还没有规则」
+     *
+     * 「规则」一组是空的。
+     */
+    fun setupToolPermNoRules(): String = catalog.say("setupToolPermNoRules")
+
+    /**
+     * 「编辑…」
+     *
+     * 规则一行菜单里的编辑项。
+     */
+    fun setupToolPermEditMenu(): String = catalog.say("setupToolPermEditMenu")
+
+    /**
+     * 「括号不配对，Claude Code 认不出这条」
+     *
+     * 规则一行的说明：写法不对。
+     */
+    fun setupToolPermMalformed(): String = catalog.say("setupToolPermMalformed")
+
+    /**
+     * 「编辑规则」
+     *
+     * 编辑规则框的标题。
+     */
+    fun setupToolPermEditRule(): String = catalog.say("setupToolPermEditRule")
+
+    /**
+     * 「正在保存…」
+     *
+     * 规则编辑框的保存按钮在保存中。
+     */
+    fun setupToolPermSaving(): String = catalog.say("setupToolPermSaving")
+
+    /**
+     * 「规则」
+     *
+     * 规则编辑框的输入框标题。
+     */
+    fun setupToolPermRule(): String = catalog.say("setupToolPermRule")
+
+    /**
+     * 「写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/ **)、WebFetch(domain:github.com)、mcp__github（整个服务器）。」
+     *
+     * 规则编辑框输入框下面的写法说明。
+     */
+    fun setupToolPermRuleHelp(): String = catalog.say("setupToolPermRuleHelp")
+
+    /**
+     * 「整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。」
+     *
+     * 工具权限页 MCP 服务器页第一组下面的说明。
+     */
+    fun setupToolPermServerFooter(): String = catalog.say("setupToolPermServerFooter")
+
+    /**
+     * 「要按工具设置，在上一页的“规则”里手写 {prefix}__工具名。」
+     *
+     * OAuth 服务器取不到工具清单时「工具」一组下面的说明；prefix 是 mcp__服务器名。
+     */
+    fun setupToolPermOauthFooter(prefix: String): String = catalog.say("setupToolPermOauthFooter", mapOf("prefix" to prefix))
+
+    /**
+     * 「全部开启」
+     *
+     * 工具权限页每组的批量按钮和确认框按钮。
+     */
+    fun setupToolPermEnableAll(): String = catalog.say("setupToolPermEnableAll")
+
+    /**
+     * 「全部关闭」
+     *
+     * 工具权限页每组的批量按钮和确认框按钮。
+     */
+    fun setupToolPermDisableAll(): String = catalog.say("setupToolPermDisableAll")
+
+    /**
+     * 「全部开启{group}？」
+     *
+     * 批量开启确认框的标题；group 是内置工具、手机工具或某个服务器的工具。
+     */
+    fun setupToolPermEnableAllTitle(group: String): String = catalog.say("setupToolPermEnableAllTitle", mapOf("group" to group))
+
+    /**
+     * 「全部关闭{group}？」
+     *
+     * 批量关闭确认框的标题。
+     */
+    fun setupToolPermDisableAllTitle(group: String): String = catalog.say("setupToolPermDisableAllTitle", mapOf("group" to group))
+
+    /**
+     * 「加到{behavior}（{count, plural, other {# 条}}）：{rules}」
+     *
+     * 批量确认框的说明里一行：会加到某张表的规则。
+     */
+    fun setupToolPermBulkAdd(behavior: String, count: Int, rules: String): String = catalog.say("setupToolPermBulkAdd", mapOf("behavior" to behavior, "count" to count, "rules" to rules))
+
+    /**
+     * 「从{behavior}里删（{count, plural, other {# 条}}）：{rules}」
+     *
+     * 批量确认框的说明里一行：会从某张表删的规则。
+     */
+    fun setupToolPermBulkRemove(behavior: String, count: Int, rules: String): String = catalog.say("setupToolPermBulkRemove", mapOf("behavior" to behavior, "count" to count, "rules" to rules))
+
+    /**
+     * 「关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。」
+     *
+     * 关闭全部内置工具时确认框说明的最后一段。
+     */
+    fun setupToolPermNoToolsWarning(): String = catalog.say("setupToolPermNoToolsWarning")
+
+    /**
+     * 「两种连法：经手机 Debian，用那边 ~/.ssh 的密钥和配置（别名、跳板），不用往设备上另加公钥，每条命令多约 50 毫秒、手机上多两个 ssh 进程；Zeta 直连，不要 root 和 Debian，开销更小，但要先把下面的公钥加进那台设备。有 Debian 时默认经 Debian，加好以后在设备页里能改。那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。」
+     *
+     * 添加远程设备页「加设备」一组下面的说明（手机上有 Debian 时）：两种连法各要什么，那台设备要什么。
+     */
+    fun setupRemoteAddFooterVia(): String = catalog.say("setupRemoteAddFooterVia")
+
+    /**
+     * 「手机上没有可用的 Debian，只能 Zeta 直连：先把下面的公钥加进那台设备，再输入地址。那台设备要是 arm64 或 x86-64 的 Linux，装好 Claude Code。对话由那边托管，手机断网或 Zeta 被关掉时照样跑完，连上后接着看。」
+     *
+     * 添加远程设备页「加设备」一组下面的说明（手机上没有 Debian 时）。
+     */
+    fun setupRemoteAddFooterDirect(): String = catalog.say("setupRemoteAddFooterDirect")
+
+    /**
+     * 「Zeta 直连时用这把密钥登录：复制公钥那一行，加进那台设备的 ~/.ssh/authorized_keys。私钥在手机的密钥库里，取不出来。加设备时记下对方的主机指纹，以后只认它。」
+     *
+     * 添加远程设备页「Zeta 直连用的密钥」一组下面的说明。
+     */
+    fun setupRemoteKeyFooter(): String = catalog.say("setupRemoteKeyFooter")
+
+    /**
+     * 「这台设备上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。」
+     *
+     * 远程设备页改连接方式被拒时的说明：那台上有对话在进行。
+     */
+    fun setupRemoteBusy(): String = catalog.say("setupRemoteBusy")
+
+    /**
+     * 「这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。」
+     *
+     * 断开远程设备的确认框说明：那台上有对话在进行。
+     */
+    fun setupRemoteDisconnectBusy(): String = catalog.say("setupRemoteDisconnectBusy")
+
+    /**
+     * 「没有加上「{target}」」
+     *
+     * 添加远程设备没连上时的提示框标题；target 是地址或别名。
+     */
+    fun setupRemoteAddFailed(target: String): String = catalog.say("setupRemoteAddFailed", mapOf("target" to target))
+
+    /**
+     * 「主机指纹不对」
+     *
+     * 添加或改连法时对方的主机指纹和记下的对不上。
+     */
+    fun setupRemoteFingerprintMismatch(): String = catalog.say("setupRemoteFingerprintMismatch")
+
+    /**
+     * 「添加远程设备」
+     *
+     * 添加远程设备页的标题。
+     */
+    fun setupRemoteAddTitle(): String = catalog.say("setupRemoteAddTitle")
+
+    /**
+     * 「Zeta 的公钥」
+     *
+     * 添加远程设备页：Zeta 直连用的公钥那一行，和点开后的对话框标题。
+     */
+    fun setupRemotePublicKey(): String = catalog.say("setupRemotePublicKey")
+
+    /**
+     * 「复制」
+     *
+     * 看 Zeta 公钥的对话框里的按钮：复制公钥。
+     */
+    fun setupRemoteCopy(): String = catalog.say("setupRemoteCopy")
+
+    /**
+     * 「已加上「{name}」」
+     *
+     * 加好远程设备后的提示框标题；name 是设备名。
+     */
+    fun setupRemoteAdded(name: String): String = catalog.say("setupRemoteAdded", mapOf("name" to name))
+
+    /**
+     * 「主机指纹 {fingerprint}」
+     *
+     * 加好设备或改好连法的提示框里的一行：对方的主机指纹。
+     */
+    fun setupRemoteFingerprintLine(fingerprint: String): String = catalog.say("setupRemoteFingerprintLine", mapOf("fingerprint" to fingerprint))
+
+    /**
+     * 「在侧栏顶部切到它，就能看它上面的会话、在它上面开新对话；它的默认模型等设置在设置首页的这台设备里。」
+     *
+     * 加好远程设备后的提示框最后一段：怎么用它。
+     */
+    fun setupRemoteAddedHint(): String = catalog.say("setupRemoteAddedHint")
+
+    /**
+     * 「输入地址」
+     *
+     * 添加远程设备页的一行和输入地址对话框的标题。
+     */
+    fun setupRemoteTypeAddress(): String = catalog.say("setupRemoteTypeAddress")
+
+    /**
+     * 「经手机 Debian 的 OpenSSH 连，用那边 ~/.ssh 的密钥。{hint}」
+     *
+     * 输入地址对话框的说明（经 Debian 连）；hint 是地址写法的提示。
+     */
+    fun setupRemoteTypeViaDebian(hint: String): String = catalog.say("setupRemoteTypeViaDebian", mapOf("hint" to hint))
+
+    /**
+     * 「Zeta 用自己的密钥直连，先把它的公钥加进那台设备。{hint}」
+     *
+     * 输入地址对话框的说明（Zeta 直连）；hint 是地址写法的提示。
+     */
+    fun setupRemoteTypeDirect(hint: String): String = catalog.say("setupRemoteTypeDirect", mapOf("hint" to hint))
+
+    /**
+     * 「读不到 Zeta 的密钥，直连用不了。」
+     *
+     * 输入地址对话框的说明：直连要的密钥读不到。
+     */
+    fun setupRemoteNoKey(): String = catalog.say("setupRemoteNoKey")
+
+    /**
+     * 「连接并添加」
+     *
+     * 输入地址对话框的确认按钮。
+     */
+    fun setupRemoteConnectAndAdd(): String = catalog.say("setupRemoteConnectAndAdd")
+
+    /**
+     * 「user@example.com 或别名」
+     *
+     * 输入地址对话框的输入框占位（经 Debian 连时，也能写 ~/.ssh/config 里的别名）。
+     */
+    fun setupRemoteAddressHintAlias(): String = catalog.say("setupRemoteAddressHintAlias")
+
+    /**
+     * 「加设备」
+     *
+     * 添加远程设备页的一组标题。
+     */
+    fun setupRemoteAddGroup(): String = catalog.say("setupRemoteAddGroup")
+
+    /**
+     * 「正在连接 {target}…」
+     *
+     * 添加远程设备页正在连的那一行的说明。
+     */
+    fun setupRemoteConnectingTo(target: String): String = catalog.say("setupRemoteConnectingTo", mapOf("target" to target))
+
+    /**
+     * 「从 ~/.ssh/config 选」
+     *
+     * 添加远程设备页的一行，和点进去那一页的标题。
+     */
+    fun setupRemoteFromConfig(): String = catalog.say("setupRemoteFromConfig")
+
+    /**
+     * 「Zeta 直连用的密钥」
+     *
+     * 添加远程设备页的一组标题。
+     */
+    fun setupRemoteKeyGroup(): String = catalog.say("setupRemoteKeyGroup")
+
+    /**
+     * 「正在读…」
+     *
+     * Zeta 公钥一行的说明：正在从密钥库读。
+     */
+    fun setupRemoteReading(): String = catalog.say("setupRemoteReading")
+
+    /**
+     * 「读不到 Zeta 的密钥：{error}」
+     *
+     * Zeta 公钥一行的说明：读不到，error 是原因。
+     */
+    fun setupRemoteKeyError(error: String): String = catalog.say("setupRemoteKeyError", mapOf("error" to error))
+
+    /**
+     * 「手机上的 Debian 没就绪」
+     *
+     * 要经手机 Debian 做事（读 ~/.ssh/config、改成经 Debian 连）但它没就绪时的说明。
+     */
+    fun setupRemoteDebianNotReady(): String = catalog.say("setupRemoteDebianNotReady")
+
+    /**
+     * 「手机 Debian 里 ~/.ssh/config 和 config.local 的 Host 行里的主机，带通配符的、已经加过的不列。选一台，经 Debian 的 OpenSSH 连一次，连上了才加。」
+     *
+     * 从 ~/.ssh/config 选主机那一页的说明。
+     */
+    fun setupRemoteConfigFooter(): String = catalog.say("setupRemoteConfigFooter")
+
+    /**
+     * 「正在读 ~/.ssh/config…」
+     *
+     * 从 ~/.ssh/config 选主机那一页：正在读。
+     */
+    fun setupRemoteConfigReading(): String = catalog.say("setupRemoteConfigReading")
+
+    /**
+     * 「读不到 ~/.ssh/config」
+     *
+     * 从 ~/.ssh/config 选主机那一页：读不到（下面是原因）。
+     */
+    fun setupRemoteConfigUnreadable(): String = catalog.say("setupRemoteConfigUnreadable")
+
+    /**
+     * 「~/.ssh/config 里没有别的主机」
+     *
+     * 从 ~/.ssh/config 选主机那一页：没有能加的。
+     */
+    fun setupRemoteConfigEmpty(): String = catalog.say("setupRemoteConfigEmpty")
+
+    /**
+     * 「没有改成{via}」
+     *
+     * 远程设备页改连接方式没改成的提示框标题；via 是连法的名字。
+     */
+    fun setupRemoteSwitchFailed(via: String): String = catalog.say("setupRemoteSwitchFailed", mapOf("via" to via))
+
+    /**
+     * 「已改认新的主机指纹，再检查一次连接」
+     *
+     * 远程设备页改认新主机指纹后「检查连接」下面的说明。
+     */
+    fun setupRemoteTrusted(): String = catalog.say("setupRemoteTrusted")
+
+    /**
+     * 「在这台设备上开新对话时的工作目录，~ 是 {home}」
+     *
+     * 远程设备页改默认工作目录的对话框说明；home 是那台的家目录。
+     */
+    fun setupRemoteCwdSummary(home: String): String = catalog.say("setupRemoteCwdSummary", mapOf("home" to home))
+
+    /**
+     * 「主机指纹变了」
+     *
+     * 检查连接时发现主机指纹变了的确认框标题。
+     */
+    fun setupRemoteFingerprintChanged(): String = catalog.say("setupRemoteFingerprintChanged")
+
+    /**
+     * 「记下的：{saved} 现在的：{now} 确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。」
+     *
+     * 主机指纹变了的确认框说明；saved、now 是记下的和现在的指纹。
+     */
+    fun setupRemoteFingerprintChangedSummary(saved: String, now: String): String = catalog.say("setupRemoteFingerprintChangedSummary", mapOf("saved" to saved, "now" to now))
+
+    /**
+     * 「改认新的」
+     *
+     * 主机指纹变了的确认框按钮。
+     */
+    fun setupRemoteTrustNew(): String = catalog.say("setupRemoteTrustNew")
+
+    /**
+     * 「删掉「{name}」？」
+     *
+     * 删掉远程设备的确认框标题。
+     */
+    fun setupRemoteRemoveTitle(name: String): String = catalog.say("setupRemoteRemoveTitle", mapOf("name" to name))
+
+    /**
+     * 「只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动；它上面正开着的对话会断开。」
+     *
+     * 删掉远程设备的确认框说明。
+     */
+    fun setupRemoteRemoveSummary(): String = catalog.say("setupRemoteRemoveSummary")
+
+    /**
+     * 「删掉」
+     *
+     * 删掉远程设备的确认框按钮。
+     */
+    fun setupRemoteRemove(): String = catalog.say("setupRemoteRemove")
+
+    /**
+     * 「删掉这台设备」
+     *
+     * 远程设备页最下面的红色一行。
+     */
+    fun setupRemoteRemoveRow(): String = catalog.say("setupRemoteRemoveRow")
+
+    /**
+     * 「断开「{name}」？」
+     *
+     * 断开有对话在进行的远程设备的确认框标题。
+     */
+    fun setupRemoteDisconnectTitle(name: String): String = catalog.say("setupRemoteDisconnectTitle", mapOf("name" to name))
+
+    /**
+     * 「断开」
+     *
+     * 断开远程设备的确认框按钮。
+     */
+    fun setupRemoteDisconnect(): String = catalog.say("setupRemoteDisconnect")
+
+    /**
+     * 「「{alias}」是手机 Debian 的 ~/.ssh/config 里的别名，Zeta 直连不读那份配置。要直连，回上一页用「输入地址」另加一台，地址写成 用户@主机[:端口]。」
+     *
+     * 别名改不成直连时的说明。
+     */
+    fun setupRemoteAliasNoDirect(alias: String): String = catalog.say("setupRemoteAliasNoDirect", mapOf("alias" to alias))
+
+    /**
+     * 「已改成{via}」
+     *
+     * 远程设备页改好连接方式的提示框标题；via 是连法的名字。
+     */
+    fun setupRemoteSwitched(via: String): String = catalog.say("setupRemoteSwitched", mapOf("via" to via))
+
+    /**
+     * 「这台设备上闲着的对话，下次发消息时经新的连法接上。」
+     *
+     * 改好连接方式的提示框最后一段。
+     */
+    fun setupRemoteSwitchedIdle(): String = catalog.say("setupRemoteSwitchedIdle")
+
+    /**
+     * 「按新的连法没连上：{reason}」
+     *
+     * 改连接方式时按新连法没连上；reason 是原因。
+     */
+    fun setupRemoteSwitchUnreachable(reason: String): String = catalog.say("setupRemoteSwitchUnreachable", mapOf("reason" to reason))
+
+    /**
+     * 「没连上：{reason}」
+     *
+     * 远程设备页检查连接的结果：没连上；reason 是原因。
+     */
+    fun setupRemoteCheckFailed(reason: String): String = catalog.say("setupRemoteCheckFailed", mapOf("reason" to reason))
+
+    /**
+     * 「没连上：主机指纹和记下的不一样」
+     *
+     * 远程设备页检查连接的结果：主机指纹变了。
+     */
+    fun setupRemoteCheckFingerprint(): String = catalog.say("setupRemoteCheckFingerprint")
+
+    /**
+     * 「连上了：{summary}」
+     *
+     * 远程设备页检查连接的结果：连上了；summary 是 Claude Code 版本和系统。
+     */
+    fun setupRemoteCheckOk(summary: String): String = catalog.say("setupRemoteCheckOk", mapOf("summary" to summary))
+
+    /**
+     * 「正在连接…」
+     *
+     * 远程设备页「检查连接」一行在连接时的字。
+     */
+    fun setupRemoteConnecting(): String = catalog.say("setupRemoteConnecting")
+
+    /**
+     * 「检查连接」
+     *
+     * 远程设备页的一行：重新连一次看看。
+     */
+    fun setupRemoteCheck(): String = catalog.say("setupRemoteCheck")
+
+    /**
+     * 「连接方式」
+     *
+     * 远程设备页的下拉：经手机 Debian 或 Zeta 直连。
+     */
+    fun setupRemoteVia(): String = catalog.say("setupRemoteVia")
+
+    /**
+     * 「正在{via}连接…」
+     *
+     * 「连接方式」下拉的说明：正在按新连法连；via 是连法的名字。
+     */
+    fun setupRemoteSwitching(via: String): String = catalog.say("setupRemoteSwitching", mapOf("via" to via))
+
+    /**
+     * 「连接」
+     *
+     * 远程设备页的一组标题。
+     */
+    fun setupRemoteConnectionGroup(): String = catalog.say("setupRemoteConnectionGroup")
+
+    /**
+     * 「连接」
+     *
+     * 远程设备页的开关：连不连这台设备。
+     */
+    fun setupRemoteConnect(): String = catalog.say("setupRemoteConnect")
+
+    /**
+     * 「用到这台设备时连上，断了自动重连」
+     *
+     * 「连接」开关打开时的说明。
+     */
+    fun setupRemoteConnectOn(): String = catalog.say("setupRemoteConnectOn")
+
+    /**
+     * 「已断开：{note}」
+     *
+     * 「连接」开关关着时的说明；note 是断开以后怎样。
+     */
+    fun setupRemoteConnectOff(note: String): String = catalog.say("setupRemoteConnectOff", mapOf("note" to note))
+
+    /**
+     * 「地址」
+     *
+     * 远程设备页的一行：连它用的地址。
+     */
+    fun setupRemoteAddress(): String = catalog.say("setupRemoteAddress")
+
+    /**
+     * 「主机指纹」
+     *
+     * 远程设备页的一行：记下的主机指纹。
+     */
+    fun setupRemoteFingerprint(): String = catalog.say("setupRemoteFingerprint")
+
+    /**
+     * 「家目录」
+     *
+     * 远程设备页的一行：那台的家目录。
+     */
+    fun setupRemoteHome(): String = catalog.say("setupRemoteHome")
+
+    /**
+     * 「清除浏览数据」
+     *
+     * 浏览器页右上角菜单的一项，和点它弹出的确认框标题。
+     */
+    fun browserClearData(): String = catalog.say("browserClearData")
+
+    /**
+     * 「Cookie、登录状态、网站存储和缓存都会删掉，当前页面也会关闭。在这个浏览器里登录过的网站都要重新登录。」
+     *
+     * 清除浏览数据的确认框说明。
+     */
+    fun browserClearDataSummary(): String = catalog.say("browserClearDataSummary")
+
+    /**
+     * 「清除」
+     *
+     * 清除浏览数据的确认框按钮。
+     */
+    fun browserClear(): String = catalog.say("browserClear")
+
+    /**
+     * 「已清除浏览数据」
+     *
+     * 清除浏览数据后的 toast。
+     */
+    fun browserCleared(): String = catalog.say("browserCleared")
+
+    /**
+     * 「后退」
+     *
+     * 浏览器页左上角后退按钮的无障碍说明。
+     */
+    fun browserBack(): String = catalog.say("browserBack")
+
+    /**
+     * 「关闭浏览器」
+     *
+     * 浏览器页左上角按钮的无障碍说明（没有可后退的页面时，它关掉浏览器页）。
+     */
+    fun browserClose(): String = catalog.say("browserClose")
+
+    /**
+     * 「前进」
+     *
+     * 浏览器页前进按钮的无障碍说明。
+     */
+    fun browserForward(): String = catalog.say("browserForward")
+
+    /**
+     * 「停止加载」
+     *
+     * 浏览器页加载中时停止按钮的无障碍说明。
+     */
+    fun browserStop(): String = catalog.say("browserStop")
+
+    /**
+     * 「刷新」
+     *
+     * 浏览器页刷新按钮的无障碍说明。
+     */
+    fun browserReload(): String = catalog.say("browserReload")
+
+    /**
+     * 「还没有打开网页 Claude 用浏览器时，页面会显示在这里；也可以在上面输入网址」
+     *
+     * 浏览器页没有网页时中间的两行字。
+     */
+    fun browserEmpty(): String = catalog.say("browserEmpty")
+
+    /**
+     * 「你在操作，Claude 先等着」
+     *
+     * 浏览器页下方的条：用户接管了页面，Claude 暂停。
+     */
+    fun browserUserControlling(): String = catalog.say("browserUserControlling")
+
+    /**
+     * 「Claude 正在操作：{action}」
+     *
+     * 浏览器页下方的条：Claude 正在做的这一步；action 是这一步的说明。
+     */
+    fun browserClaudeActing(action: String): String = catalog.say("browserClaudeActing", mapOf("action" to action))
+
+    /**
+     * 「交还 Claude」
+     *
+     * 浏览器页下方条上的按钮：用户操作完，让 Claude 接着做。
+     */
+    fun browserHandBack(): String = catalog.say("browserHandBack")
+
+    /**
+     * 「搜索或输入网址」
+     *
+     * 浏览器页地址栏的占位。
+     */
+    fun browserAddressHint(): String = catalog.say("browserAddressHint")
+
+    /**
+     * 「在浏览器里查看」
+     *
+     * 聊天里浏览器工具那一步右边小按钮的无障碍说明。
+     */
+    fun browserViewInBrowser(): String = catalog.say("browserViewInBrowser")
+
+    /**
+     * 「当前屏幕」
+     *
+     * 数字助理浮窗里带上的屏幕那一块：读不到前台应用名时显示的字。
+     */
+    fun assistantCurrentScreen(): String = catalog.say("assistantCurrentScreen")
+
+    /**
+     * 「Zeta 还没有配置 Linux 环境，先打开 Zeta 设置好」
+     *
+     * 数字助理浮窗发问时的报错：还没配好 Linux 环境。
+     */
+    fun assistantNoEnv(): String = catalog.say("assistantNoEnv")
+
+    /**
+     * 「没有发出去」
+     *
+     * 数字助理浮窗发问失败、又没有更具体的原因时的报错。
+     */
+    fun assistantNotSent(): String = catalog.say("assistantNotSent")
+
+    /**
+     * 「是 Zeta」
+     *
+     * 设置页、诊断页「默认数字助理」那一行的值：就是这个 Zeta。
+     */
+    fun assistantRoleSelf(): String = catalog.say("assistantRoleSelf")
+
+    /**
+     * 「是 Zeta（本测试版）」
+     *
+     * 设置页、诊断页「默认数字助理」那一行的值：就是这个 Zeta 测试版。
+     */
+    fun assistantRoleSelfDev(): String = catalog.say("assistantRoleSelfDev")
+
+    /**
+     * 「没有设置」
+     *
+     * 设置页、诊断页「默认数字助理」「系统语音识别」那一行的值：系统里没设。
+     */
+    fun assistantRoleNone(): String = catalog.say("assistantRoleNone")
+
+    /**
+     * 「是 {name}」
+     *
+     * 设置页、诊断页「默认数字助理」「系统语音识别」那一行的值：别的应用（或另一个 Zeta 版本）；name 是应用名或包名。
+     */
+    fun assistantRoleOther(name: String): String = catalog.say("assistantRoleOther", mapOf("name" to name))
+
+    /**
+     * 「已装上」
+     *
+     * 诊断页电源键模块的状态：装上了。
+     */
+    fun assistantPowerKeyInstalled(): String = catalog.say("assistantPowerKeyInstalled")
+
+    /**
+     * 「没装上」
+     *
+     * 诊断页电源键模块的状态：没装上。
+     */
+    fun assistantPowerKeyNotInstalled(): String = catalog.say("assistantPowerKeyNotInstalled")
+
+    /**
+     * 「没有记录」
+     *
+     * 诊断页电源键模块的状态：日志里什么都没有。
+     */
+    fun assistantPowerKeyNoRecord(): String = catalog.say("assistantPowerKeyNoRecord")
+
+    /**
+     * 「有记录」
+     *
+     * 诊断页电源键模块的状态：日志里有记录，但没有安装记录。
+     */
+    fun assistantPowerKeyHasRecord(): String = catalog.say("assistantPowerKeyHasRecord")
+
+    /**
+     * 「在 Zeta 中继续」
+     *
+     * 数字助理浮窗上的按钮（和把手的无障碍说明）：到 Zeta 里接着看这个对话。
+     */
+    fun assistantContinueInZeta(): String = catalog.say("assistantContinueInZeta")
+
+    /**
+     * 「松手进入 Zeta」
+     *
+     * 数字助理浮窗把手下面的提示：上拉够了。
+     */
+    fun assistantReleaseToOpen(): String = catalog.say("assistantReleaseToOpen")
+
+    /**
+     * 「继续上拉进入 Zeta」
+     *
+     * 数字助理浮窗把手下面的提示：还要继续上拉。
+     */
+    fun assistantPullToOpen(): String = catalog.say("assistantPullToOpen")
+
+    /**
+     * 「带上」
+     *
+     * 数字助理浮窗里屏幕那一块去掉后的按钮：重新带上屏幕内容。
+     */
+    fun assistantIncludeScreen(): String = catalog.say("assistantIncludeScreen")
+
+    /**
+     * 「不带屏幕内容」
+     *
+     * 数字助理浮窗里屏幕那一块的叉按钮的无障碍说明。
+     */
+    fun assistantExcludeScreen(): String = catalog.say("assistantExcludeScreen")
+
+    /**
+     * 「正在分析任务」
+     *
+     * 数字助理浮窗工作过程那一行：在思考。
+     */
+    fun assistantAnalyzing(): String = catalog.say("assistantAnalyzing")
+
+    /**
+     * 「正在处理 · 第 {step} 步 · {title}」
+     *
+     * 数字助理浮窗工作过程那一行：正在调用工具；step 是第几个工具，title 是这一步做什么。
+     */
+    fun assistantWorkingStep(step: Int, title: String): String = catalog.say("assistantWorkingStep", mapOf("step" to step, "title" to title))
+
+    /**
+     * 「思考 {count} 次」
+     *
+     * 数字助理浮窗工作过程那一行（做完以后）的一段：思考了几次。
+     */
+    fun assistantThoughtTimes(count: Int): String = catalog.say("assistantThoughtTimes", mapOf("count" to count))
+
+    /**
+     * 「调用 {count} 个工具」
+     *
+     * 数字助理浮窗工作过程那一行（做完以后）的一段：调用了几个工具。
+     */
+    fun assistantToolCalls(count: Int): String = catalog.say("assistantToolCalls", mapOf("count" to count))
+
+    /**
+     * 「{count} 个失败」
+     *
+     * 数字助理浮窗工作过程那一行（做完以后）的一段：几个工具失败了。
+     */
+    fun assistantToolsFailed(count: Int): String = catalog.say("assistantToolsFailed", mapOf("count" to count))
+
+    /**
+     * 「已完成分析」
+     *
+     * 数字助理浮窗工作过程那一行：做完了，又没有思考和工具可数。
+     */
+    fun assistantAnalyzed(): String = catalog.say("assistantAnalyzed")
+
+    /**
+     * 「等你处理：{what}，到 Zeta 里处理」
+     *
+     * 数字助理浮窗的状态行：对话在等用户确认；what 是在等什么。
+     */
+    fun assistantWaitingFor(what: String): String = catalog.say("assistantWaitingFor", mapOf("what" to what))
+
+    /**
+     * 「这一轮没有回答」
+     *
+     * 数字助理浮窗的状态行：这一轮结束了但没有回答。
+     */
+    fun assistantNoAnswer(): String = catalog.say("assistantNoAnswer")
+
+    /**
+     * 「屏幕截图」
+     *
+     * 数字助理浮窗里截图缩略图的无障碍说明。
+     */
+    fun assistantScreenshot(): String = catalog.say("assistantScreenshot")
+
+    /**
+     * 「问问 Claude」
+     *
+     * 数字助理浮窗输入框空着时的提示。
+     */
+    fun assistantInputHint(): String = catalog.say("assistantInputHint")
+
+    /**
+     * 「输入问题」
+     *
+     * 数字助理浮窗输入框的无障碍说明。
+     */
+    fun assistantInputDescription(): String = catalog.say("assistantInputDescription")
+
+    /**
+     * 「停止」
+     *
+     * 数字助理浮窗发送按钮在回答中时的无障碍说明。
+     */
+    fun assistantStop(): String = catalog.say("assistantStop")
+
+    /**
+     * 「发送」
+     *
+     * 数字助理浮窗发送按钮的无障碍说明。
+     */
+    fun assistantSend(): String = catalog.say("assistantSend")
+
+    /**
+     * 「这页讲了什么」
+     *
+     * 数字助理浮窗的建议问题（带了屏幕内容时）：点了直接作为问题发给 Claude；要短，三个放一行。
+     */
+    fun assistantSuggestAbout(): String = catalog.say("assistantSuggestAbout")
+
+    /**
+     * 「总结要点」
+     *
+     * 数字助理浮窗的建议问题（带了屏幕内容时）：点了直接作为问题发给 Claude；要短，三个放一行。
+     */
+    fun assistantSuggestSummary(): String = catalog.say("assistantSuggestSummary")
+
+    /**
+     * 「翻译成中文」
+     *
+     * 数字助理浮窗的建议问题（带了屏幕内容时）：点了直接作为问题发给 Claude，译成界面的语言；要短，三个放一行。
+     */
+    fun assistantSuggestTranslate(): String = catalog.say("assistantSuggestTranslate")
+
+    /**
+     * 「朗读」
+     *
+     * 朗读回答的通知渠道名（系统通知设置里看得到）。
+     */
+    fun voiceReadAloudChannel(): String = catalog.say("voiceReadAloudChannel")
+
+    /**
+     * 「正在朗读回答」
+     *
+     * 朗读回答时常驻通知的标题。
+     */
+    fun voiceReadingAnswer(): String = catalog.say("voiceReadingAnswer")
+
+    /**
+     * 「停止」
+     *
+     * 朗读回答通知上的按钮：停止朗读。
+     */
+    fun voiceStop(): String = catalog.say("voiceStop")
+
+    /**
+     * 「这条回答没有能念的文字」
+     *
+     * 点朗读时的 toast：回答里没有能念的文字。
+     */
+    fun voiceNothingToRead(): String = catalog.say("voiceNothingToRead")
+
+    /**
+     * 「系统的朗读引擎用不了」
+     *
+     * 点朗读时的 toast：系统朗读引擎起不来。
+     */
+    fun voiceTtsUnavailable(): String = catalog.say("voiceTtsUnavailable")
+
+    /**
+     * 「现在放不了声音（可能正在通话）」
+     *
+     * 点朗读时的 toast：拿不到音频焦点。
+     */
+    fun voiceNoAudioFocus(): String = catalog.say("voiceNoAudioFocus")
+
+    /**
+     * 「朗读引擎不接这段文字」
+     *
+     * 朗读时的 toast：引擎不接受要念的文字。
+     */
+    fun voiceTtsRejected(): String = catalog.say("voiceTtsRejected")
+
+    /**
+     * 「朗读出错了（{code}）」
+     *
+     * 朗读时的 toast：引擎报错；code 是引擎的错误码。
+     */
+    fun voiceTtsError(code: String): String = catalog.say("voiceTtsError", mapOf("code" to code))
+
+    /**
+     * 「没有麦克风权限，到设置的权限页一键授予」
+     *
+     * 按住说话出错：没有麦克风权限。
+     */
+    fun voiceNoMicPermission(): String = catalog.say("voiceNoMicPermission")
+
+    /**
+     * 「手机上没有可用的语音识别服务」
+     *
+     * 按住说话出错：手机上没有识别服务。
+     */
+    fun voiceNoRecognizer(): String = catalog.say("voiceNoRecognizer")
+
+    /**
+     * 「语音识别服务用不了」
+     *
+     * 按住说话出错：识别服务建不起来。
+     */
+    fun voiceRecognizerUnavailable(): String = catalog.say("voiceRecognizerUnavailable")
+
+    /**
+     * 「识别服务连不上网络」
+     *
+     * 按住说话出错：识别服务的网络错误。
+     */
+    fun voiceErrorNetwork(): String = catalog.say("voiceErrorNetwork")
+
+    /**
+     * 「麦克风录不了音，可能正被别的应用占用」
+     *
+     * 按住说话出错：录音失败。
+     */
+    fun voiceErrorAudio(): String = catalog.say("voiceErrorAudio")
+
+    /**
+     * 「识别服务出错了」
+     *
+     * 按住说话出错：识别服务端出错。
+     */
+    fun voiceErrorServer(): String = catalog.say("voiceErrorServer")
+
+    /**
+     * 「识别服务中途断开了」
+     *
+     * 按住说话出错：识别服务中途断开。
+     */
+    fun voiceErrorClient(): String = catalog.say("voiceErrorClient")
+
+    /**
+     * 「识别服务说没有麦克风权限」
+     *
+     * 按住说话出错：识别服务那边没有麦克风权限。
+     */
+    fun voiceErrorPermission(): String = catalog.say("voiceErrorPermission")
+
+    /**
+     * 「识别服务正忙，稍后再试」
+     *
+     * 按住说话出错：识别服务正忙。
+     */
+    fun voiceErrorBusy(): String = catalog.say("voiceErrorBusy")
+
+    /**
+     * 「识别请求太频繁，稍后再试」
+     *
+     * 按住说话出错：请求太频繁。
+     */
+    fun voiceErrorTooMany(): String = catalog.say("voiceErrorTooMany")
+
+    /**
+     * 「识别服务不支持当前语言」
+     *
+     * 按住说话出错：识别服务不支持这种语言。
+     */
+    fun voiceErrorLanguage(): String = catalog.say("voiceErrorLanguage")
+
+    /**
+     * 「识别服务不可用」
+     *
+     * 按住说话出错：识别服务查不了支持情况或不可用。
+     */
+    fun voiceErrorUnavailable(): String = catalog.say("voiceErrorUnavailable")
+
+    /**
+     * 「语音识别失败（{code}）」
+     *
+     * 按住说话出错：别的错误；code 是系统的错误码。
+     */
+    fun voiceErrorOther(code: String): String = catalog.say("voiceErrorOther", mapOf("code" to code))
+
+    /**
+     * 「读屏：前台应用、可点的控件和截图」
+     *
+     * 设置「工具权限」页上手机工具 screen 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolScreen(): String = catalog.say("phoneToolScreen")
+
+    /**
+     * 「点按」
+     *
+     * 设置「工具权限」页上手机工具 tap 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolTap(): String = catalog.say("phoneToolTap")
+
+    /**
+     * 「长按」
+     *
+     * 设置「工具权限」页上手机工具 long_press 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolLongPress(): String = catalog.say("phoneToolLongPress")
+
+    /**
+     * 「滑动」
+     *
+     * 设置「工具权限」页上手机工具 swipe 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolSwipe(): String = catalog.say("phoneToolSwipe")
+
+    /**
+     * 「滚动列表」
+     *
+     * 设置「工具权限」页上手机工具 scroll 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolScroll(): String = catalog.say("phoneToolScroll")
+
+    /**
+     * 「往输入框里输入文字」
+     *
+     * 设置「工具权限」页上手机工具 type_text 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolTypeText(): String = catalog.say("phoneToolTypeText")
+
+    /**
+     * 「按系统键（返回、回到桌面等）」
+     *
+     * 设置「工具权限」页上手机工具 press_key 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolPressKey(): String = catalog.say("phoneToolPressKey")
+
+    /**
+     * 「等控件出现或应用到前台，再读屏」
+     *
+     * 设置「工具权限」页上手机工具 wait 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolWait(): String = catalog.say("phoneToolWait")
+
+    /**
+     * 「打开应用、链接或设置页」
+     *
+     * 设置「工具权限」页上手机工具 open_app 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolOpenApp(): String = catalog.say("phoneToolOpenApp")
+
+    /**
+     * 「把后台屏幕上的应用移到主屏给你看」
+     *
+     * 设置「工具权限」页上手机工具 show_to_user 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolShowToUser(): String = catalog.say("phoneToolShowToUser")
+
+    /**
+     * 「录屏」
+     *
+     * 设置「工具权限」页上手机工具 screen_record 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolScreenRecord(): String = catalog.say("phoneToolScreenRecord")
+
+    /**
+     * 「查看系统应用自带的工具」
+     *
+     * 设置「工具权限」页上手机工具 app_tools 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolAppTools(): String = catalog.say("phoneToolAppTools")
+
+    /**
+     * 「调用系统应用自带的工具」
+     *
+     * 设置「工具权限」页上手机工具 app_tool 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolAppTool(): String = catalog.say("phoneToolAppTool")
+
+    /**
+     * 「内置浏览器，在屏幕外操作网页」
+     *
+     * 设置「工具权限」页上手机工具 browser 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolBrowser(): String = catalog.say("phoneToolBrowser")
+
+    /**
+     * 「读写剪贴板」
+     *
+     * 设置「工具权限」页上手机工具 clipboard 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolClipboard(): String = catalog.say("phoneToolClipboard")
+
+    /**
+     * 「查找已装的应用」
+     *
+     * 设置「工具权限」页上手机工具 find_apps 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolFindApps(): String = catalog.say("phoneToolFindApps")
+
+    /**
+     * 「以 root 在 Android 一侧执行命令」
+     *
+     * 设置「工具权限」页上手机工具 shell 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolShell(): String = catalog.say("phoneToolShell")
+
+    /**
+     * 「查看、切换 WLAN、蓝牙、亮度等」
+     *
+     * 设置「工具权限」页上手机工具 device_state 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolDeviceState(): String = catalog.say("phoneToolDeviceState")
+
+    /**
+     * 「音量、响铃、音频输出和媒体播放」
+     *
+     * 设置「工具权限」页上手机工具 media 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolMedia(): String = catalog.say("phoneToolMedia")
+
+    /**
+     * 「时钟应用的闹钟和倒计时」
+     *
+     * 设置「工具权限」页上手机工具 clock 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolClock(): String = catalog.say("phoneToolClock")
+
+    /**
+     * 「读写 Android 系统设置」
+     *
+     * 设置「工具权限」页上手机工具 system_setting 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolSystemSetting(): String = catalog.say("phoneToolSystemSetting")
+
+    /**
+     * 「安装、卸载、冻结应用，看使用时长」
+     *
+     * 设置「工具权限」页上手机工具 app_control 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolAppControl(): String = catalog.say("phoneToolAppControl")
+
+    /**
+     * 「电池、温度、内存、网络等手机状况」
+     *
+     * 设置「工具权限」页上手机工具 device_info 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolDeviceInfo(): String = catalog.say("phoneToolDeviceInfo")
+
+    /**
+     * 「读最近的 Android 日志」
+     *
+     * 设置「工具权限」页上手机工具 logcat 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolLogcat(): String = catalog.say("phoneToolLogcat")
+
+    /**
+     * 「新建、修改小米便签」
+     *
+     * 设置「工具权限」页上手机工具 edit_note 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolEditNote(): String = catalog.say("phoneToolEditNote")
+
+    /**
+     * 「只读搜索日历、短信、相册等」
+     *
+     * 设置「工具权限」页上手机工具 search_personal 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolSearchPersonal(): String = catalog.say("phoneToolSearchPersonal")
+
+    /**
+     * 「查看照片、截图、视频或聊天图片」
+     *
+     * 设置「工具权限」页上手机工具 view_media 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolViewMedia(): String = catalog.say("phoneToolViewMedia")
+
+    /**
+     * 「新建、修改、删除日程」
+     *
+     * 设置「工具权限」页上手机工具 edit_calendar 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolEditCalendar(): String = catalog.say("phoneToolEditCalendar")
+
+    /**
+     * 「新建定时任务，到点让 Claude 做事」
+     *
+     * 设置「工具权限」页上手机工具 create_scheduled_task 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolCreateScheduledTask(): String = catalog.say("phoneToolCreateScheduledTask")
+
+    /**
+     * 「列出定时任务」
+     *
+     * 设置「工具权限」页上手机工具 list_scheduled_tasks 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolListScheduledTasks(): String = catalog.say("phoneToolListScheduledTasks")
+
+    /**
+     * 「修改定时任务的时间、指令、开关等」
+     *
+     * 设置「工具权限」页上手机工具 update_scheduled_task 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolUpdateScheduledTask(): String = catalog.say("phoneToolUpdateScheduledTask")
+
+    /**
+     * 「删除定时任务」
+     *
+     * 设置「工具权限」页上手机工具 delete_scheduled_task 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolDeleteScheduledTask(): String = catalog.say("phoneToolDeleteScheduledTask")
+
+    /**
+     * 「立即在后台运行一次定时任务」
+     *
+     * 设置「工具权限」页上手机工具 run_scheduled_task 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolRunScheduledTask(): String = catalog.say("phoneToolRunScheduledTask")
+
+    /**
+     * 「后台运行上报这次有没有变化」
+     *
+     * 设置「工具权限」页上手机工具 report_scheduled_run 的名字，手机宽度下一行要放得下。
+     */
+    fun phoneToolReportScheduledRun(): String = catalog.say("phoneToolReportScheduledRun")
+
+    /**
+     * 「看屏幕」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 screen 工具。
+     */
+    fun phoneTitleScreen(): String = catalog.say("phoneTitleScreen")
+
+    /**
+     * 「看屏幕（带截图）」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 screen 工具要了截图。
+     */
+    fun phoneTitleScreenWithShot(): String = catalog.say("phoneTitleScreenWithShot")
+
+    /**
+     * 「点按」
+     *
+     * 动词，拼进 phoneTitleVerb… 几句：点一下。
+     */
+    fun phoneTitleTap(): String = catalog.say("phoneTitleTap")
+
+    /**
+     * 「双击」
+     *
+     * 动词，拼进 phoneTitleVerb… 几句：点两下。
+     */
+    fun phoneTitleDoubleTap(): String = catalog.say("phoneTitleDoubleTap")
+
+    /**
+     * 「连点三下」
+     *
+     * 动词，拼进 phoneTitleVerb… 几句：点三下。
+     */
+    fun phoneTitleTripleTap(): String = catalog.say("phoneTitleTripleTap")
+
+    /**
+     * 「长按」
+     *
+     * 动词，拼进 phoneTitleVerb… 几句。
+     */
+    fun phoneTitleLongPress(): String = catalog.say("phoneTitleLongPress")
+
+    /**
+     * 「{verb}屏幕」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 verb 是点按、长按这类动词，说不出点的是什么时。
+     */
+    fun phoneTitleVerbScreen(verb: String): String = catalog.say("phoneTitleVerbScreen", mapOf("verb" to verb))
+
+    /**
+     * 「{verb}「{text}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 verb 是点按、滚动这类动作，text 是控件上的字。
+     */
+    fun phoneTitleVerbText(verb: String, text: String): String = catalog.say("phoneTitleVerbText", mapOf("verb" to verb, "text" to text))
+
+    /**
+     * 「{verb}{target}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 verb 是动作，target 是控件编号、id 或坐标（中文里按需前面带空格）。
+     */
+    fun phoneTitleVerbTarget(verb: String, target: String): String = catalog.say("phoneTitleVerbTarget", mapOf("verb" to verb, "target" to target))
+
+    /**
+     * 「在后台操作{app}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 在后台屏幕上操作某个应用，说不出点的是什么时。
+     */
+    fun phoneTitleInBackground(app: String): String = catalog.say("phoneTitleInBackground", mapOf("app" to app))
+
+    /**
+     * 「控件 {index}」
+     *
+     * 拼进步骤的目标：按编号指的控件。
+     */
+    fun phoneTitleControl(index: Int): String = catalog.say("phoneTitleControl", mapOf("index" to index))
+
+    /**
+     * 「{direction, select, up {向上} down {向下} left {向左} right {向右} other {}}滚动」
+     *
+     * 动作：滚动，direction 是 up、down、left、right 或空。
+     */
+    fun phoneTitleScroll(direction: String): String = catalog.say("phoneTitleScroll", mapOf("direction" to direction))
+
+    /**
+     * 「{direction, select, up {向上} down {向下} left {向左} right {向右} other {}}{drag, select, true {拖动} other {滑动}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 滑动或拖动（drag 为 true），direction 是 up、down、left、right 或空。
+     */
+    fun phoneTitleSwipe(direction: String, drag: String): String = catalog.say("phoneTitleSwipe", mapOf("direction" to direction, "drag" to drag))
+
+    /**
+     * 「清空输入框」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleClearField(): String = catalog.say("phoneTitleClearField")
+
+    /**
+     * 「输入密码」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 往密码框里输入（不显示内容）。
+     */
+    fun phoneTitleTypePassword(): String = catalog.say("phoneTitleTypePassword")
+
+    /**
+     * 「输入「{text}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 输入的文字。
+     */
+    fun phoneTitleType(text: String): String = catalog.say("phoneTitleType", mapOf("text" to text))
+
+    /**
+     * 「{key, select, back {按返回键} home {回到桌面} recents {打开最近任务} enter {按回车} delete {按退格} paste {粘贴} wake {点亮屏幕} notifications {下拉通知栏} quick_settings {下拉控制中心} other {按 {key}}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 按系统键，key 是键名。
+     */
+    fun phoneTitleKey(key: String): String = catalog.say("phoneTitleKey", mapOf("key" to key))
+
+    /**
+     * 「按键」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 没说按哪个键。
+     */
+    fun phoneTitlePressKey(): String = catalog.say("phoneTitlePressKey")
+
+    /**
+     * 「等{target}出现」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 等控件出现（中文里按需两头带空格）。
+     */
+    fun phoneTitleWaitShown(target: String): String = catalog.say("phoneTitleWaitShown", mapOf("target" to target))
+
+    /**
+     * 「等{target}消失」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 等控件消失（中文里按需两头带空格）。
+     */
+    fun phoneTitleWaitGone(target: String): String = catalog.say("phoneTitleWaitGone", mapOf("target" to target))
+
+    /**
+     * 「等{app}打开」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 等应用到前台（中文里按需两头带空格）。
+     */
+    fun phoneTitleWaitApp(app: String): String = catalog.say("phoneTitleWaitApp", mapOf("app" to app))
+
+    /**
+     * 「等待 {seconds} 秒」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 等几秒，seconds 已格式化好（可以带一位小数）。
+     */
+    fun phoneTitleWaitSeconds(seconds: String): String = catalog.say("phoneTitleWaitSeconds", mapOf("seconds" to seconds))
+
+    /**
+     * 「等待」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleWait(): String = catalog.say("phoneTitleWait")
+
+    /**
+     * 「「{text}」」
+     *
+     * 步骤里引用控件上的字。
+     */
+    fun phoneTitleQuoted(text: String): String = catalog.say("phoneTitleQuoted", mapOf("text" to text))
+
+    /**
+     * 「打开链接 {url}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleOpenLink(url: String): String = catalog.say("phoneTitleOpenLink", mapOf("url" to url))
+
+    /**
+     * 「打开设置页 {page}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 page 是系统设置页的英文名。
+     */
+    fun phoneTitleOpenSettings(page: String): String = catalog.say("phoneTitleOpenSettings", mapOf("page" to page))
+
+    /**
+     * 「打开 {action}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 action 是 Android 的 intent 动作名。
+     */
+    fun phoneTitleOpenAction(action: String): String = catalog.say("phoneTitleOpenAction", mapOf("action" to action))
+
+    /**
+     * 「打开{app}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 打开某个应用（中文里按需前面带空格）。
+     */
+    fun phoneTitleOpenNamedApp(app: String): String = catalog.say("phoneTitleOpenNamedApp", mapOf("app" to app))
+
+    /**
+     * 「打开应用」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleOpenApp(): String = catalog.say("phoneTitleOpenApp")
+
+    /**
+     * 「把{app}移到主屏」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 把后台屏幕上的应用移到主屏。
+     */
+    fun phoneTitleShowToUser(app: String): String = catalog.say("phoneTitleShowToUser", mapOf("app" to app))
+
+    /**
+     * 「把应用移到主屏」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 不知道是哪个应用时。
+     */
+    fun phoneTitleShowToUserAnyApp(): String = catalog.say("phoneTitleShowToUserAnyApp")
+
+    /**
+     * 「开始录屏」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleRecordStart(): String = catalog.say("phoneTitleRecordStart")
+
+    /**
+     * 「结束录屏」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleRecordStop(): String = catalog.say("phoneTitleRecordStop")
+
+    /**
+     * 「查找应用 {query}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 按名字找应用。
+     */
+    fun phoneTitleFindApp(query: String): String = catalog.say("phoneTitleFindApp", mapOf("query" to query))
+
+    /**
+     * 「查看已装的应用」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleListApps(): String = catalog.say("phoneTitleListApps")
+
+    /**
+     * 「Android：{command}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 在 Android 一侧执行的命令（第一行）。
+     */
+    fun phoneTitleShell(command: String): String = catalog.say("phoneTitleShell", mapOf("command" to command))
+
+    /**
+     * 「Android：执行命令」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 没给命令时。
+     */
+    fun phoneTitleShellAny(): String = catalog.say("phoneTitleShellAny")
+
+    /**
+     * 「修改系统设置{detail}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 detail 是空，或空格加设置名。
+     */
+    fun phoneTitleSettingPut(detail: String): String = catalog.say("phoneTitleSettingPut", mapOf("detail" to detail))
+
+    /**
+     * 「删除系统设置{detail}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 detail 是空，或空格加设置名。
+     */
+    fun phoneTitleSettingDelete(detail: String): String = catalog.say("phoneTitleSettingDelete", mapOf("detail" to detail))
+
+    /**
+     * 「列出系统设置」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleSettingList(): String = catalog.say("phoneTitleSettingList")
+
+    /**
+     * 「读取系统设置{detail}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 detail 是空，或空格加设置名。
+     */
+    fun phoneTitleSettingGet(detail: String): String = catalog.say("phoneTitleSettingGet", mapOf("detail" to detail))
+
+    /**
+     * 「{what, select, location {查看当前位置} top_memory {查看内存占用} top_storage {查看存储占用} wifi_passwords {读取已保存的 Wi-Fi 密码} other {查看电池、存储与温度}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 看手机状况，what 是要看的那一项。
+     */
+    fun phoneTitleDeviceInfo(what: String): String = catalog.say("phoneTitleDeviceInfo", mapOf("what" to what))
+
+    /**
+     * 「读取系统日志{detail}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 detail 是空，或空格加包名或标签。
+     */
+    fun phoneTitleLogcat(detail: String): String = catalog.say("phoneTitleLogcat", mapOf("detail" to detail))
+
+    /**
+     * 「{action, select, info {查看应用信息{app}} force_stop {强行停止{app}} freeze {冻结{app}} unfreeze {解冻{app}} uninstall {卸载{app}} clear_data {清除数据{app}} usage {查看应用使用时长} recent {查看最近打开的应用} other {管理应用{app}}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 管理应用，action 是动作，app 是空或空格加包名。
+     */
+    fun phoneTitleAppAction(action: String, app: String): String = catalog.say("phoneTitleAppAction", mapOf("action" to action, "app" to app))
+
+    /**
+     * 「安装 {file}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 安装安装包，file 是文件名。
+     */
+    fun phoneTitleInstallFile(file: String): String = catalog.say("phoneTitleInstallFile", mapOf("file" to file))
+
+    /**
+     * 「安装应用」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleInstallApp(): String = catalog.say("phoneTitleInstallApp")
+
+    /**
+     * 「{target, select, wifi {Wi-Fi} bluetooth {蓝牙} mobile_data {移动数据} airplane_mode {飞行模式} hotspot {个人热点} location {定位} nfc {NFC} flashlight {手电筒} dark_mode {深色模式} battery_saver {省电模式} auto_rotate {自动旋转} auto_brightness {自动亮度} brightness {亮度} screen_timeout {熄屏时间} do_not_disturb {勿扰模式} ringer_mode {响铃模式} other {{target}}}」
+     *
+     * 手机开关和设置项的名字，拼进 phoneTitleViewSwitch、phoneTitleSwitchOn 这几句；target 是工具参数里的英文名。
+     */
+    fun phoneSwitchName(target: String): String = catalog.say("phoneSwitchName", mapOf("target" to target))
+
+    /**
+     * 「查看{what}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 看某个开关，what 是 phoneSwitchName。
+     */
+    fun phoneTitleViewSwitch(what: String): String = catalog.say("phoneTitleViewSwitch", mapOf("what" to what))
+
+    /**
+     * 「查看手机开关状态」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewSwitches(): String = catalog.say("phoneTitleViewSwitches")
+
+    /**
+     * 「打开{what}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 what 是 phoneSwitchName。
+     */
+    fun phoneTitleSwitchOn(what: String): String = catalog.say("phoneTitleSwitchOn", mapOf("what" to what))
+
+    /**
+     * 「关闭{what}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 what 是 phoneSwitchName。
+     */
+    fun phoneTitleSwitchOff(what: String): String = catalog.say("phoneTitleSwitchOff", mapOf("what" to what))
+
+    /**
+     * 「设置{what}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 what 是 phoneSwitchName。
+     */
+    fun phoneTitleSetWhat(what: String): String = catalog.say("phoneTitleSetWhat", mapOf("what" to what))
+
+    /**
+     * 「亮度调到 {percent}%」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrightness(percent: String): String = catalog.say("phoneTitleBrightness", mapOf("percent" to percent))
+
+    /**
+     * 「熄屏时间设为 {value}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 value 是时长或「永不」。
+     */
+    fun phoneTitleScreenTimeout(value: String): String = catalog.say("phoneTitleScreenTimeout", mapOf("value" to value))
+
+    /**
+     * 「永不」
+     *
+     * 拼进 phoneTitleScreenTimeout：不熄屏。
+     */
+    fun phoneTitleNever(): String = catalog.say("phoneTitleNever")
+
+    /**
+     * 「{mode, select, off {关闭勿扰模式} alarms {勿扰模式设为仅闹钟} silence {勿扰模式设为完全静音} none {勿扰模式设为完全静音} other {打开勿扰模式}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 设勿扰模式，mode 是工具参数。
+     */
+    fun phoneTitleDoNotDisturb(mode: String): String = catalog.say("phoneTitleDoNotDisturb", mapOf("mode" to mode))
+
+    /**
+     * 「响铃模式设为{mode, select, vibrate {振动} silent {静音} other {响铃}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleRingerMode(mode: String): String = catalog.say("phoneTitleRingerMode", mapOf("mode" to mode))
+
+    /**
+     * 「{stream, select, media {媒体} ring {铃声} notification {通知} alarm {闹钟} call {通话} system {系统} other {}}音量调到 {percent}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 调音量，stream 是哪一路，percent 是带 % 的百分比或空。
+     */
+    fun phoneTitleSetVolume(stream: String, percent: String): String = catalog.say("phoneTitleSetVolume", mapOf("stream" to stream, "percent" to percent))
+
+    /**
+     * 「查看音量与播放」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleMediaStatus(): String = catalog.say("phoneTitleMediaStatus")
+
+    /**
+     * 「{action, select, play {播放} pause {暂停播放} play_pause {播放或暂停} next {下一首} previous {上一首} stop {停止播放} other {控制播放}}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 按媒体键。
+     */
+    fun phoneTitleMediaKey(action: String): String = catalog.say("phoneTitleMediaKey", mapOf("action" to action))
+
+    /**
+     * 「查看闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleAlarms(): String = catalog.say("phoneTitleAlarms")
+
+    /**
+     * 「新建闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleAddAlarm(): String = catalog.say("phoneTitleAddAlarm")
+
+    /**
+     * 「新建闹钟 {time}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 time 是「07:30」这样的时刻。
+     */
+    fun phoneTitleAddAlarmAt(time: String): String = catalog.say("phoneTitleAddAlarmAt", mapOf("time" to time))
+
+    /**
+     * 「打开闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleAlarmOn(): String = catalog.say("phoneTitleAlarmOn")
+
+    /**
+     * 「关闭闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleAlarmOff(): String = catalog.say("phoneTitleAlarmOff")
+
+    /**
+     * 「修改闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleEditAlarm(): String = catalog.say("phoneTitleEditAlarm")
+
+    /**
+     * 「修改闹钟为 {time}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 time 是「07:30」这样的时刻。
+     */
+    fun phoneTitleEditAlarmTo(time: String): String = catalog.say("phoneTitleEditAlarmTo", mapOf("time" to time))
+
+    /**
+     * 「删除闹钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleDeleteAlarm(): String = catalog.say("phoneTitleDeleteAlarm")
+
+    /**
+     * 「开始倒计时」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleStartTimer(): String = catalog.say("phoneTitleStartTimer")
+
+    /**
+     * 「开始倒计时 {duration}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 duration 是「5 分钟」这样的时长。
+     */
+    fun phoneTitleStartTimerFor(duration: String): String = catalog.say("phoneTitleStartTimerFor", mapOf("duration" to duration))
+
+    /**
+     * 「暂停倒计时」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitlePauseTimer(): String = catalog.say("phoneTitlePauseTimer")
+
+    /**
+     * 「继续倒计时」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleResumeTimer(): String = catalog.say("phoneTitleResumeTimer")
+
+    /**
+     * 「取消倒计时」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleCancelTimer(): String = catalog.say("phoneTitleCancelTimer")
+
+    /**
+     * 「查看倒计时」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleTimerStatus(): String = catalog.say("phoneTitleTimerStatus")
+
+    /**
+     * 「时钟」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 时钟工具，动作不认识时。
+     */
+    fun phoneTitleClock(): String = catalog.say("phoneTitleClock")
+
+    /**
+     * 「{count} 小时」
+     *
+     * 时长里的小时数，拼成「1 小时 30 分」。
+     */
+    fun phoneDurationHours(count: Int): String = catalog.say("phoneDurationHours", mapOf("count" to count))
+
+    /**
+     * 「{count} 分钟」
+     *
+     * 时长里的分钟数（没有小时时）。
+     */
+    fun phoneDurationMinutes(count: Int): String = catalog.say("phoneDurationMinutes", mapOf("count" to count))
+
+    /**
+     * 「{count} 分」
+     *
+     * 时长里的分钟数（前面有小时时）。
+     */
+    fun phoneDurationMinutesShort(count: Int): String = catalog.say("phoneDurationMinutesShort", mapOf("count" to count))
+
+    /**
+     * 「{count} 秒」
+     *
+     * 时长里的秒数。
+     */
+    fun phoneDurationSeconds(count: Int): String = catalog.say("phoneDurationSeconds", mapOf("count" to count))
+
+    /**
+     * 「查看{app}的工具」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 看某个系统应用自带的工具，app 是应用名。
+     */
+    fun phoneTitleAppToolsOf(app: String): String = catalog.say("phoneTitleAppToolsOf", mapOf("app" to app))
+
+    /**
+     * 「查看系统应用的工具」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleAppTools(): String = catalog.say("phoneTitleAppTools")
+
+    /**
+     * 「系统应用」
+     *
+     * 步骤里说不出是哪个系统应用时的应用名（「系统应用 · 新增一个闹钟」）。
+     */
+    fun phoneSystemApp(): String = catalog.say("phoneSystemApp")
+
+    /**
+     * 「新建定时任务「{name}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleCreateTaskNamed(name: String): String = catalog.say("phoneTitleCreateTaskNamed", mapOf("name" to name))
+
+    /**
+     * 「新建定时任务」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleCreateTask(): String = catalog.say("phoneTitleCreateTask")
+
+    /**
+     * 「查看定时任务」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleListTasks(): String = catalog.say("phoneTitleListTasks")
+
+    /**
+     * 「修改定时任务」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleUpdateTask(): String = catalog.say("phoneTitleUpdateTask")
+
+    /**
+     * 「删除定时任务」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleDeleteTask(): String = catalog.say("phoneTitleDeleteTask")
+
+    /**
+     * 「立即运行定时任务」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleRunTask(): String = catalog.say("phoneTitleRunTask")
+
+    /**
+     * 「上报：没有变化」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 后台运行上报结果。
+     */
+    fun phoneTitleReportNoChange(): String = catalog.say("phoneTitleReportNoChange")
+
+    /**
+     * 「上报：有结果」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 后台运行上报结果。
+     */
+    fun phoneTitleReportResult(): String = catalog.say("phoneTitleReportResult")
+
+    /**
+     * 「读取剪贴板」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleReadClipboard(): String = catalog.say("phoneTitleReadClipboard")
+
+    /**
+     * 「清空剪贴板」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleClearClipboard(): String = catalog.say("phoneTitleClearClipboard")
+
+    /**
+     * 「写入剪贴板「{text}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleWriteClipboardText(text: String): String = catalog.say("phoneTitleWriteClipboardText", mapOf("text" to text))
+
+    /**
+     * 「写入剪贴板」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleWriteClipboard(): String = catalog.say("phoneTitleWriteClipboard")
+
+    /**
+     * 「新建便签「{title}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 小米便签。
+     */
+    fun phoneTitleCreateNoteNamed(title: String): String = catalog.say("phoneTitleCreateNoteNamed", mapOf("title" to title))
+
+    /**
+     * 「新建便签」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 小米便签。
+     */
+    fun phoneTitleCreateNote(): String = catalog.say("phoneTitleCreateNote")
+
+    /**
+     * 「修改便签」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 小米便签。
+     */
+    fun phoneTitleUpdateNote(): String = catalog.say("phoneTitleUpdateNote")
+
+    /**
+     * 「改便签」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 小米便签，动作不认识时。
+     */
+    fun phoneTitleEditNote(): String = catalog.say("phoneTitleEditNote")
+
+    /**
+     * 「{source, select, calendar {日程} calendars {日历} notifications {通知} codes {验证码} sms {短信} calls {通话记录} contacts {联系人} photos {照片} videos {视频} photo_content {照片内容} audio {音频} files {文件} downloads {下载记录} notes {便签} health {健康数据} clipboard {剪贴板历史} wechat_images {微信图片} qq_images {QQ 图片} other {{source}}}」
+     *
+     * 个人数据来源的名字，拼进 phoneTitleSearchIn、phoneTitleViewSource。
+     */
+    fun phoneSourceName(source: String): String = catalog.say("phoneSourceName", mapOf("source" to source))
+
+    /**
+     * 「找验证码」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleFindCodes(): String = catalog.say("phoneTitleFindCodes")
+
+    /**
+     * 「查个人数据」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleSearchPersonal(): String = catalog.say("phoneTitleSearchPersonal")
+
+    /**
+     * 「在{source}里找「{query}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 source 是 phoneSourceName。
+     */
+    fun phoneTitleSearchIn(source: String, query: String): String = catalog.say("phoneTitleSearchIn", mapOf("source" to source, "query" to query))
+
+    /**
+     * 「查看日历列表」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewCalendars(): String = catalog.say("phoneTitleViewCalendars")
+
+    /**
+     * 「查看{source}」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 source 是 phoneSourceName。
+     */
+    fun phoneTitleViewSource(source: String): String = catalog.say("phoneTitleViewSource", mapOf("source" to source))
+
+    /**
+     * 「看微信图片」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewWechatImage(): String = catalog.say("phoneTitleViewWechatImage")
+
+    /**
+     * 「看 QQ 图片」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewQqImage(): String = catalog.say("phoneTitleViewQqImage")
+
+    /**
+     * 「看视频画面」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewVideo(): String = catalog.say("phoneTitleViewVideo")
+
+    /**
+     * 「看照片」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleViewPhoto(): String = catalog.say("phoneTitleViewPhoto")
+
+    /**
+     * 「新建日程「{title}」」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleCreateEventNamed(title: String): String = catalog.say("phoneTitleCreateEventNamed", mapOf("title" to title))
+
+    /**
+     * 「新建日程」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleCreateEvent(): String = catalog.say("phoneTitleCreateEvent")
+
+    /**
+     * 「修改日程」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleUpdateEvent(): String = catalog.say("phoneTitleUpdateEvent")
+
+    /**
+     * 「删除日程」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleDeleteEvent(): String = catalog.say("phoneTitleDeleteEvent")
+
+    /**
+     * 「改日程」
+     *
+     * 聊天里手机操作的步骤和顶部胶囊上，这一步做了什么。 动作不认识时。
+     */
+    fun phoneTitleEditEvent(): String = catalog.say("phoneTitleEditEvent")
+
+    /**
+     * 「打开网页 {site}」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 site 是网站的域名，可以是空。
+     */
+    fun phoneTitleBrowserOpen(site: String): String = catalog.say("phoneTitleBrowserOpen", mapOf("site" to site))
+
+    /**
+     * 「读网页全文」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserRead(): String = catalog.say("phoneTitleBrowserRead")
+
+    /**
+     * 「点按网页里的{target}」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 target 是「[3]」这样的元素编号、坐标或 phoneBrowserElement。
+     */
+    fun phoneTitleBrowserClick(target: String): String = catalog.say("phoneTitleBrowserClick", mapOf("target" to target))
+
+    /**
+     * 「元素」
+     *
+     * 拼进 phoneTitleBrowserClick：说不出是哪个元素时。
+     */
+    fun phoneBrowserElement(): String = catalog.say("phoneBrowserElement")
+
+    /**
+     * 「在网页里输入“{text}”{submit, select, true {并提交} other {}}」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 submit 是 true 时输完提交表单。
+     */
+    fun phoneTitleBrowserType(text: String, submit: String): String = catalog.say("phoneTitleBrowserType", mapOf("text" to text, "submit" to submit))
+
+    /**
+     * 「网页滚到 {element}」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 element 是「[3]」这样的元素编号。
+     */
+    fun phoneTitleBrowserScrollTo(element: String): String = catalog.say("phoneTitleBrowserScrollTo", mapOf("element" to element))
+
+    /**
+     * 「{direction, select, up {网页向上滚动} other {网页向下滚动}}」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserScroll(direction: String): String = catalog.say("phoneTitleBrowserScroll", mapOf("direction" to direction))
+
+    /**
+     * 「网页后退」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserBack(): String = catalog.say("phoneTitleBrowserBack")
+
+    /**
+     * 「网页前进」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserForward(): String = catalog.say("phoneTitleBrowserForward")
+
+    /**
+     * 「刷新网页」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserReload(): String = catalog.say("phoneTitleBrowserReload")
+
+    /**
+     * 「网页截图」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserScreenshot(): String = catalog.say("phoneTitleBrowserScreenshot")
+
+    /**
+     * 「等网页出现「{text}」」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。
+     */
+    fun phoneTitleBrowserWaitText(text: String): String = catalog.say("phoneTitleBrowserWaitText", mapOf("text" to text))
+
+    /**
+     * 「等待网页 {seconds} 秒」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 seconds 已格式化好（可以带一位小数）。
+     */
+    fun phoneTitleBrowserWait(seconds: String): String = catalog.say("phoneTitleBrowserWait", mapOf("seconds" to seconds))
+
+    /**
+     * 「浏览器」
+     *
+     * 聊天里内置浏览器的步骤和顶部胶囊上，这一步做了什么。 动作不认识时。
+     */
+    fun phoneTitleBrowser(): String = catalog.say("phoneTitleBrowser")
+
+    /**
+     * 「无障碍服务被反复关掉」
+     *
+     * 通知标题：Zeta 的无障碍服务短时间内被关掉多次，不再自动加回。
+     */
+    fun phoneAccessibilityRepeatedOffTitle(): String = catalog.say("phoneAccessibilityRepeatedOffTitle")
+
+    /**
+     * 「Zeta 不再自动打开它，点这里查看权限健康」
+     *
+     * 通知正文，接 phoneAccessibilityRepeatedOffTitle；点开到设置的「权限健康」页。
+     */
+    fun phoneAccessibilityRepeatedOffText(): String = catalog.say("phoneAccessibilityRepeatedOffText")
+
+    /**
+     * 「无障碍服务被关掉了」
+     *
+     * 通知标题：Zeta 的无障碍服务被关掉，没能自动加回。
+     */
+    fun phoneAccessibilityOffTitle(): String = catalog.say("phoneAccessibilityOffTitle")
+
+    /**
+     * 「Zeta 没有 root，没法自动打开。点这里到权限健康页处理」
+     *
+     * 通知正文，接 phoneAccessibilityOffTitle；点开到设置的「权限健康」页。
+     */
+    fun phoneAccessibilityOffNoRootText(): String = catalog.say("phoneAccessibilityOffNoRootText")
+
+    /**
+     * 「Zeta 没能自动打开它。点这里到权限健康页处理」
+     *
+     * 通知正文，接 phoneAccessibilityOffTitle；点开到设置的「权限健康」页。
+     */
+    fun phoneAccessibilityOffFailedText(): String = catalog.say("phoneAccessibilityOffFailedText")
+
+    /**
+     * 「截屏没有成功」
+     *
+     * 轻提示：截屏失败。
+     */
+    fun phoneScreenshotFailed(): String = catalog.say("phoneScreenshotFailed")
 }

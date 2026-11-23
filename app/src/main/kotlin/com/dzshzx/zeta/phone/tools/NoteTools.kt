@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.content.Context
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.time.ZoneId
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,7 +20,7 @@ internal object NoteTools : PhoneToolGroup {
         listOf(
             tool(
                 EDIT,
-                "新建、修改小米便签",
+                { Strings.phoneToolEditNote() },
                 "Create or update a Xiaomi Notes note, then read it back. Update replaces the title and/or the whole body " +
                     "(plain text or Markdown): read the note with search_personal first and keep its ![](…) image lines. " +
                     "Notes cannot be deleted (Xiaomi Notes has no interface for it; the user deletes in the app). Private notes are off limits.",

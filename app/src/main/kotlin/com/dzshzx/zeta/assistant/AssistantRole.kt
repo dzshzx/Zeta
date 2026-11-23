@@ -11,6 +11,7 @@ import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.voice.SpeechBackend
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.tools.rootShell
 import com.dzshzx.zeta.xposed.PowerKeyPolicy
 
@@ -38,14 +39,16 @@ data class AssistantOwner(
     /** 设置页、诊断页上的一句。 */
     val summary: String
         get() =
-            if (self) "是 Zeta" + if (AppVariant.current.isDev) "（本测试版）" else ""
-            else name(packageName, label)
+            if (self) {
+                if (AppVariant.current.isDev) Strings.assistantRoleSelfDev()
+                else Strings.assistantRoleSelf()
+            } else name(packageName, label)
 
     private fun name(pkg: String?, label: String?): String =
         when {
-            pkg == null -> "没有设置"
-            AppVariant.isZetaPackage(pkg) -> "是 " + AppVariant(pkg).label
-            else -> "是 " + (label ?: pkg)
+            pkg == null -> Strings.assistantRoleNone()
+            AppVariant.isZetaPackage(pkg) -> Strings.assistantRoleOther(AppVariant(pkg).label)
+            else -> Strings.assistantRoleOther(label ?: pkg)
         }
 }
 
@@ -142,9 +145,11 @@ data class PowerKeyStatus(
     val summary: String
         get() =
             when (installed) {
-                true -> "已装上"
-                false -> "没装上"
-                null -> if (recent.isEmpty()) "没有记录" else "有记录"
+                true -> Strings.assistantPowerKeyInstalled()
+                false -> Strings.assistantPowerKeyNotInstalled()
+                null ->
+                    if (recent.isEmpty()) Strings.assistantPowerKeyNoRecord()
+                    else Strings.assistantPowerKeyHasRecord()
             }
 }
 

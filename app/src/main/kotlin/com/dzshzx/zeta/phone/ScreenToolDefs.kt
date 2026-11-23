@@ -4,6 +4,8 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.phone.tools.PhoneTool
 import com.dzshzx.zeta.phone.tools.enumProp
 import com.dzshzx.zeta.phone.tools.prop
@@ -53,28 +55,39 @@ internal object ScreenToolDefs {
         // 说不出字的目标：资源 id、编号、坐标
         val other =
             a.str("id")?.takeIf { it.isNotBlank() }?.let { "id=$it" }
-                ?: node?.let { "控件 $it" }
+                ?: node?.let { Strings.phoneTitleControl(it) }
                 ?: a.int("x")?.let { "($it, ${a.int("y") ?: 0})" }
         val app = scene?.takeIf { it.onAgentDisplay }?.agentDisplayApp
         fun aimed(verb: String) =
-            text?.let { "$verb「$it」" }
-                ?: app?.let { "在后台操作$it" }
-                ?: other?.let { verb + gap(it) + it }
+            text?.let { Strings.phoneTitleVerbText(verb, it) }
+                ?: app?.let { Strings.phoneTitleInBackground(it) }
+                ?: other?.let { Strings.phoneTitleVerbTarget(verb, gap(it) + it) }
         return when (name) {
-            "screen" -> if (a.bool("screenshot") == true) "看屏幕（带截图）" else "看屏幕"
-            "tap" -> tapVerb(a.int("count")).let { aimed(it) ?: "${it}屏幕" }
-            "long_press" -> aimed("长按") ?: "长按屏幕"
+            "screen" ->
+                if (a.bool("screenshot") == true) Strings.phoneTitleScreenWithShot()
+                else Strings.phoneTitleScreen()
+            "tap" -> tapVerb(a.int("count")).let { aimed(it) ?: Strings.phoneTitleVerbScreen(it) }
+            "long_press" ->
+                Strings.phoneTitleLongPress().let { aimed(it) ?: Strings.phoneTitleVerbScreen(it) }
             "scroll" -> {
-                val verb = (ScrollDirection.parse(a.str("direction"))?.word ?: "") + "滚动"
-                text?.let { "$verb「$it」" } ?: other?.let { verb + gap(it) + it } ?: verb
+                val direction =
+                    ScrollDirection.parse(a.str("direction"))?.name?.lowercase().orEmpty()
+                val verb = Strings.phoneTitleScroll(direction)
+                text?.let { Strings.phoneTitleVerbText(verb, it) }
+                    ?: other?.let { Strings.phoneTitleVerbTarget(verb, gap(it) + it) }
+                    ?: verb
             }
             "swipe" -> swipeTitle(a)
             "type_text" -> typeTitle(a, control)
             "press_key" -> keyTitle(a.str("key")?.lowercase()?.takeIf { it.isNotBlank() })
             "wait" -> waitTitle(a)
             "open_app" -> openTitle(a)
-            "show_to_user" -> "把" + (scene?.agentDisplayApp ?: "应用") + "移到主屏"
-            "screen_record" -> if (a.str("action") == "stop") "结束录屏" else "开始录屏"
+            "show_to_user" ->
+                scene?.agentDisplayApp?.let { Strings.phoneTitleShowToUser(it) }
+                    ?: Strings.phoneTitleShowToUserAnyApp()
+            "screen_record" ->
+                if (a.str("action") == "stop") Strings.phoneTitleRecordStop()
+                else Strings.phoneTitleRecordStart()
             else -> null
         }
     }
@@ -82,9 +95,9 @@ internal object ScreenToolDefs {
     /** tap 点几下：一下是点按，两下是双击。 */
     private fun tapVerb(count: Int?): String =
         when (count) {
-            2 -> "双击"
-            3 -> "连点三下"
-            else -> "点按"
+            2 -> Strings.phoneTitleDoubleTap()
+            3 -> Strings.phoneTitleTripleTap()
+            else -> Strings.phoneTitleTap()
         }
 
     /** swipe 往哪个方向滑：看起点到终点哪个方向走得多。 */
@@ -92,51 +105,54 @@ internal object ScreenToolDefs {
         val dx = (a.int("x2") ?: 0) - (a.int("x1") ?: 0)
         val dy = (a.int("y2") ?: 0) - (a.int("y1") ?: 0)
         // 先按住再挪的是拖动
-        val verb = if ((a.int("hold_ms") ?: 0) > 0) "拖动" else "滑动"
-        return when {
-            dx == 0 && dy == 0 -> verb
-            abs(dy) >= abs(dx) -> (if (dy < 0) "向上" else "向下") + verb
-            else -> (if (dx < 0) "向左" else "向右") + verb
-        }
+        val drag = ((a.int("hold_ms") ?: 0) > 0).toString()
+        val direction =
+            when {
+                dx == 0 && dy == 0 -> ""
+                abs(dy) >= abs(dx) -> if (dy < 0) "up" else "down"
+                else -> if (dx < 0) "left" else "right"
+            }
+        return Strings.phoneTitleSwipe(direction, drag)
     }
 
     /** type_text 输入什么；[control] 是编号对应的控件（知道时）。 */
     private fun typeTitle(a: JsonObject, control: SceneControl?): String {
         val value = a.str("text").orEmpty()
         return when {
-            value.isEmpty() -> "清空输入框"
+            value.isEmpty() -> Strings.phoneTitleClearField()
             // 密码框不把内容显示出来
-            control?.password == true -> "输入密码"
-            else -> "输入「" + value.clipLine(16) + "」"
+            control?.password == true -> Strings.phoneTitleTypePassword()
+            else -> Strings.phoneTitleType(value.clipLine(16))
         }
     }
 
     /** press_key 按的键（[key] 已转成小写，没给时为 null）。 */
     private fun keyTitle(key: String?): String =
-        when (key) {
-            "back" -> "按返回键"
-            "home" -> "回到桌面"
-            "recents" -> "打开最近任务"
-            "enter" -> "按回车"
-            "delete" -> "按退格"
-            "paste" -> "粘贴"
-            "wake" -> "点亮屏幕"
-            "notifications" -> "下拉通知栏"
-            "quick_settings" -> "下拉控制中心"
-            null -> "按键"
-            else -> "按 $key"
-        }
+        key?.let { Strings.phoneTitleKey(it) } ?: Strings.phoneTitlePressKey()
 
     /** wait 在等什么。 */
     private fun waitTitle(a: JsonObject): String =
         when (val request = WaitRequest.parse(a).value) {
-            is WaitRequest.Control ->
-                "等" + spaced(request.selector.describe()) + if (request.gone) "消失" else "出现"
-            is WaitRequest.App -> "等" + spaced(request.app) + "打开"
+            is WaitRequest.Control -> {
+                val what = spaced(describe(request.selector))
+                if (request.gone) Strings.phoneTitleWaitGone(what)
+                else Strings.phoneTitleWaitShown(what)
+            }
+            is WaitRequest.App -> Strings.phoneTitleWaitApp(spaced(request.app))
             is WaitRequest.Time ->
-                "等待 " + "%.1f".format(Locale.ROOT, request.ms / 1000.0).removeSuffix(".0") + " 秒"
-            null -> "等待"
+                Strings.phoneTitleWaitSeconds(
+                    "%.1f".format(Locale.ROOT, request.ms / 1000.0).removeSuffix(".0"),
+                )
+            null -> Strings.phoneTitleWait()
         }
+
+    /** 步骤里说要找的控件：引号里的字、id（[ControlSelector.describe] 是给 Claude 的，这里按界面语言）。 */
+    private fun describe(selector: ControlSelector): String =
+        listOfNotNull(
+                selector.match?.let { Strings.phoneTitleQuoted(it) },
+                selector.id?.let { "id=$it" },
+            )
+            .joinToString(" ")
 
     /** open_app 打开什么：链接、设置页、intent 动作或应用。 */
     private fun openTitle(a: JsonObject): String {
@@ -144,28 +160,35 @@ internal object ScreenToolDefs {
         val action = request?.action
         return when {
             request?.uri != null ->
-                "打开链接 " + request.uri.removePrefix("https://").removePrefix("http://").clipLine(24)
+                Strings.phoneTitleOpenLink(
+                    request.uri.removePrefix("https://").removePrefix("http://").clipLine(24),
+                )
             action != null && action.startsWith("android.settings.") ->
-                "打开设置页 " + action.substringAfterLast('.')
-            action != null -> "打开 " + action.substringAfterLast('.')
-            request?.app != null -> "打开" + gap(request.app) + request.app.clipLine(16)
-            else -> "打开应用"
+                Strings.phoneTitleOpenSettings(action.substringAfterLast('.'))
+            action != null -> Strings.phoneTitleOpenAction(action.substringAfterLast('.'))
+            request?.app != null ->
+                Strings.phoneTitleOpenNamedApp(gap(request.app) + request.app.clipLine(16))
+            else -> Strings.phoneTitleOpenApp()
         }
     }
 
-    /** 中文和紧跟着的英文、数字、括号之间空一格（「点按 id=search」），和中文之间不空（「点按控件 3」）。 */
+    /** 中文和紧跟着的英文、数字、括号之间空一格（「点按 id=search」），和中文之间不空（「点按控件 3」）。只在界面是中文时有： 英文的句子里本来就带空格。 */
     private fun gap(next: String): String =
-        if (next.firstOrNull()?.let { it.code < 128 } == true) " " else ""
+        if (
+            UiLanguage.current == UiLanguage.SOURCE &&
+                next.firstOrNull()?.let { it.code < 128 } == true
+        )
+            " "
+        else ""
 
     /** 夹在两段中文之间：两头是英文、数字时各空一格（「等 com.android.settings 打开」「等微信打开」）。 */
-    private fun spaced(word: String): String =
-        gap(word) + word + if (word.lastOrNull()?.let { it.code < 128 } == true) " " else ""
+    private fun spaced(word: String): String = gap(word) + word + gap(word.takeLast(1))
 
     val tools: List<PhoneTool> = buildList {
         add(
             tool(
                 "screen",
-                "读屏：前台应用、可点的控件和截图",
+                { Strings.phoneToolScreen() },
                 "Read the current screen: the foreground app and a numbered list of visible controls (text, kind, centre in screenshot pixels, what can be done with each). Optionally a screenshot.",
                 readOnly = true,
             ) {
@@ -191,7 +214,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "tap",
-                "点按",
+                { Strings.phoneToolTap() },
                 "Tap a control (by its index from the latest observation, or found by text / resource id) or a point on the screen.",
             ) {
                 schema {
@@ -209,7 +232,11 @@ internal object ScreenToolDefs {
             },
         )
         add(
-            tool("long_press", "长按", "Press and hold a control or a point.") {
+            tool(
+                "long_press",
+                { Strings.phoneToolLongPress() },
+                "Press and hold a control or a point.",
+            ) {
                 schema {
                     prop("node", "integer", "Index of the control.")
                     target()
@@ -223,7 +250,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "swipe",
-                "滑动",
+                { Strings.phoneToolSwipe() },
                 "Swipe from one point to another, for precise drags (sliders, maps, carousels). To browse a list use scroll. " +
                     "With hold_ms it presses and holds at the start before moving: drag and drop (reorder list items, move icons).",
             ) {
@@ -249,7 +276,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "scroll",
-                "滚动列表",
+                { Strings.phoneToolScroll() },
                 "Scroll the main list of the screen, or the list containing the control given by node / match / id, and report whether the content moved and whether the end was reached.",
             ) {
                 schema(required = listOf("direction")) {
@@ -272,7 +299,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "type_text",
-                "往输入框里输入文字",
+                { Strings.phoneToolTypeText() },
                 "Put text into an input field: the one given by node or match/id, or else the field that has focus. Replaces what is there unless append is true; an empty text clears the field. The result says if the field reads back differently.",
             ) {
                 schema(required = listOf("text")) {
@@ -303,7 +330,7 @@ internal object ScreenToolDefs {
             },
         )
         add(
-            tool("press_key", "按系统键（返回、回到桌面等）", "Press a system key.") {
+            tool("press_key", { Strings.phoneToolPressKey() }, "Press a system key.") {
                 schema(required = listOf("key")) {
                     enumProp(
                         "key",
@@ -329,7 +356,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "wait",
-                "等控件出现或应用到前台，再读屏",
+                { Strings.phoneToolWait() },
                 "Wait, then return the fresh screen: for a fixed time, until a control matching match/id appears (or is gone), or until an app is in front. " +
                     "Fails with the current screen if the condition is not met in time.",
                 readOnly = true,
@@ -363,7 +390,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "open_app",
-                "打开应用、链接或设置页",
+                { Strings.phoneToolOpenApp() },
                 "Open an app, a link or deep link (uri), or an intent action such as a settings page, by default on the hidden background screen. " +
                     "Later tools act on the screen it opened on.",
             ) {
@@ -396,7 +423,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "show_to_user",
-                "把后台屏幕上的应用移到主屏给你看",
+                { Strings.phoneToolShowToUser() },
                 "Move the app on the background screen to the main screen, in front of the user, for steps they must do themselves (payment, password, captcha, a login or permission prompt) or to show them the result. Afterwards tools act on the main screen.",
             ) {
                 schema {
@@ -408,7 +435,7 @@ internal object ScreenToolDefs {
         add(
             tool(
                 "screen_record",
-                "录屏",
+                { Strings.phoneToolScreenRecord() },
                 "Record the current screen (background or main, whichever the other tools act on) to an mp4. " +
                     "start, do the steps, then stop: the result gives the video's path in your Linux environment.",
             ) {

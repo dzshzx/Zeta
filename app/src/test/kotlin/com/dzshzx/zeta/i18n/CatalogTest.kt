@@ -117,4 +117,21 @@ class CatalogTest {
             UiLanguage.resolve(preferred),
         )
     }
+
+    /** 交给 Claude 的文字在 [UiLanguage.forClaude] 里固定用源语言：只管这个线程、只在块里，出来恢复界面语言。 */
+    @Test
+    fun forClaudeSaysTheSourceLanguageOnThisThreadOnly() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        var other: String? = null
+        val inside = UiLanguage.forClaude {
+            val t = Thread { other = Strings.settingsLanguage() }
+            t.start()
+            t.join()
+            UiLanguage.forClaude { Strings.settingsLanguage() } + Strings.settingsLanguage()
+        }
+        assertEquals("语言语言", inside)
+        assertEquals("Language", other)
+        assertEquals("Language", Strings.settingsLanguage())
+        assertEquals(UiLanguage.ENGLISH, UiLanguage.current)
+    }
 }

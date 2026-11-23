@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.claude.ConfigFile
 import com.dzshzx.zeta.core.claude.MemoryEntry
 import com.dzshzx.zeta.core.claude.MemoryOverview
 import com.dzshzx.zeta.core.clipLine
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
@@ -36,10 +37,10 @@ private data class MemoryTarget(
 
 private fun typeLabel(type: String): String =
     when (type) {
-        "user" -> "关于你"
-        "feedback" -> "反馈"
-        "project" -> "项目"
-        "reference" -> "参考"
+        "user" -> Strings.setupMemoryTypeUser()
+        "feedback" -> Strings.setupMemoryTypeFeedback()
+        "project" -> Strings.setupMemoryTypeProject()
+        "reference" -> Strings.setupMemoryTypeReference()
         else -> type
     }
 
@@ -72,14 +73,14 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
         scope.runConfig({ client.memory(cwd, project) }) { result ->
             result
                 .onSuccess { overview = it }
-                .onFailure { notice = ConfigNotice("读取记忆失败", it.problem()) }
+                .onFailure { notice = ConfigNotice(Strings.setupMemoryLoadFailed(), it.problem()) }
         }
     }
     val reload: () -> Unit = { reloads++ }
 
     val o = overview
     CouiPage(
-        title = "记忆",
+        title = Strings.setupMemoryTitle(),
         onBack = onBack,
         dialogs = { ConfigNoticeDialog(notice) { notice = null } },
     ) {
@@ -94,7 +95,9 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
                     working = true
                     scope.runConfig({ client.setAutoMemory(on) }) { result ->
                         working = false
-                        result.onFailure { notice = ConfigNotice("没有改成", it.problem()) }
+                        result.onFailure {
+                            notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
+                        }
                         reload()
                     }
                 },
@@ -117,15 +120,21 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
             placeholder = t.placeholder,
             onBack = { editing = null },
             onSaved = reload,
-            deleteTitle = "删除这条记忆",
-            deleteMessage = "删除 ${t.fileLabel}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
+            deleteTitle = Strings.setupMemoryDeleteTitle(),
+            deleteMessage = Strings.setupMemoryDeleteMessage(t.fileLabel),
             onDelete =
                 if (t.entry != null) {
                     {
                         scope.runConfig({ client.deleteMemory(t.path) }) { result ->
                             result
                                 .onSuccess { editing = null }
-                                .onFailure { notice = ConfigNotice("删除失败", it.problem()) }
+                                .onFailure {
+                                    notice =
+                                        ConfigNotice(
+                                            Strings.setupClaudeDeleteFailed(),
+                                            it.problem(),
+                                        )
+                                }
                             reload()
                         }
                     }
@@ -140,17 +149,17 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
 @Composable
 private fun InstructionsGroup(o: MemoryOverview?, onOpen: (MemoryTarget) -> Unit) {
     PreferenceGroup(
-        title = "用户指令",
-        footer = "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。",
+        title = Strings.setupMemoryInstructions(),
+        footer = Strings.setupMemoryInstructionsFooter(),
     ) {
         item {
             ArrowPreference(
                 title = "CLAUDE.md",
                 summary =
                     when {
-                        o == null -> "正在读取…"
+                        o == null -> Strings.setupClaudeLoading()
                         o.instructions.exists -> sizeText(o.instructions.size)
-                        else -> "还没有创建，点开就能写"
+                        else -> Strings.setupMemoryInstructionsMissing()
                     },
                 enabled = o != null,
                 onClick = {
@@ -158,9 +167,9 @@ private fun InstructionsGroup(o: MemoryOverview?, onOpen: (MemoryTarget) -> Unit
                         onOpen(
                             MemoryTarget(
                                 it.instructions.path,
-                                "用户指令",
+                                Strings.setupMemoryInstructions(),
                                 "CLAUDE.md",
-                                "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改",
+                                Strings.setupMemoryInstructionsHint(),
                             ),
                         )
                     }
@@ -181,8 +190,8 @@ private fun AutoMemoryGroup(
     onOpen: (MemoryTarget) -> Unit,
 ) {
     PreferenceGroup(
-        title = "自动记忆",
-        footer = "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。",
+        title = Strings.setupMemoryAuto(),
+        footer = Strings.setupMemoryAutoFooter(),
     ) {
         if (o == null) {
             item { ConfigLoadingRow() }
@@ -191,10 +200,10 @@ private fun AutoMemoryGroup(
                 SwitchPreference(
                     checked = o.autoMemory && !o.forcedOff,
                     onCheckedChange = onToggle,
-                    title = "启用自动记忆",
+                    title = Strings.setupMemoryAutoEnable(),
                     // forcedOff：settings.json 的 env 里设了
                     // CLAUDE_CODE_DISABLE_AUTO_MEMORY，它压过开关
-                    summary = if (o.forcedOff) "被环境变量关掉了，这里改不了" else null,
+                    summary = if (o.forcedOff) Strings.setupMemoryAutoForcedOff() else null,
                     enabled = !o.forcedOff && !working,
                 )
             }
@@ -215,21 +224,23 @@ private fun CardListGroupScope.memoryLocationRows(
         // settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
         item {
             BasicComponent(
-                title = "记忆目录",
+                title = Strings.setupMemoryDir(),
                 summary = shortPath(customDir, home),
-                endActions = { PreferenceValue("所有项目共用") },
+                endActions = { PreferenceValue(Strings.setupMemorySharedDir()) },
             )
         }
     } else if (o.projects.isNotEmpty()) {
         item {
             val current = o.projects.firstOrNull { it.key == o.selected }
             DropdownValuePreference(
-                title = "项目",
+                title = Strings.setupMemoryProject(),
                 summary =
                     current?.let {
-                        shortPath(it.label, home) + if (it.isDefault) "（默认工作目录）" else ""
+                        shortPath(it.label, home).let { p ->
+                            if (it.isDefault) Strings.setupMemoryProjectDefault(p) else p
+                        }
                     },
-                value = current?.let { "${it.count} 条" },
+                value = current?.let { Strings.setupMemoryCount(it.count) },
                 entries =
                     listOf(
                         DropdownEntry(
@@ -237,8 +248,11 @@ private fun CardListGroupScope.memoryLocationRows(
                                 o.projects.map {
                                     DropdownItem(
                                         text =
-                                            shortPath(it.label, home) +
-                                                if (it.isDefault) "（默认）" else " · ${it.count} 条",
+                                            shortPath(it.label, home).let { p ->
+                                                if (it.isDefault)
+                                                    Strings.setupMemoryProjectItemDefault(p)
+                                                else Strings.setupMemoryProjectItem(p, it.count)
+                                            },
                                         selected = it.key == o.selected,
                                         onClick = { onSelectProject(it.key) },
                                     )
@@ -255,7 +269,8 @@ private fun CardListGroupScope.memoryIndexRow(index: ConfigFile?, onOpen: (Memor
     item {
         ArrowPreference(
             title = "MEMORY.md",
-            summary = if (index.exists) "记忆的索引" else "记忆的索引，还没有",
+            summary =
+                if (index.exists) Strings.setupMemoryIndex() else Strings.setupMemoryIndexMissing(),
             endActions = { if (index.exists) PreferenceValue(sizeText(index.size)) },
             onClick = {
                 onOpen(
@@ -263,7 +278,7 @@ private fun CardListGroupScope.memoryIndexRow(index: ConfigFile?, onOpen: (Memor
                         index.path,
                         "MEMORY.md",
                         "MEMORY.md",
-                        "一行一条记忆：- [标题](文件名.md) — 一句话说明",
+                        Strings.setupMemoryIndexHint(),
                     ),
                 )
             },
@@ -274,9 +289,9 @@ private fun CardListGroupScope.memoryIndexRow(index: ConfigFile?, onOpen: (Memor
 /** 「记忆」一组：这个项目的每条记忆。 */
 @Composable
 private fun MemoryFilesGroup(files: List<MemoryEntry>, onOpen: (MemoryTarget) -> Unit) {
-    PreferenceGroup(title = "记忆 · ${files.size}") {
+    PreferenceGroup(title = Strings.setupMemoryFiles(files.size)) {
         if (files.isEmpty()) {
-            item { ConfigEmptyRow("这个项目还没有记忆", "让 Claude 记住的东西会出现在这里") }
+            item { ConfigEmptyRow(Strings.setupMemoryNone(), Strings.setupMemoryNoneSummary()) }
         }
         files.forEach { entry ->
             item(key = entry.file) {

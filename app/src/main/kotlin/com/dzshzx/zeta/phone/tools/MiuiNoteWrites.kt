@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.time.ZoneId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -137,8 +138,9 @@ internal object MiuiNoteWrites {
                     .str("title")
                     ?.trim()
                     ?.takeIf { it.isNotEmpty() }
-                    ?.let { "新建便签「" + it.clipChars(12, "…") + "」" } ?: "新建便签"
-            "update" -> "修改便签"
-            else -> "改便签"
+                    ?.let { Strings.phoneTitleCreateNoteNamed(it.clipChars(12, "…")) }
+                    ?: Strings.phoneTitleCreateNote()
+            "update" -> Strings.phoneTitleUpdateNote()
+            else -> Strings.phoneTitleEditNote()
         }
 }
