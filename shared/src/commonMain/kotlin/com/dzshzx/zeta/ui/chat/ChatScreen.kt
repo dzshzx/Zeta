@@ -76,6 +76,7 @@ import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
+import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
@@ -129,9 +130,17 @@ private fun requestEnd(hub: ConversationHub, conversation: Conversation, confirm
     if (conversation.active || conversation.blockedByExternal) confirm() else hub.endCurrent()
 }
 
-/** 结束确认框的说明：正在别处运行的（[external]）连那边的进程一起停掉。 */
-private fun endConfirmSummary(external: Boolean): String =
-    (if (external) "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。"
+/**
+ * 结束确认框的说明：正在别处运行的（[external]）连那边的进程一起停掉，说得出在哪（[occupant]，核心查到的那边的样子，没查到是 null）时说在哪。同桌面版
+ * `windows/internal/ui/sessionops.go` 的 endConfirmSummary。
+ */
+fun endConfirmSummary(external: Boolean, occupant: Occupant?): String =
+    (if (external)
+        spaced(
+            "它正在",
+            occupant?.let { occupantPlace(it.app, it.device) } ?: "别处",
+            "运行，结束会停掉那边的进程，那边在做的也一并停掉。",
+        )
     else "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。") + "对话内容保留，可以从历史对话里接着聊。"
 
 /**
@@ -238,7 +247,8 @@ fun ChatScreen(
                 ConfirmDialog(
                     show = confirmingEnd,
                     title = "结束这个对话？",
-                    summary = endConfirmSummary(conversation.blockedByExternal),
+                    summary =
+                        endConfirmSummary(conversation.blockedByExternal, conversation.occupant),
                     confirmText = "结束",
                     destructive = true,
                     onConfirm = {

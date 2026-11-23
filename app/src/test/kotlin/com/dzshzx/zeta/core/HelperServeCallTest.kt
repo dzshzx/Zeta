@@ -30,6 +30,7 @@ class HelperServeCallTest {
         HelperServe.Opened(ProcessBuilder("bash", "-c", SCRIPT).start()) { it.destroy() }
 
     private fun serve(
+        device: String? = null,
         onMessage: (JsonObject) -> Unit = messages::put,
         open: () -> HelperServe.Opened = ::fake,
     ): HelperServe =
@@ -39,6 +40,7 @@ class HelperServeCallTest {
                 subscriptions = emptyList(),
                 onMessage = onMessage,
                 onProblem = { problems.put(it.orEmpty()) },
+                device = device,
                 backoff = { 0L },
             )
             .also { serves += it }
@@ -123,6 +125,17 @@ class HelperServeCallTest {
         )
     }
 
+    /** 给了设备名时连上先发 core.client 报它，排在别的请求前面（假 serve 的 first 答回它收到的第一行）；它的应答不算问题。 */
+    @Test
+    fun reportsTheDeviceFirst() {
+        val s = serve(device = "Xiaomi 17")
+        val first = s.call("first", JsonObject(emptyMap())) as JsonObject
+        assertEquals("core.client", first.str("method"))
+        assertEquals("Xiaomi 17", first.str("device"))
+        assertEquals("", problems.poll(5, TimeUnit.SECONDS))
+        assertNull(problems.poll())
+    }
+
     @Test
     fun waitingForAReplyOnTheReaderThreadIsRefused() {
         val refused = LinkedBlockingQueue<Throwable>()
@@ -143,9 +156,12 @@ class HelperServeCallTest {
         val SCRIPT =
             """
             echo '{"type":"zeta_hello","protocol":${HelperServe.PROTOCOL}}'
+            first=
             while IFS= read -r line; do
               id=${'$'}{line#*\"id\":}; id=${'$'}{id%%,*}
+              [ -n "${'$'}first" ] || first=${'$'}line
               case ${'$'}line in
+                *'"method":"first"'*) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":%s}\n' "${'$'}id" "${'$'}first" ;;
                 *'"method":"echo"'*) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":%s}\n' "${'$'}id" "${'$'}line" ;;
                 *'"method":"fail"'*)
                   printf '{"type":"zeta_reply","id":%s,"ok":false,"error":"不行","code":"nope"}\n' "${'$'}id"

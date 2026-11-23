@@ -85,6 +85,8 @@ func (h *fakeHandler) Request(c *Client, r Request) (any, error) {
 		return nil, nil
 	case "conv.bad":
 		return func() {}, nil
+	case "conv.device":
+		return c.Device(), nil
 	}
 	return nil, errors.New("unknown method: " + r.Method)
 }
@@ -278,6 +280,35 @@ func TestRepliesPushesAndGone(t *testing.T) {
 	// 另一个照常
 	if r := a.call(`{"id":4,"method":"conv.echo"}`); r["ok"] != true {
 		t.Errorf("a 之后 %v", r)
+	}
+}
+
+// core.client 由核心自己答、记在这条连接上，不交给处理器；各连接各记各的，空白压成一个、控制字符去掉、太长截断。
+func TestCoreClientRemembersTheDeviceOfThatConnection(t *testing.T) {
+	p := testPaths(t)
+	h := newFakeHandler()
+	serve(t, p, h, time.Minute)
+	a, b := dial(t, p), dial(t, p)
+	if r := a.call(`{"id":1,"method":"core.client","device":"  Xiaomi\t 17\u0007 "}`); r["ok"] != true {
+		t.Fatalf("core.client %v", r)
+	}
+	if r := a.call(`{"id":2,"method":"conv.device"}`); r["result"] != "Xiaomi 17" {
+		t.Fatalf("a 的设备 %v", r)
+	}
+	if r := b.call(`{"id":3,"method":"conv.device"}`); r["result"] != "" {
+		t.Fatalf("没报过的 b：%v", r)
+	}
+	b.call(`{"id":4,"method":"core.client","device":"` + strings.Repeat("长", deviceMax+5) + `"}`)
+	if r := b.call(`{"id":5,"method":"conv.device"}`); r["result"] != strings.Repeat("长", deviceMax) {
+		t.Fatalf("太长的设备名 %v", r)
+	}
+	if r := a.call(`{"id":6,"method":"core.client","device":3}`); r["ok"] != false {
+		t.Fatalf("设备名不是字符串也收了：%v", r)
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.clients) != 2 {
+		t.Fatalf("处理器只该收到 conv.device：%d 个客户端", len(h.clients))
 	}
 }
 

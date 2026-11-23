@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -18,8 +20,9 @@ import (
 func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), hello func(hostlink.Hello), problem func(why string)) ChatLink {
 	shell := hostlink.NewShell(d.Links, h, LinuxName)
 	return hostlink.StartServe(hostlink.ServeOptions{
-		Open:  func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
-		Hello: hello,
+		Open:   func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
+		Device: ThisDevice(),
+		Hello:  hello,
 		Message: func(kind string, line []byte) {
 			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" {
 				push(line)
@@ -28,6 +31,13 @@ func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), hello func(ho
 		Problem: problem,
 	})
 }
+
+// ThisDevice 是这台电脑的名字（Windows 的计算机名，os.Hostname），对话连接连上时报给核心（core.client）：
+// 别的包看到这里在用的对话被占着时说「在哪台设备的 Zeta 里」。查不到时为空，不报。
+var ThisDevice = sync.OnceValue(func() string {
+	name, _ := os.Hostname()
+	return name
+})
 
 // OpenBulk 另起一条到设备 h 上 serve 的连接，只取大块数据（sessions.image、sessions.export）：应答是一整行，几 MB 的
 // 和对话的推送挤在 OpenChat 那条上时，流式输出要排在它后面。两条是同一个 SSH 连接上的两个通道，各走各的。不收推送。

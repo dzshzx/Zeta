@@ -94,10 +94,12 @@ type Conversation struct {
 	fork       *forkState     // 还没发过消息的分支要做的剪切，见 fork.go
 	rewind     *pendingRewind // 在等 Claude Code 剪会话或还原代码；这期间不收新消息，见 rewind.go
 
-	options  map[int]Options // 各客户端给的设置
-	starter  int             // 起进程用谁的设置：最近一个发消息（或要起进程）的客户端
-	holders  map[int]string  // 拿着这个对话的客户端 → 它给这个对话起的名字（推送里的 conv）
-	idleFrom time.Time       // 没人拿着、又闲着的起点；不是这样时为零
+	options  map[int]Options              // 各客户端给的设置
+	starter  int                          // 起进程用谁的设置：最近一个发消息（或要起进程）的客户端
+	device   string                       // starter 报的设备名（Deps.ClientDevice），没报时为空；记到托管进程上见 device.go
+	keptDev  struct{ key, device string } // 上次记到托管进程上的：哪个进程（托管标识）、什么设备名
+	holders  map[int]string               // 拿着这个对话的客户端 → 它给这个对话起的名字（推送里的 conv）
+	idleFrom time.Time                    // 没人拿着、又闲着的起点；不是这样时为零
 
 	turnEnd         int64    // 最后一轮结束的时刻（Unix 毫秒）
 	reported        Activity // 上次报给对话表的忙闲（conv.activity）
@@ -220,6 +222,7 @@ func (c *Conversation) flush() {
 	}
 	c.dirty = false
 	c.keepUserMode()
+	c.keepDevice()
 	c.markRounds()
 	if fields := c.stateDelta(); len(fields) > 0 {
 		fields["type"] = raw("conv.state")

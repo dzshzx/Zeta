@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
@@ -291,7 +293,7 @@ func (a *App) sessionDialogs(c *ui.Context) {
 		if len(e.list) == 1 {
 			title = "结束这个对话？"
 		}
-		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list),
+		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, a.occupantOf(e.list[0])),
 			widget.Action{Label: "取消"}, widget.Action{Label: "结束", Style: widget.Destructive}) == 1 {
 			h.End(e.list, a.failed("结束没成功"))
 		}
@@ -326,15 +328,28 @@ func (a *App) needsEndConfirm(s hostlink.Session) bool {
 }
 
 // endConfirmSummary 是结束确认框的说明（同手机版 endConfirmSummary）：在别处运行的连那边的进程一起停掉。
-func endConfirmSummary(list []hostlink.Session) string {
+// o 是那边的样子（结束的正是开着的这个对话、核心查到了占着它的进程时），不知道时为 nil，只说「别处」。
+func endConfirmSummary(list []hostlink.Session, o *sessionproto.Occupancy) string {
 	what := "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。"
 	switch {
 	case len(list) > 1:
 		what = "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。"
 	case list[0].External:
-		what = "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。"
+		place := "别处"
+		if o != nil {
+			place = cmp.Or(occupantPlace(o.App, o.Device), place)
+		}
+		what = spaced("它正在", place, "运行，结束会停掉那边的进程，那边在做的也一并停掉。")
 	}
 	return what + "对话内容保留，可以从历史对话里接着聊。"
+}
+
+// occupantOf 是占着会话 s 的进程的样子：只有 s 就是开着的对话、核心查到了占着它的进程时才知道，别的为 nil。
+func (a *App) occupantOf(s hostlink.Session) *sessionproto.Occupancy {
+	if p := a.pane; p != nil && p.state.Blocked && p.state.Session == s.ID {
+		return p.state.Occupant
+	}
+	return nil
 }
 
 // deleteName 是删除确认框里这个对话的名字：标题或首句，最多 60 字。

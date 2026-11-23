@@ -139,3 +139,41 @@ func TestReplyCodeOfOtherErrors(t *testing.T) {
 		}
 	}
 }
+
+// 给了 Device 时每次连上先发 core.client 报设备名，排在别的请求前面；应答 ok 时不报问题。
+func TestServeReportsTheDeviceFirst(t *testing.T) {
+	b := newBox(t)
+	// first 是连上后收到的第一行；whoami 把它原样答回
+	const fake = `echo '{"type":"zeta_hello","protocol":1,"build":7,"version":"0.7.2","hostname":"box"}'
+first=
+while IFS= read -r l; do
+  id=$(printf '%s' "$l" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  [ -z "$first" ] && first=$l
+  case "$l" in
+    *'"method":"whoami"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true,\"result\":$first}" ;;
+    *) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true}" ;;
+  esac
+done`
+	ev := newEvents()
+	s := StartServe(ServeOptions{
+		Open:          func() (*sshlink.Process, error) { return b.shell.StartPlain(fake) },
+		Subscriptions: []string{"sessions.watch"},
+		Device:        "DESKTOP-7",
+		Message:       func(string, []byte) {},
+		Problem:       ev.problem,
+	})
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	got, err := s.Call(ctx, "whoami", nil)
+	if err != nil || !strings.Contains(string(got), `"method":"core.client"`) || !strings.Contains(string(got), `"device":"DESKTOP-7"`) {
+		t.Fatalf("第一行：%s, %v", got, err)
+	}
+	ev.mu.Lock()
+	defer ev.mu.Unlock()
+	for _, p := range ev.problems {
+		if p != "" {
+			t.Errorf("报了问题：%q", p)
+		}
+	}
+}

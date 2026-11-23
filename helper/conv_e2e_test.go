@@ -29,6 +29,7 @@ func TestConversationThroughCore(t *testing.T) {
 
 	c := startServe(t, e, testIdle)
 	view := &convView{}
+	c.send(`{"id":0,"method":"core.client","device":"Xiaomi 17"}`)
 	c.send(`{"id":1,"method":"conv.open","conv":"a","cwd":` + quote(e.home) + `,"options":{"auto_title":true}}`)
 	view.until(t, c, func(m obj) bool { return m["type"] == "zeta_reply" && m["ok"] == true })
 	c.send(`{"id":2,"method":"conv.send","conv":"a","text":"你好，介绍一下自己"}`)
@@ -44,6 +45,11 @@ func TestConversationThroughCore(t *testing.T) {
 	}
 	if view.state["busy"] != false || view.state["process"] != true || view.state["session"] == "" {
 		t.Fatalf("状态：busy %v process %v session %v", view.state["busy"], view.state["process"], view.state["session"])
+	}
+	// 发消息的客户端报的设备名记在托管目录里，另一个包查别处占用时说得出在哪台设备上
+	key, _ := view.state["host_key"].(string)
+	if got := readText(filepath.Join(e.hosts, key, hostClientFile)); key == "" || got != "Xiaomi 17" {
+		t.Fatalf("托管目录 %q 里记的设备：%q", key, got)
 	}
 
 	// 改名：核心照 zeta-helper rename 往会话记录里追加 custom-title，推新标题（假 Claude 不写会话记录，这里先摆一份）

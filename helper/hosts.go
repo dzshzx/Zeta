@@ -73,10 +73,15 @@ const userModeFile = "user_mode"
 // keepHostMode 把用户的权限模式 mode 记进托管进程 key 的托管目录：核心重启后接回时照它恢复（conv.Hosted.UserMode）。
 // 托管目录已经没了时什么也不写，不另建目录。
 func (e *env) keepHostMode(key, mode string) error {
+	return e.writeHostFile(key, userModeFile, mode)
+}
+
+// writeHostFile 把一行 text 写成本包托管进程 key 的托管目录里的文件 name。托管目录已经没了时出错，不另建目录。
+func (e *env) writeHostFile(key, name, text string) error {
 	if key == "" || strings.HasPrefix(key, ".") || strings.Contains(key, "/") {
 		return errors.New("托管标识不对：" + key)
 	}
-	return os.WriteFile(joinPath(joinPath(e.hosts, key), userModeFile), []byte(mode+"\n"), 0o644)
+	return os.WriteFile(joinPath(joinPath(e.hosts, key), name), []byte(text+"\n"), 0o644)
 }
 
 // liveAttachers 是托管目录 dir 里还接着的一方（zeta_host.sh 的 attach 之后那段）的进程号，规矩同 zeta_host.sh 的 attachers：

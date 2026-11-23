@@ -28,6 +28,9 @@ type ServeOptions struct {
 	Open func() (*sshlink.Process, error)
 	// Subscriptions 是连上、收到招呼后各发一次的方法（重连后也再发一遍，所以先收到的总是整份）。
 	Subscriptions []string
+	// Device 是这个客户端是哪台设备（Windows 的计算机名）：不空时每次连上都先发 core.client 报给核心，核心记下最近是哪台在用哪个对话，
+	// 别的包看到这个对话被占着时说得出在哪台设备上（docs/core.md「协议」）。核心不比这边的 serve 旧（serve 让旧核心交班），总认得它。
+	Device string
 	// Hello 每次连上（收到对得上协议的 zeta_hello）时调，在读的 goroutine 上、Problem 报连上之前；可以是 nil。
 	Hello func(Hello)
 	// Message 收到推来的每一行（type 不是 zeta_reply 的），在读的 goroutine 上调用。
@@ -327,6 +330,10 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			s.opts.Message(head.Type, line)
 		case head.Type == "zeta_hello" && head.Protocol == Protocol:
 			*connected = true
+			if s.opts.Device != "" {
+				// 排在能 Call 之前：这条连接上的第一条消息就记在这台设备名下
+				s.write(p, "core.client", map[string]any{"device": s.opts.Device}, nil)
+			}
 			for _, method := range s.opts.Subscriptions {
 				s.send(p, method)
 			}

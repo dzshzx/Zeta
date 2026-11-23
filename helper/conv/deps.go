@@ -45,6 +45,11 @@ type Deps struct {
 	// KeepMode 把用户在这个对话里的权限模式记到托管进程 key 上（托管目录的 user_mode），核心重启后接回时恢复；
 	// 没写成（比如托管脚本还没建好目录）时出错，下次推送时再写。可以是 nil
 	KeepMode func(key, mode string) error
+	// ClientDevice 是客户端 client 报的设备名（core.client），没报过时为空；可以是 nil
+	ClientDevice func(client int) string
+	// KeepDevice 把设备名记到托管进程 key 上（托管目录的 client），另一个包查别处占用时说「在哪」；
+	// 没写成（托管脚本还没建好目录）时出错，下次推送时再写。可以是 nil
+	KeepDevice func(key, device string) error
 	// Rename 给会话记录 file 改名（追加一行 custom-title，同 zeta-helper rename），返回实际写下的标题；可以是 nil
 	Rename func(file, title string) (string, error)
 	// SessionImage 取回会话记录 file 里位置 ref 的一张图（同 sessions.image），重新生成时原样重发用；可以是 nil，那时会话记录里的图发不了

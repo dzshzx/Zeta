@@ -46,20 +46,22 @@ func statusRank(status string) int {
 	return 3
 }
 
-// occupied 是 Zeta 之外占着会话 id 的进程，和它们里最要紧的状态（statusRank）。
-func (e *env) occupied(id string) (holders []registered, status, waiting string) {
+// occupied 是 Zeta 之外占着会话 id 的进程，和它们里状态最要紧（statusRank）的那个 top；没有时 holders 为空。
+func (e *env) occupied(id string) (holders []registered, top registered) {
 	for _, r := range e.outsideRegistrations() {
 		if r.session != id {
 			continue
 		}
-		s := orText(r.status, sessionproto.StatusUnknown)
-		if len(holders) == 0 || statusRank(s) > statusRank(status) {
-			status, waiting = s, r.waiting
+		if len(holders) == 0 || statusRank(statusOf(r)) > statusRank(statusOf(top)) {
+			top = r
 		}
 		holders = append(holders, r)
 	}
-	return holders, status, waiting
+	return holders, top
 }
+
+// statusOf 是登记的忙闲，旧版不报时是 unknown。
+func statusOf(r registered) string { return orText(r.status, sessionproto.StatusUnknown) }
 
 func orText(s, fallback string) string {
 	if s == "" {
@@ -76,13 +78,17 @@ func cmdOccupant(e *env, o *emitter, id string) error {
 
 // occupancy：Zeta 之外占着会话 id 的进程的样子（sessionproto.Occupancy）：没有时 status 是 null；有时是 idle、waiting、busy、shell，
 // 旧版不报状态时是 unknown。hands_over：现在能交给 Zeta（sessionproto.HandsOver）。核心的 conv.occupant 也用它。
+// app、device 是那个进程是什么应用、用户在哪台设备上用它（appOf、e.deviceOf）。
 func (e *env) occupancy(id string) sessionproto.Occupancy {
-	holders, status, waiting := e.occupied(id)
+	holders, top := e.occupied(id)
 	if len(holders) == 0 {
 		return sessionproto.Occupancy{HandsOver: true}
 	}
-	result := sessionproto.Occupancy{Status: &status, HandsOver: sessionproto.HandsOver(status)}
-	if status == sessionproto.StatusWaiting && waiting != "" {
+	status := statusOf(top)
+	result := sessionproto.Occupancy{Status: &status, HandsOver: sessionproto.HandsOver(status),
+		App: appOf(top), Device: e.deviceOf(top)}
+	if status == sessionproto.StatusWaiting && top.waiting != "" {
+		waiting := top.waiting
 		result.WaitingFor = &waiting
 	}
 	return result
@@ -97,8 +103,8 @@ func cmdHandoff(e *env, o *emitter, id string) error {
 // handOff 把会话 id 从别处接过来（sessionproto.Handoff）：没人占着也算交出来了；那边正忙时 handed 为假、status 是它的状态；
 // 发了 SIGINT 过了 handoffGrace 还不退的 status 是 stuck（不再升级成 SIGKILL：要强行停掉走 end）。核心的 conv.handoff 也用它。
 func (e *env) handOff(id string) sessionproto.Handoff {
-	holders, status, _ := e.occupied(id)
-	if len(holders) > 0 && !sessionproto.HandsOver(status) {
+	holders, top := e.occupied(id)
+	if status := statusOf(top); len(holders) > 0 && !sessionproto.HandsOver(status) {
 		return sessionproto.Handoff{Status: &status}
 	}
 	// 终端里的发 SIGINT；另一个包托管的进程照 Zeta 自己的规矩结束（end_session），两边一起等

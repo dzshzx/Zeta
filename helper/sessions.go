@@ -492,6 +492,9 @@ type registered struct {
 	status  string // Claude Code 报的忙闲：idle、busy（正在跑一轮）、shell（在跑 ! 命令）、waiting（在等确认）；旧版没有，是空串
 	waiting string // status 是 waiting 时在等什么（waitingFor），没有是空串
 	host    string // 托管它的 Zeta 托管目录（hostDirOf），不是 Zeta 托管的是空串
+	// entrypoint 是 Claude Code 登记的入口：终端界面是 cli，被程序经 stream-json 托管的是 sdk-cli（Zeta 托管的就是），
+	// 还有 claude-vscode、claude-desktop、sdk-ts 等（2.1.330）；旧版没有，是空串
+	entrypoint string
 }
 
 // hostMark 是 zeta_host.sh 给它起的 Claude Code 设的环境变量，值是 <包的目录名>/<托管目录名>（比如 zeta-dev/abc），
@@ -591,7 +594,8 @@ func (e *env) registrations(withHost bool) []registered {
 			host, _ = e.hostDirOf(pid, info["sessionId"])
 		}
 		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
-			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host})
+			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host,
+			entrypoint: asString(info["entrypoint"])})
 	}
 	return out
 }

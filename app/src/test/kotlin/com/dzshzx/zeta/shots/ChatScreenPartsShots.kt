@@ -424,11 +424,29 @@ class ChatScreenPartsShots : ShotTest() {
     /** 会话正在别处运行：输入栏换成说明卡，还没查到那边闲不闲。 */
     @Test fun external() = external("chat-external", null)
 
-    /** 那边闲着：能接过来。 */
-    @Test fun externalIdle() = external("chat-external-idle", Occupant(Occupant.IDLE))
+    /** 另一台设备上的 Zeta 测试版闲着：能接过来。 */
+    @Test
+    fun externalIdle() =
+        external(
+            "chat-external-idle",
+            Occupant(Occupant.IDLE, app = Occupant.ZETA_DEV, device = "Xiaomi 17"),
+        )
 
-    /** 那边正在回答：等这一轮结束。 */
-    @Test fun externalBusy() = external("chat-external-busy", Occupant("busy", handsOver = false))
+    /** 别的电脑经 SSH 开的终端里正在回答：等这一轮结束。 */
+    @Test
+    fun externalBusy() =
+        external(
+            "chat-external-busy",
+            Occupant("busy", handsOver = false, app = Occupant.TERMINAL, device = "work-pc"),
+        )
+
+    /** 本机终端里在等确认：能接过来，那个确认作废。 */
+    @Test
+    fun externalWaiting() =
+        external(
+            "chat-external-waiting",
+            Occupant(Occupant.WAITING, "Bash: rm -rf build", app = Occupant.TERMINAL),
+        )
 
     private fun external(name: String, occupant: Occupant?) {
         val hub = chatHub()

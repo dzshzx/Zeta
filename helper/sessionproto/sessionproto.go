@@ -73,7 +73,20 @@ type Occupancy struct {
 	WaitingFor *string `json:"waiting_for"`
 	// HandsOver：现在能交给 Zeta（见 HandsOver）
 	HandsOver bool `json:"hands_over"`
+	// App：占着会话的是什么应用（几个占着时取 Status 那个）：AppTerminal、AppZeta、AppZetaDev（Zeta 托管的给托管它的包名），
+	// 别的给 Claude Code 登记的 entrypoint 原样（比如 claude-vscode、claude-desktop、sdk-ts）；登记里没有时省掉
+	App string `json:"app,omitempty"`
+	// Device：用户在哪台设备上用它：终端里的是经 SSH 连进来的那台（tailscale 里的机器名，对不上时是 IP），
+	// 本机终端里开的省掉；Zeta 托管的是最近一次在这个对话里发消息的客户端报的设备名（core.client），不知道时省掉
+	Device string `json:"device,omitempty"`
 }
+
+// Occupancy.App 的取值里 Zeta 自己认的几个。
+const (
+	AppTerminal = "terminal" // 终端里的 Claude Code（登记的 entrypoint 是 cli）
+	AppZeta     = "zeta"     // Zeta 正式版（和桌面版同一个包）托管的
+	AppZetaDev  = "zeta-dev" // Zeta 测试版托管的
+)
 
 // Handoff 是把会话从别处接过来的结果：conv.handoff、sessions.handoff 的 result。
 type Handoff struct {

@@ -360,3 +360,42 @@ func TestAdoptRestoresUserModeAndAgentLabel(t *testing.T) {
 		t.Fatalf("接回时又写了一遍：%v", kept)
 	}
 }
+
+// 最近发消息的客户端报的设备名记在托管进程上：变了才写，没写成的下次推送再写；换一个客户端发消息就换成它的，没报过的记成空。
+func TestKeepDeviceOfTheLastSender(t *testing.T) {
+	h := newHarness(t)
+	var mu sync.Mutex
+	var kept []string
+	missing := true
+	h.m.deps.ClientDevice = func(client int) string { return map[int]string{1: "Xiaomi 17", 2: "DESKTOP-7"}[client] }
+	h.m.deps.KeepDevice = func(key, device string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if missing {
+			return fs.ErrNotExist
+		}
+		kept = append(kept, key+"="+device)
+		return nil
+	}
+	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
+	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "一"})
+	c, l := h.conv(1, "a"), h.link(0)
+	h.settle(c)
+	mu.Lock()
+	missing = false
+	mu.Unlock()
+	h.feed(c, l, initLine("s1"), resultOK)
+	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "二"})
+	h.feed(c, l, initLine("s1"), resultOK)
+	h.call(2, "conv.open", map[string]any{"conv": "b", "session": "s1", "cwd": "/w"})
+	h.call(2, "conv.send", map[string]any{"conv": "b", "text": "三"})
+	h.feed(c, l, initLine("s1"), resultOK)
+	h.call(3, "conv.open", map[string]any{"conv": "c", "session": "s1", "cwd": "/w"})
+	h.call(3, "conv.send", map[string]any{"conv": "c", "text": "四"})
+	h.settle(c)
+	mu.Lock()
+	defer mu.Unlock()
+	if want := []string{l.key + "=Xiaomi 17", l.key + "=DESKTOP-7", l.key + "="}; !reflect.DeepEqual(kept, want) {
+		t.Fatalf("记下的：%v", kept)
+	}
+}

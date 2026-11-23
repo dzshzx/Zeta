@@ -21,6 +21,13 @@ data class Occupant(
     val status: String,
     val waitingFor: String? = null,
     val handsOver: Boolean = true,
+    /**
+     * 是什么应用：[TERMINAL]（终端里的 Claude Code）、[ZETA]、[ZETA_DEV]（Zeta 正式版、测试版托管的），别的是 Claude Code 登记的
+     * entrypoint 原样（比如 claude-vscode）；核心没给时为 null。
+     */
+    val app: String? = null,
+    /** 用户在哪台设备上用它：终端里的是经 SSH 连进来的那台，Zeta 的是最近在那个对话里发消息的设备；本机终端、不知道时为 null。 */
+    val device: String? = null,
 ) {
     companion object {
         const val IDLE = "idle"
@@ -28,14 +35,26 @@ data class Occupant(
         const val UNKNOWN = "unknown"
         const val SHELL = "shell"
 
+        const val TERMINAL = "terminal"
+        const val ZETA = "zeta"
+        const val ZETA_DEV = "zeta-dev"
+
         /**
-         * conv.state 里的 occupant（`{status, waiting_for, hands_over}`）：`status` 为 null 是没人占着；没有
-         * `status` 的当作还占着、看不出忙闲。
+         * conv.state 里的 occupant（`{status, waiting_for, hands_over, app, device}`，后两项可省）：`status` 为
+         * null 是没人占着；没有 `status` 的当作还占着、看不出忙闲。
          */
         fun of(o: JsonObject): Occupant? {
             if (o["status"] is JsonNull) return null
-            val status = o.str("status") ?: return Occupant(UNKNOWN)
-            return Occupant(status, o.str("waiting_for"), handsOver = o.bool("hands_over") != false)
+            val app = o.str("app")?.ifEmpty { null }
+            val device = o.str("device")?.ifEmpty { null }
+            val status = o.str("status") ?: return Occupant(UNKNOWN, app = app, device = device)
+            return Occupant(
+                status,
+                o.str("waiting_for"),
+                handsOver = o.bool("hands_over") != false,
+                app = app,
+                device = device,
+            )
         }
     }
 }

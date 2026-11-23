@@ -3,7 +3,9 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
+import com.dzshzx.zeta.ui.chat.endConfirmSummary
 import com.dzshzx.zeta.ui.chat.externalNoticeText
+import com.dzshzx.zeta.ui.chat.occupantPlace
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -42,6 +44,50 @@ class SessionHandoffTest {
         )
         // 没有 status 的当作还占着、看不出忙闲
         assertEquals(Occupant(Occupant.UNKNOWN), occupant("""{"hands_over":true}"""))
+        // 是什么应用、在哪台设备上：可省，空串当没给
+        assertEquals(
+            Occupant("idle", app = "zeta-dev", device = "Xiaomi 17"),
+            occupant(
+                """{"status":"idle","waiting_for":null,"hands_over":true,"app":"zeta-dev","device":"Xiaomi 17"}""",
+            ),
+        )
+        assertEquals(
+            Occupant("idle", app = "terminal"),
+            occupant("""{"status":"idle","hands_over":true,"app":"terminal","device":""}"""),
+        )
+    }
+
+    /** 用例同桌面版 handoff_test.go 的 TestOccupantPlace。 */
+    @Test
+    fun occupantPlaceCases() {
+        listOf(
+                Triple("terminal", null, "本机终端里"),
+                Triple("terminal", "work-pc", "work-pc 的终端里"),
+                Triple("terminal", "100.64.0.9", "100.64.0.9 的终端里"),
+                Triple("zeta", null, "Zeta 里"),
+                Triple("zeta", "DESKTOP-7", "DESKTOP-7 的 Zeta 里"),
+                Triple("zeta-dev", "Xiaomi 17", "Xiaomi 17 的 Zeta 测试版里"),
+                Triple("claude-vscode", null, "VS Code 里"),
+                Triple("claude-vscode", "work-pc", "work-pc 的 VS Code 里"),
+                Triple("claude-vscode", "小米 17", "小米 17 的 VS Code 里"),
+                Triple("claude-desktop", null, "Claude 桌面版里"),
+                Triple("sdk-ts", "work-pc", null),
+                Triple(null, null, null),
+            )
+            .forEach { (app, device, want) ->
+                assertEquals("$app $device", want, occupantPlace(app, device))
+            }
+    }
+
+    @Test
+    fun endConfirmSaysWhere() {
+        assertTrue(
+            endConfirmSummary(true, Occupant("idle", app = "terminal", device = "work-pc"))
+                .startsWith("它正在 work-pc 的终端里运行，结束会停掉那边的进程"),
+        )
+        assertTrue(endConfirmSummary(true, null).startsWith("它正在别处运行，"))
+        assertTrue(endConfirmSummary(true, Occupant("idle", app = "sdk-py")).startsWith("它正在别处运行，"))
+        assertTrue(endConfirmSummary(false, null).startsWith("它还在进行"))
     }
 
     @Test
@@ -111,13 +157,41 @@ class SessionHandoffTest {
 
     @Test
     fun noticeText() {
-        // 还没查到：不能点
-        assertFalse(externalNoticeText(null, handing = false, problem = null).enabled)
+        // 还没查到：不能点，标题只说在别处
+        externalNoticeText(null, handing = false, problem = null).let {
+            assertFalse(it.enabled)
+            assertEquals("会话正在别处运行", it.title)
+            assertEquals("正在查询那边的状态。", it.summary)
+        }
         externalNoticeText(Occupant(Occupant.IDLE), handing = false, problem = null).let {
             assertTrue(it.enabled)
             assertEquals("接管会话", it.button)
-            assertTrue(it.summary.contains("/exit"))
+            assertEquals("会话正在别处运行", it.title)
+            assertEquals("当前空闲。接管后那边会退出，会话转到 Zeta 继续。", it.summary)
         }
+        // 标题说在哪，正文只说状态；Zeta 托管的那边是结束它的对话
+        externalNoticeText(
+                Occupant(Occupant.IDLE, app = "zeta-dev", device = "Xiaomi 17"),
+                handing = false,
+                problem = null,
+            )
+            .let {
+                assertEquals("会话正在 Xiaomi 17 的 Zeta 测试版里运行", it.title)
+                assertEquals("当前空闲。接管后那边的对话会结束，会话转到这里继续。", it.summary)
+            }
+        externalNoticeText(
+                Occupant("busy", handsOver = false, app = "terminal", device = "work-pc"),
+                handing = false,
+                problem = null,
+            )
+            .let {
+                assertEquals("会话正在 work-pc 的终端里运行", it.title)
+                assertEquals("正在回答，本轮结束后可以接管。", it.summary)
+            }
+        assertEquals(
+            "会话正在本机终端里运行",
+            externalNoticeText(Occupant(Occupant.IDLE, app = "terminal"), false, null).title,
+        )
         externalNoticeText(
                 Occupant(Occupant.WAITING, "approve Bash"),
                 handing = false,
@@ -125,7 +199,10 @@ class SessionHandoffTest {
             )
             .let {
                 assertTrue(it.enabled)
-                assertTrue(it.summary.contains("approve Bash") && it.summary.contains("作废"))
+                assertEquals(
+                    "正在等待确认：approve Bash。接管后这个确认作废，要让 Claude 重做这一步。",
+                    it.summary,
+                )
             }
         externalNoticeText(Occupant("busy", handsOver = false), handing = false, problem = null)
             .let {

@@ -45,6 +45,9 @@
 #              接着的一方报 zeta_exit 时带上最后一段，进程没起来时打出来。
 #   user_mode  用户在这个对话里的权限模式（进程现在的模式可能是定时任务等后台运行的），Go 核心（helper/conv 的 keepUserMode）
 #              变了就写，目录已经没了时不写；zeta-helper hosts 读，核心重启后接回进程时照它恢复。本脚本不读不写。
+#   client     最近一次在这个对话里发消息（或要起进程）的客户端是哪台设备（一行设备名，客户端连上核心时用 core.client 报的），
+#              Go 核心（helper/conv 的 keepDevice）变了就写，目录已经没了时不写；另一个包的 zeta-helper 查别处占用时读
+#              （occupantwhere.go 的 deviceOf），「别处运行」卡片说「在哪台设备的 Zeta 里」。本脚本不读不写。
 #
 # 托管目录旁边的 hosts/.lock：start 找现成的进程和起新进程之间持着它（flock），几个客户端同时 start 同一个会话时只起一个。
 # 谁都不删它；zeta-helper 列托管目录时跳过点开头的名字。

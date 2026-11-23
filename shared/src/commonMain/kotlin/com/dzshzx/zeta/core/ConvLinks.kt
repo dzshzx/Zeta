@@ -154,6 +154,7 @@ class ConvLinks(private val hub: ConversationHub) {
                 onMessage = onMessage,
                 onProblem = onProblem,
                 onHello = hub.helloFrom(backend),
+                device = hub.platform.deviceName,
             )
         return object : ConvConnection, ServeRequests by serve {
             override fun close() = serve.close()

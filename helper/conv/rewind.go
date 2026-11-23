@@ -64,7 +64,7 @@ func (c *Conversation) rewrite(client int, target string, m Message) error {
 	if err != nil {
 		return err
 	}
-	c.starter = client
+	c.startedBy(client)
 	p := c.authorize("", nil)
 	if p == nil {
 		return nil
@@ -92,7 +92,7 @@ func (c *Conversation) drop(client int, target string) error {
 	if err != nil {
 		return err
 	}
-	c.starter = client
+	c.startedBy(client)
 	p := c.ensureProcess(c.modes.forUser())
 	if p == nil {
 		return nil
@@ -119,7 +119,7 @@ func (c *Conversation) codeChanges(client int, target string) <-chan answer {
 		out <- answer{}
 		return out
 	}
-	c.starter = client
+	c.startedBy(client)
 	p := c.ensureProcess(c.modes.forUser())
 	if p == nil {
 		out <- answer{}
@@ -143,7 +143,7 @@ func (c *Conversation) restoreCode(client int, target string, drop bool, m Messa
 	if err != nil {
 		return err
 	}
-	c.starter = client
+	c.startedBy(client)
 	p := c.ensureProcess(c.modes.forUser())
 	if p == nil {
 		c.recall(m)

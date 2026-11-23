@@ -56,6 +56,8 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 			}
 			return err
 		},
+		ClientDevice: h.device,
+		KeepDevice:   e.keepHostClient,
 		Rename:       renameSession,
 		SessionImage: func(file, ref string) (conv.Image, error) { return convImage(e, file, ref) },
 		Commands:     conv.NewCommandStore(commandsFile(e)),
@@ -133,6 +135,17 @@ func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {
 		return core.Later, nil
 	}
 	return v, err
+}
+
+// device 是客户端 client 报的设备名（core.client）；连接已经走了或没报过时为空。
+func (h *conversations) device(client int) string {
+	h.mu.Lock()
+	c := h.clients[client]
+	h.mu.Unlock()
+	if c == nil {
+		return ""
+	}
+	return c.Device()
 }
 
 func (h *conversations) Gone(c *core.Client) {

@@ -51,7 +51,7 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 		c.end()
 		return nil
 	}
-	c.starter = client
+	c.startedBy(client)
 	// ! 开头的一行：和终端版一样由 Claude Code 在会话的目录里直接执行，命令和输出记进会话，不让模型回答
 	if m.Mode == "" && len(m.Images) == 0 && len(m.Files) == 0 && len(text) > 1 && text[0] == '!' {
 		c.runShell(strings.TrimSpace(text[1:]), m.Text)
@@ -336,7 +336,7 @@ func (c *Conversation) compact(client int) error {
 	case c.busy || len(c.r.Items) == 0:
 		return nil
 	}
-	c.starter = client
+	c.startedBy(client)
 	p := c.ensureProcess(c.modes.forUser())
 	if p == nil {
 		return nil
@@ -356,7 +356,7 @@ func (c *Conversation) prepare(client int) {
 	if c.proc != nil || c.blocked || c.loadingHistory || c.rewind != nil {
 		return
 	}
-	c.starter = client
+	c.startedBy(client)
 	c.ensureProcess(c.modes.forUser())
 }
 

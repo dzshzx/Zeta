@@ -107,8 +107,9 @@ func stub(t *testing.T, body, dir string, env ...string) (int, <-chan struct{}) 
 		t.Fatal(err)
 	}
 	cmd := exec.Command(script, dir)
+	// 跑测试的环境自己的 ZETA_HOST、SSH_CONNECTION 不传给假进程：要的由 env 给
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, hostMark+"=") {
+		if !strings.HasPrefix(kv, hostMark+"=") && !strings.HasPrefix(kv, "SSH_CONNECTION=") {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}

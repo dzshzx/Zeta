@@ -314,7 +314,7 @@ func TestEndConversation(t *testing.T) {
 	}})
 	f.tt.Frame()
 	f.menu(t, "终端里开着的", "结束对话")
-	f.see(t, "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "它正在别处运行，结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。")
 	f.clickNamed(t, "结束", 0)
 	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end_elsewhere {"session":"s4"}`) {

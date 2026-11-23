@@ -31,10 +31,11 @@ fun interface ServeRequests {
 /**
  * 到一台主机上 `zeta-helper serve` 的常驻连接（协议见 `helper/serve.go`）：一条连接收那边推来的消息，不为每个操作各起一次命令。
  *
- * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后交给 [onHello]（每次连上都给，在读线程上调用），把 [subscriptions]
- * 里的方法各发一次，之后每行推来的消息交给 [onMessage] （在读线程上调用）。连上过以后断了（网络、那边的进程没了）按 [backoff] 隔一会儿重连，重连后照样再订阅一遍， 所以
- * [onMessage] 先收到的总是整份的；第一次就没连上的不重试，报了原因就停。每次连上或断开都经 [onProblem] 报一声：连上是 null， 断开、连不上是给人看的原因。 每
- * [pingMs] 发一次 ping，那边 90 秒收不到任何一行就自己退出（网络断了而 SSH 还没发觉时，不在主机上留下没人用的进程）。 [close] 以后不再重连、不再回调。
+ * 构造后就在自己的线程上连：[open] 起 serve 进程，收到招呼后交给 [onHello]（每次连上都给，在读线程上调用），给了 [device] 时先报设备名，把
+ * [subscriptions] 里的方法各发一次，之后每行推来的消息交给 [onMessage] （在读线程上调用）。连上过以后断了（网络、那边的进程没了）按 [backoff]
+ * 隔一会儿重连，重连后照样再订阅一遍， 所以 [onMessage] 先收到的总是整份的；第一次就没连上的不重试，报了原因就停。每次连上或断开都经 [onProblem] 报一声：连上是
+ * null， 断开、连不上是给人看的原因。 每 [pingMs] 发一次 ping，那边 90 秒收不到任何一行就自己退出（网络断了而 SSH 还没发觉时，不在主机上留下没人用的进程）。
+ * [close] 以后不再重连、不再回调。
  *
  * 要应答的请求用 [call]，在别的线程上等；订阅的应答和 ping 的不交给它，订阅被拒时经 [onProblem] 报。
  */
@@ -45,6 +46,11 @@ class HelperServe(
     private val onMessage: (JsonObject) -> Unit,
     private val onProblem: (String?) -> Unit,
     private val onHello: (JsonObject) -> Unit = {},
+    /**
+     * 这个客户端是哪台设备（手机是系统设置里的设备名）：不为 null 时每次连上都先发 core.client 报给核心，排在订阅和别的请求前面。核心记下最近是哪台在用哪个对话，
+     * 别的包看到这个对话被占着时说得出在哪台设备上（docs/core.md「协议」）。核心不比这边的 serve 旧（serve 让旧核心交班），总认得它。
+     */
+    private val device: String? = null,
     private val backoff: (attempt: Int) -> Long = ::reconnectDelay,
     private val pingMs: Long = PING_MS,
 ) : ServeRequests {
@@ -217,6 +223,9 @@ class HelperServe(
 
     /** 收到招呼：订阅、开始 ping，之后这个进程能接 [call] 的请求。 */
     private fun greet(process: Process) {
+        device?.let {
+            send(process, "core.client", JsonObject(mapOf("device" to JsonPrimitive(it))))
+        }
         subscriptions.forEach { send(process, it) }
         startPings(process)
         synchronized(lock) {
@@ -240,9 +249,13 @@ class HelperServe(
         }
     }
 
-    private fun send(process: Process, method: String) {
+    private fun send(
+        process: Process,
+        method: String,
+        params: JsonObject = JsonObject(emptyMap()),
+    ) {
         val id = synchronized(lock) { ++nextId }
-        write(process, request(id, method, JsonObject(emptyMap())))
+        write(process, request(id, method, params))
     }
 
     /** 整行写给 [process]；写不出去（连接断了）时返回 false。 */
