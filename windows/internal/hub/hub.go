@@ -150,7 +150,7 @@ func (h *Hub) ListOnly(id string) {
 	h.Refresh()
 }
 
-// ListAll 让侧栏列全部设备的会话（新对话仍开在 Backend 那台）。
+// ListAll 让侧栏列全部设备的会话（新对话仍开在 Backend 那台，换台见 NewChatOn）。
 func (h *Hub) ListAll() {
 	if len(h.hosts) == 0 {
 		return

@@ -132,7 +132,7 @@ func TestMultiSelect(t *testing.T) {
 	if err := f.tt.RightClick("看看日志"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := f.tt.Menu(), []string{"归档 3 个对话", "导出 3 个对话", "结束 2 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
+	if got, want := f.tt.Menu(), []string{"全选", "-", "归档 3 个对话", "导出 3 个对话", "结束 2 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("菜单 %q", got)
 	}
 	// 删除：这边不筛，都交给核心；它说正在进行的（等确认的 s1）没删，说一声，其余照删
@@ -188,6 +188,67 @@ func (f *chatFixture) ctrlClick(t *testing.T, row string) {
 	f.tt.Frame()
 }
 
+// 全选（照资源管理器的 Ctrl+A）：焦点在侧栏列表上时选上眼前列着的全部；焦点在输入框里时 Ctrl+A 归输入框。多选时右键菜单最上面
+// 是「全选」，都选上了灰着。搜索时只选搜索结果，换掉搜索前选的。
+func TestSelectAll(t *testing.T) {
+	f := newOpsFixture(t)
+	f.newChat(t)
+	f.click(t, "消息")
+	f.tt.Type("还没想好")
+	f.tt.Key(ui.Cmd, ui.KeyA)
+	f.tt.Frame()
+	if len(f.app.ops.selected) != 0 {
+		t.Fatalf("在输入框里按 Ctrl+A 选了会话：%v", f.app.ops.selected)
+	}
+
+	f.ctrlClick(t, "看看日志")
+	if err := f.tt.RightClick("看看日志"); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.tt.Menu(); len(got) < 2 || got[0] != "全选" || got[1] != "-" {
+		t.Errorf("只选了一个时的菜单 %q", got)
+	}
+	if err := f.tt.ChooseMenuItem("全选"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	if n := len(f.app.chosen()); n != 3 {
+		t.Fatalf("菜单里全选以后选中 %d 个", n)
+	}
+	if err := f.tt.RightClick("看看日志"); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := f.tt.Menu(), []string{"全选", "-", "归档 3 个对话", "导出 3 个对话", "结束 2 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("全选以后的菜单 %q", got)
+	}
+	if err := f.tt.ChooseMenuItem("全选"); err == nil {
+		t.Error("都选上了「全选」还能点")
+	}
+	f.tt.CloseMenu()
+
+	// Ctrl+A：先 Esc 取消，Ctrl+点一行（焦点到了列表上），再 Ctrl+A
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	f.ctrlClick(t, "部署脚本")
+	f.tt.Key(ui.Cmd, ui.KeyA)
+	f.tt.Frame()
+	if n := len(f.app.chosen()); n != 3 {
+		t.Fatalf("Ctrl+A 以后选中 %d 个", n)
+	}
+
+	// 搜索时只选搜索结果
+	f.tt.Key(0, ui.KeyEscape)
+	f.ctrlClick(t, "修登录页")
+	f.app.query = "日志"
+	f.tt.Frame()
+	f.ctrlClick(t, "看看日志")
+	f.tt.Key(ui.Cmd, ui.KeyA)
+	f.tt.Frame()
+	if got := f.app.chosen(); len(got) != 1 || got[0].ID != "s2" {
+		t.Fatalf("搜索时 Ctrl+A 选中 %+v", got)
+	}
+}
+
 func TestExportSavesWhereTheUserChose(t *testing.T) {
 	f := newOpsFixture(t)
 	var asked []string
@@ -227,6 +288,13 @@ func TestSessionOpsPreviews(t *testing.T) {
 	}
 	scenes := map[string]func(t *testing.T, f *chatFixture){
 		"session-menu": func(t *testing.T, f *chatFixture) {
+			if err := f.tt.RightClick("看看日志"); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"session-select-all": func(t *testing.T, f *chatFixture) {
+			f.ctrlClick(t, "看看日志")
+			f.ctrlClick(t, "部署脚本")
 			if err := f.tt.RightClick("看看日志"); err != nil {
 				t.Fatal(err)
 			}

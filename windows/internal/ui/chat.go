@@ -171,6 +171,7 @@ func (a *App) disconnected(c *ui.Context, p *chatPane) {
 		ui.Text(c, offNote+"。连上后接着看。").FontSize(widget.SizeBodyM).
 			TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
 		widget.PrimaryButton(c, "连接").OnClick(func() { a.setConnected(id, true) }).Margin(12, 0, 0, 0)
+		a.newChatHost(c, p) // 新对话：也能换到别的设备上开（emptychat.go）
 	})
 }
 
@@ -205,6 +206,7 @@ func (a *App) chatPage(c *ui.Context) {
 			case p.src.Conv == nil:
 				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
 					ui.Text(c, p.src.Problem).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
+					a.newChatHost(c, p) // 新对话：也能换到别的设备上开（emptychat.go）
 				})
 			case emptyChat(p):
 				a.emptyState(c, p) // 新对话的空白页：标题和建议（emptychat.go）

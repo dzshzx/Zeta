@@ -157,6 +157,60 @@ func TestNewChatChecksTheWorkingDirectory(t *testing.T) {
 	}
 }
 
+// 列着全部设备时换新对话开在哪台：新对话在那台上打开、工作目录是那台的默认目录，原来的关掉，侧栏照旧列全部；以后的新对话也开在那台，
+// 存进设置。只列一台时换设备，侧栏跟着换成那台。没有的设备不动。
+func TestNewChatOnAnotherDevice(t *testing.T) {
+	f := newChatFixture(t)
+	h, d := f.hub, f.devices
+	lab, err := h.AddHost("lab", "", d.Found("lab"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lab.DefaultCwd = "/srv/lab"
+	if err := h.UpdateHost(lab); err != nil {
+		t.Fatal(err)
+	}
+	h.Start()
+	h.ListAll()
+	h.NewChat()
+	if c := h.Chat(); c == nil || c.Backend != f.id {
+		t.Fatalf("新对话开在 %+v", c)
+	}
+	f.link().Took()
+
+	h.NewChatOn(lab.ID)
+	c := h.Chat()
+	if c == nil || !c.Fresh() || c.Backend != lab.ID || c.Session.Cwd != "/srv/lab" || c.Conv == nil {
+		t.Fatalf("换到 lab 的新对话：%+v", c)
+	}
+	if calls := d.Chat(lab.ID).Took(); len(calls) != 1 || calls[0].Method != "conv.open" || calls[0].Str("cwd") != "/srv/lab" {
+		t.Fatalf("lab 上的打开：%+v", calls)
+	}
+	if m := f.link().Methods(); !slices.Equal(m, []string{"conv.close"}) {
+		t.Errorf("原来那台上的新对话：%v", m)
+	}
+	if !h.AllHosts() || !slices.Equal(h.Listed(), []string{f.id, lab.ID}) || h.Settings().Backend() != lab.ID {
+		t.Errorf("侧栏列 %v（全部 %v），记下的设备 %q", h.Listed(), h.AllHosts(), h.Settings().Backend())
+	}
+	h.NewChat()
+	if c := h.Chat(); c.Backend != lab.ID {
+		t.Errorf("之后的新对话开在 %q", c.Backend)
+	}
+
+	opened := h.Chat()
+	h.NewChatOn("gone")
+	if h.Chat() != opened {
+		t.Error("没有的设备也换了")
+	}
+
+	h.ListOnly(f.id)
+	h.NewChatOn(lab.ID)
+	if h.AllHosts() || !slices.Equal(h.Listed(), []string{lab.ID}) || !slices.Equal(d.Watching(), []string{lab.ID}) ||
+		h.Chat().Backend != lab.ID {
+		t.Errorf("只列一台时：列 %v，订阅 %v，新对话在 %q", h.Listed(), d.Watching(), h.Chat().Backend)
+	}
+}
+
 // 一轮流式回答：录下的增量依次套上，和协议层的整份一样；新对话第一轮以后有了会话号，侧栏点它不会再开一个。
 func TestStreamingTurn(t *testing.T) {
 	f := newChatFixture(t)

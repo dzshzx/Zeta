@@ -16,9 +16,9 @@ import (
 )
 
 // 侧栏对会话的操作：右键菜单（或行尾的「…」）里置顶、重命名、导出、归档、结束对话（还在运行的），删除单独一组。多选照 Windows 资源管理器：
-// Ctrl+点击加选或去掉一个，Shift+点击从上次点的那个选到这个；在选中的行上右键是对这几个一起归档、导出、结束、删除，
-// Delete 删除选中的，Esc 或不带键地点一下别的行取消选择。归档的会话收在底部的入口里单独看。事情交给中枢，
-// 没成时弹框说原因。
+// Ctrl+点击加选或去掉一个，Shift+点击从上次点的那个选到这个，焦点在侧栏列表上时 Ctrl+A 全选眼前列着的（多选时右键菜单
+// 最上面也有「全选」）；在选中的行上右键是对这几个一起归档、导出、结束、删除，Delete 删除选中的，Esc 或不带键地点一下别的行
+// 取消选择。归档的会话收在底部的入口里单独看。事情交给中枢，没成时弹框说原因。
 
 // sessionOps 是侧栏这些操作的界面状态。
 type sessionOps struct {
@@ -52,6 +52,9 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	if chosen := a.chosen(); len(chosen) > 1 && a.ops.selected[hub.Key(s)] {
 		a.batchMenu(m, chosen)
 		return
+	}
+	if len(a.ops.selected) > 0 {
+		a.selectAllItem(m) // 多选着（哪怕只选了一个）时最上面是全选
 	}
 	pin := "置顶"
 	if a.hub.Pinned(s) {
@@ -201,9 +204,37 @@ func (a *App) selectRange(key string) {
 	}
 }
 
-// batchMenu 是在选中的几行上右键的菜单，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、
+// selectAll 选上侧栏眼前列着的全部会话（Ctrl+A、多选菜单的「全选」）：搜索时是搜索结果，看归档时是归档的。
+// 照资源管理器换掉原来的选择，不留眼前列表之外的（比如搜索前选的），免得批量操作碰到看不见的。
+func (a *App) selectAll() {
+	selected := map[string]bool{}
+	for _, s := range a.visible() {
+		if s.ID != "" {
+			selected[hub.Key(s)] = true
+		}
+	}
+	if len(selected) > 0 {
+		a.ops.selected = selected
+	}
+}
+
+// allSelected：眼前列着的会话都选上了。
+func (a *App) allSelected() bool {
+	return !slices.ContainsFunc(a.visible(), func(s hostlink.Session) bool { return s.ID != "" && !a.ops.selected[hub.Key(s)] })
+}
+
+// selectAllItem 是多选时右键菜单最上面的「全选」和一条分隔线；眼前列着的都选上了时灰着。
+func (a *App) selectAllItem(m *ui.Menu) {
+	if m.Item("全选").Shortcut(ui.Cmd, ui.KeyA).Disabled(a.allSelected()).Chosen() {
+		a.selectAll()
+	}
+	m.Separator()
+}
+
+// batchMenu 是在选中的几行上右键的菜单，管选中的 chosen：全选，归档或取消归档（选中的全是归档的才是取消归档）、导出、
 // 结束（其中还在运行的，有才列）、删除。
 func (a *App) batchMenu(m *ui.Menu, chosen []hostlink.Session) {
+	a.selectAllItem(m)
 	n := strconv.Itoa(len(chosen)) + " 个对话"
 	archive := slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
 	label := "归档"

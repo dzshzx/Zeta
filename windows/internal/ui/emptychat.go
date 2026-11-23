@@ -11,7 +11,8 @@ import (
 
 // 新对话的空白页（功能和文案同手机版 ChatScreen.kt 的 EmptyState，样子照 ChatGPT 客户端的新对话）：聊天区中间一行
 // 「有什么可以帮你？」，下面几张建议卡片，点一张直接把它的提问发出去，输入栏里没发的字和附件不动（归这个对话）。
-// 手机版空白页上的设备胶囊和工作目录这里不放：工作目录在顶栏第二行换（chatHeader），设备在侧栏的设备切换里换。
+// 工作目录在顶栏第二行换（chatHeader），空白页上不重复。侧栏列着全部设备时，标题下面多一个设备胶囊（newChatHost，同手机版
+// 空白页上的 HostSwitcher）：点开换这个新对话开在哪台，不改侧栏列哪些；只列一台时设备在侧栏的设备切换里换。
 
 // suggestion 是空白页上的一张建议卡片：卡片上的字、图标，点了发出去的提问（悬停时也显示它）。
 type suggestion struct {
@@ -42,7 +43,10 @@ func (a *App) emptyState(c *ui.Context, p *chatPane) {
 	k := widget.Of(c)
 	on := p.src.Conv != nil && p.src.CwdProblem == ""
 	ui.Column(c).Grow(1).Center().Gap(28).Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
-		ui.Text(c, "有什么可以帮你？").FontSize(emptyTitleSize).FontWeight(widget.Medium).TextColor(k.Text)
+		ui.Column(c).AlignItems(ui.Center).Gap(4).Children(func() {
+			ui.Text(c, "有什么可以帮你？").FontSize(emptyTitleSize).FontWeight(widget.Medium).TextColor(k.Text)
+			a.newChatHost(c, p)
+		})
 		ui.Column(c).FillWidth().MaxWidth(560).Gap(10).Children(func() {
 			for i := 0; i < len(suggestions); i += 2 {
 				ui.Row(c.Key(i)).FillWidth().Gap(10).Children(func() {
@@ -54,6 +58,34 @@ func (a *App) emptyState(c *ui.Context, p *chatPane) {
 		})
 	})
 }
+
+// newChatHost 是新对话开在哪台设备的胶囊和菜单：只在侧栏列着全部设备、有不止一台、窗格里是还没发消息的新对话时有
+// （空白页上，和这台已断开、打不开时的说明下面）。选另一台就在那台的默认工作目录重开新对话，以后的新对话也开在那台，
+// 侧栏照旧列全部（hub.NewChatOn）。
+func (a *App) newChatHost(c *ui.Context, p *chatPane) {
+	h := a.hub
+	if !h.AllHosts() || len(h.Hosts()) < 2 || !newChat(p) {
+		return
+	}
+	at := p.src.Backend
+	widget.MenuButton(c, func(t ui.Element) {
+		t.Tooltip(newChatHostTip).Label(newChatHostTip + "：" + h.Name(at))
+		widget.Pill(c, t, widget.IconServer, h.Name(at))
+	}, func(m *widget.Menu) {
+		for _, x := range h.Hosts() {
+			name := x.Name()
+			if off := offLabel(x); off != "" {
+				name += " · " + off
+			}
+			if m.Choice(name, x.ID == at) && x.ID != at {
+				h.NewChatOn(x.ID)
+			}
+		}
+	}).Margin(12, 0, 0, 0)
+}
+
+// newChatHostTip 是设备胶囊的悬停提示，读屏也读它。
+const newChatHostTip = "新对话开在哪台设备"
 
 // suggestionCard 是一张建议卡片：一圈细边的圆角块，左边图标、右边字，悬停变底色、提示整句提问，点了发出去。
 func (a *App) suggestionCard(c *ui.Context, p *chatPane, s suggestion, on bool) {

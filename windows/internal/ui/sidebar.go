@@ -16,7 +16,7 @@ const allHostsLabel = "全部设备"
 
 // sidebar 是左边的侧栏（布局照 ChatGPT 的 Windows 客户端）：灰底铺到窗口顶边，顶上一行品牌和收起侧栏的按钮同时是
 // 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成
-// 归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选时顶上一行和底下换成多选的（sessionops.go）。
+// 归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选照资源管理器，操作在右键菜单里（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
 	if a.inSettings() {
 		a.settingsNav(c)
@@ -34,7 +34,8 @@ func (a *App) sidebar(c *ui.Context) {
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
 			})
 		}
-		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).Children(func() {
+		// 焦点在会话列表上（点过、Tab 到某一行）时 Ctrl+A 全选眼前列着的；在输入框里时归输入框（sessionops.go）
+		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).OnShortcut(ui.Cmd, ui.KeyA, a.selectAll).Children(func() {
 			ui.Column(c).Padding(0, 0, 12, 0).Children(func() {
 				switch {
 				case a.hub.Searching():

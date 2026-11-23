@@ -77,8 +77,24 @@ func (h *Hub) OpenSession(s hostlink.Session) {
 		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: h.options(s.Backend)}, false)
 }
 
-// NewChat 在侧栏正看着的设备上开一个新对话，工作目录是它的默认工作目录；先在设备上看进不进得去。
+// NewChat 在 Backend 那台设备上开一个新对话（只列一台时是侧栏列着的那台，列着全部设备时是上次选的那台，见 NewChatOn），
+// 工作目录是它的默认工作目录；先在设备上看进不进得去。
 func (h *Hub) NewChat() { h.NewChatIn("") }
+
+// NewChatOn 在设备 id 上开一个新对话，工作目录是那台的默认工作目录；以后的新对话也开在这台（Backend 记成它，同手机版
+// 空白页上的设备胶囊）。侧栏列着全部设备时列表不变；只列一台时侧栏跟着换成这台。没有这台设备时什么也不做。
+func (h *Hub) NewChatOn(id string) {
+	if _, ok := h.Host(id); !ok {
+		return
+	}
+	if id != h.Backend() {
+		logSave(h.settings.SetBackend(id))
+		if !h.AllHosts() {
+			h.Refresh()
+		}
+	}
+	h.NewChatIn("")
+}
 
 // NewChatIn 同 NewChat，工作目录是 cwd（空是设备的默认工作目录）：新对话还没发消息时在顶栏换目录用。
 func (h *Hub) NewChatIn(cwd string) {

@@ -131,10 +131,12 @@ func nth(i int) func(a *App, _ hostlink.Session) {
 	return func(a *App, _ hostlink.Session) { a.openNth(i) }
 }
 
-// chatKeys 是聊天页上的键（在 chat.go、find.go 里接），只列在设置「常规」里。
+// chatKeys 是只在焦点落在某处时才响的键（聊天页的在 chat.go、find.go 里接，侧栏列表的在 sidebar.go），只列在设置「常规」里。
+// 侧栏列表的 Ctrl+A 照 ChatGPT 客户端多选列表的 Mod+A（全选，焦点在输入框里时不管）。
 var chatKeys = []struct{ keys, label string }{
 	{"Ctrl+F", "在对话中查找"},
 	{"Enter / Shift+Enter", "查找时：下一个 / 上一个"},
+	{"Ctrl+A", "侧栏列表里：全选列着的对话"},
 }
 
 // shortcuts 接上窗口的快捷键。对话框开着时都不响（OnWindowShortcut 的规矩）。
