@@ -96,6 +96,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 | 方法 | 参数 | 结果 |
 |---|---|---|
+| `sessions.watch` | | 订阅会话列表：先推一行整份的 `zeta_sessions`，之后只推变了的几项，见「协议」 |
+| `sessions.unwatch` | | 退订会话列表，同一条连接上可以接着做别的 |
 | `sessions.rename` | `session`、`title` | 照 `zeta-helper rename` 往会话记录末尾追加一行 custom-title（`sessionproto.CleanTitle`：空白压成一个空格、最多 200 字；同一个会话号在几个项目目录里都有记录时写最新的那份）。`result` 是 `{title}`：实际写下的标题。压完是空的答出错。核心里开着这个会话的对话时同 `conv.title`：对话的标题跟着变，开着的 Claude Code 也改名 |
 | `sessions.archive` | `session`、`archived` | 归档（`archived` 为真）或取消归档（为假）：只是列表里不显示，记录不动，标记在 `~/.config/<ZETA_NAME>/archived`（同 `zeta-helper archive`，顺手清掉记录已经不在的；改这个文件时持着同目录的 `archived.lock`）。归档时顺手关掉它在 tmux 会话 `zeta` 里的窗口。`result` 是 `{archived}` |
 | `sessions.pin` | `session`、`pinned` | 置顶（`pinned` 为真）或取消置顶（为假）：只是 Zeta 的标记，记录不动。标记在 `~/.config/<ZETA_NAME>/pinned`，做法同归档（一行一个会话号，顺手清掉记录已经不在的，改时持着 `pinned.lock`），所以置顶按主机、按包分开，几个客户端看到的是同一份。`zeta_sessions` 和 `sessions.lookup` 的每一项带 `pinned`；置顶的会话不在最新的 300 个里时也列出来。`result` 是 `{pinned}` |
