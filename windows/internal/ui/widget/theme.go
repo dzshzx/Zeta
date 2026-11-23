@@ -18,7 +18,7 @@ const (
 // Mono 是等宽字：Windows 上的 Cascadia Mono、Consolas，别处是系统的等宽字。
 const Mono = "Cascadia Mono, Consolas, monospace"
 
-// Theme 返回 COUI 配色的 mygo 主题：mygo 自带的控件（滚动条、输入框、提示、选中的文字）和没换样子的地方跟着它。
+// Theme 返回 桌面配色的 mygo 主题：mygo 自带的控件（滚动条、输入框、提示、选中的文字）和没换样子的地方跟着它。
 // 字用系统的界面字体（Windows 上中文是微软雅黑），正文 14。
 func Theme(darkMode bool) *ui.Theme {
 	k := For(darkMode)
