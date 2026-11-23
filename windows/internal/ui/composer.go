@@ -382,7 +382,7 @@ func effortLevel(v string) int {
 }
 
 // usageButton 是用量：按钮上是上下文用了多少，点开是这台的订阅额度（同手机版的用量弹框，打开时数不够新就问一次）、
-// 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文。
+// 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文；弹出框限高，内容多了在里面滚动。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
 	label := "上下文"
@@ -398,8 +398,23 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 		}
 	})
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
-		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() { a.usageDetails(c, p) })
+		_, winH := c.Size()
+		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() {
+			ui.Scroll(c.Key("usage-body")).FillWidth().MaxHeight(usagePanelHeight(winH)).Label("用量").Children(func() {
+				ui.Column(c).FillWidth().Gap(10).Children(func() { a.usageDetails(c, p) })
+			})
+			widget.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
+				p.usage = false
+				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })
+			})
+		})
 	})
+}
+
+// usagePanelHeight 是用量弹出框里能滚动的那一段最高多高：不超过 440，窗口矮时不超过窗口的一半，
+// 额度、上下文、累计、各轮多了在里面滚动，「压缩上下文」留在底下不跟着滚走。
+func usagePanelHeight(winH float32) float32 {
+	return min(440, winH/2)
 }
 
 // contextColor 是上下文用量按程度的颜色：快满了红、该注意了黄、平时是主色。输入栏的圆环和用量弹出框里的进度条都用它。
@@ -457,10 +472,6 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 		ui.Divider(c)
 		usageTurns(c, u.Turns)
 	}
-	widget.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
-		p.usage = false
-		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })
-	})
 }
 
 func statRow(c *ui.Context, label, value string) {

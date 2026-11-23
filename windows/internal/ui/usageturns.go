@@ -29,24 +29,22 @@ func totalsNote(u usage.Usage, earlier int) string {
 const usageTurnsShown = 50
 
 // usageTurns 是用量弹出框里的各轮明细（同手机版用量弹框的「各轮」）：新的在上，每轮一行「第 N 轮 · 用时」和费用，
-// 下面一行四类 token。列在限高的滚动区里，轮数多了弹出框也不会长出窗口。
+// 下面一行四类 token。不单独滚动：整个弹出框的内容一起滚（usagePanelHeight）。
 func usageTurns(c *ui.Context, turns []usage.Turn) {
 	t := c.Theme()
 	ui.Text(c, "各轮").FontSize(13).Bold()
-	ui.Scroll(c.Key("usage-turns")).FillWidth().MaxHeight(200).Label("各轮用量").Children(func() {
-		ui.Column(c).FillWidth().Gap(8).Children(func() {
-			for i := len(turns) - 1; i >= max(0, len(turns)-usageTurnsShown); i-- {
-				head, cost, detail := turnLines(i+1, turns[i])
-				ui.Column(c.Key(fmt.Sprint("turn", i))).FillWidth().Gap(2).Children(func() {
-					ui.Row(c).Gap(12).Children(func() {
-						ui.Text(c, head).FontSize(13)
-						ui.Spacer(c)
-						ui.Text(c, cost).FontSize(13).FontFeatures("tnum")
-					})
-					ui.Text(c, detail).FontSize(12).FontFeatures("tnum").TextColor(t.TextMuted)
+	ui.Column(c.Key("usage-turns")).FillWidth().Gap(8).Children(func() {
+		for i := len(turns) - 1; i >= max(0, len(turns)-usageTurnsShown); i-- {
+			head, cost, detail := turnLines(i+1, turns[i])
+			ui.Column(c.Key(fmt.Sprint("turn", i))).FillWidth().Gap(2).Children(func() {
+				ui.Row(c).Gap(12).Children(func() {
+					ui.Text(c, head).FontSize(13)
+					ui.Spacer(c)
+					ui.Text(c, cost).FontSize(13).FontFeatures("tnum")
 				})
-			}
-		})
+				ui.Text(c, detail).FontSize(12).FontFeatures("tnum").TextColor(t.TextMuted)
+			})
+		}
 	})
 }
 

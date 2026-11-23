@@ -312,7 +312,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 		}
 		// 新对话还没发消息：这一行能点，换一个工作目录重开
 		b := ui.ButtonBase(c).Label("换工作目录").Tooltip("换工作目录").Cursor(ui.CursorPointer).Radius(4).Padding(0, 3).
-			Margin(0, 0, 0, -3).MaxWidthPercent(100)
+			Margin(0, 0, 0, -3).MaxWidthPercent(100).AlignSelf(ui.Start) // 按钮默认居中，和上面靠左的标题对齐
 		if b.Hovered() {
 			b.Background(k.Hover)
 		}

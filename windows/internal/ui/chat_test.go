@@ -290,7 +290,10 @@ func TestNewChatInAMissingDirectory(t *testing.T) {
 	if a, _ := f.tt.AccessByRole(ui.RoleButton, "发送"); !a.Disabled {
 		t.Error("进不去还能发")
 	}
-	// 新对话还没发消息：点顶栏的工作目录换一个，在那里重开
+	// 新对话还没发消息：点顶栏的工作目录换一个，在那里重开。这一行和标题一样靠左
+	if dir, ok := f.tt.Find("换工作目录"); !ok || dir.W > 400 {
+		t.Errorf("工作目录那一行横跨整个顶栏、字居中了，没和标题一样靠左：%v", dir)
+	}
 	f.click(t, "换工作目录")
 	f.clickField(t, "/home/…")
 	f.tt.Key(ui.Cmd, ui.KeyA)
@@ -501,6 +504,13 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.replay("turn")
 		f.click(t, "上下文 0%")
 	},
+	// 轮数多：弹出框限高，内容在里面滚动，「压缩上下文」留在底下
+	"chat-usage-many-turns": func(t *testing.T, f *chatFixture) {
+		f.newChat(t)
+		f.replay("turn")
+		f.push(manyTurnsUsage(30))
+		f.click(t, "上下文 40%")
+	},
 	// 上下文快满了：圆环和进度条都是红的，说明写着马上会自动压缩
 	"chat-usage-critical": func(t *testing.T, f *chatFixture) {
 		f.newChat(t)
@@ -595,4 +605,46 @@ func TestHostLoad(t *testing.T) {
 	f.tt.Frame()
 	f.tt.Frame()
 	f.see(t, "box 的 CPU 使用率 12%，8 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
+}
+
+// manyTurnsUsage 是有 n 轮明细的 conv.state 用量片段。
+func manyTurnsUsage(n int) string {
+	turns := make([]string, n)
+	for i := range turns {
+		turns[i] = `{"tokens":{"input":10,"cache_read":1180000,"cache_write":5400,"output":2600},"cost_usd":0.33,"duration_ms":44000}`
+	}
+	return `"usage":{"context_tokens":80000,"context_window":200000,"fraction":0.4,"level":"normal","total":{"input":475,"output":172000},` +
+		`"turns":[` + strings.Join(turns, ",") + `]}`
+}
+
+// 轮数多时用量弹出框不长出窗口：能滚动的一段不超过 usagePanelHeight，「压缩上下文」在它下面、在窗口里，滚到底也还在原处。
+func TestUsagePanelStaysShort(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.replay("turn")
+	f.push(manyTurnsUsage(30))
+	f.click(t, "上下文 40%")
+	body, ok := f.tt.Find("用量")
+	if !ok {
+		t.Fatal("没有用量的滚动区")
+	}
+	const winH = 860 // fixture 的窗口高
+	if body.H > usagePanelHeight(winH)+0.5 {
+		t.Fatalf("滚动区 %v 高过 %v", body.H, usagePanelHeight(winH))
+	}
+	button, ok := f.tt.Find("压缩上下文")
+	if !ok || button.Y < body.Y+body.H || button.Y+button.H > winH {
+		t.Fatalf("压缩按钮 %v，滚动区 %v，窗口高 %v", button, body, winH)
+	}
+	if !f.tt.HasText("第 30 轮 · 44 秒") {
+		t.Fatalf("最新一轮不在顶上：%q", f.tt.Texts())
+	}
+	f.tt.Scroll(body.X+body.W/2, body.Y+body.H/2, 0, -5000)
+	f.tt.Frame()
+	if after, _ := f.tt.Find("压缩上下文"); after != button {
+		t.Fatalf("滚动后压缩按钮挪了：%v → %v", button, after)
+	}
+	if !f.tt.HasText("第 1 轮 · 44 秒") {
+		t.Fatal("滚到底看不到第 1 轮")
+	}
 }
