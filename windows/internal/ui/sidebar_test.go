@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -100,7 +101,7 @@ func (f *chatFixture) listSample() {
 	f.tt.Frame()
 }
 
-// 已结束（核心报 live 为假）的会话标题和小字灰着，读屏说「已结束」；还有进程的照常是正文色。
+// 已结束（核心报 live 为假）的会话标题和小字灰着，读屏说「已结束」；还有进程的照常是次要色（侧栏标题照 ChatGPT 客户端用次要色）。
 func TestEndedSessionsAreDimmed(t *testing.T) {
 	f := newChatFixture(t)
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
@@ -120,17 +121,17 @@ func TestEndedSessionsAreDimmed(t *testing.T) {
 			t.Errorf("%s: description %q", c.title, a.Description)
 		}
 	}
-	// 画面上：已结束那行的标题字最深处也比还开着的浅得多（正文色近黑，次要色约四成）
+	// 画面上：已结束那行的标题字最深处也比还开着的浅得多（次要色 #5D5D5D 约 93，三级色 #8F8F8F 约 143）
 	ended, live := f.darkestInk(t, "跑完的对话"), f.darkestInk(t, "还开着的对话")
-	if live > 90 || ended < 140 {
+	if live > 100 || ended < 140 {
 		t.Errorf("darkest ink: ended %d, live %d", ended, live)
 	}
-	// 进程又起来了（live 为真推来）：恢复正文色
+	// 进程又起来了（live 为真推来）：恢复次要色
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
 		{ID: "s2", File: "/home/box/.claude/projects/-w/s2.jsonl", Title: "跑完的对话", Cwd: "/srv/done", Updated: at(12)},
 	}})
 	f.tt.Frame()
-	if got := f.darkestInk(t, "跑完的对话"); got > 90 {
+	if got := f.darkestInk(t, "跑完的对话"); got > 100 {
 		t.Errorf("revived row still dim: %d", got)
 	}
 }
@@ -154,4 +155,51 @@ func (f *fixture) darkestInk(t *testing.T, text string) int {
 		}
 	}
 	return darkest
+}
+
+// 鼠标停在会话行上一会儿，右边出一张卡片：标题、目录、设备、别处在运行；行尾只有图标（读屏名是那几个字），目录平时不出现。
+func TestRowHoverCard(t *testing.T) {
+	f := newChatFixture(t)
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s4", File: "/home/box/.claude/projects/-w/s4.jsonl", Title: "终端里的对话", Cwd: "/srv/term", Updated: at(13), External: true},
+	}})
+	f.tt.Frame()
+	if !f.shows("别处运行中") {
+		t.Fatal("行尾没有别处运行中的图标")
+	}
+	if f.tt.HasText("term") {
+		t.Fatalf("没悬停就出了目录：%q", f.tt.Texts())
+	}
+	r, ok := f.tt.Find("终端里的对话")
+	if !ok {
+		t.Fatalf("没有这一行：%q", f.tt.Texts())
+	}
+	f.tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	f.tt.Advance(700 * time.Millisecond)
+	f.tt.Frame()
+	for _, want := range []string{"term", "别处运行中"} {
+		if !f.tt.HasText(want) {
+			t.Errorf("卡片里没有 %q：%q", want, f.tt.Texts())
+		}
+	}
+}
+
+func TestAgo(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.Local)
+	for _, c := range []struct {
+		d    time.Duration
+		want string
+	}{
+		{20 * time.Second, "刚刚"},
+		{5 * time.Minute, "5 分钟前"},
+		{3 * time.Hour, "3 小时前"},
+		{2 * 24 * time.Hour, "2 天前"},
+		{15 * 24 * time.Hour, "2 周前"},
+		{60 * 24 * time.Hour, "9 月 24 日"},
+		{400 * 24 * time.Hour, "2025 年 10 月 19 日"},
+	} {
+		if got := ago(now.Add(-c.d), now); got != c.want {
+			t.Errorf("%v 前：%q，要 %q", c.d, got, c.want)
+		}
+	}
 }

@@ -21,8 +21,8 @@ func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) 
 		trigger(parts.Trigger)
 		parts.Popup(func(panel ui.Element) {
 			k := Of(c)
-			// 阴影照 ListPopup：浅色是很淡、很散的一圈
-			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
+			// 阴影照 ListPopup：浅色是很淡、很散的一圈；浅色不描边（照 ChatGPT 客户端，只靠阴影和底分开）
+			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Edge: PopupEdge(k)}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
 				Margin(6, 0, 0, 0).Shadow(0, 6, 24, 0, popupShadow(k))
 			build(&Menu{c: c, parts: parts})
 		})
@@ -88,4 +88,13 @@ func popupShadow(k *Colors) ui.Color {
 		return ui.RGBA(0, 0, 0, 0.3)
 	}
 	return ui.RGBA(0, 0, 0, 0.1)
+}
+
+// PopupEdge 是弹出面板（菜单、悬停卡片）的描边：浅色没有，只靠阴影和白底分开（照 ChatGPT 客户端）；
+// 深色的底是纯黑、阴影看不出来，描一圈细边。
+func PopupEdge(k *Colors) ui.Color {
+	if k.Dark {
+		return k.Divider
+	}
+	return ui.Color{}
 }

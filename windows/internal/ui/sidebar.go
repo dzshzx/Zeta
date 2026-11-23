@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
@@ -188,18 +190,23 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		place += "\n草稿：" + draft
 	}
 	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
-		Focusable().Label(rowTitle(s)).Tooltip(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		Focusable().Label(rowTitle(s)).Description(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	a.rowCard(c, row, s, draft, hasDraft, needle != "")
 	if snippet != "" {
 		row.Padding(6, 6, 6, 10)
 	}
-	// 已结束（没有活着的 Claude Code 进程）的会话标题灰着：一眼看出哪些还占着机器（同手机版）
-	titleInk := k.Text
-	if s.Ended {
-		titleInk = k.Tertiary
-		row.Description("已结束")
-	}
+	// 标题照 ChatGPT 客户端用次要色，开着的、选中的用正文色，一眼找到当前那个；
+	// 已结束（没有活着的 Claude Code 进程）的再浅一级：一眼看出哪些还占着机器（同手机版）
 	hovered := row.Hovered()
 	chosen := a.ops.selected[hub.Key(s)]
+	titleInk := k.Secondary
+	switch {
+	case s.Ended:
+		titleInk = k.Tertiary
+		row.Description("已结束")
+	case current || chosen:
+		titleInk = k.Text
+	}
 	switch {
 	case current, chosen:
 		widget.Surface{Shape: widget.ShapeRow, Fill: k.Selected}.Paint(row)
@@ -219,12 +226,16 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 				highlighted(c, snippet, needle, widget.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
 			}
 		})
-		if tag := a.rowTag(s); tag != "" {
-			ui.Text(c, tag).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
+		// 行尾只放小图标（参考 ChatGPT 客户端，不每行写一串字）：读屏和测试照旧读到它们的字，说明在悬停卡片里
+		if a.hub.AllHosts() {
+			ui.Text(c, a.hub.Name(s.Backend)).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
 		}
-		// 有没发出的草稿：行尾标「草稿」（配色只有危险操作用红，这里用次要文字色）；草稿的开头在悬停提示里
+		if s.External {
+			ui.Icon(c, widget.IconTerminal).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("别处运行中")
+		}
+		// 有没发出的草稿：行尾一支笔（配色只有危险操作用红，这里用次要文字色）；草稿的开头在悬停卡片里
 		if hasDraft {
-			ui.Text(c, "草稿").FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().Shrink(0)
+			ui.Icon(c, widget.IconEdit).Size(14, 14).TextColor(k.Secondary).Shrink(0).Label("草稿")
 		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
@@ -259,19 +270,70 @@ func (a *App) rowStatus(s hostlink.Session, current bool) hub.Status {
 	return st
 }
 
-// rowTag 是一行会话标题后面的小字：列着全部设备时是设备名，别处在运行的注明（目录只在悬停提示里）。
-func (a *App) rowTag(s hostlink.Session) string {
-	var tags []string
-	if a.hub.AllHosts() {
-		tags = append(tags, a.hub.Name(s.Backend))
-	}
-	if s.External {
-		tags = append(tags, "别处运行中")
-	}
-	return strings.Join(tags, " · ")
+// rowCard 是会话行的悬停卡片（参考 ChatGPT 客户端）：标题和多久以前动过，下面一行一项——目录、设备、
+// 别处在运行或已结束、草稿的开头、搜索时的已归档。贴在行的右边，读屏读行的 Description（同样这些字）。
+func (a *App) rowCard(c *ui.Context, row ui.Element, s hostlink.Session, draft string, hasDraft, searching bool) {
+	ui.TooltipBase(c, row, func(tip ui.Element) {
+		k := widget.Of(c)
+		tip.AttachTo(row, ui.AnchorEnd, ui.AnchorStart).MarginStart(8)
+		widget.Shadow(widget.Surface{Shape: widget.ShapePopup, Fill: k.PopupGlass, Edge: widget.PopupEdge(k)}.Paint(tip), k)
+		tip.Width(300).Padding(10, 14)
+		line := func(icon *ui.SVG, text string, ink ui.Color) {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, icon).Size(15, 15).TextColor(k.Tertiary).Shrink(0)
+				ui.Text(c, text).FontSize(widget.SizeBodyS).TextColor(ink).SingleLine().Ellipsis("…").MinWidth(0)
+			})
+		}
+		tip.Children(func() {
+			ui.Column(c).FillWidth().Gap(6).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, rowTitle(s)).FontSize(widget.SizeBodyM).FontWeight(600).TextColor(k.Text).
+						SingleLine().Ellipsis("…").Grow(1).MinWidth(0)
+					if s.Updated > 0 {
+						ui.Text(c, ago(time.UnixMilli(s.Updated), time.Now())).FontSize(widget.SizeBodyXS).
+							TextColor(k.Tertiary).SingleLine().Shrink(0)
+					}
+				})
+				line(widget.IconFolder, s.Place(), k.Secondary)
+				line(widget.IconServer, a.hub.Name(s.Backend), k.Secondary)
+				switch {
+				case s.External:
+					line(widget.IconTerminal, "别处运行中", k.Secondary)
+				case s.Ended:
+					line(widget.IconClock, "已结束", k.Tertiary)
+				}
+				if hasDraft {
+					line(widget.IconEdit, "草稿："+draft, k.Secondary)
+				}
+				if searching && s.Archived {
+					line(widget.IconArchive, "已归档", k.Secondary)
+				}
+			})
+		})
+	})
 }
 
-// place 是一行会话的悬停提示：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明；搜索时归档的也注明。
+// ago 是 t 离 now 多久：刚刚、几分钟前、几小时前、几天前、几周前，再早写日期。
+func ago(t, now time.Time) string {
+	d := now.Sub(t)
+	switch {
+	case d < time.Minute:
+		return "刚刚"
+	case d < time.Hour:
+		return fmt.Sprintf("%d 分钟前", int(d/time.Minute))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d 小时前", int(d/time.Hour))
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("%d 天前", int(d/(24*time.Hour)))
+	case d < 5*7*24*time.Hour:
+		return fmt.Sprintf("%d 周前", int(d/(7*24*time.Hour)))
+	case t.Year() == now.Year():
+		return t.Format("1 月 2 日")
+	}
+	return t.Format("2006 年 1 月 2 日")
+}
+
+// place 是一行会话读屏用的说明（悬停卡片里是同样这些）：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明；搜索时归档的也注明。
 func (a *App) place(s hostlink.Session, searching bool) string {
 	place := s.Place()
 	if a.hub.AllHosts() {
