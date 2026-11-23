@@ -129,9 +129,14 @@ func (c *Conversation) transmit(p *process, m *outgoing) {
 
 // runShell 执行输入栏里 ! 开头的命令（stream-json 的 bash_command）。回答进行中不收，原样放回输入框。
 func (c *Conversation) runShell(command, typed string) {
-	if c.busy {
+	refuse := map[bool]string{true: "回答进行中不能直接执行命令，等这一轮结束再发"}[c.busy]
+	// Claude Code 同时只跑一条 ! 命令，第二条它答「Not run」：先在这里拦下，免得两条的命令和输出配错对
+	if refuse == "" && c.shellInput != "" {
+		refuse = "上一条 ! 命令还在跑，等它出结果再发"
+	}
+	if refuse != "" {
 		c.recalled = merge(c.recalled, &outgoing{uuid: newUUID(), text: typed})
-		c.r.AddNotice("回答进行中不能直接执行命令，等这一轮结束再发", true)
+		c.r.AddNotice(refuse, true)
 		c.changed()
 		return
 	}

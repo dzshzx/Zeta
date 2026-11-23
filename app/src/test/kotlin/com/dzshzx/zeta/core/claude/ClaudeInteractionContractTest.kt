@@ -45,7 +45,7 @@ import org.junit.Test
  *   content 原样到服务器。
  * - bash_command（TUI 的 `!`）：直接执行，回放 <bash-input>、<bash-stdout> 两行，command_lifecycle completed
  *   收尾，不请求模型；命令和输出不进下一轮的上下文（TUI 里进），所以核心把回放的两行当 shouldQuery 为假的用户消息交回去 （helper/conv 的
- *   shellIntoContext）：这样的消息不请求模型，下一轮看得到，各出一个 num_turns 为 0 的 result。
+ *   shellIntoContext）：这样的消息不请求模型，下一轮看得到，各出一个带它 uuid 的 init 和 num_turns 为 0 的 result。
  * - rewind_files：起进程时设了 [CODE_REWIND_ENV] 才有快照；dry_run 报改过的文件，真还原把文件改回去；换个进程 --resume 照样能还原。
  */
 class ClaudeInteractionContractTest {
@@ -309,11 +309,13 @@ class ClaudeInteractionContractTest {
 
         fun send(text: String) = send(json.parseToJsonElement(text).jsonObject)
 
-        fun user(text: String, uuid: String? = null) =
+        /** [shouldQuery] 为假时只并进上下文，不请求模型。 */
+        fun user(text: String, uuid: String? = null, shouldQuery: Boolean = true) =
             send(
                 buildJsonObject {
                     put("type", "user")
                     uuid?.let { put("uuid", it) }
+                    if (!shouldQuery) put("shouldQuery", false)
                     putJsonObject("message") {
                         put("role", "user")
                         put("content", text)
@@ -673,24 +675,21 @@ class ClaudeInteractionContractTest {
                     "<bash-stdout>ZETA-SHELL-OUT</bash-stdout><bash-stderr></bash-stderr>",
                 )
                 .zip(notes)
-                .forEach { (text, uuid) ->
-                    c.send(
-                        buildJsonObject {
-                            put("type", "user")
-                            put("uuid", uuid)
-                            put("shouldQuery", false)
-                            putJsonObject("message") {
-                                put("role", "user")
-                                put("content", text)
-                            }
-                        },
-                    )
-                }
+                .forEach { (text, uuid) -> c.user(text, uuid, shouldQuery = false) }
             val results = mutableListOf<JsonObject>()
+            val inits = mutableListOf<JsonObject>()
             c.until { o ->
                 if (o.str("type") == "result") results += o
+                if (o.str("type") == "system" && o.str("subtype") == "init") inits += o
                 results.size == 2
             }
+            // 每条先出一个带它 uuid 的 init：核心照这个认出它不算一轮（helper/conv 的 handleInit）
+            assertEquals(
+                notes,
+                inits.map {
+                    (it["user_message_uuids"] as JsonArray).single().jsonPrimitive.content
+                },
+            )
             for ((result, uuid) in results.zip(notes)) {
                 assertEquals("不算一轮", 0, result["num_turns"]?.jsonPrimitive?.int)
                 assertEquals(

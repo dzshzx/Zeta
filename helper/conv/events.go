@@ -193,8 +193,11 @@ func (c *Conversation) handleInit(e event) {
 	}
 	c.sendNow = slices.Contains(e.Capabilities, "interrupt_send_now_v1")
 	// 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
-	// 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束
-	c.setBusy()
+	// 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束。
+	// 交回去只进上下文的 ! 命令和输出也各有一个 init（带它们的 uuid），它们不算一轮
+	if !c.onlyContextNotes(e.UserMessageUUIDs) {
+		c.setBusy()
+	}
 	c.changed()
 }
 
@@ -273,27 +276,22 @@ func (c *Conversation) shellIntoContext(text string) {
 	}
 	input := c.shellInput
 	c.shellInput = ""
-	if input == "" || c.proc == nil {
+	if input == "" {
 		return
 	}
 	for _, line := range []string{input, text} {
 		id := newUUID()
 		c.contextNotes[id] = true
-		b, _ := json.Marshal(map[string]any{"type": "user", "uuid": id, "shouldQuery": false,
-			"message": map[string]any{"role": "user", "content": line}})
+		m := userMessage(id, line)
+		m["shouldQuery"] = false
+		b, _ := json.Marshal(m)
 		c.proc.link.Send(b)
 	}
 }
 
-// onlyContextNotes：这个 result 是不是只为交回去进上下文的 ! 命令或输出出的（是就收掉记号）。和别的消息并成一轮的不算。
+// onlyContextNotes：这个 init 或 result 是不是只为交回去进上下文的 ! 命令或输出出的。和别的消息并成一轮的不算。
 func (c *Conversation) onlyContextNotes(ids []string) bool {
-	if len(ids) == 0 || slices.ContainsFunc(ids, func(id string) bool { return !c.contextNotes[id] }) {
-		return false
-	}
-	for _, id := range ids {
-		delete(c.contextNotes, id)
-	}
-	return true
+	return len(ids) > 0 && !slices.ContainsFunc(ids, func(id string) bool { return !c.contextNotes[id] })
 }
 
 // finishShell：! 命令做完了。它没有 result，做完就算这一条结束。
@@ -308,7 +306,11 @@ func (c *Conversation) finishShell() {
 
 // handleResult：一轮结束。收尾这一轮的列表，说明停止或出错；还有排队的消息时 Claude Code 会接着另起一轮。
 func (c *Conversation) handleResult(e event) bool {
-	if c.onlyContextNotes(e.UserMessageUUIDs) {
+	notes := c.onlyContextNotes(e.UserMessageUUIDs)
+	for _, id := range e.UserMessageUUIDs {
+		delete(c.contextNotes, id)
+	}
+	if notes {
 		return false
 	}
 	c.r.FinishTurn(false)

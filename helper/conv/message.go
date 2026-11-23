@@ -65,11 +65,13 @@ func (m *outgoing) line() []byte {
 	return userLine(m.uuid, content)
 }
 
+// userMessage 是发给 Claude Code 的一条用户消息（stream-json 的 user 行）。
+func userMessage(uuid string, content any) map[string]any {
+	return map[string]any{"type": "user", "uuid": uuid, "message": map[string]any{"role": "user", "content": content}}
+}
+
 func userLine(uuid string, content any) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"type": "user", "uuid": uuid,
-		"message": map[string]any{"role": "user", "content": content},
-	})
+	b, _ := json.Marshal(userMessage(uuid, content))
 	return b
 }
 
