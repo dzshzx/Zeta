@@ -173,7 +173,7 @@ func (a *App) currentSession() hostlink.Session {
 }
 
 // sessionRow 是一行会话（照 ChatGPT 的侧栏）：36 高、一行标题（搜索时关键词标成主题色），所在的目录（列着全部设备时
-// 前面是设备名）放在悬停提示里；搜索时标题下面多一行对话内容里命中的片段。有没发出的草稿时行尾标红字「草稿」，草稿的开头
+// 前面是设备名）放在悬停提示里；搜索时标题下面多一行对话内容里命中的片段。有没发出的草稿时行尾标「草稿」，草稿的开头
 // 接在悬停提示里（正开着的那个草稿就在输入框里，不标）。行尾是状态（回答中、等你确认……），
 // 没有状态时置顶的标个图钉；鼠标移上去或正开着时多一个「…」，点开和右键一样是会话操作（sessionMenu）。
 // 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。
@@ -222,9 +222,9 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		if tag := a.rowTag(s); tag != "" {
 			ui.Text(c, tag).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
 		}
-		// 有没发出的草稿：照手机版红字的「草稿」，没发出的东西要显眼；草稿的开头在悬停提示里
+		// 有没发出的草稿：行尾标「草稿」（配色只有危险操作用红，这里用次要文字色）；草稿的开头在悬停提示里
 		if hasDraft {
-			ui.Text(c, "草稿").FontSize(widget.SizeBodyXS).TextColor(k.Error).SingleLine().Shrink(0)
+			ui.Text(c, "草稿").FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().Shrink(0)
 		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
