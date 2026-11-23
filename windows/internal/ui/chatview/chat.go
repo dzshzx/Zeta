@@ -46,9 +46,12 @@ type Chat struct {
 	OpenLink func(url string)
 	// OpenImages：点了图时调它（同一组的图、点的是第几张），由调用方打开看大图（NewViewer）；没给时图点不开。
 	OpenImages func(list []items.Image, index int)
-	// LoadMarkdownImage 取回答的 Markdown 里写的图片（原文里的网址或路径），返回图片文件的内容；在单独的 goroutine 里调，
-	// 同一个地址只调一次。没给时这些图显示为它们的说明文字。显示前设好，之后不再换。
+	// LoadMarkdownImage 取回答的 Markdown 里写的图片（answerimages.go 从正文里取出来的）：url 是主机上的路径（绝对路径，
+	// 或 ~ 开头）或 http、https 的网址，返回图片文件的内容。在单独的 goroutine 里调，同一个地址只调一次。
+	// 没给时这些图显示为取不到。显示前设好，之后不再换。
 	LoadMarkdownImage func(url string) ([]byte, error)
+	// Cwd 是对话的工作目录：回答里图片的相对路径按它解析。为空时相对路径的图留在正文里。
+	Cwd string
 	// Earlier 是更早记录的情况。
 	Earlier Earlier
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。
@@ -79,7 +82,11 @@ type Chat struct {
 	// changes 是各步文件改动的对比（按步骤的 id），条目换掉时丢掉对应的。
 	changes map[string]*changeView
 	images  imageCache
-	paging  paging
+	// allowed 是用户点过「加载图片」的网络图（按缓存键）。
+	allowed map[string]bool
+	// parts 是各段回答拆出的正文和图（按条目 id），原文或工作目录变了时重拆。
+	parts  map[string]*answerParts
+	paging paging
 	// find 是对话内查找（find.go）。
 	find finder
 	// scrolled：上一帧内容往上滚过了（最上面一行不是第一条，或第一条的顶端到了内容区上沿以上）。
@@ -92,7 +99,8 @@ const loadAhead = 3
 // New 返回一个空的聊天列表：一打开就在底部，跟着新内容走。每个对话用一个，换对话时换一个新的
 // （列表的位置、折叠卡的展开与否、取过的图都跟着对话走）。
 func New() *Chat {
-	ch := &Chat{open: map[string]*bool{}, changes: map[string]*changeView{}, rounds: map[string]int{}}
+	ch := &Chat{open: map[string]*bool{}, changes: map[string]*changeView{}, rounds: map[string]int{}, allowed: map[string]bool{},
+		parts: map[string]*answerParts{}}
 	ch.list.FollowEnd = true
 	ch.list.FollowAnimation = &ui.Smooth
 	ch.list.Key = func(row int) any { return ch.items[row].ID }
@@ -100,20 +108,23 @@ func New() *Chat {
 	ch.answer.Theme = &ch.answerTheme
 	ch.answer.CodeBlock = codeBlock
 	ch.thinking.CodeBlock = codeBlock
-	ch.answer.LoadImage = ch.markdownImage
 	return ch
 }
 
-// markdownImage 是回答里 Markdown 图片的载入：交给调用方取数据，在这里解码。
-func (ch *Chat) markdownImage(url string) (ui.ImageSource, error) {
-	if ch.LoadMarkdownImage == nil {
-		return nil, errNoLoader
+// answerParts 是回答 it 拆出的正文和图（splitAnswerImages），原文和工作目录没变时用上次拆的。
+func (ch *Chat) answerParts(it items.Item) *answerParts {
+	if p := ch.parts[it.ID]; p != nil && p.src == it.Text && p.cwd == ch.Cwd {
+		return p
 	}
-	data, err := ch.LoadMarkdownImage(url)
-	if err != nil {
-		return nil, err
-	}
-	return ui.DecodeBitmap(data)
+	p := splitAnswerImages(it.Text, ch.Cwd)
+	ch.parts[it.ID] = &p
+	return &p
+}
+
+// shownAnswer 是回答 it 照常排版的那部分：拿掉了取出来直接显示的图。
+func (ch *Chat) shownAnswer(it items.Item) items.Item {
+	it.Text = ch.answerParts(it).text
+	return it
 }
 
 // Items 返回现在显示的条目。
@@ -125,6 +136,7 @@ func (ch *Chat) SetItems(list []items.Item) {
 	ch.indexRounds()
 	ch.find.dirty = true
 	clear(ch.changes)
+	clear(ch.parts)
 }
 
 // Splice 把从下标 at 起的 remove 项换成 add（serve 推来的增量）。越界时返回错误、不改列表：本地和推送对不上了，
@@ -146,8 +158,9 @@ func (ch *Chat) Splice(at, remove int, add []items.Item) error {
 	return nil
 }
 
-// forget 丢掉一个条目里各步算好的对比，下次显示时照新内容重算。
+// forget 丢掉一个条目算好的东西（各步的对比、回答拆出的图），下次显示时照新内容重算。
 func (ch *Chat) forget(it items.Item) {
+	delete(ch.parts, it.ID)
 	for _, s := range it.Steps {
 		delete(ch.changes, s.ID)
 	}

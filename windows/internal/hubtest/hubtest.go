@@ -23,9 +23,11 @@ type Devices struct {
 	ConfigErr error
 	KeyList   []string
 	Probes    map[string]Probe
-	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 sessions.image 答的图。
+	// DirProblems 是各目录进不去的原因（CheckDir 答它，没列的进得去），ImageData 是 sessions.image 答的图，
+	// FileImages 是 images.file 答的各路径上的图（没列的答取不到）。
 	DirProblems map[string]string
 	ImageData   []byte
+	FileImages  map[string][]byte
 	// Paths 是 CheckPath 答的各路径的种类（没列的是没有）；UploadErr、UploadGate 管 Upload 怎么答（见 Upload）。
 	Paths      map[string]hostlink.PathKind
 	UploadErr  error

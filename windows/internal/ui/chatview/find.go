@@ -153,7 +153,11 @@ func (ch *Chat) refind() {
 }
 
 // findable 是条目能查的文字：提问的正文，和写完了的回答；别的为 nil。
+// 回答查的是照常排版的那部分（取出来画在下面的图的写法不算）。
 func (ch *Chat) findable(it items.Item) *findText {
+	if it.Kind == items.Answer && !it.Streaming {
+		it = ch.shownAnswer(it)
+	}
 	switch {
 	case it.Kind == items.User && it.Text != "":
 	case it.Kind == items.Answer && !it.Streaming && strings.TrimSpace(it.Text) != "":

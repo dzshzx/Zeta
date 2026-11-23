@@ -28,6 +28,7 @@ func previewScenes(t *testing.T) []previewScene {
 			mustClick(t, tt, "读取 screenshot.png")
 		}},
 		{name: "many-edits", items: func(t *testing.T) []items.Item { return manyEdits(t, 5) }},
+		{name: "answer-images", items: answerImageItems},
 		{name: "earlier", items: func(*testing.T) []items.Item { return longConversation("", 2) }, earlier: Earlier{Skipped: 120}},
 		{name: "earlier-loading", items: func(*testing.T) []items.Item { return longConversation("", 2) }, earlier: Earlier{Skipped: 120, Loading: true}},
 	}
@@ -59,6 +60,8 @@ func TestPreviews(t *testing.T) {
 		for _, dark := range []bool{false, true} {
 			ch := New()
 			ch.LoadImage = func(file, ref string) ([]byte, error) { return shot, nil }
+			ch.LoadMarkdownImage = func(string) ([]byte, error) { return shot, nil }
+			ch.Cwd = "/w"
 			ch.LoadEarlier = func() {}
 			ch.Earlier = scene.earlier
 			ch.SetItems(scene.items(t))
@@ -87,4 +90,13 @@ func writePNG(t *testing.T, path string, tt *ui.Tester) {
 	if err := png.Encode(f, tt.Image()); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// answerImageItems：一条长的用户消息（带三张图），回答里引用了两张主机上的图和一张网络图。
+func answerImageItems(t *testing.T) []items.Item {
+	return decodeItems(t, `[
+		{"kind":"user","id":"u","text":"把这三张截图里的门店数据整理成区域汇总表和蚌马区域的明细表，做成两张样图给我看看，字号要能在手机上看清。",
+			"images":[{"kind":"session","file":"/s.jsonl","ref":"1"},{"kind":"session","file":"/s.jsonl","ref":"2"},{"kind":"session","file":"/s.jsonl","ref":"3"}]},
+		{"kind":"answer","id":"a","text":"样图出来了，用的是今天上午的数据：\n\n![区域汇总样图](/tmp/p/page-0.png)\n\n![蚌马区域样图](out/page-4.png)\n\n**改了什么：** 字号放大到 14。\n\n![参考](https://example.com/ref.png)"}
+	]`)
 }

@@ -106,6 +106,7 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	if s.Rev != v.rev {
 		v.follow(s)
 	}
+	v.list.Cwd = p.list.Cwd
 	coui.Header(c, "子代理", func() { a.back(p) })
 	// 每一帧照这一版的 s 重设
 	l := v.list

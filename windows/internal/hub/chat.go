@@ -3,7 +3,6 @@ package hub
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"sync"
 	"time"
@@ -216,20 +215,7 @@ func (h *Hub) ImageLoader(backend string) func(file, ref string) ([]byte, error)
 	return func(file, ref string) ([]byte, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), imageTimeout)
 		defer cancel()
-		raw, err := call(ctx, "sessions.image", map[string]any{"file": file, "ref": ref})
-		if err != nil {
-			return nil, err
-		}
-		var im struct {
-			Data []byte `json:"data"` // base64
-		}
-		if err := json.Unmarshal(raw, &im); err != nil {
-			return nil, err
-		}
-		if len(im.Data) == 0 {
-			return nil, errors.New("没取到图片")
-		}
-		return im.Data, nil
+		return imageData(call(ctx, "sessions.image", map[string]any{"file": file, "ref": ref}))
 	}
 }
 

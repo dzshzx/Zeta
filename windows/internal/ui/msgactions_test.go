@@ -363,3 +363,34 @@ func testImagePNG(t *testing.T) []byte {
 }
 
 func sleepBriefly() { time.Sleep(10 * time.Millisecond) }
+
+// 回答里写的主机上的图（Claude 回答「样图出来了」后面跟着 ![说明](路径)）：经核心的 images.file 取，画在回答下面，
+// 相对路径按对话的工作目录（conv.state 的 cwd）解析；点了看大图，保存的是原图。
+func TestAnswerImagesFromTheHost(t *testing.T) {
+	f := openedForActions(t)
+	shot := testImagePNG(t)
+	f.devices.FileImages = map[string][]byte{"/tmp/p/page-0.png": shot, "/home/box/web/out/page-4.png": shot}
+	var saved []byte
+	f.app.saveFile = func(title, name string, filters []mygo.FileFilter, data []byte) (string, error) {
+		saved = data
+		return `C:\Users\me\Pictures\` + name, nil
+	}
+	f.push(`"cwd":"/home/box/web"`)
+	f.pushItems(`[{"kind":"answer","id":"a","text":"样图出来了：\n\n![区域汇总样图](/tmp/p/page-0.png)\n\n![蚌马区域样图](out/page-4.png)"}]`)
+	waitFor(t, f, func() bool {
+		n := 0
+		for _, a := range f.tt.AccessAll() {
+			if a.Role == ui.RoleImage && a.Name == "图片" {
+				n++
+			}
+		}
+		return n == 2
+	})
+	f.notSee(t, "区域汇总样图", "图片无法显示")
+	f.click(t, "图片")
+	if f.app.viewer == nil {
+		t.Fatal("没打开看大图")
+	}
+	f.click(t, "保存")
+	waitFor(t, f, func() bool { return bytes.Equal(saved, shot) })
+}

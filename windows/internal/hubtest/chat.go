@@ -58,14 +58,14 @@ func (c Call) JSON() string {
 	return string(b)
 }
 
-// Call 见 host.ChatLink。sessions.* 由假设备的会话方法答（sessions.go），不记进 Took。
+// Call 见 host.ChatLink。sessions.* 和 images.file 由假设备答（sessions.go），不记进 Took。
 func (l *ChatLink) Call(_ context.Context, method string, params map[string]any) (json.RawMessage, error) {
 	l.mu.Lock()
 	if l.closed {
 		l.mu.Unlock()
 		return nil, errors.New("和 zeta-helper serve 的连接已关闭")
 	}
-	if strings.HasPrefix(method, "sessions.") {
+	if strings.HasPrefix(method, "sessions.") || method == "images.file" {
 		l.mu.Unlock()
 		if method == "sessions.image" {
 			l.wire.Lock()

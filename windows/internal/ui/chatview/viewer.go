@@ -29,6 +29,8 @@ type Viewer struct {
 	index  int
 	// saving 是正在保存的那次（取图、等用户选位置、写文件），done 了之后 note 是结果。
 	saving *saving
+	// zoom 是这一张的缩放和平移（zoom.go），翻页时回到原大。
+	zoom zoom
 }
 
 // NewViewer 从 list 的第 index 张看起；图是列表 from 里的（OpenImages 发出来的那组）。
@@ -50,18 +52,18 @@ func (s *saving) result() (bool, string) {
 }
 
 // close 关上看大图。
-func (v *Viewer) close() { v.images, v.saving = nil, nil }
+func (v *Viewer) close() { v.images, v.saving, v.zoom = nil, nil, zoom{} }
 
 // step 翻到上一张（-1）或下一张（1），到头了不动。
 func (v *Viewer) step(d int) {
 	if n := v.index + d; n >= 0 && n < len(v.images) {
-		v.index, v.saving = n, nil
+		v.index, v.saving, v.zoom = n, nil, zoom{}
 	}
 }
 
 // bitmap 是一张图在来源列表缓存里的载入结果。
 func (v *Viewer) bitmap(c *ui.Context, im items.Image) (*ui.Bitmap, bool, error) {
-	return v.from.images.get(c, im, v.from.LoadImage)
+	return v.from.images.get(c, im, v.from.imageBytes)
 }
 
 // 看大图页上下留给两条栏的高度，左右留给翻页键的宽度。
@@ -100,20 +102,34 @@ func (v *Viewer) View(c *ui.Context) bool {
 	return len(v.images) > 0
 }
 
-// image 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍；还在取时转圈，取不到时说一声。
+// image 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍，可以缩放、拖动（zoom.go）；
+// 还在取时转圈，取不到时说一声；没点过的网络图先是「加载图片」。
 func (v *Viewer) image(c *ui.Context, im items.Image) {
 	k := coui.Of(c)
 	w, h := c.Size()
 	room := ui.Rect{W: w - 2*viewerSide, H: h - coui.TitleBarHeight - viewerBottom}
 	box := ui.Column(c.Key("image/" + im.CacheKey())).Absolute().Left(viewerSide).Right(viewerSide).Top(coui.TitleBarHeight).
 		Bottom(viewerBottom).Center()
+	if v.from.waitsForTap(im) {
+		box.Children(func() { v.from.remotePrompt(c, im) })
+		return
+	}
 	bmp, done, err := v.bitmap(c, im)
+	if bmp != nil {
+		// 滚轮、捏合缩放，放大后拖动，双击切换（zoom.go）；放大的图超出这块地方的部分不画，免得盖住两条栏
+		box.Clip().HandleInput(func(ev ui.InputEvent) bool { return v.zoom.handle(ev, room.W, room.H) })
+		if v.zoom.zoomed() {
+			box.Cursor(ui.CursorGrab)
+		}
+	}
 	box.Children(func() {
 		switch {
 		case bmp != nil:
 			iw, ih := bmp.Size()
 			scale := min(room.W/float32(iw), room.H/float32(ih), 2)
-			ui.Image(c, bmp).Size(float32(iw)*scale, float32(ih)*scale).Fit(ui.Contain).Label("图片")
+			z := v.zoom.factor()
+			ui.Image(c, bmp).Size(float32(iw)*scale, float32(ih)*scale).Fit(ui.Contain).Scale(z, z).Translate(v.zoom.x, v.zoom.y).
+				Label("图片").Description(zoomText(z))
 		case done:
 			ui.Column(c).Gap(10).AlignItems(ui.Center).Tooltip(imageError(err)).Children(func() {
 				ui.Icon(c, iconImage).Size(40, 40).TextColor(k.Secondary)
@@ -194,10 +210,10 @@ func (v *Viewer) bottom(c *ui.Context) {
 func (v *Viewer) save(c *ui.Context, im items.Image) {
 	s := &saving{}
 	v.saving = s
-	save, load, services := v.Save, v.from.LoadImage, c.Services()
+	save, fetch, services := v.Save, v.from.imageBytes, c.Services()
 	go func() {
 		note := ""
-		data, err := ImageBytes(im, load)
+		data, err := fetch(im)
 		if err == nil {
 			var saved string
 			saved, err = save(data, imageFileName(data, time.Now()))
@@ -229,4 +245,12 @@ func imageFileName(data []byte, now time.Time) string {
 		}
 	}
 	return "Zeta_" + now.Format("20060102_150405") + "." + ext
+}
+
+// zoomText 是给读屏的缩放倍数（同手机版的 zoomText）：原大时是「原大」，别的是百分比。
+func zoomText(z float32) string {
+	if z == 1 {
+		return "原大"
+	}
+	return "放大到 " + strconv.Itoa(int(z*100+0.5)) + "%"
 }

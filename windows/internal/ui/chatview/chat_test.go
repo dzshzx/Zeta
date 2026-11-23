@@ -451,12 +451,13 @@ func TestNoticesAndFiles(t *testing.T) {
 	}
 }
 
-// 回答里的链接交给调用方打开；Markdown 里的图经调用方给的函数取。
+// 回答里的链接交给调用方打开；Markdown 里的图经调用方给的函数取，相对路径按工作目录解析。
 func TestAnswerLinksAndImages(t *testing.T) {
 	shot := testPNG(t, 120, 80)
 	var opened []string
 	asked := make(chan string, 4)
 	ch := New()
+	ch.Cwd = "/w"
 	ch.OpenLink = func(url string) { opened = append(opened, url) }
 	ch.LoadMarkdownImage = func(url string) ([]byte, error) {
 		asked <- url
@@ -468,13 +469,43 @@ func TestAnswerLinksAndImages(t *testing.T) {
 	if !slices.Equal(opened, []string{"https://example.com/doc"}) {
 		t.Errorf("点链接：%q", opened)
 	}
-	// Markdown 的图在 mygo 自己的 goroutine 里取
 	select {
 	case url := <-asked:
-		if url != "diagram.png" {
+		if url != "/w/diagram.png" {
 			t.Errorf("取图：%q", url)
 		}
 	case <-time.After(10 * time.Second):
 		t.Error("没有取 Markdown 里的图")
+	}
+}
+
+// 用户消息的气泡最宽是聊天区内容宽度的 bubbleWidthPercent：窗口宽时跟着宽（不再固定 316），窄时不伸出去；
+// 带的几张缩略图排不下时折行，也不伸出去。
+func TestBubbleFollowsWidth(t *testing.T) {
+	text := strings.Repeat("把这几张图里的数据整理成一张表格，", 8)
+	for _, width := range []int{1400, 700, 300} {
+		ch := New()
+		ch.SetItems(decodeItems(t, `[
+			{"kind":"user","id":"u","text":`+jsonString(text)+`,"images":[{"kind":"inline","key":"1","data":""},{"kind":"inline","key":"2","data":""},{"kind":"inline","key":"3","data":""},{"kind":"inline","key":"4","data":""}]},
+			{"kind":"answer","id":"a","text":"好的。"}
+		]`))
+		tt := newTester(ch, width, 1200, false)
+		settleImages(ch, tt)
+		bubble, ok := tt.Find(text)
+		if !ok {
+			t.Fatalf("%d 宽：没有气泡", width)
+		}
+		column := min(float32(width)-2*24, contentWidth) // 列表左右各留 24（View）
+		if bubble.W > column*bubbleWidthPercent/100+0.5 || bubble.X+bubble.W > float32(width) {
+			t.Errorf("%d 宽：气泡 %v 超出内容宽度 %v 的 %d%%", width, bubble, column, bubbleWidthPercent)
+		}
+		if width >= 700 && bubble.W < column*bubbleWidthPercent/100-40 {
+			t.Errorf("%d 宽：气泡 %v 没跟着窗口变宽（内容宽度 %v）", width, bubble, column)
+		}
+		for _, a := range tt.AccessAll() {
+			if a.Name == "图片无法显示" && a.Bounds.X < 0 {
+				t.Errorf("%d 宽：缩略图伸出窗口 %v", width, a.Bounds)
+			}
+		}
 	}
 }

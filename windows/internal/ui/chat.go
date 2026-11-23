@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"strconv"
 	"strings"
@@ -51,9 +52,10 @@ type chatPane struct {
 	}
 }
 
-func newChatPane(c *hub.Chat, loadImage func(file, ref string) ([]byte, error)) *chatPane {
+// newChatPane 是对话 c 的窗格：会话记录里的图经 loadImage 取，回答里写的图（主机上的文件、网址）经 loadLinked 取。
+func newChatPane(c *hub.Chat, loadImage func(file, ref string) ([]byte, error), loadLinked func(url string) ([]byte, error)) *chatPane {
 	list := chatview.New()
-	list.LoadImage = loadImage
+	list.LoadImage, list.LoadMarkdownImage = loadImage, loadLinked
 	return &chatPane{src: c, list: list}
 }
 
@@ -68,7 +70,7 @@ func (a *App) syncChat() {
 	}
 	if a.pane == nil || a.pane.src != c {
 		a.leaveDraft(a.pane)
-		p := newChatPane(c, a.hub.ImageLoader(c.Backend))
+		p := newChatPane(c, a.hub.ImageLoader(c.Backend), a.hub.LinkedImageLoader(c.Backend))
 		p.list.LoadEarlier = func() { a.loadEarlier(p, false) }
 		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 		p.list.OpenImages = func(list []items.Image, index int) { a.openImages(p.list, list, index) }
@@ -82,6 +84,8 @@ func (a *App) syncChat() {
 	}
 	u := c.Conv.Take()
 	p.state, p.connected = u.State, u.Connected
+	// 回答里图片的相对路径按对话现在的工作目录解析；还没收到时按会话记录的
+	p.list.Cwd = cmp.Or(u.State.Cwd, c.Session.Cwd)
 	a.trackDraft(p)
 	for _, ch := range u.Items {
 		if ch.Full {

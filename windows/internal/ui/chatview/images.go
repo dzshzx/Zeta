@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
@@ -34,7 +35,8 @@ type imageCache struct {
 }
 
 // get 返回一张图：还在载入时 done 为 false，第一次见到时开始载入，载完让窗口重画。
-func (ic *imageCache) get(c *ui.Context, im items.Image, load func(file, ref string) ([]byte, error)) (bmp *ui.Bitmap, done bool, err error) {
+// fetch 取图的原始数据（在后台 goroutine 上调，见 Chat.imageBytes）。
+func (ic *imageCache) get(c *ui.Context, im items.Image, fetch func(items.Image) ([]byte, error)) (bmp *ui.Bitmap, done bool, err error) {
 	key := im.CacheKey()
 	e, ok := ic.entries[key]
 	if !ok {
@@ -47,7 +49,7 @@ func (ic *imageCache) get(c *ui.Context, im items.Image, load func(file, ref str
 		ic.pending.Add(1)
 		go func() {
 			defer ic.pending.Done()
-			bmp, err := loadImage(im, load)
+			bmp, err := loadImage(im, fetch)
 			e.mu.Lock()
 			e.bmp, e.err, e.done = bmp, err, true
 			e.mu.Unlock()
@@ -71,9 +73,20 @@ func ImageBytes(im items.Image, load func(file, ref string) ([]byte, error)) ([]
 	return nil, fmt.Errorf("不认识的图片种类 %q", im.Kind)
 }
 
+// imageBytes 是这个列表里一张图的原始数据：回答里写的图（linked）经 LoadMarkdownImage 取，别的同 ImageBytes。阻塞。
+func (ch *Chat) imageBytes(im items.Image) ([]byte, error) {
+	if im.Kind == items.Linked {
+		if ch.LoadMarkdownImage == nil {
+			return nil, errNoLoader
+		}
+		return ch.LoadMarkdownImage(im.URL)
+	}
+	return ImageBytes(im, ch.LoadImage)
+}
+
 // loadImage 取一张图的数据并解码。
-func loadImage(im items.Image, load func(file, ref string) ([]byte, error)) (*ui.Bitmap, error) {
-	data, err := ImageBytes(im, load)
+func loadImage(im items.Image, fetch func(items.Image) ([]byte, error)) (*ui.Bitmap, error) {
+	data, err := fetch(im)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +95,7 @@ func loadImage(im items.Image, load func(file, ref string) ([]byte, error)) (*ui
 
 // thumbnail 是固定大小、裁切填满的小图（用户消息带的图）。
 func (ch *Chat) thumbnail(c *ui.Context, im items.Image, size float32) {
-	bmp, done, err := ch.images.get(c, im, ch.LoadImage)
+	bmp, done, err := ch.images.get(c, im, ch.imageBytes)
 	box := ui.Box(c).Size(size, size).Radius(12).Clip().Background(c.Theme().Text.Alpha(0.06))
 	switch {
 	case bmp != nil:
@@ -102,9 +115,13 @@ const (
 	imageMaxHeight = 340
 )
 
-// picture 是按原比例铺开的一张图。
+// picture 是按原比例铺开的一张图；网络图先是「加载图片」，点了才取。
 func (ch *Chat) picture(c *ui.Context, im items.Image) {
-	bmp, done, err := ch.images.get(c, im, ch.LoadImage)
+	if ch.waitsForTap(im) {
+		ch.remotePrompt(c, im)
+		return
+	}
+	bmp, done, err := ch.images.get(c, im, ch.imageBytes)
 	t := c.Theme()
 	switch {
 	case bmp != nil:
@@ -142,4 +159,34 @@ func imageError(err error) string {
 		return "图片无法显示"
 	}
 	return "图片无法显示：" + err.Error()
+}
+
+// waitsForTap：网络图还没经用户点过（同手机版的 waitsForTap，访问图片地址会把这台电脑的 IP 交给对方的服务器）。
+func (ch *Chat) waitsForTap(im items.Image) bool {
+	if !im.Remote() || ch.allowed[im.CacheKey()] {
+		return false
+	}
+	_, started := ch.images.entries[im.CacheKey()]
+	return !started
+}
+
+// remotePrompt 是网络图取之前的一行「加载图片 · 网站」（同手机版的 RemoteImagePrompt），点了取图。
+func (ch *Chat) remotePrompt(c *ui.Context, im items.Image) {
+	t := c.Theme()
+	site := im.URL[strings.Index(im.URL, "://")+3:]
+	if i := strings.IndexByte(site, '/'); i >= 0 {
+		site = site[:i]
+	}
+	b := ui.ButtonBase(c).Label("加载图片 · "+site).Tooltip(im.URL).Cursor(ui.CursorPointer).Radius(16).Padding(7, 11)
+	b.Background(t.Text.Alpha(0.05))
+	if b.Hovered() {
+		b.Background(t.Text.Alpha(0.09))
+	}
+	b.Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, iconImage).FontSize(15).TextColor(t.Accent)
+			ui.Text(c, "加载图片 · "+site).FontSize(12.5).TextColor(t.TextMuted).SingleLine().Ellipsis("…").Shrink(1)
+		})
+	})
+	b.OnClick(func() { ch.allowed[im.CacheKey()] = true })
 }

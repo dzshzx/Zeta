@@ -160,6 +160,10 @@ func TestImageCacheKey(t *testing.T) {
 	if a.CacheKey() == b.CacheKey() || b.CacheKey() != (Image{Kind: Session, File: "f", Ref: "1.0"}).CacheKey() {
 		t.Errorf("缓存键：%q %q", a.CacheKey(), b.CacheKey())
 	}
+	c, d := Image{Kind: Linked, URL: "/a.png"}, Image{Kind: Linked, URL: "https://h/a.png"}
+	if c.CacheKey() == d.CacheKey() || c.CacheKey() == a.CacheKey() || c.Remote() || !d.Remote() || b.Remote() {
+		t.Errorf("回答里写的图：%q %q，网络图 %v %v", c.CacheKey(), d.CacheKey(), c.Remote(), d.Remote())
+	}
 }
 
 // 用户条目上核心算好的这一轮能做什么照原样解出来。

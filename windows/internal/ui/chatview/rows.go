@@ -1,6 +1,7 @@
 package chatview
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,7 +19,8 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 			if len(it.Images) == 1 {
 				size = 148
 			}
-			ui.Row(c).Gap(6).Children(func() {
+			// 窗口窄得排不下时折行，不伸出聊天区
+			ui.Row(c).Gap(6).Wrap().Justify(ui.End).MaxWidthPercent(100).Children(func() {
 				for k, im := range it.Images[:min(len(it.Images), 4)] {
 					ch.opensImage(ui.Box(c.Key(k)), it.Images, k).Children(func() { ch.thumbnail(c, im, size) })
 				}
@@ -34,7 +36,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 		text := it.Text
 		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
 		bubble := coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
-		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidth(bubbleWidth).
+		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidthPercent(bubbleWidthPercent).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
@@ -67,20 +69,27 @@ func fileChip(c *ui.Context, entry string) {
 	})
 }
 
-// answerBlock 画一段回答（第 row 个条目）：还在送来时逐字显现，送完、显现完以后下面有复制键。
+// answerBlock 画一段回答（第 row 个条目）：还在送来时逐字显现，正文里引用的图画在下面（answerimages.go），
+// 送完、显现完以后最下面有复制键（复制的是原文）。
 func (ch *Chat) answerBlock(c *ui.Context, it items.Item, row int) {
+	parts := ch.answerParts(it)
+	shown := ch.shownAnswer(it)
 	ui.Column(c).FillWidth().Padding(4, 0, 6, 0).Children(func() {
 		if it.Streaming && strings.TrimSpace(it.Text) == "" {
 			typingDots(c)
 			return
 		}
 		var md ui.Element
-		if it.Streaming {
-			md = markdown.Stream(c, it.Text, &ch.answer)
-		} else {
-			md = markdown.View(c, ch.answerSource(c, it), &ch.answer)
+		switch {
+		case strings.TrimSpace(shown.Text) == "":
+			md = ui.Box(c) // 只有图
+		case it.Streaming:
+			md = markdown.Stream(c, shown.Text, &ch.answer)
+		default:
+			md = markdown.View(c, ch.answerSource(c, shown), &ch.answer)
 		}
 		md.FillWidth()
+		ch.answerImages(c, parts)
 		if !it.Streaming && strings.TrimSpace(it.Text) != "" && markdown.Revealed(md) {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				copyButton(c, it.Text)
@@ -134,5 +143,27 @@ func noticeRow(c *ui.Context, it items.Item) {
 	})
 }
 
-// bubbleWidth 是用户消息的气泡最宽多少（同 Compose 的 UserTextBubble）。
-const bubbleWidth = 316
+// bubbleWidthPercent 是用户消息的气泡最宽占聊天区内容宽度的几成。手机版定的是 316dp（UserTextBubble），在手机上约是
+// 内容宽度的九成多；桌面的窗口宽窄差得多，按比例算：窗口宽时气泡跟着宽，窄时也不伸出去。比手机略窄，宽窗口上一行不至于太长。
+const bubbleWidthPercent = 80
+
+// answerImages 画回答正文下面的图：每组一行（放不下折行），组和组之间、和正文之间隔开；点了看大图，左右翻的是这段回答里的全部图。
+func (ch *Chat) answerImages(c *ui.Context, parts *answerParts) {
+	if len(parts.groups) == 0 {
+		return
+	}
+	all := parts.images()
+	at := 0
+	for g, group := range parts.groups {
+		ui.Row(c.Key("images:"+strconv.Itoa(g))).Wrap().Gap(8).Margin(10, 0, 0, 0).MaxWidthPercent(100).Children(func() {
+			for _, im := range group {
+				if ch.waitsForTap(im) {
+					ui.Box(c.Key(im.CacheKey())).Children(func() { ch.remotePrompt(c, im) })
+				} else {
+					ch.opensImage(ui.Box(c.Key(im.CacheKey())), all, at).Children(func() { ch.picture(c, im) })
+				}
+				at++
+			}
+		})
+	}
+}

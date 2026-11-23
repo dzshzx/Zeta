@@ -5,6 +5,7 @@ package items
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Kind 是条目的种类。
@@ -112,6 +113,9 @@ type ImageKind string
 const (
 	Inline  ImageKind = "inline"  // 实时收到的，带着数据
 	Session ImageKind = "session" // 会话记录里的，只有位置，要另外取
+	// Linked 是回答的 Markdown 里写的图（客户端从正文里取出来的，serve 不发）：URL 是主机上的路径（绝对路径或 ~ 开头）
+	// 或 http、https 的网址。
+	Linked ImageKind = "linked"
 )
 
 // Image 是聊天里的一张图。
@@ -121,14 +125,23 @@ type Image struct {
 	Data string    `json:"data"` // inline：base64
 	File string    `json:"file"` // session：会话记录的路径
 	Ref  string    `json:"ref"`  // session：在记录里的位置
+	URL  string    `json:"url"`  // linked：主机上的路径或网址
 }
 
 // CacheKey 是认这张图的键：同一张图在列表里出现几次、条目被整份换掉，都只取一次。
 func (im Image) CacheKey() string {
-	if im.Kind == Inline {
+	switch im.Kind {
+	case Inline:
 		return "inline:" + im.Key
+	case Linked:
+		return "linked:" + im.URL
 	}
 	return "session:" + im.File + "#" + im.Ref
+}
+
+// Remote：网络上的图（linked 的 http、https 网址）。取它会把这台电脑的 IP 交给对方的服务器，显示前先等用户点一下。
+func (im Image) Remote() bool {
+	return im.Kind == Linked && (strings.HasPrefix(im.URL, "https://") || strings.HasPrefix(im.URL, "http://"))
 }
 
 // Patch 是改文件工具的结果里 Claude Code 给出的改动（tool_use_result 的 structuredPatch）。

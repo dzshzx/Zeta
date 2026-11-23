@@ -11,10 +11,10 @@ import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
-// 假核心的 sessions.* 方法（docs/core.md「会话」）：照 Devices 上预先给的答，结果的样子和真的一样。
+// 假核心的 sessions.* 方法（docs/core.md「会话」）和取主机上图片文件的 images.file：照 Devices 上预先给的答，结果的样子和真的一样。
 // 置顶、改名、归档、删除只答成功，不改列表（真核心改完经 sessions.watch 推来，测试要的话自己 Push）。
 
-// answerSessions 答连接 l 上的 sessions.* 请求，记下「设备编号 方法 参数 JSON」。
+// answerSessions 答连接 l 上的 sessions.* 和 images.file 请求，记下「设备编号 方法 参数 JSON」。
 func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
 	host := l.Host
 	d.mu.Lock()
@@ -57,6 +57,14 @@ func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
 			return nil, errors.New("没有这张图")
 		}
 		result = map[string]any{"media_type": "image/png", "data": d.ImageData}
+	case "images.file":
+		d.mu.Lock()
+		data := d.FileImages[c.Str("path")]
+		d.mu.Unlock()
+		if data == nil {
+			return nil, errors.New("不是图片文件或读不到")
+		}
+		result = map[string]any{"media_type": "image/png", "data": data}
 	default:
 		return nil, errors.New("假核心没有 " + c.Method)
 	}
@@ -116,13 +124,13 @@ func (l *ChatLink) PushMatch(search any, session, snippet string) {
 	l.Push(string(line))
 }
 
-// SessionCalls 取走到现在发来的 sessions.* 请求（除了 sessions.search、sessions.image），每个是「设备编号 方法 参数 JSON」。
+// SessionCalls 取走到现在发来的 sessions.* 请求（sessions.search、sessions.image 和 images.file 不算），每个是「设备编号 方法 参数 JSON」。
 func (d *Devices) SessionCalls() []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	out := slices.DeleteFunc(d.sessions, func(s string) bool {
 		_, rest, _ := strings.Cut(s, " ")
-		return strings.HasPrefix(rest, "sessions.search ") || strings.HasPrefix(rest, "sessions.image ")
+		return strings.HasPrefix(rest, "sessions.search ") || strings.HasPrefix(rest, "sessions.image ") || strings.HasPrefix(rest, "images.file ")
 	})
 	d.sessions = nil
 	return out

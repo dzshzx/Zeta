@@ -3,6 +3,7 @@ package chatview
 import (
 	"bytes"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -202,4 +203,106 @@ func waitText(t *testing.T, tt *ui.Tester, prefix string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("没等到 %q：%q", prefix, tt.Texts())
+}
+
+// 看大图里缩放（zoom.go）：滚轮一格放大一级、指针下的点留在原处；有上下限，离原大很近时落回原大；放大后拖动平移，没放大时拖不动；
+// 双击在原大和放大之间切换；翻页回到原大。
+func TestViewerZoom(t *testing.T) {
+	ch := New()
+	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
+	ch.SetItems(decodeItems(t, `[
+		{"kind":"user","id":"u","text":"看图","images":[{"kind":"session","file":"/s.jsonl","ref":"1"},{"kind":"session","file":"/s.jsonl","ref":"2"}]}
+	]`))
+	tt, w := viewerTester(ch, false, nil)
+	settleImages(ch, tt)
+	at, ok := tt.AccessByRole(ui.RoleImage, "图片")
+	if !ok {
+		t.Fatal("没有图")
+	}
+	tt.ClickAt(at.Bounds.X+at.Bounds.W/2, at.Bounds.Y+at.Bounds.H/2)
+	tt.Frame()
+	if w.v == nil {
+		t.Fatal("没打开看大图")
+	}
+	z := &w.v.zoom
+	// 图在 900×700 的窗口里：框是两边各让出翻页键、上下让出两条栏的那块，中心在窗口中心偏下
+	cx, cy := float32(450), float32(coui.TitleBarHeight+(700-coui.TitleBarHeight-viewerBottom)/2)
+	tt.Wheel(cx, cy, 0, -100)
+	tt.Frame()
+	if z.factor() != wheelStep || z.x != 0 || z.y != 0 {
+		t.Fatalf("在中心滚一格：%+v", *z)
+	}
+	// 在中心右下 100 处再滚一格：那一点留在原处
+	before := (100 - z.x) / z.factor()
+	tt.Wheel(cx+100, cy+100, 0, -100)
+	tt.Frame()
+	if after := (100 - z.x) / z.factor(); math.Abs(float64(after-before)) > 0.01 {
+		t.Errorf("指针下的点挪了：%v → %v", before, after)
+	}
+	for range 20 {
+		tt.Wheel(cx, cy, 0, -100)
+	}
+	tt.Frame()
+	if z.factor() != maxZoom {
+		t.Errorf("放大的上限：%v", z.factor())
+	}
+	// 放大了：按住拖动平移
+	x0, y0 := z.x, z.y
+	tt.Press(cx, cy)
+	tt.Move(cx+30, cy-20)
+	tt.Release(cx+30, cy-20)
+	tt.Frame()
+	if z.x-x0 != 30 || z.y-y0 != -20 {
+		t.Errorf("拖动：(%v, %v) → (%v, %v)", x0, y0, z.x, z.y)
+	}
+	for range 30 {
+		tt.Wheel(cx, cy, 0, 100)
+	}
+	tt.Frame()
+	if z.factor() != minZoom || z.x != 0 || z.y != 0 {
+		t.Errorf("缩小的下限、缩小时不平移：%+v", *z)
+	}
+	// 双击：不是原大时回到原大，原大时放大
+	tt.ClickAt(cx, cy)
+	tt.ClickAt(cx, cy)
+	tt.Frame()
+	if z.factor() != 1 {
+		t.Errorf("双击回到原大：%v", z.factor())
+	}
+	tt.Advance(time.Second) // 隔开，下面两下另算一次双击
+	tt.ClickAt(cx, cy)
+	tt.ClickAt(cx, cy)
+	tt.Frame()
+	if z.factor() != doubleClickZoom {
+		t.Errorf("原大时双击放大：%v", z.factor())
+	}
+	if _, ok := tt.AccessByRole(ui.RoleImage, "图片"); !ok {
+		t.Error("放大后读屏找不到图")
+	}
+	tt.Key(0, ui.KeyRight)
+	if w.v.zoom.factor() != 1 {
+		t.Errorf("翻页后没回到原大：%v", w.v.zoom.factor())
+	}
+	// 原大时拖不动
+	tt.Press(cx, cy)
+	tt.Move(cx+30, cy)
+	tt.Release(cx+30, cy)
+	tt.Frame()
+	if z.x != 0 || z.y != 0 {
+		t.Errorf("原大时被拖动了：%+v", *z)
+	}
+	tt.Key(0, ui.KeyEscape)
+	if w.v != nil {
+		t.Error("Esc 没关上")
+	}
+}
+
+// 滚一格时在原大附近落回原大：缩一格再放一格回到 1，不停在 0.9999 这样的倍数上。
+func TestZoomSnapsToFit(t *testing.T) {
+	var z zoom
+	z.by(1/wheelStep, 10, 10, 0, 0)
+	z.by(wheelStep, 10, 10, 0, 0)
+	if z.scale != 1 || z.x != 0 || z.y != 0 {
+		t.Errorf("%+v", z)
+	}
 }
