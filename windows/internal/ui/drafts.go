@@ -11,6 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
@@ -311,4 +312,25 @@ func (s composerSnapshot) record(key string, at time.Time) drafts.Draft {
 		}
 	}
 	return r
+}
+
+// rowDraft 是侧栏会话 s 没发出的草稿的一行预览（同手机版侧栏的「[草稿]」，规矩在 drafts.Preview）；没有草稿时 ok 为假。
+// 输入栏正显示着的那份（正开着的对话的）不算：它就在输入框里。
+func (a *App) rowDraft(s hostlink.Session) (preview string, ok bool) {
+	b := a.draftBook()
+	if s.ID == "" || s.ID == b.key {
+		return "", false
+	}
+	r, ok := b.records[s.ID]
+	if !ok {
+		return "", false
+	}
+	// 存盘的没写 Label 时按 Entry 取名（同恢复草稿时）；复制一份，不改存着的那份
+	r.Files = slices.Clone(r.Files)
+	for i, f := range r.Files {
+		if f.Label == "" {
+			r.Files[i].Label = attach.EntryName(f.Entry)
+		}
+	}
+	return drafts.Preview(r), true
 }

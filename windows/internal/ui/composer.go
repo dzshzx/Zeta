@@ -381,7 +381,7 @@ func effortLevel(v string) int {
 }
 
 // usageButton 是用量：按钮上是上下文用了多少，点开是这台的订阅额度（同手机版的用量弹框，打开时数不够新就问一次）、
-// 上下文、本对话累计和压缩上下文。
+// 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
 	k := widget.Of(c)
@@ -458,6 +458,13 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 		}
 	}
 	statRow(c, "费用（按 API 标价）", cost)
+	if note := totalsNote(u, p.state.Earlier); note != "" {
+		ui.Text(c, note).FontSize(12).TextColor(t.TextMuted)
+	}
+	if len(u.Turns) > 0 {
+		ui.Divider(c)
+		usageTurns(c, u.Turns)
+	}
 	widget.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
 		p.usage = false
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })

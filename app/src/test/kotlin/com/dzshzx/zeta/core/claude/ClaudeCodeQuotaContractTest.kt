@@ -1,7 +1,12 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.AccountsCore
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.HelperProgram
+import com.dzshzx.zeta.core.HelperServe
+import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.QuotaProbe
+import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
@@ -25,6 +30,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -32,8 +38,8 @@ import org.junit.Test
 
 /**
  * 额度显示和账号切换依赖的 Claude Code 行为（2.1.328 实测），在这里钉住：升级 Claude Code 后跑一遍，变了就会失败， 核心读额度的
- * helper/accounts/quota.go、[QuotaProbe]、[ClaudeAccounts] 跟着改。换号用的是应用里带的那份
- * claude-switch（构建出的本机架构那一份， 和应用里一样第一次用时装进临时 HOME）。
+ * helper/accounts/quota.go、[QuotaProbe]、helper/accounts 跟着改。账号经真的核心（本机架构的 zeta-helper
+ * serve）和应用里带的那份 claude-switch（构建出的本机架构那一份，和应用里一样核心说没装时装进临时 HOME），走的是应用里的 [AccountsCore]。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，用假的 claude.ai 登录（假令牌），连本机一个假的 Messages API：它在响应头里带上
  * anthropic-ratelimit-unified-*，并记下每次请求用的是哪个令牌。代理指到一个不通的端口，claude.ai 那边的接口（取用量、取账号资料）
@@ -66,6 +72,7 @@ class ClaudeCodeQuotaContractTest {
 
     @After
     fun tearDown() {
+        core?.close()
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
     }
@@ -181,12 +188,47 @@ class ClaudeCodeQuotaContractTest {
 
     private val claudeSwitch = TestHelper.program(HelperProgram.CLAUDE_SWITCH)
 
+    /** 临时 HOME 上的 bash：环境变量只有这几样，核心和它起的 claude-switch 都继承它们。 */
+    private fun shell(): LinuxShell =
+        object : LinuxShell {
+            override val home: String = this@ClaudeCodeQuotaContractTest.home.path
+
+            override fun start(command: String): Process {
+                val builder = ProcessBuilder("bash", "-c", command).directory(File(home))
+                builder.environment().apply {
+                    clear()
+                    put("HOME", home)
+                    put("PATH", path())
+                    put("LANG", "C.UTF-8")
+                    put(AppVariant.LINUX_NAME_ENV, "zeta")
+                    putAll(env)
+                }
+                return builder.start()
+            }
+
+            override fun kill(process: Process) {
+                process.destroyForcibly()
+            }
+        }
+
+    /** 到临时 HOME 上核心的连接，第一次用时连上。 */
+    private var core: HelperServe? = null
+
+    private fun serve(): HelperServe =
+        core
+            ?: HelperServe(
+                    name = "quota-contract",
+                    open = {
+                        HelperServe.open(shell(), TestHelper.program(HelperProgram.ZETA_HELPER))
+                    },
+                    subscriptions = emptyList(),
+                    onMessage = {},
+                    onProblem = {},
+                )
+                .also { core = it }
+
     private fun accounts() =
-        ClaudeAccounts(
-            ClaudeConfigClient { ClaudeAccountsTest.localShell(home, env) },
-            File("src/main/assets/zeta_accounts.sh").readText(),
-            claudeSwitch,
-        )
+        AccountsCore(claudeSwitch, { m, p, t -> serve().call(m, p, t) }, ::shell)
 
     /** 一个 stream-json 的 claude 进程，参数和 Zeta 起对话时一样。 */
     private inner class Claude : AutoCloseable {
@@ -298,11 +340,6 @@ class ClaudeCodeQuotaContractTest {
 
     @Test
     fun rateLimitEventsAndGetUsageCarryTheWindows() {
-        assumeTrue(
-            "没有 jq",
-            runCatching { ProcessBuilder("jq", "--version").start().waitFor() == 0 }
-                .getOrDefault(false),
-        )
         login("a")
         Claude().use { claude ->
             claude.turn("hello")
@@ -336,26 +373,21 @@ class ClaudeCodeQuotaContractTest {
             assertEquals(35.0, limits.obj("five_hour")!!.num("utilization")!!, 1e-6)
             assertEquals(40.0, limits.obj("seven_day")!!.num("utilization")!!, 1e-6)
 
-            // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），账号脚本据此说清是谁挡着；claude-switch 也认出它，不让换
-            val procs = accounts().list().processes
+            // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），核心据此说清是谁挡着；claude-switch 也认出它，不让换
             assertEquals(
-                listOf(ClaudeProc(claude.process.pid().toInt(), "", "idle", procs.single().kind)),
-                procs,
+                "还有 1 个别处开着的 Claude Code（比如终端里的 claude）",
+                accounts().list().blocker,
             )
             assertEquals("claude", accounts().save())
-            val outcome = accounts().switch("claude")
-            assertTrue(
-                outcome.toString(),
-                outcome is SwitchOutcome.Busy && outcome.processes == procs,
-            )
+            val refused = assertThrows(ServeError::class.java) { accounts().switch("claude") }
+            assertEquals(refused.message, AccountsCore.BUSY, refused.code)
         }
     }
 
     @Test
     fun probeAnswersWithoutLeavingASession() {
         login("a")
-        val answer =
-            QuotaProbe.query(ClaudeAccountsTest.localShell(home, env), File(home, "proj").path)
+        val answer = QuotaProbe.query(shell(), File(home, "proj").path)
         assertEquals("true", answer.str("rate_limits_available"))
         assertEquals("max", answer.str("subscription_type"))
         // 不留会话记录；退出后 ~/.claude/sessions 里的登记也删了
@@ -379,13 +411,21 @@ class ClaudeCodeQuotaContractTest {
     fun switchedLoginIsWhatTheNextProcessUses() {
         login("a")
         assertEquals("claude", accounts().save())
-        // 添加账号：claude 存档并退出，新登录记成 claude-b
-        assertEquals(SwitchOutcome.Done("claude-b"), accounts().prepareLogin())
+        // 添加账号：claude 存档并退出，新登录记成 claude-b（应用经 accounts.login_start 做这一步，再起 claude auth
+        // login；这里直接登录假账号）
+        val prepared =
+            serve()
+                .call(
+                    "accounts.prepare_login",
+                    buildJsonObject { put("program", claudeSwitch.relativePath) },
+                    AccountsCore.TIMEOUT_MS,
+                )
+        assertEquals("claude-b", (prepared as JsonObject).str("name"))
         assertTrue(!accounts().list().loggedIn)
         login("b")
         assertEquals("claude-b", accounts().save())
         assertEquals(listOf("claude-b", "claude"), accounts().list().all.map { it.id })
-        assertEquals(SwitchOutcome.Done("claude"), accounts().switch("claude"))
+        accounts().switch("claude")
         Claude().use { claude ->
             claude.turn("hello")
             assertEquals("a@example.com", claude.status("Email"))
@@ -432,7 +472,7 @@ class ClaudeCodeQuotaContractTest {
      *   cachedExtraUsageDisabledReason（不等写完就输出 result）。claude-switch 拿着这把锁换号，不会被它盖掉。
      *
      * 换号时要先拿这把锁：不拿锁、第一轮一结束就换，会正好撞上上面那次写，被它用读到的旧内容盖回旧账号。 有 Claude Code
-     * 开着时仍然不换号，原因不在这几条，在按账号统计用量（[ClaudeAccounts.blocker]，见 claude-switch 的 README「为什么是冷切换」）。
+     * 开着时仍然不换号，原因不在这几条，在按账号统计用量（helper/accounts 的 Blocker，见 claude-switch 的 README「为什么是冷切换」）。
      */
     @Test
     fun anOpenProcessFollowsASwitchedLogin() {

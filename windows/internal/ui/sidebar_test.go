@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/egoist/mygo/ui"
 )
@@ -65,7 +66,7 @@ func TestCurrentSessionCard(t *testing.T) {
 	f.see(t, "等你确认")
 }
 
-// sidebarScenes 是侧栏的预览：搜索中、正开着的会话在回答。
+// sidebarScenes 是侧栏的预览：搜索中、正开着的会话在回答、别的会话有草稿。
 var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 	"sidebar-search": func(t *testing.T, f *chatFixture) {
 		f.showTurn(t, false)
@@ -80,6 +81,12 @@ var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.showTurn(t, false)
 		f.listSample()
 		f.push(`"session":"s1","busy":true`)
+	},
+	"sidebar-draft": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.listSample()
+		f.app.draftBook().records["s2"] = drafts.Draft{Key: "s2", Text: "登录按钮再大一点，颜色换成"}
+		f.tt.Frame()
 	},
 }
 
