@@ -115,12 +115,13 @@ windows/scripts/assets.sh
 check_go_module windows windows
 check_go_windows windows
 
+results=app/build/test-results/testDebugUnitTest
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"
 elif [[ ${ZETA_GATE_FULL:-} == 1 ]]; then
   tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest
   # 截图测试只在这里跑，所以核对它们真的跑了：有结果、一个都没被跳过。对不上就是哪里把它们排除掉了
-  shots=$(cat app/build/test-results/testDebugUnitTest/TEST-com.dzshzx.zeta.shots.*Shots.xml 2>/dev/null || true)
+  shots=$(cat "$results"/TEST-com.dzshzx.zeta.shots.*Shots.xml 2>/dev/null || true)
   ran=$(grep -c '<testcase ' <<<"$shots" || true)
   skipped=$(grep -c '<skipped' <<<"$shots" || true)
   if ((ran == 0 || skipped > 0)); then
@@ -132,19 +133,24 @@ else
   tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest -Pzeta.gate=fast
 fi
 if [[ -z $skip_gradle ]]; then
-  # 单元测试里一个用例超过 60 秒就失败：正常时最慢的约 20 秒（拿真 claude 跑的契约测试），超过的多半在白等一个不会来的事件
-  # （等满超时后照样往下走），或者 idle() 遇上停不下来的动画、空转到内存耗尽，测试却照样通过，门禁只是变慢、没人发现
-  slow_tests=$(cat app/build/test-results/testDebugUnitTest/TEST-*.xml 2>/dev/null |
-    grep -oE '<testcase name="[^"]*" classname="[^"]*" time="[0-9.]+"' || true)
-  if [[ -z $slow_tests ]]; then
-    echo "gate: 没读到单元测试的结果（app/build/test-results/testDebugUnitTest），核对不了各用例的用时" >&2
-    exit 1
-  fi
-  slow_tests=$(awk -F'"' '$6 + 0 > 60 { printf "  %s.%s：%s 秒\n", $4, $2, $6 }' <<<"$slow_tests")
-  if [[ -n $slow_tests ]]; then
-    printf 'gate: 这些单元测试用例超过 60 秒（先查是不是在白等，见 app/build.gradle.kts 的测试任务）：\n%s\n' "$slow_tests" >&2
-    exit 1
-  fi
+  # 单元测试里一个用例超过 60 秒就失败：正常时最慢的约 20 秒（拿真 claude 跑的契约测试），超过的多半在白等一个不会来的事件。
+  # 一个结果都没读到也失败
+  awk -v dir="$results" '
+    match($0, /<testcase name="[^"]*" classname="[^"]*" time="[0-9.]+"/) {
+      n++
+      split(substr($0, RSTART, RLENGTH), f, "\"")
+      if (f[6] + 0 > 60) slow = slow sprintf("  %s.%s：%s 秒\n", f[4], f[2], f[6])
+    }
+    END {
+      if (n == 0) {
+        printf "gate: 没读到单元测试的结果（%s），核对不了各用例的用时\n", dir > "/dev/stderr"
+        exit 1
+      }
+      if (slow != "") {
+        printf "gate: 这些单元测试用例超过 60 秒（先查是不是在白等，见 app/build.gradle.kts 的测试任务）：\n%s", slow > "/dev/stderr"
+        exit 1
+      }
+    }' "$results"/TEST-*.xml
 fi
 
 if [[ "$(tracked_state)" != "$before" ]]; then

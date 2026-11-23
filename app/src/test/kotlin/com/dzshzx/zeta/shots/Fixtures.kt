@@ -3,7 +3,6 @@ package com.dzshzx.zeta.shots
 import android.app.Application
 import androidx.compose.runtime.MutableState
 import com.dzshzx.zeta.core.AccountStatus
-import com.dzshzx.zeta.core.AndroidHubPlatform
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
@@ -18,6 +17,7 @@ import com.dzshzx.zeta.core.coreItems
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.ssh.SshKey
+import com.dzshzx.zeta.ui.components.ProcessHub
 
 /**
  * 截图用的假数据。界面读的是真的 [ConversationHub]：先把设置写成“环境已装好”的样子再建 hub， 只有 root
@@ -74,7 +74,7 @@ object Fixtures {
         Settings.of(app).env = env
         val hub = ConversationHub(app) { sshKey }
         hub.convLinks.connect = NoCore
-        install(hub)
+        ProcessHub.current = hub
         hub.environment.setup = SetupState.Ready
         hub.environment.account =
             AccountStatus(loggedIn = true, email = "shots@example.invalid", plan = null)
@@ -87,14 +87,9 @@ object Fixtures {
         Settings.of(app).env = null
         val hub = ConversationHub(app) { sshKey }
         hub.convLinks.connect = NoCore
-        install(hub)
+        ProcessHub.current = hub
         hub.environment.setup = state
         return hub
-    }
-
-    /** 把 [hub] 装成全应用共用的那个（[ConversationHub.get] 和界面的 LocalHub 拿到的就是它）。 */
-    fun install(hub: ConversationHub) {
-        AndroidHubPlatform.install(hub)
     }
 
     /** 把当前对话换成这些聊天内容（标题 [title]）。 */

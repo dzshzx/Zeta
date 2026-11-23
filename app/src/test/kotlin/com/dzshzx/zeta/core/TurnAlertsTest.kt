@@ -34,9 +34,8 @@ class TurnAlertsTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
     @Before
-    fun reset() {
+    fun grantNotifications() =
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
-    }
 
     private fun alerts(): List<String> =
         shadowOf(app.getSystemService(NotificationManager::class.java)).allNotifications.map {

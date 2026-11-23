@@ -732,7 +732,8 @@ class FakeClaudeContractTest {
             }
         }
 
-        private fun until(millis: Long, done: (JsonObject) -> Boolean): JsonObject? {
+        /** 读输出，直到有一行让 [done] 为真（返回这一行）、[millis] 毫秒到点或输出结束（返回 null）。读过的行记进 events，不再交给下一次读。 */
+        private fun read(millis: Long, done: (JsonObject) -> Boolean): JsonObject? {
             val deadline = System.currentTimeMillis() + millis
             while (true) {
                 val left = deadline - System.currentTimeMillis()
@@ -748,7 +749,11 @@ class FakeClaudeContractTest {
             }
         }
 
-        private fun settle(millis: Long) = until(millis) { false }
+        /** 等一行让 [done] 为真的输出。等的都是一定会来的事件，等满 [millis] 就失败，不带着缺了的事件往下比。 */
+        private fun until(millis: Long, done: (JsonObject) -> Boolean): JsonObject =
+            read(millis, done) ?: throw AssertionError("$millis 毫秒内没等到要等的输出")
+
+        private fun settle(millis: Long) = read(millis) { false }
 
         /** 收完它退出前的输出（输入管道一直开着，它自己退出），返回退出码；15 秒内没退出是 -1。 */
         private fun exitCode(): Int {
@@ -773,17 +778,9 @@ class FakeClaudeContractTest {
             val settings = control(obj("subtype" to "get_settings"))
             control(obj("subtype" to "get_usage", "skip_behaviors" to JsonPrimitive(true)))
             // 启动时问的几样都答了才开始这一轮：答得晚（机器忙时真 Claude Code 可能过一秒多才答）会混进这一轮的事件。
-            // get_usage 不等，它的应答不计入比较（shapes 滤掉了）。三个应答先后不定，在同一次 until 里一起等：until 读过的行
-            // 不会再给下一次 until，分开逐个等时先到的应答被前一次读走，后面就要等满超时
-            val waiting = mutableSetOf(initialize, contextUsage, settings)
-            val answered =
-                until(60_000) {
-                    if (it.str("type") == "control_response") {
-                        it.obj("response")?.str("request_id")?.let(waiting::remove)
-                    }
-                    waiting.isEmpty()
-                }
-            checkNotNull(answered) { "60 秒内启动时的请求没有都答：还差 $waiting" }
+            // get_usage 不等，它的应答不计入比较（shapes 滤掉了）。读过的行不再交给下一次 until，所以三个应答在同一次里等齐
+            val startup = listOf(initialize, contextUsage, settings)
+            until(60_000) { startup.all { id -> events.any(response(id)) } }
             settle(1500)
             user("11111111-2222-4333-8444-555555555555", "hi")
             when (mode) {

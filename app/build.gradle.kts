@@ -366,8 +366,7 @@ tasks.withType<Test>().configureEach {
     // 因此碎得厉害）。实测每个进程峰值从约 1.7G 降到约 1.1G，测试阶段没变慢
     jvmArgs("-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC")
     environment("MALLOC_ARENA_MAX", "2")
-    // 内存耗尽时测试进程直接退出，这次测试算失败。不加时 OutOfMemoryError 可能只打死某个后台协程（比如 Compose 的重组），
-    // 测试照样通过：idle() 遇上停不下来的动画时就是这样空转八九分钟、到内存耗尽才停
+    // 内存耗尽时测试进程直接退出、测试算失败；不加时 OutOfMemoryError 可能只打死某个后台协程（比如 Compose 的重组），测试照样通过
     jvmArgs("-XX:+ExitOnOutOfMemoryError")
     // 合入门禁（scripts/check.sh，没设 ZETA_GATE_FULL=1 时）传 -Pzeta.gate=fast：不跑截图测试（shots 包里类名以 Shots 结尾的）。
     // 它们占单元测试一半的时间，改由全量门禁（每晚的 CI、发版前）跑。不传时全跑。

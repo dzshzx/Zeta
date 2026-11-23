@@ -376,11 +376,6 @@ class AndroidHubPlatform(
                 ?: synchronized(this) {
                     ProcessHub.current ?: ConversationHub(app).also { ProcessHub.current = it }
                 }
-
-        /** 换掉全应用共用的 hub（单元测试装上自己建的；每个用例开始时由测试用的 Application 清空）。 */
-        internal fun install(hub: ConversationHub) {
-            ProcessHub.current = hub
-        }
     }
 }
 
