@@ -90,9 +90,6 @@ func (b *bulkLink) Close() {
 
 // bulkCall 是在后台对设备 backend 的核心取大块数据的办法（另一条连接，见 bulkLink）。在主线程上取，在后台调用。
 func (h *Hub) bulkCall(backend string) sessionsCaller {
-	if h.Off(backend) {
-		return offLink{h.offline(backend)}.Call
-	}
 	b := h.bulks[backend]
 	if b == nil {
 		x, _ := h.Host(backend)

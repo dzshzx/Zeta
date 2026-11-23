@@ -724,8 +724,7 @@ private fun ConnectionGroup(
         item {
             SwitchPreference(
                 title = "连接",
-                summary =
-                    if (host.connected) "用到这台设备时连上，断了自动重连" else "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑",
+                summary = if (host.connected) "用到这台设备时连上，断了自动重连" else "已断开：" + RemoteHosts.OFF_NOTE,
                 checked = host.connected,
                 onCheckedChange = onConnect,
             )

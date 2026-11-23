@@ -76,6 +76,7 @@ import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
+import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.userTurns
@@ -348,7 +349,7 @@ private fun DisconnectedMessage(hub: ConversationHub, backend: String, padding: 
     SetupMessage(
         padding,
         "「${hub.backendName(backend)}」已断开",
-        "Zeta 现在不连这台设备，它上面的对话在那边照样跑。连上后接着看。",
+        RemoteHosts.OFF_NOTE + "。连上后接着看。",
     ) {
         TextButton(
             text = "连接",

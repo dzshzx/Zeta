@@ -80,7 +80,7 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 		on := !x.Off
 		summary := "用到这台设备时连上，断了自动重连"
 		if x.Off {
-			summary = "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑"
+			summary = "已断开：" + offNote
 		}
 		l.Row(coui.Row{Title: "连接", Summary: summary, End: func() {
 			if coui.Switch(c.Key("connect"), &on).Label("连接").Changed() {

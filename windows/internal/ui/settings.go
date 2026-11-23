@@ -61,6 +61,9 @@ func (a *App) devicesSection(c *ui.Context) {
 	})
 }
 
+// offNote 是「连接」关着的设备怎样（设备页的开关下面、聊天窗格的已断开说明），同手机版的 RemoteHosts.OFF_NOTE。
+const offNote = "Zeta 不连这台设备，它上面的对话在那边照样跑"
+
 // offLabel 是「连接」关着的设备在设置首页和侧栏设备菜单里注明的字；开着时是空。
 func offLabel(x sshlink.Host) string {
 	if x.Off {
@@ -98,7 +101,7 @@ func (a *App) claudeSection(c *ui.Context) {
 				row.Title = x.Name() + " · 账号与额度"
 			}
 			if r == nil {
-				row.Summary, row.Arrow, row.OnClick = "已断开", false, nil
+				row.Summary, row.Arrow, row.OnClick = offLabel(x), false, nil
 				l.Row(row)
 				continue
 			}

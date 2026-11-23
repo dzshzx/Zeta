@@ -124,12 +124,8 @@ class ConversationHub(val platform: HubPlatform) {
     fun changeVia(id: String, via: RemoteHost.Via, target: String, hostKey: String?): Boolean {
         val host = remoteHost(id) ?: return false
         if (hostWorking(id)) return false
-        val idle = liveConversations.filter { it.backend == id }
-        idle.forEach { it.leave() }
-        parked.removeAll(idle.toSet())
-        platform.prunePhones()
         // 对话的连接是按原来的连法连的，下次按新的连
-        convLinks.reset(id)
+        releaseHost(id)
         updateRemoteHosts(
             settings.remoteHosts.map {
                 if (it.id == id)
@@ -292,37 +288,51 @@ class ConversationHub(val platform: HubPlatform) {
      */
     fun setConnected(id: String, connected: Boolean) {
         val host = remoteHost(id)?.takeIf { it.connected != connected } ?: return
-        if (!connected) {
-            val there = liveConversations.filter { it.backend == id }
-            there.forEach { it.leave() }
-            parked.removeAll(there.toSet())
-            openedFromActivity.removeAll(there.mapNotNullTo(HashSet()) { it.sessionId })
-            platform.prunePhones()
-            convLinks.reset(id)
-            quotas.remove(id)?.close()
-            if (host.via == RemoteHost.Via.Debian) closeDebianMaster(host.target)
-        }
+        // 先放开再改清单：改清单时直连的 SSH 连接就断开了
+        if (!connected) disconnect(host)
         updateRemoteHosts(
             settings.remoteHosts.map { if (it.id == id) it.copy(connected = connected) else it },
         )
         sessionList.refresh()
-        if (!connected) return
-        if (backend == id) refreshClaudeDefaults(id)
-        val shown = current
-        val session = shown.sessionId
-        if (shown.backend == id && session != null)
-            replaceCurrent(
-                Conversation(this, shown.cwd, session, shown.title, null, backend = id),
-            )
+        if (connected) reconnect(id)
     }
 
-    /** 关掉手机 Debian 里到 [target] 的 ssh 主连接（[DebianSshShell.closeMasters]），在后台线程上做。 */
-    private fun closeDebianMaster(target: String) {
+    /** 「连接」关掉的远程主机 [host]：放开它上面的对话，额度订阅和经 Debian 的 ssh 主连接一起断开。 */
+    private fun disconnect(host: RemoteHost) {
+        val there = liveConversations.filter { it.backend == host.id }
+        openedFromActivity.removeAll(there.mapNotNullTo(HashSet()) { it.sessionId })
+        releaseHost(host.id)
+        quotas.remove(host.id)?.close()
+        if (host.via == RemoteHost.Via.Debian) closeDebianMasters(listOf(host.target))
+    }
+
+    /** 「连接」打开的远程主机 [id]：侧栏在它上面时重读默认值，当前对话在它上面、已经有会话的重新打开。 */
+    private fun reconnect(id: String) {
+        if (backend == id) refreshClaudeDefaults(id)
+        val shown = current
+        val session = shown.sessionId ?: return
+        if (shown.backend == id)
+            replaceCurrent(Conversation(this, shown.cwd, session, shown.title, null, backend = id))
+    }
+
+    /** 远程主机 [id] 上的对话 Zeta 都放开（进程留给那台的闲置超时），断开对话用的 serve 连接：改连法、断开时。 */
+    private fun releaseHost(id: String) {
+        val there = liveConversations.filter { it.backend == id }
+        there.forEach { it.leave() }
+        parked.removeAll(there.toSet())
+        platform.prunePhones()
+        convLinks.reset(id)
+    }
+
+    /**
+     * 关掉手机 Debian 里到 [targets] 的 ssh 主连接（[DebianSshShell.closeMasters]），挂在上面的命令随即结束：
+     * 手机换了网络、远程主机断开时。Debian 没就绪时不做。在后台线程上做，哪个线程上都能调。
+     */
+    fun closeDebianMasters(targets: List<String>) {
+        if (targets.isEmpty()) return
         val local = shell(Backends.LOCAL)?.takeIf { usable(Backends.LOCAL) } ?: return
         thread(name = "zeta-ssh-close", isDaemon = true) {
-            runCatching {
-                local.run(DebianSshShell.closeMasters(listOf(target)), timeoutMs = 15_000)
-            }
+            runCatching { local.run(DebianSshShell.closeMasters(targets), timeoutMs = 15_000) }
         }
     }
 

@@ -131,6 +131,9 @@ object RemoteHosts {
     /** 手机本机在主机清单里的小字（换主机的菜单、设置首页）：它的 Claude Code 跑在哪。 */
     const val LOCAL_SUMMARY = "手机里的 Debian"
 
+    /** 「连接」关着的远程主机怎样（主机页的开关下面、聊天页的已断开说明）。 */
+    const val OFF_NOTE = "Zeta 不连这台设备，它上面的对话在那边照样跑"
+
     /**
      * 连上以后在那边查的几样：家目录、claude 在不在、什么版本，系统和 CPU（zeta-helper 只有 Linux 的 arm64、amd64 两份）。 每样一行
      * `zeta_<名字> <值>`， 查不到的值是空的。登录 shell 打出来的别的行（欢迎语之类）跳过。

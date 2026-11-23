@@ -23,7 +23,6 @@ import com.dzshzx.zeta.phone.PhoneBridge
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.ProcessHub
 import java.io.File
-import kotlin.concurrent.thread
 
 /**
  * 手机上的 [HubPlatform]：自带的 Debian（[environment]）、每个会话的手机工具和它们的后台屏幕、Zeta 之外经 root 连进来的客户端
@@ -243,16 +242,11 @@ class AndroidHubPlatform(
         }
     }
 
-    /** 关掉手机 Debian 里到各台经 Debian 连的主机的 ssh 主连接（[DebianSshShell.closeMasters]），在后台线程上做。 */
-    private fun dropDebianLinks() {
-        val targets =
-            settings.remoteHosts.filter { it.via == RemoteHost.Via.Debian }.map { it.target }
-        if (targets.isEmpty() || !hub.usable(Backends.LOCAL)) return
-        val local = hub.shell(Backends.LOCAL) ?: return
-        thread(name = "zeta-ssh-drop", isDaemon = true) {
-            runCatching { local.run(DebianSshShell.closeMasters(targets), timeoutMs = 15_000) }
-        }
-    }
+    /** 关掉手机 Debian 里到各台经 Debian 连的主机的 ssh 主连接（[ConversationHub.closeDebianMasters]）。 */
+    private fun dropDebianLinks() =
+        hub.closeDebianMasters(
+            settings.remoteHosts.filter { it.via == RemoteHost.Via.Debian }.map { it.target },
+        )
 
     override fun phoneFor(key: String, backend: String): PhoneTools =
         synchronized(phones) {

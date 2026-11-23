@@ -80,7 +80,7 @@ type Hub struct {
 
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
 func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
-	return &Hub{settings: s, devices: d, run: run, post: post, hosts: s.Hosts(), pins: loadPins(s),
+	return &Hub{settings: s, devices: gated{d}, run: run, post: post, hosts: s.Hosts(), pins: loadPins(s),
 		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay,
 		bulks: map[string]*bulkLink{}, bulkIdle: bulkIdle}
@@ -420,19 +420,12 @@ func (h *Hub) RemoveHost(id string) error {
 	if err := h.setHosts(hosts); err != nil {
 		return err
 	}
-	ids := make([]string, len(hosts))
-	for i, x := range hosts {
-		ids[i] = x.ID
-	}
-	h.devices.Retain(ids)
 	h.unwatch(id)
 	h.Refresh()
 	if c := h.chat; c != nil && c.Backend == id {
 		h.CloseChat()
 	}
-	h.closeConn(id)
-	h.closeBulk(id)
-	delete(h.remotes, id)
+	h.dropLinks(id)
 	return nil
 }
 
