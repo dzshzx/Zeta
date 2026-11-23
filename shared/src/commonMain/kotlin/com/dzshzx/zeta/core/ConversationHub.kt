@@ -669,10 +669,13 @@ class ConversationHub(val platform: HubPlatform) {
         return true
     }
 
-    /** 主机 [backend] 上没有对话在进行（手机本机还要没在装、换环境），能动那台的登录状态。 */
+    /**
+     * 主机 [backend] 上没有对话在进行（手机本机还要没在装、维护环境），能动那台的登录状态。只看那台自己的对话： 经手机 Debian
+     * 连的远程主机用的是它自己的登录，那边的对话不挡手机本机换号。
+     */
     fun canChangeLogin(backend: String): Boolean =
         liveConversations.none { it.active && it.backend == backend } &&
-            (backend != Backends.LOCAL || platform.local?.canSwitchEnvironment != false)
+            (backend != Backends.LOCAL || platform.local?.working != true)
 
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return

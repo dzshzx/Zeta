@@ -144,7 +144,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     }
 
     /** 有对话正在进行（或还有后台任务在跑）时不能换环境。 */
-    override val canSwitchEnvironment: Boolean
+    val canSwitchEnvironment: Boolean
         get() = !hub.conversationsWorking && !installer.running
 
     /** 环境装好了：还没有可用环境就直接用它，已经在用别的环境则由用户自己决定要不要切过来。 */

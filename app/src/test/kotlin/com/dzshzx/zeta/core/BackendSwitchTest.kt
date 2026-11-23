@@ -144,6 +144,22 @@ class BackendSwitchTest {
         assertSame(local, hub.current)
     }
 
+    /** 换号只看那台自己的对话：经手机 Debian 连的主机上在回答，不挡手机本机换号；手机本机上在回答才挡。 */
+    @Test
+    fun loginChangesOnlyWaitForThatHostsOwnConversations() {
+        val hub = hub()
+        assertEquals(RemoteHost.Via.Debian, remote.via)
+        hub.selectBackend(remote.id)
+        hub.current.core { it.copy(busy = true) }
+        assertFalse(hub.canChangeLogin(remote.id))
+        assertTrue(hub.canChangeLogin(Backends.LOCAL))
+        hub.current.core { it.copy(busy = false) }
+        hub.selectBackend(Backends.LOCAL)
+        hub.current.core { it.copy(busy = true) }
+        assertFalse(hub.canChangeLogin(Backends.LOCAL))
+        assertTrue(hub.canChangeLogin(remote.id))
+    }
+
     /** 加主机时默认的连法：手机 Debian 就绪就经它，没有 Debian 时直连。 */
     @Test
     fun defaultViaFollowsDebian() {

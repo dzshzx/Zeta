@@ -87,9 +87,6 @@ interface LocalEnvironment {
     /** 正在装、换或维护环境（这时要常驻前台服务）。 */
     val working: Boolean
 
-    /** 没在装、换环境，能动手机本机的登录状态。 */
-    val canSwitchEnvironment: Boolean
-
     /** 查过登录状态、手机上的 Claude Code 没登录（聊天页的空对话里给登录入口）。 */
     val loggedOut: Boolean
 
