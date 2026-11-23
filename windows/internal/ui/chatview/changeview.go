@@ -117,13 +117,13 @@ func hunkGap(c *ui.Context, sep ui.Element, s *editor.DiffSeparator, numbered bo
 	})
 }
 
-// editStepRow 是时间线里改文件的一步：标题行带增删行数，下面直接是对比，点标题行收起或展开对比。
+// editStepRow 是时间线里改文件的一步：标题行带增删行数，点标题行展开或收起下面的对比，默认收着。
+// 和工作组折叠时露出的那张卡片（collapsedChanges）共用一个开关。
 func (ch *Chat) editStepRow(c *ui.Context, s items.Step, v *changeView) {
 	t := c.Theme()
 	k := inkOf(t)
 	look := lookOf(s)
-	open := ch.flag("edit:"+s.ID, true)
-	p := ui.CollapsibleBase(c, open)
+	p := ui.CollapsibleBase(c, ch.editOpen(s.ID))
 	if p.Trigger.Changed() {
 		ch.list.HoldPlace()
 	}
@@ -144,6 +144,9 @@ func (ch *Chat) editStepRow(c *ui.Context, s items.Step, v *changeView) {
 		panel.FillWidth().Padding(0, 0, 8, 25)
 	}
 }
+
+// editOpen 是一步改文件的对比展开着没有，默认收成一行。
+func (ch *Chat) editOpen(id string) *bool { return ch.flag("edit:"+id, false) }
 
 // collapsedChanges 是工作组折叠时摘要下面露出的改动：最多 collapsedCards 处，多出来的点一下展开整组看。
 func (ch *Chat) collapsedChanges(c *ui.Context, steps []items.Step, groupOpen *bool) {
@@ -196,45 +199,64 @@ func diffColors(t *ui.Theme) (added, removed ui.Color) {
 	return ui.Hex("#1E8E3E"), t.Danger
 }
 
-// changeCard 是一处文件改动的红绿对比：header 时顶上带文件名和增删行数（时间线里标题行已经有了，就不带）。
-// 长的先只露前 previewLines 行。
+// changeCard 是一处文件改动的红绿对比。header 时是工作组折叠时露出的卡片：顶上一行文件名和增删行数，点它展开或收起
+// 下面的对比，默认收成这一行；不带 header 的在时间线里，标题行已经管着收起展开。长的先只露前 previewLines 行。
 func (ch *Chat) changeCard(c *ui.Context, id string, v *changeView, header bool) {
 	t := c.Theme()
-	f := v.change
 	border := t.Text.Alpha(0.08)
 	ui.Column(c).FillWidth().Radius(10).Border(1, border).Background(t.Text.Alpha(0.02)).Clip().Children(func() {
-		if header {
-			changeHeader(c, v, border)
-		} else if label := f.label(); label != "" {
-			ui.Text(c, label).FontSize(11).TextColor(t.TextMuted).Padding(6, 10, 2, 10)
-		}
-		if v.total == 0 {
-			note := "没有改动"
-			if f.kind == createChange {
-				note = "空文件"
+		if !header {
+			if label := v.change.label(); label != "" {
+				ui.Text(c, label).FontSize(11).TextColor(t.TextMuted).Padding(6, 10, 2, 10)
 			}
-			ui.Text(c, note).FontSize(12).TextColor(t.TextMuted).Padding(8, 10)
-		} else {
-			editor.DiffView(c.Key("diff"), v.state()).FillWidth()
+			changeBody(c, v)
+			return
 		}
-		if v.long() {
-			expandToggle(c, v)
+		p := ui.CollapsibleBase(c, ch.editOpen(id))
+		if p.Trigger.Changed() {
+			ch.list.HoldPlace()
 		}
-		if f.truncated {
-			ui.Text(c, "内容太长，记录里只留了前一部分，对比到截断处为止").FontSize(11).TextColor(t.TextMuted).Padding(0, 10, 7, 10)
+		changeHeader(c, p.Trigger, v, p.Progress())
+		panel := p.Panel(func() {
+			ui.Box(c).FillWidth().Height(1).Background(border)
+			changeBody(c, v)
+		})
+		if panel.Valid() {
+			panel.FillWidth()
 		}
 	})
 }
 
-// changeHeader 是改动卡片顶上的一行：新建或修改的图标、文件名、改动方式和增删行数，下面一条分隔线。
-func changeHeader(c *ui.Context, v *changeView, border ui.Color) {
+// changeBody 是卡片里的对比本身，长的底下带展开全部的一行。
+func changeBody(c *ui.Context, v *changeView) {
+	t := c.Theme()
+	f := v.change
+	if v.total == 0 {
+		note := "没有改动"
+		if f.kind == createChange {
+			note = "空文件"
+		}
+		ui.Text(c, note).FontSize(12).TextColor(t.TextMuted).Padding(8, 10)
+	} else {
+		editor.DiffView(c.Key("diff"), v.state()).FillWidth()
+	}
+	if v.long() {
+		expandToggle(c, v)
+	}
+	if f.truncated {
+		ui.Text(c, "内容太长，记录里只留了前一部分，对比到截断处为止").FontSize(11).TextColor(t.TextMuted).Padding(0, 10, 7, 10)
+	}
+}
+
+// changeHeader 是改动卡片顶上的一行（row 是折叠的触发区）：新建或修改的图标、文件名、改动方式、增删行数和展开箭头。
+func changeHeader(c *ui.Context, row ui.Element, v *changeView, progress float32) {
 	t := c.Theme()
 	f := v.change
 	ic := iconEdit
 	if f.kind == createChange {
 		ic = iconFileAdd
 	}
-	ui.Row(c).FillWidth().Gap(7).AlignItems(ui.Center).Padding(7, 10).Tooltip(f.path).Children(func() {
+	row.FillWidth().Gap(7).AlignItems(ui.Center).Padding(7, 10).Cursor(ui.CursorPointer).Tooltip(f.path).Children(func() {
 		ui.Icon(c, ic).FontSize(14).TextColor(inkOf(t).icon)
 		ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, baseName(f.path)).FontSize(13).FontWeight(500).TextColor(t.Text.Alpha(0.86)).SingleLine().
@@ -244,8 +266,8 @@ func changeHeader(c *ui.Context, v *changeView, border ui.Color) {
 			}
 		})
 		changeCounts(c, v)
+		chevron(c, progress)
 	})
-	ui.Box(c).FillWidth().Height(1).Background(border)
 }
 
 // expandToggle 是长改动底下展开、收起的一行；展开后还有太多没画的行时注明。
