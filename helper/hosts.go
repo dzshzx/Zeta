@@ -80,8 +80,7 @@ func (e *env) keepHostMode(key, mode string) error {
 }
 
 // liveAttachers 是托管目录 dir 里还接着的一方（zeta_host.sh 的 attach 之后那段）的进程号，规矩同 zeta_host.sh 的 attachers：
-// attach.d/<进程号> 的记录内容是那个进程的启动时刻，进程还在跑、启动时刻对得上才算；attach 记的进程没有 attach.d 记录时，
-// 命令行里有 zeta-host 才算（只写 attach 的旧版脚本）。
+// attach.d/<进程号> 的记录内容是那个进程的启动时刻，进程还在跑、启动时刻对得上才算。
 func liveAttachers(dir string) []int {
 	var out []int
 	records := joinPath(dir, "attach.d")
@@ -89,17 +88,6 @@ func liveAttachers(dir string) []int {
 		pid, err := strconv.Atoi(name)
 		if err == nil && pid > 0 && running(pid, readText(joinPath(records, name))) {
 			out = append(out, pid)
-		}
-	}
-	pid, known := readPid(joinPath(dir, "attach"))
-	if !known || pid <= 0 || lexists(joinPath(records, strconv.Itoa(pid))) {
-		return out
-	}
-	if argv, ok := procArgv(pid); ok {
-		for _, a := range argv {
-			if string(a) == "zeta-host" {
-				return append(out, pid)
-			}
 		}
 	}
 	return out

@@ -5,9 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -116,35 +114,6 @@ func TestHostsDoesNotRemoveAnEndedHostSomeoneIsStillAttachedTo(t *testing.T) {
 	mustCall(t, e, "hosts")
 	if lexists(attached) {
 		t.Fatal("the last one left but the dir stayed")
-	}
-}
-
-// 旧版脚本只写 attach：它记的进程命令行里有 zeta-host 才算还接着（不是 zeta-host 的进程号是被复用了）。
-func TestLegacyAttachFileCountsOnlyAZetaHostProcess(t *testing.T) {
-	e := testEnv(t)
-	cmd := exec.Command("bash", "-c", "while :; do sleep 0.05; done", "zeta-host", "attach")
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	// Start 返回时子进程可能还在 exec 当中，命令行读出来是空的：等它换成 bash 的再往下（线上的 attach 进程早就跑起来了）
-	waitFor(t, func() bool {
-		argv, _ := procArgv(cmd.Process.Pid)
-		return slices.ContainsFunc(argv, func(a []byte) bool { return string(a) == "zeta-host" })
-	})
-	legacy := endedHost(t, e, "k-legacy")
-	writeFile(t, filepath.Join(legacy, "attach"), strconv.Itoa(cmd.Process.Pid))
-	other := endedHost(t, e, "k-other")
-	writeFile(t, filepath.Join(other, "attach"), strconv.Itoa(os.Getpid()))
-	if got := liveAttachers(legacy); len(got) != 1 || got[0] != cmd.Process.Pid {
-		t.Fatalf("legacy attachers %v", got)
-	}
-	if !hostAlive(legacy) {
-		t.Fatal("storage would clean a host the old script is attached to")
-	}
-	mustCall(t, e, "hosts")
-	if !lexists(legacy) || lexists(other) {
-		t.Fatalf("legacy kept %v, other kept %v", lexists(legacy), lexists(other))
 	}
 }
 

@@ -16,8 +16,8 @@
 #
 # 托管目录 ~/.cache/<ZETA_NAME>/hosts/<标识>/ 里的文件。start 建目录；Claude Code 退出后由最后离开的接着的一方、stop（没人接着时）
 # 或 zeta-helper hosts（进程没了、也没人接着时）删掉，不抢在还接着的一方读到 exit 之前删；
-# 存储页（zeta-helper clean）清掉进程和接着的一方都已不在的。各版本的脚本随各自的 APK 带着，可能同时操作同一个目录：
-# 新版接旧版起的目录时没有 attach.d、session，退回看 attach；旧版接新版起的目录只认 attach，最坏是照旧版的行为（独占）。
+# 存储页（zeta-helper clean）清掉进程和接着的一方都已不在的。各版本的脚本随各自的客户端带着，可能同时操作同一个目录：
+# 改这里的文件和规矩时，新旧两边都要能接着用。
 #   in         命名管道，Claude Code 的标准输入。start 建，起进程的那段以读写方式一直开着；接着的一方把应用的标准输入一行行转进来；
 #              stop、看门狗写 end_session，zeta-helper（releaseSession）写 zeta-release。写的一方都持着 lock 整行写（write_line、pump）。
 #   lock       写 in 的锁（flock），写的一方用时建，谁都不删它。几个写的一方各写各的大行（带图片的消息有几百 KB，管道一次收不下）
@@ -37,9 +37,6 @@
 #              认哪个登记的进程是 Zeta 托管的不看它，看进程身上的记号：起进程的那段给 Claude Code 设环境变量 ZETA_HOST=<ZETA_NAME>/<标识>
 #              （host_mark 读，样子同 zeta-helper 的 hostMark）。记号会传给 Claude Code 起的子进程（Bash 工具里再起的 claude），
 #              所以还要会话对得上：托管目录输出里最新的会话（/clear 会换）就是登记的会话。held_elsewhere、zeta-helper（hostDirOf）都这样认。
-#   attach     最近接上的那一方的进程号，接上时写；离开时还记着自己的，改记还接着的另一方，没有别人就删掉。
-#              旧版脚本只认它（旧版的看门狗、旧版接着的一方）；新版在 attach.d 之外也看它，认出只写它的旧版接着的一方
-#              （命令行里有 zeta-host 的进程）。
 #   cwd        启动时的工作目录，start 写。zeta-helper hosts 接回时用。
 #   title      启动时的标题，start 写。zeta-helper hosts 在会话记录里没有标题时用；诊断页（DiagScripts.kt）列运行中的日志时带上。
 #   exit       Claude Code 的退出码，它退出后起进程的那段写。每个接着的一方见到它都报 zeta_exit；zeta-helper hosts 见到它就当已结束。
@@ -151,8 +148,8 @@ hosted_for() {
   done
 }
 
-# 托管目录 $1 里还接着的一方的进程号，一行一个；进程号 $2（可省）不算。看 attach.d 的记录（进程还在、启动时刻对得上），
-# 对不上的记录顺手删掉；再看 attach：它记的进程没有 attach.d 记录、命令行里有 zeta-host 时，是只写 attach 的旧版接着的一方。
+# 托管目录 $1 里还接着的一方的进程号，一行一个。看 attach.d 的记录（进程还在、启动时刻对得上），
+# 对不上的记录顺手删掉。
 # idle_limit：看门狗闲置多少轮（每轮 ZETA_IDLE_STEP 秒，默认 60，所以就是分钟数）就结束进程，0 是不自动结束。
 # 每台主机一份，在 ~/.config/<ZETA_NAME>/idle-minutes（设置页经核心的 system.set_idle 写，见 helper/idle.go），每轮重读，改了马上生效；
 # 没有或不是整数时用 ZETA_IDLE_LIMIT（测试用），再没有是 10。
@@ -166,21 +163,17 @@ idle_limit() {
 }
 
 attachers() {
-  local d=$1 skip=${2:-} f p
+  local d=$1 f p
   local -a STAT
   for f in "$d"/attach.d/*; do
     p=${f##*/}
-    case $p in '' | *[!0-9]* | "$skip") continue ;; esac
+    case $p in '' | *[!0-9]*) continue ;; esac
     if stat_of "$p" && [ "${STAT[0]}" != Z ] && [ "$(cat "$f" 2>/dev/null)" = "${STAT[19]}" ]; then
       echo "$p"
     else
       rm -f "$f"
     fi
   done
-  p=$(cat "$d/attach" 2>/dev/null)
-  case $p in '' | *[!0-9]* | "$skip") return 0 ;; esac
-  [ -e "$d/attach.d/$p" ] && return 0
-  grep -qzxF zeta-host "/proc/$p/cmdline" 2>/dev/null && echo "$p"
   return 0
 }
 
@@ -391,9 +384,8 @@ P=$(cat "$D/pid")
 # 起进程的那段（P 的父进程）：P 退出后由它写 exit，下面等它
 R=
 stat_of "$P" && R=${STAT[1]}
-# 登记自己是接着的一方（见开头 attach.d、attach 两项）：先写临时文件再改名，别人看到的记录总是写完了的
+# 登记自己是接着的一方（见开头 attach.d 一项）：先写临时文件再改名，别人看到的记录总是写完了的
 stat_of $$ && mkdir -p "$D/attach.d" && echo "${STAT[19]}" > "$D/attach.d/.$$" && mv -f "$D/attach.d/.$$" "$D/attach.d/$$"
-echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
 # 接着的一方按这个数记读到了第几行（helper/host 的 Link）；之前的行是登录 shell 打的别的东西。
 # key 是接上的托管目录（start 接上本包现成的进程时不是应用给的那个）
@@ -422,12 +414,8 @@ if [ -f "$D/exit" ]; then
   printf '{"type":"zeta_exit","code":%s,"reason":%s,"stderr_base64":"%s"}\n' "${code:-1}" "$reason" \
     "$(tail -c 2000 "$D/err.log" 2>/dev/null | base64 | tr -d '\n')"
 fi
-# 离开：删自己的记录；attach 还记着自己时改记还接着的另一方（旧版的看门狗只看它），没有别人就删掉。
+# 离开：删自己的记录。
 # Claude Code 已经退出而别的接着的一方都走了时，删掉托管目录
 rm -f "$D/attach.d/$$"
-if [ "$(cat "$D/attach" 2>/dev/null)" = $$ ]; then
-  next=$(attachers "$D" $$ | head -n 1)
-  if [ -n "$next" ]; then echo "$next" > "$D/attach"; else rm -f "$D/attach"; fi
-fi
 [ -f "$D/exit" ] && [ -z "$(attachers "$D")" ] && rm -rf "$D"
 exit 0

@@ -141,7 +141,7 @@ class HostSharedTest {
         assertEquals("接上的该是 A 起的进程", "kA", b.key)
         assertFalse("不该另建托管目录", hostDir("kB").exists())
         assertEquals("A 也看得到", 1, a.next { it.type == "echo" }["n"]!!.jsonPrimitive.int)
-        // 有了输出以后以输出里的会话为准（旧版脚本起的目录没有 session 文件）
+        // 有了输出以后以输出里的会话为准（新开的会话起的目录没有 session 文件）
         File(hostDir("kA"), "out.jsonl")
             .appendText("{\"type\":\"system\",\"session_id\":\"$SESSION\"}\n")
         File(hostDir("kA"), "session").delete()
@@ -262,31 +262,6 @@ class HostSharedTest {
         val pid = pidOf("kA")
         a.leave()
         assertTrue("按这台主机设的 2 轮，闲着没人接着却一直没结束", waitUntil { !alive(pid) })
-    }
-
-    /** 旧版脚本接着时只写 attach、不写 attach.d：它记的进程还在、命令行里有 zeta-host 就算还接着，看门狗不算闲着；那个进程不在了以后不算。 */
-    @Test
-    fun aLegacyAttacherKeepsTheProcess() {
-        val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
-        val rounds = WatchdogRounds(home)
-        val a = start("kA", env = env)
-        val pid = pidOf("kA")
-        // 扮旧版接着的一方：命令行和旧版脚本一样是 bash -c <脚本> zeta-host attach …，一直读着输入
-        val old =
-            HostTesting.builder(
-                    home,
-                    listOf("bash", "-c", "read -r _", "zeta-host", "attach", "kA", "1"),
-                    HostTesting.named(name),
-                )
-                .start()
-        try {
-            File(hostDir("kA"), "attach").writeText("${old.pid()}\n")
-            a.leave()
-            assertSurvivesIdleRounds(rounds, "kA", pid, "旧版接着时被看门狗结束了")
-        } finally {
-            old.destroyForcibly().waitFor()
-        }
-        assertTrue("旧版走了以后闲着也没结束", waitUntil { !alive(pid) })
     }
 
     /** 进程退出时每个接着的一方都收到正常的 zeta_exit（目录留到最后一个读完才删），之后托管目录删掉。 */
