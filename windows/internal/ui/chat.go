@@ -199,22 +199,25 @@ func (a *App) chatPage(c *ui.Context) {
 				p.list.View(c).Grow(1).MinHeight(0)
 			}
 			a.chatHeader(c, p)
+			if p.find.open && p.src.Conv != nil {
+				a.findBar(c, p) // 浮在右上角
+			}
 		})
 		ui.Column(c).FillWidth().MaxWidth(chatWidth).AlignSelf(ui.Center).Padding(4, 12, 12, 12).Gap(6).Children(func() {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
-				a.promptCard(c, p)
 				a.taskStrip(c, p)
 				a.todoStrip(c, p)
 				a.queueStrip(c, p)
 				a.editStrip(c, p)
 				a.chatStatus(c, p)
 			}
-			if p.find.open {
-				a.findBar(c, p) // 查找时顶替输入栏
-			} else if p.state.Blocked && p.src.Conv != nil {
+			switch {
+			case p.src.Conv != nil && len(p.state.Prompts) > 0:
+				a.promptCard(c, p) // 等你回应：卡片顶替输入栏（prompts.go）
+			case p.state.Blocked && p.src.Conv != nil:
 				a.handoffCard(c, p) // 别处运行：输入栏换成接管的卡片（handoff.go）
-			} else {
+			default:
 				a.composer(c, p)
 			}
 		})

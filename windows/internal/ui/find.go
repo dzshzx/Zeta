@@ -35,7 +35,8 @@ func (p *chatPane) closeFind() {
 	p.list.SetFind("")
 }
 
-// findBar 是查找栏。
+// findBar 是查找栏（照 ChatGPT、浏览器）：浮在对话区右上角、顶栏下面的一张小卡片，输入栏不动。Enter、Shift+Enter 下一个、
+// 上一个，Esc 关掉。
 func (a *App) findBar(c *ui.Context, p *chatPane) {
 	f := &p.find
 	p.list.SetFind(f.input)
@@ -46,7 +47,9 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	index, count := p.list.FindCount()
 	left := p.state.Earlier
-	ui.Column(c.Key("find")).FillWidth().Gap(6).Padding(0, 0, 2, 0).Children(func() {
+	box := ui.Column(c.Key("find")).Absolute().Top(headerHeight+4).Right(20).Width(400).Gap(4).Padding(6, 6, 8, 6)
+	coui.Shadow(coui.Surface{Shape: coui.ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(box), k)
+	box.Children(func() {
 		ui.Row(c).FillWidth().Gap(2).AlignItems(ui.Center).Children(func() {
 			in := coui.SearchField(c, &f.input, "在对话中查找").OnTextKey(func(tk ui.TextKey) bool {
 				switch {
@@ -73,11 +76,11 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(coui.SizeBodyS).TextColor(color).SingleLine().
 					Margin(0, 2, 0, 8).Shrink(0)
 			}
-			coui.FlatButton(c, coui.IconChevronUp, "上一个", 36, 20).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
-			coui.FlatButton(c, coui.IconChevronDown, "下一个", 36, 20).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
-			coui.FlatButton(c, coui.IconClose, "关闭查找", 36, 20).OnClick(p.closeFind)
+			coui.FlatButton(c, coui.IconChevronUp, "上一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
+			coui.FlatButton(c, coui.IconChevronDown, "下一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
+			coui.FlatButton(c, coui.IconClose, "关闭查找", 30, 18).OnClick(p.closeFind)
 		})
-		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 14)
+		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
 	})
 }
 

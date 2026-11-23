@@ -191,6 +191,28 @@ func TestToolPermissionCard(t *testing.T) {
 	f.notSee(t, "允许这次操作？")
 }
 
+// 确认卡片在输入栏的位置上（输入栏先收起），Enter 是允许、Esc 是拒绝（同 ChatGPT 客户端）。
+func TestPermissionCardKeys(t *testing.T) {
+	for _, c := range []struct {
+		key  ui.Key
+		want string
+	}{{ui.KeyEnter, `"reply":{"kind":"allow"}`}, {ui.KeyEscape, `"reply":{"kind":"deny"}`}} {
+		f := newChatFixture(t)
+		f.newChat(t)
+		f.replay("turn")
+		f.replay("permission")
+		f.see(t, "允许这次操作？")
+		f.notSee(t, "发送")
+		f.tt.Key(0, c.key)
+		f.tt.Frame()
+		if got := f.sent("conv.answer"); len(got) != 1 || !strings.Contains(got[0], c.want) {
+			t.Fatalf("按 %v：%v", c.key, got)
+		}
+		f.replay("permission-answered")
+		f.see(t, "发送")
+	}
+}
+
 func TestPlanAndQuestionCards(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
