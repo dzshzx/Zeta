@@ -193,6 +193,12 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	needle := strings.TrimSpace(a.hub.Query())
 	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(1.5, 16).MinHeight(44).Padding(10, 16).Gap(8).AlignItems(ui.Center).
 		Focusable().Label(rowTitle(s)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	// 已结束（没有活着的 Claude Code 进程）的会话标题和小字都灰着：一眼看出哪些还占着机器（同手机版）
+	titleInk, noteInk := k.Text, k.Secondary
+	if s.Ended {
+		titleInk, noteInk = k.Tertiary, k.Tertiary
+		row.Description("已结束")
+	}
 	switch {
 	case current:
 		coui.Surface{Shape: coui.ShapeRow, Fill: k.Selected}.Paint(row)
@@ -220,11 +226,11 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 			if current {
 				weight = coui.Medium
 			}
-			highlighted(c, rowTitle(s), needle, coui.SizeBodyL, weight, k.Text).SingleLine().Ellipsis("…")
+			highlighted(c, rowTitle(s), needle, coui.SizeBodyL, weight, titleInk).SingleLine().Ellipsis("…")
 			if snippet != "" {
-				highlighted(c, snippet, needle, coui.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
+				highlighted(c, snippet, needle, coui.SizeBodyXS, 0, noteInk).MaxLines(2).Ellipsis("…")
 			} else {
-				ui.Text(c, a.place(s, needle != "")).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
+				ui.Text(c, a.place(s, needle != "")).FontSize(coui.SizeBodyXS).TextColor(noteInk).SingleLine().Ellipsis("…")
 			}
 		})
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {

@@ -307,3 +307,11 @@ func TestParseActivity(t *testing.T) {
 		t.Errorf("empty: %v %v", err, got)
 	}
 }
+
+// live 为假才算已结束；没给（比客户端旧的核心）和为真都当还在运行。
+func TestSessionsDecodeLive(t *testing.T) {
+	u, err := ParseSessions([]byte(`{"upsert":[{"id":"a","file":"/f"},{"id":"b","file":"/g","live":true},{"id":"c","file":"/h","live":false}]}`), "r-1")
+	if err != nil || len(u.Upsert) != 3 || u.Upsert[0].Ended || u.Upsert[1].Ended || !u.Upsert[2].Ended {
+		t.Errorf("%+v %v", u, err)
+	}
+}

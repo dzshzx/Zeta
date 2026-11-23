@@ -16,7 +16,10 @@ type Session struct {
 	External bool   `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
 	Archived bool   `json:"archived"`
 	Pinned   bool   `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
-	Backend  string `json:"-"`      // 在哪台设备上，读的一方填
+	// Ended：没有活着的 Claude Code 进程登记着它（核心给的 live 为假）。核心比客户端旧、没给 live 时，
+	// 和客户端自己拼的会话一样是零值，当作还在运行。
+	Ended   bool   `json:"-"`
+	Backend string `json:"-"` // 在哪台设备上，读的一方填
 }
 
 // Place 是工作目录的最后一级。
@@ -40,16 +43,19 @@ func (s Session) Label() string {
 }
 
 // UnmarshalJSON：cwd 是 helper 照记录原样给的，可能是字符串、null 或别的值：字符串照用，null 是空，别的值用它的 JSON 写法。
+// live 明说为假时 Ended 为真，没给时不算结束。
 func (s *Session) UnmarshalJSON(data []byte) error {
 	type plain Session
 	var v struct {
 		plain
-		Cwd json.RawMessage `json:"cwd"`
+		Cwd  json.RawMessage `json:"cwd"`
+		Live *bool           `json:"live"`
 	}
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
 	*s = Session(v.plain)
+	s.Ended = v.Live != nil && !*v.Live
 	if json.Unmarshal(v.Cwd, &s.Cwd) != nil && len(v.Cwd) > 0 && string(v.Cwd) != "null" {
 		s.Cwd = string(v.Cwd)
 	}

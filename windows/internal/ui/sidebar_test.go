@@ -91,3 +91,63 @@ func (f *chatFixture) listSample() {
 	}})
 	f.tt.Frame()
 }
+
+// 已结束（核心报 live 为假）的会话标题和小字灰着，读屏说「已结束」；还有进程的照常是正文色。
+func TestEndedSessionsAreDimmed(t *testing.T) {
+	f := newChatFixture(t)
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s2", File: "/home/box/.claude/projects/-w/s2.jsonl", Title: "跑完的对话", Cwd: "/srv/done", Updated: at(12), Ended: true},
+		{ID: "s3", File: "/home/box/.claude/projects/-w/s3.jsonl", Title: "还开着的对话", Cwd: "/srv/live", Updated: at(11)},
+	}})
+	f.tt.Frame()
+	for _, c := range []struct {
+		title string
+		ended bool
+	}{{"跑完的对话", true}, {"还开着的对话", false}, {"修登录页", false}} {
+		a, ok := f.tt.AccessByRole(ui.RoleButton, c.title)
+		if !ok {
+			t.Fatalf("no row %q in %q", c.title, f.tt.Texts())
+		}
+		if got := a.Description == "已结束"; got != c.ended {
+			t.Errorf("%s: description %q", c.title, a.Description)
+		}
+	}
+	// 画面上：已结束那行的标题字最深处也比还开着的浅得多（正文色近黑，次要色约四成）
+	ended, live := f.darkestInk(t, "跑完的对话"), f.darkestInk(t, "还开着的对话")
+	if live > 90 || ended < 140 {
+		t.Errorf("darkest ink: ended %d, live %d", ended, live)
+	}
+	// 小字（目录）也灰：比还开着那行的次要色再浅一档
+	if d, l := f.darkestInk(t, "done"), f.darkestInk(t, "live"); d < l+40 {
+		t.Errorf("note ink: ended %d, live %d", d, l)
+	}
+	// 进程又起来了（live 为真推来）：恢复正文色
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s2", File: "/home/box/.claude/projects/-w/s2.jsonl", Title: "跑完的对话", Cwd: "/srv/done", Updated: at(12)},
+	}})
+	f.tt.Frame()
+	if got := f.darkestInk(t, "跑完的对话"); got > 90 {
+		t.Errorf("revived row still dim: %d", got)
+	}
+}
+
+// darkestInk 是文字 text 所在的框里最深的像素的亮度（0 最黑，255 最白）。
+func (f *fixture) darkestInk(t *testing.T, text string) int {
+	t.Helper()
+	r, ok := f.tt.Find(text)
+	if !ok {
+		t.Fatalf("no %q in %q", text, f.tt.Texts())
+	}
+	img := f.tt.Image()
+	// Find 给的是窗口的 DIP；测试器的像素比是 1，和画面的像素一一对应
+	darkest := 255
+	for y := int(r.Y); y < int(r.Y+r.H); y++ {
+		for x := int(r.X); x < int(r.X+r.W); x++ {
+			c := img.RGBAAt(x, y)
+			if l := (int(c.R)*299 + int(c.G)*587 + int(c.B)*114) / 1000; l < darkest {
+				darkest = l
+			}
+		}
+	}
+	return darkest
+}
