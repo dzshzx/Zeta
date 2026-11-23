@@ -1,7 +1,7 @@
 #!/bin/bash
 # 设置的页面和返回键：通知深链打开设置子页（权限健康页用 Permissions，和 0.7.0 起无障碍提醒发的一样，开两次；
 # 手机操作页用 Phone），返回键先回设置首页、再回聊天页；从设置首页点进手机的主机页、再进它的默认思考强度页，
-# 返回键一层层退回设置首页；从权限健康页开 Linux 环境页，返回先关 Linux 环境页、回到权限健康页。深链用 root 的 am start 带 extra 模拟，和无障碍被关掉的提醒发的 Intent 一样。
+# 返回键一层层退回设置首页；从权限健康页开 Linux 环境页（环境就绪、已登录时这一行不能点，就留在权限健康页），返回先关 Linux 环境页、回到权限健康页。深链用 root 的 am start 带 extra 模拟，和无障碍被关掉的提醒发的 Intent 一样。
 #   ZETA_PHONE_OWNER=<任务名> tools/phone-run tools/phone-tests/settings-pages.sh
 # 每一步截一张图（编号在文件名前面），看停在哪一页；进程没了、界面不在前台，或该换页时画面没变，就失败。
 set -euo pipefail
@@ -47,12 +47,15 @@ step chat
 
 link Permissions
 step permission-health
-# 权限健康页里的「Linux 环境」一行（就绪、已登录时不能点，画面不变也不算失败）
+# 权限健康页里的「Linux 环境」一行：就绪、已登录时不能点，画面不变，这时还在权限健康页，不按返回；
+# 打开了 Linux 环境页时返回先关它、回到权限健康页。看权限健康页的分组标题还在不在，不比截图：点按会带出滚动条
 vd tap 400 834 >/dev/null
 sleep 1.5
 step linux-from-permission-health same
-back
-step back-to-permission-health same
+if [[ -z $(vd nodes '^权限与状态$') ]]; then
+  back
+  step back-to-permission-health
+fi
 back
 step settings
 back
