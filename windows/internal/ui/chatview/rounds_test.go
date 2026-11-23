@@ -64,7 +64,7 @@ func TestActionsGetLaterRounds(t *testing.T) {
 		ui.Text(c, "操作 "+user.ID)
 	}
 	var menu []string
-	ch.UserMenu = func(_ *ui.Menu, user items.Item, later int) {
+	ch.UserMenu = func(_ *ui.Context, _ *ui.Menu, user items.Item, later int) {
 		menu = append(menu, fmt.Sprintf("%s+%d", user.ID, later))
 	}
 	ch.SetItems(roundsItems(t))

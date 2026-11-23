@@ -73,11 +73,11 @@ func TestRoundActionsUnderAnswers(t *testing.T) {
 			t.Fatal("不能改时分支没变灰")
 		}
 	}
-	// 用户消息的菜单：复制、编辑、还原代码、删除；不能改时后三项灰着
+	// 用户消息的菜单：复制、收藏为常用指令、编辑、还原代码、删除；不能改时后三项灰着
 	if err := f.tt.RightClick("说慢点"); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.tt.Menu(); !slices.Equal(got, []string{"复制", "编辑", "还原代码", "-", "删除"}) {
+	if got := f.tt.Menu(); !slices.Equal(got, []string{"复制", "收藏为常用指令", "编辑", "还原代码", "-", "删除"}) {
 		t.Fatalf("菜单：%q", got)
 	}
 	if err := f.tt.ChooseMenuItem("编辑"); err == nil && f.app.pane.acts.editing != nil {
@@ -393,4 +393,35 @@ func TestAnswerImagesFromTheHost(t *testing.T) {
 	}
 	f.click(t, "保存")
 	waitFor(t, f, func() bool { return bytes.Equal(saved, shot) })
+}
+
+// 用户消息右键「收藏为常用指令」：直接存到最前面，说一声存在哪；同样的内容不再存；附件菜单的常用指令里点它填进输入框。
+func TestSaveMessageAsPrompt(t *testing.T) {
+	f := openedForActions(t)
+	if err := f.tt.RightClick("看看有什么文件"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.tt.ChooseMenuItem("收藏为常用指令"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	if got := f.hub.Prompts(); len(got) != 1 || got[0].Text != "看看有什么文件" || got[0].Name != "" {
+		t.Fatalf("存下的：%+v", got)
+	}
+	f.see(t, "已收藏，在输入栏左下角的「+」里")
+	// 再收藏一次：不重复存
+	_ = f.tt.RightClick("看看有什么文件")
+	if err := f.tt.ChooseMenuItem("收藏为常用指令"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	f.see(t, "已经在常用指令里了")
+	if got := f.hub.Prompts(); len(got) != 1 {
+		t.Fatalf("重复存了：%+v", got)
+	}
+	f.attach(t, "常用指令")
+	f.click(t, "看看有什么文件")
+	if f.app.pane.draft != "看看有什么文件" {
+		t.Errorf("输入框 = %q", f.app.pane.draft)
+	}
 }

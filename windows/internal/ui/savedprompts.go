@@ -10,7 +10,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 常用指令（同手机版 shared 的 SavedPromptsUi）：附件菜单里点开列表，点一条填进输入框（空着就整个换上，有字就插在光标处），
+// 常用指令（同手机版 shared 的 SavedPromptsUi）：自己发过的消息右键「收藏为常用指令」存进来（msgactions.go 的 saveMessage）；
+// 附件菜单里点开列表，点一条填进输入框（空着就整个换上，有字就插在光标处），
 // 每条的「更多操作」里编辑、上移、下移、删除；「新建」时输入框里正好有字就先填上。清单存在设置里（settings.SavedPrompt）。
 
 // promptsUI 是常用指令几个对话框的状态。
@@ -43,7 +44,7 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 	list := a.hub.Prompts()
 	summary := ""
 	if len(list) == 0 {
-		summary = "还没有常用指令。点「新建」写一条。点一条就把它填进输入框，可以改了再发。"
+		summary = "还没有常用指令。点「新建」写一条，或者在自己发过的消息上右键，选「收藏为常用指令」。点一条就把它填进输入框，可以改了再发。"
 	}
 	widget.Sheet(c, "常用指令", summary, 420, func() {
 		for i, pr := range list {

@@ -246,7 +246,7 @@ func TestSavedPrompts(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
 	f.attach(t, "常用指令")
-	f.see(t, "还没有常用指令。点「新建」写一条。点一条就把它填进输入框，可以改了再发。")
+	f.see(t, "还没有常用指令。点「新建」写一条，或者在自己发过的消息上右键，选「收藏为常用指令」。点一条就把它填进输入框，可以改了再发。")
 	f.click(t, "新建")
 	f.see(t, "新建常用指令")
 	f.click(t, "内容")

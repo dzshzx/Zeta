@@ -58,7 +58,7 @@ type Chat struct {
 	Top float32
 	// 消息操作（见 actions.go）：用户消息右键菜单里「复制」后面的项、挂在一轮最后一项（用户消息的 RoundLast）下面的操作排、
 	// 正在编辑的那条。都拿到这一轮的用户消息和之后还有几轮（later，0 是最后一轮）。
-	UserMenu func(m *ui.Menu, user items.Item, later int)
+	UserMenu func(c *ui.Context, m *ui.Menu, user items.Item, later int)
 	Actions  func(c *ui.Context, user items.Item, later int)
 	Editing  string
 	// Header 画在第一条上面，和条目一起滚动（没有条目时也画）；「更早的记录」画在它下面。Footer 画在最后一条下面。

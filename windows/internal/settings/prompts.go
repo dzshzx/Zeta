@@ -112,6 +112,17 @@ func PromptProblem(list []SavedPrompt, name, text, editing string) string {
 	return ""
 }
 
+// HasSamePrompt：清单里已经有同样内容的一条（比较时忽略首尾空白，同 Kotlin 的 SavedPrompts.findSame）。
+func HasSamePrompt(list []SavedPrompt, text string) bool {
+	text = strings.TrimSpace(text)
+	for _, p := range list {
+		if strings.TrimSpace(p.Text) == text {
+			return true
+		}
+	}
+	return false
+}
+
 // AddPrompt 加到最前面。名字和默认名一样时存成空的，以后改了内容名字跟着变。
 func AddPrompt(list []SavedPrompt, id, name, text string) []SavedPrompt {
 	return append([]SavedPrompt{{ID: id, Name: storedName(name, text), Text: text}}, list...)

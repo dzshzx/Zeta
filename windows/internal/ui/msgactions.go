@@ -10,13 +10,14 @@ import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
 // 聊天页的消息操作（同手机版 MessageActions.kt）：
-//   - 用户消息右键：复制、编辑、还原代码，删除单独一组。编辑时原文和附件放回输入栏，被编辑的消息描边、之后的内容先藏起来，
+//   - 用户消息右键：复制、收藏为常用指令、编辑、还原代码，删除单独一组。编辑时原文和附件放回输入栏，被编辑的消息描边、之后的内容先藏起来，
 //     发出后替换（conv.rewrite）；输入栏上方一条提示，× 取消编辑，输入栏放回开始编辑前的样子。
 //   - 一轮最后一段回答下面：复制、重新生成、删除、分支；最后一轮还在进行时不出现，别的事在进行时（can_rewind 为假）变灰。
 // 各轮能做什么（能不能编辑、分支，操作排挂在哪一项下面）由核心算好放在用户条目上，这里照着显示。
@@ -70,7 +71,7 @@ func (a *App) syncMessageActions(p *chatPane) {
 
 // messageCallbacks 给新窗格的列表接上用户消息的菜单和一轮下面的操作排。
 func (a *App) messageCallbacks(p *chatPane) {
-	p.list.UserMenu = func(m *ui.Menu, user items.Item, later int) { a.userMenu(m, p, user, later) }
+	p.list.UserMenu = func(c *ui.Context, m *ui.Menu, user items.Item, later int) { a.userMenu(c, m, p, user, later) }
 	p.list.Actions = func(c *ui.Context, user items.Item, later int) { a.roundActions(c, p, user, later) }
 }
 
@@ -79,8 +80,12 @@ func (p *chatPane) canRewind() bool {
 	return p.connected && p.state.CanRewind && p.acts.editing == nil
 }
 
-// userMenu 是用户消息右键菜单里「复制」后面的项：Claude Code 认得这条消息时才有。later 是它之后还有几轮。
-func (a *App) userMenu(m *ui.Menu, p *chatPane, it items.Item, later int) {
+// userMenu 是用户消息右键菜单里「复制」后面的项：收藏为常用指令；编辑、还原代码、删除在 Claude Code 认得这条消息时才有。
+// later 是它之后还有几轮。
+func (a *App) userMenu(c *ui.Context, m *ui.Menu, p *chatPane, it items.Item, later int) {
+	if m.Item("收藏为常用指令").Chosen() {
+		c.Toast(a.saveMessage(it.Text))
+	}
 	if !it.Rewindable {
 		return
 	}
@@ -95,6 +100,22 @@ func (a *App) userMenu(m *ui.Menu, p *chatPane, it items.Item, later int) {
 	if m.Item("删除").Disabled(off).Danger().Chosen() {
 		a.ask(p, confirmDrop, it, later)
 	}
+}
+
+// saveMessage 把自己发过的一条消息收藏为常用指令（同手机版 PromptsUi.saveMessage）：直接存、放最前面，不弹编辑框；
+// 同样的内容存过就不再存。返回要告诉用户的一句（弹个 toast）。
+func (a *App) saveMessage(text string) string {
+	list := a.hub.Prompts()
+	if settings.HasSamePrompt(list, text) {
+		return "已经在常用指令里了"
+	}
+	if why := settings.PromptProblem(list, "", text, ""); why != "" {
+		return why
+	}
+	if err := a.hub.SetPrompts(settings.AddPrompt(list, newPromptID(), "", text)); err != nil {
+		return "常用指令没存上：" + err.Error()
+	}
+	return "已收藏，在输入栏左下角的「+」里"
 }
 
 // roundActions 是用户消息 user 开始的那一轮的操作键：重新生成、删除、分支（同手机版 TurnActionButtons）。

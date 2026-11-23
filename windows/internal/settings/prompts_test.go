@@ -90,3 +90,18 @@ func TestPromptProblem(t *testing.T) {
 		}
 	}
 }
+
+// 收藏消息时认同样内容的那条：首尾空白不算，中间的算。
+func TestHasSamePrompt(t *testing.T) {
+	list := []SavedPrompt{{ID: "a", Text: "看看这个项目"}, {ID: "b", Name: "检查", Text: "  git status\n"}}
+	for text, want := range map[string]bool{
+		"看看这个项目":         true,
+		"\ngit status  ": true,
+		"git  status":    false,
+		"":               false,
+	} {
+		if got := HasSamePrompt(list, text); got != want {
+			t.Errorf("HasSamePrompt(%q) = %v", text, got)
+		}
+	}
+}

@@ -47,6 +47,8 @@ type chatPane struct {
 	find findBar
 	// load 是输入栏上的负载标识（hostload.go）。
 	load hostLoad
+	// suggested：在新对话的空白页上点了建议，正等它发出去（emptychat.go）。
+	suggested bool
 	// cwd 是新对话顶栏上换工作目录的对话框。
 	cwd struct {
 		open  bool
@@ -203,6 +205,8 @@ func (a *App) chatPage(c *ui.Context) {
 				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
 					ui.Text(c, p.src.Problem).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
 				})
+			case emptyChat(p):
+				a.emptyState(c, p) // 新对话的空白页：标题和建议（emptychat.go）
 			default:
 				p.list.Top = headerHeight
 				p.list.View(c).Grow(1).MinHeight(0)

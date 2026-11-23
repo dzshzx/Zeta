@@ -42,7 +42,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 				c.Services().WriteClipboard(text)
 			}
 			if ch.UserMenu != nil {
-				ch.UserMenu(m, it, ch.laterThan(row))
+				ch.UserMenu(c, m, it, ch.laterThan(row))
 			}
 		})
 	})
