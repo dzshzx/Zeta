@@ -30,7 +30,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 		a.slashList(c, p)
 		a.composerAttachments(c, p)
 		_, winH := c.Size()
-		_, natural := c.MeasureText(0, ui.Span{Text: "一", Size: composerFontSize})
+		_, natural := c.MeasureText(0, ui.Span{Text: "M", Size: composerFontSize})
 		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
 			Lines(composerMinLines, composerMaxLines(winH, natural)).Padding(5, 6).FontSize(composerFontSize).LineHeight(composerLeading).Disabled(!ready).
 			OnPaste(func(string) bool { return a.paste(c, p) }).
@@ -489,8 +489,9 @@ const (
 )
 
 // composerMaxLines 是窗口高 winH（DIP）时输入框最多长到几行：窗口高度的三分之一放得下的行数，留三分之二给对话；
-// 不少于手机版的 6 行（小窗口里也照手机的上限）。natural 是这个字号一行字本身的高度：行高按字号乘 composerLeading，
-// 但排版时不低于字本身的高度（中文字体常比字号乘 1.2 还高），所以两者取大的。
+// 不少于手机版的 6 行（小窗口里也照手机的上限）。mygo 的 Lines 按空文本一行的高度算框高：字号乘 composerLeading，
+// 但不低于正文字体本身的行高，所以两者取大的。natural 要量正文字体（Windows 上是 Segoe UI），所以量拉丁字母：
+// 中文字会落到后备字体（微软雅黑等）上，比正文字体高，拿它算会比三分之一少出一两行。
 func composerMaxLines(winH, natural float32) int {
 	return max(6, int(winH/3/max(natural, composerFontSize*composerLeading)))
 }
