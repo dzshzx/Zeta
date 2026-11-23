@@ -68,9 +68,10 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.fork` | `as`、`last`、`options` | 从条目 `last` 所在那一轮之后分支：新对话由这个客户端以名字 `as` 拿着（同 `conv.open`，推整份；不带 `options` 时沿用这个客户端给原对话的），原对话不动。原对话还没有会话号、或下一轮剪不准时答出错。新对话先显示到那一轮为止的内容，标题是「分支 · 原标题」（重名时编号），发出第一条消息时 Claude Code 才从原会话复制出新会话（`--fork-session`）；从中间分支时先剪掉下一轮 |
 | `conv.quota` | | 借这个对话开着的进程问一次订阅额度（`get_usage`），`result` 是应答里的 `response` 原样（交给 `quota.usage`，见「账号与额度」）；没有进程时出错。核心自己也会存额度（见「账号与额度」），这个方法只在客户端要马上刷新时用 |
 | `conv.subagent` | `tool_use_id`、`watch` | 子代理查看页：`watch` 为真时开始给这个客户端推这个子代理（`tool_use_id` 是发起它的 Agent 调用）的 `conv.subagent`，为假时停；放开对话、断开时也停。有人看着时核心增量读它的记录 |
+| `conv.image` | `key`（`conv.state` 的 `key`）、`image`（图的 `key`） | 取核心里那个对话条目中一张实时收到的图（`kind` 为 `inline`）的原文，`result` 同 `sessions.image`（`{media_type, data}`）。声明了 `options.image_refs` 的客户端收到的条目里这些图只有 `key`，画到时用它取。不带 `conv`、不要求这条连接拿着那个对话：客户端从取大块数据的那条连接上取，几百 KB 的应答不挡对话的推送。对话已经不在核心里时答出错，`code` 为 `conversation_gone`；没有这张图时答出错 |
 | `conv.activity` | `watch` | 不带 `conv`。订阅（`watch` 省掉或为真，可以和 `sessions.watch` 一样只发方法名）或退订这个核心里各会话的忙闲，见推送 `conv.activity` |
 
-`options`（都可省，写法见 `helper/conv/conv.go` 的 `Options`）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）、`desk`（这台主机是远程主机，不是客户端所在的设备：新会话拿到会话号时、之后每次起进程时，核心在远程的「Zeta」tmux 会话里补开它的窗口，回到电脑前 `tmux attach -t zeta` 接着；删除、归档时由 `sessions.delete`、`sessions.archive` 关窗口，见「会话」）。
+`options`（都可省，写法见 `helper/conv/conv.go` 的 `Options`）：`env`（只给这个 Claude Code 进程的环境变量，比如自动压缩）、`system_prompt`（`--append-system-prompt`）、`mcp_config`（`--mcp-config`，手机工具）、`phone`（这个客户端处理手机工具的调用）、`auto_title`（一轮后请 Claude Code 起标题）、`compact_percent`（自动压缩的百分比，用量条用）、`desk`（这台主机是远程主机，不是客户端所在的设备：新会话拿到会话号时、之后每次起进程时，核心在远程的「Zeta」tmux 会话里补开它的窗口，回到电脑前 `tmux attach -t zeta` 接着；删除、归档时由 `sessions.delete`、`sessions.archive` 关窗口，见「会话」）、`image_refs`（推给这个客户端的 `conv.items` 里实时收到的图只带 `key`、不带 `data`，要看时用 `conv.image` 取：截了几十张图的对话整份推一次就是几十 MB，打开对话、每次重推一组工作过程都要带上；没声明的照旧带原文）。
 
 `options` 按客户端分开记：起进程时用发起这次起进程的那个客户端的（发消息、压缩等），`mcp_config` 只在有声明 `phone` 的客户端拿着这个对话时才带上。
 

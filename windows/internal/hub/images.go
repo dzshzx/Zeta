@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/chat"
 )
 
 // imageData 是核心取来的图（sessions.image、images.file）的内容；空的算没取到。
@@ -20,6 +21,17 @@ func imageData(im coreapi.Image, err error) ([]byte, error) {
 		return nil, errors.New("没取到图片")
 	}
 	return im.Data, nil
+}
+
+// InlineImageLoader 是聊天列表取对话 conv 里实时收到的图的办法：核心推来的条目里它们只有 key（options.image_refs），
+// 原文经核心的 conv.image 按对话的 key 取，走取大块数据的连接（见 bulk.go；在后台 goroutine 上调用）。
+func (h *Hub) InlineImageLoader(backend string, conv *chat.Conversation) func(key string) ([]byte, error) {
+	core := h.bulkCall(backend)
+	return func(key string) ([]byte, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), imageTimeout)
+		defer cancel()
+		return imageData(core.ConvImage(ctx, conv.State().Key, key))
+	}
 }
 
 // maxDownload 是网络图片最大多少（同手机版 ImageStore 的 MAX_DOWNLOAD）。

@@ -333,6 +333,7 @@ func TestReattach(t *testing.T) {
 		{Kind: items.Session, File: "/s.jsonl", Ref: "gone"},
 		{Kind: items.Inline, Data: base64.StdEncoding.EncodeToString([]byte("不是图"))},
 		{Kind: items.Inline, Data: base64.StdEncoding.EncodeToString(shot)},
+		{Kind: items.Inline, Key: "t1:0"}, // 只带 key：经 loadInline 取
 	}
 	load := func(file, ref string) ([]byte, error) {
 		if ref == "gone" {
@@ -340,8 +341,9 @@ func TestReattach(t *testing.T) {
 		}
 		return shot, nil
 	}
-	got, lost := reattach(list, load)
-	if lost != 2 || len(got) != 2 || got[0].MediaType != "image/png" || !bytes.Equal(got[1].Data, shot) {
+	inline := func(key string) ([]byte, error) { return shot, nil }
+	got, lost := reattach(list, load, inline)
+	if lost != 2 || len(got) != 3 || got[0].MediaType != "image/png" || !bytes.Equal(got[1].Data, shot) || !bytes.Equal(got[2].Data, shot) {
 		t.Fatalf("取回 %d 张，丢了 %d 张", len(got), lost)
 	}
 }

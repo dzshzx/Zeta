@@ -46,6 +46,8 @@ type Options struct {
 	CompactPercent int `json:"compact_percent,omitempty"`
 	// Desk：这台是远程主机。新会话拿到会话号时、之后每次起进程时，核心在那边 tmux 会话「zeta」里补开它的窗口。
 	Desk bool `json:"desk,omitempty"`
+	// ImageRefs：推来的条目里实时收到的图只带 key、不带原文，要看时用 ConvImage 取。
+	ImageRefs bool `json:"image_refs,omitempty"`
 }
 
 // Outgoing 是要发的一条消息（conv.send；conv.rewrite、conv.restore_code 带的新消息只看 Text、Images、Files）。

@@ -11,7 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// errNoLoader：调用方没给取会话记录里图片的函数。
+// errNoLoader：调用方没给取这种图的函数。
 var errNoLoader = errors.New("没有取图片的办法")
 
 // imageEntry 是一张图的载入结果。载入在单独的 goroutine 里做，做完置 done。
@@ -59,11 +59,18 @@ func (ic *imageCache) get(c *ui.Context, im items.Image, fetch func(items.Image)
 	return e.result()
 }
 
-// ImageBytes 是一张图的原始数据：实时收到的带着 base64，会话记录里的经调用方给的 load 取（阻塞，在后台调用）。
-func ImageBytes(im items.Image, load func(file, ref string) ([]byte, error)) ([]byte, error) {
+// ImageBytes 是一张图的原始数据（阻塞，在后台调用）：实时收到的带着 base64 时就地解开，只带了 key 的经 loadInline 取；
+// 会话记录里的经 load 取。
+func ImageBytes(im items.Image, load func(file, ref string) ([]byte, error), loadInline func(key string) ([]byte, error)) ([]byte, error) {
 	switch im.Kind {
 	case items.Inline:
-		return base64.StdEncoding.DecodeString(im.Data)
+		if im.Data != "" {
+			return base64.StdEncoding.DecodeString(im.Data)
+		}
+		if loadInline == nil {
+			return nil, errNoLoader
+		}
+		return loadInline(im.Key)
 	case items.Session:
 		if load == nil {
 			return nil, errNoLoader
@@ -81,7 +88,7 @@ func (ch *Chat) imageBytes(im items.Image) ([]byte, error) {
 		}
 		return ch.LoadMarkdownImage(im.URL)
 	}
-	return ImageBytes(im, ch.LoadImage)
+	return ImageBytes(im, ch.LoadImage, ch.LoadInlineImage)
 }
 
 // loadImage 取一张图的数据并解码。

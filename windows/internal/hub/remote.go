@@ -114,7 +114,8 @@ func (d deviceConvs) CloseIdle() bool {
 // 环境变量的写法同 Kotlin 版的 AutoCompact.env）。桌面版只连远程主机，都在那边的 tmux 里开窗口（Desk）。
 func (h *Hub) options(backend string) coreapi.Options {
 	d := claudecfg.DeviceSettings(h.settings.Store(), backend)
-	o := coreapi.Options{AutoTitle: d.AutoTitle(), Desk: true}
+	// 条目里实时收到的图只要 key，画到时经 conv.image 取（InlineImageLoader）：带图的对话整份推一次就是几十 MB
+	o := coreapi.Options{AutoTitle: d.AutoTitle(), Desk: true, ImageRefs: true}
 	switch p := d.CompactPercent(); {
 	case !d.AutoCompact():
 		o.Env = map[string]string{"DISABLE_AUTO_COMPACT": "1"}

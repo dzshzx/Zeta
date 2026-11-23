@@ -119,6 +119,8 @@ type Options struct {
 	CompactPercent int               `json:"compact_percent"`
 	// Desk：这台主机是远程主机（不是客户端所在的设备），核心给会话在远程的「Zeta」tmux 会话里开窗口，回到电脑前在终端里接着
 	Desk bool `json:"desk"`
+	// ImageRefs：推给这个客户端的条目里实时收到的图只带 key、不带原文，要看时用 conv.image 取（images.go）
+	ImageRefs bool `json:"image_refs"`
 }
 
 // Spec 是打开一个对话时给的。
@@ -225,7 +227,7 @@ func (c *Conversation) flush() {
 	}
 	if d := c.published.delta(c.r.Items); d != nil {
 		d.Type = "conv.items"
-		c.broadcast(func(name string) any { d.Conv = name; return d }, false)
+		c.broadcastItems(d)
 	}
 	c.reportActivity()
 }
@@ -237,7 +239,7 @@ func (c *Conversation) Hold(client int, name string, opts Options) error {
 		state := maps.Clone(c.lastState)
 		state["type"], state["conv"], state["full"] = raw("conv.state"), raw(name), raw(true)
 		c.send(client, state)
-		c.send(client, &itemsMsg{Type: "conv.items", Conv: name, Full: true, Items: nonNilSlice(c.r.Items)})
+		c.send(client, &itemsMsg{Type: "conv.items", Conv: name, Full: true, Items: nonNilSlice(itemsFor(opts, c.r.Items))})
 		c.holders[client] = name
 		c.options[client] = opts
 		c.idleFrom = time.Time{}
@@ -252,6 +254,24 @@ func (c *Conversation) broadcast(msg func(name string) any, phoneOnly bool) {
 		if !phoneOnly || c.options[client].Phone {
 			c.send(client, msg(name))
 		}
+	}
+}
+
+// broadcastItems 把条目的一次变化 d 发给拿着这个对话的各个客户端：声明了 image_refs 的收到去掉实时图片原文的那份（只做一次）。
+func (c *Conversation) broadcastItems(d *itemsMsg) {
+	var lean *itemsMsg
+	for client, name := range c.holders {
+		msg := d
+		if c.options[client].ImageRefs {
+			if lean == nil {
+				copied := *d
+				copied.Items = withoutImageData(d.Items)
+				lean = &copied
+			}
+			msg = lean
+		}
+		msg.Conv = name
+		c.send(client, msg)
 	}
 }
 

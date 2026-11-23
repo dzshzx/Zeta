@@ -64,7 +64,8 @@ type request struct {
 	Recall    bool                `json:"recall"`
 	Rest      bool                `json:"rest"`
 	Watch     bool                `json:"watch"`
-	Key       string              `json:"key"` // conv.open：重新打开核心里标识为 key 的对话（conv.state 的 key）
+	Key       string              `json:"key"`   // conv.open：重新打开核心里标识为 key 的对话（conv.state 的 key）；conv.image：图在哪个对话里
+	Image     string              `json:"image"` // conv.image：图的 key
 	RequestID string              `json:"request_id"`
 	Reply     prompt.Reply        `json:"reply"`
 	Action    prompt.ElicitAction `json:"action"`
@@ -107,6 +108,9 @@ func (m *Manager) Start(client int, method string, line []byte) (any, error) {
 		watch := watchParam(line)
 		m.watchActivity(client, watch == nil || *watch)
 		return nil, nil
+	}
+	if method == "conv.image" {
+		return m.image(r)
 	}
 	if r.Conv == "" {
 		return nil, errors.New("缺 conv")

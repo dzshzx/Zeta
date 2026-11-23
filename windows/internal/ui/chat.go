@@ -92,6 +92,9 @@ func (a *App) syncChat() {
 	if c.Conv == nil {
 		return
 	}
+	if p.list.LoadInlineImage == nil {
+		p.list.LoadInlineImage = a.hub.InlineImageLoader(c.Backend, c.Conv)
+	}
 	u := c.Conv.Take()
 	p.state, p.connected = u.State, u.Connected
 	// 回答里图片的相对路径按对话现在的工作目录解析；还没收到时按会话记录的

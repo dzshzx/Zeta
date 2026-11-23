@@ -38,6 +38,9 @@ type Chat struct {
 	// 可能同时在取；同一张图只调一次。
 	// 没给时这些图显示为取不到。
 	LoadImage func(file, ref string) ([]byte, error)
+	// LoadInlineImage 取实时收到、条目里只带了 key 没带原文的图（核心按 options.image_refs 推来的），返回图片文件的内容。
+	// 同 LoadImage 在单独的 goroutine 里调、同一张图只调一次；没给时这些图显示为取不到。
+	LoadInlineImage func(key string) ([]byte, error)
 	// OpenSubagent：给了时，发起子代理的那一步点了调它（参数是那一步的 tool_use id），不在原地展开。
 	OpenSubagent func(toolUseID string)
 	// ExpandWork：思考与工具调用的卡片默认展开（子代理页看它的步骤时）。

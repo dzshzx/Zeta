@@ -30,7 +30,8 @@ type subagentView struct {
 // openSubagent 打开子代理页（聊天里点了发起子代理的那一步、任务详情里点了查看它的步骤）：开始看着它。
 func (a *App) openSubagent(p *chatPane, toolUseID string) {
 	v := &subagentView{toolUseID: toolUseID, list: chatview.New()}
-	v.list.LoadImage, v.list.LoadMarkdownImage, v.list.OpenLink = p.list.LoadImage, p.list.LoadMarkdownImage, p.list.OpenLink
+	v.list.LoadImage, v.list.LoadInlineImage, v.list.LoadMarkdownImage = p.list.LoadImage, p.list.LoadInlineImage, p.list.LoadMarkdownImage
+	v.list.OpenLink = p.list.OpenLink
 	v.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
 	v.list.ExpandWork = true

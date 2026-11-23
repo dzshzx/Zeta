@@ -162,16 +162,24 @@ func TestImagesNeedOpener(t *testing.T) {
 func TestImageBytes(t *testing.T) {
 	shot := testPNG(t, 2, 2)
 	load := func(file, ref string) ([]byte, error) { return shot, nil }
-	if got, err := ImageBytes(items.Image{Kind: items.Session, File: "/s.jsonl", Ref: "1"}, load); err != nil || !bytes.Equal(got, shot) {
+	if got, err := ImageBytes(items.Image{Kind: items.Session, File: "/s.jsonl", Ref: "1"}, load, nil); err != nil || !bytes.Equal(got, shot) {
 		t.Fatalf("会话记录里的：%d 字节 %v", len(got), err)
 	}
-	if got, err := ImageBytes(items.Image{Kind: items.Inline, Data: "aGk="}, nil); err != nil || string(got) != "hi" {
+	if got, err := ImageBytes(items.Image{Kind: items.Inline, Data: "aGk="}, nil, nil); err != nil || string(got) != "hi" {
 		t.Fatalf("带着的：%q %v", got, err)
 	}
-	if _, err := ImageBytes(items.Image{Kind: items.Session}, nil); !errors.Is(err, errNoLoader) {
+	// 只带了 key 的经 loadInline 取
+	inline := func(key string) ([]byte, error) { return []byte("key:" + key), nil }
+	if got, err := ImageBytes(items.Image{Kind: items.Inline, Key: "t1:0"}, nil, inline); err != nil || string(got) != "key:t1:0" {
+		t.Fatalf("只带 key 的：%q %v", got, err)
+	}
+	if _, err := ImageBytes(items.Image{Kind: items.Inline, Key: "t1:0"}, load, nil); !errors.Is(err, errNoLoader) {
+		t.Fatalf("只带 key、没给 loadInline：%v", err)
+	}
+	if _, err := ImageBytes(items.Image{Kind: items.Session}, nil, inline); !errors.Is(err, errNoLoader) {
 		t.Fatalf("没给 load：%v", err)
 	}
-	if _, err := ImageBytes(items.Image{Kind: "什么"}, load); err == nil {
+	if _, err := ImageBytes(items.Image{Kind: "什么"}, load, inline); err == nil {
 		t.Fatal("不认识的种类该出错")
 	}
 }

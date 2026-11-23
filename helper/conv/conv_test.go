@@ -3,7 +3,6 @@ package conv
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -188,17 +187,25 @@ func (h *harness) feed(c *Conversation, l *fakeLink, lines ...string) {
 
 func (h *harness) settle(c *Conversation) {
 	h.t.Helper()
-	var holders map[int]string
+	// 各个拿着的客户端该有的条目（声明了 image_refs 的是去掉图片原文的那份）
+	wants := map[int][]byte{}
 	// 先把攒着的推出去：推之前核心才给各轮算好能做什么（markRounds）
-	v, _ := c.Call(func() (any, error) { c.flush(); holders = maps.Clone(c.holders); return json.Marshal(c.r.Items) })
-	var want []any
-	_ = json.Unmarshal(v.([]byte), &want)
+	_, _ = c.Call(func() (any, error) {
+		c.flush()
+		for id := range c.holders {
+			wants[id], _ = json.Marshal(itemsFor(c.options[id], c.r.Items))
+		}
+		return nil, nil
+	})
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for id, cl := range h.clients {
-		if _, ok := holders[id]; !ok { // 只核对拿着这个对话的客户端
+		b, ok := wants[id]
+		if !ok { // 只核对拿着这个对话的客户端
 			continue
 		}
+		var want []any
+		_ = json.Unmarshal(b, &want)
 		if want == nil {
 			want = []any{}
 		}

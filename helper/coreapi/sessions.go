@@ -119,6 +119,12 @@ func (cl *Client) SessionImage(ctx context.Context, file, ref string) (Image, er
 	return get[Image](ctx, cl.c, "sessions.image", params{"file": file, "ref": ref})
 }
 
+// ConvImage 取核心里标识为 convKey 的对话（conv.state 的 key）条目里键为 key 的实时图片（conv.image，options.image_refs 时条目里只有 key）。
+// 不用拿着那个对话，从哪条连接取都行。对话已经不在核心里时 code 为 conversation_gone。
+func (cl *Client) ConvImage(ctx context.Context, convKey, key string) (Image, error) {
+	return get[Image](ctx, cl.c, "conv.image", params{"key": convKey, "image": key})
+}
+
 // SessionOccupant 是 Zeta 之外占着会话的进程的样子（sessions.occupant）。
 func (cl *Client) SessionOccupant(ctx context.Context, session string) (sessionproto.Occupancy, error) {
 	return get[sessionproto.Occupancy](ctx, cl.c, "sessions.occupant", params{"session": session})
