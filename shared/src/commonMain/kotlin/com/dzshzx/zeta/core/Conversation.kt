@@ -418,10 +418,13 @@ class Conversation(
         }
     }
 
-    /** 结束背后的进程，等价于终端里的 /exit（conv.end）：用户结束对话、删会话、换账号、删主机这些要真结束的时候。对话内容保留，下次发送时接上；后台屏幕也留着，只是睡下。 */
+    /**
+     * 结束背后的进程，等价于终端里的 /exit（conv.end；手上没有核心里的那份时是 sessions.end）：用户结束对话、删会话、换账号、删主机这些要真结束的时候。
+     * 对话内容保留，下次发送时接上；后台屏幕也留着，只是睡下。
+     */
     fun shutdown() = release(end = true)
 
-    /** 同 [shutdown]，结束进程的请求（conv.end）答了以后在请求线程上接着做 [after]（可以阻塞）。在主线程上调用。 */
+    /** 同 [shutdown]，结束进程的请求（conv.end 或 sessions.end）答了以后在请求线程上接着做 [after]（可以阻塞）。在主线程上调用。 */
     fun shutdown(after: () -> Unit) {
         release(end = true)
         enqueue(after)
@@ -431,7 +434,14 @@ class Conversation(
     fun leave() = release(end = false)
 
     private fun release(end: Boolean) {
-        if (released || (!everOpened && !opening && core == null)) return
+        if (released || (!everOpened && !opening && core == null)) {
+            // 手上没有核心里的那份（闲着放开过，或还没打开过），那台主机上这个会话的进程却可能还在：放开后进程闲着等闲置超时
+            // （可设到一小时）才收。结束要结束的是会话，照样请核心结束它（sessions.end），排在 [shutdown] 之后要做的事前面
+            val session = sessionId
+            if (end && session != null)
+                enqueue { runCatching { hub.convLinks.endSession(backend, session) } }
+            return
+        }
         released = true
         subagents = emptyMap()
         phoneSession?.detach()

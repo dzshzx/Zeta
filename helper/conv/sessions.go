@@ -58,11 +58,19 @@ func (m *Manager) EndSession(session string) bool {
 	return v == true
 }
 
-// end 结束进程（等于终端里 /exit），对话内容留着，下次发消息时 --resume 接上。返回原先有没有进程。
+// end 结束这个会话的进程（等于终端里 /exit），对话内容留着，下次发消息时 --resume 接上。返回原先有没有进程。
+// 对话没接着进程时，本包托管的进程也可能还在跑这个会话（见 Deps.EndHosted；接回的还在等历史载完时也是这样），照样结束它：
+// 用户结束的是会话，不是这条连接。
 func (c *Conversation) end() bool {
-	had := c.proc != nil
-	c.closeProcess(true)
-	return had
+	if c.proc != nil {
+		c.closeProcess(true)
+		return true
+	}
+	if c.attachAfterHistory != nil {
+		c.attachAfterHistory = nil
+		c.endTurnState()
+	}
+	return c.session != "" && c.deps.EndHosted != nil && c.deps.EndHosted(c.session)
 }
 
 // SessionActivity 是核心里开着的会话 session 眼下的忙闲（同 conv.activity 推的那一项）；没开着时是零值。

@@ -48,6 +48,9 @@ const val HOST_CALL_TIMEOUT_MS = 10_000L
 /** 等主机上 claude update 跑完的上限：核心自己最多跑 5 分钟（helper/claudeupdate.go），这里多留一分钟。 */
 const val CLAUDE_UPDATE_TIMEOUT_MS = 6 * 60_000L
 
+/** sessions.end 最多等多久：核心等进程退出，最多十几秒（helper 的 releaseGrace 再加几秒）。 */
+const val END_SESSION_TIMEOUT_MS = 30_000L
+
 /**
  * 一次 claude update 的结果（docs/core.md「主机」的 system.claude_update）：[ok] 是它退出码为 0，[before]、[version]
  * 是前后的版本。
@@ -229,6 +232,18 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
             before = reply.str("before"),
             version = reply.str("version"),
             output = reply.str("output").orEmpty(),
+        )
+    }
+
+    /**
+     * 结束本包占着会话 [session] 的 Claude Code 进程（sessions.end，等于终端里的 /exit），核心等它退出再答，最多
+     * [END_SESSION_TIMEOUT_MS]。 没成时抛 [ServeError]。阻塞。
+     */
+    fun endSession(session: String) {
+        link.call(
+            "sessions.end",
+            buildJsonObject { put("session", session) },
+            END_SESSION_TIMEOUT_MS,
         )
     }
 

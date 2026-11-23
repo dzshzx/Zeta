@@ -39,6 +39,10 @@ type Deps struct {
 	Occupant func(session string) sessionproto.Occupancy
 	// Handoff 把会话 session 从别处接过来（zeta-helper handoff），要等那边退出；可以是 nil，那时当已交出来
 	Handoff func(session string) sessionproto.Handoff
+	// EndHosted 结束本包托管、正跑着会话 session 的进程（zeta_host.sh stop），不等它退出，返回有没有这样的进程。
+	// 对话没接着进程时结束会话用（conv.end）：没人拿着闲够了核心会放开进程、交班时新核心不接闲着的，进程却要等看门狗按闲置超时才收。
+	// 可以是 nil，那时只结束对话接着的进程
+	EndHosted func(session string) bool
 	// Quota 收下 Claude Code 给的这台主机的订阅额度（核心里接到额度存储，quota.get 读的那份）；可以是 nil：
 	// 那样输出里的 rate_limit_event 不管，起进程时也不问额度
 	Quota Quota

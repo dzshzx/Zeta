@@ -44,3 +44,29 @@ func pump(l *host.Link, ev conv.Events) {
 		}
 	}
 }
+
+// stopOwnHosts 结束本包托管、正跑着会话 session 的进程（zeta_host.sh stop，同对话结束自己接着的进程：发 end_session，不退再发信号），
+// 不等它们退出；给出有几个。核心里的对话没接着它们时用（conv.Deps.EndHosted）。
+func stopOwnHosts(e *env, session string) int {
+	keys := e.ownHostKeys(session)
+	for _, key := range keys {
+		host.Stop(key)
+	}
+	return len(keys)
+}
+
+// ownHostKeys 是本包正跑着会话 session 的托管目录（进程还在、没写 exit）的标识。
+func (e *env) ownHostKeys(session string) []string {
+	if session == "" {
+		return nil
+	}
+	var keys []string
+	for _, key := range globNames(e.hosts, true, nil) {
+		dir := joinPath(e.hosts, key)
+		pid, known := readPid(joinPath(dir, "pid"))
+		if hostRunning(dir, pid, known) && hostSessionNow(dir) == session {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}

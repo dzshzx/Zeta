@@ -93,6 +93,24 @@ class ConversationEndTest {
         assertTrue(hub.findConversation("s-left")?.busy == true)
     }
 
+    /**
+     * 闲着放开过的对话（Zeta 切到后台、切走几秒后 [Conversation.leave]，核心随后也放开进程）再结束：手上已没有核心里的那份，
+     * 照样请核心结束这个会话的进程（sessions.end）。不然什么也不发，进程留在那台主机上等闲置超时（可设到一小时），侧栏一直是运行中。
+     */
+    @Test
+    fun endingAReleasedConversationEndsItsSessionOnTheHost() {
+        val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
+        val chat = hub.opened("s-idle")
+        awaitCore { chat.view.connected }
+        chat.leave()
+        core.next("conv.close")
+
+        hub.endCurrent()
+        assertEquals("s-idle", core.next("sessions.end").str("session"))
+        assertNull(hub.current.sessionId)
+    }
+
     /** 结束进程后接着做的事（引用文件夹前换核心）：排在 conv.end 答了之后；没打开过的对话也照做。 */
     @Test
     fun shutdownRunsTheNextStepAfterTheEnd() {

@@ -63,6 +63,13 @@ class ConvLinks(private val hub: ConversationHub) {
     /** 在主机 [backend] 上跑 claude update。没跑成时抛 [ServeError]。阻塞几分钟，别在主线程上调。 */
     fun updateClaude(backend: String): ClaudeUpdate = borrow(backend) { it.updateClaude() }
 
+    /**
+     * 结束主机 [backend] 上本包占着会话 [session]
+     * 的进程（sessions.end），等它退出：对话没拿着核心里的那份时结束对话用（[Conversation.shutdown]）。 没成时抛
+     * [ServeError]。阻塞，别在主线程上调。
+     */
+    fun endSession(backend: String, session: String) = borrow(backend) { it.endSession(session) }
+
     /** 借主机 [backend] 对话用的连接做一件和对话无关的事：没有连接就连上，用完照常空闲 [IDLE_CLOSE_MS] 后断开。 */
     private fun <T> borrow(backend: String, use: (ConvClient) -> T): T {
         val link = acquire(backend)

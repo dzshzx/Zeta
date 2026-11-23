@@ -139,9 +139,10 @@ func (e *env) hostedHolders(id string) []registered {
 }
 
 // waitOwnHostGone 等本包托管、占着会话 id 的进程都退出，最多 wait（sessions.delete 结束了开着的进程以后，删记录之前）。
+// 两边都看：Claude Code 的登记（hostedHolders），和本包的托管目录（ownHostKeys，结束对话没接着的进程时按它找的）。
 func (e *env) waitOwnHostGone(id string, wait time.Duration) {
 	deadline := time.Now().Add(wait)
-	for slices.ContainsFunc(e.hostedHolders(id), e.ownHost) && time.Now().Before(deadline) {
+	for (slices.ContainsFunc(e.hostedHolders(id), e.ownHost) || len(e.ownHostKeys(id)) > 0) && time.Now().Before(deadline) {
 		time.Sleep(100 * time.Millisecond)
 	}
 }

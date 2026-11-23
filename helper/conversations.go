@@ -43,6 +43,7 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 		Occupant:      e.occupancy,
 		Handoff:       e.handOff,
+		EndHosted:     func(session string) bool { return stopOwnHosts(e, session) > 0 },
 		Quota:         newQuotaSink(e, quota.changed),
 		Desk: func(session, cwd string) {
 			if _, err := deskOpen(e, session, cwd); err != nil {

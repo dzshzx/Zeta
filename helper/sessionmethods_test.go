@@ -476,6 +476,23 @@ func TestSessionsEndEndsTheOpenConversation(t *testing.T) {
 	}
 }
 
+// 删会话同结束：核心里没开着、本包托管的闲着的进程还在跑这个会话时，先结束它再删记录，不留给看门狗（它之后退出时还会写那份记录）。
+func TestSessionsDeleteEndsAnOwnHostedProcess(t *testing.T) {
+	e := testEnv(t)
+	// 搭法同下面 TestSessionsEndEndsAnOwnHostedProcess
+	dir, pid, done := hosted(t, e, e.name, handoffID, turnDone...)
+	writeFile(t, joinPath(dir, "pid"), fmt.Sprint(pid))
+	record := writeSession(t, e, handoffID, "删掉")
+	c := startSessions(t, e)
+	c.ok("sessions.delete", `"session":"`+handoffID+`"`)
+	if !exited(done) {
+		t.Fatal("删了会话，本包托管、跑着它的进程还在")
+	}
+	if lexists(record) {
+		t.Fatal("记录没删")
+	}
+}
+
 // 核心里没开着、本包托管的进程还在时（客户端都放开了），sessions.end 直接结束它；另一个包托管的不动。
 func TestSessionsEndEndsAnOwnHostedProcess(t *testing.T) {
 	e := testEnv(t)

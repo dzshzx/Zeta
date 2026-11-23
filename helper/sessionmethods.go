@@ -233,10 +233,8 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 	if h.activeSession(q.Session) {
 		return nil, errActive
 	}
-	// 开着的进程先结束、等它退出：不然 Claude Code 还会把删掉的记录写出来
-	if h.convs.EndSession(q.Session) {
-		h.e.waitOwnHostGone(q.Session, releaseGrace+6*time.Second)
-	}
+	// 本包的进程先结束、等它退出：不然 Claude Code 还会把删掉的记录写出来
+	h.endOwn(q.Session)
 	deleted := []deletedRecord{}
 	for _, path := range h.e.sessionFilesNamed(q.Session) {
 		if !h.e.insideRoot(path) {
@@ -252,16 +250,21 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 }
 
 // end 结束本包占着会话 session 的 Claude Code 进程（等于终端里 /exit），等它退出再答，好让马上推的列表项里 live 已经是假。
-// 核心里开着这个会话时经那个对话（同 conv.end）；没开着、本包托管的进程还在（客户端都放开了、看门狗还没到点）时
-// 照 zeta_host.sh 的 end_claude 结束它。结果同 sessions.end_elsewhere：结束了几个。Zeta 之外占着的不管，那是 sessions.end_elsewhere。
+// 结果同 sessions.end_elsewhere：结束了几个。Zeta 之外占着的不管，那是 sessions.end_elsewhere。
 func (h sessionOps) end(q sessionParams) (any, error) {
-	if h.convs.EndSession(q.Session) {
-		h.e.waitOwnHostGone(q.Session, releaseGrace+6*time.Second)
-		return endedResult{Ended: 1}, nil
+	return endedResult{Ended: h.endOwn(q.Session)}, nil
+}
+
+// endOwn 结束本包占着会话 session 的 Claude Code 进程，等它退出，给出结束了几个。核心里开着这个会话时经那个对话（同 conv.end，
+// 对话没接着的本包托管进程也一起结束）；没开着、本包托管的进程还在（客户端都放开了、看门狗还没到点）时照 zeta_host.sh 的 end_claude 结束它。
+func (h sessionOps) endOwn(session string) int {
+	if h.convs.EndSession(session) {
+		h.e.waitOwnHostGone(session, releaseGrace+6*time.Second)
+		return 1
 	}
-	own := slices.DeleteFunc(h.e.hostedHolders(q.Session), func(r registered) bool { return !h.e.ownHost(r) })
+	own := slices.DeleteFunc(h.e.hostedHolders(session), func(r registered) bool { return !h.e.ownHost(r) })
 	endHosted(own)
-	return endedResult{Ended: len(own)}, nil
+	return len(own)
 }
 
 // activeSession：会话 session 正在进行，sessions.delete 不删它。正在进行指：核心里开着它的对话在回答、等确认或有后台任务；
