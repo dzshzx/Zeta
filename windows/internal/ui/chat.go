@@ -89,6 +89,7 @@ func (a *App) syncChat() {
 		p.list.LoadEarlier = func() { a.loadEarlier(p, false) }
 		p.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 		p.list.OpenImages = func(list []items.Image, index int) { a.openImages(p.list, list, index) }
+		p.list.AutoLoadRemote = a.hub.Settings().AutoLoadRemoteImages
 		a.messageCallbacks(p)
 		a.pane, a.viewer = p, nil
 		a.enterDraft(p)

@@ -49,6 +49,9 @@ type Chat struct {
 	OpenLink func(url string)
 	// OpenImages：点了图时调它（同一组的图、点的是第几张），由调用方打开看大图（NewViewer）；没给时图点不开。
 	OpenImages func(list []items.Image, index int)
+	// AutoLoadRemote：为真时回答里的网络图直接取，不先显示「加载图片」等用户点（设置「常规」里的「自动加载网络图片」）。
+	// 每帧问一次，改了设置马上跟着变；没给时等用户点。
+	AutoLoadRemote func() bool
 	// LoadMarkdownImage 取回答的 Markdown 里写的图片（answerimages.go 从正文里取出来的）：url 是主机上的路径（绝对路径，
 	// 或 ~ 开头）或 http、https 的网址，返回图片文件的内容。在单独的 goroutine 里调，同一个地址只调一次。
 	// 没给时这些图显示为取不到。显示前设好，之后不再换。

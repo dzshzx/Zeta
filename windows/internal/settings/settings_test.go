@@ -201,3 +201,21 @@ func TestDarkKey(t *testing.T) {
 		}
 	}
 }
+
+// 自动加载网络图片：键和类型同手机版（autoLoadRemoteImages，布尔），没设过是关着。
+func TestAutoLoadRemoteImagesKey(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := Load(dir)
+	if s.AutoLoadRemoteImages() {
+		t.Fatal("没设过应该是关着")
+	}
+	if err := s.SetAutoLoadRemoteImages(true); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readRaw(t, dir)["autoLoadRemoteImages"]); got != `{"t":"b","v":true}` {
+		t.Fatalf("写出来的：%s", got)
+	}
+	if again, _ := Load(dir); !again.AutoLoadRemoteImages() {
+		t.Fatal("重新读回来不对")
+	}
+}

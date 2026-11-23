@@ -135,3 +135,32 @@ func TestFindSkipsAnswerImages(t *testing.T) {
 		t.Fatalf("能查的正文：%+v", got)
 	}
 }
+
+// 设置里开着「自动加载网络图片」时网络图直接取，不先问；开关是每帧问的，打开以后还在问的那张马上去取。
+func TestRemoteAnswerImageAutoLoads(t *testing.T) {
+	asked := make(chan string, 2)
+	on := false
+	ch := New()
+	ch.AutoLoadRemote = func() bool { return on }
+	ch.LoadMarkdownImage = func(url string) ([]byte, error) {
+		asked <- url
+		return testPNG(t, 40, 30), nil
+	}
+	ch.SetItems([]items.Item{{Kind: items.Answer, ID: "a", Text: "看这张：\n\n![远处](https://img.example.com/a/b.png)"}})
+	tt := newTester(ch, 700, 600, false)
+	settleImages(ch, tt)
+	if len(asked) != 0 || !tt.HasText("加载图片 · img.example.com") {
+		t.Fatalf("关着时要先问：取了 %d 张，%q", len(asked), tt.Texts())
+	}
+	on = true
+	settleImages(ch, tt)
+	if len(asked) != 1 {
+		t.Fatalf("打开以后没去取：%q", tt.Texts())
+	}
+	if got := <-asked; got != "https://img.example.com/a/b.png" {
+		t.Errorf("取图：%q", got)
+	}
+	if tt.HasText("加载图片 · img.example.com") {
+		t.Error("开着时还在问")
+	}
+}

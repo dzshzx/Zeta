@@ -169,8 +169,9 @@ func imageError(err error) string {
 }
 
 // waitsForTap：网络图还没经用户点过（同手机版的 waitsForTap，访问图片地址会把这台电脑的 IP 交给对方的服务器）。
+// 设置里开着「自动加载网络图片」（AutoLoadRemote）时不等。
 func (ch *Chat) waitsForTap(im items.Image) bool {
-	if !im.Remote() || ch.allowed[im.CacheKey()] {
+	if !im.Remote() || ch.allowed[im.CacheKey()] || ch.AutoLoadRemote != nil && ch.AutoLoadRemote() {
 		return false
 	}
 	_, started := ch.images.entries[im.CacheKey()]

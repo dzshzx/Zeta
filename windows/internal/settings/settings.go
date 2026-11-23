@@ -189,6 +189,20 @@ func (s *Settings) SetDark(dark *bool) error {
 	return s.store.SetBool(keyDark, *dark)
 }
 
+// keyAutoLoadRemoteImages 是回答里的网络图片不等点击就加载（同 Settings.kt 的 autoLoadRemoteImages），没设过是关着。
+const keyAutoLoadRemoteImages = "autoLoadRemoteImages"
+
+// AutoLoadRemoteImages 是回答里的网络图片不等点击就加载。
+func (s *Settings) AutoLoadRemoteImages() bool {
+	v, _ := s.store.Bool(keyAutoLoadRemoteImages)
+	return v
+}
+
+// SetAutoLoadRemoteImages 存自动加载网络图片的开关。
+func (s *Settings) SetAutoLoadRemoteImages(on bool) error {
+	return s.store.SetBool(keyAutoLoadRemoteImages, on)
+}
+
 // 桌面版自己的窗口布局（手机版没有这两项）。
 const (
 	keySidebarWidth  = "desktopSidebarWidth"  // 侧栏宽度（DIP，用户拖过才有）

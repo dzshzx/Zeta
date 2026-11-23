@@ -126,10 +126,11 @@ func navTitle(c *ui.Context, title string) {
 	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Secondary).Padding(14, 10, 4, 10)
 }
 
-// settingsPage 是设置的「常规」：外观、快捷键。
+// settingsPage 是设置的「常规」：外观、对话、快捷键。
 func (a *App) settingsPage(c *ui.Context) {
 	a.subPage(c, "常规", "settings", func() {
 		a.appearanceSection(c)
+		a.chatSection(c)
 		shortcutsSection(c)
 	})
 }
@@ -306,5 +307,22 @@ func (a *App) updateBar(c *ui.Context) {
 			a.open(pageAbout)
 		})
 		widget.FlatButton(c, widget.IconClose, "关闭提示", 32, 18).OnClick(func() { a.updateNote = "" })
+	})
+}
+
+// chatSection 是对话一组：自动加载网络图片（键同手机版设置首页的同名开关，聊天列表每帧照它）。
+func (a *App) chatSection(c *ui.Context) {
+	s := a.hub.Settings()
+	widget.Group(c, "对话", "", func(l *widget.List) {
+		on := s.AutoLoadRemoteImages()
+		l.Row(widget.Row{Icon: widget.IconImage, Title: "自动加载网络图片",
+			Summary: "关着时回答里的网络图片先显示「加载图片」，点了才去取：取图会把这台电脑的 IP 交给图片所在的网站",
+			End: func() {
+				if widget.Switch(c.Key("auto-load-images"), &on).Label("自动加载网络图片").Changed() {
+					if err := s.SetAutoLoadRemoteImages(on); err != nil {
+						a.say("没存上", err.Error())
+					}
+				}
+			}})
 	})
 }

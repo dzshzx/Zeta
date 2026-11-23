@@ -32,6 +32,7 @@ func (a *App) openSubagent(p *chatPane, toolUseID string) {
 	v := &subagentView{toolUseID: toolUseID, list: chatview.New()}
 	v.list.LoadImage, v.list.LoadInlineImage, v.list.LoadMarkdownImage = p.list.LoadImage, p.list.LoadInlineImage, p.list.LoadMarkdownImage
 	v.list.OpenLink = p.list.OpenLink
+	v.list.AutoLoadRemote = p.list.AutoLoadRemote
 	v.list.OpenSubagent = func(id string) { a.openSubagent(p, id) }
 	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
 	v.list.ExpandWork = true
