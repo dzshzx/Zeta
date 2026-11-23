@@ -9,7 +9,7 @@ import (
 )
 
 // fakeLoginClaude 在 e 的家目录 ~/.local/bin 放一个假的 claude，auth login 照实测的样子说话（见 accountslogin.go 开头）：
-// 打印网址和不换行的提示，逐行读授权码：没有 # 时在错误输出抱怨、接着读；「good#code」登录成 uuid-b 并以 0 退出；
+// 要求 BROWSER 是 true（主机上不弹浏览器），打印网址和不换行的提示，逐行读授权码：没有 # 时在错误输出抱怨、接着读；「good#code」登录成 uuid-b 并以 0 退出；
 // 别的码说没被接受、以 1 退出。PATH 收窄到系统目录，免得找到本机真的 claude。
 func fakeLoginClaude(t *testing.T, e *env) {
 	t.Helper()
@@ -20,6 +20,7 @@ func fakeLoginClaude(t *testing.T, e *env) {
 	}
 	script := `#!/bin/bash
 [ "$1 $2" = "auth login" ] || exit 2
+[ "$BROWSER" = true ] || { echo "BROWSER 没设成 true：$BROWSER" >&2; exit 3; }
 echo "Opening browser to sign in…"
 echo "If the browser didn't open, visit:"
 echo "https://claude.ai/oauth/authorize?code=true&state=fake"

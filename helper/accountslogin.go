@@ -23,6 +23,7 @@ import (
 // 实测（Claude Code 2.1.330）：网址在标准输出「If the browser didn't open, visit:」的下一行，之后是不换行的提示
 // 「Paste code here if prompted > 」；授权码少了 # 和后半段时它在错误输出抱怨一句、接着等输入；完整却不对的码让它
 // 在错误输出说「Couldn't log in: That code wasn't accepted…」并以 1 退出；对的码以 0 退出，登录状态已经写好。
+// 它还会用环境变量 BROWSER 指的程序去打开网页，所以起它时把 BROWSER 设成 true，主机上不弹浏览器。
 
 const (
 	loginURLWait  = 30 * time.Second // 起登录命令后最多等多久见到网址
@@ -169,7 +170,8 @@ func startLogin(e *env) (*loginRun, error) {
 	}
 	cmd := exec.Command("bash", "-lc", `PATH="$PATH:$HOME/.local/bin"; exec claude auth login`)
 	cmd.Dir = home
-	cmd.Env = append(os.Environ(), "HOME="+home)
+	// BROWSER：claude auth login 用它打开授权网页（实测 2.1.330 认它）。网页要在客户端那边打开，主机上有图形界面时也别弹
+	cmd.Env = append(os.Environ(), "HOME="+home, "BROWSER=true")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
