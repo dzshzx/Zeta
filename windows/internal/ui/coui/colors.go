@@ -1,7 +1,6 @@
-// Package coui 是桌面版的 COUI 2（ColorOS 17）外观：浅色、深色两套配色，字号，和界面常用的几样组件
-// （页面与卡片分组、列表行、开关、按钮、输入框、菜单、对话框、提示条）。数值照手机版：
-// COUI 2 库（io.github.suqi8.coui.kmp，https://github.com/suqi8/coui）的 lightColorScheme、darkColorScheme、
-// TextStyles 和各组件的默认值，Zeta 在 shared 的 ui/components/coui2、ui/chat、ui/pane 里补的，各处注释写着出处。
+// Package coui 是桌面版的外观：浅色、深色两套配色，字号，和界面常用的几样组件（页面与卡片分组、列表行、开关、按钮、
+// 输入框、菜单、对话框、提示条）。配色和交互照 ChatGPT 的 Windows 客户端（黑白灰，主按钮黑底白字，蓝色只给链接），
+// 尺寸是鼠标用的桌面尺寸；包名、槽位名和图标沿用手机版 COUI 2 的（槽位后面括号里是 COUI 的名字），手机版的规矩不管这里。
 //
 // 组件只管样子，行为用 mygo 的 base（ButtonBase、SwitchBase、MenuBase、DialogBase……），文字、读屏名字照调用方给的。
 package coui
@@ -46,117 +45,116 @@ type Colors struct {
 	Red, Orange, Yellow, Green, Blue, Cyan, Purple ui.Color
 	// Mask 是对话框后面的遮罩（mask），Shadow 是浮起元素的阴影色。
 	Mask, Shadow ui.Color
-	// 毛玻璃上叠的那层（手机上是 COUI 17 的材质模糊，MaterialBlur.kt，这里是高斯模糊加半透明底色，
-	// 落在白底、黑底上时等于不开毛玻璃时的不透明底色）：菜单、输入栏。
+	// PopupGlass 是菜单的底色，FieldGlass 是浮在内容上的输入栏底色（都不透明）。
 	PopupGlass, FieldGlass ui.Color
 }
 
-// light、dark 是 COUI 2 的两套默认配色，没有改过任何槽位。
+// light、dark 是照 ChatGPT 客户端的黑白灰配色：主按钮、开关、勾选是黑（深色里是白），蓝色只给链接和主题色的字。
 var (
 	light = &Colors{
 		Window:   ui.Hex("#FFFFFF"),
-		Page:     ui.Hex("#F0F1F2"),
-		Sidebar:  ui.Hex("#F0F1F2"),
+		Page:     ui.Hex("#FFFFFF"),
+		Sidebar:  ui.Hex("#F9F9F9"),
 		Card:     ui.Hex("#FFFFFF"),
-		Selected: ui.Hex("#FFFFFF"),
+		Selected: ui.Hex("#EBEBEB"),
 		Popup:    ui.Hex("#FFFFFF"),
 		Dialog:   ui.Hex("#FFFFFF"),
 
-		Tint:        argb(0x0D000000),
-		Chip:        argb(0x14000000),
-		Hover:       argb(0x14000000),
-		Press:       argb(0x1F000000),
-		Button:      ui.Hex("#EBEBEB"),
-		DialogBlock: ui.Hex("#E7E7E7"),
+		Tint:        argb(0x0A000000),
+		Chip:        argb(0x0D000000),
+		Hover:       argb(0x0D000000),
+		Press:       argb(0x1A000000),
+		Button:      ui.Hex("#FFFFFF"),
+		DialogBlock: ui.Hex("#F4F4F4"),
 
-		Field:      ui.Hex("#F5F5F5"),
-		Edge:       argb(0x0A000000),
-		CodeHeader: ui.Hex("#ECECEC"),
-		CodeBody:   ui.Hex("#F5F5F5"),
-		CodeEdge:   argb(0x14000000),
-		Bubble:     ui.Hex("#EEF2FA"),
-		Divider:    argb(0x1F000000),
+		Field:      ui.Hex("#FFFFFF"),
+		Edge:       argb(0x1A000000),
+		CodeHeader: ui.Hex("#F9F9F9"),
+		CodeBody:   ui.Hex("#F9F9F9"),
+		CodeEdge:   argb(0x0F000000),
+		Bubble:     ui.Hex("#F4F4F4"),
+		Divider:    argb(0x1A000000),
 
-		Text:       argb(0xE6000000),
-		Secondary:  argb(0x8A000000),
-		Tertiary:   argb(0x42000000),
-		Quaternary: argb(0x14000000),
+		Text:       ui.Hex("#0D0D0D"),
+		Secondary:  ui.Hex("#5D5D5D"),
+		Tertiary:   ui.Hex("#8F8F8F"),
+		Quaternary: ui.Hex("#CDCDCD"),
 
-		Primary:     ui.Hex("#0080FF"),
-		PrimaryText: ui.Hex("#0080FF"),
+		Primary:     ui.Hex("#0D0D0D"),
+		PrimaryText: ui.Hex("#0169CC"),
 		OnPrimary:   ui.Hex("#FFFFFF"),
-		Halftone:    argb(0x260080FF),
-		Track:       argb(0x29000000),
+		Halftone:    argb(0x140D0D0D),
+		Track:       ui.Hex("#D4D4D4"),
 
-		Error:   ui.Hex("#DB382C"),
-		Warning: ui.Hex("#A36200"),
-		Success: ui.Hex("#00BD13"),
-		Red:     ui.Hex("#EB3B2F"),
-		Orange:  ui.Hex("#FF7700"),
-		Yellow:  ui.Hex("#FFB200"),
-		Green:   ui.Hex("#00BD13"),
-		Blue:    ui.Hex("#0080FF"),
-		Cyan:    ui.Hex("#00A3B8"),
-		Purple:  ui.Hex("#8D5BE8"),
+		Error:   ui.Hex("#E02E2A"),
+		Warning: ui.Hex("#B25E00"),
+		Success: ui.Hex("#00A240"),
+		Red:     ui.Hex("#E02E2A"),
+		Orange:  ui.Hex("#E25507"),
+		Yellow:  ui.Hex("#FFC300"),
+		Green:   ui.Hex("#00A240"),
+		Blue:    ui.Hex("#0169CC"),
+		Cyan:    ui.Hex("#0091A8"),
+		Purple:  ui.Hex("#924FF7"),
 
-		Mask:   argb(0x33000000),
-		Shadow: ui.RGBA(0, 0, 0, 30.0/255),
+		Mask:   argb(0x4D000000),
+		Shadow: ui.RGBA(0, 0, 0, 0.08),
 
-		PopupGlass: ui.RGBA(246, 246, 246, 0.86),
-		FieldGlass: ui.RGBA(245, 245, 245, 0.9),
+		PopupGlass: ui.Hex("#FFFFFF"),
+		FieldGlass: ui.Hex("#FFFFFF"),
 	}
 	dark = &Colors{
 		Dark:     true,
-		Window:   ui.Hex("#000000"),
-		Page:     ui.Hex("#000000"),
-		Sidebar:  ui.Hex("#1E1E1E"),
-		Card:     ui.Hex("#1A1A1A"),
-		Selected: ui.Hex("#353535"),
-		Popup:    ui.Hex("#333333"),
-		Dialog:   ui.Hex("#262626"),
+		Window:   ui.Hex("#212121"),
+		Page:     ui.Hex("#212121"),
+		Sidebar:  ui.Hex("#181818"),
+		Card:     ui.Hex("#212121"),
+		Selected: ui.Hex("#2A2A2A"),
+		Popup:    ui.Hex("#353535"),
+		Dialog:   ui.Hex("#2F2F2F"),
 
 		Tint:        argb(0x0DFFFFFF),
-		Chip:        argb(0x1AFFFFFF),
-		Hover:       argb(0x26FFFFFF),
-		Press:       argb(0x33FFFFFF),
-		Button:      ui.Hex("#353535"),
-		DialogBlock: ui.Hex("#3B3B3B"),
+		Chip:        argb(0x14FFFFFF),
+		Hover:       argb(0x12FFFFFF),
+		Press:       argb(0x1FFFFFFF),
+		Button:      ui.Hex("#2F2F2F"),
+		DialogBlock: ui.Hex("#171717"),
 
-		Field:      ui.Hex("#1A1A1A"),
+		Field:      ui.Hex("#303030"),
 		Edge:       argb(0x1AFFFFFF),
-		CodeHeader: ui.Hex("#2B2B2B"),
-		CodeBody:   ui.Hex("#1A1A1A"),
-		CodeEdge:   argb(0x1AFFFFFF),
-		Bubble:     ui.Hex("#202634"),
-		Divider:    argb(0x33FFFFFF),
+		CodeHeader: ui.Hex("#171717"),
+		CodeBody:   ui.Hex("#171717"),
+		CodeEdge:   argb(0x14FFFFFF),
+		Bubble:     ui.Hex("#303030"),
+		Divider:    argb(0x1AFFFFFF),
 
-		Text:       argb(0xE6FFFFFF),
-		Secondary:  argb(0x8AFFFFFF),
-		Tertiary:   argb(0x4DFFFFFF),
-		Quaternary: argb(0x26FFFFFF),
+		Text:       ui.Hex("#ECECEC"),
+		Secondary:  ui.Hex("#B4B4B4"),
+		Tertiary:   ui.Hex("#8F8F8F"),
+		Quaternary: ui.Hex("#5D5D5D"),
 
-		Primary:     ui.Hex("#1A8CFF"),
-		PrimaryText: ui.Hex("#5C9DFF"),
-		OnPrimary:   ui.Hex("#FFFFFF"),
-		Halftone:    argb(0x401A8CFF),
-		Track:       argb(0x40FFFFFF),
+		Primary:     ui.Hex("#FFFFFF"),
+		PrimaryText: ui.Hex("#48AAFF"),
+		OnPrimary:   ui.Hex("#0D0D0D"),
+		Halftone:    argb(0x1AFFFFFF),
+		Track:       ui.Hex("#4A4A4A"),
 
-		Error:   ui.Hex("#FF6C61"),
+		Error:   ui.Hex("#FF6B66"),
 		Warning: ui.Hex("#E5A100"),
-		Success: ui.Hex("#24B232"),
-		Red:     ui.Hex("#EB493D"),
-		Orange:  ui.Hex("#F08222"),
-		Yellow:  ui.Hex("#E5A100"),
-		Green:   ui.Hex("#24B232"),
-		Blue:    ui.Hex("#1A8CFF"),
-		Cyan:    ui.Hex("#26C0D3"),
-		Purple:  ui.Hex("#A57BF5"),
+		Success: ui.Hex("#40C977"),
+		Red:     ui.Hex("#FF6B66"),
+		Orange:  ui.Hex("#FF9E6C"),
+		Yellow:  ui.Hex("#FFD240"),
+		Green:   ui.Hex("#40C977"),
+		Blue:    ui.Hex("#48AAFF"),
+		Cyan:    ui.Hex("#3CC4D6"),
+		Purple:  ui.Hex("#B588FF"),
 
 		Mask:   argb(0x99000000),
-		Shadow: ui.RGBA(0, 0, 0, 0.5),
+		Shadow: ui.RGBA(0, 0, 0, 0.4),
 
-		PopupGlass: ui.RGBA(51, 51, 51, 0.88),
-		FieldGlass: ui.RGBA(26, 26, 26, 0.9),
+		PopupGlass: ui.Hex("#353535"),
+		FieldGlass: ui.Hex("#303030"),
 	}
 )
 

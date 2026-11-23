@@ -35,7 +35,7 @@ func Group(c *ui.Context, title, footer string, rows func(l *List)) {
 			ui.Text(c, title).FontSize(SizeBodyXS).FontWeight(Medium).TextColor(k.Secondary).Padding(8, 32, 8, 32)
 		}
 		l := &List{c: c}
-		card := Surface{Shape: ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16).Clip().Padding(2, 0)
+		card := Surface{Shape: ShapeCard, Fill: k.Card, Edge: k.Divider}.Paint(ui.Column(c)).Margin(0, 16).Clip().Padding(2, 0)
 		card.Children(func() { rows(l) })
 		if footer != "" {
 			ui.Text(c, footer).FontSize(SizeBodyXS).LineHeight(1.4).TextColor(k.Secondary).Padding(8, 32, 0, 32)

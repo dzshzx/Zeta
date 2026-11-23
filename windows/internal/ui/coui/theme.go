@@ -41,7 +41,7 @@ func Theme(darkMode bool) *ui.Theme {
 	t.Danger = k.Error
 	t.Warning = k.Warning
 	t.Success = k.Success
-	t.Selection = k.Primary.Alpha(0.25)
+	t.Selection = k.PrimaryText.Alpha(0.25)
 	t.Focus = k.Primary.Alpha(0.55)
 	t.Scrollbar = k.Tertiary
 	t.Radius = 10
