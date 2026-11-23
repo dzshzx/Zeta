@@ -10,8 +10,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/helper/redact"
+	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -157,4 +159,92 @@ func unzip(t *testing.T, data []byte) map[string]string {
 		out[zf.Name] = string(b)
 	}
 	return out
+}
+
+// withRunLog 给窗口一份运行日志（在临时目录里，时钟从 now 前一小时起、每条走一秒），先记上三条：启动、对话的警告（带假
+// token）、设备上的出错。返回日志和它的目录。
+func withRunLog(t *testing.T, f *settingsFixture) (*runlog.Log, string) {
+	t.Helper()
+	dir := t.TempDir()
+	at := now.Add(-time.Hour)
+	l := runlog.Open(dir, func() time.Time { at = at.Add(time.Second); return at })
+	l.Add(runlog.Info, runlog.App, "Zeta 0.8.0 启动")
+	l.Add(runlog.Warn, runlog.Chat, "w1 重新打开失败：Authorization: Bearer fake-token-1")
+	l.Add(runlog.Error, runlog.Device, "会话列表连不上")
+	f.app.RunLog, f.app.DiagDir = l, dir
+	return l, dir
+}
+
+func TestDiagnosticsRunLog(t *testing.T) {
+	f := newSettingsFixture(t)
+	l, dir := withRunLog(t, f)
+	f.tt.SetSize(1280, 1400)
+	openDiag(t, f)
+	// 清单上：运行日志一行（共几条、几条警告，右边几条出错），环境一组
+	f.see(t, "运行日志", "查看运行日志", "共 3 条，1 条警告", "1 条出错", "环境", "Zeta 版本", "0.8.0（80）", "界面缩放", "100%")
+
+	f.click(t, "查看运行日志")
+	f.see(t, "类别", "轻重", "Zeta 0.8.0 启动", "会话列表连不上", "14:00:03 · 设备", "出错")
+	f.notSee(t, "w1 重新打开失败：Authorization: Bearer fake-token-1") // 记的时候就打了码
+	f.see(t, "w1 重新打开失败：Authorization: Bearer "+redact.Mask)
+
+	// 筛：只看出错；再按类别只看对话（这时一条也没有）
+	f.click(t, "全部") // 轻重的下拉在类别下面，第一个「全部」是类别的
+	f.clickMenuItem(t, "对话")
+	f.see(t, "w1 重新打开失败：Authorization: Bearer "+redact.Mask)
+	f.notSee(t, "会话列表连不上", "Zeta 0.8.0 启动")
+	f.click(t, "全部")
+	f.clickMenuItem(t, "只看出错")
+	f.see(t, "没有符合条件的记录")
+
+	// 开着的时候记了新的一条，跟着出来
+	f.click(t, "对话")
+	f.clickMenuItem(t, "全部")
+	l.Add(runlog.Error, runlog.Device, "又连不上")
+	f.tt.Frame()
+	f.see(t, "又连不上")
+
+	// Esc 先回到诊断的清单
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if f.app.page != pageDiag || !f.shows("查看运行日志") {
+		t.Fatalf("Esc 应回到诊断清单：%q", f.tt.Texts())
+	}
+
+	// 清空：先问，清掉内存和文件
+	f.click(t, "查看运行日志")
+	f.click(t, "清空")
+	f.see(t, "清空运行日志？")
+	f.clickButton(t, "清空", 0) // 对话框开着时只有它那一个按得到
+	f.tt.Frame()
+	f.see(t, "还没有记录")
+	if _, err := os.Stat(filepath.Join(dir, runlog.FileName)); !os.IsNotExist(err) {
+		t.Fatalf("文件还在：%v", err)
+	}
+	if len(l.Entries()) != 0 {
+		t.Fatal("内存里还有")
+	}
+}
+
+// 诊断包里带着整份运行日志（打过码的）。
+func TestDiagnosticsExportCarriesRunLog(t *testing.T) {
+	f := newSettingsFixture(t)
+	withRunLog(t, f)
+	var saved []byte
+	f.app.saveFile = func(_, name string, _ []mygo.FileFilter, data []byte) (string, error) {
+		saved = data
+		return `C:\Users\someone\Downloads\` + name, nil
+	}
+	openDiag(t, f)
+	f.click(t, "导出诊断包")
+	f.until(t, "存好", func() bool { return f.showsPrefix(`已保存到 `) })
+	got := unzip(t, saved)["本机/"+runlog.FileName]
+	for _, s := range []string{"信息 [应用] Zeta 0.8.0 启动", "出错 [设备] 会话列表连不上", "Bearer " + redact.Mask} {
+		if !strings.Contains(got, s) {
+			t.Errorf("诊断包里的运行日志没有 %q：%q", s, got)
+		}
+	}
+	if strings.Contains(got, "fake-token-1") {
+		t.Errorf("没打码：%q", got)
+	}
 }

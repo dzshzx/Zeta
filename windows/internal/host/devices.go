@@ -45,14 +45,14 @@ func (d *Devices) WatchSessions(h sshlink.Host, w SessionWatch) io.Closer {
 			case "zeta_sessions":
 				u, err := hostlink.ParseSessions(line, h.ID)
 				if err != nil {
-					log.Printf("zeta: 会话列表的推送解不开：%v", err)
+					log.Printf("host: 会话列表的推送解不开：%v", err)
 					return
 				}
 				w.Update(u)
 			case "conv.activity":
 				a, err := hostlink.ParseActivity(line)
 				if err != nil {
-					log.Printf("zeta: 会话忙闲的推送解不开：%v", err)
+					log.Printf("host: 会话忙闲的推送解不开：%v", err)
 					return
 				}
 				w.Activity(a)

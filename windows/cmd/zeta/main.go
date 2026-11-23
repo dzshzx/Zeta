@@ -3,7 +3,9 @@ package main
 
 import (
 	"log"
+	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -12,6 +14,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	// 界面的文字表：注册后 mygo 的语言就是简体中文（源语言）和英文，它自带的文字（菜单、输入框菜单）跟着用同一种
 	_ "github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
@@ -29,17 +32,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("zeta: 找不到放设置的目录：%v", err)
 	}
+	// 界面程序没有控制台：标准库 log 的输出（各处出岔子时的 log.Printf）记进设置目录 diag 下的运行日志，诊断页能看、
+	// 诊断包里带着；崩溃时的调用栈另写进同一目录的 crash.log
+	diagDir := filepath.Join(dir, "diag")
+	runLog := runlog.Open(diagDir, nil)
+	log.SetFlags(0)
+	log.SetOutput(runLog)
+	keepCrashes(diagDir)
+	version := update.Current()
+	runLog.Add(runlog.Info, runlog.App, "Zeta "+version.Name+" 启动")
+	fatal := func(err error) {
+		runLog.Add(runlog.Error, runlog.App, "起不来："+err.Error())
+		os.Exit(1)
+	}
 	prefs, err := settings.Load(dir)
 	if err != nil {
 		log.Printf("zeta: %v", err)
 	}
 	helper, err := host.LoadProgram(hostlink.ZetaHelper)
 	if err != nil {
-		log.Fatalf("zeta: %v", err)
+		fatal(err)
 	}
 	switcher, err := host.LoadProgram(hostlink.ClaudeSwitch)
 	if err != nil {
-		log.Fatalf("zeta: %v", err)
+		fatal(err)
 	}
 	config := sshlink.NewOpenSSH()
 	devices := &host.Devices{Links: sshlink.NewLinks(config, time.Minute), Config: config, Helper: helper, Switch: switcher}
@@ -51,18 +67,18 @@ func main() {
 	h := hub.New(prefs, devices, run, post)
 	app := zui.New(h, run, post)
 	// 自动更新：只有正式版查（Updater.Enabled），关于页能下载安装
-	version := update.Current()
 	updater := &update.Updater{
 		Version: version,
 		Source:  &update.Client{UserAgent: "Zeta-Desktop/" + version.Name},
 		Dir:     update.DownloadDir(dir),
-		Install: update.Installer{Log: filepath.Join(dir, "diag", "msi-install.log")}.Install,
+		Install: update.Installer{Log: filepath.Join(diagDir, "msi-install.log")}.Install,
 		Prefs:   prefs,
 	}
 	app.About = &about.Page{Version: version, Updates: updater, Prefs: prefs}
-	// 诊断包里带上 Windows 版本和这台电脑上的安装记录（设置目录的 diag）
+	// 诊断页的运行日志和环境；诊断包里带上 Windows 版本和 diag 下的文件（运行日志、崩溃记录、安装记录）
 	app.DiagEnv = osLines
-	app.DiagDir = filepath.Join(dir, "diag")
+	app.DiagDir = diagDir
+	app.RunLog = runLog
 	mygo.App.WhenReady(func() {
 		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
 		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和顶栏一样高（见 widget/titlebar.go）。窗口的位置、大小、
@@ -81,6 +97,8 @@ func main() {
 		updater.Changed = func() { win.Update(func() {}) }
 		updater.Notify = func(text string) { win.Update(func() { app.ShowUpdate(text) }) }
 		updater.Exit = func() { win.Update(mygo.App.Quit) }
+		// 运行日志记了新的一条：诊断页开着时跟着重画
+		runLog.OnChange(func() { win.Update(func() {}) })
 		h.Start()
 		updater.Start()
 	})
@@ -100,4 +118,26 @@ func windowBackground(prefs *settings.Settings) string {
 	default:
 		return "#ffffff"
 	}
+}
+
+// crashLimit 是 crash.log 长到多大就在启动时清空重来（崩溃很少，留着最近的几次就够）。
+const crashLimit = 1 << 20
+
+// keepCrashes 让程序崩溃（没接住的 panic、运行时的致命错误）时的调用栈追加到 dir 下的 crash.log：界面程序没有控制台，
+// 不接时这些就丢了。打不开时不管。
+func keepCrashes(dir string) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return
+	}
+	path := filepath.Join(dir, "crash.log")
+	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	if st, err := os.Stat(path); err == nil && st.Size() > crashLimit {
+		flags |= os.O_TRUNC
+	}
+	f, err := os.OpenFile(path, flags, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close() // SetCrashOutput 自己留着一份
+	_ = debug.SetCrashOutput(f, debug.CrashOptions{})
 }

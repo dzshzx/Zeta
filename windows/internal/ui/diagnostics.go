@@ -10,7 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 设置里的「诊断」：各台设备上 Claude Code 那边的日志和导出诊断包（ui/diag）。
+// 设置里的「诊断」：Zeta 自己的运行日志和环境，各台设备上 Claude Code 那边的日志，导出诊断包（ui/diag）。
 
 // startDiag 打开诊断页：建好、读一遍各台的日志清单。每次打开都重建，看的是最新的。
 func (a *App) startDiag() {
@@ -23,6 +23,7 @@ func (a *App) startDiag() {
 		},
 		Env: a.diagEnv,
 		Dir: a.DiagDir,
+		Log: a.RunLog,
 		Now: a.now,
 	})
 	a.diag.Load()

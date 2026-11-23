@@ -198,7 +198,7 @@ func TestDevicePageShowsClaudeConfig(t *testing.T) {
 	}
 }
 
-// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、诊断（清单、点开的日志）、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
+// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、诊断（清单、点开的日志、运行日志）、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
 func TestSettingsPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -227,7 +227,15 @@ func TestSettingsPreviews(t *testing.T) {
 			f.click(t, "设置")
 			f.click(t, "关于")
 		}},
-		{"settings-diag", 1000, showDiag},
+		{"settings-diag", 1300, func(t *testing.T, f *settingsFixture) {
+			withRunLog(t, f)
+			showDiag(t, f)
+		}},
+		{"settings-diag-runlog", 800, func(t *testing.T, f *settingsFixture) {
+			withRunLog(t, f)
+			showDiag(t, f)
+			f.click(t, "查看运行日志")
+		}},
 		{"settings-diag-file", 700, func(t *testing.T, f *settingsFixture) {
 			showDiag(t, f)
 			f.click(t, "修登录")

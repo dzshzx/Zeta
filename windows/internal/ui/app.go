@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
@@ -25,7 +26,7 @@ const (
 	pageDevice   = "device"   // App.device 那一台
 	pageAccounts = "accounts" // App.device 那一台的账号与额度
 	pageAbout    = "about"
-	pageDiag     = "diag" // 诊断：各台设备上 Claude Code 的日志
+	pageDiag     = "diag" // 诊断：Zeta 的运行日志、环境，各台设备上 Claude Code 的日志
 )
 
 // App 是窗口的状态：中枢，和界面自己的（在看哪一页、对话框、输入框里的字）。
@@ -44,8 +45,10 @@ type App struct {
 	diag *diag.Page      // 诊断页，打开时建
 	// DiagEnv 是诊断包里这台电脑的几行环境（Windows 版本），由入口给；Zeta 的版本和设备清单诊断页自己取。
 	DiagEnv func() []diag.Line
-	// DiagDir 是这台电脑上 Zeta 自己的诊断目录（设置目录的 diag，有安装记录），由入口给；空是没有。
+	// DiagDir 是这台电脑上 Zeta 自己的诊断目录（设置目录的 diag：运行日志、崩溃记录、安装记录），由入口给；空是没有。
 	DiagDir string
+	// RunLog 是 Zeta 自己的运行日志（诊断页能看、筛、清空），由入口给；nil 时诊断页不列这一组。
+	RunLog *runlog.Log
 	// About 是关于页（版本、自动更新）。New 给的不查更新，窗口起来前由入口换成接了 update.Updater 的。
 	About *about.Page
 	// updateNote 是窗口底部的提示（自动查到了新版本），空是没有。

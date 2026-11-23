@@ -1,6 +1,6 @@
-// Package diag 是设置里的「诊断」：各台设备上 Claude Code 那边的日志（核心的 diag.*，见 docs/core.md「诊断」），
-// 点开看尾部；「导出诊断包」把这些日志和这台电脑上 Zeta 的环境信息打成一个 zip，token、密码这类值先打码。
-// 同手机版设置里的诊断页，只是看的是远程设备。
+// Package diag 是设置里的「诊断」：这台电脑上 Zeta 自己的运行日志（internal/runlog，能筛、能清空）和环境，各台设备上
+// Claude Code 那边的日志（核心的 diag.*，见 docs/core.md「诊断」，点开看尾部）；「导出诊断包」把这些和这台电脑上 Zeta 的
+// 诊断目录打成一个 zip，token、密码这类值先打码。同手机版设置里的诊断页，只是 Claude Code 的日志看的是远程设备。
 package diag
 
 import (
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -31,7 +32,8 @@ type Options struct {
 	// Save 弹保存对话框把诊断包存下，返回存到哪；取消了是空的。阻塞，在后台调用。
 	Save func(name string, data []byte) (string, error)
 	Env  func() []Line // 这台电脑上 Zeta 的环境（版本、Windows 版本、设备清单），放进诊断包；主线程上调用
-	Dir  string        // 这台电脑上 Zeta 自己的诊断目录（设置目录的 diag，里面有安装记录），里面的文件放进诊断包；空是没有
+	Dir  string        // 这台电脑上 Zeta 自己的诊断目录（设置目录的 diag：运行日志、崩溃记录、安装记录），里面的文件放进诊断包；空是没有
+	Log  *runlog.Log   // Zeta 自己的运行日志；nil 时不列这一组
 	Now  func() time.Time
 }
 
@@ -60,6 +62,7 @@ type Page struct {
 	o       Options
 	devices map[string]*device
 	open    *file // 点开在看的，没有时为 nil
+	log     logState
 
 	exporting bool
 	saved     string // 上次导出存到哪
@@ -137,19 +140,27 @@ func (p *Page) reload() {
 	})
 }
 
-// Back 从看文件回到清单；没在看文件时返回假（设置页拿 Esc 的时候用）。
+// Back 从看文件、看运行日志回到清单；都没在看时返回假（设置页拿 Esc 的时候用）。
 func (p *Page) Back() bool {
-	if p.open == nil {
+	switch {
+	case p.open != nil:
+		p.open = nil
+	case p.log.open:
+		p.log.open = false
+	default:
 		return false
 	}
-	p.open = nil
 	return true
 }
 
-// View 画诊断页：清单，或点开的那个文件。
+// View 画诊断页：清单，或点开的那个文件、运行日志。
 func (p *Page) View(c *ui.Context) {
-	if p.open != nil {
+	switch {
+	case p.open != nil:
 		p.fileView(c)
+		return
+	case p.log.open && p.o.Log != nil:
+		p.logView(c)
 		return
 	}
 	k := widget.Of(c)
@@ -160,6 +171,8 @@ func (p *Page) View(c *ui.Context) {
 	})
 	devices := p.o.Devices()
 	widget.Body(c, "diag", func() {
+		p.runLogGroup(c)
+		p.envGroup(c)
 		if len(devices) == 0 {
 			widget.Group(c, "", "", func(l *widget.List) {
 				l.Message("还没有设备。添加设备后，这里能看那台上 Claude Code 的日志。")

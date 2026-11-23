@@ -15,12 +15,13 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/redact"
+	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
 // exportNote 是「导出诊断包」下面的说明。
-const exportNote = "把上面这些日志的最后 64 KB 和这台电脑上 Zeta 的环境信息打成一个 zip。token、密码这类值会先打码。"
+const exportNote = "把运行日志、环境和上面这些日志（各取最后 64 KB）打成一个 zip。token、密码这类值会先打码。"
 
 // exportGroup 是「导出诊断包」一行：打包时写正在打包，存好后写存到哪，没成时写原因。
 func (p *Page) exportGroup(c *ui.Context) {
@@ -69,7 +70,7 @@ func (p *Page) export() {
 //   - 环境.txt：env 各行和打包的时刻；
 //   - 每台连着的设备一个目录（设备名，重名的加序号）：running、finished、debug 下各文件的最后 64 KB（核心打过码），
 //     在跑的按托管目录名起名；读不到的写进这个目录的「读取失败.txt」；
-//   - 本机：dir 里各文件的最后 64 KB（这里打码）。
+//   - 本机：dir 里的文件，运行日志整份、别的取最后 64 KB（这里打码）。
 //
 // 「连接」关着的设备只在环境里有一行。
 func Bundle(ctx context.Context, devices []Device, env []Line, dir string, now time.Time) ([]byte, error) {
@@ -144,7 +145,8 @@ func addDevice(ctx context.Context, add func(name, text string) error, dir strin
 	return nil
 }
 
-// addLocal 放这台电脑上 Zeta 诊断目录里的文件（安装记录），各取最后 64 KB、打码。没有这个目录时什么也不放。
+// addLocal 放这台电脑上 Zeta 诊断目录里的文件（运行日志、崩溃记录、安装记录）：运行日志整份（它自己有上限），别的取最后 64 KB；
+// 都打码。没有这个目录时什么也不放。
 func addLocal(add func(name, text string) error, dir string) error {
 	if dir == "" {
 		return nil
@@ -157,7 +159,11 @@ func addLocal(add func(name, text string) error, dir string) error {
 		if !en.Type().IsRegular() {
 			continue
 		}
-		text, err := tail(filepath.Join(dir, en.Name()), coreapi.DiagTailBytes)
+		limit := int64(coreapi.DiagTailBytes)
+		if strings.HasPrefix(en.Name(), runlog.FileName) {
+			limit = runlog.MaxBytes
+		}
+		text, err := tail(filepath.Join(dir, en.Name()), limit)
 		if err != nil {
 			continue
 		}
