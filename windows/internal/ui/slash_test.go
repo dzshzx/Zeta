@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -14,12 +15,12 @@ const slashCommands = `"commands":[{"name":"compact","description":"压缩上下
 func TestSlashCommandsFilterAndInsert(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
-	f.push(slashCommands)
+	f.push(slashCommands + `,"process":true`)
 	f.click(t, "消息")
 	f.tt.Type("/")
 	f.see(t, "/compact", "/clear", "/review", "压缩上下文", "<说明>")
 	if got := f.link().Methods(); len(got) != 0 {
-		t.Fatalf("打 / 时不用另外请求：%v", got)
+		t.Fatalf("已经接着进程，打 / 时不用另外请求：%v", got)
 	}
 	// 以 c 开头的排前面，名字里含 c 的跟在后面
 	f.tt.Type("c")
@@ -106,5 +107,52 @@ func TestSlashCaretFollowsTyping(t *testing.T) {
 	}
 	if got := (&slashMenu{caret: -1}).caretIn("x"); got != -1 {
 		t.Fatalf("选中一段时不提示：%d", got)
+	}
+}
+
+// 还没接着 Claude Code 进程时开始打 /，让核心先起好进程（conv.prepare）：一个词只问一次，起好后列的是 Claude Code 报的命令，
+// 模型菜单换成它报的模型；已经接着进程时不再问。
+func TestSlashPreparesTheProcess(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"process":false,"commands":null,"models":null`)
+	f.click(t, "默认")
+	f.see(t, "Opus", "Sonnet", "Haiku") // 还没报清单时的后备
+	f.tt.CloseMenu()
+	f.click(t, "消息")
+	f.tt.Type("看一下")
+	if got := f.link().Methods(); len(got) != 0 {
+		t.Fatalf("没打 / 就问了：%v", got)
+	}
+	f.tt.Type(" /")
+	f.tt.Type("re")
+	if got := f.link().Methods(); len(got) != 1 || got[0] != "conv.prepare" {
+		t.Fatalf("打 / 时：%v", got)
+	}
+	// 起好了：命令和模型随 conv.state 推来
+	f.push(`"process":true,` + slashCommands + `,"models":[{"value":"default","displayName":"默认"},` +
+		`{"value":"claude-opus-5-5","displayName":"Opus 5.5"},{"value":"claude-sonnet-5","displayName":"Sonnet 5"}]`)
+	f.see(t, "/review", "审查改动")
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Type(" /c")
+	if got := f.link().Methods(); len(got) != 0 {
+		t.Fatalf("已经接着进程又问了：%v", got)
+	}
+	f.click(t, "默认")
+	f.see(t, "Opus 5.5", "Sonnet 5")
+	f.notSee(t, "Haiku")
+	f.tt.CloseMenu()
+	// 进程结束了（/exit、主机上闲置超时）：光标停在「/c」后面时不自己问（不然放着的草稿会让进程一直起着），下一个 / 才问
+	f.click(t, "消息")
+	f.tt.Key(0, ui.KeyEnd)
+	f.push(`"process":false`)
+	f.tt.Advance(time.Second)
+	if got := f.link().Methods(); len(got) != 0 {
+		t.Fatalf("没打字就问了：%v", got)
+	}
+	f.tt.Type(" ")
+	f.tt.Type("/")
+	if got := f.link().Methods(); len(got) != 1 || got[0] != "conv.prepare" {
+		t.Fatalf("进程结束后再打 /：%v", got)
 	}
 }

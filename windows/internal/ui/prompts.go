@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -140,7 +141,7 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	title, detail := chatview.DescribeTool(pr.ToolName, input)
 	summary := []string{title}
 	if pr.AgentID != "" {
-		summary = append(summary, "来自子代理")
+		summary = append(summary, "来自子代理："+cmp.Or(pr.AgentLabel, "后台子代理"))
 	}
 	if pr.Reason != "" {
 		summary = append(summary, pr.Reason)

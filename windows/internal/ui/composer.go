@@ -385,21 +385,13 @@ func effortLevel(v string) int {
 // 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
-	k := widget.Of(c)
 	label := "上下文"
 	var fraction float32
 	if u.Fraction != nil {
 		label += fmt.Sprintf(" %d%%", int(*u.Fraction*100))
 		fraction = float32(*u.Fraction)
 	}
-	color := k.Primary
-	switch u.Level {
-	case usage.LevelCritical:
-		color = k.Error
-	case usage.LevelWarning:
-		color = k.Warning
-	}
-	button := widget.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() {
+	button := widget.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, contextColor(widget.Of(c), u.Level)).OnClick(func() {
 		p.usage = !p.usage
 		if r := a.hub.Remote(p.src.Backend); p.usage && r != nil {
 			r.Quota.Refresh(false)
@@ -410,6 +402,17 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	})
 }
 
+// contextColor 是上下文用量按程度的颜色：快满了红、该注意了黄、平时是主色。输入栏的圆环和用量弹出框里的进度条都用它。
+func contextColor(k *widget.Colors, l usage.Level) ui.Color {
+	switch l {
+	case usage.LevelCritical:
+		return k.Error
+	case usage.LevelWarning:
+		return k.Warning
+	}
+	return k.Primary
+}
+
 // usageDetails 是用量弹出框的内容。
 func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	if r := a.hub.Remote(p.src.Backend); r != nil {
@@ -418,7 +421,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	}
 	u := p.state.Usage
 	t := c.Theme()
-	contextText := "发出第一条消息后显示"
+	contextText := "—"
 	if u.ContextTokens != nil {
 		contextText = usage.FormatTokens(*u.ContextTokens)
 		if u.ContextWindow != nil {
@@ -430,21 +433,9 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	}
 	statRow(c, "上下文", contextText)
 	if u.Fraction != nil {
-		ui.Progress(c, float64(*u.Fraction)).FillWidth()
+		uiacct.UsageBar(c, min(max(*u.Fraction, 0), 1), contextColor(widget.Of(c), u.Level)).Label("上下文用量")
 	}
-	var notes []string
-	if u.CompactAt != nil && (u.AutoCompact == nil || *u.AutoCompact) {
-		notes = append(notes, "自动压缩点 "+usage.FormatTokens(*u.CompactAt))
-	}
-	if u.AutoCompact != nil && !*u.AutoCompact {
-		notes = append(notes, "自动压缩已关闭，快满时手动压缩")
-	}
-	if u.Compactions > 0 {
-		notes = append(notes, fmt.Sprintf("已压缩 %d 次", u.Compactions))
-	}
-	if len(notes) > 0 {
-		ui.Text(c, strings.Join(notes, "；")).FontSize(12).TextColor(t.TextMuted)
-	}
+	ui.Text(c, strings.Join(contextNotes(u), "\n")).FontSize(12).TextColor(t.TextMuted)
 	ui.Divider(c)
 	ui.Text(c, fmt.Sprintf("本对话累计 · %d 轮", len(u.Turns))).FontSize(13).Bold()
 	statRow(c, "输入", usage.FormatTokens(u.Total.Input))
@@ -479,6 +470,48 @@ func statRow(c *ui.Context, label, value string) {
 		ui.Spacer(c)
 		ui.Text(c, value).FontSize(13)
 	})
+}
+
+// contextNotes 是用量弹出框里上下文一节的说明，一句一行（同手机版 UsageControls.kt 的 ContextSection）：按程度说现在怎样、
+// 数是估的还是实测的，自动压缩点和它占窗口的比例，压缩过几次，最后是「模型 · 思考强度」。
+func contextNotes(u usage.Usage) []string {
+	off := u.AutoCompact != nil && !*u.AutoCompact
+	var notes []string
+	switch {
+	case u.ContextTokens == nil:
+		notes = append(notes, "发出第一条消息后显示。")
+	case off && u.Level == usage.LevelCritical:
+		notes = append(notes, "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。")
+	case off:
+		notes = append(notes, "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。")
+	case u.Level == usage.LevelCritical:
+		notes = append(notes, "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。")
+	case u.ContextEstimated:
+		notes = append(notes, "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。")
+	default:
+		notes = append(notes, "按上一轮实测；快到上限时 Claude Code 会自动压缩。")
+	}
+	if u.CompactAt != nil && !off {
+		at := "自动压缩点：" + usage.FormatTokens(*u.CompactAt)
+		if u.CompactFraction != nil {
+			at += fmt.Sprintf("（窗口的 %d%%）", int(*u.CompactFraction*100))
+		}
+		notes = append(notes, at+"。")
+	}
+	if u.Compactions > 0 {
+		notes = append(notes, fmt.Sprintf("已压缩 %d 次。", u.Compactions))
+	}
+	var meta []string
+	if u.Model != "" {
+		meta = append(meta, readableModel(u.Model))
+	}
+	if u.AppliedEffort != "" {
+		meta = append(meta, "思考 "+effortLabel(u.AppliedEffort))
+	}
+	if len(meta) > 0 {
+		notes = append(notes, strings.Join(meta, " · "))
+	}
+	return notes
 }
 
 // 输入框的行数：空着时就有 composerMinLines 行高（桌面上地方够，一行高的框看着像单行输入、长消息也不好写），

@@ -5,6 +5,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
@@ -47,6 +48,8 @@ type chatPane struct {
 	find findBar
 	// load 是输入栏上的负载标识（hostload.go）。
 	load hostLoad
+	// wait 是等待行上「已等待 N 秒」从哪一刻算起。
+	wait waitMark
 	// alerted 是提醒过的最后一个等回应的请求；alertNote 是正为它显示着的通知的编号，没有时为空（notify.go）。
 	alerted, alertNote string
 	// suggested：在新对话的空白页上点了建议，正等它发出去（emptychat.go）。
@@ -213,6 +216,7 @@ func (a *App) chatPage(c *ui.Context) {
 			default:
 				p.list.Top = headerHeight
 				p.list.View(c).Grow(1).MinHeight(0)
+				backToBottom(c, p)
 			}
 			a.chatHeader(c, p)
 			if p.find.open && p.src.Conv != nil {
@@ -239,6 +243,39 @@ func (a *App) chatPage(c *ui.Context) {
 		})
 	})
 }
+
+// backToBottom 是往上翻看历史时浮在聊天列表底边、输入栏上方居中的「回到底部」（照 ChatGPT 客户端：一圈细边的白色小圆钮，
+// 向下的箭头，带阴影）：点了回到最新一条，并接着跟随新内容。列表显示着底部时没有它。
+func backToBottom(c *ui.Context, p *chatPane) {
+	if p.list.AtEnd() {
+		return
+	}
+	k := widget.Of(c)
+	ui.Row(c.Key("back-to-bottom")).Absolute().Left(0).Right(0).Bottom(backToBottomGap).Justify(ui.Center).PassThrough().
+		Children(func() {
+			b := widget.Surface{Shape: widget.Rounded(backToBottomSize/2, 0), Fill: k.Field, Edge: k.Edge}.
+				Paint(ui.ButtonBase(c)).Size(backToBottomSize, backToBottomSize).Justify(ui.Center).AlignItems(ui.Center).
+				Label("回到底部").Tooltip("回到底部").Cursor(ui.CursorPointer).Shadow(0, 2, 12, 0, composerShadow(k))
+			b.Children(func() {
+				// 悬停、按下时白底上再叠一层灰（同 IconButton）
+				shade := ui.Box(c).Absolute().Left(0).Top(0).Right(0).Bottom(0).Radius(backToBottomSize / 2)
+				switch {
+				case b.Pressed():
+					shade.Background(k.Press)
+				case b.Hovered():
+					shade.Background(k.Hover)
+				}
+				ui.Icon(c, widget.IconArrowDown).Size(16, 16).TextColor(k.Text)
+			})
+			b.OnClick(p.list.ScrollToEnd)
+		})
+}
+
+// backToBottomSize 是「回到底部」的直径，backToBottomGap 是它离列表底边（输入栏上沿）多远。
+const (
+	backToBottomSize = 32
+	backToBottomGap  = 8
+)
 
 // chatWidth 是输入栏一带最宽多少，和聊天列表的内容一样宽。
 const chatWidth = 768 + 24
@@ -317,9 +354,12 @@ func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	}
 }
 
-// chatStatus 是等待指示一行：在回答时转圈和核心给的一句（后台任务在输入栏上方的 taskStrip 里）。
+// chatStatus 是等待指示一行：在回答时转圈和核心给的一句（后台任务在输入栏上方的 taskStrip 里）；一轮里 idleHint 没有新动静时
+// 后面写「已等待 N 秒」（同手机版的 IdleHintSeconds），每秒走一次。等你回应的卡片开着时不算：那是在等你。
 func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 	s := p.state
+	now := c.Now()
+	idle := p.wait.idle(s, now)
 	if !s.Busy {
 		return
 	}
@@ -328,10 +368,41 @@ func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 	if status == "" {
 		status = "正在回答"
 	}
+	if len(s.Prompts) == 0 {
+		if idle >= idleHint {
+			status += " · 已等待 " + strconv.Itoa(int(idle/time.Second)) + " 秒"
+			c.After(time.Second - idle%time.Second)
+		} else {
+			c.After(idleHint - idle)
+		}
+	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(0, 8).Children(func() {
 		ui.Spinner(c).Size(14, 14)
 		ui.Text(c, status).FontSize(widget.SizeBodyS).TextColor(k.Secondary).SingleLine()
 	})
+}
+
+// idleHint 是一轮里多久没有新动静就在等待行上写「已等待 N 秒」。
+const idleHint = 15 * time.Second
+
+// waitMark 记着「已等待」从界面时钟的哪一刻算起：开始回答、核心推来的最近活动时刻（last_activity）变了、等回应的请求来了或答完了时
+// 重新记。不拿 last_activity 和这台电脑的钟相减：主机的钟可能差着几秒到几分钟，只看它变没变。
+type waitMark struct {
+	activity int64
+	prompts  int
+	since    time.Time
+}
+
+// idle 是到 now 为止多久没有动静；不在回答时清掉，返回 0。
+func (w *waitMark) idle(s chat.State, now time.Time) time.Duration {
+	if !s.Busy {
+		w.since = time.Time{}
+		return 0
+	}
+	if w.since.IsZero() || s.LastActivity != w.activity || len(s.Prompts) != w.prompts {
+		w.activity, w.prompts, w.since = s.LastActivity, len(s.Prompts), now
+	}
+	return now.Sub(w.since)
 }
 
 // queueStrip 是输入栏上方的排队条（同手机版 QueueStrip.kt）：回答中发的消息排在这里。点正文撤回到输入框接着改，

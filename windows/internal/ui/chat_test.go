@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
@@ -499,6 +500,34 @@ var chatScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.newChat(t)
 		f.replay("turn")
 		f.click(t, "上下文 0%")
+	},
+	// 上下文快满了：圆环和进度条都是红的，说明写着马上会自动压缩
+	"chat-usage-critical": func(t *testing.T, f *chatFixture) {
+		f.newChat(t)
+		f.replay("turn")
+		f.push(`"usage":{"context_tokens":190000,"context_window":200000,"model":"claude-opus-5-5","applied_effort":"high","auto_compact":true,` +
+			`"compact_at":167000,"compactions":1,"fraction":0.95,"compact_fraction":0.835,"level":"critical","total":{"input":12300,"output":18}}`)
+		f.click(t, "上下文 95%")
+	},
+	// 往上翻看历史：输入栏上方居中的「回到底部」
+	"chat-back-to-bottom": func(t *testing.T, f *chatFixture) {
+		f.newChat(t)
+		f.longChat()
+		list, _ := f.tt.Find("对话内容")
+		f.tt.Scroll(list.X+list.W/2, list.Y+list.H/2, 0, -1200)
+		f.tt.Advance(time.Second)
+	},
+	// 一轮里 15 秒多没有新输出：等待行后面写已等待几秒
+	"chat-idle": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.push(`"busy":true,"last_activity":1000`)
+		f.tt.Advance(20 * time.Second)
+	},
+	// 后台子代理要的确认写明是哪个子代理
+	"chat-subagent-permission": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.push(`"busy":true,"prompts":[{"kind":"permission","request_id":"p1","tool_name":"Bash","input":{"command":"go test ./...","description":"跑测试"},` +
+			`"agent_id":"a1","agent_label":"检查测试覆盖","suggestion_lines":["允许 Bash(go test:*)"],"notice":""}]`)
 	},
 }
 

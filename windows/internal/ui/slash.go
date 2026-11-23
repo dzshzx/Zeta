@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
@@ -10,7 +11,8 @@ import (
 
 // 斜杠命令（同 Composer.kt 的 SlashSuggestions）：光标前那个词是「/名字」（在开头或空白后面，见 chat.SlashAt）时，输入框上方列出
 // Claude Code 报的命令，按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把那个词换成「/命令 」，Esc 收起（再打字又出来）。
-// 命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有。
+// 命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有；
+// 开始打 / 时让核心先把进程起好（prepareForSlash），起好后换成 Claude Code 这次报的。
 
 // slashMenu 是一个对话输入栏里斜杠命令提示的状态。
 type slashMenu struct {
@@ -25,6 +27,8 @@ type slashMenu struct {
 	caretText string
 	// reveal：选中的换了，把它滚进视野。
 	reveal bool
+	// typing：上一帧光标前是「/…」（prepareForSlash 看它从不是变成是）。
+	typing bool
 }
 
 // suggestions 是输入框里是 text、光标在 caret 时正在打的斜杠命令和要列的命令；不该列时列表为空。
@@ -103,7 +107,9 @@ const slashCommandHeight = 232
 
 // slashList 是输入框上方的斜杠命令提示，下面一条分隔线；不该列时什么也不画。
 func (a *App) slashList(c *ui.Context, p *chatPane) {
-	s, list := a.suggestions(p, p.draft, p.slash.caretIn(p.draft))
+	caret := p.slash.caretIn(p.draft)
+	a.prepareForSlash(p, p.draft, caret)
+	s, list := a.suggestions(p, p.draft, caret)
 	if len(list) == 0 {
 		p.slash.chosen = 0
 		return
@@ -146,4 +152,19 @@ func slashRow(c *ui.Context, cmd chat.Command, chosen bool) ui.Element {
 		}
 	})
 	return row
+}
+
+// prepareForSlash：开始打斜杠命令（光标前那个词从不是变成「/…」）、对话还没接着 Claude Code 进程时，让核心先起好进程
+// （conv.prepare，同手机版 Composer.kt 的 onSlashTyped）：起好后 Claude Code 报的斜杠命令和模型清单随 conv.state 推来，
+// 不用等发第一条消息。一个词只问一次，接着打字、已经接着进程时不问；只认打字带来的变化，进程结束时光标正停在「/…」后面也不自己再起
+// （放着的草稿不该让进程一直起着）。起不来时核心在列表里加一条「启动失败」，这里不另说。
+func (a *App) prepareForSlash(p *chatPane, text string, caret int) {
+	m := &p.slash
+	_, typing := chat.SlashAt(text, caret)
+	start := typing && !m.typing
+	m.typing = typing
+	if !start || p.src.Conv == nil || p.src.CwdProblem != "" || p.state.Process || p.state.Blocked {
+		return
+	}
+	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error { return conv.Prepare(ctx) }, nil)
 }

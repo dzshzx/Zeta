@@ -192,7 +192,7 @@ func line(c *ui.Context, label, value string, used *float64, sev coreapi.Severit
 			ui.Text(c, value).FontSize(widget.SizeBodyS).FontWeight(widget.Medium).FontFeatures("tnum").TextColor(Color(t, sev, ink))
 		})
 		if used != nil {
-			usageBar(c, float32(min(max(*used, 0), 1)), Color(t, sev, k.Primary)).Label(label).Margin(5, 0, 0, 0)
+			UsageBar(c, float32(min(max(*used, 0), 1)), Color(t, sev, k.Primary)).Label(label).Margin(5, 0, 0, 0)
 		}
 		if detail != "" {
 			note(c, detail).Margin(3, 0, 0, 0)
@@ -200,8 +200,8 @@ func line(c *ui.Context, label, value string, used *float64, sev coreapi.Severit
 	})
 }
 
-// usageBar 是用量的细条（同手机版 UsageBar）：6 高、3 的圆角，淡灰的槽上一段 color。
-func usageBar(c *ui.Context, fraction float32, color ui.Color) ui.Element {
+// UsageBar 是用量的细条（同手机版 UsageBar）：6 高、3 的圆角，淡灰的槽上一段 color。额度和用量弹出框的上下文共用。
+func UsageBar(c *ui.Context, fraction float32, color ui.Color) ui.Element {
 	k := widget.Of(c)
 	track := k.Text.Alpha(0.07)
 	if k.Dark {

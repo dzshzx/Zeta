@@ -177,8 +177,13 @@ func (ch *Chat) Scrolled() bool { return ch.scrolled }
 // ScrollToEnd 回到底部并跟着新内容走（发消息、点「回到底部」时）。
 func (ch *Chat) ScrollToEnd() { ch.list.ScrollToEnd() }
 
-// AtEnd 报告上一帧显示着底部；不在底部时调用方可以显示「回到底部」。
-func (ch *Chat) AtEnd() bool { return ch.list.AtEnd() }
+// AtEnd 报告上一帧显示着底部；不在底部时调用方显示「回到底部」。还没排过版（刚打开的第一帧）、没有条目时也算在底部。
+func (ch *Chat) AtEnd() bool {
+	if first, last := ch.list.Visible(); last < first {
+		return true
+	}
+	return ch.list.AtEnd()
+}
 
 // listTop 是列表内容上面留的空（Top 之外）。
 const listTop = 12

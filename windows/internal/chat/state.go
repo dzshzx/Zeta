@@ -58,6 +58,9 @@ type State struct {
 	// CanRewind：现在能编辑、重新生成、删除一轮、还原代码、分支。Rewinding：正在等 Claude Code 剪会话或还原代码。
 	CanRewind bool `json:"can_rewind"`
 	Rewinding bool `json:"rewinding"`
+	// LastActivity 是核心记的最近一次有动静的时刻（主机的 Unix 毫秒，取整到秒）：发出消息、一轮开始、输出改了条目、重试、压缩时更新。
+	// 界面只看它变没变（主机和这台电脑的钟可能对不上），算「已等待 N 秒」。
+	LastActivity int64 `json:"last_activity"`
 }
 
 // Mode 是权限模式：User 是用户选的，Process 是进程此刻实际在用的（计划模式批准后等会变）。

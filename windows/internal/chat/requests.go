@@ -101,6 +101,11 @@ func (c *Conversation) SetOptions(ctx context.Context, o coreapi.Options) error 
 	return c.do(func(v coreapi.Conv) error { return v.SetOptions(ctx, o) })
 }
 
+// Prepare 只起好 Claude Code 进程、不发消息（打 / 时）：起好后斜杠命令和模型清单随 conv.state 推来。已经接着进程时核心什么也不做。
+func (c *Conversation) Prepare(ctx context.Context) error {
+	return c.do(func(v coreapi.Conv) error { return v.Prepare(ctx) })
+}
+
 // Compact 压缩上下文。
 func (c *Conversation) Compact(ctx context.Context) error {
 	return c.do(func(v coreapi.Conv) error { return v.Compact(ctx) })
